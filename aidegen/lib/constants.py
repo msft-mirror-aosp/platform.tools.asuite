@@ -1,6 +1,4 @@
-#!/usr/bin/env python3
-#
-# Copyright 2018 - The Android Open Source Project
+# Copyright 2018, The Android Open Source Project
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,22 +11,10 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-"""Define errors that are raised by AIDEgen."""
 
+"""
+Various globals used by aidegen.
+"""
 
-class AIDEgenError(Exception):
-    """Base AIDEgen exception."""
-
-
-class ProjectPathError(AIDEgenError):
-    """Error raised when neither Android.mk nor Android.bp are founded in
-    project path.
-    """
-
-
-class GenerateIDEProjectFileError(AIDEgenError):
-    """Error raised when IDE project files are not generated."""
-
-
-class JsonFileNotExistError(AIDEgenError):
-    """Error raised when a json file does not exist."""
+# Env constants
+ANDROID_BUILD_TOP = 'ANDROID_BUILD_TOP'
