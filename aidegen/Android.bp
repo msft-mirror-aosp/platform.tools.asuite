@@ -30,8 +30,19 @@ python_defaults {
 python_binary_host {
     name: "aidegen",
     defaults: ["aidegen_default"],
-    main: "aidegen.py",
+    main: "aidegen_main.py",
     srcs: [
-        "aidegen.py",
+        "aidegen_main.py",
+    ],
+    libs: [
+        "aidegen_lib",
+    ],
+}
+
+python_library_host {
+    name: "aidegen_lib",
+    defaults: ["aidegen_default"],
+    srcs: [
+        "lib/*.py",
     ]
 }
