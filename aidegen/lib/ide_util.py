@@ -44,4 +44,5 @@ def launch_intellij(file_path):
         file_path: The target to open IDE project file.
     """
     logging.info("Project file name:%s", file_path)
-    # TODO(albaltai@): Do IntelliJ specific checking, normal checking job, and then launch IntelliJ.
+    # TODO(albaltai@): Do IntelliJ specific checking, normal checking job,
+    #                  and then launch IntelliJ.
