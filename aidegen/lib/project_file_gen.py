@@ -28,12 +28,12 @@ import logging
 def generate_ide_project_file(project_info):
     """Generate project files by IDE parameter in project_info.
 
-     Args:
-         project_info: ProjectInfo class.
+    Args:
+        project_info: ProjectInfo class.
 
-     Returns:
-         Boolean: True if IDE project files is created successfully.
-     """
+    Returns:
+        Boolean: True if IDE project files is created successfully.
+    """
     return _generate_intellij_project_file(project_info)
 
 
@@ -50,3 +50,16 @@ def _generate_intellij_project_file(project_info):
     """
     logging.info("project path:%s", project_info.real_path)
     return True
+
+
+def _read_template(path):
+    """Read the template with error handle.
+
+    Args:
+        Path of template file.
+
+    Returns:
+        String: Content of the template.
+    """
+    with open(path) as template:
+        return template.read()
