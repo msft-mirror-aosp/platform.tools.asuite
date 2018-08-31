@@ -34,6 +34,9 @@ python_binary_host {
     srcs: [
         "aidegen_main.py",
     ],
+    data: [
+        "templates/**/*",
+    ],
     libs: [
         "aidegen_lib",
     ],
