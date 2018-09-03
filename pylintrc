@@ -8,6 +8,11 @@ disable=
     # More than 7 variables is reasonable in ModuleData class.
     too-many-instance-attributes
 
+[TYPECHECK]
+
+ignored-modules=
+    # For sharing modules from atest project.
+    atest
 
 [FORMAT]
 

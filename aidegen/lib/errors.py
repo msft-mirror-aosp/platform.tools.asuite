@@ -20,12 +20,6 @@ class AIDEgenError(Exception):
     """Base AIDEgen exception."""
 
 
-class ProjectPathError(AIDEgenError):
-    """Error raised when neither Android.mk nor Android.bp is found in
-    project path.
-    """
-
-
 class GenerateIDEProjectFileError(AIDEgenError):
     """Error raised when IDE project files are not generated."""
 
