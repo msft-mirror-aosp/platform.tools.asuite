@@ -65,11 +65,8 @@ def _merge_module_keys(m_dict, b_dict):
         m_dict: The module dictionary is going to merge b_dict into.
         b_dict: Soong build system module dictionary.
     """
-    for key in b_dict.keys():
-        if key in m_dict.keys():
-            m_dict[key].extend(b_dict[key])
-        else:
-            m_dict[key] = b_dict[key]
+    for key, b_modules in b_dict.items():
+        m_dict[key] = list(set(m_dict.get(key, []) + b_modules))
 
 
 def _copy_needed_items_from(mk_dict):
