@@ -41,6 +41,7 @@ import sys
 
 from aidegen.lib.project_info import ProjectInfo
 from aidegen.lib.source_locator import locate_source
+from atest import module_info
 
 
 def _parse_args(args):
@@ -110,7 +111,8 @@ def main(argv):
         argv: A list of system arguments.
     """
     args = _parse_args(argv)
-    project = ProjectInfo(args)
+    mod_info = module_info.ModuleInfo()
+    project = ProjectInfo(args.project_path, mod_info)
     generate_module_info_json(project)
     locate_source(project)
     if generate_ide_project_file(project):
