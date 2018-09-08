@@ -39,6 +39,7 @@ python_binary_host {
     ],
     libs: [
         "aidegen_lib",
+        "atest_module_info"
     ],
 }
 
