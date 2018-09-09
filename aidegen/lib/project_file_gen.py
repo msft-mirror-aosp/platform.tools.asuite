@@ -23,6 +23,20 @@ This module generate IDE project files from templates.
 """
 
 import logging
+import os
+import shutil
+import sys
+
+# FACET_SECTION is a part of iml, which defines the framework of the project.
+_FACET_SECTION = \
+    """    <facet type="android" name="Android">\n""" \
+    """        </configuration>\n""" \
+    """    </facet>"""
+_ROOT_DIR = os.path.dirname(sys.modules['__main__'].__file__)
+_IDEA_DIR = os.path.join(_ROOT_DIR, "templates/idea")
+_COPYRIGHT_FOLDER = "copyright"
+_COMPILE_XML = "compiler.xml"
+_MISC_XML = "misc.xml"
 
 
 def generate_ide_project_file(project_info):
@@ -53,13 +67,53 @@ def _generate_intellij_project_file(project_info):
 
 
 def _read_template(path):
-    """Read the template with error handle.
+    """Read the template.
 
     Args:
-        Path of template file.
+        path: Path of template file.
 
     Returns:
         String: Content of the template.
     """
     with open(path) as template:
         return template.read()
+
+
+def _file_generate(path, content):
+    """Generate file from content.
+
+    Args:
+        path: Path of target file.
+        content: String content of file.
+    """
+    with open(path, "w") as target:
+        target.write(content)
+
+
+def _copy_constant_project_files(target_path):
+    """Copy project files to target path with error handling.
+
+    This function would copy compiler.xml, misc.xml and copyright folder
+    to target folder. Since these files aren't mandatory in IntelliJ, I
+    only log it when IOError occurred.
+
+    Args:
+        target_path: Path of target file.
+    """
+    target_copyright_path = os.path.join(target_path, _COPYRIGHT_FOLDER)
+    try:
+        # Existing copyright folder needs to be removed first.
+        # Otherwise it would incur IOError.
+        if os.path.exists(target_copyright_path):
+            shutil.rmtree(target_copyright_path)
+        shutil.copytree(
+            os.path.join(_IDEA_DIR, _COPYRIGHT_FOLDER), target_copyright_path)
+        shutil.copy(
+            os.path.join(_IDEA_DIR, _COMPILE_XML),
+            os.path.join(target_path, _COMPILE_XML))
+        shutil.copy(
+            os.path.join(_IDEA_DIR, _MISC_XML),
+            os.path.join(target_path, _MISC_XML))
+    except IOError as err:
+        logging.warning("%s can't copy the project files\n %s", target_path,
+                        err)

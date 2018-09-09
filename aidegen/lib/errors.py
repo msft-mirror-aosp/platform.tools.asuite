@@ -20,11 +20,16 @@ class AIDEgenError(Exception):
     """Base AIDEgen exception."""
 
 
-class ProjectPathError(AIDEgenError):
-    """Error raised when neither Android.mk nor Android.bp are founded in
-    project path.
-    """
-
-
 class GenerateIDEProjectFileError(AIDEgenError):
     """Error raised when IDE project files are not generated."""
+
+
+class JsonFileNotExistError(AIDEgenError):
+    """Error raised when a json file does not exist."""
+
+
+class EmptyModuleDependencyError(AIDEgenError):
+    """Error raised when the module dependency is empty. In the implement, even
+    a standalone module without jar dependency shall have its src path as
+    dependency.
+    """

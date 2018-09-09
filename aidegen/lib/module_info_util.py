@@ -24,8 +24,21 @@ Example usage:
 project.dependency_info = generate_module_info_json(module_path)
 """
 
+import json
 import logging
+import os
+import subprocess
 
+from aidegen.lib import constants
+from aidegen.lib import errors
+
+_ANDROID_PRODUCT_OUT = "ANDROID_PRODUCT_OUT"
+_BLUEPRINT_JSONFILE_NAME = "module_bp_java_deps.json"
+_MAKEFILE_JSONFILE_NAME = "module-info.json"
+_BLUEPRINT_JSONFILE_OUTDIR = "out/soong/"
+_MERGE_NEEDED_ITEMS = ["class", "path", "installed", "dependencies", "srcs"]
+_COMMAND = ("source build/envsetup.sh;make %s;export SOONG_COLLECT_JAVA_DEPS=1;"
+            "mmma %s")
 
 def _open_json(json_path):
     """Load a json file and convert it into a json dictionary.
@@ -36,7 +49,13 @@ def _open_json(json_path):
     Returns:
         A json dictionary.
     """
-    logging.info("json file name:%s", json_path)
+    try:
+        with open(json_path) as jfile:
+            json_dict = json.load(jfile)
+            return json_dict
+    except IOError as err:
+        raise errors.JsonFileNotExistError("%s does not exist, error: %s."
+                                           % (json_path, err))
 
 
 def _merge_module_keys(m_dict, b_dict):
@@ -46,8 +65,29 @@ def _merge_module_keys(m_dict, b_dict):
         m_dict: The module dictionary is going to merge b_dict into.
         b_dict: Soong build system module dictionary.
     """
-    logging.info("merged dict:%s", m_dict)
-    logging.info("bp dict:%s", b_dict)
+    for key in b_dict.keys():
+        if key in m_dict.keys():
+            m_dict[key].extend(b_dict[key])
+        else:
+            m_dict[key] = b_dict[key]
+
+
+def _copy_needed_items_from(mk_dict):
+    """Shallow copy needed items from Make build system part json dictionary.
+
+    Args:
+        mk_dict: Make build system json dictionary is going to be copyed.
+
+    Returns:
+        A merged json dictionary.
+    """
+    merged_dict = dict()
+    for module in mk_dict.keys():
+        merged_dict[module] = dict()
+        for key in mk_dict[module].keys():
+            if key in _MERGE_NEEDED_ITEMS and mk_dict[module][key] != []:
+                merged_dict[module][key] = mk_dict[module][key]
+    return merged_dict
 
 
 def _merge_json(mk_dict, bp_dict):
@@ -63,8 +103,12 @@ def _merge_json(mk_dict, bp_dict):
     Returns:
         A merged json dictionary.
     """
-    logging.info("mk dict:%s", mk_dict)
-    logging.info("bp dict:%s", bp_dict)
+    merged_dict = _copy_needed_items_from(mk_dict)
+    for module in bp_dict.keys():
+        if not module in merged_dict.keys():
+            merged_dict[module] = dict()
+        _merge_module_keys(merged_dict[module], bp_dict[module])
+    return merged_dict
 
 
 def generate_module_info_json(module_path):
@@ -81,6 +125,26 @@ def generate_module_info_json(module_path):
 
     Returns:
         A merged json dictionary.
-
     """
-    logging.info("module path:%s", module_path)
+    merged_dict = dict()
+    root_dir = os.environ.get(constants.ANDROID_BUILD_TOP, '/')
+    os.chdir(root_dir)
+    product_out_dir = os.environ.get(_ANDROID_PRODUCT_OUT)
+    mk_json_path = os.path.join(product_out_dir, _MAKEFILE_JSONFILE_NAME)
+    mk_json_relative_path = os.path.relpath(mk_json_path, root_dir)
+    cmd = (_COMMAND) % (mk_json_relative_path, module_path)
+    try:
+        returncode = os.system(cmd)
+        logging.info('Build successful: %s', cmd)
+    except subprocess.CalledProcessError as err:
+        logging.error('Error building: %s', cmd)
+        if err.output:
+            logging.error(err.output)
+        raise subprocess.CalledProcessError(returncode, cmd, None)
+
+    mk_dict = _open_json(mk_json_path)
+    soong_out_dir = os.path.join(root_dir, _BLUEPRINT_JSONFILE_OUTDIR)
+    bp_json_path = os.path.join(soong_out_dir, _BLUEPRINT_JSONFILE_NAME)
+    bp_dict = _open_json(bp_json_path)
+    merged_dict = _merge_json(mk_dict, bp_dict)
+    return merged_dict
