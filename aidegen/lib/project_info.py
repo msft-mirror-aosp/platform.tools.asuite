@@ -15,8 +15,7 @@
 # limitations under the License.
 """Project information.
 
-The information include some data or methods such as:
-    - project_absolute_path: A string which has the absolute path of project.
+The information include methods such as:
     - TODO(b/112523202): Generate a dictionary named module_dependency with
                          module dependency information of a project.
     - TODO(b/112523194): Generate a dictionary named source_path with source and
@@ -25,19 +24,18 @@ The information include some data or methods such as:
                          verify whether IDE project files are generated or not.
     - TODO(b/112578616): A boolean value named launch_ide_successfully to
                          verify whether IDE is launched or not.
-    - _is_correct_module_path: A method to clarify Android.mk or Android.bp
-                               exists in real_path.
 
 For example:
-    Users have to change directory to android source project root first then run
-    aidegen tool.
-    $ cd /user/home/aosp
-    $ aidegen packages/apps/Settings
-    or change directory to the path of project then run aidegen tool.
-    $ cd /user/home/aosp/packages/apps/Settings
-    $ aidegen
-    Description:
     - The absolute path of project is /user/home/aosp/pcakages/apps/Settings.
+    1. Users have to change directory to android source project root first then
+       run aidegen tool.
+       $ cd /user/home/aosp
+       $ aidegen -p packages/apps/Settings
+       or
+       $ aidegen -m Settings
+    2. Change directory to the path of project then run aidegen tool.
+       $ cd /user/home/aosp/packages/apps/Settings
+       $ aidegen
 """
 
 from __future__ import absolute_import
@@ -51,27 +49,39 @@ class ProjectInfo(object):
     """Project information.
 
     Attributes:
-        project_absolute_path: The absolute path to the project.
         android_root_path: The path to android source root.
+        project_absolute_path: The absolute path to the project.
         project_relative_path: The relative path to the project by
                                android_root_path.
+        project_modules: A list of modules with the same path.
     """
 
-    def __init__(self, project_path, module_info):
+    def __init__(self, args, module_info):
         """ProjectInfo initialize.
 
         Args:
-            project_path: Probably none or a path from argument which users
-                          types.
+            args: Includes args.module_name or args.project_path from user input
+                  , args.module_name is at high priority to decide the project
+                  path.
             module_info: A ModuleInfo class contains data of module-info.json.
         """
-        self.project_absolute_path = (os.path.join(os.getcwd(), project_path)
-                                      if project_path else os.getcwd())
         self.android_root_path = os.environ.get(constants.ANDROID_BUILD_TOP)
-        self.project_relative_path = os.path.relpath(self.project_absolute_path,
-                                                     self.android_root_path)
-        modules = module_info.get_module_names(self.project_relative_path)
         # TODO: Find the closest parent module if no modules defined at project
         #       path.
-        assert modules, ('No modules defined at %s.' %
-                         self.project_relative_path)
+        if args.module_name:
+            assert module_info.is_module(
+                args.module_name), ('Module:%s not exists.' % args.module_name)
+            self.project_relative_path = module_info.get_paths(
+                args.module_name)[0]
+            self.project_absolute_path = os.path.join(
+                self.android_root_path, self.project_relative_path)
+        else:
+            self.project_absolute_path = (
+                os.path.join(self.android_root_path, args.project_path)
+                if args.project_path else os.getcwd())
+            self.project_relative_path = os.path.relpath(
+                self.project_absolute_path, self.android_root_path)
+        self.project_modules = module_info.get_module_names(
+            self.project_relative_path)
+        assert self.project_modules, (
+            'No modules defined at %s.' % self.project_relative_path)
