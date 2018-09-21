@@ -79,13 +79,12 @@ def locate_source(project):
                 'jar_path': ['path/to/jar/file1', 'path/to/jar/file2', ...]
             }
     """
-    if not hasattr(project, 'depend_modules') or not project.depend_modules:
+    if not hasattr(project, 'dep_modules') or not project.dep_modules:
         raise errors.EmptyModuleDependencyError(
             'Dependent modules dictionary is empty.')
-    project.source_path = {'source_folder_path': [], 'jar_path': []}
-    for module_name in project.depend_modules:
+    for module_name in project.dep_modules:
         module = ModuleData(project.android_root_path, module_name,
-                            project.depend_modules[module_name])
+                            project.dep_modules[module_name])
         module.locate_sources_path()
         project.source_path['source_folder_path'].extend(module.src_dirs)
         project.source_path['jar_path'].extend(module.jar_files)
