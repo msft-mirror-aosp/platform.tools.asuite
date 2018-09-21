@@ -13,6 +13,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+
 """AIDEgen
 
 This CLI generates project files for using in IntelliJ, such as:
@@ -41,6 +42,8 @@ from __future__ import absolute_import
 import argparse
 import sys
 
+from aidegen.lib.module_info_util import generate_module_info_json
+from aidegen.lib.project_file_gen import generate_ide_project_file
 from aidegen.lib.project_info import ProjectInfo
 from aidegen.lib.source_locator import locate_source
 from atest import module_info
@@ -69,32 +72,6 @@ def _parse_args(args):
     return parser.parse_args(args)
 
 
-def generate_module_info_json(project):
-    """Generate module dependency information.
-
-    TODO(bralee@): Remove this function when lib.module_info_util is ready.
-
-    Args:
-        project: ProjectInfo class.
-    """
-    project.module_dependency = {}
-
-
-def generate_ide_project_file(project):
-    """Generate project files used for IDE tool.
-
-    TODO(shinwang@): Remove this function when lib.project_file_gen is ready.
-
-    Args:
-        project: ProjectInfo class.
-
-    Returns:
-        Boolean: True if IDE project files are created successfully.
-    """
-    project.is_generate_ide_project_file = True
-    return project.is_generate_ide_project_file
-
-
 def launch_ide(project):
     """Launch IDE.
 
@@ -117,7 +94,9 @@ def main(argv):
     args = _parse_args(argv)
     mod_info = module_info.ModuleInfo()
     project = ProjectInfo(args, mod_info)
-    generate_module_info_json(project)
+    project.modules_info = generate_module_info_json(
+        project.project_relative_path)
+    project.dep_modules = project.get_dep_modules()
     locate_source(project)
     if generate_ide_project_file(project):
         launch_ide(project)
