@@ -27,7 +27,7 @@ import logging
 import os
 import shutil
 
-import aidegen.constants as constant
+from aidegen import constant
 
 # FACET_SECTION is a part of iml, which defines the framework of the project.
 _FACET_SECTION = '''\
