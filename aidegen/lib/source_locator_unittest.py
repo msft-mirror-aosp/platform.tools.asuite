@@ -19,7 +19,7 @@
 import os
 import unittest
 
-from aidegen import constants
+from aidegen import constant
 from aidegen.lib import source_locator
 
 _MODULE_NAME = 'test'
@@ -30,7 +30,7 @@ _MODULE_INFO = {'path': [_MODULE_PATH],
                          'test/**/*.java'],
                 'installed': []
                }
-_TEST_DATA_PATH = os.path.join(constants.ROOT_DIR, 'test_data')
+_TEST_DATA_PATH = os.path.join(constant.ROOT_DIR, 'test_data')
 
 # pylint: disable=protected-access
 # pylint: disable=invalid-name
