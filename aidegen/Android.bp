@@ -33,6 +33,7 @@ python_binary_host {
     main: "aidegen_main.py",
     srcs: [
         "aidegen_main.py",
+	"constant.py"
     ],
     data: [
         "templates/**/*",
