@@ -29,17 +29,15 @@ from aidegen.lib import errors
 _PACKAGE_RE = re.compile(r'\s*package\s+(?P<package>[^(;|\s)]+)\s*', re.I)
 
 _ANDROID_SUPPORT_PATH_KEYWORD = 'prebuilts/sdk/current/'
-_DIR_AIDL = 'aidl'
-_DIR_GEN = 'gen'
-_DIR_LOGTAGS = 'logtags'
+_JAR = '.jar'
 _JARJAR_RULES_FILE = 'jarjar-rules.txt'
-_KEY_AIDL = 'aidl_include_dirs'
+_JAVA = '.java'
 _KEY_INSTALLED = 'installed'
 _KEY_JARJAR_RULES = 'jarjar_rules'
 _KEY_JARS = 'jars'
 _KEY_PATH = 'path'
 _KEY_SRCS = 'srcs'
-_REGEXP_MULTI_DIR = '/**/'
+_SRCJAR = '.srcjar'
 
 
 def locate_source(project):
@@ -86,8 +84,8 @@ def locate_source(project):
         module = ModuleData(project.android_root_path, module_name,
                             project.dep_modules[module_name])
         module.locate_sources_path()
-        project.source_path['source_folder_path'].extend(module.src_dirs)
-        project.source_path['jar_path'].extend(module.jar_files)
+        project.source_path['source_folder_path'].update(module.src_dirs)
+        project.source_path['jar_path'].update(module.jar_files)
 
 
 class ModuleData(object):
@@ -106,16 +104,15 @@ class ModuleData(object):
                     'path': ['path/to/the/module'],
                     'dependencies': ['bouncycastle', 'ims-common'],
                     'srcs': [
-                        'core/java/**/*.java',
-                        'src/com/android/test.java',
-                        'src/com/google/test.java',
-                        'src/com/android/aidl/test.aidl',
-                        'src/com/android/logtags/test.logtags'],
+                        'path/to/the/module/src/com/android/test.java',
+                        'path/to/the/module/src/com/google/test.java',
+                        'out/soong/.intermediates/path/to/the/module/test/src/
+                         com/android/test.srcjar'
+                    ],
                     'installed': ['out/target/product/generic_x86_64/
                                    system/framework/framework.jar'],
                     'jars': ['settings.jar'],
-                    'jarjar_rules': ['jarjar-rules.txt'],
-                    'aidl_include_dirs': []
+                    'jarjar_rules': ['jarjar-rules.txt']
                 }
         """
         assert module_name, 'Module name can\'t be null.'
@@ -126,21 +123,15 @@ class ModuleData(object):
         self.module_path = (self.module_data[_KEY_PATH][0]
                             if _KEY_PATH in self.module_data
                             and self.module_data[_KEY_PATH] else '')
-        self.src_dirs = []
-        self.jar_files = []
+        self.src_dirs = set()
+        self.jar_files = set()
         self.is_android_support_module = self.module_path.startswith(
             _ANDROID_SUPPORT_PATH_KEYWORD)
-        self.aidl_existed = (_KEY_AIDL in self.module_data
-                             and self.module_data[_KEY_AIDL])
         self.jarjar_rules_existed = (
             _KEY_JARJAR_RULES in self.module_data
             and self.module_data[_KEY_JARJAR_RULES][0] == _JARJAR_RULES_FILE)
         self.jars_existed = (_KEY_JARS in self.module_data
                              and self.module_data[_KEY_JARS])
-        self.filegroup_existed = False
-        self.logtags_existed = False
-
-        self._check_special_files()
 
     def _collect_srcs_paths(self):
         """Collect source folder paths in src_dirs from module_data['srcs'].
@@ -152,32 +143,21 @@ class ModuleData(object):
           not a source path. Call _get_source_folder method to get source path.
         """
         if _KEY_SRCS in self.module_data and self.module_data[_KEY_SRCS]:
-            scanned_dirs = []
+            scanned_dirs = set()
             for src_item in self.module_data[_KEY_SRCS]:
-                if src_item.endswith('.java'):
-                    src_dir = None
-                    if _REGEXP_MULTI_DIR in src_item:
-                        src_dir = src_item.split(_REGEXP_MULTI_DIR)[0]
-                    else:
-                        java_dir, _ = os.path.split(src_item)
-                        if java_dir not in scanned_dirs:
+                src_dir = None
+                if src_item.endswith((_JAVA, _SRCJAR)):
+                    src_dir = os.path.dirname(src_item)
+                    # Only scan one java file in each source directories.
+                    if src_dir not in scanned_dirs:
+                        scanned_dirs.add(src_dir)
+                        if src_item.endswith(_JAVA):
                             src_dir = self._get_source_folder(src_item)
-                            scanned_dirs.append(java_dir)
-                    if src_dir:
-                        src_dir = os.path.join(self.module_path, src_dir)
-                        if src_dir not in self.src_dirs:
-                            self.src_dirs.append(src_dir)
-
-    def _check_special_files(self):
-        """Check if *.aidl or *.logtags or filegroup exists."""
-        if _KEY_SRCS in self.module_data and self.module_data[_KEY_SRCS]:
-            for src_item in self.module_data[_KEY_SRCS]:
-                if src_item.endswith('.aidl'):
-                    self.aidl_existed = True
-                elif src_item.endswith('.logtags'):
-                    self.logtags_existed = True
-                elif src_item.startswith(':'):
-                    self.filegroup_existed = True
+                else:
+                    # To record what files except java and srcjar in the srcs.
+                    logging.warn('%s is not in parsing scope.', src_item)
+                if src_dir:
+                    self.src_dirs.add(src_dir)
 
     # pylint: disable=inconsistent-return-statements
     def _get_source_folder(self, java_file):
@@ -186,25 +166,24 @@ class ModuleData(object):
         There are 3 steps to get the source path from a java.
         1. Parsing a java to get package name.
            For example:
-               The package name of src/main/java/com/android/first.java is
-               com.android.
+               The java_file is:path/to/the/module/src/main/java/com/android/
+                                first.java
+               The package name of java_file is com.android.
         2. Transfer package name to package path:
            For example:
                The package path of com.android is com/android.
         3. Remove the package path and file name from the java path.
            For example:
-               The java is src/main/java/com/android/first.java.
                The path after removing package path and file name is
-               src/main/java.
-        As a result, src/main/java is the source path parsed from
-        src/main/java/com/android/first.java.
+               path/to/the/module/src/main/java.
+        As a result, path/to/the/module/src/main/java is the source path parsed
+        from path/to/the/module/src/main/java/com/android/first.java.
 
         Returns:
             source_folder: A string of path to source folder(e.g. src/main/java)
                            or none when it failed to get package name.
         """
-        abs_java_path = os.path.join(self.android_root_path, self.module_path,
-                                     java_file)
+        abs_java_path = os.path.join(self.android_root_path, java_file)
         if os.path.exists(abs_java_path):
             with open(abs_java_path) as data:
                 for line in data.read().splitlines():
@@ -226,10 +205,10 @@ class ModuleData(object):
             Boolean: True if jar_path is an existing jar file.
         """
         jar_abspath = os.path.join(self.android_root_path, jar_path)
-        if jar_path.endswith('.jar') and os.path.isfile(jar_abspath):
-            self.jar_files.append(jar_path)
+        if jar_path.endswith(_JAR) and os.path.isfile(jar_abspath):
+            self.jar_files.add(jar_path)
             return True
-        elif not jar_path.endswith('.jar'):
+        elif not jar_path.endswith(_JAR):
             logging.warn('Not a jar file: %s.', jar_path)
         else:
             logging.warn('Jar file doesn\'t exist: %s.', jar_abspath)
@@ -246,7 +225,7 @@ class ModuleData(object):
         """
         src_abspath = os.path.join(self.android_root_path, src_path)
         if os.path.isdir(src_abspath):
-            self.src_dirs.append(src_path)
+            self.src_dirs.add(src_path)
             return True
         else:
             logging.warn('Source path doesn\'t exist: %s.', src_abspath)
@@ -265,8 +244,9 @@ class ModuleData(object):
         if (_KEY_INSTALLED in self.module_data
                 and self.module_data[_KEY_INSTALLED]):
             for jar in self.module_data[_KEY_INSTALLED]:
-                if not specific_dir or jar.startswith(specific_dir):
-                    self._append_jar_file(jar)
+                if specific_dir and not jar.startswith(specific_dir):
+                    continue
+                if self._append_jar_file(jar):
                     break
 
     def _set_jars_jarfile(self):
@@ -294,16 +274,15 @@ class ModuleData(object):
 
     def locate_sources_path(self):
         """Locate source folders' paths or jar files."""
-        out_soong = os.path.join('out/soong/.intermediates', self.module_path,
-                                 self.module_name, 'android_common')
-        out_target = os.path.join('out/target/common/obj/JAVA_LIBRARIES/',
-                                  '%s_intermediates' % self.module_name)
         # Deal with jar file first, in current studies we can ignore src paths
         # if a jar is referenced. Because the src paths and the related files
         # are packed in the jar.
         if self.is_android_support_module:
             self._append_jar_from_installed()
-        elif self.jarjar_rules_existed or self.filegroup_existed:
+        elif self.jarjar_rules_existed:
+            out_soong = os.path.join(
+                'out/soong/.intermediates', self.module_path, self.module_name,
+                'android_common')
             self._append_jar_from_installed(out_soong)
         elif self.jars_existed:
             self._set_jars_jarfile()
@@ -311,10 +290,3 @@ class ModuleData(object):
             return
         # Find source folders if there is no jar file needed.
         self._collect_srcs_paths()
-        if self.aidl_existed:
-            self._append_src_dir(os.path.join(out_soong, _DIR_GEN, _DIR_AIDL))
-            self._append_src_dir(os.path.join(out_target, _DIR_AIDL))
-        if self.logtags_existed:
-            self._append_src_dir(
-                os.path.join(out_soong, _DIR_GEN, _DIR_LOGTAGS))
-            self._append_src_dir(os.path.join(out_target, _DIR_LOGTAGS))

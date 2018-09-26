@@ -17,10 +17,6 @@
 """Project information.
 
 The information include methods such as:
-    - TODO(b/112523202): Generate a dictionary named dep_modules with module
-                         dependency information of a project.
-    - TODO(b/112523194): Generate a dictionary named source_path with source and
-                         jar paths of dependent modules.
     - TODO(b/112522635): A boolean value named is_generate_ide_project_file to
                          verify whether IDE project files are generated or not.
     - TODO(b/112578616): A boolean value named launch_ide_successfully to
@@ -98,25 +94,18 @@ class ProjectInfo(object):
         # Append default hard-code modules, source paths and jar files.
         # TODO(b/112058649): Do more research to clarify how to remove these
         #                    hard-code sources.
-        # Framework module is always needed for dependencies but it might not be
-        # located by module dependency.
-        self.project_module_names.append('framework')
-        self.source_path = {
-            'source_folder_path': [
-                # The srcjars folder can't be located through module dependency.
+        self.project_module_names.extend(
+            [
+                # Framework module is always needed for dependencies but it
+                # might not be located by module dependency.
+                'framework',
+                # The module can't be located through module dependency.
                 # Without it, a lot of java files will have errors "cannot
                 # resolve symbol" in IntelliJ since they import packages
                 # android.Manifest and com.android.internal.R.
-                ('out/soong/.intermediates/external/apache-http/org.apache.'
-                 'http.legacy.docs.system/android_common/docs/srcjars')
-            ],
-            'jar_path':[
-                # Same issue as source_folder_path since a lot of java file
-                # import packages org.xmlpull, libcore.io, org.json, and so on.
-                ('out/soong/.intermediates/libcore/core-libart/android_common/'
-                 'combined/core-libart.jar')
-            ]
-        }
+                'org.apache.http.legacy.stubs.system']
+        )
+        self.source_path = {'source_folder_path': set(), 'jar_path':set()}
 
     def set_modules_under_project_path(self):
         """Find modules under the project path whose class is JAVA_LIBRARIES."""
@@ -132,24 +121,23 @@ class ProjectInfo(object):
 
         Find depentdent modules by dependencies parameter of each module.
         For example:
-            The module_names is ['ma'].
+            The module_names is ['m1'].
             The modules_info is
             {
                 'm1': {'dependencies': ['m2'], 'path': ['path_to_m1']},
-                'm2': {'dependencies': ['m4']},
-                'm3': {'path': ['path_to_m1']},
-                'm4': {'dependencies': ['m6']},
-                'm5': {'path': []},
-                'm6': {'path': []},
+                'm2': {'path': ['path_to_m4']},
+                'm3': {'path': ['path_to_m1']}
+                'm4': {'path': []}
             }
             The result dependent modules are:
             {
                 'm1': {'dependencies': ['m2'], 'path': ['path_to_m1']},
-                'm2': {'dependencies': ['m4']},
-                'm3': {'path': ['path_to_m1']},
-                'm4': {'dependencies': ['m6']},
-                'm6': {'path': []},
+                'm2': {'path': ['path_to_m4']},
+                'm3': {'path': ['path_to_m1']}
             }
+            Note that:
+                1. m4 is not in the result as it's not among dependent modules.
+                2. m3 is in the result as it has the same path to m1.
 
         Args:
             module_names: A list of module's name.
