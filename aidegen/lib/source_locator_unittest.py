@@ -25,9 +25,9 @@ from aidegen.lib import source_locator
 _MODULE_NAME = 'test'
 _MODULE_PATH = 'packages/apps/test'
 _MODULE_INFO = {'path': [_MODULE_PATH],
-                'srcs': ['src/main/java/com/android/test.java',
-                         ':test_filegroup',
-                         'test/**/*.java'],
+                'srcs': [
+                    'packages/apps/test/src/main/java/com/android/test.java',
+                    'packages/apps/test/test/test.srcjar'],
                 'installed': []
                }
 _TEST_DATA_PATH = os.path.join(constant.ROOT_DIR, 'test_data')
@@ -39,30 +39,18 @@ class SourceLocatorUnittests(unittest.TestCase):
 
     def test_collect_srcs_paths(self):
         """Test _collect_srcs_paths create the source path list."""
-        result_source = [os.path.join(_MODULE_PATH, 'src/main/java'),
-                         os.path.join(_MODULE_PATH, 'test')]
+        result_source = set(['packages/apps/test/src/main/java',
+                             'packages/apps/test/test'])
         module_data = source_locator.ModuleData(_TEST_DATA_PATH, _MODULE_NAME,
                                                 _MODULE_INFO)
         module_data._collect_srcs_paths()
         self.assertEqual(module_data.src_dirs, result_source)
 
-    def test_check_special_files(self):
-        """Test _check_special_files for setting certain flag."""
-        module_info = dict(_MODULE_INFO)
-        module_info['srcs'].extend(['src/main/java/com/android/test.aidl',
-                                    'src/main/java/com/android/test.logtags'])
-        module_data = source_locator.ModuleData(_TEST_DATA_PATH, _MODULE_NAME,
-                                                module_info)
-        module_data._check_special_files()
-        self.assertEqual(module_data.aidl_existed, True)
-        self.assertEqual(module_data.logtags_existed, True)
-        self.assertEqual(module_data.filegroup_existed, True)
-
     def test_get_source_folder(self):
         """Test _get_source_folder process."""
         # Test for getting the source path by parse package name from a java.
-        test_java = 'src/main/java/com/android/test.java'
-        result_source = 'src/main/java'
+        test_java = 'packages/apps/test/src/main/java/com/android/test.java'
+        result_source = 'packages/apps/test/src/main/java'
         module_data = source_locator.ModuleData(_TEST_DATA_PATH, _MODULE_NAME,
                                                 _MODULE_INFO)
         src_path = module_data._get_source_folder(test_java)
@@ -74,7 +62,8 @@ class SourceLocatorUnittests(unittest.TestCase):
         self.assertEqual(src_path, None)
 
         # Return path is None on the java file without package name.
-        test_java = 'src/main/java/com/android/wrong_package.java'
+        test_java = ('packages/apps/test/src/main/java/com/android/'
+                     'wrong_package.java')
         src_path = module_data._get_source_folder(test_java)
         self.assertEqual(src_path, None)
 
@@ -82,7 +71,7 @@ class SourceLocatorUnittests(unittest.TestCase):
         """Test _append_jar_file process."""
         # Append an existing jar file path to module_data.jar_files.
         test_jar_file = os.path.join(_MODULE_PATH, 'test.jar')
-        result_jar_list = [test_jar_file]
+        result_jar_list = set([test_jar_file])
         module_data = source_locator.ModuleData(_TEST_DATA_PATH, _MODULE_NAME,
                                                 _MODULE_INFO)
         module_data._append_jar_file(test_jar_file)
@@ -90,21 +79,21 @@ class SourceLocatorUnittests(unittest.TestCase):
 
         # Skip if the jar file doesn't exist.
         test_jar_file = os.path.join(_MODULE_PATH, 'jar_not_exist.jar')
-        module_data.jar_files = []
+        module_data.jar_files = set()
         module_data._append_jar_file(test_jar_file)
-        self.assertEqual(module_data.jar_files, [])
+        self.assertEqual(module_data.jar_files, set())
 
         # Skip if it's not a jar file.
         test_jar_file = os.path.join(_MODULE_PATH, 'test.java')
-        module_data.jar_files = []
+        module_data.jar_files = set()
         module_data._append_jar_file(test_jar_file)
-        self.assertEqual(module_data.jar_files, [])
+        self.assertEqual(module_data.jar_files, set())
 
     def test_append_src_dir(self):
         """Test _append_src_dir process ."""
         # Append an existing source path to module_data.src_dirs.
-        test_folder = os.path.join(_MODULE_PATH, 'src/main/java')
-        result_src_dir = [test_folder]
+        test_folder = 'packages/apps/test/src/main/java'
+        result_src_dir = set([test_folder])
         module_data = source_locator.ModuleData(_TEST_DATA_PATH, _MODULE_NAME,
                                                 _MODULE_INFO)
         module_data._append_src_dir(test_folder)
@@ -112,9 +101,9 @@ class SourceLocatorUnittests(unittest.TestCase):
 
         # Skip if the folder doesn't exist.
         test_folder = os.path.join(_MODULE_PATH, 'dir_not_exist')
-        module_data.src_dirs = []
+        module_data.src_dirs = set()
         module_data._append_src_dir(test_folder)
-        self.assertEqual(module_data.src_dirs, [])
+        self.assertEqual(module_data.src_dirs, set())
 
     def test_append_jar_from_installed(self):
         """Test _append_jar_from_installed handling."""
@@ -124,15 +113,16 @@ class SourceLocatorUnittests(unittest.TestCase):
             os.path.join(_MODULE_PATH, 'test.aar'),
             os.path.join(_MODULE_PATH, 'test.jar'),
             os.path.join(_MODULE_PATH, 'test/test_second.jar')]
-        result_jar_list = [os.path.join(_MODULE_PATH, 'test.jar')]
+        result_jar_list = set([os.path.join(_MODULE_PATH, 'test.jar')])
         module_data = source_locator.ModuleData(_TEST_DATA_PATH, _MODULE_NAME,
                                                 module_info)
         module_data._append_jar_from_installed()
         self.assertEqual(module_data.jar_files, result_jar_list)
 
         # Test on the jar file path matches the path prefix.
-        module_data.jar_files = []
-        result_jar_list = [os.path.join(_MODULE_PATH, 'test/test_second.jar')]
+        module_data.jar_files = set()
+        result_jar_list = set([os.path.join(_MODULE_PATH,
+                                            'test/test_second.jar')])
         module_data._append_jar_from_installed(
             os.path.join(_MODULE_PATH, 'test/'))
         self.assertEqual(module_data.jar_files, result_jar_list)
@@ -146,9 +136,9 @@ class SourceLocatorUnittests(unittest.TestCase):
             'test.jar',
             'src/test.jar', # This jar file doesn't exist.
             'test/test_second.jar']
-        result_jar_list = [
+        result_jar_list = set([
             os.path.join(_MODULE_PATH, 'test.jar'),
-            os.path.join(_MODULE_PATH, 'test/test_second.jar')]
+            os.path.join(_MODULE_PATH, 'test/test_second.jar')])
         module_data = source_locator.ModuleData(_TEST_DATA_PATH, _MODULE_NAME,
                                                 module_info)
         module_data._set_jars_jarfile()
@@ -158,14 +148,13 @@ class SourceLocatorUnittests(unittest.TestCase):
         """Test locate_sources_path handling."""
         # Test collect source path.
         module_info = dict(_MODULE_INFO)
-        module_info['srcs'].extend(['src/main/java/com/android/test.aidl',
-                                    'src/main/java/com/android/test.logtags'])
-        result_src_list = [
-            os.path.join(_MODULE_PATH, 'src/main/java'),
-            os.path.join(_MODULE_PATH, 'test'),
-            'out/target/common/obj/JAVA_LIBRARIES/test_intermediates/aidl',
-            'out/target/common/obj/JAVA_LIBRARIES/test_intermediates/logtags']
-        result_jar_list = []
+        module_info['srcs'].extend([('soong/.intermediates/packages/apps/test/'
+                                     'test/android_common/gen/test.srcjar')])
+        result_src_list = set([
+            'packages/apps/test/src/main/java',
+            'packages/apps/test/test',
+            'soong/.intermediates/packages/apps/test/test/android_common/gen'])
+        result_jar_list = set()
         module_data = source_locator.ModuleData(_TEST_DATA_PATH, _MODULE_NAME,
                                                 module_info)
         module_data.locate_sources_path()
@@ -177,8 +166,8 @@ class SourceLocatorUnittests(unittest.TestCase):
                     'android_common/test.jar')
         module_info['jarjar_rules'] = ['jarjar-rules.txt']
         module_info['installed'] = [jar_file]
-        result_src_list = []
-        result_jar_list = [jar_file]
+        result_src_list = set()
+        result_jar_list = set([jar_file])
         module_data = source_locator.ModuleData(_TEST_DATA_PATH, _MODULE_NAME,
                                                 module_info)
         module_data.locate_sources_path()
