@@ -128,6 +128,9 @@ class AidegenProjectFileGenUnittest(unittest.TestCase):
         finally:
             shutil.rmtree(self._IDEA_PATH)
         sample_vcs = project_file_gen._read_template(self._VCS_XML_SAMPLE)
+        # The sample must base on the real path.
+        sample_vcs = sample_vcs.replace(project_file_gen._VCS_TOKEN,
+                                        self._ANDROID_PROJECT_PATH)
         self.assertEqual(test_vcs, sample_vcs)
 
 

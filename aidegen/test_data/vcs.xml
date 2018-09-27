@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
     <component name="VcsDirectoryMappings">
-        <mapping directory="/usr/local/google/home/shinwang/aosp/tools/asuite/aidegen/test_data/android_project" vcs="Git" />
+        <mapping directory="@VCS@" vcs="Git" />
     </component>
 </project>
