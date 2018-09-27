@@ -42,6 +42,7 @@ from __future__ import absolute_import
 import argparse
 import sys
 
+from aidegen.lib.ide_util import launch_ide
 from aidegen.lib.module_info_util import generate_module_info_json
 from aidegen.lib.project_file_gen import generate_ide_project_file
 from aidegen.lib.project_info import ProjectInfo
@@ -72,17 +73,6 @@ def _parse_args(args):
     return parser.parse_args(args)
 
 
-def launch_ide(project):
-    """Launch IDE.
-
-    TODO(albaltai@): Remove this function when lib.ide_util is ready.
-
-    Args:
-        project: ProjectInfo class.
-    """
-    project.launch_ide_successfully = True
-
-
 def main(argv):
     """Main entry.
 
@@ -99,7 +89,7 @@ def main(argv):
     project.dep_modules = project.get_dep_modules()
     locate_source(project)
     if generate_ide_project_file(project):
-        launch_ide(project)
+        launch_ide(project.iml_path)
 
 
 if __name__ == "__main__":
