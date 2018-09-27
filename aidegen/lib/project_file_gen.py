@@ -250,6 +250,9 @@ def _generate_iml(module_path, source_list, jar_dependencies):
         module_path: Path of the module.
         source_list: List of the sources.
         jar_dependencies: List of the jar path.
+
+    Returns:
+        String: The absolute path of iml.
     """
     content = _read_template(_TEMPLATE_IML_PATH)
     content = _handle_facet(content, module_path)
