@@ -36,9 +36,9 @@ class IdeUtilUnittests(unittest.TestCase):
     def setUp(self):
         """Prepare the testdata related path."""
         IdeUtilUnittests._TEST_PRJ_PATH1 = os.path.join(uc.TESTDATA_PATH,
-                                                        "android_facet.iml")
+                                                        'android_facet.iml')
         IdeUtilUnittests._TEST_PRJ_PATH2 = os.path.join(uc.TESTDATA_PATH,
-                                                        "project/test.java")
+                                                        'project/test.java')
 
     def tearDown(self):
         """Clear the testdata related path."""
