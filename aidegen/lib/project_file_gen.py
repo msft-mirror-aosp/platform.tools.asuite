@@ -42,13 +42,23 @@ _ORDER_ENTRY = (
     '    <orderEntry type="module-library"><library>'
     '<CLASSES><root url="jar://$MODULE_DIR$/%s!/"/></CLASSES><JAVADOC/>'
     '<SOURCES/></library></orderEntry>\n')
+_MODULE_SECTION = ('            <module fileurl="file://$PROJECT_DIR$/%s.iml"'
+                   'filepath="$PROJECT_DIR$/%s.iml" />')
+_VCS_SECTION = '        <mapping directory="%s" vcs="Git" />'
 _FACET_TOKEN = '@FACETS@'
 _SOURCE_TOKEN = '@SOURCES@'
 _MODULE_DEP_TOKEN = '@MODULE_DEPENDENCIES@'
+_MODULE_TOKEN = '@MODULES@'
+_VCS_TOKEN = '@VCS@'
 _JAVA_FILE_PATTERN = '%s/*.java'
 _ROOT_DIR = constant.ROOT_DIR
 _IDEA_DIR = os.path.join(_ROOT_DIR, 'templates/idea')
 _TEMPLATE_IML_PATH = os.path.join(_ROOT_DIR, 'templates/module-template.iml')
+_IDEA_FOLDER = '.idea'
+_MODULES_XML = 'modules.xml'
+_VCS_XML = 'vcs.xml'
+_TEMPLATE_MODULES_PATH = os.path.join(_IDEA_DIR, _MODULES_XML)
+_TEMPLATE_VCS_PATH = os.path.join(_IDEA_DIR, _VCS_XML)
 _COPYRIGHT_FOLDER = 'copyright'
 _COMPILE_XML = 'compiler.xml'
 _MISC_XML = 'misc.xml'
@@ -60,26 +70,23 @@ def generate_ide_project_file(project_info):
 
     Args:
         project_info: ProjectInfo class.
-
-    Returns:
-        Boolean: True if IDE project files is created successfully.
     """
-    return _generate_intellij_project_file(project_info)
+    _generate_intellij_project_file(project_info)
 
 
 def _generate_intellij_project_file(project_info):
     """Generate IntelliJ project files.
 
-    TODO(b/112522635): Generate intelliJ project files.
-
     Args:
         project_info: ProjectInfo class.
-
-    Returns:
-        Boolean: True if intelliJ project files is created successfully.
     """
-    logging.info('project path:%s', project_info.project_absolute_path)
-    return True
+    project_info.iml_path = _generate_iml(
+        project_info.project_absolute_path,
+        list(project_info.source_path['source_folder_path']),
+        list(project_info.source_path['jar_path']))
+    _generate_modules_xml(project_info.project_absolute_path)
+    _generate_vcs_xml(project_info.project_absolute_path)
+    _copy_constant_project_files(project_info.project_absolute_path)
 
 
 def _read_template(path):
@@ -102,6 +109,8 @@ def _file_generate(path, content):
         path: Path of target file.
         content: String content of file.
     """
+    if not os.path.exists(os.path.dirname(path)):
+        os.makedirs(os.path.dirname(path))
     with open(path, 'w') as target:
         target.write(content)
 
@@ -171,13 +180,14 @@ def _handle_module_dependency(content, jar_dependencies):
 
 
 def _collect_content_url(sorted_path_list):
-    """Collect the content url from given sorted source path list.
+    """Collect the content url from a given sorted source path list.
 
     In iml, it uses content tag to group the source folders.
     e.g.
-    <content url...>
-        <sourceFolder...>
-        <sourceFolder...>
+    <content url="file://$MODULE_DIR$/a">
+        <sourceFolder url="file://$MODULE_DIR$/a/b" isTestSource="False" />
+        <sourceFolder url="file://$MODULE_DIR$/a/test" isTestSource="True" />
+        <sourceFolder url="file://$MODULE_DIR$/a/d/e" isTestSource="False" />
     </content>
     The content url is the common prefix of the source path. However, we can't
     get the information of content url from dependencies. In this function,
@@ -207,9 +217,10 @@ def _handle_source_folder(content, source_list):
 
     It would make the source folder group by content.
     e.g.
-    <content...>
-        <sourceFolder...>
-        <sourceFolder...>
+    <content url="file://$MODULE_DIR$/a">
+        <sourceFolder url="file://$MODULE_DIR$/a/b" isTestSource="False" />
+        <sourceFolder url="file://$MODULE_DIR$/a/test" isTestSource="True" />
+        <sourceFolder url="file://$MODULE_DIR$/a/d/e" isTestSource="False" />
     </content>
 
     Args:
@@ -239,6 +250,9 @@ def _generate_iml(module_path, source_list, jar_dependencies):
         module_path: Path of the module.
         source_list: List of the sources.
         jar_dependencies: List of the jar path.
+
+    Returns:
+        String: The absolute path of iml.
     """
     content = _read_template(_TEMPLATE_IML_PATH)
     content = _handle_facet(content, module_path)
@@ -246,4 +260,39 @@ def _generate_iml(module_path, source_list, jar_dependencies):
     content = _handle_module_dependency(content, jar_dependencies)
     module_name = module_path.split(os.sep)[-1]
     target_path = os.path.join(module_path, module_name + '.iml')
+    _file_generate(target_path, content)
+    return target_path
+
+
+def _generate_modules_xml(module_path):
+    """Generate modules.xml file.
+
+    IntelliJ use modules.xml to import which modules should be loaded to
+    project. Since we are using a single project file, it will only contain the
+    module itself.
+
+    Args:
+        module_path: Path of the module.
+    """
+    content = _read_template(_TEMPLATE_MODULES_PATH)
+    module_name = module_path.split(os.sep)[-1]
+    module = _MODULE_SECTION % (module_name, module_name)
+    content = content.replace(_MODULE_TOKEN, module)
+    target_path = os.path.join(module_path, _IDEA_FOLDER, _MODULES_XML)
+    _file_generate(target_path, content)
+
+
+def _generate_vcs_xml(module_path):
+    """Generate vcs.xml file.
+
+    IntelliJ use vcs.xml to record version control software's information.
+    Since we are using a single project file, it will only contain the
+    module itself.
+
+    Args:
+        module_path: Path of the module.
+    """
+    content = _read_template(_TEMPLATE_VCS_PATH)
+    content = content.replace(_VCS_TOKEN, _VCS_SECTION % module_path)
+    target_path = os.path.join(module_path, _IDEA_FOLDER, _VCS_XML)
     _file_generate(target_path, content)

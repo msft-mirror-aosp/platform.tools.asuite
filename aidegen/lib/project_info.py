@@ -91,6 +91,7 @@ class ProjectInfo(object):
             'No modules defined at %s.' % self.project_relative_path)
         self.modules_info = {}
         self.dep_modules = {}
+        self.iml_path = ''
         # Append default hard-code modules, source paths and jar files.
         # TODO(b/112058649): Do more research to clarify how to remove these
         #                    hard-code sources.

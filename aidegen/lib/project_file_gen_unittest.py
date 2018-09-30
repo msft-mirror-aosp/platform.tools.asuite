@@ -17,6 +17,7 @@
 """Unittests for project_file_gen."""
 
 import os
+import shutil
 import unittest
 
 from aidegen.lib import project_file_gen
@@ -34,7 +35,12 @@ class AidegenProjectFileGenUnittest(unittest.TestCase):
     _PROJECT_FACET_SAMPLE = os.path.join(_TEST_DATA_PATH, 'project_facet.iml')
     _MODULE_DEP_SAMPLE = os.path.join(_TEST_DATA_PATH, 'module_dependency.iml')
     _IML_SAMPLE = os.path.join(_TEST_DATA_PATH, 'test.iml')
+    _MODULE_XML_SAMPLE = os.path.join(_TEST_DATA_PATH, 'modules.xml')
+    _VCS_XML_SAMPLE = os.path.join(_TEST_DATA_PATH, 'vcs.xml')
     _IML_PATH = os.path.join(_ANDROID_PROJECT_PATH, 'android_project.iml')
+    _IDEA_PATH = os.path.join(_ANDROID_PROJECT_PATH, '.idea')
+    _MODULE_PATH = os.path.join(_IDEA_PATH, 'modules.xml')
+    _VCS_PATH = os.path.join(_IDEA_PATH, 'vcs.xml')
     _SOURCE_SAMPLE = os.path.join(_TEST_DATA_PATH, 'source.iml')
     _JAR_DEP = ['test1.jar', 'test2.jar']
     _TEST_SOURCE_LIST = [
@@ -94,12 +100,38 @@ class AidegenProjectFileGenUnittest(unittest.TestCase):
 
     def test_generate_iml(self):
         """Test _generate_iml."""
-        project_file_gen._generate_iml(self._ANDROID_PROJECT_PATH,
-                                       self._ANDROID_SOURCE_LIST, self._JAR_DEP)
-        test_iml = project_file_gen._read_template(self._IML_PATH)
-        os.remove(self._IML_PATH)
+        try:
+            project_file_gen._generate_iml(self._ANDROID_PROJECT_PATH,
+                                           self._ANDROID_SOURCE_LIST,
+                                           self._JAR_DEP)
+            test_iml = project_file_gen._read_template(self._IML_PATH)
+        finally:
+            os.remove(self._IML_PATH)
         sample_iml = project_file_gen._read_template(self._IML_SAMPLE)
         self.assertEqual(test_iml, sample_iml)
+
+    def test_generate_modules_xml(self):
+        """Test _generate_modules_xml."""
+        try:
+            project_file_gen._generate_modules_xml(self._ANDROID_PROJECT_PATH)
+            test_module = project_file_gen._read_template(self._MODULE_PATH)
+        finally:
+            shutil.rmtree(self._IDEA_PATH)
+        sample_module = project_file_gen._read_template(self._MODULE_XML_SAMPLE)
+        self.assertEqual(test_module, sample_module)
+
+    def test_generate_vcs_xml(self):
+        """Test _generate_iml."""
+        try:
+            project_file_gen._generate_vcs_xml(self._ANDROID_PROJECT_PATH)
+            test_vcs = project_file_gen._read_template(self._VCS_PATH)
+        finally:
+            shutil.rmtree(self._IDEA_PATH)
+        sample_vcs = project_file_gen._read_template(self._VCS_XML_SAMPLE)
+        # The sample must base on the real path.
+        sample_vcs = sample_vcs.replace(project_file_gen._VCS_TOKEN,
+                                        self._ANDROID_PROJECT_PATH)
+        self.assertEqual(test_vcs, sample_vcs)
 
 
 if __name__ == '__main__':
