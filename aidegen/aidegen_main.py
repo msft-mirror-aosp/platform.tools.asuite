@@ -89,8 +89,8 @@ def main(argv):
         project.project_relative_path)
     project.dep_modules = project.get_dep_modules()
     locate_source(project)
-    if generate_ide_project_file(project):
-        launch_ide(project.iml_path)
+    generate_ide_project_file(project)
+    launch_ide(project.iml_path)
 
 
 if __name__ == "__main__":
