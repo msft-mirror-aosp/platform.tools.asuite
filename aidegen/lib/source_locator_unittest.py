@@ -89,22 +89,6 @@ class SourceLocatorUnittests(unittest.TestCase):
         module_data._append_jar_file(test_jar_file)
         self.assertEqual(module_data.jar_files, set())
 
-    def test_append_src_dir(self):
-        """Test _append_src_dir process ."""
-        # Append an existing source path to module_data.src_dirs.
-        test_folder = 'packages/apps/test/src/main/java'
-        result_src_dir = set([test_folder])
-        module_data = source_locator.ModuleData(_TEST_DATA_PATH, _MODULE_NAME,
-                                                _MODULE_INFO)
-        module_data._append_src_dir(test_folder)
-        self.assertEqual(module_data.src_dirs, result_src_dir)
-
-        # Skip if the folder doesn't exist.
-        test_folder = os.path.join(_MODULE_PATH, 'dir_not_exist')
-        module_data.src_dirs = set()
-        module_data._append_src_dir(test_folder)
-        self.assertEqual(module_data.src_dirs, set())
-
     def test_append_jar_from_installed(self):
         """Test _append_jar_from_installed handling."""
         # Test appends the first jar file of 'installed'.
