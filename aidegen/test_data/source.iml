@@ -3,10 +3,10 @@
 @FACETS@
     <component name="NewModuleRootManager" inherit-compiler-output="true">
         <exclude-output />
-        <content url="file://$MODULE_DIR$/test_data/project">
-            <sourceFolder url="file://$MODULE_DIR$/test_data/project/level11/level21" isTestSource="True" />
-            <sourceFolder url="file://$MODULE_DIR$/test_data/project/level11/level22/level31" isTestSource="True" />
-            <sourceFolder url="file://$MODULE_DIR$/test_data/project/level12/level22" isTestSource="True" />
+        <content url="file:///aosp/test_data/project">
+            <sourceFolder url="file:///aosp/test_data/project/level11/level21" isTestSource="True" />
+            <sourceFolder url="file:///aosp/test_data/project/level11/level22/level31" isTestSource="True" />
+            <sourceFolder url="file:///aosp/test_data/project/level12/level22" isTestSource="True" />
         </content>
 
         <orderEntry type="inheritedJdk" />
