@@ -132,27 +132,26 @@ class ModuleData(object):
             and self.module_data[_KEY_JARJAR_RULES][0] == _JARJAR_RULES_FILE)
         self.jars_existed = (_KEY_JARS in self.module_data
                              and self.module_data[_KEY_JARS])
+        # Add the directory contains R.java of the module with APPS class.
+        if 'class' in self.module_data and 'APPS' in self.module_data['class']:
+            self.src_dirs.add(
+                ('out/target/common/obj/APPS/%s_intermediates/srcjars' %
+                 self.module_name))
 
     def _collect_srcs_paths(self):
-        """Collect source folder paths in src_dirs from module_data['srcs'].
-
-        The value of srcs is from Android.bp or Android.mk.
-        1.In Android.bp, there might be src/main/java/**/*.java in srcs. It
-          means src/main/java is a source path of this module.
-        2.In Android.mk, srcs have relative path to java files, however it's
-          not a source path. Call _get_source_folder method to get source path.
-        """
+        """Collect source folder paths in src_dirs from module_data['srcs']."""
         if _KEY_SRCS in self.module_data and self.module_data[_KEY_SRCS]:
             scanned_dirs = set()
             for src_item in self.module_data[_KEY_SRCS]:
                 src_dir = None
-                if src_item.endswith((_JAVA, _SRCJAR)):
+                if src_item.endswith(_SRCJAR):
                     src_dir = os.path.dirname(src_item)
+                elif src_item.endswith(_JAVA):
                     # Only scan one java file in each source directories.
-                    if src_dir not in scanned_dirs:
-                        scanned_dirs.add(src_dir)
-                        if src_item.endswith(_JAVA):
-                            src_dir = self._get_source_folder(src_item)
+                    src_item_dir = os.path.dirname(src_item)
+                    if src_item_dir not in scanned_dirs:
+                        scanned_dirs.add(src_item_dir)
+                        src_dir = self._get_source_folder(src_item)
                 else:
                     # To record what files except java and srcjar in the srcs.
                     logging.warn('%s is not in parsing scope.', src_item)
@@ -212,23 +211,6 @@ class ModuleData(object):
             logging.warn('Not a jar file: %s.', jar_path)
         else:
             logging.warn('Jar file doesn\'t exist: %s.', jar_abspath)
-
-    def _append_src_dir(self, src_path):
-        """Append a path into self.src_dirs if it's exists.
-
-        Args:
-            src_path: A path to source folder.
-
-        Returns:
-            Boolean: True if the source folder exists and append to
-                     self.src_dirs successfully.
-        """
-        src_abspath = os.path.join(self.android_root_path, src_path)
-        if os.path.isdir(src_abspath):
-            self.src_dirs.add(src_path)
-            return True
-        else:
-            logging.warn('Source path doesn\'t exist: %s.', src_abspath)
 
     def _append_jar_from_installed(self, specific_dir=None):
         """Append a jar file's path to the list of jar_files with matching
