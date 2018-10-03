@@ -42,9 +42,11 @@ class AidegenProjectFileGenUnittest(unittest.TestCase):
     _MODULE_PATH = os.path.join(_IDEA_PATH, 'modules.xml')
     _VCS_PATH = os.path.join(_IDEA_PATH, 'vcs.xml')
     _SOURCE_SAMPLE = os.path.join(_TEST_DATA_PATH, 'source.iml')
+    _LOCAL_PATH_TOKEN = '@LOCAL_PATH@'
+    _AOSP_FOLDER = '/aosp'
     _JAR_DEP = ['test1.jar', 'test2.jar']
     _TEST_SOURCE_LIST = [
-        'a/b/c/d/', 'a/b/c/d/e', 'a/b/c/d/e/f', 'a/b/c/d/f', 'e/f/a', 'e/f/b/c',
+        'a/b/c/d', 'a/b/c/d/e', 'a/b/c/d/e/f', 'a/b/c/d/f', 'e/f/a', 'e/f/b/c',
         'e/f/g/h'
     ]
     _ANDROID_SOURCE_LIST = [
@@ -53,6 +55,7 @@ class AidegenProjectFileGenUnittest(unittest.TestCase):
         'test_data/project/level12/level22',
     ]
     _SAMPLE_CONTENT_URL = ['a/b/c/d', 'e/f']
+    _SAMPLE_TRIMMED_SOURCE_LIST = ['a/b/c/d', 'e/f/a', 'e/f/b/c', 'e/f/g/h']
 
     def test_handle_facet_with_android_project(self):
         """Test _handle_facet with android project."""
@@ -79,29 +82,37 @@ class AidegenProjectFileGenUnittest(unittest.TestCase):
         template = project_file_gen._read_template(
             project_file_gen._TEMPLATE_IML_PATH)
         module_dependency = project_file_gen._handle_module_dependency(
-            template, self._JAR_DEP)
+            self._AOSP_FOLDER, template, self._JAR_DEP)
         correct_module_dep = project_file_gen._read_template(
             self._MODULE_DEP_SAMPLE)
         self.assertEqual(correct_module_dep, module_dependency)
 
     def test_collect_content_url(self):
         """Test _collect_content_url."""
-        url_list = project_file_gen._collect_content_url(self._TEST_SOURCE_LIST)
+        url_list = project_file_gen._collect_content_url(
+            self._TEST_SOURCE_LIST[:])
         self.assertEqual(url_list, self._SAMPLE_CONTENT_URL)
+
+    def test_trim_same_root_source(self):
+        """Test _trim_same_root_source."""
+        url_list = project_file_gen._trim_same_root_source(
+            self._TEST_SOURCE_LIST[:])
+        self.assertEqual(url_list, self._SAMPLE_TRIMMED_SOURCE_LIST)
 
     def test_handle_source_folder(self):
         """Test _handle_source_folder."""
         template = project_file_gen._read_template(
             project_file_gen._TEMPLATE_IML_PATH)
         source = project_file_gen._handle_source_folder(
-            template, self._ANDROID_SOURCE_LIST)
+            self._AOSP_FOLDER, template, self._ANDROID_SOURCE_LIST)
         sample_source = project_file_gen._read_template(self._SOURCE_SAMPLE)
         self.assertEqual(source, sample_source)
 
     def test_generate_iml(self):
         """Test _generate_iml."""
         try:
-            project_file_gen._generate_iml(self._ANDROID_PROJECT_PATH,
+            project_file_gen._generate_iml(self._AOSP_FOLDER,
+                                           self._ANDROID_PROJECT_PATH,
                                            self._ANDROID_SOURCE_LIST,
                                            self._JAR_DEP)
             test_iml = project_file_gen._read_template(self._IML_PATH)
@@ -129,7 +140,7 @@ class AidegenProjectFileGenUnittest(unittest.TestCase):
             shutil.rmtree(self._IDEA_PATH)
         sample_vcs = project_file_gen._read_template(self._VCS_XML_SAMPLE)
         # The sample must base on the real path.
-        sample_vcs = sample_vcs.replace(project_file_gen._VCS_TOKEN,
+        sample_vcs = sample_vcs.replace(self._LOCAL_PATH_TOKEN,
                                         self._ANDROID_PROJECT_PATH)
         self.assertEqual(test_vcs, sample_vcs)
 
