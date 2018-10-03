@@ -27,7 +27,7 @@ function run_unittests() {
 
     for t in $tests_to_run;
     do
-        if ! PYTHONPATH="$PYTHONPATH:$ASUITE_DIR:$ATEST_DIR" python $t; then
+        if ! PYTHONPATH="$PYTHONPATH:$ASUITE_DIR:$ATEST_DIR" python3.5 $t; then
             rc=1
             echo -e "${RED}$t failed${NC}"
         fi

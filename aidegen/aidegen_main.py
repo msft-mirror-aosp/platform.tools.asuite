@@ -43,7 +43,7 @@ import argparse
 import sys
 
 from aidegen.lib.ide_util import launch_ide
-from aidegen.lib.module_info_util import generate_module_info_json
+from aidegen.lib.module_info_util import ModuleInfoUtil
 from aidegen.lib.project_file_gen import generate_ide_project_file
 from aidegen.lib.project_info import ProjectInfo
 from aidegen.lib.source_locator import locate_source
@@ -84,12 +84,13 @@ def main(argv):
     args = _parse_args(argv)
     mod_info = module_info.ModuleInfo()
     project = ProjectInfo(args, mod_info)
-    project.modules_info = generate_module_info_json(
+    module_obj = ModuleInfoUtil()
+    project.modules_info = module_obj.generate_module_info_json(
         project.project_relative_path)
     project.dep_modules = project.get_dep_modules()
     locate_source(project)
-    if generate_ide_project_file(project):
-        launch_ide(project.iml_path)
+    generate_ide_project_file(project)
+    launch_ide(project.iml_path)
 
 
 if __name__ == "__main__":

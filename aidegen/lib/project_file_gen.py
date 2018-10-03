@@ -32,18 +32,17 @@ from aidegen import constant
 # FACET_SECTION is a part of iml, which defines the framework of the project.
 _FACET_SECTION = '''\
     <facet type="android" name="Android">
-        </configuration>
+        <configuration />
     </facet>'''
-_SOURCE_FOLDER = ('            <sourceFolder url="file://$MODULE_DIR$/%s"'
-                  ' isTestSource="%s" />\n')
-_CONTENT_URL = '        <content url="file://$MODULE_DIR$/%s">\n'
+_SOURCE_FOLDER = ('            <sourceFolder url='
+                  '"file://%s" isTestSource="%s" />\n')
+_CONTENT_URL = '        <content url="file://%s">\n'
 _END_CONTENT = '        </content>\n'
-_ORDER_ENTRY = (
-    '    <orderEntry type="module-library"><library>'
-    '<CLASSES><root url="jar://$MODULE_DIR$/%s!/"/></CLASSES><JAVADOC/>'
-    '<SOURCES/></library></orderEntry>\n')
-_MODULE_SECTION = ('            <module fileurl="file://$PROJECT_DIR$/%s.iml"'
-                   'filepath="$PROJECT_DIR$/%s.iml" />')
+_ORDER_ENTRY = ('    <orderEntry type="module-library"><library>'
+                '<CLASSES><root url="jar://%s!/" /></CLASSES>'
+                '<JAVADOC /><SOURCES /></library></orderEntry>\n')
+_MODULE_SECTION = ('            <module fileurl="file:///$PROJECT_DIR$/%s.iml"'
+                   ' filepath="$PROJECT_DIR$/%s.iml" />')
 _VCS_SECTION = '        <mapping directory="%s" vcs="Git" />'
 _FACET_TOKEN = '@FACETS@'
 _SOURCE_TOKEN = '@SOURCES@'
@@ -81,7 +80,7 @@ def _generate_intellij_project_file(project_info):
         project_info: ProjectInfo class.
     """
     project_info.iml_path = _generate_iml(
-        project_info.project_absolute_path,
+        project_info.android_root_path, project_info.project_absolute_path,
         list(project_info.source_path['source_folder_path']),
         list(project_info.source_path['jar_path']))
     _generate_modules_xml(project_info.project_absolute_path)
@@ -125,7 +124,8 @@ def _copy_constant_project_files(target_path):
     Args:
         target_path: Path of target file.
     """
-    target_copyright_path = os.path.join(target_path, _COPYRIGHT_FOLDER)
+    target_copyright_path = os.path.join(target_path, _IDEA_FOLDER,
+                                         _COPYRIGHT_FOLDER)
     try:
         # Existing copyright folder needs to be removed first.
         # Otherwise it would incur IOError.
@@ -135,10 +135,10 @@ def _copy_constant_project_files(target_path):
             os.path.join(_IDEA_DIR, _COPYRIGHT_FOLDER), target_copyright_path)
         shutil.copy(
             os.path.join(_IDEA_DIR, _COMPILE_XML),
-            os.path.join(target_path, _COMPILE_XML))
+            os.path.join(target_path, _IDEA_FOLDER, _COMPILE_XML))
         shutil.copy(
             os.path.join(_IDEA_DIR, _MISC_XML),
-            os.path.join(target_path, _MISC_XML))
+            os.path.join(target_path, _IDEA_FOLDER, _MISC_XML))
     except IOError as err:
         logging.warning('%s can\'t copy the project files\n %s', target_path,
                         err)
@@ -163,10 +163,11 @@ def _handle_facet(content, path):
     return content.replace(_FACET_TOKEN, facet)
 
 
-def _handle_module_dependency(content, jar_dependencies):
+def _handle_module_dependency(root_path, content, jar_dependencies):
     """Handle module dependency part of iml.
 
     Args:
+        root_path: Android source tree root path.
         content: String content of iml.
         jar_dependencies: List of the jar path.
 
@@ -175,7 +176,7 @@ def _handle_module_dependency(content, jar_dependencies):
     """
     module_library = ''
     for jar_path in jar_dependencies:
-        module_library += _ORDER_ENTRY % jar_path
+        module_library += _ORDER_ENTRY % os.path.join(root_path, jar_path)
     return content.replace(_MODULE_DEP_TOKEN, module_library)
 
 
@@ -203,16 +204,16 @@ def _collect_content_url(sorted_path_list):
     sorted_path_list.append('')
     pattern = sorted_path_list.pop(0)
     for path in sorted_path_list:
-        common_prefix = os.path.commonprefix([pattern, path])
+        common_prefix = os.path.commonpath([pattern, path])
         if common_prefix == '':
-            content_url_list.append(os.path.dirname(pattern))
+            content_url_list.append(pattern)
             pattern = path
         else:
             pattern = common_prefix
     return content_url_list
 
 
-def _handle_source_folder(content, source_list):
+def _handle_source_folder(root_path, content, source_list):
     """Handle source folder part of iml.
 
     It would make the source folder group by content.
@@ -224,6 +225,7 @@ def _handle_source_folder(content, source_list):
     </content>
 
     Args:
+        root_path: Android source tree root path.
         content: String content of iml.
         source_list: List of the sources.
 
@@ -234,19 +236,45 @@ def _handle_source_folder(content, source_list):
     content_url_list = _collect_content_url(source_list[:])
     source = ''
     for url in content_url_list:
-        source += _CONTENT_URL % url
+        content_url = os.path.join(root_path, url)
+        source += _CONTENT_URL % content_url
         for path in source_list:
             if path.startswith(url):  # The same prefix would be grouped.
+                path = os.path.join(root_path, path)
                 source += _SOURCE_FOLDER % (path, str('test' in path))
                 # If the path contains "test" is should be test source.
         source += _END_CONTENT
     return content.replace(_SOURCE_TOKEN, source)
 
 
-def _generate_iml(module_path, source_list, jar_dependencies):
+def _trim_same_root_source(source_list):
+    """Trim the source which has the same root.
+
+    The source list may contain lots of duplicate sources.
+    For example:
+    a/b, a/b/c, a/b/d
+    We only need to import a/b in iml, this function is used to trim useless
+    sources.
+
+    Args:
+        source_list: Sorted list of the sources.
+
+    Returns:
+        List: The trimmed source list.
+    """
+    tmp_source_list = [source_list[0]]
+    for src_path in source_list:
+        if ''.join([tmp_source_list[-1],
+                    os.sep]) not in ''.join([src_path, os.sep]):
+            tmp_source_list.append(src_path)
+    return sorted(tmp_source_list)
+
+
+def _generate_iml(root_path, module_path, source_list, jar_dependencies):
     """Generate iml file.
 
     Args:
+        root_path: Android source tree root path.
         module_path: Path of the module.
         source_list: List of the sources.
         jar_dependencies: List of the jar path.
@@ -256,8 +284,8 @@ def _generate_iml(module_path, source_list, jar_dependencies):
     """
     content = _read_template(_TEMPLATE_IML_PATH)
     content = _handle_facet(content, module_path)
-    content = _handle_source_folder(content, source_list)
-    content = _handle_module_dependency(content, jar_dependencies)
+    content = _handle_source_folder(root_path, content, source_list)
+    content = _handle_module_dependency(root_path, content, jar_dependencies)
     module_name = module_path.split(os.sep)[-1]
     target_path = os.path.join(module_path, module_name + '.iml')
     _file_generate(target_path, content)
