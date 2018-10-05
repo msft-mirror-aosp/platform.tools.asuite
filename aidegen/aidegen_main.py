@@ -65,11 +65,19 @@ def _parse_args(args):
         usage='aidegen [-p project_path] [-m module_name]')
     parser.required = False
     group = parser.add_mutually_exclusive_group()
-    group.add_argument('-p', '--path', type=str, dest='project_path',
-                       help='Android module path, '
-                            'e.g. packages/apps/Settings.')
-    group.add_argument('-m', '--module_name', type=str, dest='module_name',
-                       help='Android module name, e.g. Settings')
+    group.add_argument(
+        '-p',
+        '--path',
+        type=str,
+        dest='project_path',
+        help='Android module path, '
+        'e.g. packages/apps/Settings.')
+    group.add_argument(
+        '-m',
+        '--module_name',
+        type=str,
+        dest='module_name',
+        help='Android module name, e.g. Settings')
     return parser.parse_args(args)
 
 
@@ -84,9 +92,8 @@ def main(argv):
     args = _parse_args(argv)
     mod_info = module_info.ModuleInfo()
     project = ProjectInfo(args, mod_info)
-    module_obj = ModuleInfoUtil()
-    project.modules_info = module_obj.generate_module_info_json(
-        project.project_relative_path)
+    module_util_obj = ModuleInfoUtil()
+    project.modules_info = module_util_obj.generate_module_info_json(project)
     project.dep_modules = project.get_dep_modules()
     locate_source(project)
     generate_ide_project_file(project)
