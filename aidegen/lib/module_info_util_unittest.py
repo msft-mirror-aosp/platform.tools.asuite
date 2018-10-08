@@ -56,26 +56,6 @@ _TEST_MODULE_A_JOIN_PATH_DICT = {
         'srcs': ['path_a/Bar']
     }
 }
-_TEST_MODULE_A_JOIN_WITHOUT_PATH_DICT = {
-    'module_a': {
-        'class': ['JAVA_LIBRARIES'],
-        'installed': ['out/path_a/a.jar'],
-        'dependencies': ['Foo'],
-        'srcs': ['path_a/Bar']
-    }
-}
-_TEST_MODULE_WITH_RELATIVE_PATH_DICT = {
-    'module_a': {
-        'path': ['cts/tests/tests/appwidget/packages/launchermanifest'],
-        'srcs': ['../../common/src/android/Constants.java']
-    }
-}
-_TEST_MODULE_WITH_RELATIVE_PATH_DICT_RESULT = {
-    'module_a': {
-        'path': ['cts/tests/tests/appwidget/packages/launchermanifest'],
-        'srcs': ['cts/tests/tests/appwidget/common/src/android/Constants.java']
-    }
-}
 
 
 # pylint: disable=protected-access
@@ -140,34 +120,6 @@ class AidegenModuleInfoUtilUnittests(unittest.TestCase):
             _TEST_MODULE_A_DICT,
             module_info_util._copy_needed_items_from(
                 _TEST_MODULE_A_DICT_HAS_NONEED_ITEMS))
-
-    def test_join_mk_local_path_to_source_paths_without_path(self):
-        """Test _join_mk_local_path_to_source_paths a dictionary without path
-        item.
-        """
-        test_m_dict = copy.deepcopy(_TEST_MODULE_A_JOIN_WITHOUT_PATH_DICT)
-        self.assertEqual(
-            _TEST_MODULE_A_JOIN_WITHOUT_PATH_DICT,
-            module_info_util._join_mk_local_path_to_source_paths(test_m_dict))
-
-    def test_join_mk_local_path_to_source_paths(self):
-        """Test _join_mk_local_path_to_source_paths a dictionary with path
-        items.
-        """
-        test_m_dict = copy.deepcopy(_TEST_MODULE_A_DICT)
-        self.assertEqual(
-            _TEST_MODULE_A_JOIN_PATH_DICT,
-            module_info_util._join_mk_local_path_to_source_paths(test_m_dict))
-
-
-    def test_join_mk_local_path_to_source_paths_with_relative_paths(self):
-        """Test _join_mk_local_path_to_source_paths a dictionary with source
-        has relative path items.
-        """
-        test_m_dict = copy.deepcopy(_TEST_MODULE_WITH_RELATIVE_PATH_DICT)
-        self.assertEqual(
-            _TEST_MODULE_WITH_RELATIVE_PATH_DICT_RESULT,
-            module_info_util._join_mk_local_path_to_source_paths(test_m_dict))
 
 
 if __name__ == '__main__':
