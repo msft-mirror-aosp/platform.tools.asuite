@@ -26,26 +26,33 @@ module_info_obj = ModuleInfoUtil()
 project.dependency_info = module_info_obj.generate_module_info_json(module_path)
 """
 
+import glob
 import json
 import logging
 import os
 import subprocess
+import sys
 
 from aidegen.lib import errors
 from atest import constants
 from atest import module_info
 
-_BLUEPRINT_JSONFILE_NAME = "module_bp_java_deps.json"
-_BLUEPRINT_JSONFILE_OUTDIR = "out/soong/"
+_BLUEPRINT_JSONFILE_NAME = 'module_bp_java_deps.json'
+_BLUEPRINT_JSONFILE_OUTDIR = 'out/soong/'
 _KEY_CLS = 'class'
 _KEY_PATH = 'path'
 _KEY_INS = 'installed'
 _KEY_DEP = 'dependencies'
 _KEY_SRCS = 'srcs'
 _MERGE_NEEDED_ITEMS = [_KEY_CLS, _KEY_PATH, _KEY_INS, _KEY_DEP, _KEY_SRCS]
-_BUILD_JSON_COMMAND = ("source build/envsetup.sh;"
-                       "export SOONG_COLLECT_JAVA_DEPS=1;mmma %s")
-_RELATIVE_PATH = "../"
+_BUILD_JSON_COMMAND = ('source build/envsetup.sh;'
+                       'SOONG_COLLECT_JAVA_DEPS=true mmma %s')
+_RELATIVE_PATH = '../'
+_INTELLIJ_PROJECT_FILE_EXT = '*.iml'
+_LAUNCH_PROJECT_QUERY = (
+    'There exists an IntelliJ project file: %s. Do you want '
+    'to launch it (yes/No)?')
+
 
 class ModuleInfoUtil(object):
     """Class offers a merged dictionary of both mk and bp json files and
@@ -59,7 +66,7 @@ class ModuleInfoUtil(object):
         """Return Atest module info instance."""
         return self._atest_module_info
 
-    def generate_module_info_json(self, module_path):
+    def generate_module_info_json(self, project):
         """Generate a merged json dictionary.
 
         Linked functions:
@@ -67,22 +74,31 @@ class ModuleInfoUtil(object):
             _merge_json(mk_dict, bp_dict)
 
         Args:
-            module_path: A module path related to the android aosp root.
+            module_path: A module path related to the Android source tree root.
 
         Returns:
             A merged json dictionary.
         """
-        root_dir = os.environ.get(constants.ANDROID_BUILD_TOP, '/')
-        os.chdir(root_dir)
-        cmd = (_BUILD_JSON_COMMAND) % module_path
+        cmd = (_BUILD_JSON_COMMAND) % project.project_relative_path
         try:
-            os.system(cmd)
+            subprocess.check_output(cmd, shell=True)
             logging.info('Build successful: %s', cmd)
         except subprocess.CalledProcessError as err:
             logging.error('Failed build command: %s, error output: %s', cmd,
                           err.output)
-            raise
+            project_file = glob.glob(
+                os.path.join(project.project_absolute_path,
+                             _INTELLIJ_PROJECT_FILE_EXT))
+            if project_file:
+                query = (_LAUNCH_PROJECT_QUERY) % project_file[0]
+                input_data = input(query)
+                if not input_data.lower() in ['yes', 'y']:
+                    sys.exit(1)
+            else:
+                raise
 
+        root_dir = os.environ.get(constants.ANDROID_BUILD_TOP, '/')
+        os.chdir(root_dir)
         mk_dict = self._atest_module_info.name_to_module_info
         soong_out_dir = os.path.join(root_dir, _BLUEPRINT_JSONFILE_OUTDIR)
         bp_json_path = os.path.join(soong_out_dir, _BLUEPRINT_JSONFILE_NAME)
@@ -137,47 +153,6 @@ def _copy_needed_items_from(mk_dict):
     return merged_dict
 
 
-def _join_mk_local_path_to_source_paths(merged_dict):
-    """Join mk json dictionary's path to srcs.
-
-    This function should be called directly after calling
-    _copy_needed_items_from function.
-
-    Args:
-        merged_dict: Merged json dictionary.
-
-    Returns:
-        A merged json dictionary.
-
-    For example:
-                {
-                    'path': ['path/to/the/module'],
-                    'srcs': [
-                        'src/com/android/test.java',
-                        'src/com/google/test.java']
-                }
-    After calling this function, it will become:
-                {
-                    'path': ['path/to/the/module'],
-                    'srcs': [
-                        'path/to/the/module/src/com/android/test.java',
-                        'path/to/the/module/src/com/google/test.java']
-                }
-    """
-    for module in merged_dict.keys():
-        keys = merged_dict[module].keys()
-        if _KEY_PATH in keys and _KEY_SRCS in keys:
-            path = merged_dict[module][_KEY_PATH][0]
-            srcs = list()
-            for src in merged_dict[module][_KEY_SRCS]:
-                src = os.path.join(path, src)
-                if _RELATIVE_PATH in src:
-                    src = os.path.relpath(src)
-                srcs.append(src)
-            merged_dict[module][_KEY_SRCS] = srcs
-    return merged_dict
-
-
 def _merge_json(mk_dict, bp_dict):
     """Merge two json dictionaries.
 
@@ -192,7 +167,6 @@ def _merge_json(mk_dict, bp_dict):
         A merged json dictionary.
     """
     merged_dict = _copy_needed_items_from(mk_dict)
-    merged_dict = _join_mk_local_path_to_source_paths(merged_dict)
     for module in bp_dict.keys():
         if not module in merged_dict.keys():
             merged_dict[module] = dict()
