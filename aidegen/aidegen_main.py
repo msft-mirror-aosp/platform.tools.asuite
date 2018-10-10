@@ -47,7 +47,6 @@ from aidegen.lib.module_info_util import ModuleInfoUtil
 from aidegen.lib.project_file_gen import generate_ide_project_file
 from aidegen.lib.project_info import ProjectInfo
 from aidegen.lib.source_locator import locate_source
-from atest import module_info
 
 
 def _parse_args(args):
@@ -90,9 +89,8 @@ def main(argv):
         argv: A list of system arguments.
     """
     args = _parse_args(argv)
-    mod_info = module_info.ModuleInfo()
-    project = ProjectInfo(args, mod_info)
     module_util_obj = ModuleInfoUtil()
+    project = ProjectInfo(args, module_util_obj.atest_module_info)
     project.modules_info = module_util_obj.generate_module_info_json(project)
     project.dep_modules = project.get_dep_modules()
     locate_source(project)
