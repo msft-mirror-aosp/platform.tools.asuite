@@ -93,7 +93,7 @@ def locate_source(project):
         project.source_path['jar_path'].update(module.jar_files)
 
 
-class ModuleData():
+class ModuleData(object):
     """ModuleData class."""
 
     def __init__(self, android_root_path, module_name, module_data):
@@ -255,10 +255,11 @@ class ModuleData():
     def _set_jars_jarfile(self):
         """Append prebuilt jars of module into self.jar_files.
 
-        Some modele is with prebuilt jar files instead of source java files.
-        The jar files can be imported into IntelliJ as a dependency directly.
-        There is only jar file name in self.module_data['jars'], it has to be
-        combined with self.module_data['path'] to append into self.jar_files.
+        Some modules' sources are prebuilt jar files instead of source java
+        files. The jar files can be imported into IntelliJ as a dependency
+        directly. There is only jar file name in self.module_data['jars'], it
+        has to be combined with self.module_data['path'] to append into
+        self.jar_files.
         For example:
         'asm-6.0': {
             'jars': [
