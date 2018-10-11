@@ -65,7 +65,7 @@ _ANDROID_MANIFEST = 'AndroidManifest.xml'
 
 
 def generate_ide_project_file(project_info):
-    """Generate project files by IDE parameter in project_info.
+    """Generates project files by IDE parameter in project_info.
 
     Args:
         project_info: ProjectInfo class.
@@ -74,7 +74,7 @@ def generate_ide_project_file(project_info):
 
 
 def _generate_intellij_project_file(project_info):
-    """Generate IntelliJ project files.
+    """Generates IntelliJ project files.
 
     Args:
         project_info: ProjectInfo class.
@@ -118,8 +118,8 @@ def _copy_constant_project_files(target_path):
     """Copy project files to target path with error handling.
 
     This function would copy compiler.xml, misc.xml and copyright folder
-    to target folder. Since these files aren't mandatory in IntelliJ, I
-    only log it when IOError occurred.
+    to target folder. Since these files aren't mandatory in IntelliJ, it
+    only logs when an IOError occurred.
 
     Args:
         target_path: Path of target file.
@@ -128,7 +128,7 @@ def _copy_constant_project_files(target_path):
                                          _COPYRIGHT_FOLDER)
     try:
         # Existing copyright folder needs to be removed first.
-        # Otherwise it would incur IOError.
+        # Otherwise it would raise IOError.
         if os.path.exists(target_copyright_path):
             shutil.rmtree(target_copyright_path)
         shutil.copytree(
