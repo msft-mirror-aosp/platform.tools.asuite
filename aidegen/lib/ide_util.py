@@ -29,7 +29,7 @@ import logging
 import os
 import subprocess
 
-# We use type command to determine whether the user has installed intelliJ
+# We use this type command to determine whether the user has installed intelliJ
 # IDEA, and the reason is that, in linux, the launch script is created by IDEA
 # with specific path naming rule when installed, i.e. /opt/intellij-*/bin/
 # idea.sh.
@@ -43,14 +43,14 @@ _CHECK_INTELLIJ_CMD = 'type /opt/intellij-*/bin/idea.sh'
 _LS_CE_CMD = 'ls /opt/intellij-ce-2*/bin/idea.sh'
 _LS_UE_CMD = 'ls /opt/intellij-ue-2*/bin/idea.sh'
 
-# TODO(albaltai): If needed, create a log file to replace dev/null and to
+# TODO(albaltai): If needed, create a log file to replace /dev/null and to
 #                 collect IDEA related usage metrics data.
 _IGNORE_STD_OUT_ERR_CMD = '&>/dev/null'
 
-# To confirm target is IDEA by project file extension
+# To confirm target is IDEA by project file extension.
 _IML_EXTENSION = '.iml'
 
-#  To confirm target is IDEA by MUST exist folder
+#  To confirm target is IDEA by VERIFYING folder existence.
 _IDEA_FOLDER = '.idea'
 
 
@@ -65,7 +65,7 @@ def launch_ide(file_path):
     if (os.path.isfile(file_path) and _is_intellij_project(file_path)):
         launch_intellij(file_path)
     else:
-        logging.error('No IntelliJ IDEA exists.')
+        logging.error('No IntelliJ IDEA file exists.')
 
 
 def launch_intellij(file_path):
@@ -77,8 +77,8 @@ def launch_intellij(file_path):
     assert file_path, 'Empty file path is not allowed.'
     logging.info('Project file path: %s.', file_path)
     if (os.path.isfile(file_path) and _is_intellij_project(file_path)):
-        # TODO(albaltai@): Remove below IDEA check after main flow did the same
-        #                  check before calling launch_intellij
+        # TODO(albaltai@): Remove below IDEA check after main flow does the
+        #                  same check before calling launch_intellij
         if check_intellij():
             _run_intellij_sh(file_path)
 
