@@ -21,15 +21,15 @@ class AIDEgenError(Exception):
 
 
 class GenerateIDEProjectFileError(AIDEgenError):
-    """Error raised when IDE project files are not generated."""
+    """Raised when IDE project files are not generated."""
 
 
 class JsonFileNotExistError(AIDEgenError):
-    """Error raised when a json file does not exist."""
+    """Raised when a json file does not exist."""
 
 
 class EmptyModuleDependencyError(AIDEgenError):
-    """Error raised when the module dependency is empty. In the implement, even
+    """Raised when the module dependency is empty. Note that even
     a standalone module without jar dependency shall have its src path as
     dependency.
     """

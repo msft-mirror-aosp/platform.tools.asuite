@@ -18,7 +18,7 @@
 Unittest constants.
 
 Unittest constants get their own file since they're used purely for testing and
-should not be combined with constants_defaults as part of normal atest
+should not be combined with constants_defaults as part of normal aidegen
 operation.
 """
 
