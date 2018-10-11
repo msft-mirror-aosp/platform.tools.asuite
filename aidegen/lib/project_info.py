@@ -44,7 +44,7 @@ from atest import constants
 _KEY_DEP = 'dependencies'
 
 
-class ProjectInfo(object):
+class ProjectInfo():
     """Project information.
 
     Attributes:
