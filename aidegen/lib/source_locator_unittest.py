@@ -39,8 +39,7 @@ class SourceLocatorUnittests(unittest.TestCase):
 
     def test_collect_srcs_paths(self):
         """Test _collect_srcs_paths create the source path list."""
-        result_source = set(['packages/apps/test/src/main/java',
-                             'packages/apps/test/test'])
+        result_source = set(['packages/apps/test/src/main/java'])
         module_data = source_locator.ModuleData(_TEST_DATA_PATH, _MODULE_NAME,
                                                 _MODULE_INFO)
         module_data._collect_srcs_paths()
@@ -132,12 +131,7 @@ class SourceLocatorUnittests(unittest.TestCase):
         """Test locate_sources_path handling."""
         # Test collect source path.
         module_info = dict(_MODULE_INFO)
-        module_info['srcs'].extend([('soong/.intermediates/packages/apps/test/'
-                                     'test/android_common/gen/test.srcjar')])
-        result_src_list = set([
-            'packages/apps/test/src/main/java',
-            'packages/apps/test/test',
-            'soong/.intermediates/packages/apps/test/test/android_common/gen'])
+        result_src_list = set(['packages/apps/test/src/main/java'])
         result_jar_list = set()
         module_data = source_locator.ModuleData(_TEST_DATA_PATH, _MODULE_NAME,
                                                 module_info)
@@ -150,8 +144,26 @@ class SourceLocatorUnittests(unittest.TestCase):
                     'android_common/test.jar')
         module_info['jarjar_rules'] = ['jarjar-rules.txt']
         module_info['installed'] = [jar_file]
-        result_src_list = set()
+        result_src_list = set(['packages/apps/test/src/main/java'])
         result_jar_list = set([jar_file])
+        module_data = source_locator.ModuleData(_TEST_DATA_PATH, _MODULE_NAME,
+                                                module_info)
+        module_data.locate_sources_path()
+        self.assertEqual(module_data.src_dirs, result_src_list)
+        self.assertEqual(module_data.jar_files, result_jar_list)
+
+        # Test find jar by srcjar.
+        module_info = dict(_MODULE_INFO)
+        module_info['srcs'].extend([
+            ('out/soong/.intermediates/packages/apps/test/test/android_common/'
+             'gen/test.srcjar')])
+        module_info['installed'] = [
+            ('out/soong/.intermediates/packages/apps/test/test/android_common/'
+             'test.jar')]
+        result_src_list = set(['packages/apps/test/src/main/java'])
+        result_jar_list = set([
+            jar_file, ('out/soong/.intermediates/packages/apps/test/test/'
+                       'android_common/test.jar')])
         module_data = source_locator.ModuleData(_TEST_DATA_PATH, _MODULE_NAME,
                                                 module_info)
         module_data.locate_sources_path()
