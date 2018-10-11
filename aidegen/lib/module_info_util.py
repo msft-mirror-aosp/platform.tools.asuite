@@ -54,7 +54,7 @@ _LAUNCH_PROJECT_QUERY = (
     'to launch it (yes/No)?')
 
 
-class ModuleInfoUtil(object):
+class ModuleInfoUtil():
     """Class offers a merged dictionary of both mk and bp json files and
     fast/easy lookup for Module related details."""
 

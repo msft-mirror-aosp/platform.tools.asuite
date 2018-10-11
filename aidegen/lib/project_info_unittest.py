@@ -17,7 +17,7 @@
 """Unittests for source_locator."""
 
 import unittest
-import mock
+from unittest import mock
 
 from aidegen.lib import project_info
 

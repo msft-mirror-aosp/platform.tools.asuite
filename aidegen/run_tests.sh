@@ -5,7 +5,8 @@ GREEN='\033[0;32m'
 NC='\033[0m' # No Color
 AIDEGEN_DIR=$(dirname $(realpath $0))
 ASUITE_DIR="$(dirname $AIDEGEN_DIR)"
-ATEST_DIR="$(dirname $ASUITE_DIR)/tradefederation/core"
+CORE_DIR="$(dirname $ASUITE_DIR)/tradefederation/core"
+ATEST_DIR="$CORE_DIR/atest"
 
 function print_summary() {
     local test_results=$1
@@ -27,7 +28,7 @@ function run_unittests() {
 
     for t in $tests_to_run;
     do
-        if ! PYTHONPATH="$PYTHONPATH:$ASUITE_DIR:$ATEST_DIR" python3.5 $t; then
+        if ! PYTHONPATH="$PYTHONPATH:$CORE_DIR:$ATEST_DIR:$ASUITE_DIR" python3.5 $t; then
             rc=1
             echo -e "${RED}$t failed${NC}"
         fi
