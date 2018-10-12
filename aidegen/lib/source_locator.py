@@ -90,10 +90,11 @@ def locate_source(project):
                             project.dep_modules[module_name])
         module.locate_sources_path()
         project.source_path['source_folder_path'].update(module.src_dirs)
+        project.source_path['test_folder_path'].update(module.test_dirs)
         project.source_path['jar_path'].update(module.jar_files)
 
 
-class ModuleData(object):
+class ModuleData():
     """ModuleData class."""
 
     def __init__(self, android_root_path, module_name, module_data):
@@ -129,6 +130,7 @@ class ModuleData(object):
                             if _KEY_PATH in self.module_data
                             and self.module_data[_KEY_PATH] else '')
         self.src_dirs = set()
+        self.test_dirs = set()
         self.jar_files = set()
         self.is_android_support_module = self.module_path.startswith(
             _ANDROID_SUPPORT_PATH_KEYWORD)
@@ -178,6 +180,9 @@ class ModuleData(object):
                 if src_dir and not any(path in src_dir
                                        for path in _IGNORE_DIRS):
                     self.src_dirs.add(src_dir)
+                    if os.path.splitext(src_item)[0].lower().endswith(
+                            'test') and src_dir != os.path.dirname(src_item):
+                        self.test_dirs.add(os.path.dirname(src_item))
 
     # pylint: disable=inconsistent-return-statements
     def _get_source_folder(self, java_file):
