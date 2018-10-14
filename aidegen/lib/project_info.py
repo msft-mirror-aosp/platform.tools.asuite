@@ -141,7 +141,7 @@ class ProjectInfo(object):
                 2. m3 is in the result as it has the same path to m1.
 
         Args:
-            module_names: A list of module's name.
+            module_names: A list of module names.
 
         Returns:
             deps: A dict contains all dependent modules data of given modules.

@@ -38,6 +38,11 @@ _KEY_JARS = 'jars'
 _KEY_PATH = 'path'
 _KEY_SRCS = 'srcs'
 _SRCJAR = '.srcjar'
+_IGNORE_DIRS = [
+    # The java files under this directory have to be ignored because it will
+    # cause duplicated classes by libcore/ojluni/src/main/java.
+    'libcore/ojluni/src/lambda/java'
+]
 
 
 def locate_source(project):
@@ -132,11 +137,26 @@ class ModuleData(object):
             and self.module_data[_KEY_JARJAR_RULES][0] == _JARJAR_RULES_FILE)
         self.jars_existed = (_KEY_JARS in self.module_data
                              and self.module_data[_KEY_JARS])
-        # Add the directory contains R.java of the module with APPS class.
+        # Add the directory contains R.java of the module with APPS class. If
+        # the module is under packages/apps, the R.java will be created
+        # including other sub app modules and placed in srcjars. However, if
+        # the module is under frameworks/base/packages, the R.java will be
+        # generated under out/target/common/R/com/android. Since we can't
+        # totally find all dependent R.java of each modules in this directory,
+        # we have to set the directory as a source folder to fulfill the
+        # dependency requirement.
         if 'class' in self.module_data and 'APPS' in self.module_data['class']:
-            self.src_dirs.add(
-                ('out/target/common/obj/APPS/%s_intermediates/srcjars' %
-                 self.module_name))
+            # The directory contains R.java for apps in packages/apps.
+            r_src_dir = os.path.join(
+                'out/target/common/obj/APPS/%s_intermediates/srcjars' %
+                self.module_name)
+            if os.path.exists(r_src_dir):
+                self.src_dirs.add(r_src_dir)
+            else:
+                # For other apps under frameworks.
+                self.src_dirs.add('out/target/common/R/com/android')
+        self.specific_soong_path = os.path.join(
+            'out/soong/.intermediates', self.module_path, self.module_name)
 
     def _collect_srcs_paths(self):
         """Collect source folder paths in src_dirs from module_data['srcs']."""
@@ -145,7 +165,7 @@ class ModuleData(object):
             for src_item in self.module_data[_KEY_SRCS]:
                 src_dir = None
                 if src_item.endswith(_SRCJAR):
-                    src_dir = os.path.dirname(src_item)
+                    self._append_jar_from_installed(self.specific_soong_path)
                 elif src_item.endswith(_JAVA):
                     # Only scan one java file in each source directories.
                     src_item_dir = os.path.dirname(src_item)
@@ -154,8 +174,9 @@ class ModuleData(object):
                         src_dir = self._get_source_folder(src_item)
                 else:
                     # To record what files except java and srcjar in the srcs.
-                    logging.warn('%s is not in parsing scope.', src_item)
-                if src_dir:
+                    logging.warning('%s is not in parsing scope.', src_item)
+                if src_dir and not any(path in src_dir
+                                       for path in _IGNORE_DIRS):
                     self.src_dirs.add(src_dir)
 
     # pylint: disable=inconsistent-return-statements
@@ -207,10 +228,10 @@ class ModuleData(object):
         if jar_path.endswith(_JAR) and os.path.isfile(jar_abspath):
             self.jar_files.add(jar_path)
             return True
-        elif not jar_path.endswith(_JAR):
-            logging.warn('Not a jar file: %s.', jar_path)
+        if not jar_path.endswith(_JAR):
+            logging.warning('Not a jar file: %s.', jar_path)
         else:
-            logging.warn('Jar file doesn\'t exist: %s.', jar_abspath)
+            logging.warning('Jar file doesn\'t exist: %s.', jar_abspath)
 
     def _append_jar_from_installed(self, specific_dir=None):
         """Append a jar file's path to the list of jar_files with matching
@@ -234,10 +255,11 @@ class ModuleData(object):
     def _set_jars_jarfile(self):
         """Append prebuilt jars of module into self.jar_files.
 
-        Some modele is with prebuilt jar files instead of source java files.
-        The jar files can be imported into IntelliJ as a dependency directly.
-        There is only jar file name in self.module_data['jars'], it has to be
-        combined with self.module_data['path'] to append into self.jar_files.
+        Some modules' sources are prebuilt jar files instead of source java
+        files. The jar files can be imported into IntelliJ as a dependency
+        directly. There is only jar file name in self.module_data['jars'], it
+        has to be combined with self.module_data['path'] to append into
+        self.jar_files.
         For example:
         'asm-6.0': {
             'jars': [
@@ -256,19 +278,10 @@ class ModuleData(object):
 
     def locate_sources_path(self):
         """Locate source folders' paths or jar files."""
-        # Deal with jar file first, in current studies we can ignore src paths
-        # if a jar is referenced. Because the src paths and the related files
-        # are packed in the jar.
         if self.is_android_support_module:
             self._append_jar_from_installed()
         elif self.jarjar_rules_existed:
-            out_soong = os.path.join(
-                'out/soong/.intermediates', self.module_path, self.module_name,
-                'android_common')
-            self._append_jar_from_installed(out_soong)
+            self._append_jar_from_installed(self.specific_soong_path)
         elif self.jars_existed:
             self._set_jars_jarfile()
-        if self.jar_files:
-            return
-        # Find source folders if there is no jar file needed.
         self._collect_srcs_paths()

@@ -40,6 +40,7 @@ This CLI generates project files for using in IntelliJ, such as:
 from __future__ import absolute_import
 
 import argparse
+import logging
 import sys
 
 from aidegen.lib.ide_util import launch_ide
@@ -77,7 +78,25 @@ def _parse_args(args):
         type=str,
         dest='module_name',
         help='Android module name, e.g. Settings')
+    parser.add_argument(
+        '-v',
+        '--verbose',
+        action='store_true',
+        help='Display DEBUG level logging.')
     return parser.parse_args(args)
+
+
+def _configure_logging(verbose):
+    """Configure the logger.
+
+    Args:
+        verbose: A boolean. If true, display DEBUG level logs.
+    """
+    log_format = ('%(asctime)s %(filename)s:%(lineno)s:%(levelname)s: '
+                  '%(message)s')
+    datefmt = '%Y-%m-%d %H:%M:%S'
+    level = logging.DEBUG if verbose else logging.INFO
+    logging.basicConfig(level=level, format=log_format, datefmt=datefmt)
 
 
 def main(argv):
@@ -89,6 +108,7 @@ def main(argv):
         argv: A list of system arguments.
     """
     args = _parse_args(argv)
+    _configure_logging(args.verbose)
     module_util_obj = ModuleInfoUtil()
     project = ProjectInfo(args, module_util_obj.atest_module_info)
     project.modules_info = module_util_obj.generate_module_info_json(project)
