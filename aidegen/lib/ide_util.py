@@ -25,6 +25,7 @@ existence, IDE type, etc.), launch the project in related IDE.
     launch_intellij(file_path)
 """
 
+import glob
 import logging
 import os
 import subprocess
@@ -34,14 +35,14 @@ import subprocess
 # with specific path naming rule when installed, i.e. /opt/intellij-*/bin/
 # idea.sh.
 
-_CHECK_INTELLIJ_CMD = 'type /opt/intellij-*/bin/idea.sh'
+_CHECK_INTELLIJ_PATH = '/opt/intellij-*/bin/idea.sh'
 
 # In this version, if community edition(CE) exists, AIDEGen prefers IntelliJ
 # community edition(CE) over ultimate edition(UE).
 # TODO(albaltai): prompt user to select a preferred IDE version from all
 #                 installed versions.
-_LS_CE_CMD = 'ls /opt/intellij-ce-2*/bin/idea.sh'
-_LS_UE_CMD = 'ls /opt/intellij-ue-2*/bin/idea.sh'
+_LS_CE_PATH = '/opt/intellij-ce-*/bin/idea.sh'
+_LS_UE_PATH = '/opt/intellij-ue-*/bin/idea.sh'
 
 # TODO(albaltai): If needed, create a log file to replace /dev/null and to
 #                 collect IDEA related usage metrics data.
@@ -50,7 +51,7 @@ _IGNORE_STD_OUT_ERR_CMD = '&>/dev/null'
 # To confirm target is IDEA by project file extension.
 _IML_EXTENSION = '.iml'
 
-#  To confirm target is IDEA by VERIFYING folder existence.
+# To confirm target is IDEA by VERIFYING folder existence.
 _IDEA_FOLDER = '.idea'
 
 
@@ -90,16 +91,8 @@ def check_intellij():
     Returns:
         True if IntelliJ is installed already, otherwise False.
     """
-    logging.debug('Check if IDEA exists by command: %s.',
-                  _CHECK_INTELLIJ_CMD)
-    try:
-        subprocess.check_call(_CHECK_INTELLIJ_CMD, stderr=subprocess.STDOUT,
-                              shell=True)
-        logging.info('An IntelliJ IDEA exists.')
-        return True
-    except subprocess.CalledProcessError as err:
-        logging.error('No IntelliJ IDEA: %s.', err.output)
-        return False
+    logging.debug('Check if IDEA exists by path: %s.', _CHECK_INTELLIJ_PATH)
+    return glob.glob(_CHECK_INTELLIJ_PATH) != []
 
 
 def _is_intellij_project(file_path):
@@ -120,7 +113,7 @@ def _is_intellij_project(file_path):
     return False
 
 
-def _get_intellij_sh():
+def _get_intellij_path():
     """Locates the IntelliJ IDEA launch script path by following rule.
 
     1. If the community edition(CE) exists, use the newest CE version as
@@ -130,30 +123,19 @@ def _get_intellij_sh():
     Returns:
         The sh full path, or None if neither IntelliJ version is installed.
     """
-    try:
-        # To get all installed CE version as a list.
-        ls_output = subprocess.check_output(_LS_CE_CMD,
-                                            stderr=subprocess.STDOUT,
-                                            shell=True)
-
-        # Use reverse sort approach to get the latest installed CE version.
-        ls_output = sorted(ls_output.splitlines(), reverse=True)
+    ls_output = glob.glob(_LS_CE_PATH)
+    if ls_output != []:
+        ls_output = sorted(ls_output, reverse=True)
         logging.debug('Result for checking IntelliJ CE after sort: %s.',
                       ls_output)
         return ls_output[0]
-    except subprocess.CalledProcessError:
-        try:
-            # To get all installed UE version as a list.
-            ls_output = subprocess.check_output(_LS_UE_CMD,
-                                                stderr=subprocess.STDOUT,
-                                                shell=True)
-            # Use reverse sort approach to get the latest installed UE version.
-            ls_output = sorted(ls_output.splitlines(), reverse=True)
-            logging.debug('Result for checking IntelliJ UE after sort: %s.',
-                          ls_output)
-            return ls_output[0]
-        except subprocess.CalledProcessError:
-            return None
+    ls_output = glob.glob(_LS_UE_PATH)
+    if ls_output != []:
+        ls_output = sorted(ls_output, reverse=True)
+        logging.debug('Result for checking IntelliJ UE after sort: %s.',
+                      ls_output)
+        return ls_output[0]
+    return None
 
 
 def _get_run_intellij_cmd(sh_path, file_path):
@@ -175,10 +157,12 @@ def _run_intellij_sh(file_path):
     Args:
         file_path: The path of IntelliJ IDEA project file.
     """
-    sh_path = _get_intellij_sh().decode()
+    sh_path = _get_intellij_path()
+
     if not sh_path:
         logging.error('No suitable IntelliJ IDEA installed.')
         return
+
     logging.debug('Script path: %s, file path: %s.', sh_path, file_path)
 
     # Compose launch IDEA command to run as a new process and redirect output.
