@@ -28,12 +28,11 @@ project.dependency_info = module_info_obj.generate_module_info_json(module_path)
 
 import glob
 import json
-import logging
 import os
-import subprocess
 import sys
 
 from aidegen.lib import errors
+from atest import atest_utils
 from atest import constants
 from atest import module_info
 
@@ -45,8 +44,10 @@ _KEY_INS = 'installed'
 _KEY_DEP = 'dependencies'
 _KEY_SRCS = 'srcs'
 _MERGE_NEEDED_ITEMS = [_KEY_CLS, _KEY_PATH, _KEY_INS, _KEY_DEP, _KEY_SRCS]
-_BUILD_JSON_COMMAND = ('source build/envsetup.sh;'
-                       'SOONG_COLLECT_JAVA_DEPS=true mmma %s')
+_BUILD_ENV_VARS = {
+    'SOONG_COLLECT_JAVA_DEPS' : 'true'
+}
+_MODULES_IN = 'MODULES-IN-%s'
 _RELATIVE_PATH = '../'
 _INTELLIJ_PROJECT_FILE_EXT = '*.iml'
 _LAUNCH_PROJECT_QUERY = (
@@ -54,7 +55,7 @@ _LAUNCH_PROJECT_QUERY = (
     'to launch it (yes/No)?')
 
 
-class ModuleInfoUtil():
+class ModuleInfoUtil(object):
     """Class offers a merged dictionary of both mk and bp json files and
     fast/easy lookup for Module related details."""
 
@@ -66,7 +67,7 @@ class ModuleInfoUtil():
         """Return Atest module info instance."""
         return self._atest_module_info
 
-    def generate_module_info_json(self, project):
+    def generate_module_info_json(self, project, verbose):
         """Generate a merged json dictionary.
 
         Linked functions:
@@ -75,17 +76,17 @@ class ModuleInfoUtil():
 
         Args:
             module_path: A module path related to the Android source tree root.
+            verbose: A boolean, if true displays full build output.
 
         Returns:
             A merged json dictionary.
         """
-        cmd = (_BUILD_JSON_COMMAND) % project.project_relative_path
-        try:
-            subprocess.check_output(cmd, shell=True)
-            logging.info('Build successful: %s', cmd)
-        except subprocess.CalledProcessError as err:
-            logging.error('Failed build command: %s, error output: %s', cmd,
-                          err.output)
+        build_target = _MODULES_IN % project.project_relative_path.replace(
+            '/', '-')
+        successful_build = atest_utils.build([build_target],
+                                             verbose=verbose,
+                                             env_vars=_BUILD_ENV_VARS)
+        if not successful_build:
             project_file = glob.glob(
                 os.path.join(project.project_absolute_path,
                              _INTELLIJ_PROJECT_FILE_EXT))
@@ -95,7 +96,8 @@ class ModuleInfoUtil():
                 if not input_data.lower() in ['yes', 'y']:
                     sys.exit(1)
             else:
-                raise
+                raise errors.BuildFailureError(
+                    "Failed to build %s." % build_target)
 
         root_dir = os.environ.get(constants.ANDROID_BUILD_TOP, '/')
         os.chdir(root_dir)

@@ -37,6 +37,7 @@ For example:
 
 from __future__ import absolute_import
 
+import logging
 import os
 
 from atest import constants
@@ -120,7 +121,7 @@ class ProjectInfo(object):
     def get_dep_modules(self, module_names=None):
         """Recursively find dependent modules of the project.
 
-        Find depentdent modules by dependencies parameter of each module.
+        Find dependent modules by dependencies parameter of each module.
         For example:
             The module_names is ['m1'].
             The modules_info is
@@ -150,10 +151,12 @@ class ProjectInfo(object):
         if not module_names:
             self.set_modules_under_project_path()
             module_names = self.project_module_names
+        logging.debug('Searching for dependencies of modules: %s', module_names)
         for name in module_names:
             if name in self.modules_info:
                 if name not in dep:
                     dep[name] = self.modules_info[name]
                 if _KEY_DEP in dep[name] and dep[name][_KEY_DEP]:
                     dep.update(self.get_dep_modules(dep[name][_KEY_DEP]))
+        #logging.debug('dependencies found: %s' % dep)
         return dep

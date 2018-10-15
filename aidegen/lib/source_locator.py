@@ -89,6 +89,11 @@ def locate_source(project):
         module = ModuleData(project.android_root_path, module_name,
                             project.dep_modules[module_name])
         module.locate_sources_path()
+        if module_name == 'ddmlib-prebuilt':
+            logging.debug('DDMLIB: %s', module)
+            logging.debug('DDMLIB module_data: %s', module.module_data)
+            logging.debug('DDMLIB src_dirs: %s', module.src_dirs)
+            logging.debug('DDMLIB jar_files: %s', module.jar_files)
         project.source_path['source_folder_path'].update(module.src_dirs)
         project.source_path['jar_path'].update(module.jar_files)
 
