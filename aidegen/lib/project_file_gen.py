@@ -282,6 +282,8 @@ def _generate_iml(root_path, module_path, source_list, jar_dependencies):
     Returns:
         String: The absolute path of iml.
     """
+    logging.debug('Sources: %s', source_list)
+    logging.debug('Jar Deps: %s', jar_dependencies)
     content = _read_template(_TEMPLATE_IML_PATH)
     content = _handle_facet(content, module_path)
     content = _handle_source_folder(root_path, content, source_list)
