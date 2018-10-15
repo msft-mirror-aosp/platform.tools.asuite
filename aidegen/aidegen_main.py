@@ -111,7 +111,8 @@ def main(argv):
     _configure_logging(args.verbose)
     module_util_obj = ModuleInfoUtil()
     project = ProjectInfo(args, module_util_obj.atest_module_info)
-    project.modules_info = module_util_obj.generate_module_info_json(project)
+    project.modules_info = module_util_obj.generate_module_info_json(
+        project, args.verbose)
     project.dep_modules = project.get_dep_modules()
     locate_source(project)
     generate_ide_project_file(project)

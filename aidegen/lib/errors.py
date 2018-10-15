@@ -20,6 +20,9 @@ class AIDEgenError(Exception):
     """Base AIDEgen exception."""
 
 
+class BuildFailureError(AIDEgenError):
+    """Raised when a build failed."""
+
 class GenerateIDEProjectFileError(AIDEgenError):
     """Raised when IDE project files are not generated."""
 
