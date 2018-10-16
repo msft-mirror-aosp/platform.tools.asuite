@@ -28,8 +28,9 @@ from aidegen.constant import ROOT_DIR as rp
 
 # The data below is only for test usage.
 TEST_DATA_PATH = os.path.join(rp, "test_data")  # folder test_data path
-IDEA_SH_FIND = ['/opt/intellij-ce-2018.1/bin/idea.sh',
-                '/opt/intellij-ce-2017.2/bin/idea.sh']  # script path data
+IDEA_SH_FIND = [
+    '/opt/intellij-ce-2018.1/bin/idea.sh', '/opt/intellij-ce-2017.2/bin/idea.sh'
+]  # script path data
 
 SH_GODEN_SAMPLE = '/opt/intellij-ce-2018.1/bin/idea.sh'
 
