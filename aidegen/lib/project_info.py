@@ -120,7 +120,7 @@ class ProjectInfo(object):
     def get_dep_modules(self, module_names=None):
         """Recursively find dependent modules of the project.
 
-        Find depentdent modules by dependencies parameter of each module.
+        Find dependent modules by dependencies parameter of each module.
         For example:
             The module_names is ['m1'].
             The modules_info is
