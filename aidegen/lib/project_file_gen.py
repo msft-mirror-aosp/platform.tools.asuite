@@ -79,9 +79,13 @@ def _generate_intellij_project_file(project_info):
     Args:
         project_info: ProjectInfo class.
     """
+    source_dict = dict.fromkeys(
+        list(project_info.source_path['source_folder_path']), False)
+    source_dict.update(dict.fromkeys(
+        list(project_info.source_path['test_folder_path']), True))
     project_info.iml_path = _generate_iml(
         project_info.android_root_path, project_info.project_absolute_path,
-        list(project_info.source_path['source_folder_path']),
+        source_dict,
         list(project_info.source_path['jar_path']))
     _generate_modules_xml(project_info.project_absolute_path)
     _generate_vcs_xml(project_info.project_absolute_path)
@@ -175,7 +179,7 @@ def _handle_module_dependency(root_path, content, jar_dependencies):
         String: Content with module dependency handled.
     """
     module_library = ''
-    for jar_path in jar_dependencies:
+    for jar_path in sorted(jar_dependencies):
         module_library += _ORDER_ENTRY % os.path.join(root_path, jar_path)
     return content.replace(_MODULE_DEP_TOKEN, module_library)
 
@@ -213,7 +217,7 @@ def _collect_content_url(sorted_path_list):
     return content_url_list
 
 
-def _handle_source_folder(root_path, content, source_list):
+def _handle_source_folder(root_path, content, source_dict):
     """Handle source folder part of iml.
 
     It would make the source folder group by content.
@@ -227,24 +231,26 @@ def _handle_source_folder(root_path, content, source_list):
     Args:
         root_path: Android source tree root path.
         content: String content of iml.
-        source_list: List of the sources.
+        source_dict: A dictionary of sources path with a flag to identify the
+                     path is test or source folder in IntelliJ.
+                     e.g.
+                     {'path_a': True, 'path_b': False}
 
     Returns:
         String: Content with source folder handled.
     """
+    src_list = []
+    source_list = list(source_dict.keys())
     source_list.sort()
     content_url_list = _collect_content_url(source_list[:])
-    source = ''
     for url in content_url_list:
-        content_url = os.path.join(root_path, url)
-        source += _CONTENT_URL % content_url
-        for path in source_list:
+        src_list.append(_CONTENT_URL % os.path.join(root_path, url))
+        for path, is_test_flag in sorted(source_dict.items()):
             if path.startswith(url):  # The same prefix would be grouped.
-                path = os.path.join(root_path, path)
-                source += _SOURCE_FOLDER % (path, str('test' in path))
-                # If the path contains "test" is should be test source.
-        source += _END_CONTENT
-    return content.replace(_SOURCE_TOKEN, source)
+                src_list.append(_SOURCE_FOLDER % (
+                    os.path.join(root_path, path), is_test_flag))
+        src_list.append(_END_CONTENT)
+    return content.replace(_SOURCE_TOKEN, ''.join(src_list))
 
 
 def _trim_same_root_source(source_list):
@@ -270,13 +276,16 @@ def _trim_same_root_source(source_list):
     return sorted(tmp_source_list)
 
 
-def _generate_iml(root_path, module_path, source_list, jar_dependencies):
+def _generate_iml(root_path, module_path, source_dict, jar_dependencies):
     """Generate iml file.
 
     Args:
         root_path: Android source tree root path.
         module_path: Path of the module.
-        source_list: List of the sources.
+        source_dict: A dictionary of sources path with a flag to distinguish the
+                     path is test or source folder in IntelliJ.
+                     e.g.
+                     {'path_a': True, 'path_b': False}
         jar_dependencies: List of the jar path.
 
     Returns:
@@ -284,7 +293,7 @@ def _generate_iml(root_path, module_path, source_list, jar_dependencies):
     """
     content = _read_template(_TEMPLATE_IML_PATH)
     content = _handle_facet(content, module_path)
-    content = _handle_source_folder(root_path, content, source_list)
+    content = _handle_source_folder(root_path, content, source_dict)
     content = _handle_module_dependency(root_path, content, jar_dependencies)
     module_name = module_path.split(os.sep)[-1]
     target_path = os.path.join(module_path, module_name + '.iml')
