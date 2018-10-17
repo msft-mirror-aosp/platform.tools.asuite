@@ -44,7 +44,7 @@ from atest import constants
 _KEY_DEP = 'dependencies'
 
 
-class ProjectInfo(object):
+class ProjectInfo():
     """Project information.
 
     Attributes:
@@ -106,7 +106,11 @@ class ProjectInfo(object):
                 # android.Manifest and com.android.internal.R.
                 'org.apache.http.legacy.stubs.system']
         )
-        self.source_path = {'source_folder_path': set(), 'jar_path':set()}
+        self.source_path = {
+            'source_folder_path': set(),
+            'test_folder_path': set(),
+            'jar_path':set()
+        }
 
     def set_modules_under_project_path(self):
         """Find modules under the project path whose class is JAVA_LIBRARIES."""
