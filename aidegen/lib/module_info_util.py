@@ -121,7 +121,7 @@ def _build_target(project, verbose):
             if not input_data.lower() in ['yes', 'y']:
                 sys.exit(1)
         else:
-            raise errors.BuildFailureError("Failed to build %s." % build_target)
+            raise errors.BuildFailureError('Failed to build %s.' % build_target)
 
 
 def _get_soong_build_json_dict():
@@ -139,7 +139,7 @@ def _get_soong_build_json_dict():
             return json_dict
     except IOError as err:
         raise errors.JsonFileNotExistError(
-            "%s does not exist, error: %s." % (json_path, err))
+            '%s does not exist, error: %s.' % (json_path, err))
 
 
 def _merge_module_keys(m_dict, b_dict):
