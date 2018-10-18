@@ -156,26 +156,35 @@ def _get_intellij_sh():
             return None
 
 
+def _get_run_intellij_cmd(sh_path, file_path):
+    """Get the command to launch IntelliJ.
+
+    Args:
+        sh_path: The idea.sh path where IntelliJ is installed.
+        file_path: The path of IntelliJ IDEA project file.
+
+    Returns:
+        A string: The IntelliJ launching command.
+    """
+    return ' '.join([sh_path, file_path, _IGNORE_STD_OUT_ERR_CMD, '&'])
+
+
 def _run_intellij_sh(file_path):
     """Run launch script idea.sh with file_path as argument.
 
     Args:
         file_path: The path of IntelliJ IDEA project file.
     """
-    sh_path = _get_intellij_sh()
-
+    sh_path = _get_intellij_sh().decode()
     if not sh_path:
         logging.error('No suitable IntelliJ IDEA installed.')
         return
-
-    sh_path = sh_path.decode()  # convert bytes into string
     logging.debug('Script path: %s, file path: %s.', sh_path, file_path)
 
     # Compose launch IDEA command to run as a new process and redirect output.
-    run_sh_cmd = ' '.join([sh_path, file_path, _IGNORE_STD_OUT_ERR_CMD, '&'])
+    run_sh_cmd = _get_run_intellij_cmd(sh_path, file_path)
     logging.debug('Run commnad: %s to launch IDEA project file.', run_sh_cmd)
     try:
         subprocess.check_call(run_sh_cmd, shell=True)
     except subprocess.CalledProcessError as err:
-        logging.error(
-            'Launch file, %s failed with error: %s.', file_path, err)
+        logging.error('Launch file, %s failed with error: %s.', file_path, err)
