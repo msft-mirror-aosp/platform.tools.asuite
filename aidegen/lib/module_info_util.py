@@ -55,7 +55,7 @@ _LAUNCH_PROJECT_QUERY = (
     'to launch it (yes/No)?')
 
 
-class ModuleInfoUtil(object):
+class ModuleInfoUtil():
     """Class offers a merged dictionary of both mk and bp json files and
     fast/easy lookup for Module related details."""
 
@@ -75,7 +75,7 @@ class ModuleInfoUtil(object):
             _merge_json(mk_dict, bp_dict)
 
         Args:
-            module_path: A module path related to the Android source tree root.
+            project: A ProjectInfo instance.
             verbose: A boolean, if true displays full build output.
 
         Returns:
