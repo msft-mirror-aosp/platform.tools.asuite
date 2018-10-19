@@ -31,6 +31,7 @@ import json
 import os
 import sys
 
+from aidegen.lib.common_util import time_logged
 from aidegen.lib import errors
 from atest import atest_utils
 from atest import constants
@@ -44,7 +45,10 @@ _KEY_INS = 'installed'
 _KEY_DEP = 'dependencies'
 _KEY_SRCS = 'srcs'
 _MERGE_NEEDED_ITEMS = [_KEY_CLS, _KEY_PATH, _KEY_INS, _KEY_DEP, _KEY_SRCS]
-_BUILD_ENV_VARS = {'SOONG_COLLECT_JAVA_DEPS': 'true'}
+_BUILD_ENV_VARS = {
+    'SOONG_COLLECT_JAVA_DEPS' : 'true',
+    'DISABLE_ROBO_RUN_TESTS' : 'true'
+}
 _MODULES_IN = 'MODULES-IN-%s'
 _RELATIVE_PATH = '../'
 _INTELLIJ_PROJECT_FILE_EXT = '*.iml'
@@ -65,6 +69,7 @@ class ModuleInfoUtil():
         """Return Atest module info instance."""
         return self._atest_module_info
 
+    @time_logged
     def generate_module_info_json(self, project, verbose):
         """Generate a merged json dictionary.
 
