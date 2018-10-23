@@ -14,26 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Project information.
-
-The information include methods such as:
-    - TODO(b/112522635): A boolean value named is_generate_ide_project_file to
-                         verify whether IDE project files are generated or not.
-    - TODO(b/112578616): A boolean value named launch_ide_successfully to
-                         verify whether IDE is launched or not.
-
-For example:
-    - The absolute path of project is /user/home/aosp/pcakages/apps/Settings.
-    1. Users have to change directory to android source project root first then
-       run aidegen tool.
-       $ cd /user/home/aosp
-       $ aidegen -p packages/apps/Settings
-       or
-       $ aidegen -m Settings
-    2. Change directory to the path of project then run aidegen tool.
-       $ cd /user/home/aosp/packages/apps/Settings
-       $ aidegen
-"""
+"""Project information."""
 
 from __future__ import absolute_import
 
@@ -72,45 +53,70 @@ class ProjectInfo():
         self.android_root_path = os.environ.get(constants.ANDROID_BUILD_TOP)
         # TODO: Find the closest parent module if no modules defined at project
         #       path.
-        if args.module_name:
-            assert module_info.is_module(
-                args.module_name), ('Module:%s not exists.' % args.module_name)
-            self.project_relative_path = module_info.get_paths(
-                args.module_name)[0]
-            self.project_absolute_path = os.path.join(
-                self.android_root_path, self.project_relative_path)
-        else:
-            self.project_absolute_path = (
-                os.path.join(self.android_root_path, args.project_path) if
-                args.project_path else os.getcwd())
-            self.project_relative_path = os.path.relpath(
-                self.project_absolute_path, self.android_root_path)
-        self.project_module_names = module_info.get_module_names(
-            self.project_relative_path)
+        rel_path, abs_path = self._get_related_path(args.target, module_info)
+        assert abs_path.startswith(self.android_root_path), (
+            'The path is outside android root: %s.' % abs_path)
+        self.project_module_names = module_info.get_module_names(rel_path)
         assert self.project_module_names, (
-            'No modules defined at %s.' % self.project_relative_path)
+            'No modules defined at %s.' % rel_path)
+        self.project_relative_path = rel_path
+        self.project_absolute_path = abs_path
         self.modules_info = {}
         self.dep_modules = {}
         self.iml_path = ''
         # Append default hard-code modules, source paths and jar files.
         # TODO(b/112058649): Do more research to clarify how to remove these
         #                    hard-code sources.
-        self.project_module_names.extend(
-            [
-                # Framework module is always needed for dependencies but it
-                # might not be located by module dependency.
-                'framework',
-                # The module can't be located through module dependency.
-                # Without it, a lot of java files will have errors "cannot
-                # resolve symbol" in IntelliJ since they import packages
-                # android.Manifest and com.android.internal.R.
-                'org.apache.http.legacy.stubs.system']
-        )
+        self.project_module_names.extend([
+            # Framework module is always needed for dependencies but it might
+            # not be located by module dependency.
+            'framework',
+            # The module can't be located through module dependency. Without it,
+            # a lot of java files will have errors "cannot resolve symbol" in
+            # IntelliJ since they import packages android.Manifest and
+            # com.android.internal.R.
+            'org.apache.http.legacy.stubs.system'
+        ])
         self.source_path = {
             'source_folder_path': set(),
             'test_folder_path': set(),
-            'jar_path':set()
+            'jar_path': set()
         }
+
+    def _get_related_path(self, target, module_info):
+        """Get the relative and absolute paths of target from module-info.
+
+        Args:
+            target: A list of string user input from command line. Could be
+                    several cases such as:
+                    1. Module name. e.g. Settings
+                    2. Module path. e.g. packages/apps/Settings
+                    3. Relative path. e.g. ../../packages/apps/Settings
+                    4. Current directory. e.g. . or no argument
+            module_info: A ModuleInfo class contains data of module-info.json.
+
+        Retuen:
+            rel_path: The relative path of a module.
+            abs_path: The absolute path of a module.
+        """
+        if target:
+            # User inputs a module name.
+            if module_info.is_module(target[0]):
+                rel_path = module_info.get_paths(target[0])[0]
+                abs_path = os.path.join(self.android_root_path, rel_path)
+            # User inputs a module path.
+            elif module_info.get_module_names(target[0]):
+                rel_path = target[0]
+                abs_path = os.path.join(self.android_root_path, rel_path)
+            # User inputs a relative path of current directory.
+            else:
+                abs_path = os.path.abspath(os.path.join(os.getcwd(), target[0]))
+                rel_path = os.path.relpath(abs_path, self.android_root_path)
+        else:
+            # User doesn't input.
+            abs_path = os.getcwd()
+            rel_path = os.path.relpath(abs_path, self.android_root_path)
+        return rel_path, abs_path
 
     def set_modules_under_project_path(self):
         """Find modules under the project path whose class is JAVA_LIBRARIES."""
