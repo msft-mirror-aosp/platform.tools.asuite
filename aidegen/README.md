@@ -18,4 +18,4 @@ the following features:
 
 #2. Execution:
 
-    `$ aidegen -p <project_path>` OR `$ aidegen -m <module>`
+    `$ aidegen <project_path>` OR `$ aidegen <module>`
