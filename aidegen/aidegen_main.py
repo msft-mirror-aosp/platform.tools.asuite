@@ -30,9 +30,9 @@ This CLI generates project files for using in IntelliJ, such as:
     - Change directory to AOSP root first.
     $ cd /user/home/aosp/
     - Generating project files under packages/apps/Settings folder.
-    $ aidegen -p packages/apps/Settings
+    $ aidegen packages/apps/Settings
     or
-    $ aidegen -m Settings
+    $ aidegen Settings
     or
     $ cd packages/apps/Settings;aidegen
 """
@@ -62,22 +62,14 @@ def _parse_args(args):
     parser = argparse.ArgumentParser(
         description=__doc__,
         formatter_class=argparse.RawDescriptionHelpFormatter,
-        usage='aidegen [-p project_path] [-m module_name]')
+        usage='aidegen [module_name or project_path]')
     parser.required = False
-    group = parser.add_mutually_exclusive_group()
-    group.add_argument(
-        '-p',
-        '--path',
+    parser.add_argument(
+        'target',
         type=str,
-        dest='project_path',
-        help='Android module path, '
-        'e.g. packages/apps/Settings.')
-    group.add_argument(
-        '-m',
-        '--module_name',
-        type=str,
-        dest='module_name',
-        help='Android module name, e.g. Settings')
+        nargs='*',
+        help=('Android module name or path.'
+              'e.g. Settings or packages/apps/Settings'))
     parser.add_argument(
         '-v',
         '--verbose',
