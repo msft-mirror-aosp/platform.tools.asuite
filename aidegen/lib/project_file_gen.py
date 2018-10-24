@@ -38,9 +38,11 @@ _SOURCE_FOLDER = ('            <sourceFolder url='
                   '"file://%s" isTestSource="%s" />\n')
 _CONTENT_URL = '        <content url="file://%s">\n'
 _END_CONTENT = '        </content>\n'
-_ORDER_ENTRY = ('    <orderEntry type="module-library"><library>'
+_ORDER_ENTRY = ('        <orderEntry type="module-library"><library>'
                 '<CLASSES><root url="jar://%s!/" /></CLASSES>'
                 '<JAVADOC /><SOURCES /></library></orderEntry>\n')
+_MODULE_ORDER_ENTRY = ('        <orderEntry type="module" '
+                       'module-name="dependencies" />')
 _MODULE_SECTION = ('            <module fileurl="file:///$PROJECT_DIR$/%s.iml"'
                    ' filepath="$PROJECT_DIR$/%s.iml" />')
 _VCS_SECTION = '        <mapping directory="%s" vcs="Git" />'
@@ -58,6 +60,8 @@ _MODULES_XML = 'modules.xml'
 _VCS_XML = 'vcs.xml'
 _TEMPLATE_MODULES_PATH = os.path.join(_IDEA_DIR, _MODULES_XML)
 _TEMPLATE_VCS_PATH = os.path.join(_IDEA_DIR, _VCS_XML)
+_DEPENDENCIES = 'dependencies'
+_DEPENDENCIES_IML = 'dependencies.iml'
 _COPYRIGHT_FOLDER = 'copyright'
 _COMPILE_XML = 'compiler.xml'
 _MISC_XML = 'misc.xml'
@@ -81,12 +85,12 @@ def _generate_intellij_project_file(project_info):
     """
     source_dict = dict.fromkeys(
         list(project_info.source_path['source_folder_path']), False)
-    source_dict.update(dict.fromkeys(
-        list(project_info.source_path['test_folder_path']), True))
-    project_info.iml_path = _generate_iml(
+    source_dict.update(
+        dict.fromkeys(list(project_info.source_path['test_folder_path']), True))
+    project_info.iml_path, _ = _generate_iml(
         project_info.android_root_path, project_info.project_absolute_path,
-        source_dict,
-        list(project_info.source_path['jar_path']))
+        source_dict, list(project_info.source_path['jar_path']),
+        project_info.project_relative_path)
     _generate_modules_xml(project_info.project_absolute_path)
     _generate_vcs_xml(project_info.project_absolute_path)
     _copy_constant_project_files(project_info.project_absolute_path)
@@ -217,7 +221,7 @@ def _collect_content_url(sorted_path_list):
     return content_url_list
 
 
-def _handle_source_folder(root_path, content, source_dict):
+def _handle_source_folder(root_path, content, source_dict, is_module):
     """Handle source folder part of iml.
 
     It would make the source folder group by content.
@@ -235,22 +239,30 @@ def _handle_source_folder(root_path, content, source_dict):
                      path is test or source folder in IntelliJ.
                      e.g.
                      {'path_a': True, 'path_b': False}
+        is_module: True if it is module iml, otherwise it is dependencies iml.
 
     Returns:
         String: Content with source folder handled.
     """
-    src_list = []
     source_list = list(source_dict.keys())
     source_list.sort()
-    content_url_list = _collect_content_url(source_list[:])
-    for url in content_url_list:
-        src_list.append(_CONTENT_URL % os.path.join(root_path, url))
+    src_builder = []
+    if is_module:
+        content_url_list = _collect_content_url(source_list[:])
+        for url in content_url_list:
+            src_builder.append(_CONTENT_URL % os.path.join(root_path, url))
+            for path, is_test_flag in sorted(source_dict.items()):
+                if path.startswith(url):  # The same prefix would be grouped.
+                    src_builder.append(_SOURCE_FOLDER % (os.path.join(
+                        root_path, path), is_test_flag))
+            src_builder.append(_END_CONTENT)
+    else:
         for path, is_test_flag in sorted(source_dict.items()):
-            if path.startswith(url):  # The same prefix would be grouped.
-                src_list.append(_SOURCE_FOLDER % (
-                    os.path.join(root_path, path), is_test_flag))
-        src_list.append(_END_CONTENT)
-    return content.replace(_SOURCE_TOKEN, ''.join(src_list))
+            path = os.path.join(root_path, path)
+            src_builder.append(_CONTENT_URL % path)
+            src_builder.append(_SOURCE_FOLDER % (path, is_test_flag))
+            src_builder.append(_END_CONTENT)
+    return content.replace(_SOURCE_TOKEN, ''.join(src_builder))
 
 
 def _trim_same_root_source(source_list):
@@ -259,7 +271,7 @@ def _trim_same_root_source(source_list):
     The source list may contain lots of duplicate sources.
     For example:
     a/b, a/b/c, a/b/d
-    We only need to import a/b in iml, this function is used to trim useless
+    We only need to import a/b in iml, this function is used to trim redundant
     sources.
 
     Args:
@@ -276,44 +288,69 @@ def _trim_same_root_source(source_list):
     return sorted(tmp_source_list)
 
 
-def _generate_iml(root_path, module_path, source_dict, jar_dependencies):
+def _generate_iml(root_path, module_path, source_dict, jar_dependencies,
+                  relative_path):
     """Generate iml file.
 
     Args:
         root_path: Android source tree root path.
-        module_path: Path of the module.
+        module_path: Absolute path of the module.
         source_dict: A dictionary of sources path with a flag to distinguish the
                      path is test or source folder in IntelliJ.
                      e.g.
                      {'path_a': True, 'path_b': False}
         jar_dependencies: List of the jar path.
+        relative_path: Relative path of the module.
 
     Returns:
-        String: The absolute path of iml.
+        String: The absolute paths of module iml and dependencies iml.
     """
-    content = _read_template(_TEMPLATE_IML_PATH)
-    content = _handle_facet(content, module_path)
-    content = _handle_source_folder(root_path, content, source_dict)
-    content = _handle_module_dependency(root_path, content, jar_dependencies)
+    template = _read_template(_TEMPLATE_IML_PATH)
+
+    # Separate module and dependencies source folder
+    project_source_dict = {}
+    for source in list(source_dict):
+        if source.startswith(relative_path):
+            is_test = source_dict.get(source)
+            source_dict.pop(source)
+            project_source_dict.update({source: is_test})
+
+    # Generate module iml.
+    module_content = _handle_facet(template, module_path)
+    module_content = _handle_source_folder(root_path, module_content,
+                                           project_source_dict, True)
+    module_content = module_content.replace(_MODULE_DEP_TOKEN,
+                                            _MODULE_ORDER_ENTRY)
     module_name = module_path.split(os.sep)[-1]
-    target_path = os.path.join(module_path, module_name + '.iml')
-    _file_generate(target_path, content)
-    return target_path
+    module_iml_path = os.path.join(module_path, module_name + '.iml')
+    _file_generate(module_iml_path, module_content)
+
+    # Generate dependencies iml.
+    dependencies_content = template.replace(_FACET_TOKEN, '')
+    dependencies_content = _handle_source_folder(
+        root_path, dependencies_content, source_dict, False)
+    dependencies_content = _handle_module_dependency(
+        root_path, dependencies_content, jar_dependencies)
+    dependencies_iml_path = os.path.join(module_path, _DEPENDENCIES_IML)
+    _file_generate(dependencies_iml_path, dependencies_content)
+    return module_iml_path, dependencies_iml_path
 
 
 def _generate_modules_xml(module_path):
     """Generate modules.xml file.
 
-    IntelliJ use modules.xml to import which modules should be loaded to
-    project. Since we are using a single project file, it will only contain the
-    module itself.
+    IntelliJ uses modules.xml to import which modules should be loaded to
+    project.
 
     Args:
         module_path: Path of the module.
     """
     content = _read_template(_TEMPLATE_MODULES_PATH)
     module_name = module_path.split(os.sep)[-1]
-    module = _MODULE_SECTION % (module_name, module_name)
+    module = '\n'.join([
+        _MODULE_SECTION % (module_name, module_name),
+        _MODULE_SECTION % (_DEPENDENCIES, _DEPENDENCIES)
+    ])
     content = content.replace(_MODULE_TOKEN, module)
     target_path = os.path.join(module_path, _IDEA_FOLDER, _MODULES_XML)
     _file_generate(target_path, content)
