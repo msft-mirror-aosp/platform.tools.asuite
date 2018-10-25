@@ -5,16 +5,12 @@
     </facet>
     <component name="NewModuleRootManager" inherit-compiler-output="true">
         <exclude-output />
-        <content url="file:///aosp/test_data/project">
-            <sourceFolder url="file:///aosp/test_data/project/level11/level21" isTestSource="False" />
-            <sourceFolder url="file:///aosp/test_data/project/level11/level22/level31" isTestSource="False" />
-            <sourceFolder url="file:///aosp/test_data/project/level12/level22" isTestSource="True" />
+        <content url="file:///aosp/test_data/project/level12/level22">
+            <sourceFolder url="file:///aosp/test_data/project/level12/level22" isTestSource="False" />
         </content>
 
         <orderEntry type="inheritedJdk" />
         <orderEntry type="sourceFolder" forTests="false" />
-    <orderEntry type="module-library"><library><CLASSES><root url="jar:///aosp/test1.jar!/" /></CLASSES><JAVADOC /><SOURCES /></library></orderEntry>
-    <orderEntry type="module-library"><library><CLASSES><root url="jar:///aosp/test2.jar!/" /></CLASSES><JAVADOC /><SOURCES /></library></orderEntry>
-
+        <orderEntry type="module" module-name="dependencies" />
     </component>
 </module>
