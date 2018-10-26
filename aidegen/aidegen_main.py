@@ -108,7 +108,7 @@ def main(argv):
     project.modules_info = module_util_obj.generate_module_info_json(
         project, args.verbose)
     project.dep_modules = project.get_dep_modules()
-    locate_source(project)
+    locate_source(project, args.verbose)
     generate_ide_project_file(project)
     launch_ide(project.iml_path)
 
