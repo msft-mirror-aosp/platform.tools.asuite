@@ -17,7 +17,10 @@
 """Unittests for source_locator."""
 
 import os
+import shutil
+import tempfile
 import unittest
+from unittest import mock
 
 from aidegen import unittest_constants as uc
 from aidegen.lib import source_locator
@@ -171,6 +174,52 @@ class SourceLocatorUnittests(unittest.TestCase):
                                                 module_info)
         module_data.locate_sources_path()
         self.assertEqual(module_data.jar_files, result_jar_list)
+
+    @mock.patch('aidegen.lib.project_info.ProjectInfo')
+    @mock.patch('atest.atest_utils.build')
+    def test_locate_source(self, mock_atest_utils_build, mock_project_info):
+        """Test locate_source handling."""
+        mock_atest_utils_build.build.return_value = True
+        test_root_path = os.path.join(tempfile.mkdtemp(), 'test')
+        shutil.copytree(uc.TEST_DATA_PATH, test_root_path)
+        mock_project_info.android_root_path = test_root_path
+        generated_jar = ('out/soong/.intermediates/packages/apps/test/test/'
+                         'android_common/generated.jar')
+        module_info = dict(_MODULE_INFO)
+        module_info['srcs'].extend([
+            ('out/soong/.intermediates/packages/apps/test/test/android_common/'
+             'gen/test.srcjar')])
+        module_info['installed'] = [generated_jar]
+        mock_project_info.dep_modules = {'test': module_info}
+        mock_project_info.source_path = {
+            'source_folder_path': set(),
+            'test_folder_path': set(),
+            'jar_path': set()
+        }
+        # Show warning when the jar not exists after build the module.
+        result_jar = set()
+        source_locator.locate_source(mock_project_info, False, True)
+        self.assertEqual(mock_project_info.source_path['jar_path'], result_jar)
+
+        # Test on jar exists.
+        jar_abspath = os.path.join(test_root_path, generated_jar)
+        result_jar = set([generated_jar])
+        try:
+            open(jar_abspath, 'w').close()
+            source_locator.locate_source(mock_project_info, False, False)
+            self.assertEqual(mock_project_info.source_path['jar_path'],
+                             result_jar)
+        finally:
+            shutil.rmtree(test_root_path)
+
+        # Test collects source and test folders.
+        result_source = set(['packages/apps/test/src/main/java',
+                             'packages/apps/test/test'])
+        result_test = set(['packages/apps/test/test/com/android'])
+        self.assertEqual(mock_project_info.source_path['source_folder_path'],
+                         result_source)
+        self.assertEqual(mock_project_info.source_path['test_folder_path'],
+                         result_test)
 
 
 if __name__ == '__main__':
