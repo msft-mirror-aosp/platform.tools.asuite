@@ -43,6 +43,7 @@ import argparse
 import logging
 import sys
 
+from aidegen.lib.common_util import time_logged
 from aidegen.lib.ide_util import launch_ide
 from aidegen.lib.module_info_util import ModuleInfoUtil
 from aidegen.lib.project_file_gen import generate_ide_project_file
@@ -91,6 +92,7 @@ def _configure_logging(verbose):
     logging.basicConfig(level=level, format=log_format, datefmt=datefmt)
 
 
+@time_logged
 def main(argv):
     """Main entry.
 
@@ -106,7 +108,7 @@ def main(argv):
     project.modules_info = module_util_obj.generate_module_info_json(
         project, args.verbose)
     project.dep_modules = project.get_dep_modules()
-    locate_source(project)
+    locate_source(project, args.verbose)
     generate_ide_project_file(project)
     launch_ide(project.iml_path)
 

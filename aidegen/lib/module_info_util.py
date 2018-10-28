@@ -31,6 +31,7 @@ import json
 import os
 import sys
 
+from aidegen.lib.common_util import time_logged
 from aidegen.lib import errors
 from atest import atest_utils
 from atest import constants
@@ -45,7 +46,8 @@ _KEY_DEP = 'dependencies'
 _KEY_SRCS = 'srcs'
 _MERGE_NEEDED_ITEMS = [_KEY_CLS, _KEY_PATH, _KEY_INS, _KEY_DEP, _KEY_SRCS]
 _BUILD_ENV_VARS = {
-    'SOONG_COLLECT_JAVA_DEPS' : 'true'
+    'SOONG_COLLECT_JAVA_DEPS' : 'true',
+    'DISABLE_ROBO_RUN_TESTS' : 'true'
 }
 _MODULES_IN = 'MODULES-IN-%s'
 _RELATIVE_PATH = '../'
@@ -67,11 +69,13 @@ class ModuleInfoUtil():
         """Return Atest module info instance."""
         return self._atest_module_info
 
+    @time_logged
     def generate_module_info_json(self, project, verbose):
         """Generate a merged json dictionary.
 
         Linked functions:
-            _open_json(json_path)
+            _build_target(project, verbose)
+            _get_soong_build_json_dict()
             _merge_json(mk_dict, bp_dict)
 
         Args:
@@ -81,49 +85,61 @@ class ModuleInfoUtil():
         Returns:
             A merged json dictionary.
         """
-        build_target = _MODULES_IN % project.project_relative_path.replace(
-            '/', '-')
-        successful_build = atest_utils.build([build_target],
-                                             verbose=verbose,
-                                             env_vars=_BUILD_ENV_VARS)
-        if not successful_build:
-            project_file = glob.glob(
-                os.path.join(project.project_absolute_path,
-                             _INTELLIJ_PROJECT_FILE_EXT))
-            if project_file:
-                query = (_LAUNCH_PROJECT_QUERY) % project_file[0]
-                input_data = input(query)
-                if not input_data.lower() in ['yes', 'y']:
-                    sys.exit(1)
-            else:
-                raise errors.BuildFailureError(
-                    "Failed to build %s." % build_target)
-
-        root_dir = os.environ.get(constants.ANDROID_BUILD_TOP, '/')
-        os.chdir(root_dir)
+        _build_target(project, verbose)
         mk_dict = self._atest_module_info.name_to_module_info
-        soong_out_dir = os.path.join(root_dir, _BLUEPRINT_JSONFILE_OUTDIR)
-        bp_json_path = os.path.join(soong_out_dir, _BLUEPRINT_JSONFILE_NAME)
-        bp_dict = _open_json(bp_json_path)
+        bp_dict = _get_soong_build_json_dict()
         return _merge_json(mk_dict, bp_dict)
 
 
-def _open_json(json_path):
-    """Load a json file and convert it into a json dictionary.
+def _build_target(project, verbose):
+    """Build input project to generate _BLUEPRINT_JSONFILE_NAME.
 
     Args:
-        json_path: A json file path.
+        project: A ProjectInfo instance.
+        verbose: A boolean, if true displays full build output.
+
+    Build results:
+        1. Build successfully return.
+        2. Build failed:
+           1) There's no project file, raise BuildFailureError.
+           2) There exists a project file, ask users if they want to
+              launch IDE with the old project file.
+              a) If the answer is yes, return.
+              b) If the answer is not yes, sys.exit(1)
+    """
+    build_target = _MODULES_IN % project.project_relative_path.replace('/', '-')
+    successful_build = atest_utils.build([build_target],
+                                         verbose=verbose,
+                                         env_vars=_BUILD_ENV_VARS)
+    if not successful_build:
+        project_file = glob.glob(
+            os.path.join(project.project_absolute_path,
+                         _INTELLIJ_PROJECT_FILE_EXT))
+        if project_file:
+            query = (_LAUNCH_PROJECT_QUERY) % project_file[0]
+            input_data = input(query)
+            if not input_data.lower() in ['yes', 'y']:
+                sys.exit(1)
+        else:
+            raise errors.BuildFailureError('Failed to build %s.' % build_target)
+
+
+def _get_soong_build_json_dict():
+    """Load a json file from path and convert it into a json dictionary.
 
     Returns:
         A json dictionary.
     """
+    root_dir = os.environ.get(constants.ANDROID_BUILD_TOP, os.sep)
+    soong_out_dir = os.path.join(root_dir, _BLUEPRINT_JSONFILE_OUTDIR)
+    json_path = os.path.join(soong_out_dir, _BLUEPRINT_JSONFILE_NAME)
     try:
         with open(json_path) as jfile:
             json_dict = json.load(jfile)
             return json_dict
     except IOError as err:
         raise errors.JsonFileNotExistError(
-            "%s does not exist, error: %s." % (json_path, err))
+            '%s does not exist, error: %s.' % (json_path, err))
 
 
 def _merge_module_keys(m_dict, b_dict):
