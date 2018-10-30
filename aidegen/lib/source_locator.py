@@ -46,6 +46,20 @@ _IGNORE_DIRS = [
 ]
 
 
+def multi_projects_locate_source(projects, verbose, build=True):
+    """Locate the paths of dependent source folders and jar files with projects.
+
+    Args:
+        projects: A list of ProjectInfo instances. Information of a project such
+                  as project relative path, project real path, project
+                  dependencies.
+        verbose: A boolean, if true displays full build output.
+        build: A boolean, if true build the modules whose jars don't exist.
+    """
+    for project in projects:
+        locate_source(project, verbose, build)
+
+
 def locate_source(project, verbose, build=True):
     """Locate the paths of dependent source folders and jar files.
 
@@ -71,8 +85,8 @@ def locate_source(project, verbose, build=True):
             }
 
     Args:
-        project: ProjectInfo class. Information of a project such as project
-                 relative path, project real path, project dependencies.
+        project: A ProjectInfo instance. Information of a project such as
+                 project relative path, project real path, project dependencies.
         verbose: A boolean, if true displays full build output.
         build: A boolean, if true build the modules whose jar doesn't exist.
 
