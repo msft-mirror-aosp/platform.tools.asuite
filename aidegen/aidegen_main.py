@@ -92,6 +92,27 @@ def _configure_logging(verbose):
     logging.basicConfig(level=level, format=log_format, datefmt=datefmt)
 
 
+def _check_module_exists(target, module_info):
+    """Check if module or project path exists inside source tree.
+
+    Args:
+        target: A string user input from command line. It could be
+                several cases such as:
+                1. Module name, e.g. Settings
+                2. Module path, e.g. packages/apps/Settings
+                3. Relative path, e.g. ../../packages/apps/Settings
+                4. Current directory, e.g. . or no argument
+        module_info: A ModuleInfo class contains data of module-info.json.
+    """
+    rel_path, abs_path = ProjectInfo.get_related_path(target, module_info)
+    if not abs_path.startswith(ProjectInfo.android_root_path):
+        logging.error('%s is outside android root.', abs_path)
+        sys.exit(1)
+    if not module_info.get_module_names(rel_path):
+        logging.error('No modules defined at %s.', rel_path)
+        sys.exit(1)
+
+
 @time_logged
 def main(argv):
     """Main entry.
@@ -103,9 +124,9 @@ def main(argv):
     """
     args = _parse_args(argv)
     _configure_logging(args.verbose)
-    module_util_obj = ModuleInfoUtil()
-    project = ProjectInfo(args, module_util_obj.atest_module_info)
-    project.modules_info = module_util_obj.generate_module_info_json(
+    _check_module_exists(args.target, ModuleInfoUtil.atest_module_info)
+    project = ProjectInfo(args.target, ModuleInfoUtil.atest_module_info)
+    project.modules_info = ModuleInfoUtil().generate_module_info_json(
         project, args.verbose)
     project.dep_modules = project.get_dep_modules()
     locate_source(project, args.verbose)

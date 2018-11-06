@@ -61,13 +61,7 @@ class ModuleInfoUtil():
     """Class offers a merged dictionary of both mk and bp json files and
     fast/easy lookup for Module related details."""
 
-    def __init__(self):
-        self._atest_module_info = module_info.ModuleInfo()
-
-    @property
-    def atest_module_info(self):
-        """Return Atest module info instance."""
-        return self._atest_module_info
+    atest_module_info = module_info.ModuleInfo()
 
     @time_logged
     def generate_module_info_json(self, project, verbose):
@@ -86,7 +80,7 @@ class ModuleInfoUtil():
             A merged json dictionary.
         """
         _build_target(project, verbose)
-        mk_dict = self._atest_module_info.name_to_module_info
+        mk_dict = self.atest_module_info.name_to_module_info
         bp_dict = _get_soong_build_json_dict()
         return _merge_json(mk_dict, bp_dict)
 
