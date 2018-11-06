@@ -28,8 +28,10 @@ _KEY_DEP = 'dependencies'
 class ProjectInfo():
     """Project information.
 
-    Attributes:
+    Class attributes:
         android_root_path: The path to android source root.
+
+    Attributes:
         project_absolute_path: The absolute path to the project.
         project_relative_path: The relative path to the project by
                                android_root_path.
@@ -41,6 +43,8 @@ class ProjectInfo():
                      project_module_names.
     """
 
+    android_root_path = os.environ.get(constants.ANDROID_BUILD_TOP)
+
     def __init__(self, args, module_info):
         """ProjectInfo initialize.
 
@@ -50,15 +54,10 @@ class ProjectInfo():
                   project path.
             module_info: A ModuleInfo class contains data of module-info.json.
         """
-        self.android_root_path = os.environ.get(constants.ANDROID_BUILD_TOP)
         # TODO: Find the closest parent module if no modules defined at project
         #       path.
-        rel_path, abs_path = self._get_related_path(args.target, module_info)
-        assert abs_path.startswith(self.android_root_path), (
-            'The path is outside android root: %s.' % abs_path)
+        rel_path, abs_path = self.get_related_path(args.target, module_info)
         self.project_module_names = module_info.get_module_names(rel_path)
-        assert self.project_module_names, (
-            'No modules defined at %s.' % rel_path)
         self.project_relative_path = rel_path
         self.project_absolute_path = abs_path
         self.modules_info = {}
@@ -83,11 +82,12 @@ class ProjectInfo():
             'jar_path': set()
         }
 
-    def _get_related_path(self, target, module_info):
+    @classmethod
+    def get_related_path(cls, target, module_info):
         """Get the relative and absolute paths of target from module-info.
 
         Args:
-            target: A list of string user input from command line. Could be
+            target: A string user input from command line. It could be
                     several cases such as:
                     1. Module name. e.g. Settings
                     2. Module path. e.g. packages/apps/Settings
@@ -101,21 +101,21 @@ class ProjectInfo():
         """
         if target:
             # User inputs a module name.
-            if module_info.is_module(target[0]):
-                rel_path = module_info.get_paths(target[0])[0]
-                abs_path = os.path.join(self.android_root_path, rel_path)
+            if module_info.is_module(target):
+                rel_path = module_info.get_paths(target)[0]
+                abs_path = os.path.join(cls.android_root_path, rel_path)
             # User inputs a module path.
-            elif module_info.get_module_names(target[0]):
-                rel_path = target[0]
-                abs_path = os.path.join(self.android_root_path, rel_path)
+            elif module_info.get_module_names(target):
+                rel_path = target
+                abs_path = os.path.join(cls.android_root_path, rel_path)
             # User inputs a relative path of current directory.
             else:
-                abs_path = os.path.abspath(os.path.join(os.getcwd(), target[0]))
-                rel_path = os.path.relpath(abs_path, self.android_root_path)
+                abs_path = os.path.abspath(os.path.join(os.getcwd(), target))
+                rel_path = os.path.relpath(abs_path, cls.android_root_path)
         else:
             # User doesn't input.
             abs_path = os.getcwd()
-            rel_path = os.path.relpath(abs_path, self.android_root_path)
+            rel_path = os.path.relpath(abs_path, cls.android_root_path)
         return rel_path, abs_path
 
     def set_modules_under_project_path(self):
