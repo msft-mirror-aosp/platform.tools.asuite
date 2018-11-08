@@ -78,7 +78,6 @@ class ProjectInfo():
         ])
         self.source_path = {
             'source_folder_path': set(),
-            'test_folder_path': set(),
             'jar_path': set()
         }
 
@@ -87,8 +86,8 @@ class ProjectInfo():
         """Get the relative and absolute paths of target from module-info.
 
         Args:
-            target: A string user input from command line. It could be
-                    several cases such as:
+            target: A list of target module or path which user input from
+                    command line. It could be several cases such as:
                     1. Module name. e.g. Settings
                     2. Module path. e.g. packages/apps/Settings
                     3. Relative path. e.g. ../../packages/apps/Settings
@@ -100,17 +99,20 @@ class ProjectInfo():
             abs_path: The absolute path of a module.
         """
         if target:
-            # User inputs a module name.
-            if module_info.is_module(target):
-                rel_path = module_info.get_paths(target)[0]
+            # User can inputs a list of modules name but only support first one
+            # module or module path now.
+            first_target = target[0]
+            if module_info.is_module(first_target):
+                rel_path = module_info.get_paths(first_target)[0]
                 abs_path = os.path.join(cls.android_root_path, rel_path)
             # User inputs a module path.
-            elif module_info.get_module_names(target):
-                rel_path = target
+            elif module_info.get_module_names(first_target):
+                rel_path = first_target
                 abs_path = os.path.join(cls.android_root_path, rel_path)
             # User inputs a relative path of current directory.
             else:
-                abs_path = os.path.abspath(os.path.join(os.getcwd(), target))
+                abs_path = os.path.abspath(os.path.join(os.getcwd(),
+                                                        first_target))
                 rel_path = os.path.relpath(abs_path, cls.android_root_path)
         else:
             # User doesn't input.

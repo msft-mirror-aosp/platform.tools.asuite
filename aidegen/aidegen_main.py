@@ -125,7 +125,7 @@ def main(argv):
     args = _parse_args(argv)
     _configure_logging(args.verbose)
     _check_module_exists(args.target, ModuleInfoUtil.atest_module_info)
-    project = ProjectInfo(args.target, ModuleInfoUtil.atest_module_info)
+    project = ProjectInfo(args, ModuleInfoUtil.atest_module_info)
     project.modules_info = ModuleInfoUtil().generate_module_info_json(
         project, args.verbose)
     project.dep_modules = project.get_dep_modules()
