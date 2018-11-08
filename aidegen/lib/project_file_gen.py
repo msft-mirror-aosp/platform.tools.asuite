@@ -85,8 +85,6 @@ def _generate_intellij_project_file(project_info):
     """
     source_dict = dict.fromkeys(
         list(project_info.source_path['source_folder_path']), False)
-    source_dict.update(
-        dict.fromkeys(list(project_info.source_path['test_folder_path']), True))
     project_info.iml_path, _ = _generate_iml(
         project_info.android_root_path, project_info.project_absolute_path,
         source_dict, list(project_info.source_path['jar_path']),

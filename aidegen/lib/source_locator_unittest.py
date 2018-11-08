@@ -44,12 +44,10 @@ class SourceLocatorUnittests(unittest.TestCase):
         """Test _collect_srcs_paths create the source path list."""
         result_source = set(['packages/apps/test/src/main/java',
                              'packages/apps/test/test'])
-        result_test = set(['packages/apps/test/test/com/android'])
         module_data = source_locator.ModuleData(uc.TEST_DATA_PATH, _MODULE_NAME,
                                                 _MODULE_INFO)
         module_data._collect_srcs_paths()
         self.assertEqual(module_data.src_dirs, result_source)
-        self.assertEqual(module_data.test_dirs, result_test)
 
     def test_get_source_folder(self):
         """Test _get_source_folder process."""
@@ -139,13 +137,11 @@ class SourceLocatorUnittests(unittest.TestCase):
         module_info = dict(_MODULE_INFO)
         result_src_list = set(['packages/apps/test/src/main/java',
                                'packages/apps/test/test'])
-        result_test_list = set(['packages/apps/test/test/com/android'])
         result_jar_list = set()
         module_data = source_locator.ModuleData(uc.TEST_DATA_PATH, _MODULE_NAME,
                                                 module_info)
         module_data.locate_sources_path()
         self.assertEqual(module_data.src_dirs, result_src_list)
-        self.assertEqual(module_data.test_dirs, result_test_list)
         self.assertEqual(module_data.jar_files, result_jar_list)
 
         # Test find jar files.
@@ -193,7 +189,6 @@ class SourceLocatorUnittests(unittest.TestCase):
         mock_project_info.dep_modules = {'test': module_info}
         mock_project_info.source_path = {
             'source_folder_path': set(),
-            'test_folder_path': set(),
             'jar_path': set()
         }
         # Show warning when the jar not exists after build the module.
@@ -215,11 +210,8 @@ class SourceLocatorUnittests(unittest.TestCase):
         # Test collects source and test folders.
         result_source = set(['packages/apps/test/src/main/java',
                              'packages/apps/test/test'])
-        result_test = set(['packages/apps/test/test/com/android'])
         self.assertEqual(mock_project_info.source_path['source_folder_path'],
                          result_source)
-        self.assertEqual(mock_project_info.source_path['test_folder_path'],
-                         result_test)
 
 
 if __name__ == '__main__':
