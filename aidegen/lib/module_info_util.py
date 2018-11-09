@@ -22,8 +22,7 @@ files. Then it will load these two json files into two json dictionaries,
 merge them into one dictionary and return the merged dictionary to its caller.
 
 Example usage:
-module_info_obj = ModuleInfoUtil()
-project.dependency_info = module_info_obj.generate_module_info_json(module_path)
+merged_dict = generate_module_info_json(atest_module_info, project, verbose)
 """
 
 import glob
@@ -32,10 +31,10 @@ import os
 import sys
 
 from aidegen.lib.common_util import time_logged
+from aidegen.lib.common_util import get_related_paths
 from aidegen.lib import errors
 from atest import atest_utils
 from atest import constants
-from atest import module_info
 
 _BLUEPRINT_JSONFILE_NAME = 'module_bp_java_deps.json'
 _BLUEPRINT_JSONFILE_OUTDIR = 'out/soong/'
@@ -46,8 +45,8 @@ _KEY_DEP = 'dependencies'
 _KEY_SRCS = 'srcs'
 _MERGE_NEEDED_ITEMS = [_KEY_CLS, _KEY_PATH, _KEY_INS, _KEY_DEP, _KEY_SRCS]
 _BUILD_ENV_VARS = {
-    'SOONG_COLLECT_JAVA_DEPS' : 'true',
-    'DISABLE_ROBO_RUN_TESTS' : 'true'
+    'SOONG_COLLECT_JAVA_DEPS': 'true',
+    'DISABLE_ROBO_RUN_TESTS': 'true'
 }
 _MODULES_IN = 'MODULES-IN-%s'
 _RELATIVE_PATH = '../'
@@ -57,39 +56,39 @@ _LAUNCH_PROJECT_QUERY = (
     'to launch it (yes/No)?')
 
 
-class ModuleInfoUtil():
-    """Class offers a merged dictionary of both mk and bp json files and
-    fast/easy lookup for Module related details."""
+@time_logged
+def generate_module_info_json(module_info, projects, verbose):
+    """Generate a merged json dictionary.
 
-    atest_module_info = module_info.ModuleInfo()
-
-    @time_logged
-    def generate_module_info_json(self, project, verbose):
-        """Generate a merged json dictionary.
-
-        Linked functions:
-            _build_target(project, verbose)
-            _get_soong_build_json_dict()
-            _merge_json(mk_dict, bp_dict)
-
-        Args:
-            project: A ProjectInfo instance.
-            verbose: A boolean, if true displays full build output.
-
-        Returns:
-            A merged json dictionary.
-        """
+    Linked functions:
         _build_target(project, verbose)
-        mk_dict = self.atest_module_info.name_to_module_info
-        bp_dict = _get_soong_build_json_dict()
-        return _merge_json(mk_dict, bp_dict)
-
-
-def _build_target(project, verbose):
-    """Build input project to generate _BLUEPRINT_JSONFILE_NAME.
+        _get_soong_build_json_dict()
+        _merge_json(mk_dict, bp_dict)
 
     Args:
-        project: A ProjectInfo instance.
+        module_info: A ModuleInfo instance contains data of module-info.json.
+        projects: A list of project names.
+        verbose: A boolean, if true displays full build output.
+
+    Returns:
+        A tuple of Atest module info instance and a merged json dictionary.
+    """
+    _build_target(projects, module_info, verbose)
+    mk_dict = module_info.name_to_module_info
+    bp_dict = _get_soong_build_json_dict()
+    return _merge_json(mk_dict, bp_dict)
+
+
+def _build_target(projects, module_info, verbose):
+    """Build input project list to generate _BLUEPRINT_JSONFILE_NAME.
+
+    When we build a list of projects, we look up in module-info dictionary to
+    get project's relative and absolute paths for generating build target list
+    and then pass it to build function in Atest.
+
+    Args:
+        projects: A list of project names.
+        module_info: A ModuleInfo instance contains data of module-info.json.
         verbose: A boolean, if true displays full build output.
 
     Build results:
@@ -101,21 +100,27 @@ def _build_target(project, verbose):
               a) If the answer is yes, return.
               b) If the answer is not yes, sys.exit(1)
     """
-    build_target = _MODULES_IN % project.project_relative_path.replace('/', '-')
-    successful_build = atest_utils.build([build_target],
-                                         verbose=verbose,
-                                         env_vars=_BUILD_ENV_VARS)
+    build_targets = []
+    main_project_path = None
+    for target in projects:
+        rel_path, abs_path = get_related_paths(module_info, target)
+        build_target = _MODULES_IN % rel_path.replace('/', '-')
+        build_targets.append(build_target)
+        if not main_project_path:
+            main_project_path = abs_path
+    successful_build = atest_utils.build(
+        build_targets, verbose=verbose, env_vars=_BUILD_ENV_VARS)
     if not successful_build:
         project_file = glob.glob(
-            os.path.join(project.project_absolute_path,
-                         _INTELLIJ_PROJECT_FILE_EXT))
+            os.path.join(main_project_path, _INTELLIJ_PROJECT_FILE_EXT))
         if project_file:
             query = (_LAUNCH_PROJECT_QUERY) % project_file[0]
             input_data = input(query)
             if not input_data.lower() in ['yes', 'y']:
                 sys.exit(1)
         else:
-            raise errors.BuildFailureError('Failed to build %s.' % build_target)
+            raise errors.BuildFailureError(
+                'Failed to build %s.' % ' '.join(build_targets))
 
 
 def _get_soong_build_json_dict():

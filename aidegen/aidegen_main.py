@@ -43,12 +43,14 @@ import argparse
 import logging
 import sys
 
+from aidegen import constant
 from aidegen.lib.common_util import time_logged
+from aidegen.lib.common_util import get_related_paths
 from aidegen.lib.ide_util import launch_ide
-from aidegen.lib.module_info_util import ModuleInfoUtil
-from aidegen.lib.project_file_gen import generate_ide_project_file
+from aidegen.lib.project_file_gen import generate_ide_project_files
 from aidegen.lib.project_info import ProjectInfo
-from aidegen.lib.source_locator import locate_source
+from aidegen.lib.source_locator import multi_projects_locate_source
+from atest import module_info
 
 
 def _parse_args(args):
@@ -63,12 +65,14 @@ def _parse_args(args):
     parser = argparse.ArgumentParser(
         description=__doc__,
         formatter_class=argparse.RawDescriptionHelpFormatter,
-        usage='aidegen [module_name or project_path]')
+        usage=('aidegen [module_name1 module_name2... '
+               'project_path1 project_path2...]'))
     parser.required = False
     parser.add_argument(
-        'target',
+        'targets',
         type=str,
         nargs='*',
+        default=[''],
         help=('Android module name or path.'
               'e.g. Settings or packages/apps/Settings'))
     parser.add_argument(
@@ -92,25 +96,29 @@ def _configure_logging(verbose):
     logging.basicConfig(level=level, format=log_format, datefmt=datefmt)
 
 
-def _check_module_exists(target, module_info):
+def _check_module_exists(atest_module_info, targets):
     """Check if module or project path exists inside source tree.
 
     Args:
-        target: A string user input from command line. It could be
-                several cases such as:
-                1. Module name, e.g. Settings
-                2. Module path, e.g. packages/apps/Settings
-                3. Relative path, e.g. ../../packages/apps/Settings
-                4. Current directory, e.g. . or no argument
-        module_info: A ModuleInfo class contains data of module-info.json.
+        atest_module_info: A ModuleInfo instance contains data of
+                           module-info.json.
+        targets: A list of target modules or project paths from user input, when
+                 locating the target, project with matched module name of the
+                 target has a higher priority than project path. It could be
+                 several cases such as:
+                 1. Module name, e.g. Settings
+                 2. Module path, e.g. packages/apps/Settings
+                 3. Relative path, e.g. ../../packages/apps/Settings
+                 4. Current directory, e.g. . or no argument
     """
-    rel_path, abs_path = ProjectInfo.get_related_path(target, module_info)
-    if not abs_path.startswith(ProjectInfo.android_root_path):
-        logging.error('%s is outside android root.', abs_path)
-        sys.exit(1)
-    if not module_info.get_module_names(rel_path):
-        logging.error('No modules defined at %s.', rel_path)
-        sys.exit(1)
+    for target in targets:
+        rel_path, abs_path = get_related_paths(atest_module_info, target)
+        if not abs_path.startswith(constant.ANDROID_ROOT_PATH):
+            logging.error('%s is outside android root.', abs_path)
+            sys.exit(1)
+        if not atest_module_info.get_module_names(rel_path):
+            logging.error('No modules defined at %s.', rel_path)
+            sys.exit(1)
 
 
 @time_logged
@@ -124,14 +132,13 @@ def main(argv):
     """
     args = _parse_args(argv)
     _configure_logging(args.verbose)
-    _check_module_exists(args.target, ModuleInfoUtil.atest_module_info)
-    project = ProjectInfo(args, ModuleInfoUtil.atest_module_info)
-    project.modules_info = ModuleInfoUtil().generate_module_info_json(
-        project, args.verbose)
-    project.dep_modules = project.get_dep_modules()
-    locate_source(project, args.verbose)
-    generate_ide_project_file(project)
-    launch_ide(project.iml_path)
+    atest_module_info = module_info.ModuleInfo()
+    _check_module_exists(atest_module_info, args.targets)
+    projects = ProjectInfo.generate_projects(atest_module_info, args.targets,
+                                             args.verbose)
+    multi_projects_locate_source(projects, args.verbose)
+    generate_ide_project_files(projects)
+    launch_ide(projects[0].iml_path)
 
 
 if __name__ == "__main__":
