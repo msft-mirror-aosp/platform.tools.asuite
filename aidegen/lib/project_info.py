@@ -32,8 +32,8 @@ _ANDROID_MK = 'Android.mk'
 _ANDROID_BP = 'Android.bp'
 _ANDROID_MK_WARN = (
     '%s contains Android.mk file(s) in its dependencies:\n%s\nPlease help '
-    'convert these files into blueprint format in the future, otherwise AIDEGen'
-    'may not be able to include all module dependencies.')
+    'convert these files into blueprint format in the future, otherwise '
+    'AIDEGen may not be able to include all module dependencies.')
 
 
 class ProjectInfo():
