@@ -18,9 +18,9 @@
 
 from __future__ import absolute_import
 
-import os
-
-from atest import constants
+from aidegen import constant
+from aidegen.lib.common_util import get_related_paths
+from aidegen.lib.module_info_util import generate_module_info_json
 
 _KEY_DEP = 'dependencies'
 
@@ -30,6 +30,8 @@ class ProjectInfo():
 
     Class attributes:
         android_root_path: The path to android source root.
+        modules_info: A dict of all modules info by combining module-info.json
+                      with module_bp_java_deps.json.
 
     Attributes:
         project_absolute_path: The absolute path to the project.
@@ -37,31 +39,28 @@ class ProjectInfo():
                                android_root_path.
         project_module_names: A list of module names under project_absolute_path
                               directory or it's subdirectories.
-        modules_info: A dict of all modules info by combining module-info.json
-                      with module_bp_java_deps.json.
         dep_modules: A dict has recursively dependent modules of
                      project_module_names.
     """
 
-    android_root_path = os.environ.get(constants.ANDROID_BUILD_TOP)
+    android_root_path = constant.ANDROID_ROOT_PATH
+    modules_info = {}
 
-    def __init__(self, args, module_info):
+    def __init__(self, module_info, target=None):
         """ProjectInfo initialize.
 
         Args:
-            args: Includes args.module_name or args.project_path from user
-                  input, args.module_name is at high priority to decide the
-                  project path.
             module_info: A ModuleInfo class contains data of module-info.json.
+            target: Includes target module or project path from user input, when
+                    locating the target, project with matching module name of
+                    the given target has a higher priority than project path.
         """
         # TODO: Find the closest parent module if no modules defined at project
         #       path.
-        rel_path, abs_path = self.get_related_path(args.target, module_info)
+        rel_path, abs_path = get_related_paths(module_info, target)
         self.project_module_names = module_info.get_module_names(rel_path)
         self.project_relative_path = rel_path
         self.project_absolute_path = abs_path
-        self.modules_info = {}
-        self.dep_modules = {}
         self.iml_path = ''
         # Append default hard-code modules, source paths and jar files.
         # TODO(b/112058649): Do more research to clarify how to remove these
@@ -78,45 +77,9 @@ class ProjectInfo():
         ])
         self.source_path = {
             'source_folder_path': set(),
-            'test_folder_path': set(),
             'jar_path': set()
         }
-
-    @classmethod
-    def get_related_path(cls, target, module_info):
-        """Get the relative and absolute paths of target from module-info.
-
-        Args:
-            target: A string user input from command line. It could be
-                    several cases such as:
-                    1. Module name. e.g. Settings
-                    2. Module path. e.g. packages/apps/Settings
-                    3. Relative path. e.g. ../../packages/apps/Settings
-                    4. Current directory. e.g. . or no argument
-            module_info: A ModuleInfo class contains data of module-info.json.
-
-        Retuen:
-            rel_path: The relative path of a module.
-            abs_path: The absolute path of a module.
-        """
-        if target:
-            # User inputs a module name.
-            if module_info.is_module(target):
-                rel_path = module_info.get_paths(target)[0]
-                abs_path = os.path.join(cls.android_root_path, rel_path)
-            # User inputs a module path.
-            elif module_info.get_module_names(target):
-                rel_path = target
-                abs_path = os.path.join(cls.android_root_path, rel_path)
-            # User inputs a relative path of current directory.
-            else:
-                abs_path = os.path.abspath(os.path.join(os.getcwd(), target))
-                rel_path = os.path.relpath(abs_path, cls.android_root_path)
-        else:
-            # User doesn't input.
-            abs_path = os.getcwd()
-            rel_path = os.path.relpath(abs_path, cls.android_root_path)
-        return rel_path, abs_path
+        self.dep_modules = self.get_dep_modules()
 
     def set_modules_under_project_path(self):
         """Find modules under the project path whose class is JAVA_LIBRARIES."""
@@ -167,3 +130,21 @@ class ProjectInfo():
                 if _KEY_DEP in dep[name] and dep[name][_KEY_DEP]:
                     dep.update(self.get_dep_modules(dep[name][_KEY_DEP]))
         return dep
+
+    @classmethod
+    def generate_projects(cls, module_info, targets, verbose):
+        """Generate a list of projects in one time by a list of module names.
+
+        Args:
+            module_info: An Atest module-info instance.
+            targets: A list of target modules or project paths from user input,
+                     when locating the target, project with matched module name
+                     of the target has a higher priority than project path.
+            verbose: A boolean. If true, display DEBUG level logs.
+
+        Returns:
+            List: A list of ProjectInfo instances.
+        """
+        cls.modules_info = generate_module_info_json(module_info, targets,
+                                                     verbose)
+        return [ProjectInfo(module_info, target) for target in targets]

@@ -46,6 +46,20 @@ _IGNORE_DIRS = [
 ]
 
 
+def multi_projects_locate_source(projects, verbose, build=True):
+    """Locate the paths of dependent source folders and jar files with projects.
+
+    Args:
+        projects: A list of ProjectInfo instances. Information of a project such
+                  as project relative path, project real path, project
+                  dependencies.
+        verbose: A boolean, if true displays full build output.
+        build: A boolean, if true build the modules whose jars don't exist.
+    """
+    for project in projects:
+        locate_source(project, verbose, build)
+
+
 def locate_source(project, verbose, build=True):
     """Locate the paths of dependent source folders and jar files.
 
@@ -71,8 +85,8 @@ def locate_source(project, verbose, build=True):
             }
 
     Args:
-        project: ProjectInfo class. Information of a project such as project
-                 relative path, project real path, project dependencies.
+        project: A ProjectInfo instance. Information of a project such as
+                 project relative path, project real path, project dependencies.
         verbose: A boolean, if true displays full build output.
         build: A boolean, if true build the modules whose jar doesn't exist.
 
@@ -82,7 +96,6 @@ def locate_source(project, verbose, build=True):
             project.source_path = {
                 'source_folder_path': ['path/to/source/folder1',
                                        'path/to/source/folder2', ...],
-                'test_folder_path': ['path/to/test/folder', ...],
                 'jar_path': ['path/to/jar/file1', 'path/to/jar/file2', ...]
             }
     """
@@ -95,7 +108,6 @@ def locate_source(project, verbose, build=True):
                             project.dep_modules[module_name])
         module.locate_sources_path()
         project.source_path['source_folder_path'].update(module.src_dirs)
-        project.source_path['test_folder_path'].update(module.test_dirs)
         project.source_path['jar_path'].update(module.jar_files)
         if module.jar_nonexistent:
             missing_jars.add(module_name)
@@ -159,7 +171,6 @@ class ModuleData():
                             if _KEY_PATH in self.module_data
                             and self.module_data[_KEY_PATH] else '')
         self.src_dirs = set()
-        self.test_dirs = set()
         self.jar_files = set()
         self.is_android_support_module = self.module_path.startswith(
             _ANDROID_SUPPORT_PATH_KEYWORD)
@@ -211,19 +222,6 @@ class ModuleData():
                 if src_dir and not any(path in src_dir
                                        for path in _IGNORE_DIRS):
                     self.src_dirs.add(src_dir)
-                    self._collect_test_paths(src_item, src_dir)
-
-    def _collect_test_paths(self, java_file, src_dir):
-        """Collect test folder path when the java name ends with test.
-
-        Args:
-            java_file: A path to a java file.
-            src_dir: A path to source folder(e.g. src/main/java).
-        """
-        java_dir = os.path.dirname(java_file)
-        if (os.path.splitext(java_file)[0].lower().endswith('test')
-                and src_dir != java_dir):
-            self.test_dirs.add(java_dir)
 
     # pylint: disable=inconsistent-return-statements
     def _get_source_folder(self, java_file):

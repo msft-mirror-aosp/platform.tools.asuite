@@ -42,9 +42,11 @@ _ORDER_ENTRY = ('        <orderEntry type="module-library"><library>'
                 '<CLASSES><root url="jar://%s!/" /></CLASSES>'
                 '<JAVADOC /><SOURCES /></library></orderEntry>\n')
 _MODULE_ORDER_ENTRY = ('        <orderEntry type="module" '
-                       'module-name="dependencies" />')
+                       'module-name="%s" />')
 _MODULE_SECTION = ('            <module fileurl="file:///$PROJECT_DIR$/%s.iml"'
                    ' filepath="$PROJECT_DIR$/%s.iml" />')
+_SUB_MODULES_SECTION = ('            <module fileurl="file:///%s" '
+                        'filepath="%s" />')
 _VCS_SECTION = '        <mapping directory="%s" vcs="Git" />'
 _FACET_TOKEN = '@FACETS@'
 _SOURCE_TOKEN = '@SOURCES@'
@@ -66,44 +68,54 @@ _COPYRIGHT_FOLDER = 'copyright'
 _COMPILE_XML = 'compiler.xml'
 _MISC_XML = 'misc.xml'
 _ANDROID_MANIFEST = 'AndroidManifest.xml'
+_IML_EXTENSION = '.iml'
 
 
-def generate_ide_project_file(project_info):
-    """Generates project files by IDE parameter in project_info.
+def generate_ide_project_files(projects):
+    """Generate IDE project files by a list of ProjectInfo instances.
+
+    For multiple modules case, we call _generate_intellij_project_file to
+    generate iml file for submodules first and pass submodules' iml file paths
+    as an argument to function _generate_intellij_project_file when we generate
+    main module.iml file. In this way, we can add submodules' dependencies iml
+    and their own iml file paths to main module's module.xml.
 
     Args:
-        project_info: ProjectInfo class.
+        projects: A list of ProjectInfo instances.
     """
-    _generate_intellij_project_file(project_info)
+    for project in projects[1:]:
+        _generate_intellij_project_file(project)
+    iml_paths = [project.iml_path for project in projects[1:]]
+    _generate_intellij_project_file(projects[0],
+                                    iml_paths if iml_paths != [] else None)
 
 
-def _generate_intellij_project_file(project_info):
+def _generate_intellij_project_file(project_info, iml_path_list=None):
     """Generates IntelliJ project files.
 
     Args:
-        project_info: ProjectInfo class.
+        project_info: ProjectInfo instance.
+        iml_path_list: A list of submodule iml paths.
     """
     source_dict = dict.fromkeys(
         list(project_info.source_path['source_folder_path']), False)
-    source_dict.update(
-        dict.fromkeys(list(project_info.source_path['test_folder_path']), True))
     project_info.iml_path, _ = _generate_iml(
-        project_info.android_root_path, project_info.project_absolute_path,
+        constant.ANDROID_ROOT_PATH, project_info.project_absolute_path,
         source_dict, list(project_info.source_path['jar_path']),
         project_info.project_relative_path)
-    _generate_modules_xml(project_info.project_absolute_path)
+    _generate_modules_xml(project_info.project_absolute_path, iml_path_list)
     _generate_vcs_xml(project_info.project_absolute_path)
     _copy_constant_project_files(project_info.project_absolute_path)
 
 
-def _read_template(path):
-    """Read the template.
+def _read_file_content(path):
+    """Read file's content.
 
     Args:
-        path: Path of template file.
+        path: Path of input file.
 
     Returns:
-        String: Content of the template.
+        String: Content of the file.
     """
     with open(path) as template:
         return template.read()
@@ -186,6 +198,22 @@ def _handle_module_dependency(root_path, content, jar_dependencies):
     for jar_path in sorted(jar_dependencies):
         module_library += _ORDER_ENTRY % os.path.join(root_path, jar_path)
     return content.replace(_MODULE_DEP_TOKEN, module_library)
+
+
+def _handle_module_depend_for_project(root_path, jar_dependencies):
+    """Add jar section to project iml as well.
+
+    Args:
+        root_path: Android source tree root path.
+        jar_dependencies: List of the jar path.
+
+    Returns:
+        String: Content with module dependency handled.
+    """
+    module_library = ''
+    for jar_path in sorted(jar_dependencies):
+        module_library += _ORDER_ENTRY % os.path.join(root_path, jar_path)
+    return module_library
 
 
 def _collect_content_url(sorted_path_list):
@@ -288,6 +316,7 @@ def _trim_same_root_source(source_list):
     return sorted(tmp_source_list)
 
 
+# pylint: disable=too-many-locals
 def _generate_iml(root_path, module_path, source_dict, jar_dependencies,
                   relative_path):
     """Generate iml file.
@@ -305,7 +334,7 @@ def _generate_iml(root_path, module_path, source_dict, jar_dependencies,
     Returns:
         String: The absolute paths of module iml and dependencies iml.
     """
-    template = _read_template(_TEMPLATE_IML_PATH)
+    template = _read_file_content(_TEMPLATE_IML_PATH)
 
     # Separate module and dependencies source folder
     project_source_dict = {}
@@ -319,10 +348,12 @@ def _generate_iml(root_path, module_path, source_dict, jar_dependencies,
     module_content = _handle_facet(template, module_path)
     module_content = _handle_source_folder(root_path, module_content,
                                            project_source_dict, True)
-    module_content = module_content.replace(_MODULE_DEP_TOKEN,
-                                            _MODULE_ORDER_ENTRY)
     module_name = module_path.split(os.sep)[-1]
-    module_iml_path = os.path.join(module_path, module_name + '.iml')
+    module_iml_path = os.path.join(module_path, module_name + _IML_EXTENSION)
+    dep_name = _get_dependencies_name(module_name)
+    dep_sect = _handle_module_depend_for_project(root_path, jar_dependencies)
+    dep_sect += _MODULE_ORDER_ENTRY % dep_name
+    module_content = module_content.replace(_MODULE_DEP_TOKEN, dep_sect)
     _file_generate(module_iml_path, module_content)
 
     # Generate dependencies iml.
@@ -331,26 +362,53 @@ def _generate_iml(root_path, module_path, source_dict, jar_dependencies,
         root_path, dependencies_content, source_dict, False)
     dependencies_content = _handle_module_dependency(
         root_path, dependencies_content, jar_dependencies)
-    dependencies_iml_path = os.path.join(module_path, _DEPENDENCIES_IML)
+    dependencies_iml_path = os.path.join(module_path, dep_name + _IML_EXTENSION)
     _file_generate(dependencies_iml_path, dependencies_content)
     return module_iml_path, dependencies_iml_path
 
 
-def _generate_modules_xml(module_path):
+def _get_dependencies_name(module_name):
+    """Get module's dependencies iml name which will be written in module.xml.
+
+    Args:
+        module_name: The name will be appended to "dependencies-".
+
+    Returns:
+        String: The joined dependencies iml file name, e.g. "dependencies-core"
+    """
+    return '-'.join([_DEPENDENCIES, module_name])
+
+
+def _generate_modules_xml(module_path, iml_path_list=None):
     """Generate modules.xml file.
 
     IntelliJ uses modules.xml to import which modules should be loaded to
-    project.
+    project. Only in multiple modules case will we pass iml_path_list of
+    submodules' dependencies and their iml file paths to add them into main
+    module's module.xml file. The dependencies iml file names will be changed
+    from original dependencies.iml to dependencies-[module_name].iml,
+    e.g. dependencies-core.iml for core.iml.
 
     Args:
         module_path: Path of the module.
+        iml_path_list: A list of submodule iml paths.
     """
-    content = _read_template(_TEMPLATE_MODULES_PATH)
+    content = _read_file_content(_TEMPLATE_MODULES_PATH)
     module_name = module_path.split(os.sep)[-1]
-    module = '\n'.join([
+    file_name = os.path.splitext(module_name)[0]
+    dep_name = _get_dependencies_name(file_name)
+    module_list = [
         _MODULE_SECTION % (module_name, module_name),
-        _MODULE_SECTION % (_DEPENDENCIES, _DEPENDENCIES)
-    ])
+        _MODULE_SECTION % (dep_name, dep_name)
+    ]
+    if iml_path_list:
+        for iml_path in iml_path_list:
+            iml_dir, iml_name = os.path.split(iml_path)
+            dep_file = _get_dependencies_name(iml_name)
+            dep_path = os.path.join(iml_dir, dep_file)
+            module_list.append(_SUB_MODULES_SECTION % (dep_path, dep_path))
+            module_list.append(_SUB_MODULES_SECTION % (iml_path, iml_path))
+    module = '\n'.join(module_list)
     content = content.replace(_MODULE_TOKEN, module)
     target_path = os.path.join(module_path, _IDEA_FOLDER, _MODULES_XML)
     _file_generate(target_path, content)
@@ -366,7 +424,7 @@ def _generate_vcs_xml(module_path):
     Args:
         module_path: Path of the module.
     """
-    content = _read_template(_TEMPLATE_VCS_PATH)
+    content = _read_file_content(_TEMPLATE_VCS_PATH)
     content = content.replace(_VCS_TOKEN, _VCS_SECTION % module_path)
     target_path = os.path.join(module_path, _IDEA_FOLDER, _VCS_XML)
     _file_generate(target_path, content)
