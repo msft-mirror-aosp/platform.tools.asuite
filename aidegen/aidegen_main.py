@@ -46,7 +46,7 @@ import sys
 from aidegen import constant
 from aidegen.lib.common_util import time_logged
 from aidegen.lib.common_util import get_related_paths
-from aidegen.lib.ide_util import launch_ide
+from aidegen.lib.ide_util import IdeUtil
 from aidegen.lib.project_file_gen import generate_ide_project_files
 from aidegen.lib.project_info import ProjectInfo
 from aidegen.lib.source_locator import multi_projects_locate_source
@@ -80,6 +80,11 @@ def _parse_args(args):
         '--verbose',
         action='store_true',
         help='Display DEBUG level logging.')
+    parser.add_argument(
+        '-i',
+        '--ide',
+        default=['j'],
+        help='Launch IDE type, j: IntelliJ, s: Android Studio.')
     return parser.parse_args(args)
 
 
@@ -134,11 +139,14 @@ def main(argv):
     _configure_logging(args.verbose)
     atest_module_info = module_info.ModuleInfo()
     _check_module_exists(atest_module_info, args.targets)
+    ide_util_obj = IdeUtil(None, args.ide[0])
+    if not ide_util_obj.is_ide_installed():
+        sys.exit(1)
     projects = ProjectInfo.generate_projects(atest_module_info, args.targets,
                                              args.verbose)
     multi_projects_locate_source(projects, args.verbose)
     generate_ide_project_files(projects)
-    launch_ide(projects[0].iml_path)
+    ide_util_obj.launch_ide(projects[0].iml_path)
 
 
 if __name__ == "__main__":
