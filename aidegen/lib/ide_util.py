@@ -21,8 +21,9 @@ existence, IDE type, etc.), launch the project in related IDE.
 
     Typical usage example:
 
-    launch_ide(project_file)
-    launch_intellij(project_file)
+    ide_util_obj = IdeUtil()
+    if ide_util_obj.is_ide_installed():
+        ide_util_obj.launch_ide(self, project_file)
 """
 
 import glob
@@ -85,20 +86,21 @@ class IdeIntelliJ():
         2. Launch an IntelliJ.
     """
 
+    _INTELLIJ_EXE_FILE = 'idea.sh'
+
     # We use this string to determine whether the user has installed
     # intelliJ IDEA, and the reason is that, in linux, the launch script is
     # created by IDEA with specific path naming rule when installed,
     # i.e. /opt/intellij-*/bin/idea.sh.
-    _CHECK_INTELLIJ_PATH = '/opt/intellij-*/bin/idea.sh'
+    _CHECK_INTELLIJ_PATH = os.path.join('/opt/intellij-*/bin',
+                                        _INTELLIJ_EXE_FILE)
 
     # In this version, if community edition(CE) exists, AIDEGen prefers IntelliJ
     # community edition(CE) over ultimate edition(UE).
     # TODO(albaltai): prompt user to select a preferred IDE version from all
     #                 installed versions.
-    _LS_CE_PATH = '/opt/intellij-ce-2*/bin/idea.sh'
-    _LS_UE_PATH = '/opt/intellij-ue-2*/bin/idea.sh'
-
-    _INTELLIJ_EXE_FILE = 'idea.sh'
+    _LS_CE_PATH = os.path.join('/opt/intellij-ce-2*/bin', _INTELLIJ_EXE_FILE)
+    _LS_UE_PATH = os.path.join('/opt/intellij-ue-2*/bin', _INTELLIJ_EXE_FILE)
 
     def __init__(self, installed_path=None):
         self._installed_path = _get_script_from_input_path(
@@ -342,13 +344,14 @@ def _get_script_from_input_path(input_path, ide_file_name):
     Returns:
         IDE executable file(s) if exists otherwise None.
     """
-    if input_path:
-        ide_path = ''
-        if os.path.isfile(input_path):
-            ide_path = _get_script_from_file_path(input_path, ide_file_name)
-        if os.path.isdir(input_path):
-            ide_path = _get_script_from_dir_path(input_path, ide_file_name)
-        if ide_path:
-            logging.debug('IDE installed path from user input: %s.', ide_path)
-            return ide_path
+    if not input_path:
+        return None
+    ide_path = ''
+    if os.path.isfile(input_path):
+        ide_path = _get_script_from_file_path(input_path, ide_file_name)
+    if os.path.isdir(input_path):
+        ide_path = _get_script_from_dir_path(input_path, ide_file_name)
+    if ide_path:
+        logging.debug('IDE installed path from user input: %s.', ide_path)
+        return ide_path
     return None

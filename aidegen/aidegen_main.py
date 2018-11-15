@@ -85,6 +85,11 @@ def _parse_args(args):
         '--ide',
         default=['j'],
         help='Launch IDE type, j: IntelliJ, s: Android Studio.')
+    parser.add_argument(
+        '-p',
+        '--ide-path',
+        dest='ide_installed_path',
+        help='IDE installed path.')
     return parser.parse_args(args)
 
 
@@ -139,8 +144,11 @@ def main(argv):
     _configure_logging(args.verbose)
     atest_module_info = module_info.ModuleInfo()
     _check_module_exists(atest_module_info, args.targets)
-    ide_util_obj = IdeUtil(None, args.ide[0])
+    ide_util_obj = IdeUtil(args.ide_installed_path, args.ide[0])
     if not ide_util_obj.is_ide_installed():
+        logging.error(('Can not find IDE in path: %s, please add it to your '
+                       '$PATH or provide the exact executable IDE script path '
+                       'by "aidegen -p" command.'), args.ide_installed_path)
         sys.exit(1)
     projects = ProjectInfo.generate_projects(atest_module_info, args.targets,
                                              args.verbose)
