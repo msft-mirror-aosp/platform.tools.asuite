@@ -41,6 +41,7 @@ from __future__ import absolute_import
 
 import argparse
 import logging
+import os
 import sys
 
 from aidegen import constant
@@ -126,7 +127,11 @@ def _check_module_exists(atest_module_info, targets):
         if not abs_path.startswith(constant.ANDROID_ROOT_PATH):
             logging.error('%s is outside android root.', abs_path)
             sys.exit(1)
-        if not atest_module_info.get_module_names(rel_path):
+        if not os.path.isdir(abs_path):
+            logging.error('The path %s doesn\'t exist.', rel_path)
+            sys.exit(1)
+        if not any(mod_path.startswith(rel_path)
+                   for mod_path in atest_module_info.path_to_module_info):
             logging.error('No modules defined at %s.', rel_path)
             sys.exit(1)
 
