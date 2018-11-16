@@ -107,8 +107,15 @@ def _configure_logging(verbose):
     logging.basicConfig(level=level, format=log_format, datefmt=datefmt)
 
 
-def _check_module_exists(atest_module_info, targets):
-    """Check if module or project path exists inside source tree.
+def _get_modules(atest_module_info, targets):
+    """Get module or project path for Atest to build.
+
+    The rules:
+        1. If the module doesn't exist in android root, sys.exit(1).
+        2. If module is not a directory, sys.exit(1).
+        3. If it contains any build target, return its relative path, else:
+           1) If it's android root, return target, it will build whole tree.
+           2) If none of above, sys.exit(1)
 
     Args:
         atest_module_info: A ModuleInfo instance contains data of
@@ -121,6 +128,9 @@ def _check_module_exists(atest_module_info, targets):
                  2. Module path, e.g. packages/apps/Settings
                  3. Relative path, e.g. ../../packages/apps/Settings
                  4. Current directory, e.g. . or no argument
+
+    Returns:
+        An iterator of correct module names or project paths.
     """
     for target in targets:
         rel_path, abs_path = get_related_paths(atest_module_info, target)
@@ -130,10 +140,29 @@ def _check_module_exists(atest_module_info, targets):
         if not os.path.isdir(abs_path):
             logging.error('The path %s doesn\'t exist.', rel_path)
             sys.exit(1)
-        if not any(mod_path.startswith(rel_path)
-                   for mod_path in atest_module_info.path_to_module_info):
-            logging.error('No modules defined at %s.', rel_path)
-            sys.exit(1)
+        if has_build_target(atest_module_info, rel_path):
+            yield rel_path
+        else:
+            if abs_path == constant.ANDROID_ROOT_PATH:
+                yield target
+            else:
+                logging.error('No modules defined at %s.', rel_path)
+                sys.exit(1)
+
+
+def has_build_target(atest_module_info, rel_path):
+    """Determine if a relative path contains buildable module.
+
+    Args:
+        atest_module_info: A ModuleInfo instance contains data of
+                           module-info.json.
+        rel_path: The module path relative to android root.
+
+    Returns:
+        True if the relative path contains a build target, otherwise false.
+    """
+    return any(mod_path.startswith(rel_path)
+               for mod_path in atest_module_info.path_to_module_info)
 
 
 @time_logged
@@ -148,7 +177,7 @@ def main(argv):
     args = _parse_args(argv)
     _configure_logging(args.verbose)
     atest_module_info = module_info.ModuleInfo()
-    _check_module_exists(atest_module_info, args.targets)
+    args.targets = list(_get_modules(atest_module_info, args.targets))
     ide_util_obj = IdeUtil(args.ide_installed_path, args.ide[0])
     if not ide_util_obj.is_ide_installed():
         logging.error(('Can not find IDE in path: %s, please add it to your '

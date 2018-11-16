@@ -70,6 +70,11 @@ class ProjectInfo():
         # TODO: Find the closest parent module if no modules defined at project
         #       path.
         rel_path, abs_path = get_related_paths(module_info, target)
+        # If the project is for entire Android source tree, change the target to
+        # source tree's root folder name. In this way, we give IDE project file
+        # a more specific name. e.g, master.iml.
+        if abs_path == constant.ANDROID_ROOT_PATH:
+            target = os.path.basename(abs_path)
         self.project_module_names = module_info.get_module_names(rel_path)
         self.project_relative_path = rel_path
         self.project_absolute_path = abs_path

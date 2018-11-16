@@ -21,3 +21,4 @@ from atest import constants
 
 ROOT_DIR = os.path.dirname(os.path.abspath(__file__))
 ANDROID_ROOT_PATH = os.environ.get(constants.ANDROID_BUILD_TOP)
+KEY_PATH = 'path'
