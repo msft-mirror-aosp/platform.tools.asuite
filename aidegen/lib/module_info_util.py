@@ -27,11 +27,15 @@ merged_dict = generate_module_info_json(atest_module_info, project, verbose)
 
 import glob
 import json
+import logging
 import os
+import subprocess
 import sys
 
+from aidegen import constant
 from aidegen.lib.common_util import time_logged
 from aidegen.lib.common_util import get_related_paths
+from aidegen.lib.common_util import is_target_android_root
 from aidegen.lib import errors
 from atest import atest_utils
 from atest import constants
@@ -73,10 +77,34 @@ def generate_module_info_json(module_info, projects, verbose):
     Returns:
         A tuple of Atest module info instance and a merged json dictionary.
     """
-    _build_target(projects, module_info, verbose)
+    if is_target_android_root(module_info, projects):
+        _build_android_root(verbose)
+    else:
+        _build_target(projects, module_info, verbose)
     mk_dict = module_info.name_to_module_info
     bp_dict = _get_soong_build_json_dict()
     return _merge_json(mk_dict, bp_dict)
+
+
+def _build_android_root(verbose):
+    """Build android root to generate _BLUEPRINT_JSONFILE_NAME.
+
+    Args:
+        verbose: A boolean, if true displays full build output.
+    """
+    cmd = ['make', '-j32']
+    try:
+        if verbose:
+            full_env_vars = os.environ.copy()
+            subprocess.check_call(cmd, stderr=subprocess.STDOUT,
+                                  env=full_env_vars)
+        else:
+            subprocess.check_call(cmd)
+        logging.info('Build successful')
+    except subprocess.CalledProcessError:
+        logging.exception('Error building: %s', constant.ANDROID_ROOT_PATH)
+        root_name = os.path.basename(constant.ANDROID_ROOT_PATH)
+        _build_failed_handle(constant.ANDROID_ROOT_PATH, root_name)
 
 
 def _build_target(projects, module_info, verbose):
@@ -111,16 +139,33 @@ def _build_target(projects, module_info, verbose):
     successful_build = atest_utils.build(
         build_targets, verbose=verbose, env_vars=_BUILD_ENV_VARS)
     if not successful_build:
-        project_file = glob.glob(
-            os.path.join(main_project_path, _INTELLIJ_PROJECT_FILE_EXT))
-        if project_file:
-            query = (_LAUNCH_PROJECT_QUERY) % project_file[0]
-            input_data = input(query)
-            if not input_data.lower() in ['yes', 'y']:
-                sys.exit(1)
-        else:
-            raise errors.BuildFailureError(
-                'Failed to build %s.' % ' '.join(build_targets))
+        _build_failed_handle(main_project_path, projects)
+
+
+def _build_failed_handle(main_project_path, projects):
+    """Handle build failures.
+
+    Args:
+        main_project_path: The main project directory.
+        projects: A list of project names.
+
+    Handle results:
+        1) There's no project file, raise BuildFailureError.
+        2) There exists a project file, ask users if they want to
+           launch IDE with the old project file.
+           a) If the answer is yes, return.
+           b) If the answer is not yes, sys.exit(1)
+    """
+    project_file = glob.glob(
+        os.path.join(main_project_path, _INTELLIJ_PROJECT_FILE_EXT))
+    if project_file:
+        query = (_LAUNCH_PROJECT_QUERY) % project_file[0]
+        input_data = input(query)
+        if not input_data.lower() in ['yes', 'y']:
+            sys.exit(1)
+    else:
+        raise errors.BuildFailureError(
+            'Failed to build %s.' % ' '.join(projects))
 
 
 def _get_soong_build_json_dict():

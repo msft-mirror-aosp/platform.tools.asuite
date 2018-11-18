@@ -87,3 +87,21 @@ def get_related_paths(module_info, target=None):
         abs_path = os.getcwd()
         rel_path = os.path.relpath(abs_path, constant.ANDROID_ROOT_PATH)
     return rel_path, abs_path
+
+
+def is_target_android_root(atest_module_info, targets):
+    """Check if any target is the android root path.
+
+    Args:
+        atest_module_info: A ModuleInfo instance contains data of
+                           module-info.json.
+        targets: A list of target modules or project paths from user input.
+
+    Returns:
+        True if target is android root, otherwise false.
+    """
+    for target in targets:
+        _, abs_path = get_related_paths(atest_module_info, target)
+        if abs_path == constant.ANDROID_ROOT_PATH:
+            return True
+    return False
