@@ -55,7 +55,7 @@ class IdeUtilUnittests(unittest.TestCase):
             ide_util._is_intellij_project(IdeUtilUnittests._TEST_PRJ_PATH2))
 
     @mock.patch('glob.glob', return_value=uc.IDEA_SH_FIND_NONE)
-    def test_get_intellij_version_path_with_none(self, mock_glob):
+    def test_get_intellij_sh_none(self, mock_glob):
         """Test with the cmd return none, test result should be None."""
         mock_glob.return_value = uc.IDEA_SH_FIND_NONE
         self.assertEqual(
@@ -76,9 +76,9 @@ class IdeUtilUnittests(unittest.TestCase):
             ide_util._ask_preference(uc.IDEA_SH_FIND), uc.IDEA_SH_FIND[1])
 
     @unittest.skip('Skip to use real command to launch IDEA.')
-    def test_run_intellij_sh(self):
+    def test_run_intellij_sh_in_linux(self):
         """Follow the target behavior, with sh to show UI, else raise err."""
-        sh_path = IdeIntelliJ._get_script_from_internal_path()
+        sh_path = IdeIntelliJ._get_script_for_linux()
         if sh_path:
             ide_util_obj = IdeUtil()
             ide_util_obj.launch_ide(IdeUtilUnittests._TEST_PRJ_PATH1)
