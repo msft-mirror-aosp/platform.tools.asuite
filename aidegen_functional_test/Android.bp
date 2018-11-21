@@ -13,8 +13,8 @@
 // limitations under the License.
 
 python_defaults {
-    name: "aidegen_default",
-    pkg_path: "aidegen",
+    name: "aidegen_functional_test_default",
+    pkg_path: "aidegen_functional_test",
     version: {
         py2: {
             enabled: false,
@@ -28,27 +28,14 @@ python_defaults {
 }
 
 python_binary_host {
-    name: "aidegen",
-    defaults: ["aidegen_default"],
-    main: "aidegen_main.py",
+    name: "aidegen_functional_test",
+    defaults: ["aidegen_functional_test_default"],
+    main: "aidegen_functional_test_main.py",
     srcs: [
-        "**/*.py",
-    ],
-    data: [
-        "templates/**/*",
+        "aidegen_functional_test_main.py",
     ],
     libs: [
+        "aidegen_lib",
         "atest_module_info",
     ],
-}
-
-python_library_host {
-    name: "aidegen_lib",
-    defaults: ["aidegen_default"],
-    srcs: [
-        "aidegen_main.py",
-        "constant.py",
-        "unittest_constants.py",
-        "lib/*.py",
-    ]
 }

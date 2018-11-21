@@ -26,7 +26,6 @@ from aidegen.lib import project_file_gen
 
 
 # pylint: disable=protected-access
-# pylint: disable=invalid-name
 class AidegenProjectFileGenUnittest(unittest.TestCase):
     """Unit tests for project_file_gen.py."""
 
@@ -64,8 +63,6 @@ class AidegenProjectFileGenUnittest(unittest.TestCase):
     _ANDROID_SOURCE_RELATIVE_PATH = 'test_data/project/level12/'
     _SAMPLE_CONTENT_LIST = ['a/b/c/d', 'e/f']
     _SAMPLE_TRIMMED_SOURCE_LIST = ['a/b/c/d', 'e/f/a', 'e/f/b/c', 'e/f/g/h']
-    _TEST_DICT = {'SystemUI': 'SystemUI.iml', 'tradefed': 'core.iml'}
-    _PRODUCT_DIR = '$PROJECT_DIR$'
 
     def test_handle_facet_with_android_project(self):
         """Test _handle_facet with android project."""
