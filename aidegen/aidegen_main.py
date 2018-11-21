@@ -48,6 +48,7 @@ from aidegen import constant
 from aidegen.lib.common_util import time_logged
 from aidegen.lib.common_util import get_related_paths
 from aidegen.lib.ide_util import IdeUtil
+from aidegen.lib.metrics import log_usage
 from aidegen.lib.project_file_gen import generate_ide_project_files
 from aidegen.lib.project_info import ProjectInfo
 from aidegen.lib.source_locator import multi_projects_locate_source
@@ -179,6 +180,7 @@ def main(argv):
     Args:
         argv: A list of system arguments.
     """
+    log_usage()
     args = _parse_args(argv)
     _configure_logging(args.verbose)
     atest_module_info = module_info.ModuleInfo()
