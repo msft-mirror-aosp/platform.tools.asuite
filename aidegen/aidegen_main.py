@@ -91,6 +91,11 @@ def _parse_args(args):
         '--ide-path',
         dest='ide_installed_path',
         help='IDE installed path.')
+    parser.add_argument(
+        '-n',
+        '--no_launch',
+        action='store_true',
+        help='Do not launch IDE.')
     return parser.parse_args(args)
 
 
@@ -188,8 +193,9 @@ def main(argv):
                                              args.verbose)
     multi_projects_locate_source(projects, args.verbose)
     generate_ide_project_files(projects)
-    ide_util_obj.launch_ide(projects[0].iml_path)
+    if not args.no_launch:
+        ide_util_obj.launch_ide(projects[0].iml_path)
 
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     main(sys.argv[1:])
