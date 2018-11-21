@@ -19,6 +19,6 @@ import os
 
 from atest import constants
 
-ROOT_DIR = os.path.dirname(os.path.abspath(__file__))
 ANDROID_ROOT_PATH = os.environ.get(constants.ANDROID_BUILD_TOP)
+ROOT_DIR = os.path.join(ANDROID_ROOT_PATH, 'tools/asuite/aidegen')
 KEY_PATH = 'path'
