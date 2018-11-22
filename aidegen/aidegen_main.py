@@ -78,6 +78,13 @@ def _parse_args(args):
         help=('Android module name or path.'
               'e.g. Settings or packages/apps/Settings'))
     parser.add_argument(
+        '-d',
+        '--depth',
+        type=int,
+        choices=range(10),
+        default=0,
+        help='The depth of module referenced by source.')
+    parser.add_argument(
         '-v',
         '--verbose',
         action='store_true',
@@ -193,7 +200,7 @@ def main(argv):
         sys.exit(1)
     projects = ProjectInfo.generate_projects(atest_module_info, args.targets,
                                              args.verbose)
-    multi_projects_locate_source(projects, args.verbose)
+    multi_projects_locate_source(projects, args.verbose, args.depth)
     generate_ide_project_files(projects)
     if not args.no_launch:
         ide_util_obj.launch_ide(projects[0].iml_path)
