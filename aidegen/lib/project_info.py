@@ -18,6 +18,7 @@
 
 from __future__ import absolute_import
 
+import logging
 import os
 
 from aidegen import constant
@@ -34,6 +35,7 @@ _ANDROID_MK_WARN = (
     '%s contains Android.mk file(s) in its dependencies:\n%s\nPlease help '
     'convert these files into blueprint format in the future, otherwise '
     'AIDEGen may not be able to include all module dependencies.')
+_FILTER_CLASSES = {'APPS', 'JAVA_LIBRARIES'}
 
 
 class ProjectInfo():
@@ -124,12 +126,20 @@ class ProjectInfo():
                 yield '\t' + os.path.join(rel_path, _ANDROID_MK)
 
     def set_modules_under_project_path(self):
-        """Find modules under the project path whose class is JAVA_LIBRARIES."""
+        """Find modules whose class is qualified to be included under the
+           project path.
+        """
+        logging.info('Find modules whose class is in %s under %s.',
+                     _FILTER_CLASSES, self.project_relative_path)
         for name, data in self.modules_info.items():
-            if ('class' in data and 'JAVA_LIBRARIES' in data['class']
-                    and 'path' in data
+            if ('class' in data and 'path' in data
                     and data['path'][0].startswith(self.project_relative_path)):
-                if name not in self.project_module_names:
+                if not set(data['class']).intersection(_FILTER_CLASSES):
+                    logging.info(('Module %s\'s class setting is %s, none of '
+                                  'which is included in %s, skipping this '
+                                  'module in the project.'),
+                                 name, data['class'], _FILTER_CLASSES)
+                elif name not in self.project_module_names:
                     self.project_module_names.append(name)
 
     def get_dep_modules(self, module_names=None):
