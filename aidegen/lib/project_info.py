@@ -93,7 +93,11 @@ class ProjectInfo():
             # com.android.internal.R.
             'org.apache.http.legacy.stubs.system'
         ])
-        self.source_path = {'source_folder_path': set(), 'jar_path': set()}
+        self.source_path = {
+            'source_folder_path': set(),
+            'test_folder_path': set(),
+            'jar_path': set()
+        }
         self.dep_modules = self.get_dep_modules()
         mk_set = set(self._search_android_make_files(module_info))
         if mk_set:
