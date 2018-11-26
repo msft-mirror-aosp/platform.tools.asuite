@@ -30,8 +30,8 @@ _MODULE_PATH = 'packages/apps/test'
 _MODULE_INFO = {'path': [_MODULE_PATH],
                 'srcs': [
                     'packages/apps/test/src/main/java/com/android/java.java',
-                    'packages/apps/test/test/com/android/test.java',
-                    'packages/apps/test/test/test.srcjar'],
+                    'packages/apps/test/tests/com/android/test.java',
+                    'packages/apps/test/tests/test.srcjar'],
                 'installed': []
                }
 _MODULE_DEPTH = 0
@@ -43,12 +43,13 @@ class SourceLocatorUnittests(unittest.TestCase):
 
     def test_collect_srcs_paths(self):
         """Test _collect_srcs_paths create the source path list."""
-        result_source = set(['packages/apps/test/src/main/java',
-                             'packages/apps/test/test'])
+        result_source = set(['packages/apps/test/src/main/java'])
+        result_test = set(['packages/apps/test/tests'])
         module_data = source_locator.ModuleData(uc.TEST_DATA_PATH, _MODULE_NAME,
                                                 _MODULE_INFO, _MODULE_DEPTH)
         module_data._collect_srcs_paths()
         self.assertEqual(module_data.src_dirs, result_source)
+        self.assertEqual(module_data.test_dirs, result_test)
 
     def test_get_source_folder(self):
         """Test _get_source_folder process."""
@@ -100,7 +101,7 @@ class SourceLocatorUnittests(unittest.TestCase):
         module_info['installed'] = [
             os.path.join(_MODULE_PATH, 'test.aar'),
             os.path.join(_MODULE_PATH, 'test.jar'),
-            os.path.join(_MODULE_PATH, 'test/test_second.jar')]
+            os.path.join(_MODULE_PATH, 'tests/test_second.jar')]
         result_jar_list = set([os.path.join(_MODULE_PATH, 'test.jar')])
         module_data = source_locator.ModuleData(uc.TEST_DATA_PATH, _MODULE_NAME,
                                                 module_info, _MODULE_DEPTH)
@@ -110,9 +111,9 @@ class SourceLocatorUnittests(unittest.TestCase):
         # Test on the jar file path matches the path prefix.
         module_data.jar_files = set()
         result_jar_list = set([os.path.join(_MODULE_PATH,
-                                            'test/test_second.jar')])
+                                            'tests/test_second.jar')])
         module_data._append_jar_from_installed(
-            os.path.join(_MODULE_PATH, 'test/'))
+            os.path.join(_MODULE_PATH, 'tests/'))
         self.assertEqual(module_data.jar_files, result_jar_list)
 
     def test_set_jars_jarfile(self):
@@ -123,10 +124,10 @@ class SourceLocatorUnittests(unittest.TestCase):
         module_info['jars'] = [
             'test.jar',
             'src/test.jar', # This jar file doesn't exist.
-            'test/test_second.jar']
+            'tests/test_second.jar']
         result_jar_list = set([
             os.path.join(_MODULE_PATH, 'test.jar'),
-            os.path.join(_MODULE_PATH, 'test/test_second.jar')])
+            os.path.join(_MODULE_PATH, 'tests/test_second.jar')])
         module_data = source_locator.ModuleData(uc.TEST_DATA_PATH, _MODULE_NAME,
                                                 module_info, _MODULE_DEPTH)
         module_data._set_jars_jarfile()
@@ -136,13 +137,14 @@ class SourceLocatorUnittests(unittest.TestCase):
         """Test locate_sources_path handling."""
         # Test collect source path.
         module_info = dict(_MODULE_INFO)
-        result_src_list = set(['packages/apps/test/src/main/java',
-                               'packages/apps/test/test'])
+        result_src_list = set(['packages/apps/test/src/main/java'])
+        result_test_list = set(['packages/apps/test/tests'])
         result_jar_list = set()
         module_data = source_locator.ModuleData(uc.TEST_DATA_PATH, _MODULE_NAME,
                                                 module_info, _MODULE_DEPTH)
         module_data.locate_sources_path()
         self.assertEqual(module_data.src_dirs, result_src_list)
+        self.assertEqual(module_data.test_dirs, result_test_list)
         self.assertEqual(module_data.jar_files, result_jar_list)
 
         # Test find jar files.
@@ -238,6 +240,7 @@ class SourceLocatorUnittests(unittest.TestCase):
         mock_project_info.dep_modules = {'test': module_info}
         mock_project_info.source_path = {
             'source_folder_path': set(),
+            'test_folder_path': set(),
             'jar_path': set()
         }
         # Show warning when the jar not exists after build the module.
@@ -257,10 +260,12 @@ class SourceLocatorUnittests(unittest.TestCase):
             shutil.rmtree(test_root_path)
 
         # Test collects source and test folders.
-        result_source = set(['packages/apps/test/src/main/java',
-                             'packages/apps/test/test'])
+        result_source = set(['packages/apps/test/src/main/java'])
+        result_test = set(['packages/apps/test/tests'])
         self.assertEqual(mock_project_info.source_path['source_folder_path'],
                          result_source)
+        self.assertEqual(mock_project_info.source_path['test_folder_path'],
+                         result_test)
 
 
 if __name__ == '__main__':
