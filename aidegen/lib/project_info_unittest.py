@@ -22,19 +22,23 @@ from unittest import mock
 from aidegen.lib import project_info
 
 _MODULE_INFO = {
-    'm1': {'class': ['JAVA_LIBRARIES'], 'dependencies': ['m2'], 'path': ['m1']},
-    'm2': {'class': ['JAVA_LIBRARIES'], 'dependencies': ['m3', 'm4']},
-    'm3': {'class': ['JAVA_LIBRARIES'], 'dependencies': []},
-    'm4': {'class': ['JAVA_LIBRARIES'], 'dependencies': ['m6']},
-    'm5': {'class': ['JAVA_LIBRARIES'], 'dependencies': []},
-    'm6': {'class': ['JAVA_LIBRARIES'], 'dependencies': []},
+    'm1': {'class': ['JAVA_LIBRARIES'], 'dependencies': ['m2'], 'path': ['m1'],
+           'depth': 0},
+    'm2': {'class': ['JAVA_LIBRARIES'], 'dependencies': ['m3', 'm4'],
+           'depth': 1},
+    'm3': {'class': ['JAVA_LIBRARIES'], 'dependencies': [], 'depth': 2},
+    'm4': {'class': ['JAVA_LIBRARIES'], 'dependencies': ['m6'], 'depth': 2},
+    'm5': {'class': ['JAVA_LIBRARIES'], 'dependencies': [], 'depth': 0},
+    'm6': {'class': ['JAVA_LIBRARIES'], 'dependencies': [], 'depth': 3},
 }
 _EXPECT_DEPENDENT_MODULES = {
-    'm1': {'class': ['JAVA_LIBRARIES'], 'dependencies': ['m2'], 'path': ['m1']},
-    'm2': {'class': ['JAVA_LIBRARIES'], 'dependencies': ['m3', 'm4']},
-    'm3': {'class': ['JAVA_LIBRARIES'], 'dependencies': []},
-    'm4': {'class': ['JAVA_LIBRARIES'], 'dependencies': ['m6']},
-    'm6': {'class': ['JAVA_LIBRARIES'], 'dependencies': []},
+    'm1': {'class': ['JAVA_LIBRARIES'], 'dependencies': ['m2'], 'path': ['m1'],
+           'depth': 0},
+    'm2': {'class': ['JAVA_LIBRARIES'], 'dependencies': ['m3', 'm4'],
+           'depth': 1},
+    'm3': {'class': ['JAVA_LIBRARIES'], 'dependencies': [], 'depth': 2},
+    'm4': {'class': ['JAVA_LIBRARIES'], 'dependencies': ['m6'], 'depth': 2},
+    'm6': {'class': ['JAVA_LIBRARIES'], 'dependencies': [], 'depth': 3},
 }
 
 # pylint: disable=protected-access
