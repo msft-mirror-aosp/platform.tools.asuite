@@ -39,6 +39,7 @@ _KEY_JARJAR_RULES = 'jarjar_rules'
 _KEY_JARS = 'jars'
 _KEY_PATH = 'path'
 _KEY_SRCS = 'srcs'
+_KEY_TESTS = 'tests'
 _SRCJAR = '.srcjar'
 _IGNORE_DIRS = [
     # The java files under this directory have to be ignored because it will
@@ -100,6 +101,7 @@ def locate_source(project, verbose, depth, build=True):
             project.source_path = {
                 'source_folder_path': ['path/to/source/folder1',
                                        'path/to/source/folder2', ...],
+                'test_folder_path': ['path/to/test/folder', ...],
                 'jar_path': ['path/to/jar/file1', 'path/to/jar/file2', ...]
             }
     """
@@ -112,6 +114,7 @@ def locate_source(project, verbose, depth, build=True):
                             project.dep_modules[module_name], depth)
         module.locate_sources_path()
         project.source_path['source_folder_path'].update(module.src_dirs)
+        project.source_path['test_folder_path'].update(module.test_dirs)
         project.source_path['jar_path'].update(module.jar_files)
         if module.jar_nonexistent:
             missing_jars.add(module_name)
@@ -181,6 +184,7 @@ class ModuleData():
                              else 0)
         self.depth_by_source = depth
         self.src_dirs = set()
+        self.test_dirs = set()
         self.jar_files = set()
         self.is_android_support_module = self.module_path.startswith(
             _ANDROID_SUPPORT_PATH_KEYWORD)
@@ -218,6 +222,7 @@ class ModuleData():
             scanned_dirs = set()
             for src_item in self.module_data[_KEY_SRCS]:
                 src_dir = None
+                src_item = os.path.relpath(src_item)
                 if src_item.endswith(_SRCJAR):
                     self._append_jar_from_installed(self.specific_soong_path)
                 elif src_item.endswith(_JAVA):
@@ -231,7 +236,10 @@ class ModuleData():
                     logging.info('%s is not in parsing scope.', src_item)
                 if src_dir and not any(path in src_dir
                                        for path in _IGNORE_DIRS):
-                    self.src_dirs.add(src_dir)
+                    if _KEY_TESTS in src_dir.split(os.sep):
+                        self.test_dirs.add(src_dir)
+                    else:
+                        self.src_dirs.add(src_dir)
 
     # pylint: disable=inconsistent-return-statements
     def _get_source_folder(self, java_file):
