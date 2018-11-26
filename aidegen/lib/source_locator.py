@@ -22,6 +22,7 @@ import logging
 import os
 import re
 
+from aidegen import constant
 from aidegen.lib import errors
 from atest import atest_utils
 
@@ -46,7 +47,7 @@ _IGNORE_DIRS = [
 ]
 
 
-def multi_projects_locate_source(projects, verbose, build=True):
+def multi_projects_locate_source(projects, verbose, depth):
     """Locate the paths of dependent source folders and jar files with projects.
 
     Args:
@@ -54,13 +55,14 @@ def multi_projects_locate_source(projects, verbose, build=True):
                   as project relative path, project real path, project
                   dependencies.
         verbose: A boolean, if true displays full build output.
-        build: A boolean, if true build the modules whose jars don't exist.
+        depth: An integer shows the depth of module dependency referenced by
+               source. Zero means the max module depth.
     """
     for project in projects:
-        locate_source(project, verbose, build)
+        locate_source(project, verbose, depth)
 
 
-def locate_source(project, verbose, build=True):
+def locate_source(project, verbose, depth, build=True):
     """Locate the paths of dependent source folders and jar files.
 
     Try to reference source folder path as dependent module unless the
@@ -88,6 +90,8 @@ def locate_source(project, verbose, build=True):
         project: A ProjectInfo instance. Information of a project such as
                  project relative path, project real path, project dependencies.
         verbose: A boolean, if true displays full build output.
+        depth: An integer shows the depth of module dependency referenced by
+               source. Zero means the max module depth.
         build: A boolean, if true build the modules whose jar doesn't exist.
 
     Example usage:
@@ -105,7 +109,7 @@ def locate_source(project, verbose, build=True):
     missing_jars = set()
     for module_name in project.dep_modules:
         module = ModuleData(project.android_root_path, module_name,
-                            project.dep_modules[module_name])
+                            project.dep_modules[module_name], depth)
         module.locate_sources_path()
         project.source_path['source_folder_path'].update(module.src_dirs)
         project.source_path['jar_path'].update(module.jar_files)
@@ -114,7 +118,7 @@ def locate_source(project, verbose, build=True):
     if missing_jars:
         if build:
             _build_dependencies(verbose, missing_jars)
-            locate_source(project, verbose, build=False)
+            locate_source(project, verbose, depth, build=False)
         else:
             logging.warning(
                 'Jar files in the list don\'t exist:\n%s.', '\n'.join(
@@ -138,17 +142,20 @@ def _build_dependencies(verbose, missing_jars):
 class ModuleData():
     """ModuleData class."""
 
-    def __init__(self, android_root_path, module_name, module_data):
+    def __init__(self, android_root_path, module_name, module_data, depth):
         """Initialize ModuleData.
 
         Args:
             android_root_path: The path to android source root.
             module_name: Name of the module.
             module_data: A dictionary holding a module information.
+            depth: An integer shows the depth of module dependency referenced by
+                   source. Zero means the max module depth.
             For example:
                 {
                     'class': ['APPS'],
                     'path': ['path/to/the/module'],
+                    'depth': 0,
                     'dependencies': ['bouncycastle', 'ims-common'],
                     'srcs': [
                         'path/to/the/module/src/com/android/test.java',
@@ -170,6 +177,9 @@ class ModuleData():
         self.module_path = (self.module_data[_KEY_PATH][0]
                             if _KEY_PATH in self.module_data
                             and self.module_data[_KEY_PATH] else '')
+        self.module_depth = (int(self.module_data[constant.KEY_DEPTH]) if depth
+                             else 0)
+        self.depth_by_source = depth
         self.src_dirs = set()
         self.jar_files = set()
         self.is_android_support_module = self.module_path.startswith(
@@ -325,6 +335,9 @@ class ModuleData():
             self._append_jar_from_installed(self.specific_soong_path)
         elif self.jars_existed:
             self._set_jars_jarfile()
-        self._collect_srcs_paths()
+        if self.module_depth > self.depth_by_source:
+            self._append_jar_from_installed(self.specific_soong_path)
+        else:
+            self._collect_srcs_paths()
         if self.referenced_by_jar and not self.jar_files:
             self.jar_nonexistent = True
