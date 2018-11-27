@@ -28,7 +28,6 @@ from atest import atest_utils
 from atest import constants
 
 _KEY_DEP = 'dependencies'
-_KEY_DEPTH = 'depth'
 _ANDROID_MK = 'Android.mk'
 _ANDROID_BP = 'Android.bp'
 _ANDROID_MK_WARN = (
@@ -94,7 +93,11 @@ class ProjectInfo():
             # com.android.internal.R.
             'org.apache.http.legacy.stubs.system'
         ])
-        self.source_path = {'source_folder_path': set(), 'jar_path': set()}
+        self.source_path = {
+            'source_folder_path': set(),
+            'test_folder_path': set(),
+            'jar_path': set()
+        }
         self.dep_modules = self.get_dep_modules()
         mk_set = set(self._search_android_make_files(module_info))
         if mk_set:
@@ -142,7 +145,7 @@ class ProjectInfo():
                 elif name not in self.project_module_names:
                     self.project_module_names.append(name)
 
-    def get_dep_modules(self, module_names=None):
+    def get_dep_modules(self, module_names=None, depth=0):
         """Recursively find dependent modules of the project.
 
         Find dependent modules by dependencies parameter of each module.
@@ -157,9 +160,10 @@ class ProjectInfo():
             }
             The result dependent modules are:
             {
-                'm1': {'dependencies': ['m2'], 'path': ['path_to_m1']},
-                'm2': {'path': ['path_to_m4']},
-                'm3': {'path': ['path_to_m1']}
+                'm1': {'dependencies': ['m2'], 'path': ['path_to_m1']
+                       'depth': 0},
+                'm2': {'path': ['path_to_m4'], 'depth': 1},
+                'm3': {'path': ['path_to_m1'], 'depth': 0}
             }
             Note that:
                 1. m4 is not in the result as it's not among dependent modules.
@@ -167,6 +171,8 @@ class ProjectInfo():
 
         Args:
             module_names: A list of module names.
+            depth: An integer shows the depth of module dependency referenced by
+                   source. Zero means the max module depth.
 
         Returns:
             deps: A dict contains all dependent modules data of given modules.
@@ -177,10 +183,11 @@ class ProjectInfo():
             module_names = self.project_module_names
         for name in module_names:
             if name in self.modules_info:
-                if name not in dep:
-                    dep[name] = self.modules_info[name]
+                dep[name] = self.modules_info[name]
                 if _KEY_DEP in dep[name] and dep[name][_KEY_DEP]:
-                    dep.update(self.get_dep_modules(dep[name][_KEY_DEP]))
+                    dep.update(
+                        self.get_dep_modules(dep[name][_KEY_DEP], depth + 1))
+                dep[name][constant.KEY_DEPTH] = depth
         return dep
 
     @classmethod
