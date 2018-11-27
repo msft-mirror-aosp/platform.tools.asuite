@@ -60,7 +60,7 @@ class AidegenProjectFileGenUnittest(unittest.TestCase):
         'test_data/project/level11/level22/level31': False,
         'test_data/project/level12/level22': False,
     }
-    _ANDROID_SOURCE_RELATIVE_PATH = 'test_data/project/level12/'
+    _ANDROID_SOURCE_RELATIVE_PATH = 'test_data/project/level12'
     _SAMPLE_CONTENT_LIST = ['a/b/c/d', 'e/f']
     _SAMPLE_TRIMMED_SOURCE_LIST = ['a/b/c/d', 'e/f/a', 'e/f/b/c', 'e/f/g/h']
 
