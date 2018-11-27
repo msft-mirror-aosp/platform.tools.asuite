@@ -341,7 +341,7 @@ def _generate_iml(root_path, module_path, source_dict, jar_dependencies,
     # Separate module and dependencies source folder
     project_source_dict = {}
     for source in list(source_dict):
-        if source.startswith(relative_path):
+        if source == relative_path or source.startswith(relative_path + os.sep):
             is_test = source_dict.get(source)
             source_dict.pop(source)
             project_source_dict.update({source: is_test})
