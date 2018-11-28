@@ -37,3 +37,19 @@ class EmptyModuleDependencyError(AIDEgenError):
     a standalone module without jar dependency shall have its src path as
     dependency.
     """
+
+class ProjectOutsideAndroidRootError(AIDEgenError):
+    """Raised when a project to be generated IDE project file is not under
+    source tree's root directory."""
+
+
+class ProjectPathNotExistError(AIDEgenError):
+    """Raised when a project path does not exist."""
+
+
+class NoModuleDefinedInModuleInfoError(AIDEgenError):
+    """Raised when a module is not defined in module-info.json."""
+
+
+class IDENotExistError(AIDEgenError):
+    """Raised if no IDE exists in a specific path."""
