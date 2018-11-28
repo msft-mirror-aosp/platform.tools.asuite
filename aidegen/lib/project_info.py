@@ -135,8 +135,10 @@ class ProjectInfo():
         logging.info('Find modules whose class is in %s under %s.',
                      _FILTER_CLASSES, self.project_relative_path)
         for name, data in self.modules_info.items():
-            if ('class' in data and 'path' in data
-                    and data['path'][0].startswith(self.project_relative_path)):
+            path = data['path'][0] if 'path' in data else None
+            if ('class' in data and path and
+                    (path == self.project_relative_path or
+                     path.startswith(self.project_relative_path + os.sep))):
                 if not set(data['class']).intersection(_FILTER_CLASSES):
                     logging.info(('Module %s\'s class setting is %s, none of '
                                   'which is included in %s, skipping this '

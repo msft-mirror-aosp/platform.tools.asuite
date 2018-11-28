@@ -199,13 +199,14 @@ class SourceLocatorUnittests(unittest.TestCase):
         depth_by_source = 2
         module_info = dict(_MODULE_INFO)
         module_info['depth'] = 2
-        result_src_list = set(['packages/apps/test/src/main/java',
-                               'packages/apps/test/test'])
+        result_src_list = set(['packages/apps/test/src/main/java'])
+        result_test_list = set(['packages/apps/test/tests'])
         result_jar_list = set()
         module_data = source_locator.ModuleData(uc.TEST_DATA_PATH, _MODULE_NAME,
                                                 module_info, depth_by_source)
         module_data.locate_sources_path()
         self.assertEqual(module_data.src_dirs, result_src_list)
+        self.assertEqual(module_data.test_dirs, result_test_list)
         self.assertEqual(module_data.jar_files, result_jar_list)
 
         # Test find source folder when module's depth smaller than the --depth
@@ -213,13 +214,14 @@ class SourceLocatorUnittests(unittest.TestCase):
         depth_by_source = 3
         module_info = dict(_MODULE_INFO)
         module_info['depth'] = 2
-        result_src_list = set(['packages/apps/test/src/main/java',
-                               'packages/apps/test/test'])
+        result_src_list = set(['packages/apps/test/src/main/java'])
+        result_test_list = set(['packages/apps/test/tests'])
         result_jar_list = set()
         module_data = source_locator.ModuleData(uc.TEST_DATA_PATH, _MODULE_NAME,
                                                 module_info, depth_by_source)
         module_data.locate_sources_path()
         self.assertEqual(module_data.src_dirs, result_src_list)
+        self.assertEqual(module_data.test_dirs, result_test_list)
         self.assertEqual(module_data.jar_files, result_jar_list)
 
     @mock.patch('aidegen.lib.project_info.ProjectInfo')
