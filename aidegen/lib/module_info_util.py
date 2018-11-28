@@ -96,8 +96,8 @@ def _build_android_root(verbose):
     try:
         if verbose:
             full_env_vars = os.environ.copy()
-            subprocess.check_call(cmd, stderr=subprocess.STDOUT,
-                                  env=full_env_vars)
+            subprocess.check_call(
+                cmd, stderr=subprocess.STDOUT, env=full_env_vars)
         else:
             subprocess.check_call(cmd)
         logging.info('Build successful')
@@ -128,7 +128,9 @@ def _build_target(projects, module_info, verbose):
               a) If the answer is yes, return.
               b) If the answer is not yes, sys.exit(1)
     """
-    build_targets = []
+    # add -k to let AIDEGen be able to keep on processing while some targets
+    # building failed.
+    build_targets = ['-k']
     main_project_path = None
     for target in projects:
         rel_path, abs_path = get_related_paths(module_info, target)
@@ -139,7 +141,15 @@ def _build_target(projects, module_info, verbose):
     successful_build = atest_utils.build(
         build_targets, verbose=verbose, env_vars=_BUILD_ENV_VARS)
     if not successful_build:
-        _build_failed_handle(main_project_path, projects)
+        if os.path.isfile(_get_blueprint_json_path()):
+            message = ('{} build failed, but AIDEGen will proceed but '
+                       'dependency correctness is not guaranteed without all '
+                       'targets being built successfully.'.format(
+                           ' '.join(projects)))
+            print('\n{}\n{}\n'.format(
+                atest_utils.colorize('Warning...', constants.MAGENTA), message))
+        else:
+            _build_failed_handle(main_project_path, projects)
 
 
 def _build_failed_handle(main_project_path, projects):
@@ -174,9 +184,7 @@ def _get_soong_build_json_dict():
     Returns:
         A json dictionary.
     """
-    root_dir = os.environ.get(constants.ANDROID_BUILD_TOP, os.sep)
-    soong_out_dir = os.path.join(root_dir, _BLUEPRINT_JSONFILE_OUTDIR)
-    json_path = os.path.join(soong_out_dir, _BLUEPRINT_JSONFILE_NAME)
+    json_path = _get_blueprint_json_path()
     try:
         with open(json_path) as jfile:
             json_dict = json.load(jfile)
@@ -184,6 +192,17 @@ def _get_soong_build_json_dict():
     except IOError as err:
         raise errors.JsonFileNotExistError(
             '%s does not exist, error: %s.' % (json_path, err))
+
+
+def _get_blueprint_json_path():
+    """Assemble the path of blueprint json file.
+
+    Returns:
+        Blueprint json path.
+    """
+    root_dir = os.environ.get(constants.ANDROID_BUILD_TOP, os.sep)
+    return os.path.join(root_dir, _BLUEPRINT_JSONFILE_OUTDIR,
+                        _BLUEPRINT_JSONFILE_NAME)
 
 
 def _merge_module_keys(m_dict, b_dict):
