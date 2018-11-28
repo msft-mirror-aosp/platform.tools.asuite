@@ -26,8 +26,11 @@ import sys
 import xml.etree.ElementTree
 import xml.parsers.expat
 
+import aidegen.lib.errors
+
 from aidegen import aidegen_main
 from aidegen.lib.common_util import get_related_paths
+from aidegen.lib.common_util import time_logged
 from atest import constants
 from atest import module_info
 from atest import atest_utils
@@ -38,6 +41,7 @@ _ROOT_DIR = os.path.join(_ANDROID_ROOT_PATH,
 _TEST_DATA_PATH = os.path.join(_ROOT_DIR, 'test_data')
 _ANDROID_SINGLE_PROJECT_JSON = os.path.join(_TEST_DATA_PATH,
                                             'single_module.json')
+_VERIFY_COMMANDS_JSON = os.path.join(_TEST_DATA_PATH, 'verify_commands.json')
 _PRODUCT_DIR = '$PROJECT_DIR$'
 _ANDROID_COMMON = 'android_common'
 _LINUX_GLIBC_COMMON = 'linux_glibc_common'
@@ -53,7 +57,7 @@ _TEST_IML_DICT = {
     'SystemUI': ['SystemUI.iml', 'dependencies-SystemUI.iml'],
     'tradefed': ['core.iml', 'dependencies-core.iml']
 }
-_ALL_PASS = 'All tests pass!'
+_ALL_PASS = 'All tests passed!'
 
 
 def _parse_args(args):
@@ -68,15 +72,22 @@ def _parse_args(args):
     parser = argparse.ArgumentParser(
         description=__doc__,
         formatter_class=argparse.RawDescriptionHelpFormatter,
-        usage='aidegen_functional_test [-c]')
+        usage='aidegen_functional_test [-c | -v]')
+    group = parser.add_mutually_exclusive_group()
     parser.required = False
-    parser.add_argument(
+    group.add_argument(
         '-c',
         '--create-sample',
         action='store_true',
         dest='create_sample',
         help=('Create aidegen project files and write data to sample json file '
               'for aidegen_functional_test to compare.'))
+    group.add_argument(
+        '-v',
+        '--verify',
+        action='store_true',
+        dest='verify_aidegen',
+        help='Verify various use cases of executing aidegen.')
     return parser.parse_args(args)
 
 
@@ -218,6 +229,33 @@ def _compare_jars_content(module_name, s_items, r_items, msg):
                 yield msg % (sample, module_name)
 
 
+# pylint: disable=broad-except
+# pylint: disable=eval-used
+@time_logged
+def _verify_aidegen():
+    """Verify various use cases of executing aidegen."""
+    with open(_VERIFY_COMMANDS_JSON, 'r') as jsfile:
+        data = json.load(jsfile)
+    for use_case in data:
+        for cmd in data[use_case]:
+            try:
+                eval(cmd)
+            except (aidegen.lib.errors.ProjectOutsideAndroidRootError,
+                    aidegen.lib.errors.ProjectPathNotExistError,
+                    aidegen.lib.errors.NoModuleDefinedInModuleInfoError,
+                    aidegen.lib.errors.IDENotExistError) as err:
+                print('{} command has raise error: {}.'.format(use_case, err))
+            except Exception as exp:
+                print('{}.{} command {}.'.format(
+                    use_case, cmd,
+                    atest_utils.colorize('executes failed', constants.RED)))
+                raise Exception(
+                    'Unexpected command {} exception {}.'.format(use_case, exp))
+        print('{} command {}!'.format(
+            use_case, atest_utils.colorize('test passed', constants.GREEN)))
+    print(atest_utils.colorize(_ALL_PASS, constants.GREEN))
+
+
 def main(argv):
     """Main entry.
 
@@ -229,6 +267,8 @@ def main(argv):
     args = _parse_args(argv)
     if args.create_sample:
         _create_sample_json_file()
+    elif args.verify_aidegen:
+        _verify_aidegen()
     else:
         test_some_sample_iml()
 
