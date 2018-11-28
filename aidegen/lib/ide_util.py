@@ -32,6 +32,8 @@ import os
 import subprocess
 import fnmatch
 
+from aidegen.lib.config import AidegenConfig
+
 # TODO(albaltai): If needed, create a log file to replace /dev/null and to
 #                 collect IDEA related usage metrics data.
 _IGNORE_STD_OUT_ERR_CMD = '&>/dev/null'
@@ -55,11 +57,11 @@ class IdeUtil():
         2. Launch an IDE.
     """
 
-    def __init__(self, installed_path=None, ide='j'):
+    def __init__(self, installed_path=None, ide='j', config_reset=False):
         self._installed_path = installed_path
         # TODO(b/118787088): create basic IDE project files for Eclipse
         self._ide = IdeStudio(installed_path) if ide == 's' else IdeIntelliJ(
-            installed_path)
+            installed_path, config_reset)
 
     def is_ide_installed(self):
         """Checks if the IDE is already installed.
@@ -86,26 +88,21 @@ class IdeIntelliJ():
         2. Launch an IntelliJ.
     """
 
-    _INTELLIJ_EXE_FILE = 'idea.sh'
-
     # We use this string to determine whether the user has installed
     # intelliJ IDEA, and the reason is that, in linux, the launch script is
     # created by IDEA with specific path naming rule when installed,
     # i.e. /opt/intellij-*/bin/idea.sh.
+    _INTELLIJ_EXE_FILE = 'idea.sh'
     _CHECK_INTELLIJ_PATH = os.path.join('/opt/intellij-*/bin',
                                         _INTELLIJ_EXE_FILE)
-
-    # In this version, if community edition(CE) exists, AIDEGen prefers IntelliJ
-    # community edition(CE) over ultimate edition(UE).
-    # TODO(albaltai): prompt user to select a preferred IDE version from all
-    #                 installed versions.
     _LS_CE_PATH = os.path.join('/opt/intellij-ce-2*/bin', _INTELLIJ_EXE_FILE)
     _LS_UE_PATH = os.path.join('/opt/intellij-ue-2*/bin', _INTELLIJ_EXE_FILE)
 
-    def __init__(self, installed_path=None):
+    def __init__(self, installed_path=None, config_reset=False):
         self._installed_path = _get_script_from_input_path(
             installed_path, self._INTELLIJ_EXE_FILE
-        ) if installed_path else self._get_script_from_internal_path()
+        ) if installed_path else self._get_script_from_internal_path(
+            config_reset)
 
     def is_ide_installed(self):
         """Checks if IntelliJ is already installed.
@@ -124,43 +121,38 @@ class IdeIntelliJ():
         _launch_ide(project_file, self._installed_path, _IDE_INTELLIJ)
 
     @classmethod
-    def _get_script_from_internal_path(cls):
+    def _get_script_from_internal_path(cls, config_reset=False):
         """Get correct IntelliJ installed path from internal path.
 
         Locates the IntelliJ IDEA launch script path by following rule.
 
-        1. If the community edition(CE) exists, use the newest CE version as
-           target.
-        2. If there's no CE version, launch the newest UE version if available.
+        1. If config file recorded user's preference version, load it.
+        2. If config file didn't record, search them form default path if there
+           are more than one version, ask user and record it.
+
+        Args:
+            config_reset: A boolean, if true reset configuration data.
 
         Returns:
             The sh full path, or None if no IntelliJ version is installed.
         """
-        file_found = cls._get_intellij_version_path(cls._LS_CE_PATH)
-        if not file_found:
-            file_found = cls._get_intellij_version_path(cls._LS_UE_PATH)
-        if file_found:
-            logging.debug('IDE internal installed path: %s.', file_found)
-        return file_found
-
-    @staticmethod
-    def _get_intellij_version_path(version_path):
-        """Locates the IntelliJ IDEA launch script path by version.
-
-        Args:
-            version_path: IntelliJ CE or UE version launch script path.
-
-        Returns:
-            The sh full path, or None if no such IntelliJ version is installed.
-        """
-        ls_output = glob.glob(version_path)
-        if ls_output:
-            ls_output = sorted(ls_output, reverse=True)
-            logging.debug(
-                'Result for checking IntelliJ path %s after sorting:'
-                '%s.', version_path, ls_output)
-            return ls_output[0]
-        return None
+        found = None
+        cefile = _get_intellij_version_path(cls._LS_CE_PATH)
+        uefile = _get_intellij_version_path(cls._LS_UE_PATH)
+        if cefile and uefile:
+            with AidegenConfig() as aconfig:
+                if not config_reset and aconfig.preferred_version in [
+                        cefile, uefile
+                ]:
+                    found = aconfig.preferred_version
+                if not found:
+                    found = _ask_preference(cefile, uefile)
+                    aconfig.preferred_version = found
+        else:
+            found = cefile or uefile
+        if found:
+            logging.debug('IDE internal installed path: %s.', found)
+        return found
 
 
 class IdeStudio():
@@ -355,3 +347,48 @@ def _get_script_from_input_path(input_path, ide_file_name):
         logging.debug('IDE installed path from user input: %s.', ide_path)
         return ide_path
     return None
+
+
+def _get_intellij_version_path(version_path):
+    """Locates the IntelliJ IDEA launch script path by version.
+
+    Args:
+        version_path: IntelliJ CE or UE version launch script path.
+
+    Returns:
+        The sh full path, or None if no such IntelliJ version is installed.
+    """
+    ls_output = glob.glob(version_path)
+    if not ls_output:
+        return None
+    ls_output = sorted(ls_output, reverse=True)
+    logging.debug('Result for checking IntelliJ path %s after sorting:%s.',
+                  version_path, ls_output)
+    return ls_output[0]
+
+
+def _ask_preference(cefile, uefile):
+    """Ask users which version they prefer.
+
+    Args:
+        cefile: CE version launch script path.
+        uefile: UE version launch script path.
+
+    Returns:
+        An users selected version.
+    """
+    query = ('You installed two versions of IntelliJ:\n\t1. {}\n\t2. {}\n'
+             'Please select one.\t').format(cefile, uefile)
+    return cefile if _select_intellij_version(query) == '1' else uefile
+
+
+def _select_intellij_version(query):
+    """Select one from different IntelliJ versions users installed.
+
+    Args:
+        query: The query message.
+    """
+    input_data = input(query)
+    while not input_data in ['1', '2']:
+        input_data = input('Please choose 1 or 2.\t')
+    return input_data
