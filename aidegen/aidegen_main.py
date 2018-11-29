@@ -47,6 +47,10 @@ import sys
 from aidegen import constant
 from aidegen.lib.common_util import time_logged
 from aidegen.lib.common_util import get_related_paths
+from aidegen.lib.errors import IDENotExistError
+from aidegen.lib.errors import NoModuleDefinedInModuleInfoError
+from aidegen.lib.errors import ProjectOutsideAndroidRootError
+from aidegen.lib.errors import ProjectPathNotExistError
 from aidegen.lib.ide_util import IdeUtil
 from aidegen.lib.metrics import log_usage
 from aidegen.lib.project_file_gen import generate_ide_project_files
@@ -143,15 +147,18 @@ def _check_modules(atest_module_info, targets):
     for target in targets:
         rel_path, abs_path = get_related_paths(atest_module_info, target)
         if not abs_path.startswith(constant.ANDROID_ROOT_PATH):
-            logging.error('%s is outside android root.', abs_path)
-            sys.exit(1)
+            err = '{} is outside android root.'.format(abs_path)
+            logging.error(err)
+            raise ProjectOutsideAndroidRootError(err)
         if not os.path.isdir(abs_path):
-            logging.error('The path %s doesn\'t exist.', rel_path)
-            sys.exit(1)
+            err = 'The path {} doesn\'t exist.'.format(rel_path)
+            logging.error(err)
+            raise ProjectPathNotExistError(err)
         if (not has_build_target(atest_module_info, rel_path)
                 and abs_path != constant.ANDROID_ROOT_PATH):
-            logging.error('No modules defined at %s.', rel_path)
-            sys.exit(1)
+            err = 'No modules defined at {}.'.format(rel_path)
+            logging.error(err)
+            raise NoModuleDefinedInModuleInfoError(err)
 
 
 def has_build_target(atest_module_info, rel_path):
@@ -186,10 +193,11 @@ def main(argv):
     _check_modules(atest_module_info, args.targets)
     ide_util_obj = IdeUtil(args.ide_installed_path, args.ide[0])
     if not ide_util_obj.is_ide_installed():
-        logging.error(('Can not find IDE in path: %s, please add it to your '
-                       '$PATH or provide the exact executable IDE script path '
-                       'by "aidegen -p" command.'), args.ide_installed_path)
-        sys.exit(1)
+        err = ('Can not find IDE in path: {}, please add it to your $PATH or '
+               'provide the exact executable IDE script path by "aidegen -p" '
+               'command.').format(args.ide_installed_path)
+        logging.error(err)
+        raise IDENotExistError(err)
     projects = ProjectInfo.generate_projects(atest_module_info, args.targets,
                                              args.verbose)
     multi_projects_locate_source(projects, args.verbose, args.depth)
