@@ -105,6 +105,12 @@ def _parse_args(args):
         help='IDE installed path.')
     parser.add_argument(
         '-n', '--no_launch', action='store_true', help='Do not launch IDE.')
+    parser.add_argument(
+        '-r',
+        '--config-reset',
+        dest='config_reset',
+        action='store_true',
+        help='Reset all saved configurations, e.g., preferred IDE version.')
     return parser.parse_args(args)
 
 
@@ -191,7 +197,8 @@ def main(argv):
     _configure_logging(args.verbose)
     atest_module_info = module_info.ModuleInfo()
     _check_modules(atest_module_info, args.targets)
-    ide_util_obj = IdeUtil(args.ide_installed_path, args.ide[0])
+    ide_util_obj = IdeUtil(args.ide_installed_path, args.ide[0],
+                           args.config_reset)
     if not ide_util_obj.is_ide_installed():
         err = ('Can not find IDE in path: {}, please add it to your $PATH or '
                'provide the exact executable IDE script path by "aidegen -p" '
