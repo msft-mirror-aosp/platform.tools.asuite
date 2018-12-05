@@ -55,17 +55,29 @@ class IdeUtilUnittests(unittest.TestCase):
             ide_util._is_intellij_project(IdeUtilUnittests._TEST_PRJ_PATH2))
 
     @mock.patch('glob.glob', return_value=uc.IDEA_SH_FIND_NONE)
-    def test_get_intellij_sh_with_none(self, mock_glob):
-        """Test with the cmd return none, test should have exception."""
+    def test_get_intellij_version_path_with_none(self, mock_glob):
+        """Test with the cmd return none, test result should be None."""
         mock_glob.return_value = uc.IDEA_SH_FIND_NONE
-        self.assertEqual(None, IdeIntelliJ._get_script_from_internal_path())
+        self.assertEqual(
+            None, ide_util._get_intellij_version_path(IdeIntelliJ._LS_CE_PATH))
+        self.assertEqual(
+            None, ide_util._get_intellij_version_path(IdeIntelliJ._LS_UE_PATH))
 
+    @mock.patch('builtins.input')
     @mock.patch('glob.glob', return_value=uc.IDEA_SH_FIND)
-    def test_get_intellij_path_got_data(self, mock_glob):
-        """Test with the cmd return useful sh, test should not have except."""
+    def test_ask_preference(self, mock_glob, mock_input):
+        """Ask users' preference, the result should be equal to test data."""
         mock_glob.return_value = uc.IDEA_SH_FIND
-        self.assertEqual(uc.SH_GODEN_SAMPLE,
-                         IdeIntelliJ._get_script_from_internal_path())
+        mock_input.return_value = '1'
+        self.assertEqual(
+            ide_util._ask_preference(IdeIntelliJ._LS_CE_PATH,
+                                     IdeIntelliJ._LS_UE_PATH),
+            IdeIntelliJ._LS_CE_PATH)
+        mock_input.return_value = '2'
+        self.assertEqual(
+            ide_util._ask_preference(IdeIntelliJ._LS_CE_PATH,
+                                     IdeIntelliJ._LS_UE_PATH),
+            IdeIntelliJ._LS_UE_PATH)
 
     @unittest.skip('Skip to use real command to launch IDEA.')
     def test_run_intellij_sh(self):
@@ -74,20 +86,6 @@ class IdeUtilUnittests(unittest.TestCase):
         if sh_path:
             ide_util_obj = IdeUtil()
             ide_util_obj.launch_ide(IdeUtilUnittests._TEST_PRJ_PATH1)
-        else:
-            self.assertRaises(cmd_err)
-
-    @mock.patch('subprocess.check_call', return_value=0)
-    def test_run_intellij_sh_with_correct_args(self, mock_check_call):
-        """Test run IntelliJ with correct arguments or assert raise err."""
-        sh_path = IdeIntelliJ._get_script_from_internal_path()
-        if sh_path:
-            ide_util_obj = IdeUtil()
-            ide_util_obj.launch_ide(IdeUtilUnittests._TEST_PRJ_PATH1)
-            mock_check_call.assert_called_with(
-                ide_util._get_run_ide_cmd(sh_path,
-                                          IdeUtilUnittests._TEST_PRJ_PATH1),
-                shell=True)
         else:
             self.assertRaises(cmd_err)
 
