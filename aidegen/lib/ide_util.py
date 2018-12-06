@@ -47,6 +47,7 @@ _IML_EXTENSION = '.iml'
 # Type of IDEs
 _IDE_INTELLIJ = 'IntelliJ'
 _IDE_ANDROID_STUDIO = 'Android Studio'
+_IDE_ECLIPSE = 'Eclipse'
 
 
 class IdeUtil():
@@ -58,10 +59,7 @@ class IdeUtil():
     """
 
     def __init__(self, installed_path=None, ide='j', config_reset=False):
-        self._installed_path = installed_path
-        # TODO(b/118787088): create basic IDE project files for Eclipse
-        self._ide = IdeStudio(installed_path) if ide == 's' else IdeIntelliJ(
-            installed_path, config_reset)
+        self._ide = self._get_ide(installed_path, ide, config_reset)
 
     def is_ide_installed(self):
         """Checks if the IDE is already installed.
@@ -79,8 +77,57 @@ class IdeUtil():
         """
         return self._ide.launch_ide(project_file)
 
+    @staticmethod
+    def _get_ide(installed_path=None, ide='j', config_reset=False):
+        """Get IDE to be launched according to the ide input.
 
-class IdeIntelliJ():
+        Args:
+            installed_path: The IDE installed path to be checked.
+            ide: A key character of IDE to be launched. Default ide='j' is to
+                 launch IntelliJ.
+            config_reset: A boolean, if true reset configuration data.
+
+        Returns:
+            A corresponding IDE instance.
+        """
+        if ide == 'e':
+            return IdeEclipse(installed_path)
+        if ide == 's':
+            return IdeStudio(installed_path)
+        return IdeIntelliJ(installed_path, config_reset)
+
+
+class IdeBase():
+    """Base class of IDE.
+
+    For example:
+        1. Check if IntelliJ is installed.
+        2. Launch an IntelliJ.
+    """
+
+    def __init__(self, installed_path=None, config_reset=False):
+        self._installed_path = installed_path
+        self.config_reset = config_reset
+        self.name = ''
+
+    def is_ide_installed(self):
+        """Checks if IntelliJ is already installed.
+
+        Returns:
+            True if IntelliJ is installed already, otherwise False.
+        """
+        return bool(self._installed_path)
+
+    def launch_ide(self, project_file):
+        """Launches IntelliJ by opening the passed project file.
+
+        Args:
+            project_file: The full path of the IntelliJ project file.
+        """
+        _launch_ide(project_file, self._installed_path, self.name)
+
+
+class IdeIntelliJ(IdeBase):
     """Class offers a set of IntelliJ launching utilities.
 
     For example:
@@ -99,26 +146,14 @@ class IdeIntelliJ():
     _LS_UE_PATH = os.path.join('/opt/intellij-ue-2*/bin', _INTELLIJ_EXE_FILE)
 
     def __init__(self, installed_path=None, config_reset=False):
-        self._installed_path = _get_script_from_input_path(
-            installed_path, self._INTELLIJ_EXE_FILE
-        ) if installed_path else self._get_script_from_internal_path(
-            config_reset)
-
-    def is_ide_installed(self):
-        """Checks if IntelliJ is already installed.
-
-        Returns:
-            True if IntelliJ is installed already, otherwise False.
-        """
-        return bool(self._installed_path)
-
-    def launch_ide(self, project_file):
-        """Launches IntelliJ by opening the passed project file.
-
-        Args:
-            project_file: The full path of the IntelliJ project file.
-        """
-        _launch_ide(project_file, self._installed_path, _IDE_INTELLIJ)
+        super().__init__(installed_path, config_reset)
+        self.name = _IDE_INTELLIJ
+        if installed_path:
+            self._installed_path = _get_script_from_input_path(
+                installed_path, self._INTELLIJ_EXE_FILE)
+        else:
+            self._installed_path = self._get_script_from_internal_path(
+                config_reset)
 
     @classmethod
     def _get_script_from_internal_path(cls, config_reset=False):
@@ -155,7 +190,7 @@ class IdeIntelliJ():
         return found
 
 
-class IdeStudio():
+class IdeStudio(IdeBase):
     """Class offers a set of Android Studio launching utilities.
 
     For example:
@@ -166,42 +201,57 @@ class IdeStudio():
     _CHECK_STUDIO_PATH = '/opt/android-*/bin/studio.sh'
     _STUDIO_EXE_FILE = 'studio.sh'
 
-    def __init__(self, installed_path=None):
-        self._installed_path = _get_script_from_input_path(
-            installed_path, self._STUDIO_EXE_FILE
-        ) if installed_path else self._get_script_from_internal_path()
+    def __init__(self, installed_path=None, config_reset=False):
+        super().__init__(installed_path, config_reset)
+        self.name = _IDE_ANDROID_STUDIO
+        if installed_path:
+            self._installed_path = _get_script_from_input_path(
+                installed_path, self._STUDIO_EXE_FILE)
+        else:
+            self._installed_path = _get_script_from_internal_path(
+                self._CHECK_STUDIO_PATH, _IDE_ANDROID_STUDIO)
 
-    def is_ide_installed(self):
-        """Checks if Android Studio is already installed.
 
-        Returns:
-            True if Android Studio is installed already, otherwise False.
-        """
-        return bool(self._installed_path)
+class IdeEclipse(IdeBase):
+    """Class offers a set of Eclipse launching utilities.
 
-    def launch_ide(self, project_file):
-        """Launches Android Studio by opening the passed project file.
+    For example:
+        1. Check if Eclipse is installed.
+        2. Launch an Eclipse.
+    """
 
-        Args:
-            project_file: The full path of the IntelliJ project file.
-        """
-        _launch_ide(project_file, self._installed_path, _IDE_ANDROID_STUDIO)
+    _CHECK_ECLIPSE_PATH = '/opt/eclipse*/eclipse'
+    _ECLIPSE_EXE_FILE = 'eclipse'
 
-    @classmethod
-    def _get_script_from_internal_path(cls):
-        """Get the studio.sh script path from internal path.
+    def __init__(self, installed_path=None, config_reset=False):
+        super().__init__(installed_path, config_reset)
+        self.name = _IDE_ECLIPSE
+        if installed_path:
+            self._installed_path = _get_script_from_input_path(
+                installed_path, self._ECLIPSE_EXE_FILE)
+        else:
+            self._installed_path = _get_script_from_internal_path(
+                self._CHECK_ECLIPSE_PATH, _IDE_ECLIPSE)
 
-        Returns:
-            The studio.sh full path or None if no Android Studio is installed.
-        """
-        ls_output = glob.glob(cls._CHECK_STUDIO_PATH)
-        ls_output = sorted(ls_output, reverse=True)
-        if ls_output:
-            logging.debug('Result for checking Android Studio after sort: %s.',
-                          ls_output[0])
-            return ls_output[0]
-        logging.error('No Android Studio installed.')
-        return None
+
+def _get_script_from_internal_path(ide_path, ide_name):
+    """Get the studio.sh script path from internal path.
+
+    Args:
+        ide_path: The IDE installed path to be checked.
+        ide_name: The IDE name.
+
+    Returns:
+        The IDE full path or None if no Android Studio or Eclipse is installed.
+    """
+    ls_output = glob.glob(ide_path)
+    ls_output = sorted(ls_output, reverse=True)
+    if ls_output:
+        logging.debug('Result for checking %s after sort: %s.', ide_name,
+                      ls_output[0])
+        return ls_output[0]
+    logging.error('No %s installed.', ide_name)
+    return None
 
 
 def _run_ide_sh(installed_path, project_file):

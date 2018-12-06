@@ -97,7 +97,7 @@ def _parse_args(args):
         '-i',
         '--ide',
         default=['j'],
-        help='Launch IDE type, j: IntelliJ, s: Android Studio.')
+        help='Launch IDE type, j: IntelliJ, s: Android Studio, e: Eclipse.')
     parser.add_argument(
         '-p',
         '--ide-path',
