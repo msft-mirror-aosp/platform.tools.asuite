@@ -56,7 +56,12 @@ from aidegen.lib.metrics import log_usage
 from aidegen.lib.project_file_gen import generate_ide_project_files
 from aidegen.lib.project_info import ProjectInfo
 from aidegen.lib.source_locator import multi_projects_locate_source
+from atest import atest_utils
+from atest import constants
 from atest import module_info
+
+AIDEGEN_REPORT_LINK = ('To report the AIDEGen tool problem, please use this '
+                       'link: https://goto.google.com/aidegen-bug')
 
 
 def _parse_args(args):
@@ -214,4 +219,8 @@ def main(argv):
 
 
 if __name__ == '__main__':
-    main(sys.argv[1:])
+    try:
+        main(sys.argv[1:])
+    finally:
+        print('\n%s\n%s\n' % (atest_utils.colorize("INFO...", constants.MAGENTA)
+                              , AIDEGEN_REPORT_LINK))
