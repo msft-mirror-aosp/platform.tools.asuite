@@ -42,6 +42,9 @@
     "aidegen tradefed -i s": [
         "aidegen_main.main(['tradefed', '-i', 's', '-n', '-v'])"
     ],
+    "aidegen tradefed -i e": [
+        "aidegen_main.main(['tradefed', '-i', 'e', '-n', '-v'])"
+    ],
     "aidegen(whole aosp)": [
         "aidegen_main.main(['-n', '-v'])"
     ]
