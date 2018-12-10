@@ -172,22 +172,39 @@ class IdeIntelliJ(IdeBase):
             The sh full path, or None if no IntelliJ version is installed.
         """
         found = None
-        cefile = _get_intellij_version_path(cls._LS_CE_PATH)
-        uefile = _get_intellij_version_path(cls._LS_UE_PATH)
-        if cefile and uefile:
-            with AidegenConfig() as aconfig:
-                if not config_reset and aconfig.preferred_version in [
-                        cefile, uefile
-                ]:
-                    found = aconfig.preferred_version
+        cefiles = _get_intellij_version_path(cls._LS_CE_PATH)
+        uefiles = _get_intellij_version_path(cls._LS_UE_PATH)
+        all_versions = cls._get_all_versions(cefiles, uefiles)
+        if len(all_versions) > 1:
+            with AidegenConfig() as aconf:
+                if not config_reset and aconf.preferred_version in all_versions:
+                    found = aconf.preferred_version
                 if not found:
-                    found = _ask_preference(cefile, uefile)
-                    aconfig.preferred_version = found
-        else:
-            found = cefile or uefile
+                    found = _ask_preference(all_versions)
+                    aconf.preferred_version = found
+        elif all_versions:
+            found = all_versions[0]
         if found:
             logging.debug('IDE internal installed path: %s.', found)
         return found
+
+    @classmethod
+    def _get_all_versions(cls, cefiles, uefiles):
+        """Get all versions of launch script files.
+
+        Args:
+            cefiles: CE version launch script paths.
+            uefiles: UE version launch script paths.
+
+        Returns:
+            A list contains all versions of launch script files.
+        """
+        all_versions = []
+        if cefiles:
+            all_versions.extend(cefiles)
+        if uefiles:
+            all_versions.extend(uefiles)
+        return all_versions
 
 
 class IdeStudio(IdeBase):
@@ -414,31 +431,38 @@ def _get_intellij_version_path(version_path):
     ls_output = sorted(ls_output, reverse=True)
     logging.debug('Result for checking IntelliJ path %s after sorting:%s.',
                   version_path, ls_output)
-    return ls_output[0]
+    return ls_output
 
 
-def _ask_preference(cefile, uefile):
+def _ask_preference(all_versions):
     """Ask users which version they prefer.
 
     Args:
-        cefile: CE version launch script path.
-        uefile: UE version launch script path.
+        all_versions: A list of all CE and UE version launch script paths.
 
     Returns:
         An users selected version.
     """
-    query = ('You installed two versions of IntelliJ:\n\t1. {}\n\t2. {}\n'
-             'Please select one.\t').format(cefile, uefile)
-    return cefile if _select_intellij_version(query) == '1' else uefile
+    info = ''
+    for i, sfile in enumerate(all_versions, 1):
+        item = '\t{}. {}\n'.format(str(i), sfile)
+        info = ''.join([info, item])
+    query = ('You installed two versions of IntelliJ:\n{}'
+             'Please select one.\t').format(info)
+    return _select_intellij_version(query, all_versions)
 
 
-def _select_intellij_version(query):
+def _select_intellij_version(query, all_versions):
     """Select one from different IntelliJ versions users installed.
 
     Args:
         query: The query message.
+        all_versions: A list of all CE and UE version launch script paths.
     """
+    all_numbers = []
+    for i in range(len(all_versions)):
+        all_numbers.append(str(i + 1))
     input_data = input(query)
-    while not input_data in ['1', '2']:
-        input_data = input('Please choose 1 or 2.\t')
-    return input_data
+    while not input_data in all_numbers:
+        input_data = input('Please select a number:\t')
+    return all_versions[int(input_data) - 1]
