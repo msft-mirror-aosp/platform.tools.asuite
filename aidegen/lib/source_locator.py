@@ -208,7 +208,8 @@ class ModuleData():
             r_src_dir = os.path.join(
                 'out/target/common/obj/APPS/%s_intermediates/srcjars' %
                 self.module_name)
-            if os.path.exists(r_src_dir):
+            if os.path.exists(
+                    os.path.join(constant.ANDROID_ROOT_PATH, r_src_dir)):
                 self.src_dirs.add(r_src_dir)
             else:
                 # For other apps under frameworks.
@@ -273,8 +274,7 @@ class ModuleData():
                     if match:
                         package_name = match.group('package')
                         package_path = package_name.replace(os.extsep, os.sep)
-                        source_folder, _, _ = java_file.rpartition(
-                            package_path)
+                        source_folder, _, _ = java_file.rpartition(package_path)
                         return source_folder.strip(os.sep)
 
     def _append_jar_file(self, jar_path):
