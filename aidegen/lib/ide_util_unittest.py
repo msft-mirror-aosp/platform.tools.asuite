@@ -70,14 +70,10 @@ class IdeUtilUnittests(unittest.TestCase):
         mock_glob.return_value = uc.IDEA_SH_FIND
         mock_input.return_value = '1'
         self.assertEqual(
-            ide_util._ask_preference(IdeIntelliJ._LS_CE_PATH,
-                                     IdeIntelliJ._LS_UE_PATH),
-            IdeIntelliJ._LS_CE_PATH)
+            ide_util._ask_preference(uc.IDEA_SH_FIND), uc.IDEA_SH_FIND[0])
         mock_input.return_value = '2'
         self.assertEqual(
-            ide_util._ask_preference(IdeIntelliJ._LS_CE_PATH,
-                                     IdeIntelliJ._LS_UE_PATH),
-            IdeIntelliJ._LS_UE_PATH)
+            ide_util._ask_preference(uc.IDEA_SH_FIND), uc.IDEA_SH_FIND[1])
 
     @unittest.skip('Skip to use real command to launch IDEA.')
     def test_run_intellij_sh(self):
