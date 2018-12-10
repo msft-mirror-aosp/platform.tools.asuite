@@ -142,7 +142,7 @@ def _build_target(projects, module_info, verbose):
         build_targets, verbose=verbose, env_vars=_BUILD_ENV_VARS)
     if not successful_build:
         if os.path.isfile(_get_blueprint_json_path()):
-            message = ('{} build failed, but AIDEGen will proceed but '
+            message = ('{} build failed, AIDEGen will proceed but '
                        'dependency correctness is not guaranteed without all '
                        'targets being built successfully.'.format(
                            ' '.join(projects)))
