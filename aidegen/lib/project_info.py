@@ -28,13 +28,15 @@ from atest import atest_utils
 from atest import constants
 
 _KEY_DEP = 'dependencies'
+_KEY_ROBOTESTS = ['robotests', 'robolectric']
 _ANDROID_MK = 'Android.mk'
 _ANDROID_BP = 'Android.bp'
 _ANDROID_MK_WARN = (
     '%s contains Android.mk file(s) in its dependencies:\n%s\nPlease help '
     'convert these files into blueprint format in the future, otherwise '
     'AIDEGen may not be able to include all module dependencies.')
-_FILTER_CLASSES = {'APPS', 'JAVA_LIBRARIES'}
+_FILTER_CLASSES = {'APPS', 'JAVA_LIBRARIES', 'ROBOLECTRIC'}
+_ROBOLECTRIC_MODULE = 'Robolectric_all'
 
 
 class ProjectInfo():
@@ -76,14 +78,14 @@ class ProjectInfo():
         # a more specific name. e.g, master.iml.
         if abs_path == constant.ANDROID_ROOT_PATH:
             target = os.path.basename(abs_path)
-        self.project_module_names = module_info.get_module_names(rel_path)
+        self.project_module_names = set(module_info.get_module_names(rel_path))
         self.project_relative_path = rel_path
         self.project_absolute_path = abs_path
         self.iml_path = ''
         # Append default hard-code modules, source paths and jar files.
         # TODO(b/112058649): Do more research to clarify how to remove these
         #                    hard-code sources.
-        self.project_module_names.extend([
+        self.project_module_names.update([
             # Framework module is always needed for dependencies but it might
             # not be located by module dependency.
             'framework',
@@ -144,8 +146,14 @@ class ProjectInfo():
                                   'which is included in %s, skipping this '
                                   'module in the project.'),
                                  name, data['class'], _FILTER_CLASSES)
-                elif name not in self.project_module_names:
-                    self.project_module_names.append(name)
+                else:
+                    self.project_module_names.add(name)
+                    # Hardcode for robotest dependency. If a folder named
+                    # robotests or robolectric is in the module's path hierarchy
+                    # then add the module Robolectric_all as a dependency.
+                    if any(key_dir in path.split(os.sep)
+                           for key_dir in _KEY_ROBOTESTS):
+                        self.project_module_names.add(_ROBOLECTRIC_MODULE)
 
     def get_dep_modules(self, module_names=None, depth=0):
         """Recursively find dependent modules of the project.
