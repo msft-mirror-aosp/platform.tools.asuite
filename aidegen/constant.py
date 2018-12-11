@@ -19,7 +19,9 @@ import os
 
 from atest import constants
 
+ANDROID_HOST_OUT = os.environ.get(constants.ANDROID_HOST_OUT)
 ANDROID_ROOT_PATH = os.environ.get(constants.ANDROID_BUILD_TOP)
 ROOT_DIR = os.path.join(ANDROID_ROOT_PATH, 'tools/asuite/aidegen')
 KEY_PATH = 'path'
 KEY_DEPTH = 'depth'
+RELATIVE_HOST_OUT = os.path.relpath(ANDROID_HOST_OUT, ANDROID_ROOT_PATH)

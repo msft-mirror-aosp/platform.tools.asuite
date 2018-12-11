@@ -46,6 +46,8 @@ _IGNORE_DIRS = [
     # cause duplicated classes by libcore/ojluni/src/main/java.
     'libcore/ojluni/src/lambda/java'
 ]
+_ROBOLECTRIC_JAR_PATH = os.path.join(constant.RELATIVE_HOST_OUT, 'framework',
+                                     'Robolectric')
 
 
 def multi_projects_locate_source(projects, verbose, depth):
@@ -286,11 +288,12 @@ class ModuleData():
         Returns:
             Boolean: True if jar_path is an existing jar file.
         """
-        self.referenced_by_jar = True
         jar_abspath = os.path.join(self.android_root_path, jar_path)
-        if jar_path.endswith(_JAR) and os.path.isfile(jar_abspath):
-            self.jar_files.add(jar_path)
-            return True
+        if jar_path.endswith(_JAR):
+            self.referenced_by_jar = True
+            if os.path.isfile(jar_abspath):
+                self.jar_files.add(jar_path)
+                return True
 
     def _append_jar_from_installed(self, specific_dir=None):
         """Append a jar file's path to the list of jar_files with matching
@@ -337,15 +340,19 @@ class ModuleData():
 
     def locate_sources_path(self):
         """Locate source folders' paths or jar files."""
-        if self.is_android_support_module:
-            self._append_jar_from_installed()
-        elif self.jarjar_rules_existed:
-            self._append_jar_from_installed(self.specific_soong_path)
-        elif self.jars_existed:
-            self._set_jars_jarfile()
         if self.module_depth > self.depth_by_source:
             self._append_jar_from_installed(self.specific_soong_path)
         else:
+            if self.is_android_support_module:
+                self._append_jar_from_installed()
+            elif self.jarjar_rules_existed:
+                self._append_jar_from_installed(self.specific_soong_path)
+            elif self.jars_existed:
+                self._set_jars_jarfile()
             self._collect_srcs_paths()
+            # If there is no source/tests folder of the module, reference the
+            # module by jar.
+            if not self.src_dirs and not self.test_dirs:
+                self._append_jar_from_installed(_ROBOLECTRIC_JAR_PATH)
         if self.referenced_by_jar and not self.jar_files:
             self.jar_nonexistent = True
