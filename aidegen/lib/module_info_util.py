@@ -32,10 +32,8 @@ import os
 import subprocess
 import sys
 
-from aidegen import constant
 from aidegen.lib.common_util import time_logged
 from aidegen.lib.common_util import get_related_paths
-from aidegen.lib.common_util import is_target_android_root
 from aidegen.lib import errors
 from atest import atest_utils
 from atest import constants
@@ -48,17 +46,12 @@ _KEY_INS = 'installed'
 _KEY_DEP = 'dependencies'
 _KEY_SRCS = 'srcs'
 _MERGE_NEEDED_ITEMS = [_KEY_CLS, _KEY_PATH, _KEY_INS, _KEY_DEP, _KEY_SRCS]
-_BUILD_ENV_VARS = {
-    'SOONG_COLLECT_JAVA_DEPS': 'true',
-    'DISABLE_ROBO_RUN_TESTS': 'true'
-}
-_MODULES_IN = 'MODULES-IN-%s'
-_RELATIVE_PATH = '../'
 _INTELLIJ_PROJECT_FILE_EXT = '*.iml'
 _LAUNCH_PROJECT_QUERY = (
     'There exists an IntelliJ project file: %s. Do you want '
     'to launch it (yes/No)?')
-
+_GENERATE_JSON_COMMAND = ('SOONG_COLLECT_JAVA_DEPS=false make nothing;'
+                          'SOONG_COLLECT_JAVA_DEPS=true make nothing')
 
 @time_logged
 def generate_module_info_json(module_info, projects, verbose):
@@ -77,45 +70,21 @@ def generate_module_info_json(module_info, projects, verbose):
     Returns:
         A tuple of Atest module info instance and a merged json dictionary.
     """
-    if is_target_android_root(module_info, projects):
-        _build_android_root(verbose)
-    else:
-        _build_target(projects, module_info, verbose)
-    mk_dict = module_info.name_to_module_info
+    _build_target(projects[0], module_info, verbose)
     bp_dict = _get_soong_build_json_dict()
-    return _merge_json(mk_dict, bp_dict)
+    return _merge_json(module_info.name_to_module_info, bp_dict)
 
 
-def _build_android_root(verbose):
-    """Build android root to generate _BLUEPRINT_JSONFILE_NAME.
+def _build_target(main_project, module_info, verbose):
+    """Make nothing to generate module_bp_java_deps.json.
 
-    Args:
-        verbose: A boolean, if true displays full build output.
-    """
-    cmd = ['make', '-j32']
-    try:
-        if verbose:
-            full_env_vars = os.environ.copy()
-            subprocess.check_call(
-                cmd, stderr=subprocess.STDOUT, env=full_env_vars)
-        else:
-            subprocess.check_call(cmd)
-        logging.info('Build successful')
-    except subprocess.CalledProcessError:
-        logging.exception('Error building: %s', constant.ANDROID_ROOT_PATH)
-        root_name = os.path.basename(constant.ANDROID_ROOT_PATH)
-        _build_failed_handle(constant.ANDROID_ROOT_PATH, root_name)
-
-
-def _build_target(projects, module_info, verbose):
-    """Build input project list to generate _BLUEPRINT_JSONFILE_NAME.
-
-    When we build a list of projects, we look up in module-info dictionary to
-    get project's relative and absolute paths for generating build target list
-    and then pass it to build function in Atest.
+    We build without environment setting SOONG_COLLECT_JAVA_DEPS and then build
+    with environment setting SOONG_COLLECT_JAVA_DEPS. In this way we can trigger
+    the process of collecting dependencies and generating
+    module_bp_java_deps.json.
 
     Args:
-        projects: A list of project names.
+        main_project: The main project name.
         module_info: A ModuleInfo instance contains data of module-info.json.
         verbose: A boolean, if true displays full build output.
 
@@ -128,36 +97,49 @@ def _build_target(projects, module_info, verbose):
               a) If the answer is yes, return.
               b) If the answer is not yes, sys.exit(1)
     """
-    # add -k to let AIDEGen be able to keep on processing while some targets
-    # building failed.
-    build_targets = ['-k']
-    main_project_path = None
-    for target in projects:
-        rel_path, abs_path = get_related_paths(module_info, target)
-        build_target = _MODULES_IN % rel_path.replace('/', '-')
-        build_targets.append(build_target)
-        if not main_project_path:
-            main_project_path = abs_path
-    successful_build = atest_utils.build(
-        build_targets, verbose=verbose, env_vars=_BUILD_ENV_VARS)
-    if not successful_build:
-        if os.path.isfile(_get_blueprint_json_path()):
-            message = ('{} build failed, AIDEGen will proceed but '
-                       'dependency correctness is not guaranteed without all '
-                       'targets being built successfully.'.format(
-                           ' '.join(projects)))
-            print('\n{}\n{}\n'.format(
-                atest_utils.colorize('Warning...', constants.MAGENTA), message))
+    json_path = _get_blueprint_json_path()
+    original_json_mtime = None
+    if os.path.isfile(json_path):
+        original_json_mtime = os.path.getmtime(json_path)
+    cmd = [_GENERATE_JSON_COMMAND]
+    try:
+        if verbose:
+            full_env_vars = os.environ.copy()
+            subprocess.check_call(
+                cmd, stderr=subprocess.STDOUT, env=full_env_vars, shell=True)
         else:
-            _build_failed_handle(main_project_path, projects)
+            subprocess.check_call(cmd, shell=True)
+        logging.info('Build successful: %s.', _GENERATE_JSON_COMMAND)
+    except subprocess.CalledProcessError:
+        if not _is_new_json_file_generated(json_path, original_json_mtime):
+            if os.path.isfile(json_path):
+                message = ('Generate new {} failed, AIDEGen will proceed and '
+                           'reuse the old {}.'.format(json_path, json_path))
+                print('\n{}\n{}\n'.format(
+                    atest_utils.colorize('Warning...', constants.MAGENTA),
+                    message))
+        else:
+            _, main_project_path = get_related_paths(module_info, main_project)
+            _build_failed_handle(main_project_path)
 
 
-def _build_failed_handle(main_project_path, projects):
+def _is_new_json_file_generated(json_path, original_file_mtime):
+    """Check the new file is generated or not.
+
+    Args:
+        json_path: The path of the json file being to check.
+        original_file_mtime: the original file modified time.
+    """
+    if not original_file_mtime:
+        return os.path.isfile(json_path)
+    return original_file_mtime != os.path.getmtime(json_path)
+
+
+def _build_failed_handle(main_project_path):
     """Handle build failures.
 
     Args:
         main_project_path: The main project directory.
-        projects: A list of project names.
 
     Handle results:
         1) There's no project file, raise BuildFailureError.
@@ -175,7 +157,7 @@ def _build_failed_handle(main_project_path, projects):
             sys.exit(1)
     else:
         raise errors.BuildFailureError(
-            'Failed to build %s.' % ' '.join(projects))
+            'Failed to generate %s.' % _get_blueprint_json_path())
 
 
 def _get_soong_build_json_dict():
