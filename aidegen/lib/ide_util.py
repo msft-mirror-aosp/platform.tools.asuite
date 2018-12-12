@@ -443,12 +443,11 @@ def _ask_preference(all_versions):
     Returns:
         An users selected version.
     """
-    info = ''
+    options = []
     for i, sfile in enumerate(all_versions, 1):
-        item = '\t{}. {}\n'.format(str(i), sfile)
-        info = ''.join([info, item])
-    query = ('You installed two versions of IntelliJ:\n{}'
-             'Please select one.\t').format(info)
+        options.append('\t{}. {}'.format(i, sfile))
+    query = ('You installed {} versions of IntelliJ:\n{}\nPlease select '
+             'one.\t').format(len(all_versions), '\n'.join(options))
     return _select_intellij_version(query, all_versions)
 
 
