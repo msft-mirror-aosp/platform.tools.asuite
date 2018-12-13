@@ -18,6 +18,7 @@
 
 from __future__ import absolute_import
 
+import glob
 import logging
 import os
 import re
@@ -25,6 +26,7 @@ import re
 from aidegen import constant
 from aidegen.lib import errors
 from atest import atest_utils
+from atest import constants
 
 # Parse package name from the package declaration line of a java.
 # Group matches "foo.bar" of line "package foo.bar;" or "package foo.bar"
@@ -48,6 +50,7 @@ _IGNORE_DIRS = [
 ]
 _ROBOLECTRIC_JAR_PATH = os.path.join(constant.RELATIVE_HOST_OUT, 'framework',
                                      'Robolectric')
+_DIS_ROBO_BUILD_ENV_VAR = {'DISABLE_ROBO_RUN_TESTS': 'true'}
 
 
 def multi_projects_locate_source(projects, verbose, depth):
@@ -110,7 +113,7 @@ def locate_source(project, verbose, depth, build=True):
     if not hasattr(project, 'dep_modules') or not project.dep_modules:
         raise errors.EmptyModuleDependencyError(
             'Dependent modules dictionary is empty.')
-    missing_jars = set()
+    rebuild_targets = set()
     for module_name in project.dep_modules:
         module = ModuleData(project.android_root_path, module_name,
                             project.dep_modules[module_name], depth)
@@ -118,30 +121,33 @@ def locate_source(project, verbose, depth, build=True):
         project.source_path['source_folder_path'].update(module.src_dirs)
         project.source_path['test_folder_path'].update(module.test_dirs)
         project.source_path['jar_path'].update(module.jar_files)
-        if module.jar_nonexistent:
-            missing_jars.add(module_name)
-    if missing_jars:
+        if module.build_targets:
+            rebuild_targets |= module.build_targets
+    if rebuild_targets:
         if build:
-            _build_dependencies(verbose, missing_jars)
+            _build_dependencies(verbose, rebuild_targets)
             locate_source(project, verbose, depth, build=False)
         else:
-            logging.warning(
-                'Jar files in the list don\'t exist:\n%s.', '\n'.join(
-                    sum([project.dep_modules[module][_KEY_INSTALLED]
-                         for module in missing_jars], [])))
+            logging.warning('Jar files or AIDL files do not exist:\n\t%s.',
+                            '\n\t'.join(rebuild_targets))
 
 
-def _build_dependencies(verbose, missing_jars):
+def _build_dependencies(verbose, rebuild_targets):
     """Build given modules when the jars of the modules don't exist.
 
     Args:
         verbose: A boolean, if true displays full build output.
-        missing_jars: A list of modules name which jar file doesn't exist.
+        rebuild_targets: A list of jar files or AIDL files which do not exist.
     """
     logging.info('Ready to build the modules for generating jar.')
-    if not atest_utils.build(missing_jars, verbose=verbose):
-        raise errors.BuildFailureError(
-            'Failed to build %s.' % ', '.join(missing_jars))
+    targets = ['-k']
+    targets.extend(list(rebuild_targets))
+    if not atest_utils.build(targets, verbose, _DIS_ROBO_BUILD_ENV_VAR):
+        message = ('{} build failed, AIDEGen will proceed but dependency '
+                   'correctness is not guaranteed if not all targets being '
+                   'built successfully.'.format(' '.join(targets)))
+        print('\n{}\n{}\n'.format(
+            atest_utils.colorize('Warning...', constants.MAGENTA), message))
 
 
 class ModuleData():
@@ -182,8 +188,8 @@ class ModuleData():
         self.module_path = (self.module_data[_KEY_PATH][0]
                             if _KEY_PATH in self.module_data
                             and self.module_data[_KEY_PATH] else '')
-        self.module_depth = (int(self.module_data[constant.KEY_DEPTH]) if depth
-                             else 0)
+        self.module_depth = (int(self.module_data[constant.KEY_DEPTH])
+                             if depth else 0)
         self.depth_by_source = depth
         self.src_dirs = set()
         self.test_dirs = set()
@@ -196,7 +202,8 @@ class ModuleData():
         self.jars_existed = (_KEY_JARS in self.module_data
                              and self.module_data[_KEY_JARS])
         self.referenced_by_jar = False
-        self.jar_nonexistent = False
+        self.build_targets = set()
+        self.missing_jars = set()
         # Add the directory contains R.java of the module with APPS class. If
         # the module is under packages/apps, the R.java will be created
         # including other sub app modules and placed in srcjars. However, if
@@ -234,6 +241,8 @@ class ModuleData():
                     if src_item_dir not in scanned_dirs:
                         scanned_dirs.add(src_item_dir)
                         src_dir = self._get_source_folder(src_item)
+                        if src_dir and not self._is_source_existent(src_dir):
+                            self.build_targets.add(src_dir)
                 else:
                     # To record what files except java and srcjar in the srcs.
                     logging.info('%s is not in parsing scope.', src_item)
@@ -243,6 +252,19 @@ class ModuleData():
                         self.test_dirs.add(src_dir)
                     else:
                         self.src_dirs.add(src_dir)
+
+    def _is_source_existent(self, src_dir):
+        """Check source such as AIDL file's existence, if not set rebuild flag.
+
+        Args:
+            src_dir: The relative path of source file to be checked. src_dir
+                     should not be None.
+
+        Returns:
+            A boolean, true if src_dir exists, otherwise false.
+        """
+        abs_src = os.path.join(self.android_root_path, src_dir)
+        return os.path.exists(abs_src)
 
     # pylint: disable=inconsistent-return-statements
     def _get_source_folder(self, java_file):
@@ -293,7 +315,9 @@ class ModuleData():
             self.referenced_by_jar = True
             if os.path.isfile(jar_abspath):
                 self.jar_files.add(jar_path)
-                return True
+            else:
+                self.missing_jars.add(jar_path)
+            return True
 
     def _append_jar_from_installed(self, specific_dir=None):
         """Append a jar file's path to the list of jar_files with matching
@@ -336,7 +360,46 @@ class ModuleData():
         if _KEY_JARS in self.module_data and self.module_data[_KEY_JARS]:
             for jar_name in self.module_data[_KEY_JARS]:
                 jar_path = os.path.join(self.module_path, jar_name)
+                jar_abs = os.path.join(self.android_root_path, jar_path)
+                if not os.path.isfile(jar_abs) and 'prebuilt.jar' in jar_name:
+                    rel_path = self._get_jar_path_from_prebuilts(jar_name)
+                    if rel_path:
+                        jar_path = rel_path
                 self._append_jar_file(jar_path)
+
+    def _get_jar_path_from_prebuilts(self, jar_name):
+        """Get prebuilt jar file from prebuilts folder.
+
+        If the prebuilt jar file we get from method _set_jars_jarfile() does not
+        exist, we should search the prebuilt jar file in prebuilts folder.
+        For example:
+        'platformprotos': {
+            'jars': [
+                'platformprotos-prebuilt.jar'
+            ],
+            'path': [
+                'frameworks/base'
+            ],
+        },
+        We get an incorrect path: 'frameworks/base/platformprotos-prebuilt.jar'
+        If the file does not exist, we should search the file name from
+        prebuilts folder. If we can get the correct path from 'prebuilts', we
+        can replace it with the incorrect path.
+
+        Args:
+            jar_name: The prebuilt jar file name.
+
+        Return:
+            A relative prebuilt jar file path if found, otherwise None.
+        """
+        rel_path = ''
+        search = os.sep.join([self.android_root_path, 'prebuilts/**', jar_name])
+        results = glob.glob(search, recursive=True)
+        if results:
+            jar_abs = results[0]
+            rel_path = os.path.relpath(
+                jar_abs, os.environ.get(constants.ANDROID_BUILD_TOP, os.sep))
+        return rel_path
 
     def locate_sources_path(self):
         """Locate source folders' paths or jar files."""
@@ -354,5 +417,5 @@ class ModuleData():
             # module by jar.
             if not self.src_dirs and not self.test_dirs:
                 self._append_jar_from_installed(_ROBOLECTRIC_JAR_PATH)
-        if self.referenced_by_jar and not self.jar_files:
-            self.jar_nonexistent = True
+        if self.referenced_by_jar and self.missing_jars:
+            self.build_targets |= self.missing_jars
