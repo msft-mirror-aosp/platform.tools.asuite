@@ -20,25 +20,36 @@ This module has a collection of functions that provide helper functions to
 other modules.
 """
 
-import functools
 import logging
 import os
 import time
 
+from functools import partial
+from functools import wraps
+
 from aidegen import constant
+from atest import constants
+from atest.atest_utils import colorize
+
+COLORED_INFO = partial(colorize, color=constants.MAGENTA, highlight=False)
 
 
-def time_logged(func):
+def time_logged(func=None, *, message='', maximum=1):
     """Decorate a function to find out how much time it spends.
 
     Args:
         func: a function is to be calculated its spending time.
+        message: the message the decorated function wants to show.
+        maximum: a interger, minutes. If time exceeds the maximum time show
+                 message, otherwise doesn't.
 
     Returns:
         The wrapper function.
     """
+    if func is None:
+        return partial(time_logged, message=message, maximum=maximum)
 
-    @functools.wraps(func)
+    @wraps(func)
     def wrapper(*args, **kwargs):
         """A wrapper function."""
 
@@ -46,9 +57,12 @@ def time_logged(func):
         try:
             return func(*args, **kwargs)
         finally:
+            timestamp = time.time() - start
             logging.debug('{}.{} time consumes: {:.2f}s'.format(
                 func.__module__, func.__name__,
-                time.time() - start))
+                timestamp))
+            if message and timestamp > maximum * 60:
+                print(message)
 
     return wrapper
 
