@@ -25,6 +25,7 @@ import re
 
 from aidegen import constant
 from aidegen.lib import errors
+from aidegen.lib.common_util import COLORED_INFO
 from atest import atest_utils
 from atest import constants
 
@@ -51,9 +52,13 @@ _IGNORE_DIRS = [
 _ROBOLECTRIC_JAR_PATH = os.path.join(constant.RELATIVE_HOST_OUT, 'framework',
                                      'Robolectric')
 _DIS_ROBO_BUILD_ENV_VAR = {'DISABLE_ROBO_RUN_TESTS': 'true'}
+_SKIP_BUILD_WARN = (
+    'You choose "--skip-build". Skip building jar and AIDL files might '
+    'increase the risk of the absence of some jar or AIDL files and cause the '
+    'red lines to appear in IDE tool.')
 
 
-def multi_projects_locate_source(projects, verbose, depth):
+def multi_projects_locate_source(projects, verbose, depth, skip_build):
     """Locate the paths of dependent source folders and jar files with projects.
 
     Args:
@@ -63,9 +68,13 @@ def multi_projects_locate_source(projects, verbose, depth):
         verbose: A boolean, if true displays full build output.
         depth: An integer shows the depth of module dependency referenced by
                source. Zero means the max module depth.
+        skip_build: A boolean, if true skip building jar and AIDL files,
+                    otherwise build them.
     """
+    if skip_build:
+        print('\n{} {}\n'.format(COLORED_INFO('Warning:'), _SKIP_BUILD_WARN))
     for project in projects:
-        locate_source(project, verbose, depth)
+        locate_source(project, verbose, depth, build=not skip_build)
 
 
 def locate_source(project, verbose, depth, build=True):
@@ -146,8 +155,7 @@ def _build_dependencies(verbose, rebuild_targets):
         message = ('{} build failed, AIDEGen will proceed but dependency '
                    'correctness is not guaranteed if not all targets being '
                    'built successfully.'.format(' '.join(targets)))
-        print('\n{}\n{}\n'.format(
-            atest_utils.colorize('Warning...', constants.MAGENTA), message))
+        print('\n{} {}\n'.format(COLORED_INFO('Warning:'), message))
 
 
 class ModuleData():
