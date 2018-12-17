@@ -22,19 +22,21 @@ import logging
 import os
 
 from aidegen import constant
+from aidegen.lib.common_util import COLORED_INFO
 from aidegen.lib.common_util import get_related_paths
 from aidegen.lib.module_info_util import generate_module_info_json
-from atest import atest_utils
-from atest import constants
 
 _KEY_DEP = 'dependencies'
 _KEY_ROBOTESTS = ['robotests', 'robolectric']
 _ANDROID_MK = 'Android.mk'
 _ANDROID_BP = 'Android.bp'
+_CONVERT_MK_URL = ('https://android.googlesource.com/platform/build/soong/'
+                   '#convert-android_mk-files')
 _ANDROID_MK_WARN = (
-    '%s contains Android.mk file(s) in its dependencies:\n%s\nPlease help '
+    '{} contains Android.mk file(s) in its dependencies:\n{}\nPlease help '
     'convert these files into blueprint format in the future, otherwise '
-    'AIDEGen may not be able to include all module dependencies.')
+    'AIDEGen may not be able to include all module dependencies.\nPlease visit '
+    '%s for reference on how to convert makefile.' % _CONVERT_MK_URL)
 _FILTER_CLASSES = {'APPS', 'JAVA_LIBRARIES', 'ROBOLECTRIC'}
 _ROBOLECTRIC_MODULE = 'Robolectric_all'
 
@@ -103,9 +105,9 @@ class ProjectInfo():
         self.dep_modules = self.get_dep_modules()
         mk_set = set(self._search_android_make_files(module_info))
         if mk_set:
-            print('\n%s\n%s\n' % (atest_utils.colorize(
-                "Warning...", constants.MAGENTA), _ANDROID_MK_WARN %
-                                  (target, '\n'.join(mk_set))))
+            print('\n{} {}\n'.format(
+                COLORED_INFO('Warning:'),
+                _ANDROID_MK_WARN.format(target, '\n'.join(mk_set))))
 
     def _search_android_make_files(self, module_info):
         """Search project and dependency modules contain Android.mk files.
