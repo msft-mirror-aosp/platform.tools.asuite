@@ -269,6 +269,15 @@ class SourceLocatorUnittests(unittest.TestCase):
         self.assertEqual(mock_project_info.source_path['test_folder_path'],
                          result_test)
 
+    def test_get_abs_path(self):
+        """Test _get_abs_path handling."""
+        module_data = source_locator.ModuleData(uc.TEST_DATA_PATH, _MODULE_NAME,
+                                                dict(_MODULE_INFO), 0)
+        self.assertEqual(uc.TEST_DATA_PATH, module_data._get_abs_path(''))
+        test_path = os.path.join(uc.TEST_DATA_PATH, 'test.jar')
+        self.assertEqual(test_path, module_data._get_abs_path(test_path))
+        self.assertEqual(test_path, module_data._get_abs_path('test.jar'))
+
 
 if __name__ == '__main__':
     unittest.main()
