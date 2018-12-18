@@ -190,16 +190,21 @@ class ProjectInfo():
             deps: A dict contains all dependent modules data of given modules.
         """
         dep = {}
+        children = set()
         if not module_names:
             self.set_modules_under_project_path()
             module_names = self.project_module_names
+            self.project_module_names = set()
         for name in module_names:
-            if name in self.modules_info:
+            if (name in self.modules_info and
+                    name not in self.project_module_names):
                 dep[name] = self.modules_info[name]
-                if _KEY_DEP in dep[name] and dep[name][_KEY_DEP]:
-                    dep.update(
-                        self.get_dep_modules(dep[name][_KEY_DEP], depth + 1))
                 dep[name][constant.KEY_DEPTH] = depth
+                self.project_module_names.add(name)
+                if _KEY_DEP in dep[name] and dep[name][_KEY_DEP]:
+                    children.update(dep[name][_KEY_DEP])
+        if children:
+            dep.update(self.get_dep_modules(children, depth+1))
         return dep
 
     @classmethod
