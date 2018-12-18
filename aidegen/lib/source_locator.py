@@ -225,8 +225,7 @@ class ModuleData():
             r_src_dir = os.path.join(
                 'out/target/common/obj/APPS/%s_intermediates/srcjars' %
                 self.module_name)
-            if os.path.exists(
-                    os.path.join(constant.ANDROID_ROOT_PATH, r_src_dir)):
+            if os.path.exists(self._get_abs_path(r_src_dir)):
                 self.src_dirs.add(r_src_dir)
             else:
                 # For other apps under frameworks.
@@ -249,7 +248,8 @@ class ModuleData():
                     if src_item_dir not in scanned_dirs:
                         scanned_dirs.add(src_item_dir)
                         src_dir = self._get_source_folder(src_item)
-                        if src_dir and not self._is_source_existent(src_dir):
+                        if src_dir and not os.path.exists(
+                                self._get_abs_path(src_dir)):
                             self.build_targets.add(src_dir)
                 else:
                     # To record what files except java and srcjar in the srcs.
@@ -260,19 +260,6 @@ class ModuleData():
                         self.test_dirs.add(src_dir)
                     else:
                         self.src_dirs.add(src_dir)
-
-    def _is_source_existent(self, src_dir):
-        """Check source such as AIDL file's existence, if not set rebuild flag.
-
-        Args:
-            src_dir: The relative path of source file to be checked. src_dir
-                     should not be None.
-
-        Returns:
-            A boolean, true if src_dir exists, otherwise false.
-        """
-        abs_src = os.path.join(self.android_root_path, src_dir)
-        return os.path.exists(abs_src)
 
     # pylint: disable=inconsistent-return-statements
     def _get_source_folder(self, java_file):
@@ -298,7 +285,7 @@ class ModuleData():
             source_folder: A string of path to source folder(e.g. src/main/java)
                            or none when it failed to get package name.
         """
-        abs_java_path = os.path.join(self.android_root_path, java_file)
+        abs_java_path = self._get_abs_path(java_file)
         if os.path.exists(abs_java_path):
             with open(abs_java_path) as data:
                 for line in data.read().splitlines():
@@ -318,10 +305,9 @@ class ModuleData():
         Returns:
             Boolean: True if jar_path is an existing jar file.
         """
-        jar_abspath = os.path.join(self.android_root_path, jar_path)
         if jar_path.endswith(_JAR):
             self.referenced_by_jar = True
-            if os.path.isfile(jar_abspath):
+            if os.path.isfile(self._get_abs_path(jar_path)):
                 self.jar_files.add(jar_path)
             else:
                 self.missing_jars.add(jar_path)
@@ -368,7 +354,7 @@ class ModuleData():
         if _KEY_JARS in self.module_data and self.module_data[_KEY_JARS]:
             for jar_name in self.module_data[_KEY_JARS]:
                 jar_path = os.path.join(self.module_path, jar_name)
-                jar_abs = os.path.join(self.android_root_path, jar_path)
+                jar_abs = self._get_abs_path(jar_path)
                 if not os.path.isfile(jar_abs) and 'prebuilt.jar' in jar_name:
                     rel_path = self._get_jar_path_from_prebuilts(jar_name)
                     if rel_path:
@@ -427,3 +413,19 @@ class ModuleData():
                 self._append_jar_from_installed(_ROBOLECTRIC_JAR_PATH)
         if self.referenced_by_jar and self.missing_jars:
             self.build_targets |= self.missing_jars
+
+    def _get_abs_path(self, rel_path):
+        """Get absolute path from a relative path.
+
+        Args:
+            rel_path: A string, a relative path to self.android_root_path.
+
+        Returns:
+            abs_path: A string, an absolute path starts with
+                      self.android_root_path.
+        """
+        if not rel_path:
+            return self.android_root_path
+        if rel_path.startswith(self.android_root_path):
+            return rel_path
+        return os.path.join(self.android_root_path, rel_path)
