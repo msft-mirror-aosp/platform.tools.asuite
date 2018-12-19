@@ -53,3 +53,7 @@ class NoModuleDefinedInModuleInfoError(AIDEgenError):
 
 class IDENotExistError(AIDEgenError):
     """Raised if no IDE exists in a specific path."""
+
+
+class FakeModuleError(AIDEgenError):
+    """Raised if the module is a fake module."""
