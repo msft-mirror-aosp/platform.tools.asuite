@@ -48,6 +48,7 @@ from aidegen import constant
 from aidegen.lib.common_util import COLORED_INFO
 from aidegen.lib.common_util import time_logged
 from aidegen.lib.common_util import get_related_paths
+from aidegen.lib.errors import FakeModuleError
 from aidegen.lib.errors import IDENotExistError
 from aidegen.lib.errors import NoModuleDefinedInModuleInfoError
 from aidegen.lib.errors import ProjectOutsideAndroidRootError
@@ -175,6 +176,10 @@ def _check_modules(atest_module_info, targets):
     """
     for target in targets:
         rel_path, abs_path = get_related_paths(atest_module_info, target)
+        if not abs_path:
+            err = '{} is a fake module.'.format(target)
+            logging.error(err)
+            raise FakeModuleError(err)
         if not abs_path.startswith(constant.ANDROID_ROOT_PATH):
             err = '{} is outside android root.'.format(abs_path)
             logging.error(err)
