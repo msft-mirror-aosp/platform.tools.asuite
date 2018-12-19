@@ -80,14 +80,20 @@ def get_related_paths(module_info, target=None):
                 4. Current directory, e.g. . or no argument
 
     Return:
-        rel_path: The relative path of a module.
-        abs_path: The absolute path of a module.
+        rel_path: The relative path of a module, return None if no matching
+                  module found.
+        abs_path: The absolute path of a module, return None if no matching
+                  module found.
     """
+    rel_path = None
+    abs_path = None
     if target:
         # User inputs a module name.
         if module_info.is_module(target):
-            rel_path = module_info.get_paths(target)[0]
-            abs_path = os.path.join(constant.ANDROID_ROOT_PATH, rel_path)
+            paths = module_info.get_paths(target)
+            if paths:
+                rel_path = paths[0]
+                abs_path = os.path.join(constant.ANDROID_ROOT_PATH, rel_path)
         # User inputs a module path.
         elif module_info.get_module_names(target):
             rel_path = target
