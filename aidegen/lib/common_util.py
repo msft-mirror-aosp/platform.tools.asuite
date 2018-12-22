@@ -125,3 +125,19 @@ def is_target_android_root(atest_module_info, targets):
         if abs_path == constant.ANDROID_ROOT_PATH:
             return True
     return False
+
+
+def has_build_target(atest_module_info, rel_path):
+    """Determine if a relative path contains buildable module.
+
+    Args:
+        atest_module_info: A ModuleInfo instance contains data of
+                           module-info.json.
+        rel_path: The module path relative to android root.
+
+    Returns:
+        True if the relative path contains a build target, otherwise false.
+    """
+    return any(
+        mod_path.startswith(rel_path)
+        for mod_path in atest_module_info.path_to_module_info)

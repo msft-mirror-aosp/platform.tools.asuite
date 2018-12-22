@@ -17,9 +17,15 @@
 """Unittests for module_info_utils."""
 
 import copy
+import subprocess
 import unittest
+from unittest import mock
 
+import aidegen.unittest_constants as uc
+from aidegen.lib import errors
 from aidegen.lib import module_info_util
+from atest import module_info
+
 
 _TEST_CLASS_DICT = {'class': ['JAVA_LIBRARIES']}
 _TEST_SRCS_BAR_DICT = {'srcs': ['Bar']}
@@ -120,6 +126,64 @@ class AidegenModuleInfoUtilUnittests(unittest.TestCase):
             _TEST_MODULE_A_DICT,
             module_info_util._copy_needed_items_from(
                 _TEST_MODULE_A_DICT_HAS_NONEED_ITEMS))
+
+    @mock.patch('subprocess.check_call')
+    @mock.patch('os.environ.copy')
+    def test_build_target_normal(self, mock_copy, mock_check_call):
+        """Test _build_target with verbose true and false."""
+        mock_copy.return_value = ''
+        amodule_info = module_info.ModuleInfo()
+        cmd = [module_info_util._GENERATE_JSON_COMMAND]
+        module_info_util._build_target(cmd, uc.TEST_MODULE, amodule_info, True)
+        self.assertTrue(mock_copy.called)
+        self.assertTrue(mock_check_call.called)
+        mock_check_call.assert_called_with(
+            cmd,
+            stderr=subprocess.STDOUT,
+            env=mock_copy.return_value,
+            shell=True)
+        module_info_util._build_target(cmd, uc.TEST_MODULE, amodule_info, False)
+        self.assertTrue(mock_check_call.called)
+        mock_check_call.assert_called_with(cmd, shell=True)
+
+    @mock.patch('os.path.getmtime')
+    @mock.patch('os.path.isfile')
+    def test_is_new_json_file_generated(self, mock_isfile, mock_getmtime):
+        """Test _is_new_json_file_generated with different situations."""
+        jfile = 'path/test.json'
+        mock_isfile.return_value = True
+        self.assertEqual(
+            mock_isfile.return_value,
+            module_info_util._is_new_json_file_generated(jfile, None))
+        mock_isfile.return_value = False
+        self.assertEqual(
+            mock_isfile.return_value,
+            module_info_util._is_new_json_file_generated(jfile, None))
+        original_file_mtime = 1000
+        mock_getmtime.return_value = original_file_mtime
+        self.assertEqual(
+            False,
+            module_info_util._is_new_json_file_generated(
+                jfile, original_file_mtime))
+        mock_getmtime.return_value = 1001
+        self.assertEqual(
+            True,
+            module_info_util._is_new_json_file_generated(
+                jfile, original_file_mtime))
+
+    @mock.patch('builtins.input')
+    @mock.patch('glob.glob')
+    def test_build_failed_handle(self, mock_glob, mock_input):
+        """Test _build_failed_handle with different situations."""
+        mock_glob.return_value = ['project/file.iml']
+        mock_input.return_value = 'N'
+        with self.assertRaises(SystemExit) as cm:
+            module_info_util._build_failed_handle(uc.TEST_MODULE)
+        self.assertEqual(cm.exception.code, 1)
+        mock_glob.return_value = []
+        self.assertRaises(
+            errors.BuildFailureError,
+            lambda: module_info_util._build_failed_handle(uc.TEST_MODULE))
 
 
 if __name__ == '__main__':

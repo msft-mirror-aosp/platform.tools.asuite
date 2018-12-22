@@ -16,21 +16,54 @@
 
 """Unittests for common_util."""
 
+import os
 import unittest
+from unittest import mock
 
+import aidegen.unittest_constants as uc
+from aidegen import constant
 from aidegen.lib import common_util
 from atest import module_info
 
 
 # pylint: disable=invalid-name
-class AidegenModuleInfoUtilUnittests(unittest.TestCase):
+class AidegenCommonUtilUnittests(unittest.TestCase):
     """Unit tests for common_utils.py"""
 
-    def test_get_related_paths_with_fake_module(self):
-        """Test get_related_paths with a fake module."""
+    @mock.patch.object(module_info.ModuleInfo, 'get_module_names')
+    @mock.patch.object(module_info.ModuleInfo, 'get_paths')
+    @mock.patch.object(module_info.ModuleInfo, 'is_module')
+    def test_get_related_paths(self, mock_is_mod, mock_get, mock_names):
+        """Test get_related_paths with different conditions."""
+        mock_is_mod.return_value = True
+        mock_get.return_value = []
+        mod_info = module_info.ModuleInfo()
         self.assertEqual((None, None),
-                         common_util.get_related_paths(module_info.ModuleInfo(),
-                                                       'com.android.runtime'))
+                         common_util.get_related_paths(mod_info,
+                                                       uc.TEST_MODULE))
+        constant.ANDROID_ROOT_PATH = uc.TEST_PATH
+        mock_get.return_value = [uc.TEST_MODULE]
+        expected = (uc.TEST_MODULE, os.path.join(uc.TEST_PATH, uc.TEST_MODULE))
+        self.assertEqual(
+            expected,
+            common_util.get_related_paths(mod_info, uc.TEST_MODULE))
+        mock_is_mod.return_value = False
+        mock_names.return_value = True
+        self.assertEqual(
+            expected,
+            common_util.get_related_paths(mod_info, uc.TEST_MODULE))
+
+    @mock.patch.object(common_util, 'get_related_paths')
+    def test_is_target_android_root(self, mock_get):
+        """Test is_target_android_root with different conditions."""
+        mock_get.return_value = None, uc.TEST_PATH
+        self.assertTrue(
+            common_util.is_target_android_root(module_info.ModuleInfo(),
+                                               [uc.TEST_MODULE]))
+        mock_get.return_value = None, ''
+        self.assertFalse(
+            common_util.is_target_android_root(module_info.ModuleInfo(),
+                                               [uc.TEST_MODULE]))
 
 
 if __name__ == '__main__':
