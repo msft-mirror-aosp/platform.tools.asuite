@@ -32,10 +32,10 @@ import os
 import subprocess
 import sys
 
+from aidegen.lib.common_util import COLORED_INFO
 from aidegen.lib.common_util import time_logged
 from aidegen.lib.common_util import get_related_paths
 from aidegen.lib import errors
-from atest import atest_utils
 from atest import constants
 
 _BLUEPRINT_JSONFILE_NAME = 'module_bp_java_deps.json'
@@ -52,6 +52,7 @@ _LAUNCH_PROJECT_QUERY = (
     'to launch it (yes/No)?')
 _GENERATE_JSON_COMMAND = ('SOONG_COLLECT_JAVA_DEPS=false make nothing;'
                           'SOONG_COLLECT_JAVA_DEPS=true make nothing')
+
 
 @time_logged
 def generate_module_info_json(module_info, projects, verbose):
@@ -70,12 +71,12 @@ def generate_module_info_json(module_info, projects, verbose):
     Returns:
         A tuple of Atest module info instance and a merged json dictionary.
     """
-    _build_target(projects[0], module_info, verbose)
+    _build_target([_GENERATE_JSON_COMMAND], projects[0], module_info, verbose)
     bp_dict = _get_soong_build_json_dict()
     return _merge_json(module_info.name_to_module_info, bp_dict)
 
 
-def _build_target(main_project, module_info, verbose):
+def _build_target(cmd, main_project, module_info, verbose):
     """Make nothing to generate module_bp_java_deps.json.
 
     We build without environment setting SOONG_COLLECT_JAVA_DEPS and then build
@@ -84,6 +85,7 @@ def _build_target(main_project, module_info, verbose):
     module_bp_java_deps.json.
 
     Args:
+        cmd: A string list, build command.
         main_project: The main project name.
         module_info: A ModuleInfo instance contains data of module-info.json.
         verbose: A boolean, if true displays full build output.
@@ -101,7 +103,6 @@ def _build_target(main_project, module_info, verbose):
     original_json_mtime = None
     if os.path.isfile(json_path):
         original_json_mtime = os.path.getmtime(json_path)
-    cmd = [_GENERATE_JSON_COMMAND]
     try:
         if verbose:
             full_env_vars = os.environ.copy()
@@ -115,9 +116,7 @@ def _build_target(main_project, module_info, verbose):
             if os.path.isfile(json_path):
                 message = ('Generate new {} failed, AIDEGen will proceed and '
                            'reuse the old {}.'.format(json_path, json_path))
-                print('\n{}\n{}\n'.format(
-                    atest_utils.colorize('Warning...', constants.MAGENTA),
-                    message))
+                print('\n{} {}\n'.format(COLORED_INFO('Warning:'), message))
         else:
             _, main_project_path = get_related_paths(module_info, main_project)
             _build_failed_handle(main_project_path)
@@ -182,9 +181,9 @@ def _get_blueprint_json_path():
     Returns:
         Blueprint json path.
     """
-    root_dir = os.environ.get(constants.ANDROID_BUILD_TOP, os.sep)
-    return os.path.join(root_dir, _BLUEPRINT_JSONFILE_OUTDIR,
-                        _BLUEPRINT_JSONFILE_NAME)
+    return os.path.join(
+        os.environ.get(constants.ANDROID_BUILD_TOP),
+        _BLUEPRINT_JSONFILE_OUTDIR, _BLUEPRINT_JSONFILE_NAME)
 
 
 def _merge_module_keys(m_dict, b_dict):
