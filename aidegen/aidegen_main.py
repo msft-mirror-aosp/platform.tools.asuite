@@ -48,6 +48,7 @@ from aidegen import constant
 from aidegen.lib.common_util import COLORED_INFO
 from aidegen.lib.common_util import time_logged
 from aidegen.lib.common_util import get_related_paths
+from aidegen.lib.common_util import has_build_target
 from aidegen.lib.errors import FakeModuleError
 from aidegen.lib.errors import IDENotExistError
 from aidegen.lib.errors import NoModuleDefinedInModuleInfoError
@@ -193,22 +194,6 @@ def _check_modules(atest_module_info, targets):
             err = 'No modules defined at {}.'.format(rel_path)
             logging.error(err)
             raise NoModuleDefinedInModuleInfoError(err)
-
-
-def has_build_target(atest_module_info, rel_path):
-    """Determine if a relative path contains buildable module.
-
-    Args:
-        atest_module_info: A ModuleInfo instance contains data of
-                           module-info.json.
-        rel_path: The module path relative to android root.
-
-    Returns:
-        True if the relative path contains a build target, otherwise false.
-    """
-    return any(
-        mod_path.startswith(rel_path)
-        for mod_path in atest_module_info.path_to_module_info)
 
 
 @time_logged(message=_TIME_EXCEED_MSG, maximum=_MAX_TIME)
