@@ -80,14 +80,20 @@ def get_related_paths(module_info, target=None):
                 4. Current directory, e.g. . or no argument
 
     Return:
-        rel_path: The relative path of a module.
-        abs_path: The absolute path of a module.
+        rel_path: The relative path of a module, return None if no matching
+                  module found.
+        abs_path: The absolute path of a module, return None if no matching
+                  module found.
     """
+    rel_path = None
+    abs_path = None
     if target:
         # User inputs a module name.
         if module_info.is_module(target):
-            rel_path = module_info.get_paths(target)[0]
-            abs_path = os.path.join(constant.ANDROID_ROOT_PATH, rel_path)
+            paths = module_info.get_paths(target)
+            if paths:
+                rel_path = paths[0]
+                abs_path = os.path.join(constant.ANDROID_ROOT_PATH, rel_path)
         # User inputs a module path.
         elif module_info.get_module_names(target):
             rel_path = target
@@ -119,3 +125,19 @@ def is_target_android_root(atest_module_info, targets):
         if abs_path == constant.ANDROID_ROOT_PATH:
             return True
     return False
+
+
+def has_build_target(atest_module_info, rel_path):
+    """Determine if a relative path contains buildable module.
+
+    Args:
+        atest_module_info: A ModuleInfo instance contains data of
+                           module-info.json.
+        rel_path: The module path relative to android root.
+
+    Returns:
+        True if the relative path contains a build target, otherwise false.
+    """
+    return any(
+        mod_path.startswith(rel_path)
+        for mod_path in atest_module_info.path_to_module_info)
