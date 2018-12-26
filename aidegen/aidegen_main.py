@@ -43,6 +43,7 @@ import argparse
 import logging
 import sys
 
+from aidegen.lib.android_dev_os import AndroidDevOS
 from aidegen.lib.common_util import COLORED_INFO
 from aidegen.lib.common_util import check_modules
 from aidegen.lib.common_util import time_logged
@@ -173,7 +174,8 @@ def main(argv):
 
     # IDE relevant test
     ide_util_obj = IdeUtil(args.ide_installed_path, args.ide[0],
-                           args.config_reset)
+                           args.config_reset,
+                           AndroidDevOS.MAC == AndroidDevOS.get_os_type())
     if not args.no_launch and not ide_util_obj.is_ide_installed():
         err = _NO_LAUNCH_IDE_CMD.format(args.ide_installed_path)
         logging.error(err)

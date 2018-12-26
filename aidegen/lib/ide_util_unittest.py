@@ -22,8 +22,14 @@ from unittest import mock
 
 from subprocess import CalledProcessError as cmd_err
 from aidegen.lib import ide_util
-from aidegen.lib.ide_util import IdeUtil
 from aidegen.lib.ide_util import IdeIntelliJ
+from aidegen.lib.ide_util import IdeLinuxEclipse
+from aidegen.lib.ide_util import IdeLinuxIntelliJ
+from aidegen.lib.ide_util import IdeLinuxStudio
+from aidegen.lib.ide_util import IdeMacEclipse
+from aidegen.lib.ide_util import IdeMacIntelliJ
+from aidegen.lib.ide_util import IdeMacStudio
+from aidegen.lib.ide_util import IdeUtil
 
 import aidegen.unittest_constants as uc
 
@@ -59,9 +65,11 @@ class IdeUtilUnittests(unittest.TestCase):
         """Test with the cmd return none, test result should be None."""
         mock_glob.return_value = uc.IDEA_SH_FIND_NONE
         self.assertEqual(
-            None, ide_util._get_intellij_version_path(IdeIntelliJ._LS_CE_PATH))
+            None,
+            ide_util._get_intellij_version_path(IdeLinuxIntelliJ._LS_CE_PATH))
         self.assertEqual(
-            None, ide_util._get_intellij_version_path(IdeIntelliJ._LS_UE_PATH))
+            None,
+            ide_util._get_intellij_version_path(IdeLinuxIntelliJ._LS_UE_PATH))
 
     @mock.patch('builtins.input')
     @mock.patch('glob.glob', return_value=uc.IDEA_SH_FIND)
@@ -78,13 +86,41 @@ class IdeUtilUnittests(unittest.TestCase):
     @unittest.skip('Skip to use real command to launch IDEA.')
     def test_run_intellij_sh_in_linux(self):
         """Follow the target behavior, with sh to show UI, else raise err."""
-        sh_path = IdeIntelliJ._get_script_for_linux()
+        sh_path = IdeLinuxIntelliJ()._get_script_from_system()
         if sh_path:
             ide_util_obj = IdeUtil()
             ide_util_obj.launch_ide(IdeUtilUnittests._TEST_PRJ_PATH1)
         else:
             self.assertRaises(cmd_err)
 
+    @mock.patch.object(ide_util, '_get_linux_ide')
+    @mock.patch.object(ide_util, '_get_mac_ide')
+    def test_get_ide(self, mock_mac, mock_linux):
+        """Test if _get_ide calls the correct respective functions."""
+        ide_util._get_ide(None, 'j', False, is_mac=True)
+        self.assertTrue(mock_mac.called)
+        ide_util._get_ide(None, 'j', False, is_mac=False)
+        self.assertTrue(mock_linux.called)
+
+    def test_get_mac_ide_and_get_linux_ide(self):
+        """Test if _get_mac_ide and _get_linux_ide return correct IDE class."""
+        self.assertIsInstance(ide_util._get_mac_ide(), IdeMacIntelliJ)
+        self.assertIsInstance(ide_util._get_mac_ide(None, 's'), IdeMacStudio)
+        self.assertIsInstance(ide_util._get_mac_ide(None, 'e'), IdeMacEclipse)
+        self.assertIsInstance(ide_util._get_linux_ide(), IdeLinuxIntelliJ)
+        self.assertIsInstance(
+            ide_util._get_linux_ide(None, 's'), IdeLinuxStudio)
+        self.assertIsInstance(
+            ide_util._get_linux_ide(None, 'e'), IdeLinuxEclipse)
+
+    @mock.patch.object(ide_util, '_get_script_from_input_path')
+    @mock.patch.object(IdeIntelliJ, '_get_script_from_system')
+    def test_init_ideintellij(self, mock_sys, mock_input):
+        """Test IdeIntelliJ's __init__ method."""
+        IdeIntelliJ()
+        self.assertTrue(mock_sys.called)
+        IdeIntelliJ('some_path')
+        self.assertTrue(mock_input.called)
 
 if __name__ == '__main__':
     unittest.main()
