@@ -71,10 +71,10 @@ _SKIP_BUILD_INFO_FUTURE = ''.join([
     'AIDEGen build time exceeds {} minute(s).\n'.format(_MAX_TIME),
     _SKIP_BUILD_INFO.rstrip('.'), ' in the future.'
 ])
-_SKIP_BUILD_CMD = '$ ANDROID_HOST_OUT/bin/aidegen {} -s'
+_SKIP_BUILD_CMD = '$ANDROID_HOST_OUT/bin/aidegen {} -s'
 _INFO = COLORED_INFO('INFO:')
 _SKIP_MSG = _SKIP_BUILD_INFO_FUTURE.format(
-    COLORED_INFO('$ ANDROID_HOST_OUT/bin/aidegen [ module(s) ] -s'))
+    COLORED_INFO('$ANDROID_HOST_OUT/bin/aidegen [ module(s) ] -s'))
 _TIME_EXCEED_MSG = '\n{} {}\n'.format(_INFO, _SKIP_MSG)
 
 
