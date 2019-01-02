@@ -97,7 +97,7 @@ def get_related_paths(module_info, target=None):
         # User inputs a module path or a relative path of android root folder.
         elif (module_info.get_module_names(target) or
               os.path.isdir(os.path.join(constant.ANDROID_ROOT_PATH, target))):
-            rel_path = target
+            rel_path = target.strip(os.sep)
             abs_path = os.path.join(constant.ANDROID_ROOT_PATH, rel_path)
         # User inputs a relative path of current directory.
         else:
