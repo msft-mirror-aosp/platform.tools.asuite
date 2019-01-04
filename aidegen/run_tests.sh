@@ -7,10 +7,18 @@ AIDEGEN_DIR=$(dirname $(realpath $0))
 ASUITE_DIR="$(dirname $AIDEGEN_DIR)"
 CORE_DIR="$(dirname $ASUITE_DIR)/tradefederation/core"
 ATEST_DIR="$CORE_DIR/atest"
+rc_file=${AIDEGEN_DIR}/.coveragerc
+
+function get_python_path() {
+    echo "$PYTHONPATH:$CORE_DIR:$ATEST_DIR:$ASUITE_DIR"
+}
 
 function print_summary() {
     local test_results=$1
-
+    PYTHONPATH=$(get_python_path) python3.5 -m coverage report
+    PYTHONPATH=$(get_python_path) python3.5 -m coverage html --rcfile=$rc_file
+    echo "coverage report available at file://$PWD/aidegen_coverage_report/index.html"
+    
     if [[ $test_results -eq 0 ]]; then
         echo -e "${GREEN}All unittests pass${NC}!"
     else
@@ -25,10 +33,11 @@ function run_unittests() {
     # Get all unit tests under tools/acloud.
     local all_tests=$(find $AIDEGEN_DIR -type f -name "*_unittest.py");
     local tests_to_run=$all_tests
-
+    
+    PYTHONPATH=$(get_python_path) python3.5 -m coverage erase
     for t in $tests_to_run;
     do
-        if ! PYTHONPATH="$PYTHONPATH:$CORE_DIR:$ATEST_DIR:$ASUITE_DIR" python3.5 $t; then
+        if ! PYTHONPATH=$(get_python_path) python3.5 -m coverage run --append --rcfile=$rc_file $t; then
             rc=1
             echo -e "${RED}$t failed${NC}"
         fi
