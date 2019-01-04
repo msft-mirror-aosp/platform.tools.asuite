@@ -11,8 +11,6 @@
 
         <orderEntry type="inheritedJdk" />
         <orderEntry type="sourceFolder" forTests="false" />
-        <orderEntry type="module-library"><library><CLASSES><root url="jar:///aosp/test1.jar!/" /></CLASSES><JAVADOC /><SOURCES /></library></orderEntry>
-        <orderEntry type="module-library"><library><CLASSES><root url="jar:///aosp/test2.jar!/" /></CLASSES><JAVADOC /><SOURCES /></library></orderEntry>
         <orderEntry type="module" module-name="dependencies-android_project" />
     </component>
 </module>
