@@ -63,6 +63,13 @@ from atest import module_info
 
 AIDEGEN_REPORT_LINK = ('To report the AIDEGen tool problem, please use this '
                        'link: https://goto.google.com/aidegen-bug')
+_NO_LAUNCH_IDE_CMD = """
+Can not find IDE in path: {}, you can:
+    - add IDE executable to your $PATH
+or  - specify the exact IDE executable path by "aidegen -p"
+or  - specify "aidegen -n" to generate project file only
+"""
+
 _SKIP_BUILD_INFO = ('If you are sure the related modules and dependencies have '
                     'been already built, please try to use command {} to skip '
                     'the building process.')
@@ -208,20 +215,21 @@ def main(argv):
     log_usage()
     args = _parse_args(argv)
     _configure_logging(args.verbose)
+
+    # IDE relevant test
+    ide_util_obj = IdeUtil(args.ide_installed_path, args.ide[0],
+                           args.config_reset)
+    if not args.no_launch and not ide_util_obj.is_ide_installed():
+        err = _NO_LAUNCH_IDE_CMD.format(args.ide_installed_path)
+        logging.error(err)
+        raise IDENotExistError(err)
+
     if not args.skip_build:
         msg = _SKIP_BUILD_INFO.format(
             COLORED_INFO(_SKIP_BUILD_CMD.format(' '.join(args.targets))))
         print('\n{} {}\n'.format(_INFO, msg))
     atest_module_info = module_info.ModuleInfo()
     _check_modules(atest_module_info, args.targets)
-    ide_util_obj = IdeUtil(args.ide_installed_path, args.ide[0],
-                           args.config_reset)
-    if not ide_util_obj.is_ide_installed():
-        err = ('Can not find IDE in path: {}, please add it to your $PATH or '
-               'provide the exact executable IDE script path by "aidegen -p" '
-               'command.').format(args.ide_installed_path)
-        logging.error(err)
-        raise IDENotExistError(err)
     projects = ProjectInfo.generate_projects(atest_module_info, args.targets,
                                              args.verbose)
     multi_projects_locate_source(projects, args.verbose, args.depth,
