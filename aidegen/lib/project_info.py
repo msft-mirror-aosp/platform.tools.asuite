@@ -41,6 +41,10 @@ _FILTER_CLASSES = {'APPS', 'JAVA_LIBRARIES', 'ROBOLECTRIC'}
 _ROBOLECTRIC_MODULE = 'Robolectric_all'
 _NOT_TARGET = ('Module %s\'s class setting is %s, none of which is included in '
                '%s, skipping this module in the project.')
+# The module fake-framework have the same package name with framework but empty
+# content. It will impact the dependency for framework when referencing the
+# package from fake-framework in IntelliJ.
+_EXCLUDE_MODULES = {'fake-framework'}
 
 
 class ProjectInfo():
@@ -82,6 +86,7 @@ class ProjectInfo():
         self.iml_path = ''
         self._set_default_modue_and_init_source_path()
         self.dep_modules = self.get_dep_modules()
+        self._filter_out_modules()
         self._display_convert_make_files_message(module_info, target)
 
     def _set_default_modue_and_init_source_path(self):
@@ -159,6 +164,11 @@ class ProjectInfo():
                 else:
                     logging.info(_NOT_TARGET, name, data['class'],
                                  _FILTER_CLASSES)
+
+    def _filter_out_modules(self):
+        """Filter out unnecessary modules."""
+        for module in _EXCLUDE_MODULES:
+            self.dep_modules.pop(module, None)
 
     def _is_relative_module(self, data):
         """Determine if the module is a relative module to this project.
