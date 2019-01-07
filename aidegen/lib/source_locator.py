@@ -49,8 +49,6 @@ _IGNORE_DIRS = [
     # cause duplicated classes by libcore/ojluni/src/main/java.
     'libcore/ojluni/src/lambda/java'
 ]
-_ROBOLECTRIC_JAR_PATH = os.path.join(constant.RELATIVE_HOST_OUT, 'framework',
-                                     'Robolectric')
 _DIS_ROBO_BUILD_ENV_VAR = {'DISABLE_ROBO_RUN_TESTS': 'true'}
 _SKIP_BUILD_WARN = (
     'You choose "--skip-build". Skip building jar and AIDL files might '
@@ -410,7 +408,7 @@ class ModuleData():
             # If there is no source/tests folder of the module, reference the
             # module by jar.
             if not self.src_dirs and not self.test_dirs:
-                self._append_jar_from_installed(_ROBOLECTRIC_JAR_PATH)
+                self._append_jar_from_installed()
         if self.referenced_by_jar and self.missing_jars:
             self.build_targets |= self.missing_jars
 
