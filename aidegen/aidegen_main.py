@@ -63,6 +63,11 @@ or  - specify the exact IDE executable path by "aidegen -p"
 or  - specify "aidegen -n" to generate project file only
 """
 
+_IDE_CACHE_REMINDER_MSG = (
+    'To prevent the existed IDE cache from impacting your IDE dependency '
+    'analysis, please consider to clear IDE caches if necessary. To do that, in'
+    ' IntelliJ IDEA, go to [File > Invalidate Caches / Restart...].')
+
 _SKIP_BUILD_INFO = ('If you are sure the related modules and dependencies have '
                     'been already built, please try to use command {} to skip '
                     'the building process.')
@@ -192,4 +197,5 @@ if __name__ == '__main__':
     try:
         main(sys.argv[1:])
     finally:
-        print('\n{} {}\n'.format(_INFO, AIDEGEN_REPORT_LINK))
+        print('\n{} {}\n\n{} {}\n'.format(_INFO, AIDEGEN_REPORT_LINK, _INFO,
+                                          _IDE_CACHE_REMINDER_MSG))
