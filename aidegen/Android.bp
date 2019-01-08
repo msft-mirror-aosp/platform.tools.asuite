@@ -52,3 +52,22 @@ python_library_host {
         "lib/*.py",
     ]
 }
+
+python_test_host {
+    name: "aidegen_unittests",
+    main: "aidegen_run_unittests.py",
+    pkg_path: "aidegen",
+    srcs: [
+        "**/*.py",
+    ],
+    data: [
+        "templates/**/*",
+        "test_data/**/*",
+    ],
+    libs: [
+        "py-mock",
+    ],
+    test_config: "aidegen_unittests.xml",
+    test_suites: ["general-tests"],
+    defaults: ["aidegen_default"],
+}
