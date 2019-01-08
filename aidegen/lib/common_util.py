@@ -28,10 +28,20 @@ from functools import partial
 from functools import wraps
 
 from aidegen import constant
+from aidegen.lib.errors import FakeModuleError
+from aidegen.lib.errors import NoModuleDefinedInModuleInfoError
+from aidegen.lib.errors import ProjectOutsideAndroidRootError
+from aidegen.lib.errors import ProjectPathNotExistError
 from atest import constants
 from atest.atest_utils import colorize
 
 COLORED_INFO = partial(colorize, color=constants.MAGENTA, highlight=False)
+COLORED_PASS = partial(colorize, color=constants.GREEN, highlight=False)
+COLORED_FAIL = partial(colorize, color=constants.RED, highlight=False)
+FAKE_MODULE_ERROR = '{} is a fake module.'
+OUTSIDE_ROOT_ERROR = '{} is outside android root.'
+PATH_NOT_EXISTS_ERROR = 'The path {} doesn\'t exist.'
+NO_MODULE_DEFINED_ERROR = 'No modules defined at {}.'
 
 
 def time_logged(func=None, *, message='', maximum=1):
@@ -142,3 +152,55 @@ def has_build_target(atest_module_info, rel_path):
     return any(
         mod_path.startswith(rel_path)
         for mod_path in atest_module_info.path_to_module_info)
+
+
+def check_modules(atest_module_info, targets):
+    """Check if all targets are valid build targets."""
+    for target in targets:
+        check_module(atest_module_info, target)
+
+
+def check_module(atest_module_info, target):
+    """Check if a target is a valid build target or a project path containing
+       build target.
+
+    The rules:
+        1. If module's absolute path is None, raise FakeModuleError.
+        2. If the module doesn't exist in android root,
+           raise ProjectOutsideAndroidRootError.
+        3. If module's absolute path is not a directory,
+           raise ProjectPathNotExistError.
+        4. If it contains any build target continue checking, else:
+           1) If it's android root, continue checking.
+           2) If none of above, raise NoModuleDefinedInModuleInfoError.
+
+    Args:
+        atest_module_info: A ModuleInfo instance contains data of
+                           module-info.json.
+        target: A target module or project path from user input, when locating
+                the target, project with matched module name of the target has a
+                higher priority than project path. It could be several cases
+                such as:
+                1. Module name, e.g. Settings
+                2. Module path, e.g. packages/apps/Settings
+                3. Relative path, e.g. ../../packages/apps/Settings
+                4. Current directory, e.g. . or no argument
+    """
+    rel_path, abs_path = get_related_paths(atest_module_info, target)
+    if not abs_path:
+        err = FAKE_MODULE_ERROR.format(target)
+        logging.error(err)
+        raise FakeModuleError(err)
+    if not abs_path.startswith(constant.ANDROID_ROOT_PATH):
+        err = OUTSIDE_ROOT_ERROR.format(abs_path)
+        logging.error(err)
+        raise ProjectOutsideAndroidRootError(err)
+    if not os.path.isdir(abs_path):
+        err = PATH_NOT_EXISTS_ERROR.format(rel_path)
+        logging.error(err)
+        raise ProjectPathNotExistError(err)
+    if (not has_build_target(atest_module_info, rel_path)
+            and abs_path != constant.ANDROID_ROOT_PATH):
+        err = NO_MODULE_DEFINED_ERROR.format(rel_path)
+        logging.error(err)
+        raise NoModuleDefinedInModuleInfoError(err)

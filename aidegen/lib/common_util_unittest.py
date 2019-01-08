@@ -20,13 +20,17 @@ import os
 import unittest
 from unittest import mock
 
+from aidegen.lib.errors import FakeModuleError
+from aidegen.lib.errors import NoModuleDefinedInModuleInfoError
+from aidegen.lib.errors import ProjectOutsideAndroidRootError
+from aidegen.lib.errors import ProjectPathNotExistError
 import aidegen.unittest_constants as uc
 from aidegen import constant
 from aidegen.lib import common_util
 from atest import module_info
 
 
-# pylint: disable=invalid-name
+#pylint: disable=invalid-name
 class AidegenCommonUtilUnittests(unittest.TestCase):
     """Unit tests for common_utils.py"""
 
@@ -45,13 +49,11 @@ class AidegenCommonUtilUnittests(unittest.TestCase):
         mock_get.return_value = [uc.TEST_MODULE]
         expected = (uc.TEST_MODULE, os.path.join(uc.TEST_PATH, uc.TEST_MODULE))
         self.assertEqual(
-            expected,
-            common_util.get_related_paths(mod_info, uc.TEST_MODULE))
+            expected, common_util.get_related_paths(mod_info, uc.TEST_MODULE))
         mock_is_mod.return_value = False
         mock_names.return_value = True
         self.assertEqual(
-            expected,
-            common_util.get_related_paths(mod_info, uc.TEST_MODULE))
+            expected, common_util.get_related_paths(mod_info, uc.TEST_MODULE))
 
     @mock.patch.object(common_util, 'get_related_paths')
     def test_is_target_android_root(self, mock_get):
@@ -64,6 +66,49 @@ class AidegenCommonUtilUnittests(unittest.TestCase):
         self.assertFalse(
             common_util.is_target_android_root(module_info.ModuleInfo(),
                                                [uc.TEST_MODULE]))
+
+    @mock.patch.object(common_util, 'has_build_target')
+    @mock.patch('os.path.isdir')
+    @mock.patch.object(common_util, 'get_related_paths')
+    def test_check_module(self, mock_get, mock_isdir, mock_has_target):
+        """Test if _check_module raises errors with different conditions."""
+        mod_info = module_info.ModuleInfo()
+        mock_get.return_value = None, None
+        with self.assertRaises(FakeModuleError) as ctx:
+            common_util.check_module(mod_info, uc.TEST_MODULE)
+            expected = common_util.FAKE_MODULE_ERROR.format(uc.TEST_MODULE)
+            self.assertEqual(expected, str(ctx.exception))
+        constant.ANDROID_ROOT_PATH = uc.TEST_PATH
+        mock_get.return_value = None, uc.TEST_MODULE
+        with self.assertRaises(ProjectOutsideAndroidRootError) as ctx:
+            common_util.check_module(mod_info, uc.TEST_MODULE)
+            self.assertEqual(
+                common_util.OUTSIDE_ROOT_ERROR.format(uc.TEST_MODULE),
+                str(ctx.exception))
+        mock_get.return_value = None, uc.TEST_PATH
+        mock_isdir.return_value = False
+        with self.assertRaises(ProjectPathNotExistError) as ctx:
+            common_util.check_module(mod_info, uc.TEST_MODULE)
+            self.assertEqual(
+                common_util.PATH_NOT_EXISTS_ERROR.format(uc.TEST_MODULE),
+                str(ctx.exception))
+        mock_isdir.return_value = True
+        mock_has_target.return_value = False
+        mock_get.return_value = None, os.path.join(uc.TEST_PATH, 'test.jar')
+        with self.assertRaises(NoModuleDefinedInModuleInfoError) as ctx:
+            common_util.check_module(mod_info, uc.TEST_MODULE)
+            self.assertEqual(
+                common_util.NO_MODULE_DEFINED_ERROR.format(uc.TEST_MODULE),
+                str(ctx.exception))
+
+    @mock.patch.object(common_util, 'check_module')
+    def test_check_modules(self, mock_check):
+        """Test check_modules with different module lists."""
+        mod_info = module_info.ModuleInfo()
+        common_util.check_modules(mod_info, [])
+        self.assertEqual(mock_check.call_count, 0)
+        common_util.check_modules(mod_info, ['module1', 'module2'])
+        self.assertEqual(mock_check.call_count, 2)
 
 
 if __name__ == '__main__':
