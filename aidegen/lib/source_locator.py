@@ -135,7 +135,7 @@ def locate_source(project, verbose, depth, build=True):
             _build_dependencies(verbose, rebuild_targets)
             locate_source(project, verbose, depth, build=False)
         else:
-            logging.warning('Jar files or AIDL files do not exist:\n\t%s.',
+            logging.warning('Jar files or modules build failed:\n\t%s.',
                             '\n\t'.join(rebuild_targets))
 
 
@@ -146,14 +146,16 @@ def _build_dependencies(verbose, rebuild_targets):
         verbose: A boolean, if true displays full build output.
         rebuild_targets: A list of jar files or AIDL files which do not exist.
     """
-    logging.info('Ready to build the modules for generating jar.')
-    targets = ['-k']
-    targets.extend(list(rebuild_targets))
-    if not atest_utils.build(targets, verbose, _DIS_ROBO_BUILD_ENV_VAR):
-        message = ('{} build failed, AIDEGen will proceed but dependency '
-                   'correctness is not guaranteed if not all targets being '
-                   'built successfully.'.format(' '.join(targets)))
-        print('\n{} {}\n'.format(COLORED_INFO('Warning:'), message))
+    logging.info(('Ready to build the modules for generating R.java or java '
+                  'file for AIDL/logtags files.'))
+
+    for module in rebuild_targets:
+        targets = ['-k', module]
+        if not atest_utils.build(targets, verbose, _DIS_ROBO_BUILD_ENV_VAR):
+            message = ('{} build failed, AIDEGen will proceed but dependency '
+                       'correctness is not guaranteed if not all targets being '
+                       'built successfully.'.format(' '.join(targets)))
+            print('\n{} {}\n'.format(COLORED_INFO('Warning:'), message))
 
 
 class ModuleData():
@@ -194,8 +196,10 @@ class ModuleData():
         self.module_path = (self.module_data[_KEY_PATH][0]
                             if _KEY_PATH in self.module_data
                             and self.module_data[_KEY_PATH] else '')
+        # Set the module's depth from module info when user have -d parameter.
         self.module_depth = (int(self.module_data[constant.KEY_DEPTH])
                              if depth else 0)
+        # Set the -d value from user input, default to 0.
         self.depth_by_source = depth
         self.src_dirs = set()
         self.test_dirs = set()
@@ -210,26 +214,26 @@ class ModuleData():
         self.referenced_by_jar = False
         self.build_targets = set()
         self.missing_jars = set()
-        # Add the directory contains R.java of the module with APPS class. If
-        # the module is under packages/apps, the R.java will be created
-        # including other sub app modules and placed in srcjars. However, if
-        # the module is under frameworks/base/packages, the R.java will be
-        # generated under out/target/common/R/com/android. Since we can't
-        # totally find all dependent R.java of each modules in this directory,
-        # we have to set the directory as a source folder to fulfill the
-        # dependency requirement.
+        self.specific_soong_path = os.path.join(
+            'out/soong/.intermediates', self.module_path, self.module_name)
+
+    def _collect_r_srcs_paths(self):
+        """Collect the source folder of R.java.
+
+        Checking if exists an intermediates directory which contains R.java of
+        the module. If does not exist, build the module to generate it. After
+        build successfully, build system will copy the R.java from the
+        intermediates directory to the central R directory. Then set the central
+        R directory out/target/common/R as a source folder in IntelliJ.
+        """
         if 'class' in self.module_data and 'APPS' in self.module_data['class']:
             # The directory contains R.java for apps in packages/apps.
             r_src_dir = os.path.join(
                 'out/target/common/obj/APPS/%s_intermediates/srcjars' %
                 self.module_name)
-            if os.path.exists(self._get_abs_path(r_src_dir)):
-                self.src_dirs.add(r_src_dir)
-            else:
-                # For other apps under frameworks.
-                self.src_dirs.add('out/target/common/R/com/android')
-        self.specific_soong_path = os.path.join(
-            'out/soong/.intermediates', self.module_path, self.module_name)
+            if not os.path.exists(self._get_abs_path(r_src_dir)):
+                self.build_targets.add(self.module_name)
+            self.src_dirs.add('out/target/common/R')
 
     def _collect_srcs_paths(self):
         """Collect source folder paths in src_dirs from module_data['srcs']."""
@@ -246,14 +250,15 @@ class ModuleData():
                     if src_item_dir not in scanned_dirs:
                         scanned_dirs.add(src_item_dir)
                         src_dir = self._get_source_folder(src_item)
-                        if src_dir and not os.path.exists(
-                                self._get_abs_path(src_dir)):
-                            self.build_targets.add(src_dir)
                 else:
                     # To record what files except java and srcjar in the srcs.
                     logging.info('%s is not in parsing scope.', src_item)
                 if src_dir and not any(path in src_dir
                                        for path in _IGNORE_DIRS):
+                    # Build the module if the source path not exists. The java
+                    # is normally generated for AIDL or logtags file.
+                    if not os.path.exists(self._get_abs_path(src_dir)):
+                        self.build_targets.add(self.module_name)
                     if _KEY_TESTS in src_dir.split(os.sep):
                         self.test_dirs.add(src_dir)
                     else:
@@ -409,6 +414,7 @@ class ModuleData():
             # module by jar.
             if not self.src_dirs and not self.test_dirs:
                 self._append_jar_from_installed()
+            self._collect_r_srcs_paths()
         if self.referenced_by_jar and self.missing_jars:
             self.build_targets |= self.missing_jars
 

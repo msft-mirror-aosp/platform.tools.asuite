@@ -37,7 +37,6 @@ class AidegenProjectFileGenUnittest(unittest.TestCase):
     _PROJECT_FACET_SAMPLE = os.path.join(_TEST_DATA_PATH, 'project_facet.iml')
     _MODULE_DEP_SAMPLE = os.path.join(_TEST_DATA_PATH, 'module_dependency.iml')
     _IML_SAMPLE = os.path.join(_TEST_DATA_PATH, 'test.iml')
-    _IML_TEMPLEATE_SAMPLE = os.path.join(_TEST_DATA_PATH, 'test-template.iml')
     _DEPENDENCIES_IML_SAMPLE = os.path.join(_TEST_DATA_PATH, 'dependencies.iml')
     _MODULE_XML_SAMPLE = os.path.join(_TEST_DATA_PATH, 'modules.xml')
     _VCS_XML_SAMPLE = os.path.join(_TEST_DATA_PATH, 'vcs.xml')
@@ -129,13 +128,6 @@ class AidegenProjectFileGenUnittest(unittest.TestCase):
             os.remove(iml_path)
             os.remove(dependencies_iml_path)
         self.assertEqual(test_iml, sample_iml)
-        sample_temp_iml = project_file_gen._read_file_content(
-            self._IML_TEMPLEATE_SAMPLE)
-        module_dependency = project_file_gen._handle_module_depend_for_project(
-            self._AOSP_FOLDER, self._JAR_DEP_LIST)
-        sample_temp_iml = sample_temp_iml.replace(
-            project_file_gen._MODULE_DEP_TOKEN + '\n', module_dependency)
-        self.assertEqual(sample_iml, sample_temp_iml)
 
     def test_generate_modules_xml(self):
         """Test _generate_modules_xml."""
