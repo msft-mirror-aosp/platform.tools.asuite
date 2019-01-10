@@ -140,7 +140,8 @@ def _parse_args(args):
         '--skip-build',
         dest='skip_build',
         action='store_true',
-        help='Skip building jar or AIDL files.')
+        help=('Skip building jar or modules that create java files in build '
+              'time, e.g. R/AIDL/Logtags.'))
     return parser.parse_args(args)
 
 
