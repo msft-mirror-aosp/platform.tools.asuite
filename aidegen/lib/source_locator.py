@@ -51,9 +51,9 @@ _IGNORE_DIRS = [
 ]
 _DIS_ROBO_BUILD_ENV_VAR = {'DISABLE_ROBO_RUN_TESTS': 'true'}
 _SKIP_BUILD_WARN = (
-    'You choose "--skip-build". Skip building jar and AIDL files might '
-    'increase the risk of the absence of some jar or AIDL files and cause the '
-    'red lines to appear in IDE tool.')
+    'You choose "--skip-build". Skip building jar and module might increase '
+    'the risk of the absence of some jar or R/AIDL/logtags java files and '
+    'cause the red lines to appear in IDE tool.')
 
 
 def multi_projects_locate_source(projects, verbose, depth, skip_build):
@@ -148,14 +148,13 @@ def _build_dependencies(verbose, rebuild_targets):
     """
     logging.info(('Ready to build the modules for generating R.java or java '
                   'file for AIDL/logtags files.'))
-
-    for module in rebuild_targets:
-        targets = ['-k', module]
-        if not atest_utils.build(targets, verbose, _DIS_ROBO_BUILD_ENV_VAR):
-            message = ('{} build failed, AIDEGen will proceed but dependency '
-                       'correctness is not guaranteed if not all targets being '
-                       'built successfully.'.format(' '.join(targets)))
-            print('\n{} {}\n'.format(COLORED_INFO('Warning:'), message))
+    targets = ['-k']
+    targets.extend(list(rebuild_targets))
+    if not atest_utils.build(targets, verbose, _DIS_ROBO_BUILD_ENV_VAR):
+        message = ('Build failed!\n{}\nAIDEGen will proceed but dependency '
+                   'correctness is not guaranteed if not all targets being '
+                   'built successfully.'.format('\n'.join(targets)))
+        print('\n{} {}\n'.format(COLORED_INFO('Warning:'), message))
 
 
 class ModuleData():
