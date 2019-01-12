@@ -67,39 +67,43 @@ class AidegenCommonUtilUnittests(unittest.TestCase):
             common_util.is_target_android_root(module_info.ModuleInfo(),
                                                [uc.TEST_MODULE]))
 
+    @mock.patch('common_util.logging')
     @mock.patch.object(common_util, 'has_build_target')
     @mock.patch('os.path.isdir')
     @mock.patch.object(common_util, 'get_related_paths')
-    def test_check_module(self, mock_get, mock_isdir, mock_has_target):
+    def test_check_module(self, mock_get, mock_isdir, mock_has_target,
+                          mock_log):
         """Test if _check_module raises errors with different conditions."""
         mod_info = module_info.ModuleInfo()
         mock_get.return_value = None, None
         with self.assertRaises(FakeModuleError) as ctx:
             common_util.check_module(mod_info, uc.TEST_MODULE)
             expected = common_util.FAKE_MODULE_ERROR.format(uc.TEST_MODULE)
+            mock_log.error.assert_called_with(expected)
             self.assertEqual(expected, str(ctx.exception))
         constant.ANDROID_ROOT_PATH = uc.TEST_PATH
         mock_get.return_value = None, uc.TEST_MODULE
         with self.assertRaises(ProjectOutsideAndroidRootError) as ctx:
             common_util.check_module(mod_info, uc.TEST_MODULE)
-            self.assertEqual(
-                common_util.OUTSIDE_ROOT_ERROR.format(uc.TEST_MODULE),
-                str(ctx.exception))
+            expected = common_util.OUTSIDE_ROOT_ERROR.format(uc.TEST_MODULE)
+            mock_log.error.assert_called_with(expected)
+            self.assertEqual(expected, str(ctx.exception))
         mock_get.return_value = None, uc.TEST_PATH
         mock_isdir.return_value = False
         with self.assertRaises(ProjectPathNotExistError) as ctx:
             common_util.check_module(mod_info, uc.TEST_MODULE)
-            self.assertEqual(
-                common_util.PATH_NOT_EXISTS_ERROR.format(uc.TEST_MODULE),
-                str(ctx.exception))
+            expected = common_util.PATH_NOT_EXISTS_ERROR.format(uc.TEST_MODULE)
+            mock_log.error.assert_called_with(expected)
+            self.assertEqual(expected, str(ctx.exception))
         mock_isdir.return_value = True
         mock_has_target.return_value = False
         mock_get.return_value = None, os.path.join(uc.TEST_PATH, 'test.jar')
         with self.assertRaises(NoModuleDefinedInModuleInfoError) as ctx:
             common_util.check_module(mod_info, uc.TEST_MODULE)
-            self.assertEqual(
-                common_util.NO_MODULE_DEFINED_ERROR.format(uc.TEST_MODULE),
-                str(ctx.exception))
+            expected = common_util.NO_MODULE_DEFINED_ERROR.format(
+                uc.TEST_MODULE)
+            mock_log.error.assert_called_with(expected)
+            self.assertEqual(expected, str(ctx.exception))
 
     @mock.patch.object(common_util, 'check_module')
     def test_check_modules(self, mock_check):
