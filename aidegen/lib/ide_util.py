@@ -33,24 +33,14 @@ import platform
 import subprocess
 import fnmatch
 
-from aidegen.lib.android_dev_os import AndroidDevOS
 from aidegen.lib.config import AidegenConfig
 
 _IGNORE_STD_OUT_ERR_CMD = '&>/dev/null'
-
-# To confirm target is IDEA by VERIFYING folder existence.
 _IDEA_FOLDER = '.idea'
-
-# To confirm target is IDEA by project file extension.
 _IML_EXTENSION = '.iml'
-
-# Type of IDEs
 _IDE_INTELLIJ = 'IntelliJ'
 _IDE_ANDROID_STUDIO = 'Android Studio'
 _IDE_ECLIPSE = 'Eclipse'
-
-# A global boolean value to check if the running platform is Mac.
-IS_MAC = AndroidDevOS.MAC == AndroidDevOS.get_os_type()
 
 
 class IdeUtil():
@@ -64,11 +54,14 @@ class IdeUtil():
         2. Launch an IDE.
     """
 
-    def __init__(self, installed_path=None, ide='j', config_reset=False):
-        # Logging the running platform
+    def __init__(self,
+                 installed_path=None,
+                 ide='j',
+                 config_reset=False,
+                 is_mac=False):
         logging.debug('IdeUtil with OS name: %s%s', platform.system(),
-                      '(Mac)' if IS_MAC else '')
-        self._ide = self._get_ide(installed_path, ide, config_reset)
+                      '(Mac)' if is_mac else '')
+        self._ide = _get_ide(installed_path, ide, config_reset, is_mac)
 
     def is_ide_installed(self):
         """Checks if the IDE is already installed.
@@ -86,25 +79,6 @@ class IdeUtil():
         """
         return self._ide.launch_ide(project_file)
 
-    @staticmethod
-    def _get_ide(installed_path=None, ide='j', config_reset=False):
-        """Get IDE to be launched according to the ide input.
-
-        Args:
-            installed_path: The IDE installed path to be checked.
-            ide: A key character of IDE to be launched. Default ide='j' is to
-                 launch IntelliJ.
-            config_reset: A boolean, if true reset configuration data.
-
-        Returns:
-            A corresponding IDE instance.
-        """
-        if ide == 'e':
-            return IdeEclipse(installed_path)
-        if ide == 's':
-            return IdeStudio(installed_path)
-        return IdeIntelliJ(installed_path, config_reset)
-
 
 class IdeBase():
     """Base class of IDE.
@@ -112,43 +86,73 @@ class IdeBase():
     Class attributes:
         _bin_file_name: String for IDE executable file name.
         _bin_folder: String for IDE executable folder path.
-        _bin_path: String for IDE executable file absolute path.
 
     Attributes:
         _installed_path: String for the IDE binary path.
-        config_reset: Boolean, True for reset configuration, else not reset.
-        name: String for IDE name.
+        _config_reset: Boolean, True for reset configuration, else not reset.
+        _bin_path: String for IDE executable file absolute path.
+        _ide_name: String for IDE name.
 
     For example:
         1. Check if IntelliJ is installed.
         2. Launch an IntelliJ.
     """
-
     _bin_file_name = ''
     _bin_folder = ''
-    _bin_path = ''
 
     def __init__(self, installed_path=None, config_reset=False):
         self._installed_path = installed_path
-        self.config_reset = config_reset
-        self.name = ''
+        self._config_reset = config_reset
         self._bin_path = os.path.join(self._bin_folder, self._bin_file_name)
+        self._ide_name = ''
 
     def is_ide_installed(self):
-        """Checks if IntelliJ is already installed.
+        """Checks if IDE is already installed.
 
         Returns:
-            True if IntelliJ is installed already, otherwise False.
+            True if IDE is installed already, otherwise False.
         """
         return bool(self._installed_path)
 
     def launch_ide(self, project_file):
-        """Launches IntelliJ by opening the passed project file.
+        """Launches IDE by opening the passed project file.
 
         Args:
-            project_file: The full path of the IntelliJ project file.
+            project_file: The full path of the IDE's project file.
         """
-        _launch_ide(project_file, self._installed_path, self.name)
+        _launch_ide(project_file, self._get_ide_cmd(project_file),
+                    self._ide_name)
+
+    def _get_ide_cmd(self, project_file):
+        """Compose launch IDE command to run a new process and redirect output.
+
+        Args:
+            project_file: The full path of the IDE's project file.
+
+        Returns:
+            A string of launch IDE command.
+        """
+        return _get_run_ide_cmd(self._installed_path, project_file)
+
+    def _init_installed_path(self, installed_path):
+        """Initialize IDE installed path.
+
+        Args:
+            installed_path: the intalled path to be checked.
+        """
+        if installed_path:
+            self._installed_path = _get_script_from_input_path(
+                installed_path, self._bin_file_name)
+        else:
+            self._installed_path = self._get_script_from_system()
+
+    def _get_script_from_system(self):
+        """Get correct IDE installed path from internal path.
+
+        Returns:
+            The sh full path, or None if no IntelliJ version is installed.
+        """
+        return _get_script_from_internal_path(self._bin_path, self._ide_name)
 
 
 class IdeIntelliJ(IdeBase):
@@ -158,42 +162,18 @@ class IdeIntelliJ(IdeBase):
         1. Check if IntelliJ is installed.
         2. Launch an IntelliJ.
     """
-
-    # In linux, the launch script provided by IDEA with specific path naming
-    # rule when installed,
-    # i.e. /opt/intellij-*/bin/idea.sh for linux and
-    #      /Applications/IntelliJ IDEA.app/Contents/MacOS/idea for mac.
-    _bin_file_name = 'idea' if IS_MAC else 'idea.sh'
-    if IS_MAC:
-        _bin_folder = '/Applications/IntelliJ IDEA.app/Contents/MacOS'
-    else:
-        _bin_folder = '/opt/intellij-*/bin'
-
-    _LS_CE_PATH = os.path.join('/opt/intellij-ce-2*/bin', _bin_file_name)
-    _LS_UE_PATH = os.path.join('/opt/intellij-ue-2*/bin', _bin_file_name)
+    _bin_file_name = ''
+    _bin_folder = ''
+    _LS_CE_PATH = ''
+    _LS_UE_PATH = ''
 
     def __init__(self, installed_path=None, config_reset=False):
         super().__init__(installed_path, config_reset)
-        self.name = _IDE_INTELLIJ
-        if installed_path:
-            self._installed_path = _get_script_from_input_path(
-                installed_path, self._bin_file_name)
-        else:
-            self._installed_path = self._get_script_from_system(
-                config_reset)
+        self._ide_name = _IDE_INTELLIJ
+        self._init_installed_path(installed_path)
 
-    @classmethod
-    def _get_script_from_system(cls, config_reset=False):
-        # In Mac OS, the IDEA has a specific executable path, we compose it
-        # and call _get_script_from_input_path() as the user input case.
-        mac_ide_path = '/Applications/IntelliJ IDEA.app/Contents/MacOS/idea'
-        if IS_MAC:
-            return _get_script_from_input_path(mac_ide_path, cls._bin_file_name)
-        return cls._get_script_for_linux(config_reset)
-
-    @classmethod
-    def _get_script_for_linux(cls, config_reset=False):
-        """Get correct IntelliJ installed path from internal path.
+    def _get_preferred_version(self):
+        """Get users' preferred IntelliJ version.
 
         Locates the IntelliJ IDEA launch script path by following rule.
 
@@ -201,31 +181,35 @@ class IdeIntelliJ(IdeBase):
         2. If config file didn't record, search them form default path if there
            are more than one version, ask user and record it.
 
-        Args:
-            config_reset: A boolean, if true reset configuration data.
+        Returns:
+            The sh full path, or None if no IntelliJ version is installed.
+        """
+        cefiles = _get_intellij_version_path(self._LS_CE_PATH)
+        uefiles = _get_intellij_version_path(self._LS_UE_PATH)
+        all_versions = self._get_all_versions(cefiles, uefiles)
+        if len(all_versions) > 1:
+            with AidegenConfig() as aconf:
+                if not self._config_reset and (
+                        aconf.preferred_version in all_versions):
+                    return aconf.preferred_version
+                return _ask_preference(all_versions)
+        elif all_versions:
+            return all_versions[0]
+        return None
+
+    def _get_script_from_system(self):
+        """Get correct IntelliJ installed path from internal path.
 
         Returns:
             The sh full path, or None if no IntelliJ version is installed.
         """
-        found = None
-        cefiles = _get_intellij_version_path(cls._LS_CE_PATH)
-        uefiles = _get_intellij_version_path(cls._LS_UE_PATH)
-        all_versions = cls._get_all_versions(cefiles, uefiles)
-        if len(all_versions) > 1:
-            with AidegenConfig() as aconf:
-                if not config_reset and aconf.preferred_version in all_versions:
-                    found = aconf.preferred_version
-                if not found:
-                    found = _ask_preference(all_versions)
-                    aconf.preferred_version = found
-        elif all_versions:
-            found = all_versions[0]
+        found = self._get_preferred_version()
         if found:
             logging.debug('IDE internal installed path: %s.', found)
         return found
 
-    @classmethod
-    def _get_all_versions(cls, cefiles, uefiles):
+    @staticmethod
+    def _get_all_versions(cefiles, uefiles):
         """Get all versions of launch script files.
 
         Args:
@@ -243,6 +227,34 @@ class IdeIntelliJ(IdeBase):
         return all_versions
 
 
+class IdeLinuxIntelliJ(IdeIntelliJ):
+    """Class offers a set of IntelliJ launching utilities for OS Linux.
+
+    For example:
+        1. Check if IntelliJ is installed.
+        2. Launch an IntelliJ.
+    """
+    _bin_file_name = 'idea.sh'
+    _bin_folder = '/opt/intellij-*/bin'
+    _LS_CE_PATH = os.path.join('/opt/intellij-ce-2*/bin', _bin_file_name)
+    _LS_UE_PATH = os.path.join('/opt/intellij-ue-2*/bin', _bin_file_name)
+
+
+class IdeMacIntelliJ(IdeIntelliJ):
+    """Class offers a set of IntelliJ launching utilities for OS Mac.
+
+    For example:
+        1. Check if IntelliJ is installed.
+        2. Launch an IntelliJ.
+    """
+    _bin_file_name = 'idea'
+    _bin_folder = '/Applications/IntelliJ IDEA.app/Contents/MacOS'
+    _LS_CE_PATH = os.path.join(
+        '/Applications/IntelliJ IDEA CE.app/Contents/MacOS', _bin_file_name)
+    _LS_UE_PATH = os.path.join('/Applications/IntelliJ IDEA.app/Contents/MacOS',
+                               _bin_file_name)
+
+
 class IdeStudio(IdeBase):
     """Class offers a set of Android Studio launching utilities.
 
@@ -250,22 +262,35 @@ class IdeStudio(IdeBase):
         1. Check if Android Studio is installed.
         2. Launch an Android Studio.
     """
-
-    _bin_file_name = 'studio' if IS_MAC else 'studio.sh'
-    if IS_MAC:
-        _bin_folder = '/Applications/Android Studio.app/Contents/MacOS'
-    else:
-        _bin_folder = '/opt/android-*/bin'
+    _bin_file_name = ''
+    _bin_folder = ''
 
     def __init__(self, installed_path=None, config_reset=False):
         super().__init__(installed_path, config_reset)
-        self.name = _IDE_ANDROID_STUDIO
-        if installed_path:
-            self._installed_path = _get_script_from_input_path(
-                installed_path, self._bin_file_name)
-        else:
-            self._installed_path = _get_script_from_internal_path(
-                self._bin_path, _IDE_ANDROID_STUDIO)
+        self._ide_name = _IDE_ANDROID_STUDIO
+        self._init_installed_path(installed_path)
+
+
+class IdeLinuxStudio(IdeStudio):
+    """Class offers a set of Android Studio launching utilities for OS Linux.
+
+    For example:
+        1. Check if Android Studio is installed.
+        2. Launch an Android Studio.
+    """
+    _bin_file_name = 'studio.sh'
+    _bin_folder = '/opt/android-*/bin'
+
+
+class IdeMacStudio(IdeStudio):
+    """Class offers a set of Android Studio launching utilities for OS Mac.
+
+    For example:
+        1. Check if Android Studio is installed.
+        2. Launch an Android Studio.
+    """
+    _bin_file_name = 'studio'
+    _bin_folder = '/Applications/Android Studio.app/Contents/MacOS'
 
 
 class IdeEclipse(IdeBase):
@@ -275,22 +300,49 @@ class IdeEclipse(IdeBase):
         1. Check if Eclipse is installed.
         2. Launch an Eclipse.
     """
-
     _bin_file_name = 'eclipse'
-    if IS_MAC:
-        _bin_folder = '/Applications/Eclipse.app/Contents/MacOS'
-    else:
-        _bin_folder = '/opt/eclipse*'
+    _bin_folder = ''
 
     def __init__(self, installed_path=None, config_reset=False):
         super().__init__(installed_path, config_reset)
-        self.name = _IDE_ECLIPSE
-        if installed_path:
-            self._installed_path = _get_script_from_input_path(
-                installed_path, self._bin_file_name)
-        else:
-            self._installed_path = _get_script_from_internal_path(
-                self._bin_path, _IDE_ECLIPSE)
+        self._ide_name = _IDE_ECLIPSE
+        self._init_installed_path(installed_path)
+
+
+class IdeLinuxEclipse(IdeEclipse):
+    """Class offers a set of Eclipse launching utilities for OS Linux.
+
+    For example:
+        1. Check if Eclipse is installed.
+        2. Launch an Eclipse.
+    """
+    _bin_folder = '/opt/eclipse*'
+
+
+class IdeMacEclipse(IdeEclipse):
+    """Class offers a set of Eclipse launching utilities for OS Mac.
+
+    For example:
+        1. Check if Eclipse is installed.
+        2. Launch an Eclipse.
+    """
+    _bin_file_name = 'Eclipse.app'
+    _bin_folder = os.path.expanduser('~/eclipse/**')
+
+    def _get_ide_cmd(self, project_file):
+        """Compose launch IDE command to run a new process and redirect output.
+
+        Args:
+            project_file: The full path of the IDE's project file.
+
+        Returns:
+            A string of launch IDE command.
+        """
+        return ' '.join([
+            'open',
+            self._installed_path.replace(' ', r'\ '), project_file,
+            _IGNORE_STD_OUT_ERR_CMD, '&'
+        ])
 
 
 def _get_script_from_internal_path(ide_path, ide_name):
@@ -313,17 +365,14 @@ def _get_script_from_internal_path(ide_path, ide_name):
     return None
 
 
-def _run_ide_sh(installed_path, project_file):
+def _run_ide_sh(run_sh_cmd, project_file):
     """Run IDE launching script with an IntelliJ project file path as argument.
 
     Args:
-        installed_path: the IDE installed path.
+        run_sh_cmd: The command to launch IDE.
         project_file: The path of IntelliJ IDEA project file.
     """
-    assert installed_path, 'No suitable IDE installed.'
-
-    # Compose launch IDEA command to run as a new process and redirect output.
-    run_sh_cmd = _get_run_ide_cmd(installed_path, project_file)
+    assert run_sh_cmd, 'No suitable IDE installed.'
     logging.debug('Run command: %s to launch project file.', run_sh_cmd)
     try:
         subprocess.check_call(run_sh_cmd, shell=True)
@@ -364,8 +413,9 @@ def _get_run_ide_cmd(sh_path, project_file):
         A string: The IDE launching command.
     """
     # In command usage, the space ' ' should be '\ ' for correctness.
-    return ' '.join([sh_path.replace(' ', r'\ '), project_file,
-                     _IGNORE_STD_OUT_ERR_CMD, '&'])
+    return ' '.join([
+        sh_path.replace(' ', r'\ '), project_file, _IGNORE_STD_OUT_ERR_CMD, '&'
+    ])
 
 
 def _get_script_from_file_path(input_path, ide_file_name):
@@ -395,26 +445,26 @@ def _get_script_from_dir_path(input_path, ide_file_name):
     Returns:
         An IDE executable script path if exists otherwise None.
     """
-    logging.debug('Call _get_script_from_dir_path with %s, and %s',
-                  input_path, ide_file_name)
+    logging.debug('Call _get_script_from_dir_path with %s, and %s', input_path,
+                  ide_file_name)
     files_found = list(_walk_tree_find_ide_exe_file(input_path, ide_file_name))
     if files_found:
         return sorted(files_found, reverse=True)[0]
     return None
 
 
-def _launch_ide(project_file, installed_path, ide_name):
+def _launch_ide(project_file, run_ide_cmd, ide_name):
     """Launches relative IDE by opening the passed project file.
 
     Args:
         project_file: The full path of the IDE project file.
-        installed_path: The IDE executable script file path.
+        run_ide_cmd: The command to launch IDE.
         ide_name: the IDE name is to be launched.
     """
     assert project_file, 'Empty file path is not allowed.'
     logging.info('Launch %s for project file path: %s.', ide_name, project_file)
     if _is_intellij_project(project_file):
-        _run_ide_sh(installed_path, project_file)
+        _run_ide_sh(run_ide_cmd, project_file)
 
 
 def _is_intellij_project(project_file):
@@ -513,3 +563,58 @@ def _select_intellij_version(query, all_versions):
     while not input_data in all_numbers:
         input_data = input('Please select a number:\t')
     return all_versions[int(input_data) - 1]
+
+
+def _get_ide(installed_path=None, ide='j', config_reset=False, is_mac=False):
+    """Get IDE to be launched according to the ide input and OS type.
+
+    Args:
+        installed_path: The IDE installed path to be checked.
+        ide: A key character of IDE to be launched. Default ide='j' is to
+            launch IntelliJ.
+        config_reset: A boolean, if true reset configuration data.
+
+    Returns:
+        A corresponding IDE instance.
+    """
+    if is_mac:
+        return _get_mac_ide(installed_path, ide, config_reset)
+    return _get_linux_ide(installed_path, ide, config_reset)
+
+
+def _get_mac_ide(installed_path=None, ide='j', config_reset=False):
+    """Get IDE to be launched according to the ide input for OS Mac.
+
+    Args:
+        installed_path: The IDE installed path to be checked.
+        ide: A key character of IDE to be launched. Default ide='j' is to
+            launch IntelliJ.
+        config_reset: A boolean, if true reset configuration data.
+
+    Returns:
+        A corresponding IDE instance.
+    """
+    if ide == 'e':
+        return IdeMacEclipse(installed_path)
+    if ide == 's':
+        return IdeMacStudio(installed_path)
+    return IdeMacIntelliJ(installed_path, config_reset)
+
+
+def _get_linux_ide(installed_path=None, ide='j', config_reset=False):
+    """Get IDE to be launched according to the ide input for OS Linux.
+
+    Args:
+        installed_path: The IDE installed path to be checked.
+        ide: A key character of IDE to be launched. Default ide='j' is to
+            launch IntelliJ.
+        config_reset: A boolean, if true reset configuration data.
+
+    Returns:
+        A corresponding IDE instance.
+    """
+    if ide == 'e':
+        return IdeLinuxEclipse(installed_path)
+    if ide == 's':
+        return IdeLinuxStudio(installed_path)
+    return IdeLinuxIntelliJ(installed_path, config_reset)
