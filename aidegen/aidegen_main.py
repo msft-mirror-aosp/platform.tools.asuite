@@ -43,6 +43,7 @@ import argparse
 import logging
 import sys
 
+from aidegen.lib.android_dev_os import AndroidDevOS
 from aidegen.lib.common_util import COLORED_INFO
 from aidegen.lib.common_util import check_modules
 from aidegen.lib.common_util import time_logged
@@ -76,10 +77,10 @@ _SKIP_BUILD_INFO_FUTURE = ''.join([
     'AIDEGen build time exceeds {} minute(s).\n'.format(_MAX_TIME),
     _SKIP_BUILD_INFO.rstrip('.'), ' in the future.'
 ])
-_SKIP_BUILD_CMD = '$ANDROID_HOST_OUT/bin/aidegen {} -s'
+_SKIP_BUILD_CMD = 'aidegen {} -s'
 _INFO = COLORED_INFO('INFO:')
 _SKIP_MSG = _SKIP_BUILD_INFO_FUTURE.format(
-    COLORED_INFO('$ANDROID_HOST_OUT/bin/aidegen [ module(s) ] -s'))
+    COLORED_INFO('aidegen [ module(s) ] -s'))
 _TIME_EXCEED_MSG = '\n{} {}\n'.format(_INFO, _SKIP_MSG)
 
 
@@ -140,7 +141,8 @@ def _parse_args(args):
         '--skip-build',
         dest='skip_build',
         action='store_true',
-        help='Skip building jar or AIDL files.')
+        help=('Skip building jar or modules that create java files in build '
+              'time, e.g. R/AIDL/Logtags.'))
     return parser.parse_args(args)
 
 
@@ -172,7 +174,8 @@ def main(argv):
 
     # IDE relevant test
     ide_util_obj = IdeUtil(args.ide_installed_path, args.ide[0],
-                           args.config_reset)
+                           args.config_reset,
+                           AndroidDevOS.MAC == AndroidDevOS.get_os_type())
     if not args.no_launch and not ide_util_obj.is_ide_installed():
         err = _NO_LAUNCH_IDE_CMD.format(args.ide_installed_path)
         logging.error(err)
