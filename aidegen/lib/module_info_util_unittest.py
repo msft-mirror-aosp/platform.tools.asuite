@@ -17,6 +17,7 @@
 """Unittests for module_info_utils."""
 
 import copy
+import os
 import subprocess
 import unittest
 from unittest import mock
@@ -181,9 +182,41 @@ class AidegenModuleInfoUtilUnittests(unittest.TestCase):
             module_info_util._build_failed_handle(uc.TEST_MODULE)
         self.assertEqual(cm.exception.code, 1)
         mock_glob.return_value = []
-        self.assertRaises(
-            errors.BuildFailureError,
-            lambda: module_info_util._build_failed_handle(uc.TEST_MODULE))
+        with self.assertRaises(errors.BuildFailureError):
+            module_info_util._build_failed_handle(uc.TEST_MODULE)
+
+    @mock.patch('builtins.open')
+    def test_get_soong_build_json_dict_failed(self, mock_open):
+        """Test _get_soong_build_json_dict failure and raise error."""
+        mock_open.side_effect = IOError
+        with self.assertRaises(errors.JsonFileNotExistError):
+            module_info_util._get_soong_build_json_dict()
+
+    @mock.patch('aidegen.lib.module_info_util._build_failed_handle')
+    @mock.patch('aidegen.lib.module_info_util._is_new_json_file_generated')
+    @mock.patch('subprocess.check_call')
+    def test_build_target(self, mock_call, mock_new, mock_handle):
+        """Test _build_target with different arguments."""
+        cmd = [module_info_util._GENERATE_JSON_COMMAND]
+        main_project = ''
+        amodule_info = {}
+        verbose = False
+        module_info_util._build_target(cmd, main_project, amodule_info, verbose)
+        mock_call.assert_called_with(cmd, shell=True)
+        verbose = True
+        full_env_vars = os.environ.copy()
+        module_info_util._build_target(cmd, main_project, amodule_info, verbose)
+        mock_call.assert_called_with(cmd, stderr=subprocess.STDOUT,
+                                     env=full_env_vars, shell=True)
+        mock_call.side_effect = subprocess.CalledProcessError(1, '')
+        mock_new.return_value = False
+        module_info_util._build_target(cmd, main_project, amodule_info, verbose)
+        self.assertTrue(mock_new.called)
+        self.assertFalse(mock_handle.called)
+        mock_new.return_value = True
+        module_info_util._build_target(cmd, main_project, amodule_info, verbose)
+        self.assertTrue(mock_new.called)
+        self.assertTrue(mock_handle.called)
 
 
 if __name__ == '__main__':
