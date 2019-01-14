@@ -37,14 +37,14 @@ _ANDROID_MK_WARN = (
     'convert these files into blueprint format in the future, otherwise '
     'AIDEGen may not be able to include all module dependencies.\nPlease visit '
     '%s for reference on how to convert makefile.' % _CONVERT_MK_URL)
-_FILTER_CLASSES = {'APPS', 'JAVA_LIBRARIES', 'ROBOLECTRIC'}
+_FILTER_CLASSES = ['APPS', 'JAVA_LIBRARIES', 'ROBOLECTRIC']
 _ROBOLECTRIC_MODULE = 'Robolectric_all'
 _NOT_TARGET = ('Module %s\'s class setting is %s, none of which is included in '
                '%s, skipping this module in the project.')
 # The module fake-framework have the same package name with framework but empty
 # content. It will impact the dependency for framework when referencing the
 # package from fake-framework in IntelliJ.
-_EXCLUDE_MODULES = {'fake-framework'}
+_EXCLUDE_MODULES = ['fake-framework']
 
 
 class ProjectInfo():
@@ -84,30 +84,37 @@ class ProjectInfo():
         self.project_relative_path = rel_path
         self.project_absolute_path = abs_path
         self.iml_path = ''
-        self._set_default_modue_and_init_source_path()
+        self._set_default_modues()
+        self._init_source_path()
         self.dep_modules = self.get_dep_modules()
         self._filter_out_modules()
         self._display_convert_make_files_message(module_info, target)
 
-    def _set_default_modue_and_init_source_path(self):
-        """Append default hard-code modules, source paths and jar files."""
+    def _set_default_modues(self):
+        """Append default hard-code modules, source paths and jar files.
+
+        1. framework: Framework module is always needed for dependencies but it
+            might not always be located by module dependency.
+        2. org.apache.http.legacy.stubs.system: The module can't be located
+            through module dependency. Without it, a lot of java files will have
+            error of "cannot resolve symbol" in IntelliJ since they import
+            packages android.Manifest and com.android.internal.R.
+        """
         # TODO(b/112058649): Do more research to clarify how to remove these
         #                    hard-code sources.
         self.project_module_names.update([
-            # Framework module is always needed for dependencies but it might
-            # not be located by module dependency.
             'framework',
-            # The module can't be located through module dependency. Without it,
-            # a lot of java files will have errors "cannot resolve symbol" in
-            # IntelliJ since they import packages android.Manifest and
-            # com.android.internal.R.
             'org.apache.http.legacy.stubs.system'
         ])
+
+    def _init_source_path(self):
+        """Initialize source_path dictionary."""
         self.source_path = {
             'source_folder_path': set(),
             'test_folder_path': set(),
             'jar_path': set()
         }
+
 
     def _display_convert_make_files_message(self, module_info, target):
         """Show message info users convert their Android.mk to Android.bp.
@@ -167,8 +174,7 @@ class ProjectInfo():
 
     def _filter_out_modules(self):
         """Filter out unnecessary modules."""
-        for module in _EXCLUDE_MODULES:
-            self.dep_modules.pop(module, None)
+        map(self.dep_modules.pop, _EXCLUDE_MODULES)
 
     def _is_relative_module(self, data):
         """Determine if the module is a relative module to this project.
@@ -202,7 +208,7 @@ class ProjectInfo():
         """
         if not 'class' in data:
             return False
-        return set(data['class']).intersection(_FILTER_CLASSES)
+        return any(x in data['class'] for x in _FILTER_CLASSES)
 
     @staticmethod
     def _is_a_robolectric_module(data):
