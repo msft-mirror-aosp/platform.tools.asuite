@@ -16,9 +16,10 @@ function get_python_path() {
 
 function print_summary() {
     local test_results=$1
+    local tmp_dir=$(mktemp -d)
     PYTHONPATH=$(get_python_path) python3 -m coverage report
-    PYTHONPATH=$(get_python_path) python3 -m coverage html --rcfile=$rc_file
-    echo "coverage report available at file://$PWD/aidegen_coverage_report/index.html"
+    PYTHONPATH=$(get_python_path) python3 -m coverage html -d $tmp_dir --rcfile=$rc_file
+    echo "coverage report available at file://${tmp_dir}/index.html"
 
     if [[ $test_results -eq 0 ]]; then
         echo -e "${GREEN}All unittests pass${NC}!"
@@ -58,6 +59,9 @@ function check_env() {
 function cleanup() {
     # Search for *.pyc and delete them.
     find $AIDEGEN_DIR -name "*.pyc" -exec rm -f {} \;
+
+    # Delete the generated .coverage files too.
+    find $ASUITE_DIR -name "*.coverage" -exec rm -f {} \;
 }
 
 check_env

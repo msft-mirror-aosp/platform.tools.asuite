@@ -15,5 +15,3 @@ omit =
 [report]
 show_missing = False
 
-[html]
-directory = aidegen_coverage_report
