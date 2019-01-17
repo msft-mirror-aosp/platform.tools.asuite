@@ -82,6 +82,8 @@ _INFO = COLORED_INFO('INFO:')
 _SKIP_MSG = _SKIP_BUILD_INFO_FUTURE.format(
     COLORED_INFO('aidegen [ module(s) ] -s'))
 _TIME_EXCEED_MSG = '\n{} {}\n'.format(_INFO, _SKIP_MSG)
+_LOG_FORMAT = '%(asctime)s %(filename)s:%(lineno)s:%(levelname)s: %(message)s'
+_DATE_FORMAT = '%Y-%m-%d %H:%M:%S'
 
 
 def _parse_args(args):
@@ -152,11 +154,43 @@ def _configure_logging(verbose):
     Args:
         verbose: A boolean. If true, display DEBUG level logs.
     """
-    log_format = ('%(asctime)s %(filename)s:%(lineno)s:%(levelname)s: '
-                  '%(message)s')
-    datefmt = '%Y-%m-%d %H:%M:%S'
+    log_format = _LOG_FORMAT
+    datefmt = _DATE_FORMAT
     level = logging.DEBUG if verbose else logging.INFO
     logging.basicConfig(level=level, format=log_format, datefmt=datefmt)
+
+
+def _get_ide_util_instance(args):
+    """Get an IdeUtil class instance for launching IDE.
+
+    Args:
+        args: A list of arguments.
+
+    Returns:
+        A IdeUtil class instance.
+    """
+    if args.no_launch:
+        return None
+    ide_util_obj = IdeUtil(args.ide_installed_path, args.ide[0],
+                           args.config_reset,
+                           AndroidDevOS.MAC == AndroidDevOS.get_os_type())
+    if not ide_util_obj.is_ide_installed():
+        err = _NO_LAUNCH_IDE_CMD.format(args.ide_installed_path)
+        logging.error(err)
+        raise IDENotExistError(err)
+    return ide_util_obj
+
+
+def _check_skip_build(args):
+    """Check if users skip building target, display the warning message.
+
+    Args:
+        args: A list of arguments.
+    """
+    if not args.skip_build:
+        msg = _SKIP_BUILD_INFO.format(
+            COLORED_INFO(_SKIP_BUILD_CMD.format(' '.join(args.targets))))
+        print('\n{} {}\n'.format(_INFO, msg))
 
 
 @time_logged(message=_TIME_EXCEED_MSG, maximum=_MAX_TIME)
@@ -171,20 +205,8 @@ def main(argv):
     log_usage()
     args = _parse_args(argv)
     _configure_logging(args.verbose)
-
-    # IDE relevant test
-    ide_util_obj = IdeUtil(args.ide_installed_path, args.ide[0],
-                           args.config_reset,
-                           AndroidDevOS.MAC == AndroidDevOS.get_os_type())
-    if not args.no_launch and not ide_util_obj.is_ide_installed():
-        err = _NO_LAUNCH_IDE_CMD.format(args.ide_installed_path)
-        logging.error(err)
-        raise IDENotExistError(err)
-
-    if not args.skip_build:
-        msg = _SKIP_BUILD_INFO.format(
-            COLORED_INFO(_SKIP_BUILD_CMD.format(' '.join(args.targets))))
-        print('\n{} {}\n'.format(_INFO, msg))
+    ide_util_obj = _get_ide_util_instance(args)
+    _check_skip_build(args)
     atest_module_info = module_info.ModuleInfo()
     check_modules(atest_module_info, args.targets)
     projects = ProjectInfo.generate_projects(atest_module_info, args.targets,
@@ -192,7 +214,7 @@ def main(argv):
     multi_projects_locate_source(projects, args.verbose, args.depth,
                                  args.skip_build)
     generate_ide_project_files(projects)
-    if not args.no_launch:
+    if ide_util_obj:
         ide_util_obj.launch_ide(projects[0].iml_path)
 
 
