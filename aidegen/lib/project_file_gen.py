@@ -25,6 +25,7 @@ This module generate IDE project files from templates.
 
 import logging
 import os
+import pathlib
 import shutil
 
 from aidegen import constant
@@ -71,10 +72,12 @@ _ANDROID_MANIFEST = 'AndroidManifest.xml'
 _IML_EXTENSION = '.iml'
 _FRAMEWORK_JAR = os.sep + 'framework.jar'
 _HIGH_PRIORITY_JARS = [_FRAMEWORK_JAR]
+_GIT_FOLDER_NAME = '.git'
 
 # b/121256503: Prevent duplicated iml names from breaking IDEA.
 # Use a map to cache in-using(already used) iml project file names.
 _USED_NAME_CACHE = dict()
+
 
 def get_unique_iml_name(abs_module_path):
     """Create a unique iml name if needed.
@@ -103,9 +106,9 @@ def get_unique_iml_name(abs_module_path):
         # 'cts_tests_ui'. And the worst case is cts_tests_ui, which must be an
         # unique one.
         while zero_base_index > 0:
-            uniq_name = '_'.join([sub_folders[0],
-                                  '_'.join(sub_folders[zero_base_index:])])
-            zero_base_index = zero_base_index -1
+            uniq_name = '_'.join(
+                [sub_folders[0], '_'.join(sub_folders[zero_base_index:])])
+            zero_base_index = zero_base_index - 1
             if uniq_name not in _USED_NAME_CACHE.values():
                 break
     _USED_NAME_CACHE[abs_module_path] = uniq_name
@@ -466,12 +469,19 @@ def _generate_vcs_xml(module_path):
 
     IntelliJ use vcs.xml to record version control software's information.
     Since we are using a single project file, it will only contain the
-    module itself.
+    module itself. If there is no git folder inside, it would find it in
+    parent's folder.
 
     Args:
         module_path: Path of the module.
     """
+    git_path = module_path
+    while not os.path.isdir(os.path.join(git_path, _GIT_FOLDER_NAME)):
+        git_path = str(pathlib.Path(git_path).parent)
+        if git_path == os.sep:
+            logging.warning('%s can\'t find its .git folder', module_path)
+            return
     content = _read_file_content(_TEMPLATE_VCS_PATH)
-    content = content.replace(_VCS_TOKEN, _VCS_SECTION % module_path)
+    content = content.replace(_VCS_TOKEN, _VCS_SECTION % git_path)
     target_path = os.path.join(module_path, _IDEA_FOLDER, _VCS_XML)
     _file_generate(target_path, content)
