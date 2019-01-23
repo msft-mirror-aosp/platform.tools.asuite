@@ -25,6 +25,7 @@ from aidegen import unittest_constants
 from aidegen.lib import project_file_gen
 from atest import module_info
 
+
 # pylint: disable=protected-access
 class AidegenProjectFileGenUnittest(unittest.TestCase):
     """Unit tests for project_file_gen.py."""
@@ -143,16 +144,19 @@ class AidegenProjectFileGenUnittest(unittest.TestCase):
     def test_generate_vcs_xml(self):
         """Test _generate_vcs_xml."""
         try:
+            git_path = os.path.join(self._ANDROID_PROJECT_PATH,
+                                    project_file_gen._GIT_FOLDER_NAME)
+            os.mkdir(git_path)
             project_file_gen._generate_vcs_xml(self._ANDROID_PROJECT_PATH)
             test_vcs = project_file_gen._read_file_content(self._VCS_PATH)
         finally:
             shutil.rmtree(self._IDEA_PATH)
+            shutil.rmtree(git_path)
         sample_vcs = project_file_gen._read_file_content(self._VCS_XML_SAMPLE)
         # The sample must base on the real path.
         sample_vcs = sample_vcs.replace(self._LOCAL_PATH_TOKEN,
                                         self._ANDROID_PROJECT_PATH)
         self.assertEqual(test_vcs, sample_vcs)
-
 
     def test_get_uniq_iml_name(self):
         """Test the unique name cache mechanism.
