@@ -32,7 +32,7 @@ from atest import module_info
 
 #pylint: disable=invalid-name
 class AidegenCommonUtilUnittests(unittest.TestCase):
-    """Unit tests for common_utils.py"""
+    """Unit tests for common_util.py"""
 
     @mock.patch.object(module_info.ModuleInfo, 'get_module_names')
     @mock.patch.object(module_info.ModuleInfo, 'get_paths')
@@ -107,6 +107,14 @@ class AidegenCommonUtilUnittests(unittest.TestCase):
         self.assertEqual(mock_check.call_count, 0)
         common_util.check_modules(mod_info, ['module1', 'module2'])
         self.assertEqual(mock_check.call_count, 2)
+
+    def test_get_abs_path(self):
+        """Test _get_abs_path handling."""
+        constant.ANDROID_ROOT_PATH = uc.TEST_DATA_PATH
+        self.assertEqual(uc.TEST_DATA_PATH, common_util.get_abs_path(''))
+        test_path = os.path.join(uc.TEST_DATA_PATH, 'test.jar')
+        self.assertEqual(test_path, common_util.get_abs_path(test_path))
+        self.assertEqual(test_path, common_util.get_abs_path('test.jar'))
 
 
 if __name__ == '__main__':
