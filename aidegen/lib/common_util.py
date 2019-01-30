@@ -204,3 +204,20 @@ def check_module(atest_module_info, target):
         err = NO_MODULE_DEFINED_ERROR.format(rel_path)
         logging.error(err)
         raise NoModuleDefinedInModuleInfoError(err)
+
+
+def get_abs_path(rel_path):
+    """Get absolute path from a relative path.
+
+    Args:
+        rel_path: A string, a relative path to constant.ANDROID_ROOT_PATH.
+
+    Returns:
+        abs_path: A string, an absolute path starts with
+                  constant.ANDROID_ROOT_PATH.
+    """
+    if not rel_path:
+        return constant.ANDROID_ROOT_PATH
+    if rel_path.startswith(constant.ANDROID_ROOT_PATH):
+        return rel_path
+    return os.path.join(constant.ANDROID_ROOT_PATH, rel_path)
