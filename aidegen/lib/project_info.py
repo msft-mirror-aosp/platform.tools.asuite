@@ -26,7 +26,6 @@ from aidegen.lib.common_util import COLORED_INFO
 from aidegen.lib.common_util import get_related_paths
 from aidegen.lib.module_info_util import generate_module_info_json
 
-_KEY_DEP = 'dependencies'
 _KEY_ROBOTESTS = ['robotests', 'robolectric']
 _ANDROID_MK = 'Android.mk'
 _ANDROID_BP = 'Android.bp'
@@ -273,8 +272,9 @@ class ProjectInfo():
                 dep[name] = self.modules_info[name]
                 dep[name][constant.KEY_DEPTH] = depth
                 self.project_module_names.add(name)
-                if _KEY_DEP in dep[name] and dep[name][_KEY_DEP]:
-                    children.update(dep[name][_KEY_DEP])
+                if (constant.KEY_DEP in dep[name] and
+                        dep[name][constant.KEY_DEP]):
+                    children.update(dep[name][constant.KEY_DEP])
         if children:
             dep.update(self.get_dep_modules(children, depth+1))
         return dep
