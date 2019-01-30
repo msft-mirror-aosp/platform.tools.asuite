@@ -32,6 +32,7 @@ _MODULE_INFO = {'path': [_MODULE_PATH],
                     'packages/apps/test/src/main/java/com/android/java.java',
                     'packages/apps/test/tests/com/android/test.java',
                     'packages/apps/test/tests/test.srcjar'],
+                'dependencies': [],
                 'installed': []
                }
 _MODULE_DEPTH = 0
@@ -268,6 +269,13 @@ class SourceLocatorUnittests(unittest.TestCase):
                          result_source)
         self.assertEqual(mock_project_info.source_path['test_folder_path'],
                          result_test)
+
+        # Test loading jar from dependencies parameter.
+        default_jar = os.path.join(_MODULE_PATH, 'test.jar')
+        module_info['dependencies'] = [default_jar]
+        result_jar = set([generated_jar, default_jar])
+        source_locator.locate_source(mock_project_info, False, 0, False)
+        self.assertEqual(mock_project_info.source_path['jar_path'], result_jar)
 
     def test_get_abs_path(self):
         """Test _get_abs_path handling."""

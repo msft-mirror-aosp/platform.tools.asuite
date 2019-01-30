@@ -121,13 +121,17 @@ def locate_source(project, verbose, depth, build=True):
         raise errors.EmptyModuleDependencyError(
             'Dependent modules dictionary is empty.')
     rebuild_targets = set()
-    for module_name in project.dep_modules:
+    for module_name, module_data in project.dep_modules.items():
         module = ModuleData(project.android_root_path, module_name,
-                            project.dep_modules[module_name], depth)
+                            module_data, depth)
         module.locate_sources_path()
         project.source_path['source_folder_path'].update(module.src_dirs)
         project.source_path['test_folder_path'].update(module.test_dirs)
         project.source_path['jar_path'].update(module.jar_files)
+        # Collecting the jar files of default core modules as dependencies.
+        if constant.KEY_DEP in module_data:
+            project.source_path['jar_path'].update(
+                [x for x in module_data[constant.KEY_DEP] if x.endswith(_JAR)])
         if module.build_targets:
             rebuild_targets |= module.build_targets
     if rebuild_targets:
