@@ -50,21 +50,19 @@ class ProjectInfo():
     """Project information.
 
     Class attributes:
-        android_root_path: The path to android source root.
         modules_info: A dict of all modules info by combining module-info.json
                       with module_bp_java_deps.json.
 
     Attributes:
-        project_absolute_path: The absolute path to the project.
-        project_relative_path: The relative path to the project by
-                               android_root_path.
+        project_absolute_path: The absolute path of the project.
+        project_relative_path: The relative path of the project to
+                               constant.ANDROID_ROOT_PATH.
         project_module_names: A list of module names under project_absolute_path
                               directory or it's subdirectories.
         dep_modules: A dict has recursively dependent modules of
                      project_module_names.
     """
 
-    android_root_path = constant.ANDROID_ROOT_PATH
     modules_info = {}
 
     def __init__(self, module_info, target=None):
@@ -113,7 +111,6 @@ class ProjectInfo():
             'test_folder_path': set(),
             'jar_path': set()
         }
-
 
     def _display_convert_make_files_message(self, module_info, target):
         """Show message info users convert their Android.mk to Android.bp.
