@@ -26,7 +26,6 @@ from aidegen.lib.common_util import COLORED_INFO
 from aidegen.lib.common_util import get_related_paths
 from aidegen.lib.module_info_util import generate_module_info_json
 
-_KEY_DEP = 'dependencies'
 _KEY_ROBOTESTS = ['robotests', 'robolectric']
 _ANDROID_MK = 'Android.mk'
 _ANDROID_BP = 'Android.bp'
@@ -51,21 +50,19 @@ class ProjectInfo():
     """Project information.
 
     Class attributes:
-        android_root_path: The path to android source root.
         modules_info: A dict of all modules info by combining module-info.json
                       with module_bp_java_deps.json.
 
     Attributes:
-        project_absolute_path: The absolute path to the project.
-        project_relative_path: The relative path to the project by
-                               android_root_path.
+        project_absolute_path: The absolute path of the project.
+        project_relative_path: The relative path of the project to
+                               constant.ANDROID_ROOT_PATH.
         project_module_names: A list of module names under project_absolute_path
                               directory or it's subdirectories.
         dep_modules: A dict has recursively dependent modules of
                      project_module_names.
     """
 
-    android_root_path = constant.ANDROID_ROOT_PATH
     modules_info = {}
 
     def __init__(self, module_info, target=None):
@@ -114,7 +111,6 @@ class ProjectInfo():
             'test_folder_path': set(),
             'jar_path': set()
         }
-
 
     def _display_convert_make_files_message(self, module_info, target):
         """Show message info users convert their Android.mk to Android.bp.
@@ -273,8 +269,9 @@ class ProjectInfo():
                 dep[name] = self.modules_info[name]
                 dep[name][constant.KEY_DEPTH] = depth
                 self.project_module_names.add(name)
-                if _KEY_DEP in dep[name] and dep[name][_KEY_DEP]:
-                    children.update(dep[name][_KEY_DEP])
+                if (constant.KEY_DEP in dep[name] and
+                        dep[name][constant.KEY_DEP]):
+                    children.update(dep[name][constant.KEY_DEP])
         if children:
             dep.update(self.get_dep_modules(children, depth+1))
         return dep
