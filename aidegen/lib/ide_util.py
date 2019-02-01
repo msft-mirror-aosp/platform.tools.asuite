@@ -192,7 +192,10 @@ class IdeIntelliJ(IdeBase):
                 if not self._config_reset and (
                         aconf.preferred_version in all_versions):
                     return aconf.preferred_version
-                return _ask_preference(all_versions)
+                preferred = _ask_preference(all_versions)
+                if preferred:
+                    aconf.preferred_version = preferred
+                return preferred
         elif all_versions:
             return all_versions[0]
         return None
