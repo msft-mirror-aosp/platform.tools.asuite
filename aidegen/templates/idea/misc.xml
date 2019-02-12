@@ -43,7 +43,7 @@
         </default-html-doctype>
     </component>
     <component name="ProjectRootManager" version="2" languageLevel="JDK_1_8"
-               assert-keyword="true" project-jdk-name="1.8"
+               assert-keyword="true" project-jdk-name="JDK18"
                project-jdk-type="JavaSDK"/>
     <component name="WebServicesPlugin" addRequiredLibraries="true"/>
 </project>

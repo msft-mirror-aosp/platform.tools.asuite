@@ -14,14 +14,19 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+
 """Unittests for ide_util."""
 
 import os
 import unittest
 from unittest import mock
+from unittest.mock import patch
 
 from subprocess import CalledProcessError as cmd_err
+
+from aidegen.lib.android_dev_os import AndroidDevOS
 from aidegen.lib import ide_util
+from aidegen.lib.ide_util import IdeBase
 from aidegen.lib.ide_util import IdeIntelliJ
 from aidegen.lib.ide_util import IdeLinuxEclipse
 from aidegen.lib.ide_util import IdeLinuxIntelliJ
@@ -30,6 +35,7 @@ from aidegen.lib.ide_util import IdeMacEclipse
 from aidegen.lib.ide_util import IdeMacIntelliJ
 from aidegen.lib.ide_util import IdeMacStudio
 from aidegen.lib.ide_util import IdeUtil
+
 
 import aidegen.unittest_constants as uc
 
@@ -102,7 +108,7 @@ class IdeUtilUnittests(unittest.TestCase):
         ide_util._get_ide(None, 'j', False, is_mac=False)
         self.assertTrue(mock_linux.called)
 
-    def test_get_mac_ide_and_get_linux_ide(self):
+    def test_get_mac_and_linux_ide(self):
         """Test if _get_mac_ide and _get_linux_ide return correct IDE class."""
         self.assertIsInstance(ide_util._get_mac_ide(), IdeMacIntelliJ)
         self.assertIsInstance(ide_util._get_mac_ide(None, 's'), IdeMacStudio)
@@ -121,6 +127,79 @@ class IdeUtilUnittests(unittest.TestCase):
         self.assertTrue(mock_sys.called)
         IdeIntelliJ('some_path')
         self.assertTrue(mock_input.called)
+
+    @mock.patch.object(IdeIntelliJ, '_get_config_root_paths')
+    @mock.patch.object(IdeBase, 'apply_optional_config')
+    def test_config_ide(self, mock_config, mock_paths):
+        """Test IDEA, IdeUtil.config_ide won't call base none implement api."""
+        util_obj = IdeUtil()
+        util_obj.config_ide()
+        self.assertFalse(mock_config.called)
+        self.assertFalse(mock_paths.called)
+
+    @patch.object(ide_util, '_get_script_from_input_path')
+    @patch.object(ide_util, '_get_script_from_internal_path')
+    def test_get_linux_config_1(self, mock_path, mock_path_2):
+        """Test to get unique config path for linux IDEA case."""
+        if not AndroidDevOS.MAC == AndroidDevOS.get_os_type():
+            mock_path.return_value = '/opt/intelliJ-ce-2018.3/bin/idea.sh'
+            mock_path_2.return_value = '/opt/intelliJ-ce-2018.3/bin/idea.sh'
+            ide_obj = IdeLinuxIntelliJ()
+            self.assertEqual(1, len(ide_obj._get_config_root_paths()))
+        else:
+            self.assertTrue(AndroidDevOS.MAC == AndroidDevOS.get_os_type())
+
+    @patch('glob.glob')
+    @patch.object(ide_util, '_get_script_from_input_path')
+    @patch.object(ide_util, '_get_script_from_internal_path')
+    def test_get_linux_config_2(self, mock_path, mock_path_2, mock_filter):
+        """Test to get unique config path for linux IDEA case."""
+        if not AndroidDevOS.MAC == AndroidDevOS.get_os_type():
+            mock_path.return_value = '/opt/intelliJ-ce-2018.3/bin/idea.sh'
+            mock_path_2.return_value = '/opt/intelliJ-ce-2018.3/bin/idea.sh'
+            ide_obj = IdeLinuxIntelliJ()
+            mock_filter.called = False
+            ide_obj._get_config_root_paths()
+            self.assertFalse(mock_filter.called)
+        else:
+            self.assertTrue(AndroidDevOS.MAC == AndroidDevOS.get_os_type())
+
+    def test_get_mac_config_root_paths(self):
+        """Return None if there's no install path."""
+        if AndroidDevOS.MAC == AndroidDevOS.get_os_type():
+            mac_ide = IdeMacIntelliJ()
+            mac_ide._installed_path = None
+            self.assertIsNone(mac_ide._get_config_root_paths())
+        else:
+            self.assertFalse(AndroidDevOS.MAC == AndroidDevOS.get_os_type())
+
+    @patch('glob.glob')
+    @patch.object(ide_util, '_get_script_from_input_path')
+    @patch.object(ide_util, '_get_script_from_internal_path')
+    def test_get_linux_config_root(self, mock_path_1, mock_path_2, mock_filter):
+        """Test to go filter logic for self download case."""
+        mock_path_1.return_value = '/usr/tester/IDEA/IC2018.3.3/bin'
+        mock_path_2.return_value = '/usr/tester/IDEA/IC2018.3.3/bin'
+        ide_obj = IdeLinuxIntelliJ()
+        mock_filter.reset()
+        ide_obj._get_config_root_paths()
+        self.assertTrue(mock_filter.called)
+
+    @patch('os.path.join')
+    def test_get_code_style_config(self, mock_join_path):
+        """Test return None, when no config source case existed."""
+        mock_join_path.return_value = '/usr/tester/no_file.test'
+        self.assertIsNone(ide_util.IdeIntelliJ._get_code_style_config())
+
+    @patch('shutil.copy2')
+    @patch.object(IdeIntelliJ, '_get_code_style_config')
+    def test_apply_optional_config(self, mock_config_path, mock_copy):
+        """Test copy logic should not work if there's no config source."""
+        mock_config_path.return_value = None
+        ide_obj = IdeIntelliJ()
+        ide_obj.apply_optional_config()
+        self.assertFalse(mock_copy.called)
+
 
 if __name__ == '__main__':
     unittest.main()
