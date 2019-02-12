@@ -215,6 +215,7 @@ def main(argv):
                                  args.skip_build)
     generate_ide_project_files(projects)
     if ide_util_obj:
+        ide_util_obj.config_ide()
         ide_util_obj.launch_ide(projects[0].iml_path)
 
 
