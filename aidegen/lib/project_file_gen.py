@@ -66,6 +66,7 @@ _TEMPLATE_VCS_PATH = os.path.join(_IDEA_DIR, _VCS_XML)
 _DEPENDENCIES = 'dependencies'
 _DEPENDENCIES_IML = 'dependencies.iml'
 _COPYRIGHT_FOLDER = 'copyright'
+_CODE_STYLE_FOLDER = 'codeStyles'
 _COMPILE_XML = 'compiler.xml'
 _MISC_XML = 'misc.xml'
 _ANDROID_MANIFEST = 'AndroidManifest.xml'
@@ -73,6 +74,9 @@ _IML_EXTENSION = '.iml'
 _FRAMEWORK_JAR = os.sep + 'framework.jar'
 _HIGH_PRIORITY_JARS = [_FRAMEWORK_JAR]
 _GIT_FOLDER_NAME = '.git'
+_CODE_STYLE_REL_PATH = 'tools/asuite/aidegen/data/AndroidStyle_aidegen.xml'
+_CODE_STYLE_SRC_PATH = os.path.join(constant.ANDROID_ROOT_PATH,
+                                    _CODE_STYLE_REL_PATH)
 
 # b/121256503: Prevent duplicated iml names from breaking IDEA.
 # Use a map to cache in-using(already used) iml project file names.
@@ -187,22 +191,27 @@ def _file_generate(path, content):
 def _copy_constant_project_files(target_path):
     """Copy project files to target path with error handling.
 
-    This function would copy compiler.xml, misc.xml and copyright folder
-    to target folder. Since these files aren't mandatory in IntelliJ, it
-    only logs when an IOError occurred.
+    This function would copy compiler.xml, misc.xml, codeStyles folder and
+    copyright folder to target folder. Since these files aren't mandatory in
+    IntelliJ, it only logs when an IOError occurred.
 
     Args:
         target_path: Path of target file.
     """
-    target_copyright_path = os.path.join(target_path, _IDEA_FOLDER,
-                                         _COPYRIGHT_FOLDER)
     try:
-        # Existing copyright folder needs to be removed first.
-        # Otherwise it would raise IOError.
-        if os.path.exists(target_copyright_path):
-            shutil.rmtree(target_copyright_path)
-        shutil.copytree(
-            os.path.join(_IDEA_DIR, _COPYRIGHT_FOLDER), target_copyright_path)
+        _copy_to_idea_folder(target_path, _COPYRIGHT_FOLDER)
+        _copy_to_idea_folder(target_path, _CODE_STYLE_FOLDER)
+        code_style_target_path = os.path.join(
+            target_path, _IDEA_FOLDER, _CODE_STYLE_FOLDER, 'Project.xml')
+        # Base on current working directory to prepare the relevant location
+        # of the symbolic link file, and base on the symlink file location to
+        # prepare the relevant code style source path.
+        rel_target = os.path.relpath(code_style_target_path, os.getcwd())
+        rel_source = os.path.relpath(_CODE_STYLE_SRC_PATH,
+                                     os.path.dirname(code_style_target_path))
+        logging.debug('Relative target symlink path: %s.', rel_target)
+        logging.debug('Relative code style source path: %s.', rel_source)
+        os.symlink(rel_source, rel_target)
         shutil.copy(
             os.path.join(_IDEA_DIR, _COMPILE_XML),
             os.path.join(target_path, _IDEA_FOLDER, _COMPILE_XML))
@@ -212,6 +221,21 @@ def _copy_constant_project_files(target_path):
     except IOError as err:
         logging.warning('%s can\'t copy the project files\n %s', target_path,
                         err)
+
+
+def _copy_to_idea_folder(target_path, folder_name):
+    """Copy folder to project .idea path.
+
+    Args:
+        target_path: Path of target folder.
+        folder_name: Name of target folder.
+    """
+    target_folder_path = os.path.join(target_path, _IDEA_FOLDER, folder_name)
+    # Existing folder needs to be removed first, otherwise it will raise
+    # IOError.
+    if os.path.exists(target_folder_path):
+        shutil.rmtree(target_folder_path)
+    shutil.copytree(os.path.join(_IDEA_DIR, folder_name), target_folder_path)
 
 
 def _handle_facet(content, path):
