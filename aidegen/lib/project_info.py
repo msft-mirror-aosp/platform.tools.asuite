@@ -170,7 +170,8 @@ class ProjectInfo():
 
     def _filter_out_modules(self):
         """Filter out unnecessary modules."""
-        map(self.dep_modules.pop, _EXCLUDE_MODULES)
+        for module in _EXCLUDE_MODULES:
+            self.dep_modules.pop(module, None)
 
     def _is_relative_module(self, data):
         """Determine if the module is a relative module to this project.
