@@ -32,6 +32,7 @@ import os
 import subprocess
 import sys
 
+from aidegen import constant
 from aidegen.lib.common_util import COLORED_INFO
 from aidegen.lib.common_util import time_logged
 from aidegen.lib.common_util import get_related_paths
@@ -58,6 +59,10 @@ _GENERATE_JSON_COMMAND = ('SOONG_COLLECT_JAVA_DEPS=false make nothing;'
 def generate_module_info_json(module_info, projects, verbose):
     """Generate a merged json dictionary.
 
+    Change directory to ANDROID_ROOT_PATH before making _GENERATE_JSON_COMMAND
+    to avoid command error: "make: *** No rule to make target 'nothing'.  Stop."
+    and change back to current directory after command completed.
+
     Linked functions:
         _build_target(project, verbose)
         _get_soong_build_json_dict()
@@ -71,7 +76,10 @@ def generate_module_info_json(module_info, projects, verbose):
     Returns:
         A tuple of Atest module info instance and a merged json dictionary.
     """
+    cwd = os.getcwd()
+    os.chdir(constant.ANDROID_ROOT_PATH)
     _build_target([_GENERATE_JSON_COMMAND], projects[0], module_info, verbose)
+    os.chdir(cwd)
     bp_dict = _get_soong_build_json_dict()
     return _merge_json(module_info.name_to_module_info, bp_dict)
 
