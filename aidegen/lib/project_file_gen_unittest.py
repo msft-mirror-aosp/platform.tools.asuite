@@ -185,6 +185,27 @@ class AidegenProjectFileGenUnittest(unittest.TestCase):
         print('{} {}.'.format('The size of name set is:', len(dic)))
         self.assertEqual(len(dic), len(path_list))
 
+    def test_copy_project_files(self):
+        """Test _copy_constant_project_files."""
+        project_file_gen._copy_constant_project_files(
+            self._ANDROID_PROJECT_PATH)
+        self.assertTrue(
+            os.path.isfile(
+                os.path.join(self._IDEA_PATH,
+                             project_file_gen._CODE_STYLE_FOLDER,
+                             'codeStyleConfig.xml')))
+        self.assertTrue(
+            os.path.isfile(
+                os.path.join(self._IDEA_PATH,
+                             project_file_gen._COPYRIGHT_FOLDER,
+                             'Apache_2.xml')))
+        self.assertTrue(
+            os.path.isfile(
+                os.path.join(self._IDEA_PATH,
+                             project_file_gen._COPYRIGHT_FOLDER,
+                             'profiles_settings.xml')))
+        shutil.rmtree(self._IDEA_PATH)
+
 
 if __name__ == '__main__':
     unittest.main()
