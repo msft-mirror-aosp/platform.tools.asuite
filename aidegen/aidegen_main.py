@@ -45,6 +45,7 @@ import sys
 
 from aidegen.lib.android_dev_os import AndroidDevOS
 from aidegen.lib.common_util import COLORED_INFO
+from aidegen.lib.common_util import COLORED_PASS
 from aidegen.lib.common_util import check_modules
 from aidegen.lib.common_util import time_logged
 from aidegen.lib.errors import IDENotExistError
@@ -64,6 +65,9 @@ or  - specify the exact IDE executable path by "aidegen -p"
 or  - specify "aidegen -n" to generate project file only
 """
 
+_CONGRATULATION = COLORED_PASS('CONGRATULATION:')
+_LAUNCH_SUCCESS_MSG = (
+    'IDE launched successfully. Please check your IDE window.')
 _IDE_CACHE_REMINDER_MSG = (
     'To prevent the existed IDE cache from impacting your IDE dependency '
     'analysis, please consider to clear IDE caches if necessary. To do that, in'
@@ -217,6 +221,7 @@ def main(argv):
     if ide_util_obj:
         ide_util_obj.config_ide()
         ide_util_obj.launch_ide(projects[0].iml_path)
+        print('\n{} {}\n'.format(_CONGRATULATION, _LAUNCH_SUCCESS_MSG))
 
 
 if __name__ == '__main__':
