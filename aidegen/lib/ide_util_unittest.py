@@ -72,10 +72,10 @@ class IdeUtilUnittests(unittest.TestCase):
         mock_glob.return_value = uc.IDEA_SH_FIND_NONE
         self.assertEqual(
             None,
-            ide_util._get_intellij_version_path(IdeLinuxIntelliJ._LS_CE_PATH))
+            ide_util._get_intellij_version_path(IdeLinuxIntelliJ()._ls_ce_path))
         self.assertEqual(
             None,
-            ide_util._get_intellij_version_path(IdeLinuxIntelliJ._LS_UE_PATH))
+            ide_util._get_intellij_version_path(IdeLinuxIntelliJ()._ls_ue_path))
 
     @mock.patch('builtins.input')
     @mock.patch('glob.glob', return_value=uc.IDEA_SH_FIND)
@@ -123,9 +123,13 @@ class IdeUtilUnittests(unittest.TestCase):
     @mock.patch.object(IdeIntelliJ, '_get_script_from_system')
     def test_init_ideintellij(self, mock_sys, mock_input):
         """Test IdeIntelliJ's __init__ method."""
-        IdeIntelliJ()
+        IdeLinuxIntelliJ()
         self.assertTrue(mock_sys.called)
-        IdeIntelliJ('some_path')
+        IdeMacIntelliJ()
+        self.assertTrue(mock_sys.called)
+        IdeLinuxIntelliJ('some_path')
+        self.assertTrue(mock_input.called)
+        IdeMacIntelliJ('some_path')
         self.assertTrue(mock_input.called)
 
     @mock.patch.object(IdeIntelliJ, '_get_config_root_paths')
