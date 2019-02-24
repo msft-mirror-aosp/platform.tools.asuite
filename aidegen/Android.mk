@@ -12,4 +12,4 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-$(call dist-for-goals,droidcore,$(HOST_OUT_EXECUTABLES)/aidegen)
+$(call dist-for-goals,droidcore,$(HOST_OUT_EXECUTABLES)/aidegen-dev)
