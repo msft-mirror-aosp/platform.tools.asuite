@@ -603,20 +603,20 @@ def _get_script_from_internal_path(ide_paths, ide_name):
     return None
 
 
-def _run_ide_sh(run_sh_cmd, project_file):
-    """Run IDE launching script with an IntelliJ project file path as argument.
+def _run_ide_sh(run_sh_cmd, project_path):
+    """Run IDE launching script with an IntelliJ project path as argument.
 
     Args:
         run_sh_cmd: The command to launch IDE.
-        project_file: The path of IntelliJ IDEA project file.
+        project_path: The path of IntelliJ IDEA project content.
     """
     assert run_sh_cmd, 'No suitable IDE installed.'
-    logging.debug('Run command: %s to launch project file.', run_sh_cmd)
+    logging.debug('Run command: "%s" to launch project.', run_sh_cmd)
     try:
         subprocess.check_call(run_sh_cmd, shell=True)
     except subprocess.CalledProcessError as err:
-        logging.error('Launch project file %s failed with error: %s.',
-                      project_file, err)
+        logging.error('Launch project path %s failed with error: %s.',
+                      project_path, err)
 
 
 def _walk_tree_find_ide_exe_file(top, ide_script_name):
@@ -691,33 +691,41 @@ def _get_script_from_dir_path(input_path, ide_file_name):
     return None
 
 
-def _launch_ide(project_file, run_ide_cmd, ide_name):
+def _launch_ide(project_path, run_ide_cmd, ide_name):
     """Launches relative IDE by opening the passed project file.
 
     Args:
-        project_file: The full path of the IDE project file.
+        project_path: The full path of the IDE project content.
         run_ide_cmd: The command to launch IDE.
         ide_name: the IDE name is to be launched.
     """
-    assert project_file, 'Empty file path is not allowed.'
-    logging.info('Launch %s for project file path: %s.', ide_name, project_file)
-    _run_ide_sh(run_ide_cmd, project_file)
+    assert project_path, 'Empty content path is not allowed.'
+    logging.info('Launch %s for project content path: %s.', ide_name,
+                 project_path)
+    if _is_intellij_project(project_path):
+        _run_ide_sh(run_ide_cmd, project_path)
+    else:
+        logging.error('The %s project: %s is invalid to launch.', ide_name,
+                      project_path)
 
 
-def _is_intellij_project(project_file):
-    """Checks if the path passed in is an IntelliJ project file.
+def _is_intellij_project(project_path):
+    """Checks if the path passed in is an IntelliJ project content.
 
     Args:
-        project_file: The project file's full path.
+        project_path: The full path of IDEA project content, which contains
+        .idea folder and .iml file(s).
 
     Returns:
-        True if project_file is an IntelliJ project, False otherwise.
+        True if project_path is an IntelliJ project, False otherwise.
     """
-    if not os.path.isfile(project_file):
-        return False
-    _, ext = os.path.splitext(os.path.basename(project_file))
+    if not os.path.isfile(project_path):
+        return os.path.isdir(project_path) and os.path.isdir(
+            os.path.join(project_path, _IDEA_FOLDER))
+
+    _, ext = os.path.splitext(os.path.basename(project_path))
     if ext and _IML_EXTENSION == ext.lower():
-        path = os.path.dirname(project_file)
+        path = os.path.dirname(project_path)
         logging.debug('Extracted path is: %s.', path)
         return os.path.isdir(os.path.join(path, _IDEA_FOLDER))
     return False

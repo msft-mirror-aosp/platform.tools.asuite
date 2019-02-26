@@ -235,7 +235,9 @@ def main(argv):
     _generate_project_files(args.ide[0], projects)
     if ide_util_obj:
         ide_util_obj.config_ide()
-        ide_util_obj.launch_ide(projects[0].iml_path)
+        # For IntelliJ, use .idea as open target is better than .iml file,
+        # because open the latter is like to open a kind of normal file.
+        ide_util_obj.launch_ide(projects[0].project_absolute_path)
         print('\n{} {}\n'.format(_CONGRATULATION, _LAUNCH_SUCCESS_MSG))
 
 
