@@ -105,6 +105,18 @@ class AidegenMainUnittests(unittest.TestCase):
         info = '\n{} {}\n'.format(aidegen_main._INFO, msg)
         self.assertTrue(mock_print.called_with(info))
 
+    @mock.patch.object(aidegen_main, 'generate_ide_project_files')
+    @mock.patch.object(aidegen_main, 'generate_eclipse_project_files')
+    def test_generate_project_files(self, mock_eclipse, mock_ide):
+        """Test _generate_project_files with different conditions."""
+        projects = ['module_a', 'module_v']
+        aidegen_main._generate_project_files('e', projects)
+        self.assertTrue(mock_eclipse.called_with(projects))
+        aidegen_main._generate_project_files('s', projects)
+        self.assertTrue(mock_ide.called_with(projects))
+        aidegen_main._generate_project_files('j', projects)
+        self.assertTrue(mock_ide.called_with(projects))
+
 
 if __name__ == '__main__':
     unittest.main()
