@@ -77,6 +77,13 @@ _GIT_FOLDER_NAME = '.git'
 _CODE_STYLE_REL_PATH = 'tools/asuite/aidegen/data/AndroidStyle_aidegen.xml'
 _CODE_STYLE_SRC_PATH = os.path.join(constant.ANDROID_ROOT_PATH,
                                     _CODE_STYLE_REL_PATH)
+_ECLIP = 'eclipse'
+_ECLIP_SRC_ENTRY = ('<classpathentry exported="true" kind="src" path="{}"/>\n')
+_ECLIP_LIB_ENTRY = ('<classpathentry exported="true" kind="lib" path="{}"/>\n')
+_ECLIP_TEMPLATE_PATH = os.path.join(_ROOT_DIR, 'templates/eclipse/eclipse.xml')
+_ECLIP_EXTENSION = '.classpath'
+_ECLIP_SRC_TOKEN = '@SRC@'
+_ECLIP_LIB_TOKEN = '@LIB@'
 
 # b/121256503: Prevent duplicated iml names from breaking IDEA.
 # Use a map to cache in-using(already used) iml project file names.
@@ -122,7 +129,7 @@ def get_unique_iml_name(abs_module_path):
 
 
 def _generate_intellij_project_file(project_info, iml_path_list=None):
-    """Generates IntelliJ project files.
+    """Generates IntelliJ project file.
 
     Args:
         project_info: ProjectInfo instance.
@@ -160,6 +167,30 @@ def generate_ide_project_files(projects):
         _generate_intellij_project_file(project)
     iml_paths = [project.iml_path for project in projects[1:]]
     _generate_intellij_project_file(projects[0], iml_paths or None)
+
+
+def _generate_eclipse_project_file(project_info):
+    """Generates Eclipse project file.
+
+    Args:
+        project_info: ProjectInfo instance.
+    """
+    source_dict = dict.fromkeys(
+        list(project_info.source_path['source_folder_path']), False)
+    source_dict.update(
+        dict.fromkeys(list(project_info.source_path['test_folder_path']), True))
+    project_info.iml_path = _generate_classpath(
+        project_info.project_absolute_path, list(sorted(source_dict)),
+        list(project_info.source_path['jar_path']))
+
+def generate_eclipse_project_files(projects):
+    """Generate Eclipse project files by a list of ProjectInfo instances.
+
+    Args:
+        projects: A list of ProjectInfo instances.
+    """
+    for project in projects:
+        _generate_eclipse_project_file(project)
 
 
 def _read_file_content(path):
@@ -436,6 +467,32 @@ def _generate_iml(root_path, module_path, source_dict, jar_dependencies,
     logging.debug('Paired iml names are %s, %s', module_iml_path,
                   dependencies_iml_path)
     return module_iml_path, dependencies_iml_path
+
+
+def _generate_classpath(module_path, source_list, jar_dependencies):
+    """Generate .classpath file.
+
+    Args:
+        module_path: Absolute path of the module.
+        source_list: A list of sources path.
+        jar_dependencies: List of the jar path.
+
+    Returns:
+        String: The absolute paths of .classpath.
+    """
+    template = _read_file_content(_ECLIP_TEMPLATE_PATH)
+
+    src_list = [_ECLIP_SRC_ENTRY.format(s) for s in source_list]
+    template = template.replace(_ECLIP_SRC_TOKEN, ''.join(src_list))
+
+    lib_list = [_ECLIP_LIB_ENTRY.format(j) for j in jar_dependencies]
+    template = template.replace(_ECLIP_LIB_TOKEN, ''.join(lib_list))
+
+    classpath_path = os.path.join(module_path, _ECLIP_EXTENSION)
+
+    _file_generate(classpath_path, template)
+
+    return classpath_path
 
 
 def _get_dependencies_name(module_name):
