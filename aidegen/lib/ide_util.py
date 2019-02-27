@@ -533,22 +533,6 @@ class IdeLinuxEclipse(IdeEclipse):
         self._bin_paths = self._get_possible_bin_paths()
         self._init_installed_path(installed_path)
 
-    def _get_ide_cmd(self, project_file):
-        """Compose launch IDE command to run a new process and redirect output.
-
-        Args:
-            project_file: The full path of the IDE's project file.
-
-        Returns:
-            A string of launch IDE command.
-        """
-        return ' '.join([
-            self._installed_path.replace(' ', r'\ '),
-            '-data',
-            os.path.dirname(project_file),
-            _IGNORE_STD_OUT_ERR_CMD, '&'
-        ])
-
 
 class IdeMacEclipse(IdeEclipse):
     """Class offers a set of Eclipse launching utilities for OS Mac.
