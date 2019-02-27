@@ -46,6 +46,9 @@ class IdeUtilUnittests(unittest.TestCase):
 
     _TEST_PRJ_PATH1 = ''
     _TEST_PRJ_PATH2 = ''
+    _TEST_PRJ_PATH3 = ''
+    _TEST_PRJ_PATH4 = ''
+
 
     def setUp(self):
         """Prepare the testdata related path."""
@@ -53,18 +56,28 @@ class IdeUtilUnittests(unittest.TestCase):
                                                         'android_facet.iml')
         IdeUtilUnittests._TEST_PRJ_PATH2 = os.path.join(uc.TEST_DATA_PATH,
                                                         'project/test.java')
+        IdeUtilUnittests._TEST_PRJ_PATH3 = uc.TEST_DATA_PATH
+        IdeUtilUnittests._TEST_PRJ_PATH4 = os.path.join(uc.TEST_DATA_PATH,
+                                                        '.idea')
+
 
     def tearDown(self):
         """Clear the testdata related path."""
         IdeUtilUnittests._TEST_PRJ_PATH1 = ''
         IdeUtilUnittests._TEST_PRJ_PATH2 = ''
+        IdeUtilUnittests._TEST_PRJ_PATH3 = ''
+        IdeUtilUnittests._TEST_PRJ_PATH4 = ''
 
     def test_is_intellij_project(self):
         """Test _is_intellij_project."""
-        self.assertTrue(
-            ide_util._is_intellij_project(IdeUtilUnittests._TEST_PRJ_PATH1))
         self.assertFalse(
             ide_util._is_intellij_project(IdeUtilUnittests._TEST_PRJ_PATH2))
+        self.assertTrue(
+            ide_util._is_intellij_project(IdeUtilUnittests._TEST_PRJ_PATH1))
+        self.assertTrue(
+            ide_util._is_intellij_project(IdeUtilUnittests._TEST_PRJ_PATH3))
+        self.assertFalse(
+            ide_util._is_intellij_project(IdeUtilUnittests._TEST_PRJ_PATH4))
 
     @mock.patch('glob.glob', return_value=uc.IDEA_SH_FIND_NONE)
     def test_get_intellij_sh_none(self, mock_glob):
@@ -72,10 +85,10 @@ class IdeUtilUnittests(unittest.TestCase):
         mock_glob.return_value = uc.IDEA_SH_FIND_NONE
         self.assertEqual(
             None,
-            ide_util._get_intellij_version_path(IdeLinuxIntelliJ._LS_CE_PATH))
+            ide_util._get_intellij_version_path(IdeLinuxIntelliJ()._ls_ce_path))
         self.assertEqual(
             None,
-            ide_util._get_intellij_version_path(IdeLinuxIntelliJ._LS_UE_PATH))
+            ide_util._get_intellij_version_path(IdeLinuxIntelliJ()._ls_ue_path))
 
     @mock.patch('builtins.input')
     @mock.patch('glob.glob', return_value=uc.IDEA_SH_FIND)
@@ -123,9 +136,13 @@ class IdeUtilUnittests(unittest.TestCase):
     @mock.patch.object(IdeIntelliJ, '_get_script_from_system')
     def test_init_ideintellij(self, mock_sys, mock_input):
         """Test IdeIntelliJ's __init__ method."""
-        IdeIntelliJ()
+        IdeLinuxIntelliJ()
         self.assertTrue(mock_sys.called)
-        IdeIntelliJ('some_path')
+        IdeMacIntelliJ()
+        self.assertTrue(mock_sys.called)
+        IdeLinuxIntelliJ('some_path')
+        self.assertTrue(mock_input.called)
+        IdeMacIntelliJ('some_path')
         self.assertTrue(mock_input.called)
 
     @mock.patch.object(IdeIntelliJ, '_get_config_root_paths')

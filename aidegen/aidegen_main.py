@@ -51,6 +51,7 @@ from aidegen.lib.common_util import time_logged
 from aidegen.lib.errors import IDENotExistError
 from aidegen.lib.ide_util import IdeUtil
 from aidegen.lib.metrics import log_usage
+from aidegen.lib.project_file_gen import generate_eclipse_project_files
 from aidegen.lib.project_file_gen import generate_ide_project_files
 from aidegen.lib.project_info import ProjectInfo
 from aidegen.lib.source_locator import multi_projects_locate_source
@@ -179,7 +180,8 @@ def _get_ide_util_instance(args):
                            args.config_reset,
                            AndroidDevOS.MAC == AndroidDevOS.get_os_type())
     if not ide_util_obj.is_ide_installed():
-        err = _NO_LAUNCH_IDE_CMD.format(args.ide_installed_path)
+        ipath = args.ide_installed_path or ide_util_obj.get_default_path()
+        err = _NO_LAUNCH_IDE_CMD.format(ipath)
         logging.error(err)
         raise IDENotExistError(err)
     return ide_util_obj
@@ -195,6 +197,19 @@ def _check_skip_build(args):
         msg = _SKIP_BUILD_INFO.format(
             COLORED_INFO(_SKIP_BUILD_CMD.format(' '.join(args.targets))))
         print('\n{} {}\n'.format(_INFO, msg))
+
+
+def _generate_project_files(ide, projects):
+    """Generate project files by IDE type.
+
+    Args:
+        ide: IDE type.
+        projects: A list of ProjectInfo instances.
+    """
+    if ide == 'e':
+        generate_eclipse_project_files(projects)
+    else:
+        generate_ide_project_files(projects)
 
 
 @time_logged(message=_TIME_EXCEED_MSG, maximum=_MAX_TIME)
@@ -217,10 +232,12 @@ def main(argv):
                                              args.verbose)
     multi_projects_locate_source(projects, args.verbose, args.depth,
                                  args.skip_build)
-    generate_ide_project_files(projects)
+    _generate_project_files(args.ide[0], projects)
     if ide_util_obj:
         ide_util_obj.config_ide()
-        ide_util_obj.launch_ide(projects[0].iml_path)
+        # For IntelliJ, use .idea as open target is better than .iml file,
+        # because open the latter is like to open a kind of normal file.
+        ide_util_obj.launch_ide(projects[0].project_absolute_path)
         print('\n{} {}\n'.format(_CONGRATULATION, _LAUNCH_SUCCESS_MSG))
 
 

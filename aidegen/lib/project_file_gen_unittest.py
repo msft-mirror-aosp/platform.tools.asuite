@@ -38,6 +38,7 @@ class AidegenProjectFileGenUnittest(unittest.TestCase):
     _PROJECT_FACET_SAMPLE = os.path.join(_TEST_DATA_PATH, 'project_facet.iml')
     _MODULE_DEP_SAMPLE = os.path.join(_TEST_DATA_PATH, 'module_dependency.iml')
     _IML_SAMPLE = os.path.join(_TEST_DATA_PATH, 'test.iml')
+    _CLASSPATH_SAMPLE = os.path.join(_TEST_DATA_PATH, 'eclipse.classpath')
     _DEPENDENCIES_IML_SAMPLE = os.path.join(_TEST_DATA_PATH, 'dependencies.iml')
     _MODULE_XML_SAMPLE = os.path.join(_TEST_DATA_PATH, 'modules.xml')
     _VCS_XML_SAMPLE = os.path.join(_TEST_DATA_PATH, 'vcs.xml')
@@ -205,6 +206,20 @@ class AidegenProjectFileGenUnittest(unittest.TestCase):
                              project_file_gen._COPYRIGHT_FOLDER,
                              'profiles_settings.xml')))
         shutil.rmtree(self._IDEA_PATH)
+
+    def test_generate_classpath(self):
+        """Test _generate_classpath."""
+        try:
+            classpath = project_file_gen._generate_classpath(
+                self._ANDROID_PROJECT_PATH,
+                copy.deepcopy(list(sorted(self._ANDROID_SOURCE_DICT))),
+                self._JAR_DEP_LIST)
+            test_iml = project_file_gen._read_file_content(classpath)
+            sample_iml = project_file_gen._read_file_content(
+                self._CLASSPATH_SAMPLE)
+        finally:
+            os.remove(classpath)
+        self.assertEqual(test_iml, sample_iml)
 
 
 if __name__ == '__main__':
