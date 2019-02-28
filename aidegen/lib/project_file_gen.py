@@ -84,6 +84,9 @@ _ECLIP_TEMPLATE_PATH = os.path.join(_ROOT_DIR, 'templates/eclipse/eclipse.xml')
 _ECLIP_EXTENSION = '.classpath'
 _ECLIP_SRC_TOKEN = '@SRC@'
 _ECLIP_LIB_TOKEN = '@LIB@'
+_ECLIP_PROJECT_PATH = os.path.join(_ROOT_DIR, 'templates/eclipse/project.xml')
+_ECLIP_PROJECT_NAME_TOKEN = '@PROJECTNAME@'
+_ECLIP_PROJECT_EXTENSION = '.project'
 
 # b/121256503: Prevent duplicated iml names from breaking IDEA.
 # Use a map to cache in-using(already used) iml project file names.
@@ -175,6 +178,9 @@ def _generate_eclipse_project_file(project_info):
     Args:
         project_info: ProjectInfo instance.
     """
+    module_path = project_info.project_absolute_path
+    module_name = get_unique_iml_name(module_path)
+    _generate_eclipse_project(module_name, module_path)
     source_dict = dict.fromkeys(
         list(project_info.source_path['source_folder_path']), False)
     source_dict.update(
@@ -182,6 +188,7 @@ def _generate_eclipse_project_file(project_info):
     project_info.iml_path = _generate_classpath(
         project_info.project_absolute_path, list(sorted(source_dict)),
         list(project_info.source_path['jar_path']))
+
 
 def generate_eclipse_project_files(projects):
     """Generate Eclipse project files by a list of ProjectInfo instances.
@@ -232,8 +239,8 @@ def _copy_constant_project_files(target_path):
     try:
         _copy_to_idea_folder(target_path, _COPYRIGHT_FOLDER)
         _copy_to_idea_folder(target_path, _CODE_STYLE_FOLDER)
-        code_style_target_path = os.path.join(
-            target_path, _IDEA_FOLDER, _CODE_STYLE_FOLDER, 'Project.xml')
+        code_style_target_path = os.path.join(target_path, _IDEA_FOLDER,
+                                              _CODE_STYLE_FOLDER, 'Project.xml')
         # Base on current working directory to prepare the relevant location
         # of the symbolic link file, and base on the symlink file location to
         # prepare the relevant code style source path.
@@ -493,6 +500,19 @@ def _generate_classpath(module_path, source_list, jar_dependencies):
     _file_generate(classpath_path, template)
 
     return classpath_path
+
+
+def _generate_eclipse_project(project_name, module_path):
+    """Generate .project file of Eclipse.
+
+    Args:
+        project_name: A string of the project name.
+        module_path: Absolute path of the module.
+    """
+    template = _read_file_content(_ECLIP_PROJECT_PATH)
+    template = template.replace(_ECLIP_PROJECT_NAME_TOKEN, project_name)
+    eclipse_project = os.path.join(module_path, _ECLIP_PROJECT_EXTENSION)
+    _file_generate(eclipse_project, template)
 
 
 def _get_dependencies_name(module_name):
