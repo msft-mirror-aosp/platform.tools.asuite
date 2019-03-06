@@ -37,7 +37,9 @@ import subprocess
 from aidegen import constant
 from aidegen.lib.config import AidegenConfig
 
-_IGNORE_STD_OUT_ERR_CMD = '&>/dev/null'
+# Add 'nohup' to prevent IDE from being terminated when console is terminated.
+_NOHUP = 'nohup'
+_IGNORE_STD_OUT_ERR_CMD = '2>/dev/null >&2'
 _IDEA_FOLDER = '.idea'
 _IML_EXTENSION = '.iml'
 _IDE_INTELLIJ = 'IntelliJ'
@@ -533,8 +535,34 @@ class IdeEclipse(IdeBase):
     def __init__(self, installed_path=None, config_reset=False):
         super().__init__(installed_path, config_reset)
         self._ide_name = _IDE_ECLIPSE
-        self._bin_file_name = 'eclipse'
+        self._bin_file_name = 'eclipse*'
         self._init_installed_path(installed_path)
+
+    def _get_script_from_system(self):
+        """Get correct IDE installed path from internal path.
+
+        Remove any file with extension, the filename should be like, 'eclipse',
+        'eclipse47' and so on, check if the file is executable and filter out
+        file such as 'eclipse.ini'.
+
+        Returns:
+            The sh full path, or None if no IntelliJ version is installed.
+        """
+        for ide_path in self._bin_paths:
+            ls_output = glob.glob(ide_path, recursive=True)
+            if ls_output:
+                ls_output = sorted(ls_output)
+                match_eclipses = []
+                for path in ls_output:
+                    if os.access(path, os.X_OK):
+                        match_eclipses.append(path)
+                if match_eclipses:
+                    match_eclipses = sorted(match_eclipses)
+                    logging.debug('Result for checking %s after sort: %s.',
+                                  self._ide_name, match_eclipses[0])
+                    return match_eclipses[0]
+        logging.error('No %s installed.', self._ide_name)
+        return None
 
 
 class IdeLinuxEclipse(IdeEclipse):
@@ -577,6 +605,7 @@ class IdeMacEclipse(IdeEclipse):
             A string of launch IDE command.
         """
         return ' '.join([
+            _NOHUP,
             'open',
             self._installed_path.replace(' ', r'\ '),
             os.path.dirname(project_file), _IGNORE_STD_OUT_ERR_CMD, '&'
@@ -653,7 +682,11 @@ def _get_run_ide_cmd(sh_path, project_file):
     """
     # In command usage, the space ' ' should be '\ ' for correctness.
     return ' '.join([
-        sh_path.replace(' ', r'\ '), project_file, _IGNORE_STD_OUT_ERR_CMD, '&'
+        _NOHUP,
+        sh_path.replace(' ', r'\ '),
+        project_file,
+        _IGNORE_STD_OUT_ERR_CMD,
+        '&'
     ])
 
 
@@ -703,11 +736,7 @@ def _launch_ide(project_path, run_ide_cmd, ide_name):
     assert project_path, 'Empty content path is not allowed.'
     logging.info('Launch %s for project content path: %s.', ide_name,
                  project_path)
-    if _is_intellij_project(project_path):
-        _run_ide_sh(run_ide_cmd, project_path)
-    else:
-        logging.error('The %s project: %s is invalid to launch.', ide_name,
-                      project_path)
+    _run_ide_sh(run_ide_cmd, project_path)
 
 
 def _is_intellij_project(project_path):
