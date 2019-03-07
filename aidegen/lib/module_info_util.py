@@ -122,8 +122,8 @@ def _build_target(cmd, main_project, module_info, verbose):
     except subprocess.CalledProcessError:
         if not _is_new_json_file_generated(json_path, original_json_mtime):
             if os.path.isfile(json_path):
-                message = ('Generate new {} failed, AIDEGen will proceed and '
-                           'reuse the old {}.'.format(json_path, json_path))
+                message = ('Generate new {0} failed, AIDEGen will proceed and '
+                           'reuse the old {0}.'.format(json_path))
                 print('\n{} {}\n'.format(COLORED_INFO('Warning:'), message))
         else:
             _, main_project_path = get_related_paths(module_info, main_project)
