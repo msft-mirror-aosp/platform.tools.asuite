@@ -22,6 +22,7 @@ import logging
 import os
 
 from aidegen import constant
+from aidegen.lib import common_util
 from aidegen.lib.common_util import COLORED_INFO
 from aidegen.lib.common_util import get_related_paths
 from aidegen.lib.module_info_util import generate_module_info_json
@@ -36,7 +37,6 @@ _ANDROID_MK_WARN = (
     'convert these files into blueprint format in the future, otherwise '
     'AIDEGen may not be able to include all module dependencies.\nPlease visit '
     '%s for reference on how to convert makefile.' % _CONVERT_MK_URL)
-_FILTER_CLASSES = ['APPS', 'JAVA_LIBRARIES', 'ROBOLECTRIC']
 _ROBOLECTRIC_MODULE = 'Robolectric_all'
 _NOT_TARGET = ('Module %s\'s class setting is %s, none of which is included in '
                '%s, skipping this module in the project.')
@@ -99,10 +99,8 @@ class ProjectInfo():
         """
         # TODO(b/112058649): Do more research to clarify how to remove these
         #                    hard-code sources.
-        self.project_module_names.update([
-            'framework',
-            'org.apache.http.legacy.stubs.system'
-        ])
+        self.project_module_names.update(
+            ['framework', 'org.apache.http.legacy.stubs.system'])
 
     def _init_source_path(self):
         """Initialize source_path dictionary."""
@@ -157,39 +155,22 @@ class ProjectInfo():
            project path.
         """
         logging.info('Find modules whose class is in %s under %s.',
-                     _FILTER_CLASSES, self.project_relative_path)
+                     common_util.TARGET_CLASSES, self.project_relative_path)
         for name, data in self.modules_info.items():
-            if self._is_relative_module(data):
+            if common_util.is_project_path_relative_module(
+                    data, self.project_relative_path):
                 if self._is_a_target_module(data):
                     self.project_module_names.add(name)
                     if self._is_a_robolectric_module(data):
                         self.project_module_names.add(_ROBOLECTRIC_MODULE)
                 else:
                     logging.info(_NOT_TARGET, name, data['class'],
-                                 _FILTER_CLASSES)
+                                 common_util.TARGET_CLASSES)
 
     def _filter_out_modules(self):
         """Filter out unnecessary modules."""
         for module in _EXCLUDE_MODULES:
             self.dep_modules.pop(module, None)
-
-    def _is_relative_module(self, data):
-        """Determine if the module is a relative module to this project.
-
-        Args:
-            data: the module-info dictionary of the checked module.
-
-        Returns:
-            A boolean, true if relative, otherwise false.
-        """
-        if not 'path' in data:
-            return False
-        path = data['path'][0]
-        if ('class' in data and
-                (path == self.project_relative_path or
-                 path.startswith(self.project_relative_path + os.sep))):
-            return True
-        return False
 
     @staticmethod
     def _is_a_target_module(data):
@@ -205,7 +186,7 @@ class ProjectInfo():
         """
         if not 'class' in data:
             return False
-        return any(x in data['class'] for x in _FILTER_CLASSES)
+        return any(x in data['class'] for x in common_util.TARGET_CLASSES)
 
     @staticmethod
     def _is_a_robolectric_module(data):
@@ -265,16 +246,16 @@ class ProjectInfo():
             module_names = self.project_module_names
             self.project_module_names = set()
         for name in module_names:
-            if (name in self.modules_info and
-                    name not in self.project_module_names):
+            if (name in self.modules_info
+                    and name not in self.project_module_names):
                 dep[name] = self.modules_info[name]
                 dep[name][constant.KEY_DEPTH] = depth
                 self.project_module_names.add(name)
-                if (constant.KEY_DEP in dep[name] and
-                        dep[name][constant.KEY_DEP]):
+                if (constant.KEY_DEP in dep[name]
+                        and dep[name][constant.KEY_DEP]):
                     children.update(dep[name][constant.KEY_DEP])
         if children:
-            dep.update(self.get_dep_modules(children, depth+1))
+            dep.update(self.get_dep_modules(children, depth + 1))
         return dep
 
     @classmethod
