@@ -36,8 +36,12 @@ _PACKAGE_RE = re.compile(r'\s*package\s+(?P<package>[^(;|\s)]+)\s*', re.I)
 
 _ANDROID_SUPPORT_PATH_KEYWORD = 'prebuilts/sdk/current/'
 _JAR = '.jar'
+_TARGET_LIBS = [_JAR, '.so', '.a']
 _JARJAR_RULES_FILE = 'jarjar-rules.txt'
 _JAVA = '.java'
+_NATIVE_FILES = ['.c', '.cpp']
+_TARGET_FILES = [_JAVA]
+_TARGET_FILES.extend(_NATIVE_FILES)
 _KEY_INSTALLED = 'installed'
 _KEY_JARJAR_RULES = 'jarjar_rules'
 _KEY_JARS = 'jars'
@@ -125,13 +129,16 @@ def locate_source(project, verbose, depth, build=True):
     for module_name, module_data in project.dep_modules.items():
         module = ModuleData(module_name, module_data, depth)
         module.locate_sources_path()
+        module.collect_native_srcs_paths(project.project_relative_path)
         project.source_path['source_folder_path'].update(module.src_dirs)
         project.source_path['test_folder_path'].update(module.test_dirs)
         project.source_path['jar_path'].update(module.jar_files)
         # Collecting the jar files of default core modules as dependencies.
         if constant.KEY_DEP in module_data:
-            project.source_path['jar_path'].update(
-                [x for x in module_data[constant.KEY_DEP] if x.endswith(_JAR)])
+            project.source_path['jar_path'].update([
+                x for x in module_data[constant.KEY_DEP]
+                if common_util.is_target(x, _TARGET_LIBS)
+            ])
         if module.build_targets:
             rebuild_targets |= module.build_targets
     if rebuild_targets:
@@ -273,16 +280,58 @@ class ModuleData():
                 else:
                     # To record what files except java and srcjar in the srcs.
                     logging.info('%s is not in parsing scope.', src_item)
-                if src_dir and not any(path in src_dir
-                                       for path in _IGNORE_DIRS):
-                    # Build the module if the source path not exists. The java
-                    # is normally generated for AIDL or logtags file.
-                    if not os.path.exists(common_util.get_abs_path(src_dir)):
-                        self.build_targets.add(self.module_name)
-                    if _KEY_TESTS in src_dir.split(os.sep):
-                        self.test_dirs.add(src_dir)
-                    else:
-                        self.src_dirs.add(src_dir)
+                self._add_to_source_or_test_dirs(src_dir)
+
+    def _check_key(self, key):
+        """Check if key is in self.module_data and not empty.
+
+        Args:
+            key: the key to be checked.
+        """
+        return key in self.module_data and self.module_data[key]
+
+    def collect_native_srcs_paths(self, project_rel_path):
+        """Collect native source folder paths in src_dirs from module_data.
+
+        Args:
+            project_rel_path: project's relative path.
+        """
+        if not self._check_key('class') or not self._check_key('path') or any(
+                common_util.is_target(x, common_util.NATIVE_TARGET_CLASSES)
+                for x in self.module_data['class']):
+            return
+        if common_util.is_project_path_relative_module(self.module_data,
+                                                       project_rel_path):
+            src_dir = os.path.dirname(self.module_data['path'][0])
+            self._add_to_source_or_test_dirs(src_dir)
+
+    def _add_to_source_or_test_dirs(self, src_dir):
+        """Add folder to source or test directories.
+
+        Args:
+            src_dir: the directory to be added.
+        """
+        if src_dir and not any(path in src_dir for path in _IGNORE_DIRS):
+            # Build the module if the source path not exists. The java is
+            # normally generated for AIDL or logtags file.
+            if not os.path.exists(common_util.get_abs_path(src_dir)):
+                self.build_targets.add(self.module_name)
+            if self._is_test_module(src_dir):
+                self.test_dirs.add(src_dir)
+            else:
+                self.src_dirs.add(src_dir)
+
+    @staticmethod
+    def _is_test_module(src_dir):
+        """Check if the module path is a test module path.
+
+        Args:
+            src_dir: the directory to be checked.
+
+        Returns:
+            True if module path is a test module path, otherwise False.
+        """
+        return _KEY_TESTS in src_dir.split(os.sep)
 
     # pylint: disable=inconsistent-return-statements
     @staticmethod
@@ -329,7 +378,7 @@ class ModuleData():
         Returns:
             Boolean: True if jar_path is an existing jar file.
         """
-        if jar_path.endswith(_JAR):
+        if common_util.is_target(jar_path, _TARGET_LIBS):
             self.referenced_by_jar = True
             if os.path.isfile(common_util.get_abs_path(jar_path)):
                 self.jar_files.add(jar_path)

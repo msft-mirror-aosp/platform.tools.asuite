@@ -42,6 +42,14 @@ FAKE_MODULE_ERROR = '{} is a fake module.'
 OUTSIDE_ROOT_ERROR = '{} is outside android root.'
 PATH_NOT_EXISTS_ERROR = 'The path {} doesn\'t exist.'
 NO_MODULE_DEFINED_ERROR = 'No modules defined at {}.'
+# Java related classes.
+JAVA_TARGET_CLASSES = ['APPS', 'JAVA_LIBRARIES', 'ROBOLECTRIC']
+# C, C++ related classes.
+NATIVE_TARGET_CLASSES = [
+    'HEADER_LIBRARIES', 'NATIVE_TESTS', 'STATIC_LIBRARIES', 'SHARED_LIBRARIES'
+]
+TARGET_CLASSES = JAVA_TARGET_CLASSES
+TARGET_CLASSES.extend(NATIVE_TARGET_CLASSES)
 
 
 def time_logged(func=None, *, message='', maximum=1):
@@ -129,7 +137,7 @@ def is_target_android_root(atest_module_info, targets):
         targets: A list of target modules or project paths from user input.
 
     Returns:
-        True if target is android root, otherwise false.
+        True if target is android root, otherwise False.
     """
     for target in targets:
         _, abs_path = get_related_paths(atest_module_info, target)
@@ -221,3 +229,38 @@ def get_abs_path(rel_path):
     if rel_path.startswith(constant.ANDROID_ROOT_PATH):
         return rel_path
     return os.path.join(constant.ANDROID_ROOT_PATH, rel_path)
+
+
+def is_project_path_relative_module(data, project_relative_path):
+    """Determine if the given project path is relative to the module.
+
+    Args:
+        data: the module-info dictionary of the checked module.
+        project_relative_path: project's relative path
+
+    Returns:
+        True if it's the given project path is relative to the module, otherwise
+        False.
+    """
+    if 'path' not in data:
+        return False
+    path = data['path'][0]
+    if ('class' in data
+            and (path == project_relative_path
+                 or path.startswith(project_relative_path + os.sep))):
+        return True
+    return False
+
+
+def is_target(src_file, src_file_extensions):
+    """Check if src_file is a type of src_file_extensions.
+
+    Args:
+        src_file: A string of the file path to be checked.
+        src_file_extensions: A list of file types to be checked
+
+    Returns:
+        True if src_file is one of the types of src_file_extensions, otherwise
+        False.
+    """
+    return any(src_file.endswith(x) for x in src_file_extensions)
