@@ -245,5 +245,5 @@ if __name__ == '__main__':
     try:
         main(sys.argv[1:])
     finally:
-        print('\n{} {}\n\n{} {}\n'.format(_INFO, AIDEGEN_REPORT_LINK, _INFO,
-                                          _IDE_CACHE_REMINDER_MSG))
+        print('\n{0} {1}\n\n{0} {2}\n'.format(_INFO, AIDEGEN_REPORT_LINK,
+                                              _IDE_CACHE_REMINDER_MSG))
