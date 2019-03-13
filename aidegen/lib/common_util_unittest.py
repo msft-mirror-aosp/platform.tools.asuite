@@ -109,12 +109,21 @@ class AidegenCommonUtilUnittests(unittest.TestCase):
         self.assertEqual(mock_check.call_count, 2)
 
     def test_get_abs_path(self):
-        """Test _get_abs_path handling."""
+        """Test get_abs_path handling."""
         constant.ANDROID_ROOT_PATH = uc.TEST_DATA_PATH
         self.assertEqual(uc.TEST_DATA_PATH, common_util.get_abs_path(''))
         test_path = os.path.join(uc.TEST_DATA_PATH, 'test.jar')
         self.assertEqual(test_path, common_util.get_abs_path(test_path))
         self.assertEqual(test_path, common_util.get_abs_path('test.jar'))
+
+    def test_is_target(self):
+        """Test is_target handling."""
+        self.assertEqual(common_util.is_target('packages/apps/tests/test.a',
+                                               ['.so', '.a']), True)
+        self.assertEqual(common_util.is_target('packages/apps/tests/test.so',
+                                               ['.so', '.a']), True)
+        self.assertEqual(common_util.is_target('packages/apps/tests/test.jar',
+                                               ['.so', '.a']), False)
 
 
 if __name__ == '__main__':

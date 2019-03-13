@@ -25,17 +25,20 @@ from unittest import mock
 from aidegen import constant
 from aidegen import unittest_constants as uc
 from aidegen.lib import source_locator
+from aidegen.lib.source_locator import ModuleData
 
 _MODULE_NAME = 'test'
 _MODULE_PATH = 'packages/apps/test'
-_MODULE_INFO = {'path': [_MODULE_PATH],
-                'srcs': [
-                    'packages/apps/test/src/main/java/com/android/java.java',
-                    'packages/apps/test/tests/com/android/test.java',
-                    'packages/apps/test/tests/test.srcjar'],
-                'dependencies': [],
-                'installed': []
-               }
+_MODULE_INFO = {
+    'path': [_MODULE_PATH],
+    'srcs': [
+        'packages/apps/test/src/main/java/com/android/java.java',
+        'packages/apps/test/tests/com/android/test.java',
+        'packages/apps/test/tests/test.srcjar'
+    ],
+    'dependencies': [],
+    'installed': []
+}
 _MODULE_DEPTH = 0
 
 
@@ -241,11 +244,14 @@ class SourceLocatorUnittests(unittest.TestCase):
         self.assertEqual(module_data.test_dirs, result_test_list)
         self.assertEqual(module_data.jar_files, result_jar_list)
 
+    @mock.patch.object(ModuleData, 'is_native_module')
     @mock.patch('aidegen.lib.project_info.ProjectInfo')
     @mock.patch('atest.atest_utils.build')
-    def test_locate_source(self, mock_atest_utils_build, mock_project_info):
+    def test_locate_source(self, mock_atest_utils_build, mock_project_info,
+                           mock_native):
         """Test locate_source handling."""
         mock_atest_utils_build.build.return_value = True
+        mock_native.return_value = False
         test_root_path = os.path.join(tempfile.mkdtemp(), 'test')
         shutil.copytree(uc.TEST_DATA_PATH, test_root_path)
         constant.ANDROID_ROOT_PATH = test_root_path
@@ -292,6 +298,24 @@ class SourceLocatorUnittests(unittest.TestCase):
         result_jar = set([generated_jar, default_jar])
         source_locator.locate_source(mock_project_info, False, 0, False)
         self.assertEqual(mock_project_info.source_path['jar_path'], result_jar)
+
+    @mock.patch('os.listdir')
+    def test_is_native_module(self, mock_listdir):
+        """Test if a module is a native module."""
+        A_MODULE_INFO = {'path': [_MODULE_PATH]}
+        a_module_info = dict(A_MODULE_INFO)
+        mock_listdir.return_value = ['packages/apps/test/tests/test.c']
+        module = source_locator.ModuleData(_MODULE_NAME, a_module_info,
+                                           _MODULE_DEPTH)
+        self.assertEqual(module.is_native_module(), True)
+        mock_listdir.return_value = ['packages/apps/test/tests/test.cpp']
+        module = source_locator.ModuleData(_MODULE_NAME, a_module_info,
+                                           _MODULE_DEPTH)
+        self.assertEqual(module.is_native_module(), True)
+        mock_listdir.return_value = ['packages/apps/test/tests/test.java']
+        module = source_locator.ModuleData(_MODULE_NAME, a_module_info,
+                                           _MODULE_DEPTH)
+        self.assertEqual(module.is_native_module(), False)
 
 
 if __name__ == '__main__':
