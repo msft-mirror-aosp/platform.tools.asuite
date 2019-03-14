@@ -213,23 +213,47 @@ class ModuleData():
         self.specific_soong_path = os.path.join(
             'out/soong/.intermediates', self.module_path, self.module_name)
 
+    def _is_app_module(self):
+        """Check if the current module's class is APPS"""
+        return self._check_key('class') and 'APPS' in self.module_data['class']
+
+    def _is_target_module(self):
+        """Check if the current module is a target module.
+
+        A target module is the target project or a module under the
+        target project and it's module depth is 0.
+        For example: aidegen Settings framework
+            The target projects are Settings and framework so they are also
+            target modules. And the dependent module SettingsUnitTests's path
+            is packages/apps/Settings/tests/unit so it also a target module.
+        """
+        return self.module_depth == 0
+
+    def _is_module_in_apps(self):
+        """Check if the current module is under packages/APPS."""
+        _apps_path = os.path.join('packages', 'APPS')
+        return self.module_path.startswith(_apps_path)
+
     def _collect_r_srcs_paths(self):
         """Collect the source folder of R.java.
 
-        Checking if exists an intermediates directory which contains R.java of
-        the module. If does not exist, build the module to generate it. After
-        build successfully, build system will copy the R.java from the
-        intermediates directory to the central R directory. Then set the central
-        R directory out/target/common/R as a source folder in IntelliJ.
+        For modules under packages/APPS, check if exists an intermediates
+        directory which contains R.java. If it does not exist, build the module
+        to generate it. For Other modules outside packages/APPS, build system
+        will finally copy the R.java from a intermediates directory to the
+        central R directory after building successfully. So set the central R
+        directory out/target/common/R as a default source folder in IntelliJ.
         """
-        if 'class' in self.module_data and 'APPS' in self.module_data['class']:
-            # The directory contains R.java for apps in packages/apps.
+        if (self._is_app_module() and self._is_target_module() and
+                self._is_module_in_apps()):
+            # The directory contains R.java for apps in packages/APPS.
             r_src_dir = os.path.join(
                 'out/target/common/obj/APPS/%s_intermediates/srcjars' %
                 self.module_name)
             if not os.path.exists(common_util.get_abs_path(r_src_dir)):
                 self.build_targets.add(self.module_name)
-            self.src_dirs.add('out/target/common/R')
+        # Add the central R as a default source folder of modules not in APPS.
+        self.src_dirs.add('out/target/common/R')
 
     def _init_module_path(self):
         """Inintialize self.module_path."""
