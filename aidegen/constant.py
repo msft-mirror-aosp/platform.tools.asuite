@@ -22,6 +22,10 @@ from atest import constants
 ANDROID_HOST_OUT = os.environ.get(constants.ANDROID_HOST_OUT)
 ANDROID_ROOT_PATH = os.environ.get(constants.ANDROID_BUILD_TOP)
 ROOT_DIR = os.path.join(ANDROID_ROOT_PATH, 'tools/asuite/aidegen')
+ANDROID_OUT_DIR = os.environ.get(constants.ANDROID_OUT_DIR)
+ANDROID_PRODUCT_OUT = os.environ.get(constants.ANDROID_PRODUCT_OUT)
+OUT_DIR = ANDROID_OUT_DIR or ANDROID_PRODUCT_OUT
+BLUEPRINT_JSONFILE_OUTDIR = os.path.join(OUT_DIR, 'soong')
 KEY_PATH = 'path'
 KEY_DEP = 'dependencies'
 KEY_DEPTH = 'depth'

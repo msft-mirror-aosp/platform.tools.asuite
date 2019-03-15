@@ -40,7 +40,6 @@ from aidegen.lib import errors
 from atest import constants
 
 _BLUEPRINT_JSONFILE_NAME = 'module_bp_java_deps.json'
-_BLUEPRINT_JSONFILE_OUTDIR = 'out/soong/'
 _KEY_CLS = 'class'
 _KEY_PATH = 'path'
 _KEY_INS = 'installed'
@@ -191,7 +190,7 @@ def _get_blueprint_json_path():
     """
     return os.path.join(
         os.environ.get(constants.ANDROID_BUILD_TOP),
-        _BLUEPRINT_JSONFILE_OUTDIR, _BLUEPRINT_JSONFILE_NAME)
+        constant.BLUEPRINT_JSONFILE_OUTDIR, _BLUEPRINT_JSONFILE_NAME)
 
 
 def _merge_module_keys(m_dict, b_dict):
