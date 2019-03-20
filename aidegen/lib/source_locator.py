@@ -36,12 +36,10 @@ _PACKAGE_RE = re.compile(r'\s*package\s+(?P<package>[^(;|\s)]+)\s*', re.I)
 
 _ANDROID_SUPPORT_PATH_KEYWORD = 'prebuilts/sdk/current/'
 _JAR = '.jar'
-_NATIVE_LIBS = ['.so', '.a']
-_TARGET_LIBS = [_JAR] + _NATIVE_LIBS
+_TARGET_LIBS = [_JAR]
 _JARJAR_RULES_FILE = 'jarjar-rules.txt'
 _JAVA = '.java'
-_NATIVE_FILES = ['.c', '.cpp']
-_TARGET_FILES = [_JAVA] + _NATIVE_FILES
+_TARGET_FILES = [_JAVA]
 _KEY_INSTALLED = 'installed'
 _KEY_JARJAR_RULES = 'jarjar_rules'
 _KEY_JARS = 'jars'
@@ -129,8 +127,6 @@ def locate_source(project, verbose, depth, build=True):
     for module_name, module_data in project.dep_modules.items():
         module = ModuleData(module_name, module_data, depth)
         module.locate_sources_path()
-        if module.is_native_module():
-            module.collect_native_srcs_paths(project.project_relative_path)
         project.source_path['source_folder_path'].update(module.src_dirs)
         project.source_path['test_folder_path'].update(module.test_dirs)
         project.source_path['jar_path'].update(module.jar_files)
@@ -315,28 +311,6 @@ class ModuleData():
             key: the key to be checked.
         """
         return key in self.module_data and self.module_data[key]
-
-    def is_native_module(self):
-        """Check if module is a native module."""
-        if self._check_key('path'):
-            for src_dir in self.module_data['path']:
-                if any(
-                        common_util.is_target(x, _NATIVE_FILES)
-                        for x in os.listdir(common_util.get_abs_path(src_dir))):
-                    return True
-        return False
-
-    def collect_native_srcs_paths(self, project_rel_path):
-        """Collect native source folder paths in src_dirs from module_data.
-
-        Args:
-            project_rel_path: project's relative path.
-        """
-        if common_util.is_project_path_relative_module(self.module_data,
-                                                       project_rel_path):
-            src_dir = os.path.dirname(self.module_data['path'][0])
-            if src_dir:
-                self._add_to_source_or_test_dirs(src_dir)
 
     def _add_to_source_or_test_dirs(self, src_dir):
         """Add folder to source or test directories.
