@@ -23,6 +23,7 @@ import urllib.request
 import uuid
 
 from aidegen import constant
+from atest import atest_utils
 
 _METRICS_URL = 'http://asuite-218222.appspot.com/aidegen/metrics'
 _VALID_DOMAINS = ['google.com', 'android.com']
@@ -43,20 +44,14 @@ def log_usage():
 # pylint: disable=broad-except
 def _get_ldap():
     """Return string email username for valid domains only, None otherwise."""
-    try:
+    if not atest_utils.is_external_run():
         aidegen_project = os.path.join(constant.ANDROID_ROOT_PATH, 'tools',
                                        'asuite', 'aidegen')
         email = subprocess.check_output(
             _COMMAND_GIT_CONFIG, cwd=aidegen_project).strip()
-        email = str(email, encoding="utf-8")
-        ldap, domain = email.split('@', 2)
+        ldap, domain = str(email, encoding="utf-8").split('@', 2)
         if domain in _VALID_DOMAINS:
             return ldap
-    except subprocess.CalledProcessError as err:
-        logging.debug('error subprocess[%s]: %s', ' '.join(_COMMAND_GIT_CONFIG),
-                      err.output)
-    except Exception:
-        logging.exception('error retrieving email')
     return None
 
 
