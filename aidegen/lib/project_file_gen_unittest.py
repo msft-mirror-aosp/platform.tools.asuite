@@ -61,7 +61,7 @@ class AidegenProjectFileGenUnittest(unittest.TestCase):
         'test_data/project/level11/level22/level31': False,
         'test_data/project/level12/level22': False,
     }
-    _ANDROID_SOURCE_RELATIVE_PATH = 'test_data/project/level12'
+    _ANDROID_SOURCE_RELATIVE_PATH = 'test_data/project'
     _SAMPLE_CONTENT_LIST = ['a/b/c/d', 'e/f']
     _SAMPLE_TRIMMED_SOURCE_LIST = ['a/b/c/d', 'e/f/a', 'e/f/b/c', 'e/f/g/h']
 
@@ -95,12 +95,6 @@ class AidegenProjectFileGenUnittest(unittest.TestCase):
             self._MODULE_DEP_SAMPLE)
         self.assertEqual(correct_module_dep, module_dependency)
 
-    def test_collect_content_url(self):
-        """Test _collect_content_url."""
-        url_list = project_file_gen._collect_content_url(
-            self._TEST_SOURCE_LIST[:])
-        self.assertEqual(url_list, self._SAMPLE_CONTENT_LIST)
-
     def test_trim_same_root_source(self):
         """Test _trim_same_root_source."""
         url_list = project_file_gen._trim_same_root_source(
@@ -113,7 +107,8 @@ class AidegenProjectFileGenUnittest(unittest.TestCase):
             project_file_gen._TEMPLATE_IML_PATH)
         source = project_file_gen._handle_source_folder(
             self._AOSP_FOLDER, template,
-            copy.deepcopy(self._ANDROID_SOURCE_DICT), True)
+            copy.deepcopy(self._ANDROID_SOURCE_DICT), True,
+            self._ANDROID_SOURCE_RELATIVE_PATH)
         sample_source = project_file_gen._read_file_content(self._SOURCE_SAMPLE)
         self.assertEqual(source, sample_source)
 
