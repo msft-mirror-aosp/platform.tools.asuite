@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 # Copyright 2018 - The Android Open Source Project
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -51,6 +52,9 @@ def _get_ldap():
         ldap, domain = email.split('@', 2)
         if domain in _VALID_DOMAINS:
             return ldap
+    except subprocess.CalledProcessError as err:
+        logging.debug('error subprocess[%s]: %s', ' '.join(_COMMAND_GIT_CONFIG),
+                      err.output)
     except Exception:
         logging.exception('error retrieving email')
     return None
