@@ -226,29 +226,30 @@ class ModuleData():
         return self.module_depth == 0
 
     def _is_module_in_apps(self):
-        """Check if the current module is under packages/APPS."""
-        _apps_path = os.path.join('packages', 'APPS')
+        """Check if the current module is under packages/apps."""
+        _apps_path = os.path.join('packages', 'apps')
         return self.module_path.startswith(_apps_path)
 
     def _collect_r_srcs_paths(self):
         """Collect the source folder of R.java.
 
-        For modules under packages/APPS, check if exists an intermediates
+        For modules under packages/apps, check if exists an intermediates
         directory which contains R.java. If it does not exist, build the module
-        to generate it. For Other modules outside packages/APPS, build system
+        to generate it. For Other modules outside packages/apps, build system
         will finally copy the R.java from a intermediates directory to the
         central R directory after building successfully. So set the central R
         directory out/target/common/R as a default source folder in IntelliJ.
         """
         if (self._is_app_module() and self._is_target_module() and
                 self._is_module_in_apps()):
-            # The directory contains R.java for apps in packages/APPS.
+            # The directory contains R.java for apps in packages/apps.
             r_src_dir = os.path.join(
                 'out/target/common/obj/APPS/%s_intermediates/srcjars' %
                 self.module_name)
             if not os.path.exists(common_util.get_abs_path(r_src_dir)):
                 self.build_targets.add(self.module_name)
-        # Add the central R as a default source folder of modules not in APPS.
+        # Add the central R as a default source folder of modules not in
+        # packages/apps.
         self.src_dirs.add('out/target/common/R')
 
     def _init_module_path(self):

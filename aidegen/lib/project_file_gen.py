@@ -321,40 +321,8 @@ def _handle_module_dependency(root_path, content, jar_dependencies):
     return content.replace(_MODULE_DEP_TOKEN, module_library)
 
 
-def _collect_content_url(sorted_path_list):
-    """Collect the content url from a given sorted source path list.
-
-    In iml, it uses content tag to group the source folders.
-    e.g.
-    <content url="file://$MODULE_DIR$/a">
-        <sourceFolder url="file://$MODULE_DIR$/a/b" isTestSource="False" />
-        <sourceFolder url="file://$MODULE_DIR$/a/test" isTestSource="True" />
-        <sourceFolder url="file://$MODULE_DIR$/a/d/e" isTestSource="False" />
-    </content>
-    The content url is the common prefix of the source path. However, we can't
-    get the information of content url from dependencies. In this function,
-    it compares each source folder to get the content url list.
-
-    Args:
-        sorted_path_list: The source path list which has been sorted.
-
-    Returns:
-        The list of content url.
-    """
-    content_url_list = []
-    sorted_path_list.append('')
-    pattern = sorted_path_list.pop(0)
-    for path in sorted_path_list:
-        common_prefix = os.path.commonpath([pattern, path])
-        if common_prefix == '':
-            content_url_list.append(pattern)
-            pattern = path
-        else:
-            pattern = common_prefix
-    return content_url_list
-
-
-def _handle_source_folder(root_path, content, source_dict, is_module):
+def _handle_source_folder(root_path, content, source_dict, is_module,
+                          relative_path):
     """Handle source folder part of iml.
 
     It would make the source folder group by content.
@@ -373,6 +341,7 @@ def _handle_source_folder(root_path, content, source_dict, is_module):
                      e.g.
                      {'path_a': True, 'path_b': False}
         is_module: True if it is module iml, otherwise it is dependencies iml.
+        relative_path: Relative path of the module.
 
     Returns:
         String: Content with source folder handled.
@@ -381,14 +350,15 @@ def _handle_source_folder(root_path, content, source_dict, is_module):
     source_list.sort()
     src_builder = []
     if is_module:
-        content_url_list = _collect_content_url(source_list[:])
-        for url in content_url_list:
-            src_builder.append(_CONTENT_URL % os.path.join(root_path, url))
-            for path, is_test_flag in sorted(source_dict.items()):
-                if path.startswith(url):  # The same prefix would be grouped.
-                    src_builder.append(_SOURCE_FOLDER % (os.path.join(
-                        root_path, path), is_test_flag))
-            src_builder.append(_END_CONTENT)
+        # Set the content url to module's path since it's the iml of target
+        # project which only has it's sub-folders in source_list.
+        src_builder.append(_CONTENT_URL % os.path.join(root_path,
+                                                       relative_path))
+        for path, is_test_flag in sorted(source_dict.items()):
+            if path.startswith(relative_path):
+                src_builder.append(_SOURCE_FOLDER % (os.path.join(
+                    root_path, path), is_test_flag))
+        src_builder.append(_END_CONTENT)
     else:
         for path, is_test_flag in sorted(source_dict.items()):
             path = os.path.join(root_path, path)
@@ -451,8 +421,8 @@ def _generate_iml(root_path, module_path, source_dict, jar_dependencies,
 
     # Generate module iml.
     module_content = _handle_facet(template, module_path)
-    module_content = _handle_source_folder(root_path, module_content,
-                                           project_source_dict, True)
+    module_content = _handle_source_folder(
+        root_path, module_content, project_source_dict, True, relative_path)
     # b/121256503: Prevent duplicated iml names from breaking IDEA.
     module_name = get_unique_iml_name(module_path)
 
@@ -466,7 +436,7 @@ def _generate_iml(root_path, module_path, source_dict, jar_dependencies,
     # Generate dependencies iml.
     dependencies_content = template.replace(_FACET_TOKEN, '')
     dependencies_content = _handle_source_folder(
-        root_path, dependencies_content, source_dict, False)
+        root_path, dependencies_content, source_dict, False, relative_path)
     dependencies_content = _handle_module_dependency(
         root_path, dependencies_content, jar_dependencies)
     dependencies_iml_path = os.path.join(module_path, dep_name + _IML_EXTENSION)
