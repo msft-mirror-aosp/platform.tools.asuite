@@ -6,8 +6,8 @@
     <component name="NewModuleRootManager" inherit-compiler-output="true">
         <exclude-output />
 @SOURCES@
-        <orderEntry type="inheritedJdk" />
         <orderEntry type="sourceFolder" forTests="false" />
 @MODULE_DEPENDENCIES@
+        <orderEntry type="inheritedJdk" />
     </component>
 </module>
