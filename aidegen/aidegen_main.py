@@ -213,6 +213,25 @@ def _generate_project_files(ide, projects):
 
 
 @time_logged(message=_TIME_EXCEED_MSG, maximum=_MAX_TIME)
+def main_with_message(args):
+    """Main entry with skip build message.
+
+    Args:
+        args: A list of system arguments.
+    """
+    aidegen_main(args)
+
+
+@time_logged
+def main_without_message(args):
+    """Main entry without skip build message.
+
+    Args:
+        args: A list of system arguments.
+    """
+    aidegen_main(args)
+
+
 def main(argv):
     """Main entry.
 
@@ -221,8 +240,22 @@ def main(argv):
     Args:
         argv: A list of system arguments.
     """
-    log_usage()
     args = _parse_args(argv)
+    if args.skip_build:
+        main_without_message(args)
+    else:
+        main_with_message(args)
+
+
+def aidegen_main(args):
+    """AIDEGen main entry.
+
+    Try to generates project files for using in IDE.
+
+    Args:
+        args: A list of system arguments.
+    """
+    log_usage()
     _configure_logging(args.verbose)
     ide_util_obj = _get_ide_util_instance(args)
     _check_skip_build(args)
