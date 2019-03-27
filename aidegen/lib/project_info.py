@@ -164,8 +164,8 @@ class ProjectInfo():
                     if self._is_a_robolectric_module(data):
                         self.project_module_names.add(_ROBOLECTRIC_MODULE)
                 else:
-                    logging.info(_NOT_TARGET, name, data['class'],
-                                 common_util.TARGET_CLASSES)
+                    logging.debug(_NOT_TARGET, name, data['class'],
+                                  common_util.TARGET_CLASSES)
 
     def _filter_out_modules(self):
         """Filter out unnecessary modules."""
