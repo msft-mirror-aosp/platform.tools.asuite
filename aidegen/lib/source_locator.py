@@ -301,7 +301,7 @@ class ModuleData():
                         src_dir = self._get_source_folder(src_item)
                 else:
                     # To record what files except java and srcjar in the srcs.
-                    logging.info('%s is not in parsing scope.', src_item)
+                    logging.debug('%s is not in parsing scope.', src_item)
                 if src_dir:
                     self._add_to_source_or_test_dirs(src_dir)
 
