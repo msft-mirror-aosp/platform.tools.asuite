@@ -25,7 +25,6 @@ from aidegen import constant
 from aidegen.lib import common_util
 from aidegen.lib.common_util import COLORED_INFO
 from aidegen.lib.common_util import get_related_paths
-from aidegen.lib.module_info_util import generate_module_info_json
 
 _KEY_ROBOTESTS = ['robotests', 'robolectric']
 _ANDROID_MK = 'Android.mk'
@@ -258,8 +257,8 @@ class ProjectInfo():
             dep.update(self.get_dep_modules(children, depth + 1))
         return dep
 
-    @classmethod
-    def generate_projects(cls, module_info, targets, verbose):
+    @staticmethod
+    def generate_projects(module_info, targets):
         """Generate a list of projects in one time by a list of module names.
 
         Args:
@@ -267,13 +266,10 @@ class ProjectInfo():
             targets: A list of target modules or project paths from user input,
                      when locating the target, project with matched module name
                      of the target has a higher priority than project path.
-            verbose: A boolean. If true, display DEBUG level logs.
 
         Returns:
             List: A list of ProjectInfo instances.
         """
-        cls.modules_info = generate_module_info_json(module_info, targets,
-                                                     verbose)
         return [ProjectInfo(module_info, target) for target in targets]
 
     @staticmethod
