@@ -136,7 +136,7 @@ def _generate_intellij_project_file(project_info, iml_path_list=None):
 
     Args:
         project_info: ProjectInfo instance.
-        iml_path_list: A list of submodule iml paths.
+        iml_path_list: An optional list of submodule's iml paths, default None.
     """
     source_dict = dict.fromkeys(
         list(project_info.source_path['source_folder_path']), False)
@@ -147,7 +147,8 @@ def _generate_intellij_project_file(project_info, iml_path_list=None):
         source_dict, list(project_info.source_path['jar_path']),
         project_info.project_relative_path)
     _generate_modules_xml(project_info.project_absolute_path, iml_path_list)
-    _generate_vcs_xml(project_info.project_absolute_path)
+    project_info.git_path = _generate_vcs_xml(
+        project_info.project_absolute_path)
     _copy_constant_project_files(project_info.project_absolute_path)
 
 
@@ -169,7 +170,8 @@ def generate_ide_project_files(projects):
     for project in projects[1:]:
         _generate_intellij_project_file(project)
     iml_paths = [project.iml_path for project in projects[1:]]
-    _generate_intellij_project_file(projects[0], iml_paths or None)
+    _generate_intellij_project_file(projects[0], iml_paths)
+    _merge_project_vcs_xmls(projects)
 
 
 def _generate_eclipse_project_file(project_info):
@@ -443,6 +445,7 @@ def _generate_iml(root_path, module_path, source_dict, jar_dependencies,
     _file_generate(dependencies_iml_path, dependencies_content)
     logging.debug('Paired iml names are %s, %s', module_iml_path,
                   dependencies_iml_path)
+    # The dependencies_iml_path is use for removing the file itself in unittest.
     return module_iml_path, dependencies_iml_path
 
 
@@ -545,14 +548,46 @@ def _generate_vcs_xml(module_path):
 
     Args:
         module_path: Path of the module.
+
+    Return:
+        String: A module's git path.
     """
     git_path = module_path
     while not os.path.isdir(os.path.join(git_path, _GIT_FOLDER_NAME)):
         git_path = str(pathlib.Path(git_path).parent)
         if git_path == os.sep:
             logging.warning('%s can\'t find its .git folder', module_path)
-            return
+            return None
+    _write_vcs_xml(module_path, [git_path])
+    return git_path
+
+
+def _write_vcs_xml(module_path, git_paths):
+    """Write the git path into vcs.xml.
+
+    For main module, the vcs.xml should include all modules' git path.
+    For submodules, there is only one git path in vcs.xml.
+
+    Args:
+        module_path: Path of the module.
+        git_paths: A list of git path.
+    """
+    _vcs_content = '\n'.join([_VCS_SECTION % p for p in git_paths if p])
     content = _read_file_content(_TEMPLATE_VCS_PATH)
-    content = content.replace(_VCS_TOKEN, _VCS_SECTION % git_path)
+    content = content.replace(_VCS_TOKEN, _vcs_content)
     target_path = os.path.join(module_path, _IDEA_FOLDER, _VCS_XML)
     _file_generate(target_path, content)
+
+
+def _merge_project_vcs_xmls(projects):
+    """Merge sub projects' git paths into main project's vcs.xml.
+
+    After all projects' vcs.xml are generated, collect the git path of each
+    projects and write them into main project's vcs.xml.
+
+    Args:
+        projects: A list of ProjectInfo instances.
+    """
+    main_project_absolute_path = projects[0].project_absolute_path
+    git_paths = [project.git_path for project in projects]
+    _write_vcs_xml(main_project_absolute_path, git_paths)
