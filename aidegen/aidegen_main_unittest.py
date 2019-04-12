@@ -22,11 +22,14 @@ import unittest
 from unittest import mock
 
 from aidegen import aidegen_main
+from aidegen.lib import metrics
 from aidegen.lib.common_util import COLORED_INFO
 from aidegen.lib.errors import IDENotExistError
+from aidegen.lib.errors import ProjectPathNotExistError
 from aidegen.lib.ide_util import IdeUtil
 
 import aidegen.unittest_constants as uc
+
 
 # pylint: disable=protected-access
 # pylint: disable=invalid-name
@@ -116,6 +119,15 @@ class AidegenMainUnittests(unittest.TestCase):
         self.assertTrue(mock_ide.called_with(projects))
         aidegen_main._generate_project_files('j', projects)
         self.assertTrue(mock_ide.called_with(projects))
+
+    @mock.patch.object(metrics, 'log_usage')
+    def test_show_collect_data_notice(self, mock_log):
+        """Test main process always run through the target test function."""
+        target = 'nothing'
+        args = aidegen_main._parse_args([target, '-s', '-n'])
+        with self.assertRaises(ProjectPathNotExistError):
+            aidegen_main.main_without_message(args)
+            self.assertTrue(mock_log.called)
 
 
 if __name__ == '__main__':
