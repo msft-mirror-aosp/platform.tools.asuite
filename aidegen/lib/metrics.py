@@ -38,6 +38,8 @@ _META_FILE = os.path.join(
 
 def log_usage():
     """Log aidegen run."""
+    # Show privacy and license hint message before collect data.
+    atest_utils.print_data_collection_notice()
     _log_event(_METRICS_URL, dummy_key_fallback=False, ldap=_get_ldap())
 
 

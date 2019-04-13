@@ -258,6 +258,7 @@ def aidegen_main(args):
     """
     log_usage()
     _configure_logging(args.verbose)
+    # Pre-check for IDE relevant case, then handle dependency graph job.
     ide_util_obj = _get_ide_util_instance(args)
     _check_skip_build(args)
     atest_module_info = module_info.ModuleInfo()
