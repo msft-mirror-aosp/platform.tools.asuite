@@ -38,6 +38,7 @@ class AidegenProjectFileGenUnittest(unittest.TestCase):
     _PROJECT_FACET_SAMPLE = os.path.join(_TEST_DATA_PATH, 'project_facet.iml')
     _MODULE_DEP_SAMPLE = os.path.join(_TEST_DATA_PATH, 'module_dependency.iml')
     _IML_SAMPLE = os.path.join(_TEST_DATA_PATH, 'test.iml')
+    _CLASSPATH_SAMPLE = os.path.join(_TEST_DATA_PATH, 'eclipse.classpath')
     _DEPENDENCIES_IML_SAMPLE = os.path.join(_TEST_DATA_PATH, 'dependencies.iml')
     _MODULE_XML_SAMPLE = os.path.join(_TEST_DATA_PATH, 'modules.xml')
     _VCS_XML_SAMPLE = os.path.join(_TEST_DATA_PATH, 'vcs.xml')
@@ -60,7 +61,7 @@ class AidegenProjectFileGenUnittest(unittest.TestCase):
         'test_data/project/level11/level22/level31': False,
         'test_data/project/level12/level22': False,
     }
-    _ANDROID_SOURCE_RELATIVE_PATH = 'test_data/project/level12'
+    _ANDROID_SOURCE_RELATIVE_PATH = 'test_data/project'
     _SAMPLE_CONTENT_LIST = ['a/b/c/d', 'e/f']
     _SAMPLE_TRIMMED_SOURCE_LIST = ['a/b/c/d', 'e/f/a', 'e/f/b/c', 'e/f/g/h']
 
@@ -94,12 +95,6 @@ class AidegenProjectFileGenUnittest(unittest.TestCase):
             self._MODULE_DEP_SAMPLE)
         self.assertEqual(correct_module_dep, module_dependency)
 
-    def test_collect_content_url(self):
-        """Test _collect_content_url."""
-        url_list = project_file_gen._collect_content_url(
-            self._TEST_SOURCE_LIST[:])
-        self.assertEqual(url_list, self._SAMPLE_CONTENT_LIST)
-
     def test_trim_same_root_source(self):
         """Test _trim_same_root_source."""
         url_list = project_file_gen._trim_same_root_source(
@@ -112,7 +107,8 @@ class AidegenProjectFileGenUnittest(unittest.TestCase):
             project_file_gen._TEMPLATE_IML_PATH)
         source = project_file_gen._handle_source_folder(
             self._AOSP_FOLDER, template,
-            copy.deepcopy(self._ANDROID_SOURCE_DICT), True)
+            copy.deepcopy(self._ANDROID_SOURCE_DICT), True,
+            self._ANDROID_SOURCE_RELATIVE_PATH)
         sample_source = project_file_gen._read_file_content(self._SOURCE_SAMPLE)
         self.assertEqual(source, sample_source)
 
@@ -205,6 +201,20 @@ class AidegenProjectFileGenUnittest(unittest.TestCase):
                              project_file_gen._COPYRIGHT_FOLDER,
                              'profiles_settings.xml')))
         shutil.rmtree(self._IDEA_PATH)
+
+    def test_generate_classpath(self):
+        """Test _generate_classpath."""
+        try:
+            classpath = project_file_gen._generate_classpath(
+                self._ANDROID_PROJECT_PATH,
+                copy.deepcopy(list(sorted(self._ANDROID_SOURCE_DICT))),
+                self._JAR_DEP_LIST)
+            test_iml = project_file_gen._read_file_content(classpath)
+            sample_iml = project_file_gen._read_file_content(
+                self._CLASSPATH_SAMPLE)
+        finally:
+            os.remove(classpath)
+        self.assertEqual(test_iml, sample_iml)
 
 
 if __name__ == '__main__':

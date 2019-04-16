@@ -36,8 +36,11 @@ _PACKAGE_RE = re.compile(r'\s*package\s+(?P<package>[^(;|\s)]+)\s*', re.I)
 
 _ANDROID_SUPPORT_PATH_KEYWORD = 'prebuilts/sdk/current/'
 _JAR = '.jar'
+_TARGET_LIBS = [_JAR]
 _JARJAR_RULES_FILE = 'jarjar-rules.txt'
 _JAVA = '.java'
+_KOTLIN = '.kt'
+_TARGET_FILES = [_JAVA, _KOTLIN]
 _KEY_INSTALLED = 'installed'
 _KEY_JARJAR_RULES = 'jarjar_rules'
 _KEY_JARS = 'jars'
@@ -45,6 +48,8 @@ _KEY_PATH = 'path'
 _KEY_SRCS = 'srcs'
 _KEY_TESTS = 'tests'
 _SRCJAR = '.srcjar'
+_AAPT2_DIR = 'out/target/common/obj/APPS/%s_intermediates/aapt2'
+_AAPT2_SRCJAR = 'out/target/common/obj/APPS/%s_intermediates/aapt2.srcjar'
 _IGNORE_DIRS = [
     # The java files under this directory have to be ignored because it will
     # cause duplicated classes by libcore/ojluni/src/main/java.
@@ -130,8 +135,10 @@ def locate_source(project, verbose, depth, build=True):
         project.source_path['jar_path'].update(module.jar_files)
         # Collecting the jar files of default core modules as dependencies.
         if constant.KEY_DEP in module_data:
-            project.source_path['jar_path'].update(
-                [x for x in module_data[constant.KEY_DEP] if x.endswith(_JAR)])
+            project.source_path['jar_path'].update([
+                x for x in module_data[constant.KEY_DEP]
+                if common_util.is_target(x, _TARGET_LIBS)
+            ])
         if module.build_targets:
             rebuild_targets |= module.build_targets
     if rebuild_targets:
@@ -148,7 +155,7 @@ def _build_dependencies(verbose, rebuild_targets):
 
     Args:
         verbose: A boolean, if true displays full build output.
-        rebuild_targets: A list of jar files or AIDL files which do not exist.
+        rebuild_targets: A list of jar or srcjar files which do not exist.
     """
     logging.info(('Ready to build the modules for generating R.java or java '
                   'file for AIDL/logtags files.'))
@@ -205,23 +212,48 @@ class ModuleData():
         self.specific_soong_path = os.path.join(
             'out/soong/.intermediates', self.module_path, self.module_name)
 
+    def _is_app_module(self):
+        """Check if the current module's class is APPS"""
+        return self._check_key('class') and 'APPS' in self.module_data['class']
+
+    def _is_target_module(self):
+        """Check if the current module is a target module.
+
+        A target module is the target project or a module under the
+        target project and it's module depth is 0.
+        For example: aidegen Settings framework
+            The target projects are Settings and framework so they are also
+            target modules. And the dependent module SettingsUnitTests's path
+            is packages/apps/Settings/tests/unit so it also a target module.
+        """
+        return self.module_depth == 0
+
+    def _is_module_in_apps(self):
+        """Check if the current module is under packages/apps."""
+        _apps_path = os.path.join('packages', 'apps')
+        return self.module_path.startswith(_apps_path)
+
     def _collect_r_srcs_paths(self):
         """Collect the source folder of R.java.
 
-        Checking if exists an intermediates directory which contains R.java of
-        the module. If does not exist, build the module to generate it. After
-        build successfully, build system will copy the R.java from the
-        intermediates directory to the central R directory. Then set the central
-        R directory out/target/common/R as a source folder in IntelliJ.
+        For modules under packages/apps, check if exists an intermediates
+        directory which contains R.java. If it does not exist, build the
+        aapt2.srcjar of the module to generate. Build system will finally copy
+        the R.java from a intermediates directory to the central R directory
+        after building successfully. So set the central R directory
+        out/target/common/R as a default source folder in IntelliJ.
         """
-        if 'class' in self.module_data and 'APPS' in self.module_data['class']:
+        if (self._is_app_module() and self._is_target_module() and
+                self._is_module_in_apps()):
             # The directory contains R.java for apps in packages/apps.
-            r_src_dir = os.path.join(
-                'out/target/common/obj/APPS/%s_intermediates/srcjars' %
-                self.module_name)
+            r_src_dir = _AAPT2_DIR % self.module_name
             if not os.path.exists(common_util.get_abs_path(r_src_dir)):
-                self.build_targets.add(self.module_name)
-            self.src_dirs.add('out/target/common/R')
+                self.build_targets.add(_AAPT2_SRCJAR % self.module_name)
+            # In case the central R folder been deleted, uses the intermediate
+            # folder as the dependency to R.java.
+            self.src_dirs.add(r_src_dir)
+        # Add the central R as a default source folder.
+        self.src_dirs.add('out/target/common/R')
 
     def _init_module_path(self):
         """Inintialize self.module_path."""
@@ -264,7 +296,7 @@ class ModuleData():
                 src_item = os.path.relpath(src_item)
                 if src_item.endswith(_SRCJAR):
                     self._append_jar_from_installed(self.specific_soong_path)
-                elif src_item.endswith(_JAVA):
+                elif common_util.is_target(src_item, _TARGET_FILES):
                     # Only scan one java file in each source directories.
                     src_item_dir = os.path.dirname(src_item)
                     if src_item_dir not in scanned_dirs:
@@ -272,17 +304,45 @@ class ModuleData():
                         src_dir = self._get_source_folder(src_item)
                 else:
                     # To record what files except java and srcjar in the srcs.
-                    logging.info('%s is not in parsing scope.', src_item)
-                if src_dir and not any(path in src_dir
-                                       for path in _IGNORE_DIRS):
-                    # Build the module if the source path not exists. The java
-                    # is normally generated for AIDL or logtags file.
-                    if not os.path.exists(common_util.get_abs_path(src_dir)):
-                        self.build_targets.add(self.module_name)
-                    if _KEY_TESTS in src_dir.split(os.sep):
-                        self.test_dirs.add(src_dir)
-                    else:
-                        self.src_dirs.add(src_dir)
+                    logging.debug('%s is not in parsing scope.', src_item)
+                if src_dir:
+                    self._add_to_source_or_test_dirs(src_dir)
+
+    def _check_key(self, key):
+        """Check if key is in self.module_data and not empty.
+
+        Args:
+            key: the key to be checked.
+        """
+        return key in self.module_data and self.module_data[key]
+
+    def _add_to_source_or_test_dirs(self, src_dir):
+        """Add folder to source or test directories.
+
+        Args:
+            src_dir: the directory to be added.
+        """
+        if not any(path in src_dir for path in _IGNORE_DIRS):
+            # Build the module if the source path not exists. The java is
+            # normally generated for AIDL or logtags file.
+            if not os.path.exists(common_util.get_abs_path(src_dir)):
+                self.build_targets.add(self.module_name)
+            if self._is_test_module(src_dir):
+                self.test_dirs.add(src_dir)
+            else:
+                self.src_dirs.add(src_dir)
+
+    @staticmethod
+    def _is_test_module(src_dir):
+        """Check if the module path is a test module path.
+
+        Args:
+            src_dir: the directory to be checked.
+
+        Returns:
+            True if module path is a test module path, otherwise False.
+        """
+        return _KEY_TESTS in src_dir.split(os.sep)
 
     # pylint: disable=inconsistent-return-statements
     @staticmethod
@@ -329,7 +389,7 @@ class ModuleData():
         Returns:
             Boolean: True if jar_path is an existing jar file.
         """
-        if jar_path.endswith(_JAR):
+        if common_util.is_target(jar_path, _TARGET_LIBS):
             self.referenced_by_jar = True
             if os.path.isfile(common_util.get_abs_path(jar_path)):
                 self.jar_files.add(jar_path)

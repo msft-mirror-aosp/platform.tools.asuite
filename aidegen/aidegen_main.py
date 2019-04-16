@@ -45,11 +45,14 @@ import sys
 
 from aidegen.lib.android_dev_os import AndroidDevOS
 from aidegen.lib.common_util import COLORED_INFO
+from aidegen.lib.common_util import COLORED_PASS
 from aidegen.lib.common_util import check_modules
 from aidegen.lib.common_util import time_logged
 from aidegen.lib.errors import IDENotExistError
 from aidegen.lib.ide_util import IdeUtil
 from aidegen.lib.metrics import log_usage
+from aidegen.lib.module_info_util import generate_module_info_json
+from aidegen.lib.project_file_gen import generate_eclipse_project_files
 from aidegen.lib.project_file_gen import generate_ide_project_files
 from aidegen.lib.project_info import ProjectInfo
 from aidegen.lib.source_locator import multi_projects_locate_source
@@ -64,6 +67,9 @@ or  - specify the exact IDE executable path by "aidegen -p"
 or  - specify "aidegen -n" to generate project file only
 """
 
+_CONGRATULATION = COLORED_PASS('CONGRATULATION:')
+_LAUNCH_SUCCESS_MSG = (
+    'IDE launched successfully. Please check your IDE window.')
 _IDE_CACHE_REMINDER_MSG = (
     'To prevent the existed IDE cache from impacting your IDE dependency '
     'analysis, please consider to clear IDE caches if necessary. To do that, in'
@@ -175,7 +181,8 @@ def _get_ide_util_instance(args):
                            args.config_reset,
                            AndroidDevOS.MAC == AndroidDevOS.get_os_type())
     if not ide_util_obj.is_ide_installed():
-        err = _NO_LAUNCH_IDE_CMD.format(args.ide_installed_path)
+        ipath = args.ide_installed_path or ide_util_obj.get_default_path()
+        err = _NO_LAUNCH_IDE_CMD.format(ipath)
         logging.error(err)
         raise IDENotExistError(err)
     return ide_util_obj
@@ -193,7 +200,39 @@ def _check_skip_build(args):
         print('\n{} {}\n'.format(_INFO, msg))
 
 
+def _generate_project_files(ide, projects):
+    """Generate project files by IDE type.
+
+    Args:
+        ide: IDE type.
+        projects: A list of ProjectInfo instances.
+    """
+    if ide == 'e':
+        generate_eclipse_project_files(projects)
+    else:
+        generate_ide_project_files(projects)
+
+
 @time_logged(message=_TIME_EXCEED_MSG, maximum=_MAX_TIME)
+def main_with_message(args):
+    """Main entry with skip build message.
+
+    Args:
+        args: A list of system arguments.
+    """
+    aidegen_main(args)
+
+
+@time_logged
+def main_without_message(args):
+    """Main entry without skip build message.
+
+    Args:
+        args: A list of system arguments.
+    """
+    aidegen_main(args)
+
+
 def main(argv):
     """Main entry.
 
@@ -202,26 +241,45 @@ def main(argv):
     Args:
         argv: A list of system arguments.
     """
-    log_usage()
     args = _parse_args(argv)
+    if args.skip_build:
+        main_without_message(args)
+    else:
+        main_with_message(args)
+
+
+def aidegen_main(args):
+    """AIDEGen main entry.
+
+    Try to generates project files for using in IDE.
+
+    Args:
+        args: A list of system arguments.
+    """
+    log_usage()
     _configure_logging(args.verbose)
+    # Pre-check for IDE relevant case, then handle dependency graph job.
     ide_util_obj = _get_ide_util_instance(args)
     _check_skip_build(args)
     atest_module_info = module_info.ModuleInfo()
     check_modules(atest_module_info, args.targets)
-    projects = ProjectInfo.generate_projects(atest_module_info, args.targets,
-                                             args.verbose)
+    ProjectInfo.modules_info = generate_module_info_json(
+        atest_module_info, args.targets, args.verbose, args.skip_build)
+    projects = ProjectInfo.generate_projects(atest_module_info, args.targets)
     multi_projects_locate_source(projects, args.verbose, args.depth,
                                  args.skip_build)
-    generate_ide_project_files(projects)
+    _generate_project_files(args.ide[0], projects)
     if ide_util_obj:
         ide_util_obj.config_ide()
-        ide_util_obj.launch_ide(projects[0].iml_path)
+        # For IntelliJ, use .idea as open target is better than .iml file,
+        # because open the latter is like to open a kind of normal file.
+        ide_util_obj.launch_ide(projects[0].project_absolute_path)
+        print('\n{} {}\n'.format(_CONGRATULATION, _LAUNCH_SUCCESS_MSG))
 
 
 if __name__ == '__main__':
     try:
         main(sys.argv[1:])
     finally:
-        print('\n{} {}\n\n{} {}\n'.format(_INFO, AIDEGEN_REPORT_LINK, _INFO,
-                                          _IDE_CACHE_REMINDER_MSG))
+        print('\n{0} {1}\n\n{0} {2}\n'.format(_INFO, AIDEGEN_REPORT_LINK,
+                                              _IDE_CACHE_REMINDER_MSG))

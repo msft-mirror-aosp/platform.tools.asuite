@@ -28,14 +28,16 @@ from aidegen.lib import source_locator
 
 _MODULE_NAME = 'test'
 _MODULE_PATH = 'packages/apps/test'
-_MODULE_INFO = {'path': [_MODULE_PATH],
-                'srcs': [
-                    'packages/apps/test/src/main/java/com/android/java.java',
-                    'packages/apps/test/tests/com/android/test.java',
-                    'packages/apps/test/tests/test.srcjar'],
-                'dependencies': [],
-                'installed': []
-               }
+_MODULE_INFO = {
+    'path': [_MODULE_PATH],
+    'srcs': [
+        'packages/apps/test/src/main/java/com/android/java.java',
+        'packages/apps/test/tests/com/android/test.java',
+        'packages/apps/test/tests/test.srcjar'
+    ],
+    'dependencies': [],
+    'installed': []
+}
 _MODULE_DEPTH = 0
 
 
@@ -148,7 +150,8 @@ class SourceLocatorUnittests(unittest.TestCase):
         """Test locate_sources_path handling."""
         # Test collect source path.
         module_info = dict(_MODULE_INFO)
-        result_src_list = set(['packages/apps/test/src/main/java'])
+        result_src_list = set(['packages/apps/test/src/main/java',
+                               'out/target/common/R'])
         result_test_list = set(['packages/apps/test/tests'])
         result_jar_list = set()
         constant.ANDROID_ROOT_PATH = uc.TEST_DATA_PATH
@@ -216,7 +219,8 @@ class SourceLocatorUnittests(unittest.TestCase):
         depth_by_source = 2
         module_info = dict(_MODULE_INFO)
         module_info['depth'] = 2
-        result_src_list = set(['packages/apps/test/src/main/java'])
+        result_src_list = set(['packages/apps/test/src/main/java',
+                               'out/target/common/R'])
         result_test_list = set(['packages/apps/test/tests'])
         result_jar_list = set()
         module_data = source_locator.ModuleData(_MODULE_NAME, module_info,
@@ -231,7 +235,8 @@ class SourceLocatorUnittests(unittest.TestCase):
         depth_by_source = 3
         module_info = dict(_MODULE_INFO)
         module_info['depth'] = 2
-        result_src_list = set(['packages/apps/test/src/main/java'])
+        result_src_list = set(['packages/apps/test/src/main/java',
+                               'out/target/common/R'])
         result_test_list = set(['packages/apps/test/tests'])
         result_jar_list = set()
         module_data = source_locator.ModuleData(_MODULE_NAME, module_info,
@@ -279,7 +284,8 @@ class SourceLocatorUnittests(unittest.TestCase):
             shutil.rmtree(test_root_path)
 
         # Test collects source and test folders.
-        result_source = set(['packages/apps/test/src/main/java'])
+        result_source = set(['packages/apps/test/src/main/java',
+                             'out/target/common/R'])
         result_test = set(['packages/apps/test/tests'])
         self.assertEqual(mock_project_info.source_path['source_folder_path'],
                          result_source)

@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 # Copyright 2018 - The Android Open Source Project
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -22,6 +23,7 @@ import urllib.request
 import uuid
 
 from aidegen import constant
+from atest import atest_utils
 
 _METRICS_URL = 'http://asuite-218222.appspot.com/aidegen/metrics'
 _VALID_DOMAINS = ['google.com', 'android.com']
@@ -36,23 +38,22 @@ _META_FILE = os.path.join(
 
 def log_usage():
     """Log aidegen run."""
+    # Show privacy and license hint message before collect data.
+    atest_utils.print_data_collection_notice()
     _log_event(_METRICS_URL, dummy_key_fallback=False, ldap=_get_ldap())
 
 
 # pylint: disable=broad-except
 def _get_ldap():
     """Return string email username for valid domains only, None otherwise."""
-    try:
+    if not atest_utils.is_external_run():
         aidegen_project = os.path.join(constant.ANDROID_ROOT_PATH, 'tools',
                                        'asuite', 'aidegen')
         email = subprocess.check_output(
             _COMMAND_GIT_CONFIG, cwd=aidegen_project).strip()
-        email = str(email, encoding="utf-8")
-        ldap, domain = email.split('@', 2)
+        ldap, domain = str(email, encoding="utf-8").split('@', 2)
         if domain in _VALID_DOMAINS:
             return ldap
-    except Exception:
-        logging.exception('error retrieving email')
     return None
 
 
