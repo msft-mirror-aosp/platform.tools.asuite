@@ -60,6 +60,8 @@ class ProjectInfo():
                               directory or it's subdirectories.
         dep_modules: A dict has recursively dependent modules of
                      project_module_names.
+        git_path: The project's git path.
+        iml_path: The project's iml file path.
     """
 
     modules_info = {}
