@@ -29,6 +29,7 @@ import pathlib
 import shutil
 
 from aidegen import constant
+from aidegen.lib import common_util
 
 # FACET_SECTION is a part of iml, which defines the framework of the project.
 _FACET_SECTION = '''\
@@ -323,6 +324,27 @@ def _handle_module_dependency(root_path, content, jar_dependencies):
     return content.replace(_MODULE_DEP_TOKEN, module_library)
 
 
+def _is_project_relative_source(source, relative_path):
+    """Check if the relative path of a file is a source relative path.
+
+    Check if the file path starts with the relative path or the relative is an
+    Android source tree root path.
+
+    Args:
+        source: The file path to be checked.
+        relative_path: The relative path to be checked.
+
+    Returns:
+        True if the file is a source relative path, otherwise False.
+    """
+    abs_path = common_util.get_abs_path(relative_path)
+    if common_util.is_android_root(abs_path):
+        return True
+    if _is_source_under_relative_path(source, relative_path):
+        return True
+    return False
+
+
 def _handle_source_folder(root_path, content, source_dict, is_module,
                           relative_path):
     """Handle source folder part of iml.
@@ -354,10 +376,10 @@ def _handle_source_folder(root_path, content, source_dict, is_module,
     if is_module:
         # Set the content url to module's path since it's the iml of target
         # project which only has it's sub-folders in source_list.
-        src_builder.append(_CONTENT_URL % os.path.join(root_path,
-                                                       relative_path))
+        src_builder.append(
+            _CONTENT_URL % os.path.join(root_path, relative_path))
         for path, is_test_flag in sorted(source_dict.items()):
-            if path.startswith(relative_path):
+            if _is_project_relative_source(path, relative_path):
                 src_builder.append(_SOURCE_FOLDER % (os.path.join(
                     root_path, path), is_test_flag))
         src_builder.append(_END_CONTENT)
@@ -393,6 +415,19 @@ def _trim_same_root_source(source_list):
     return sorted(tmp_source_list)
 
 
+def _is_source_under_relative_path(source, relative_path):
+    """Check if a source file is a project relative path file.
+
+    Args:
+        source: Android source file path.
+        relative_path: Relative path of the module.
+
+    Returns:
+        True if source file is a project relative path file, otherwise False.
+    """
+    return source == relative_path or source.startswith(relative_path + os.sep)
+
+
 # pylint: disable=too-many-locals
 def _generate_iml(root_path, module_path, source_dict, jar_dependencies,
                   relative_path):
@@ -416,7 +451,7 @@ def _generate_iml(root_path, module_path, source_dict, jar_dependencies,
     # Separate module and dependencies source folder
     project_source_dict = {}
     for source in list(source_dict):
-        if source == relative_path or source.startswith(relative_path + os.sep):
+        if _is_project_relative_source(source, relative_path):
             is_test = source_dict.get(source)
             source_dict.pop(source)
             project_source_dict.update({source: is_test})
