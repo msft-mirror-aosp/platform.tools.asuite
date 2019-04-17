@@ -124,12 +124,15 @@ def get_related_paths(module_info, target=None):
     else:
         # User doesn't input.
         abs_path = os.getcwd()
-        rel_path = os.path.relpath(abs_path, constant.ANDROID_ROOT_PATH)
+        if is_android_root(abs_path):
+            rel_path = ''
+        else:
+            rel_path = os.path.relpath(abs_path, constant.ANDROID_ROOT_PATH)
     return rel_path, abs_path
 
 
 def is_target_android_root(atest_module_info, targets):
-    """Check if any target is the android root path.
+    """Check if any target is the Android root path.
 
     Args:
         atest_module_info: A ModuleInfo instance contains data of
@@ -137,13 +140,25 @@ def is_target_android_root(atest_module_info, targets):
         targets: A list of target modules or project paths from user input.
 
     Returns:
-        True if target is android root, otherwise False.
+        True if target is Android root, otherwise False.
     """
     for target in targets:
         _, abs_path = get_related_paths(atest_module_info, target)
-        if abs_path == constant.ANDROID_ROOT_PATH:
+        if is_android_root(abs_path):
             return True
     return False
+
+
+def is_android_root(abs_path):
+    """Check if an absolute path is the Android root path.
+
+    Args:
+        abs_path: The absolute path of a module.
+
+    Returns:
+        True if abs_path is Android root, otherwise False.
+    """
+    return abs_path == constant.ANDROID_ROOT_PATH
 
 
 def has_build_target(atest_module_info, rel_path):
@@ -234,6 +249,12 @@ def get_abs_path(rel_path):
 def is_project_path_relative_module(data, project_relative_path):
     """Determine if the given project path is relative to the module.
 
+    The rules:
+       1. If project_relative_path is empty, it's under Android root, return
+          True.
+       2. If module's path equals or starts with project_relative_path return
+          True, otherwise return False.
+
     Args:
         data: the module-info dictionary of the checked module.
         project_relative_path: project's relative path
@@ -245,6 +266,8 @@ def is_project_path_relative_module(data, project_relative_path):
     if 'path' not in data:
         return False
     path = data['path'][0]
+    if project_relative_path == '':
+        return True
     if ('class' in data
             and (path == project_relative_path
                  or path.startswith(project_relative_path + os.sep))):
