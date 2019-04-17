@@ -289,7 +289,7 @@ class ModuleData():
 
     def _collect_srcs_paths(self):
         """Collect source folder paths in src_dirs from module_data['srcs']."""
-        if _KEY_SRCS in self.module_data and self.module_data[_KEY_SRCS]:
+        if self._check_key(_KEY_SRCS):
             scanned_dirs = set()
             for src_item in self.module_data[_KEY_SRCS]:
                 src_dir = None
