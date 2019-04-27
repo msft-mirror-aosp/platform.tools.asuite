@@ -48,6 +48,8 @@ _KEY_PATH = 'path'
 _KEY_SRCS = 'srcs'
 _KEY_TESTS = 'tests'
 _SRCJAR = '.srcjar'
+_AAPT2_DIR = 'out/target/common/obj/APPS/%s_intermediates/aapt2'
+_AAPT2_SRCJAR = 'out/target/common/obj/APPS/%s_intermediates/aapt2.srcjar'
 _IGNORE_DIRS = [
     # The java files under this directory have to be ignored because it will
     # cause duplicated classes by libcore/ojluni/src/main/java.
@@ -153,7 +155,7 @@ def _build_dependencies(verbose, rebuild_targets):
 
     Args:
         verbose: A boolean, if true displays full build output.
-        rebuild_targets: A list of jar files or AIDL files which do not exist.
+        rebuild_targets: A list of jar or srcjar files which do not exist.
     """
     logging.info(('Ready to build the modules for generating R.java or java '
                   'file for AIDL/logtags files.'))
@@ -235,22 +237,22 @@ class ModuleData():
         """Collect the source folder of R.java.
 
         For modules under packages/apps, check if exists an intermediates
-        directory which contains R.java. If it does not exist, build the module
-        to generate it. For Other modules outside packages/apps, build system
-        will finally copy the R.java from a intermediates directory to the
-        central R directory after building successfully. So set the central R
-        directory out/target/common/R as a default source folder in IntelliJ.
+        directory which contains R.java. If it does not exist, build the
+        aapt2.srcjar of the module to generate. Build system will finally copy
+        the R.java from a intermediates directory to the central R directory
+        after building successfully. So set the central R directory
+        out/target/common/R as a default source folder in IntelliJ.
         """
         if (self._is_app_module() and self._is_target_module() and
                 self._is_module_in_apps()):
             # The directory contains R.java for apps in packages/apps.
-            r_src_dir = os.path.join(
-                'out/target/common/obj/APPS/%s_intermediates/srcjars' %
-                self.module_name)
+            r_src_dir = _AAPT2_DIR % self.module_name
             if not os.path.exists(common_util.get_abs_path(r_src_dir)):
-                self.build_targets.add(self.module_name)
-        # Add the central R as a default source folder of modules not in
-        # packages/apps.
+                self.build_targets.add(_AAPT2_SRCJAR % self.module_name)
+            # In case the central R folder been deleted, uses the intermediate
+            # folder as the dependency to R.java.
+            self.src_dirs.add(r_src_dir)
+        # Add the central R as a default source folder.
         self.src_dirs.add('out/target/common/R')
 
     def _init_module_path(self):
@@ -287,7 +289,7 @@ class ModuleData():
 
     def _collect_srcs_paths(self):
         """Collect source folder paths in src_dirs from module_data['srcs']."""
-        if _KEY_SRCS in self.module_data and self.module_data[_KEY_SRCS]:
+        if self._check_key(_KEY_SRCS):
             scanned_dirs = set()
             for src_item in self.module_data[_KEY_SRCS]:
                 src_dir = None

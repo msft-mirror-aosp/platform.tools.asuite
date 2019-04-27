@@ -41,12 +41,16 @@ from __future__ import absolute_import
 
 import argparse
 import logging
+import os
 import sys
 
+from aidegen import constant
 from aidegen.lib.android_dev_os import AndroidDevOS
+from aidegen.lib import common_util
 from aidegen.lib.common_util import COLORED_INFO
 from aidegen.lib.common_util import COLORED_PASS
 from aidegen.lib.common_util import check_modules
+from aidegen.lib.common_util import is_android_root
 from aidegen.lib.common_util import time_logged
 from aidegen.lib.errors import IDENotExistError
 from aidegen.lib.ide_util import IdeUtil
@@ -151,6 +155,12 @@ def _parse_args(args):
         action='store_true',
         help=('Skip building jar or modules that create java files in build '
               'time, e.g. R/AIDL/Logtags.'))
+    parser.add_argument(
+        '-a',
+        '--android-tree',
+        dest='android_tree',
+        action='store_true',
+        help=('Generate whole Android source tree project file for IDE.'))
     return parser.parse_args(args)
 
 
@@ -213,6 +223,88 @@ def _generate_project_files(ide, projects):
         generate_ide_project_files(projects)
 
 
+def _compile_targets_for_whole_android_tree(atest_module_info, targets, cwd):
+    """Compile a list of targets to include whole Android tree in the project.
+
+    Adding the whole Android tree to the project will do two things,
+    1. If current working directory is not Android root, change the target to
+       its relative path to root and change current working directory to root.
+       If we don't change directory it's hard to deal with the whole Android
+       tree together with the sub-project.
+    2. If the whole Android tree target is not in the target list, insert it to
+       the first one.
+
+    Args:
+        atest_module_info: A instance of atest module-info object.
+        targets: A list of targets to be built.
+        cwd: A path of current working directory.
+
+    Returns:
+        A list of targets after adjustment.
+    """
+    new_targets = []
+    if is_android_root(cwd):
+        new_targets = list(targets)
+    else:
+        for target in targets:
+            _, abs_path = common_util.get_related_paths(atest_module_info,
+                                                        target)
+            rel_path = os.path.relpath(abs_path, constant.ANDROID_ROOT_PATH)
+            new_targets.append(rel_path)
+        os.chdir(constant.ANDROID_ROOT_PATH)
+
+    if new_targets[0] != '':
+        new_targets.insert(0, '')
+    return new_targets
+
+
+def _launch_ide(ide_util_obj, project_absolute_path):
+    """Launch IDE through ide_util instance.
+
+    To launch IDE,
+    1. Set IDE config.
+    2. For IntelliJ, use .idea as open target is better than .iml file,
+       because open the latter is like to open a kind of normal file.
+    3. Show _LAUNCH_SUCCESS_MSG to remind users IDE being launched.
+
+    Args:
+        ide_util_obj: An ide_util instance.
+        project_absolute_path: A string of project absolute path.
+    """
+    ide_util_obj.config_ide()
+    ide_util_obj.launch_ide(project_absolute_path)
+    print('\n{} {}\n'.format(_CONGRATULATION, _LAUNCH_SUCCESS_MSG))
+
+
+def _check_whole_android_tree(atest_module_info, targets, android_tree):
+    """Check if it's a building project file for the whole Android tree.
+
+    The rules:
+    1. If users command aidegen under Android root, e.g.,
+       root$ aidegen
+       that implies users would like to launch the whole Android tree, AIDEGen
+       should set the flag android_tree True.
+    2. If android_tree is True, add whole Android tree to the project.
+
+    Args:
+        atest_module_info: A instance of atest module-info object.
+        targets: A list of targets to be built.
+        android_tree: A boolean, True if it's a whole Android tree case,
+                      otherwise False.
+
+    Returns:
+        A list of targets to be built.
+    """
+    cwd = os.getcwd()
+    if not android_tree and is_android_root(cwd) and targets == ['']:
+        android_tree = True
+    new_targets = targets
+    if android_tree:
+        new_targets = _compile_targets_for_whole_android_tree(
+            atest_module_info, targets, cwd)
+    return new_targets
+
+
 @time_logged(message=_TIME_EXCEED_MSG, maximum=_MAX_TIME)
 def main_with_message(args):
     """Main entry with skip build message.
@@ -258,22 +350,21 @@ def aidegen_main(args):
     """
     log_usage()
     _configure_logging(args.verbose)
+    # Pre-check for IDE relevant case, then handle dependency graph job.
     ide_util_obj = _get_ide_util_instance(args)
     _check_skip_build(args)
     atest_module_info = module_info.ModuleInfo()
     check_modules(atest_module_info, args.targets)
+    targets = _check_whole_android_tree(atest_module_info, args.targets,
+                                        args.android_tree)
     ProjectInfo.modules_info = generate_module_info_json(
-        atest_module_info, args.targets, args.verbose, args.skip_build)
-    projects = ProjectInfo.generate_projects(atest_module_info, args.targets)
+        atest_module_info, targets, args.verbose, args.skip_build)
+    projects = ProjectInfo.generate_projects(atest_module_info, targets)
     multi_projects_locate_source(projects, args.verbose, args.depth,
                                  args.skip_build)
     _generate_project_files(args.ide[0], projects)
     if ide_util_obj:
-        ide_util_obj.config_ide()
-        # For IntelliJ, use .idea as open target is better than .iml file,
-        # because open the latter is like to open a kind of normal file.
-        ide_util_obj.launch_ide(projects[0].project_absolute_path)
-        print('\n{} {}\n'.format(_CONGRATULATION, _LAUNCH_SUCCESS_MSG))
+        _launch_ide(ide_util_obj, projects[0].project_absolute_path)
 
 
 if __name__ == '__main__':
