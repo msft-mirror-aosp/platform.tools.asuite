@@ -87,21 +87,21 @@ class AidegenCommonUtilUnittests(unittest.TestCase):
         mod_info = module_info.ModuleInfo()
         mock_get.return_value = None, None
         with self.assertRaises(errors.FakeModuleError) as ctx:
-            common_util._check_module(mod_info, unittest_constants.TEST_MODULE)
+            common_util.check_module(mod_info, unittest_constants.TEST_MODULE)
             expected = common_util.FAKE_MODULE_ERROR.format(
                 unittest_constants.TEST_MODULE)
             self.assertEqual(expected, str(ctx.exception))
         mock_get_root.return_value = unittest_constants.TEST_PATH
         mock_get.return_value = None, unittest_constants.TEST_MODULE
         with self.assertRaises(errors.ProjectOutsideAndroidRootError) as ctx:
-            common_util._check_module(mod_info, unittest_constants.TEST_MODULE)
+            common_util.check_module(mod_info, unittest_constants.TEST_MODULE)
             expected = common_util.OUTSIDE_ROOT_ERROR.format(
                 unittest_constants.TEST_MODULE)
             self.assertEqual(expected, str(ctx.exception))
         mock_get.return_value = None, unittest_constants.TEST_PATH
         mock_isdir.return_value = False
         with self.assertRaises(errors.ProjectPathNotExistError) as ctx:
-            common_util._check_module(mod_info, unittest_constants.TEST_MODULE)
+            common_util.check_module(mod_info, unittest_constants.TEST_MODULE)
             expected = common_util.PATH_NOT_EXISTS_ERROR.format(
                 unittest_constants.TEST_MODULE)
             self.assertEqual(expected, str(ctx.exception))
@@ -110,15 +110,14 @@ class AidegenCommonUtilUnittests(unittest.TestCase):
         mock_get.return_value = None, os.path.join(unittest_constants.TEST_PATH,
                                                    'test.jar')
         with self.assertRaises(errors.NoModuleDefinedInModuleInfoError) as ctx:
-            common_util._check_module(mod_info, unittest_constants.TEST_MODULE)
+            common_util.check_module(mod_info, unittest_constants.TEST_MODULE)
             expected = common_util.NO_MODULE_DEFINED_ERROR.format(
                 unittest_constants.TEST_MODULE)
             self.assertEqual(expected, str(ctx.exception))
-        self.assertEqual(common_util._check_module(mod_info, '', False), False)
-        self.assertEqual(
-            common_util._check_module(mod_info, 'nothing', False), False)
+        self.assertFalse(common_util.check_module(mod_info, '', False))
+        self.assertFalse(common_util.check_module(mod_info, 'nothing', False))
 
-    @mock.patch.object(common_util, '_check_module')
+    @mock.patch.object(common_util, 'check_module')
     def test_check_modules(self, mock_check):
         """Test _check_modules with different module lists."""
         mod_info = module_info.ModuleInfo()
@@ -128,8 +127,7 @@ class AidegenCommonUtilUnittests(unittest.TestCase):
         self.assertEqual(mock_check.call_count, 2)
         target = 'nothing'
         mock_check.return_value = False
-        self.assertEqual(
-            common_util._check_modules(mod_info, [target], False), False)
+        self.assertFalse(common_util._check_modules(mod_info, [target], False))
 
     @mock.patch.object(common_util, 'get_android_root_dir')
     def test_get_abs_path(self, mock_get_root):
@@ -143,15 +141,13 @@ class AidegenCommonUtilUnittests(unittest.TestCase):
 
     def test_is_target(self):
         """Test is_target handling."""
-        self.assertEqual(
-            common_util.is_target('packages/apps/tests/test.a', ['.so', '.a']),
-            True)
-        self.assertEqual(
-            common_util.is_target('packages/apps/tests/test.so', ['.so', '.a']),
-            True)
-        self.assertEqual(
-            common_util.is_target('packages/apps/tests/test.jar',
-                                  ['.so', '.a']), False)
+        self.assertTrue(
+            common_util.is_target('packages/apps/tests/test.a', ['.so', '.a']))
+        self.assertTrue(
+            common_util.is_target('packages/apps/tests/test.so', ['.so', '.a']))
+        self.assertFalse(
+            common_util.is_target(
+                'packages/apps/tests/test.jar', ['.so', '.a']))
 
     @mock.patch.object(logging, 'basicConfig')
     def test_configure_logging(self, mock_log_config):
