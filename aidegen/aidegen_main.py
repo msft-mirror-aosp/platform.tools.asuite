@@ -43,6 +43,7 @@ import argparse
 import logging
 import os
 import sys
+import traceback
 
 from aidegen import constant
 from aidegen.lib.android_dev_os import AndroidDevOS
@@ -51,9 +52,12 @@ from aidegen.lib.common_util import COLORED_INFO
 from aidegen.lib.common_util import COLORED_PASS
 from aidegen.lib.common_util import is_android_root
 from aidegen.lib.common_util import time_logged
+from aidegen.lib.errors import AIDEgenError
 from aidegen.lib.errors import IDENotExistError
 from aidegen.lib.ide_util import IdeUtil
 from aidegen.lib.metrics import log_usage
+from aidegen.lib.metrics import starts_asuite_metrics
+from aidegen.lib.metrics import ends_asuite_metrics
 from aidegen.lib.module_info_util import generate_module_info_json
 from aidegen.lib.project_file_gen import generate_eclipse_project_files
 from aidegen.lib.project_file_gen import generate_ide_project_files
@@ -331,11 +335,31 @@ def main(argv):
     Args:
         argv: A list of system arguments.
     """
-    args = _parse_args(argv)
-    if args.skip_build:
-        main_without_message(args)
-    else:
-        main_with_message(args)
+    exit_code = constant.EXIT_CODE_NORMAL
+    try:
+        args = _parse_args(argv)
+        _configure_logging(args.verbose)
+        starts_asuite_metrics()
+        if args.skip_build:
+            main_without_message(args)
+        else:
+            main_with_message(args)
+    except BaseException as err:
+        exit_code = constant.EXIT_CODE_EXCEPTION
+        if isinstance(err, AIDEgenError):
+            exit_code = constant.EXIT_CODE_AIDEGEN_EXCEPTION
+        _, exc_value, exc_traceback = sys.exc_info()
+    finally:
+        if exit_code is not constant.EXIT_CODE_NORMAL:
+            error_message = str(exc_value)
+            traceback_list = traceback.format_tb(exc_traceback)
+            traceback_list.append(error_message)
+            traceback_str = ''.join(traceback_list)
+            # print out the trackback message for developers to debug
+            print(traceback_str)
+            ends_asuite_metrics(exit_code, traceback_str, error_message)
+        else:
+            ends_asuite_metrics(exit_code)
 
 
 def aidegen_main(args):
@@ -347,7 +371,6 @@ def aidegen_main(args):
         args: A list of system arguments.
     """
     log_usage()
-    _configure_logging(args.verbose)
     # Pre-check for IDE relevant case, then handle dependency graph job.
     ide_util_obj = _get_ide_util_instance(args)
     _check_skip_build(args)
