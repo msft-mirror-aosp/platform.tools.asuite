@@ -42,6 +42,9 @@ python_binary_host {
     libs: [
         "atest_module_info",
     ],
+    dist: {
+        targets: ["droidcore"],
+    },
 }
 
 python_library_host {
