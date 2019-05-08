@@ -319,7 +319,11 @@ def _handle_module_dependency(root_path, content, jar_dependencies):
         else:
             dependencies.append(jar_path)
 
-    for jar_path in dependencies:
+    # IntelliJ indexes jars as dependencies from iml by the ascending order.
+    # Without sorting, the order of jar list changes everytime. Sort the jar
+    # list to keep the jar dependencies in consistency. It also can help us to
+    # discover potential issues like duplicated classes.
+    for jar_path in sorted(dependencies):
         module_library += _ORDER_ENTRY % os.path.join(root_path, jar_path)
     return content.replace(_MODULE_DEP_TOKEN, module_library)
 
