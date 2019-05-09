@@ -30,6 +30,7 @@ from aidegen.lib import common_util
 from atest import module_info
 
 
+#pylint: disable=protected-access
 #pylint: disable=invalid-name
 class AidegenCommonUtilUnittests(unittest.TestCase):
     """Unit tests for common_util.py"""
@@ -75,38 +76,45 @@ class AidegenCommonUtilUnittests(unittest.TestCase):
         mod_info = module_info.ModuleInfo()
         mock_get.return_value = None, None
         with self.assertRaises(FakeModuleError) as ctx:
-            common_util.check_module(mod_info, uc.TEST_MODULE)
+            common_util._check_module(mod_info, uc.TEST_MODULE)
             expected = common_util.FAKE_MODULE_ERROR.format(uc.TEST_MODULE)
             self.assertEqual(expected, str(ctx.exception))
         constant.ANDROID_ROOT_PATH = uc.TEST_PATH
         mock_get.return_value = None, uc.TEST_MODULE
         with self.assertRaises(ProjectOutsideAndroidRootError) as ctx:
-            common_util.check_module(mod_info, uc.TEST_MODULE)
+            common_util._check_module(mod_info, uc.TEST_MODULE)
             expected = common_util.OUTSIDE_ROOT_ERROR.format(uc.TEST_MODULE)
             self.assertEqual(expected, str(ctx.exception))
         mock_get.return_value = None, uc.TEST_PATH
         mock_isdir.return_value = False
         with self.assertRaises(ProjectPathNotExistError) as ctx:
-            common_util.check_module(mod_info, uc.TEST_MODULE)
+            common_util._check_module(mod_info, uc.TEST_MODULE)
             expected = common_util.PATH_NOT_EXISTS_ERROR.format(uc.TEST_MODULE)
             self.assertEqual(expected, str(ctx.exception))
         mock_isdir.return_value = True
         mock_has_target.return_value = False
         mock_get.return_value = None, os.path.join(uc.TEST_PATH, 'test.jar')
         with self.assertRaises(NoModuleDefinedInModuleInfoError) as ctx:
-            common_util.check_module(mod_info, uc.TEST_MODULE)
+            common_util._check_module(mod_info, uc.TEST_MODULE)
             expected = common_util.NO_MODULE_DEFINED_ERROR.format(
                 uc.TEST_MODULE)
             self.assertEqual(expected, str(ctx.exception))
+        self.assertEqual(common_util._check_module(mod_info, '', False), False)
+        self.assertEqual(common_util._check_module(mod_info, 'nothing', False),
+                         False)
 
-    @mock.patch.object(common_util, 'check_module')
+    @mock.patch.object(common_util, '_check_module')
     def test_check_modules(self, mock_check):
-        """Test check_modules with different module lists."""
+        """Test _check_modules with different module lists."""
         mod_info = module_info.ModuleInfo()
-        common_util.check_modules(mod_info, [])
+        common_util._check_modules(mod_info, [])
         self.assertEqual(mock_check.call_count, 0)
-        common_util.check_modules(mod_info, ['module1', 'module2'])
+        common_util._check_modules(mod_info, ['module1', 'module2'])
         self.assertEqual(mock_check.call_count, 2)
+        target = 'nothing'
+        mock_check.return_value = False
+        self.assertEqual(common_util._check_modules(mod_info, [target], False),
+                         False)
 
     def test_get_abs_path(self):
         """Test get_abs_path handling."""
@@ -118,12 +126,15 @@ class AidegenCommonUtilUnittests(unittest.TestCase):
 
     def test_is_target(self):
         """Test is_target handling."""
-        self.assertEqual(common_util.is_target('packages/apps/tests/test.a',
-                                               ['.so', '.a']), True)
-        self.assertEqual(common_util.is_target('packages/apps/tests/test.so',
-                                               ['.so', '.a']), True)
-        self.assertEqual(common_util.is_target('packages/apps/tests/test.jar',
-                                               ['.so', '.a']), False)
+        self.assertEqual(
+            common_util.is_target('packages/apps/tests/test.a', ['.so', '.a']),
+            True)
+        self.assertEqual(
+            common_util.is_target('packages/apps/tests/test.so', ['.so', '.a']),
+            True)
+        self.assertEqual(
+            common_util.is_target('packages/apps/tests/test.jar',
+                                  ['.so', '.a']), False)
 
 
 if __name__ == '__main__':
