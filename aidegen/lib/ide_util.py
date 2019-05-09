@@ -536,7 +536,6 @@ class IdeEclipse(IdeBase):
         super().__init__(installed_path, config_reset)
         self._ide_name = _IDE_ECLIPSE
         self._bin_file_name = 'eclipse*'
-        self._init_installed_path(installed_path)
 
     def _get_script_from_system(self):
         """Get correct IDE installed path from internal path.
