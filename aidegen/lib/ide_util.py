@@ -359,8 +359,8 @@ class IdeLinuxIntelliJ(IdeIntelliJ):
     # TODO(b/127899277): Preserve a config for jdk version option case.
     _IDE_JDK_TABLE_PATH = 'config/options/jdk.table.xml'
     _JDK_PART_TEMPLATE_PATH = os.path.join(
-        constant.ROOT_DIR, 'templates/jdkTable/part.jdk.table.xml')
-    _JDK_FULL_TEMPLATE_PATH = os.path.join(constant.ROOT_DIR,
+        constant.AIDEGEN_ROOT_PATH, 'templates/jdkTable/part.jdk.table.xml')
+    _JDK_FULL_TEMPLATE_PATH = os.path.join(constant.AIDEGEN_ROOT_PATH,
                                            'templates/jdkTable/jdk.table.xml')
 
     def __init__(self, installed_path=None, config_reset=False):
@@ -431,9 +431,9 @@ class IdeMacIntelliJ(IdeIntelliJ):
                              'prebuilts/jdk/jdk8/darwin-x86')
     _IDE_JDK_TABLE_PATH = 'options/jdk.table.xml'
     _JDK_PART_TEMPLATE_PATH = os.path.join(
-        constant.ROOT_DIR, 'templates/jdkTable/part.mac.jdk.table.xml')
+        constant.AIDEGEN_ROOT_PATH, 'templates/jdkTable/part.mac.jdk.table.xml')
     _JDK_FULL_TEMPLATE_PATH = os.path.join(
-        constant.ROOT_DIR, 'templates/jdkTable/mac.jdk.table.xml')
+        constant.AIDEGEN_ROOT_PATH, 'templates/jdkTable/mac.jdk.table.xml')
 
     def __init__(self, installed_path=None, config_reset=False):
         super().__init__(installed_path, config_reset)
