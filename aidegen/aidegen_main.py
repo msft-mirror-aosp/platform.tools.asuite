@@ -358,7 +358,7 @@ def aidegen_main(args):
         atest_module_info, targets, args.verbose, args.skip_build)
     projects = ProjectInfo.generate_projects(atest_module_info, targets)
     multi_projects_locate_source(projects, args.verbose, args.depth,
-                                 args.skip_build)
+                                 ide_util_obj.ide_name(), args.skip_build)
     _generate_project_files(args.ide[0], projects)
     if ide_util_obj:
         _launch_ide(ide_util_obj, projects[0].project_absolute_path)

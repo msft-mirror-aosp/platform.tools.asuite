@@ -22,18 +22,26 @@ from atest import constants
 # Env constant
 OUT_DIR_COMMON_BASE_ENV_VAR = 'OUT_DIR_COMMON_BASE'
 ANDROID_DEFAULT_OUT = 'out'
-
 ANDROID_HOST_OUT = os.environ.get(constants.ANDROID_HOST_OUT)
 ANDROID_ROOT_PATH = os.environ.get(constants.ANDROID_BUILD_TOP)
 AIDEGEN_ROOT_PATH = os.path.join(ANDROID_ROOT_PATH, 'tools/asuite/aidegen')
 ANDROID_OUT_DIR = os.environ.get(constants.ANDROID_OUT_DIR)
 OUT_DIR_COMMON_BASE = os.getenv(OUT_DIR_COMMON_BASE_ENV_VAR)
+
+# Constants for out dir
 ANDROID_OUT_DIR_COMMON_BASE = (os.path.join(
     OUT_DIR_COMMON_BASE, os.path.basename(ANDROID_ROOT_PATH))
                                if OUT_DIR_COMMON_BASE else None)
 OUT_DIR = ANDROID_OUT_DIR or ANDROID_OUT_DIR_COMMON_BASE or ANDROID_DEFAULT_OUT
 SOONG_OUT_DIR_PATH = os.path.join(ANDROID_ROOT_PATH, OUT_DIR, 'soong')
+RELATIVE_HOST_OUT = os.path.relpath(ANDROID_HOST_OUT, ANDROID_ROOT_PATH)
+
+# Constants for module's info.
 KEY_PATH = 'path'
 KEY_DEP = 'dependencies'
 KEY_DEPTH = 'depth'
-RELATIVE_HOST_OUT = os.path.relpath(ANDROID_HOST_OUT, ANDROID_ROOT_PATH)
+
+# Constants for IDE util.
+IDE_ECLIPSE = 'Eclipse'
+IDE_INTELLIJ = 'IntelliJ'
+IDE_ANDROID_STUDIO = 'Android Studio'
