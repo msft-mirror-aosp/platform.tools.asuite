@@ -347,3 +347,29 @@ def get_atest_module_info(targets):
         amodule_info = module_info.ModuleInfo(force_build=True)
         _check_modules(amodule_info, targets)
     return amodule_info
+
+
+def read_file_content(path):
+    """Read file's content.
+
+    Args:
+        path: Path of input file.
+
+    Returns:
+        String: Content of the file.
+    """
+    with open(path) as template:
+        return template.read()
+
+
+def file_generate(path, content):
+    """Generate file from content.
+
+    Args:
+        path: Path of target file.
+        content: String content of file.
+    """
+    if not os.path.exists(os.path.dirname(path)):
+        os.makedirs(os.path.dirname(path))
+    with open(path, 'w') as target:
+        target.write(content)
