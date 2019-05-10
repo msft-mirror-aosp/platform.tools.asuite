@@ -252,21 +252,19 @@ def _check_module(atest_module_info, target, raise_on_lost_module=True):
         raise ProjectOutsideAndroidRootError(err)
     if not os.path.isdir(abs_path):
         err = PATH_NOT_EXISTS_ERROR.format(rel_path)
-        logging.error(err)
         if raise_on_lost_module:
+            logging.error(err)
             raise ProjectPathNotExistError(err)
-        else:
-            logging.info(_REBUILD_MODULE_INFO, err)
-            return False
+        logging.debug(_REBUILD_MODULE_INFO, err)
+        return False
     if (not has_build_target(atest_module_info, rel_path)
             and not is_android_root(abs_path)):
         err = NO_MODULE_DEFINED_ERROR.format(rel_path)
-        logging.error(err)
         if raise_on_lost_module:
+            logging.error(err)
             raise NoModuleDefinedInModuleInfoError(err)
-        else:
-            logging.info(_REBUILD_MODULE_INFO, err)
-            return False
+        logging.debug(_REBUILD_MODULE_INFO, err)
+        return False
     return True
 
 
