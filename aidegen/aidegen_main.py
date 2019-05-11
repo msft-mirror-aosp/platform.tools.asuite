@@ -49,7 +49,6 @@ from aidegen.lib.android_dev_os import AndroidDevOS
 from aidegen.lib import common_util
 from aidegen.lib.common_util import COLORED_INFO
 from aidegen.lib.common_util import COLORED_PASS
-from aidegen.lib.common_util import check_modules
 from aidegen.lib.common_util import is_android_root
 from aidegen.lib.common_util import time_logged
 from aidegen.lib.errors import IDENotExistError
@@ -60,7 +59,6 @@ from aidegen.lib.project_file_gen import generate_eclipse_project_files
 from aidegen.lib.project_file_gen import generate_ide_project_files
 from aidegen.lib.project_info import ProjectInfo
 from aidegen.lib.source_locator import multi_projects_locate_source
-from atest import module_info
 
 AIDEGEN_REPORT_LINK = ('To report the AIDEGen tool problem, please use this '
                        'link: https://goto.google.com/aidegen-bug')
@@ -160,7 +158,7 @@ def _parse_args(args):
         '--android-tree',
         dest='android_tree',
         action='store_true',
-        help=('Generate whole Android source tree project file for IDE.'))
+        help='Generate whole Android source tree project file for IDE.')
     return parser.parse_args(args)
 
 
@@ -353,15 +351,14 @@ def aidegen_main(args):
     # Pre-check for IDE relevant case, then handle dependency graph job.
     ide_util_obj = _get_ide_util_instance(args)
     _check_skip_build(args)
-    atest_module_info = module_info.ModuleInfo()
-    check_modules(atest_module_info, args.targets)
+    atest_module_info = common_util.get_atest_module_info(args.targets)
     targets = _check_whole_android_tree(atest_module_info, args.targets,
                                         args.android_tree)
     ProjectInfo.modules_info = generate_module_info_json(
         atest_module_info, targets, args.verbose, args.skip_build)
     projects = ProjectInfo.generate_projects(atest_module_info, targets)
     multi_projects_locate_source(projects, args.verbose, args.depth,
-                                 args.skip_build)
+                                 ide_util_obj.ide_name(), args.skip_build)
     _generate_project_files(args.ide[0], projects)
     if ide_util_obj:
         _launch_ide(ide_util_obj, projects[0].project_absolute_path)

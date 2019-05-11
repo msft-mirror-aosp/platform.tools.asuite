@@ -33,6 +33,7 @@ from aidegen.lib.errors import NoModuleDefinedInModuleInfoError
 from aidegen.lib.errors import ProjectOutsideAndroidRootError
 from aidegen.lib.errors import ProjectPathNotExistError
 from atest import constants
+from atest import module_info
 from atest.atest_utils import colorize
 
 COLORED_INFO = partial(colorize, color=constants.MAGENTA, highlight=False)
@@ -50,6 +51,7 @@ NATIVE_TARGET_CLASSES = [
 ]
 TARGET_CLASSES = JAVA_TARGET_CLASSES
 TARGET_CLASSES.extend(NATIVE_TARGET_CLASSES)
+_REBUILD_MODULE_INFO = '%s We should rebuild module-info.json file for it.'
 
 
 def time_logged(func=None, *, message='', maximum=1):
@@ -76,20 +78,19 @@ def time_logged(func=None, *, message='', maximum=1):
             return func(*args, **kwargs)
         finally:
             timestamp = time.time() - start
-            logging.debug('{}.{} time consumes: {:.2f}s'.format(
-                func.__module__, func.__name__,
-                timestamp))
+            logging.debug('{}.{} takes: {:.2f}s'.format(
+                func.__module__, func.__name__, timestamp))
             if message and timestamp > maximum * 60:
                 print(message)
 
     return wrapper
 
 
-def get_related_paths(module_info, target=None):
+def get_related_paths(atest_module_info, target=None):
     """Get the relative and absolute paths of target from module-info.
 
     Args:
-        module_info: A ModuleInfo instance contains data of module-info.json.
+        atest_module_info: A ModuleInfo instance.
         target: A string user input from command line. It could be several cases
                 such as:
                 1. Module name, e.g. Settings
@@ -107,14 +108,14 @@ def get_related_paths(module_info, target=None):
     abs_path = None
     if target:
         # User inputs a module name.
-        if module_info.is_module(target):
-            paths = module_info.get_paths(target)
+        if atest_module_info.is_module(target):
+            paths = atest_module_info.get_paths(target)
             if paths:
                 rel_path = paths[0]
                 abs_path = os.path.join(constant.ANDROID_ROOT_PATH, rel_path)
         # User inputs a module path or a relative path of android root folder.
-        elif (module_info.get_module_names(target) or
-              os.path.isdir(os.path.join(constant.ANDROID_ROOT_PATH, target))):
+        elif (atest_module_info.get_module_names(target) or os.path.isdir(
+                os.path.join(constant.ANDROID_ROOT_PATH, target))):
             rel_path = target.strip(os.sep)
             abs_path = os.path.join(constant.ANDROID_ROOT_PATH, rel_path)
         # User inputs a relative path of current directory.
@@ -177,37 +178,68 @@ def has_build_target(atest_module_info, rel_path):
         for mod_path in atest_module_info.path_to_module_info)
 
 
-def check_modules(atest_module_info, targets):
-    """Check if all targets are valid build targets."""
-    for target in targets:
-        check_module(atest_module_info, target)
-
-
-def check_module(atest_module_info, target):
-    """Check if a target is a valid build target or a project path containing
-       build target.
-
-    The rules:
-        1. If module's absolute path is None, raise FakeModuleError.
-        2. If the module doesn't exist in android root,
-           raise ProjectOutsideAndroidRootError.
-        3. If module's absolute path is not a directory,
-           raise ProjectPathNotExistError.
-        4. If it contains any build target continue checking, else:
-           1) If it's android root, continue checking.
-           2) If none of above, raise NoModuleDefinedInModuleInfoError.
+def _check_modules(atest_module_info, targets, raise_on_lost_module=True):
+    """Check if all targets are valid build targets.
 
     Args:
         atest_module_info: A ModuleInfo instance contains data of
                            module-info.json.
-        target: A target module or project path from user input, when locating
-                the target, project with matched module name of the target has a
-                higher priority than project path. It could be several cases
-                such as:
+        targets: A list of target modules or project paths from user input.
+                When locating the path of the target, given a matched module
+                name has priority over path. Below is the priority of locating a
+                target:
                 1. Module name, e.g. Settings
                 2. Module path, e.g. packages/apps/Settings
                 3. Relative path, e.g. ../../packages/apps/Settings
                 4. Current directory, e.g. . or no argument
+        raise_on_lost_module: A boolean, pass to _check_module to determine if
+                ProjectPathNotExistError or NoModuleDefinedInModuleInfoError
+                should be raised.
+
+    Returns:
+        True if any _check_module return flip the True/False.
+    """
+    for target in targets:
+        if not _check_module(atest_module_info, target, raise_on_lost_module):
+            return False
+    return True
+
+
+def _check_module(atest_module_info, target, raise_on_lost_module=True):
+    """Check if a target is valid or it's a path containing build target.
+
+    Args:
+        atest_module_info: A ModuleInfo instance contains the data of
+                module-info.json.
+        target: A target module or project path from user input.
+                When locating the path of the target, given a matched module
+                name has priority over path. Below is the priority of locating a
+                target:
+                1. Module name, e.g. Settings
+                2. Module path, e.g. packages/apps/Settings
+                3. Relative path, e.g. ../../packages/apps/Settings
+                4. Current directory, e.g. . or no argument
+        raise_on_lost_module: A boolean, handles if ProjectPathNotExistError or
+                NoModuleDefinedInModuleInfoError should be raised.
+
+    Returns:
+        1. If there is no error _check_module always return True.
+        2. If there is a error,
+            a. When raise_on_lost_module is False, _check_module will raise the
+               error.
+            b. When raise_on_lost_module is True, _check_module will return
+               False if module's error is ProjectPathNotExistError or
+               NoModuleDefinedInModuleInfoError else raise the error.
+
+    Raises:
+        Raise ProjectPathNotExistError and NoModuleDefinedInModuleInfoError only
+        when raise_on_lost_module is True, others don't subject to the limit.
+        The rules for raising exceptions:
+        1. Absolute path of a module is None -> FakeModuleError
+        2. Module doesn't exist in repo root -> ProjectOutsideAndroidRootError
+        3. The given absolute path is not a dir -> ProjectPathNotExistError
+        4. If the given abs path doesn't contain any target and not repo root
+           -> NoModuleDefinedInModuleInfoError
     """
     rel_path, abs_path = get_related_paths(atest_module_info, target)
     if not abs_path:
@@ -220,13 +252,20 @@ def check_module(atest_module_info, target):
         raise ProjectOutsideAndroidRootError(err)
     if not os.path.isdir(abs_path):
         err = PATH_NOT_EXISTS_ERROR.format(rel_path)
-        logging.error(err)
-        raise ProjectPathNotExistError(err)
+        if raise_on_lost_module:
+            logging.error(err)
+            raise ProjectPathNotExistError(err)
+        logging.debug(_REBUILD_MODULE_INFO, err)
+        return False
     if (not has_build_target(atest_module_info, rel_path)
-            and abs_path != constant.ANDROID_ROOT_PATH):
+            and not is_android_root(abs_path)):
         err = NO_MODULE_DEFINED_ERROR.format(rel_path)
-        logging.error(err)
-        raise NoModuleDefinedInModuleInfoError(err)
+        if raise_on_lost_module:
+            logging.error(err)
+            raise NoModuleDefinedInModuleInfoError(err)
+        logging.debug(_REBUILD_MODULE_INFO, err)
+        return False
+    return True
 
 
 def get_abs_path(rel_path):
@@ -287,3 +326,24 @@ def is_target(src_file, src_file_extensions):
         False.
     """
     return any(src_file.endswith(x) for x in src_file_extensions)
+
+
+def get_atest_module_info(targets):
+    """Get the right version of atest ModuleInfo instance.
+
+    The rules:
+        Check if the targets don't exist in ModuleInfo, we'll regain a new atest
+        ModleInfo instance by setting force_build=True and call _check_modules
+        again. If targets still don't exist, raise exceptions.
+
+    Args:
+        targets: A list of targets to be built.
+
+    Returns:
+        An atest ModuleInfo instance.
+    """
+    amodule_info = module_info.ModuleInfo()
+    if not _check_modules(amodule_info, targets, raise_on_lost_module=False):
+        amodule_info = module_info.ModuleInfo(force_build=True)
+        _check_modules(amodule_info, targets)
+    return amodule_info
