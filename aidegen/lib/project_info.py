@@ -70,6 +70,8 @@ class ProjectInfo():
                      jar_path: A set contains the jar file paths.
                      jar_module_path: A dictionary contains the jar file and
                                       the module's path mapping.
+                     r_java_path: A set contains the relative path to the
+                                  R.java files.
     """
 
     modules_info = {}
@@ -85,7 +87,7 @@ class ProjectInfo():
                     the given target has a higher priority than project path.
         """
         rel_path, abs_path = get_related_paths(module_info, target)
-        target = self._get_target_name(target, abs_path)
+        self.module_name = self._get_target_name(target, abs_path)
         self.project_module_names = set(module_info.get_module_names(rel_path))
         self.project_relative_path = rel_path
         self.project_absolute_path = abs_path
@@ -94,7 +96,7 @@ class ProjectInfo():
         self._init_source_path()
         self.dep_modules = self.get_dep_modules()
         self._filter_out_modules()
-        self._display_convert_make_files_message(module_info, target)
+        self._display_convert_make_files_message(module_info, self.module_name)
 
     def _set_default_modues(self):
         """Append default hard-code modules, source paths and jar files.
@@ -117,7 +119,8 @@ class ProjectInfo():
             'source_folder_path': set(),
             'test_folder_path': set(),
             'jar_path': set(),
-            'jar_module_path': dict()
+            'jar_module_path': dict(),
+            'r_java_path': set()
         }
 
     def _display_convert_make_files_message(self, module_info, target):

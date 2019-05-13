@@ -138,6 +138,7 @@ def locate_source(project, verbose, depth, ide_name, build=True):
         module.locate_sources_path()
         dependencies['source_folder_path'].update(module.src_dirs)
         dependencies['test_folder_path'].update(module.test_dirs)
+        dependencies['r_java_path'].update(module.r_java_paths)
         _append_jars_as_dependencies(dependencies, module)
         if module.build_targets:
             rebuild_targets |= module.build_targets
@@ -263,6 +264,7 @@ class ModuleData():
         self.src_dirs = set()
         self.test_dirs = set()
         self.jar_files = set()
+        self.r_java_paths = set()
         self.referenced_by_jar = False
         self.build_targets = set()
         self.missing_jars = set()
@@ -308,9 +310,9 @@ class ModuleData():
                 self.build_targets.add(_AAPT2_SRCJAR % self.module_name)
             # In case the central R folder been deleted, uses the intermediate
             # folder as the dependency to R.java.
-            self.src_dirs.add(r_src_dir)
+            self.r_java_paths.add(r_src_dir)
         # Add the central R as a default source folder.
-        self.src_dirs.add(constant.CENTRAL_R_PATH)
+        self.r_java_paths.add(constant.CENTRAL_R_PATH)
 
     def _init_module_path(self):
         """Inintialize self.module_path."""
