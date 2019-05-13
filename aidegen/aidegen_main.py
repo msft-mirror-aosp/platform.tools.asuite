@@ -57,7 +57,6 @@ from aidegen.lib import module_info
 from aidegen.lib import project_config
 from aidegen.lib import project_file_gen
 from aidegen.lib import project_info
-from aidegen.lib import source_locator
 
 AIDEGEN_REPORT_LINK = ('To report the AIDEGen tool problem, please use this '
                        'link: https://goto.google.com/aidegen-bug')
@@ -286,7 +285,7 @@ def _create_and_launch_java_projects(ide_util_obj, targets):
         targets: A list of build targets.
     """
     projects = project_info.ProjectInfo.generate_projects(targets)
-    source_locator.multi_projects_locate_source(projects)
+    project_info.ProjectInfo.multi_projects_locate_source(projects)
     _generate_project_files(projects)
     if ide_util_obj:
         _launch_ide(ide_util_obj, projects[0].project_absolute_path)
@@ -316,7 +315,8 @@ def main_without_message(args):
 def main(argv):
     """Main entry.
 
-    Try to generates project files for using in IDE.
+    Show skip build message in aidegen main process if users command skip_build
+    otherwise remind them to use it and include metrics supports.
 
     Args:
         argv: A list of system arguments.
