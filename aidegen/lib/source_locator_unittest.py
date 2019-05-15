@@ -79,6 +79,69 @@ class SourceLocatorUnittests(unittest.TestCase):
         src_path = module_data._get_source_folder(test_java)
         self.assertEqual(src_path, None)
 
+    def test_get_r_dir(self):
+        """Test get_r_dir."""
+        module_data = source_locator.ModuleData(_MODULE_NAME, _MODULE_INFO,
+                                                _MODULE_DEPTH)
+        # Test for aapt2.srcjar
+        test_aapt2_srcjar = 'a/aapt2.srcjar'
+        expect_result = 'a/aapt2'
+        r_dir = module_data._get_r_dir(test_aapt2_srcjar)
+        self.assertEqual(r_dir, expect_result)
+
+        # Test for R.jar
+        test_r_jar = 'b/R.jar'
+        expect_result = 'b/aapt2/R'
+        r_dir = module_data._get_r_dir(test_r_jar)
+        self.assertEqual(r_dir, expect_result)
+
+        # Test for the target file is not aapt2.srcjar or R.jar
+        test_unknown_target = 'c/proto.srcjar'
+        expect_result = None
+        r_dir = module_data._get_r_dir(test_unknown_target)
+        self.assertEqual(r_dir, expect_result)
+
+    def test_collect_r_src_path(self):
+        """Test collect_r_src_path."""
+        # Test on target srcjar exists in srcjars.
+        test_module = dict(_MODULE_INFO)
+        test_module['srcs'] = []
+        constant.ANDROID_ROOT_PATH = uc.TEST_DATA_PATH
+        module_data = source_locator.ModuleData(_MODULE_NAME, test_module,
+                                                _MODULE_DEPTH)
+        # Test the module is not APPS.
+        module_data._collect_r_srcs_paths()
+        expect_result = {'out/target/common/R'}
+        self.assertEqual(module_data.r_java_paths, expect_result)
+
+        # Test the module is not a target module.
+        test_module['depth'] = 1
+        module_data = source_locator.ModuleData(_MODULE_NAME, test_module, 1)
+        module_data._collect_r_srcs_paths()
+        expect_result = {'out/target/common/R'}
+        self.assertEqual(module_data.r_java_paths, expect_result)
+
+        # Test the srcjar target doesn't exist.
+        test_module['class'] = ['APPS']
+        test_module['srcjars'] = []
+        module_data = source_locator.ModuleData(_MODULE_NAME, test_module,
+                                                _MODULE_DEPTH)
+        module_data._collect_r_srcs_paths()
+        expect_result = {'out/target/common/R'}
+        self.assertEqual(module_data.r_java_paths, expect_result)
+
+        # Test the srcjar target exists.
+        test_module['srcjars'] = [('out/soong/.intermediates/packages/apps/'
+                                   'test_aapt2/aapt2.srcjar')]
+        module_data = source_locator.ModuleData(_MODULE_NAME, test_module,
+                                                _MODULE_DEPTH)
+        module_data._collect_r_srcs_paths()
+        expect_result = {
+            'out/soong/.intermediates/packages/apps/test_aapt2/aapt2',
+            'out/target/common/R'
+        }
+        self.assertEqual(module_data.r_java_paths, expect_result)
+
     def test_append_jar_file(self):
         """Test _append_jar_file process."""
         # Append an existing jar file path to module_data.jar_files.
