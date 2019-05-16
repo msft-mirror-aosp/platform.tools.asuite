@@ -464,13 +464,17 @@ class ModuleData():
         """
         if _KEY_JARS in self.module_data and self.module_data[_KEY_JARS]:
             for jar_name in self.module_data[_KEY_JARS]:
-                jar_path = os.path.join(self.module_path, jar_name)
-                jar_abs = common_util.get_abs_path(jar_path)
-                if not os.path.isfile(jar_abs) and 'prebuilt.jar' in jar_name:
-                    rel_path = self._get_jar_path_from_prebuilts(jar_name)
-                    if rel_path:
-                        jar_path = rel_path
-                self._append_jar_file(jar_path)
+                if self._check_key(_KEY_INSTALLED):
+                    self._append_jar_from_installed()
+                else:
+                    jar_path = os.path.join(self.module_path, jar_name)
+                    jar_abs = common_util.get_abs_path(jar_path)
+                    if not os.path.isfile(
+                            jar_abs) and jar_name.endswith('prebuilt.jar'):
+                        rel_path = self._get_jar_path_from_prebuilts(jar_name)
+                        if rel_path:
+                            jar_path = rel_path
+                    self._append_jar_file(jar_path)
 
     @staticmethod
     def _get_jar_path_from_prebuilts(jar_name):
