@@ -327,6 +327,7 @@ def main_without_message(args):
     aidegen_main(args)
 
 
+# pylint: disable=broad-except
 def main(argv):
     """Main entry.
 
@@ -346,9 +347,12 @@ def main(argv):
             main_with_message(args)
     except BaseException as err:
         exit_code = constant.EXIT_CODE_EXCEPTION
+        _, exc_value, exc_traceback = sys.exc_info()
         if isinstance(err, AIDEgenError):
             exit_code = constant.EXIT_CODE_AIDEGEN_EXCEPTION
-        _, exc_value, exc_traceback = sys.exc_info()
+        # Filter out sys.Exit(0) case, which is not an exception case.
+        if isinstance(err, SystemExit) and exc_value.code == 0:
+            exit_code = constant.EXIT_CODE_NORMAL
     finally:
         if exit_code is not constant.EXIT_CODE_NORMAL:
             error_message = str(exc_value)
