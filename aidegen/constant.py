@@ -45,3 +45,9 @@ KEY_DEPTH = 'depth'
 IDE_ECLIPSE = 'Eclipse'
 IDE_INTELLIJ = 'IntelliJ'
 IDE_ANDROID_STUDIO = 'Android Studio'
+
+# Constants for asuite metrics
+EXIT_CODE_EXCEPTION = -1
+EXIT_CODE_NORMAL = 0
+EXIT_CODE_AIDEGEN_EXCEPTION = 1
+AIDEGEN_TOOL_NAME = 'aidegen'

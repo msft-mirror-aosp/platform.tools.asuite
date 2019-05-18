@@ -62,7 +62,10 @@ _SKIP_BUILD_WARN = (
     'cause the red lines to appear in IDE tool.')
 
 
-def multi_projects_locate_source(projects, verbose, depth, ide_name,
+# TODO(b/132831520): Remove default IDE, source locator should be neutral. It
+#                    shouldn't set default IDE.
+def multi_projects_locate_source(projects, verbose, depth,
+                                 ide_name=constant.IDE_INTELLIJ,
                                  skip_build=True):
     """Locate the paths of dependent source folders and jar files with projects.
 
@@ -73,7 +76,7 @@ def multi_projects_locate_source(projects, verbose, depth, ide_name,
         verbose: A boolean, if true displays full build output.
         depth: An integer shows the depth of module dependency referenced by
                source. Zero means the max module depth.
-        ide_name: A string stands for the IDE name.
+        ide_name: A string stands for the IDE name, default is IntelliJ.
         skip_build: A boolean default to true, if true skip building jar and
                     srcjar files, otherwise build them.
     """
@@ -114,7 +117,7 @@ def locate_source(project, verbose, depth, ide_name=constant.IDE_INTELLIJ,
         verbose: A boolean, if true displays full build output.
         depth: An integer shows the depth of module dependency referenced by
                source. Zero means the max module depth.
-        ide_name: A string stands for the IDE name.
+        ide_name: A string stands for the IDE name, default is IntelliJ.
         build: A boolean default to true, if true skip building jar and srcjar
                files, otherwise build them.
 
@@ -464,13 +467,17 @@ class ModuleData():
         """
         if _KEY_JARS in self.module_data and self.module_data[_KEY_JARS]:
             for jar_name in self.module_data[_KEY_JARS]:
-                jar_path = os.path.join(self.module_path, jar_name)
-                jar_abs = common_util.get_abs_path(jar_path)
-                if not os.path.isfile(jar_abs) and 'prebuilt.jar' in jar_name:
-                    rel_path = self._get_jar_path_from_prebuilts(jar_name)
-                    if rel_path:
-                        jar_path = rel_path
-                self._append_jar_file(jar_path)
+                if self._check_key(_KEY_INSTALLED):
+                    self._append_jar_from_installed()
+                else:
+                    jar_path = os.path.join(self.module_path, jar_name)
+                    jar_abs = common_util.get_abs_path(jar_path)
+                    if not os.path.isfile(
+                            jar_abs) and jar_name.endswith('prebuilt.jar'):
+                        rel_path = self._get_jar_path_from_prebuilts(jar_name)
+                        if rel_path:
+                            jar_path = rel_path
+                    self._append_jar_file(jar_path)
 
     @staticmethod
     def _get_jar_path_from_prebuilts(jar_name):
