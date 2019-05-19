@@ -269,7 +269,8 @@ class SourceLocatorUnittests(unittest.TestCase):
         }
         # Show warning when the jar not exists after build the module.
         result_jar = set()
-        source_locator.locate_source(mock_project_info, False, 0, True)
+        source_locator.locate_source(mock_project_info, False, 0,
+                                     constant.IDE_INTELLIJ, True)
         self.assertEqual(mock_project_info.source_path['jar_path'], result_jar)
 
         # Test on jar exists.
@@ -277,7 +278,8 @@ class SourceLocatorUnittests(unittest.TestCase):
         result_jar = set([generated_jar])
         try:
             open(jar_abspath, 'w').close()
-            source_locator.locate_source(mock_project_info, False, 0, False)
+            source_locator.locate_source(mock_project_info, False, 0,
+                                         constant.IDE_INTELLIJ, False)
             self.assertEqual(mock_project_info.source_path['jar_path'],
                              result_jar)
         finally:
@@ -296,7 +298,8 @@ class SourceLocatorUnittests(unittest.TestCase):
         default_jar = os.path.join(_MODULE_PATH, 'test.jar')
         module_info['dependencies'] = [default_jar]
         result_jar = set([generated_jar, default_jar])
-        source_locator.locate_source(mock_project_info, False, 0, False)
+        source_locator.locate_source(mock_project_info, False, 0,
+                                     constant.IDE_INTELLIJ, False)
         self.assertEqual(mock_project_info.source_path['jar_path'], result_jar)
 
 
