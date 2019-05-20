@@ -36,6 +36,7 @@ import subprocess
 
 from aidegen import constant
 from aidegen.lib.config import AidegenConfig
+from aidegen.lib import sdk_config
 
 # Add 'nohup' to prevent IDE from being terminated when console is terminated.
 _NOHUP = 'nohup'
@@ -43,7 +44,6 @@ _IGNORE_STD_OUT_ERR_CMD = '2>/dev/null >&2'
 _IDEA_FOLDER = '.idea'
 _IML_EXTENSION = '.iml'
 _JDK_PATH_TOKEN = '@JDKpath'
-_TARGET_JDK_NAME_TAG = '<name value="JDK18" />'
 _COMPONENT_END_TAG = '  </component>'
 
 
@@ -197,7 +197,6 @@ class IdeIntelliJ(IdeBase):
         _JDK_PATH: The path of JDK in android project.
         _IDE_JDK_TABLE_PATH: The path of JDK table which record JDK info in IDE.
         _JDK_PART_TEMPLATE_PATH: The path of the template of partial JDK table.
-        _JDK_FULL_TEMPLATE_PATH: The path of the template of full JDK table.
 
     For example:
         1. Check if IntelliJ is installed.
@@ -208,7 +207,6 @@ class IdeIntelliJ(IdeBase):
     _JDK_PATH = ''
     _IDE_JDK_TABLE_PATH = ''
     _JDK_PART_TEMPLATE_PATH = ''
-    _JDK_FULL_TEMPLATE_PATH = ''
 
     def __init__(self, installed_path=None, config_reset=False):
         super().__init__(installed_path, config_reset)
@@ -230,7 +228,10 @@ class IdeIntelliJ(IdeBase):
             return
 
         for _config_path in _path_list:
-            self._set_jdk_config(_config_path)
+            jdk_file = os.path.join(_config_path, self._IDE_JDK_TABLE_PATH)
+            jdk_table = sdk_config.SDKConfig(
+                jdk_file, self._JDK_PART_TEMPLATE_PATH, self._JDK_PATH)
+            jdk_table.set_jdk_config()
 
     def _get_config_root_paths(self):
         """Get the config root paths from derived class.
@@ -248,36 +249,6 @@ class IdeIntelliJ(IdeBase):
             A string of the sub path for the config folder.
         """
         raise NotImplementedError('Method overriding is needed.')
-
-    def _set_jdk_config(self, path):
-        """Add jdk path to jdk.table.xml
-
-        Args:
-            path: The path of IntelliJ config path.
-        """
-        jdk_table_path = os.path.join(path, self._IDE_JDK_TABLE_PATH)
-        try:
-            if os.path.isfile(jdk_table_path):
-                with open(jdk_table_path, 'r+') as jdk_table_fd:
-                    jdk_table = jdk_table_fd.read()
-                    jdk_table_fd.seek(0)
-                    if _TARGET_JDK_NAME_TAG not in jdk_table:
-                        with open(self._JDK_PART_TEMPLATE_PATH) as template_fd:
-                            template = template_fd.read()
-                            template = template.replace(_JDK_PATH_TOKEN,
-                                                        self._JDK_PATH)
-                            jdk_table = jdk_table.replace(
-                                _COMPONENT_END_TAG, template)
-                            jdk_table_fd.truncate()
-                            jdk_table_fd.write(jdk_table)
-            else:
-                with open(self._JDK_FULL_TEMPLATE_PATH) as template_fd:
-                    template = template_fd.read()
-                    template = template.replace(_JDK_PATH_TOKEN, self._JDK_PATH)
-                    with open(jdk_table_path, 'w') as jdk_table_fd:
-                        jdk_table_fd.write(template)
-        except IOError as err:
-            logging.warning(err)
 
     def _get_preferred_version(self):
         """Get users' preferred IntelliJ version.
@@ -366,8 +337,6 @@ class IdeLinuxIntelliJ(IdeIntelliJ):
     _IDE_JDK_TABLE_PATH = 'config/options/jdk.table.xml'
     _JDK_PART_TEMPLATE_PATH = os.path.join(
         constant.AIDEGEN_ROOT_PATH, 'templates/jdkTable/part.jdk.table.xml')
-    _JDK_FULL_TEMPLATE_PATH = os.path.join(constant.AIDEGEN_ROOT_PATH,
-                                           'templates/jdkTable/jdk.table.xml')
 
     def __init__(self, installed_path=None, config_reset=False):
         super().__init__(installed_path, config_reset)
@@ -438,8 +407,6 @@ class IdeMacIntelliJ(IdeIntelliJ):
     _IDE_JDK_TABLE_PATH = 'options/jdk.table.xml'
     _JDK_PART_TEMPLATE_PATH = os.path.join(
         constant.AIDEGEN_ROOT_PATH, 'templates/jdkTable/part.mac.jdk.table.xml')
-    _JDK_FULL_TEMPLATE_PATH = os.path.join(
-        constant.AIDEGEN_ROOT_PATH, 'templates/jdkTable/mac.jdk.table.xml')
 
     def __init__(self, installed_path=None, config_reset=False):
         super().__init__(installed_path, config_reset)
