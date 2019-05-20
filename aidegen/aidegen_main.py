@@ -324,16 +324,17 @@ def main(argv):
         # Filter out sys.Exit(0) case, which is not an exception case.
         if isinstance(err, SystemExit) and exc_value.code == 0:
             exit_code = constant.EXIT_CODE_NORMAL
-    finally:
         if exit_code is not constant.EXIT_CODE_NORMAL:
             error_message = str(exc_value)
             traceback_list = traceback.format_tb(exc_traceback)
             traceback_list.append(error_message)
             traceback_str = ''.join(traceback_list)
+            ends_asuite_metrics(exit_code, traceback_str, error_message)
             # print out the trackback message for developers to debug
             print(traceback_str)
-            ends_asuite_metrics(exit_code, traceback_str, error_message)
-        else:
+            raise err
+    finally:
+        if exit_code is constant.EXIT_CODE_NORMAL:
             ends_asuite_metrics(exit_code)
         print('\n{0} {1}\n\n{0} {2}\n'.format(_INFO, AIDEGEN_REPORT_LINK,
                                               _IDE_CACHE_REMINDER_MSG))
