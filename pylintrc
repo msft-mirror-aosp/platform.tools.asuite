@@ -12,7 +12,8 @@ disable=
 
 ignored-modules=
     # For sharing modules from atest project.
-    atest
+    atest,
+    metrics
 
 [FORMAT]
 

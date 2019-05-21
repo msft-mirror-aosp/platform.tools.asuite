@@ -18,17 +18,20 @@
 
 from __future__ import print_function
 
+import os
 import unittest
 from unittest import mock
 
+import aidegen.unittest_constants as uc
 from aidegen import aidegen_main
 from aidegen.lib import metrics
+from aidegen import constant
+from aidegen.lib import common_util
 from aidegen.lib.common_util import COLORED_INFO
 from aidegen.lib.errors import IDENotExistError
 from aidegen.lib.errors import ProjectPathNotExistError
 from aidegen.lib.ide_util import IdeUtil
-
-import aidegen.unittest_constants as uc
+from atest import module_info
 
 
 # pylint: disable=protected-access
@@ -120,14 +123,42 @@ class AidegenMainUnittests(unittest.TestCase):
         aidegen_main._generate_project_files('j', projects)
         self.assertTrue(mock_ide.called_with(projects))
 
+    @mock.patch.object(common_util, 'get_atest_module_info')
     @mock.patch.object(metrics, 'log_usage')
-    def test_show_collect_data_notice(self, mock_log):
+    def test_show_collect_data_notice(self, mock_log, mock_get):
         """Test main process always run through the target test function."""
         target = 'nothing'
         args = aidegen_main._parse_args([target, '-s', '-n'])
         with self.assertRaises(ProjectPathNotExistError):
+            err = common_util.PATH_NOT_EXISTS_ERROR.format(target)
+            mock_get.side_effect = ProjectPathNotExistError(err)
             aidegen_main.main_without_message(args)
             self.assertTrue(mock_log.called)
+
+    @mock.patch.object(common_util, 'get_related_paths')
+    def test_compile_targets_for_whole_android_tree(self, mock_get):
+        """Test _add_whole_android_tree_project with different conditions."""
+        mod_info = module_info.ModuleInfo()
+        targets = ['']
+        cwd = constant.ANDROID_ROOT_PATH
+        self.assertEqual(
+            targets,
+            aidegen_main._compile_targets_for_whole_android_tree(
+                mod_info, targets, cwd))
+        base_dir = 'frameworks/base'
+        expected_targets = ['', base_dir]
+        cwd = os.path.join(constant.ANDROID_ROOT_PATH, base_dir)
+        mock_get.return_value = None, cwd
+        self.assertEqual(
+            expected_targets,
+            aidegen_main._compile_targets_for_whole_android_tree(
+                mod_info, targets, cwd))
+        targets = [base_dir]
+        cwd = constant.ANDROID_ROOT_PATH
+        self.assertEqual(
+            expected_targets,
+            aidegen_main._compile_targets_for_whole_android_tree(
+                mod_info, targets, cwd))
 
 
 if __name__ == '__main__':
