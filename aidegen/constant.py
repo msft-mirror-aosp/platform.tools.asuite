@@ -19,14 +19,35 @@ import os
 
 from atest import constants
 
+# Env constant
+OUT_DIR_COMMON_BASE_ENV_VAR = 'OUT_DIR_COMMON_BASE'
+ANDROID_DEFAULT_OUT = 'out'
 ANDROID_HOST_OUT = os.environ.get(constants.ANDROID_HOST_OUT)
 ANDROID_ROOT_PATH = os.environ.get(constants.ANDROID_BUILD_TOP)
-ROOT_DIR = os.path.join(ANDROID_ROOT_PATH, 'tools/asuite/aidegen')
+AIDEGEN_ROOT_PATH = os.path.join(ANDROID_ROOT_PATH, 'tools/asuite/aidegen')
 ANDROID_OUT_DIR = os.environ.get(constants.ANDROID_OUT_DIR)
-ANDROID_OUT = os.path.join(ANDROID_ROOT_PATH, 'out')
-OUT_DIR = ANDROID_OUT_DIR or ANDROID_OUT
-BLUEPRINT_JSONFILE_OUTDIR = os.path.join(OUT_DIR, 'soong')
+OUT_DIR_COMMON_BASE = os.getenv(OUT_DIR_COMMON_BASE_ENV_VAR)
+
+# Constants for out dir
+ANDROID_OUT_DIR_COMMON_BASE = (os.path.join(
+    OUT_DIR_COMMON_BASE, os.path.basename(ANDROID_ROOT_PATH))
+                               if OUT_DIR_COMMON_BASE else None)
+OUT_DIR = ANDROID_OUT_DIR or ANDROID_OUT_DIR_COMMON_BASE or ANDROID_DEFAULT_OUT
+SOONG_OUT_DIR_PATH = os.path.join(ANDROID_ROOT_PATH, OUT_DIR, 'soong')
+RELATIVE_HOST_OUT = os.path.relpath(ANDROID_HOST_OUT, ANDROID_ROOT_PATH)
+
+# Constants for module's info.
 KEY_PATH = 'path'
 KEY_DEP = 'dependencies'
 KEY_DEPTH = 'depth'
-RELATIVE_HOST_OUT = os.path.relpath(ANDROID_HOST_OUT, ANDROID_ROOT_PATH)
+
+# Constants for IDE util.
+IDE_ECLIPSE = 'Eclipse'
+IDE_INTELLIJ = 'IntelliJ'
+IDE_ANDROID_STUDIO = 'Android Studio'
+
+# Constants for asuite metrics
+EXIT_CODE_EXCEPTION = -1
+EXIT_CODE_NORMAL = 0
+EXIT_CODE_AIDEGEN_EXCEPTION = 1
+AIDEGEN_TOOL_NAME = 'aidegen'
