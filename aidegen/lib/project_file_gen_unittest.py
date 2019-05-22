@@ -239,6 +239,20 @@ class AidegenProjectFileGenUnittest(unittest.TestCase):
         project_file_gen._generate_git_ignore(constant.AIDEGEN_ROOT_PATH)
         self.assertFalse(mock_link.called)
 
+    @mock.patch.object(project_file_gen, '_generate_intellij_project_file')
+    @mock.patch.object(project_file_gen, 'generate_eclipse_project_files')
+    @mock.patch('aidegen.lib.project_info.ProjectInfo')
+    def test_generate_project_files(self, project, mock_eclipse, mock_intellij):
+        """Test _generate_project_files with different conditions."""
+        project.config.ide_name = constant.IDE_ECLIPSE
+        projects = [project]
+        project_file_gen.generate_ide_project_files(projects)
+        self.assertTrue(mock_eclipse.called_with(projects))
+        project.config.ide_name = constant.IDE_ANDROID_STUDIO
+        project.project_absolute_path = 'test'
+        project_file_gen.generate_ide_project_files(projects)
+        self.assertTrue(mock_intellij.called_with(projects))
+
 
 if __name__ == '__main__':
     unittest.main()

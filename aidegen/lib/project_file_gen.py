@@ -187,14 +187,17 @@ def generate_ide_project_files(projects):
     Args:
         projects: A list of ProjectInfo instances.
     """
-    # Initialization
-    _USED_NAME_CACHE.clear()
 
-    for project in projects[1:]:
-        _generate_intellij_project_file(project)
-    iml_paths = [project.iml_path for project in projects[1:]]
-    _generate_intellij_project_file(projects[0], iml_paths)
-    _merge_project_vcs_xmls(projects)
+    if projects[0].config.ide_name == constant.IDE_ECLIPSE:
+        generate_eclipse_project_files(projects)
+    else:
+        # Initialization
+        _USED_NAME_CACHE.clear()
+        for project in projects[1:]:
+            _generate_intellij_project_file(project)
+        iml_paths = [project.iml_path for project in projects[1:]]
+        _generate_intellij_project_file(projects[0], iml_paths)
+        _merge_project_vcs_xmls(projects)
 
 
 def _generate_eclipse_project_file(project_info):

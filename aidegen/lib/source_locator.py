@@ -56,14 +56,9 @@ _IGNORE_DIRS = [
     'libcore/ojluni/src/lambda/java'
 ]
 _DIS_ROBO_BUILD_ENV_VAR = {'DISABLE_ROBO_RUN_TESTS': 'true'}
-_SKIP_BUILD_WARN = (
-    'You choose "--skip-build". Skip building jar and module might increase '
-    'the risk of the absence of some jar or R/AIDL/logtags java files and '
-    'cause the red lines to appear in IDE tool.')
 
 
-def multi_projects_locate_source(projects, verbose, depth, ide_name,
-                                 skip_build=True):
+def multi_projects_locate_source(projects, verbose):
     """Locate the paths of dependent source folders and jar files with projects.
 
     Args:
@@ -71,16 +66,11 @@ def multi_projects_locate_source(projects, verbose, depth, ide_name,
                   as project relative path, project real path, project
                   dependencies.
         verbose: A boolean, if true displays full build output.
-        depth: An integer shows the depth of module dependency referenced by
-               source. Zero means the max module depth.
-        ide_name: A string stands for the IDE name, default is IntelliJ.
-        skip_build: A boolean default to true, if true skip building jar and
-                    srcjar files, otherwise build them.
     """
-    if skip_build:
-        print('\n{} {}\n'.format(COLORED_INFO('Warning:'), _SKIP_BUILD_WARN))
     for project in projects:
-        locate_source(project, verbose, depth, ide_name, build=not skip_build)
+        locate_source(project, verbose, project.config.depth,
+                      project.config.ide_name,
+                      build=not project.config.is_skip_build)
 
 
 def locate_source(project, verbose, depth, ide_name, build=True):
