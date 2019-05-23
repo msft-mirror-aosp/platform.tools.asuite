@@ -97,9 +97,20 @@ _USED_NAME_CACHE = dict()
 def get_unique_iml_name(abs_module_path):
     """Create a unique iml name if needed.
 
-    If the iml name has been used already, prefix it with the
-    parent_sub_folder_name to form a new unique name, and store iml name in
-    _USED_NAME_CACHE as: { abs_module_path:unique_name }.
+    If the name of last sub folder is used already, prefixing it with prior sub
+    folder names as a candidate name. If finally, it's unique, storing in
+    _USED_NAME_CACHE as: { abs_module_path:unique_name }. The cts case and UX of
+    IDE view are the main reasons why using module path strategy but not name of
+    module directly. Following is the detailed strategy:
+    1. While loop composes a sensible and shorter name, by checking unique to
+       finish the loop and finally add to cache.
+       Take ['cts', 'tests', 'app', 'ui'] an example, if 'ui' isn't occupied,
+       use it, else try 'cts_ui', then 'cts_app_ui', the worst case is whole
+       three candidate names are occupied already.
+    2. 'Else' for that while stands for no suitable name generated, so trying
+       'cts_tests_app_ui' directly. If it's still non unique, e.g., module path
+       cts/xxx/tests/app/ui occupied that name already, appending increasing
+       sequence number to get a unique name.
 
     Args:
         abs_module_path: Full module path string.
@@ -116,16 +127,21 @@ def get_unique_iml_name(abs_module_path):
                                       constant.ANDROID_ROOT_PATH)
         sub_folders = parent_path.split(os.sep)
         zero_base_index = len(sub_folders) - 1
-        # Compose the name by following logic. Take ['cts', 'tests', 'ui'] as
-        # an example, if 'ui' is used, then try 'cts_ui', then try
-        # 'cts_tests_ui'. And the worst case is cts_tests_ui, which must be an
-        # unique one.
+        # Start compose a sensible, shorter and unique name.
         while zero_base_index > 0:
             uniq_name = '_'.join(
                 [sub_folders[0], '_'.join(sub_folders[zero_base_index:])])
             zero_base_index = zero_base_index - 1
             if uniq_name not in _USED_NAME_CACHE.values():
                 break
+        else:
+            # b/133393638: To handle several corner cases.
+            uniq_name_base = parent_path.strip(os.sep).replace(os.sep, '_')
+            i = 0
+            uniq_name = uniq_name_base
+            while uniq_name in _USED_NAME_CACHE.values():
+                i = i + 1
+                uniq_name = '_'.join([uniq_name_base, str(i)])
     _USED_NAME_CACHE[abs_module_path] = uniq_name
     logging.debug('Unique name for module path of %s is %s.', abs_module_path,
                   uniq_name)

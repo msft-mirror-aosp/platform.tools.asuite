@@ -161,9 +161,21 @@ class AidegenProjectFileGenUnittest(unittest.TestCase):
         name data set is the same as sub folder path count, then it means
         there's no duplicated name, the test PASS.
         """
+        # Add following test path
+        test_paths = {
+            'cts/tests/tests/app',
+            'cts/tests/app',
+            'cts/tests/app/app1/../app',
+            'cts/tests/app/app2/../app',
+            'cts/tests/app/app3/../app',
+            'frameworks/base/tests/xxxxxxxxxxxx/base',
+            'frameworks/base',
+            'external/xxxxx-xxx/robolectric',
+            'external/robolectric',
+        }
         mod_info = module_info.ModuleInfo()
-        test_paths = mod_info._get_path_to_module_info(
-            mod_info.name_to_module_info).keys()
+        test_paths.update(mod_info._get_path_to_module_info(
+            mod_info.name_to_module_info).keys())
         print('\n{} {}.'.format('Test_paths length:', len(test_paths)))
 
         path_list = []
