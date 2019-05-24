@@ -20,9 +20,10 @@ import os
 
 from aidegen import constant
 from aidegen.lib import common_util
+from aidegen.lib.project_file_gen import ProjectFileGenerator
 
 
-class EclipseConf():
+class EclipseConf(ProjectFileGenerator):
     """Class to generate project file under the module path for Eclipse.
 
     Attributes:
@@ -60,6 +61,7 @@ class EclipseConf():
         Args:
             project: A ProjectInfo instance.
         """
+        super().__init__(project)
         self.module_abspath = project.project_absolute_path
         self.module_relpath = project.project_relative_path
         self.module_name = project.module_name
@@ -218,3 +220,15 @@ class EclipseConf():
         """Generate .classpath file of the target module."""
         self._create_classpath_content()
         common_util.file_generate(self.classpath_file, self.classpath_content)
+
+    @classmethod
+    def generate_ide_project_files(cls, projects):
+        """Generate Eclipse project files by a list of ProjectInfo instances.
+
+        Args:
+            projects: A list of ProjectInfo instances.
+        """
+        for project in projects:
+            eclipse_configure = EclipseConf(project)
+            eclipse_configure.generate_project_file()
+            eclipse_configure.generate_classpath_file()
