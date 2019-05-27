@@ -21,6 +21,9 @@ import os
 import shutil
 import unittest
 
+from unittest import mock
+
+from aidegen import constant
 from aidegen import unittest_constants
 from aidegen.lib import project_file_gen
 from atest import module_info
@@ -215,6 +218,14 @@ class AidegenProjectFileGenUnittest(unittest.TestCase):
         finally:
             os.remove(classpath)
         self.assertEqual(test_iml, sample_iml)
+
+    @mock.patch('os.symlink')
+    @mock.patch.object(os.path, 'exists')
+    def test_generate_git_ignore(self, mock_path_exist, mock_link):
+        """Test _generate_git_ignore."""
+        mock_path_exist.return_value = True
+        project_file_gen._generate_git_ignore(constant.AIDEGEN_ROOT_PATH)
+        self.assertFalse(mock_link.called)
 
 
 if __name__ == '__main__':
