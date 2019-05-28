@@ -62,6 +62,14 @@ class ProjectInfo():
                      project_module_names.
         git_path: The project's git path.
         iml_path: The project's iml file path.
+        source_path: A dictionary to keep following data:
+                     source_folder_path: A set contains the source folder
+                                         relative paths.
+                     test_folder_path: A set contains the test folder relative
+                                       paths.
+                     jar_path: A set contains the jar file paths.
+                     jar_module_path: A dictionary contains the jar file and
+                                      the module's path mapping.
     """
 
     modules_info = {}
@@ -108,7 +116,8 @@ class ProjectInfo():
         self.source_path = {
             'source_folder_path': set(),
             'test_folder_path': set(),
-            'jar_path': set()
+            'jar_path': set(),
+            'jar_module_path': dict()
         }
 
     def _display_convert_make_files_message(self, module_info, target):
