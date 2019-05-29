@@ -57,6 +57,21 @@ class SourceLocatorUnittests(unittest.TestCase):
         self.assertEqual(module_data.src_dirs, result_source)
         self.assertEqual(module_data.test_dirs, result_test)
 
+    def test_get_package_name(self):
+        """test get the package name from a java file."""
+        result_package_name = 'com.android'
+        test_java = os.path.join(uc.TEST_DATA_PATH, _MODULE_PATH,
+                                 'src/main/java/com/android/java.java')
+        package_name = source_locator.ModuleData._get_package_name(test_java)
+        self.assertEqual(package_name, result_package_name)
+
+        # Test on java file with no package name.
+        result_package_name = None
+        test_java = os.path.join(uc.TEST_DATA_PATH, _MODULE_PATH,
+                                 'src/main/java/com/android/no_package.java')
+        package_name = source_locator.ModuleData._get_package_name(test_java)
+        self.assertEqual(package_name, result_package_name)
+
     def test_get_source_folder(self):
         """Test _get_source_folder process."""
         # Test for getting the source path by parse package name from a java.
@@ -75,7 +90,7 @@ class SourceLocatorUnittests(unittest.TestCase):
 
         # Return path is None on the java file without package name.
         test_java = ('packages/apps/test/src/main/java/com/android/'
-                     'wrong_package.java')
+                     'no_package.java')
         src_path = module_data._get_source_folder(test_java)
         self.assertEqual(src_path, None)
 
@@ -141,6 +156,48 @@ class SourceLocatorUnittests(unittest.TestCase):
             'out/target/common/R'
         }
         self.assertEqual(module_data.r_java_paths, expect_result)
+
+    def test_parse_source_path(self):
+        """Test _parse_source_path."""
+        # The package name of e.java is c.d.
+        test_java = 'a/b/c/d/e.java'
+        package_name = 'c.d'
+        expect_result = 'a/b'
+        src_path = source_locator.ModuleData._parse_source_path(test_java,
+                                                                package_name)
+        self.assertEqual(src_path, expect_result)
+
+        # The package name of e.java is c.d.
+        test_java = 'a/b/c.d/e.java'
+        package_name = 'c.d'
+        expect_result = 'a/b'
+        src_path = source_locator.ModuleData._parse_source_path(test_java,
+                                                                package_name)
+        self.assertEqual(src_path, expect_result)
+
+        # The package name of e.java is x.y.
+        test_java = 'a/b/c/d/e.java'
+        package_name = 'x.y'
+        expect_result = 'a/b/c/d'
+        src_path = source_locator.ModuleData._parse_source_path(test_java,
+                                                                package_name)
+        self.assertEqual(src_path, expect_result)
+
+        # The package name of f.java is c.d.
+        test_java = 'a/b/c.d/e/c/d/f.java'
+        package_name = 'c.d'
+        expect_result = 'a/b/c.d/e'
+        src_path = source_locator.ModuleData._parse_source_path(test_java,
+                                                                package_name)
+        self.assertEqual(src_path, expect_result)
+
+        # The package name of f.java is c.d.e.
+        test_java = 'a/b/c.d/e/c.d/e/f.java'
+        package_name = 'c.d.e'
+        expect_result = 'a/b/c.d/e'
+        src_path = source_locator.ModuleData._parse_source_path(test_java,
+                                                                package_name)
+        self.assertEqual(src_path, expect_result)
 
     def test_append_jar_file(self):
         """Test _append_jar_file process."""
