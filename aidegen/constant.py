@@ -45,6 +45,7 @@ KEY_DEPTH = 'depth'
 IDE_ECLIPSE = 'Eclipse'
 IDE_INTELLIJ = 'IntelliJ'
 IDE_ANDROID_STUDIO = 'Android Studio'
+IDE_NAME_DICT = {'j': IDE_INTELLIJ, 's': IDE_ANDROID_STUDIO, 'e': IDE_ECLIPSE}
 
 # Constants for asuite metrics
 EXIT_CODE_EXCEPTION = -1

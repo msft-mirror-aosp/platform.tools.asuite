@@ -62,10 +62,7 @@ _SKIP_BUILD_WARN = (
     'cause the red lines to appear in IDE tool.')
 
 
-# TODO(b/132831520): Remove default IDE, source locator should be neutral. It
-#                    shouldn't set default IDE.
-def multi_projects_locate_source(projects, verbose, depth,
-                                 ide_name=constant.IDE_INTELLIJ,
+def multi_projects_locate_source(projects, verbose, depth, ide_name,
                                  skip_build=True):
     """Locate the paths of dependent source folders and jar files with projects.
 
@@ -86,8 +83,7 @@ def multi_projects_locate_source(projects, verbose, depth,
         locate_source(project, verbose, depth, ide_name, build=not skip_build)
 
 
-def locate_source(project, verbose, depth, ide_name=constant.IDE_INTELLIJ,
-                  build=True):
+def locate_source(project, verbose, depth, ide_name, build=True):
     """Locate the paths of dependent source folders and jar files.
 
     Try to reference source folder path as dependent module unless the
@@ -187,10 +183,8 @@ def _generate_moduledata(module_name, module_data, ide_name, project_relpath,
         A ModuleData class.
     """
     if ide_name == constant.IDE_ECLIPSE:
-        module = EclipseModuleData(module_name, module_data, project_relpath)
-    else:
-        module = ModuleData(module_name, module_data, depth)
-    return module
+        return EclipseModuleData(module_name, module_data, project_relpath)
+    return ModuleData(module_name, module_data, depth)
 
 
 def _append_jars_as_dependencies(dependent_data, module):
