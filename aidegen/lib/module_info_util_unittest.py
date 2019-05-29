@@ -24,6 +24,7 @@ from unittest import mock
 
 import aidegen.unittest_constants as uc
 from aidegen.lib import errors
+from aidegen.lib import metrics
 from aidegen.lib import module_info_util
 from atest import module_info
 
@@ -172,9 +173,10 @@ class AidegenModuleInfoUtilUnittests(unittest.TestCase):
             module_info_util._is_new_json_file_generated(
                 jfile, original_file_mtime))
 
+    @mock.patch.object(metrics, 'ends_asuite_metrics')
     @mock.patch('builtins.input')
     @mock.patch('glob.glob')
-    def test_build_failed_handle(self, mock_glob, mock_input):
+    def test_build_failed_handle(self, mock_glob, mock_input, _send_exit):
         """Test _build_failed_handle with different situations."""
         mock_glob.return_value = ['project/file.iml']
         mock_input.return_value = 'N'
