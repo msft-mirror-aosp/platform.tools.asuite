@@ -75,12 +75,18 @@ _IML_EXTENSION = '.iml'
 _FRAMEWORK_JAR = os.sep + 'framework.jar'
 _HIGH_PRIORITY_JARS = [_FRAMEWORK_JAR]
 _GIT_FOLDER_NAME = '.git'
+# Support gitignore by symbolic link to aidegen/data/gitignore_template.
+_GITIGNORE_FILE_NAME = '.gitignore'
+_GITIGNORE_REL_PATH = 'tools/asuite/aidegen/data/gitignore_template'
+_GITIGNORE_ABS_PATH = os.path.join(constant.ANDROID_ROOT_PATH,
+                                   _GITIGNORE_REL_PATH)
+# Support code style by symbolic link to aidegen/data/AndroidStyle_aidegen.xml.
 _CODE_STYLE_REL_PATH = 'tools/asuite/aidegen/data/AndroidStyle_aidegen.xml'
 _CODE_STYLE_SRC_PATH = os.path.join(constant.ANDROID_ROOT_PATH,
                                     _CODE_STYLE_REL_PATH)
-_ECLIP = 'eclipse'
-_ECLIP_SRC_ENTRY = ('<classpathentry exported="true" kind="src" path="{}"/>\n')
-_ECLIP_LIB_ENTRY = ('<classpathentry exported="true" kind="lib" path="{}"/>\n')
+
+_ECLIP_SRC_ENTRY = '<classpathentry exported="true" kind="src" path="{}"/>\n'
+_ECLIP_LIB_ENTRY = '<classpathentry exported="true" kind="lib" path="{}"/>\n'
 _ECLIP_TEMPLATE_PATH = os.path.join(_ROOT_DIR, 'templates/eclipse/eclipse.xml')
 _ECLIP_EXTENSION = '.classpath'
 _ECLIP_SRC_TOKEN = '@SRC@'
@@ -237,7 +243,7 @@ def _copy_constant_project_files(target_path):
     IntelliJ, it only logs when an IOError occurred.
 
     Args:
-        target_path: Path of target file.
+        target_path: A folder path to copy content to.
     """
     try:
         _copy_to_idea_folder(target_path, _COPYRIGHT_FOLDER)
@@ -253,6 +259,8 @@ def _copy_constant_project_files(target_path):
         logging.debug('Relative target symlink path: %s.', rel_target)
         logging.debug('Relative code style source path: %s.', rel_source)
         os.symlink(rel_source, rel_target)
+        # Create .gitignore if it doesn't exist.
+        _generate_git_ignore(target_path)
         shutil.copy(
             os.path.join(_IDEA_DIR, _COMPILE_XML),
             os.path.join(target_path, _IDEA_FOLDER, _COMPILE_XML))
@@ -630,3 +638,26 @@ def _merge_project_vcs_xmls(projects):
     main_project_absolute_path = projects[0].project_absolute_path
     git_paths = [project.git_path for project in projects]
     _write_vcs_xml(main_project_absolute_path, git_paths)
+
+
+def _generate_git_ignore(target_folder):
+    """Generate .gitignore file.
+
+    In target_folder, if there's no .gitignore file, uses symlink() to generate
+    one to hide project content files from git.
+
+    Args:
+        target_folder: An absolute path string of target folder.
+    """
+    # TODO(b/133639849): Provide a common method to create symbolic link.
+    # TODO(b/133641803): Move out aidegen artifacts from Android repo.
+    try:
+        gitignore_abs_path = os.path.join(target_folder, _GITIGNORE_FILE_NAME)
+        rel_target = os.path.relpath(gitignore_abs_path, os.getcwd())
+        rel_source = os.path.relpath(_GITIGNORE_ABS_PATH, target_folder)
+        logging.debug('Relative target symlink path: %s.', rel_target)
+        logging.debug('Relative ignore_template source path: %s.', rel_source)
+        if not os.path.exists(gitignore_abs_path):
+            os.symlink(rel_source, rel_target)
+    except OSError as err:
+        logging.error('Not support to run aidegen on Windows.\n %s', err)

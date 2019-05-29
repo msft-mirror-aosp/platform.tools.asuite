@@ -134,20 +134,15 @@ def locate_source(project, verbose, depth, ide_name=constant.IDE_INTELLIJ,
     if not hasattr(project, 'dep_modules') or not project.dep_modules:
         raise errors.EmptyModuleDependencyError(
             'Dependent modules dictionary is empty.')
+    dependencies = project.source_path
     rebuild_targets = set()
     for module_name, module_data in project.dep_modules.items():
         module = _generate_moduledata(module_name, module_data, ide_name,
                                       project.project_relative_path, depth)
         module.locate_sources_path()
-        project.source_path['source_folder_path'].update(module.src_dirs)
-        project.source_path['test_folder_path'].update(module.test_dirs)
-        project.source_path['jar_path'].update(module.jar_files)
-        # Collecting the jar files of default core modules as dependencies.
-        if constant.KEY_DEP in module_data:
-            project.source_path['jar_path'].update([
-                x for x in module_data[constant.KEY_DEP]
-                if common_util.is_target(x, _TARGET_LIBS)
-            ])
+        dependencies['source_folder_path'].update(module.src_dirs)
+        dependencies['test_folder_path'].update(module.test_dirs)
+        _append_jars_as_dependencies(dependencies, module)
         if module.build_targets:
             rebuild_targets |= module.build_targets
     if rebuild_targets:
@@ -198,8 +193,46 @@ def _generate_moduledata(module_name, module_data, ide_name, project_relpath,
     return module
 
 
+def _append_jars_as_dependencies(dependent_data, module):
+    """Add given module's jar files into dependent_data as dependencies.
+
+    Args:
+        dependent_data: A dictionary contains the dependent source paths and
+                        jar files.
+        module: A ModuleData instance.
+    """
+    if module.jar_files:
+        dependent_data['jar_path'].update(module.jar_files)
+        for jar in list(module.jar_files):
+            dependent_data['jar_module_path'].update({jar: module.module_path})
+    # Collecting the jar files of default core modules as dependencies.
+    if constant.KEY_DEP in module.module_data:
+        dependent_data['jar_path'].update([
+            x for x in module.module_data[constant.KEY_DEP]
+            if common_util.is_target(x, _TARGET_LIBS)
+        ])
+
+
 class ModuleData():
-    """ModuleData class."""
+    """ModuleData class.
+
+    Attributes:
+        All following relative paths stand for the path relative to the android
+        repo root.
+
+        module_path: A string of the relative path to the module.
+        src_dirs: A set to keep the unique source folder relative paths.
+        test_dirs: A set to keep the unique test folder relative paths.
+        jar_files: A set to keep the unique jar file relative paths.
+        referenced_by_jar: A boolean to check if the module is referenced by a
+                           jar file.
+        build_targets: A set to keep the unique build target jar or srcjar file
+                       relative paths which are ready to be rebuld.
+        missing_jars: A set to keep the jar file relative paths if it doesn't
+                      exist.
+        specific_soong_path: A string of the relative path to the module's
+                             intermediates folder under out/.
+    """
 
     def __init__(self, module_name, module_data, depth):
         """Initialize ModuleData.
