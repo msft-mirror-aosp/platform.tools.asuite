@@ -265,21 +265,27 @@ class SourceLocatorUnittests(unittest.TestCase):
         mock_project_info.source_path = {
             'source_folder_path': set(),
             'test_folder_path': set(),
-            'jar_path': set()
+            'jar_path': set(),
+            'jar_module_path': dict(),
         }
         # Show warning when the jar not exists after build the module.
         result_jar = set()
-        source_locator.locate_source(mock_project_info, False, 0, True)
+        source_locator.locate_source(mock_project_info, False, 0,
+                                     constant.IDE_INTELLIJ, True)
         self.assertEqual(mock_project_info.source_path['jar_path'], result_jar)
 
         # Test on jar exists.
         jar_abspath = os.path.join(test_root_path, generated_jar)
         result_jar = set([generated_jar])
+        result_jar_module_path = dict({generated_jar: module_info['path'][0]})
         try:
             open(jar_abspath, 'w').close()
-            source_locator.locate_source(mock_project_info, False, 0, False)
+            source_locator.locate_source(mock_project_info, False, 0,
+                                         constant.IDE_INTELLIJ, False)
             self.assertEqual(mock_project_info.source_path['jar_path'],
                              result_jar)
+            self.assertEqual(mock_project_info.source_path['jar_module_path'],
+                             result_jar_module_path)
         finally:
             shutil.rmtree(test_root_path)
 
@@ -296,7 +302,8 @@ class SourceLocatorUnittests(unittest.TestCase):
         default_jar = os.path.join(_MODULE_PATH, 'test.jar')
         module_info['dependencies'] = [default_jar]
         result_jar = set([generated_jar, default_jar])
-        source_locator.locate_source(mock_project_info, False, 0, False)
+        source_locator.locate_source(mock_project_info, False, 0,
+                                     constant.IDE_INTELLIJ, False)
         self.assertEqual(mock_project_info.source_path['jar_path'], result_jar)
 
 
