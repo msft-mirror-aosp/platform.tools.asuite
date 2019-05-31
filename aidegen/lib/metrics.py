@@ -26,9 +26,16 @@ import uuid
 
 from aidegen import constant
 from atest import atest_utils
-from metrics import metrics
-from metrics import metrics_base
-from metrics import metrics_utils
+
+try:
+    from asuite.metrics import metrics
+    from asuite.metrics import metrics_base
+    from asuite.metrics import metrics_utils
+except ImportError:
+    logging.debug('Import metrics fail, can\'t send metrics')
+    metrics = None
+    metrics_base = None
+    metrics_utils = None
 
 _METRICS_URL = 'http://asuite-218222.appspot.com/aidegen/metrics'
 _VALID_DOMAINS = ['google.com', 'android.com']
@@ -53,6 +60,8 @@ def starts_asuite_metrics():
 
     Send a metrics data to log server at the same time.
     """
+    if not metrics:
+        return
     metrics_base.MetricsBase.tool_name = constant.AIDEGEN_TOOL_NAME
     metrics_utils.get_start_time()
     command = ' '.join(sys.argv)
@@ -71,6 +80,8 @@ def ends_asuite_metrics(exit_code, stacktrace='', logs=''):
         stacktrace: A string of stacktrace.
         logs: A string of logs.
     """
+    if not metrics_utils:
+        return
     metrics_utils.send_exit_event(
         exit_code,
         stacktrace=stacktrace,
