@@ -39,6 +39,7 @@ function run_unittests() {
     PYTHONPATH=$(get_python_path) python3 -m coverage erase
     for t in $tests_to_run;
     do
+        echo "Test" $t
         if ! PYTHONPATH=$(get_python_path) python3 -m coverage run --append --rcfile=$rc_file $t; then
             rc=1
             echo -e "${RED}$t failed${NC}"
