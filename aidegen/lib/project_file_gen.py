@@ -64,7 +64,6 @@ _MODULES_XML = 'modules.xml'
 _VCS_XML = 'vcs.xml'
 _TEMPLATE_MODULES_PATH = os.path.join(_IDEA_DIR, _MODULES_XML)
 _TEMPLATE_VCS_PATH = os.path.join(_IDEA_DIR, _VCS_XML)
-_DEPENDENCIES = 'dependencies'
 _DEPENDENCIES_IML = 'dependencies.iml'
 _COPYRIGHT_FOLDER = 'copyright'
 _CODE_STYLE_FOLDER = 'codeStyles'
@@ -223,32 +222,6 @@ def generate_eclipse_project_files(projects):
     """
     for project in projects:
         _generate_eclipse_project_file(project)
-
-
-def _read_file_content(path):
-    """Read file's content.
-
-    Args:
-        path: Path of input file.
-
-    Returns:
-        String: Content of the file.
-    """
-    with open(path) as template:
-        return template.read()
-
-
-def _file_generate(path, content):
-    """Generate file from content.
-
-    Args:
-        path: Path of target file.
-        content: String content of file.
-    """
-    if not os.path.exists(os.path.dirname(path)):
-        os.makedirs(os.path.dirname(path))
-    with open(path, 'w') as target:
-        target.write(content)
 
 
 def _copy_constant_project_files(target_path):
@@ -474,7 +447,7 @@ def _generate_iml(root_path, module_path, source_dict, jar_dependencies,
     Returns:
         String: The absolute paths of module iml and dependencies iml.
     """
-    template = _read_file_content(_TEMPLATE_IML_PATH)
+    template = common_util.read_file_content(_TEMPLATE_IML_PATH)
 
     # Separate module and dependencies source folder
     project_source_dict = {}
@@ -496,7 +469,7 @@ def _generate_iml(root_path, module_path, source_dict, jar_dependencies,
     dep_name = _get_dependencies_name(module_name)
     dep_sect = _MODULE_ORDER_ENTRY % dep_name
     module_content = module_content.replace(_MODULE_DEP_TOKEN, dep_sect)
-    _file_generate(module_iml_path, module_content)
+    common_util.file_generate(module_iml_path, module_content)
 
     # Generate dependencies iml.
     dependencies_content = template.replace(_FACET_TOKEN, '')
@@ -505,7 +478,7 @@ def _generate_iml(root_path, module_path, source_dict, jar_dependencies,
     dependencies_content = _handle_module_dependency(
         root_path, dependencies_content, jar_dependencies)
     dependencies_iml_path = os.path.join(module_path, dep_name + _IML_EXTENSION)
-    _file_generate(dependencies_iml_path, dependencies_content)
+    common_util.file_generate(dependencies_iml_path, dependencies_content)
     logging.debug('Paired iml names are %s, %s', module_iml_path,
                   dependencies_iml_path)
     # The dependencies_iml_path is use for removing the file itself in unittest.
@@ -523,7 +496,7 @@ def _generate_classpath(module_path, source_list, jar_dependencies):
     Returns:
         String: The absolute paths of .classpath.
     """
-    template = _read_file_content(_ECLIP_TEMPLATE_PATH)
+    template = common_util.read_file_content(_ECLIP_TEMPLATE_PATH)
 
     src_list = [_ECLIP_SRC_ENTRY.format(s) for s in source_list]
     template = template.replace(_ECLIP_SRC_TOKEN, ''.join(src_list))
@@ -533,7 +506,7 @@ def _generate_classpath(module_path, source_list, jar_dependencies):
 
     classpath_path = os.path.join(module_path, _ECLIP_EXTENSION)
 
-    _file_generate(classpath_path, template)
+    common_util.file_generate(classpath_path, template)
 
     return classpath_path
 
@@ -545,10 +518,10 @@ def _generate_eclipse_project(project_name, module_path):
         project_name: A string of the project name.
         module_path: Absolute path of the module.
     """
-    template = _read_file_content(_ECLIP_PROJECT_PATH)
+    template = common_util.read_file_content(_ECLIP_PROJECT_PATH)
     template = template.replace(_ECLIP_PROJECT_NAME_TOKEN, project_name)
     eclipse_project = os.path.join(module_path, _ECLIP_PROJECT_EXTENSION)
-    _file_generate(eclipse_project, template)
+    common_util.file_generate(eclipse_project, template)
 
 
 def _get_dependencies_name(module_name):
@@ -560,7 +533,7 @@ def _get_dependencies_name(module_name):
     Returns:
         String: The joined dependencies iml file name, e.g. "dependencies-core"
     """
-    return '-'.join([_DEPENDENCIES, module_name])
+    return '-'.join([constant.KEY_DEP, module_name])
 
 
 def _generate_modules_xml(module_path, iml_path_list=None):
@@ -577,7 +550,7 @@ def _generate_modules_xml(module_path, iml_path_list=None):
         module_path: Path of the module.
         iml_path_list: A list of submodule iml paths.
     """
-    content = _read_file_content(_TEMPLATE_MODULES_PATH)
+    content = common_util.read_file_content(_TEMPLATE_MODULES_PATH)
 
     # b/121256503: Prevent duplicated iml names from breaking IDEA.
     module_name = get_unique_iml_name(module_path)
@@ -598,7 +571,7 @@ def _generate_modules_xml(module_path, iml_path_list=None):
     module = '\n'.join(module_list)
     content = content.replace(_MODULE_TOKEN, module)
     target_path = os.path.join(module_path, _IDEA_FOLDER, _MODULES_XML)
-    _file_generate(target_path, content)
+    common_util.file_generate(target_path, content)
 
 
 def _generate_vcs_xml(module_path):
@@ -636,10 +609,10 @@ def _write_vcs_xml(module_path, git_paths):
         git_paths: A list of git path.
     """
     _vcs_content = '\n'.join([_VCS_SECTION % p for p in git_paths if p])
-    content = _read_file_content(_TEMPLATE_VCS_PATH)
+    content = common_util.read_file_content(_TEMPLATE_VCS_PATH)
     content = content.replace(_VCS_TOKEN, _vcs_content)
     target_path = os.path.join(module_path, _IDEA_FOLDER, _VCS_XML)
-    _file_generate(target_path, content)
+    common_util.file_generate(target_path, content)
 
 
 def _merge_project_vcs_xmls(projects):
