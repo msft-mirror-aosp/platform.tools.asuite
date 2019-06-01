@@ -310,7 +310,7 @@ class ModuleData():
             # folder as the dependency to R.java.
             self.src_dirs.add(r_src_dir)
         # Add the central R as a default source folder.
-        self.src_dirs.add('out/target/common/R')
+        self.src_dirs.add(constant.CENTRAL_R_PATH)
 
     def _init_module_path(self):
         """Inintialize self.module_path."""

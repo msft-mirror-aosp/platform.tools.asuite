@@ -151,7 +151,7 @@ class SourceLocatorUnittests(unittest.TestCase):
         # Test collect source path.
         module_info = dict(_MODULE_INFO)
         result_src_list = set(['packages/apps/test/src/main/java',
-                               'out/target/common/R'])
+                               constant.CENTRAL_R_PATH])
         result_test_list = set(['packages/apps/test/tests'])
         result_jar_list = set()
         constant.ANDROID_ROOT_PATH = uc.TEST_DATA_PATH
@@ -220,7 +220,7 @@ class SourceLocatorUnittests(unittest.TestCase):
         module_info = dict(_MODULE_INFO)
         module_info['depth'] = 2
         result_src_list = set(['packages/apps/test/src/main/java',
-                               'out/target/common/R'])
+                               constant.CENTRAL_R_PATH])
         result_test_list = set(['packages/apps/test/tests'])
         result_jar_list = set()
         module_data = source_locator.ModuleData(_MODULE_NAME, module_info,
@@ -236,7 +236,7 @@ class SourceLocatorUnittests(unittest.TestCase):
         module_info = dict(_MODULE_INFO)
         module_info['depth'] = 2
         result_src_list = set(['packages/apps/test/src/main/java',
-                               'out/target/common/R'])
+                               constant.CENTRAL_R_PATH])
         result_test_list = set(['packages/apps/test/tests'])
         result_jar_list = set()
         module_data = source_locator.ModuleData(_MODULE_NAME, module_info,
@@ -291,7 +291,7 @@ class SourceLocatorUnittests(unittest.TestCase):
 
         # Test collects source and test folders.
         result_source = set(['packages/apps/test/src/main/java',
-                             'out/target/common/R'])
+                             constant.CENTRAL_R_PATH])
         result_test = set(['packages/apps/test/tests'])
         self.assertEqual(mock_project_info.source_path['source_folder_path'],
                          result_source)
