@@ -26,6 +26,7 @@ from unittest import mock
 from aidegen import constant
 from aidegen import unittest_constants
 from aidegen.lib import project_file_gen
+from aidegen.lib import common_util
 from atest import module_info
 
 
@@ -70,31 +71,31 @@ class AidegenProjectFileGenUnittest(unittest.TestCase):
 
     def test_handle_facet_for_android(self):
         """Test _handle_facet with android project."""
-        template = project_file_gen._read_file_content(
+        template = common_util.read_file_content(
             project_file_gen._TEMPLATE_IML_PATH)
         android_facet = project_file_gen._handle_facet(
             template, self._ANDROID_PROJECT_PATH)
-        sample_android_facet = project_file_gen._read_file_content(
+        sample_android_facet = common_util.read_file_content(
             self._ANDROID_FACET_SAMPLE)
         self.assertEqual(android_facet, sample_android_facet)
 
     def test_handle_facet_for_normal(self):
         """Test _handle_facet with normal module."""
-        template = project_file_gen._read_file_content(
+        template = common_util.read_file_content(
             project_file_gen._TEMPLATE_IML_PATH)
         project_facet = project_file_gen._handle_facet(template,
                                                        self._PROJECT_PATH)
-        sample_project_facet = project_file_gen._read_file_content(
+        sample_project_facet = common_util.read_file_content(
             self._PROJECT_FACET_SAMPLE)
         self.assertEqual(project_facet, sample_project_facet)
 
     def test_handle_module_dependency(self):
         """Test _module_dependency."""
-        module_dependency = project_file_gen._read_file_content(
+        module_dependency = common_util.read_file_content(
             project_file_gen._TEMPLATE_IML_PATH)
         module_dependency = module_dependency.replace(
             project_file_gen._MODULE_DEP_TOKEN, '')
-        correct_module_dep = project_file_gen._read_file_content(
+        correct_module_dep = common_util.read_file_content(
             self._MODULE_DEP_SAMPLE)
         self.assertEqual(correct_module_dep, module_dependency)
 
@@ -106,13 +107,13 @@ class AidegenProjectFileGenUnittest(unittest.TestCase):
 
     def test_handle_source_folder(self):
         """Test _handle_source_folder."""
-        template = project_file_gen._read_file_content(
+        template = common_util.read_file_content(
             project_file_gen._TEMPLATE_IML_PATH)
         source = project_file_gen._handle_source_folder(
             self._AOSP_FOLDER, template,
             copy.deepcopy(self._ANDROID_SOURCE_DICT), True,
             self._ANDROID_SOURCE_RELATIVE_PATH)
-        sample_source = project_file_gen._read_file_content(self._SOURCE_SAMPLE)
+        sample_source = common_util.read_file_content(self._SOURCE_SAMPLE)
         self.assertEqual(source, sample_source)
 
     def test_generate_iml(self):
@@ -122,8 +123,8 @@ class AidegenProjectFileGenUnittest(unittest.TestCase):
                 self._AOSP_FOLDER, self._ANDROID_PROJECT_PATH,
                 copy.deepcopy(self._ANDROID_SOURCE_DICT), self._JAR_DEP_LIST,
                 self._ANDROID_SOURCE_RELATIVE_PATH)
-            test_iml = project_file_gen._read_file_content(iml_path)
-            sample_iml = project_file_gen._read_file_content(self._IML_SAMPLE)
+            test_iml = common_util.read_file_content(iml_path)
+            sample_iml = common_util.read_file_content(self._IML_SAMPLE)
         finally:
             os.remove(iml_path)
             os.remove(dependencies_iml_path)
@@ -133,11 +134,10 @@ class AidegenProjectFileGenUnittest(unittest.TestCase):
         """Test _generate_modules_xml."""
         try:
             project_file_gen._generate_modules_xml(self._ANDROID_PROJECT_PATH)
-            test_module = project_file_gen._read_file_content(self._MODULE_PATH)
+            test_module = common_util.read_file_content(self._MODULE_PATH)
         finally:
             shutil.rmtree(self._IDEA_PATH)
-        sample_module = project_file_gen._read_file_content(
-            self._MODULE_XML_SAMPLE)
+        sample_module = common_util.read_file_content(self._MODULE_XML_SAMPLE)
         self.assertEqual(test_module, sample_module)
 
     def test_generate_vcs_xml(self):
@@ -147,11 +147,11 @@ class AidegenProjectFileGenUnittest(unittest.TestCase):
                                     project_file_gen._GIT_FOLDER_NAME)
             os.mkdir(git_path)
             project_file_gen._generate_vcs_xml(self._ANDROID_PROJECT_PATH)
-            test_vcs = project_file_gen._read_file_content(self._VCS_PATH)
+            test_vcs = common_util.read_file_content(self._VCS_PATH)
         finally:
             shutil.rmtree(self._IDEA_PATH)
             shutil.rmtree(git_path)
-        sample_vcs = project_file_gen._read_file_content(self._VCS_XML_SAMPLE)
+        sample_vcs = common_util.read_file_content(self._VCS_XML_SAMPLE)
         # The sample must base on the real path.
         sample_vcs = sample_vcs.replace(self._LOCAL_PATH_TOKEN,
                                         self._ANDROID_PROJECT_PATH)
@@ -224,9 +224,8 @@ class AidegenProjectFileGenUnittest(unittest.TestCase):
                 self._ANDROID_PROJECT_PATH,
                 copy.deepcopy(list(sorted(self._ANDROID_SOURCE_DICT))),
                 self._JAR_DEP_LIST)
-            test_iml = project_file_gen._read_file_content(classpath)
-            sample_iml = project_file_gen._read_file_content(
-                self._CLASSPATH_SAMPLE)
+            test_iml = common_util.read_file_content(classpath)
+            sample_iml = common_util.read_file_content(self._CLASSPATH_SAMPLE)
         finally:
             os.remove(classpath)
         self.assertEqual(test_iml, sample_iml)
