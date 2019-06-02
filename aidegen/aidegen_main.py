@@ -43,24 +43,26 @@ import argparse
 import logging
 import os
 import sys
+import traceback
 
 from aidegen import constant
 from aidegen.lib.android_dev_os import AndroidDevOS
 from aidegen.lib import common_util
 from aidegen.lib.common_util import COLORED_INFO
 from aidegen.lib.common_util import COLORED_PASS
-from aidegen.lib.common_util import check_modules
 from aidegen.lib.common_util import is_android_root
 from aidegen.lib.common_util import time_logged
+from aidegen.lib.errors import AIDEgenError
 from aidegen.lib.errors import IDENotExistError
 from aidegen.lib.ide_util import IdeUtil
 from aidegen.lib.metrics import log_usage
+from aidegen.lib.metrics import starts_asuite_metrics
+from aidegen.lib.metrics import ends_asuite_metrics
 from aidegen.lib.module_info_util import generate_module_info_json
 from aidegen.lib.project_file_gen import generate_eclipse_project_files
 from aidegen.lib.project_file_gen import generate_ide_project_files
 from aidegen.lib.project_info import ProjectInfo
 from aidegen.lib.source_locator import multi_projects_locate_source
-from atest import module_info
 
 AIDEGEN_REPORT_LINK = ('To report the AIDEGen tool problem, please use this '
                        'link: https://goto.google.com/aidegen-bug')
@@ -160,7 +162,7 @@ def _parse_args(args):
         '--android-tree',
         dest='android_tree',
         action='store_true',
-        help=('Generate whole Android source tree project file for IDE.'))
+        help='Generate whole Android source tree project file for IDE.')
     return parser.parse_args(args)
 
 
@@ -214,10 +216,10 @@ def _generate_project_files(ide, projects):
     """Generate project files by IDE type.
 
     Args:
-        ide: IDE type.
+        ide: A character to represent IDE type.
         projects: A list of ProjectInfo instances.
     """
-    if ide == 'e':
+    if ide.lower() == 'e':
         generate_eclipse_project_files(projects)
     else:
         generate_ide_project_files(projects)
@@ -325,6 +327,7 @@ def main_without_message(args):
     aidegen_main(args)
 
 
+# pylint: disable=broad-except
 def main(argv):
     """Main entry.
 
@@ -333,11 +336,34 @@ def main(argv):
     Args:
         argv: A list of system arguments.
     """
-    args = _parse_args(argv)
-    if args.skip_build:
-        main_without_message(args)
-    else:
-        main_with_message(args)
+    exit_code = constant.EXIT_CODE_NORMAL
+    try:
+        args = _parse_args(argv)
+        _configure_logging(args.verbose)
+        starts_asuite_metrics()
+        if args.skip_build:
+            main_without_message(args)
+        else:
+            main_with_message(args)
+    except BaseException as err:
+        exit_code = constant.EXIT_CODE_EXCEPTION
+        _, exc_value, exc_traceback = sys.exc_info()
+        if isinstance(err, AIDEgenError):
+            exit_code = constant.EXIT_CODE_AIDEGEN_EXCEPTION
+        # Filter out sys.Exit(0) case, which is not an exception case.
+        if isinstance(err, SystemExit) and exc_value.code == 0:
+            exit_code = constant.EXIT_CODE_NORMAL
+    finally:
+        if exit_code is not constant.EXIT_CODE_NORMAL:
+            error_message = str(exc_value)
+            traceback_list = traceback.format_tb(exc_traceback)
+            traceback_list.append(error_message)
+            traceback_str = ''.join(traceback_list)
+            # print out the trackback message for developers to debug
+            print(traceback_str)
+            ends_asuite_metrics(exit_code, traceback_str, error_message)
+        else:
+            ends_asuite_metrics(exit_code)
 
 
 def aidegen_main(args):
@@ -349,18 +375,17 @@ def aidegen_main(args):
         args: A list of system arguments.
     """
     log_usage()
-    _configure_logging(args.verbose)
     # Pre-check for IDE relevant case, then handle dependency graph job.
     ide_util_obj = _get_ide_util_instance(args)
     _check_skip_build(args)
-    atest_module_info = module_info.ModuleInfo()
-    check_modules(atest_module_info, args.targets)
+    atest_module_info = common_util.get_atest_module_info(args.targets)
     targets = _check_whole_android_tree(atest_module_info, args.targets,
                                         args.android_tree)
     ProjectInfo.modules_info = generate_module_info_json(
         atest_module_info, targets, args.verbose, args.skip_build)
     projects = ProjectInfo.generate_projects(atest_module_info, targets)
     multi_projects_locate_source(projects, args.verbose, args.depth,
+                                 constant.IDE_NAME_DICT[args.ide[0]],
                                  args.skip_build)
     _generate_project_files(args.ide[0], projects)
     if ide_util_obj:
