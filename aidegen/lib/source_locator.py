@@ -28,7 +28,6 @@ from aidegen.lib import errors
 from aidegen.lib import common_util
 from aidegen.lib.common_util import COLORED_INFO
 from atest import atest_utils
-from atest import constants
 
 # Parse package name from the package declaration line of a java.
 # Group matches "foo.bar" of line "package foo.bar;" or "package foo.bar"
@@ -631,8 +630,8 @@ class ModuleData():
                 else:
                     jar_path = os.path.join(self.module_path, jar_name)
                     jar_abs = common_util.get_abs_path(jar_path)
-                    if not os.path.isfile(
-                            jar_abs) and jar_name.endswith('prebuilt.jar'):
+                    if not os.path.isfile(jar_abs) and jar_name.endswith(
+                            'prebuilt.jar'):
                         rel_path = self._get_jar_path_from_prebuilts(jar_name)
                         if rel_path:
                             jar_path = rel_path
@@ -666,12 +665,12 @@ class ModuleData():
         """
         rel_path = ''
         search = os.sep.join(
-            [constant.ANDROID_ROOT_PATH, 'prebuilts/**', jar_name])
+            [common_util.get_android_root_dir(), 'prebuilts/**', jar_name])
         results = glob.glob(search, recursive=True)
         if results:
             jar_abs = results[0]
             rel_path = os.path.relpath(
-                jar_abs, os.environ.get(constants.ANDROID_BUILD_TOP, os.sep))
+                jar_abs, common_util.get_android_root_dir())
         return rel_path
 
     def locate_sources_path(self):

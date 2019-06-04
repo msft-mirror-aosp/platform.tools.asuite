@@ -96,18 +96,19 @@ class AidegenModuleInfo(ModuleInfo):
         module_file_path = module_info_util.get_blueprint_json_path()
         if force_build and os.path.isfile(module_file_path):
             os.remove(module_file_path)
+        merged_file_path = os.path.join(common_util.get_soong_out_path(),
+                                        constant.MERGED_MODULE_INFO)
         if not os.path.isfile(module_file_path):
             logging.debug(
                 'Generating %s - this is required for the initial runs.',
-                module_file_path)
+                merged_file_path)
         if not AidegenModuleInfo.mod_info:
             AidegenModuleInfo.mod_info = common_util.get_atest_module_info()
         data = module_info_util.generate_merged_module_info(
             AidegenModuleInfo.mod_info, AidegenModuleInfo.projects,
             AidegenModuleInfo.verbose, AidegenModuleInfo.skip_build)
-        merged_file_path = constant.MERGED_MODULE_INFO_PATH
         with open(merged_file_path, 'w') as json_file:
             json.dump(data, json_file, indent=4)
-        merged_file_rel_path = os.path.relpath(merged_file_path,
-                                               constant.ANDROID_ROOT_PATH)
-        return merged_file_rel_path, merged_file_path
+        module_file_rel_path = os.path.relpath(
+            merged_file_path, common_util.get_android_root_dir())
+        return module_file_rel_path, merged_file_path

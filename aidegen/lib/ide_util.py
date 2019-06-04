@@ -35,6 +35,7 @@ import platform
 import subprocess
 
 from aidegen import constant
+from aidegen.lib import common_util
 from aidegen.lib.config import AidegenConfig
 from aidegen.lib import sdk_config
 
@@ -317,9 +318,9 @@ class IdeIntelliJ(IdeBase):
             None if the file is not found, otherwise a full path string of
             Intellij Android code style file.
         """
-        _config_source = os.path.join(constant.ANDROID_ROOT_PATH, 'development',
-                                      'ide', 'intellij', 'codestyles',
-                                      'AndroidStyle.xml')
+        _config_source = os.path.join(common_util.get_android_root_dir(),
+                                      'development', 'ide', 'intellij',
+                                      'codestyles', 'AndroidStyle.xml')
 
         return _config_source if os.path.isfile(_config_source) else None
 
@@ -333,12 +334,13 @@ class IdeLinuxIntelliJ(IdeIntelliJ):
         3. Config IntelliJ.
     """
 
-    _JDK_PATH = os.path.join(constant.ANDROID_ROOT_PATH,
+    _JDK_PATH = os.path.join(common_util.get_android_root_dir(),
                              'prebuilts/jdk/jdk8/linux-x86')
     # TODO(b/127899277): Preserve a config for jdk version option case.
     _IDE_JDK_TABLE_PATH = 'config/options/jdk.table.xml'
     _JDK_PART_TEMPLATE_PATH = os.path.join(
-        constant.AIDEGEN_ROOT_PATH, 'templates/jdkTable/part.jdk.table.xml')
+        common_util.get_aidegen_root_dir(),
+        'templates/jdkTable/part.jdk.table.xml')
     _DEFAULT_ANDROID_SDK_PATH = os.path.join(os.getenv('HOME'), 'Android/Sdk')
 
     def __init__(self, installed_path=None, config_reset=False):
@@ -405,11 +407,12 @@ class IdeMacIntelliJ(IdeIntelliJ):
         3. Config IntelliJ.
     """
 
-    _JDK_PATH = os.path.join(constant.ANDROID_ROOT_PATH,
+    _JDK_PATH = os.path.join(common_util.get_android_root_dir(),
                              'prebuilts/jdk/jdk8/darwin-x86')
     _IDE_JDK_TABLE_PATH = 'options/jdk.table.xml'
     _JDK_PART_TEMPLATE_PATH = os.path.join(
-        constant.AIDEGEN_ROOT_PATH, 'templates/jdkTable/part.mac.jdk.table.xml')
+        common_util.get_aidegen_root_dir(),
+        'templates/jdkTable/part.mac.jdk.table.xml')
     _DEFAULT_ANDROID_SDK_PATH = os.path.join(
         os.getenv('HOME'), 'Library/Android/sdk')
 
@@ -582,8 +585,7 @@ class IdeMacEclipse(IdeEclipse):
             A string of launch IDE command.
         """
         return ' '.join([
-            _NOHUP,
-            'open',
+            _NOHUP, 'open',
             self._installed_path.replace(' ', r'\ '),
             os.path.dirname(project_file), _IGNORE_STD_OUT_ERR_CMD, '&'
         ])
@@ -660,10 +662,7 @@ def _get_run_ide_cmd(sh_path, project_file):
     # In command usage, the space ' ' should be '\ ' for correctness.
     return ' '.join([
         _NOHUP,
-        sh_path.replace(' ', r'\ '),
-        project_file,
-        _IGNORE_STD_OUT_ERR_CMD,
-        '&'
+        sh_path.replace(' ', r'\ '), project_file, _IGNORE_STD_OUT_ERR_CMD, '&'
     ])
 
 
