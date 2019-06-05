@@ -24,7 +24,7 @@ operation.
 
 import os
 
-from aidegen.constant import AIDEGEN_ROOT_PATH as rp
+from aidegen.constant import ROOT_DIR as rp
 
 # The data below is only for test usage.
 TEST_DATA_PATH = os.path.join(rp, "test_data")  # folder test_data path

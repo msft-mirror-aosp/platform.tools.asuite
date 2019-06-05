@@ -18,17 +18,12 @@
 import json
 import logging
 import os
-import platform
 import subprocess
-import sys
 import urllib.request
 import uuid
 
 from aidegen import constant
 from atest import atest_utils
-from metrics import metrics
-from metrics import metrics_base
-from metrics import metrics_utils
 
 _METRICS_URL = 'http://asuite-218222.appspot.com/aidegen/metrics'
 _VALID_DOMAINS = ['google.com', 'android.com']
@@ -46,35 +41,6 @@ def log_usage():
     # Show privacy and license hint message before collect data.
     atest_utils.print_data_collection_notice()
     _log_event(_METRICS_URL, dummy_key_fallback=False, ldap=_get_ldap())
-
-
-def starts_asuite_metrics():
-    """Starts to record metrics data.
-
-    Send a metrics data to log server at the same time.
-    """
-    metrics_base.MetricsBase.tool_name = constant.AIDEGEN_TOOL_NAME
-    metrics_utils.get_start_time()
-    command = ' '.join(sys.argv)
-    metrics.AtestStartEvent(
-        command_line=command,
-        test_references=[],
-        cwd=os.getcwd(),
-        os=platform.platform())
-
-
-def ends_asuite_metrics(exit_code, stacktrace='', logs=''):
-    """Send the end event to log server.
-
-    Args:
-        exit_code: An integer of exit code.
-        stacktrace: A string of stacktrace.
-        logs: A string of logs.
-    """
-    metrics_utils.send_exit_event(
-        exit_code,
-        stacktrace=stacktrace,
-        logs=logs)
 
 
 # pylint: disable=broad-except

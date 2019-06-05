@@ -56,7 +56,7 @@ _MODULE_DEP_TOKEN = '@MODULE_DEPENDENCIES@'
 _MODULE_TOKEN = '@MODULES@'
 _VCS_TOKEN = '@VCS@'
 _JAVA_FILE_PATTERN = '%s/*.java'
-_ROOT_DIR = constant.AIDEGEN_ROOT_PATH
+_ROOT_DIR = constant.ROOT_DIR
 _IDEA_DIR = os.path.join(_ROOT_DIR, 'templates/idea')
 _TEMPLATE_IML_PATH = os.path.join(_ROOT_DIR, 'templates/module-template.iml')
 _IDEA_FOLDER = '.idea'
@@ -75,18 +75,12 @@ _IML_EXTENSION = '.iml'
 _FRAMEWORK_JAR = os.sep + 'framework.jar'
 _HIGH_PRIORITY_JARS = [_FRAMEWORK_JAR]
 _GIT_FOLDER_NAME = '.git'
-# Support gitignore by symbolic link to aidegen/data/gitignore_template.
-_GITIGNORE_FILE_NAME = '.gitignore'
-_GITIGNORE_REL_PATH = 'tools/asuite/aidegen/data/gitignore_template'
-_GITIGNORE_ABS_PATH = os.path.join(constant.ANDROID_ROOT_PATH,
-                                   _GITIGNORE_REL_PATH)
-# Support code style by symbolic link to aidegen/data/AndroidStyle_aidegen.xml.
 _CODE_STYLE_REL_PATH = 'tools/asuite/aidegen/data/AndroidStyle_aidegen.xml'
 _CODE_STYLE_SRC_PATH = os.path.join(constant.ANDROID_ROOT_PATH,
                                     _CODE_STYLE_REL_PATH)
-
-_ECLIP_SRC_ENTRY = '<classpathentry exported="true" kind="src" path="{}"/>\n'
-_ECLIP_LIB_ENTRY = '<classpathentry exported="true" kind="lib" path="{}"/>\n'
+_ECLIP = 'eclipse'
+_ECLIP_SRC_ENTRY = ('<classpathentry exported="true" kind="src" path="{}"/>\n')
+_ECLIP_LIB_ENTRY = ('<classpathentry exported="true" kind="lib" path="{}"/>\n')
 _ECLIP_TEMPLATE_PATH = os.path.join(_ROOT_DIR, 'templates/eclipse/eclipse.xml')
 _ECLIP_EXTENSION = '.classpath'
 _ECLIP_SRC_TOKEN = '@SRC@'
@@ -103,20 +97,9 @@ _USED_NAME_CACHE = dict()
 def get_unique_iml_name(abs_module_path):
     """Create a unique iml name if needed.
 
-    If the name of last sub folder is used already, prefixing it with prior sub
-    folder names as a candidate name. If finally, it's unique, storing in
-    _USED_NAME_CACHE as: { abs_module_path:unique_name }. The cts case and UX of
-    IDE view are the main reasons why using module path strategy but not name of
-    module directly. Following is the detailed strategy:
-    1. While loop composes a sensible and shorter name, by checking unique to
-       finish the loop and finally add to cache.
-       Take ['cts', 'tests', 'app', 'ui'] an example, if 'ui' isn't occupied,
-       use it, else try 'cts_ui', then 'cts_app_ui', the worst case is whole
-       three candidate names are occupied already.
-    2. 'Else' for that while stands for no suitable name generated, so trying
-       'cts_tests_app_ui' directly. If it's still non unique, e.g., module path
-       cts/xxx/tests/app/ui occupied that name already, appending increasing
-       sequence number to get a unique name.
+    If the iml name has been used already, prefix it with the
+    parent_sub_folder_name to form a new unique name, and store iml name in
+    _USED_NAME_CACHE as: { abs_module_path:unique_name }.
 
     Args:
         abs_module_path: Full module path string.
@@ -133,21 +116,16 @@ def get_unique_iml_name(abs_module_path):
                                       constant.ANDROID_ROOT_PATH)
         sub_folders = parent_path.split(os.sep)
         zero_base_index = len(sub_folders) - 1
-        # Start compose a sensible, shorter and unique name.
+        # Compose the name by following logic. Take ['cts', 'tests', 'ui'] as
+        # an example, if 'ui' is used, then try 'cts_ui', then try
+        # 'cts_tests_ui'. And the worst case is cts_tests_ui, which must be an
+        # unique one.
         while zero_base_index > 0:
             uniq_name = '_'.join(
                 [sub_folders[0], '_'.join(sub_folders[zero_base_index:])])
             zero_base_index = zero_base_index - 1
             if uniq_name not in _USED_NAME_CACHE.values():
                 break
-        else:
-            # b/133393638: To handle several corner cases.
-            uniq_name_base = parent_path.strip(os.sep).replace(os.sep, '_')
-            i = 0
-            uniq_name = uniq_name_base
-            while uniq_name in _USED_NAME_CACHE.values():
-                i = i + 1
-                uniq_name = '_'.join([uniq_name_base, str(i)])
     _USED_NAME_CACHE[abs_module_path] = uniq_name
     logging.debug('Unique name for module path of %s is %s.', abs_module_path,
                   uniq_name)
@@ -259,7 +237,7 @@ def _copy_constant_project_files(target_path):
     IntelliJ, it only logs when an IOError occurred.
 
     Args:
-        target_path: A folder path to copy content to.
+        target_path: Path of target file.
     """
     try:
         _copy_to_idea_folder(target_path, _COPYRIGHT_FOLDER)
@@ -275,8 +253,6 @@ def _copy_constant_project_files(target_path):
         logging.debug('Relative target symlink path: %s.', rel_target)
         logging.debug('Relative code style source path: %s.', rel_source)
         os.symlink(rel_source, rel_target)
-        # Create .gitignore if it doesn't exist.
-        _generate_git_ignore(target_path)
         shutil.copy(
             os.path.join(_IDEA_DIR, _COMPILE_XML),
             os.path.join(target_path, _IDEA_FOLDER, _COMPILE_XML))
@@ -343,11 +319,7 @@ def _handle_module_dependency(root_path, content, jar_dependencies):
         else:
             dependencies.append(jar_path)
 
-    # IntelliJ indexes jars as dependencies from iml by the ascending order.
-    # Without sorting, the order of jar list changes everytime. Sort the jar
-    # list to keep the jar dependencies in consistency. It also can help us to
-    # discover potential issues like duplicated classes.
-    for jar_path in sorted(dependencies):
+    for jar_path in dependencies:
         module_library += _ORDER_ENTRY % os.path.join(root_path, jar_path)
     return content.replace(_MODULE_DEP_TOKEN, module_library)
 
@@ -654,26 +626,3 @@ def _merge_project_vcs_xmls(projects):
     main_project_absolute_path = projects[0].project_absolute_path
     git_paths = [project.git_path for project in projects]
     _write_vcs_xml(main_project_absolute_path, git_paths)
-
-
-def _generate_git_ignore(target_folder):
-    """Generate .gitignore file.
-
-    In target_folder, if there's no .gitignore file, uses symlink() to generate
-    one to hide project content files from git.
-
-    Args:
-        target_folder: An absolute path string of target folder.
-    """
-    # TODO(b/133639849): Provide a common method to create symbolic link.
-    # TODO(b/133641803): Move out aidegen artifacts from Android repo.
-    try:
-        gitignore_abs_path = os.path.join(target_folder, _GITIGNORE_FILE_NAME)
-        rel_target = os.path.relpath(gitignore_abs_path, os.getcwd())
-        rel_source = os.path.relpath(_GITIGNORE_ABS_PATH, target_folder)
-        logging.debug('Relative target symlink path: %s.', rel_target)
-        logging.debug('Relative ignore_template source path: %s.', rel_source)
-        if not os.path.exists(gitignore_abs_path):
-            os.symlink(rel_source, rel_target)
-    except OSError as err:
-        logging.error('Not support to run aidegen on Windows.\n %s', err)

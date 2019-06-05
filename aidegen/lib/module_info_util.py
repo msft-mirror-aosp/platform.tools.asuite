@@ -37,6 +37,7 @@ from aidegen.lib.common_util import COLORED_INFO
 from aidegen.lib.common_util import time_logged
 from aidegen.lib.common_util import get_related_paths
 from aidegen.lib import errors
+from atest import constants
 
 _BLUEPRINT_JSONFILE_NAME = 'module_bp_java_deps.json'
 _KEY_CLS = 'class'
@@ -125,7 +126,7 @@ def _build_target(cmd, main_project, module_info, verbose, skip_build=False):
                 cmd, stderr=subprocess.STDOUT, env=full_env_vars, shell=True)
         else:
             subprocess.check_call(cmd, shell=True)
-        logging.info('Build successfully: %s.', cmd)
+        logging.info('Build successful: %s.', _GENERATE_JSON_COMMAND)
     except subprocess.CalledProcessError:
         if not _is_new_json_file_generated(json_path, original_json_mtime):
             if os.path.isfile(json_path):
@@ -196,7 +197,9 @@ def _get_blueprint_json_path():
     Returns:
         Blueprint json path.
     """
-    return os.path.join(constant.SOONG_OUT_DIR_PATH, _BLUEPRINT_JSONFILE_NAME)
+    return os.path.join(
+        os.environ.get(constants.ANDROID_BUILD_TOP),
+        constant.BLUEPRINT_JSONFILE_OUTDIR, _BLUEPRINT_JSONFILE_NAME)
 
 
 def _merge_module_keys(m_dict, b_dict):

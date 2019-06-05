@@ -123,15 +123,12 @@ class AidegenMainUnittests(unittest.TestCase):
         aidegen_main._generate_project_files('j', projects)
         self.assertTrue(mock_ide.called_with(projects))
 
-    @mock.patch.object(common_util, 'get_atest_module_info')
     @mock.patch.object(metrics, 'log_usage')
-    def test_show_collect_data_notice(self, mock_log, mock_get):
+    def test_show_collect_data_notice(self, mock_log):
         """Test main process always run through the target test function."""
         target = 'nothing'
         args = aidegen_main._parse_args([target, '-s', '-n'])
         with self.assertRaises(ProjectPathNotExistError):
-            err = common_util.PATH_NOT_EXISTS_ERROR.format(target)
-            mock_get.side_effect = ProjectPathNotExistError(err)
             aidegen_main.main_without_message(args)
             self.assertTrue(mock_log.called)
 
