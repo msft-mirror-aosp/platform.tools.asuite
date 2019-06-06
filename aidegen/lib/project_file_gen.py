@@ -592,7 +592,7 @@ def _generate_modules_xml(module_path, iml_path_list=None):
 def _generate_vcs_xml(module_path):
     """Generate vcs.xml file.
 
-    IntelliJ use vcs.xml to record version control software's information.
+    IntelliJ uses vcs.xml to record version control software's information.
     Since we are using a single project file, it will only contain the
     module itself. If there is no git folder inside, it would find it in
     parent's folder.
@@ -603,6 +603,12 @@ def _generate_vcs_xml(module_path):
     Return:
         String: A module's git path.
     """
+    # When importing whole Android repo, it shouldn't add vcs.xml,
+    # because IntelliJ doesn't handle repo as a version control.
+    if module_path == constant.ANDROID_ROOT_PATH:
+        # TODO(b/135103553): Do a survey about: does devs want add
+        # every git into IntelliJ when importing whole Android.
+        return None
     git_path = module_path
     while not os.path.isdir(os.path.join(git_path, _GIT_FOLDER_NAME)):
         git_path = str(pathlib.Path(git_path).parent)
