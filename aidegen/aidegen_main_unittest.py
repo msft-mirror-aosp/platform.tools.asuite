@@ -27,7 +27,6 @@ from aidegen import aidegen_main
 from aidegen.lib import metrics
 from aidegen import constant
 from aidegen.lib import common_util
-from aidegen.lib.common_util import COLORED_INFO
 from aidegen.lib.errors import IDENotExistError
 from aidegen.lib.errors import ProjectPathNotExistError
 from aidegen.lib.ide_util import IdeUtil
@@ -96,32 +95,6 @@ class AidegenMainUnittests(unittest.TestCase):
         with self.assertRaises(IDENotExistError):
             aidegen_main._get_ide_util_instance(args)
 
-    @mock.patch('builtins.print')
-    def test_check_skip_build(self, mock_print):
-        """Test _check_skip_build with different conditions."""
-        target = 'tradefed'
-        args = aidegen_main._parse_args([target, '-s'])
-        aidegen_main._check_skip_build(args)
-        self.assertFalse(mock_print.called)
-        args = aidegen_main._parse_args([target])
-        aidegen_main._check_skip_build(args)
-        msg = aidegen_main._SKIP_BUILD_INFO.format(
-            COLORED_INFO(
-                aidegen_main._SKIP_BUILD_CMD.format(' '.join(args.targets))))
-        info = '\n{} {}\n'.format(aidegen_main._INFO, msg)
-        self.assertTrue(mock_print.called_with(info))
-
-    @mock.patch.object(aidegen_main, 'generate_ide_project_files')
-    @mock.patch.object(aidegen_main, 'generate_eclipse_project_files')
-    def test_generate_project_files(self, mock_eclipse, mock_ide):
-        """Test _generate_project_files with different conditions."""
-        projects = ['module_a', 'module_v']
-        aidegen_main._generate_project_files('e', projects)
-        self.assertTrue(mock_eclipse.called_with(projects))
-        aidegen_main._generate_project_files('s', projects)
-        self.assertTrue(mock_ide.called_with(projects))
-        aidegen_main._generate_project_files('j', projects)
-        self.assertTrue(mock_ide.called_with(projects))
 
     @mock.patch.object(common_util, 'get_atest_module_info')
     @mock.patch.object(metrics, 'log_usage')
