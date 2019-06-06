@@ -56,6 +56,12 @@ _IGNORE_DIRS = [
     'libcore/ojluni/src/lambda/java'
 ]
 _DIS_ROBO_BUILD_ENV_VAR = {'DISABLE_ROBO_RUN_TESTS': 'true'}
+# When we use atest_utils.build(), it calls soong_ui.bash with whole path and
+# some arguments, it should less than 200 characters. We use 200 as command
+# buffer.
+_CMD_LENGTH_BUFFER = 200
+# For each argument, it need a space to separate following argument.
+_BLANK_SIZE = 1
 
 
 def multi_projects_locate_source(projects, verbose):
@@ -134,28 +140,75 @@ def locate_source(project, verbose, depth, ide_name, build=True):
             rebuild_targets |= module.build_targets
     if rebuild_targets:
         if build:
-            _build_dependencies(verbose, rebuild_targets)
+            _batch_build_dependencies(verbose, rebuild_targets)
             locate_source(project, verbose, depth, ide_name, build=False)
         else:
             logging.warning('Jar files or modules build failed:\n\t%s.',
                             '\n\t'.join(rebuild_targets))
 
 
-def _build_dependencies(verbose, rebuild_targets):
-    """Build the jar or srcjar files of the modules if it don't exist.
+def _batch_build_dependencies(verbose, rebuild_targets):
+    """Batch build the jar or srcjar files of the modules if they don't exist.
+
+    Command line has the max length limit, MAX_ARG_STRLEN, and
+    MAX_ARG_STRLEN = (PAGE_SIZE * 32).
+    If the build command is longer than MAX_ARG_STRLEN, this function will
+    separate the rebuild_targets into chunks with size less or equal to
+    MAX_ARG_STRLEN to make sure it can be built successfully.
 
     Args:
         verbose: A boolean, if true displays full build output.
-        rebuild_targets: A list of jar or srcjar files which do not exist.
+        rebuild_targets: A set of jar or srcjar files which do not exist.
     """
-    logging.info(('Ready to build the jar or srcjar files.'))
-    targets = ['-k']
-    targets.extend(list(rebuild_targets))
-    if not atest_utils.build(targets, verbose, _DIS_ROBO_BUILD_ENV_VAR):
+    logging.info('Ready to build the jar or srcjar files. Files count = %s',
+                 str(len(rebuild_targets)))
+    arg_max = os.sysconf("SC_PAGE_SIZE") * 32 - _CMD_LENGTH_BUFFER
+    rebuild_targets = list(rebuild_targets)
+    for start, end in iter(_separate_build_targets(
+            rebuild_targets, arg_max)):
+        _build_target(rebuild_targets[start: end], verbose)
+
+
+def _build_target(targets, verbose):
+    """Build the jar or srcjar files.
+
+    Use -k to keep going when some targets can't be built or build failed.
+    Use -j to speed up building.
+
+    Args:
+        targets: A list of jar or srcjar files which need to build.
+        verbose: A boolean, if true displays full build output.
+    """
+    build_cmd = ['-k', '-j']
+    build_cmd.extend(list(targets))
+    if not atest_utils.build(build_cmd, verbose, _DIS_ROBO_BUILD_ENV_VAR):
         message = ('Build failed!\n{}\nAIDEGen will proceed but dependency '
                    'correctness is not guaranteed if not all targets being '
                    'built successfully.'.format('\n'.join(targets)))
         print('\n{} {}\n'.format(COLORED_INFO('Warning:'), message))
+
+
+def _separate_build_targets(build_targets, max_length):
+    """Separate the build_targets by limit the command size to max command
+    length.
+
+    Args:
+        build_targets: A list to be separated.
+        max_length: The max number of each build command length.
+
+    Yields:
+        The start index and end index of build_targets.
+    """
+    arg_len = 0
+    first_item_index = 0
+    for i, item in enumerate(build_targets):
+        arg_len = arg_len + len(item) + _BLANK_SIZE
+        if arg_len > max_length:
+            yield first_item_index, i
+            first_item_index = i
+            arg_len = len(item) + _BLANK_SIZE
+    if first_item_index < len(build_targets):
+        yield first_item_index, len(build_targets)
 
 
 def _generate_moduledata(module_name, module_data, ide_name, project_relpath,
@@ -311,7 +364,7 @@ class ModuleData():
                             and self.module_data[_KEY_PATH] else '')
 
     def _init_module_depth(self, depth):
-        """Inintialize module depth's settings.
+        """Initialize module depth's settings.
 
         Set the module's depth from module info when user have -d parameter.
         Set the -d value from user input, default to 0.
