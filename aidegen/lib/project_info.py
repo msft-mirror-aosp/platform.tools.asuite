@@ -45,12 +45,14 @@ _NOT_TARGET = ('Module %s\'s class setting is %s, none of which is included in '
 _EXCLUDE_MODULES = ['fake-framework']
 
 
-class ProjectInfo():
+class ProjectInfo:
     """Project information.
 
     Class attributes:
         modules_info: A dict of all modules info by combining module-info.json
                       with module_bp_java_deps.json.
+        config: A ProjectConfig instance which contains user preference of
+                project.
 
     Attributes:
         project_absolute_path: The absolute path of the project.
@@ -73,6 +75,7 @@ class ProjectInfo():
     """
 
     modules_info = {}
+    config = None
 
     def __init__(self, module_info, target=None):
         """ProjectInfo initialize.
