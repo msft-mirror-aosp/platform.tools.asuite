@@ -312,6 +312,16 @@ class SourceLocatorUnittests(unittest.TestCase):
                                      constant.IDE_INTELLIJ, False)
         self.assertEqual(mock_project_info.source_path['jar_path'], result_jar)
 
+    def test_separate_build_target(self):
+        """Test separate_build_target."""
+        test_list = ['1', '22', '333', '4444', '55555', '1', '7777777']
+        target = []
+        sample = [['1', '22', '333'], ['4444'], ['55555', '1'], ['7777777']]
+        for start, end in iter(
+                source_locator._separate_build_targets(test_list, 9)):
+            target.append(test_list[start: end])
+        self.assertEqual(target, sample)
+
 
 if __name__ == '__main__':
     unittest.main()
