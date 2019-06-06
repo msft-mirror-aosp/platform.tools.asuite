@@ -25,8 +25,8 @@ from unittest import mock
 
 from aidegen import constant
 from aidegen import unittest_constants
-from aidegen.lib import project_file_gen
 from aidegen.lib import common_util
+from aidegen.lib import project_file_gen
 from atest import module_info
 
 
@@ -45,6 +45,8 @@ class AidegenProjectFileGenUnittest(unittest.TestCase):
     _CLASSPATH_SAMPLE = os.path.join(_TEST_DATA_PATH, 'eclipse.classpath')
     _DEPENDENCIES_IML_SAMPLE = os.path.join(_TEST_DATA_PATH, 'dependencies.iml')
     _MODULE_XML_SAMPLE = os.path.join(_TEST_DATA_PATH, 'modules.xml')
+    _MAIN_MODULE_XML_SAMPLE = os.path.join(_TEST_DATA_PATH,
+                                           'modules_only_self_module.xml')
     _VCS_XML_SAMPLE = os.path.join(_TEST_DATA_PATH, 'vcs.xml')
     _IML_PATH = os.path.join(_ANDROID_PROJECT_PATH, 'android_project.iml')
     _DEPENDENCIES_IML_PATH = os.path.join(_ANDROID_PROJECT_PATH,
@@ -118,8 +120,23 @@ class AidegenProjectFileGenUnittest(unittest.TestCase):
 
     def test_generate_iml(self):
         """Test _generate_iml."""
+        # Test for main project.
         try:
             iml_path, dependencies_iml_path = project_file_gen._generate_iml(
+                self._AOSP_FOLDER, self._ANDROID_PROJECT_PATH,
+                copy.deepcopy(self._ANDROID_SOURCE_DICT), self._JAR_DEP_LIST,
+                self._ANDROID_SOURCE_RELATIVE_PATH, is_main_module=True)
+            test_iml = common_util.read_file_content(iml_path)
+            sample_iml = common_util.read_file_content(self._IML_SAMPLE)
+        finally:
+            os.remove(iml_path)
+            if dependencies_iml_path:
+                os.remove(dependencies_iml_path)
+        self.assertEqual(test_iml, sample_iml)
+
+        # Test for sub projects.
+        try:
+            iml_path, _ = project_file_gen._generate_iml(
                 self._AOSP_FOLDER, self._ANDROID_PROJECT_PATH,
                 copy.deepcopy(self._ANDROID_SOURCE_DICT), self._JAR_DEP_LIST,
                 self._ANDROID_SOURCE_RELATIVE_PATH)
@@ -127,17 +144,28 @@ class AidegenProjectFileGenUnittest(unittest.TestCase):
             sample_iml = common_util.read_file_content(self._IML_SAMPLE)
         finally:
             os.remove(iml_path)
-            os.remove(dependencies_iml_path)
         self.assertEqual(test_iml, sample_iml)
 
     def test_generate_modules_xml(self):
         """Test _generate_modules_xml."""
+        # Test for main project.
+        try:
+            project_file_gen._generate_modules_xml(self._ANDROID_PROJECT_PATH,
+                                                   [])
+            test_module = common_util.read_file_content(self._MODULE_PATH)
+        finally:
+            shutil.rmtree(self._IDEA_PATH)
+        sample_module = common_util.read_file_content(self._MODULE_XML_SAMPLE)
+        self.assertEqual(test_module, sample_module)
+
+        # Test for sub projects which only has self module.
         try:
             project_file_gen._generate_modules_xml(self._ANDROID_PROJECT_PATH)
             test_module = common_util.read_file_content(self._MODULE_PATH)
         finally:
             shutil.rmtree(self._IDEA_PATH)
-        sample_module = common_util.read_file_content(self._MODULE_XML_SAMPLE)
+        sample_module = common_util.read_file_content(
+            self._MAIN_MODULE_XML_SAMPLE)
         self.assertEqual(test_module, sample_module)
 
     def test_generate_vcs_xml(self):
@@ -238,19 +266,55 @@ class AidegenProjectFileGenUnittest(unittest.TestCase):
         project_file_gen._generate_git_ignore(constant.AIDEGEN_ROOT_PATH)
         self.assertFalse(mock_link.called)
 
-    @mock.patch.object(project_file_gen, '_generate_intellij_project_file')
-    @mock.patch.object(project_file_gen, 'generate_eclipse_project_files')
+    def test_filter_out_source_paths(self):
+        """Test _filter_out_source_paths."""
+        test_set = {'a/java.jar', 'b/java.jar'}
+        module_relpath = 'a'
+        expected_result = {'b/java.jar'}
+        result_set = project_file_gen._filter_out_source_paths(test_set,
+                                                               module_relpath)
+        self.assertEqual(result_set, expected_result)
+
     @mock.patch('aidegen.lib.project_info.ProjectInfo')
-    def test_generate_project_files(self, project, mock_eclipse, mock_intellij):
-        """Test _generate_project_files with different conditions."""
-        project.config.ide_name = constant.IDE_ECLIPSE
-        projects = [project]
-        project_file_gen.generate_ide_project_files(projects)
-        self.assertTrue(mock_eclipse.called_with(projects))
-        project.config.ide_name = constant.IDE_ANDROID_STUDIO
-        project.project_absolute_path = 'test'
-        project_file_gen.generate_ide_project_files(projects)
-        self.assertTrue(mock_intellij.called_with(projects))
+    @mock.patch('aidegen.lib.project_info.ProjectInfo')
+    def test_merge_all_source_paths(self, mock_main_project, mock_sub_project):
+        """Test _merge_all_shared_source_paths."""
+        mock_main_project.project_relative_path = 'main'
+        mock_main_project.source_path = {
+            'source_folder_path': {'main/java.java', 'share1/java.java'},
+            'test_folder_path': {'main/test.java', 'share1/test.java'},
+            'jar_path': {'main/jar.jar', 'share1/jar.jar'},
+            'r_java_path': {'out/R.java'},
+        }
+        mock_sub_project.project_relative_path = 'sub'
+        mock_sub_project.source_path = {
+            'source_folder_path': {'sub/java.java', 'share2/java.java'},
+            'test_folder_path': {'sub/test.java', 'share2/test.java'},
+            'jar_path': {'sub/jar.jar', 'share2/jar.jar'},
+            'r_java_path': {'out/R.java'},
+        }
+        expected_result = {
+            'source_folder_path': {
+                'main/java.java',
+                'share1/java.java',
+                'share2/java.java',
+            },
+            'test_folder_path': {
+                'main/test.java',
+                'share1/test.java',
+                'share2/test.java',
+            },
+            'jar_path': {
+                'main/jar.jar',
+                'sub/jar.jar',
+                'share1/jar.jar',
+                'share2/jar.jar',
+            },
+            'r_java_path': {'out/R.java'}
+        }
+        projects = [mock_main_project, mock_sub_project]
+        project_file_gen._merge_all_shared_source_paths(projects)
+        self.assertEqual(mock_main_project.source_path, expected_result)
 
 
 if __name__ == '__main__':
