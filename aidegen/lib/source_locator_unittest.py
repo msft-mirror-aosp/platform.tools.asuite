@@ -150,10 +150,10 @@ class SourceLocatorUnittests(unittest.TestCase):
         """Test locate_sources_path handling."""
         # Test collect source path.
         module_info = dict(_MODULE_INFO)
-        result_src_list = set(['packages/apps/test/src/main/java',
-                               constant.CENTRAL_R_PATH])
+        result_src_list = set(['packages/apps/test/src/main/java'])
         result_test_list = set(['packages/apps/test/tests'])
         result_jar_list = set()
+        result_r_path = set([constant.CENTRAL_R_PATH])
         constant.ANDROID_ROOT_PATH = uc.TEST_DATA_PATH
         module_data = source_locator.ModuleData(_MODULE_NAME, module_info,
                                                 _MODULE_DEPTH)
@@ -161,6 +161,7 @@ class SourceLocatorUnittests(unittest.TestCase):
         self.assertEqual(module_data.src_dirs, result_src_list)
         self.assertEqual(module_data.test_dirs, result_test_list)
         self.assertEqual(module_data.jar_files, result_jar_list)
+        self.assertEqual(module_data.r_java_paths, result_r_path)
 
         # Test find jar files.
         jar_file = ('out/soong/.intermediates/packages/apps/test/test/'
@@ -219,32 +220,34 @@ class SourceLocatorUnittests(unittest.TestCase):
         depth_by_source = 2
         module_info = dict(_MODULE_INFO)
         module_info['depth'] = 2
-        result_src_list = set(['packages/apps/test/src/main/java',
-                               constant.CENTRAL_R_PATH])
+        result_src_list = set(['packages/apps/test/src/main/java'])
         result_test_list = set(['packages/apps/test/tests'])
         result_jar_list = set()
+        result_r_path = set([constant.CENTRAL_R_PATH])
         module_data = source_locator.ModuleData(_MODULE_NAME, module_info,
                                                 depth_by_source)
         module_data.locate_sources_path()
         self.assertEqual(module_data.src_dirs, result_src_list)
         self.assertEqual(module_data.test_dirs, result_test_list)
         self.assertEqual(module_data.jar_files, result_jar_list)
+        self.assertEqual(module_data.r_java_paths, result_r_path)
 
         # Test find source folder when module's depth smaller than the --depth
         # value from command line.
         depth_by_source = 3
         module_info = dict(_MODULE_INFO)
         module_info['depth'] = 2
-        result_src_list = set(['packages/apps/test/src/main/java',
-                               constant.CENTRAL_R_PATH])
+        result_src_list = set(['packages/apps/test/src/main/java'])
         result_test_list = set(['packages/apps/test/tests'])
         result_jar_list = set()
+        result_r_path = set([constant.CENTRAL_R_PATH])
         module_data = source_locator.ModuleData(_MODULE_NAME, module_info,
                                                 depth_by_source)
         module_data.locate_sources_path()
         self.assertEqual(module_data.src_dirs, result_src_list)
         self.assertEqual(module_data.test_dirs, result_test_list)
         self.assertEqual(module_data.jar_files, result_jar_list)
+        self.assertEqual(module_data.r_java_paths, result_r_path)
 
     @mock.patch('aidegen.lib.project_info.ProjectInfo')
     @mock.patch('atest.atest_utils.build')
@@ -267,6 +270,7 @@ class SourceLocatorUnittests(unittest.TestCase):
             'test_folder_path': set(),
             'jar_path': set(),
             'jar_module_path': dict(),
+            'r_java_path': set(),
         }
         # Show warning when the jar not exists after build the module.
         result_jar = set()
@@ -290,13 +294,15 @@ class SourceLocatorUnittests(unittest.TestCase):
             shutil.rmtree(test_root_path)
 
         # Test collects source and test folders.
-        result_source = set(['packages/apps/test/src/main/java',
-                             constant.CENTRAL_R_PATH])
+        result_source = set(['packages/apps/test/src/main/java'])
         result_test = set(['packages/apps/test/tests'])
+        result_r_path = set([constant.CENTRAL_R_PATH])
         self.assertEqual(mock_project_info.source_path['source_folder_path'],
                          result_source)
         self.assertEqual(mock_project_info.source_path['test_folder_path'],
                          result_test)
+        self.assertEqual(mock_project_info.source_path['r_java_path'],
+                         result_r_path)
 
         # Test loading jar from dependencies parameter.
         default_jar = os.path.join(_MODULE_PATH, 'test.jar')
