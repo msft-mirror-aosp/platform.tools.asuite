@@ -267,9 +267,9 @@ class ProjectInfo:
                 dep[name] = self.modules_info[name]
                 dep[name][constant.KEY_DEPTH] = depth
                 self.project_module_names.add(name)
-                if (constant.KEY_DEP in dep[name]
-                        and dep[name][constant.KEY_DEP]):
-                    children.update(dep[name][constant.KEY_DEP])
+                if (constant.KEY_DEPENDENCIES in dep[name]
+                        and dep[name][constant.KEY_DEPENDENCIES]):
+                    children.update(dep[name][constant.KEY_DEPENDENCIES])
         if children:
             dep.update(self.get_dep_modules(children, depth + 1))
         return dep
