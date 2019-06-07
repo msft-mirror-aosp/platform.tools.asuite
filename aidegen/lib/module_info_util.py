@@ -39,12 +39,14 @@ from aidegen.lib.common_util import get_related_paths
 from aidegen.lib import errors
 
 _BLUEPRINT_JSONFILE_NAME = 'module_bp_java_deps.json'
-_KEY_CLS = 'class'
-_KEY_PATH = 'path'
-_KEY_INS = 'installed'
-_KEY_DEP = 'dependencies'
-_KEY_SRCS = 'srcs'
-_MERGE_NEEDED_ITEMS = [_KEY_CLS, _KEY_PATH, _KEY_INS, _KEY_DEP, _KEY_SRCS]
+_MERGE_NEEDED_ITEMS = [
+    constant.KEY_CLASS,
+    constant.KEY_PATH,
+    constant.KEY_INSTALLED,
+    constant.KEY_DEPENDENCIES,
+    constant.KEY_SRCS,
+    constant.KEY_SRCJARS
+]
 _INTELLIJ_PROJECT_FILE_EXT = '*.iml'
 _LAUNCH_PROJECT_QUERY = (
     'There exists an IntelliJ project file: %s. Do you want '
