@@ -522,7 +522,7 @@ def _get_dependencies_name(module_name):
     Returns:
         String: The joined dependencies iml file name, e.g. "dependencies-core"
     """
-    return '-'.join([constant.KEY_DEP, module_name])
+    return '-'.join([constant.KEY_DEPENDENCIES, module_name])
 
 
 def _generate_modules_xml(module_path, iml_path_list=None):
