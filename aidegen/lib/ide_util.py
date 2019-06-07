@@ -42,9 +42,6 @@ _NOHUP = 'nohup'
 _IGNORE_STD_OUT_ERR_CMD = '2>/dev/null >&2'
 _IDEA_FOLDER = '.idea'
 _IML_EXTENSION = '.iml'
-_IDE_INTELLIJ = 'IntelliJ'
-_IDE_ANDROID_STUDIO = 'Android Studio'
-_IDE_ECLIPSE = 'Eclipse'
 _JDK_PATH_TOKEN = '@JDKpath'
 _TARGET_JDK_NAME_TAG = '<name value="JDK18" />'
 _COMPONENT_END_TAG = '  </component>'
@@ -95,6 +92,10 @@ class IdeUtil():
     def get_default_path(self):
         """Gets IDE default installed path."""
         return self._ide.default_installed_path
+
+    def ide_name(self):
+        """Gets IDE name."""
+        return self._ide.ide_name
 
 
 class IdeBase():
@@ -147,6 +148,11 @@ class IdeBase():
     def default_installed_path(self):
         """Gets IDE default installed path."""
         return ' '.join(self._bin_folders)
+
+    @property
+    def ide_name(self):
+        """Gets IDE name."""
+        return self._ide_name
 
     def _get_ide_cmd(self, project_file):
         """Compose launch IDE command to run a new process and redirect output.
@@ -206,7 +212,7 @@ class IdeIntelliJ(IdeBase):
 
     def __init__(self, installed_path=None, config_reset=False):
         super().__init__(installed_path, config_reset)
-        self._ide_name = _IDE_INTELLIJ
+        self._ide_name = constant.IDE_INTELLIJ
         self._ls_ce_path = ''
         self._ls_ue_path = ''
         self._init_installed_path(installed_path)
@@ -359,8 +365,8 @@ class IdeLinuxIntelliJ(IdeIntelliJ):
     # TODO(b/127899277): Preserve a config for jdk version option case.
     _IDE_JDK_TABLE_PATH = 'config/options/jdk.table.xml'
     _JDK_PART_TEMPLATE_PATH = os.path.join(
-        constant.ROOT_DIR, 'templates/jdkTable/part.jdk.table.xml')
-    _JDK_FULL_TEMPLATE_PATH = os.path.join(constant.ROOT_DIR,
+        constant.AIDEGEN_ROOT_PATH, 'templates/jdkTable/part.jdk.table.xml')
+    _JDK_FULL_TEMPLATE_PATH = os.path.join(constant.AIDEGEN_ROOT_PATH,
                                            'templates/jdkTable/jdk.table.xml')
 
     def __init__(self, installed_path=None, config_reset=False):
@@ -431,9 +437,9 @@ class IdeMacIntelliJ(IdeIntelliJ):
                              'prebuilts/jdk/jdk8/darwin-x86')
     _IDE_JDK_TABLE_PATH = 'options/jdk.table.xml'
     _JDK_PART_TEMPLATE_PATH = os.path.join(
-        constant.ROOT_DIR, 'templates/jdkTable/part.mac.jdk.table.xml')
+        constant.AIDEGEN_ROOT_PATH, 'templates/jdkTable/part.mac.jdk.table.xml')
     _JDK_FULL_TEMPLATE_PATH = os.path.join(
-        constant.ROOT_DIR, 'templates/jdkTable/mac.jdk.table.xml')
+        constant.AIDEGEN_ROOT_PATH, 'templates/jdkTable/mac.jdk.table.xml')
 
     def __init__(self, installed_path=None, config_reset=False):
         super().__init__(installed_path, config_reset)
@@ -489,7 +495,7 @@ class IdeStudio(IdeBase):
 
     def __init__(self, installed_path=None, config_reset=False):
         super().__init__(installed_path, config_reset)
-        self._ide_name = _IDE_ANDROID_STUDIO
+        self._ide_name = constant.IDE_ANDROID_STUDIO
 
 
 class IdeLinuxStudio(IdeStudio):
@@ -534,9 +540,8 @@ class IdeEclipse(IdeBase):
 
     def __init__(self, installed_path=None, config_reset=False):
         super().__init__(installed_path, config_reset)
-        self._ide_name = _IDE_ECLIPSE
+        self._ide_name = constant.IDE_ECLIPSE
         self._bin_file_name = 'eclipse*'
-        self._init_installed_path(installed_path)
 
     def _get_script_from_system(self):
         """Get correct IDE installed path from internal path.

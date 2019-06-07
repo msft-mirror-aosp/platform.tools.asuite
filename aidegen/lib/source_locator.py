@@ -62,7 +62,8 @@ _SKIP_BUILD_WARN = (
     'cause the red lines to appear in IDE tool.')
 
 
-def multi_projects_locate_source(projects, verbose, depth, skip_build):
+def multi_projects_locate_source(projects, verbose, depth, ide_name,
+                                 skip_build=True):
     """Locate the paths of dependent source folders and jar files with projects.
 
     Args:
@@ -72,16 +73,17 @@ def multi_projects_locate_source(projects, verbose, depth, skip_build):
         verbose: A boolean, if true displays full build output.
         depth: An integer shows the depth of module dependency referenced by
                source. Zero means the max module depth.
-        skip_build: A boolean, if true skip building jar and AIDL files,
-                    otherwise build them.
+        ide_name: A string stands for the IDE name, default is IntelliJ.
+        skip_build: A boolean default to true, if true skip building jar and
+                    srcjar files, otherwise build them.
     """
     if skip_build:
         print('\n{} {}\n'.format(COLORED_INFO('Warning:'), _SKIP_BUILD_WARN))
     for project in projects:
-        locate_source(project, verbose, depth, build=not skip_build)
+        locate_source(project, verbose, depth, ide_name, build=not skip_build)
 
 
-def locate_source(project, verbose, depth, build=True):
+def locate_source(project, verbose, depth, ide_name, build=True):
     """Locate the paths of dependent source folders and jar files.
 
     Try to reference source folder path as dependent module unless the
@@ -111,7 +113,9 @@ def locate_source(project, verbose, depth, build=True):
         verbose: A boolean, if true displays full build output.
         depth: An integer shows the depth of module dependency referenced by
                source. Zero means the max module depth.
-        build: A boolean, if true build the modules whose jar doesn't exist.
+        ide_name: A string stands for the IDE name, default is IntelliJ.
+        build: A boolean default to true, if true skip building jar and srcjar
+               files, otherwise build them.
 
     Example usage:
         project.source_path = locate_source(project, verbose, False)
@@ -126,39 +130,34 @@ def locate_source(project, verbose, depth, build=True):
     if not hasattr(project, 'dep_modules') or not project.dep_modules:
         raise errors.EmptyModuleDependencyError(
             'Dependent modules dictionary is empty.')
+    dependencies = project.source_path
     rebuild_targets = set()
     for module_name, module_data in project.dep_modules.items():
-        module = ModuleData(module_name, module_data, depth)
+        module = _generate_moduledata(module_name, module_data, ide_name,
+                                      project.project_relative_path, depth)
         module.locate_sources_path()
-        project.source_path['source_folder_path'].update(module.src_dirs)
-        project.source_path['test_folder_path'].update(module.test_dirs)
-        project.source_path['jar_path'].update(module.jar_files)
-        # Collecting the jar files of default core modules as dependencies.
-        if constant.KEY_DEP in module_data:
-            project.source_path['jar_path'].update([
-                x for x in module_data[constant.KEY_DEP]
-                if common_util.is_target(x, _TARGET_LIBS)
-            ])
+        dependencies['source_folder_path'].update(module.src_dirs)
+        dependencies['test_folder_path'].update(module.test_dirs)
+        _append_jars_as_dependencies(dependencies, module)
         if module.build_targets:
             rebuild_targets |= module.build_targets
     if rebuild_targets:
         if build:
             _build_dependencies(verbose, rebuild_targets)
-            locate_source(project, verbose, depth, build=False)
+            locate_source(project, verbose, depth, ide_name, build=False)
         else:
             logging.warning('Jar files or modules build failed:\n\t%s.',
                             '\n\t'.join(rebuild_targets))
 
 
 def _build_dependencies(verbose, rebuild_targets):
-    """Build given modules when the jars of the modules don't exist.
+    """Build the jar or srcjar files of the modules if it don't exist.
 
     Args:
         verbose: A boolean, if true displays full build output.
         rebuild_targets: A list of jar or srcjar files which do not exist.
     """
-    logging.info(('Ready to build the modules for generating R.java or java '
-                  'file for AIDL/logtags files.'))
+    logging.info(('Ready to build the jar or srcjar files.'))
     targets = ['-k']
     targets.extend(list(rebuild_targets))
     if not atest_utils.build(targets, verbose, _DIS_ROBO_BUILD_ENV_VAR):
@@ -168,8 +167,66 @@ def _build_dependencies(verbose, rebuild_targets):
         print('\n{} {}\n'.format(COLORED_INFO('Warning:'), message))
 
 
+def _generate_moduledata(module_name, module_data, ide_name, project_relpath,
+                         depth):
+    """Generate a module class to collect dependencies in IntelliJ or Eclipse.
+
+    Args:
+        module_name: Name of the module.
+        module_data: A dictionary holding a module information.
+        ide_name: A string stands for the IDE name.
+        project_relpath: A string stands for the project's relative path.
+        depth: An integer shows the depth of module dependency referenced by
+               source. Zero means the max module depth.
+
+    Returns:
+        A ModuleData class.
+    """
+    if ide_name == constant.IDE_ECLIPSE:
+        return EclipseModuleData(module_name, module_data, project_relpath)
+    return ModuleData(module_name, module_data, depth)
+
+
+def _append_jars_as_dependencies(dependent_data, module):
+    """Add given module's jar files into dependent_data as dependencies.
+
+    Args:
+        dependent_data: A dictionary contains the dependent source paths and
+                        jar files.
+        module: A ModuleData instance.
+    """
+    if module.jar_files:
+        dependent_data['jar_path'].update(module.jar_files)
+        for jar in list(module.jar_files):
+            dependent_data['jar_module_path'].update({jar: module.module_path})
+    # Collecting the jar files of default core modules as dependencies.
+    if constant.KEY_DEP in module.module_data:
+        dependent_data['jar_path'].update([
+            x for x in module.module_data[constant.KEY_DEP]
+            if common_util.is_target(x, _TARGET_LIBS)
+        ])
+
+
 class ModuleData():
-    """ModuleData class."""
+    """ModuleData class.
+
+    Attributes:
+        All following relative paths stand for the path relative to the android
+        repo root.
+
+        module_path: A string of the relative path to the module.
+        src_dirs: A set to keep the unique source folder relative paths.
+        test_dirs: A set to keep the unique test folder relative paths.
+        jar_files: A set to keep the unique jar file relative paths.
+        referenced_by_jar: A boolean to check if the module is referenced by a
+                           jar file.
+        build_targets: A set to keep the unique build target jar or srcjar file
+                       relative paths which are ready to be rebuld.
+        missing_jars: A set to keep the jar file relative paths if it doesn't
+                      exist.
+        specific_soong_path: A string of the relative path to the module's
+                             intermediates folder under out/.
+    """
 
     def __init__(self, module_name, module_data, depth):
         """Initialize ModuleData.
@@ -437,13 +494,17 @@ class ModuleData():
         """
         if _KEY_JARS in self.module_data and self.module_data[_KEY_JARS]:
             for jar_name in self.module_data[_KEY_JARS]:
-                jar_path = os.path.join(self.module_path, jar_name)
-                jar_abs = common_util.get_abs_path(jar_path)
-                if not os.path.isfile(jar_abs) and 'prebuilt.jar' in jar_name:
-                    rel_path = self._get_jar_path_from_prebuilts(jar_name)
-                    if rel_path:
-                        jar_path = rel_path
-                self._append_jar_file(jar_path)
+                if self._check_key(_KEY_INSTALLED):
+                    self._append_jar_from_installed()
+                else:
+                    jar_path = os.path.join(self.module_path, jar_name)
+                    jar_abs = common_util.get_abs_path(jar_path)
+                    if not os.path.isfile(
+                            jar_abs) and jar_name.endswith('prebuilt.jar'):
+                        rel_path = self._get_jar_path_from_prebuilts(jar_name)
+                        if rel_path:
+                            jar_path = rel_path
+                    self._append_jar_file(jar_path)
 
     @staticmethod
     def _get_jar_path_from_prebuilts(jar_name):
@@ -500,3 +561,66 @@ class ModuleData():
             self._collect_r_srcs_paths()
         if self.referenced_by_jar and self.missing_jars:
             self.build_targets |= self.missing_jars
+
+
+class EclipseModuleData(ModuleData):
+    """Deal with modules data for Eclipse
+
+    Only project target modules use source folder type and the other ones use
+    jar as their source. We'll combine both to establish the whole project's
+    dependencies. If the source folder used to build dependency jar file exists
+    in Android, we should provide the jar file path as <linkedResource> item in
+    source data.
+    """
+
+    def __init__(self, module_name, module_data, project_relpath):
+        """Initialize EclipseModuleData.
+
+        Only project target modules apply source folder type, so set the depth
+        of module referenced by source to 0.
+
+        Args:
+            module_name: String type, name of the module.
+            module_data: A dictionary contains a module information.
+            project_relpath: A string stands for the project's relative path.
+        """
+        super().__init__(module_name, module_data, depth=0)
+        self.is_project = common_util.is_project_path_relative_module(
+            module_data, project_relpath)
+
+    def locate_sources_path(self):
+        """Locate source folders' paths or jar files.
+
+        Only collect source folders for the project modules and collect jar
+        files for the other dependent modules.
+        """
+        if self.is_project:
+            self._locate_project_source_path()
+        else:
+            self._locate_jar_path()
+        if self.referenced_by_jar and self.missing_jars:
+            self.build_targets |= self.missing_jars
+
+    def _locate_project_source_path(self):
+        """Locate the source folder paths of the project module.
+
+        A project module is the target modules or paths that users key in
+        aidegen command. Collecting the source folders is necessary for
+        developers to edit code. And also collect the central R folder for the
+        dependency of resources.
+        """
+        self._collect_srcs_paths()
+        self._collect_r_srcs_paths()
+
+    def _locate_jar_path(self):
+        """Locate the jar path of the module.
+
+        Use jar files for dependency modules for Eclipse. Collect the jar file
+        path with different cases.
+        """
+        if self._check_jarjar_rules_exist():
+            self._append_jar_from_installed(self.specific_soong_path)
+        elif self._check_jars_exist():
+            self._set_jars_jarfile()
+        else:
+            self._append_jar_from_installed()
