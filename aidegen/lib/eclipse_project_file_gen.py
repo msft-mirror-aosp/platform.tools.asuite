@@ -101,7 +101,7 @@ class EclipseConf():
 
         Returns: A string of link resource.
         """
-        alias_name = os.path.join(constant.KEY_DEP, relpath)
+        alias_name = os.path.join(constant.KEY_DEPENDENCIES, relpath)
         abs_path = os.path.join(constant.ANDROID_ROOT_PATH, relpath)
         return cls._PROJECT_LINK.format(alias_name, abs_path)
 
