@@ -35,6 +35,8 @@ class SDKConfigUnittests(unittest.TestCase):
                                'jdk_table_xml', 'jdk18.xml')
     _JDK_SAMPLE2 = os.path.join(unittest_constants.TEST_DATA_PATH,
                                 'jdk_table_xml', 'jdk_other.xml')
+    _JDK_SAMPLE3 = os.path.join(unittest_constants.TEST_DATA_PATH,
+                                'jdk_table_xml', 'android_sdk.xml')
     _JDK_TEMPLATE = os.path.join(constant.AIDEGEN_ROOT_PATH,
                                  'templates', 'jdkTable', 'part.jdk.table.xml')
     _JDK_PATH = os.path.join('/path', 'to', 'android', 'root',
@@ -59,7 +61,7 @@ class SDKConfigUnittests(unittest.TestCase):
                 expected_content = sample.read()
             jdk = sdk_config.SDKConfig(config_file, self._JDK_TEMPLATE,
                                        self._JDK_PATH)
-            jdk.generate_jdk_config()
+            jdk.generate_jdk_config_string()
             generated_content = jdk.config_string
             self.assertEqual(generated_content, expected_content)
         finally:
@@ -82,7 +84,7 @@ class SDKConfigUnittests(unittest.TestCase):
                 cf.write(expected_content)
             jdk = sdk_config.SDKConfig(config_file, self._JDK_TEMPLATE,
                                        self._JDK_PATH)
-            jdk.generate_jdk_config()
+            jdk.generate_jdk_config_string()
             generated_content = jdk.config_string
             self.assertEqual(generated_content, expected_content)
         finally:
@@ -101,9 +103,41 @@ class SDKConfigUnittests(unittest.TestCase):
                 cf.write(self._JDK_OTHER_CONTENT)
             jdk = sdk_config.SDKConfig(config_file, self._JDK_TEMPLATE,
                                        self._JDK_PATH)
-            jdk.generate_jdk_config()
+            jdk.generate_jdk_config_string()
             generated_content = jdk.config_string
             self.assertEqual(generated_content, expected_content)
+        finally:
+            shutil.rmtree(tmp_folder)
+
+    def test_android_sdk_exist(self):
+        """Test to check the Android SDK configuration does exist."""
+        expected_content = ''
+        tmp_folder = tempfile.mkdtemp()
+        config_file = os.path.join(tmp_folder, self._JDK_FILE_NAME)
+        try:
+            with open(self._JDK_SAMPLE3) as sample:
+                expected_content = sample.read()
+            with open(config_file, 'w') as cf:
+                cf.write(expected_content)
+            jdk = sdk_config.SDKConfig(config_file, self._JDK_TEMPLATE,
+                                       self._JDK_PATH)
+            self.assertEqual(jdk._android_sdk_exists(), True)
+        finally:
+            shutil.rmtree(tmp_folder)
+
+    def test_android_sdk_not_exist(self):
+        """Test to check the Android SDK configuration doesn't exist."""
+        expected_content = ''
+        tmp_folder = tempfile.mkdtemp()
+        config_file = os.path.join(tmp_folder, self._JDK_FILE_NAME)
+        try:
+            with open(self._JDK_SAMPLE2) as sample:
+                expected_content = sample.read()
+            with open(config_file, 'w') as cf:
+                cf.write(expected_content)
+            jdk = sdk_config.SDKConfig(config_file, self._JDK_TEMPLATE,
+                                       self._JDK_PATH)
+            self.assertEqual(jdk._android_sdk_exists(), False)
         finally:
             shutil.rmtree(tmp_folder)
 
