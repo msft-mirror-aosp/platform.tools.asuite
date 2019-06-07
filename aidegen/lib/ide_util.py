@@ -231,7 +231,7 @@ class IdeIntelliJ(IdeBase):
             jdk_file = os.path.join(_config_path, self._IDE_JDK_TABLE_PATH)
             jdk_table = sdk_config.SDKConfig(
                 jdk_file, self._JDK_PART_TEMPLATE_PATH, self._JDK_PATH)
-            jdk_table.set_jdk_config()
+            jdk_table.config_jdk_file()
 
     def _get_config_root_paths(self):
         """Get the config root paths from derived class.
