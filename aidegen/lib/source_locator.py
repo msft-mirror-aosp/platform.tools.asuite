@@ -35,21 +35,22 @@ from atest import constants
 _PACKAGE_RE = re.compile(r'\s*package\s+(?P<package>[^(;|\s)]+)\s*', re.I)
 
 _ANDROID_SUPPORT_PATH_KEYWORD = 'prebuilts/sdk/current/'
-_JAR = '.jar'
-_TARGET_LIBS = [_JAR]
+# File extensions
+_JAR_EXT = '.jar'
+_JAVA_EXT = '.java'
+_KOTLIN_EXT = '.kt'
+_SRCJAR_EXT = '.srcjar'
+
+_TARGET_LIBS = [_JAR_EXT]
+_TARGET_FILES = [_JAVA_EXT, _KOTLIN_EXT]
 _JARJAR_RULES_FILE = 'jarjar-rules.txt'
-_JAVA = '.java'
-_KOTLIN = '.kt'
-_TARGET_FILES = [_JAVA, _KOTLIN]
-_KEY_INSTALLED = 'installed'
 _KEY_JARJAR_RULES = 'jarjar_rules'
 _KEY_JARS = 'jars'
-_KEY_PATH = 'path'
-_KEY_SRCS = 'srcs'
 _KEY_TESTS = 'tests'
-_SRCJAR = '.srcjar'
-_AAPT2_DIR = 'out/target/common/obj/APPS/%s_intermediates/aapt2'
-_AAPT2_SRCJAR = 'out/target/common/obj/APPS/%s_intermediates/aapt2.srcjar'
+_NAME_AAPT2 = 'aapt2'
+_TARGET_R_JAR = 'R.jar'
+_TARGET_AAPT2_SRCJAR = _NAME_AAPT2 + _SRCJAR_EXT
+_TARGET_BUILD_FILES = [_TARGET_AAPT2_SRCJAR, _TARGET_R_JAR]
 _IGNORE_DIRS = [
     # The java files under this directory have to be ignored because it will
     # cause duplicated classes by libcore/ojluni/src/main/java.
@@ -143,7 +144,7 @@ def locate_source(project, verbose, depth, ide_name, build=True):
             _batch_build_dependencies(verbose, rebuild_targets)
             locate_source(project, verbose, depth, ide_name, build=False)
         else:
-            logging.warning('Jar files or modules build failed:\n\t%s.',
+            logging.warning('Jar or srcjar files build failed:\n\t%s.',
                             '\n\t'.join(rebuild_targets))
 
 
@@ -244,9 +245,9 @@ def _append_jars_as_dependencies(dependent_data, module):
         for jar in list(module.jar_files):
             dependent_data['jar_module_path'].update({jar: module.module_path})
     # Collecting the jar files of default core modules as dependencies.
-    if constant.KEY_DEP in module.module_data:
+    if constant.KEY_DEPENDENCIES in module.module_data:
         dependent_data['jar_path'].update([
-            x for x in module.module_data[constant.KEY_DEP]
+            x for x in module.module_data[constant.KEY_DEPENDENCIES]
             if common_util.is_target(x, _TARGET_LIBS)
         ])
 
@@ -330,38 +331,73 @@ class ModuleData():
         """
         return self.module_depth == 0
 
-    def _is_module_in_apps(self):
-        """Check if the current module is under packages/apps."""
-        _apps_path = os.path.join('packages', 'apps')
-        return self.module_path.startswith(_apps_path)
-
     def _collect_r_srcs_paths(self):
         """Collect the source folder of R.java.
 
-        For modules under packages/apps, check if exists an intermediates
-        directory which contains R.java. If it does not exist, build the
-        aapt2.srcjar of the module to generate. Build system will finally copy
-        the R.java from a intermediates directory to the central R directory
+        Check if the path of aapt2.srcjar or R.jar exists, which is the value of
+        key "srcjars" in module_data. If the path of both 2 cases doesn't exist,
+        build it onto an intermediates directory. Build system will finally copy
+        the R.java from the intermediates directory to the central R directory
         after building successfully. So set the central R directory
         out/target/common/R as a default source folder in IntelliJ.
+
+        Case of aapt2.srcjar:
+            srcjar: out/target/common/obj/APPS/Settings_intermediates/
+                    aapt2.srcjar
+            After building the aapt2.srcjar successfully, the folder out/target/
+            common/obj/APPS/Settings_intermediates/aapt2 will be generated and
+            contain the R.java file of the module.
+
+        Case of R.jar:
+            srcjar: out/soong/.intermediates/packages/apps/Car/LensPicker/
+                    CarLensPickerApp/android_common/gen/R.jar
+            After building the R.jar successfully, the folder out/soong/
+            .intermediates/packages/apps/Car/LensPicker/CarLensPickerApp/
+            android_common/gen/aapt2/R will be generated and contain the R.java
+            file of the module.
+
+        Case of central R folder: out/target/common/R
+            Build system will copy the R.java from the intermediates directory
+            to the central R directory during the build.
         """
         if (self._is_app_module() and self._is_target_module() and
-                self._is_module_in_apps()):
-            # The directory contains R.java for apps in packages/apps.
-            r_src_dir = _AAPT2_DIR % self.module_name
-            if not os.path.exists(common_util.get_abs_path(r_src_dir)):
-                self.build_targets.add(_AAPT2_SRCJAR % self.module_name)
-            # In case the central R folder been deleted, uses the intermediate
-            # folder as the dependency to R.java.
-            self.r_java_paths.add(r_src_dir)
+                self._check_key(constant.KEY_SRCJARS)):
+            # Add the aapt2.srcjar or R.jar into build target when the source
+            # folder of R.java doesn't exist.
+            for srcjar in self.module_data[constant.KEY_SRCJARS]:
+                r_dir = self._get_r_dir(srcjar)
+                if r_dir:
+                    if not os.path.exists(common_util.get_abs_path(r_dir)):
+                        self.build_targets.add(srcjar)
+                    # In case the central R folder been deleted, uses the
+                    # intermediate folder as the dependency to R.java.
+                    self.r_java_paths.add(r_dir)
         # Add the central R as a default source folder.
         self.r_java_paths.add(constant.CENTRAL_R_PATH)
 
+    @staticmethod
+    def _get_r_dir(srcjar):
+        """Get the source folder of R.java.
+
+        Args:
+            srcjar: A file path string, the build target of the module to
+                    generate R.java.
+
+        Returns:
+            A relative source folder path string, and return None if the target
+            file name is not aapt2.srcjar or R.jar.
+        """
+        target_folder, target_file = os.path.split(srcjar)
+        if target_file == _TARGET_AAPT2_SRCJAR:
+            return os.path.join(target_folder, _NAME_AAPT2)
+        elif target_file == _TARGET_R_JAR:
+            return os.path.join(target_folder, _NAME_AAPT2, 'R')
+        return None
+
     def _init_module_path(self):
         """Inintialize self.module_path."""
-        self.module_path = (self.module_data[_KEY_PATH][0]
-                            if _KEY_PATH in self.module_data
-                            and self.module_data[_KEY_PATH] else '')
+        self.module_path = (self.module_data[constant.KEY_PATH][0]
+                            if self._check_key(constant.KEY_PATH) else '')
 
     def _init_module_depth(self, depth):
         """Initialize module depth's settings.
@@ -391,12 +427,12 @@ class ModuleData():
 
     def _collect_srcs_paths(self):
         """Collect source folder paths in src_dirs from module_data['srcs']."""
-        if self._check_key(_KEY_SRCS):
+        if self._check_key(constant.KEY_SRCS):
             scanned_dirs = set()
-            for src_item in self.module_data[_KEY_SRCS]:
+            for src_item in self.module_data[constant.KEY_SRCS]:
                 src_dir = None
                 src_item = os.path.relpath(src_item)
-                if src_item.endswith(_SRCJAR):
+                if src_item.endswith(_SRCJAR_EXT):
                     self._append_jar_from_installed(self.specific_soong_path)
                 elif common_util.is_target(src_item, _TARGET_FILES):
                     # Only scan one java file in each source directories.
@@ -510,9 +546,8 @@ class ModuleData():
         Args:
             specific_dir: A string of path.
         """
-        if (_KEY_INSTALLED in self.module_data
-                and self.module_data[_KEY_INSTALLED]):
-            for jar in self.module_data[_KEY_INSTALLED]:
+        if self._check_key(constant.KEY_INSTALLED):
+            for jar in self.module_data[constant.KEY_INSTALLED]:
                 if specific_dir and not jar.startswith(specific_dir):
                     continue
                 if self._append_jar_file(jar):
@@ -537,9 +572,9 @@ class ModuleData():
         },
         Path to the jar file is prebuilts/misc/common/asm/asm-6.0.jar.
         """
-        if _KEY_JARS in self.module_data and self.module_data[_KEY_JARS]:
+        if self._check_key(_KEY_JARS):
             for jar_name in self.module_data[_KEY_JARS]:
-                if self._check_key(_KEY_INSTALLED):
+                if self._check_key(constant.KEY_INSTALLED):
                     self._append_jar_from_installed()
                 else:
                     jar_path = os.path.join(self.module_path, jar_name)

@@ -41,7 +41,7 @@ class EclipseConfUnittests(unittest.TestCase):
     def test_gen_link(self):
         """Test get_link return a correct link resource config."""
         constant.ANDROID_ROOT_PATH = self._ROOT_PATH
-        name = os.path.join(constant.KEY_DEP, self._PROJECT_RELPATH)
+        name = os.path.join(constant.KEY_DEPENDENCIES, self._PROJECT_RELPATH)
         expected_link = self._LINK_TEMPLATE % (name, self._PROJECT_ABSPATH)
         generated_link = EclipseConf._gen_link(self._PROJECT_RELPATH)
         self.assertEqual(generated_link, expected_link)

@@ -38,8 +38,12 @@ RELATIVE_HOST_OUT = os.path.relpath(ANDROID_HOST_OUT, ANDROID_ROOT_PATH)
 
 # Constants for module's info.
 KEY_PATH = 'path'
-KEY_DEP = 'dependencies'
+KEY_DEPENDENCIES = 'dependencies'
 KEY_DEPTH = 'depth'
+KEY_CLASS = 'class'
+KEY_INSTALLED = 'installed'
+KEY_SRCS = 'srcs'
+KEY_SRCJARS = 'srcjars'
 
 # Constants for IDE util.
 IDE_ECLIPSE = 'Eclipse'
