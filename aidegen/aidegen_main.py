@@ -59,9 +59,9 @@ from aidegen.lib.metrics import log_usage
 from aidegen.lib.metrics import starts_asuite_metrics
 from aidegen.lib.metrics import ends_asuite_metrics
 from aidegen.lib.module_info_util import generate_module_info_json
-from aidegen.lib.project_file_gen import generate_eclipse_project_files
 from aidegen.lib.project_file_gen import generate_ide_project_files
 from aidegen.lib.project_info import ProjectInfo
+from aidegen.lib import project_config
 from aidegen.lib.source_locator import multi_projects_locate_source
 
 AIDEGEN_REPORT_LINK = ('To report the AIDEGen tool problem, please use this '
@@ -81,15 +81,11 @@ _IDE_CACHE_REMINDER_MSG = (
     'analysis, please consider to clear IDE caches if necessary. To do that, in'
     ' IntelliJ IDEA, go to [File > Invalidate Caches / Restart...].')
 
-_SKIP_BUILD_INFO = ('If you are sure the related modules and dependencies have '
-                    'been already built, please try to use command {} to skip '
-                    'the building process.')
 _MAX_TIME = 1
 _SKIP_BUILD_INFO_FUTURE = ''.join([
     'AIDEGen build time exceeds {} minute(s).\n'.format(_MAX_TIME),
-    _SKIP_BUILD_INFO.rstrip('.'), ' in the future.'
+    project_config.SKIP_BUILD_INFO.rstrip('.'), ' in the future.'
 ])
-_SKIP_BUILD_CMD = 'aidegen {} -s'
 _INFO = COLORED_INFO('INFO:')
 _SKIP_MSG = _SKIP_BUILD_INFO_FUTURE.format(
     COLORED_INFO('aidegen [ module(s) ] -s'))
@@ -155,7 +151,7 @@ def _parse_args(args):
         '--skip-build',
         dest='skip_build',
         action='store_true',
-        help=('Skip building jar or modules that create java files in build '
+        help=('Skip building jars or modules that create java files in build '
               'time, e.g. R/AIDL/Logtags.'))
     parser.add_argument(
         '-a',
@@ -198,31 +194,6 @@ def _get_ide_util_instance(args):
         logging.error(err)
         raise IDENotExistError(err)
     return ide_util_obj
-
-
-def _check_skip_build(args):
-    """Check if users skip building target, display the warning message.
-
-    Args:
-        args: A list of arguments.
-    """
-    if not args.skip_build:
-        msg = _SKIP_BUILD_INFO.format(
-            COLORED_INFO(_SKIP_BUILD_CMD.format(' '.join(args.targets))))
-        print('\n{} {}\n'.format(_INFO, msg))
-
-
-def _generate_project_files(ide, projects):
-    """Generate project files by IDE type.
-
-    Args:
-        ide: A character to represent IDE type.
-        projects: A list of ProjectInfo instances.
-    """
-    if ide.lower() == 'e':
-        generate_eclipse_project_files(projects)
-    else:
-        generate_ide_project_files(projects)
 
 
 def _compile_targets_for_whole_android_tree(atest_module_info, targets, cwd):
@@ -364,6 +335,8 @@ def main(argv):
             ends_asuite_metrics(exit_code, traceback_str, error_message)
         else:
             ends_asuite_metrics(exit_code)
+        print('\n{0} {1}\n\n{0} {2}\n'.format(_INFO, AIDEGEN_REPORT_LINK,
+                                              _IDE_CACHE_REMINDER_MSG))
 
 
 def aidegen_main(args):
@@ -377,24 +350,18 @@ def aidegen_main(args):
     log_usage()
     # Pre-check for IDE relevant case, then handle dependency graph job.
     ide_util_obj = _get_ide_util_instance(args)
-    _check_skip_build(args)
+    ProjectInfo.config = project_config.ProjectConfig(args)
     atest_module_info = common_util.get_atest_module_info(args.targets)
     targets = _check_whole_android_tree(atest_module_info, args.targets,
                                         args.android_tree)
     ProjectInfo.modules_info = generate_module_info_json(
         atest_module_info, targets, args.verbose, args.skip_build)
     projects = ProjectInfo.generate_projects(atest_module_info, targets)
-    multi_projects_locate_source(projects, args.verbose, args.depth,
-                                 constant.IDE_NAME_DICT[args.ide[0]],
-                                 args.skip_build)
-    _generate_project_files(args.ide[0], projects)
+    multi_projects_locate_source(projects, args.verbose)
+    generate_ide_project_files(projects)
     if ide_util_obj:
         _launch_ide(ide_util_obj, projects[0].project_absolute_path)
 
 
 if __name__ == '__main__':
-    try:
-        main(sys.argv[1:])
-    finally:
-        print('\n{0} {1}\n\n{0} {2}\n'.format(_INFO, AIDEGEN_REPORT_LINK,
-                                              _IDE_CACHE_REMINDER_MSG))
+    main(sys.argv[1:])
