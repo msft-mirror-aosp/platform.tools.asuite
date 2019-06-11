@@ -461,10 +461,6 @@ class ModuleData():
             src_dir: the directory to be added.
         """
         if not any(path in src_dir for path in _IGNORE_DIRS):
-            # Build the module if the source path not exists. The java is
-            # normally generated for AIDL or logtags file.
-            if not os.path.exists(common_util.get_abs_path(src_dir)):
-                self.build_targets.add(self.module_name)
             if self._is_test_module(src_dir):
                 self.test_dirs.add(src_dir)
             else:
@@ -482,26 +478,12 @@ class ModuleData():
         """
         return _KEY_TESTS in src_dir.split(os.sep)
 
-    # pylint: disable=inconsistent-return-statements
-    @staticmethod
-    def _get_source_folder(java_file):
+    def _get_source_folder(self, java_file):
         """Parsing a java to get the package name to filter out source path.
 
-        There are 3 steps to get the source path from a java.
-        1. Parsing a java to get package name.
-           For example:
-               The java_file is:path/to/the/module/src/main/java/com/android/
-                                first.java
-               The package name of java_file is com.android.
-        2. Transfer package name to package path:
-           For example:
-               The package path of com.android is com/android.
-        3. Remove the package path and file name from the java path.
-           For example:
-               The path after removing package path and file name is
-               path/to/the/module/src/main/java.
-        As a result, path/to/the/module/src/main/java is the source path parsed
-        from path/to/the/module/src/main/java/com/android/first.java.
+        Args:
+            java_file: A string, the java file with relative path.
+                       e.g. path/to/the/java/file.java
 
         Returns:
             source_folder: A string of path to source folder(e.g. src/main/java)
@@ -509,14 +491,73 @@ class ModuleData():
         """
         abs_java_path = common_util.get_abs_path(java_file)
         if os.path.exists(abs_java_path):
-            with open(abs_java_path) as data:
-                for line in data.read().splitlines():
-                    match = _PACKAGE_RE.match(line)
-                    if match:
-                        package_name = match.group('package')
-                        package_path = package_name.replace(os.extsep, os.sep)
-                        source_folder, _, _ = java_file.rpartition(package_path)
-                        return source_folder.strip(os.sep)
+            package_name = self._get_package_name(abs_java_path)
+            if package_name:
+                return self._parse_source_path(java_file, package_name)
+        return None
+
+    @staticmethod
+    def _parse_source_path(java_file, package_name):
+        """Parse the source path by filter out the package name.
+
+        Case 1:
+        java file: a/b/c/d/e.java
+        package name: c.d
+        The source folder is a/b.
+
+        Case 2:
+        java file: a/b/c.d/e.java
+        package name: c.d
+        The source folder is a/b.
+
+        Case 3:
+        java file: a/b/c/d/e.java
+        package name: x.y
+        The source folder is a/b/c/d.
+
+        Case 4:
+        java file: a/b/c.d/e/c/d/f.java
+        package name: c.d
+        The source folder is a/b/c.d/e.
+
+        Case 5:
+        java file: a/b/c.d/e/c.d/e/f.java
+        package name: c.d.e
+        The source folder is a/b/c.d/e.
+
+        Args:
+            java_file: A string of the java file relative path.
+            package_name: A string of the java file's package name.
+
+        Returns:
+            A string, the source folder path.
+        """
+        java_file_name = os.path.basename(java_file)
+        pattern = r'%s/%s$' % (package_name, java_file_name)
+        search_result = re.search(pattern, java_file)
+        if search_result:
+            return java_file[:search_result.start()].strip(os.sep)
+        return os.path.dirname(java_file)
+
+    @staticmethod
+    def _get_package_name(abs_java_path):
+        """Get the package name by parsing a java file.
+
+        Args:
+            abs_java_path: A string of the java file with absolute path.
+                           e.g. /root/path/to/the/java/file.java
+
+        Returns:
+            package_name: A string of package name.
+        """
+        package_name = None
+        with open(abs_java_path) as data:
+            for line in data.read().splitlines():
+                match = _PACKAGE_RE.match(line)
+                if match:
+                    package_name = match.group('package')
+                    break
+        return package_name
 
     def _append_jar_file(self, jar_path):
         """Append a path to the jar file into self.jar_files if it's exists.
@@ -534,6 +575,7 @@ class ModuleData():
             else:
                 self.missing_jars.add(jar_path)
             return True
+        return False
 
     def _append_jar_from_installed(self, specific_dir=None):
         """Append a jar file's path to the list of jar_files with matching
