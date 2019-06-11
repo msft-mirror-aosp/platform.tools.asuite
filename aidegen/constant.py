@@ -44,6 +44,7 @@ KEY_CLASS = 'class'
 KEY_INSTALLED = 'installed'
 KEY_SRCS = 'srcs'
 KEY_SRCJARS = 'srcjars'
+KEY_CLASSES_JAR = 'classes_jar'
 
 # Constants for IDE util.
 IDE_ECLIPSE = 'Eclipse'

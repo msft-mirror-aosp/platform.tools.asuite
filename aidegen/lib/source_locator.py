@@ -423,7 +423,11 @@ class ModuleData():
 
     def _check_jars_exist(self):
         """Check if jars exist."""
-        return _KEY_JARS in self.module_data and self.module_data[_KEY_JARS]
+        return self._check_key(_KEY_JARS)
+
+    def _check_classes_jar_exist(self):
+        """Check if classes_jar exist."""
+        return self._check_key(constant.KEY_CLASSES_JAR)
 
     def _collect_srcs_paths(self):
         """Collect source folder paths in src_dirs from module_data['srcs']."""
@@ -577,6 +581,12 @@ class ModuleData():
             return True
         return False
 
+    def _append_classes_jar(self):
+        """Append the jar file as dependency for prebuilt modules."""
+        for jar in self.module_data[constant.KEY_CLASSES_JAR]:
+            if self._append_jar_file(jar):
+                break
+
     def _append_jar_from_installed(self, specific_dir=None):
         """Append a jar file's path to the list of jar_files with matching
         path_prefix.
@@ -679,7 +689,14 @@ class ModuleData():
             # If there is no source/tests folder of the module, reference the
             # module by jar.
             if not self.src_dirs and not self.test_dirs:
-                self._append_jar_from_installed()
+                # Add the classes.jar from the classes_jar attribute as
+                # dependency if it exists. If the classes.jar doesn't exist,
+                # find the jar file from the installed attribute and add the jar
+                # as dependency.
+                if self._check_classes_jar_exist():
+                    self._append_classes_jar()
+                else:
+                    self._append_jar_from_installed()
             self._collect_r_srcs_paths()
         if self.referenced_by_jar and self.missing_jars:
             self.build_targets |= self.missing_jars
@@ -744,5 +761,7 @@ class EclipseModuleData(ModuleData):
             self._append_jar_from_installed(self.specific_soong_path)
         elif self._check_jars_exist():
             self._set_jars_jarfile()
+        elif self._check_classes_jar_exist():
+            self._append_classes_jar()
         else:
             self._append_jar_from_installed()
