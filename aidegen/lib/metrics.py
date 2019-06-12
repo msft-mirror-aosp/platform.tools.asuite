@@ -55,10 +55,14 @@ def log_usage():
     _log_event(_METRICS_URL, dummy_key_fallback=False, ldap=_get_ldap())
 
 
-def starts_asuite_metrics():
+def starts_asuite_metrics(references):
     """Starts to record metrics data.
 
     Send a metrics data to log server at the same time.
+
+    Args:
+        references: a list of reference data, when importing whole Android
+                    it contains 'is_android_tree'.
     """
     if not metrics:
         return
@@ -67,7 +71,7 @@ def starts_asuite_metrics():
     command = ' '.join(sys.argv)
     metrics.AtestStartEvent(
         command_line=command,
-        test_references=[],
+        test_references=references,
         cwd=os.getcwd(),
         os=platform.platform())
 

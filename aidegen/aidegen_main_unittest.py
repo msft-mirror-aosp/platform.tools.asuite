@@ -152,6 +152,12 @@ class AidegenMainUnittests(unittest.TestCase):
             aidegen_main._compile_targets_for_whole_android_tree(
                 mod_info, targets, cwd))
 
+    def test_is_whole_android_tree(self):
+        """Test _is_whole_android_tree with different conditions."""
+        self.assertTrue(aidegen_main._is_whole_android_tree(['a'], True))
+        self.assertTrue(aidegen_main._is_whole_android_tree([''], False))
+        self.assertFalse(aidegen_main._is_whole_android_tree(['a'], False))
+
 
 if __name__ == '__main__':
     unittest.main()
