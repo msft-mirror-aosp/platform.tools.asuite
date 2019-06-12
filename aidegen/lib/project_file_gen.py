@@ -48,8 +48,8 @@ _MODULE_ORDER_ENTRY = ('        <orderEntry type="module" '
                        'module-name="%s" />')
 _MODULE_SECTION = ('            <module fileurl="file:///$PROJECT_DIR$/%s.iml"'
                    ' filepath="$PROJECT_DIR$/%s.iml" />')
-_SUB_MODULES_SECTION = ('            <module fileurl="file:///%s" '
-                        'filepath="%s" />')
+_SUB_MODULES_SECTION = ('            <module fileurl="file:///{IML}" '
+                        'filepath="{IML}" />')
 _VCS_SECTION = '        <mapping directory="%s" vcs="Git" />'
 _FACET_TOKEN = '@FACETS@'
 _SOURCE_TOKEN = '@SOURCES@'
@@ -158,14 +158,17 @@ def _generate_intellij_project_file(project_info, iml_path_list=None):
         project_info: ProjectInfo instance.
         iml_path_list: An optional list of submodule's iml paths, default None.
     """
+    is_main_module = iml_path_list is not None
     source_dict = dict.fromkeys(
         list(project_info.source_path['source_folder_path']), False)
     source_dict.update(
         dict.fromkeys(list(project_info.source_path['test_folder_path']), True))
+    source_dict.update(
+        dict.fromkeys(list(project_info.source_path['r_java_path']), False))
     project_info.iml_path, _ = _generate_iml(
         constant.ANDROID_ROOT_PATH, project_info.project_absolute_path,
         source_dict, list(project_info.source_path['jar_path']),
-        project_info.project_relative_path)
+        project_info.project_relative_path, is_main_module)
     _generate_modules_xml(project_info.project_absolute_path, iml_path_list)
     project_info.git_path = _generate_vcs_xml(
         project_info.project_absolute_path)
@@ -184,12 +187,12 @@ def generate_ide_project_files(projects):
     Args:
         projects: A list of ProjectInfo instances.
     """
-
     if projects[0].config.ide_name == constant.IDE_ECLIPSE:
         generate_eclipse_project_files(projects)
     else:
         # Initialization
         _USED_NAME_CACHE.clear()
+        _merge_all_shared_source_paths(projects)
         for project in projects[1:]:
             _generate_intellij_project_file(project)
         iml_paths = [project.iml_path for project in projects[1:]]
@@ -210,7 +213,7 @@ def _generate_eclipse_project_file(project_info):
     source_dict.update(
         dict.fromkeys(list(project_info.source_path['test_folder_path']), True))
     source_dict.update(
-        dict.fromkeys(list(project_info.source_path['r_java_path']), True))
+        dict.fromkeys(list(project_info.source_path['r_java_path']), False))
     project_info.iml_path = _generate_classpath(
         project_info.project_absolute_path, list(sorted(source_dict)),
         list(project_info.source_path['jar_path']))
@@ -432,8 +435,9 @@ def _is_source_under_relative_path(source, relative_path):
 
 
 # pylint: disable=too-many-locals
+# pylint: disable=too-many-arguments
 def _generate_iml(root_path, module_path, source_dict, jar_dependencies,
-                  relative_path):
+                  relative_path, is_main_module=False):
     """Generate iml file.
 
     Args:
@@ -445,6 +449,8 @@ def _generate_iml(root_path, module_path, source_dict, jar_dependencies,
                      {'path_a': True, 'path_b': False}
         jar_dependencies: List of the jar path.
         relative_path: Relative path of the module.
+        is_main_module: A boolean with default False, True if the current
+                        project is the main module.
 
     Returns:
         String: The absolute paths of module iml and dependencies iml.
@@ -468,21 +474,23 @@ def _generate_iml(root_path, module_path, source_dict, jar_dependencies,
 
     module_iml_path = os.path.join(module_path, module_name + _IML_EXTENSION)
 
-    dep_name = _get_dependencies_name(module_name)
-    dep_sect = _MODULE_ORDER_ENTRY % dep_name
+    dep_sect = _MODULE_ORDER_ENTRY % constant.KEY_DEPENDENCIES
     module_content = module_content.replace(_MODULE_DEP_TOKEN, dep_sect)
     common_util.file_generate(module_iml_path, module_content)
 
-    # Generate dependencies iml.
-    dependencies_content = template.replace(_FACET_TOKEN, '')
-    dependencies_content = _handle_source_folder(
-        root_path, dependencies_content, source_dict, False, relative_path)
-    dependencies_content = _handle_module_dependency(
-        root_path, dependencies_content, jar_dependencies)
-    dependencies_iml_path = os.path.join(module_path, dep_name + _IML_EXTENSION)
-    common_util.file_generate(dependencies_iml_path, dependencies_content)
-    logging.debug('Paired iml names are %s, %s', module_iml_path,
-                  dependencies_iml_path)
+    # Only generate the dependencies.iml in the main module's folder.
+    dependencies_iml_path = None
+    if is_main_module:
+        dependencies_content = template.replace(_FACET_TOKEN, '')
+        dependencies_content = _handle_source_folder(
+            root_path, dependencies_content, source_dict, False, relative_path)
+        dependencies_content = _handle_module_dependency(
+            root_path, dependencies_content, jar_dependencies)
+        dependencies_iml_path = os.path.join(
+            module_path, constant.KEY_DEPENDENCIES + _IML_EXTENSION)
+        common_util.file_generate(dependencies_iml_path, dependencies_content)
+        logging.debug('Paired iml names are %s, %s', module_iml_path,
+                      dependencies_iml_path)
     # The dependencies_iml_path is use for removing the file itself in unittest.
     return module_iml_path, dependencies_iml_path
 
@@ -513,18 +521,6 @@ def _generate_classpath(module_path, source_list, jar_dependencies):
     return classpath_path
 
 
-def _get_dependencies_name(module_name):
-    """Get module's dependencies iml name which will be written in module.xml.
-
-    Args:
-        module_name: The name will be appended to "dependencies-".
-
-    Returns:
-        String: The joined dependencies iml file name, e.g. "dependencies-core"
-    """
-    return '-'.join([constant.KEY_DEPENDENCIES, module_name])
-
-
 def _generate_modules_xml(module_path, iml_path_list=None):
     """Generate modules.xml file.
 
@@ -544,19 +540,20 @@ def _generate_modules_xml(module_path, iml_path_list=None):
     # b/121256503: Prevent duplicated iml names from breaking IDEA.
     module_name = get_unique_iml_name(module_path)
 
-    file_name = os.path.splitext(module_name)[0]
-    dep_name = _get_dependencies_name(file_name)
-    module_list = [
-        _MODULE_SECTION % (module_name, module_name),
-        _MODULE_SECTION % (dep_name, dep_name)
-    ]
-    if iml_path_list:
-        for iml_path in iml_path_list:
-            iml_dir, iml_name = os.path.split(iml_path)
-            dep_file = _get_dependencies_name(iml_name)
-            dep_path = os.path.join(iml_dir, dep_file)
-            module_list.append(_SUB_MODULES_SECTION % (dep_path, dep_path))
-            module_list.append(_SUB_MODULES_SECTION % (iml_path, iml_path))
+    is_main_module = iml_path_list is not None
+    if is_main_module:
+        module_list = [
+            _MODULE_SECTION % (module_name, module_name),
+            _MODULE_SECTION % (constant.KEY_DEPENDENCIES,
+                               constant.KEY_DEPENDENCIES)
+        ]
+        if iml_path_list:
+            for iml_path in iml_path_list:
+                module_list.append(_SUB_MODULES_SECTION.format(IML=iml_path))
+    else:
+        module_list = [
+            _MODULE_SECTION % (module_name, module_name)
+        ]
     module = '\n'.join(module_list)
     content = content.replace(_MODULE_TOKEN, module)
     target_path = os.path.join(module_path, _IDEA_FOLDER, _MODULES_XML)
@@ -639,3 +636,41 @@ def _generate_git_ignore(target_folder):
             os.symlink(rel_source, rel_target)
     except OSError as err:
         logging.error('Not support to run aidegen on Windows.\n %s', err)
+
+
+def _filter_out_source_paths(source_paths, module_relpath):
+    """Filter out the source paths which belong to the target module.
+
+    The source_paths is a union set of all source paths of all target modules.
+    For generating the dependencies.iml, we only need the source paths outside
+    the target modules.
+
+    Args:
+        source_paths: A set contains the source folder paths.
+        module_relpath: A string, the relative path of module.
+
+    Returns: A set of source paths.
+    """
+    return {x for x in source_paths if not _is_source_under_relative_path(
+        x, module_relpath)}
+
+
+def _merge_all_shared_source_paths(projects):
+    """Merge all source paths and jar paths into main project.
+
+    Args:
+        projects: A list of ProjectInfo instances.
+    """
+    main_project = projects[0]
+    for project in projects[1:]:
+        main_project.source_path['source_folder_path'].update(
+            _filter_out_source_paths(project.source_path['source_folder_path'],
+                                     project.project_relative_path))
+        main_project.source_path['test_folder_path'].update(
+            _filter_out_source_paths(project.source_path['test_folder_path'],
+                                     project.project_relative_path))
+        main_project.source_path['r_java_path'].update(
+            _filter_out_source_paths(project.source_path['r_java_path'],
+                                     project.project_relative_path))
+        main_project.source_path['jar_path'].update(
+            project.source_path['jar_path'])
