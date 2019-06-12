@@ -70,6 +70,11 @@ class AidegenProjectFileGenUnittest(unittest.TestCase):
     _ANDROID_SOURCE_RELATIVE_PATH = 'test_data/project'
     _SAMPLE_CONTENT_LIST = ['a/b/c/d', 'e/f']
     _SAMPLE_TRIMMED_SOURCE_LIST = ['a/b/c/d', 'e/f/a', 'e/f/b/c', 'e/f/g/h']
+    _SAMPLE_EXCLUDE_FOLDERS = [
+        '            <excludeFolder url="file://%s/.idea" />\n'
+        % _TEST_DATA_PATH,
+        '            <excludeFolder url="file://%s/out" />\n' % _TEST_DATA_PATH,
+    ]
 
     def test_handle_facet_for_android(self):
         """Test _handle_facet with android project."""
@@ -315,6 +320,12 @@ class AidegenProjectFileGenUnittest(unittest.TestCase):
         projects = [mock_main_project, mock_sub_project]
         project_file_gen._merge_all_shared_source_paths(projects)
         self.assertEqual(mock_main_project.source_path, expected_result)
+
+    def test_get_exclude_folders(self):
+        """Test _get_exclude_folders."""
+        exclude_folders = project_file_gen._get_exclude_content(
+            self._TEST_DATA_PATH)
+        self.assertEqual(self._SAMPLE_EXCLUDE_FOLDERS, exclude_folders)
 
 
 if __name__ == '__main__':
