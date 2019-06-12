@@ -59,3 +59,7 @@ AIDEGEN_TOOL_NAME = 'aidegen'
 
 # Central R path
 CENTRAL_R_PATH = 'out/target/common/R'
+
+# Constants for file names
+MERGED_MODULE_INFO = 'merged_module_info.json'
+MERGED_MODULE_INFO_PATH = os.path.join(SOONG_OUT_DIR_PATH, MERGED_MODULE_INFO)
