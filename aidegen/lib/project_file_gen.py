@@ -39,6 +39,7 @@ _FACET_SECTION = '''\
     </facet>'''
 _SOURCE_FOLDER = ('            <sourceFolder url='
                   '"file://%s" isTestSource="%s" />\n')
+_EXCLUDE_ITEM = '            <excludeFolder url="file://%s" />\n'
 _CONTENT_URL = '        <content url="file://%s">\n'
 _END_CONTENT = '        </content>\n'
 _ORDER_ENTRY = ('        <orderEntry type="module-library" exported="">'
@@ -74,6 +75,10 @@ _ANDROID_MANIFEST = 'AndroidManifest.xml'
 _IML_EXTENSION = '.iml'
 _FRAMEWORK_JAR = os.sep + 'framework.jar'
 _HIGH_PRIORITY_JARS = [_FRAMEWORK_JAR]
+_EXCLUDE_FOLDERS = ['.idea', '.repo', 'art', 'bionic', 'bootable', 'build',
+                    'dalvik', 'developers', 'device', 'hardware', 'kernel',
+                    'libnativehelper', 'pdk', 'prebuilts', 'sdk', 'system',
+                    'toolchain', 'tools', 'vendor', 'out']
 _GIT_FOLDER_NAME = '.git'
 # Support gitignore by symbolic link to aidegen/data/gitignore_template.
 _GITIGNORE_FILE_NAME = '.gitignore'
@@ -376,8 +381,6 @@ def _handle_source_folder(root_path, content, source_dict, is_module,
     Returns:
         String: Content with source folder handled.
     """
-    source_list = list(source_dict.keys())
-    source_list.sort()
     src_builder = []
     if is_module:
         # Set the content url to module's path since it's the iml of target
@@ -388,6 +391,10 @@ def _handle_source_folder(root_path, content, source_dict, is_module,
             if _is_project_relative_source(path, relative_path):
                 src_builder.append(_SOURCE_FOLDER % (os.path.join(
                     root_path, path), is_test_flag))
+        # If relative_path empty, it is Android root. When handling root
+        # module, we add the exclude folders to speed up indexing time.
+        if not relative_path:
+            src_builder.extend(_get_exclude_content(root_path))
         src_builder.append(_END_CONTENT)
     else:
         for path, is_test_flag in sorted(source_dict.items()):
@@ -396,6 +403,28 @@ def _handle_source_folder(root_path, content, source_dict, is_module,
             src_builder.append(_SOURCE_FOLDER % (path, is_test_flag))
             src_builder.append(_END_CONTENT)
     return content.replace(_SOURCE_TOKEN, ''.join(src_builder))
+
+
+def _get_exclude_content(root_path):
+    """Get the exclude folder content list.
+
+    It returns the exclude folders content list.
+    e.g.
+    ['<excludeFolder url="file://a/.idea" />',
+    '<excludeFolder url="file://a/.repo" />']
+
+    Args:
+        root_path: Android source file path.
+
+    Returns:
+        String: exclude folder content list.
+    """
+    exclude_items = []
+    for folder in _EXCLUDE_FOLDERS:
+        folder_path = os.path.join(root_path, folder)
+        if os.path.isdir(folder_path):
+            exclude_items.append(_EXCLUDE_ITEM % folder_path)
+    return exclude_items
 
 
 def _trim_same_root_source(source_list):
