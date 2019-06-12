@@ -76,22 +76,21 @@ class ProjectInfo:
                                   R.java files.
     """
 
-    modules_info = {}
+    modules_info = None
     config = None
 
-    def __init__(self, module_info, target=None):
+    def __init__(self, target=None):
         """ProjectInfo initialize.
 
         Args:
-            module_info: A ModuleInfo instance contains data of
-                         module-info.json.
             target: Includes target module or project path from user input, when
                     locating the target, project with matching module name of
                     the given target has a higher priority than project path.
         """
-        rel_path, abs_path = get_related_paths(module_info, target)
+        rel_path, abs_path = get_related_paths(self.modules_info, target)
         self.module_name = self._get_target_name(target, abs_path)
-        self.project_module_names = set(module_info.get_module_names(rel_path))
+        self.project_module_names = set(
+            self.modules_info.get_module_names(rel_path))
         self.project_relative_path = rel_path
         self.project_absolute_path = abs_path
         self.iml_path = ''
@@ -99,7 +98,7 @@ class ProjectInfo:
         self._init_source_path()
         self.dep_modules = self.get_dep_modules()
         self._filter_out_modules()
-        self._display_convert_make_files_message(module_info, self.module_name)
+        self._display_convert_make_files_message()
 
     def _set_default_modues(self):
         """Append default hard-code modules, source paths and jar files.
@@ -126,31 +125,19 @@ class ProjectInfo:
             'r_java_path': set()
         }
 
-    def _display_convert_make_files_message(self, module_info, target):
-        """Show message info users convert their Android.mk to Android.bp.
-
-        Args:
-            module_info: A ModuleInfo instance contains data of
-                         module-info.json.
-            target: When locating the target module or project path from users'
-                    input, project with matching module name of the given target
-                    has a higher priority than project path.
-        """
-        mk_set = set(self._search_android_make_files(module_info))
+    def _display_convert_make_files_message(self):
+        """Show message info users convert their Android.mk to Android.bp."""
+        mk_set = set(self._search_android_make_files())
         if mk_set:
             print('\n{} {}\n'.format(
                 COLORED_INFO('Warning:'),
-                _ANDROID_MK_WARN.format(target, '\n'.join(mk_set))))
+                _ANDROID_MK_WARN.format(self.module_name, '\n'.join(mk_set))))
 
-    def _search_android_make_files(self, module_info):
+    def _search_android_make_files(self):
         """Search project and dependency modules contain Android.mk files.
 
         If there is only Android.mk but no Android.bp, we'll show the warning
         message, otherwise we won't.
-
-        Args:
-            module_info: A ModuleInfo instance contains data of
-                         module-info.json.
 
         Yields:
             A string: the relative path of Android.mk.
@@ -159,12 +146,13 @@ class ProjectInfo:
         android_bp = os.path.join(self.project_absolute_path, _ANDROID_BP)
         if os.path.isfile(android_mk) and not os.path.isfile(android_bp):
             yield '\t' + os.path.join(self.project_relative_path, _ANDROID_MK)
-        for module_name in self.dep_modules:
-            rel_path, abs_path = get_related_paths(module_info, module_name)
-            mod_mk = os.path.join(abs_path, _ANDROID_MK)
-            mod_bp = os.path.join(abs_path, _ANDROID_BP)
-            if os.path.isfile(mod_mk) and not os.path.isfile(mod_bp):
-                yield '\t' + os.path.join(rel_path, _ANDROID_MK)
+        for mod_name in self.dep_modules:
+            rel_path, abs_path = get_related_paths(self.modules_info, mod_name)
+            if rel_path and abs_path:
+                mod_mk = os.path.join(abs_path, _ANDROID_MK)
+                mod_bp = os.path.join(abs_path, _ANDROID_BP)
+                if os.path.isfile(mod_mk) and not os.path.isfile(mod_bp):
+                    yield '\t' + os.path.join(rel_path, _ANDROID_MK)
 
     def set_modules_under_project_path(self):
         """Find modules whose class is qualified to be included under the
@@ -172,7 +160,7 @@ class ProjectInfo:
         """
         logging.info('Find modules whose class is in %s under %s.',
                      common_util.TARGET_CLASSES, self.project_relative_path)
-        for name, data in self.modules_info.items():
+        for name, data in self.modules_info.name_to_module_info.items():
             if common_util.is_project_path_relative_module(
                     data, self.project_relative_path):
                 if self._is_a_target_module(data):
@@ -262,9 +250,9 @@ class ProjectInfo:
             module_names = self.project_module_names
             self.project_module_names = set()
         for name in module_names:
-            if (name in self.modules_info
+            if (name in self.modules_info.name_to_module_info
                     and name not in self.project_module_names):
-                dep[name] = self.modules_info[name]
+                dep[name] = self.modules_info.name_to_module_info[name]
                 dep[name][constant.KEY_DEPTH] = depth
                 self.project_module_names.add(name)
                 if (constant.KEY_DEPENDENCIES in dep[name]
@@ -275,11 +263,10 @@ class ProjectInfo:
         return dep
 
     @staticmethod
-    def generate_projects(module_info, targets):
+    def generate_projects(targets):
         """Generate a list of projects in one time by a list of module names.
 
         Args:
-            module_info: An Atest module-info instance.
             targets: A list of target modules or project paths from user input,
                      when locating the target, project with matched module name
                      of the target has a higher priority than project path.
@@ -287,7 +274,7 @@ class ProjectInfo:
         Returns:
             List: A list of ProjectInfo instances.
         """
-        return [ProjectInfo(module_info, target) for target in targets]
+        return [ProjectInfo(target) for target in targets]
 
     @staticmethod
     def _get_target_name(target, abs_path):
