@@ -135,7 +135,7 @@ class AidegenModuleInfoUtilUnittests(unittest.TestCase):
         mock_copy.return_value = ''
         amodule_info = module_info.ModuleInfo()
         cmd = [module_info_util._GENERATE_JSON_COMMAND]
-        module_info_util._build_target(cmd, uc.TEST_MODULE, amodule_info, True)
+        module_info_util._build_target(amodule_info, cmd, uc.TEST_MODULE, True)
         self.assertTrue(mock_copy.called)
         self.assertTrue(mock_check_call.called)
         mock_check_call.assert_called_with(
@@ -143,7 +143,7 @@ class AidegenModuleInfoUtilUnittests(unittest.TestCase):
             stderr=subprocess.STDOUT,
             env=mock_copy.return_value,
             shell=True)
-        module_info_util._build_target(cmd, uc.TEST_MODULE, amodule_info, False)
+        module_info_util._build_target(amodule_info, cmd, uc.TEST_MODULE, False)
         self.assertTrue(mock_check_call.called)
         mock_check_call.assert_called_with(cmd, shell=True)
 
@@ -201,22 +201,22 @@ class AidegenModuleInfoUtilUnittests(unittest.TestCase):
         main_project = ''
         amodule_info = {}
         verbose = False
-        module_info_util._build_target(cmd, main_project, amodule_info, verbose)
+        module_info_util._build_target(amodule_info, cmd, main_project, verbose)
         mock_call.assert_called_with(cmd, shell=True)
         verbose = True
         full_env_vars = os.environ.copy()
-        module_info_util._build_target(cmd, main_project, amodule_info, verbose)
+        module_info_util._build_target(amodule_info, cmd, main_project, verbose)
         mock_call.assert_called_with(cmd, stderr=subprocess.STDOUT,
                                      env=full_env_vars, shell=True)
         mock_call.side_effect = subprocess.CalledProcessError(1, '')
         mock_new.return_value = False
-        module_info_util._build_target(cmd, main_project, amodule_info, verbose)
+        module_info_util._build_target(amodule_info, cmd, main_project, verbose)
         self.assertTrue(mock_new.called)
         self.assertFalse(mock_handle.called)
         mock_new.return_value = True
-        module_info_util._build_target(cmd, main_project, amodule_info, verbose)
+        module_info_util._build_target(amodule_info, cmd, main_project, verbose)
         self.assertTrue(mock_new.called)
-        self.assertTrue(mock_handle.called)
+        self.assertFalse(mock_handle.called)
 
 
 if __name__ == '__main__':
