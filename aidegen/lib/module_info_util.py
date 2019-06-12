@@ -56,7 +56,8 @@ _GENERATE_JSON_COMMAND = ('SOONG_COLLECT_JAVA_DEPS=false make nothing;'
 
 
 @time_logged
-def generate_module_info_json(module_info, projects, verbose, skip_build=False):
+def generate_module_info_json(module_info, projects=None, verbose=False,
+                              skip_build=False):
     """Generate a merged json dictionary.
 
     Change directory to ANDROID_ROOT_PATH before making _GENERATE_JSON_COMMAND
@@ -80,14 +81,16 @@ def generate_module_info_json(module_info, projects, verbose, skip_build=False):
     """
     cwd = os.getcwd()
     os.chdir(constant.ANDROID_ROOT_PATH)
-    _build_target([_GENERATE_JSON_COMMAND], projects[0], module_info, verbose,
+    main_project = projects[0] if projects else None
+    _build_target(module_info, [_GENERATE_JSON_COMMAND], main_project, verbose,
                   skip_build)
     os.chdir(cwd)
     bp_dict = _get_soong_build_json_dict()
     return _merge_json(module_info.name_to_module_info, bp_dict)
 
 
-def _build_target(cmd, main_project, module_info, verbose, skip_build=False):
+def _build_target(module_info, cmd, main_project=None, verbose=False,
+                  skip_build=False):
     """Make nothing to generate module_bp_java_deps.json.
 
     We build without environment setting SOONG_COLLECT_JAVA_DEPS and then build
@@ -96,9 +99,9 @@ def _build_target(cmd, main_project, module_info, verbose, skip_build=False):
     module_bp_java_deps.json.
 
     Args:
+        module_info: A ModuleInfo instance contains data of module-info.json.
         cmd: A string list, build command.
         main_project: The main project name.
-        module_info: A ModuleInfo instance contains data of module-info.json.
         verbose: A boolean, if true displays full build output.
         skip_build: A boolean, if true skip building _BLUEPRINT_JSONFILE_NAME if
                     it exists, otherwise build it.
@@ -112,7 +115,7 @@ def _build_target(cmd, main_project, module_info, verbose, skip_build=False):
               a) If the answer is yes, return.
               b) If the answer is not yes, sys.exit(1)
     """
-    json_path = _get_blueprint_json_path()
+    json_path = get_blueprint_json_path()
     original_json_mtime = None
     if os.path.isfile(json_path):
         if skip_build:
@@ -135,8 +138,10 @@ def _build_target(cmd, main_project, module_info, verbose, skip_build=False):
                            'reuse the old {0}.'.format(json_path))
                 print('\n{} {}\n'.format(COLORED_INFO('Warning:'), message))
         else:
-            _, main_project_path = get_related_paths(module_info, main_project)
-            _build_failed_handle(main_project_path)
+            if main_project:
+                _, main_project_path = get_related_paths(module_info,
+                                                         main_project)
+                _build_failed_handle(main_project_path)
 
 
 def _is_new_json_file_generated(json_path, original_file_mtime):
@@ -173,7 +178,7 @@ def _build_failed_handle(main_project_path):
             sys.exit(1)
     else:
         raise errors.BuildFailureError(
-            'Failed to generate %s.' % _get_blueprint_json_path())
+            'Failed to generate %s.' % get_blueprint_json_path())
 
 
 def _get_soong_build_json_dict():
@@ -182,7 +187,7 @@ def _get_soong_build_json_dict():
     Returns:
         A json dictionary.
     """
-    json_path = _get_blueprint_json_path()
+    json_path = get_blueprint_json_path()
     try:
         with open(json_path) as jfile:
             json_dict = json.load(jfile)
@@ -192,7 +197,7 @@ def _get_soong_build_json_dict():
             '%s does not exist, error: %s.' % (json_path, err))
 
 
-def _get_blueprint_json_path():
+def get_blueprint_json_path():
     """Assemble the path of blueprint json file.
 
     Returns:
