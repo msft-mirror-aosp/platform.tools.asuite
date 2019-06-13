@@ -328,13 +328,16 @@ def is_target(src_file, src_file_extensions):
     return any(src_file.endswith(x) for x in src_file_extensions)
 
 
-def get_atest_module_info(targets):
+def get_atest_module_info(targets=None):
     """Get the right version of atest ModuleInfo instance.
 
     The rules:
-        Check if the targets don't exist in ModuleInfo, we'll regain a new atest
-        ModleInfo instance by setting force_build=True and call _check_modules
-        again. If targets still don't exist, raise exceptions.
+        1. If targets is None:
+           We just want to get an atest ModuleInfo instance.
+        2. If targets isn't None:
+           Check if the targets don't exist in ModuleInfo, we'll regain a new
+           atest ModleInfo instance by setting force_build=True and call
+           _check_modules again. If targets still don't exist, raise exceptions.
 
     Args:
         targets: A list of targets to be built.
@@ -343,7 +346,8 @@ def get_atest_module_info(targets):
         An atest ModuleInfo instance.
     """
     amodule_info = module_info.ModuleInfo()
-    if not _check_modules(amodule_info, targets, raise_on_lost_module=False):
+    if targets and not _check_modules(
+            amodule_info, targets, raise_on_lost_module=False):
         amodule_info = module_info.ModuleInfo(force_build=True)
         _check_modules(amodule_info, targets)
     return amodule_info

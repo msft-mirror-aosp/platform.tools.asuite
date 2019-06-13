@@ -58,7 +58,7 @@ from aidegen.lib.ide_util import IdeUtil
 from aidegen.lib.metrics import log_usage
 from aidegen.lib.metrics import starts_asuite_metrics
 from aidegen.lib.metrics import ends_asuite_metrics
-from aidegen.lib.module_info_util import generate_module_info_json
+from aidegen.lib.module_info import AidegenModuleInfo
 from aidegen.lib.project_file_gen import generate_ide_project_files
 from aidegen.lib.project_info import ProjectInfo
 from aidegen.lib import project_config
@@ -354,9 +354,14 @@ def aidegen_main(args):
     atest_module_info = common_util.get_atest_module_info(args.targets)
     targets = _check_whole_android_tree(atest_module_info, args.targets,
                                         args.android_tree)
-    ProjectInfo.modules_info = generate_module_info_json(
-        atest_module_info, targets, args.verbose, args.skip_build)
-    projects = ProjectInfo.generate_projects(atest_module_info, targets)
+    ProjectInfo.modules_info = AidegenModuleInfo(
+        force_build=False,
+        module_file=None,
+        atest_module_info=atest_module_info,
+        projects=targets,
+        verbose=args.verbose,
+        skip_build=args.skip_build)
+    projects = ProjectInfo.generate_projects(targets)
     multi_projects_locate_source(projects, args.verbose)
     generate_ide_project_files(projects)
     if ide_util_obj:
