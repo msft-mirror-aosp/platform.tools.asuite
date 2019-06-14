@@ -37,3 +37,10 @@ SH_GODEN_SAMPLE = '/opt/intellij-ce-2018.1/bin/idea.sh'
 IDEA_SH_FIND_NONE = ''  # Neither IntelliJ CE nor UE script exists.
 TEST_PATH = 'path'
 TEST_MODULE = 'test'
+ANDROID_SOURCE_DICT = {
+    'test_data/project/level11/level21': True,
+    'test_data/project/level11/level22/level31': False,
+    'test_data/project/level12/level22': False,
+}
+JAR_DEP_LIST = ['test1.jar', 'test2.jar']
+ANDROID_PROJECT_PATH = os.path.join(TEST_DATA_PATH, 'android_project')
