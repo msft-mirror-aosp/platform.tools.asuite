@@ -59,7 +59,8 @@ from aidegen.lib.metrics import log_usage
 from aidegen.lib.metrics import starts_asuite_metrics
 from aidegen.lib.metrics import ends_asuite_metrics
 from aidegen.lib.module_info import AidegenModuleInfo
-from aidegen.lib.project_file_gen import generate_ide_project_files
+from aidegen.lib.project_file_gen import ProjectFileGenerator
+from aidegen.lib.eclipse_project_file_gen import EclipseConf
 from aidegen.lib.project_info import ProjectInfo
 from aidegen.lib import project_config
 from aidegen.lib.source_locator import multi_projects_locate_source
@@ -194,6 +195,18 @@ def _get_ide_util_instance(args):
         logging.error(err)
         raise IDENotExistError(err)
     return ide_util_obj
+
+
+def _generate_project_files(projects):
+    """Generate project files by IDE type.
+
+    Args:
+        projects: A list of ProjectInfo instances.
+    """
+    if ProjectInfo.config.ide_name == constant.IDE_ECLIPSE:
+        EclipseConf.generate_ide_project_files(projects)
+    else:
+        ProjectFileGenerator.generate_ide_project_files(projects)
 
 
 def _compile_targets_for_whole_android_tree(atest_module_info, targets, cwd):
@@ -363,7 +376,7 @@ def aidegen_main(args):
         skip_build=args.skip_build)
     projects = ProjectInfo.generate_projects(targets)
     multi_projects_locate_source(projects, args.verbose)
-    generate_ide_project_files(projects)
+    _generate_project_files(projects)
     if ide_util_obj:
         _launch_ide(ide_util_obj, projects[0].project_absolute_path)
 
