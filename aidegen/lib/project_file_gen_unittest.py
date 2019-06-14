@@ -189,6 +189,8 @@ class AidegenProjectFileGenUnittest(unittest.TestCase):
         sample_vcs = sample_vcs.replace(self._LOCAL_PATH_TOKEN,
                                         self._ANDROID_PROJECT_PATH)
         self.assertEqual(test_vcs, sample_vcs)
+        self.assertIsNone(
+            project_file_gen._generate_vcs_xml(constant.ANDROID_ROOT_PATH))
 
     def test_get_uniq_iml_name(self):
         """Test the unique name cache mechanism.
