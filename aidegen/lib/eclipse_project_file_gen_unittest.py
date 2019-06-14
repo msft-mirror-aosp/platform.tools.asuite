@@ -20,9 +20,9 @@ import os
 import unittest
 from unittest import mock
 
+import aidegen.unittest_constants as utc
 from aidegen import constant
-from aidegen import unittest_constants
-from aidegen.lib.common_util import read_file_content
+from aidegen.lib import common_util
 from aidegen.lib.eclipse_project_file_gen import EclipseConf
 
 
@@ -35,8 +35,7 @@ class EclipseConfUnittests(unittest.TestCase):
     _PROJECT_NAME = 'test'
     _LINK_TEMPLATE = ('                <link><name>%s</name><type>2</type>'
                       '<location>%s</location></link>\n')
-    _TEST_DATA_PATH = unittest_constants.TEST_DATA_PATH
-    _PROJECT_SAMPLE = os.path.join(_TEST_DATA_PATH, 'eclipse.project')
+    _PROJECT_SAMPLE = os.path.join(utc.TEST_DATA_PATH, 'eclipse.project')
 
     def test_gen_link(self):
         """Test get_link return a correct link resource config."""
@@ -61,7 +60,7 @@ class EclipseConfUnittests(unittest.TestCase):
             },
             'r_java_path': {constant.CENTRAL_R_PATH}
         }
-        expected_content = read_file_content(self._PROJECT_SAMPLE)
+        expected_content = common_util.read_file_content(self._PROJECT_SAMPLE)
         eclipse_config = EclipseConf(mock_project_info)
         eclipse_config._create_project_content()
         generated_content = eclipse_config.project_content

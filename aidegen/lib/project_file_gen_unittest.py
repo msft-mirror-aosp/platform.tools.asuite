@@ -20,13 +20,14 @@ import copy
 import os
 import shutil
 import unittest
-
 from unittest import mock
 
+import aidegen.unittest_constants as uc
 from aidegen import constant
-from aidegen import unittest_constants
 from aidegen.lib import common_util
 from aidegen.lib import project_file_gen
+from aidegen.lib.project_file_gen import ProjectFileGenerator
+from atest import constants
 from atest import module_info
 
 
@@ -35,38 +36,30 @@ class AidegenProjectFileGenUnittest(unittest.TestCase):
     """Unit tests for project_file_gen.py."""
 
     maxDiff = None
-    _TEST_DATA_PATH = unittest_constants.TEST_DATA_PATH
-    _ANDROID_PROJECT_PATH = os.path.join(_TEST_DATA_PATH, 'android_project')
+    _TEST_DATA_PATH = uc.TEST_DATA_PATH
     _PROJECT_PATH = os.path.join(_TEST_DATA_PATH, 'project')
     _ANDROID_FACET_SAMPLE = os.path.join(_TEST_DATA_PATH, 'android_facet.iml')
     _PROJECT_FACET_SAMPLE = os.path.join(_TEST_DATA_PATH, 'project_facet.iml')
     _MODULE_DEP_SAMPLE = os.path.join(_TEST_DATA_PATH, 'module_dependency.iml')
     _IML_SAMPLE = os.path.join(_TEST_DATA_PATH, 'test.iml')
-    _CLASSPATH_SAMPLE = os.path.join(_TEST_DATA_PATH, 'eclipse.classpath')
     _DEPENDENCIES_IML_SAMPLE = os.path.join(_TEST_DATA_PATH, 'dependencies.iml')
     _MODULE_XML_SAMPLE = os.path.join(_TEST_DATA_PATH, 'modules.xml')
     _MAIN_MODULE_XML_SAMPLE = os.path.join(_TEST_DATA_PATH,
                                            'modules_only_self_module.xml')
     _VCS_XML_SAMPLE = os.path.join(_TEST_DATA_PATH, 'vcs.xml')
-    _IML_PATH = os.path.join(_ANDROID_PROJECT_PATH, 'android_project.iml')
-    _DEPENDENCIES_IML_PATH = os.path.join(_ANDROID_PROJECT_PATH,
+    _IML_PATH = os.path.join(uc.ANDROID_PROJECT_PATH, 'android_project.iml')
+    _DEPENDENCIES_IML_PATH = os.path.join(uc.ANDROID_PROJECT_PATH,
                                           'dependencies.iml')
-    _IDEA_PATH = os.path.join(_ANDROID_PROJECT_PATH, '.idea')
+    _IDEA_PATH = os.path.join(uc.ANDROID_PROJECT_PATH, '.idea')
     _MODULE_PATH = os.path.join(_IDEA_PATH, 'modules.xml')
     _VCS_PATH = os.path.join(_IDEA_PATH, 'vcs.xml')
     _SOURCE_SAMPLE = os.path.join(_TEST_DATA_PATH, 'source.iml')
     _LOCAL_PATH_TOKEN = '@LOCAL_PATH@'
     _AOSP_FOLDER = '/aosp'
-    _JAR_DEP_LIST = ['test1.jar', 'test2.jar']
     _TEST_SOURCE_LIST = [
         'a/b/c/d', 'a/b/c/d/e', 'a/b/c/d/e/f', 'a/b/c/d/f', 'e/f/a', 'e/f/b/c',
         'e/f/g/h'
     ]
-    _ANDROID_SOURCE_DICT = {
-        'test_data/project/level11/level21': True,
-        'test_data/project/level11/level22/level31': False,
-        'test_data/project/level12/level22': False,
-    }
     _ANDROID_SOURCE_RELATIVE_PATH = 'test_data/project'
     _SAMPLE_CONTENT_LIST = ['a/b/c/d', 'e/f']
     _SAMPLE_TRIMMED_SOURCE_LIST = ['a/b/c/d', 'e/f/a', 'e/f/b/c', 'e/f/g/h']
@@ -76,22 +69,30 @@ class AidegenProjectFileGenUnittest(unittest.TestCase):
         '            <excludeFolder url="file://%s/out" />\n' % _TEST_DATA_PATH,
     ]
 
-    def test_handle_facet_for_android(self):
+    def tearDown(self):
+        """Restore the testdata related path."""
+        constant.ANDROID_ROOT_PATH = os.environ.get(constants.ANDROID_BUILD_TOP)
+
+    @mock.patch('aidegen.lib.project_info.ProjectInfo')
+    def test_handle_facet_for_android(self, mock_project):
         """Test _handle_facet with android project."""
         template = common_util.read_file_content(
             project_file_gen._TEMPLATE_IML_PATH)
-        android_facet = project_file_gen._handle_facet(
-            template, self._ANDROID_PROJECT_PATH)
+        mock_project.project_absolute_path = uc.ANDROID_PROJECT_PATH
+        android_facet = ProjectFileGenerator(mock_project)._handle_facet(
+            template)
         sample_android_facet = common_util.read_file_content(
             self._ANDROID_FACET_SAMPLE)
         self.assertEqual(android_facet, sample_android_facet)
 
-    def test_handle_facet_for_normal(self):
+    @mock.patch('aidegen.lib.project_info.ProjectInfo')
+    def test_handle_facet_for_normal(self, mock_project):
         """Test _handle_facet with normal module."""
         template = common_util.read_file_content(
             project_file_gen._TEMPLATE_IML_PATH)
-        project_facet = project_file_gen._handle_facet(template,
-                                                       self._PROJECT_PATH)
+        mock_project.project_absolute_path = self._PROJECT_PATH
+        project_facet = ProjectFileGenerator(mock_project)._handle_facet(
+            template)
         sample_project_facet = common_util.read_file_content(
             self._PROJECT_FACET_SAMPLE)
         self.assertEqual(project_facet, sample_project_facet)
@@ -112,25 +113,30 @@ class AidegenProjectFileGenUnittest(unittest.TestCase):
             self._TEST_SOURCE_LIST[:])
         self.assertEqual(url_list, self._SAMPLE_TRIMMED_SOURCE_LIST)
 
-    def test_handle_source_folder(self):
+    @mock.patch('aidegen.lib.project_info.ProjectInfo')
+    def test_handle_source_folder(self, mock_project):
         """Test _handle_source_folder."""
         template = common_util.read_file_content(
             project_file_gen._TEMPLATE_IML_PATH)
-        source = project_file_gen._handle_source_folder(
-            self._AOSP_FOLDER, template,
-            copy.deepcopy(self._ANDROID_SOURCE_DICT), True,
-            self._ANDROID_SOURCE_RELATIVE_PATH)
+        constant.ANDROID_ROOT_PATH = self._AOSP_FOLDER
+        mock_project.project_relative_path = self._ANDROID_SOURCE_RELATIVE_PATH
+        source = ProjectFileGenerator(mock_project)._handle_source_folder(
+            template, copy.deepcopy(uc.ANDROID_SOURCE_DICT), True)
         sample_source = common_util.read_file_content(self._SOURCE_SAMPLE)
         self.assertEqual(source, sample_source)
 
-    def test_generate_iml(self):
+    @mock.patch('aidegen.lib.project_info.ProjectInfo')
+    def test_generate_iml(self, mock_project):
         """Test _generate_iml."""
+        constant.ANDROID_ROOT_PATH = self._AOSP_FOLDER
+        mock_project.project_absolute_path = uc.ANDROID_PROJECT_PATH
+        mock_project.project_relative_path = self._ANDROID_SOURCE_RELATIVE_PATH
+        mock_project.source_path['jar_path'] = set(uc.JAR_DEP_LIST)
+        pfile_gen = ProjectFileGenerator(mock_project)
         # Test for main project.
         try:
-            iml_path, dependencies_iml_path = project_file_gen._generate_iml(
-                self._AOSP_FOLDER, self._ANDROID_PROJECT_PATH,
-                copy.deepcopy(self._ANDROID_SOURCE_DICT), self._JAR_DEP_LIST,
-                self._ANDROID_SOURCE_RELATIVE_PATH, is_main_module=True)
+            iml_path, dependencies_iml_path = pfile_gen._generate_iml(
+                copy.deepcopy(uc.ANDROID_SOURCE_DICT), is_main_module=True)
             test_iml = common_util.read_file_content(iml_path)
             sample_iml = common_util.read_file_content(self._IML_SAMPLE)
         finally:
@@ -141,22 +147,22 @@ class AidegenProjectFileGenUnittest(unittest.TestCase):
 
         # Test for sub projects.
         try:
-            iml_path, _ = project_file_gen._generate_iml(
-                self._AOSP_FOLDER, self._ANDROID_PROJECT_PATH,
-                copy.deepcopy(self._ANDROID_SOURCE_DICT), self._JAR_DEP_LIST,
-                self._ANDROID_SOURCE_RELATIVE_PATH)
+            iml_path, _ = pfile_gen._generate_iml(
+                copy.deepcopy(uc.ANDROID_SOURCE_DICT))
             test_iml = common_util.read_file_content(iml_path)
             sample_iml = common_util.read_file_content(self._IML_SAMPLE)
         finally:
             os.remove(iml_path)
         self.assertEqual(test_iml, sample_iml)
 
-    def test_generate_modules_xml(self):
+    @mock.patch('aidegen.lib.project_info.ProjectInfo')
+    def test_generate_modules_xml(self, mock_project):
         """Test _generate_modules_xml."""
+        mock_project.project_absolute_path = uc.ANDROID_PROJECT_PATH
+        pfile_gen = ProjectFileGenerator(mock_project)
         # Test for main project.
         try:
-            project_file_gen._generate_modules_xml(self._ANDROID_PROJECT_PATH,
-                                                   [])
+            pfile_gen._generate_modules_xml([])
             test_module = common_util.read_file_content(self._MODULE_PATH)
         finally:
             shutil.rmtree(self._IDEA_PATH)
@@ -165,7 +171,7 @@ class AidegenProjectFileGenUnittest(unittest.TestCase):
 
         # Test for sub projects which only has self module.
         try:
-            project_file_gen._generate_modules_xml(self._ANDROID_PROJECT_PATH)
+            pfile_gen._generate_modules_xml()
             test_module = common_util.read_file_content(self._MODULE_PATH)
         finally:
             shutil.rmtree(self._IDEA_PATH)
@@ -173,24 +179,28 @@ class AidegenProjectFileGenUnittest(unittest.TestCase):
             self._MAIN_MODULE_XML_SAMPLE)
         self.assertEqual(test_module, sample_module)
 
-    def test_generate_vcs_xml(self):
+    @mock.patch('aidegen.lib.project_info.ProjectInfo')
+    def test_generate_vcs_xml(self, mock_project):
         """Test _generate_vcs_xml."""
+        mock_project.project_absolute_path = uc.ANDROID_PROJECT_PATH
         try:
-            git_path = os.path.join(self._ANDROID_PROJECT_PATH,
+            git_path = os.path.join(uc.ANDROID_PROJECT_PATH,
                                     project_file_gen._GIT_FOLDER_NAME)
-            os.mkdir(git_path)
-            project_file_gen._generate_vcs_xml(self._ANDROID_PROJECT_PATH)
+            if not os.path.exists(git_path):
+                os.mkdir(git_path)
+            pfile_gen = ProjectFileGenerator(mock_project)
+            pfile_gen._generate_vcs_xml()
             test_vcs = common_util.read_file_content(self._VCS_PATH)
         finally:
-            shutil.rmtree(self._IDEA_PATH)
             shutil.rmtree(git_path)
         sample_vcs = common_util.read_file_content(self._VCS_XML_SAMPLE)
         # The sample must base on the real path.
         sample_vcs = sample_vcs.replace(self._LOCAL_PATH_TOKEN,
-                                        self._ANDROID_PROJECT_PATH)
+                                        uc.ANDROID_PROJECT_PATH)
         self.assertEqual(test_vcs, sample_vcs)
-        self.assertIsNone(
-            project_file_gen._generate_vcs_xml(constant.ANDROID_ROOT_PATH))
+        mock_project.project_absolute_path = constant.ANDROID_ROOT_PATH
+        pfile_gen = ProjectFileGenerator(mock_project)
+        self.assertIsNone(pfile_gen._generate_vcs_xml())
 
     def test_get_uniq_iml_name(self):
         """Test the unique name cache mechanism.
@@ -221,7 +231,7 @@ class AidegenProjectFileGenUnittest(unittest.TestCase):
             path_list.append(k)
         print('{} {}.'.format('path list with length:', len(path_list)))
 
-        names = [project_file_gen.get_unique_iml_name(f) for f in path_list]
+        names = [ProjectFileGenerator.get_unique_iml_name(f) for f in path_list]
         print('{} {}.'.format('Names list with length:', len(names)))
 
         self.assertEqual(len(names), len(path_list))
@@ -231,10 +241,11 @@ class AidegenProjectFileGenUnittest(unittest.TestCase):
         print('{} {}.'.format('The size of name set is:', len(dic)))
         self.assertEqual(len(dic), len(path_list))
 
-    def test_copy_project_files(self):
+    @mock.patch('aidegen.lib.project_info.ProjectInfo')
+    def test_copy_project_files(self, mock_project):
         """Test _copy_constant_project_files."""
-        project_file_gen._copy_constant_project_files(
-            self._ANDROID_PROJECT_PATH)
+        mock_project.project_absolute_path = uc.ANDROID_PROJECT_PATH
+        ProjectFileGenerator(mock_project)._copy_constant_project_files()
         self.assertTrue(
             os.path.isfile(
                 os.path.join(self._IDEA_PATH,

@@ -30,6 +30,9 @@ from aidegen.lib import common_util
 from aidegen.lib.errors import IDENotExistError
 from aidegen.lib.errors import ProjectPathNotExistError
 from aidegen.lib.ide_util import IdeUtil
+from aidegen.lib.eclipse_project_file_gen import EclipseConf
+from aidegen.lib.project_info import ProjectInfo
+from aidegen.lib.project_file_gen import ProjectFileGenerator
 from atest import module_info
 
 
@@ -95,6 +98,22 @@ class AidegenMainUnittests(unittest.TestCase):
         with self.assertRaises(IDENotExistError):
             aidegen_main._get_ide_util_instance(args)
 
+    @mock.patch('aidegen.lib.project_config.ProjectConfig')
+    @mock.patch.object(ProjectFileGenerator, 'generate_ide_project_files')
+    @mock.patch.object(EclipseConf, 'generate_ide_project_files')
+    def test_generate_project_files(self, mock_eclipse, mock_ide, mock_config):
+        """Test _generate_project_files with different conditions."""
+        projects = ['module_a', 'module_v']
+        ProjectInfo.config = mock_config
+        mock_config.ide_name = constant.IDE_ECLIPSE
+        aidegen_main._generate_project_files(projects)
+        self.assertTrue(mock_eclipse.called_with(projects))
+        mock_config.ide_name = constant.IDE_ANDROID_STUDIO
+        aidegen_main._generate_project_files(projects)
+        self.assertTrue(mock_ide.called_with(projects))
+        mock_config.ide_name = constant.IDE_INTELLIJ
+        aidegen_main._generate_project_files(projects)
+        self.assertTrue(mock_ide.called_with(projects))
 
     @mock.patch.object(common_util, 'get_atest_module_info')
     @mock.patch.object(metrics, 'log_usage')
