@@ -22,7 +22,7 @@ files. Then it will load these two json files into two json dictionaries,
 merge them into one dictionary and return the merged dictionary to its caller.
 
 Example usage:
-merged_dict = generate_module_info_json(atest_module_info, project, verbose)
+merged_dict = generate_merged_module_info(atest_module_info, project, verbose)
 """
 
 import glob
@@ -56,9 +56,9 @@ _GENERATE_JSON_COMMAND = ('SOONG_COLLECT_JAVA_DEPS=false make nothing;'
 
 
 @time_logged
-def generate_module_info_json(module_info, projects=None, verbose=False,
-                              skip_build=False):
-    """Generate a merged json dictionary.
+def generate_merged_module_info(module_info, projects=None, verbose=False,
+                                skip_build=False):
+    """Generate a merged dictionary.
 
     Change directory to ANDROID_ROOT_PATH before making _GENERATE_JSON_COMMAND
     to avoid command error: "make: *** No rule to make target 'nothing'.  Stop."
@@ -67,7 +67,7 @@ def generate_module_info_json(module_info, projects=None, verbose=False,
     Linked functions:
         _build_target(project, verbose)
         _get_soong_build_json_dict()
-        _merge_json(mk_dict, bp_dict)
+        _merge_dict(mk_dict, bp_dict)
 
     Args:
         module_info: A ModuleInfo instance contains data of module-info.json.
@@ -77,7 +77,7 @@ def generate_module_info_json(module_info, projects=None, verbose=False,
                     it exists, otherwise build it.
 
     Returns:
-        A tuple of Atest module info instance and a merged json dictionary.
+        A merged dictionary from module-info.json and module_bp_java_deps.json.
     """
     cwd = os.getcwd()
     os.chdir(constant.ANDROID_ROOT_PATH)
@@ -86,7 +86,7 @@ def generate_module_info_json(module_info, projects=None, verbose=False,
                   skip_build)
     os.chdir(cwd)
     bp_dict = _get_soong_build_json_dict()
-    return _merge_json(module_info.name_to_module_info, bp_dict)
+    return _merge_dict(module_info.name_to_module_info, bp_dict)
 
 
 def _build_target(module_info, cmd, main_project=None, verbose=False,
@@ -150,6 +150,9 @@ def _is_new_json_file_generated(json_path, original_file_mtime):
     Args:
         json_path: The path of the json file being to check.
         original_file_mtime: the original file modified time.
+
+    Returns:
+        A boolean, True if the json_path file is new generated, otherwise False.
     """
     if not original_file_mtime:
         return os.path.isfile(json_path)
@@ -185,7 +188,7 @@ def _get_soong_build_json_dict():
     """Load a json file from path and convert it into a json dictionary.
 
     Returns:
-        A json dictionary.
+        A dictionary loaded from the blueprint json file.
     """
     json_path = get_blueprint_json_path()
     try:
@@ -207,7 +210,9 @@ def get_blueprint_json_path():
 
 
 def _merge_module_keys(m_dict, b_dict):
-    """Merge a module's json dictionary into another module's json dictionary.
+    """Merge a module's dictionary into another module's dictionary.
+
+    Merge b_dict module data into m_dict.
 
     Args:
         m_dict: The module dictionary is going to merge b_dict into.
@@ -218,13 +223,13 @@ def _merge_module_keys(m_dict, b_dict):
 
 
 def _copy_needed_items_from(mk_dict):
-    """Shallow copy needed items from Make build system part json dictionary.
+    """Shallow copy needed items from Make build system module info dictionary.
 
     Args:
-        mk_dict: Make build system json dictionary is going to be copyed.
+        mk_dict: Make build system dictionary is going to be copied.
 
     Returns:
-        A merged json dictionary.
+        A merged dictionary.
     """
     merged_dict = dict()
     for module in mk_dict.keys():
@@ -235,18 +240,18 @@ def _copy_needed_items_from(mk_dict):
     return merged_dict
 
 
-def _merge_json(mk_dict, bp_dict):
-    """Merge two json dictionaries.
+def _merge_dict(mk_dict, bp_dict):
+    """Merge two dictionaries.
 
     Linked function:
         _merge_module_keys(m_dict, b_dict)
 
     Args:
-        mk_dict: Make build system part json dictionary.
-        bp_dict: Soong build system part json dictionary.
+        mk_dict: Make build system module info dictionary.
+        bp_dict: Soong build system module info dictionary.
 
     Returns:
-        A merged json dictionary.
+        A merged dictionary.
     """
     merged_dict = _copy_needed_items_from(mk_dict)
     for module in bp_dict.keys():
