@@ -90,13 +90,6 @@ _CODE_STYLE_REL_PATH = 'tools/asuite/aidegen/data/AndroidStyle_aidegen.xml'
 _CODE_STYLE_SRC_PATH = os.path.join(constant.ANDROID_ROOT_PATH,
                                     _CODE_STYLE_REL_PATH)
 
-_ECLIP_SRC_ENTRY = '<classpathentry exported="true" kind="src" path="{}"/>\n'
-_ECLIP_LIB_ENTRY = '<classpathentry exported="true" kind="lib" path="{}"/>\n'
-_ECLIP_TEMPLATE_PATH = os.path.join(_ROOT_DIR, 'templates/eclipse/eclipse.xml')
-_ECLIP_EXTENSION = '.classpath'
-_ECLIP_SRC_TOKEN = '@SRC@'
-_ECLIP_LIB_TOKEN = '@LIB@'
-
 # b/121256503: Prevent duplicated iml names from breaking IDEA.
 # Use a map to cache in-using(already used) iml project file names.
 _USED_NAME_CACHE = dict()
@@ -205,25 +198,6 @@ def generate_ide_project_files(projects):
         _merge_project_vcs_xmls(projects)
 
 
-def _generate_eclipse_project_file(project_info):
-    """Generates Eclipse project files.
-
-    Args:
-        project_info: ProjectInfo instance.
-    """
-    eclipse_configure = EclipseConf(project_info)
-    eclipse_configure.generate_project_file()
-    source_dict = dict.fromkeys(
-        list(project_info.source_path['source_folder_path']), False)
-    source_dict.update(
-        dict.fromkeys(list(project_info.source_path['test_folder_path']), True))
-    source_dict.update(
-        dict.fromkeys(list(project_info.source_path['r_java_path']), False))
-    project_info.iml_path = _generate_classpath(
-        project_info.project_absolute_path, list(sorted(source_dict)),
-        list(project_info.source_path['jar_path']))
-
-
 def generate_eclipse_project_files(projects):
     """Generate Eclipse project files by a list of ProjectInfo instances.
 
@@ -231,7 +205,9 @@ def generate_eclipse_project_files(projects):
         projects: A list of ProjectInfo instances.
     """
     for project in projects:
-        _generate_eclipse_project_file(project)
+        eclipse_configure = EclipseConf(project)
+        eclipse_configure.generate_project_file()
+        eclipse_configure.generate_classpath_file()
 
 
 def _copy_constant_project_files(target_path):
@@ -522,32 +498,6 @@ def _generate_iml(root_path, module_path, source_dict, jar_dependencies,
                       dependencies_iml_path)
     # The dependencies_iml_path is use for removing the file itself in unittest.
     return module_iml_path, dependencies_iml_path
-
-
-def _generate_classpath(module_path, source_list, jar_dependencies):
-    """Generate .classpath file.
-
-    Args:
-        module_path: Absolute path of the module.
-        source_list: A list of sources path.
-        jar_dependencies: List of the jar path.
-
-    Returns:
-        String: The absolute paths of .classpath.
-    """
-    template = common_util.read_file_content(_ECLIP_TEMPLATE_PATH)
-
-    src_list = [_ECLIP_SRC_ENTRY.format(s) for s in source_list]
-    template = template.replace(_ECLIP_SRC_TOKEN, ''.join(src_list))
-
-    lib_list = [_ECLIP_LIB_ENTRY.format(j) for j in jar_dependencies]
-    template = template.replace(_ECLIP_LIB_TOKEN, ''.join(lib_list))
-
-    classpath_path = os.path.join(module_path, _ECLIP_EXTENSION)
-
-    common_util.file_generate(classpath_path, template)
-
-    return classpath_path
 
 
 def _generate_modules_xml(module_path, iml_path_list=None):
