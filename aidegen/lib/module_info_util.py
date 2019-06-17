@@ -34,8 +34,9 @@ import sys
 
 from aidegen import constant
 from aidegen.lib.common_util import COLORED_INFO
-from aidegen.lib.common_util import time_logged
+from aidegen.lib.common_util import get_blueprint_json_path
 from aidegen.lib.common_util import get_related_paths
+from aidegen.lib.common_util import time_logged
 from aidegen.lib import errors
 
 _BLUEPRINT_JSONFILE_NAME = 'module_bp_java_deps.json'
@@ -73,8 +74,9 @@ def generate_merged_module_info(module_info, projects=None, verbose=False,
         module_info: A ModuleInfo instance contains data of module-info.json.
         projects: A list of project names.
         verbose: A boolean, if true displays full build output.
-        skip_build: A boolean, if true skip building _BLUEPRINT_JSONFILE_NAME if
-                    it exists, otherwise build it.
+        skip_build: A boolean, if true skip building
+                    constant.BLUEPRINT_JSONFILE_NAME if it exists, otherwise
+                    build it.
 
     Returns:
         A merged dictionary from module-info.json and module_bp_java_deps.json.
@@ -103,8 +105,9 @@ def _build_target(module_info, cmd, main_project=None, verbose=False,
         cmd: A string list, build command.
         main_project: The main project name.
         verbose: A boolean, if true displays full build output.
-        skip_build: A boolean, if true skip building _BLUEPRINT_JSONFILE_NAME if
-                    it exists, otherwise build it.
+        skip_build: A boolean, if true, skip building if
+                    constant.BLUEPRINT_JSONFILE_NAME file exists, otherwise
+                    build it.
 
     Build results:
         1. Build successfully return.
@@ -120,7 +123,7 @@ def _build_target(module_info, cmd, main_project=None, verbose=False,
     if os.path.isfile(json_path):
         if skip_build:
             logging.info('%s file exists, skipping build.',
-                         _BLUEPRINT_JSONFILE_NAME)
+                         constant.BLUEPRINT_JSONFILE_NAME)
             return
         original_json_mtime = os.path.getmtime(json_path)
     try:
@@ -198,15 +201,6 @@ def _get_soong_build_json_dict():
     except IOError as err:
         raise errors.JsonFileNotExistError(
             '%s does not exist, error: %s.' % (json_path, err))
-
-
-def get_blueprint_json_path():
-    """Assemble the path of blueprint json file.
-
-    Returns:
-        Blueprint json path.
-    """
-    return os.path.join(constant.SOONG_OUT_DIR_PATH, _BLUEPRINT_JSONFILE_NAME)
 
 
 def _merge_module_keys(m_dict, b_dict):
