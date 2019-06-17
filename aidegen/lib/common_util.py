@@ -377,3 +377,13 @@ def file_generate(path, content):
         os.makedirs(os.path.dirname(path))
     with open(path, 'w') as target:
         target.write(content)
+
+
+def get_blueprint_json_path():
+    """Assemble the path of blueprint json file.
+
+    Returns:
+        Blueprint json path.
+    """
+    return os.path.join(constant.SOONG_OUT_DIR_PATH,
+                        constant.BLUEPRINT_JSONFILE_NAME)
