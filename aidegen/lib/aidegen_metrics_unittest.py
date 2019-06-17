@@ -21,7 +21,7 @@ from __future__ import print_function
 import unittest
 from unittest import mock
 
-from aidegen.lib import metrics
+from aidegen.lib import aidegen_metrics
 from atest import atest_utils
 
 
@@ -32,7 +32,7 @@ class MetricsUnittests(unittest.TestCase):
     @mock.patch.object(atest_utils, 'print_data_collection_notice')
     def test_log_usage(self, mock_notice, mock_external_check):
         """Test log_usage always run through the target test function."""
-        metrics.log_usage()
+        aidegen_metrics.log_usage()
         self.assertTrue(mock_notice.called)
         self.assertTrue(mock_external_check.called)
 
