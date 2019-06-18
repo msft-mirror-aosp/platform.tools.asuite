@@ -99,15 +99,15 @@ class AidegenModuleInfo(ModuleInfo):
         if not os.path.isfile(module_file_path):
             logging.debug(
                 'Generating %s - this is required for the initial runs.',
-                constant.MERGED_MODULE_INFO)
+                module_file_path)
         if not AidegenModuleInfo.mod_info:
             AidegenModuleInfo.mod_info = common_util.get_atest_module_info()
         data = module_info_util.generate_merged_module_info(
             AidegenModuleInfo.mod_info, AidegenModuleInfo.projects,
             AidegenModuleInfo.verbose, AidegenModuleInfo.skip_build)
-        module_info_path = constant.MERGED_MODULE_INFO_PATH
-        with open(module_file_path, 'w') as json_file:
+        merged_file_path = constant.MERGED_MODULE_INFO_PATH
+        with open(merged_file_path, 'w') as json_file:
             json.dump(data, json_file, indent=4)
-        module_file_rel_path = os.path.relpath(module_info_path,
+        merged_file_rel_path = os.path.relpath(merged_file_path,
                                                constant.ANDROID_ROOT_PATH)
-        return module_file_rel_path, module_info_path
+        return merged_file_rel_path, merged_file_path
