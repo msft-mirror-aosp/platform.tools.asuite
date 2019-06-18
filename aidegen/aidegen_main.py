@@ -182,7 +182,7 @@ def _get_ide_util_instance(args):
         args: A list of arguments.
 
     Returns:
-        A IdeUtil class instance.
+        An IdeUtil class instance.
     """
     if args.no_launch:
         return None
@@ -222,7 +222,7 @@ def _compile_targets_for_whole_android_tree(atest_module_info, targets, cwd):
 
     Args:
         atest_module_info: A instance of atest module-info object.
-        targets: A list of targets to be built.
+        targets: A list of targets to be imported.
         cwd: A path of current working directory.
 
     Returns:
@@ -273,22 +273,33 @@ def _check_whole_android_tree(atest_module_info, targets, android_tree):
     2. If android_tree is True, add whole Android tree to the project.
 
     Args:
-        atest_module_info: A instance of atest module-info object.
-        targets: A list of targets to be built.
+        atest_module_info: An instance of atest module-info object.
+        targets: A list of targets to be imported.
         android_tree: A boolean, True if it's a whole Android tree case,
                       otherwise False.
 
     Returns:
         A list of targets to be built.
     """
-    cwd = os.getcwd()
-    if not android_tree and is_android_root(cwd) and targets == ['']:
-        android_tree = True
+    android_tree = _is_whole_android_tree(targets, android_tree)
     new_targets = targets
     if android_tree:
         new_targets = _compile_targets_for_whole_android_tree(
-            atest_module_info, targets, cwd)
+            atest_module_info, targets, os.getcwd())
     return new_targets
+
+
+def _is_whole_android_tree(targets, android_tree):
+    """Checks is AIDEGen going to process whole android tree.
+
+    Args:
+        targets: A list of targets to be imported.
+        android_tree: A boolean, True if it's a whole Android tree case,
+                      otherwise False.
+    Returns:
+        A boolean, True when user is going to import whole Android tree.
+    """
+    return android_tree or (is_android_root(os.getcwd()) and targets == [''])
 
 
 @time_logged(message=_TIME_EXCEED_MSG, maximum=_MAX_TIME)
@@ -324,7 +335,9 @@ def main(argv):
     try:
         args = _parse_args(argv)
         _configure_logging(args.verbose)
-        starts_asuite_metrics()
+        references = [constant.ANDROID_TREE] if _is_whole_android_tree(
+            args.targets, args.android_tree) else []
+        starts_asuite_metrics(references)
         if args.skip_build:
             main_without_message(args)
         else:

@@ -56,6 +56,7 @@ EXIT_CODE_EXCEPTION = -1
 EXIT_CODE_NORMAL = 0
 EXIT_CODE_AIDEGEN_EXCEPTION = 1
 AIDEGEN_TOOL_NAME = 'aidegen'
+ANDROID_TREE = 'is_android_tree'
 
 # Central R path
 CENTRAL_R_PATH = 'out/target/common/R'
