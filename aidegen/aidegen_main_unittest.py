@@ -152,11 +152,15 @@ class AidegenMainUnittests(unittest.TestCase):
             aidegen_main._compile_targets_for_whole_android_tree(
                 mod_info, targets, cwd))
 
-    def test_is_whole_android_tree(self):
+    @mock.patch.object(os, 'getcwd')
+    def test_is_whole_android_tree(self, mock_getcwd):
         """Test _is_whole_android_tree with different conditions."""
         self.assertTrue(aidegen_main._is_whole_android_tree(['a'], True))
-        self.assertTrue(aidegen_main._is_whole_android_tree([''], False))
         self.assertFalse(aidegen_main._is_whole_android_tree(['a'], False))
+        mock_getcwd.return_value = constant.ANDROID_ROOT_PATH
+        self.assertTrue(aidegen_main._is_whole_android_tree([''], False))
+        mock_getcwd.return_value = 'frameworks/base'
+        self.assertFalse(aidegen_main._is_whole_android_tree([''], False))
 
 
 if __name__ == '__main__':
