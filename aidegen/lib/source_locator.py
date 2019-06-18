@@ -390,7 +390,7 @@ class ModuleData():
         target_folder, target_file = os.path.split(srcjar)
         if target_file == _TARGET_AAPT2_SRCJAR:
             return os.path.join(target_folder, _NAME_AAPT2)
-        elif target_file == _TARGET_R_JAR:
+        if target_file == _TARGET_R_JAR:
             return os.path.join(target_folder, _NAME_AAPT2, 'R')
         return None
 
