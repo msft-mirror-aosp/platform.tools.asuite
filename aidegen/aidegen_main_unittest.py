@@ -24,7 +24,7 @@ from unittest import mock
 
 import aidegen.unittest_constants as uc
 from aidegen import aidegen_main
-from aidegen.lib import metrics
+from aidegen.lib import aidegen_metrics
 from aidegen import constant
 from aidegen.lib import common_util
 from aidegen.lib.errors import IDENotExistError
@@ -116,7 +116,7 @@ class AidegenMainUnittests(unittest.TestCase):
         self.assertTrue(mock_ide.called_with(projects))
 
     @mock.patch.object(common_util, 'get_atest_module_info')
-    @mock.patch.object(metrics, 'log_usage')
+    @mock.patch.object(aidegen_metrics, 'log_usage')
     def test_show_collect_data_notice(self, mock_log, mock_get):
         """Test main process always run through the target test function."""
         target = 'nothing'

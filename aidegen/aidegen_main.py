@@ -55,9 +55,9 @@ from aidegen.lib.common_util import time_logged
 from aidegen.lib.errors import AIDEgenError
 from aidegen.lib.errors import IDENotExistError
 from aidegen.lib.ide_util import IdeUtil
-from aidegen.lib.metrics import log_usage
-from aidegen.lib.metrics import starts_asuite_metrics
-from aidegen.lib.metrics import ends_asuite_metrics
+from aidegen.lib.aidegen_metrics import log_usage
+from aidegen.lib.aidegen_metrics import starts_asuite_metrics
+from aidegen.lib.aidegen_metrics import ends_asuite_metrics
 from aidegen.lib.module_info import AidegenModuleInfo
 from aidegen.lib.project_file_gen import ProjectFileGenerator
 from aidegen.lib.eclipse_project_file_gen import EclipseConf
