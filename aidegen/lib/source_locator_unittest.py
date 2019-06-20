@@ -129,14 +129,14 @@ class SourceLocatorUnittests(unittest.TestCase):
                                                 _MODULE_DEPTH)
         # Test the module is not APPS.
         module_data._collect_r_srcs_paths()
-        expect_result = {'out/target/common/R'}
+        expect_result = set()
         self.assertEqual(module_data.r_java_paths, expect_result)
 
         # Test the module is not a target module.
         test_module['depth'] = 1
         module_data = source_locator.ModuleData(_MODULE_NAME, test_module, 1)
         module_data._collect_r_srcs_paths()
-        expect_result = {'out/target/common/R'}
+        expect_result = set()
         self.assertEqual(module_data.r_java_paths, expect_result)
 
         # Test the srcjar target doesn't exist.
@@ -145,7 +145,7 @@ class SourceLocatorUnittests(unittest.TestCase):
         module_data = source_locator.ModuleData(_MODULE_NAME, test_module,
                                                 _MODULE_DEPTH)
         module_data._collect_r_srcs_paths()
-        expect_result = {'out/target/common/R'}
+        expect_result = set()
         self.assertEqual(module_data.r_java_paths, expect_result)
 
         # Test the srcjar target exists.
@@ -155,8 +155,7 @@ class SourceLocatorUnittests(unittest.TestCase):
                                                 _MODULE_DEPTH)
         module_data._collect_r_srcs_paths()
         expect_result = {
-            'out/soong/.intermediates/packages/apps/test_aapt2/aapt2',
-            'out/target/common/R'
+            'out/soong/.intermediates/packages/apps/test_aapt2/aapt2'
         }
         self.assertEqual(module_data.r_java_paths, expect_result)
 
@@ -280,7 +279,7 @@ class SourceLocatorUnittests(unittest.TestCase):
         result_src_list = set(['packages/apps/test/src/main/java'])
         result_test_list = set(['packages/apps/test/tests'])
         result_jar_list = set()
-        result_r_path = set([constant.CENTRAL_R_PATH])
+        result_r_path = set()
         mock_android_root_dir.return_value = uc.TEST_DATA_PATH
         module_data = source_locator.ModuleData(_MODULE_NAME, module_info,
                                                 _MODULE_DEPTH)
@@ -351,7 +350,7 @@ class SourceLocatorUnittests(unittest.TestCase):
         result_src_list = set(['packages/apps/test/src/main/java'])
         result_test_list = set(['packages/apps/test/tests'])
         result_jar_list = set()
-        result_r_path = set([constant.CENTRAL_R_PATH])
+        result_r_path = set()
         module_data = source_locator.ModuleData(_MODULE_NAME, module_info,
                                                 depth_by_source)
         module_data.locate_sources_path()
@@ -368,7 +367,7 @@ class SourceLocatorUnittests(unittest.TestCase):
         result_src_list = set(['packages/apps/test/src/main/java'])
         result_test_list = set(['packages/apps/test/tests'])
         result_jar_list = set()
-        result_r_path = set([constant.CENTRAL_R_PATH])
+        result_r_path = set()
         module_data = source_locator.ModuleData(_MODULE_NAME, module_info,
                                                 depth_by_source)
         module_data.locate_sources_path()
@@ -400,6 +399,7 @@ class SourceLocatorUnittests(unittest.TestCase):
             'test_folder_path': set(),
             'jar_path': set(),
             'jar_module_path': dict(),
+            'srcjar_path': set(),
             'r_java_path': set(),
         }
         # Show warning when the jar not exists after build the module.
@@ -426,7 +426,7 @@ class SourceLocatorUnittests(unittest.TestCase):
         # Test collects source and test folders.
         result_source = set(['packages/apps/test/src/main/java'])
         result_test = set(['packages/apps/test/tests'])
-        result_r_path = set([constant.CENTRAL_R_PATH])
+        result_r_path = set()
         self.assertEqual(mock_project_info.source_path['source_folder_path'],
                          result_source)
         self.assertEqual(mock_project_info.source_path['test_folder_path'],
@@ -451,6 +451,17 @@ class SourceLocatorUnittests(unittest.TestCase):
                 source_locator._separate_build_targets(test_list, 9)):
             target.append(test_list[start: end])
         self.assertEqual(target, sample)
+
+    def test_collect_srcjar_path(self):
+        """Test collect srcjar path."""
+        srcjar_path = 'a/b/aapt2.srcjar'
+        test_module = dict(_MODULE_INFO)
+        test_module['srcjars'] = [srcjar_path]
+        expacted_result = set(['%s!/' % srcjar_path])
+        module_data = source_locator.ModuleData(_MODULE_NAME, test_module,
+                                                _MODULE_DEPTH)
+        module_data._collect_srcjar_path(srcjar_path)
+        self.assertEqual(module_data.srcjar_paths, expacted_result)
 
 
 if __name__ == '__main__':

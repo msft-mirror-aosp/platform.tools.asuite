@@ -135,6 +135,7 @@ def locate_source(project, verbose, depth, ide_name, build=True):
         dependencies['source_folder_path'].update(module.src_dirs)
         dependencies['test_folder_path'].update(module.test_dirs)
         dependencies['r_java_path'].update(module.r_java_paths)
+        dependencies['srcjar_path'].update(module.srcjar_paths)
         _append_jars_as_dependencies(dependencies, module)
         if module.build_targets:
             rebuild_targets |= module.build_targets
@@ -262,6 +263,9 @@ class ModuleData():
         src_dirs: A set to keep the unique source folder relative paths.
         test_dirs: A set to keep the unique test folder relative paths.
         jar_files: A set to keep the unique jar file relative paths.
+        r_java_paths: A set to keep the R folder paths to use in Eclipse.
+        srcjar_paths: A set to keep the srcjar source root paths to use in
+                      IntelliJ.
         referenced_by_jar: A boolean to check if the module is referenced by a
                            jar file.
         build_targets: A set to keep the unique build target jar or srcjar file
@@ -308,6 +312,7 @@ class ModuleData():
         self.test_dirs = set()
         self.jar_files = set()
         self.r_java_paths = set()
+        self.srcjar_paths = set()
         self.referenced_by_jar = False
         self.build_targets = set()
         self.missing_jars = set()
@@ -335,48 +340,47 @@ class ModuleData():
 
         Check if the path of aapt2.srcjar or R.jar exists, which is the value of
         key "srcjars" in module_data. If the path of both 2 cases doesn't exist,
-        build it onto an intermediates directory. Build system will finally copy
-        the R.java from the intermediates directory to the central R directory
-        after building successfully. So set the central R directory
-        out/target/common/R as a default source folder in IntelliJ.
+        build it onto an intermediates directory.
 
-        Case of aapt2.srcjar:
-            srcjar: out/target/common/obj/APPS/Settings_intermediates/
-                    aapt2.srcjar
-            After building the aapt2.srcjar successfully, the folder out/target/
-            common/obj/APPS/Settings_intermediates/aapt2 will be generated and
-            contain the R.java file of the module.
-
-        Case of R.jar:
-            srcjar: out/soong/.intermediates/packages/apps/Car/LensPicker/
-                    CarLensPickerApp/android_common/gen/R.jar
-            After building the R.jar successfully, the folder out/soong/
-            .intermediates/packages/apps/Car/LensPicker/CarLensPickerApp/
-            android_common/gen/aapt2/R will be generated and contain the R.java
-            file of the module.
-
-        Case of central R folder: out/target/common/R
-            Build system will copy the R.java from the intermediates directory
-            to the central R directory during the build.
+        For IntelliJ, we can set the srcjar file as a source root for
+        dependency. For Eclipse, we still use the R folder as dependencies until
+        we figure out how to set srcjar file as dependency.
+        # TODO(b/135594800): Set aapt2.srcjar or R.jar as a dependency in
+                             Eclipse.
         """
         if (self._is_app_module() and self._is_target_module() and
                 self._check_key(constant.KEY_SRCJARS)):
-            # Add the aapt2.srcjar or R.jar into build target when the source
-            # folder of R.java doesn't exist.
             for srcjar in self.module_data[constant.KEY_SRCJARS]:
+                if not os.path.exists(common_util.get_abs_path(srcjar)):
+                    self.build_targets.add(srcjar)
+                self._collect_srcjar_path(srcjar)
                 r_dir = self._get_r_dir(srcjar)
                 if r_dir:
-                    if not os.path.exists(common_util.get_abs_path(r_dir)):
-                        self.build_targets.add(srcjar)
-                    # In case the central R folder been deleted, uses the
-                    # intermediate folder as the dependency to R.java.
                     self.r_java_paths.add(r_dir)
-        # Add the central R as a default source folder.
-        self.r_java_paths.add(constant.CENTRAL_R_PATH)
+
+    def _collect_srcjar_path(self, srcjar):
+        """Collect the source folders from a srcjar path.
+
+        Set the aapt2.srcjar or R.jar as source root:
+        Case aapt2.srcjar:
+            The source path string is
+            out/.../Bluetooth_intermediates/aapt2.srcjar
+            The source content descriptor is
+            out/.../Bluetooth_intermediates/aapt2.srcjar!/.
+        Case R.jar:
+            The source path string is out/soong/.../gen/R.jar.
+            The source content descriptor is out/soong/.../gen/R.jar!/.
+
+        Args:
+            srcjar: A file path string relative to ANDROID_BUILD_TOP, the build
+                    target of the module to generate R.java.
+        """
+        if os.path.basename(srcjar) in _TARGET_BUILD_FILES:
+            self.srcjar_paths.add('%s!/' % srcjar)
 
     @staticmethod
     def _get_r_dir(srcjar):
-        """Get the source folder of R.java.
+        """Get the source folder of R.java for Eclipse.
 
         Args:
             srcjar: A file path string, the build target of the module to
