@@ -633,6 +633,51 @@ class IdeMacEclipse(IdeEclipse):
         ])
 
 
+class IdeCLion(IdeBase):
+    """Class offers a set of CLion launching utilities.
+
+    For example:
+        1. Check if CLion is installed.
+        2. Launch an CLion.
+    """
+
+    def __init__(self, installed_path=None, config_reset=False):
+        super().__init__(installed_path, config_reset)
+        self._ide_name = constant.IDE_CLION
+
+
+class IdeLinuxCLion(IdeCLion):
+    """Class offers a set of CLion launching utilities for OS Linux.
+
+    For example:
+        1. Check if CLion is installed.
+        2. Launch an CLion.
+    """
+
+    def __init__(self, installed_path=None, config_reset=False):
+        super().__init__(installed_path, config_reset)
+        self._bin_file_name = 'clion.sh'
+        self._bin_folders = ['/opt/clion-2*/bin']
+        self._bin_paths = self._get_possible_bin_paths()
+        self._init_installed_path(installed_path)
+
+
+class IdeMacCLion(IdeCLion):
+    """Class offers a set of Android Studio launching utilities for OS Mac.
+
+    For example:
+        1. Check if Android Studio is installed.
+        2. Launch an Android Studio.
+    """
+
+    def __init__(self, installed_path=None, config_reset=False):
+        super().__init__(installed_path, config_reset)
+        self._bin_file_name = 'clion'
+        self._bin_folders = ['/Applications/CLion.app/Contents/MacOS/CLion']
+        self._bin_paths = self._get_possible_bin_paths()
+        self._init_installed_path(installed_path)
+
+
 def _get_script_from_internal_path(ide_paths, ide_name):
     """Get the studio.sh script path from internal path.
 
@@ -894,6 +939,8 @@ def _get_mac_ide(installed_path=None, ide='j', config_reset=False):
         return IdeMacEclipse(installed_path)
     if ide == 's':
         return IdeMacStudio(installed_path)
+    if ide == 'c':
+        return IdeMacCLion(installed_path)
     return IdeMacIntelliJ(installed_path, config_reset)
 
 
@@ -913,4 +960,6 @@ def _get_linux_ide(installed_path=None, ide='j', config_reset=False):
         return IdeLinuxEclipse(installed_path)
     if ide == 's':
         return IdeLinuxStudio(installed_path)
+    if ide == 'c':
+        return IdeLinuxCLion(installed_path)
     return IdeLinuxIntelliJ(installed_path, config_reset)
