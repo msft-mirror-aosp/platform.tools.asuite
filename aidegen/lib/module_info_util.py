@@ -46,7 +46,8 @@ _MERGE_NEEDED_ITEMS = [
     constant.KEY_INSTALLED,
     constant.KEY_DEPENDENCIES,
     constant.KEY_SRCS,
-    constant.KEY_SRCJARS
+    constant.KEY_SRCJARS,
+    constant.KEY_CLASSES_JAR
 ]
 _INTELLIJ_PROJECT_FILE_EXT = '*.iml'
 _LAUNCH_PROJECT_QUERY = (
