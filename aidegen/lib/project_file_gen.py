@@ -39,6 +39,9 @@ _SOURCE_FOLDER = ('            <sourceFolder url='
 _EXCLUDE_ITEM = '            <excludeFolder url="file://%s" />\n'
 _CONTENT_URL = '        <content url="file://%s">\n'
 _END_CONTENT = '        </content>\n'
+_SRCJAR_URL = ('%s<content url="jar://{SRCJAR}">\n'
+               '%s<sourceFolder url="jar://{SRCJAR}" isTestSource="False" />\n'
+               '%s</content>\n') % (' ' * 8, ' ' * 12, ' ' * 8)
 _ORDER_ENTRY = ('        <orderEntry type="module-library" exported="">'
                 '<library><CLASSES><root url="jar://%s!/" /></CLASSES>'
                 '<JAVADOC /><SOURCES /></library></orderEntry>\n')
@@ -51,6 +54,7 @@ _SUB_MODULES_SECTION = ('            <module fileurl="file:///{IML}" '
 _VCS_SECTION = '        <mapping directory="%s" vcs="Git" />'
 _FACET_TOKEN = '@FACETS@'
 _SOURCE_TOKEN = '@SOURCES@'
+_SRCJAR_TOKEN = '@SRCJAR@'
 _MODULE_DEP_TOKEN = '@MODULE_DEPENDENCIES@'
 _MODULE_TOKEN = '@MODULES@'
 _ENABLE_DEBUGGER_MODULE_TOKEN = '@ENABLE_DEBUGGER_MODULE@'
@@ -190,7 +194,6 @@ class ProjectFileGenerator():
         source_dict = self._generate_source_section('source_folder_path', False)
         source_dict.update(
             self._generate_source_section('test_folder_path', True))
-        source_dict.update(self._generate_source_section('r_java_path', False))
         self.project_info.iml_path, _ = self._generate_iml(source_dict,
                                                            is_main_module)
         self._generate_modules_xml(iml_path_list)
@@ -389,6 +392,36 @@ class ProjectFileGenerator():
                 src_builder.append(_END_CONTENT)
         return content.replace(_SOURCE_TOKEN, ''.join(src_builder))
 
+    @staticmethod
+    def _handle_srcjar_folder(content, srcjar_paths=None):
+        """Handle the aapt2.srcjar and R.jar content for iml.
+
+        Example for setting the aapt2.srcjar or R.jar as a source folder in
+        IntelliJ.
+        e.g.
+        <content url="jar://$MODULE_DIR$/aapt2.srcjar!/">
+            <sourceFolder url="jar://$MODULE_DIR$/aapt2.srcjar!/"
+                          isTestSource="False"/>
+        </content>
+        <content url="jar://$MODULE_DIR$/R.jar!/">
+            <sourceFolder url="jar://$MODULE_DIR$/R.jar!/"
+                          isTestSource="False"/>
+        </content>
+
+        Args:
+            content: String content of iml.
+            srcjar_paths: A set of srcjar paths, default value is None.
+
+        Returns:
+            String: Content with srcjar folder handled.
+        """
+        srcjar_urls = []
+        if srcjar_paths:
+            for srcjar_dir in srcjar_paths:
+                srcjar_urls.append(_SRCJAR_URL.format(SRCJAR=os.path.join(
+                    common_util.get_android_root_dir(), srcjar_dir)))
+        return content.replace(_SRCJAR_TOKEN, ''.join(srcjar_urls))
+
     # pylint: disable=too-many-locals
     def _generate_iml(self, source_dict, is_main_module=False):
         """Generate iml file.
@@ -421,6 +454,7 @@ class ProjectFileGenerator():
         module_content = self._handle_facet(template)
         module_content = self._handle_source_folder(module_content,
                                                     project_source_dict, True)
+        module_content = self._handle_srcjar_folder(module_content)
         # b/121256503: Prevent duplicated iml names from breaking IDEA.
         module_name = self.get_unique_iml_name(module_path)
 
@@ -437,6 +471,9 @@ class ProjectFileGenerator():
             dependencies_content = template.replace(_FACET_TOKEN, '')
             dependencies_content = self._handle_source_folder(
                 dependencies_content, source_dict, False)
+            dependencies_content = self._handle_srcjar_folder(
+                dependencies_content,
+                self.project_info.source_path['srcjar_path'])
             dependencies_content = self._handle_module_dependency(
                 dependencies_content, jar_dependencies)
             dependencies_iml_path = os.path.join(
