@@ -50,6 +50,7 @@ from aidegen.lib.android_dev_os import AndroidDevOS
 from aidegen.lib import common_util
 from aidegen.lib.common_util import COLORED_INFO
 from aidegen.lib.common_util import COLORED_PASS
+from aidegen.lib.common_util import back_to_cwd
 from aidegen.lib.common_util import is_android_root
 from aidegen.lib.common_util import time_logged
 from aidegen.lib.errors import AIDEgenError
@@ -221,9 +222,9 @@ def _compile_targets_for_whole_android_tree(atest_module_info, targets, cwd):
        the first one.
 
     Args:
-        atest_module_info: A instance of atest module-info object.
+        atest_module_info: An instance of atest module-info object.
         targets: A list of targets to be imported.
-        cwd: A path of current working directory.
+        cwd: A string of path to current working directory.
 
     Returns:
         A list of targets after adjustment.
@@ -238,7 +239,6 @@ def _compile_targets_for_whole_android_tree(atest_module_info, targets, cwd):
             rel_path = os.path.relpath(abs_path, constant.ANDROID_ROOT_PATH)
             new_targets.append(rel_path)
         os.chdir(constant.ANDROID_ROOT_PATH)
-
     if new_targets[0] != '':
         new_targets.insert(0, '')
     return new_targets
@@ -365,11 +365,11 @@ def main(argv):
         print('\n{0} {1}\n\n{0} {2}\n'.format(_INFO, AIDEGEN_REPORT_LINK,
                                               _IDE_CACHE_REMINDER_MSG))
 
-
+@back_to_cwd
 def aidegen_main(args):
     """AIDEGen main entry.
 
-    Try to generates project files for using in IDE.
+    Try to generate project files for using in IDE.
 
     Args:
         args: A list of system arguments.
@@ -379,8 +379,8 @@ def aidegen_main(args):
     ide_util_obj = _get_ide_util_instance(args)
     ProjectInfo.config = project_config.ProjectConfig(args)
     atest_module_info = common_util.get_atest_module_info(args.targets)
-    targets = _check_whole_android_tree(atest_module_info, args.targets,
-                                        args.android_tree)
+    targets = _check_whole_android_tree(
+        atest_module_info, args.targets, args.android_tree)
     ProjectInfo.modules_info = AidegenModuleInfo(
         force_build=False,
         module_file=None,

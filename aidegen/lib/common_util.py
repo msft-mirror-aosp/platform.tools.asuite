@@ -387,3 +387,24 @@ def get_blueprint_json_path():
     """
     return os.path.join(constant.SOONG_OUT_DIR_PATH,
                         constant.BLUEPRINT_JSONFILE_NAME)
+
+
+def back_to_cwd(func):
+    """Decorate a function change directory back to its original one.
+
+    Args:
+        func: a function is to be changed back to its original directory.
+
+    Returns:
+        The wrapper function.
+    """
+    @wraps(func)
+    def wrapper(*args, **kwargs):
+        """A wrapper function."""
+        cwd = os.getcwd()
+        try:
+            return func(*args, **kwargs)
+        finally:
+            os.chdir(cwd)
+
+    return wrapper

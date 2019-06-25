@@ -207,6 +207,7 @@ class IdeIntelliJ(IdeBase):
     _JDK_PATH = ''
     _IDE_JDK_TABLE_PATH = ''
     _JDK_PART_TEMPLATE_PATH = ''
+    _DEFAULT_ANDROID_SDK_PATH = ''
 
     def __init__(self, installed_path=None, config_reset=False):
         super().__init__(installed_path, config_reset)
@@ -230,7 +231,8 @@ class IdeIntelliJ(IdeBase):
         for _config_path in _path_list:
             jdk_file = os.path.join(_config_path, self._IDE_JDK_TABLE_PATH)
             jdk_table = sdk_config.SDKConfig(
-                jdk_file, self._JDK_PART_TEMPLATE_PATH, self._JDK_PATH)
+                jdk_file, self._JDK_PART_TEMPLATE_PATH, self._JDK_PATH,
+                self._DEFAULT_ANDROID_SDK_PATH)
             jdk_table.config_jdk_file()
 
     def _get_config_root_paths(self):
@@ -337,6 +339,7 @@ class IdeLinuxIntelliJ(IdeIntelliJ):
     _IDE_JDK_TABLE_PATH = 'config/options/jdk.table.xml'
     _JDK_PART_TEMPLATE_PATH = os.path.join(
         constant.AIDEGEN_ROOT_PATH, 'templates/jdkTable/part.jdk.table.xml')
+    _DEFAULT_ANDROID_SDK_PATH = os.path.join(os.getenv('HOME'), 'Android/Sdk')
 
     def __init__(self, installed_path=None, config_reset=False):
         super().__init__(installed_path, config_reset)
@@ -407,6 +410,8 @@ class IdeMacIntelliJ(IdeIntelliJ):
     _IDE_JDK_TABLE_PATH = 'options/jdk.table.xml'
     _JDK_PART_TEMPLATE_PATH = os.path.join(
         constant.AIDEGEN_ROOT_PATH, 'templates/jdkTable/part.mac.jdk.table.xml')
+    _DEFAULT_ANDROID_SDK_PATH = os.path.join(
+        os.getenv('HOME'), 'Library/Android/sdk')
 
     def __init__(self, installed_path=None, config_reset=False):
         super().__init__(installed_path, config_reset)
