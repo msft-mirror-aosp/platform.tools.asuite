@@ -23,11 +23,9 @@ import unittest
 from unittest import mock
 
 import aidegen.unittest_constants as uc
-from aidegen import constant
 from aidegen.lib import common_util
 from aidegen.lib import project_file_gen
 from aidegen.lib.project_file_gen import ProjectFileGenerator
-from atest import constants
 from atest import module_info
 
 
@@ -69,10 +67,6 @@ class AidegenProjectFileGenUnittest(unittest.TestCase):
         '            <excludeFolder url="file://%s/out" />\n' % _TEST_DATA_PATH,
     ]
 
-    def tearDown(self):
-        """Restore the testdata related path."""
-        constant.ANDROID_ROOT_PATH = os.environ.get(constants.ANDROID_BUILD_TOP)
-
     @mock.patch('aidegen.lib.project_info.ProjectInfo')
     def test_handle_facet_for_android(self, mock_project):
         """Test _handle_facet with android project."""
@@ -113,22 +107,24 @@ class AidegenProjectFileGenUnittest(unittest.TestCase):
             self._TEST_SOURCE_LIST[:])
         self.assertEqual(url_list, self._SAMPLE_TRIMMED_SOURCE_LIST)
 
+    @mock.patch('aidegen.lib.common_util.get_android_root_dir')
     @mock.patch('aidegen.lib.project_info.ProjectInfo')
-    def test_handle_source_folder(self, mock_project):
+    def test_handle_source_folder(self, mock_project, mock_get_root):
         """Test _handle_source_folder."""
         template = common_util.read_file_content(
             project_file_gen._TEMPLATE_IML_PATH)
-        constant.ANDROID_ROOT_PATH = self._AOSP_FOLDER
+        mock_get_root.return_value = self._AOSP_FOLDER
         mock_project.project_relative_path = self._ANDROID_SOURCE_RELATIVE_PATH
         source = ProjectFileGenerator(mock_project)._handle_source_folder(
             template, copy.deepcopy(uc.ANDROID_SOURCE_DICT), True)
         sample_source = common_util.read_file_content(self._SOURCE_SAMPLE)
         self.assertEqual(source, sample_source)
 
+    @mock.patch('aidegen.lib.common_util.get_android_root_dir')
     @mock.patch('aidegen.lib.project_info.ProjectInfo')
-    def test_generate_iml(self, mock_project):
+    def test_generate_iml(self, mock_project, mock_get_root):
         """Test _generate_iml."""
-        constant.ANDROID_ROOT_PATH = self._AOSP_FOLDER
+        mock_get_root.return_value = self._AOSP_FOLDER
         mock_project.project_absolute_path = uc.ANDROID_PROJECT_PATH
         mock_project.project_relative_path = self._ANDROID_SOURCE_RELATIVE_PATH
         mock_project.source_path['jar_path'] = set(uc.JAR_DEP_LIST)
@@ -198,7 +194,7 @@ class AidegenProjectFileGenUnittest(unittest.TestCase):
         sample_vcs = sample_vcs.replace(self._LOCAL_PATH_TOKEN,
                                         uc.ANDROID_PROJECT_PATH)
         self.assertEqual(test_vcs, sample_vcs)
-        mock_project.project_absolute_path = constant.ANDROID_ROOT_PATH
+        mock_project.project_absolute_path = common_util.get_android_root_dir()
         pfile_gen = ProjectFileGenerator(mock_project)
         self.assertIsNone(pfile_gen._generate_vcs_xml())
 
@@ -268,7 +264,8 @@ class AidegenProjectFileGenUnittest(unittest.TestCase):
     def test_generate_git_ignore(self, mock_path_exist, mock_link):
         """Test _generate_git_ignore."""
         mock_path_exist.return_value = True
-        project_file_gen._generate_git_ignore(constant.AIDEGEN_ROOT_PATH)
+        project_file_gen._generate_git_ignore(
+            common_util.get_aidegen_root_dir())
         self.assertFalse(mock_link.called)
 
     def test_filter_out_source_paths(self):
