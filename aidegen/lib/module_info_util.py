@@ -34,6 +34,7 @@ import sys
 
 from aidegen import constant
 from aidegen.lib.common_util import COLORED_INFO
+from aidegen.lib.common_util import back_to_cwd
 from aidegen.lib.common_util import get_blueprint_json_path
 from aidegen.lib.common_util import get_related_paths
 from aidegen.lib.common_util import time_logged
@@ -82,16 +83,13 @@ def generate_merged_module_info(module_info, projects=None, verbose=False,
     Returns:
         A merged dictionary from module-info.json and module_bp_java_deps.json.
     """
-    cwd = os.getcwd()
-    os.chdir(constant.ANDROID_ROOT_PATH)
     main_project = projects[0] if projects else None
     _build_target(module_info, [_GENERATE_JSON_COMMAND], main_project, verbose,
                   skip_build)
-    os.chdir(cwd)
     bp_dict = _get_soong_build_json_dict()
     return _merge_dict(module_info.name_to_module_info, bp_dict)
 
-
+@back_to_cwd
 def _build_target(module_info, cmd, main_project=None, verbose=False,
                   skip_build=False):
     """Make nothing to generate module_bp_java_deps.json.
@@ -128,6 +126,7 @@ def _build_target(module_info, cmd, main_project=None, verbose=False,
             return
         original_json_mtime = os.path.getmtime(json_path)
     try:
+        os.chdir(constant.ANDROID_ROOT_PATH)
         if verbose:
             full_env_vars = os.environ.copy()
             subprocess.check_call(
