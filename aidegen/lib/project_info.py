@@ -26,7 +26,6 @@ from aidegen.lib import common_util
 from aidegen.lib.common_util import COLORED_INFO
 from aidegen.lib.common_util import get_related_paths
 
-_KEY_ROBOTESTS = ['robotests', 'robolectric']
 _ANDROID_MK = 'Android.mk'
 _ANDROID_BP = 'Android.bp'
 _CONVERT_MK_URL = ('https://android.googlesource.com/platform/build/soong/'
@@ -49,8 +48,8 @@ class ProjectInfo:
     """Project information.
 
     Class attributes:
-        modules_info: A dict of all modules info by combining module-info.json
-                      with module_bp_java_deps.json.
+        modules_info: A AidegenModuleInfo instance whose name_to_module_info is
+                      combining module-info.json with module_bp_java_deps.json.
         config: A ProjectConfig instance which contains user preference of
                 project.
 
@@ -165,7 +164,7 @@ class ProjectInfo:
                     data, self.project_relative_path):
                 if self._is_a_target_module(data):
                     self.project_module_names.add(name)
-                    if self._is_a_robolectric_module(data):
+                    if self.modules_info.is_robolectric_test(name):
                         self.project_module_names.add(_ROBOLECTRIC_MODULE)
                 else:
                     logging.debug(_NOT_TARGET, name, data['class'],
@@ -191,25 +190,6 @@ class ProjectInfo:
         if not 'class' in data:
             return False
         return any(x in data['class'] for x in common_util.TARGET_CLASSES)
-
-    @staticmethod
-    def _is_a_robolectric_module(data):
-        """Determine if the module is a robolectric module.
-
-        Hardcode for robotest dependency. If a folder named robotests or
-        robolectric is in the module's path hierarchy then add the module
-        Robolectric_all as a dependency.
-
-        Args:
-            data: the module-info dictionary of the checked module.
-
-        Returns:
-            A boolean, true if robolectric, otherwise false.
-        """
-        if not 'path' in data:
-            return False
-        path = data['path'][0]
-        return any(key_dir in path.split(os.sep) for key_dir in _KEY_ROBOTESTS)
 
     def get_dep_modules(self, module_names=None, depth=0):
         """Recursively find dependent modules of the project.
