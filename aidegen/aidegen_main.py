@@ -236,9 +236,11 @@ def _compile_targets_for_whole_android_tree(atest_module_info, targets, cwd):
         for target in targets:
             _, abs_path = common_util.get_related_paths(atest_module_info,
                                                         target)
-            rel_path = os.path.relpath(abs_path, constant.ANDROID_ROOT_PATH)
+            rel_path = os.path.relpath(abs_path,
+                                       common_util.get_android_root_dir())
             new_targets.append(rel_path)
-        os.chdir(constant.ANDROID_ROOT_PATH)
+        os.chdir(common_util.get_android_root_dir())
+
     if new_targets[0] != '':
         new_targets.insert(0, '')
     return new_targets

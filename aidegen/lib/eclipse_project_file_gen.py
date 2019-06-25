@@ -124,7 +124,7 @@ class EclipseConf(ProjectFileGenerator):
         Returns: A string of link resource.
         """
         alias_name = os.path.join(constant.KEY_DEPENDENCIES, relpath)
-        abs_path = os.path.join(constant.ANDROID_ROOT_PATH, relpath)
+        abs_path = os.path.join(common_util.get_android_root_dir(), relpath)
         return cls._PROJECT_LINK.format(alias_name, abs_path)
 
     def _create_project_content(self):
@@ -195,7 +195,8 @@ class EclipseConf(ProjectFileGenerator):
         """
         jar_entries = []
         for jar_relpath, module_relpath in self.jar_module_paths.items():
-            jar_abspath = os.path.join(constant.ANDROID_ROOT_PATH, jar_relpath)
+            jar_abspath = os.path.join(common_util.get_android_root_dir(),
+                                       jar_relpath)
             alias_module_path = os.path.join(constant.KEY_DEPENDENCIES,
                                              module_relpath)
             jar_entries.append(self._CLASSPATH_LIB_ENTRY.format(

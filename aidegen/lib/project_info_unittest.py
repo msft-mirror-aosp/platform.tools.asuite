@@ -20,7 +20,7 @@ import os
 import unittest
 from unittest import mock
 
-from aidegen import constant
+from aidegen.lib import common_util
 from aidegen.lib import project_info
 from aidegen.lib.project_info import ProjectInfo
 
@@ -86,9 +86,10 @@ class ProjectInfoUnittests(unittest.TestCase):
                 'class': ['ROBOLECTRIC']
             }), True)
 
-    def test_get_target_name(self):
+    @mock.patch.object(common_util, 'get_android_root_dir')
+    def test_get_target_name(self, mock_get_root):
         """Test _get_target_name with different conditions."""
-        constant.ANDROID_ROOT_PATH = uc.TEST_DATA_PATH
+        mock_get_root.return_value = uc.TEST_DATA_PATH
         self.assertEqual(
             ProjectInfo._get_target_name(uc.TEST_MODULE, uc.TEST_DATA_PATH),
             os.path.basename(uc.TEST_DATA_PATH))
