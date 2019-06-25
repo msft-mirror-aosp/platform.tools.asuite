@@ -26,6 +26,7 @@ from subprocess import CalledProcessError as cmd_err
 
 from aidegen.lib.android_dev_os import AndroidDevOS
 from aidegen.lib import ide_util
+from aidegen.lib import sdk_config
 from aidegen.lib.ide_util import IdeBase
 from aidegen.lib.ide_util import IdeIntelliJ
 from aidegen.lib.ide_util import IdeLinuxEclipse
@@ -145,11 +146,16 @@ class IdeUtilUnittests(unittest.TestCase):
         IdeMacIntelliJ('some_path')
         self.assertTrue(mock_input.called)
 
+    @mock.patch.object(sdk_config.SDKConfig, '_android_sdk_exists')
+    @mock.patch.object(sdk_config.SDKConfig, '_target_jdk_exists')
     @mock.patch.object(IdeIntelliJ, '_get_config_root_paths')
     @mock.patch.object(IdeBase, 'apply_optional_config')
-    def test_config_ide(self, mock_config, mock_paths):
+    def test_config_ide(self, mock_config, mock_paths, mock_jdk, mock_sdk):
         """Test IDEA, IdeUtil.config_ide won't call base none implement api."""
         util_obj = IdeUtil()
+        # Mock SDkConfig flow to not to generate real jdk config file.
+        mock_jdk.return_value = True
+        mock_sdk.return_value = True
         util_obj.config_ide()
         self.assertFalse(mock_config.called)
         self.assertFalse(mock_paths.called)
