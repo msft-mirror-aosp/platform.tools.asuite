@@ -22,6 +22,7 @@ other modules.
 
 import logging
 import os
+import sys
 import time
 
 from functools import partial
@@ -52,6 +53,8 @@ NATIVE_TARGET_CLASSES = [
 TARGET_CLASSES = JAVA_TARGET_CLASSES
 TARGET_CLASSES.extend(NATIVE_TARGET_CLASSES)
 _REBUILD_MODULE_INFO = '%s We should rebuild module-info.json file for it.'
+_ENVSETUP_NOT_RUN = ('Please run "source build/envsetup.sh" and "lunch" before '
+                     'running aidegen.')
 
 
 def time_logged(func=None, *, message='', maximum=1):
@@ -112,23 +115,23 @@ def get_related_paths(atest_module_info, target=None):
             paths = atest_module_info.get_paths(target)
             if paths:
                 rel_path = paths[0]
-                abs_path = os.path.join(constant.ANDROID_ROOT_PATH, rel_path)
+                abs_path = os.path.join(get_android_root_dir(), rel_path)
         # User inputs a module path or a relative path of android root folder.
         elif (atest_module_info.get_module_names(target) or os.path.isdir(
-                os.path.join(constant.ANDROID_ROOT_PATH, target))):
+                os.path.join(get_android_root_dir(), target))):
             rel_path = target.strip(os.sep)
-            abs_path = os.path.join(constant.ANDROID_ROOT_PATH, rel_path)
+            abs_path = os.path.join(get_android_root_dir(), rel_path)
         # User inputs a relative path of current directory.
         else:
             abs_path = os.path.abspath(os.path.join(os.getcwd(), target))
-            rel_path = os.path.relpath(abs_path, constant.ANDROID_ROOT_PATH)
+            rel_path = os.path.relpath(abs_path, get_android_root_dir())
     else:
         # User doesn't input.
         abs_path = os.getcwd()
         if is_android_root(abs_path):
             rel_path = ''
         else:
-            rel_path = os.path.relpath(abs_path, constant.ANDROID_ROOT_PATH)
+            rel_path = os.path.relpath(abs_path, get_android_root_dir())
     return rel_path, abs_path
 
 
@@ -159,7 +162,7 @@ def is_android_root(abs_path):
     Returns:
         True if abs_path is Android root, otherwise False.
     """
-    return abs_path == constant.ANDROID_ROOT_PATH
+    return abs_path == get_android_root_dir()
 
 
 def has_build_target(atest_module_info, rel_path):
@@ -246,7 +249,7 @@ def _check_module(atest_module_info, target, raise_on_lost_module=True):
         err = FAKE_MODULE_ERROR.format(target)
         logging.error(err)
         raise FakeModuleError(err)
-    if not abs_path.startswith(constant.ANDROID_ROOT_PATH):
+    if not abs_path.startswith(get_android_root_dir()):
         err = OUTSIDE_ROOT_ERROR.format(abs_path)
         logging.error(err)
         raise ProjectOutsideAndroidRootError(err)
@@ -272,17 +275,17 @@ def get_abs_path(rel_path):
     """Get absolute path from a relative path.
 
     Args:
-        rel_path: A string, a relative path to constant.ANDROID_ROOT_PATH.
+        rel_path: A string, a relative path to get_android_root_dir().
 
     Returns:
         abs_path: A string, an absolute path starts with
-                  constant.ANDROID_ROOT_PATH.
+                  get_android_root_dir().
     """
     if not rel_path:
-        return constant.ANDROID_ROOT_PATH
-    if rel_path.startswith(constant.ANDROID_ROOT_PATH):
+        return get_android_root_dir()
+    if rel_path.startswith(get_android_root_dir()):
         return rel_path
-    return os.path.join(constant.ANDROID_ROOT_PATH, rel_path)
+    return os.path.join(get_android_root_dir(), rel_path)
 
 
 def is_project_path_relative_module(data, project_relative_path):
@@ -383,9 +386,9 @@ def get_blueprint_json_path():
     """Assemble the path of blueprint json file.
 
     Returns:
-        Blueprint json path.
+        module_bp_java_deps.json path.
     """
-    return os.path.join(constant.SOONG_OUT_DIR_PATH,
+    return os.path.join(get_soong_out_path(),
                         constant.BLUEPRINT_JSONFILE_NAME)
 
 
@@ -408,3 +411,58 @@ def back_to_cwd(func):
             os.chdir(cwd)
 
     return wrapper
+
+
+def get_android_out_dir():
+    """Get out directory in different conditions.
+
+    Returns:
+        Android out directory path.
+    """
+    android_root_path = get_android_root_dir()
+    android_out_dir = os.environ.get(constants.ANDROID_OUT_DIR)
+    out_dir_common_base = os.getenv(constant.OUT_DIR_COMMON_BASE_ENV_VAR)
+    android_out_dir_common_base = (os.path.join(
+        out_dir_common_base, os.path.basename(android_root_path))
+                                   if out_dir_common_base else None)
+    return (android_out_dir or android_out_dir_common_base or
+            constant.ANDROID_DEFAULT_OUT)
+
+
+def get_android_root_dir():
+    """Get Android root directory.
+
+    If the path doesn't exist show message to ask users to run envsetup.sh and
+    lunch first.
+
+    Returns:
+        Android root directory path.
+    """
+    android_root_path = os.environ.get(constants.ANDROID_BUILD_TOP)
+    if not android_root_path:
+        _show_env_setup_msg_and_exit()
+    return android_root_path
+
+
+def get_aidegen_root_dir():
+    """Get AIDEGen root directory.
+
+    Returns:
+        AIDEGen root directory path.
+    """
+    return os.path.join(get_android_root_dir(), constant.AIDEGEN_ROOT_PATH)
+
+
+def _show_env_setup_msg_and_exit():
+    """Show message if users didn't run envsetup.sh and lunch."""
+    print(_ENVSETUP_NOT_RUN)
+    sys.exit(0)
+
+
+def get_soong_out_path():
+    """Assemble out directory's soong path.
+
+    Returns:
+        Out directory's soong path.
+    """
+    return os.path.join(get_android_root_dir(), get_android_out_dir(), 'soong')
