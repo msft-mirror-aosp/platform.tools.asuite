@@ -369,7 +369,7 @@ def main(argv):
 def aidegen_main(args):
     """AIDEGen main entry.
 
-    Try to generates project files for using in IDE.
+    Try to generate project files for using in IDE.
 
     Args:
         args: A list of system arguments.
