@@ -25,6 +25,7 @@ import urllib.request
 import uuid
 
 from aidegen import constant
+from aidegen.lib import common_util
 from atest import atest_utils
 
 try:
@@ -96,8 +97,7 @@ def ends_asuite_metrics(exit_code, stacktrace='', logs=''):
 def _get_ldap():
     """Return string email username for valid domains only, None otherwise."""
     if not atest_utils.is_external_run():
-        aidegen_project = os.path.join(constant.ANDROID_ROOT_PATH, 'tools',
-                                       'asuite', 'aidegen')
+        aidegen_project = common_util.get_aidegen_root_dir()
         email = subprocess.check_output(
             _COMMAND_GIT_CONFIG, cwd=aidegen_project).strip()
         ldap, domain = str(email, encoding="utf-8").split('@', 2)
