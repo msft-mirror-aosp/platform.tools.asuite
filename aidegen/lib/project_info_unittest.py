@@ -86,26 +86,6 @@ class ProjectInfoUnittests(unittest.TestCase):
                 'class': ['ROBOLECTRIC']
             }), True)
 
-    def test_is_a_robolectric_module(self):
-        """Test _is_a_robolectric_module with different conditions."""
-        self.assertEqual(ProjectInfo._is_a_robolectric_module({}), False)
-        self.assertEqual(
-            ProjectInfo._is_a_robolectric_module({
-                'path': [uc.TEST_PATH]
-            }), False)
-        self.assertEqual(
-            ProjectInfo._is_a_robolectric_module({
-                'path': ['path/robotests']
-            }), True)
-        self.assertEqual(
-            ProjectInfo._is_a_robolectric_module({
-                'path': ['path/robolectric']
-            }), True)
-        self.assertEqual(
-            ProjectInfo._is_a_robolectric_module({
-                'path': ['robotests/robolectric']
-            }), True)
-
     def test_get_target_name(self):
         """Test _get_target_name with different conditions."""
         constant.ANDROID_ROOT_PATH = uc.TEST_DATA_PATH
