@@ -132,21 +132,21 @@ class AidegenMainUnittests(unittest.TestCase):
         """Test _add_whole_android_tree_project with different conditions."""
         mod_info = module_info.ModuleInfo()
         targets = ['']
-        cwd = constant.ANDROID_ROOT_PATH
+        cwd = common_util.get_android_root_dir()
         self.assertEqual(
             targets,
             aidegen_main._compile_targets_for_whole_android_tree(
                 mod_info, targets, cwd))
         base_dir = 'frameworks/base'
         expected_targets = ['', base_dir]
-        cwd = os.path.join(constant.ANDROID_ROOT_PATH, base_dir)
+        cwd = os.path.join(common_util.get_android_root_dir(), base_dir)
         mock_get.return_value = None, cwd
         self.assertEqual(
             expected_targets,
             aidegen_main._compile_targets_for_whole_android_tree(
                 mod_info, targets, cwd))
         targets = [base_dir]
-        cwd = constant.ANDROID_ROOT_PATH
+        cwd = common_util.get_android_root_dir()
         self.assertEqual(
             expected_targets,
             aidegen_main._compile_targets_for_whole_android_tree(
@@ -157,7 +157,7 @@ class AidegenMainUnittests(unittest.TestCase):
         """Test _is_whole_android_tree with different conditions."""
         self.assertTrue(aidegen_main._is_whole_android_tree(['a'], True))
         self.assertFalse(aidegen_main._is_whole_android_tree(['a'], False))
-        mock_getcwd.return_value = constant.ANDROID_ROOT_PATH
+        mock_getcwd.return_value = common_util.get_android_root_dir()
         self.assertTrue(aidegen_main._is_whole_android_tree([''], False))
         mock_getcwd.return_value = 'frameworks/base'
         self.assertFalse(aidegen_main._is_whole_android_tree([''], False))

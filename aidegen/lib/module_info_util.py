@@ -33,6 +33,7 @@ import subprocess
 import sys
 
 from aidegen import constant
+from aidegen.lib import common_util
 from aidegen.lib.common_util import COLORED_INFO
 from aidegen.lib.common_util import back_to_cwd
 from aidegen.lib.common_util import get_blueprint_json_path
@@ -63,7 +64,7 @@ def generate_merged_module_info(module_info, projects=None, verbose=False,
                                 skip_build=False):
     """Generate a merged dictionary.
 
-    Change directory to ANDROID_ROOT_PATH before making _GENERATE_JSON_COMMAND
+    Change directory to Android root path before making _GENERATE_JSON_COMMAND
     to avoid command error: "make: *** No rule to make target 'nothing'.  Stop."
     and change back to current directory after command completed.
 
@@ -77,7 +78,7 @@ def generate_merged_module_info(module_info, projects=None, verbose=False,
         projects: A list of project names.
         verbose: A boolean, if true displays full build output.
         skip_build: A boolean, if true skip building
-                    constant.BLUEPRINT_JSONFILE_NAME if it exists, otherwise
+                    get_blueprint_json_path() if it exists, otherwise
                     build it.
 
     Returns:
@@ -105,7 +106,7 @@ def _build_target(module_info, cmd, main_project=None, verbose=False,
         main_project: The main project name.
         verbose: A boolean, if true displays full build output.
         skip_build: A boolean, if true, skip building if
-                    constant.BLUEPRINT_JSONFILE_NAME file exists, otherwise
+                    get_blueprint_json_path() file exists, otherwise
                     build it.
 
     Build results:
@@ -122,11 +123,11 @@ def _build_target(module_info, cmd, main_project=None, verbose=False,
     if os.path.isfile(json_path):
         if skip_build:
             logging.info('%s file exists, skipping build.',
-                         constant.BLUEPRINT_JSONFILE_NAME)
+                         get_blueprint_json_path())
             return
         original_json_mtime = os.path.getmtime(json_path)
     try:
-        os.chdir(constant.ANDROID_ROOT_PATH)
+        os.chdir(common_util.get_android_root_dir())
         if verbose:
             full_env_vars = os.environ.copy()
             subprocess.check_call(

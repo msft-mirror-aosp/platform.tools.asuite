@@ -37,19 +37,20 @@ class EclipseConfUnittests(unittest.TestCase):
                       '<location>%s</location></link>\n')
     _PROJECT_SAMPLE = os.path.join(utc.TEST_DATA_PATH, 'eclipse.project')
 
-    def test_gen_link(self):
+    @mock.patch.object(common_util, 'get_android_root_dir')
+    def test_gen_link(self, mock_get_root):
         """Test get_link return a correct link resource config."""
-        # TODO: Revise the ROOT_PATH by mock common_util.get_android_root_dir()
-        constant.ANDROID_ROOT_PATH = self._ROOT_PATH
+        mock_get_root.return_value = self._ROOT_PATH
         name = os.path.join(constant.KEY_DEPENDENCIES, self._PROJECT_RELPATH)
         expected_link = self._LINK_TEMPLATE % (name, self._PROJECT_ABSPATH)
         generated_link = EclipseConf._gen_link(self._PROJECT_RELPATH)
         self.assertEqual(generated_link, expected_link)
 
+    @mock.patch.object(common_util, 'get_android_root_dir')
     @mock.patch('aidegen.lib.project_info.ProjectInfo')
-    def test_create_project_content(self, mock_project_info):
+    def test_create_project_content(self, mock_project_info, mock_get_root):
         """Test _create_project_content."""
-        constant.ANDROID_ROOT_PATH = self._ROOT_PATH
+        mock_get_root.return_value = self._ROOT_PATH
         mock_project_info.project_absolute_path = self._PROJECT_ABSPATH
         mock_project_info.module_name = self._PROJECT_NAME
         mock_project_info.source_path = {
@@ -66,10 +67,11 @@ class EclipseConfUnittests(unittest.TestCase):
         generated_content = eclipse_config.project_content
         self.assertEqual(generated_content, expected_content)
 
+    @mock.patch.object(common_util, 'get_android_root_dir')
     @mock.patch('aidegen.lib.project_info.ProjectInfo')
-    def test_gen_src_path_entries(self, mock_project_info):
+    def test_gen_src_path_entries(self, mock_project_info, mock_get_root):
         """Test generate source folders' class path entries."""
-        constant.ANDROID_ROOT_PATH = self._ROOT_PATH
+        mock_get_root.return_value = self._ROOT_PATH
         mock_project_info.project_absolute_path = self._PROJECT_ABSPATH
         mock_project_info.project_relative_path = self._PROJECT_RELPATH
         mock_project_info.module_name = self._PROJECT_NAME
@@ -90,10 +92,11 @@ class EclipseConfUnittests(unittest.TestCase):
         generated_result = sorted(eclipse_config._gen_src_path_entries())
         self.assertEqual(generated_result, expected_result)
 
+    @mock.patch.object(common_util, 'get_android_root_dir')
     @mock.patch('aidegen.lib.project_info.ProjectInfo')
-    def test_gen_jar_path_entries(self, mock_project_info):
+    def test_gen_jar_path_entries(self, mock_project_info, mock_get_root):
         """Test generate jar files' class path entries."""
-        constant.ANDROID_ROOT_PATH = self._ROOT_PATH
+        mock_get_root.return_value = self._ROOT_PATH
         mock_project_info.project_absolute_path = self._PROJECT_ABSPATH
         mock_project_info.project_relative_path = self._PROJECT_RELPATH
         mock_project_info.module_name = self._PROJECT_NAME

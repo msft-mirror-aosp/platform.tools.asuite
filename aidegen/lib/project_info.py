@@ -56,7 +56,7 @@ class ProjectInfo:
     Attributes:
         project_absolute_path: The absolute path of the project.
         project_relative_path: The relative path of the project to
-                               constant.ANDROID_ROOT_PATH.
+                               common_util.get_android_root_dir().
         project_module_names: A list of module names under project_absolute_path
                               directory or it's subdirectories.
         dep_modules: A dict has recursively dependent modules of
@@ -273,6 +273,6 @@ class ProjectInfo:
         Returns:
             A string, the target name.
         """
-        if abs_path == constant.ANDROID_ROOT_PATH:
+        if abs_path == common_util.get_android_root_dir():
             return os.path.basename(abs_path)
         return target

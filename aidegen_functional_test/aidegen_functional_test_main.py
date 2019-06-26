@@ -29,16 +29,15 @@ import xml.parsers.expat
 import aidegen.lib.errors
 
 from aidegen import aidegen_main
+from aidegen.lib import common_util
 from aidegen.lib.common_util import COLORED_PASS
 from aidegen.lib.common_util import COLORED_FAIL
 from aidegen.lib.common_util import get_blueprint_json_path
 from aidegen.lib.common_util import get_related_paths
 from aidegen.lib.common_util import time_logged
-from atest import constants
 from atest import module_info
 
-_ANDROID_ROOT_PATH = os.environ.get(constants.ANDROID_BUILD_TOP)
-_ROOT_DIR = os.path.join(_ANDROID_ROOT_PATH,
+_ROOT_DIR = os.path.join(common_util.get_android_root_dir(),
                          'tools/asuite/aidegen_functional_test')
 _TEST_DATA_PATH = os.path.join(_ROOT_DIR, 'test_data')
 _ANDROID_SINGLE_PROJECT_JSON = os.path.join(_TEST_DATA_PATH,
@@ -108,11 +107,13 @@ def _import_project_file_xml_etree(filename):
         data[_SRCS] = []
         root = tree.getroot()
         for element in root.iter('sourceFolder'):
-            src = element.get(_URL).replace(_ANDROID_ROOT_PATH, _PRODUCT_DIR)
+            src = element.get(_URL).replace(common_util.get_android_root_dir(),
+                                            _PRODUCT_DIR)
             data[_SRCS].append(src)
         data[_JARS] = []
         for element in root.iter('root'):
-            jar = element.get(_URL).replace(_ANDROID_ROOT_PATH, _PRODUCT_DIR)
+            jar = element.get(_URL).replace(common_util.get_android_root_dir(),
+                                            _PRODUCT_DIR)
             data[_JARS].append(jar)
     except (EnvironmentError, ValueError, LookupError,
             xml.parsers.expat.ExpatError) as err:
@@ -122,7 +123,7 @@ def _import_project_file_xml_etree(filename):
 
 
 def _generate_sample_json():
-    """Generate sample iml data from a iml file into a json dictionary.
+    """Generate sample iml data from a iml file into a dictionary.
 
     Returns:
         A dictionary contains sample iml data.
