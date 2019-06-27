@@ -14,7 +14,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""It is an AIDEGen sub task : generate the project files."""
+"""It is an AIDEGen sub task : generate the project files.
+
+    Usage example:
+    projects: A list of ProjectInfo instances.
+    ProjectFileGenerator.generate_ide_project_file(projects)
+"""
 
 import logging
 import os
@@ -48,6 +53,7 @@ _FACET_TOKEN = '@FACETS@'
 _SOURCE_TOKEN = '@SOURCES@'
 _MODULE_DEP_TOKEN = '@MODULE_DEPENDENCIES@'
 _MODULE_TOKEN = '@MODULES@'
+_ENABLE_DEBUGGER_MODULE_TOKEN = '@ENABLE_DEBUGGER_MODULE@'
 _VCS_TOKEN = '@VCS@'
 _JAVA_FILE_PATTERN = '%s/*.java'
 _IDEA_DIR = os.path.join(common_util.get_aidegen_root_dir(), 'templates/idea')
@@ -447,11 +453,10 @@ class ProjectFileGenerator():
         """Generate modules.xml file.
 
         IntelliJ uses modules.xml to import which modules should be loaded to
-        project. Only in multiple modules case will we pass iml_path_list of
+        project. In multiple modules case, we will pass iml_path_list of
         submodules' dependencies and their iml file paths to add them into main
-        module's module.xml file. The dependencies iml file names will be
-        changed from original dependencies.iml to dependencies-[module_name].iml
-        e.g. dependencies-core.iml for core.iml.
+        module's module.xml file. The dependencies.iml file contains all shared
+        dependencies source folders and jar files.
 
         Args:
             iml_path_list: A list of submodule iml paths.
@@ -462,8 +467,7 @@ class ProjectFileGenerator():
         # b/121256503: Prevent duplicated iml names from breaking IDEA.
         module_name = self.get_unique_iml_name(module_path)
 
-        is_main_module = iml_path_list is not None
-        if is_main_module:
+        if iml_path_list is not None:
             module_list = [
                 _MODULE_SECTION % (module_name, module_name),
                 _MODULE_SECTION % (constant.KEY_DEPENDENCIES,
@@ -656,3 +660,21 @@ def _merge_all_shared_source_paths(projects):
                                      project.project_relative_path))
         main_project.source_path['jar_path'].update(
             project.source_path['jar_path'])
+
+def update_enable_debugger(module_path, enable_debugger_module_abspath=None):
+    """Append the enable_debugger module's info in modules.xml file.
+
+    Args:
+        module_path: A string of the folder path contains IDE project content,
+                     e.g., the folder contains the .idea folder.
+        enable_debugger_module_abspath: A string of the im file path of enable
+                                        debugger module.
+    """
+    replace_string = ''
+    if enable_debugger_module_abspath:
+        replace_string = _SUB_MODULES_SECTION.format(
+            IML=enable_debugger_module_abspath)
+    target_path = os.path.join(module_path, _IDEA_FOLDER, _MODULES_XML)
+    content = common_util.read_file_content(target_path)
+    content = content.replace(_ENABLE_DEBUGGER_MODULE_TOKEN, replace_string)
+    common_util.file_generate(target_path, content)
