@@ -14,7 +14,28 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Config SDK in jdk.table.xml."""
+"""Config JDK/SDK in jdk.table.xml.
+
+Depends on Linux and Mac there are different config file paths, such as
+jdk.table.xml, template_jdk_file.xml, etc. The information is saved in IdeUtil
+class and it uses SDKConfig class to write JDK/SDK configuration in
+jdk.table.xml.
+
+    Usage example:
+    1.The parameters jdk_table_xml_file, jdk_template_path, default_jdk_path and
+      default_android_sdk_path are generated in IdeUtil class by different OS
+      and IDE. Please reference to ide_util.py for more detail information.
+    2.Configure JDK and Android SDK in jdk.table.xml for IntelliJ and Android
+      Studio.
+    3.Generate the enable_debugger module in IntelliJ.
+
+    sdk_config = SDKConfig(jdk_table_xml_file,
+                           jdk_template_path,
+                           default_jdk_path,
+                           default_android_sdk_path)
+    sdk_config.config_jdk_file()
+    sdk_config.gen_enable_debugger_module()
+"""
 
 from __future__ import absolute_import
 
@@ -25,6 +46,9 @@ import xml.dom.minidom
 
 from aidegen import constant
 from aidegen.lib import common_util
+from aidegen.lib import config
+from aidegen.lib import errors
+from aidegen.lib import project_file_gen
 
 _API_LEVEL = 'api_level'
 _PLATFORMS = 'platforms'
@@ -61,12 +85,16 @@ class SDKConfig():
     _TAG_JDK = 'jdk'
     _TAG_NAME = 'name'
     _TAG_TYPE = 'type'
+    _TAG_ADDITIONAL = 'additional'
     _ATTRIBUTE_VALUE = 'value'
+    _ATTRIBUTE_JDK = _TAG_JDK
+    _ATTRIBUTE_SDK = 'sdk'
     _TYPE_JAVASDK = 'JavaSDK'
     _NAME_JDK18 = 'JDK18'
     _TYPE_ANDROID_SDK = 'Android SDK'
     _INPUT_QUERY_TIMES = 3
     _API_FOLDER_RE = re.compile(r'platforms/android-(?P<api_level>[\d]+)')
+    _API_LEVEL_RE = re.compile(r'android-(?P<api_level>[\d]+)')
     _ROOT_DIR = constant.AIDEGEN_ROOT_PATH
     _TEMPLATE_ANDROID_SDK = os.path.join(
         _ROOT_DIR, 'templates/jdkTable/part.android.sdk.xml')
@@ -80,6 +108,8 @@ class SDKConfig():
                           'Please install the SDK platform, otherwise the '
                           'debug function "Attach debugger to Android process" '
                           'cannot be enabled in IntelliJ.')
+    _WARNING_PARSE_XML_FAILED = ('The content of jdk.table.xml is not a valid'
+                                 'xml.')
 
     def __init__(self, config_file, template_jdk_file, jdk_path,
                  default_android_sdk_path):
@@ -98,9 +128,18 @@ class SDKConfig():
         self.jdk_path = jdk_path
         self.config_exists = os.path.isfile(config_file)
         self.config_string = self._get_default_config_content()
-        self.xml_dom = xml.dom.minidom.parseString(self.config_string)
+        self._parse_xml()
         self.jdks = self.xml_dom.getElementsByTagName(self._TAG_JDK)
         SDKConfig.android_sdk_path = default_android_sdk_path
+
+    def _parse_xml(self):
+        """Parse the content of jdk.table.xml to a minidom object."""
+        try:
+            self.xml_dom = xml.dom.minidom.parseString(self.config_string)
+        except (TypeError, AttributeError) as err:
+            print('\n{} {}\n'.format(common_util.COLORED_INFO('Warning:'),
+                                     self._WARNING_PARSE_XML_FAILED))
+            raise errors.InvalidXMLError(err)
 
     def _get_default_config_content(self):
         """Get the default content of self.config_file.
@@ -112,8 +151,8 @@ class SDKConfig():
             String: The content will be written into self.config_file.
         """
         if self.config_exists:
-            with open(self.config_file) as config:
-                return config.read()
+            with open(self.config_file) as config_file:
+                return config_file.read()
         return self._XML_CONTENT
 
     def _get_first_element_value(self, node, element_name):
@@ -226,6 +265,24 @@ class SDKConfig():
             return cls.android_sdk_path
         return os.path.join(cls.android_sdk_path, _PLATFORMS)
 
+    def _set_api_level_from_xml(self):
+        """Get the API level from jdk.table.xml."""
+        for jdk in self.jdks:
+            jdk_type = self._get_first_element_value(jdk, self._TAG_TYPE)
+            if jdk_type == self._TYPE_ANDROID_SDK:
+                additionals = jdk.getElementsByTagName(self._TAG_ADDITIONAL)
+                for additional in additionals:
+                    jdk_value = additional.getAttribute(self._ATTRIBUTE_JDK)
+                    sdk_value = additional.getAttribute(self._ATTRIBUTE_SDK)
+                    if jdk_value == self._NAME_JDK18:
+                        find_api_level = self._API_LEVEL_RE.match(sdk_value)
+                        if find_api_level:
+                            self.max_api_level = find_api_level.group(
+                                'api_level')
+                            return True
+        logging.warning('Can\'t set api level from jdk.table.xml.')
+        return False
+
     def _append_jdk_config_string(self, new_jdk_config):
         """Add a jdk configuration at the last of <component>.
 
@@ -271,3 +328,16 @@ class SDKConfig():
         self.generate_jdk_config_string()
         self.generate_sdk_config_string()
         self._write_jdk_config_file()
+
+    def gen_enable_debugger_module(self, module_abspath):
+        """Generate the enable_debugger module under AIDEGen config folder.
+
+        Args:
+            module_abspath: the absolute path of the main project.
+        """
+        if self._set_api_level_from_xml():
+            with config.AidegenConfig() as aconf:
+                if aconf.create_enable_debugger_module(self.max_api_level):
+                    project_file_gen.update_enable_debugger(
+                        module_abspath,
+                        config.AidegenConfig.DEBUG_ENABLED_FILE_PATH)
