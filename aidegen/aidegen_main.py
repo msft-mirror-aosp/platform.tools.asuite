@@ -259,8 +259,8 @@ def _launch_ide(ide_util_obj, project_absolute_path):
         ide_util_obj: An ide_util instance.
         project_absolute_path: A string of project absolute path.
     """
-    ide_util_obj.config_ide()
-    ide_util_obj.launch_ide(project_absolute_path)
+    ide_util_obj.config_ide(project_absolute_path)
+    ide_util_obj.launch_ide()
     print('\n{} {}\n'.format(_CONGRATULATION, _LAUNCH_SUCCESS_MSG))
 
 
