@@ -57,3 +57,7 @@ class IDENotExistError(AIDEgenError):
 
 class FakeModuleError(AIDEgenError):
     """Raised if the module is a fake module."""
+
+
+class InvalidXMLError(AIDEgenError):
+    """Raised if parsing xml file failed."""

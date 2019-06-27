@@ -23,8 +23,8 @@ existence, IDE type, etc.), launch the project in related IDE.
 
     ide_util_obj = IdeUtil()
     if ide_util_obj.is_ide_installed():
-        ide_util_obj.config_ide()
-        ide_util_obj.launch_ide(project_file)
+        ide_util_obj.config_ide(project_file)
+        ide_util_obj.launch_ide()
 """
 
 import fnmatch
@@ -36,7 +36,7 @@ import subprocess
 
 from aidegen import constant
 from aidegen.lib import common_util
-from aidegen.lib.config import AidegenConfig
+from aidegen.lib import config
 from aidegen.lib import sdk_config
 
 # Add 'nohup' to prevent IDE from being terminated when console is terminated.
@@ -56,8 +56,8 @@ class IdeUtil():
 
     For example:
         1. Check if IDE is installed.
-        2. Launch an IDE.
-        3. Config IDE, e.g. config code style, SDK path, and etc.
+        2. Config IDE, e.g. config code style, SDK path, and etc.
+        3. Launch an IDE.
     """
 
     def __init__(self,
@@ -77,16 +77,17 @@ class IdeUtil():
         """
         return self._ide.is_ide_installed()
 
-    def launch_ide(self, project_file):
-        """Launches the relative IDE by opening the passed project file.
+    def launch_ide(self):
+        """Launches the relative IDE by opening the passed project file."""
+        return self._ide.launch_ide()
+
+    def config_ide(self, project_abspath):
+        """To config the IDE, e.g., setup code style, init SDK, and etc.
 
         Args:
-            project_file: The full path of the IDE project file.
+            project_abspath: An absolute path of the project.
         """
-        return self._ide.launch_ide(project_file)
-
-    def config_ide(self):
-        """To config the IDE, e.g., setup code style, init SDK, and etc."""
+        self._ide.project_abspath = project_abspath
         if self.is_ide_installed() and self._ide:
             self._ide.apply_optional_config()
 
@@ -109,6 +110,7 @@ class IdeBase():
         _bin_paths: A list of all possible IDE executable file absolute paths.
         _ide_name: String for IDE name.
         _bin_folders: A list of all possible IDE installed paths.
+        project_abspath: The absolute path of the project.
 
     For example:
         1. Check if IDE is installed.
@@ -123,6 +125,7 @@ class IdeBase():
         self._bin_file_name = ''
         self._bin_paths = []
         self._bin_folders = []
+        self.project_abspath = ''
 
     def is_ide_installed(self):
         """Checks if IDE is already installed.
@@ -132,14 +135,9 @@ class IdeBase():
         """
         return bool(self._installed_path)
 
-    def launch_ide(self, project_file):
-        """Launches IDE by opening the passed project file.
-
-        Args:
-            project_file: The full path of the IDE's project file.
-        """
-        _launch_ide(project_file, self._get_ide_cmd(project_file),
-                    self._ide_name)
+    def launch_ide(self):
+        """Launches IDE by opening the passed project file."""
+        _launch_ide(self.project_abspath, self._get_ide_cmd(), self._ide_name)
 
     def apply_optional_config(self):
         """Handles IDE relevant configs."""
@@ -155,16 +153,13 @@ class IdeBase():
         """Gets IDE name."""
         return self._ide_name
 
-    def _get_ide_cmd(self, project_file):
+    def _get_ide_cmd(self):
         """Compose launch IDE command to run a new process and redirect output.
-
-        Args:
-            project_file: The full path of the IDE's project file.
 
         Returns:
             A string of launch IDE command.
         """
-        return _get_run_ide_cmd(self._installed_path, project_file)
+        return _get_run_ide_cmd(self._installed_path, self.project_abspath)
 
     def _init_installed_path(self, installed_path):
         """Initialize IDE installed path.
@@ -235,6 +230,7 @@ class IdeIntelliJ(IdeBase):
                 jdk_file, self._JDK_PART_TEMPLATE_PATH, self._JDK_PATH,
                 self._DEFAULT_ANDROID_SDK_PATH)
             jdk_table.config_jdk_file()
+            jdk_table.gen_enable_debugger_module(self.project_abspath)
 
     def _get_config_root_paths(self):
         """Get the config root paths from derived class.
@@ -269,7 +265,7 @@ class IdeIntelliJ(IdeBase):
         uefiles = _get_intellij_version_path(self._ls_ue_path)
         all_versions = self._get_all_versions(cefiles, uefiles)
         if len(all_versions) > 1:
-            with AidegenConfig() as aconf:
+            with config.AidegenConfig() as aconf:
                 if not self._config_reset and (
                         aconf.preferred_version in all_versions):
                     return aconf.preferred_version
@@ -575,11 +571,8 @@ class IdeMacEclipse(IdeEclipse):
         self._bin_paths = self._get_possible_bin_paths()
         self._init_installed_path(installed_path)
 
-    def _get_ide_cmd(self, project_file):
+    def _get_ide_cmd(self):
         """Compose launch IDE command to run a new process and redirect output.
-
-        Args:
-            project_file: The full path of the IDE's project file.
 
         Returns:
             A string of launch IDE command.
@@ -587,7 +580,7 @@ class IdeMacEclipse(IdeEclipse):
         return ' '.join([
             _NOHUP, 'open',
             self._installed_path.replace(' ', r'\ '),
-            os.path.dirname(project_file), _IGNORE_STD_OUT_ERR_CMD, '&'
+            os.path.dirname(self.project_abspath), _IGNORE_STD_OUT_ERR_CMD, '&'
         ])
 
 

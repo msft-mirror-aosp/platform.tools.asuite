@@ -44,6 +44,8 @@ class AidegenProjectFileGenUnittest(unittest.TestCase):
     _MODULE_XML_SAMPLE = os.path.join(_TEST_DATA_PATH, 'modules.xml')
     _MAIN_MODULE_XML_SAMPLE = os.path.join(_TEST_DATA_PATH,
                                            'modules_only_self_module.xml')
+    _ENABLE_DEBUGGER_MODULE_SAMPLE = os.path.join(
+        _TEST_DATA_PATH, 'modules_with_enable_debugger.xml')
     _VCS_XML_SAMPLE = os.path.join(_TEST_DATA_PATH, 'vcs.xml')
     _IML_PATH = os.path.join(uc.ANDROID_PROJECT_PATH, 'android_project.iml')
     _DEPENDENCIES_IML_PATH = os.path.join(uc.ANDROID_PROJECT_PATH,
@@ -159,6 +161,7 @@ class AidegenProjectFileGenUnittest(unittest.TestCase):
         # Test for main project.
         try:
             pfile_gen._generate_modules_xml([])
+            project_file_gen.update_enable_debugger(uc.ANDROID_PROJECT_PATH)
             test_module = common_util.read_file_content(self._MODULE_PATH)
         finally:
             shutil.rmtree(self._IDEA_PATH)
@@ -168,6 +171,7 @@ class AidegenProjectFileGenUnittest(unittest.TestCase):
         # Test for sub projects which only has self module.
         try:
             pfile_gen._generate_modules_xml()
+            project_file_gen.update_enable_debugger(uc.ANDROID_PROJECT_PATH)
             test_module = common_util.read_file_content(self._MODULE_PATH)
         finally:
             shutil.rmtree(self._IDEA_PATH)
@@ -323,6 +327,23 @@ class AidegenProjectFileGenUnittest(unittest.TestCase):
         exclude_folders = project_file_gen._get_exclude_content(
             self._TEST_DATA_PATH)
         self.assertEqual(self._SAMPLE_EXCLUDE_FOLDERS, exclude_folders)
+
+    @mock.patch('aidegen.lib.project_info.ProjectInfo')
+    def test_update_enable_debugger(self, mock_project):
+        """Test update_enable_debugger."""
+        enable_debugger_iml = '/path/to/enable_debugger/enable_debugger.iml'
+        sample_module = common_util.read_file_content(
+            self._ENABLE_DEBUGGER_MODULE_SAMPLE)
+        mock_project.project_absolute_path = uc.ANDROID_PROJECT_PATH
+        pfile_gen = ProjectFileGenerator(mock_project)
+        try:
+            pfile_gen._generate_modules_xml([])
+            project_file_gen.update_enable_debugger(
+                uc.ANDROID_PROJECT_PATH, enable_debugger_iml)
+            test_module = common_util.read_file_content(self._MODULE_PATH)
+            self.assertEqual(test_module, sample_module)
+        finally:
+            shutil.rmtree(self._IDEA_PATH)
 
 
 if __name__ == '__main__':
