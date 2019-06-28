@@ -41,14 +41,14 @@ class EclipseConf(ProjectFileGenerator):
         classpath_content: A string ready to be written into classpath_file.
     """
     # Constants of .project file
-    _TEMPLATE_PROJECT_FILE = os.path.join(constant.AIDEGEN_ROOT_PATH,
+    _TEMPLATE_PROJECT_FILE = os.path.join(common_util.get_aidegen_root_dir(),
                                           'templates/eclipse/project.xml')
     _PROJECT_LINK = ('                <link><name>{}</name><type>2</type>'
                      '<location>{}</location></link>\n')
     _PROJECT_FILENAME = '.project'
 
     # constans of .classpath file
-    _TEMPLATE_CLASSPATH_FILE = os.path.join(constant.AIDEGEN_ROOT_PATH,
+    _TEMPLATE_CLASSPATH_FILE = os.path.join(common_util.get_aidegen_root_dir(),
                                             'templates/eclipse/classpath.xml')
     _CLASSPATH_SRC_ENTRY = ('    <classpathentry kind="src" path="{}"/>\n')
     _CLASSPATH_LIB_ENTRY = ('    <classpathentry exported="true" kind="lib" '
