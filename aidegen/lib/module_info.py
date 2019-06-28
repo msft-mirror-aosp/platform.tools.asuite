@@ -1,3 +1,5 @@
+#!/usr/bin/env python3
+#
 # Copyright 2019, The Android Open Source Project
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -93,7 +95,7 @@ class AidegenModuleInfo(ModuleInfo):
             Tuple of the relative and absolute paths of the merged module info
             file.
         """
-        module_file_path = module_info_util.get_blueprint_json_path()
+        module_file_path = common_util.get_blueprint_json_path()
         if force_build and os.path.isfile(module_file_path):
             os.remove(module_file_path)
         merged_file_path = os.path.join(common_util.get_soong_out_path(),
