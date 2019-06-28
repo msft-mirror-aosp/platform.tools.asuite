@@ -22,8 +22,8 @@ import tempfile
 import unittest
 from unittest.mock import patch
 
-from aidegen import constant
 from aidegen import unittest_constants
+from aidegen.lib import common_util
 from aidegen.lib import sdk_config
 
 
@@ -40,7 +40,7 @@ class SDKConfigUnittests(unittest.TestCase):
                                 'jdk_table_xml', 'android_sdk.xml')
     _JDK_SAMPLE4 = os.path.join(unittest_constants.TEST_DATA_PATH,
                                 'jdk_table_xml', 'android_sdk_nonexistent.xml')
-    _JDK_TEMPLATE = os.path.join(constant.AIDEGEN_ROOT_PATH,
+    _JDK_TEMPLATE = os.path.join(common_util.get_aidegen_root_dir(),
                                  'templates', 'jdkTable', 'part.jdk.table.xml')
     _JDK_PATH = os.path.join('/path', 'to', 'android', 'root',
                              'prebuilts', 'jdk', 'jdk8', 'linux-x86')
