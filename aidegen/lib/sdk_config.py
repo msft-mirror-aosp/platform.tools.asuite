@@ -44,7 +44,6 @@ import os
 import re
 import xml.dom.minidom
 
-from aidegen import constant
 from aidegen.lib import common_util
 from aidegen.lib import config
 from aidegen.lib import errors
@@ -95,7 +94,7 @@ class SDKConfig():
     _INPUT_QUERY_TIMES = 3
     _API_FOLDER_RE = re.compile(r'platforms/android-(?P<api_level>[\d]+)')
     _API_LEVEL_RE = re.compile(r'android-(?P<api_level>[\d]+)')
-    _ROOT_DIR = constant.AIDEGEN_ROOT_PATH
+    _ROOT_DIR = common_util.get_aidegen_root_dir()
     _TEMPLATE_ANDROID_SDK = os.path.join(
         _ROOT_DIR, 'templates/jdkTable/part.android.sdk.xml')
     _ENTER_ANDROID_SDK_PATH = ('\nThe Android SDK folder:{} doesn\'t exist. '
