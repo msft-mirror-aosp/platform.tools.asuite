@@ -21,7 +21,6 @@ import json
 import logging
 import os
 
-from aidegen import constant
 from aidegen.lib import common_util
 
 
@@ -42,11 +41,9 @@ class AidegenConfig():
     # Constants of enable debugger
     _ENABLE_DEBUG_CONFIG_DIR = 'enable_debugger'
     _ENABLE_DEBUG_CONFIG_FILE = 'enable_debugger.iml'
-    # TODO: After the CL aosp/975948 is merged, revise the AIDEGEN_ROOT_PATH to
-    #       common_util.get_aidegen_root_dir()
     _ENABLE_DEBUG_TEMPLATE_FILE = os.path.join(
-        constant.AIDEGEN_ROOT_PATH, 'templates', _ENABLE_DEBUG_CONFIG_DIR,
-        _ENABLE_DEBUG_CONFIG_FILE)
+        common_util.get_aidegen_root_dir(), 'templates',
+        _ENABLE_DEBUG_CONFIG_DIR, _ENABLE_DEBUG_CONFIG_FILE)
     _ENABLE_DEBUG_DIR = os.path.join(_CONFIG_DIR, _ENABLE_DEBUG_CONFIG_DIR)
     _ANDROID_MANIFEST_FILE_NAME = 'AndroidManifest.xml'
     _DIR_SRC = 'src'
