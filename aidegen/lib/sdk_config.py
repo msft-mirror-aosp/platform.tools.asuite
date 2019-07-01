@@ -128,13 +128,13 @@ class SDKConfig():
         self.config_exists = os.path.isfile(config_file)
         self.config_string = self._get_default_config_content()
         self._parse_xml()
-        self.jdks = self.xml_dom.getElementsByTagName(self._TAG_JDK)
         SDKConfig.android_sdk_path = default_android_sdk_path
 
     def _parse_xml(self):
         """Parse the content of jdk.table.xml to a minidom object."""
         try:
             self.xml_dom = xml.dom.minidom.parseString(self.config_string)
+            self.jdks = self.xml_dom.getElementsByTagName(self._TAG_JDK)
         except (TypeError, AttributeError) as err:
             print('\n{} {}\n'.format(common_util.COLORED_INFO('Warning:'),
                                      self._WARNING_PARSE_XML_FAILED))
@@ -300,14 +300,14 @@ class SDKConfig():
                             self.config_file, err)
 
     def generate_jdk_config_string(self):
-        """Generate the default jdk confiduration."""
+        """Generate the default jdk configuration."""
         if not self._target_jdk_exists():
             self._append_jdk_config_string(
                 common_util.read_file_content(self.template_jdk_file))
         self.config_string = self.config_string.format(JDKpath=self.jdk_path)
 
     def generate_sdk_config_string(self):
-        """Generate Android SDK confiduration."""
+        """Generate Android SDK configuration."""
         if not self._android_sdk_exists():
             if self._get_android_sdk_path():
                 self._append_jdk_config_string(
@@ -327,6 +327,8 @@ class SDKConfig():
         self.generate_jdk_config_string()
         self.generate_sdk_config_string()
         self._write_jdk_config_file()
+        # Parse the content of the updated jdk.table.xml to refresh self.jdks.
+        self._parse_xml()
 
     def gen_enable_debugger_module(self, module_abspath):
         """Generate the enable_debugger module under AIDEGen config folder.
