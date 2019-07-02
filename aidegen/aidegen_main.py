@@ -367,6 +367,7 @@ def main(argv):
         print('\n{0} {1}\n\n{0} {2}\n'.format(_INFO, AIDEGEN_REPORT_LINK,
                                               _IDE_CACHE_REMINDER_MSG))
 
+
 @back_to_cwd
 def aidegen_main(args):
     """AIDEGen main entry.
