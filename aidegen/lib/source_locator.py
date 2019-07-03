@@ -56,10 +56,10 @@ _IGNORE_DIRS = [
     'libcore/ojluni/src/lambda/java'
 ]
 _DIS_ROBO_BUILD_ENV_VAR = {'DISABLE_ROBO_RUN_TESTS': 'true'}
-# When we use atest_utils.build(), it calls soong_ui.bash with whole path and
-# some arguments, it should less than 200 characters. We use 200 as command
-# buffer.
-_CMD_LENGTH_BUFFER = 200
+# When we use atest_utils.build(), there is a command length limit on
+# soong_ui.bash. We reserve 5000 characters for rewriting the command line
+# in soong_ui.bash.
+_CMD_LENGTH_BUFFER = 5000
 # For each argument, it need a space to separate following argument.
 _BLANK_SIZE = 1
 
