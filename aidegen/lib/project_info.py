@@ -70,9 +70,15 @@ class ProjectInfo:
                                        paths.
                      jar_path: A set contains the jar file paths.
                      jar_module_path: A dictionary contains the jar file and
-                                      the module's path mapping.
+                                      the module's path mapping, only used in
+                                      Eclipse.
                      r_java_path: A set contains the relative path to the
-                                  R.java files.
+                                  R.java files, only used in Eclipse.
+                     srcjar_path: A source content descriptor only used in
+                                  IntelliJ.
+                                  e.g. out/.../aapt2.srcjar!/
+                                  The "!/" is a content descriptor for
+                                  compressed files in IntelliJ.
     """
 
     modules_info = None
@@ -121,7 +127,8 @@ class ProjectInfo:
             'test_folder_path': set(),
             'jar_path': set(),
             'jar_module_path': dict(),
-            'r_java_path': set()
+            'r_java_path': set(),
+            'srcjar_path': set()
         }
 
     def _display_convert_make_files_message(self):
