@@ -59,7 +59,7 @@ class EclipseConfUnittests(unittest.TestCase):
             'jar_module_path': {
                 '': self._PROJECT_RELPATH
             },
-            'r_java_path': {constant.CENTRAL_R_PATH}
+            'r_java_path': set()
         }
         expected_content = common_util.read_file_content(self._PROJECT_SAMPLE)
         eclipse_config = EclipseConf(mock_project_info)
