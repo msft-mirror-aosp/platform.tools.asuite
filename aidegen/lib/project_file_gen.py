@@ -516,6 +516,11 @@ class ProjectFileGenerator():
             module_list = [
                 _MODULE_SECTION % (module_name, module_name)
             ]
+            # Sub projects don't need to be filled in the enable debugger module
+            # so we remove the token here. For the main project, the enable
+            # debugger module will be appended if it exists at the time
+            # launching IDE.
+            content = content.replace(_ENABLE_DEBUGGER_MODULE_TOKEN, '')
         module = '\n'.join(module_list)
         content = content.replace(_MODULE_TOKEN, module)
         target_path = os.path.join(module_path, _IDEA_FOLDER, _MODULES_XML)
