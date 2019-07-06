@@ -54,6 +54,7 @@ class AidegenProjectFileGenUnittest(unittest.TestCase):
     _MODULE_PATH = os.path.join(_IDEA_PATH, 'modules.xml')
     _VCS_PATH = os.path.join(_IDEA_PATH, 'vcs.xml')
     _SOURCE_SAMPLE = os.path.join(_TEST_DATA_PATH, 'source.iml')
+    _SRCJAR_SAMPLE = os.path.join(_TEST_DATA_PATH, 'srcjar.iml')
     _LOCAL_PATH_TOKEN = '@LOCAL_PATH@'
     _AOSP_FOLDER = '/aosp'
     _TEST_SOURCE_LIST = [
@@ -344,6 +345,18 @@ class AidegenProjectFileGenUnittest(unittest.TestCase):
             self.assertEqual(test_module, sample_module)
         finally:
             shutil.rmtree(self._IDEA_PATH)
+
+    @mock.patch('aidegen.lib.common_util.get_android_root_dir')
+    @mock.patch('aidegen.lib.project_info.ProjectInfo')
+    def test_handle_srcjar_folder(self, mock_project, mock_get_root):
+        """Test _handle_srcjar_folder."""
+        template = common_util.read_file_content(
+            project_file_gen._TEMPLATE_IML_PATH)
+        mock_get_root.return_value = self._AOSP_FOLDER
+        source = ProjectFileGenerator(mock_project)._handle_srcjar_folder(
+            template, {'out/aapt2.srcjar!/'})
+        sample_source = common_util.read_file_content(self._SRCJAR_SAMPLE)
+        self.assertEqual(source, sample_source)
 
 
 if __name__ == '__main__':
