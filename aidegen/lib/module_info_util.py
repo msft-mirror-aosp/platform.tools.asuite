@@ -34,11 +34,6 @@ import sys
 
 from aidegen import constant
 from aidegen.lib import common_util
-from aidegen.lib.common_util import COLORED_INFO
-from aidegen.lib.common_util import back_to_cwd
-from aidegen.lib.common_util import get_blueprint_json_path
-from aidegen.lib.common_util import get_related_paths
-from aidegen.lib.common_util import time_logged
 from aidegen.lib import errors
 
 _BLUEPRINT_JSONFILE_NAME = 'module_bp_java_deps.json'
@@ -55,11 +50,11 @@ _INTELLIJ_PROJECT_FILE_EXT = '*.iml'
 _LAUNCH_PROJECT_QUERY = (
     'There exists an IntelliJ project file: %s. Do you want '
     'to launch it (yes/No)?')
-_GENERATE_JSON_COMMAND = ('SOONG_COLLECT_JAVA_DEPS=false make nothing;'
-                          'SOONG_COLLECT_JAVA_DEPS=true make nothing')
+_GENERATE_JSON_COMMAND = ('SOONG_COLLECT_JAVA_DEPS=false make nothing -C {DIR};'
+                          'SOONG_COLLECT_JAVA_DEPS=true make nothing -C {DIR}')
 
 
-@time_logged
+@common_util.time_logged
 def generate_merged_module_info(module_info, projects=None, verbose=False,
                                 skip_build=False):
     """Generate a merged dictionary.
@@ -85,12 +80,13 @@ def generate_merged_module_info(module_info, projects=None, verbose=False,
         A merged dictionary from module-info.json and module_bp_java_deps.json.
     """
     main_project = projects[0] if projects else None
-    _build_target(module_info, [_GENERATE_JSON_COMMAND], main_project, verbose,
-                  skip_build)
+    cmd = [_GENERATE_JSON_COMMAND.format(
+        DIR=common_util.get_android_root_dir())]
+    _build_target(module_info, cmd, main_project, verbose, skip_build)
     bp_dict = _get_soong_build_json_dict()
     return _merge_dict(module_info.name_to_module_info, bp_dict)
 
-@back_to_cwd
+
 def _build_target(module_info, cmd, main_project=None, verbose=False,
                   skip_build=False):
     """Make nothing to generate module_bp_java_deps.json.
@@ -118,16 +114,15 @@ def _build_target(module_info, cmd, main_project=None, verbose=False,
               a) If the answer is yes, return.
               b) If the answer is not yes, sys.exit(1)
     """
-    json_path = get_blueprint_json_path()
+    json_path = common_util.get_blueprint_json_path()
     original_json_mtime = None
     if os.path.isfile(json_path):
         if skip_build:
             logging.info('%s file exists, skipping build.',
-                         get_blueprint_json_path())
+                         common_util.get_blueprint_json_path())
             return
         original_json_mtime = os.path.getmtime(json_path)
     try:
-        os.chdir(common_util.get_android_root_dir())
         if verbose:
             full_env_vars = os.environ.copy()
             subprocess.check_call(
@@ -140,11 +135,12 @@ def _build_target(module_info, cmd, main_project=None, verbose=False,
             if os.path.isfile(json_path):
                 message = ('Generate new {0} failed, AIDEGen will proceed and '
                            'reuse the old {0}.'.format(json_path))
-                print('\n{} {}\n'.format(COLORED_INFO('Warning:'), message))
+                print('\n{} {}\n'.format(common_util.COLORED_INFO('Warning:'),
+                                         message))
         else:
             if main_project:
-                _, main_project_path = get_related_paths(module_info,
-                                                         main_project)
+                _, main_project_path = common_util.get_related_paths(
+                    module_info, main_project)
                 _build_failed_handle(main_project_path)
 
 
@@ -185,7 +181,7 @@ def _build_failed_handle(main_project_path):
             sys.exit(1)
     else:
         raise errors.BuildFailureError(
-            'Failed to generate %s.' % get_blueprint_json_path())
+            'Failed to generate %s.' % common_util.get_blueprint_json_path())
 
 
 def _get_soong_build_json_dict():
@@ -194,7 +190,7 @@ def _get_soong_build_json_dict():
     Returns:
         A dictionary loaded from the blueprint json file.
     """
-    json_path = get_blueprint_json_path()
+    json_path = common_util.get_blueprint_json_path()
     try:
         with open(json_path) as jfile:
             json_dict = json.load(jfile)
