@@ -24,15 +24,14 @@ from unittest import mock
 
 import aidegen.unittest_constants as uc
 from aidegen import aidegen_main
-from aidegen.lib import aidegen_metrics
 from aidegen import constant
+from aidegen.lib import aidegen_metrics
 from aidegen.lib import common_util
-from aidegen.lib.errors import IDENotExistError
-from aidegen.lib.errors import ProjectPathNotExistError
-from aidegen.lib.ide_util import IdeUtil
-from aidegen.lib.eclipse_project_file_gen import EclipseConf
-from aidegen.lib.project_info import ProjectInfo
-from aidegen.lib.project_file_gen import ProjectFileGenerator
+from aidegen.lib import eclipse_project_file_gen
+from aidegen.lib import errors
+from aidegen.lib import ide_util
+from aidegen.lib import project_file_gen
+from aidegen.lib import project_info
 from atest import module_info
 
 
@@ -85,7 +84,7 @@ class AidegenMainUnittests(unittest.TestCase):
             mock_log_config.called_with(
                 level=level, format=log_format, datefmt=datefmt))
 
-    @mock.patch.object(IdeUtil, 'is_ide_installed')
+    @mock.patch.object(ide_util.IdeUtil, 'is_ide_installed')
     def test_get_ide_util_instance(self, mock_installed):
         """Test _get_ide_util_instance with different conditions."""
         target = 'tradefed'
@@ -93,18 +92,20 @@ class AidegenMainUnittests(unittest.TestCase):
         self.assertEqual(aidegen_main._get_ide_util_instance(args), None)
         args = aidegen_main._parse_args([target])
         self.assertIsInstance(
-            aidegen_main._get_ide_util_instance(args), IdeUtil)
+            aidegen_main._get_ide_util_instance(args), ide_util.IdeUtil)
         mock_installed.return_value = False
-        with self.assertRaises(IDENotExistError):
+        with self.assertRaises(errors.IDENotExistError):
             aidegen_main._get_ide_util_instance(args)
 
     @mock.patch('aidegen.lib.project_config.ProjectConfig')
-    @mock.patch.object(ProjectFileGenerator, 'generate_ide_project_files')
-    @mock.patch.object(EclipseConf, 'generate_ide_project_files')
+    @mock.patch.object(project_file_gen.ProjectFileGenerator,
+                       'generate_ide_project_files')
+    @mock.patch.object(eclipse_project_file_gen.EclipseConf,
+                       'generate_ide_project_files')
     def test_generate_project_files(self, mock_eclipse, mock_ide, mock_config):
         """Test _generate_project_files with different conditions."""
         projects = ['module_a', 'module_v']
-        ProjectInfo.config = mock_config
+        project_info.ProjectInfo.config = mock_config
         mock_config.ide_name = constant.IDE_ECLIPSE
         aidegen_main._generate_project_files(projects)
         self.assertTrue(mock_eclipse.called_with(projects))
@@ -121,9 +122,9 @@ class AidegenMainUnittests(unittest.TestCase):
         """Test main process always run through the target test function."""
         target = 'nothing'
         args = aidegen_main._parse_args([target, '-s', '-n'])
-        with self.assertRaises(ProjectPathNotExistError):
+        with self.assertRaises(errors.ProjectPathNotExistError):
             err = common_util.PATH_NOT_EXISTS_ERROR.format(target)
-            mock_get.side_effect = ProjectPathNotExistError(err)
+            mock_get.side_effect = errors.ProjectPathNotExistError(err)
             aidegen_main.main_without_message(args)
             self.assertTrue(mock_metrics.called)
 
