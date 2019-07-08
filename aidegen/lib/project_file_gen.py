@@ -61,8 +61,6 @@ _ENABLE_DEBUGGER_MODULE_TOKEN = '@ENABLE_DEBUGGER_MODULE@'
 _VCS_TOKEN = '@VCS@'
 _JAVA_FILE_PATTERN = '%s/*.java'
 _IDEA_DIR = os.path.join(common_util.get_aidegen_root_dir(), 'templates/idea')
-_TEMPLATE_IML_PATH = os.path.join(common_util.get_aidegen_root_dir(),
-                                  'templates/module-template.iml')
 _IDEA_FOLDER = '.idea'
 _MODULES_XML = 'modules.xml'
 _VCS_XML = 'vcs.xml'
@@ -439,9 +437,6 @@ class ProjectFileGenerator():
         """
         module_path = self.project_info.project_absolute_path
         jar_dependencies = list(self.project_info.source_path['jar_path'])
-
-        template = common_util.read_file_content(_TEMPLATE_IML_PATH)
-
         # Separate module and dependencies source folder
         project_source_dict = {}
         for source in list(source_dict):
@@ -451,7 +446,7 @@ class ProjectFileGenerator():
                 project_source_dict.update({source: is_test})
 
         # Generate module iml.
-        module_content = self._handle_facet(template)
+        module_content = self._handle_facet(constant.FILE_IML)
         module_content = self._handle_source_folder(module_content,
                                                     project_source_dict, True)
         module_content = self._handle_srcjar_folder(module_content)
@@ -468,7 +463,7 @@ class ProjectFileGenerator():
         # Only generate the dependencies.iml in the main module's folder.
         dependencies_iml_path = None
         if is_main_module:
-            dependencies_content = template.replace(_FACET_TOKEN, '')
+            dependencies_content = constant.FILE_IML.replace(_FACET_TOKEN, '')
             dependencies_content = self._handle_source_folder(
                 dependencies_content, source_dict, False)
             dependencies_content = self._handle_srcjar_folder(
