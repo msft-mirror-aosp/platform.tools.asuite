@@ -164,6 +164,65 @@ class AidegenCommonUtilUnittests(unittest.TestCase):
             mock_log_config.called_with(
                 level=level, format=log_format, datefmt=datefmt))
 
+    def test_is_project_path_relative_module(self):
+        """Test is_project_path_relative_module handling."""
+        data = {'class':['APPS']}
+        self.assertFalse(common_util.is_project_path_relative_module(data, ''))
+        data = {'class':['APPS'], 'path':['path_to_a']}
+        self.assertTrue(common_util.is_project_path_relative_module(data, ''))
+        self.assertFalse(
+            common_util.is_project_path_relative_module(data, 'test'))
+        data = {'path':['path_to_a']}
+        self.assertFalse(
+            common_util.is_project_path_relative_module(data, 'test'))
+        self.assertFalse(
+            common_util.is_project_path_relative_module(data, 'path_to_a'))
+        data = {'class':['APPS'], 'path':['test/path_to_a']}
+        self.assertTrue(
+            common_util.is_project_path_relative_module(data, 'test'))
+        self.assertFalse(
+            common_util.is_project_path_relative_module(data, 'tes'))
+
+    @mock.patch.object(common_util, '_check_modules')
+    @mock.patch.object(module_info, 'ModuleInfo')
+    def test_get_atest_module_info(self, mock_modinfo, mock_check_modules):
+        """Test get_atest_module_info handling."""
+        common_util.get_atest_module_info()
+        self.assertEqual(mock_modinfo.call_count, 1)
+        mock_modinfo.reset_mock()
+        mock_check_modules.return_value = False
+        common_util.get_atest_module_info(['nothing'])
+        self.assertEqual(mock_modinfo.call_count, 2)
+
+    @mock.patch('builtins.open', create=True)
+    def test_read_file_content(self, mock_open):
+        """Test read_file_content handling."""
+        expacted_data1 = 'Data1'
+        fileA = 'fileA'
+        mock_open.side_effect = [
+            mock.mock_open(read_data=expacted_data1).return_value
+        ]
+        self.assertEqual(expacted_data1, common_util.read_file_content(fileA))
+        mock_open.assert_called_once_with(fileA)
+
+    @mock.patch('os.getenv')
+    @mock.patch.object(common_util, 'get_android_root_dir')
+    def test_get_android_out_dir(self, mock_get_android_root_dir, mock_getenv):
+        """Test get_android_out_dir handling."""
+        root = 'my/path-to-root/master'
+        default_root = 'out'
+        android_out_root = 'eng_out'
+        mock_get_android_root_dir.return_value = root
+        mock_getenv.side_effect = ['', '']
+        self.assertEqual(default_root, common_util.get_android_out_dir())
+        mock_getenv.side_effect = [android_out_root, '']
+        self.assertEqual(android_out_root, common_util.get_android_out_dir())
+        mock_getenv.side_effect = ['', default_root]
+        self.assertEqual(os.path.join(default_root, os.path.basename(root)),
+                         common_util.get_android_out_dir())
+        mock_getenv.side_effect = [android_out_root, default_root]
+        self.assertEqual(android_out_root, common_util.get_android_out_dir())
+
 
 if __name__ == '__main__':
     unittest.main()
