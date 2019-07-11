@@ -127,9 +127,8 @@ class AidegenMainUnittests(unittest.TestCase):
             aidegen_main.main_without_message(args)
             self.assertTrue(mock_log.called)
 
-    @mock.patch.object(common_util, 'get_related_paths')
-    def test_compile_targets_for_whole_android_tree(self, mock_get):
-        """Test _add_whole_android_tree_project with different conditions."""
+    def test_compile_targets_for_whole_android_tree(self):
+        """Test _compile_targets_for_whole_android_tree with conditions."""
         mod_info = module_info.ModuleInfo()
         targets = ['']
         cwd = common_util.get_android_root_dir()
@@ -138,14 +137,8 @@ class AidegenMainUnittests(unittest.TestCase):
             aidegen_main._compile_targets_for_whole_android_tree(
                 mod_info, targets, cwd))
         base_dir = 'frameworks/base'
-        expected_targets = ['', base_dir]
-        cwd = os.path.join(common_util.get_android_root_dir(), base_dir)
-        mock_get.return_value = None, cwd
-        self.assertEqual(
-            expected_targets,
-            aidegen_main._compile_targets_for_whole_android_tree(
-                mod_info, targets, cwd))
         targets = [base_dir]
+        expected_targets = ['', base_dir]
         cwd = common_util.get_android_root_dir()
         self.assertEqual(
             expected_targets,
@@ -161,6 +154,15 @@ class AidegenMainUnittests(unittest.TestCase):
         self.assertTrue(aidegen_main._is_whole_android_tree([''], False))
         mock_getcwd.return_value = 'frameworks/base'
         self.assertFalse(aidegen_main._is_whole_android_tree([''], False))
+
+    @mock.patch.object(aidegen_main, 'main_with_message')
+    @mock.patch.object(aidegen_main, 'main_without_message')
+    def test_main(self, mock_without, mock_with):
+        """Test main with conditions."""
+        aidegen_main.main(['-s'])
+        self.assertEqual(mock_without.call_count, 1)
+        aidegen_main.main([''])
+        self.assertEqual(mock_with.call_count, 1)
 
 
 if __name__ == '__main__':
