@@ -56,7 +56,6 @@ from aidegen.lib.common_util import time_logged
 from aidegen.lib.errors import AIDEgenError
 from aidegen.lib.errors import IDENotExistError
 from aidegen.lib.ide_util import IdeUtil
-from aidegen.lib.aidegen_metrics import log_usage
 from aidegen.lib.aidegen_metrics import starts_asuite_metrics
 from aidegen.lib.aidegen_metrics import ends_asuite_metrics
 from aidegen.lib.module_info import AidegenModuleInfo
@@ -377,7 +376,6 @@ def aidegen_main(args):
     Args:
         args: A list of system arguments.
     """
-    log_usage()
     # Pre-check for IDE relevant case, then handle dependency graph job.
     ide_util_obj = _get_ide_util_instance(args)
     ProjectInfo.config = project_config.ProjectConfig(args)
