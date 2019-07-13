@@ -46,3 +46,18 @@ ANDROID_TREE = 'is_android_tree'
 # Constants for file names
 MERGED_MODULE_INFO = 'merged_module_info.json'
 BLUEPRINT_JSONFILE_NAME = 'module_bp_java_deps.json'
+
+# Content of iml file.
+FILE_IML = '''<?xml version="1.0" encoding="UTF-8"?>
+<module type="JAVA_MODULE" version="4">
+@FACETS@
+    <component name="NewModuleRootManager" inherit-compiler-output="true">
+        <exclude-output />
+@SOURCES@
+@SRCJAR@
+        <orderEntry type="sourceFolder" forTests="false" />
+@MODULE_DEPENDENCIES@
+        <orderEntry type="inheritedJdk" />
+    </component>
+</module>
+'''
