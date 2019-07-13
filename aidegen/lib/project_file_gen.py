@@ -656,7 +656,7 @@ def _generate_git_ignore(target_folder):
         logging.error('Not support to run aidegen on Windows.\n %s', err)
 
 
-def _filter_out_source_paths(source_paths, module_relpath):
+def _filter_out_source_paths(source_paths, module_relpaths):
     """Filter out the source paths which belong to the target module.
 
     The source_paths is a union set of all source paths of all target modules.
@@ -665,33 +665,43 @@ def _filter_out_source_paths(source_paths, module_relpath):
 
     Args:
         source_paths: A set contains the source folder paths.
-        module_relpath: A string, the relative path of module.
+        module_relpaths: A list, contains the relative paths of target modules
+                         except the main module.
 
     Returns: A set of source paths.
     """
-    return {x for x in source_paths if not _is_source_under_relative_path(
-        x, module_relpath)}
+    return {x for x in source_paths if not any(
+        {_is_source_under_relative_path(x, y) for y in module_relpaths})}
 
 
 def _merge_all_shared_source_paths(projects):
     """Merge all source paths and jar paths into main project.
 
+    There should be no duplicate source root path in IntelliJ. The issue doesn't
+    happen in single project case. Once users choose multiple projects, there
+    could be several same source paths of different projects. In order to
+    prevent that, we should remove the source paths in dependencies.iml which
+    are duplicate with the paths in [module].iml files.
+
     Args:
         projects: A list of ProjectInfo instances.
     """
     main_project = projects[0]
+    # Merge all source paths of sub projects into main project.
     for project in projects[1:]:
         main_project.source_path['source_folder_path'].update(
-            _filter_out_source_paths(project.source_path['source_folder_path'],
-                                     project.project_relative_path))
+            project.source_path['source_folder_path'])
         main_project.source_path['test_folder_path'].update(
-            _filter_out_source_paths(project.source_path['test_folder_path'],
-                                     project.project_relative_path))
-        main_project.source_path['r_java_path'].update(
-            _filter_out_source_paths(project.source_path['r_java_path'],
-                                     project.project_relative_path))
+            project.source_path['test_folder_path'])
         main_project.source_path['jar_path'].update(
             project.source_path['jar_path'])
+    # Filter duplicate source/test paths from dependencies.iml.
+    sub_projects_relpaths = {p.project_relative_path for p in projects[1:]}
+    main_project.source_path['source_folder_path'] = _filter_out_source_paths(
+        main_project.source_path['source_folder_path'], sub_projects_relpaths)
+    main_project.source_path['test_folder_path'] = _filter_out_source_paths(
+        main_project.source_path['test_folder_path'], sub_projects_relpaths)
+
 
 def update_enable_debugger(module_path, enable_debugger_module_abspath=None):
     """Append the enable_debugger module's info in modules.xml file.

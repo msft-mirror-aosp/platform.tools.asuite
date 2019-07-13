@@ -268,9 +268,9 @@ class AidegenProjectFileGenUnittest(unittest.TestCase):
 
     def test_filter_out_source_paths(self):
         """Test _filter_out_source_paths."""
-        test_set = {'a/java.jar', 'b/java.jar'}
-        module_relpath = 'a'
-        expected_result = {'b/java.jar'}
+        test_set = {'a/a.java', 'b/b.java', 'c/c.java'}
+        module_relpath = {'a', 'c'}
+        expected_result = {'b/b.java'}
         result_set = project_file_gen._filter_out_source_paths(test_set,
                                                                module_relpath)
         self.assertEqual(result_set, expected_result)
@@ -281,7 +281,11 @@ class AidegenProjectFileGenUnittest(unittest.TestCase):
         """Test _merge_all_shared_source_paths."""
         mock_main_project.project_relative_path = 'main'
         mock_main_project.source_path = {
-            'source_folder_path': {'main/java.java', 'share1/java.java'},
+            'source_folder_path': {
+                'main/java.java',
+                'sub/java.java',
+                'share1/java.java'
+            },
             'test_folder_path': {'main/test.java', 'share1/test.java'},
             'jar_path': {'main/jar.jar', 'share1/jar.jar'},
             'r_java_path': {'out/R.java'},
