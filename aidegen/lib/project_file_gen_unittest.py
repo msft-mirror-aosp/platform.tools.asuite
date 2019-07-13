@@ -23,6 +23,7 @@ import unittest
 from unittest import mock
 
 import aidegen.unittest_constants as uc
+from aidegen import constant
 from aidegen.lib import common_util
 from aidegen.lib import project_file_gen
 from aidegen.lib.project_file_gen import ProjectFileGenerator
@@ -73,11 +74,9 @@ class AidegenProjectFileGenUnittest(unittest.TestCase):
     @mock.patch('aidegen.lib.project_info.ProjectInfo')
     def test_handle_facet_for_android(self, mock_project):
         """Test _handle_facet with android project."""
-        template = common_util.read_file_content(
-            project_file_gen._TEMPLATE_IML_PATH)
         mock_project.project_absolute_path = uc.ANDROID_PROJECT_PATH
         android_facet = ProjectFileGenerator(mock_project)._handle_facet(
-            template)
+            constant.FILE_IML)
         sample_android_facet = common_util.read_file_content(
             self._ANDROID_FACET_SAMPLE)
         self.assertEqual(android_facet, sample_android_facet)
@@ -85,20 +84,16 @@ class AidegenProjectFileGenUnittest(unittest.TestCase):
     @mock.patch('aidegen.lib.project_info.ProjectInfo')
     def test_handle_facet_for_normal(self, mock_project):
         """Test _handle_facet with normal module."""
-        template = common_util.read_file_content(
-            project_file_gen._TEMPLATE_IML_PATH)
         mock_project.project_absolute_path = self._PROJECT_PATH
         project_facet = ProjectFileGenerator(mock_project)._handle_facet(
-            template)
+            constant.FILE_IML)
         sample_project_facet = common_util.read_file_content(
             self._PROJECT_FACET_SAMPLE)
         self.assertEqual(project_facet, sample_project_facet)
 
     def test_handle_module_dependency(self):
         """Test _module_dependency."""
-        module_dependency = common_util.read_file_content(
-            project_file_gen._TEMPLATE_IML_PATH)
-        module_dependency = module_dependency.replace(
+        module_dependency = constant.FILE_IML.replace(
             project_file_gen._MODULE_DEP_TOKEN, '')
         correct_module_dep = common_util.read_file_content(
             self._MODULE_DEP_SAMPLE)
@@ -114,12 +109,10 @@ class AidegenProjectFileGenUnittest(unittest.TestCase):
     @mock.patch('aidegen.lib.project_info.ProjectInfo')
     def test_handle_source_folder(self, mock_project, mock_get_root):
         """Test _handle_source_folder."""
-        template = common_util.read_file_content(
-            project_file_gen._TEMPLATE_IML_PATH)
         mock_get_root.return_value = self._AOSP_FOLDER
         mock_project.project_relative_path = self._ANDROID_SOURCE_RELATIVE_PATH
         source = ProjectFileGenerator(mock_project)._handle_source_folder(
-            template, copy.deepcopy(uc.ANDROID_SOURCE_DICT), True)
+            constant.FILE_IML, copy.deepcopy(uc.ANDROID_SOURCE_DICT), True)
         sample_source = common_util.read_file_content(self._SOURCE_SAMPLE)
         self.assertEqual(source, sample_source)
 
@@ -275,9 +268,9 @@ class AidegenProjectFileGenUnittest(unittest.TestCase):
 
     def test_filter_out_source_paths(self):
         """Test _filter_out_source_paths."""
-        test_set = {'a/java.jar', 'b/java.jar'}
-        module_relpath = 'a'
-        expected_result = {'b/java.jar'}
+        test_set = {'a/a.java', 'b/b.java', 'c/c.java'}
+        module_relpath = {'a', 'c'}
+        expected_result = {'b/b.java'}
         result_set = project_file_gen._filter_out_source_paths(test_set,
                                                                module_relpath)
         self.assertEqual(result_set, expected_result)
@@ -288,7 +281,11 @@ class AidegenProjectFileGenUnittest(unittest.TestCase):
         """Test _merge_all_shared_source_paths."""
         mock_main_project.project_relative_path = 'main'
         mock_main_project.source_path = {
-            'source_folder_path': {'main/java.java', 'share1/java.java'},
+            'source_folder_path': {
+                'main/java.java',
+                'sub/java.java',
+                'share1/java.java'
+            },
             'test_folder_path': {'main/test.java', 'share1/test.java'},
             'jar_path': {'main/jar.jar', 'share1/jar.jar'},
             'r_java_path': {'out/R.java'},
@@ -350,11 +347,9 @@ class AidegenProjectFileGenUnittest(unittest.TestCase):
     @mock.patch('aidegen.lib.project_info.ProjectInfo')
     def test_handle_srcjar_folder(self, mock_project, mock_get_root):
         """Test _handle_srcjar_folder."""
-        template = common_util.read_file_content(
-            project_file_gen._TEMPLATE_IML_PATH)
         mock_get_root.return_value = self._AOSP_FOLDER
         source = ProjectFileGenerator(mock_project)._handle_srcjar_folder(
-            template, {'out/aapt2.srcjar!/'})
+            constant.FILE_IML, {'out/aapt2.srcjar!/'})
         sample_source = common_util.read_file_content(self._SRCJAR_SAMPLE)
         self.assertEqual(source, sample_source)
 

@@ -61,8 +61,6 @@ _ENABLE_DEBUGGER_MODULE_TOKEN = '@ENABLE_DEBUGGER_MODULE@'
 _VCS_TOKEN = '@VCS@'
 _JAVA_FILE_PATTERN = '%s/*.java'
 _IDEA_DIR = os.path.join(common_util.get_aidegen_root_dir(), 'templates/idea')
-_TEMPLATE_IML_PATH = os.path.join(common_util.get_aidegen_root_dir(),
-                                  'templates/module-template.iml')
 _IDEA_FOLDER = '.idea'
 _MODULES_XML = 'modules.xml'
 _VCS_XML = 'vcs.xml'
@@ -439,9 +437,6 @@ class ProjectFileGenerator():
         """
         module_path = self.project_info.project_absolute_path
         jar_dependencies = list(self.project_info.source_path['jar_path'])
-
-        template = common_util.read_file_content(_TEMPLATE_IML_PATH)
-
         # Separate module and dependencies source folder
         project_source_dict = {}
         for source in list(source_dict):
@@ -451,7 +446,7 @@ class ProjectFileGenerator():
                 project_source_dict.update({source: is_test})
 
         # Generate module iml.
-        module_content = self._handle_facet(template)
+        module_content = self._handle_facet(constant.FILE_IML)
         module_content = self._handle_source_folder(module_content,
                                                     project_source_dict, True)
         module_content = self._handle_srcjar_folder(module_content)
@@ -468,7 +463,7 @@ class ProjectFileGenerator():
         # Only generate the dependencies.iml in the main module's folder.
         dependencies_iml_path = None
         if is_main_module:
-            dependencies_content = template.replace(_FACET_TOKEN, '')
+            dependencies_content = constant.FILE_IML.replace(_FACET_TOKEN, '')
             dependencies_content = self._handle_source_folder(
                 dependencies_content, source_dict, False)
             dependencies_content = self._handle_srcjar_folder(
@@ -661,7 +656,7 @@ def _generate_git_ignore(target_folder):
         logging.error('Not support to run aidegen on Windows.\n %s', err)
 
 
-def _filter_out_source_paths(source_paths, module_relpath):
+def _filter_out_source_paths(source_paths, module_relpaths):
     """Filter out the source paths which belong to the target module.
 
     The source_paths is a union set of all source paths of all target modules.
@@ -670,33 +665,43 @@ def _filter_out_source_paths(source_paths, module_relpath):
 
     Args:
         source_paths: A set contains the source folder paths.
-        module_relpath: A string, the relative path of module.
+        module_relpaths: A list, contains the relative paths of target modules
+                         except the main module.
 
     Returns: A set of source paths.
     """
-    return {x for x in source_paths if not _is_source_under_relative_path(
-        x, module_relpath)}
+    return {x for x in source_paths if not any(
+        {_is_source_under_relative_path(x, y) for y in module_relpaths})}
 
 
 def _merge_all_shared_source_paths(projects):
     """Merge all source paths and jar paths into main project.
 
+    There should be no duplicate source root path in IntelliJ. The issue doesn't
+    happen in single project case. Once users choose multiple projects, there
+    could be several same source paths of different projects. In order to
+    prevent that, we should remove the source paths in dependencies.iml which
+    are duplicate with the paths in [module].iml files.
+
     Args:
         projects: A list of ProjectInfo instances.
     """
     main_project = projects[0]
+    # Merge all source paths of sub projects into main project.
     for project in projects[1:]:
         main_project.source_path['source_folder_path'].update(
-            _filter_out_source_paths(project.source_path['source_folder_path'],
-                                     project.project_relative_path))
+            project.source_path['source_folder_path'])
         main_project.source_path['test_folder_path'].update(
-            _filter_out_source_paths(project.source_path['test_folder_path'],
-                                     project.project_relative_path))
-        main_project.source_path['r_java_path'].update(
-            _filter_out_source_paths(project.source_path['r_java_path'],
-                                     project.project_relative_path))
+            project.source_path['test_folder_path'])
         main_project.source_path['jar_path'].update(
             project.source_path['jar_path'])
+    # Filter duplicate source/test paths from dependencies.iml.
+    sub_projects_relpaths = {p.project_relative_path for p in projects[1:]}
+    main_project.source_path['source_folder_path'] = _filter_out_source_paths(
+        main_project.source_path['source_folder_path'], sub_projects_relpaths)
+    main_project.source_path['test_folder_path'] = _filter_out_source_paths(
+        main_project.source_path['test_folder_path'], sub_projects_relpaths)
+
 
 def update_enable_debugger(module_path, enable_debugger_module_abspath=None):
     """Append the enable_debugger module's info in modules.xml file.
