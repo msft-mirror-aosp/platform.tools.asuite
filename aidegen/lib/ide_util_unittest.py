@@ -18,14 +18,17 @@
 """Unittests for ide_util."""
 
 import os
+import shutil
+import tempfile
 import unittest
+
 from unittest import mock
 from unittest.mock import patch
-
 from subprocess import CalledProcessError as cmd_err
 
 from aidegen.lib.android_dev_os import AndroidDevOS
 from aidegen.lib import ide_util
+from aidegen.lib import sdk_config
 from aidegen.lib.ide_util import IdeBase
 from aidegen.lib.ide_util import IdeIntelliJ
 from aidegen.lib.ide_util import IdeLinuxEclipse
@@ -48,6 +51,7 @@ class IdeUtilUnittests(unittest.TestCase):
     _TEST_PRJ_PATH2 = ''
     _TEST_PRJ_PATH3 = ''
     _TEST_PRJ_PATH4 = ''
+    _MODULE_XML_SAMPLE = ''
 
 
     def setUp(self):
@@ -59,6 +63,8 @@ class IdeUtilUnittests(unittest.TestCase):
         IdeUtilUnittests._TEST_PRJ_PATH3 = uc.TEST_DATA_PATH
         IdeUtilUnittests._TEST_PRJ_PATH4 = os.path.join(uc.TEST_DATA_PATH,
                                                         '.idea')
+        IdeUtilUnittests._MODULE_XML_SAMPLE = os.path.join(uc.TEST_DATA_PATH,
+                                                           'modules.xml')
 
 
     def tearDown(self):
@@ -108,7 +114,8 @@ class IdeUtilUnittests(unittest.TestCase):
         sh_path = IdeLinuxIntelliJ()._get_script_from_system()
         if sh_path:
             ide_util_obj = IdeUtil()
-            ide_util_obj.launch_ide(IdeUtilUnittests._TEST_PRJ_PATH1)
+            ide_util_obj.config_ide(IdeUtilUnittests._TEST_PRJ_PATH1)
+            ide_util_obj.launch_ide()
         else:
             self.assertRaises(cmd_err)
 
@@ -145,14 +152,27 @@ class IdeUtilUnittests(unittest.TestCase):
         IdeMacIntelliJ('some_path')
         self.assertTrue(mock_input.called)
 
+    @mock.patch.object(sdk_config.SDKConfig, '_android_sdk_exists')
+    @mock.patch.object(sdk_config.SDKConfig, '_target_jdk_exists')
     @mock.patch.object(IdeIntelliJ, '_get_config_root_paths')
     @mock.patch.object(IdeBase, 'apply_optional_config')
-    def test_config_ide(self, mock_config, mock_paths):
+    def test_config_ide(self, mock_config, mock_paths, mock_jdk, mock_sdk):
         """Test IDEA, IdeUtil.config_ide won't call base none implement api."""
-        util_obj = IdeUtil()
-        util_obj.config_ide()
-        self.assertFalse(mock_config.called)
-        self.assertFalse(mock_paths.called)
+        # Mock SDkConfig flow to not to generate real jdk config file.
+        mock_jdk.return_value = True
+        mock_sdk.return_value = True
+        test_path = os.path.join(tempfile.mkdtemp())
+        module_path = os.path.join(test_path, 'test')
+        idea_path = os.path.join(module_path, '.idea')
+        os.makedirs(idea_path)
+        shutil.copy(IdeUtilUnittests._MODULE_XML_SAMPLE, idea_path)
+        try:
+            util_obj = IdeUtil()
+            util_obj.config_ide(module_path)
+            self.assertFalse(mock_config.called)
+            self.assertFalse(mock_paths.called)
+        finally:
+            shutil.rmtree(test_path)
 
     @patch.object(ide_util, '_get_script_from_input_path')
     @patch.object(ide_util, '_get_script_from_internal_path')

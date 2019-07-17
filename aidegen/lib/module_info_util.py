@@ -22,7 +22,7 @@ files. Then it will load these two json files into two json dictionaries,
 merge them into one dictionary and return the merged dictionary to its caller.
 
 Example usage:
-merged_dict = generate_module_info_json(atest_module_info, project, verbose)
+merged_dict = generate_merged_module_info(atest_module_info, project, verbose)
 """
 
 import glob
@@ -33,59 +33,62 @@ import subprocess
 import sys
 
 from aidegen import constant
-from aidegen.lib.common_util import COLORED_INFO
-from aidegen.lib.common_util import time_logged
-from aidegen.lib.common_util import get_related_paths
+from aidegen.lib import common_util
 from aidegen.lib import errors
 
 _BLUEPRINT_JSONFILE_NAME = 'module_bp_java_deps.json'
-_KEY_CLS = 'class'
-_KEY_PATH = 'path'
-_KEY_INS = 'installed'
-_KEY_DEP = 'dependencies'
-_KEY_SRCS = 'srcs'
-_MERGE_NEEDED_ITEMS = [_KEY_CLS, _KEY_PATH, _KEY_INS, _KEY_DEP, _KEY_SRCS]
+_MERGE_NEEDED_ITEMS = [
+    constant.KEY_CLASS,
+    constant.KEY_PATH,
+    constant.KEY_INSTALLED,
+    constant.KEY_DEPENDENCIES,
+    constant.KEY_SRCS,
+    constant.KEY_SRCJARS,
+    constant.KEY_CLASSES_JAR
+]
 _INTELLIJ_PROJECT_FILE_EXT = '*.iml'
 _LAUNCH_PROJECT_QUERY = (
     'There exists an IntelliJ project file: %s. Do you want '
     'to launch it (yes/No)?')
-_GENERATE_JSON_COMMAND = ('SOONG_COLLECT_JAVA_DEPS=false make nothing;'
-                          'SOONG_COLLECT_JAVA_DEPS=true make nothing')
+_GENERATE_JSON_COMMAND = ('SOONG_COLLECT_JAVA_DEPS=false make nothing -C {DIR};'
+                          'SOONG_COLLECT_JAVA_DEPS=true make nothing -C {DIR}')
 
 
-@time_logged
-def generate_module_info_json(module_info, projects, verbose, skip_build=False):
-    """Generate a merged json dictionary.
+@common_util.time_logged
+def generate_merged_module_info(module_info, projects=None, verbose=False,
+                                skip_build=False):
+    """Generate a merged dictionary.
 
-    Change directory to ANDROID_ROOT_PATH before making _GENERATE_JSON_COMMAND
+    Change directory to Android root path before making _GENERATE_JSON_COMMAND
     to avoid command error: "make: *** No rule to make target 'nothing'.  Stop."
     and change back to current directory after command completed.
 
     Linked functions:
         _build_target(project, verbose)
         _get_soong_build_json_dict()
-        _merge_json(mk_dict, bp_dict)
+        _merge_dict(mk_dict, bp_dict)
 
     Args:
         module_info: A ModuleInfo instance contains data of module-info.json.
         projects: A list of project names.
         verbose: A boolean, if true displays full build output.
-        skip_build: A boolean, if true skip building _BLUEPRINT_JSONFILE_NAME if
-                    it exists, otherwise build it.
+        skip_build: A boolean, if true skip building
+                    get_blueprint_json_path() if it exists, otherwise
+                    build it.
 
     Returns:
-        A tuple of Atest module info instance and a merged json dictionary.
+        A merged dictionary from module-info.json and module_bp_java_deps.json.
     """
-    cwd = os.getcwd()
-    os.chdir(constant.ANDROID_ROOT_PATH)
-    _build_target([_GENERATE_JSON_COMMAND], projects[0], module_info, verbose,
-                  skip_build)
-    os.chdir(cwd)
+    main_project = projects[0] if projects else None
+    cmd = [_GENERATE_JSON_COMMAND.format(
+        DIR=common_util.get_android_root_dir())]
+    _build_target(module_info, cmd, main_project, verbose, skip_build)
     bp_dict = _get_soong_build_json_dict()
-    return _merge_json(module_info.name_to_module_info, bp_dict)
+    return _merge_dict(module_info.name_to_module_info, bp_dict)
 
 
-def _build_target(cmd, main_project, module_info, verbose, skip_build=False):
+def _build_target(module_info, cmd, main_project=None, verbose=False,
+                  skip_build=False):
     """Make nothing to generate module_bp_java_deps.json.
 
     We build without environment setting SOONG_COLLECT_JAVA_DEPS and then build
@@ -94,12 +97,13 @@ def _build_target(cmd, main_project, module_info, verbose, skip_build=False):
     module_bp_java_deps.json.
 
     Args:
+        module_info: A ModuleInfo instance contains data of module-info.json.
         cmd: A string list, build command.
         main_project: The main project name.
-        module_info: A ModuleInfo instance contains data of module-info.json.
         verbose: A boolean, if true displays full build output.
-        skip_build: A boolean, if true skip building _BLUEPRINT_JSONFILE_NAME if
-                    it exists, otherwise build it.
+        skip_build: A boolean, if true, skip building if
+                    get_blueprint_json_path() file exists, otherwise
+                    build it.
 
     Build results:
         1. Build successfully return.
@@ -110,12 +114,12 @@ def _build_target(cmd, main_project, module_info, verbose, skip_build=False):
               a) If the answer is yes, return.
               b) If the answer is not yes, sys.exit(1)
     """
-    json_path = _get_blueprint_json_path()
+    json_path = common_util.get_blueprint_json_path()
     original_json_mtime = None
     if os.path.isfile(json_path):
         if skip_build:
             logging.info('%s file exists, skipping build.',
-                         _BLUEPRINT_JSONFILE_NAME)
+                         common_util.get_blueprint_json_path())
             return
         original_json_mtime = os.path.getmtime(json_path)
     try:
@@ -131,10 +135,13 @@ def _build_target(cmd, main_project, module_info, verbose, skip_build=False):
             if os.path.isfile(json_path):
                 message = ('Generate new {0} failed, AIDEGen will proceed and '
                            'reuse the old {0}.'.format(json_path))
-                print('\n{} {}\n'.format(COLORED_INFO('Warning:'), message))
+                print('\n{} {}\n'.format(common_util.COLORED_INFO('Warning:'),
+                                         message))
         else:
-            _, main_project_path = get_related_paths(module_info, main_project)
-            _build_failed_handle(main_project_path)
+            if main_project:
+                _, main_project_path = common_util.get_related_paths(
+                    module_info, main_project)
+                _build_failed_handle(main_project_path)
 
 
 def _is_new_json_file_generated(json_path, original_file_mtime):
@@ -143,6 +150,9 @@ def _is_new_json_file_generated(json_path, original_file_mtime):
     Args:
         json_path: The path of the json file being to check.
         original_file_mtime: the original file modified time.
+
+    Returns:
+        A boolean, True if the json_path file is new generated, otherwise False.
     """
     if not original_file_mtime:
         return os.path.isfile(json_path)
@@ -171,16 +181,16 @@ def _build_failed_handle(main_project_path):
             sys.exit(1)
     else:
         raise errors.BuildFailureError(
-            'Failed to generate %s.' % _get_blueprint_json_path())
+            'Failed to generate %s.' % common_util.get_blueprint_json_path())
 
 
 def _get_soong_build_json_dict():
     """Load a json file from path and convert it into a json dictionary.
 
     Returns:
-        A json dictionary.
+        A dictionary loaded from the blueprint json file.
     """
-    json_path = _get_blueprint_json_path()
+    json_path = common_util.get_blueprint_json_path()
     try:
         with open(json_path) as jfile:
             json_dict = json.load(jfile)
@@ -190,17 +200,10 @@ def _get_soong_build_json_dict():
             '%s does not exist, error: %s.' % (json_path, err))
 
 
-def _get_blueprint_json_path():
-    """Assemble the path of blueprint json file.
-
-    Returns:
-        Blueprint json path.
-    """
-    return os.path.join(constant.SOONG_OUT_DIR_PATH, _BLUEPRINT_JSONFILE_NAME)
-
-
 def _merge_module_keys(m_dict, b_dict):
-    """Merge a module's json dictionary into another module's json dictionary.
+    """Merge a module's dictionary into another module's dictionary.
+
+    Merge b_dict module data into m_dict.
 
     Args:
         m_dict: The module dictionary is going to merge b_dict into.
@@ -211,13 +214,13 @@ def _merge_module_keys(m_dict, b_dict):
 
 
 def _copy_needed_items_from(mk_dict):
-    """Shallow copy needed items from Make build system part json dictionary.
+    """Shallow copy needed items from Make build system module info dictionary.
 
     Args:
-        mk_dict: Make build system json dictionary is going to be copyed.
+        mk_dict: Make build system dictionary is going to be copied.
 
     Returns:
-        A merged json dictionary.
+        A merged dictionary.
     """
     merged_dict = dict()
     for module in mk_dict.keys():
@@ -228,18 +231,18 @@ def _copy_needed_items_from(mk_dict):
     return merged_dict
 
 
-def _merge_json(mk_dict, bp_dict):
-    """Merge two json dictionaries.
+def _merge_dict(mk_dict, bp_dict):
+    """Merge two dictionaries.
 
     Linked function:
         _merge_module_keys(m_dict, b_dict)
 
     Args:
-        mk_dict: Make build system part json dictionary.
-        bp_dict: Soong build system part json dictionary.
+        mk_dict: Make build system module info dictionary.
+        bp_dict: Soong build system module info dictionary.
 
     Returns:
-        A merged json dictionary.
+        A merged dictionary.
     """
     merged_dict = _copy_needed_items_from(mk_dict)
     for module in bp_dict.keys():

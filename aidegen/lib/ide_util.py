@@ -23,8 +23,8 @@ existence, IDE type, etc.), launch the project in related IDE.
 
     ide_util_obj = IdeUtil()
     if ide_util_obj.is_ide_installed():
-        ide_util_obj.config_ide()
-        ide_util_obj.launch_ide(project_file)
+        ide_util_obj.config_ide(project_file)
+        ide_util_obj.launch_ide()
 """
 
 import fnmatch
@@ -35,7 +35,9 @@ import platform
 import subprocess
 
 from aidegen import constant
-from aidegen.lib.config import AidegenConfig
+from aidegen.lib import common_util
+from aidegen.lib import config
+from aidegen.lib import sdk_config
 
 # Add 'nohup' to prevent IDE from being terminated when console is terminated.
 _NOHUP = 'nohup'
@@ -43,7 +45,6 @@ _IGNORE_STD_OUT_ERR_CMD = '2>/dev/null >&2'
 _IDEA_FOLDER = '.idea'
 _IML_EXTENSION = '.iml'
 _JDK_PATH_TOKEN = '@JDKpath'
-_TARGET_JDK_NAME_TAG = '<name value="JDK18" />'
 _COMPONENT_END_TAG = '  </component>'
 
 
@@ -55,8 +56,8 @@ class IdeUtil():
 
     For example:
         1. Check if IDE is installed.
-        2. Launch an IDE.
-        3. Config IDE, e.g. config code style, SDK path, and etc.
+        2. Config IDE, e.g. config code style, SDK path, and etc.
+        3. Launch an IDE.
     """
 
     def __init__(self,
@@ -76,16 +77,17 @@ class IdeUtil():
         """
         return self._ide.is_ide_installed()
 
-    def launch_ide(self, project_file):
-        """Launches the relative IDE by opening the passed project file.
+    def launch_ide(self):
+        """Launches the relative IDE by opening the passed project file."""
+        return self._ide.launch_ide()
+
+    def config_ide(self, project_abspath):
+        """To config the IDE, e.g., setup code style, init SDK, and etc.
 
         Args:
-            project_file: The full path of the IDE project file.
+            project_abspath: An absolute path of the project.
         """
-        return self._ide.launch_ide(project_file)
-
-    def config_ide(self):
-        """To config the IDE, e.g., setup code style, init SDK, and etc."""
+        self._ide.project_abspath = project_abspath
         if self.is_ide_installed() and self._ide:
             self._ide.apply_optional_config()
 
@@ -108,6 +110,7 @@ class IdeBase():
         _bin_paths: A list of all possible IDE executable file absolute paths.
         _ide_name: String for IDE name.
         _bin_folders: A list of all possible IDE installed paths.
+        project_abspath: The absolute path of the project.
 
     For example:
         1. Check if IDE is installed.
@@ -122,6 +125,7 @@ class IdeBase():
         self._bin_file_name = ''
         self._bin_paths = []
         self._bin_folders = []
+        self.project_abspath = ''
 
     def is_ide_installed(self):
         """Checks if IDE is already installed.
@@ -131,14 +135,9 @@ class IdeBase():
         """
         return bool(self._installed_path)
 
-    def launch_ide(self, project_file):
-        """Launches IDE by opening the passed project file.
-
-        Args:
-            project_file: The full path of the IDE's project file.
-        """
-        _launch_ide(project_file, self._get_ide_cmd(project_file),
-                    self._ide_name)
+    def launch_ide(self):
+        """Launches IDE by opening the passed project file."""
+        _launch_ide(self.project_abspath, self._get_ide_cmd(), self._ide_name)
 
     def apply_optional_config(self):
         """Handles IDE relevant configs."""
@@ -154,16 +153,13 @@ class IdeBase():
         """Gets IDE name."""
         return self._ide_name
 
-    def _get_ide_cmd(self, project_file):
+    def _get_ide_cmd(self):
         """Compose launch IDE command to run a new process and redirect output.
-
-        Args:
-            project_file: The full path of the IDE's project file.
 
         Returns:
             A string of launch IDE command.
         """
-        return _get_run_ide_cmd(self._installed_path, project_file)
+        return _get_run_ide_cmd(self._installed_path, self.project_abspath)
 
     def _init_installed_path(self, installed_path):
         """Initialize IDE installed path.
@@ -197,7 +193,6 @@ class IdeIntelliJ(IdeBase):
         _JDK_PATH: The path of JDK in android project.
         _IDE_JDK_TABLE_PATH: The path of JDK table which record JDK info in IDE.
         _JDK_PART_TEMPLATE_PATH: The path of the template of partial JDK table.
-        _JDK_FULL_TEMPLATE_PATH: The path of the template of full JDK table.
 
     For example:
         1. Check if IntelliJ is installed.
@@ -208,7 +203,7 @@ class IdeIntelliJ(IdeBase):
     _JDK_PATH = ''
     _IDE_JDK_TABLE_PATH = ''
     _JDK_PART_TEMPLATE_PATH = ''
-    _JDK_FULL_TEMPLATE_PATH = ''
+    _DEFAULT_ANDROID_SDK_PATH = ''
 
     def __init__(self, installed_path=None, config_reset=False):
         super().__init__(installed_path, config_reset)
@@ -230,7 +225,12 @@ class IdeIntelliJ(IdeBase):
             return
 
         for _config_path in _path_list:
-            self._set_jdk_config(_config_path)
+            jdk_file = os.path.join(_config_path, self._IDE_JDK_TABLE_PATH)
+            jdk_table = sdk_config.SDKConfig(
+                jdk_file, self._JDK_PART_TEMPLATE_PATH, self._JDK_PATH,
+                self._DEFAULT_ANDROID_SDK_PATH)
+            jdk_table.config_jdk_file()
+            jdk_table.gen_enable_debugger_module(self.project_abspath)
 
     def _get_config_root_paths(self):
         """Get the config root paths from derived class.
@@ -249,36 +249,6 @@ class IdeIntelliJ(IdeBase):
         """
         raise NotImplementedError('Method overriding is needed.')
 
-    def _set_jdk_config(self, path):
-        """Add jdk path to jdk.table.xml
-
-        Args:
-            path: The path of IntelliJ config path.
-        """
-        jdk_table_path = os.path.join(path, self._IDE_JDK_TABLE_PATH)
-        try:
-            if os.path.isfile(jdk_table_path):
-                with open(jdk_table_path, 'r+') as jdk_table_fd:
-                    jdk_table = jdk_table_fd.read()
-                    jdk_table_fd.seek(0)
-                    if _TARGET_JDK_NAME_TAG not in jdk_table:
-                        with open(self._JDK_PART_TEMPLATE_PATH) as template_fd:
-                            template = template_fd.read()
-                            template = template.replace(_JDK_PATH_TOKEN,
-                                                        self._JDK_PATH)
-                            jdk_table = jdk_table.replace(
-                                _COMPONENT_END_TAG, template)
-                            jdk_table_fd.truncate()
-                            jdk_table_fd.write(jdk_table)
-            else:
-                with open(self._JDK_FULL_TEMPLATE_PATH) as template_fd:
-                    template = template_fd.read()
-                    template = template.replace(_JDK_PATH_TOKEN, self._JDK_PATH)
-                    with open(jdk_table_path, 'w') as jdk_table_fd:
-                        jdk_table_fd.write(template)
-        except IOError as err:
-            logging.warning(err)
-
     def _get_preferred_version(self):
         """Get users' preferred IntelliJ version.
 
@@ -295,7 +265,7 @@ class IdeIntelliJ(IdeBase):
         uefiles = _get_intellij_version_path(self._ls_ue_path)
         all_versions = self._get_all_versions(cefiles, uefiles)
         if len(all_versions) > 1:
-            with AidegenConfig() as aconf:
+            with config.AidegenConfig() as aconf:
                 if not self._config_reset and (
                         aconf.preferred_version in all_versions):
                     return aconf.preferred_version
@@ -344,9 +314,9 @@ class IdeIntelliJ(IdeBase):
             None if the file is not found, otherwise a full path string of
             Intellij Android code style file.
         """
-        _config_source = os.path.join(constant.ANDROID_ROOT_PATH, 'development',
-                                      'ide', 'intellij', 'codestyles',
-                                      'AndroidStyle.xml')
+        _config_source = os.path.join(common_util.get_android_root_dir(),
+                                      'development', 'ide', 'intellij',
+                                      'codestyles', 'AndroidStyle.xml')
 
         return _config_source if os.path.isfile(_config_source) else None
 
@@ -360,14 +330,14 @@ class IdeLinuxIntelliJ(IdeIntelliJ):
         3. Config IntelliJ.
     """
 
-    _JDK_PATH = os.path.join(constant.ANDROID_ROOT_PATH,
+    _JDK_PATH = os.path.join(common_util.get_android_root_dir(),
                              'prebuilts/jdk/jdk8/linux-x86')
     # TODO(b/127899277): Preserve a config for jdk version option case.
     _IDE_JDK_TABLE_PATH = 'config/options/jdk.table.xml'
     _JDK_PART_TEMPLATE_PATH = os.path.join(
-        constant.AIDEGEN_ROOT_PATH, 'templates/jdkTable/part.jdk.table.xml')
-    _JDK_FULL_TEMPLATE_PATH = os.path.join(constant.AIDEGEN_ROOT_PATH,
-                                           'templates/jdkTable/jdk.table.xml')
+        common_util.get_aidegen_root_dir(),
+        'templates/jdkTable/part.jdk.table.xml')
+    _DEFAULT_ANDROID_SDK_PATH = os.path.join(os.getenv('HOME'), 'Android/Sdk')
 
     def __init__(self, installed_path=None, config_reset=False):
         super().__init__(installed_path, config_reset)
@@ -433,13 +403,14 @@ class IdeMacIntelliJ(IdeIntelliJ):
         3. Config IntelliJ.
     """
 
-    _JDK_PATH = os.path.join(constant.ANDROID_ROOT_PATH,
+    _JDK_PATH = os.path.join(common_util.get_android_root_dir(),
                              'prebuilts/jdk/jdk8/darwin-x86')
     _IDE_JDK_TABLE_PATH = 'options/jdk.table.xml'
     _JDK_PART_TEMPLATE_PATH = os.path.join(
-        constant.AIDEGEN_ROOT_PATH, 'templates/jdkTable/part.mac.jdk.table.xml')
-    _JDK_FULL_TEMPLATE_PATH = os.path.join(
-        constant.AIDEGEN_ROOT_PATH, 'templates/jdkTable/mac.jdk.table.xml')
+        common_util.get_aidegen_root_dir(),
+        'templates/jdkTable/part.mac.jdk.table.xml')
+    _DEFAULT_ANDROID_SDK_PATH = os.path.join(
+        os.getenv('HOME'), 'Library/Android/sdk')
 
     def __init__(self, installed_path=None, config_reset=False):
         super().__init__(installed_path, config_reset)
@@ -600,20 +571,16 @@ class IdeMacEclipse(IdeEclipse):
         self._bin_paths = self._get_possible_bin_paths()
         self._init_installed_path(installed_path)
 
-    def _get_ide_cmd(self, project_file):
+    def _get_ide_cmd(self):
         """Compose launch IDE command to run a new process and redirect output.
-
-        Args:
-            project_file: The full path of the IDE's project file.
 
         Returns:
             A string of launch IDE command.
         """
         return ' '.join([
-            _NOHUP,
-            'open',
+            _NOHUP, 'open',
             self._installed_path.replace(' ', r'\ '),
-            os.path.dirname(project_file), _IGNORE_STD_OUT_ERR_CMD, '&'
+            os.path.dirname(self.project_abspath), _IGNORE_STD_OUT_ERR_CMD, '&'
         ])
 
 
@@ -688,10 +655,7 @@ def _get_run_ide_cmd(sh_path, project_file):
     # In command usage, the space ' ' should be '\ ' for correctness.
     return ' '.join([
         _NOHUP,
-        sh_path.replace(' ', r'\ '),
-        project_file,
-        _IGNORE_STD_OUT_ERR_CMD,
-        '&'
+        sh_path.replace(' ', r'\ '), project_file, _IGNORE_STD_OUT_ERR_CMD, '&'
     ])
 
 

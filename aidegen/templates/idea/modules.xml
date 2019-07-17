@@ -3,6 +3,7 @@
     <component name="ProjectModuleManager">
         <modules>
 @MODULES@
+@ENABLE_DEBUGGER_MODULE@
         </modules>
     </component>
 </project>

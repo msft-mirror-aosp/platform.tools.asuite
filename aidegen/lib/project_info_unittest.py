@@ -20,7 +20,7 @@ import os
 import unittest
 from unittest import mock
 
-from aidegen import constant
+from aidegen.lib import common_util
 from aidegen.lib import project_info
 from aidegen.lib.project_info import ProjectInfo
 
@@ -60,13 +60,12 @@ class ProjectInfoUnittests(unittest.TestCase):
     @mock.patch('atest.module_info.ModuleInfo')
     def test_get_dep_modules(self, mock_module_info):
         """Test get_dep_modules recursively find dependent modules."""
+        mock_module_info.name_to_module_info = _MODULE_INFO
         mock_module_info.is_module.return_value = True
         mock_module_info.get_paths.return_value = ['m1']
         mock_module_info.get_module_names.return_value = ['m1']
-        proj_info = project_info.ProjectInfo(mock_module_info,
-                                             self.args.module_name)
-        proj_info.modules_info = _MODULE_INFO
-        proj_info.dep_modules = proj_info.get_dep_modules()
+        project_info.ProjectInfo.modules_info = mock_module_info
+        proj_info = project_info.ProjectInfo(self.args.module_name)
         self.assertEqual(proj_info.dep_modules, _EXPECT_DEPENDENT_MODULES)
 
     def test_is_a_target_module(self):
@@ -87,29 +86,10 @@ class ProjectInfoUnittests(unittest.TestCase):
                 'class': ['ROBOLECTRIC']
             }), True)
 
-    def test_is_a_robolectric_module(self):
-        """Test _is_a_robolectric_module with different conditions."""
-        self.assertEqual(ProjectInfo._is_a_robolectric_module({}), False)
-        self.assertEqual(
-            ProjectInfo._is_a_robolectric_module({
-                'path': [uc.TEST_PATH]
-            }), False)
-        self.assertEqual(
-            ProjectInfo._is_a_robolectric_module({
-                'path': ['path/robotests']
-            }), True)
-        self.assertEqual(
-            ProjectInfo._is_a_robolectric_module({
-                'path': ['path/robolectric']
-            }), True)
-        self.assertEqual(
-            ProjectInfo._is_a_robolectric_module({
-                'path': ['robotests/robolectric']
-            }), True)
-
-    def test_get_target_name(self):
+    @mock.patch.object(common_util, 'get_android_root_dir')
+    def test_get_target_name(self, mock_get_root):
         """Test _get_target_name with different conditions."""
-        constant.ANDROID_ROOT_PATH = uc.TEST_DATA_PATH
+        mock_get_root.return_value = uc.TEST_DATA_PATH
         self.assertEqual(
             ProjectInfo._get_target_name(uc.TEST_MODULE, uc.TEST_DATA_PATH),
             os.path.basename(uc.TEST_DATA_PATH))

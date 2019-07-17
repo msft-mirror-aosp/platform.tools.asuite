@@ -11,8 +11,9 @@
             <sourceFolder url="file:///aosp/test_data/project/level12/level22" isTestSource="False" />
         </content>
 
+
         <orderEntry type="sourceFolder" forTests="false" />
-        <orderEntry type="module" module-name="dependencies-android_project" />
+        <orderEntry type="module" module-name="dependencies" />
         <orderEntry type="inheritedJdk" />
     </component>
 </module>

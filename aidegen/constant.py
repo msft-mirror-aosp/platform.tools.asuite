@@ -15,39 +15,49 @@
 # limitations under the License.
 """The common definitions of AIDEgen"""
 
-import os
-
-from atest import constants
-
 # Env constant
 OUT_DIR_COMMON_BASE_ENV_VAR = 'OUT_DIR_COMMON_BASE'
 ANDROID_DEFAULT_OUT = 'out'
-ANDROID_HOST_OUT = os.environ.get(constants.ANDROID_HOST_OUT)
-ANDROID_ROOT_PATH = os.environ.get(constants.ANDROID_BUILD_TOP)
-AIDEGEN_ROOT_PATH = os.path.join(ANDROID_ROOT_PATH, 'tools/asuite/aidegen')
-ANDROID_OUT_DIR = os.environ.get(constants.ANDROID_OUT_DIR)
-OUT_DIR_COMMON_BASE = os.getenv(OUT_DIR_COMMON_BASE_ENV_VAR)
-
-# Constants for out dir
-ANDROID_OUT_DIR_COMMON_BASE = (os.path.join(
-    OUT_DIR_COMMON_BASE, os.path.basename(ANDROID_ROOT_PATH))
-                               if OUT_DIR_COMMON_BASE else None)
-OUT_DIR = ANDROID_OUT_DIR or ANDROID_OUT_DIR_COMMON_BASE or ANDROID_DEFAULT_OUT
-SOONG_OUT_DIR_PATH = os.path.join(ANDROID_ROOT_PATH, OUT_DIR, 'soong')
-RELATIVE_HOST_OUT = os.path.relpath(ANDROID_HOST_OUT, ANDROID_ROOT_PATH)
+AIDEGEN_ROOT_PATH = 'tools/asuite/aidegen'
 
 # Constants for module's info.
 KEY_PATH = 'path'
-KEY_DEP = 'dependencies'
+KEY_DEPENDENCIES = 'dependencies'
 KEY_DEPTH = 'depth'
+KEY_CLASS = 'class'
+KEY_INSTALLED = 'installed'
+KEY_SRCS = 'srcs'
+KEY_SRCJARS = 'srcjars'
+KEY_CLASSES_JAR = 'classes_jar'
 
 # Constants for IDE util.
 IDE_ECLIPSE = 'Eclipse'
 IDE_INTELLIJ = 'IntelliJ'
 IDE_ANDROID_STUDIO = 'Android Studio'
+IDE_NAME_DICT = {'j': IDE_INTELLIJ, 's': IDE_ANDROID_STUDIO, 'e': IDE_ECLIPSE}
 
 # Constants for asuite metrics
 EXIT_CODE_EXCEPTION = -1
 EXIT_CODE_NORMAL = 0
 EXIT_CODE_AIDEGEN_EXCEPTION = 1
 AIDEGEN_TOOL_NAME = 'aidegen'
+ANDROID_TREE = 'is_android_tree'
+
+# Constants for file names
+MERGED_MODULE_INFO = 'merged_module_info.json'
+BLUEPRINT_JSONFILE_NAME = 'module_bp_java_deps.json'
+
+# Content of iml file.
+FILE_IML = '''<?xml version="1.0" encoding="UTF-8"?>
+<module type="JAVA_MODULE" version="4">
+@FACETS@
+    <component name="NewModuleRootManager" inherit-compiler-output="true">
+        <exclude-output />
+@SOURCES@
+@SRCJAR@
+        <orderEntry type="sourceFolder" forTests="false" />
+@MODULE_DEPENDENCIES@
+        <orderEntry type="inheritedJdk" />
+    </component>
+</module>
+'''

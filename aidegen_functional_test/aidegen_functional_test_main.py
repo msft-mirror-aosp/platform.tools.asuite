@@ -29,14 +29,15 @@ import xml.parsers.expat
 import aidegen.lib.errors
 
 from aidegen import aidegen_main
+from aidegen.lib import common_util
+from aidegen.lib.common_util import COLORED_PASS
+from aidegen.lib.common_util import COLORED_FAIL
+from aidegen.lib.common_util import get_blueprint_json_path
 from aidegen.lib.common_util import get_related_paths
 from aidegen.lib.common_util import time_logged
-from atest import constants
 from atest import module_info
-from atest import atest_utils
 
-_ANDROID_ROOT_PATH = os.environ.get(constants.ANDROID_BUILD_TOP)
-_ROOT_DIR = os.path.join(_ANDROID_ROOT_PATH,
+_ROOT_DIR = os.path.join(common_util.get_android_root_dir(),
                          'tools/asuite/aidegen_functional_test')
 _TEST_DATA_PATH = os.path.join(_ROOT_DIR, 'test_data')
 _ANDROID_SINGLE_PROJECT_JSON = os.path.join(_TEST_DATA_PATH,
@@ -96,6 +97,9 @@ def _import_project_file_xml_etree(filename):
 
     Args:
         filename: The input project file name.
+
+    Returns:
+        A dictionary contains json data.
     """
     data = {}
     try:
@@ -103,11 +107,13 @@ def _import_project_file_xml_etree(filename):
         data[_SRCS] = []
         root = tree.getroot()
         for element in root.iter('sourceFolder'):
-            src = element.get(_URL).replace(_ANDROID_ROOT_PATH, _PRODUCT_DIR)
+            src = element.get(_URL).replace(common_util.get_android_root_dir(),
+                                            _PRODUCT_DIR)
             data[_SRCS].append(src)
         data[_JARS] = []
         for element in root.iter('root'):
-            jar = element.get(_URL).replace(_ANDROID_ROOT_PATH, _PRODUCT_DIR)
+            jar = element.get(_URL).replace(common_util.get_android_root_dir(),
+                                            _PRODUCT_DIR)
             data[_JARS].append(jar)
     except (EnvironmentError, ValueError, LookupError,
             xml.parsers.expat.ExpatError) as err:
@@ -117,7 +123,11 @@ def _import_project_file_xml_etree(filename):
 
 
 def _generate_sample_json():
-    """Generate sample iml data and write into a json file."""
+    """Generate sample iml data from a iml file into a dictionary.
+
+    Returns:
+        A dictionary contains sample iml data.
+    """
     atest_module_info = module_info.ModuleInfo()
     data = {}
     for target, filelist in _TEST_IML_DICT.items():
@@ -153,15 +163,14 @@ def test_some_sample_iml():
             if set(s_items) != set(r_items):
                 diff_iter = _compare_content(name, item, s_items, r_items)
                 if diff_iter:
-                    print('\n%s\n%s' % (atest_utils.colorize(
-                        'Test error...', constants.RED), _TEST_ERROR %
-                                        (name, item)))
+                    print('\n%s\n%s' % (COLORED_FAIL('Test error...'),
+                                        _TEST_ERROR % (name, item)))
                     print('%s %s contents are different:' % (name, item))
                     for diff in diff_iter:
                         print(diff)
                     test_successful = False
     if test_successful:
-        print(atest_utils.colorize(_ALL_PASS, constants.GREEN))
+        print(COLORED_PASS(_ALL_PASS))
 
 
 def _compare_content(module_name, item_type, s_items, r_items):
@@ -209,6 +218,10 @@ def _compare_srcs_content(module_name, s_items, r_items, msg):
 def _compare_jars_content(module_name, s_items, r_items, msg):
     """Compare src or jar files' data of two dictionaries.
 
+    AIDEGen treats the jars in folder names 'linux_glib_common' and
+    'android_common' as the same content. If the paths are different only
+    because of these two names, we ignore it.
+
     Args:
         module_name: the test module name.
         s_items: sample jars' items.
@@ -234,9 +247,12 @@ def _compare_jars_content(module_name, s_items, r_items, msg):
 @time_logged
 def _verify_aidegen():
     """Verify various use cases of executing aidegen."""
+    bp_json_path = get_blueprint_json_path()
     with open(_VERIFY_COMMANDS_JSON, 'r') as jsfile:
         data = json.load(jsfile)
     for use_case in data:
+        if os.path.exists(bp_json_path):
+            os.remove(bp_json_path)
         for cmd in data[use_case]:
             try:
                 eval(cmd)
@@ -245,16 +261,15 @@ def _verify_aidegen():
                     aidegen.lib.errors.NoModuleDefinedInModuleInfoError,
                     aidegen.lib.errors.IDENotExistError) as err:
                 print('{} command has raise error: {}.'.format(use_case, err))
-            except Exception as exp:
+            except BaseException:
+                exc_type, _, _ = sys.exc_info()
                 print('{}.{} command {}.'.format(
-                    use_case, cmd,
-                    atest_utils.colorize('executes failed', constants.RED)))
-                raise Exception(
-                    'Unexpected command {} exception {}.'.format(use_case, exp))
-        print('{} command {}!'.format(
-            use_case, atest_utils.colorize('test passed', constants.GREEN)))
-    print(atest_utils.colorize(_ALL_PASS, constants.GREEN))
-
+                    use_case, cmd, COLORED_FAIL('executes failed')))
+                raise BaseException(
+                    'Unexpected command {} exception {}.'.format(
+                        use_case, exc_type))
+        print('{} command {}!'.format(use_case, COLORED_PASS('test passed')))
+    print(COLORED_PASS(_ALL_PASS))
 
 def main(argv):
     """Main entry.
