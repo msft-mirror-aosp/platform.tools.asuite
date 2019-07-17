@@ -24,7 +24,7 @@ from unittest import mock
 
 import aidegen.unittest_constants as uc
 from aidegen import aidegen_main
-from aidegen.lib import metrics
+from aidegen.lib import aidegen_metrics
 from aidegen import constant
 from aidegen.lib import common_util
 from aidegen.lib.common_util import COLORED_INFO
@@ -124,8 +124,8 @@ class AidegenMainUnittests(unittest.TestCase):
         self.assertTrue(mock_ide.called_with(projects))
 
     @mock.patch.object(common_util, 'get_atest_module_info')
-    @mock.patch.object(metrics, 'log_usage')
-    def test_show_collect_data_notice(self, mock_log, mock_get):
+    @mock.patch.object(aidegen_metrics, 'starts_asuite_metrics')
+    def test_show_collect_data_notice(self, mock_metrics, mock_get):
         """Test main process always run through the target test function."""
         target = 'nothing'
         args = aidegen_main._parse_args([target, '-s', '-n'])
@@ -133,7 +133,7 @@ class AidegenMainUnittests(unittest.TestCase):
             err = common_util.PATH_NOT_EXISTS_ERROR.format(target)
             mock_get.side_effect = ProjectPathNotExistError(err)
             aidegen_main.main_without_message(args)
-            self.assertTrue(mock_log.called)
+            self.assertTrue(mock_metrics.called)
 
     @mock.patch.object(common_util, 'get_related_paths')
     def test_compile_targets_for_whole_android_tree(self, mock_get):
