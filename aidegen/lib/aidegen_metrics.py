@@ -28,7 +28,7 @@ try:
     from asuite.metrics import metrics_base
     from asuite.metrics import metrics_utils
 except ImportError:
-    logging.debug('Import metrics fail, can\'t send metrics')
+    logging.debug('Import metrics fail, can\'t send metrics.')
     metrics = None
     metrics_base = None
     metrics_utils = None
