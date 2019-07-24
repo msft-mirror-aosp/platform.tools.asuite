@@ -23,8 +23,6 @@ import os
 
 from aidegen import constant
 from aidegen.lib import common_util
-from aidegen.lib.common_util import COLORED_INFO
-from aidegen.lib.common_util import get_related_paths
 
 _ANDROID_MK = 'Android.mk'
 _ANDROID_BP = 'Android.bp'
@@ -92,7 +90,8 @@ class ProjectInfo:
                     locating the target, project with matching module name of
                     the given target has a higher priority than project path.
         """
-        rel_path, abs_path = get_related_paths(self.modules_info, target)
+        rel_path, abs_path = common_util.get_related_paths(self.modules_info,
+                                                           target)
         self.module_name = self._get_target_name(target, abs_path)
         self.project_module_names = set(
             self.modules_info.get_module_names(rel_path))
@@ -136,7 +135,7 @@ class ProjectInfo:
         mk_set = set(self._search_android_make_files())
         if mk_set:
             print('\n{} {}\n'.format(
-                COLORED_INFO('Warning:'),
+                common_util.COLORED_INFO('Warning:'),
                 _ANDROID_MK_WARN.format(self.module_name, '\n'.join(mk_set))))
 
     def _search_android_make_files(self):
@@ -153,7 +152,8 @@ class ProjectInfo:
         if os.path.isfile(android_mk) and not os.path.isfile(android_bp):
             yield '\t' + os.path.join(self.project_relative_path, _ANDROID_MK)
         for mod_name in self.dep_modules:
-            rel_path, abs_path = get_related_paths(self.modules_info, mod_name)
+            rel_path, abs_path = common_util.get_related_paths(
+                self.modules_info, mod_name)
             if rel_path and abs_path:
                 mod_mk = os.path.join(abs_path, _ANDROID_MK)
                 mod_bp = os.path.join(abs_path, _ANDROID_BP)
