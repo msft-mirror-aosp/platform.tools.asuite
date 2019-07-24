@@ -22,7 +22,7 @@ import subprocess
 import unittest
 from unittest import mock
 
-import aidegen.unittest_constants as uc
+from aidegen import unittest_constants
 from aidegen.lib import errors
 from aidegen.lib import module_info_util
 from atest import module_info
@@ -135,7 +135,8 @@ class AidegenModuleInfoUtilUnittests(unittest.TestCase):
         mock_copy.return_value = ''
         amodule_info = module_info.ModuleInfo()
         cmd = [module_info_util._GENERATE_JSON_COMMAND]
-        module_info_util._build_target(amodule_info, cmd, uc.TEST_MODULE, True)
+        module_info_util._build_target(amodule_info, cmd,
+                                       unittest_constants.TEST_MODULE, True)
         self.assertTrue(mock_copy.called)
         self.assertTrue(mock_check_call.called)
         mock_check_call.assert_called_with(
@@ -143,7 +144,8 @@ class AidegenModuleInfoUtilUnittests(unittest.TestCase):
             stderr=subprocess.STDOUT,
             env=mock_copy.return_value,
             shell=True)
-        module_info_util._build_target(amodule_info, cmd, uc.TEST_MODULE, False)
+        module_info_util._build_target(amodule_info, cmd,
+                                       unittest_constants.TEST_MODULE, False)
         self.assertTrue(mock_check_call.called)
         mock_check_call.assert_called_with(cmd, shell=True)
 
@@ -179,11 +181,13 @@ class AidegenModuleInfoUtilUnittests(unittest.TestCase):
         mock_glob.return_value = ['project/file.iml']
         mock_input.return_value = 'N'
         with self.assertRaises(SystemExit) as cm:
-            module_info_util._build_failed_handle(uc.TEST_MODULE)
+            module_info_util._build_failed_handle(
+                unittest_constants.TEST_MODULE)
         self.assertEqual(cm.exception.code, 1)
         mock_glob.return_value = []
         with self.assertRaises(errors.BuildFailureError):
-            module_info_util._build_failed_handle(uc.TEST_MODULE)
+            module_info_util._build_failed_handle(
+                unittest_constants.TEST_MODULE)
 
     @mock.patch('builtins.open')
     def test_get_soong_build_json_dict_failed(self, mock_open):
