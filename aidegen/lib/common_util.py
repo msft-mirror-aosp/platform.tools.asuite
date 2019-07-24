@@ -29,10 +29,7 @@ from functools import partial
 from functools import wraps
 
 from aidegen import constant
-from aidegen.lib.errors import FakeModuleError
-from aidegen.lib.errors import NoModuleDefinedInModuleInfoError
-from aidegen.lib.errors import ProjectOutsideAndroidRootError
-from aidegen.lib.errors import ProjectPathNotExistError
+from aidegen.lib import errors
 from atest import constants
 from atest import module_info
 from atest.atest_utils import colorize
@@ -248,16 +245,16 @@ def _check_module(atest_module_info, target, raise_on_lost_module=True):
     if not abs_path:
         err = FAKE_MODULE_ERROR.format(target)
         logging.error(err)
-        raise FakeModuleError(err)
+        raise errors.FakeModuleError(err)
     if not abs_path.startswith(get_android_root_dir()):
         err = OUTSIDE_ROOT_ERROR.format(abs_path)
         logging.error(err)
-        raise ProjectOutsideAndroidRootError(err)
+        raise errors.ProjectOutsideAndroidRootError(err)
     if not os.path.isdir(abs_path):
         err = PATH_NOT_EXISTS_ERROR.format(rel_path)
         if raise_on_lost_module:
             logging.error(err)
-            raise ProjectPathNotExistError(err)
+            raise errors.ProjectPathNotExistError(err)
         logging.debug(_REBUILD_MODULE_INFO, err)
         return False
     if (not has_build_target(atest_module_info, rel_path)
@@ -265,7 +262,7 @@ def _check_module(atest_module_info, target, raise_on_lost_module=True):
         err = NO_MODULE_DEFINED_ERROR.format(rel_path)
         if raise_on_lost_module:
             logging.error(err)
-            raise NoModuleDefinedInModuleInfoError(err)
+            raise errors.NoModuleDefinedInModuleInfoError(err)
         logging.debug(_REBUILD_MODULE_INFO, err)
         return False
     return True

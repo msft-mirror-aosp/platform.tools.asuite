@@ -41,7 +41,7 @@ _CONTENT_URL = '        <content url="file://%s">\n'
 _END_CONTENT = '        </content>\n'
 _SRCJAR_URL = ('%s<content url="jar://{SRCJAR}">\n'
                '%s<sourceFolder url="jar://{SRCJAR}" isTestSource="False" />\n'
-               '%s</content>\n') % (' ' * 8, ' ' * 12, ' ' * 8)
+               '%s</content>') % (' ' * 8, ' ' * 12, ' ' * 8)
 _ORDER_ENTRY = ('        <orderEntry type="module-library" exported="">'
                 '<library><CLASSES><root url="jar://%s!/" /></CLASSES>'
                 '<JAVADOC /><SOURCES /></library></orderEntry>\n')
@@ -91,7 +91,7 @@ _CODE_STYLE_SRC_PATH = os.path.join(common_util.get_android_root_dir(),
                                     _CODE_STYLE_REL_PATH)
 
 
-class ProjectFileGenerator():
+class ProjectFileGenerator:
     """Project file generator.
 
     Class attributes:
@@ -418,7 +418,9 @@ class ProjectFileGenerator():
             for srcjar_dir in srcjar_paths:
                 srcjar_urls.append(_SRCJAR_URL.format(SRCJAR=os.path.join(
                     common_util.get_android_root_dir(), srcjar_dir)))
-        return content.replace(_SRCJAR_TOKEN, ''.join(srcjar_urls))
+        if srcjar_urls:
+            return content.replace(_SRCJAR_TOKEN, '\n'.join(srcjar_urls))
+        return content.replace(_SRCJAR_TOKEN + '\n', '')
 
     # pylint: disable=too-many-locals
     def _generate_iml(self, source_dict, is_main_module=False):
