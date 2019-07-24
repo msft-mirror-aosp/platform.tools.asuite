@@ -46,24 +46,17 @@ import sys
 import traceback
 
 from aidegen import constant
-from aidegen.lib.android_dev_os import AndroidDevOS
+from aidegen.lib import aidegen_metrics
+from aidegen.lib import android_dev_os
 from aidegen.lib import common_util
-from aidegen.lib.common_util import COLORED_INFO
-from aidegen.lib.common_util import COLORED_PASS
-from aidegen.lib.common_util import back_to_cwd
-from aidegen.lib.common_util import is_android_root
-from aidegen.lib.common_util import time_logged
-from aidegen.lib.errors import AIDEgenError
-from aidegen.lib.errors import IDENotExistError
-from aidegen.lib.ide_util import IdeUtil
-from aidegen.lib.aidegen_metrics import starts_asuite_metrics
-from aidegen.lib.aidegen_metrics import ends_asuite_metrics
-from aidegen.lib.module_info import AidegenModuleInfo
-from aidegen.lib.project_file_gen import ProjectFileGenerator
-from aidegen.lib.eclipse_project_file_gen import EclipseConf
-from aidegen.lib.project_info import ProjectInfo
+from aidegen.lib import eclipse_project_file_gen
+from aidegen.lib import errors
+from aidegen.lib import ide_util
+from aidegen.lib import module_info
 from aidegen.lib import project_config
-from aidegen.lib.source_locator import multi_projects_locate_source
+from aidegen.lib import project_file_gen
+from aidegen.lib import project_info
+from aidegen.lib import source_locator
 
 AIDEGEN_REPORT_LINK = ('To report the AIDEGen tool problem, please use this '
                        'link: https://goto.google.com/aidegen-bug')
@@ -74,7 +67,7 @@ or  - specify the exact IDE executable path by "aidegen -p"
 or  - specify "aidegen -n" to generate project file only
 """
 
-_CONGRATULATION = COLORED_PASS('CONGRATULATION:')
+_CONGRATULATION = common_util.COLORED_PASS('CONGRATULATION:')
 _LAUNCH_SUCCESS_MSG = (
     'IDE launched successfully. Please check your IDE window.')
 _IDE_CACHE_REMINDER_MSG = (
@@ -87,9 +80,9 @@ _SKIP_BUILD_INFO_FUTURE = ''.join([
     'AIDEGen build time exceeds {} minute(s).\n'.format(_MAX_TIME),
     project_config.SKIP_BUILD_INFO.rstrip('.'), ' in the future.'
 ])
-_INFO = COLORED_INFO('INFO:')
+_INFO = common_util.COLORED_INFO('INFO:')
 _SKIP_MSG = _SKIP_BUILD_INFO_FUTURE.format(
-    COLORED_INFO('aidegen [ module(s) ] -s'))
+    common_util.COLORED_INFO('aidegen [ module(s) ] -s'))
 _TIME_EXCEED_MSG = '\n{} {}\n'.format(_INFO, _SKIP_MSG)
 _LOG_FORMAT = '%(asctime)s %(filename)s:%(lineno)s:%(levelname)s: %(message)s'
 _DATE_FORMAT = '%Y-%m-%d %H:%M:%S'
@@ -186,14 +179,15 @@ def _get_ide_util_instance(args):
     """
     if args.no_launch:
         return None
-    ide_util_obj = IdeUtil(args.ide_installed_path, args.ide[0],
-                           args.config_reset,
-                           AndroidDevOS.MAC == AndroidDevOS.get_os_type())
+    ide_util_obj = ide_util.IdeUtil(
+        args.ide_installed_path, args.ide[0], args.config_reset,
+        (android_dev_os.AndroidDevOS.MAC ==
+         android_dev_os.AndroidDevOS.get_os_type()))
     if not ide_util_obj.is_ide_installed():
         ipath = args.ide_installed_path or ide_util_obj.get_default_path()
         err = _NO_LAUNCH_IDE_CMD.format(ipath)
         logging.error(err)
-        raise IDENotExistError(err)
+        raise errors.IDENotExistError(err)
     return ide_util_obj
 
 
@@ -203,10 +197,12 @@ def _generate_project_files(projects):
     Args:
         projects: A list of ProjectInfo instances.
     """
-    if ProjectInfo.config.ide_name == constant.IDE_ECLIPSE:
-        EclipseConf.generate_ide_project_files(projects)
+    if project_info.ProjectInfo.config.ide_name == constant.IDE_ECLIPSE:
+        eclipse_project_file_gen.EclipseConf.generate_ide_project_files(
+            projects)
     else:
-        ProjectFileGenerator.generate_ide_project_files(projects)
+        project_file_gen.ProjectFileGenerator.generate_ide_project_files(
+            projects)
 
 
 def _compile_targets_for_whole_android_tree(atest_module_info, targets, cwd):
@@ -229,7 +225,7 @@ def _compile_targets_for_whole_android_tree(atest_module_info, targets, cwd):
         A list of targets after adjustment.
     """
     new_targets = []
-    if is_android_root(cwd):
+    if common_util.is_android_root(cwd):
         new_targets = list(targets)
     else:
         for target in targets:
@@ -300,10 +296,11 @@ def _is_whole_android_tree(targets, android_tree):
     Returns:
         A boolean, True when user is going to import whole Android tree.
     """
-    return android_tree or (is_android_root(os.getcwd()) and targets == [''])
+    return (android_tree or
+            (common_util.is_android_root(os.getcwd()) and targets == ['']))
 
 
-@time_logged(message=_TIME_EXCEED_MSG, maximum=_MAX_TIME)
+@common_util.time_logged(message=_TIME_EXCEED_MSG, maximum=_MAX_TIME)
 def main_with_message(args):
     """Main entry with skip build message.
 
@@ -313,7 +310,7 @@ def main_with_message(args):
     aidegen_main(args)
 
 
-@time_logged
+@common_util.time_logged
 def main_without_message(args):
     """Main entry without skip build message.
 
@@ -338,7 +335,7 @@ def main(argv):
         _configure_logging(args.verbose)
         references = [constant.ANDROID_TREE] if _is_whole_android_tree(
             args.targets, args.android_tree) else []
-        starts_asuite_metrics(references)
+        aidegen_metrics.starts_asuite_metrics(references)
         if args.skip_build:
             main_without_message(args)
         else:
@@ -346,7 +343,7 @@ def main(argv):
     except BaseException as err:
         exit_code = constant.EXIT_CODE_EXCEPTION
         _, exc_value, exc_traceback = sys.exc_info()
-        if isinstance(err, AIDEgenError):
+        if isinstance(err, errors.AIDEgenError):
             exit_code = constant.EXIT_CODE_AIDEGEN_EXCEPTION
         # Filter out sys.Exit(0) case, which is not an exception case.
         if isinstance(err, SystemExit) and exc_value.code == 0:
@@ -356,18 +353,19 @@ def main(argv):
             traceback_list = traceback.format_tb(exc_traceback)
             traceback_list.append(error_message)
             traceback_str = ''.join(traceback_list)
-            ends_asuite_metrics(exit_code, traceback_str, error_message)
+            aidegen_metrics.ends_asuite_metrics(exit_code, traceback_str,
+                                                error_message)
             # print out the trackback message for developers to debug
             print(traceback_str)
             raise err
     finally:
         if exit_code is constant.EXIT_CODE_NORMAL:
-            ends_asuite_metrics(exit_code)
+            aidegen_metrics.ends_asuite_metrics(exit_code)
         print('\n{0} {1}\n\n{0} {2}\n'.format(_INFO, AIDEGEN_REPORT_LINK,
                                               _IDE_CACHE_REMINDER_MSG))
 
 
-@back_to_cwd
+@common_util.back_to_cwd
 def aidegen_main(args):
     """AIDEGen main entry.
 
@@ -378,19 +376,19 @@ def aidegen_main(args):
     """
     # Pre-check for IDE relevant case, then handle dependency graph job.
     ide_util_obj = _get_ide_util_instance(args)
-    ProjectInfo.config = project_config.ProjectConfig(args)
+    project_info.ProjectInfo.config = project_config.ProjectConfig(args)
     atest_module_info = common_util.get_atest_module_info(args.targets)
     targets = _check_whole_android_tree(
         atest_module_info, args.targets, args.android_tree)
-    ProjectInfo.modules_info = AidegenModuleInfo(
+    project_info.ProjectInfo.modules_info = module_info.AidegenModuleInfo(
         force_build=False,
         module_file=None,
         atest_module_info=atest_module_info,
         projects=targets,
         verbose=args.verbose,
         skip_build=args.skip_build)
-    projects = ProjectInfo.generate_projects(targets)
-    multi_projects_locate_source(projects, args.verbose)
+    projects = project_info.ProjectInfo.generate_projects(targets)
+    source_locator.multi_projects_locate_source(projects, args.verbose)
     _generate_project_files(projects)
     if ide_util_obj:
         _launch_ide(ide_util_obj, projects[0].project_absolute_path)

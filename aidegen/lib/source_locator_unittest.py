@@ -23,7 +23,7 @@ import unittest
 from unittest import mock
 
 from aidegen import constant
-from aidegen import unittest_constants as uc
+from aidegen import unittest_constants
 from aidegen.lib import source_locator
 
 _MODULE_NAME = 'test'
@@ -51,7 +51,7 @@ class SourceLocatorUnittests(unittest.TestCase):
         """Test _collect_srcs_paths create the source path list."""
         result_source = set(['packages/apps/test/src/main/java'])
         result_test = set(['packages/apps/test/tests'])
-        mock_android_root_dir.return_value = uc.TEST_DATA_PATH
+        mock_android_root_dir.return_value = unittest_constants.TEST_DATA_PATH
         module_data = source_locator.ModuleData(_MODULE_NAME, _MODULE_INFO,
                                                 _MODULE_DEPTH)
         module_data._collect_srcs_paths()
@@ -61,14 +61,16 @@ class SourceLocatorUnittests(unittest.TestCase):
     def test_get_package_name(self):
         """test get the package name from a java file."""
         result_package_name = 'com.android'
-        test_java = os.path.join(uc.TEST_DATA_PATH, _MODULE_PATH,
+        test_java = os.path.join(unittest_constants.TEST_DATA_PATH,
+                                 _MODULE_PATH,
                                  'src/main/java/com/android/java.java')
         package_name = source_locator.ModuleData._get_package_name(test_java)
         self.assertEqual(package_name, result_package_name)
 
         # Test on java file with no package name.
         result_package_name = None
-        test_java = os.path.join(uc.TEST_DATA_PATH, _MODULE_PATH,
+        test_java = os.path.join(unittest_constants.TEST_DATA_PATH,
+                                 _MODULE_PATH,
                                  'src/main/java/com/android/no_package.java')
         package_name = source_locator.ModuleData._get_package_name(test_java)
         self.assertEqual(package_name, result_package_name)
@@ -79,7 +81,7 @@ class SourceLocatorUnittests(unittest.TestCase):
         # Test for getting the source path by parse package name from a java.
         test_java = 'packages/apps/test/src/main/java/com/android/java.java'
         result_source = 'packages/apps/test/src/main/java'
-        mock_android_root_dir.return_value = uc.TEST_DATA_PATH
+        mock_android_root_dir.return_value = unittest_constants.TEST_DATA_PATH
         module_data = source_locator.ModuleData(_MODULE_NAME, _MODULE_INFO,
                                                 _MODULE_DEPTH)
         src_path = module_data._get_source_folder(test_java)
@@ -124,7 +126,7 @@ class SourceLocatorUnittests(unittest.TestCase):
         # Test on target srcjar exists in srcjars.
         test_module = dict(_MODULE_INFO)
         test_module['srcs'] = []
-        mock_android_root_dir.return_value = uc.TEST_DATA_PATH
+        mock_android_root_dir.return_value = unittest_constants.TEST_DATA_PATH
         module_data = source_locator.ModuleData(_MODULE_NAME, test_module,
                                                 _MODULE_DEPTH)
         # Test the module is not APPS.
@@ -207,7 +209,7 @@ class SourceLocatorUnittests(unittest.TestCase):
         # Append an existing jar file path to module_data.jar_files.
         test_jar_file = os.path.join(_MODULE_PATH, 'test.jar')
         result_jar_list = set([test_jar_file])
-        mock_android_root_dir.return_value = uc.TEST_DATA_PATH
+        mock_android_root_dir.return_value = unittest_constants.TEST_DATA_PATH
         module_data = source_locator.ModuleData(_MODULE_NAME, _MODULE_INFO,
                                                 _MODULE_DEPTH)
         module_data._append_jar_file(test_jar_file)
@@ -236,7 +238,7 @@ class SourceLocatorUnittests(unittest.TestCase):
             os.path.join(_MODULE_PATH, 'tests/test_second.jar')
         ]
         result_jar_list = set([os.path.join(_MODULE_PATH, 'test.jar')])
-        mock_android_root_dir.return_value = uc.TEST_DATA_PATH
+        mock_android_root_dir.return_value = unittest_constants.TEST_DATA_PATH
         module_data = source_locator.ModuleData(_MODULE_NAME, module_info,
                                                 _MODULE_DEPTH)
         module_data._append_jar_from_installed()
@@ -265,7 +267,7 @@ class SourceLocatorUnittests(unittest.TestCase):
             os.path.join(_MODULE_PATH, 'test.jar'),
             os.path.join(_MODULE_PATH, 'tests/test_second.jar')
         ])
-        mock_android_root_dir.return_value = uc.TEST_DATA_PATH
+        mock_android_root_dir.return_value = unittest_constants.TEST_DATA_PATH
         module_data = source_locator.ModuleData(_MODULE_NAME, module_info,
                                                 _MODULE_DEPTH)
         module_data._set_jars_jarfile()
@@ -280,7 +282,7 @@ class SourceLocatorUnittests(unittest.TestCase):
         result_test_list = set(['packages/apps/test/tests'])
         result_jar_list = set()
         result_r_path = set()
-        mock_android_root_dir.return_value = uc.TEST_DATA_PATH
+        mock_android_root_dir.return_value = unittest_constants.TEST_DATA_PATH
         module_data = source_locator.ModuleData(_MODULE_NAME, module_info,
                                                 _MODULE_DEPTH)
         module_data.locate_sources_path()
@@ -335,7 +337,7 @@ class SourceLocatorUnittests(unittest.TestCase):
         result_jar_list = set(
             [('out/soong/.intermediates/packages/apps/test/test/'
               'android_common/test.jar')])
-        mock_android_root_dir.return_value = uc.TEST_DATA_PATH
+        mock_android_root_dir.return_value = unittest_constants.TEST_DATA_PATH
         module_data = source_locator.ModuleData(_MODULE_NAME, module_info,
                                                 depth_by_source)
         module_data.locate_sources_path()
@@ -384,7 +386,7 @@ class SourceLocatorUnittests(unittest.TestCase):
         """Test locate_source handling."""
         mock_atest_utils_build.build.return_value = True
         test_root_path = os.path.join(tempfile.mkdtemp(), 'test')
-        shutil.copytree(uc.TEST_DATA_PATH, test_root_path)
+        shutil.copytree(unittest_constants.TEST_DATA_PATH, test_root_path)
         mock_android_root_dir.return_value = test_root_path
         generated_jar = ('out/soong/.intermediates/packages/apps/test/test/'
                          'android_common/generated.jar')
