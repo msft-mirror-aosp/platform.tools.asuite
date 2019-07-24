@@ -23,10 +23,10 @@ import os
 from aidegen import constant
 from aidegen.lib import common_util
 from aidegen.lib import module_info_util
-from atest.module_info import ModuleInfo
+from atest import module_info
 
 
-class AidegenModuleInfo(ModuleInfo):
+class AidegenModuleInfo(module_info.ModuleInfo):
     """Class that offers fast/easy lookup for Module related details.
 
     Class attributes:

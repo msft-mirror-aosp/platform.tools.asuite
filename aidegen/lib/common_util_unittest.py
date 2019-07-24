@@ -20,12 +20,9 @@ import os
 import unittest
 from unittest import mock
 
-from aidegen.lib.errors import FakeModuleError
-from aidegen.lib.errors import NoModuleDefinedInModuleInfoError
-from aidegen.lib.errors import ProjectOutsideAndroidRootError
-from aidegen.lib.errors import ProjectPathNotExistError
-import aidegen.unittest_constants as uc
 from aidegen.lib import common_util
+from aidegen.lib import errors
+from aidegen import unittest_constants
 from atest import module_info
 
 
@@ -45,31 +42,34 @@ class AidegenCommonUtilUnittests(unittest.TestCase):
         mock_get.return_value = []
         mod_info = module_info.ModuleInfo()
         self.assertEqual((None, None),
-                         common_util.get_related_paths(mod_info,
-                                                       uc.TEST_MODULE))
-        mock_get_root.return_value = uc.TEST_PATH
-        mock_get.return_value = [uc.TEST_MODULE]
-        expected = (uc.TEST_MODULE, os.path.join(uc.TEST_PATH, uc.TEST_MODULE))
+                         common_util.get_related_paths(
+                             mod_info, unittest_constants.TEST_MODULE))
+        mock_get_root.return_value = unittest_constants.TEST_PATH
+        mock_get.return_value = [unittest_constants.TEST_MODULE]
+        expected = (unittest_constants.TEST_MODULE, os.path.join(
+            unittest_constants.TEST_PATH, unittest_constants.TEST_MODULE))
         self.assertEqual(
-            expected, common_util.get_related_paths(mod_info, uc.TEST_MODULE))
+            expected, common_util.get_related_paths(
+                mod_info, unittest_constants.TEST_MODULE))
         mock_is_mod.return_value = False
         mock_names.return_value = True
         self.assertEqual(
-            expected, common_util.get_related_paths(mod_info, uc.TEST_MODULE))
+            expected, common_util.get_related_paths(
+                mod_info, unittest_constants.TEST_MODULE))
 
     @mock.patch.object(common_util, 'get_android_root_dir')
     @mock.patch.object(common_util, 'get_related_paths')
     def test_is_target_android_root(self, mock_get_rel, mock_get_root):
         """Test is_target_android_root with different conditions."""
-        mock_get_rel.return_value = None, uc.TEST_PATH
-        mock_get_root.return_value = uc.TEST_PATH
+        mock_get_rel.return_value = None, unittest_constants.TEST_PATH
+        mock_get_root.return_value = unittest_constants.TEST_PATH
         self.assertTrue(
-            common_util.is_target_android_root(module_info.ModuleInfo(),
-                                               [uc.TEST_MODULE]))
+            common_util.is_target_android_root(
+                module_info.ModuleInfo(), [unittest_constants.TEST_MODULE]))
         mock_get_rel.return_value = None, ''
         self.assertFalse(
-            common_util.is_target_android_root(module_info.ModuleInfo(),
-                                               [uc.TEST_MODULE]))
+            common_util.is_target_android_root(
+                module_info.ModuleInfo(), [unittest_constants.TEST_MODULE]))
 
     @mock.patch.object(common_util, 'get_android_root_dir')
     @mock.patch.object(common_util, 'has_build_target')
@@ -80,29 +80,33 @@ class AidegenCommonUtilUnittests(unittest.TestCase):
         """Test if _check_module raises errors with different conditions."""
         mod_info = module_info.ModuleInfo()
         mock_get.return_value = None, None
-        with self.assertRaises(FakeModuleError) as ctx:
-            common_util._check_module(mod_info, uc.TEST_MODULE)
-            expected = common_util.FAKE_MODULE_ERROR.format(uc.TEST_MODULE)
+        with self.assertRaises(errors.FakeModuleError) as ctx:
+            common_util._check_module(mod_info, unittest_constants.TEST_MODULE)
+            expected = common_util.FAKE_MODULE_ERROR.format(
+                unittest_constants.TEST_MODULE)
             self.assertEqual(expected, str(ctx.exception))
-        mock_get_root.return_value = uc.TEST_PATH
-        mock_get.return_value = None, uc.TEST_MODULE
-        with self.assertRaises(ProjectOutsideAndroidRootError) as ctx:
-            common_util._check_module(mod_info, uc.TEST_MODULE)
-            expected = common_util.OUTSIDE_ROOT_ERROR.format(uc.TEST_MODULE)
+        mock_get_root.return_value = unittest_constants.TEST_PATH
+        mock_get.return_value = None, unittest_constants.TEST_MODULE
+        with self.assertRaises(errors.ProjectOutsideAndroidRootError) as ctx:
+            common_util._check_module(mod_info, unittest_constants.TEST_MODULE)
+            expected = common_util.OUTSIDE_ROOT_ERROR.format(
+                unittest_constants.TEST_MODULE)
             self.assertEqual(expected, str(ctx.exception))
-        mock_get.return_value = None, uc.TEST_PATH
+        mock_get.return_value = None, unittest_constants.TEST_PATH
         mock_isdir.return_value = False
-        with self.assertRaises(ProjectPathNotExistError) as ctx:
-            common_util._check_module(mod_info, uc.TEST_MODULE)
-            expected = common_util.PATH_NOT_EXISTS_ERROR.format(uc.TEST_MODULE)
+        with self.assertRaises(errors.ProjectPathNotExistError) as ctx:
+            common_util._check_module(mod_info, unittest_constants.TEST_MODULE)
+            expected = common_util.PATH_NOT_EXISTS_ERROR.format(
+                unittest_constants.TEST_MODULE)
             self.assertEqual(expected, str(ctx.exception))
         mock_isdir.return_value = True
         mock_has_target.return_value = False
-        mock_get.return_value = None, os.path.join(uc.TEST_PATH, 'test.jar')
-        with self.assertRaises(NoModuleDefinedInModuleInfoError) as ctx:
-            common_util._check_module(mod_info, uc.TEST_MODULE)
+        mock_get.return_value = None, os.path.join(unittest_constants.TEST_PATH,
+                                                   'test.jar')
+        with self.assertRaises(errors.NoModuleDefinedInModuleInfoError) as ctx:
+            common_util._check_module(mod_info, unittest_constants.TEST_MODULE)
             expected = common_util.NO_MODULE_DEFINED_ERROR.format(
-                uc.TEST_MODULE)
+                unittest_constants.TEST_MODULE)
             self.assertEqual(expected, str(ctx.exception))
         self.assertEqual(common_util._check_module(mod_info, '', False), False)
         self.assertEqual(common_util._check_module(mod_info, 'nothing', False),
@@ -124,9 +128,10 @@ class AidegenCommonUtilUnittests(unittest.TestCase):
     @mock.patch.object(common_util, 'get_android_root_dir')
     def test_get_abs_path(self, mock_get_root):
         """Test get_abs_path handling."""
-        mock_get_root.return_value = uc.TEST_DATA_PATH
-        self.assertEqual(uc.TEST_DATA_PATH, common_util.get_abs_path(''))
-        test_path = os.path.join(uc.TEST_DATA_PATH, 'test.jar')
+        mock_get_root.return_value = unittest_constants.TEST_DATA_PATH
+        self.assertEqual(unittest_constants.TEST_DATA_PATH,
+                         common_util.get_abs_path(''))
+        test_path = os.path.join(unittest_constants.TEST_DATA_PATH, 'test.jar')
         self.assertEqual(test_path, common_util.get_abs_path(test_path))
         self.assertEqual(test_path, common_util.get_abs_path('test.jar'))
 
