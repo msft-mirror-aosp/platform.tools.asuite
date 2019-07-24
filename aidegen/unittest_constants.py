@@ -24,10 +24,10 @@ operation.
 
 import os
 
-from aidegen.lib.common_util import get_aidegen_root_dir
+from aidegen.lib import common_util
 
 # The data below is only for test usage.
-TEST_DATA_PATH = os.path.join(get_aidegen_root_dir(), "test_data")
+TEST_DATA_PATH = os.path.join(common_util.get_aidegen_root_dir(), "test_data")
 IDEA_SH_FIND = [
     '/opt/intellij-ce-2018.1/bin/idea.sh', '/opt/intellij-ce-2017.2/bin/idea.sh'
 ]  # script path data

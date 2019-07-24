@@ -17,7 +17,7 @@
 """Project config class."""
 
 from aidegen import constant
-from aidegen.lib.common_util import COLORED_INFO
+from aidegen.lib import common_util
 
 SKIP_BUILD_INFO = ('If you are sure the related modules and dependencies have '
                    'been already built, please try to use command {} to skip '
@@ -54,9 +54,9 @@ class ProjectConfig:
         """Display different messages if users skip building targets or not."""
         if self.is_skip_build:
             print('\n{} {}\n'.format(
-                COLORED_INFO('Warning:'), _SKIP_BUILD_WARN))
+                common_util.COLORED_INFO('Warning:'), _SKIP_BUILD_WARN))
         else:
             msg = SKIP_BUILD_INFO.format(
-                COLORED_INFO(
+                common_util.COLORED_INFO(
                     _SKIP_BUILD_CMD.format(' '.join(self.targets))))
-            print('\n{} {}\n'.format(COLORED_INFO('INFO:'), msg))
+            print('\n{} {}\n'.format(common_util.COLORED_INFO('INFO:'), msg))
