@@ -20,10 +20,10 @@ import os
 import unittest
 from unittest import mock
 
-import aidegen.unittest_constants as utc
 from aidegen import constant
+from aidegen import unittest_constants
 from aidegen.lib import common_util
-from aidegen.lib.eclipse_project_file_gen import EclipseConf
+from aidegen.lib import eclipse_project_file_gen
 
 
 # pylint: disable=protected-access
@@ -35,7 +35,8 @@ class EclipseConfUnittests(unittest.TestCase):
     _PROJECT_NAME = 'test'
     _LINK_TEMPLATE = ('                <link><name>%s</name><type>2</type>'
                       '<location>%s</location></link>\n')
-    _PROJECT_SAMPLE = os.path.join(utc.TEST_DATA_PATH, 'eclipse.project')
+    _PROJECT_SAMPLE = os.path.join(unittest_constants.TEST_DATA_PATH,
+                                   'eclipse.project')
 
     @mock.patch.object(common_util, 'get_android_root_dir')
     def test_gen_link(self, mock_get_root):
@@ -43,7 +44,8 @@ class EclipseConfUnittests(unittest.TestCase):
         mock_get_root.return_value = self._ROOT_PATH
         name = os.path.join(constant.KEY_DEPENDENCIES, self._PROJECT_RELPATH)
         expected_link = self._LINK_TEMPLATE % (name, self._PROJECT_ABSPATH)
-        generated_link = EclipseConf._gen_link(self._PROJECT_RELPATH)
+        generated_link = eclipse_project_file_gen.EclipseConf._gen_link(
+            self._PROJECT_RELPATH)
         self.assertEqual(generated_link, expected_link)
 
     @mock.patch.object(common_util, 'get_android_root_dir')
@@ -62,7 +64,7 @@ class EclipseConfUnittests(unittest.TestCase):
             'r_java_path': set()
         }
         expected_content = common_util.read_file_content(self._PROJECT_SAMPLE)
-        eclipse_config = EclipseConf(mock_project_info)
+        eclipse_config = eclipse_project_file_gen.EclipseConf(mock_project_info)
         eclipse_config._create_project_content()
         generated_content = eclipse_config.project_content
         self.assertEqual(generated_content, expected_content)
@@ -88,7 +90,7 @@ class EclipseConfUnittests(unittest.TestCase):
             '    <classpathentry kind="src" path="src"/>\n',
             '    <classpathentry kind="src" path="test"/>\n',
         ]
-        eclipse_config = EclipseConf(mock_project_info)
+        eclipse_config = eclipse_project_file_gen.EclipseConf(mock_project_info)
         generated_result = sorted(eclipse_config._gen_src_path_entries())
         self.assertEqual(generated_result, expected_result)
 
@@ -113,7 +115,7 @@ class EclipseConfUnittests(unittest.TestCase):
              'path="/abspath/to/the/file.jar" '
              'sourcepath="dependencies/relpath/to/the/module"/>\n')
         ]
-        eclipse_config = EclipseConf(mock_project_info)
+        eclipse_config = eclipse_project_file_gen.EclipseConf(mock_project_info)
         generated_result = eclipse_config._gen_jar_path_entries()
         self.assertEqual(generated_result, expected_result)
 

@@ -24,9 +24,8 @@ import os
 import re
 
 from aidegen import constant
-from aidegen.lib import errors
 from aidegen.lib import common_util
-from aidegen.lib.common_util import COLORED_INFO
+from aidegen.lib import errors
 from atest import atest_utils
 
 # Parse package name from the package declaration line of a java.
@@ -186,7 +185,8 @@ def _build_target(targets, verbose):
         message = ('Build failed!\n{}\nAIDEGen will proceed but dependency '
                    'correctness is not guaranteed if not all targets being '
                    'built successfully.'.format('\n'.join(targets)))
-        print('\n{} {}\n'.format(COLORED_INFO('Warning:'), message))
+        print('\n{} {}\n'.format(common_util.COLORED_INFO('Warning:'),
+                                 message))
 
 
 def _separate_build_targets(build_targets, max_length):
@@ -252,7 +252,7 @@ def _append_jars_as_dependencies(dependent_data, module):
         ])
 
 
-class ModuleData():
+class ModuleData:
     """ModuleData class.
 
     Attributes:
