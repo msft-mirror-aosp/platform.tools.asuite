@@ -131,8 +131,7 @@ class AidegenProjectFileGenUnittest(unittest.TestCase):
         # Test for main project.
         try:
             iml_path, dependencies_iml_path = pfile_gen._generate_iml(
-                copy.deepcopy(unittest_constants.ANDROID_SOURCE_DICT),
-                is_main_module=True)
+                copy.deepcopy(unittest_constants.ANDROID_SOURCE_DICT))
             test_iml = common_util.read_file_content(iml_path)
             sample_iml = common_util.read_file_content(self._IML_SAMPLE)
         finally:

@@ -77,22 +77,26 @@ class ProjectInfo:
                                   e.g. out/.../aapt2.srcjar!/
                                   The "!/" is a content descriptor for
                                   compressed files in IntelliJ.
+        is_main_project: A boolean to verify the project is main project.
     """
 
     modules_info = None
     config = None
 
-    def __init__(self, target=None):
+    def __init__(self, target=None, is_main_project=False):
         """ProjectInfo initialize.
 
         Args:
             target: Includes target module or project path from user input, when
                     locating the target, project with matching module name of
                     the given target has a higher priority than project path.
+            is_main_project: A boolean, default is False. True if the target is
+                             the main project, otherwise False.
         """
         rel_path, abs_path = common_util.get_related_paths(self.modules_info,
                                                            target)
         self.module_name = self._get_target_name(target, abs_path)
+        self.is_main_project = is_main_project
         self.project_module_names = set(
             self.modules_info.get_module_names(rel_path))
         self.project_relative_path = rel_path
@@ -261,7 +265,7 @@ class ProjectInfo:
         Returns:
             List: A list of ProjectInfo instances.
         """
-        return [ProjectInfo(target) for target in targets]
+        return [ProjectInfo(target, i == 0) for i, target in enumerate(targets)]
 
     @staticmethod
     def _get_target_name(target, abs_path):
