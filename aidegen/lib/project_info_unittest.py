@@ -63,7 +63,7 @@ class ProjectInfoUnittests(unittest.TestCase):
         mock_module_info.get_paths.return_value = ['m1']
         mock_module_info.get_module_names.return_value = ['m1']
         project_info.ProjectInfo.modules_info = mock_module_info
-        proj_info = project_info.ProjectInfo(self.args.module_name)
+        proj_info = project_info.ProjectInfo(self.args.module_name, False)
         self.assertEqual(proj_info.dep_modules, _EXPECT_DEPENDENT_MODULES)
 
     def test_is_a_target_module(self):

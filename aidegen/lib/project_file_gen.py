@@ -188,12 +188,10 @@ class ProjectFileGenerator:
             iml_path_list: An optional list of submodule's iml paths, the
                            default value is None.
         """
-        is_main_module = iml_path_list is not None
         source_dict = self._generate_source_section('source_folder_path', False)
         source_dict.update(
             self._generate_source_section('test_folder_path', True))
-        self.project_info.iml_path, _ = self._generate_iml(source_dict,
-                                                           is_main_module)
+        self.project_info.iml_path, _ = self._generate_iml(source_dict)
         self._generate_modules_xml(iml_path_list)
         self.project_info.git_path = self._generate_vcs_xml()
         self._copy_constant_project_files()
@@ -423,7 +421,7 @@ class ProjectFileGenerator:
         return content.replace(_SRCJAR_TOKEN + '\n', '')
 
     # pylint: disable=too-many-locals
-    def _generate_iml(self, source_dict, is_main_module=False):
+    def _generate_iml(self, source_dict):
         """Generate iml file.
 
         Args:
@@ -431,8 +429,6 @@ class ProjectFileGenerator:
                          the path is test or source folder in IntelliJ.
                          e.g.
                          {'path_a': True, 'path_b': False}
-            is_main_module: A boolean with default False, True if the current
-                            project is the main module.
 
         Returns:
             String: The absolute paths of module iml and dependencies iml.
@@ -464,7 +460,7 @@ class ProjectFileGenerator:
 
         # Only generate the dependencies.iml in the main module's folder.
         dependencies_iml_path = None
-        if is_main_module:
+        if self.project_info.is_main_project:
             dependencies_content = constant.FILE_IML.replace(_FACET_TOKEN, '')
             dependencies_content = self._handle_source_folder(
                 dependencies_content, source_dict, False)
