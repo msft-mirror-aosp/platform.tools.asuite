@@ -188,15 +188,14 @@ class ProjectFileGenerator:
             iml_path_list: An optional list of submodule's iml paths, the
                            default value is None.
         """
-        is_main_module = iml_path_list is not None
         source_dict = self._generate_source_section('source_folder_path', False)
         source_dict.update(
             self._generate_source_section('test_folder_path', True))
-        self.project_info.iml_path, _ = self._generate_iml(source_dict,
-                                                           is_main_module)
-        self._generate_modules_xml(iml_path_list)
-        self.project_info.git_path = self._generate_vcs_xml()
-        self._copy_constant_project_files()
+        self.project_info.iml_path, _ = self._generate_iml(source_dict)
+        self.project_info.git_path = self._get_project_git_path()
+        if self.project_info.is_main_project:
+            self._generate_modules_xml(iml_path_list)
+            self._copy_constant_project_files()
 
     @classmethod
     def generate_ide_project_files(cls, projects):
@@ -423,7 +422,7 @@ class ProjectFileGenerator:
         return content.replace(_SRCJAR_TOKEN + '\n', '')
 
     # pylint: disable=too-many-locals
-    def _generate_iml(self, source_dict, is_main_module=False):
+    def _generate_iml(self, source_dict):
         """Generate iml file.
 
         Args:
@@ -431,8 +430,6 @@ class ProjectFileGenerator:
                          the path is test or source folder in IntelliJ.
                          e.g.
                          {'path_a': True, 'path_b': False}
-            is_main_module: A boolean with default False, True if the current
-                            project is the main module.
 
         Returns:
             String: The absolute paths of module iml and dependencies iml.
@@ -464,7 +461,7 @@ class ProjectFileGenerator:
 
         # Only generate the dependencies.iml in the main module's folder.
         dependencies_iml_path = None
-        if is_main_module:
+        if self.project_info.is_main_project:
             dependencies_content = constant.FILE_IML.replace(_FACET_TOKEN, '')
             dependencies_content = self._handle_source_folder(
                 dependencies_content, source_dict, False)
@@ -523,13 +520,8 @@ class ProjectFileGenerator:
         target_path = os.path.join(module_path, _IDEA_FOLDER, _MODULES_XML)
         common_util.file_generate(target_path, content)
 
-    def _generate_vcs_xml(self):
-        """Generate vcs.xml file.
-
-        IntelliJ use vcs.xml to record version control software's information.
-        Since we are using a single project file, it will only contain the
-        module itself. If there is no git folder inside, it would find it in
-        parent's folder.
+    def _get_project_git_path(self):
+        """Get the project's git path.
 
         Return:
             String: A module's git path.
@@ -547,7 +539,6 @@ class ProjectFileGenerator:
             if git_path == os.sep:
                 logging.warning('%s can\'t find its .git folder', module_path)
                 return None
-        _write_vcs_xml(module_path, [git_path])
         return git_path
 
 

@@ -131,8 +131,7 @@ class AidegenProjectFileGenUnittest(unittest.TestCase):
         # Test for main project.
         try:
             iml_path, dependencies_iml_path = pfile_gen._generate_iml(
-                copy.deepcopy(unittest_constants.ANDROID_SOURCE_DICT),
-                is_main_module=True)
+                copy.deepcopy(unittest_constants.ANDROID_SOURCE_DICT))
             test_iml = common_util.read_file_content(iml_path)
             sample_iml = common_util.read_file_content(self._IML_SAMPLE)
         finally:
@@ -177,28 +176,30 @@ class AidegenProjectFileGenUnittest(unittest.TestCase):
             self._MAIN_MODULE_XML_SAMPLE)
         self.assertEqual(test_module, sample_module)
 
+    @mock.patch('os.path.isdir')
     @mock.patch('aidegen.lib.project_info.ProjectInfo')
-    def test_generate_vcs_xml(self, mock_project):
-        """Test _generate_vcs_xml."""
-        mock_project.project_absolute_path = self._ANDROID_PROJECT_PATH
-        try:
-            git_path = os.path.join(self._ANDROID_PROJECT_PATH,
-                                    project_file_gen._GIT_FOLDER_NAME)
-            if not os.path.exists(git_path):
-                os.mkdir(git_path)
-            pfile_gen = project_file_gen.ProjectFileGenerator(mock_project)
-            pfile_gen._generate_vcs_xml()
-            test_vcs = common_util.read_file_content(self._VCS_PATH)
-        finally:
-            shutil.rmtree(git_path)
+    def test_get_project_git_path(self, mock_project, mock_isdir):
+        """Test _get_project_git_path."""
+        mock_project.project_absolute_path = '/a/b'
+        mock_isdir.return_value = True
+        expected_git_path = '/a/b'
+        pfile_gen = project_file_gen.ProjectFileGenerator(mock_project)
+        test_git_path = pfile_gen._get_project_git_path()
+        self.assertEqual(test_git_path, expected_git_path)
+
+    @mock.patch('aidegen.lib.project_info.ProjectInfo')
+    def test_merge_project_vcs_xmls(self, mock_project):
+        """Test _merge_project_vcs_xmls."""
+        mock_project.project_absolute_path = (
+            unittest_constants.ANDROID_PROJECT_PATH)
+        mock_project.git_path = unittest_constants.ANDROID_PROJECT_PATH
+        project_file_gen._merge_project_vcs_xmls([mock_project])
+        test_vcs = common_util.read_file_content(self._VCS_PATH)
         sample_vcs = common_util.read_file_content(self._VCS_XML_SAMPLE)
         # The sample must base on the real path.
         sample_vcs = sample_vcs.replace(self._LOCAL_PATH_TOKEN,
                                         self._ANDROID_PROJECT_PATH)
         self.assertEqual(test_vcs, sample_vcs)
-        mock_project.project_absolute_path = common_util.get_android_root_dir()
-        pfile_gen = project_file_gen.ProjectFileGenerator(mock_project)
-        self.assertIsNone(pfile_gen._generate_vcs_xml())
 
     def test_get_uniq_iml_name(self):
         """Test the unique name cache mechanism.
