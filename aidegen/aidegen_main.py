@@ -70,6 +70,12 @@ or  - specify "aidegen -n" to generate project file only
 _CONGRATULATION = common_util.COLORED_PASS('CONGRATULATION:')
 _LAUNCH_SUCCESS_MSG = (
     'IDE launched successfully. Please check your IDE window.')
+_LAUNCH_ECLIPSE_SUCCESS_MSG = (
+    'The project files .classpath and .project are generated under '
+    '{PROJECT_PATH} and AIDEGen doesn\'t import the project automatically, '
+    'please import the project manually by steps: File -> Import -> select \''
+    'General\' -> \'Existing Projects into Workspace\' -> click \'Next\' -> '
+    'Choose the root directory -> click \'Finish\'.')
 _IDE_CACHE_REMINDER_MSG = (
     'To prevent the existed IDE cache from impacting your IDE dependency '
     'analysis, please consider to clear IDE caches if necessary. To do that, in'
@@ -206,7 +212,13 @@ def _launch_ide(ide_util_obj, project_absolute_path):
     """
     ide_util_obj.config_ide(project_absolute_path)
     ide_util_obj.launch_ide()
-    print('\n{} {}\n'.format(_CONGRATULATION, _LAUNCH_SUCCESS_MSG))
+    if ide_util_obj.ide_name() == constant.IDE_ECLIPSE:
+        launch_msg = ' '.join([_LAUNCH_SUCCESS_MSG,
+                               _LAUNCH_ECLIPSE_SUCCESS_MSG.format(
+                                   PROJECT_PATH=project_absolute_path)])
+    else:
+        launch_msg = _LAUNCH_SUCCESS_MSG
+    print('\n{} {}\n'.format(_CONGRATULATION, launch_msg))
 
 
 def _check_whole_android_tree(targets, android_tree):
