@@ -29,6 +29,11 @@ KEY_INSTALLED = 'installed'
 KEY_SRCS = 'srcs'
 KEY_SRCJARS = 'srcjars'
 KEY_CLASSES_JAR = 'classes_jar'
+KEY_TAG = 'tags'
+KEY_COMPATIBILITY = 'compatibility_suites'
+KEY_AUTO_TEST_CONFIG = 'auto_test_config'
+KEY_MODULE_NAME = 'module_name'
+KEY_TEST_CONFIG = 'test_config'
 
 # Constants for IDE util.
 IDE_ECLIPSE = 'Eclipse'
