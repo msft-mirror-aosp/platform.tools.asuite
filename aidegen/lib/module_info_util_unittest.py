@@ -40,7 +40,9 @@ _TEST_MODULE_A_DICT = {
         'path': ['path_a'],
         'installed': ['out/path_a/a.jar'],
         'dependencies': ['Foo'],
-        'srcs': ['Bar']
+        'srcs': ['Bar'],
+        'compatibility_suites': ['null-suite'],
+        'module_name': ['ltp_fstat03_64']
     }
 }
 _TEST_MODULE_A_DICT_HAS_NONEED_ITEMS = {
