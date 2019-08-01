@@ -352,6 +352,30 @@ def main(argv):
 
 
 @common_util.back_to_cwd
+def _adjust_cwd_for_whole_tree_project(args, mod_info):
+    """The wrapper to handle the directory change for whole tree case.
+
+        Args:
+            args: A list of system arguments.
+            mod_info: A instance of atest module_info.
+
+        Returns:
+            A list of ProjectInfo instance
+
+    """
+    targets = _check_whole_android_tree(
+        mod_info, args.targets, args.android_tree)
+    project_info.ProjectInfo.modules_info = module_info.AidegenModuleInfo(
+        force_build=False,
+        module_file=None,
+        atest_module_info=mod_info,
+        projects=targets,
+        verbose=args.verbose,
+        skip_build=args.skip_build)
+
+    return project_info.ProjectInfo.generate_projects(targets)
+
+
 def aidegen_main(args):
     """AIDEGen main entry.
 
@@ -364,16 +388,7 @@ def aidegen_main(args):
     ide_util_obj = _get_ide_util_instance(args)
     project_info.ProjectInfo.config = project_config.ProjectConfig(args)
     atest_module_info = common_util.get_atest_module_info(args.targets)
-    targets = _check_whole_android_tree(
-        atest_module_info, args.targets, args.android_tree)
-    project_info.ProjectInfo.modules_info = module_info.AidegenModuleInfo(
-        force_build=False,
-        module_file=None,
-        atest_module_info=atest_module_info,
-        projects=targets,
-        verbose=args.verbose,
-        skip_build=args.skip_build)
-    projects = project_info.ProjectInfo.generate_projects(targets)
+    projects = _adjust_cwd_for_whole_tree_project(args, atest_module_info)
     source_locator.multi_projects_locate_source(projects, args.verbose)
     _generate_project_files(projects)
     if ide_util_obj:
