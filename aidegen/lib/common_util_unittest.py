@@ -16,6 +16,7 @@
 
 """Unittests for common_util."""
 
+import logging
 import os
 import unittest
 from unittest import mock
@@ -109,8 +110,8 @@ class AidegenCommonUtilUnittests(unittest.TestCase):
                 unittest_constants.TEST_MODULE)
             self.assertEqual(expected, str(ctx.exception))
         self.assertEqual(common_util._check_module(mod_info, '', False), False)
-        self.assertEqual(common_util._check_module(mod_info, 'nothing', False),
-                         False)
+        self.assertEqual(
+            common_util._check_module(mod_info, 'nothing', False), False)
 
     @mock.patch.object(common_util, '_check_module')
     def test_check_modules(self, mock_check):
@@ -122,8 +123,8 @@ class AidegenCommonUtilUnittests(unittest.TestCase):
         self.assertEqual(mock_check.call_count, 2)
         target = 'nothing'
         mock_check.return_value = False
-        self.assertEqual(common_util._check_modules(mod_info, [target], False),
-                         False)
+        self.assertEqual(
+            common_util._check_modules(mod_info, [target], False), False)
 
     @mock.patch.object(common_util, 'get_android_root_dir')
     def test_get_abs_path(self, mock_get_root):
@@ -146,6 +147,22 @@ class AidegenCommonUtilUnittests(unittest.TestCase):
         self.assertEqual(
             common_util.is_target('packages/apps/tests/test.jar',
                                   ['.so', '.a']), False)
+
+    @mock.patch.object(logging, 'basicConfig')
+    def test_configure_logging(self, mock_log_config):
+        """Test configure_logging with different arguments."""
+        common_util.configure_logging(True)
+        log_format = common_util._LOG_FORMAT
+        datefmt = common_util._DATE_FORMAT
+        level = common_util.logging.DEBUG
+        self.assertTrue(
+            mock_log_config.called_with(
+                level=level, format=log_format, datefmt=datefmt))
+        common_util.configure_logging(False)
+        level = common_util.logging.INFO
+        self.assertTrue(
+            mock_log_config.called_with(
+                level=level, format=log_format, datefmt=datefmt))
 
 
 if __name__ == '__main__':
