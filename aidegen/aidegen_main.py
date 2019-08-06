@@ -84,8 +84,6 @@ _INFO = common_util.COLORED_INFO('INFO:')
 _SKIP_MSG = _SKIP_BUILD_INFO_FUTURE.format(
     common_util.COLORED_INFO('aidegen [ module(s) ] -s'))
 _TIME_EXCEED_MSG = '\n{} {}\n'.format(_INFO, _SKIP_MSG)
-_LOG_FORMAT = '%(asctime)s %(filename)s:%(lineno)s:%(levelname)s: %(message)s'
-_DATE_FORMAT = '%Y-%m-%d %H:%M:%S'
 
 
 def _parse_args(args):
@@ -154,18 +152,6 @@ def _parse_args(args):
         action='store_true',
         help='Generate whole Android source tree project file for IDE.')
     return parser.parse_args(args)
-
-
-def _configure_logging(verbose):
-    """Configure the logger.
-
-    Args:
-        verbose: A boolean. If true, display DEBUG level logs.
-    """
-    log_format = _LOG_FORMAT
-    datefmt = _DATE_FORMAT
-    level = logging.DEBUG if verbose else logging.INFO
-    logging.basicConfig(level=level, format=log_format, datefmt=datefmt)
 
 
 def _get_ide_util_instance(args):
@@ -332,7 +318,7 @@ def main(argv):
     exit_code = constant.EXIT_CODE_NORMAL
     try:
         args = _parse_args(argv)
-        _configure_logging(args.verbose)
+        common_util.configure_logging(args.verbose)
         references = [constant.ANDROID_TREE] if _is_whole_android_tree(
             args.targets, args.android_tree) else []
         aidegen_metrics.starts_asuite_metrics(references)

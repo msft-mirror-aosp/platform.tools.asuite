@@ -22,9 +22,9 @@ import os
 import unittest
 from unittest import mock
 
-import aidegen.unittest_constants as uc
 from aidegen import aidegen_main
 from aidegen import constant
+from aidegen import unittest_constants
 from aidegen.lib import aidegen_metrics
 from aidegen.lib import common_util
 from aidegen.lib import eclipse_project_file_gen
@@ -59,30 +59,15 @@ class AidegenMainUnittests(unittest.TestCase):
         self.assertEqual(args.ide[0], 's')
         args = aidegen_main._parse_args(['-i', 'e'])
         self.assertEqual(args.ide[0], 'e')
-        args = aidegen_main._parse_args(['-p', uc.TEST_MODULE])
-        self.assertEqual(args.ide_installed_path, uc.TEST_MODULE)
+        args = aidegen_main._parse_args(['-p', unittest_constants.TEST_MODULE])
+        self.assertEqual(args.ide_installed_path,
+                         unittest_constants.TEST_MODULE)
         args = aidegen_main._parse_args(['-n'])
         self.assertEqual(args.no_launch, True)
         args = aidegen_main._parse_args(['-r'])
         self.assertEqual(args.config_reset, True)
         args = aidegen_main._parse_args(['-s'])
         self.assertEqual(args.skip_build, True)
-
-    @mock.patch('aidegen_main.logging.basicConfig')
-    def test_configure_logging(self, mock_log_config):
-        """Test _configure_logging with different arguments."""
-        aidegen_main._configure_logging(True)
-        log_format = aidegen_main._LOG_FORMAT
-        datefmt = aidegen_main._DATE_FORMAT
-        level = aidegen_main.logging.DEBUG
-        self.assertTrue(
-            mock_log_config.called_with(
-                level=level, format=log_format, datefmt=datefmt))
-        aidegen_main._configure_logging(False)
-        level = aidegen_main.logging.INFO
-        self.assertTrue(
-            mock_log_config.called_with(
-                level=level, format=log_format, datefmt=datefmt))
 
     @mock.patch.object(ide_util.IdeUtil, 'is_ide_installed')
     def test_get_ide_util_instance(self, mock_installed):
