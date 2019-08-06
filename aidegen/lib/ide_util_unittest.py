@@ -31,7 +31,7 @@ from aidegen.lib import ide_util
 from aidegen.lib import sdk_config
 
 
-#pylint: disable=protected-access
+# pylint: disable=protected-access
 class IdeUtilUnittests(unittest.TestCase):
     """Unit tests for ide_util.py."""
 
@@ -235,6 +235,22 @@ class IdeUtilUnittests(unittest.TestCase):
         ide_obj = ide_util.IdeIntelliJ()
         ide_obj.apply_optional_config()
         self.assertFalse(mock_copy.called)
+
+    @mock.patch('os.path.realpath')
+    @mock.patch('os.path.isfile')
+    def test_merge_symbolic_version(self, mock_isfile, mock_realpath):
+        """Test _merge_symbolic_version and _get_real_path."""
+        symbolic_path = ide_util.IdeIntelliJ._SYMBOLIC_VERSIONS[0]
+        original_path = 'intellij-ce-2019.1/bin/idea.sh'
+        mock_isfile.return_value = True
+        mock_realpath.return_value = original_path
+        ide_obj = ide_util.IdeLinuxIntelliJ()
+        merged_version = ide_obj._merge_symbolic_version(
+            [symbolic_path, original_path])
+        self.assertEqual(
+            merged_version[0], symbolic_path + ' -> ' + original_path)
+        self.assertEqual(
+            ide_obj._get_real_path(merged_version[0]), symbolic_path)
 
 
 if __name__ == '__main__':
