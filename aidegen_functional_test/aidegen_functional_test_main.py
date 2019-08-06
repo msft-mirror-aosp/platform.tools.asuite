@@ -22,20 +22,16 @@ import argparse
 import itertools
 import json
 import os
+import subprocess
 import sys
 import xml.etree.ElementTree
 import xml.parsers.expat
 
-import aidegen.lib.errors
-
 from aidegen import aidegen_main
 from aidegen.lib import common_util
-from aidegen.lib.common_util import COLORED_PASS
-from aidegen.lib.common_util import COLORED_FAIL
-from aidegen.lib.common_util import get_blueprint_json_path
-from aidegen.lib.common_util import get_related_paths
-from aidegen.lib.common_util import time_logged
+from aidegen.lib import errors
 from atest import module_info
+
 
 _ROOT_DIR = os.path.join(common_util.get_android_root_dir(),
                          'tools/asuite/aidegen_functional_test')
@@ -43,6 +39,7 @@ _TEST_DATA_PATH = os.path.join(_ROOT_DIR, 'test_data')
 _ANDROID_SINGLE_PROJECT_JSON = os.path.join(_TEST_DATA_PATH,
                                             'single_module.json')
 _VERIFY_COMMANDS_JSON = os.path.join(_TEST_DATA_PATH, 'verify_commands.json')
+_VERIFY_BINARY_JSON = os.path.join(_TEST_DATA_PATH, 'verify_binary_upload.json')
 _PRODUCT_DIR = '$PROJECT_DIR$'
 _ANDROID_COMMON = 'android_common'
 _LINUX_GLIBC_COMMON = 'linux_glibc_common'
@@ -68,12 +65,12 @@ def _parse_args(args):
         args: A list of arguments.
 
     Returns:
-        An argparse.Namespace class instance holding parsed args.
+        An argparse.Namespace object holding parsed args.
     """
     parser = argparse.ArgumentParser(
         description=__doc__,
         formatter_class=argparse.RawDescriptionHelpFormatter,
-        usage='aidegen_functional_test [-c | -v]')
+        usage='aidegen_functional_test [-c | -u | -b] -v -r')
     group = parser.add_mutually_exclusive_group()
     parser.required = False
     group.add_argument(
@@ -83,12 +80,27 @@ def _parse_args(args):
         dest='create_sample',
         help=('Create aidegen project files and write data to sample json file '
               'for aidegen_functional_test to compare.'))
-    group.add_argument(
+    parser.add_argument(
         '-v',
-        '--verify',
+        '--verbose',
         action='store_true',
-        dest='verify_aidegen',
+        help='Show DEBUG level logging.')
+    parser.add_argument(
+        '-r',
+        '--remove_bp_json',
+        action='store_true',
+        help='Remove module_bp_java_deps.json for each use case test.')
+    group.add_argument(
+        '-u',
+        action='store_true',
+        dest='use_cases_verified',
         help='Verify various use cases of executing aidegen.')
+    group.add_argument(
+        '-b',
+        action='store_true',
+        dest='binary_upload_verified',
+        help=('Verify aidegen\'s use cases by executing different aidegen '
+              'commands.'))
     return parser.parse_args(args)
 
 
@@ -132,7 +144,7 @@ def _generate_sample_json():
     data = {}
     for target, filelist in _TEST_IML_DICT.items():
         aidegen_main.main([target, '-n'])
-        _, abs_path = get_related_paths(atest_module_info, target)
+        _, abs_path = common_util.get_related_paths(atest_module_info, target)
         for filename in filelist:
             real_iml_file = os.path.join(abs_path, filename)
             item_name = os.path.basename(real_iml_file)
@@ -163,14 +175,15 @@ def test_some_sample_iml():
             if set(s_items) != set(r_items):
                 diff_iter = _compare_content(name, item, s_items, r_items)
                 if diff_iter:
-                    print('\n%s\n%s' % (COLORED_FAIL('Test error...'),
-                                        _TEST_ERROR % (name, item)))
+                    print(
+                        '\n%s\n%s' % (common_util.COLORED_FAIL('Test error...'),
+                                      _TEST_ERROR % (name, item)))
                     print('%s %s contents are different:' % (name, item))
                     for diff in diff_iter:
                         print(diff)
                     test_successful = False
     if test_successful:
-        print(COLORED_PASS(_ALL_PASS))
+        print(common_util.COLORED_PASS(_ALL_PASS))
 
 
 def _compare_content(module_name, item_type, s_items, r_items):
@@ -244,32 +257,81 @@ def _compare_jars_content(module_name, s_items, r_items, msg):
 
 # pylint: disable=broad-except
 # pylint: disable=eval-used
-@time_logged
-def _verify_aidegen():
-    """Verify various use cases of executing aidegen."""
-    bp_json_path = get_blueprint_json_path()
-    with open(_VERIFY_COMMANDS_JSON, 'r') as jsfile:
-        data = json.load(jsfile)
+@common_util.back_to_cwd
+@common_util.time_logged
+def _verify_aidegen(verified_file_path, forced_remove_bp_json):
+    """Verify various use cases of executing aidegen.
+
+    There are two types of running commands:
+    1. Use 'eval' to run the commands for present codes in aidegen_main.py,
+       such as:
+           aidegen_main.main(['tradefed', '-n', '-v'])
+    2. Use 'subprocess.check_call' to run the commands for the binary codes of
+       aidegen such as:
+       aidegen tradefed -n -v
+
+    Remove module_bp_java_deps.json in the beginning of running use cases. If
+    users need to remove module_bp_java_deps.json between each use case they
+    can set forced_remove_bp_json true.
+
+    args:
+        verified_file_path: The json file path to be verified.
+        forced_remove_bp_json: Remove module_bp_java_deps.json for each use case
+                               test.
+
+    raises:
+        There are two type of exceptions:
+        1. aidegen.lib.errors for projects' or modules' issues such as,
+           ProjectPathNotExistError.
+        2. Any exceptions other than aidegen.lib.errors such as,
+           subprocess.CalledProcessError.
+    """
+    os.chdir(common_util.get_android_root_dir())
+    bp_json_path = common_util.get_blueprint_json_path()
+    use_eval = (verified_file_path == _VERIFY_COMMANDS_JSON)
+    try:
+        with open(verified_file_path, 'r') as jsfile:
+            data = json.load(jsfile)
+    except IOError as err:
+        raise errors.JsonFileNotExistError(
+            '%s does not exist, error: %s.' % (verified_file_path, err))
+
+    try:
+        subprocess.check_call(
+            ['build/soong/soong_ui.bash --make-mode clean', '-j'],
+            shell=True)
+    except subprocess.CalledProcessError:
+        print('"make clean" command failed.')
+        raise
+
     for use_case in data:
-        if os.path.exists(bp_json_path):
+        print('Use case "{}" is running.'.format(use_case))
+        if forced_remove_bp_json and os.path.exists(bp_json_path):
             os.remove(bp_json_path)
         for cmd in data[use_case]:
+            print('Command "{}" is running.'.format(cmd))
             try:
-                eval(cmd)
-            except (aidegen.lib.errors.ProjectOutsideAndroidRootError,
-                    aidegen.lib.errors.ProjectPathNotExistError,
-                    aidegen.lib.errors.NoModuleDefinedInModuleInfoError,
-                    aidegen.lib.errors.IDENotExistError) as err:
-                print('{} command has raise error: {}.'.format(use_case, err))
+                if use_eval:
+                    eval(cmd)
+                else:
+                    subprocess.check_call(cmd, shell=True)
+            except (errors.ProjectOutsideAndroidRootError,
+                    errors.ProjectPathNotExistError,
+                    errors.NoModuleDefinedInModuleInfoError,
+                    errors.IDENotExistError) as err:
+                print('"{}" raises error: {}.'.format(use_case, err))
+                raise
             except BaseException:
                 exc_type, _, _ = sys.exc_info()
-                print('{}.{} command {}.'.format(
-                    use_case, cmd, COLORED_FAIL('executes failed')))
+                print('"{}.{}" command {}.'.format(
+                    use_case, cmd, common_util.COLORED_FAIL('executes failed')))
                 raise BaseException(
-                    'Unexpected command {} exception {}.'.format(
+                    'Unexpected command "{}" exception: {}.'.format(
                         use_case, exc_type))
-        print('{} command {}!'.format(use_case, COLORED_PASS('test passed')))
-    print(COLORED_PASS(_ALL_PASS))
+        print('"{}" command {}!'.format(
+            use_case, common_util.COLORED_PASS('test passed')))
+    print(common_util.COLORED_PASS(_ALL_PASS))
+
 
 def main(argv):
     """Main entry.
@@ -280,10 +342,13 @@ def main(argv):
         argv: A list of system arguments.
     """
     args = _parse_args(argv)
+    common_util.configure_logging(args.verbose)
     if args.create_sample:
         _create_sample_json_file()
-    elif args.verify_aidegen:
-        _verify_aidegen()
+    elif args.use_cases_verified:
+        _verify_aidegen(_VERIFY_COMMANDS_JSON, args.remove_bp_json)
+    elif args.binary_upload_verified:
+        _verify_aidegen(_VERIFY_BINARY_JSON, args.remove_bp_json)
     else:
         test_some_sample_iml()
 
