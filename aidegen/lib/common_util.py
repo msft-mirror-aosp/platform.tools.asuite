@@ -30,13 +30,17 @@ from functools import wraps
 
 from aidegen import constant
 from aidegen.lib import errors
+from atest import atest_utils
 from atest import constants
 from atest import module_info
-from atest.atest_utils import colorize
 
-COLORED_INFO = partial(colorize, color=constants.MAGENTA, highlight=False)
-COLORED_PASS = partial(colorize, color=constants.GREEN, highlight=False)
-COLORED_FAIL = partial(colorize, color=constants.RED, highlight=False)
+
+COLORED_INFO = partial(
+    atest_utils.colorize, color=constants.MAGENTA, highlight=False)
+COLORED_PASS = partial(
+    atest_utils.colorize, color=constants.GREEN, highlight=False)
+COLORED_FAIL = partial(
+    atest_utils.colorize, color=constants.RED, highlight=False)
 FAKE_MODULE_ERROR = '{} is a fake module.'
 OUTSIDE_ROOT_ERROR = '{} is outside android root.'
 PATH_NOT_EXISTS_ERROR = 'The path {} doesn\'t exist.'
@@ -44,6 +48,8 @@ NO_MODULE_DEFINED_ERROR = 'No modules defined at {}.'
 _REBUILD_MODULE_INFO = '%s We should rebuild module-info.json file for it.'
 _ENVSETUP_NOT_RUN = ('Please run "source build/envsetup.sh" and "lunch" before '
                      'running aidegen.')
+_LOG_FORMAT = '%(asctime)s %(filename)s:%(lineno)s:%(levelname)s: %(message)s'
+_DATE_FORMAT = '%Y-%m-%d %H:%M:%S'
 
 
 def time_logged(func=None, *, message='', maximum=1):
@@ -106,8 +112,8 @@ def get_related_paths(atest_module_info, target=None):
                 rel_path = paths[0]
                 abs_path = os.path.join(get_android_root_dir(), rel_path)
         # User inputs a module path or a relative path of android root folder.
-        elif (atest_module_info.get_module_names(target) or os.path.isdir(
-                os.path.join(get_android_root_dir(), target))):
+        elif (atest_module_info.get_module_names(target)
+              or os.path.isdir(os.path.join(get_android_root_dir(), target))):
             rel_path = target.strip(os.sep)
             abs_path = os.path.join(get_android_root_dir(), rel_path)
         # User inputs a relative path of current directory.
@@ -377,8 +383,7 @@ def get_blueprint_json_path():
     Returns:
         module_bp_java_deps.json path.
     """
-    return os.path.join(get_soong_out_path(),
-                        constant.BLUEPRINT_JSONFILE_NAME)
+    return os.path.join(get_soong_out_path(), constant.BLUEPRINT_JSONFILE_NAME)
 
 
 def back_to_cwd(func):
@@ -390,6 +395,7 @@ def back_to_cwd(func):
     Returns:
         The wrapper function.
     """
+
     @wraps(func)
     def wrapper(*args, **kwargs):
         """A wrapper function."""
@@ -414,8 +420,8 @@ def get_android_out_dir():
     android_out_dir_common_base = (os.path.join(
         out_dir_common_base, os.path.basename(android_root_path))
                                    if out_dir_common_base else None)
-    return (android_out_dir or android_out_dir_common_base or
-            constant.ANDROID_DEFAULT_OUT)
+    return (android_out_dir or android_out_dir_common_base
+            or constant.ANDROID_DEFAULT_OUT)
 
 
 def get_android_root_dir():
@@ -455,3 +461,15 @@ def get_soong_out_path():
         Out directory's soong path.
     """
     return os.path.join(get_android_root_dir(), get_android_out_dir(), 'soong')
+
+
+def configure_logging(verbose):
+    """Configure the logger.
+
+    Args:
+        verbose: A boolean. If true, display DEBUG level logs.
+    """
+    log_format = _LOG_FORMAT
+    datefmt = _DATE_FORMAT
+    level = logging.DEBUG if verbose else logging.INFO
+    logging.basicConfig(level=level, format=log_format, datefmt=datefmt)
