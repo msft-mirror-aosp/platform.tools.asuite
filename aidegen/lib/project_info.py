@@ -23,6 +23,7 @@ import os
 
 from aidegen import constant
 from aidegen.lib import common_util
+from aidegen.lib import module_info
 
 _ANDROID_MK = 'Android.mk'
 _ANDROID_BP = 'Android.bp'
@@ -169,38 +170,22 @@ class ProjectInfo:
            project path.
         """
         logging.info('Find modules whose class is in %s under %s.',
-                     common_util.TARGET_CLASSES, self.project_relative_path)
+                     module_info.TARGET_CLASSES, self.project_relative_path)
         for name, data in self.modules_info.name_to_module_info.items():
             if common_util.is_project_path_relative_module(
                     data, self.project_relative_path):
-                if self._is_a_target_module(data):
+                if self.modules_info.is_target_module(data):
                     self.project_module_names.add(name)
                     if self.modules_info.is_robolectric_test(name):
                         self.project_module_names.add(_ROBOLECTRIC_MODULE)
                 else:
                     logging.debug(_NOT_TARGET, name, data['class'],
-                                  common_util.TARGET_CLASSES)
+                                  module_info.TARGET_CLASSES)
 
     def _filter_out_modules(self):
         """Filter out unnecessary modules."""
         for module in _EXCLUDE_MODULES:
             self.dep_modules.pop(module, None)
-
-    @staticmethod
-    def _is_a_target_module(data):
-        """Determine if the module is a target module.
-
-        A module's class is in {'APPS', 'JAVA_LIBRARIES', 'ROBOLECTRIC'}
-
-        Args:
-            data: the module-info dictionary of the checked module.
-
-        Returns:
-            A boolean, true if is a target module, otherwise false.
-        """
-        if not 'class' in data:
-            return False
-        return any(x in data['class'] for x in common_util.TARGET_CLASSES)
 
     def get_dep_modules(self, module_names=None, depth=0):
         """Recursively find dependent modules of the project.

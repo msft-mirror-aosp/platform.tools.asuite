@@ -41,14 +41,6 @@ FAKE_MODULE_ERROR = '{} is a fake module.'
 OUTSIDE_ROOT_ERROR = '{} is outside android root.'
 PATH_NOT_EXISTS_ERROR = 'The path {} doesn\'t exist.'
 NO_MODULE_DEFINED_ERROR = 'No modules defined at {}.'
-# Java related classes.
-JAVA_TARGET_CLASSES = ['APPS', 'JAVA_LIBRARIES', 'ROBOLECTRIC']
-# C, C++ related classes.
-NATIVE_TARGET_CLASSES = [
-    'HEADER_LIBRARIES', 'NATIVE_TESTS', 'STATIC_LIBRARIES', 'SHARED_LIBRARIES'
-]
-TARGET_CLASSES = JAVA_TARGET_CLASSES
-TARGET_CLASSES.extend(NATIVE_TARGET_CLASSES)
 _REBUILD_MODULE_INFO = '%s We should rebuild module-info.json file for it.'
 _ENVSETUP_NOT_RUN = ('Please run "source build/envsetup.sh" and "lunch" before '
                      'running aidegen.')
