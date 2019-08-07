@@ -69,13 +69,15 @@ class AidegenMainUnittests(unittest.TestCase):
         args = aidegen_main._parse_args(['-s'])
         self.assertEqual(args.skip_build, True)
 
+    @mock.patch.object(ide_util.IdeIntelliJ, '_get_preferred_version')
     @mock.patch.object(ide_util.IdeUtil, 'is_ide_installed')
-    def test_get_ide_util_instance(self, mock_installed):
+    def test_get_ide_util_instance(self, mock_installed, mock_preference):
         """Test _get_ide_util_instance with different conditions."""
         target = 'tradefed'
         args = aidegen_main._parse_args([target, '-n'])
         self.assertEqual(aidegen_main._get_ide_util_instance(args), None)
         args = aidegen_main._parse_args([target])
+        mock_preference.return_value = None
         self.assertIsInstance(
             aidegen_main._get_ide_util_instance(args), ide_util.IdeUtil)
         mock_installed.return_value = False
