@@ -66,27 +66,6 @@ class ProjectInfoUnittests(unittest.TestCase):
         proj_info = project_info.ProjectInfo(self.args.module_name, False)
         self.assertEqual(proj_info.dep_modules, _EXPECT_DEPENDENT_MODULES)
 
-    def test_is_a_target_module(self):
-        """Test _is_a_target_module with different conditions."""
-        self.assertEqual(project_info.ProjectInfo._is_a_target_module({}),
-                         False)
-        self.assertEqual(project_info.ProjectInfo._is_a_target_module(
-            {'path': ''}), False)
-        self.assertEqual(project_info.ProjectInfo._is_a_target_module(
-            {'class': ''}), False)
-        self.assertEqual(
-            project_info.ProjectInfo._is_a_target_module({
-                'class': ['APPS']
-            }), True)
-        self.assertEqual(
-            project_info.ProjectInfo._is_a_target_module({
-                'class': ['JAVA_LIBRARIES']
-            }), True)
-        self.assertEqual(
-            project_info.ProjectInfo._is_a_target_module({
-                'class': ['ROBOLECTRIC']
-            }), True)
-
     @mock.patch.object(common_util, 'get_android_root_dir')
     def test_get_target_name(self, mock_get_root):
         """Test _get_target_name with different conditions."""
