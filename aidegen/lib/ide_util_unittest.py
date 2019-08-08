@@ -32,6 +32,7 @@ from aidegen.lib import sdk_config
 
 
 # pylint: disable=protected-access
+# pylint: disable-msg=too-many-arguments
 class IdeUtilUnittests(unittest.TestCase):
     """Unit tests for ide_util.py."""
 
@@ -118,8 +119,10 @@ class IdeUtilUnittests(unittest.TestCase):
         ide_util._get_ide(None, 'j', False, is_mac=False)
         self.assertTrue(mock_linux.called)
 
-    def test_get_mac_and_linux_ide(self):
+    @mock.patch.object(ide_util.IdeIntelliJ, '_get_preferred_version')
+    def test_get_mac_and_linux_ide(self, mock_preference):
         """Test if _get_mac_ide and _get_linux_ide return correct IDE class."""
+        mock_preference.return_value = None
         self.assertIsInstance(ide_util._get_mac_ide(), ide_util.IdeMacIntelliJ)
         self.assertIsInstance(ide_util._get_mac_ide(None, 's'),
                               ide_util.IdeMacStudio)
@@ -145,13 +148,16 @@ class IdeUtilUnittests(unittest.TestCase):
         ide_util.IdeMacIntelliJ('some_path')
         self.assertTrue(mock_input.called)
 
+    @mock.patch.object(ide_util.IdeIntelliJ, '_get_preferred_version')
     @mock.patch.object(sdk_config.SDKConfig, '_android_sdk_exists')
     @mock.patch.object(sdk_config.SDKConfig, '_target_jdk_exists')
     @mock.patch.object(ide_util.IdeIntelliJ, '_get_config_root_paths')
     @mock.patch.object(ide_util.IdeBase, 'apply_optional_config')
-    def test_config_ide(self, mock_config, mock_paths, mock_jdk, mock_sdk):
+    def test_config_ide(self, mock_config, mock_paths, mock_jdk, mock_sdk,
+                        mock_preference):
         """Test IDEA, IdeUtil.config_ide won't call base none implement api."""
         # Mock SDkConfig flow to not to generate real jdk config file.
+        mock_preference.return_value = None
         mock_jdk.return_value = True
         mock_sdk.return_value = True
         test_path = os.path.join(tempfile.mkdtemp())
@@ -173,9 +179,9 @@ class IdeUtilUnittests(unittest.TestCase):
         """Test to get unique config path for linux IDEA case."""
         if (not android_dev_os.AndroidDevOS.MAC ==
                 android_dev_os.AndroidDevOS.get_os_type()):
-            mock_path.return_value = '/opt/intelliJ-ce-2018.3/bin/idea.sh'
-            mock_path_2.return_value = '/opt/intelliJ-ce-2018.3/bin/idea.sh'
-            ide_obj = ide_util.IdeLinuxIntelliJ()
+            mock_path.return_value = '/opt/intellij-ce-2018.3/bin/idea.sh'
+            mock_path_2.return_value = '/opt/intellij-ce-2018.3/bin/idea.sh'
+            ide_obj = ide_util.IdeLinuxIntelliJ('default_path')
             self.assertEqual(1, len(ide_obj._get_config_root_paths()))
         else:
             self.assertTrue((android_dev_os.AndroidDevOS.MAC ==
@@ -244,7 +250,7 @@ class IdeUtilUnittests(unittest.TestCase):
         original_path = 'intellij-ce-2019.1/bin/idea.sh'
         mock_isfile.return_value = True
         mock_realpath.return_value = original_path
-        ide_obj = ide_util.IdeLinuxIntelliJ()
+        ide_obj = ide_util.IdeLinuxIntelliJ('default_path')
         merged_version = ide_obj._merge_symbolic_version(
             [symbolic_path, original_path])
         self.assertEqual(
