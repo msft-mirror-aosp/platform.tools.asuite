@@ -287,9 +287,11 @@ def is_project_path_relative_module(data, project_relative_path):
     """Determine if the given project path is relative to the module.
 
     The rules:
-       1. If project_relative_path is empty, it's under Android root, return
+       1. If constant.KEY_PATH not in data, we can't tell if it's a module
+          return False.
+       2. If project_relative_path is empty, it's under Android root, return
           True.
-       2. If module's path equals or starts with project_relative_path return
+       3. If module's path equals or starts with project_relative_path return
           True, otherwise return False.
 
     Args:
@@ -300,12 +302,12 @@ def is_project_path_relative_module(data, project_relative_path):
         True if it's the given project path is relative to the module, otherwise
         False.
     """
-    if 'path' not in data:
+    if constant.KEY_PATH not in data:
         return False
-    path = data['path'][0]
+    path = data[constant.KEY_PATH][0]
     if project_relative_path == '':
         return True
-    if ('class' in data
+    if (constant.KEY_CLASS in data
             and (path == project_relative_path
                  or path.startswith(project_relative_path + os.sep))):
         return True
@@ -415,7 +417,7 @@ def get_android_out_dir():
         Android out directory path.
     """
     android_root_path = get_android_root_dir()
-    android_out_dir = os.environ.get(constants.ANDROID_OUT_DIR)
+    android_out_dir = os.getenv(constants.ANDROID_OUT_DIR)
     out_dir_common_base = os.getenv(constant.OUT_DIR_COMMON_BASE_ENV_VAR)
     android_out_dir_common_base = (os.path.join(
         out_dir_common_base, os.path.basename(android_root_path))
