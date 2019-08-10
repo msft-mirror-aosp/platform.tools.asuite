@@ -35,28 +35,28 @@ except ImportError:
 class AidegenMetricsUnittests(unittest.TestCase):
     """Unit tests for aidegen_metrics.py."""
 
-    @mock.patch.object(metrics, 'AtestStartEvent')
-    @mock.patch.object(metrics_utils, 'get_start_time')
     @mock.patch.object(atest_utils, 'print_data_collection_notice')
-    def test_starts_asuite_metrics(self, mock_print_data, mock_get_start_time,
-                                   mock_start_event):
+    def test_starts_asuite_metrics(self, mock_print_data):
         """Test starts_asuite_metrics."""
         references = ['nothing']
-        aidegen_metrics.starts_asuite_metrics(references)
         if not metrics:
+            aidegen_metrics.starts_asuite_metrics(references)
             self.assertFalse(mock_print_data.called)
         else:
-            self.assertTrue(mock_print_data.called)
-            self.assertTrue(mock_get_start_time.called)
-            self.assertTrue(mock_start_event.called)
+            with mock.patch.object(metrics_utils, 'get_start_time') as mk_get:
+                with mock.patch.object(metrics, 'AtestStartEvent') as mk_start:
+                    aidegen_metrics.starts_asuite_metrics(references)
+                    self.assertTrue(mock_print_data.called)
+                    self.assertTrue(mk_get.called)
+                    self.assertTrue(mk_start.called)
 
-    @mock.patch.object(metrics_utils, 'send_exit_event')
-    def test_ends_asuite_metrics(self, mock_send_exit_event):
+    def test_ends_asuite_metrics(self):
         """Test ends_asuite_metrics."""
         exit_code = constant.EXIT_CODE_NORMAL
-        aidegen_metrics.ends_asuite_metrics(exit_code)
         if metrics_utils:
-            self.assertTrue(mock_send_exit_event.called)
+            with mock.patch.object(metrics_utils, 'send_exit_event') as mk_send:
+                aidegen_metrics.ends_asuite_metrics(exit_code)
+                self.assertTrue(mk_send.called)
 
 
 if __name__ == '__main__':
