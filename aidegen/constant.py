@@ -34,6 +34,14 @@ KEY_COMPATIBILITY = 'compatibility_suites'
 KEY_AUTO_TEST_CONFIG = 'auto_test_config'
 KEY_MODULE_NAME = 'module_name'
 KEY_TEST_CONFIG = 'test_config'
+# Java related classes.
+JAVA_TARGET_CLASSES = ['APPS', 'JAVA_LIBRARIES', 'ROBOLECTRIC']
+# C, C++ related classes.
+NATIVE_TARGET_CLASSES = [
+    'HEADER_LIBRARIES', 'NATIVE_TESTS', 'STATIC_LIBRARIES', 'SHARED_LIBRARIES'
+]
+TARGET_CLASSES = JAVA_TARGET_CLASSES
+TARGET_CLASSES.extend(NATIVE_TARGET_CLASSES)
 
 # Constants for IDE util.
 IDE_ECLIPSE = 'Eclipse'
