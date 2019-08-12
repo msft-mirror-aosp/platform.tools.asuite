@@ -25,6 +25,7 @@ function print_summary() {
         echo -e "${GREEN}All unittests pass${NC}!"
     else
         echo -e "${RED}Unittest failure found${NC}!"
+        exit 1
     fi
 }
 
