@@ -56,7 +56,7 @@ class ProjectInfo:
         project_absolute_path: The absolute path of the project.
         project_relative_path: The relative path of the project to
                                common_util.get_android_root_dir().
-        project_module_names: A list of module names under project_absolute_path
+        project_module_names: A set of module names under project_absolute_path
                               directory or it's subdirectories.
         dep_modules: A dict has recursively dependent modules of
                      project_module_names.
@@ -165,22 +165,44 @@ class ProjectInfo:
                 if os.path.isfile(mod_mk) and not os.path.isfile(mod_bp):
                     yield '\t' + os.path.join(rel_path, _ANDROID_MK)
 
-    def set_modules_under_project_path(self):
-        """Find modules whose class is qualified to be included under the
-           project path.
+    def _get_modules_under_project_path(self, rel_path):
+        """Find modules under the rel_path.
+
+        Find modules whose class is qualified to be included as a target module.
+
+        Args:
+            rel_path: A string, the project's relative path.
+
+        Returns:
+            A set of module names.
         """
         logging.info('Find modules whose class is in %s under %s.',
-                     module_info.TARGET_CLASSES, self.project_relative_path)
+                     constant.TARGET_CLASSES, rel_path)
+        modules = set()
         for name, data in self.modules_info.name_to_module_info.items():
-            if common_util.is_project_path_relative_module(
-                    data, self.project_relative_path):
-                if self.modules_info.is_target_module(data):
-                    self.project_module_names.add(name)
-                    if self.modules_info.is_robolectric_test(name):
-                        self.project_module_names.add(_ROBOLECTRIC_MODULE)
+            if common_util.is_project_path_relative_module(data, rel_path):
+                if module_info.AidegenModuleInfo.is_target_module(data):
+                    modules.add(name)
                 else:
                     logging.debug(_NOT_TARGET, name, data['class'],
-                                  module_info.TARGET_CLASSES)
+                                  constant.TARGET_CLASSES)
+        return modules
+
+    def _get_robolectric_dep_module(self, modules):
+        """Return the robolectric module set as dependency if any module is a
+           robolectric test.
+
+        Args:
+            modules: A set of modules.
+
+        Returns:
+            A set with a robolectric_all module name if one of the modules
+            needs the robolectric test module. Otherwise return empty list.
+        """
+        for module in modules:
+            if self.modules_info.is_robolectric_test(module):
+                return set([_ROBOLECTRIC_MODULE])
+        return set()
 
     def _filter_out_modules(self):
         """Filter out unnecessary modules."""
@@ -212,7 +234,7 @@ class ProjectInfo:
                 2. m3 is in the result as it has the same path to m1.
 
         Args:
-            module_names: A list of module names.
+            module_names: A set of module names.
             depth: An integer shows the depth of module dependency referenced by
                    source. Zero means the max module depth.
 
@@ -222,8 +244,10 @@ class ProjectInfo:
         dep = {}
         children = set()
         if not module_names:
-            self.set_modules_under_project_path()
             module_names = self.project_module_names
+            module_names.update(self._get_modules_under_project_path(
+                self.project_relative_path))
+            module_names.update(self._get_robolectric_dep_module(module_names))
             self.project_module_names = set()
         for name in module_names:
             if (name in self.modules_info.name_to_module_info
