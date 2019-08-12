@@ -26,15 +26,6 @@ from aidegen.lib import module_info_util
 from atest import constants
 from atest import module_info
 
-# Java related classes.
-JAVA_TARGET_CLASSES = ['APPS', 'JAVA_LIBRARIES', 'ROBOLECTRIC']
-# C, C++ related classes.
-NATIVE_TARGET_CLASSES = [
-    'HEADER_LIBRARIES', 'NATIVE_TESTS', 'STATIC_LIBRARIES', 'SHARED_LIBRARIES'
-]
-TARGET_CLASSES = JAVA_TARGET_CLASSES
-TARGET_CLASSES.extend(NATIVE_TARGET_CLASSES)
-
 
 class AidegenModuleInfo(module_info.ModuleInfo):
     """Class that offers fast/easy lookup for Module related details.
@@ -140,5 +131,5 @@ class AidegenModuleInfo(module_info.ModuleInfo):
         if mod_info:
             return any(
                 x in mod_info.get(constants.MODULE_CLASS, [])
-                for x in TARGET_CLASSES)
+                for x in constant.TARGET_CLASSES)
         return False
