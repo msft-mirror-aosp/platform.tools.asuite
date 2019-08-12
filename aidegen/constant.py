@@ -60,6 +60,9 @@ ANDROID_TREE = 'is_android_tree'
 MERGED_MODULE_INFO = 'merged_module_info.json'
 BLUEPRINT_JSONFILE_NAME = 'module_bp_java_deps.json'
 
+# Constants for whole Android tree
+WHOLE_ANDROID_TREE_TARGET = '#WHOLE_ANDROID_TREE#'
+
 # Content of iml file.
 FILE_IML = '''<?xml version="1.0" encoding="UTF-8"?>
 <module type="JAVA_MODULE" version="4">
