@@ -41,7 +41,7 @@ _CONTENT_URL = '        <content url="file://%s">\n'
 _END_CONTENT = '        </content>\n'
 _SRCJAR_URL = ('%s<content url="jar://{SRCJAR}">\n'
                '%s<sourceFolder url="jar://{SRCJAR}" isTestSource="False" />\n'
-               '%s</content>\n') % (' ' * 8, ' ' * 12, ' ' * 8)
+               '%s</content>') % (' ' * 8, ' ' * 12, ' ' * 8)
 _ORDER_ENTRY = ('        <orderEntry type="module-library" exported="">'
                 '<library><CLASSES><root url="jar://%s!/" /></CLASSES>'
                 '<JAVADOC /><SOURCES /></library></orderEntry>\n')
@@ -91,7 +91,7 @@ _CODE_STYLE_SRC_PATH = os.path.join(common_util.get_android_root_dir(),
                                     _CODE_STYLE_REL_PATH)
 
 
-class ProjectFileGenerator():
+class ProjectFileGenerator:
     """Project file generator.
 
     Class attributes:
@@ -188,15 +188,14 @@ class ProjectFileGenerator():
             iml_path_list: An optional list of submodule's iml paths, the
                            default value is None.
         """
-        is_main_module = iml_path_list is not None
         source_dict = self._generate_source_section('source_folder_path', False)
         source_dict.update(
             self._generate_source_section('test_folder_path', True))
-        self.project_info.iml_path, _ = self._generate_iml(source_dict,
-                                                           is_main_module)
-        self._generate_modules_xml(iml_path_list)
-        self.project_info.git_path = self._generate_vcs_xml()
-        self._copy_constant_project_files()
+        self.project_info.iml_path, _ = self._generate_iml(source_dict)
+        self.project_info.git_path = self._get_project_git_path()
+        if self.project_info.is_main_project:
+            self._generate_modules_xml(iml_path_list)
+            self._copy_constant_project_files()
 
     @classmethod
     def generate_ide_project_files(cls, projects):
@@ -418,10 +417,12 @@ class ProjectFileGenerator():
             for srcjar_dir in srcjar_paths:
                 srcjar_urls.append(_SRCJAR_URL.format(SRCJAR=os.path.join(
                     common_util.get_android_root_dir(), srcjar_dir)))
-        return content.replace(_SRCJAR_TOKEN, ''.join(srcjar_urls))
+        if srcjar_urls:
+            return content.replace(_SRCJAR_TOKEN, '\n'.join(srcjar_urls))
+        return content.replace(_SRCJAR_TOKEN + '\n', '')
 
     # pylint: disable=too-many-locals
-    def _generate_iml(self, source_dict, is_main_module=False):
+    def _generate_iml(self, source_dict):
         """Generate iml file.
 
         Args:
@@ -429,8 +430,6 @@ class ProjectFileGenerator():
                          the path is test or source folder in IntelliJ.
                          e.g.
                          {'path_a': True, 'path_b': False}
-            is_main_module: A boolean with default False, True if the current
-                            project is the main module.
 
         Returns:
             String: The absolute paths of module iml and dependencies iml.
@@ -462,7 +461,7 @@ class ProjectFileGenerator():
 
         # Only generate the dependencies.iml in the main module's folder.
         dependencies_iml_path = None
-        if is_main_module:
+        if self.project_info.is_main_project:
             dependencies_content = constant.FILE_IML.replace(_FACET_TOKEN, '')
             dependencies_content = self._handle_source_folder(
                 dependencies_content, source_dict, False)
@@ -511,18 +510,18 @@ class ProjectFileGenerator():
             module_list = [
                 _MODULE_SECTION % (module_name, module_name)
             ]
+            # Sub projects don't need to be filled in the enable debugger module
+            # so we remove the token here. For the main project, the enable
+            # debugger module will be appended if it exists at the time
+            # launching IDE.
+            content = content.replace(_ENABLE_DEBUGGER_MODULE_TOKEN, '')
         module = '\n'.join(module_list)
         content = content.replace(_MODULE_TOKEN, module)
         target_path = os.path.join(module_path, _IDEA_FOLDER, _MODULES_XML)
         common_util.file_generate(target_path, content)
 
-    def _generate_vcs_xml(self):
-        """Generate vcs.xml file.
-
-        IntelliJ use vcs.xml to record version control software's information.
-        Since we are using a single project file, it will only contain the
-        module itself. If there is no git folder inside, it would find it in
-        parent's folder.
+    def _get_project_git_path(self):
+        """Get the project's git path.
 
         Return:
             String: A module's git path.
@@ -540,7 +539,6 @@ class ProjectFileGenerator():
             if git_path == os.sep:
                 logging.warning('%s can\'t find its .git folder', module_path)
                 return None
-        _write_vcs_xml(module_path, [git_path])
         return git_path
 
 

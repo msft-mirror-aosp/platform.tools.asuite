@@ -23,10 +23,11 @@ import os
 from aidegen import constant
 from aidegen.lib import common_util
 from aidegen.lib import module_info_util
-from atest.module_info import ModuleInfo
+from atest import constants
+from atest import module_info
 
 
-class AidegenModuleInfo(ModuleInfo):
+class AidegenModuleInfo(module_info.ModuleInfo):
     """Class that offers fast/easy lookup for Module related details.
 
     Class attributes:
@@ -114,3 +115,21 @@ class AidegenModuleInfo(ModuleInfo):
         module_file_rel_path = os.path.relpath(
             merged_file_path, common_util.get_android_root_dir())
         return module_file_rel_path, merged_file_path
+
+    @staticmethod
+    def is_target_module(mod_info):
+        """Determine if the module is a target module.
+
+        Determine if a module's class is in TARGET_CLASSES.
+
+        Args:
+            mod_info: A module's module-info dictionary to be checked.
+
+        Returns:
+            A boolean, true if it is a target module, otherwise false.
+        """
+        if mod_info:
+            return any(
+                x in mod_info.get(constants.MODULE_CLASS, [])
+                for x in constant.TARGET_CLASSES)
+        return False

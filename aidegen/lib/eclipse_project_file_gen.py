@@ -20,10 +20,10 @@ import os
 
 from aidegen import constant
 from aidegen.lib import common_util
-from aidegen.lib.project_file_gen import ProjectFileGenerator
+from aidegen.lib import project_file_gen
 
 
-class EclipseConf(ProjectFileGenerator):
+class EclipseConf(project_file_gen.ProjectFileGenerator):
     """Class to generate project file under the module path for Eclipse.
 
     Attributes:

@@ -29,12 +29,14 @@ import glob
 import json
 import logging
 import os
-import subprocess
 import sys
 
 from aidegen import constant
 from aidegen.lib import common_util
 from aidegen.lib import errors
+
+from atest import atest_utils
+from atest import constants
 
 _BLUEPRINT_JSONFILE_NAME = 'module_bp_java_deps.json'
 _MERGE_NEEDED_ITEMS = [
@@ -44,14 +46,20 @@ _MERGE_NEEDED_ITEMS = [
     constant.KEY_DEPENDENCIES,
     constant.KEY_SRCS,
     constant.KEY_SRCJARS,
-    constant.KEY_CLASSES_JAR
+    constant.KEY_CLASSES_JAR,
+    constant.KEY_TAG,
+    constant.KEY_COMPATIBILITY,
+    constant.KEY_AUTO_TEST_CONFIG,
+    constant.KEY_MODULE_NAME,
+    constant.KEY_TEST_CONFIG
 ]
 _INTELLIJ_PROJECT_FILE_EXT = '*.iml'
 _LAUNCH_PROJECT_QUERY = (
     'There exists an IntelliJ project file: %s. Do you want '
     'to launch it (yes/No)?')
-_GENERATE_JSON_COMMAND = ('SOONG_COLLECT_JAVA_DEPS=false make nothing -C {DIR};'
-                          'SOONG_COLLECT_JAVA_DEPS=true make nothing -C {DIR}')
+
+_BUILD_BP_JSON_ENV_OFF = {'SOONG_COLLECT_JAVA_DEPS': 'false'}
+_BUILD_BP_JSON_ENV_ON = constants.ATEST_BUILD_ENV
 
 
 @common_util.time_logged
@@ -79,32 +87,29 @@ def generate_merged_module_info(module_info, projects=None, verbose=False,
     Returns:
         A merged dictionary from module-info.json and module_bp_java_deps.json.
     """
-    main_project = projects[0] if projects else None
-    cmd = [_GENERATE_JSON_COMMAND.format(
-        DIR=common_util.get_android_root_dir())]
-    _build_target(module_info, cmd, main_project, verbose, skip_build)
+    json_path = common_util.get_blueprint_json_path()
+    if not os.path.isfile(json_path):
+        main_project = projects[0] if projects else None
+        _build_bp_info(module_info, main_project, verbose, skip_build)
     bp_dict = _get_soong_build_json_dict()
     return _merge_dict(module_info.name_to_module_info, bp_dict)
 
 
-def _build_target(module_info, cmd, main_project=None, verbose=False,
-                  skip_build=False):
+def _build_bp_info(module_info, main_project=None, verbose=False,
+                   skip_build=False):
     """Make nothing to generate module_bp_java_deps.json.
 
-    We build without environment setting SOONG_COLLECT_JAVA_DEPS and then build
-    with environment setting SOONG_COLLECT_JAVA_DEPS. In this way we can trigger
-    the process of collecting dependencies and generating
-    module_bp_java_deps.json.
+    Using atest build method with set env config SOONG_COLLECT_JAVA_DEPS=true to
+    build the target nothing. By this way to trigger the process of collecting
+    dependencies and generating module_bp_java_deps.json.
 
     Args:
         module_info: A ModuleInfo instance contains data of module-info.json.
-        cmd: A string list, build command.
         main_project: The main project name.
         verbose: A boolean, if true displays full build output.
         skip_build: A boolean, if true, skip building if
                     get_blueprint_json_path() file exists, otherwise
                     build it.
-
     Build results:
         1. Build successfully return.
         2. Build failed:
@@ -122,15 +127,18 @@ def _build_target(module_info, cmd, main_project=None, verbose=False,
                          common_util.get_blueprint_json_path())
             return
         original_json_mtime = os.path.getmtime(json_path)
-    try:
-        if verbose:
-            full_env_vars = os.environ.copy()
-            subprocess.check_call(
-                cmd, stderr=subprocess.STDOUT, env=full_env_vars, shell=True)
-        else:
-            subprocess.check_call(cmd, shell=True)
-        logging.info('Build successfully: %s.', cmd)
-    except subprocess.CalledProcessError:
+
+    logging.warning('\nUse atest build method to generate blueprint json.')
+    # Force build system to always generate the blueprint json file by setting
+    # SOONG_COLLECT_JAVA_DEPS to false, then true.
+    build_with_off_cmd = atest_utils.build(['nothing'], verbose,
+                                           _BUILD_BP_JSON_ENV_OFF)
+    build_with_on_cmd = atest_utils.build(['nothing'], verbose,
+                                          _BUILD_BP_JSON_ENV_ON)
+
+    if build_with_off_cmd and build_with_on_cmd:
+        logging.info('\nGenerate blueprint json successfully.')
+    else:
         if not _is_new_json_file_generated(json_path, original_json_mtime):
             if os.path.isfile(json_path):
                 message = ('Generate new {0} failed, AIDEGen will proceed and '
@@ -175,7 +183,7 @@ def _build_failed_handle(main_project_path):
     project_file = glob.glob(
         os.path.join(main_project_path, _INTELLIJ_PROJECT_FILE_EXT))
     if project_file:
-        query = (_LAUNCH_PROJECT_QUERY) % project_file[0]
+        query = _LAUNCH_PROJECT_QUERY % project_file[0]
         input_data = input(query)
         if not input_data.lower() in ['yes', 'y']:
             sys.exit(1)
@@ -246,7 +254,7 @@ def _merge_dict(mk_dict, bp_dict):
     """
     merged_dict = _copy_needed_items_from(mk_dict)
     for module in bp_dict.keys():
-        if not module in merged_dict.keys():
+        if module not in merged_dict.keys():
             merged_dict[module] = dict()
         _merge_module_keys(merged_dict[module], bp_dict[module])
     return merged_dict

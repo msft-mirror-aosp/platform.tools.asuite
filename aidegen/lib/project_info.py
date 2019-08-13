@@ -23,8 +23,7 @@ import os
 
 from aidegen import constant
 from aidegen.lib import common_util
-from aidegen.lib.common_util import COLORED_INFO
-from aidegen.lib.common_util import get_related_paths
+from aidegen.lib import module_info
 
 _ANDROID_MK = 'Android.mk'
 _ANDROID_BP = 'Android.bp'
@@ -57,7 +56,7 @@ class ProjectInfo:
         project_absolute_path: The absolute path of the project.
         project_relative_path: The relative path of the project to
                                common_util.get_android_root_dir().
-        project_module_names: A list of module names under project_absolute_path
+        project_module_names: A set of module names under project_absolute_path
                               directory or it's subdirectories.
         dep_modules: A dict has recursively dependent modules of
                      project_module_names.
@@ -79,21 +78,26 @@ class ProjectInfo:
                                   e.g. out/.../aapt2.srcjar!/
                                   The "!/" is a content descriptor for
                                   compressed files in IntelliJ.
+        is_main_project: A boolean to verify the project is main project.
     """
 
     modules_info = None
     config = None
 
-    def __init__(self, target=None):
+    def __init__(self, target=None, is_main_project=False):
         """ProjectInfo initialize.
 
         Args:
             target: Includes target module or project path from user input, when
                     locating the target, project with matching module name of
                     the given target has a higher priority than project path.
+            is_main_project: A boolean, default is False. True if the target is
+                             the main project, otherwise False.
         """
-        rel_path, abs_path = get_related_paths(self.modules_info, target)
+        rel_path, abs_path = common_util.get_related_paths(self.modules_info,
+                                                           target)
         self.module_name = self._get_target_name(target, abs_path)
+        self.is_main_project = is_main_project
         self.project_module_names = set(
             self.modules_info.get_module_names(rel_path))
         self.project_relative_path = rel_path
@@ -136,7 +140,7 @@ class ProjectInfo:
         mk_set = set(self._search_android_make_files())
         if mk_set:
             print('\n{} {}\n'.format(
-                COLORED_INFO('Warning:'),
+                common_util.COLORED_INFO('Warning:'),
                 _ANDROID_MK_WARN.format(self.module_name, '\n'.join(mk_set))))
 
     def _search_android_make_files(self):
@@ -153,50 +157,57 @@ class ProjectInfo:
         if os.path.isfile(android_mk) and not os.path.isfile(android_bp):
             yield '\t' + os.path.join(self.project_relative_path, _ANDROID_MK)
         for mod_name in self.dep_modules:
-            rel_path, abs_path = get_related_paths(self.modules_info, mod_name)
+            rel_path, abs_path = common_util.get_related_paths(
+                self.modules_info, mod_name)
             if rel_path and abs_path:
                 mod_mk = os.path.join(abs_path, _ANDROID_MK)
                 mod_bp = os.path.join(abs_path, _ANDROID_BP)
                 if os.path.isfile(mod_mk) and not os.path.isfile(mod_bp):
                     yield '\t' + os.path.join(rel_path, _ANDROID_MK)
 
-    def set_modules_under_project_path(self):
-        """Find modules whose class is qualified to be included under the
-           project path.
+    def _get_modules_under_project_path(self, rel_path):
+        """Find modules under the rel_path.
+
+        Find modules whose class is qualified to be included as a target module.
+
+        Args:
+            rel_path: A string, the project's relative path.
+
+        Returns:
+            A set of module names.
         """
         logging.info('Find modules whose class is in %s under %s.',
-                     common_util.TARGET_CLASSES, self.project_relative_path)
+                     constant.TARGET_CLASSES, rel_path)
+        modules = set()
         for name, data in self.modules_info.name_to_module_info.items():
-            if common_util.is_project_path_relative_module(
-                    data, self.project_relative_path):
-                if self._is_a_target_module(data):
-                    self.project_module_names.add(name)
-                    if self.modules_info.is_robolectric_test(name):
-                        self.project_module_names.add(_ROBOLECTRIC_MODULE)
+            if common_util.is_project_path_relative_module(data, rel_path):
+                if module_info.AidegenModuleInfo.is_target_module(data):
+                    modules.add(name)
                 else:
                     logging.debug(_NOT_TARGET, name, data['class'],
-                                  common_util.TARGET_CLASSES)
+                                  constant.TARGET_CLASSES)
+        return modules
+
+    def _get_robolectric_dep_module(self, modules):
+        """Return the robolectric module set as dependency if any module is a
+           robolectric test.
+
+        Args:
+            modules: A set of modules.
+
+        Returns:
+            A set with a robolectric_all module name if one of the modules
+            needs the robolectric test module. Otherwise return empty list.
+        """
+        for module in modules:
+            if self.modules_info.is_robolectric_test(module):
+                return set([_ROBOLECTRIC_MODULE])
+        return set()
 
     def _filter_out_modules(self):
         """Filter out unnecessary modules."""
         for module in _EXCLUDE_MODULES:
             self.dep_modules.pop(module, None)
-
-    @staticmethod
-    def _is_a_target_module(data):
-        """Determine if the module is a target module.
-
-        A module's class is in {'APPS', 'JAVA_LIBRARIES', 'ROBOLECTRIC'}
-
-        Args:
-            data: the module-info dictionary of the checked module.
-
-        Returns:
-            A boolean, true if is a target module, otherwise false.
-        """
-        if not 'class' in data:
-            return False
-        return any(x in data['class'] for x in common_util.TARGET_CLASSES)
 
     def get_dep_modules(self, module_names=None, depth=0):
         """Recursively find dependent modules of the project.
@@ -223,7 +234,7 @@ class ProjectInfo:
                 2. m3 is in the result as it has the same path to m1.
 
         Args:
-            module_names: A list of module names.
+            module_names: A set of module names.
             depth: An integer shows the depth of module dependency referenced by
                    source. Zero means the max module depth.
 
@@ -233,8 +244,10 @@ class ProjectInfo:
         dep = {}
         children = set()
         if not module_names:
-            self.set_modules_under_project_path()
             module_names = self.project_module_names
+            module_names.update(self._get_modules_under_project_path(
+                self.project_relative_path))
+            module_names.update(self._get_robolectric_dep_module(module_names))
             self.project_module_names = set()
         for name in module_names:
             if (name in self.modules_info.name_to_module_info
@@ -261,7 +274,7 @@ class ProjectInfo:
         Returns:
             List: A list of ProjectInfo instances.
         """
-        return [ProjectInfo(target) for target in targets]
+        return [ProjectInfo(target, i == 0) for i, target in enumerate(targets)]
 
     @staticmethod
     def _get_target_name(target, abs_path):
