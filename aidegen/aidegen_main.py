@@ -46,23 +46,17 @@ import sys
 import traceback
 
 from aidegen import constant
-from aidegen.lib.android_dev_os import AndroidDevOS
+from aidegen.lib import aidegen_metrics
+from aidegen.lib import android_dev_os
 from aidegen.lib import common_util
-from aidegen.lib.common_util import COLORED_INFO
-from aidegen.lib.common_util import COLORED_PASS
-from aidegen.lib.common_util import is_android_root
-from aidegen.lib.common_util import time_logged
-from aidegen.lib.errors import AIDEgenError
-from aidegen.lib.errors import IDENotExistError
-from aidegen.lib.ide_util import IdeUtil
-from aidegen.lib.metrics import log_usage
-from aidegen.lib.metrics import starts_asuite_metrics
-from aidegen.lib.metrics import ends_asuite_metrics
-from aidegen.lib.module_info_util import generate_module_info_json
-from aidegen.lib.project_file_gen import generate_eclipse_project_files
-from aidegen.lib.project_file_gen import generate_ide_project_files
-from aidegen.lib.project_info import ProjectInfo
-from aidegen.lib.source_locator import multi_projects_locate_source
+from aidegen.lib import eclipse_project_file_gen
+from aidegen.lib import errors
+from aidegen.lib import ide_util
+from aidegen.lib import module_info
+from aidegen.lib import project_config
+from aidegen.lib import project_file_gen
+from aidegen.lib import project_info
+from aidegen.lib import source_locator
 
 AIDEGEN_REPORT_LINK = ('To report the AIDEGen tool problem, please use this '
                        'link: https://goto.google.com/aidegen-bug')
@@ -73,7 +67,7 @@ or  - specify the exact IDE executable path by "aidegen -p"
 or  - specify "aidegen -n" to generate project file only
 """
 
-_CONGRATULATION = COLORED_PASS('CONGRATULATION:')
+_CONGRATULATION = common_util.COLORED_PASS('CONGRATULATION:')
 _LAUNCH_SUCCESS_MSG = (
     'IDE launched successfully. Please check your IDE window.')
 _IDE_CACHE_REMINDER_MSG = (
@@ -81,21 +75,15 @@ _IDE_CACHE_REMINDER_MSG = (
     'analysis, please consider to clear IDE caches if necessary. To do that, in'
     ' IntelliJ IDEA, go to [File > Invalidate Caches / Restart...].')
 
-_SKIP_BUILD_INFO = ('If you are sure the related modules and dependencies have '
-                    'been already built, please try to use command {} to skip '
-                    'the building process.')
 _MAX_TIME = 1
 _SKIP_BUILD_INFO_FUTURE = ''.join([
     'AIDEGen build time exceeds {} minute(s).\n'.format(_MAX_TIME),
-    _SKIP_BUILD_INFO.rstrip('.'), ' in the future.'
+    project_config.SKIP_BUILD_INFO.rstrip('.'), ' in the future.'
 ])
-_SKIP_BUILD_CMD = 'aidegen {} -s'
-_INFO = COLORED_INFO('INFO:')
+_INFO = common_util.COLORED_INFO('INFO:')
 _SKIP_MSG = _SKIP_BUILD_INFO_FUTURE.format(
-    COLORED_INFO('aidegen [ module(s) ] -s'))
+    common_util.COLORED_INFO('aidegen [ module(s) ] -s'))
 _TIME_EXCEED_MSG = '\n{} {}\n'.format(_INFO, _SKIP_MSG)
-_LOG_FORMAT = '%(asctime)s %(filename)s:%(lineno)s:%(levelname)s: %(message)s'
-_DATE_FORMAT = '%Y-%m-%d %H:%M:%S'
 
 
 def _parse_args(args):
@@ -155,7 +143,7 @@ def _parse_args(args):
         '--skip-build',
         dest='skip_build',
         action='store_true',
-        help=('Skip building jar or modules that create java files in build '
+        help=('Skip building jars or modules that create java files in build '
               'time, e.g. R/AIDL/Logtags.'))
     parser.add_argument(
         '-a',
@@ -166,18 +154,6 @@ def _parse_args(args):
     return parser.parse_args(args)
 
 
-def _configure_logging(verbose):
-    """Configure the logger.
-
-    Args:
-        verbose: A boolean. If true, display DEBUG level logs.
-    """
-    log_format = _LOG_FORMAT
-    datefmt = _DATE_FORMAT
-    level = logging.DEBUG if verbose else logging.INFO
-    logging.basicConfig(level=level, format=log_format, datefmt=datefmt)
-
-
 def _get_ide_util_instance(args):
     """Get an IdeUtil class instance for launching IDE.
 
@@ -185,44 +161,34 @@ def _get_ide_util_instance(args):
         args: A list of arguments.
 
     Returns:
-        A IdeUtil class instance.
+        An IdeUtil class instance.
     """
     if args.no_launch:
         return None
-    ide_util_obj = IdeUtil(args.ide_installed_path, args.ide[0],
-                           args.config_reset,
-                           AndroidDevOS.MAC == AndroidDevOS.get_os_type())
+    ide_util_obj = ide_util.IdeUtil(
+        args.ide_installed_path, args.ide[0], args.config_reset,
+        (android_dev_os.AndroidDevOS.MAC ==
+         android_dev_os.AndroidDevOS.get_os_type()))
     if not ide_util_obj.is_ide_installed():
         ipath = args.ide_installed_path or ide_util_obj.get_default_path()
         err = _NO_LAUNCH_IDE_CMD.format(ipath)
         logging.error(err)
-        raise IDENotExistError(err)
+        raise errors.IDENotExistError(err)
     return ide_util_obj
 
 
-def _check_skip_build(args):
-    """Check if users skip building target, display the warning message.
-
-    Args:
-        args: A list of arguments.
-    """
-    if not args.skip_build:
-        msg = _SKIP_BUILD_INFO.format(
-            COLORED_INFO(_SKIP_BUILD_CMD.format(' '.join(args.targets))))
-        print('\n{} {}\n'.format(_INFO, msg))
-
-
-def _generate_project_files(ide, projects):
+def _generate_project_files(projects):
     """Generate project files by IDE type.
 
     Args:
-        ide: IDE type.
         projects: A list of ProjectInfo instances.
     """
-    if ide == 'e':
-        generate_eclipse_project_files(projects)
+    if project_info.ProjectInfo.config.ide_name == constant.IDE_ECLIPSE:
+        eclipse_project_file_gen.EclipseConf.generate_ide_project_files(
+            projects)
     else:
-        generate_ide_project_files(projects)
+        project_file_gen.ProjectFileGenerator.generate_ide_project_files(
+            projects)
 
 
 def _compile_targets_for_whole_android_tree(atest_module_info, targets, cwd):
@@ -237,23 +203,24 @@ def _compile_targets_for_whole_android_tree(atest_module_info, targets, cwd):
        the first one.
 
     Args:
-        atest_module_info: A instance of atest module-info object.
-        targets: A list of targets to be built.
-        cwd: A path of current working directory.
+        atest_module_info: An instance of atest module-info object.
+        targets: A list of targets to be imported.
+        cwd: A string of path to current working directory.
 
     Returns:
         A list of targets after adjustment.
     """
     new_targets = []
-    if is_android_root(cwd):
+    if common_util.is_android_root(cwd):
         new_targets = list(targets)
     else:
         for target in targets:
             _, abs_path = common_util.get_related_paths(atest_module_info,
                                                         target)
-            rel_path = os.path.relpath(abs_path, constant.ANDROID_ROOT_PATH)
+            rel_path = os.path.relpath(abs_path,
+                                       common_util.get_android_root_dir())
             new_targets.append(rel_path)
-        os.chdir(constant.ANDROID_ROOT_PATH)
+        os.chdir(common_util.get_android_root_dir())
 
     if new_targets[0] != '':
         new_targets.insert(0, '')
@@ -273,8 +240,8 @@ def _launch_ide(ide_util_obj, project_absolute_path):
         ide_util_obj: An ide_util instance.
         project_absolute_path: A string of project absolute path.
     """
-    ide_util_obj.config_ide()
-    ide_util_obj.launch_ide(project_absolute_path)
+    ide_util_obj.config_ide(project_absolute_path)
+    ide_util_obj.launch_ide()
     print('\n{} {}\n'.format(_CONGRATULATION, _LAUNCH_SUCCESS_MSG))
 
 
@@ -289,25 +256,37 @@ def _check_whole_android_tree(atest_module_info, targets, android_tree):
     2. If android_tree is True, add whole Android tree to the project.
 
     Args:
-        atest_module_info: A instance of atest module-info object.
-        targets: A list of targets to be built.
+        atest_module_info: An instance of atest module-info object.
+        targets: A list of targets to be imported.
         android_tree: A boolean, True if it's a whole Android tree case,
                       otherwise False.
 
     Returns:
         A list of targets to be built.
     """
-    cwd = os.getcwd()
-    if not android_tree and is_android_root(cwd) and targets == ['']:
-        android_tree = True
+    android_tree = _is_whole_android_tree(targets, android_tree)
     new_targets = targets
     if android_tree:
         new_targets = _compile_targets_for_whole_android_tree(
-            atest_module_info, targets, cwd)
+            atest_module_info, targets, os.getcwd())
     return new_targets
 
 
-@time_logged(message=_TIME_EXCEED_MSG, maximum=_MAX_TIME)
+def _is_whole_android_tree(targets, android_tree):
+    """Checks is AIDEGen going to process whole android tree.
+
+    Args:
+        targets: A list of targets to be imported.
+        android_tree: A boolean, True if it's a whole Android tree case,
+                      otherwise False.
+    Returns:
+        A boolean, True when user is going to import whole Android tree.
+    """
+    return (android_tree or
+            (common_util.is_android_root(os.getcwd()) and targets == ['']))
+
+
+@common_util.time_logged(message=_TIME_EXCEED_MSG, maximum=_MAX_TIME)
 def main_with_message(args):
     """Main entry with skip build message.
 
@@ -317,7 +296,7 @@ def main_with_message(args):
     aidegen_main(args)
 
 
-@time_logged
+@common_util.time_logged
 def main_without_message(args):
     """Main entry without skip build message.
 
@@ -339,8 +318,10 @@ def main(argv):
     exit_code = constant.EXIT_CODE_NORMAL
     try:
         args = _parse_args(argv)
-        _configure_logging(args.verbose)
-        starts_asuite_metrics()
+        common_util.configure_logging(args.verbose)
+        references = [constant.ANDROID_TREE] if _is_whole_android_tree(
+            args.targets, args.android_tree) else []
+        aidegen_metrics.starts_asuite_metrics(references)
         if args.skip_build:
             main_without_message(args)
         else:
@@ -348,56 +329,71 @@ def main(argv):
     except BaseException as err:
         exit_code = constant.EXIT_CODE_EXCEPTION
         _, exc_value, exc_traceback = sys.exc_info()
-        if isinstance(err, AIDEgenError):
+        if isinstance(err, errors.AIDEgenError):
             exit_code = constant.EXIT_CODE_AIDEGEN_EXCEPTION
         # Filter out sys.Exit(0) case, which is not an exception case.
         if isinstance(err, SystemExit) and exc_value.code == 0:
             exit_code = constant.EXIT_CODE_NORMAL
-    finally:
         if exit_code is not constant.EXIT_CODE_NORMAL:
             error_message = str(exc_value)
             traceback_list = traceback.format_tb(exc_traceback)
             traceback_list.append(error_message)
             traceback_str = ''.join(traceback_list)
+            aidegen_metrics.ends_asuite_metrics(exit_code, traceback_str,
+                                                error_message)
             # print out the trackback message for developers to debug
             print(traceback_str)
-            ends_asuite_metrics(exit_code, traceback_str, error_message)
-        else:
-            ends_asuite_metrics(exit_code)
+            raise err
+    finally:
+        if exit_code is constant.EXIT_CODE_NORMAL:
+            aidegen_metrics.ends_asuite_metrics(exit_code)
+        print('\n{0} {1}\n\n{0} {2}\n'.format(_INFO, AIDEGEN_REPORT_LINK,
+                                              _IDE_CACHE_REMINDER_MSG))
+
+
+@common_util.back_to_cwd
+def _adjust_cwd_for_whole_tree_project(args, mod_info):
+    """The wrapper to handle the directory change for whole tree case.
+
+        Args:
+            args: A list of system arguments.
+            mod_info: A instance of atest module_info.
+
+        Returns:
+            A list of ProjectInfo instance
+
+    """
+    targets = _check_whole_android_tree(
+        mod_info, args.targets, args.android_tree)
+    project_info.ProjectInfo.modules_info = module_info.AidegenModuleInfo(
+        force_build=False,
+        module_file=None,
+        atest_module_info=mod_info,
+        projects=targets,
+        verbose=args.verbose,
+        skip_build=args.skip_build)
+
+    return project_info.ProjectInfo.generate_projects(targets)
 
 
 def aidegen_main(args):
     """AIDEGen main entry.
 
-    Try to generates project files for using in IDE.
+    Try to generate project files for using in IDE.
 
     Args:
         args: A list of system arguments.
     """
-    log_usage()
     # Pre-check for IDE relevant case, then handle dependency graph job.
     ide_util_obj = _get_ide_util_instance(args)
-    _check_skip_build(args)
+    project_info.ProjectInfo.config = project_config.ProjectConfig(args)
     atest_module_info = common_util.get_atest_module_info(args.targets)
-    targets = _check_whole_android_tree(atest_module_info, args.targets,
-                                        args.android_tree)
-    ProjectInfo.modules_info = generate_module_info_json(
-        atest_module_info, targets, args.verbose, args.skip_build)
-    projects = ProjectInfo.generate_projects(atest_module_info, targets)
-    if ide_util_obj:
-        multi_projects_locate_source(projects, args.verbose, args.depth,
-                                     ide_util_obj.ide_name(), args.skip_build)
-    else:
-        multi_projects_locate_source(projects, args.verbose, args.depth,
-                                     skip_build=args.skip_build)
-    _generate_project_files(args.ide[0], projects)
+    projects = _adjust_cwd_for_whole_tree_project(args, atest_module_info)
+    source_locator.multi_projects_locate_source(projects, args.verbose)
+    _generate_project_files(projects)
     if ide_util_obj:
         _launch_ide(ide_util_obj, projects[0].project_absolute_path)
 
 
 if __name__ == '__main__':
-    try:
-        main(sys.argv[1:])
-    finally:
-        print('\n{0} {1}\n\n{0} {2}\n'.format(_INFO, AIDEGEN_REPORT_LINK,
-                                              _IDE_CACHE_REMINDER_MSG))
+    main(sys.argv[1:])

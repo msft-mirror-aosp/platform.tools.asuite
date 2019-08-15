@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <projectDescription>
-        <name>@PROJECTNAME@</name>
+        <name>{PROJECTNAME}</name>
         <comment></comment>
         <projects>
         </projects>
@@ -14,4 +14,7 @@
         <natures>
                 <nature>org.eclipse.jdt.core.javanature</nature>
         </natures>
+        <linkedResources>
+{LINKEDRESOURCES}
+        </linkedResources>
 </projectDescription>

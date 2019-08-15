@@ -17,17 +17,17 @@
 """Unittests for module_info_utils."""
 
 import copy
-import os
-import subprocess
+import os.path
 import unittest
 from unittest import mock
 
-import aidegen.unittest_constants as uc
+from aidegen import unittest_constants
+from aidegen.lib import common_util
 from aidegen.lib import errors
-from aidegen.lib import metrics
 from aidegen.lib import module_info_util
-from atest import module_info
 
+from atest import atest_utils
+from atest import module_info
 
 _TEST_CLASS_DICT = {'class': ['JAVA_LIBRARIES']}
 _TEST_SRCS_BAR_DICT = {'srcs': ['Bar']}
@@ -41,7 +41,9 @@ _TEST_MODULE_A_DICT = {
         'path': ['path_a'],
         'installed': ['out/path_a/a.jar'],
         'dependencies': ['Foo'],
-        'srcs': ['Bar']
+        'srcs': ['Bar'],
+        'compatibility_suites': ['null-suite'],
+        'module_name': ['ltp_fstat03_64']
     }
 }
 _TEST_MODULE_A_DICT_HAS_NONEED_ITEMS = {
@@ -129,24 +131,24 @@ class AidegenModuleInfoUtilUnittests(unittest.TestCase):
             module_info_util._copy_needed_items_from(
                 _TEST_MODULE_A_DICT_HAS_NONEED_ITEMS))
 
-    @mock.patch('subprocess.check_call')
-    @mock.patch('os.environ.copy')
-    def test_build_target_normal(self, mock_copy, mock_check_call):
+    @mock.patch.object(os.path, 'getmtime')
+    @mock.patch.object(atest_utils, 'build')
+    @mock.patch('os.path.isfile')
+    def test_build_bp_info_normal(self, mock_isfile, mock_build, mock_time):
         """Test _build_target with verbose true and false."""
-        mock_copy.return_value = ''
+        mock_isfile.return_value = True
         amodule_info = module_info.ModuleInfo()
-        cmd = [module_info_util._GENERATE_JSON_COMMAND]
-        module_info_util._build_target(cmd, uc.TEST_MODULE, amodule_info, True)
-        self.assertTrue(mock_copy.called)
-        self.assertTrue(mock_check_call.called)
-        mock_check_call.assert_called_with(
-            cmd,
-            stderr=subprocess.STDOUT,
-            env=mock_copy.return_value,
-            shell=True)
-        module_info_util._build_target(cmd, uc.TEST_MODULE, amodule_info, False)
-        self.assertTrue(mock_check_call.called)
-        mock_check_call.assert_called_with(cmd, shell=True)
+        skip = True
+        mock_build.return_value = True
+        module_info_util._build_bp_info(amodule_info, unittest_constants.
+                                        TEST_MODULE, False, skip)
+        self.assertFalse(mock_build.called)
+        skip = False
+        mock_time.return_value = float()
+        module_info_util._build_bp_info(amodule_info, unittest_constants.
+                                        TEST_MODULE, False, skip)
+        self.assertTrue(mock_time.called)
+        self.assertEqual(mock_build.call_count, 2)
 
     @mock.patch('os.path.getmtime')
     @mock.patch('os.path.isfile')
@@ -173,19 +175,20 @@ class AidegenModuleInfoUtilUnittests(unittest.TestCase):
             module_info_util._is_new_json_file_generated(
                 jfile, original_file_mtime))
 
-    @mock.patch.object(metrics, 'ends_asuite_metrics')
     @mock.patch('builtins.input')
     @mock.patch('glob.glob')
-    def test_build_failed_handle(self, mock_glob, mock_input, _send_exit):
+    def test_build_failed_handle(self, mock_glob, mock_input):
         """Test _build_failed_handle with different situations."""
         mock_glob.return_value = ['project/file.iml']
         mock_input.return_value = 'N'
         with self.assertRaises(SystemExit) as cm:
-            module_info_util._build_failed_handle(uc.TEST_MODULE)
+            module_info_util._build_failed_handle(
+                unittest_constants.TEST_MODULE)
         self.assertEqual(cm.exception.code, 1)
         mock_glob.return_value = []
         with self.assertRaises(errors.BuildFailureError):
-            module_info_util._build_failed_handle(uc.TEST_MODULE)
+            module_info_util._build_failed_handle(
+                unittest_constants.TEST_MODULE)
 
     @mock.patch('builtins.open')
     def test_get_soong_build_json_dict_failed(self, mock_open):
@@ -195,28 +198,22 @@ class AidegenModuleInfoUtilUnittests(unittest.TestCase):
             module_info_util._get_soong_build_json_dict()
 
     @mock.patch('aidegen.lib.module_info_util._build_failed_handle')
+    @mock.patch.object(common_util, 'get_related_paths')
     @mock.patch('aidegen.lib.module_info_util._is_new_json_file_generated')
-    @mock.patch('subprocess.check_call')
-    def test_build_target(self, mock_call, mock_new, mock_handle):
-        """Test _build_target with different arguments."""
-        cmd = [module_info_util._GENERATE_JSON_COMMAND]
-        main_project = ''
+    @mock.patch.object(atest_utils, 'build')
+    def test_build_bp_info(self, mock_build, mock_new, mock_path, mock_handle):
+        """Test _build_bp_info with different arguments."""
+        main_project = 'Settings'
         amodule_info = {}
         verbose = False
-        module_info_util._build_target(cmd, main_project, amodule_info, verbose)
-        mock_call.assert_called_with(cmd, shell=True)
-        verbose = True
-        full_env_vars = os.environ.copy()
-        module_info_util._build_target(cmd, main_project, amodule_info, verbose)
-        mock_call.assert_called_with(cmd, stderr=subprocess.STDOUT,
-                                     env=full_env_vars, shell=True)
-        mock_call.side_effect = subprocess.CalledProcessError(1, '')
+        mock_build.return_value = False
         mock_new.return_value = False
-        module_info_util._build_target(cmd, main_project, amodule_info, verbose)
+        module_info_util._build_bp_info(amodule_info, main_project, verbose)
         self.assertTrue(mock_new.called)
         self.assertFalse(mock_handle.called)
         mock_new.return_value = True
-        module_info_util._build_target(cmd, main_project, amodule_info, verbose)
+        mock_path.return_value = None, 'packages/apps/Settings'
+        module_info_util._build_bp_info(amodule_info, main_project, verbose)
         self.assertTrue(mock_new.called)
         self.assertTrue(mock_handle.called)
 

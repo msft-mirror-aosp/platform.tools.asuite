@@ -22,36 +22,34 @@ other modules.
 
 import logging
 import os
+import sys
 import time
 
 from functools import partial
 from functools import wraps
 
 from aidegen import constant
-from aidegen.lib.errors import FakeModuleError
-from aidegen.lib.errors import NoModuleDefinedInModuleInfoError
-from aidegen.lib.errors import ProjectOutsideAndroidRootError
-from aidegen.lib.errors import ProjectPathNotExistError
+from aidegen.lib import errors
+from atest import atest_utils
 from atest import constants
 from atest import module_info
-from atest.atest_utils import colorize
 
-COLORED_INFO = partial(colorize, color=constants.MAGENTA, highlight=False)
-COLORED_PASS = partial(colorize, color=constants.GREEN, highlight=False)
-COLORED_FAIL = partial(colorize, color=constants.RED, highlight=False)
+
+COLORED_INFO = partial(
+    atest_utils.colorize, color=constants.MAGENTA, highlight=False)
+COLORED_PASS = partial(
+    atest_utils.colorize, color=constants.GREEN, highlight=False)
+COLORED_FAIL = partial(
+    atest_utils.colorize, color=constants.RED, highlight=False)
 FAKE_MODULE_ERROR = '{} is a fake module.'
 OUTSIDE_ROOT_ERROR = '{} is outside android root.'
 PATH_NOT_EXISTS_ERROR = 'The path {} doesn\'t exist.'
 NO_MODULE_DEFINED_ERROR = 'No modules defined at {}.'
-# Java related classes.
-JAVA_TARGET_CLASSES = ['APPS', 'JAVA_LIBRARIES', 'ROBOLECTRIC']
-# C, C++ related classes.
-NATIVE_TARGET_CLASSES = [
-    'HEADER_LIBRARIES', 'NATIVE_TESTS', 'STATIC_LIBRARIES', 'SHARED_LIBRARIES'
-]
-TARGET_CLASSES = JAVA_TARGET_CLASSES
-TARGET_CLASSES.extend(NATIVE_TARGET_CLASSES)
 _REBUILD_MODULE_INFO = '%s We should rebuild module-info.json file for it.'
+_ENVSETUP_NOT_RUN = ('Please run "source build/envsetup.sh" and "lunch" before '
+                     'running aidegen.')
+_LOG_FORMAT = '%(asctime)s %(filename)s:%(lineno)s:%(levelname)s: %(message)s'
+_DATE_FORMAT = '%Y-%m-%d %H:%M:%S'
 
 
 def time_logged(func=None, *, message='', maximum=1):
@@ -112,23 +110,23 @@ def get_related_paths(atest_module_info, target=None):
             paths = atest_module_info.get_paths(target)
             if paths:
                 rel_path = paths[0]
-                abs_path = os.path.join(constant.ANDROID_ROOT_PATH, rel_path)
+                abs_path = os.path.join(get_android_root_dir(), rel_path)
         # User inputs a module path or a relative path of android root folder.
-        elif (atest_module_info.get_module_names(target) or os.path.isdir(
-                os.path.join(constant.ANDROID_ROOT_PATH, target))):
+        elif (atest_module_info.get_module_names(target)
+              or os.path.isdir(os.path.join(get_android_root_dir(), target))):
             rel_path = target.strip(os.sep)
-            abs_path = os.path.join(constant.ANDROID_ROOT_PATH, rel_path)
+            abs_path = os.path.join(get_android_root_dir(), rel_path)
         # User inputs a relative path of current directory.
         else:
             abs_path = os.path.abspath(os.path.join(os.getcwd(), target))
-            rel_path = os.path.relpath(abs_path, constant.ANDROID_ROOT_PATH)
+            rel_path = os.path.relpath(abs_path, get_android_root_dir())
     else:
         # User doesn't input.
         abs_path = os.getcwd()
         if is_android_root(abs_path):
             rel_path = ''
         else:
-            rel_path = os.path.relpath(abs_path, constant.ANDROID_ROOT_PATH)
+            rel_path = os.path.relpath(abs_path, get_android_root_dir())
     return rel_path, abs_path
 
 
@@ -159,7 +157,7 @@ def is_android_root(abs_path):
     Returns:
         True if abs_path is Android root, otherwise False.
     """
-    return abs_path == constant.ANDROID_ROOT_PATH
+    return abs_path == get_android_root_dir()
 
 
 def has_build_target(atest_module_info, rel_path):
@@ -245,16 +243,16 @@ def _check_module(atest_module_info, target, raise_on_lost_module=True):
     if not abs_path:
         err = FAKE_MODULE_ERROR.format(target)
         logging.error(err)
-        raise FakeModuleError(err)
-    if not abs_path.startswith(constant.ANDROID_ROOT_PATH):
+        raise errors.FakeModuleError(err)
+    if not abs_path.startswith(get_android_root_dir()):
         err = OUTSIDE_ROOT_ERROR.format(abs_path)
         logging.error(err)
-        raise ProjectOutsideAndroidRootError(err)
+        raise errors.ProjectOutsideAndroidRootError(err)
     if not os.path.isdir(abs_path):
         err = PATH_NOT_EXISTS_ERROR.format(rel_path)
         if raise_on_lost_module:
             logging.error(err)
-            raise ProjectPathNotExistError(err)
+            raise errors.ProjectPathNotExistError(err)
         logging.debug(_REBUILD_MODULE_INFO, err)
         return False
     if (not has_build_target(atest_module_info, rel_path)
@@ -262,7 +260,7 @@ def _check_module(atest_module_info, target, raise_on_lost_module=True):
         err = NO_MODULE_DEFINED_ERROR.format(rel_path)
         if raise_on_lost_module:
             logging.error(err)
-            raise NoModuleDefinedInModuleInfoError(err)
+            raise errors.NoModuleDefinedInModuleInfoError(err)
         logging.debug(_REBUILD_MODULE_INFO, err)
         return False
     return True
@@ -272,26 +270,28 @@ def get_abs_path(rel_path):
     """Get absolute path from a relative path.
 
     Args:
-        rel_path: A string, a relative path to constant.ANDROID_ROOT_PATH.
+        rel_path: A string, a relative path to get_android_root_dir().
 
     Returns:
         abs_path: A string, an absolute path starts with
-                  constant.ANDROID_ROOT_PATH.
+                  get_android_root_dir().
     """
     if not rel_path:
-        return constant.ANDROID_ROOT_PATH
-    if rel_path.startswith(constant.ANDROID_ROOT_PATH):
+        return get_android_root_dir()
+    if rel_path.startswith(get_android_root_dir()):
         return rel_path
-    return os.path.join(constant.ANDROID_ROOT_PATH, rel_path)
+    return os.path.join(get_android_root_dir(), rel_path)
 
 
 def is_project_path_relative_module(data, project_relative_path):
     """Determine if the given project path is relative to the module.
 
     The rules:
-       1. If project_relative_path is empty, it's under Android root, return
+       1. If constant.KEY_PATH not in data, we can't tell if it's a module
+          return False.
+       2. If project_relative_path is empty, it's under Android root, return
           True.
-       2. If module's path equals or starts with project_relative_path return
+       3. If module's path equals or starts with project_relative_path return
           True, otherwise return False.
 
     Args:
@@ -302,12 +302,12 @@ def is_project_path_relative_module(data, project_relative_path):
         True if it's the given project path is relative to the module, otherwise
         False.
     """
-    if 'path' not in data:
+    if constant.KEY_PATH not in data:
         return False
-    path = data['path'][0]
+    path = data[constant.KEY_PATH][0]
     if project_relative_path == '':
         return True
-    if ('class' in data
+    if (constant.KEY_CLASS in data
             and (path == project_relative_path
                  or path.startswith(project_relative_path + os.sep))):
         return True
@@ -328,13 +328,16 @@ def is_target(src_file, src_file_extensions):
     return any(src_file.endswith(x) for x in src_file_extensions)
 
 
-def get_atest_module_info(targets):
+def get_atest_module_info(targets=None):
     """Get the right version of atest ModuleInfo instance.
 
     The rules:
-        Check if the targets don't exist in ModuleInfo, we'll regain a new atest
-        ModleInfo instance by setting force_build=True and call _check_modules
-        again. If targets still don't exist, raise exceptions.
+        1. If targets is None:
+           We just want to get an atest ModuleInfo instance.
+        2. If targets isn't None:
+           Check if the targets don't exist in ModuleInfo, we'll regain a new
+           atest ModleInfo instance by setting force_build=True and call
+           _check_modules again. If targets still don't exist, raise exceptions.
 
     Args:
         targets: A list of targets to be built.
@@ -343,7 +346,132 @@ def get_atest_module_info(targets):
         An atest ModuleInfo instance.
     """
     amodule_info = module_info.ModuleInfo()
-    if not _check_modules(amodule_info, targets, raise_on_lost_module=False):
+    if targets and not _check_modules(
+            amodule_info, targets, raise_on_lost_module=False):
         amodule_info = module_info.ModuleInfo(force_build=True)
         _check_modules(amodule_info, targets)
     return amodule_info
+
+
+def read_file_content(path):
+    """Read file's content.
+
+    Args:
+        path: Path of input file.
+
+    Returns:
+        String: Content of the file.
+    """
+    with open(path) as template:
+        return template.read()
+
+
+def file_generate(path, content):
+    """Generate file from content.
+
+    Args:
+        path: Path of target file.
+        content: String content of file.
+    """
+    if not os.path.exists(os.path.dirname(path)):
+        os.makedirs(os.path.dirname(path))
+    with open(path, 'w') as target:
+        target.write(content)
+
+
+def get_blueprint_json_path():
+    """Assemble the path of blueprint json file.
+
+    Returns:
+        module_bp_java_deps.json path.
+    """
+    return os.path.join(get_soong_out_path(), constant.BLUEPRINT_JSONFILE_NAME)
+
+
+def back_to_cwd(func):
+    """Decorate a function change directory back to its original one.
+
+    Args:
+        func: a function is to be changed back to its original directory.
+
+    Returns:
+        The wrapper function.
+    """
+
+    @wraps(func)
+    def wrapper(*args, **kwargs):
+        """A wrapper function."""
+        cwd = os.getcwd()
+        try:
+            return func(*args, **kwargs)
+        finally:
+            os.chdir(cwd)
+
+    return wrapper
+
+
+def get_android_out_dir():
+    """Get out directory in different conditions.
+
+    Returns:
+        Android out directory path.
+    """
+    android_root_path = get_android_root_dir()
+    android_out_dir = os.getenv(constants.ANDROID_OUT_DIR)
+    out_dir_common_base = os.getenv(constant.OUT_DIR_COMMON_BASE_ENV_VAR)
+    android_out_dir_common_base = (os.path.join(
+        out_dir_common_base, os.path.basename(android_root_path))
+                                   if out_dir_common_base else None)
+    return (android_out_dir or android_out_dir_common_base
+            or constant.ANDROID_DEFAULT_OUT)
+
+
+def get_android_root_dir():
+    """Get Android root directory.
+
+    If the path doesn't exist show message to ask users to run envsetup.sh and
+    lunch first.
+
+    Returns:
+        Android root directory path.
+    """
+    android_root_path = os.environ.get(constants.ANDROID_BUILD_TOP)
+    if not android_root_path:
+        _show_env_setup_msg_and_exit()
+    return android_root_path
+
+
+def get_aidegen_root_dir():
+    """Get AIDEGen root directory.
+
+    Returns:
+        AIDEGen root directory path.
+    """
+    return os.path.join(get_android_root_dir(), constant.AIDEGEN_ROOT_PATH)
+
+
+def _show_env_setup_msg_and_exit():
+    """Show message if users didn't run envsetup.sh and lunch."""
+    print(_ENVSETUP_NOT_RUN)
+    sys.exit(0)
+
+
+def get_soong_out_path():
+    """Assemble out directory's soong path.
+
+    Returns:
+        Out directory's soong path.
+    """
+    return os.path.join(get_android_root_dir(), get_android_out_dir(), 'soong')
+
+
+def configure_logging(verbose):
+    """Configure the logger.
+
+    Args:
+        verbose: A boolean. If true, display DEBUG level logs.
+    """
+    log_format = _LOG_FORMAT
+    datefmt = _DATE_FORMAT
+    level = logging.DEBUG if verbose else logging.INFO
+    logging.basicConfig(level=level, format=log_format, datefmt=datefmt)
