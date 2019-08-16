@@ -25,6 +25,7 @@ import re
 
 from aidegen import constant
 from aidegen.lib import common_util
+from aidegen.lib import module_info
 
 # Parse package name from the package declaration line of a java.
 # Group matches "foo.bar" of line "package foo.bar;" or "package foo.bar"
@@ -147,8 +148,8 @@ class ModuleData:
         # TODO(b/135594800): Set aapt2.srcjar or R.jar as a dependency in
                              Eclipse.
         """
-        if (self._is_app_module() and self._is_target_module() and
-                self._check_key(constant.KEY_SRCJARS)):
+        if (self._is_app_module() and self._is_target_module()
+                and self._check_key(constant.KEY_SRCJARS)):
             for srcjar in self.module_data[constant.KEY_SRCJARS]:
                 if not os.path.exists(common_util.get_abs_path(srcjar)):
                     self.build_targets.add(srcjar)
@@ -543,8 +544,9 @@ class EclipseModuleData(ModuleData):
             project_relpath: A string stands for the project's relative path.
         """
         super().__init__(module_name, module_data, depth=0)
-        self.is_project = common_util.is_project_path_relative_module(
+        related = module_info.AidegenModuleInfo.is_project_path_relative_module(
             module_data, project_relpath)
+        self.is_project = related
 
     def locate_sources_path(self):
         """Locate source folders' paths or jar files.

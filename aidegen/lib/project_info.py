@@ -105,8 +105,8 @@ class ProjectInfo:
             is_main_project: A boolean, default is False. True if the target is
                              the main project, otherwise False.
         """
-        rel_path, abs_path = common_util.get_related_paths(self.modules_info,
-                                                           target)
+        rel_path, abs_path = common_util.get_related_paths(
+            self.modules_info, target)
         self.module_name = self._get_target_name(target, abs_path)
         self.is_main_project = is_main_project
         self.project_module_names = set(
@@ -191,7 +191,8 @@ class ProjectInfo:
                      constant.TARGET_CLASSES, rel_path)
         modules = set()
         for name, data in self.modules_info.name_to_module_info.items():
-            if common_util.is_project_path_relative_module(data, rel_path):
+            if module_info.AidegenModuleInfo.is_project_path_relative_module(
+                    data, rel_path):
                 if module_info.AidegenModuleInfo.is_target_module(data):
                     modules.add(name)
                 else:
@@ -212,7 +213,7 @@ class ProjectInfo:
         """
         for module in modules:
             if self.modules_info.is_robolectric_test(module):
-                return set([_ROBOLECTRIC_MODULE])
+                return {_ROBOLECTRIC_MODULE}
         return set()
 
     def _filter_out_modules(self):
@@ -256,8 +257,9 @@ class ProjectInfo:
         children = set()
         if not module_names:
             module_names = self.project_module_names
-            module_names.update(self._get_modules_under_project_path(
-                self.project_relative_path))
+            module_names.update(
+                self._get_modules_under_project_path(
+                    self.project_relative_path))
             module_names.update(self._get_robolectric_dep_module(module_names))
             self.project_module_names = set()
         for name in module_names:
