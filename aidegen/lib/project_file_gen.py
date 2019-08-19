@@ -64,8 +64,6 @@ _IDEA_DIR = os.path.join(common_util.get_aidegen_root_dir(), 'templates/idea')
 _IDEA_FOLDER = '.idea'
 _MODULES_XML = 'modules.xml'
 _VCS_XML = 'vcs.xml'
-_TEMPLATE_MODULES_PATH = os.path.join(_IDEA_DIR, _MODULES_XML)
-_TEMPLATE_VCS_PATH = os.path.join(_IDEA_DIR, _VCS_XML)
 _DEPENDENCIES_IML = 'dependencies.iml'
 _COPYRIGHT_FOLDER = 'copyright'
 _CODE_STYLE_FOLDER = 'codeStyles'
@@ -493,7 +491,6 @@ class ProjectFileGenerator:
             iml_path_list: A list of submodule iml paths.
         """
         module_path = self.project_info.project_absolute_path
-        content = common_util.read_file_content(_TEMPLATE_MODULES_PATH)
 
         # b/121256503: Prevent duplicated iml names from breaking IDEA.
         module_name = self.get_unique_iml_name(module_path)
@@ -510,15 +507,32 @@ class ProjectFileGenerator:
             module_list = [
                 _MODULE_SECTION % (module_name, module_name)
             ]
-            # Sub projects don't need to be filled in the enable debugger module
-            # so we remove the token here. For the main project, the enable
-            # debugger module will be appended if it exists at the time
-            # launching IDE.
-            content = content.replace(_ENABLE_DEBUGGER_MODULE_TOKEN, '')
         module = '\n'.join(module_list)
+        content = self._remove_debugger_token(constant.MODULES_XML)
         content = content.replace(_MODULE_TOKEN, module)
         target_path = os.path.join(module_path, _IDEA_FOLDER, _MODULES_XML)
         common_util.file_generate(target_path, content)
+
+    def _remove_debugger_token(self, content):
+        """Remove the token _ENABLE_DEBUGGER_MODULE_TOKEN.
+
+        Remove the token _ENABLE_DEBUGGER_MODULE_TOKEN in 2 cases:
+        1. Sub projects don't need to be filled in the enable debugger module
+           so we remove the token here. For the main project, the enable
+           debugger module will be appended if it exists at the time launching
+           IDE.
+        2. When there is no need to launch IDE.
+
+        Args:
+            content: The content of module.xml.
+
+        Returns:
+            String: The content of module.xml.
+        """
+        if (not self.project_info.config.is_launch_ide or
+                not self.project_info.is_main_project):
+            content = content.replace(_ENABLE_DEBUGGER_MODULE_TOKEN, '')
+        return content
 
     def _get_project_git_path(self):
         """Get the project's git path.
@@ -611,8 +625,7 @@ def _write_vcs_xml(module_path, git_paths):
         git_paths: A list of git path.
     """
     _vcs_content = '\n'.join([_VCS_SECTION % p for p in git_paths if p])
-    content = common_util.read_file_content(_TEMPLATE_VCS_PATH)
-    content = content.replace(_VCS_TOKEN, _vcs_content)
+    content = constant.VCS_XML.replace(_VCS_TOKEN, _vcs_content)
     target_path = os.path.join(module_path, _IDEA_FOLDER, _VCS_XML)
     common_util.file_generate(target_path, content)
 
