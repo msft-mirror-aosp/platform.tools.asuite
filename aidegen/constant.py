@@ -61,7 +61,7 @@ MERGED_MODULE_INFO = 'merged_module_info.json'
 BLUEPRINT_JSONFILE_NAME = 'module_bp_java_deps.json'
 
 # Content of iml file.
-FILE_IML = '''<?xml version="1.0" encoding="UTF-8"?>
+FILE_IML = """<?xml version="1.0" encoding="UTF-8"?>
 <module type="JAVA_MODULE" version="4">
 @FACETS@
     <component name="NewModuleRootManager" inherit-compiler-output="true">
@@ -73,4 +73,25 @@ FILE_IML = '''<?xml version="1.0" encoding="UTF-8"?>
         <orderEntry type="inheritedJdk" />
     </component>
 </module>
-'''
+"""
+
+# IDEA XML templates
+# The template content of modules.xml.
+MODULES_XML = """<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+    <component name="ProjectModuleManager">
+        <modules>
+@MODULES@
+@ENABLE_DEBUGGER_MODULE@
+        </modules>
+    </component>
+</project>
+"""
+# The template content of vcs.xml.
+VCS_XML = """<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+    <component name="VcsDirectoryMappings">
+@VCS@
+    </component>
+</project>
+"""
