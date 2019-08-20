@@ -67,12 +67,8 @@ def generate_merged_module_info(module_info, projects=None, verbose=False,
                                 skip_build=False):
     """Generate a merged dictionary.
 
-    Change directory to Android root path before making _GENERATE_JSON_COMMAND
-    to avoid command error: "make: *** No rule to make target 'nothing'.  Stop."
-    and change back to current directory after command completed.
-
     Linked functions:
-        _build_target(project, verbose)
+        _build_bp_info(module_info, project, verbose, skip_build)
         _get_soong_build_json_dict()
         _merge_dict(mk_dict, bp_dict)
 
@@ -87,10 +83,8 @@ def generate_merged_module_info(module_info, projects=None, verbose=False,
     Returns:
         A merged dictionary from module-info.json and module_bp_java_deps.json.
     """
-    json_path = common_util.get_blueprint_json_path()
-    if not os.path.isfile(json_path):
-        main_project = projects[0] if projects else None
-        _build_bp_info(module_info, main_project, verbose, skip_build)
+    main_project = projects[0] if projects else None
+    _build_bp_info(module_info, main_project, verbose, skip_build)
     bp_dict = _get_soong_build_json_dict()
     return _merge_dict(module_info.name_to_module_info, bp_dict)
 
