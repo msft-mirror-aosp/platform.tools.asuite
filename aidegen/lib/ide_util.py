@@ -354,20 +354,6 @@ class IdeIntelliJ(IdeBase):
             all_versions.extend(uefiles)
         return all_versions
 
-    @staticmethod
-    def _get_code_style_config():
-        """Get Android build-in IntelliJ code style config file.
-
-        Returns:
-            None if the file is not found, otherwise a full path string of
-            Intellij Android code style file.
-        """
-        _config_source = os.path.join(common_util.get_android_root_dir(),
-                                      'development', 'ide', 'intellij',
-                                      'codestyles', 'AndroidStyle.xml')
-
-        return _config_source if os.path.isfile(_config_source) else None
-
 
 class IdeLinuxIntelliJ(IdeIntelliJ):
     """Provide the IDEA behavior implementation for OS Linux.

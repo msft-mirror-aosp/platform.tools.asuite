@@ -227,20 +227,23 @@ class IdeUtilUnittests(unittest.TestCase):
         ide_obj._get_config_root_paths()
         self.assertTrue(mock_filter.called)
 
-    @mock.patch('os.path.join')
-    def test_get_code_style_config(self, mock_join_path):
-        """Test return None, when no config source case existed."""
-        mock_join_path.return_value = '/usr/tester/no_file.test'
-        self.assertIsNone(ide_util.IdeIntelliJ._get_code_style_config())
+    @mock.patch.object(sdk_config.SDKConfig, '__init__')
+    @mock.patch.object(ide_util.IdeIntelliJ, '_get_config_root_paths')
+    def test_apply_optional_config(self, mock_path, mock_conf):
+        """Test basic logic of _apply_optional_config."""
+        with mock.patch.object(ide_util, 'IdeIntelliJ') as obj:
+            obj._installed_path = None
+            obj.apply_optional_config()
+            self.assertFalse(mock_path.called)
 
-    @mock.patch('shutil.copy2')
-    @mock.patch.object(ide_util.IdeIntelliJ, '_get_code_style_config')
-    def test_apply_optional_config(self, mock_config_path, mock_copy):
-        """Test copy logic should not work if there's no config source."""
-        mock_config_path.return_value = None
-        ide_obj = ide_util.IdeIntelliJ()
-        ide_obj.apply_optional_config()
-        self.assertFalse(mock_copy.called)
+            obj.reset()
+            obj._installed_path = 'default_path'
+            mock_path.return_value = ['path1', 'path2']
+            obj._IDE_JDK_TABLE_PATH = '/JDK_path'
+
+            obj.apply_optional_config()
+            self.assertTrue(mock_conf.called_with('path1/JDK_path'))
+            self.assertTrue(mock_conf.called_with('path2/JDK_path'))
 
     @mock.patch('os.path.realpath')
     @mock.patch('os.path.isfile')
