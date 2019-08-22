@@ -32,7 +32,6 @@ from aidegen.lib import errors
 from aidegen.lib import ide_util
 from aidegen.lib import project_file_gen
 from aidegen.lib import project_info
-from atest import module_info
 
 
 # pylint: disable=protected-access
@@ -114,24 +113,6 @@ class AidegenMainUnittests(unittest.TestCase):
             mock_get.side_effect = errors.ProjectPathNotExistError(err)
             aidegen_main.main_without_message(args)
             self.assertTrue(mock_metrics.called)
-
-    def test_compile_targets_for_whole_android_tree(self):
-        """Test _compile_targets_for_whole_android_tree with conditions."""
-        mod_info = module_info.ModuleInfo()
-        targets = ['']
-        cwd = common_util.get_android_root_dir()
-        self.assertEqual(
-            targets,
-            aidegen_main._compile_targets_for_whole_android_tree(
-                mod_info, targets, cwd))
-        base_dir = 'frameworks/base'
-        targets = [base_dir]
-        expected_targets = ['', base_dir]
-        cwd = common_util.get_android_root_dir()
-        self.assertEqual(
-            expected_targets,
-            aidegen_main._compile_targets_for_whole_android_tree(
-                mod_info, targets, cwd))
 
     @mock.patch.object(os, 'getcwd')
     def test_is_whole_android_tree(self, mock_getcwd):
