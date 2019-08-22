@@ -191,42 +191,6 @@ def _generate_project_files(projects):
             projects)
 
 
-def _compile_targets_for_whole_android_tree(atest_module_info, targets, cwd):
-    """Compile a list of targets to include whole Android tree in the project.
-
-    Adding the whole Android tree to the project will do two things,
-    1. If current working directory is not Android root, change the target to
-       its relative path to root and change current working directory to root.
-       If we don't change directory it's hard to deal with the whole Android
-       tree together with the sub-project.
-    2. If the whole Android tree target is not in the target list, insert it to
-       the first one.
-
-    Args:
-        atest_module_info: An instance of atest module-info object.
-        targets: A list of targets to be imported.
-        cwd: A string of path to current working directory.
-
-    Returns:
-        A list of targets after adjustment.
-    """
-    new_targets = []
-    if common_util.is_android_root(cwd):
-        new_targets = list(targets)
-    else:
-        for target in targets:
-            _, abs_path = common_util.get_related_paths(atest_module_info,
-                                                        target)
-            rel_path = os.path.relpath(abs_path,
-                                       common_util.get_android_root_dir())
-            new_targets.append(rel_path)
-        os.chdir(common_util.get_android_root_dir())
-
-    if new_targets[0] != '':
-        new_targets.insert(0, '')
-    return new_targets
-
-
 def _launch_ide(ide_util_obj, project_absolute_path):
     """Launch IDE through ide_util instance.
 
@@ -245,7 +209,7 @@ def _launch_ide(ide_util_obj, project_absolute_path):
     print('\n{} {}\n'.format(_CONGRATULATION, _LAUNCH_SUCCESS_MSG))
 
 
-def _check_whole_android_tree(atest_module_info, targets, android_tree):
+def _check_whole_android_tree(targets, android_tree):
     """Check if it's a building project file for the whole Android tree.
 
     The rules:
@@ -256,7 +220,6 @@ def _check_whole_android_tree(atest_module_info, targets, android_tree):
     2. If android_tree is True, add whole Android tree to the project.
 
     Args:
-        atest_module_info: An instance of atest module-info object.
         targets: A list of targets to be imported.
         android_tree: A boolean, True if it's a whole Android tree case,
                       otherwise False.
@@ -264,11 +227,11 @@ def _check_whole_android_tree(atest_module_info, targets, android_tree):
     Returns:
         A list of targets to be built.
     """
-    android_tree = _is_whole_android_tree(targets, android_tree)
-    new_targets = targets
+    if common_util.is_android_root(os.getcwd()) and targets == ['']:
+        return [constant.WHOLE_ANDROID_TREE_TARGET]
+    new_targets = targets.copy()
     if android_tree:
-        new_targets = _compile_targets_for_whole_android_tree(
-            atest_module_info, targets, os.getcwd())
+        new_targets.insert(0, constant.WHOLE_ANDROID_TREE_TARGET)
     return new_targets
 
 
@@ -351,7 +314,6 @@ def main(argv):
                                               _IDE_CACHE_REMINDER_MSG))
 
 
-@common_util.back_to_cwd
 def _adjust_cwd_for_whole_tree_project(args, mod_info):
     """The wrapper to handle the directory change for whole tree case.
 
@@ -363,8 +325,7 @@ def _adjust_cwd_for_whole_tree_project(args, mod_info):
             A list of ProjectInfo instance
 
     """
-    targets = _check_whole_android_tree(
-        mod_info, args.targets, args.android_tree)
+    targets = _check_whole_android_tree(args.targets, args.android_tree)
     project_info.ProjectInfo.modules_info = module_info.AidegenModuleInfo(
         force_build=False,
         module_file=None,
