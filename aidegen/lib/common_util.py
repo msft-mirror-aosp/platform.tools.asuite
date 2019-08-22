@@ -95,6 +95,11 @@ def get_related_paths(atest_module_info, target=None):
                 2. Module path, e.g. packages/apps/Settings
                 3. Relative path, e.g. ../../packages/apps/Settings
                 4. Current directory, e.g. . or no argument
+                5. An empty string, which added by AIDEGen, used for generating
+                   the iml files for the whole Android repo tree.
+                   e.g.
+                   1. ~/aosp$ aidegen
+                   2. ~/aosp/frameworks/base$ aidegen -a
 
     Return:
         rel_path: The relative path of a module, return None if no matching
@@ -105,8 +110,12 @@ def get_related_paths(atest_module_info, target=None):
     rel_path = None
     abs_path = None
     if target:
+        # For the case of whole Android repo tree.
+        if target == constant.WHOLE_ANDROID_TREE_TARGET:
+            rel_path = ''
+            abs_path = get_android_root_dir()
         # User inputs a module name.
-        if atest_module_info.is_module(target):
+        elif atest_module_info.is_module(target):
             paths = atest_module_info.get_paths(target)
             if paths:
                 rel_path = paths[0]
