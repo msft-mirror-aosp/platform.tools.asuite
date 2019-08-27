@@ -677,32 +677,49 @@ class ModuleData:
                 jar_abs, common_util.get_android_root_dir())
         return rel_path
 
-    def locate_sources_path(self):
-        """Locate source folders' paths or jar files."""
-        if self.module_depth > self.depth_by_source:
+    def _collect_specific_jars(self):
+        """Collect specific types of jar files."""
+        if self._is_android_supported_module():
+            self._append_jar_from_installed()
+        elif self._check_jarjar_rules_exist():
             self._append_jar_from_installed(self.specific_soong_path)
-        else:
-            if self._is_android_supported_module():
+        elif self._check_jars_exist():
+            self._set_jars_jarfile()
+
+    def _collect_classes_jars(self):
+        """Collect classes jar files."""
+        # If there is no source/tests folder of the module, reference the
+        # module by jar.
+        if not self.src_dirs and not self.test_dirs:
+            # Add the classes.jar from the classes_jar attribute as
+            # dependency if it exists. If the classes.jar doesn't exist,
+            # find the jar file from the installed attribute and add the jar
+            # as dependency.
+            if self._check_classes_jar_exist():
+                self._append_classes_jar()
+            else:
                 self._append_jar_from_installed()
-            elif self._check_jarjar_rules_exist():
-                self._append_jar_from_installed(self.specific_soong_path)
-            elif self._check_jars_exist():
-                self._set_jars_jarfile()
-            self._collect_srcs_paths()
-            # If there is no source/tests folder of the module, reference the
-            # module by jar.
-            if not self.src_dirs and not self.test_dirs:
-                # Add the classes.jar from the classes_jar attribute as
-                # dependency if it exists. If the classes.jar doesn't exist,
-                # find the jar file from the installed attribute and add the jar
-                # as dependency.
-                if self._check_classes_jar_exist():
-                    self._append_classes_jar()
-                else:
-                    self._append_jar_from_installed()
-            self._collect_r_srcs_paths()
+
+    def _collect_srcs_and_r_srcs_paths(self):
+        """Collect source and R source folder paths for the module."""
+        self._collect_specific_jars()
+        self._collect_srcs_paths()
+        self._collect_classes_jars()
+        self._collect_r_srcs_paths()
+
+    def _collect_missing_jars(self):
+        """Collect missing jar files to rebuild them."""
         if self.referenced_by_jar and self.missing_jars:
             self.build_targets |= self.missing_jars
+
+    def locate_sources_path(self):
+        """Locate source folders' paths or jar files."""
+        # Check if users need to reference source according to source depth.
+        if not self.module_depth <= self.depth_by_source:
+            self._append_jar_from_installed(self.specific_soong_path)
+        else:
+            self._collect_srcs_and_r_srcs_paths()
+        self._collect_missing_jars()
 
 
 class EclipseModuleData(ModuleData):

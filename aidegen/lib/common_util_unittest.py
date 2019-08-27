@@ -21,14 +21,15 @@ import os
 import unittest
 from unittest import mock
 
+from aidegen import constant
+from aidegen import unittest_constants
 from aidegen.lib import common_util
 from aidegen.lib import errors
-from aidegen import unittest_constants
 from atest import module_info
 
 
-#pylint: disable=protected-access
-#pylint: disable=invalid-name
+# pylint: disable=protected-access
+# pylint: disable=invalid-name
 class AidegenCommonUtilUnittests(unittest.TestCase):
     """Unit tests for common_util.py"""
 
@@ -54,9 +55,11 @@ class AidegenCommonUtilUnittests(unittest.TestCase):
                 mod_info, unittest_constants.TEST_MODULE))
         mock_is_mod.return_value = False
         mock_names.return_value = True
-        self.assertEqual(
-            expected, common_util.get_related_paths(
-                mod_info, unittest_constants.TEST_MODULE))
+        self.assertEqual(expected, common_util.get_related_paths(
+            mod_info, unittest_constants.TEST_MODULE))
+        self.assertEqual(('', unittest_constants.TEST_PATH),
+                         common_util.get_related_paths(
+                             mod_info, constant.WHOLE_ANDROID_TREE_TARGET))
 
     @mock.patch.object(common_util, 'get_android_root_dir')
     @mock.patch.object(common_util, 'get_related_paths')
