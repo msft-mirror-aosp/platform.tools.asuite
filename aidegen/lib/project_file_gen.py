@@ -28,6 +28,7 @@ import shutil
 
 from aidegen import constant
 from aidegen.lib import common_util
+from aidegen.lib import project_config
 
 # FACET_SECTION is a part of iml, which defines the framework of the project.
 _FACET_SECTION = '''\
@@ -529,7 +530,7 @@ class ProjectFileGenerator:
         Returns:
             String: The content of module.xml.
         """
-        if (not self.project_info.config.is_launch_ide or
+        if (not project_config.ProjectConfig.get_instance().is_launch_ide or
                 not self.project_info.is_main_project):
             content = content.replace(_ENABLE_DEBUGGER_MODULE_TOKEN, '')
         return content

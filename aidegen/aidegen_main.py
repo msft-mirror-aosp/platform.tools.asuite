@@ -41,7 +41,6 @@ from __future__ import absolute_import
 
 import argparse
 import logging
-import os
 import sys
 import traceback
 
@@ -52,7 +51,6 @@ from aidegen.lib import common_util
 from aidegen.lib import eclipse_project_file_gen
 from aidegen.lib import errors
 from aidegen.lib import ide_util
-from aidegen.lib import module_info
 from aidegen.lib import project_config
 from aidegen.lib import project_file_gen
 from aidegen.lib import project_info
@@ -165,10 +163,10 @@ def _get_ide_util_instance(args):
     """
     if args.no_launch:
         return None
-    ide_util_obj = ide_util.IdeUtil(
-        args.ide_installed_path, args.ide[0], args.config_reset,
-        (android_dev_os.AndroidDevOS.MAC ==
-         android_dev_os.AndroidDevOS.get_os_type()))
+    ide_util_obj = ide_util.IdeUtil(args.ide_installed_path, args.ide[0],
+                                    args.config_reset,
+                                    (android_dev_os.AndroidDevOS.MAC ==
+                                     android_dev_os.AndroidDevOS.get_os_type()))
     if not ide_util_obj.is_ide_installed():
         ipath = args.ide_installed_path or ide_util_obj.get_default_path()
         err = _NO_LAUNCH_IDE_CMD.format(ipath)
@@ -183,7 +181,8 @@ def _generate_project_files(projects):
     Args:
         projects: A list of ProjectInfo instances.
     """
-    if project_info.ProjectInfo.config.ide_name == constant.IDE_ECLIPSE:
+    if (project_config.ProjectConfig.get_instance().ide_name == constant.
+            IDE_ECLIPSE):
         eclipse_project_file_gen.EclipseConf.generate_ide_project_files(
             projects)
     else:
@@ -207,46 +206,6 @@ def _launch_ide(ide_util_obj, project_absolute_path):
     ide_util_obj.config_ide(project_absolute_path)
     ide_util_obj.launch_ide()
     print('\n{} {}\n'.format(_CONGRATULATION, _LAUNCH_SUCCESS_MSG))
-
-
-def _check_whole_android_tree(targets, android_tree):
-    """Check if it's a building project file for the whole Android tree.
-
-    The rules:
-    1. If users command aidegen under Android root, e.g.,
-       root$ aidegen
-       that implies users would like to launch the whole Android tree, AIDEGen
-       should set the flag android_tree True.
-    2. If android_tree is True, add whole Android tree to the project.
-
-    Args:
-        targets: A list of targets to be imported.
-        android_tree: A boolean, True if it's a whole Android tree case,
-                      otherwise False.
-
-    Returns:
-        A list of targets to be built.
-    """
-    if common_util.is_android_root(os.getcwd()) and targets == ['']:
-        return [constant.WHOLE_ANDROID_TREE_TARGET]
-    new_targets = targets.copy()
-    if android_tree:
-        new_targets.insert(0, constant.WHOLE_ANDROID_TREE_TARGET)
-    return new_targets
-
-
-def _is_whole_android_tree(targets, android_tree):
-    """Checks is AIDEGen going to process whole android tree.
-
-    Args:
-        targets: A list of targets to be imported.
-        android_tree: A boolean, True if it's a whole Android tree case,
-                      otherwise False.
-    Returns:
-        A boolean, True when user is going to import whole Android tree.
-    """
-    return (android_tree or
-            (common_util.is_android_root(os.getcwd()) and targets == ['']))
 
 
 @common_util.time_logged(message=_TIME_EXCEED_MSG, maximum=_MAX_TIME)
@@ -282,8 +241,9 @@ def main(argv):
     try:
         args = _parse_args(argv)
         common_util.configure_logging(args.verbose)
-        references = [constant.ANDROID_TREE] if _is_whole_android_tree(
-            args.targets, args.android_tree) else []
+        is_whole_android_tree = project_config.is_whole_android_tree(
+            args.targets, args.android_tree)
+        references = [constant.ANDROID_TREE] if is_whole_android_tree else []
         aidegen_metrics.starts_asuite_metrics(references)
         if args.skip_build:
             main_without_message(args)
@@ -314,29 +274,6 @@ def main(argv):
                                               _IDE_CACHE_REMINDER_MSG))
 
 
-def _adjust_cwd_for_whole_tree_project(args, mod_info):
-    """The wrapper to handle the directory change for whole tree case.
-
-        Args:
-            args: A list of system arguments.
-            mod_info: A instance of atest module_info.
-
-        Returns:
-            A list of ProjectInfo instance
-
-    """
-    targets = _check_whole_android_tree(args.targets, args.android_tree)
-    project_info.ProjectInfo.modules_info = module_info.AidegenModuleInfo(
-        force_build=False,
-        module_file=None,
-        atest_module_info=mod_info,
-        projects=targets,
-        verbose=args.verbose,
-        skip_build=args.skip_build)
-
-    return project_info.ProjectInfo.generate_projects(targets)
-
-
 def aidegen_main(args):
     """AIDEGen main entry.
 
@@ -347,10 +284,10 @@ def aidegen_main(args):
     """
     # Pre-check for IDE relevant case, then handle dependency graph job.
     ide_util_obj = _get_ide_util_instance(args)
-    project_info.ProjectInfo.config = project_config.ProjectConfig(args)
-    atest_module_info = common_util.get_atest_module_info(args.targets)
-    projects = _adjust_cwd_for_whole_tree_project(args, atest_module_info)
-    source_locator.multi_projects_locate_source(projects, args.verbose)
+    project_config.ProjectConfig(args).init_environment()
+    projects = project_info.ProjectInfo.generate_projects(
+        project_config.ProjectConfig.get_instance().targets)
+    source_locator.multi_projects_locate_source(projects)
     _generate_project_files(projects)
     if ide_util_obj:
         _launch_ide(ide_util_obj, projects[0].project_absolute_path)
