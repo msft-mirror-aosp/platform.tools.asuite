@@ -150,9 +150,11 @@ class AidegenProjectFileGenUnittest(unittest.TestCase):
             os.remove(iml_path)
         self.assertEqual(test_iml, sample_iml)
 
+    @mock.patch('aidegen.lib.project_config.ProjectConfig')
     @mock.patch('aidegen.lib.project_info.ProjectInfo')
-    def test_generate_modules_xml(self, mock_project):
+    def test_generate_modules_xml(self, mock_project, mock_config):
         """Test _generate_modules_xml."""
+        mock_config.is_launch_ide = True
         mock_project.project_absolute_path = self._ANDROID_PROJECT_PATH
         pfile_gen = project_file_gen.ProjectFileGenerator(mock_project)
         # Test for main project.
@@ -333,9 +335,11 @@ class AidegenProjectFileGenUnittest(unittest.TestCase):
             self._TEST_DATA_PATH)
         self.assertEqual(self._SAMPLE_EXCLUDE_FOLDERS, exclude_folders)
 
+    @mock.patch('aidegen.lib.project_config.ProjectConfig')
     @mock.patch('aidegen.lib.project_info.ProjectInfo')
-    def test_update_enable_debugger(self, mock_project):
+    def test_update_enable_debugger(self, mock_project, mock_config):
         """Test update_enable_debugger."""
+        mock_config.is_launch_ide = True
         enable_debugger_iml = '/path/to/enable_debugger/enable_debugger.iml'
         sample_module = common_util.read_file_content(
             self._ENABLE_DEBUGGER_MODULE_SAMPLE)

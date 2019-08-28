@@ -18,7 +18,6 @@
 
 from __future__ import print_function
 
-import os
 import unittest
 from unittest import mock
 
@@ -30,8 +29,8 @@ from aidegen.lib import common_util
 from aidegen.lib import eclipse_project_file_gen
 from aidegen.lib import errors
 from aidegen.lib import ide_util
+from aidegen.lib import project_config
 from aidegen.lib import project_file_gen
-from aidegen.lib import project_info
 
 
 # pylint: disable=protected-access
@@ -83,7 +82,7 @@ class AidegenMainUnittests(unittest.TestCase):
         with self.assertRaises(errors.IDENotExistError):
             aidegen_main._get_ide_util_instance(args)
 
-    @mock.patch('aidegen.lib.project_config.ProjectConfig')
+    @mock.patch.object(project_config, 'ProjectConfig')
     @mock.patch.object(project_file_gen.ProjectFileGenerator,
                        'generate_ide_project_files')
     @mock.patch.object(eclipse_project_file_gen.EclipseConf,
@@ -91,7 +90,8 @@ class AidegenMainUnittests(unittest.TestCase):
     def test_generate_project_files(self, mock_eclipse, mock_ide, mock_config):
         """Test _generate_project_files with different conditions."""
         projects = ['module_a', 'module_v']
-        project_info.ProjectInfo.config = mock_config
+        args = aidegen_main._parse_args([projects, '-i', 'e'])
+        project_config.ProjectConfig(args)
         mock_config.ide_name = constant.IDE_ECLIPSE
         aidegen_main._generate_project_files(projects)
         self.assertTrue(mock_eclipse.called_with(projects))
@@ -113,16 +113,6 @@ class AidegenMainUnittests(unittest.TestCase):
             mock_get.side_effect = errors.ProjectPathNotExistError(err)
             aidegen_main.main_without_message(args)
             self.assertTrue(mock_metrics.called)
-
-    @mock.patch.object(os, 'getcwd')
-    def test_is_whole_android_tree(self, mock_getcwd):
-        """Test _is_whole_android_tree with different conditions."""
-        self.assertTrue(aidegen_main._is_whole_android_tree(['a'], True))
-        self.assertFalse(aidegen_main._is_whole_android_tree(['a'], False))
-        mock_getcwd.return_value = common_util.get_android_root_dir()
-        self.assertTrue(aidegen_main._is_whole_android_tree([''], False))
-        mock_getcwd.return_value = 'frameworks/base'
-        self.assertFalse(aidegen_main._is_whole_android_tree([''], False))
 
     @mock.patch.object(aidegen_main, 'main_with_message')
     @mock.patch.object(aidegen_main, 'main_without_message')

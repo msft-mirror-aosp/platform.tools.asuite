@@ -25,6 +25,7 @@ from aidegen import constant
 from aidegen import unittest_constants
 from aidegen.lib import common_util
 from aidegen.lib import errors
+
 from atest import module_info
 
 
@@ -61,16 +62,17 @@ class AidegenCommonUtilUnittests(unittest.TestCase):
                          common_util.get_related_paths(
                              mod_info, constant.WHOLE_ANDROID_TREE_TARGET))
 
-    @mock.patch.object(common_util, 'get_android_root_dir')
+    @mock.patch.object(common_util, 'is_android_root')
     @mock.patch.object(common_util, 'get_related_paths')
     def test_is_target_android_root(self, mock_get_rel, mock_get_root):
         """Test is_target_android_root with different conditions."""
         mock_get_rel.return_value = None, unittest_constants.TEST_PATH
-        mock_get_root.return_value = unittest_constants.TEST_PATH
+        mock_get_root.return_value = True
         self.assertTrue(
             common_util.is_target_android_root(
                 module_info.ModuleInfo(), [unittest_constants.TEST_MODULE]))
         mock_get_rel.return_value = None, ''
+        mock_get_root.return_value = False
         self.assertFalse(
             common_util.is_target_android_root(
                 module_info.ModuleInfo(), [unittest_constants.TEST_MODULE]))
