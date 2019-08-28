@@ -61,3 +61,7 @@ class FakeModuleError(AIDEgenError):
 
 class InvalidXMLError(AIDEgenError):
     """Raised if parsing xml file failed."""
+
+
+class InstanceNotExistError(AIDEgenError):
+    """Raised if instance does not exist."""
