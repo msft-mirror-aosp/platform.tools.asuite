@@ -18,7 +18,7 @@
 
 import unittest
 
-from aidegen.lib.module_info import AidegenModuleInfo
+from aidegen.lib import module_info
 
 
 class AidegenModuleInfoUnittests(unittest.TestCase):
@@ -26,14 +26,19 @@ class AidegenModuleInfoUnittests(unittest.TestCase):
 
     def test_is_target_module(self):
         """Test is_target_module with different conditions."""
-        self.assertFalse(AidegenModuleInfo.is_target_module({}))
-        self.assertFalse(AidegenModuleInfo.is_target_module({'path': ''}))
-        self.assertFalse(AidegenModuleInfo.is_target_module({'class': ''}))
-        self.assertTrue(AidegenModuleInfo.is_target_module({'class': ['APPS']}))
+        self.assertFalse(module_info.AidegenModuleInfo.is_target_module({}))
+        self.assertFalse(module_info.AidegenModuleInfo.is_target_module(
+            {'path': ''}))
+        self.assertFalse(module_info.AidegenModuleInfo.is_target_module(
+            {'class': ''}))
+        self.assertTrue(module_info.AidegenModuleInfo.is_target_module(
+            {'class': ['APPS']}))
         self.assertTrue(
-            AidegenModuleInfo.is_target_module({'class': ['JAVA_LIBRARIES']}))
+            module_info.AidegenModuleInfo.is_target_module(
+                {'class': ['JAVA_LIBRARIES']}))
         self.assertTrue(
-            AidegenModuleInfo.is_target_module({'class': ['ROBOLECTRIC']}))
+            module_info.AidegenModuleInfo.is_target_module(
+                {'class': ['ROBOLECTRIC']}))
 
 
 if __name__ == '__main__':

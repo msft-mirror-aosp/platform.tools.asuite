@@ -26,6 +26,7 @@ import re
 from aidegen import constant
 from aidegen.lib import common_util
 from aidegen.lib import errors
+from aidegen.lib import project_config
 from atest import atest_utils
 
 # Parse package name from the package declaration line of a java.
@@ -63,19 +64,21 @@ _CMD_LENGTH_BUFFER = 5000
 _BLANK_SIZE = 1
 
 
-def multi_projects_locate_source(projects, verbose):
+def multi_projects_locate_source(projects):
     """Locate the paths of dependent source folders and jar files with projects.
 
     Args:
         projects: A list of ProjectInfo instances. Information of a project such
                   as project relative path, project real path, project
                   dependencies.
-        verbose: A boolean, if true displays full build output.
     """
     for project in projects:
-        locate_source(project, verbose, project.config.depth,
-                      project.config.ide_name,
-                      build=not project.config.is_skip_build)
+        locate_source(
+            project,
+            project_config.ProjectConfig.get_instance().verbose,
+            project_config.ProjectConfig.get_instance().depth,
+            project_config.ProjectConfig.get_instance().ide_name,
+            build=not project_config.ProjectConfig.get_instance().is_skip_build)
 
 
 def locate_source(project, verbose, depth, ide_name, build=True):
