@@ -48,6 +48,12 @@ class AidegenConfig():
     _ANDROID_MANIFEST_FILE_NAME = 'AndroidManifest.xml'
     _DIR_SRC = 'src'
     _DIR_GEN = 'gen'
+    _ANDROIDMANIFEST_CONTENT = """<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+          android:versionCode="1"
+          android:versionName="1.0" >
+</manifest>
+    """
     DEBUG_ENABLED_FILE_PATH = os.path.join(_ENABLE_DEBUG_DIR,
                                            _ENABLE_DEBUG_CONFIG_FILE)
 
@@ -124,11 +130,16 @@ class AidegenConfig():
             os.makedirs(_dir)
 
     def _gen_empty_androidmanifest(self):
-        """Generate an empty AndroidManifest.xml under enable debug dir."""
+        """Generate an empty AndroidManifest.xml under enable debug dir.
+
+        Once the AndroidManifest.xml does not exist or file size is zero,
+        AIDEGen will generate it with default content to prevent the red
+        underline error in IntelliJ.
+        """
         _file = os.path.join(self._ENABLE_DEBUG_DIR,
                              self._ANDROID_MANIFEST_FILE_NAME)
-        if not os.path.exists(_file):
-            common_util.file_generate(_file, '')
+        if not os.path.exists(_file) or os.stat(_file).st_size == 0:
+            common_util.file_generate(_file, self._ANDROIDMANIFEST_CONTENT)
 
     def _gen_enable_debugger_config(self, api_level):
         """Generate the enable_debugger.iml config file.
