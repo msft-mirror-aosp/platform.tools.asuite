@@ -20,6 +20,7 @@ This module has a collection of functions that provide helper functions to
 other modules.
 """
 
+import fnmatch
 import logging
 import os
 import sys
@@ -484,3 +485,24 @@ def configure_logging(verbose):
     datefmt = _DATE_FORMAT
     level = logging.DEBUG if verbose else logging.INFO
     logging.basicConfig(level=level, format=log_format, datefmt=datefmt)
+
+
+def get_cmakelists_path():
+    """Assemble the path of the file which contains all CLion projects' paths.
+
+    Returns:
+        Clion project list file path.
+    """
+    return os.path.join(get_soong_out_path(), constant.CMAKELISTS_FILE_NAME)
+
+
+def generate_clion_projects_file():
+    """Generate file of CLion's project file paths' list."""
+    android_root = get_android_root_dir()
+    files = []
+    for root, _, filenames in os.walk(android_root):
+        if fnmatch.filter(filenames, constant.CLION_PROJECT_FILE_NAME):
+            files.append(os.path.relpath(root, android_root))
+    with open(get_cmakelists_path(), 'w') as outfile:
+        for cfile in files:
+            outfile.write("%s\n" % cfile)
