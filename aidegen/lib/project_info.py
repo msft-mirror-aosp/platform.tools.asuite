@@ -49,8 +49,6 @@ class ProjectInfo:
     Class attributes:
         modules_info: A AidegenModuleInfo instance whose name_to_module_info is
                       combining module-info.json with module_bp_java_deps.json.
-        config: A ProjectConfig instance which contains user preference of
-                project.
 
     Attributes:
         project_absolute_path: The absolute path of the project.
@@ -82,7 +80,6 @@ class ProjectInfo:
     """
 
     modules_info = None
-    config = None
 
     def __init__(self, target=None, is_main_project=False):
         """ProjectInfo initialize.
@@ -274,6 +271,7 @@ class ProjectInfo:
         Returns:
             List: A list of ProjectInfo instances.
         """
+        ProjectInfo.modules_info = module_info.AidegenModuleInfo()
         return [ProjectInfo(target, i == 0) for i, target in enumerate(targets)]
 
     @staticmethod
