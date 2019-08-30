@@ -74,10 +74,15 @@ _ANDROID_MANIFEST = 'AndroidManifest.xml'
 _IML_EXTENSION = '.iml'
 _FRAMEWORK_JAR = os.sep + 'framework.jar'
 _HIGH_PRIORITY_JARS = [_FRAMEWORK_JAR]
+# Temporarily exclude test-dump and src_stub folders to prevent red underscore
+# by incorrect reference. These two folder should be removed after
+# b/136982078 resolved.
 _EXCLUDE_FOLDERS = ['.idea', '.repo', 'art', 'bionic', 'bootable', 'build',
                     'dalvik', 'developers', 'device', 'hardware', 'kernel',
                     'libnativehelper', 'pdk', 'prebuilts', 'sdk', 'system',
-                    'toolchain', 'tools', 'vendor', 'out']
+                    'toolchain', 'tools', 'vendor', 'out',
+                    'art/tools/ahat/src/test-dump',
+                    'cts/common/device-side/device-info/src_stub']
 _GIT_FOLDER_NAME = '.git'
 # Support gitignore by symbolic link to aidegen/data/gitignore_template.
 _GITIGNORE_FILE_NAME = '.gitignore'
