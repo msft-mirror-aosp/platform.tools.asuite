@@ -39,8 +39,10 @@ This CLI generates project files for using in IntelliJ, such as:
 
 from __future__ import absolute_import
 
+import copy
 import argparse
 import logging
+import os
 import sys
 import traceback
 
@@ -51,6 +53,7 @@ from aidegen.lib import common_util
 from aidegen.lib import eclipse_project_file_gen
 from aidegen.lib import errors
 from aidegen.lib import ide_util
+from aidegen.lib import module_info
 from aidegen.lib import project_config
 from aidegen.lib import project_file_gen
 from aidegen.lib import project_info
@@ -68,6 +71,12 @@ or  - specify "aidegen -n" to generate project file only
 _CONGRATULATION = common_util.COLORED_PASS('CONGRATULATION:')
 _LAUNCH_SUCCESS_MSG = (
     'IDE launched successfully. Please check your IDE window.')
+_LAUNCH_ECLIPSE_SUCCESS_MSG = (
+    'The project files .classpath and .project are generated under '
+    '{PROJECT_PATH} and AIDEGen doesn\'t import the project automatically, '
+    'please import the project manually by steps: File -> Import -> select \''
+    'General\' -> \'Existing Projects into Workspace\' -> click \'Next\' -> '
+    'Choose the root directory -> click \'Finish\'.')
 _IDE_CACHE_REMINDER_MSG = (
     'To prevent the existed IDE cache from impacting your IDE dependency '
     'analysis, please consider to clear IDE caches if necessary. To do that, in'
@@ -156,7 +165,7 @@ def _get_ide_util_instance(args):
     """Get an IdeUtil class instance for launching IDE.
 
     Args:
-        args: A list of arguments.
+        args: An argparse.Namespace class instance holding parsed args.
 
     Returns:
         An IdeUtil class instance.
@@ -205,7 +214,94 @@ def _launch_ide(ide_util_obj, project_absolute_path):
     """
     ide_util_obj.config_ide(project_absolute_path)
     ide_util_obj.launch_ide()
-    print('\n{} {}\n'.format(_CONGRATULATION, _LAUNCH_SUCCESS_MSG))
+    if ide_util_obj.ide_name() == constant.IDE_ECLIPSE:
+        launch_msg = ' '.join([_LAUNCH_SUCCESS_MSG,
+                               _LAUNCH_ECLIPSE_SUCCESS_MSG.format(
+                                   PROJECT_PATH=project_absolute_path)])
+    else:
+        launch_msg = _LAUNCH_SUCCESS_MSG
+    print('\n{} {}\n'.format(_CONGRATULATION, launch_msg))
+
+
+def _check_native_projects(targets, ide):
+    """Check if targets exist native projects.
+
+    For native projects:
+    1. Since IntelliJ doesn't support native projects any more, when targets
+       exist native projects, we should separate them and launch them with
+       CLion.
+    2. Android Studio support native project and open CMakeLists.txt as its
+       native project file as well. Its behavior is like IntelliJ: Java projects
+       and native projects can't be launched in the same IDE and each IDE can
+       only launch a single native project.
+
+    Args:
+        targets: A list of targets to be imported.
+        ide: A key character of IDE to be launched.
+
+    Returns:
+        A tuple of a set of CMakeLists.txt relative paths and a set of build
+        targets.
+    """
+    atest_module_info = module_info.AidegenModuleInfo.get_instance()
+    cmake_file = common_util.get_cmakelists_path()
+    if not os.path.isfile(cmake_file):
+        common_util.generate_clion_projects_file()
+    # TODO(b/140140401): Support Eclipse's native projects.
+    if (constant.IDE_NAME_DICT[ide] == constant.IDE_ECLIPSE
+            or not os.path.isfile(cmake_file)):
+        return [], targets
+
+    files = []
+    with open(cmake_file, 'r') as infile:
+        for line in infile:
+            files.append(line.strip())
+
+    ctargets = set()
+    cmakelists = set()
+    cwd = os.getcwd()
+    for target in targets:
+        rel_path, abs_path = common_util.get_related_paths(
+            atest_module_info, target)
+        if rel_path in files:
+            ctargets.add(target)
+            cmakelists.add(os.path.relpath(abs_path, cwd))
+    for target in ctargets:
+        targets.remove(target)
+    return cmakelists, targets
+
+
+def _launch_native_projects(ide_util_obj, args, cmakelists):
+    """Launch native projects with IDE.
+
+    If the target IDE is IntelliJ we should launch native projects with CLion.
+
+    Args:
+        ide_util_obj: An ide_util instance.
+        args: An argparse.Namespace class instance holding parsed args.
+        cmakelists: A list of CMakeLists.txt file paths.
+    """
+    native_ide_util_obj = ide_util_obj
+    if constant.IDE_NAME_DICT[args.ide[0]] == constant.IDE_INTELLIJ:
+        new_args = copy.deepcopy(args)
+        new_args.ide[0] = 'c'
+        native_ide_util_obj = _get_ide_util_instance(new_args)
+    if native_ide_util_obj:
+        _launch_ide(native_ide_util_obj, ' '.join(cmakelists))
+
+
+def _create_and_launch_java_projects(ide_util_obj, targets):
+    """Launch Android of Java(Kotlin) projects with IDE.
+
+    Args:
+        ide_util_obj: An ide_util instance.
+        targets: A list of build targets.
+    """
+    projects = project_info.ProjectInfo.generate_projects(targets)
+    source_locator.multi_projects_locate_source(projects)
+    _generate_project_files(projects)
+    if ide_util_obj:
+        _launch_ide(ide_util_obj, projects[0].project_absolute_path)
 
 
 @common_util.time_logged(message=_TIME_EXCEED_MSG, maximum=_MAX_TIME)
@@ -285,12 +381,13 @@ def aidegen_main(args):
     # Pre-check for IDE relevant case, then handle dependency graph job.
     ide_util_obj = _get_ide_util_instance(args)
     project_config.ProjectConfig(args).init_environment()
-    projects = project_info.ProjectInfo.generate_projects(
-        project_config.ProjectConfig.get_instance().targets)
-    source_locator.multi_projects_locate_source(projects)
-    _generate_project_files(projects)
-    if ide_util_obj:
-        _launch_ide(ide_util_obj, projects[0].project_absolute_path)
+    targets = project_config.ProjectConfig.get_instance().targets
+    project_info.ProjectInfo.modules_info = module_info.AidegenModuleInfo()
+    cmakelists, targets = _check_native_projects(targets, args.ide[0])
+    if cmakelists:
+        _launch_native_projects(ide_util_obj, args, cmakelists)
+    if targets:
+        _create_and_launch_java_projects(ide_util_obj, targets)
 
 
 if __name__ == '__main__':

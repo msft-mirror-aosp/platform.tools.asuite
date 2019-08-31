@@ -271,7 +271,6 @@ class ProjectInfo:
         Returns:
             List: A list of ProjectInfo instances.
         """
-        ProjectInfo.modules_info = module_info.AidegenModuleInfo()
         return [ProjectInfo(target, i == 0) for i, target in enumerate(targets)]
 
     @staticmethod
