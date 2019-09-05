@@ -119,10 +119,12 @@ class IdeUtilUnittests(unittest.TestCase):
         ide_util._get_ide(None, 'j', False, is_mac=False)
         self.assertTrue(mock_linux.called)
 
+    @mock.patch.object(ide_util.IdeEclipse, '_get_script_from_system')
     @mock.patch.object(ide_util.IdeIntelliJ, '_get_preferred_version')
-    def test_get_mac_and_linux_ide(self, mock_preference):
+    def test_get_mac_and_linux_ide(self, mock_preference, mock_path):
         """Test if _get_mac_ide and _get_linux_ide return correct IDE class."""
         mock_preference.return_value = None
+        mock_path.return_value = 'path'
         self.assertIsInstance(ide_util._get_mac_ide(), ide_util.IdeMacIntelliJ)
         self.assertIsInstance(ide_util._get_mac_ide(None, 's'),
                               ide_util.IdeMacStudio)

@@ -74,9 +74,9 @@ _ANDROID_MANIFEST = 'AndroidManifest.xml'
 _IML_EXTENSION = '.iml'
 _FRAMEWORK_JAR = os.sep + 'framework.jar'
 _HIGH_PRIORITY_JARS = [_FRAMEWORK_JAR]
-# Temporarily exclude test-dump and src_stub folders to prevent red underscore
-# by incorrect reference. These two folder should be removed after
-# b/136982078 resolved.
+# Temporarily exclude test-dump and src_stub folders to prevent symbols from
+# resolving failure by incorrect reference. These two folders should be removed
+# after b/136982078 is resolved.
 _EXCLUDE_FOLDERS = ['.idea', '.repo', 'art', 'bionic', 'bootable', 'build',
                     'dalvik', 'developers', 'device', 'hardware', 'kernel',
                     'libnativehelper', 'pdk', 'prebuilts', 'sdk', 'system',
