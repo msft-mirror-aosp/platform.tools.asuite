@@ -59,7 +59,7 @@ class ProjectInfo:
     Users should call config_project first before starting using ProjectInfo.
 
     Class attributes:
-        modules_info: A AidegenModuleInfo instance whose name_to_module_info is
+        modules_info: An AidegenModuleInfo instance whose name_to_module_info is
                       combining module-info.json with module_bp_java_deps.json.
 
     Attributes:
