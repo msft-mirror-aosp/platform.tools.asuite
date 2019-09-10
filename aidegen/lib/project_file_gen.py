@@ -418,7 +418,7 @@ class ProjectFileGenerator:
         """
         srcjar_urls = []
         if srcjar_paths:
-            for srcjar_dir in srcjar_paths:
+            for srcjar_dir in sorted(srcjar_paths):
                 srcjar_urls.append(_SRCJAR_URL.format(SRCJAR=os.path.join(
                     common_util.get_android_root_dir(), srcjar_dir)))
         if srcjar_urls:
