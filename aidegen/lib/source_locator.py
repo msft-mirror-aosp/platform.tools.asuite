@@ -381,6 +381,21 @@ class ModuleData:
         if os.path.basename(srcjar) in _TARGET_BUILD_FILES:
             self.srcjar_paths.add('%s!/' % srcjar)
 
+    def _collect_all_srcjar_paths(self):
+        """Collect all srcjar files of target module as source folders.
+
+        Since the aidl files are built to *.java and collected in the
+        aidl.srcjar file by the build system. AIDEGen needs to collect these
+        aidl.srcjar files as the source root folders in IntelliJ. Furthermore,
+        AIDEGen collects all *.srcjar files for other cases to fulfil the same
+        purpose.
+        """
+        if self._is_target_module() and self._check_key(constant.KEY_SRCJARS):
+            for srcjar in self.module_data[constant.KEY_SRCJARS]:
+                if not os.path.exists(common_util.get_abs_path(srcjar)):
+                    self.build_targets.add(srcjar)
+                self.srcjar_paths.add('%s!/' % srcjar)
+
     @staticmethod
     def _get_r_dir(srcjar):
         """Get the source folder of R.java for Eclipse.
@@ -709,6 +724,7 @@ class ModuleData:
         self._collect_srcs_paths()
         self._collect_classes_jars()
         self._collect_r_srcs_paths()
+        self._collect_all_srcjar_paths()
 
     def _collect_missing_jars(self):
         """Collect missing jar files to rebuild them."""
