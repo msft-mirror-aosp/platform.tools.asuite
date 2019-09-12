@@ -106,3 +106,7 @@ VCS_XML = """<?xml version="1.0" encoding="UTF-8"?>
     </component>
 </project>
 """
+
+# Constants for ProjectInfo or ModuleData classes
+JAR_EXT = '.jar'
+TARGET_LIBS = [JAR_EXT]

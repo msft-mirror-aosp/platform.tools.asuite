@@ -14,7 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Collect the source paths from dependency information."""
+"""ModuleData information."""
 
 from __future__ import absolute_import
 
@@ -25,22 +25,16 @@ import re
 
 from aidegen import constant
 from aidegen.lib import common_util
-from aidegen.lib import errors
-from aidegen.lib import project_config
-from atest import atest_utils
 
 # Parse package name from the package declaration line of a java.
 # Group matches "foo.bar" of line "package foo.bar;" or "package foo.bar"
 _PACKAGE_RE = re.compile(r'\s*package\s+(?P<package>[^(;|\s)]+)\s*', re.I)
-
 _ANDROID_SUPPORT_PATH_KEYWORD = 'prebuilts/sdk/current/'
+
 # File extensions
-_JAR_EXT = '.jar'
 _JAVA_EXT = '.java'
 _KOTLIN_EXT = '.kt'
 _SRCJAR_EXT = '.srcjar'
-
-_TARGET_LIBS = [_JAR_EXT]
 _TARGET_FILES = [_JAVA_EXT, _KOTLIN_EXT]
 _JARJAR_RULES_FILE = 'jarjar-rules.txt'
 _KEY_JARJAR_RULES = 'jarjar_rules'
@@ -55,204 +49,6 @@ _IGNORE_DIRS = [
     # cause duplicated classes by libcore/ojluni/src/main/java.
     'libcore/ojluni/src/lambda/java'
 ]
-_DIS_ROBO_BUILD_ENV_VAR = {'DISABLE_ROBO_RUN_TESTS': 'true'}
-# When we use atest_utils.build(), there is a command length limit on
-# soong_ui.bash. We reserve 5000 characters for rewriting the command line
-# in soong_ui.bash.
-_CMD_LENGTH_BUFFER = 5000
-# For each argument, it need a space to separate following argument.
-_BLANK_SIZE = 1
-
-
-def multi_projects_locate_source(projects):
-    """Locate the paths of dependent source folders and jar files with projects.
-
-    Args:
-        projects: A list of ProjectInfo instances. Information of a project such
-                  as project relative path, project real path, project
-                  dependencies.
-    """
-    for project in projects:
-        locate_source(
-            project,
-            project_config.ProjectConfig.get_instance().verbose,
-            project_config.ProjectConfig.get_instance().depth,
-            project_config.ProjectConfig.get_instance().ide_name,
-            build=not project_config.ProjectConfig.get_instance().is_skip_build)
-
-
-def locate_source(project, verbose, depth, ide_name, build=True):
-    """Locate the paths of dependent source folders and jar files.
-
-    Try to reference source folder path as dependent module unless the
-    dependent module should be referenced to a jar file, such as modules have
-    jars and jarjar_rules parameter.
-    For example:
-        Module: asm-6.0
-            java_import {
-                name: 'asm-6.0',
-                host_supported: true,
-                jars: ['asm-6.0.jar'],
-            }
-        Module: bouncycastle
-            java_library {
-                name: 'bouncycastle',
-                ...
-                target: {
-                    android: {
-                        jarjar_rules: 'jarjar-rules.txt',
-                    },
-                },
-            }
-
-    Args:
-        project: A ProjectInfo instance. Information of a project such as
-                 project relative path, project real path, project dependencies.
-        verbose: A boolean, if true displays full build output.
-        depth: An integer shows the depth of module dependency referenced by
-               source. Zero means the max module depth.
-        ide_name: A string stands for the IDE name, default is IntelliJ.
-        build: A boolean default to true, if true skip building jar and srcjar
-               files, otherwise build them.
-
-    Example usage:
-        project.source_path = locate_source(project, verbose, False)
-        E.g.
-            project.source_path = {
-                'source_folder_path': ['path/to/source/folder1',
-                                       'path/to/source/folder2', ...],
-                'test_folder_path': ['path/to/test/folder', ...],
-                'jar_path': ['path/to/jar/file1', 'path/to/jar/file2', ...]
-            }
-    """
-    if not hasattr(project, 'dep_modules') or not project.dep_modules:
-        raise errors.EmptyModuleDependencyError(
-            'Dependent modules dictionary is empty.')
-    dependencies = project.source_path
-    rebuild_targets = set()
-    for module_name, module_data in project.dep_modules.items():
-        module = _generate_moduledata(module_name, module_data, ide_name,
-                                      project.project_relative_path, depth)
-        module.locate_sources_path()
-        dependencies['source_folder_path'].update(module.src_dirs)
-        dependencies['test_folder_path'].update(module.test_dirs)
-        dependencies['r_java_path'].update(module.r_java_paths)
-        dependencies['srcjar_path'].update(module.srcjar_paths)
-        _append_jars_as_dependencies(dependencies, module)
-        if module.build_targets:
-            rebuild_targets |= module.build_targets
-    if rebuild_targets:
-        if build:
-            _batch_build_dependencies(verbose, rebuild_targets)
-            locate_source(project, verbose, depth, ide_name, build=False)
-        else:
-            logging.warning('Jar or srcjar files build failed:\n\t%s.',
-                            '\n\t'.join(rebuild_targets))
-
-
-def _batch_build_dependencies(verbose, rebuild_targets):
-    """Batch build the jar or srcjar files of the modules if they don't exist.
-
-    Command line has the max length limit, MAX_ARG_STRLEN, and
-    MAX_ARG_STRLEN = (PAGE_SIZE * 32).
-    If the build command is longer than MAX_ARG_STRLEN, this function will
-    separate the rebuild_targets into chunks with size less or equal to
-    MAX_ARG_STRLEN to make sure it can be built successfully.
-
-    Args:
-        verbose: A boolean, if true displays full build output.
-        rebuild_targets: A set of jar or srcjar files which do not exist.
-    """
-    logging.info('Ready to build the jar or srcjar files. Files count = %s',
-                 str(len(rebuild_targets)))
-    arg_max = os.sysconf("SC_PAGE_SIZE") * 32 - _CMD_LENGTH_BUFFER
-    rebuild_targets = list(rebuild_targets)
-    for start, end in iter(_separate_build_targets(
-            rebuild_targets, arg_max)):
-        _build_target(rebuild_targets[start: end], verbose)
-
-
-def _build_target(targets, verbose):
-    """Build the jar or srcjar files.
-
-    Use -k to keep going when some targets can't be built or build failed.
-    Use -j to speed up building.
-
-    Args:
-        targets: A list of jar or srcjar files which need to build.
-        verbose: A boolean, if true displays full build output.
-    """
-    build_cmd = ['-k', '-j']
-    build_cmd.extend(list(targets))
-    if not atest_utils.build(build_cmd, verbose, _DIS_ROBO_BUILD_ENV_VAR):
-        message = ('Build failed!\n{}\nAIDEGen will proceed but dependency '
-                   'correctness is not guaranteed if not all targets being '
-                   'built successfully.'.format('\n'.join(targets)))
-        print('\n{} {}\n'.format(common_util.COLORED_INFO('Warning:'),
-                                 message))
-
-
-def _separate_build_targets(build_targets, max_length):
-    """Separate the build_targets by limit the command size to max command
-    length.
-
-    Args:
-        build_targets: A list to be separated.
-        max_length: The max number of each build command length.
-
-    Yields:
-        The start index and end index of build_targets.
-    """
-    arg_len = 0
-    first_item_index = 0
-    for i, item in enumerate(build_targets):
-        arg_len = arg_len + len(item) + _BLANK_SIZE
-        if arg_len > max_length:
-            yield first_item_index, i
-            first_item_index = i
-            arg_len = len(item) + _BLANK_SIZE
-    if first_item_index < len(build_targets):
-        yield first_item_index, len(build_targets)
-
-
-def _generate_moduledata(module_name, module_data, ide_name, project_relpath,
-                         depth):
-    """Generate a module class to collect dependencies in IntelliJ or Eclipse.
-
-    Args:
-        module_name: Name of the module.
-        module_data: A dictionary holding a module information.
-        ide_name: A string stands for the IDE name.
-        project_relpath: A string stands for the project's relative path.
-        depth: An integer shows the depth of module dependency referenced by
-               source. Zero means the max module depth.
-
-    Returns:
-        A ModuleData class.
-    """
-    if ide_name == constant.IDE_ECLIPSE:
-        return EclipseModuleData(module_name, module_data, project_relpath)
-    return ModuleData(module_name, module_data, depth)
-
-
-def _append_jars_as_dependencies(dependent_data, module):
-    """Add given module's jar files into dependent_data as dependencies.
-
-    Args:
-        dependent_data: A dictionary contains the dependent source paths and
-                        jar files.
-        module: A ModuleData instance.
-    """
-    if module.jar_files:
-        dependent_data['jar_path'].update(module.jar_files)
-        for jar in list(module.jar_files):
-            dependent_data['jar_module_path'].update({jar: module.module_path})
-    # Collecting the jar files of default core modules as dependencies.
-    if constant.KEY_DEPENDENCIES in module.module_data:
-        dependent_data['jar_path'].update([
-            x for x in module.module_data[constant.KEY_DEPENDENCIES]
-            if common_util.is_target(x, _TARGET_LIBS)
-        ])
 
 
 class ModuleData:
@@ -578,7 +374,7 @@ class ModuleData:
         Returns:
             Boolean: True if jar_path is an existing jar file.
         """
-        if common_util.is_target(jar_path, _TARGET_LIBS):
+        if common_util.is_target(jar_path, constant.TARGET_LIBS):
             self.referenced_by_jar = True
             if os.path.isfile(common_util.get_abs_path(jar_path)):
                 self.jar_files.add(jar_path)
