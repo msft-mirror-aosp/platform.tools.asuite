@@ -119,7 +119,7 @@ def get_related_paths(atest_module_info, target=None):
         elif atest_module_info.is_module(target):
             paths = atest_module_info.get_paths(target)
             if paths:
-                rel_path = paths[0]
+                rel_path = paths[0].strip(os.sep)
                 abs_path = os.path.join(get_android_root_dir(), rel_path)
         # User inputs a module path or a relative path of android root folder.
         elif (atest_module_info.get_module_names(target)
@@ -208,12 +208,12 @@ def _check_modules(atest_module_info, targets, raise_on_lost_module=True):
         True if any _check_module return flip the True/False.
     """
     for target in targets:
-        if not _check_module(atest_module_info, target, raise_on_lost_module):
+        if not check_module(atest_module_info, target, raise_on_lost_module):
             return False
     return True
 
 
-def _check_module(atest_module_info, target, raise_on_lost_module=True):
+def check_module(atest_module_info, target, raise_on_lost_module=True):
     """Check if a target is valid or it's a path containing build target.
 
     Args:
