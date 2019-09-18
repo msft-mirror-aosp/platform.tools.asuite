@@ -65,3 +65,8 @@ class InvalidXMLError(AIDEgenError):
 
 class InstanceNotExistError(AIDEgenError):
     """Raised if instance does not exist."""
+
+
+#The following error is used by aidegen_functional_test module.
+class CommitIDNotExistError(AIDEgenError):
+    """Raised if the commit id doesn't exist."""
