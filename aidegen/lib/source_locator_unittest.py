@@ -382,7 +382,7 @@ class ModuleDataUnittests(unittest.TestCase):
 
     def test_collect_all_srcjar_path(self):
         """Test collect all srcjar paths as source root folders."""
-        test_module = dict(_MODULE_INFO)
+        test_module = dict(unittest_constants.MODULE_INFO)
         test_module['srcjars'] = [
             'a/b/aidl0.srcjar',
             'a/b/aidl1.srcjar'
@@ -391,8 +391,8 @@ class ModuleDataUnittests(unittest.TestCase):
             'a/b/aidl0.srcjar!/',
             'a/b/aidl1.srcjar!/'
         ])
-        module_data = source_locator.ModuleData(_MODULE_NAME, test_module,
-                                                _MODULE_DEPTH)
+        module_data = source_locator.ModuleData(unittest_constants.TEST_MODULE,
+                                                test_module, 0)
         module_data._collect_all_srcjar_paths()
         self.assertEqual(module_data.srcjar_paths, expacted_result)
 
