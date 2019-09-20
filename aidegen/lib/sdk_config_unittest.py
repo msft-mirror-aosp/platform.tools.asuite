@@ -20,15 +20,18 @@ import os
 import shutil
 import tempfile
 import unittest
-from unittest.mock import patch
+from unittest import mock
+import xml
 
 from aidegen import unittest_constants
 from aidegen.lib import common_util
+from aidegen.lib import errors
 from aidegen.lib import sdk_config
 
 
 # pylint: disable=protected-access
 # pylint: disable=invalid-name
+# pylint: disable=too-many-arguments
 class SDKConfigUnittests(unittest.TestCase):
     """Unit tests for sdk_config.py"""
     _JDK_FILE_NAME = 'jdk.table.xml'
@@ -59,6 +62,7 @@ class SDKConfigUnittests(unittest.TestCase):
                                              'Android/Sdk')
     _CUSTOM_ANDROID_SDK_PATH = os.path.join(unittest_constants.TEST_DATA_PATH,
                                             'Android/custom/sdk')
+    _TEMP = 'temp'
 
     def test_generate_jdk_config(self):
         """Test generating jdk config."""
@@ -176,7 +180,7 @@ class SDKConfigUnittests(unittest.TestCase):
         sdk_config.SDKConfig.max_api_level = 0
         expected_path = self._CUSTOM_ANDROID_SDK_PATH
         try:
-            with patch('builtins.input', side_effect=user_input):
+            with mock.patch('builtins.input', side_effect=user_input):
                 jdk = sdk_config.SDKConfig(self._JDK_SAMPLE4,
                                            self._JDK_TEMPLATE,
                                            self._JDK_PATH,
@@ -221,11 +225,29 @@ class SDKConfigUnittests(unittest.TestCase):
                                        self._JDK_PATH,
                                        self._NONEXISTENT_ANDROID_SDK_PATH)
             user_input = [self._DEFAULT_ANDROID_SDK_PATH]
-            with patch('builtins.input', side_effect=user_input):
+            with mock.patch('builtins.input', side_effect=user_input):
                 jdk.generate_sdk_config_string()
                 self.assertEqual(jdk.config_string, expected_content)
         finally:
             shutil.rmtree(tmp_folder)
+
+    @mock.patch.object(xml.dom.minidom, 'parseString')
+    def test_parse_xml_failed(self, mock_parse):
+        """Test _parse_xml failed."""
+        tmp_folder = self._TEMP
+        config_file = os.path.join(tmp_folder, self._JDK_FILE_NAME)
+        mock_parse.side_effect = TypeError()
+        with self.assertRaises(errors.InvalidXMLError):
+            sdk_config.SDKConfig(config_file,
+                                 self._JDK_TEMPLATE,
+                                 self._JDK_PATH,
+                                 self._NONEXISTENT_ANDROID_SDK_PATH)
+        mock_parse.side_effect = AttributeError()
+        with self.assertRaises(errors.InvalidXMLError):
+            sdk_config.SDKConfig(config_file,
+                                 self._JDK_TEMPLATE,
+                                 self._JDK_PATH,
+                                 self._NONEXISTENT_ANDROID_SDK_PATH)
 
     def test_get_platforms_dir_path(self):
         """Test _get_platforms_dir_path."""
@@ -237,6 +259,75 @@ class SDKConfigUnittests(unittest.TestCase):
         sdk_config.SDKConfig.android_sdk_path = '/a/b/platforms'
         test_path = sdk_config.SDKConfig._get_platforms_dir_path()
         self.assertEqual(test_path, expected_path)
+
+    @mock.patch.object(sdk_config.SDKConfig, '_write_jdk_config_file')
+    @mock.patch.object(sdk_config.SDKConfig, 'generate_sdk_config_string')
+    @mock.patch.object(sdk_config.SDKConfig, 'generate_jdk_config_string')
+    @mock.patch.object(sdk_config.SDKConfig, '_android_sdk_exists')
+    @mock.patch.object(sdk_config.SDKConfig, '_target_jdk_exists')
+    def test_config_jdk_file_do_nothing(self, mock_jdk_exist, mock_sdk_exist,
+                                        mock_gen_jdk, mock_gen_sdk, mock_write):
+        """Test config_jdk_file check and return."""
+        mock_jdk_exist.return_value = True
+        mock_sdk_exist.return_value = True
+        tmp_folder = self._TEMP
+        config_file = os.path.join(tmp_folder, self._JDK_FILE_NAME)
+        jdk = sdk_config.SDKConfig(config_file,
+                                   self._JDK_TEMPLATE,
+                                   self._JDK_PATH,
+                                   self._NONEXISTENT_ANDROID_SDK_PATH)
+        jdk.config_jdk_file()
+        self.assertFalse(mock_gen_jdk.called)
+        self.assertFalse(mock_gen_sdk.called)
+        self.assertFalse(mock_write.called)
+
+    @mock.patch.object(sdk_config.SDKConfig, '_parse_xml')
+    @mock.patch.object(sdk_config.SDKConfig, '_write_jdk_config_file')
+    @mock.patch.object(sdk_config.SDKConfig, 'generate_sdk_config_string')
+    @mock.patch.object(sdk_config.SDKConfig, 'generate_jdk_config_string')
+    @mock.patch.object(sdk_config.SDKConfig, '_android_sdk_exists')
+    @mock.patch.object(sdk_config.SDKConfig, '_target_jdk_exists')
+    def test_config_jdk_file_do_something(self, mock_jdk_exist, mock_sdk_exist,
+                                          mock_gen_jdk, mock_gen_sdk,
+                                          mock_write, mock_parse):
+        """Test config_jdk_file config jdk file."""
+        mock_jdk_exist.return_value = True
+        mock_sdk_exist.return_value = False
+        tmp_folder = self._TEMP
+        config_file = os.path.join(tmp_folder, self._JDK_FILE_NAME)
+        jdk = sdk_config.SDKConfig(config_file,
+                                   self._JDK_TEMPLATE,
+                                   self._JDK_PATH,
+                                   self._NONEXISTENT_ANDROID_SDK_PATH)
+        jdk.config_jdk_file()
+        self.assertTrue(mock_gen_jdk.called)
+        self.assertTrue(mock_gen_sdk.called)
+        self.assertTrue(mock_write.called)
+        self.assertTrue(mock_parse.called)
+        mock_jdk_exist.return_value = False
+        mock_sdk_exist.return_value = True
+        jdk = sdk_config.SDKConfig(config_file,
+                                   self._JDK_TEMPLATE,
+                                   self._JDK_PATH,
+                                   self._NONEXISTENT_ANDROID_SDK_PATH)
+        jdk.config_jdk_file()
+        self.assertTrue(mock_gen_jdk.called)
+        self.assertTrue(mock_gen_sdk.called)
+        self.assertTrue(mock_write.called)
+        self.assertTrue(mock_parse.called)
+
+    @mock.patch.object(os.path, 'isfile')
+    def test_get_default_config_content(self, mock_isfile):
+        """Test _get_default_config_content."""
+        mock_isfile.return_value = False
+        tmp_folder = self._TEMP
+        config_file = os.path.join(tmp_folder, self._JDK_FILE_NAME)
+        jdk = sdk_config.SDKConfig(config_file,
+                                   self._JDK_TEMPLATE,
+                                   self._JDK_PATH,
+                                   self._NONEXISTENT_ANDROID_SDK_PATH)
+        self.assertEqual(sdk_config.SDKConfig._XML_CONTENT,
+                         jdk._get_default_config_content())
 
 
 if __name__ == '__main__':
