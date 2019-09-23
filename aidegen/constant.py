@@ -67,6 +67,8 @@ MERGED_MODULE_INFO = 'merged_module_info.json'
 BLUEPRINT_JSONFILE_NAME = 'module_bp_java_deps.json'
 CMAKELISTS_FILE_NAME = 'clion_project_lists.txt'
 CLION_PROJECT_FILE_NAME = 'CMakeLists.txt'
+ANDROID_BP = 'Android.bp'
+ANDROID_MK = 'Android.mk'
 
 # Constants for whole Android tree
 WHOLE_ANDROID_TREE_TARGET = '#WHOLE_ANDROID_TREE#'
