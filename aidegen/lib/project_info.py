@@ -30,8 +30,6 @@ from aidegen.lib import source_locator
 
 from atest import atest_utils
 
-_ANDROID_MK = 'Android.mk'
-_ANDROID_BP = 'Android.bp'
 _CONVERT_MK_URL = ('https://android.googlesource.com/platform/build/soong/'
                    '#convert-android_mk-files')
 _ANDROID_MK_WARN = (
@@ -163,18 +161,17 @@ class ProjectInfo:
         Yields:
             A string: the relative path of Android.mk.
         """
-        android_mk = os.path.join(self.project_absolute_path, _ANDROID_MK)
-        android_bp = os.path.join(self.project_absolute_path, _ANDROID_BP)
-        if os.path.isfile(android_mk) and not os.path.isfile(android_bp):
-            yield '\t' + os.path.join(self.project_relative_path, _ANDROID_MK)
+        if (common_util.exist_android_mk(self.project_absolute_path) and
+                not common_util.exist_android_bp(self.project_absolute_path)):
+            yield '\t' + os.path.join(self.project_relative_path,
+                                      constant.ANDROID_MK)
         for mod_name in self.dep_modules:
             rel_path, abs_path = common_util.get_related_paths(
                 self.modules_info, mod_name)
             if rel_path and abs_path:
-                mod_mk = os.path.join(abs_path, _ANDROID_MK)
-                mod_bp = os.path.join(abs_path, _ANDROID_BP)
-                if os.path.isfile(mod_mk) and not os.path.isfile(mod_bp):
-                    yield '\t' + os.path.join(rel_path, _ANDROID_MK)
+                if (common_util.exist_android_mk(abs_path)
+                        and not common_util.exist_android_bp(abs_path)):
+                    yield '\t' + os.path.join(rel_path, constant.ANDROID_MK)
 
     def _get_modules_under_project_path(self, rel_path):
         """Find modules under the rel_path.

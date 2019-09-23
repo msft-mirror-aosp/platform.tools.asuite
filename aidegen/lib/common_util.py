@@ -506,3 +506,27 @@ def generate_clion_projects_file():
     with open(get_cmakelists_path(), 'w') as outfile:
         for cfile in files:
             outfile.write("%s\n" % cfile)
+
+
+def exist_android_bp(abs_path):
+    """Check if the Android.bp exists under specific folder.
+
+    Args:
+        abs_path: An absolute path string.
+
+    Returns: A boolean, true if the Android.bp exists under the folder,
+             otherwise false.
+    """
+    return os.path.isfile(os.path.join(abs_path, constant.ANDROID_BP))
+
+
+def exist_android_mk(abs_path):
+    """Check if the Android.mk exists under specific folder.
+
+    Args:
+        abs_path: An absolute path string.
+
+    Returns: A boolean, true if the Android.mk exists under the folder,
+             otherwise false.
+    """
+    return os.path.isfile(os.path.join(abs_path, constant.ANDROID_MK))
