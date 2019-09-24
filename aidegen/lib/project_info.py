@@ -111,6 +111,7 @@ class ProjectInfo:
             self.modules_info.get_module_names(rel_path))
         self.project_relative_path = rel_path
         self.project_absolute_path = abs_path
+        self.git_path = ''
         self.iml_path = ''
         self._set_default_modues()
         self._init_source_path()
