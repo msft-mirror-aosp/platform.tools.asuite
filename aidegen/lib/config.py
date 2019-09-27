@@ -76,6 +76,11 @@ class AidegenConfig():
     DEBUG_ENABLED_FILE_PATH = os.path.join(_ENABLE_DEBUG_DIR,
                                            _ENABLE_DEBUG_CONFIG_FILE)
 
+    # Constants of checking deprecated IntelliJ version.
+    # The launch file idea.sh of IntelliJ is in ASCII encoding.
+    ENCODE_TYPE = 'ISO-8859-1'
+    ACTIVE_KEYWORD = '$JAVA_BIN'
+
     def __init__(self):
         self._config = {}
         self._config_backup = {}
@@ -94,10 +99,15 @@ class AidegenConfig():
         """AIDEGen configuration getter.
 
         Returns:
-            The preferred verson item of configuration data if exists, otherwise
-            None.
+            The preferred verson item of configuration data if exists and is not
+            deprecated, otherwise None.
         """
-        return self._config.get('preferred_version', '')
+        preferred_version = self._config.get('preferred_version', '')
+        if preferred_version:
+            real_version = os.path.realpath(preferred_version)
+            if not self.deprecated_intellij_version(real_version):
+                return preferred_version
+        return None
 
     @preferred_version.setter
     def preferred_version(self, preferred_version):
@@ -195,6 +205,24 @@ class AidegenConfig():
             logging.warning(('Can\'t create the enable_debugger module in %s.\n'
                              '%s'), self._CONFIG_DIR, err)
             return False
+
+    @staticmethod
+    def deprecated_intellij_version(idea_path):
+        """Check if the preferred IntelliJ version is deprecated or not.
+
+        The IntelliJ version is deprecated once the string "$JAVA_BIN" doesn't
+        exist in the idea.sh.
+
+        Args:
+            idea_path: the absolute path to idea.sh.
+
+        Returns: True if the preferred version was deprecated, otherwise False.
+        """
+        if os.path.isfile(idea_path):
+            file_content = common_util.read_file_content(
+                idea_path, AidegenConfig.ENCODE_TYPE)
+            return AidegenConfig.ACTIVE_KEYWORD not in file_content
+        return False
 
 
 class IdeaProperties():
