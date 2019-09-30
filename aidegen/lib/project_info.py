@@ -351,6 +351,7 @@ class ProjectInfo:
             self.source_path['r_java_path'].update(module.r_java_paths)
             self.source_path['srcjar_path'].update(module.srcjar_paths)
             self._append_jars_as_dependencies(module)
+            rebuild_targets.update(module.build_targets)
         if rebuild_targets:
             if not project_config.ProjectConfig.get_instance().is_skip_build:
                 verbose = project_config.ProjectConfig.get_instance().verbose
