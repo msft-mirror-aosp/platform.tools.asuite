@@ -13,7 +13,7 @@ The artifact will be generated at build/libs/asuite_plugin.jar.
 
 **Debug in IntelliJ:** Edit configurations -> add Gradle -> fill
 
-gradle project:`asuite_plugin`
+gradle project:`Absolute path of asuite_plugin`
 
 Tasks: `:runIde`
 
