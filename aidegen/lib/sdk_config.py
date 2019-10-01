@@ -273,7 +273,7 @@ class SDKConfig():
                 for additional in additionals:
                     jdk_value = additional.getAttribute(self._ATTRIBUTE_JDK)
                     sdk_value = additional.getAttribute(self._ATTRIBUTE_SDK)
-                    if jdk_value == self._NAME_JDK18:
+                    if jdk_value:
                         find_api_level = self._API_LEVEL_RE.match(sdk_value)
                         if find_api_level:
                             self.max_api_level = find_api_level.group(
