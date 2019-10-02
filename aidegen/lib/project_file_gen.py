@@ -550,8 +550,6 @@ class ProjectFileGenerator:
         # When importing whole Android repo, it shouldn't add vcs.xml,
         # because IntelliJ doesn't handle repo as a version control.
         if module_path == common_util.get_android_root_dir():
-            # TODO(b/135103553): Do a survey about: does devs want add
-            # every git into IntelliJ when importing whole Android.
             return None
         git_path = module_path
         while not os.path.isdir(os.path.join(git_path, _GIT_FOLDER_NAME)):
@@ -646,8 +644,25 @@ def _merge_project_vcs_xmls(projects):
         projects: A list of ProjectInfo instances.
     """
     main_project_absolute_path = projects[0].project_absolute_path
-    git_paths = [project.git_path for project in projects]
+    if main_project_absolute_path == common_util.get_android_root_dir():
+        git_paths = list(_get_all_git_path(main_project_absolute_path))
+    else:
+        git_paths = [project.git_path for project in projects]
     _write_vcs_xml(main_project_absolute_path, git_paths)
+
+
+def _get_all_git_path(root_path):
+    """Traverse all subdirectories to get all git folder's path.
+
+    Args:
+        root_path: A string of path to traverse.
+
+    Yields:
+        A git folder's path.
+    """
+    for dir_path, dir_names, _ in os.walk(root_path):
+        if _GIT_FOLDER_NAME in dir_names:
+            yield dir_path
 
 
 def _generate_git_ignore(target_folder):
