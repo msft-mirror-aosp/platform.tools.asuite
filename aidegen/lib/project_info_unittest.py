@@ -198,6 +198,18 @@ class ProjectInfoUnittests(unittest.TestCase):
             target.append(test_list[start:end])
         self.assertEqual(target, sample)
 
+    @mock.patch.object(project_info.ProjectInfo, 'locate_source')
+    @mock.patch('atest.module_info.ModuleInfo')
+    def test_rebuild_jar_once(self, mock_module_info, mock_locate_source):
+        """Test rebuild the jar/srcjar only one time."""
+        mock_module_info.get_paths.return_value = ['m1']
+        project_info.ProjectInfo.modules_info = mock_module_info
+        proj_info = project_info.ProjectInfo(self.args.module_name, False)
+        proj_info.locate_source(build=False)
+        self.assertEqual(mock_locate_source.call_count, 1)
+        proj_info.locate_source(build=True)
+        self.assertEqual(mock_locate_source.call_count, 2)
+
 
 if __name__ == '__main__':
     unittest.main()
