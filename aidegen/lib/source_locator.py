@@ -430,6 +430,10 @@ class ModuleData:
         directly. There is only jar file name in self.module_data['jars'], it
         has to be combined with self.module_data['path'] to append into
         self.jar_files.
+        Once the file doesn't exist, it's not assumed to be a prebuilt jar so
+        that we can ignore it.
+        # TODO(b/141959125): Collect the correct prebuilt jar files by jdeps.go.
+
         For example:
         'asm-6.0': {
             'jars': [
@@ -453,7 +457,8 @@ class ModuleData:
                         rel_path = self._get_jar_path_from_prebuilts(jar_name)
                         if rel_path:
                             jar_path = rel_path
-                    self._append_jar_file(jar_path)
+                    if os.path.exists(common_util.get_abs_path(jar_path)):
+                        self._append_jar_file(jar_path)
 
     @staticmethod
     def _get_jar_path_from_prebuilts(jar_name):

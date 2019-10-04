@@ -258,11 +258,13 @@ class ModuleDataUnittests(unittest.TestCase):
             os.path.join(unittest_constants.MODULE_PATH,
                          'tests/test_second.jar')
         ])
+        result_missing_jars = set()
         mock_android_root_dir.return_value = unittest_constants.TEST_DATA_PATH
         module_data = source_locator.ModuleData(unittest_constants.TEST_MODULE,
                                                 module_info, 0)
         module_data._set_jars_jarfile()
         self.assertEqual(module_data.jar_files, result_jar_list)
+        self.assertEqual(module_data.missing_jars, result_missing_jars)
 
     @mock.patch('aidegen.lib.common_util.get_android_root_dir')
     def test_locate_sources_path(self, mock_android_root_dir):
