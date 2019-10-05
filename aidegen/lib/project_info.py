@@ -306,7 +306,7 @@ class ProjectInfo:
             return os.path.basename(abs_path)
         return target
 
-    def locate_source(self):
+    def locate_source(self, build=True):
         """Locate the paths of dependent source folders and jar files.
 
         Try to reference source folder path as dependent module unless the
@@ -329,6 +329,10 @@ class ProjectInfo:
                         },
                     },
                 }
+
+        Args:
+            build: A boolean default to true. If false, skip building jar and
+                   srcjar files, otherwise build them.
 
         Example usage:
             project.source_path = project.locate_source()
@@ -353,13 +357,15 @@ class ProjectInfo:
             self.source_path['srcjar_path'].update(module.srcjar_paths)
             self._append_jars_as_dependencies(module)
             rebuild_targets.update(module.build_targets)
+        if project_config.ProjectConfig.get_instance().is_skip_build:
+            return
         if rebuild_targets:
-            if not project_config.ProjectConfig.get_instance().is_skip_build:
+            if build:
                 verbose = project_config.ProjectConfig.get_instance().verbose
                 _batch_build_dependencies(verbose, rebuild_targets)
-                self.locate_source()
+                self.locate_source(build=False)
             else:
-                logging.warning('Jar or srcjar files build failed:\n\t%s.',
+                logging.warning('Jar or srcjar files build skipped:\n\t%s.',
                                 '\n\t'.join(rebuild_targets))
 
     def _generate_moduledata(self, module_name, module_data):
