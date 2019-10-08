@@ -203,6 +203,7 @@ class IdeIntelliJ(IdeBase):
         _JDK_PART_TEMPLATE_PATH: The path of the template of partial JDK table.
         _SYMBOLIC_VERSIONS: A string list of the symbolic link paths of
         IntelliJ.
+        _CONFIG_DIR: A string of the config folder name.
 
     For example:
         1. Check if IntelliJ is installed.
@@ -215,6 +216,7 @@ class IdeIntelliJ(IdeBase):
     _JDK_PART_TEMPLATE_PATH = ''
     _DEFAULT_ANDROID_SDK_PATH = ''
     _SYMBOLIC_VERSIONS = []
+    _CONFIG_DIR = ''
 
     def __init__(self, installed_path=None, config_reset=False):
         super().__init__(installed_path, config_reset)
@@ -242,6 +244,10 @@ class IdeIntelliJ(IdeBase):
                 self._DEFAULT_ANDROID_SDK_PATH)
             jdk_table.config_jdk_file()
             jdk_table.gen_enable_debugger_module(self.project_abspath)
+
+            # Set the max file size in the idea.properties.
+            intellij_config_dir = os.path.join(_config_path, self._CONFIG_DIR)
+            config.IdeaProperties(intellij_config_dir).set_max_file_size()
 
     def _get_config_root_paths(self):
         """Get the config root paths from derived class.
@@ -377,6 +383,7 @@ class IdeLinuxIntelliJ(IdeIntelliJ):
     _JDK_PATH = os.path.join(common_util.get_android_root_dir(),
                              'prebuilts/jdk/jdk8/linux-x86')
     # TODO(b/127899277): Preserve a config for jdk version option case.
+    _CONFIG_DIR = 'config'
     _IDE_JDK_TABLE_PATH = 'config/options/jdk.table.xml'
     _JDK_PART_TEMPLATE_PATH = os.path.join(
         common_util.get_aidegen_root_dir(),
