@@ -265,16 +265,14 @@ class ModuleData:
             for src_item in self.module_data[constant.KEY_SRCS]:
                 src_dir = None
                 src_item = os.path.relpath(src_item)
-                if src_item.endswith(_SRCJAR_EXT):
-                    self._append_jar_from_installed(self.specific_soong_path)
-                elif common_util.is_target(src_item, _TARGET_FILES):
+                if common_util.is_target(src_item, _TARGET_FILES):
                     # Only scan one java file in each source directories.
                     src_item_dir = os.path.dirname(src_item)
                     if src_item_dir not in scanned_dirs:
                         scanned_dirs.add(src_item_dir)
                         src_dir = self._get_source_folder(src_item)
                 else:
-                    # To record what files except java and srcjar in the srcs.
+                    # To record what files except java and kt in the srcs.
                     logging.debug('%s is not in parsing scope.', src_item)
                 if src_dir:
                     self._add_to_source_or_test_dirs(src_dir)
