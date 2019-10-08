@@ -91,13 +91,19 @@ class ModuleDataUnittests(unittest.TestCase):
         r_dir = module_data._get_r_dir(test_aapt2_srcjar)
         self.assertEqual(r_dir, expect_result)
 
-        # Test for R.jar
-        test_r_jar = 'b/R.jar'
+        # Test for R.srcjar
+        test_r_jar = 'b/android/R.srcjar'
         expect_result = 'b/aapt2/R'
         r_dir = module_data._get_r_dir(test_r_jar)
         self.assertEqual(r_dir, expect_result)
 
-        # Test for the target file is not aapt2.srcjar or R.jar
+        # Test the R.srcjar is not under the android folder.
+        test_wrong_r_jar = 'b/test/R.srcjar'
+        expect_result = None
+        r_dir = module_data._get_r_dir(test_wrong_r_jar)
+        self.assertEqual(r_dir, expect_result)
+
+        # Test for the target file is not aapt2.srcjar or R.srcjar
         test_unknown_target = 'c/proto.srcjar'
         expect_result = None
         r_dir = module_data._get_r_dir(test_unknown_target)
