@@ -50,7 +50,6 @@ MODULE_INFO = {
     'srcs': [
         'packages/apps/test/src/main/java/com/android/java.java',
         'packages/apps/test/tests/com/android/test.java',
-        'packages/apps/test/tests/test.srcjar'
     ],
     'dependencies': [],
     'installed': []

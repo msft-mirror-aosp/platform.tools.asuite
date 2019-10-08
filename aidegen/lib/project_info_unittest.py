@@ -135,9 +135,6 @@ class ProjectInfoUnittests(unittest.TestCase):
         generated_jar = ('out/soong/.intermediates/packages/apps/test/test/'
                          'android_common/generated.jar')
         locate_module_info = dict(unittest_constants.MODULE_INFO)
-        locate_module_info['srcs'].extend(
-            [('out/soong/.intermediates/packages/apps/test/test/android_common/'
-              'gen/test.srcjar')])
         locate_module_info['installed'] = [generated_jar]
         mock_module_info.is_module.return_value = True
         mock_module_info.get_paths.return_value = [
@@ -162,17 +159,6 @@ class ProjectInfoUnittests(unittest.TestCase):
         project_info_obj.locate_source()
         self.assertEqual(project_info_obj.source_path['jar_path'], result_jar)
 
-        # Test on jar exists.
-        jar_abspath = os.path.join(test_root_path, generated_jar)
-        result_jar = set([generated_jar])
-        try:
-            open(jar_abspath, 'w').close()
-            project_info_obj.locate_source()
-            self.assertEqual(project_info_obj.source_path['jar_path'],
-                             result_jar)
-        finally:
-            shutil.rmtree(test_root_path)
-
         # Test collects source and test folders.
         result_source = set(['packages/apps/test/src/main/java'])
         result_test = set(['packages/apps/test/tests'])
@@ -180,13 +166,6 @@ class ProjectInfoUnittests(unittest.TestCase):
                          result_source)
         self.assertEqual(project_info_obj.source_path['test_folder_path'],
                          result_test)
-
-        # Test loading jar from dependencies parameter.
-        default_jar = os.path.join(unittest_constants.MODULE_PATH, 'test.jar')
-        locate_module_info['dependencies'] = [default_jar]
-        result_jar = set([generated_jar, default_jar])
-        project_info_obj.locate_source()
-        self.assertEqual(project_info_obj.source_path['jar_path'], result_jar)
 
     def test_separate_build_target(self):
         """Test separate_build_target."""
