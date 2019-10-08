@@ -41,14 +41,15 @@ _KEY_JARJAR_RULES = 'jarjar_rules'
 _KEY_JARS = 'jars'
 _KEY_TESTS = 'tests'
 _NAME_AAPT2 = 'aapt2'
-_TARGET_R_JAR = 'R.jar'
+_TARGET_R_SRCJAR = 'R.srcjar'
 _TARGET_AAPT2_SRCJAR = _NAME_AAPT2 + _SRCJAR_EXT
-_TARGET_BUILD_FILES = [_TARGET_AAPT2_SRCJAR, _TARGET_R_JAR]
+_TARGET_BUILD_FILES = [_TARGET_AAPT2_SRCJAR, _TARGET_R_SRCJAR]
 _IGNORE_DIRS = [
     # The java files under this directory have to be ignored because it will
     # cause duplicated classes by libcore/ojluni/src/main/java.
     'libcore/ojluni/src/lambda/java'
 ]
+_ANDROID = 'android'
 
 
 class ModuleData:
@@ -137,14 +138,14 @@ class ModuleData:
     def _collect_r_srcs_paths(self):
         """Collect the source folder of R.java.
 
-        Check if the path of aapt2.srcjar or R.jar exists, which is the value of
-        key "srcjars" in module_data. If the path of both 2 cases doesn't exist,
+        Check if the path of aapt2.srcjar or R.srcjar exists, these are both the
+        values of key "srcjars" in module_data. If neither of the cases exists,
         build it onto an intermediates directory.
 
         For IntelliJ, we can set the srcjar file as a source root for
         dependency. For Eclipse, we still use the R folder as dependencies until
         we figure out how to set srcjar file as dependency.
-        # TODO(b/135594800): Set aapt2.srcjar or R.jar as a dependency in
+        # TODO(b/135594800): Set aapt2.srcjar or R.srcjar as a dependency in
                              Eclipse.
         """
         if (self._is_app_module() and self._is_target_module() and
@@ -160,15 +161,16 @@ class ModuleData:
     def _collect_srcjar_path(self, srcjar):
         """Collect the source folders from a srcjar path.
 
-        Set the aapt2.srcjar or R.jar as source root:
+        Set the aapt2.srcjar or R.srcjar as source root:
         Case aapt2.srcjar:
             The source path string is
             out/.../Bluetooth_intermediates/aapt2.srcjar
             The source content descriptor is
             out/.../Bluetooth_intermediates/aapt2.srcjar!/.
-        Case R.jar:
-            The source path string is out/soong/.../gen/R.jar.
-            The source content descriptor is out/soong/.../gen/R.jar!/.
+        Case R.srcjar:
+            The source path string is out/soong/.../gen/android/R.srcjar.
+            The source content descriptor is
+            out/soong/.../gen/android/R.srcjar!/.
 
         Args:
             srcjar: A file path string relative to ANDROID_BUILD_TOP, the build
@@ -196,19 +198,29 @@ class ModuleData:
     def _get_r_dir(srcjar):
         """Get the source folder of R.java for Eclipse.
 
+        Get the folder contains the R.java of aapt2.srcjar or R.srcjar:
+        Case aapt2.srcjar:
+            If the relative path of the aapt2.srcjar is a/b/aapt2.srcjar, the
+            source root of the R.java is a/b/aapt2
+        Case R.srcjar:
+            If the relative path of the R.srcjar is a/b/android/R.srcjar, the
+            source root of the R.java is a/b/aapt2/R
+
         Args:
             srcjar: A file path string, the build target of the module to
                     generate R.java.
 
         Returns:
             A relative source folder path string, and return None if the target
-            file name is not aapt2.srcjar or R.jar.
+            file name is not aapt2.srcjar or R.srcjar.
         """
         target_folder, target_file = os.path.split(srcjar)
+        base_dirname = os.path.basename(target_folder)
         if target_file == _TARGET_AAPT2_SRCJAR:
             return os.path.join(target_folder, _NAME_AAPT2)
-        if target_file == _TARGET_R_JAR:
-            return os.path.join(target_folder, _NAME_AAPT2, 'R')
+        if target_file == _TARGET_R_SRCJAR and base_dirname == _ANDROID:
+            return os.path.join(os.path.dirname(target_folder),
+                                _NAME_AAPT2, 'R')
         return None
 
     def _init_module_path(self):
