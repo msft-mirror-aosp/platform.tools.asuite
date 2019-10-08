@@ -301,25 +301,6 @@ class ModuleDataUnittests(unittest.TestCase):
         module_data.locate_sources_path()
         self.assertEqual(module_data.jar_files, result_jar_list)
 
-        # Test find jar by srcjar.
-        module_info = dict(unittest_constants.MODULE_INFO)
-        module_info['srcs'].extend(
-            [('out/soong/.intermediates/packages/apps/test/test/android_common/'
-              'gen/test.srcjar')])
-        module_info['installed'] = [
-            ('out/soong/.intermediates/packages/apps/test/test/android_common/'
-             'test.jar')
-        ]
-        result_jar_list = set([
-            jar_file,
-            ('out/soong/.intermediates/packages/apps/test/test/'
-             'android_common/test.jar')
-        ])
-        module_data = source_locator.ModuleData(unittest_constants.TEST_MODULE,
-                                                module_info, 0)
-        module_data.locate_sources_path()
-        self.assertEqual(module_data.jar_files, result_jar_list)
-
     @mock.patch('aidegen.lib.common_util.get_android_root_dir')
     def test_collect_jar_by_depth_value(self, mock_android_root_dir):
         """Test parameter --depth handling."""
