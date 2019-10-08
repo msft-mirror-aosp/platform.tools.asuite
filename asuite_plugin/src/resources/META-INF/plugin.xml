@@ -1,0 +1,15 @@
+<idea-plugin>
+    <id>com.google.asuite_plugin</id>
+    <name>Asuite</name>
+    <vendor>Google</vendor>
+    <description>Asuite plugin for developing Android project.</description>
+
+    <depends>com.intellij.modules.lang</depends>
+
+    <extensions defaultExtensionNs="com.intellij">
+        <configurationType implementation="com.android.atest.run.AtestConfigurationType"/>
+    </extensions>
+
+    <actions>
+    </actions>
+</idea-plugin>

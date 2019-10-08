@@ -103,14 +103,20 @@ class AidegenConfigUnittests(unittest.TestCase):
         self.assertTrue(mock_read.called)
         self.assertTrue(mock_gen.called)
 
+    @mock.patch('os.stat')
     @mock.patch.object(common_util, 'file_generate')
     @mock.patch('os.path.exists')
-    def test_gen_empty_androidmanifest(self, mock_exists, mock_gen):
+    def test_gen_empty_androidmanifest(self, mock_exists, mock_gen, mock_stat):
         """Test _gen_empty_androidmanifest."""
         cfg = config.AidegenConfig()
         mock_exists.return_value = True
+        mock_stat.return_value.st_size = 1
         cfg._gen_empty_androidmanifest()
         self.assertFalse(mock_gen.called)
+        mock_exists.return_value = True
+        mock_stat.return_value.st_size = 0
+        cfg._gen_empty_androidmanifest()
+        self.assertTrue(mock_gen.called)
         mock_exists.return_value = False
         cfg._gen_empty_androidmanifest()
         self.assertTrue(mock_gen.called)

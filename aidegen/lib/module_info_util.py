@@ -57,22 +57,20 @@ _INTELLIJ_PROJECT_FILE_EXT = '*.iml'
 _LAUNCH_PROJECT_QUERY = (
     'There exists an IntelliJ project file: %s. Do you want '
     'to launch it (yes/No)?')
-
 _BUILD_BP_JSON_ENV_OFF = {'SOONG_COLLECT_JAVA_DEPS': 'false'}
 _BUILD_BP_JSON_ENV_ON = constants.ATEST_BUILD_ENV
 
 
+@common_util.back_to_cwd
 @common_util.time_logged
-def generate_merged_module_info(module_info, projects=None, verbose=False,
+def generate_merged_module_info(module_info,
+                                projects=None,
+                                verbose=False,
                                 skip_build=False):
     """Generate a merged dictionary.
 
-    Change directory to Android root path before making _GENERATE_JSON_COMMAND
-    to avoid command error: "make: *** No rule to make target 'nothing'.  Stop."
-    and change back to current directory after command completed.
-
     Linked functions:
-        _build_target(project, verbose)
+        _build_bp_info(module_info, project, verbose, skip_build)
         _get_soong_build_json_dict()
         _merge_dict(mk_dict, bp_dict)
 
@@ -87,10 +85,8 @@ def generate_merged_module_info(module_info, projects=None, verbose=False,
     Returns:
         A merged dictionary from module-info.json and module_bp_java_deps.json.
     """
-    json_path = common_util.get_blueprint_json_path()
-    if not os.path.isfile(json_path):
-        main_project = projects[0] if projects else None
-        _build_bp_info(module_info, main_project, verbose, skip_build)
+    main_project = projects[0] if projects else None
+    _build_bp_info(module_info, main_project, verbose, skip_build)
     bp_dict = _get_soong_build_json_dict()
     return _merge_dict(module_info.name_to_module_info, bp_dict)
 
@@ -99,9 +95,9 @@ def _build_bp_info(module_info, main_project=None, verbose=False,
                    skip_build=False):
     """Make nothing to generate module_bp_java_deps.json.
 
-    Using atest build method with set env config SOONG_COLLECT_JAVA_DEPS=true to
-    build the target nothing. By this way to trigger the process of collecting
-    dependencies and generating module_bp_java_deps.json.
+    Use atest build method to build the target 'nothing' by setting env config
+    SOONG_COLLECT_JAVA_DEPS to false then true. By this way, we can trigger the
+    process of collecting dependencies and generate module_bp_java_deps.json.
 
     Args:
         module_info: A ModuleInfo instance contains data of module-info.json.
@@ -123,14 +119,11 @@ def _build_bp_info(module_info, main_project=None, verbose=False,
     original_json_mtime = None
     if os.path.isfile(json_path):
         if skip_build:
-            logging.info('%s file exists, skipping build.',
-                         common_util.get_blueprint_json_path())
+            logging.info('%s file exists, skipping build.', json_path)
             return
         original_json_mtime = os.path.getmtime(json_path)
 
     logging.warning('\nUse atest build method to generate blueprint json.')
-    # Force build system to always generate the blueprint json file by setting
-    # SOONG_COLLECT_JAVA_DEPS to false, then true.
     build_with_off_cmd = atest_utils.build(['nothing'], verbose,
                                            _BUILD_BP_JSON_ENV_OFF)
     build_with_on_cmd = atest_utils.build(['nothing'], verbose,
@@ -143,8 +136,8 @@ def _build_bp_info(module_info, main_project=None, verbose=False,
             if os.path.isfile(json_path):
                 message = ('Generate new {0} failed, AIDEGen will proceed and '
                            'reuse the old {0}.'.format(json_path))
-                print('\n{} {}\n'.format(common_util.COLORED_INFO('Warning:'),
-                                         message))
+                print('\n{} {}\n'.format(
+                    common_util.COLORED_INFO('Warning:'), message))
         else:
             if main_project:
                 _, main_project_path = common_util.get_related_paths(

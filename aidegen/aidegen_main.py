@@ -39,6 +39,7 @@ This CLI generates project files for using in IntelliJ, such as:
 
 from __future__ import absolute_import
 
+import copy
 import argparse
 import logging
 import os
@@ -56,7 +57,6 @@ from aidegen.lib import module_info
 from aidegen.lib import project_config
 from aidegen.lib import project_file_gen
 from aidegen.lib import project_info
-from aidegen.lib import source_locator
 
 AIDEGEN_REPORT_LINK = ('To report the AIDEGen tool problem, please use this '
                        'link: https://goto.google.com/aidegen-bug')
@@ -70,6 +70,12 @@ or  - specify "aidegen -n" to generate project file only
 _CONGRATULATION = common_util.COLORED_PASS('CONGRATULATION:')
 _LAUNCH_SUCCESS_MSG = (
     'IDE launched successfully. Please check your IDE window.')
+_LAUNCH_ECLIPSE_SUCCESS_MSG = (
+    'The project files .classpath and .project are generated under '
+    '{PROJECT_PATH} and AIDEGen doesn\'t import the project automatically, '
+    'please import the project manually by steps: File -> Import -> select \''
+    'General\' -> \'Existing Projects into Workspace\' -> click \'Next\' -> '
+    'Choose the root directory -> click \'Finish\'.')
 _IDE_CACHE_REMINDER_MSG = (
     'To prevent the existed IDE cache from impacting your IDE dependency '
     'analysis, please consider to clear IDE caches if necessary. To do that, in'
@@ -158,17 +164,17 @@ def _get_ide_util_instance(args):
     """Get an IdeUtil class instance for launching IDE.
 
     Args:
-        args: A list of arguments.
+        args: An argparse.Namespace class instance holding parsed args.
 
     Returns:
         An IdeUtil class instance.
     """
     if args.no_launch:
         return None
-    ide_util_obj = ide_util.IdeUtil(
-        args.ide_installed_path, args.ide[0], args.config_reset,
-        (android_dev_os.AndroidDevOS.MAC ==
-         android_dev_os.AndroidDevOS.get_os_type()))
+    ide_util_obj = ide_util.IdeUtil(args.ide_installed_path, args.ide[0],
+                                    args.config_reset,
+                                    (android_dev_os.AndroidDevOS.MAC ==
+                                     android_dev_os.AndroidDevOS.get_os_type()))
     if not ide_util_obj.is_ide_installed():
         ipath = args.ide_installed_path or ide_util_obj.get_default_path()
         err = _NO_LAUNCH_IDE_CMD.format(ipath)
@@ -183,48 +189,13 @@ def _generate_project_files(projects):
     Args:
         projects: A list of ProjectInfo instances.
     """
-    if project_info.ProjectInfo.config.ide_name == constant.IDE_ECLIPSE:
+    if (project_config.ProjectConfig.get_instance().ide_name == constant.
+            IDE_ECLIPSE):
         eclipse_project_file_gen.EclipseConf.generate_ide_project_files(
             projects)
     else:
         project_file_gen.ProjectFileGenerator.generate_ide_project_files(
             projects)
-
-
-def _compile_targets_for_whole_android_tree(atest_module_info, targets, cwd):
-    """Compile a list of targets to include whole Android tree in the project.
-
-    Adding the whole Android tree to the project will do two things,
-    1. If current working directory is not Android root, change the target to
-       its relative path to root and change current working directory to root.
-       If we don't change directory it's hard to deal with the whole Android
-       tree together with the sub-project.
-    2. If the whole Android tree target is not in the target list, insert it to
-       the first one.
-
-    Args:
-        atest_module_info: An instance of atest module-info object.
-        targets: A list of targets to be imported.
-        cwd: A string of path to current working directory.
-
-    Returns:
-        A list of targets after adjustment.
-    """
-    new_targets = []
-    if common_util.is_android_root(cwd):
-        new_targets = list(targets)
-    else:
-        for target in targets:
-            _, abs_path = common_util.get_related_paths(atest_module_info,
-                                                        target)
-            rel_path = os.path.relpath(abs_path,
-                                       common_util.get_android_root_dir())
-            new_targets.append(rel_path)
-        os.chdir(common_util.get_android_root_dir())
-
-    if new_targets[0] != '':
-        new_targets.insert(0, '')
-    return new_targets
 
 
 def _launch_ide(ide_util_obj, project_absolute_path):
@@ -242,48 +213,94 @@ def _launch_ide(ide_util_obj, project_absolute_path):
     """
     ide_util_obj.config_ide(project_absolute_path)
     ide_util_obj.launch_ide()
-    print('\n{} {}\n'.format(_CONGRATULATION, _LAUNCH_SUCCESS_MSG))
+    if ide_util_obj.ide_name() == constant.IDE_ECLIPSE:
+        launch_msg = ' '.join([_LAUNCH_SUCCESS_MSG,
+                               _LAUNCH_ECLIPSE_SUCCESS_MSG.format(
+                                   PROJECT_PATH=project_absolute_path)])
+    else:
+        launch_msg = _LAUNCH_SUCCESS_MSG
+    print('\n{} {}\n'.format(_CONGRATULATION, launch_msg))
 
 
-def _check_whole_android_tree(atest_module_info, targets, android_tree):
-    """Check if it's a building project file for the whole Android tree.
+def _check_native_projects(targets, ide):
+    """Check if targets exist native projects.
 
-    The rules:
-    1. If users command aidegen under Android root, e.g.,
-       root$ aidegen
-       that implies users would like to launch the whole Android tree, AIDEGen
-       should set the flag android_tree True.
-    2. If android_tree is True, add whole Android tree to the project.
-
-    Args:
-        atest_module_info: An instance of atest module-info object.
-        targets: A list of targets to be imported.
-        android_tree: A boolean, True if it's a whole Android tree case,
-                      otherwise False.
-
-    Returns:
-        A list of targets to be built.
-    """
-    android_tree = _is_whole_android_tree(targets, android_tree)
-    new_targets = targets
-    if android_tree:
-        new_targets = _compile_targets_for_whole_android_tree(
-            atest_module_info, targets, os.getcwd())
-    return new_targets
-
-
-def _is_whole_android_tree(targets, android_tree):
-    """Checks is AIDEGen going to process whole android tree.
+    For native projects:
+    1. Since IntelliJ doesn't support native projects any more, when targets
+       exist native projects, we should separate them and launch them with
+       CLion.
+    2. Android Studio support native project and open CMakeLists.txt as its
+       native project file as well. Its behavior is like IntelliJ: Java projects
+       and native projects can't be launched in the same IDE and each IDE can
+       only launch a single native project.
 
     Args:
         targets: A list of targets to be imported.
-        android_tree: A boolean, True if it's a whole Android tree case,
-                      otherwise False.
+        ide: A key character of IDE to be launched.
+
     Returns:
-        A boolean, True when user is going to import whole Android tree.
+        A tuple of a set of CMakeLists.txt relative paths and a set of build
+        targets.
     """
-    return (android_tree or
-            (common_util.is_android_root(os.getcwd()) and targets == ['']))
+    atest_module_info = module_info.AidegenModuleInfo.get_instance()
+    cmake_file = common_util.get_cmakelists_path()
+    if not os.path.isfile(cmake_file):
+        common_util.generate_clion_projects_file()
+    # TODO(b/140140401): Support Eclipse's native projects.
+    if (constant.IDE_NAME_DICT[ide] == constant.IDE_ECLIPSE
+            or not os.path.isfile(cmake_file)):
+        return [], targets
+
+    files = []
+    with open(cmake_file, 'r') as infile:
+        for line in infile:
+            files.append(line.strip())
+
+    ctargets = set()
+    cmakelists = set()
+    cwd = os.getcwd()
+    for target in targets:
+        rel_path, abs_path = common_util.get_related_paths(
+            atest_module_info, target)
+        if rel_path in files:
+            ctargets.add(target)
+            cmakelists.add(os.path.relpath(abs_path, cwd))
+    for target in ctargets:
+        targets.remove(target)
+    return cmakelists, targets
+
+
+def _launch_native_projects(ide_util_obj, args, cmakelists):
+    """Launch native projects with IDE.
+
+    If the target IDE is IntelliJ we should launch native projects with CLion.
+
+    Args:
+        ide_util_obj: An ide_util instance.
+        args: An argparse.Namespace class instance holding parsed args.
+        cmakelists: A list of CMakeLists.txt file paths.
+    """
+    native_ide_util_obj = ide_util_obj
+    if constant.IDE_NAME_DICT[args.ide[0]] == constant.IDE_INTELLIJ:
+        new_args = copy.deepcopy(args)
+        new_args.ide[0] = 'c'
+        native_ide_util_obj = _get_ide_util_instance(new_args)
+    if native_ide_util_obj:
+        _launch_ide(native_ide_util_obj, ' '.join(cmakelists))
+
+
+def _create_and_launch_java_projects(ide_util_obj, targets):
+    """Launch Android of Java(Kotlin) projects with IDE.
+
+    Args:
+        ide_util_obj: An ide_util instance.
+        targets: A list of build targets.
+    """
+    projects = project_info.ProjectInfo.generate_projects(targets)
+    project_info.ProjectInfo.multi_projects_locate_source(projects)
+    _generate_project_files(projects)
+    if ide_util_obj:
+        _launch_ide(ide_util_obj, projects[0].project_absolute_path)
 
 
 @common_util.time_logged(message=_TIME_EXCEED_MSG, maximum=_MAX_TIME)
@@ -310,7 +327,8 @@ def main_without_message(args):
 def main(argv):
     """Main entry.
 
-    Try to generates project files for using in IDE.
+    Show skip build message in aidegen main process if users command skip_build
+    otherwise remind them to use it and include metrics supports.
 
     Args:
         argv: A list of system arguments.
@@ -319,8 +337,9 @@ def main(argv):
     try:
         args = _parse_args(argv)
         common_util.configure_logging(args.verbose)
-        references = [constant.ANDROID_TREE] if _is_whole_android_tree(
-            args.targets, args.android_tree) else []
+        is_whole_android_tree = project_config.is_whole_android_tree(
+            args.targets, args.android_tree)
+        references = [constant.ANDROID_TREE] if is_whole_android_tree else []
         aidegen_metrics.starts_asuite_metrics(references)
         if args.skip_build:
             main_without_message(args)
@@ -351,31 +370,6 @@ def main(argv):
                                               _IDE_CACHE_REMINDER_MSG))
 
 
-@common_util.back_to_cwd
-def _adjust_cwd_for_whole_tree_project(args, mod_info):
-    """The wrapper to handle the directory change for whole tree case.
-
-        Args:
-            args: A list of system arguments.
-            mod_info: A instance of atest module_info.
-
-        Returns:
-            A list of ProjectInfo instance
-
-    """
-    targets = _check_whole_android_tree(
-        mod_info, args.targets, args.android_tree)
-    project_info.ProjectInfo.modules_info = module_info.AidegenModuleInfo(
-        force_build=False,
-        module_file=None,
-        atest_module_info=mod_info,
-        projects=targets,
-        verbose=args.verbose,
-        skip_build=args.skip_build)
-
-    return project_info.ProjectInfo.generate_projects(targets)
-
-
 def aidegen_main(args):
     """AIDEGen main entry.
 
@@ -386,13 +380,14 @@ def aidegen_main(args):
     """
     # Pre-check for IDE relevant case, then handle dependency graph job.
     ide_util_obj = _get_ide_util_instance(args)
-    project_info.ProjectInfo.config = project_config.ProjectConfig(args)
-    atest_module_info = common_util.get_atest_module_info(args.targets)
-    projects = _adjust_cwd_for_whole_tree_project(args, atest_module_info)
-    source_locator.multi_projects_locate_source(projects, args.verbose)
-    _generate_project_files(projects)
-    if ide_util_obj:
-        _launch_ide(ide_util_obj, projects[0].project_absolute_path)
+    project_config.ProjectConfig(args).init_environment()
+    targets = project_config.ProjectConfig.get_instance().targets
+    project_info.ProjectInfo.modules_info = module_info.AidegenModuleInfo()
+    cmakelists, targets = _check_native_projects(targets, args.ide[0])
+    if cmakelists:
+        _launch_native_projects(ide_util_obj, args, cmakelists)
+    if targets:
+        _create_and_launch_java_projects(ide_util_obj, targets)
 
 
 if __name__ == '__main__':
