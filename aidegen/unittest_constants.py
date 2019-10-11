@@ -44,3 +44,13 @@ ANDROID_SOURCE_DICT = {
 }
 JAR_DEP_LIST = ['test1.jar', 'test2.jar']
 ANDROID_PROJECT_PATH = os.path.join(TEST_DATA_PATH, 'android_project')
+MODULE_PATH = 'packages/apps/test'
+MODULE_INFO = {
+    'path': [MODULE_PATH],
+    'srcs': [
+        'packages/apps/test/src/main/java/com/android/java.java',
+        'packages/apps/test/tests/com/android/test.java',
+    ],
+    'dependencies': [],
+    'installed': []
+}

@@ -27,7 +27,6 @@ from aidegen.lib import errors
 from aidegen.lib import module_info_util
 
 from atest import atest_utils
-from atest import module_info
 
 _TEST_CLASS_DICT = {'class': ['JAVA_LIBRARIES']}
 _TEST_SRCS_BAR_DICT = {'srcs': ['Bar']}
@@ -136,9 +135,9 @@ class AidegenModuleInfoUtilUnittests(unittest.TestCase):
     @mock.patch('os.path.isfile')
     def test_build_bp_info_normal(self, mock_isfile, mock_build, mock_time):
         """Test _build_target with verbose true and false."""
-        mock_isfile.return_value = True
-        amodule_info = module_info.ModuleInfo()
+        amodule_info = mock.MagicMock()
         skip = True
+        mock_isfile.return_value = True
         mock_build.return_value = True
         module_info_util._build_bp_info(amodule_info, unittest_constants.
                                         TEST_MODULE, False, skip)

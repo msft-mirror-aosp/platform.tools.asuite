@@ -50,7 +50,9 @@ class EclipseConf(project_file_gen.ProjectFileGenerator):
     # constans of .classpath file
     _TEMPLATE_CLASSPATH_FILE = os.path.join(common_util.get_aidegen_root_dir(),
                                             'templates/eclipse/classpath.xml')
-    _CLASSPATH_SRC_ENTRY = ('    <classpathentry kind="src" path="{}"/>\n')
+    _CLASSPATH_SRC_ENTRY = '    <classpathentry kind="src" path="{}"/>\n'
+    _EXCLUDE_ANDROID_BP_ENTRY = ('    <classpathentry excluding="Android.bp" '
+                                 'kind="src" path="{}"/>\n')
     _CLASSPATH_LIB_ENTRY = ('    <classpathentry exported="true" kind="lib" '
                             'path="{}" sourcepath="{}"/>\n')
     _CLASSPATH_FILENAME = '.classpath'
@@ -157,6 +159,12 @@ class EclipseConf(project_file_gen.ProjectFileGenerator):
     def _gen_src_path_entries(self):
         """Generate the class path entries from srcs.
 
+        If the Android.bp file exists, generate the following content in
+        .classpath file to avoid copying the Android.bp to the bin folder under
+        current project directory.
+        <classpathentry excluding="Android.bp" kind="src"
+                        path="clearcut_client"/>
+
         E.g.
             The source folder paths list:
                 ['packages/apps/Settings/src',
@@ -175,8 +183,13 @@ class EclipseConf(project_file_gen.ProjectFileGenerator):
         """
         src_path_entries = []
         for src in self.src_paths:
+            src_abspath = os.path.join(common_util.get_android_root_dir(), src)
             src = src.replace(self.module_relpath, '').strip(os.sep)
-            src_path_entries.append(self._CLASSPATH_SRC_ENTRY.format(src))
+            if common_util.exist_android_bp(src_abspath):
+                src_path_entries.append(
+                    self._EXCLUDE_ANDROID_BP_ENTRY.format(src))
+            else:
+                src_path_entries.append(self._CLASSPATH_SRC_ENTRY.format(src))
         return src_path_entries
 
     def _gen_jar_path_entries(self):

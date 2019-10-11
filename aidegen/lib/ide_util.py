@@ -47,6 +47,13 @@ _IDEA_FOLDER = '.idea'
 _IML_EXTENSION = '.iml'
 _JDK_PATH_TOKEN = '@JDKpath'
 _COMPONENT_END_TAG = '  </component>'
+_ECLIPSE_WS = '~/Documents/AIDEGen_Eclipse_workspace'
+_ALERT_CREATE_WS = ('AIDEGen will create a workspace at %s for Eclipse, '
+                    'Enter `y` to allow AIDEgen to automatically create the '
+                    'workspace for you. Otherwise, you need to select the '
+                    'workspace after Eclipse is launched.\nWould you like '
+                    'AIDEgen to automatically create the workspace for you?'
+                    '(y/n)' % _ECLIPSE_WS)
 
 
 class IdeUtil:
@@ -196,6 +203,7 @@ class IdeIntelliJ(IdeBase):
         _JDK_PART_TEMPLATE_PATH: The path of the template of partial JDK table.
         _SYMBOLIC_VERSIONS: A string list of the symbolic link paths of
         IntelliJ.
+        _CONFIG_DIR: A string of the config folder name.
 
     For example:
         1. Check if IntelliJ is installed.
@@ -208,6 +216,7 @@ class IdeIntelliJ(IdeBase):
     _JDK_PART_TEMPLATE_PATH = ''
     _DEFAULT_ANDROID_SDK_PATH = ''
     _SYMBOLIC_VERSIONS = []
+    _CONFIG_DIR = ''
 
     def __init__(self, installed_path=None, config_reset=False):
         super().__init__(installed_path, config_reset)
@@ -235,6 +244,10 @@ class IdeIntelliJ(IdeBase):
                 self._DEFAULT_ANDROID_SDK_PATH)
             jdk_table.config_jdk_file()
             jdk_table.gen_enable_debugger_module(self.project_abspath)
+
+            # Set the max file size in the idea.properties.
+            intellij_config_dir = os.path.join(_config_path, self._CONFIG_DIR)
+            config.IdeaProperties(intellij_config_dir).set_max_file_size()
 
     def _get_config_root_paths(self):
         """Get the config root paths from derived class.
@@ -370,6 +383,7 @@ class IdeLinuxIntelliJ(IdeIntelliJ):
     _JDK_PATH = os.path.join(common_util.get_android_root_dir(),
                              'prebuilts/jdk/jdk8/linux-x86')
     # TODO(b/127899277): Preserve a config for jdk version option case.
+    _CONFIG_DIR = 'config'
     _IDE_JDK_TABLE_PATH = 'config/options/jdk.table.xml'
     _JDK_PART_TEMPLATE_PATH = os.path.join(
         common_util.get_aidegen_root_dir(),
@@ -551,6 +565,9 @@ class IdeMacStudio(IdeStudio):
 class IdeEclipse(IdeBase):
     """Class offers a set of Eclipse launching utilities.
 
+    Attributes:
+        cmd: A list of the build command.
+
     For example:
         1. Check if Eclipse is installed.
         2. Launch an Eclipse.
@@ -560,6 +577,7 @@ class IdeEclipse(IdeBase):
         super().__init__(installed_path, config_reset)
         self._ide_name = constant.IDE_ECLIPSE
         self._bin_file_name = 'eclipse'
+        self.cmd = []
 
     def _get_script_from_system(self):
         """Get correct IDE installed path from internal path.
@@ -590,6 +608,23 @@ class IdeEclipse(IdeBase):
         logging.error('No %s installed.', self._ide_name)
         return None
 
+    def _get_ide_cmd(self):
+        """Compose launch IDE command to run a new process and redirect output.
+
+        AIDEGen will create a default workspace
+        ~/Documents/AIDEGen_Eclipse_workspace for users if they agree to do
+        that. Also, we could not import the default project through the command
+        line so remove the project path argument.
+
+        Returns:
+            A string of launch IDE command.
+        """
+        if (os.path.exists(os.path.expanduser(_ECLIPSE_WS))
+                or str(input(_ALERT_CREATE_WS)).lower() == 'y'):
+            self.cmd.extend(['-data', _ECLIPSE_WS])
+        self.cmd.extend([_IGNORE_STD_OUT_ERR_CMD, '&'])
+        return ' '.join(self.cmd)
+
 
 class IdeLinuxEclipse(IdeEclipse):
     """Class offers a set of Eclipse launching utilities for OS Linux.
@@ -604,6 +639,7 @@ class IdeLinuxEclipse(IdeEclipse):
         self._bin_folders = ['/opt/eclipse*', '/usr/bin/']
         self._bin_paths = self._get_possible_bin_paths()
         self._init_installed_path(installed_path)
+        self.cmd = [_NOHUP, self._installed_path.replace(' ', r'\ ')]
 
 
 class IdeMacEclipse(IdeEclipse):
@@ -620,17 +656,52 @@ class IdeMacEclipse(IdeEclipse):
         self._bin_folders = [os.path.expanduser('~/eclipse/**')]
         self._bin_paths = self._get_possible_bin_paths()
         self._init_installed_path(installed_path)
+        self.cmd = [self._installed_path.replace(' ', r'\ ')]
 
-    def _get_ide_cmd(self):
-        """Compose launch IDE command to run a new process and redirect output.
 
-        Returns:
-            A string of launch IDE command.
-        """
-        return ' '.join([
-            self._installed_path.replace(' ', r'\ '),
-            os.path.dirname(self.project_abspath), _IGNORE_STD_OUT_ERR_CMD, '&'
-        ])
+class IdeCLion(IdeBase):
+    """Class offers a set of CLion launching utilities.
+
+    For example:
+        1. Check if CLion is installed.
+        2. Launch an CLion.
+    """
+
+    def __init__(self, installed_path=None, config_reset=False):
+        super().__init__(installed_path, config_reset)
+        self._ide_name = constant.IDE_CLION
+
+
+class IdeLinuxCLion(IdeCLion):
+    """Class offers a set of CLion launching utilities for OS Linux.
+
+    For example:
+        1. Check if CLion is installed.
+        2. Launch an CLion.
+    """
+
+    def __init__(self, installed_path=None, config_reset=False):
+        super().__init__(installed_path, config_reset)
+        self._bin_file_name = 'clion.sh'
+        self._bin_folders = ['/opt/clion-2*/bin']
+        self._bin_paths = self._get_possible_bin_paths()
+        self._init_installed_path(installed_path)
+
+
+class IdeMacCLion(IdeCLion):
+    """Class offers a set of Android Studio launching utilities for OS Mac.
+
+    For example:
+        1. Check if Android Studio is installed.
+        2. Launch an Android Studio.
+    """
+
+    def __init__(self, installed_path=None, config_reset=False):
+        super().__init__(installed_path, config_reset)
+        self._bin_file_name = 'clion'
+        self._bin_folders = ['/Applications/CLion.app/Contents/MacOS/CLion']
+        self._bin_paths = self._get_possible_bin_paths()
+        self._init_installed_path(installed_path)
 
 
 def _get_script_from_internal_path(ide_paths, ide_name):
@@ -755,8 +826,11 @@ def _launch_ide(project_path, run_ide_cmd, ide_name):
         ide_name: the IDE name is to be launched.
     """
     assert project_path, 'Empty content path is not allowed.'
-    logging.info('Launch %s for project content path: %s.', ide_name,
-                 project_path)
+    if ide_name == constant.IDE_ECLIPSE:
+        logging.info('Launch %s with workspace: %s.', ide_name, _ECLIPSE_WS)
+    else:
+        logging.info('Launch %s for project content path: %s.', ide_name,
+                     project_path)
     _run_ide_sh(run_ide_cmd, project_path)
 
 
@@ -894,6 +968,8 @@ def _get_mac_ide(installed_path=None, ide='j', config_reset=False):
         return IdeMacEclipse(installed_path)
     if ide == 's':
         return IdeMacStudio(installed_path)
+    if ide == 'c':
+        return IdeMacCLion(installed_path)
     return IdeMacIntelliJ(installed_path, config_reset)
 
 
@@ -913,4 +989,6 @@ def _get_linux_ide(installed_path=None, ide='j', config_reset=False):
         return IdeLinuxEclipse(installed_path)
     if ide == 's':
         return IdeLinuxStudio(installed_path)
+    if ide == 'c':
+        return IdeLinuxCLion(installed_path)
     return IdeLinuxIntelliJ(installed_path, config_reset)

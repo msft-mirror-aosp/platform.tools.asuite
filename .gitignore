@@ -4,6 +4,8 @@
 **/*.iml
 **/*.uml~
 **/yapfrc
+**/build
+**/.gradle
 
 # Exceptions
 !aidegen/test_data/*.iml

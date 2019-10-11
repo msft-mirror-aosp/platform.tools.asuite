@@ -61,3 +61,12 @@ class FakeModuleError(AIDEgenError):
 
 class InvalidXMLError(AIDEgenError):
     """Raised if parsing xml file failed."""
+
+
+class InstanceNotExistError(AIDEgenError):
+    """Raised if instance does not exist."""
+
+
+#The following error is used by aidegen_functional_test module.
+class CommitIDNotExistError(AIDEgenError):
+    """Raised if the commit id doesn't exist."""

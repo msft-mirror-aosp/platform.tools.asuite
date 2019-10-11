@@ -16,6 +16,9 @@
 
 """Unittests for AidegenConfig class."""
 
+import os
+import shutil
+import tempfile
 import unittest
 from unittest import mock
 
@@ -103,14 +106,20 @@ class AidegenConfigUnittests(unittest.TestCase):
         self.assertTrue(mock_read.called)
         self.assertTrue(mock_gen.called)
 
+    @mock.patch('os.stat')
     @mock.patch.object(common_util, 'file_generate')
     @mock.patch('os.path.exists')
-    def test_gen_empty_androidmanifest(self, mock_exists, mock_gen):
+    def test_gen_empty_androidmanifest(self, mock_exists, mock_gen, mock_stat):
         """Test _gen_empty_androidmanifest."""
         cfg = config.AidegenConfig()
         mock_exists.return_value = True
+        mock_stat.return_value.st_size = 1
         cfg._gen_empty_androidmanifest()
         self.assertFalse(mock_gen.called)
+        mock_exists.return_value = True
+        mock_stat.return_value.st_size = 0
+        cfg._gen_empty_androidmanifest()
+        self.assertTrue(mock_gen.called)
         mock_exists.return_value = False
         cfg._gen_empty_androidmanifest()
         self.assertTrue(mock_gen.called)
@@ -127,6 +136,81 @@ class AidegenConfigUnittests(unittest.TestCase):
         cfg._create_config_folder()
         self.assertTrue(mock_makedirs.called)
 
+
+class IdeaPropertiesUnittests(unittest.TestCase):
+    """Unit tests for IdeaProperties class."""
+
+    _CONFIG_DIR = None
+
+    def setUp(self):
+        """Prepare the testdata related path."""
+        IdeaPropertiesUnittests._CONFIG_DIR = tempfile.mkdtemp()
+
+    def tearDown(self):
+        """Clear the testdata related path."""
+        shutil.rmtree(IdeaPropertiesUnittests._CONFIG_DIR)
+
+    def test_set_default_properties(self):
+        """Test creating the idea.properties with default content."""
+        cfg = config.IdeaProperties(IdeaPropertiesUnittests._CONFIG_DIR)
+        cfg._set_default_idea_properties()
+        expected_data = cfg._PROPERTIES_CONTENT.format(
+            KEY_FILE_SIZE=cfg._KEY_FILESIZE,
+            VALUE_FILE_SIZE=cfg._FILESIZE_LIMIT)
+        generated_file = os.path.join(IdeaPropertiesUnittests._CONFIG_DIR,
+                                      cfg._PROPERTIES_FILE)
+        generated_content = common_util.read_file_content(generated_file)
+        self.assertEqual(expected_data, generated_content)
+
+    @mock.patch.object(common_util, 'read_file_content')
+    def test_reset_max_file_size(self, mock_content):
+        """Test reset the file size limit when it's smaller than 100000."""
+        mock_content.return_value = ('# custom IntelliJ IDEA properties\n'
+                                     'idea.max.intellisense.filesize=5000')
+        expected_data = ('# custom IntelliJ IDEA properties\n'
+                         'idea.max.intellisense.filesize=100000')
+        cfg = config.IdeaProperties(IdeaPropertiesUnittests._CONFIG_DIR)
+        cfg._reset_max_file_size()
+        generated_file = os.path.join(IdeaPropertiesUnittests._CONFIG_DIR,
+                                      cfg._PROPERTIES_FILE)
+        with open(generated_file) as properties_file:
+            generated_content = properties_file.read()
+        self.assertEqual(expected_data, generated_content)
+
+    @mock.patch.object(common_util, 'file_generate')
+    @mock.patch.object(common_util, 'read_file_content')
+    def test_no_reset_max_file_size(self, mock_content, mock_gen_file):
+        """Test when the file size is larger than 100000."""
+        mock_content.return_value = ('# custom IntelliJ IDEA properties\n'
+                                     'idea.max.intellisense.filesize=110000')
+        cfg = config.IdeaProperties(IdeaPropertiesUnittests._CONFIG_DIR)
+        cfg._reset_max_file_size()
+        self.assertFalse(mock_gen_file.called)
+
+    @mock.patch.object(config.IdeaProperties, '_reset_max_file_size')
+    @mock.patch.object(config.IdeaProperties, '_set_default_idea_properties')
+    @mock.patch('os.path.exists')
+    def test_set_idea_properties_called(self, mock_file_exists,
+                                        mock_set_default,
+                                        mock_reset_file_size):
+        """Test _set_default_idea_properties() method is called."""
+        mock_file_exists.return_value = False
+        cfg = config.IdeaProperties(IdeaPropertiesUnittests._CONFIG_DIR)
+        cfg.set_max_file_size()
+        self.assertTrue(mock_set_default.called)
+        self.assertFalse(mock_reset_file_size.called)
+
+    @mock.patch.object(config.IdeaProperties, '_reset_max_file_size')
+    @mock.patch.object(config.IdeaProperties, '_set_default_idea_properties')
+    @mock.patch('os.path.exists')
+    def test_reset_properties_called(self, mock_file_exists, mock_set_default,
+                                     mock_reset_file_size):
+        """Test _reset_max_file_size() method is called."""
+        mock_file_exists.return_value = True
+        cfg = config.IdeaProperties(IdeaPropertiesUnittests._CONFIG_DIR)
+        cfg.set_max_file_size()
+        self.assertFalse(mock_set_default.called)
+        self.assertTrue(mock_reset_file_size.called)
 
 if __name__ == '__main__':
     unittest.main()

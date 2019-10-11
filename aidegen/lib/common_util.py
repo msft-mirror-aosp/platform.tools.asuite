@@ -20,6 +20,7 @@ This module has a collection of functions that provide helper functions to
 other modules.
 """
 
+import fnmatch
 import logging
 import os
 import sys
@@ -118,7 +119,7 @@ def get_related_paths(atest_module_info, target=None):
         elif atest_module_info.is_module(target):
             paths = atest_module_info.get_paths(target)
             if paths:
-                rel_path = paths[0]
+                rel_path = paths[0].strip(os.sep)
                 abs_path = os.path.join(get_android_root_dir(), rel_path)
         # User inputs a module path or a relative path of android root folder.
         elif (atest_module_info.get_module_names(target)
@@ -207,12 +208,12 @@ def _check_modules(atest_module_info, targets, raise_on_lost_module=True):
         True if any _check_module return flip the True/False.
     """
     for target in targets:
-        if not _check_module(atest_module_info, target, raise_on_lost_module):
+        if not check_module(atest_module_info, target, raise_on_lost_module):
             return False
     return True
 
 
-def _check_module(atest_module_info, target, raise_on_lost_module=True):
+def check_module(atest_module_info, target, raise_on_lost_module=True):
     """Check if a target is valid or it's a path containing build target.
 
     Args:
@@ -484,3 +485,48 @@ def configure_logging(verbose):
     datefmt = _DATE_FORMAT
     level = logging.DEBUG if verbose else logging.INFO
     logging.basicConfig(level=level, format=log_format, datefmt=datefmt)
+
+
+def get_cmakelists_path():
+    """Assemble the path of the file which contains all CLion projects' paths.
+
+    Returns:
+        Clion project list file path.
+    """
+    return os.path.join(get_soong_out_path(), constant.CMAKELISTS_FILE_NAME)
+
+
+def generate_clion_projects_file():
+    """Generate file of CLion's project file paths' list."""
+    android_root = get_android_root_dir()
+    files = []
+    for root, _, filenames in os.walk(android_root):
+        if fnmatch.filter(filenames, constant.CLION_PROJECT_FILE_NAME):
+            files.append(os.path.relpath(root, android_root))
+    with open(get_cmakelists_path(), 'w') as outfile:
+        for cfile in files:
+            outfile.write("%s\n" % cfile)
+
+
+def exist_android_bp(abs_path):
+    """Check if the Android.bp exists under specific folder.
+
+    Args:
+        abs_path: An absolute path string.
+
+    Returns: A boolean, true if the Android.bp exists under the folder,
+             otherwise false.
+    """
+    return os.path.isfile(os.path.join(abs_path, constant.ANDROID_BP))
+
+
+def exist_android_mk(abs_path):
+    """Check if the Android.mk exists under specific folder.
+
+    Args:
+        abs_path: An absolute path string.
+
+    Returns: A boolean, true if the Android.mk exists under the folder,
+             otherwise false.
+    """
+    return os.path.isfile(os.path.join(abs_path, constant.ANDROID_MK))

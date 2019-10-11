@@ -47,7 +47,13 @@ TARGET_CLASSES.extend(NATIVE_TARGET_CLASSES)
 IDE_ECLIPSE = 'Eclipse'
 IDE_INTELLIJ = 'IntelliJ'
 IDE_ANDROID_STUDIO = 'Android Studio'
-IDE_NAME_DICT = {'j': IDE_INTELLIJ, 's': IDE_ANDROID_STUDIO, 'e': IDE_ECLIPSE}
+IDE_CLION = 'CLion'
+IDE_NAME_DICT = {
+    'j': IDE_INTELLIJ,
+    's': IDE_ANDROID_STUDIO,
+    'e': IDE_ECLIPSE,
+    'c': IDE_CLION
+}
 
 # Constants for asuite metrics
 EXIT_CODE_EXCEPTION = -1
@@ -59,6 +65,10 @@ ANDROID_TREE = 'is_android_tree'
 # Constants for file names
 MERGED_MODULE_INFO = 'merged_module_info.json'
 BLUEPRINT_JSONFILE_NAME = 'module_bp_java_deps.json'
+CMAKELISTS_FILE_NAME = 'clion_project_lists.txt'
+CLION_PROJECT_FILE_NAME = 'CMakeLists.txt'
+ANDROID_BP = 'Android.bp'
+ANDROID_MK = 'Android.mk'
 
 # Constants for whole Android tree
 WHOLE_ANDROID_TREE_TARGET = '#WHOLE_ANDROID_TREE#'
@@ -98,3 +108,11 @@ VCS_XML = """<?xml version="1.0" encoding="UTF-8"?>
     </component>
 </project>
 """
+
+# Constants for ProjectInfo or ModuleData classes
+JAR_EXT = '.jar'
+TARGET_LIBS = [JAR_EXT]
+
+# Constants for aidegen_functional_test
+ANDROID_COMMON = 'android_common'
+LINUX_GLIBC_COMMON = 'linux_glibc_common'

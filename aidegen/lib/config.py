@@ -14,12 +14,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Config helper class."""
+"""Config class."""
 
 import copy
 import json
 import logging
 import os
+import re
 
 from aidegen.lib import common_util
 
@@ -48,6 +49,12 @@ class AidegenConfig():
     _ANDROID_MANIFEST_FILE_NAME = 'AndroidManifest.xml'
     _DIR_SRC = 'src'
     _DIR_GEN = 'gen'
+    _ANDROIDMANIFEST_CONTENT = """<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+          android:versionCode="1"
+          android:versionName="1.0" >
+</manifest>
+    """
     DEBUG_ENABLED_FILE_PATH = os.path.join(_ENABLE_DEBUG_DIR,
                                            _ENABLE_DEBUG_CONFIG_FILE)
 
@@ -124,11 +131,16 @@ class AidegenConfig():
             os.makedirs(_dir)
 
     def _gen_empty_androidmanifest(self):
-        """Generate an empty AndroidManifest.xml under enable debug dir."""
+        """Generate an empty AndroidManifest.xml under enable debug dir.
+
+        Once the AndroidManifest.xml does not exist or file size is zero,
+        AIDEGen will generate it with default content to prevent the red
+        underline error in IntelliJ.
+        """
         _file = os.path.join(self._ENABLE_DEBUG_DIR,
                              self._ANDROID_MANIFEST_FILE_NAME)
-        if not os.path.exists(_file):
-            common_util.file_generate(_file, '')
+        if not os.path.exists(_file) or os.stat(_file).st_size == 0:
+            common_util.file_generate(_file, self._ANDROIDMANIFEST_CONTENT)
 
     def _gen_enable_debugger_config(self, api_level):
         """Generate the enable_debugger.iml config file.
@@ -166,3 +178,72 @@ class AidegenConfig():
             logging.warning(('Can\'t create the enable_debugger module in %s.\n'
                              '%s'), self._CONFIG_DIR, err)
             return False
+
+
+class IdeaProperties():
+    """Class manages IntelliJ's idea.properties attribute.
+
+    Class Attributes:
+        _PROPERTIES_FILE: The property file name of IntelliJ.
+        _KEY_FILESIZE: The key name of the maximun file size.
+        _FILESIZE_LIMIT: The value to be set as the max file size.
+        _RE_SEARCH_FILESIZE: A regular expression to find the current max file
+                             size.
+        _PROPERTIES_CONTENT: The default content of idea.properties to be
+                             generated.
+
+    Attributes:
+        idea_file: The absolute path of the idea.properties.
+                   For example:
+                   In Linux, it is ~/.IdeaIC2019.1/config/idea.properties.
+                   In Mac, it is ~/Library/Preferences/IdeaIC2019.1/
+                   idea.properties.
+    """
+
+    # Constants of idea.properties
+    _PROPERTIES_FILE = 'idea.properties'
+    _KEY_FILESIZE = 'idea.max.intellisense.filesize'
+    _FILESIZE_LIMIT = 100000
+    _RE_SEARCH_FILESIZE = r'%s\s?=\s?(?P<value>\d+)' % _KEY_FILESIZE
+    _PROPERTIES_CONTENT = """# custom IntelliJ IDEA properties
+
+#-------------------------------------------------------------------------------
+# Maximum size of files (in kilobytes) for which IntelliJ IDEA provides coding
+# assistance. Coding assistance for large files can affect editor performance
+# and increase memory consumption.
+# The default value is 2500.
+#-------------------------------------------------------------------------------
+idea.max.intellisense.filesize=100000
+"""
+
+    def __init__(self, config_dir):
+        """IdeaProperties initialize.
+
+        Args:
+            config_dir: The absolute dir of the idea.properties.
+        """
+        self.idea_file = os.path.join(config_dir, self._PROPERTIES_FILE)
+
+    def _set_default_idea_properties(self):
+        """Create the file idea.properties."""
+        common_util.file_generate(self.idea_file, self._PROPERTIES_CONTENT)
+
+    def _reset_max_file_size(self):
+        """Reset the max file size value in the idea.properties."""
+        updated_flag = False
+        properties = common_util.read_file_content(self.idea_file).splitlines()
+        for index, line in enumerate(properties):
+            res = re.search(self._RE_SEARCH_FILESIZE, line)
+            if res and int(res['value']) < self._FILESIZE_LIMIT:
+                updated_flag = True
+                properties[index] = '%s=%s' % (self._KEY_FILESIZE,
+                                               str(self._FILESIZE_LIMIT))
+        if updated_flag:
+            common_util.file_generate(self.idea_file, '\n'.join(properties))
+
+    def set_max_file_size(self):
+        """Set the max file size parameter in the idea.properties."""
+        if not os.path.exists(self.idea_file):
+            self._set_default_idea_properties()
+        else:
+            self._reset_max_file_size()

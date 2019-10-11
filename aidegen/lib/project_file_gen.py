@@ -28,6 +28,7 @@ import shutil
 
 from aidegen import constant
 from aidegen.lib import common_util
+from aidegen.lib import project_config
 
 # FACET_SECTION is a part of iml, which defines the framework of the project.
 _FACET_SECTION = '''\
@@ -73,10 +74,15 @@ _ANDROID_MANIFEST = 'AndroidManifest.xml'
 _IML_EXTENSION = '.iml'
 _FRAMEWORK_JAR = os.sep + 'framework.jar'
 _HIGH_PRIORITY_JARS = [_FRAMEWORK_JAR]
+# Temporarily exclude test-dump and src_stub folders to prevent symbols from
+# resolving failure by incorrect reference. These two folders should be removed
+# after b/136982078 is resolved.
 _EXCLUDE_FOLDERS = ['.idea', '.repo', 'art', 'bionic', 'bootable', 'build',
                     'dalvik', 'developers', 'device', 'hardware', 'kernel',
                     'libnativehelper', 'pdk', 'prebuilts', 'sdk', 'system',
-                    'toolchain', 'tools', 'vendor', 'out']
+                    'toolchain', 'tools', 'vendor', 'out',
+                    'art/tools/ahat/src/test-dump',
+                    'cts/common/device-side/device-info/src_stub']
 _GIT_FOLDER_NAME = '.git'
 # Support gitignore by symbolic link to aidegen/data/gitignore_template.
 _GITIGNORE_FILE_NAME = '.gitignore'
@@ -412,7 +418,7 @@ class ProjectFileGenerator:
         """
         srcjar_urls = []
         if srcjar_paths:
-            for srcjar_dir in srcjar_paths:
+            for srcjar_dir in sorted(srcjar_paths):
                 srcjar_urls.append(_SRCJAR_URL.format(SRCJAR=os.path.join(
                     common_util.get_android_root_dir(), srcjar_dir)))
         if srcjar_urls:
@@ -529,7 +535,7 @@ class ProjectFileGenerator:
         Returns:
             String: The content of module.xml.
         """
-        if (not self.project_info.config.is_launch_ide or
+        if (not project_config.ProjectConfig.get_instance().is_launch_ide or
                 not self.project_info.is_main_project):
             content = content.replace(_ENABLE_DEBUGGER_MODULE_TOKEN, '')
         return content
@@ -544,8 +550,6 @@ class ProjectFileGenerator:
         # When importing whole Android repo, it shouldn't add vcs.xml,
         # because IntelliJ doesn't handle repo as a version control.
         if module_path == common_util.get_android_root_dir():
-            # TODO(b/135103553): Do a survey about: does devs want add
-            # every git into IntelliJ when importing whole Android.
             return None
         git_path = module_path
         while not os.path.isdir(os.path.join(git_path, _GIT_FOLDER_NAME)):
@@ -640,8 +644,25 @@ def _merge_project_vcs_xmls(projects):
         projects: A list of ProjectInfo instances.
     """
     main_project_absolute_path = projects[0].project_absolute_path
-    git_paths = [project.git_path for project in projects]
+    if main_project_absolute_path == common_util.get_android_root_dir():
+        git_paths = list(_get_all_git_path(main_project_absolute_path))
+    else:
+        git_paths = [project.git_path for project in projects]
     _write_vcs_xml(main_project_absolute_path, git_paths)
+
+
+def _get_all_git_path(root_path):
+    """Traverse all subdirectories to get all git folder's path.
+
+    Args:
+        root_path: A string of path to traverse.
+
+    Yields:
+        A git folder's path.
+    """
+    for dir_path, dir_names, _ in os.walk(root_path):
+        if _GIT_FOLDER_NAME in dir_names:
+            yield dir_path
 
 
 def _generate_git_ignore(target_folder):
