@@ -20,7 +20,7 @@ import os
 
 from aidegen import constant
 from aidegen.lib import common_util
-from aidegen.lib.singleton import Singleton
+from aidegen.lib import errors
 
 SKIP_BUILD_INFO = ('If you are sure the related modules and dependencies have '
                    'been already built, please try to use command {} to skip '
@@ -30,10 +30,26 @@ _SKIP_BUILD_WARN = (
     'You choose "--skip-build". Skip building jar and module might increase '
     'the risk of the absence of some jar or R/AIDL/logtags java files and '
     'cause the red lines to appear in IDE tool.')
+_INSTANCE_NOT_EXIST_ERROR = ('The instance of {} does not exist. Please '
+                             'initialize it before using.')
 
 
-class ProjectConfig(metaclass=Singleton):
-    """Class manages AIDEGen's configurations.
+class ProjectConfig():
+    """A singleton class manages AIDEGen's configurations.
+
+    ProjectConfig is a singleton class that can be accessed in other modules.
+
+    Usage:
+        1. Main module should do it once by instantiating a ProjectConfig with
+           users' input arguments and calling init_environment().
+           args = aidegen_main.main(sys.argv[1:])
+           project_config.ProjectConfig(args).init_environment()
+        2. All others can get the ProjectConfig instance by calling
+           get_instance().
+           project_config.ProjectConfig.get_instance()
+
+    Class attributes:
+        _instance: A singleton instance of ProjectConfig.
 
     Attributes:
         ide_name: The IDE name which user prefer to launch.
@@ -43,8 +59,12 @@ class ProjectConfig(metaclass=Singleton):
         is_skip_build: A boolean decides skipping building jars or modules.
         targets: A string list with Android module names or paths.
         verbose: A boolean. If true, display DEBUG level logs.
+        ide_installed_path: A string of IDE installed path.
+        config_reset: A boolean if true to reset all saved configurations.
         atest_module_info: A ModuleInfo instance.
     """
+
+    _instance = None
 
     def __init__(self, args):
         """ProjectConfig initialize.
@@ -57,9 +77,12 @@ class ProjectConfig(metaclass=Singleton):
         self.depth = args.depth
         self.full_repo = args.android_tree
         self.is_skip_build = args.skip_build
-        self.targets = args.targets
+        self.targets = args.targets.copy()
         self.verbose = args.verbose
+        self.ide_installed_path = args.ide_installed_path
+        self.config_reset = args.config_reset
         self.atest_module_info = None
+        ProjectConfig._instance = self
 
     def init_environment(self):
         """Initialize the environment settings for the whole project."""
@@ -78,6 +101,22 @@ class ProjectConfig(metaclass=Singleton):
                 common_util.COLORED_INFO(
                     _SKIP_BUILD_CMD.format(' '.join(self.targets))))
             print('\n{} {}\n'.format(common_util.COLORED_INFO('INFO:'), msg))
+
+    @classmethod
+    def get_instance(cls):
+        """Get a singleton's instance.
+
+        Returns:
+           A singleton instance of ProjectConfig.
+
+        Raises:
+           An exception of errors.InstanceNotExistError if users didn't
+           instantiate a ProjectConfig object before calling this method.
+        """
+        if not cls._instance:
+            raise errors.InstanceNotExistError(
+                _INSTANCE_NOT_EXIST_ERROR.format(str(cls)))
+        return cls._instance
 
 
 def _check_whole_android_tree(targets, android_tree):
