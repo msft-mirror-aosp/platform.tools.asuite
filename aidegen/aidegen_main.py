@@ -189,8 +189,8 @@ def _generate_project_files(projects):
     Args:
         projects: A list of ProjectInfo instances.
     """
-    if (project_config.ProjectConfig.get_instance().ide_name == constant.
-            IDE_ECLIPSE):
+    config = project_config.ProjectConfig.get_instance()
+    if config.ide_name == constant.IDE_ECLIPSE:
         eclipse_project_file_gen.EclipseConf.generate_ide_project_files(
             projects)
     else:
@@ -242,7 +242,7 @@ def _check_native_projects(targets, ide):
         A tuple of a set of CMakeLists.txt relative paths and a set of build
         targets.
     """
-    atest_module_info = module_info.AidegenModuleInfo.get_instance()
+    atest_module_info = project_info.ProjectInfo.modules_info
     cmake_file = common_util.get_cmakelists_path()
     if not os.path.isfile(cmake_file):
         common_util.generate_clion_projects_file()
@@ -380,10 +380,10 @@ def aidegen_main(args):
     """
     # Pre-check for IDE relevant case, then handle dependency graph job.
     ide_util_obj = _get_ide_util_instance(args)
-    project_config.ProjectConfig(args).init_environment()
-    targets = project_config.ProjectConfig.get_instance().targets
+    config = project_config.ProjectConfig(args)
+    config.init_environment()
     project_info.ProjectInfo.modules_info = module_info.AidegenModuleInfo()
-    cmakelists, targets = _check_native_projects(targets, args.ide[0])
+    cmakelists, targets = _check_native_projects(config.targets, args.ide[0])
     if cmakelists:
         _launch_native_projects(ide_util_obj, args, cmakelists)
     if targets:
