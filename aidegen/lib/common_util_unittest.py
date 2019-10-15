@@ -29,8 +29,7 @@ from aidegen.lib import errors
 from atest import module_info
 
 
-# pylint: disable=protected-access
-# pylint: disable=invalid-name
+#pylint: disable=protected-access
 class AidegenCommonUtilUnittests(unittest.TestCase):
     """Unit tests for common_util.py"""
 
@@ -165,25 +164,6 @@ class AidegenCommonUtilUnittests(unittest.TestCase):
             mock_log_config.called_with(
                 level=level, format=log_format, datefmt=datefmt))
 
-    def test_is_project_path_relative_module(self):
-        """Test is_project_path_relative_module handling."""
-        data = {'class':['APPS']}
-        self.assertFalse(common_util.is_project_path_relative_module(data, ''))
-        data = {'class':['APPS'], 'path':['path_to_a']}
-        self.assertTrue(common_util.is_project_path_relative_module(data, ''))
-        self.assertFalse(
-            common_util.is_project_path_relative_module(data, 'test'))
-        data = {'path':['path_to_a']}
-        self.assertFalse(
-            common_util.is_project_path_relative_module(data, 'test'))
-        self.assertFalse(
-            common_util.is_project_path_relative_module(data, 'path_to_a'))
-        data = {'class':['APPS'], 'path':['test/path_to_a']}
-        self.assertTrue(
-            common_util.is_project_path_relative_module(data, 'test'))
-        self.assertFalse(
-            common_util.is_project_path_relative_module(data, 'tes'))
-
     @mock.patch.object(common_util, '_check_modules')
     @mock.patch.object(module_info, 'ModuleInfo')
     def test_get_atest_module_info(self, mock_modinfo, mock_check_modules):
@@ -199,12 +179,12 @@ class AidegenCommonUtilUnittests(unittest.TestCase):
     def test_read_file_content(self, mock_open):
         """Test read_file_content handling."""
         expacted_data1 = 'Data1'
-        fileA = 'fileA'
+        file_a = 'fileA'
         mock_open.side_effect = [
             mock.mock_open(read_data=expacted_data1).return_value
         ]
-        self.assertEqual(expacted_data1, common_util.read_file_content(fileA))
-        mock_open.assert_called_once_with(fileA)
+        self.assertEqual(expacted_data1, common_util.read_file_content(file_a))
+        mock_open.assert_called_once_with(file_a)
 
     @mock.patch('os.getenv')
     @mock.patch.object(common_util, 'get_android_root_dir')
