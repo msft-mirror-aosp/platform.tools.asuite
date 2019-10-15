@@ -293,37 +293,6 @@ def get_abs_path(rel_path):
     return os.path.join(get_android_root_dir(), rel_path)
 
 
-def is_project_path_relative_module(data, project_relative_path):
-    """Determine if the given project path is relative to the module.
-
-    The rules:
-       1. If constant.KEY_PATH not in data, we can't tell if it's a module
-          return False.
-       2. If project_relative_path is empty, it's under Android root, return
-          True.
-       3. If module's path equals or starts with project_relative_path return
-          True, otherwise return False.
-
-    Args:
-        data: the module-info dictionary of the checked module.
-        project_relative_path: project's relative path
-
-    Returns:
-        True if it's the given project path is relative to the module, otherwise
-        False.
-    """
-    if constant.KEY_PATH not in data:
-        return False
-    path = data[constant.KEY_PATH][0]
-    if project_relative_path == '':
-        return True
-    if (constant.KEY_CLASS in data
-            and (path == project_relative_path
-                 or path.startswith(project_relative_path + os.sep))):
-        return True
-    return False
-
-
 def is_target(src_file, src_file_extensions):
     """Check if src_file is a type of src_file_extensions.
 
