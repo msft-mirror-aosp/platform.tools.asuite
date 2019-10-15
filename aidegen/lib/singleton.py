@@ -15,11 +15,6 @@
 
 """A meta class for singleton pattern."""
 
-from aidegen.lib import errors
-
-_INSTANCE_NOT_EXIST_ERROR = ('The instance of {} does not exist. Please '
-                             'initialize it before using.')
-
 
 class Singleton(type):
     """A singleton metaclass.
@@ -41,11 +36,4 @@ class Singleton(type):
         """Initialize a singleton instance."""
         if cls not in cls._instances:
             cls._instances[cls] = super(Singleton, cls).__call__(*args, **kwds)
-        return cls._instances[cls]
-
-    def get_instance(cls):
-        """Get a singleton's instance."""
-        if cls not in cls._instances:
-            raise errors.InstanceNotExistError(
-                _INSTANCE_NOT_EXIST_ERROR.format(str(cls)))
         return cls._instances[cls]

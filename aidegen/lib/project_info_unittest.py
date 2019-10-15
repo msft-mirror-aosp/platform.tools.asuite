@@ -16,7 +16,6 @@
 
 """Unittests for project_info."""
 
-import collections
 import os
 import shutil
 import tempfile
@@ -95,6 +94,15 @@ class ProjectInfoUnittests(unittest.TestCase):
         self.args = mock.MagicMock()
         self.args.module_name = 'm1'
         self.args.project_path = ''
+        self.args.ide = ['j']
+        self.args.no_launch = True
+        self.args.depth = 0
+        self.args.android_tree = False
+        self.args.skip_build = True
+        self.args.targets = ['m1']
+        self.args.verbose = False
+        self.args.ide_installed_path = None
+        self.args.config_reset = False
 
     @mock.patch('atest.module_info.ModuleInfo')
     def test_get_dep_modules(self, mock_module_info):
@@ -143,12 +151,7 @@ class ProjectInfoUnittests(unittest.TestCase):
         mock_module_info.get_module_names.return_value = [
             unittest_constants.TEST_MODULE
         ]
-        Args = collections.namedtuple(
-            'Args',
-            'no_launch depth ide skip_build android_tree targets verbose')
-        args = Args(True, 0, ['j'], True, False,
-                    [unittest_constants.TEST_MODULE], False)
-        project_info.ProjectInfo.config = project_config.ProjectConfig(args)
+        project_config.ProjectConfig(self.args)
         project_info_obj = project_info.ProjectInfo(mock_module_info)
         project_info_obj.dep_modules = {
             unittest_constants.TEST_MODULE: locate_module_info
