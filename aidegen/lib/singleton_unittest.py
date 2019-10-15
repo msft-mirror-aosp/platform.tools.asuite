@@ -18,7 +18,6 @@
 
 import unittest
 
-from aidegen.lib import errors
 from aidegen.lib.singleton import Singleton
 
 
@@ -31,17 +30,8 @@ class AidegenSingletonUnittests(unittest.TestCase):
             """A singleton testing class."""
             pass
         singleton_a1 = SingletonClass()
-        singleton_a2 = SingletonClass.get_instance()
+        singleton_a2 = SingletonClass()
         self.assertTrue(singleton_a1 is singleton_a2)
-
-    def test_get_instance_raise_error(self):
-        """Test get_instance with different conditions."""
-        class SingletonClass(metaclass=Singleton):
-            """A singleton testing class."""
-            pass
-        with self.assertRaises(errors.InstanceNotExistError):
-            SingletonClass.get_instance()
-
 
 if __name__ == '__main__':
     unittest.main()
