@@ -34,28 +34,55 @@ class EclipseConf(project_file_gen.ProjectFileGenerator):
         r_java_paths: A list contains the relative folder paths of the R.java
                       files.
         project_file: The absolutely path of .project file.
-        template_project_content: A string of a template project_file content.
         project_content: A string ready to be written into project_file.
         src_paths: A list contains the project's source paths.
         classpath_file: The absolutely path of .classpath file.
         classpath_content: A string ready to be written into classpath_file.
     """
     # Constants of .project file
-    _TEMPLATE_PROJECT_FILE = os.path.join(common_util.get_aidegen_root_dir(),
-                                          'templates/eclipse/project.xml')
     _PROJECT_LINK = ('                <link><name>{}</name><type>2</type>'
                      '<location>{}</location></link>\n')
     _PROJECT_FILENAME = '.project'
 
     # constans of .classpath file
-    _TEMPLATE_CLASSPATH_FILE = os.path.join(common_util.get_aidegen_root_dir(),
-                                            'templates/eclipse/classpath.xml')
     _CLASSPATH_SRC_ENTRY = '    <classpathentry kind="src" path="{}"/>\n'
     _EXCLUDE_ANDROID_BP_ENTRY = ('    <classpathentry excluding="Android.bp" '
                                  'kind="src" path="{}"/>\n')
     _CLASSPATH_LIB_ENTRY = ('    <classpathentry exported="true" kind="lib" '
                             'path="{}" sourcepath="{}"/>\n')
     _CLASSPATH_FILENAME = '.classpath'
+
+    # The xml templates for Eclipse.
+    # .classpath template
+    _ECLIPSE_CLASSPATH_XML = """<?xml version="1.0" encoding="UTF-8"?>
+<classpath>
+{SRC}
+{LIB}
+    <classpathentry kind="con" path="org.eclipse.jdt.launching.JRE_CONTAINER"/>
+</classpath>
+"""
+    # .project template
+    _ECLIPSE_PROJECT_XML = """<?xml version="1.0" encoding="UTF-8"?>
+<projectDescription>
+        <name>{PROJECTNAME}</name>
+        <comment></comment>
+        <projects>
+        </projects>
+        <buildSpec>
+                <buildCommand>
+                        <name>org.eclipse.jdt.core.javabuilder</name>
+                        <arguments>
+                        </arguments>
+                </buildCommand>
+        </buildSpec>
+        <natures>
+                <nature>org.eclipse.jdt.core.javanature</nature>
+        </natures>
+        <linkedResources>
+{LINKEDRESOURCES}
+        </linkedResources>
+</projectDescription>
+"""
 
     def __init__(self, project):
         """Initialize class.
@@ -72,16 +99,13 @@ class EclipseConf(project_file_gen.ProjectFileGenerator):
         # Related value for generating .project.
         self.project_file = os.path.join(self.module_abspath,
                                          self._PROJECT_FILENAME)
-        self.template_project_content = common_util.read_file_content(
-            self._TEMPLATE_PROJECT_FILE)
         self.project_content = ''
         # Related value for generating .classpath.
         self.src_paths = list(project.source_path['source_folder_path'])
         self.src_paths.extend(project.source_path['test_folder_path'])
         self.classpath_file = os.path.join(self.module_abspath,
                                            self._CLASSPATH_FILENAME)
-        self.classpath_content = common_util.read_file_content(
-            self._TEMPLATE_CLASSPATH_FILE)
+        self.classpath_content = ''
 
     def _gen_r_link(self):
         """Generate the link resources of the R paths.
@@ -134,7 +158,7 @@ class EclipseConf(project_file_gen.ProjectFileGenerator):
         # links is a set to save unique link resources.
         links = self._gen_src_links(self.jar_module_paths.values())
         links.update(self._gen_r_link())
-        self.project_content = self.template_project_content.format(
+        self.project_content = self._ECLIPSE_PROJECT_XML.format(
             PROJECTNAME=self.module_name,
             LINKEDRESOURCES=''.join(sorted(list(links))))
 
@@ -221,7 +245,7 @@ class EclipseConf(project_file_gen.ProjectFileGenerator):
         src_entries = self._gen_src_path_entries()
         src_entries.extend(self._gen_r_path_entries())
         jar_entries = self._gen_jar_path_entries()
-        self.classpath_content = self.classpath_content.format(
+        self.classpath_content = self._ECLIPSE_CLASSPATH_XML.format(
             SRC=''.join(sorted(src_entries)),
             LIB=''.join(sorted(jar_entries)))
 
