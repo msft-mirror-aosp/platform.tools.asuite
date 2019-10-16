@@ -45,7 +45,7 @@ public class AtestRunConfiguration extends LocatableConfigurationBase {
     @NotNull
     @Override
     public SettingsEditor<? extends RunConfiguration> getConfigurationEditor() {
-        return null;
+        return new AtestSettingsEditor();
     }
 
     @Override

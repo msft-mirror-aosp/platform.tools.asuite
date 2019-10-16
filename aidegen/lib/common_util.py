@@ -20,7 +20,6 @@ This module has a collection of functions that provide helper functions to
 other modules.
 """
 
-import fnmatch
 import logging
 import os
 import sys
@@ -341,7 +340,7 @@ def read_file_content(path):
     Returns:
         String: Content of the file.
     """
-    with open(path) as template:
+    with open(path, encoding='utf8') as template:
         return template.read()
 
 
@@ -456,25 +455,20 @@ def configure_logging(verbose):
     logging.basicConfig(level=level, format=log_format, datefmt=datefmt)
 
 
-def get_cmakelists_path():
-    """Assemble the path of the file which contains all CLion projects' paths.
+def read_file_line_to_list(file_path):
+    """Read a file line by line and write them into a list.
+
+    Args:
+        file_path: A string of a file's path.
 
     Returns:
-        Clion project list file path.
+        A list of the file's content by line.
     """
-    return os.path.join(get_soong_out_path(), constant.CMAKELISTS_FILE_NAME)
-
-
-def generate_clion_projects_file():
-    """Generate file of CLion's project file paths' list."""
-    android_root = get_android_root_dir()
     files = []
-    for root, _, filenames in os.walk(android_root):
-        if fnmatch.filter(filenames, constant.CLION_PROJECT_FILE_NAME):
-            files.append(os.path.relpath(root, android_root))
-    with open(get_cmakelists_path(), 'w') as outfile:
-        for cfile in files:
-            outfile.write("%s\n" % cfile)
+    with open(file_path, encoding='utf8') as infile:
+        for line in infile:
+            files.append(line.strip())
+    return files
 
 
 def exist_android_bp(abs_path):
