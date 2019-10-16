@@ -11,5 +11,11 @@
     </extensions>
 
     <actions>
+        <action id="AtestToolWindow"
+                class="com.android.atest.AtestToolWindowAction"
+                text="Atest tool window"
+                icon="/atest.png">
+            <add-to-group group-id="ToolbarRunGroup" anchor="first"/>
+        </action>
     </actions>
 </idea-plugin>
