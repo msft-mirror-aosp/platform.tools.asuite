@@ -30,46 +30,88 @@ from aidegen.lib import common_util
 class AidegenConfigUnittests(unittest.TestCase):
     """Unit tests for config.py"""
 
+    _TMP_DIR = None
+
+    def setUp(self):
+        """Prepare the testdata related path."""
+        AidegenConfigUnittests._TMP_DIR = tempfile.mkdtemp()
+        config.AidegenConfig._CONFIG_DIR = os.path.join(
+            AidegenConfigUnittests._TMP_DIR, '.config', 'asuite', 'aidegen')
+        config.AidegenConfig._CONFIG_FILE_PATH = os.path.join(
+            config.AidegenConfig._CONFIG_DIR,
+            config.AidegenConfig._DEFAULT_CONFIG_FILE)
+        config.AidegenConfig._ENABLE_DEBUG_DIR = os.path.join(
+            config.AidegenConfig._CONFIG_DIR,
+            config.AidegenConfig._ENABLE_DEBUG_CONFIG_DIR)
+        config.AidegenConfig.DEBUG_ENABLED_FILE_PATH = os.path.join(
+            config.AidegenConfig._CONFIG_DIR,
+            config.AidegenConfig._ENABLE_DEBUG_CONFIG_FILE)
+
+    def tearDown(self):
+        """Clear the testdata related path."""
+        shutil.rmtree(AidegenConfigUnittests._TMP_DIR)
+
+    @mock.patch('json.load')
+    @mock.patch('builtins.open')
+    @mock.patch('os.path.exists')
+    def test_load_aidegen_config(self, mock_file_exists, mock_file_open,
+                                 mock_json_load):
+        """Test loading aidegen config."""
+        mock_file_exists.return_value = True
+        cfg = config.AidegenConfig()
+        cfg._load_aidegen_config()
+        self.assertTrue(mock_file_open.called)
+        self.assertTrue(mock_json_load.called)
+
     @mock.patch('logging.info')
     @mock.patch('logging.error')
     @mock.patch('builtins.open')
     @mock.patch('os.path.exists')
-    def test_load_aidegen_config(self, mock_exists, mock_open, mock_error,
-                                 mock_info):
-        """Test _load_aidegen_config."""
-        mock_exists.return_value = True
+    def test_error_load_aidegen_config(self, mock_file_exists, mock_file_open,
+                                       mock_error, mock_info):
+        """Test loading aidegen config with errors."""
+        mock_file_exists.return_value = True
         cfg = config.AidegenConfig()
-        mock_open.side_effect = IOError()
+        mock_file_open.side_effect = IOError()
         with self.assertRaises(IOError):
             cfg._load_aidegen_config()
             self.assertTrue(mock_error.called)
             self.assertFalse(mock_info.called)
-        mock_open.reset()
-        mock_open.side_effect = ValueError()
+        mock_file_open.reset()
+        mock_file_open.side_effect = ValueError()
         cfg._load_aidegen_config()
         self.assertTrue(mock_info.called)
 
     @mock.patch('json.dump')
     @mock.patch('builtins.open')
     @mock.patch.object(config.AidegenConfig, '_is_config_modified')
-    def test_save_aidegen_config(self, mock_is_modified, mock_open, mock_dump):
-        """Test _save_aidegen_config."""
-        mock_is_modified.return_value = False
+    def test_aidegen_config_no_changed(self, mock_is_config_modified,
+                                       mock_file_open, mock_json_dump):
+        """Skip saving aidegen config when no configuration data is modified."""
+        mock_is_config_modified.return_value = False
         cfg = config.AidegenConfig()
         cfg._save_aidegen_config()
-        self.assertFalse(mock_open.called)
-        self.assertFalse(mock_dump.called)
-        mock_is_modified.return_value = True
+        self.assertFalse(mock_file_open.called)
+        self.assertFalse(mock_json_dump.called)
+
+    @mock.patch('json.dump')
+    @mock.patch('builtins.open')
+    @mock.patch.object(config.AidegenConfig, '_is_config_modified')
+    def test_update_aidegen_config(self, mock_is_config_modified,
+                                   mock_file_open, mock_json_dump):
+        """Save the aidegen config once any configuration data is modified."""
+        mock_is_config_modified.return_value = True
+        cfg = config.AidegenConfig()
         cfg._save_aidegen_config()
-        self.assertTrue(mock_open.called)
-        self.assertTrue(mock_dump.called)
+        self.assertTrue(mock_file_open.called)
+        self.assertTrue(mock_json_dump.called)
 
     @mock.patch('logging.warning')
     @mock.patch.object(config.AidegenConfig, '_gen_enable_debugger_config')
-    @mock.patch.object(config.AidegenConfig, '_gen_empty_androidmanifest')
+    @mock.patch.object(config.AidegenConfig, '_gen_androidmanifest')
     @mock.patch.object(config.AidegenConfig, '_gen_enable_debug_sub_dir')
-    def test_create_enable_debugger(self, mock_debug, mock_empty, mock_enable,
-                                    mock_warning):
+    def test_create_enable_debugger(self, mock_debug, mock_androidmanifest,
+                                    mock_enable, mock_warning):
         """Test create_enable_debugger_module."""
         cfg = config.AidegenConfig()
         mock_debug.side_effect = IOError()
@@ -78,10 +120,10 @@ class AidegenConfigUnittests(unittest.TestCase):
         mock_debug.side_effect = OSError()
         self.assertFalse(cfg.create_enable_debugger_module(0))
         self.assertTrue(mock_warning.called)
-        mock_empty.side_effect = IOError()
+        mock_androidmanifest.side_effect = IOError()
         self.assertFalse(cfg.create_enable_debugger_module(0))
         self.assertTrue(mock_warning.called)
-        mock_empty.side_effect = OSError()
+        mock_androidmanifest.side_effect = OSError()
         self.assertFalse(cfg.create_enable_debugger_module(0))
         self.assertTrue(mock_warning.called)
         mock_enable.side_effect = IOError()
@@ -93,44 +135,72 @@ class AidegenConfigUnittests(unittest.TestCase):
 
     @mock.patch.object(common_util, 'file_generate')
     @mock.patch('os.path.exists')
-    def test_gen_enable_debugger_config(self, mock_exists, mock_gen):
-        """Test _gen_enable_debugger_config."""
+    def test_debugger_config_no_changed(self, mock_file_exists,
+                                        mock_file_generate):
+        """No genarate the enable debugger config once it exists."""
         cfg = config.AidegenConfig()
-        mock_exists.return_value = True
-        cfg._gen_enable_debugger_config(0)
-        self.assertFalse(mock_gen.called)
-        mock_exists.return_value = False
-        cfg._gen_enable_debugger_config(0)
-        self.assertTrue(mock_gen.called)
+        api_level = 0
+        mock_file_exists.return_value = True
+        cfg._gen_enable_debugger_config(api_level)
+        self.assertFalse(mock_file_generate.called)
+
+    @mock.patch.object(common_util, 'file_generate')
+    @mock.patch('os.path.exists')
+    def test_gen_debugger_config(self, mock_file_exists, mock_file_generate):
+        """Test generating the enable debugger config."""
+        cfg = config.AidegenConfig()
+        api_level = 0
+        mock_file_exists.return_value = False
+        cfg._gen_enable_debugger_config(api_level)
+        self.assertTrue(mock_file_generate.called)
 
     @mock.patch('os.stat')
     @mock.patch.object(common_util, 'file_generate')
     @mock.patch('os.path.exists')
-    def test_gen_empty_androidmanifest(self, mock_exists, mock_gen, mock_stat):
-        """Test _gen_empty_androidmanifest."""
+    def test_androidmanifest_no_changed(self, mock_file_exists,
+                                        mock_file_generate, mock_file_stat):
+        """No generate the AndroidManifest.xml when it exists and size > 0."""
         cfg = config.AidegenConfig()
-        mock_exists.return_value = True
-        mock_stat.return_value.st_size = 1
-        cfg._gen_empty_androidmanifest()
-        self.assertFalse(mock_gen.called)
-        mock_exists.return_value = True
-        mock_stat.return_value.st_size = 0
-        cfg._gen_empty_androidmanifest()
-        self.assertTrue(mock_gen.called)
-        mock_exists.return_value = False
-        cfg._gen_empty_androidmanifest()
-        self.assertTrue(mock_gen.called)
+        mock_file_exists.return_value = True
+        mock_file_stat.return_value.st_size = 1
+        cfg._gen_androidmanifest()
+        self.assertFalse(mock_file_generate.called)
+
+    @mock.patch('os.stat')
+    @mock.patch.object(common_util, 'file_generate')
+    @mock.patch('os.path.exists')
+    def test_override_androidmanifest(self, mock_file_exists,
+                                      mock_file_generate, mock_file_stat):
+        """Override the AndroidManifest.xml when the file size is zero."""
+        cfg = config.AidegenConfig()
+        mock_file_exists.return_value = True
+        mock_file_stat.return_value.st_size = 0
+        cfg._gen_androidmanifest()
+        self.assertTrue(mock_file_generate.called)
+
+    @mock.patch.object(common_util, 'file_generate')
+    @mock.patch('os.path.exists')
+    def test_gen_androidmanifest(self, mock_file_exists, mock_file_generate):
+        """Generate the AndroidManifest.xml when it doesn't exist."""
+        cfg = config.AidegenConfig()
+        mock_file_exists.return_value = False
+        cfg._gen_androidmanifest()
+        self.assertTrue(mock_file_generate.called)
 
     @mock.patch('os.makedirs')
     @mock.patch('os.path.exists')
-    def test_create_config_folder(self, mock_exists, mock_makedirs):
-        """Test _create_config_folder."""
-        cfg = config.AidegenConfig()
-        mock_exists.return_value = True
-        cfg._create_config_folder()
+    def test_config_folder_exists(self, mock_folder_exists, mock_makedirs):
+        """Skipping create the config folder once it exists."""
+        mock_folder_exists.return_value = True
+        config.AidegenConfig()
         self.assertFalse(mock_makedirs.called)
-        mock_exists.return_value = False
-        cfg._create_config_folder()
+
+    @mock.patch('os.makedirs')
+    @mock.patch('os.path.exists')
+    def test_create_config_folder(self, mock_folder_exists, mock_makedirs):
+        """Create the config folder when it doesn't exist."""
+        mock_folder_exists.return_value = False
+        config.AidegenConfig()
         self.assertTrue(mock_makedirs.called)
 
 

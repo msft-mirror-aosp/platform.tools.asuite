@@ -148,8 +148,8 @@ class AidegenConfig():
         if not os.path.exists(_dir):
             os.makedirs(_dir)
 
-    def _gen_empty_androidmanifest(self):
-        """Generate an empty AndroidManifest.xml under enable debug dir.
+    def _gen_androidmanifest(self):
+        """Generate an AndroidManifest.xml under enable debug dir.
 
         Once the AndroidManifest.xml does not exist or file size is zero,
         AIDEGen will generate it with default content to prevent the red
@@ -188,7 +188,7 @@ class AidegenConfig():
         try:
             self._gen_enable_debug_sub_dir(self._DIR_SRC)
             self._gen_enable_debug_sub_dir(self._DIR_GEN)
-            self._gen_empty_androidmanifest()
+            self._gen_androidmanifest()
             self._gen_enable_debugger_config(api_level)
             return True
         except (IOError, OSError) as err:
