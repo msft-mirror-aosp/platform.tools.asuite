@@ -383,7 +383,7 @@ class ModuleData:
             package_name: A string of package name.
         """
         package_name = None
-        with open(abs_java_path, encoding="utf8") as data:
+        with open(abs_java_path, encoding='utf8') as data:
             for line in data.read().splitlines():
                 match = _PACKAGE_RE.match(line)
                 if match:

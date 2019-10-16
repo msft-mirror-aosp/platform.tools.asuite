@@ -184,7 +184,7 @@ class AidegenCommonUtilUnittests(unittest.TestCase):
             mock.mock_open(read_data=expacted_data1).return_value
         ]
         self.assertEqual(expacted_data1, common_util.read_file_content(file_a))
-        mock_open.assert_called_once_with(file_a)
+        mock_open.assert_called_once_with(file_a, encoding='utf8')
 
     @mock.patch('os.getenv')
     @mock.patch.object(common_util, 'get_android_root_dir')

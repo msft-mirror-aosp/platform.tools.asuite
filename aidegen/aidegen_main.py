@@ -42,7 +42,6 @@ from __future__ import absolute_import
 import copy
 import argparse
 import logging
-import os
 import sys
 import traceback
 
@@ -54,6 +53,7 @@ from aidegen.lib import eclipse_project_file_gen
 from aidegen.lib import errors
 from aidegen.lib import ide_util
 from aidegen.lib import module_info
+from aidegen.lib import native_util
 from aidegen.lib import project_config
 from aidegen.lib import project_file_gen
 from aidegen.lib import project_info
@@ -222,54 +222,6 @@ def _launch_ide(ide_util_obj, project_absolute_path):
     print('\n{} {}\n'.format(_CONGRATULATION, launch_msg))
 
 
-def _check_native_projects(targets, ide):
-    """Check if targets exist native projects.
-
-    For native projects:
-    1. Since IntelliJ doesn't support native projects any more, when targets
-       exist native projects, we should separate them and launch them with
-       CLion.
-    2. Android Studio support native project and open CMakeLists.txt as its
-       native project file as well. Its behavior is like IntelliJ: Java projects
-       and native projects can't be launched in the same IDE and each IDE can
-       only launch a single native project.
-
-    Args:
-        targets: A list of targets to be imported.
-        ide: A key character of IDE to be launched.
-
-    Returns:
-        A tuple of a set of CMakeLists.txt relative paths and a set of build
-        targets.
-    """
-    atest_module_info = project_info.ProjectInfo.modules_info
-    cmake_file = common_util.get_cmakelists_path()
-    if not os.path.isfile(cmake_file):
-        common_util.generate_clion_projects_file()
-    # TODO(b/140140401): Support Eclipse's native projects.
-    if (constant.IDE_NAME_DICT[ide] == constant.IDE_ECLIPSE
-            or not os.path.isfile(cmake_file)):
-        return [], targets
-
-    files = []
-    with open(cmake_file, 'r') as infile:
-        for line in infile:
-            files.append(line.strip())
-
-    ctargets = set()
-    cmakelists = set()
-    cwd = os.getcwd()
-    for target in targets:
-        rel_path, abs_path = common_util.get_related_paths(
-            atest_module_info, target)
-        if rel_path in files:
-            ctargets.add(target)
-            cmakelists.add(os.path.relpath(abs_path, cwd))
-    for target in ctargets:
-        targets.remove(target)
-    return cmakelists, targets
-
-
 def _launch_native_projects(ide_util_obj, args, cmakelists):
     """Launch native projects with IDE.
 
@@ -280,10 +232,13 @@ def _launch_native_projects(ide_util_obj, args, cmakelists):
         args: An argparse.Namespace class instance holding parsed args.
         cmakelists: A list of CMakeLists.txt file paths.
     """
+    if not ide_util_obj:
+        return
+    ide_name = ide_util_obj.ide_name()
     native_ide_util_obj = ide_util_obj
-    if constant.IDE_NAME_DICT[args.ide[0]] == constant.IDE_INTELLIJ:
+    if ide_name == constant.IDE_INTELLIJ or ide_name == constant.IDE_ECLIPSE:
         new_args = copy.deepcopy(args)
-        new_args.ide[0] = 'c'
+        new_args.ide = ['c']
         native_ide_util_obj = _get_ide_util_instance(new_args)
     if native_ide_util_obj:
         _launch_ide(native_ide_util_obj, ' '.join(cmakelists))
@@ -380,10 +335,11 @@ def aidegen_main(args):
     """
     # Pre-check for IDE relevant case, then handle dependency graph job.
     ide_util_obj = _get_ide_util_instance(args)
-    config = project_config.ProjectConfig(args)
-    config.init_environment()
+    project_config.ProjectConfig(args).init_environment()
+    targets = project_config.ProjectConfig.get_instance().targets
     project_info.ProjectInfo.modules_info = module_info.AidegenModuleInfo()
-    cmakelists, targets = _check_native_projects(config.targets, args.ide[0])
+    cmakelists, targets = native_util.check_native_projects(
+        project_info.ProjectInfo.modules_info, targets)
     if cmakelists:
         _launch_native_projects(ide_util_obj, args, cmakelists)
     if targets:
