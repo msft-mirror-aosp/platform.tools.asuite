@@ -679,7 +679,9 @@ class IdeLinuxCLion(IdeCLion):
     def __init__(self, installed_path=None, config_reset=False):
         super().__init__(installed_path, config_reset)
         self._bin_file_name = 'clion.sh'
-        self._bin_folders = ['/opt/clion-2*/bin']
+        # TODO(b/141288011): Handle /opt/clion-*/bin to let users choose a
+        # preferred version of CLion in the future.
+        self._bin_folders = ['/opt/clion-stable/bin']
         self._bin_paths = self._get_possible_bin_paths()
         self._init_installed_path(installed_path)
 
