@@ -92,18 +92,15 @@ class AidegenConfigUnittests(unittest.TestCase):
         self.assertTrue(mock_warning.called)
 
     @mock.patch.object(common_util, 'file_generate')
-    @mock.patch.object(common_util, 'read_file_content')
     @mock.patch('os.path.exists')
-    def test_gen_enable_debugger_config(self, mock_exists, mock_read, mock_gen):
+    def test_gen_enable_debugger_config(self, mock_exists, mock_gen):
         """Test _gen_enable_debugger_config."""
         cfg = config.AidegenConfig()
         mock_exists.return_value = True
         cfg._gen_enable_debugger_config(0)
-        self.assertFalse(mock_read.called)
         self.assertFalse(mock_gen.called)
         mock_exists.return_value = False
         cfg._gen_enable_debugger_config(0)
-        self.assertTrue(mock_read.called)
         self.assertTrue(mock_gen.called)
 
     @mock.patch('os.stat')

@@ -42,9 +42,6 @@ class AidegenConfig():
     # Constants of enable debugger
     _ENABLE_DEBUG_CONFIG_DIR = 'enable_debugger'
     _ENABLE_DEBUG_CONFIG_FILE = 'enable_debugger.iml'
-    _ENABLE_DEBUG_TEMPLATE_FILE = os.path.join(
-        common_util.get_aidegen_root_dir(), 'templates',
-        _ENABLE_DEBUG_CONFIG_DIR, _ENABLE_DEBUG_CONFIG_FILE)
     _ENABLE_DEBUG_DIR = os.path.join(_CONFIG_DIR, _ENABLE_DEBUG_CONFIG_DIR)
     _ANDROID_MANIFEST_FILE_NAME = 'AndroidManifest.xml'
     _DIR_SRC = 'src'
@@ -55,6 +52,27 @@ class AidegenConfig():
           android:versionName="1.0" >
 </manifest>
     """
+    # The xml template for enabling debugger.
+    _XML_ENABLE_DEBUGGER = """<?xml version="1.0" encoding="UTF-8"?>
+<module type="JAVA_MODULE" version="4">
+  <component name="FacetManager">
+    <facet type="android" name="Android">
+      <configuration>
+        <proGuardCfgFiles />
+      </configuration>
+    </facet>
+  </component>
+  <component name="NewModuleRootManager" inherit-compiler-output="true">
+    <exclude-output />
+    <content url="file://$MODULE_DIR$">
+      <sourceFolder url="file://$MODULE_DIR$/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/gen" isTestSource="false" generated="true" />
+    </content>
+    <orderEntry type="jdk" jdkName="Android API {API_LEVEL} Platform" jdkType="Android SDK" />
+    <orderEntry type="sourceFolder" forTests="false" />
+  </component>
+</module>
+"""
     DEBUG_ENABLED_FILE_PATH = os.path.join(_ENABLE_DEBUG_DIR,
                                            _ENABLE_DEBUG_CONFIG_FILE)
 
@@ -151,8 +169,7 @@ class AidegenConfig():
             api_level: An integer of API level.
         """
         if not os.path.exists(self.DEBUG_ENABLED_FILE_PATH):
-            content = common_util.read_file_content(
-                self._ENABLE_DEBUG_TEMPLATE_FILE).format(API_LEVEL=api_level)
+            content = self._XML_ENABLE_DEBUGGER.format(API_LEVEL=api_level)
             common_util.file_generate(self.DEBUG_ENABLED_FILE_PATH, content)
 
     def create_enable_debugger_module(self, api_level):

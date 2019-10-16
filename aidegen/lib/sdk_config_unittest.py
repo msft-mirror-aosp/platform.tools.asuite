@@ -23,8 +23,8 @@ import unittest
 from unittest import mock
 import xml
 
+from aidegen import constant
 from aidegen import unittest_constants
-from aidegen.lib import common_util
 from aidegen.lib import errors
 from aidegen.lib import sdk_config
 
@@ -43,8 +43,6 @@ class SDKConfigUnittests(unittest.TestCase):
                                 'jdk_table_xml', 'android_sdk.xml')
     _JDK_SAMPLE4 = os.path.join(unittest_constants.TEST_DATA_PATH,
                                 'jdk_table_xml', 'android_sdk_nonexistent.xml')
-    _JDK_TEMPLATE = os.path.join(common_util.get_aidegen_root_dir(),
-                                 'templates', 'jdkTable', 'part.jdk.table.xml')
     _JDK_PATH = os.path.join('/path', 'to', 'android', 'root',
                              'prebuilts', 'jdk', 'jdk8', 'linux-x86')
     _JDK_OTHER_CONTENT = """<application>
@@ -73,7 +71,7 @@ class SDKConfigUnittests(unittest.TestCase):
             with open(self._JDK_SAMPLE) as sample:
                 expected_content = sample.read()
             jdk = sdk_config.SDKConfig(config_file,
-                                       self._JDK_TEMPLATE,
+                                       constant.LINUX_JDK_XML,
                                        self._JDK_PATH,
                                        self._NONEXISTENT_ANDROID_SDK_PATH)
             jdk.generate_jdk_config_string()
@@ -97,7 +95,7 @@ class SDKConfigUnittests(unittest.TestCase):
             with open(config_file, 'w') as cf:
                 cf.write(expected_content)
             jdk = sdk_config.SDKConfig(config_file,
-                                       self._JDK_TEMPLATE,
+                                       constant.LINUX_JDK_XML,
                                        self._JDK_PATH,
                                        self._DEFAULT_ANDROID_SDK_PATH)
             jdk.generate_jdk_config_string()
@@ -117,7 +115,7 @@ class SDKConfigUnittests(unittest.TestCase):
             with open(config_file, 'w') as cf:
                 cf.write(self._JDK_OTHER_CONTENT)
             jdk = sdk_config.SDKConfig(config_file,
-                                       self._JDK_TEMPLATE,
+                                       constant.LINUX_JDK_XML,
                                        self._JDK_PATH,
                                        self._NONEXISTENT_ANDROID_SDK_PATH)
             jdk.generate_jdk_config_string()
@@ -136,7 +134,7 @@ class SDKConfigUnittests(unittest.TestCase):
             with open(config_file, 'w') as cf:
                 cf.write(expected_content)
             jdk = sdk_config.SDKConfig(config_file,
-                                       self._JDK_TEMPLATE,
+                                       constant.LINUX_JDK_XML,
                                        self._JDK_PATH,
                                        self._NONEXISTENT_ANDROID_SDK_PATH)
             self.assertEqual(jdk._android_sdk_exists(), True)
@@ -154,7 +152,7 @@ class SDKConfigUnittests(unittest.TestCase):
             with open(config_file, 'w') as cf:
                 cf.write(expected_content)
             jdk = sdk_config.SDKConfig(config_file,
-                                       self._JDK_TEMPLATE,
+                                       constant.LINUX_JDK_XML,
                                        self._JDK_PATH,
                                        self._NONEXISTENT_ANDROID_SDK_PATH)
             self.assertEqual(jdk._android_sdk_exists(), False)
@@ -165,7 +163,7 @@ class SDKConfigUnittests(unittest.TestCase):
         """Test get default Android SDK path."""
         expected_content = self._DEFAULT_ANDROID_SDK_PATH
         jdk = sdk_config.SDKConfig(self._JDK_SAMPLE4,
-                                   self._JDK_TEMPLATE,
+                                   constant.LINUX_JDK_XML,
                                    self._JDK_PATH,
                                    self._DEFAULT_ANDROID_SDK_PATH)
         jdk._get_android_sdk_path()
@@ -182,7 +180,7 @@ class SDKConfigUnittests(unittest.TestCase):
         try:
             with mock.patch('builtins.input', side_effect=user_input):
                 jdk = sdk_config.SDKConfig(self._JDK_SAMPLE4,
-                                           self._JDK_TEMPLATE,
+                                           constant.LINUX_JDK_XML,
                                            self._JDK_PATH,
                                            self._NONEXISTENT_ANDROID_SDK_PATH)
                 jdk._get_android_sdk_path()
@@ -194,7 +192,7 @@ class SDKConfigUnittests(unittest.TestCase):
         """Test set max API level."""
         expected_api_level = 28
         jdk = sdk_config.SDKConfig(self._JDK_SAMPLE3,
-                                   self._JDK_TEMPLATE,
+                                   constant.LINUX_JDK_XML,
                                    self._JDK_PATH,
                                    self._DEFAULT_ANDROID_SDK_PATH)
         jdk._set_max_api_level()
@@ -204,7 +202,7 @@ class SDKConfigUnittests(unittest.TestCase):
         sdk_config.SDKConfig.max_api_level = 0
         expected_api_level = 0
         jdk = sdk_config.SDKConfig(self._JDK_SAMPLE3,
-                                   self._JDK_TEMPLATE,
+                                   constant.LINUX_JDK_XML,
                                    self._JDK_PATH,
                                    self._NONEXISTENT_ANDROID_SDK_PATH)
         jdk._set_max_api_level()
@@ -221,7 +219,7 @@ class SDKConfigUnittests(unittest.TestCase):
                     self._NONEXISTENT_ANDROID_SDK_PATH,
                     self._DEFAULT_ANDROID_SDK_PATH)
             jdk = sdk_config.SDKConfig(config_file,
-                                       self._JDK_TEMPLATE,
+                                       constant.LINUX_JDK_XML,
                                        self._JDK_PATH,
                                        self._NONEXISTENT_ANDROID_SDK_PATH)
             user_input = [self._DEFAULT_ANDROID_SDK_PATH]
@@ -239,13 +237,13 @@ class SDKConfigUnittests(unittest.TestCase):
         mock_parse.side_effect = TypeError()
         with self.assertRaises(errors.InvalidXMLError):
             sdk_config.SDKConfig(config_file,
-                                 self._JDK_TEMPLATE,
+                                 constant.LINUX_JDK_XML,
                                  self._JDK_PATH,
                                  self._NONEXISTENT_ANDROID_SDK_PATH)
         mock_parse.side_effect = AttributeError()
         with self.assertRaises(errors.InvalidXMLError):
             sdk_config.SDKConfig(config_file,
-                                 self._JDK_TEMPLATE,
+                                 constant.LINUX_JDK_XML,
                                  self._JDK_PATH,
                                  self._NONEXISTENT_ANDROID_SDK_PATH)
 
@@ -273,7 +271,7 @@ class SDKConfigUnittests(unittest.TestCase):
         tmp_folder = self._TEMP
         config_file = os.path.join(tmp_folder, self._JDK_FILE_NAME)
         jdk = sdk_config.SDKConfig(config_file,
-                                   self._JDK_TEMPLATE,
+                                   constant.LINUX_JDK_XML,
                                    self._JDK_PATH,
                                    self._NONEXISTENT_ANDROID_SDK_PATH)
         jdk.config_jdk_file()
@@ -296,7 +294,7 @@ class SDKConfigUnittests(unittest.TestCase):
         tmp_folder = self._TEMP
         config_file = os.path.join(tmp_folder, self._JDK_FILE_NAME)
         jdk = sdk_config.SDKConfig(config_file,
-                                   self._JDK_TEMPLATE,
+                                   constant.LINUX_JDK_XML,
                                    self._JDK_PATH,
                                    self._NONEXISTENT_ANDROID_SDK_PATH)
         jdk.config_jdk_file()
@@ -307,7 +305,7 @@ class SDKConfigUnittests(unittest.TestCase):
         mock_jdk_exist.return_value = False
         mock_sdk_exist.return_value = True
         jdk = sdk_config.SDKConfig(config_file,
-                                   self._JDK_TEMPLATE,
+                                   constant.LINUX_JDK_XML,
                                    self._JDK_PATH,
                                    self._NONEXISTENT_ANDROID_SDK_PATH)
         jdk.config_jdk_file()
@@ -323,7 +321,7 @@ class SDKConfigUnittests(unittest.TestCase):
         tmp_folder = self._TEMP
         config_file = os.path.join(tmp_folder, self._JDK_FILE_NAME)
         jdk = sdk_config.SDKConfig(config_file,
-                                   self._JDK_TEMPLATE,
+                                   constant.LINUX_JDK_XML,
                                    self._JDK_PATH,
                                    self._NONEXISTENT_ANDROID_SDK_PATH)
         self.assertEqual(sdk_config.SDKConfig._XML_CONTENT,
