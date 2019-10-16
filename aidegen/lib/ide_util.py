@@ -200,7 +200,7 @@ class IdeIntelliJ(IdeBase):
     Class Attributes:
         _JDK_PATH: The path of JDK in android project.
         _IDE_JDK_TABLE_PATH: The path of JDK table which record JDK info in IDE.
-        _JDK_PART_TEMPLATE_PATH: The path of the template of partial JDK table.
+        _JDK_CONTENT: A string, the content of the JDK configuration.
         _SYMBOLIC_VERSIONS: A string list of the symbolic link paths of
         IntelliJ.
         _CONFIG_DIR: A string of the config folder name.
@@ -213,7 +213,7 @@ class IdeIntelliJ(IdeBase):
 
     _JDK_PATH = ''
     _IDE_JDK_TABLE_PATH = ''
-    _JDK_PART_TEMPLATE_PATH = ''
+    _JDK_CONTENT = ''
     _DEFAULT_ANDROID_SDK_PATH = ''
     _SYMBOLIC_VERSIONS = []
     _CONFIG_DIR = ''
@@ -240,7 +240,7 @@ class IdeIntelliJ(IdeBase):
         for _config_path in _path_list:
             jdk_file = os.path.join(_config_path, self._IDE_JDK_TABLE_PATH)
             jdk_table = sdk_config.SDKConfig(
-                jdk_file, self._JDK_PART_TEMPLATE_PATH, self._JDK_PATH,
+                jdk_file, self._JDK_CONTENT, self._JDK_PATH,
                 self._DEFAULT_ANDROID_SDK_PATH)
             jdk_table.config_jdk_file()
             jdk_table.gen_enable_debugger_module(self.project_abspath)
@@ -385,9 +385,7 @@ class IdeLinuxIntelliJ(IdeIntelliJ):
     # TODO(b/127899277): Preserve a config for jdk version option case.
     _CONFIG_DIR = 'config'
     _IDE_JDK_TABLE_PATH = 'config/options/jdk.table.xml'
-    _JDK_PART_TEMPLATE_PATH = os.path.join(
-        common_util.get_aidegen_root_dir(),
-        'templates/jdkTable/part.jdk.table.xml')
+    _JDK_CONTENT = constant.LINUX_JDK_XML
     _DEFAULT_ANDROID_SDK_PATH = os.path.join(os.getenv('HOME'), 'Android/Sdk')
     IdeIntelliJ._SYMBOLIC_VERSIONS = ['/opt/intellij-ce-stable/bin/idea.sh',
                                       '/opt/intellij-ue-stable/bin/idea.sh',
@@ -467,9 +465,7 @@ class IdeMacIntelliJ(IdeIntelliJ):
     _JDK_PATH = os.path.join(common_util.get_android_root_dir(),
                              'prebuilts/jdk/jdk8/darwin-x86')
     _IDE_JDK_TABLE_PATH = 'options/jdk.table.xml'
-    _JDK_PART_TEMPLATE_PATH = os.path.join(
-        common_util.get_aidegen_root_dir(),
-        'templates/jdkTable/part.mac.jdk.table.xml')
+    _JDK_CONTENT = constant.MAC_JDK_XML
     _DEFAULT_ANDROID_SDK_PATH = os.path.join(
         os.getenv('HOME'), 'Library/Android/sdk')
 
