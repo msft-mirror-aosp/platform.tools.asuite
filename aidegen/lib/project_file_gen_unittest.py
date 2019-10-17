@@ -22,7 +22,6 @@ import shutil
 import unittest
 from unittest import mock
 
-from aidegen import constant
 from aidegen import unittest_constants
 from aidegen.lib import common_util
 from aidegen.lib import project_file_gen
@@ -76,7 +75,7 @@ class AidegenProjectFileGenUnittest(unittest.TestCase):
         """Test _handle_facet with android project."""
         mock_project.project_absolute_path = self._ANDROID_PROJECT_PATH
         android_facet = project_file_gen.ProjectFileGenerator(
-            mock_project)._handle_facet(constant.FILE_IML)
+            mock_project)._handle_facet(project_file_gen._FILE_IML)
         sample_android_facet = common_util.read_file_content(
             self._ANDROID_FACET_SAMPLE)
         self.assertEqual(android_facet, sample_android_facet)
@@ -86,14 +85,14 @@ class AidegenProjectFileGenUnittest(unittest.TestCase):
         """Test _handle_facet with normal module."""
         mock_project.project_absolute_path = self._PROJECT_PATH
         project_facet = project_file_gen.ProjectFileGenerator(
-            mock_project)._handle_facet(constant.FILE_IML)
+            mock_project)._handle_facet(project_file_gen._FILE_IML)
         sample_project_facet = common_util.read_file_content(
             self._PROJECT_FACET_SAMPLE)
         self.assertEqual(project_facet, sample_project_facet)
 
     def test_handle_module_dependency(self):
         """Test _module_dependency."""
-        module_dependency = constant.FILE_IML.replace(
+        module_dependency = project_file_gen._FILE_IML.replace(
             project_file_gen._MODULE_DEP_TOKEN, '')
         correct_module_dep = common_util.read_file_content(
             self._MODULE_DEP_SAMPLE)
@@ -113,7 +112,7 @@ class AidegenProjectFileGenUnittest(unittest.TestCase):
         mock_project.project_relative_path = self._ANDROID_SOURCE_RELATIVE_PATH
         source = project_file_gen.ProjectFileGenerator(
             mock_project)._handle_source_folder(
-                constant.FILE_IML, copy.deepcopy(
+                project_file_gen._FILE_IML, copy.deepcopy(
                     unittest_constants.ANDROID_SOURCE_DICT), True)
         sample_source = common_util.read_file_content(self._SOURCE_SAMPLE)
         self.assertEqual(source, sample_source)
@@ -360,7 +359,7 @@ class AidegenProjectFileGenUnittest(unittest.TestCase):
         """Test _handle_srcjar_folder."""
         mock_get_root.return_value = self._AOSP_FOLDER
         source = project_file_gen.ProjectFileGenerator(
-            mock_project)._handle_srcjar_folder(constant.FILE_IML,
+            mock_project)._handle_srcjar_folder(project_file_gen._FILE_IML,
                                                 {'out/aapt2.srcjar!/'})
         sample_source = common_util.read_file_content(self._SRCJAR_SAMPLE)
         self.assertEqual(source, sample_source)
