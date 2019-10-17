@@ -331,16 +331,17 @@ def get_atest_module_info(targets=None):
     return amodule_info
 
 
-def read_file_content(path):
+def read_file_content(path, encode_type='utf8'):
     """Read file's content.
 
     Args:
         path: Path of input file.
+        encode_type: A string of encoding name, default to UTF-8.
 
     Returns:
         String: Content of the file.
     """
-    with open(path, encoding='utf8') as template:
+    with open(path, encoding=encode_type) as template:
         return template.read()
 
 

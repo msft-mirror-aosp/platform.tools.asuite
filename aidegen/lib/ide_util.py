@@ -281,6 +281,10 @@ class IdeIntelliJ(IdeBase):
         ce_paths = _get_intellij_version_path(self._ls_ce_path)
         ue_paths = _get_intellij_version_path(self._ls_ue_path)
         all_versions = self._get_all_versions(ce_paths, ue_paths)
+        for version in all_versions:
+            real_version = os.path.realpath(version)
+            if config.AidegenConfig.deprecated_intellij_version(real_version):
+                all_versions.remove(version)
         if len(all_versions) > 1:
             with config.AidegenConfig() as aconf:
                 if not self._config_reset and (
