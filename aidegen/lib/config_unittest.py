@@ -203,6 +203,38 @@ class AidegenConfigUnittests(unittest.TestCase):
         config.AidegenConfig()
         self.assertTrue(mock_makedirs.called)
 
+    @mock.patch('os.path.isfile')
+    @mock.patch('builtins.open', create=True)
+    def test_deprecated_version(self, mock_open, mock_isfile):
+        """Test deprecated_intellij_version."""
+        # Test the idea.sh file contains the deprecated string.
+        cfg = config.AidegenConfig()
+        expacted_data = ('#!/bin/sh\n\n'
+                         'SUMMARY="This version of IntelliJ Community Edition '
+                         'is no longer supported."\n')
+        mock_open.side_effect = [
+            mock.mock_open(read_data=expacted_data).return_value
+        ]
+        mock_isfile.return_value = True
+        self.assertTrue(cfg.deprecated_intellij_version(0))
+
+        # Test the idea.sh file doesn't contains the deprecated string.
+        expacted_data = ('#!/bin/sh\n\n'
+                         'JAVA_BIN="$JDK/bin/java"\n'
+                         '"$JAVA_BIN" \\n')
+        mock_open.side_effect = [
+            mock.mock_open(read_data=expacted_data).return_value
+        ]
+        self.assertFalse(cfg.deprecated_intellij_version(0))
+
+    @mock.patch('os.path.isfile')
+    def test_idea_path_not_file(self, mock_isfile):
+        """Test deprecated_intellij_version."""
+        # Test the idea_path is not a file.
+        cfg = config.AidegenConfig()
+        mock_isfile.return_value = False
+        self.assertFalse(cfg.deprecated_intellij_version(0))
+
 
 class IdeaPropertiesUnittests(unittest.TestCase):
     """Unit tests for IdeaProperties class."""
