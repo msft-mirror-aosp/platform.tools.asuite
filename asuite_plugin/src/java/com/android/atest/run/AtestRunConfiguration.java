@@ -30,29 +30,67 @@ import org.jdom.Element;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
+/** Runs configurations which can be managed by a user and displayed in the UI. */
 public class AtestRunConfiguration extends LocatableConfigurationBase {
 
     protected AtestRunConfiguration(Project project, ConfigurationFactory factory, String name) {
         super(project, factory, name);
     }
 
+    /**
+     * Reads the run configuration settings from the file system.
+     *
+     * @param element an Element object to read.
+     * @throws InvalidDataException if the data is invalid.
+     */
     @Override
     public void readExternal(@NotNull Element element) throws InvalidDataException {}
 
+    /**
+     * Stores the run configuration settings at file system.
+     *
+     * @param element an Element object to write.
+     */
     @Override
     public void writeExternal(@NotNull Element element) {}
 
+    /**
+     * Returns the UI control for editing the run configuration settings. If additional control over
+     * validation is required, the object returned from this method may also implement {@link
+     * com.intellij.execution.impl.CheckableRunConfigurationEditor}. The returned object can also
+     * implement {@link com.intellij.openapi.options.SettingsEditorGroup} if the settings it
+     * provides need to be displayed in multiple tabs.
+     *
+     * @return Atest settings editor component.
+     */
     @NotNull
     @Override
     public SettingsEditor<? extends RunConfiguration> getConfigurationEditor() {
         return new AtestSettingsEditor();
     }
 
+    /**
+     * Checks whether the run configuration settings are valid. Note that this check may be invoked
+     * on every change (i.e. after each character typed in an input field).
+     *
+     * @throws RuntimeConfigurationException if the configuration settings contain a non-fatal
+     *     problem which the user should be warned about but the execution should still be allowed.
+     */
     @Override
     public void checkConfiguration() throws RuntimeConfigurationException {
         super.checkConfiguration();
     }
 
+    /**
+     * Prepares for executing a specific instance of the run configuration.
+     *
+     * @param executor the execution mode selected by the user (run, debug, profile etc.)
+     * @param executionEnvironment the environment object containing additional settings for
+     *     executing the configuration.
+     * @throws ExecutionException if exception happens when executing.
+     * @return the RunProfileState describing the process which is about to be started, or null if
+     *     it's impossible to start the process.
+     */
     @Nullable
     @Override
     public RunProfileState getState(
