@@ -73,42 +73,6 @@ ANDROID_MK = 'Android.mk'
 # Constants for whole Android tree
 WHOLE_ANDROID_TREE_TARGET = '#WHOLE_ANDROID_TREE#'
 
-# Content of iml file.
-FILE_IML = """<?xml version="1.0" encoding="UTF-8"?>
-<module type="JAVA_MODULE" version="4">
-@FACETS@
-    <component name="NewModuleRootManager" inherit-compiler-output="true">
-        <exclude-output />
-@SOURCES@
-@SRCJAR@
-        <orderEntry type="sourceFolder" forTests="false" />
-@MODULE_DEPENDENCIES@
-        <orderEntry type="inheritedJdk" />
-    </component>
-</module>
-"""
-
-# IDEA XML templates
-# The template content of modules.xml.
-MODULES_XML = """<?xml version="1.0" encoding="UTF-8"?>
-<project version="4">
-    <component name="ProjectModuleManager">
-        <modules>
-@MODULES@
-@ENABLE_DEBUGGER_MODULE@
-        </modules>
-    </component>
-</project>
-"""
-# The template content of vcs.xml.
-VCS_XML = """<?xml version="1.0" encoding="UTF-8"?>
-<project version="4">
-    <component name="VcsDirectoryMappings">
-@VCS@
-    </component>
-</project>
-"""
-
 # Constants for ProjectInfo or ModuleData classes
 JAR_EXT = '.jar'
 TARGET_LIBS = [JAR_EXT]
@@ -116,3 +80,99 @@ TARGET_LIBS = [JAR_EXT]
 # Constants for aidegen_functional_test
 ANDROID_COMMON = 'android_common'
 LINUX_GLIBC_COMMON = 'linux_glibc_common'
+
+# The xml templates for JDK or SDK.
+
+# The configuration of JDK on Linux.
+LINUX_JDK_XML = """    <jdk version="2">
+      <name value="JDK18" />
+      <type value="JavaSDK" />
+      <version value="java version &quot;1.8.0_152&quot;" />
+      <homePath value="{JDKpath}" />
+      <roots>
+        <annotationsPath>
+          <root type="composite">
+            <root url="jar://$APPLICATION_HOME_DIR$/lib/jdkAnnotations.jar!/" type="simple" />
+          </root>
+        </annotationsPath>
+        <classPath>
+          <root type="composite">
+            <root url="jar://{JDKpath}/jre/lib/charsets.jar!/" type="simple" />
+            <root url="jar://{JDKpath}/jre/lib/ext/cldrdata.jar!/" type="simple" />
+            <root url="jar://{JDKpath}/jre/lib/ext/dnsns.jar!/" type="simple" />
+            <root url="jar://{JDKpath}/jre/lib/ext/jaccess.jar!/" type="simple" />
+            <root url="jar://{JDKpath}/jre/lib/ext/localedata.jar!/" type="simple" />
+            <root url="jar://{JDKpath}/jre/lib/ext/nashorn.jar!/" type="simple" />
+            <root url="jar://{JDKpath}/jre/lib/ext/sunec.jar!/" type="simple" />
+            <root url="jar://{JDKpath}/jre/lib/ext/sunjce_provider.jar!/" type="simple" />
+            <root url="jar://{JDKpath}/jre/lib/ext/sunpkcs11.jar!/" type="simple" />
+            <root url="jar://{JDKpath}/jre/lib/ext/zipfs.jar!/" type="simple" />
+            <root url="jar://{JDKpath}/jre/lib/jce.jar!/" type="simple" />
+            <root url="jar://{JDKpath}/jre/lib/jsse.jar!/" type="simple" />
+            <root url="jar://{JDKpath}/jre/lib/management-agent.jar!/" type="simple" />
+            <root url="jar://{JDKpath}/jre/lib/resources.jar!/" type="simple" />
+            <root url="jar://{JDKpath}/jre/lib/rt.jar!/" type="simple" />
+          </root>
+        </classPath>
+        <javadocPath>
+          <root type="composite" />
+        </javadocPath>
+        <sourcePath>
+          <root type="composite">
+            <root url="jar://{JDKpath}/src.zip!/" type="simple" />
+          </root>
+        </sourcePath>
+      </roots>
+      <additional />
+    </jdk>
+"""
+# The configuration of JDK on Mac.
+MAC_JDK_XML = """    <jdk version="2">
+      <name value="JDK18" />
+      <type value="JavaSDK" />
+      <version value="java version &quot;1.8.0_152&quot;" />
+      <homePath value="{JDKpath}" />
+      <roots>
+        <annotationsPath>
+          <root type="composite">
+            <root url="jar://$APPLICATION_HOME_DIR$/lib/jdkAnnotations.jar!/" type="simple" />
+          </root>
+        </annotationsPath>
+        <classPath>
+          <root type="composite">
+            <root url="jar://{JDKpath}/jre/lib/charsets.jar!/" type="simple" />
+            <root url="jar://{JDKpath}/jre/lib/ext/cldrdata.jar!/" type="simple" />
+            <root url="jar://{JDKpath}/jre/lib/ext/dnsns.jar!/" type="simple" />
+            <root url="jar://{JDKpath}/jre/lib/ext/jaccess.jar!/" type="simple" />
+            <root url="jar://{JDKpath}/jre/lib/ext/localedata.jar!/" type="simple" />
+            <root url="jar://{JDKpath}/jre/lib/ext/nashorn.jar!/" type="simple" />
+            <root url="jar://{JDKpath}/jre/lib/ext/sunec.jar!/" type="simple" />
+            <root url="jar://{JDKpath}/jre/lib/ext/sunjce_provider.jar!/" type="simple" />
+            <root url="jar://{JDKpath}/jre/lib/ext/sunpkcs11.jar!/" type="simple" />
+            <root url="jar://{JDKpath}/jre/lib/ext/zipfs.jar!/" type="simple" />
+            <root url="jar://{JDKpath}/jre/lib/jce.jar!/" type="simple" />
+            <root url="jar://{JDKpath}/jre/lib/jsse.jar!/" type="simple" />
+            <root url="jar://{JDKpath}/jre/lib/management-agent.jar!/" type="simple" />
+            <root url="jar://{JDKpath}/jre/lib/resources.jar!/" type="simple" />
+            <root url="jar://{JDKpath}/jre/lib/rt.jar!/" type="simple" />
+            <root url="jar://{JDKpath}/jre/lib/management-agent.jar!/" type="simple" />
+            <root url="jar://{JDKpath}/jre/lib/resources.jar!/" type="simple" />
+            <root url="jar://{JDKpath}/jre/lib/rt.jar!/" type="simple" />
+            <root url="jar://{JDKpath}/lib/dt.jar!/" type="simple" />
+            <root url="jar://{JDKpath}/lib/jconsole.jar!/" type="simple" />
+            <root url="jar://{JDKpath}/lib/sa-jdi.jar!/" type="simple" />
+            <root url="jar://{JDKpath}/lib/tools.jar!/" type="simple" />
+          </root>
+        </classPath>
+        <javadocPath>
+          <root type="composite" />
+        </javadocPath>
+        <sourcePath>
+          <root type="composite">
+            <root url="jar://{JDKpath}/src.zip!/" type="simple" />
+          </root>
+        </sourcePath>
+      </roots>
+      <additional />
+    </jdk>
+"""

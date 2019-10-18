@@ -20,7 +20,6 @@ This module has a collection of functions that provide helper functions to
 other modules.
 """
 
-import fnmatch
 import logging
 import os
 import sys
@@ -293,37 +292,6 @@ def get_abs_path(rel_path):
     return os.path.join(get_android_root_dir(), rel_path)
 
 
-def is_project_path_relative_module(data, project_relative_path):
-    """Determine if the given project path is relative to the module.
-
-    The rules:
-       1. If constant.KEY_PATH not in data, we can't tell if it's a module
-          return False.
-       2. If project_relative_path is empty, it's under Android root, return
-          True.
-       3. If module's path equals or starts with project_relative_path return
-          True, otherwise return False.
-
-    Args:
-        data: the module-info dictionary of the checked module.
-        project_relative_path: project's relative path
-
-    Returns:
-        True if it's the given project path is relative to the module, otherwise
-        False.
-    """
-    if constant.KEY_PATH not in data:
-        return False
-    path = data[constant.KEY_PATH][0]
-    if project_relative_path == '':
-        return True
-    if (constant.KEY_CLASS in data
-            and (path == project_relative_path
-                 or path.startswith(project_relative_path + os.sep))):
-        return True
-    return False
-
-
 def is_target(src_file, src_file_extensions):
     """Check if src_file is a type of src_file_extensions.
 
@@ -363,16 +331,17 @@ def get_atest_module_info(targets=None):
     return amodule_info
 
 
-def read_file_content(path):
+def read_file_content(path, encode_type='utf8'):
     """Read file's content.
 
     Args:
         path: Path of input file.
+        encode_type: A string of encoding name, default to UTF-8.
 
     Returns:
         String: Content of the file.
     """
-    with open(path) as template:
+    with open(path, encoding=encode_type) as template:
         return template.read()
 
 
@@ -487,25 +456,20 @@ def configure_logging(verbose):
     logging.basicConfig(level=level, format=log_format, datefmt=datefmt)
 
 
-def get_cmakelists_path():
-    """Assemble the path of the file which contains all CLion projects' paths.
+def read_file_line_to_list(file_path):
+    """Read a file line by line and write them into a list.
+
+    Args:
+        file_path: A string of a file's path.
 
     Returns:
-        Clion project list file path.
+        A list of the file's content by line.
     """
-    return os.path.join(get_soong_out_path(), constant.CMAKELISTS_FILE_NAME)
-
-
-def generate_clion_projects_file():
-    """Generate file of CLion's project file paths' list."""
-    android_root = get_android_root_dir()
     files = []
-    for root, _, filenames in os.walk(android_root):
-        if fnmatch.filter(filenames, constant.CLION_PROJECT_FILE_NAME):
-            files.append(os.path.relpath(root, android_root))
-    with open(get_cmakelists_path(), 'w') as outfile:
-        for cfile in files:
-            outfile.write("%s\n" % cfile)
+    with open(file_path, encoding='utf8') as infile:
+        for line in infile:
+            files.append(line.strip())
+    return files
 
 
 def exist_android_bp(abs_path):
