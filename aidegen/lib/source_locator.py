@@ -589,8 +589,8 @@ class EclipseModuleData(ModuleData):
             self._locate_project_source_path()
         else:
             self._locate_jar_path()
-        if self.referenced_by_jar and self.missing_jars:
-            self.build_targets |= self.missing_jars
+        self._collect_classes_jars()
+        self._collect_missing_jars()
 
     def _locate_project_source_path(self):
         """Locate the source folder paths of the project module.
