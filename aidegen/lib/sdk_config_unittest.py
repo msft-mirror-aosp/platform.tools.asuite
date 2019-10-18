@@ -249,13 +249,22 @@ class SDKConfigUnittests(unittest.TestCase):
 
     def test_get_platforms_dir_path(self):
         """Test _get_platforms_dir_path."""
+        default_android_sdk_path = '/a/b'
         expected_path = '/a/b/platforms'
-        sdk_config.SDKConfig.android_sdk_path = '/a/b'
-        test_path = sdk_config.SDKConfig._get_platforms_dir_path()
+        jdk = sdk_config.SDKConfig(self._JDK_SAMPLE3,
+                                   constant.LINUX_JDK_XML,
+                                   self._JDK_PATH,
+                                   default_android_sdk_path)
+        test_path = jdk._get_platforms_dir_path()
         self.assertEqual(test_path, expected_path)
 
-        sdk_config.SDKConfig.android_sdk_path = '/a/b/platforms'
-        test_path = sdk_config.SDKConfig._get_platforms_dir_path()
+        default_android_sdk_path = '/a/b/platforms'
+        expected_path = '/a/b/platforms'
+        jdk = sdk_config.SDKConfig(self._JDK_SAMPLE3,
+                                   constant.LINUX_JDK_XML,
+                                   self._JDK_PATH,
+                                   default_android_sdk_path)
+        test_path = jdk._get_platforms_dir_path()
         self.assertEqual(test_path, expected_path)
 
     @mock.patch.object(sdk_config.SDKConfig, '_write_jdk_config_file')

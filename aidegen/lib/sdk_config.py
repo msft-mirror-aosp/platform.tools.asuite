@@ -66,16 +66,12 @@ class SDKConfig():
         xml_dom: An object which contains the xml file parsing result of the
                  config_file.
         jdks: An element list with tag named "jdk" in xml_dom.
-
-    Class attrubute:
         android_sdk_path: The path to the Android SDK, None if the Android SDK
                           doesn't exist.
         max_api_level: An integer, parsed from the folder named android-{n}
                        under Android/Sdk/platforms.
     """
 
-    android_sdk_path = None
-    max_api_level = 0
     _TARGET_JDK_NAME_TAG = '<name value="JDK18" />'
     _COMPONENT_END_TAG = '  </component>'
     _XML_CONTENT = ('<application>\n  <component name="ProjectJdkTable">\n'
@@ -143,13 +139,14 @@ class SDKConfig():
             default_android_sdk_path: The default path to the Android SDK, it
                                       might not exist.
         """
+        self.max_api_level = 0
         self.config_file = config_file
         self.jdk_content = jdk_content
         self.jdk_path = jdk_path
         self.config_exists = os.path.isfile(config_file)
         self.config_string = self._get_default_config_content()
         self._parse_xml()
-        SDKConfig.android_sdk_path = default_android_sdk_path
+        self.android_sdk_path = default_android_sdk_path
 
     def _parse_xml(self):
         """Parse the content of jdk.table.xml to a minidom object."""
@@ -229,26 +226,24 @@ class SDKConfig():
         """Ask user input the path to Android SDK."""
         return input(input_message)
 
-    @classmethod
-    def _get_android_sdk_path(cls):
+    def _get_android_sdk_path(self):
         """Get the Android SDK path.
 
         Returns: The android sdk path if it exists, otherwise None.
         """
         # Set the maximum times require user to input the path of Android Sdk.
-        _check_times = cls._INPUT_QUERY_TIMES
-        while not cls._set_max_api_level():
+        _check_times = self._INPUT_QUERY_TIMES
+        while not self._set_max_api_level():
             if _check_times == 0:
-                cls.android_sdk_path = None
+                self.android_sdk_path = None
                 break
-            cls.android_sdk_path = cls._enter_android_sdk_path(
-                common_util.COLORED_FAIL(cls._ENTER_ANDROID_SDK_PATH.format(
-                    cls.android_sdk_path)))
+            self.android_sdk_path = self._enter_android_sdk_path(
+                common_util.COLORED_FAIL(self._ENTER_ANDROID_SDK_PATH.format(
+                    self.android_sdk_path)))
             _check_times -= 1
-        return cls.android_sdk_path
+        return self.android_sdk_path
 
-    @classmethod
-    def _set_max_api_level(cls):
+    def _set_max_api_level(self):
         """Set the max API level from Android SDK folder.
 
         1. Find the api folder such as android-28 in platforms folder.
@@ -257,18 +252,17 @@ class SDKConfig():
         Returns: An integer, the max api level. Defatult is 0 if there is no
                  android-{x} folder under android_sdk_path.
         """
-        platforms_dir = cls._get_platforms_dir_path()
+        platforms_dir = self._get_platforms_dir_path()
         if os.path.isdir(platforms_dir):
             for abspath, _, _ in os.walk(platforms_dir):
-                match_api_folder = cls._API_FOLDER_RE.search(abspath)
+                match_api_folder = self._API_FOLDER_RE.search(abspath)
                 if match_api_folder:
                     api_level = int(match_api_folder.group(_API_LEVEL))
-                    if api_level > cls.max_api_level:
-                        cls.max_api_level = api_level
-        return cls.max_api_level
+                    if api_level > self.max_api_level:
+                        self.max_api_level = api_level
+        return self.max_api_level
 
-    @classmethod
-    def _get_platforms_dir_path(cls):
+    def _get_platforms_dir_path(self):
         """Get the platform's dir path from user input Android SDK path.
 
         Supposed users could input the SDK or platforms path:
@@ -281,9 +275,9 @@ class SDKConfig():
 
         Returns: The platforms folder path string.
         """
-        if cls.android_sdk_path.split(os.sep)[-1] == _PLATFORMS:
-            return cls.android_sdk_path
-        return os.path.join(cls.android_sdk_path, _PLATFORMS)
+        if self.android_sdk_path.split(os.sep)[-1] == _PLATFORMS:
+            return self.android_sdk_path
+        return os.path.join(self.android_sdk_path, _PLATFORMS)
 
     def _set_api_level_from_xml(self):
         """Get the API level from jdk.table.xml."""
@@ -332,12 +326,12 @@ class SDKConfig():
             if self._get_android_sdk_path():
                 self._append_jdk_config_string(self._ANDROID_SDK_XML)
                 self.config_string = self.config_string.format(
-                    ANDROID_SDK_PATH=SDKConfig.android_sdk_path,
-                    API_LEVEL=SDKConfig.max_api_level)
+                    ANDROID_SDK_PATH=self.android_sdk_path,
+                    API_LEVEL=self.max_api_level)
             else:
                 print('\n{} {}\n'.format(common_util.COLORED_INFO('Warning:'),
                                          self._WARNING_API_LEVEL.format(
-                                             SDKConfig.max_api_level)))
+                                             self.max_api_level)))
 
     def config_jdk_file(self):
         """Generate the content of config and write it to the jdk.table.xml."""
