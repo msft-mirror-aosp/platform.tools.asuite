@@ -43,6 +43,7 @@ class EclipseConf(project_file_gen.ProjectFileGenerator):
     _PROJECT_LINK = ('                <link><name>{}</name><type>2</type>'
                      '<location>{}</location></link>\n')
     _PROJECT_FILENAME = '.project'
+    _OUTPUT_BIN_SYMBOLIC_NAME = 'bin'
 
     # constans of .classpath file
     _CLASSPATH_SRC_ENTRY = '    <classpathentry kind="src" path="{}"/>\n'
@@ -153,11 +154,35 @@ class EclipseConf(project_file_gen.ProjectFileGenerator):
         abs_path = os.path.join(common_util.get_android_root_dir(), relpath)
         return cls._PROJECT_LINK.format(alias_name, abs_path)
 
+    def _gen_bin_link(self):
+        """Generate the link resource of the bin folder.
+
+        The bin folder will be set as default in the module's root path. But
+        doing so causes issues with the android build system. We should instead
+        move the bin under the out folder.
+        For example:
+        <link>
+                <name>bin</name>
+                <type>2</type>
+                <location>/home/user/aosp/out/Eclipse/framework</location>
+        </link>
+
+        Returns: A set includes a link resource of the bin folder.
+        """
+        real_bin_path = os.path.join(common_util.get_android_out_dir(),
+                                     constant.IDE_ECLIPSE,
+                                     self.module_name)
+        if not os.path.exists(real_bin_path):
+            os.makedirs(real_bin_path)
+        return {self._PROJECT_LINK.format(self._OUTPUT_BIN_SYMBOLIC_NAME,
+                                          real_bin_path)}
+
     def _create_project_content(self):
         """Create the project file .project under the module."""
         # links is a set to save unique link resources.
         links = self._gen_src_links(self.jar_module_paths.values())
         links.update(self._gen_r_link())
+        links.update(self._gen_bin_link())
         self.project_content = self._ECLIPSE_PROJECT_XML.format(
             PROJECTNAME=self.module_name,
             LINKEDRESOURCES=''.join(sorted(list(links))))
@@ -240,10 +265,19 @@ class EclipseConf(project_file_gen.ProjectFileGenerator):
                 jar_abspath, alias_module_path))
         return jar_entries
 
+    def _gen_bin_dir_entry(self):
+        """Generate the class path entry of the bin folder.
+
+        Returns: A list has a class path entry of the bin folder.
+        """
+        return [self._CLASSPATH_SRC_ENTRY.format(self._OUTPUT_BIN_SYMBOLIC_NAME)
+               ]
+
     def _create_classpath_content(self):
         """Create the project file .classpath under the module."""
         src_entries = self._gen_src_path_entries()
         src_entries.extend(self._gen_r_path_entries())
+        src_entries.extend(self._gen_bin_dir_entry())
         jar_entries = self._gen_jar_path_entries()
         self.classpath_content = self._ECLIPSE_CLASSPATH_XML.format(
             SRC=''.join(sorted(src_entries)),
