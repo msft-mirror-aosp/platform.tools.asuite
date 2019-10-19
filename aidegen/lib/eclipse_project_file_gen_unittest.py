@@ -48,11 +48,16 @@ class EclipseConfUnittests(unittest.TestCase):
             self._PROJECT_RELPATH)
         self.assertEqual(generated_link, expected_link)
 
+    @mock.patch('os.path.exists')
+    @mock.patch.object(common_util, 'get_android_out_dir')
     @mock.patch.object(common_util, 'get_android_root_dir')
     @mock.patch('aidegen.lib.project_info.ProjectInfo')
-    def test_create_project_content(self, mock_project_info, mock_get_root):
+    def test_create_project_content(self, mock_project_info, mock_get_root,
+                                    mock_out_dir, mock_dir_exists):
         """Test _create_project_content."""
         mock_get_root.return_value = self._ROOT_PATH
+        mock_out_dir.return_value = os.path.join(self._ROOT_PATH, 'out')
+        mock_dir_exists.return_value = True
         mock_project_info.project_absolute_path = self._PROJECT_ABSPATH
         mock_project_info.module_name = self._PROJECT_NAME
         mock_project_info.source_path = {

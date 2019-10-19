@@ -15,6 +15,7 @@
                 <nature>org.eclipse.jdt.core.javanature</nature>
         </natures>
         <linkedResources>
+                <link><name>bin</name><type>2</type><location>/android/root/out/Eclipse/test</location></link>
                 <link><name>dependencies/module/path</name><type>2</type><location>/android/root/module/path</location></link>
 
         </linkedResources>
