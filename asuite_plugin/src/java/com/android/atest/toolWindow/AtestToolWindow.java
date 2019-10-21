@@ -13,10 +13,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.android.atest;
+package com.android.atest.toolWindow;
 
-/** Constants of Atest plugin. */
-public class Constants {
+import com.intellij.openapi.wm.ToolWindow;
 
-    public static final String ATEST_NAME = "Atest";
+/** UI content of Atest tool window. */
+public class AtestToolWindow {
+
+    public AtestToolWindow(ToolWindow toolWindow) {}
 }
