@@ -122,7 +122,7 @@ class AidegenConfig():
         """Load data from configuration file."""
         if os.path.exists(self._CONFIG_FILE_PATH):
             try:
-                with open(self._CONFIG_FILE_PATH, 'r') as cfg_file:
+                with open(self._CONFIG_FILE_PATH) as cfg_file:
                     self._config = json.load(cfg_file)
             except ValueError as err:
                 info = '{} format is incorrect, error: {}'.format(
