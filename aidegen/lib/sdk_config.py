@@ -68,6 +68,8 @@ class SDKConfig():
         jdks: An element list with tag named "jdk" in xml_dom.
         android_sdk_path: The path to the Android SDK, None if the Android SDK
                           doesn't exist.
+        android_sdk_version: The version name of the Android Sdk in the
+                             jdk.table.xml.
         max_api_level: An integer, parsed from the folder named android-{n}
                        under Android/Sdk/platforms.
     """
@@ -88,6 +90,7 @@ class SDKConfig():
     _NAME_JDK18 = 'JDK18'
     _TYPE_ANDROID_SDK = 'Android SDK'
     _INPUT_QUERY_TIMES = 3
+    _ANDROID_SDK_VERSION = 'Android API {API_LEVEL} Platform'
     _API_FOLDER_RE = re.compile(r'platforms/android-(?P<api_level>[\d]+)')
     _API_LEVEL_RE = re.compile(r'android-(?P<api_level>[\d]+)')
     _ENTER_ANDROID_SDK_PATH = ('\nThe Android SDK folder:{} doesn\'t exist. '
@@ -148,6 +151,7 @@ class SDKConfig():
         self.config_string = self._get_default_config_content()
         self._parse_xml()
         self.android_sdk_path = default_android_sdk_path
+        self.android_sdk_version = ''
 
     def _parse_xml(self):
         """Parse the content of jdk.table.xml to a minidom object."""
@@ -217,6 +221,7 @@ class SDKConfig():
                      False.
         """
         for jdk in self.jdks:
+            jdk_name = self._get_first_element_value(jdk, self._TAG_NAME)
             jdk_type = self._get_first_element_value(jdk, self._TAG_TYPE)
             home_path = self._get_first_element_value(jdk, self._TAG_HOMEPATH)
             platform_api = self._get_max_platform_api(home_path)
@@ -226,6 +231,7 @@ class SDKConfig():
                 continue
             if jdk_type == self._TYPE_ANDROID_SDK and sdk_api == platform_api:
                 self.android_sdk_path = home_path
+                self.android_sdk_version = jdk_name
                 self.max_api_level = sdk_api
                 return True
         return False
@@ -320,6 +326,11 @@ class SDKConfig():
         self.max_api_level = self._get_max_platform_api(
             self._get_platforms_dir_path())
 
+    def _set_android_sdk_version(self):
+        """Set the Android Sdk version."""
+        self.android_sdk_version = self._ANDROID_SDK_VERSION.format(
+            API_LEVEL=self.max_api_level)
+
     def _get_platforms_dir_path(self):
         """Get the platform's dir path from user input Android SDK path.
 
@@ -336,24 +347,6 @@ class SDKConfig():
         if self.android_sdk_path.split(os.sep)[-1] == _PLATFORMS:
             return self.android_sdk_path
         return os.path.join(self.android_sdk_path, _PLATFORMS)
-
-    def _set_api_level_from_xml(self):
-        """Get the API level from jdk.table.xml."""
-        for jdk in self.jdks:
-            jdk_type = self._get_first_element_value(jdk, self._TAG_TYPE)
-            if jdk_type == self._TYPE_ANDROID_SDK:
-                additionals = jdk.getElementsByTagName(self._TAG_ADDITIONAL)
-                for additional in additionals:
-                    jdk_value = additional.getAttribute(self._ATTRIBUTE_JDK)
-                    sdk_value = additional.getAttribute(self._ATTRIBUTE_SDK)
-                    if jdk_value:
-                        find_api_level = self._API_LEVEL_RE.match(sdk_value)
-                        if find_api_level:
-                            self.max_api_level = find_api_level.group(
-                                'api_level')
-                            return True
-        logging.warning('Can\'t set api level from jdk.table.xml.')
-        return False
 
     def _append_jdk_config_string(self, new_jdk_config):
         """Add a jdk configuration at the last of <component>.
@@ -382,6 +375,7 @@ class SDKConfig():
         """Generate Android SDK configuration."""
         if not self._android_sdk_exists():
             if self._get_android_sdk_path():
+                self._set_android_sdk_version()
                 self._append_jdk_config_string(self._ANDROID_SDK_XML)
                 self.config_string = self.config_string.format(
                     ANDROID_SDK_PATH=self.android_sdk_path,
@@ -404,12 +398,16 @@ class SDKConfig():
     def gen_enable_debugger_module(self, module_abspath):
         """Generate the enable_debugger module under AIDEGen config folder.
 
+        Skip generating the enable_debugger module in IntelliJ once failed to
+        get the Android SDK version.
+
         Args:
             module_abspath: the absolute path of the main project.
         """
-        if self._set_api_level_from_xml():
-            with config.AidegenConfig() as aconf:
-                if aconf.create_enable_debugger_module(self.max_api_level):
-                    project_file_gen.update_enable_debugger(
-                        module_abspath,
-                        config.AidegenConfig.DEBUG_ENABLED_FILE_PATH)
+        if not self.android_sdk_version:
+            return
+        with config.AidegenConfig() as aconf:
+            if aconf.create_enable_debugger_module(self.android_sdk_version):
+                project_file_gen.update_enable_debugger(
+                    module_abspath,
+                    config.AidegenConfig.DEBUG_ENABLED_FILE_PATH)
