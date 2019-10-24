@@ -18,17 +18,25 @@ package com.android.atest.toolWindow;
 import com.intellij.openapi.project.Project;
 import com.intellij.openapi.wm.ToolWindow;
 import com.intellij.openapi.wm.ToolWindowFactory;
+import com.intellij.ui.content.Content;
+import com.intellij.ui.content.ContentFactory;
 import org.jetbrains.annotations.NotNull;
 
 /** Performs lazy initialization of Atest toolwindow registered in plugin.xml. */
 public class AtestToolWindowFactory implements ToolWindowFactory {
 
     /**
-     * Creates the tool window content.
+     * Creates the Atest tool window content.
      *
      * @param project an object that represents an IntelliJ project.
      * @param toolWindow a child window of the IDE used to display information.
      */
     @Override
-    public void createToolWindowContent(@NotNull Project project, @NotNull ToolWindow toolWindow) {}
+    public void createToolWindowContent(@NotNull Project project, @NotNull ToolWindow toolWindow) {
+        AtestToolWindow atestToolWindow = new AtestToolWindow(toolWindow);
+        ContentFactory contentFactory = ContentFactory.SERVICE.getInstance();
+        Content toolWindowContent =
+                contentFactory.createContent(atestToolWindow.getContent(), "", true);
+        toolWindow.getContentManager().addContent(toolWindowContent);
+    }
 }
