@@ -545,6 +545,7 @@ def _compare_jars_content(module_name, s_items, r_items, msg):
 
 # pylint: disable=broad-except
 # pylint: disable=eval-used
+@common_util.back_to_cwd
 @common_util.time_logged
 def _verify_aidegen(verified_file_path, forced_remove_bp_json):
     """Verify various use cases of executing aidegen.
@@ -584,6 +585,7 @@ def _verify_aidegen(verified_file_path, forced_remove_bp_json):
 
     _make_clean()
 
+    os.chdir(common_util.get_android_root_dir())
     for use_case in data:
         print('Use case "{}" is running.'.format(use_case))
         if forced_remove_bp_json and os.path.exists(bp_json_path):
