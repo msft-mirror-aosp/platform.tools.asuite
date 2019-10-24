@@ -17,12 +17,14 @@ package com.android.atest.toolWindow;
 
 import com.android.atest.AtestUtils;
 import com.intellij.openapi.wm.ToolWindow;
+import com.intellij.openapi.wm.ex.ToolWindowEx;
 
 import javax.swing.*;
 
 /** UI content of Atest tool window. */
 public class AtestToolWindow {
 
+    private static final int INITIAL_WIDTH = 1000;
     private JPanel mAtestToolWindowPanel;
     private JScrollPane mScorll;
     private JTextArea mAtestOutput;
@@ -42,6 +44,7 @@ public class AtestToolWindow {
      */
     public AtestToolWindow(ToolWindow toolWindow, String basePath) {
         setmTestTarget(basePath);
+        SetInitialWidth((ToolWindowEx) toolWindow);
     }
 
     /**
@@ -53,6 +56,18 @@ public class AtestToolWindow {
         mTestTarget.setEditable(true);
         if (AtestUtils.hasTestMapping(basePath)) {
             mTestTarget.setSelectedItem(basePath);
+        }
+    }
+
+    /**
+     * Sets the initial width of the tool window.
+     *
+     * @param toolWindowEx
+     */
+    private void SetInitialWidth(ToolWindowEx toolWindowEx) {
+        int width = toolWindowEx.getComponent().getWidth();
+        if (width < INITIAL_WIDTH) {
+            toolWindowEx.stretchWidth(INITIAL_WIDTH - width);
         }
     }
 
