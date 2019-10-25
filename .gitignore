@@ -6,6 +6,7 @@
 **/yapfrc
 **/build
 **/.gradle
+**/.coverage
 
 # Exceptions
 !aidegen/test_data/*.iml
