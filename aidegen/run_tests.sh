@@ -91,9 +91,6 @@ function check_env() {
 function cleanup() {
     # Search for *.pyc and delete them.
     find $AIDEGEN_DIR -name "*.pyc" -exec rm -f {} \;
-
-    # Delete the generated .coverage files too.
-    find $ASUITE_DIR -name "*.coverage" -exec rm -f {} \;
 }
 
 check_env
