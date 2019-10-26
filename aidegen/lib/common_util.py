@@ -494,3 +494,16 @@ def exist_android_mk(abs_path):
              otherwise false.
     """
     return os.path.isfile(os.path.join(abs_path, constant.ANDROID_MK))
+
+
+def is_source_under_relative_path(source, relative_path):
+    """Check if a source file is a project relative path file.
+
+    Args:
+        source: Android source file path.
+        relative_path: Relative path of the module.
+
+    Returns:
+        True if source file is a project relative path file, otherwise False.
+    """
+    return source == relative_path or source.startswith(relative_path + os.sep)
