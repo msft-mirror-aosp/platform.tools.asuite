@@ -16,7 +16,7 @@
         </natures>
         <linkedResources>
                 <link><name>bin</name><type>2</type><location>/android/root/out/Eclipse/test</location></link>
-                <link><name>dependencies/module/path</name><type>2</type><location>/android/root/module/path</location></link>
+                <link><name>dependencies/source/folder/of/jar</name><type>2</type><location>/android/root/source/folder/of/jar</location></link>
 
         </linkedResources>
 </projectDescription>
