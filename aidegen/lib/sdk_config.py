@@ -232,35 +232,48 @@ class SDKConfig():
         Returns: The android sdk path if it exists, otherwise None.
         """
         # Set the maximum times require user to input the path of Android Sdk.
-        _check_times = self._INPUT_QUERY_TIMES
-        while not self._set_max_api_level():
-            if _check_times == 0:
-                self.android_sdk_path = None
+        _check_times = 0
+        while _check_times < self._INPUT_QUERY_TIMES:
+            self._set_max_api_level()
+            if self.max_api_level > 0:
                 break
             self.android_sdk_path = self._enter_android_sdk_path(
                 common_util.COLORED_FAIL(self._ENTER_ANDROID_SDK_PATH.format(
                     self.android_sdk_path)))
-            _check_times -= 1
+            _check_times += 1
+        if _check_times == self._INPUT_QUERY_TIMES and self.max_api_level == 0:
+            return None
         return self.android_sdk_path
+
+    @classmethod
+    def _get_max_platform_api(cls, platforms_path):
+        """Get the max api level from the platforms folder.
+
+        Args:
+            platforms_path: A string, the path of the platforms folder.
+
+        Returns:
+            An integer of api level and 0 means the valid platforms folder
+            doesn't exist.
+        """
+        max_api_level = 0
+        if os.path.isdir(platforms_path):
+            for abspath, _, _ in os.walk(platforms_path):
+                match_api_folder = cls._API_FOLDER_RE.search(abspath)
+                if match_api_folder:
+                    api_level = int(match_api_folder.group(_API_LEVEL))
+                    if api_level > max_api_level:
+                        max_api_level = api_level
+        return max_api_level
 
     def _set_max_api_level(self):
         """Set the max API level from Android SDK folder.
 
         1. Find the api folder such as android-28 in platforms folder.
         2. Parse the API level 28 from folder name android-28.
-
-        Returns: An integer, the max api level. Defatult is 0 if there is no
-                 android-{x} folder under android_sdk_path.
         """
-        platforms_dir = self._get_platforms_dir_path()
-        if os.path.isdir(platforms_dir):
-            for abspath, _, _ in os.walk(platforms_dir):
-                match_api_folder = self._API_FOLDER_RE.search(abspath)
-                if match_api_folder:
-                    api_level = int(match_api_folder.group(_API_LEVEL))
-                    if api_level > self.max_api_level:
-                        self.max_api_level = api_level
-        return self.max_api_level
+        self.max_api_level = self._get_max_platform_api(
+            self._get_platforms_dir_path())
 
     def _get_platforms_dir_path(self):
         """Get the platform's dir path from user input Android SDK path.
