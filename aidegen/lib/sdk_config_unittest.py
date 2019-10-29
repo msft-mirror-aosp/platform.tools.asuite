@@ -336,6 +336,24 @@ class SDKConfigUnittests(unittest.TestCase):
         self.assertEqual(sdk_config.SDKConfig._XML_CONTENT,
                          jdk._get_default_config_content())
 
+    def test_get_max_platform_api(self):
+        """Test get max api level from the platforms folder."""
+        jdk = sdk_config.SDKConfig(self._JDK_SAMPLE3,
+                                   constant.LINUX_JDK_XML,
+                                   self._JDK_PATH,
+                                   self._DEFAULT_ANDROID_SDK_PATH)
+        max_api = jdk._get_max_platform_api(self._DEFAULT_ANDROID_SDK_PATH)
+        self.assertEqual(max_api, 28)
+
+    def test_max_platform_api_failed(self):
+        """Test get max api level failed from the platforms folder."""
+        jdk = sdk_config.SDKConfig(self._JDK_SAMPLE3,
+                                   constant.LINUX_JDK_XML,
+                                   self._JDK_PATH,
+                                   self._DEFAULT_ANDROID_SDK_PATH)
+        max_api = jdk._get_max_platform_api(self._NONEXISTENT_ANDROID_SDK_PATH)
+        self.assertEqual(max_api, 0)
+
 
 if __name__ == '__main__':
     unittest.main()
