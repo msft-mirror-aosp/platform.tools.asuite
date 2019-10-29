@@ -24,22 +24,56 @@ import com.intellij.openapi.diagnostic.Logger;
 
 import java.nio.charset.Charset;
 import java.util.ArrayList;
+import java.util.Arrays;
 
 /** A manager to handle command. */
 public class CommandRunner {
 
     private static final Logger LOG = Logger.getInstance(CommandRunner.class);
+    private static final String ATEST_COMMAND_PREFIX = "source build/envsetup.sh && lunch ";
+    private static final String UTF8 = "UTF-8";
     private GeneralCommandLine mCommand;
     private ProcessListener mProcessListener;
 
+    /**
+     * Initializes CommandRunner by the command.
+     *
+     * @param cmds the command to run.
+     * @param workPath the work path to run the command.
+     */
     public CommandRunner(ArrayList<String> cmds, String workPath) {
         mCommand = new GeneralCommandLine(cmds);
-        mCommand.setCharset(Charset.forName("UTF-8"));
+        mCommand.setCharset(Charset.forName(UTF8));
         mCommand.setWorkDirectory(workPath);
     }
 
     /**
-     * Set the process listener.
+     * Initializes CommandRunner by Atest lunch target and test target.
+     *
+     * @param lunchTarget the Atest lunch target.
+     * @param testTarget the Atest test Target.
+     * @param workPath the work path to run the command.
+     * @param toolWindow an AtestToolWindow to display the output.
+     */
+    public CommandRunner(
+            String lunchTarget, String testTarget, String workPath, AtestToolWindow toolWindow) {
+        StringBuffer commandBuffer = new StringBuffer(ATEST_COMMAND_PREFIX);
+        String atestCommand =
+                commandBuffer
+                        .append(lunchTarget)
+                        .append(" && atest ")
+                        .append(testTarget)
+                        .toString();
+        String[] commandArray = {"/bin/bash", "-c", atestCommand};
+        ArrayList<String> cmds = new ArrayList<>(Arrays.asList(commandArray));
+        mCommand = new GeneralCommandLine(cmds);
+        mCommand.setCharset(Charset.forName(UTF8));
+        mCommand.setWorkDirectory(workPath);
+        mProcessListener = new AtestProcessListener(toolWindow);
+    }
+
+    /**
+     * Sets the process listener.
      *
      * @param processListener a processListener handle the output.
      */
@@ -48,19 +82,7 @@ public class CommandRunner {
     }
 
     /**
-     * Set the process listener by tool window.
-     *
-     * <p>Because we use Atest tool window to display the command output, this function generates
-     * process listener by Atest tool window.
-     *
-     * @param toolWindow an AtestToolWindow to display the output.
-     */
-    public void setProcessListener(AtestToolWindow toolWindow) {
-        mProcessListener = new AtestProcessListener(toolWindow);
-    }
-
-    /**
-     * Execute the command in processHandler.
+     * Executes the command in processHandler.
      *
      * <p>Execute this method when caller is ready to access linux command.
      */
