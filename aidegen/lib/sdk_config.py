@@ -80,6 +80,7 @@ class SDKConfig():
     _TAG_NAME = 'name'
     _TAG_TYPE = 'type'
     _TAG_ADDITIONAL = 'additional'
+    _TAG_HOMEPATH = 'homePath'
     _ATTRIBUTE_VALUE = 'value'
     _ATTRIBUTE_JDK = _TAG_JDK
     _ATTRIBUTE_SDK = 'sdk'
@@ -217,7 +218,15 @@ class SDKConfig():
         """
         for jdk in self.jdks:
             jdk_type = self._get_first_element_value(jdk, self._TAG_TYPE)
-            if jdk_type == self._TYPE_ANDROID_SDK:
+            home_path = self._get_first_element_value(jdk, self._TAG_HOMEPATH)
+            platform_api = self._get_max_platform_api(home_path)
+            sdk_api = self._get_api_from_xml(jdk, self._TAG_ADDITIONAL,
+                                             self._ATTRIBUTE_SDK)
+            if not sdk_api or not platform_api:
+                continue
+            if jdk_type == self._TYPE_ANDROID_SDK and sdk_api == platform_api:
+                self.android_sdk_path = home_path
+                self.max_api_level = sdk_api
                 return True
         return False
 
@@ -265,6 +274,42 @@ class SDKConfig():
                     if api_level > max_api_level:
                         max_api_level = api_level
         return max_api_level
+
+    @classmethod
+    def _get_api_level(cls, config_string):
+        """Get the API level from a specific string.
+
+        Args:
+            config_string: String, it might contain the API platform folder.
+                           e.g. sdk="android-28" or platforms/android-28
+
+        Returns: An integer, the api level from the config string, otherwise 0.
+        """
+        api_level = 0
+        find_api_level = cls._API_LEVEL_RE.search(config_string)
+        if find_api_level:
+            api_level = int(find_api_level.group(_API_LEVEL))
+        return api_level
+
+    @classmethod
+    def _get_api_from_xml(cls, jdk, tag_name, attribute):
+        """Get the API level from the certain tag's attribute in xml.
+
+        Args:
+            jdk: A minidom object with the jdk tag.
+            tag_name: A string of the tag name.
+            attribute: A string of the attribute name of the tag.
+
+        Returns: An integer, the api level from the attribute value of a tag,
+                 otherwise 0.
+        """
+        api_level = 0
+        tags = jdk.getElementsByTagName(tag_name)
+        for tag in tags:
+            attribute_value = tag.getAttribute(attribute)
+            if attribute_value:
+                api_level = cls._get_api_level(attribute_value)
+        return api_level
 
     def _set_max_api_level(self):
         """Set the max API level from Android SDK folder.
