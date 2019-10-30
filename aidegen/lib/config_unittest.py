@@ -115,22 +115,22 @@ class AidegenConfigUnittests(unittest.TestCase):
         """Test create_enable_debugger_module."""
         cfg = config.AidegenConfig()
         mock_debug.side_effect = IOError()
-        self.assertFalse(cfg.create_enable_debugger_module(0))
+        self.assertFalse(cfg.create_enable_debugger_module(''))
         self.assertTrue(mock_warning.called)
         mock_debug.side_effect = OSError()
-        self.assertFalse(cfg.create_enable_debugger_module(0))
+        self.assertFalse(cfg.create_enable_debugger_module(''))
         self.assertTrue(mock_warning.called)
         mock_androidmanifest.side_effect = IOError()
-        self.assertFalse(cfg.create_enable_debugger_module(0))
+        self.assertFalse(cfg.create_enable_debugger_module(''))
         self.assertTrue(mock_warning.called)
         mock_androidmanifest.side_effect = OSError()
-        self.assertFalse(cfg.create_enable_debugger_module(0))
+        self.assertFalse(cfg.create_enable_debugger_module(''))
         self.assertTrue(mock_warning.called)
         mock_enable.side_effect = IOError()
-        self.assertFalse(cfg.create_enable_debugger_module(0))
+        self.assertFalse(cfg.create_enable_debugger_module(''))
         self.assertTrue(mock_warning.called)
         mock_enable.side_effect = OSError()
-        self.assertFalse(cfg.create_enable_debugger_module(0))
+        self.assertFalse(cfg.create_enable_debugger_module(''))
         self.assertTrue(mock_warning.called)
 
     @mock.patch.object(common_util, 'file_generate')
@@ -139,9 +139,9 @@ class AidegenConfigUnittests(unittest.TestCase):
                                         mock_file_generate):
         """No genarate the enable debugger config once it exists."""
         cfg = config.AidegenConfig()
-        api_level = 0
+        android_sdk_version = ''
         mock_file_exists.return_value = True
-        cfg._gen_enable_debugger_config(api_level)
+        cfg._gen_enable_debugger_config(android_sdk_version)
         self.assertFalse(mock_file_generate.called)
 
     @mock.patch.object(common_util, 'file_generate')
@@ -149,9 +149,9 @@ class AidegenConfigUnittests(unittest.TestCase):
     def test_gen_debugger_config(self, mock_file_exists, mock_file_generate):
         """Test generating the enable debugger config."""
         cfg = config.AidegenConfig()
-        api_level = 0
+        android_sdk_version = ''
         mock_file_exists.return_value = False
-        cfg._gen_enable_debugger_config(api_level)
+        cfg._gen_enable_debugger_config(android_sdk_version)
         self.assertTrue(mock_file_generate.called)
 
     @mock.patch('os.stat')
