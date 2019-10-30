@@ -137,9 +137,10 @@ class IdeUtilUnittests(unittest.TestCase):
         self.assertIsInstance(
             ide_util._get_linux_ide(None, 'e'), ide_util.IdeLinuxEclipse)
 
+    @mock.patch.object(ide_util.IdeIntelliJ, '_set_installed_path')
     @mock.patch.object(ide_util, '_get_script_from_input_path')
     @mock.patch.object(ide_util.IdeIntelliJ, '_get_script_from_system')
-    def test_init_ideintellij(self, mock_sys, mock_input):
+    def test_init_ideintellij(self, mock_sys, mock_input, mock_set):
         """Test IdeIntelliJ's __init__ method."""
         ide_util.IdeLinuxIntelliJ()
         self.assertTrue(mock_sys.called)
@@ -147,8 +148,10 @@ class IdeUtilUnittests(unittest.TestCase):
         self.assertTrue(mock_sys.called)
         ide_util.IdeLinuxIntelliJ('some_path')
         self.assertTrue(mock_input.called)
+        self.assertTrue(mock_set.called)
         ide_util.IdeMacIntelliJ('some_path')
         self.assertTrue(mock_input.called)
+        self.assertTrue(mock_set.called)
 
     @mock.patch.object(ide_util.IdeIntelliJ, '_get_preferred_version')
     @mock.patch.object(sdk_config.SDKConfig, '_android_sdk_exists')
