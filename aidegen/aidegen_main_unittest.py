@@ -79,11 +79,15 @@ class AidegenMainUnittests(unittest.TestCase):
         self.assertIsInstance(
             aidegen_main._get_ide_util_instance(args), ide_util.IdeUtil)
 
+    @mock.patch.object(ide_util.IdeIntelliJ, '_get_preferred_version')
     @mock.patch.object(ide_util.IdeUtil, 'is_ide_installed')
-    def test_get_ide_util_instance_with_failure(self, mock_installed):
+    def test_get_ide_util_instance_with_failure(
+            self, mock_installed, mock_preference):
+
         """Test _get_ide_util_instance with failure."""
         args = aidegen_main._parse_args(['tradefed'])
         mock_installed.return_value = False
+        mock_preference.return_value = '1'
         with self.assertRaises(errors.IDENotExistError):
             aidegen_main._get_ide_util_instance(args)
 
