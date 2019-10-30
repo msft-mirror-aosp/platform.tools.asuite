@@ -64,6 +64,7 @@ public class CommandRunner {
                         .append(" && atest ")
                         .append(testTarget)
                         .toString();
+        LOG.info("Atest command: " + atestCommand + ", work path: " + workPath);
         String[] commandArray = {"/bin/bash", "-c", atestCommand};
         ArrayList<String> cmds = new ArrayList<>(Arrays.asList(commandArray));
         mCommand = new GeneralCommandLine(cmds);

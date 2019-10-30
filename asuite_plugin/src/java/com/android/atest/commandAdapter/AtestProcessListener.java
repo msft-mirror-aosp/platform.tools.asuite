@@ -24,7 +24,12 @@ import org.jetbrains.annotations.NotNull;
 /** Atest process listener. */
 public class AtestProcessListener implements ProcessListener {
 
-    public AtestProcessListener(AtestToolWindow toolWindow) {}
+    private final AtestToolWindow mToolWindow;
+    private StringBuffer mOutputBuffer = new StringBuffer();
+
+    public AtestProcessListener(@NotNull AtestToolWindow toolWindow) {
+        mToolWindow = toolWindow;
+    }
 
     /**
      * Callback when the process starts notifying.
@@ -32,7 +37,9 @@ public class AtestProcessListener implements ProcessListener {
      * @param event a ProcessEvent object.
      */
     @Override
-    public void startNotified(@NotNull ProcessEvent event) {}
+    public void startNotified(@NotNull ProcessEvent event) {
+        mToolWindow.setRunEnable(false);
+    }
 
     /**
      * Callback when the process terminates.
@@ -40,7 +47,9 @@ public class AtestProcessListener implements ProcessListener {
      * @param event a ProcessEvent object.
      */
     @Override
-    public void processTerminated(@NotNull ProcessEvent event) {}
+    public void processTerminated(@NotNull ProcessEvent event) {
+        mToolWindow.setRunEnable(true);
+    }
 
     /**
      * Callback when the process is going to terminate.
@@ -58,5 +67,9 @@ public class AtestProcessListener implements ProcessListener {
      * @param outputType output type defined in ProcessOutputTypes.
      */
     @Override
-    public void onTextAvailable(@NotNull ProcessEvent event, @NotNull Key outputType) {}
+    public void onTextAvailable(@NotNull ProcessEvent event, @NotNull Key outputType) {
+        mOutputBuffer.append(event.getText());
+        mToolWindow.setAtestOutput(mOutputBuffer.toString());
+        mToolWindow.scrollToEnd();
+    }
 }
