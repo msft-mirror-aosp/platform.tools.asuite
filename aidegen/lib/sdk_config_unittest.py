@@ -123,12 +123,16 @@ class SDKConfigUnittests(unittest.TestCase):
         finally:
             shutil.rmtree(tmp_folder)
 
-    def test_android_sdk_exist(self):
+    @mock.patch.object(sdk_config.SDKConfig, '_get_api_from_xml')
+    @mock.patch.object(sdk_config.SDKConfig, '_get_max_platform_api')
+    def test_android_sdk_exist(self, mock_platform_api, mock_sdk_api):
         """Test to check the Android SDK configuration does exist."""
         expected_content = ''
         tmp_folder = tempfile.mkdtemp()
         config_file = os.path.join(tmp_folder, self._JDK_FILE_NAME)
         try:
+            mock_platform_api.return_value = 28
+            mock_sdk_api.return_value = 28
             with open(self._JDK_SAMPLE3) as sample:
                 expected_content = sample.read()
             with open(config_file, 'w') as cf:
@@ -138,6 +142,9 @@ class SDKConfigUnittests(unittest.TestCase):
                                        self._JDK_PATH,
                                        self._NONEXISTENT_ANDROID_SDK_PATH)
             self.assertEqual(jdk._android_sdk_exists(), True)
+            self.assertEqual(jdk.max_api_level, 28)
+            self.assertEqual(jdk.android_sdk_path,
+                             self._NONEXISTENT_ANDROID_SDK_PATH)
         finally:
             shutil.rmtree(tmp_folder)
 
@@ -353,6 +360,50 @@ class SDKConfigUnittests(unittest.TestCase):
                                    self._DEFAULT_ANDROID_SDK_PATH)
         max_api = jdk._get_max_platform_api(self._NONEXISTENT_ANDROID_SDK_PATH)
         self.assertEqual(max_api, 0)
+
+    def test_get_api_level(self):
+        """Test get the api level from the specific string."""
+        jdk = sdk_config.SDKConfig(self._JDK_SAMPLE3,
+                                   constant.LINUX_JDK_XML,
+                                   self._JDK_PATH,
+                                   self._DEFAULT_ANDROID_SDK_PATH)
+        tmp_string = '<additional jdk="JDK18" sdk="android-28" />'
+        self.assertEqual(jdk._get_api_level(tmp_string), 28)
+        tmp_string = 'android-27'
+        self.assertEqual(jdk._get_api_level(tmp_string), 27)
+
+    def test_get_api_level_failed(self):
+        """Test get the api level failed from the specific string."""
+        jdk = sdk_config.SDKConfig(self._JDK_SAMPLE3,
+                                   constant.LINUX_JDK_XML,
+                                   self._JDK_PATH,
+                                   self._DEFAULT_ANDROID_SDK_PATH)
+        tmp_string = '<additional jdk="JDK18" />'
+        self.assertEqual(jdk._get_api_level(tmp_string), 0)
+        tmp_string = 'platforms'
+        self.assertEqual(jdk._get_api_level(tmp_string), 0)
+
+    def test_get_api_from_xml(self):
+        """Test get api level from a tag of xml."""
+        jdk = sdk_config.SDKConfig(self._JDK_SAMPLE3,
+                                   constant.LINUX_JDK_XML,
+                                   self._JDK_PATH,
+                                   self._DEFAULT_ANDROID_SDK_PATH)
+        api_level = jdk._get_api_from_xml(jdk.jdks[0], jdk._TAG_ADDITIONAL,
+                                          jdk._ATTRIBUTE_SDK)
+        self.assertEqual(api_level, 28)
+
+    @mock.patch.object(sdk_config.SDKConfig, '_get_api_level')
+    def test_get_api_from_xml_failed(self, mock_api_level):
+        """Test get api level failed from a tag of xml."""
+        mock_api_level.return_value = 0
+        jdk = sdk_config.SDKConfig(self._JDK_SAMPLE3,
+                                   constant.LINUX_JDK_XML,
+                                   self._JDK_PATH,
+                                   self._DEFAULT_ANDROID_SDK_PATH)
+        api_level = jdk._get_api_from_xml(jdk.jdks[0], jdk._TAG_ADDITIONAL,
+                                          jdk._ATTRIBUTE_SDK)
+        self.assertEqual(api_level, 0)
 
 
 if __name__ == '__main__':
