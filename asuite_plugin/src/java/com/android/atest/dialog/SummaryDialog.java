@@ -55,7 +55,7 @@ public class SummaryDialog extends DialogWrapper {
     }
 
     /**
-     * Overrides createActions to customize the dialog buttons.
+     * Overrides createActions to only show OK button.
      *
      * @return dialog actions
      */
