@@ -16,10 +16,15 @@
 package com.android.atest;
 
 import com.intellij.openapi.actionSystem.AnActionEvent;
+import com.intellij.openapi.diagnostic.Logger;
+import com.intellij.openapi.wm.ToolWindow;
+import com.intellij.openapi.wm.ToolWindowManager;
 import org.jetbrains.annotations.NotNull;
 
 /** An Action to launch Atest tool window. */
 public class AtestToolWindowAction extends com.intellij.openapi.actionSystem.AnAction {
+
+    private static final Logger LOG = Logger.getInstance(AtestToolWindowAction.class);
 
     /**
      * Launches the atest tool window.
@@ -27,5 +32,19 @@ public class AtestToolWindowAction extends com.intellij.openapi.actionSystem.AnA
      * @param event carries information on the invocation place.
      */
     @Override
-    public void actionPerformed(@NotNull AnActionEvent event) {}
+    public void actionPerformed(@NotNull AnActionEvent event) {
+        ToolWindow AtestTW =
+                ToolWindowManager.getInstance(event.getProject())
+                        .getToolWindow(Constants.ATEST_TOOL_WINDOW);
+        if (AtestTW == null) {
+            LOG.error("Can't get Atest tool window.");
+            return;
+        }
+
+        if (AtestTW.isVisible()) {
+            AtestTW.hide(null);
+        } else {
+            AtestTW.show(null);
+        }
+    }
 }
