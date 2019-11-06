@@ -22,19 +22,32 @@ import com.intellij.execution.configurations.RunConfiguration;
 import com.intellij.openapi.project.Project;
 import org.jetbrains.annotations.NotNull;
 
+/** Factory for running Atest configuration instances. */
 public class AtestConfigurationFactory extends ConfigurationFactory {
+
     private static final String FACTORY_NAME = "Atest config";
 
     protected AtestConfigurationFactory(ConfigurationType type) {
         super(type);
     }
 
+    /**
+     * Creates a new template run configuration within the context of the specified project.
+     *
+     * @param project the project in which the run configuration will be used.
+     * @return the run configuration instance.
+     */
     @NotNull
     @Override
     public RunConfiguration createTemplateConfiguration(@NotNull Project project) {
         return new AtestRunConfiguration(project, this, Constants.ATEST_NAME);
     }
 
+    /**
+     * Gets the name of the run configuration.
+     *
+     * @return the name of the run configuration.
+     */
     @NotNull
     @Override
     public String getName() {

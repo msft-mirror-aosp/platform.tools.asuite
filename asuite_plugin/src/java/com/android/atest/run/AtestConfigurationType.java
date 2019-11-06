@@ -22,30 +22,65 @@ import com.intellij.icons.AllIcons;
 import javax.swing.Icon;
 import org.jetbrains.annotations.NotNull;
 
+/**
+ * Atest run configuration type. It is the starting point for implementing run configuration type.
+ */
 public class AtestConfigurationType implements ConfigurationType {
-    protected static final String ID = "ATEST_RUN_CONFIGURATION";
 
+    protected static final String ID = "atestRunConfiguration";
+
+    /**
+     * Returns the display name of the configuration type. This is used to represent the
+     * configuration type in the run configurations tree, and also as the name of the action used to
+     * create the configuration.
+     *
+     * @return Atest display name of the configuration type.
+     */
+    @NotNull
     @Override
     public String getDisplayName() {
         return Constants.ATEST_NAME;
     }
 
+    /**
+     * Gets the description of the configuration type.
+     *
+     * @return the description of Atest configuration type.
+     */
     @Override
     public String getConfigurationTypeDescription() {
         return Constants.ATEST_NAME;
     }
 
+    /**
+     * Gets the 16x16 icon used to represent the configuration type.
+     *
+     * @return the icon.
+     */
     @Override
     public Icon getIcon() {
         return AllIcons.General.Information;
     }
 
+    /**
+     * The ID of the configuration type. Should be camel-cased without dashes, underscores, spaces
+     * and quotation marks. The ID is used to store run configuration settings in a project or
+     * workspace file and must not change between plugin versions.
+     *
+     * @return Atest configuration ID.
+     */
     @NotNull
     @Override
     public String getId() {
         return ID;
     }
 
+    /**
+     * Returns the configuration factories used by this configuration type. Normally each
+     * configuration type provides just a single factory.
+     *
+     * @return the run configuration factories.
+     */
     @Override
     public ConfigurationFactory[] getConfigurationFactories() {
         return new ConfigurationFactory[] {new AtestConfigurationFactory(this)};

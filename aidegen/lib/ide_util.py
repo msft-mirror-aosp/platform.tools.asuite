@@ -55,7 +55,7 @@ _ALERT_CREATE_WS = ('AIDEGen will create a workspace at %s for Eclipse, '
                     'AIDEgen to automatically create the workspace for you?'
                     '(y/n)' % _ECLIPSE_WS)
 
-
+# pylint: disable=too-many-lines
 class IdeUtil:
     """Provide a set of IDE operations, e.g., launch and configuration.
 
@@ -224,6 +224,8 @@ class IdeIntelliJ(IdeBase):
         self._ls_ce_path = ''
         self._ls_ue_path = ''
         self._init_installed_path(installed_path)
+        if installed_path:
+            self._set_installed_path()
 
     def apply_optional_config(self):
         """Do IDEA global config action.
@@ -281,6 +283,10 @@ class IdeIntelliJ(IdeBase):
         ce_paths = _get_intellij_version_path(self._ls_ce_path)
         ue_paths = _get_intellij_version_path(self._ls_ue_path)
         all_versions = self._get_all_versions(ce_paths, ue_paths)
+        for version in all_versions:
+            real_version = os.path.realpath(version)
+            if config.AidegenConfig.deprecated_intellij_version(real_version):
+                all_versions.remove(version)
         if len(all_versions) > 1:
             with config.AidegenConfig() as aconf:
                 if not self._config_reset and (
@@ -366,6 +372,16 @@ class IdeIntelliJ(IdeBase):
         if uefiles:
             all_versions.extend(uefiles)
         return all_versions
+
+    def _set_installed_path(self):
+        """Write users' input installed path into the config file.
+
+        If users input an existent IntelliJ installed path, we should keep it in
+        configuration.
+        """
+        if self._installed_path:
+            with config.AidegenConfig() as aconf:
+                aconf.preferred_version = self._installed_path
 
 
 class IdeLinuxIntelliJ(IdeIntelliJ):

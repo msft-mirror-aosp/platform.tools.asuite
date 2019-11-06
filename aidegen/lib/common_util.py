@@ -331,16 +331,17 @@ def get_atest_module_info(targets=None):
     return amodule_info
 
 
-def read_file_content(path):
+def read_file_content(path, encode_type='utf8'):
     """Read file's content.
 
     Args:
         path: Path of input file.
+        encode_type: A string of encoding name, default to UTF-8.
 
     Returns:
         String: Content of the file.
     """
-    with open(path, encoding='utf8') as template:
+    with open(path, encoding=encode_type) as template:
         return template.read()
 
 
@@ -493,3 +494,16 @@ def exist_android_mk(abs_path):
              otherwise false.
     """
     return os.path.isfile(os.path.join(abs_path, constant.ANDROID_MK))
+
+
+def is_source_under_relative_path(source, relative_path):
+    """Check if a source file is a project relative path file.
+
+    Args:
+        source: Android source file path.
+        relative_path: Relative path of the module.
+
+    Returns:
+        True if source file is a project relative path file, otherwise False.
+    """
+    return source == relative_path or source.startswith(relative_path + os.sep)

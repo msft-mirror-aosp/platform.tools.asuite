@@ -68,13 +68,18 @@ class AidegenConfig():
       <sourceFolder url="file://$MODULE_DIR$/src" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/gen" isTestSource="false" generated="true" />
     </content>
-    <orderEntry type="jdk" jdkName="Android API {API_LEVEL} Platform" jdkType="Android SDK" />
+    <orderEntry type="jdk" jdkName="{ANDROID_SDK_VERSION}" jdkType="Android SDK" />
     <orderEntry type="sourceFolder" forTests="false" />
   </component>
 </module>
 """
     DEBUG_ENABLED_FILE_PATH = os.path.join(_ENABLE_DEBUG_DIR,
                                            _ENABLE_DEBUG_CONFIG_FILE)
+
+    # Constants of checking deprecated IntelliJ version.
+    # The launch file idea.sh of IntelliJ is in ASCII encoding.
+    ENCODE_TYPE = 'ISO-8859-1'
+    ACTIVE_KEYWORD = '$JAVA_BIN'
 
     def __init__(self):
         self._config = {}
@@ -94,10 +99,15 @@ class AidegenConfig():
         """AIDEGen configuration getter.
 
         Returns:
-            The preferred verson item of configuration data if exists, otherwise
-            None.
+            The preferred verson item of configuration data if exists and is not
+            deprecated, otherwise None.
         """
-        return self._config.get('preferred_version', '')
+        preferred_version = self._config.get('preferred_version', '')
+        if preferred_version:
+            real_version = os.path.realpath(preferred_version)
+            if not self.deprecated_intellij_version(real_version):
+                return preferred_version
+        return None
 
     @preferred_version.setter
     def preferred_version(self, preferred_version):
@@ -112,7 +122,7 @@ class AidegenConfig():
         """Load data from configuration file."""
         if os.path.exists(self._CONFIG_FILE_PATH):
             try:
-                with open(self._CONFIG_FILE_PATH, 'r') as cfg_file:
+                with open(self._CONFIG_FILE_PATH) as cfg_file:
                     self._config = json.load(cfg_file)
             except ValueError as err:
                 info = '{} format is incorrect, error: {}'.format(
@@ -160,19 +170,21 @@ class AidegenConfig():
         if not os.path.exists(_file) or os.stat(_file).st_size == 0:
             common_util.file_generate(_file, self._ANDROIDMANIFEST_CONTENT)
 
-    def _gen_enable_debugger_config(self, api_level):
+    def _gen_enable_debugger_config(self, android_sdk_version):
         """Generate the enable_debugger.iml config file.
 
         Create the enable_debugger.iml if it doesn't exist.
 
         Args:
-            api_level: An integer of API level.
+            android_sdk_version: The version name of the Android Sdk in the
+                                 jdk.table.xml.
         """
         if not os.path.exists(self.DEBUG_ENABLED_FILE_PATH):
-            content = self._XML_ENABLE_DEBUGGER.format(API_LEVEL=api_level)
+            content = self._XML_ENABLE_DEBUGGER.format(
+                ANDROID_SDK_VERSION=android_sdk_version)
             common_util.file_generate(self.DEBUG_ENABLED_FILE_PATH, content)
 
-    def create_enable_debugger_module(self, api_level):
+    def create_enable_debugger_module(self, android_sdk_version):
         """Create the enable_debugger module.
 
         1. Create two empty folders named src and gen.
@@ -180,7 +192,8 @@ class AidegenConfig():
         3. Create the enable_denugger.iml.
 
         Args:
-            api_level: An integer of API level.
+            android_sdk_version: The version name of the Android Sdk in the
+                                 jdk.table.xml.
 
         Returns: True if successfully generate the enable debugger module,
                  otherwise False.
@@ -189,12 +202,30 @@ class AidegenConfig():
             self._gen_enable_debug_sub_dir(self._DIR_SRC)
             self._gen_enable_debug_sub_dir(self._DIR_GEN)
             self._gen_androidmanifest()
-            self._gen_enable_debugger_config(api_level)
+            self._gen_enable_debugger_config(android_sdk_version)
             return True
         except (IOError, OSError) as err:
             logging.warning(('Can\'t create the enable_debugger module in %s.\n'
                              '%s'), self._CONFIG_DIR, err)
             return False
+
+    @staticmethod
+    def deprecated_intellij_version(idea_path):
+        """Check if the preferred IntelliJ version is deprecated or not.
+
+        The IntelliJ version is deprecated once the string "$JAVA_BIN" doesn't
+        exist in the idea.sh.
+
+        Args:
+            idea_path: the absolute path to idea.sh.
+
+        Returns: True if the preferred version was deprecated, otherwise False.
+        """
+        if os.path.isfile(idea_path):
+            file_content = common_util.read_file_content(
+                idea_path, AidegenConfig.ENCODE_TYPE)
+            return AidegenConfig.ACTIVE_KEYWORD not in file_content
+        return False
 
 
 class IdeaProperties():

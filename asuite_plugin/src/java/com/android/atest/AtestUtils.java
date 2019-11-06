@@ -15,10 +15,18 @@
  */
 package com.android.atest;
 
-/** Constants of Atest plugin. */
-public class Constants {
+import java.nio.file.Files;
+import java.nio.file.Paths;
 
-    public static final String ATEST_NAME = "Atest";
-    public static final String TEST_MAPPING_FILE_NAME = "TEST_MAPPING";
-    public static final String ATEST_TOOL_WINDOW = "AtestToolWindow";
+public class AtestUtils {
+
+    /**
+     * Checks if the directory contains test mapping file.
+     *
+     * @param path the directory to check.
+     * @return true if the path contains test mapping file.
+     */
+    public static boolean hasTestMapping(String path) {
+        return Files.exists(Paths.get(path, Constants.TEST_MAPPING_FILE_NAME));
+    }
 }
