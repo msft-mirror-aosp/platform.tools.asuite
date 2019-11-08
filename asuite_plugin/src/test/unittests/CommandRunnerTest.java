@@ -26,7 +26,7 @@ import java.util.ArrayList;
 
 public class CommandRunnerTest {
 
-    /** Test CommandRunner by ls command. */
+    /** Tests CommandRunner by ls command. */
     @Test
     public void testCommandRunnerByLs() throws NoSuchFieldException, IllegalAccessException {
         ArrayList<String> command = new ArrayList<String>();
@@ -39,7 +39,7 @@ public class CommandRunnerTest {
         Assert.assertEquals(commandLine.getCommandLineString(), "ls");
     }
 
-    /** Test CommandRunner by lunch target and test target. */
+    /** Tests CommandRunner by lunch target and test target. */
     @Test
     public void testCommandRunnerByTarget() throws NoSuchFieldException, IllegalAccessException {
         CommandRunner lsCommand = new CommandRunner("a", "b", "/", null);
