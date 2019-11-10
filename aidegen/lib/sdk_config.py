@@ -90,6 +90,7 @@ class SDKConfig():
     _NAME_JDK18 = 'JDK18'
     _TYPE_ANDROID_SDK = 'Android SDK'
     _INPUT_QUERY_TIMES = 3
+    _USER_HOME = '$USER_HOME$'
     _ANDROID_SDK_VERSION = 'Android API {API_LEVEL} Platform'
     _API_FOLDER_RE = re.compile(r'platforms/android-(?P<api_level>[\d]+)')
     _API_LEVEL_RE = re.compile(r'android-(?P<api_level>[\d]+)')
@@ -224,6 +225,9 @@ class SDKConfig():
             jdk_name = self._get_first_element_value(jdk, self._TAG_NAME)
             jdk_type = self._get_first_element_value(jdk, self._TAG_TYPE)
             home_path = self._get_first_element_value(jdk, self._TAG_HOMEPATH)
+            if home_path.startswith(self._USER_HOME):
+                home_path = home_path.replace(self._USER_HOME,
+                                              os.path.expanduser('~'))
             platform_api = self._get_max_platform_api(home_path)
             sdk_api = self._get_api_from_xml(jdk, self._TAG_ADDITIONAL,
                                              self._ATTRIBUTE_SDK)
