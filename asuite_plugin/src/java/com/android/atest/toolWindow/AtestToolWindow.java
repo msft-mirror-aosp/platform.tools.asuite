@@ -15,38 +15,74 @@
  */
 package com.android.atest.toolWindow;
 
+import com.android.atest.AtestUtils;
 import com.intellij.openapi.wm.ToolWindow;
+import com.intellij.openapi.wm.ex.ToolWindowEx;
 
 import javax.swing.*;
 
 /** UI content of Atest tool window. */
 public class AtestToolWindow {
 
-    private JPanel AtestToolWindowPanel;
-    private JScrollPane scorll;
-    private JTextArea atestOutput;
-    private JLabel atest;
-    private JTextField target;
-    private JCheckBox runOnHost;
-    private JCheckBox Test_mapping;
-    private JCheckBox skipBuild;
-    private JButton run;
-    private JComboBox comboBox1;
+    private static final int INITIAL_WIDTH = 1000;
+    private JPanel mAtestToolWindowPanel;
+    private JScrollPane mScorll;
+    private JTextArea mAtestOutput;
+    private JLabel mAtestlabel;
+    private JTextField mLunchTarget;
+    private JCheckBox mRunOnHost;
+    private JCheckBox mTestMapping;
+    private JCheckBox mSkipBuild;
+    private JButton mRunButton;
+    private JComboBox mTestTarget;
 
-    public AtestToolWindow(ToolWindow toolWindow) {}
+    /**
+     * Initializes AtestToolWindow with ToolWindow and Project.
+     *
+     * @param toolWindow a child window of the IDE used to display information.
+     * @param basePath a string that represents current project's base path.
+     */
+    public AtestToolWindow(ToolWindow toolWindow, String basePath) {
+        setmTestTarget(basePath);
+        SetInitialWidth((ToolWindowEx) toolWindow);
+    }
+
+    /**
+     * Initializes mTestTarget.
+     *
+     * @param basePath a string that represents current project's base path.
+     */
+    private void setmTestTarget(String basePath) {
+        mTestTarget.setEditable(true);
+        if (AtestUtils.hasTestMapping(basePath)) {
+            mTestTarget.setSelectedItem(basePath);
+        }
+    }
+
+    /**
+     * Sets the initial width of the tool window.
+     *
+     * @param toolWindowEx
+     */
+    private void SetInitialWidth(ToolWindowEx toolWindowEx) {
+        int width = toolWindowEx.getComponent().getWidth();
+        if (width < INITIAL_WIDTH) {
+            toolWindowEx.stretchWidth(INITIAL_WIDTH - width);
+        }
+    }
 
     /**
      * Sets the Atest running output to the output area.
      *
      * @param text the output string.
      */
-    public void setAtestOutput(String text) {
-        atestOutput.setText(text);
+    public void setmAtestOutput(String text) {
+        mAtestOutput.setText(text);
     }
 
     /** Scrolls the output window scroll bar to the bottom. */
     public void scrollToEnd() {
-        JScrollBar vertical = scorll.getVerticalScrollBar();
+        JScrollBar vertical = mScorll.getVerticalScrollBar();
         vertical.setValue(vertical.getMaximum());
     }
 
@@ -56,6 +92,6 @@ public class AtestToolWindow {
      * @return the JPanel of Atest tool window.
      */
     public JPanel getContent() {
-        return AtestToolWindowPanel;
+        return mAtestToolWindowPanel;
     }
 }

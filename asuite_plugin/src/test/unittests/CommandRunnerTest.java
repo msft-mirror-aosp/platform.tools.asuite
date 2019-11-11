@@ -26,9 +26,9 @@ import java.util.ArrayList;
 
 public class CommandRunnerTest {
 
-    /** Test CommandRunner by ls command. */
+    /** Tests CommandRunner by ls command. */
     @Test
-    public void testCommandRunner() throws NoSuchFieldException, IllegalAccessException {
+    public void testCommandRunnerByLs() throws NoSuchFieldException, IllegalAccessException {
         ArrayList<String> command = new ArrayList<String>();
         command.add("ls");
         CommandRunner lsCommand = new CommandRunner(command, "/");
@@ -37,5 +37,18 @@ public class CommandRunnerTest {
         GeneralCommandLine commandLine = (GeneralCommandLine) field.get(lsCommand);
         Assert.assertSame(commandLine.getCharset(), Charset.forName("UTF-8"));
         Assert.assertEquals(commandLine.getCommandLineString(), "ls");
+    }
+
+    /** Tests CommandRunner by lunch target and test target. */
+    @Test
+    public void testCommandRunnerByTarget() throws NoSuchFieldException, IllegalAccessException {
+        CommandRunner lsCommand = new CommandRunner("a", "b", "/", null);
+        Field field = lsCommand.getClass().getDeclaredField("mCommand");
+        field.setAccessible(true);
+        GeneralCommandLine commandLine = (GeneralCommandLine) field.get(lsCommand);
+        Assert.assertSame(commandLine.getCharset(), Charset.forName("UTF-8"));
+        Assert.assertEquals(
+                commandLine.getCommandLineString(),
+                "/bin/bash -c \"source build/envsetup.sh && lunch a && atest b\"");
     }
 }

@@ -59,12 +59,14 @@ class EclipseConfUnittests(unittest.TestCase):
         mock_out_dir.return_value = os.path.join(self._ROOT_PATH, 'out')
         mock_dir_exists.return_value = True
         mock_project_info.project_absolute_path = self._PROJECT_ABSPATH
+        mock_project_info.project_relative_path = self._PROJECT_RELPATH
         mock_project_info.module_name = self._PROJECT_NAME
         mock_project_info.source_path = {
             'source_folder_path': '',
             'test_folder_path': '',
             'jar_module_path': {
-                '': self._PROJECT_RELPATH
+                'relative/path/to/file1.jar': self._PROJECT_RELPATH,
+                'relative/path/to/file2.jar': 'source/folder/of/jar',
             },
             'r_java_path': set()
         }
@@ -89,7 +91,7 @@ class EclipseConfUnittests(unittest.TestCase):
             ]),
             'test_folder_path': set(),
             'jar_module_path': {},
-            'r_java_path': {}
+            'r_java_path': set()
         }
         expected_result = [
             '    <classpathentry kind="src" path="src"/>\n',
@@ -113,7 +115,7 @@ class EclipseConfUnittests(unittest.TestCase):
             'jar_module_path': {
                 '/abspath/to/the/file.jar': 'relpath/to/the/module',
             },
-            'r_java_path': {}
+            'r_java_path': set()
         }
         expected_result = [
             ('    <classpathentry exported="true" kind="lib" '
@@ -122,6 +124,31 @@ class EclipseConfUnittests(unittest.TestCase):
         ]
         eclipse_config = eclipse_project_file_gen.EclipseConf(mock_project_info)
         generated_result = eclipse_config._gen_jar_path_entries()
+        self.assertEqual(generated_result, expected_result)
+
+    @mock.patch.object(common_util, 'get_android_root_dir')
+    @mock.patch('aidegen.lib.project_info.ProjectInfo')
+    def test_get_other_src_folders(self, mock_project_info, mock_get_root):
+        """Test _get_other_src_folders."""
+        mock_get_root.return_value = self._ROOT_PATH
+        mock_project_info.project_absolute_path = self._PROJECT_ABSPATH
+        mock_project_info.project_relative_path = self._PROJECT_RELPATH
+        mock_project_info.module_name = self._PROJECT_NAME
+        mock_project_info.source_path = {
+            'source_folder_path': set([
+                'module/path/src',
+                'module/path/test',
+                'out/module/path/src',
+            ]),
+            'test_folder_path': set(),
+            'jar_module_path': {},
+            'r_java_path': set()
+        }
+        expected_result = [
+            'out/module/path/src',
+        ]
+        eclipse_config = eclipse_project_file_gen.EclipseConf(mock_project_info)
+        generated_result = eclipse_config._get_other_src_folders()
         self.assertEqual(generated_result, expected_result)
 
 
