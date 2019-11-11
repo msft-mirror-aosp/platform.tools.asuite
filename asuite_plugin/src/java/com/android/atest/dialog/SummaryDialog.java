@@ -17,6 +17,7 @@ package com.android.atest.dialog;
 
 import com.intellij.openapi.project.Project;
 import com.intellij.openapi.ui.DialogWrapper;
+import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 import javax.swing.*;
@@ -41,7 +42,27 @@ public class SummaryDialog extends DialogWrapper {
     public SummaryDialog(@Nullable Project project) {
         super(project);
         init();
-        setTitle("Atest summary:");
+        setTitle("Atest summary");
+    }
+
+    /**
+     * Sets the test summary message in the dialog.
+     *
+     * @param message the test summary message.
+     */
+    public void SetMessage(String message) {
+        mTestResult.setText(message);
+    }
+
+    /**
+     * Overrides createActions to only show OK button.
+     *
+     * @return dialog actions
+     */
+    @NotNull
+    @Override
+    protected Action[] createActions() {
+        return new Action[] {getOKAction()};
     }
 
     /**

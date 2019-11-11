@@ -11,11 +11,13 @@ The artifact will be generated at build/libs/asuite_plugin.jar.
 **Install:**  Place the asuite_plugin.jar into the IntelliJ/config/plugins
  directory. The typical path of IntelliJ is /opt/intellij.
 
-**Debug in IntelliJ:** Edit configurations -> add Gradle -> fill
+**Debug in IntelliJ:** Edit configurations -> use `+` to add a Gradle configuration -> fill
 
 gradle project:`Absolute path of asuite_plugin`
 
 Tasks: `:runIde`
+
+**Quick run in IntelliJ sandbox:** `$./gradlew :runIde`
 
 #### Quick start
 

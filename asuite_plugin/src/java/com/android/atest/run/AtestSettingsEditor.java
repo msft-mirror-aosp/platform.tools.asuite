@@ -38,7 +38,10 @@ public class AtestSettingsEditor extends SettingsEditor<AtestRunConfiguration> {
      * @param atestRunConfiguration An object of AtestRunConfiguration.
      */
     @Override
-    protected void resetEditorFrom(@NotNull AtestRunConfiguration atestRunConfiguration) {}
+    protected void resetEditorFrom(@NotNull AtestRunConfiguration atestRunConfiguration) {
+        lunchTarget.setText(atestRunConfiguration.getLaunchTarget());
+        testTarget.setSelectedItem(atestRunConfiguration.getTestTarget());
+    }
 
     /**
      * It is called when confirming the changes.
@@ -48,7 +51,10 @@ public class AtestSettingsEditor extends SettingsEditor<AtestRunConfiguration> {
      */
     @Override
     protected void applyEditorTo(@NotNull AtestRunConfiguration atestRunConfiguration)
-            throws ConfigurationException {}
+            throws ConfigurationException {
+        atestRunConfiguration.setLaunchTarget(lunchTarget.getText());
+        atestRunConfiguration.setTestTarget(testTarget.getSelectedItem().toString());
+    }
 
     /**
      * Creates the editor panel.

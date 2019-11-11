@@ -475,7 +475,7 @@ class ProjectFileGenerator:
         abs_path = common_util.get_abs_path(relative_path)
         if common_util.is_android_root(abs_path):
             return True
-        if _is_source_under_relative_path(source, relative_path):
+        if common_util.is_source_under_relative_path(source, relative_path):
             return True
         return False
 
@@ -740,19 +740,6 @@ def _trim_same_root_source(source_list):
     return sorted(tmp_source_list)
 
 
-def _is_source_under_relative_path(source, relative_path):
-    """Check if a source file is a project relative path file.
-
-    Args:
-        source: Android source file path.
-        relative_path: Relative path of the module.
-
-    Returns:
-        True if source file is a project relative path file, otherwise False.
-    """
-    return source == relative_path or source.startswith(relative_path + os.sep)
-
-
 def _write_vcs_xml(module_path, git_paths):
     """Write the git path into vcs.xml.
 
@@ -838,7 +825,8 @@ def _filter_out_source_paths(source_paths, module_relpaths):
     Returns: A set of source paths.
     """
     return {x for x in source_paths if not any(
-        {_is_source_under_relative_path(x, y) for y in module_relpaths})}
+        {common_util.is_source_under_relative_path(x, y)
+         for y in module_relpaths})}
 
 
 def _merge_all_shared_source_paths(projects):
