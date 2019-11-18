@@ -16,10 +16,12 @@
 package com.android.atest.commandAdapter;
 
 import com.android.atest.toolWindow.AtestToolWindow;
+import com.android.atest.widget.AtestNotification;
 import com.intellij.execution.ExecutionException;
 import com.intellij.execution.configurations.GeneralCommandLine;
 import com.intellij.execution.process.ColoredProcessHandler;
 import com.intellij.execution.process.ProcessListener;
+import com.intellij.notification.Notifications;
 import com.intellij.openapi.diagnostic.Logger;
 
 import java.nio.charset.Charset;
@@ -95,8 +97,7 @@ public class CommandRunner {
             }
             processHandler.startNotify();
         } catch (ExecutionException e) {
-            e.printStackTrace();
-            // TODO(b/142692007): Use dialog to inform users the fatal error.
+            Notifications.Bus.notify(new AtestNotification("Command execution failed."));
             LOG.error("Command executes fail: " + mCommand.getCommandLineString());
         }
     }

@@ -15,6 +15,8 @@
  */
 package com.android.atest;
 
+import com.android.atest.widget.AtestNotification;
+import com.intellij.notification.Notifications;
 import com.intellij.openapi.actionSystem.AnActionEvent;
 import com.intellij.openapi.diagnostic.Logger;
 import com.intellij.openapi.wm.ToolWindow;
@@ -37,6 +39,7 @@ public class AtestToolWindowAction extends com.intellij.openapi.actionSystem.AnA
                 ToolWindowManager.getInstance(event.getProject())
                         .getToolWindow(Constants.ATEST_TOOL_WINDOW);
         if (AtestTW == null) {
+            Notifications.Bus.notify(new AtestNotification("Atest window failed to launch."));
             LOG.error("Can't get Atest tool window.");
             return;
         }
