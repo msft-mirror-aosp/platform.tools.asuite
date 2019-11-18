@@ -25,6 +25,9 @@ existence, IDE type, etc.), launch the project in related IDE.
     if ide_util_obj.is_ide_installed():
         ide_util_obj.config_ide(project_file)
         ide_util_obj.launch_ide()
+
+        # Get the configuration folders of IntelliJ or Android Studio.
+        ide_util_obj.get_ide_config_folders()
 """
 
 import fnmatch
@@ -54,6 +57,7 @@ _ALERT_CREATE_WS = ('AIDEGen will create a workspace at %s for Eclipse, '
                     'workspace after Eclipse is launched.\nWould you like '
                     'AIDEgen to automatically create the workspace for you?'
                     '(y/n)' % _ECLIPSE_WS)
+
 
 # pylint: disable=too-many-lines
 class IdeUtil:
@@ -107,6 +111,10 @@ class IdeUtil:
         """Gets IDE name."""
         return self._ide.ide_name
 
+    def get_ide_config_folders(self):
+        """Gets the config folders of IDE."""
+        return self._ide.config_folders
+
 
 class IdeBase:
     """The most base class of IDE, provides interface and partial path init.
@@ -118,6 +126,8 @@ class IdeBase:
         _bin_paths: A list of all possible IDE executable file absolute paths.
         _ide_name: String for IDE name.
         _bin_folders: A list of all possible IDE installed paths.
+        config_folders: A list of all possible paths for the IntelliJ
+                        configuration folder.
         project_abspath: The absolute path of the project.
 
     For example:
@@ -133,6 +143,7 @@ class IdeBase:
         self._bin_file_name = ''
         self._bin_paths = []
         self._bin_folders = []
+        self.config_folders = []
         self.project_abspath = ''
 
     def is_ide_installed(self):
@@ -238,6 +249,7 @@ class IdeIntelliJ(IdeBase):
         _path_list = self._get_config_root_paths()
         if not _path_list:
             return
+        self.config_folders = _path_list.copy()
 
         for _config_path in _path_list:
             jdk_file = os.path.join(_config_path, self._IDE_JDK_TABLE_PATH)
