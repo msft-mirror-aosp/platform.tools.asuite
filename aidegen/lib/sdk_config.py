@@ -70,8 +70,9 @@ class SDKConfig():
                           doesn't exist.
         android_sdk_version: The version name of the Android Sdk in the
                              jdk.table.xml.
-        max_api_level: An integer, parsed from the folder named android-{n}
-                       under Android/Sdk/platforms.
+        max_api_level: An integer, the max API level.
+        max_api_level_version: A string, the original API level version.
+                               e.g. 28, Q
     """
 
     _TARGET_JDK_NAME_TAG = '<name value="JDK18" />'
@@ -92,8 +93,15 @@ class SDKConfig():
     _INPUT_QUERY_TIMES = 3
     _USER_HOME = '$USER_HOME$'
     _ANDROID_SDK_VERSION = 'Android API {API_LEVEL} Platform'
-    _API_FOLDER_RE = re.compile(r'platforms/android-(?P<api_level>[\d]+)')
-    _API_LEVEL_RE = re.compile(r'android-(?P<api_level>[\d]+)')
+    _API_FOLDER_RE = re.compile(r'platforms/android-(?P<api_level>[\d]+|[A-Z])')
+    _API_LEVEL_RE = re.compile(r'android-(?P<api_level>[\d]+|[A-Z])')
+    _API_VERSION_MAPPING = {
+        'Q': 29,
+        'P': 28,
+        'O': 27,
+        'N': 25,
+        'M': 23
+    }
     _ENTER_ANDROID_SDK_PATH = ('\nThe Android SDK folder:{} doesn\'t exist. '
                                'The debug function "Attach debugger to Android '
                                'process" is disabled without Android SDK in '
@@ -145,6 +153,7 @@ class SDKConfig():
                                       might not exist.
         """
         self.max_api_level = 0
+        self.max_api_level_version = None
         self.config_file = config_file
         self.jdk_content = jdk_content
         self.jdk_path = jdk_path
@@ -264,8 +273,7 @@ class SDKConfig():
             return None
         return self.android_sdk_path
 
-    @classmethod
-    def _get_max_platform_api(cls, platforms_path):
+    def _get_max_platform_api(self, platforms_path):
         """Get the max api level from the platforms folder.
 
         Args:
@@ -278,31 +286,58 @@ class SDKConfig():
         max_api_level = 0
         if os.path.isdir(platforms_path):
             for abspath, _, _ in os.walk(platforms_path):
-                match_api_folder = cls._API_FOLDER_RE.search(abspath)
+                match_api_folder = self._API_FOLDER_RE.search(abspath)
                 if match_api_folder:
-                    api_level = int(match_api_folder.group(_API_LEVEL))
+                    api_level = self._convert_api_version(
+                        match_api_folder.group(_API_LEVEL))
                     if api_level > max_api_level:
                         max_api_level = api_level
         return max_api_level
 
-    @classmethod
-    def _get_api_level(cls, config_string):
+    def _convert_api_version(self, api_level):
+        """Convert the API level version to integer.
+
+        Sometimes the API folder under the platforms is named android-29 or
+        android-Q, AIDEGen needs to convert the Q to 29 when the API level
+        version is not an integer.
+
+        Args:
+            api_level: A string contains the info of API level, could be valid
+                       or invalid.
+
+        Returns:
+            Non zero integer for the API level, and 0 means the api_level is an
+            invalid API string.
+        """
+        int_api_level = 0
+        if api_level.isdigit():
+            int_api_level = int(api_level)
+        elif api_level in self._API_VERSION_MAPPING:
+            int_api_level = self._API_VERSION_MAPPING[api_level]
+        if int_api_level > 0:
+            # Save the original API level version for creating
+            # the Android SDK configuration in jdk.table.xml.
+            self._set_max_api_level_version(api_level)
+        return int_api_level
+
+    def _get_api_level(self, config_string):
         """Get the API level from a specific string.
 
         Args:
-            config_string: String, it might contain the API platform folder.
-                           e.g. sdk="android-28" or platforms/android-28
+            config_string: A string, it contains the API platform folder,
+                           e.g. android-28, android-Q, platforms/android-28 and
+                                platforms/android-Q.
 
         Returns: An integer, the api level from the config string, otherwise 0.
         """
         api_level = 0
-        find_api_level = cls._API_LEVEL_RE.search(config_string)
+        find_api_level = self._API_LEVEL_RE.search(config_string)
         if find_api_level:
-            api_level = int(find_api_level.group(_API_LEVEL))
+            api_level = self._convert_api_version(
+                find_api_level.group(_API_LEVEL))
         return api_level
 
-    @classmethod
-    def _get_api_from_xml(cls, jdk, tag_name, attribute):
+    def _get_api_from_xml(self, jdk, tag_name, attribute):
         """Get the API level from the certain tag's attribute in xml.
 
         Args:
@@ -318,7 +353,7 @@ class SDKConfig():
         for tag in tags:
             attribute_value = tag.getAttribute(attribute)
             if attribute_value:
-                api_level = cls._get_api_level(attribute_value)
+                api_level = self._get_api_level(attribute_value)
         return api_level
 
     def _set_max_api_level(self):
@@ -329,6 +364,14 @@ class SDKConfig():
         """
         self.max_api_level = self._get_max_platform_api(
             self._get_platforms_dir_path())
+
+    def _set_max_api_level_version(self, api_level):
+        """Set the max API level version.
+
+        Args:
+            api_level: A string of the API level.
+        """
+        self.max_api_level_version = api_level
 
     def _set_android_sdk_version(self):
         """Set the Android Sdk version."""
@@ -383,11 +426,11 @@ class SDKConfig():
                 self._append_jdk_config_string(self._ANDROID_SDK_XML)
                 self.config_string = self.config_string.format(
                     ANDROID_SDK_PATH=self.android_sdk_path,
-                    API_LEVEL=self.max_api_level)
+                    API_LEVEL=self.max_api_level_version)
             else:
                 print('\n{} {}\n'.format(common_util.COLORED_INFO('Warning:'),
                                          self._WARNING_API_LEVEL.format(
-                                             self.max_api_level)))
+                                             self.android_sdk_path)))
 
     def config_jdk_file(self):
         """Generate the content of config and write it to the jdk.table.xml."""
