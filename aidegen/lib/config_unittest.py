@@ -57,6 +57,11 @@ class AidegenConfigUnittests(unittest.TestCase):
     def test_load_aidegen_config(self, mock_file_exists, mock_file_open,
                                  mock_json_load):
         """Test loading aidegen config."""
+        mock_file_exists.return_value = False
+        cfg = config.AidegenConfig()
+        cfg._load_aidegen_config()
+        self.assertFalse(mock_file_open.called)
+        self.assertFalse(mock_json_load.called)
         mock_file_exists.return_value = True
         cfg = config.AidegenConfig()
         cfg._load_aidegen_config()
@@ -114,6 +119,7 @@ class AidegenConfigUnittests(unittest.TestCase):
                                     mock_enable, mock_warning):
         """Test create_enable_debugger_module."""
         cfg = config.AidegenConfig()
+        self.assertTrue(cfg.create_enable_debugger_module(''))
         mock_debug.side_effect = IOError()
         self.assertFalse(cfg.create_enable_debugger_module(''))
         self.assertTrue(mock_warning.called)
@@ -235,6 +241,30 @@ class AidegenConfigUnittests(unittest.TestCase):
         mock_isfile.return_value = False
         self.assertFalse(cfg.deprecated_intellij_version(0))
 
+    @mock.patch.object(config.AidegenConfig, 'deprecated_intellij_version')
+    def test_preferred_version(self, mock_reprecated_version):
+        """Test get preferred IntelliJ version."""
+        cfg = config.AidegenConfig()
+        cfg._config['preferred_version'] = ''
+        self.assertEqual(cfg.preferred_version, None)
+        mock_reprecated_version.return_value = False
+        cfg._config['preferred_version'] = 'a'
+        self.assertEqual(cfg.preferred_version, 'a')
+        mock_reprecated_version.return_value = True
+        self.assertEqual(cfg.preferred_version, None)
+
+    @mock.patch('os.makedirs')
+    @mock.patch('os.path.exists')
+    def test_gen_enable_debug_sub_dir(self, mock_file_exists, mock_makedirs):
+        """Test _gen_enable_debug_sub_dir."""
+        cfg = config.AidegenConfig()
+        mock_file_exists.return_value = True
+        cfg._gen_enable_debug_sub_dir('a')
+        self.assertFalse(mock_makedirs.called)
+        mock_file_exists.return_value = False
+        cfg._gen_enable_debug_sub_dir('a')
+        self.assertTrue(mock_makedirs.called)
+
 
 class IdeaPropertiesUnittests(unittest.TestCase):
     """Unit tests for IdeaProperties class."""
@@ -310,6 +340,7 @@ class IdeaPropertiesUnittests(unittest.TestCase):
         cfg.set_max_file_size()
         self.assertFalse(mock_set_default.called)
         self.assertTrue(mock_reset_file_size.called)
+
 
 if __name__ == '__main__':
     unittest.main()
