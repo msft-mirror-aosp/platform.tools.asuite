@@ -29,7 +29,8 @@ from aidegen.lib import errors
 from atest import module_info
 
 
-#pylint: disable=protected-access
+# pylint: disable=too-many-arguments
+# pylint: disable=protected-access
 class AidegenCommonUtilUnittests(unittest.TestCase):
     """Unit tests for common_util.py"""
 
@@ -60,6 +61,44 @@ class AidegenCommonUtilUnittests(unittest.TestCase):
         self.assertEqual(('', unittest_constants.TEST_PATH),
                          common_util.get_related_paths(
                              mod_info, constant.WHOLE_ANDROID_TREE_TARGET))
+
+    @mock.patch('os.getcwd')
+    @mock.patch.object(common_util, 'is_android_root')
+    @mock.patch.object(common_util, 'get_android_root_dir')
+    @mock.patch.object(module_info.ModuleInfo, 'get_module_names')
+    @mock.patch.object(module_info.ModuleInfo, 'is_module')
+    def test_get_related_paths_2(self, mock_is_mod, mock_names, mock_get_root,
+                                 mock_is_root, mock_getcwd):
+        """Test get_related_paths with different conditions."""
+        mock_get_root.return_value = '/a'
+        mod_info = module_info.ModuleInfo()
+
+        # Test get_module_names returns False, user inputs a relative path of
+        # current directory.
+        mock_is_mod.return_value = False
+        mock_names.return_value = False
+        mock_getcwd.return_value = '/a/b/c'
+        input_target = 'd'
+        # expected tuple: (rel_path, abs_path)
+        expected = ('b/c/d', '/a/b/c/d')
+        result = common_util.get_related_paths(mod_info, input_target)
+        self.assertEqual(expected, result)
+
+        # Test user doesn't input target and current working directory is the
+        # android root folder.
+        mock_getcwd.return_value = '/a'
+        mock_is_root.return_value = True
+        expected = ('', '/a')
+        result = common_util.get_related_paths(mod_info, target=None)
+        self.assertEqual(expected, result)
+
+        # Test user doesn't input target and current working directory is not
+        # android root folder.
+        mock_getcwd.return_value = '/a/b'
+        mock_is_root.return_value = False
+        expected = ('b', '/a/b')
+        result = common_util.get_related_paths(mod_info, target=None)
+        self.assertEqual(expected, result)
 
     @mock.patch.object(common_util, 'is_android_root')
     @mock.patch.object(common_util, 'get_related_paths')
@@ -203,6 +242,15 @@ class AidegenCommonUtilUnittests(unittest.TestCase):
                          common_util.get_android_out_dir())
         mock_getenv.side_effect = [android_out_root, default_root]
         self.assertEqual(android_out_root, common_util.get_android_out_dir())
+
+    def test_has_build_target(self):
+        """Test has_build_target handling."""
+        mod_info = module_info.ModuleInfo()
+        mod_info.path_to_module_info = ['a/b/c']
+        rel_path = 'a/b'
+        self.assertTrue(common_util.has_build_target(mod_info, rel_path))
+        rel_path = 'd/e'
+        self.assertFalse(common_util.has_build_target(mod_info, rel_path))
 
 
 if __name__ == '__main__':
