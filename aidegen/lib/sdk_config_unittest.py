@@ -371,6 +371,8 @@ class SDKConfigUnittests(unittest.TestCase):
         self.assertEqual(jdk._get_api_level(tmp_string), 28)
         tmp_string = 'android-27'
         self.assertEqual(jdk._get_api_level(tmp_string), 27)
+        tmp_string = 'android-Q'
+        self.assertEqual(jdk._get_api_level(tmp_string), 29)
 
     def test_get_api_level_failed(self):
         """Test get the api level failed from the specific string."""
