@@ -24,6 +24,7 @@
 import logging
 import os
 import pathlib
+import shutil
 
 from aidegen import constant
 from aidegen.lib import common_util
@@ -70,6 +71,7 @@ _CODE_STYLE_FOLDER = 'codeStyles'
 _APACHE_2_XML = 'Apache_2.xml'
 _PROFILES_SETTINGS_XML = 'profiles_settings.xml'
 _CODE_STYLE_CONFIG_XML = 'codeStyleConfig.xml'
+_PROJECT_XML = 'Project.xml'
 _COMPILE_XML = 'compiler.xml'
 _MISC_XML = 'misc.xml'
 _ANDROID_MANIFEST = 'AndroidManifest.xml'
@@ -237,6 +239,7 @@ _XML_PROFILES_SETTINGS = """<component name="CopyrightManager">
 </component>
 """
 
+
 class ProjectFileGenerator:
     """Project file generator.
 
@@ -390,22 +393,14 @@ class ProjectFileGenerator:
         common_util.file_generate(
             os.path.join(code_style_dir, _CODE_STYLE_CONFIG_XML),
             _XML_CODE_STYLE_CONFIG)
-        code_style_target_path = os.path.join(code_style_dir, 'Project.xml')
-        # Base on current working directory to prepare the relevant location
-        # of the symbolic link file, and base on the symlink file location
-        # to prepare the relevant code style source path.
-        rel_target = os.path.relpath(code_style_target_path, os.getcwd())
-        rel_source = os.path.relpath(
-            _CODE_STYLE_SRC_PATH, os.path.dirname(code_style_target_path))
-        logging.debug('Relative target symlink path: %s.', rel_target)
-        logging.debug('Relative code style source path: %s.', rel_source)
-        if os.path.exists(rel_target):
-            os.remove(rel_target)
+        code_style_target_path = os.path.join(code_style_dir, _PROJECT_XML)
+        if os.path.exists(code_style_target_path):
+            os.remove(code_style_target_path)
         try:
-            os.symlink(rel_source, rel_target)
+            shutil.copy2(_CODE_STYLE_SRC_PATH, code_style_target_path)
         except (OSError, SystemError) as err:
             logging.warning('%s can\'t copy the project files\n %s',
-                            target_path, err)
+                            code_style_target_path, err)
         # Create .gitignore if it doesn't exist.
         _generate_git_ignore(target_path)
 

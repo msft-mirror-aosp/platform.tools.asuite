@@ -15,6 +15,7 @@
  */
 package com.android.atest;
 
+import java.io.File;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 
@@ -28,5 +29,27 @@ public class AtestUtils {
      */
     public static boolean hasTestMapping(String path) {
         return Files.exists(Paths.get(path, Constants.TEST_MAPPING_FILE_NAME));
+    }
+
+    /**
+     * Gets the Android root path by project path.
+     *
+     * @param projectPath the base path of user's project.
+     * @return the Android root path or null.
+     */
+    public static String getAndroidRoot(String projectPath) {
+        File currentFolder = new File(projectPath);
+        File parentFolder = currentFolder.getParentFile();
+        File checkFolder = new File(currentFolder, Constants.BUILD_ENVIRONMENT);
+        while (parentFolder != null) {
+            if (checkFolder.exists()) {
+                return currentFolder.getPath();
+            } else {
+                currentFolder = parentFolder;
+                parentFolder = currentFolder.getParentFile();
+                checkFolder = new File(currentFolder, Constants.BUILD_ENVIRONMENT);
+            }
+        }
+        return null;
     }
 }
