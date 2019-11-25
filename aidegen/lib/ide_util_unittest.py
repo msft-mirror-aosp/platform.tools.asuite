@@ -25,14 +25,18 @@ import unittest
 
 from unittest import mock
 
+from aidegen import aidegen_main
 from aidegen import unittest_constants
 from aidegen.lib import android_dev_os
+from aidegen.lib import errors
 from aidegen.lib import ide_util
+from aidegen.lib import project_config
 from aidegen.lib import sdk_config
 
 
 # pylint: disable=protected-access
 # pylint: disable-msg=too-many-arguments
+# pylint: disable=invalid-name
 class IdeUtilUnittests(unittest.TestCase):
     """Unit tests for ide_util.py."""
 
@@ -265,6 +269,33 @@ class IdeUtilUnittests(unittest.TestCase):
             merged_version[0], symbolic_path + ' -> ' + original_path)
         self.assertEqual(
             ide_obj._get_real_path(merged_version[0]), symbolic_path)
+
+    def test_get_ide_util_instance_with_no_launch(self):
+        """Test _get_ide_util_instance with no launch IDE."""
+        args = aidegen_main._parse_args(['tradefed', '-n'])
+        project_config.ProjectConfig(args)
+        self.assertEqual(ide_util.get_ide_util_instance(args), None)
+
+    @mock.patch.object(ide_util.IdeIntelliJ, '_get_preferred_version')
+    def test_get_ide_util_instance_with_success(self, mock_preference):
+        """Test _get_ide_util_instance with success."""
+        args = aidegen_main._parse_args(['tradefed'])
+        project_config.ProjectConfig(args)
+        mock_preference.return_value = '1'
+        self.assertIsInstance(
+            ide_util.get_ide_util_instance(), ide_util.IdeUtil)
+
+    @mock.patch.object(ide_util.IdeIntelliJ, '_get_preferred_version')
+    @mock.patch.object(ide_util.IdeUtil, 'is_ide_installed')
+    def test_get_ide_util_instance_with_failure(
+            self, mock_installed, mock_preference):
+        """Test _get_ide_util_instance with failure."""
+        args = aidegen_main._parse_args(['tradefed'])
+        project_config.ProjectConfig(args)
+        mock_installed.return_value = False
+        mock_preference.return_value = '1'
+        with self.assertRaises(errors.IDENotExistError):
+            ide_util.get_ide_util_instance()
 
 
 if __name__ == '__main__':
