@@ -22,7 +22,7 @@ files. Then it will load these two json files into two json dictionaries,
 merge them into one dictionary and return the merged dictionary to its caller.
 
 Example usage:
-merged_dict = generate_merged_module_info(atest_module_info, project, verbose)
+merged_dict = generate_merged_module_info()
 """
 
 import glob
@@ -34,6 +34,7 @@ import sys
 from aidegen import constant
 from aidegen.lib import common_util
 from aidegen.lib import errors
+from aidegen.lib import project_config
 
 from atest import atest_utils
 from atest import constants
@@ -63,10 +64,7 @@ _BUILD_BP_JSON_ENV_ON = constants.ATEST_BUILD_ENV
 
 @common_util.back_to_cwd
 @common_util.time_logged
-def generate_merged_module_info(module_info,
-                                projects=None,
-                                verbose=False,
-                                skip_build=False):
+def generate_merged_module_info():
     """Generate a merged dictionary.
 
     Linked functions:
@@ -74,17 +72,14 @@ def generate_merged_module_info(module_info,
         _get_soong_build_json_dict()
         _merge_dict(mk_dict, bp_dict)
 
-    Args:
-        module_info: A ModuleInfo instance contains data of module-info.json.
-        projects: A list of project names.
-        verbose: A boolean, if true displays full build output.
-        skip_build: A boolean, if true skip building
-                    get_blueprint_json_path() if it exists, otherwise
-                    build it.
-
     Returns:
         A merged dictionary from module-info.json and module_bp_java_deps.json.
     """
+    config = project_config.ProjectConfig.get_instance()
+    module_info = config.atest_module_info
+    projects = config.targets
+    verbose = config.verbose
+    skip_build = config.is_skip_build
     main_project = projects[0] if projects else None
     _build_bp_info(module_info, main_project, verbose, skip_build)
     bp_dict = _get_soong_build_json_dict()
