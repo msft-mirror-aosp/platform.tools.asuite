@@ -23,7 +23,6 @@ import os
 from aidegen import constant
 from aidegen.lib import common_util
 from aidegen.lib import module_info_util
-from aidegen.lib import project_config
 from aidegen.lib.singleton import Singleton
 
 from atest import constants
@@ -57,11 +56,7 @@ class AidegenModuleInfo(module_info.ModuleInfo, metaclass=Singleton):
             logging.debug(
                 'Generating %s - this is required for the initial runs.',
                 merged_file_path)
-        data = module_info_util.generate_merged_module_info(
-            project_config.ProjectConfig.get_instance().atest_module_info,
-            project_config.ProjectConfig.get_instance().targets,
-            project_config.ProjectConfig.get_instance().verbose,
-            project_config.ProjectConfig.get_instance().is_skip_build)
+        data = module_info_util.generate_merged_module_info()
         with open(merged_file_path, 'w') as json_file:
             json.dump(data, json_file, indent=4)
         merged_file_rel_path = os.path.relpath(

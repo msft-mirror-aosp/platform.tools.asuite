@@ -14,6 +14,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+# TODO(b/140539827): Refactor ide_util for too-many-lines pylint error.
+# pylint: disable=too-many-lines
+
 """It is an AIDEGen sub task : IDE operation task!
 
 Takes a project file path as input, after passing the needed check(file
@@ -39,8 +42,11 @@ import re
 import subprocess
 
 from aidegen import constant
+from aidegen.lib import android_dev_os
 from aidegen.lib import common_util
 from aidegen.lib import config
+from aidegen.lib import errors
+from aidegen.lib import project_config
 from aidegen.lib import sdk_config
 
 # Add 'nohup' to prevent IDE from being terminated when console is terminated.
@@ -57,6 +63,12 @@ _ALERT_CREATE_WS = ('AIDEGen will create a workspace at %s for Eclipse, '
                     'workspace after Eclipse is launched.\nWould you like '
                     'AIDEgen to automatically create the workspace for you?'
                     '(y/n)' % _ECLIPSE_WS)
+_NO_LAUNCH_IDE_CMD = """
+Can not find IDE: {}, in path: {}, you can:
+    - add IDE executable to your $PATH
+or  - specify the exact IDE executable path by "aidegen -p"
+or  - specify "aidegen -n" to generate project file only
+"""
 
 
 # pylint: disable=too-many-lines
@@ -386,7 +398,7 @@ class IdeIntelliJ(IdeBase):
         return all_versions
 
     def _set_installed_path(self):
-        """Write users' input installed path into the config file.
+        """Write user' input installed path into the config file.
 
         If users input an existent IntelliJ installed path, we should keep it in
         configuration.
@@ -1018,3 +1030,27 @@ def _get_linux_ide(installed_path=None, ide='j', config_reset=False):
     if ide == 'c':
         return IdeLinuxCLion(installed_path)
     return IdeLinuxIntelliJ(installed_path, config_reset)
+
+
+def get_ide_util_instance(ide='j'):
+    """Get an IdeUtil class instance for launching IDE.
+
+    Args:
+        ide: A key character of IDE to be launched. Default ide='j' is to
+            launch IntelliJ.
+
+    Returns:
+        An IdeUtil class instance.
+    """
+    conf = project_config.ProjectConfig.get_instance()
+    if not conf.is_launch_ide:
+        return None
+    is_mac = (android_dev_os.AndroidDevOS.MAC ==
+              android_dev_os.AndroidDevOS.get_os_type())
+    tool = IdeUtil(conf.ide_installed_path, ide, conf.config_reset, is_mac)
+    if not tool.is_ide_installed():
+        ipath = conf.ide_installed_path or tool.get_default_path()
+        err = _NO_LAUNCH_IDE_CMD.format(constant.IDE_NAME_DICT[ide], ipath)
+        logging.error(err)
+        raise errors.IDENotExistError(err)
+    return tool
