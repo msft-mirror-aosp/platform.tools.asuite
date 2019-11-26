@@ -297,7 +297,7 @@ class IdeIntelliJ(IdeBase):
 
         Returns:
             A string list of IDE config paths, return multiple paths if more
-            than one path are found, return None if no path is found.
+            than one path are found, return an empty list when none is found.
         """
         raise NotImplementedError()
 
@@ -471,8 +471,8 @@ class IdeLinuxIntelliJ(IdeIntelliJ):
         versions.
 
         Returns:
-            A string list for IDE config root paths, and return None for failed
-            to found case.
+            A string list for IDE config root paths, and return an empty list
+            when none is found.
         """
         if not self._installed_path:
             return None
@@ -548,8 +548,8 @@ class IdeMacIntelliJ(IdeIntelliJ):
         """To collect the global config folder paths of IDEA as a string list.
 
         Returns:
-            A string list for IDE config root paths, and return None for failed
-            to found case.
+            A string list for IDE config root paths, and return an empty list
+            when none is found.
         """
         if not self._installed_path:
             return None
@@ -581,11 +581,21 @@ class IdeStudio(IdeBase):
     For example:
         1. Check if Android Studio is installed.
         2. Launch an Android Studio.
+        3. Config Android Studio.
     """
 
     def __init__(self, installed_path=None, config_reset=False):
         super().__init__(installed_path, config_reset)
         self._ide_name = constant.IDE_ANDROID_STUDIO
+
+    def _get_config_root_paths(self):
+        """Get the config root paths from derived class.
+
+        Returns:
+            A string list of IDE config paths, return multiple paths if more
+            than one path are found, return an empty list when none is found.
+        """
+        raise NotImplementedError()
 
 
 class IdeLinuxStudio(IdeStudio):
@@ -594,14 +604,24 @@ class IdeLinuxStudio(IdeStudio):
     For example:
         1. Check if Android Studio is installed.
         2. Launch an Android Studio.
+        3. Config Android Studio.
     """
 
     def __init__(self, installed_path=None, config_reset=False):
         super().__init__(installed_path, config_reset)
         self._bin_file_name = 'studio.sh'
-        self._bin_folders = ['/opt/android-*/bin']
+        self._bin_folders = ['/opt/android-studio-*/bin']
         self._bin_paths = self._get_possible_bin_paths()
         self._init_installed_path(installed_path)
+
+    def _get_config_root_paths(self):
+        """Collect the global config folder paths as a string list.
+
+        Returns:
+            A string list for IDE config root paths, and return an empty list
+            when none is found.
+        """
+        return glob.glob(os.path.join(os.getenv('HOME'), '.AndroidStudio*'))
 
 
 class IdeMacStudio(IdeStudio):
@@ -610,6 +630,7 @@ class IdeMacStudio(IdeStudio):
     For example:
         1. Check if Android Studio is installed.
         2. Launch an Android Studio.
+        3. Config Android Studio.
     """
 
     def __init__(self, installed_path=None, config_reset=False):
@@ -618,6 +639,16 @@ class IdeMacStudio(IdeStudio):
         self._bin_folders = ['/Applications/Android Studio.app/Contents/MacOS']
         self._bin_paths = self._get_possible_bin_paths()
         self._init_installed_path(installed_path)
+
+    def _get_config_root_paths(self):
+        """Collect the global config folder paths as a string list.
+
+        Returns:
+            A string list for IDE config root paths, and return an empty list
+            when none is found.
+        """
+        return glob.glob(os.path.join(os.getenv('HOME'),
+                                      'Library/Preferences/AndroidStudio*'))
 
 
 class IdeEclipse(IdeBase):
