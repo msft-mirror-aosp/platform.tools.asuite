@@ -36,9 +36,6 @@ python_binary_host {
     srcs: [
         "**/*.py",
     ],
-    data: [
-        "templates/**/*",
-    ],
     libs: [
         "atest_module_info",
         "asuite_cc_client",
@@ -67,7 +64,6 @@ python_test_host {
         "**/*.py",
     ],
     data: [
-        "templates/**/*",
         "test_data/**/*",
     ],
     libs: [
