@@ -61,7 +61,6 @@ _MODULE_TOKEN = '@MODULES@'
 _ENABLE_DEBUGGER_MODULE_TOKEN = '@ENABLE_DEBUGGER_MODULE@'
 _VCS_TOKEN = '@VCS@'
 _JAVA_FILE_PATTERN = '%s/*.java'
-_IDEA_DIR = os.path.join(common_util.get_aidegen_root_dir(), 'templates/idea')
 _IDEA_FOLDER = '.idea'
 _MODULES_XML = 'modules.xml'
 _VCS_XML = 'vcs.xml'
