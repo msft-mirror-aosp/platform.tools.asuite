@@ -39,15 +39,12 @@ This CLI generates project files for using in IntelliJ, such as:
 
 from __future__ import absolute_import
 
-import copy
 import argparse
-import logging
 import sys
 import traceback
 
 from aidegen import constant
 from aidegen.lib import aidegen_metrics
-from aidegen.lib import android_dev_os
 from aidegen.lib import common_util
 from aidegen.lib import eclipse_project_file_gen
 from aidegen.lib import errors
@@ -60,13 +57,6 @@ from aidegen.lib import project_info
 
 AIDEGEN_REPORT_LINK = ('To report the AIDEGen tool problem, please use this '
                        'link: https://goto.google.com/aidegen-bug')
-_NO_LAUNCH_IDE_CMD = """
-Can not find IDE in path: {}, you can:
-    - add IDE executable to your $PATH
-or  - specify the exact IDE executable path by "aidegen -p"
-or  - specify "aidegen -n" to generate project file only
-"""
-
 _CONGRATULATION = common_util.COLORED_PASS('CONGRATULATION:')
 _LAUNCH_SUCCESS_MSG = (
     'IDE launched successfully. Please check your IDE window.')
@@ -160,29 +150,6 @@ def _parse_args(args):
     return parser.parse_args(args)
 
 
-def _get_ide_util_instance(args):
-    """Get an IdeUtil class instance for launching IDE.
-
-    Args:
-        args: An argparse.Namespace class instance holding parsed args.
-
-    Returns:
-        An IdeUtil class instance.
-    """
-    if args.no_launch:
-        return None
-    ide_util_obj = ide_util.IdeUtil(args.ide_installed_path, args.ide[0],
-                                    args.config_reset,
-                                    (android_dev_os.AndroidDevOS.MAC ==
-                                     android_dev_os.AndroidDevOS.get_os_type()))
-    if not ide_util_obj.is_ide_installed():
-        ipath = args.ide_installed_path or ide_util_obj.get_default_path()
-        err = _NO_LAUNCH_IDE_CMD.format(ipath)
-        logging.error(err)
-        raise errors.IDENotExistError(err)
-    return ide_util_obj
-
-
 def _generate_project_files(projects):
     """Generate project files by IDE type.
 
@@ -225,7 +192,11 @@ def _launch_ide(ide_util_obj, project_absolute_path):
 def _launch_native_projects(ide_util_obj, args, cmakelists):
     """Launch native projects with IDE.
 
-    If the target IDE is IntelliJ we should launch native projects with CLion.
+    AIDEGen doesn't provide the IDE argument for CLion, here're the rules how
+    to launch it:
+    1. If no target IDE, we don't have to launch any IDE for native project.
+    2. If the target IDE is IntelliJ or Eclipse, we should launch native
+       projects with CLion.
 
     Args:
         ide_util_obj: An ide_util instance.
@@ -234,12 +205,10 @@ def _launch_native_projects(ide_util_obj, args, cmakelists):
     """
     if not ide_util_obj:
         return
-    ide_name = ide_util_obj.ide_name()
     native_ide_util_obj = ide_util_obj
-    if ide_name == constant.IDE_INTELLIJ or ide_name == constant.IDE_ECLIPSE:
-        new_args = copy.deepcopy(args)
-        new_args.ide = ['c']
-        native_ide_util_obj = _get_ide_util_instance(new_args)
+    ide_name = constant.IDE_NAME_DICT[args.ide[0]]
+    if ide_name in (constant.IDE_INTELLIJ, constant.IDE_ECLIPSE):
+        native_ide_util_obj = ide_util.get_ide_util_instance('c')
     if native_ide_util_obj:
         _launch_ide(native_ide_util_obj, ' '.join(cmakelists))
 
@@ -328,15 +297,24 @@ def main(argv):
 def aidegen_main(args):
     """AIDEGen main entry.
 
-    Try to generate project files for using in IDE.
+    Try to generate project files for using in IDE. The process is:
+      1. Instantiate a ProjectConfig singleton object and initialize its
+         environment. After creating a singleton instance for ProjectConfig,
+         other modules can use project configurations by
+         ProjectConfig.get_instance().
+      2. Get an IDE instance from ide_util, ide_util.get_ide_util_instance will
+         use ProjectConfig.get_instance() inside the function.
+      3. Setup project_info.ProjectInfo.modules_info by instantiate
+         AidegenModuleInfo.
+      4. Check if projects contain native projects and launch related IDE.
 
     Args:
         args: A list of system arguments.
     """
-    # Pre-check for IDE relevant case, then handle dependency graph job.
-    ide_util_obj = _get_ide_util_instance(args)
-    project_config.ProjectConfig(args).init_environment()
+    config = project_config.ProjectConfig(args)
+    config.init_environment()
     targets = project_config.ProjectConfig.get_instance().targets
+    ide_util_obj = ide_util.get_ide_util_instance(args.ide[0])
     project_info.ProjectInfo.modules_info = module_info.AidegenModuleInfo()
     cmakelists, targets = native_util.check_native_projects(
         project_info.ProjectInfo.modules_info, targets)
