@@ -141,7 +141,7 @@ def _missing_environment_variables():
     Returns:
         List of strings of any missing environment variables.
     """
-    missing = filter(None, [x for x in EXPECTED_VARS if not os.environ.get(x)])
+    missing = list(filter(None, [x for x in EXPECTED_VARS if not os.environ.get(x)]))
     if missing:
         logging.error('Local environment doesn\'t appear to have been '
                       'initialized. Did you remember to run lunch? Expected '
