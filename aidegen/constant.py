@@ -84,6 +84,11 @@ TARGET_LIBS = [JAR_EXT]
 ANDROID_COMMON = 'android_common'
 LINUX_GLIBC_COMMON = 'linux_glibc_common'
 
+# Constants for ide_util
+NOHUP = 'nohup'
+ECLIPSE_WS = '~/Documents/AIDEGen_Eclipse_workspace'
+IGNORE_STD_OUT_ERR_CMD = '2>/dev/null >&2'
+
 # The xml templates for JDK or SDK.
 
 # The configuration of JDK on Linux.
