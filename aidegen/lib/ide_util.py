@@ -203,18 +203,38 @@ class IdeBase:
                 installed_path, self._bin_file_name)
         else:
             self._installed_path = self._get_script_from_system()
+        if not self._installed_path:
+            logging.error('No %s installed.', self._ide_name)
 
     def _get_script_from_system(self):
         """Get correct IDE installed path from internal path.
 
+        First get correct IDE installed path from internal paths, if not found
+        search it from environment paths.
+
         Returns:
             The sh full path, or None if no IntelliJ version is installed.
         """
-        return _get_script_from_internal_path(self._bin_paths, self._ide_name)
+        return (_get_script_from_internal_path(self._bin_paths, self._ide_name)
+                or self._get_ide_from_environment_paths())
 
     def _get_possible_bin_paths(self):
         """Gets all possible IDE installed paths."""
         return [os.path.join(f, self._bin_file_name) for f in self._bin_folders]
+
+    def _get_ide_from_environment_paths(self):
+        """Get IDE executable binary file from environment paths.
+
+        Returns:
+            A string of IDE executable binary path if found, otherwise return
+            None.
+        """
+        env_paths = os.environ['PATH'].split(':')
+        for env_path in env_paths:
+            path = _get_script_from_dir_path(env_path, self._bin_file_name)
+            if path:
+                return path
+        return None
 
 
 class IdeIntelliJ(IdeBase):
@@ -246,9 +266,6 @@ class IdeIntelliJ(IdeBase):
         self._ide_name = constant.IDE_INTELLIJ
         self._ls_ce_path = ''
         self._ls_ue_path = ''
-        self._init_installed_path(installed_path)
-        if installed_path:
-            self._set_installed_path()
 
     def apply_optional_config(self):
         """Do IDEA global config action.
@@ -265,9 +282,9 @@ class IdeIntelliJ(IdeBase):
 
         for _config_path in _path_list:
             jdk_file = os.path.join(_config_path, self._IDE_JDK_TABLE_PATH)
-            jdk_table = sdk_config.SDKConfig(
-                jdk_file, self._JDK_CONTENT, self._JDK_PATH,
-                self._DEFAULT_ANDROID_SDK_PATH)
+            jdk_table = sdk_config.SDKConfig(jdk_file, self._JDK_CONTENT,
+                                             self._JDK_PATH,
+                                             self._DEFAULT_ANDROID_SDK_PATH)
             jdk_table.config_jdk_file()
             jdk_table.gen_enable_debugger_module(self.project_abspath)
 
@@ -293,7 +310,7 @@ class IdeIntelliJ(IdeBase):
         raise NotImplementedError('Method overriding is needed.')
 
     def _get_preferred_version(self):
-        """Get users' preferred IntelliJ version.
+        """Get the user's preferred IntelliJ version.
 
         Locates the IntelliJ IDEA launch script path by following rule.
 
@@ -398,7 +415,7 @@ class IdeIntelliJ(IdeBase):
         return all_versions
 
     def _set_installed_path(self):
-        """Write user' input installed path into the config file.
+        """Write the user's input installed path into the config file.
 
         If users input an existent IntelliJ installed path, we should keep it in
         configuration.
@@ -427,10 +444,11 @@ class IdeLinuxIntelliJ(IdeIntelliJ):
     _IDE_JDK_TABLE_PATH = 'config/options/jdk.table.xml'
     _JDK_CONTENT = constant.LINUX_JDK_XML
     _DEFAULT_ANDROID_SDK_PATH = os.path.join(os.getenv('HOME'), 'Android/Sdk')
-    IdeIntelliJ._SYMBOLIC_VERSIONS = ['/opt/intellij-ce-stable/bin/idea.sh',
-                                      '/opt/intellij-ue-stable/bin/idea.sh',
-                                      '/opt/intellij-ce-beta/bin/idea.sh',
-                                      '/opt/intellij-ue-beta/bin/idea.sh']
+    IdeIntelliJ._SYMBOLIC_VERSIONS = [
+        '/opt/intellij-ce-stable/bin/idea.sh',
+        '/opt/intellij-ue-stable/bin/idea.sh',
+        '/opt/intellij-ce-beta/bin/idea.sh', '/opt/intellij-ue-beta/bin/idea.sh'
+    ]
     _INTELLIJ_RE = re.compile(r'intellij-(ce|ue)-')
 
     def __init__(self, installed_path=None, config_reset=False):
@@ -442,6 +460,8 @@ class IdeLinuxIntelliJ(IdeIntelliJ):
         self._ls_ue_path = os.path.join('/opt/intellij-ue-*/bin',
                                         self._bin_file_name)
         self._init_installed_path(installed_path)
+        if installed_path:
+            self._set_installed_path()
 
     def _get_config_root_paths(self):
         """To collect the global config folder paths of IDEA as a string list.
@@ -521,6 +541,8 @@ class IdeMacIntelliJ(IdeIntelliJ):
             '/Applications/IntelliJ IDEA.app/Contents/MacOS',
             self._bin_file_name)
         self._init_installed_path(installed_path)
+        if installed_path:
+            self._set_installed_path()
 
     def _get_config_root_paths(self):
         """To collect the global config folder paths of IDEA as a string list.
@@ -641,7 +663,6 @@ class IdeEclipse(IdeBase):
                     logging.debug('Result for checking %s after sort: %s.',
                                   self._ide_name, match_eclipses[0])
                     return match_eclipses[0]
-        logging.error('No %s installed.', self._ide_name)
         return None
 
     def _get_ide_cmd(self):
@@ -759,7 +780,6 @@ def _get_script_from_internal_path(ide_paths, ide_name):
             logging.debug('Result for checking %s after sort: %s.', ide_name,
                           ls_output[0])
             return ls_output[0]
-    logging.error('No %s installed.', ide_name)
     return None
 
 
@@ -848,8 +868,8 @@ def _get_script_from_dir_path(input_path, ide_file_name):
     """
     logging.debug('Call _get_script_from_dir_path with %s, and %s', input_path,
                   ide_file_name)
-    files_found = list(_walk_tree_find_ide_exe_file(input_path,
-                                                    ide_file_name + '*'))
+    files_found = list(
+        _walk_tree_find_ide_exe_file(input_path, ide_file_name + '*'))
     if files_found:
         return sorted(files_found)[0]
     return None
