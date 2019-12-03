@@ -14,6 +14,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+# pylint: disable=too-many-lines
+
 """It is an AIDEGen sub task : IDE operation task!
 
 Takes a project file path as input, after passing the needed check(file
@@ -35,6 +37,7 @@ import logging
 import os
 import platform
 import re
+import subprocess
 
 from aidegen import constant
 from aidegen.lib import android_dev_os
@@ -63,6 +66,11 @@ Can not find IDE: {}, in path: {}, you can:
 or  - specify the exact IDE executable path by "aidegen -p"
 or  - specify "aidegen -n" to generate project file only
 """
+_INFO_IMPORT_CONFIG = ('{} needs to import the application configuration for '
+                       'the new version!\nAfter the import is finished, rerun '
+                       'the command if your project did not launch. Please '
+                       'follow the showing dialog to finish the import action.'
+                       '\n\n')
 CONFIG_DIR = 'config'
 LINUX_JDK_PATH = os.path.join(common_util.get_android_root_dir(),
                               'prebuilts/jdk/jdk8/linux-x86')
@@ -285,6 +293,15 @@ class IdeBase:
                 return path
         return None
 
+    def _setup_ide(self):
+        """The callback used to run the necessary setup work of the IDE.
+
+        When ide_util.config_ide is called to set up the JDK, SDK and some
+        features, the main thread will callback the Idexxx._setup_ide
+        to provide the chance for running the necessary setup of the specific
+        IDE. Default is to do nothing.
+        """
+
 
 class IdeIntelliJ(IdeBase):
     """Provide basic IntelliJ ops, e.g., launch IDEA, and config IntelliJ.
@@ -316,6 +333,7 @@ class IdeIntelliJ(IdeBase):
         """
         raise NotImplementedError()
 
+    # TODO(b/145581092): Remove dead code.
     def _get_config_folder_name(self):
         """Get the config sub folder name from derived class.
 
@@ -356,6 +374,43 @@ class IdeIntelliJ(IdeBase):
         elif all_versions:
             return all_versions[0]
         return None
+
+    def _setup_ide(self):
+        """The callback used to run the necessary setup work for the IDE.
+
+        IntelliJ has a default flow to let the user import the configuration
+        from the previous version, aidegen makes sure not to break the behavior
+        by checking in this callback implementation.
+        """
+        run_script_path = os.path.realpath(self._installed_path)
+        app_folder = self._get_application_path(run_script_path)
+        if not app_folder:
+            logging.warning('\nInvalid IDE installed path.')
+            return
+
+        show_hint = False
+        folder_path = os.path.join(os.getenv('HOME'), app_folder,
+                                   'config', 'plugins')
+        import_process = None
+        while not os.path.isdir(folder_path):
+            # Guide the user to go through the IDE flow.
+            if not show_hint:
+                print('\n{} {}'.format(common_util.COLORED_INFO('INFO:'),
+                                       _INFO_IMPORT_CONFIG.format(
+                                           self.ide_name)))
+                try:
+                    import_process = subprocess.Popen(
+                        ide_common_util.get_run_ide_cmd(run_script_path, '',
+                                                        False), shell=True)
+                except (subprocess.SubprocessError, ValueError):
+                    logging.warning('\nSubprocess call gets the invalid input.')
+                finally:
+                    show_hint = True
+        try:
+            import_process.wait(1)
+        except subprocess.TimeoutExpired:
+            import_process.terminate()
+        return
 
     @staticmethod
     def _merge_symbolic_version(versions):
@@ -439,6 +494,41 @@ class IdeIntelliJ(IdeBase):
             with config.AidegenConfig() as aconf:
                 aconf.preferred_version = self._installed_path
 
+    @staticmethod
+    def _get_application_path(run_script_path):
+        """Get the relevant configuration folder based on the run script path.
+
+        Args:
+            run_script_path: The string of the run script path for the IntelliJ.
+
+        Returns:
+            The string of the IntelliJ application folder name or None if the
+            run_script_path is invalid. The returned folder format is as
+            follows,
+                1. .IdeaIC2019.3
+                2. .IntelliJIdea2019.3
+        """
+        if not run_script_path or not os.path.isfile(run_script_path):
+            return None
+        index = str.find(run_script_path, 'intellij-')
+        target_path = None if index == -1 else run_script_path[index:]
+        if not target_path or '-' not in run_script_path:
+            return None
+
+        path_data = target_path.split('-')
+        if not path_data or len(path_data) < 3:
+            return None
+
+        config_folder = None
+        ide_version = path_data[2].split(os.sep)[0]
+
+        if path_data[1] == 'ce':
+            config_folder = ''.join(['.IdeaIC', ide_version])
+        elif path_data[1] == 'ue':
+            config_folder = ''.join(['.IntelliJIdea', ide_version])
+
+        return config_folder
+
 
 class IdeLinuxIntelliJ(IdeIntelliJ):
     """Provide the IDEA behavior implementation for OS Linux.
@@ -493,16 +583,16 @@ class IdeLinuxIntelliJ(IdeIntelliJ):
         _config_folders = []
         _config_folder = ''
         if IdeLinuxIntelliJ._INTELLIJ_RE.search(self._installed_path):
-            # GLinux case.
-            if self._installed_path in IdeIntelliJ._SYMBOLIC_VERSIONS:
-                _path_data = os.path.realpath(self._installed_path).split('-')
-            else:
-                _path_data = self._installed_path.split('-')
-            _ide_version = _path_data[2].split(os.sep)[0]
-            if _path_data[1] == 'ce':
-                _config_folder = ''.join(['.IdeaIC', _ide_version])
-            else:
-                _config_folder = ''.join(['.IntelliJIdea', _ide_version])
+            _path_data = os.path.realpath(self._installed_path)
+            _config_folder = self._get_application_path(_path_data)
+            if not _config_folder:
+                return None
+
+            if not os.path.isdir(os.path.join(os.getenv('HOME'),
+                                              _config_folder)):
+                logging.debug("\nThe config folder: %s doesn't exist",
+                              _config_folder)
+                self._setup_ide()
 
             _config_folders.append(
                 os.path.join(os.getenv('HOME'), _config_folder))
@@ -513,12 +603,13 @@ class IdeLinuxIntelliJ(IdeIntelliJ):
                 os.path.join(os.getenv('HOME'), '.IdeaI?20*'))
             _config_folders.extend(
                 glob.glob(os.path.join(os.getenv('HOME'), '.IntelliJIdea20*')))
-            logging.info('The config path list: %s.', _config_folders)
+            logging.debug('The config path list: %s.', _config_folders)
 
         return _config_folders
 
+    # TODO(b/145581092): Remove dead code.
     def _get_config_folder_name(self):
-        """A interface used to provide the config sub folder name.
+        """An interface used to provide the config sub folder name.
 
         Returns:
             A sub path string of the config folder.
@@ -577,8 +668,9 @@ class IdeMacIntelliJ(IdeIntelliJ):
                         'Library/Preferences/IntelliJIdea20*')))
         return _config_folders
 
+    # TODO(b/145581092): Remove dead code.
     def _get_config_folder_name(self):
-        """A interface used to provide the config sub folder name.
+        """An interface used to provide the config sub folder name.
 
         Returns:
             A sub path string of the config folder.
