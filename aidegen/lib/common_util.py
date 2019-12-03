@@ -453,6 +453,8 @@ def configure_logging(verbose):
     log_format = _LOG_FORMAT
     datefmt = _DATE_FORMAT
     level = logging.DEBUG if verbose else logging.INFO
+    # Clear all handlers to prevent setting level not working.
+    logging.getLogger().handlers = []
     logging.basicConfig(level=level, format=log_format, datefmt=datefmt)
 
 
