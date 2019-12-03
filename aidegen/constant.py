@@ -62,6 +62,9 @@ EXIT_CODE_AIDEGEN_EXCEPTION = 1
 AIDEGEN_TOOL_NAME = 'aidegen'
 ANDROID_TREE = 'is_android_tree'
 
+# Exit code of the asuite metrics for parsing xml file failed.
+XML_PARSING_FAILURE = 101
+
 # Constants for file names
 MERGED_MODULE_INFO = 'merged_module_info.json'
 BLUEPRINT_JSONFILE_NAME = 'module_bp_java_deps.json'
