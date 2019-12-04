@@ -407,6 +407,19 @@ class SDKConfigUnittests(unittest.TestCase):
                                           jdk._ATTRIBUTE_SDK)
         self.assertEqual(api_level, 0)
 
+    @mock.patch('os.path.expanduser')
+    def test_remove_user_home_path(self, mock_expanduser):
+        """ Test replace the user home path to a constant string."""
+        mock_expanduser.return_value = '/usr/home/a'
+        jdk = sdk_config.SDKConfig(self._JDK_SAMPLE3,
+                                   constant.LINUX_JDK_XML,
+                                   self._JDK_PATH,
+                                   self._DEFAULT_ANDROID_SDK_PATH)
+        test_string = '/usr/home/a/test/dir'
+        expect_string = '$USER_HOME$/test/dir'
+        result_path = jdk._remove_user_home_path(test_string)
+        self.assertEqual(result_path, expect_string)
+
 
 if __name__ == '__main__':
     unittest.main()
