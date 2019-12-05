@@ -1,12 +1,15 @@
 **/*.pyc
 **/*.class
-**/.idea
-**/*.iml
 **/*.uml~
 **/yapfrc
 **/build
 **/.gradle
 **/.coverage
+**/htmlcov
+
+# Intellij generated files
+**/.idea
+**/*.iml
 
 # Exceptions
 !aidegen/test_data/*.iml
