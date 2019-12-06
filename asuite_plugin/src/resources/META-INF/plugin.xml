@@ -8,7 +8,7 @@
 
     <extensions defaultExtensionNs="com.intellij">
         <configurationType implementation="com.android.atest.run.AtestConfigurationType"/>
-        <toolWindow id="AtestToolWindow" secondary="false" anchor="right" icon="/atest.png"
+        <toolWindow id="Atest ToolWindow" secondary="false" anchor="right" icon="/atest.png"
                     factoryClass="com.android.atest.toolWindow.AtestToolWindowFactory"/>
     </extensions>
 

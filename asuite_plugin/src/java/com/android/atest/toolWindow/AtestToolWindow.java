@@ -17,6 +17,7 @@ package com.android.atest.toolWindow;
 
 import com.android.atest.AtestUtils;
 import com.android.atest.commandAdapter.CommandRunner;
+import com.android.atest.dialog.MessageDialog;
 import com.intellij.openapi.wm.ToolWindow;
 import com.intellij.openapi.wm.ex.ToolWindowEx;
 import org.jetbrains.annotations.NotNull;
@@ -92,13 +93,19 @@ public class AtestToolWindow {
         mRunButton.setFocusable(false);
         mRunButton.addActionListener(
                 e -> {
-                    CommandRunner runner =
-                            new CommandRunner(
-                                    mLunchTarget.getText(),
-                                    mTestTarget.getEditor().getItem().toString(),
-                                    AtestUtils.getAndroidRoot(basePath),
-                                    AtestToolWindow.this);
-                    runner.run();
+                    String lunchTarget = mLunchTarget.getText();
+                    String testTarget = mTestTarget.getEditor().getItem().toString();
+                    String workPath = AtestUtils.getAndroidRoot(basePath);
+                    try {
+                        CommandRunner runner =
+                                new CommandRunner(
+                                        lunchTarget, testTarget, workPath, AtestToolWindow.this);
+                        runner.run();
+                    } catch (IllegalArgumentException exception) {
+                        String errorMessage =
+                                AtestUtils.checkError(lunchTarget, testTarget, workPath);
+                        MessageDialog.showMessageDialog(errorMessage);
+                    }
                 });
     }
 
