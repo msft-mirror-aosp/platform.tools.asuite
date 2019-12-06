@@ -25,18 +25,15 @@ import unittest
 
 from unittest import mock
 
-from aidegen import aidegen_main
 from aidegen import unittest_constants
 from aidegen.lib import android_dev_os
-from aidegen.lib import errors
+from aidegen.lib import ide_common_util
 from aidegen.lib import ide_util
-from aidegen.lib import project_config
 from aidegen.lib import sdk_config
 
 
 # pylint: disable=protected-access
 # pylint: disable-msg=too-many-arguments
-# pylint: disable=invalid-name
 class IdeUtilUnittests(unittest.TestCase):
     """Unit tests for ide_util.py."""
 
@@ -64,44 +61,6 @@ class IdeUtilUnittests(unittest.TestCase):
         IdeUtilUnittests._TEST_PRJ_PATH2 = ''
         IdeUtilUnittests._TEST_PRJ_PATH3 = ''
         IdeUtilUnittests._TEST_PRJ_PATH4 = ''
-
-    def test_is_intellij_project(self):
-        """Test _is_intellij_project."""
-        self.assertFalse(
-            ide_util._is_intellij_project(IdeUtilUnittests._TEST_PRJ_PATH2))
-        self.assertTrue(
-            ide_util._is_intellij_project(IdeUtilUnittests._TEST_PRJ_PATH1))
-        self.assertTrue(
-            ide_util._is_intellij_project(IdeUtilUnittests._TEST_PRJ_PATH3))
-        self.assertFalse(
-            ide_util._is_intellij_project(IdeUtilUnittests._TEST_PRJ_PATH4))
-
-    @mock.patch('glob.glob', return_value=unittest_constants.IDEA_SH_FIND_NONE)
-    def test_get_intellij_sh_none(self, mock_glob):
-        """Test with the cmd return none, test result should be None."""
-        mock_glob.return_value = unittest_constants.IDEA_SH_FIND_NONE
-        self.assertEqual(
-            None,
-            ide_util._get_intellij_version_path(
-                ide_util.IdeLinuxIntelliJ()._ls_ce_path))
-        self.assertEqual(
-            None,
-            ide_util._get_intellij_version_path(
-                ide_util.IdeLinuxIntelliJ()._ls_ue_path))
-
-    @mock.patch('builtins.input')
-    @mock.patch('glob.glob', return_value=unittest_constants.IDEA_SH_FIND)
-    def test_ask_preference(self, mock_glob, mock_input):
-        """Ask users' preference, the result should be equal to test data."""
-        mock_glob.return_value = unittest_constants.IDEA_SH_FIND
-        mock_input.return_value = '1'
-        self.assertEqual(
-            ide_util._ask_preference(unittest_constants.IDEA_SH_FIND),
-            unittest_constants.IDEA_SH_FIND[0])
-        mock_input.return_value = '2'
-        self.assertEqual(
-            ide_util._ask_preference(unittest_constants.IDEA_SH_FIND),
-            unittest_constants.IDEA_SH_FIND[1])
 
     @unittest.skip('Skip to use real command to launch IDEA.')
     def test_run_intellij_sh_in_linux(self):
@@ -142,7 +101,7 @@ class IdeUtilUnittests(unittest.TestCase):
             ide_util._get_linux_ide(None, 'e'), ide_util.IdeLinuxEclipse)
 
     @mock.patch.object(ide_util.IdeIntelliJ, '_set_installed_path')
-    @mock.patch.object(ide_util, '_get_script_from_input_path')
+    @mock.patch.object(ide_common_util, 'get_script_from_input_path')
     @mock.patch.object(ide_util.IdeIntelliJ, '_get_script_from_system')
     def test_init_ideintellij(self, mock_sys, mock_input, mock_set):
         """Test IdeIntelliJ's __init__ method."""
@@ -182,8 +141,8 @@ class IdeUtilUnittests(unittest.TestCase):
         finally:
             shutil.rmtree(test_path)
 
-    @mock.patch.object(ide_util, '_get_script_from_input_path')
-    @mock.patch.object(ide_util, '_get_script_from_internal_path')
+    @mock.patch.object(ide_common_util, 'get_script_from_input_path')
+    @mock.patch.object(ide_common_util, 'get_script_from_internal_path')
     def test_get_linux_config_1(self, mock_path, mock_path_2):
         """Test to get unique config path for linux IDEA case."""
         if (not android_dev_os.AndroidDevOS.MAC ==
@@ -197,8 +156,8 @@ class IdeUtilUnittests(unittest.TestCase):
                              android_dev_os.AndroidDevOS.get_os_type()))
 
     @mock.patch('glob.glob')
-    @mock.patch.object(ide_util, '_get_script_from_input_path')
-    @mock.patch.object(ide_util, '_get_script_from_internal_path')
+    @mock.patch.object(ide_common_util, 'get_script_from_input_path')
+    @mock.patch.object(ide_common_util, 'get_script_from_internal_path')
     def test_get_linux_config_2(self, mock_path, mock_path_2, mock_filter):
         """Test to get unique config path for linux IDEA case."""
         if (not android_dev_os.AndroidDevOS.MAC ==
@@ -225,8 +184,8 @@ class IdeUtilUnittests(unittest.TestCase):
                               android_dev_os.AndroidDevOS.get_os_type()))
 
     @mock.patch('glob.glob')
-    @mock.patch.object(ide_util, '_get_script_from_input_path')
-    @mock.patch.object(ide_util, '_get_script_from_internal_path')
+    @mock.patch.object(ide_common_util, 'get_script_from_input_path')
+    @mock.patch.object(ide_common_util, 'get_script_from_internal_path')
     def test_get_linux_config_root(self, mock_path_1, mock_path_2, mock_filter):
         """Test to go filter logic for self download case."""
         mock_path_1.return_value = '/usr/tester/IDEA/IC2018.3.3/bin'
@@ -269,33 +228,6 @@ class IdeUtilUnittests(unittest.TestCase):
             merged_version[0], symbolic_path + ' -> ' + original_path)
         self.assertEqual(
             ide_obj._get_real_path(merged_version[0]), symbolic_path)
-
-    def test_get_ide_util_instance_with_no_launch(self):
-        """Test _get_ide_util_instance with no launch IDE."""
-        args = aidegen_main._parse_args(['tradefed', '-n'])
-        project_config.ProjectConfig(args)
-        self.assertEqual(ide_util.get_ide_util_instance(args), None)
-
-    @mock.patch.object(ide_util.IdeIntelliJ, '_get_preferred_version')
-    def test_get_ide_util_instance_with_success(self, mock_preference):
-        """Test _get_ide_util_instance with success."""
-        args = aidegen_main._parse_args(['tradefed'])
-        project_config.ProjectConfig(args)
-        mock_preference.return_value = '1'
-        self.assertIsInstance(
-            ide_util.get_ide_util_instance(), ide_util.IdeUtil)
-
-    @mock.patch.object(ide_util.IdeIntelliJ, '_get_preferred_version')
-    @mock.patch.object(ide_util.IdeUtil, 'is_ide_installed')
-    def test_get_ide_util_instance_with_failure(
-            self, mock_installed, mock_preference):
-        """Test _get_ide_util_instance with failure."""
-        args = aidegen_main._parse_args(['tradefed'])
-        project_config.ProjectConfig(args)
-        mock_installed.return_value = False
-        mock_preference.return_value = '1'
-        with self.assertRaises(errors.IDENotExistError):
-            ide_util.get_ide_util_instance()
 
 
 if __name__ == '__main__':
