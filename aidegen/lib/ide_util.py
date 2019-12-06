@@ -63,6 +63,15 @@ Can not find IDE: {}, in path: {}, you can:
 or  - specify the exact IDE executable path by "aidegen -p"
 or  - specify "aidegen -n" to generate project file only
 """
+CONFIG_DIR = 'config'
+LINUX_JDK_PATH = os.path.join(common_util.get_android_root_dir(),
+                              'prebuilts/jdk/jdk8/linux-x86')
+LINUX_JDK_TABLE_PATH = 'config/options/jdk.table.xml'
+LINUX_ANDROID_SDK_PATH = os.path.join(os.getenv('HOME'), 'Android/Sdk')
+MAC_JDK_PATH = os.path.join(common_util.get_android_root_dir(),
+                            'prebuilts/jdk/jdk8/darwin-x86')
+MAC_JDK_TABLE_PATH = 'options/jdk.table.xml'
+MAC_ANDROID_SDK_PATH = os.path.join(os.getenv('HOME'), 'Library/Android/sdk')
 
 
 class IdeUtil:
@@ -124,6 +133,13 @@ class IdeUtil:
 class IdeBase:
     """The most base class of IDE, provides interface and partial path init.
 
+    Class Attributes:
+        _JDK_PATH: The path of JDK in android project.
+        _IDE_JDK_TABLE_PATH: The path of JDK table which record JDK info in IDE.
+        _JDK_CONTENT: A string, the content of the JDK configuration.
+        _DEFAULT_ANDROID_SDK_PATH: A string, the path of Android SDK.
+        _CONFIG_DIR: A string of the config folder name.
+
     Attributes:
         _installed_path: String for the IDE binary path.
         _config_reset: Boolean, True for reset configuration, else not reset.
@@ -140,6 +156,12 @@ class IdeBase:
         2. Launch IDE.
         3. Config IDE.
     """
+
+    _JDK_PATH = ''
+    _IDE_JDK_TABLE_PATH = ''
+    _JDK_CONTENT = ''
+    _DEFAULT_ANDROID_SDK_PATH = ''
+    _CONFIG_DIR = ''
 
     def __init__(self, installed_path=None, config_reset=False):
         self._installed_path = installed_path
@@ -165,8 +187,38 @@ class IdeBase:
                                    self._ide_name)
 
     def apply_optional_config(self):
-        """Handles IDE relevant configs."""
-        # Default does nothing, the derived classes know what need to config.
+        """Do IDEA global config action.
+
+        Run code style config, SDK config.
+        """
+        if not self._installed_path:
+            return
+        # Skip config action if there's no config folder exists.
+        _path_list = self._get_config_root_paths()
+        if not _path_list:
+            return
+        self.config_folders = _path_list.copy()
+
+        for _config_path in _path_list:
+            jdk_file = os.path.join(_config_path, self._IDE_JDK_TABLE_PATH)
+            jdk_table = sdk_config.SDKConfig(jdk_file, self._JDK_CONTENT,
+                                             self._JDK_PATH,
+                                             self._DEFAULT_ANDROID_SDK_PATH)
+            jdk_table.config_jdk_file()
+            jdk_table.gen_enable_debugger_module(self.project_abspath)
+
+            # Set the max file size in the idea.properties.
+            intellij_config_dir = os.path.join(_config_path, self._CONFIG_DIR)
+            config.IdeaProperties(intellij_config_dir).set_max_file_size()
+
+    def _get_config_root_paths(self):
+        """Get the config root paths from derived class.
+
+        Returns:
+            A string list of IDE config paths, return multiple paths if more
+            than one path are found, return an empty list when none is found.
+        """
+        raise NotImplementedError()
 
     @property
     def default_installed_path(self):
@@ -238,12 +290,8 @@ class IdeIntelliJ(IdeBase):
     """Provide basic IntelliJ ops, e.g., launch IDEA, and config IntelliJ.
 
     Class Attributes:
-        _JDK_PATH: The path of JDK in android project.
-        _IDE_JDK_TABLE_PATH: The path of JDK table which record JDK info in IDE.
-        _JDK_CONTENT: A string, the content of the JDK configuration.
         _SYMBOLIC_VERSIONS: A string list of the symbolic link paths of
-        IntelliJ.
-        _CONFIG_DIR: A string of the config folder name.
+                            IntelliJ.
 
     For example:
         1. Check if IntelliJ is installed.
@@ -251,43 +299,13 @@ class IdeIntelliJ(IdeBase):
         3. Config IntelliJ.
     """
 
-    _JDK_PATH = ''
-    _IDE_JDK_TABLE_PATH = ''
-    _JDK_CONTENT = ''
-    _DEFAULT_ANDROID_SDK_PATH = ''
     _SYMBOLIC_VERSIONS = []
-    _CONFIG_DIR = ''
 
     def __init__(self, installed_path=None, config_reset=False):
         super().__init__(installed_path, config_reset)
         self._ide_name = constant.IDE_INTELLIJ
         self._ls_ce_path = ''
         self._ls_ue_path = ''
-
-    def apply_optional_config(self):
-        """Do IDEA global config action.
-
-        Run code style config, SDK config.
-        """
-        if not self._installed_path:
-            return
-        # Skip config action if there's no config folder exists.
-        _path_list = self._get_config_root_paths()
-        if not _path_list:
-            return
-        self.config_folders = _path_list.copy()
-
-        for _config_path in _path_list:
-            jdk_file = os.path.join(_config_path, self._IDE_JDK_TABLE_PATH)
-            jdk_table = sdk_config.SDKConfig(jdk_file, self._JDK_CONTENT,
-                                             self._JDK_PATH,
-                                             self._DEFAULT_ANDROID_SDK_PATH)
-            jdk_table.config_jdk_file()
-            jdk_table.gen_enable_debugger_module(self.project_abspath)
-
-            # Set the max file size in the idea.properties.
-            intellij_config_dir = os.path.join(_config_path, self._CONFIG_DIR)
-            config.IdeaProperties(intellij_config_dir).set_max_file_size()
 
     def _get_config_root_paths(self):
         """Get the config root paths from derived class.
@@ -434,18 +452,16 @@ class IdeLinuxIntelliJ(IdeIntelliJ):
         3. Config IntelliJ.
     """
 
-    _JDK_PATH = os.path.join(common_util.get_android_root_dir(),
-                             'prebuilts/jdk/jdk8/linux-x86')
+    _JDK_PATH = LINUX_JDK_PATH
     # TODO(b/127899277): Preserve a config for jdk version option case.
-    _CONFIG_DIR = 'config'
-    _IDE_JDK_TABLE_PATH = 'config/options/jdk.table.xml'
+    _CONFIG_DIR = CONFIG_DIR
+    _IDE_JDK_TABLE_PATH = LINUX_JDK_TABLE_PATH
     _JDK_CONTENT = constant.LINUX_JDK_XML
-    _DEFAULT_ANDROID_SDK_PATH = os.path.join(os.getenv('HOME'), 'Android/Sdk')
-    IdeIntelliJ._SYMBOLIC_VERSIONS = [
-        '/opt/intellij-ce-stable/bin/idea.sh',
-        '/opt/intellij-ue-stable/bin/idea.sh',
-        '/opt/intellij-ce-beta/bin/idea.sh', '/opt/intellij-ue-beta/bin/idea.sh'
-    ]
+    _DEFAULT_ANDROID_SDK_PATH = LINUX_ANDROID_SDK_PATH
+    IdeIntelliJ._SYMBOLIC_VERSIONS = ['/opt/intellij-ce-stable/bin/idea.sh',
+                                      '/opt/intellij-ue-stable/bin/idea.sh',
+                                      '/opt/intellij-ce-beta/bin/idea.sh',
+                                      '/opt/intellij-ue-beta/bin/idea.sh']
     _INTELLIJ_RE = re.compile(r'intellij-(ce|ue)-')
 
     def __init__(self, installed_path=None, config_reset=False):
@@ -519,12 +535,10 @@ class IdeMacIntelliJ(IdeIntelliJ):
         3. Config IntelliJ.
     """
 
-    _JDK_PATH = os.path.join(common_util.get_android_root_dir(),
-                             'prebuilts/jdk/jdk8/darwin-x86')
-    _IDE_JDK_TABLE_PATH = 'options/jdk.table.xml'
+    _JDK_PATH = MAC_JDK_PATH
+    _IDE_JDK_TABLE_PATH = MAC_JDK_TABLE_PATH
     _JDK_CONTENT = constant.MAC_JDK_XML
-    _DEFAULT_ANDROID_SDK_PATH = os.path.join(
-        os.getenv('HOME'), 'Library/Android/sdk')
+    _DEFAULT_ANDROID_SDK_PATH = MAC_ANDROID_SDK_PATH
 
     def __init__(self, installed_path=None, config_reset=False):
         super().__init__(installed_path, config_reset)
@@ -604,6 +618,12 @@ class IdeLinuxStudio(IdeStudio):
         3. Config Android Studio.
     """
 
+    _JDK_PATH = LINUX_JDK_PATH
+    _CONFIG_DIR = CONFIG_DIR
+    _IDE_JDK_TABLE_PATH = LINUX_JDK_TABLE_PATH
+    _JDK_CONTENT = constant.LINUX_JDK_XML
+    _DEFAULT_ANDROID_SDK_PATH = LINUX_ANDROID_SDK_PATH
+
     def __init__(self, installed_path=None, config_reset=False):
         super().__init__(installed_path, config_reset)
         self._bin_file_name = 'studio.sh'
@@ -629,6 +649,11 @@ class IdeMacStudio(IdeStudio):
         2. Launch an Android Studio.
         3. Config Android Studio.
     """
+
+    _JDK_PATH = MAC_JDK_PATH
+    _IDE_JDK_TABLE_PATH = MAC_JDK_TABLE_PATH
+    _JDK_CONTENT = constant.MAC_JDK_XML
+    _DEFAULT_ANDROID_SDK_PATH = MAC_ANDROID_SDK_PATH
 
     def __init__(self, installed_path=None, config_reset=False):
         super().__init__(installed_path, config_reset)
@@ -711,6 +736,12 @@ class IdeEclipse(IdeBase):
         self.cmd.extend([constant.IGNORE_STD_OUT_ERR_CMD, '&'])
         return ' '.join(self.cmd)
 
+    def apply_optional_config(self):
+        """Override to do nothing."""
+
+    def _get_config_root_paths(self):
+        """Override to do nothing."""
+
 
 class IdeLinuxEclipse(IdeEclipse):
     """Class offers a set of Eclipse launching utilities for OS Linux.
@@ -756,6 +787,12 @@ class IdeCLion(IdeBase):
     def __init__(self, installed_path=None, config_reset=False):
         super().__init__(installed_path, config_reset)
         self._ide_name = constant.IDE_CLION
+
+    def apply_optional_config(self):
+        """Override to do nothing."""
+
+    def _get_config_root_paths(self):
+        """Override to do nothing."""
 
 
 class IdeLinuxCLion(IdeCLion):
