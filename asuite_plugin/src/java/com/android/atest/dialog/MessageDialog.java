@@ -13,8 +13,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.android.atest.widget;
+package com.android.atest.dialog;
 
+import com.android.atest.Constants;
 import com.intellij.openapi.project.Project;
 import com.intellij.openapi.ui.DialogWrapper;
 import org.jetbrains.annotations.NotNull;
@@ -23,7 +24,7 @@ import org.jetbrains.annotations.Nullable;
 import javax.swing.*;
 
 /** The UI of a modal dialog box which shows the summary after Atest execution finishes. */
-public class SummaryDialog extends DialogWrapper {
+public class MessageDialog extends DialogWrapper {
 
     private JPanel mDialogPanel;
     private JTextPane mTestResult;
@@ -39,25 +40,25 @@ public class SummaryDialog extends DialogWrapper {
      * @throws IllegalStateException if the dialog is invoked not on the event dispatch thread.
      * @see DialogWrapper#DialogWrapper(Project, boolean)
      */
-    public SummaryDialog(@Nullable Project project) {
+    public MessageDialog(@Nullable Project project) {
         super(project);
         init();
-        setTitle("Atest summary");
+        setTitle(Constants.ATEST_NAME);
     }
 
     /**
-     * Sets the test summary message in the dialog.
+     * Sets the message in the dialog.
      *
-     * @param message the test summary message.
+     * @param message the message to be shown.
      */
-    public void SetMessage(String message) {
+    public void setMessage(String message) {
         mTestResult.setText(message);
     }
 
     /**
      * Overrides createActions to only show OK button.
      *
-     * @return dialog actions
+     * @return dialog actions.
      */
     @NotNull
     @Override
@@ -70,11 +71,22 @@ public class SummaryDialog extends DialogWrapper {
      * content pane. The implementation can return {@code null} value. In this case there will be no
      * options panel.
      *
-     * @return center panel
+     * @return center panel.
      */
     @Nullable
     @Override
     protected JComponent createCenterPanel() {
         return mDialogPanel;
+    }
+
+    /**
+     * Shows a dialog with the message.
+     *
+     * @param message the message to be shown.
+     */
+    public static void showMessageDialog(String message) {
+        MessageDialog dialog = new MessageDialog(null);
+        dialog.setMessage(message);
+        dialog.show();
     }
 }
