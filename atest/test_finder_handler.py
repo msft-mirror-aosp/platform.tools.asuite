@@ -16,6 +16,9 @@
 Test Finder Handler module.
 """
 
+# pylint: disable=relative-import
+# pylint: disable=line-too-long
+
 import logging
 
 import atest_enum
@@ -49,7 +52,8 @@ _TEST_FINDERS = {
 #           Same as value of "test-suite-tag" in AndroidTest.xml files.
 # 10. CC_CLASS: Test case in cc file.
 # 11. SUITE_PLAN: Suite name such as cts.
-# 12. SUITE_PLAN_FILE_PATH: File path to config xml in the suite config directories.
+# 12. SUITE_PLAN_FILE_PATH: File path to config xml in the suite config
+#                           directories.
 # 13. CACHE: A pseudo type that runs cache_finder without finding test in real.
 _REFERENCE_TYPE = atest_enum.AtestEnum(['MODULE', 'CLASS', 'QUALIFIED_CLASS',
                                         'MODULE_CLASS', 'PACKAGE',

@@ -12,11 +12,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""
-Example test runner class.
-"""
+"""Example test runner class."""
 
-# pylint: disable=import-error
+# pylint: disable=relative-import
+
 import test_runner_base
 
 

@@ -23,6 +23,9 @@ code base and executing the tests via the TradeFederation test harness.
 atest is designed to support any test types that can be ran by TradeFederation.
 """
 
+# pylint: disable=relative-import
+# pylint: disable=line-too-long
+
 from __future__ import print_function
 
 import logging
@@ -40,7 +43,6 @@ import atest_execution_info
 import atest_utils
 import bug_detector
 import cli_translator
-# pylint: disable=import-error
 import constants
 import module_info
 import result_reporter
@@ -127,9 +129,11 @@ def _configure_logging(verbose):
     log_format = '%(asctime)s %(filename)s:%(lineno)s:%(levelname)s: %(message)s'
     datefmt = '%Y-%m-%d %H:%M:%S'
     if verbose:
-        logging.basicConfig(level=logging.DEBUG, format=log_format, datefmt=datefmt)
+        logging.basicConfig(level=logging.DEBUG,
+                            format=log_format, datefmt=datefmt)
     else:
-        logging.basicConfig(level=logging.INFO, format=log_format, datefmt=datefmt)
+        logging.basicConfig(level=logging.INFO,
+                            format=log_format, datefmt=datefmt)
 
 
 def _missing_environment_variables():
@@ -155,7 +159,8 @@ def make_test_run_dir():
     if not os.path.exists(constants.ATEST_RESULT_ROOT):
         os.makedirs(constants.ATEST_RESULT_ROOT)
     ctime = time.strftime(TEST_RUN_DIR_PREFIX, time.localtime())
-    return tempfile.mkdtemp(prefix='%s_' % ctime, dir=constants.ATEST_RESULT_ROOT)
+    return tempfile.mkdtemp(prefix='%s_' % ctime,
+                            dir=constants.ATEST_RESULT_ROOT)
 
 
 def get_extra_args(args):
@@ -279,7 +284,8 @@ def _validate_tm_tests_exec_mode(args, test_infos):
 def _will_run_tests(args):
     """Determine if there are tests to run.
 
-    Currently only used by detect_regression to skip the test if just running regression detection.
+    Currently only used by detect_regression to skip the test if just running
+    regression detection.
 
     Args:
         args: parsed args object.
@@ -300,21 +306,24 @@ def _has_valid_regression_detection_args(args):
         True if args are valid
     """
     if args.generate_baseline and args.generate_new_metrics:
-        logging.error('Cannot collect both baseline and new metrics at the same time.')
+        logging.error('Cannot collect both baseline and new metrics'
+                      'at the same time.')
         return False
     if args.detect_regression is not None:
         if not args.detect_regression:
-            logging.error('Need to specify at least 1 arg for regression detection.')
+            logging.error('Need to specify at least 1 arg for'
+                          ' regression detection.')
             return False
         elif len(args.detect_regression) == 1:
             if args.generate_baseline or args.generate_new_metrics:
                 return True
-            logging.error('Need to specify --generate-baseline or --generate-new-metrics.')
+            logging.error('Need to specify --generate-baseline or'
+                          ' --generate-new-metrics.')
             return False
         elif len(args.detect_regression) == 2:
             if args.generate_baseline:
-                logging.error('Specified 2 metric paths and --generate-baseline, '
-                              'either drop --generate-baseline or drop a path')
+                logging.error('Specified 2 metric paths and --generate-baseline'
+                              ', either drop --generate-baseline or drop a path')
                 return False
             if args.generate_new_metrics:
                 logging.error('Specified 2 metric paths and --generate-new-metrics, '

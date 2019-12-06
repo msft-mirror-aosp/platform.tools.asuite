@@ -21,6 +21,9 @@ operation. These constants are used commonly as test data so when updating a
 constant, do so with care and run all unittests to make sure nothing breaks.
 """
 
+# pylint: disable=relative-import
+# pylint: disable=line-too-long
+
 import os
 
 import constants

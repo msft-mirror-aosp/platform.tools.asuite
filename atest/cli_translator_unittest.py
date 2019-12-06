@@ -16,6 +16,9 @@
 
 """Unittests for cli_translator."""
 
+# pylint: disable=relative-import
+# pylint: disable=line-too-long
+
 import unittest
 import json
 import os

@@ -16,6 +16,9 @@
 Module Info class used to hold cached module-info.json.
 """
 
+# pylint: disable=line-too-long
+# pylint: disable=relative-import
+
 import json
 import logging
 import os
@@ -83,8 +86,8 @@ class ModuleInfo(object):
             build_env.update(constants.DEPS_LICENSE_ENV)
             # Also build the deps-license module to generate dependencies data.
             atest_utils.build([module_info_target, constants.DEPS_LICENSE],
-                              verbose=logging.getLogger().isEnabledFor(logging.DEBUG),
-                              env_vars=build_env)
+                              verbose=logging.getLogger().isEnabledFor(
+                                  logging.DEBUG), env_vars=build_env)
         return module_info_target, module_file_path
 
     def _load_module_info_file(self, force_build, module_file):
@@ -221,7 +224,8 @@ class ModuleInfo(object):
         A module can have a test config in the following manner:
           - AndroidTest.xml at the module path.
           - test_config be set in module-info.json.
-          - Auto-generated config via the auto_test_config key in module-info.json.
+          - Auto-generated config via the auto_test_config key
+            in module-info.json.
 
         Args:
             mod_info: Dict of module info to check.

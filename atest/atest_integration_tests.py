@@ -142,7 +142,8 @@ if __name__ == '__main__':
                 test_func_name, test_func = create_test_method(
                     test.strip(), LOG_PATH)
                 setattr(ATestIntegrationTest, test_func_name, test_func)
-        SUITE = unittest.TestLoader().loadTestsFromTestCase(ATestIntegrationTest)
+        SUITE = unittest.TestLoader().loadTestsFromTestCase(
+            ATestIntegrationTest)
         RESULTS = unittest.TextTestRunner(verbosity=2).run(SUITE)
     finally:
         if RESULTS.failures:

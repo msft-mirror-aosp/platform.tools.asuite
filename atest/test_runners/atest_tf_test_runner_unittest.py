@@ -16,6 +16,9 @@
 
 """Unittests for atest_tf_test_runner."""
 
+# pylint: disable=relative-import
+# pylint: disable=line-too-long
+
 import os
 import sys
 import tempfile
@@ -23,7 +26,6 @@ import unittest
 import json
 import mock
 
-# pylint: disable=import-error
 import constants
 import unittest_constants as uc
 import unittest_utils

@@ -152,7 +152,8 @@ class SuitePlanFinder(test_finder_base.TestFinderBase):
             if not test_files:
                 return None
             for test_file in test_files:
-                _test_info = self._get_test_info_from_path(test_file, suite_name)
+                _test_info = self._get_test_info_from_path(test_file,
+                                                           suite_name)
                 if _test_info:
                     test_infos.append(_test_info)
         return test_infos
