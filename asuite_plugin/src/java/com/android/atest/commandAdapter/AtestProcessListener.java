@@ -18,12 +18,15 @@ package com.android.atest.commandAdapter;
 import com.android.atest.toolWindow.AtestToolWindow;
 import com.intellij.execution.process.ProcessEvent;
 import com.intellij.execution.process.ProcessListener;
+import com.intellij.execution.process.ProcessOutputTypes;
+import com.intellij.openapi.diagnostic.Logger;
 import com.intellij.openapi.util.Key;
 import org.jetbrains.annotations.NotNull;
 
 /** Atest process listener. */
 public class AtestProcessListener implements ProcessListener {
 
+    private static final Logger LOG = Logger.getInstance(AtestProcessListener.class);
     private final AtestToolWindow mToolWindow;
     private StringBuffer mOutputBuffer = new StringBuffer();
 
@@ -71,5 +74,8 @@ public class AtestProcessListener implements ProcessListener {
         mOutputBuffer.append(event.getText());
         mToolWindow.setAtestOutput(mOutputBuffer.toString());
         mToolWindow.scrollToEnd();
+        if (outputType == ProcessOutputTypes.STDERR) {
+            LOG.warn(event.getText());
+        }
     }
 }

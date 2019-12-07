@@ -15,11 +15,15 @@
  */
 package com.android.atest;
 
+import com.google.common.base.Strings;
+
 import java.io.File;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 
 public class AtestUtils {
+
+    private static final String EMPTY_STRING_ERROR = " can't be empty.\n";
 
     /**
      * Checks if the directory contains test mapping file.
@@ -51,5 +55,42 @@ public class AtestUtils {
             }
         }
         return null;
+    }
+
+    /**
+     * Checks if there are any empty strings.
+     *
+     * @param targets strings to be checked.
+     * @return true if there are any empty arguments.
+     */
+    public static boolean checkEmpty(String... targets) {
+        for (String target : targets) {
+            if (Strings.isNullOrEmpty(target)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Gets error message from the Atest arguments.
+     *
+     * @param lunchTarget the lunch target.
+     * @param testTarget the Atest test target.
+     * @param workPath the work path to run the command.
+     * @return the error message shown for users.
+     */
+    public static String checkError(String lunchTarget, String testTarget, String workPath) {
+        StringBuilder errorMessage = new StringBuilder("Please check:\n");
+        if (Strings.isNullOrEmpty(testTarget)) {
+            errorMessage.append("- Atest target" + EMPTY_STRING_ERROR);
+        }
+        if (Strings.isNullOrEmpty(lunchTarget)) {
+            errorMessage.append("- lunch target" + EMPTY_STRING_ERROR);
+        }
+        if (Strings.isNullOrEmpty(workPath)) {
+            errorMessage.append("- is your project under Android source directory?");
+        }
+        return errorMessage.toString();
     }
 }
