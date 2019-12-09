@@ -229,6 +229,33 @@ class IdeUtilUnittests(unittest.TestCase):
         self.assertEqual(
             ide_obj._get_real_path(merged_version[0]), symbolic_path)
 
+    @mock.patch('os.path.isfile')
+    def test_get_application_path(self, mock_isfile):
+        """Test _get_application_path."""
+        ide_obj = ide_util.IdeLinuxIntelliJ('default_path')
+        mock_isfile.return_value = True
+        test_path = None
+        self.assertEqual(None, ide_obj._get_application_path(test_path))
+
+        test_path = 'a/b/c/d-e/f-gh/foo'
+        self.assertEqual(None, ide_obj._get_application_path(test_path))
+
+        test_path = 'a/b/c/d/intellij/foo'
+        self.assertEqual(None, ide_obj._get_application_path(test_path))
+
+        test_path = 'a/b/c/d/intellij-efg/foo'
+        self.assertEqual(None, ide_obj._get_application_path(test_path))
+
+        test_path = 'a/b/c/d/intellij-efg-hi/foo'
+        self.assertEqual(None, ide_obj._get_application_path(test_path))
+
+        test_path = 'a/b/c/d/intellij-ce-303/foo'
+        self.assertEqual('.IdeaIC303', ide_obj._get_application_path(test_path))
+
+        test_path = 'a/b/c/d/intellij-ue-303/foo'
+        self.assertEqual('.IntelliJIdea303', ide_obj._get_application_path(
+            test_path))
+
 
 if __name__ == '__main__':
     unittest.main()
