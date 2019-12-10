@@ -23,6 +23,7 @@ import unittest
 from unittest import mock
 
 from aidegen import aidegen_main
+from aidegen import constant
 from aidegen import unittest_constants
 from aidegen.lib import ide_common_util
 from aidegen.lib import ide_util
@@ -99,6 +100,24 @@ class IdeUtilCommonUnittests(unittest.TestCase):
         self.assertEqual(
             ide_common_util.ask_preference(unittest_constants.IDEA_SH_FIND),
             unittest_constants.IDEA_SH_FIND[1])
+
+    def test_get_run_ide_cmd(self):
+        """Test get_run_ide_cmd."""
+        test_script_path = 'a/b/c/d.sh'
+        test_project_path = 'xyz/.idea'
+        test_result = ' '.join([
+            constant.NOHUP, test_script_path, test_project_path,
+            constant.IGNORE_STD_OUT_ERR_CMD, '&'
+        ])
+        self.assertEqual(test_result, ide_common_util.get_run_ide_cmd(
+            test_script_path, test_project_path))
+        folk_new_process = False
+        test_result = ' '.join([
+            constant.NOHUP, test_script_path, test_project_path,
+            constant.IGNORE_STD_OUT_ERR_CMD, ''
+        ])
+        self.assertEqual(test_result, ide_common_util.get_run_ide_cmd(
+            test_script_path, test_project_path, folk_new_process))
 
 
 if __name__ == '__main__':
