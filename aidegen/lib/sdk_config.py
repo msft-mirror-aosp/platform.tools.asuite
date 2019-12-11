@@ -447,6 +447,12 @@ class SDKConfig():
                     ANDROID_SDK_PATH=self.android_sdk_path,
                     API_LEVEL=self.max_api_level_version)
             else:
+                stack_trace = self._remove_user_home_path(self.android_sdk_path)
+                logs = self._remove_user_home_path(self.config_string)
+                aidegen_metrics.ends_asuite_metrics(
+                    constant.LOCATE_SDK_PATH_FAILURE,
+                    stack_trace,
+                    logs)
                 print('\n{} {}\n'.format(common_util.COLORED_INFO('Warning:'),
                                          self._WARNING_API_LEVEL.format(
                                              self.android_sdk_path)))
