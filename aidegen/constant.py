@@ -65,6 +65,9 @@ ANDROID_TREE = 'is_android_tree'
 # Exit code of the asuite metrics for parsing xml file failed.
 XML_PARSING_FAILURE = 101
 
+# Exit code of the asuite metrics for locating Android SDK path failed.
+LOCATE_SDK_PATH_FAILURE = 102
+
 # Constants for file names
 MERGED_MODULE_INFO = 'merged_module_info.json'
 BLUEPRINT_JSONFILE_NAME = 'module_bp_java_deps.json'

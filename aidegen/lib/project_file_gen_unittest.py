@@ -227,8 +227,8 @@ class AidegenProjectFileGenUnittest(unittest.TestCase):
         print('\n{} {}.'.format('Test_paths length:', len(test_paths)))
 
         path_list = []
-        for k in test_paths:
-            path_list.append(k)
+        for path in test_paths:
+            path_list.append(path)
         print('{} {}.'.format('path list with length:', len(path_list)))
 
         names = [project_file_gen.ProjectFileGenerator.get_unique_iml_name(f)

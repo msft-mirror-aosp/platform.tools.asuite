@@ -28,7 +28,7 @@ class AidegenSingletonUnittests(unittest.TestCase):
         """Test get_instance with different conditions."""
         class SingletonClass(metaclass=Singleton):
             """A singleton testing class."""
-            pass
+
         singleton_a1 = SingletonClass()
         singleton_a2 = SingletonClass()
         self.assertTrue(singleton_a1 is singleton_a2)
