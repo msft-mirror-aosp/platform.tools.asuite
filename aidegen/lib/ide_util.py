@@ -14,8 +14,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# pylint: disable=too-many-lines
-
 """It is an AIDEGen sub task : IDE operation task!
 
 Takes a project file path as input, after passing the needed check(file
@@ -333,15 +331,6 @@ class IdeIntelliJ(IdeBase):
         """
         raise NotImplementedError()
 
-    # TODO(b/145581092): Remove dead code.
-    def _get_config_folder_name(self):
-        """Get the config sub folder name from derived class.
-
-        Returns:
-            A string of the sub path for the config folder.
-        """
-        raise NotImplementedError('Method overriding is needed.')
-
     def _get_preferred_version(self):
         """Get the user's preferred IntelliJ version.
 
@@ -607,15 +596,6 @@ class IdeLinuxIntelliJ(IdeIntelliJ):
 
         return _config_folders
 
-    # TODO(b/145581092): Remove dead code.
-    def _get_config_folder_name(self):
-        """An interface used to provide the config sub folder name.
-
-        Returns:
-            A sub path string of the config folder.
-        """
-        return os.path.join('config', 'codestyles')
-
 
 class IdeMacIntelliJ(IdeIntelliJ):
     """Provide the IDEA behavior implementation for OS Mac.
@@ -667,15 +647,6 @@ class IdeMacIntelliJ(IdeIntelliJ):
                         os.getenv('HOME'),
                         'Library/Preferences/IntelliJIdea20*')))
         return _config_folders
-
-    # TODO(b/145581092): Remove dead code.
-    def _get_config_folder_name(self):
-        """An interface used to provide the config sub folder name.
-
-        Returns:
-            A sub path string of the config folder.
-        """
-        return 'codeStyles'
 
 
 class IdeStudio(IdeBase):
