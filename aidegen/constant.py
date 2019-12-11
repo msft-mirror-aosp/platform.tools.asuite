@@ -19,6 +19,7 @@
 OUT_DIR_COMMON_BASE_ENV_VAR = 'OUT_DIR_COMMON_BASE'
 ANDROID_DEFAULT_OUT = 'out'
 AIDEGEN_ROOT_PATH = 'tools/asuite/aidegen'
+USER_HOME = '$USER_HOME$'
 
 # Constants for module's info.
 KEY_PATH = 'path'
@@ -67,6 +68,9 @@ XML_PARSING_FAILURE = 101
 
 # Exit code of the asuite metrics for locating Android SDK path failed.
 LOCATE_SDK_PATH_FAILURE = 102
+
+# Exit code of the asuite metrics for IDE launched failed.
+IDE_LAUNCH_FAILURE = 103
 
 # Constants for file names
 MERGED_MODULE_INFO = 'merged_module_info.json'

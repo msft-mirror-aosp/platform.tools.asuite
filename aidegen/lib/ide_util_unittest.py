@@ -493,6 +493,24 @@ class IdeUtilUnittests(unittest.TestCase):
         test_result = eclipse._get_ide_cmd()
         self.assertEqual(test_result, expacted_result)
 
+    @mock.patch.object(ide_util.IdeUtil, 'is_ide_installed')
+    @mock.patch.object(project_config.ProjectConfig, 'get_instance')
+    def test_get_ide_util_instance(self, mock_config, mock_ide_installed):
+        """Test get_ide_util_instance."""
+        # Test is_launch_ide conditions.
+        mock_instance = mock_config.return_value
+        mock_instance.is_launch_ide = False
+        ide_util.get_ide_util_instance()
+        self.assertFalse(mock_ide_installed.called)
+        mock_instance.is_launch_ide = True
+        ide_util.get_ide_util_instance()
+        self.assertTrue(mock_ide_installed.called)
+
+        # Test ide is not installed.
+        mock_ide_installed.return_value = False
+        with self.assertRaises(errors.IDENotExistError):
+            ide_util.get_ide_util_instance()
+
 
 if __name__ == '__main__':
     unittest.main()
