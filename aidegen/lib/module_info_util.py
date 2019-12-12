@@ -39,7 +39,6 @@ from aidegen.lib import project_config
 from atest import atest_utils
 from atest import constants
 
-_BLUEPRINT_JSONFILE_NAME = 'module_bp_java_deps.json'
 _MERGE_NEEDED_ITEMS = [
     constant.KEY_CLASS,
     constant.KEY_PATH,
@@ -99,7 +98,7 @@ def _build_bp_info(module_info, main_project=None, verbose=False,
         main_project: The main project name.
         verbose: A boolean, if true displays full build output.
         skip_build: A boolean, if true, skip building if
-                    get_blueprint_json_path() file exists, otherwise
+                    get_blueprint_json_path(file_name) file exists, otherwise
                     build it.
     Build results:
         1. Build successfully return.
@@ -110,7 +109,8 @@ def _build_bp_info(module_info, main_project=None, verbose=False,
               a) If the answer is yes, return.
               b) If the answer is not yes, sys.exit(1)
     """
-    json_path = common_util.get_blueprint_json_path()
+    json_path = common_util.get_blueprint_json_path(
+        constant.BLUEPRINT_JAVA_JSONFILE_NAME)
     original_json_mtime = None
     if os.path.isfile(json_path):
         if skip_build:
@@ -177,7 +177,8 @@ def _build_failed_handle(main_project_path):
             sys.exit(1)
     else:
         raise errors.BuildFailureError(
-            'Failed to generate %s.' % common_util.get_blueprint_json_path())
+            'Failed to generate %s.' % common_util.get_blueprint_json_path(
+                constant.BLUEPRINT_JAVA_JSONFILE_NAME))
 
 
 def _get_soong_build_json_dict():
@@ -186,7 +187,8 @@ def _get_soong_build_json_dict():
     Returns:
         A dictionary loaded from the blueprint json file.
     """
-    json_path = common_util.get_blueprint_json_path()
+    json_path = common_util.get_blueprint_json_path(
+        constant.BLUEPRINT_JAVA_JSONFILE_NAME)
     try:
         with open(json_path) as jfile:
             json_dict = json.load(jfile)

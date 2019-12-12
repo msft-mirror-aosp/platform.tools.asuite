@@ -362,13 +362,16 @@ def file_generate(path, content):
         target.write(content)
 
 
-def get_blueprint_json_path():
+def get_blueprint_json_path(file_name):
     """Assemble the path of blueprint json file.
 
+    Args:
+        file_name: A string of blueprint json file name.
+
     Returns:
-        module_bp_java_deps.json path.
+        The path of json file.
     """
-    return os.path.join(get_soong_out_path(), constant.BLUEPRINT_JSONFILE_NAME)
+    return os.path.join(get_soong_out_path(), file_name)
 
 
 def back_to_cwd(func):
@@ -574,7 +577,7 @@ def check_args(**decls):
         @wraps(func)
         def decorated(*args, **kwargs):
             """A wrapper function."""
-            params = {k:v for k, v in zip(fparams, args)}
+            params = {k: v for k, v in zip(fparams, args)}
             for arg_name, arg_type in decls.items():
                 try:
                     arg_val = params[arg_name]
@@ -607,3 +610,21 @@ def dump_json_dict(json_path, data):
     """
     with open(json_path, 'w') as json_file:
         json.dump(data, json_file, indent=4)
+
+
+def get_json_dict(json_path):
+    """Loads a json file from path and convert it into a json dictionary.
+
+    Args:
+        json_path: An absolute json file path string.
+
+    Returns:
+        A dictionary loaded from the json_path.
+    """
+    try:
+        with open(json_path) as jfile:
+            json_dict = json.load(jfile)
+            return json_dict
+    except IOError as err:
+        raise errors.JsonFileNotExistError(
+            '%s does not exist, error: %s.' % (json_path, err))
