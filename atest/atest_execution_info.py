@@ -11,9 +11,11 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-"""
-ATest execution info generator.
-"""
+
+"""ATest execution info generator."""
+
+# pylint: disable=line-too-long
+# pylint: disable=relative-import
 
 from __future__ import print_function
 
@@ -182,7 +184,8 @@ class AtestExecutionInfo(object):
         info_dict[_TEST_RUNNER_KEY] = {}
         for reporter in reporters:
             for test in reporter.all_test_results:
-                runner = info_dict[_TEST_RUNNER_KEY].setdefault(test.runner_name, {})
+                runner = info_dict[_TEST_RUNNER_KEY].setdefault(
+                    test.runner_name, {})
                 group = runner.setdefault(test.group_name, {})
                 result_dict = {_TEST_NAME_KEY : test.test_name,
                                _TEST_TIME_KEY : test.test_time,

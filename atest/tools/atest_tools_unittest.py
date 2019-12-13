@@ -16,6 +16,9 @@
 
 """Unittest for atest_tools."""
 
+# pylint: disable=relative-import
+# pylint: disable=line-too-long
+
 import os
 import pickle
 import platform

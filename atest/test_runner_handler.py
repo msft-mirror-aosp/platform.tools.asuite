@@ -16,6 +16,9 @@
 Aggregates test runners, groups tests by test runners and kicks off tests.
 """
 
+# pylint: disable=relative-import
+# pylint: disable=line-too-long
+
 import itertools
 import time
 import traceback
@@ -31,7 +34,6 @@ from test_runners import robolectric_test_runner
 from test_runners import suite_plan_test_runner
 from test_runners import vts_tf_test_runner
 
-# pylint: disable=line-too-long
 _TEST_RUNNERS = {
     atest_tf_test_runner.AtestTradefedTestRunner.NAME: atest_tf_test_runner.AtestTradefedTestRunner,
     robolectric_test_runner.RobolectricTestRunner.NAME: robolectric_test_runner.RobolectricTestRunner,
@@ -52,7 +54,6 @@ def _get_test_runners():
     test_runners_dict = _TEST_RUNNERS
     # Example import of example test runner:
     try:
-        # pylint: disable=line-too-long
         from test_runners import example_test_runner
         test_runners_dict[example_test_runner.ExampleTestRunner.NAME] = example_test_runner.ExampleTestRunner
     except ImportError:

@@ -12,9 +12,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""
-Atest test event handler class.
-"""
+"""Atest test event handler class."""
+
+# pylint: disable=line-too-long
 
 from __future__ import print_function
 from collections import deque
@@ -228,7 +228,8 @@ class EventHandler(object):
         if self.switch_handler.has_key(event_name):
             self.switch_handler[event_name](self, event_data)
         else:
-            # TODO(b/128875503): Implement the mechanism to inform not handled TF event.
+            # TODO(b/128875503): Implement the mechanism to inform not handled
+            # TF event.
             logging.debug('Event[%s] is not processable.', event_name)
 
     def _check_events_are_balanced(self, event_name, reporter):

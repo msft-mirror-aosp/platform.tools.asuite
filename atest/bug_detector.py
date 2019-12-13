@@ -12,9 +12,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""
-Classes for bug events history
-"""
+"""Classes for bug events history."""
+
+# pylint: disable=line-too-long
+# pylint: disable=relative-import
 
 import datetime
 import logging

@@ -16,10 +16,12 @@
 Module Finder class.
 """
 
+# pylint: disable=relative-import
+# pylint: disable=line-too-long
+
 import logging
 import os
 
-# pylint: disable=import-error
 import atest_error
 import atest_utils
 import constants
@@ -336,7 +338,8 @@ class ModuleFinder(test_finder_base.TestFinderBase):
             # path is a list with only 1 element.
             rel_config = os.path.join(mod_info['path'][0],
                                       constants.MODULE_CONFIG)
-            rel_config = self._get_module_test_config(module_name, rel_config=rel_config)
+            rel_config = self._get_module_test_config(module_name,
+                                                      rel_config=rel_config)
             tinfo = self._process_test_info(test_info.TestInfo(
                 test_name=module_name,
                 test_runner=self._TEST_RUNNER,
@@ -561,9 +564,10 @@ class ModuleFinder(test_finder_base.TestFinderBase):
 
         Args:
             user_input: A string of the user input.
-            ld_range: An integer that range the searching scope. If the length of
-                      user_input is 10, then Atest will calculate modules of which
-                      length is between 8 and 12. 0 is equivalent to unlimited.
+            ld_range: An integer that range the searching scope. If the length
+                      of user_input is 10, then Atest will calculate modules of
+                      which length is between 8 and 12. 0 is equivalent to
+                      unlimited.
 
         Returns:
             A List of LDs and possible module names. If the user_input is "fax",
@@ -575,7 +579,8 @@ class ModuleFinder(test_finder_base.TestFinderBase):
         """
         atest_utils.colorful_print('\nSearching for similar module names using '
                                    'fuzzy search...', constants.CYAN)
-        testable_modules = sorted(self.module_info.get_testable_modules(), key=len)
+        testable_modules = sorted(self.module_info.get_testable_modules(),
+                                  key=len)
         lower_bound = len(user_input) - ld_range
         upper_bound = len(user_input) + ld_range
         testable_modules_with_ld = []
@@ -600,8 +605,8 @@ class ModuleFinder(test_finder_base.TestFinderBase):
         Return:
             A list of guessed modules.
         """
-        modules_with_ld = self.get_testable_modules_with_ld(user_input,
-                                                            ld_range=constants.LD_RANGE)
+        modules_with_ld = self.get_testable_modules_with_ld(
+            user_input, ld_range=constants.LD_RANGE)
         guessed_modules = []
         for _distance, _module in modules_with_ld:
             if _distance <= abs(constants.LD_RANGE):
