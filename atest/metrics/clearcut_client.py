@@ -76,9 +76,9 @@ class Clearcut(object):
     def log(self, event):
         """Logs events to Clearcut.
 
-        Logging an event can potentially trigger a flush of queued events. Flushing
-        is triggered when the buffer is more than half full or after the flush
-        interval has passed.
+        Logging an event can potentially trigger a flush of queued events.
+        Flushing is triggered when the buffer is more than half full or
+        after the flush interval has passed.
 
         Args:
           event: A LogEvent to send to Clearcut.
@@ -127,7 +127,8 @@ class Clearcut(object):
         if min_wait_sec > time_from_now:
             time_from_now = min_wait_sec
         logging.debug('Scheduling thread to run in %f seconds', time_from_now)
-        self._scheduled_flush_thread = threading.Timer(time_from_now, self._flush)
+        self._scheduled_flush_thread = threading.Timer(
+            time_from_now, self._flush)
         self._scheduled_flush_time = time.time() + time_from_now
         self._scheduled_flush_thread.start()
 

@@ -16,6 +16,8 @@
 Atest Argument Parser class for atest.
 """
 
+# pylint: disable=relative-import
+
 import argparse
 
 import atest_utils
@@ -56,101 +58,125 @@ class AtestArgParser(argparse.ArgumentParser):
     def add_atest_args(self):
         """A function that does ArgumentParser.add_argument()"""
         self.add_argument('tests', nargs='*', help='Tests to build and/or run.')
+        # Options that to do with testing.
+        self.add_argument('-a', '--all-abi', action='store_true',
+                          help='Set to run tests for all abis.')
         self.add_argument('-b', '--build', action='append_const', dest='steps',
                           const=constants.BUILD_STEP, help='Run a build.')
-        self.add_argument('-i', '--install', action='append_const', dest='steps',
-                          const=constants.INSTALL_STEP, help='Install an APK.')
-        self.add_argument('--info', action='store_true',
-                          help='Show module information.')
-        self.add_argument('--dry-run', action='store_true',
-                          help='Dry run atest without building, installing and running '
-                               'tests in real.')
-        self.add_argument('-t', '--test', action='append_const', dest='steps',
-                          const=constants.TEST_STEP,
-                          help='Run the tests. WARNING: Many test configs force cleanup '
-                               'of device after test run. In this case, -d must be used in '
-                               'previous test run to disable cleanup, for -t to work. '
-                               'Otherwise, device will need to be setup again with -i.')
-        self.add_argument('-s', '--serial', help='The device to run the test on.')
-        self.add_argument('-L', '--list-modules', help='List testable modules for the given suite.')
         self.add_argument('-d', '--disable-teardown', action='store_true',
                           help='Disables test teardown and cleanup.')
-        self.add_argument('-m', constants.REBUILD_MODULE_INFO_FLAG, action='store_true',
+        self.add_argument('--host', action='store_true',
+                          help='Run the test completely on the host without '
+                               'a device. (Note: running a host test that '
+                               'requires a device without --host will fail.)')
+        self.add_argument('-i', '--install', action='append_const',
+                          dest='steps', const=constants.INSTALL_STEP,
+                          help='Install an APK.')
+        self.add_argument('-m', constants.REBUILD_MODULE_INFO_FLAG,
+                          action='store_true',
                           help='Forces a rebuild of the module-info.json file. '
                                'This may be necessary following a repo sync or '
                                'when writing a new test.')
+        self.add_argument('-s', '--serial',
+                          help='The device to run the test on.')
+        self.add_argument('-t', '--test', action='append_const', dest='steps',
+                          const=constants.TEST_STEP,
+                          help='Run the tests. WARNING: Many test configs force'
+                               ' cleanup of device after test run. In this case'
+                               ', -d must be used in previous test run to '
+                               'disable cleanup, for -t to work. Otherwise, '
+                               'device will need to be setup again with -i.')
         self.add_argument('-w', '--wait-for-debugger', action='store_true',
                           help='Only for instrumentation tests. Waits for '
                                'debugger prior to execution.')
+
+        # Options related to Test Mapping
+        self.add_argument('-p', '--test-mapping', action='store_true',
+                          help='Run tests defined in TEST_MAPPING files.')
+        self.add_argument('--include-subdirs', action='store_true',
+                          help='Include tests in TEST_MAPPING files in sub'
+                               ' directories.')
+
+        # Options for information queries and dry-runs:
+        self.add_argument('--dry-run', action='store_true',
+                          help='Dry run atest without building, installing and'
+                               ' running tests in real.')
+        self.add_argument('-h', '--help', action='store_true',
+                          help='Print this help message.')
+        self.add_argument('--info', action='store_true',
+                          help='Show module information.')
+        self.add_argument('-L', '--list-modules',
+                          help='List testable modules for the given suite.')
         self.add_argument('-v', '--verbose', action='store_true',
                           help='Display DEBUG level logging.')
         self.add_argument('-V', '--version', action='store_true',
                           help='Display version string.')
-        self.add_argument('-a', '--all-abi', action='store_true',
-                          help='Set to run tests for all abi.')
-        self.add_argument('--generate-baseline', nargs='?', type=int, const=5, default=0,
-                          help='Generate baseline metrics, run 5 iterations by default. '
-                               'Provide an int argument to specify # iterations.')
-        self.add_argument('--generate-new-metrics', nargs='?', type=int, const=5, default=0,
-                          help='Generate new metrics, run 5 iterations by default. '
-                               'Provide an int argument to specify # iterations.')
+
+        # Obsolete options that will be removed soon.
+        self.add_argument('--generate-baseline', nargs='?',
+                          type=int, const=5, default=0,
+                          help='Generate baseline metrics, run 5 iterations by'
+                               'default. Provide an int argument to specify '
+                               '# iterations.')
+        self.add_argument('--generate-new-metrics', nargs='?',
+                          type=int, const=5, default=0,
+                          help='Generate new metrics, run 5 iterations by '
+                               'default. Provide an int argument to specify '
+                               '# iterations.')
         self.add_argument('--detect-regression', nargs='*',
                           help='Run regression detection algorithm. Supply '
                                'path to baseline and/or new metrics folders.')
+
         # Options related to module parameterization
         self.add_argument('--instant', action='store_true',
                           help='Run the instant_app version of the module, '
-                               'if the module supports it. Note: running a test '
-                               'that does not support instant with --instant '
+                               'if the module supports it. Note: running a test'
+                               ' that does not support instant with --instant '
                                'will result in nothing running.')
-        self.add_argument('--user-type', help='Run test with specific user type.'
-                                              'E.g. --user-type secondary_user')
-        # Options related to Test Mapping
-        self.add_argument('-p', '--test-mapping', action='store_true',
-                          help='Run tests in TEST_MAPPING files.')
-        self.add_argument('--include-subdirs', action='store_true',
-                          help='Include tests in TEST_MAPPING files in sub directories.')
-        # Options related to deviceless testing.
-        self.add_argument('--host', action='store_true',
-                          help='Run the test completely on the host without '
-                               'a device. (Note: running a host test that '
-                               'requires a device with --host will fail.)')
-        # Option for updating dry-run command mapping result.
+        self.add_argument('--user-type',
+                          help='Run test with specific user type.'
+                               'E.g. --user-type secondary_user')
+
+        # Option for dry-run command mapping result and cleaning cache.
+        self.add_argument('-c', '--clear-cache', action='store_true',
+                          help='Wipe out the test_infos cache of the test.')
         self.add_argument('-u', '--update-cmd-mapping', action='store_true',
                           help='Update the test command of input tests. '
                                'Warning: result will be saved under '
                                'tools/tradefederation/core/atest/test_data.')
-        # Option for verifying dry-run command mapping result.
         self.add_argument('-y', '--verify-cmd-mapping', action='store_true',
                           help='Verify the test command of input tests.')
-        # Option for clearing cache of input test reference .
-        self.add_argument('-c', '--clear-cache', action='store_true',
-                          help='Wipe out the test_infos cache of the test.')
-        # A group of options for rerun strategy. They are mutually exclusive in a command line.
+
+        # A group of options for rerun strategy. They are mutually exclusive
+        # in a command line.
         group = self.add_mutually_exclusive_group()
         # Option for rerun tests for the specified number iterations.
         group.add_argument('--iterations', nargs='?',
                            type=_positive_int, const=10, default=0,
                            metavar='MAX_ITERATIONS',
-                           help='Rerun all tests, run 10 iterations by default. '
-                                'Accept a positive int for # iterations.')
+                           help='Rerun all tests, run 10 iterations by default.'
+                                ' Accept a positive int for # iterations.')
         group.add_argument('--rerun-until-failure', nargs='?',
                            type=_positive_int, const=10, default=0,
                            metavar='MAX_ITERATIONS',
-                           help='Rerun all tests until a failure occurs or max iterations is '
-                                'reached, run 10 iterations by default. '
+                           help='Rerun all tests until a failure occurs or the '
+                                'max iteration is reached, run 10 iterations by'
+                                'default. '
                                 'Accept a positive int for # iterations.')
         group.add_argument('--retry-any-failure', nargs='?',
                            type=_positive_int, const=10, default=0,
                            metavar='MAX_ITERATIONS',
-                           help='Rerun failed tests until passed or max iterations is reached, '
-                                'run 10 iterations by default. '
+                           help='Rerun failed tests until passed or the max '
+                                'iteration is reached, run 10 iterations by '
+                                'default. '
                                 'Accept a positive int for # iterations.')
-        # This arg actually doesn't consume anything, it's primarily used for the
-        # help description and creating custom_args in the NameSpace object.
+
+        # This arg actually doesn't consume anything, it's primarily used for
+        # the help description and creating custom_args in the NameSpace object.
         self.add_argument('--', dest='custom_args', nargs='*',
                           help='Specify custom args for the test runners. '
-                               'Everything after -- will be consumed as custom args.')
+                               'Everything after -- will be consumed as '
+                               'custom args.')
 
     def get_args(self):
         """This method is to get args from actions and return optional args.
