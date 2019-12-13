@@ -81,13 +81,12 @@ class TestRunnerBase(object):
             env_vars: Environment variables passed to the subprocess.
         """
         if not output_to_stdout:
-            self.test_log_file = tempfile.NamedTemporaryFile(mode='w',
-                                                             dir=self.results_dir,
-                                                             delete=True)
+            self.test_log_file = tempfile.NamedTemporaryFile(
+                mode='w', dir=self.results_dir, delete=True)
         logging.debug('Executing command: %s', cmd)
         return subprocess.Popen(cmd, preexec_fn=os.setsid, shell=True,
-                                stderr=subprocess.STDOUT, stdout=self.test_log_file,
-                                env=env_vars)
+                                stderr=subprocess.STDOUT,
+                                stdout=self.test_log_file, env=env_vars)
 
     # pylint: disable=broad-except
     def handle_subprocess(self, subproc, func):
@@ -138,7 +137,8 @@ class TestRunnerBase(object):
             Return code of the subprocess for running tests.
         """
         try:
-            logging.debug('Runner Name: %s, Process ID: %s', self.NAME, proc.pid)
+            logging.debug('Runner Name: %s, Process ID: %s',
+                          self.NAME, proc.pid)
             signal.signal(signal.SIGINT, self._signal_passer(proc))
             proc.wait()
             return proc.returncode

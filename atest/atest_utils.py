@@ -16,6 +16,8 @@
 Utility functions for atest.
 """
 
+# pylint: disable=relative-import
+
 from __future__ import print_function
 
 import hashlib
@@ -380,9 +382,9 @@ def handle_test_runner_cmd(input_test, test_cmds, do_verification=False,
     former_test_cmds = full_result_content.get(input_test, [])
     if not _are_identical_cmds(test_cmds, former_test_cmds):
         if do_verification:
-            raise atest_error.DryRunVerificationError('Dry run verification failed,'
-                                                      ' former commands: %s' %
-                                                      former_test_cmds)
+            raise atest_error.DryRunVerificationError(
+                'Dry run verification failed, former commands: {}'.format(
+                    former_test_cmds))
         if former_test_cmds:
             # If former_test_cmds is different from test_cmds, ask users if they
             # are willing to update the result.
@@ -399,9 +401,9 @@ def handle_test_runner_cmd(input_test, test_cmds, do_verification=False,
                     print('SKIP updating result!!!')
                     return
             except ValueError:
-                # Default action is updating the command result of the input_test.
-                # If the user input is unrecognizable telling yes or no,
-                # "Y" is implicitly applied.
+                # Default action is updating the command result of the
+                # input_test. If the user input is unrecognizable telling yes
+                # or no, "Y" is implicitly applied.
                 pass
     else:
         # If current commands are the same as the formers, no need to update
@@ -524,8 +526,8 @@ def load_test_info_cache(test_reference, cache_root=TEST_INFO_CACHE_ROOT):
             with open(cache_file, 'rb') as config_dictionary_file:
                 return pickle.load(config_dictionary_file)
         except (pickle.UnpicklingError, ValueError, EOFError, IOError) as err:
-            # Won't break anything, just remove the old cache, log this error, and
-            # collect the exception by metrics.
+            # Won't break anything, just remove the old cache, log this error,
+            # and collect the exception by metrics.
             logging.debug('Exception raised: %s', err)
             os.remove(cache_file)
             metrics_utils.handle_exc_and_send_exit_event(

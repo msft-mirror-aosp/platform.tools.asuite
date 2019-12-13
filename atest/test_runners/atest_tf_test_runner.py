@@ -12,9 +12,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""
-Atest Tradefed test runner class.
-"""
+"""Atest Tradefed test runner class."""
+
+# pylint: disable=line-too-long
+# pylint: disable=relative-import
 
 from __future__ import print_function
 import json
@@ -27,7 +28,6 @@ import subprocess
 
 from functools import partial
 
-# pylint: disable=import-error
 import atest_utils
 import constants
 import result_reporter
@@ -63,7 +63,8 @@ class AtestTradefedTestRunner(test_runner_base.TestRunnerBase):
     EXECUTABLE = 'atest_tradefed.sh'
     _TF_TEMPLATE = 'template/atest_local_min'
     # Use --no-enable-granular-attempts to control reporter replay behavior.
-    # TODO(b/142630648): Enable option enable-granular-attempts in sharding mode.
+    # TODO(b/142630648): Enable option enable-granular-attempts
+    # in sharding mode.
     _LOG_ARGS = ('--logcat-on-failure --atest-log-file-path={log_path} '
                  '--no-enable-granular-attempts')
     _RUN_CMD = ('{exe} {template} --template:map '
@@ -124,7 +125,8 @@ class AtestTradefedTestRunner(test_runner_base.TestRunnerBase):
         """
         reporter.log_path = self.log_path
         reporter.rerun_options = self._extract_rerun_options(extra_args)
-        # Set google service key if it's available or found before running tests.
+        # Set google service key if it's available or found before
+        # running tests.
         self._try_set_gts_authentication_key()
         if os.getenv(test_runner_base.OLD_OUTPUT_ENV_VAR):
             return self.run_tests_raw(test_infos, extra_args, reporter)
@@ -200,7 +202,8 @@ class AtestTradefedTestRunner(test_runner_base.TestRunnerBase):
                         conn.setblocking(False)
                         inputs.append(conn)
                         data_map[conn] = ''
-                        # The First connection should be invocation level reporter.
+                        # The First connection should be invocation
+                        # level reporter.
                         if not inv_socket:
                             inv_socket = conn
                     else:
@@ -209,11 +212,13 @@ class AtestTradefedTestRunner(test_runner_base.TestRunnerBase):
                         if inv_socket == socket_object:
                             reporter.silent = True
                             event_handler = event_handlers.setdefault(
-                                socket_object, EventHandler(reporter, self.NAME))
+                                socket_object, EventHandler(reporter,
+                                                            self.NAME))
                         else:
                             event_handler = event_handlers.setdefault(
                                 socket_object, EventHandler(
-                                    result_reporter.ResultReporter(), self.NAME))
+                                    result_reporter.ResultReporter(),
+                                    self.NAME))
                         recv_data = self._process_connection(data_map,
                                                              socket_object,
                                                              event_handler)
@@ -494,8 +499,10 @@ class AtestTradefedTestRunner(test_runner_base.TestRunnerBase):
             module_args = []
             for test_info_i in group:
                 data.update(test_info_i.data)
-                # Extend data with constants.TI_MODULE_ARG instead of overwriting.
-                module_args.extend(test_info_i.data.get(constants.TI_MODULE_ARG, []))
+                # Extend data with constants.TI_MODULE_ARG instead of
+                # overwriting.
+                module_args.extend(test_info_i.data.get(
+                    constants.TI_MODULE_ARG, []))
                 test_runner = test_info_i.test_runner
                 test_finder = test_info_i.test_finder
                 build_targets |= test_info_i.build_targets

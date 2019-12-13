@@ -16,6 +16,8 @@
 Utils for finder classes.
 """
 
+# pylint: disable=line-too-long
+
 from __future__ import print_function
 import logging
 import multiprocessing
@@ -45,7 +47,8 @@ _CC_CLASS_RE = re.compile(r'^[ ]*TEST(_F|_P)?[ ]*\(', re.I)
 _JAVA_METHODS_PATTERN = r'.*[ ]+({0})\(.*'
 # RE for checking if there exists one of the methods in cc file.
 _CC_METHODS_PATTERN = r'^[ ]*TEST(_F|_P)?[ ]*\(.*,[ ]*({0})\).*'
-# Parse package name from the package declaration line of a java or a kotlin file.
+# Parse package name from the package declaration line of a java or
+# a kotlin file.
 # Group matches "foo.bar" of line "package foo.bar;" or "package foo.bar"
 _PACKAGE_RE = re.compile(r'\s*package\s+(?P<package>[^(;|\s)]+)\s*', re.I)
 # Matches install paths in module_info to install location(host or device).
@@ -62,8 +65,11 @@ _DEVICE_PATH_RE = re.compile(r'.*\/target\/.*', re.I)
 # 3. INTEGRATION: XML file name in one of the 4 integration config directories.
 # 4. CC_CLASS: Name of a cc class.
 
-FIND_REFERENCE_TYPE = atest_enum.AtestEnum(['CLASS', 'QUALIFIED_CLASS',
-                                            'PACKAGE', 'INTEGRATION', 'CC_CLASS'])
+FIND_REFERENCE_TYPE = atest_enum.AtestEnum(['CLASS',
+                                            'QUALIFIED_CLASS',
+                                            'PACKAGE',
+                                            'INTEGRATION',
+                                            'CC_CLASS'])
 # Get cpu count.
 _CPU_COUNT = 0 if os.uname()[0] == 'Linux' else multiprocessing.cpu_count()
 
@@ -85,7 +91,8 @@ FIND_CMDS = {
     FIND_REFERENCE_TYPE.CC_CLASS: r"find {0} {1} -type f -print"
                                   r"| egrep -i '/*test.*\.(cc|cpp)$'"
                                   r"| xargs -P" + str(_CPU_COUNT) +
-                                  r" egrep -sH '^[ ]*TEST(_F|_P)?[ ]*\({2}' || true"
+                                  r" egrep -sH '^[ ]*TEST(_F|_P)?[ ]*\({2}' "
+                                  " || true"
 }
 
 # Map ref_type with its index file.
@@ -519,8 +526,9 @@ def find_parent_module_dir(root_dir, start_dir, module_info):
                     return rel_dir
             if mod.get('auto_test_config'):
                 auto_gen_dir = rel_dir
-                # Don't return for auto_gen, keep checking for real config, because
-                # common in cts for class in apk that's in hostside test setup.
+                # Don't return for auto_gen, keep checking for real config,
+                # because common in cts for class in apk that's in hostside
+                # test setup.
         current_dir = os.path.dirname(current_dir)
     return auto_gen_dir
 
@@ -784,8 +792,10 @@ def get_targets_from_vts_xml(xml_file, rel_out_dir, module_info):
             # If the config specified append-bitness, append the bits suffixes
             # to the target.
             if _specified_bitness(xml_root):
-                targets.add(os.path.join(rel_out_dir, push_target + _VTS_BITNESS_32))
-                targets.add(os.path.join(rel_out_dir, push_target + _VTS_BITNESS_64))
+                targets.add(os.path.join(
+                    rel_out_dir, push_target + _VTS_BITNESS_32))
+                targets.add(os.path.join(
+                    rel_out_dir, push_target + _VTS_BITNESS_64))
             else:
                 targets.add(os.path.join(rel_out_dir, push_target))
         elif name == _VTS_TEST_FILE:
@@ -914,7 +924,8 @@ def get_install_locations(installed_paths):
     return install_locations
 
 
-def get_levenshtein_distance(test_name, module_name, dir_costs=constants.COST_TYPO):
+def get_levenshtein_distance(test_name, module_name,
+                             dir_costs=constants.COST_TYPO):
     """Return an edit distance between test_name and module_name.
 
     Levenshtein Distance has 3 actions: delete, insert and replace.

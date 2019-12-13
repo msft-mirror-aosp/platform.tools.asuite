@@ -12,10 +12,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-#pylint: disable=too-many-lines
-"""
-Command Line Translator for atest.
-"""
+"""Command Line Translator for atest."""
+
+# pylint: disable=line-too-long
+# pylint: disable=too-many-lines
+# pylint: disable=relative-import
 
 from __future__ import print_function
 
@@ -235,7 +236,8 @@ class CLITranslator(object):
             Valid json string without comments.
         """
         def _replace(match):
-            """Replace comments if found matching the defined regular expression.
+            """Replace comments if found matching the defined regular
+            expression.
 
             Args:
                 match: The matched regex pattern

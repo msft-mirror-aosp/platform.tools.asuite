@@ -12,10 +12,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""
-Classes for test mapping related objects
-"""
+"""Classes for test mapping related objects."""
 
+# pylint: disable=relative-import
 
 import copy
 import os

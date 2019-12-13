@@ -16,6 +16,8 @@
 
 """Simple Metrics Functions"""
 
+# pylint: disable=relative-import
+
 import constants
 import asuite_metrics
 
