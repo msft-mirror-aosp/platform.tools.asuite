@@ -60,8 +60,8 @@ def get_user_type():
         INTERNAL_USER if user is internal, EXTERNAL_USER otherwise.
     """
     try:
-        output = subprocess.check_output(['git', 'config', '--get', 'user.email'],
-                                         universal_newlines=True)
+        output = subprocess.check_output(
+            ['git', 'config', '--get', 'user.email'], universal_newlines=True)
         if output and output.strip().endswith(constants.INTERNAL_EMAIL):
             return INTERNAL_USER
     except OSError:
@@ -124,7 +124,8 @@ class MetricsBase(object):
                   'user_type': cls._user_type,
                   'tool_name': cls.tool_name,
                   cls._EVENT_NAME: fields_and_values}
-        log_event = cls._build_full_event(ATEST_EVENTS[cls._user_type](**params))
+        log_event = cls._build_full_event(
+            ATEST_EVENTS[cls._user_type](**params))
         cls.cc.log(log_event)
         return cls.cc
 
@@ -140,6 +141,7 @@ class MetricsBase(object):
             A clientanalytics_pb2.LogEvent instance.
         """
         log_event = clientanalytics_pb2.LogEvent()
-        log_event.event_time_ms = int((time.time() - random.randint(1, 600)) * 1000)
+        log_event.event_time_ms = int(
+            (time.time() - random.randint(1, 600)) * 1000)
         log_event.source_extension = atest_event.SerializeToString()
         return log_event

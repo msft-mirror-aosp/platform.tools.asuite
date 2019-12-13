@@ -16,6 +16,9 @@
 
 """Unittests for event_handler."""
 
+# pylint: disable=relative-import
+# pylint: disable=line-too-long
+
 import unittest
 import mock
 

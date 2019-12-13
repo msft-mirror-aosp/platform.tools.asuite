@@ -16,6 +16,8 @@
 Various globals used by atest.
 """
 
+# pylint: disable=line-too-long
+
 import os
 import re
 
