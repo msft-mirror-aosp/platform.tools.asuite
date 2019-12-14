@@ -16,6 +16,8 @@
 Integration Finder class.
 """
 
+# pylint: disable=line-too-long
+
 import copy
 import logging
 import os
@@ -101,15 +103,17 @@ class TFIntegrationFinder(test_finder_base.TestFinderBase):
     def _load_include_tags(self, root):
         """Recursively expand in-place the <include> tags in a given xml tree.
 
-        Python xml libraries don't support our type of <include> tags. Logic used
-        below is modified version of the built-in ElementInclude logic found here:
+        Python xml libraries don't support our type of <include> tags. Logic
+        used below is modified version of the built-in ElementInclude logic
+        found here:
         https://github.com/python/cpython/blob/2.7/Lib/xml/etree/ElementInclude.py
 
         Args:
             root: The root xml.etree.ElementTree.Element.
 
         Returns:
-            An xml.etree.ElementTree.Element instance with include tags expanded
+            An xml.etree.ElementTree.Element instance with
+            include tags expanded.
         """
         i = 0
         while i < len(root):

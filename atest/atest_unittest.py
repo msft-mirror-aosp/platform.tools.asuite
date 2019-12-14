@@ -16,6 +16,9 @@
 
 """Unittests for atest."""
 
+# pylint: disable=relative-import
+# pylint: disable=line-too-long
+
 import datetime
 import os
 import sys
