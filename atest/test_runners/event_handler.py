@@ -17,10 +17,12 @@
 # pylint: disable=line-too-long
 
 from __future__ import print_function
-from collections import deque
-from datetime import timedelta
+
 import time
 import logging
+
+from collections import deque
+from datetime import timedelta
 
 import atest_execution_info
 

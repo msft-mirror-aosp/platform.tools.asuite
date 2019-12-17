@@ -21,6 +21,7 @@
 import re
 import unittest
 import os
+
 from unittest import mock
 
 import atest_error
@@ -28,6 +29,7 @@ import constants
 import module_info
 import unittest_constants as uc
 import unittest_utils
+
 from test_finders import module_finder
 from test_finders import test_finder_utils
 from test_finders import test_info

@@ -20,15 +20,14 @@
 
 import sys
 import unittest
+
+from io import StringIO
 from unittest import mock
 
 import result_reporter
+
 from test_runners import test_runner_base
 
-if sys.version_info[0] == 2:
-    from StringIO import StringIO
-else:
-    from io import StringIO
 
 RESULT_PASSED_TEST = test_runner_base.TestResult(
     runner_name='someTestRunner',
