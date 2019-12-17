@@ -667,8 +667,8 @@ def main(argv, results_dir):
         if not success:
             return constants.EXIT_CODE_BUILD_FAILURE
     elif constants.TEST_STEP not in steps:
-        logging.warn('Install step without test step currently not '
-                     'supported, installing AND testing instead.')
+        logging.warning('Install step without test step currently not '
+                        'supported, installing AND testing instead.')
         steps.append(constants.TEST_STEP)
     tests_exit_code = constants.EXIT_CODE_SUCCESS
     test_start = time.time()

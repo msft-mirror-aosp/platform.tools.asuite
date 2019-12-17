@@ -409,7 +409,7 @@ class CLITranslator:
                 # (b/110166535 #19) Import path might not exist if a project is
                 # located in different directory in different branches.
                 if path is None:
-                    logging.warn(
+                    logging.warning(
                         'Failed to import TEST_MAPPING at %s', import_detail)
                     continue
                 # Search for tests based on the imported search path.
@@ -456,7 +456,7 @@ class CLITranslator:
             include_subdirs=args.include_subdirs, checked_files=set())
         test_details_list = list(test_details)
         if not test_details_list:
-            logging.warn(
+            logging.warning(
                 'No tests of group `%s` found in TEST_MAPPING at %s or its '
                 'parent directories.\nYou might be missing atest arguments,'
                 ' try `atest --help` for more information',
@@ -467,7 +467,7 @@ class CLITranslator:
                     tests += '%s:\n' % test_group
                     for test_detail in sorted(test_list):
                         tests += '\t%s\n' % test_detail
-                logging.warn(
+                logging.warning(
                     'All available tests in TEST_MAPPING files are:\n%s',
                     tests)
             metrics_utils.send_exit_event(constants.EXIT_CODE_TEST_NOT_FOUND)
