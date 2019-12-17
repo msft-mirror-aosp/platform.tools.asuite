@@ -386,7 +386,7 @@ class CLITranslator:
             test_mapping_files.update(self._find_files(path, file_name))
         # Include all possible TEST_MAPPING files in parent directories.
         root_dir = os.environ.get(constants.ANDROID_BUILD_TOP, os.sep)
-        while path != root_dir and path != os.sep:
+        while path not in (root_dir, os.sep):
             path = os.path.dirname(path)
             test_mapping_file = os.path.join(path, file_name)
             if os.path.exists(test_mapping_file):
