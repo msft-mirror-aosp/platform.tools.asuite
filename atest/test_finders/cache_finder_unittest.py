@@ -20,7 +20,7 @@
 
 import unittest
 import os
-import mock
+from unittest import mock
 
 import atest_utils
 import unittest_constants as uc

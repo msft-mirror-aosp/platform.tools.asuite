@@ -21,7 +21,7 @@
 import re
 import unittest
 import os
-import mock
+from unittest import mock
 
 import atest_error
 import constants

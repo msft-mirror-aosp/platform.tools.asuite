@@ -23,7 +23,7 @@ import json
 import os
 import re
 import sys
-import mock
+from unittest import mock
 
 import cli_translator as cli_t
 import constants
