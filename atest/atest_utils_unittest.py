@@ -283,9 +283,9 @@ class AtestUtilsUnittests(unittest.TestCase):
         uncolored_string = notice_str
         self.assertEqual(capture_output.getvalue(), uncolored_string)
 
-    @mock.patch('__builtin__.raw_input')
+    @mock.patch('builtins.input')
     @mock.patch('json.load')
-    def test_update_test_runner_cmd(self, mock_json_load_data, mock_raw_input):
+    def test_update_test_runner_cmd(self, mock_json_load_data, mock_input):
         """Test method handle_test_runner_cmd without enable do_verification."""
         former_cmd_str = 'Former cmds ='
         write_result_str = 'Save result mapping to test_result'
@@ -318,7 +318,7 @@ class AtestUtilsUnittests(unittest.TestCase):
         # Previous data has different cmds. Should enter strtobool not update,
         # should not find write_result_str.
         prev_cmds = ['cmd1']
-        mock_raw_input.return_value = 'n'
+        mock_input.return_value = 'n'
         capture_output = StringIO()
         sys.stdout = capture_output
         mock_json_load_data.return_value = {input_cmd:prev_cmds}

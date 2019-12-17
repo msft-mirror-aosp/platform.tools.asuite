@@ -205,7 +205,7 @@ class CLITranslator:
         Returns:
             True is the answer is affirmative.
         """
-        decision = raw_input('Did you mean {0}? [Y/n] '.format(
+        decision = input('Did you mean {0}? [Y/n] '.format(
             atest_utils.colorize(results[0], constants.GREEN)))
         return decision in constants.AFFIRMATIVES
 
