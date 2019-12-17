@@ -163,7 +163,7 @@ def split_methods(user_input):
     parts = user_input.split('#')
     if len(parts) == 1:
         return parts[0], frozenset()
-    elif len(parts) == 2:
+    if len(parts) == 2:
         return parts[0], frozenset(parts[1].split(','))
     raise atest_error.TooManyMethodsError(
         'Too many methods specified with # character in user input: %s.'
