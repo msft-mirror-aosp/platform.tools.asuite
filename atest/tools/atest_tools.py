@@ -72,7 +72,7 @@ def _install_updatedb():
     _mkdir_when_inexists(constants.INDEX_DIR)
     if OSNAME == MACOSX:
         shutil.copy2(MAC_UPDB_SRC, os.path.join(MAC_UPDB_DST, UPDATEDB))
-        os.chmod(os.path.join(MAC_UPDB_DST, UPDATEDB), 0755)
+        os.chmod(os.path.join(MAC_UPDB_DST, UPDATEDB), 0o0755)
 
 def _delete_indexes():
     """Delete all available index files."""
