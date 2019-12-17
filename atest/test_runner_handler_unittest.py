@@ -17,7 +17,6 @@
 """Unittests for test_runner_handler."""
 
 # pylint: disable=protected-access
-# pylint: disable=relative-import
 # pylint: disable=line-too-long
 
 import unittest

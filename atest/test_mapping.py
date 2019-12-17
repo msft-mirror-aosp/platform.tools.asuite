@@ -14,7 +14,6 @@
 
 """Classes for test mapping related objects."""
 
-# pylint: disable=relative-import
 
 import copy
 import os

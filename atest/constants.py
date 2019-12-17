@@ -17,7 +17,6 @@ Imports the various constant files that are available (default, google, etc).
 """
 # pylint: disable=wildcard-import
 # pylint: disable=unused-wildcard-import
-# pylint: disable=relative-import
 
 from constants_default import *
 

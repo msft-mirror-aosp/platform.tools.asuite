@@ -16,7 +16,6 @@
 
 """Unittests for test_finder_utils."""
 
-# pylint: disable=relative-import
 # pylint: disable=line-too-long
 
 import os

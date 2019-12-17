@@ -15,7 +15,6 @@
 """Atest Tradefed test runner class."""
 
 # pylint: disable=line-too-long
-# pylint: disable=relative-import
 
 from __future__ import print_function
 import json
