@@ -352,7 +352,7 @@ class CLITranslatorUnittests(unittest.TestCase):
         sys.stdout = sys.__stdout__
         output = 'Did you mean the following modules?\n{0}\n{1}\n'.format(
             uc.MODULE_NAME, uc.MODULE2_NAME)
-        self.assertEquals(capture_output.getvalue(), output)
+        self.assertEqual(capture_output.getvalue(), output)
 
     def test_filter_comments(self):
         """Test filter_comments method"""
