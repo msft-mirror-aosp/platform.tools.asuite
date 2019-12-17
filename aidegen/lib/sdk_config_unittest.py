@@ -25,6 +25,7 @@ import xml
 
 from aidegen import constant
 from aidegen import unittest_constants
+from aidegen.lib import aidegen_metrics
 from aidegen.lib import errors
 from aidegen.lib import sdk_config
 
@@ -61,23 +62,28 @@ class SDKConfigUnittests(unittest.TestCase):
     _CUSTOM_ANDROID_SDK_PATH = os.path.join(unittest_constants.TEST_DATA_PATH,
                                             'Android/custom/sdk')
     _TEMP = 'temp'
+    _TEST_DIR = None
+
+    def setUp(self):
+        """Prepare the testdata related path."""
+        SDKConfigUnittests._TEST_DIR = tempfile.mkdtemp()
+
+    def tearDown(self):
+        """Clear the testdata related path."""
+        shutil.rmtree(SDKConfigUnittests._TEST_DIR)
 
     def test_generate_jdk_config(self):
         """Test generating jdk config."""
         expected_content = ''
-        tmp_folder = tempfile.mkdtemp()
-        config_file = os.path.join(tmp_folder, self._JDK_FILE_NAME)
-        try:
-            with open(self._JDK_SAMPLE) as sample:
-                expected_content = sample.read()
-            jdk = sdk_config.SDKConfig(config_file,
-                                       constant.LINUX_JDK_XML,
-                                       self._JDK_PATH,
-                                       self._NONEXISTENT_ANDROID_SDK_PATH)
-            jdk.generate_jdk_config_string()
-            self.assertEqual(jdk.config_string, expected_content)
-        finally:
-            shutil.rmtree(tmp_folder)
+        config_file = os.path.join(self._TEST_DIR, self._JDK_FILE_NAME)
+        with open(self._JDK_SAMPLE) as sample:
+            expected_content = sample.read()
+        jdk = sdk_config.SDKConfig(config_file,
+                                   constant.LINUX_JDK_XML,
+                                   self._JDK_PATH,
+                                   self._NONEXISTENT_ANDROID_SDK_PATH)
+        jdk.generate_jdk_config_string()
+        self.assertEqual(jdk.config_string, expected_content)
 
     def test_jdk_config_no_change(self):
         """The config file exists and the JDK18 also exists.
@@ -86,85 +92,69 @@ class SDKConfigUnittests(unittest.TestCase):
         not changed.
         """
         expected_content = ''
-        tmp_folder = tempfile.mkdtemp()
-        config_file = os.path.join(tmp_folder, self._JDK_FILE_NAME)
-        try:
-            with open(self._JDK_SAMPLE) as sample:
-                expected_content = sample.read()
-            # Reset the content of config file.
-            with open(config_file, 'w') as cf:
-                cf.write(expected_content)
-            jdk = sdk_config.SDKConfig(config_file,
-                                       constant.LINUX_JDK_XML,
-                                       self._JDK_PATH,
-                                       self._DEFAULT_ANDROID_SDK_PATH)
-            jdk.generate_jdk_config_string()
-            self.assertEqual(jdk.config_string, expected_content)
-        finally:
-            shutil.rmtree(tmp_folder)
+        config_file = os.path.join(self._TEST_DIR, self._JDK_FILE_NAME)
+        with open(self._JDK_SAMPLE) as sample:
+            expected_content = sample.read()
+        # Reset the content of config file.
+        with open(config_file, 'w') as cf:
+            cf.write(expected_content)
+        jdk = sdk_config.SDKConfig(config_file,
+                                   constant.LINUX_JDK_XML,
+                                   self._JDK_PATH,
+                                   self._DEFAULT_ANDROID_SDK_PATH)
+        jdk.generate_jdk_config_string()
+        self.assertEqual(jdk.config_string, expected_content)
 
     def test_append_jdk_config(self):
         """The config file exists, test on the JDK18 does not exist."""
         expected_content = ''
-        tmp_folder = tempfile.mkdtemp()
-        config_file = os.path.join(tmp_folder, self._JDK_FILE_NAME)
-        try:
-            with open(self._JDK_SAMPLE2) as sample:
-                expected_content = sample.read()
-            # Reset the content of config file.
-            with open(config_file, 'w') as cf:
-                cf.write(self._JDK_OTHER_CONTENT)
-            jdk = sdk_config.SDKConfig(config_file,
-                                       constant.LINUX_JDK_XML,
-                                       self._JDK_PATH,
-                                       self._NONEXISTENT_ANDROID_SDK_PATH)
-            jdk.generate_jdk_config_string()
-            self.assertEqual(jdk.config_string, expected_content)
-        finally:
-            shutil.rmtree(tmp_folder)
+        config_file = os.path.join(self._TEST_DIR, self._JDK_FILE_NAME)
+        with open(self._JDK_SAMPLE2) as sample:
+            expected_content = sample.read()
+        # Reset the content of config file.
+        with open(config_file, 'w') as cf:
+            cf.write(self._JDK_OTHER_CONTENT)
+        jdk = sdk_config.SDKConfig(config_file,
+                                   constant.LINUX_JDK_XML,
+                                   self._JDK_PATH,
+                                   self._NONEXISTENT_ANDROID_SDK_PATH)
+        jdk.generate_jdk_config_string()
+        self.assertEqual(jdk.config_string, expected_content)
 
     @mock.patch.object(sdk_config.SDKConfig, '_get_api_from_xml')
     @mock.patch.object(sdk_config.SDKConfig, '_get_max_platform_api')
     def test_android_sdk_exist(self, mock_platform_api, mock_sdk_api):
         """Test to check the Android SDK configuration does exist."""
         expected_content = ''
-        tmp_folder = tempfile.mkdtemp()
-        config_file = os.path.join(tmp_folder, self._JDK_FILE_NAME)
-        try:
-            mock_platform_api.return_value = 28
-            mock_sdk_api.return_value = 28
-            with open(self._JDK_SAMPLE3) as sample:
-                expected_content = sample.read()
-            with open(config_file, 'w') as cf:
-                cf.write(expected_content)
-            jdk = sdk_config.SDKConfig(config_file,
-                                       constant.LINUX_JDK_XML,
-                                       self._JDK_PATH,
-                                       self._NONEXISTENT_ANDROID_SDK_PATH)
-            self.assertEqual(jdk._android_sdk_exists(), True)
-            self.assertEqual(jdk.max_api_level, 28)
-            self.assertEqual(jdk.android_sdk_path,
-                             self._NONEXISTENT_ANDROID_SDK_PATH)
-        finally:
-            shutil.rmtree(tmp_folder)
+        config_file = os.path.join(self._TEST_DIR, self._JDK_FILE_NAME)
+        mock_platform_api.return_value = 28
+        mock_sdk_api.return_value = 28
+        with open(self._JDK_SAMPLE3) as sample:
+            expected_content = sample.read()
+        with open(config_file, 'w') as cf:
+            cf.write(expected_content)
+        jdk = sdk_config.SDKConfig(config_file,
+                                   constant.LINUX_JDK_XML,
+                                   self._JDK_PATH,
+                                   self._NONEXISTENT_ANDROID_SDK_PATH)
+        self.assertEqual(jdk._android_sdk_exists(), True)
+        self.assertEqual(jdk.max_api_level, 28)
+        self.assertEqual(jdk.android_sdk_path,
+                         self._NONEXISTENT_ANDROID_SDK_PATH)
 
     def test_android_sdk_not_exist(self):
         """Test to check the Android SDK configuration doesn't exist."""
         expected_content = ''
-        tmp_folder = tempfile.mkdtemp()
-        config_file = os.path.join(tmp_folder, self._JDK_FILE_NAME)
-        try:
-            with open(self._JDK_SAMPLE4) as sample:
-                expected_content = sample.read()
-            with open(config_file, 'w') as cf:
-                cf.write(expected_content)
-            jdk = sdk_config.SDKConfig(config_file,
-                                       constant.LINUX_JDK_XML,
-                                       self._JDK_PATH,
-                                       self._NONEXISTENT_ANDROID_SDK_PATH)
-            self.assertEqual(jdk._android_sdk_exists(), False)
-        finally:
-            shutil.rmtree(tmp_folder)
+        config_file = os.path.join(self._TEST_DIR, self._JDK_FILE_NAME)
+        with open(self._JDK_SAMPLE4) as sample:
+            expected_content = sample.read()
+        with open(config_file, 'w') as cf:
+            cf.write(expected_content)
+        jdk = sdk_config.SDKConfig(config_file,
+                                   constant.LINUX_JDK_XML,
+                                   self._JDK_PATH,
+                                   self._NONEXISTENT_ANDROID_SDK_PATH)
+        self.assertEqual(jdk._android_sdk_exists(), False)
 
     def test_get_android_sdk_path(self):
         """Test get default Android SDK path."""
@@ -218,23 +208,51 @@ class SDKConfigUnittests(unittest.TestCase):
     def test_generate_android_sdk_config(self):
         """Test generating Android SDK config."""
         expected_content = ''
-        tmp_folder = tempfile.mkdtemp()
-        config_file = os.path.join(tmp_folder, self._JDK_FILE_NAME)
-        try:
-            with open(self._JDK_SAMPLE3) as sample:
-                expected_content = sample.read().replace(
-                    self._NONEXISTENT_ANDROID_SDK_PATH,
-                    self._DEFAULT_ANDROID_SDK_PATH)
-            jdk = sdk_config.SDKConfig(config_file,
-                                       constant.LINUX_JDK_XML,
-                                       self._JDK_PATH,
-                                       self._NONEXISTENT_ANDROID_SDK_PATH)
-            user_input = [self._DEFAULT_ANDROID_SDK_PATH]
-            with mock.patch('builtins.input', side_effect=user_input):
-                jdk.generate_sdk_config_string()
-                self.assertEqual(jdk.config_string, expected_content)
-        finally:
-            shutil.rmtree(tmp_folder)
+        config_file = os.path.join(self._TEST_DIR, self._JDK_FILE_NAME)
+        with open(self._JDK_SAMPLE3) as sample:
+            expected_content = sample.read().replace(
+                self._NONEXISTENT_ANDROID_SDK_PATH,
+                self._DEFAULT_ANDROID_SDK_PATH)
+        jdk = sdk_config.SDKConfig(config_file,
+                                   constant.LINUX_JDK_XML,
+                                   self._JDK_PATH,
+                                   self._NONEXISTENT_ANDROID_SDK_PATH)
+        user_input = [self._DEFAULT_ANDROID_SDK_PATH]
+        with mock.patch('builtins.input', side_effect=user_input):
+            jdk.generate_sdk_config_string()
+            self.assertEqual(jdk.config_string, expected_content)
+
+    @mock.patch.object(aidegen_metrics, 'ends_asuite_metrics')
+    @mock.patch.object(sdk_config.SDKConfig, '_set_android_sdk_version')
+    @mock.patch.object(sdk_config.SDKConfig, '_get_android_sdk_path')
+    @mock.patch.object(sdk_config.SDKConfig, '_android_sdk_exists')
+    def test_generate_sdk_config_string_failed(self,
+                                               mock_sdk_exists,
+                                               mock_get_sdk,
+                                               mock_set_sdk_version,
+                                               mock_end_metrics):
+        """Test failed to generate Android SDK config."""
+        jdk = sdk_config.SDKConfig(self._JDK_SAMPLE3,
+                                   constant.LINUX_JDK_XML,
+                                   self._JDK_PATH,
+                                   self._DEFAULT_ANDROID_SDK_PATH)
+        # Test for the conditions of _android_sdk_exists.
+        mock_sdk_exists.return_value = True
+        jdk.generate_sdk_config_string()
+        self.assertFalse(mock_get_sdk.called)
+        mock_sdk_exists.return_value = False
+        jdk.generate_sdk_config_string()
+        self.assertTrue(mock_get_sdk.called)
+
+        # Test for the conditions of _get_android_sdk_path.
+        mock_sdk_exists.return_value = False
+        mock_get_sdk.return_value = True
+        jdk.generate_sdk_config_string()
+        self.assertTrue(mock_set_sdk_version.called)
+        mock_sdk_exists.return_value = False
+        mock_get_sdk.return_value = False
+        jdk.generate_sdk_config_string()
+        self.assertTrue(mock_end_metrics.called)
 
     @mock.patch.object(xml.dom.minidom, 'parseString')
     def test_parse_xml_failed(self, mock_parse):
@@ -406,6 +424,19 @@ class SDKConfigUnittests(unittest.TestCase):
         api_level = jdk._get_api_from_xml(jdk.jdks[0], jdk._TAG_ADDITIONAL,
                                           jdk._ATTRIBUTE_SDK)
         self.assertEqual(api_level, 0)
+
+    @mock.patch('os.path.expanduser')
+    def test_remove_user_home_path(self, mock_expanduser):
+        """ Test replace the user home path to a constant string."""
+        mock_expanduser.return_value = '/usr/home/a'
+        jdk = sdk_config.SDKConfig(self._JDK_SAMPLE3,
+                                   constant.LINUX_JDK_XML,
+                                   self._JDK_PATH,
+                                   self._DEFAULT_ANDROID_SDK_PATH)
+        test_string = '/usr/home/a/test/dir'
+        expect_string = '$USER_HOME$/test/dir'
+        result_path = jdk._remove_user_home_path(test_string)
+        self.assertEqual(result_path, expect_string)
 
 
 if __name__ == '__main__':

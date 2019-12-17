@@ -15,6 +15,7 @@
  */
 package com.android.atest.commandAdapter;
 
+import com.android.atest.AtestUtils;
 import com.android.atest.toolWindow.AtestToolWindow;
 import com.android.atest.widget.AtestNotification;
 import com.intellij.execution.ExecutionException;
@@ -23,6 +24,7 @@ import com.intellij.execution.process.ColoredProcessHandler;
 import com.intellij.execution.process.ProcessListener;
 import com.intellij.notification.Notifications;
 import com.intellij.openapi.diagnostic.Logger;
+import org.jetbrains.annotations.NotNull;
 
 import java.nio.charset.Charset;
 import java.util.ArrayList;
@@ -53,12 +55,20 @@ public class CommandRunner {
      * Initializes CommandRunner by Atest lunch target and test target.
      *
      * @param lunchTarget the Atest lunch target.
-     * @param testTarget the Atest test Target.
+     * @param testTarget the Atest test target.
      * @param workPath the work path to run the command.
      * @param toolWindow an AtestToolWindow to display the output.
      */
     public CommandRunner(
-            String lunchTarget, String testTarget, String workPath, AtestToolWindow toolWindow) {
+            String lunchTarget,
+            String testTarget,
+            String workPath,
+            @NotNull AtestToolWindow toolWindow)
+            throws IllegalArgumentException {
+        if (AtestUtils.checkEmpty(lunchTarget, testTarget, workPath)) {
+            throw new IllegalArgumentException();
+        }
+
         StringBuffer commandBuffer = new StringBuffer(ATEST_COMMAND_PREFIX);
         String atestCommand =
                 commandBuffer
@@ -67,6 +77,7 @@ public class CommandRunner {
                         .append(testTarget)
                         .toString();
         LOG.info("Atest command: " + atestCommand + ", work path: " + workPath);
+
         String[] commandArray = {"/bin/bash", "-c", atestCommand};
         ArrayList<String> cmds = new ArrayList<>(Arrays.asList(commandArray));
         mCommand = new GeneralCommandLine(cmds);

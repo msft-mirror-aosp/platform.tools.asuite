@@ -62,6 +62,12 @@ EXIT_CODE_AIDEGEN_EXCEPTION = 1
 AIDEGEN_TOOL_NAME = 'aidegen'
 ANDROID_TREE = 'is_android_tree'
 
+# Exit code of the asuite metrics for parsing xml file failed.
+XML_PARSING_FAILURE = 101
+
+# Exit code of the asuite metrics for locating Android SDK path failed.
+LOCATE_SDK_PATH_FAILURE = 102
+
 # Constants for file names
 MERGED_MODULE_INFO = 'merged_module_info.json'
 BLUEPRINT_JSONFILE_NAME = 'module_bp_java_deps.json'
@@ -80,6 +86,11 @@ TARGET_LIBS = [JAR_EXT]
 # Constants for aidegen_functional_test
 ANDROID_COMMON = 'android_common'
 LINUX_GLIBC_COMMON = 'linux_glibc_common'
+
+# Constants for ide_util
+NOHUP = 'nohup'
+ECLIPSE_WS = '~/Documents/AIDEGen_Eclipse_workspace'
+IGNORE_STD_OUT_ERR_CMD = '2>/dev/null >&2'
 
 # The xml templates for JDK or SDK.
 

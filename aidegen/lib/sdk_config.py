@@ -43,6 +43,8 @@ import os
 import re
 import xml.dom.minidom
 
+from aidegen import constant
+from aidegen.lib import aidegen_metrics
 from aidegen.lib import common_util
 from aidegen.lib import config
 from aidegen.lib import errors
@@ -171,7 +173,24 @@ class SDKConfig():
         except (TypeError, AttributeError) as err:
             print('\n{} {}\n'.format(common_util.COLORED_INFO('Warning:'),
                                      self._WARNING_PARSE_XML_FAILED))
+            # Remove the sensitive user information.
+            stack_trace = self._remove_user_home_path(err)
+            logs = self._remove_user_home_path(self.config_string)
+            aidegen_metrics.ends_asuite_metrics(constant.XML_PARSING_FAILURE,
+                                                stack_trace,
+                                                logs)
             raise errors.InvalidXMLError(err)
+
+    def _remove_user_home_path(self, data):
+        """Replace the user home path string with a constant string.
+
+        Args:
+            data: A string of xml content or an attributeError of error message.
+
+        Returns:
+            A string which replaced the user home path to $USER_HOME$.
+        """
+        return str(data).replace(os.path.expanduser('~'), self._USER_HOME)
 
     def _get_default_config_content(self):
         """Get the default content of self.config_file.
@@ -428,6 +447,12 @@ class SDKConfig():
                     ANDROID_SDK_PATH=self.android_sdk_path,
                     API_LEVEL=self.max_api_level_version)
             else:
+                stack_trace = self._remove_user_home_path(self.android_sdk_path)
+                logs = self._remove_user_home_path(self.config_string)
+                aidegen_metrics.ends_asuite_metrics(
+                    constant.LOCATE_SDK_PATH_FAILURE,
+                    stack_trace,
+                    logs)
                 print('\n{} {}\n'.format(common_util.COLORED_INFO('Warning:'),
                                          self._WARNING_API_LEVEL.format(
                                              self.android_sdk_path)))
