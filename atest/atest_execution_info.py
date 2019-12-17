@@ -60,7 +60,7 @@ def preparation_time(start_time):
     return PREPARE_END_TIME - start_time if PREPARE_END_TIME else None
 
 
-class AtestExecutionInfo(object):
+class AtestExecutionInfo:
     """Class that stores the whole test progress information in JSON format.
 
     ----
