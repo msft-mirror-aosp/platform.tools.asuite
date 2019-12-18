@@ -252,6 +252,15 @@ class AidegenCommonUtilUnittests(unittest.TestCase):
         rel_path = 'd/e'
         self.assertFalse(common_util.has_build_target(mod_info, rel_path))
 
+    @mock.patch('os.path.expanduser')
+    def test_remove_user_home_path(self, mock_expanduser):
+        """ Test replace the user home path to a constant string."""
+        mock_expanduser.return_value = '/usr/home/a'
+        test_string = '/usr/home/a/test/dir'
+        expect_string = '$USER_HOME$/test/dir'
+        result_path = common_util.remove_user_home_path(test_string)
+        self.assertEqual(result_path, expect_string)
+
 
 if __name__ == '__main__':
     unittest.main()

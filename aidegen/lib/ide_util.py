@@ -38,6 +38,7 @@ import re
 import subprocess
 
 from aidegen import constant
+from aidegen.lib import aidegen_metrics
 from aidegen.lib import android_dev_os
 from aidegen.lib import common_util
 from aidegen.lib import config
@@ -913,6 +914,12 @@ def get_ide_util_instance(ide='j'):
         ipath = conf.ide_installed_path or tool.get_default_path()
         err = _NO_LAUNCH_IDE_CMD.format(constant.IDE_NAME_DICT[ide], ipath)
         logging.error(err)
+        stack_trace = common_util.remove_user_home_path(err)
+        logs = '%s exists? %s' % (common_util.remove_user_home_path(ipath),
+                                  os.path.exists(ipath))
+        aidegen_metrics.ends_asuite_metrics(constant.IDE_LAUNCH_FAILURE,
+                                            stack_trace,
+                                            logs)
         raise errors.IDENotExistError(err)
     return tool
 
