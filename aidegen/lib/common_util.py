@@ -509,3 +509,15 @@ def is_source_under_relative_path(source, relative_path):
         True if source file is a project relative path file, otherwise False.
     """
     return source == relative_path or source.startswith(relative_path + os.sep)
+
+
+def remove_user_home_path(data):
+    """Replace the user home path string with a constant string.
+
+    Args:
+        data: A string of xml content or an attributeError of error message.
+
+    Returns:
+        A string which replaced the user home path to $USER_HOME$.
+    """
+    return str(data).replace(os.path.expanduser('~'), constant.USER_HOME)
