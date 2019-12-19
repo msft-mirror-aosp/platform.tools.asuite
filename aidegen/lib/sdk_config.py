@@ -93,7 +93,6 @@ class SDKConfig():
     _NAME_JDK18 = 'JDK18'
     _TYPE_ANDROID_SDK = 'Android SDK'
     _INPUT_QUERY_TIMES = 3
-    _USER_HOME = '$USER_HOME$'
     _ANDROID_SDK_VERSION = 'Android API {API_LEVEL} Platform'
     _API_FOLDER_RE = re.compile(r'platforms/android-(?P<api_level>[\d]+|[A-Z])')
     _API_LEVEL_RE = re.compile(r'android-(?P<api_level>[\d]+|[A-Z])')
@@ -174,23 +173,12 @@ class SDKConfig():
             print('\n{} {}\n'.format(common_util.COLORED_INFO('Warning:'),
                                      self._WARNING_PARSE_XML_FAILED))
             # Remove the sensitive user information.
-            stack_trace = self._remove_user_home_path(err)
-            logs = self._remove_user_home_path(self.config_string)
+            stack_trace = common_util.remove_user_home_path(err)
+            logs = common_util.remove_user_home_path(self.config_string)
             aidegen_metrics.ends_asuite_metrics(constant.XML_PARSING_FAILURE,
                                                 stack_trace,
                                                 logs)
             raise errors.InvalidXMLError(err)
-
-    def _remove_user_home_path(self, data):
-        """Replace the user home path string with a constant string.
-
-        Args:
-            data: A string of xml content or an attributeError of error message.
-
-        Returns:
-            A string which replaced the user home path to $USER_HOME$.
-        """
-        return str(data).replace(os.path.expanduser('~'), self._USER_HOME)
 
     def _get_default_config_content(self):
         """Get the default content of self.config_file.
@@ -253,8 +241,8 @@ class SDKConfig():
             jdk_name = self._get_first_element_value(jdk, self._TAG_NAME)
             jdk_type = self._get_first_element_value(jdk, self._TAG_TYPE)
             home_path = self._get_first_element_value(jdk, self._TAG_HOMEPATH)
-            if home_path.startswith(self._USER_HOME):
-                home_path = home_path.replace(self._USER_HOME,
+            if home_path.startswith(constant.USER_HOME):
+                home_path = home_path.replace(constant.USER_HOME,
                                               os.path.expanduser('~'))
             platform_api = self._get_max_platform_api(home_path)
             sdk_api = self._get_api_from_xml(jdk, self._TAG_ADDITIONAL,
@@ -447,8 +435,9 @@ class SDKConfig():
                     ANDROID_SDK_PATH=self.android_sdk_path,
                     API_LEVEL=self.max_api_level_version)
             else:
-                stack_trace = self._remove_user_home_path(self.android_sdk_path)
-                logs = self._remove_user_home_path(self.config_string)
+                stack_trace = common_util.remove_user_home_path(
+                    self.android_sdk_path)
+                logs = common_util.remove_user_home_path(self.config_string)
                 aidegen_metrics.ends_asuite_metrics(
                     constant.LOCATE_SDK_PATH_FAILURE,
                     stack_trace,
