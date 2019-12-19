@@ -90,23 +90,33 @@ class IdeUtilUnittests(unittest.TestCase):
         ide_util._get_ide(None, 'j', False, is_mac=False)
         self.assertTrue(mock_linux.called)
 
+    @mock.patch.object(ide_util.IdeBase, '_get_user_preference')
+    @mock.patch.object(config.AidegenConfig, 'set_preferred_version')
     @mock.patch.object(ide_util.IdeEclipse, '_get_script_from_system')
     @mock.patch.object(ide_util.IdeIntelliJ, '_get_preferred_version')
-    def test_get_mac_and_linux_ide(self, mock_preference, mock_path):
+    def test_get_mac_and_linux_ide(self, mock_preference, mock_path, mock_cfg,
+                                   mock_version):
         """Test if _get_mac_ide and _get_linux_ide return correct IDE class."""
         mock_preference.return_value = None
         mock_path.return_value = 'path'
+        mock_cfg.return_value = None
+        mock_version.return_value = 'default'
         self.assertIsInstance(ide_util._get_mac_ide(), ide_util.IdeMacIntelliJ)
         self.assertIsInstance(ide_util._get_mac_ide(None, 's'),
                               ide_util.IdeMacStudio)
         self.assertIsInstance(ide_util._get_mac_ide(None, 'e'),
                               ide_util.IdeMacEclipse)
+
+        self.assertIsInstance(ide_util._get_mac_ide(None, 'c'),
+                              ide_util.IdeMacCLion)
         self.assertIsInstance(ide_util._get_linux_ide(),
                               ide_util.IdeLinuxIntelliJ)
         self.assertIsInstance(
             ide_util._get_linux_ide(None, 's'), ide_util.IdeLinuxStudio)
         self.assertIsInstance(
             ide_util._get_linux_ide(None, 'e'), ide_util.IdeLinuxEclipse)
+        self.assertIsInstance(
+            ide_util._get_linux_ide(None, 'c'), ide_util.IdeLinuxCLion)
 
     @mock.patch.object(ide_util.IdeIntelliJ, '_set_installed_path')
     @mock.patch.object(ide_common_util, 'get_script_from_input_path')
@@ -145,29 +155,39 @@ class IdeUtilUnittests(unittest.TestCase):
         self.assertFalse(mock_config.called)
         self.assertFalse(mock_paths.called)
 
+    @mock.patch.object(config.AidegenConfig, 'set_preferred_version')
+    @mock.patch.object(os.path, 'isfile')
+    @mock.patch.object(os.path, 'realpath')
     @mock.patch.object(ide_common_util, 'get_script_from_input_path')
     @mock.patch.object(ide_common_util, 'get_script_from_internal_path')
-    def test_get_linux_config_1(self, mock_path, mock_path_2):
+    def test_get_linux_config_1(self, mock_path, mock_path2, mock_path3,
+                                mock_is_file, mock_cfg):
         """Test to get unique config path for linux IDEA case."""
         if (not android_dev_os.AndroidDevOS.MAC ==
                 android_dev_os.AndroidDevOS.get_os_type()):
-            mock_path.return_value = '/opt/intellij-ce-2018.3/bin/idea.sh'
-            mock_path_2.return_value = '/opt/intellij-ce-2018.3/bin/idea.sh'
+            mock_path.return_value = ['/opt/intellij-ce-2018.3/bin/idea.sh']
+            mock_path2.return_value = ['/opt/intellij-ce-2018.3/bin/idea.sh']
+            mock_path3.return_value = '/opt/intellij-ce-2018.3/bin/idea.sh'
+            mock_is_file.return_value = True
+            mock_cfg.return_value = None
             ide_obj = ide_util.IdeLinuxIntelliJ('default_path')
             self.assertEqual(1, len(ide_obj._get_config_root_paths()))
         else:
             self.assertTrue((android_dev_os.AndroidDevOS.MAC ==
                              android_dev_os.AndroidDevOS.get_os_type()))
 
+    @mock.patch.object(config.AidegenConfig, 'set_preferred_version')
     @mock.patch('glob.glob')
     @mock.patch.object(ide_common_util, 'get_script_from_input_path')
     @mock.patch.object(ide_common_util, 'get_script_from_internal_path')
-    def test_get_linux_config_2(self, mock_path, mock_path_2, mock_filter):
+    def test_get_linux_config_2(self, mock_path, mock_path_2, mock_filter,
+                                mock_cfg):
         """Test to get unique config path for linux IDEA case."""
         if (not android_dev_os.AndroidDevOS.MAC ==
                 android_dev_os.AndroidDevOS.get_os_type()):
-            mock_path.return_value = '/opt/intelliJ-ce-2018.3/bin/idea.sh'
-            mock_path_2.return_value = '/opt/intelliJ-ce-2018.3/bin/idea.sh'
+            mock_path.return_value = ['/opt/intelliJ-ce-2018.3/bin/idea.sh']
+            mock_path_2.return_value = ['/opt/intelliJ-ce-2018.3/bin/idea.sh']
+            mock_cfg.return_value = None
             ide_obj = ide_util.IdeLinuxIntelliJ()
             mock_filter.called = False
             ide_obj._get_config_root_paths()
@@ -187,13 +207,16 @@ class IdeUtilUnittests(unittest.TestCase):
             self.assertFalse((android_dev_os.AndroidDevOS.MAC ==
                               android_dev_os.AndroidDevOS.get_os_type()))
 
+    @mock.patch.object(config.AidegenConfig, 'set_preferred_version')
     @mock.patch('glob.glob')
     @mock.patch.object(ide_common_util, 'get_script_from_input_path')
     @mock.patch.object(ide_common_util, 'get_script_from_internal_path')
-    def test_get_linux_config_root(self, mock_path_1, mock_path_2, mock_filter):
+    def test_get_linux_config_root(self, mock_path_1, mock_path_2, mock_filter,
+                                   mock_cfg):
         """Test to go filter logic for self download case."""
-        mock_path_1.return_value = '/usr/tester/IDEA/IC2018.3.3/bin'
-        mock_path_2.return_value = '/usr/tester/IDEA/IC2018.3.3/bin'
+        mock_path_1.return_value = ['/usr/tester/IDEA/IC2018.3.3/bin']
+        mock_path_2.return_value = ['/usr/tester/IDEA/IC2018.3.3/bin']
+        mock_cfg.return_value = None
         ide_obj = ide_util.IdeLinuxIntelliJ()
         mock_filter.reset()
         ide_obj._get_config_root_paths()
@@ -221,7 +244,7 @@ class IdeUtilUnittests(unittest.TestCase):
     @mock.patch('os.path.isfile')
     def test_merge_symbolic_version(self, mock_isfile, mock_realpath):
         """Test _merge_symbolic_version and _get_real_path."""
-        symbolic_path = ide_util.IdeIntelliJ._SYMBOLIC_VERSIONS[0]
+        symbolic_path = ide_util.IdeLinuxIntelliJ._SYMBOLIC_VERSIONS[0]
         original_path = 'intellij-ce-2019.1/bin/idea.sh'
         mock_isfile.return_value = True
         mock_realpath.return_value = original_path
@@ -233,9 +256,11 @@ class IdeUtilUnittests(unittest.TestCase):
         self.assertEqual(
             ide_obj._get_real_path(merged_version[0]), symbolic_path)
 
+    @mock.patch.object(config.AidegenConfig, 'set_preferred_version')
     @mock.patch('os.path.isfile')
-    def test_get_application_path(self, mock_isfile):
+    def test_get_application_path(self, mock_isfile, mock_cfg):
         """Test _get_application_path."""
+        mock_cfg.return_value = None
         ide_obj = ide_util.IdeLinuxIntelliJ('default_path')
         mock_isfile.return_value = True
         test_path = None
@@ -266,28 +291,33 @@ class IdeUtilUnittests(unittest.TestCase):
         project_config.ProjectConfig(args)
         self.assertEqual(ide_util.get_ide_util_instance(args), None)
 
+    @mock.patch.object(config.AidegenConfig, 'set_preferred_version')
     @mock.patch.object(ide_util.IdeIntelliJ, '_get_preferred_version')
-    def test_get_ide_util_instance_with_success(self, mock_preference):
+    def test_get_ide_util_instance_with_success(self, mock_preference,
+                                                mock_cfg_write):
         """Test _get_ide_util_instance with success."""
         args = aidegen_main._parse_args(['tradefed'])
         project_config.ProjectConfig(args)
+        mock_cfg_write.return_value = None
         mock_preference.return_value = '1'
         self.assertIsInstance(
             ide_util.get_ide_util_instance(), ide_util.IdeUtil)
 
+    @mock.patch.object(config.AidegenConfig, 'set_preferred_version')
     @mock.patch.object(ide_util.IdeIntelliJ, '_get_preferred_version')
     @mock.patch.object(ide_util.IdeUtil, 'is_ide_installed')
     def test_get_ide_util_instance_with_failure(
-            self, mock_installed, mock_preference):
+            self, mock_installed, mock_preference, mock_cfg_write):
         """Test _get_ide_util_instance with failure."""
         args = aidegen_main._parse_args(['tradefed'])
         project_config.ProjectConfig(args)
         mock_installed.return_value = False
+        mock_cfg_write.return_value = None
         mock_preference.return_value = '1'
         with self.assertRaises(errors.IDENotExistError):
             ide_util.get_ide_util_instance()
 
-    @mock.patch.object(ide_common_util, 'get_script_from_dir_path')
+    @mock.patch.object(ide_common_util, 'get_scripts_from_dir_path')
     @mock.patch.object(ide_common_util, '_run_ide_sh')
     @mock.patch('logging.info')
     def test_ide_base(self, mock_log, mock_run_ide, mock_run_path):
@@ -326,14 +356,19 @@ class IdeUtilUnittests(unittest.TestCase):
         with self.assertRaises(NotImplementedError):
             ide_intellij._get_config_root_paths()
 
+    @mock.patch.object(config.AidegenConfig, 'set_preferred_version')
+    @mock.patch.object(config.AidegenConfig, 'preferred_version')
     @mock.patch.object(ide_common_util, 'ask_preference')
     @mock.patch.object(config.AidegenConfig, 'deprecated_intellij_version')
     @mock.patch.object(ide_util.IdeIntelliJ, '_get_all_versions')
     def test_intellij_get_preferred_version(self,
                                             mock_all_versions,
                                             mock_deprecated_version,
-                                            mock_ask_preference):
+                                            mock_ask_preference,
+                                            mock_preference,
+                                            mock_write_cfg):
         """Test _get_preferred_version for IdeIntelliJ class."""
+        mock_write_cfg.return_value = None
         ide_intellij = ide_util.IdeIntelliJ()
 
         # No IntelliJ version is installed.
@@ -347,12 +382,12 @@ class IdeUtilUnittests(unittest.TestCase):
         mock_deprecated_version.return_value = False
         ide_intellij._config_reset = False
         expected_result = '/a/b'
-        with mock.patch.object(config.AidegenConfig, 'preferred_version',
-                               '/a/b'):
-            version = ide_intellij._get_preferred_version()
-            self.assertEqual(version, expected_result)
+        mock_preference.return_value = '/a/b'
+        version = ide_intellij._get_preferred_version()
+        self.assertEqual(version, expected_result)
 
         # Asking user the preferred version.
+        mock_preference.reset()
         mock_all_versions.return_value = ['/a/b', '/a/c']
         mock_deprecated_version.return_value = False
         ide_intellij._config_reset = True
@@ -364,10 +399,9 @@ class IdeUtilUnittests(unittest.TestCase):
         mock_all_versions.return_value = ['/a/b', '/a/c']
         mock_ask_preference.return_value = None
         expected_result = '/a/b'
-        with mock.patch.object(config.AidegenConfig, 'preferred_version',
-                               '/a/b'):
-            version = ide_intellij._get_preferred_version()
-            self.assertEqual(version, expected_result)
+        mock_preference.return_value = '/a/b'
+        version = ide_intellij._get_preferred_version()
+        self.assertEqual(version, expected_result)
 
         # The all_versions list has only one version.
         mock_all_versions.return_value = ['/a/b']
@@ -375,18 +409,19 @@ class IdeUtilUnittests(unittest.TestCase):
         version = ide_intellij._get_preferred_version()
         self.assertEqual(version, '/a/b')
 
+    @mock.patch.object(ide_common_util, 'ask_preference')
     @mock.patch.object(config.IdeaProperties, 'set_max_file_size')
     @mock.patch.object(sdk_config.SDKConfig, 'gen_enable_debugger_module')
     @mock.patch.object(sdk_config.SDKConfig, 'config_jdk_file')
     @mock.patch.object(ide_util.IdeStudio, '_get_config_root_paths')
     def test_android_studio_class(self, mock_get_config_paths, mock_config_file,
-                                  mock_gen_debugger, mock_set_size):
+                                  mock_gen_debugger, mock_set_size, mock_ask):
         """Test IdeStudio."""
         mock_get_config_paths.return_value = ['path1', 'path2']
         mock_config_file.return_value = True
         mock_gen_debugger.return_value = True
         mock_set_size.return_value = True
-
+        mock_ask.return_value = None
         obj = ide_util.IdeStudio()
         obj._installed_path = False
         obj.apply_optional_config()
@@ -400,14 +435,17 @@ class IdeUtilUnittests(unittest.TestCase):
         mock_get_config_paths.return_value = []
         self.assertIsNone(obj.apply_optional_config())
 
-    def test_studio_get_config_root_paths(self):
+    @mock.patch.object(ide_common_util, 'ask_preference')
+    def test_studio_get_config_root_paths(self, mock_ask):
         """Test the method _get_config_root_paths of IdeStudio."""
+        mock_ask.return_value = None
         obj = ide_util.IdeStudio()
         with self.assertRaises(NotImplementedError):
             obj._get_config_root_paths()
 
+    @mock.patch.object(ide_common_util, 'ask_preference')
     @mock.patch('os.getenv')
-    def test_linux_android_studio_class(self, mock_get_home):
+    def test_linux_android_studio_class(self, mock_get_home, mock_ask):
         """Test the method _get_config_root_paths of IdeLinuxStudio."""
         mock_get_home.return_value = self._TEST_DIR
         studio_config_dir1 = os.path.join(self._TEST_DIR, '.AndroidStudio3.0')
@@ -415,7 +453,7 @@ class IdeUtilUnittests(unittest.TestCase):
         os.makedirs(studio_config_dir1)
         os.makedirs(studio_config_dir2)
         expected_result = [studio_config_dir1, studio_config_dir2]
-
+        mock_ask.return_value = None
         obj = ide_util.IdeLinuxStudio()
         config_paths = obj._get_config_root_paths()
         self.assertEqual(sorted(config_paths), sorted(expected_result))
@@ -492,6 +530,24 @@ class IdeUtilUnittests(unittest.TestCase):
         expacted_result = 'eclipse 2>/dev/null >&2 &'
         test_result = eclipse._get_ide_cmd()
         self.assertEqual(test_result, expacted_result)
+
+    @mock.patch.object(ide_util.IdeUtil, 'is_ide_installed')
+    @mock.patch.object(project_config.ProjectConfig, 'get_instance')
+    def test_get_ide_util_instance(self, mock_config, mock_ide_installed):
+        """Test get_ide_util_instance."""
+        # Test is_launch_ide conditions.
+        mock_instance = mock_config.return_value
+        mock_instance.is_launch_ide = False
+        ide_util.get_ide_util_instance()
+        self.assertFalse(mock_ide_installed.called)
+        mock_instance.is_launch_ide = True
+        ide_util.get_ide_util_instance()
+        self.assertTrue(mock_ide_installed.called)
+
+        # Test ide is not installed.
+        mock_ide_installed.return_value = False
+        with self.assertRaises(errors.IDENotExistError):
+            ide_util.get_ide_util_instance()
 
 
 if __name__ == '__main__':

@@ -39,16 +39,17 @@ def get_script_from_internal_path(ide_paths, ide_name):
         ide_name: The IDE name.
 
     Returns:
-        The IDE full path or None if no Android Studio or Eclipse is installed.
+        The list of the full path of IDE or None if the IDE doesn't exist.
     """
     for ide_path in ide_paths:
         ls_output = glob.glob(ide_path, recursive=True)
         ls_output = sorted(ls_output)
         if ls_output:
-            logging.debug('Result for checking %s after sort: %s.', ide_name,
-                          ls_output[0])
-            return ls_output[0]
-    logging.error('No %s installed.', ide_name)
+            logging.debug('The script%s for %s %s found.',
+                          's' if len(ls_output) > 1 else '', ide_name,
+                          'are' if len(ls_output) > 1 else 'is')
+            return ls_output
+    logging.error('There is not any script of %s found.', ide_name)
     return None
 
 
@@ -110,7 +111,7 @@ def get_run_ide_cmd(sh_path, project_file, new_process=True):
     ])
 
 
-def _get_script_from_file_path(input_path, ide_file_name):
+def _get_scripts_from_file_path(input_path, ide_file_name):
     """Get IDE executable script file from input file path.
 
     Args:
@@ -118,16 +119,16 @@ def _get_script_from_file_path(input_path, ide_file_name):
         ide_file_name: the IDE executable script file name.
 
     Returns:
-        An IDE executable script path if exists otherwise None.
+        A list of the IDE executable script path if exists otherwise None.
     """
     if os.path.basename(input_path).startswith(ide_file_name):
         files_found = glob.glob(input_path)
         if files_found:
-            return sorted(files_found)[0]
+            return sorted(files_found)
     return None
 
 
-def get_script_from_dir_path(input_path, ide_file_name):
+def get_scripts_from_dir_path(input_path, ide_file_name):
     """Get an IDE executable script file from input directory path.
 
     Args:
@@ -135,14 +136,14 @@ def get_script_from_dir_path(input_path, ide_file_name):
         ide_file_name: the IDE executable script file name.
 
     Returns:
-        An IDE executable script path if exists otherwise None.
+        A list of an IDE executable script paths if exist otherwise None.
     """
-    logging.debug('Call get_script_from_dir_path with %s, and %s', input_path,
+    logging.debug('Call get_scripts_from_dir_path with %s, and %s', input_path,
                   ide_file_name)
     files_found = list(_walk_tree_find_ide_exe_file(input_path,
                                                     ide_file_name + '*'))
     if files_found:
-        return sorted(files_found)[0]
+        return sorted(files_found)
     return None
 
 
@@ -203,11 +204,11 @@ def get_script_from_input_path(input_path, ide_file_name):
     """
     if not input_path:
         return None
-    ide_path = ''
+    ide_path = []
     if os.path.isfile(input_path):
-        ide_path = _get_script_from_file_path(input_path, ide_file_name)
+        ide_path = _get_scripts_from_file_path(input_path, ide_file_name)
     if os.path.isdir(input_path):
-        ide_path = get_script_from_dir_path(input_path, ide_file_name)
+        ide_path = get_scripts_from_dir_path(input_path, ide_file_name)
     if ide_path:
         logging.debug('IDE installed path from user input: %s.', ide_path)
         return ide_path
@@ -221,7 +222,8 @@ def get_intellij_version_path(version_path):
         version_path: IntelliJ CE or UE version launch script path.
 
     Returns:
-        The sh full path, or None if no such IntelliJ version is installed.
+        A list of the sh full paths, or None if no such IntelliJ version is
+        installed.
     """
     ls_output = glob.glob(version_path, recursive=True)
     if not ls_output:
@@ -232,11 +234,12 @@ def get_intellij_version_path(version_path):
     return ls_output
 
 
-def ask_preference(all_versions):
+def ask_preference(all_versions, ide_name):
     """Ask users which version they prefer.
 
     Args:
         all_versions: A list of all CE and UE version launch script paths.
+        ide_name: The IDE name is going to be launched.
 
     Returns:
         An users selected version.
@@ -244,8 +247,8 @@ def ask_preference(all_versions):
     options = []
     for i, sfile in enumerate(all_versions, 1):
         options.append('\t{}. {}'.format(i, sfile))
-    query = ('You installed {} versions of IntelliJ:\n{}\nPlease select '
-             'one.\t').format(len(all_versions), '\n'.join(options))
+    query = ('You installed {} versions of {}:\n{}\nPlease select '
+             'one.\t').format(len(all_versions), ide_name, '\n'.join(options))
     return _select_intellij_version(query, all_versions)
 
 

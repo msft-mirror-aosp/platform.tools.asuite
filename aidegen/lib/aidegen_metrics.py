@@ -23,14 +23,36 @@ import sys
 from aidegen import constant
 from atest import atest_utils
 
+# When combine 3 paths in a single try block, it's hard for the coverage
+# counting algorithm to judge the each real path clearly. So, separating them
+# into its own try block will increase the coverage.
+
+# Original code as follows,
+# try:
+#     from asuite.metrics import metrics
+#     from asuite.metrics import metrics_base
+#     from asuite.metrics import metrics_utils
+# except ImportError:
+#     logging.debug('Import metrics fail, can\'t send metrics.')
+#     metrics = None
+#     metrics_base = None
+#     metrics_utils = None
 try:
     from asuite.metrics import metrics
-    from asuite.metrics import metrics_base
-    from asuite.metrics import metrics_utils
 except ImportError:
     logging.debug('Import metrics fail, can\'t send metrics.')
     metrics = None
+
+try:
+    from asuite.metrics import metrics_base
+except ImportError:
+    logging.debug('Import metrics fail, can\'t send metrics.')
     metrics_base = None
+
+try:
+    from asuite.metrics import metrics_utils
+except ImportError:
+    logging.debug('Import metrics fail, can\'t send metrics.')
     metrics_utils = None
 
 

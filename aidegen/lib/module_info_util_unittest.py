@@ -21,10 +21,12 @@ import os.path
 import unittest
 from unittest import mock
 
+from aidegen import aidegen_main
 from aidegen import unittest_constants
 from aidegen.lib import common_util
 from aidegen.lib import errors
 from aidegen.lib import module_info_util
+from aidegen.lib import project_config
 
 from atest import atest_utils
 
@@ -215,6 +217,21 @@ class AidegenModuleInfoUtilUnittests(unittest.TestCase):
         module_info_util._build_bp_info(amodule_info, main_project, verbose)
         self.assertTrue(mock_new.called)
         self.assertTrue(mock_handle.called)
+
+    @mock.patch.object(module_info_util, '_merge_dict')
+    @mock.patch.object(module_info_util, '_get_soong_build_json_dict')
+    @mock.patch.object(module_info_util, '_build_bp_info')
+    def test_generate_merged_module_info(
+            self, mock_build, mock_get_soong, mock_merge_dict):
+        """Test generate_merged_module_info function."""
+        main_project = 'tradefed'
+        args = aidegen_main._parse_args([main_project, '-n', '-v'])
+        config = project_config.ProjectConfig(args)
+        config.init_environment()
+        module_info_util.generate_merged_module_info()
+        self.assertTrue(mock_build.called)
+        self.assertTrue(mock_get_soong.called)
+        self.assertTrue(mock_merge_dict.called)
 
 
 if __name__ == '__main__':

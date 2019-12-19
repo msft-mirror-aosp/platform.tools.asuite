@@ -94,11 +94,13 @@ class IdeUtilCommonUnittests(unittest.TestCase):
         mock_glob.return_value = unittest_constants.IDEA_SH_FIND
         mock_input.return_value = '1'
         self.assertEqual(
-            ide_common_util.ask_preference(unittest_constants.IDEA_SH_FIND),
+            ide_common_util.ask_preference(unittest_constants.IDEA_SH_FIND,
+                                           constant.IDE_INTELLIJ),
             unittest_constants.IDEA_SH_FIND[0])
         mock_input.return_value = '2'
         self.assertEqual(
-            ide_common_util.ask_preference(unittest_constants.IDEA_SH_FIND),
+            ide_common_util.ask_preference(unittest_constants.IDEA_SH_FIND,
+                                           constant.IDE_INTELLIJ),
             unittest_constants.IDEA_SH_FIND[1])
 
     def test_get_run_ide_cmd(self):
@@ -118,6 +120,30 @@ class IdeUtilCommonUnittests(unittest.TestCase):
         ])
         self.assertEqual(test_result, ide_common_util.get_run_ide_cmd(
             test_script_path, test_project_path, folk_new_process))
+
+    @mock.patch('builtins.sorted')
+    @mock.patch('glob.glob')
+    def test_get_scripts_from_file_path(self, mock_list, mock_sort):
+        """Test _get_scripts_from_file_path."""
+        test_file = 'a/b/c/d.e'
+        ide_common_util._get_scripts_from_file_path(test_file, 'd.e')
+        mock_list.return_value = [test_file]
+        self.assertTrue(mock_sort.called)
+        mock_list.return_value = None
+        self.assertEqual(ide_common_util._get_scripts_from_file_path(
+            test_file, 'd.e'), None)
+
+    @mock.patch('builtins.sorted')
+    @mock.patch('builtins.list')
+    def test_get_scripts_from_dir_path(self, mock_list, mock_sort):
+        """Test get_scripts_from_dir_path."""
+        test_path = 'a/b/c/d.e'
+        mock_list.return_value = ['a', 'b', 'c']
+        ide_common_util.get_scripts_from_dir_path(test_path, 'd.e')
+        self.assertTrue(mock_sort.called)
+        mock_list.return_value = []
+        self.assertEqual(ide_common_util.get_scripts_from_dir_path(
+            test_path, 'd.e'), None)
 
 
 if __name__ == '__main__':
