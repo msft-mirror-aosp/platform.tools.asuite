@@ -22,8 +22,10 @@ import tempfile
 import unittest
 from unittest import mock
 
-from aidegen.lib import config
+from aidegen import constant
+
 from aidegen.lib import common_util
+from aidegen.lib import config
 
 
 # pylint: disable=protected-access
@@ -211,7 +213,7 @@ class AidegenConfigUnittests(unittest.TestCase):
 
     @mock.patch('os.path.isfile')
     @mock.patch('builtins.open', create=True)
-    def test_deprecated_version(self, mock_open, mock_isfile):
+    def test_deprecated_intellij_version(self, mock_open, mock_isfile):
         """Test deprecated_intellij_version."""
         # Test the idea.sh file contains the deprecated string.
         cfg = config.AidegenConfig()
@@ -233,6 +235,48 @@ class AidegenConfigUnittests(unittest.TestCase):
         ]
         self.assertFalse(cfg.deprecated_intellij_version(0))
 
+    @mock.patch.object(config.AidegenConfig, 'deprecated_studio_version')
+    @mock.patch.object(config.AidegenConfig, 'deprecated_intellij_version')
+    def test_deprecated_version(self, mock_inj, mock_studio):
+        """Test deprecated_version."""
+        cfg = config.AidegenConfig()
+        ide_name = constant.IDE_INTELLIJ
+        test_path = ''
+        cfg.deprecated_version(ide_name, test_path)
+        self.assertTrue(mock_inj.called)
+
+        ide_name = constant.IDE_ANDROID_STUDIO
+        cfg.deprecated_version(ide_name, test_path)
+        self.assertTrue(mock_studio.called)
+        test_ide = ''
+        self.assertFalse(cfg.deprecated_version(test_ide, test_path))
+
+    @mock.patch.object(os.path, 'isfile')
+    def test_deprecated_studio_version(self, mock_is_file):
+        """Test deprecated_studio_version."""
+        test_sh_name = 'test.sh'
+        # temp_dir/test
+        temp_base = os.path.join(self._TMP_DIR, 'test')
+        os.mkdir(temp_base)
+        # temp_dir/test/studio/bin
+        os.mkdir(os.path.join(temp_base, 'studio'))
+        test_bin_path = os.path.join(self._TMP_DIR, 'test', 'studio', 'bin')
+        os.mkdir(test_bin_path)
+        # /temp_dir/test/studio/bin/test.sh
+        test_sh_path = os.path.join(self._TMP_DIR, 'test', 'studio', 'bin',
+                                    test_sh_name)
+        # Real test.sh doesn't exist.
+        cfg = config.AidegenConfig()
+        self.assertTrue(cfg.deprecated_studio_version(test_sh_path))
+        # The /temp_dir/test/studio/lib doesn't exist case.
+        mock_is_file.return_value = True
+        self.assertTrue(cfg.deprecated_studio_version(test_sh_path))
+        # The /temp_dir/test/studio/lib exists.
+        test_lib_path = os.path.join(self._TMP_DIR, 'test', 'studio', 'lib')
+        os.mkdir(test_lib_path)
+        self.assertFalse(cfg.deprecated_studio_version(test_sh_path))
+        shutil.rmtree(temp_base)
+
     @mock.patch('os.path.isfile')
     def test_idea_path_not_file(self, mock_isfile):
         """Test deprecated_intellij_version."""
@@ -241,17 +285,36 @@ class AidegenConfigUnittests(unittest.TestCase):
         mock_isfile.return_value = False
         self.assertFalse(cfg.deprecated_intellij_version(0))
 
+    @mock.patch.object(config.AidegenConfig, 'deprecated_version')
     @mock.patch.object(config.AidegenConfig, 'deprecated_intellij_version')
-    def test_preferred_version(self, mock_reprecated_version):
+    def test_preferred_version(self, mock_deprecated_intj, mock_deprecated):
         """Test get preferred IntelliJ version."""
         cfg = config.AidegenConfig()
         cfg._config['preferred_version'] = ''
-        self.assertEqual(cfg.preferred_version, None)
-        mock_reprecated_version.return_value = False
+        self.assertEqual(cfg.preferred_version(), None)
+
+        result = 'test_intellij'
+        cfg._config['IntelliJ_preferred_version'] = result
+        mock_deprecated.return_value = False
+        self.assertEqual(cfg.preferred_version(constant.IDE_INTELLIJ), result)
+        self.assertEqual(cfg.preferred_version(result), None)
+        mock_deprecated.return_value = True
+        self.assertEqual(cfg.preferred_version(constant.IDE_INTELLIJ), None)
+
+        mock_deprecated_intj.return_value = False
         cfg._config['preferred_version'] = 'a'
-        self.assertEqual(cfg.preferred_version, 'a')
-        mock_reprecated_version.return_value = True
-        self.assertEqual(cfg.preferred_version, None)
+        self.assertEqual(cfg.preferred_version(), 'a')
+        mock_deprecated_intj.return_value = True
+        self.assertEqual(cfg.preferred_version(), None)
+
+    def test_set_preferred_version(self):
+        """Test set_preferred_version."""
+        cfg = config.AidegenConfig()
+        cfg._config[config.AidegenConfig._KEY_APPEND] = 'Yes'
+        cfg.set_preferred_version('test', None)
+        self.assertEqual(cfg._config[config.AidegenConfig._KEY_APPEND], 'test')
+        cfg.set_preferred_version('test', constant.IDE_INTELLIJ)
+        self.assertEqual(cfg._config['IntelliJ_preferred_version'], 'test')
 
     @mock.patch('os.makedirs')
     @mock.patch('os.path.exists')
