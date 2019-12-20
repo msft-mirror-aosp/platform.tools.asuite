@@ -21,6 +21,7 @@ import com.android.atest.dialog.MessageDialog;
 import com.intellij.openapi.wm.ToolWindow;
 import com.intellij.openapi.wm.ex.ToolWindowEx;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
 import javax.swing.*;
 import java.awt.*;
@@ -28,6 +29,7 @@ import java.awt.*;
 /** UI content of Atest tool window. */
 public class AtestToolWindow {
 
+    private static AtestToolWindow atestToolWindowInstance;
     private static final int INITIAL_WIDTH = 1000;
     private JPanel mAtestToolWindowPanel;
     private JScrollPane mScorll;
@@ -46,11 +48,39 @@ public class AtestToolWindow {
      * @param toolWindow a child window of the IDE used to display information.
      * @param basePath a string that represents current project's base path.
      */
-    public AtestToolWindow(ToolWindow toolWindow, String basePath) {
+    private AtestToolWindow(ToolWindow toolWindow, String basePath) {
         setInitialWidth((ToolWindowEx) toolWindow);
         setRunButton(basePath);
         setTestTarget(basePath);
         mAtestOutput.setMargin(new Insets(0, 10, 0, 0));
+    }
+
+    /**
+     * Gets AtestToolWindow instance.
+     *
+     * <p>This method should be called after getInstance(ToolWindow, String). Otherwise it will
+     * return null, because of no living instances.
+     *
+     * @return the singleton AtestToolWindow instance.
+     */
+    @Nullable
+    public static AtestToolWindow getInstance() {
+        return atestToolWindowInstance;
+    }
+
+    /**
+     * Gets AtestToolWindow instance.
+     *
+     * @param toolWindow a child window of the IDE used to display information.
+     * @param basePath a string that represents current project's base path.
+     * @return the singleton AtestToolWindow instance.
+     */
+    @NotNull
+    public static AtestToolWindow getInstance(ToolWindow toolWindow, String basePath) {
+        if (atestToolWindowInstance == null) {
+            atestToolWindowInstance = new AtestToolWindow(toolWindow, basePath);
+        }
+        return atestToolWindowInstance;
     }
 
     /**
