@@ -39,7 +39,7 @@ public class AtestToolWindowAction extends com.intellij.openapi.actionSystem.AnA
                 ToolWindowManager.getInstance(event.getProject())
                         .getToolWindow(Constants.ATEST_TOOL_WINDOW);
         if (AtestTW == null) {
-            Notifications.Bus.notify(new AtestNotification("Atest window failed to launch."));
+            Notifications.Bus.notify(new AtestNotification(Constants.ATEST_WINDOW_FAIL));
             LOG.error("Can't get Atest tool window.");
             return;
         }
