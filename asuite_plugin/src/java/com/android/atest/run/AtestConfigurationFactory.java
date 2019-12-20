@@ -15,6 +15,7 @@
  */
 package com.android.atest.run;
 
+import com.android.atest.AtestUtils;
 import com.android.atest.Constants;
 import com.intellij.execution.configurations.ConfigurationFactory;
 import com.intellij.execution.configurations.ConfigurationType;
@@ -41,6 +42,22 @@ public class AtestConfigurationFactory extends ConfigurationFactory {
     @Override
     public RunConfiguration createTemplateConfiguration(@NotNull Project project) {
         return new AtestRunConfiguration(project, this, Constants.ATEST_NAME);
+    }
+
+    /**
+     * Checks if the project is applicable for executing Atest.
+     *
+     * <p>It returns {@code false} to hide the configuration from 'New' popup in 'Edit
+     * Configurations' dialog. It will be still possible to create this configuration by clicking on
+     * 'n more items' in the 'New' popup.
+     *
+     * @param project the project in which the run configuration will be used.
+     * @return {@code true} if it makes sense to create configurations of this type in {@code
+     *     project}
+     */
+    @Override
+    public boolean isApplicable(@NotNull Project project) {
+        return AtestUtils.getAndroidRoot(project.getBasePath()) != null;
     }
 
     /**
