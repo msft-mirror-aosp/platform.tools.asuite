@@ -22,4 +22,7 @@ public class Constants {
     public static final String TEST_MAPPING_FILE_NAME = "TEST_MAPPING";
     public static final String ATEST_TOOL_WINDOW = "Atest ToolWindow";
     public static final String BUILD_ENVIRONMENT = "build/envsetup.sh";
+
+    // Common string.
+    public static final String ATEST_WINDOW_FAIL = "Atest window failed to launch.";
 }
