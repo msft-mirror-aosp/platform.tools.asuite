@@ -29,6 +29,7 @@ from aidegen.lib import aidegen_metrics
 from aidegen.lib import common_util
 from aidegen.lib import eclipse_project_file_gen
 from aidegen.lib import errors
+from aidegen.lib import ide_util
 from aidegen.lib import project_config
 from aidegen.lib import project_file_gen
 
@@ -150,9 +151,56 @@ class AidegenMainUnittests(unittest.TestCase):
             aidegen_main.main([''])
             _, exc_value, exc_traceback = sys.exc_info()
             msg = str(exc_value)
-            mock_ends_metrics.assert_called_with(
-                constant.EXIT_CODE_EXCEPTION, exc_traceback, msg)
+            mock_ends_metrics.assert_called_with(constant.EXIT_CODE_EXCEPTION,
+                                                 exc_traceback, msg)
 
+    @mock.patch.object(aidegen_main, '_launch_ide')
+    @mock.patch.object(ide_util, 'get_ide_util_instance')
+    def test_launch_native_projects_without_ide_object(
+            self, mock_get_ide, mock_launch_ide):
+        """Test _launch_native_projects function without ide object."""
+        target = 'libui'
+        args = aidegen_main._parse_args([target, '-i', 'e'])
+        aidegen_main._launch_native_projects(None, args, [])
+        self.assertFalse(mock_get_ide.called)
+        self.assertFalse(mock_launch_ide.called)
+
+    @mock.patch.object(aidegen_main, '_launch_ide')
+    @mock.patch.object(ide_util, 'get_ide_util_instance')
+    def test_launch_native_projects_with_ide_object(
+            self, mock_get_ide, mock_launch_ide):
+        """Test _launch_native_projects function without ide object."""
+        target = 'libui'
+        args = aidegen_main._parse_args([target, '-i', 'e'])
+        ide_util_obj = 'some_obj'
+        mock_get_ide.return_value = None
+        aidegen_main._launch_native_projects(ide_util_obj, args, [])
+        self.assertTrue(mock_get_ide.called_with('c'))
+        self.assertFalse(mock_launch_ide.called)
+        mock_get_ide.reset_mock()
+        mock_launch_ide.reset_mock()
+        args.ide = ['j']
+        aidegen_main._launch_native_projects(ide_util_obj, args, [])
+        self.assertTrue(mock_get_ide.called_with('c'))
+        self.assertFalse(mock_launch_ide.called)
+        mock_get_ide.reset_mock()
+        mock_launch_ide.reset_mock()
+        mock_get_ide.return_value = 'some_native_obj'
+        aidegen_main._launch_native_projects(ide_util_obj, args, [])
+        self.assertTrue(mock_get_ide.called_with('c'))
+        self.assertTrue(mock_launch_ide.called)
+        mock_get_ide.reset_mock()
+        mock_launch_ide.reset_mock()
+        args.ide = ['e']
+        aidegen_main._launch_native_projects(ide_util_obj, args, [])
+        self.assertTrue(mock_get_ide.called_with('c'))
+        self.assertTrue(mock_launch_ide.called)
+        mock_get_ide.reset_mock()
+        mock_launch_ide.reset_mock()
+        args.ide = ['s']
+        aidegen_main._launch_native_projects(ide_util_obj, args, [])
+        self.assertFalse(mock_get_ide.called)
+        self.assertTrue(mock_launch_ide.called)
 
 if __name__ == '__main__':
     unittest.main()
