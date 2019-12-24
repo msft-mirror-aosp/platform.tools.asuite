@@ -153,7 +153,7 @@ class AtestExecutionInfo:
                 AtestExecutionInfo.result_reporters)
             return json.dumps(info_dict)
         except ValueError as err:
-            logging.warn('Parsing test result failed due to : %s', err)
+            logging.warning('Parsing test result failed due to : %s', err)
 
     @staticmethod
     def _arrange_test_result(info_dict, reporters):
