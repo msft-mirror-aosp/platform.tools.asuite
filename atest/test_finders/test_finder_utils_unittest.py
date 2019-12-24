@@ -161,7 +161,7 @@ class TestFinderUtilsUnittests(unittest.TestCase):
     def test_extract_test_from_tests(self, mock_input):
         """Test method extract_test_from_tests method."""
         tests = []
-        self.assertEquals(test_finder_utils.extract_test_from_tests(tests), None)
+        self.assertEqual(test_finder_utils.extract_test_from_tests(tests), None)
         paths = [os.path.join(uc.ROOT, CLASS_DIR, uc.CLASS_NAME + '.java')]
         unittest_utils.assert_strict_equal(
             self, test_finder_utils.extract_test_path(uc.FIND_ONE), paths)
@@ -171,10 +171,10 @@ class TestFinderUtilsUnittests(unittest.TestCase):
             self, test_finder_utils.extract_test_path(FIND_TWO), paths)
         # Test inputing out-of-range integer or a string
         mock_input.return_value = '100'
-        self.assertEquals(test_finder_utils.extract_test_from_tests(
+        self.assertEqual(test_finder_utils.extract_test_from_tests(
             uc.CLASS_NAME), [])
         mock_input.return_value = 'lOO'
-        self.assertEquals(test_finder_utils.extract_test_from_tests(
+        self.assertEqual(test_finder_utils.extract_test_from_tests(
             uc.CLASS_NAME), [])
 
     @mock.patch('builtins.input', return_value='1')
