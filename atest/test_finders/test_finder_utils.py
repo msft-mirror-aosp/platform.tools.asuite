@@ -322,11 +322,10 @@ def extract_test_from_tests(tests):
         numbered_list = ['%s: %s' % (i, t) for i, t in enumerate(tests)]
         numbered_list.append('%s: All' % count)
         print('Multiple tests found:\n{0}'.format('\n'.join(numbered_list)))
-        test_indices = raw_input("Please enter numbers of test to use. "
-                                 "If none of above option matched, keep "
-                                 "searching for other possible tests."
-                                 "\n(multiple selection is supported,"
-                                 " e.g. '1' or '0,1' or '0-2'): ")
+        test_indices = input("Please enter numbers of test to use. If none of "
+                             "above option matched, keep searching for other "
+                             "possible tests.\n(multiple selection is supported, "
+                             "e.g. '1' or '0,1' or '0-2'): ")
         for idx in re.sub(r'(\s)', '', test_indices).split(','):
             indices = idx.split('-')
             len_indices = len(indices)
