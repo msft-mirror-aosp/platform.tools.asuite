@@ -20,7 +20,7 @@
 
 import sys
 import unittest
-import mock
+from unittest import mock
 
 import result_reporter
 from test_runners import test_runner_base

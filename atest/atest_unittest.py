@@ -23,7 +23,7 @@ import os
 import sys
 import tempfile
 import unittest
-import mock
+from unittest import mock
 
 import atest
 import constants
