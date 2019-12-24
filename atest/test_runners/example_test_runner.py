@@ -15,7 +15,7 @@
 """Example test runner class."""
 
 
-import test_runner_base
+from test_runners import test_runner_base
 
 
 class ExampleTestRunner(test_runner_base.TestRunnerBase):
