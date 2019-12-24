@@ -16,11 +16,15 @@
 
 """Unittests for module_info."""
 
+import os
 import unittest
 
+from unittest import mock
+
 from aidegen.lib import module_info
+from aidegen.lib import module_info_util
 
-
+# pylint: disable=protected-access
 #pylint: disable=invalid-name
 class AidegenModuleInfoUnittests(unittest.TestCase):
     """Unit tests for module_info.py"""
@@ -68,6 +72,34 @@ class AidegenModuleInfoUnittests(unittest.TestCase):
         self.assertFalse(
             module_info.AidegenModuleInfo.is_project_path_relative_module(
                 mod_info, 'tes'))
+
+    @mock.patch('logging.debug')
+    @mock.patch.object(module_info_util, 'generate_merged_module_info')
+    @mock.patch.object(os.path, 'isfile')
+    @mock.patch('os.remove')
+    def test_discover_mod_file_and_target(self, mock_remove, mock_is_file,
+                                          mock_generate, mock_log):
+        """Test _discover_mod_file_and_target()."""
+        # Test not force build case.
+        mock_generate.return_value = None
+        force_build = False
+        mock_is_file.return_value = True
+        module_info.AidegenModuleInfo._discover_mod_file_and_target(force_build)
+        self.assertFalse(mock_remove.called)
+        self.assertFalse(mock_log.called)
+        self.assertTrue(mock_generate.called)
+
+        # Test force_build case.
+        force_build = True
+        self.assertTrue(mock_is_file.called)
+        mock_is_file.return_value = False
+        module_info.AidegenModuleInfo._discover_mod_file_and_target(force_build)
+        self.assertFalse(mock_remove.called)
+        self.assertTrue(mock_log.called)
+
+        mock_is_file.return_value = True
+        module_info.AidegenModuleInfo._discover_mod_file_and_target(force_build)
+        self.assertTrue(mock_remove.called)
 
 
 if __name__ == '__main__':
