@@ -295,6 +295,8 @@ def _will_run_tests(args):
     return not (args.detect_regression and len(args.detect_regression) == 2)
 
 
+# pylint: disable=no-else-return
+# This method is going to dispose, let's ignore pylint for now.
 def _has_valid_regression_detection_args(args):
     """Validate regression detection args.
 
