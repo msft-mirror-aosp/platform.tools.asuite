@@ -221,6 +221,8 @@ class RobolectricTestRunner(test_runner_base.TestRunnerBase):
             env_var['EVENT_FILE_ROBOLECTRIC'] = event_file.name
         return env_var
 
+    # pylint: disable=unnecessary-pass
+    # Please keep above disable flag to ensure host_env_check is overriden.
     def host_env_check(self):
         """Check that host env has everything we need.
 

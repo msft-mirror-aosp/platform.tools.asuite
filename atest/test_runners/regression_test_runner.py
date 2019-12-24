@@ -52,6 +52,8 @@ class RegressionTestRunner(test_runner_base.TestRunnerBase):
         proc.wait()
         return proc.returncode
 
+    # pylint: disable=unnecessary-pass
+    # Please keep above disable flag to ensure host_env_check is overriden.
     def host_env_check(self):
         """Check that host env has everything we need.
 
