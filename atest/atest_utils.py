@@ -408,8 +408,8 @@ def handle_test_runner_cmd(input_test, test_cmds, do_verification=False,
                 # not a built-in lib in older python3(b/137017806). Will move it
                 # back when embedded_launcher fully supports Python3.
                 from distutils.util import strtobool
-                if not strtobool(raw_input('Do you want to update former result'
-                                           'with the latest one?(Y/n)')):
+                if not strtobool(input('Do you want to update former result'
+                                       'with the latest one?(Y/n)')):
                     print('SKIP updating result!!!')
                     return
             except ValueError:
