@@ -102,11 +102,6 @@ class TestRunnerBase:
         except Exception as error:
             # exc_info=1 tells logging to log the stacktrace
             logging.debug('Caught exception:', exc_info=1)
-            # Remember our current exception scope, before new try block
-            # Python3 will make this easier, the error itself stores
-            # the scope via error.__traceback__ and it provides a
-            # "raise from error" pattern.
-            # https://docs.python.org/3.5/reference/simple_stmts.html#raise
             exc_type, exc_msg, traceback_obj = sys.exc_info()
             # If atest crashes, try to kill subproc group as well.
             try:
@@ -123,8 +118,10 @@ class TestRunnerBase:
                         print(atest_utils.colorize(intro_msg, constants.RED))
                         print(f.read())
                 # Ignore socket.recv() raising due to ctrl-c
+                # https://docs.python.org/3.7/reference/simple_stmts.html#raise
+                # TODO: make sure this raise works as expected.
                 if not error.args or error.args[0] != errno.EINTR:
-                    raise exc_type, exc_msg, traceback_obj
+                    raise RuntimeError(exc_msg) from exc_type
 
     def wait_for_subprocess(self, proc):
         """Check the process status. Interrupt the TF subporcess if user
