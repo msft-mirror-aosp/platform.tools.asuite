@@ -23,7 +23,7 @@ import sys
 import tempfile
 import unittest
 import json
-import mock
+from unittest import mock
 
 import constants
 import unittest_constants as uc

@@ -20,7 +20,7 @@
 
 import os
 import unittest
-import mock
+from unittest import mock
 
 import atest_error
 import constants
