@@ -430,7 +430,7 @@ def handle_test_runner_cmd(input_test, test_cmds, do_verification=False,
 def _are_identical_cmds(current_cmds, former_cmds):
     """Tell two commands are identical. Note that '--atest-log-file-path' is not
     considered a critical argument, therefore, it will be removed during
-    the comparison. Also, atest can be ran in any place, so verifying no-absolute
+    the comparison. Also, atest can be ran in any place, so verifying relative
     path is regardless as well.
 
     Args:

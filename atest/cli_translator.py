@@ -46,7 +46,7 @@ _COMMENTS_RE = re.compile(r'(?m)[\s\t]*(#|//).*|(\".*?\")')
 _COMMENTS = frozenset(['//', '#'])
 
 #pylint: disable=no-self-use
-class CLITranslator(object):
+class CLITranslator:
     """
     CLITranslator class contains public method translate() and some private
     helper methods. The atest tool can call the translate() method with a list
