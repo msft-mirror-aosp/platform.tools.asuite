@@ -25,6 +25,7 @@ class ExampleTestRunner(test_runner_base.TestRunnerBase):
     _RUN_CMD = '{exe} ExampleTestRunner - test:{test}'
     _BUILD_REQ = set()
 
+    # pylint: disable=unused-argument
     def run_tests(self, test_infos, extra_args, reporter):
         """Run the list of test_infos.
 
