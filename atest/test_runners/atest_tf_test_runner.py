@@ -283,6 +283,8 @@ class AtestTradefedTestRunner(test_runner_base.TestRunnerBase):
                       server.getsockname()[1])
         return server
 
+    # pylint: disable=unnecessary-pass
+    # Please keep above disable flag to ensure host_env_check is overriden.
     def host_env_check(self):
         """Check that host env has everything we need.
 
