@@ -16,7 +16,6 @@
 
 """Unittests for atest_utils."""
 
-# pylint: disable=relative-import
 # pylint: disable=line-too-long
 
 import hashlib
@@ -25,7 +24,7 @@ import subprocess
 import sys
 import tempfile
 import unittest
-import mock
+from unittest import mock
 
 import atest_error
 import atest_utils

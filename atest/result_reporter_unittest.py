@@ -16,12 +16,11 @@
 
 """Unittests for result_reporter."""
 
-# pylint: disable=relative-import
 # pylint: disable=line-too-long
 
 import sys
 import unittest
-import mock
+from unittest import mock
 
 import result_reporter
 from test_runners import test_runner_base

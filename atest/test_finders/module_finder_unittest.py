@@ -16,13 +16,12 @@
 
 """Unittests for module_finder."""
 
-# pylint: disable=relative-import
 # pylint: disable=line-too-long
 
 import re
 import unittest
 import os
-import mock
+from unittest import mock
 
 import atest_error
 import constants

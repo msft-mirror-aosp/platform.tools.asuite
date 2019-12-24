@@ -16,11 +16,10 @@
 
 """Unittests for event_handler."""
 
-# pylint: disable=relative-import
 # pylint: disable=line-too-long
 
 import unittest
-import mock
+from unittest import mock
 
 import atest_tf_test_runner as atf_tr
 import event_handler as e_h

@@ -14,7 +14,6 @@
 
 """Example test runner class."""
 
-# pylint: disable=relative-import
 
 import test_runner_base
 

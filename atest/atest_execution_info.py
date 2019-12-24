@@ -15,7 +15,6 @@
 """ATest execution info generator."""
 
 # pylint: disable=line-too-long
-# pylint: disable=relative-import
 
 from __future__ import print_function
 

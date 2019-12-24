@@ -16,14 +16,13 @@
 
 """Unittests for robolectric_test_runner."""
 
-# pylint: disable=relative-import
 # pylint: disable=line-too-long
 
 import json
 import unittest
 import subprocess
 import tempfile
-import mock
+from unittest import mock
 
 import event_handler
 from test_finders import test_info

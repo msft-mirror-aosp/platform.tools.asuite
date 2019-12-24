@@ -16,7 +16,6 @@
 
 """Unittests for atest."""
 
-# pylint: disable=relative-import
 # pylint: disable=line-too-long
 
 import datetime
@@ -24,7 +23,7 @@ import os
 import sys
 import tempfile
 import unittest
-import mock
+from unittest import mock
 
 import atest
 import constants
