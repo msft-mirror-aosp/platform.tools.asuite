@@ -84,8 +84,9 @@ class SuitePlanFinder(test_finder_base.TestFinderBase):
         suite_plan_name = match.group('suite_plan_name')
         if suite_name:
             if suite_plan_name != suite_name:
-                logging.warn('Input (%s) not valid suite plan name, '
-                             'did you mean: %s?', suite_name, suite_plan_name)
+                logging.warning('Input (%s) not valid suite plan name, '
+                                'did you mean: %s?',
+                                suite_name, suite_plan_name)
                 return None
         return test_info.TestInfo(
             test_name=suite_plan_name,

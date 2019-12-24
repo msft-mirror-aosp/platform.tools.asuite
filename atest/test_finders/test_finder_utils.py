@@ -894,12 +894,12 @@ def get_int_dir_from_path(path, int_dirs):
             int_dir = abs_int_dir
             break
     if not file_name:
-        logging.warn('Found dir (%s) matching input (%s).'
-                     ' Referencing an entire Integration/Suite dir'
-                     ' is not supported. If you are trying to reference'
-                     ' a test by its path, please input the path to'
-                     ' the integration/suite config file itself.',
-                     int_dir, path)
+        logging.warning('Found dir (%s) matching input (%s).'
+                        ' Referencing an entire Integration/Suite dir'
+                        ' is not supported. If you are trying to reference'
+                        ' a test by its path, please input the path to'
+                        ' the integration/suite config file itself.',
+                        int_dir, path)
         return None
     return int_dir
 
