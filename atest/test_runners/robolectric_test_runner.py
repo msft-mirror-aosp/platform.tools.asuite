@@ -19,7 +19,6 @@ This test runner will be short lived, once robolectric support v2 is in, then
 robolectric tests will be invoked through AtestTFTestRunner.
 """
 
-# pylint: disable=relative-import
 # pylint: disable=line-too-long
 
 import json

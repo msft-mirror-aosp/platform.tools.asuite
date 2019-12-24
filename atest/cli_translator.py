@@ -16,7 +16,6 @@
 
 # pylint: disable=line-too-long
 # pylint: disable=too-many-lines
-# pylint: disable=relative-import
 
 from __future__ import print_function
 

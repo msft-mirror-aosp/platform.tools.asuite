@@ -16,7 +16,6 @@
 
 """Unittests for module_info."""
 
-# pylint: disable=relative-import
 # pylint: disable=line-too-long
 
 import os

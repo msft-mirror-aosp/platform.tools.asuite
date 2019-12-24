@@ -16,7 +16,6 @@
 Test Finder Handler module.
 """
 
-# pylint: disable=relative-import
 # pylint: disable=line-too-long
 
 import logging

@@ -16,7 +16,6 @@
 
 """Unittests for atest_arg_parser."""
 
-# pylint: disable=relative-import
 
 import unittest
 
