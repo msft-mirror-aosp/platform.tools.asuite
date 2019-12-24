@@ -19,11 +19,10 @@ VTS Tradefed test runner class.
 import copy
 import logging
 
-# pylint: disable=import-error
-from test_runners import atest_tf_test_runner
 import atest_utils
 import constants
 
+from test_runners import atest_tf_test_runner
 
 class VtsTradefedTestRunner(atest_tf_test_runner.AtestTradefedTestRunner):
     """TradeFed Test Runner class."""

@@ -23,6 +23,8 @@ import sys
 import tempfile
 import unittest
 import json
+
+from io import StringIO
 from unittest import mock
 
 import constants
@@ -30,12 +32,9 @@ import unittest_constants as uc
 import unittest_utils
 import atest_tf_test_runner as atf_tr
 import event_handler
+
 from test_finders import test_info
 
-if sys.version_info[0] == 2:
-    from StringIO import StringIO
-else:
-    from io import StringIO
 
 #pylint: disable=protected-access
 #pylint: disable=invalid-name

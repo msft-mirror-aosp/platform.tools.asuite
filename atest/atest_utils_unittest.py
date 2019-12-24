@@ -24,18 +24,17 @@ import subprocess
 import sys
 import tempfile
 import unittest
+
+from io import StringIO
 from unittest import mock
 
 import atest_error
 import atest_utils
 import constants
 import unittest_utils
+
 from test_finders import test_info
 
-if sys.version_info[0] == 2:
-    from StringIO import StringIO
-else:
-    from io import StringIO
 
 TEST_MODULE_NAME_A = 'ModuleNameA'
 TEST_RUNNER_A = 'FakeTestRunnerA'

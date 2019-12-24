@@ -30,6 +30,8 @@ import shutil
 import subprocess
 import sys
 
+from urllib.request import urlopen
+
 import atest_decorator
 import atest_error
 import constants
@@ -37,13 +39,6 @@ import constants
 from metrics import metrics_base
 from metrics import metrics_utils
 
-try:
-    # If PYTHON2
-    from urllib2 import urlopen
-except ImportError:
-    metrics_utils.handle_exc_and_send_exit_event(
-        constants.IMPORT_FAILURE)
-    from urllib.request import urlopen
 
 _BASH_RESET_CODE = '\033[0m\n'
 # Arbitrary number to limit stdout for failed runs in _run_limited_output.

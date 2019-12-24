@@ -23,6 +23,8 @@ import os
 import sys
 import tempfile
 import unittest
+
+from io import StringIO
 from unittest import mock
 
 import atest
@@ -31,11 +33,6 @@ import module_info
 
 from metrics import metrics_utils
 from test_finders import test_info
-
-if sys.version_info[0] == 2:
-    from StringIO import StringIO
-else:
-    from io import StringIO
 
 #pylint: disable=protected-access
 class AtestUnittests(unittest.TestCase):

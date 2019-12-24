@@ -20,10 +20,12 @@
 # pylint: disable=line-too-long
 
 import unittest
+
 from unittest import mock
 
 import atest_error
 import test_runner_handler
+
 from metrics import metrics
 from test_finders import test_info
 from test_runners import test_runner_base as tr_base

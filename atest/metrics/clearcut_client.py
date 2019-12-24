@@ -26,18 +26,11 @@ This class is intended to be general-purpose, usable for any Clearcut LogSource.
 import logging
 import threading
 import time
-try:
-    # PYTHON2
-    from urllib2 import urlopen
-    from urllib2 import Request
-    from urllib2 import HTTPError
-    from urllib2 import URLError
-except ImportError:
-    # PYTHON3
-    from urllib.request import urlopen
-    from urllib.request import Request
-    from urllib.request import HTTPError
-    from urllib.request import URLError
+
+from urllib.request import urlopen
+from urllib.request import Request
+from urllib.request import HTTPError
+from urllib.request import URLError
 
 from proto import clientanalytics_pb2
 

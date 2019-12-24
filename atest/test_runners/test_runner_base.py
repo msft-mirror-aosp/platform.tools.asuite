@@ -19,6 +19,7 @@ Class that other test runners will instantiate for test runners.
 """
 
 from __future__ import print_function
+
 import errno
 import logging
 import signal
@@ -29,7 +30,6 @@ import sys
 
 from collections import namedtuple
 
-# pylint: disable=import-error
 import atest_error
 import atest_utils
 import constants
