@@ -23,8 +23,8 @@ import logging
 import os
 import re
 import select
+import shutil
 import socket
-import subprocess
 
 from functools import partial
 
@@ -298,12 +298,12 @@ class AtestTradefedTestRunner(test_runner_base.TestRunnerBase):
 
         Args:
             executable: Executable we are checking for.
+
         Returns:
             True if executable is missing, False otherwise.
         """
-        try:
-            output = subprocess.check_output(['which', executable])
-        except subprocess.CalledProcessError:
+        output = shutil.which(executable)
+        if not output:
             return True
         # TODO: Check if there is a clever way to determine if system adb is
         # good enough.
