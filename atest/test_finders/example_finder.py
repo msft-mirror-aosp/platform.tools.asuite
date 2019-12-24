@@ -16,7 +16,6 @@
 Example Finder class.
 """
 
-# pylint: disable=import-error
 from test_finders import test_info
 from test_finders import test_finder_base
 from test_runners import example_test_runner

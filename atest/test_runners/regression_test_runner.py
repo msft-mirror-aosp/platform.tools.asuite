@@ -16,8 +16,8 @@
 Regression Detection test runner class.
 """
 
-# pylint: disable=import-error
 import constants
+
 from test_runners import test_runner_base
 
 

@@ -23,6 +23,8 @@ import json
 import os
 import re
 import sys
+
+from io import StringIO
 from unittest import mock
 
 import cli_translator as cli_t
@@ -31,15 +33,11 @@ import test_finder_handler
 import test_mapping
 import unittest_constants as uc
 import unittest_utils
+
 from metrics import metrics
 from test_finders import module_finder
 from test_finders import test_finder_base
 
-# Import StringIO in Python2/3 compatible way.
-if sys.version_info[0] == 2:
-    from StringIO import StringIO
-else:
-    from io import StringIO
 
 # TEST_MAPPING related consts
 TEST_MAPPING_TOP_DIR = os.path.join(uc.TEST_DATA_DIR, 'test_mapping')

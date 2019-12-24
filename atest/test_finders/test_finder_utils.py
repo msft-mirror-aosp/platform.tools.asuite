@@ -19,6 +19,7 @@ Utils for finder classes.
 # pylint: disable=line-too-long
 
 from __future__ import print_function
+
 import logging
 import multiprocessing
 import os
@@ -28,7 +29,6 @@ import subprocess
 import time
 import xml.etree.ElementTree as ET
 
-# pylint: disable=import-error
 import atest_decorator
 import atest_error
 import atest_enum
