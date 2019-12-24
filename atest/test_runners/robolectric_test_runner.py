@@ -30,7 +30,6 @@ import time
 
 from functools import partial
 
-# pylint: disable=import-error
 import atest_utils
 import constants
 

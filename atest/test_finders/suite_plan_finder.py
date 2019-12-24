@@ -20,8 +20,8 @@ import logging
 import os
 import re
 
-# pylint: disable=import-error
 import constants
+
 from test_finders import test_finder_base
 from test_finders import test_finder_utils
 from test_finders import test_info

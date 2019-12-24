@@ -24,9 +24,9 @@ import os
 import re
 import xml.etree.ElementTree as ElementTree
 
-# pylint: disable=import-error
 import atest_error
 import constants
+
 from test_finders import test_info
 from test_finders import test_finder_base
 from test_finders import test_finder_utils

@@ -24,6 +24,7 @@ import platform
 import subprocess
 import sys
 import unittest
+
 from unittest import mock
 
 import atest_tools

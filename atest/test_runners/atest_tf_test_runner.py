@@ -17,6 +17,7 @@
 # pylint: disable=line-too-long
 
 from __future__ import print_function
+
 import json
 import logging
 import os
@@ -30,6 +31,7 @@ from functools import partial
 import atest_utils
 import constants
 import result_reporter
+
 from event_handler import EventHandler
 from test_finders import test_info
 from test_runners import test_runner_base

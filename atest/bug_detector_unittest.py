@@ -22,6 +22,7 @@ import datetime
 import json
 import os
 import unittest
+
 from unittest import mock
 
 import bug_detector

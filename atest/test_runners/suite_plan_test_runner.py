@@ -19,11 +19,10 @@ SUITE Tradefed test runner class.
 import copy
 import logging
 
-# pylint: disable=import-error
-from test_runners import atest_tf_test_runner
 import atest_utils
 import constants
 
+from test_runners import atest_tf_test_runner
 
 class SuitePlanTestRunner(atest_tf_test_runner.AtestTradefedTestRunner):
     """Suite Plan Test Runner class."""
