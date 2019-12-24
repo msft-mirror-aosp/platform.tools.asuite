@@ -40,7 +40,7 @@ _DEFAULT_FLUSH_INTERVAL_SEC = 60  # 1 Minute.
 _BUFFER_FLUSH_RATIO = 0.5  # Flush buffer when we exceed this ratio.
 _CLIENT_TYPE = 6
 
-class Clearcut(object):
+class Clearcut:
     """Handles logging to Clearcut."""
 
     def __init__(self, log_source, url=None, buffer_size=None,

@@ -75,7 +75,7 @@ UNSUPPORTED_FLAG = 'UNSUPPORTED_RUNNER'
 FAILURE_FLAG = 'RUNNER_FAILURE'
 
 
-class RunStat(object):
+class RunStat:
     """Class for storing stats of a test run."""
 
     def __init__(self, passed=0, failed=0, ignored=0, run_errors=False,
@@ -104,7 +104,7 @@ class RunStat(object):
         return self.passed + self.failed
 
 
-class ResultReporter(object):
+class ResultReporter:
     """Result Reporter class.
 
     As each test is run, the test runner will call self.process_test_result()

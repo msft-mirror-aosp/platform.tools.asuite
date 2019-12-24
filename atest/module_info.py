@@ -29,7 +29,7 @@ import constants
 _MODULE_INFO = 'module-info.json'
 
 
-class ModuleInfo(object):
+class ModuleInfo:
     """Class that offers fast/easy lookup for Module related details."""
 
     def __init__(self, force_build=False, module_file=None):
