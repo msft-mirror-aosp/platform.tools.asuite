@@ -333,7 +333,7 @@ def extract_test_from_tests(tests):
                 start_index = min(int(indices[0]), int(indices[len_indices-1]))
                 end_index = max(int(indices[0]), int(indices[len_indices-1]))
                 # One of input is 'All', return all options.
-                if start_index == count or end_index == count:
+                if count in (start_index, end_index):
                     return tests
                 mtests.update(tests[start_index:(end_index+1)])
     except (ValueError, IndexError, AttributeError, TypeError) as err:
