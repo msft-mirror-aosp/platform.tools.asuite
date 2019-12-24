@@ -24,6 +24,7 @@ import sys
 import tempfile
 import unittest
 
+from importlib import reload
 from io import StringIO
 from unittest import mock
 
