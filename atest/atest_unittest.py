@@ -86,7 +86,7 @@ class AtestUnittests(unittest.TestCase):
         for tm_option in tm_options:
             for no_tm_option, no_tm_option_value in options_no_tm_support:
                 args = [tm_option, no_tm_option]
-                if no_tm_option_value != None:
+                if no_tm_option_value is not None:
                     args.append(no_tm_option_value)
                 parsed_args = atest._parse_args(args)
                 self.assertFalse(
