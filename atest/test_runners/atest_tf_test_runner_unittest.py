@@ -290,7 +290,7 @@ class AtestTradefedTestRunnerUnittests(unittest.TestCase):
         """Test start_socket_server method."""
         server = self.tr._start_socket_server()
         host, port = server.getsockname()
-        self.assertEquals(host, atf_tr.SOCKET_HOST)
+        self.assertEqual(host, atf_tr.SOCKET_HOST)
         self.assertLessEqual(port, 65535)
         self.assertGreaterEqual(port, 1024)
         server.close()
@@ -311,7 +311,7 @@ class AtestTradefedTestRunnerUnittests(unittest.TestCase):
         mock_exist.return_value = False
         mock_key.return_value = ''
         self.tr._try_set_gts_authentication_key()
-        self.assertEquals(os.environ.get('APE_API_KEY'), None)
+        self.assertEqual(os.environ.get('APE_API_KEY'), None)
 
     @mock.patch.object(event_handler.EventHandler, 'process_event')
     def test_process_connection(self, mock_pe):
