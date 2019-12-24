@@ -73,7 +73,7 @@ CONNECTION_STATE = {
 class EventHandleError(Exception):
     """Raised when handle event error."""
 
-class EventHandler(object):
+class EventHandler:
     """Test Event handle class."""
 
     def __init__(self, reporter, name):

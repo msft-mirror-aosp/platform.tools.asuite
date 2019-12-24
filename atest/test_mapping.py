@@ -21,7 +21,7 @@ import os
 import constants
 
 
-class TestDetail(object):
+class TestDetail:
     """Stores the test details set in a TEST_MAPPING file."""
 
     def __init__(self, details):
@@ -73,7 +73,7 @@ class TestDetail(object):
         return str(self) == str(other)
 
 
-class Import(object):
+class Import:
     """Store test mapping import details."""
 
     def __init__(self, test_mapping_file, details):

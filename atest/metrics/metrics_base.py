@@ -82,7 +82,7 @@ def get_user_type():
     return EXTERNAL_USER
 
 
-class MetricsBase(object):
+class MetricsBase:
     """Class for separating allowed fields and sending metric."""
 
     _run_id = str(uuid.uuid4())

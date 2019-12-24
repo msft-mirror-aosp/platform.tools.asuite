@@ -48,7 +48,7 @@ PASSED_STATUS = 'PASSED'
 IGNORED_STATUS = 'IGNORED'
 ERROR_STATUS = 'ERROR'
 
-class TestRunnerBase(object):
+class TestRunnerBase:
     """Base Test Runner class."""
     NAME = ''
     EXECUTABLE = ''
