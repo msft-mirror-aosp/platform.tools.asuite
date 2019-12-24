@@ -16,7 +16,6 @@
 
 """Unittests for atest_utils."""
 
-# pylint: disable=relative-import
 # pylint: disable=line-too-long
 
 import hashlib

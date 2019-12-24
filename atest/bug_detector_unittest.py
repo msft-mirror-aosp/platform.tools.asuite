@@ -16,7 +16,6 @@
 
 """Unittests for bug_detector."""
 
-# pylint: disable=relative-import
 # pylint: disable=line-too-long
 
 import datetime

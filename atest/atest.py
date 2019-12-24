@@ -23,7 +23,6 @@ code base and executing the tests via the TradeFederation test harness.
 atest is designed to support any test types that can be ran by TradeFederation.
 """
 
-# pylint: disable=relative-import
 # pylint: disable=line-too-long
 
 from __future__ import print_function
