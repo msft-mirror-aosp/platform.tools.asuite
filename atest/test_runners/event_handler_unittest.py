@@ -20,6 +20,7 @@
 
 import unittest
 
+from importlib import reload
 from unittest import mock
 
 import atest_tf_test_runner as atf_tr
