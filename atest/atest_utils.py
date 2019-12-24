@@ -16,7 +16,6 @@
 Utility functions for atest.
 """
 
-# pylint: disable=relative-import
 
 from __future__ import print_function
 
@@ -70,7 +69,7 @@ _BUILD_CMD = 'build/soong/soong_ui.bash'
 
 
 def get_build_cmd():
-    """Compose build command with relative path and flag "--make-mode".
+    """Compose build command with no-absolute path and flag "--make-mode".
 
     Returns:
         A list of soong build command.
@@ -436,7 +435,7 @@ def handle_test_runner_cmd(input_test, test_cmds, do_verification=False,
 def _are_identical_cmds(current_cmds, former_cmds):
     """Tell two commands are identical. Note that '--atest-log-file-path' is not
     considered a critical argument, therefore, it will be removed during
-    the comparison. Also, atest can be ran in any place, so verifying relative
+    the comparison. Also, atest can be ran in any place, so verifying no-absolute
     path is regardless as well.
 
     Args:

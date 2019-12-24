@@ -17,7 +17,6 @@ Module Info class used to hold cached module-info.json.
 """
 
 # pylint: disable=line-too-long
-# pylint: disable=relative-import
 
 import json
 import logging
@@ -70,7 +69,7 @@ class ModuleInfo(object):
         # Check if the user set a custom out directory by comparing the out_dir
         # to the root_dir.
         if out_dir.find(root_dir) == 0:
-            # Make target is simply file path relative to root
+            # Make target is simply file path no-absolute to root
             module_info_target = os.path.relpath(module_file_path, root_dir)
         else:
             # If the user has set a custom out directory, generate an absolute

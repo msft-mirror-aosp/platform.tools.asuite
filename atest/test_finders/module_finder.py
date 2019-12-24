@@ -16,7 +16,6 @@
 Module Finder class.
 """
 
-# pylint: disable=relative-import
 # pylint: disable=line-too-long
 
 import logging
@@ -105,7 +104,7 @@ class ModuleFinder(test_finder_base.TestFinderBase):
         # The out dir is used to construct the build targets for the test deps.
         out_dir = os.environ.get(constants.ANDROID_HOST_OUT)
         custom_out_dir = os.environ.get(constants.ANDROID_OUT_DIR)
-        # If we're not an absolute custom out dir, get relative out dir path.
+        # If we're not an absolute custom out dir, get no-absolute out dir path.
         if custom_out_dir is None or not os.path.isabs(custom_out_dir):
             out_dir = os.path.relpath(out_dir, self.root_dir)
         vts_out_dir = os.path.join(out_dir, 'vts', 'android-vts', 'testcases')
@@ -218,7 +217,7 @@ class ModuleFinder(test_finder_base.TestFinderBase):
         Args:
             path: A string of the test's path.
             methods: A set of method name strings.
-            rel_module_dir: Optional. A string of the module dir relative to
+            rel_module_dir: Optional. A string of the module dir no-absolute to
                 root.
             class_name: Optional. A string of the class name.
             is_native_test: Optional. A boolean variable of whether to search
@@ -268,13 +267,13 @@ class ModuleFinder(test_finder_base.TestFinderBase):
         return ti_filter
 
     def _get_rel_config(self, test_path):
-        """Get config file's relative path.
+        """Get config file's no-absolute path.
 
         Args:
             test_path: A string of the test absolute path.
 
         Returns:
-            A string of config's relative path, else None.
+            A string of config's no-absolute path, else None.
         """
         test_dir = os.path.dirname(test_path)
         rel_module_dir = test_finder_utils.find_parent_module_dir(
@@ -362,7 +361,7 @@ class ModuleFinder(test_finder_base.TestFinderBase):
         Args:
             class_name: A string of the test's class name.
             module_name: Optional. A string of the module name to use.
-            rel_config: Optional. A string of module dir relative to repo root.
+            rel_config: Optional. A string of module dir no-absolute to repo root.
             is_native_test: A boolean variable of whether to search for a
             native test or not.
 
@@ -532,7 +531,7 @@ class ModuleFinder(test_finder_base.TestFinderBase):
         Args:
             class_name: A string of the test's class name.
             module_name: Optional. A string of the module name to use.
-            rel_config: Optional. A string of module dir relative to repo root.
+            rel_config: Optional. A string of module dir no-absolute to repo root.
 
         Returns:
             A list of populated TestInfo namedtuple if test found, else None.

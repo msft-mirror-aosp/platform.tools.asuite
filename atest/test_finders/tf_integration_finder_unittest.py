@@ -16,7 +16,6 @@
 
 """Unittests for tf_integration_finder."""
 
-# pylint: disable=relative-import
 # pylint: disable=line-too-long
 
 import os
