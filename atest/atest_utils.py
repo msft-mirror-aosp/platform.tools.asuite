@@ -249,8 +249,7 @@ def _has_colors(stream):
     cached_has_colors = _has_colors.cached_has_colors
     if stream in cached_has_colors:
         return cached_has_colors[stream]
-    else:
-        cached_has_colors[stream] = True
+    cached_has_colors[stream] = True
     # Following from Python cookbook, #475186
     if not hasattr(stream, "isatty"):
         cached_has_colors[stream] = False
