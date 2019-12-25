@@ -30,6 +30,8 @@ import shutil
 import subprocess
 import sys
 
+from urllib.request import urlopen
+
 import atest_decorator
 import atest_error
 import constants
@@ -37,13 +39,6 @@ import constants
 from metrics import metrics_base
 from metrics import metrics_utils
 
-try:
-    # If PYTHON2
-    from urllib2 import urlopen
-except ImportError:
-    metrics_utils.handle_exc_and_send_exit_event(
-        constants.IMPORT_FAILURE)
-    from urllib.request import urlopen
 
 _BASH_RESET_CODE = '\033[0m\n'
 # Arbitrary number to limit stdout for failed runs in _run_limited_output.
@@ -254,8 +249,7 @@ def _has_colors(stream):
     cached_has_colors = _has_colors.cached_has_colors
     if stream in cached_has_colors:
         return cached_has_colors[stream]
-    else:
-        cached_has_colors[stream] = True
+    cached_has_colors[stream] = True
     # Following from Python cookbook, #475186
     if not hasattr(stream, "isatty"):
         cached_has_colors[stream] = False
@@ -413,8 +407,8 @@ def handle_test_runner_cmd(input_test, test_cmds, do_verification=False,
                 # not a built-in lib in older python3(b/137017806). Will move it
                 # back when embedded_launcher fully supports Python3.
                 from distutils.util import strtobool
-                if not strtobool(raw_input('Do you want to update former result'
-                                           'with the latest one?(Y/n)')):
+                if not strtobool(input('Do you want to update former result'
+                                       'with the latest one?(Y/n)')):
                     print('SKIP updating result!!!')
                     return
             except ValueError:
@@ -435,7 +429,7 @@ def handle_test_runner_cmd(input_test, test_cmds, do_verification=False,
 def _are_identical_cmds(current_cmds, former_cmds):
     """Tell two commands are identical. Note that '--atest-log-file-path' is not
     considered a critical argument, therefore, it will be removed during
-    the comparison. Also, atest can be ran in any place, so verifying no-absolute
+    the comparison. Also, atest can be ran in any place, so verifying relative
     path is regardless as well.
 
     Args:

@@ -24,9 +24,9 @@ import os
 import re
 import xml.etree.ElementTree as ElementTree
 
-# pylint: disable=import-error
 import atest_error
 import constants
+
 from test_finders import test_info
 from test_finders import test_finder_base
 from test_finders import test_finder_utils
@@ -122,7 +122,7 @@ class TFIntegrationFinder(test_finder_base.TestFinderBase):
                 # expand included xml file
                 integration_name = elem.get('name')
                 if not integration_name:
-                    logging.warn('skipping <include> tag with no "name" value')
+                    logging.warning('skipping <include> tag with no "name" value')
                     continue
                 full_paths = self._search_integration_dirs(integration_name)
                 node = None
@@ -197,8 +197,8 @@ class TFIntegrationFinder(test_finder_base.TestFinderBase):
             return None
         int_name = match.group('int_name')
         if int_name != name:
-            logging.warn('Input (%s) not valid integration name, '
-                         'did you mean: %s?', name, int_name)
+            logging.warning('Input (%s) not valid integration name, '
+                            'did you mean: %s?', name, int_name)
             return None
         rel_config = os.path.relpath(test_file, self.root_dir)
         filters = frozenset()
@@ -208,9 +208,9 @@ class TFIntegrationFinder(test_finder_base.TestFinderBase):
             if '.' in class_name:
                 test_filters.append(test_info.TestFilter(class_name, methods))
             else:
-                logging.warn('Looking up fully qualified class name for: %s.'
-                             'Improve speed by using fully qualified names.',
-                             class_name)
+                logging.warning('Looking up fully qualified class name for: %s.'
+                                'Improve speed by using fully qualified names.',
+                                class_name)
                 paths = test_finder_utils.find_class_file(self.root_dir,
                                                           class_name)
                 if not paths:

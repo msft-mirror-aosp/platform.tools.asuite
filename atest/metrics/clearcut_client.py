@@ -26,18 +26,11 @@ This class is intended to be general-purpose, usable for any Clearcut LogSource.
 import logging
 import threading
 import time
-try:
-    # PYTHON2
-    from urllib2 import urlopen
-    from urllib2 import Request
-    from urllib2 import HTTPError
-    from urllib2 import URLError
-except ImportError:
-    # PYTHON3
-    from urllib.request import urlopen
-    from urllib.request import Request
-    from urllib.request import HTTPError
-    from urllib.request import URLError
+
+from urllib.request import urlopen
+from urllib.request import Request
+from urllib.request import HTTPError
+from urllib.request import URLError
 
 from proto import clientanalytics_pb2
 
@@ -47,7 +40,7 @@ _DEFAULT_FLUSH_INTERVAL_SEC = 60  # 1 Minute.
 _BUFFER_FLUSH_RATIO = 0.5  # Flush buffer when we exceed this ratio.
 _CLIENT_TYPE = 6
 
-class Clearcut(object):
+class Clearcut:
     """Handles logging to Clearcut."""
 
     def __init__(self, log_source, url=None, buffer_size=None,

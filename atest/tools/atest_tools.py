@@ -72,7 +72,7 @@ def _install_updatedb():
     _mkdir_when_inexists(constants.INDEX_DIR)
     if OSNAME == MACOSX:
         shutil.copy2(MAC_UPDB_SRC, os.path.join(MAC_UPDB_DST, UPDATEDB))
-        os.chmod(os.path.join(MAC_UPDB_DST, UPDATEDB), 0755)
+        os.chmod(os.path.join(MAC_UPDB_DST, UPDATEDB), 0o0755)
 
 def _delete_indexes():
     """Delete all available index files."""
@@ -83,18 +83,13 @@ def _delete_indexes():
 def has_command(cmd):
     """Detect if the command is available in PATH.
 
-    shutil.which('cmd') is only valid in Py3 so we need to customise it.
-
     Args:
         cmd: A string of the tested command.
 
     Returns:
-        True if found, False otherwise."""
-    paths = os.getenv('PATH', '').split(':')
-    for path in paths:
-        if os.path.isfile(os.path.join(path, cmd)):
-            return True
-    return False
+        True if found, False otherwise.
+    """
+    return bool(shutil.which(cmd))
 
 def run_updatedb(search_root=SEARCH_TOP, output_cache=constants.LOCATE_CACHE,
                  **kwargs):

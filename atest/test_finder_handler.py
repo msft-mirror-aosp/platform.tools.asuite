@@ -21,6 +21,7 @@ Test Finder Handler module.
 import logging
 
 import atest_enum
+
 from test_finders import cache_finder
 from test_finders import test_finder_base
 from test_finders import suite_plan_finder

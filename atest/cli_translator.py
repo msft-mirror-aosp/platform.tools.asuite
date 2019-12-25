@@ -46,7 +46,7 @@ _COMMENTS_RE = re.compile(r'(?m)[\s\t]*(#|//).*|(\".*?\")')
 _COMMENTS = frozenset(['//', '#'])
 
 #pylint: disable=no-self-use
-class CLITranslator(object):
+class CLITranslator:
     """
     CLITranslator class contains public method translate() and some private
     helper methods. The atest tool can call the translate() method with a list
@@ -205,7 +205,7 @@ class CLITranslator(object):
         Returns:
             True is the answer is affirmative.
         """
-        decision = raw_input('Did you mean {0}? [Y/n] '.format(
+        decision = input('Did you mean {0}? [Y/n] '.format(
             atest_utils.colorize(results[0], constants.GREEN)))
         return decision in constants.AFFIRMATIVES
 
@@ -386,7 +386,7 @@ class CLITranslator(object):
             test_mapping_files.update(self._find_files(path, file_name))
         # Include all possible TEST_MAPPING files in parent directories.
         root_dir = os.environ.get(constants.ANDROID_BUILD_TOP, os.sep)
-        while path != root_dir and path != os.sep:
+        while path not in (root_dir, os.sep):
             path = os.path.dirname(path)
             test_mapping_file = os.path.join(path, file_name)
             if os.path.exists(test_mapping_file):
@@ -409,7 +409,7 @@ class CLITranslator(object):
                 # (b/110166535 #19) Import path might not exist if a project is
                 # located in different directory in different branches.
                 if path is None:
-                    logging.warn(
+                    logging.warning(
                         'Failed to import TEST_MAPPING at %s', import_detail)
                     continue
                 # Search for tests based on the imported search path.
@@ -456,7 +456,7 @@ class CLITranslator(object):
             include_subdirs=args.include_subdirs, checked_files=set())
         test_details_list = list(test_details)
         if not test_details_list:
-            logging.warn(
+            logging.warning(
                 'No tests of group `%s` found in TEST_MAPPING at %s or its '
                 'parent directories.\nYou might be missing atest arguments,'
                 ' try `atest --help` for more information',
@@ -467,7 +467,7 @@ class CLITranslator(object):
                     tests += '%s:\n' % test_group
                     for test_detail in sorted(test_list):
                         tests += '\t%s\n' % test_detail
-                logging.warn(
+                logging.warning(
                     'All available tests in TEST_MAPPING files are:\n%s',
                     tests)
             metrics_utils.send_exit_event(constants.EXIT_CODE_TEST_NOT_FOUND)

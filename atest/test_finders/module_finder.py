@@ -24,6 +24,7 @@ import os
 import atest_error
 import atest_utils
 import constants
+
 from test_finders import test_info
 from test_finders import test_finder_base
 from test_finders import test_finder_utils
@@ -160,7 +161,7 @@ class ModuleFinder(test_finder_base.TestFinderBase):
         # Check if this is only a vts module.
         if self._is_vts_module(test.test_name):
             return self._update_to_vts_test_info(test)
-        elif self.module_info.is_robolectric_test(test.test_name):
+        if self.module_info.is_robolectric_test(test.test_name):
             return self._update_to_robolectric_test_info(test)
         rel_config = test.data[constants.TI_REL_CONFIG]
         test.build_targets = self._get_build_targets(module_name, rel_config)
@@ -588,7 +589,7 @@ class ModuleFinder(test_finder_base.TestFinderBase):
             if ld_range != 0:
                 if len(module_name) < lower_bound:
                     continue
-                elif len(module_name) > upper_bound:
+                if len(module_name) > upper_bound:
                     break
             testable_modules_with_ld.append(
                 [test_finder_utils.get_levenshtein_distance(

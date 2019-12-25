@@ -17,19 +17,21 @@
 # pylint: disable=line-too-long
 
 from __future__ import print_function
+
 import json
 import logging
 import os
 import re
 import select
+import shutil
 import socket
-import subprocess
 
 from functools import partial
 
 import atest_utils
 import constants
 import result_reporter
+
 from event_handler import EventHandler
 from test_finders import test_info
 from test_runners import test_runner_base
@@ -281,6 +283,8 @@ class AtestTradefedTestRunner(test_runner_base.TestRunnerBase):
                       server.getsockname()[1])
         return server
 
+    # pylint: disable=unnecessary-pass
+    # Please keep above disable flag to ensure host_env_check is overriden.
     def host_env_check(self):
         """Check that host env has everything we need.
 
@@ -296,12 +300,12 @@ class AtestTradefedTestRunner(test_runner_base.TestRunnerBase):
 
         Args:
             executable: Executable we are checking for.
+
         Returns:
             True if executable is missing, False otherwise.
         """
-        try:
-            output = subprocess.check_output(['which', executable])
-        except subprocess.CalledProcessError:
+        output = shutil.which(executable)
+        if not output:
             return True
         # TODO: Check if there is a clever way to determine if system adb is
         # good enough.

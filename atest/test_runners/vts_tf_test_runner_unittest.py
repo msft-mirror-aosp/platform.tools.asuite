@@ -19,6 +19,7 @@
 # pylint: disable=line-too-long
 
 import unittest
+
 from unittest import mock
 
 from test_runners import vts_tf_test_runner

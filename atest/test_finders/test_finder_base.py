@@ -47,7 +47,7 @@ def register():
 # This doesn't really do anything since there are no find methods defined but
 # it's here anyways as an example for other test type classes.
 @find_method_register
-class TestFinderBase(object):
+class TestFinderBase:
     """Base class for test finder class."""
 
     def __init__(self, *args, **kwargs):

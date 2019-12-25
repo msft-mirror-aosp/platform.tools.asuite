@@ -295,6 +295,8 @@ def _will_run_tests(args):
     return not (args.detect_regression and len(args.detect_regression) == 2)
 
 
+# pylint: disable=no-else-return
+# This method is going to dispose, let's ignore pylint for now.
 def _has_valid_regression_detection_args(args):
     """Validate regression detection args.
 
@@ -455,8 +457,8 @@ def _split_test_mapping_tests(test_infos):
             device.
     """
     assert is_from_test_mapping(test_infos)
-    host_test_infos = set([info for info in test_infos if info.host])
-    device_test_infos = set([info for info in test_infos if not info.host])
+    host_test_infos = {[info for info in test_infos if info.host]}
+    device_test_infos = {[info for info in test_infos if not info.host]}
     return device_test_infos, host_test_infos
 
 
@@ -667,8 +669,8 @@ def main(argv, results_dir):
         if not success:
             return constants.EXIT_CODE_BUILD_FAILURE
     elif constants.TEST_STEP not in steps:
-        logging.warn('Install step without test step currently not '
-                     'supported, installing AND testing instead.')
+        logging.warning('Install step without test step currently not '
+                        'supported, installing AND testing instead.')
         steps.append(constants.TEST_STEP)
     tests_exit_code = constants.EXIT_CODE_SUCCESS
     test_start = time.time()

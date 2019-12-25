@@ -17,10 +17,12 @@
 # pylint: disable=line-too-long
 
 from __future__ import print_function
-from collections import deque
-from datetime import timedelta
+
 import time
 import logging
+
+from collections import deque
+from datetime import timedelta
 
 import atest_execution_info
 
@@ -71,7 +73,7 @@ CONNECTION_STATE = {
 class EventHandleError(Exception):
     """Raised when handle event error."""
 
-class EventHandler(object):
+class EventHandler:
     """Test Event handle class."""
 
     def __init__(self, reporter, name):
@@ -280,9 +282,9 @@ class EventHandler(object):
 
         if duration < ONE_SECOND:
             return "({}ms)".format(duration)
-        elif duration < ONE_MINUTE:
+        if duration < ONE_MINUTE:
             return "({:.3f}s)".format(float(timestamp[2]))
-        elif duration < ONE_HOUR:
+        if duration < ONE_HOUR:
             return "({0}m{1:.3f}s)".format(timestamp[1], float(timestamp[2]))
         return "({0}h{1}m{2:.3f}s)".format(timestamp[0],
                                            timestamp[1], float(timestamp[2]))

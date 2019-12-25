@@ -34,7 +34,7 @@ _DETECTED_FAIL = 0
 _LATEST_EXIT_CODE = 'latest_exit_code'
 _UPDATED_AT = 'updated_at'
 
-class BugDetector(object):
+class BugDetector:
     """Class for handling if a bug is detected by comparing test history."""
 
     def __init__(self, argv, exit_code, history_file=None):
