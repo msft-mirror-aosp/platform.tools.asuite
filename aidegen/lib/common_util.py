@@ -521,3 +521,25 @@ def remove_user_home_path(data):
         A string which replaced the user home path to $USER_HOME$.
     """
     return str(data).replace(os.path.expanduser('~'), constant.USER_HOME)
+
+
+def io_error_handle(func):
+    """Decorates a function of handling io error and raising exception.
+
+    Args:
+        func: A function is to be raised exception if writing file failed.
+
+    Returns:
+        The wrapper function.
+    """
+
+    @wraps(func)
+    def wrapper(*args, **kwargs):
+        """A wrapper function."""
+        try:
+            return func(*args, **kwargs)
+        except IOError as err:
+            print('{0}.{1} I/O error: {2}'.format(
+                func.__module__, func.__name__, err))
+            raise
+    return wrapper
