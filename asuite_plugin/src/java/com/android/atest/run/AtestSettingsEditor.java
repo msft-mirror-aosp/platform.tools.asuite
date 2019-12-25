@@ -15,6 +15,8 @@
  */
 package com.android.atest.run;
 
+import com.android.atest.Constants;
+import com.google.common.base.Strings;
 import com.intellij.openapi.options.ConfigurationException;
 import com.intellij.openapi.options.SettingsEditor;
 import org.jetbrains.annotations.NotNull;
@@ -39,7 +41,11 @@ public class AtestSettingsEditor extends SettingsEditor<AtestRunConfiguration> {
      */
     @Override
     protected void resetEditorFrom(@NotNull AtestRunConfiguration atestRunConfiguration) {
-        lunchTarget.setText(atestRunConfiguration.getLaunchTarget());
+        String lunchTargetValue = atestRunConfiguration.getLaunchTarget();
+        if (Strings.isNullOrEmpty(lunchTargetValue)) {
+            lunchTargetValue = Constants.DEFAULT_LUNCH_TARGET;
+        }
+        lunchTarget.setText(lunchTargetValue);
         testTarget.setSelectedItem(atestRunConfiguration.getTestTarget());
     }
 
