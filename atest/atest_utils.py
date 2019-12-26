@@ -19,6 +19,7 @@ Utility functions for atest.
 
 from __future__ import print_function
 
+import curses
 import hashlib
 import itertools
 import json
@@ -30,6 +31,7 @@ import shutil
 import subprocess
 import sys
 
+from distutils import util
 from urllib.request import urlopen
 
 import atest_decorator
@@ -259,7 +261,6 @@ def _has_colors(stream):
         cached_has_colors[stream] = False
         return False
     try:
-        import curses
         curses.setupterm()
         cached_has_colors[stream] = curses.tigetnum("colors") > 2
     # pylint: disable=broad-except
@@ -402,13 +403,9 @@ def handle_test_runner_cmd(input_test, test_cmds, do_verification=False,
             print('Former cmds = %s' % former_test_cmds)
             print('Current cmds = %s' % test_cmds)
             try:
-                # TODO(b/137156054):
-                # Move the import statement into a method for that distutils is
-                # not a built-in lib in older python3(b/137017806). Will move it
-                # back when embedded_launcher fully supports Python3.
-                from distutils.util import strtobool
-                if not strtobool(input('Do you want to update former result'
-                                       'with the latest one?(Y/n)')):
+                if not util.strtobool(
+                        input('Do you want to update former result '
+                              'with the latest one?(Y/n)')):
                     print('SKIP updating result!!!')
                     return
             except ValueError:
