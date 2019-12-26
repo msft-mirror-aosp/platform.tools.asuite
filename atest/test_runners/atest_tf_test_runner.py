@@ -32,9 +32,9 @@ import atest_utils
 import constants
 import result_reporter
 
-from event_handler import EventHandler
 from test_finders import test_info
 from test_runners import test_runner_base
+from .event_handler import EventHandler
 
 POLL_FREQ_SECS = 10
 SOCKET_HOST = '127.0.0.1'
