@@ -33,8 +33,8 @@ from functools import partial
 import atest_utils
 import constants
 
-from event_handler import EventHandler
 from test_runners import test_runner_base
+from .event_handler import EventHandler
 
 POLL_FREQ_SECS = 0.1
 # A pattern to match event like below
