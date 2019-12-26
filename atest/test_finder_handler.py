@@ -17,6 +17,7 @@ Test Finder Handler module.
 """
 
 # pylint: disable=line-too-long
+# pylint: disable=import-outside-toplevel
 
 import logging
 
