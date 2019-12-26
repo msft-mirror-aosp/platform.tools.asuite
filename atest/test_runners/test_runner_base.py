@@ -84,7 +84,7 @@ class TestRunnerBase:
             self.test_log_file = tempfile.NamedTemporaryFile(
                 mode='w', dir=self.results_dir, delete=True)
         logging.debug('Executing command: %s', cmd)
-        return subprocess.Popen(cmd, preexec_fn=os.setsid, shell=True,
+        return subprocess.Popen(cmd, start_new_session=True, shell=True,
                                 stderr=subprocess.STDOUT,
                                 stdout=self.test_log_file, env=env_vars)
 
