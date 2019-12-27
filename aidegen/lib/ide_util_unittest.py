@@ -155,13 +155,14 @@ class IdeUtilUnittests(unittest.TestCase):
         self.assertFalse(mock_config.called)
         self.assertFalse(mock_paths.called)
 
+    @mock.patch.object(ide_util.IdeIntelliJ, '_setup_ide')
     @mock.patch.object(config.AidegenConfig, 'set_preferred_version')
     @mock.patch.object(os.path, 'isfile')
     @mock.patch.object(os.path, 'realpath')
     @mock.patch.object(ide_common_util, 'get_script_from_input_path')
     @mock.patch.object(ide_common_util, 'get_script_from_internal_path')
     def test_get_linux_config_1(self, mock_path, mock_path2, mock_path3,
-                                mock_is_file, mock_cfg):
+                                mock_is_file, mock_cfg, mock_setup_ide):
         """Test to get unique config path for linux IDEA case."""
         if (not android_dev_os.AndroidDevOS.MAC ==
                 android_dev_os.AndroidDevOS.get_os_type()):
@@ -170,6 +171,7 @@ class IdeUtilUnittests(unittest.TestCase):
             mock_path3.return_value = '/opt/intellij-ce-2018.3/bin/idea.sh'
             mock_is_file.return_value = True
             mock_cfg.return_value = None
+            mock_setup_ide.return_value = None
             ide_obj = ide_util.IdeLinuxIntelliJ('default_path')
             self.assertEqual(1, len(ide_obj._get_config_root_paths()))
         else:
