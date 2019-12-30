@@ -16,7 +16,9 @@
 
 
 import copy
+import fnmatch
 import os
+import re
 
 import atest_utils
 import constants
@@ -38,8 +40,9 @@ class TestDetail:
             {
               "instrumentation-arg":
                   "annotation=android.platform.test.annotations.Presubmit"
-            }
-          ]
+            },
+          "file_patterns": ["(/|^)Window[^/]*\\.java",
+                           "(/|^)Activity[^/]*\\.java"]
         }
 
         Args:
@@ -55,6 +58,7 @@ class TestDetail:
             assert len(option) == 1, 'Each option can only have one key.'
             self.options.append(copy.deepcopy(option).popitem())
         self.options.sort(key=lambda o: o[0])
+        self.file_patterns = details.get('file_patterns', [])
 
     def __str__(self):
         """String value of the TestDetail object."""
@@ -115,6 +119,7 @@ class Import:
         # The import path can't be located.
         return None
 
+
 def is_match_file_patterns(test_mapping_file, test_detail):
     """Check if the changed file names match the regex pattern defined in
     file_patterns of TEST_MAPPING files.
@@ -127,6 +132,9 @@ def is_match_file_patterns(test_mapping_file, test_detail):
         True if the test's file_patterns setting is not set or contains a
         pattern matches any of the modified files.
     """
+    # Only check if the altered files are located in the same or sub directory
+    # of the TEST_MAPPING file. Extract the relative path of the modified files
+    # which match file patterns.
     file_patterns = test_detail.get('file_patterns', [])
     if not file_patterns:
         return True
@@ -134,10 +142,17 @@ def is_match_file_patterns(test_mapping_file, test_detail):
     modified_files = atest_utils.get_modified_files(test_mapping_dir)
     if not modified_files:
         return False
-    modified_files_in_source_dir = [constants.TEST_MAPPING]
+    modified_files_in_source_dir = [
+        os.path.relpath(filepath, test_mapping_dir)
+        for filepath in fnmatch.filter(modified_files,
+                                       os.path.join(test_mapping_dir, '*'))
+    ]
     for modified_file in modified_files_in_source_dir:
-        # Force to run the test if a TEST_MAPPING file included in the
+        # Force to run the test if it's in a TEST_MAPPING file included in the
         # changesets.
         if modified_file == constants.TEST_MAPPING:
             return True
+        for pattern in file_patterns:
+            if re.search(pattern, modified_file):
+                return True
     return False
