@@ -111,3 +111,12 @@ class Import:
             return path
         # The import path can't be located.
         return None
+
+def is_match_file_patterns():
+    """Check if the changed file names match the regex pattern defined in
+    file_patterns of TEST_MAPPING files.
+
+    Returns:
+        True for pass to next step.
+    """
+    return True

@@ -275,6 +275,9 @@ class CLITranslator:
                 grouped_tests = all_tests.setdefault(test_group_name, set())
                 tests = []
                 for test in test_list:
+                    if (self.enable_file_patterns and
+                            not test_mapping.is_match_file_patterns()):
+                        continue
                     test_mod_info = self.mod_info.name_to_module_info.get(
                         test['name'])
                     if not test_mod_info:
