@@ -53,7 +53,8 @@ class AtestToolsUnittests(unittest.TestCase):
             # locate always return 0 when not found in Darwin, therefore,
             # check null return in Darwin and return value in Linux.
             if platform.system() == 'Darwin':
-                self.assertEqual(subprocess.check_output(locate_cmd1), "")
+                output = subprocess.check_output(locate_cmd1).decode()
+                self.assertEqual(output, "")
             else:
                 self.assertEqual(subprocess.call(locate_cmd1), 1)
             # module-info.json can be found in the search_root.

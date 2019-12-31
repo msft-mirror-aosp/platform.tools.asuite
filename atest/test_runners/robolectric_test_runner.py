@@ -165,6 +165,8 @@ class RobolectricTestRunner(test_runner_base.TestRunnerBase):
             # Make sure that ATest gets content from current position.
             communication_file.seek(0, 1)
             data = communication_file.read()
+            if isinstance(data, bytes):
+                data = data.decode()
             buf += data
             reg = re.compile(r'(.|\n)*}\n\n')
             if not reg.match(buf) or data == '':
