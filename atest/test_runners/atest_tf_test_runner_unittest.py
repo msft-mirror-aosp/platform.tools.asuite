@@ -30,9 +30,9 @@ from unittest import mock
 import constants
 import unittest_constants as uc
 import unittest_utils
-import event_handler
 
 from test_finders import test_info
+from test_runners import event_handler
 from test_runners import atest_tf_test_runner as atf_tr
 
 #pylint: disable=protected-access
