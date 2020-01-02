@@ -429,8 +429,8 @@ def run_find_cmd(ref_type, search_dir, target, methods=None):
         _dict, out = {}, None
         with open(FIND_INDEXES[ref_type], 'rb') as index:
             try:
-                _dict = pickle.load(index)
-            except (IOError, EOFError, pickle.UnpicklingError) as err:
+                _dict = pickle.load(index, encoding='utf-8')
+            except (TypeError, IOError, EOFError, pickle.UnpicklingError) as err:
                 logging.debug('Exception raised: %s', err)
                 metrics_utils.handle_exc_and_send_exit_event(
                     constants.ACCESS_CACHE_FAILURE)
