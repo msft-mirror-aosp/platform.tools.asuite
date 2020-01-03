@@ -18,7 +18,7 @@ package com.android.atest.run;
 import com.android.atest.Constants;
 import com.intellij.execution.configurations.ConfigurationFactory;
 import com.intellij.execution.configurations.ConfigurationType;
-import com.intellij.icons.AllIcons;
+import com.intellij.openapi.util.IconLoader;
 import javax.swing.Icon;
 import org.jetbrains.annotations.NotNull;
 
@@ -59,7 +59,7 @@ public class AtestConfigurationType implements ConfigurationType {
      */
     @Override
     public Icon getIcon() {
-        return AllIcons.General.Information;
+        return IconLoader.getIcon(Constants.ATEST_ICON_PATH);
     }
 
     /**
