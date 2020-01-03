@@ -21,6 +21,7 @@ import unittest
 
 from unittest import mock
 
+from aidegen.lib import common_util
 from aidegen.lib import module_info
 from aidegen.lib import module_info_util
 
@@ -73,13 +74,14 @@ class AidegenModuleInfoUnittests(unittest.TestCase):
             module_info.AidegenModuleInfo.is_project_path_relative_module(
                 mod_info, 'tes'))
 
+    @mock.patch.object(common_util, 'dump_json_dict')
     @mock.patch('logging.debug')
     @mock.patch.object(module_info_util, 'generate_merged_module_info')
     @mock.patch.object(os.path, 'isfile')
     @mock.patch('os.remove')
     def test_discover_mod_file_and_target(self, mock_remove, mock_is_file,
-                                          mock_generate, mock_log):
-        """Test _discover_mod_file_and_target()."""
+                                          mock_generate, mock_log, mock_dump):
+        """Test _discover_mod_file_and_target with conditions."""
         # Test not force build case.
         mock_generate.return_value = None
         force_build = False
@@ -88,6 +90,7 @@ class AidegenModuleInfoUnittests(unittest.TestCase):
         self.assertFalse(mock_remove.called)
         self.assertFalse(mock_log.called)
         self.assertTrue(mock_generate.called)
+        self.assertTrue(mock_dump.called)
 
         # Test force_build case.
         force_build = True
@@ -96,10 +99,12 @@ class AidegenModuleInfoUnittests(unittest.TestCase):
         module_info.AidegenModuleInfo._discover_mod_file_and_target(force_build)
         self.assertFalse(mock_remove.called)
         self.assertTrue(mock_log.called)
+        self.assertTrue(mock_dump.called)
 
         mock_is_file.return_value = True
         module_info.AidegenModuleInfo._discover_mod_file_and_target(force_build)
         self.assertTrue(mock_remove.called)
+        self.assertTrue(mock_dump.called)
 
 
 if __name__ == '__main__':
