@@ -16,7 +16,6 @@
 
 """Module Info class used to hold cached merged_module_info.json.json."""
 
-import json
 import logging
 import os
 
@@ -57,8 +56,7 @@ class AidegenModuleInfo(module_info.ModuleInfo, metaclass=Singleton):
                 'Generating %s - this is required for the initial runs.',
                 merged_file_path)
         data = module_info_util.generate_merged_module_info()
-        with open(merged_file_path, 'w') as json_file:
-            json.dump(data, json_file, indent=4)
+        common_util.dump_json_dict(merged_file_path, data)
         merged_file_rel_path = os.path.relpath(
             merged_file_path, common_util.get_android_root_dir())
         return merged_file_rel_path, merged_file_path
