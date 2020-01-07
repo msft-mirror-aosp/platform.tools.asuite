@@ -313,8 +313,6 @@ def colorful_print(text, color, highlight=False, auto_wrap=True):
         print(output, end="")
 
 
-# pylint: disable=no-member
-# TODO: remove the above disable when migrating to python3.
 def _get_terminal_size():
     """Get terminal size and return a tuple.
 
@@ -323,15 +321,9 @@ def _get_terminal_size():
     """
     # Determine the width of the terminal. We'll need to clear this many
     # characters when carriage returning. Set default value as 80.
-    try:
-        if sys.version_info[0] == 2:
-            _y, _x = subprocess.check_output(['stty', 'size']).decode().split()
-            return int(_x), int(_y)
-        return (shutil.get_terminal_size().columns,
-                shutil.get_terminal_size().lines)
-    # b/137521782 stty size could have changed for reasones.
-    except subprocess.CalledProcessError:
-        return _DEFAULT_TERMINAL_WIDTH, _DEFAULT_TERMINAL_HEIGHT
+    columns, rows = shutil.get_terminal_size(
+        fallback=(_DEFAULT_TERMINAL_WIDTH, _DEFAULT_TERMINAL_HEIGHT))
+    return columns, rows
 
 
 def is_external_run():
