@@ -21,6 +21,7 @@ other modules.
 """
 
 import inspect
+import json
 import logging
 import os
 import sys
@@ -594,3 +595,15 @@ def check_args(**decls):
         return decorated
 
     return decorator
+
+
+@io_error_handle
+def dump_json_dict(json_path, data):
+    """Dumps a dictionary of data into a json file.
+
+    Args:
+        json_path: An absolute json file path string.
+        data: A dictionary of data to be written into a json file.
+    """
+    with open(json_path, 'w') as json_file:
+        json.dump(data, json_file, indent=4)

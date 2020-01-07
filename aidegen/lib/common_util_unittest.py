@@ -271,6 +271,19 @@ class AidegenCommonUtilUnittests(unittest.TestCase):
             decorator()
             self.assertTrue(err in context.exception)
 
+    @mock.patch.object(common_util, '_show_env_setup_msg_and_exit')
+    @mock.patch('os.environ.get')
+    def test_get_android_root_dir(self, mock_get_env, mock_show_msg):
+        """Test get_android_root_dir handling."""
+        root = 'root'
+        mock_get_env.return_value = root
+        expected = common_util.get_android_root_dir()
+        self.assertEqual(root, expected)
+        root = ''
+        mock_get_env.return_value = root
+        common_util.get_android_root_dir()
+        self.assertTrue(mock_show_msg.called)
+
 
 if __name__ == '__main__':
     unittest.main()
