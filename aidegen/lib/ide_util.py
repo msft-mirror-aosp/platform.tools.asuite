@@ -38,6 +38,7 @@ import re
 import subprocess
 
 from aidegen import constant
+from aidegen import templates
 from aidegen.lib import aidegen_metrics
 from aidegen.lib import android_dev_os
 from aidegen.lib import common_util
@@ -563,7 +564,7 @@ class IdeLinuxIntelliJ(IdeIntelliJ):
     # TODO(b/127899277): Preserve a config for jdk version option case.
     _CONFIG_DIR = CONFIG_DIR
     _IDE_JDK_TABLE_PATH = LINUX_JDK_TABLE_PATH
-    _JDK_CONTENT = constant.LINUX_JDK_XML
+    _JDK_CONTENT = templates.LINUX_JDK_XML
     _DEFAULT_ANDROID_SDK_PATH = LINUX_ANDROID_SDK_PATH
     _SYMBOLIC_VERSIONS = ['/opt/intellij-ce-stable/bin/idea.sh',
                           '/opt/intellij-ue-stable/bin/idea.sh',
@@ -634,7 +635,7 @@ class IdeMacIntelliJ(IdeIntelliJ):
 
     _JDK_PATH = MAC_JDK_PATH
     _IDE_JDK_TABLE_PATH = MAC_JDK_TABLE_PATH
-    _JDK_CONTENT = constant.MAC_JDK_XML
+    _JDK_CONTENT = templates.MAC_JDK_XML
     _DEFAULT_ANDROID_SDK_PATH = MAC_ANDROID_SDK_PATH
 
     def __init__(self, installed_path=None, config_reset=False):
@@ -740,7 +741,7 @@ class IdeLinuxStudio(IdeStudio):
     _JDK_PATH = LINUX_JDK_PATH
     _CONFIG_DIR = CONFIG_DIR
     _IDE_JDK_TABLE_PATH = LINUX_JDK_TABLE_PATH
-    _JDK_CONTENT = constant.LINUX_JDK_XML
+    _JDK_CONTENT = templates.LINUX_JDK_XML
     _DEFAULT_ANDROID_SDK_PATH = LINUX_ANDROID_SDK_PATH
     _SYMBOLIC_VERSIONS = [
         '/opt/android-studio-with-blaze-stable/bin/studio.sh',
@@ -776,7 +777,7 @@ class IdeMacStudio(IdeStudio):
 
     _JDK_PATH = MAC_JDK_PATH
     _IDE_JDK_TABLE_PATH = MAC_JDK_TABLE_PATH
-    _JDK_CONTENT = constant.MAC_JDK_XML
+    _JDK_CONTENT = templates.MAC_JDK_XML
     _DEFAULT_ANDROID_SDK_PATH = MAC_ANDROID_SDK_PATH
 
     def __init__(self, installed_path=None, config_reset=False):
