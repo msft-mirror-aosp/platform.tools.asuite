@@ -46,7 +46,8 @@ class AidegenModuleInfo(module_info.ModuleInfo, metaclass=Singleton):
             Tuple of the relative and absolute paths of the merged module info
             file.
         """
-        module_file_path = common_util.get_blueprint_json_path()
+        module_file_path = common_util.get_blueprint_json_path(
+            constant.BLUEPRINT_JAVA_JSONFILE_NAME)
         if force_build and os.path.isfile(module_file_path):
             os.remove(module_file_path)
         merged_file_path = os.path.join(common_util.get_soong_out_path(),

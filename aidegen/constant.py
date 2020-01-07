@@ -74,7 +74,8 @@ IDE_LAUNCH_FAILURE = 103
 
 # Constants for file names
 MERGED_MODULE_INFO = 'merged_module_info.json'
-BLUEPRINT_JSONFILE_NAME = 'module_bp_java_deps.json'
+BLUEPRINT_JAVA_JSONFILE_NAME = 'module_bp_java_deps.json'
+BLUEPRINT_CC_JSONFILE_NAME = 'module_bp_cc_deps.json'
 CMAKELISTS_FILE_NAME = 'clion_project_lists.txt'
 CLION_PROJECT_FILE_NAME = 'CMakeLists.txt'
 ANDROID_BP = 'Android.bp'
