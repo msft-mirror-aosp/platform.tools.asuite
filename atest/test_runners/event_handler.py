@@ -227,7 +227,7 @@ class EventHandler:
             self.event_stack.append(event_name)
         elif event_name in END_EVENTS:
             self._check_events_are_balanced(event_name, self.reporter)
-        if self.switch_handler.has_key(event_name):
+        if event_name in self.switch_handler:
             self.switch_handler[event_name](self, event_data)
         else:
             # TODO(b/128875503): Implement the mechanism to inform not handled
