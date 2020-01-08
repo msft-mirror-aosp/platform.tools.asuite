@@ -317,15 +317,15 @@ class AtestTradefedTestRunnerUnittests(unittest.TestCase):
         """Test _process_connection method."""
         mock_socket = mock.Mock()
         for name, data in EVENTS_NORMAL:
-            datas = {mock_socket: ''}
+            data_map = {mock_socket: ''}
             socket_data = '%s %s' % (name, json.dumps(data))
             mock_socket.recv.return_value = socket_data
-            self.tr._process_connection(datas, mock_socket, mock_pe)
+            self.tr._process_connection(data_map, mock_socket, mock_pe)
 
         calls = [mock.call.process_event(name, data) for name, data in EVENTS_NORMAL]
         mock_pe.assert_has_calls(calls)
         mock_socket.recv.return_value = ''
-        self.assertFalse(self.tr._process_connection(datas, mock_socket, mock_pe))
+        self.assertFalse(self.tr._process_connection(data_map, mock_socket, mock_pe))
 
     @mock.patch.object(event_handler.EventHandler, 'process_event')
     def test_process_connection_multiple_lines_in_single_recv(self, mock_pe):
@@ -335,8 +335,8 @@ class AtestTradefedTestRunnerUnittests(unittest.TestCase):
                                      for name, data in EVENTS_NORMAL])
         socket_data = [squashed_events, '']
         mock_socket.recv.side_effect = socket_data
-        datas = {mock_socket: ''}
-        self.tr._process_connection(datas, mock_socket, mock_pe)
+        data_map = {mock_socket: ''}
+        self.tr._process_connection(data_map, mock_socket, mock_pe)
         calls = [mock.call.process_event(name, data) for name, data in EVENTS_NORMAL]
         mock_pe.assert_has_calls(calls)
 
@@ -353,11 +353,11 @@ class AtestTradefedTestRunnerUnittests(unittest.TestCase):
         # test non-try block buffering with second event
         socket_data.extend([socket_events[1][:-4], socket_events[1][-4:], ''])
         mock_socket.recv.side_effect = socket_data
-        datas = {mock_socket: ''}
-        self.tr._process_connection(datas, mock_socket, mock_pe)
-        self.tr._process_connection(datas, mock_socket, mock_pe)
-        self.tr._process_connection(datas, mock_socket, mock_pe)
-        self.tr._process_connection(datas, mock_socket, mock_pe)
+        data_map = {mock_socket: ''}
+        self.tr._process_connection(data_map, mock_socket, mock_pe)
+        self.tr._process_connection(data_map, mock_socket, mock_pe)
+        self.tr._process_connection(data_map, mock_socket, mock_pe)
+        self.tr._process_connection(data_map, mock_socket, mock_pe)
         calls = [mock.call.process_event(name, data) for name, data in module_events]
         mock_pe.assert_has_calls(calls)
 
@@ -368,8 +368,8 @@ class AtestTradefedTestRunnerUnittests(unittest.TestCase):
         mock_socket.recv.return_value = ('\n%s %s'
                                          %(EVENTS_NORMAL[0][0],
                                            json.dumps(EVENTS_NORMAL[0][1])))
-        datas = {mock_socket: ''}
-        self.tr._process_connection(datas, mock_socket, mock_pe)
+        data_map = {mock_socket: ''}
+        self.tr._process_connection(data_map, mock_socket, mock_pe)
         calls = [mock.call.process_event(EVENTS_NORMAL[0][0],
                                          EVENTS_NORMAL[0][1])]
         mock_pe.assert_has_calls(calls)
