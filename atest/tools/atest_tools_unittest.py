@@ -73,19 +73,19 @@ class AtestToolsUnittests(unittest.TestCase):
             _dict = {}
             # Test finding a Java class
             with open(uc.CLASS_INDEX, 'rb') as _cache:
-                _dict = pickle.load(_cache)
+                _dict = pickle.load(_cache, encoding='utf-8')
             self.assertIsNotNone(_dict.get('PathTesting'))
             # Test finding a CC class
             with open(uc.CC_CLASS_INDEX, 'rb') as _cache:
-                _dict = pickle.load(_cache)
+                _dict = pickle.load(_cache, encoding='utf-8')
             self.assertIsNotNone(_dict.get('HelloWorldTest'))
             # Test finding a package
             with open(uc.PACKAGE_INDEX, 'rb') as _cache:
-                _dict = pickle.load(_cache)
+                _dict = pickle.load(_cache, encoding='utf-8')
             self.assertIsNotNone(_dict.get('android.jank.cts.ui'))
             # Test finding a fully qualified class name
             with open(uc.QCLASS_INDEX, 'rb') as _cache:
-                _dict = pickle.load(_cache)
+                _dict = pickle.load(_cache, encoding='utf-8')
             self.assertIsNotNone(_dict.get('android.jank.cts.ui.PathTesting'))
             # Clean up.
             targets_to_delete = (uc.LOCATE_CACHE,
