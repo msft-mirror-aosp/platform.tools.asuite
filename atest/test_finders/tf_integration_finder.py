@@ -72,8 +72,8 @@ class TFIntegrationFinder(test_finder_base.TestFinderBase):
         Returns:
             A tuple of lists of strings of integration dir rel to repo root.
         """
-        tf_dirs = filter(None, [d for x in _TF_TARGETS for d in self._get_mod_paths(x)])
-        gtf_dirs = filter(None, [d for x in _GTF_TARGETS for d in self._get_mod_paths(x)])
+        tf_dirs = list(filter(None, [d for x in _TF_TARGETS for d in self._get_mod_paths(x)]))
+        gtf_dirs = list(filter(None, [d for x in _GTF_TARGETS for d in self._get_mod_paths(x)]))
         return tf_dirs, gtf_dirs
 
     def _get_build_targets(self, rel_config):

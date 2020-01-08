@@ -74,7 +74,8 @@ IDE_LAUNCH_FAILURE = 103
 
 # Constants for file names
 MERGED_MODULE_INFO = 'merged_module_info.json'
-BLUEPRINT_JSONFILE_NAME = 'module_bp_java_deps.json'
+BLUEPRINT_JAVA_JSONFILE_NAME = 'module_bp_java_deps.json'
+BLUEPRINT_CC_JSONFILE_NAME = 'module_bp_cc_deps.json'
 CMAKELISTS_FILE_NAME = 'clion_project_lists.txt'
 CLION_PROJECT_FILE_NAME = 'CMakeLists.txt'
 ANDROID_BP = 'Android.bp'
@@ -95,99 +96,3 @@ LINUX_GLIBC_COMMON = 'linux_glibc_common'
 NOHUP = 'nohup'
 ECLIPSE_WS = '~/Documents/AIDEGen_Eclipse_workspace'
 IGNORE_STD_OUT_ERR_CMD = '2>/dev/null >&2'
-
-# The xml templates for JDK or SDK.
-
-# The configuration of JDK on Linux.
-LINUX_JDK_XML = """    <jdk version="2">
-      <name value="JDK18" />
-      <type value="JavaSDK" />
-      <version value="java version &quot;1.8.0_152&quot;" />
-      <homePath value="{JDKpath}" />
-      <roots>
-        <annotationsPath>
-          <root type="composite">
-            <root url="jar://$APPLICATION_HOME_DIR$/lib/jdkAnnotations.jar!/" type="simple" />
-          </root>
-        </annotationsPath>
-        <classPath>
-          <root type="composite">
-            <root url="jar://{JDKpath}/jre/lib/charsets.jar!/" type="simple" />
-            <root url="jar://{JDKpath}/jre/lib/ext/cldrdata.jar!/" type="simple" />
-            <root url="jar://{JDKpath}/jre/lib/ext/dnsns.jar!/" type="simple" />
-            <root url="jar://{JDKpath}/jre/lib/ext/jaccess.jar!/" type="simple" />
-            <root url="jar://{JDKpath}/jre/lib/ext/localedata.jar!/" type="simple" />
-            <root url="jar://{JDKpath}/jre/lib/ext/nashorn.jar!/" type="simple" />
-            <root url="jar://{JDKpath}/jre/lib/ext/sunec.jar!/" type="simple" />
-            <root url="jar://{JDKpath}/jre/lib/ext/sunjce_provider.jar!/" type="simple" />
-            <root url="jar://{JDKpath}/jre/lib/ext/sunpkcs11.jar!/" type="simple" />
-            <root url="jar://{JDKpath}/jre/lib/ext/zipfs.jar!/" type="simple" />
-            <root url="jar://{JDKpath}/jre/lib/jce.jar!/" type="simple" />
-            <root url="jar://{JDKpath}/jre/lib/jsse.jar!/" type="simple" />
-            <root url="jar://{JDKpath}/jre/lib/management-agent.jar!/" type="simple" />
-            <root url="jar://{JDKpath}/jre/lib/resources.jar!/" type="simple" />
-            <root url="jar://{JDKpath}/jre/lib/rt.jar!/" type="simple" />
-          </root>
-        </classPath>
-        <javadocPath>
-          <root type="composite" />
-        </javadocPath>
-        <sourcePath>
-          <root type="composite">
-            <root url="jar://{JDKpath}/src.zip!/" type="simple" />
-          </root>
-        </sourcePath>
-      </roots>
-      <additional />
-    </jdk>
-"""
-# The configuration of JDK on Mac.
-MAC_JDK_XML = """    <jdk version="2">
-      <name value="JDK18" />
-      <type value="JavaSDK" />
-      <version value="java version &quot;1.8.0_152&quot;" />
-      <homePath value="{JDKpath}" />
-      <roots>
-        <annotationsPath>
-          <root type="composite">
-            <root url="jar://$APPLICATION_HOME_DIR$/lib/jdkAnnotations.jar!/" type="simple" />
-          </root>
-        </annotationsPath>
-        <classPath>
-          <root type="composite">
-            <root url="jar://{JDKpath}/jre/lib/charsets.jar!/" type="simple" />
-            <root url="jar://{JDKpath}/jre/lib/ext/cldrdata.jar!/" type="simple" />
-            <root url="jar://{JDKpath}/jre/lib/ext/dnsns.jar!/" type="simple" />
-            <root url="jar://{JDKpath}/jre/lib/ext/jaccess.jar!/" type="simple" />
-            <root url="jar://{JDKpath}/jre/lib/ext/localedata.jar!/" type="simple" />
-            <root url="jar://{JDKpath}/jre/lib/ext/nashorn.jar!/" type="simple" />
-            <root url="jar://{JDKpath}/jre/lib/ext/sunec.jar!/" type="simple" />
-            <root url="jar://{JDKpath}/jre/lib/ext/sunjce_provider.jar!/" type="simple" />
-            <root url="jar://{JDKpath}/jre/lib/ext/sunpkcs11.jar!/" type="simple" />
-            <root url="jar://{JDKpath}/jre/lib/ext/zipfs.jar!/" type="simple" />
-            <root url="jar://{JDKpath}/jre/lib/jce.jar!/" type="simple" />
-            <root url="jar://{JDKpath}/jre/lib/jsse.jar!/" type="simple" />
-            <root url="jar://{JDKpath}/jre/lib/management-agent.jar!/" type="simple" />
-            <root url="jar://{JDKpath}/jre/lib/resources.jar!/" type="simple" />
-            <root url="jar://{JDKpath}/jre/lib/rt.jar!/" type="simple" />
-            <root url="jar://{JDKpath}/jre/lib/management-agent.jar!/" type="simple" />
-            <root url="jar://{JDKpath}/jre/lib/resources.jar!/" type="simple" />
-            <root url="jar://{JDKpath}/jre/lib/rt.jar!/" type="simple" />
-            <root url="jar://{JDKpath}/lib/dt.jar!/" type="simple" />
-            <root url="jar://{JDKpath}/lib/jconsole.jar!/" type="simple" />
-            <root url="jar://{JDKpath}/lib/sa-jdi.jar!/" type="simple" />
-            <root url="jar://{JDKpath}/lib/tools.jar!/" type="simple" />
-          </root>
-        </classPath>
-        <javadocPath>
-          <root type="composite" />
-        </javadocPath>
-        <sourcePath>
-          <root type="composite">
-            <root url="jar://{JDKpath}/src.zip!/" type="simple" />
-          </root>
-        </sourcePath>
-      </roots>
-      <additional />
-    </jdk>
-"""
