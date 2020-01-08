@@ -254,6 +254,8 @@ class AtestTradefedTestRunner(test_runner_base.TestRunnerBase):
         # Set connection into blocking mode.
         conn.settimeout(None)
         data = conn.recv(SOCKET_BUFFER)
+        if isinstance(data, bytes):
+            data = data.decode()
         logging.debug('received: %s', data)
         if data:
             data_map[conn] += data

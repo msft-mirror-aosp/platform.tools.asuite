@@ -437,7 +437,7 @@ def _are_identical_cmds(current_cmds, former_cmds):
         Returns:
             A list with elements. E.g. ['cmd', 'arg1', 'arg2', 'True']
         """
-        _cmd = ''.join(cmd_list).encode('utf-8').split()
+        _cmd = ''.join(cmd_list).split()
         for cmd in _cmd:
             if cmd.startswith('--atest-log-file-path'):
                 _cmd.remove(cmd)
