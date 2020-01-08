@@ -75,7 +75,7 @@ class ATestIntegrationTest(unittest.TestCase):
                                     env=self.full_env_vars,
                                     shell=True)
         except subprocess.CalledProcessError as e:
-            self.log.append(e.output)
+            self.log.append(e.output.decode())
             return False
         return True
 

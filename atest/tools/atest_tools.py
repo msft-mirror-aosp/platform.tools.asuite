@@ -173,8 +173,11 @@ def _get_cc_result(locatedb=None):
                     "| xargs egrep -sH '{1}' || true")
     find_cc_cmd = find_cmd.format(locatedb, cc_grep_re)
     logging.debug('Probing CC classes:\n %s', find_cc_cmd)
-    return subprocess.check_output('echo \"%s\" > %s; sh %s'
-                                   % (find_cc_cmd, TMPRUN, TMPRUN), shell=True)
+    result = subprocess.check_output('echo \"%s\" > %s; sh %s'
+                                     % (find_cc_cmd, TMPRUN, TMPRUN), shell=True)
+    if isinstance(result, bytes):
+        result = result.decode()
+    return result
 
 def _get_java_result(locatedb=None):
     """Search all testable java/kt and grep package.
@@ -191,9 +194,12 @@ def _get_java_result(locatedb=None):
         find_cmd = r"locate -d%s / | egrep -i '/*.test.*\.(java|kt)$'" % locatedb
     find_java_cmd = find_cmd + '| xargs egrep -sH \'%s\' || true' % package_grep_re
     logging.debug('Probing Java classes:\n %s', find_java_cmd)
-    return subprocess.check_output('echo \"%s\" > %s; sh %s'
-                                   % (find_java_cmd, TMPRUN, TMPRUN),
-                                   shell=True)
+    result = subprocess.check_output('echo \"%s\" > %s; sh %s'
+                                     % (find_java_cmd, TMPRUN, TMPRUN),
+                                     shell=True)
+    if isinstance(result, bytes):
+        result = result.decode()
+    return result
 
 def _index_testable_modules(index):
     """Dump testable modules read by tab completion.
