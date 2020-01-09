@@ -116,7 +116,7 @@ class BugDetectorUnittest(unittest.TestCase):
         mock_file_size = 0
         self._make_test_file(mock_file_size)
         dtr = bug_detector.BugDetector(['test1'], 0, self.history_file2)
-        self.assertTrue(dtr.history.has_key('test1'))
+        self.assertTrue('test1' in dtr.history)
 
         # History is larger than constants.UPPER_LIMIT. Trim to size.
         mock_file_size = 10
@@ -125,7 +125,7 @@ class BugDetectorUnittest(unittest.TestCase):
         self.assertEqual(len(dtr.history), constants.TRIM_TO_SIZE)
         keys = ['test1', '9', '8']
         for key in keys:
-            self.assertTrue(dtr.history.has_key(key))
+            self.assertTrue(key in dtr.history)
 
         # History is not larger than constants.UPPER_LIMIT.
         mock_file_size = 5
@@ -134,7 +134,7 @@ class BugDetectorUnittest(unittest.TestCase):
         self.assertEqual(len(dtr.history), mock_file_size+1)
         keys = ['test1', '4', '3', '2', '1', '0']
         for key in keys:
-            self.assertTrue(dtr.history.has_key(key))
+            self.assertTrue(key in dtr.history)
 
 if __name__ == '__main__':
     unittest.main()

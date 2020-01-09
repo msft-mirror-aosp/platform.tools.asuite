@@ -254,6 +254,8 @@ class AtestTradefedTestRunner(test_runner_base.TestRunnerBase):
         # Set connection into blocking mode.
         conn.settimeout(None)
         data = conn.recv(SOCKET_BUFFER)
+        if isinstance(data, bytes):
+            data = data.decode()
         logging.debug('received: %s', data)
         if data:
             data_map[conn] += data
@@ -580,10 +582,6 @@ class AtestTradefedTestRunner(test_runner_base.TestRunnerBase):
         if test_infos[0].from_test_mapping:
             args.extend(constants.TEST_MAPPING_RESULT_SERVER_ARGS)
         test_infos = self._flatten_test_infos(test_infos)
-        # In order to do dry-run verification, sort it to make each run has the
-        # same result
-        test_infos = list(test_infos)
-        test_infos.sort()
         has_integration_test = False
         for info in test_infos:
             # Integration test exists in TF's jar, so it must have the option

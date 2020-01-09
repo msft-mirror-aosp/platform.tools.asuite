@@ -437,7 +437,7 @@ def _are_identical_cmds(current_cmds, former_cmds):
         Returns:
             A list with elements. E.g. ['cmd', 'arg1', 'arg2', 'True']
         """
-        _cmd = ''.join(cmd_list).encode('utf-8').split()
+        _cmd = ''.join(cmd_list).split()
         for cmd in _cmd:
             if cmd.startswith('--atest-log-file-path'):
                 _cmd.remove(cmd)
@@ -524,8 +524,12 @@ def load_test_info_cache(test_reference, cache_root=TEST_INFO_CACHE_ROOT):
         logging.debug('Loading cache %s.', cache_file)
         try:
             with open(cache_file, 'rb') as config_dictionary_file:
-                return pickle.load(config_dictionary_file)
-        except (pickle.UnpicklingError, ValueError, EOFError, IOError) as err:
+                return pickle.load(config_dictionary_file, encoding='utf-8')
+        except (pickle.UnpicklingError,
+                ValueError,
+                TypeError,
+                EOFError,
+                IOError) as err:
             # Won't break anything, just remove the old cache, log this error,
             # and collect the exception by metrics.
             logging.debug('Exception raised: %s', err)

@@ -362,6 +362,8 @@ def _get_ignored_dirs():
                             r'-type f \( -name ".out-dir" -o -name '
                             r'".find-ignore" \)') % build_top
         out_files = subprocess.check_output(find_out_dir_cmd, shell=True)
+        if isinstance(out_files, bytes):
+            out_files = out_files.decode()
         # Get all dirs with .out-dir or .find-ignore
         if out_files:
             out_files = out_files.splitlines()
@@ -427,8 +429,8 @@ def run_find_cmd(ref_type, search_dir, target, methods=None):
         _dict, out = {}, None
         with open(FIND_INDEXES[ref_type], 'rb') as index:
             try:
-                _dict = pickle.load(index)
-            except (IOError, EOFError, pickle.UnpicklingError) as err:
+                _dict = pickle.load(index, encoding='utf-8')
+            except (TypeError, IOError, EOFError, pickle.UnpicklingError) as err:
                 logging.debug('Exception raised: %s', err)
                 metrics_utils.handle_exc_and_send_exit_event(
                     constants.ACCESS_CACHE_FAILURE)
@@ -443,6 +445,8 @@ def run_find_cmd(ref_type, search_dir, target, methods=None):
         find_cmd = FIND_CMDS[ref_type].format(search_dir, prune_cond, target)
         logging.debug('Executing %s find cmd: %s', ref_name, find_cmd)
         out = subprocess.check_output(find_cmd, shell=True)
+        if isinstance(out, bytes):
+            out = out.decode()
         logging.debug('%s find cmd out: %s', ref_name, out)
     logging.debug('%s find completed in %ss', ref_name, time.time() - start)
     return extract_test_path(out, methods)

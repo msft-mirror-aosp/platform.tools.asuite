@@ -53,7 +53,8 @@ class AtestToolsUnittests(unittest.TestCase):
             # locate always return 0 when not found in Darwin, therefore,
             # check null return in Darwin and return value in Linux.
             if platform.system() == 'Darwin':
-                self.assertEqual(subprocess.check_output(locate_cmd1), "")
+                output = subprocess.check_output(locate_cmd1).decode()
+                self.assertEqual(output, "")
             else:
                 self.assertEqual(subprocess.call(locate_cmd1), 1)
             # module-info.json can be found in the search_root.
@@ -72,19 +73,19 @@ class AtestToolsUnittests(unittest.TestCase):
             _dict = {}
             # Test finding a Java class
             with open(uc.CLASS_INDEX, 'rb') as _cache:
-                _dict = pickle.load(_cache)
+                _dict = pickle.load(_cache, encoding='utf-8')
             self.assertIsNotNone(_dict.get('PathTesting'))
             # Test finding a CC class
             with open(uc.CC_CLASS_INDEX, 'rb') as _cache:
-                _dict = pickle.load(_cache)
+                _dict = pickle.load(_cache, encoding='utf-8')
             self.assertIsNotNone(_dict.get('HelloWorldTest'))
             # Test finding a package
             with open(uc.PACKAGE_INDEX, 'rb') as _cache:
-                _dict = pickle.load(_cache)
+                _dict = pickle.load(_cache, encoding='utf-8')
             self.assertIsNotNone(_dict.get('android.jank.cts.ui'))
             # Test finding a fully qualified class name
             with open(uc.QCLASS_INDEX, 'rb') as _cache:
-                _dict = pickle.load(_cache)
+                _dict = pickle.load(_cache, encoding='utf-8')
             self.assertIsNotNone(_dict.get('android.jank.cts.ui.PathTesting'))
             # Clean up.
             targets_to_delete = (uc.LOCATE_CACHE,

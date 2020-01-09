@@ -26,7 +26,6 @@ import signal
 import subprocess
 import tempfile
 import os
-import sys
 
 from collections import namedtuple
 
@@ -102,7 +101,6 @@ class TestRunnerBase:
         except Exception as error:
             # exc_info=1 tells logging to log the stacktrace
             logging.debug('Caught exception:', exc_info=1)
-            exc_type, exc_msg, traceback_obj = sys.exc_info()
             # If atest crashes, try to kill subproc group as well.
             try:
                 logging.debug('Killing subproc: %s', subproc.pid)
@@ -118,10 +116,8 @@ class TestRunnerBase:
                         print(atest_utils.colorize(intro_msg, constants.RED))
                         print(f.read())
                 # Ignore socket.recv() raising due to ctrl-c
-                # https://docs.python.org/3.7/reference/simple_stmts.html#raise
-                # TODO: make sure this raise works as expected.
                 if not error.args or error.args[0] != errno.EINTR:
-                    raise RuntimeError(exc_msg) from exc_type
+                    raise error
 
     def wait_for_subprocess(self, proc):
         """Check the process status. Interrupt the TF subporcess if user

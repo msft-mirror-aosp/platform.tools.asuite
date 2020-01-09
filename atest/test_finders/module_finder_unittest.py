@@ -128,7 +128,7 @@ class ModuleFinderUnittests(unittest.TestCase):
     @mock.patch.object(module_finder.ModuleFinder, '_is_vts_module',
                        return_value=False)
     @mock.patch.object(module_finder.ModuleFinder, '_get_build_targets')
-    @mock.patch('subprocess.check_output', return_value=uc.FIND_ONE)
+    @mock.patch('subprocess.check_output', return_value=bytes(uc.FIND_ONE))
     @mock.patch.object(test_finder_utils, 'get_fully_qualified_class_name',
                        return_value=uc.FULL_CLASS_NAME)
     @mock.patch('os.path.isfile', side_effect=unittest_utils.isfile_side_effect)
