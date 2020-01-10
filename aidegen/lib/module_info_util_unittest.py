@@ -156,23 +156,19 @@ class AidegenModuleInfoUtilUnittests(unittest.TestCase):
     def test_is_new_json_file_generated(self, mock_isfile, mock_getmtime):
         """Test _is_new_json_file_generated with different situations."""
         jfile = 'path/test.json'
-        mock_isfile.return_value = True
-        self.assertEqual(
-            mock_isfile.return_value,
-            module_info_util._is_new_json_file_generated(jfile, None))
         mock_isfile.return_value = False
-        self.assertEqual(
-            mock_isfile.return_value,
+        self.assertFalse(
+            module_info_util._is_new_json_file_generated(jfile, None))
+        mock_isfile.return_value = True
+        self.assertTrue(
             module_info_util._is_new_json_file_generated(jfile, None))
         original_file_mtime = 1000
         mock_getmtime.return_value = original_file_mtime
-        self.assertEqual(
-            False,
+        self.assertFalse(
             module_info_util._is_new_json_file_generated(
                 jfile, original_file_mtime))
         mock_getmtime.return_value = 1001
-        self.assertEqual(
-            True,
+        self.assertTrue(
             module_info_util._is_new_json_file_generated(
                 jfile, original_file_mtime))
 
@@ -191,38 +187,27 @@ class AidegenModuleInfoUtilUnittests(unittest.TestCase):
             module_info_util._build_failed_handle(
                 unittest_constants.TEST_MODULE)
 
-    @mock.patch('builtins.open')
-    def test_get_soong_build_json_dict_failed(self, mock_open):
-        """Test _get_soong_build_json_dict failure and raise error."""
-        mock_open.side_effect = IOError
-        with self.assertRaises(errors.JsonFileNotExistError):
-            module_info_util._get_soong_build_json_dict()
-
-    @mock.patch('aidegen.lib.module_info_util._build_failed_handle')
+    @mock.patch.object(module_info_util, '_show_build_failed_message')
     @mock.patch.object(common_util, 'get_related_paths')
-    @mock.patch('aidegen.lib.module_info_util._is_new_json_file_generated')
     @mock.patch.object(atest_utils, 'build')
-    def test_build_bp_info(self, mock_build, mock_new, mock_path, mock_handle):
+    def test_build_bp_info(self, mock_build, mock_relpath, mock_show_msg):
         """Test _build_bp_info with different arguments."""
         main_project = 'Settings'
         amodule_info = {}
         verbose = False
         mock_build.return_value = False
-        mock_new.return_value = False
         module_info_util._build_bp_info(amodule_info, main_project, verbose)
-        self.assertTrue(mock_new.called)
-        self.assertFalse(mock_handle.called)
-        mock_new.return_value = True
-        mock_path.return_value = None, 'packages/apps/Settings'
+        self.assertTrue(mock_show_msg.called)
+        mock_relpath.return_value = None, 'packages/apps/Settings'
         module_info_util._build_bp_info(amodule_info, main_project, verbose)
-        self.assertTrue(mock_new.called)
-        self.assertTrue(mock_handle.called)
+        self.assertTrue(mock_show_msg.called)
 
     @mock.patch.object(module_info_util, '_merge_dict')
-    @mock.patch.object(module_info_util, '_get_soong_build_json_dict')
+    @mock.patch.object(common_util, 'get_json_dict')
+    @mock.patch.object(common_util, 'get_blueprint_json_path')
     @mock.patch.object(module_info_util, '_build_bp_info')
     def test_generate_merged_module_info(
-            self, mock_build, mock_get_soong, mock_merge_dict):
+            self, mock_build, mock_get_json, mock_get_dict, mock_merge_dict):
         """Test generate_merged_module_info function."""
         main_project = 'tradefed'
         args = aidegen_main._parse_args([main_project, '-n', '-v'])
@@ -230,8 +215,30 @@ class AidegenModuleInfoUtilUnittests(unittest.TestCase):
         config.init_environment()
         module_info_util.generate_merged_module_info()
         self.assertTrue(mock_build.called)
-        self.assertTrue(mock_get_soong.called)
+        self.assertTrue(mock_get_json.called)
+        self.assertTrue(mock_get_dict.called)
         self.assertTrue(mock_merge_dict.called)
+
+    @mock.patch.object(common_util, 'get_related_paths')
+    @mock.patch.object(module_info_util, '_build_failed_handle')
+    @mock.patch.object(os.path, 'isfile')
+    def test_show_build_failed_message(
+            self, mock_is_file, mock_handle, mock_relpath):
+        """Test _show_build_failed_message with different conditions."""
+        main_project = 'tradefed'
+        mock_is_file.side_effect = [True, True]
+        module_info_util._show_build_failed_message('', '', {}, main_project)
+        self.assertFalse(mock_handle.called)
+        mock_relpath.return_value = 'c/d', 'a/b/c/d'
+        mock_is_file.side_effect = [False, True]
+        module_info_util._show_build_failed_message('', '', {}, main_project)
+        self.assertTrue(mock_handle.called)
+        mock_is_file.side_effect = [True, False]
+        module_info_util._show_build_failed_message('', '', {}, main_project)
+        self.assertTrue(mock_handle.called)
+        mock_is_file.side_effect = [False, False]
+        module_info_util._show_build_failed_message('', '', {}, main_project)
+        self.assertTrue(mock_handle.called)
 
 
 if __name__ == '__main__':
