@@ -612,6 +612,7 @@ def dump_json_dict(json_path, data):
         json.dump(data, json_file, indent=4)
 
 
+@io_error_handle
 def get_json_dict(json_path):
     """Loads a json file from path and convert it into a json dictionary.
 
@@ -621,10 +622,5 @@ def get_json_dict(json_path):
     Returns:
         A dictionary loaded from the json_path.
     """
-    try:
-        with open(json_path) as jfile:
-            json_dict = json.load(jfile)
-            return json_dict
-    except IOError as err:
-        raise errors.JsonFileNotExistError(
-            '%s does not exist, error: %s.' % (json_path, err))
+    with open(json_path) as jfile:
+        return json.load(jfile)
