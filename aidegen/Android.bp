@@ -49,10 +49,11 @@ python_library_host {
     name: "aidegen_lib",
     defaults: ["aidegen_default"],
     srcs: [
-        "aidegen_main.py",
-        "constant.py",
-        "unittest_constants.py",
-        "lib/*.py",
+        "**/*.py",
+    ],
+    exclude_srcs: [
+        "*_unittest.py",
+        "*/*_unittest.py",
     ]
 }
 
