@@ -22,10 +22,10 @@ import unittest
 
 from unittest import mock
 
-import suite_plan_test_runner
 import unittest_utils
 
 from test_finders import test_info
+from test_runners import suite_plan_test_runner
 
 
 # pylint: disable=protected-access

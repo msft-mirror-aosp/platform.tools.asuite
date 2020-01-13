@@ -27,7 +27,7 @@ import unittest
 
 from unittest import mock
 
-import atest_tools
+from tools import atest_tools
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 # pylint: disable=wrong-import-position
 import unittest_constants as uc
