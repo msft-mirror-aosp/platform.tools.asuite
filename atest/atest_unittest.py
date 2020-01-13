@@ -94,7 +94,7 @@ class AtestUnittests(unittest.TestCase):
                     'Failed to validate: %s' % args)
 
     @mock.patch('json.load', return_value={})
-    @mock.patch('__builtin__.open', new_callable=mock.mock_open)
+    @mock.patch('builtins.open', new_callable=mock.mock_open)
     @mock.patch('os.path.isfile', return_value=True)
     @mock.patch('atest_utils._has_colors', return_value=True)
     @mock.patch.object(module_info.ModuleInfo, 'get_module_info',)
@@ -146,7 +146,7 @@ class AtestUnittests(unittest.TestCase):
         self.assertEqual(capture_output.getvalue(), null_output)
 
     @mock.patch('json.load', return_value={})
-    @mock.patch('__builtin__.open', new_callable=mock.mock_open)
+    @mock.patch('builtins.open', new_callable=mock.mock_open)
     @mock.patch('os.path.isfile', return_value=True)
     @mock.patch('atest_utils._has_colors', return_value=True)
     @mock.patch.object(module_info.ModuleInfo, 'get_module_info',)

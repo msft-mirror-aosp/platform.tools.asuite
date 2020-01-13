@@ -65,7 +65,7 @@ class ModuleInfoUnittests(unittest.TestCase):
     """Unit tests for module_info.py"""
 
     @mock.patch('json.load', return_value={})
-    @mock.patch('__builtin__.open', new_callable=mock.mock_open)
+    @mock.patch('builtins.open', new_callable=mock.mock_open)
     @mock.patch('os.path.isfile', return_value=True)
     def test_load_mode_info_file_out_dir_handling(self, _isfile, _open, _json):
         """Test _load_module_info_file out dir handling."""
