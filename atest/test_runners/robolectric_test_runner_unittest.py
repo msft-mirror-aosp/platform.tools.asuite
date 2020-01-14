@@ -25,9 +25,8 @@ import tempfile
 
 from unittest import mock
 
-import event_handler
-
 from test_finders import test_info
+from test_runners import event_handler
 from test_runners import robolectric_test_runner
 
 # pylint: disable=protected-access
