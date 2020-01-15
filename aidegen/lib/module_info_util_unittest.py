@@ -202,22 +202,26 @@ class AidegenModuleInfoUtilUnittests(unittest.TestCase):
         module_info_util._build_bp_info(amodule_info, main_project, verbose)
         self.assertTrue(mock_show_msg.called)
 
+    @mock.patch.object(project_config.ProjectConfig, 'get_instance')
     @mock.patch.object(module_info_util, '_merge_dict')
     @mock.patch.object(common_util, 'get_json_dict')
-    @mock.patch.object(common_util, 'get_blueprint_json_path')
     @mock.patch.object(module_info_util, '_build_bp_info')
     def test_generate_merged_module_info(
-            self, mock_build, mock_get_json, mock_get_dict, mock_merge_dict):
+            self, mock_build, mock_get_soong, mock_merge_dict, mock_get_inst):
         """Test generate_merged_module_info function."""
+        config = mock.MagicMock()
+        config.atest_module_info = mock.MagicMock()
         main_project = 'tradefed'
         args = aidegen_main._parse_args([main_project, '-n', '-v'])
-        config = project_config.ProjectConfig(args)
-        config.init_environment()
+        config.targets = args.targets
+        config.verbose = args.verbose
+        config.is_skip_build = args.skip_build
         module_info_util.generate_merged_module_info()
+        self.assertTrue(mock_get_inst.called)
         self.assertTrue(mock_build.called)
-        self.assertTrue(mock_get_json.called)
-        self.assertTrue(mock_get_dict.called)
+        self.assertTrue(mock_get_soong.called)
         self.assertTrue(mock_merge_dict.called)
+
 
     @mock.patch.object(common_util, 'get_related_paths')
     @mock.patch.object(module_info_util, '_build_failed_handle')

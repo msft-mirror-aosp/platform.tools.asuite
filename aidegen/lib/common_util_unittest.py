@@ -35,27 +35,23 @@ class AidegenCommonUtilUnittests(unittest.TestCase):
     """Unit tests for common_util.py"""
 
     @mock.patch.object(common_util, 'get_android_root_dir')
-    @mock.patch.object(module_info.ModuleInfo, 'get_module_names')
-    @mock.patch.object(module_info.ModuleInfo, 'get_paths')
-    @mock.patch.object(module_info.ModuleInfo, 'is_module')
-    def test_get_related_paths(self, mock_is_mod, mock_get, mock_names,
-                               mock_get_root):
+    def test_get_related_paths(self, mock_get_root):
         """Test get_related_paths with different conditions."""
-        mock_is_mod.return_value = True
-        mock_get.return_value = []
-        mod_info = module_info.ModuleInfo()
+        mod_info = mock.MagicMock()
+        mod_info.is_mod.return_value = True
+        mod_info.get_paths.return_value = {}
         self.assertEqual((None, None),
                          common_util.get_related_paths(
                              mod_info, unittest_constants.TEST_MODULE))
         mock_get_root.return_value = unittest_constants.TEST_PATH
-        mock_get.return_value = [unittest_constants.TEST_MODULE]
+        mod_info.get_paths.return_value = [unittest_constants.TEST_MODULE]
         expected = (unittest_constants.TEST_MODULE, os.path.join(
             unittest_constants.TEST_PATH, unittest_constants.TEST_MODULE))
         self.assertEqual(
             expected, common_util.get_related_paths(
                 mod_info, unittest_constants.TEST_MODULE))
-        mock_is_mod.return_value = False
-        mock_names.return_value = True
+        mod_info.is_mod.return_value = False
+        mod_info.get_module_names.return_value = True
         self.assertEqual(expected, common_util.get_related_paths(
             mod_info, unittest_constants.TEST_MODULE))
         self.assertEqual(('', unittest_constants.TEST_PATH),
@@ -65,22 +61,24 @@ class AidegenCommonUtilUnittests(unittest.TestCase):
     @mock.patch('os.getcwd')
     @mock.patch.object(common_util, 'is_android_root')
     @mock.patch.object(common_util, 'get_android_root_dir')
-    @mock.patch.object(module_info.ModuleInfo, 'get_module_names')
-    @mock.patch.object(module_info.ModuleInfo, 'is_module')
-    def test_get_related_paths_2(self, mock_is_mod, mock_names, mock_get_root,
-                                 mock_is_root, mock_getcwd):
+    def test_get_related_paths_2(
+            self, mock_get_root, mock_is_root, mock_getcwd):
         """Test get_related_paths with different conditions."""
+
         mock_get_root.return_value = '/a'
-        mod_info = module_info.ModuleInfo()
+        mod_info = mock.MagicMock()
 
         # Test get_module_names returns False, user inputs a relative path of
         # current directory.
-        mock_is_mod.return_value = False
-        mock_names.return_value = False
+        mod_info.is_mod.return_value = False
+        rel_path = 'b/c/d'
+        abs_path = '/a/b/c/d'
+        mod_info.get_paths.return_value = [rel_path]
+        mod_info.get_module_names.return_value = False
         mock_getcwd.return_value = '/a/b/c'
         input_target = 'd'
         # expected tuple: (rel_path, abs_path)
-        expected = ('b/c/d', '/a/b/c/d')
+        expected = (rel_path, abs_path)
         result = common_util.get_related_paths(mod_info, input_target)
         self.assertEqual(expected, result)
 
@@ -104,16 +102,17 @@ class AidegenCommonUtilUnittests(unittest.TestCase):
     @mock.patch.object(common_util, 'get_related_paths')
     def test_is_target_android_root(self, mock_get_rel, mock_get_root):
         """Test is_target_android_root with different conditions."""
+        mod_info = mock.MagicMock()
         mock_get_rel.return_value = None, unittest_constants.TEST_PATH
         mock_get_root.return_value = True
         self.assertTrue(
             common_util.is_target_android_root(
-                module_info.ModuleInfo(), [unittest_constants.TEST_MODULE]))
+                mod_info, [unittest_constants.TEST_MODULE]))
         mock_get_rel.return_value = None, ''
         mock_get_root.return_value = False
         self.assertFalse(
             common_util.is_target_android_root(
-                module_info.ModuleInfo(), [unittest_constants.TEST_MODULE]))
+                mod_info, [unittest_constants.TEST_MODULE]))
 
     @mock.patch.object(common_util, 'get_android_root_dir')
     @mock.patch.object(common_util, 'has_build_target')
@@ -122,7 +121,7 @@ class AidegenCommonUtilUnittests(unittest.TestCase):
     def test_check_module(self, mock_get, mock_isdir, mock_has_target,
                           mock_get_root):
         """Test if _check_module raises errors with different conditions."""
-        mod_info = module_info.ModuleInfo()
+        mod_info = mock.MagicMock()
         mock_get.return_value = None, None
         with self.assertRaises(errors.FakeModuleError) as ctx:
             common_util.check_module(mod_info, unittest_constants.TEST_MODULE)
@@ -158,7 +157,7 @@ class AidegenCommonUtilUnittests(unittest.TestCase):
     @mock.patch.object(common_util, 'check_module')
     def test_check_modules(self, mock_check):
         """Test _check_modules with different module lists."""
-        mod_info = module_info.ModuleInfo()
+        mod_info = mock.MagicMock()
         common_util._check_modules(mod_info, [])
         self.assertEqual(mock_check.call_count, 0)
         common_util._check_modules(mod_info, ['module1', 'module2'])
@@ -245,7 +244,7 @@ class AidegenCommonUtilUnittests(unittest.TestCase):
 
     def test_has_build_target(self):
         """Test has_build_target handling."""
-        mod_info = module_info.ModuleInfo()
+        mod_info = mock.MagicMock()
         mod_info.path_to_module_info = {'a/b/c': {}}
         rel_path = 'a/b'
         self.assertTrue(common_util.has_build_target(mod_info, rel_path))
@@ -283,6 +282,24 @@ class AidegenCommonUtilUnittests(unittest.TestCase):
         mock_get_env.return_value = root
         common_util.get_android_root_dir()
         self.assertTrue(mock_show_msg.called)
+
+    # pylint: disable=no-value-for-parameter
+    def test_check_args(self):
+        """Test check_args handling."""
+        with self.assertRaises(TypeError):
+            decorator = common_util.check_args(name=str, text=str)
+            decorator(parse_rule(None, 'text'))
+        with self.assertRaises(TypeError):
+            decorator = common_util.check_args(name=str, text=str)
+            decorator(parse_rule('Paul', ''))
+        with self.assertRaises(TypeError):
+            decorator = common_util.check_args(name=str, text=str)
+            decorator(parse_rule(1, 2))
+
+
+# pylint: disable=unused-argument
+def parse_rule(self, name, text):
+    """A test function for test_check_args."""
 
 
 if __name__ == '__main__':
