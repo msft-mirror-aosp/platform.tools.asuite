@@ -71,7 +71,7 @@ class AtestUnittests(unittest.TestCase):
                                                    custom_arg_val])
 
     def test_has_valid_test_mapping_args(self):
-        """Test _has_valid_test_mapping_args mehod."""
+        """Test _has_valid_test_mapping_args method."""
         # Test test mapping related args are not mixed with incompatible args.
         options_no_tm_support = [
             ('--generate-baseline', '5'),
@@ -101,7 +101,7 @@ class AtestUnittests(unittest.TestCase):
     def test_print_module_info_from_module_name(self, mock_get_module_info,
                                                 _mock_has_colors, _isfile,
                                                 _open, _json):
-        """Test _print_module_info_from_module_name mehod."""
+        """Test _print_module_info_from_module_name method."""
         mod_one_name = 'mod1'
         mod_one_path = ['src/path/mod1']
         mod_one_installed = ['installed/path/mod1']
@@ -152,7 +152,7 @@ class AtestUnittests(unittest.TestCase):
     @mock.patch.object(module_info.ModuleInfo, 'get_module_info',)
     def test_print_test_info(self, mock_get_module_info, _mock_has_colors,
                              _isfile, _open, _json):
-        """Test _print_test_info mehod."""
+        """Test _print_test_info method."""
         mod_one_name = 'mod1'
         mod_one = {constants.MODULE_NAME: mod_one_name,
                    constants.MODULE_PATH: ['path/mod1'],
@@ -283,17 +283,14 @@ class AtestUnittests(unittest.TestCase):
         """Test make_test_run_dir."""
         tmp_dir = tempfile.mkdtemp()
         constants.ATEST_RESULT_ROOT = tmp_dir
-        data_time = None
-        try:
-            word_dir = atest.make_test_run_dir()
-            folder_name = os.path.basename(word_dir)
-            data_time = datetime.datetime.strptime('_'.join(folder_name.split('_')[:-1]),
-                                                   atest.TEST_RUN_DIR_PREFIX)
-        except ValueError:
-            pass
-        finally:
-            reload(constants)
-        self.assertTrue(data_time)
+        date_time = None
+
+        work_dir = atest.make_test_run_dir()
+        folder_name = os.path.basename(work_dir)
+        date_time = datetime.datetime.strptime('_'.join(folder_name.split('_')[0:2]),
+                                               atest.TEST_RUN_DIR_PREFIX)
+        reload(constants)
+        self.assertTrue(date_time)
 
 
 if __name__ == '__main__':
