@@ -402,7 +402,7 @@ def _print_module_info_from_module_name(mod_info, module_name):
     is_module_found = False
     if target_module_info:
         atest_utils.colorful_print(module_name, constants.GREEN)
-        for title_key in title_mapping.iterkeys():
+        for title_key in title_mapping:
             atest_utils.colorful_print("\t%s" % title_mapping[title_key],
                                        constants.CYAN)
             for info_value in target_module_info[title_key]:

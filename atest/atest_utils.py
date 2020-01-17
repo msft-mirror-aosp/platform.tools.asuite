@@ -38,9 +38,18 @@ import atest_decorator
 import atest_error
 import constants
 
-from metrics import metrics_base
-from metrics import metrics_utils
-
+# b/147562331 only occurs when running atest in source code. We don't encourge
+# the users to manually "pip3 install protobuf", therefore when the exception
+# occurs, we don't collect data and the tab completion is for args is silence.
+try:
+    from metrics import metrics_base
+    from metrics import metrics_utils
+except ModuleNotFoundError:
+    # This exception occurs only when invoking atest in source code.
+    print("You shouldn't see this message unless you ran 'atest-src'."
+          "To resolve the issue, please run:\n\t{}\n"
+          "and try again.".format('pip3 install protobuf'))
+    sys.exit(constants.IMPORT_FAILURE)
 
 _BASH_RESET_CODE = '\033[0m\n'
 # Arbitrary number to limit stdout for failed runs in _run_limited_output.
