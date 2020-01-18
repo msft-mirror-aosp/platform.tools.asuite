@@ -24,3 +24,58 @@ tradefed_binary_host {
     full_name: "ATest Test Suite",
     static_libs: ["atest-tradefed-shell"],
 }
+
+python_defaults {
+    name: "atest_py3_default",
+    pkg_path: "atest",
+    version: {
+        py2: {
+            enabled: false,
+            embedded_launcher: false,
+        },
+        py3: {
+            enabled: true,
+            embedded_launcher: false,
+        },
+    },
+}
+
+python_binary_host {
+    name: "atest-py3",
+    main: "atest.py",
+    srcs: [
+        "**/*.py",
+    ],
+    exclude_srcs: [
+        "*_unittest.py",
+        "*/*_unittest.py",
+        "asuite_lib_test/*.py",
+        "proto/*_pb2.py",
+        "proto/__init__.py",
+    ],
+    libs: [
+        "atest_py3_proto",
+    ],
+    data: [
+        "tools/updatedb_darwin.sh",
+        ":asuite_version",
+    ],
+    // Make atest's built name to atest-py3-dev
+    stem: "atest-py3-dev",
+    defaults: ["atest_py3_default"],
+    dist: {
+        targets: ["droidcore"],
+    },
+}
+
+python_library_host {
+    name: "atest_py3_proto",
+    defaults: ["atest_py3_default"],
+    srcs: [
+        "proto/*.proto",
+    ],
+    proto: {
+        canonical_path_from_root: false,
+    },
+}
+
