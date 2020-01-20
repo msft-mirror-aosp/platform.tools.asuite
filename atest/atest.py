@@ -27,6 +27,7 @@ atest is designed to support any test types that can be ran by TradeFederation.
 
 from __future__ import print_function
 
+import collections
 import logging
 import os
 import sys
@@ -394,10 +395,10 @@ def _print_module_info_from_module_name(mod_info, module_name):
     Returns:
         True if the module_info is found.
     """
-    title_mapping = {
-        constants.MODULE_PATH: "Source code path",
-        constants.MODULE_INSTALLED: "Installed path",
-        constants.MODULE_COMPATIBILITY_SUITES: "Compatibility suite"}
+    title_mapping = collections.OrderedDict()
+    title_mapping[constants.MODULE_COMPATIBILITY_SUITES] = 'Compatibility suite'
+    title_mapping[constants.MODULE_PATH] = 'Source code path'
+    title_mapping[constants.MODULE_INSTALLED] = 'Installed path'
     target_module_info = mod_info.get_module_info(module_name)
     is_module_found = False
     if target_module_info:
@@ -424,8 +425,9 @@ def _print_test_info(mod_info, test_infos):
     for test_info in test_infos:
         _print_module_info_from_module_name(mod_info, test_info.test_name)
         atest_utils.colorful_print("\tRelated build targets", constants.MAGENTA)
-        print("\t\t{}".format(", ".join(test_info.build_targets)))
-        for build_target in test_info.build_targets:
+        sorted_build_targets = sorted(list(test_info.build_targets))
+        print("\t\t{}".format(", ".join(sorted_build_targets)))
+        for build_target in sorted_build_targets:
             if build_target != test_info.test_name:
                 _print_module_info_from_module_name(mod_info, build_target)
         atest_utils.colorful_print("", constants.WHITE)
