@@ -25,6 +25,7 @@ from unittest import mock
 
 import constants
 import module_info
+import unittest_utils
 import unittest_constants as uc
 
 JSON_FILE_PATH = os.path.join(uc.TEST_DATA_DIR, uc.JSON_FILE)
@@ -143,8 +144,9 @@ class ModuleInfoUnittests(unittest.TestCase):
         mod_info = module_info.ModuleInfo(module_file=JSON_FILE_PATH)
         self.assertEqual(mod_info.get_module_names(EXPECTED_MOD_TARGET_PATH[0]),
                          [EXPECTED_MOD_TARGET])
-        self.assertEqual(mod_info.get_module_names(PATH_TO_MULT_MODULES),
-                         MULT_MOODULES_WITH_SHARED_PATH)
+        unittest_utils.assert_strict_equal(
+            self, mod_info.get_module_names(PATH_TO_MULT_MODULES),
+            MULT_MOODULES_WITH_SHARED_PATH)
 
     def test_path_to_mod_info(self):
         """test that we get the module name properly."""
