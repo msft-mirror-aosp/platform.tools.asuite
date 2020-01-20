@@ -421,6 +421,7 @@ class TestFinderUtilsUnittests(unittest.TestCase):
             self.assertEqual(ignore_dirs, cached_answer)
             self.assertNotEqual(ignore_dirs, none_cached_answer)
 
+    @mock.patch.dict('os.environ', {constants.ANDROID_BUILD_TOP:'/'})
     @mock.patch('builtins.input', return_value='0')
     def test_search_integration_dirs(self, mock_input):
         """Test search_integration_dirs."""
@@ -527,6 +528,7 @@ class TestFinderUtilsUnittests(unittest.TestCase):
         self.assertTrue(cpp_class in cc_tmp_test_result)
         self.assertTrue(cc_class in cc_tmp_test_result)
 
+    @mock.patch.dict('os.environ', {constants.ANDROID_BUILD_TOP:'/'})
     @mock.patch('builtins.input', return_value='0')
     @mock.patch.object(test_finder_utils, 'get_dir_path_and_filename')
     @mock.patch('os.path.exists', return_value=True)
