@@ -459,8 +459,8 @@ def _split_test_mapping_tests(test_infos):
             device.
     """
     assert is_from_test_mapping(test_infos)
-    host_test_infos = {[info for info in test_infos if info.host]}
-    device_test_infos = {[info for info in test_infos if not info.host]}
+    host_test_infos = set([info for info in test_infos if info.host])
+    device_test_infos = set([info for info in test_infos if not info.host])
     return device_test_infos, host_test_infos
 
 
