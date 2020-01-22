@@ -850,7 +850,8 @@ def get_cc_filter(class_name, methods):
         Ex: "class1.method1:class1.method2" or "class1.*"
     """
     if methods:
-        return ":".join(["%s.%s" % (class_name, x) for x in methods])
+        sorted_methods = sorted(list(methods))
+        return ":".join(["%s.%s" % (class_name, x) for x in sorted_methods])
     return "%s.*" % class_name
 
 
