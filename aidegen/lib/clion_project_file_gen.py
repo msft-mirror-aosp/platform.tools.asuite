@@ -247,10 +247,10 @@ class CLionProjectFileGenerator:
         # TODO(b/146087689): This is a temperary solution it will be changed in
         # CL: aosp/1228444.
         temp_clang_path = ('${ANDROID_ROOT}/prebuilts/clang/host/linux-x86/'
-                           'clang-r370808b/bin/clang')
+                           'clang-r377782/bin/clang')
         hfile.write(_SET_C_COMPILER.format(temp_clang_path))
         temp_cpplang_path = ('${ANDROID_ROOT}/prebuilts/clang/host/'
-                             'linux-x86/clang-r370808b/bin/clang++')
+                             'linux-x86/clang-r377782/bin/clang++')
         hfile.write(_SET_CXX_COMPILER.format(temp_cpplang_path))
 
     @common_util.check_args(hfile=(TextIOWrapper, StringIO))
