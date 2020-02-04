@@ -154,17 +154,12 @@ public class AtestRunConfiguration extends LocatableConfigurationBase {
     public RunProfileState getState(
             @NotNull Executor executor, @NotNull ExecutionEnvironment executionEnvironment)
             throws ExecutionException {
-        AtestToolWindow atestToolWindow = AtestToolWindow.getInstance();
-        if (atestToolWindow == null) {
-            Notifications.Bus.notify(new AtestNotification(Constants.ATEST_WINDOW_FAIL));
-            LOG.error("Can't get AtestToolWindow instance.");
-            return null;
-        }
+        AtestToolWindow atestToolWindow =
+                AtestToolWindow.getInstance(executionEnvironment.getProject());
 
         if (!showAtestTW(executionEnvironment.getProject())) {
             return null;
         }
-
         String workPath =
                 AtestUtils.getAndroidRoot(executionEnvironment.getProject().getBasePath());
         atestToolWindow.setLunchTarget(mLunchTarget);
