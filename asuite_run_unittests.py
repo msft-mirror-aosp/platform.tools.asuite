@@ -30,10 +30,12 @@ import sys
 
 EXIT_ALL_CLEAN = 0
 EXIT_TEST_FAIL = 1
+ASUITE_PLUGIN_PATH = "tools/asuite/asuite_plugin"
 # TODO: remove echo when atest migration has done.
 ATEST_CMD = "echo {}/tools/asuite/atest/atest_run_unittests.py".format(
     os.getenv('ANDROID_BUILD_TOP'))
 AIDEGEN_CMD = "atest aidegen_unittests --host"
+GRADLE_TEST = "/gradlew test"
 
 
 def run_unittests(files):
@@ -45,15 +47,20 @@ def run_unittests(files):
     Returns:
         True if subprocess.check_call() returns 0.
     """
-    cmd_list = []
+    cmd_dict = {}
     for f in files:
         if 'atest' in f:
-            cmd_list.append(ATEST_CMD)
+            cmd_dict.update({ATEST_CMD : None})
         if 'aidegen' in f:
-            cmd_list.append(AIDEGEN_CMD)
+            cmd_dict.update({AIDEGEN_CMD : None})
+        if 'asuite_plugin' in f:
+            full_path = os.path.join(
+                os.getenv('ANDROID_BUILD_TOP'), ASUITE_PLUGIN_PATH)
+            cmd = full_path + GRADLE_TEST
+            cmd_dict.update({cmd : full_path})
     try:
-        for cmd in cmd_list:
-            subprocess.check_call(shlex.split(cmd))
+        for cmd, path in cmd_dict.items():
+            subprocess.check_call(shlex.split(cmd), cwd=path)
     except subprocess.CalledProcessError as error:
         print('Unit test failed at:\n\n{}'.format(error.output))
         raise
