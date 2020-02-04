@@ -295,7 +295,7 @@ def extract_test_path(output, methods=None):
             # java/kt
             #if not methods or has_method_in_file(test, methods):
             verified_tests.add(test)
-    return extract_test_from_tests(list(verified_tests))
+    return extract_test_from_tests(sorted(list(verified_tests)))
 
 
 def extract_test_from_tests(tests):
