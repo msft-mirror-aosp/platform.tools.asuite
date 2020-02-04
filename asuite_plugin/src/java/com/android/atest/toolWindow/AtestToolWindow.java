@@ -51,7 +51,7 @@ public class AtestToolWindow {
     private AtestToolWindow(ToolWindow toolWindow, String basePath) {
         setInitialWidth((ToolWindowEx) toolWindow);
         setRunButton(basePath);
-        setTestTarget(basePath);
+        initTestTarget(basePath);
         mAtestOutput.setMargin(new Insets(0, 10, 0, 0));
     }
 
@@ -88,7 +88,7 @@ public class AtestToolWindow {
      *
      * @param basePath a string that represents current project's base path.
      */
-    private void setTestTarget(String basePath) {
+    private void initTestTarget(String basePath) {
         mTestTarget.setEditable(true);
         if (AtestUtils.hasTestMapping(basePath)) {
             mTestTarget.setSelectedItem(basePath);
@@ -161,5 +161,23 @@ public class AtestToolWindow {
      */
     public JPanel getContent() {
         return mAtestToolWindowPanel;
+    }
+
+    /**
+     * Sets the test target of Atest tool window.
+     *
+     * @target the test target of Atest tool window.
+     */
+    public void setTestTarget(@NotNull String target) {
+        mTestTarget.setSelectedItem(target);
+    }
+
+    /**
+     * Sets the lunch target of Atest tool window.
+     *
+     * @target the lunch target of Atest tool window.
+     */
+    public void setLunchTarget(@NotNull String target) {
+        mLunchTarget.setText(target);
     }
 }

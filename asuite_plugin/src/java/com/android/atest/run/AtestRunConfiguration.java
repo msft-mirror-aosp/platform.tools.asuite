@@ -167,6 +167,8 @@ public class AtestRunConfiguration extends LocatableConfigurationBase {
 
         String workPath =
                 AtestUtils.getAndroidRoot(executionEnvironment.getProject().getBasePath());
+        atestToolWindow.setLunchTarget(mLunchTarget);
+        atestToolWindow.setTestTarget(mTestTarget);
         try {
             CommandRunner runner =
                     new CommandRunner(mLunchTarget, mTestTarget, workPath, atestToolWindow);
