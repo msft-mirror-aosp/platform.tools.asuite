@@ -16,15 +16,22 @@
 package unittests;
 
 import com.android.atest.commandAdapter.CommandRunner;
+import com.android.atest.toolWindow.AtestToolWindow;
 import com.intellij.execution.configurations.GeneralCommandLine;
 import org.junit.Assert;
 import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.mockito.Mock;
+import org.mockito.junit.MockitoJUnitRunner;
 
 import java.lang.reflect.Field;
 import java.nio.charset.Charset;
 import java.util.ArrayList;
 
+@RunWith(MockitoJUnitRunner.class)
 public class CommandRunnerTest {
+
+    @Mock AtestToolWindow atestToolWindowMock;
 
     /** Tests CommandRunner by ls command. */
     @Test
@@ -42,7 +49,7 @@ public class CommandRunnerTest {
     /** Tests CommandRunner by lunch target and test target. */
     @Test
     public void testCommandRunnerByTarget() throws NoSuchFieldException, IllegalAccessException {
-        CommandRunner lsCommand = new CommandRunner("a", "b", "/", null);
+        CommandRunner lsCommand = new CommandRunner("a", "b", "/", atestToolWindowMock);
         Field field = lsCommand.getClass().getDeclaredField("mCommand");
         field.setAccessible(true);
         GeneralCommandLine commandLine = (GeneralCommandLine) field.get(lsCommand);
