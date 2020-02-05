@@ -20,13 +20,13 @@ import com.android.atest.toolWindow.AtestToolWindow;
 import com.android.atest.widget.AtestNotification;
 import com.intellij.execution.ExecutionException;
 import com.intellij.execution.configurations.GeneralCommandLine;
-import com.intellij.execution.process.ColoredProcessHandler;
+import com.intellij.execution.process.KillableColoredProcessHandler;
 import com.intellij.execution.process.ProcessListener;
 import com.intellij.notification.Notifications;
 import com.intellij.openapi.diagnostic.Logger;
 import org.jetbrains.annotations.NotNull;
 
-import java.nio.charset.Charset;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Arrays;
 
@@ -35,7 +35,7 @@ public class CommandRunner {
 
     private static final Logger LOG = Logger.getInstance(CommandRunner.class);
     private static final String ATEST_COMMAND_PREFIX = "source build/envsetup.sh && lunch ";
-    private static final String UTF8 = "UTF-8";
+    private static KillableColoredProcessHandler sProcessHandler;
     private GeneralCommandLine mCommand;
     private ProcessListener mProcessListener;
 
@@ -47,7 +47,7 @@ public class CommandRunner {
      */
     public CommandRunner(ArrayList<String> cmds, String workPath) {
         mCommand = new GeneralCommandLine(cmds);
-        mCommand.setCharset(Charset.forName(UTF8));
+        mCommand.setCharset(StandardCharsets.UTF_8);
         mCommand.setWorkDirectory(workPath);
     }
 
@@ -81,7 +81,7 @@ public class CommandRunner {
         String[] commandArray = {"/bin/bash", "-c", atestCommand};
         ArrayList<String> cmds = new ArrayList<>(Arrays.asList(commandArray));
         mCommand = new GeneralCommandLine(cmds);
-        mCommand.setCharset(Charset.forName(UTF8));
+        mCommand.setCharset(StandardCharsets.UTF_8);
         mCommand.setWorkDirectory(workPath);
         mProcessListener = new AtestProcessListener(toolWindow);
     }
@@ -102,14 +102,23 @@ public class CommandRunner {
      */
     public void run() {
         try {
-            ColoredProcessHandler processHandler = new ColoredProcessHandler(mCommand);
+            stopProcess();
+            sProcessHandler = new KillableColoredProcessHandler(mCommand);
             if (mProcessListener != null) {
-                processHandler.addProcessListener(mProcessListener);
+                sProcessHandler.addProcessListener(mProcessListener);
             }
-            processHandler.startNotify();
+            sProcessHandler.startNotify();
         } catch (ExecutionException e) {
             Notifications.Bus.notify(new AtestNotification("Command execution failed."));
             LOG.error("Command executes fail: " + mCommand.getCommandLineString());
+        }
+    }
+
+    /** Stops the current process. */
+    public static void stopProcess() {
+        if (sProcessHandler != null) {
+            sProcessHandler.killProcess();
+            sProcessHandler = null;
         }
     }
 }
