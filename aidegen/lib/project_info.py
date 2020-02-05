@@ -44,7 +44,6 @@ _NOT_TARGET = ('Module %s\'s class setting is %s, none of which is included in '
 # content. It will impact the dependency for framework when referencing the
 # package from fake-framework in IntelliJ.
 _EXCLUDE_MODULES = ['fake-framework']
-_DISABLE_ROBO_BUILD_ENV_VAR = {'DISABLE_ROBO_RUN_TESTS': 'true'}
 # When we use atest_utils.build(), there is a command length limit on
 # soong_ui.bash. We reserve 5000 characters for rewriting the command line
 # in soong_ui.bash.
@@ -457,7 +456,7 @@ def _build_target(targets, verbose):
     """
     build_cmd = ['-k', '-j']
     build_cmd.extend(list(targets))
-    if not atest_utils.build(build_cmd, verbose, _DISABLE_ROBO_BUILD_ENV_VAR):
+    if not atest_utils.build(build_cmd, verbose):
         message = ('Build failed!\n{}\nAIDEGen will proceed but dependency '
                    'correctness is not guaranteed if not all targets being '
                    'built successfully.'.format('\n'.join(targets)))

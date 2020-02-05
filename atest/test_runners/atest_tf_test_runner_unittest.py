@@ -40,6 +40,8 @@ from test_runners import atest_tf_test_runner as atf_tr
 TEST_INFO_DIR = '/tmp/atest_run_1510085893_pi_Nbi'
 METRICS_DIR = '%s/baseline-metrics' % TEST_INFO_DIR
 METRICS_DIR_ARG = '--metrics-folder %s ' % METRICS_DIR
+# TODO(147567606): Replace {serial} with {extra_args} for general extra
+# arguments testing.
 RUN_CMD_ARGS = '{metrics}--log-level WARN{serial}'
 LOG_ARGS = atf_tr.AtestTradefedTestRunner._LOG_ARGS.format(
     log_path=os.path.join(TEST_INFO_DIR, atf_tr.LOG_FOLDER_NAME))
@@ -548,6 +550,36 @@ class AtestTradefedTestRunnerUnittests(unittest.TestCase):
 
         args = self.tr._create_test_args([MOD_INFO_NO_TEST_FINDER, INT_INFO, MOD_INFO])
         self.assertFalse(constants.TF_SKIP_LOADING_CONFIG_JAR in args)
+
+    @mock.patch('os.environ.get', return_value=None)
+    @mock.patch.object(atf_tr.AtestTradefedTestRunner, '_generate_metrics_folder')
+    @mock.patch('atest_utils.get_result_server_args')
+    def test_generate_run_commands_collect_tests_only(self,
+                                                      mock_resultargs,
+                                                      mock_mertrics, _):
+        """Test generate_run_command method."""
+        # Testing  without collect-tests-only
+        mock_resultargs.return_value = []
+        mock_mertrics.return_value = ''
+        extra_args = {}
+        unittest_utils.assert_strict_equal(
+            self,
+            self.tr.generate_run_commands([], extra_args),
+            [RUN_CMD.format(
+                metrics='',
+                serial='',
+                tf_customize_template='')])
+        # Testing  with collect-tests-only
+        mock_resultargs.return_value = []
+        mock_mertrics.return_value = ''
+        extra_args = {constants.COLLECT_TESTS_ONLY: True}
+        unittest_utils.assert_strict_equal(
+            self,
+            self.tr.generate_run_commands([], extra_args),
+            [RUN_CMD.format(
+                metrics='',
+                serial=' --collect-tests-only',
+                tf_customize_template='')])
 
 
 if __name__ == '__main__':
