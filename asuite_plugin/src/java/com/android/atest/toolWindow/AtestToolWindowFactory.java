@@ -34,7 +34,7 @@ public class AtestToolWindowFactory implements ToolWindowFactory {
     @Override
     public void createToolWindowContent(@NotNull Project project, @NotNull ToolWindow toolWindow) {
         AtestToolWindow atestToolWindow =
-                AtestToolWindow.getInstance(toolWindow, project.getBasePath());
+                AtestToolWindow.initAtestToolWindow(toolWindow, project.getBasePath());
         ContentFactory contentFactory = ContentFactory.SERVICE.getInstance();
         Content toolWindowContent =
                 contentFactory.createContent(atestToolWindow.getContent(), "", true);
