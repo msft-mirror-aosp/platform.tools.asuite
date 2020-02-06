@@ -650,5 +650,5 @@ class AtestTradefedTestRunner(test_runner_base.TestRunnerBase):
 
         Returns: A string of tradefed template options.
         """
-        return ''.join(['--template:map %s'
-                        % x for x in extra_args.get(constants.TF_TEMPLATE, [])])
+        return ' '.join(['--template:map %s'
+                         % x for x in extra_args.get(constants.TF_TEMPLATE, [])])
