@@ -111,8 +111,7 @@ class RobolectricTestRunner(test_runner_base.TestRunnerBase):
         ret_code = constants.EXIT_CODE_SUCCESS
         for test_info in test_infos:
             # Create a temp communication file.
-            with tempfile.NamedTemporaryFile(mode='w+r',
-                                             dir=self.results_dir) as event_file:
+            with tempfile.NamedTemporaryFile(dir=self.results_dir) as event_file:
                 # Prepare build environment parameter.
                 full_env_vars = self._get_full_build_environ(test_info,
                                                              extra_args,
