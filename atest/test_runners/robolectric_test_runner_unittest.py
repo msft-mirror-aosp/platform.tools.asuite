@@ -69,7 +69,7 @@ class RobolectricTestRunnerUnittests(unittest.TestCase):
 
         json_event_data = json.dumps(event_data)
         data = '%s %s\n\n' %(event_name, json_event_data)
-        event_file = tempfile.NamedTemporaryFile(mode='w+r', delete=True)
+        event_file = tempfile.NamedTemporaryFile(delete=True)
         subprocess.call("echo '%s' -n >> %s" %(data, event_file.name), shell=True)
         robo_proc = subprocess.Popen("sleep %s" %str(self.polling_time * 2), shell=True)
         self.suite_tr. _exec_with_robo_polling(event_file, robo_proc, mock_pe)
@@ -84,7 +84,7 @@ class RobolectricTestRunnerUnittests(unittest.TestCase):
         event2 = 'Name":"SomeTestName"}\n\n'
         data1 = '%s %s'%(event_name, event1)
         data2 = event2
-        event_file = tempfile.NamedTemporaryFile(mode='w+r', delete=True)
+        event_file = tempfile.NamedTemporaryFile(delete=True)
         subprocess.Popen("echo -n '%s' >> %s" %(data1, event_file.name), shell=True)
         robo_proc = subprocess.Popen("echo '%s' >> %s && sleep %s"
                                      %(data2,
@@ -105,7 +105,7 @@ class RobolectricTestRunnerUnittests(unittest.TestCase):
                               'at FailureStrategy.fail(FailureStrategy.java:24)\n'
                               'at FailureStrategy.fail(FailureStrategy.java:20)\n'}
         data = '%s %s\n\n'%(event_name, json.dumps(event_data))
-        event_file = tempfile.NamedTemporaryFile(mode='w+r', delete=True)
+        event_file = tempfile.NamedTemporaryFile(delete=True)
         subprocess.call("echo '%s' -n >> %s" %(data, event_file.name), shell=True)
         robo_proc = subprocess.Popen("sleep %s" %str(self.polling_time * 2), shell=True)
         self.suite_tr. _exec_with_robo_polling(event_file, robo_proc, mock_pe)
@@ -115,7 +115,7 @@ class RobolectricTestRunnerUnittests(unittest.TestCase):
     @mock.patch.object(event_handler.EventHandler, 'process_event')
     def test_exec_with_robo_polling_with_multi_event(self, mock_pe):
         """Test _exec_with_robo_polling method."""
-        event_file = tempfile.NamedTemporaryFile(mode='w+r', delete=True)
+        event_file = tempfile.NamedTemporaryFile(delete=True)
         events = [
             ('TEST_MODULE_STARTED', {
                 'moduleContextFileName':'serial-util1146216{974}2772610436.ser',
