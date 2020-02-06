@@ -175,6 +175,7 @@ EVENTS_NORMAL = [
 class AtestTradefedTestRunnerUnittests(unittest.TestCase):
     """Unit tests for atest_tf_test_runner.py"""
 
+    @mock.patch.dict('os.environ', {constants.ANDROID_BUILD_TOP:'/'})
     def setUp(self):
         self.tr = atf_tr.AtestTradefedTestRunner(results_dir=TEST_INFO_DIR)
 
@@ -305,13 +306,11 @@ class AtestTradefedTestRunnerUnittests(unittest.TestCase):
         self.tr._try_set_gts_authentication_key()
         mock_exist.assert_not_called()
 
-    @mock.patch('constants.GTS_GOOGLE_SERVICE_ACCOUNT')
     @mock.patch('os.path.exists')
-    def test_try_set_gts_authentication_key_not_set(self, mock_exist, mock_key):
+    def test_try_set_gts_authentication_key_not_set(self, mock_exist):
         """Test try_set_authentication_key_not_set method."""
         # Test key neither exists nor set by user.
         mock_exist.return_value = False
-        mock_key.return_value = ''
         self.tr._try_set_gts_authentication_key()
         self.assertEqual(os.environ.get('APE_API_KEY'), None)
 
