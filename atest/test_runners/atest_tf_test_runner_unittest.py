@@ -617,8 +617,8 @@ class AtestTradefedTestRunnerUnittests(unittest.TestCase):
                 metrics='',
                 serial='',
                 tf_customize_template=
-                '--template:map {}={} ').format(tf_tmplate_key1,
-                                                tf_tmplate_val1)])
+                '--template:map {}={}').format(tf_tmplate_key1,
+                                               tf_tmplate_val1)])
         # Testing with two tradefed template commands
         extra_args = {constants.TF_TEMPLATE:
                           ['{}={}'.format(tf_tmplate_key1,
@@ -632,7 +632,7 @@ class AtestTradefedTestRunnerUnittests(unittest.TestCase):
                 metrics='',
                 serial='',
                 tf_customize_template=
-                '--template:map {}={} --template:map {}={} ').format(
+                '--template:map {}={} --template:map {}={}').format(
                     tf_tmplate_key1,
                     tf_tmplate_val1,
                     tf_tmplate_key2,
