@@ -175,6 +175,7 @@ EVENTS_NORMAL = [
 class AtestTradefedTestRunnerUnittests(unittest.TestCase):
     """Unit tests for atest_tf_test_runner.py"""
 
+    @mock.patch.dict('os.environ', {constants.ANDROID_BUILD_TOP:'/'})
     def setUp(self):
         self.tr = atf_tr.AtestTradefedTestRunner(results_dir=TEST_INFO_DIR)
 
@@ -305,13 +306,11 @@ class AtestTradefedTestRunnerUnittests(unittest.TestCase):
         self.tr._try_set_gts_authentication_key()
         mock_exist.assert_not_called()
 
-    @mock.patch('constants.GTS_GOOGLE_SERVICE_ACCOUNT')
     @mock.patch('os.path.exists')
-    def test_try_set_gts_authentication_key_not_set(self, mock_exist, mock_key):
+    def test_try_set_gts_authentication_key_not_set(self, mock_exist):
         """Test try_set_authentication_key_not_set method."""
         # Test key neither exists nor set by user.
         mock_exist.return_value = False
-        mock_key.return_value = ''
         self.tr._try_set_gts_authentication_key()
         self.assertEqual(os.environ.get('APE_API_KEY'), None)
 
@@ -617,8 +616,8 @@ class AtestTradefedTestRunnerUnittests(unittest.TestCase):
                 metrics='',
                 serial='',
                 tf_customize_template=
-                '--template:map {}={} ').format(tf_tmplate_key1,
-                                                tf_tmplate_val1)])
+                '--template:map {}={}').format(tf_tmplate_key1,
+                                               tf_tmplate_val1)])
         # Testing with two tradefed template commands
         extra_args = {constants.TF_TEMPLATE:
                           ['{}={}'.format(tf_tmplate_key1,
@@ -632,7 +631,7 @@ class AtestTradefedTestRunnerUnittests(unittest.TestCase):
                 metrics='',
                 serial='',
                 tf_customize_template=
-                '--template:map {}={} --template:map {}={} ').format(
+                '--template:map {}={} --template:map {}={}').format(
                     tf_tmplate_key1,
                     tf_tmplate_val1,
                     tf_tmplate_key2,
