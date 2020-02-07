@@ -266,5 +266,30 @@ CMAKELISTS_HEADER = """# THIS FILE WAS AUTOMATICALLY GENERATED!
 cmake_minimum_required(VERSION @MINVERSION@)
 project(@PROJNAME@)
 set(ANDROID_ROOT @ANDROIDROOT@)
+"""
 
+# The configuration of Android SDK.
+ANDROID_SDK_XML = """    <jdk version="2">
+      <name value="Android API {API_LEVEL} Platform" />
+      <type value="Android SDK" />
+      <version value="java version &quot;1.8.0_152&quot;" />
+      <homePath value="{ANDROID_SDK_PATH}" />
+      <roots>
+        <annotationsPath>
+          <root type="composite" />
+        </annotationsPath>
+        <classPath>
+          <root type="composite">
+            <root url="file://{ANDROID_SDK_PATH}/platforms/android-{API_LEVEL}/data/res" type="simple" />
+          </root>
+        </classPath>
+        <javadocPath>
+          <root type="composite" />
+        </javadocPath>
+        <sourcePath>
+          <root type="composite" />
+        </sourcePath>
+      </roots>
+      <additional jdk="JDK18" sdk="android-{API_LEVEL}" />
+    </jdk>
 """
