@@ -69,7 +69,7 @@ class AtestTradefedTestRunner(test_runner_base.TestRunnerBase):
     _LOG_ARGS = ('--logcat-on-failure --atest-log-file-path={log_path} '
                  '--no-enable-granular-attempts')
     _RUN_CMD = ('{exe} {template} --template:map '
-                'test=atest {log_args} {args}')
+                'test=atest {tf_customize_template} {log_args} {args}')
     _BUILD_REQ = {'tradefed-core'}
     _RERUN_OPTION_GROUP = [constants.ITERATIONS,
                            constants.RERUN_UNTIL_FAILURE,
@@ -85,6 +85,7 @@ class AtestTradefedTestRunner(test_runner_base.TestRunnerBase):
         log_args = {'log_path': self.log_path}
         self.run_cmd_dict = {'exe': self.EXECUTABLE,
                              'template': self._TF_TEMPLATE,
+                             'tf_customize_template': '',
                              'args': '',
                              'log_args': self._LOG_ARGS.format(**log_args)}
         self.is_verbose = logging.getLogger().isEnabledFor(logging.DEBUG)
@@ -473,8 +474,13 @@ class AtestTradefedTestRunner(test_runner_base.TestRunnerBase):
             logging.info('%s does not support the following args %s',
                          self.EXECUTABLE, args_not_supported)
 
-        test_args.extend(atest_utils.get_result_server_args())
+        # Only need to check one TestInfo to determine if the tests are
+        # configured in TEST_MAPPING.
+        for_test_mapping = test_infos and test_infos[0].from_test_mapping
+        test_args.extend(atest_utils.get_result_server_args(for_test_mapping))
         self.run_cmd_dict['args'] = ' '.join(test_args)
+        self.run_cmd_dict['tf_customize_template'] = (
+            self._extract_customize_tf_templates(extra_args))
         return [self._RUN_CMD.format(**self.run_cmd_dict)]
 
     def _flatten_test_infos(self, test_infos):
@@ -585,10 +591,6 @@ class AtestTradefedTestRunner(test_runner_base.TestRunnerBase):
         if not test_infos:
             return []
 
-        # Only need to check one TestInfo to determine if the tests are
-        # configured in TEST_MAPPING.
-        if test_infos[0].from_test_mapping:
-            args.extend(constants.TEST_MAPPING_RESULT_SERVER_ARGS)
         test_infos = self._flatten_test_infos(test_infos)
         has_integration_test = False
         for info in test_infos:
@@ -639,3 +641,14 @@ class AtestTradefedTestRunner(test_runner_base.TestRunnerBase):
                              for arg in extra_args
                              if arg in self._RERUN_OPTION_GROUP]
         return ' '.join(extracted_options)
+
+    def _extract_customize_tf_templates(self, extra_args):
+        """Extract tradefed template options to a string for output.
+
+        Args:
+            extra_args: Dict of extra args for test runners to use.
+
+        Returns: A string of tradefed template options.
+        """
+        return ' '.join(['--template:map %s'
+                         % x for x in extra_args.get(constants.TF_TEMPLATE, [])])

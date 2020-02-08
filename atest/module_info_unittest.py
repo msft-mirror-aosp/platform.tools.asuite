@@ -206,6 +206,7 @@ class ModuleInfoUnittests(unittest.TestCase):
         mock_is_robo_test.return_value = True
         self.assertTrue(mod_info.is_testable_module(non_installed_module_info))
 
+    @mock.patch.dict('os.environ', {constants.ANDROID_BUILD_TOP:'/'})
     @mock.patch.object(module_info.ModuleInfo, 'is_auto_gen_test_config')
     def test_has_test_config(self, mock_is_auto_gen):
         """Test has_test_config."""

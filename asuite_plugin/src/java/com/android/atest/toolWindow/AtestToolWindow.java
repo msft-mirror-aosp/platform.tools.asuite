@@ -16,12 +16,18 @@
 package com.android.atest.toolWindow;
 
 import com.android.atest.AtestUtils;
+import com.android.atest.Constants;
 import com.android.atest.commandAdapter.CommandRunner;
 import com.android.atest.dialog.MessageDialog;
+import com.android.atest.widget.AtestNotification;
+import com.intellij.notification.Notifications;
+import com.intellij.openapi.diagnostic.Logger;
+import com.intellij.openapi.project.Project;
 import com.intellij.openapi.wm.ToolWindow;
+import com.intellij.openapi.wm.ToolWindowManager;
 import com.intellij.openapi.wm.ex.ToolWindowEx;
+import com.intellij.openapi.wm.impl.ToolWindowImpl;
 import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
 
 import javax.swing.*;
 import java.awt.*;
@@ -29,8 +35,10 @@ import java.awt.*;
 /** UI content of Atest tool window. */
 public class AtestToolWindow {
 
-    private static AtestToolWindow atestToolWindowInstance;
     private static final int INITIAL_WIDTH = 1000;
+    private static final Logger LOG = Logger.getInstance(AtestToolWindow.class);
+    private static AtestToolWindow atestToolWindowInstance;
+
     private JPanel mAtestToolWindowPanel;
     private JScrollPane mScorll;
     private JTextArea mAtestOutput;
@@ -56,29 +64,44 @@ public class AtestToolWindow {
     }
 
     /**
-     * Gets AtestToolWindow instance.
+     * Initializes AtestToolWindow instance.
      *
-     * <p>This method should be called after getInstance(ToolWindow, String). Otherwise it will
-     * return null, because of no living instances.
+     * <p>Because the AtestToolWindow should be modified when the project is changed. It can't be
+     * singleton. This initializer is used by the ToolWindowFactory. We use IntelliJ's mechanism to
+     * make sure AtestToolWindow's instance can always follow the project.
      *
-     * @return the singleton AtestToolWindow instance.
+     * @param toolWindow a child window of the IDE used to display information.
+     * @param basePath a string that represents current project's base path.
+     * @return the AtestToolWindow instance.
      */
-    @Nullable
-    public static AtestToolWindow getInstance() {
+    @NotNull
+    public static AtestToolWindow initAtestToolWindow(ToolWindow toolWindow, String basePath) {
+        atestToolWindowInstance = new AtestToolWindow(toolWindow, basePath);
         return atestToolWindowInstance;
     }
 
     /**
-     * Gets AtestToolWindow instance.
+     * Gets AtestToolWindow instance by project.
      *
-     * @param toolWindow a child window of the IDE used to display information.
-     * @param basePath a string that represents current project's base path.
-     * @return the singleton AtestToolWindow instance.
+     * <p>When using ToolWindowManager to get atest tool window, it will initialize the
+     * AtestToolWindow by {@link AtestToolWindowFactory} asynchronously. We use
+     * ensureContentInitialized from ToolWindowImpl to ensure the AtestToolWindow has been
+     * initialized.
+     *
+     * @param project the current intelliJ project.
+     * @return the AtestToolWindow instance.
      */
     @NotNull
-    public static AtestToolWindow getInstance(ToolWindow toolWindow, String basePath) {
+    public static AtestToolWindow getInstance(@NotNull Project project) {
+        ToolWindow AtestTW =
+                ToolWindowManager.getInstance(project).getToolWindow(Constants.ATEST_TOOL_WINDOW);
+        if (AtestTW instanceof ToolWindowImpl) {
+            ((ToolWindowImpl) AtestTW).ensureContentInitialized();
+        }
+
         if (atestToolWindowInstance == null) {
-            atestToolWindowInstance = new AtestToolWindow(toolWindow, basePath);
+            LOG.error("AtestToolWindowInstance is null when getting instance by project");
+            Notifications.Bus.notify(new AtestNotification(Constants.ATEST_WINDOW_FAIL));
         }
         return atestToolWindowInstance;
     }
