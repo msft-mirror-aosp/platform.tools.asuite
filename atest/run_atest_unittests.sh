@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 # Copyright (C) 2017 The Android Open Source Project
 #
@@ -26,6 +26,14 @@ RED='\033[0;31m'
 GREEN='\033[0;32m'
 NC='\033[0m' # No Color
 COVERAGE=false
+PYTHON=python3
+PIP=pip3
+
+function python3_checker() {
+    if ! which $PYTHON; then
+        echo "python3 not found."; exit 1
+    fi
+}
 
 function get_pythonpath() {
     echo "$ATEST_REAL_PATH:$PYTHONPATH"
@@ -44,13 +52,28 @@ function print_summary() {
     fi
 }
 
+function module_checker() {
+    mods_to_check=(coverage)
+    for mod in ${mods_to_check[@]}; do
+        if ! $PIP freeze | grep $mod >/dev/null 2>&1; then
+            $PIP install -U --user $mod
+        else
+            if ! (head -n1 $(which $mod) | grep -q $PYTHON); then
+                sed -i "1 s/python/$PYTHON/" $(which $mod)
+            fi
+        fi
+    done
+}
+
 function run_atest_unittests() {
+    python3_checker
     echo "Running tests..."
-    local run_cmd="python"
+    local run_cmd=$PYTHON
     local rc=0
     if [[ $COVERAGE == true ]]; then
+        module_checker
         # Clear previously coverage data.
-        python -m coverage erase
+        $PYTHON -m coverage erase
         # Collect coverage data.
         run_cmd="coverage run --source $ATEST_REAL_PATH --append"
     fi
