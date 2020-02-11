@@ -24,8 +24,10 @@
 import logging
 import os
 import pathlib
+import shutil
 
 from aidegen import constant
+from aidegen import templates
 from aidegen.lib import common_util
 from aidegen.lib import project_config
 
@@ -60,7 +62,6 @@ _MODULE_TOKEN = '@MODULES@'
 _ENABLE_DEBUGGER_MODULE_TOKEN = '@ENABLE_DEBUGGER_MODULE@'
 _VCS_TOKEN = '@VCS@'
 _JAVA_FILE_PATTERN = '%s/*.java'
-_IDEA_DIR = os.path.join(common_util.get_aidegen_root_dir(), 'templates/idea')
 _IDEA_FOLDER = '.idea'
 _MODULES_XML = 'modules.xml'
 _VCS_XML = 'vcs.xml'
@@ -70,6 +71,7 @@ _CODE_STYLE_FOLDER = 'codeStyles'
 _APACHE_2_XML = 'Apache_2.xml'
 _PROFILES_SETTINGS_XML = 'profiles_settings.xml'
 _CODE_STYLE_CONFIG_XML = 'codeStyleConfig.xml'
+_PROJECT_XML = 'Project.xml'
 _COMPILE_XML = 'compiler.xml'
 _MISC_XML = 'misc.xml'
 _ANDROID_MANIFEST = 'AndroidManifest.xml'
@@ -96,146 +98,6 @@ _CODE_STYLE_REL_PATH = 'tools/asuite/aidegen/data/AndroidStyle_aidegen.xml'
 _CODE_STYLE_SRC_PATH = os.path.join(common_util.get_android_root_dir(),
                                     _CODE_STYLE_REL_PATH)
 
-# Content of iml file.
-_FILE_IML = """<?xml version="1.0" encoding="UTF-8"?>
-<module type="JAVA_MODULE" version="4">
-@FACETS@
-    <component name="NewModuleRootManager" inherit-compiler-output="true">
-        <exclude-output />
-@SOURCES@
-@SRCJAR@
-        <orderEntry type="sourceFolder" forTests="false" />
-@MODULE_DEPENDENCIES@
-        <orderEntry type="inheritedJdk" />
-    </component>
-</module>
-"""
-
-# IDEA XML templates
-# The template content of modules.xml.
-_XML_MODULES = """<?xml version="1.0" encoding="UTF-8"?>
-<project version="4">
-    <component name="ProjectModuleManager">
-        <modules>
-@MODULES@
-@ENABLE_DEBUGGER_MODULE@
-        </modules>
-    </component>
-</project>
-"""
-# The template content of vcs.xml.
-_XML_VCS = """<?xml version="1.0" encoding="UTF-8"?>
-<project version="4">
-    <component name="VcsDirectoryMappings">
-@VCS@
-    </component>
-</project>
-"""
-# The template content of misc.xml
-_XML_MISC = """<?xml version="1.0" encoding="UTF-8"?>
-<project version="4">
-    <component name="ConfigCheckProjectState">
-        <option name="disabledCheckers">
-            <list>
-                <option value="com.google.devtools.intellig.configcheck.JavacHeapChecker"/>
-                <option value="com.google.devtools.intellig.configcheck.VcsMappingsChecker"/>
-            </list>
-        </option>
-    </component>
-    <component name="ContinuousBuildConfigurationComponent">
-        <builds>
-            <build intervalToCheckBuild="1" buildKey="" buildLabel=""
-                   enabled="false" tapBuild="false"/>
-        </builds>
-    </component>
-    <component name="DependencyValidationManager">
-        <option name="SKIP_IMPORT_STATEMENTS" value="false"/>
-    </component>
-    <component name="EntryPointsManager">
-        <entry_points version="2.0"/>
-    </component>
-    <component name="JavadocGenerationManager">
-        <option name="HEAP_SIZE"/>
-        <option name="LOCALE"/>
-        <option name="OPEN_IN_BROWSER" value="true"/>
-        <option name="OPTION_DEPRECATED_LIST" value="true"/>
-        <option name="OPTION_DOCUMENT_TAG_AUTHOR" value="false"/>
-        <option name="OPTION_DOCUMENT_TAG_DEPRECATED" value="true"/>
-        <option name="OPTION_DOCUMENT_TAG_USE" value="false"/>
-        <option name="OPTION_DOCUMENT_TAG_VERSION" value="false"/>
-        <option name="OPTION_HIERARCHY" value="true"/>
-        <option name="OPTION_INDEX" value="true"/>
-        <option name="OPTION_NAVIGATOR" value="true"/>
-        <option name="OPTION_SCOPE" value="protected"/>
-        <option name="OPTION_SEPARATE_INDEX" value="true"/>
-        <option name="OTHER_OPTIONS" value=""/>
-        <option name="OUTPUT_DIRECTORY"/>
-    </component>
-    <component name="Mach LOCAL_PREFIX stripper" stripping="true"/>
-    <component name="ProjectResources">
-        <default-html-doctype>http://www.w3.org/1999/xhtml
-        </default-html-doctype>
-    </component>
-    <component name="ProjectRootManager" version="2" languageLevel="JDK_1_8"
-               assert-keyword="true" project-jdk-name="JDK18"
-               project-jdk-type="JavaSDK"/>
-    <component name="WebServicesPlugin" addRequiredLibraries="true"/>
-</project>
-
-"""
-# The template content of compiler.xml
-_XML_COMPILER = """<?xml version="1.0" encoding="UTF-8"?>
-<project version="4">
-    <component name="CompilerConfiguration">
-        <option name="DEFAULT_COMPILER" value="Javac"/>
-        <resourceExtensions/>
-        <wildcardResourcePatterns>
-            <entry name="?*.dtd"/>
-            <entry name="?*.ftl"/>
-            <entry name="?*.gif"/>
-            <entry name="?*.html"/>
-            <entry name="?*.jpeg"/>
-            <entry name="?*.jpg"/>
-            <entry name="?*.png"/>
-            <entry name="?*.properties"/>
-            <entry name="?*.tld"/>
-            <entry name="?*.xml"/>
-        </wildcardResourcePatterns>
-        <annotationProcessing enabled="false" useClasspath="true"/>
-    </component>
-    <component name="JavacSettings">
-        <option name="MAXIMUM_HEAP_SIZE" value="1024"/>
-    </component>
-</project>
-"""
-# The template content of codeStyleConfig.xml
-_XML_CODE_STYLE_CONFIG = """<component name="ProjectCodeStyleConfiguration">
-  <state>
-    <option name="USE_PER_PROJECT_SETTINGS" value="true" />
-  </state>
-</component>
-"""
-# The template content of Apache_2.xml
-_XML_APACHE_2 = """<component name="CopyrightManager">
-    <copyright>
-        <option name="notice"
-                value="Copyright (C) &amp;#36;today.year The Android Open Source Project&#10;&#10;Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);&#10;you may not use this file except in compliance with the License.&#10;You may obtain a copy of the License at&#10;&#10;     http://www.apache.org/licenses/LICENSE-2.0&#10;&#10;Unless required by applicable law or agreed to in writing, software&#10;distributed under the License is distributed on an &quot;AS IS&quot; BASIS,&#10;WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.&#10;See the License for the specific language governing permissions and&#10;limitations under the License."/>
-        <option name="keyword" value="Copyright"/>
-        <option name="allowReplaceKeyword" value=""/>
-        <option name="myName" value="Apache 2"/>
-        <option name="myLocal" value="true"/>
-    </copyright>
-</component>
-"""
-# The template content of profiles_settings.xml
-_XML_PROFILES_SETTINGS = """<component name="CopyrightManager">
-    <settings default="">
-        <module2copyright>
-            <element module="Project Files" copyright="Apache 2"/>
-        </module2copyright>
-    </settings>
-</component>
-"""
 
 class ProjectFileGenerator:
     """Project file generator.
@@ -379,33 +241,25 @@ class ProjectFileGenerator:
         copyright_dir = os.path.join(idea_dir, _COPYRIGHT_FOLDER)
         code_style_dir = os.path.join(idea_dir, _CODE_STYLE_FOLDER)
         common_util.file_generate(
-            os.path.join(idea_dir, _COMPILE_XML), _XML_COMPILER)
+            os.path.join(idea_dir, _COMPILE_XML), templates.XML_COMPILER)
         common_util.file_generate(
-            os.path.join(idea_dir, _MISC_XML), _XML_MISC)
+            os.path.join(idea_dir, _MISC_XML), templates.XML_MISC)
         common_util.file_generate(
-            os.path.join(copyright_dir, _APACHE_2_XML), _XML_APACHE_2)
+            os.path.join(copyright_dir, _APACHE_2_XML), templates.XML_APACHE_2)
         common_util.file_generate(
             os.path.join(copyright_dir, _PROFILES_SETTINGS_XML),
-            _XML_PROFILES_SETTINGS)
+            templates.XML_PROFILES_SETTINGS)
         common_util.file_generate(
             os.path.join(code_style_dir, _CODE_STYLE_CONFIG_XML),
-            _XML_CODE_STYLE_CONFIG)
-        code_style_target_path = os.path.join(code_style_dir, 'Project.xml')
-        # Base on current working directory to prepare the relevant location
-        # of the symbolic link file, and base on the symlink file location
-        # to prepare the relevant code style source path.
-        rel_target = os.path.relpath(code_style_target_path, os.getcwd())
-        rel_source = os.path.relpath(
-            _CODE_STYLE_SRC_PATH, os.path.dirname(code_style_target_path))
-        logging.debug('Relative target symlink path: %s.', rel_target)
-        logging.debug('Relative code style source path: %s.', rel_source)
-        if os.path.exists(rel_target):
-            os.remove(rel_target)
+            templates.XML_CODE_STYLE_CONFIG)
+        code_style_target_path = os.path.join(code_style_dir, _PROJECT_XML)
+        if os.path.exists(code_style_target_path):
+            os.remove(code_style_target_path)
         try:
-            os.symlink(rel_source, rel_target)
+            shutil.copy2(_CODE_STYLE_SRC_PATH, code_style_target_path)
         except (OSError, SystemError) as err:
             logging.warning('%s can\'t copy the project files\n %s',
-                            target_path, err)
+                            code_style_target_path, err)
         # Create .gitignore if it doesn't exist.
         _generate_git_ignore(target_path)
 
@@ -475,7 +329,7 @@ class ProjectFileGenerator:
         abs_path = common_util.get_abs_path(relative_path)
         if common_util.is_android_root(abs_path):
             return True
-        if _is_source_under_relative_path(source, relative_path):
+        if common_util.is_source_under_relative_path(source, relative_path):
             return True
         return False
 
@@ -584,7 +438,7 @@ class ProjectFileGenerator:
                 project_source_dict.update({source: is_test})
 
         # Generate module iml.
-        module_content = self._handle_facet(_FILE_IML)
+        module_content = self._handle_facet(templates.FILE_IML)
         module_content = self._handle_source_folder(module_content,
                                                     project_source_dict, True)
         module_content = self._handle_srcjar_folder(module_content)
@@ -601,7 +455,7 @@ class ProjectFileGenerator:
         # Only generate the dependencies.iml in the main module's folder.
         dependencies_iml_path = None
         if self.project_info.is_main_project:
-            dependencies_content = _FILE_IML.replace(_FACET_TOKEN, '')
+            dependencies_content = templates.FILE_IML.replace(_FACET_TOKEN, '')
             dependencies_content = self._handle_source_folder(
                 dependencies_content, source_dict, False)
             dependencies_content = self._handle_srcjar_folder(
@@ -649,7 +503,7 @@ class ProjectFileGenerator:
                 _MODULE_SECTION % (module_name, module_name)
             ]
         module = '\n'.join(module_list)
-        content = self._remove_debugger_token(_XML_MODULES)
+        content = self._remove_debugger_token(templates.XML_MODULES)
         content = content.replace(_MODULE_TOKEN, module)
         target_path = os.path.join(module_path, _IDEA_FOLDER, _MODULES_XML)
         common_util.file_generate(target_path, content)
@@ -740,19 +594,6 @@ def _trim_same_root_source(source_list):
     return sorted(tmp_source_list)
 
 
-def _is_source_under_relative_path(source, relative_path):
-    """Check if a source file is a project relative path file.
-
-    Args:
-        source: Android source file path.
-        relative_path: Relative path of the module.
-
-    Returns:
-        True if source file is a project relative path file, otherwise False.
-    """
-    return source == relative_path or source.startswith(relative_path + os.sep)
-
-
 def _write_vcs_xml(module_path, git_paths):
     """Write the git path into vcs.xml.
 
@@ -764,7 +605,7 @@ def _write_vcs_xml(module_path, git_paths):
         git_paths: A list of git path.
     """
     _vcs_content = '\n'.join([_VCS_SECTION % p for p in git_paths if p])
-    content = _XML_VCS.replace(_VCS_TOKEN, _vcs_content)
+    content = templates.XML_VCS.replace(_VCS_TOKEN, _vcs_content)
     target_path = os.path.join(module_path, _IDEA_FOLDER, _VCS_XML)
     common_util.file_generate(target_path, content)
 
@@ -838,7 +679,8 @@ def _filter_out_source_paths(source_paths, module_relpaths):
     Returns: A set of source paths.
     """
     return {x for x in source_paths if not any(
-        {_is_source_under_relative_path(x, y) for y in module_relpaths})}
+        {common_util.is_source_under_relative_path(x, y)
+         for y in module_relpaths})}
 
 
 def _merge_all_shared_source_paths(projects):

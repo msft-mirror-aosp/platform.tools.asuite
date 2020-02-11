@@ -20,6 +20,8 @@ This module has a collection of functions that provide helper functions to
 other modules.
 """
 
+import inspect
+import json
 import logging
 import os
 import sys
@@ -50,6 +52,8 @@ _ENVSETUP_NOT_RUN = ('Please run "source build/envsetup.sh" and "lunch" before '
                      'running aidegen.')
 _LOG_FORMAT = '%(asctime)s %(filename)s:%(lineno)s:%(levelname)s: %(message)s'
 _DATE_FORMAT = '%Y-%m-%d %H:%M:%S'
+_ARG_IS_NULL_ERROR = "{0}.{1}: argument '{2}' is null."
+_ARG_TYPE_INCORRECT_ERROR = "{0}.{1}: argument '{2}': type is {3}, must be {4}."
 
 
 def time_logged(func=None, *, message='', maximum=1):
@@ -358,13 +362,16 @@ def file_generate(path, content):
         target.write(content)
 
 
-def get_blueprint_json_path():
+def get_blueprint_json_path(file_name):
     """Assemble the path of blueprint json file.
 
+    Args:
+        file_name: A string of blueprint json file name.
+
     Returns:
-        module_bp_java_deps.json path.
+        The path of json file.
     """
-    return os.path.join(get_soong_out_path(), constant.BLUEPRINT_JSONFILE_NAME)
+    return os.path.join(get_soong_out_path(), file_name)
 
 
 def back_to_cwd(func):
@@ -453,6 +460,8 @@ def configure_logging(verbose):
     log_format = _LOG_FORMAT
     datefmt = _DATE_FORMAT
     level = logging.DEBUG if verbose else logging.INFO
+    # Clear all handlers to prevent setting level not working.
+    logging.getLogger().handlers = []
     logging.basicConfig(level=level, format=log_format, datefmt=datefmt)
 
 
@@ -494,3 +503,124 @@ def exist_android_mk(abs_path):
              otherwise false.
     """
     return os.path.isfile(os.path.join(abs_path, constant.ANDROID_MK))
+
+
+def is_source_under_relative_path(source, relative_path):
+    """Check if a source file is a project relative path file.
+
+    Args:
+        source: Android source file path.
+        relative_path: Relative path of the module.
+
+    Returns:
+        True if source file is a project relative path file, otherwise False.
+    """
+    return source == relative_path or source.startswith(relative_path + os.sep)
+
+
+def remove_user_home_path(data):
+    """Replace the user home path string with a constant string.
+
+    Args:
+        data: A string of xml content or an attributeError of error message.
+
+    Returns:
+        A string which replaced the user home path to $USER_HOME$.
+    """
+    return str(data).replace(os.path.expanduser('~'), constant.USER_HOME)
+
+
+def io_error_handle(func):
+    """Decorates a function of handling io error and raising exception.
+
+    Args:
+        func: A function is to be raised exception if writing file failed.
+
+    Returns:
+        The wrapper function.
+    """
+
+    @wraps(func)
+    def wrapper(*args, **kwargs):
+        """A wrapper function."""
+        try:
+            return func(*args, **kwargs)
+        except IOError as err:
+            print('{0}.{1} I/O error: {2}'.format(
+                func.__module__, func.__name__, err))
+            raise
+    return wrapper
+
+
+def check_args(**decls):
+    """Decorates a function to check its argument types.
+
+    Usage:
+        @check_args(name=str, text=str)
+        def parse_rule(name, text):
+            ...
+
+    Args:
+        decls: A dictionary with keys as arguments' names and values as
+             arguments' types.
+
+    Returns:
+        The wrapper function.
+    """
+
+    def decorator(func):
+        """A wrapper function."""
+        fmodule = func.__module__
+        fname = func.__name__
+        fparams = inspect.signature(func).parameters
+
+        @wraps(func)
+        def decorated(*args, **kwargs):
+            """A wrapper function."""
+            params = {k: v for k, v in zip(fparams, args)}
+            for arg_name, arg_type in decls.items():
+                try:
+                    arg_val = params[arg_name]
+                except KeyError:
+                    # If arg_name can't be found in function's signature, it
+                    # might be a case of a partial function or default
+                    # parameters, we'll neglect it.
+                    if arg_name not in kwargs:
+                        continue
+                    arg_val = kwargs.get(arg_name)
+                if arg_val is None:
+                    raise TypeError(_ARG_IS_NULL_ERROR.format(
+                        fmodule, fname, arg_name))
+                if not isinstance(arg_val, arg_type):
+                    raise TypeError(_ARG_TYPE_INCORRECT_ERROR.format(
+                        fmodule, fname, arg_name, type(arg_val), arg_type))
+            return func(*args, **kwargs)
+        return decorated
+
+    return decorator
+
+
+@io_error_handle
+def dump_json_dict(json_path, data):
+    """Dumps a dictionary of data into a json file.
+
+    Args:
+        json_path: An absolute json file path string.
+        data: A dictionary of data to be written into a json file.
+    """
+    with open(json_path, 'w') as json_file:
+        json.dump(data, json_file, indent=4)
+
+
+@io_error_handle
+def get_json_dict(json_path):
+    """Loads a json file from path and convert it into a json dictionary.
+
+    Args:
+        json_path: An absolute json file path string.
+
+    Returns:
+        A dictionary loaded from the json_path.
+    """
+    with open(json_path) as jfile:
+        return json.load(jfile)

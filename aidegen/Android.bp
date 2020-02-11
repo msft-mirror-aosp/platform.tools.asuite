@@ -36,9 +36,6 @@ python_binary_host {
     srcs: [
         "**/*.py",
     ],
-    data: [
-        "templates/**/*",
-    ],
     libs: [
         "atest_module_info",
         "asuite_cc_client",
@@ -52,10 +49,11 @@ python_library_host {
     name: "aidegen_lib",
     defaults: ["aidegen_default"],
     srcs: [
-        "aidegen_main.py",
-        "constant.py",
-        "unittest_constants.py",
-        "lib/*.py",
+        "**/*.py",
+    ],
+    exclude_srcs: [
+        "*_unittest.py",
+        "*/*_unittest.py",
     ]
 }
 
@@ -67,7 +65,6 @@ python_test_host {
         "**/*.py",
     ],
     data: [
-        "templates/**/*",
         "test_data/**/*",
     ],
     libs: [

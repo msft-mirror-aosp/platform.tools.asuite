@@ -39,6 +39,12 @@ from aidegen.lib import project_file_gen
 class AidegenMainUnittests(unittest.TestCase):
     """Unit tests for aidegen_main.py"""
 
+    def _init_project_config(self, args):
+        """Initialize project configurations."""
+        self.assertIsNotNone(args)
+        config = project_config.ProjectConfig(args)
+        config.init_environment()
+
     def test_parse_args(self):
         """Test _parse_args with different conditions."""
         args = aidegen_main._parse_args([])
@@ -68,25 +74,6 @@ class AidegenMainUnittests(unittest.TestCase):
         args = aidegen_main._parse_args(['-s'])
         self.assertTrue(args.skip_build)
 
-    @mock.patch.object(ide_util.IdeIntelliJ, '_get_preferred_version')
-    def test_get_ide_util_instance_with_sucess(self, mock_preference):
-        """Test _get_ide_util_instance with sucess."""
-        target = 'tradefed'
-        args = aidegen_main._parse_args([target, '-n'])
-        self.assertEqual(aidegen_main._get_ide_util_instance(args), None)
-        args = aidegen_main._parse_args([target])
-        mock_preference.return_value = '1'
-        self.assertIsInstance(
-            aidegen_main._get_ide_util_instance(args), ide_util.IdeUtil)
-
-    @mock.patch.object(ide_util.IdeUtil, 'is_ide_installed')
-    def test_get_ide_util_instance_with_failure(self, mock_installed):
-        """Test _get_ide_util_instance with failure."""
-        args = aidegen_main._parse_args(['tradefed'])
-        mock_installed.return_value = False
-        with self.assertRaises(errors.IDENotExistError):
-            aidegen_main._get_ide_util_instance(args)
-
     @mock.patch.object(project_config, 'ProjectConfig')
     @mock.patch.object(project_file_gen.ProjectFileGenerator,
                        'generate_ide_project_files')
@@ -96,7 +83,7 @@ class AidegenMainUnittests(unittest.TestCase):
         """Test _generate_project_files with different conditions."""
         projects = ['module_a', 'module_v']
         args = aidegen_main._parse_args([projects, '-i', 'e'])
-        project_config.ProjectConfig(args)
+        self._init_project_config(args)
         mock_config.ide_name = constant.IDE_ECLIPSE
         aidegen_main._generate_project_files(projects)
         self.assertTrue(mock_eclipse.called_with(projects))
@@ -113,6 +100,7 @@ class AidegenMainUnittests(unittest.TestCase):
         """Test main process always run through the target test function."""
         target = 'nothing'
         args = aidegen_main._parse_args([target, '-s', '-n'])
+        self._init_project_config(args)
         with self.assertRaises(errors.ProjectPathNotExistError):
             err = common_util.PATH_NOT_EXISTS_ERROR.format(target)
             mock_get.side_effect = errors.ProjectPathNotExistError(err)
@@ -163,9 +151,56 @@ class AidegenMainUnittests(unittest.TestCase):
             aidegen_main.main([''])
             _, exc_value, exc_traceback = sys.exc_info()
             msg = str(exc_value)
-            mock_ends_metrics.assert_called_with(
-                constant.EXIT_CODE_EXCEPTION, exc_traceback, msg)
+            mock_ends_metrics.assert_called_with(constant.EXIT_CODE_EXCEPTION,
+                                                 exc_traceback, msg)
 
+    @mock.patch.object(aidegen_main, '_launch_ide')
+    @mock.patch.object(ide_util, 'get_ide_util_instance')
+    def test_launch_native_projects_without_ide_object(
+            self, mock_get_ide, mock_launch_ide):
+        """Test _launch_native_projects function without ide object."""
+        target = 'libui'
+        args = aidegen_main._parse_args([target, '-i', 'e'])
+        aidegen_main._launch_native_projects(None, args, [])
+        self.assertFalse(mock_get_ide.called)
+        self.assertFalse(mock_launch_ide.called)
+
+    @mock.patch.object(aidegen_main, '_launch_ide')
+    @mock.patch.object(ide_util, 'get_ide_util_instance')
+    def test_launch_native_projects_with_ide_object(
+            self, mock_get_ide, mock_launch_ide):
+        """Test _launch_native_projects function without ide object."""
+        target = 'libui'
+        args = aidegen_main._parse_args([target, '-i', 'e'])
+        ide_util_obj = 'some_obj'
+        mock_get_ide.return_value = None
+        aidegen_main._launch_native_projects(ide_util_obj, args, [])
+        self.assertTrue(mock_get_ide.called_with('c'))
+        self.assertFalse(mock_launch_ide.called)
+        mock_get_ide.reset_mock()
+        mock_launch_ide.reset_mock()
+        args.ide = ['j']
+        aidegen_main._launch_native_projects(ide_util_obj, args, [])
+        self.assertTrue(mock_get_ide.called_with('c'))
+        self.assertFalse(mock_launch_ide.called)
+        mock_get_ide.reset_mock()
+        mock_launch_ide.reset_mock()
+        mock_get_ide.return_value = 'some_native_obj'
+        aidegen_main._launch_native_projects(ide_util_obj, args, [])
+        self.assertTrue(mock_get_ide.called_with('c'))
+        self.assertTrue(mock_launch_ide.called)
+        mock_get_ide.reset_mock()
+        mock_launch_ide.reset_mock()
+        args.ide = ['e']
+        aidegen_main._launch_native_projects(ide_util_obj, args, [])
+        self.assertTrue(mock_get_ide.called_with('c'))
+        self.assertTrue(mock_launch_ide.called)
+        mock_get_ide.reset_mock()
+        mock_launch_ide.reset_mock()
+        args.ide = ['s']
+        aidegen_main._launch_native_projects(ide_util_obj, args, [])
+        self.assertFalse(mock_get_ide.called)
+        self.assertTrue(mock_launch_ide.called)
 
 if __name__ == '__main__':
     unittest.main()

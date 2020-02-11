@@ -14,7 +14,22 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Config class."""
+"""Config class.
+
+History:
+    version 2: Record the user's each preferred ide version by the key name
+               [ide_base.ide_name]_preferred_version. E.g., the key name of the
+               preferred IntelliJ is IntelliJ_preferred_version and the example
+               is as follows.
+               "Android Studio_preferred_version": "/opt/android-studio-3.0/bin/
+               studio.sh"
+               "IntelliJ_preferred_version": "/opt/intellij-ce-stable/bin/
+               idea.sh"
+
+    version 1: Record the user's preferred IntelliJ version by the key name
+               preferred_version and doesn't support any other IDEs. The example
+               is "preferred_version": "/opt/intellij-ce-stable/bin/idea.sh".
+"""
 
 import copy
 import json
@@ -22,10 +37,13 @@ import logging
 import os
 import re
 
+from aidegen import constant
 from aidegen.lib import common_util
 
+_DIR_LIB = 'lib'
 
-class AidegenConfig():
+
+class AidegenConfig:
     """Class manages AIDEGen's configurations.
 
     Attributes:
@@ -38,6 +56,7 @@ class AidegenConfig():
     _CONFIG_DIR = os.path.join(
         os.path.expanduser('~'), '.config', 'asuite', 'aidegen')
     _CONFIG_FILE_PATH = os.path.join(_CONFIG_DIR, _DEFAULT_CONFIG_FILE)
+    _KEY_APPEND = 'preferred_version'
 
     # Constants of enable debugger
     _ENABLE_DEBUG_CONFIG_DIR = 'enable_debugger'
@@ -68,7 +87,7 @@ class AidegenConfig():
       <sourceFolder url="file://$MODULE_DIR$/src" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/gen" isTestSource="false" generated="true" />
     </content>
-    <orderEntry type="jdk" jdkName="Android API {API_LEVEL} Platform" jdkType="Android SDK" />
+    <orderEntry type="jdk" jdkName="{ANDROID_SDK_VERSION}" jdkType="Android SDK" />
     <orderEntry type="sourceFolder" forTests="false" />
   </component>
 </module>
@@ -94,35 +113,50 @@ class AidegenConfig():
     def __exit__(self, exc_type, exc_val, exc_tb):
         self._save_aidegen_config()
 
-    @property
-    def preferred_version(self):
+    def preferred_version(self, ide=None):
         """AIDEGen configuration getter.
 
+        Args:
+            ide: The string of the relevant IDE name, same as the data of
+                 IdeBase._ide_name or IdeUtil.ide_name(). None represents the
+                 usage of the version 1.
+
         Returns:
-            The preferred verson item of configuration data if exists and is not
-            deprecated, otherwise None.
+            The preferred version item of configuration data if exists and is
+            not deprecated, otherwise None.
         """
-        preferred_version = self._config.get('preferred_version', '')
+        key = '_'.join([ide, self._KEY_APPEND]) if ide else self._KEY_APPEND
+        preferred_version = self._config.get(key, '')
+        # Backward compatible check.
+        if not preferred_version:
+            preferred_version = self._config.get(self._KEY_APPEND, '')
+
         if preferred_version:
             real_version = os.path.realpath(preferred_version)
-            if not self.deprecated_intellij_version(real_version):
+            if ide and not self.deprecated_version(ide, real_version):
+                return preferred_version
+            # Backward compatible handling.
+            if not ide and not self.deprecated_intellij_version(real_version):
                 return preferred_version
         return None
 
-    @preferred_version.setter
-    def preferred_version(self, preferred_version):
+    def set_preferred_version(self, preferred_version, ide=None):
         """AIDEGen configuration setter.
 
         Args:
             preferred_version: A string, user's preferred version to be set.
+            ide: The string of the relevant IDE name, same as the data of
+                 IdeBase._ide_name or IdeUtil.ide_name(). None presents the
+                 usage of the version 1.
         """
-        self._config['preferred_version'] = preferred_version
+        key = '_'.join([ide, self._KEY_APPEND]) if ide else self._KEY_APPEND
+        self._config[key] = preferred_version
 
     def _load_aidegen_config(self):
         """Load data from configuration file."""
         if os.path.exists(self._CONFIG_FILE_PATH):
             try:
-                with open(self._CONFIG_FILE_PATH, 'r') as cfg_file:
+                with open(self._CONFIG_FILE_PATH) as cfg_file:
                     self._config = json.load(cfg_file)
             except ValueError as err:
                 info = '{} format is incorrect, error: {}'.format(
@@ -170,19 +204,21 @@ class AidegenConfig():
         if not os.path.exists(_file) or os.stat(_file).st_size == 0:
             common_util.file_generate(_file, self._ANDROIDMANIFEST_CONTENT)
 
-    def _gen_enable_debugger_config(self, api_level):
+    def _gen_enable_debugger_config(self, android_sdk_version):
         """Generate the enable_debugger.iml config file.
 
         Create the enable_debugger.iml if it doesn't exist.
 
         Args:
-            api_level: An integer of API level.
+            android_sdk_version: The version name of the Android Sdk in the
+                                 jdk.table.xml.
         """
         if not os.path.exists(self.DEBUG_ENABLED_FILE_PATH):
-            content = self._XML_ENABLE_DEBUGGER.format(API_LEVEL=api_level)
+            content = self._XML_ENABLE_DEBUGGER.format(
+                ANDROID_SDK_VERSION=android_sdk_version)
             common_util.file_generate(self.DEBUG_ENABLED_FILE_PATH, content)
 
-    def create_enable_debugger_module(self, api_level):
+    def create_enable_debugger_module(self, android_sdk_version):
         """Create the enable_debugger module.
 
         1. Create two empty folders named src and gen.
@@ -190,7 +226,8 @@ class AidegenConfig():
         3. Create the enable_denugger.iml.
 
         Args:
-            api_level: An integer of API level.
+            android_sdk_version: The version name of the Android Sdk in the
+                                 jdk.table.xml.
 
         Returns: True if successfully generate the enable debugger module,
                  otherwise False.
@@ -199,12 +236,29 @@ class AidegenConfig():
             self._gen_enable_debug_sub_dir(self._DIR_SRC)
             self._gen_enable_debug_sub_dir(self._DIR_GEN)
             self._gen_androidmanifest()
-            self._gen_enable_debugger_config(api_level)
+            self._gen_enable_debugger_config(android_sdk_version)
             return True
         except (IOError, OSError) as err:
             logging.warning(('Can\'t create the enable_debugger module in %s.\n'
                              '%s'), self._CONFIG_DIR, err)
             return False
+
+    @staticmethod
+    def deprecated_version(ide, script_path):
+        """Check if the script_path belongs to a deprecated IDE version.
+
+        Args:
+            ide: The string of the relevant IDE name, same as the data of
+                 IdeBase._ide_name or IdeUtil.ide_name().
+            script_path: The path string of the IDE script file.
+
+        Returns: True if the preferred version is deprecated, otherwise False.
+        """
+        if ide == constant.IDE_ANDROID_STUDIO:
+            return AidegenConfig.deprecated_studio_version(script_path)
+        if ide == constant.IDE_INTELLIJ:
+            return AidegenConfig.deprecated_intellij_version(script_path)
+        return False
 
     @staticmethod
     def deprecated_intellij_version(idea_path):
@@ -224,8 +278,28 @@ class AidegenConfig():
             return AidegenConfig.ACTIVE_KEYWORD not in file_content
         return False
 
+    @staticmethod
+    def deprecated_studio_version(script_path):
+        """Check if the preferred Studio version is deprecated or not.
 
-class IdeaProperties():
+        The Studio version is deprecated once the /android-studio-*/lib folder
+        doesn't exist.
+
+        Args:
+            script_path: the absolute path to the ide script file.
+
+        Returns: True if the preferred version is deprecated, otherwise False.
+        """
+        if not os.path.isfile(script_path):
+            return True
+        script_dir = os.path.dirname(script_path)
+        if not os.path.isdir(script_dir):
+            return True
+        lib_path = os.path.join(os.path.dirname(script_dir), _DIR_LIB)
+        return not os.path.isdir(lib_path)
+
+
+class IdeaProperties:
     """Class manages IntelliJ's idea.properties attribute.
 
     Class Attributes:

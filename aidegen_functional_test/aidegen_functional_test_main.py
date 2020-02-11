@@ -545,6 +545,7 @@ def _compare_jars_content(module_name, s_items, r_items, msg):
 
 # pylint: disable=broad-except
 # pylint: disable=eval-used
+@common_util.back_to_cwd
 @common_util.time_logged
 def _verify_aidegen(verified_file_path, forced_remove_bp_json):
     """Verify various use cases of executing aidegen.
@@ -573,7 +574,8 @@ def _verify_aidegen(verified_file_path, forced_remove_bp_json):
         2. Any exceptions other than aidegen.lib.errors such as,
            subprocess.CalledProcessError.
     """
-    bp_json_path = common_util.get_blueprint_json_path()
+    bp_json_path = common_util.get_blueprint_json_path(
+        constant.BLUEPRINT_JAVA_JSONFILE_NAME)
     use_eval = (verified_file_path == _VERIFY_COMMANDS_JSON)
     try:
         with open(verified_file_path, 'r') as jsfile:
@@ -584,6 +586,7 @@ def _verify_aidegen(verified_file_path, forced_remove_bp_json):
 
     _make_clean()
 
+    os.chdir(common_util.get_android_root_dir())
     for use_case in data:
         print('Use case "{}" is running.'.format(use_case))
         if forced_remove_bp_json and os.path.exists(bp_json_path):

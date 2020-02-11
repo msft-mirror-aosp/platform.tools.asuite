@@ -15,6 +15,16 @@
  */
 package com.android.atest;
 
+/** Constants of Atest plugin. */
 public class Constants {
+
     public static final String ATEST_NAME = "Atest";
+    public static final String TEST_MAPPING_FILE_NAME = "TEST_MAPPING";
+    public static final String ATEST_TOOL_WINDOW = "Atest ToolWindow";
+    public static final String BUILD_ENVIRONMENT = "build/envsetup.sh";
+    public static final String DEFAULT_LUNCH_TARGET = "aosp_cf_x86_phone-userdebug";
+    public static final String ATEST_ICON_PATH = "/atest.png";
+
+    // Common string.
+    public static final String ATEST_WINDOW_FAIL = "Atest window failed to launch.";
 }
