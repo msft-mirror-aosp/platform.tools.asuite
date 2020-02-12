@@ -8,6 +8,11 @@
       "host": true
     },
     {
+      // Host side ATest-py3 unittests.
+      "name": "atest-py3_unittests",
+      "host": true
+    },
+    {
       // Host side metrics tests.
       "name": "asuite_metrics_lib_tests",
       "host": true
