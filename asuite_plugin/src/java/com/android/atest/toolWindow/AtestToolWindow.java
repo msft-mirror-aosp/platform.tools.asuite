@@ -19,6 +19,7 @@ import com.android.atest.AtestUtils;
 import com.android.atest.Constants;
 import com.android.atest.commandAdapter.CommandRunner;
 import com.android.atest.dialog.MessageDialog;
+import com.android.atest.widget.AtestFastInputController;
 import com.android.atest.widget.AtestNotification;
 import com.intellij.notification.Notifications;
 import com.intellij.openapi.diagnostic.Logger;
@@ -60,6 +61,9 @@ public class AtestToolWindow {
         setInitialWidth((ToolWindowEx) toolWindow);
         setRunButton(basePath);
         initTestTarget(basePath);
+        AtestFastInputController fastInputController =
+                new AtestFastInputController(mTestTarget, mRunOnHost, mTestMapping, mSkipBuild);
+        fastInputController.linkCheckBoxWithTestTarget();
         mAtestOutput.setMargin(new Insets(0, 10, 0, 0));
     }
 
