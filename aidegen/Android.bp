@@ -30,7 +30,7 @@ python_defaults {
 python_binary_host {
     name: "aidegen",
     // Make aidegen's built name to aidegen-dev
-    stem: "aidegen-dev",
+    suffix: "-dev",
     defaults: ["aidegen_default"],
     main: "aidegen_main.py",
     srcs: [
