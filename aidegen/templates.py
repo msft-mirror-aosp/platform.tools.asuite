@@ -255,3 +255,16 @@ MAC_JDK_XML = """    <jdk version="2">
       <additional />
     </jdk>
 """
+
+# The file's header of CLion project file.
+CMAKELISTS_HEADER = """# THIS FILE WAS AUTOMATICALLY GENERATED!
+# ANY MODIFICATION WILL BE OVERWRITTEN!
+
+# To improve project view in Clion    :
+# Tools > CMake > Change Project Root
+
+cmake_minimum_required(VERSION @MINVERSION@)
+project(@PROJNAME@)
+set(ANDROID_ROOT @ANDROIDROOT@)
+
+"""
