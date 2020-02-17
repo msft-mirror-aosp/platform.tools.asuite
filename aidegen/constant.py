@@ -81,6 +81,9 @@ CLION_PROJECT_FILE_NAME = 'CMakeLists.txt'
 ANDROID_BP = 'Android.bp'
 ANDROID_MK = 'Android.mk'
 
+# Constants for file paths
+RELATIVE_NATIVE_PATH = 'development/ide/clion'
+
 # Constants for whole Android tree
 WHOLE_ANDROID_TREE_TARGET = '#WHOLE_ANDROID_TREE#'
 
