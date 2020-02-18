@@ -15,6 +15,8 @@
  */
 package com.android.atest.widget;
 
+import org.jetbrains.annotations.NotNull;
+
 import javax.swing.*;
 import javax.swing.event.DocumentEvent;
 import javax.swing.event.DocumentListener;
@@ -40,7 +42,10 @@ public class AtestFastInputController {
      * @param skipBuild a JCheckBox used to turn on/off skip build.
      */
     public AtestFastInputController(
-            JComboBox testTarget, JCheckBox runOnHost, JCheckBox testMapping, JCheckBox skipBuild) {
+            @NotNull JComboBox testTarget,
+            @NotNull JCheckBox runOnHost,
+            @NotNull JCheckBox testMapping,
+            @NotNull JCheckBox skipBuild) {
         mTestTarget = testTarget;
         mRunOnHost = runOnHost;
         mTestMapping = testMapping;
