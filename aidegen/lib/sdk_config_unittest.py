@@ -425,6 +425,21 @@ class SDKConfigUnittests(unittest.TestCase):
                                           jdk._ATTRIBUTE_SDK)
         self.assertEqual(api_level, 0)
 
+    def test_convert_api_version(self):
+        """Test _convert_api_version."""
+        jdk = sdk_config.SDKConfig(self._JDK_SAMPLE3,
+                                   templates.LINUX_JDK_XML,
+                                   self._JDK_PATH,
+                                   self._DEFAULT_ANDROID_SDK_PATH)
+        api_level = jdk._convert_api_version('A')
+        self.assertEqual(api_level, 0)
+        api_level = jdk._convert_api_version('28')
+        self.assertEqual(api_level, 28)
+        api_level = jdk._convert_api_version('Q')
+        self.assertEqual(api_level, 29)
+        api_level = jdk._convert_api_version('R')
+        self.assertEqual(api_level, 29)
+
 
 if __name__ == '__main__':
     unittest.main()
