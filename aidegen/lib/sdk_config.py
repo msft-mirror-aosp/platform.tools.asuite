@@ -44,6 +44,7 @@ import re
 import xml.dom.minidom
 
 from aidegen import constant
+from aidegen import templates
 from aidegen.lib import aidegen_metrics
 from aidegen.lib import common_util
 from aidegen.lib import config
@@ -73,8 +74,8 @@ class SDKConfig():
         android_sdk_version: The version name of the Android Sdk in the
                              jdk.table.xml.
         max_api_level: An integer, the max API level.
-        max_api_level_version: A string, the original API level version.
-                               e.g. 28, Q
+        original_api_level_version: A string, the original API level version.
+                                    e.g. 28, Q
     """
 
     _TARGET_JDK_NAME_TAG = '<name value="JDK18" />'
@@ -115,31 +116,6 @@ class SDKConfig():
                           'cannot be enabled in IntelliJ.')
     _WARNING_PARSE_XML_FAILED = ('The content of jdk.table.xml is not a valid'
                                  'xml.')
-    # The configuration of Android SDK.
-    _ANDROID_SDK_XML = """    <jdk version="2">
-      <name value="Android API {API_LEVEL} Platform" />
-      <type value="Android SDK" />
-      <version value="java version &quot;1.8.0_152&quot;" />
-      <homePath value="{ANDROID_SDK_PATH}" />
-      <roots>
-        <annotationsPath>
-          <root type="composite" />
-        </annotationsPath>
-        <classPath>
-          <root type="composite">
-            <root url="file://{ANDROID_SDK_PATH}/platforms/android-{API_LEVEL}/data/res" type="simple" />
-          </root>
-        </classPath>
-        <javadocPath>
-          <root type="composite" />
-        </javadocPath>
-        <sourcePath>
-          <root type="composite" />
-        </sourcePath>
-      </roots>
-      <additional jdk="JDK18" sdk="android-{API_LEVEL}" />
-    </jdk>
-"""
 
     def __init__(self, config_file, jdk_content, jdk_path,
                  default_android_sdk_path):
@@ -154,7 +130,7 @@ class SDKConfig():
                                       might not exist.
         """
         self.max_api_level = 0
-        self.max_api_level_version = None
+        self.original_api_level_version = None
         self.config_file = config_file
         self.jdk_content = jdk_content
         self.jdk_path = jdk_path
@@ -321,10 +297,12 @@ class SDKConfig():
             int_api_level = int(api_level)
         elif api_level in self._API_VERSION_MAPPING:
             int_api_level = self._API_VERSION_MAPPING[api_level]
+        elif api_level > max(self._API_VERSION_MAPPING.keys()):
+            int_api_level = max(self._API_VERSION_MAPPING.values())
         if int_api_level > 0:
             # Save the original API level version for creating
             # the Android SDK configuration in jdk.table.xml.
-            self._set_max_api_level_version(api_level)
+            self._set_original_api_level_version(api_level)
         return int_api_level
 
     def _get_api_level(self, config_string):
@@ -372,18 +350,18 @@ class SDKConfig():
         self.max_api_level = self._get_max_platform_api(
             self._get_platforms_dir_path())
 
-    def _set_max_api_level_version(self, api_level):
-        """Set the max API level version.
+    def _set_original_api_level_version(self, api_level):
+        """Set the original API level version.
 
         Args:
             api_level: A string of the API level.
         """
-        self.max_api_level_version = api_level
+        self.original_api_level_version = api_level
 
     def _set_android_sdk_version(self):
         """Set the Android Sdk version."""
         self.android_sdk_version = self._ANDROID_SDK_VERSION.format(
-            API_LEVEL=self.max_api_level)
+            API_LEVEL=self.original_api_level_version)
 
     def _get_platforms_dir_path(self):
         """Get the platform's dir path from user input Android SDK path.
@@ -430,10 +408,10 @@ class SDKConfig():
         if not self._android_sdk_exists():
             if self._get_android_sdk_path():
                 self._set_android_sdk_version()
-                self._append_jdk_config_string(self._ANDROID_SDK_XML)
+                self._append_jdk_config_string(templates.ANDROID_SDK_XML)
                 self.config_string = self.config_string.format(
                     ANDROID_SDK_PATH=self.android_sdk_path,
-                    API_LEVEL=self.max_api_level_version)
+                    API_LEVEL=self.original_api_level_version)
             else:
                 stack_trace = common_util.remove_user_home_path(
                     self.android_sdk_path)
