@@ -66,16 +66,23 @@ _GEN_JSON_FAILED = (
     'Generate new {0} failed, AIDEGen will proceed and reuse the old {1}.')
 _WARN_MSG = '\n{} {}\n'
 
-
+# pylint: disable=dangerous-default-value
 @common_util.back_to_cwd
 @common_util.time_logged
-def generate_merged_module_info():
+def generate_merged_module_info(env_off=_BUILD_BP_JSON_ENV_OFF,
+                                env_on=_BUILD_BP_JSON_ENV_ON):
     """Generate a merged dictionary.
 
     Linked functions:
         _build_bp_info(module_info, project, verbose, skip_build)
         _get_soong_build_json_dict()
         _merge_dict(mk_dict, bp_dict)
+
+    Args:
+        env_off: A dictionary of environment settings to be turned off, the
+                 default value is _BUILD_BP_JSON_ENV_OFF.
+        env_on: A dictionary of environment settings to be turned on, the
+                default value is _BUILD_BP_JSON_ENV_ON.
 
     Returns:
         A merged dictionary from module-info.json and module_bp_java_deps.json.
@@ -86,7 +93,8 @@ def generate_merged_module_info():
     verbose = config.verbose
     skip_build = config.is_skip_build
     main_project = projects[0] if projects else None
-    _build_bp_info(module_info, main_project, verbose, skip_build)
+    _build_bp_info(
+        module_info, main_project, verbose, skip_build, env_off, env_on)
     json_path = common_util.get_blueprint_json_path(
         constant.BLUEPRINT_JAVA_JSONFILE_NAME)
     bp_dict = common_util.get_json_dict(json_path)
@@ -94,7 +102,8 @@ def generate_merged_module_info():
 
 
 def _build_bp_info(module_info, main_project=None, verbose=False,
-                   skip_build=False):
+                   skip_build=False, env_off=_BUILD_BP_JSON_ENV_OFF,
+                   env_on=_BUILD_BP_JSON_ENV_ON):
     """Make nothing to create module_bp_java_deps.json, module_bp_cc_deps.json.
 
     Use atest build method to build the target 'nothing' by setting env config
@@ -108,6 +117,11 @@ def _build_bp_info(module_info, main_project=None, verbose=False,
         skip_build: A boolean, if true, skip building if
                     get_blueprint_json_path(file_name) file exists, otherwise
                     build it.
+        env_off: A dictionary of environment settings to be turned off, the
+                 default value is _BUILD_BP_JSON_ENV_OFF.
+        env_on: A dictionary of environment settings to be turned on, the
+                default value is _BUILD_BP_JSON_ENV_ON.
+
     Build results:
         1. Build successfully return.
         2. Build failed:
@@ -123,9 +137,7 @@ def _build_bp_info(module_info, main_project=None, verbose=False,
         constant.BLUEPRINT_CC_JSONFILE_NAME)
     original_java_mtime = None
     original_cc_mtime = None
-    java_exists = os.path.isfile(java_path)
-    cc_exists = os.path.isfile(cc_path)
-    if java_exists and cc_exists:
+    if os.path.isfile(java_path) and os.path.isfile(cc_path):
         if skip_build:
             logging.info('Both %s and %s files exist, skipping build.',
                          java_path, cc_path)
@@ -135,10 +147,8 @@ def _build_bp_info(module_info, main_project=None, verbose=False,
 
     logging.warning(
         '\nGenerate java and cc blueprint json files by atest build method.')
-    build_with_off_cmd = atest_utils.build(['nothing'], verbose,
-                                           _BUILD_BP_JSON_ENV_OFF)
-    build_with_on_cmd = atest_utils.build(['nothing'], verbose,
-                                          _BUILD_BP_JSON_ENV_ON)
+    build_with_off_cmd = atest_utils.build(['nothing'], verbose, env_off)
+    build_with_on_cmd = atest_utils.build(['nothing'], verbose, env_on)
 
     if build_with_off_cmd and build_with_on_cmd:
         logging.info('\nGenerate blueprint json successfully.')
