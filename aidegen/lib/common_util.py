@@ -537,7 +537,7 @@ def check_args(**decls):
         @wraps(func)
         def decorated(*args, **kwargs):
             """A wrapper function."""
-            params = {k: v for k, v in zip(fparams, args)}
+            params = {x[0]: x[1] for x in zip(fparams, args)}
             for arg_name, arg_type in decls.items():
                 try:
                     arg_val = params[arg_name]
