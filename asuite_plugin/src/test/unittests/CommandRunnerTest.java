@@ -25,7 +25,7 @@ import org.mockito.Mock;
 import org.mockito.junit.MockitoJUnitRunner;
 
 import java.lang.reflect.Field;
-import java.nio.charset.Charset;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 
 @RunWith(MockitoJUnitRunner.class)
@@ -42,7 +42,7 @@ public class CommandRunnerTest {
         Field field = lsCommand.getClass().getDeclaredField("mCommand");
         field.setAccessible(true);
         GeneralCommandLine commandLine = (GeneralCommandLine) field.get(lsCommand);
-        Assert.assertSame(commandLine.getCharset(), Charset.forName("UTF-8"));
+        Assert.assertSame(commandLine.getCharset(), StandardCharsets.UTF_8);
         Assert.assertEquals(commandLine.getCommandLineString(), "ls");
     }
 
@@ -53,7 +53,7 @@ public class CommandRunnerTest {
         Field field = lsCommand.getClass().getDeclaredField("mCommand");
         field.setAccessible(true);
         GeneralCommandLine commandLine = (GeneralCommandLine) field.get(lsCommand);
-        Assert.assertSame(commandLine.getCharset(), Charset.forName("UTF-8"));
+        Assert.assertSame(commandLine.getCharset(), StandardCharsets.UTF_8);
         Assert.assertEquals(
                 commandLine.getCommandLineString(),
                 "/bin/bash -c \"source build/envsetup.sh && lunch a && atest b\"");
