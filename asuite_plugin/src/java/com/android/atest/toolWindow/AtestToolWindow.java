@@ -38,7 +38,7 @@ public class AtestToolWindow {
 
     private static final int INITIAL_WIDTH = 1000;
     private static final Logger LOG = Logger.getInstance(AtestToolWindow.class);
-    private static AtestToolWindow atestToolWindowInstance;
+    private static AtestToolWindow sAtestToolWindowInstance;
 
     private JPanel mAtestToolWindowPanel;
     private JScrollPane mScorll;
@@ -50,6 +50,7 @@ public class AtestToolWindow {
     private JCheckBox mSkipBuild;
     private JButton mRunButton;
     private JComboBox mTestTarget;
+    private JButton mStopButton;
 
     /**
      * Initializes AtestToolWindow with ToolWindow and Project.
@@ -60,6 +61,7 @@ public class AtestToolWindow {
     private AtestToolWindow(ToolWindow toolWindow, String basePath) {
         setInitialWidth((ToolWindowEx) toolWindow);
         setRunButton(basePath);
+        setStopButton();
         initTestTarget(basePath);
         AtestFastInputController fastInputController =
                 new AtestFastInputController(mTestTarget, mRunOnHost, mTestMapping, mSkipBuild);
@@ -80,8 +82,8 @@ public class AtestToolWindow {
      */
     @NotNull
     public static AtestToolWindow initAtestToolWindow(ToolWindow toolWindow, String basePath) {
-        atestToolWindowInstance = new AtestToolWindow(toolWindow, basePath);
-        return atestToolWindowInstance;
+        sAtestToolWindowInstance = new AtestToolWindow(toolWindow, basePath);
+        return sAtestToolWindowInstance;
     }
 
     /**
@@ -103,11 +105,11 @@ public class AtestToolWindow {
             ((ToolWindowImpl) AtestTW).ensureContentInitialized();
         }
 
-        if (atestToolWindowInstance == null) {
+        if (sAtestToolWindowInstance == null) {
             LOG.error("AtestToolWindowInstance is null when getting instance by project");
             Notifications.Bus.notify(new AtestNotification(Constants.ATEST_WINDOW_FAIL));
         }
-        return atestToolWindowInstance;
+        return sAtestToolWindowInstance;
     }
 
     /**
@@ -166,6 +168,15 @@ public class AtestToolWindow {
                 });
     }
 
+    /** Initializes the stop button. */
+    private void setStopButton() {
+        mStopButton.addActionListener(
+                e -> {
+                    CommandRunner.stopProcess();
+                    mAtestOutput.setText(null);
+                });
+    }
+
     /** Scrolls the output window scroll bar to the bottom. */
     public void scrollToEnd() {
         JScrollBar vertical = mScorll.getVerticalScrollBar();
@@ -193,7 +204,7 @@ public class AtestToolWindow {
     /**
      * Sets the test target of Atest tool window.
      *
-     * @target the test target of Atest tool window.
+     * @param target the test target of Atest tool window.
      */
     public void setTestTarget(@NotNull String target) {
         mTestTarget.setSelectedItem(target);
@@ -202,7 +213,7 @@ public class AtestToolWindow {
     /**
      * Sets the lunch target of Atest tool window.
      *
-     * @target the lunch target of Atest tool window.
+     * @param target the lunch target of Atest tool window.
      */
     public void setLunchTarget(@NotNull String target) {
         mLunchTarget.setText(target);
