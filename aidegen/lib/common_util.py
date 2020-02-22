@@ -98,7 +98,7 @@ def get_related_paths(atest_module_info, target=None):
                 1. Module name, e.g. Settings
                 2. Module path, e.g. packages/apps/Settings
                 3. Relative path, e.g. ../../packages/apps/Settings
-                4. Current directory, e.g. . or no argument
+                4. Current directory, e.g. '.' or no argument
                 5. An empty string, which added by AIDEGen, used for generating
                    the iml files for the whole Android repo tree.
                    e.g.
@@ -113,6 +113,9 @@ def get_related_paths(atest_module_info, target=None):
     """
     rel_path = None
     abs_path = None
+    # take the command 'aidegen .' as 'aidegen'.
+    if target == '.':
+        target = None
     if target:
         # For the case of whole Android repo tree.
         if target == constant.WHOLE_ANDROID_TREE_TARGET:
@@ -335,33 +338,6 @@ def get_atest_module_info(targets=None):
     return amodule_info
 
 
-def read_file_content(path, encode_type='utf8'):
-    """Read file's content.
-
-    Args:
-        path: Path of input file.
-        encode_type: A string of encoding name, default to UTF-8.
-
-    Returns:
-        String: Content of the file.
-    """
-    with open(path, encoding=encode_type) as template:
-        return template.read()
-
-
-def file_generate(path, content):
-    """Generate file from content.
-
-    Args:
-        path: Path of target file.
-        content: String content of file.
-    """
-    if not os.path.exists(os.path.dirname(path)):
-        os.makedirs(os.path.dirname(path))
-    with open(path, 'w') as target:
-        target.write(content)
-
-
 def get_blueprint_json_path(file_name):
     """Assemble the path of blueprint json file.
 
@@ -463,22 +439,6 @@ def configure_logging(verbose):
     # Clear all handlers to prevent setting level not working.
     logging.getLogger().handlers = []
     logging.basicConfig(level=level, format=log_format, datefmt=datefmt)
-
-
-def read_file_line_to_list(file_path):
-    """Read a file line by line and write them into a list.
-
-    Args:
-        file_path: A string of a file's path.
-
-    Returns:
-        A list of the file's content by line.
-    """
-    files = []
-    with open(file_path, encoding='utf8') as infile:
-        for line in infile:
-            files.append(line.strip())
-    return files
 
 
 def exist_android_bp(abs_path):
@@ -624,3 +584,49 @@ def get_json_dict(json_path):
     """
     with open(json_path) as jfile:
         return json.load(jfile)
+
+
+@io_error_handle
+def read_file_line_to_list(file_path):
+    """Read a file line by line and write them into a list.
+
+    Args:
+        file_path: A string of a file's path.
+
+    Returns:
+        A list of the file's content by line.
+    """
+    files = []
+    with open(file_path, encoding='utf8') as infile:
+        for line in infile:
+            files.append(line.strip())
+    return files
+
+
+@io_error_handle
+def read_file_content(path, encode_type='utf8'):
+    """Read file's content.
+
+    Args:
+        path: Path of input file.
+        encode_type: A string of encoding name, default to UTF-8.
+
+    Returns:
+        String: Content of the file.
+    """
+    with open(path, encoding=encode_type) as template:
+        return template.read()
+
+
+@io_error_handle
+def file_generate(path, content):
+    """Generate file from content.
+
+    Args:
+        path: Path of target file.
+        content: String content of file.
+    """
+    if not os.path.exists(os.path.dirname(path)):
+        os.makedirs(os.path.dirname(path))
+    with open(path, 'w') as target:
+        target.write(content)

@@ -97,6 +97,8 @@ class AidegenCommonUtilUnittests(unittest.TestCase):
         expected = ('b', '/a/b')
         result = common_util.get_related_paths(mod_info, target=None)
         self.assertEqual(expected, result)
+        result = common_util.get_related_paths(mod_info, target='.')
+        self.assertEqual(expected, result)
 
     @mock.patch.object(common_util, 'is_android_root')
     @mock.patch.object(common_util, 'get_related_paths')
