@@ -74,6 +74,7 @@ _CODE_STYLE_CONFIG_XML = 'codeStyleConfig.xml'
 _PROJECT_XML = 'Project.xml'
 _COMPILE_XML = 'compiler.xml'
 _MISC_XML = 'misc.xml'
+_CONFIG_JSON = 'config.json'
 _ANDROID_MANIFEST = 'AndroidManifest.xml'
 _IML_EXTENSION = '.iml'
 _FRAMEWORK_JAR = os.sep + 'framework.jar'
@@ -262,6 +263,11 @@ class ProjectFileGenerator:
                             code_style_target_path, err)
         # Create .gitignore if it doesn't exist.
         _generate_git_ignore(target_path)
+        # Create config.json for Asuite plugin
+        lunch_target = common_util.get_lunch_target()
+        if lunch_target:
+            common_util.file_generate(
+                os.path.join(idea_dir, _CONFIG_JSON), lunch_target)
 
     def _handle_facet(self, content):
         """Handle facet part of iml.
