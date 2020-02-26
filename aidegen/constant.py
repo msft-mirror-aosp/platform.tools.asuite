@@ -20,6 +20,8 @@ OUT_DIR_COMMON_BASE_ENV_VAR = 'OUT_DIR_COMMON_BASE'
 ANDROID_DEFAULT_OUT = 'out'
 AIDEGEN_ROOT_PATH = 'tools/asuite/aidegen'
 USER_HOME = '$USER_HOME$'
+TARGET_PRODUCT = 'TARGET_PRODUCT'
+TARGET_BUILD_VARIANT = 'TARGET_BUILD_VARIANT'
 
 # Constants for module's info.
 KEY_PATH = 'path'
@@ -99,3 +101,6 @@ LINUX_GLIBC_COMMON = 'linux_glibc_common'
 NOHUP = 'nohup'
 ECLIPSE_WS = '~/Documents/AIDEGen_Eclipse_workspace'
 IGNORE_STD_OUT_ERR_CMD = '2>/dev/null >&2'
+
+# Constants for environment
+LUNCH_TARGET = 'lunch target'

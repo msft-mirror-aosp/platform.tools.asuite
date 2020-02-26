@@ -298,6 +298,13 @@ class AidegenCommonUtilUnittests(unittest.TestCase):
             decorator = common_util.check_args(name=str, text=str)
             decorator(parse_rule(1, 2))
 
+    @mock.patch('os.environ.get')
+    def test_get_lunch_target(self, mock_get_env):
+        """Test get_lunch_target."""
+        mock_get_env.return_value = "test"
+        self.assertEqual(
+            common_util.get_lunch_target(), '{"lunch target": "test-test"}')
+
 
 # pylint: disable=unused-argument
 def parse_rule(self, name, text):

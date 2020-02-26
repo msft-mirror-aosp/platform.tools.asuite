@@ -630,3 +630,17 @@ def file_generate(path, content):
         os.makedirs(os.path.dirname(path))
     with open(path, 'w') as target:
         target.write(content)
+
+
+def get_lunch_target():
+    """Gets the Android lunch target in current console.
+
+    Returns:
+        A json format string of lunch target in current console.
+    """
+    product = os.environ.get(constant.TARGET_PRODUCT)
+    build_variant = os.environ.get(constant.TARGET_BUILD_VARIANT)
+    if product and build_variant:
+        return json.dumps(
+            {constant.LUNCH_TARGET: "-".join([product, build_variant])})
+    return None
