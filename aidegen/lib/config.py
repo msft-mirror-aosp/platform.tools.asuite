@@ -207,16 +207,16 @@ class AidegenConfig:
     def _gen_enable_debugger_config(self, android_sdk_version):
         """Generate the enable_debugger.iml config file.
 
-        Create the enable_debugger.iml if it doesn't exist.
+        Re-generate the enable_debugger.iml everytime for correcting the Android
+        SDK version.
 
         Args:
             android_sdk_version: The version name of the Android Sdk in the
                                  jdk.table.xml.
         """
-        if not os.path.exists(self.DEBUG_ENABLED_FILE_PATH):
-            content = self._XML_ENABLE_DEBUGGER.format(
-                ANDROID_SDK_VERSION=android_sdk_version)
-            common_util.file_generate(self.DEBUG_ENABLED_FILE_PATH, content)
+        content = self._XML_ENABLE_DEBUGGER.format(
+            ANDROID_SDK_VERSION=android_sdk_version)
+        common_util.file_generate(self.DEBUG_ENABLED_FILE_PATH, content)
 
     def create_enable_debugger_module(self, android_sdk_version):
         """Create the enable_debugger module.

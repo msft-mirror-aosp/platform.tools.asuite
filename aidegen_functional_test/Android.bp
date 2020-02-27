@@ -29,7 +29,7 @@ python_defaults {
 
 python_binary_host {
     name: "aidegen_functional_test",
-    stem: "aidegen_functional_test-dev",
+    suffix: "-dev",
     defaults: ["aidegen_functional_test_default"],
     main: "aidegen_functional_test_main.py",
     srcs: [
