@@ -82,6 +82,7 @@ CMAKELISTS_FILE_NAME = 'clion_project_lists.txt'
 CLION_PROJECT_FILE_NAME = 'CMakeLists.txt'
 ANDROID_BP = 'Android.bp'
 ANDROID_MK = 'Android.mk'
+JAVA_FILES = '*.java'
 
 # Constants for file paths
 RELATIVE_NATIVE_PATH = 'development/ide/clion'

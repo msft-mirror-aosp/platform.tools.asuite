@@ -54,3 +54,44 @@ MODULE_INFO = {
     'dependencies': [],
     'installed': []
 }
+PATH_TO_MULT_MODULES_WITH_MULTI_ARCH = 'shared/path/to/be/used2'
+TESTABLE_MODULES_WITH_SHARED_PATH = [
+    'multiarch', 'multiarch1', 'multiarch2', 'multiarch3', 'multiarch3_32'
+]
+CC_NAME_TO_MODULE_INFO = {
+    "multiarch": {
+        "path": [
+            "shared/path/to/be/used2"
+        ],
+        "module_name": "multiarch"
+    },
+    "multiarch1": {
+        "path": [
+            "shared/path/to/be/used2/arch1"
+        ],
+        "module_name": "multiarch1"
+    },
+    "multiarch2": {
+        "path": [
+            "shared/path/to/be/used2/arch2"
+        ],
+        "module_name": "multiarch2"
+    },
+    "multiarch3": {
+        "path": [
+            "shared/path/to/be/used2/arch3"
+        ],
+        "module_name": "multiarch3"
+    },
+    "multiarch3_32": {
+        "path": [
+            "shared/path/to/be/used2/arch3_32"
+        ],
+        "module_name": "multiarch3_32"
+    }
+}
+CC_MODULE_INFO = {
+    "clang": "${ANDROID_ROOT}/prebuilts/clang/host/linux-x86/bin/clang",
+    "clang++": "${ANDROID_ROOT}/prebuilts/clang/host/linux-x86/bin/clang++",
+    "modules": CC_NAME_TO_MODULE_INFO
+}
