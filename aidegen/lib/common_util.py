@@ -505,7 +505,7 @@ def io_error_handle(func):
         """A wrapper function."""
         try:
             return func(*args, **kwargs)
-        except IOError as err:
+        except (OSError, IOError) as err:
             print('{0}.{1} I/O error: {2}'.format(
                 func.__module__, func.__name__, err))
             raise

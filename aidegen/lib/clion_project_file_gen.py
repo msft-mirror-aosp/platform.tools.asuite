@@ -38,6 +38,7 @@ from aidegen import constant
 from aidegen import templates
 from aidegen.lib import common_util
 from aidegen.lib import errors
+from aidegen.lib import native_module_info
 
 # Flags for writing to CMakeLists.txt section.
 _GLOBAL_COMMON_FLAGS = '\n# GLOBAL ALL FLAGS:\n'
@@ -244,14 +245,10 @@ class CLionProjectFileGenerator:
         Args:
             hfile: A file handler instance.
         """
-        # TODO(b/146087689): This is a temperary solution it will be changed in
-        # CL: aosp/1228444.
-        temp_clang_path = ('${ANDROID_ROOT}/prebuilts/clang/host/linux-x86/'
-                           'clang-r377782/bin/clang')
-        hfile.write(_SET_C_COMPILER.format(temp_clang_path))
-        temp_cpplang_path = ('${ANDROID_ROOT}/prebuilts/clang/host/'
-                             'linux-x86/clang-r377782/bin/clang++')
-        hfile.write(_SET_CXX_COMPILER.format(temp_cpplang_path))
+        hfile.write(_SET_C_COMPILER.format(
+            native_module_info.NativeModuleInfo.c_lang_path))
+        hfile.write(_SET_CXX_COMPILER.format(
+            native_module_info.NativeModuleInfo.cpp_lang_path))
 
     @common_util.check_args(hfile=(TextIOWrapper, StringIO))
     @common_util.io_error_handle
@@ -369,53 +366,60 @@ def generate_base_cmakelists_file(cc_module_info, rel_project_path, mod_names):
     root_dir = common_util.get_android_root_dir()
     cc_dir = os.path.join(root_dir, constant.RELATIVE_NATIVE_PATH,
                           rel_project_path)
+    cc_out_dir = os.path.join(root_dir, common_util.get_android_out_dir(),
+                              constant.RELATIVE_NATIVE_PATH, rel_project_path)
     if not os.path.exists(cc_dir):
         os.makedirs(cc_dir)
-    cc_path = os.path.join(cc_dir, constant.CLION_PROJECT_FILE_NAME)
-    with open(cc_path, 'w') as hfile:
-        _write_base_cmakelists_file(
-            hfile, cc_module_info, rel_project_path, mod_names)
-    dst_path = os.path.join(
-        root_dir, os.path.join(common_util.get_android_out_dir(), cc_path))
-    if os.path.isfile(dst_path):
-        os.remove(dst_path)
-    src_path = os.path.join(root_dir, cc_path)
+    dst_path = os.path.join(cc_out_dir, constant.CLION_PROJECT_FILE_NAME)
+    if os.path.islink(dst_path):
+        os.unlink(dst_path)
+    src_path = os.path.join(cc_dir, constant.CLION_PROJECT_FILE_NAME)
+    if os.path.isfile(src_path):
+        os.remove(src_path)
+    with open(src_path, 'w') as hfile:
+        _write_base_cmakelists_file(hfile, cc_module_info, src_path, mod_names)
     os.symlink(src_path, dst_path)
     return dst_path
 
 
 @common_util.check_args(
-    hfile=(TextIOWrapper, StringIO), rel_project_path=str, mod_names=list)
+    hfile=(TextIOWrapper, StringIO), abs_project_path=str, mod_names=list)
 @common_util.io_error_handle
-def _write_base_cmakelists_file(hfile, cc_module_info, rel_project_path,
+def _write_base_cmakelists_file(hfile, cc_module_info, abs_project_path,
                                 mod_names):
     """Writes base CLion project file content.
 
     When we write module info into base CLion project file, first check if the
-    module's CMakeLists.txt exists. If file exists, write content:
+    module's CMakeLists.txt exists. If file exists, write content,
         add_subdirectory({'relative_module_path'})
 
     Args:
         hfile: A file handler instance.
         cc_module_info: An instance of native_module_info.NativeModuleInfo.
-        rel_project_path: A string of the base project relative path. For
-                          example: frameworks/native/libs/ui.
+        abs_project_path: A string of the base project absolute path.
+                          For example,
+                              ${ANDROID_BUILD_TOP}/frameworks/native/libs/ui.
         mod_names: A list of module names whose project were created under
-                   rel_project_path.
+                   abs_project_path.
     """
     hfile.write(_MINI_VERSION_SUPPORT.format(_MINI_VERSION))
-    hfile.write(_PROJECT.format(os.path.basename(rel_project_path)))
+    project_dir = os.path.dirname(abs_project_path)
+    hfile.write(_PROJECT.format(os.path.basename(project_dir)))
+    root_dir = common_util.get_android_root_dir()
     for mod_name in mod_names:
         mod_info = cc_module_info.get_module_info(mod_name)
         mod_path = CLionProjectFileGenerator.get_module_path(mod_info)
         file_dir = CLionProjectFileGenerator.get_cmakelists_file_dir(
             os.path.join(mod_path, mod_name))
-        if not os.path.isfile(
-                os.path.join(file_dir, constant.CLION_PROJECT_FILE_NAME)):
+        file_path = os.path.join(file_dir, constant.CLION_PROJECT_FILE_NAME)
+        if not os.path.isfile(file_path):
+            logging.warning("%s the project file %s doesn't exist.",
+                            common_util.COLORED_INFO('Warning:'), file_path)
             continue
-        rel_mod_path = os.path.relpath(
-            file_dir,
-            CLionProjectFileGenerator.get_cmakelists_file_dir(rel_project_path))
+        link_project_dir = os.path.join(root_dir,
+                                        common_util.get_android_out_dir(),
+                                        os.path.relpath(project_dir, root_dir))
+        rel_mod_path = os.path.relpath(file_dir, link_project_dir)
         hfile.write(_ADD_SUB.format(rel_mod_path))
 
 
