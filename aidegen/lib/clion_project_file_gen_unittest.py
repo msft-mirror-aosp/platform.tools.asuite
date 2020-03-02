@@ -28,6 +28,7 @@ from aidegen import templates
 from aidegen.lib import clion_project_file_gen
 from aidegen.lib import common_util
 from aidegen.lib import errors
+from aidegen.lib import native_module_info
 
 
 # pylint: disable=protected-access
@@ -87,6 +88,27 @@ class ClionProjectFileGenUnittests(unittest.TestCase):
         self.assertEqual(content, expected)
 
     @mock.patch('os.path.exists')
+    def test_write_c_compiler_paths(self, mock_exists):
+        """Test _write_c_compiler_paths function."""
+        hfile = StringIO()
+        c_lang_path = 'c_lang_path'
+        cpp_lang_path = 'cpp_lang_path'
+        native_module_info.NativeModuleInfo.c_lang_path = c_lang_path
+        native_module_info.NativeModuleInfo.cpp_lang_path = cpp_lang_path
+        mock_exists.return_value = True
+        mod_info = dict(self._MOD_INFO)
+        mod_info.update(self._PATH_DICT)
+        mod_info.update(self._MOD_NAME_DICT)
+        clion_gen = clion_project_file_gen.CLionProjectFileGenerator(mod_info)
+        clion_gen._write_c_compiler_paths(hfile)
+        hfile.seek(0)
+        content = hfile.read()
+        expected = clion_project_file_gen._SET_C_COMPILER.format(
+            c_lang_path) + clion_project_file_gen._SET_CXX_COMPILER.format(
+                cpp_lang_path)
+        self.assertEqual(content, expected)
+
+    @mock.patch('os.path.exists')
     def test_write_source_files_without_content(self, mock_exists):
         """Test _write_source_files function without content."""
         hfile = StringIO()
@@ -131,6 +153,15 @@ class ClionProjectFileGenUnittests(unittest.TestCase):
         content = hfile.read()
         expected = clion_project_file_gen._FLAGS_DICT.get(key, '')
         self.assertEqual(content, expected)
+
+    def test_parse_compiler_parameters_without_flag(self):
+        """Test _parse_compiler_parameters function without flag."""
+        mod_info = dict(self._PATH_DICT)
+        mod_info.update(self._MOD_NAME_DICT)
+        clion_gen = clion_project_file_gen.CLionProjectFileGenerator(mod_info)
+        result = clion_gen._parse_compiler_parameters(
+            clion_project_file_gen._KEY_GLOBAL_COMMON_FLAGS)
+        self.assertEqual(result, None)
 
     def test_parse_compiler_parameters_with_flag(self):
         """Test _parse_compiler_parameters function with flag."""
@@ -282,6 +313,71 @@ class ClionProjectFileGenUnittests(unittest.TestCase):
         content = hfile.read()
         self.assertEqual(content, '')
 
+    def test_write_all_includes_with_content(self):
+        """Test _write_all_includes function with content."""
+        hfile = StringIO()
+        include = 'path_to_include'
+        clion_project_file_gen._write_all_includes(hfile, [include], True)
+        hfile.seek(0)
+        content = hfile.read()
+        system = clion_project_file_gen._SYSTEM
+        head = clion_project_file_gen._INCLUDE_DIR.format(system)
+        middle = clion_project_file_gen._SET_INCLUDE_FORMAT.format(
+            clion_project_file_gen._build_cmake_path(include))
+        tail = clion_project_file_gen._END_WITH_TWO_BLANK_LINES
+        expected = head + middle + tail
+        self.assertEqual(content, expected)
+        hfile = StringIO()
+        clion_project_file_gen._write_all_includes(hfile, [include], False)
+        hfile.seek(0)
+        content = hfile.read()
+        head = clion_project_file_gen._INCLUDE_DIR.format('')
+        expected = head + middle + tail
+        self.assertEqual(content, expected)
+
+    @mock.patch.object(clion_project_file_gen, '_translate_to_cmake')
+    @mock.patch.object(clion_project_file_gen.CLionProjectFileGenerator,
+                       '_parse_compiler_parameters')
+    def test_write_flags_with_content(self, mock_parse, mock_translate):
+        """Test _write_flags function with content."""
+        hfile = StringIO()
+        mod_info = dict(self._MOD_INFO)
+        mod_info.update(self._PATH_DICT)
+        mod_info.update(self._MOD_NAME_DICT)
+        clion_gen = clion_project_file_gen.CLionProjectFileGenerator(mod_info)
+        key = clion_project_file_gen._KEY_GLOBAL_COMMON_FLAGS
+        clion_gen._write_flags(hfile, key, True, True)
+        self.assertTrue(mock_parse.called)
+        self.assertTrue(mock_translate.called)
+
+    def test_write_all_include_directories_without_content(self):
+        """Test _write_all_include_directories function without content."""
+        hfile = StringIO()
+        clion_project_file_gen._write_all_include_directories(hfile, [], True)
+        hfile.seek(0)
+        content = hfile.read()
+        self.assertEqual(content, '')
+        clion_project_file_gen._write_all_include_directories(hfile, [], False)
+        hfile.seek(0)
+        content = hfile.read()
+        self.assertEqual(content, '')
+
+    @mock.patch.object(clion_project_file_gen, '_write_all_headers')
+    @mock.patch.object(clion_project_file_gen, '_write_all_includes')
+    def test_write_all_include_directories_with_content(self, mock_includes,
+                                                        mock_headers):
+        """Test _write_all_include_directories function with content."""
+        hfile = StringIO()
+        includes = ['path_to_include']
+        clion_project_file_gen._write_all_include_directories(
+            hfile, includes, True)
+        self.assertTrue(mock_includes.called)
+        self.assertTrue(mock_headers.called)
+        clion_project_file_gen._write_all_include_directories(
+            hfile, includes, False)
+        self.assertTrue(mock_includes.called)
+        self.assertTrue(mock_headers.called)
+
     def test_write_all_headers_without_content(self):
         """Test _write_all_headers function without content."""
         hfile = StringIO()
@@ -303,28 +399,6 @@ class ClionProjectFileGenUnittests(unittest.TestCase):
         tail1 = clion_project_file_gen._END_WITH_ONE_BLANK_LINE
         tail2 = clion_project_file_gen._APPEND_SOURCE_FILES
         expected = head + middle + tail1 + tail2
-        self.assertEqual(content, expected)
-
-    def test_write_all_includes_with_content(self):
-        """Test _write_all_includes function with content."""
-        hfile = StringIO()
-        include = 'path_to_include'
-        clion_project_file_gen._write_all_includes(hfile, [include], True)
-        hfile.seek(0)
-        content = hfile.read()
-        system = clion_project_file_gen._SYSTEM
-        head = clion_project_file_gen._INCLUDE_DIR.format(system)
-        middle = clion_project_file_gen._SET_INCLUDE_FORMAT.format(
-            clion_project_file_gen._build_cmake_path(include))
-        tail = clion_project_file_gen._END_WITH_TWO_BLANK_LINES
-        expected = head + middle + tail
-        self.assertEqual(content, expected)
-        hfile = StringIO()
-        clion_project_file_gen._write_all_includes(hfile, [include], False)
-        hfile.seek(0)
-        content = hfile.read()
-        head = clion_project_file_gen._INCLUDE_DIR.format('')
-        expected = head + middle + tail
         self.assertEqual(content, expected)
 
 
