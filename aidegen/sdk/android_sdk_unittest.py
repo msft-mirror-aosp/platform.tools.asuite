@@ -39,5 +39,33 @@ class AndroidSDKUnittests(unittest.TestCase):
         self.assertEqual(self.sdk.platform_mapping, {})
         self.assertEqual(self.sdk.android_sdk_path, None)
 
+    def test_parse_max_api_level(self):
+        """Test _parse_max_api_level."""
+        self.sdk._platform_mapping = {
+            'android-29': {
+                'api_level': 29,
+                'code_name': '29',
+            },
+            'android-28': {
+                'api_level': 28,
+                'code_name': '28',
+            },
+        }
+        api_level = self.sdk._parse_max_api_level()
+        self.assertEqual(api_level, 29)
+
+        self.sdk._platform_mapping = {
+            'android-28': {
+                'api_level': 28,
+                'code_name': '28',
+            },
+            'android-Q': {
+                'api_level': 29,
+                'code_name': 'Q',
+            },
+        }
+        api_level = self.sdk._parse_max_api_level()
+        self.assertEqual(api_level, 29)
+
 if __name__ == '__main__':
     unittest.main()
