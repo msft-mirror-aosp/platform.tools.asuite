@@ -29,7 +29,7 @@ _atest_completion_ready() {
     fi
 }
 
-_fetch_testable_modules() {
+_fetch_testable_modules_py3() {
     [[ -z $ANDROID_BUILD_TOP ]] && return 0
     export ATEST_DIR="$ANDROID_BUILD_TOP/$ATEST3_REL_DIR"
     $PYTHON - << END
@@ -54,7 +54,7 @@ END
 
 # This function invoke get_args() and return each item
 # of the list for tab completion candidates.
-_fetch_atest_args() {
+_fetch_atest_args_py3() {
     [[ -z $ANDROID_BUILD_TOP ]] && return 0
     export ATEST_DIR="$ANDROID_BUILD_TOP/$ATEST3_REL_DIR"
     $PYTHON - << END
@@ -85,7 +85,7 @@ _fetch_test_mapping_files() {
 }
 
 # The main tab completion function.
-_atest() {
+_atest_py3() {
     local cur prev
     COMPREPLY=()
     cur="${COMP_WORDS[COMP_CWORD]}"
@@ -94,12 +94,12 @@ _atest() {
 
     case "$cur" in
         -*)
-            COMPREPLY=($(compgen -W "$(_fetch_atest_args)" -- $cur))
+            COMPREPLY=($(compgen -W "$(_fetch_atest_args_py3)" -- $cur))
             ;;
         */*)
             ;;
         *)
-            local candidate_args=$(ls; _fetch_testable_modules)
+            local candidate_args=$(ls; _fetch_testable_modules_py3)
             COMPREPLY=($(compgen -W "$candidate_args" -- $cur))
             ;;
     esac
@@ -133,7 +133,7 @@ _atest() {
     return 0
 }
 
-function _atest_main() {
+function _atest_main_py3() {
     # Only use this in interactive mode.
     # Warning: below check must be "return", not "exit". "exit" won't break the
     # build in interactive shell(e.g VM), but will result in build breakage in
@@ -146,29 +146,29 @@ function _atest_main() {
         return 0
     fi
 
-    # Use Py2 as the default interpreter. This script is aiming for being
+    # Use Py3 as the default interpreter. This script is aiming for being
     # compatible with both Py2 and Py3.
-    if [ -x "$(which python)" ]; then
-        PYTHON=$(which python)
-    elif [ -x "$(which python3)" ]; then
+    if [ -x "$(which python3)" ]; then
         PYTHON=$(which python3)
+    elif [ -x "$(which python2)" ]; then
+        PYTHON=$(which python2)
     else
-        PYTHON="/usr/bin/env python"
+        PYTHON="/usr/bin/env python3"
     fi
 
     # Complete file/dir name first by using option "nosort".
     # BASH version <= 4.3 doesn't have nosort option.
     # Note that nosort has no effect for zsh.
     local _atest_comp_options="-o default -o nosort"
-    local _atest_executables=(atest atest-dev atest-src)
+    local _atest_executables=(atest-py3-dev atest-py3-src)
     for exec in "${_atest_executables[*]}"; do
-        complete -F _atest $_atest_comp_options $exec 2>/dev/null || \
-        complete -F _atest -o default $exec
+        complete -F _atest_py3 $_atest_comp_options $exec 2>/dev/null || \
+        complete -F _atest_py3 -o default $exec
     done
 
     # Install atest-src for the convenience of debugging.
     local atest_src="$(gettop)/$ATEST3_REL_DIR/atest.py"
-    [[ -f "$atest_src" ]] && alias atest-src="$atest_src"
+    [[ -f "$atest_src" ]] && alias atest-py3-src="$atest_src"
 }
 
-_atest_main
+_atest_main_py3
