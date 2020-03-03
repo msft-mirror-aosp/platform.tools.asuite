@@ -58,6 +58,9 @@ _PLATFORMS = 'platforms'
 class SDKConfig():
     """SDK config.
 
+    # TODO(b/150255891): Refactor this class after the AndroidSDK class being
+    #                    merged.
+
     Instance attributes:
         config_file: The absolute file path of the jdk.table.xml, the file
                      might not exist.
