@@ -97,6 +97,8 @@ class AidegenCommonUtilUnittests(unittest.TestCase):
         expected = ('b', '/a/b')
         result = common_util.get_related_paths(mod_info, target=None)
         self.assertEqual(expected, result)
+        result = common_util.get_related_paths(mod_info, target='.')
+        self.assertEqual(expected, result)
 
     @mock.patch.object(common_util, 'is_android_root')
     @mock.patch.object(common_util, 'get_related_paths')
@@ -295,6 +297,13 @@ class AidegenCommonUtilUnittests(unittest.TestCase):
         with self.assertRaises(TypeError):
             decorator = common_util.check_args(name=str, text=str)
             decorator(parse_rule(1, 2))
+
+    @mock.patch('os.environ.get')
+    def test_get_lunch_target(self, mock_get_env):
+        """Test get_lunch_target."""
+        mock_get_env.return_value = "test"
+        self.assertEqual(
+            common_util.get_lunch_target(), '{"lunch target": "test-test"}')
 
 
 # pylint: disable=unused-argument

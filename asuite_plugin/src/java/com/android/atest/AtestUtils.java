@@ -89,7 +89,9 @@ public class AtestUtils {
             errorMessage.append("- lunch target" + EMPTY_STRING_ERROR);
         }
         if (Strings.isNullOrEmpty(workPath)) {
-            errorMessage.append("- is your project under Android source directory?");
+            errorMessage.append(
+                    "- Atest can only execute when your project is under Android "
+                            + "source directory.");
         }
         return errorMessage.toString();
     }

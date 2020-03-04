@@ -50,6 +50,7 @@ from aidegen.lib import eclipse_project_file_gen
 from aidegen.lib import errors
 from aidegen.lib import ide_util
 from aidegen.lib import module_info
+from aidegen.lib import native_module_info
 from aidegen.lib import native_util
 from aidegen.lib import project_config
 from aidegen.lib import project_file_gen
@@ -80,6 +81,8 @@ _INFO = common_util.COLORED_INFO('INFO:')
 _SKIP_MSG = _SKIP_BUILD_INFO_FUTURE.format(
     common_util.COLORED_INFO('aidegen [ module(s) ] -s'))
 _TIME_EXCEED_MSG = '\n{} {}\n'.format(_INFO, _SKIP_MSG)
+_LAUNCH_CLION_IDES = [
+    constant.IDE_CLION, constant.IDE_INTELLIJ, constant.IDE_ECLIPSE]
 
 
 def _parse_args(args):
@@ -120,7 +123,8 @@ def _parse_args(args):
         '-i',
         '--ide',
         default=['j'],
-        help='Launch IDE type, j: IntelliJ, s: Android Studio, e: Eclipse.')
+        help=('Launch IDE type, j: IntelliJ, s: Android Studio, e: Eclipse, '
+              'c: CLion.'))
     parser.add_argument(
         '-p',
         '--ide-path',
@@ -192,8 +196,8 @@ def _launch_ide(ide_util_obj, project_absolute_path):
 def _launch_native_projects(ide_util_obj, args, cmakelists):
     """Launch native projects with IDE.
 
-    AIDEGen doesn't provide the IDE argument for CLion, here're the rules how
-    to launch it:
+    AIDEGen provide the IDE argument for CLion, but there's still a implicit way
+    to launch it. The rules to launch it are:
     1. If no target IDE, we don't have to launch any IDE for native project.
     2. If the target IDE is IntelliJ or Eclipse, we should launch native
        projects with CLion.
@@ -207,7 +211,7 @@ def _launch_native_projects(ide_util_obj, args, cmakelists):
         return
     native_ide_util_obj = ide_util_obj
     ide_name = constant.IDE_NAME_DICT[args.ide[0]]
-    if ide_name in (constant.IDE_INTELLIJ, constant.IDE_ECLIPSE):
+    if ide_name in _LAUNCH_CLION_IDES:
         native_ide_util_obj = ide_util.get_ide_util_instance('c')
     if native_ide_util_obj:
         _launch_ide(native_ide_util_obj, ' '.join(cmakelists))
@@ -316,12 +320,15 @@ def aidegen_main(args):
     targets = project_config.ProjectConfig.get_instance().targets
     ide_util_obj = ide_util.get_ide_util_instance(args.ide[0])
     project_info.ProjectInfo.modules_info = module_info.AidegenModuleInfo()
-    cmakelists, targets = native_util.check_native_projects(
-        project_info.ProjectInfo.modules_info, targets)
-    if cmakelists:
-        _launch_native_projects(ide_util_obj, args, cmakelists)
-    if targets:
-        _create_and_launch_java_projects(ide_util_obj, targets)
+    path_info = native_module_info.NativeModuleInfo().path_to_module_info
+    jtargets, ctargets = native_util.analyze_native_and_java_projects(
+        project_info.ProjectInfo.modules_info, path_info, targets)
+    native_project_file = native_util.generate_clion_projects(ctargets)
+    if native_project_file:
+        _launch_native_projects(ide_util_obj, args, [native_project_file])
+    ide_name = constant.IDE_NAME_DICT[args.ide[0]]
+    if ide_name != constant.IDE_CLION and jtargets:
+        _create_and_launch_java_projects(ide_util_obj, jtargets)
 
 
 if __name__ == '__main__':

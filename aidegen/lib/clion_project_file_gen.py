@@ -14,31 +14,31 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""clion_project_file_gen
+"""It is an AIDEGen sub task: generate the CLion project file.
 
-This module has a collection of helper functions for generating CLion's
-CMakeLists.txt project file.
-
-Example usage:
-    json_path = common_util.get_blueprint_cc_json_path()
+    Usage example:
+    json_path = common_util.get_blueprint_json_path(
+        constant.BLUEPRINT_CC_JSONFILE_NAME)
     json_dict = common_util.get_soong_build_json_dict(json_path)
-    modules_dict = json_dict.get('modules', {})
-    if not modules_dict:
+    if 'modules' not in json_dict:
         return
-    mod_info = modules_dict.get('libui', {})
+    mod_info = json_dict['modules'].get('libui', {})
     if not mod_info:
         return
-    clion_project_file_gen.generate_cmakelists_file(mod_info)
+    CLionProjectFileGenerator(mod_info).generate_cmakelists_file()
 """
 
+import logging
 import os
 
-from functools import partial
 from io import StringIO
 from io import TextIOWrapper
 
 from aidegen import constant
+from aidegen import templates
 from aidegen.lib import common_util
+from aidegen.lib import errors
+from aidegen.lib import native_module_info
 
 # Flags for writing to CMakeLists.txt section.
 _GLOBAL_COMMON_FLAGS = '\n# GLOBAL ALL FLAGS:\n'
@@ -83,16 +83,18 @@ _KEY_SYSTEM_ROOT = 'system_root'
 _KEY_RELATIVE = 'relative_file_path'
 
 # Constants for CMakeLists.txt.
-_CMAKELISTS_HEADER = ('# THIS FILE WAS AUTOMATICALY GENERATED!\n'
-                      '# ANY MODIFICATION WILL BE OVERWRITTEN!\n\n'
-                      '# To improve project view in Clion    :\n'
-                      '# Tools > CMake > Change Project Root  \n\n')
+_MIN_VERSION_TOKEN = '@MINVERSION@'
+_PROJECT_NAME_TOKEN = '@PROJNAME@'
+_ANDOIR_ROOT_TOKEN = '@ANDROIDROOT@'
 _MINI_VERSION_SUPPORT = 'cmake_minimum_required(VERSION {})\n'
 _MINI_VERSION = '3.5'
-_PROJECT_NAME = 'project({})\n'
-_SET_ANDROID_ROOT = 'set(ANDROID_ROOT {})\n\n'
+_KEY_CLANG = 'clang'
+_KEY_CPPLANG = 'clang++'
+_SET_C_COMPILER = 'set(CMAKE_C_COMPILER \"{}\")\n'
+_SET_CXX_COMPILER = 'set(CMAKE_CXX_COMPILER \"{}\")\n'
 _LIST_APPEND_HEADER = 'list(APPEND\n'
 _SOURCE_FILES_HEADER = 'SOURCE_FILES'
+_SOURCE_FILES_LINE = '     SOURCE_FILES\n'
 _END_WITH_ONE_BLANK_LINE = ')\n'
 _END_WITH_TWO_BLANK_LINES = ')\n\n'
 _SET_RELATIVE_PATH = 'set({} "{} {}={}")\n'
@@ -109,136 +111,328 @@ _INCLUDE_SYSTEM = 'include_directories(SYSTEM "{}")\n'
 _GLOB_RECURSE_TMP_HEADERS = 'file (GLOB_RECURSE TMP_HEADERS\n'
 _ALL_HEADER_FILES = '    "{}/**/*.h"\n'
 _APPEND_SOURCE_FILES = "list (APPEND SOURCE_FILES ${TMP_HEADERS})\n\n"
+_ADD_EXECUTABLE_HEADER = '\nadd_executable({} {})'
+_PROJECT = 'project({})\n'
+_ADD_SUB = 'add_subdirectory({})\n'
+_DICT_EMPTY = 'mod_info is empty.'
+_DICT_NO_MOD_NAME_KEY = "mod_info does not contain 'module_name' key."
+_DICT_NO_PATH_KEY = "mod_info does not contain 'path' key."
+_MODULE_INFO_EMPTY = 'The module info dictionary is empty.'
 
 
-# The temporary pylint disable statements are only used for the skeleton upload.
-# pylint: disable=unused-argument
-@common_util.check_args(
-    hfile=(TextIOWrapper, StringIO), module_name=str, root_dir=str)
-@common_util.io_error_handle
-def _write_header(hfile, module_name, root_dir):
-    """Writes CLion project file's header messages.
+class CLionProjectFileGenerator:
+    """CLion project file generator.
 
-    Args:
-        hfile: A file handler instance.
-        module_name: A string of module's name.
-        root_dir: A string of Android root path.
-    """
-    hfile.write(_CMAKELISTS_HEADER)
-    hfile.write(_MINI_VERSION_SUPPORT.format(_MINI_VERSION))
-    hfile.write(_PROJECT_NAME.format(module_name))
-    hfile.write(_SET_ANDROID_ROOT.format(root_dir))
-
-
-@common_util.check_args(hfile=(TextIOWrapper, StringIO))
-@common_util.io_error_handle
-def _write_c_compiler_paths(hfile):
-    """Writes CMake compiler paths for C and Cpp to CLion project file.
-
-    Args:
-        hfile: A file handler instance.
+    Attributes:
+        mod_info: A dictionary of the target module's info.
+        mod_name: A string of module name.
+        mod_path: A string of module's path.
+        cc_dir: A string of generated CLion project file's directory.
+        cc_path: A string of generated CLion project file's path.
     """
 
+    def __init__(self, mod_info):
+        """ProjectFileGenerator initialize.
 
-@common_util.check_args(hfile=(TextIOWrapper, StringIO), mod_info=dict)
+        Args:
+            mod_info: A dictionary of native module's info.
+        """
+        if not mod_info:
+            raise errors.ModuleInfoEmptyError(_MODULE_INFO_EMPTY)
+        self.mod_info = mod_info
+        self.mod_name = self._get_module_name()
+        self.mod_path = CLionProjectFileGenerator.get_module_path(mod_info)
+        self.cc_dir = CLionProjectFileGenerator.get_cmakelists_file_dir(
+            os.path.join(self.mod_path, self.mod_name))
+        if not os.path.exists(self.cc_dir):
+            os.makedirs(self.cc_dir)
+        self.cc_path = os.path.join(self.cc_dir,
+                                    constant.CLION_PROJECT_FILE_NAME)
+
+    def _get_module_name(self):
+        """Gets the value of the 'module_name' key if it exists.
+
+        Returns:
+            A string of the module's name.
+
+        Raises:
+            NoModuleNameDefinedInModuleInfoError if no 'module_name' key in
+            mod_info.
+        """
+        mod_name = self.mod_info.get(constant.KEY_MODULE_NAME, '')
+        if not mod_name:
+            raise errors.NoModuleNameDefinedInModuleInfoError(
+                _DICT_NO_MOD_NAME_KEY)
+        return mod_name
+
+    @staticmethod
+    def get_module_path(mod_info):
+        """Gets the first value of the 'path' key if it exists.
+
+        Args:
+            mod_info: A module's info dictionary.
+
+        Returns:
+            A string of the module's path.
+
+        Raises:
+            NoPathDefinedInModuleInfoError if no 'path' key in mod_info.
+        """
+        mod_paths = mod_info.get(constant.KEY_PATH, [])
+        if not mod_paths:
+            raise errors.NoPathDefinedInModuleInfoError(_DICT_NO_PATH_KEY)
+        return mod_paths[0]
+
+    @staticmethod
+    @common_util.check_args(cc_path=str)
+    def get_cmakelists_file_dir(cc_path):
+        """Gets module's CMakeLists.txt file path to be created.
+
+        Return a string of $OUT/development/ide/clion/${cc_path}.
+        For example, if module name is 'libui'. The return path string would be:
+            out/development/ide/clion/frameworks/native/libs/ui/libui
+
+        Args:
+            cc_path: A string of absolute path of module's Android.bp file.
+
+        Returns:
+            A string of absolute path of module's CMakeLists.txt file to be
+            created.
+        """
+        return os.path.join(common_util.get_android_root_dir(),
+                            common_util.get_android_out_dir(),
+                            constant.RELATIVE_NATIVE_PATH, cc_path)
+
+    def generate_cmakelists_file(self):
+        """Generates CLion project file from the target module's info."""
+        with open(self.cc_path, 'w') as hfile:
+            self._write_cmakelists_file(hfile)
+
+    @common_util.check_args(hfile=(TextIOWrapper, StringIO))
+    @common_util.io_error_handle
+    def _write_cmakelists_file(self, hfile):
+        """Writes CLion project file content with neccessary info.
+
+        Args:
+            hfile: A file handler instance.
+        """
+        self._write_header(hfile)
+        self._write_c_compiler_paths(hfile)
+        self._write_source_files(hfile)
+        self._write_cmakelists_flags(hfile)
+        self._write_tail(hfile)
+
+    @common_util.check_args(hfile=(TextIOWrapper, StringIO))
+    @common_util.io_error_handle
+    def _write_header(self, hfile):
+        """Writes CLion project file's header messages.
+
+        Args:
+            hfile: A file handler instance.
+        """
+        content = templates.CMAKELISTS_HEADER.replace(
+            _MIN_VERSION_TOKEN, _MINI_VERSION)
+        content = content.replace(_PROJECT_NAME_TOKEN, self.mod_name)
+        content = content.replace(
+            _ANDOIR_ROOT_TOKEN, common_util.get_android_root_dir())
+        hfile.write(content)
+
+    @common_util.check_args(hfile=(TextIOWrapper, StringIO))
+    @common_util.io_error_handle
+    def _write_c_compiler_paths(self, hfile):
+        """Writes CMake compiler paths for C and Cpp to CLion project file.
+
+        Args:
+            hfile: A file handler instance.
+        """
+        hfile.write(_SET_C_COMPILER.format(
+            native_module_info.NativeModuleInfo.c_lang_path))
+        hfile.write(_SET_CXX_COMPILER.format(
+            native_module_info.NativeModuleInfo.cpp_lang_path))
+
+    @common_util.check_args(hfile=(TextIOWrapper, StringIO))
+    @common_util.io_error_handle
+    def _write_source_files(self, hfile):
+        """Writes source files' paths to CLion project file.
+
+        Args:
+            hfile: A file handler instance.
+        """
+        if constant.KEY_SRCS not in self.mod_info:
+            logging.warning("No source files in %s's module info.",
+                            self.mod_name)
+            return
+        source_files = self.mod_info[constant.KEY_SRCS]
+        hfile.write(_LIST_APPEND_HEADER)
+        hfile.write(_SOURCE_FILES_LINE)
+        for src in source_files:
+            hfile.write(''.join([_build_cmake_path(src, '    '), '\n']))
+        hfile.write(_END_WITH_ONE_BLANK_LINE)
+
+    @common_util.check_args(hfile=(TextIOWrapper, StringIO))
+    @common_util.io_error_handle
+    def _write_cmakelists_flags(self, hfile):
+        """Writes all kinds of flags in CLion project file.
+
+        Args:
+            hfile: A file handler instance.
+        """
+        self._write_flags(hfile, _KEY_GLOBAL_COMMON_FLAGS, True, True)
+        self._write_flags(hfile, _KEY_LOCAL_COMMON_FLAGS, True, True)
+        self._write_flags(hfile, _KEY_GLOBAL_CFLAGS, True, True)
+        self._write_flags(hfile, _KEY_LOCAL_CFLAGS, True, True)
+        self._write_flags(hfile, _KEY_GLOBAL_C_ONLY_FLAGS, True, False)
+        self._write_flags(hfile, _KEY_LOCAL_C_ONLY_FLAGS, True, False)
+        self._write_flags(hfile, _KEY_GLOBAL_CPP_FLAGS, False, True)
+        self._write_flags(hfile, _KEY_LOCAL_CPP_FLAGS, False, True)
+        self._write_flags(hfile, _KEY_SYSTEM_INCLUDE_FLAGS, True, True)
+
+    @common_util.check_args(hfile=(TextIOWrapper, StringIO))
+    @common_util.io_error_handle
+    def _write_tail(self, hfile):
+        """Writes CLion project file content with necessary info.
+
+        Args:
+            hfile: A file handler instance.
+        """
+        hfile.write(
+            _ADD_EXECUTABLE_HEADER.format(
+                self.mod_name, _add_dollar_sign(_SOURCE_FILES_HEADER)))
+
+    @common_util.check_args(
+        hfile=(TextIOWrapper, StringIO), key=str, cflags=bool, cppflags=bool)
+    @common_util.io_error_handle
+    def _write_flags(self, hfile, key, cflags, cppflags):
+        """Writes CMake compiler paths of C, Cpp for different kinds of flags.
+
+        Args:
+            hfile: A file handler instance.
+            key: A string of flag type, e.g., 'global_common_flags' flag.
+            cflags: A boolean for setting 'CMAKE_C_FLAGS' flag.
+            cppflags: A boolean for setting 'CMAKE_CXX_FLAGS' flag.
+        """
+        if key not in _FLAGS_DICT:
+            return
+        hfile.write(_FLAGS_DICT[key])
+        params_dict = self._parse_compiler_parameters(key)
+        if params_dict:
+            _translate_to_cmake(hfile, params_dict, cflags, cppflags)
+
+    @common_util.check_args(flag=str)
+    def _parse_compiler_parameters(self, flag):
+        """Parses the specific flag data from a module_info dictionary.
+
+        Args:
+            flag: The string of key flag, e.g.: _KEY_GLOBAL_COMMON_FLAGS.
+
+        Returns:
+            A dictionary with compiled parameters.
+        """
+        params = self.mod_info.get(flag, {})
+        if not params:
+            return None
+        params_dict = {
+            _KEY_HEADER: [],
+            _KEY_SYSTEM: [],
+            _KEY_FLAG: [],
+            _KEY_SYSTEM_ROOT: '',
+            _KEY_RELATIVE: {}
+        }
+        for key, value in params.items():
+            params_dict[key] = value
+        return params_dict
+
+
+@common_util.check_args(rel_project_path=str, mod_names=list)
 @common_util.io_error_handle
-def _write_source_files(hfile, mod_info):
-    """Writes source files' paths to CLion project file.
+def generate_base_cmakelists_file(cc_module_info, rel_project_path, mod_names):
+    """Generates base CLion project file for multiple CLion projects.
+
+    We create a multiple native project file:
+    {android_root}/development/ide/clion/{rel_project_path}/CMakeLists.txt
+    and use this project file to generate a link:
+    {android_root}/out/development/ide/clion/{rel_project_path}/CMakeLists.txt
 
     Args:
-        hfile: A file handler instance.
-        mod_info: A module's info dictionary.
-    """
-    if constant.KEY_SRCS not in mod_info:
-        return
-    source_files = mod_info[constant.KEY_SRCS]
-    hfile.write(_LIST_APPEND_HEADER)
-    hfile.write(''.join(['     ', _SOURCE_FILES_HEADER, '\n']))
-    for src in source_files:
-        hfile.write(''.join([_build_cmake_path(src, '    '), '\n']))
-    hfile.write(_END_WITH_ONE_BLANK_LINE)
-
-
-@common_util.check_args(
-    hfile=(TextIOWrapper, StringIO), mod_info=dict, key=str, cflags=bool,
-    cppflags=bool)
-@common_util.io_error_handle
-def _write_flags(hfile, mod_info, key, cflags, cppflags):
-    """Writes CMake compiler paths for C and Cpp for different kinds of flags.
-
-    Args:
-        hfile: A file handler instance.
-        mod_info: A module's info dictionary.
-        key: A string of flag type, e.g., _KEY_GLOBAL_COMMON_FLAGS.
-        cflags: A boolean for setting 'CMAKE_C_FLAGS' flag.
-        cppflags: A boolean for setting 'CMAKE_CXX_FLAGS' flag.
-    """
-    if key not in _FLAGS_DICT:
-        return
-    hfile.write(_FLAGS_DICT[key])
-    params_dict = _parse_compiler_parameters(key, mod_info)
-    if params_dict:
-        _translate_to_cmake(hfile, params_dict, cflags, cppflags)
-
-
-# Functions to simplify the calling to function _write_flags with some fixed
-# parameters.
-_WRITE_GLOBAL_COMMON_FLAGS = partial(
-    _write_flags, key=_KEY_GLOBAL_COMMON_FLAGS, cflags=True, cppflags=True)
-_WRITE_LOCAL_COMMON_FLAGS = partial(
-    _write_flags, key=_KEY_LOCAL_COMMON_FLAGS, cflags=True, cppflags=True)
-_WRITE_GLOBAL_C_FLAGS = partial(
-    _write_flags, key=_KEY_GLOBAL_CFLAGS, cflags=True, cppflags=True)
-_WRITE_LOCAL_C_FLAGS = partial(
-    _write_flags, key=_KEY_LOCAL_CFLAGS, cflags=True, cppflags=True)
-_WRITE_GLOBAL_C_ONLY_FLAGS = partial(
-    _write_flags, key=_KEY_GLOBAL_C_ONLY_FLAGS, cflags=True, cppflags=False)
-_WRITE_LOCAL_C_ONLY_FLAGS = partial(
-    _write_flags, key=_KEY_LOCAL_C_ONLY_FLAGS, cflags=True, cppflags=False)
-_WRITE_GLOBAL_CPP_FLAGS = partial(
-    _write_flags, key=_KEY_GLOBAL_CPP_FLAGS, cflags=False, cppflags=True)
-_WRITE_LOCAL_CPP_FLAGS = partial(
-    _write_flags, key=_KEY_LOCAL_CPP_FLAGS, cflags=False, cppflags=True)
-_WRITE_SYSTEM_INCLUDE_FLAGS = partial(
-    _write_flags, key=_KEY_SYSTEM_INCLUDE_FLAGS, cflags=True, cppflags=True)
-
-
-@common_util.check_args(flag=str, mod_info=dict)
-def _parse_compiler_parameters(flag, mod_info):
-    """Parses the specific flag data from a module_info dictionary.
-
-    Args:
-        flag: The string of key flag, e.g.: _KEY_GLOBAL_COMMON_FLAGS.
-        mod_info: A module's info dictionary.
+        cc_module_info: An instance of native_module_info.NativeModuleInfo.
+        rel_project_path: A string of the base project relative path. For
+                          example: frameworks/native/libs/ui.
+        mod_names: A list of module names whose project were created under
+                   rel_project_path.
 
     Returns:
-        A dictionary with compiled parameters.
+        A symbolic link CLion project file path.
     """
-    params = mod_info.get(flag, {})
-    if not params:
-        return None
-    params_dict = {
-        _KEY_HEADER: [],
-        _KEY_SYSTEM: [],
-        _KEY_FLAG: [],
-        _KEY_SYSTEM_ROOT: '',
-        _KEY_RELATIVE: {}
-    }
-    for key, value in params.items():
-        params_dict[key] = value
-    return params_dict
+    root_dir = common_util.get_android_root_dir()
+    cc_dir = os.path.join(root_dir, constant.RELATIVE_NATIVE_PATH,
+                          rel_project_path)
+    cc_out_dir = os.path.join(root_dir, common_util.get_android_out_dir(),
+                              constant.RELATIVE_NATIVE_PATH, rel_project_path)
+    if not os.path.exists(cc_dir):
+        os.makedirs(cc_dir)
+    dst_path = os.path.join(cc_out_dir, constant.CLION_PROJECT_FILE_NAME)
+    if os.path.islink(dst_path):
+        os.unlink(dst_path)
+    src_path = os.path.join(cc_dir, constant.CLION_PROJECT_FILE_NAME)
+    if os.path.isfile(src_path):
+        os.remove(src_path)
+    with open(src_path, 'w') as hfile:
+        _write_base_cmakelists_file(hfile, cc_module_info, src_path, mod_names)
+    os.symlink(src_path, dst_path)
+    return dst_path
+
+
+@common_util.check_args(
+    hfile=(TextIOWrapper, StringIO), abs_project_path=str, mod_names=list)
+@common_util.io_error_handle
+def _write_base_cmakelists_file(hfile, cc_module_info, abs_project_path,
+                                mod_names):
+    """Writes base CLion project file content.
+
+    When we write module info into base CLion project file, first check if the
+    module's CMakeLists.txt exists. If file exists, write content,
+        add_subdirectory({'relative_module_path'})
+
+    Args:
+        hfile: A file handler instance.
+        cc_module_info: An instance of native_module_info.NativeModuleInfo.
+        abs_project_path: A string of the base project absolute path.
+                          For example,
+                              ${ANDROID_BUILD_TOP}/frameworks/native/libs/ui.
+        mod_names: A list of module names whose project were created under
+                   abs_project_path.
+    """
+    hfile.write(_MINI_VERSION_SUPPORT.format(_MINI_VERSION))
+    project_dir = os.path.dirname(abs_project_path)
+    hfile.write(_PROJECT.format(os.path.basename(project_dir)))
+    root_dir = common_util.get_android_root_dir()
+    for mod_name in mod_names:
+        mod_info = cc_module_info.get_module_info(mod_name)
+        mod_path = CLionProjectFileGenerator.get_module_path(mod_info)
+        file_dir = CLionProjectFileGenerator.get_cmakelists_file_dir(
+            os.path.join(mod_path, mod_name))
+        file_path = os.path.join(file_dir, constant.CLION_PROJECT_FILE_NAME)
+        if not os.path.isfile(file_path):
+            logging.warning("%s the project file %s doesn't exist.",
+                            common_util.COLORED_INFO('Warning:'), file_path)
+            continue
+        link_project_dir = os.path.join(root_dir,
+                                        common_util.get_android_out_dir(),
+                                        os.path.relpath(project_dir, root_dir))
+        rel_mod_path = os.path.relpath(file_dir, link_project_dir)
+        hfile.write(_ADD_SUB.format(rel_mod_path))
 
 
 @common_util.check_args(
     hfile=(TextIOWrapper, StringIO), params_dict=dict, cflags=bool,
     cppflags=bool)
 def _translate_to_cmake(hfile, params_dict, cflags, cppflags):
-    """Translates parameter dict's contents into CLion project file's format.
+    """Translates parameter dict's contents into CLion project file format.
 
     Args:
         hfile: A file handler instance.
-        params_dict: A dict contains data to be translated into CLion project
-                     file's format.
+        params_dict: A dict contains data to be translated into CLion
+                     project file format.
         cflags: A boolean is to set 'CMAKE_C_FLAGS' flag.
         cppflags: A boolean is to set 'CMAKE_CXX_FLAGS' flag.
     """
@@ -260,6 +454,22 @@ def _translate_to_cmake(hfile, params_dict, cflags, cppflags):
         hfile.write(_INCLUDE_SYSTEM.format(_build_cmake_path(path)))
 
 
+@common_util.check_args(hfile=(TextIOWrapper, StringIO), is_system=bool)
+@common_util.io_error_handle
+def _write_all_include_directories(hfile, includes, is_system):
+    """Writes all included directories' paths to the CLion project file.
+
+    Args:
+        hfile: A file handler instance.
+        includes: A list of included file paths.
+        is_system: A boolean of whether it's a system flag.
+    """
+    if not includes:
+        return
+    _write_all_includes(hfile, includes, is_system)
+    _write_all_headers(hfile, includes)
+
+
 @common_util.check_args(
     hfile=(TextIOWrapper, StringIO), rel_paths_dict=dict, tag=str)
 @common_util.io_error_handle
@@ -278,18 +488,6 @@ def _write_all_relative_file_path_flags(hfile, rel_paths_dict, tag):
                                       _build_cmake_path(path)))
 
 
-def _add_dollar_sign(tag):
-    """Adds dollar sign to a string, e.g.: 'ANDROID_ROOT' -> '${ANDROID_ROOT}'.
-
-    Args:
-        tag: A string to be added a dollar sign.
-
-    Returns:
-        A dollar sign added string.
-    """
-    return ''.join(['${', tag, '}'])
-
-
 @common_util.check_args(hfile=(TextIOWrapper, StringIO), flags=list, tag=str)
 @common_util.io_error_handle
 def _write_all_flags(hfile, flags, tag):
@@ -302,6 +500,18 @@ def _write_all_flags(hfile, flags, tag):
     """
     for flag in flags:
         hfile.write(_SET_ALL_FLAGS.format(tag, _add_dollar_sign(tag), flag))
+
+
+def _add_dollar_sign(tag):
+    """Adds dollar sign to a string, e.g.: 'ANDROID_ROOT' -> '${ANDROID_ROOT}'.
+
+    Args:
+        tag: A string to be added a dollar sign.
+
+    Returns:
+        A dollar sign added string.
+    """
+    return ''.join(['${', tag, '}'])
 
 
 def _build_cmake_path(path, tag=''):
@@ -354,56 +564,3 @@ def _write_all_headers(hfile, includes):
         hfile.write(_ALL_HEADER_FILES.format(_build_cmake_path(include)))
     hfile.write(_END_WITH_ONE_BLANK_LINE)
     hfile.write(_APPEND_SOURCE_FILES)
-
-
-@common_util.check_args(hfile=(TextIOWrapper, StringIO), is_system=bool)
-@common_util.io_error_handle
-def _write_all_include_directories(hfile, includes, is_system):
-    """Writes all included directories' paths to the CLion project file.
-
-    Args:
-        hfile: A file handler instance.
-        includes: A list of included file paths.
-        is_system: A boolean of whether it's a system flag.
-    """
-    if not includes:
-        return
-    _write_all_includes(hfile, includes, is_system)
-    _write_all_headers(hfile, includes)
-
-
-def _get_cmakelists_file_dir(cc_path):
-    """Gets module's CMakeLists.txt file path to be created.
-
-    Return a string of $OUT/development/ide/clion/${cc_path}/[module name].
-    For example, if module name is 'libui'. The return path string would be:
-        out/development/ide/clion/frameworks/native/libs/ui/libui
-
-    Args:
-        cc_path: A string of relative path of module's Android.bp file.
-
-    Returns:
-        A string of relative path of module's CMakeLists.txt file to be created.
-    """
-
-
-@common_util.check_args(mod_info=dict)
-@common_util.io_error_handle
-def generate_cmakelists_file(mod_info):
-    """Generates CLion project file from the target module's info.
-
-    Args:
-        mod_info: A module's info dictionary.
-    """
-
-
-@common_util.io_error_handle
-def generate_base_cmakelists_file(cc_module_info, project_path, mod_names):
-    """Generates base CLion project file for multiple CLion projects.
-
-    Args:
-        cc_module_info: An instance of native_module_info.NativeModuleInfo.
-        project_path: A string of the base project relative path.
-        mod_names: A list of module names whose project were created under
-                   project_path.
-    """

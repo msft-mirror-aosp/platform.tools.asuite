@@ -20,6 +20,8 @@ OUT_DIR_COMMON_BASE_ENV_VAR = 'OUT_DIR_COMMON_BASE'
 ANDROID_DEFAULT_OUT = 'out'
 AIDEGEN_ROOT_PATH = 'tools/asuite/aidegen'
 USER_HOME = '$USER_HOME$'
+TARGET_PRODUCT = 'TARGET_PRODUCT'
+TARGET_BUILD_VARIANT = 'TARGET_BUILD_VARIANT'
 
 # Constants for module's info.
 KEY_PATH = 'path'
@@ -80,6 +82,10 @@ CMAKELISTS_FILE_NAME = 'clion_project_lists.txt'
 CLION_PROJECT_FILE_NAME = 'CMakeLists.txt'
 ANDROID_BP = 'Android.bp'
 ANDROID_MK = 'Android.mk'
+JAVA_FILES = '*.java'
+
+# Constants for file paths
+RELATIVE_NATIVE_PATH = 'development/ide/clion'
 
 # Constants for whole Android tree
 WHOLE_ANDROID_TREE_TARGET = '#WHOLE_ANDROID_TREE#'
@@ -96,3 +102,6 @@ LINUX_GLIBC_COMMON = 'linux_glibc_common'
 NOHUP = 'nohup'
 ECLIPSE_WS = '~/Documents/AIDEGen_Eclipse_workspace'
 IGNORE_STD_OUT_ERR_CMD = '2>/dev/null >&2'
+
+# Constants for environment
+LUNCH_TARGET = 'lunch target'
