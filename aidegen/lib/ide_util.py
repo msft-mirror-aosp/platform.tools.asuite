@@ -728,6 +728,22 @@ class IdeStudio(IdeBase):
                 versions.remove(version)
         return self._get_user_preference(versions)
 
+    def apply_optional_config(self):
+        """Do the configuration of Android Studio.
+
+        Configures code style and SDK for Java project and do nothing for
+        others.
+        """
+        if not self.project_abspath:
+            return
+        # TODO(b/150662865): The following workaround should be replaced.
+        # Since the path of the artifact for Java is the .idea directory but
+        # native is a CMakeLists.txt file using this to workaround first.
+        if os.path.isfile(self.project_abspath):
+            return
+        if os.path.isdir(self.project_abspath):
+            IdeBase.apply_optional_config(self)
+
 
 class IdeLinuxStudio(IdeStudio):
     """Class offers a set of Android Studio launching utilities for OS Linux.
