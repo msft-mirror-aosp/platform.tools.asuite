@@ -202,5 +202,18 @@ class AidegenMainUnittests(unittest.TestCase):
         self.assertFalse(mock_get_ide.called)
         self.assertTrue(mock_launch_ide.called)
 
+    @mock.patch('builtins.print')
+    def test_launch_ide(self, mock_print):
+        """Test _launch_ide function with config parameter."""
+        mock_ide_util = mock.MagicMock()
+        mock_ide_util.launch_ide.return_value = None
+        mock_ide_util.config_ide.return_value = None
+        launch_path = '/test/launch/ide/method'
+        aidegen_main._launch_ide(mock_ide_util, launch_path)
+        self.assertTrue(mock_ide_util.config_ide.called)
+        self.assertTrue(mock_ide_util.launch_ide.called)
+        mock_print.return_value = None
+
+
 if __name__ == '__main__':
     unittest.main()
