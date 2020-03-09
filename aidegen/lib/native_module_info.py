@@ -19,6 +19,7 @@
 Module Info class used to hold cached module_bp_cc_deps.json.
 """
 
+import logging
 import os
 
 from aidegen import constant
@@ -28,6 +29,7 @@ from aidegen.lib import module_info
 _CLANG = 'clang'
 _CPPLANG = 'clang++'
 _MODULES = 'modules'
+_INCLUDE_TAIL = '_genc++_headers'
 
 
 class NativeModuleInfo(module_info.AidegenModuleInfo):
@@ -95,29 +97,172 @@ class NativeModuleInfo(module_info.AidegenModuleInfo):
                     projects.extend(self.get_module_names(path))
         return projects
 
+    def get_module_includes(self, mod_name):
+        """Gets module's include paths from module name.
+
+        The include paths contain in 'header_search_path' and
+        'system_search_path' of all flags in native module info.
+
+        Args:
+            mod_name: A string of module name.
+
+        Returns:
+            A set of module include paths relative to android root.
+        """
+        includes = set()
+        mod_info = self.name_to_module_info.get(mod_name, {})
+        if not mod_info:
+            logging.warning('%s module name %s does not exist.',
+                            common_util.COLORED_INFO('Warning:'), mod_name)
+            return includes
+        for flag in mod_info:
+            for header in (constant.KEY_HEADER, constant.KEY_SYSTEM):
+                if header in mod_info[flag]:
+                    includes.update(set(mod_info[flag][header]))
+        return includes
+
+    def get_gen_includes(self, mod_name):
+        """Gets module's include paths which need to be generated.
+
+        Gets module's include paths which don't exist, e.g.,
+            'out/soong/../android.frameworks.bufferhub@1.0_genc++_headers/gen'
+        if the path doesn't exist we should generate the header files in it.
+        In this example, if module 'android.frameworks.bufferhub@1.0' exists in
+        native module info, we have to build it to generate include header files
+        for the native module.
+
+        Args:
+            mod_name: A string of module name.
+
+        Returns:
+            A set of rebuild target names.
+        """
+        android_root_dir = common_util.get_android_root_dir()
+        includes = self.get_module_includes(mod_name)
+        mod_names = set()
+        for include in includes:
+            if not os.path.isdir(os.path.join(android_root_dir, include)):
+                target = os.path.basename(os.path.dirname(include))
+                target = target.rstrip(_INCLUDE_TAIL)
+                if target in self.name_to_module_info:
+                    mod_names.add(target)
+        return mod_names
+
     def is_suite_in_compatibility_suites(self, suite, mod_info):
+        """Check if suite exists in the compatibility_suites of module-info.
+
+        Args:
+            suite: A string of suite name.
+            mod_info: Dict of module info to check.
+
+        Returns:
+            True if it exists in mod_info, False otherwise.
+        """
         raise NotImplementedError()
 
     def get_testable_modules(self, suite=None):
+        """Return the testable modules of the given suite name.
+
+        Args:
+            suite: A string of suite name. Set to None to return all testable
+            modules.
+
+        Returns:
+            List of testable modules. Empty list if non-existent.
+            If suite is None, return all the testable modules in module-info.
+        """
         raise NotImplementedError()
 
     def is_testable_module(self, mod_info):
+        """Check if module is something we can test.
+
+        A module is testable if:
+          - it's installed, or
+          - it's a robolectric module (or shares path with one).
+
+        Args:
+            mod_info: Dict of module info to check.
+
+        Returns:
+            True if we can test this module, False otherwise.
+        """
         raise NotImplementedError()
 
     def has_test_config(self, mod_info):
+        """Validate if this module has a test config.
+
+        A module can have a test config in the following manner:
+          - AndroidTest.xml at the module path.
+          - test_config be set in module-info.json.
+          - Auto-generated config via the auto_test_config key in
+            module-info.json.
+
+        Args:
+            mod_info: Dict of module info to check.
+
+        Returns:
+            True if this module has a test config, False otherwise.
+        """
         raise NotImplementedError()
 
     def get_robolectric_test_name(self, module_name):
+        """Returns runnable robolectric module name.
+
+        There are at least 2 modules in every robolectric module path, return
+        the module that we can run as a build target.
+
+        Arg:
+            module_name: String of module.
+
+        Returns:
+            String of module that is the runnable robolectric module, None if
+            none could be found.
+        """
         raise NotImplementedError()
 
     def is_robolectric_test(self, module_name):
+        """Check if module is a robolectric test.
+
+        A module can be a robolectric test if the specified module has their
+        class set as ROBOLECTRIC (or shares their path with a module that does).
+
+        Args:
+            module_name: String of module to check.
+
+        Returns:
+            True if the module is a robolectric module, else False.
+        """
         raise NotImplementedError()
 
     def is_auto_gen_test_config(self, module_name):
+        """Check if the test config file will be generated automatically.
+
+        Args:
+            module_name: A string of the module name.
+
+        Returns:
+            True if the test config file will be generated automatically.
+        """
         raise NotImplementedError()
 
     def is_robolectric_module(self, mod_info):
+        """Check if a module is a robolectric module.
+
+        Args:
+            mod_info: ModuleInfo to check.
+
+        Returns:
+            True if module is a robolectric module, False otherwise.
+        """
         raise NotImplementedError()
 
     def is_native_test(self, module_name):
+        """Check if the input module is a native test.
+
+        Args:
+            module_name: A string of the module name.
+
+        Returns:
+            True if the test is a native test, False otherwise.
+        """
         raise NotImplementedError()
