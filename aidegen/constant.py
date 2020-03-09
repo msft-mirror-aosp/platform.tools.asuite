@@ -37,6 +37,9 @@ KEY_COMPATIBILITY = 'compatibility_suites'
 KEY_AUTO_TEST_CONFIG = 'auto_test_config'
 KEY_MODULE_NAME = 'module_name'
 KEY_TEST_CONFIG = 'test_config'
+KEY_HEADER = 'header_search_path'
+KEY_SYSTEM = 'system_search_path'
+
 # Java related classes.
 JAVA_TARGET_CLASSES = ['APPS', 'JAVA_LIBRARIES', 'ROBOLECTRIC']
 # C, C++ related classes.

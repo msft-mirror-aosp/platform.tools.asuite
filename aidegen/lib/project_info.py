@@ -104,7 +104,7 @@ class ProjectInfo:
         """
         rel_path, abs_path = common_util.get_related_paths(
             self.modules_info, target)
-        self.module_name = self._get_target_name(target, abs_path)
+        self.module_name = self.get_target_name(target, abs_path)
         self.is_main_project = is_main_project
         self.project_module_names = set(
             self.modules_info.get_module_names(rel_path))
@@ -287,7 +287,7 @@ class ProjectInfo:
         return [ProjectInfo(target, i == 0) for i, target in enumerate(targets)]
 
     @staticmethod
-    def _get_target_name(target, abs_path):
+    def get_target_name(target, abs_path):
         """Get target name from target's absolute path.
 
         If the project is for entire Android source tree, change the target to
@@ -363,7 +363,7 @@ class ProjectInfo:
         if rebuild_targets:
             if build:
                 verbose = project_config.ProjectConfig.get_instance().verbose
-                _batch_build_dependencies(verbose, rebuild_targets)
+                batch_build_dependencies(verbose, rebuild_targets)
                 self.locate_source(build=False)
             else:
                 logging.warning('Jar or srcjar files build skipped:\n\t%s.',
@@ -423,7 +423,7 @@ class ProjectInfo:
             project.locate_source()
 
 
-def _batch_build_dependencies(verbose, rebuild_targets):
+def batch_build_dependencies(verbose, rebuild_targets):
     """Batch build the jar or srcjar files of the modules if they don't exist.
 
     Command line has the max length limit, MAX_ARG_STRLEN, and
