@@ -45,8 +45,6 @@ def generate_clion_projects(targets):
         but we expect normally native devs rarely use it in this way.
 
     Args:
-        atest_module_info: A ModuleInfo instance contains the data of
-                           module-info.json.
         targets: A list of targets to check and generate their native projects.
 
     Returns:
@@ -89,6 +87,27 @@ def _find_parent(abs_path, current_parent):
         os.path.dirname(abs_path), os.path.dirname(current_parent))
 
 
+def _filter_out_modules(targets, filter_func):
+    """Filters out target from targets if it passes the filter function.
+
+    Args:
+        targets: A list of targets to be analyzed.
+        filter_func: A filter function reference.
+
+    Returns:
+        A tuple of a list of filtered module target and a list of lefted
+        targets.
+    """
+    jtargets = []
+    lefts = []
+    for target in targets:
+        if filter_func(target):
+            jtargets.append(target)
+            continue
+        lefts.append(target)
+    return jtargets, lefts
+
+
 def _get_merged_native_target(cc_module_info, targets):
     """Gets merged native parent target from original native targets.
 
@@ -117,7 +136,36 @@ def _get_merged_native_target(cc_module_info, targets):
     return parent_folder, new_targets
 
 
-def analyze_native_and_java_projects(atest_module_info, path_info, targets):
+def get_native_and_java_projects(atest_module_info, cc_module_info, targets):
+    """Gets native and java projects from targets.
+
+    Separates native and java projects from targets.
+    1. If it's a native module, add it to native projects.
+    2. If it's a java module, add it to java projects.
+    3. Calls _analyze_native_and_java_projects to analyze the remaining targets.
+
+    Args:
+        atest_module_info: A ModuleInfo instance contains the merged data of
+                           module-info.json and module_bp_java_deps.json.
+        cc_module_info: A ModuleInfo instance contains the data of
+                        module_bp_cc_deps.json.
+        targets: A list of targets to be analyzed.
+
+    Returns:
+        A tuple of a list of java build targets and a list of native build
+        targets.
+    """
+    ctargets, lefts = _filter_out_modules(targets, cc_module_info.is_module)
+    jtargets, lefts = _filter_out_modules(lefts, atest_module_info.is_module)
+    path_info = cc_module_info.path_to_module_info
+    jtars, ctars = _analyze_native_and_java_projects(
+        atest_module_info, path_info, lefts)
+    ctargets.extend(ctars)
+    jtargets.extend(jtars)
+    return jtargets, ctargets
+
+
+def _analyze_native_and_java_projects(atest_module_info, path_info, targets):
     """Analyzes native and java projects from targets.
 
     Args:
