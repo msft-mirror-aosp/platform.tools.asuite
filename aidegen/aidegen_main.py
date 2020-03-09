@@ -51,6 +51,7 @@ from aidegen.lib import errors
 from aidegen.lib import ide_util
 from aidegen.lib import module_info
 from aidegen.lib import native_module_info
+from aidegen.lib import native_project_info
 from aidegen.lib import native_util
 from aidegen.lib import project_config
 from aidegen.lib import project_file_gen
@@ -320,12 +321,14 @@ def aidegen_main(args):
     targets = project_config.ProjectConfig.get_instance().targets
     ide_util_obj = ide_util.get_ide_util_instance(args.ide[0])
     project_info.ProjectInfo.modules_info = module_info.AidegenModuleInfo()
-    path_info = native_module_info.NativeModuleInfo().path_to_module_info
-    jtargets, ctargets = native_util.analyze_native_and_java_projects(
-        project_info.ProjectInfo.modules_info, path_info, targets)
-    native_project_file = native_util.generate_clion_projects(ctargets)
-    if native_project_file:
-        _launch_native_projects(ide_util_obj, args, [native_project_file])
+    cc_module_info = native_module_info.NativeModuleInfo()
+    jtargets, ctargets = native_util.get_native_and_java_projects(
+        project_info.ProjectInfo.modules_info, cc_module_info, targets)
+    if ctargets:
+        native_project_info.NativeProjectInfo.generate_projects(ctargets)
+        native_project_file = native_util.generate_clion_projects(ctargets)
+        if native_project_file:
+            _launch_native_projects(ide_util_obj, args, [native_project_file])
     ide_name = constant.IDE_NAME_DICT[args.ide[0]]
     if ide_name != constant.IDE_CLION and jtargets:
         _create_and_launch_java_projects(ide_util_obj, jtargets)

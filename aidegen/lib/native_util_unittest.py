@@ -42,16 +42,16 @@ class AidegenNativeUtilUnittests(unittest.TestCase):
         mock_check_native.return_value = True
         targets = ['a']
         self.assertEqual((targets, targets),
-                         native_util.analyze_native_and_java_projects(
+                         native_util._analyze_native_and_java_projects(
                              None, None, targets))
         mock_check_native.return_value = False
         self.assertEqual((targets, []),
-                         native_util.analyze_native_and_java_projects(
+                         native_util._analyze_native_and_java_projects(
                              None, None, targets))
         mock_check_java.return_value = False
         mock_check_native.return_value = True
         self.assertEqual(([], targets),
-                         native_util.analyze_native_and_java_projects(
+                         native_util._analyze_native_and_java_projects(
                              None, None, targets))
 
     def test_check_native_project_exists(self):
@@ -126,6 +126,36 @@ class AidegenNativeUtilUnittests(unittest.TestCase):
             cc_mod_info, targets)
         result = (new_parent, new_targets)
         self.assertEqual(result, expected)
+
+
+    def test_filter_out_modules(self):
+        """Test _filter_out_modules with conditions."""
+        targets = ['shared/path/to/be/used2']
+        result = ([], targets)
+        self.assertEqual(
+            result, native_util._filter_out_modules(targets, lambda x: False))
+        targets = ['multiarch']
+        result = (targets, [])
+        self.assertEqual(
+            result, native_util._filter_out_modules(targets, lambda x: True))
+
+    @mock.patch.object(native_util, '_analyze_native_and_java_projects')
+    @mock.patch.object(native_util, '_filter_out_modules')
+    def test_get_native_and_java_projects(self, mock_fil, mock_ana):
+        """Test get_native_and_java_projects handling."""
+        targets = ['multiarch']
+        mock_fil.return_value = [], targets
+        cc_mod_info = mock.Mock()
+        cc_mod_info.is_module = mock.Mock()
+        cc_mod_info.is_module.return_value = True
+        at_mod_info = mock.Mock()
+        at_mod_info.is_module = mock.Mock()
+        at_mod_info.is_module.return_value = True
+        mock_ana.return_value = [], targets
+        native_util.get_native_and_java_projects(
+            at_mod_info, cc_mod_info, targets)
+        self.assertEqual(mock_fil.call_count, 2)
+        self.assertEqual(mock_ana.call_count, 1)
 
 
 if __name__ == '__main__':
