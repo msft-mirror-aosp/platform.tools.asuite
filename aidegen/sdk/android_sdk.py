@@ -46,6 +46,8 @@ class AndroidSDK:
                            }
     """
 
+    _API_LEVEL = 'api_level'
+
     def __init__(self):
         """Initializes AndroidSDK."""
         self._max_api_level = 0
@@ -73,6 +75,9 @@ class AndroidSDK:
         Returns:
             An integer of API level and 0 means no Android platform exists.
         """
+        return max(
+            [v[self._API_LEVEL] for v in self._platform_mapping.values()],
+            default=0)
 
     def _gen_platform_mapping(self, path):
         """Generates the Android platforms mapping.
