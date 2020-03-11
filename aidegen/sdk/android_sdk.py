@@ -58,6 +58,17 @@ class AndroidSDK:
     _RE_CODE_NAME = re.compile(r'AndroidVersion.CodeName=(?P<code_name>[A-Z])')
     _GLOB_PROPERTIES_FILE = os.path.join('platforms', 'android-*',
                                          'source.properties')
+    _INPUT_QUERY_TIMES = 3
+    _ENTER_ANDROID_SDK_PATH = ('\nThe Android SDK folder:{} doesn\'t exist. '
+                               'The debug function "Attach debugger to Android '
+                               'process" is disabled without Android SDK in '
+                               'IntelliJ or Android Studio. Please set it up '
+                               'to enable the function. \nPlease enter the '
+                               'absolute path to Android SDK:')
+    _WARNING_NO_ANDROID_SDK = ('Please install the Android SDK, otherwise the '
+                               'debug function "Attach debugger to Android '
+                               'process" cannot be enabled in IntelliJ or '
+                               'Android Studio.')
 
     def __init__(self):
         """Initializes AndroidSDK."""
@@ -172,3 +183,13 @@ class AndroidSDK:
         Returns:
             True when get an Android SDK path, otherwise False.
         """
+        for _ in range(self._INPUT_QUERY_TIMES):
+            if self._is_android_sdk_path(sdk_path):
+                return True
+            sdk_path = input(common_util.COLORED_FAIL(
+                self._ENTER_ANDROID_SDK_PATH.format(sdk_path)))
+            if not sdk_path:
+                break
+        print('\n{} {}\n'.format(common_util.COLORED_INFO('Warning:'),
+                                 self._WARNING_NO_ANDROID_SDK))
+        return False

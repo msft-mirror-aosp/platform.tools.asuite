@@ -124,6 +124,24 @@ class AndroidSDKUnittests(unittest.TestCase):
         mock_gen_platform_mapping.return_value = False
         self.assertEqual(self.sdk._is_android_sdk_path('a/b'), False)
 
+    @mock.patch('builtins.input')
+    @mock.patch.object(android_sdk.AndroidSDK, '_is_android_sdk_path')
+    def test_path_analysis(self, mock_is_sdk_path, mock_input):
+        """Test path_analysis."""
+        mock_is_sdk_path.return_value = True
+        self.assertEqual(self.sdk.path_analysis('a/b'), True)
+
+        mock_is_sdk_path.return_value = False
+        mock_input.return_value = ''
+        self.assertEqual(self.sdk.path_analysis('a/b'), False)
+
+        mock_is_sdk_path.return_value = False
+        mock_input.return_value = 'a/b'
+        self.assertEqual(self.sdk.path_analysis('a/b'), False)
+
+        self.sdk._INPUT_QUERY_TIMES = 0
+        self.assertEqual(self.sdk.path_analysis('a/b'), False)
+
 
 if __name__ == '__main__':
     unittest.main()
