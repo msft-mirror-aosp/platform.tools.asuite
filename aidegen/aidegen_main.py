@@ -40,6 +40,7 @@ This CLI generates project files for using in IntelliJ, such as:
 from __future__ import absolute_import
 
 import argparse
+import logging
 import sys
 import traceback
 
@@ -51,7 +52,6 @@ from aidegen.lib import errors
 from aidegen.lib import ide_util
 from aidegen.lib import module_info
 from aidegen.lib import native_module_info
-from aidegen.lib import native_project_info
 from aidegen.lib import native_util
 from aidegen.lib import project_config
 from aidegen.lib import project_file_gen
@@ -84,6 +84,10 @@ _SKIP_MSG = _SKIP_BUILD_INFO_FUTURE.format(
 _TIME_EXCEED_MSG = '\n{} {}\n'.format(_INFO, _SKIP_MSG)
 _LAUNCH_CLION_IDES = [
     constant.IDE_CLION, constant.IDE_INTELLIJ, constant.IDE_ECLIPSE]
+_CHOOSE_LANGUAGE_MSG = ('The scope of your modules contains {} different '
+                        'languages as follows:\n{}\nPlease select the one you '
+                        'would like to implement.\t')
+_LANGUAGE_OPTIONS = [constant.JAVA, constant.C_CPP]
 
 
 def _parse_args(args):
@@ -232,6 +236,63 @@ def _create_and_launch_java_projects(ide_util_obj, targets):
         _launch_ide(ide_util_obj, projects[0].project_absolute_path)
 
 
+def _get_preferred_ide_from_user(all_choices):
+    """Provides the option list to get back users single choice.
+
+    Args:
+        all_choices: A list of string type for all options.
+
+    Return:
+        A string of the user's single choice item.
+    """
+    if not all_choices:
+        return None
+    options = []
+    items = []
+    for index, option in enumerate(all_choices, 1):
+        options.append('{}. {}'.format(index, option))
+        items.append(str(index))
+    query = _CHOOSE_LANGUAGE_MSG.format(len(options), '\n'.join(options))
+    input_data = input(query)
+    while input_data not in items:
+        input_data = input('Please select one.\t')
+    return all_choices[int(input_data) - 1]
+
+
+# TODO(b/150578306): Refine it when new feature added.
+def _launch_ide_by_module_contents(args, ide_util_obj, jlist=None, clist=None,
+                                   both=None):
+    """Deals with the suitable IDE launch action.
+
+    Args:
+        args: A list of system arguments.
+        ide_util_obj: An ide_util instance.
+        jlist: A list of java build targets.
+        clist: A list of native build targets.
+        both: A list of both targets.
+
+    Raises: When the forth parameter both is used by the caller, raises the
+    NotImplementedError.
+    """
+    # Not support both IDE yet.
+    if both:
+        raise NotImplementedError()
+    if not jlist and not clist:
+        logging.warning('\nThere is neither java nor native module needs to be'
+                        ' opened')
+        return
+    answer = None
+    if jlist and clist:
+        answer = _get_preferred_ide_from_user(_LANGUAGE_OPTIONS)
+    if (jlist and not clist) or (answer == constant.JAVA):
+        _create_and_launch_java_projects(ide_util_obj, jlist)
+        return
+    if (clist and not jlist) or (answer == constant.C_CPP):
+        native_project_file = native_util.generate_clion_projects(clist)
+        if native_project_file:
+            _launch_native_projects(ide_util_obj, args, [native_project_file])
+
+
 @common_util.time_logged(message=_TIME_EXCEED_MSG, maximum=_MAX_TIME)
 def main_with_message(args):
     """Main entry with skip build message.
@@ -319,19 +380,15 @@ def aidegen_main(args):
     config = project_config.ProjectConfig(args)
     config.init_environment()
     targets = project_config.ProjectConfig.get_instance().targets
+    # Called ide_util for pre-check the IDE existence state.
     ide_util_obj = ide_util.get_ide_util_instance(args.ide[0])
     project_info.ProjectInfo.modules_info = module_info.AidegenModuleInfo()
     cc_module_info = native_module_info.NativeModuleInfo()
     jtargets, ctargets = native_util.get_native_and_java_projects(
         project_info.ProjectInfo.modules_info, cc_module_info, targets)
-    if ctargets:
-        native_project_info.NativeProjectInfo.generate_projects(ctargets)
-        native_project_file = native_util.generate_clion_projects(ctargets)
-        if native_project_file:
-            _launch_native_projects(ide_util_obj, args, [native_project_file])
-    ide_name = constant.IDE_NAME_DICT[args.ide[0]]
-    if ide_name != constant.IDE_CLION and jtargets:
-        _create_and_launch_java_projects(ide_util_obj, jtargets)
+    # Backward compatible strategy, when both java and native module exist,
+    # check the preferred target from the user and launch single one.
+    _launch_ide_by_module_contents(args, ide_util_obj, jtargets, ctargets)
 
 
 if __name__ == '__main__':
