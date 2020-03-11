@@ -154,6 +154,11 @@ class AndroidSDK:
         Returns:
             True when get a platform version, otherwise False.
         """
+        if self._gen_platform_mapping(path):
+            self._android_sdk_path = path
+            self._max_api_level = self._parse_max_api_level()
+            return True
+        return False
 
     def path_analysis(self, sdk_path):
         """Analyses the Android SDK path.
