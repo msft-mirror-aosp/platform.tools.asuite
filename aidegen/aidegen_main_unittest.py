@@ -30,6 +30,8 @@ from aidegen.lib import common_util
 from aidegen.lib import eclipse_project_file_gen
 from aidegen.lib import errors
 from aidegen.lib import ide_util
+from aidegen.lib import native_util
+from aidegen.lib import native_project_info
 from aidegen.lib import project_config
 from aidegen.lib import project_file_gen
 
@@ -201,6 +203,104 @@ class AidegenMainUnittests(unittest.TestCase):
         aidegen_main._launch_native_projects(ide_util_obj, args, [])
         self.assertFalse(mock_get_ide.called)
         self.assertTrue(mock_launch_ide.called)
+
+    @mock.patch('builtins.print')
+    def test_launch_ide(self, mock_print):
+        """Test _launch_ide function with config parameter."""
+        mock_ide_util = mock.MagicMock()
+        mock_ide_util.launch_ide.return_value = None
+        mock_ide_util.config_ide.return_value = None
+        launch_path = '/test/launch/ide/method'
+        aidegen_main._launch_ide(mock_ide_util, launch_path)
+        self.assertTrue(mock_ide_util.config_ide.called)
+        self.assertTrue(mock_ide_util.launch_ide.called)
+        mock_print.return_value = None
+
+    @mock.patch('builtins.input')
+    def test_get_preferred_ide_from_user(self, mock_input):
+        """Test get_preferred_ide_from_user with different conditions."""
+        test_data = []
+        aidegen_main._get_preferred_ide_from_user(test_data)
+        self.assertFalse(mock_input.called)
+        mock_input.reset_mock()
+
+        test_data = ['One', 'Two', 'Three']
+        mock_input.return_value = '3'
+        self.assertEqual('Three', aidegen_main._get_preferred_ide_from_user(
+            test_data))
+        self.assertEqual(1, mock_input.call_count)
+        mock_input.reset_mock()
+
+        mock_input.side_effect = ['7', '5', '3']
+        self.assertEqual('Three', aidegen_main._get_preferred_ide_from_user(
+            test_data))
+        self.assertEqual(3, mock_input.call_count)
+        mock_input.reset_mock()
+
+        mock_input.side_effect = ('.', '7', 't', '5', '1')
+        self.assertEqual('One', aidegen_main._get_preferred_ide_from_user(
+            test_data))
+        self.assertEqual(5, mock_input.call_count)
+        mock_input.reset_mock()
+
+    @mock.patch.object(aidegen_main, '_launch_native_projects')
+    @mock.patch.object(native_util, 'generate_clion_projects')
+    @mock.patch.object(native_project_info.NativeProjectInfo,
+                       'generate_projects')
+    @mock.patch.object(aidegen_main, '_create_and_launch_java_projects')
+    @mock.patch.object(aidegen_main, '_get_preferred_ide_from_user')
+    def test_launch_ide_by_module_contents(self, mock_choice, mock_j,
+                                           mock_c_prj, mock_genc, mock_c):
+        """Test _launch_ide_by_module_contents with different conditions."""
+        args = aidegen_main._parse_args(['', '-i', 's'])
+        self._init_project_config(args)
+        ide_obj = 'ide_obj'
+        test_both = ['x', 'y', 'z']
+        with self.assertRaises(NotImplementedError):
+            aidegen_main._launch_ide_by_module_contents(args, ide_obj, None,
+                                                        None, test_both)
+        test_j = ['a', 'b', 'c']
+        test_c = ['1', '2', '3']
+        mock_choice.return_value = constant.JAVA
+        aidegen_main._launch_ide_by_module_contents(args, ide_obj, test_j,
+                                                    test_c)
+        self.assertTrue(mock_j.called)
+        self.assertFalse(mock_genc.called)
+        self.assertFalse(mock_c.called)
+
+        mock_choice.reset_mock()
+        mock_c.reset_mock()
+        mock_genc.reset_mock()
+        mock_j.reset_mock()
+        mock_choice.return_value = constant.C_CPP
+        aidegen_main._launch_ide_by_module_contents(args, ide_obj, test_j,
+                                                    test_c)
+        self.assertTrue(mock_c_prj.called)
+        self.assertTrue(mock_genc.called)
+        self.assertTrue(mock_c.called)
+        self.assertFalse(mock_j.called)
+
+        mock_choice.reset_mock()
+        mock_c.reset_mock()
+        mock_genc.reset_mock()
+        mock_j.reset_mock()
+        test_none = None
+        aidegen_main._launch_ide_by_module_contents(args, ide_obj, test_none,
+                                                    test_c)
+        self.assertTrue(mock_genc.called)
+        self.assertTrue(mock_c.called)
+        self.assertFalse(mock_j.called)
+
+        mock_choice.reset_mock()
+        mock_c.reset_mock()
+        mock_genc.reset_mock()
+        mock_j.reset_mock()
+        aidegen_main._launch_ide_by_module_contents(args, ide_obj, test_j,
+                                                    test_none)
+        self.assertTrue(mock_j.called)
+        self.assertFalse(mock_c.called)
+        self.assertFalse(mock_genc.called)
+
 
 if __name__ == '__main__':
     unittest.main()
