@@ -85,6 +85,28 @@ class AndroidSDKUnittests(unittest.TestCase):
         expected_result = 0, 0
         self.assertEqual(self.sdk._parse_api_info(''), expected_result)
 
+    @mock.patch.object(android_sdk.AndroidSDK, '_parse_api_info')
+    @mock.patch('glob.glob')
+    def test_gen_platform_mapping(self, mock_glob, mock_parse_api_info):
+        """Test _gen_platform_mapping."""
+        mock_glob.return_value = ['/sdk/platforms/android-29/source.properties']
+        mock_parse_api_info.return_value = 0, 0
+        test_result = self.sdk._gen_platform_mapping('')
+        expected_result = {}
+        self.assertEqual(test_result, False)
+        self.assertEqual(self.sdk._platform_mapping, expected_result)
+
+        mock_parse_api_info.return_value = '29', '29'
+        test_result = self.sdk._gen_platform_mapping('')
+        expected_result = {
+            'android-29': {
+                'api_level': 29,
+                'code_name': '29',
+            }
+        }
+        self.assertEqual(test_result, True)
+        self.assertEqual(self.sdk._platform_mapping, expected_result)
+
 
 if __name__ == '__main__':
     unittest.main()
