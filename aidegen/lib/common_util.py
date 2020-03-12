@@ -104,6 +104,7 @@ def get_related_paths(atest_module_info, target=None):
                    e.g.
                    1. ~/aosp$ aidegen
                    2. ~/aosp/frameworks/base$ aidegen -a
+                6. An absolute path, e.g. /usr/local/home/test/aosp
 
     Return:
         rel_path: The relative path of a module, return None if no matching
@@ -121,6 +122,10 @@ def get_related_paths(atest_module_info, target=None):
         if target == constant.WHOLE_ANDROID_TREE_TARGET:
             rel_path = ''
             abs_path = get_android_root_dir()
+        # User inputs an absolute path.
+        elif os.path.isabs(target):
+            abs_path = target
+            rel_path = os.path.relpath(abs_path, get_android_root_dir())
         # User inputs a module name.
         elif atest_module_info.is_module(target):
             paths = atest_module_info.get_paths(target)
@@ -233,6 +238,7 @@ def check_module(atest_module_info, target, raise_on_lost_module=True):
                 2. Module path, e.g. packages/apps/Settings
                 3. Relative path, e.g. ../../packages/apps/Settings
                 4. Current directory, e.g. . or no argument
+                5. An absolute path, e.g. /usr/local/home/test/aosp
         raise_on_lost_module: A boolean, handles if ProjectPathNotExistError or
                 NoModuleDefinedInModuleInfoError should be raised.
 
