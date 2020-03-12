@@ -29,6 +29,10 @@ Usage example:
 
 from __future__ import absolute_import
 
+import re
+
+from aidegen.lib import common_util
+
 
 class AndroidSDK:
     """Configures API level from the Android SDK path.
@@ -47,6 +51,9 @@ class AndroidSDK:
     """
 
     _API_LEVEL = 'api_level'
+    _CODE_NAME = 'code_name'
+    _RE_API_LEVEL = re.compile(r'AndroidVersion.ApiLevel=(?P<api_level>[\d]+)')
+    _RE_CODE_NAME = re.compile(r'AndroidVersion.CodeName=(?P<code_name>[A-Z])')
 
     def __init__(self):
         """Initializes AndroidSDK."""
@@ -79,15 +86,8 @@ class AndroidSDK:
             [v[self._API_LEVEL] for v in self._platform_mapping.values()],
             default=0)
 
-    def _gen_platform_mapping(self, path):
-        """Generates the Android platforms mapping.
-
-        Args:
-            path: A string, the path of Android SDK.
-        """
-
-    def _gen_api_info(self, properties_file):
-        """Generates the API information from the properties file.
+    def _parse_api_info(self, properties_file):
+        """Parses the API information from the source.properties file.
 
         For the preview platform like android-Q, the source.properties file
         contains two properties named AndroidVersion.ApiLevel, API level of
@@ -97,11 +97,31 @@ class AndroidSDK:
         AndroidVersion.CodeName.
 
         Args:
-            properties_file: A path of the properties file.
+            properties_file: A path of the source.properties file.
 
         Returns:
-            A tuple contains the api_level and code_name of the properties
-            file.
+            A tuple contains the API level and Code name of the
+            source.properties file.
+            API level: An integer of the platform, e.g. 29.
+            Code name: A string, e.g. 29 or Q.
+        """
+        api_level = 0
+        properties = common_util.read_file_content(properties_file)
+        match_api_level = self._RE_API_LEVEL.search(properties)
+        if match_api_level:
+            api_level = match_api_level.group(self._API_LEVEL)
+        match_code_name = self._RE_CODE_NAME.search(properties)
+        if match_code_name:
+            code_name = match_code_name.group(self._CODE_NAME)
+        else:
+            code_name = api_level
+        return api_level, code_name
+
+    def _gen_platform_mapping(self, path):
+        """Generates the Android platforms mapping.
+
+        Args:
+            path: A string, the path of Android SDK.
         """
 
     def _is_android_sdk_path(self, path):
