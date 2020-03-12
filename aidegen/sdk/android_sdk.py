@@ -29,6 +29,8 @@ Usage example:
 
 from __future__ import absolute_import
 
+import glob
+import os
 import re
 
 from aidegen.lib import common_util
@@ -54,6 +56,8 @@ class AndroidSDK:
     _CODE_NAME = 'code_name'
     _RE_API_LEVEL = re.compile(r'AndroidVersion.ApiLevel=(?P<api_level>[\d]+)')
     _RE_CODE_NAME = re.compile(r'AndroidVersion.CodeName=(?P<code_name>[A-Z])')
+    _GLOB_PROPERTIES_FILE = os.path.join('platforms', 'android-*',
+                                         'source.properties')
 
     def __init__(self):
         """Initializes AndroidSDK."""
@@ -92,7 +96,7 @@ class AndroidSDK:
         For the preview platform like android-Q, the source.properties file
         contains two properties named AndroidVersion.ApiLevel, API level of
         the platform, and AndroidVersion.CodeName such as Q, the code name of
-        the plarform.
+        the platform.
         However, the formal platform like android-29, there is no property
         AndroidVersion.CodeName.
 
@@ -121,8 +125,22 @@ class AndroidSDK:
         """Generates the Android platforms mapping.
 
         Args:
-            path: A string, the path of Android SDK.
+            path: A string, the absolute path of Android SDK.
+
+        Returns:
+            True when successful generates platform mapping, otherwise False.
         """
+        prop_files = glob.glob(os.path.join(path, self._GLOB_PROPERTIES_FILE))
+        for prop_file in prop_files:
+            api_level, code_name = self._parse_api_info(prop_file)
+            if not api_level:
+                continue
+            platform = os.path.basename(os.path.dirname(prop_file))
+            self._platform_mapping[platform] = {
+                self._API_LEVEL: int(api_level),
+                self._CODE_NAME: code_name
+            }
+        return bool(self._platform_mapping)
 
     def _is_android_sdk_path(self, path):
         """Checks if the Android SDK path is correct.
