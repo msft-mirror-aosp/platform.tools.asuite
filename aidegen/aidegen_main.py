@@ -52,6 +52,7 @@ from aidegen.lib import errors
 from aidegen.lib import ide_util
 from aidegen.lib import module_info
 from aidegen.lib import native_module_info
+from aidegen.lib import native_project_info
 from aidegen.lib import native_util
 from aidegen.lib import project_config
 from aidegen.lib import project_file_gen
@@ -288,6 +289,7 @@ def _launch_ide_by_module_contents(args, ide_util_obj, jlist=None, clist=None,
         _create_and_launch_java_projects(ide_util_obj, jlist)
         return
     if (clist and not jlist) or (answer == constant.C_CPP):
+        native_project_info.NativeProjectInfo.generate_projects(clist)
         native_project_file = native_util.generate_clion_projects(clist)
         if native_project_file:
             _launch_native_projects(ide_util_obj, args, [native_project_file])
