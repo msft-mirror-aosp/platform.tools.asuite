@@ -17,7 +17,9 @@
 """Unittests for AndroidSDK class."""
 
 import unittest
+from unittest import mock
 
+from aidegen.lib import common_util
 from aidegen.sdk import android_sdk
 
 
@@ -66,6 +68,45 @@ class AndroidSDKUnittests(unittest.TestCase):
         }
         api_level = self.sdk._parse_max_api_level()
         self.assertEqual(api_level, 29)
+
+    @mock.patch.object(common_util, 'read_file_content')
+    def test_parse_api_info(self, mock_read_file):
+        """Test _parse_api_info."""
+        mock_read_file.return_value = '\nAndroidVersion.ApiLevel=29\n'
+        expected_result = '29', '29'
+        self.assertEqual(self.sdk._parse_api_info(''), expected_result)
+
+        mock_read_file.return_value = ('\nAndroidVersion.ApiLevel=29\n'
+                                       'AndroidVersion.CodeName=Q\n')
+        expected_result = '29', 'Q'
+        self.assertEqual(self.sdk._parse_api_info(''), expected_result)
+
+        mock_read_file.return_value = ''
+        expected_result = 0, 0
+        self.assertEqual(self.sdk._parse_api_info(''), expected_result)
+
+    @mock.patch.object(android_sdk.AndroidSDK, '_parse_api_info')
+    @mock.patch('glob.glob')
+    def test_gen_platform_mapping(self, mock_glob, mock_parse_api_info):
+        """Test _gen_platform_mapping."""
+        mock_glob.return_value = ['/sdk/platforms/android-29/source.properties']
+        mock_parse_api_info.return_value = 0, 0
+        test_result = self.sdk._gen_platform_mapping('')
+        expected_result = {}
+        self.assertEqual(test_result, False)
+        self.assertEqual(self.sdk._platform_mapping, expected_result)
+
+        mock_parse_api_info.return_value = '29', '29'
+        test_result = self.sdk._gen_platform_mapping('')
+        expected_result = {
+            'android-29': {
+                'api_level': 29,
+                'code_name': '29',
+            }
+        }
+        self.assertEqual(test_result, True)
+        self.assertEqual(self.sdk._platform_mapping, expected_result)
+
 
 if __name__ == '__main__':
     unittest.main()

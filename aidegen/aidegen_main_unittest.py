@@ -31,6 +31,7 @@ from aidegen.lib import eclipse_project_file_gen
 from aidegen.lib import errors
 from aidegen.lib import ide_util
 from aidegen.lib import native_util
+from aidegen.lib import native_project_info
 from aidegen.lib import project_config
 from aidegen.lib import project_file_gen
 
@@ -244,10 +245,12 @@ class AidegenMainUnittests(unittest.TestCase):
 
     @mock.patch.object(aidegen_main, '_launch_native_projects')
     @mock.patch.object(native_util, 'generate_clion_projects')
+    @mock.patch.object(native_project_info.NativeProjectInfo,
+                       'generate_projects')
     @mock.patch.object(aidegen_main, '_create_and_launch_java_projects')
     @mock.patch.object(aidegen_main, '_get_preferred_ide_from_user')
     def test_launch_ide_by_module_contents(self, mock_choice, mock_j,
-                                           mock_genc, mock_c):
+                                           mock_c_prj, mock_genc, mock_c):
         """Test _launch_ide_by_module_contents with different conditions."""
         args = aidegen_main._parse_args(['', '-i', 's'])
         self._init_project_config(args)
@@ -272,6 +275,7 @@ class AidegenMainUnittests(unittest.TestCase):
         mock_choice.return_value = constant.C_CPP
         aidegen_main._launch_ide_by_module_contents(args, ide_obj, test_j,
                                                     test_c)
+        self.assertTrue(mock_c_prj.called)
         self.assertTrue(mock_genc.called)
         self.assertTrue(mock_c.called)
         self.assertFalse(mock_j.called)
