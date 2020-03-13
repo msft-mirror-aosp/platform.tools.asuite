@@ -152,7 +152,8 @@ class ProjectInfoUnittests(unittest.TestCase):
             unittest_constants.TEST_MODULE
         ]
         project_config.ProjectConfig(self.args)
-        project_info_obj = project_info.ProjectInfo(mock_module_info)
+        project_info_obj = project_info.ProjectInfo(
+            mock_module_info.get_paths()[0])
         project_info_obj.dep_modules = {
             unittest_constants.TEST_MODULE: locate_module_info
         }
