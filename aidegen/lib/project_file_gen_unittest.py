@@ -31,6 +31,7 @@ from atest import module_info
 
 
 # pylint: disable=protected-access
+# pylint: disable-msg=too-many-arguments
 class AidegenProjectFileGenUnittest(unittest.TestCase):
     """Unit tests for project_file_gen.py."""
 
@@ -150,6 +151,40 @@ class AidegenProjectFileGenUnittest(unittest.TestCase):
         finally:
             os.remove(iml_path)
         self.assertEqual(test_iml, sample_iml)
+
+    @mock.patch.object(common_util, 'file_generate')
+    @mock.patch.object(project_file_gen.ProjectFileGenerator,
+                       '_handle_srcjar_folder')
+    @mock.patch.object(project_file_gen.ProjectFileGenerator, '_handle_facet')
+    @mock.patch.object(project_file_gen.ProjectFileGenerator,
+                       '_handle_source_folder')
+    @mock.patch('aidegen.lib.common_util.get_android_root_dir')
+    @mock.patch('aidegen.lib.project_info.ProjectInfo')
+    def test_generate_iml_for_module(self, mock_project, mock_get_root,
+                                     mock_do_src, mock_do_facet,
+                                     mock_do_srcjar, mock_file_gen):
+        """Test _generate_iml for generating module's iml."""
+        mock_get_root.return_value = self._AOSP_FOLDER
+        mock_project.project_absolute_path = self._ANDROID_PROJECT_PATH
+        mock_project.project_relative_path = self._ANDROID_SOURCE_RELATIVE_PATH
+        mock_project.source_path['jar_path'] = set(
+            unittest_constants.JAR_DEP_LIST)
+        test_srcjar_for_sub = ('test', 'srcjar', 'path')
+        mock_project.source_path['srcjar_path'] = test_srcjar_for_sub
+        mock_project.is_main_project = False
+        pfile_gen = project_file_gen.ProjectFileGenerator(mock_project)
+        mock_do_facet.return_value = 'facet'
+        mock_do_src.return_value = 'source'
+        mock_do_srcjar.return_value = 'srcjar'
+        mock_file_gen.return_value = None
+
+        # Test for module iml generation.
+        pfile_gen._generate_iml(copy.deepcopy(
+            unittest_constants.ANDROID_SOURCE_DICT))
+        self.assertTrue(mock_do_facet.called)
+        self.assertTrue(mock_do_src.called_with(True))
+        self.assertTrue(mock_do_srcjar.called_with(test_srcjar_for_sub))
+        self.assertEqual(mock_file_gen.call_count, 1)
 
     @mock.patch('aidegen.lib.project_config.ProjectConfig')
     @mock.patch('aidegen.lib.project_info.ProjectInfo')
