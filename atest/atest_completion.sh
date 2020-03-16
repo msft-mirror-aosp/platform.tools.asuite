@@ -12,11 +12,26 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-ATEST_REL_DIR="tools/tradefederation/core/atest"
+ATEST3_REL_DIR="tools/asuite/atest"
+
+_atest_completion_ready() {
+    # Not support completion on systems of which the out-of-box bash version
+    # is too old to fully support required built-in commands/functions.
+    # For MacOS users, atest tab completion can be enabled via:
+    #    brew install bash bash-completion@2
+    # and configure code below in ~/.bashrc
+    #    completion_file="/usr/local/etc/profile.d/bash_completion.sh"
+    #    [[ -r "$completion_file" ]] && source "$completion_file"
+    # Open a new terminal, source/lunch and try again.
+    reqs=(compopt _get_comp_words_by_ref __ltrim_colon_completions)
+    if ! type "${reqs[@]}" >/dev/null 2>&1; then
+        return 0
+    fi
+}
 
 _fetch_testable_modules() {
     [[ -z $ANDROID_BUILD_TOP ]] && return 0
-    export ATEST_DIR="$ANDROID_BUILD_TOP/$ATEST_REL_DIR"
+    export ATEST_DIR="$ANDROID_BUILD_TOP/$ATEST3_REL_DIR"
     $PYTHON - << END
 import os
 import pickle
@@ -41,7 +56,7 @@ END
 # of the list for tab completion candidates.
 _fetch_atest_args() {
     [[ -z $ANDROID_BUILD_TOP ]] && return 0
-    export ATEST_DIR="$ANDROID_BUILD_TOP/$ATEST_REL_DIR"
+    export ATEST_DIR="$ANDROID_BUILD_TOP/$ATEST3_REL_DIR"
     $PYTHON - << END
 import os
 import sys
@@ -71,11 +86,6 @@ _fetch_test_mapping_files() {
 
 # The main tab completion function.
 _atest() {
-    # Not support completion on Darwin since the bash version of it
-    # is too old to fully support useful built-in commands/functions
-    # such as compopt, _get_comp_words_by_ref and __ltrim_colon_completions.
-    [[ "$(uname -s)" == "Darwin" ]] && return 0
-
     local cur prev
     COMPREPLY=()
     cur="${COMP_WORDS[COMP_CWORD]}"
@@ -95,8 +105,8 @@ _atest() {
     esac
 
     case "$prev" in
-        --generate-baseline|--generate-new-metrics)
-            COMPREPLY=(5) ;;
+        --iterations|--retry-any-failure|--rerun-until-failure)
+            COMPREPLY=(10) ;;
         --list-modules|-L)
             # TODO: genetate the list automately when the API is available.
             COMPREPLY=($(compgen -W "cts vts" -- $cur)) ;;
@@ -131,6 +141,11 @@ function _atest_main() {
     # adapts both conditions.
     [[ ! $- =~ 'i' ]] && return 0
 
+    # If required functions are not available, exit gracefully.
+    if ! _atest_completion_ready; then
+        return 0
+    fi
+
     # Use Py2 as the default interpreter. This script is aiming for being
     # compatible with both Py2 and Py3.
     if [ -x "$(which python)" ]; then
@@ -152,7 +167,7 @@ function _atest_main() {
     done
 
     # Install atest-src for the convenience of debugging.
-    local atest_src="$(gettop)/$ATEST_REL_DIR/atest.py"
+    local atest_src="$(gettop)/$ATEST3_REL_DIR/atest.py"
     [[ -f "$atest_src" ]] && alias atest-src="$atest_src"
 }
 
