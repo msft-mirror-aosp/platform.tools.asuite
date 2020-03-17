@@ -447,7 +447,8 @@ class ProjectFileGenerator:
         module_content = self._handle_facet(templates.FILE_IML)
         module_content = self._handle_source_folder(module_content,
                                                     project_source_dict, True)
-        module_content = self._handle_srcjar_folder(module_content)
+        module_content = self._handle_srcjar_folder(
+            module_content, self.project_info.source_path['srcjar_path'])
         # b/121256503: Prevent duplicated iml names from breaking IDEA.
         module_name = self.get_unique_iml_name(module_path)
 
