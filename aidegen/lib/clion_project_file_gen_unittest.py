@@ -401,6 +401,17 @@ class ClionProjectFileGenUnittests(unittest.TestCase):
         expected = head + middle + tail1 + tail2
         self.assertEqual(content, expected)
 
+    def test_cleanup_executable_name(self):
+        """Test _cleanup_executable_name function with conditions."""
+        mod_name = 'android.frameworks.bufferhub@1.0-service'
+        result = 'android.frameworks.bufferhub-1.0-service'
+        self.assertEqual(
+            result, clion_project_file_gen._cleanup_executable_name(mod_name))
+        mod_name = 'libui'
+        result = 'libui'
+        self.assertEqual(
+            result, clion_project_file_gen._cleanup_executable_name(mod_name))
+
 
 if __name__ == '__main__':
     unittest.main()
