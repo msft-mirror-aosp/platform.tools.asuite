@@ -16,7 +16,8 @@
 
 """Unittests for native_module_info."""
 
-import os.path
+import logging
+import os
 import unittest
 from unittest import mock
 
@@ -35,12 +36,16 @@ _REBUILD_TARGET1 = 'android.frameworks.bufferhub@1.0'
 _NATIVE_INCLUDES1 = [
     'frameworks/native/include',
     'frameworks/native/libs/ui',
-    'out/frameworks/1.0/' + _REBUILD_TARGET1 + '_genc++_headers/gen'
+    'out/soong/.intermediates/' + _REBUILD_TARGET1 + '_genc++_headers/gen'
 ]
 _CC_NAME_TO_MODULE_INFO = {
     'multiarch': {
         'path': [
             'shared/path/to/be/used2'
+        ],
+        'srcs': [
+            'shared/path/to/be/used2/multiarch.cpp',
+            'out/soong/.intermediates/shared/path/to/be/used2/gen/Iarch.cpp'
         ],
         'local_common_flags': {
             constant.KEY_HEADER: _NATIVE_INCLUDES1
@@ -103,23 +108,154 @@ class NativeModuleInfoUnittests(unittest.TestCase):
     @mock.patch.object(
         native_module_info.NativeModuleInfo, '_load_module_info_file')
     def test_get_module_includes_empty(self, mock_load):
-        """Test get_module_includes handling."""
+        """Test get_module_includes without include paths."""
         mock_load.return_value = None, _CC_NAME_TO_MODULE_INFO
         mod_info = native_module_info.NativeModuleInfo()
         result = mod_info.get_module_includes('multiarch1')
         self.assertEqual(set(), result)
 
     @mock.patch.object(
-        native_module_info.NativeModuleInfo, 'get_module_includes')
+        native_module_info.NativeModuleInfo, '_load_module_info_file')
+    def test_get_module_includes_not_empty(self, mock_load):
+        """Test get_module_includes with include paths."""
+        mock_load.return_value = None, _CC_NAME_TO_MODULE_INFO
+        mod_info = native_module_info.NativeModuleInfo()
+        result = mod_info.get_module_includes('multiarch')
+        self.assertEqual(set(_NATIVE_INCLUDES1), result)
+
+    @mock.patch.object(logging, 'warning')
     @mock.patch.object(
         native_module_info.NativeModuleInfo, '_load_module_info_file')
-    def test_get_gen_includes_empty(self, mock_load, mock_get_includes):
-        """Test get_gen_includes handling."""
+    def test_is_module_need_build_without_mod_info(self, mock_load, mock_warn):
+        """Test get_module_includes without module info."""
         mock_load.return_value = None, _CC_NAME_TO_MODULE_INFO
-        mock_get_includes.return_value = set()
         mod_info = native_module_info.NativeModuleInfo()
-        result = mod_info.get_gen_includes('multiarch1')
-        self.assertEqual(set(), result)
+        self.assertFalse(mod_info.is_module_need_build('test_multiarch'))
+        self.assertTrue(mock_warn.called)
+
+    @mock.patch.object(logging, 'warning')
+    @mock.patch.object(
+        native_module_info.NativeModuleInfo, '_load_module_info_file')
+    def test_is_module_need_build_with_mod_info(self, mock_load, mock_warn):
+        """Test get_module_includes with module info."""
+        mock_load.return_value = None, _CC_NAME_TO_MODULE_INFO
+        mod_info = native_module_info.NativeModuleInfo()
+        self.assertFalse(mod_info.is_module_need_build('multiarch1'))
+        self.assertFalse(mock_warn.called)
+
+    @mock.patch('native_module_info.NativeModuleInfo._is_include_need_build')
+    @mock.patch('native_module_info.NativeModuleInfo._is_source_need_build')
+    @mock.patch.object(logging, 'warning')
+    @mock.patch.object(
+        native_module_info.NativeModuleInfo, '_load_module_info_file')
+    def test_is_module_need_build_with_src_needs(
+            self, mock_load, mock_warn, mock_src_need, mock_inc_need):
+        """Test get_module_includes with needed build source modules."""
+        mock_load.return_value = None, _CC_NAME_TO_MODULE_INFO
+        mod_info = native_module_info.NativeModuleInfo()
+        mock_src_need.return_value = True
+        mock_inc_need.return_value = False
+        self.assertTrue(mod_info.is_module_need_build('multiarch'))
+        self.assertFalse(mock_warn.called)
+
+    @mock.patch('native_module_info.NativeModuleInfo._is_include_need_build')
+    @mock.patch('native_module_info.NativeModuleInfo._is_source_need_build')
+    @mock.patch.object(logging, 'warning')
+    @mock.patch.object(
+        native_module_info.NativeModuleInfo, '_load_module_info_file')
+    def test_is_module_need_build_with_inc_needs(
+            self, mock_load, mock_warn, mock_src_need, mock_inc_need):
+        """Test get_module_includes with needed build include modules."""
+        mock_load.return_value = None, _CC_NAME_TO_MODULE_INFO
+        mod_info = native_module_info.NativeModuleInfo()
+        mock_src_need.return_value = False
+        mock_inc_need.return_value = True
+        self.assertTrue(mod_info.is_module_need_build('multiarch'))
+        self.assertFalse(mock_warn.called)
+
+    @mock.patch('native_module_info.NativeModuleInfo._is_include_need_build')
+    @mock.patch('native_module_info.NativeModuleInfo._is_source_need_build')
+    @mock.patch.object(logging, 'warning')
+    @mock.patch.object(
+        native_module_info.NativeModuleInfo, '_load_module_info_file')
+    def test_is_module_need_build_without_needs(
+            self, mock_load, mock_warn, mock_src_need, mock_inc_need):
+        """Test get_module_includes without needs."""
+        mock_load.return_value = None, _CC_NAME_TO_MODULE_INFO
+        mod_info = native_module_info.NativeModuleInfo()
+        mock_src_need.return_value = False
+        mock_inc_need.return_value = False
+        self.assertFalse(mod_info.is_module_need_build('multiarch1'))
+        self.assertFalse(mock_warn.called)
+
+    @mock.patch.object(os.path, 'isfile')
+    @mock.patch.object(
+        native_module_info.NativeModuleInfo, '_load_module_info_file')
+    def test_is_source_need_build_return_true(self, mock_load, mock_isfile):
+        """Test _is_source_need_build with source paths or not existing."""
+        mock_load.return_value = None, _CC_NAME_TO_MODULE_INFO
+        mod_info = native_module_info.NativeModuleInfo()
+        mock_isfile.return_value = False
+        self.assertTrue(mod_info._is_source_need_build(
+            _CC_NAME_TO_MODULE_INFO['multiarch']))
+
+    @mock.patch.object(os.path, 'isfile')
+    @mock.patch.object(
+        native_module_info.NativeModuleInfo, '_load_module_info_file')
+    def test_is_source_need_build_return_false(self, mock_load, mock_isfile):
+        """Test _is_source_need_build without source paths or paths exist."""
+        mock_load.return_value = None, _CC_NAME_TO_MODULE_INFO
+        mod_info = native_module_info.NativeModuleInfo()
+        self.assertFalse(mod_info._is_source_need_build(
+            _CC_NAME_TO_MODULE_INFO['multiarch1']))
+        mock_isfile.return_value = True
+        self.assertFalse(mod_info._is_source_need_build(
+            _CC_NAME_TO_MODULE_INFO['multiarch']))
+
+    @mock.patch.object(os.path, 'isdir')
+    @mock.patch.object(
+        native_module_info.NativeModuleInfo, '_load_module_info_file')
+    def test_is_include_need_build_return_true(self, mock_load, mock_isdir):
+        """Test _is_include_need_build with include paths and not existing."""
+        mock_load.return_value = None, _CC_NAME_TO_MODULE_INFO
+        mock_isdir.return_value = False
+        mod_info = native_module_info.NativeModuleInfo()
+        self.assertTrue(mod_info._is_include_need_build(
+            _CC_NAME_TO_MODULE_INFO['multiarch']))
+
+    @mock.patch.object(os.path, 'isdir')
+    @mock.patch.object(
+        native_module_info.NativeModuleInfo, '_load_module_info_file')
+    def test_is_include_need_build_return_false(self, mock_load, mock_isdir):
+        """Test _is_include_need_build without include paths or paths exist."""
+        mock_load.return_value = None, _CC_NAME_TO_MODULE_INFO
+        mod_info = native_module_info.NativeModuleInfo()
+        self.assertFalse(mod_info._is_include_need_build(
+            _CC_NAME_TO_MODULE_INFO['multiarch1']))
+        mock_isdir.return_value = True
+        self.assertFalse(mod_info._is_include_need_build(
+            _CC_NAME_TO_MODULE_INFO['multiarch']))
+
+    def test_not_implemented_methods(self):
+        """Test not implemented methods."""
+        mod_info = native_module_info.NativeModuleInfo()
+        target = 'test'
+        with self.assertRaises(NotImplementedError):
+            mod_info.get_testable_modules()
+        with self.assertRaises(NotImplementedError):
+            mod_info.is_testable_module(mock.Mock())
+        with self.assertRaises(NotImplementedError):
+            mod_info.has_test_config(mock.Mock())
+        with self.assertRaises(NotImplementedError):
+            mod_info.get_robolectric_test_name(target)
+        with self.assertRaises(NotImplementedError):
+            mod_info.is_robolectric_test(target)
+        with self.assertRaises(NotImplementedError):
+            mod_info.is_auto_gen_test_config(target)
+        with self.assertRaises(NotImplementedError):
+            mod_info.is_robolectric_module(mock.Mock())
+        with self.assertRaises(NotImplementedError):
+            mod_info.is_native_test(target)
 
     @mock.patch.object(
         native_module_info.NativeModuleInfo, '_load_module_info_file')
