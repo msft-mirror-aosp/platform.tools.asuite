@@ -297,7 +297,8 @@ class CLionProjectFileGenerator:
         """
         hfile.write(
             _ADD_EXECUTABLE_HEADER.format(
-                self.mod_name, _add_dollar_sign(_SOURCE_FILES_HEADER)))
+                _cleanup_executable_name(self.mod_name),
+                _add_dollar_sign(_SOURCE_FILES_HEADER)))
 
     @common_util.check_args(
         hfile=(TextIOWrapper, StringIO), key=str, cflags=bool, cppflags=bool)
@@ -564,3 +565,18 @@ def _write_all_headers(hfile, includes):
         hfile.write(_ALL_HEADER_FILES.format(_build_cmake_path(include)))
     hfile.write(_END_WITH_ONE_BLANK_LINE)
     hfile.write(_APPEND_SOURCE_FILES)
+
+
+def _cleanup_executable_name(mod_name):
+    """Clean up an executable name to be suitable for CMake.
+
+    Replace the last '@' of a module name with '-' and make it become a suitable
+    executable name for CMake.
+
+    Args:
+        mod_name: A string of module name to be cleaned up.
+
+    Returns:
+        A string of the executable name.
+    """
+    return mod_name[::-1].replace('@', '-', 1)[::-1]
