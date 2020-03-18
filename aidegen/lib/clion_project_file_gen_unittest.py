@@ -169,8 +169,8 @@ class ClionProjectFileGenUnittests(unittest.TestCase):
         mod_info.update(self._PATH_DICT)
         mod_info.update(self._MOD_NAME_DICT)
         expected = {
-            clion_project_file_gen._KEY_HEADER: [],
-            clion_project_file_gen._KEY_SYSTEM: [],
+            constant.KEY_HEADER: [],
+            constant.KEY_SYSTEM: [],
             clion_project_file_gen._KEY_FLAG: self._FLAG_LIST,
             clion_project_file_gen._KEY_SYSTEM_ROOT: '',
             clion_project_file_gen._KEY_RELATIVE: {}
@@ -189,8 +189,8 @@ class ClionProjectFileGenUnittests(unittest.TestCase):
         """Test _translate_to_cmake function with empty dictionary."""
         hfile = StringIO()
         params_dict = {
-            clion_project_file_gen._KEY_HEADER: [],
-            clion_project_file_gen._KEY_SYSTEM: [],
+            constant.KEY_HEADER: [],
+            constant.KEY_SYSTEM: [],
             clion_project_file_gen._KEY_FLAG: [],
             clion_project_file_gen._KEY_SYSTEM_ROOT: '',
             clion_project_file_gen._KEY_RELATIVE: {}
@@ -214,8 +214,8 @@ class ClionProjectFileGenUnittests(unittest.TestCase):
         hfile = StringIO()
         root = 'path_to_root'
         params_dict = {
-            clion_project_file_gen._KEY_HEADER: [],
-            clion_project_file_gen._KEY_SYSTEM: [],
+            constant.KEY_HEADER: [],
+            constant.KEY_SYSTEM: [],
             clion_project_file_gen._KEY_FLAG: [],
             clion_project_file_gen._KEY_SYSTEM_ROOT: root,
             clion_project_file_gen._KEY_RELATIVE: {}
