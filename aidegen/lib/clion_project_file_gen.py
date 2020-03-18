@@ -76,8 +76,6 @@ _FLAGS_DICT = {
 }
 
 # Keys for parameter types.
-_KEY_HEADER = 'header_search_path'
-_KEY_SYSTEM = 'system_search_path'
 _KEY_FLAG = 'flag'
 _KEY_SYSTEM_ROOT = 'system_root'
 _KEY_RELATIVE = 'relative_file_path'
@@ -333,8 +331,8 @@ class CLionProjectFileGenerator:
         if not params:
             return None
         params_dict = {
-            _KEY_HEADER: [],
-            _KEY_SYSTEM: [],
+            constant.KEY_HEADER: [],
+            constant.KEY_SYSTEM: [],
             _KEY_FLAG: [],
             _KEY_SYSTEM_ROOT: '',
             _KEY_RELATIVE: {}
@@ -437,8 +435,10 @@ def _translate_to_cmake(hfile, params_dict, cflags, cppflags):
         cflags: A boolean is to set 'CMAKE_C_FLAGS' flag.
         cppflags: A boolean is to set 'CMAKE_CXX_FLAGS' flag.
     """
-    _write_all_include_directories(hfile, params_dict[_KEY_SYSTEM], True)
-    _write_all_include_directories(hfile, params_dict[_KEY_HEADER], False)
+    _write_all_include_directories(
+        hfile, params_dict[constant.KEY_SYSTEM], True)
+    _write_all_include_directories(
+        hfile, params_dict[constant.KEY_HEADER], False)
 
     if cflags:
         _write_all_relative_file_path_flags(hfile, params_dict[_KEY_RELATIVE],
