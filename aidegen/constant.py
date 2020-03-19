@@ -86,6 +86,7 @@ CLION_PROJECT_FILE_NAME = 'CMakeLists.txt'
 ANDROID_BP = 'Android.bp'
 ANDROID_MK = 'Android.mk'
 JAVA_FILES = '*.java'
+VSCODE_CONFIG_DIR = '.vscode'
 
 # Constants for file paths.
 RELATIVE_NATIVE_PATH = 'development/ide/clion'
