@@ -14,7 +14,6 @@
 
 """Utility functions for unit tests."""
 
-# pylint: disable=relative-import
 # pylint: disable=line-too-long
 
 import os
@@ -28,10 +27,14 @@ def assert_strict_equal(test_class, first, second):
     assertEqual considers types equal to their subtypes, but we want to
     not consider set() and frozenset() equal for testing.
     """
+    # Allow 2 lists with different order but the same content equal.
+    if isinstance(first, list) and isinstance(second, list):
+        first.sort()
+        second.sort()
     test_class.assertEqual(first, second)
     # allow byte and unicode string equality.
-    if not (isinstance(first, basestring) and
-            isinstance(second, basestring)):
+    if not (isinstance(first, str) and
+            isinstance(second, str)):
         test_class.assertIsInstance(first, type(second))
         test_class.assertIsInstance(second, type(first))
     # Recursively check elements of namedtuples for strict equals.

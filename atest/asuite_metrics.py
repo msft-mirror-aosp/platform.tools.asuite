@@ -19,14 +19,8 @@ import logging
 import os
 import uuid
 
-try:
-    # PYTHON2
-    from urllib2 import Request
-    from urllib2 import urlopen
-except ImportError:
-    # PYTHON3
-    from urllib.request import Request
-    from urllib.request import urlopen
+from urllib.request import Request
+from urllib.request import urlopen
 
 
 _JSON_HEADERS = {'Content-Type': 'application/json'}

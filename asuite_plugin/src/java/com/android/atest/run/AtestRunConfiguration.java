@@ -15,18 +15,25 @@
  */
 package com.android.atest.run;
 
+import com.android.atest.AtestUtils;
+import com.android.atest.Constants;
+import com.android.atest.commandAdapter.CommandRunner;
+import com.android.atest.dialog.MessageDialog;
+import com.android.atest.toolWindow.AtestToolWindow;
+import com.android.atest.widget.AtestNotification;
 import com.google.common.base.Strings;
 import com.intellij.execution.ExecutionException;
 import com.intellij.execution.Executor;
-import com.intellij.execution.configurations.ConfigurationFactory;
-import com.intellij.execution.configurations.LocatableConfigurationBase;
-import com.intellij.execution.configurations.RunConfiguration;
-import com.intellij.execution.configurations.RunProfileState;
-import com.intellij.execution.configurations.RuntimeConfigurationException;
+import com.intellij.execution.configurations.*;
 import com.intellij.execution.runners.ExecutionEnvironment;
+import com.intellij.notification.Notifications;
+import com.intellij.openapi.diagnostic.Logger;
 import com.intellij.openapi.options.SettingsEditor;
 import com.intellij.openapi.project.Project;
 import com.intellij.openapi.util.InvalidDataException;
+import com.intellij.openapi.util.text.StringUtil;
+import com.intellij.openapi.wm.ToolWindow;
+import com.intellij.openapi.wm.ToolWindowManager;
 import org.jdom.Element;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -34,6 +41,7 @@ import org.jetbrains.annotations.Nullable;
 /** Runs configurations which can be managed by a user and displayed in the UI. */
 public class AtestRunConfiguration extends LocatableConfigurationBase {
 
+    private static final Logger LOG = Logger.getInstance(AtestRunConfiguration.class);
     public static final String TEST_TARGET_KEY = "testTarget";
     public static final String LUNCH_TARGET_KEY = "lunchTarget";
     private String mTestTarget = "";
@@ -120,25 +128,71 @@ public class AtestRunConfiguration extends LocatableConfigurationBase {
      */
     @Override
     public void checkConfiguration() throws RuntimeConfigurationException {
-        super.checkConfiguration();
+        if (StringUtil.isEmptyOrSpaces(mTestTarget)) {
+            throw new RuntimeConfigurationWarning("Test target not defined");
+        }
+        if (StringUtil.isEmptyOrSpaces(mLunchTarget)) {
+            throw new RuntimeConfigurationWarning("Lunch target not defined");
+        }
     }
 
     /**
      * Prepares for executing a specific instance of the run configuration.
+     *
+     * <p>Since Atest plugin uses tool window to output the message. It always returns null to
+     * handle the process inside Atest plugin.
      *
      * @param executor the execution mode selected by the user (run, debug, profile etc.)
      * @param executionEnvironment the environment object containing additional settings for
      *     executing the configuration.
      * @throws ExecutionException if exception happens when executing.
      * @return the RunProfileState describing the process which is about to be started, or null if
-     *     it's impossible to start the process.
+     *     it won't start the process.
      */
     @Nullable
     @Override
     public RunProfileState getState(
             @NotNull Executor executor, @NotNull ExecutionEnvironment executionEnvironment)
             throws ExecutionException {
+        AtestToolWindow atestToolWindow =
+                AtestToolWindow.getInstance(executionEnvironment.getProject());
+
+        if (!showAtestTW(executionEnvironment.getProject())) {
+            return null;
+        }
+        String workPath =
+                AtestUtils.getAndroidRoot(executionEnvironment.getProject().getBasePath());
+        atestToolWindow.setLunchTarget(mLunchTarget);
+        atestToolWindow.setTestTarget(mTestTarget);
+        try {
+            CommandRunner runner =
+                    new CommandRunner(mLunchTarget, mTestTarget, workPath, atestToolWindow);
+            runner.run();
+        } catch (IllegalArgumentException exception) {
+            String errorMessage = AtestUtils.checkError(mLunchTarget, mTestTarget, workPath);
+            MessageDialog.showMessageDialog(errorMessage);
+        }
         return null;
+    }
+
+    /**
+     * Shows the Atest tool window.
+     *
+     * @param project the project in which the run configuration will be used.
+     * @return true if show Atest tool window successful.
+     */
+    private boolean showAtestTW(@NotNull Project project) {
+        boolean result = false;
+        ToolWindow atestTWController =
+                ToolWindowManager.getInstance(project).getToolWindow(Constants.ATEST_TOOL_WINDOW);
+        if (atestTWController != null) {
+            atestTWController.show(null);
+            result = true;
+        } else {
+            Notifications.Bus.notify(new AtestNotification(Constants.ATEST_WINDOW_FAIL));
+            LOG.error("Can't get Atest tool window.");
+        }
+        return result;
     }
 
     public String getTestTarget() {

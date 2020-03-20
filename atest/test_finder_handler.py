@@ -16,12 +16,15 @@
 Test Finder Handler module.
 """
 
-# pylint: disable=relative-import
 # pylint: disable=line-too-long
+# pylint: disable=import-outside-toplevel
+# pylint: disable=protected-access
 
+import inspect
 import logging
 
 import atest_enum
+
 from test_finders import cache_finder
 from test_finders import test_finder_base
 from test_finders import suite_plan_finder
@@ -238,7 +241,7 @@ def _get_default_find_methods(module_info, test):
         _REFERENCE_TYPE[t] for t in test_ref_types])
     for test_ref_type in test_ref_types:
         find_method = _REF_TYPE_TO_FUNC_MAP[test_ref_type]
-        finder_instance = finder_instance_dict[find_method.im_class.NAME]
+        finder_instance = finder_instance_dict[inspect._findclass(find_method).NAME]
         finder_info = _REFERENCE_TYPE[test_ref_type]
         find_methods.append(test_finder_base.Finder(finder_instance,
                                                     find_method,

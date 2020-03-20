@@ -19,17 +19,16 @@ Class that other test runners will instantiate for test runners.
 """
 
 from __future__ import print_function
+
 import errno
 import logging
 import signal
 import subprocess
 import tempfile
 import os
-import sys
 
 from collections import namedtuple
 
-# pylint: disable=import-error
 import atest_error
 import atest_utils
 import constants
@@ -48,7 +47,7 @@ PASSED_STATUS = 'PASSED'
 IGNORED_STATUS = 'IGNORED'
 ERROR_STATUS = 'ERROR'
 
-class TestRunnerBase(object):
+class TestRunnerBase:
     """Base Test Runner class."""
     NAME = ''
     EXECUTABLE = ''
@@ -84,7 +83,7 @@ class TestRunnerBase(object):
             self.test_log_file = tempfile.NamedTemporaryFile(
                 mode='w', dir=self.results_dir, delete=True)
         logging.debug('Executing command: %s', cmd)
-        return subprocess.Popen(cmd, preexec_fn=os.setsid, shell=True,
+        return subprocess.Popen(cmd, start_new_session=True, shell=True,
                                 stderr=subprocess.STDOUT,
                                 stdout=self.test_log_file, env=env_vars)
 
@@ -102,12 +101,6 @@ class TestRunnerBase(object):
         except Exception as error:
             # exc_info=1 tells logging to log the stacktrace
             logging.debug('Caught exception:', exc_info=1)
-            # Remember our current exception scope, before new try block
-            # Python3 will make this easier, the error itself stores
-            # the scope via error.__traceback__ and it provides a
-            # "raise from error" pattern.
-            # https://docs.python.org/3.5/reference/simple_stmts.html#raise
-            exc_type, exc_msg, traceback_obj = sys.exc_info()
             # If atest crashes, try to kill subproc group as well.
             try:
                 logging.debug('Killing subproc: %s', subproc.pid)
@@ -124,7 +117,7 @@ class TestRunnerBase(object):
                         print(f.read())
                 # Ignore socket.recv() raising due to ctrl-c
                 if not error.args or error.args[0] != errno.EINTR:
-                    raise exc_type, exc_msg, traceback_obj
+                    raise error
 
     def wait_for_subprocess(self, proc):
         """Check the process status. Interrupt the TF subporcess if user

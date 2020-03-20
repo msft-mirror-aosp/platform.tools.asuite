@@ -19,7 +19,6 @@ This test runner will be short lived, once robolectric support v2 is in, then
 robolectric tests will be invoked through AtestTFTestRunner.
 """
 
-# pylint: disable=relative-import
 # pylint: disable=line-too-long
 
 import json
@@ -31,12 +30,11 @@ import time
 
 from functools import partial
 
-# pylint: disable=import-error
 import atest_utils
 import constants
 
-from event_handler import EventHandler
 from test_runners import test_runner_base
+from .event_handler import EventHandler
 
 POLL_FREQ_SECS = 0.1
 # A pattern to match event like below
@@ -113,8 +111,7 @@ class RobolectricTestRunner(test_runner_base.TestRunnerBase):
         ret_code = constants.EXIT_CODE_SUCCESS
         for test_info in test_infos:
             # Create a temp communication file.
-            with tempfile.NamedTemporaryFile(mode='w+r',
-                                             dir=self.results_dir) as event_file:
+            with tempfile.NamedTemporaryFile(dir=self.results_dir) as event_file:
                 # Prepare build environment parameter.
                 full_env_vars = self._get_full_build_environ(test_info,
                                                              extra_args,
@@ -167,6 +164,8 @@ class RobolectricTestRunner(test_runner_base.TestRunnerBase):
             # Make sure that ATest gets content from current position.
             communication_file.seek(0, 1)
             data = communication_file.read()
+            if isinstance(data, bytes):
+                data = data.decode()
             buf += data
             reg = re.compile(r'(.|\n)*}\n\n')
             if not reg.match(buf) or data == '':
@@ -223,6 +222,8 @@ class RobolectricTestRunner(test_runner_base.TestRunnerBase):
             env_var['EVENT_FILE_ROBOLECTRIC'] = event_file.name
         return env_var
 
+    # pylint: disable=unnecessary-pass
+    # Please keep above disable flag to ensure host_env_check is overriden.
     def host_env_check(self):
         """Check that host env has everything we need.
 

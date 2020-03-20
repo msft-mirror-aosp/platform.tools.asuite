@@ -16,10 +16,10 @@
 Utility functions for atest.
 """
 
-# pylint: disable=relative-import
 
 from __future__ import print_function
 
+import curses
 import hashlib
 import itertools
 import json
@@ -27,23 +27,29 @@ import logging
 import os
 import pickle
 import re
+import shutil
 import subprocess
 import sys
+
+from distutils import util
+from urllib.request import urlopen
 
 import atest_decorator
 import atest_error
 import constants
 
-from metrics import metrics_base
-from metrics import metrics_utils
-
+# b/147562331 only occurs when running atest in source code. We don't encourge
+# the users to manually "pip3 install protobuf", therefore when the exception
+# occurs, we don't collect data and the tab completion is for args is silence.
 try:
-    # If PYTHON2
-    from urllib2 import urlopen
-except ImportError:
-    metrics_utils.handle_exc_and_send_exit_event(
-        constants.IMPORT_FAILURE)
-    from urllib.request import urlopen
+    from metrics import metrics_base
+    from metrics import metrics_utils
+except ModuleNotFoundError:
+    # This exception occurs only when invoking atest in source code.
+    print("You shouldn't see this message unless you ran 'atest-src'."
+          "To resolve the issue, please run:\n\t{}\n"
+          "and try again.".format('pip3 install protobuf'))
+    sys.exit(constants.IMPORT_FAILURE)
 
 _BASH_RESET_CODE = '\033[0m\n'
 # Arbitrary number to limit stdout for failed runs in _run_limited_output.
@@ -64,11 +70,21 @@ BUILD_TOP_HASH = hashlib.md5(os.environ.get(constants.ANDROID_BUILD_TOP, '').
 TEST_INFO_CACHE_ROOT = os.path.join(os.path.expanduser('~'), '.atest',
                                     'info_cache', BUILD_TOP_HASH[:8])
 _DEFAULT_TERMINAL_WIDTH = 80
+_DEFAULT_TERMINAL_HEIGHT = 25
 _BUILD_CMD = 'build/soong/soong_ui.bash'
+_FIND_MODIFIED_FILES_CMDS = (
+    "cd {};"
+    "local_branch=$(git rev-parse --abbrev-ref HEAD);"
+    "remote_branch=$(git branch -r | grep '\\->' | awk '{{print $1}}');"
+    # Get the number of commits from local branch to remote branch.
+    "ahead=$(git rev-list --left-right --count $local_branch...$remote_branch "
+    "| awk '{{print $1}}');"
+    # Get the list of modified files from HEAD to previous $ahead generation.
+    "git diff HEAD~$ahead --name-only")
 
 
 def get_build_cmd():
-    """Compose build command with relative path and flag "--make-mode".
+    """Compose build command with no-absolute path and flag "--make-mode".
 
     Returns:
         A list of soong build command.
@@ -116,12 +132,7 @@ def _run_limited_output(cmd, env_vars=None):
     proc = subprocess.Popen(cmd, stdout=subprocess.PIPE,
                             stderr=subprocess.STDOUT, env=env_vars)
     sys.stdout.write('\n')
-    # Determine the width of the terminal. We'll need to clear this many
-    # characters when carriage returning. Set default value as 80.
-    term_width = _DEFAULT_TERMINAL_WIDTH
-    stty_size = os.popen('stty size').read()
-    if stty_size:
-        term_width = int(stty_size.split()[1])
+    term_width, _ = _get_terminal_size()
     white_space = " " * int(term_width)
     full_output = []
     while proc.poll() is None:
@@ -209,9 +220,19 @@ def _can_upload_to_result_server():
     return False
 
 
-def get_result_server_args():
-    """Return list of args for communication with result server."""
+def get_result_server_args(for_test_mapping=False):
+    """Return list of args for communication with result server.
+
+    Args:
+        for_test_mapping: True if the test run is for Test Mapping to include
+            additional reporting args. Default is False.
+    """
+    # TODO (b/147644460) Temporarily disable Sponge V1 since it will be turned
+    # down.
     if _can_upload_to_result_server():
+        if for_test_mapping:
+            return (constants.RESULT_SERVER_ARGS +
+                    constants.TEST_MAPPING_RESULT_SERVER_ARGS)
         return constants.RESULT_SERVER_ARGS
     return []
 
@@ -258,8 +279,7 @@ def _has_colors(stream):
     cached_has_colors = _has_colors.cached_has_colors
     if stream in cached_has_colors:
         return cached_has_colors[stream]
-    else:
-        cached_has_colors[stream] = True
+    cached_has_colors[stream] = True
     # Following from Python cookbook, #475186
     if not hasattr(stream, "isatty"):
         cached_has_colors[stream] = False
@@ -269,7 +289,6 @@ def _has_colors(stream):
         cached_has_colors[stream] = False
         return False
     try:
-        import curses
         curses.setupterm()
         cached_has_colors[stream] = curses.tigetnum("colors") > 2
     # pylint: disable=broad-except
@@ -320,6 +339,19 @@ def colorful_print(text, color, highlight=False, auto_wrap=True):
         print(output)
     else:
         print(output, end="")
+
+
+def _get_terminal_size():
+    """Get terminal size and return a tuple.
+
+    Returns:
+        2 integers: the size of X(columns) and Y(lines/rows).
+    """
+    # Determine the width of the terminal. We'll need to clear this many
+    # characters when carriage returning. Set default value as 80.
+    columns, rows = shutil.get_terminal_size(
+        fallback=(_DEFAULT_TERMINAL_WIDTH, _DEFAULT_TERMINAL_HEIGHT))
+    return columns, rows
 
 
 def is_external_run():
@@ -391,13 +423,9 @@ def handle_test_runner_cmd(input_test, test_cmds, do_verification=False,
             print('Former cmds = %s' % former_test_cmds)
             print('Current cmds = %s' % test_cmds)
             try:
-                # TODO(b/137156054):
-                # Move the import statement into a method for that distutils is
-                # not a built-in lib in older python3(b/137017806). Will move it
-                # back when embedded_launcher fully supports Python3.
-                from distutils.util import strtobool
-                if not strtobool(raw_input('Do you want to update former result'
-                                           'with the latest one?(Y/n)')):
+                if not util.strtobool(
+                        input('Do you want to update former result '
+                              'with the latest one?(Y/n)')):
                     print('SKIP updating result!!!')
                     return
             except ValueError:
@@ -437,7 +465,7 @@ def _are_identical_cmds(current_cmds, former_cmds):
         Returns:
             A list with elements. E.g. ['cmd', 'arg1', 'arg2', 'True']
         """
-        _cmd = ''.join(cmd_list).encode('utf-8').split()
+        _cmd = ''.join(cmd_list).split()
         for cmd in _cmd:
             if cmd.startswith('--atest-log-file-path'):
                 _cmd.remove(cmd)
@@ -524,8 +552,12 @@ def load_test_info_cache(test_reference, cache_root=TEST_INFO_CACHE_ROOT):
         logging.debug('Loading cache %s.', cache_file)
         try:
             with open(cache_file, 'rb') as config_dictionary_file:
-                return pickle.load(config_dictionary_file)
-        except (pickle.UnpicklingError, ValueError, EOFError, IOError) as err:
+                return pickle.load(config_dictionary_file, encoding='utf-8')
+        except (pickle.UnpicklingError,
+                ValueError,
+                TypeError,
+                EOFError,
+                IOError) as err:
             # Won't break anything, just remove the old cache, log this error,
             # and collect the exception by metrics.
             logging.debug('Exception raised: %s', err)
@@ -551,3 +583,43 @@ def clean_test_info_caches(tests, cache_root=TEST_INFO_CACHE_ROOT):
                 logging.debug('Exception raised: %s', err)
                 metrics_utils.handle_exc_and_send_exit_event(
                     constants.ACCESS_CACHE_FAILURE)
+
+def get_modified_files(root_dir):
+    """Get the git modified files. The git path here is git top level of
+    the root_dir. It's inevitable to utilise different commands to fulfill
+    2 scenario:
+        1. locate unstaged/staged files
+        2. locate committed files but not yet merged.
+    the 'git_status_cmd' fulfils the former while the 'find_modified_files'
+    fulfils the latter.
+
+    Args:
+        root_dir: the root where it starts finding.
+
+    Returns:
+        A set of modified files altered since last commit.
+    """
+    modified_files = set()
+    try:
+        find_git_cmd = 'cd {}; git rev-parse --show-toplevel'.format(root_dir)
+        git_paths = subprocess.check_output(
+            find_git_cmd, shell=True).decode().splitlines()
+        for git_path in git_paths:
+            # Find modified files from git working tree status.
+            git_status_cmd = ("repo forall {} -c git status --short | "
+                              "awk '{{print $NF}}'").format(git_path)
+            modified_wo_commit = subprocess.check_output(
+                git_status_cmd, shell=True).decode().rstrip().splitlines()
+            for change in modified_wo_commit:
+                modified_files.add(
+                    os.path.normpath('{}/{}'.format(git_path, change)))
+            # Find modified files that are committed but not yet merged.
+            find_modified_files = _FIND_MODIFIED_FILES_CMDS.format(git_path)
+            commit_modified_files = subprocess.check_output(
+                find_modified_files, shell=True).decode().splitlines()
+            for line in commit_modified_files:
+                modified_files.add(os.path.normpath('{}/{}'.format(
+                    git_path, line)))
+    except (OSError, subprocess.CalledProcessError) as err:
+        logging.debug('Exception raised: %s', err)
+    return modified_files

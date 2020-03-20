@@ -16,15 +16,15 @@
 
 """Unittest for atest_execution_info."""
 
-# pylint: disable=relative-import
 # pylint: disable=line-too-long
 
 import time
 import unittest
 
-from test_runners import test_runner_base
 import atest_execution_info as aei
 import result_reporter
+
+from test_runners import test_runner_base
 
 RESULT_TEST_TEMPLATE = test_runner_base.TestResult(
     runner_name='someRunner',

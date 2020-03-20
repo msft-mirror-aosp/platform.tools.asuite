@@ -16,7 +16,6 @@
 
 """Unittests for cli_translator."""
 
-# pylint: disable=relative-import
 # pylint: disable=line-too-long
 
 import unittest
@@ -24,7 +23,10 @@ import json
 import os
 import re
 import sys
-import mock
+
+from importlib import reload
+from io import StringIO
+from unittest import mock
 
 import cli_translator as cli_t
 import constants
@@ -32,15 +34,11 @@ import test_finder_handler
 import test_mapping
 import unittest_constants as uc
 import unittest_utils
+
 from metrics import metrics
 from test_finders import module_finder
 from test_finders import test_finder_base
 
-# Import StringIO in Python2/3 compatible way.
-if sys.version_info[0] == 2:
-    from StringIO import StringIO
-else:
-    from io import StringIO
 
 # TEST_MAPPING related consts
 TEST_MAPPING_TOP_DIR = os.path.join(uc.TEST_DATA_DIR, 'test_mapping')
@@ -86,6 +84,7 @@ class CLITranslatorUnittests(unittest.TestCase):
         # Test mapping related args
         self.args.test_mapping = False
         self.args.include_subdirs = False
+        self.args.enable_file_patterns = False
         # Cache finder related args
         self.args.clear_cache = False
         self.ctr.mod_info = mock.Mock
@@ -95,14 +94,14 @@ class CLITranslatorUnittests(unittest.TestCase):
         """Run after execution of every test"""
         reload(uc)
 
-    @mock.patch('__builtin__.raw_input', return_value='n')
+    @mock.patch('builtins.input', return_value='n')
     @mock.patch.object(module_finder.ModuleFinder, 'find_test_by_module_name')
     @mock.patch.object(module_finder.ModuleFinder, 'get_fuzzy_searching_results')
     @mock.patch.object(metrics, 'FindTestFinishEvent')
     @mock.patch.object(test_finder_handler, 'get_find_methods_for_test')
     # pylint: disable=too-many-locals
     def test_get_test_infos(self, mock_getfindmethods, _metrics, mock_getfuzzyresults,
-                            mock_findtestbymodule, mock_raw_input):
+                            mock_findtestbymodule, mock_input):
         """Test _get_test_infos method."""
         ctr = cli_t.CLITranslator()
         find_method_return_module_info = lambda x, y: uc.MODULE_INFOS
@@ -138,7 +137,7 @@ class CLITranslatorUnittests(unittest.TestCase):
         self.assertEqual(null_test_info, ctr._get_test_infos(mult_test))
 
         # Check returning test_info when the user says Yes.
-        mock_raw_input.return_value = "Y"
+        mock_input.return_value = "Y"
         mock_getfindmethods.return_value = [
             test_finder_base.Finder(None, find_method_return_module_info, None)]
         mock_getfuzzyresults.return_value = one_test
@@ -338,11 +337,11 @@ class CLITranslatorUnittests(unittest.TestCase):
         self.assertEqual(expected, tests)
         self.assertEqual(expected_all_tests, all_tests)
 
-    @mock.patch('__builtin__.raw_input', return_value='')
-    def test_confirm_running(self, mock_raw_input):
+    @mock.patch('builtins.input', return_value='')
+    def test_confirm_running(self, mock_input):
         """Test _confirm_running method."""
         self.assertTrue(self.ctr._confirm_running([TEST_1]))
-        mock_raw_input.return_value = 'N'
+        mock_input.return_value = 'N'
         self.assertFalse(self.ctr._confirm_running([TEST_2]))
 
     def test_print_fuzzy_searching_results(self):
@@ -354,7 +353,7 @@ class CLITranslatorUnittests(unittest.TestCase):
         sys.stdout = sys.__stdout__
         output = 'Did you mean the following modules?\n{0}\n{1}\n'.format(
             uc.MODULE_NAME, uc.MODULE2_NAME)
-        self.assertEquals(capture_output.getvalue(), output)
+        self.assertEqual(capture_output.getvalue(), output)
 
     def test_filter_comments(self):
         """Test filter_comments method"""

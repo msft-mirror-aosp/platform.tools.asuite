@@ -42,6 +42,7 @@ POST_PATCH_ITERATIONS = 'POST_PATCH_ITERATIONS'
 PRE_PATCH_FOLDER = 'PRE_PATCH_FOLDER'
 POST_PATCH_FOLDER = 'POST_PATCH_FOLDER'
 SERIAL = 'SERIAL'
+SHARDING = 'SHARDING'
 ALL_ABI = 'ALL_ABI'
 HOST = 'HOST'
 CUSTOM_ARGS = 'CUSTOM_ARGS'
@@ -52,6 +53,8 @@ USER_TYPE = 'USER_TYPE'
 ITERATIONS = 'ITERATIONS'
 RERUN_UNTIL_FAILURE = 'RERUN_UNTIL_FAILURE'
 RETRY_ANY_FAILURE = 'RETRY_ANY_FAILURE'
+COLLECT_TESTS_ONLY = 'COLLECT_TESTS_ONLY'
+TF_TEMPLATE = 'TF_TEMPLATE'
 
 # Application exit codes.
 EXIT_CODE_SUCCESS = 0
@@ -101,6 +104,8 @@ TI_MODULE_ARG = 'module-arg'
 GTF_MODULE = 'google-tradefed'
 GTF_TARGET = 'google-tradefed-core'
 
+# TEST_MAPPING filename
+TEST_MAPPING = 'TEST_MAPPING'
 # Test group for tests in TEST_MAPPING
 TEST_GROUP_PRESUBMIT = 'presubmit'
 TEST_GROUP_POSTSUBMIT = 'postsubmit'
@@ -123,13 +128,12 @@ TF_SKIP_LOADING_CONFIG_JAR = '--skip-loading-config-jar'
 # Suite Plans
 SUITE_PLANS = frozenset(['cts'])
 
-# Constants used for AtestArgParser
-HELP_DESC = 'Build, install and run Android tests locally.'
+# Constants of Steps
+REBUILD_MODULE_INFO_FLAG = '--rebuild-module-info'
 BUILD_STEP = 'build'
 INSTALL_STEP = 'install'
 TEST_STEP = 'test'
 ALL_STEPS = [BUILD_STEP, INSTALL_STEP, TEST_STEP]
-REBUILD_MODULE_INFO_FLAG = '--rebuild-module-info'
 
 # ANSI code shift for colorful print
 BLACK, RED, GREEN, YELLOW, BLUE, MAGENTA, CYAN, WHITE = range(8)
@@ -152,7 +156,7 @@ METRICS_URL = 'http://asuite-218222.appspot.com/atest/metrics'
 EXTERNAL = 'EXTERNAL_RUN'
 INTERNAL = 'INTERNAL_RUN'
 INTERNAL_EMAIL = '@google.com'
-INTERNAL_HOSTNAME = '.google.com'
+INTERNAL_HOSTNAME = ['.google.com', 'c.googlers.com']
 CONTENT_LICENSES_URL = 'https://source.android.com/setup/start/licenses'
 CONTRIBUTOR_AGREEMENT_URL = {
     'INTERNAL': 'https://cla.developers.google.com/',
@@ -180,6 +184,12 @@ TEST_MAPPING_SUITES = ['device-tests', 'general-tests']
 
 # VTS TF
 VTS_TF_MODULE = 'vts-tradefed'
+
+# VTS-Core TF
+VTS_CORE_TF_MODULE = 'vts-core-tradefed'
+
+# VTS suite set
+VTS_CORE_SUITE = 'vts-core'
 
 # ATest TF
 ATEST_TF_MODULE = 'atest-tradefed'

@@ -15,6 +15,9 @@
  */
 package com.android.atest.run;
 
+import com.android.atest.Constants;
+import com.android.atest.widget.AtestFastInputController;
+import com.google.common.base.Strings;
 import com.intellij.openapi.options.ConfigurationException;
 import com.intellij.openapi.options.SettingsEditor;
 import org.jetbrains.annotations.NotNull;
@@ -24,12 +27,15 @@ import javax.swing.*;
 /** The UI of Atest settings editor. */
 public class AtestSettingsEditor extends SettingsEditor<AtestRunConfiguration> {
 
-    private JComboBox testTarget;
-    private JTextField lunchTarget;
-    private JPanel settingPanel;
+    private JComboBox mTestTarget;
+    private JTextField mLunchTarget;
+    private JPanel mSettingPanel;
+    private JCheckBox mRunOnHost;
+    private JCheckBox mSkipBuild;
+    private JCheckBox mTestMapping;
 
     public AtestSettingsEditor() {
-        testTarget.setEditable(true);
+        mTestTarget.setEditable(true);
     }
 
     /**
@@ -39,8 +45,12 @@ public class AtestSettingsEditor extends SettingsEditor<AtestRunConfiguration> {
      */
     @Override
     protected void resetEditorFrom(@NotNull AtestRunConfiguration atestRunConfiguration) {
-        lunchTarget.setText(atestRunConfiguration.getLaunchTarget());
-        testTarget.setSelectedItem(atestRunConfiguration.getTestTarget());
+        String lunchTargetValue = atestRunConfiguration.getLaunchTarget();
+        if (Strings.isNullOrEmpty(lunchTargetValue)) {
+            lunchTargetValue = Constants.DEFAULT_LUNCH_TARGET;
+        }
+        mLunchTarget.setText(lunchTargetValue);
+        mTestTarget.setSelectedItem(atestRunConfiguration.getTestTarget());
     }
 
     /**
@@ -52,8 +62,8 @@ public class AtestSettingsEditor extends SettingsEditor<AtestRunConfiguration> {
     @Override
     protected void applyEditorTo(@NotNull AtestRunConfiguration atestRunConfiguration)
             throws ConfigurationException {
-        atestRunConfiguration.setLaunchTarget(lunchTarget.getText());
-        atestRunConfiguration.setTestTarget(testTarget.getSelectedItem().toString());
+        atestRunConfiguration.setLaunchTarget(mLunchTarget.getText());
+        atestRunConfiguration.setTestTarget(mTestTarget.getSelectedItem().toString());
     }
 
     /**
@@ -64,6 +74,9 @@ public class AtestSettingsEditor extends SettingsEditor<AtestRunConfiguration> {
     @NotNull
     @Override
     protected JComponent createEditor() {
-        return settingPanel;
+        AtestFastInputController atestFastInputController =
+                new AtestFastInputController(mTestTarget, mRunOnHost, mTestMapping, mSkipBuild);
+        atestFastInputController.linkCheckBoxWithTestTarget();
+        return mSettingPanel;
     }
 }

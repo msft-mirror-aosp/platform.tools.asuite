@@ -16,7 +16,6 @@
 
 # pylint: disable=line-too-long
 # pylint: disable=too-many-lines
-# pylint: disable=relative-import
 
 from __future__ import print_function
 
@@ -38,7 +37,6 @@ from metrics import metrics
 from metrics import metrics_utils
 from test_finders import module_finder
 
-TEST_MAPPING = 'TEST_MAPPING'
 FUZZY_FINDER = 'FUZZY'
 CACHE_FINDER = 'CACHE'
 
@@ -47,7 +45,7 @@ _COMMENTS_RE = re.compile(r'(?m)[\s\t]*(#|//).*|(\".*?\")')
 _COMMENTS = frozenset(['//', '#'])
 
 #pylint: disable=no-self-use
-class CLITranslator(object):
+class CLITranslator:
     """
     CLITranslator class contains public method translate() and some private
     helper methods. The atest tool can call the translate() method with a list
@@ -70,6 +68,7 @@ class CLITranslator(object):
             module_info: ModuleInfo class that has cached module-info.json.
         """
         self.mod_info = module_info
+        self.enable_file_patterns = False
 
     # pylint: disable=too-many-locals
     def _find_test_infos(self, test, tm_test_detail):
@@ -206,7 +205,7 @@ class CLITranslator(object):
         Returns:
             True is the answer is affirmative.
         """
-        decision = raw_input('Did you mean {0}? [Y/n] '.format(
+        decision = input('Did you mean {0}? [Y/n] '.format(
             atest_utils.colorize(results[0], constants.GREEN)))
         return decision in constants.AFFIRMATIVES
 
@@ -275,6 +274,10 @@ class CLITranslator(object):
                 grouped_tests = all_tests.setdefault(test_group_name, set())
                 tests = []
                 for test in test_list:
+                    if (self.enable_file_patterns and
+                            not test_mapping.is_match_file_patterns(
+                                test_mapping_file, test)):
+                        continue
                     test_mod_info = self.mod_info.name_to_module_info.get(
                         test['name'])
                     if not test_mod_info:
@@ -299,7 +302,7 @@ class CLITranslator(object):
                 grouped_tests.update(tests)
         return all_tests, imports
 
-    def _find_files(self, path, file_name=TEST_MAPPING):
+    def _find_files(self, path, file_name=constants.TEST_MAPPING):
         """Find all files with given name under the given path.
 
         Args:
@@ -355,7 +358,8 @@ class CLITranslator(object):
     # pylint: disable=too-many-locals
     def _find_tests_by_test_mapping(
             self, path='', test_group=constants.TEST_GROUP_PRESUBMIT,
-            file_name=TEST_MAPPING, include_subdirs=False, checked_files=None):
+            file_name=constants.TEST_MAPPING, include_subdirs=False,
+            checked_files=None):
         """Find tests defined in TEST_MAPPING in the given path.
 
         Args:
@@ -387,7 +391,7 @@ class CLITranslator(object):
             test_mapping_files.update(self._find_files(path, file_name))
         # Include all possible TEST_MAPPING files in parent directories.
         root_dir = os.environ.get(constants.ANDROID_BUILD_TOP, os.sep)
-        while path != root_dir and path != os.sep:
+        while path not in (root_dir, os.sep):
             path = os.path.dirname(path)
             test_mapping_file = os.path.join(path, file_name)
             if os.path.exists(test_mapping_file):
@@ -410,7 +414,7 @@ class CLITranslator(object):
                 # (b/110166535 #19) Import path might not exist if a project is
                 # located in different directory in different branches.
                 if path is None:
-                    logging.warn(
+                    logging.warning(
                         'Failed to import TEST_MAPPING at %s', import_detail)
                     continue
                 # Search for tests based on the imported search path.
@@ -457,7 +461,7 @@ class CLITranslator(object):
             include_subdirs=args.include_subdirs, checked_files=set())
         test_details_list = list(test_details)
         if not test_details_list:
-            logging.warn(
+            logging.warning(
                 'No tests of group `%s` found in TEST_MAPPING at %s or its '
                 'parent directories.\nYou might be missing atest arguments,'
                 ' try `atest --help` for more information',
@@ -468,7 +472,7 @@ class CLITranslator(object):
                     tests += '%s:\n' % test_group
                     for test_detail in sorted(test_list):
                         tests += '\t%s\n' % test_detail
-                logging.warn(
+                logging.warning(
                     'All available tests in TEST_MAPPING files are:\n%s',
                     tests)
             metrics_utils.send_exit_event(constants.EXIT_CODE_TEST_NOT_FOUND)
@@ -494,6 +498,8 @@ class CLITranslator(object):
         # Test details from TEST_MAPPING files
         test_details_list = None
         if atest_utils.is_test_mapping(args):
+            if args.enable_file_patterns:
+                self.enable_file_patterns = True
             tests, test_details_list = self._get_test_mapping_tests(args)
         atest_utils.colorful_print("\nFinding Tests...", constants.CYAN)
         logging.debug('Finding Tests: %s', tests)

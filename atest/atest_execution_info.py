@@ -15,7 +15,6 @@
 """ATest execution info generator."""
 
 # pylint: disable=line-too-long
-# pylint: disable=relative-import
 
 from __future__ import print_function
 
@@ -61,7 +60,19 @@ def preparation_time(start_time):
     return PREPARE_END_TIME - start_time if PREPARE_END_TIME else None
 
 
-class AtestExecutionInfo(object):
+def symlink_latest_result(test_result_dir):
+    """Make the symbolic link to latest result.
+
+    Args:
+        test_result_dir: A string of the dir path.
+    """
+    symlink = os.path.join(constants.ATEST_RESULT_ROOT, 'LATEST')
+    if os.path.exists(symlink) or os.path.islink(symlink):
+        os.remove(symlink)
+    os.symlink(test_result_dir, symlink)
+
+
+class AtestExecutionInfo:
     """Class that stores the whole test progress information in JSON format.
 
     ----
@@ -129,6 +140,7 @@ class AtestExecutionInfo(object):
             self.result_file.write(AtestExecutionInfo.
                                    _generate_execution_detail(self.args))
             self.result_file.close()
+            symlink_latest_result(self.work_dir)
         main_module = sys.modules.get(_MAIN_MODULE_KEY)
         main_exit_code = getattr(main_module, _EXIT_CODE_ATTR,
                                  constants.EXIT_CODE_ERROR)
@@ -154,7 +166,7 @@ class AtestExecutionInfo(object):
                 AtestExecutionInfo.result_reporters)
             return json.dumps(info_dict)
         except ValueError as err:
-            logging.warn('Parsing test result failed due to : %s', err)
+            logging.warning('Parsing test result failed due to : %s', err)
 
     @staticmethod
     def _arrange_test_result(info_dict, reporters):
@@ -198,7 +210,7 @@ class AtestExecutionInfo(object):
                 group_summary = _SUMMARY_MAP_TEMPLATE.copy()
                 for status in info_dict[_TEST_RUNNER_KEY][runner][group]:
                     count = len(info_dict[_TEST_RUNNER_KEY][runner][group][status])
-                    if _SUMMARY_MAP_TEMPLATE.has_key(status):
+                    if status in _SUMMARY_MAP_TEMPLATE:
                         group_summary[status] = count
                         total_test_group_summary[status] += count
                 info_dict[_TEST_RUNNER_KEY][runner][group][_SUMMARY_KEY] = group_summary

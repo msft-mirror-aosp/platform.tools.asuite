@@ -16,16 +16,17 @@
 
 """Unittests for tf_integration_finder."""
 
-# pylint: disable=relative-import
 # pylint: disable=line-too-long
 
 import os
 import unittest
-import mock
+
+from unittest import mock
 
 import constants
 import unittest_constants as uc
 import unittest_utils
+
 from test_finders import test_finder_utils
 from test_finders import test_info
 from test_finders import tf_integration_finder
@@ -98,6 +99,7 @@ class TFIntegrationFinderUnittests(unittest.TestCase):
         self.assertEqual(
             self.tf_finder.find_test_by_integration_name('NotIntName'), [])
 
+    @mock.patch.dict('os.environ', {constants.ANDROID_BUILD_TOP:'/'})
     @mock.patch.object(tf_integration_finder.TFIntegrationFinder,
                        '_get_build_targets', return_value=set())
     @mock.patch('os.path.realpath',

@@ -117,15 +117,15 @@ class ProjectInfoUnittests(unittest.TestCase):
 
     @mock.patch.object(common_util, 'get_android_root_dir')
     def test_get_target_name(self, mock_get_root):
-        """Test _get_target_name with different conditions."""
+        """Test get_target_name with different conditions."""
         mock_get_root.return_value = unittest_constants.TEST_DATA_PATH
         self.assertEqual(
-            project_info.ProjectInfo._get_target_name(
+            project_info.ProjectInfo.get_target_name(
                 unittest_constants.TEST_MODULE,
                 unittest_constants.TEST_DATA_PATH),
             os.path.basename(unittest_constants.TEST_DATA_PATH))
         self.assertEqual(
-            project_info.ProjectInfo._get_target_name(
+            project_info.ProjectInfo.get_target_name(
                 unittest_constants.TEST_MODULE, unittest_constants.TEST_PATH),
             unittest_constants.TEST_MODULE)
 
@@ -152,7 +152,8 @@ class ProjectInfoUnittests(unittest.TestCase):
             unittest_constants.TEST_MODULE
         ]
         project_config.ProjectConfig(self.args)
-        project_info_obj = project_info.ProjectInfo(mock_module_info)
+        project_info_obj = project_info.ProjectInfo(
+            mock_module_info.get_paths()[0])
         project_info_obj.dep_modules = {
             unittest_constants.TEST_MODULE: locate_module_info
         }

@@ -16,7 +16,6 @@
 
 """Unittests for atest_utils."""
 
-# pylint: disable=relative-import
 # pylint: disable=line-too-long
 
 import hashlib
@@ -25,18 +24,17 @@ import subprocess
 import sys
 import tempfile
 import unittest
-import mock
+
+from io import StringIO
+from unittest import mock
 
 import atest_error
 import atest_utils
 import constants
 import unittest_utils
+
 from test_finders import test_info
 
-if sys.version_info[0] == 2:
-    from StringIO import StringIO
-else:
-    from io import StringIO
 
 TEST_MODULE_NAME_A = 'ModuleNameA'
 TEST_RUNNER_A = 'FakeTestRunnerA'
@@ -241,6 +239,14 @@ class AtestUtilsUnittests(unittest.TestCase):
         mock_output.return_value = 'test@google.com'
         self.assertFalse(atest_utils.is_external_run())
 
+        mock_output.return_value = 'test@other.com'
+        mock_hostname.return_value = 'c.googlers.com'
+        self.assertFalse(atest_utils.is_external_run())
+
+        mock_output.return_value = 'test@other.com'
+        mock_hostname.return_value = 'a.googlers.com'
+        self.assertTrue(atest_utils.is_external_run())
+
         mock_output.side_effect = OSError()
         self.assertTrue(atest_utils.is_external_run())
 
@@ -285,9 +291,9 @@ class AtestUtilsUnittests(unittest.TestCase):
         uncolored_string = notice_str
         self.assertEqual(capture_output.getvalue(), uncolored_string)
 
-    @mock.patch('__builtin__.raw_input')
+    @mock.patch('builtins.input')
     @mock.patch('json.load')
-    def test_update_test_runner_cmd(self, mock_json_load_data, mock_raw_input):
+    def test_update_test_runner_cmd(self, mock_json_load_data, mock_input):
         """Test method handle_test_runner_cmd without enable do_verification."""
         former_cmd_str = 'Former cmds ='
         write_result_str = 'Save result mapping to test_result'
@@ -320,7 +326,7 @@ class AtestUtilsUnittests(unittest.TestCase):
         # Previous data has different cmds. Should enter strtobool not update,
         # should not find write_result_str.
         prev_cmds = ['cmd1']
-        mock_raw_input.return_value = 'n'
+        mock_input.return_value = 'n'
         capture_output = StringIO()
         sys.stdout = capture_output
         mock_json_load_data.return_value = {input_cmd:prev_cmds}
@@ -384,6 +390,22 @@ class AtestUtilsUnittests(unittest.TestCase):
         with mock.patch.dict('os.environ', os_environ_mock, clear=True):
             expected_cmd = ['../../build/soong/soong_ui.bash', '--make-mode']
             self.assertEqual(expected_cmd, atest_utils.get_build_cmd())
+
+    @mock.patch('subprocess.check_output')
+    def test_get_modified_files(self, mock_co):
+        """Test method get_modified_files"""
+        mock_co.side_effect = [
+            x.encode('utf-8') for x in ['/a/b/',
+                                        '\n',
+                                        'test_fp1.java\nc/test_fp2.java']]
+        self.assertEqual({'/a/b/test_fp1.java', '/a/b/c/test_fp2.java'},
+                         atest_utils.get_modified_files(''))
+        mock_co.side_effect = [
+            x.encode('utf-8') for x in ['/a/b/',
+                                        'test_fp4',
+                                        '/test_fp3.java']]
+        self.assertEqual({'/a/b/test_fp4', '/a/b/test_fp3.java'},
+                         atest_utils.get_modified_files(''))
 
 if __name__ == "__main__":
     unittest.main()

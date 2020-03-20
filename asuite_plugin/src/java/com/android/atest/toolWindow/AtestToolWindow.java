@@ -16,10 +16,18 @@
 package com.android.atest.toolWindow;
 
 import com.android.atest.AtestUtils;
+import com.android.atest.Constants;
 import com.android.atest.commandAdapter.CommandRunner;
 import com.android.atest.dialog.MessageDialog;
+import com.android.atest.widget.AtestFastInputController;
+import com.android.atest.widget.AtestNotification;
+import com.intellij.notification.Notifications;
+import com.intellij.openapi.diagnostic.Logger;
+import com.intellij.openapi.project.Project;
 import com.intellij.openapi.wm.ToolWindow;
+import com.intellij.openapi.wm.ToolWindowManager;
 import com.intellij.openapi.wm.ex.ToolWindowEx;
+import com.intellij.openapi.wm.impl.ToolWindowImpl;
 import org.jetbrains.annotations.NotNull;
 
 import javax.swing.*;
@@ -29,6 +37,9 @@ import java.awt.*;
 public class AtestToolWindow {
 
     private static final int INITIAL_WIDTH = 1000;
+    private static final Logger LOG = Logger.getInstance(AtestToolWindow.class);
+    private static AtestToolWindow sAtestToolWindowInstance;
+
     private JPanel mAtestToolWindowPanel;
     private JScrollPane mScorll;
     private JTextArea mAtestOutput;
@@ -39,6 +50,7 @@ public class AtestToolWindow {
     private JCheckBox mSkipBuild;
     private JButton mRunButton;
     private JComboBox mTestTarget;
+    private JButton mStopButton;
 
     /**
      * Initializes AtestToolWindow with ToolWindow and Project.
@@ -46,11 +58,58 @@ public class AtestToolWindow {
      * @param toolWindow a child window of the IDE used to display information.
      * @param basePath a string that represents current project's base path.
      */
-    public AtestToolWindow(ToolWindow toolWindow, String basePath) {
+    private AtestToolWindow(ToolWindow toolWindow, String basePath) {
         setInitialWidth((ToolWindowEx) toolWindow);
         setRunButton(basePath);
-        setTestTarget(basePath);
+        setStopButton();
+        initTestTarget(basePath);
+        AtestFastInputController fastInputController =
+                new AtestFastInputController(mTestTarget, mRunOnHost, mTestMapping, mSkipBuild);
+        fastInputController.linkCheckBoxWithTestTarget();
         mAtestOutput.setMargin(new Insets(0, 10, 0, 0));
+    }
+
+    /**
+     * Initializes AtestToolWindow instance.
+     *
+     * <p>Because the AtestToolWindow should be modified when the project is changed. It can't be
+     * singleton. This initializer is used by the ToolWindowFactory. We use IntelliJ's mechanism to
+     * make sure AtestToolWindow's instance can always follow the project.
+     *
+     * @param toolWindow a child window of the IDE used to display information.
+     * @param basePath a string that represents current project's base path.
+     * @return the AtestToolWindow instance.
+     */
+    @NotNull
+    public static AtestToolWindow initAtestToolWindow(ToolWindow toolWindow, String basePath) {
+        sAtestToolWindowInstance = new AtestToolWindow(toolWindow, basePath);
+        return sAtestToolWindowInstance;
+    }
+
+    /**
+     * Gets AtestToolWindow instance by project.
+     *
+     * <p>When using ToolWindowManager to get atest tool window, it will initialize the
+     * AtestToolWindow by {@link AtestToolWindowFactory} asynchronously. We use
+     * ensureContentInitialized from ToolWindowImpl to ensure the AtestToolWindow has been
+     * initialized.
+     *
+     * @param project the current intelliJ project.
+     * @return the AtestToolWindow instance.
+     */
+    @NotNull
+    public static AtestToolWindow getInstance(@NotNull Project project) {
+        ToolWindow AtestTW =
+                ToolWindowManager.getInstance(project).getToolWindow(Constants.ATEST_TOOL_WINDOW);
+        if (AtestTW instanceof ToolWindowImpl) {
+            ((ToolWindowImpl) AtestTW).ensureContentInitialized();
+        }
+
+        if (sAtestToolWindowInstance == null) {
+            LOG.error("AtestToolWindowInstance is null when getting instance by project");
+            Notifications.Bus.notify(new AtestNotification(Constants.ATEST_WINDOW_FAIL));
+        }
+        return sAtestToolWindowInstance;
     }
 
     /**
@@ -58,7 +117,7 @@ public class AtestToolWindow {
      *
      * @param basePath a string that represents current project's base path.
      */
-    private void setTestTarget(String basePath) {
+    private void initTestTarget(String basePath) {
         mTestTarget.setEditable(true);
         if (AtestUtils.hasTestMapping(basePath)) {
             mTestTarget.setSelectedItem(basePath);
@@ -109,6 +168,15 @@ public class AtestToolWindow {
                 });
     }
 
+    /** Initializes the stop button. */
+    private void setStopButton() {
+        mStopButton.addActionListener(
+                e -> {
+                    CommandRunner.stopProcess();
+                    mAtestOutput.setText(null);
+                });
+    }
+
     /** Scrolls the output window scroll bar to the bottom. */
     public void scrollToEnd() {
         JScrollBar vertical = mScorll.getVerticalScrollBar();
@@ -131,5 +199,23 @@ public class AtestToolWindow {
      */
     public JPanel getContent() {
         return mAtestToolWindowPanel;
+    }
+
+    /**
+     * Sets the test target of Atest tool window.
+     *
+     * @param target the test target of Atest tool window.
+     */
+    public void setTestTarget(@NotNull String target) {
+        mTestTarget.setSelectedItem(target);
+    }
+
+    /**
+     * Sets the lunch target of Atest tool window.
+     *
+     * @param target the lunch target of Atest tool window.
+     */
+    public void setLunchTarget(@NotNull String target) {
+        mLunchTarget.setText(target);
     }
 }

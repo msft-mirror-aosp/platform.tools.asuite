@@ -18,14 +18,13 @@ TestInfo class.
 
 from collections import namedtuple
 
-# pylint: disable=import-error
 import constants
 
 
 TestFilterBase = namedtuple('TestFilter', ['class_name', 'methods'])
 
 
-class TestInfo(object):
+class TestInfo:
     """Information needed to identify and run a test."""
 
     # pylint: disable=too-many-arguments

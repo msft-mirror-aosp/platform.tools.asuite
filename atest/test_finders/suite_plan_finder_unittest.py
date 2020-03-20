@@ -16,15 +16,16 @@
 
 """Unittests for suite_plan_finder."""
 
-# pylint: disable=relative-import
 # pylint: disable=line-too-long
 
 import os
 import unittest
-import mock
+
+from unittest import mock
 
 import unittest_constants as uc
 import unittest_utils
+
 from test_finders import test_finder_utils
 from test_finders import test_info
 from test_finders import suite_plan_finder

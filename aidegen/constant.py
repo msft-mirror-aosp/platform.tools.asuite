@@ -20,6 +20,8 @@ OUT_DIR_COMMON_BASE_ENV_VAR = 'OUT_DIR_COMMON_BASE'
 ANDROID_DEFAULT_OUT = 'out'
 AIDEGEN_ROOT_PATH = 'tools/asuite/aidegen'
 USER_HOME = '$USER_HOME$'
+TARGET_PRODUCT = 'TARGET_PRODUCT'
+TARGET_BUILD_VARIANT = 'TARGET_BUILD_VARIANT'
 
 # Constants for module's info.
 KEY_PATH = 'path'
@@ -35,6 +37,9 @@ KEY_COMPATIBILITY = 'compatibility_suites'
 KEY_AUTO_TEST_CONFIG = 'auto_test_config'
 KEY_MODULE_NAME = 'module_name'
 KEY_TEST_CONFIG = 'test_config'
+KEY_HEADER = 'header_search_path'
+KEY_SYSTEM = 'system_search_path'
+
 # Java related classes.
 JAVA_TARGET_CLASSES = ['APPS', 'JAVA_LIBRARIES', 'ROBOLECTRIC']
 # C, C++ related classes.
@@ -56,7 +61,7 @@ IDE_NAME_DICT = {
     'c': IDE_CLION
 }
 
-# Constants for asuite metrics
+# Constants for asuite metrics.
 EXIT_CODE_EXCEPTION = -1
 EXIT_CODE_NORMAL = 0
 EXIT_CODE_AIDEGEN_EXCEPTION = 1
@@ -72,122 +77,39 @@ LOCATE_SDK_PATH_FAILURE = 102
 # Exit code of the asuite metrics for IDE launched failed.
 IDE_LAUNCH_FAILURE = 103
 
-# Constants for file names
+# Constants for file names.
 MERGED_MODULE_INFO = 'merged_module_info.json'
-BLUEPRINT_JSONFILE_NAME = 'module_bp_java_deps.json'
+BLUEPRINT_JAVA_JSONFILE_NAME = 'module_bp_java_deps.json'
+BLUEPRINT_CC_JSONFILE_NAME = 'module_bp_cc_deps.json'
 CMAKELISTS_FILE_NAME = 'clion_project_lists.txt'
 CLION_PROJECT_FILE_NAME = 'CMakeLists.txt'
 ANDROID_BP = 'Android.bp'
 ANDROID_MK = 'Android.mk'
+JAVA_FILES = '*.java'
+VSCODE_CONFIG_DIR = '.vscode'
 
-# Constants for whole Android tree
+# Constants for file paths.
+RELATIVE_NATIVE_PATH = 'development/ide/clion'
+
+# Constants for whole Android tree.
 WHOLE_ANDROID_TREE_TARGET = '#WHOLE_ANDROID_TREE#'
 
-# Constants for ProjectInfo or ModuleData classes
+# Constants for ProjectInfo or ModuleData classes.
 JAR_EXT = '.jar'
 TARGET_LIBS = [JAR_EXT]
 
-# Constants for aidegen_functional_test
+# Constants for aidegen_functional_test.
 ANDROID_COMMON = 'android_common'
 LINUX_GLIBC_COMMON = 'linux_glibc_common'
 
-# Constants for ide_util
+# Constants for ide_util.
 NOHUP = 'nohup'
 ECLIPSE_WS = '~/Documents/AIDEGen_Eclipse_workspace'
 IGNORE_STD_OUT_ERR_CMD = '2>/dev/null >&2'
 
-# The xml templates for JDK or SDK.
+# Constants for environment.
+LUNCH_TARGET = 'lunch target'
 
-# The configuration of JDK on Linux.
-LINUX_JDK_XML = """    <jdk version="2">
-      <name value="JDK18" />
-      <type value="JavaSDK" />
-      <version value="java version &quot;1.8.0_152&quot;" />
-      <homePath value="{JDKpath}" />
-      <roots>
-        <annotationsPath>
-          <root type="composite">
-            <root url="jar://$APPLICATION_HOME_DIR$/lib/jdkAnnotations.jar!/" type="simple" />
-          </root>
-        </annotationsPath>
-        <classPath>
-          <root type="composite">
-            <root url="jar://{JDKpath}/jre/lib/charsets.jar!/" type="simple" />
-            <root url="jar://{JDKpath}/jre/lib/ext/cldrdata.jar!/" type="simple" />
-            <root url="jar://{JDKpath}/jre/lib/ext/dnsns.jar!/" type="simple" />
-            <root url="jar://{JDKpath}/jre/lib/ext/jaccess.jar!/" type="simple" />
-            <root url="jar://{JDKpath}/jre/lib/ext/localedata.jar!/" type="simple" />
-            <root url="jar://{JDKpath}/jre/lib/ext/nashorn.jar!/" type="simple" />
-            <root url="jar://{JDKpath}/jre/lib/ext/sunec.jar!/" type="simple" />
-            <root url="jar://{JDKpath}/jre/lib/ext/sunjce_provider.jar!/" type="simple" />
-            <root url="jar://{JDKpath}/jre/lib/ext/sunpkcs11.jar!/" type="simple" />
-            <root url="jar://{JDKpath}/jre/lib/ext/zipfs.jar!/" type="simple" />
-            <root url="jar://{JDKpath}/jre/lib/jce.jar!/" type="simple" />
-            <root url="jar://{JDKpath}/jre/lib/jsse.jar!/" type="simple" />
-            <root url="jar://{JDKpath}/jre/lib/management-agent.jar!/" type="simple" />
-            <root url="jar://{JDKpath}/jre/lib/resources.jar!/" type="simple" />
-            <root url="jar://{JDKpath}/jre/lib/rt.jar!/" type="simple" />
-          </root>
-        </classPath>
-        <javadocPath>
-          <root type="composite" />
-        </javadocPath>
-        <sourcePath>
-          <root type="composite">
-            <root url="jar://{JDKpath}/src.zip!/" type="simple" />
-          </root>
-        </sourcePath>
-      </roots>
-      <additional />
-    </jdk>
-"""
-# The configuration of JDK on Mac.
-MAC_JDK_XML = """    <jdk version="2">
-      <name value="JDK18" />
-      <type value="JavaSDK" />
-      <version value="java version &quot;1.8.0_152&quot;" />
-      <homePath value="{JDKpath}" />
-      <roots>
-        <annotationsPath>
-          <root type="composite">
-            <root url="jar://$APPLICATION_HOME_DIR$/lib/jdkAnnotations.jar!/" type="simple" />
-          </root>
-        </annotationsPath>
-        <classPath>
-          <root type="composite">
-            <root url="jar://{JDKpath}/jre/lib/charsets.jar!/" type="simple" />
-            <root url="jar://{JDKpath}/jre/lib/ext/cldrdata.jar!/" type="simple" />
-            <root url="jar://{JDKpath}/jre/lib/ext/dnsns.jar!/" type="simple" />
-            <root url="jar://{JDKpath}/jre/lib/ext/jaccess.jar!/" type="simple" />
-            <root url="jar://{JDKpath}/jre/lib/ext/localedata.jar!/" type="simple" />
-            <root url="jar://{JDKpath}/jre/lib/ext/nashorn.jar!/" type="simple" />
-            <root url="jar://{JDKpath}/jre/lib/ext/sunec.jar!/" type="simple" />
-            <root url="jar://{JDKpath}/jre/lib/ext/sunjce_provider.jar!/" type="simple" />
-            <root url="jar://{JDKpath}/jre/lib/ext/sunpkcs11.jar!/" type="simple" />
-            <root url="jar://{JDKpath}/jre/lib/ext/zipfs.jar!/" type="simple" />
-            <root url="jar://{JDKpath}/jre/lib/jce.jar!/" type="simple" />
-            <root url="jar://{JDKpath}/jre/lib/jsse.jar!/" type="simple" />
-            <root url="jar://{JDKpath}/jre/lib/management-agent.jar!/" type="simple" />
-            <root url="jar://{JDKpath}/jre/lib/resources.jar!/" type="simple" />
-            <root url="jar://{JDKpath}/jre/lib/rt.jar!/" type="simple" />
-            <root url="jar://{JDKpath}/jre/lib/management-agent.jar!/" type="simple" />
-            <root url="jar://{JDKpath}/jre/lib/resources.jar!/" type="simple" />
-            <root url="jar://{JDKpath}/jre/lib/rt.jar!/" type="simple" />
-            <root url="jar://{JDKpath}/lib/dt.jar!/" type="simple" />
-            <root url="jar://{JDKpath}/lib/jconsole.jar!/" type="simple" />
-            <root url="jar://{JDKpath}/lib/sa-jdi.jar!/" type="simple" />
-            <root url="jar://{JDKpath}/lib/tools.jar!/" type="simple" />
-          </root>
-        </classPath>
-        <javadocPath>
-          <root type="composite" />
-        </javadocPath>
-        <sourcePath>
-          <root type="composite">
-            <root url="jar://{JDKpath}/src.zip!/" type="simple" />
-          </root>
-        </sourcePath>
-      </roots>
-      <additional />
-    </jdk>
-"""
+# Constants for the languages aidegen supports.
+JAVA = 'Java'
+C_CPP = 'C/C++'

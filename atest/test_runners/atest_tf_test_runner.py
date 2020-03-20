@@ -15,25 +15,26 @@
 """Atest Tradefed test runner class."""
 
 # pylint: disable=line-too-long
-# pylint: disable=relative-import
 
 from __future__ import print_function
+
 import json
 import logging
 import os
 import re
 import select
+import shutil
 import socket
-import subprocess
 
 from functools import partial
 
 import atest_utils
 import constants
 import result_reporter
-from event_handler import EventHandler
+
 from test_finders import test_info
 from test_runners import test_runner_base
+from .event_handler import EventHandler
 
 POLL_FREQ_SECS = 10
 SOCKET_HOST = '127.0.0.1'
@@ -68,7 +69,7 @@ class AtestTradefedTestRunner(test_runner_base.TestRunnerBase):
     _LOG_ARGS = ('--logcat-on-failure --atest-log-file-path={log_path} '
                  '--no-enable-granular-attempts')
     _RUN_CMD = ('{exe} {template} --template:map '
-                'test=atest {log_args} {args}')
+                'test=atest {tf_customize_template} {log_args} {args}')
     _BUILD_REQ = {'tradefed-core'}
     _RERUN_OPTION_GROUP = [constants.ITERATIONS,
                            constants.RERUN_UNTIL_FAILURE,
@@ -84,6 +85,7 @@ class AtestTradefedTestRunner(test_runner_base.TestRunnerBase):
         log_args = {'log_path': self.log_path}
         self.run_cmd_dict = {'exe': self.EXECUTABLE,
                              'template': self._TF_TEMPLATE,
+                             'tf_customize_template': '',
                              'args': '',
                              'log_args': self._LOG_ARGS.format(**log_args)}
         self.is_verbose = logging.getLogger().isEnabledFor(logging.DEBUG)
@@ -180,6 +182,7 @@ class AtestTradefedTestRunner(test_runner_base.TestRunnerBase):
         return ret_code
 
     # pylint: disable=too-many-branches
+    # pylint: disable=too-many-locals
     def _start_monitor(self, server, tf_subproc, reporter):
         """Polling and process event.
 
@@ -253,6 +256,8 @@ class AtestTradefedTestRunner(test_runner_base.TestRunnerBase):
         # Set connection into blocking mode.
         conn.settimeout(None)
         data = conn.recv(SOCKET_BUFFER)
+        if isinstance(data, bytes):
+            data = data.decode()
         logging.debug('received: %s', data)
         if data:
             data_map[conn] += data
@@ -282,6 +287,8 @@ class AtestTradefedTestRunner(test_runner_base.TestRunnerBase):
                       server.getsockname()[1])
         return server
 
+    # pylint: disable=unnecessary-pass
+    # Please keep above disable flag to ensure host_env_check is overriden.
     def host_env_check(self):
         """Check that host env has everything we need.
 
@@ -297,12 +304,12 @@ class AtestTradefedTestRunner(test_runner_base.TestRunnerBase):
 
         Args:
             executable: Executable we are checking for.
+
         Returns:
             True if executable is missing, False otherwise.
         """
-        try:
-            output = subprocess.check_output(['which', executable])
-        except subprocess.CalledProcessError:
+        output = shutil.which(executable)
+        if not output:
             return True
         # TODO: Check if there is a clever way to determine if system adb is
         # good enough.
@@ -352,6 +359,10 @@ class AtestTradefedTestRunner(test_runner_base.TestRunnerBase):
                 args_to_append.append('--serial')
                 args_to_append.append(extra_args[arg])
                 continue
+            if constants.SHARDING == arg:
+                args_to_append.append('--shard-count')
+                args_to_append.append(str(extra_args[arg]))
+                continue
             if constants.DISABLE_TEARDOWN == arg:
                 args_to_append.append('--disable-teardown')
                 continue
@@ -380,6 +391,7 @@ class AtestTradefedTestRunner(test_runner_base.TestRunnerBase):
                 args_to_append.append('--enable-optional-parameterization')
                 args_to_append.append('--module-parameter')
                 args_to_append.append(extra_args[arg])
+                continue
             if constants.ITERATIONS == arg:
                 args_to_append.append('--retry-strategy')
                 args_to_append.append(constants.ITERATIONS)
@@ -397,6 +409,9 @@ class AtestTradefedTestRunner(test_runner_base.TestRunnerBase):
                 args_to_append.append(constants.RETRY_ANY_FAILURE)
                 args_to_append.append('--max-testcase-run-count')
                 args_to_append.append(str(extra_args[arg]))
+                continue
+            if constants.COLLECT_TESTS_ONLY == arg:
+                args_to_append.append('--collect-tests-only')
                 continue
             args_not_supported.append(arg)
         return args_to_append, args_not_supported
@@ -442,7 +457,10 @@ class AtestTradefedTestRunner(test_runner_base.TestRunnerBase):
         if metrics_folder:
             test_args.extend(['--metrics-folder', metrics_folder])
             logging.info('Saved metrics in: %s', metrics_folder)
-        log_level = 'VERBOSE' if self.is_verbose else 'WARN'
+        log_level = 'WARN'
+        if self.is_verbose:
+            log_level = 'VERBOSE'
+            test_args.extend(['--log-level-display', log_level])
         test_args.extend(['--log-level', log_level])
 
         args_to_add, args_not_supported = self._parse_extra_args(extra_args)
@@ -460,8 +478,13 @@ class AtestTradefedTestRunner(test_runner_base.TestRunnerBase):
             logging.info('%s does not support the following args %s',
                          self.EXECUTABLE, args_not_supported)
 
-        test_args.extend(atest_utils.get_result_server_args())
+        # Only need to check one TestInfo to determine if the tests are
+        # configured in TEST_MAPPING.
+        for_test_mapping = test_infos and test_infos[0].from_test_mapping
+        test_args.extend(atest_utils.get_result_server_args(for_test_mapping))
         self.run_cmd_dict['args'] = ' '.join(test_args)
+        self.run_cmd_dict['tf_customize_template'] = (
+            self._extract_customize_tf_templates(extra_args))
         return [self._RUN_CMD.format(**self.run_cmd_dict)]
 
     def _flatten_test_infos(self, test_infos):
@@ -572,15 +595,7 @@ class AtestTradefedTestRunner(test_runner_base.TestRunnerBase):
         if not test_infos:
             return []
 
-        # Only need to check one TestInfo to determine if the tests are
-        # configured in TEST_MAPPING.
-        if test_infos[0].from_test_mapping:
-            args.extend(constants.TEST_MAPPING_RESULT_SERVER_ARGS)
         test_infos = self._flatten_test_infos(test_infos)
-        # In order to do dry-run verification, sort it to make each run has the
-        # same result
-        test_infos = list(test_infos)
-        test_infos.sort()
         has_integration_test = False
         for info in test_infos:
             # Integration test exists in TF's jar, so it must have the option
@@ -630,3 +645,14 @@ class AtestTradefedTestRunner(test_runner_base.TestRunnerBase):
                              for arg in extra_args
                              if arg in self._RERUN_OPTION_GROUP]
         return ' '.join(extracted_options)
+
+    def _extract_customize_tf_templates(self, extra_args):
+        """Extract tradefed template options to a string for output.
+
+        Args:
+            extra_args: Dict of extra args for test runners to use.
+
+        Returns: A string of tradefed template options.
+        """
+        return ' '.join(['--template:map %s'
+                         % x for x in extra_args.get(constants.TF_TEMPLATE, [])])

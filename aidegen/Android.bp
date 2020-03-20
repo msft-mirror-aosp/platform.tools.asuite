@@ -30,7 +30,7 @@ python_defaults {
 python_binary_host {
     name: "aidegen",
     // Make aidegen's built name to aidegen-dev
-    stem: "aidegen-dev",
+    suffix: "-dev",
     defaults: ["aidegen_default"],
     main: "aidegen_main.py",
     srcs: [
@@ -49,10 +49,11 @@ python_library_host {
     name: "aidegen_lib",
     defaults: ["aidegen_default"],
     srcs: [
-        "aidegen_main.py",
-        "constant.py",
-        "unittest_constants.py",
-        "lib/*.py",
+        "**/*.py",
+    ],
+    exclude_srcs: [
+        "*_unittest.py",
+        "*/*_unittest.py",
     ]
 }
 

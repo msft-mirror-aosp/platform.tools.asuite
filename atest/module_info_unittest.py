@@ -16,15 +16,16 @@
 
 """Unittests for module_info."""
 
-# pylint: disable=relative-import
 # pylint: disable=line-too-long
 
 import os
 import unittest
-import mock
+
+from unittest import mock
 
 import constants
 import module_info
+import unittest_utils
 import unittest_constants as uc
 
 JSON_FILE_PATH = os.path.join(uc.TEST_DATA_DIR, uc.JSON_FILE)
@@ -65,7 +66,7 @@ class ModuleInfoUnittests(unittest.TestCase):
     """Unit tests for module_info.py"""
 
     @mock.patch('json.load', return_value={})
-    @mock.patch('__builtin__.open', new_callable=mock.mock_open)
+    @mock.patch('builtins.open', new_callable=mock.mock_open)
     @mock.patch('os.path.isfile', return_value=True)
     def test_load_mode_info_file_out_dir_handling(self, _isfile, _open, _json):
         """Test _load_module_info_file out dir handling."""
@@ -143,8 +144,9 @@ class ModuleInfoUnittests(unittest.TestCase):
         mod_info = module_info.ModuleInfo(module_file=JSON_FILE_PATH)
         self.assertEqual(mod_info.get_module_names(EXPECTED_MOD_TARGET_PATH[0]),
                          [EXPECTED_MOD_TARGET])
-        self.assertEqual(mod_info.get_module_names(PATH_TO_MULT_MODULES),
-                         MULT_MOODULES_WITH_SHARED_PATH)
+        unittest_utils.assert_strict_equal(
+            self, mod_info.get_module_names(PATH_TO_MULT_MODULES),
+            MULT_MOODULES_WITH_SHARED_PATH)
 
     def test_path_to_mod_info(self):
         """test that we get the module name properly."""
@@ -204,6 +206,7 @@ class ModuleInfoUnittests(unittest.TestCase):
         mock_is_robo_test.return_value = True
         self.assertTrue(mod_info.is_testable_module(non_installed_module_info))
 
+    @mock.patch.dict('os.environ', {constants.ANDROID_BUILD_TOP:'/'})
     @mock.patch.object(module_info.ModuleInfo, 'is_auto_gen_test_config')
     def test_has_test_config(self, mock_is_auto_gen):
         """Test has_test_config."""

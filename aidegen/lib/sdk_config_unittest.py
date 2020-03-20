@@ -23,7 +23,7 @@ import unittest
 from unittest import mock
 import xml
 
-from aidegen import constant
+from aidegen import templates
 from aidegen import unittest_constants
 from aidegen.lib import aidegen_metrics
 from aidegen.lib import errors
@@ -79,7 +79,7 @@ class SDKConfigUnittests(unittest.TestCase):
         with open(self._JDK_SAMPLE) as sample:
             expected_content = sample.read()
         jdk = sdk_config.SDKConfig(config_file,
-                                   constant.LINUX_JDK_XML,
+                                   templates.LINUX_JDK_XML,
                                    self._JDK_PATH,
                                    self._NONEXISTENT_ANDROID_SDK_PATH)
         jdk.generate_jdk_config_string()
@@ -99,7 +99,7 @@ class SDKConfigUnittests(unittest.TestCase):
         with open(config_file, 'w') as cf:
             cf.write(expected_content)
         jdk = sdk_config.SDKConfig(config_file,
-                                   constant.LINUX_JDK_XML,
+                                   templates.LINUX_JDK_XML,
                                    self._JDK_PATH,
                                    self._DEFAULT_ANDROID_SDK_PATH)
         jdk.generate_jdk_config_string()
@@ -115,7 +115,7 @@ class SDKConfigUnittests(unittest.TestCase):
         with open(config_file, 'w') as cf:
             cf.write(self._JDK_OTHER_CONTENT)
         jdk = sdk_config.SDKConfig(config_file,
-                                   constant.LINUX_JDK_XML,
+                                   templates.LINUX_JDK_XML,
                                    self._JDK_PATH,
                                    self._NONEXISTENT_ANDROID_SDK_PATH)
         jdk.generate_jdk_config_string()
@@ -134,7 +134,7 @@ class SDKConfigUnittests(unittest.TestCase):
         with open(config_file, 'w') as cf:
             cf.write(expected_content)
         jdk = sdk_config.SDKConfig(config_file,
-                                   constant.LINUX_JDK_XML,
+                                   templates.LINUX_JDK_XML,
                                    self._JDK_PATH,
                                    self._NONEXISTENT_ANDROID_SDK_PATH)
         self.assertEqual(jdk._android_sdk_exists(), True)
@@ -151,7 +151,7 @@ class SDKConfigUnittests(unittest.TestCase):
         with open(config_file, 'w') as cf:
             cf.write(expected_content)
         jdk = sdk_config.SDKConfig(config_file,
-                                   constant.LINUX_JDK_XML,
+                                   templates.LINUX_JDK_XML,
                                    self._JDK_PATH,
                                    self._NONEXISTENT_ANDROID_SDK_PATH)
         self.assertEqual(jdk._android_sdk_exists(), False)
@@ -160,7 +160,7 @@ class SDKConfigUnittests(unittest.TestCase):
         """Test get default Android SDK path."""
         expected_content = self._DEFAULT_ANDROID_SDK_PATH
         jdk = sdk_config.SDKConfig(self._JDK_SAMPLE4,
-                                   constant.LINUX_JDK_XML,
+                                   templates.LINUX_JDK_XML,
                                    self._JDK_PATH,
                                    self._DEFAULT_ANDROID_SDK_PATH)
         jdk._get_android_sdk_path()
@@ -177,7 +177,7 @@ class SDKConfigUnittests(unittest.TestCase):
         try:
             with mock.patch('builtins.input', side_effect=user_input):
                 jdk = sdk_config.SDKConfig(self._JDK_SAMPLE4,
-                                           constant.LINUX_JDK_XML,
+                                           templates.LINUX_JDK_XML,
                                            self._JDK_PATH,
                                            self._NONEXISTENT_ANDROID_SDK_PATH)
                 jdk._get_android_sdk_path()
@@ -189,7 +189,7 @@ class SDKConfigUnittests(unittest.TestCase):
         """Test set max API level."""
         expected_api_level = 28
         jdk = sdk_config.SDKConfig(self._JDK_SAMPLE3,
-                                   constant.LINUX_JDK_XML,
+                                   templates.LINUX_JDK_XML,
                                    self._JDK_PATH,
                                    self._DEFAULT_ANDROID_SDK_PATH)
         jdk._set_max_api_level()
@@ -199,7 +199,7 @@ class SDKConfigUnittests(unittest.TestCase):
         sdk_config.SDKConfig.max_api_level = 0
         expected_api_level = 0
         jdk = sdk_config.SDKConfig(self._JDK_SAMPLE3,
-                                   constant.LINUX_JDK_XML,
+                                   templates.LINUX_JDK_XML,
                                    self._JDK_PATH,
                                    self._NONEXISTENT_ANDROID_SDK_PATH)
         jdk._set_max_api_level()
@@ -214,7 +214,7 @@ class SDKConfigUnittests(unittest.TestCase):
                 self._NONEXISTENT_ANDROID_SDK_PATH,
                 self._DEFAULT_ANDROID_SDK_PATH)
         jdk = sdk_config.SDKConfig(config_file,
-                                   constant.LINUX_JDK_XML,
+                                   templates.LINUX_JDK_XML,
                                    self._JDK_PATH,
                                    self._NONEXISTENT_ANDROID_SDK_PATH)
         user_input = [self._DEFAULT_ANDROID_SDK_PATH]
@@ -233,7 +233,7 @@ class SDKConfigUnittests(unittest.TestCase):
                                                mock_end_metrics):
         """Test failed to generate Android SDK config."""
         jdk = sdk_config.SDKConfig(self._JDK_SAMPLE3,
-                                   constant.LINUX_JDK_XML,
+                                   templates.LINUX_JDK_XML,
                                    self._JDK_PATH,
                                    self._DEFAULT_ANDROID_SDK_PATH)
         # Test for the conditions of _android_sdk_exists.
@@ -262,13 +262,13 @@ class SDKConfigUnittests(unittest.TestCase):
         mock_parse.side_effect = TypeError()
         with self.assertRaises(errors.InvalidXMLError):
             sdk_config.SDKConfig(config_file,
-                                 constant.LINUX_JDK_XML,
+                                 templates.LINUX_JDK_XML,
                                  self._JDK_PATH,
                                  self._NONEXISTENT_ANDROID_SDK_PATH)
         mock_parse.side_effect = AttributeError()
         with self.assertRaises(errors.InvalidXMLError):
             sdk_config.SDKConfig(config_file,
-                                 constant.LINUX_JDK_XML,
+                                 templates.LINUX_JDK_XML,
                                  self._JDK_PATH,
                                  self._NONEXISTENT_ANDROID_SDK_PATH)
 
@@ -277,7 +277,7 @@ class SDKConfigUnittests(unittest.TestCase):
         default_android_sdk_path = '/a/b'
         expected_path = '/a/b/platforms'
         jdk = sdk_config.SDKConfig(self._JDK_SAMPLE3,
-                                   constant.LINUX_JDK_XML,
+                                   templates.LINUX_JDK_XML,
                                    self._JDK_PATH,
                                    default_android_sdk_path)
         test_path = jdk._get_platforms_dir_path()
@@ -286,7 +286,7 @@ class SDKConfigUnittests(unittest.TestCase):
         default_android_sdk_path = '/a/b/platforms'
         expected_path = '/a/b/platforms'
         jdk = sdk_config.SDKConfig(self._JDK_SAMPLE3,
-                                   constant.LINUX_JDK_XML,
+                                   templates.LINUX_JDK_XML,
                                    self._JDK_PATH,
                                    default_android_sdk_path)
         test_path = jdk._get_platforms_dir_path()
@@ -305,7 +305,7 @@ class SDKConfigUnittests(unittest.TestCase):
         tmp_folder = self._TEMP
         config_file = os.path.join(tmp_folder, self._JDK_FILE_NAME)
         jdk = sdk_config.SDKConfig(config_file,
-                                   constant.LINUX_JDK_XML,
+                                   templates.LINUX_JDK_XML,
                                    self._JDK_PATH,
                                    self._NONEXISTENT_ANDROID_SDK_PATH)
         jdk.config_jdk_file()
@@ -328,7 +328,7 @@ class SDKConfigUnittests(unittest.TestCase):
         tmp_folder = self._TEMP
         config_file = os.path.join(tmp_folder, self._JDK_FILE_NAME)
         jdk = sdk_config.SDKConfig(config_file,
-                                   constant.LINUX_JDK_XML,
+                                   templates.LINUX_JDK_XML,
                                    self._JDK_PATH,
                                    self._NONEXISTENT_ANDROID_SDK_PATH)
         jdk.config_jdk_file()
@@ -339,7 +339,7 @@ class SDKConfigUnittests(unittest.TestCase):
         mock_jdk_exist.return_value = False
         mock_sdk_exist.return_value = True
         jdk = sdk_config.SDKConfig(config_file,
-                                   constant.LINUX_JDK_XML,
+                                   templates.LINUX_JDK_XML,
                                    self._JDK_PATH,
                                    self._NONEXISTENT_ANDROID_SDK_PATH)
         jdk.config_jdk_file()
@@ -355,7 +355,7 @@ class SDKConfigUnittests(unittest.TestCase):
         tmp_folder = self._TEMP
         config_file = os.path.join(tmp_folder, self._JDK_FILE_NAME)
         jdk = sdk_config.SDKConfig(config_file,
-                                   constant.LINUX_JDK_XML,
+                                   templates.LINUX_JDK_XML,
                                    self._JDK_PATH,
                                    self._NONEXISTENT_ANDROID_SDK_PATH)
         self.assertEqual(sdk_config.SDKConfig._XML_CONTENT,
@@ -364,7 +364,7 @@ class SDKConfigUnittests(unittest.TestCase):
     def test_get_max_platform_api(self):
         """Test get max api level from the platforms folder."""
         jdk = sdk_config.SDKConfig(self._JDK_SAMPLE3,
-                                   constant.LINUX_JDK_XML,
+                                   templates.LINUX_JDK_XML,
                                    self._JDK_PATH,
                                    self._DEFAULT_ANDROID_SDK_PATH)
         max_api = jdk._get_max_platform_api(self._DEFAULT_ANDROID_SDK_PATH)
@@ -373,7 +373,7 @@ class SDKConfigUnittests(unittest.TestCase):
     def test_max_platform_api_failed(self):
         """Test get max api level failed from the platforms folder."""
         jdk = sdk_config.SDKConfig(self._JDK_SAMPLE3,
-                                   constant.LINUX_JDK_XML,
+                                   templates.LINUX_JDK_XML,
                                    self._JDK_PATH,
                                    self._DEFAULT_ANDROID_SDK_PATH)
         max_api = jdk._get_max_platform_api(self._NONEXISTENT_ANDROID_SDK_PATH)
@@ -382,7 +382,7 @@ class SDKConfigUnittests(unittest.TestCase):
     def test_get_api_level(self):
         """Test get the api level from the specific string."""
         jdk = sdk_config.SDKConfig(self._JDK_SAMPLE3,
-                                   constant.LINUX_JDK_XML,
+                                   templates.LINUX_JDK_XML,
                                    self._JDK_PATH,
                                    self._DEFAULT_ANDROID_SDK_PATH)
         tmp_string = '<additional jdk="JDK18" sdk="android-28" />'
@@ -395,7 +395,7 @@ class SDKConfigUnittests(unittest.TestCase):
     def test_get_api_level_failed(self):
         """Test get the api level failed from the specific string."""
         jdk = sdk_config.SDKConfig(self._JDK_SAMPLE3,
-                                   constant.LINUX_JDK_XML,
+                                   templates.LINUX_JDK_XML,
                                    self._JDK_PATH,
                                    self._DEFAULT_ANDROID_SDK_PATH)
         tmp_string = '<additional jdk="JDK18" />'
@@ -406,7 +406,7 @@ class SDKConfigUnittests(unittest.TestCase):
     def test_get_api_from_xml(self):
         """Test get api level from a tag of xml."""
         jdk = sdk_config.SDKConfig(self._JDK_SAMPLE3,
-                                   constant.LINUX_JDK_XML,
+                                   templates.LINUX_JDK_XML,
                                    self._JDK_PATH,
                                    self._DEFAULT_ANDROID_SDK_PATH)
         api_level = jdk._get_api_from_xml(jdk.jdks[0], jdk._TAG_ADDITIONAL,
@@ -418,12 +418,27 @@ class SDKConfigUnittests(unittest.TestCase):
         """Test get api level failed from a tag of xml."""
         mock_api_level.return_value = 0
         jdk = sdk_config.SDKConfig(self._JDK_SAMPLE3,
-                                   constant.LINUX_JDK_XML,
+                                   templates.LINUX_JDK_XML,
                                    self._JDK_PATH,
                                    self._DEFAULT_ANDROID_SDK_PATH)
         api_level = jdk._get_api_from_xml(jdk.jdks[0], jdk._TAG_ADDITIONAL,
                                           jdk._ATTRIBUTE_SDK)
         self.assertEqual(api_level, 0)
+
+    def test_convert_api_version(self):
+        """Test _convert_api_version."""
+        jdk = sdk_config.SDKConfig(self._JDK_SAMPLE3,
+                                   templates.LINUX_JDK_XML,
+                                   self._JDK_PATH,
+                                   self._DEFAULT_ANDROID_SDK_PATH)
+        api_level = jdk._convert_api_version('A')
+        self.assertEqual(api_level, 0)
+        api_level = jdk._convert_api_version('28')
+        self.assertEqual(api_level, 28)
+        api_level = jdk._convert_api_version('Q')
+        self.assertEqual(api_level, 29)
+        api_level = jdk._convert_api_version('R')
+        self.assertEqual(api_level, 29)
 
 
 if __name__ == '__main__':

@@ -12,7 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# pylint: disable=relative-import
 # pylint: disable=line-too-long
 
 """
@@ -64,6 +63,7 @@ WmTests: Passed: 0, Failed: 0 (Completed With ERRORS)
 """
 
 from __future__ import print_function
+
 from collections import OrderedDict
 
 import constants
@@ -75,7 +75,7 @@ UNSUPPORTED_FLAG = 'UNSUPPORTED_RUNNER'
 FAILURE_FLAG = 'RUNNER_FAILURE'
 
 
-class RunStat(object):
+class RunStat:
     """Class for storing stats of a test run."""
 
     def __init__(self, passed=0, failed=0, ignored=0, run_errors=False,
@@ -104,7 +104,7 @@ class RunStat(object):
         return self.passed + self.failed
 
 
-class ResultReporter(object):
+class ResultReporter:
     """Result Reporter class.
 
     As each test is run, the test runner will call self.process_test_result()

@@ -38,6 +38,7 @@ import re
 import subprocess
 
 from aidegen import constant
+from aidegen import templates
 from aidegen.lib import aidegen_metrics
 from aidegen.lib import android_dev_os
 from aidegen.lib import common_util
@@ -563,7 +564,7 @@ class IdeLinuxIntelliJ(IdeIntelliJ):
     # TODO(b/127899277): Preserve a config for jdk version option case.
     _CONFIG_DIR = CONFIG_DIR
     _IDE_JDK_TABLE_PATH = LINUX_JDK_TABLE_PATH
-    _JDK_CONTENT = constant.LINUX_JDK_XML
+    _JDK_CONTENT = templates.LINUX_JDK_XML
     _DEFAULT_ANDROID_SDK_PATH = LINUX_ANDROID_SDK_PATH
     _SYMBOLIC_VERSIONS = ['/opt/intellij-ce-stable/bin/idea.sh',
                           '/opt/intellij-ue-stable/bin/idea.sh',
@@ -634,7 +635,7 @@ class IdeMacIntelliJ(IdeIntelliJ):
 
     _JDK_PATH = MAC_JDK_PATH
     _IDE_JDK_TABLE_PATH = MAC_JDK_TABLE_PATH
-    _JDK_CONTENT = constant.MAC_JDK_XML
+    _JDK_CONTENT = templates.MAC_JDK_XML
     _DEFAULT_ANDROID_SDK_PATH = MAC_ANDROID_SDK_PATH
 
     def __init__(self, installed_path=None, config_reset=False):
@@ -727,6 +728,22 @@ class IdeStudio(IdeBase):
                 versions.remove(version)
         return self._get_user_preference(versions)
 
+    def apply_optional_config(self):
+        """Do the configuration of Android Studio.
+
+        Configures code style and SDK for Java project and do nothing for
+        others.
+        """
+        if not self.project_abspath:
+            return
+        # TODO(b/150662865): The following workaround should be replaced.
+        # Since the path of the artifact for Java is the .idea directory but
+        # native is a CMakeLists.txt file using this to workaround first.
+        if os.path.isfile(self.project_abspath):
+            return
+        if os.path.isdir(self.project_abspath):
+            IdeBase.apply_optional_config(self)
+
 
 class IdeLinuxStudio(IdeStudio):
     """Class offers a set of Android Studio launching utilities for OS Linux.
@@ -740,7 +757,7 @@ class IdeLinuxStudio(IdeStudio):
     _JDK_PATH = LINUX_JDK_PATH
     _CONFIG_DIR = CONFIG_DIR
     _IDE_JDK_TABLE_PATH = LINUX_JDK_TABLE_PATH
-    _JDK_CONTENT = constant.LINUX_JDK_XML
+    _JDK_CONTENT = templates.LINUX_JDK_XML
     _DEFAULT_ANDROID_SDK_PATH = LINUX_ANDROID_SDK_PATH
     _SYMBOLIC_VERSIONS = [
         '/opt/android-studio-with-blaze-stable/bin/studio.sh',
@@ -776,7 +793,7 @@ class IdeMacStudio(IdeStudio):
 
     _JDK_PATH = MAC_JDK_PATH
     _IDE_JDK_TABLE_PATH = MAC_JDK_TABLE_PATH
-    _JDK_CONTENT = constant.MAC_JDK_XML
+    _JDK_CONTENT = templates.MAC_JDK_XML
     _DEFAULT_ANDROID_SDK_PATH = MAC_ANDROID_SDK_PATH
 
     def __init__(self, installed_path=None, config_reset=False):

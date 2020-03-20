@@ -16,7 +16,6 @@
 Module Finder class.
 """
 
-# pylint: disable=relative-import
 # pylint: disable=line-too-long
 
 import logging
@@ -25,6 +24,7 @@ import os
 import atest_error
 import atest_utils
 import constants
+
 from test_finders import test_info
 from test_finders import test_finder_base
 from test_finders import test_finder_utils
@@ -105,7 +105,7 @@ class ModuleFinder(test_finder_base.TestFinderBase):
         # The out dir is used to construct the build targets for the test deps.
         out_dir = os.environ.get(constants.ANDROID_HOST_OUT)
         custom_out_dir = os.environ.get(constants.ANDROID_OUT_DIR)
-        # If we're not an absolute custom out dir, get relative out dir path.
+        # If we're not an absolute custom out dir, get no-absolute out dir path.
         if custom_out_dir is None or not os.path.isabs(custom_out_dir):
             out_dir = os.path.relpath(out_dir, self.root_dir)
         vts_out_dir = os.path.join(out_dir, 'vts', 'android-vts', 'testcases')
@@ -161,7 +161,7 @@ class ModuleFinder(test_finder_base.TestFinderBase):
         # Check if this is only a vts module.
         if self._is_vts_module(test.test_name):
             return self._update_to_vts_test_info(test)
-        elif self.module_info.is_robolectric_test(test.test_name):
+        if self.module_info.is_robolectric_test(test.test_name):
             return self._update_to_robolectric_test_info(test)
         rel_config = test.data[constants.TI_REL_CONFIG]
         test.build_targets = self._get_build_targets(module_name, rel_config)
@@ -182,6 +182,9 @@ class ModuleFinder(test_finder_base.TestFinderBase):
             config_file = os.path.join(self.root_dir, rel_config)
             targets = test_finder_utils.get_targets_from_xml(config_file,
                                                              self.module_info)
+        if constants.VTS_CORE_SUITE in self.module_info.get_module_info(
+                module_name).get(constants.MODULE_COMPATIBILITY_SUITES, []):
+            targets.add(constants.VTS_CORE_TF_MODULE)
         for module_path in self.module_info.get_paths(module_name):
             mod_dir = module_path.replace('/', '-')
             targets.add(_MODULES_IN % mod_dir)
@@ -218,7 +221,7 @@ class ModuleFinder(test_finder_base.TestFinderBase):
         Args:
             path: A string of the test's path.
             methods: A set of method name strings.
-            rel_module_dir: Optional. A string of the module dir relative to
+            rel_module_dir: Optional. A string of the module dir no-absolute to
                 root.
             class_name: Optional. A string of the class name.
             is_native_test: Optional. A boolean variable of whether to search
@@ -268,13 +271,13 @@ class ModuleFinder(test_finder_base.TestFinderBase):
         return ti_filter
 
     def _get_rel_config(self, test_path):
-        """Get config file's relative path.
+        """Get config file's no-absolute path.
 
         Args:
             test_path: A string of the test absolute path.
 
         Returns:
-            A string of config's relative path, else None.
+            A string of config's no-absolute path, else None.
         """
         test_dir = os.path.dirname(test_path)
         rel_module_dir = test_finder_utils.find_parent_module_dir(
@@ -362,7 +365,7 @@ class ModuleFinder(test_finder_base.TestFinderBase):
         Args:
             class_name: A string of the test's class name.
             module_name: Optional. A string of the module name to use.
-            rel_config: Optional. A string of module dir relative to repo root.
+            rel_config: Optional. A string of module dir no-absolute to repo root.
             is_native_test: A boolean variable of whether to search for a
             native test or not.
 
@@ -532,7 +535,7 @@ class ModuleFinder(test_finder_base.TestFinderBase):
         Args:
             class_name: A string of the test's class name.
             module_name: Optional. A string of the module name to use.
-            rel_config: Optional. A string of module dir relative to repo root.
+            rel_config: Optional. A string of module dir no-absolute to repo root.
 
         Returns:
             A list of populated TestInfo namedtuple if test found, else None.
@@ -589,7 +592,7 @@ class ModuleFinder(test_finder_base.TestFinderBase):
             if ld_range != 0:
                 if len(module_name) < lower_bound:
                     continue
-                elif len(module_name) > upper_bound:
+                if len(module_name) > upper_bound:
                     break
             testable_modules_with_ld.append(
                 [test_finder_utils.get_levenshtein_distance(

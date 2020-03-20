@@ -40,6 +40,7 @@ _TEST_RUN_DIR_PREFIX = 'atest_integration_tests_%s_'
 _LOG_FILE = 'integration_tests.log'
 _FAILED_LINE_LIMIT = 50
 _INTEGRATION_TESTS = 'INTEGRATION_TESTS'
+_EXIT_TEST_FAILED = 1
 
 
 class ATestIntegrationTest(unittest.TestCase):
@@ -75,7 +76,7 @@ class ATestIntegrationTest(unittest.TestCase):
                                     env=self.full_env_vars,
                                     shell=True)
         except subprocess.CalledProcessError as e:
-            self.log.append(e.output)
+            self.log.append(e.output.decode())
             return False
         return True
 
@@ -148,5 +149,6 @@ if __name__ == '__main__':
     finally:
         if RESULTS.failures:
             print('Full test log is saved to %s' % LOG_PATH)
+            sys.exit(_EXIT_TEST_FAILED)
         else:
             os.remove(LOG_PATH)

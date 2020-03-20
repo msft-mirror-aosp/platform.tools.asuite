@@ -20,6 +20,8 @@ This module has a collection of functions that provide helper functions to
 other modules.
 """
 
+import inspect
+import json
 import logging
 import os
 import sys
@@ -50,6 +52,8 @@ _ENVSETUP_NOT_RUN = ('Please run "source build/envsetup.sh" and "lunch" before '
                      'running aidegen.')
 _LOG_FORMAT = '%(asctime)s %(filename)s:%(lineno)s:%(levelname)s: %(message)s'
 _DATE_FORMAT = '%Y-%m-%d %H:%M:%S'
+_ARG_IS_NULL_ERROR = "{0}.{1}: argument '{2}' is null."
+_ARG_TYPE_INCORRECT_ERROR = "{0}.{1}: argument '{2}': type is {3}, must be {4}."
 
 
 def time_logged(func=None, *, message='', maximum=1):
@@ -94,12 +98,13 @@ def get_related_paths(atest_module_info, target=None):
                 1. Module name, e.g. Settings
                 2. Module path, e.g. packages/apps/Settings
                 3. Relative path, e.g. ../../packages/apps/Settings
-                4. Current directory, e.g. . or no argument
+                4. Current directory, e.g. '.' or no argument
                 5. An empty string, which added by AIDEGen, used for generating
                    the iml files for the whole Android repo tree.
                    e.g.
                    1. ~/aosp$ aidegen
                    2. ~/aosp/frameworks/base$ aidegen -a
+                6. An absolute path, e.g. /usr/local/home/test/aosp
 
     Return:
         rel_path: The relative path of a module, return None if no matching
@@ -109,11 +114,18 @@ def get_related_paths(atest_module_info, target=None):
     """
     rel_path = None
     abs_path = None
+    # take the command 'aidegen .' as 'aidegen'.
+    if target == '.':
+        target = None
     if target:
         # For the case of whole Android repo tree.
         if target == constant.WHOLE_ANDROID_TREE_TARGET:
             rel_path = ''
             abs_path = get_android_root_dir()
+        # User inputs an absolute path.
+        elif os.path.isabs(target):
+            abs_path = target
+            rel_path = os.path.relpath(abs_path, get_android_root_dir())
         # User inputs a module name.
         elif atest_module_info.is_module(target):
             paths = atest_module_info.get_paths(target)
@@ -226,6 +238,7 @@ def check_module(atest_module_info, target, raise_on_lost_module=True):
                 2. Module path, e.g. packages/apps/Settings
                 3. Relative path, e.g. ../../packages/apps/Settings
                 4. Current directory, e.g. . or no argument
+                5. An absolute path, e.g. /usr/local/home/test/aosp
         raise_on_lost_module: A boolean, handles if ProjectPathNotExistError or
                 NoModuleDefinedInModuleInfoError should be raised.
 
@@ -331,40 +344,16 @@ def get_atest_module_info(targets=None):
     return amodule_info
 
 
-def read_file_content(path, encode_type='utf8'):
-    """Read file's content.
-
-    Args:
-        path: Path of input file.
-        encode_type: A string of encoding name, default to UTF-8.
-
-    Returns:
-        String: Content of the file.
-    """
-    with open(path, encoding=encode_type) as template:
-        return template.read()
-
-
-def file_generate(path, content):
-    """Generate file from content.
-
-    Args:
-        path: Path of target file.
-        content: String content of file.
-    """
-    if not os.path.exists(os.path.dirname(path)):
-        os.makedirs(os.path.dirname(path))
-    with open(path, 'w') as target:
-        target.write(content)
-
-
-def get_blueprint_json_path():
+def get_blueprint_json_path(file_name):
     """Assemble the path of blueprint json file.
 
+    Args:
+        file_name: A string of blueprint json file name.
+
     Returns:
-        module_bp_java_deps.json path.
+        The path of json file.
     """
-    return os.path.join(get_soong_out_path(), constant.BLUEPRINT_JSONFILE_NAME)
+    return os.path.join(get_soong_out_path(), file_name)
 
 
 def back_to_cwd(func):
@@ -458,22 +447,6 @@ def configure_logging(verbose):
     logging.basicConfig(level=level, format=log_format, datefmt=datefmt)
 
 
-def read_file_line_to_list(file_path):
-    """Read a file line by line and write them into a list.
-
-    Args:
-        file_path: A string of a file's path.
-
-    Returns:
-        A list of the file's content by line.
-    """
-    files = []
-    with open(file_path, encoding='utf8') as infile:
-        for line in infile:
-            files.append(line.strip())
-    return files
-
-
 def exist_android_bp(abs_path):
     """Check if the Android.bp exists under specific folder.
 
@@ -521,3 +494,159 @@ def remove_user_home_path(data):
         A string which replaced the user home path to $USER_HOME$.
     """
     return str(data).replace(os.path.expanduser('~'), constant.USER_HOME)
+
+
+def io_error_handle(func):
+    """Decorates a function of handling io error and raising exception.
+
+    Args:
+        func: A function is to be raised exception if writing file failed.
+
+    Returns:
+        The wrapper function.
+    """
+
+    @wraps(func)
+    def wrapper(*args, **kwargs):
+        """A wrapper function."""
+        try:
+            return func(*args, **kwargs)
+        except (OSError, IOError) as err:
+            print('{0}.{1} I/O error: {2}'.format(
+                func.__module__, func.__name__, err))
+            raise
+    return wrapper
+
+
+def check_args(**decls):
+    """Decorates a function to check its argument types.
+
+    Usage:
+        @check_args(name=str, text=str)
+        def parse_rule(name, text):
+            ...
+
+    Args:
+        decls: A dictionary with keys as arguments' names and values as
+             arguments' types.
+
+    Returns:
+        The wrapper function.
+    """
+
+    def decorator(func):
+        """A wrapper function."""
+        fmodule = func.__module__
+        fname = func.__name__
+        fparams = inspect.signature(func).parameters
+
+        @wraps(func)
+        def decorated(*args, **kwargs):
+            """A wrapper function."""
+            params = {x[0]: x[1] for x in zip(fparams, args)}
+            for arg_name, arg_type in decls.items():
+                try:
+                    arg_val = params[arg_name]
+                except KeyError:
+                    # If arg_name can't be found in function's signature, it
+                    # might be a case of a partial function or default
+                    # parameters, we'll neglect it.
+                    if arg_name not in kwargs:
+                        continue
+                    arg_val = kwargs.get(arg_name)
+                if arg_val is None:
+                    raise TypeError(_ARG_IS_NULL_ERROR.format(
+                        fmodule, fname, arg_name))
+                if not isinstance(arg_val, arg_type):
+                    raise TypeError(_ARG_TYPE_INCORRECT_ERROR.format(
+                        fmodule, fname, arg_name, type(arg_val), arg_type))
+            return func(*args, **kwargs)
+        return decorated
+
+    return decorator
+
+
+@io_error_handle
+def dump_json_dict(json_path, data):
+    """Dumps a dictionary of data into a json file.
+
+    Args:
+        json_path: An absolute json file path string.
+        data: A dictionary of data to be written into a json file.
+    """
+    with open(json_path, 'w') as json_file:
+        json.dump(data, json_file, indent=4)
+
+
+@io_error_handle
+def get_json_dict(json_path):
+    """Loads a json file from path and convert it into a json dictionary.
+
+    Args:
+        json_path: An absolute json file path string.
+
+    Returns:
+        A dictionary loaded from the json_path.
+    """
+    with open(json_path) as jfile:
+        return json.load(jfile)
+
+
+@io_error_handle
+def read_file_line_to_list(file_path):
+    """Read a file line by line and write them into a list.
+
+    Args:
+        file_path: A string of a file's path.
+
+    Returns:
+        A list of the file's content by line.
+    """
+    files = []
+    with open(file_path, encoding='utf8') as infile:
+        for line in infile:
+            files.append(line.strip())
+    return files
+
+
+@io_error_handle
+def read_file_content(path, encode_type='utf8'):
+    """Read file's content.
+
+    Args:
+        path: Path of input file.
+        encode_type: A string of encoding name, default to UTF-8.
+
+    Returns:
+        String: Content of the file.
+    """
+    with open(path, encoding=encode_type) as template:
+        return template.read()
+
+
+@io_error_handle
+def file_generate(path, content):
+    """Generate file from content.
+
+    Args:
+        path: Path of target file.
+        content: String content of file.
+    """
+    if not os.path.exists(os.path.dirname(path)):
+        os.makedirs(os.path.dirname(path))
+    with open(path, 'w') as target:
+        target.write(content)
+
+
+def get_lunch_target():
+    """Gets the Android lunch target in current console.
+
+    Returns:
+        A json format string of lunch target in current console.
+    """
+    product = os.environ.get(constant.TARGET_PRODUCT)
+    build_variant = os.environ.get(constant.TARGET_BUILD_VARIANT)
+    if product and build_variant:
+        return json.dumps(
+            {constant.LUNCH_TARGET: "-".join([product, build_variant])})
+    return None

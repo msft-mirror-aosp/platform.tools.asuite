@@ -143,17 +143,6 @@ class AidegenConfigUnittests(unittest.TestCase):
 
     @mock.patch.object(common_util, 'file_generate')
     @mock.patch('os.path.exists')
-    def test_debugger_config_no_changed(self, mock_file_exists,
-                                        mock_file_generate):
-        """No genarate the enable debugger config once it exists."""
-        cfg = config.AidegenConfig()
-        android_sdk_version = ''
-        mock_file_exists.return_value = True
-        cfg._gen_enable_debugger_config(android_sdk_version)
-        self.assertFalse(mock_file_generate.called)
-
-    @mock.patch.object(common_util, 'file_generate')
-    @mock.patch('os.path.exists')
     def test_gen_debugger_config(self, mock_file_exists, mock_file_generate):
         """Test generating the enable debugger config."""
         cfg = config.AidegenConfig()

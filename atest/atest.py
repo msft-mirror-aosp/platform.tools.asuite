@@ -23,11 +23,11 @@ code base and executing the tests via the TradeFederation test harness.
 atest is designed to support any test types that can be ran by TradeFederation.
 """
 
-# pylint: disable=relative-import
 # pylint: disable=line-too-long
 
 from __future__ import print_function
 
+import collections
 import logging
 import os
 import sys
@@ -142,7 +142,7 @@ def _missing_environment_variables():
     Returns:
         List of strings of any missing environment variables.
     """
-    missing = filter(None, [x for x in EXPECTED_VARS if not os.environ.get(x)])
+    missing = list(filter(None, [x for x in EXPECTED_VARS if not os.environ.get(x)]))
     if missing:
         logging.error('Local environment doesn\'t appear to have been '
                       'initialized. Did you remember to run lunch? Expected '
@@ -159,8 +159,9 @@ def make_test_run_dir():
     if not os.path.exists(constants.ATEST_RESULT_ROOT):
         os.makedirs(constants.ATEST_RESULT_ROOT)
     ctime = time.strftime(TEST_RUN_DIR_PREFIX, time.localtime())
-    return tempfile.mkdtemp(prefix='%s_' % ctime,
-                            dir=constants.ATEST_RESULT_ROOT)
+    test_result_dir = tempfile.mkdtemp(prefix='%s_' % ctime,
+                                       dir=constants.ATEST_RESULT_ROOT)
+    return test_result_dir
 
 
 def get_extra_args(args):
@@ -182,6 +183,7 @@ def get_extra_args(args):
     # if args.aaaa:
     #     extra_args[constants.AAAA] = args.aaaa
     arg_maps = {'all_abi': constants.ALL_ABI,
+                'collect_tests_only': constants.COLLECT_TESTS_ONLY,
                 'custom_args': constants.CUSTOM_ARGS,
                 'disable_teardown': constants.DISABLE_TEARDOWN,
                 'dry_run': constants.DRY_RUN,
@@ -193,6 +195,8 @@ def get_extra_args(args):
                 'rerun_until_failure': constants.RERUN_UNTIL_FAILURE,
                 'retry_any_failure': constants.RETRY_ANY_FAILURE,
                 'serial': constants.SERIAL,
+                'sharding': constants.SHARDING,
+                'tf_template': constants.TF_TEMPLATE,
                 'user_type': constants.USER_TYPE}
     not_match = [k for k in arg_maps if k not in vars(args)]
     if not_match:
@@ -296,6 +300,8 @@ def _will_run_tests(args):
     return not (args.detect_regression and len(args.detect_regression) == 2)
 
 
+# pylint: disable=no-else-return
+# This method is going to dispose, let's ignore pylint for now.
 def _has_valid_regression_detection_args(args):
     """Validate regression detection args.
 
@@ -393,15 +399,15 @@ def _print_module_info_from_module_name(mod_info, module_name):
     Returns:
         True if the module_info is found.
     """
-    title_mapping = {
-        constants.MODULE_PATH: "Source code path",
-        constants.MODULE_INSTALLED: "Installed path",
-        constants.MODULE_COMPATIBILITY_SUITES: "Compatibility suite"}
+    title_mapping = collections.OrderedDict()
+    title_mapping[constants.MODULE_COMPATIBILITY_SUITES] = 'Compatibility suite'
+    title_mapping[constants.MODULE_PATH] = 'Source code path'
+    title_mapping[constants.MODULE_INSTALLED] = 'Installed path'
     target_module_info = mod_info.get_module_info(module_name)
     is_module_found = False
     if target_module_info:
         atest_utils.colorful_print(module_name, constants.GREEN)
-        for title_key in title_mapping.iterkeys():
+        for title_key in title_mapping:
             atest_utils.colorful_print("\t%s" % title_mapping[title_key],
                                        constants.CYAN)
             for info_value in target_module_info[title_key]:
@@ -423,8 +429,9 @@ def _print_test_info(mod_info, test_infos):
     for test_info in test_infos:
         _print_module_info_from_module_name(mod_info, test_info.test_name)
         atest_utils.colorful_print("\tRelated build targets", constants.MAGENTA)
-        print("\t\t{}".format(", ".join(test_info.build_targets)))
-        for build_target in test_info.build_targets:
+        sorted_build_targets = sorted(list(test_info.build_targets))
+        print("\t\t{}".format(", ".join(sorted_build_targets)))
+        for build_target in sorted_build_targets:
             if build_target != test_info.test_name:
                 _print_module_info_from_module_name(mod_info, build_target)
         atest_utils.colorful_print("", constants.WHITE)
@@ -456,8 +463,8 @@ def _split_test_mapping_tests(test_infos):
             device.
     """
     assert is_from_test_mapping(test_infos)
-    host_test_infos = set([info for info in test_infos if info.host])
-    device_test_infos = set([info for info in test_infos if not info.host])
+    host_test_infos = {info for info in test_infos if info.host}
+    device_test_infos = {info for info in test_infos if not info.host}
     return device_test_infos, host_test_infos
 
 
@@ -593,6 +600,9 @@ def main(argv, results_dir):
             "\nAtest must always work under ${}!".format(
                 constants.ANDROID_BUILD_TOP), constants.RED)
         return constants.EXIT_CODE_OUTSIDE_ROOT
+    if args.help:
+        atest_arg_parser.print_epilog_text()
+        return constants.EXIT_CODE_SUCCESS
     mod_info = module_info.ModuleInfo(force_build=args.rebuild_module_info)
     if args.rebuild_module_info:
         _run_extra_tasks(join=True)
@@ -651,10 +661,9 @@ def main(argv, results_dir):
         # Build the deps-license to generate dependencies data in
         # module-info.json.
         build_targets.add(constants.DEPS_LICENSE)
-        build_env = dict(constants.ATEST_BUILD_ENV)
         # The environment variables PROJ_PATH and DEP_PATH are necessary for the
         # deps-license.
-        build_env.update(constants.DEPS_LICENSE_ENV)
+        build_env = dict(constants.DEPS_LICENSE_ENV)
         build_start = time.time()
         success = atest_utils.build(build_targets, verbose=args.verbose,
                                     env_vars=build_env)
@@ -665,8 +674,8 @@ def main(argv, results_dir):
         if not success:
             return constants.EXIT_CODE_BUILD_FAILURE
     elif constants.TEST_STEP not in steps:
-        logging.warn('Install step without test step currently not '
-                     'supported, installing AND testing instead.')
+        logging.warning('Install step without test step currently not '
+                        'supported, installing AND testing instead.')
         steps.append(constants.TEST_STEP)
     tests_exit_code = constants.EXIT_CODE_SUCCESS
     test_start = time.time()

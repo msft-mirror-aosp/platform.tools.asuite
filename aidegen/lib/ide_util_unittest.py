@@ -155,13 +155,14 @@ class IdeUtilUnittests(unittest.TestCase):
         self.assertFalse(mock_config.called)
         self.assertFalse(mock_paths.called)
 
+    @mock.patch.object(ide_util.IdeIntelliJ, '_setup_ide')
     @mock.patch.object(config.AidegenConfig, 'set_preferred_version')
     @mock.patch.object(os.path, 'isfile')
     @mock.patch.object(os.path, 'realpath')
     @mock.patch.object(ide_common_util, 'get_script_from_input_path')
     @mock.patch.object(ide_common_util, 'get_script_from_internal_path')
     def test_get_linux_config_1(self, mock_path, mock_path2, mock_path3,
-                                mock_is_file, mock_cfg):
+                                mock_is_file, mock_cfg, mock_setup_ide):
         """Test to get unique config path for linux IDEA case."""
         if (not android_dev_os.AndroidDevOS.MAC ==
                 android_dev_os.AndroidDevOS.get_os_type()):
@@ -170,6 +171,7 @@ class IdeUtilUnittests(unittest.TestCase):
             mock_path3.return_value = '/opt/intellij-ce-2018.3/bin/idea.sh'
             mock_is_file.return_value = True
             mock_cfg.return_value = None
+            mock_setup_ide.return_value = None
             ide_obj = ide_util.IdeLinuxIntelliJ('default_path')
             self.assertEqual(1, len(ide_obj._get_config_root_paths()))
         else:
@@ -424,6 +426,13 @@ class IdeUtilUnittests(unittest.TestCase):
         mock_ask.return_value = None
         obj = ide_util.IdeStudio()
         obj._installed_path = False
+        # Test the native IDE case.
+        obj.project_abspath = os.path.realpath(__file__)
+        obj.apply_optional_config()
+        self.assertEqual(obj.config_folders, [])
+
+        # Test the java IDE case.
+        obj.project_abspath = IdeUtilUnittests._TEST_DIR
         obj.apply_optional_config()
         self.assertEqual(obj.config_folders, [])
 
@@ -442,6 +451,46 @@ class IdeUtilUnittests(unittest.TestCase):
         obj = ide_util.IdeStudio()
         with self.assertRaises(NotImplementedError):
             obj._get_config_root_paths()
+
+    @mock.patch.object(ide_util.IdeBase, 'apply_optional_config')
+    @mock.patch.object(os.path, 'isdir')
+    @mock.patch.object(os.path, 'isfile')
+    def test_studio_optional_config_apply(self, mock_isfile, mock_isdir,
+                                          mock_base_implement):
+        """Test IdeStudio.apply_optional_config."""
+        obj = ide_util.IdeStudio()
+        obj.project_abspath = None
+        # Test no project path case.
+        obj.apply_optional_config()
+        self.assertFalse(mock_isfile.called)
+        self.assertFalse(mock_isdir.called)
+        self.assertFalse(mock_base_implement.called)
+        # Test the native IDE case.
+        obj.project_abspath = '/'
+        mock_isfile.reset_mock()
+        mock_isdir.reset_mock()
+        mock_base_implement.reset_mock()
+        mock_isfile.return_value = True
+        obj.apply_optional_config()
+        self.assertTrue(mock_isfile.called)
+        self.assertFalse(mock_isdir.called)
+        self.assertFalse(mock_base_implement.called)
+        # Test the java IDE case.
+        mock_isfile.reset_mock()
+        mock_isdir.reset_mock()
+        mock_base_implement.reset_mock()
+        mock_isfile.return_value = False
+        mock_isdir.return_value = True
+        obj.apply_optional_config()
+        self.assertTrue(mock_base_implement.called)
+        # Test neither case.
+        mock_isfile.reset_mock()
+        mock_isdir.reset_mock()
+        mock_base_implement.reset_mock()
+        mock_isfile.return_value = False
+        mock_isdir.return_value = False
+        obj.apply_optional_config()
+        self.assertFalse(mock_base_implement.called)
 
     @mock.patch.object(ide_common_util, 'ask_preference')
     @mock.patch('os.getenv')
