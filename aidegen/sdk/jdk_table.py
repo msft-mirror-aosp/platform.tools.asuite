@@ -16,28 +16,27 @@
 
 """Configs the jdk.table.xml.
 
-The main purpose is to create the module enable_debugger to enable the feature
-"Attach debugger to Android process" in Android Studio or IntelliJ. In order to
-do this, we need the JDK and Android SDK been set-up. Parse the jdk.table.xml to
-find the existing JDK and Android SDK. If they do not exist, AIDEGen will create
-them.
+In order to enable the feature "Attach debugger to Android process" in Android
+Studio or IntelliJ, AIDEGen needs the JDK and Android SDK been set-up. The class
+JDKTableXML parses the jdk.table.xml to find the existing JDK and Android SDK
+information. If they do not exist, AIDEGen will create them.
 
     Usage example:
     jdk_table_xml = JDKTableXML(jdk_table_xml_file,
-                            jdk_template,
-                            default_jdk_path,
-                            default_android_sdk_path)
+                                jdk_template,
+                                default_jdk_path,
+                                default_android_sdk_path)
     jdk_table_xml.config_jdk_table_xml()
     android_sdk_version = jdk_table_xml.android_sdk_version
-
-    Then, we can generate the enable_debugger module by this Android SDK
-    version.
 """
 
 from __future__ import absolute_import
 
 import os
+import xml.etree.ElementTree
 
+from aidegen import constant
+from aidegen.lib import aidegen_metrics
 from aidegen.lib import common_util
 
 
@@ -55,11 +54,18 @@ class JDKTableXML():
         _android_sdk_version: The version name of the Android SDK in the
                               jdk.table.xml.
         _modify_config: A boolean, True to write new content to jdk.table.xml.
+        _xml: An xml.etree.ElementTree object contains the XML parsing result.
     """
-
+    _JDK = 'jdk'
+    _NAME = 'name'
+    _TYPE = 'type'
+    _VALUE = 'value'
+    _JAVA_SDK = 'JavaSDK'
+    _JDK_VERSION = 'JDK18'
     _XML_CONTENT = ('<application>\n  <component name="ProjectJdkTable">\n'
                     '  </component>\n</application>\n')
     _COMPONENT_END_TAG = '  </component>'
+    _INVALID_XML = 'The content of {XML_FILE} is not valid.'
 
     def __init__(self, config_file, jdk_content, jdk_path,
                  default_android_sdk_path):
@@ -77,18 +83,28 @@ class JDKTableXML():
         self._jdk_content = jdk_content
         self._jdk_path = jdk_path
         self._default_android_sdk_path = default_android_sdk_path
+        self._config_string = self._XML_CONTENT
         if os.path.exists(config_file):
             self._config_string = common_util.read_file_content(config_file)
-        else:
-            self._config_string = self._XML_CONTENT
         self._platform_version = None
         self._android_sdk_version = None
         self._modify_config = False
+        self._xml = None
+        self._parse_xml()
 
     @property
     def android_sdk_version(self):
         """Gets the Android SDK version."""
         return self._android_sdk_version
+
+    def _parse_xml(self):
+        """Parses the string of a XML file."""
+        try:
+            self._xml = xml.etree.ElementTree.fromstring(self._config_string)
+        except xml.etree.ElementTree.ParseError as err:
+            aidegen_metrics.send_exception_metrics(
+                constant.XML_PARSING_FAILURE, err, self._config_string,
+                self._INVALID_XML.format(XML_FILE=self._config_file))
 
     def _check_jdk18_in_xml(self):
         """Checks if the JDK18 is already set in jdk.table.xml.
@@ -96,6 +112,15 @@ class JDKTableXML():
         Returns:
             Boolean: True if the JDK18 exists else False.
         """
+        for jdk in self._xml.iter(self._JDK):
+            _name = jdk.find(self._NAME)
+            _type = jdk.find(self._TYPE)
+            if None in (_name, _type):
+                continue
+            if (_type.get(self._VALUE) == self._JAVA_SDK
+                    and _name.get(self._VALUE) == self._JDK_VERSION):
+                return True
+        return False
 
     def _check_android_sdk_in_xml(self):
         """Checks if the Android SDK is already set in jdk.table.xml.

@@ -17,8 +17,10 @@
 """Unittests for JDKTableXML class."""
 
 import unittest
+import xml.etree.ElementTree
 from unittest import mock
 
+from aidegen.lib import aidegen_metrics
 from aidegen.lib import common_util
 from aidegen.sdk import jdk_table
 
@@ -54,8 +56,8 @@ class JDKTableXMLUnittests(unittest.TestCase):
         self.assertEqual(self.jdk_table_xml._android_sdk_version, None)
         self.assertEqual(self.jdk_table_xml._modify_config, False)
         mock_exists.return_value = True
-        mock_read_file_content.return_value = 'test content'
-        excepted_result = 'test content'
+        mock_read_file_content.return_value = '<test></test>'
+        excepted_result = '<test></test>'
         test_object = jdk_table.JDKTableXML(None, None, None, None)
         self.assertEqual(test_object._config_string, excepted_result)
 
@@ -94,6 +96,33 @@ class JDKTableXMLUnittests(unittest.TestCase):
         self.jdk_table_xml.config_jdk_table_xml()
         self.assertTrue(mock_get_file.called)
 
+    def test_check_jdk18_in_xml(self):
+        """Test _check_jdk18_in_xml."""
+        # Normal case.
+        xml_str = ('<test><jdk><name value="JDK18" /><type value="JavaSDK" />'
+                   '</jdk></test>')
+        self.jdk_table_xml._xml = xml.etree.ElementTree.fromstring(xml_str)
+        self.assertTrue(self.jdk_table_xml._check_jdk18_in_xml())
+
+        # Incorrect JDK name.
+        xml_str = ('<test><jdk><name value="test" /><type value="JavaSDK" />'
+                   '</jdk></test>')
+        self.jdk_table_xml._xml = xml.etree.ElementTree.fromstring(xml_str)
+        self.assertFalse(self.jdk_table_xml._check_jdk18_in_xml())
+
+        # No type.
+        xml_str = ('<test><jdk><name value="test" /></jdk></test>')
+        self.jdk_table_xml._xml = xml.etree.ElementTree.fromstring(xml_str)
+        self.assertFalse(self.jdk_table_xml._check_jdk18_in_xml())
+
+    @mock.patch.object(aidegen_metrics, 'send_exception_metrics')
+    @mock.patch.object(xml.etree.ElementTree, 'fromstring')
+    def test_parse_xml(self, mock_fromstring, mock_metrics):
+        """Test _parse_xml."""
+        mock_fromstring.side_effect = xml.etree.ElementTree.ParseError()
+        self.jdk_table_xml._config_string = '<test></test>'
+        self.jdk_table_xml._parse_xml()
+        self.assertTrue(mock_metrics.called)
 
 
 if __name__ == '__main__':
