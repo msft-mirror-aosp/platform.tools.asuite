@@ -3,33 +3,16 @@
   <grid id="27dc6" binding="mAtestToolWindowPanel" layout-manager="GridLayoutManager" row-count="4" column-count="5" same-size-horizontally="false" same-size-vertically="false" hgap="-1" vgap="-1">
     <margin top="0" left="0" bottom="0" right="0"/>
     <constraints>
-      <xy x="20" y="20" width="941" height="233"/>
+      <xy x="20" y="20" width="941" height="172"/>
     </constraints>
     <properties/>
     <border type="none"/>
     <children>
-      <scrollpane id="71f48" binding="mScorll">
-        <constraints>
-          <grid row="3" column="0" row-span="1" col-span="5" vsize-policy="7" hsize-policy="7" anchor="0" fill="3" indent="0" use-parent-layout="false"/>
-        </constraints>
-        <properties/>
-        <border type="none"/>
-        <children>
-          <component id="602c2" class="javax.swing.JTextArea" binding="mAtestOutput">
-            <constraints/>
-            <properties>
-              <editable value="false"/>
-              <lineWrap value="true"/>
-            </properties>
-          </component>
-        </children>
-      </scrollpane>
       <component id="ac503" class="javax.swing.JLabel" binding="mAtestlabel">
         <constraints>
           <grid row="0" column="0" row-span="1" col-span="1" vsize-policy="0" hsize-policy="0" anchor="8" fill="0" indent="1" use-parent-layout="false"/>
         </constraints>
         <properties>
-          <labelFor value="602c2"/>
           <text value="Atest"/>
         </properties>
       </component>
@@ -99,6 +82,11 @@
           <text value="stop"/>
         </properties>
       </component>
+      <vspacer id="11c6e">
+        <constraints>
+          <grid row="3" column="3" row-span="1" col-span="1" vsize-policy="6" hsize-policy="1" anchor="0" fill="2" indent="0" use-parent-layout="false"/>
+        </constraints>
+      </vspacer>
     </children>
   </grid>
 </form>
