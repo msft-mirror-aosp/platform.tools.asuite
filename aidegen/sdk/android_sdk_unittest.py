@@ -38,6 +38,7 @@ class AndroidSDKUnittests(unittest.TestCase):
     def test_init(self):
         """Test initialize the attributes."""
         self.assertEqual(self.sdk.max_api_level, 0)
+        self.assertEqual(self.sdk.max_code_name, None)
         self.assertEqual(self.sdk.platform_mapping, {})
         self.assertEqual(self.sdk.android_sdk_path, None)
 
@@ -68,6 +69,35 @@ class AndroidSDKUnittests(unittest.TestCase):
         }
         api_level = self.sdk._parse_max_api_level()
         self.assertEqual(api_level, 29)
+
+    def test_parse_max_code_name(self):
+        """Test _parse_max_code_name."""
+        self.sdk._max_api_level = 29
+        self.sdk._platform_mapping = {
+            'android-29': {
+                'api_level': 29,
+                'code_name': '29',
+            },
+            'android-28': {
+                'api_level': 28,
+                'code_name': '28',
+            },
+        }
+        code_name = self.sdk._parse_max_code_name()
+        self.assertEqual(code_name, '29')
+
+        self.sdk._platform_mapping = {
+            'android-29': {
+                'api_level': 29,
+                'code_name': '29',
+            },
+            'android-Q': {
+                'api_level': 29,
+                'code_name': 'Q',
+            },
+        }
+        code_name = self.sdk._parse_max_code_name()
+        self.assertEqual(code_name, 'Q')
 
     @mock.patch.object(common_util, 'read_file_content')
     def test_parse_api_info(self, mock_read_file):
