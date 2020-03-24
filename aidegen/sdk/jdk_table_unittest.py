@@ -22,6 +22,7 @@ from unittest import mock
 
 from aidegen.lib import aidegen_metrics
 from aidegen.lib import common_util
+from aidegen.sdk import android_sdk
 from aidegen.sdk import jdk_table
 
 
@@ -123,6 +124,54 @@ class JDKTableXMLUnittests(unittest.TestCase):
         self.jdk_table_xml._config_string = '<test></test>'
         self.jdk_table_xml._parse_xml()
         self.assertTrue(mock_metrics.called)
+
+    @mock.patch.object(android_sdk.AndroidSDK, 'is_android_sdk_path')
+    def test_check_android_sdk_in_xml(self, mock_is_android_sdk):
+        """Test _check_android_sdk_in_xml."""
+        self.jdk_table_xml._sdk._platform_mapping = {
+            'android-29': {
+                'api_level': 29,
+                'code_name': '29',
+            },
+        }
+        mock_is_android_sdk.return_value = True
+
+        # Not an Android SDK tag.
+        xml_str = ('<test><jdk><name value="JDK18" /><type value="JavaSDK" />'
+                   '</jdk></test>')
+        self.jdk_table_xml._xml = xml.etree.ElementTree.fromstring(xml_str)
+        self.assertFalse(self.jdk_table_xml._check_android_sdk_in_xml())
+
+        # No homePath.
+        xml_str = ('<test><jdk><name value="Android SDK 29 platform" />'
+                   '<type value="Android SDK" />'
+                   '<additional jdk="JDK18" sdk="android-29" />'
+                   '</jdk></test>')
+        self.jdk_table_xml._xml = xml.etree.ElementTree.fromstring(xml_str)
+        self.assertFalse(self.jdk_table_xml._check_android_sdk_in_xml())
+
+        # The platform version android-28 does not exist in platform mapping.
+        xml_str = ('<test><jdk><name value="Android SDK 28 platform" />'
+                   '<type value="Android SDK" />'
+                   '<homePath value="/path/to/Android/SDK" />'
+                   '<additional jdk="JDK18" sdk="android-28" />'
+                   '</jdk></test>')
+        self.jdk_table_xml._xml = xml.etree.ElementTree.fromstring(xml_str)
+        self.assertFalse(self.jdk_table_xml._check_android_sdk_in_xml())
+
+        # Normal case.
+        xml_str = ('<test><jdk><name value="Android SDK 29 platform" />'
+                   '<type value="Android SDK" />'
+                   '<homePath value="/path/to/Android/SDK" />'
+                   '<additional jdk="JDK18" sdk="android-29" />'
+                   '</jdk></test>')
+        self.jdk_table_xml._xml = xml.etree.ElementTree.fromstring(xml_str)
+        self.assertTrue(self.jdk_table_xml._check_android_sdk_in_xml())
+
+        # Incorrect Android SDK path.
+        mock_is_android_sdk.return_value = False
+        self.jdk_table_xml._xml = xml.etree.ElementTree.fromstring(xml_str)
+        self.assertFalse(self.jdk_table_xml._check_android_sdk_in_xml())
 
 
 if __name__ == '__main__':
