@@ -33,7 +33,9 @@ from aidegen.lib import errors
 from aidegen.lib import ide_common_util
 from aidegen.lib import ide_util
 from aidegen.lib import project_config
+from aidegen.lib import project_file_gen
 from aidegen.lib import sdk_config
+from aidegen.sdk import jdk_table
 
 
 # pylint: disable=too-many-public-methods
@@ -224,23 +226,33 @@ class IdeUtilUnittests(unittest.TestCase):
         ide_obj._get_config_root_paths()
         self.assertTrue(mock_filter.called)
 
-    @mock.patch.object(sdk_config.SDKConfig, '__init__')
-    @mock.patch.object(ide_util.IdeIntelliJ, '_get_config_root_paths')
-    def test_apply_optional_config(self, mock_path, mock_conf):
-        """Test basic logic of _apply_optional_config."""
-        with mock.patch.object(ide_util, 'IdeIntelliJ') as obj:
-            obj._installed_path = None
-            obj.apply_optional_config()
-            self.assertFalse(mock_path.called)
-
-            obj.reset()
-            obj._installed_path = 'default_path'
-            mock_path.return_value = ['path1', 'path2']
-            obj._IDE_JDK_TABLE_PATH = '/JDK_path'
-
-            obj.apply_optional_config()
-            self.assertTrue(mock_conf.called_with('path1/JDK_path'))
-            self.assertTrue(mock_conf.called_with('path2/JDK_path'))
+    @mock.patch.object(config.IdeaProperties, 'set_max_file_size')
+    @mock.patch.object(project_file_gen, 'gen_enable_debugger_module')
+    @mock.patch.object(jdk_table.JDKTableXML, 'config_jdk_table_xml')
+    @mock.patch.object(ide_util.IdeBase, '_get_config_root_paths')
+    def test_apply_optional_config(self, mock_path, mock_config_xml,
+                                   mock_gen_debugger, mock_set_size):
+        """Test basic logic of apply_optional_config."""
+        ide = ide_util.IdeBase()
+        ide._installed_path = None
+        ide.apply_optional_config()
+        self.assertFalse(mock_path.called)
+        ide._installed_path = 'default_path'
+        ide.apply_optional_config()
+        self.assertTrue(mock_path.called)
+        mock_path.return_value = []
+        ide.apply_optional_config()
+        self.assertFalse(mock_config_xml.called)
+        mock_path.return_value = ['a']
+        mock_config_xml.return_value = False
+        ide.apply_optional_config()
+        self.assertFalse(mock_gen_debugger.called)
+        self.assertTrue(mock_set_size.called)
+        mock_config_xml.return_value = True
+        ide.apply_optional_config()
+        self.assertEqual(ide.config_folders, ['a'])
+        self.assertTrue(mock_gen_debugger.called)
+        self.assertTrue(mock_set_size.called)
 
     @mock.patch('os.path.realpath')
     @mock.patch('os.path.isfile')
@@ -413,7 +425,7 @@ class IdeUtilUnittests(unittest.TestCase):
 
     @mock.patch.object(ide_common_util, 'ask_preference')
     @mock.patch.object(config.IdeaProperties, 'set_max_file_size')
-    @mock.patch.object(sdk_config.SDKConfig, 'gen_enable_debugger_module')
+    @mock.patch.object(project_file_gen, 'gen_enable_debugger_module')
     @mock.patch.object(sdk_config.SDKConfig, 'config_jdk_file')
     @mock.patch.object(ide_util.IdeStudio, '_get_config_root_paths')
     def test_android_studio_class(self, mock_get_config_paths, mock_config_file,
@@ -435,11 +447,6 @@ class IdeUtilUnittests(unittest.TestCase):
         obj.project_abspath = IdeUtilUnittests._TEST_DIR
         obj.apply_optional_config()
         self.assertEqual(obj.config_folders, [])
-
-        obj._installed_path = '/'
-        obj.apply_optional_config()
-        expected_paths = ['path1', 'path2']
-        self.assertEqual(obj.config_folders, expected_paths)
 
         mock_get_config_paths.return_value = []
         self.assertIsNone(obj.apply_optional_config())
@@ -613,6 +620,12 @@ class IdeUtilUnittests(unittest.TestCase):
         ide_util.IdeMacVSCode()
         self.assertTrue(mock_get_pos.called)
         self.assertTrue(mock_init_inst.called)
+
+    def test_get_all_versions(self):
+        """Test _get_all_versions."""
+        ide = ide_util.IdeIntelliJ()
+        test_result = ide._get_all_versions('a', 'b')
+        self.assertEqual(test_result, ['a', 'b'])
 
 
 if __name__ == '__main__':
