@@ -193,6 +193,32 @@ class ProjectInfoUnittests(unittest.TestCase):
         proj_info.locate_source(build=True)
         self.assertEqual(mock_locate_source.call_count, 2)
 
+    @mock.patch('builtins.print')
+    @mock.patch('builtins.format')
+    @mock.patch('atest.atest_utils.build')
+    def test_build_target(self, mock_build, mock_format, mock_print):
+        """Test _build_target."""
+        build_argument = ['-k', 'j']
+        test_targets = ['mod_1', 'mod_2']
+        build_argument.extend(test_targets)
+        mock_build.return_value = False
+        project_info._build_target(test_targets, False)
+        self.assertTrue(mock_build.called_with((build_argument, False)))
+        self.assertTrue(mock_format.called_with('\n'.join(test_targets)))
+        self.assertTrue(mock_print.called)
+        mock_print.reset_mock()
+        mock_format.reset_mock()
+        mock_build.reset_mock()
+
+        mock_build.return_value = True
+        project_info._build_target(test_targets, True)
+        self.assertTrue(mock_build.called_with((build_argument, True)))
+        self.assertFalse(mock_format.called)
+        self.assertFalse(mock_print.called)
+        mock_print.reset_mock()
+        mock_format.reset_mock()
+        mock_build.reset_mock()
+
 
 if __name__ == '__main__':
     unittest.main()
