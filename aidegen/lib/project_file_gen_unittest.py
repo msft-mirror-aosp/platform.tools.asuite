@@ -490,6 +490,18 @@ class AidegenProjectFileGenUnittest(unittest.TestCase):
         expected_result = []
         self.assertEqual(test_result, expected_result)
 
+    @mock.patch.object(common_util, 'file_generate')
+    @mock.patch('os.path.isfile')
+    def test_generate_test_mapping_schema(self, mock_is_file,
+                                          mock_file_generate):
+        """Test _generate_test_mapping_schema."""
+        mock_is_file.return_value = False
+        project_file_gen._generate_test_mapping_schema('')
+        self.assertFalse(mock_file_generate.called)
+        mock_is_file.return_value = True
+        project_file_gen._generate_test_mapping_schema('')
+        self.assertTrue(mock_file_generate.called)
+
 
 if __name__ == '__main__':
     unittest.main()
