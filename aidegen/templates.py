@@ -293,3 +293,31 @@ ANDROID_SDK_XML = """    <jdk version="2">
       <additional jdk="JDK18" sdk="android-{API_LEVEL}" />
     </jdk>
 """
+
+# The configuration of TEST_MAPPING in jsonSchemas.xml.
+TEST_MAPPING_SCHEMAS_XML = """<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="JsonSchemaMappingsProjectConfiguration">
+    <state>
+      <map>
+        <entry key="TEST_MAPPING.config">
+          <value>
+            <SchemaInfo>
+              <option name="name" value="TEST_MAPPING.config" />
+              <option name="relativePathToSchema" value="{SCHEMA_PATH}" />
+              <option name="schemaVersion" value="JSON schema version 7" />
+              <option name="patterns">
+                <list>
+                  <Item>
+                    <option name="path" value="TEST_MAPPING" />
+                  </Item>
+                </list>
+              </option>
+            </SchemaInfo>
+          </value>
+        </entry>
+      </map>
+    </state>
+  </component>
+</project>
+"""
