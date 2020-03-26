@@ -19,7 +19,6 @@
 
 from __future__ import print_function
 
-import fnmatch
 import json
 import logging
 import os
@@ -307,22 +306,6 @@ class CLITranslator:
                 grouped_tests.update(tests)
         return all_tests, imports
 
-    def _find_files(self, path, file_name=constants.TEST_MAPPING):
-        """Find all files with given name under the given path.
-
-        Args:
-            path: A string of path in source.
-
-        Returns:
-            A list of paths of the files with the matching name under the given
-            path.
-        """
-        test_mapping_files = []
-        for root, _, filenames in os.walk(path):
-            for filename in fnmatch.filter(filenames, file_name):
-                test_mapping_files.append(os.path.join(root, filename))
-        return test_mapping_files
-
     def _get_tests_from_test_mapping_files(
             self, test_group, test_mapping_files):
         """Get tests in the given test mapping files with the match group.
@@ -393,7 +376,7 @@ class CLITranslator:
         # Include all TEST_MAPPING files in sub-directories if `include_subdirs`
         # is set to True.
         if include_subdirs:
-            test_mapping_files.update(self._find_files(path, file_name))
+            test_mapping_files.update(atest_utils.find_files(path, file_name))
         # Include all possible TEST_MAPPING files in parent directories.
         root_dir = os.environ.get(constants.ANDROID_BUILD_TOP, os.sep)
         while path not in (root_dir, os.sep):

@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+# pylint: disable=import-outside-toplevel
 # pylint: disable=line-too-long
 
 """
@@ -437,22 +438,37 @@ class ResultReporter:
         ignored_label = 'Ignored'
         assumption_failed_label = 'Assumption Failed'
         error_label = ''
+        host_log_content = ''
         if stats.failed > 0:
             failed_label = au.colorize(failed_label, constants.RED)
         if stats.run_errors:
             error_label = au.colorize('(Completed With ERRORS)', constants.RED)
+            # Only extract host_log_content if test name is tradefed
+            # Import here to prevent circular-import error.
+            from test_runners import atest_tf_test_runner
+            if name == atest_tf_test_runner.AtestTradefedTestRunner.NAME:
+                find_logs = au.find_files(self.log_path,
+                                          file_name=constants.TF_HOST_LOG)
+                if find_logs:
+                    host_log_content = au.colorize(
+                        '\n\nTradefederation host log:', constants.RED)
+                for tf_log_zip in find_logs:
+                    host_log_content = host_log_content + au.extract_zip_text(
+                        tf_log_zip)
         elif stats.failed == 0:
             passed_label = au.colorize(passed_label, constants.GREEN)
-        summary = '%s: %s: %s, %s: %s, %s: %s, %s: %s %s' % (name,
-                                                             passed_label,
-                                                             stats.passed,
-                                                             failed_label,
-                                                             stats.failed,
-                                                             ignored_label,
-                                                             stats.ignored,
-                                                             assumption_failed_label,
-                                                             stats.assumption_failed,
-                                                             error_label)
+        summary = ('%s: %s: %s, %s: %s, %s: %s, %s: %s %s %s'
+                   % (name,
+                      passed_label,
+                      stats.passed,
+                      failed_label,
+                      stats.failed,
+                      ignored_label,
+                      stats.ignored,
+                      assumption_failed_label,
+                      stats.assumption_failed,
+                      error_label,
+                      host_log_content))
         return summary
 
     def _update_stats(self, test, group):
