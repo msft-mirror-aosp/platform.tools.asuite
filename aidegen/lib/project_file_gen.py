@@ -71,6 +71,7 @@ _CODE_STYLE_FOLDER = 'codeStyles'
 _APACHE_2_XML = 'Apache_2.xml'
 _PROFILES_SETTINGS_XML = 'profiles_settings.xml'
 _CODE_STYLE_CONFIG_XML = 'codeStyleConfig.xml'
+_JSON_SCHEMAS_CONFIG_XML = 'jsonSchemas.xml'
 _PROJECT_XML = 'Project.xml'
 _COMPILE_XML = 'compiler.xml'
 _MISC_XML = 'misc.xml'
@@ -98,6 +99,9 @@ _GITIGNORE_ABS_PATH = os.path.join(common_util.get_android_root_dir(),
 _CODE_STYLE_REL_PATH = 'tools/asuite/aidegen/data/AndroidStyle_aidegen.xml'
 _CODE_STYLE_SRC_PATH = os.path.join(common_util.get_android_root_dir(),
                                     _CODE_STYLE_REL_PATH)
+_TEST_MAPPING_CONFIG_PATH = ('tools/tradefederation/core/src/com/android/'
+                             'tradefed/util/testmapping/TEST_MAPPING.config'
+                             '.json')
 
 
 class ProjectFileGenerator:
@@ -263,6 +267,8 @@ class ProjectFileGenerator:
                             code_style_target_path, err)
         # Create .gitignore if it doesn't exist.
         _generate_git_ignore(target_path)
+        # Create jsonSchemas.xml for TEST_MAPPING.
+        _generate_test_mapping_schema(idea_dir)
         # Create config.json for Asuite plugin
         lunch_target = common_util.get_lunch_target()
         if lunch_target:
@@ -669,6 +675,22 @@ def _generate_git_ignore(target_folder):
             os.symlink(rel_source, rel_target)
     except OSError as err:
         logging.error('Not support to run aidegen on Windows.\n %s', err)
+
+
+def _generate_test_mapping_schema(idea_dir):
+    """Create jsonSchemas.xml for TEST_MAPPING.
+
+    Args:
+        idea_dir: An absolute path string of target .idea folder.
+    """
+    config_path = os.path.join(
+        common_util.get_android_root_dir(), _TEST_MAPPING_CONFIG_PATH)
+    if os.path.isfile(config_path):
+        common_util.file_generate(
+            os.path.join(idea_dir, _JSON_SCHEMAS_CONFIG_XML),
+            templates.TEST_MAPPING_SCHEMAS_XML.format(SCHEMA_PATH=config_path))
+    else:
+        logging.warning('Can\'t find TEST_MAPPING.config.json')
 
 
 def _filter_out_source_paths(source_paths, module_relpaths):
