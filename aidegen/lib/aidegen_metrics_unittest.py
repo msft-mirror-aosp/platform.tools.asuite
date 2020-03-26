@@ -58,6 +58,12 @@ class AidegenMetricsUnittests(unittest.TestCase):
                 aidegen_metrics.ends_asuite_metrics(exit_code)
                 self.assertTrue(mk_send.called)
 
+    @mock.patch.object(aidegen_metrics, 'ends_asuite_metrics')
+    def test_send_exception_metrics(self, mock_ends_metrics):
+        """Test send_exception_metrics."""
+        mock_ends_metrics.return_value = True
+        aidegen_metrics.send_exception_metrics(1, '', '', 'err_test')
+        self.assertTrue(mock_ends_metrics.called)
 
 if __name__ == '__main__':
     unittest.main()
