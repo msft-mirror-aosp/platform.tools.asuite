@@ -315,6 +315,22 @@ class AidegenCommonUtilUnittests(unittest.TestCase):
             decorator = common_util.check_args(name=str, text=str)
             decorator(parse_rule(1, 2))
 
+    @mock.patch.object(common_util, 'get_blueprint_json_path')
+    @mock.patch.object(common_util, 'get_android_out_dir')
+    @mock.patch.object(common_util, 'get_android_root_dir')
+    def test_get_blueprint_json_files_relative_dict(
+            self, mock_get_root, mock_get_out, mock_get_path):
+        """Test get_blueprint_json_files_relative_dict function,"""
+        mock_get_root.return_value = 'a/b'
+        mock_get_out.return_value = 'out'
+        mock_get_path.return_value = 'out/soong/bp_java_file'
+        data = {
+            constant.GEN_JAVA_DEPS: 'a/b/out/soong/bp_java_file',
+            constant.GEN_CC_DEPS: 'a/b/out/soong/bp_java_file',
+        }
+        self.assertEqual(
+            data, common_util.get_blueprint_json_files_relative_dict())
+
     @mock.patch('os.environ.get')
     def test_get_lunch_target(self, mock_get_env):
         """Test get_lunch_target."""
