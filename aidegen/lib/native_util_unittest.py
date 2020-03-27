@@ -157,6 +157,19 @@ class AidegenNativeUtilUnittests(unittest.TestCase):
         self.assertEqual(mock_fil.call_count, 2)
         self.assertEqual(mock_ana.call_count, 1)
 
+    @mock.patch('os.walk')
+    def test_check_java_file_exists(self, mock_walk):
+        """Test _check_java_file_exists with conditions."""
+        root_dir = 'a/path/to/dir'
+        folder = 'path/to/dir'
+        target = 'test.java'
+        abs_path = os.path.join(root_dir, folder)
+        mock_walk.return_value = [(root_dir, [folder], [target])]
+        self.assertTrue(native_util._check_java_file_exists(abs_path))
+        target = 'test.cpp'
+        mock_walk.return_value = [(root_dir, [folder], [target])]
+        self.assertFalse(native_util._check_java_file_exists(abs_path))
+
 
 if __name__ == '__main__':
     unittest.main()
