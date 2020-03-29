@@ -51,17 +51,21 @@ class ClionProjectFileGenUnittests(unittest.TestCase):
         with self.assertRaises(errors.ModuleInfoEmptyError):
             clion_project_file_gen.CLionProjectFileGenerator({})
 
-    def test_init_with_mod_info_without_mod_name(self):
+    @mock.patch('os.path.exists')
+    def test_init_with_mod_info_without_mod_name(self, mock_exists):
         """Test __init__ without mod_info."""
         mod_info = dict(self._MOD_INFO)
         mod_info.update(self._PATH_DICT)
+        mock_exists.return_value = True
         with self.assertRaises(errors.NoModuleNameDefinedInModuleInfoError):
             clion_project_file_gen.CLionProjectFileGenerator(mod_info)
 
-    def test_init_with_mod_info_without_mod_path(self):
+    @mock.patch('os.path.exists')
+    def test_init_with_mod_info_without_mod_path(self, mock_exists):
         """Test __init__ without mod_info."""
         mod_info = dict(self._MOD_INFO)
         mod_info.update(self._MOD_NAME_DICT)
+        mock_exists.return_value = True
         with self.assertRaises(errors.NoPathDefinedInModuleInfoError):
             clion_project_file_gen.CLionProjectFileGenerator(mod_info)
 
@@ -123,13 +127,15 @@ class ClionProjectFileGenUnittests(unittest.TestCase):
         expected = ''
         self.assertEqual(content, expected)
 
-    def test_write_source_files_with_content(self):
+    @mock.patch('os.path.exists')
+    def test_write_source_files_with_content(self, mock_exists):
         """Test _write_source_files function with content."""
         hfile = StringIO()
         mod_info = dict(self._MOD_INFO)
         mod_info.update(self._PATH_DICT)
         mod_info.update(self._MOD_NAME_DICT)
         mod_info.update(self._SRC_DICT)
+        mock_exists.return_value = True
         clion_gen = clion_project_file_gen.CLionProjectFileGenerator(mod_info)
         clion_gen._write_source_files(hfile)
         hfile.seek(0)
@@ -141,12 +147,14 @@ class ClionProjectFileGenUnittests(unittest.TestCase):
         expected = header + ''.join(src_heads) + srcs + '\n' + tail
         self.assertEqual(content, expected)
 
-    def test_write_flags_without_content(self):
+    @mock.patch('os.path.exists')
+    def test_write_flags_without_content(self, mock_exists):
         """Test _write_flags function without content."""
         hfile = StringIO()
         mod_info = dict(self._PATH_DICT)
         mod_info.update(self._MOD_NAME_DICT)
         key = clion_project_file_gen._KEY_GLOBAL_COMMON_FLAGS
+        mock_exists.return_value = True
         clion_gen = clion_project_file_gen.CLionProjectFileGenerator(mod_info)
         clion_gen._write_flags(hfile, key, True, True)
         hfile.seek(0)
@@ -154,16 +162,19 @@ class ClionProjectFileGenUnittests(unittest.TestCase):
         expected = clion_project_file_gen._FLAGS_DICT.get(key, '')
         self.assertEqual(content, expected)
 
-    def test_parse_compiler_parameters_without_flag(self):
+    @mock.patch('os.path.exists')
+    def test_parse_compiler_parameters_without_flag(self, mock_exists):
         """Test _parse_compiler_parameters function without flag."""
         mod_info = dict(self._PATH_DICT)
         mod_info.update(self._MOD_NAME_DICT)
+        mock_exists.return_value = True
         clion_gen = clion_project_file_gen.CLionProjectFileGenerator(mod_info)
         result = clion_gen._parse_compiler_parameters(
             clion_project_file_gen._KEY_GLOBAL_COMMON_FLAGS)
         self.assertEqual(result, None)
 
-    def test_parse_compiler_parameters_with_flag(self):
+    @mock.patch('os.path.exists')
+    def test_parse_compiler_parameters_with_flag(self, mock_exists):
         """Test _parse_compiler_parameters function with flag."""
         mod_info = dict(self._MOD_INFO)
         mod_info.update(self._PATH_DICT)
@@ -175,6 +186,7 @@ class ClionProjectFileGenUnittests(unittest.TestCase):
             clion_project_file_gen._KEY_SYSTEM_ROOT: '',
             clion_project_file_gen._KEY_RELATIVE: {}
         }
+        mock_exists.return_value = True
         clion_gen = clion_project_file_gen.CLionProjectFileGenerator(mod_info)
         flag = clion_project_file_gen._KEY_GLOBAL_COMMON_FLAGS
         ret = clion_gen._parse_compiler_parameters(flag)
@@ -335,15 +347,18 @@ class ClionProjectFileGenUnittests(unittest.TestCase):
         expected = head + middle + tail
         self.assertEqual(content, expected)
 
+    @mock.patch('os.path.exists')
     @mock.patch.object(clion_project_file_gen, '_translate_to_cmake')
     @mock.patch.object(clion_project_file_gen.CLionProjectFileGenerator,
                        '_parse_compiler_parameters')
-    def test_write_flags_with_content(self, mock_parse, mock_translate):
+    def test_write_flags_with_content(
+            self, mock_parse, mock_translate, mock_exists):
         """Test _write_flags function with content."""
         hfile = StringIO()
         mod_info = dict(self._MOD_INFO)
         mod_info.update(self._PATH_DICT)
         mod_info.update(self._MOD_NAME_DICT)
+        mock_exists.return_value = True
         clion_gen = clion_project_file_gen.CLionProjectFileGenerator(mod_info)
         key = clion_project_file_gen._KEY_GLOBAL_COMMON_FLAGS
         clion_gen._write_flags(hfile, key, True, True)
