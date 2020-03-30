@@ -70,10 +70,146 @@ _TEST_MODULE_A_JOIN_PATH_DICT = {
 }
 
 
-# pylint: disable=protected-access
 # pylint: disable=invalid-name
+# pylint: disable=protected-access
+# pylint: disable=too-many-arguments
+# ptlint: disable=too-many-format-args
 class AidegenModuleInfoUtilUnittests(unittest.TestCase):
-    """Unit tests for moduole_info_utils.py"""
+    """Unit tests for module_info_utils.py"""
+
+    @mock.patch.object(os.path, 'getmtime')
+    @mock.patch.object(logging, 'info')
+    @mock.patch.object(os.path, 'isfile')
+    @mock.patch.object(module_info_util, '_get_generated_json_files')
+    def test_of_build_bp_info_reuse_jsons(self, mock_json, mock_isfile,
+                                          mock_log, mock_time):
+        """Test of _build_bp_info to well reuse existing files."""
+        gen_files = ['file1', 'file_a', 'file_b']
+        mock_json.return_value = gen_files
+        # Test of the well reuse existing files.
+        mock_isfile.side_effect = (True, True, True)
+        mod_info = mock.MagicMock()
+        module_info_util._build_bp_info(mod_info, skip_build=True)
+        self.assertTrue(mock_json.called)
+        self.assertTrue(mock_log.called)
+        self.assertFalse(mock_time.called)
+
+    @mock.patch.object(module_info_util, '_show_build_failed_message')
+    @mock.patch.object(module_info_util, '_show_files_reuse_message')
+    @mock.patch.object(atest_utils, 'build')
+    @mock.patch.object(os.path, 'getmtime')
+    @mock.patch.object(logging, 'warning')
+    @mock.patch.object(os.path, 'isfile')
+    @mock.patch.object(module_info_util, '_get_generated_json_files')
+    def test_of_build_bp_info_rebuild_jsons(self, mock_json, mock_isfile,
+                                            mock_log, mock_time, mock_build,
+                                            mock_reuse, mock_fail):
+        """Test of _build_bp_info on rebuilding jsons."""
+        gen_files = ['file2', 'file_a', 'file_b']
+        mock_json.return_value = gen_files
+        mod_info = mock.MagicMock()
+        # Test of the existing files can't reuse.
+        mock_json.return_value = gen_files
+        mock_isfile.side_effect = (True, False, True)
+        mock_time.side_effect = (None, None, None)
+        mock_build.side_effect = (True, True)
+        module_info_util._build_bp_info(mod_info, skip_build=True)
+        self.assertTrue(mock_json.called)
+        self.assertTrue(mock_log.called)
+
+        # Test of the well rebuild case.
+        action_pass = '\nGenerate blueprint json successfully.'
+        self.assertTrue(mock_build.called)
+        self.assertTrue(mock_log.called_with(action_pass))
+        self.assertFalse(mock_reuse.called)
+        self.assertFalse(mock_fail.called)
+
+    @mock.patch.object(module_info_util, '_show_build_failed_message')
+    @mock.patch.object(module_info_util, '_show_files_reuse_message')
+    @mock.patch.object(module_info_util, '_is_new_json_file_generated')
+    @mock.patch.object(atest_utils, 'build')
+    @mock.patch.object(os.path, 'getmtime')
+    @mock.patch.object(logging, 'warning')
+    @mock.patch.object(os.path, 'isfile')
+    @mock.patch.object(module_info_util, '_get_generated_json_files')
+    def test_of_build_bp_info_show_build_fail(self, mock_json, mock_isfile,
+                                              mock_log, mock_time, mock_build,
+                                              mock_judge, mock_reuse,
+                                              mock_fail):
+        """Test of _build_bp_info to show build failed message."""
+        gen_files = ['file3', 'file_a', 'file_b']
+        mock_json.return_value = gen_files
+        mod_info = mock.MagicMock()
+        # Test rebuild failed case - show build fail message.
+        mock_json.return_value = gen_files
+        test_prj = 'main'
+        mock_isfile.side_effect = (True, False, True)
+        mock_time.side_effect = (None, None, None)
+        mock_build.side_effect = (True, False)
+        mock_judge.side_effect = [True, False, False]
+        module_info_util._build_bp_info(mod_info, main_project=test_prj,
+                                        skip_build=False)
+        self.assertTrue(mock_json.called)
+        self.assertTrue(mock_log.called)
+        self.assertTrue(mock_build.called)
+        self.assertFalse(mock_reuse.called)
+        self.assertTrue(mock_fail.called)
+
+    @mock.patch.object(module_info_util, '_show_build_failed_message')
+    @mock.patch.object(module_info_util, '_show_files_reuse_message')
+    @mock.patch.object(module_info_util, '_is_new_json_file_generated')
+    @mock.patch.object(atest_utils, 'build')
+    @mock.patch.object(os.path, 'getmtime')
+    @mock.patch.object(logging, 'warning')
+    @mock.patch.object(os.path, 'isfile')
+    @mock.patch.object(module_info_util, '_get_generated_json_files')
+    def test_of_build_bp_info_rebuild_and_reuse(self, mock_json, mock_isfile,
+                                                mock_log, mock_time, mock_build,
+                                                mock_judge, mock_reuse,
+                                                mock_fail):
+        """Test of _build_bp_info to reuse existing jsons."""
+        gen_files = ['file4', 'file_a', 'file_b']
+        mock_json.return_value = gen_files
+        mod_info = mock.MagicMock()
+        mock_json.return_value = gen_files
+        test_prj = 'main'
+        # Test rebuild failed case - show reuse message.
+        mock_isfile.side_effect = (True, True, True)
+        mock_time.side_effect = (None, None, None)
+        mock_build.side_effect = (True, False)
+        mock_judge.side_effect = [True, False, True]
+        module_info_util._build_bp_info(
+            mod_info, main_project=test_prj, skip_build=False)
+        self.assertTrue(mock_log.called)
+        self.assertTrue(mock_reuse.called)
+        self.assertFalse(mock_fail.called)
+
+    @mock.patch.object(module_info_util, '_show_build_failed_message')
+    @mock.patch.object(module_info_util, '_show_files_reuse_message')
+    @mock.patch.object(module_info_util, '_is_new_json_file_generated')
+    @mock.patch.object(atest_utils, 'build')
+    @mock.patch.object(os.path, 'getmtime')
+    @mock.patch.object(logging, 'warning')
+    @mock.patch.object(os.path, 'isfile')
+    @mock.patch.object(module_info_util, '_get_generated_json_files')
+    def test_of_build_bp_info_reuse_pass(self, mock_json, mock_isfile, mock_log,
+                                         mock_time, mock_build, mock_judge,
+                                         mock_reuse, mock_fail):
+        """Test of _build_bp_info reuse pass."""
+        gen_files = ['file5', 'file_a', 'file_b']
+        mock_json.return_value = gen_files
+        test_prj = 'main'
+        mod_info = mock.MagicMock()
+        # Test rebuild failed case - show nothing.
+        mock_isfile.side_effect = (False, True, True)
+        mock_time.side_effect = (None, None, None)
+        mock_build.side_effect = (True, False)
+        mock_judge.side_effect = [True, True, True]
+        module_info_util._build_bp_info(mod_info, main_project=test_prj,
+                                        skip_build=False)
+        self.assertTrue(mock_log.called)
+        self.assertFalse(mock_reuse.called)
+        self.assertFalse(mock_fail.called)
 
     def test_merge_module_keys_with_empty_dict(self):
         """Test _merge_module_keys with an empty dictionary."""
