@@ -101,6 +101,25 @@ def print_test_result(root, num):
                 pass
 
 
+def has_non_test_options(args):
+    """
+    check whether non-test option in the args.
+
+    Args:
+        args: An argspace.Namespace class instance holding parsed args.
+
+    Returns:
+        True, if args has at least one non-test option.
+        False, otherwise.
+    """
+    return (args.collect_tests_only
+            or args.dry_run
+            or args.help
+            or args.history
+            or args.info
+            or args.version)
+
+
 class AtestExecutionInfo:
     """Class that stores the whole test progress information in JSON format.
 
@@ -140,12 +159,13 @@ class AtestExecutionInfo:
 
     result_reporters = []
 
-    def __init__(self, args, work_dir):
+    def __init__(self, args, work_dir, args_ns):
         """Initialise an AtestExecutionInfo instance.
 
         Args:
             args: Command line parameters.
-            work_dir : The directory for saving information.
+            work_dir: The directory for saving information.
+            args_ns: An argspace.Namespace class instance holding parsed args.
 
         Returns:
                A json format string.
@@ -153,6 +173,7 @@ class AtestExecutionInfo:
         self.args = args
         self.work_dir = work_dir
         self.result_file = None
+        self.args_ns = args_ns
 
     def __enter__(self):
         """Create and return information file object."""
@@ -169,7 +190,8 @@ class AtestExecutionInfo:
             self.result_file.write(AtestExecutionInfo.
                                    _generate_execution_detail(self.args))
             self.result_file.close()
-            symlink_latest_result(self.work_dir)
+            if not has_non_test_options(self.args_ns):
+                symlink_latest_result(self.work_dir)
         main_module = sys.modules.get(_MAIN_MODULE_KEY)
         main_exit_code = getattr(main_module, _EXIT_CODE_ATTR,
                                  constants.EXIT_CODE_ERROR)
