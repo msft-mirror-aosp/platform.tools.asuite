@@ -26,9 +26,11 @@ import logging
 import os
 import sys
 import time
+import xml.dom.minidom
 
 from functools import partial
 from functools import wraps
+from xml.etree import ElementTree
 
 from aidegen import constant
 from aidegen.lib import errors
@@ -669,3 +671,20 @@ def get_blueprint_json_files_relative_dict():
         root_dir, get_blueprint_json_path(constant.BLUEPRINT_CC_JSONFILE_NAME))
     data[constant.GEN_CC_DEPS] = bp_cc_path
     return data
+
+
+def to_pretty_xml(root, indent="  "):
+    """Gets pretty xml from an xml.etree.ElementTree root.
+
+    Args:
+        root: An element tree root.
+        indent: The indent of XML.
+    Returns:
+        A string of pretty xml.
+    """
+    xml_string = xml.dom.minidom.parseString(
+        ElementTree.tostring(root)).toprettyxml(indent)
+    # Remove the xml declaration since IntelliJ doesn't use it.
+    xml_string = xml_string.split("\n", 1)[1]
+    # Remove the weird newline issue from toprettyxml.
+    return os.linesep.join([s for s in xml_string.splitlines() if s.strip()])
