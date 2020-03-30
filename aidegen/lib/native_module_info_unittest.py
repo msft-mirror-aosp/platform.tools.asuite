@@ -16,12 +16,16 @@
 
 """Unittests for native_module_info."""
 
+import os.path
 import unittest
 from unittest import mock
 
 from aidegen import constant
 from aidegen.lib import common_util
+from aidegen.lib import module_info
 from aidegen.lib import native_module_info
+
+import atest
 
 _PATH_TO_MULT_MODULES_WITH_MULTI_ARCH = 'shared/path/to/be/used2'
 _TESTABLE_MODULES_WITH_SHARED_PATH = [
@@ -81,7 +85,7 @@ _CC_MODULE_INFO = {
 }
 
 
-#pylint: disable=protected-access
+# pylint: disable=protected-access
 class NativeModuleInfoUnittests(unittest.TestCase):
     """Unit tests for module_info.py"""
 
@@ -116,6 +120,98 @@ class NativeModuleInfoUnittests(unittest.TestCase):
         mod_info = native_module_info.NativeModuleInfo()
         result = mod_info.get_gen_includes('multiarch1')
         self.assertEqual(set(), result)
+
+    @mock.patch.object(
+        native_module_info.NativeModuleInfo, '_load_module_info_file')
+    def test_not_implement_methods_check(self, mock_load):
+        """Test for all not implemented methods which should raise error."""
+        mock_load.return_value = None, _CC_NAME_TO_MODULE_INFO
+        mod_info = native_module_info.NativeModuleInfo()
+        with self.assertRaises(NotImplementedError):
+            suite_name = 'test'
+            test_data = {'a': 'test'}
+            mod_info.is_suite_in_compatibility_suites(suite_name, test_data)
+
+        with self.assertRaises(NotImplementedError):
+            mod_info.get_testable_modules()
+
+        with self.assertRaises(NotImplementedError):
+            test_data = {'a': 'test'}
+            mod_info.is_testable_module(test_data)
+
+        with self.assertRaises(NotImplementedError):
+            test_data = {'a': 'test'}
+            mod_info.has_test_config(test_data)
+
+        with self.assertRaises(NotImplementedError):
+            test_mod = 'mod_a'
+            mod_info.get_robolectric_test_name(test_mod)
+
+        with self.assertRaises(NotImplementedError):
+            test_mod = 'mod_a'
+            mod_info.is_robolectric_test(test_mod)
+
+        with self.assertRaises(NotImplementedError):
+            test_mod = 'a'
+            mod_info.is_auto_gen_test_config(test_mod)
+
+        with self.assertRaises(NotImplementedError):
+            test_data = {'a': 'test'}
+            mod_info.is_robolectric_module(test_data)
+
+        with self.assertRaises(NotImplementedError):
+            test_mod = 'a'
+            mod_info.is_native_test(test_mod)
+
+    @mock.patch.object(atest.module_info.ModuleInfo, '_load_module_info_file')
+    @mock.patch.object(os.path, 'isfile')
+    @mock.patch.object(common_util, 'get_json_dict')
+    @mock.patch.object(module_info.AidegenModuleInfo,
+                       '_discover_mod_file_and_target')
+    @mock.patch.object(common_util, 'get_blueprint_json_path')
+    def test_load_module_info_file(self, mock_get_json, mock_load, mock_dict,
+                                   mock_isfile, mock_base_load):
+        """Test _load_module_info_file."""
+        force_build = True
+        mod_file = '/test/path'
+        mock_get_json.return_value = mod_file
+        native_module_info.NativeModuleInfo(force_build)
+        self.assertTrue(mock_get_json.called_with(
+            constant.BLUEPRINT_CC_JSONFILE_NAME))
+        mock_load.return_value = mod_file, mod_file
+        self.assertTrue(mock_load.called_with(True))
+        mock_dict.return_value = _CC_MODULE_INFO
+        self.assertTrue(mock_dict.called_with(mod_file))
+        self.assertFalse(mock_base_load.called)
+        mock_base_load.reset_mock()
+        mock_get_json.reset_mock()
+        mock_load.reset_mock()
+        mock_dict.reset_mock()
+
+        native_module_info.NativeModuleInfo(force_build, mod_file)
+        self.assertFalse(mock_get_json.called)
+        mock_load.return_value = None, mod_file
+        self.assertTrue(mock_load.called_with(True))
+        self.assertTrue(mock_dict.called_with(mod_file))
+        self.assertFalse(mock_base_load.called)
+        mock_base_load.reset_mock()
+        mock_get_json.reset_mock()
+        mock_load.reset_mock()
+        mock_dict.reset_mock()
+
+        force_build = False
+        mock_get_json.return_value = mod_file
+        native_module_info.NativeModuleInfo(force_build, mod_file)
+        self.assertFalse(mock_get_json.called)
+        mock_isfile.return_value = True
+        self.assertFalse(mock_load.called)
+        mock_dict.return_value = _CC_MODULE_INFO
+        self.assertTrue(mock_dict.called_with(mod_file))
+        self.assertFalse(mock_base_load.called)
+        mock_base_load.reset_mock()
+        mock_get_json.reset_mock()
+        mock_load.reset_mock()
+        mock_dict.reset_mock()
 
 
 if __name__ == '__main__':

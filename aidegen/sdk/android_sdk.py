@@ -43,6 +43,7 @@ class AndroidSDK:
         _android_sdk_path: The path to the Android SDK, None if the Android SDK
                            doesn't exist.
         _max_api_level: An integer, the max API level in the platforms folder.
+        _max_code_name: A string, the code name of the max API level.
         _platform_mapping: A dictionary of Android platform versions mapping to
                            the API level and the Android version code name.
                            e.g.
@@ -73,6 +74,7 @@ class AndroidSDK:
     def __init__(self):
         """Initializes AndroidSDK."""
         self._max_api_level = 0
+        self._max_code_name = None
         self._platform_mapping = {}
         self._android_sdk_path = None
 
@@ -80,6 +82,11 @@ class AndroidSDK:
     def max_api_level(self):
         """Gets the max API level."""
         return self._max_api_level
+
+    @property
+    def max_code_name(self):
+        """Gets the max code name."""
+        return self._max_code_name
 
     @property
     def platform_mapping(self):
@@ -100,6 +107,19 @@ class AndroidSDK:
         return max(
             [v[self._API_LEVEL] for v in self._platform_mapping.values()],
             default=0)
+
+    def _parse_max_code_name(self):
+        """Parses the max code name from self._platform_mapping.
+
+        Returns:
+            A string of code name.
+        """
+        code_name = ''
+        for data in self._platform_mapping.values():
+            if (data[self._API_LEVEL] == self._max_api_level
+                    and data[self._CODE_NAME] > code_name):
+                code_name = data[self._CODE_NAME]
+        return code_name
 
     def _parse_api_info(self, properties_file):
         """Parses the API information from the source.properties file.
@@ -168,6 +188,7 @@ class AndroidSDK:
         if self._gen_platform_mapping(path):
             self._android_sdk_path = path
             self._max_api_level = self._parse_max_api_level()
+            self._max_code_name = self._parse_max_code_name()
             return True
         return False
 
