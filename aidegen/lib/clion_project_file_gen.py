@@ -76,8 +76,6 @@ _FLAGS_DICT = {
 }
 
 # Keys for parameter types.
-_KEY_HEADER = 'header_search_path'
-_KEY_SYSTEM = 'system_search_path'
 _KEY_FLAG = 'flag'
 _KEY_SYSTEM_ROOT = 'system_root'
 _KEY_RELATIVE = 'relative_file_path'
@@ -297,7 +295,8 @@ class CLionProjectFileGenerator:
         """
         hfile.write(
             _ADD_EXECUTABLE_HEADER.format(
-                self.mod_name, _add_dollar_sign(_SOURCE_FILES_HEADER)))
+                _cleanup_executable_name(self.mod_name),
+                _add_dollar_sign(_SOURCE_FILES_HEADER)))
 
     @common_util.check_args(
         hfile=(TextIOWrapper, StringIO), key=str, cflags=bool, cppflags=bool)
@@ -332,8 +331,8 @@ class CLionProjectFileGenerator:
         if not params:
             return None
         params_dict = {
-            _KEY_HEADER: [],
-            _KEY_SYSTEM: [],
+            constant.KEY_HEADER: [],
+            constant.KEY_SYSTEM: [],
             _KEY_FLAG: [],
             _KEY_SYSTEM_ROOT: '',
             _KEY_RELATIVE: {}
@@ -436,8 +435,10 @@ def _translate_to_cmake(hfile, params_dict, cflags, cppflags):
         cflags: A boolean is to set 'CMAKE_C_FLAGS' flag.
         cppflags: A boolean is to set 'CMAKE_CXX_FLAGS' flag.
     """
-    _write_all_include_directories(hfile, params_dict[_KEY_SYSTEM], True)
-    _write_all_include_directories(hfile, params_dict[_KEY_HEADER], False)
+    _write_all_include_directories(
+        hfile, params_dict[constant.KEY_SYSTEM], True)
+    _write_all_include_directories(
+        hfile, params_dict[constant.KEY_HEADER], False)
 
     if cflags:
         _write_all_relative_file_path_flags(hfile, params_dict[_KEY_RELATIVE],
@@ -564,3 +565,18 @@ def _write_all_headers(hfile, includes):
         hfile.write(_ALL_HEADER_FILES.format(_build_cmake_path(include)))
     hfile.write(_END_WITH_ONE_BLANK_LINE)
     hfile.write(_APPEND_SOURCE_FILES)
+
+
+def _cleanup_executable_name(mod_name):
+    """Clean up an executable name to be suitable for CMake.
+
+    Replace the last '@' of a module name with '-' and make it become a suitable
+    executable name for CMake.
+
+    Args:
+        mod_name: A string of module name to be cleaned up.
+
+    Returns:
+        A string of the executable name.
+    """
+    return mod_name[::-1].replace('@', '-', 1)[::-1]

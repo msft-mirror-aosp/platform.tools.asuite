@@ -22,6 +22,8 @@ AIDEGEN_ROOT_PATH = 'tools/asuite/aidegen'
 USER_HOME = '$USER_HOME$'
 TARGET_PRODUCT = 'TARGET_PRODUCT'
 TARGET_BUILD_VARIANT = 'TARGET_BUILD_VARIANT'
+GEN_JAVA_DEPS = 'SOONG_COLLECT_JAVA_DEPS'
+GEN_CC_DEPS = 'SOONG_COLLECT_CC_DEPS'
 
 # Constants for module's info.
 KEY_PATH = 'path'
@@ -86,6 +88,7 @@ CLION_PROJECT_FILE_NAME = 'CMakeLists.txt'
 ANDROID_BP = 'Android.bp'
 ANDROID_MK = 'Android.mk'
 JAVA_FILES = '*.java'
+VSCODE_CONFIG_DIR = '.vscode'
 
 # Constants for file paths.
 RELATIVE_NATIVE_PATH = 'development/ide/clion'

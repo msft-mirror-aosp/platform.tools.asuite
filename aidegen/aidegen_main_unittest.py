@@ -34,10 +34,12 @@ from aidegen.lib import native_util
 from aidegen.lib import native_project_info
 from aidegen.lib import project_config
 from aidegen.lib import project_file_gen
+from aidegen.lib import project_info
 
 
 # pylint: disable=protected-access
 # pylint: disable=invalid-name
+# pylint: disable=too-many-arguments
 class AidegenMainUnittests(unittest.TestCase):
     """Unit tests for aidegen_main.py"""
 
@@ -76,15 +78,18 @@ class AidegenMainUnittests(unittest.TestCase):
         args = aidegen_main._parse_args(['-s'])
         self.assertTrue(args.skip_build)
 
+    @mock.patch.object(project_config.ProjectConfig, 'init_environment')
     @mock.patch.object(project_config, 'ProjectConfig')
     @mock.patch.object(project_file_gen.ProjectFileGenerator,
                        'generate_ide_project_files')
     @mock.patch.object(eclipse_project_file_gen.EclipseConf,
                        'generate_ide_project_files')
-    def test_generate_project_files(self, mock_eclipse, mock_ide, mock_config):
+    def test_generate_project_files(self, mock_eclipse, mock_ide, mock_config,
+                                    mock_init):
         """Test _generate_project_files with different conditions."""
         projects = ['module_a', 'module_v']
         args = aidegen_main._parse_args([projects, '-i', 'e'])
+        mock_init.return_value = None
         self._init_project_config(args)
         mock_config.ide_name = constant.IDE_ECLIPSE
         aidegen_main._generate_project_files(projects)
@@ -243,6 +248,7 @@ class AidegenMainUnittests(unittest.TestCase):
         self.assertEqual(5, mock_input.call_count)
         mock_input.reset_mock()
 
+    @mock.patch('logging.warning')
     @mock.patch.object(aidegen_main, '_launch_native_projects')
     @mock.patch.object(native_util, 'generate_clion_projects')
     @mock.patch.object(native_project_info.NativeProjectInfo,
@@ -250,7 +256,8 @@ class AidegenMainUnittests(unittest.TestCase):
     @mock.patch.object(aidegen_main, '_create_and_launch_java_projects')
     @mock.patch.object(aidegen_main, '_get_preferred_ide_from_user')
     def test_launch_ide_by_module_contents(self, mock_choice, mock_j,
-                                           mock_c_prj, mock_genc, mock_c):
+                                           mock_c_prj, mock_genc, mock_c,
+                                           mock_log):
         """Test _launch_ide_by_module_contents with different conditions."""
         args = aidegen_main._parse_args(['', '-i', 's'])
         self._init_project_config(args)
@@ -259,6 +266,17 @@ class AidegenMainUnittests(unittest.TestCase):
         with self.assertRaises(NotImplementedError):
             aidegen_main._launch_ide_by_module_contents(args, ide_obj, None,
                                                         None, test_both)
+        test_both = None
+        aidegen_main._launch_ide_by_module_contents(args, ide_obj, None,
+                                                    None, test_both)
+        self.assertTrue(mock_log.called)
+        self.assertFalse(mock_choice.called)
+        self.assertFalse(mock_choice.called)
+        self.assertFalse(mock_j.called)
+        self.assertFalse(mock_c_prj.called)
+        self.assertFalse(mock_genc.called)
+        self.assertFalse(mock_c.called)
+
         test_j = ['a', 'b', 'c']
         test_c = ['1', '2', '3']
         mock_choice.return_value = constant.JAVA
@@ -300,6 +318,29 @@ class AidegenMainUnittests(unittest.TestCase):
         self.assertTrue(mock_j.called)
         self.assertFalse(mock_c.called)
         self.assertFalse(mock_genc.called)
+
+    @mock.patch.object(aidegen_main, '_launch_ide')
+    @mock.patch.object(aidegen_main, '_generate_project_files')
+    @mock.patch.object(project_info.ProjectInfo, 'multi_projects_locate_source')
+    @mock.patch.object(project_info.ProjectInfo, 'generate_projects')
+    def test_create_and_launch_java_projects(self, mock_prj, mock_compile,
+                                             mock_gen_file, mock_launch):
+        """Test _create_and_launch_java_projects."""
+        ide_obj = 'test_ide'
+        target = ['a', 'b']
+        mock_prj_list = mock.MagicMock()
+        mock_prj_list.project_absolute_path = 'test_path'
+        prj = [mock_prj_list]
+        mock_prj.return_value = prj
+        aidegen_main._create_and_launch_java_projects(ide_obj, target)
+        self.assertTrue(mock_prj.called_with(target))
+        self.assertTrue(mock_compile.called_with(prj))
+        self.assertTrue(mock_gen_file.called_with(prj))
+        self.assertTrue(mock_launch.called_with(ide_obj))
+        mock_launch.reset_mock()
+
+        aidegen_main._create_and_launch_java_projects(None, target)
+        self.assertFalse(mock_launch.called)
 
 
 if __name__ == '__main__':

@@ -43,6 +43,7 @@ class AndroidSDK:
         _android_sdk_path: The path to the Android SDK, None if the Android SDK
                            doesn't exist.
         _max_api_level: An integer, the max API level in the platforms folder.
+        _max_code_name: A string, the code name of the max API level.
         _platform_mapping: A dictionary of Android platform versions mapping to
                            the API level and the Android version code name.
                            e.g.
@@ -58,10 +59,22 @@ class AndroidSDK:
     _RE_CODE_NAME = re.compile(r'AndroidVersion.CodeName=(?P<code_name>[A-Z])')
     _GLOB_PROPERTIES_FILE = os.path.join('platforms', 'android-*',
                                          'source.properties')
+    _INPUT_QUERY_TIMES = 3
+    _ENTER_ANDROID_SDK_PATH = ('\nThe Android SDK folder:{} doesn\'t exist. '
+                               'The debug function "Attach debugger to Android '
+                               'process" is disabled without Android SDK in '
+                               'IntelliJ or Android Studio. Please set it up '
+                               'to enable the function. \nPlease enter the '
+                               'absolute path to Android SDK:')
+    _WARNING_NO_ANDROID_SDK = ('Please install the Android SDK, otherwise the '
+                               'debug function "Attach debugger to Android '
+                               'process" cannot be enabled in IntelliJ or '
+                               'Android Studio.')
 
     def __init__(self):
         """Initializes AndroidSDK."""
         self._max_api_level = 0
+        self._max_code_name = None
         self._platform_mapping = {}
         self._android_sdk_path = None
 
@@ -69,6 +82,11 @@ class AndroidSDK:
     def max_api_level(self):
         """Gets the max API level."""
         return self._max_api_level
+
+    @property
+    def max_code_name(self):
+        """Gets the max code name."""
+        return self._max_code_name
 
     @property
     def platform_mapping(self):
@@ -89,6 +107,19 @@ class AndroidSDK:
         return max(
             [v[self._API_LEVEL] for v in self._platform_mapping.values()],
             default=0)
+
+    def _parse_max_code_name(self):
+        """Parses the max code name from self._platform_mapping.
+
+        Returns:
+            A string of code name.
+        """
+        code_name = ''
+        for data in self._platform_mapping.values():
+            if (data[self._API_LEVEL] == self._max_api_level
+                    and data[self._CODE_NAME] > code_name):
+                code_name = data[self._CODE_NAME]
+        return code_name
 
     def _parse_api_info(self, properties_file):
         """Parses the API information from the source.properties file.
@@ -154,6 +185,12 @@ class AndroidSDK:
         Returns:
             True when get a platform version, otherwise False.
         """
+        if self._gen_platform_mapping(path):
+            self._android_sdk_path = path
+            self._max_api_level = self._parse_max_api_level()
+            self._max_code_name = self._parse_max_code_name()
+            return True
+        return False
 
     def path_analysis(self, sdk_path):
         """Analyses the Android SDK path.
@@ -167,3 +204,13 @@ class AndroidSDK:
         Returns:
             True when get an Android SDK path, otherwise False.
         """
+        for _ in range(self._INPUT_QUERY_TIMES):
+            if self._is_android_sdk_path(sdk_path):
+                return True
+            sdk_path = input(common_util.COLORED_FAIL(
+                self._ENTER_ANDROID_SDK_PATH.format(sdk_path)))
+            if not sdk_path:
+                break
+        print('\n{} {}\n'.format(common_util.COLORED_INFO('Warning:'),
+                                 self._WARNING_NO_ANDROID_SDK))
+        return False

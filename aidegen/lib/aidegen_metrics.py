@@ -21,6 +21,7 @@ import platform
 import sys
 
 from aidegen import constant
+from aidegen.lib import common_util
 from atest import atest_utils
 
 # When combine 3 paths in a single try block, it's hard for the coverage
@@ -85,10 +86,38 @@ def ends_asuite_metrics(exit_code, stacktrace='', logs=''):
         exit_code: An integer of exit code.
         stacktrace: A string of stacktrace.
         logs: A string of logs.
+
+    Returns:
+        Boolean: False if metrics_utils does not exist.
+                 True when successfully send metrics.
     """
     if not metrics_utils:
-        return
+        return False
     metrics_utils.send_exit_event(
         exit_code,
         stacktrace=stacktrace,
         logs=logs)
+    return True
+
+
+def send_exception_metrics(exit_code, stack_trace, log, err_msg):
+    """Sends exception metrics.
+
+    For recording the exception metrics, this function is going to be called.
+    It is different to ends_asuite_metrics function, which will be called every
+    time AIDEGen process is finished.
+    The steps you need to do to call this function:
+        1. Create an exit code in constants.py.
+        2. Generate the stack trace info and the log for debugging.
+        3. Show the warning message to users.
+
+    Args:
+        exit_code: An integer of exit code.
+        stack_trace: A string of stacktrace.
+        log: A string of logs.
+        err_msg: A string to show warning.
+    """
+    print('\n{} {}\n'.format(common_util.COLORED_INFO('Warning:'), err_msg))
+    stack_trace = common_util.remove_user_home_path(stack_trace)
+    log = common_util.remove_user_home_path(log)
+    ends_asuite_metrics(exit_code, stack_trace, log)
