@@ -93,7 +93,7 @@ def generate_merged_module_info(env_off=_BUILD_BP_JSON_ENV_OFF,
     config = project_config.ProjectConfig.get_instance()
     module_info = config.atest_module_info
     projects = config.targets
-    verbose = config.verbose
+    verbose = True
     skip_build = config.is_skip_build
     main_project = projects[0] if projects else None
     _build_bp_info(
