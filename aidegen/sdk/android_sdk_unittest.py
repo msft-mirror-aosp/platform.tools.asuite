@@ -139,7 +139,7 @@ class AndroidSDKUnittests(unittest.TestCase):
 
     @mock.patch.object(android_sdk.AndroidSDK, '_gen_platform_mapping')
     def test_is_android_sdk_path(self, mock_gen_platform_mapping):
-        """Test _is_android_sdk_path."""
+        """Test is_android_sdk_path."""
         self.sdk._platform_mapping = {
             'android-29': {
                 'api_level': 29,
@@ -147,15 +147,15 @@ class AndroidSDKUnittests(unittest.TestCase):
             },
         }
         mock_gen_platform_mapping.return_value = True
-        self.assertEqual(self.sdk._is_android_sdk_path('a/b'), True)
+        self.assertEqual(self.sdk.is_android_sdk_path('a/b'), True)
         self.assertEqual(self.sdk.android_sdk_path, 'a/b')
         self.assertEqual(self.sdk.max_api_level, 29)
 
         mock_gen_platform_mapping.return_value = False
-        self.assertEqual(self.sdk._is_android_sdk_path('a/b'), False)
+        self.assertEqual(self.sdk.is_android_sdk_path('a/b'), False)
 
     @mock.patch('builtins.input')
-    @mock.patch.object(android_sdk.AndroidSDK, '_is_android_sdk_path')
+    @mock.patch.object(android_sdk.AndroidSDK, 'is_android_sdk_path')
     def test_path_analysis(self, mock_is_sdk_path, mock_input):
         """Test path_analysis."""
         mock_is_sdk_path.return_value = True
