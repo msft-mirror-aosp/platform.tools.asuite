@@ -321,3 +321,36 @@ TEST_MAPPING_SCHEMAS_XML = """<?xml version="1.0" encoding="UTF-8"?>
   </component>
 </project>
 """
+
+# The xml templates for Eclipse.
+# .classpath template
+ECLIPSE_CLASSPATH_XML = """<?xml version="1.0" encoding="UTF-8"?>
+<classpath>
+{SRC}
+{LIB}
+    <classpathentry kind="con" path="org.eclipse.jdt.launching.JRE_CONTAINER"/>
+</classpath>
+"""
+
+# .project template
+ECLIPSE_PROJECT_XML = """<?xml version="1.0" encoding="UTF-8"?>
+<projectDescription>
+        <name>{PROJECTNAME}</name>
+        <comment></comment>
+        <projects>
+        </projects>
+        <buildSpec>
+                <buildCommand>
+                        <name>org.eclipse.jdt.core.javabuilder</name>
+                        <arguments>
+                        </arguments>
+                </buildCommand>
+        </buildSpec>
+        <natures>
+                <nature>org.eclipse.jdt.core.javanature</nature>
+        </natures>
+        <linkedResources>
+{LINKEDRESOURCES}
+        </linkedResources>
+</projectDescription>
+"""
