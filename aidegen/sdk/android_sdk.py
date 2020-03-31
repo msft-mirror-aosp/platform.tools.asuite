@@ -173,7 +173,7 @@ class AndroidSDK:
             }
         return bool(self._platform_mapping)
 
-    def _is_android_sdk_path(self, path):
+    def is_android_sdk_path(self, path):
         """Checks if the Android SDK path is correct.
 
         Confirm the Android SDK path is correct by checking if it has
@@ -205,7 +205,7 @@ class AndroidSDK:
             True when get an Android SDK path, otherwise False.
         """
         for _ in range(self._INPUT_QUERY_TIMES):
-            if self._is_android_sdk_path(sdk_path):
+            if self.is_android_sdk_path(sdk_path):
                 return True
             sdk_path = input(common_util.COLORED_FAIL(
                 self._ENTER_ANDROID_SDK_PATH.format(sdk_path)))
