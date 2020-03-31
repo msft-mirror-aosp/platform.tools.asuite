@@ -38,6 +38,7 @@ import xml.etree.ElementTree
 from aidegen import constant
 from aidegen.lib import aidegen_metrics
 from aidegen.lib import common_util
+from aidegen.sdk import android_sdk
 
 
 class JDKTableXML():
@@ -50,16 +51,22 @@ class JDKTableXML():
         _jdk_path: The path of JDK in android project.
         _default_android_sdk_path: The default path to the Android SDK.
         _config_string: A string, content of _config_file.
-        _platform_version: The version name of the platform. e.g. android-29
+        _platform_version: The version name of the platform, e.g. android-29
         _android_sdk_version: The version name of the Android SDK in the
-                              jdk.table.xml.
+                              jdk.table.xml, e.g. Android API 29 Platform
         _modify_config: A boolean, True to write new content to jdk.table.xml.
         _xml: An xml.etree.ElementTree object contains the XML parsing result.
+        _sdk: An AndroidSDK object to get the Android SDK path and platform
+              mapping.
     """
     _JDK = 'jdk'
     _NAME = 'name'
     _TYPE = 'type'
     _VALUE = 'value'
+    _SDK = 'sdk'
+    _HOMEPATH = 'homePath'
+    _ADDITIONAL = 'additional'
+    _ANDROID_SDK = 'Android SDK'
     _JAVA_SDK = 'JavaSDK'
     _JDK_VERSION = 'JDK18'
     _XML_CONTENT = ('<application>\n  <component name="ProjectJdkTable">\n'
@@ -91,6 +98,7 @@ class JDKTableXML():
         self._modify_config = False
         self._xml = None
         self._parse_xml()
+        self._sdk = android_sdk.AndroidSDK()
 
     @property
     def android_sdk_version(self):
@@ -136,6 +144,26 @@ class JDKTableXML():
             Boolean: True if the Android SDK configuration exists, otherwise
                      False.
         """
+        for tag in self._xml.iter(self._JDK):
+            _name = tag.find(self._NAME)
+            _type = tag.find(self._TYPE)
+            _homepath = tag.find(self._HOMEPATH)
+            _additional = tag.find(self._ADDITIONAL)
+            if None in (_name, _type, _homepath, _additional):
+                continue
+
+            tag_type = _type.get(self._VALUE)
+            home_path = _homepath.get(self._VALUE).replace(
+                constant.USER_HOME, os.path.expanduser('~'))
+            platform = _additional.get(self._SDK)
+            if (tag_type != self._ANDROID_SDK
+                    or not self._sdk.is_android_sdk_path(home_path)
+                    or platform not in self._sdk.platform_mapping):
+                continue
+            self._android_sdk_version = _name.get(self._VALUE)
+            self._platform_version = platform
+            return True
+        return False
 
     def _append_config(self, new_config):
         """Adds a <jdk> configuration at the last of <component>.
