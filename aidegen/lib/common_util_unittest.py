@@ -20,6 +20,7 @@ import logging
 import os
 import unittest
 from unittest import mock
+from xml.etree import ElementTree
 
 from aidegen import constant
 from aidegen import unittest_constants
@@ -33,6 +34,21 @@ from atest import module_info
 # pylint: disable=protected-access
 class AidegenCommonUtilUnittests(unittest.TestCase):
     """Unit tests for common_util.py"""
+
+    _TEST_XML_CONTENT = """<application><component name="ProjectJdkTable">
+
+    <jdk version="2">     <name value="JDK_OTHER" />
+      <type value="JavaSDK" />    </jdk>  </component>
+</application>
+"""
+    _SAMPLE_XML_CONTENT = """<application>
+  <component name="ProjectJdkTable">
+    <jdk version="2">
+      <name value="JDK_OTHER"/>
+      <type value="JavaSDK"/>
+    </jdk>
+  </component>
+</application>"""
 
     @mock.patch('os.getcwd')
     @mock.patch('os.path.isabs')
@@ -337,6 +353,12 @@ class AidegenCommonUtilUnittests(unittest.TestCase):
         mock_get_env.return_value = "test"
         self.assertEqual(
             common_util.get_lunch_target(), '{"lunch target": "test-test"}')
+
+    def test_to_pretty_xml(self):
+        """Test to_pretty_xml."""
+        root = ElementTree.fromstring(self._TEST_XML_CONTENT)
+        pretty_xml = common_util.to_pretty_xml(root)
+        self.assertEqual(pretty_xml, self._SAMPLE_XML_CONTENT)
 
 
 # pylint: disable=unused-argument
