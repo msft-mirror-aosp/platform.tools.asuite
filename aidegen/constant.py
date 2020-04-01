@@ -115,3 +115,6 @@ LUNCH_TARGET = 'lunch target'
 # Constants for the languages aidegen supports.
 JAVA = 'Java'
 C_CPP = 'C/C++'
+
+# Constants for error message.
+INVALID_XML = 'The content of {XML_FILE} is not valid.'
