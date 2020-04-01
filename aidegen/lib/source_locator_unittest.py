@@ -112,9 +112,11 @@ class ModuleDataUnittests(unittest.TestCase):
         r_dir = module_data._get_r_dir(test_unknown_target)
         self.assertEqual(r_dir, expect_result)
 
+    @mock.patch('os.path.exists')
     @mock.patch('aidegen.lib.common_util.get_android_root_dir')
-    def test_collect_r_src_path(self, mock_android_root_dir):
+    def test_collect_r_src_path(self, mock_android_root_dir, mock_exists):
         """Test collect_r_src_path."""
+        mock_exists.return_value = True
         # Test on target srcjar exists in srcjars.
         test_module = dict(unittest_constants.MODULE_INFO)
         test_module['srcs'] = []
@@ -153,6 +155,12 @@ class ModuleDataUnittests(unittest.TestCase):
             'out/soong/.intermediates/packages/apps/test_aapt2/aapt2'
         }
         self.assertEqual(module_data.r_java_paths, expect_result)
+        mock_exists.return_value = False
+        module_data._collect_r_srcs_paths()
+        expect_result = {('out/soong/.intermediates/packages/apps/test_aapt2/'
+                          'aapt2.srcjar')}
+        self.assertEqual(module_data.build_targets, expect_result)
+
 
     def test_parse_source_path(self):
         """Test _parse_source_path."""
@@ -369,6 +377,8 @@ class ModuleDataUnittests(unittest.TestCase):
         expacted_result = set(['%s!/' % srcjar_path])
         module_data = source_locator.ModuleData(unittest_constants.TEST_MODULE,
                                                 test_module, 0)
+        module_data._collect_srcjar_path('R.java')
+        self.assertEqual(module_data.srcjar_paths, set())
         module_data._collect_srcjar_path(srcjar_path)
         self.assertEqual(module_data.srcjar_paths, expacted_result)
 
@@ -387,6 +397,21 @@ class ModuleDataUnittests(unittest.TestCase):
                                                 test_module, 0)
         module_data._collect_all_srcjar_paths()
         self.assertEqual(module_data.srcjar_paths, expacted_result)
+
+    def test_collect_missing_jars(self):
+        """Test _collect_missing_jars."""
+        mod_name = 'test'
+        mod_info = {'name': 'test'}
+        test_path = 'a/b/c'
+        mod_data = source_locator.EclipseModuleData(mod_name, mod_info,
+                                                    test_path)
+        mod_data.missing_jars = set('a')
+        mod_data.referenced_by_jar = False
+        mod_data._collect_missing_jars()
+        self.assertEqual(mod_data.build_targets, set())
+        mod_data.referenced_by_jar = True
+        mod_data._collect_missing_jars()
+        self.assertEqual(mod_data.build_targets, {'a'})
 
 
 class EclipseModuleDataUnittests(unittest.TestCase):
@@ -443,22 +468,22 @@ class EclipseModuleDataUnittests(unittest.TestCase):
         self.assertTrue(mock_r.called)
 
     @mock.patch.object(source_locator.ModuleData, '_append_classes_jar')
-    @mock.patch.object(source_locator.ModuleData, '_check_classes_jar_exist')
+    @mock.patch.object(source_locator.ModuleData, '_check_key')
     @mock.patch.object(source_locator.ModuleData, '_set_jars_jarfile')
     @mock.patch.object(source_locator.ModuleData, '_check_jars_exist')
     @mock.patch.object(source_locator.ModuleData, '_append_jar_from_installed')
     @mock.patch.object(source_locator.ModuleData, '_check_jarjar_rules_exist')
     def test_locate_jar_path(self, mock_jarjar, mock_append_jar, mock_check_jar,
-                             mock_set_jar, mock_check_class, mock_append_class):
+                             mock_set_jar, mock_check_key, mock_append_class):
         """Test _locate_jar_path."""
         mod_name = 'test'
-        mod_info = {'name': 'test'}
+        mod_info = {'name': 'test', 'path': 'x/y'}
         test_path = 'a/b/c'
         mod_data = source_locator.EclipseModuleData(mod_name, mod_info,
                                                     test_path)
         mock_jarjar.return_value = False
         mock_check_jar.return_value = False
-        mock_check_class.return_value = False
+        mock_check_key.return_value = False
         mod_data._locate_jar_path()
         self.assertTrue(mock_append_jar.called)
         self.assertFalse(mock_set_jar.called)
@@ -467,13 +492,13 @@ class EclipseModuleDataUnittests(unittest.TestCase):
         mock_append_jar.reset_mock()
         mock_jarjar.return_value = False
         mock_check_jar.return_value = False
-        mock_check_class.return_value = True
+        mock_check_key.return_value = True
         mod_data._locate_jar_path()
         self.assertFalse(mock_append_jar.called)
         self.assertFalse(mock_set_jar.called)
         self.assertTrue(mock_append_class.called)
 
-        mock_check_class.reset_mock()
+        mock_check_key.reset_mock()
         mock_append_class.reset_mock()
         mock_append_jar.reset_mock()
         mock_jarjar.return_value = False
@@ -481,13 +506,13 @@ class EclipseModuleDataUnittests(unittest.TestCase):
         mod_data._locate_jar_path()
         self.assertFalse(mock_append_jar.called)
         self.assertTrue(mock_set_jar.called)
-        self.assertFalse(mock_check_class.called)
+        self.assertFalse(mock_check_key.called)
         self.assertFalse(mock_append_class.called)
 
         mock_append_jar.reset_mock()
         mock_set_jar.reset_mock()
         mock_check_jar.reset_mock()
-        mock_check_class.reset_mock()
+        mock_check_key.reset_mock()
         mock_append_class.reset_mock()
 
         mock_jarjar.return_value = True
@@ -495,8 +520,20 @@ class EclipseModuleDataUnittests(unittest.TestCase):
         self.assertTrue(mock_append_jar.called)
         self.assertFalse(mock_check_jar.called)
         self.assertFalse(mock_set_jar.called)
-        self.assertFalse(mock_check_class.called)
+        self.assertFalse(mock_check_key.called)
         self.assertFalse(mock_append_class.called)
+
+    def test_add_to_source_or_test_dirs(self):
+        """Test _add_to_source_or_test_dirs."""
+        mod_name = 'test'
+        mod_info = {'name': 'test'}
+        test_path = 'a/b/c'
+        mod_data = source_locator.EclipseModuleData(mod_name, mod_info,
+                                                    test_path)
+        mod_data._add_to_source_or_test_dirs('libcore/ojluni/src/lambda/java')
+        self.assertEqual(mod_data.src_dirs, set())
+        mod_data._add_to_source_or_test_dirs('a')
+        self.assertEqual(mod_data.src_dirs, {'a'})
 
 
 if __name__ == '__main__':
