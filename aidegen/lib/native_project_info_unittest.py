@@ -19,7 +19,6 @@
 import unittest
 from unittest import mock
 
-from aidegen.lib import common_util
 from aidegen.lib import native_module_info
 from aidegen.lib import native_project_info
 from aidegen.lib import project_config
@@ -40,37 +39,40 @@ class NativeProjectInfoUnittests(unittest.TestCase):
         self.assertEqual(mock_mod_info.call_count, 1)
 
     @mock.patch.object(project_info, 'batch_build_dependencies')
-    @mock.patch.object(
-        project_config.ProjectConfig, 'get_instance')
-    @mock.patch.object(project_info.ProjectInfo, 'get_target_name')
-    @mock.patch.object(common_util, 'get_related_paths')
-    @mock.patch.object(
-        native_project_info.NativeProjectInfo, '_init_modules_info')
-    def test_init(self, mock_mod_info, mock_get_rel, mock_get_name,
-                  mock_get_instance, mock_build):
+    @mock.patch.object(native_project_info.NativeProjectInfo,
+                       '_get_need_builds')
+    @mock.patch.object(native_project_info.NativeProjectInfo,
+                       '_init_modules_info')
+    @mock.patch.object(project_config.ProjectConfig, 'get_instance')
+    def test_generate_projects(self, mock_get_inst, mock_mod_info,
+                               mock_get_need, mock_batch):
         """Test initializing NativeProjectInfo woth different conditions."""
         target = 'libui'
-        mock_mod_info.return_value = None
-        mock_get_rel.return_value = 'rel_path', 'path_to_something'
-        mock_get_name.return_value = target
-        mod_info = mock.Mock()
-        native_project_info.NativeProjectInfo.modules_info = mod_info
         config = mock.Mock()
-        mock_get_instance.return_value = config
+        mock_get_inst.return_value = config
         config.is_skip_build = True
-        native_project_info.NativeProjectInfo(target)
-        self.assertFalse(mock_build.called)
-        mod_info.get_gen_includes.return_value = None
+        native_project_info.NativeProjectInfo.generate_projects([target])
+        self.assertFalse(mock_mod_info.called)
+
+        mock_mod_info.reset_mock()
         config.is_skip_build = False
-        native_project_info.NativeProjectInfo(target)
-        self.assertFalse(mock_build.called)
-        mod_info.get_gen_includes.return_value = ['path_to_include']
-        config.is_skip_build = True
-        native_project_info.NativeProjectInfo(target)
-        self.assertFalse(mock_build.called)
-        config.is_skip_build = False
-        native_project_info.NativeProjectInfo(target)
-        self.assertTrue(mock_build.called)
+        mock_get_need.return_value = ['mod1', 'mod2']
+        native_project_info.NativeProjectInfo.generate_projects([target])
+        self.assertTrue(mock_mod_info.called)
+        self.assertTrue(mock_get_need.called)
+        self.assertTrue(mock_batch.called)
+
+    def test_get_need_builds_without_needed_build(self):
+        """Test _get_need_builds method without needed build."""
+        targets = ['mod1', 'mod2']
+        native_project_info.NativeProjectInfo._init_modules_info()
+        modules_info = native_project_info.NativeProjectInfo.modules_info
+        modules_info = mock.Mock()
+        modules_info.is_module.return_value = [True, True]
+        modules_info.is_module_need_build.return_value = [False, False]
+        self.assertEqual(
+            set(),
+            native_project_info.NativeProjectInfo._get_need_builds(targets))
 
 
 if __name__ == '__main__':
