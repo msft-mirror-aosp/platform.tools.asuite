@@ -81,6 +81,8 @@ class JDKTableXML():
                                           constant.AIDEGEN_ROOT_PATH,
                                           'data',
                                           'jdk.table.xml')
+    _ILLEGAL_XML = ('The {XML} is not an useful XML file for IntelliJ. Do you '
+                    'agree AIDEGen override it?(y/n)')
 
     def __init__(self, config_file, jdk_content, jdk_path,
                  default_android_sdk_path):
@@ -134,6 +136,22 @@ class JDKTableXML():
             return False
         return self._xml.find(self._COMPONENT).get(
             self._NAME) == self._PROJECTJDKTABLE
+
+    def _override_xml(self):
+        """Overrides the XML file when it's invalid.
+
+        Returns:
+            A boolean, True when developers choose to override the XML file,
+            otherwise False.
+        """
+        input_data = input(self._ILLEGAL_XML.format(XML=self._config_file))
+        while input_data not in ('y', 'n'):
+            input_data = input('Please type y(Yes) or n(No): ')
+        if input_data == 'y':
+            # TODO(b/152944292): Record the XML's content for debugging.
+            self._xml = xml_util.parse_xml(self._DEFAULT_JDK_TABLE_XML)
+            return True
+        return False
 
     def _check_jdk18_in_xml(self):
         """Checks if the JDK18 is already set in jdk.table.xml.
@@ -240,7 +258,7 @@ class JDKTableXML():
             A boolean, True when get the Android SDK version, otherwise False.
         """
         # TODO(b/151582629): Handle the XML's illegal content on another CL.
-        if not self._check_structure():
+        if not self._check_structure() and not self._override_xml():
             return False
         self._generate_jdk_config_string()
         self._generate_sdk_config_string()
