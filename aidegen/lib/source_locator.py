@@ -292,7 +292,7 @@ class ModuleData:
         Args:
             src_dir: the directory to be added.
         """
-        if not any(path in src_dir for path in _IGNORE_DIRS):
+        if src_dir not in _IGNORE_DIRS:
             if self._is_test_module(src_dir):
                 self.test_dirs.add(src_dir)
             else:
@@ -591,6 +591,18 @@ class EclipseModuleData(ModuleData):
             self._locate_jar_path()
         self._collect_classes_jars()
         self._collect_missing_jars()
+
+    def _add_to_source_or_test_dirs(self, src_dir):
+        """Add a folder to source list if it is not in ignored directories.
+
+        Override the parent method since the tests folder has no difference
+        with source folder in Eclipse.
+
+        Args:
+            src_dir: a string of relative path to the Android root.
+        """
+        if src_dir not in _IGNORE_DIRS:
+            self.src_dirs.add(src_dir)
 
     def _locate_project_source_path(self):
         """Locate the source folder paths of the project module.
