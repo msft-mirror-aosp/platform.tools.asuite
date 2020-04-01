@@ -18,7 +18,6 @@
 
 from __future__ import absolute_import
 
-from aidegen.lib import common_util
 from aidegen.lib import native_module_info
 from aidegen.lib import project_config
 from aidegen.lib import project_info
@@ -32,8 +31,8 @@ class NativeProjectInfo():
                       a dictionary of module_bp_cc_deps.json.
 
     Attributes:
-        module_name: A string of the native project's module name.
-        gen_includes: A set of the include paths have to be generated.
+        module_names: A list of the native project's module names.
+        need_builds: A set of module names need to be built.
     """
 
     modules_info = None
@@ -51,17 +50,14 @@ class NativeProjectInfo():
                     'android.frameworks.bufferhub@1.0_genc++_headers/gen'
                     direcotry.
         """
-        self._init_modules_info()
-        _, abs_path = common_util.get_related_paths(
-            NativeProjectInfo.modules_info, target)
-        self.module_name = project_info.ProjectInfo.get_target_name(
-            target, abs_path)
-        self.gen_includes = NativeProjectInfo.modules_info.get_gen_includes(
-            self.module_name)
-        config = project_config.ProjectConfig.get_instance()
-        if not config.is_skip_build and self.gen_includes:
-            project_info.batch_build_dependencies(
-                config.verbose, self.gen_includes)
+        self.module_names = [target] if self.modules_info.is_module(
+            target) else self.modules_info.get_module_names_in_targets_paths(
+                [target])
+        self.need_builds = {
+            mod_name
+            for mod_name in self.module_names
+            if self.modules_info.is_module_need_build(mod_name)
+        }
 
     @classmethod
     def _init_modules_info(cls):
@@ -70,15 +66,48 @@ class NativeProjectInfo():
             return
         cls.modules_info = native_module_info.NativeModuleInfo()
 
-    @staticmethod
-    def generate_projects(targets):
+    @classmethod
+    def generate_projects(cls, targets):
         """Generates a list of projects in one time by a list of module names.
 
+        The method will collect all needed to build modules and build their
+        source and include files for them. But if users set the skip build flag
+        it won't build anything.
+        Usage:
+            Call this method before native IDE project files are generated.
+            For example,
+            native_project_info.NativeProjectInfo.generate_projects(targets)
+            native_project_file = native_util.generate_clion_projects(targets)
+            ...
+
         Args:
-            targets: A list of native modules or project paths from users' input
-            will be checked if they contain include paths need to be generated.
+            targets: A list of native modules or project paths which will be
+                     checked if they contain source or include paths need to be
+                     generated.
+        """
+        config = project_config.ProjectConfig.get_instance()
+        if config.is_skip_build:
+            return
+        cls._init_modules_info()
+        need_builds = cls._get_need_builds(targets)
+        if need_builds:
+            project_info.batch_build_dependencies(config.verbose, need_builds)
+
+    @classmethod
+    def _get_need_builds(cls, targets):
+        """Gets need to be built modules from targets.
+
+        Args:
+            targets: A list of native modules or project paths which will be
+                     checked if they contain source or include paths need to be
+                     generated.
 
         Returns:
-            List: A list of ProjectInfo instances.
+            A set of module names which need to be built.
         """
-        return [NativeProjectInfo(target) for target in targets]
+        need_builds = set()
+        for target in targets:
+            project = NativeProjectInfo(target)
+            if project.need_builds:
+                need_builds.update(project.need_builds)
+        return need_builds
