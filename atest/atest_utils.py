@@ -17,6 +17,8 @@ Utility functions for atest.
 """
 
 
+# pylint: disable=import-outside-toplevel
+
 from __future__ import print_function
 
 import curses
@@ -30,9 +32,6 @@ import re
 import shutil
 import subprocess
 import sys
-
-from distutils import util
-from urllib.request import urlopen
 
 import atest_decorator
 import atest_error
@@ -211,6 +210,7 @@ def _can_upload_to_result_server():
     # TODO: Also check if we have a slow connection to result server.
     if constants.RESULT_SERVER:
         try:
+            from urllib.request import urlopen
             urlopen(constants.RESULT_SERVER,
                     timeout=constants.RESULT_SERVER_TIMEOUT).close()
             return True
@@ -423,6 +423,7 @@ def handle_test_runner_cmd(input_test, test_cmds, do_verification=False,
             print('Former cmds = %s' % former_test_cmds)
             print('Current cmds = %s' % test_cmds)
             try:
+                from distutils import util
                 if not util.strtobool(
                         input('Do you want to update former result '
                               'with the latest one?(Y/n)')):
