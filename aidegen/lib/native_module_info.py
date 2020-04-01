@@ -21,6 +21,7 @@ Module Info class used to hold cached module_bp_cc_deps.json.
 
 import logging
 import os
+import re
 
 from aidegen import constant
 from aidegen.lib import common_util
@@ -30,6 +31,8 @@ _CLANG = 'clang'
 _CPPLANG = 'clang++'
 _MODULES = 'modules'
 _INCLUDE_TAIL = '_genc++_headers'
+_SRC_GEN_CHECK = r'^out/soong/.intermediates/.+/gen/.+\.(c|cc|cpp)'
+_INC_GEN_CHECK = r'^out/soong/.intermediates/.+/gen($|/.+)'
 
 
 class NativeModuleInfo(module_info.AidegenModuleInfo):
@@ -121,32 +124,76 @@ class NativeModuleInfo(module_info.AidegenModuleInfo):
                     includes.update(set(mod_info[flag][header]))
         return includes
 
-    def get_gen_includes(self, mod_name):
-        """Gets module's include paths which need to be generated.
+    def is_module_need_build(self, mod_name):
+        """Checks if a module need to be built by its module name.
 
-        Gets module's include paths which don't exist, e.g.,
-            'out/soong/../android.frameworks.bufferhub@1.0_genc++_headers/gen'
-        if the path doesn't exist we should generate the header files in it.
-        In this example, if module 'android.frameworks.bufferhub@1.0' exists in
-        native module info, we have to build it to generate include header files
-        for the native module.
+        If a module's source files or include files contain a path looks like,
+        'out/soong/.intermediates/../gen/sysprop/charger.sysprop.cpp' or
+        'out/soong/.intermediates/../android.bufferhub@1.0_genc++_headers/gen'
+        and the paths do not exist, that means the module needs to be built to
+        generate relative source or include files.
 
         Args:
             mod_name: A string of module name.
 
         Returns:
-            A set of rebuild target names.
+            A boolean, True if it needs to be generated else False.
         """
-        android_root_dir = common_util.get_android_root_dir()
-        includes = self.get_module_includes(mod_name)
-        mod_names = set()
-        for include in includes:
-            if not os.path.isdir(os.path.join(android_root_dir, include)):
-                target = os.path.basename(os.path.dirname(include))
-                target = target.rstrip(_INCLUDE_TAIL)
-                if target in self.name_to_module_info:
-                    mod_names.add(target)
-        return mod_names
+        mod_info = self.name_to_module_info.get(mod_name, {})
+        if not mod_info:
+            logging.warning('%s module name %s does not exist.',
+                            common_util.COLORED_INFO('Warning:'), mod_name)
+            return False
+        if self._is_source_need_build(mod_info):
+            return True
+        if self._is_include_need_build(mod_info):
+            return True
+        return False
+
+    def _is_source_need_build(self, mod_info):
+        """Checks if a module's source files need to be built.
+
+        If a module's source files contain a path looks like,
+        'out/soong/.intermediates/../gen/sysprop/charger.sysprop.cpp'
+        and the paths do not exist, that means the module needs to be built to
+        generate relative source files.
+
+        Args:
+            mod_info: A dictionary of module info to check.
+
+        Returns:
+            A boolean, True if it needs to be generated else False.
+        """
+        if constant.KEY_SRCS not in mod_info:
+            return False
+        for src in mod_info[constant.KEY_SRCS]:
+            if re.search(_INC_GEN_CHECK, src) and not os.path.isfile(src):
+                return True
+        return False
+
+    def _is_include_need_build(self, mod_info):
+        """Checks if a module needs to be built by its module name.
+
+        If a module's include files contain a path looks like,
+        'out/soong/.intermediates/../android.bufferhub@1.0_genc++_headers/gen'
+        and the paths do not exist, that means the module needs to be built to
+        generate relative include files.
+
+        Args:
+            mod_info: A dictionary of module info to check.
+
+        Returns:
+            A boolean, True if it needs to be generated else False.
+        """
+        for flag in mod_info:
+            for header in (constant.KEY_HEADER, constant.KEY_SYSTEM):
+                if header not in mod_info[flag]:
+                    continue
+                for include in mod_info[flag][header]:
+                    match = re.search(_INC_GEN_CHECK, include)
+                    if match and not os.path.isdir(include):
+                        return True
+        return False
 
     def is_suite_in_compatibility_suites(self, suite, mod_info):
         """Check if suite exists in the compatibility_suites of module-info.
