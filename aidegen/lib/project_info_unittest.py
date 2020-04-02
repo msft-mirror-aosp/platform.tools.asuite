@@ -16,6 +16,7 @@
 
 """Unittests for project_info."""
 
+import logging
 import os
 import shutil
 import tempfile
@@ -174,12 +175,22 @@ class ProjectInfoUnittests(unittest.TestCase):
     def test_separate_build_target(self):
         """Test separate_build_target."""
         test_list = ['1', '22', '333', '4444', '55555', '1', '7777777']
-        target = []
+        targets = []
         sample = [['1', '22', '333'], ['4444'], ['55555', '1'], ['7777777']]
         for start, end in iter(
                 project_info._separate_build_targets(test_list, 9)):
-            target.append(test_list[start:end])
-        self.assertEqual(target, sample)
+            targets.append(test_list[start:end])
+        self.assertEqual(targets, sample)
+
+    def test_separate_build_target_with_length_short(self):
+        """Test separate_build_target with length short."""
+        test_list = ['1']
+        sample = [['1']]
+        targets = []
+        for start, end in iter(
+                project_info._separate_build_targets(test_list, 9)):
+            targets.append(test_list[start:end])
+        self.assertEqual(targets, sample)
 
     @mock.patch.object(project_info.ProjectInfo, 'locate_source')
     @mock.patch('atest.module_info.ModuleInfo')
@@ -218,6 +229,36 @@ class ProjectInfoUnittests(unittest.TestCase):
         mock_print.reset_mock()
         mock_format.reset_mock()
         mock_build.reset_mock()
+
+    @mock.patch('builtins.print')
+    @mock.patch.object(project_info.ProjectInfo, '_search_android_make_files')
+    @mock.patch('atest.module_info.ModuleInfo')
+    def test_display_convert_make_files_message(
+            self, mock_module_info, mock_search, mock_print):
+        """Test _display_convert_make_files_message with conditions."""
+        mock_search.return_value = []
+        mock_module_info.get_paths.return_value = ['m1']
+        project_info.ProjectInfo.modules_info = mock_module_info
+        proj_info = project_info.ProjectInfo(self.args.module_name)
+        proj_info._display_convert_make_files_message()
+        self.assertFalse(mock_print.called)
+
+        mock_print.mock_reset()
+        mock_search.return_value = ['a/b/path/to/target.mk']
+        proj_info = project_info.ProjectInfo(self.args.module_name)
+        proj_info._display_convert_make_files_message()
+        self.assertTrue(mock_print.called)
+
+    @mock.patch.object(project_info, '_build_target')
+    @mock.patch.object(project_info, '_separate_build_targets')
+    @mock.patch.object(logging, 'info')
+    def test_batch_build_dependencies(self, mock_log, mock_sep, mock_build):
+        """Test batch_build_dependencies."""
+        mock_sep.return_value = [(0, 1)]
+        project_info.batch_build_dependencies(False, {'m1', 'm2'})
+        self.assertTrue(mock_log.called)
+        self.assertTrue(mock_sep.called)
+        self.assertEqual(mock_build.call_count, 1)
 
 
 if __name__ == '__main__':
