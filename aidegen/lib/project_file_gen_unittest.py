@@ -348,14 +348,16 @@ class AidegenProjectFileGenUnittest(unittest.TestCase):
             },
             'test_folder_path': {'main/test.java', 'share1/test.java'},
             'jar_path': {'main/jar.jar', 'share1/jar.jar'},
-            'r_java_path': {'out/R.java'},
+            'r_java_path': {'out/R1.java'},
+            'srcjar_path': {'out/a.srcjar'},
         }
         mock_sub_project.project_relative_path = 'sub'
         mock_sub_project.source_path = {
             'source_folder_path': {'sub/java.java', 'share2/java.java'},
             'test_folder_path': {'sub/test.java', 'share2/test.java'},
             'jar_path': {'sub/jar.jar', 'share2/jar.jar'},
-            'r_java_path': {'out/R.java'},
+            'r_java_path': {'out/R2.java'},
+            'srcjar_path': {'out/b.srcjar'},
         }
         expected_result = {
             'source_folder_path': {
@@ -374,7 +376,8 @@ class AidegenProjectFileGenUnittest(unittest.TestCase):
                 'share1/jar.jar',
                 'share2/jar.jar',
             },
-            'r_java_path': {'out/R.java'}
+            'r_java_path': {'out/R1.java', 'out/R2.java'},
+            'srcjar_path': {'out/a.srcjar', 'out/b.srcjar'},
         }
         projects = [mock_main_project, mock_sub_project]
         project_file_gen._merge_all_shared_source_paths(projects)
