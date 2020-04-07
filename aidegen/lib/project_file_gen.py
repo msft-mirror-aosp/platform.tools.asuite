@@ -453,8 +453,7 @@ class ProjectFileGenerator:
         module_content = self._handle_facet(templates.FILE_IML)
         module_content = self._handle_source_folder(module_content,
                                                     project_source_dict, True)
-        module_content = self._handle_srcjar_folder(
-            module_content, self.project_info.source_path['srcjar_path'])
+        module_content = self._handle_srcjar_folder(module_content)
         # b/121256503: Prevent duplicated iml names from breaking IDEA.
         module_name = self.get_unique_iml_name(module_path)
 
@@ -727,12 +726,8 @@ def _merge_all_shared_source_paths(projects):
     main_project = projects[0]
     # Merge all source paths of sub projects into main project.
     for project in projects[1:]:
-        main_project.source_path['source_folder_path'].update(
-            project.source_path['source_folder_path'])
-        main_project.source_path['test_folder_path'].update(
-            project.source_path['test_folder_path'])
-        main_project.source_path['jar_path'].update(
-            project.source_path['jar_path'])
+        for key, value in project.source_path.items():
+            main_project.source_path[key].update(value)
     # Filter duplicate source/test paths from dependencies.iml.
     sub_projects_relpaths = {p.project_relative_path for p in projects[1:]}
     main_project.source_path['source_folder_path'] = _filter_out_source_paths(
