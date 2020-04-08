@@ -51,6 +51,7 @@ _IGNORE_DIRS = [
     'libcore/ojluni/src/lambda/java'
 ]
 _ANDROID = 'android'
+_REPACKAGES = 'repackaged'
 
 
 class ModuleData:
@@ -276,7 +277,8 @@ class ModuleData:
                     # To record what files except java and kt in the srcs.
                     logging.debug('%s is not in parsing scope.', src_item)
                 if src_dir:
-                    self._add_to_source_or_test_dirs(src_dir)
+                    self._add_to_source_or_test_dirs(
+                        self._switch_repackaged(src_dir))
 
     def _check_key(self, key):
         """Check if key is in self.module_data and not empty.
@@ -370,6 +372,27 @@ class ModuleData:
         if search_result:
             return java_file[:search_result.start()].strip(os.sep)
         return os.path.dirname(java_file)
+
+    @staticmethod
+    def _switch_repackaged(src_dir):
+        """Changes the directory to repackaged if it does exist.
+
+        Args:
+            src_dir: a string of relative path.
+
+        Returns:
+            The source folder under repackaged if it exists, otherwise the
+            original one.
+        """
+        root_path = common_util.get_android_root_dir()
+        dir_list = src_dir.split(os.sep)
+        for i in range(1, len(dir_list)):
+            tmp_dir = dir_list.copy()
+            tmp_dir.insert(i, _REPACKAGES)
+            real_path = os.path.join(root_path, os.path.join(*tmp_dir))
+            if os.path.exists(real_path):
+                return os.path.relpath(real_path, root_path)
+        return src_dir
 
     @staticmethod
     def _get_package_name(abs_java_path):
