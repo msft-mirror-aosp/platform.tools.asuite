@@ -23,6 +23,7 @@ from unittest import mock
 from aidegen import unittest_constants
 from aidegen.lib import common_util
 from aidegen.lib import eclipse_project_file_gen
+from aidegen.lib import project_info
 
 
 # pylint: disable=protected-access
@@ -36,7 +37,7 @@ class EclipseConfUnittests(unittest.TestCase):
 
     def setUp(self):
         """Prepare the EclipseConf object."""
-        with mock.patch('project_info.ProjectInfo') as self.proj_info:
+        with mock.patch.object(project_info, 'ProjectInfo') as self.proj_info:
             self.proj_info.project_absolute_path = self._PROJECT_ABSPATH
             self.proj_info.project_relative_path = self._PROJECT_RELPATH
             self.proj_info.module_name = 'test'
