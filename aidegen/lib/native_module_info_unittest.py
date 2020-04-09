@@ -143,8 +143,10 @@ class NativeModuleInfoUnittests(unittest.TestCase):
         self.assertFalse(mod_info.is_module_need_build('multiarch1'))
         self.assertFalse(mock_warn.called)
 
-    @mock.patch('native_module_info.NativeModuleInfo._is_include_need_build')
-    @mock.patch('native_module_info.NativeModuleInfo._is_source_need_build')
+    @mock.patch.object(native_module_info.NativeModuleInfo,
+                       '_is_include_need_build')
+    @mock.patch.object(native_module_info.NativeModuleInfo,
+                       '_is_source_need_build')
     @mock.patch.object(logging, 'warning')
     @mock.patch.object(
         native_module_info.NativeModuleInfo, '_load_module_info_file')
@@ -158,8 +160,10 @@ class NativeModuleInfoUnittests(unittest.TestCase):
         self.assertTrue(mod_info.is_module_need_build('multiarch'))
         self.assertFalse(mock_warn.called)
 
-    @mock.patch('native_module_info.NativeModuleInfo._is_include_need_build')
-    @mock.patch('native_module_info.NativeModuleInfo._is_source_need_build')
+    @mock.patch.object(native_module_info.NativeModuleInfo,
+                       '_is_include_need_build')
+    @mock.patch.object(native_module_info.NativeModuleInfo,
+                       '_is_source_need_build')
     @mock.patch.object(logging, 'warning')
     @mock.patch.object(
         native_module_info.NativeModuleInfo, '_load_module_info_file')
@@ -173,8 +177,10 @@ class NativeModuleInfoUnittests(unittest.TestCase):
         self.assertTrue(mod_info.is_module_need_build('multiarch'))
         self.assertFalse(mock_warn.called)
 
-    @mock.patch('native_module_info.NativeModuleInfo._is_include_need_build')
-    @mock.patch('native_module_info.NativeModuleInfo._is_source_need_build')
+    @mock.patch.object(native_module_info.NativeModuleInfo,
+                       '_is_include_need_build')
+    @mock.patch.object(native_module_info.NativeModuleInfo,
+                       '_is_source_need_build')
     @mock.patch.object(logging, 'warning')
     @mock.patch.object(
         native_module_info.NativeModuleInfo, '_load_module_info_file')
