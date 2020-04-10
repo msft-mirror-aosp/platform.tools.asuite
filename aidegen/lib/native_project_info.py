@@ -91,7 +91,7 @@ class NativeProjectInfo():
         cls._init_modules_info()
         need_builds = cls._get_need_builds(targets)
         if need_builds:
-            project_info.batch_build_dependencies(config.verbose, need_builds)
+            project_info.batch_build_dependencies(need_builds)
 
     @classmethod
     def _get_need_builds(cls, targets):
