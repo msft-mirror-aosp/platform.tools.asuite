@@ -65,13 +65,12 @@ class NativeProjectInfoUnittests(unittest.TestCase):
     def test_get_need_builds_without_needed_build(self):
         """Test _get_need_builds method without needed build."""
         targets = ['mod1', 'mod2']
-        native_project_info.NativeProjectInfo._init_modules_info()
-        modules_info = native_project_info.NativeProjectInfo.modules_info
-        modules_info = mock.Mock()
-        modules_info.is_module.return_value = [True, True]
-        modules_info.is_module_need_build.return_value = [False, False]
+        nativeInfo = native_project_info.NativeProjectInfo
+        nativeInfo.modules_info = mock.Mock()
+        nativeInfo.modules_info.is_module.return_value = [True, True]
+        nativeInfo.modules_info.is_module_need_build.return_value = [True, True]
         self.assertEqual(
-            set(),
+            set(targets),
             native_project_info.NativeProjectInfo._get_need_builds(targets))
 
 
