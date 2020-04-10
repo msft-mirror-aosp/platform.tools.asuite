@@ -33,9 +33,12 @@ information. If they do not exist, AIDEGen will create them.
 from __future__ import absolute_import
 
 import os
-import xml.etree.ElementTree
+
+from xml.etree import ElementTree
 
 from aidegen import constant
+from aidegen import templates
+from aidegen.lib import aidegen_metrics
 from aidegen.lib import common_util
 from aidegen.lib import xml_util
 from aidegen.sdk import android_sdk
@@ -73,6 +76,7 @@ class JDKTableXML():
     _PROJECTJDKTABLE = 'ProjectJdkTable'
     _LAST_TAG_TAIL = '\n    '
     _NEW_TAG_TAIL = '\n  '
+    _ANDROID_SDK_VERSION = 'Android API {CODE_NAME} Platform'
     _DEFAULT_JDK_TABLE_XML = os.path.join(common_util.get_android_root_dir(),
                                           constant.AIDEGEN_ROOT_PATH,
                                           'data',
@@ -188,7 +192,7 @@ class JDKTableXML():
         Args:
             new_config: A string of new <jdk> configuration.
         """
-        node = xml.etree.ElementTree.fromstring(new_config)
+        node = ElementTree.fromstring(new_config)
         node.tail = self._NEW_TAG_TAIL
         component = self._xml.getroot().find(self._COMPONENT)
         if len(component) > 0:
@@ -206,6 +210,22 @@ class JDKTableXML():
 
     def _generate_sdk_config_string(self):
         """Generates Android SDK configuration."""
+        if self._check_android_sdk_in_xml():
+            return
+        if self._sdk.path_analysis(self._default_android_sdk_path):
+            # TODO(b/151582629): Revise the API_LEVEL to CODE_NAME when
+            #                    abandoning the sdk_config.py.
+            self._append_config(templates.ANDROID_SDK_XML.format(
+                ANDROID_SDK_PATH=self._sdk.android_sdk_path,
+                API_LEVEL=self._sdk.max_code_name))
+            self._android_sdk_version = self._ANDROID_SDK_VERSION.format(
+                CODE_NAME=self._sdk.max_code_name)
+            self._modify_config = True
+            return
+        # Record the exception about missing Android SDK.
+        aidegen_metrics.send_exception_metrics(
+            constant.LOCATE_SDK_PATH_FAILURE, '',
+            ElementTree.tostring(self._xml.getroot()), '')
 
     def config_jdk_table_xml(self):
         """Configures the jdk.table.xml.
