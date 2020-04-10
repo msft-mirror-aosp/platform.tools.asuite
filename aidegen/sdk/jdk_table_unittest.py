@@ -24,6 +24,8 @@ import unittest
 from unittest import mock
 from xml.etree import ElementTree
 
+from aidegen.lib import aidegen_metrics
+from aidegen.lib import common_util
 from aidegen.sdk import android_sdk
 from aidegen.sdk import jdk_table
 
@@ -158,19 +160,14 @@ class JDKTableXMLUnittests(unittest.TestCase):
 
     def test_check_jdk18_in_xml(self):
         """Test _check_jdk18_in_xml."""
-        # Normal case.
         xml_str = ('<test><jdk><name value="JDK18" /><type value="JavaSDK" />'
                    '</jdk></test>')
         self.jdk_table_xml._xml = ElementTree.fromstring(xml_str)
         self.assertTrue(self.jdk_table_xml._check_jdk18_in_xml())
-
-        # Incorrect JDK name.
         xml_str = ('<test><jdk><name value="test" /><type value="JavaSDK" />'
                    '</jdk></test>')
         self.jdk_table_xml._xml = ElementTree.fromstring(xml_str)
         self.assertFalse(self.jdk_table_xml._check_jdk18_in_xml())
-
-        # No type.
         xml_str = ('<test><jdk><name value="test" /></jdk></test>')
         self.jdk_table_xml._xml = ElementTree.fromstring(xml_str)
         self.assertFalse(self.jdk_table_xml._check_jdk18_in_xml())
@@ -185,22 +182,16 @@ class JDKTableXMLUnittests(unittest.TestCase):
             },
         }
         mock_is_android_sdk.return_value = True
-
-        # Not an Android SDK tag.
         xml_str = ('<test><jdk><name value="JDK18" /><type value="JavaSDK" />'
                    '</jdk></test>')
         self.jdk_table_xml._xml = ElementTree.fromstring(xml_str)
         self.assertFalse(self.jdk_table_xml._check_android_sdk_in_xml())
-
-        # No homePath.
         xml_str = ('<test><jdk><name value="Android SDK 29 platform" />'
                    '<type value="Android SDK" />'
                    '<additional jdk="JDK18" sdk="android-29" />'
                    '</jdk></test>')
         self.jdk_table_xml._xml = ElementTree.fromstring(xml_str)
         self.assertFalse(self.jdk_table_xml._check_android_sdk_in_xml())
-
-        # The platform version android-28 does not exist in platform mapping.
         xml_str = ('<test><jdk><name value="Android SDK 28 platform" />'
                    '<type value="Android SDK" />'
                    '<homePath value="/path/to/Android/SDK" />'
@@ -208,8 +199,6 @@ class JDKTableXMLUnittests(unittest.TestCase):
                    '</jdk></test>')
         self.jdk_table_xml._xml = ElementTree.fromstring(xml_str)
         self.assertFalse(self.jdk_table_xml._check_android_sdk_in_xml())
-
-        # Normal case.
         xml_str = ('<test><jdk><name value="Android SDK 29 platform" />'
                    '<type value="Android SDK" />'
                    '<homePath value="/path/to/Android/SDK" />'
@@ -217,11 +206,28 @@ class JDKTableXMLUnittests(unittest.TestCase):
                    '</jdk></test>')
         self.jdk_table_xml._xml = ElementTree.fromstring(xml_str)
         self.assertTrue(self.jdk_table_xml._check_android_sdk_in_xml())
-
-        # Incorrect Android SDK path.
         mock_is_android_sdk.return_value = False
         self.jdk_table_xml._xml = ElementTree.fromstring(xml_str)
         self.assertFalse(self.jdk_table_xml._check_android_sdk_in_xml())
+
+    @mock.patch.object(aidegen_metrics, 'send_exception_metrics')
+    @mock.patch.object(android_sdk.AndroidSDK, 'path_analysis')
+    @mock.patch.object(common_util, 'read_file_content')
+    @mock.patch.object(jdk_table.JDKTableXML, '_check_android_sdk_in_xml')
+    def test_generate_sdk_config_string(self, mock_sdk_in_xml, mock_read_file,
+                                        mock_path_analysis, mock_metrics):
+        """Test _generate_sdk_config_string."""
+        mock_sdk_in_xml.return_value = True
+        self.jdk_table_xml._generate_sdk_config_string()
+        self.assertFalse(self.jdk_table_xml._modify_config)
+        mock_sdk_in_xml.return_value = False
+        mock_path_analysis.return_value = False
+        self.jdk_table_xml._generate_sdk_config_string()
+        self.assertTrue(mock_metrics.called)
+        mock_path_analysis.return_value = True
+        mock_read_file.return_value = ''
+        self.jdk_table_xml._generate_sdk_config_string()
+        self.assertTrue(self.jdk_table_xml._modify_config)
 
 
 if __name__ == '__main__':
