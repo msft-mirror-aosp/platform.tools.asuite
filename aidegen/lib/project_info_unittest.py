@@ -213,8 +213,8 @@ class ProjectInfoUnittests(unittest.TestCase):
         test_targets = ['mod_1', 'mod_2']
         build_argument.extend(test_targets)
         mock_build.return_value = False
-        project_info._build_target(test_targets, False)
-        self.assertTrue(mock_build.called_with((build_argument, False)))
+        project_info._build_target(test_targets)
+        self.assertTrue(mock_build.called_with((build_argument, True)))
         self.assertTrue(mock_format.called_with('\n'.join(test_targets)))
         self.assertTrue(mock_print.called)
         mock_print.reset_mock()
@@ -222,7 +222,7 @@ class ProjectInfoUnittests(unittest.TestCase):
         mock_build.reset_mock()
 
         mock_build.return_value = True
-        project_info._build_target(test_targets, True)
+        project_info._build_target(test_targets)
         self.assertTrue(mock_build.called_with((build_argument, True)))
         self.assertFalse(mock_format.called)
         self.assertFalse(mock_print.called)
@@ -255,7 +255,7 @@ class ProjectInfoUnittests(unittest.TestCase):
     def test_batch_build_dependencies(self, mock_log, mock_sep, mock_build):
         """Test batch_build_dependencies."""
         mock_sep.return_value = [(0, 1)]
-        project_info.batch_build_dependencies(False, {'m1', 'm2'})
+        project_info.batch_build_dependencies({'m1', 'm2'})
         self.assertTrue(mock_log.called)
         self.assertTrue(mock_sep.called)
         self.assertEqual(mock_build.call_count, 1)
