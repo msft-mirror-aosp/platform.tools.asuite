@@ -20,7 +20,7 @@ import os
 import unittest
 from unittest import mock
 
-from aidegen.lib import vscode_native_project_file_gen
+from aidegen.vscode import vscode_native_project_file_gen
 
 _NATIVE_INCLUDES1 = [
     'out/soong/.intermediates/android.frameworks.bufhub@1.0_genc++_headers/gen'

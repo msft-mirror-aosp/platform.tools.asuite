@@ -57,6 +57,7 @@ from aidegen.lib import native_util
 from aidegen.lib import project_config
 from aidegen.lib import project_file_gen
 from aidegen.lib import project_info
+from aidegen.vscode import vscode_java_project_file_gen
 
 AIDEGEN_REPORT_LINK = ('To report the AIDEGen tool problem, please use this '
                        'link: https://goto.google.com/aidegen-bug')
@@ -129,6 +130,8 @@ def _parse_args(args):
         '-i',
         '--ide',
         default=['j'],
+        # TODO(b/152571688): Show VSCode in help's Launch IDE type section at
+        # least until one of the launching native or Java features is ready.
         help=('Launch IDE type, j: IntelliJ, s: Android Studio, e: Eclipse, '
               'c: CLion.'))
     parser.add_argument(
@@ -200,10 +203,10 @@ def _launch_ide(ide_util_obj, project_absolute_path):
 
 
 def _launch_native_projects(ide_util_obj, args, cmakelists):
-    """Launch native projects with IDE.
+    """Launches native projects with IDE.
 
-    AIDEGen provide the IDE argument for CLion, but there's still a implicit way
-    to launch it. The rules to launch it are:
+    AIDEGen provides the IDE argument for CLion, but there's still a implicit
+    way to launch it. The rules to launch it are:
     1. If no target IDE, we don't have to launch any IDE for native project.
     2. If the target IDE is IntelliJ or Eclipse, we should launch native
        projects with CLion.
@@ -224,7 +227,7 @@ def _launch_native_projects(ide_util_obj, args, cmakelists):
 
 
 def _create_and_launch_java_projects(ide_util_obj, targets):
-    """Launch Android of Java(Kotlin) projects with IDE.
+    """Launches Android of Java(Kotlin) projects with IDE.
 
     Args:
         ide_util_obj: An ide_util instance.
@@ -262,7 +265,7 @@ def _get_preferred_ide_from_user(all_choices):
 
 # TODO(b/150578306): Refine it when new feature added.
 def _launch_ide_by_module_contents(args, ide_util_obj, jlist=None, clist=None,
-                                   both=None):
+                                   both=False):
     """Deals with the suitable IDE launch action.
 
     Args:
@@ -270,14 +273,12 @@ def _launch_ide_by_module_contents(args, ide_util_obj, jlist=None, clist=None,
         ide_util_obj: An ide_util instance.
         jlist: A list of java build targets.
         clist: A list of native build targets.
-        both: A list of both targets.
-
-    Raises: When the forth parameter both is used by the caller, raises the
-    NotImplementedError.
+        both: A boolean, True to launch both languages else False.
     """
-    # Not support both IDE yet.
     if both:
-        raise NotImplementedError()
+        _launch_vscode(ide_util_obj, project_info.ProjectInfo.modules_info,
+                       jlist, clist)
+        return
     if not jlist and not clist:
         logging.warning('\nThere is neither java nor native module needs to be'
                         ' opened')
@@ -293,6 +294,32 @@ def _launch_ide_by_module_contents(args, ide_util_obj, jlist=None, clist=None,
         native_project_file = native_util.generate_clion_projects(clist)
         if native_project_file:
             _launch_native_projects(ide_util_obj, args, [native_project_file])
+
+
+def _launch_vscode(ide_util_obj, atest_module_info, jtargets, ctargets):
+    """Launches targets with VSCode IDE.
+
+    Args:
+        ide_util_obj: An ide_util instance.
+        atest_module_info: A ModuleInfo instance contains the data of
+                module-info.json.
+        jtargets: A list of Java project targets.
+        ctargets: A list of native project targets.
+    """
+    abs_paths = []
+    for target in jtargets:
+        _, abs_path = common_util.get_related_paths(atest_module_info, target)
+        abs_paths.append(abs_path)
+    if ctargets:
+        cc_module_info = native_module_info.NativeModuleInfo()
+        for target in ctargets:
+            _, abs_path = common_util.get_related_paths(cc_module_info, target)
+            abs_paths.append(abs_path)
+    vscode_project = vscode_java_project_file_gen.JavaProjectGen
+    abs_jpath = vscode_project.generate_code_workspace_file(abs_paths)
+    if not ide_util_obj:
+        return
+    _launch_ide(ide_util_obj, abs_jpath)
 
 
 @common_util.time_logged(message=_TIME_EXCEED_MSG, maximum=_MAX_TIME)
@@ -381,16 +408,17 @@ def aidegen_main(args):
     """
     config = project_config.ProjectConfig(args)
     config.init_environment()
-    targets = project_config.ProjectConfig.get_instance().targets
+    targets = config.targets
     # Called ide_util for pre-check the IDE existence state.
     ide_util_obj = ide_util.get_ide_util_instance(args.ide[0])
     project_info.ProjectInfo.modules_info = module_info.AidegenModuleInfo()
     cc_module_info = native_module_info.NativeModuleInfo()
     jtargets, ctargets = native_util.get_native_and_java_projects(
         project_info.ProjectInfo.modules_info, cc_module_info, targets)
+    both = config.ide_name == constant.IDE_VSCODE
     # Backward compatible strategy, when both java and native module exist,
     # check the preferred target from the user and launch single one.
-    _launch_ide_by_module_contents(args, ide_util_obj, jtargets, ctargets)
+    _launch_ide_by_module_contents(args, ide_util_obj, jtargets, ctargets, both)
 
 
 if __name__ == '__main__':

@@ -30,16 +30,21 @@ from aidegen.lib import common_util
 from aidegen.lib import eclipse_project_file_gen
 from aidegen.lib import errors
 from aidegen.lib import ide_util
+from aidegen.lib import module_info
 from aidegen.lib import native_util
+from aidegen.lib import native_module_info
 from aidegen.lib import native_project_info
 from aidegen.lib import project_config
 from aidegen.lib import project_file_gen
 from aidegen.lib import project_info
+from aidegen.vscode import vscode_java_project_file_gen
 
 
 # pylint: disable=protected-access
 # pylint: disable=invalid-name
 # pylint: disable=too-many-arguments
+# pylint: disable=too-many-function-args
+# pylint: disable=too-many-statements
 class AidegenMainUnittests(unittest.TestCase):
     """Unit tests for aidegen_main.py"""
 
@@ -249,6 +254,7 @@ class AidegenMainUnittests(unittest.TestCase):
         mock_input.reset_mock()
 
     @mock.patch('logging.warning')
+    @mock.patch.object(aidegen_main, '_launch_vscode')
     @mock.patch.object(aidegen_main, '_launch_native_projects')
     @mock.patch.object(native_util, 'generate_clion_projects')
     @mock.patch.object(native_project_info.NativeProjectInfo,
@@ -257,18 +263,15 @@ class AidegenMainUnittests(unittest.TestCase):
     @mock.patch.object(aidegen_main, '_get_preferred_ide_from_user')
     def test_launch_ide_by_module_contents(self, mock_choice, mock_j,
                                            mock_c_prj, mock_genc, mock_c,
-                                           mock_log):
+                                           mock_vs, mock_log):
         """Test _launch_ide_by_module_contents with different conditions."""
         args = aidegen_main._parse_args(['', '-i', 's'])
         self._init_project_config(args)
         ide_obj = 'ide_obj'
-        test_both = ['x', 'y', 'z']
-        with self.assertRaises(NotImplementedError):
-            aidegen_main._launch_ide_by_module_contents(args, ide_obj, None,
-                                                        None, test_both)
-        test_both = None
+        test_both = False
         aidegen_main._launch_ide_by_module_contents(args, ide_obj, None,
                                                     None, test_both)
+        self.assertFalse(mock_vs.called)
         self.assertTrue(mock_log.called)
         self.assertFalse(mock_choice.called)
         self.assertFalse(mock_choice.called)
@@ -277,15 +280,26 @@ class AidegenMainUnittests(unittest.TestCase):
         self.assertFalse(mock_genc.called)
         self.assertFalse(mock_c.called)
 
+        test_both = True
+        aidegen_main._launch_ide_by_module_contents(args, ide_obj, None,
+                                                    None, test_both)
+        self.assertTrue(mock_vs.called)
+        self.assertFalse(mock_j.called)
+        self.assertFalse(mock_genc.called)
+        self.assertFalse(mock_c.called)
+        mock_vs.reset_mock()
+
         test_j = ['a', 'b', 'c']
         test_c = ['1', '2', '3']
         mock_choice.return_value = constant.JAVA
         aidegen_main._launch_ide_by_module_contents(args, ide_obj, test_j,
                                                     test_c)
+        self.assertFalse(mock_vs.called)
         self.assertTrue(mock_j.called)
         self.assertFalse(mock_genc.called)
         self.assertFalse(mock_c.called)
 
+        mock_vs.reset_mock()
         mock_choice.reset_mock()
         mock_c.reset_mock()
         mock_genc.reset_mock()
@@ -294,10 +308,12 @@ class AidegenMainUnittests(unittest.TestCase):
         aidegen_main._launch_ide_by_module_contents(args, ide_obj, test_j,
                                                     test_c)
         self.assertTrue(mock_c_prj.called)
+        self.assertFalse(mock_vs.called)
         self.assertTrue(mock_genc.called)
         self.assertTrue(mock_c.called)
         self.assertFalse(mock_j.called)
 
+        mock_vs.reset_mock()
         mock_choice.reset_mock()
         mock_c.reset_mock()
         mock_genc.reset_mock()
@@ -305,16 +321,19 @@ class AidegenMainUnittests(unittest.TestCase):
         test_none = None
         aidegen_main._launch_ide_by_module_contents(args, ide_obj, test_none,
                                                     test_c)
+        self.assertFalse(mock_vs.called)
         self.assertTrue(mock_genc.called)
         self.assertTrue(mock_c.called)
         self.assertFalse(mock_j.called)
 
+        mock_vs.reset_mock()
         mock_choice.reset_mock()
         mock_c.reset_mock()
         mock_genc.reset_mock()
         mock_j.reset_mock()
         aidegen_main._launch_ide_by_module_contents(args, ide_obj, test_j,
                                                     test_none)
+        self.assertFalse(mock_vs.called)
         self.assertTrue(mock_j.called)
         self.assertFalse(mock_c.called)
         self.assertFalse(mock_genc.called)
@@ -341,6 +360,90 @@ class AidegenMainUnittests(unittest.TestCase):
 
         aidegen_main._create_and_launch_java_projects(None, target)
         self.assertFalse(mock_launch.called)
+
+    @mock.patch.object(aidegen_main, '_launch_ide')
+    @mock.patch.object(vscode_java_project_file_gen.JavaProjectGen,
+                       'generate_code_workspace_file')
+    @mock.patch.object(common_util, 'get_related_paths')
+    def test_launch_vscode_without_ide_object(
+            self, mock_get_rel, mock_gen_code, mock_get_ide):
+        """Test _launch_vscode function without ide object."""
+        mock_get_rel.return_value = 'rel', 'abs'
+        aidegen_main._launch_vscode(None, mock.Mock(), ['Settings'], [])
+        self.assertTrue(mock_get_rel.called)
+        self.assertTrue(mock_gen_code.called)
+        self.assertFalse(mock_get_ide.called)
+
+    @mock.patch.object(aidegen_main, '_launch_ide')
+    @mock.patch.object(vscode_java_project_file_gen.JavaProjectGen,
+                       'generate_code_workspace_file')
+    @mock.patch.object(common_util, 'get_related_paths')
+    def test_launch_vscode_with_ide_object(
+            self, mock_get_rel, mock_gen_code, mock_get_ide):
+        """Test _launch_vscode function with ide object."""
+        mock_get_rel.return_value = 'rel', 'abs'
+        aidegen_main._launch_vscode(mock.Mock(), mock.Mock(), ['Settings'], [])
+        self.assertTrue(mock_get_rel.called)
+        self.assertTrue(mock_gen_code.called)
+        self.assertTrue(mock_get_ide.called)
+
+    @mock.patch.object(aidegen_main, '_launch_vscode')
+    @mock.patch.object(aidegen_main, '_launch_ide')
+    @mock.patch.object(vscode_java_project_file_gen.JavaProjectGen,
+                       'generate_code_workspace_file')
+    @mock.patch.object(common_util, 'get_related_paths')
+    def test_launch_vscode_with_both_languages(
+            self, mock_get_rel, mock_gen_code, mock_get_ide, mock_vscode):
+        """Test _launch_vscode function without ide object."""
+        mock_get_rel.return_value = 'rel', 'abs'
+        aidegen_main._launch_vscode(None, mock.Mock(), ['Settings'], [], True)
+        self.assertFalse(mock_get_rel.called)
+        self.assertFalse(mock_gen_code.called)
+        self.assertFalse(mock_get_ide.called)
+        self.assertTrue(mock_vscode.called)
+
+    @mock.patch.object(aidegen_main, '_launch_ide_by_module_contents')
+    @mock.patch.object(native_util, 'get_native_and_java_projects')
+    @mock.patch.object(native_module_info, 'NativeModuleInfo')
+    @mock.patch.object(module_info, 'AidegenModuleInfo')
+    @mock.patch.object(ide_util, 'get_ide_util_instance')
+    @mock.patch.object(project_config, 'ProjectConfig')
+    def test_aidegen_main(self, mock_config, mock_get_ide, mock_mod_info,
+                          mock_native, mock_get_project, mock_launch_ide):
+        """Test aidegen_main function with conditions."""
+        target = 'Settings'
+        args = aidegen_main._parse_args([target, '-i', 'v'])
+        config = mock.Mock()
+        config.targets = [target]
+        config.ide_name = constant.IDE_VSCODE
+        mock_config.return_value = config
+        ide = mock.Mock()
+        mock_get_ide.return_value = ide
+        mock_get_project.return_value = config.targets, []
+        aidegen_main.aidegen_main(args)
+        self.assertTrue(mock_config.called)
+        self.assertTrue(mock_get_ide.called)
+        self.assertTrue(mock_mod_info.called)
+        self.assertTrue(mock_native.called)
+        self.assertTrue(mock_get_project.called)
+        mock_launch_ide.assert_called_with(args, ide, config.targets, [], True)
+
+        mock_config.mock_reset()
+        mock_get_ide.mock_reset()
+        mock_mod_info.mock_reset()
+        mock_native.mock_reset()
+        mock_get_project.mock_reset()
+        mock_launch_ide.mock_reset()
+
+        args = aidegen_main._parse_args([target])
+        config.ide_name = constant.IDE_INTELLIJ
+        aidegen_main.aidegen_main(args)
+        self.assertTrue(mock_config.called)
+        self.assertTrue(mock_get_ide.called)
+        self.assertTrue(mock_mod_info.called)
+        self.assertTrue(mock_native.called)
+        self.assertTrue(mock_get_project.called)
+        mock_launch_ide.assert_called_with(args, ide, config.targets, [], False)
 
 
 if __name__ == '__main__':
