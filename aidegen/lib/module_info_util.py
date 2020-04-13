@@ -57,11 +57,13 @@ _LAUNCH_PROJECT_QUERY = (
     'to launch it (yes/No)?')
 _BUILD_BP_JSON_ENV_OFF = {
     constant.GEN_JAVA_DEPS: 'false',
-    constant.GEN_CC_DEPS: 'false'
+    constant.GEN_CC_DEPS: 'false',
+    constant.GEN_COMPDB: 'false'
 }
 _BUILD_BP_JSON_ENV_ON = {
     constant.GEN_JAVA_DEPS: 'true',
-    constant.GEN_CC_DEPS: 'true'
+    constant.GEN_CC_DEPS: 'true',
+    constant.GEN_COMPDB: 'true'
 }
 _GEN_JSON_FAILED = (
     'Generate new {0} failed, AIDEGen will proceed and reuse the old {1}.')
