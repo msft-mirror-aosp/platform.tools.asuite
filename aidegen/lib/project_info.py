@@ -358,7 +358,8 @@ class ProjectInfo:
             self.source_path['srcjar_path'].update(module.srcjar_paths)
             self._append_jars_as_dependencies(module)
             rebuild_targets.update(module.build_targets)
-        if project_config.ProjectConfig.get_instance().is_skip_build:
+        config = project_config.ProjectConfig.get_instance()
+        if config.is_skip_build:
             return
         if rebuild_targets:
             if build:
