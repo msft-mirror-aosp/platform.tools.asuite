@@ -137,12 +137,13 @@ class JDKTableXMLUnittests(unittest.TestCase):
         test_result = ElementTree.tostring(self.jdk_table_xml._xml.getroot())
         self.assertEqual(test_result, expected_result)
 
+    @mock.patch.object(jdk_table.JDKTableXML, '_override_xml')
     @mock.patch.object(ElementTree.ElementTree, 'write')
     @mock.patch.object(jdk_table.JDKTableXML, '_generate_jdk_config_string')
     @mock.patch.object(jdk_table.JDKTableXML, '_generate_sdk_config_string')
     @mock.patch.object(jdk_table.JDKTableXML, '_check_structure')
     def test_config_jdk_table_xml(self, mock_check_structure, mock_gen_jdk,
-                                  mock_gen_sdk, mock_xml_write):
+                                  mock_gen_sdk, mock_xml_write, mock_override):
         """Test config_jdk_table_xml."""
         mock_check_structure.return_value = True
         self.jdk_table_xml.config_jdk_table_xml()
@@ -156,7 +157,11 @@ class JDKTableXMLUnittests(unittest.TestCase):
         self.jdk_table_xml.config_jdk_table_xml()
         self.assertTrue(mock_xml_write.called)
         mock_check_structure.return_value = False
+        mock_override.return_value = False
         self.assertFalse(self.jdk_table_xml.config_jdk_table_xml())
+        mock_check_structure.return_value = False
+        mock_override.return_value = True
+        self.assertTrue(mock_gen_jdk.called)
 
     def test_check_jdk18_in_xml(self):
         """Test _check_jdk18_in_xml."""
@@ -228,6 +233,24 @@ class JDKTableXMLUnittests(unittest.TestCase):
         mock_read_file.return_value = ''
         self.jdk_table_xml._generate_sdk_config_string()
         self.assertTrue(self.jdk_table_xml._modify_config)
+
+    @mock.patch('builtins.input')
+    def test_override_xml(self, mock_input):
+        """Test _override_xml."""
+        mock_input.side_effect = ['1', 'n']
+        self.assertFalse(self.jdk_table_xml._override_xml())
+        self.assertEqual(mock_input.call_count, 2)
+        mock_input.side_effect = ['n']
+        result = self.jdk_table_xml._override_xml()
+        self.assertFalse(result)
+        mock_input.side_effect = ['y']
+        expected_result = (b'<application>\n'
+                           b'  <component name="ProjectJdkTable">\n'
+                           b'  </component>\n'
+                           b'</application>')
+        self.jdk_table_xml._override_xml()
+        test_result = ElementTree.tostring(self.jdk_table_xml._xml.getroot())
+        self.assertEqual(test_result, expected_result)
 
 
 if __name__ == '__main__':
