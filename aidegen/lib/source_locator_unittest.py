@@ -22,6 +22,7 @@ from unittest import mock
 
 from aidegen import unittest_constants
 
+from aidegen.lib import common_util
 from aidegen.lib import module_info
 from aidegen.lib import source_locator
 
@@ -32,17 +33,30 @@ from aidegen.lib import source_locator
 class ModuleDataUnittests(unittest.TestCase):
     """Unit tests for module_data.py"""
 
-    @mock.patch('aidegen.lib.common_util.get_android_root_dir')
-    def test_collect_srcs_paths(self, mock_android_root_dir):
+    @mock.patch('os.path.dirname')
+    @mock.patch('logging.debug')
+    @mock.patch.object(source_locator.ModuleData, '_get_source_folder')
+    @mock.patch.object(source_locator.ModuleData, '_check_key')
+    @mock.patch.object(common_util, 'is_target')
+    @mock.patch.object(common_util, 'get_android_root_dir')
+    def test_collect_srcs_paths(self, mock_android_root_dir, mock_is_target,
+                                mock_check_key, mock_get_src, mock_log,
+                                mock_dirname):
         """Test _collect_srcs_paths create the source path list."""
-        result_source = set(['packages/apps/test/src/main/java'])
-        result_test = set(['packages/apps/test/tests'])
-        mock_android_root_dir.return_value = unittest_constants.TEST_DATA_PATH
-        module_data = source_locator.ModuleData(
+        module = source_locator.ModuleData(
             unittest_constants.TEST_MODULE, unittest_constants.MODULE_INFO, 0)
-        module_data._collect_srcs_paths()
-        self.assertEqual(module_data.src_dirs, result_source)
-        self.assertEqual(module_data.test_dirs, result_test)
+        mock_check_key.return_value = False
+        module._collect_srcs_paths()
+        self.assertFalse(mock_dirname.called)
+        mock_check_key.return_value = True
+        mock_is_target.return_value = True
+        mock_android_root_dir.return_value = unittest_constants.TEST_DATA_PATH
+        module._collect_srcs_paths()
+        self.assertTrue(mock_is_target.called)
+        self.assertTrue(mock_get_src.called)
+        mock_is_target.return_value = False
+        module._collect_srcs_paths()
+        self.assertTrue(mock_log.called)
 
     def test_get_package_name(self):
         """test get the package name from a java file."""
@@ -412,6 +426,26 @@ class ModuleDataUnittests(unittest.TestCase):
         mod_data.referenced_by_jar = True
         mod_data._collect_missing_jars()
         self.assertEqual(mod_data.build_targets, {'a'})
+
+    @mock.patch.object(source_locator.ModuleData, '_check_key')
+    def test_check_classes_jar_exist(self, mock_check_key):
+        """Test _check_classes_jar_exist."""
+        mod_data = source_locator.ModuleData(
+            unittest_constants.TEST_MODULE, unittest_constants.MODULE_INFO, 0)
+        mod_data._check_classes_jar_exist()
+        self.assertTrue(mock_check_key.called)
+
+    @mock.patch('os.path.exists')
+    @mock.patch.object(common_util, 'get_android_root_dir')
+    def test_switch_repackaged(self, mock_android_root_dir, mock_exist):
+        """Test _switch_repackaged."""
+        mock_android_root_dir.return_value = '/a'
+        mock_exist.return_value = False
+        mod_data = source_locator.ModuleData(
+            unittest_constants.TEST_MODULE, unittest_constants.MODULE_INFO, 0)
+        self.assertEqual(mod_data._switch_repackaged('b/c'), 'b/c')
+        mock_exist.return_value = True
+        self.assertEqual(mod_data._switch_repackaged('b/c'), 'b/repackaged/c')
 
 
 class EclipseModuleDataUnittests(unittest.TestCase):

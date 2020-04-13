@@ -571,17 +571,18 @@ def _is_inside_android_root():
 
 # pylint: disable=too-many-statements
 # pylint: disable=too-many-branches
-def main(argv, results_dir):
+# pylint: disable=too-many-return-statements
+def main(argv, results_dir, args):
     """Entry point of atest script.
 
     Args:
         argv: A list of arguments.
         results_dir: A directory which stores the ATest execution information.
+        args: An argspace.Namespace class instance holding parsed args.
 
     Returns:
         Exit code.
     """
-    args = _parse_args(argv)
     _configure_logging(args.verbose)
     _validate_args(args)
     metrics_utils.get_start_time()
@@ -603,10 +604,15 @@ def main(argv, results_dir):
     if args.help:
         atest_arg_parser.print_epilog_text()
         return constants.EXIT_CODE_SUCCESS
+    if args.history:
+        atest_execution_info.print_test_result(constants.ATEST_RESULT_ROOT,
+                                               args.history)
+        return constants.EXIT_CODE_SUCCESS
     mod_info = module_info.ModuleInfo(force_build=args.rebuild_module_info)
     if args.rebuild_module_info:
         _run_extra_tasks(join=True)
-    translator = cli_translator.CLITranslator(module_info=mod_info)
+    translator = cli_translator.CLITranslator(module_info=mod_info,
+                                              print_cache_msg=not args.clear_cache)
     if args.list_modules:
         _print_testable_modules(mod_info, args.list_modules)
         return constants.EXIT_CODE_SUCCESS
@@ -711,14 +717,16 @@ def main(argv, results_dir):
 
 if __name__ == '__main__':
     RESULTS_DIR = make_test_run_dir()
+    ARGS = _parse_args(sys.argv[1:])
     with atest_execution_info.AtestExecutionInfo(sys.argv[1:],
-                                                 RESULTS_DIR) as result_file:
+                                                 RESULTS_DIR,
+                                                 ARGS) as result_file:
         metrics_base.MetricsBase.tool_name = constants.TOOL_NAME
-        EXIT_CODE = main(sys.argv[1:], RESULTS_DIR)
+        EXIT_CODE = main(sys.argv[1:], RESULTS_DIR, ARGS)
         DETECTOR = bug_detector.BugDetector(sys.argv[1:], EXIT_CODE)
         metrics.LocalDetectEvent(
             detect_type=constants.DETECT_TYPE_BUG_DETECTED,
             result=DETECTOR.caught_result)
         if result_file:
-            print('Execution detail has saved in %s' % result_file.name)
+            print("Run 'atest --history' to review test result history.")
     sys.exit(EXIT_CODE)

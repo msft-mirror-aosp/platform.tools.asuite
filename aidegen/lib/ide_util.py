@@ -81,9 +81,8 @@ MAC_JDK_PATH = os.path.join(common_util.get_android_root_dir(),
 MAC_JDK_TABLE_PATH = 'options/jdk.table.xml'
 MAC_ANDROID_SDK_PATH = os.path.join(os.getenv('HOME'), 'Library/Android/sdk')
 
+
 # pylint: disable=too-many-lines
-
-
 class IdeUtil:
     """Provide a set of IDE operations, e.g., launch and configuration.
 
@@ -970,6 +969,47 @@ class IdeMacCLion(IdeCLion):
         self._init_installed_path(installed_path)
 
 
+class IdeVSCode(IdeBase):
+    """Class offers a set of VSCode launching utilities.
+
+    For example:
+        1. Check if VSCode is installed.
+        2. Launch an VSCode.
+    """
+
+    def __init__(self, installed_path=None, config_reset=False):
+        super().__init__(installed_path, config_reset)
+        self._ide_name = constant.IDE_VSCODE
+
+    def apply_optional_config(self):
+        """Override to do nothing."""
+
+    def _get_config_root_paths(self):
+        """Override to do nothing."""
+
+
+class IdeLinuxVSCode(IdeVSCode):
+    """Class offers a set of VSCode launching utilities for OS Linux."""
+
+    def __init__(self, installed_path=None, config_reset=False):
+        super().__init__(installed_path, config_reset)
+        self._bin_file_name = 'code'
+        self._bin_folders = ['/usr/bin']
+        self._bin_paths = self._get_possible_bin_paths()
+        self._init_installed_path(installed_path)
+
+
+class IdeMacVSCode(IdeVSCode):
+    """Class offers a set of VSCode launching utilities for OS Mac."""
+
+    def __init__(self, installed_path=None, config_reset=False):
+        super().__init__(installed_path, config_reset)
+        self._bin_file_name = 'code'
+        self._bin_folders = ['/usr/local/bin']
+        self._bin_paths = self._get_possible_bin_paths()
+        self._init_installed_path(installed_path)
+
+
 def get_ide_util_instance(ide='j'):
     """Get an IdeUtil class instance for launching IDE.
 
@@ -1035,6 +1075,8 @@ def _get_mac_ide(installed_path=None, ide='j', config_reset=False):
         return IdeMacStudio(installed_path, config_reset)
     if ide == 'c':
         return IdeMacCLion(installed_path, config_reset)
+    if ide == 'v':
+        return IdeMacVSCode(installed_path, config_reset)
     return IdeMacIntelliJ(installed_path, config_reset)
 
 
@@ -1056,4 +1098,6 @@ def _get_linux_ide(installed_path=None, ide='j', config_reset=False):
         return IdeLinuxStudio(installed_path, config_reset)
     if ide == 'c':
         return IdeLinuxCLion(installed_path, config_reset)
+    if ide == 'v':
+        return IdeLinuxVSCode(installed_path, config_reset)
     return IdeLinuxIntelliJ(installed_path, config_reset)

@@ -340,9 +340,12 @@ class AidegenCommonUtilUnittests(unittest.TestCase):
         mock_get_root.return_value = 'a/b'
         mock_get_out.return_value = 'out'
         mock_get_path.return_value = 'out/soong/bp_java_file'
+        path_compdb = os.path.join('a/b', 'out', constant.RELATIVE_COMPDB_PATH,
+                                   constant.COMPDB_JSONFILE_NAME)
         data = {
             constant.GEN_JAVA_DEPS: 'a/b/out/soong/bp_java_file',
             constant.GEN_CC_DEPS: 'a/b/out/soong/bp_java_file',
+            constant.GEN_COMPDB: path_compdb
         }
         self.assertEqual(
             data, common_util.get_blueprint_json_files_relative_dict())
