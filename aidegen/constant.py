@@ -24,6 +24,7 @@ TARGET_PRODUCT = 'TARGET_PRODUCT'
 TARGET_BUILD_VARIANT = 'TARGET_BUILD_VARIANT'
 GEN_JAVA_DEPS = 'SOONG_COLLECT_JAVA_DEPS'
 GEN_CC_DEPS = 'SOONG_COLLECT_CC_DEPS'
+GEN_COMPDB = 'SOONG_GEN_COMPDB'
 
 # Constants for module's info.
 KEY_PATH = 'path'
@@ -83,6 +84,7 @@ IDE_LAUNCH_FAILURE = 103
 MERGED_MODULE_INFO = 'merged_module_info.json'
 BLUEPRINT_JAVA_JSONFILE_NAME = 'module_bp_java_deps.json'
 BLUEPRINT_CC_JSONFILE_NAME = 'module_bp_cc_deps.json'
+COMPDB_JSONFILE_NAME = 'compile_commands.json'
 CMAKELISTS_FILE_NAME = 'clion_project_lists.txt'
 CLION_PROJECT_FILE_NAME = 'CMakeLists.txt'
 ANDROID_BP = 'Android.bp'
@@ -92,6 +94,7 @@ VSCODE_CONFIG_DIR = '.vscode'
 
 # Constants for file paths.
 RELATIVE_NATIVE_PATH = 'development/ide/clion'
+RELATIVE_COMPDB_PATH = 'development/ide/compdb'
 
 # Constants for whole Android tree.
 WHOLE_ANDROID_TREE_TARGET = '#WHOLE_ANDROID_TREE#'

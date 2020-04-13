@@ -72,7 +72,6 @@ _TEST_MODULE_A_JOIN_PATH_DICT = {
 
 # pylint: disable=invalid-name
 # pylint: disable=protected-access
-# pylint: disable=too-many-arguments
 # ptlint: disable=too-many-format-args
 class AidegenModuleInfoUtilUnittests(unittest.TestCase):
     """Unit tests for module_info_utils.py"""
@@ -94,6 +93,7 @@ class AidegenModuleInfoUtilUnittests(unittest.TestCase):
         self.assertTrue(mock_log.called)
         self.assertFalse(mock_time.called)
 
+    # pylint: disable=too-many-arguments
     @mock.patch.object(module_info_util, '_show_build_failed_message')
     @mock.patch.object(module_info_util, '_show_files_reuse_message')
     @mock.patch.object(atest_utils, 'build')
@@ -211,6 +211,7 @@ class AidegenModuleInfoUtilUnittests(unittest.TestCase):
         self.assertFalse(mock_reuse.called)
         self.assertFalse(mock_fail.called)
 
+    # pylint: enable=too-many-arguments
     def test_merge_module_keys_with_empty_dict(self):
         """Test _merge_module_keys with an empty dictionary."""
         test_b_dict = {}
