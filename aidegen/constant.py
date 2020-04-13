@@ -57,11 +57,13 @@ IDE_ECLIPSE = 'Eclipse'
 IDE_INTELLIJ = 'IntelliJ'
 IDE_ANDROID_STUDIO = 'Android Studio'
 IDE_CLION = 'CLion'
+IDE_VSCODE = 'VSCode'
 IDE_NAME_DICT = {
     'j': IDE_INTELLIJ,
     's': IDE_ANDROID_STUDIO,
     'e': IDE_ECLIPSE,
-    'c': IDE_CLION
+    'c': IDE_CLION,
+    'v': IDE_VSCODE
 }
 
 # Constants for asuite metrics.

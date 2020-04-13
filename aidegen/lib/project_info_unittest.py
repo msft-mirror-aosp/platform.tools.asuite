@@ -172,6 +172,63 @@ class ProjectInfoUnittests(unittest.TestCase):
         self.assertEqual(project_info_obj.source_path['test_folder_path'],
                          result_test)
 
+    @mock.patch.object(project_info, 'batch_build_dependencies')
+    @mock.patch.object(common_util, 'get_android_root_dir')
+    @mock.patch('atest.module_info.ModuleInfo')
+    @mock.patch('atest.atest_utils.build')
+    def test_locate_source_with_skip_build(self, mock_atest_utils_build,
+                                           mock_module_info, mock_get_root,
+                                           mock_batch):
+        """Test locate_source handling."""
+        mock_atest_utils_build.build.return_value = True
+        test_root_path = os.path.join(tempfile.mkdtemp(), 'test')
+        shutil.copytree(unittest_constants.TEST_DATA_PATH, test_root_path)
+        mock_get_root.return_value = test_root_path
+        generated_jar = ('out/soong/.intermediates/packages/apps/test/test/'
+                         'android_common/generated.jar')
+        locate_module_info = dict(unittest_constants.MODULE_INFO)
+        locate_module_info['installed'] = [generated_jar]
+        mock_module_info.is_module.return_value = True
+        mock_module_info.get_paths.return_value = [
+            unittest_constants.MODULE_PATH
+        ]
+        mock_module_info.get_module_names.return_value = [
+            unittest_constants.TEST_MODULE
+        ]
+        args = mock.MagicMock()
+        args.module_name = 'm1'
+        args.project_path = ''
+        args.ide = ['j']
+        args.no_launch = True
+        args.depth = 0
+        args.android_tree = False
+        args.skip_build = True
+        args.targets = ['m1']
+        args.verbose = False
+        args.ide_installed_path = None
+        args.config_reset = False
+        project_config.ProjectConfig(args)
+        project_info_obj = project_info.ProjectInfo(
+            mock_module_info.get_paths()[0])
+        project_info_obj.dep_modules = {
+            unittest_constants.TEST_MODULE: locate_module_info
+        }
+        project_info_obj._init_source_path()
+        project_info_obj.locate_source()
+        self.assertFalse(mock_batch.called)
+
+        args.ide = ['v']
+        args.skip_build = False
+        project_config.ProjectConfig(args)
+        project_info_obj = project_info.ProjectInfo(
+            mock_module_info.get_paths()[0])
+        project_info_obj.dep_modules = {
+            unittest_constants.TEST_MODULE: locate_module_info
+        }
+        project_info_obj._init_source_path()
+        project_info_obj.locate_source()
+        self.assertFalse(mock_batch.called)
+
     def test_separate_build_target(self):
         """Test separate_build_target."""
         test_list = ['1', '22', '333', '4444', '55555', '1', '7777777']
