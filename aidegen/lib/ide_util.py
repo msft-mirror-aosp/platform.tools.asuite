@@ -46,7 +46,8 @@ from aidegen.lib import config
 from aidegen.lib import errors
 from aidegen.lib import ide_common_util
 from aidegen.lib import project_config
-from aidegen.lib import sdk_config
+from aidegen.lib import project_file_gen
+from aidegen.sdk import jdk_table
 
 # Add 'nohup' to prevent IDE from being terminated when console is terminated.
 _IDEA_FOLDER = '.idea'
@@ -213,11 +214,12 @@ class IdeBase:
 
         for _config_path in _path_list:
             jdk_file = os.path.join(_config_path, self._IDE_JDK_TABLE_PATH)
-            jdk_table = sdk_config.SDKConfig(jdk_file, self._JDK_CONTENT,
-                                             self._JDK_PATH,
-                                             self._DEFAULT_ANDROID_SDK_PATH)
-            jdk_table.config_jdk_file()
-            jdk_table.gen_enable_debugger_module(self.project_abspath)
+            jdk_xml = jdk_table.JDKTableXML(jdk_file, self._JDK_CONTENT,
+                                            self._JDK_PATH,
+                                            self._DEFAULT_ANDROID_SDK_PATH)
+            if jdk_xml.config_jdk_table_xml():
+                project_file_gen.gen_enable_debugger_module(
+                    self.project_abspath, jdk_xml.android_sdk_version)
 
             # Set the max file size in the idea.properties.
             intellij_config_dir = os.path.join(_config_path, self._CONFIG_DIR)

@@ -25,6 +25,7 @@ from unittest import mock
 from aidegen import templates
 from aidegen import unittest_constants
 from aidegen.lib import common_util
+from aidegen.lib import config
 from aidegen.lib import project_file_gen
 from aidegen.lib import project_info
 from atest import module_info
@@ -504,6 +505,21 @@ class AidegenProjectFileGenUnittest(unittest.TestCase):
         mock_is_file.return_value = True
         project_file_gen._generate_test_mapping_schema('')
         self.assertTrue(mock_file_generate.called)
+
+    @mock.patch.object(project_file_gen, 'update_enable_debugger')
+    @mock.patch.object(config.AidegenConfig, 'create_enable_debugger_module')
+    def test_gen_enable_debugger_module(self, mock_create_module,
+                                        mock_update_module):
+        """Test gen_enable_debugger_module."""
+        android_sdk_path = None
+        project_file_gen.gen_enable_debugger_module('a', android_sdk_path)
+        self.assertFalse(mock_create_module.called)
+        mock_create_module.return_value = False
+        project_file_gen.gen_enable_debugger_module('a', 'b')
+        self.assertFalse(mock_update_module.called)
+        mock_create_module.return_value = True
+        project_file_gen.gen_enable_debugger_module('a', 'b')
+        self.assertTrue(mock_update_module.called)
 
 
 if __name__ == '__main__':

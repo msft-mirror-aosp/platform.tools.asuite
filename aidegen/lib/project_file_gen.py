@@ -29,6 +29,7 @@ import shutil
 from aidegen import constant
 from aidegen import templates
 from aidegen.lib import common_util
+from aidegen.lib import config
 from aidegen.lib import project_config
 
 # FACET_SECTION is a part of iml, which defines the framework of the project.
@@ -753,3 +754,21 @@ def update_enable_debugger(module_path, enable_debugger_module_abspath=None):
     content = common_util.read_file_content(target_path)
     content = content.replace(_ENABLE_DEBUGGER_MODULE_TOKEN, replace_string)
     common_util.file_generate(target_path, content)
+
+
+def gen_enable_debugger_module(module_abspath, android_sdk_version):
+    """Generate the enable_debugger module under AIDEGen config folder.
+
+    Skip generating the enable_debugger module in IntelliJ once the attemption
+    of getting the Android SDK version is failed.
+
+    Args:
+        module_abspath: the absolute path of the main project.
+        android_sdk_version: A string, the Android SDK version in jdk.table.xml.
+    """
+    if not android_sdk_version:
+        return
+    with config.AidegenConfig() as aconf:
+        if aconf.create_enable_debugger_module(android_sdk_version):
+            update_enable_debugger(module_abspath,
+                                   config.AidegenConfig.DEBUG_ENABLED_FILE_PATH)
