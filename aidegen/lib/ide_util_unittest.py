@@ -598,6 +598,22 @@ class IdeUtilUnittests(unittest.TestCase):
         with self.assertRaises(errors.IDENotExistError):
             ide_util.get_ide_util_instance()
 
+    @mock.patch.object(ide_util.IdeLinuxVSCode, '_init_installed_path')
+    @mock.patch.object(ide_util.IdeLinuxVSCode, '_get_possible_bin_paths')
+    def test_ide_linux_vscode(self, mock_get_pos, mock_init_inst):
+        """Test IdeLinuxVSCode class."""
+        ide_util.IdeLinuxVSCode()
+        self.assertTrue(mock_get_pos.called)
+        self.assertTrue(mock_init_inst.called)
+
+    @mock.patch.object(ide_util.IdeMacVSCode, '_init_installed_path')
+    @mock.patch.object(ide_util.IdeMacVSCode, '_get_possible_bin_paths')
+    def test_ide_mac_vscode(self, mock_get_pos, mock_init_inst):
+        """Test IdeMacVSCode class."""
+        ide_util.IdeMacVSCode()
+        self.assertTrue(mock_get_pos.called)
+        self.assertTrue(mock_init_inst.called)
+
 
 if __name__ == '__main__':
     unittest.main()
