@@ -34,7 +34,6 @@ from aidegen.lib import ide_common_util
 from aidegen.lib import ide_util
 from aidegen.lib import project_config
 from aidegen.lib import project_file_gen
-from aidegen.lib import sdk_config
 from aidegen.sdk import jdk_table
 
 
@@ -137,17 +136,12 @@ class IdeUtilUnittests(unittest.TestCase):
         self.assertTrue(mock_set.called)
 
     @mock.patch.object(ide_util.IdeIntelliJ, '_get_preferred_version')
-    @mock.patch.object(sdk_config.SDKConfig, '_android_sdk_exists')
-    @mock.patch.object(sdk_config.SDKConfig, '_target_jdk_exists')
     @mock.patch.object(ide_util.IdeIntelliJ, '_get_config_root_paths')
     @mock.patch.object(ide_util.IdeBase, 'apply_optional_config')
-    def test_config_ide(self, mock_config, mock_paths, mock_jdk, mock_sdk,
-                        mock_preference):
+    def test_config_ide(self, mock_config, mock_paths, mock_preference):
         """Test IDEA, IdeUtil.config_ide won't call base none implement api."""
         # Mock SDkConfig flow to not to generate real jdk config file.
         mock_preference.return_value = None
-        mock_jdk.return_value = True
-        mock_sdk.return_value = True
         module_path = os.path.join(self._TEST_DIR, 'test')
         idea_path = os.path.join(module_path, '.idea')
         os.makedirs(idea_path)
@@ -426,13 +420,11 @@ class IdeUtilUnittests(unittest.TestCase):
     @mock.patch.object(ide_common_util, 'ask_preference')
     @mock.patch.object(config.IdeaProperties, 'set_max_file_size')
     @mock.patch.object(project_file_gen, 'gen_enable_debugger_module')
-    @mock.patch.object(sdk_config.SDKConfig, 'config_jdk_file')
     @mock.patch.object(ide_util.IdeStudio, '_get_config_root_paths')
-    def test_android_studio_class(self, mock_get_config_paths, mock_config_file,
+    def test_android_studio_class(self, mock_get_config_paths,
                                   mock_gen_debugger, mock_set_size, mock_ask):
         """Test IdeStudio."""
         mock_get_config_paths.return_value = ['path1', 'path2']
-        mock_config_file.return_value = True
         mock_gen_debugger.return_value = True
         mock_set_size.return_value = True
         mock_ask.return_value = None
