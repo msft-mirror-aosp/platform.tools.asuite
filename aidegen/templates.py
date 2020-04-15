@@ -270,7 +270,7 @@ set(ANDROID_ROOT @ANDROIDROOT@)
 
 # The configuration of Android SDK.
 ANDROID_SDK_XML = """    <jdk version="2">
-      <name value="Android API {API_LEVEL} Platform" />
+      <name value="Android API {CODE_NAME} Platform" />
       <type value="Android SDK" />
       <version value="java version &quot;1.8.0_152&quot;" />
       <homePath value="{ANDROID_SDK_PATH}" />
@@ -280,7 +280,7 @@ ANDROID_SDK_XML = """    <jdk version="2">
         </annotationsPath>
         <classPath>
           <root type="composite">
-            <root url="file://{ANDROID_SDK_PATH}/platforms/android-{API_LEVEL}/data/res" type="simple" />
+            <root url="file://{ANDROID_SDK_PATH}/platforms/android-{CODE_NAME}/data/res" type="simple" />
           </root>
         </classPath>
         <javadocPath>
@@ -290,7 +290,7 @@ ANDROID_SDK_XML = """    <jdk version="2">
           <root type="composite" />
         </sourcePath>
       </roots>
-      <additional jdk="JDK18" sdk="android-{API_LEVEL}" />
+      <additional jdk="JDK18" sdk="android-{CODE_NAME}" />
     </jdk>
 """
 
