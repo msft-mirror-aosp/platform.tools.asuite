@@ -26,6 +26,7 @@ from xml.etree import ElementTree
 
 from aidegen.lib import aidegen_metrics
 from aidegen.lib import common_util
+from aidegen.lib import xml_util
 from aidegen.sdk import android_sdk
 from aidegen.sdk import jdk_table
 
@@ -234,8 +235,9 @@ class JDKTableXMLUnittests(unittest.TestCase):
         self.jdk_table_xml._generate_sdk_config_string()
         self.assertTrue(self.jdk_table_xml._modify_config)
 
+    @mock.patch.object(aidegen_metrics, 'send_exception_metrics')
     @mock.patch('builtins.input')
-    def test_override_xml(self, mock_input):
+    def test_override_xml(self, mock_input, mock_metrics):
         """Test _override_xml."""
         mock_input.side_effect = ['1', 'n']
         self.assertFalse(self.jdk_table_xml._override_xml())
@@ -251,6 +253,18 @@ class JDKTableXMLUnittests(unittest.TestCase):
         self.jdk_table_xml._override_xml()
         test_result = ElementTree.tostring(self.jdk_table_xml._xml.getroot())
         self.assertEqual(test_result, expected_result)
+        self.assertTrue(mock_metrics.called)
+
+    @mock.patch.object(xml_util, 'parse_xml')
+    @mock.patch.object(aidegen_metrics, 'send_exception_metrics')
+    @mock.patch('builtins.input')
+    def test_skip_send_metrics(self, mock_input, mock_metrics, mock_parse):
+        """Test _override_xml."""
+        mock_input.side_effect = ['y']
+        self.jdk_table_xml._xml = None
+        self.jdk_table_xml._override_xml()
+        self.assertFalse(mock_metrics.called)
+        self.assertTrue(mock_parse.called)
 
 
 if __name__ == '__main__':

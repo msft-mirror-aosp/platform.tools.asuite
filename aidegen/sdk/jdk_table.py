@@ -83,6 +83,9 @@ class JDKTableXML():
                                           'jdk.table.xml')
     _ILLEGAL_XML = ('The {XML} is not an useful XML file for IntelliJ. Do you '
                     'agree AIDEGen override it?(y/n)')
+    _IGNORE_XML_WARNING = ('The {XML} is not an useful XML file for IntelliJ. '
+                           'It causes the feature "Attach debugger to Android '
+                           'process" to be disabled.')
 
     def __init__(self, config_file, jdk_content, jdk_path,
                  default_android_sdk_path):
@@ -148,7 +151,11 @@ class JDKTableXML():
         while input_data not in ('y', 'n'):
             input_data = input('Please type y(Yes) or n(No): ')
         if input_data == 'y':
-            # TODO(b/152944292): Record the XML's content for debugging.
+            # Record the exception about wrong XML format.
+            if self._xml:
+                aidegen_metrics.send_exception_metrics(
+                    constant.XML_PARSING_FAILURE, '',
+                    ElementTree.tostring(self._xml.getroot()), '')
             self._xml = xml_util.parse_xml(self._DEFAULT_JDK_TABLE_XML)
             return True
         return False
@@ -235,7 +242,7 @@ class JDKTableXML():
             #                    abandoning the sdk_config.py.
             self._append_config(templates.ANDROID_SDK_XML.format(
                 ANDROID_SDK_PATH=self._sdk.android_sdk_path,
-                API_LEVEL=self._sdk.max_code_name))
+                CODE_NAME=self._sdk.max_code_name))
             self._android_sdk_version = self._ANDROID_SDK_VERSION.format(
                 CODE_NAME=self._sdk.max_code_name)
             self._modify_config = True
@@ -257,8 +264,8 @@ class JDKTableXML():
         Returns:
             A boolean, True when get the Android SDK version, otherwise False.
         """
-        # TODO(b/151582629): Handle the XML's illegal content on another CL.
         if not self._check_structure() and not self._override_xml():
+            print(self._IGNORE_XML_WARNING.format(XML=self._config_file))
             return False
         self._generate_jdk_config_string()
         self._generate_sdk_config_string()
