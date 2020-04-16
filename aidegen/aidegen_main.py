@@ -160,6 +160,12 @@ def _parse_args(args):
         dest='android_tree',
         action='store_true',
         help='Generate whole Android source tree project file for IDE.')
+    parser.add_argument(
+        '-e',
+        '--exclude-paths',
+        dest='exclude_paths',
+        nargs='*',
+        help='Exclude the directories in IDE.')
     return parser.parse_args(args)
 
 
