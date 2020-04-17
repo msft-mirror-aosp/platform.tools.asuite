@@ -50,6 +50,8 @@ _EXCLUDE_MODULES = ['fake-framework']
 _CMD_LENGTH_BUFFER = 5000
 # For each argument, it need a space to separate following argument.
 _BLANK_SIZE = 1
+_CORE_MODULES = [constant.FRAMEWORK_ALL, constant.CORE_ALL,
+                 'org.apache.http.legacy.stubs.system']
 
 
 class ProjectInfo:
@@ -114,7 +116,10 @@ class ProjectInfo:
         self.iml_path = ''
         self._set_default_modues()
         self._init_source_path()
-        self.dep_modules = self.get_dep_modules()
+        if target == constant.FRAMEWORK_ALL:
+            self.dep_modules = self.get_dep_modules([target])
+        else:
+            self.dep_modules = self.get_dep_modules()
         self._filter_out_modules()
         self._display_convert_make_files_message()
 
@@ -128,10 +133,9 @@ class ProjectInfo:
             error of "cannot resolve symbol" in IntelliJ since they import
             packages android.Manifest and com.android.internal.R.
         """
-        # TODO(b/112058649): Do more research to clarify how to remove these
-        #                    hard-code sources.
-        self.project_module_names.update(
-            ['framework', 'org.apache.http.legacy.stubs.system'])
+        # Set the default modules framework-all and core-all as the core
+        # dependency modules.
+        self.project_module_names.update(_CORE_MODULES)
 
     def _init_source_path(self):
         """Initialize source_path dictionary."""

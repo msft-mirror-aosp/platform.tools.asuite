@@ -123,3 +123,7 @@ C_CPP = 'C/C++'
 
 # Constants for error message.
 INVALID_XML = 'The content of {XML_FILE} is not valid.'
+
+# Constants for default modules.
+FRAMEWORK_ALL = 'framework-all'
+CORE_ALL = 'core-all'
