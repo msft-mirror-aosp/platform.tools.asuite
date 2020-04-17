@@ -331,6 +331,22 @@ class AidegenMainUnittests(unittest.TestCase):
         self.assertFalse(mock_c.called)
         self.assertFalse(mock_genc.called)
 
+        args = aidegen_main._parse_args(['frameworks/base', '-i', 'c'])
+        mock_vs.reset_mock()
+        mock_choice.reset_mock()
+        mock_c.reset_mock()
+        mock_genc.reset_mock()
+        mock_c_prj.reset_mock()
+        mock_j.reset_mock()
+        aidegen_main._launch_ide_by_module_contents(args, ide_obj, test_j,
+                                                    test_c)
+        self.assertFalse(mock_vs.called)
+        self.assertFalse(mock_choice.called)
+        self.assertFalse(mock_j.called)
+        self.assertTrue(mock_c.called)
+        self.assertTrue(mock_c_prj.called)
+        self.assertTrue(mock_genc.called)
+
     @mock.patch.object(aidegen_main, '_launch_ide')
     @mock.patch.object(aidegen_main, '_generate_project_files')
     @mock.patch.object(project_info.ProjectInfo, 'multi_projects_locate_source')
