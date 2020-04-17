@@ -82,6 +82,10 @@ class AidegenMainUnittests(unittest.TestCase):
         self.assertTrue(args.config_reset)
         args = aidegen_main._parse_args(['-s'])
         self.assertTrue(args.skip_build)
+        self.assertEqual(args.exclude_paths, None)
+        excludes = 'path/to/a', 'path/to/b'
+        args = aidegen_main._parse_args(['-e', excludes])
+        self.assertEqual(args.exclude_paths, [excludes])
 
     @mock.patch.object(project_config.ProjectConfig, 'init_environment')
     @mock.patch.object(project_config, 'ProjectConfig')
@@ -105,19 +109,6 @@ class AidegenMainUnittests(unittest.TestCase):
         mock_config.ide_name = constant.IDE_INTELLIJ
         aidegen_main._generate_project_files(projects)
         self.assertTrue(mock_ide.called_with(projects))
-
-    @mock.patch.object(common_util, 'get_atest_module_info')
-    @mock.patch.object(aidegen_metrics, 'starts_asuite_metrics')
-    def test_show_collect_data_notice(self, mock_metrics, mock_get):
-        """Test main process always run through the target test function."""
-        target = 'nothing'
-        args = aidegen_main._parse_args([target, '-s', '-n'])
-        self._init_project_config(args)
-        with self.assertRaises(errors.ProjectPathNotExistError):
-            err = common_util.PATH_NOT_EXISTS_ERROR.format(target)
-            mock_get.side_effect = errors.ProjectPathNotExistError(err)
-            aidegen_main.main_without_message(args)
-            self.assertTrue(mock_metrics.called)
 
     @mock.patch.object(aidegen_main, 'main_with_message')
     @mock.patch.object(aidegen_main, 'main_without_message')
@@ -253,6 +244,7 @@ class AidegenMainUnittests(unittest.TestCase):
         self.assertEqual(5, mock_input.call_count)
         mock_input.reset_mock()
 
+    @mock.patch.object(project_config.ProjectConfig, 'init_environment')
     @mock.patch('logging.warning')
     @mock.patch.object(aidegen_main, '_launch_vscode')
     @mock.patch.object(aidegen_main, '_launch_native_projects')
@@ -263,9 +255,10 @@ class AidegenMainUnittests(unittest.TestCase):
     @mock.patch.object(aidegen_main, '_get_preferred_ide_from_user')
     def test_launch_ide_by_module_contents(self, mock_choice, mock_j,
                                            mock_c_prj, mock_genc, mock_c,
-                                           mock_vs, mock_log):
+                                           mock_vs, mock_log, mock_init):
         """Test _launch_ide_by_module_contents with different conditions."""
         args = aidegen_main._parse_args(['', '-i', 's'])
+        mock_init.return_value = None
         self._init_project_config(args)
         ide_obj = 'ide_obj'
         test_both = False

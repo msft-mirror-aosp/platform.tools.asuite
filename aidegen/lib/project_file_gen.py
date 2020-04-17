@@ -386,6 +386,9 @@ class ProjectFileGenerator:
             # module, we add the exclude folders to speed up indexing time.
             if not relative_path:
                 src_builder.extend(_get_exclude_content(root_path))
+            excludes = project_config.ProjectConfig.get_instance().exclude_paths
+            if excludes:
+                src_builder.extend(_get_exclude_content(root_path, excludes))
             src_builder.append(_END_CONTENT)
         else:
             for path, is_test_flag in sorted(source_dict.items()):
@@ -562,7 +565,7 @@ class ProjectFileGenerator:
         return git_path
 
 
-def _get_exclude_content(root_path):
+def _get_exclude_content(root_path, excludes=None):
     """Get the exclude folder content list.
 
     It returns the exclude folders content list.
@@ -572,12 +575,16 @@ def _get_exclude_content(root_path):
 
     Args:
         root_path: Android source file path.
+        excludes: A list of exclusive directories, the default value is None but
+                  will be assigned to _EXCLUDE_FOLDERS.
 
     Returns:
         String: exclude folder content list.
     """
     exclude_items = []
-    for folder in _EXCLUDE_FOLDERS:
+    if not excludes:
+        excludes = _EXCLUDE_FOLDERS
+    for folder in excludes:
         folder_path = os.path.join(root_path, folder)
         if os.path.isdir(folder_path):
             exclude_items.append(_EXCLUDE_ITEM % folder_path)
