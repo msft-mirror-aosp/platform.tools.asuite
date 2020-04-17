@@ -274,6 +274,10 @@ def _launch_ide_by_module_contents(args, ide_util_obj, jlist=None, clist=None,
                                    both=False):
     """Deals with the suitable IDE launch action.
 
+    CLion only supports C/C++ and EClipse only supports Java right now, if users
+    launch these two IDEs through AIDEGen we don't ask users to choose one of
+    the languages.
+
     Args:
         args: A list of system arguments.
         ide_util_obj: An ide_util instance.
@@ -290,7 +294,9 @@ def _launch_ide_by_module_contents(args, ide_util_obj, jlist=None, clist=None,
                         ' opened')
         return
     answer = None
-    if jlist and clist:
+    if constant.IDE_NAME_DICT[args.ide[0]] == constant.IDE_CLION:
+        answer = constant.C_CPP
+    if not answer and jlist and clist:
         answer = _get_preferred_ide_from_user(_LANGUAGE_OPTIONS)
     if (jlist and not clist) or (answer == constant.JAVA):
         _create_and_launch_java_projects(ide_util_obj, jlist)
