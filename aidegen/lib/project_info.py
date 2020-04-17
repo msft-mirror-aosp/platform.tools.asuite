@@ -358,12 +358,12 @@ class ProjectInfo:
             self.source_path['srcjar_path'].update(module.srcjar_paths)
             self._append_jars_as_dependencies(module)
             rebuild_targets.update(module.build_targets)
-        if project_config.ProjectConfig.get_instance().is_skip_build:
+        config = project_config.ProjectConfig.get_instance()
+        if config.is_skip_build:
             return
         if rebuild_targets:
             if build:
-                verbose = project_config.ProjectConfig.get_instance().verbose
-                batch_build_dependencies(verbose, rebuild_targets)
+                batch_build_dependencies(rebuild_targets)
                 self.locate_source(build=False)
             else:
                 logging.warning('Jar or srcjar files build skipped:\n\t%s.',
@@ -423,7 +423,7 @@ class ProjectInfo:
             project.locate_source()
 
 
-def batch_build_dependencies(verbose, rebuild_targets):
+def batch_build_dependencies(rebuild_targets):
     """Batch build the jar or srcjar files of the modules if they don't exist.
 
     Command line has the max length limit, MAX_ARG_STRLEN, and
@@ -433,7 +433,6 @@ def batch_build_dependencies(verbose, rebuild_targets):
     MAX_ARG_STRLEN to make sure it can be built successfully.
 
     Args:
-        verbose: A boolean, if true displays full build output.
         rebuild_targets: A set of jar or srcjar files which do not exist.
     """
     logging.info('Ready to build the jar or srcjar files. Files count = %s',
@@ -441,10 +440,10 @@ def batch_build_dependencies(verbose, rebuild_targets):
     arg_max = os.sysconf('SC_PAGE_SIZE') * 32 - _CMD_LENGTH_BUFFER
     rebuild_targets = list(rebuild_targets)
     for start, end in iter(_separate_build_targets(rebuild_targets, arg_max)):
-        _build_target(rebuild_targets[start:end], verbose)
+        _build_target(rebuild_targets[start:end])
 
 
-def _build_target(targets, verbose):
+def _build_target(targets):
     """Build the jar or srcjar files.
 
     Use -k to keep going when some targets can't be built or build failed.
@@ -452,10 +451,10 @@ def _build_target(targets, verbose):
 
     Args:
         targets: A list of jar or srcjar files which need to build.
-        verbose: A boolean, if true displays full build output.
     """
     build_cmd = ['-k', '-j']
     build_cmd.extend(list(targets))
+    verbose = True
     if not atest_utils.build(build_cmd, verbose):
         message = ('Build failed!\n{}\nAIDEGen will proceed but dependency '
                    'correctness is not guaranteed if not all targets being '

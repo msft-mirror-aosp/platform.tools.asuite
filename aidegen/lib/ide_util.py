@@ -37,6 +37,8 @@ import platform
 import re
 import subprocess
 
+from xml.etree import ElementTree
+
 from aidegen import constant
 from aidegen import templates
 from aidegen.lib import aidegen_metrics
@@ -46,7 +48,9 @@ from aidegen.lib import config
 from aidegen.lib import errors
 from aidegen.lib import ide_common_util
 from aidegen.lib import project_config
-from aidegen.lib import sdk_config
+from aidegen.lib import project_file_gen
+from aidegen.sdk import jdk_table
+from aidegen.lib import xml_util
 
 # Add 'nohup' to prevent IDE from being terminated when console is terminated.
 _IDEA_FOLDER = '.idea'
@@ -75,15 +79,23 @@ CONFIG_DIR = 'config'
 LINUX_JDK_PATH = os.path.join(common_util.get_android_root_dir(),
                               'prebuilts/jdk/jdk8/linux-x86')
 LINUX_JDK_TABLE_PATH = 'config/options/jdk.table.xml'
+LINUX_FILE_TYPE_PATH = 'config/options/filetypes.xml'
 LINUX_ANDROID_SDK_PATH = os.path.join(os.getenv('HOME'), 'Android/Sdk')
 MAC_JDK_PATH = os.path.join(common_util.get_android_root_dir(),
                             'prebuilts/jdk/jdk8/darwin-x86')
 MAC_JDK_TABLE_PATH = 'options/jdk.table.xml'
+MAC_FILE_TYPE_XML_PATH = 'options/filetypes.xml'
 MAC_ANDROID_SDK_PATH = os.path.join(os.getenv('HOME'), 'Library/Android/sdk')
+PATTERN_KEY = 'pattern'
+TYPE_KEY = 'type'
+JSON_TYPE = 'JSON'
+TEST_MAPPING_NAME = 'TEST_MAPPING'
+_TEST_MAPPING_TYPE = '<mapping pattern="TEST_MAPPING" type="JSON" />'
+_XPATH_EXTENSION_MAP = 'component/extensionMap'
+_XPATH_MAPPING = _XPATH_EXTENSION_MAP + '/mapping'
+
 
 # pylint: disable=too-many-lines
-
-
 class IdeUtil:
     """Provide a set of IDE operations, e.g., launch and configuration.
 
@@ -146,6 +158,7 @@ class IdeBase:
     Class Attributes:
         _JDK_PATH: The path of JDK in android project.
         _IDE_JDK_TABLE_PATH: The path of JDK table which record JDK info in IDE.
+        _IDE_FILE_TYPE_PATH: The path of filetypes.xml.
         _JDK_CONTENT: A string, the content of the JDK configuration.
         _DEFAULT_ANDROID_SDK_PATH: A string, the path of Android SDK.
         _CONFIG_DIR: A string of the config folder name.
@@ -171,6 +184,7 @@ class IdeBase:
 
     _JDK_PATH = ''
     _IDE_JDK_TABLE_PATH = ''
+    _IDE_FILE_TYPE_PATH = ''
     _JDK_CONTENT = ''
     _DEFAULT_ANDROID_SDK_PATH = ''
     _CONFIG_DIR = ''
@@ -214,15 +228,55 @@ class IdeBase:
 
         for _config_path in _path_list:
             jdk_file = os.path.join(_config_path, self._IDE_JDK_TABLE_PATH)
-            jdk_table = sdk_config.SDKConfig(jdk_file, self._JDK_CONTENT,
-                                             self._JDK_PATH,
-                                             self._DEFAULT_ANDROID_SDK_PATH)
-            jdk_table.config_jdk_file()
-            jdk_table.gen_enable_debugger_module(self.project_abspath)
+            jdk_xml = jdk_table.JDKTableXML(jdk_file, self._JDK_CONTENT,
+                                            self._JDK_PATH,
+                                            self._DEFAULT_ANDROID_SDK_PATH)
+            if jdk_xml.config_jdk_table_xml():
+                project_file_gen.gen_enable_debugger_module(
+                    self.project_abspath, jdk_xml.android_sdk_version)
 
             # Set the max file size in the idea.properties.
             intellij_config_dir = os.path.join(_config_path, self._CONFIG_DIR)
             config.IdeaProperties(intellij_config_dir).set_max_file_size()
+
+            self._add_test_mapping_file_type(_config_path)
+
+    def _add_test_mapping_file_type(self, _config_path):
+        """Adds TEST_MAPPING file type.
+
+        IntelliJ can't recognize TEST_MAPPING files as the json file. It needs
+        adding file type mapping in filetypes.xml to recognize TEST_MAPPING
+        files.
+
+        Args:
+            _config_path: the path of IDE config.
+        """
+        file_type_path = os.path.join(_config_path, self._IDE_FILE_TYPE_PATH)
+        if not os.path.isfile(file_type_path):
+            logging.warning('Filetypes.xml is not found.')
+            return
+
+        file_type_xml = xml_util.parse_xml(file_type_path)
+        if not file_type_xml:
+            logging.warning('Can\'t parse filetypes.xml.')
+            return
+
+        root = file_type_xml.getroot()
+        add_pattern = True
+        for mapping in root.findall(_XPATH_MAPPING):
+            attrib = mapping.attrib
+            if PATTERN_KEY in attrib and TYPE_KEY in attrib:
+                if attrib[PATTERN_KEY] == TEST_MAPPING_NAME:
+                    if attrib[TYPE_KEY] != JSON_TYPE:
+                        attrib[TYPE_KEY] = JSON_TYPE
+                        file_type_xml.write(file_type_path)
+                    add_pattern = False
+                    break
+        if add_pattern:
+            root.find(_XPATH_EXTENSION_MAP).append(
+                ElementTree.fromstring(_TEST_MAPPING_TYPE))
+            pretty_xml = common_util.to_pretty_xml(root)
+            common_util.file_generate(file_type_path, pretty_xml)
 
     def _get_config_root_paths(self):
         """Get the config root paths from derived class.
@@ -564,6 +618,7 @@ class IdeLinuxIntelliJ(IdeIntelliJ):
     # TODO(b/127899277): Preserve a config for jdk version option case.
     _CONFIG_DIR = CONFIG_DIR
     _IDE_JDK_TABLE_PATH = LINUX_JDK_TABLE_PATH
+    _IDE_FILE_TYPE_PATH = LINUX_FILE_TYPE_PATH
     _JDK_CONTENT = templates.LINUX_JDK_XML
     _DEFAULT_ANDROID_SDK_PATH = LINUX_ANDROID_SDK_PATH
     _SYMBOLIC_VERSIONS = ['/opt/intellij-ce-stable/bin/idea.sh',
@@ -635,6 +690,7 @@ class IdeMacIntelliJ(IdeIntelliJ):
 
     _JDK_PATH = MAC_JDK_PATH
     _IDE_JDK_TABLE_PATH = MAC_JDK_TABLE_PATH
+    _IDE_FILE_TYPE_PATH = MAC_FILE_TYPE_XML_PATH
     _JDK_CONTENT = templates.MAC_JDK_XML
     _DEFAULT_ANDROID_SDK_PATH = MAC_ANDROID_SDK_PATH
 
@@ -970,6 +1026,47 @@ class IdeMacCLion(IdeCLion):
         self._init_installed_path(installed_path)
 
 
+class IdeVSCode(IdeBase):
+    """Class offers a set of VSCode launching utilities.
+
+    For example:
+        1. Check if VSCode is installed.
+        2. Launch an VSCode.
+    """
+
+    def __init__(self, installed_path=None, config_reset=False):
+        super().__init__(installed_path, config_reset)
+        self._ide_name = constant.IDE_VSCODE
+
+    def apply_optional_config(self):
+        """Override to do nothing."""
+
+    def _get_config_root_paths(self):
+        """Override to do nothing."""
+
+
+class IdeLinuxVSCode(IdeVSCode):
+    """Class offers a set of VSCode launching utilities for OS Linux."""
+
+    def __init__(self, installed_path=None, config_reset=False):
+        super().__init__(installed_path, config_reset)
+        self._bin_file_name = 'code'
+        self._bin_folders = ['/usr/bin']
+        self._bin_paths = self._get_possible_bin_paths()
+        self._init_installed_path(installed_path)
+
+
+class IdeMacVSCode(IdeVSCode):
+    """Class offers a set of VSCode launching utilities for OS Mac."""
+
+    def __init__(self, installed_path=None, config_reset=False):
+        super().__init__(installed_path, config_reset)
+        self._bin_file_name = 'code'
+        self._bin_folders = ['/usr/local/bin']
+        self._bin_paths = self._get_possible_bin_paths()
+        self._init_installed_path(installed_path)
+
+
 def get_ide_util_instance(ide='j'):
     """Get an IdeUtil class instance for launching IDE.
 
@@ -1035,6 +1132,8 @@ def _get_mac_ide(installed_path=None, ide='j', config_reset=False):
         return IdeMacStudio(installed_path, config_reset)
     if ide == 'c':
         return IdeMacCLion(installed_path, config_reset)
+    if ide == 'v':
+        return IdeMacVSCode(installed_path, config_reset)
     return IdeMacIntelliJ(installed_path, config_reset)
 
 
@@ -1056,4 +1155,6 @@ def _get_linux_ide(installed_path=None, ide='j', config_reset=False):
         return IdeLinuxStudio(installed_path, config_reset)
     if ide == 'c':
         return IdeLinuxCLion(installed_path, config_reset)
+    if ide == 'v':
+        return IdeLinuxVSCode(installed_path, config_reset)
     return IdeLinuxIntelliJ(installed_path, config_reset)

@@ -29,6 +29,7 @@ import shutil
 from aidegen import constant
 from aidegen import templates
 from aidegen.lib import common_util
+from aidegen.lib import config
 from aidegen.lib import project_config
 
 # FACET_SECTION is a part of iml, which defines the framework of the project.
@@ -385,6 +386,9 @@ class ProjectFileGenerator:
             # module, we add the exclude folders to speed up indexing time.
             if not relative_path:
                 src_builder.extend(_get_exclude_content(root_path))
+            excludes = project_config.ProjectConfig.get_instance().exclude_paths
+            if excludes:
+                src_builder.extend(_get_exclude_content(root_path, excludes))
             src_builder.append(_END_CONTENT)
         else:
             for path, is_test_flag in sorted(source_dict.items()):
@@ -453,8 +457,7 @@ class ProjectFileGenerator:
         module_content = self._handle_facet(templates.FILE_IML)
         module_content = self._handle_source_folder(module_content,
                                                     project_source_dict, True)
-        module_content = self._handle_srcjar_folder(
-            module_content, self.project_info.source_path['srcjar_path'])
+        module_content = self._handle_srcjar_folder(module_content)
         # b/121256503: Prevent duplicated iml names from breaking IDEA.
         module_name = self.get_unique_iml_name(module_path)
 
@@ -562,7 +565,7 @@ class ProjectFileGenerator:
         return git_path
 
 
-def _get_exclude_content(root_path):
+def _get_exclude_content(root_path, excludes=None):
     """Get the exclude folder content list.
 
     It returns the exclude folders content list.
@@ -572,12 +575,16 @@ def _get_exclude_content(root_path):
 
     Args:
         root_path: Android source file path.
+        excludes: A list of exclusive directories, the default value is None but
+                  will be assigned to _EXCLUDE_FOLDERS.
 
     Returns:
         String: exclude folder content list.
     """
     exclude_items = []
-    for folder in _EXCLUDE_FOLDERS:
+    if not excludes:
+        excludes = _EXCLUDE_FOLDERS
+    for folder in excludes:
         folder_path = os.path.join(root_path, folder)
         if os.path.isdir(folder_path):
             exclude_items.append(_EXCLUDE_ITEM % folder_path)
@@ -727,12 +734,8 @@ def _merge_all_shared_source_paths(projects):
     main_project = projects[0]
     # Merge all source paths of sub projects into main project.
     for project in projects[1:]:
-        main_project.source_path['source_folder_path'].update(
-            project.source_path['source_folder_path'])
-        main_project.source_path['test_folder_path'].update(
-            project.source_path['test_folder_path'])
-        main_project.source_path['jar_path'].update(
-            project.source_path['jar_path'])
+        for key, value in project.source_path.items():
+            main_project.source_path[key].update(value)
     # Filter duplicate source/test paths from dependencies.iml.
     sub_projects_relpaths = {p.project_relative_path for p in projects[1:]}
     main_project.source_path['source_folder_path'] = _filter_out_source_paths(
@@ -758,3 +761,21 @@ def update_enable_debugger(module_path, enable_debugger_module_abspath=None):
     content = common_util.read_file_content(target_path)
     content = content.replace(_ENABLE_DEBUGGER_MODULE_TOKEN, replace_string)
     common_util.file_generate(target_path, content)
+
+
+def gen_enable_debugger_module(module_abspath, android_sdk_version):
+    """Generate the enable_debugger module under AIDEGen config folder.
+
+    Skip generating the enable_debugger module in IntelliJ once the attemption
+    of getting the Android SDK version is failed.
+
+    Args:
+        module_abspath: the absolute path of the main project.
+        android_sdk_version: A string, the Android SDK version in jdk.table.xml.
+    """
+    if not android_sdk_version:
+        return
+    with config.AidegenConfig() as aconf:
+        if aconf.create_enable_debugger_module(android_sdk_version):
+            update_enable_debugger(module_abspath,
+                                   config.AidegenConfig.DEBUG_ENABLED_FILE_PATH)

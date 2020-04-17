@@ -24,21 +24,25 @@ import tempfile
 import unittest
 
 from unittest import mock
+from xml.etree import ElementTree
 
 from aidegen import aidegen_main
 from aidegen import unittest_constants
 from aidegen.lib import android_dev_os
+from aidegen.lib import common_util
 from aidegen.lib import config
 from aidegen.lib import errors
 from aidegen.lib import ide_common_util
 from aidegen.lib import ide_util
 from aidegen.lib import project_config
-from aidegen.lib import sdk_config
+from aidegen.lib import project_file_gen
+from aidegen.sdk import jdk_table
 
 
 # pylint: disable=too-many-public-methods
 # pylint: disable=protected-access
 # pylint: disable-msg=too-many-arguments
+# pylint: disable-msg=unused-argument
 class IdeUtilUnittests(unittest.TestCase):
     """Unit tests for ide_util.py."""
 
@@ -48,6 +52,22 @@ class IdeUtilUnittests(unittest.TestCase):
     _TEST_PRJ_PATH4 = ''
     _MODULE_XML_SAMPLE = ''
     _TEST_DIR = None
+    _TEST_XML_CONTENT = """<application>
+  <component name="FileTypeManager" version="17">
+    <extensionMap>
+      <mapping ext="pi" type="Python"/>
+    </extensionMap>
+  </component>
+</application>"""
+    _TEST_XML_CONTENT_2 = """<application>
+  <component name="FileTypeManager" version="17">
+    <extensionMap>
+      <mapping ext="pi" type="Python"/>
+      <mapping pattern="test" type="a"/>
+      <mapping pattern="TEST_MAPPING" type="a"/>
+    </extensionMap>
+  </component>
+</application>"""
 
     def setUp(self):
         """Prepare the testdata related path."""
@@ -135,17 +155,12 @@ class IdeUtilUnittests(unittest.TestCase):
         self.assertTrue(mock_set.called)
 
     @mock.patch.object(ide_util.IdeIntelliJ, '_get_preferred_version')
-    @mock.patch.object(sdk_config.SDKConfig, '_android_sdk_exists')
-    @mock.patch.object(sdk_config.SDKConfig, '_target_jdk_exists')
     @mock.patch.object(ide_util.IdeIntelliJ, '_get_config_root_paths')
     @mock.patch.object(ide_util.IdeBase, 'apply_optional_config')
-    def test_config_ide(self, mock_config, mock_paths, mock_jdk, mock_sdk,
-                        mock_preference):
+    def test_config_ide(self, mock_config, mock_paths, mock_preference):
         """Test IDEA, IdeUtil.config_ide won't call base none implement api."""
         # Mock SDkConfig flow to not to generate real jdk config file.
         mock_preference.return_value = None
-        mock_jdk.return_value = True
-        mock_sdk.return_value = True
         module_path = os.path.join(self._TEST_DIR, 'test')
         idea_path = os.path.join(module_path, '.idea')
         os.makedirs(idea_path)
@@ -224,23 +239,63 @@ class IdeUtilUnittests(unittest.TestCase):
         ide_obj._get_config_root_paths()
         self.assertTrue(mock_filter.called)
 
-    @mock.patch.object(sdk_config.SDKConfig, '__init__')
-    @mock.patch.object(ide_util.IdeIntelliJ, '_get_config_root_paths')
-    def test_apply_optional_config(self, mock_path, mock_conf):
-        """Test basic logic of _apply_optional_config."""
-        with mock.patch.object(ide_util, 'IdeIntelliJ') as obj:
-            obj._installed_path = None
-            obj.apply_optional_config()
-            self.assertFalse(mock_path.called)
+    @mock.patch.object(ide_util.IdeBase, '_add_test_mapping_file_type')
+    @mock.patch.object(config.IdeaProperties, 'set_max_file_size')
+    @mock.patch.object(project_file_gen, 'gen_enable_debugger_module')
+    @mock.patch.object(jdk_table.JDKTableXML, 'config_jdk_table_xml')
+    @mock.patch.object(ide_util.IdeBase, '_get_config_root_paths')
+    def test_apply_optional_config(self, mock_path, mock_config_xml,
+                                   mock_gen_debugger, mock_set_size,
+                                   mock_test_mapping):
+        """Test basic logic of apply_optional_config."""
+        ide = ide_util.IdeBase()
+        ide._installed_path = None
+        ide.apply_optional_config()
+        self.assertFalse(mock_path.called)
+        ide._installed_path = 'default_path'
+        ide.apply_optional_config()
+        self.assertTrue(mock_path.called)
+        mock_path.return_value = []
+        ide.apply_optional_config()
+        self.assertFalse(mock_config_xml.called)
+        mock_path.return_value = ['a']
+        mock_config_xml.return_value = False
+        ide.apply_optional_config()
+        self.assertFalse(mock_gen_debugger.called)
+        self.assertTrue(mock_set_size.called)
+        mock_config_xml.return_value = True
+        ide.apply_optional_config()
+        self.assertEqual(ide.config_folders, ['a'])
+        self.assertTrue(mock_gen_debugger.called)
+        self.assertTrue(mock_set_size.called)
 
-            obj.reset()
-            obj._installed_path = 'default_path'
-            mock_path.return_value = ['path1', 'path2']
-            obj._IDE_JDK_TABLE_PATH = '/JDK_path'
+    @mock.patch('os.path.isfile')
+    @mock.patch.object(ElementTree.ElementTree, 'write')
+    @mock.patch.object(common_util, 'to_pretty_xml')
+    @mock.patch.object(common_util, 'file_generate')
+    @mock.patch.object(ElementTree, 'parse')
+    @mock.patch.object(ElementTree.ElementTree, 'getroot')
+    def test_add_test_mapping_file_type(self, mock_root, mock_parse,
+                                        mock_file_gen, mock_pretty_xml,
+                                        mock_write, mock_isfile):
+        """Test basic logic of _add_test_mapping_file_type."""
+        mock_isfile.return_value = False
+        self.assertFalse(mock_file_gen.called)
 
-            obj.apply_optional_config()
-            self.assertTrue(mock_conf.called_with('path1/JDK_path'))
-            self.assertTrue(mock_conf.called_with('path2/JDK_path'))
+        mock_isfile.return_value = True
+        mock_parse.return_value = None
+        self.assertFalse(mock_file_gen.called)
+
+        mock_parse.return_value = ElementTree.ElementTree()
+        mock_root.return_value = ElementTree.fromstring(
+            self._TEST_XML_CONTENT_2)
+        ide_obj = ide_util.IdeBase()
+        ide_obj._add_test_mapping_file_type('')
+        self.assertFalse(mock_file_gen.called)
+        mock_root.return_value = ElementTree.fromstring(self._TEST_XML_CONTENT)
+        ide_obj._add_test_mapping_file_type('')
+        self.assertTrue(mock_pretty_xml.called)
+        self.assertTrue(mock_file_gen.called)
 
     @mock.patch('os.path.realpath')
     @mock.patch('os.path.isfile')
@@ -411,16 +466,16 @@ class IdeUtilUnittests(unittest.TestCase):
         version = ide_intellij._get_preferred_version()
         self.assertEqual(version, '/a/b')
 
+    @mock.patch.object(ide_util.IdeBase, '_add_test_mapping_file_type')
     @mock.patch.object(ide_common_util, 'ask_preference')
     @mock.patch.object(config.IdeaProperties, 'set_max_file_size')
-    @mock.patch.object(sdk_config.SDKConfig, 'gen_enable_debugger_module')
-    @mock.patch.object(sdk_config.SDKConfig, 'config_jdk_file')
+    @mock.patch.object(project_file_gen, 'gen_enable_debugger_module')
     @mock.patch.object(ide_util.IdeStudio, '_get_config_root_paths')
-    def test_android_studio_class(self, mock_get_config_paths, mock_config_file,
-                                  mock_gen_debugger, mock_set_size, mock_ask):
+    def test_android_studio_class(self, mock_get_config_paths,
+                                  mock_gen_debugger, mock_set_size, mock_ask,
+                                  mock_add_file_type):
         """Test IdeStudio."""
         mock_get_config_paths.return_value = ['path1', 'path2']
-        mock_config_file.return_value = True
         mock_gen_debugger.return_value = True
         mock_set_size.return_value = True
         mock_ask.return_value = None
@@ -435,11 +490,6 @@ class IdeUtilUnittests(unittest.TestCase):
         obj.project_abspath = IdeUtilUnittests._TEST_DIR
         obj.apply_optional_config()
         self.assertEqual(obj.config_folders, [])
-
-        obj._installed_path = '/'
-        obj.apply_optional_config()
-        expected_paths = ['path1', 'path2']
-        self.assertEqual(obj.config_folders, expected_paths)
 
         mock_get_config_paths.return_value = []
         self.assertIsNone(obj.apply_optional_config())
@@ -597,6 +647,28 @@ class IdeUtilUnittests(unittest.TestCase):
         mock_ide_installed.return_value = False
         with self.assertRaises(errors.IDENotExistError):
             ide_util.get_ide_util_instance()
+
+    @mock.patch.object(ide_util.IdeLinuxVSCode, '_init_installed_path')
+    @mock.patch.object(ide_util.IdeLinuxVSCode, '_get_possible_bin_paths')
+    def test_ide_linux_vscode(self, mock_get_pos, mock_init_inst):
+        """Test IdeLinuxVSCode class."""
+        ide_util.IdeLinuxVSCode()
+        self.assertTrue(mock_get_pos.called)
+        self.assertTrue(mock_init_inst.called)
+
+    @mock.patch.object(ide_util.IdeMacVSCode, '_init_installed_path')
+    @mock.patch.object(ide_util.IdeMacVSCode, '_get_possible_bin_paths')
+    def test_ide_mac_vscode(self, mock_get_pos, mock_init_inst):
+        """Test IdeMacVSCode class."""
+        ide_util.IdeMacVSCode()
+        self.assertTrue(mock_get_pos.called)
+        self.assertTrue(mock_init_inst.called)
+
+    def test_get_all_versions(self):
+        """Test _get_all_versions."""
+        ide = ide_util.IdeIntelliJ()
+        test_result = ide._get_all_versions('a', 'b')
+        self.assertEqual(test_result, ['a', 'b'])
 
 
 if __name__ == '__main__':

@@ -33,9 +33,12 @@ information. If they do not exist, AIDEGen will create them.
 from __future__ import absolute_import
 
 import os
-import xml.etree.ElementTree
+
+from xml.etree import ElementTree
 
 from aidegen import constant
+from aidegen import templates
+from aidegen.lib import aidegen_metrics
 from aidegen.lib import common_util
 from aidegen.lib import xml_util
 from aidegen.sdk import android_sdk
@@ -73,10 +76,16 @@ class JDKTableXML():
     _PROJECTJDKTABLE = 'ProjectJdkTable'
     _LAST_TAG_TAIL = '\n    '
     _NEW_TAG_TAIL = '\n  '
+    _ANDROID_SDK_VERSION = 'Android API {CODE_NAME} Platform'
     _DEFAULT_JDK_TABLE_XML = os.path.join(common_util.get_android_root_dir(),
                                           constant.AIDEGEN_ROOT_PATH,
                                           'data',
                                           'jdk.table.xml')
+    _ILLEGAL_XML = ('The {XML} is not an useful XML file for IntelliJ. Do you '
+                    'agree AIDEGen override it?(y/n)')
+    _IGNORE_XML_WARNING = ('The {XML} is not an useful XML file for IntelliJ. '
+                           'It causes the feature "Attach debugger to Android '
+                           'process" to be disabled.')
 
     def __init__(self, config_file, jdk_content, jdk_path,
                  default_android_sdk_path):
@@ -130,6 +139,26 @@ class JDKTableXML():
             return False
         return self._xml.find(self._COMPONENT).get(
             self._NAME) == self._PROJECTJDKTABLE
+
+    def _override_xml(self):
+        """Overrides the XML file when it's invalid.
+
+        Returns:
+            A boolean, True when developers choose to override the XML file,
+            otherwise False.
+        """
+        input_data = input(self._ILLEGAL_XML.format(XML=self._config_file))
+        while input_data not in ('y', 'n'):
+            input_data = input('Please type y(Yes) or n(No): ')
+        if input_data == 'y':
+            # Record the exception about wrong XML format.
+            if self._xml:
+                aidegen_metrics.send_exception_metrics(
+                    constant.XML_PARSING_FAILURE, '',
+                    ElementTree.tostring(self._xml.getroot()), '')
+            self._xml = xml_util.parse_xml(self._DEFAULT_JDK_TABLE_XML)
+            return True
+        return False
 
     def _check_jdk18_in_xml(self):
         """Checks if the JDK18 is already set in jdk.table.xml.
@@ -188,7 +217,7 @@ class JDKTableXML():
         Args:
             new_config: A string of new <jdk> configuration.
         """
-        node = xml.etree.ElementTree.fromstring(new_config)
+        node = ElementTree.fromstring(new_config)
         node.tail = self._NEW_TAG_TAIL
         component = self._xml.getroot().find(self._COMPONENT)
         if len(component) > 0:
@@ -206,6 +235,22 @@ class JDKTableXML():
 
     def _generate_sdk_config_string(self):
         """Generates Android SDK configuration."""
+        if self._check_android_sdk_in_xml():
+            return
+        if self._sdk.path_analysis(self._default_android_sdk_path):
+            # TODO(b/151582629): Revise the API_LEVEL to CODE_NAME when
+            #                    abandoning the sdk_config.py.
+            self._append_config(templates.ANDROID_SDK_XML.format(
+                ANDROID_SDK_PATH=self._sdk.android_sdk_path,
+                CODE_NAME=self._sdk.max_code_name))
+            self._android_sdk_version = self._ANDROID_SDK_VERSION.format(
+                CODE_NAME=self._sdk.max_code_name)
+            self._modify_config = True
+            return
+        # Record the exception about missing Android SDK.
+        aidegen_metrics.send_exception_metrics(
+            constant.LOCATE_SDK_PATH_FAILURE, '',
+            ElementTree.tostring(self._xml.getroot()), '')
 
     def config_jdk_table_xml(self):
         """Configures the jdk.table.xml.
@@ -219,8 +264,8 @@ class JDKTableXML():
         Returns:
             A boolean, True when get the Android SDK version, otherwise False.
         """
-        # TODO(b/151582629): Handle the XML's illegal content on another CL.
-        if not self._check_structure():
+        if not self._check_structure() and not self._override_xml():
+            print(self._IGNORE_XML_WARNING.format(XML=self._config_file))
             return False
         self._generate_jdk_config_string()
         self._generate_sdk_config_string()

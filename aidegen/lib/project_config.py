@@ -81,6 +81,7 @@ class ProjectConfig():
         self.verbose = args.verbose
         self.ide_installed_path = args.ide_installed_path
         self.config_reset = args.config_reset
+        self.exclude_paths = args.exclude_paths
         self.atest_module_info = None
         ProjectConfig._instance = self
 
@@ -88,6 +89,8 @@ class ProjectConfig():
         """Initialize the environment settings for the whole project."""
         self._show_skip_build_msg()
         self.atest_module_info = common_util.get_atest_module_info(self.targets)
+        self.exclude_paths = _transform_exclusive_paths(
+            self.atest_module_info, self.exclude_paths)
         self.targets = _check_whole_android_tree(self.targets, self.full_repo)
         self.full_repo = (self.targets[0] == constant.WHOLE_ANDROID_TREE_TARGET)
 
@@ -157,3 +160,21 @@ def is_whole_android_tree(targets, android_tree):
     """
     return (android_tree or
             (common_util.is_android_root(os.getcwd()) and targets == ['']))
+
+
+def _transform_exclusive_paths(atest_module_info, exclude_paths):
+    """Transforms exclusive paths to relative paths.
+
+    Args:
+        exclude_paths: A list of strings of exclusive paths.
+
+    Returns:
+        A list of relative paths.
+    """
+    if not exclude_paths:
+        return None
+    excludes = []
+    for path in exclude_paths:
+        exclude_path, _ = common_util.get_related_paths(atest_module_info, path)
+        excludes.append(exclude_path)
+    return excludes
