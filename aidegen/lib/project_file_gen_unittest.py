@@ -301,7 +301,7 @@ class AidegenProjectFileGenUnittest(unittest.TestCase):
         self.assertEqual(test_vcs, sample_vcs)
         mock_get_root.return_value = unittest_constants.ANDROID_PROJECT_PATH
         project_file_gen._merge_project_vcs_xmls([mock_project])
-        self.assertTrue(mock_get_all_git_path.called)
+        self.assertFalse(mock_get_all_git_path.called)
 
     def test_get_uniq_iml_name(self):
         """Test the unique name cache mechanism.
