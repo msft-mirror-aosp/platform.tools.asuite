@@ -81,6 +81,16 @@ _CC_NAME_TO_MODULE_INFO = {
             '/path/to/rebuild'
         ],
         'module_name': _REBUILD_TARGET1
+    },
+    'multiarch-eng': {
+        'path': [
+            'shared/path/to/be/used2-eng'
+        ],
+        'srcs': [
+            'shared/path/to/be/used2/multiarch-eng.cpp',
+            'out/soong/.intermediates/shared/path/to/be/used2/gen/Iarch-eng.cpp'
+        ],
+        'module_name': 'multiarch-eng'
     }
 }
 _CC_MODULE_INFO = {
