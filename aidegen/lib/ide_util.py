@@ -525,8 +525,8 @@ class IdeIntelliJ(IdeBase):
                                            self.ide_name)))
                 try:
                     import_process = subprocess.Popen(
-                        ide_common_util.get_run_ide_cmd(run_script_path, '',
-                                                        False), shell=True)
+                        ide_common_util.get_run_ide_cmd(run_script_path, ''),
+                        shell=True)
                 except (subprocess.SubprocessError, ValueError):
                     logging.warning('\nSubprocess call gets the invalid input.')
                 finally:
@@ -930,7 +930,7 @@ class IdeEclipse(IdeBase):
         if (os.path.exists(os.path.expanduser(constant.ECLIPSE_WS))
                 or str(input(_ALERT_CREATE_WS)).lower() == 'y'):
             self.cmd.extend(['-data', constant.ECLIPSE_WS])
-        self.cmd.extend([constant.IGNORE_STD_OUT_ERR_CMD, '&'])
+        self.cmd.extend([constant.IGNORE_STD_OUT_ERR_CMD])
         return ' '.join(self.cmd)
 
     def apply_optional_config(self):
