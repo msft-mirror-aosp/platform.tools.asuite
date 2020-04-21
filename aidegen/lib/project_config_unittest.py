@@ -199,6 +199,7 @@ class AidegenProjectConfigUnittests(unittest.TestCase):
 
     def test_get_instance_without_instance(self):
         """Test get_instance method without initialize an instance."""
+        project_config.ProjectConfig._instance = None
         with self.assertRaises(errors.InstanceNotExistError):
             project_config.ProjectConfig.get_instance()
 
