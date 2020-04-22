@@ -30,9 +30,9 @@ _MY_DEFAULT_INCLUDE_PATH = 'myDefaultIncludePath'
 _MY_COMPILER_PATH = 'myCompilerPath'
 _CONFIG = 'configurations'
 _NAME = 'name'
-_LINUX = 'linux'
+_LINUX = 'Linux'
 _INTELL_SENSE = 'intelliSenseMode'
-_GCC_X64 = 'gcc-x64'
+_GCC_X64 = 'clang-x64'
 _INC_PATH = 'includePath'
 _SYS_INC_PATH = 'systemIncludePath'
 _COMPILE_PATH = 'compilerPath'
@@ -50,6 +50,9 @@ _LIMIT_SYM = 'limitSymbolsToIncludedHeaders'
 _DB_FILE_NAME = 'databaseFilename'
 _COMPILER_PATH = '/usr/bin/gcc'
 _COMPILER_EMPTY = '"compilerPath" is empty and will skip querying a compiler.'
+_FALSE = 'false'
+_INTELI_SENSE_ENGINE = 'C_Cpp.intelliSenseEngine'
+_DEFAULT = 'Default'
 
 
 class VSCodeNativeProjectFileGenerator:
@@ -96,12 +99,14 @@ class VSCodeNativeProjectFileGenerator:
         """
         configs = {}
         configs[_NAME] = _LINUX
-        configs[_INTELL_SENSE] = _GCC_X64
         includes = set()
         for mod_name in mod_names:
             includes.update(native_mod_info.get_module_includes(mod_name))
+        browse = {_LIMIT_SYM: _FALSE, _INTELI_SENSE_ENGINE: _DEFAULT}
         if includes:
-            configs[_INC_PATH] = _make_header_file_paths(includes)
+            paths = _make_header_file_paths(includes)
+            configs[_INC_PATH] = paths
+            browse[_PATH] = paths
         configs[_COMPILE_PATH] = ''
         if os.path.isfile(_COMPILER_PATH):
             configs[_COMPILE_PATH] = _COMPILER_PATH
@@ -112,6 +117,8 @@ class VSCodeNativeProjectFileGenerator:
         root_var = _make_var(constants.ANDROID_BUILD_TOP)
         configs[_COMPILE_CMD] = os.path.join(
             root_var, _COMPILE_COMMANDS_FILE_DIR, _COMPILE_COMMANDS_FILE_NAME)
+        configs[_BROWSE] = browse
+        configs[_INTELL_SENSE] = _GCC_X64
         data = {}
         data[_CONFIG] = [configs]
         return data
@@ -141,5 +148,5 @@ def _make_header_file_paths(paths):
     header_list = []
     for path in paths:
         header_list.append(os.path.join(
-            _make_var(constants.ANDROID_BUILD_TOP), path, '**/*.h'))
+            _make_var(constants.ANDROID_BUILD_TOP), path))
     return header_list
