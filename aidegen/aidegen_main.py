@@ -58,6 +58,7 @@ from aidegen.lib import project_config
 from aidegen.lib import project_file_gen
 from aidegen.lib import project_info
 from aidegen.vscode import vscode_java_project_file_gen
+from aidegen.vscode import vscode_native_project_file_gen
 
 AIDEGEN_REPORT_LINK = ('To report the AIDEGen tool problem, please use this '
                        'link: https://goto.google.com/aidegen-bug')
@@ -324,8 +325,12 @@ def _launch_vscode(ide_util_obj, atest_module_info, jtargets, ctargets):
         abs_paths.append(abs_path)
     if ctargets:
         cc_module_info = native_module_info.NativeModuleInfo()
+        native_project_info.NativeProjectInfo.generate_projects(ctargets)
+        vs_gen = vscode_native_project_file_gen.VSCodeNativeProjectFileGenerator
         for target in ctargets:
             _, abs_path = common_util.get_related_paths(cc_module_info, target)
+            vs_native = vs_gen(abs_path)
+            vs_native.generate_c_cpp_properties_json_file()
             abs_paths.append(abs_path)
     vscode_project = vscode_java_project_file_gen.JavaProjectGen
     abs_jpath = vscode_project.generate_code_workspace_file(abs_paths)
