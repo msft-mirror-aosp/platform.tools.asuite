@@ -473,7 +473,7 @@ class AidegenProjectFileGenUnittest(unittest.TestCase):
         mock_get_root.return_value = self._AOSP_FOLDER
         source = project_file_gen.ProjectFileGenerator(
             mock_project)._handle_srcjar_folder(templates.FILE_IML,
-                                                {'out/aapt2.srcjar!/'})
+                                                {'out/aapt2.srcjar'})
         sample_source = common_util.read_file_content(self._SRCJAR_SAMPLE)
         self.assertEqual(source, sample_source)
 
