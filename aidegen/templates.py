@@ -29,6 +29,21 @@ FILE_IML = """<?xml version="1.0" encoding="UTF-8"?>
     </component>
 </module>
 """
+# TODO(b/153704028): Refactor to create iml file.
+IML = """<?xml version="1.0" encoding="UTF-8"?>
+<module type="JAVA_MODULE" version="4">
+    <component name="NewModuleRootManager" inherit-compiler-output="true">
+        <exclude-output />{SRCJARS}
+        <orderEntry type="sourceFolder" forTests="false" />
+        <orderEntry type="inheritedJdk" />
+    </component>
+</module>
+"""
+
+SRCJAR = """
+        <content url="jar://{SRCJAR}!/">
+            <sourceFolder url="jar://{SRCJAR}!/" isTestSource="False" />
+        </content>"""
 
 # The template content of modules.xml.
 XML_MODULES = """<?xml version="1.0" encoding="UTF-8"?>
