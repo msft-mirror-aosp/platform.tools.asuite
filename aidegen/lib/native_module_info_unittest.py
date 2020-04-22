@@ -241,6 +241,9 @@ class NativeModuleInfoUnittests(unittest.TestCase):
         mock_isdir.return_value = True
         self.assertFalse(mod_info._is_include_need_build(
             _CC_NAME_TO_MODULE_INFO['multiarch']))
+        mock_isdir.return_value = True
+        self.assertFalse(mod_info._is_include_need_build(
+            _CC_NAME_TO_MODULE_INFO['multiarch']))
 
     def test_not_implemented_methods(self):
         """Test not implemented methods."""
