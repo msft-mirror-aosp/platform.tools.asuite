@@ -23,6 +23,7 @@ import tempfile
 import unittest
 from unittest import mock
 
+from aidegen import constant
 from aidegen import unittest_constants
 from aidegen.lib import common_util
 from aidegen.lib import project_info
@@ -115,6 +116,15 @@ class ProjectInfoUnittests(unittest.TestCase):
         project_info.ProjectInfo.modules_info = mock_module_info
         proj_info = project_info.ProjectInfo(self.args.module_name, False)
         self.assertEqual(proj_info.dep_modules, _EXPECT_DEPENDENT_MODULES)
+
+    @mock.patch.object(project_info.ProjectInfo,
+                       '_get_modules_under_project_path')
+    @mock.patch.object(project_info.ProjectInfo, 'get_dep_modules')
+    def test_init(self, mock_get_deps, mock_get_sub_modules):
+        """Test init."""
+        project_info.ProjectInfo(constant.FRAMEWORK_ALL, False)
+        self.assertTrue(mock_get_deps.called)
+        self.assertFalse(mock_get_sub_modules.called)
 
     @mock.patch.object(common_util, 'get_android_root_dir')
     def test_get_target_name(self, mock_get_root):
