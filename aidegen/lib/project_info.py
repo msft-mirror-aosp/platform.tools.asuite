@@ -50,6 +50,8 @@ _EXCLUDE_MODULES = ['fake-framework']
 _CMD_LENGTH_BUFFER = 5000
 # For each argument, it need a space to separate following argument.
 _BLANK_SIZE = 1
+_CORE_MODULES = [constant.FRAMEWORK_ALL, constant.CORE_ALL,
+                 'org.apache.http.legacy.stubs.system']
 
 
 class ProjectInfo:
@@ -114,7 +116,10 @@ class ProjectInfo:
         self.iml_path = ''
         self._set_default_modues()
         self._init_source_path()
-        self.dep_modules = self.get_dep_modules()
+        if target == constant.FRAMEWORK_ALL:
+            self.dep_modules = self.get_dep_modules([target])
+        else:
+            self.dep_modules = self.get_dep_modules()
         self._filter_out_modules()
         self._display_convert_make_files_message()
 
@@ -128,10 +133,9 @@ class ProjectInfo:
             error of "cannot resolve symbol" in IntelliJ since they import
             packages android.Manifest and com.android.internal.R.
         """
-        # TODO(b/112058649): Do more research to clarify how to remove these
-        #                    hard-code sources.
-        self.project_module_names.update(
-            ['framework', 'org.apache.http.legacy.stubs.system'])
+        # Set the default modules framework-all and core-all as the core
+        # dependency modules.
+        self.project_module_names.update(_CORE_MODULES)
 
     def _init_source_path(self):
         """Initialize source_path dictionary."""
@@ -352,10 +356,10 @@ class ProjectInfo:
         for module_name, module_data in self.dep_modules.items():
             module = self._generate_moduledata(module_name, module_data)
             module.locate_sources_path()
-            self.source_path['source_folder_path'].update(module.src_dirs)
-            self.source_path['test_folder_path'].update(module.test_dirs)
-            self.source_path['r_java_path'].update(module.r_java_paths)
-            self.source_path['srcjar_path'].update(module.srcjar_paths)
+            self.source_path['source_folder_path'].update(set(module.src_dirs))
+            self.source_path['test_folder_path'].update(set(module.test_dirs))
+            self.source_path['r_java_path'].update(set(module.r_java_paths))
+            self.source_path['srcjar_path'].update(set(module.srcjar_paths))
             self._append_jars_as_dependencies(module)
             rebuild_targets.update(module.build_targets)
         config = project_config.ProjectConfig.get_instance()
