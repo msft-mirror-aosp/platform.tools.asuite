@@ -670,7 +670,7 @@ def get_blueprint_json_files_relative_dict():
     bp_cc_path = os.path.join(
         root_dir, get_blueprint_json_path(constant.BLUEPRINT_CC_JSONFILE_NAME))
     data[constant.GEN_CC_DEPS] = bp_cc_path
-    data[constant.GEN_COMPDB] = os.path.join(root_dir, get_android_out_dir(),
+    data[constant.GEN_COMPDB] = os.path.join(get_soong_out_path(),
                                              constant.RELATIVE_COMPDB_PATH,
                                              constant.COMPDB_JSONFILE_NAME)
     return data
