@@ -645,10 +645,7 @@ def _merge_project_vcs_xmls(projects):
         git_paths = [project.git_path for project in projects]
         _write_vcs_xml(main_project_absolute_path, git_paths)
     else:
-        vcs_file = os.path.join(common_util.get_android_root_dir(),
-                                _IDEA_FOLDER, _VCS_XML)
-        if os.path.exists(vcs_file):
-            os.remove(vcs_file)
+        _write_vcs_xml(main_project_absolute_path, [])
 
 
 def _get_all_git_path(root_path):
