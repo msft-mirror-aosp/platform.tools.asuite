@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-ATEST3_REL_DIR="tools/asuite/atest"
+ATEST_REL_DIR="tools/asuite/atest"
 
 _atest_completion_ready() {
     # Not support completion on systems of which the out-of-box bash version
@@ -29,9 +29,9 @@ _atest_completion_ready() {
     fi
 }
 
-_fetch_testable_modules_py3() {
+_fetch_testable_modules() {
     [[ -z $ANDROID_BUILD_TOP ]] && return 0
-    export ATEST_DIR="$ANDROID_BUILD_TOP/$ATEST3_REL_DIR"
+    export ATEST_DIR="$ANDROID_BUILD_TOP/$ATEST_REL_DIR"
     $PYTHON - << END
 import os
 import pickle
@@ -54,9 +54,9 @@ END
 
 # This function invoke get_args() and return each item
 # of the list for tab completion candidates.
-_fetch_atest_args_py3() {
+_fetch_atest_args() {
     [[ -z $ANDROID_BUILD_TOP ]] && return 0
-    export ATEST_DIR="$ANDROID_BUILD_TOP/$ATEST3_REL_DIR"
+    export ATEST_DIR="$ANDROID_BUILD_TOP/$ATEST_REL_DIR"
     $PYTHON - << END
 import os
 import sys
@@ -85,7 +85,7 @@ _fetch_test_mapping_files() {
 }
 
 # The main tab completion function.
-_atest_py3() {
+_atest() {
     local cur prev
     COMPREPLY=()
     cur="${COMP_WORDS[COMP_CWORD]}"
@@ -94,12 +94,12 @@ _atest_py3() {
 
     case "$cur" in
         -*)
-            COMPREPLY=($(compgen -W "$(_fetch_atest_args_py3)" -- $cur))
+            COMPREPLY=($(compgen -W "$(_fetch_atest_args)" -- $cur))
             ;;
         */*)
             ;;
         *)
-            local candidate_args=$(ls; _fetch_testable_modules_py3)
+            local candidate_args=$(ls; _fetch_testable_modules)
             COMPREPLY=($(compgen -W "$candidate_args" -- $cur))
             ;;
     esac
@@ -133,7 +133,7 @@ _atest_py3() {
     return 0
 }
 
-function _atest_main_py3() {
+function _atest_main() {
     # Only use this in interactive mode.
     # Warning: below check must be "return", not "exit". "exit" won't break the
     # build in interactive shell(e.g VM), but will result in build breakage in
@@ -160,15 +160,15 @@ function _atest_main_py3() {
     # BASH version <= 4.3 doesn't have nosort option.
     # Note that nosort has no effect for zsh.
     local _atest_comp_options="-o default -o nosort"
-    local _atest_executables=(atest-py3-dev atest-py3-src)
+    local _atest_executables=(atest-dev atest-src)
     for exec in "${_atest_executables[*]}"; do
-        complete -F _atest_py3 $_atest_comp_options $exec 2>/dev/null || \
-        complete -F _atest_py3 -o default $exec
+        complete -F _atest $_atest_comp_options $exec 2>/dev/null || \
+        complete -F _atest -o default $exec
     done
 
     # Install atest-src for the convenience of debugging.
-    local atest_src="$(gettop)/$ATEST3_REL_DIR/atest.py"
-    [[ -f "$atest_src" ]] && alias atest-py3-src="$atest_src"
+    local atest_src="$(gettop)/$ATEST_REL_DIR/atest.py"
+    [[ -f "$atest_src" ]] && alias atest-src="$atest_src"
 }
 
-_atest_main_py3
+_atest_main
