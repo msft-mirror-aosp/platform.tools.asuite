@@ -691,3 +691,15 @@ def to_pretty_xml(root, indent="  "):
     xml_string = xml_string.split("\n", 1)[1]
     # Remove the weird newline issue from toprettyxml.
     return os.linesep.join([s for s in xml_string.splitlines() if s.strip()])
+
+def to_boolean(str_bool):
+    """Converts a string to a boolean.
+
+    Args:
+        str_bool: A string in the expression of boolean type.
+
+    Returns:
+        A boolean True if the string is one of ('True', 'true', 'T', 't', '1')
+        else False.
+    """
+    return str_bool and str_bool.lower() in ('true', 't', '1')
