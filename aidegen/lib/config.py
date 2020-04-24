@@ -353,7 +353,7 @@ idea.max.intellisense.filesize=100000
         properties = common_util.read_file_content(self.idea_file).splitlines()
         for index, line in enumerate(properties):
             res = re.search(self._RE_SEARCH_FILESIZE, line)
-            if res and int(res['value']) < self._FILESIZE_LIMIT:
+            if res and int(res.group('value')) < self._FILESIZE_LIMIT:
                 updated_flag = True
                 properties[index] = '%s=%s' % (self._KEY_FILESIZE,
                                                str(self._FILESIZE_LIMIT))
