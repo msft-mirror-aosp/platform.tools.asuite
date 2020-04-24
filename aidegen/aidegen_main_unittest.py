@@ -37,7 +37,7 @@ from aidegen.lib import native_project_info
 from aidegen.lib import project_config
 from aidegen.lib import project_file_gen
 from aidegen.lib import project_info
-from aidegen.vscode import vscode_java_project_file_gen
+from aidegen.vscode import vscode_workspace_file_gen
 
 
 # pylint: disable=protected-access
@@ -371,20 +371,20 @@ class AidegenMainUnittests(unittest.TestCase):
         self.assertFalse(mock_launch.called)
 
     @mock.patch.object(aidegen_main, '_launch_ide')
-    @mock.patch.object(vscode_java_project_file_gen.JavaProjectGen,
+    @mock.patch.object(vscode_workspace_file_gen,
                        'generate_code_workspace_file')
     @mock.patch.object(common_util, 'get_related_paths')
     def test_launch_vscode_without_ide_object(
-            self, mock_get_rel, mock_gen_code, mock_get_ide):
+            self, mock_get_rel, mock_gen_code, mock_launch_ide):
         """Test _launch_vscode function without ide object."""
         mock_get_rel.return_value = 'rel', 'abs'
         aidegen_main._launch_vscode(None, mock.Mock(), ['Settings'], [])
         self.assertTrue(mock_get_rel.called)
         self.assertTrue(mock_gen_code.called)
-        self.assertFalse(mock_get_ide.called)
+        self.assertFalse(mock_launch_ide.called)
 
     @mock.patch.object(aidegen_main, '_launch_ide')
-    @mock.patch.object(vscode_java_project_file_gen.JavaProjectGen,
+    @mock.patch.object(vscode_workspace_file_gen,
                        'generate_code_workspace_file')
     @mock.patch.object(common_util, 'get_related_paths')
     def test_launch_vscode_with_ide_object(
@@ -398,7 +398,7 @@ class AidegenMainUnittests(unittest.TestCase):
 
     @mock.patch.object(aidegen_main, '_launch_vscode')
     @mock.patch.object(aidegen_main, '_launch_ide')
-    @mock.patch.object(vscode_java_project_file_gen.JavaProjectGen,
+    @mock.patch.object(vscode_workspace_file_gen,
                        'generate_code_workspace_file')
     @mock.patch.object(common_util, 'get_related_paths')
     def test_launch_vscode_with_both_languages(
