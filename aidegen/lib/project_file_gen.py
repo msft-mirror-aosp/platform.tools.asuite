@@ -42,8 +42,8 @@ _SOURCE_FOLDER = ('            <sourceFolder url='
 _EXCLUDE_ITEM = '            <excludeFolder url="file://%s" />\n'
 _CONTENT_URL = '        <content url="file://%s">\n'
 _END_CONTENT = '        </content>\n'
-_SRCJAR_URL = ('%s<content url="jar://{SRCJAR}">\n'
-               '%s<sourceFolder url="jar://{SRCJAR}" isTestSource="False" />\n'
+_SRCJAR_URL = ('%s<content url="jar://{SRCJAR}!/">\n'
+               '%s<sourceFolder url="jar://{SRCJAR}!/" isTestSource="False" />\n'
                '%s</content>') % (' ' * 8, ' ' * 12, ' ' * 8)
 _ORDER_ENTRY = ('        <orderEntry type="module-library" exported="">'
                 '<library><CLASSES><root url="jar://%s!/" /></CLASSES>'
@@ -640,11 +640,12 @@ def _merge_project_vcs_xmls(projects):
         projects: A list of ProjectInfo instances.
     """
     main_project_absolute_path = projects[0].project_absolute_path
-    if main_project_absolute_path == common_util.get_android_root_dir():
-        git_paths = list(_get_all_git_path(main_project_absolute_path))
-    else:
+    # TODO(b/154436905): Add the necessary git path to vcs.xml.
+    if main_project_absolute_path != common_util.get_android_root_dir():
         git_paths = [project.git_path for project in projects]
-    _write_vcs_xml(main_project_absolute_path, git_paths)
+        _write_vcs_xml(main_project_absolute_path, git_paths)
+    else:
+        _write_vcs_xml(main_project_absolute_path, [])
 
 
 def _get_all_git_path(root_path):

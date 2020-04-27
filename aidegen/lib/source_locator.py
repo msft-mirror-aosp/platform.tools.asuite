@@ -110,11 +110,11 @@ class ModuleData:
         self.module_data = module_data
         self._init_module_path()
         self._init_module_depth(depth)
-        self.src_dirs = set()
-        self.test_dirs = set()
-        self.jar_files = set()
-        self.r_java_paths = set()
-        self.srcjar_paths = set()
+        self.src_dirs = []
+        self.test_dirs = []
+        self.jar_files = []
+        self.r_java_paths = []
+        self.srcjar_paths = []
         self.referenced_by_jar = False
         self.build_targets = set()
         self.missing_jars = set()
@@ -157,8 +157,8 @@ class ModuleData:
                     self.build_targets.add(srcjar)
                 self._collect_srcjar_path(srcjar)
                 r_dir = self._get_r_dir(srcjar)
-                if r_dir:
-                    self.r_java_paths.add(r_dir)
+                if r_dir and r_dir not in self.r_java_paths:
+                    self.r_java_paths.append(r_dir)
 
     def _collect_srcjar_path(self, srcjar):
         """Collect the source folders from a srcjar path.
@@ -166,20 +166,17 @@ class ModuleData:
         Set the aapt2.srcjar or R.srcjar as source root:
         Case aapt2.srcjar:
             The source path string is
-            out/.../Bluetooth_intermediates/aapt2.srcjar
-            The source content descriptor is
-            out/.../Bluetooth_intermediates/aapt2.srcjar!/.
+            out/.../Bluetooth_intermediates/aapt2.srcjar.
         Case R.srcjar:
             The source path string is out/soong/.../gen/android/R.srcjar.
-            The source content descriptor is
-            out/soong/.../gen/android/R.srcjar!/.
 
         Args:
             srcjar: A file path string relative to ANDROID_BUILD_TOP, the build
                     target of the module to generate R.java.
         """
-        if os.path.basename(srcjar) in _TARGET_BUILD_FILES:
-            self.srcjar_paths.add('%s!/' % srcjar)
+        if (os.path.basename(srcjar) in _TARGET_BUILD_FILES
+                and srcjar not in self.srcjar_paths):
+            self.srcjar_paths.append(srcjar)
 
     def _collect_all_srcjar_paths(self):
         """Collect all srcjar files of target module as source folders.
@@ -194,7 +191,8 @@ class ModuleData:
             for srcjar in self.module_data[constant.KEY_SRCJARS]:
                 if not os.path.exists(common_util.get_abs_path(srcjar)):
                     self.build_targets.add(srcjar)
-                self.srcjar_paths.add('%s!/' % srcjar)
+                if srcjar not in self.srcjar_paths:
+                    self.srcjar_paths.append(srcjar)
 
     @staticmethod
     def _get_r_dir(srcjar):
@@ -294,11 +292,12 @@ class ModuleData:
         Args:
             src_dir: the directory to be added.
         """
-        if src_dir not in _IGNORE_DIRS:
+        if (src_dir not in _IGNORE_DIRS and src_dir not in self.src_dirs
+                and src_dir not in self.test_dirs):
             if self._is_test_module(src_dir):
-                self.test_dirs.add(src_dir)
+                self.test_dirs.append(src_dir)
             else:
-                self.src_dirs.add(src_dir)
+                self.src_dirs.append(src_dir)
 
     @staticmethod
     def _is_test_module(src_dir):
@@ -426,7 +425,8 @@ class ModuleData:
         if common_util.is_target(jar_path, constant.TARGET_LIBS):
             self.referenced_by_jar = True
             if os.path.isfile(common_util.get_abs_path(jar_path)):
-                self.jar_files.add(jar_path)
+                if jar_path not in self.jar_files:
+                    self.jar_files.append(jar_path)
             else:
                 self.missing_jars.add(jar_path)
             return True
@@ -624,8 +624,8 @@ class EclipseModuleData(ModuleData):
         Args:
             src_dir: a string of relative path to the Android root.
         """
-        if src_dir not in _IGNORE_DIRS:
-            self.src_dirs.add(src_dir)
+        if src_dir not in _IGNORE_DIRS and src_dir not in self.src_dirs:
+            self.src_dirs.append(src_dir)
 
     def _locate_project_source_path(self):
         """Locate the source folder paths of the project module.
