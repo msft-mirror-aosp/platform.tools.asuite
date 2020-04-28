@@ -1,14 +1,9 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!-- Deprecated, please refer to the definition of constant.FILE_IML, and leave
-     this file for backward compatibility.
-     TODO: Remove this file when the CL 1012154 is merged in AIDEGen prebuilt.
--->
 <module type="JAVA_MODULE" version="4">
 @FACETS@
     <component name="NewModuleRootManager" inherit-compiler-output="true">
         <exclude-output />
 @SOURCES@
-@SRCJAR@
         <orderEntry type="sourceFolder" forTests="false" />
 @MODULE_DEPENDENCIES@
         <orderEntry type="inheritedJdk" />

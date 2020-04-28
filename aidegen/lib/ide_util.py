@@ -23,8 +23,8 @@ existence, IDE type, etc.), launch the project in related IDE.
 
     ide_util_obj = IdeUtil()
     if ide_util_obj.is_ide_installed():
-        ide_util_obj.config_ide(project_file)
-        ide_util_obj.launch_ide()
+        ide_util_obj.config_ide()
+        ide_util_obj.launch_ide(project_file)
 """
 
 import fnmatch
@@ -32,13 +32,10 @@ import glob
 import logging
 import os
 import platform
-import re
 import subprocess
 
 from aidegen import constant
-from aidegen.lib import common_util
-from aidegen.lib import config
-from aidegen.lib import sdk_config
+from aidegen.lib.config import AidegenConfig
 
 # Add 'nohup' to prevent IDE from being terminated when console is terminated.
 _NOHUP = 'nohup'
@@ -46,17 +43,11 @@ _IGNORE_STD_OUT_ERR_CMD = '2>/dev/null >&2'
 _IDEA_FOLDER = '.idea'
 _IML_EXTENSION = '.iml'
 _JDK_PATH_TOKEN = '@JDKpath'
+_TARGET_JDK_NAME_TAG = '<name value="JDK18" />'
 _COMPONENT_END_TAG = '  </component>'
-_ECLIPSE_WS = '~/Documents/AIDEGen_Eclipse_workspace'
-_ALERT_CREATE_WS = ('AIDEGen will create a workspace at %s for Eclipse, '
-                    'Enter `y` to allow AIDEgen to automatically create the '
-                    'workspace for you. Otherwise, you need to select the '
-                    'workspace after Eclipse is launched.\nWould you like '
-                    'AIDEgen to automatically create the workspace for you?'
-                    '(y/n)' % _ECLIPSE_WS)
 
-# pylint: disable=too-many-lines
-class IdeUtil:
+
+class IdeUtil():
     """Provide a set of IDE operations, e.g., launch and configuration.
 
     Attributes:
@@ -64,8 +55,8 @@ class IdeUtil:
 
     For example:
         1. Check if IDE is installed.
-        2. Config IDE, e.g. config code style, SDK path, and etc.
-        3. Launch an IDE.
+        2. Launch an IDE.
+        3. Config IDE, e.g. config code style, SDK path, and etc.
     """
 
     def __init__(self,
@@ -85,17 +76,16 @@ class IdeUtil:
         """
         return self._ide.is_ide_installed()
 
-    def launch_ide(self):
-        """Launches the relative IDE by opening the passed project file."""
-        return self._ide.launch_ide()
-
-    def config_ide(self, project_abspath):
-        """To config the IDE, e.g., setup code style, init SDK, and etc.
+    def launch_ide(self, project_file):
+        """Launches the relative IDE by opening the passed project file.
 
         Args:
-            project_abspath: An absolute path of the project.
+            project_file: The full path of the IDE project file.
         """
-        self._ide.project_abspath = project_abspath
+        return self._ide.launch_ide(project_file)
+
+    def config_ide(self):
+        """To config the IDE, e.g., setup code style, init SDK, and etc."""
         if self.is_ide_installed() and self._ide:
             self._ide.apply_optional_config()
 
@@ -108,7 +98,7 @@ class IdeUtil:
         return self._ide.ide_name
 
 
-class IdeBase:
+class IdeBase():
     """The most base class of IDE, provides interface and partial path init.
 
     Attributes:
@@ -118,7 +108,6 @@ class IdeBase:
         _bin_paths: A list of all possible IDE executable file absolute paths.
         _ide_name: String for IDE name.
         _bin_folders: A list of all possible IDE installed paths.
-        project_abspath: The absolute path of the project.
 
     For example:
         1. Check if IDE is installed.
@@ -133,7 +122,6 @@ class IdeBase:
         self._bin_file_name = ''
         self._bin_paths = []
         self._bin_folders = []
-        self.project_abspath = ''
 
     def is_ide_installed(self):
         """Checks if IDE is already installed.
@@ -143,9 +131,14 @@ class IdeBase:
         """
         return bool(self._installed_path)
 
-    def launch_ide(self):
-        """Launches IDE by opening the passed project file."""
-        _launch_ide(self.project_abspath, self._get_ide_cmd(), self._ide_name)
+    def launch_ide(self, project_file):
+        """Launches IDE by opening the passed project file.
+
+        Args:
+            project_file: The full path of the IDE's project file.
+        """
+        _launch_ide(project_file, self._get_ide_cmd(project_file),
+                    self._ide_name)
 
     def apply_optional_config(self):
         """Handles IDE relevant configs."""
@@ -161,13 +154,16 @@ class IdeBase:
         """Gets IDE name."""
         return self._ide_name
 
-    def _get_ide_cmd(self):
+    def _get_ide_cmd(self, project_file):
         """Compose launch IDE command to run a new process and redirect output.
+
+        Args:
+            project_file: The full path of the IDE's project file.
 
         Returns:
             A string of launch IDE command.
         """
-        return _get_run_ide_cmd(self._installed_path, self.project_abspath)
+        return _get_run_ide_cmd(self._installed_path, project_file)
 
     def _init_installed_path(self, installed_path):
         """Initialize IDE installed path.
@@ -200,10 +196,8 @@ class IdeIntelliJ(IdeBase):
     Class Attributes:
         _JDK_PATH: The path of JDK in android project.
         _IDE_JDK_TABLE_PATH: The path of JDK table which record JDK info in IDE.
-        _JDK_CONTENT: A string, the content of the JDK configuration.
-        _SYMBOLIC_VERSIONS: A string list of the symbolic link paths of
-        IntelliJ.
-        _CONFIG_DIR: A string of the config folder name.
+        _JDK_PART_TEMPLATE_PATH: The path of the template of partial JDK table.
+        _JDK_FULL_TEMPLATE_PATH: The path of the template of full JDK table.
 
     For example:
         1. Check if IntelliJ is installed.
@@ -213,10 +207,8 @@ class IdeIntelliJ(IdeBase):
 
     _JDK_PATH = ''
     _IDE_JDK_TABLE_PATH = ''
-    _JDK_CONTENT = ''
-    _DEFAULT_ANDROID_SDK_PATH = ''
-    _SYMBOLIC_VERSIONS = []
-    _CONFIG_DIR = ''
+    _JDK_PART_TEMPLATE_PATH = ''
+    _JDK_FULL_TEMPLATE_PATH = ''
 
     def __init__(self, installed_path=None, config_reset=False):
         super().__init__(installed_path, config_reset)
@@ -224,8 +216,6 @@ class IdeIntelliJ(IdeBase):
         self._ls_ce_path = ''
         self._ls_ue_path = ''
         self._init_installed_path(installed_path)
-        if installed_path:
-            self._set_installed_path()
 
     def apply_optional_config(self):
         """Do IDEA global config action.
@@ -240,16 +230,7 @@ class IdeIntelliJ(IdeBase):
             return
 
         for _config_path in _path_list:
-            jdk_file = os.path.join(_config_path, self._IDE_JDK_TABLE_PATH)
-            jdk_table = sdk_config.SDKConfig(
-                jdk_file, self._JDK_CONTENT, self._JDK_PATH,
-                self._DEFAULT_ANDROID_SDK_PATH)
-            jdk_table.config_jdk_file()
-            jdk_table.gen_enable_debugger_module(self.project_abspath)
-
-            # Set the max file size in the idea.properties.
-            intellij_config_dir = os.path.join(_config_path, self._CONFIG_DIR)
-            config.IdeaProperties(intellij_config_dir).set_max_file_size()
+            self._set_jdk_config(_config_path)
 
     def _get_config_root_paths(self):
         """Get the config root paths from derived class.
@@ -268,6 +249,36 @@ class IdeIntelliJ(IdeBase):
         """
         raise NotImplementedError('Method overriding is needed.')
 
+    def _set_jdk_config(self, path):
+        """Add jdk path to jdk.table.xml
+
+        Args:
+            path: The path of IntelliJ config path.
+        """
+        jdk_table_path = os.path.join(path, self._IDE_JDK_TABLE_PATH)
+        try:
+            if os.path.isfile(jdk_table_path):
+                with open(jdk_table_path, 'r+') as jdk_table_fd:
+                    jdk_table = jdk_table_fd.read()
+                    jdk_table_fd.seek(0)
+                    if _TARGET_JDK_NAME_TAG not in jdk_table:
+                        with open(self._JDK_PART_TEMPLATE_PATH) as template_fd:
+                            template = template_fd.read()
+                            template = template.replace(_JDK_PATH_TOKEN,
+                                                        self._JDK_PATH)
+                            jdk_table = jdk_table.replace(
+                                _COMPONENT_END_TAG, template)
+                            jdk_table_fd.truncate()
+                            jdk_table_fd.write(jdk_table)
+            else:
+                with open(self._JDK_FULL_TEMPLATE_PATH) as template_fd:
+                    template = template_fd.read()
+                    template = template.replace(_JDK_PATH_TOKEN, self._JDK_PATH)
+                    with open(jdk_table_path, 'w') as jdk_table_fd:
+                        jdk_table_fd.write(template)
+        except IOError as err:
+            logging.warning(err)
+
     def _get_preferred_version(self):
         """Get users' preferred IntelliJ version.
 
@@ -280,69 +291,21 @@ class IdeIntelliJ(IdeBase):
         Returns:
             The sh full path, or None if no IntelliJ version is installed.
         """
-        ce_paths = _get_intellij_version_path(self._ls_ce_path)
-        ue_paths = _get_intellij_version_path(self._ls_ue_path)
-        all_versions = self._get_all_versions(ce_paths, ue_paths)
-        for version in all_versions:
-            real_version = os.path.realpath(version)
-            if config.AidegenConfig.deprecated_intellij_version(real_version):
-                all_versions.remove(version)
+        cefiles = _get_intellij_version_path(self._ls_ce_path)
+        uefiles = _get_intellij_version_path(self._ls_ue_path)
+        all_versions = self._get_all_versions(cefiles, uefiles)
         if len(all_versions) > 1:
-            with config.AidegenConfig() as aconf:
+            with AidegenConfig() as aconf:
                 if not self._config_reset and (
                         aconf.preferred_version in all_versions):
                     return aconf.preferred_version
-                display_versions = self._merge_symbolic_version(all_versions)
-                preferred = _ask_preference(display_versions)
+                preferred = _ask_preference(all_versions)
                 if preferred:
-                    aconf.preferred_version = self._get_real_path(preferred)
-                return aconf.preferred_version
+                    aconf.preferred_version = preferred
+                return preferred
         elif all_versions:
             return all_versions[0]
         return None
-
-    @staticmethod
-    def _merge_symbolic_version(versions):
-        """Merge the duplicate version of symbolic links.
-
-        Stable and beta versions are a symbolic link to a version.
-        This function combine two versions to one.
-        Ex:
-        ['/opt/intellij-ce-stable/bin/idea.sh',
-        '/opt/intellij-ce-2019.1/bin/idea.sh'] to
-        ['/opt/intellij-ce-stable/bin/idea.sh ->
-        /opt/intellij-ce-2019.1/bin/idea.sh',
-        '/opt/intellij-ce-2019.1/bin/idea.sh']
-
-        Args:
-            versions: A list of all installed versions.
-
-        Returns:
-            A list of versions to show for user to select. It may contain
-            'symbolic_path/idea.sh -> original_path/idea.sh'.
-        """
-        display_versions = versions[:]
-        for symbolic_version in IdeIntelliJ._SYMBOLIC_VERSIONS:
-            if symbolic_version in display_versions and os.path.isfile(
-                    symbolic_version):
-                real_path = os.path.realpath(symbolic_version)
-                for index, path in enumerate(display_versions):
-                    if path == symbolic_version:
-                        display_versions[index] = ' -> '.join(
-                            [display_versions[index], real_path])
-                        break
-        return display_versions
-
-    @staticmethod
-    def _get_real_path(path):
-        """ Get real path from merged path.
-
-        Args:
-            path: A path string may be merged with symbolic path.
-        Returns:
-            The real IntelliJ installed path.
-        """
-        return path.split()[0]
 
     def _get_script_from_system(self):
         """Get correct IntelliJ installed path from internal path.
@@ -373,22 +336,23 @@ class IdeIntelliJ(IdeBase):
             all_versions.extend(uefiles)
         return all_versions
 
-    def _set_installed_path(self):
-        """Write users' input installed path into the config file.
+    @staticmethod
+    def _get_code_style_config():
+        """Get Android build-in IntelliJ code style config file.
 
-        If users input an existent IntelliJ installed path, we should keep it in
-        configuration.
+        Returns:
+            None if the file is not found, otherwise a full path string of
+            Intellij Android code style file.
         """
-        if self._installed_path:
-            with config.AidegenConfig() as aconf:
-                aconf.preferred_version = self._installed_path
+        _config_source = os.path.join(constant.ANDROID_ROOT_PATH, 'development',
+                                      'ide', 'intellij', 'codestyles',
+                                      'AndroidStyle.xml')
+
+        return _config_source if os.path.isfile(_config_source) else None
 
 
 class IdeLinuxIntelliJ(IdeIntelliJ):
     """Provide the IDEA behavior implementation for OS Linux.
-
-    Class Attributes:
-        _INTELLIJ_RE: Regular expression of IntelliJ installed name in GLinux.
 
     For example:
         1. Check if IntelliJ is installed.
@@ -396,26 +360,22 @@ class IdeLinuxIntelliJ(IdeIntelliJ):
         3. Config IntelliJ.
     """
 
-    _JDK_PATH = os.path.join(common_util.get_android_root_dir(),
+    _JDK_PATH = os.path.join(constant.ANDROID_ROOT_PATH,
                              'prebuilts/jdk/jdk8/linux-x86')
     # TODO(b/127899277): Preserve a config for jdk version option case.
-    _CONFIG_DIR = 'config'
     _IDE_JDK_TABLE_PATH = 'config/options/jdk.table.xml'
-    _JDK_CONTENT = constant.LINUX_JDK_XML
-    _DEFAULT_ANDROID_SDK_PATH = os.path.join(os.getenv('HOME'), 'Android/Sdk')
-    IdeIntelliJ._SYMBOLIC_VERSIONS = ['/opt/intellij-ce-stable/bin/idea.sh',
-                                      '/opt/intellij-ue-stable/bin/idea.sh',
-                                      '/opt/intellij-ce-beta/bin/idea.sh',
-                                      '/opt/intellij-ue-beta/bin/idea.sh']
-    _INTELLIJ_RE = re.compile(r'intellij-(ce|ue)-')
+    _JDK_PART_TEMPLATE_PATH = os.path.join(
+        constant.AIDEGEN_ROOT_PATH, 'templates/jdkTable/part.jdk.table.xml')
+    _JDK_FULL_TEMPLATE_PATH = os.path.join(constant.AIDEGEN_ROOT_PATH,
+                                           'templates/jdkTable/jdk.table.xml')
 
     def __init__(self, installed_path=None, config_reset=False):
         super().__init__(installed_path, config_reset)
         self._bin_file_name = 'idea.sh'
         self._bin_folders = ['/opt/intellij-*/bin']
-        self._ls_ce_path = os.path.join('/opt/intellij-ce-*/bin',
+        self._ls_ce_path = os.path.join('/opt/intellij-ce-2*/bin',
                                         self._bin_file_name)
-        self._ls_ue_path = os.path.join('/opt/intellij-ue-*/bin',
+        self._ls_ue_path = os.path.join('/opt/intellij-ue-2*/bin',
                                         self._bin_file_name)
         self._init_installed_path(installed_path)
 
@@ -435,12 +395,16 @@ class IdeLinuxIntelliJ(IdeIntelliJ):
 
         _config_folders = []
         _config_folder = ''
-        if IdeLinuxIntelliJ._INTELLIJ_RE.search(self._installed_path):
-            # GLinux case.
-            if self._installed_path in IdeIntelliJ._SYMBOLIC_VERSIONS:
-                _path_data = os.path.realpath(self._installed_path).split('-')
-            else:
-                _path_data = self._installed_path.split('-')
+        # TODO(b/123459239): For the case that the user provides the IDEA
+        # binary path, we now collect all possible IDEA config root paths.
+        if 'e-20' not in self._installed_path:
+            _config_folders = glob.glob(
+                os.path.join(os.getenv('HOME'), '.IdeaI?20*'))
+            _config_folders.extend(
+                glob.glob(os.path.join(os.getenv('HOME'), '.IntelliJIdea20*')))
+            logging.info('The config path list: %s.\n', _config_folders)
+        else:
+            _path_data = self._installed_path.split('-')
             _ide_version = _path_data[2].split(os.sep)[0]
             if _path_data[1] == 'ce':
                 _config_folder = ''.join(['.IdeaIC', _ide_version])
@@ -449,15 +413,6 @@ class IdeLinuxIntelliJ(IdeIntelliJ):
 
             _config_folders.append(
                 os.path.join(os.getenv('HOME'), _config_folder))
-        else:
-            # TODO(b/123459239): For the case that the user provides the IDEA
-            # binary path, we now collect all possible IDEA config root paths.
-            _config_folders = glob.glob(
-                os.path.join(os.getenv('HOME'), '.IdeaI?20*'))
-            _config_folders.extend(
-                glob.glob(os.path.join(os.getenv('HOME'), '.IntelliJIdea20*')))
-            logging.info('The config path list: %s.', _config_folders)
-
         return _config_folders
 
     def _get_config_folder_name(self):
@@ -478,12 +433,13 @@ class IdeMacIntelliJ(IdeIntelliJ):
         3. Config IntelliJ.
     """
 
-    _JDK_PATH = os.path.join(common_util.get_android_root_dir(),
+    _JDK_PATH = os.path.join(constant.ANDROID_ROOT_PATH,
                              'prebuilts/jdk/jdk8/darwin-x86')
     _IDE_JDK_TABLE_PATH = 'options/jdk.table.xml'
-    _JDK_CONTENT = constant.MAC_JDK_XML
-    _DEFAULT_ANDROID_SDK_PATH = os.path.join(
-        os.getenv('HOME'), 'Library/Android/sdk')
+    _JDK_PART_TEMPLATE_PATH = os.path.join(
+        constant.AIDEGEN_ROOT_PATH, 'templates/jdkTable/part.mac.jdk.table.xml')
+    _JDK_FULL_TEMPLATE_PATH = os.path.join(
+        constant.AIDEGEN_ROOT_PATH, 'templates/jdkTable/mac.jdk.table.xml')
 
     def __init__(self, installed_path=None, config_reset=False):
         super().__init__(installed_path, config_reset)
@@ -577,9 +533,6 @@ class IdeMacStudio(IdeStudio):
 class IdeEclipse(IdeBase):
     """Class offers a set of Eclipse launching utilities.
 
-    Attributes:
-        cmd: A list of the build command.
-
     For example:
         1. Check if Eclipse is installed.
         2. Launch an Eclipse.
@@ -588,8 +541,7 @@ class IdeEclipse(IdeBase):
     def __init__(self, installed_path=None, config_reset=False):
         super().__init__(installed_path, config_reset)
         self._ide_name = constant.IDE_ECLIPSE
-        self._bin_file_name = 'eclipse'
-        self.cmd = []
+        self._bin_file_name = 'eclipse*'
 
     def _get_script_from_system(self):
         """Get correct IDE installed path from internal path.
@@ -602,10 +554,7 @@ class IdeEclipse(IdeBase):
             The sh full path, or None if no IntelliJ version is installed.
         """
         for ide_path in self._bin_paths:
-            # The binary name of Eclipse could be eclipse47, eclipse49,
-            # eclipse47_testing or eclipse49_testing. So finding the matched
-            # binary by /path/to/ide/eclipse*.
-            ls_output = glob.glob(ide_path + '*', recursive=True)
+            ls_output = glob.glob(ide_path, recursive=True)
             if ls_output:
                 ls_output = sorted(ls_output)
                 match_eclipses = []
@@ -619,23 +568,6 @@ class IdeEclipse(IdeBase):
                     return match_eclipses[0]
         logging.error('No %s installed.', self._ide_name)
         return None
-
-    def _get_ide_cmd(self):
-        """Compose launch IDE command to run a new process and redirect output.
-
-        AIDEGen will create a default workspace
-        ~/Documents/AIDEGen_Eclipse_workspace for users if they agree to do
-        that. Also, we could not import the default project through the command
-        line so remove the project path argument.
-
-        Returns:
-            A string of launch IDE command.
-        """
-        if (os.path.exists(os.path.expanduser(_ECLIPSE_WS))
-                or str(input(_ALERT_CREATE_WS)).lower() == 'y'):
-            self.cmd.extend(['-data', _ECLIPSE_WS])
-        self.cmd.extend([_IGNORE_STD_OUT_ERR_CMD, '&'])
-        return ' '.join(self.cmd)
 
 
 class IdeLinuxEclipse(IdeEclipse):
@@ -651,7 +583,6 @@ class IdeLinuxEclipse(IdeEclipse):
         self._bin_folders = ['/opt/eclipse*', '/usr/bin/']
         self._bin_paths = self._get_possible_bin_paths()
         self._init_installed_path(installed_path)
-        self.cmd = [_NOHUP, self._installed_path.replace(' ', r'\ ')]
 
 
 class IdeMacEclipse(IdeEclipse):
@@ -664,58 +595,26 @@ class IdeMacEclipse(IdeEclipse):
 
     def __init__(self, installed_path=None, config_reset=False):
         super().__init__(installed_path, config_reset)
-        self._bin_file_name = 'eclipse'
+        self._bin_file_name = 'Eclipse.app'
         self._bin_folders = [os.path.expanduser('~/eclipse/**')]
         self._bin_paths = self._get_possible_bin_paths()
         self._init_installed_path(installed_path)
-        self.cmd = [self._installed_path.replace(' ', r'\ ')]
 
+    def _get_ide_cmd(self, project_file):
+        """Compose launch IDE command to run a new process and redirect output.
 
-class IdeCLion(IdeBase):
-    """Class offers a set of CLion launching utilities.
+        Args:
+            project_file: The full path of the IDE's project file.
 
-    For example:
-        1. Check if CLion is installed.
-        2. Launch an CLion.
-    """
-
-    def __init__(self, installed_path=None, config_reset=False):
-        super().__init__(installed_path, config_reset)
-        self._ide_name = constant.IDE_CLION
-
-
-class IdeLinuxCLion(IdeCLion):
-    """Class offers a set of CLion launching utilities for OS Linux.
-
-    For example:
-        1. Check if CLion is installed.
-        2. Launch an CLion.
-    """
-
-    def __init__(self, installed_path=None, config_reset=False):
-        super().__init__(installed_path, config_reset)
-        self._bin_file_name = 'clion.sh'
-        # TODO(b/141288011): Handle /opt/clion-*/bin to let users choose a
-        # preferred version of CLion in the future.
-        self._bin_folders = ['/opt/clion-stable/bin']
-        self._bin_paths = self._get_possible_bin_paths()
-        self._init_installed_path(installed_path)
-
-
-class IdeMacCLion(IdeCLion):
-    """Class offers a set of Android Studio launching utilities for OS Mac.
-
-    For example:
-        1. Check if Android Studio is installed.
-        2. Launch an Android Studio.
-    """
-
-    def __init__(self, installed_path=None, config_reset=False):
-        super().__init__(installed_path, config_reset)
-        self._bin_file_name = 'clion'
-        self._bin_folders = ['/Applications/CLion.app/Contents/MacOS/CLion']
-        self._bin_paths = self._get_possible_bin_paths()
-        self._init_installed_path(installed_path)
+        Returns:
+            A string of launch IDE command.
+        """
+        return ' '.join([
+            _NOHUP,
+            'open',
+            self._installed_path.replace(' ', r'\ '),
+            os.path.dirname(project_file), _IGNORE_STD_OUT_ERR_CMD, '&'
+        ])
 
 
 def _get_script_from_internal_path(ide_paths, ide_name):
@@ -771,11 +670,9 @@ def _walk_tree_find_ide_exe_file(top, ide_script_name):
         logging.debug('Search all files under %s to get %s, %s.', top, root,
                       files)
         for file_ in fnmatch.filter(files, ide_script_name):
-            exe_file = os.path.join(root, file_)
-            if os.access(exe_file, os.X_OK):
-                logging.debug('Use file name filter to find %s in path %s.',
-                              file_, exe_file)
-                yield exe_file
+            logging.debug('Use file name filter to find %s in path %s.', file_,
+                          os.path.join(root, file_))
+            yield os.path.join(root, file_)
 
 
 def _get_run_ide_cmd(sh_path, project_file):
@@ -791,7 +688,10 @@ def _get_run_ide_cmd(sh_path, project_file):
     # In command usage, the space ' ' should be '\ ' for correctness.
     return ' '.join([
         _NOHUP,
-        sh_path.replace(' ', r'\ '), project_file, _IGNORE_STD_OUT_ERR_CMD, '&'
+        sh_path.replace(' ', r'\ '),
+        project_file,
+        _IGNORE_STD_OUT_ERR_CMD,
+        '&'
     ])
 
 
@@ -824,8 +724,7 @@ def _get_script_from_dir_path(input_path, ide_file_name):
     """
     logging.debug('Call _get_script_from_dir_path with %s, and %s', input_path,
                   ide_file_name)
-    files_found = list(_walk_tree_find_ide_exe_file(input_path,
-                                                    ide_file_name + '*'))
+    files_found = list(_walk_tree_find_ide_exe_file(input_path, ide_file_name))
     if files_found:
         return sorted(files_found)[0]
     return None
@@ -840,11 +739,8 @@ def _launch_ide(project_path, run_ide_cmd, ide_name):
         ide_name: the IDE name is to be launched.
     """
     assert project_path, 'Empty content path is not allowed.'
-    if ide_name == constant.IDE_ECLIPSE:
-        logging.info('Launch %s with workspace: %s.', ide_name, _ECLIPSE_WS)
-    else:
-        logging.info('Launch %s for project content path: %s.', ide_name,
-                     project_path)
+    logging.info('Launch %s for project content path: %s.', ide_name,
+                 project_path)
     _run_ide_sh(run_ide_cmd, project_path)
 
 
@@ -944,7 +840,7 @@ def _select_intellij_version(query, all_versions):
     for i in range(len(all_versions)):
         all_numbers.append(str(i + 1))
     input_data = input(query)
-    while input_data not in all_numbers:
+    while not input_data in all_numbers:
         input_data = input('Please select a number:\t')
     return all_versions[int(input_data) - 1]
 
@@ -982,8 +878,6 @@ def _get_mac_ide(installed_path=None, ide='j', config_reset=False):
         return IdeMacEclipse(installed_path)
     if ide == 's':
         return IdeMacStudio(installed_path)
-    if ide == 'c':
-        return IdeMacCLion(installed_path)
     return IdeMacIntelliJ(installed_path, config_reset)
 
 
@@ -1003,6 +897,4 @@ def _get_linux_ide(installed_path=None, ide='j', config_reset=False):
         return IdeLinuxEclipse(installed_path)
     if ide == 's':
         return IdeLinuxStudio(installed_path)
-    if ide == 'c':
-        return IdeLinuxCLion(installed_path)
     return IdeLinuxIntelliJ(installed_path, config_reset)

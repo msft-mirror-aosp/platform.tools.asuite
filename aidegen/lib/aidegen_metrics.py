@@ -28,13 +28,13 @@ try:
     from asuite.metrics import metrics_base
     from asuite.metrics import metrics_utils
 except ImportError:
-    logging.debug('Import metrics fail, can\'t send metrics.')
+    logging.debug('Import metrics fail, can\'t send metrics')
     metrics = None
     metrics_base = None
     metrics_utils = None
 
 
-def starts_asuite_metrics(references):
+def starts_asuite_metrics(references=None):
     """Starts to record metrics data.
 
     Send a metrics data to log server at the same time.

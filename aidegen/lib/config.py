@@ -14,77 +14,23 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Config class."""
+"""Config helper class."""
 
 import copy
 import json
 import logging
 import os
-import re
 
-from aidegen.lib import common_util
+_DEFAULT_CONFIG_FILE = 'aidegen.config'
 
 
 class AidegenConfig():
-    """Class manages AIDEGen's configurations.
-
-    Attributes:
-        _config: A dict contains the aidegen config.
-        _config_backup: A dict contains the aidegen config.
-    """
-
-    # Constants of AIDEGen config
-    _DEFAULT_CONFIG_FILE = 'aidegen.config'
-    _CONFIG_DIR = os.path.join(
-        os.path.expanduser('~'), '.config', 'asuite', 'aidegen')
-    _CONFIG_FILE_PATH = os.path.join(_CONFIG_DIR, _DEFAULT_CONFIG_FILE)
-
-    # Constants of enable debugger
-    _ENABLE_DEBUG_CONFIG_DIR = 'enable_debugger'
-    _ENABLE_DEBUG_CONFIG_FILE = 'enable_debugger.iml'
-    _ENABLE_DEBUG_DIR = os.path.join(_CONFIG_DIR, _ENABLE_DEBUG_CONFIG_DIR)
-    _ANDROID_MANIFEST_FILE_NAME = 'AndroidManifest.xml'
-    _DIR_SRC = 'src'
-    _DIR_GEN = 'gen'
-    _ANDROIDMANIFEST_CONTENT = """<?xml version="1.0" encoding="utf-8"?>
-<manifest xmlns:android="http://schemas.android.com/apk/res/android"
-          android:versionCode="1"
-          android:versionName="1.0" >
-</manifest>
-    """
-    # The xml template for enabling debugger.
-    _XML_ENABLE_DEBUGGER = """<?xml version="1.0" encoding="UTF-8"?>
-<module type="JAVA_MODULE" version="4">
-  <component name="FacetManager">
-    <facet type="android" name="Android">
-      <configuration>
-        <proGuardCfgFiles />
-      </configuration>
-    </facet>
-  </component>
-  <component name="NewModuleRootManager" inherit-compiler-output="true">
-    <exclude-output />
-    <content url="file://$MODULE_DIR$">
-      <sourceFolder url="file://$MODULE_DIR$/src" isTestSource="false" />
-      <sourceFolder url="file://$MODULE_DIR$/gen" isTestSource="false" generated="true" />
-    </content>
-    <orderEntry type="jdk" jdkName="{ANDROID_SDK_VERSION}" jdkType="Android SDK" />
-    <orderEntry type="sourceFolder" forTests="false" />
-  </component>
-</module>
-"""
-    DEBUG_ENABLED_FILE_PATH = os.path.join(_ENABLE_DEBUG_DIR,
-                                           _ENABLE_DEBUG_CONFIG_FILE)
-
-    # Constants of checking deprecated IntelliJ version.
-    # The launch file idea.sh of IntelliJ is in ASCII encoding.
-    ENCODE_TYPE = 'ISO-8859-1'
-    ACTIVE_KEYWORD = '$JAVA_BIN'
+    """Class manages AIDEGen's configurations."""
 
     def __init__(self):
         self._config = {}
         self._config_backup = {}
-        self._create_config_folder()
+        self._config_file = self._get_default_config_file()
 
     def __enter__(self):
         self._load_aidegen_config()
@@ -99,15 +45,10 @@ class AidegenConfig():
         """AIDEGen configuration getter.
 
         Returns:
-            The preferred verson item of configuration data if exists and is not
-            deprecated, otherwise None.
+            The preferred verson item of configuration data if exists, otherwise
+            None.
         """
-        preferred_version = self._config.get('preferred_version', '')
-        if preferred_version:
-            real_version = os.path.realpath(preferred_version)
-            if not self.deprecated_intellij_version(real_version):
-                return preferred_version
-        return None
+        return self._config.get('preferred_version', '')
 
     @preferred_version.setter
     def preferred_version(self, preferred_version):
@@ -120,13 +61,13 @@ class AidegenConfig():
 
     def _load_aidegen_config(self):
         """Load data from configuration file."""
-        if os.path.exists(self._CONFIG_FILE_PATH):
+        if os.path.exists(self._config_file):
             try:
-                with open(self._CONFIG_FILE_PATH) as cfg_file:
+                with open(self._config_file, 'r') as cfg_file:
                     self._config = json.load(cfg_file)
             except ValueError as err:
                 info = '{} format is incorrect, error: {}'.format(
-                    self._CONFIG_FILE_PATH, err)
+                    self._config_file, err)
                 logging.info(info)
             except IOError as err:
                 logging.error(err)
@@ -135,7 +76,7 @@ class AidegenConfig():
     def _save_aidegen_config(self):
         """Save data to configuration file."""
         if self._is_config_modified():
-            with open(self._CONFIG_FILE_PATH, 'w') as cfg_file:
+            with open(self._config_file, 'w') as cfg_file:
                 json.dump(self._config, cfg_file, indent=4)
 
     def _is_config_modified(self):
@@ -143,155 +84,11 @@ class AidegenConfig():
         return any(key for key in self._config if not key in self._config_backup
                    or self._config[key] != self._config_backup[key])
 
-    def _create_config_folder(self):
-        """Create the config folder if it doesn't exist."""
-        if not os.path.exists(self._CONFIG_DIR):
-            os.makedirs(self._CONFIG_DIR)
-
-    def _gen_enable_debug_sub_dir(self, dir_name):
-        """Generate a dir under enable debug dir.
-
-        Args:
-            dir_name: A string of the folder name.
-        """
-        _dir = os.path.join(self._ENABLE_DEBUG_DIR, dir_name)
-        if not os.path.exists(_dir):
-            os.makedirs(_dir)
-
-    def _gen_androidmanifest(self):
-        """Generate an AndroidManifest.xml under enable debug dir.
-
-        Once the AndroidManifest.xml does not exist or file size is zero,
-        AIDEGen will generate it with default content to prevent the red
-        underline error in IntelliJ.
-        """
-        _file = os.path.join(self._ENABLE_DEBUG_DIR,
-                             self._ANDROID_MANIFEST_FILE_NAME)
-        if not os.path.exists(_file) or os.stat(_file).st_size == 0:
-            common_util.file_generate(_file, self._ANDROIDMANIFEST_CONTENT)
-
-    def _gen_enable_debugger_config(self, android_sdk_version):
-        """Generate the enable_debugger.iml config file.
-
-        Create the enable_debugger.iml if it doesn't exist.
-
-        Args:
-            android_sdk_version: The version name of the Android Sdk in the
-                                 jdk.table.xml.
-        """
-        if not os.path.exists(self.DEBUG_ENABLED_FILE_PATH):
-            content = self._XML_ENABLE_DEBUGGER.format(
-                ANDROID_SDK_VERSION=android_sdk_version)
-            common_util.file_generate(self.DEBUG_ENABLED_FILE_PATH, content)
-
-    def create_enable_debugger_module(self, android_sdk_version):
-        """Create the enable_debugger module.
-
-        1. Create two empty folders named src and gen.
-        2. Create an empty file named AndroidManifest.xml
-        3. Create the enable_denugger.iml.
-
-        Args:
-            android_sdk_version: The version name of the Android Sdk in the
-                                 jdk.table.xml.
-
-        Returns: True if successfully generate the enable debugger module,
-                 otherwise False.
-        """
-        try:
-            self._gen_enable_debug_sub_dir(self._DIR_SRC)
-            self._gen_enable_debug_sub_dir(self._DIR_GEN)
-            self._gen_androidmanifest()
-            self._gen_enable_debugger_config(android_sdk_version)
-            return True
-        except (IOError, OSError) as err:
-            logging.warning(('Can\'t create the enable_debugger module in %s.\n'
-                             '%s'), self._CONFIG_DIR, err)
-            return False
-
     @staticmethod
-    def deprecated_intellij_version(idea_path):
-        """Check if the preferred IntelliJ version is deprecated or not.
-
-        The IntelliJ version is deprecated once the string "$JAVA_BIN" doesn't
-        exist in the idea.sh.
-
-        Args:
-            idea_path: the absolute path to idea.sh.
-
-        Returns: True if the preferred version was deprecated, otherwise False.
-        """
-        if os.path.isfile(idea_path):
-            file_content = common_util.read_file_content(
-                idea_path, AidegenConfig.ENCODE_TYPE)
-            return AidegenConfig.ACTIVE_KEYWORD not in file_content
-        return False
-
-
-class IdeaProperties():
-    """Class manages IntelliJ's idea.properties attribute.
-
-    Class Attributes:
-        _PROPERTIES_FILE: The property file name of IntelliJ.
-        _KEY_FILESIZE: The key name of the maximun file size.
-        _FILESIZE_LIMIT: The value to be set as the max file size.
-        _RE_SEARCH_FILESIZE: A regular expression to find the current max file
-                             size.
-        _PROPERTIES_CONTENT: The default content of idea.properties to be
-                             generated.
-
-    Attributes:
-        idea_file: The absolute path of the idea.properties.
-                   For example:
-                   In Linux, it is ~/.IdeaIC2019.1/config/idea.properties.
-                   In Mac, it is ~/Library/Preferences/IdeaIC2019.1/
-                   idea.properties.
-    """
-
-    # Constants of idea.properties
-    _PROPERTIES_FILE = 'idea.properties'
-    _KEY_FILESIZE = 'idea.max.intellisense.filesize'
-    _FILESIZE_LIMIT = 100000
-    _RE_SEARCH_FILESIZE = r'%s\s?=\s?(?P<value>\d+)' % _KEY_FILESIZE
-    _PROPERTIES_CONTENT = """# custom IntelliJ IDEA properties
-
-#-------------------------------------------------------------------------------
-# Maximum size of files (in kilobytes) for which IntelliJ IDEA provides coding
-# assistance. Coding assistance for large files can affect editor performance
-# and increase memory consumption.
-# The default value is 2500.
-#-------------------------------------------------------------------------------
-idea.max.intellisense.filesize=100000
-"""
-
-    def __init__(self, config_dir):
-        """IdeaProperties initialize.
-
-        Args:
-            config_dir: The absolute dir of the idea.properties.
-        """
-        self.idea_file = os.path.join(config_dir, self._PROPERTIES_FILE)
-
-    def _set_default_idea_properties(self):
-        """Create the file idea.properties."""
-        common_util.file_generate(self.idea_file, self._PROPERTIES_CONTENT)
-
-    def _reset_max_file_size(self):
-        """Reset the max file size value in the idea.properties."""
-        updated_flag = False
-        properties = common_util.read_file_content(self.idea_file).splitlines()
-        for index, line in enumerate(properties):
-            res = re.search(self._RE_SEARCH_FILESIZE, line)
-            if res and int(res['value']) < self._FILESIZE_LIMIT:
-                updated_flag = True
-                properties[index] = '%s=%s' % (self._KEY_FILESIZE,
-                                               str(self._FILESIZE_LIMIT))
-        if updated_flag:
-            common_util.file_generate(self.idea_file, '\n'.join(properties))
-
-    def set_max_file_size(self):
-        """Set the max file size parameter in the idea.properties."""
-        if not os.path.exists(self.idea_file):
-            self._set_default_idea_properties()
-        else:
-            self._reset_max_file_size()
+    def _get_default_config_file():
+        """Return path of default configuration file."""
+        cfg_path = os.path.join(
+            os.path.expanduser('~'), '.config', 'asuite', 'aidegen')
+        if not os.path.exists(cfg_path):
+            os.makedirs(cfg_path)
+        return os.path.join(cfg_path, _DEFAULT_CONFIG_FILE)

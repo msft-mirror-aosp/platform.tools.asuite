@@ -14,73 +14,35 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Unittests for project_info."""
+"""Unittests for source_locator."""
 
 import os
-import shutil
-import tempfile
 import unittest
 from unittest import mock
 
-from aidegen import unittest_constants
-from aidegen.lib import common_util
+from aidegen import constant
 from aidegen.lib import project_info
-from aidegen.lib import project_config
+from aidegen.lib.project_info import ProjectInfo
+
+import aidegen.unittest_constants as uc
 
 _MODULE_INFO = {
-    'm1': {
-        'class': ['JAVA_LIBRARIES'],
-        'dependencies': ['m2', 'm6'],
-        'path': ['m1']
-    },
-    'm2': {
-        'class': ['JAVA_LIBRARIES'],
-        'dependencies': ['m3', 'm4']
-    },
-    'm3': {
-        'class': ['JAVA_LIBRARIES'],
-        'dependencies': []
-    },
-    'm4': {
-        'class': ['JAVA_LIBRARIES'],
-        'dependencies': ['m6']
-    },
-    'm5': {
-        'class': ['JAVA_LIBRARIES'],
-        'dependencies': []
-    },
-    'm6': {
-        'class': ['JAVA_LIBRARIES'],
-        'dependencies': ['m2']
-    },
+    'm1': {'class': ['JAVA_LIBRARIES'], 'dependencies': ['m2', 'm6'],
+           'path': ['m1']},
+    'm2': {'class': ['JAVA_LIBRARIES'], 'dependencies': ['m3', 'm4']},
+    'm3': {'class': ['JAVA_LIBRARIES'], 'dependencies': []},
+    'm4': {'class': ['JAVA_LIBRARIES'], 'dependencies': ['m6']},
+    'm5': {'class': ['JAVA_LIBRARIES'], 'dependencies': []},
+    'm6': {'class': ['JAVA_LIBRARIES'], 'dependencies': ['m2']},
 }
 _EXPECT_DEPENDENT_MODULES = {
-    'm1': {
-        'class': ['JAVA_LIBRARIES'],
-        'dependencies': ['m2', 'm6'],
-        'path': ['m1'],
-        'depth': 0
-    },
-    'm2': {
-        'class': ['JAVA_LIBRARIES'],
-        'dependencies': ['m3', 'm4'],
-        'depth': 1
-    },
-    'm3': {
-        'class': ['JAVA_LIBRARIES'],
-        'dependencies': [],
-        'depth': 2
-    },
-    'm4': {
-        'class': ['JAVA_LIBRARIES'],
-        'dependencies': ['m6'],
-        'depth': 2
-    },
-    'm6': {
-        'class': ['JAVA_LIBRARIES'],
-        'dependencies': ['m2'],
-        'depth': 1
-    },
+    'm1': {'class': ['JAVA_LIBRARIES'], 'dependencies': ['m2', 'm6'],
+           'path': ['m1'], 'depth': 0},
+    'm2': {'class': ['JAVA_LIBRARIES'], 'dependencies': ['m3', 'm4'],
+           'depth': 1},
+    'm3': {'class': ['JAVA_LIBRARIES'], 'dependencies': [], 'depth': 2},
+    'm4': {'class': ['JAVA_LIBRARIES'], 'dependencies': ['m6'], 'depth': 2},
+    'm6': {'class': ['JAVA_LIBRARIES'], 'dependencies': ['m2'], 'depth': 1},
 }
 
 
@@ -94,103 +56,66 @@ class ProjectInfoUnittests(unittest.TestCase):
         self.args = mock.MagicMock()
         self.args.module_name = 'm1'
         self.args.project_path = ''
-        self.args.ide = ['j']
-        self.args.no_launch = True
-        self.args.depth = 0
-        self.args.android_tree = False
-        self.args.skip_build = True
-        self.args.targets = ['m1']
-        self.args.verbose = False
-        self.args.ide_installed_path = None
-        self.args.config_reset = False
 
     @mock.patch('atest.module_info.ModuleInfo')
     def test_get_dep_modules(self, mock_module_info):
         """Test get_dep_modules recursively find dependent modules."""
-        mock_module_info.name_to_module_info = _MODULE_INFO
         mock_module_info.is_module.return_value = True
         mock_module_info.get_paths.return_value = ['m1']
         mock_module_info.get_module_names.return_value = ['m1']
-        project_info.ProjectInfo.modules_info = mock_module_info
-        proj_info = project_info.ProjectInfo(self.args.module_name, False)
+        proj_info = project_info.ProjectInfo(mock_module_info,
+                                             self.args.module_name)
+        proj_info.modules_info = _MODULE_INFO
+        proj_info.dep_modules = proj_info.get_dep_modules()
         self.assertEqual(proj_info.dep_modules, _EXPECT_DEPENDENT_MODULES)
 
-    @mock.patch.object(common_util, 'get_android_root_dir')
-    def test_get_target_name(self, mock_get_root):
+    def test_is_a_target_module(self):
+        """Test _is_a_target_module with different conditions."""
+        self.assertEqual(ProjectInfo._is_a_target_module({}), False)
+        self.assertEqual(ProjectInfo._is_a_target_module({'path': ''}), False)
+        self.assertEqual(ProjectInfo._is_a_target_module({'class': ''}), False)
+        self.assertEqual(
+            ProjectInfo._is_a_target_module({
+                'class': ['APPS']
+            }), True)
+        self.assertEqual(
+            ProjectInfo._is_a_target_module({
+                'class': ['JAVA_LIBRARIES']
+            }), True)
+        self.assertEqual(
+            ProjectInfo._is_a_target_module({
+                'class': ['ROBOLECTRIC']
+            }), True)
+
+    def test_is_a_robolectric_module(self):
+        """Test _is_a_robolectric_module with different conditions."""
+        self.assertEqual(ProjectInfo._is_a_robolectric_module({}), False)
+        self.assertEqual(
+            ProjectInfo._is_a_robolectric_module({
+                'path': [uc.TEST_PATH]
+            }), False)
+        self.assertEqual(
+            ProjectInfo._is_a_robolectric_module({
+                'path': ['path/robotests']
+            }), True)
+        self.assertEqual(
+            ProjectInfo._is_a_robolectric_module({
+                'path': ['path/robolectric']
+            }), True)
+        self.assertEqual(
+            ProjectInfo._is_a_robolectric_module({
+                'path': ['robotests/robolectric']
+            }), True)
+
+    def test_get_target_name(self):
         """Test _get_target_name with different conditions."""
-        mock_get_root.return_value = unittest_constants.TEST_DATA_PATH
+        constant.ANDROID_ROOT_PATH = uc.TEST_DATA_PATH
         self.assertEqual(
-            project_info.ProjectInfo._get_target_name(
-                unittest_constants.TEST_MODULE,
-                unittest_constants.TEST_DATA_PATH),
-            os.path.basename(unittest_constants.TEST_DATA_PATH))
+            ProjectInfo._get_target_name(uc.TEST_MODULE, uc.TEST_DATA_PATH),
+            os.path.basename(uc.TEST_DATA_PATH))
         self.assertEqual(
-            project_info.ProjectInfo._get_target_name(
-                unittest_constants.TEST_MODULE, unittest_constants.TEST_PATH),
-            unittest_constants.TEST_MODULE)
-
-    # pylint: disable=too-many-locals
-    @mock.patch.object(common_util, 'get_android_root_dir')
-    @mock.patch('atest.module_info.ModuleInfo')
-    @mock.patch('atest.atest_utils.build')
-    def test_locate_source(self, mock_atest_utils_build, mock_module_info,
-                           mock_get_root):
-        """Test locate_source handling."""
-        mock_atest_utils_build.build.return_value = True
-        test_root_path = os.path.join(tempfile.mkdtemp(), 'test')
-        shutil.copytree(unittest_constants.TEST_DATA_PATH, test_root_path)
-        mock_get_root.return_value = test_root_path
-        generated_jar = ('out/soong/.intermediates/packages/apps/test/test/'
-                         'android_common/generated.jar')
-        locate_module_info = dict(unittest_constants.MODULE_INFO)
-        locate_module_info['installed'] = [generated_jar]
-        mock_module_info.is_module.return_value = True
-        mock_module_info.get_paths.return_value = [
-            unittest_constants.MODULE_PATH
-        ]
-        mock_module_info.get_module_names.return_value = [
-            unittest_constants.TEST_MODULE
-        ]
-        project_config.ProjectConfig(self.args)
-        project_info_obj = project_info.ProjectInfo(mock_module_info)
-        project_info_obj.dep_modules = {
-            unittest_constants.TEST_MODULE: locate_module_info
-        }
-        project_info_obj._init_source_path()
-        # Show warning when the jar not exists after build the module.
-        result_jar = set()
-        project_info_obj.locate_source()
-        self.assertEqual(project_info_obj.source_path['jar_path'], result_jar)
-
-        # Test collects source and test folders.
-        result_source = set(['packages/apps/test/src/main/java'])
-        result_test = set(['packages/apps/test/tests'])
-        self.assertEqual(project_info_obj.source_path['source_folder_path'],
-                         result_source)
-        self.assertEqual(project_info_obj.source_path['test_folder_path'],
-                         result_test)
-
-    def test_separate_build_target(self):
-        """Test separate_build_target."""
-        test_list = ['1', '22', '333', '4444', '55555', '1', '7777777']
-        target = []
-        sample = [['1', '22', '333'], ['4444'], ['55555', '1'], ['7777777']]
-        for start, end in iter(
-                project_info._separate_build_targets(test_list, 9)):
-            target.append(test_list[start:end])
-        self.assertEqual(target, sample)
-
-    @mock.patch.object(project_info.ProjectInfo, 'locate_source')
-    @mock.patch('atest.module_info.ModuleInfo')
-    def test_rebuild_jar_once(self, mock_module_info, mock_locate_source):
-        """Test rebuild the jar/srcjar only one time."""
-        mock_module_info.get_paths.return_value = ['m1']
-        project_info.ProjectInfo.modules_info = mock_module_info
-        proj_info = project_info.ProjectInfo(self.args.module_name, False)
-        proj_info.locate_source(build=False)
-        self.assertEqual(mock_locate_source.call_count, 1)
-        proj_info.locate_source(build=True)
-        self.assertEqual(mock_locate_source.call_count, 2)
+            ProjectInfo._get_target_name(uc.TEST_MODULE, uc.TEST_PATH),
+            uc.TEST_MODULE)
 
 
 if __name__ == '__main__':

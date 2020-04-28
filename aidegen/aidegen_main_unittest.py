@@ -18,20 +18,20 @@
 
 from __future__ import print_function
 
-import sys
+import os
 import unittest
 from unittest import mock
 
+import aidegen.unittest_constants as uc
 from aidegen import aidegen_main
-from aidegen import constant
-from aidegen import unittest_constants
 from aidegen.lib import aidegen_metrics
+from aidegen import constant
 from aidegen.lib import common_util
-from aidegen.lib import eclipse_project_file_gen
-from aidegen.lib import errors
-from aidegen.lib import ide_util
-from aidegen.lib import project_config
-from aidegen.lib import project_file_gen
+from aidegen.lib.common_util import COLORED_INFO
+from aidegen.lib.errors import IDENotExistError
+from aidegen.lib.errors import ProjectPathNotExistError
+from aidegen.lib.ide_util import IdeUtil
+from atest import module_info
 
 
 # pylint: disable=protected-access
@@ -51,64 +51,76 @@ class AidegenMainUnittests(unittest.TestCase):
         args = aidegen_main._parse_args(['-d', depth])
         self.assertEqual(args.depth, int(depth))
         args = aidegen_main._parse_args(['-v'])
-        self.assertTrue(args.verbose)
+        self.assertEqual(args.verbose, True)
         args = aidegen_main._parse_args(['-v'])
-        self.assertTrue(args.verbose)
+        self.assertEqual(args.verbose, True)
         args = aidegen_main._parse_args(['-i', 's'])
         self.assertEqual(args.ide[0], 's')
         args = aidegen_main._parse_args(['-i', 'e'])
         self.assertEqual(args.ide[0], 'e')
-        args = aidegen_main._parse_args(['-p', unittest_constants.TEST_MODULE])
-        self.assertEqual(args.ide_installed_path,
-                         unittest_constants.TEST_MODULE)
+        args = aidegen_main._parse_args(['-p', uc.TEST_MODULE])
+        self.assertEqual(args.ide_installed_path, uc.TEST_MODULE)
         args = aidegen_main._parse_args(['-n'])
-        self.assertTrue(args.no_launch)
+        self.assertEqual(args.no_launch, True)
         args = aidegen_main._parse_args(['-r'])
-        self.assertTrue(args.config_reset)
+        self.assertEqual(args.config_reset, True)
         args = aidegen_main._parse_args(['-s'])
-        self.assertTrue(args.skip_build)
+        self.assertEqual(args.skip_build, True)
 
-    @mock.patch.object(ide_util.IdeIntelliJ, '_get_preferred_version')
-    def test_get_ide_util_instance_with_sucess(self, mock_preference):
-        """Test _get_ide_util_instance with sucess."""
+    @mock.patch('aidegen_main.logging.basicConfig')
+    def test_configure_logging(self, mock_log_config):
+        """Test _configure_logging with different arguments."""
+        aidegen_main._configure_logging(True)
+        log_format = aidegen_main._LOG_FORMAT
+        datefmt = aidegen_main._DATE_FORMAT
+        level = aidegen_main.logging.DEBUG
+        self.assertTrue(
+            mock_log_config.called_with(
+                level=level, format=log_format, datefmt=datefmt))
+        aidegen_main._configure_logging(False)
+        level = aidegen_main.logging.INFO
+        self.assertTrue(
+            mock_log_config.called_with(
+                level=level, format=log_format, datefmt=datefmt))
+
+    @mock.patch.object(IdeUtil, 'is_ide_installed')
+    def test_get_ide_util_instance(self, mock_installed):
+        """Test _get_ide_util_instance with different conditions."""
         target = 'tradefed'
         args = aidegen_main._parse_args([target, '-n'])
         self.assertEqual(aidegen_main._get_ide_util_instance(args), None)
         args = aidegen_main._parse_args([target])
-        mock_preference.return_value = '1'
         self.assertIsInstance(
-            aidegen_main._get_ide_util_instance(args), ide_util.IdeUtil)
-
-    @mock.patch.object(ide_util.IdeIntelliJ, '_get_preferred_version')
-    @mock.patch.object(ide_util.IdeUtil, 'is_ide_installed')
-    def test_get_ide_util_instance_with_failure(
-            self, mock_installed, mock_preference):
-
-        """Test _get_ide_util_instance with failure."""
-        args = aidegen_main._parse_args(['tradefed'])
+            aidegen_main._get_ide_util_instance(args), IdeUtil)
         mock_installed.return_value = False
-        mock_preference.return_value = '1'
-        with self.assertRaises(errors.IDENotExistError):
+        with self.assertRaises(IDENotExistError):
             aidegen_main._get_ide_util_instance(args)
 
-    @mock.patch.object(project_config, 'ProjectConfig')
-    @mock.patch.object(project_file_gen.ProjectFileGenerator,
-                       'generate_ide_project_files')
-    @mock.patch.object(eclipse_project_file_gen.EclipseConf,
-                       'generate_ide_project_files')
-    def test_generate_project_files(self, mock_eclipse, mock_ide, mock_config):
+    @mock.patch('builtins.print')
+    def test_check_skip_build(self, mock_print):
+        """Test _check_skip_build with different conditions."""
+        target = 'tradefed'
+        args = aidegen_main._parse_args([target, '-s'])
+        aidegen_main._check_skip_build(args)
+        self.assertFalse(mock_print.called)
+        args = aidegen_main._parse_args([target])
+        aidegen_main._check_skip_build(args)
+        msg = aidegen_main._SKIP_BUILD_INFO.format(
+            COLORED_INFO(
+                aidegen_main._SKIP_BUILD_CMD.format(' '.join(args.targets))))
+        info = '\n{} {}\n'.format(aidegen_main._INFO, msg)
+        self.assertTrue(mock_print.called_with(info))
+
+    @mock.patch.object(aidegen_main, 'generate_ide_project_files')
+    @mock.patch.object(aidegen_main, 'generate_eclipse_project_files')
+    def test_generate_project_files(self, mock_eclipse, mock_ide):
         """Test _generate_project_files with different conditions."""
         projects = ['module_a', 'module_v']
-        args = aidegen_main._parse_args([projects, '-i', 'e'])
-        project_config.ProjectConfig(args)
-        mock_config.ide_name = constant.IDE_ECLIPSE
-        aidegen_main._generate_project_files(projects)
+        aidegen_main._generate_project_files('e', projects)
         self.assertTrue(mock_eclipse.called_with(projects))
-        mock_config.ide_name = constant.IDE_ANDROID_STUDIO
-        aidegen_main._generate_project_files(projects)
+        aidegen_main._generate_project_files('s', projects)
         self.assertTrue(mock_ide.called_with(projects))
-        mock_config.ide_name = constant.IDE_INTELLIJ
-        aidegen_main._generate_project_files(projects)
+        aidegen_main._generate_project_files('j', projects)
         self.assertTrue(mock_ide.called_with(projects))
 
     @mock.patch.object(common_util, 'get_atest_module_info')
@@ -117,58 +129,36 @@ class AidegenMainUnittests(unittest.TestCase):
         """Test main process always run through the target test function."""
         target = 'nothing'
         args = aidegen_main._parse_args([target, '-s', '-n'])
-        with self.assertRaises(errors.ProjectPathNotExistError):
+        with self.assertRaises(ProjectPathNotExistError):
             err = common_util.PATH_NOT_EXISTS_ERROR.format(target)
-            mock_get.side_effect = errors.ProjectPathNotExistError(err)
+            mock_get.side_effect = ProjectPathNotExistError(err)
             aidegen_main.main_without_message(args)
             self.assertTrue(mock_metrics.called)
 
-    @mock.patch.object(aidegen_main, 'main_with_message')
-    @mock.patch.object(aidegen_main, 'main_without_message')
-    def test_main(self, mock_without, mock_with):
-        """Test main with conditions."""
-        aidegen_main.main(['-s'])
-        self.assertEqual(mock_without.call_count, 1)
-        aidegen_main.main([''])
-        self.assertEqual(mock_with.call_count, 1)
-
-    @mock.patch.object(aidegen_metrics, 'starts_asuite_metrics')
-    @mock.patch.object(project_config, 'is_whole_android_tree')
-    @mock.patch.object(aidegen_metrics, 'ends_asuite_metrics')
-    @mock.patch.object(aidegen_main, 'main_with_message')
-    def test_main_with_normal(self, mock_main, mock_ends_metrics,
-                              mock_is_whole_tree, mock_starts_metrics):
-        """Test main with normal conditions."""
-        aidegen_main.main(['-h'])
-        self.assertFalse(mock_main.called)
-        mock_ends_metrics.assert_called_with(constant.EXIT_CODE_NORMAL)
-        mock_is_whole_tree.return_value = True
-        aidegen_main.main([''])
-        mock_starts_metrics.assert_called_with([constant.ANDROID_TREE])
-
-    @mock.patch.object(aidegen_metrics, 'ends_asuite_metrics')
-    @mock.patch.object(aidegen_main, 'main_with_message')
-    def test_main_with_build_fail_errors(self, mock_main, mock_ends_metrics):
-        """Test main with raising build failure error conditions."""
-        mock_main.side_effect = errors.BuildFailureError
-        with self.assertRaises(errors.BuildFailureError):
-            aidegen_main.main([''])
-            _, exc_value, exc_traceback = sys.exc_info()
-            msg = str(exc_value)
-            mock_ends_metrics.assert_called_with(
-                constant.EXIT_CODE_AIDEGEN_EXCEPTION, exc_traceback, msg)
-
-    @mock.patch.object(aidegen_metrics, 'ends_asuite_metrics')
-    @mock.patch.object(aidegen_main, 'main_with_message')
-    def test_main_with_io_errors(self, mock_main, mock_ends_metrics):
-        """Test main with raising IO error conditions."""
-        mock_main.side_effect = IOError
-        with self.assertRaises(IOError):
-            aidegen_main.main([''])
-            _, exc_value, exc_traceback = sys.exc_info()
-            msg = str(exc_value)
-            mock_ends_metrics.assert_called_with(
-                constant.EXIT_CODE_EXCEPTION, exc_traceback, msg)
+    @mock.patch.object(common_util, 'get_related_paths')
+    def test_compile_targets_for_whole_android_tree(self, mock_get):
+        """Test _add_whole_android_tree_project with different conditions."""
+        mod_info = module_info.ModuleInfo()
+        targets = ['']
+        cwd = constant.ANDROID_ROOT_PATH
+        self.assertEqual(
+            targets,
+            aidegen_main._compile_targets_for_whole_android_tree(
+                mod_info, targets, cwd))
+        base_dir = 'frameworks/base'
+        expected_targets = ['', base_dir]
+        cwd = os.path.join(constant.ANDROID_ROOT_PATH, base_dir)
+        mock_get.return_value = None, cwd
+        self.assertEqual(
+            expected_targets,
+            aidegen_main._compile_targets_for_whole_android_tree(
+                mod_info, targets, cwd))
+        targets = [base_dir]
+        cwd = constant.ANDROID_ROOT_PATH
+        self.assertEqual(
+            expected_targets,
+            aidegen_main._compile_targets_for_whole_android_tree(
+                mod_info, targets, cwd))
 
 
 if __name__ == '__main__':
