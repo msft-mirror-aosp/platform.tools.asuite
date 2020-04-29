@@ -24,9 +24,11 @@ _atest_completion_ready() {
     #    [[ -r "$completion_file" ]] && source "$completion_file"
     # Open a new terminal, source/lunch and try again.
     reqs=(compopt _get_comp_words_by_ref __ltrim_colon_completions)
-    if ! type "${reqs[@]}" >/dev/null 2>&1; then
-        return 0
-    fi
+    for _cmd in "${reqs[@]}"; do
+        if ! type "$_cmd" >/dev/null 2>&1; then
+            return 1
+        fi
+    done
 }
 
 _fetch_testable_modules() {
@@ -160,7 +162,7 @@ function _atest_main() {
     # BASH version <= 4.3 doesn't have nosort option.
     # Note that nosort has no effect for zsh.
     local _atest_comp_options="-o default -o nosort"
-    local _atest_executables=(atest-dev atest-src)
+    local _atest_executables=(atest atest-dev atest-src atest-py3)
     for exec in "${_atest_executables[*]}"; do
         complete -F _atest $_atest_comp_options $exec 2>/dev/null || \
         complete -F _atest -o default $exec
