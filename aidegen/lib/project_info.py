@@ -90,6 +90,8 @@ class ProjectInfo:
                                   The "!/" is a content descriptor for
                                   compressed files in IntelliJ.
         is_main_project: A boolean to verify the project is main project.
+        dependencies: A list of dependency projects' iml file names, e.g. base,
+                      framework-all.
     """
 
     modules_info = None
@@ -122,6 +124,7 @@ class ProjectInfo:
             self.dep_modules = self.get_dep_modules()
         self._filter_out_modules()
         self._display_convert_make_files_message()
+        self.dependencies = []
 
     def _set_default_modues(self):
         """Append default hard-code modules, source paths and jar files.
