@@ -42,6 +42,10 @@ KEY_MODULE_NAME = 'module_name'
 KEY_TEST_CONFIG = 'test_config'
 KEY_HEADER = 'header_search_path'
 KEY_SYSTEM = 'system_search_path'
+KEY_TESTS = 'tests'
+KEY_JARS = 'jars'
+KEY_DEP_SRCS = 'dep_srcs'
+KEY_IML_NAME = 'iml_name'
 
 # Java related classes.
 JAVA_TARGET_CLASSES = ['APPS', 'JAVA_LIBRARIES', 'ROBOLECTRIC']
@@ -93,6 +97,7 @@ ANDROID_BP = 'Android.bp'
 ANDROID_MK = 'Android.mk'
 JAVA_FILES = '*.java'
 VSCODE_CONFIG_DIR = '.vscode'
+ANDROID_MANIFEST = 'AndroidManifest.xml'
 
 # Constants for file paths.
 RELATIVE_NATIVE_PATH = 'development/ide/clion'
