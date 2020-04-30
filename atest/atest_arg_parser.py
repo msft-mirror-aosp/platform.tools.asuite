@@ -70,6 +70,7 @@ TEST = ('Run the tests. WARNING: Many test configs force cleanup of device '
 TEST_MAPPING = 'Run tests defined in TEST_MAPPING files.'
 TF_TEMPLATE = ('Add extra tradefed template for ATest suite, '
                'e.g. atest <test> --tf-template <template_key>=<template_path>')
+TF_DEBUG = 'Enable tradefed debug mode with a specify port. Default value is 10888.'
 SHARDING = 'Option to specify sharding count. The default value is 2'
 UPDATE_CMD_MAPPING = ('Update the test command of input tests. Warning: result '
                       'will be saved under tools/tradefederation/core/atest/test_data.')
@@ -182,7 +183,10 @@ class AtestArgParser(argparse.ArgumentParser):
                           help=UPDATE_CMD_MAPPING)
         self.add_argument('-y', '--verify-cmd-mapping', action='store_true',
                           help=VERIFY_CMD_MAPPING)
-
+        # Options for Tradefed debug mode.
+        self.add_argument('-D', '--tf-debug', nargs='?', const=10888,
+                          type=_positive_int, default=0,
+                          help=TF_DEBUG)
         # Options for Tradefed customization related.
         self.add_argument('--tf-template', action='append',
                           help=TF_TEMPLATE)
@@ -261,6 +265,7 @@ def print_epilog_text():
                                          SHARDING=SHARDING,
                                          TEST=TEST,
                                          TEST_MAPPING=TEST_MAPPING,
+                                         TF_DEBUG=TF_DEBUG,
                                          TF_TEMPLATE=TF_TEMPLATE,
                                          USER_TYPE=USER_TYPE,
                                          UPDATE_CMD_MAPPING=UPDATE_CMD_MAPPING,
@@ -293,6 +298,9 @@ OPTIONS
 
         -d, --disable-teardown
             {DISABLE_TEARDOWN}
+
+        -D --tf-debug
+            {TF_DEBUG}
 
         --history
             {HISTORY}
