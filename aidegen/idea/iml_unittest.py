@@ -22,6 +22,7 @@ import tempfile
 import unittest
 from unittest import mock
 
+from aidegen import templates
 from aidegen.lib import common_util
 from aidegen.idea import iml
 
@@ -36,13 +37,14 @@ class IMLGenUnittests(unittest.TestCase):
         """Prepare the testdata related path."""
         IMLGenUnittests._TEST_DIR = tempfile.mkdtemp()
         module = {
-            "module_name": "test",
-            "path": [
-                "a/b"
-            ],
-            "srcjars": [
-                'x/y.srcjar'
-            ]
+            'module_name': 'test',
+            'iml_name': 'test_iml',
+            'path': ['a/b'],
+            'srcs': ['a/b/src'],
+            'tests': ['a/b/tests'],
+            'srcjars': ['x/y.srcjar'],
+            'jars': ['s.jar'],
+            'dependencies': ['m1']
         }
         with mock.patch.object(common_util, 'get_android_root_dir') as obj:
             obj.return_value = IMLGenUnittests._TEST_DIR
@@ -61,40 +63,105 @@ class IMLGenUnittests(unittest.TestCase):
     def test_iml_path(self, mock_root_path):
         """Test iml_path."""
         mock_root_path.return_value = IMLGenUnittests._TEST_DIR
-        iml_path = os.path.join(IMLGenUnittests._TEST_DIR, 'a/b/test.iml')
+        iml_path = os.path.join(IMLGenUnittests._TEST_DIR, 'a/b/test_iml.iml')
         self.assertEqual(self.iml.iml_path, iml_path)
 
     @mock.patch.object(common_util, 'get_android_root_dir')
     def test_create(self, mock_root_path):
         """Test create."""
         mock_root_path.return_value = IMLGenUnittests._TEST_DIR
+        module_path = os.path.join(IMLGenUnittests._TEST_DIR, 'a/b')
+        src_path = os.path.join(IMLGenUnittests._TEST_DIR, 'a/b/src')
+        test_path = os.path.join(IMLGenUnittests._TEST_DIR, 'a/b/tests')
         srcjar_path = os.path.join(IMLGenUnittests._TEST_DIR, 'x/y.srcjar')
+        jar_path = os.path.join(IMLGenUnittests._TEST_DIR, 's.jar')
         expected = """<?xml version="1.0" encoding="UTF-8"?>
 <module type="JAVA_MODULE" version="4">
     <component name="NewModuleRootManager" inherit-compiler-output="true">
         <exclude-output />
+        <content url="file://{MODULE_PATH}">
+            <sourceFolder url="file://{SRC_PATH}" isTestSource="false" />
+            <sourceFolder url="file://{TEST_PATH}" isTestSource="true" />
+        </content>
+        <orderEntry type="sourceFolder" forTests="false" />
         <content url="jar://{SRCJAR}!/">
             <sourceFolder url="jar://{SRCJAR}!/" isTestSource="False" />
+        </content>
+        <orderEntry type="module" module-name="m1" />
+        <orderEntry type="module-library" exported="">
+          <library>
+            <CLASSES>
+              <root url="jar://{JAR}!/" />
+            </CLASSES>
+            <JAVADOC />
+            <SOURCES />
+          </library>
+        </orderEntry>
+        <orderEntry type="inheritedJdk" />
+    </component>
+</module>
+""".format(MODULE_PATH=module_path,
+           SRC_PATH=src_path,
+           TEST_PATH=test_path,
+           SRCJAR=srcjar_path,
+           JAR=jar_path)
+        self.iml.create({'srcs': True, 'srcjars': True, 'dependencies': True,
+                         'jars': True})
+        gen_iml = os.path.join(IMLGenUnittests._TEST_DIR,
+                               self.iml._mod_info['path'][0],
+                               self.iml._mod_info['iml_name'] + '.iml')
+        result = common_util.read_file_content(gen_iml)
+        self.assertEqual(result, expected)
+
+    @mock.patch.object(common_util, 'get_android_root_dir')
+    def test_gen_dep_sources(self, mock_root_path):
+        """Test _generate_dep_srcs."""
+        mock_root_path.return_value = IMLGenUnittests._TEST_DIR
+        src_path = os.path.join(IMLGenUnittests._TEST_DIR, 'a/b/src')
+        test_path = os.path.join(IMLGenUnittests._TEST_DIR, 'a/b/tests')
+        expected = """<?xml version="1.0" encoding="UTF-8"?>
+<module type="JAVA_MODULE" version="4">
+    <component name="NewModuleRootManager" inherit-compiler-output="true">
+        <exclude-output />
+        <content url="file://{SRC_PATH}">
+            <sourceFolder url="file://{SRC_PATH}" isTestSource="false" />
+        </content>
+        <content url="file://{TEST_PATH}">
+            <sourceFolder url="file://{TEST_PATH}" isTestSource="true" />
         </content>
         <orderEntry type="sourceFolder" forTests="false" />
         <orderEntry type="inheritedJdk" />
     </component>
 </module>
-""".format(SRCJAR=srcjar_path)
-        self.iml.create({'srcjars': True})
+""".format(SRC_PATH=src_path,
+           TEST_PATH=test_path)
+        self.iml.create({'dep_srcs': True})
         gen_iml = os.path.join(IMLGenUnittests._TEST_DIR,
                                self.iml._mod_info['path'][0],
-                               self.iml._mod_info['module_name'] + '.iml')
+                               self.iml._mod_info['iml_name'] + '.iml')
         result = common_util.read_file_content(gen_iml)
         self.assertEqual(result, expected)
 
     @mock.patch.object(iml.IMLGenerator, '_create_iml')
+    @mock.patch.object(iml.IMLGenerator, '_generate_dependencies')
     @mock.patch.object(iml.IMLGenerator, '_generate_srcjars')
-    def test_skip_create_iml(self, mock_gen_srcjars, mock_create_iml):
+    def test_skip_create_iml(self, mock_gen_srcjars, mock_gen_dep,
+                             mock_create_iml):
         """Test skipping create_iml."""
-        self.iml.create({'srcjars': False})
+        self.iml.create({'srcjars': False, 'dependencies': False})
         self.assertFalse(mock_gen_srcjars.called)
+        self.assertFalse(mock_gen_dep.called)
         self.assertFalse(mock_create_iml.called)
+
+    @mock.patch('os.path.exists')
+    def test_generate_facet(self, mock_exists):
+        """Test _generate_facet."""
+        mock_exists.return_value = False
+        self.iml._generate_facet()
+        self.assertEqual(self.iml._facet, '')
+        mock_exists.return_value = True
+        self.iml._generate_facet()
+        self.assertEqual(self.iml._facet, templates.FACET)
 
 
 if __name__ == '__main__':
