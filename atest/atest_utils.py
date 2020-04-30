@@ -21,7 +21,6 @@ Utility functions for atest.
 
 from __future__ import print_function
 
-import curses
 import hashlib
 import itertools
 import json
@@ -289,6 +288,7 @@ def _has_colors(stream):
         cached_has_colors[stream] = False
         return False
     try:
+        import curses
         curses.setupterm()
         cached_has_colors[stream] = curses.tigetnum("colors") > 2
     # pylint: disable=broad-except
