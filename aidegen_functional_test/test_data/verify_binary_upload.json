@@ -10,5 +10,9 @@
     "test Settings framework": ["aidegen Settings framework -n -s"],
     "test framework launch Android Studio": ["aidegen framework -i s -n -s"],
     "test framework launch Eclipse": ["aidegen framework -i e -n -s"],
+    "test frameworks/native launch CLion": ["aidegen frameworks/native -i c -n -s"],
+    "test framework launch VSCode": ["aidegen framework -i v -n -s"],
+    "test Settings framework launch VSCode": ["aidegen Settings framework -i v -n -s"],
+    "test framework exclude paths": ["aidegen framework -e frameworks/base/test-mock frameworks/base/test-runner -n -s"],
     "test help": ["aidegen -h"]
 }
