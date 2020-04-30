@@ -47,6 +47,7 @@ KEY_TESTS = 'tests'
 KEY_JARS = 'jars'
 KEY_DEP_SRCS = 'dep_srcs'
 KEY_IML_NAME = 'iml_name'
+KEY_EXCLUDES = 'excludes'
 
 # Java related classes.
 JAVA_TARGET_CLASSES = ['APPS', 'JAVA_LIBRARIES', 'ROBOLECTRIC']
