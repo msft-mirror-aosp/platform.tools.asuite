@@ -43,8 +43,8 @@ _EXCLUDE_ITEM = '            <excludeFolder url="file://%s" />\n'
 _CONTENT_URL = '        <content url="file://%s">\n'
 _END_CONTENT = '        </content>\n'
 _SRCJAR_URL = ('%s<content url="jar://{SRCJAR}!/">\n'
-               '%s<sourceFolder url="jar://{SRCJAR}!/" isTestSource="False" />\n'
-               '%s</content>') % (' ' * 8, ' ' * 12, ' ' * 8)
+               '%s<sourceFolder url="jar://{SRCJAR}!/" isTestSource="False" />'
+               '\n%s</content>') % (' ' * 8, ' ' * 12, ' ' * 8)
 _ORDER_ENTRY = ('        <orderEntry type="module-library" exported="">'
                 '<library><CLASSES><root url="jar://%s!/" /></CLASSES>'
                 '<JAVADOC /><SOURCES /></library></orderEntry>\n')
@@ -290,7 +290,7 @@ class ProjectFileGenerator:
         """
         facet = ''
         facet_path = self.project_info.project_absolute_path
-        if os.path.isfile(os.path.join(facet_path, _ANDROID_MANIFEST)):
+        if os.path.isfile(os.path.join(facet_path, constant.ANDROID_MANIFEST)):
             facet = _FACET_SECTION
         return content.replace(_FACET_TOKEN, facet)
 
