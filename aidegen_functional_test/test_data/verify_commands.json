@@ -62,6 +62,18 @@
         "aidegen_main.main(['-n', '-v', '-a'])",
         "os.chdir('../..')"
     ],
+    "aidegen frameworks/native -i c": [
+        "aidegen_main.main(['frameworks/native', '-i', 'c', '-n'])"
+    ],
+    "aidegen framework -i v": [
+        "aidegen_main.main(['framework', '-i', 'v', '-n'])"
+    ],
+    "aidegen Settings framework -i v": [
+        "aidegen_main.main(['Settings', 'framework', '-i', 'v', '-n'])"
+    ],
+    "aidegen framework exclude paths": [
+        "aidegen_main.main(['framework', '-e', 'frameworks/base/test-mock', 'frameworks/base/test-runner', '-n'])"
+    ],
     "aidegen -h": [
         "aidegen_main.main(['-h'])"
     ]

@@ -364,6 +364,20 @@ class AidegenCommonUtilUnittests(unittest.TestCase):
         pretty_xml = common_util.to_pretty_xml(root)
         self.assertEqual(pretty_xml, self._SAMPLE_XML_CONTENT)
 
+    def test_to_to_boolean(self):
+        """Test to_boolean function with conditions."""
+        self.assertTrue(common_util.to_boolean('True'))
+        self.assertTrue(common_util.to_boolean('true'))
+        self.assertTrue(common_util.to_boolean('T'))
+        self.assertTrue(common_util.to_boolean('t'))
+        self.assertTrue(common_util.to_boolean('1'))
+        self.assertFalse(common_util.to_boolean('False'))
+        self.assertFalse(common_util.to_boolean('false'))
+        self.assertFalse(common_util.to_boolean('F'))
+        self.assertFalse(common_util.to_boolean('f'))
+        self.assertFalse(common_util.to_boolean('0'))
+        self.assertFalse(common_util.to_boolean(''))
+
 
 # pylint: disable=unused-argument
 def parse_rule(self, name, text):

@@ -741,6 +741,7 @@ def main(argv):
     """
     args = _parse_args(argv)
     common_util.configure_logging(args.verbose)
+    os.environ[constant.AIDEGEN_TEST_MODE] = 'true'
     if args.create_sample:
         _create_some_sample_json_file(args.targets)
     elif args.use_cases_verified:
@@ -756,6 +757,7 @@ def main(argv):
             _test_some_sample_iml()
         else:
             _test_some_sample_iml(args.targets)
+    del os.environ[constant.AIDEGEN_TEST_MODE]
 
 
 if __name__ == '__main__':
