@@ -586,11 +586,12 @@ def main(argv, results_dir, args):
     _configure_logging(args.verbose)
     _validate_args(args)
     metrics_utils.get_start_time()
+    os_pyver = '{}:{}'.format(platform.platform(), platform.python_version())
     metrics.AtestStartEvent(
         command_line=' '.join(argv),
         test_references=args.tests,
         cwd=os.getcwd(),
-        os=platform.platform())
+        os=os_pyver)
     if args.version:
         if os.path.isfile(constants.VERSION_FILE):
             with open(constants.VERSION_FILE) as version_file:
@@ -607,6 +608,10 @@ def main(argv, results_dir, args):
     if args.history:
         atest_execution_info.print_test_result(constants.ATEST_RESULT_ROOT,
                                                args.history)
+        return constants.EXIT_CODE_SUCCESS
+    if args.latest_result:
+        atest_execution_info.print_test_result_by_path(
+            constants.LATEST_RESULT_FILE)
         return constants.EXIT_CODE_SUCCESS
     mod_info = module_info.ModuleInfo(force_build=args.rebuild_module_info)
     if args.rebuild_module_info:
