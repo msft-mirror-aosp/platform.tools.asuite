@@ -39,8 +39,6 @@ _SRCJAR_EXT = '.srcjar'
 _TARGET_FILES = [_JAVA_EXT, _KOTLIN_EXT]
 _JARJAR_RULES_FILE = 'jarjar-rules.txt'
 _KEY_JARJAR_RULES = 'jarjar_rules'
-_KEY_JARS = 'jars'
-_KEY_TESTS = 'tests'
 _NAME_AAPT2 = 'aapt2'
 _TARGET_R_SRCJAR = 'R.srcjar'
 _TARGET_AAPT2_SRCJAR = _NAME_AAPT2 + _SRCJAR_EXT
@@ -252,7 +250,7 @@ class ModuleData:
 
     def _check_jars_exist(self):
         """Check if jars exist."""
-        return self._check_key(_KEY_JARS)
+        return self._check_key(constant.KEY_JARS)
 
     def _check_classes_jar_exist(self):
         """Check if classes_jar exist."""
@@ -309,7 +307,7 @@ class ModuleData:
         Returns:
             True if module path is a test module path, otherwise False.
         """
-        return _KEY_TESTS in src_dir.split(os.sep)
+        return constant.KEY_TESTS in src_dir.split(os.sep)
 
     def _get_source_folder(self, java_file):
         """Parsing a java to get the package name to filter out source path.
@@ -479,8 +477,8 @@ class ModuleData:
         },
         Path to the jar file is prebuilts/misc/common/asm/asm-6.0.jar.
         """
-        if self._check_key(_KEY_JARS):
-            for jar_name in self.module_data[_KEY_JARS]:
+        if self._check_key(constant.KEY_JARS):
+            for jar_name in self.module_data[constant.KEY_JARS]:
                 if self._check_key(constant.KEY_INSTALLED):
                     self._append_jar_from_installed()
                 else:
