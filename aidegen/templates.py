@@ -423,3 +423,10 @@ XML_ENABLE_DEBUGGER = """<?xml version="1.0" encoding="UTF-8"?>
   </component>
 </module>
 """
+
+# The default empty template of the jdk.table.xml.
+JDK_TABLE_XML = """<application>
+  <component name="ProjectJdkTable">
+  </component>
+</application>
+"""
