@@ -53,9 +53,10 @@ class JDKTableXMLUnittests(unittest.TestCase):
         self.jdk_table_xml = None
         shutil.rmtree(JDKTableXMLUnittests._TEST_DIR)
 
+    @mock.patch.object(common_util, 'file_generate')
     @mock.patch('os.path.exists')
     @mock.patch.object(ElementTree, 'parse')
-    def test_init(self, mock_parse, mock_exists):
+    def test_init(self, mock_parse, mock_exists, mock_gen_file):
         """Test initialize the attributes."""
         self.assertEqual(self.jdk_table_xml._platform_version, None)
         self.assertEqual(self.jdk_table_xml._android_sdk_version, None)
@@ -67,6 +68,7 @@ class JDKTableXMLUnittests(unittest.TestCase):
         mock_exists.return_value = False
         jdk_table.JDKTableXML(None, None, None, None)
         self.assertTrue(mock_parse.called)
+        self.assertTrue(mock_gen_file.called)
 
     def test_android_sdk_version(self):
         """Test android_sdk_version."""
