@@ -79,9 +79,9 @@ def _find_parent(abs_path, current_parent):
     """
     if not current_parent:
         return abs_path
-    if abs_path.startswith(current_parent):
+    if common_util.is_source_under_relative_path(abs_path, current_parent):
         return current_parent
-    if current_parent.startswith(abs_path):
+    if common_util.is_source_under_relative_path(current_parent, abs_path):
         return abs_path
     return _find_parent(
         os.path.dirname(abs_path), os.path.dirname(current_parent))
@@ -218,6 +218,6 @@ def _check_native_project_exists(path_to_module_info, rel_path):
         True if any native project exists otherwise False.
     """
     for path in path_to_module_info:
-        if path.startswith(rel_path):
+        if common_util.is_source_under_relative_path(path, rel_path):
             return True
     return False
