@@ -24,6 +24,7 @@ import inspect
 import json
 import logging
 import os
+import re
 import sys
 import time
 import xml.dom.minidom
@@ -195,7 +196,7 @@ def has_build_target(atest_module_info, rel_path):
         True if the relative path contains a build target, otherwise false.
     """
     return any(
-        mod_path.startswith(rel_path)
+        is_source_under_relative_path(mod_path, rel_path)
         for mod_path in atest_module_info.path_to_module_info)
 
 
@@ -268,7 +269,7 @@ def check_module(atest_module_info, target, raise_on_lost_module=True):
         err = FAKE_MODULE_ERROR.format(target)
         logging.error(err)
         raise errors.FakeModuleError(err)
-    if not abs_path.startswith(get_android_root_dir()):
+    if not is_source_under_relative_path(abs_path, get_android_root_dir()):
         err = OUTSIDE_ROOT_ERROR.format(abs_path)
         logging.error(err)
         raise errors.ProjectOutsideAndroidRootError(err)
@@ -302,7 +303,7 @@ def get_abs_path(rel_path):
     """
     if not rel_path:
         return get_android_root_dir()
-    if rel_path.startswith(get_android_root_dir()):
+    if is_source_under_relative_path(rel_path, get_android_root_dir()):
         return rel_path
     return os.path.join(get_android_root_dir(), rel_path)
 
@@ -483,7 +484,8 @@ def is_source_under_relative_path(source, relative_path):
     Returns:
         True if source file is a project relative path file, otherwise False.
     """
-    return source == relative_path or source.startswith(relative_path + os.sep)
+    return re.search(
+        constant.RE_INSIDE_PATH_CHECK.format(relative_path), source)
 
 
 def remove_user_home_path(data):
@@ -691,6 +693,7 @@ def to_pretty_xml(root, indent="  "):
     xml_string = xml_string.split("\n", 1)[1]
     # Remove the weird newline issue from toprettyxml.
     return os.linesep.join([s for s in xml_string.splitlines() if s.strip()])
+
 
 def to_boolean(str_bool):
     """Converts a string to a boolean.
