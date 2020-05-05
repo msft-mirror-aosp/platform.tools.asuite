@@ -241,7 +241,8 @@ class ModuleData:
 
     def _is_android_supported_module(self):
         """Determine if this is an Android supported module."""
-        return self.module_path.startswith(_ANDROID_SUPPORT_PATH_KEYWORD)
+        return common_util.is_source_under_relative_path(
+            self.module_path, _ANDROID_SUPPORT_PATH_KEYWORD)
 
     def _check_jarjar_rules_exist(self):
         """Check if jarjar rules exist."""
