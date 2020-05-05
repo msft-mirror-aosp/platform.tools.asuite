@@ -33,7 +33,6 @@ _MODULES = 'modules'
 _INCLUDE_TAIL = '_genc++_headers'
 _SRC_GEN_CHECK = r'^out/soong/.intermediates/.+/gen/.+\.(c|cc|cpp)'
 _INC_GEN_CHECK = r'^out/soong/.intermediates/.+/gen($|/.+)'
-_INSIDE_PATH_CHECK = r'^{}($|/.+)'
 
 
 class NativeModuleInfo(module_info.AidegenModuleInfo):
@@ -96,9 +95,8 @@ class NativeModuleInfo(module_info.AidegenModuleInfo):
                 print('Do not deal with whole source tree in native projects.')
                 continue
             rel_path, _ = common_util.get_related_paths(self, target)
-            re_path_check = _INSIDE_PATH_CHECK.format(rel_path)
             for path in self.path_to_module_info:
-                if re.search(re_path_check, path):
+                if common_util.is_source_under_relative_path(path, rel_path):
                     projects.extend(self.get_module_names(path))
         return projects
 
