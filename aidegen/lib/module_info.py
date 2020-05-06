@@ -81,20 +81,19 @@ class AidegenModuleInfo(module_info.ModuleInfo, metaclass=Singleton):
         return False
 
     @staticmethod
-    def is_project_path_relative_module(mod_info, project_relative_path):
+    def is_project_path_relative_module(mod_info, rel_path):
         """Determine if the given project path is relative to the module.
 
         The rules:
            1. If constant.KEY_PATH not in mod_info, we can't tell if it's a
               module return False.
-           2. If project_relative_path is empty, it's under Android root, return
-              True.
-           3. If module's path equals or starts with project_relative_path
-              return True, otherwise return False.
+           2. If rel_path is empty, it's under Android root, return True.
+           3. If module's path equals or starts with rel_path return True,
+              otherwise return False.
 
         Args:
             mod_info: the module-info dictionary of the checked module.
-            project_relative_path: project's relative path
+            rel_path: project's relative path
 
         Returns:
             True if it's the given project path is relative to the module,
@@ -103,10 +102,9 @@ class AidegenModuleInfo(module_info.ModuleInfo, metaclass=Singleton):
         if constant.KEY_PATH not in mod_info:
             return False
         path = mod_info[constant.KEY_PATH][0]
-        if project_relative_path == '':
+        if rel_path == '':
             return True
         if (constant.KEY_CLASS in mod_info
-                and (path == project_relative_path
-                     or path.startswith(project_relative_path + os.sep))):
+                and common_util.is_source_under_relative_path(path, rel_path)):
             return True
         return False
