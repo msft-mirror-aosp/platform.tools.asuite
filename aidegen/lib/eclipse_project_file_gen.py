@@ -165,7 +165,8 @@ class EclipseConf(project_file_gen.ProjectFileGenerator):
         Returns: A list of source folder paths.
         """
         return [p for p in self.src_paths
-                if not p.startswith(self.module_relpath)]
+                if not common_util.is_source_under_relative_path(
+                    p, self.module_relpath)]
 
     def _create_project_content(self):
         """Create the project file .project under the module."""
@@ -231,7 +232,8 @@ class EclipseConf(project_file_gen.ProjectFileGenerator):
         src_path_entries = []
         for src in self.src_paths:
             src_abspath = os.path.join(common_util.get_android_root_dir(), src)
-            if src.startswith(self.module_relpath):
+            if common_util.is_source_under_relative_path(
+                    src, self.module_relpath):
                 src = src.replace(self.module_relpath, '').strip(os.sep)
             else:
                 src = os.path.join(constant.KEY_DEPENDENCIES, src)
