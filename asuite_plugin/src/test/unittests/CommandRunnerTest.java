@@ -58,6 +58,7 @@ public class CommandRunnerTest {
         Assert.assertSame(commandLine.getCharset(), StandardCharsets.UTF_8);
         Assert.assertEquals(
                 commandLine.getCommandLineString(),
-                "/bin/bash -c \"source build/envsetup.sh && lunch a && atest b\"");
+                "/bin/bash -c \"export USER_FROM_TOOL=\\\"IntelliJ_Atest_plugin\\\" "
+                        + "&& source build/envsetup.sh && lunch a && atest b\"");
     }
 }
