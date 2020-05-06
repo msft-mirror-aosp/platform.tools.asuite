@@ -19,12 +19,18 @@
 import os
 
 from aidegen import constant
+from aidegen.idea import iml
 from aidegen.lib import common_util
 from aidegen.lib import project_file_gen
 
 _KEY_SOURCE_PATH = 'source_folder_path'
 _KEY_TEST_PATH = 'test_folder_path'
 _SOURCE_FOLDERS = [_KEY_SOURCE_PATH, _KEY_TEST_PATH]
+_KEY_SRCJAR_PATH = 'srcjar_path'
+_KEY_R_PATH = 'r_java_path'
+_KEY_JAR_PATH = 'jar_path'
+_FRAMEWORK_PATH = 'frameworks/base'
+_FRAMEWORK_SRCJARS = 'framework_srcjars'
 
 
 class ProjectSplitter:
@@ -47,6 +53,19 @@ class ProjectSplitter:
     Attributes:
         _projects: A list of ProjectInfo.
         _all_srcs: A dictionary contains all sources of multiple projects.
+                   e.g.
+                   {
+                       'module_name': 'test',
+                       'path': ['path/to/module'],
+                       'srcs': ['src_folder1', 'src_folder2'],
+                       'tests': ['test_folder1', 'test_folder2']
+                       'jars': ['jar1.jar'],
+                       'srcjars': ['1.srcjar', '2.srcjar'],
+                       'dependencies': ['framework_srcjars', 'base'],
+                       'iml_name': '/abs/path/to/iml.iml'
+                   }
+        _framework_exist: A boolean, True if framework is one of the projects.
+        _framework_iml: A string, the absolute path of the framework's iml.
     """
     def __init__(self, projects):
         """ProjectSplitter initialize.
@@ -56,6 +75,14 @@ class ProjectSplitter:
         """
         self._projects = projects
         self._all_srcs = dict(projects[0].source_path)
+        self._framework_iml = None
+        self._framework_exist = any({p.project_relative_path == _FRAMEWORK_PATH
+                                     for p in self._projects})
+        if self._framework_exist:
+            project_gen = project_file_gen.ProjectFileGenerator
+            self._framework_iml = project_gen.get_unique_iml_name(
+                os.path.join(common_util.get_android_root_dir(),
+                             _FRAMEWORK_PATH))
 
     def revise_source_folders(self):
         """Resets the source folders of each project.
@@ -123,7 +150,7 @@ class ProjectSplitter:
         If do, the current project is a dependency module to the other.
         """
         for project in self._projects:
-            project.dependencies = [constant.FRAMEWORK_ALL,
+            project.dependencies = [_FRAMEWORK_SRCJARS,
                                     constant.KEY_DEPENDENCIES]
             proj_path = project.project_relative_path
             srcs = (project.source_path[_KEY_SOURCE_PATH]
@@ -141,3 +168,64 @@ class ProjectSplitter:
                 dep = project_gen.get_unique_iml_name(os.path.join(
                     common_util.get_android_root_dir(), dep_path))
                 project.dependencies.insert(1, dep)
+
+    def gen_framework_srcjars_iml(self):
+        """Generates the framework-srcjars.iml.
+
+        Create the iml file with only the srcjars of module framework-all. These
+        srcjars will be separated from the modules under frameworks/base.
+
+        Returns:
+            A string of the framework_srcjars.iml's absolute path.
+        """
+        mod = dict(self._projects[0].dep_modules[constant.FRAMEWORK_ALL])
+        mod[constant.KEY_DEPENDENCIES] = [constant.KEY_DEPENDENCIES]
+        mod[constant.KEY_IML_NAME] = _FRAMEWORK_SRCJARS
+        if self._framework_exist:
+            mod[constant.KEY_DEPENDENCIES].insert(0, self._framework_iml)
+        framework_srcjars_iml = iml.IMLGenerator(mod)
+        framework_srcjars_iml.create({constant.KEY_SRCJARS: True,
+                                      constant.KEY_DEPENDENCIES: True})
+        self._all_srcs[_KEY_SRCJAR_PATH] -= set(mod[constant.KEY_SRCJARS])
+        return framework_srcjars_iml.iml_path
+
+    def _gen_dependencies_iml(self):
+        """Generates the dependencies.iml."""
+        mod = {
+            constant.KEY_SRCS: self._all_srcs[_KEY_SOURCE_PATH],
+            constant.KEY_TESTS: self._all_srcs[_KEY_TEST_PATH],
+            constant.KEY_JARS: self._all_srcs[_KEY_JAR_PATH],
+            constant.KEY_SRCJARS: (self._all_srcs[_KEY_R_PATH]
+                                   | self._all_srcs[_KEY_SRCJAR_PATH]),
+            constant.KEY_DEPENDENCIES: [_FRAMEWORK_SRCJARS],
+            constant.KEY_PATH: [self._projects[0].project_relative_path],
+            constant.KEY_MODULE_NAME: constant.KEY_DEPENDENCIES,
+            constant.KEY_IML_NAME: constant.KEY_DEPENDENCIES
+        }
+        if self._framework_exist:
+            mod[constant.KEY_DEPENDENCIES].insert(0, self._framework_iml)
+        dep_iml = iml.IMLGenerator(mod)
+        dep_iml.create({constant.KEY_DEP_SRCS: True,
+                        constant.KEY_SRCJARS: True,
+                        constant.KEY_JARS: True,
+                        constant.KEY_DEPENDENCIES: True})
+
+    def gen_projects_iml(self):
+        """Generates the projects' iml file."""
+        project_gen = project_file_gen.ProjectFileGenerator
+        for project in self._projects:
+            mod_info = {
+                constant.KEY_SRCS: project.source_path[_KEY_SOURCE_PATH],
+                constant.KEY_TESTS: project.source_path[_KEY_TEST_PATH],
+                constant.KEY_DEPENDENCIES: project.dependencies,
+                constant.KEY_PATH: [project.project_relative_path],
+                constant.KEY_MODULE_NAME: project.module_name,
+                constant.KEY_IML_NAME: project_gen.get_unique_iml_name(
+                    os.path.join(common_util.get_android_root_dir(),
+                                 project.project_relative_path))
+            }
+            dep_iml = iml.IMLGenerator(mod_info)
+            dep_iml.create({constant.KEY_SRCS: True,
+                            constant.KEY_DEPENDENCIES: True})
+            project.iml_path = dep_iml.iml_path
+        self._gen_dependencies_iml()
