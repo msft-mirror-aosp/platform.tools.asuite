@@ -727,7 +727,11 @@ if __name__ == '__main__':
     with atest_execution_info.AtestExecutionInfo(sys.argv[1:],
                                                  RESULTS_DIR,
                                                  ARGS) as result_file:
-        metrics_base.MetricsBase.tool_name = constants.TOOL_NAME
+        USER_FROM_TOOL = os.getenv(constants.USER_FROM_TOOL, '')
+        if USER_FROM_TOOL == '':
+            metrics_base.MetricsBase.tool_name = constants.TOOL_NAME
+        else:
+            metrics_base.MetricsBase.tool_name = USER_FROM_TOOL
         EXIT_CODE = main(sys.argv[1:], RESULTS_DIR, ARGS)
         DETECTOR = bug_detector.BugDetector(sys.argv[1:], EXIT_CODE)
         metrics.LocalDetectEvent(
