@@ -42,7 +42,8 @@ import java.util.Arrays;
 public class CommandRunner {
 
     private static final Logger LOG = Logger.getInstance(CommandRunner.class);
-    private static final String ATEST_COMMAND_PREFIX = "source build/envsetup.sh && lunch ";
+    private static final String ATEST_COMMAND_PREFIX =
+            "export USER_FROM_TOOL=\"IntelliJ_Atest_plugin\" && source build/envsetup.sh && lunch ";
     private static KillableColoredProcessHandler sProcessHandler;
     private PtyCommandLine mCommand;
     private ProcessListener mProcessListener;
