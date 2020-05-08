@@ -44,7 +44,7 @@ FACET = """
         <configuration />
     </facet>"""
 CONTENT = """
-        <content url="file://{MODULE_PATH}">{SOURCES}
+        <content url="file://{MODULE_PATH}">{EXCLUDES}{SOURCES}
         </content>"""
 SOURCE = """
             <sourceFolder url="file://{SRC}" isTestSource="{IS_TEST}" />"""
