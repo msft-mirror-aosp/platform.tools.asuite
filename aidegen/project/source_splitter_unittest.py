@@ -22,9 +22,10 @@ import tempfile
 import unittest
 from unittest import mock
 
+from aidegen import unittest_constants
 from aidegen.idea import iml
 from aidegen.lib import common_util
-from aidegen.lib import project_file_gen
+from aidegen.lib import project_config
 from aidegen.lib import project_info
 from aidegen.project import source_splitter
 
@@ -34,6 +35,11 @@ class ProjectSplitterUnittest(unittest.TestCase):
     """Unit tests for ProjectSplitter class."""
 
     _TEST_DIR = None
+    _TEST_PATH = unittest_constants.TEST_DATA_PATH
+    _SAMPLE_EXCLUDE_FOLDERS = [
+        '\n            <excludeFolder url="file://%s/.idea" />' % _TEST_PATH,
+        '\n            <excludeFolder url="file://%s/out" />' % _TEST_PATH,
+    ]
 
     def setUp(self):
         """Prepare the testdata related data."""
@@ -79,22 +85,38 @@ class ProjectSplitterUnittest(unittest.TestCase):
             'r_java_path': set(),
             'srcjar_path': {'framework.srcjar', 'other.srcjar'}
         }
-        self.split_projs = source_splitter.ProjectSplitter(projects)
-        project_file_gen.ProjectFileGenerator._USED_NAME_CACHE.clear()
+        with mock.patch.object(project_config.ProjectConfig,
+                               'get_instance') as proj_cfg:
+            config = mock.Mock()
+            config.full_repo = False
+            proj_cfg.return_value = config
+            self.split_projs = source_splitter.ProjectSplitter(projects)
 
     def tearDown(self):
         """Clear the testdata related path."""
         self.split_projs = None
         shutil.rmtree(ProjectSplitterUnittest._TEST_DIR)
+        iml.IMLGenerator.USED_NAME_CACHE.clear()
 
+    @mock.patch.object(common_util, 'get_android_root_dir')
+    @mock.patch.object(project_config.ProjectConfig, 'get_instance')
     @mock.patch('builtins.any')
-    def test_init(self, mock_any):
+    def test_init(self, mock_any, mock_project, mock_root):
         """Test initialize the attributes."""
         self.assertEqual(len(self.split_projs._projects), 4)
         mock_any.return_value = False
+        mock_root.return_value = ProjectSplitterUnittest._TEST_DIR
         with mock.patch.object(project_info, 'ProjectInfo') as proj_info:
+            config = mock.Mock()
+            config.full_repo = False
+            mock_project.return_value = config
             project = source_splitter.ProjectSplitter(proj_info(['a'], True))
             self.assertFalse(project._framework_exist)
+            config.full_repo = True
+            project = source_splitter.ProjectSplitter(proj_info(['a'], True))
+            self.assertEqual(project._full_repo_iml,
+                             os.path.basename(
+                                 ProjectSplitterUnittest._TEST_DIR))
 
     @mock.patch.object(source_splitter.ProjectSplitter,
                        '_remove_duplicate_sources')
@@ -153,10 +175,11 @@ class ProjectSplitterUnittest(unittest.TestCase):
 
     def test_get_dependencies(self):
         """Test get_dependencies."""
+        iml.IMLGenerator.USED_NAME_CACHE.clear()
         self.split_projs.get_dependencies()
-        dep1 = ['framework_srcjars', 'src2', 'dependencies']
-        dep2 = ['framework_srcjars', 'dependencies']
-        dep3 = ['framework_srcjars', 'src2', 'dependencies']
+        dep1 = ['framework_srcjars', 'base', 'src2', 'dependencies']
+        dep2 = ['framework_srcjars', 'base', 'dependencies']
+        dep3 = ['framework_srcjars', 'base', 'src2', 'dependencies']
         self.assertEqual(self.split_projs._projects[0].dependencies, dep1)
         self.assertEqual(self.split_projs._projects[1].dependencies, dep2)
         self.assertEqual(self.split_projs._projects[2].dependencies, dep3)
@@ -202,14 +225,29 @@ class ProjectSplitterUnittest(unittest.TestCase):
         self.split_projs._gen_dependencies_iml()
         self.assertTrue(mock_create_iml.called)
 
+    @mock.patch.object(source_splitter, 'get_exclude_content')
+    @mock.patch.object(project_config.ProjectConfig, 'get_instance')
     @mock.patch.object(iml.IMLGenerator, 'create')
     @mock.patch.object(common_util, 'get_android_root_dir')
-    def test_gen_projects_iml(self, mock_root, mock_create_iml):
+    def test_gen_projects_iml(self, mock_root, mock_create_iml, mock_project,
+                              mock_get_excludes):
         """Test gen_projects_iml."""
         mock_root.return_value = self._TEST_DIR
+        config = mock.Mock()
+        mock_project.return_value = config
+        config.exclude_paths = []
         self.split_projs.revise_source_folders()
         self.split_projs.gen_projects_iml()
         self.assertTrue(mock_create_iml.called)
+        self.assertFalse(mock_get_excludes.called)
+        config.exclude_paths = ['a']
+        self.split_projs.gen_projects_iml()
+        self.assertTrue(mock_get_excludes.called)
+
+    def test_get_exclude_content(self):
+        """Test get_exclude_content."""
+        exclude_folders = source_splitter.get_exclude_content(self._TEST_PATH)
+        self.assertEqual(self._SAMPLE_EXCLUDE_FOLDERS, exclude_folders)
 
 
 if __name__ == '__main__':
