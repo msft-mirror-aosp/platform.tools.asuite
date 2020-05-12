@@ -561,6 +561,7 @@ def _print_testable_modules(mod_info, suite):
     print('-------')
     for module in sorted(testable_modules):
         print('\t%s' % module)
+
 def _is_inside_android_root():
     """Identify whether the cwd is inside of Android source tree.
 
@@ -569,6 +570,75 @@ def _is_inside_android_root():
     """
     build_top = os.getenv(constants.ANDROID_BUILD_TOP, ' ')
     return build_top in os.getcwd()
+
+def _non_action_validator(args):
+    """Method for non-action arguments such as --version, --help, --history,
+    --latest_result, etc.
+
+    Args:
+        args: An argspace.Namespace class instance holding parsed args.
+    """
+    if not _is_inside_android_root():
+        atest_utils.colorful_print(
+            "\nAtest must always work under ${}!".format(
+                constants.ANDROID_BUILD_TOP), constants.RED)
+        sys.exit(constants.EXIT_CODE_OUTSIDE_ROOT)
+    if args.version:
+        if os.path.isfile(constants.VERSION_FILE):
+            with open(constants.VERSION_FILE) as version_file:
+                print(version_file.read())
+        sys.exit(constants.EXIT_CODE_SUCCESS)
+    if args.help:
+        atest_arg_parser.print_epilog_text()
+        sys.exit(constants.EXIT_CODE_SUCCESS)
+    if args.history:
+        atest_execution_info.print_test_result(constants.ATEST_RESULT_ROOT,
+                                               args.history)
+        sys.exit(constants.EXIT_CODE_SUCCESS)
+    if args.latest_result:
+        atest_execution_info.print_test_result_by_path(
+            constants.LATEST_RESULT_FILE)
+        sys.exit(constants.EXIT_CODE_SUCCESS)
+    # TODO(b/131879842): remove below statement after they are fully removed.
+    if any((args.detect_regression,
+            args.generate_baseline,
+            args.generate_new_metrics)):
+        stop_msg = ('Please STOP using arguments below -- they are obsolete and '
+                    'will be removed in a very near future:\n'
+                    '\t--detect-regression\n'
+                    '\t--generate-baseline\n'
+                    '\t--generate-new-metrics\n')
+        msg = ('Please use below arguments instead:\n'
+               '\t--iterations\n'
+               '\t--rerun-until-failure\n'
+               '\t--retry-any-failure\n')
+        atest_utils.colorful_print(stop_msg, constants.RED)
+        atest_utils.colorful_print(msg, constants.CYAN)
+
+def _dry_run_validator(args, results_dir, extra_args, test_infos):
+    """Method which process --dry-run argument.
+
+    Args:
+        args: An argspace.Namespace class instance holding parsed args.
+        result_dir: A string path of the results dir.
+        extra_args: A dict of extra args for test runners to utilize.
+        test_infos: A list of test_info.
+    """
+    args.tests.sort()
+    dry_run_cmds = _dry_run(results_dir, extra_args, test_infos)
+    if args.verify_cmd_mapping:
+        try:
+            atest_utils.handle_test_runner_cmd(' '.join(args.tests),
+                                               dry_run_cmds,
+                                               do_verification=True)
+        except atest_error.DryRunVerificationError as e:
+            atest_utils.colorful_print(str(e), constants.RED)
+            return constants.EXIT_CODE_VERIFY_FAILURE
+    if args.update_cmd_mapping:
+        atest_utils.handle_test_runner_cmd(' '.join(args.tests),
+                                           dry_run_cmds)
+    sys.exit(constants.EXIT_CODE_SUCCESS)
+
 
 # pylint: disable=too-many-statements
 # pylint: disable=too-many-branches
@@ -593,27 +663,7 @@ def main(argv, results_dir, args):
         test_references=args.tests,
         cwd=os.getcwd(),
         os=os_pyver)
-    if args.version:
-        if os.path.isfile(constants.VERSION_FILE):
-            with open(constants.VERSION_FILE) as version_file:
-                print(version_file.read())
-        return constants.EXIT_CODE_SUCCESS
-    if not _is_inside_android_root():
-        atest_utils.colorful_print(
-            "\nAtest must always work under ${}!".format(
-                constants.ANDROID_BUILD_TOP), constants.RED)
-        return constants.EXIT_CODE_OUTSIDE_ROOT
-    if args.help:
-        atest_arg_parser.print_epilog_text()
-        return constants.EXIT_CODE_SUCCESS
-    if args.history:
-        atest_execution_info.print_test_result(constants.ATEST_RESULT_ROOT,
-                                               args.history)
-        return constants.EXIT_CODE_SUCCESS
-    if args.latest_result:
-        atest_execution_info.print_test_result_by_path(
-            constants.LATEST_RESULT_FILE)
-        return constants.EXIT_CODE_SUCCESS
+    _non_action_validator(args)
     mod_info = module_info.ModuleInfo(force_build=args.rebuild_module_info)
     if args.rebuild_module_info:
         _run_extra_tasks(join=True)
@@ -622,11 +672,11 @@ def main(argv, results_dir, args):
     if args.list_modules:
         _print_testable_modules(mod_info, args.list_modules)
         return constants.EXIT_CODE_SUCCESS
-    build_targets = set()
-    test_infos = set()
     # Clear cache if user pass -c option
     if args.clear_cache:
         atest_utils.clean_test_info_caches(args.tests)
+    build_targets = set()
+    test_infos = set()
     if _will_run_tests(args):
         build_targets, test_infos = translator.translate(args)
         if not test_infos:
@@ -640,23 +690,8 @@ def main(argv, results_dir, args):
     build_targets |= test_runner_handler.get_test_runner_reqs(mod_info,
                                                               test_infos)
     extra_args = get_extra_args(args)
-    if args.update_cmd_mapping or args.verify_cmd_mapping:
-        args.dry_run = True
-    if args.dry_run:
-        args.tests.sort()
-        dry_run_cmds = _dry_run(results_dir, extra_args, test_infos)
-        if args.verify_cmd_mapping:
-            try:
-                atest_utils.handle_test_runner_cmd(' '.join(args.tests),
-                                                   dry_run_cmds,
-                                                   do_verification=True)
-            except atest_error.DryRunVerificationError as e:
-                atest_utils.colorful_print(str(e), constants.RED)
-                return constants.EXIT_CODE_VERIFY_FAILURE
-        if args.update_cmd_mapping:
-            atest_utils.handle_test_runner_cmd(' '.join(args.tests),
-                                               dry_run_cmds)
-        return constants.EXIT_CODE_SUCCESS
+    if any((args.update_cmd_mapping, args.verify_cmd_mapping, args.dry_run)):
+        _dry_run_validator(args, results_dir, extra_args, test_infos)
     if args.detect_regression:
         build_targets |= (regression_test_runner.RegressionTestRunner('')
                           .get_test_runner_build_reqs())
