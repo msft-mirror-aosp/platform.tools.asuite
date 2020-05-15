@@ -23,7 +23,6 @@ Atest Argument Parser class for atest.
 import argparse
 import pydoc
 
-import atest_utils
 import constants
 
 # Constants used for AtestArgParser and EPILOG_TEMPLATE
@@ -55,6 +54,7 @@ INSTANT = ('Run the instant_app version of the module if the module supports it.
 ITERATION = 'Loop-run tests until the max iteration is reached. (10 by default)'
 LATEST_RESULT = 'Print latest test result.'
 LIST_MODULES = 'List testable modules for the given suite.'
+NO_METRICS = 'Do not send metrics.'
 REBUILD_MODULE_INFO = ('Forces a rebuild of the module-info.json file. '
                        'This may be necessary following a repo sync or '
                        'when writing a new test.')
@@ -105,7 +105,6 @@ class AtestArgParser(argparse.ArgumentParser):
 
     def __init__(self):
         """Initialise an ArgumentParser instance."""
-        atest_utils.print_data_collection_notice()
         super(AtestArgParser, self).__init__(
             description=HELP_DESC, add_help=False)
 
@@ -214,6 +213,10 @@ class AtestArgParser(argparse.ArgumentParser):
         history_group.add_argument('--history', nargs='?', const='99999',
                                    help=HISTORY)
 
+        # Options for disabling collecting data for metrics.
+        self.add_argument(constants.NO_METRICS_ARG, action='store_true',
+                          help=NO_METRICS)
+
         # This arg actually doesn't consume anything, it's primarily used for
         # the help description and creating custom_args in the NameSpace object.
         self.add_argument('--', dest='custom_args', nargs='*',
@@ -258,6 +261,7 @@ def print_epilog_text():
                                          ITERATION=ITERATION,
                                          LATEST_RESULT=LATEST_RESULT,
                                          LIST_MODULES=LIST_MODULES,
+                                         NO_METRICS=NO_METRICS,
                                          REBUILD_MODULE_INFO=REBUILD_MODULE_INFO,
                                          RERUN_UNTIL_FAILURE=RERUN_UNTIL_FAILURE,
                                          RETRY_ANY_FAILURE=RETRY_ANY_FAILURE,
@@ -392,6 +396,10 @@ OPTIONS
 
         --retry-any-failure
             {RETRY_ANY_FAILURE}
+
+        [ Metrics ]
+        --no-metrics
+            {NO_METRICS}
 
 
 EXAMPLES
