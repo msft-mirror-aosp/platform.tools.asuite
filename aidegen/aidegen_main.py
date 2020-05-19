@@ -63,7 +63,7 @@ from aidegen.vscode import vscode_workspace_file_gen
 
 AIDEGEN_REPORT_LINK = ('To report the AIDEGen tool problem, please use this '
                        'link: https://goto.google.com/aidegen-bug')
-_CONGRATULATION = common_util.COLORED_PASS('CONGRATULATION:')
+_CONGRATULATIONS = common_util.COLORED_PASS('CONGRATULATIONS:')
 _LAUNCH_SUCCESS_MSG = (
     'IDE launched successfully. Please check your IDE window.')
 _LAUNCH_ECLIPSE_SUCCESS_MSG = (
@@ -200,14 +200,15 @@ def _launch_ide(ide_util_obj, project_absolute_path):
         project_absolute_path: A string of project absolute path.
     """
     ide_util_obj.config_ide(project_absolute_path)
-    ide_util_obj.launch_ide()
     if ide_util_obj.ide_name() == constant.IDE_ECLIPSE:
         launch_msg = ' '.join([_LAUNCH_SUCCESS_MSG,
                                _LAUNCH_ECLIPSE_SUCCESS_MSG.format(
                                    PROJECT_PATH=project_absolute_path)])
     else:
         launch_msg = _LAUNCH_SUCCESS_MSG
-    print('\n{} {}\n'.format(_CONGRATULATION, launch_msg))
+    print('\n{} {}\n'.format(_CONGRATULATIONS, launch_msg))
+    print('\n{} {}\n'.format(_INFO, _IDE_CACHE_REMINDER_MSG))
+    ide_util_obj.launch_ide()
 
 
 def _launch_native_projects(ide_util_obj, args, cmakelists):
@@ -288,6 +289,7 @@ def _launch_ide_by_module_contents(args, ide_util_obj, jlist=None, clist=None,
         clist: A list of native build targets.
         both: A boolean, True to launch both languages else False.
     """
+    print('\n{0} {1}\n'.format(_INFO, AIDEGEN_REPORT_LINK))
     if both:
         _launch_vscode(ide_util_obj, project_info.ProjectInfo.modules_info,
                        jlist, clist)
@@ -407,8 +409,6 @@ def main(argv):
     finally:
         if exit_code is constant.EXIT_CODE_NORMAL:
             aidegen_metrics.ends_asuite_metrics(exit_code)
-        print('\n{0} {1}\n\n{0} {2}\n'.format(_INFO, AIDEGEN_REPORT_LINK,
-                                              _IDE_CACHE_REMINDER_MSG))
 
 
 def aidegen_main(args):
