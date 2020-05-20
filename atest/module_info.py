@@ -82,9 +82,7 @@ class ModuleInfo:
             logging.debug('Generating %s - this is required for '
                           'initial runs.', _MODULE_INFO)
             build_env = dict(constants.ATEST_BUILD_ENV)
-            build_env.update(constants.DEPS_LICENSE_ENV)
-            # Also build the deps-license module to generate dependencies data.
-            atest_utils.build([module_info_target, constants.DEPS_LICENSE],
+            atest_utils.build([module_info_target],
                               verbose=logging.getLogger().isEnabledFor(
                                   logging.DEBUG), env_vars=build_env)
         return module_info_target, module_file_path
