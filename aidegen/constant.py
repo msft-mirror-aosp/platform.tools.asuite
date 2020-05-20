@@ -134,6 +134,11 @@ INVALID_XML = 'The content of {XML_FILE} is not valid.'
 # Constants for default modules.
 FRAMEWORK_ALL = 'framework-all'
 CORE_ALL = 'core-all'
+FRAMEWORK_SRCJARS = 'framework_srcjars'
+
+# Constants for module's path.
+FRAMEWORK_PATH = 'frameworks/base'
+LIBCORE_PATH = 'libcore'
 
 # Constants for regular expression
 RE_INSIDE_PATH_CHECK = r'^{}($|/.+)'
