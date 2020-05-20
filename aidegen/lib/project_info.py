@@ -200,7 +200,7 @@ class ProjectInfo:
                 if module_info.AidegenModuleInfo.is_target_module(data):
                     modules.add(name)
                 else:
-                    logging.debug(_NOT_TARGET, name, data['class'],
+                    logging.debug(_NOT_TARGET, name, data.get('class', ''),
                                   constant.TARGET_CLASSES)
         return modules
 
