@@ -344,7 +344,7 @@ class ResultReporter:
         if not self.runners:
             return tests_ret
         print('\n%s' % au.colorize('Summary', constants.CYAN))
-        print('-------')
+        print(au.delimiter('-', 7))
         if self.rerun_options:
             print(self.rerun_options)
         failed_sum = len(self.failed_tests)
