@@ -208,6 +208,9 @@ def _launch_ide(ide_util_obj, project_absolute_path):
         launch_msg = _LAUNCH_SUCCESS_MSG
     print('\n{} {}\n'.format(_CONGRATULATIONS, launch_msg))
     print('\n{} {}\n'.format(_INFO, _IDE_CACHE_REMINDER_MSG))
+    # Send the end message to Clearcut server before launching IDE to make sure
+    # the execution time is correct.
+    aidegen_metrics.ends_asuite_metrics(constant.EXIT_CODE_EXCEPTION)
     ide_util_obj.launch_ide()
 
 
@@ -289,7 +292,6 @@ def _launch_ide_by_module_contents(args, ide_util_obj, jlist=None, clist=None,
         clist: A list of native build targets.
         both: A boolean, True to launch both languages else False.
     """
-    print('\n{0} {1}\n'.format(_INFO, AIDEGEN_REPORT_LINK))
     if both:
         _launch_vscode(ide_util_obj, project_info.ProjectInfo.modules_info,
                        jlist, clist)
@@ -377,8 +379,10 @@ def main(argv):
         argv: A list of system arguments.
     """
     exit_code = constant.EXIT_CODE_NORMAL
+    launch_ide = True
     try:
         args = _parse_args(argv)
+        launch_ide = not args.no_launch
         common_util.configure_logging(args.verbose)
         is_whole_android_tree = project_config.is_whole_android_tree(
             args.targets, args.android_tree)
@@ -407,7 +411,9 @@ def main(argv):
             print(traceback_str)
             raise err
     finally:
-        if exit_code is constant.EXIT_CODE_NORMAL:
+        print('\n{0} {1}\n'.format(_INFO, AIDEGEN_REPORT_LINK))
+        # Send the end message here on ignoring launch IDE case.
+        if not launch_ide and exit_code is constant.EXIT_CODE_NORMAL:
             aidegen_metrics.ends_asuite_metrics(exit_code)
 
 
