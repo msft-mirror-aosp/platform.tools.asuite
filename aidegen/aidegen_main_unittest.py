@@ -129,10 +129,12 @@ class AidegenMainUnittests(unittest.TestCase):
         """Test main with normal conditions."""
         aidegen_main.main(['-h'])
         self.assertFalse(mock_main.called)
-        mock_ends_metrics.assert_called_with(constant.EXIT_CODE_NORMAL)
         mock_is_whole_tree.return_value = True
         aidegen_main.main([''])
         mock_starts_metrics.assert_called_with([constant.ANDROID_TREE])
+        self.assertFalse(mock_ends_metrics.called)
+        aidegen_main.main(['-n'])
+        mock_ends_metrics.assert_called_with(constant.EXIT_CODE_NORMAL)
 
     @mock.patch.object(aidegen_metrics, 'ends_asuite_metrics')
     @mock.patch.object(aidegen_main, 'main_with_message')
