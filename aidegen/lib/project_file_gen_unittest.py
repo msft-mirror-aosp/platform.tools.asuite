@@ -26,6 +26,7 @@ from aidegen import aidegen_main
 from aidegen import templates
 from aidegen import unittest_constants
 from aidegen.idea import iml
+from aidegen.idea import xml_gen
 from aidegen.lib import common_util
 from aidegen.lib import config
 from aidegen.lib import project_config
@@ -266,7 +267,7 @@ class AidegenProjectFileGenUnittest(unittest.TestCase):
             self._MAIN_MODULE_XML_SAMPLE)
         self.assertEqual(test_module, sample_module)
 
-    @mock.patch.object(project_file_gen, '_write_vcs_xml')
+    @mock.patch.object(xml_gen, 'gen_vcs_xml')
     @mock.patch('aidegen.lib.common_util.get_android_root_dir')
     @mock.patch('common_util.find_git_root')
     @mock.patch('aidegen.lib.project_info.ProjectInfo')
