@@ -20,6 +20,7 @@ import logging
 import os
 import unittest
 from unittest import mock
+from xml.etree import ElementTree
 
 from aidegen import constant
 from aidegen import unittest_constants
@@ -34,12 +35,30 @@ from atest import module_info
 class AidegenCommonUtilUnittests(unittest.TestCase):
     """Unit tests for common_util.py"""
 
+    _TEST_XML_CONTENT = """<application><component name="ProjectJdkTable">
+
+    <jdk version="2">     <name value="JDK_OTHER" />
+      <type value="JavaSDK" />    </jdk>  </component>
+</application>
+"""
+    _SAMPLE_XML_CONTENT = """<application>
+  <component name="ProjectJdkTable">
+    <jdk version="2">
+      <name value="JDK_OTHER"/>
+      <type value="JavaSDK"/>
+    </jdk>
+  </component>
+</application>"""
+
+    @mock.patch('os.getcwd')
+    @mock.patch('os.path.isabs')
     @mock.patch.object(common_util, 'get_android_root_dir')
-    def test_get_related_paths(self, mock_get_root):
+    def test_get_related_paths(self, mock_get_root, mock_is_abspath, mock_cwd):
         """Test get_related_paths with different conditions."""
         mod_info = mock.MagicMock()
-        mod_info.is_mod.return_value = True
+        mod_info.is_module.return_value = True
         mod_info.get_paths.return_value = {}
+        mock_is_abspath.return_value = False
         self.assertEqual((None, None),
                          common_util.get_related_paths(
                              mod_info, unittest_constants.TEST_MODULE))
@@ -50,13 +69,27 @@ class AidegenCommonUtilUnittests(unittest.TestCase):
         self.assertEqual(
             expected, common_util.get_related_paths(
                 mod_info, unittest_constants.TEST_MODULE))
-        mod_info.is_mod.return_value = False
+        mod_info.is_module.return_value = False
         mod_info.get_module_names.return_value = True
         self.assertEqual(expected, common_util.get_related_paths(
             mod_info, unittest_constants.TEST_MODULE))
         self.assertEqual(('', unittest_constants.TEST_PATH),
                          common_util.get_related_paths(
                              mod_info, constant.WHOLE_ANDROID_TREE_TARGET))
+
+        mod_info.is_module.return_value = False
+        mod_info.get_module_names.return_value = False
+        mock_is_abspath.return_value = True
+        mock_get_root.return_value = '/a'
+        self.assertEqual(('b/c', '/a/b/c'),
+                         common_util.get_related_paths(mod_info, '/a/b/c'))
+
+        mock_is_abspath.return_value = False
+        mock_cwd.return_value = '/a'
+        mock_get_root.return_value = '/a'
+        self.assertEqual(('b/c', '/a/b/c'),
+                         common_util.get_related_paths(mod_info, 'b/c'))
+
 
     @mock.patch('os.getcwd')
     @mock.patch.object(common_util, 'is_android_root')
@@ -297,6 +330,53 @@ class AidegenCommonUtilUnittests(unittest.TestCase):
         with self.assertRaises(TypeError):
             decorator = common_util.check_args(name=str, text=str)
             decorator(parse_rule(1, 2))
+
+    @mock.patch.object(common_util, 'get_blueprint_json_path')
+    @mock.patch.object(common_util, 'get_android_out_dir')
+    @mock.patch.object(common_util, 'get_android_root_dir')
+    def test_get_blueprint_json_files_relative_dict(
+            self, mock_get_root, mock_get_out, mock_get_path):
+        """Test get_blueprint_json_files_relative_dict function,"""
+        mock_get_root.return_value = 'a/b'
+        mock_get_out.return_value = 'out'
+        mock_get_path.return_value = 'out/soong/bp_java_file'
+        path_compdb = os.path.join('a/b', 'out', 'soong',
+                                   constant.RELATIVE_COMPDB_PATH,
+                                   constant.COMPDB_JSONFILE_NAME)
+        data = {
+            constant.GEN_JAVA_DEPS: 'a/b/out/soong/bp_java_file',
+            constant.GEN_CC_DEPS: 'a/b/out/soong/bp_java_file',
+            constant.GEN_COMPDB: path_compdb
+        }
+        self.assertEqual(
+            data, common_util.get_blueprint_json_files_relative_dict())
+
+    @mock.patch('os.environ.get')
+    def test_get_lunch_target(self, mock_get_env):
+        """Test get_lunch_target."""
+        mock_get_env.return_value = "test"
+        self.assertEqual(
+            common_util.get_lunch_target(), '{"lunch target": "test-test"}')
+
+    def test_to_pretty_xml(self):
+        """Test to_pretty_xml."""
+        root = ElementTree.fromstring(self._TEST_XML_CONTENT)
+        pretty_xml = common_util.to_pretty_xml(root)
+        self.assertEqual(pretty_xml, self._SAMPLE_XML_CONTENT)
+
+    def test_to_to_boolean(self):
+        """Test to_boolean function with conditions."""
+        self.assertTrue(common_util.to_boolean('True'))
+        self.assertTrue(common_util.to_boolean('true'))
+        self.assertTrue(common_util.to_boolean('T'))
+        self.assertTrue(common_util.to_boolean('t'))
+        self.assertTrue(common_util.to_boolean('1'))
+        self.assertFalse(common_util.to_boolean('False'))
+        self.assertFalse(common_util.to_boolean('false'))
+        self.assertFalse(common_util.to_boolean('F'))
+        self.assertFalse(common_util.to_boolean('f'))
+        self.assertFalse(common_util.to_boolean('0'))
+        self.assertFalse(common_util.to_boolean(''))
 
 
 # pylint: disable=unused-argument

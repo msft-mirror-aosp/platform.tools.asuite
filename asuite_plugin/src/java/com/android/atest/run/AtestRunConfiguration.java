@@ -166,7 +166,12 @@ public class AtestRunConfiguration extends LocatableConfigurationBase {
         atestToolWindow.setTestTarget(mTestTarget);
         try {
             CommandRunner runner =
-                    new CommandRunner(mLunchTarget, mTestTarget, workPath, atestToolWindow);
+                    new CommandRunner(
+                            mLunchTarget,
+                            mTestTarget,
+                            workPath,
+                            atestToolWindow,
+                            executionEnvironment.getProject());
             runner.run();
         } catch (IllegalArgumentException exception) {
             String errorMessage = AtestUtils.checkError(mLunchTarget, mTestTarget, workPath);

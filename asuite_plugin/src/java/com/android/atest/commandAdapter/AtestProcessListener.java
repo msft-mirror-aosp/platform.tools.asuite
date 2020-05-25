@@ -71,9 +71,6 @@ public class AtestProcessListener implements ProcessListener {
      */
     @Override
     public void onTextAvailable(@NotNull ProcessEvent event, @NotNull Key outputType) {
-        mOutputBuffer.append(event.getText());
-        mToolWindow.setAtestOutput(mOutputBuffer.toString());
-        mToolWindow.scrollToEnd();
         if (outputType == ProcessOutputTypes.STDERR) {
             LOG.warn(event.getText());
         }

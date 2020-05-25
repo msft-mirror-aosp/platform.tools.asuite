@@ -38,6 +38,7 @@ import os
 import re
 
 from aidegen import constant
+from aidegen import templates
 from aidegen.lib import common_util
 
 _DIR_LIB = 'lib'
@@ -62,36 +63,8 @@ class AidegenConfig:
     _ENABLE_DEBUG_CONFIG_DIR = 'enable_debugger'
     _ENABLE_DEBUG_CONFIG_FILE = 'enable_debugger.iml'
     _ENABLE_DEBUG_DIR = os.path.join(_CONFIG_DIR, _ENABLE_DEBUG_CONFIG_DIR)
-    _ANDROID_MANIFEST_FILE_NAME = 'AndroidManifest.xml'
     _DIR_SRC = 'src'
     _DIR_GEN = 'gen'
-    _ANDROIDMANIFEST_CONTENT = """<?xml version="1.0" encoding="utf-8"?>
-<manifest xmlns:android="http://schemas.android.com/apk/res/android"
-          android:versionCode="1"
-          android:versionName="1.0" >
-</manifest>
-    """
-    # The xml template for enabling debugger.
-    _XML_ENABLE_DEBUGGER = """<?xml version="1.0" encoding="UTF-8"?>
-<module type="JAVA_MODULE" version="4">
-  <component name="FacetManager">
-    <facet type="android" name="Android">
-      <configuration>
-        <proGuardCfgFiles />
-      </configuration>
-    </facet>
-  </component>
-  <component name="NewModuleRootManager" inherit-compiler-output="true">
-    <exclude-output />
-    <content url="file://$MODULE_DIR$">
-      <sourceFolder url="file://$MODULE_DIR$/src" isTestSource="false" />
-      <sourceFolder url="file://$MODULE_DIR$/gen" isTestSource="false" generated="true" />
-    </content>
-    <orderEntry type="jdk" jdkName="{ANDROID_SDK_VERSION}" jdkType="Android SDK" />
-    <orderEntry type="sourceFolder" forTests="false" />
-  </component>
-</module>
-"""
     DEBUG_ENABLED_FILE_PATH = os.path.join(_ENABLE_DEBUG_DIR,
                                            _ENABLE_DEBUG_CONFIG_FILE)
 
@@ -199,10 +172,9 @@ class AidegenConfig:
         AIDEGen will generate it with default content to prevent the red
         underline error in IntelliJ.
         """
-        _file = os.path.join(self._ENABLE_DEBUG_DIR,
-                             self._ANDROID_MANIFEST_FILE_NAME)
+        _file = os.path.join(self._ENABLE_DEBUG_DIR, constant.ANDROID_MANIFEST)
         if not os.path.exists(_file) or os.stat(_file).st_size == 0:
-            common_util.file_generate(_file, self._ANDROIDMANIFEST_CONTENT)
+            common_util.file_generate(_file, templates.ANDROID_MANIFEST_CONTENT)
 
     def _gen_enable_debugger_config(self, android_sdk_version):
         """Generate the enable_debugger.iml config file.
@@ -214,7 +186,7 @@ class AidegenConfig:
             android_sdk_version: The version name of the Android Sdk in the
                                  jdk.table.xml.
         """
-        content = self._XML_ENABLE_DEBUGGER.format(
+        content = templates.XML_ENABLE_DEBUGGER.format(
             ANDROID_SDK_VERSION=android_sdk_version)
         common_util.file_generate(self.DEBUG_ENABLED_FILE_PATH, content)
 
@@ -353,7 +325,7 @@ idea.max.intellisense.filesize=100000
         properties = common_util.read_file_content(self.idea_file).splitlines()
         for index, line in enumerate(properties):
             res = re.search(self._RE_SEARCH_FILESIZE, line)
-            if res and int(res['value']) < self._FILESIZE_LIMIT:
+            if res and int(res.group('value')) < self._FILESIZE_LIMIT:
                 updated_flag = True
                 properties[index] = '%s=%s' % (self._KEY_FILESIZE,
                                                str(self._FILESIZE_LIMIT))

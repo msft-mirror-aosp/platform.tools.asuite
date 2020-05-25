@@ -19,6 +19,7 @@
 import os
 
 from aidegen import constant
+from aidegen import templates
 from aidegen.lib import common_util
 from aidegen.lib import project_file_gen
 
@@ -53,37 +54,6 @@ class EclipseConf(project_file_gen.ProjectFileGenerator):
                             'path="{}" sourcepath="{}"/>\n')
     _CLASSPATH_FILENAME = '.classpath'
 
-    # The xml templates for Eclipse.
-    # .classpath template
-    _ECLIPSE_CLASSPATH_XML = """<?xml version="1.0" encoding="UTF-8"?>
-<classpath>
-{SRC}
-{LIB}
-    <classpathentry kind="con" path="org.eclipse.jdt.launching.JRE_CONTAINER"/>
-</classpath>
-"""
-    # .project template
-    _ECLIPSE_PROJECT_XML = """<?xml version="1.0" encoding="UTF-8"?>
-<projectDescription>
-        <name>{PROJECTNAME}</name>
-        <comment></comment>
-        <projects>
-        </projects>
-        <buildSpec>
-                <buildCommand>
-                        <name>org.eclipse.jdt.core.javabuilder</name>
-                        <arguments>
-                        </arguments>
-                </buildCommand>
-        </buildSpec>
-        <natures>
-                <nature>org.eclipse.jdt.core.javanature</nature>
-        </natures>
-        <linkedResources>
-{LINKEDRESOURCES}
-        </linkedResources>
-</projectDescription>
-"""
 
     def __init__(self, project):
         """Initialize class.
@@ -195,7 +165,8 @@ class EclipseConf(project_file_gen.ProjectFileGenerator):
         Returns: A list of source folder paths.
         """
         return [p for p in self.src_paths
-                if not p.startswith(self.module_relpath)]
+                if not common_util.is_source_under_relative_path(
+                    p, self.module_relpath)]
 
     def _create_project_content(self):
         """Create the project file .project under the module."""
@@ -204,7 +175,7 @@ class EclipseConf(project_file_gen.ProjectFileGenerator):
         links.update(self._gen_src_links(self._get_other_src_folders()))
         links.update(self._gen_r_link())
         links.update(self._gen_bin_link())
-        self.project_content = self._ECLIPSE_PROJECT_XML.format(
+        self.project_content = templates.ECLIPSE_PROJECT_XML.format(
             PROJECTNAME=self.module_name,
             LINKEDRESOURCES=''.join(sorted(list(links))))
 
@@ -261,7 +232,8 @@ class EclipseConf(project_file_gen.ProjectFileGenerator):
         src_path_entries = []
         for src in self.src_paths:
             src_abspath = os.path.join(common_util.get_android_root_dir(), src)
-            if src.startswith(self.module_relpath):
+            if common_util.is_source_under_relative_path(
+                    src, self.module_relpath):
                 src = src.replace(self.module_relpath, '').strip(os.sep)
             else:
                 src = os.path.join(constant.KEY_DEPENDENCIES, src)
@@ -310,7 +282,7 @@ class EclipseConf(project_file_gen.ProjectFileGenerator):
         src_entries.extend(self._gen_r_path_entries())
         src_entries.extend(self._gen_bin_dir_entry())
         jar_entries = self._gen_jar_path_entries()
-        self.classpath_content = self._ECLIPSE_CLASSPATH_XML.format(
+        self.classpath_content = templates.ECLIPSE_CLASSPATH_XML.format(
             SRC=''.join(sorted(src_entries)),
             LIB=''.join(sorted(jar_entries)))
 

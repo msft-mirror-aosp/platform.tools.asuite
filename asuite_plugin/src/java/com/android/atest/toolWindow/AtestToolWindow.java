@@ -42,7 +42,6 @@ public class AtestToolWindow {
 
     private JPanel mAtestToolWindowPanel;
     private JScrollPane mScorll;
-    private JTextArea mAtestOutput;
     private JLabel mAtestlabel;
     private JTextField mLunchTarget;
     private JCheckBox mRunOnHost;
@@ -51,14 +50,17 @@ public class AtestToolWindow {
     private JButton mRunButton;
     private JComboBox mTestTarget;
     private JButton mStopButton;
+    private Project mProject;
 
     /**
      * Initializes AtestToolWindow with ToolWindow and Project.
      *
      * @param toolWindow a child window of the IDE used to display information.
-     * @param basePath a string that represents current project's base path.
+     * @param project the current intelliJ project.
      */
-    private AtestToolWindow(ToolWindow toolWindow, String basePath) {
+    private AtestToolWindow(ToolWindow toolWindow, Project project) {
+        mProject = project;
+        String basePath = project.getBasePath();
         setInitialWidth((ToolWindowEx) toolWindow);
         setRunButton(basePath);
         setStopButton();
@@ -66,7 +68,6 @@ public class AtestToolWindow {
         AtestFastInputController fastInputController =
                 new AtestFastInputController(mTestTarget, mRunOnHost, mTestMapping, mSkipBuild);
         fastInputController.linkCheckBoxWithTestTarget();
-        mAtestOutput.setMargin(new Insets(0, 10, 0, 0));
     }
 
     /**
@@ -77,12 +78,12 @@ public class AtestToolWindow {
      * make sure AtestToolWindow's instance can always follow the project.
      *
      * @param toolWindow a child window of the IDE used to display information.
-     * @param basePath a string that represents current project's base path.
+     * @param project the current intelliJ project.
      * @return the AtestToolWindow instance.
      */
     @NotNull
-    public static AtestToolWindow initAtestToolWindow(ToolWindow toolWindow, String basePath) {
-        sAtestToolWindowInstance = new AtestToolWindow(toolWindow, basePath);
+    public static AtestToolWindow initAtestToolWindow(ToolWindow toolWindow, Project project) {
+        sAtestToolWindowInstance = new AtestToolWindow(toolWindow, project);
         return sAtestToolWindowInstance;
     }
 
@@ -136,15 +137,6 @@ public class AtestToolWindow {
         }
     }
 
-    /**
-     * Sets the Atest running output to the output area.
-     *
-     * @param text the output string.
-     */
-    public void setAtestOutput(String text) {
-        mAtestOutput.setText(text);
-    }
-
     /** Initializes the run button. */
     private void setRunButton(String basePath) {
         // When command running, the run button will be set to disable, then the focus will set to
@@ -158,7 +150,11 @@ public class AtestToolWindow {
                     try {
                         CommandRunner runner =
                                 new CommandRunner(
-                                        lunchTarget, testTarget, workPath, AtestToolWindow.this);
+                                        lunchTarget,
+                                        testTarget,
+                                        workPath,
+                                        AtestToolWindow.this,
+                                        mProject);
                         runner.run();
                     } catch (IllegalArgumentException exception) {
                         String errorMessage =
@@ -172,8 +168,7 @@ public class AtestToolWindow {
     private void setStopButton() {
         mStopButton.addActionListener(
                 e -> {
-                    CommandRunner.stopProcess();
-                    mAtestOutput.setText(null);
+                    CommandRunner.stopProcess(mProject);
                 });
     }
 
