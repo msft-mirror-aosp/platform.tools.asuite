@@ -706,3 +706,23 @@ def to_boolean(str_bool):
         else False.
     """
     return str_bool and str_bool.lower() in ('true', 't', '1')
+
+
+def find_git_root(relpath):
+    """Finds the parent directory which has a .git folder from the relpath.
+
+    Args:
+        relpath: A string of relative path.
+
+    Returns:
+        A string of the absolute path which contains a .git, otherwise, none.
+    """
+    dir_list = relpath.split(os.sep)
+    for i in range(len(dir_list), 0, -1):
+        real_path = os.path.join(get_android_root_dir(),
+                                 os.sep.join(dir_list[:i]),
+                                 constant.GIT_FOLDER_NAME)
+        if os.path.exists(real_path):
+            return os.path.dirname(real_path)
+    logging.warning('%s can\'t find its .git folder.', relpath)
+    return None
