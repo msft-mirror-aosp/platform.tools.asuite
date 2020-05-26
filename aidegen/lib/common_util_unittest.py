@@ -378,6 +378,16 @@ class AidegenCommonUtilUnittests(unittest.TestCase):
         self.assertFalse(common_util.to_boolean('0'))
         self.assertFalse(common_util.to_boolean(''))
 
+    @mock.patch.object(os.path, 'exists')
+    @mock.patch.object(common_util, 'get_android_root_dir')
+    def test_find_git_root(self, mock_get_root, mock_exist):
+        """Test find_git_root."""
+        mock_get_root.return_value = '/a/b'
+        mock_exist.return_value = True
+        self.assertEqual(common_util.find_git_root('c/d'), '/a/b/c/d')
+        mock_exist.return_value = False
+        self.assertEqual(common_util.find_git_root('c/d'), None)
+
 
 # pylint: disable=unused-argument
 def parse_rule(self, name, text):

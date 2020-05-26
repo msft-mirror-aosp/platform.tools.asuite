@@ -71,7 +71,6 @@ class ProjectInfo:
                               directory or it's subdirectories.
         dep_modules: A dict has recursively dependent modules of
                      project_module_names.
-        git_path: The project's git path.
         iml_path: The project's iml file path.
         source_path: A dictionary to keep following data:
                      source_folder_path: A set contains the source folder
@@ -114,7 +113,6 @@ class ProjectInfo:
             self.modules_info.get_module_names(rel_path))
         self.project_relative_path = rel_path
         self.project_absolute_path = abs_path
-        self.git_path = ''
         self.iml_path = ''
         self._set_default_modues()
         self._init_source_path()
