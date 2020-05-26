@@ -42,6 +42,7 @@ POST_PATCH_ITERATIONS = 'POST_PATCH_ITERATIONS'
 PRE_PATCH_FOLDER = 'PRE_PATCH_FOLDER'
 POST_PATCH_FOLDER = 'POST_PATCH_FOLDER'
 SERIAL = 'SERIAL'
+SHARDING = 'SHARDING'
 ALL_ABI = 'ALL_ABI'
 HOST = 'HOST'
 CUSTOM_ARGS = 'CUSTOM_ARGS'
@@ -52,6 +53,7 @@ USER_TYPE = 'USER_TYPE'
 ITERATIONS = 'ITERATIONS'
 RERUN_UNTIL_FAILURE = 'RERUN_UNTIL_FAILURE'
 RETRY_ANY_FAILURE = 'RETRY_ANY_FAILURE'
+TF_DEBUG = 'TF_DEBUG'
 COLLECT_TESTS_ONLY = 'COLLECT_TESTS_ONLY'
 TF_TEMPLATE = 'TF_TEMPLATE'
 
@@ -151,11 +153,12 @@ DEVICE_TEST = 'device'
 BOTH_TEST = 'both'
 
 # Metrics
+NO_METRICS_ARG = '--no-metrics'
 METRICS_URL = 'http://asuite-218222.appspot.com/atest/metrics'
 EXTERNAL = 'EXTERNAL_RUN'
 INTERNAL = 'INTERNAL_RUN'
 INTERNAL_EMAIL = '@google.com'
-INTERNAL_HOSTNAME = '.google.com'
+INTERNAL_HOSTNAME = ['.google.com', 'c.googlers.com']
 CONTENT_LICENSES_URL = 'https://source.android.com/setup/start/licenses'
 CONTRIBUTOR_AGREEMENT_URL = {
     'INTERNAL': 'https://cla.developers.google.com/',
@@ -164,6 +167,7 @@ CONTRIBUTOR_AGREEMENT_URL = {
 PRIVACY_POLICY_URL = 'https://policies.google.com/privacy'
 TERMS_SERVICE_URL = 'https://policies.google.com/terms'
 TOOL_NAME = 'atest'
+USER_FROM_TOOL = 'USER_FROM_TOOL'
 TF_PREPARATION = 'tf-preparation'
 
 # Detect type for local_detect_event.
@@ -181,8 +185,14 @@ VTS_STAGING_PLAN = 'vts-staging-default'
 # TreeHugger TEST_MAPPING SUITE_PLANS
 TEST_MAPPING_SUITES = ['device-tests', 'general-tests']
 
+# VTS10 TF
+VTS_TF_MODULE = 'vts10-tradefed'
+
 # VTS TF
-VTS_TF_MODULE = 'vts-tradefed'
+VTS_CORE_TF_MODULE = 'vts-tradefed'
+
+# VTS suite set
+VTS_CORE_SUITE = 'vts'
 
 # ATest TF
 ATEST_TF_MODULE = 'atest-tradefed'
@@ -191,12 +201,6 @@ ATEST_TF_MODULE = 'atest-tradefed'
 # With SOONG_COLLECT_JAVA_DEPS enabled, out/soong/module_bp_java_deps.json will
 # be generated when make.
 ATEST_BUILD_ENV = {'SOONG_COLLECT_JAVA_DEPS':'true'}
-
-# For generating dependencies in module-info.json, appending deps-license in the
-# make command is a must. Also the environment variables PROJ_PATH and DEP_PATH
-# are necessary.
-DEPS_LICENSE = 'deps-license'
-DEPS_LICENSE_ENV = {'PROJ_PATH': '.', 'DEP_PATH': '.'}
 
 # Atest index path and relative dirs/caches.
 INDEX_DIR = os.path.join(os.getenv(ANDROID_HOST_OUT, ''), 'indexes')
@@ -226,3 +230,14 @@ PACKAGE_OUTPUT_RE = re.compile(r'(?P<java_dir>/.*/).*[.](java|kt)[:]\s*package\s
                                r'(?P<package>[^(;|\s)]+)\s*')
 
 ATEST_RESULT_ROOT = '/tmp/atest_result'
+LATEST_RESULT_FILE = os.path.join(ATEST_RESULT_ROOT, 'LATEST', 'test_result')
+
+# Tests list which need vts_kernel_tests as test dependency
+REQUIRED_KERNEL_TEST_MODULES = [
+    'vts_ltp_test_arm',
+    'vts_ltp_test_arm_64',
+    'vts_linux_kselftest_arm_32',
+    'vts_linux_kselftest_arm_64',
+    'vts_linux_kselftest_x86_32',
+    'vts_linux_kselftest_x86_64'
+]
