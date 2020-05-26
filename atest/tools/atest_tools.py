@@ -51,9 +51,9 @@ INDEXES = (constants.CC_CLASS_INDEX,
 # -print | awk -F/ '{{print $NF}}'| sort -u
 PRUNENAMES = ['.abc', '.appveyor', '.azure-pipelines',
               '.bazelci', '.buildscript',
-              '.ci', '.circleci', '.conan', '.config',
+              '.cache', '.ci', '.circleci', '.conan', '.config',
               '.externalToolBuilders',
-              '.git', '.github', '.github-ci', '.google', '.gradle',
+              '.git', '.github', '.gitlab-ci', '.google', '.gradle',
               '.idea', '.intermediates',
               '.jenkins',
               '.kokoro',
@@ -62,7 +62,7 @@ PRUNENAMES = ['.abc', '.appveyor', '.azure-pipelines',
               '.prebuilt_info', '.private', '__pycache__',
               '.repo',
               '.semaphore', '.settings', '.static', '.svn',
-              '.test', '.travis', '.tx',
+              '.test', '.travis', '.travis_scripts', '.tx',
               '.vscode']
 
 def _mkdir_when_inexists(dirname):
@@ -157,6 +157,7 @@ def _dump_index(dump_file, output, output_re, key, value):
                     match.group(value))
         try:
             pickle.dump(_dict, cache_file, protocol=2)
+            logging.debug('Done')
         except IOError:
             os.remove(dump_file)
             logging.error('Failed in dumping %s', dump_file)
@@ -208,6 +209,7 @@ def _index_testable_modules(index):
     with open(index, 'wb') as cache:
         try:
             pickle.dump(testable_modules, cache, protocol=2)
+            logging.debug('Done')
         except IOError:
             os.remove(cache)
             logging.error('Failed in dumping %s', cache)
@@ -288,6 +290,7 @@ def _index_qualified_classes(output, index):
                 _dict.setdefault(fqcn, set()).add(match.group('java_path'))
         try:
             pickle.dump(_dict, cache_file, protocol=2)
+            logging.debug('Done')
         except (KeyboardInterrupt, SystemExit):
             logging.error('Process interrupted or failure.')
             os.remove(index)
