@@ -29,6 +29,45 @@ FILE_IML = """<?xml version="1.0" encoding="UTF-8"?>
     </component>
 </module>
 """
+# TODO(b/153704028): Refactor to create iml file.
+IML = """<?xml version="1.0" encoding="UTF-8"?>
+<module type="JAVA_MODULE" version="4">{FACET}
+    <component name="NewModuleRootManager" inherit-compiler-output="true">
+        <exclude-output />{SOURCES}
+        <orderEntry type="sourceFolder" forTests="false" />{SRCJARS}{DEPENDENCIES}{JARS}
+        <orderEntry type="inheritedJdk" />
+    </component>
+</module>
+"""
+FACET = """
+    <facet type="android" name="Android">
+        <configuration />
+    </facet>"""
+CONTENT = """
+        <content url="file://{MODULE_PATH}">{EXCLUDES}{SOURCES}
+        </content>"""
+SOURCE = """
+            <sourceFolder url="file://{SRC}" isTestSource="{IS_TEST}" />"""
+OTHER_SOURCE = """
+        <content url="file://{SRC}">
+            <sourceFolder url="file://{SRC}" isTestSource="{IS_TEST}" />
+        </content>"""
+SRCJAR = """
+        <content url="jar://{SRCJAR}!/">
+            <sourceFolder url="jar://{SRCJAR}!/" isTestSource="False" />
+        </content>"""
+JAR = """
+        <orderEntry type="module-library" exported="">
+          <library>
+            <CLASSES>
+              <root url="jar://{JAR}!/" />
+            </CLASSES>
+            <JAVADOC />
+            <SOURCES />
+          </library>
+        </orderEntry>"""
+DEPENDENCIES = """
+        <orderEntry type="module" module-name="{MODULE}" />"""
 
 # The template content of modules.xml.
 XML_MODULES = """<?xml version="1.0" encoding="UTF-8"?>
@@ -270,7 +309,7 @@ set(ANDROID_ROOT @ANDROIDROOT@)
 
 # The configuration of Android SDK.
 ANDROID_SDK_XML = """    <jdk version="2">
-      <name value="Android API {API_LEVEL} Platform" />
+      <name value="Android API {CODE_NAME} Platform" />
       <type value="Android SDK" />
       <version value="java version &quot;1.8.0_152&quot;" />
       <homePath value="{ANDROID_SDK_PATH}" />
@@ -280,7 +319,7 @@ ANDROID_SDK_XML = """    <jdk version="2">
         </annotationsPath>
         <classPath>
           <root type="composite">
-            <root url="file://{ANDROID_SDK_PATH}/platforms/android-{API_LEVEL}/data/res" type="simple" />
+            <root url="file://{ANDROID_SDK_PATH}/platforms/android-{CODE_NAME}/data/res" type="simple" />
           </root>
         </classPath>
         <javadocPath>
@@ -290,6 +329,104 @@ ANDROID_SDK_XML = """    <jdk version="2">
           <root type="composite" />
         </sourcePath>
       </roots>
-      <additional jdk="JDK18" sdk="android-{API_LEVEL}" />
+      <additional jdk="JDK18" sdk="android-{CODE_NAME}" />
     </jdk>
+"""
+
+# The configuration of TEST_MAPPING in jsonSchemas.xml.
+TEST_MAPPING_SCHEMAS_XML = """<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="JsonSchemaMappingsProjectConfiguration">
+    <state>
+      <map>
+        <entry key="TEST_MAPPING.config">
+          <value>
+            <SchemaInfo>
+              <option name="name" value="TEST_MAPPING.config" />
+              <option name="relativePathToSchema" value="{SCHEMA_PATH}" />
+              <option name="schemaVersion" value="JSON schema version 7" />
+              <option name="patterns">
+                <list>
+                  <Item>
+                    <option name="path" value="TEST_MAPPING" />
+                  </Item>
+                </list>
+              </option>
+            </SchemaInfo>
+          </value>
+        </entry>
+      </map>
+    </state>
+  </component>
+</project>
+"""
+
+# The xml templates for Eclipse.
+# .classpath template
+ECLIPSE_CLASSPATH_XML = """<?xml version="1.0" encoding="UTF-8"?>
+<classpath>
+{SRC}
+{LIB}
+    <classpathentry kind="con" path="org.eclipse.jdt.launching.JRE_CONTAINER"/>
+</classpath>
+"""
+
+# .project template
+ECLIPSE_PROJECT_XML = """<?xml version="1.0" encoding="UTF-8"?>
+<projectDescription>
+        <name>{PROJECTNAME}</name>
+        <comment></comment>
+        <projects>
+        </projects>
+        <buildSpec>
+                <buildCommand>
+                        <name>org.eclipse.jdt.core.javabuilder</name>
+                        <arguments>
+                        </arguments>
+                </buildCommand>
+        </buildSpec>
+        <natures>
+                <nature>org.eclipse.jdt.core.javanature</nature>
+        </natures>
+        <linkedResources>
+{LINKEDRESOURCES}
+        </linkedResources>
+</projectDescription>
+"""
+
+# The template of default AndroidManifest.xml.
+ANDROID_MANIFEST_CONTENT = """<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+          android:versionCode="1"
+          android:versionName="1.0" >
+</manifest>
+"""
+
+# The xml template for enabling debugger.
+XML_ENABLE_DEBUGGER = """<?xml version="1.0" encoding="UTF-8"?>
+<module type="JAVA_MODULE" version="4">
+  <component name="FacetManager">
+    <facet type="android" name="Android">
+      <configuration>
+        <proGuardCfgFiles />
+      </configuration>
+    </facet>
+  </component>
+  <component name="NewModuleRootManager" inherit-compiler-output="true">
+    <exclude-output />
+    <content url="file://$MODULE_DIR$">
+      <sourceFolder url="file://$MODULE_DIR$/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/gen" isTestSource="false" generated="true" />
+    </content>
+    <orderEntry type="jdk" jdkName="{ANDROID_SDK_VERSION}" jdkType="Android SDK" />
+    <orderEntry type="sourceFolder" forTests="false" />
+  </component>
+</module>
+"""
+
+# The default empty template of the jdk.table.xml.
+JDK_TABLE_XML = """<application>
+  <component name="ProjectJdkTable">
+  </component>
+</application>
 """

@@ -24,6 +24,7 @@ from unittest import mock
 
 from aidegen import aidegen_main
 from aidegen import constant
+from aidegen.lib import errors
 from aidegen import unittest_constants
 from aidegen.lib import project_config
 from aidegen.lib import common_util
@@ -70,6 +71,7 @@ class AidegenProjectConfigUnittests(unittest.TestCase):
         self.assertFalse(config.verbose)
         self.assertEqual(config.ide_installed_path, None)
         self.assertFalse(config.config_reset)
+        self.assertEqual(config.exclude_paths, None)
         config_obj = project_config.ProjectConfig.get_instance()
         self.assertEqual(config_obj.ide_name, constant.IDE_INTELLIJ)
         self.assertFalse(config_obj.is_launch_ide)
@@ -80,6 +82,7 @@ class AidegenProjectConfigUnittests(unittest.TestCase):
         self.assertFalse(config_obj.verbose)
         self.assertEqual(config_obj.ide_installed_path, None)
         self.assertFalse(config_obj.config_reset)
+        self.assertEqual(config.exclude_paths, None)
 
     def test_init_with_diff_arguments(self):
         """Test __init__ method with different arguments."""
@@ -142,6 +145,63 @@ class AidegenProjectConfigUnittests(unittest.TestCase):
         self.assertTrue(config.is_skip_build)
         config_obj = project_config.ProjectConfig.get_instance()
         self.assertTrue(config_obj.is_skip_build)
+
+    @mock.patch.object(common_util, 'get_related_paths')
+    def test_transform_exclusive_paths(self, mock_get_rel):
+        """Test _transform_exclusive_paths with conditions."""
+        result = project_config._transform_exclusive_paths(mock.Mock(), [])
+        self.assertFalse(mock_get_rel.called)
+        self.assertEqual(None, result)
+        rel_path = 'to/path'
+        abs_path = 'a/b/to/path'
+        mock_get_rel.reset_mock()
+        mock_get_rel.return_value = rel_path, abs_path
+        result = project_config._transform_exclusive_paths(
+            mock.Mock(), [abs_path])
+        self.assertEqual([rel_path], result)
+
+    @mock.patch.object(project_config, '_check_whole_android_tree')
+    @mock.patch.object(project_config, '_transform_exclusive_paths')
+    @mock.patch.object(common_util, 'get_atest_module_info')
+    @mock.patch.object(project_config.ProjectConfig, '_show_skip_build_msg')
+    def test_init_environment(self, mock_show_skip, mock_get_atest, mock_trans,
+                              mock_check_whole):
+        """Test init_environment method."""
+        args = aidegen_main._parse_args(['-v'])
+        config = project_config.ProjectConfig(args)
+        config.init_environment()
+        self.assertTrue(mock_show_skip.called)
+        self.assertTrue(mock_get_atest.called)
+        self.assertTrue(mock_trans.called)
+        self.assertTrue(mock_check_whole.called)
+
+    @mock.patch('builtins.print')
+    def test_show_skip_build_msg_with_skip(self, mock_print):
+        """Test _show_skip_build_msg method with skip build."""
+        args = aidegen_main._parse_args(['-s'])
+        config = project_config.ProjectConfig(args)
+        config._show_skip_build_msg()
+        self.assertTrue(mock_print.called_with(
+            '\n{} {}\n'.format(common_util.COLORED_INFO('Warning:'),
+                               project_config._SKIP_BUILD_WARN)))
+
+    @mock.patch('builtins.print')
+    def test_show_skip_build_msg_without_skip(self, mock_print):
+        """Test _show_skip_build_msg method without skip build."""
+        targets = ['Settings']
+        args = aidegen_main._parse_args(targets)
+        config = project_config.ProjectConfig(args)
+        config._show_skip_build_msg()
+        msg = project_config.SKIP_BUILD_INFO.format(common_util.COLORED_INFO(
+            project_config._SKIP_BUILD_CMD.format(' '.join(config.targets))))
+        self.assertTrue(mock_print.called_with(
+            '\n{} {}\n'.format(common_util.COLORED_INFO('INFO:'), msg)))
+
+    def test_get_instance_without_instance(self):
+        """Test get_instance method without initialize an instance."""
+        project_config.ProjectConfig._instance = None
+        with self.assertRaises(errors.InstanceNotExistError):
+            project_config.ProjectConfig.get_instance()
 
 
 if __name__ == '__main__':

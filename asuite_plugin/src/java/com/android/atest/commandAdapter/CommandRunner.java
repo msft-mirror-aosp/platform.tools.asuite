@@ -16,16 +16,24 @@
 package com.android.atest.commandAdapter;
 
 import com.android.atest.AtestUtils;
+import com.android.atest.Constants;
 import com.android.atest.toolWindow.AtestToolWindow;
 import com.android.atest.widget.AtestNotification;
+import com.intellij.build.BuildTextConsoleView;
 import com.intellij.execution.ExecutionException;
-import com.intellij.execution.configurations.GeneralCommandLine;
+import com.intellij.execution.ExecutionManager;
+import com.intellij.execution.configurations.PtyCommandLine;
+import com.intellij.execution.executors.DefaultRunExecutor;
 import com.intellij.execution.process.KillableColoredProcessHandler;
 import com.intellij.execution.process.ProcessListener;
+import com.intellij.execution.ui.RunContentDescriptor;
 import com.intellij.notification.Notifications;
 import com.intellij.openapi.diagnostic.Logger;
+import com.intellij.openapi.project.Project;
 import org.jetbrains.annotations.NotNull;
 
+import javax.swing.*;
+import java.awt.*;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -34,10 +42,12 @@ import java.util.Arrays;
 public class CommandRunner {
 
     private static final Logger LOG = Logger.getInstance(CommandRunner.class);
-    private static final String ATEST_COMMAND_PREFIX = "source build/envsetup.sh && lunch ";
+    private static final String ATEST_COMMAND_PREFIX =
+            "export USER_FROM_TOOL=\"IntelliJ_Atest_plugin\" && source build/envsetup.sh && lunch ";
     private static KillableColoredProcessHandler sProcessHandler;
-    private GeneralCommandLine mCommand;
+    private PtyCommandLine mCommand;
     private ProcessListener mProcessListener;
+    private Project mProject;
 
     /**
      * Initializes CommandRunner by the command.
@@ -46,7 +56,7 @@ public class CommandRunner {
      * @param workPath the work path to run the command.
      */
     public CommandRunner(ArrayList<String> cmds, String workPath) {
-        mCommand = new GeneralCommandLine(cmds);
+        mCommand = new PtyCommandLine(cmds);
         mCommand.setCharset(StandardCharsets.UTF_8);
         mCommand.setWorkDirectory(workPath);
     }
@@ -58,17 +68,19 @@ public class CommandRunner {
      * @param testTarget the Atest test target.
      * @param workPath the work path to run the command.
      * @param toolWindow an AtestToolWindow to display the output.
+     * @param project the current intelliJ project.
      */
     public CommandRunner(
             String lunchTarget,
             String testTarget,
             String workPath,
-            @NotNull AtestToolWindow toolWindow)
+            @NotNull AtestToolWindow toolWindow,
+            @NotNull Project project)
             throws IllegalArgumentException {
         if (AtestUtils.checkEmpty(lunchTarget, testTarget, workPath)) {
             throw new IllegalArgumentException();
         }
-
+        mProject = project;
         StringBuffer commandBuffer = new StringBuffer(ATEST_COMMAND_PREFIX);
         String atestCommand =
                 commandBuffer
@@ -80,7 +92,7 @@ public class CommandRunner {
 
         String[] commandArray = {"/bin/bash", "-c", atestCommand};
         ArrayList<String> cmds = new ArrayList<>(Arrays.asList(commandArray));
-        mCommand = new GeneralCommandLine(cmds);
+        mCommand = new PtyCommandLine(cmds);
         mCommand.setCharset(StandardCharsets.UTF_8);
         mCommand.setWorkDirectory(workPath);
         mProcessListener = new AtestProcessListener(toolWindow);
@@ -102,11 +114,12 @@ public class CommandRunner {
      */
     public void run() {
         try {
-            stopProcess();
+            stopProcess(mProject);
             sProcessHandler = new KillableColoredProcessHandler(mCommand);
             if (mProcessListener != null) {
                 sProcessHandler.addProcessListener(mProcessListener);
             }
+            launchConsole();
             sProcessHandler.startNotify();
         } catch (ExecutionException e) {
             Notifications.Bus.notify(new AtestNotification("Command execution failed."));
@@ -114,9 +127,35 @@ public class CommandRunner {
         }
     }
 
-    /** Stops the current process. */
-    public static void stopProcess() {
+    /** Launch the console view of current process. */
+    private void launchConsole() {
+        BuildTextConsoleView consoleView = new BuildTextConsoleView(mProject);
+        JPanel panel = new JPanel(new BorderLayout());
+        consoleView.attachToProcess(sProcessHandler);
+        panel.add(consoleView.getComponent(), BorderLayout.CENTER);
+        panel.updateUI();
+        RunContentDescriptor contentDescriptor =
+                new RunContentDescriptor(consoleView, sProcessHandler, panel, Constants.ATEST_NAME);
+        ExecutionManager.getInstance(mProject)
+                .getContentManager()
+                .showRunContent(DefaultRunExecutor.getRunExecutorInstance(), contentDescriptor);
+    }
+
+    /**
+     * Stops the current process.
+     *
+     * @param project the current intelliJ project.
+     */
+    public static void stopProcess(Project project) {
         if (sProcessHandler != null) {
+            RunContentDescriptor contentDescriptor =
+                    ExecutionManager.getInstance(project)
+                            .getContentManager()
+                            .findContentDescriptor(
+                                    DefaultRunExecutor.getRunExecutorInstance(), sProcessHandler);
+            ExecutionManager.getInstance(project)
+                    .getContentManager()
+                    .hideRunContent(DefaultRunExecutor.getRunExecutorInstance(), contentDescriptor);
             sProcessHandler.killProcess();
             sProcessHandler = null;
         }

@@ -60,7 +60,7 @@ python_binary_host {
         "tools/updatedb_darwin.sh",
         ":asuite_version",
     ],
-    // Make atest's built name to atest-py3-dev
+    // Make atest's built name to atest-dev
     stem: "atest-py3-dev",
     defaults: ["atest_py3_default"],
     dist: {
@@ -106,3 +106,19 @@ python_test_host {
     test_suites: ["general-tests"],
     defaults: ["atest_py3_default"],
 }
+
+python_test_host {
+    name: "atest-py3_integration_tests",
+    main: "atest_integration_tests.py",
+    pkg_path: "atest",
+    srcs: [
+        "atest_integration_tests.py",
+    ],
+    data: [
+        "INTEGRATION_TESTS",
+    ],
+    test_config: "atest_integration_tests.xml",
+    test_suites: ["general-tests"],
+    defaults: ["atest_py3_default"],
+}
+
