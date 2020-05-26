@@ -54,16 +54,13 @@ class AidegenProjectFileGenUnittest(unittest.TestCase):
                                            'modules_only_self_module.xml')
     _ENABLE_DEBUGGER_MODULE_SAMPLE = os.path.join(
         _TEST_DATA_PATH, 'modules_with_enable_debugger.xml')
-    _VCS_XML_SAMPLE = os.path.join(_TEST_DATA_PATH, 'vcs.xml')
     _IML_PATH = os.path.join(_ANDROID_PROJECT_PATH, 'android_project.iml')
     _DEPENDENCIES_IML_PATH = os.path.join(_ANDROID_PROJECT_PATH,
                                           'dependencies.iml')
     _IDEA_PATH = os.path.join(_ANDROID_PROJECT_PATH, '.idea')
     _MODULE_PATH = os.path.join(_IDEA_PATH, 'modules.xml')
-    _VCS_PATH = os.path.join(_IDEA_PATH, 'vcs.xml')
     _SOURCE_SAMPLE = os.path.join(_TEST_DATA_PATH, 'source.iml')
     _SRCJAR_SAMPLE = os.path.join(_TEST_DATA_PATH, 'srcjar.iml')
-    _LOCAL_PATH_TOKEN = '@LOCAL_PATH@'
     _AOSP_FOLDER = '/aosp'
     _TEST_SOURCE_LIST = [
         'a/b/c/d', 'a/b/c/d/e', 'a/b/c/d/e/f', 'a/b/c/d/f', 'e/f/a', 'e/f/b/c',
@@ -269,36 +266,24 @@ class AidegenProjectFileGenUnittest(unittest.TestCase):
             self._MAIN_MODULE_XML_SAMPLE)
         self.assertEqual(test_module, sample_module)
 
-    @mock.patch('os.path.isdir')
-    @mock.patch('aidegen.lib.project_info.ProjectInfo')
-    def test_get_project_git_path(self, mock_project, mock_isdir):
-        """Test _get_project_git_path."""
-        mock_project.project_absolute_path = '/a/b'
-        mock_isdir.return_value = True
-        expected_git_path = '/a/b'
-        pfile_gen = project_file_gen.ProjectFileGenerator(mock_project)
-        test_git_path = pfile_gen._get_project_git_path()
-        self.assertEqual(test_git_path, expected_git_path)
-
+    @mock.patch.object(project_file_gen, '_write_vcs_xml')
     @mock.patch('aidegen.lib.common_util.get_android_root_dir')
-    @mock.patch('aidegen.lib.project_file_gen._get_all_git_path')
+    @mock.patch('common_util.find_git_root')
     @mock.patch('aidegen.lib.project_info.ProjectInfo')
-    def test_merge_project_vcs_xmls(self, mock_project, mock_get_all_git_path,
-                                    mock_get_root):
+    def test_merge_project_vcs_xmls(self, mock_project, mock_get_git_root,
+                                    mock_get_root, mock_write):
         """Test _merge_project_vcs_xmls."""
-        mock_project.project_absolute_path = (
-            unittest_constants.ANDROID_PROJECT_PATH)
-        mock_project.git_path = unittest_constants.ANDROID_PROJECT_PATH
+        mock_get_root.return_value = '/a/b'
+        mock_project.project_absolute_path = '/a/b/c'
+        mock_project.project_relative_path = 'c'
+        mock_get_git_root.return_value = '/a/b/c'
         project_file_gen._merge_project_vcs_xmls([mock_project])
-        test_vcs = common_util.read_file_content(self._VCS_PATH)
-        sample_vcs = common_util.read_file_content(self._VCS_XML_SAMPLE)
-        # The sample must base on the real path.
-        sample_vcs = sample_vcs.replace(self._LOCAL_PATH_TOKEN,
-                                        self._ANDROID_PROJECT_PATH)
-        self.assertEqual(test_vcs, sample_vcs)
-        mock_get_root.return_value = unittest_constants.ANDROID_PROJECT_PATH
+        self.assertTrue(mock_write.called_with('/a/b/c', '/a/b/c'))
+        mock_project.project_absolute_path = '/a/b'
+        mock_project.project_relative_path = None
+        mock_get_git_root.return_value = None
         project_file_gen._merge_project_vcs_xmls([mock_project])
-        self.assertFalse(mock_get_all_git_path.called)
+        self.assertTrue(mock_write.called_with('/a/b', [None]))
 
     def test_get_uniq_iml_name(self):
         """Test the unique name cache mechanism.
@@ -468,8 +453,7 @@ class AidegenProjectFileGenUnittest(unittest.TestCase):
         sample_source = common_util.read_file_content(self._SRCJAR_SAMPLE)
         self.assertEqual(source, sample_source)
 
-    @mock.patch.object(project_file_gen.ProjectFileGenerator,
-                       '_get_project_git_path')
+    @mock.patch.object(common_util, 'find_git_root')
     @mock.patch.object(project_file_gen.ProjectFileGenerator,
                        '_generate_modules_xml')
     @mock.patch.object(project_info, 'ProjectInfo')
@@ -481,7 +465,6 @@ class AidegenProjectFileGenUnittest(unittest.TestCase):
         project_gen = project_file_gen.ProjectFileGenerator(mock_project)
         project_gen.project_info.is_main_project = False
         project_gen.generate_intellij_project_file()
-        self.assertEqual(project_gen.project_info.git_path, 'git/path')
         self.assertFalse(mock_gen_xml.called)
         project_gen.project_info.is_main_project = True
         project_gen.generate_intellij_project_file()
