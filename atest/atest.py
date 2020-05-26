@@ -518,7 +518,7 @@ def _run_test_mapping_tests(results_dir, test_infos, extra_args):
     # List failed tests at the end as a reminder.
     if failed_tests:
         atest_utils.colorful_print(
-            '\n==============================', constants.YELLOW)
+            atest_utils.delimiter('=', 30, prenl=1), constants.YELLOW)
         atest_utils.colorful_print(
             '\nFollowing tests failed:', constants.MAGENTA)
         for failure in failed_tests:
@@ -558,7 +558,7 @@ def _print_testable_modules(mod_info, suite):
     testable_modules = mod_info.get_testable_modules(suite)
     print('\n%s' % atest_utils.colorize('%s Testable %s modules' % (
         len(testable_modules), suite), constants.CYAN))
-    print('-------')
+    print(atest_utils.delimiter('-'))
     for module in sorted(testable_modules):
         print('\t%s' % module)
 
