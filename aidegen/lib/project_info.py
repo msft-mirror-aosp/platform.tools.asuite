@@ -430,6 +430,35 @@ class ProjectInfo:
             project.locate_source()
 
 
+class MultiProjectsInfo(ProjectInfo):
+    """Multiple projects info.
+
+    Usage example:
+        project = MultiProjectsInfo(['module_name'])
+        project.collect_all_dep_modules()
+    """
+
+    def __init__(self, targets=None):
+        """MultiProjectsInfo initialize.
+
+        Args:
+            targets: A list of module names or project paths from user's input.
+        """
+        super().__init__(targets[0], True)
+        self._targets = targets
+
+    def collect_all_dep_modules(self):
+        """Collects all dependency modules for the projects."""
+        self.project_module_names = set()
+        module_names = set(_CORE_MODULES)
+        for target in self._targets:
+            relpath, _ = common_util.get_related_paths(self.modules_info,
+                                                       target)
+            module_names.update(self._get_modules_under_project_path(relpath))
+        module_names.update(self._get_robolectric_dep_module(module_names))
+        self.dep_modules = self.get_dep_modules(module_names)
+
+
 def batch_build_dependencies(rebuild_targets):
     """Batch build the jar or srcjar files of the modules if they don't exist.
 
