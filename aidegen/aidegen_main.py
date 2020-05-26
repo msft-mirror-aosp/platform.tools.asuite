@@ -40,6 +40,8 @@ This CLI generates project files for using in IntelliJ, such as:
 from __future__ import absolute_import
 
 import argparse
+import logging
+import os
 import sys
 import traceback
 
@@ -50,14 +52,18 @@ from aidegen.lib import eclipse_project_file_gen
 from aidegen.lib import errors
 from aidegen.lib import ide_util
 from aidegen.lib import module_info
+from aidegen.lib import native_module_info
+from aidegen.lib import native_project_info
 from aidegen.lib import native_util
 from aidegen.lib import project_config
 from aidegen.lib import project_file_gen
 from aidegen.lib import project_info
+from aidegen.vscode import vscode_native_project_file_gen
+from aidegen.vscode import vscode_workspace_file_gen
 
 AIDEGEN_REPORT_LINK = ('To report the AIDEGen tool problem, please use this '
                        'link: https://goto.google.com/aidegen-bug')
-_CONGRATULATION = common_util.COLORED_PASS('CONGRATULATION:')
+_CONGRATULATIONS = common_util.COLORED_PASS('CONGRATULATIONS:')
 _LAUNCH_SUCCESS_MSG = (
     'IDE launched successfully. Please check your IDE window.')
 _LAUNCH_ECLIPSE_SUCCESS_MSG = (
@@ -80,6 +86,12 @@ _INFO = common_util.COLORED_INFO('INFO:')
 _SKIP_MSG = _SKIP_BUILD_INFO_FUTURE.format(
     common_util.COLORED_INFO('aidegen [ module(s) ] -s'))
 _TIME_EXCEED_MSG = '\n{} {}\n'.format(_INFO, _SKIP_MSG)
+_LAUNCH_CLION_IDES = [
+    constant.IDE_CLION, constant.IDE_INTELLIJ, constant.IDE_ECLIPSE]
+_CHOOSE_LANGUAGE_MSG = ('The scope of your modules contains {} different '
+                        'languages as follows:\n{}\nPlease select the one you '
+                        'would like to implement.\t')
+_LANGUAGE_OPTIONS = [constant.JAVA, constant.C_CPP]
 
 
 def _parse_args(args):
@@ -120,7 +132,10 @@ def _parse_args(args):
         '-i',
         '--ide',
         default=['j'],
-        help='Launch IDE type, j: IntelliJ, s: Android Studio, e: Eclipse.')
+        # TODO(b/152571688): Show VSCode in help's Launch IDE type section at
+        # least until one of the launching native or Java features is ready.
+        help=('Launch IDE type, j: IntelliJ, s: Android Studio, e: Eclipse, '
+              'c: CLion.'))
     parser.add_argument(
         '-p',
         '--ide-path',
@@ -147,6 +162,12 @@ def _parse_args(args):
         dest='android_tree',
         action='store_true',
         help='Generate whole Android source tree project file for IDE.')
+    parser.add_argument(
+        '-e',
+        '--exclude-paths',
+        dest='exclude_paths',
+        nargs='*',
+        help='Exclude the directories in IDE.')
     return parser.parse_args(args)
 
 
@@ -179,21 +200,25 @@ def _launch_ide(ide_util_obj, project_absolute_path):
         project_absolute_path: A string of project absolute path.
     """
     ide_util_obj.config_ide(project_absolute_path)
-    ide_util_obj.launch_ide()
     if ide_util_obj.ide_name() == constant.IDE_ECLIPSE:
         launch_msg = ' '.join([_LAUNCH_SUCCESS_MSG,
                                _LAUNCH_ECLIPSE_SUCCESS_MSG.format(
                                    PROJECT_PATH=project_absolute_path)])
     else:
         launch_msg = _LAUNCH_SUCCESS_MSG
-    print('\n{} {}\n'.format(_CONGRATULATION, launch_msg))
+    print('\n{} {}\n'.format(_CONGRATULATIONS, launch_msg))
+    print('\n{} {}\n'.format(_INFO, _IDE_CACHE_REMINDER_MSG))
+    # Send the end message to Clearcut server before launching IDE to make sure
+    # the execution time is correct.
+    aidegen_metrics.ends_asuite_metrics(constant.EXIT_CODE_EXCEPTION)
+    ide_util_obj.launch_ide()
 
 
 def _launch_native_projects(ide_util_obj, args, cmakelists):
-    """Launch native projects with IDE.
+    """Launches native projects with IDE.
 
-    AIDEGen doesn't provide the IDE argument for CLion, here're the rules how
-    to launch it:
+    AIDEGen provides the IDE argument for CLion, but there's still a implicit
+    way to launch it. The rules to launch it are:
     1. If no target IDE, we don't have to launch any IDE for native project.
     2. If the target IDE is IntelliJ or Eclipse, we should launch native
        projects with CLion.
@@ -207,14 +232,14 @@ def _launch_native_projects(ide_util_obj, args, cmakelists):
         return
     native_ide_util_obj = ide_util_obj
     ide_name = constant.IDE_NAME_DICT[args.ide[0]]
-    if ide_name in (constant.IDE_INTELLIJ, constant.IDE_ECLIPSE):
+    if ide_name in _LAUNCH_CLION_IDES:
         native_ide_util_obj = ide_util.get_ide_util_instance('c')
     if native_ide_util_obj:
         _launch_ide(native_ide_util_obj, ' '.join(cmakelists))
 
 
 def _create_and_launch_java_projects(ide_util_obj, targets):
-    """Launch Android of Java(Kotlin) projects with IDE.
+    """Launches Android of Java(Kotlin) projects with IDE.
 
     Args:
         ide_util_obj: An ide_util instance.
@@ -225,6 +250,102 @@ def _create_and_launch_java_projects(ide_util_obj, targets):
     _generate_project_files(projects)
     if ide_util_obj:
         _launch_ide(ide_util_obj, projects[0].project_absolute_path)
+
+
+def _get_preferred_ide_from_user(all_choices):
+    """Provides the option list to get back users single choice.
+
+    Args:
+        all_choices: A list of string type for all options.
+
+    Return:
+        A string of the user's single choice item.
+    """
+    if not all_choices:
+        return None
+    options = []
+    items = []
+    for index, option in enumerate(all_choices, 1):
+        options.append('{}. {}'.format(index, option))
+        items.append(str(index))
+    query = _CHOOSE_LANGUAGE_MSG.format(len(options), '\n'.join(options))
+    input_data = input(query)
+    while input_data not in items:
+        input_data = input('Please select one.\t')
+    return all_choices[int(input_data) - 1]
+
+
+# TODO(b/150578306): Refine it when new feature added.
+def _launch_ide_by_module_contents(args, ide_util_obj, jlist=None, clist=None,
+                                   both=False):
+    """Deals with the suitable IDE launch action.
+
+    The rules AIDEGen won't ask users to choose one of the languages are:
+    1. Users set CLion as IDE: CLion only supports C/C++.
+    2. Test mode is true: if AIDEGEN_TEST_MODE is true the default language is
+       Java.
+
+    Args:
+        args: A list of system arguments.
+        ide_util_obj: An ide_util instance.
+        jlist: A list of java build targets.
+        clist: A list of native build targets.
+        both: A boolean, True to launch both languages else False.
+    """
+    if both:
+        _launch_vscode(ide_util_obj, project_info.ProjectInfo.modules_info,
+                       jlist, clist)
+        return
+    if not jlist and not clist:
+        logging.warning('\nThere is neither java nor native module needs to be'
+                        ' opened')
+        return
+    answer = None
+    if constant.IDE_NAME_DICT[args.ide[0]] == constant.IDE_CLION:
+        answer = constant.C_CPP
+    elif common_util.to_boolean(
+            os.environ.get(constant.AIDEGEN_TEST_MODE, 'false')):
+        answer = constant.JAVA
+    if not answer and jlist and clist:
+        answer = _get_preferred_ide_from_user(_LANGUAGE_OPTIONS)
+    if (jlist and not clist) or (answer == constant.JAVA):
+        _create_and_launch_java_projects(ide_util_obj, jlist)
+        return
+    if (clist and not jlist) or (answer == constant.C_CPP):
+        native_project_info.NativeProjectInfo.generate_projects(clist)
+        native_project_file = native_util.generate_clion_projects(clist)
+        if native_project_file:
+            _launch_native_projects(ide_util_obj, args, [native_project_file])
+
+
+def _launch_vscode(ide_util_obj, atest_module_info, jtargets, ctargets):
+    """Launches targets with VSCode IDE.
+
+    Args:
+        ide_util_obj: An ide_util instance.
+        atest_module_info: A ModuleInfo instance contains the data of
+                module-info.json.
+        jtargets: A list of Java project targets.
+        ctargets: A list of native project targets.
+    """
+    abs_paths = []
+    for target in jtargets:
+        _, abs_path = common_util.get_related_paths(atest_module_info, target)
+        abs_paths.append(abs_path)
+    if ctargets:
+        cc_module_info = native_module_info.NativeModuleInfo()
+        native_project_info.NativeProjectInfo.generate_projects(ctargets)
+        vs_gen = vscode_native_project_file_gen.VSCodeNativeProjectFileGenerator
+        for target in ctargets:
+            _, abs_path = common_util.get_related_paths(cc_module_info, target)
+            vs_native = vs_gen(abs_path)
+            vs_native.generate_c_cpp_properties_json_file()
+            if abs_path not in abs_paths:
+                abs_paths.append(abs_path)
+    vs_path = vscode_workspace_file_gen.generate_code_workspace_file(abs_paths)
+    if not ide_util_obj:
+        return
+    _launch_ide(ide_util_obj, vs_path)
 
 
 @common_util.time_logged(message=_TIME_EXCEED_MSG, maximum=_MAX_TIME)
@@ -258,8 +379,10 @@ def main(argv):
         argv: A list of system arguments.
     """
     exit_code = constant.EXIT_CODE_NORMAL
+    launch_ide = True
     try:
         args = _parse_args(argv)
+        launch_ide = not args.no_launch
         common_util.configure_logging(args.verbose)
         is_whole_android_tree = project_config.is_whole_android_tree(
             args.targets, args.android_tree)
@@ -288,10 +411,10 @@ def main(argv):
             print(traceback_str)
             raise err
     finally:
-        if exit_code is constant.EXIT_CODE_NORMAL:
+        print('\n{0} {1}\n'.format(_INFO, AIDEGEN_REPORT_LINK))
+        # Send the end message here on ignoring launch IDE case.
+        if not launch_ide and exit_code is constant.EXIT_CODE_NORMAL:
             aidegen_metrics.ends_asuite_metrics(exit_code)
-        print('\n{0} {1}\n\n{0} {2}\n'.format(_INFO, AIDEGEN_REPORT_LINK,
-                                              _IDE_CACHE_REMINDER_MSG))
 
 
 def aidegen_main(args):
@@ -313,15 +436,17 @@ def aidegen_main(args):
     """
     config = project_config.ProjectConfig(args)
     config.init_environment()
-    targets = project_config.ProjectConfig.get_instance().targets
+    targets = config.targets
+    # Called ide_util for pre-check the IDE existence state.
     ide_util_obj = ide_util.get_ide_util_instance(args.ide[0])
     project_info.ProjectInfo.modules_info = module_info.AidegenModuleInfo()
-    cmakelists, targets = native_util.check_native_projects(
-        project_info.ProjectInfo.modules_info, targets)
-    if cmakelists:
-        _launch_native_projects(ide_util_obj, args, cmakelists)
-    if targets:
-        _create_and_launch_java_projects(ide_util_obj, targets)
+    cc_module_info = native_module_info.NativeModuleInfo()
+    jtargets, ctargets = native_util.get_native_and_java_projects(
+        project_info.ProjectInfo.modules_info, cc_module_info, targets)
+    both = config.ide_name == constant.IDE_VSCODE
+    # Backward compatible strategy, when both java and native module exist,
+    # check the preferred target from the user and launch single one.
+    _launch_ide_by_module_contents(args, ide_util_obj, jtargets, ctargets, both)
 
 
 if __name__ == '__main__':
