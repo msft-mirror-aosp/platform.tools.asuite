@@ -137,3 +137,6 @@ CORE_ALL = 'core-all'
 
 # Constants for regular expression
 RE_INSIDE_PATH_CHECK = r'^{}($|/.+)'
+
+# Constants for Git
+GIT_FOLDER_NAME = '.git'
