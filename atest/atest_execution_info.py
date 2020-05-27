@@ -131,7 +131,7 @@ def print_test_result_by_path(path):
         with open(path) as json_file:
             result = json.load(json_file)
             print("\natest {}".format(result.get(_ARGS_KEY, '')))
-            print('\nTotal Summary:\n--------------')
+            print('\nTotal Summary:\n{}'.format(au.delimiter('-')))
             total_summary = result.get(_TOTAL_SUMMARY_KEY, {})
             print(', '.join([(k+':'+str(v))
                              for k, v in total_summary.items()]))

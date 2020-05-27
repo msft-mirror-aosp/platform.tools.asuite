@@ -23,7 +23,6 @@
 
 import logging
 import os
-import pathlib
 import shutil
 
 from aidegen import constant
@@ -135,7 +134,6 @@ class ProjectFileGenerator:
             iml_path_list: An optional list of submodule's iml paths, the
                            default value is None.
         """
-        self.project_info.git_path = self._get_project_git_path()
         if self.project_info.is_main_project:
             self._generate_modules_xml(iml_path_list)
             self._copy_constant_project_files()
@@ -478,25 +476,6 @@ class ProjectFileGenerator:
             content = content.replace(_ENABLE_DEBUGGER_MODULE_TOKEN, '')
         return content
 
-    def _get_project_git_path(self):
-        """Get the project's git path.
-
-        Return:
-            String: A module's git path.
-        """
-        module_path = self.project_info.project_absolute_path
-        # When importing whole Android repo, it shouldn't add vcs.xml,
-        # because IntelliJ doesn't handle repo as a version control.
-        if module_path == common_util.get_android_root_dir():
-            return None
-        git_path = module_path
-        while not os.path.isdir(os.path.join(git_path, _GIT_FOLDER_NAME)):
-            git_path = str(pathlib.Path(git_path).parent)
-            if git_path == os.sep:
-                logging.warning('%s can\'t find its .git folder', module_path)
-                return None
-        return git_path
-
 
 def _trim_same_root_source(source_list):
     """Trim the source which has the same root.
@@ -547,12 +526,10 @@ def _merge_project_vcs_xmls(projects):
         projects: A list of ProjectInfo instances.
     """
     main_project_absolute_path = projects[0].project_absolute_path
-    # TODO(b/154436905): Add the necessary git path to vcs.xml.
     if main_project_absolute_path != common_util.get_android_root_dir():
-        git_paths = [project.git_path for project in projects]
+        git_paths = [common_util.find_git_root(project.project_relative_path)
+                     for project in projects if project.project_relative_path]
         _write_vcs_xml(main_project_absolute_path, git_paths)
-    else:
-        _write_vcs_xml(main_project_absolute_path, [])
 
 
 def _get_all_git_path(root_path):
