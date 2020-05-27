@@ -407,5 +407,9 @@ class AtestUtilsUnittests(unittest.TestCase):
         self.assertEqual({'/a/b/test_fp4', '/a/b/test_fp3.java'},
                          atest_utils.get_modified_files(''))
 
+    def test_delimiter(self):
+        """Test method delimiter"""
+        self.assertEqual('\n===\n\n', atest_utils.delimiter('=', 3, 1, 2))
+
 if __name__ == "__main__":
     unittest.main()

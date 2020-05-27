@@ -23,7 +23,6 @@ Atest Argument Parser class for atest.
 import argparse
 import pydoc
 
-import atest_utils
 import constants
 
 # Constants used for AtestArgParser and EPILOG_TEMPLATE
@@ -53,7 +52,9 @@ INSTANT = ('Run the instant_app version of the module if the module supports it.
            'Note: Nothing\'s going to run if it\'s not an Instant App test and '
            '"--instant" is passed.')
 ITERATION = 'Loop-run tests until the max iteration is reached. (10 by default)'
+LATEST_RESULT = 'Print latest test result.'
 LIST_MODULES = 'List testable modules for the given suite.'
+NO_METRICS = 'Do not send metrics.'
 REBUILD_MODULE_INFO = ('Forces a rebuild of the module-info.json file. '
                        'This may be necessary following a repo sync or '
                        'when writing a new test.')
@@ -69,6 +70,7 @@ TEST = ('Run the tests. WARNING: Many test configs force cleanup of device '
 TEST_MAPPING = 'Run tests defined in TEST_MAPPING files.'
 TF_TEMPLATE = ('Add extra tradefed template for ATest suite, '
                'e.g. atest <test> --tf-template <template_key>=<template_path>')
+TF_DEBUG = 'Enable tradefed debug mode with a specify port. Default value is 10888.'
 SHARDING = 'Option to specify sharding count. The default value is 2'
 UPDATE_CMD_MAPPING = ('Update the test command of input tests. Warning: result '
                       'will be saved under tools/tradefederation/core/atest/test_data.')
@@ -103,7 +105,6 @@ class AtestArgParser(argparse.ArgumentParser):
 
     def __init__(self):
         """Initialise an ArgumentParser instance."""
-        atest_utils.print_data_collection_notice()
         super(AtestArgParser, self).__init__(
             description=HELP_DESC, add_help=False)
 
@@ -181,7 +182,10 @@ class AtestArgParser(argparse.ArgumentParser):
                           help=UPDATE_CMD_MAPPING)
         self.add_argument('-y', '--verify-cmd-mapping', action='store_true',
                           help=VERIFY_CMD_MAPPING)
-
+        # Options for Tradefed debug mode.
+        self.add_argument('-D', '--tf-debug', nargs='?', const=10888,
+                          type=_positive_int, default=0,
+                          help=TF_DEBUG)
         # Options for Tradefed customization related.
         self.add_argument('--tf-template', action='append',
                           help=TF_TEMPLATE)
@@ -200,10 +204,18 @@ class AtestArgParser(argparse.ArgumentParser):
                            type=_positive_int, const=10, default=0,
                            metavar='MAX_ITERATIONS', help=RETRY_ANY_FAILURE)
 
-        # Option for test result history.
-        group.add_argument('--history', nargs='?',
-                           type=_positive_int, const=1000, default=0,
-                           help=HISTORY)
+        # A group of options for history. They are mutually exclusive
+        # in a command line.
+        history_group = self.add_mutually_exclusive_group()
+        # History related options.
+        history_group.add_argument('--latest-result', action='store_true',
+                                   help=LATEST_RESULT)
+        history_group.add_argument('--history', nargs='?', const='99999',
+                                   help=HISTORY)
+
+        # Options for disabling collecting data for metrics.
+        self.add_argument(constants.NO_METRICS_ARG, action='store_true',
+                          help=NO_METRICS)
 
         # This arg actually doesn't consume anything, it's primarily used for
         # the help description and creating custom_args in the NameSpace object.
@@ -247,7 +259,9 @@ def print_epilog_text():
                                          INSTALL=INSTALL,
                                          INSTANT=INSTANT,
                                          ITERATION=ITERATION,
+                                         LATEST_RESULT=LATEST_RESULT,
                                          LIST_MODULES=LIST_MODULES,
+                                         NO_METRICS=NO_METRICS,
                                          REBUILD_MODULE_INFO=REBUILD_MODULE_INFO,
                                          RERUN_UNTIL_FAILURE=RERUN_UNTIL_FAILURE,
                                          RETRY_ANY_FAILURE=RETRY_ANY_FAILURE,
@@ -255,6 +269,7 @@ def print_epilog_text():
                                          SHARDING=SHARDING,
                                          TEST=TEST,
                                          TEST_MAPPING=TEST_MAPPING,
+                                         TF_DEBUG=TF_DEBUG,
                                          TF_TEMPLATE=TF_TEMPLATE,
                                          USER_TYPE=USER_TYPE,
                                          UPDATE_CMD_MAPPING=UPDATE_CMD_MAPPING,
@@ -287,6 +302,9 @@ OPTIONS
 
         -d, --disable-teardown
             {DISABLE_TEARDOWN}
+
+        -D --tf-debug
+            {TF_DEBUG}
 
         --history
             {HISTORY}
@@ -337,6 +355,9 @@ OPTIONS
         -L, --list-modules
             {LIST_MODULES}
 
+        --latest-result
+            {LATEST_RESULT}
+
         -v, --verbose
             {VERBOSE}
 
@@ -375,6 +396,10 @@ OPTIONS
 
         --retry-any-failure
             {RETRY_ANY_FAILURE}
+
+        [ Metrics ]
+        --no-metrics
+            {NO_METRICS}
 
 
 EXAMPLES

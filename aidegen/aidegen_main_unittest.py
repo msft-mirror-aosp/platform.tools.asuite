@@ -18,6 +18,7 @@
 
 from __future__ import print_function
 
+import os
 import sys
 import unittest
 from unittest import mock
@@ -128,10 +129,12 @@ class AidegenMainUnittests(unittest.TestCase):
         """Test main with normal conditions."""
         aidegen_main.main(['-h'])
         self.assertFalse(mock_main.called)
-        mock_ends_metrics.assert_called_with(constant.EXIT_CODE_NORMAL)
         mock_is_whole_tree.return_value = True
         aidegen_main.main([''])
         mock_starts_metrics.assert_called_with([constant.ANDROID_TREE])
+        self.assertFalse(mock_ends_metrics.called)
+        aidegen_main.main(['-n'])
+        mock_ends_metrics.assert_called_with(constant.EXIT_CODE_NORMAL)
 
     @mock.patch.object(aidegen_metrics, 'ends_asuite_metrics')
     @mock.patch.object(aidegen_main, 'main_with_message')
@@ -346,6 +349,23 @@ class AidegenMainUnittests(unittest.TestCase):
         self.assertTrue(mock_c.called)
         self.assertTrue(mock_c_prj.called)
         self.assertTrue(mock_genc.called)
+
+        args = aidegen_main._parse_args(['frameworks/base'])
+        mock_vs.reset_mock()
+        mock_choice.reset_mock()
+        mock_c.reset_mock()
+        mock_genc.reset_mock()
+        mock_c_prj.reset_mock()
+        mock_j.reset_mock()
+        os.environ[constant.AIDEGEN_TEST_MODE] = 'true'
+        aidegen_main._launch_ide_by_module_contents(args, None, test_j, test_c)
+        self.assertFalse(mock_vs.called)
+        self.assertFalse(mock_choice.called)
+        self.assertTrue(mock_j.called)
+        self.assertFalse(mock_c.called)
+        self.assertFalse(mock_c_prj.called)
+        self.assertFalse(mock_genc.called)
+        del os.environ[constant.AIDEGEN_TEST_MODE]
 
     @mock.patch.object(aidegen_main, '_launch_ide')
     @mock.patch.object(aidegen_main, '_generate_project_files')

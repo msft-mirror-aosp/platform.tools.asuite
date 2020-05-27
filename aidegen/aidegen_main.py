@@ -41,6 +41,7 @@ from __future__ import absolute_import
 
 import argparse
 import logging
+import os
 import sys
 import traceback
 
@@ -62,7 +63,7 @@ from aidegen.vscode import vscode_workspace_file_gen
 
 AIDEGEN_REPORT_LINK = ('To report the AIDEGen tool problem, please use this '
                        'link: https://goto.google.com/aidegen-bug')
-_CONGRATULATION = common_util.COLORED_PASS('CONGRATULATION:')
+_CONGRATULATIONS = common_util.COLORED_PASS('CONGRATULATIONS:')
 _LAUNCH_SUCCESS_MSG = (
     'IDE launched successfully. Please check your IDE window.')
 _LAUNCH_ECLIPSE_SUCCESS_MSG = (
@@ -199,14 +200,18 @@ def _launch_ide(ide_util_obj, project_absolute_path):
         project_absolute_path: A string of project absolute path.
     """
     ide_util_obj.config_ide(project_absolute_path)
-    ide_util_obj.launch_ide()
     if ide_util_obj.ide_name() == constant.IDE_ECLIPSE:
         launch_msg = ' '.join([_LAUNCH_SUCCESS_MSG,
                                _LAUNCH_ECLIPSE_SUCCESS_MSG.format(
                                    PROJECT_PATH=project_absolute_path)])
     else:
         launch_msg = _LAUNCH_SUCCESS_MSG
-    print('\n{} {}\n'.format(_CONGRATULATION, launch_msg))
+    print('\n{} {}\n'.format(_CONGRATULATIONS, launch_msg))
+    print('\n{} {}\n'.format(_INFO, _IDE_CACHE_REMINDER_MSG))
+    # Send the end message to Clearcut server before launching IDE to make sure
+    # the execution time is correct.
+    aidegen_metrics.ends_asuite_metrics(constant.EXIT_CODE_EXCEPTION)
+    ide_util_obj.launch_ide()
 
 
 def _launch_native_projects(ide_util_obj, args, cmakelists):
@@ -275,9 +280,10 @@ def _launch_ide_by_module_contents(args, ide_util_obj, jlist=None, clist=None,
                                    both=False):
     """Deals with the suitable IDE launch action.
 
-    CLion only supports C/C++ and EClipse only supports Java right now, if users
-    launch these two IDEs through AIDEGen we don't ask users to choose one of
-    the languages.
+    The rules AIDEGen won't ask users to choose one of the languages are:
+    1. Users set CLion as IDE: CLion only supports C/C++.
+    2. Test mode is true: if AIDEGEN_TEST_MODE is true the default language is
+       Java.
 
     Args:
         args: A list of system arguments.
@@ -297,6 +303,9 @@ def _launch_ide_by_module_contents(args, ide_util_obj, jlist=None, clist=None,
     answer = None
     if constant.IDE_NAME_DICT[args.ide[0]] == constant.IDE_CLION:
         answer = constant.C_CPP
+    elif common_util.to_boolean(
+            os.environ.get(constant.AIDEGEN_TEST_MODE, 'false')):
+        answer = constant.JAVA
     if not answer and jlist and clist:
         answer = _get_preferred_ide_from_user(_LANGUAGE_OPTIONS)
     if (jlist and not clist) or (answer == constant.JAVA):
@@ -370,8 +379,10 @@ def main(argv):
         argv: A list of system arguments.
     """
     exit_code = constant.EXIT_CODE_NORMAL
+    launch_ide = True
     try:
         args = _parse_args(argv)
+        launch_ide = not args.no_launch
         common_util.configure_logging(args.verbose)
         is_whole_android_tree = project_config.is_whole_android_tree(
             args.targets, args.android_tree)
@@ -400,10 +411,10 @@ def main(argv):
             print(traceback_str)
             raise err
     finally:
-        if exit_code is constant.EXIT_CODE_NORMAL:
+        print('\n{0} {1}\n'.format(_INFO, AIDEGEN_REPORT_LINK))
+        # Send the end message here on ignoring launch IDE case.
+        if not launch_ide and exit_code is constant.EXIT_CODE_NORMAL:
             aidegen_metrics.ends_asuite_metrics(exit_code)
-        print('\n{0} {1}\n\n{0} {2}\n'.format(_INFO, AIDEGEN_REPORT_LINK,
-                                              _IDE_CACHE_REMINDER_MSG))
 
 
 def aidegen_main(args):

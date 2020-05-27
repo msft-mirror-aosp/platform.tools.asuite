@@ -23,14 +23,16 @@
 
 import logging
 import os
-import pathlib
 import shutil
 
 from aidegen import constant
 from aidegen import templates
+from aidegen.idea import iml
+from aidegen.idea import xml_gen
 from aidegen.lib import common_util
 from aidegen.lib import config
 from aidegen.lib import project_config
+from aidegen.project import source_splitter
 
 # FACET_SECTION is a part of iml, which defines the framework of the project.
 _FACET_SECTION = '''\
@@ -39,12 +41,11 @@ _FACET_SECTION = '''\
     </facet>'''
 _SOURCE_FOLDER = ('            <sourceFolder url='
                   '"file://%s" isTestSource="%s" />\n')
-_EXCLUDE_ITEM = '            <excludeFolder url="file://%s" />\n'
 _CONTENT_URL = '        <content url="file://%s">\n'
 _END_CONTENT = '        </content>\n'
 _SRCJAR_URL = ('%s<content url="jar://{SRCJAR}!/">\n'
-               '%s<sourceFolder url="jar://{SRCJAR}!/" isTestSource="False" />\n'
-               '%s</content>') % (' ' * 8, ' ' * 12, ' ' * 8)
+               '%s<sourceFolder url="jar://{SRCJAR}!/" isTestSource="False" />'
+               '\n%s</content>') % (' ' * 8, ' ' * 12, ' ' * 8)
 _ORDER_ENTRY = ('        <orderEntry type="module-library" exported="">'
                 '<library><CLASSES><root url="jar://%s!/" /></CLASSES>'
                 '<JAVADOC /><SOURCES /></library></orderEntry>\n')
@@ -81,15 +82,6 @@ _ANDROID_MANIFEST = 'AndroidManifest.xml'
 _IML_EXTENSION = '.iml'
 _FRAMEWORK_JAR = os.sep + 'framework.jar'
 _HIGH_PRIORITY_JARS = [_FRAMEWORK_JAR]
-# Temporarily exclude test-dump and src_stub folders to prevent symbols from
-# resolving failure by incorrect reference. These two folders should be removed
-# after b/136982078 is resolved.
-_EXCLUDE_FOLDERS = ['.idea', '.repo', 'art', 'bionic', 'bootable', 'build',
-                    'dalvik', 'developers', 'device', 'hardware', 'kernel',
-                    'libnativehelper', 'pdk', 'prebuilts', 'sdk', 'system',
-                    'toolchain', 'tools', 'vendor', 'out',
-                    'art/tools/ahat/src/test-dump',
-                    'cts/common/device-side/device-info/src_stub']
 _GIT_FOLDER_NAME = '.git'
 # Support gitignore by symbolic link to aidegen/data/gitignore_template.
 _GITIGNORE_FILE_NAME = '.gitignore'
@@ -108,16 +100,9 @@ _TEST_MAPPING_CONFIG_PATH = ('tools/tradefederation/core/src/com/android/'
 class ProjectFileGenerator:
     """Project file generator.
 
-    Class attributes:
-        _USED_NAME_CACHE: A dict to cache already used iml project file names
-                          and prevent duplicated iml names from breaking IDEA.
-
     Attributes:
         project_info: A instance of ProjectInfo.
     """
-    # b/121256503: Prevent duplicated iml names from breaking IDEA.
-    # Use a map to cache in-using(already used) iml project file names.
-    _USED_NAME_CACHE = dict()
 
     def __init__(self, project_info):
         """ProjectFileGenerator initialize.
@@ -126,60 +111,6 @@ class ProjectFileGenerator:
             project_info: A instance of ProjectInfo.
         """
         self.project_info = project_info
-
-    @classmethod
-    def get_unique_iml_name(cls, abs_module_path):
-        """Create a unique iml name if needed.
-
-        If the name of last sub folder is used already, prefixing it with prior
-        sub folder names as a candidate name. If finally, it's unique, storing
-        in _USED_NAME_CACHE as: { abs_module_path:unique_name }. The cts case
-        and UX of IDE view are the main reasons why using module path strategy
-        but not name of module directly. Following is the detailed strategy:
-        1. While loop composes a sensible and shorter name, by checking unique
-           to finish the loop and finally add to cache.
-           Take ['cts', 'tests', 'app', 'ui'] an example, if 'ui' isn't
-           occupied, use it, else try 'cts_ui', then 'cts_app_ui', the worst
-           case is whole three candidate names are occupied already.
-        2. 'Else' for that while stands for no suitable name generated, so
-           trying 'cts_tests_app_ui' directly. If it's still non unique, e.g.,
-           module path cts/xxx/tests/app/ui occupied that name already,
-           appending increasing sequence number to get a unique name.
-
-        Args:
-            abs_module_path: The absolute module path string.
-
-        Return:
-            String: A unique iml name.
-        """
-        if abs_module_path in cls._USED_NAME_CACHE:
-            return cls._USED_NAME_CACHE[abs_module_path]
-
-        uniq_name = abs_module_path.strip(os.sep).split(os.sep)[-1]
-        if any(uniq_name == name for name in cls._USED_NAME_CACHE.values()):
-            parent_path = os.path.relpath(abs_module_path,
-                                          common_util.get_android_root_dir())
-            sub_folders = parent_path.split(os.sep)
-            zero_base_index = len(sub_folders) - 1
-            # Start compose a sensible, shorter and unique name.
-            while zero_base_index > 0:
-                uniq_name = '_'.join(
-                    [sub_folders[0], '_'.join(sub_folders[zero_base_index:])])
-                zero_base_index = zero_base_index - 1
-                if uniq_name not in cls._USED_NAME_CACHE.values():
-                    break
-            else:
-                # b/133393638: To handle several corner cases.
-                uniq_name_base = parent_path.strip(os.sep).replace(os.sep, '_')
-                i = 0
-                uniq_name = uniq_name_base
-                while uniq_name in cls._USED_NAME_CACHE.values():
-                    i = i + 1
-                    uniq_name = '_'.join([uniq_name_base, str(i)])
-        cls._USED_NAME_CACHE[abs_module_path] = uniq_name
-        logging.debug('Unique name for module path of %s is %s.',
-                      abs_module_path, uniq_name)
-        return uniq_name
 
     def _generate_source_section(self, sect_name, is_test):
         """Generate specific section of the project file.
@@ -198,15 +129,12 @@ class ProjectFileGenerator:
     def generate_intellij_project_file(self, iml_path_list=None):
         """Generates IntelliJ project file.
 
+        # TODO(b/155346505): Move this method to idea folder.
+
         Args:
             iml_path_list: An optional list of submodule's iml paths, the
                            default value is None.
         """
-        source_dict = self._generate_source_section('source_folder_path', False)
-        source_dict.update(
-            self._generate_source_section('test_folder_path', True))
-        self.project_info.iml_path, _ = self._generate_iml(source_dict)
-        self.project_info.git_path = self._get_project_git_path()
         if self.project_info.is_main_project:
             self._generate_modules_xml(iml_path_list)
             self._copy_constant_project_files()
@@ -215,22 +143,21 @@ class ProjectFileGenerator:
     def generate_ide_project_files(cls, projects):
         """Generate IDE project files by a list of ProjectInfo instances.
 
-        For multiple modules case, we call _generate_intellij_project_file to
-        generate iml file for submodules first and pass submodules' iml file
-        paths as an argument to function _generate_intellij_project_file when we
-        generate main module.iml file. In this way, we can add submodules'
-        dependencies iml and their own iml file paths to main module's
-        module.xml.
+        It deals with the sources by ProjectSplitter to create iml files for
+        each project and generate_intellij_project_file only creates
+        the other project files under .idea/.
 
         Args:
             projects: A list of ProjectInfo instances.
         """
         # Initialization
-        cls._USED_NAME_CACHE.clear()
-        _merge_all_shared_source_paths(projects)
-        for project in projects[1:]:
-            ProjectFileGenerator(project).generate_intellij_project_file()
-        iml_paths = [project.iml_path for project in projects[1:]]
+        iml.IMLGenerator.USED_NAME_CACHE.clear()
+        proj_splitter = source_splitter.ProjectSplitter(projects)
+        proj_splitter.get_dependencies()
+        proj_splitter.revise_source_folders()
+        iml_paths = [proj_splitter.gen_framework_srcjars_iml()]
+        proj_splitter.gen_projects_iml()
+        iml_paths += [project.iml_path for project in projects]
         ProjectFileGenerator(
             projects[0]).generate_intellij_project_file(iml_paths)
         _merge_project_vcs_xmls(projects)
@@ -290,7 +217,7 @@ class ProjectFileGenerator:
         """
         facet = ''
         facet_path = self.project_info.project_absolute_path
-        if os.path.isfile(os.path.join(facet_path, _ANDROID_MANIFEST)):
+        if os.path.isfile(os.path.join(facet_path, constant.ANDROID_MANIFEST)):
             facet = _FACET_SECTION
         return content.replace(_FACET_TOKEN, facet)
 
@@ -385,10 +312,12 @@ class ProjectFileGenerator:
             # If relative_path empty, it is Android root. When handling root
             # module, we add the exclude folders to speed up indexing time.
             if not relative_path:
-                src_builder.extend(_get_exclude_content(root_path))
+                src_builder.extend(
+                    source_splitter.get_exclude_content(root_path))
             excludes = project_config.ProjectConfig.get_instance().exclude_paths
             if excludes:
-                src_builder.extend(_get_exclude_content(root_path, excludes))
+                src_builder.extend(
+                    source_splitter.get_exclude_content(root_path, excludes))
             src_builder.append(_END_CONTENT)
         else:
             for path, is_test_flag in sorted(source_dict.items()):
@@ -434,6 +363,9 @@ class ProjectFileGenerator:
     def _generate_iml(self, source_dict):
         """Generate iml file.
 
+        #TODO(b/155346505): Removes this method after the project files are
+        #                   created by ProjectSplitter.
+
         Args:
             source_dict: A dictionary of sources path with a flag to distinguish
                          the path is test or source folder in IntelliJ.
@@ -459,7 +391,7 @@ class ProjectFileGenerator:
                                                     project_source_dict, True)
         module_content = self._handle_srcjar_folder(module_content)
         # b/121256503: Prevent duplicated iml names from breaking IDEA.
-        module_name = self.get_unique_iml_name(module_path)
+        module_name = iml.IMLGenerator.get_unique_iml_name(module_path)
 
         module_iml_path = os.path.join(module_path,
                                        module_name + _IML_EXTENSION)
@@ -504,7 +436,7 @@ class ProjectFileGenerator:
         module_path = self.project_info.project_absolute_path
 
         # b/121256503: Prevent duplicated iml names from breaking IDEA.
-        module_name = self.get_unique_iml_name(module_path)
+        module_name = iml.IMLGenerator.get_unique_iml_name(module_path)
 
         if iml_path_list is not None:
             module_list = [
@@ -544,51 +476,6 @@ class ProjectFileGenerator:
                 not self.project_info.is_main_project):
             content = content.replace(_ENABLE_DEBUGGER_MODULE_TOKEN, '')
         return content
-
-    def _get_project_git_path(self):
-        """Get the project's git path.
-
-        Return:
-            String: A module's git path.
-        """
-        module_path = self.project_info.project_absolute_path
-        # When importing whole Android repo, it shouldn't add vcs.xml,
-        # because IntelliJ doesn't handle repo as a version control.
-        if module_path == common_util.get_android_root_dir():
-            return None
-        git_path = module_path
-        while not os.path.isdir(os.path.join(git_path, _GIT_FOLDER_NAME)):
-            git_path = str(pathlib.Path(git_path).parent)
-            if git_path == os.sep:
-                logging.warning('%s can\'t find its .git folder', module_path)
-                return None
-        return git_path
-
-
-def _get_exclude_content(root_path, excludes=None):
-    """Get the exclude folder content list.
-
-    It returns the exclude folders content list.
-    e.g.
-    ['<excludeFolder url="file://a/.idea" />',
-    '<excludeFolder url="file://a/.repo" />']
-
-    Args:
-        root_path: Android source file path.
-        excludes: A list of exclusive directories, the default value is None but
-                  will be assigned to _EXCLUDE_FOLDERS.
-
-    Returns:
-        String: exclude folder content list.
-    """
-    exclude_items = []
-    if not excludes:
-        excludes = _EXCLUDE_FOLDERS
-    for folder in excludes:
-        folder_path = os.path.join(root_path, folder)
-        if os.path.isdir(folder_path):
-            exclude_items.append(_EXCLUDE_ITEM % folder_path)
-    return exclude_items
 
 
 def _trim_same_root_source(source_list):
@@ -640,12 +527,10 @@ def _merge_project_vcs_xmls(projects):
         projects: A list of ProjectInfo instances.
     """
     main_project_absolute_path = projects[0].project_absolute_path
-    # TODO(b/154436905): Add the necessary git path to vcs.xml.
     if main_project_absolute_path != common_util.get_android_root_dir():
-        git_paths = [project.git_path for project in projects]
-        _write_vcs_xml(main_project_absolute_path, git_paths)
-    else:
-        _write_vcs_xml(main_project_absolute_path, [])
+        git_paths = [common_util.find_git_root(project.project_relative_path)
+                     for project in projects if project.project_relative_path]
+        xml_gen.gen_vcs_xml(main_project_absolute_path, git_paths)
 
 
 def _get_all_git_path(root_path):

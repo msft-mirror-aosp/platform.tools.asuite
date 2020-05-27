@@ -21,7 +21,6 @@ Utility functions for atest.
 
 from __future__ import print_function
 
-import curses
 import hashlib
 import itertools
 import json
@@ -131,15 +130,15 @@ def _run_limited_output(cmd, env_vars=None):
     proc = subprocess.Popen(cmd, stdout=subprocess.PIPE,
                             stderr=subprocess.STDOUT, env=env_vars)
     sys.stdout.write('\n')
-    term_width, _ = _get_terminal_size()
+    term_width, _ = get_terminal_size()
     white_space = " " * int(term_width)
     full_output = []
     while proc.poll() is None:
-        line = proc.stdout.readline()
+        line = proc.stdout.readline().decode('utf-8')
         # Readline will often return empty strings.
         if not line:
             continue
-        full_output.append(line.decode('utf-8'))
+        full_output.append(line)
         # Trim the line to the width of the terminal.
         # Note: Does not handle terminal resizing, which is probably not worth
         #       checking the width every loop.
@@ -289,6 +288,7 @@ def _has_colors(stream):
         cached_has_colors[stream] = False
         return False
     try:
+        import curses
         curses.setupterm()
         cached_has_colors[stream] = curses.tigetnum("colors") > 2
     # pylint: disable=broad-except
@@ -341,7 +341,7 @@ def colorful_print(text, color, highlight=False, auto_wrap=True):
         print(output, end="")
 
 
-def _get_terminal_size():
+def get_terminal_size():
     """Get terminal size and return a tuple.
 
     Returns:
@@ -350,7 +350,8 @@ def _get_terminal_size():
     # Determine the width of the terminal. We'll need to clear this many
     # characters when carriage returning. Set default value as 80.
     columns, rows = shutil.get_terminal_size(
-        fallback=(_DEFAULT_TERMINAL_WIDTH, _DEFAULT_TERMINAL_HEIGHT))
+        fallback=(_DEFAULT_TERMINAL_WIDTH,
+                  _DEFAULT_TERMINAL_HEIGHT))
     return columns, rows
 
 
@@ -386,10 +387,10 @@ def print_data_collection_notice():
                   constants.PRIVACY_POLICY_URL,
                   constants.TERMS_SERVICE_URL
                  )
-    print('\n==================')
+    print(delimiter('=', 18, prenl=1))
     colorful_print("Notice:", constants.RED)
     colorful_print("%s" % notice, constants.GREEN)
-    print('==================\n')
+    print(delimiter('=', 18, postnl=1))
 
 
 def handle_test_runner_cmd(input_test, test_cmds, do_verification=False,
@@ -624,3 +625,17 @@ def get_modified_files(root_dir):
     except (OSError, subprocess.CalledProcessError) as err:
         logging.debug('Exception raised: %s', err)
     return modified_files
+
+def delimiter(char, length=_DEFAULT_TERMINAL_WIDTH, prenl=0, postnl=0):
+    """A handy delimiter printer.
+
+    Args:
+        char: A string used for delimiter.
+        length: An integer for the replication.
+        prenl: An integer that insert '\n' before delimiter.
+        postnl: An integer that insert '\n' after delimiter.
+
+    Returns:
+        A string of delimiter.
+    """
+    return prenl * '\n' + char * length + postnl * '\n'

@@ -96,7 +96,7 @@ class NativeModuleInfo(module_info.AidegenModuleInfo):
                 continue
             rel_path, _ = common_util.get_related_paths(self, target)
             for path in self.path_to_module_info:
-                if path.startswith(rel_path):
+                if common_util.is_source_under_relative_path(path, rel_path):
                     projects.extend(self.get_module_names(path))
         return projects
 

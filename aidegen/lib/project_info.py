@@ -71,7 +71,6 @@ class ProjectInfo:
                               directory or it's subdirectories.
         dep_modules: A dict has recursively dependent modules of
                      project_module_names.
-        git_path: The project's git path.
         iml_path: The project's iml file path.
         source_path: A dictionary to keep following data:
                      source_folder_path: A set contains the source folder
@@ -90,6 +89,8 @@ class ProjectInfo:
                                   The "!/" is a content descriptor for
                                   compressed files in IntelliJ.
         is_main_project: A boolean to verify the project is main project.
+        dependencies: A list of dependency projects' iml file names, e.g. base,
+                      framework-all.
     """
 
     modules_info = None
@@ -112,7 +113,6 @@ class ProjectInfo:
             self.modules_info.get_module_names(rel_path))
         self.project_relative_path = rel_path
         self.project_absolute_path = abs_path
-        self.git_path = ''
         self.iml_path = ''
         self._set_default_modues()
         self._init_source_path()
@@ -122,6 +122,7 @@ class ProjectInfo:
             self.dep_modules = self.get_dep_modules()
         self._filter_out_modules()
         self._display_convert_make_files_message()
+        self.dependencies = []
 
     def _set_default_modues(self):
         """Append default hard-code modules, source paths and jar files.
@@ -197,7 +198,7 @@ class ProjectInfo:
                 if module_info.AidegenModuleInfo.is_target_module(data):
                     modules.add(name)
                 else:
-                    logging.debug(_NOT_TARGET, name, data['class'],
+                    logging.debug(_NOT_TARGET, name, data.get('class', ''),
                                   constant.TARGET_CLASSES)
         return modules
 
