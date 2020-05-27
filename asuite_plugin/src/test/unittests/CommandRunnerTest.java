@@ -18,6 +18,7 @@ package unittests;
 import com.android.atest.commandAdapter.CommandRunner;
 import com.android.atest.toolWindow.AtestToolWindow;
 import com.intellij.execution.configurations.GeneralCommandLine;
+import com.intellij.openapi.project.Project;
 import org.junit.Assert;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -32,6 +33,7 @@ import java.util.ArrayList;
 public class CommandRunnerTest {
 
     @Mock AtestToolWindow atestToolWindowMock;
+    @Mock Project project;
 
     /** Tests CommandRunner by ls command. */
     @Test
@@ -49,13 +51,14 @@ public class CommandRunnerTest {
     /** Tests CommandRunner by lunch target and test target. */
     @Test
     public void testCommandRunnerByTarget() throws NoSuchFieldException, IllegalAccessException {
-        CommandRunner lsCommand = new CommandRunner("a", "b", "/", atestToolWindowMock);
+        CommandRunner lsCommand = new CommandRunner("a", "b", "/", atestToolWindowMock, project);
         Field field = lsCommand.getClass().getDeclaredField("mCommand");
         field.setAccessible(true);
         GeneralCommandLine commandLine = (GeneralCommandLine) field.get(lsCommand);
         Assert.assertSame(commandLine.getCharset(), StandardCharsets.UTF_8);
         Assert.assertEquals(
                 commandLine.getCommandLineString(),
-                "/bin/bash -c \"source build/envsetup.sh && lunch a && atest b\"");
+                "/bin/bash -c \"export USER_FROM_TOOL=\\\"IntelliJ_Atest_plugin\\\" "
+                        + "&& source build/envsetup.sh && lunch a && atest b\"");
     }
 }

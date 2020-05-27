@@ -50,6 +50,8 @@ _EXCLUDE_MODULES = ['fake-framework']
 _CMD_LENGTH_BUFFER = 5000
 # For each argument, it need a space to separate following argument.
 _BLANK_SIZE = 1
+_CORE_MODULES = [constant.FRAMEWORK_ALL, constant.CORE_ALL,
+                 'org.apache.http.legacy.stubs.system']
 
 
 class ProjectInfo:
@@ -88,6 +90,8 @@ class ProjectInfo:
                                   The "!/" is a content descriptor for
                                   compressed files in IntelliJ.
         is_main_project: A boolean to verify the project is main project.
+        dependencies: A list of dependency projects' iml file names, e.g. base,
+                      framework-all.
     """
 
     modules_info = None
@@ -104,7 +108,7 @@ class ProjectInfo:
         """
         rel_path, abs_path = common_util.get_related_paths(
             self.modules_info, target)
-        self.module_name = self._get_target_name(target, abs_path)
+        self.module_name = self.get_target_name(target, abs_path)
         self.is_main_project = is_main_project
         self.project_module_names = set(
             self.modules_info.get_module_names(rel_path))
@@ -114,9 +118,13 @@ class ProjectInfo:
         self.iml_path = ''
         self._set_default_modues()
         self._init_source_path()
-        self.dep_modules = self.get_dep_modules()
+        if target == constant.FRAMEWORK_ALL:
+            self.dep_modules = self.get_dep_modules([target])
+        else:
+            self.dep_modules = self.get_dep_modules()
         self._filter_out_modules()
         self._display_convert_make_files_message()
+        self.dependencies = []
 
     def _set_default_modues(self):
         """Append default hard-code modules, source paths and jar files.
@@ -128,10 +136,9 @@ class ProjectInfo:
             error of "cannot resolve symbol" in IntelliJ since they import
             packages android.Manifest and com.android.internal.R.
         """
-        # TODO(b/112058649): Do more research to clarify how to remove these
-        #                    hard-code sources.
-        self.project_module_names.update(
-            ['framework', 'org.apache.http.legacy.stubs.system'])
+        # Set the default modules framework-all and core-all as the core
+        # dependency modules.
+        self.project_module_names.update(_CORE_MODULES)
 
     def _init_source_path(self):
         """Initialize source_path dictionary."""
@@ -193,7 +200,7 @@ class ProjectInfo:
                 if module_info.AidegenModuleInfo.is_target_module(data):
                     modules.add(name)
                 else:
-                    logging.debug(_NOT_TARGET, name, data['class'],
+                    logging.debug(_NOT_TARGET, name, data.get('class', ''),
                                   constant.TARGET_CLASSES)
         return modules
 
@@ -287,7 +294,7 @@ class ProjectInfo:
         return [ProjectInfo(target, i == 0) for i, target in enumerate(targets)]
 
     @staticmethod
-    def _get_target_name(target, abs_path):
+    def get_target_name(target, abs_path):
         """Get target name from target's absolute path.
 
         If the project is for entire Android source tree, change the target to
@@ -352,18 +359,18 @@ class ProjectInfo:
         for module_name, module_data in self.dep_modules.items():
             module = self._generate_moduledata(module_name, module_data)
             module.locate_sources_path()
-            self.source_path['source_folder_path'].update(module.src_dirs)
-            self.source_path['test_folder_path'].update(module.test_dirs)
-            self.source_path['r_java_path'].update(module.r_java_paths)
-            self.source_path['srcjar_path'].update(module.srcjar_paths)
+            self.source_path['source_folder_path'].update(set(module.src_dirs))
+            self.source_path['test_folder_path'].update(set(module.test_dirs))
+            self.source_path['r_java_path'].update(set(module.r_java_paths))
+            self.source_path['srcjar_path'].update(set(module.srcjar_paths))
             self._append_jars_as_dependencies(module)
             rebuild_targets.update(module.build_targets)
-        if project_config.ProjectConfig.get_instance().is_skip_build:
+        config = project_config.ProjectConfig.get_instance()
+        if config.is_skip_build:
             return
         if rebuild_targets:
             if build:
-                verbose = project_config.ProjectConfig.get_instance().verbose
-                _batch_build_dependencies(verbose, rebuild_targets)
+                batch_build_dependencies(rebuild_targets)
                 self.locate_source(build=False)
             else:
                 logging.warning('Jar or srcjar files build skipped:\n\t%s.',
@@ -423,7 +430,7 @@ class ProjectInfo:
             project.locate_source()
 
 
-def _batch_build_dependencies(verbose, rebuild_targets):
+def batch_build_dependencies(rebuild_targets):
     """Batch build the jar or srcjar files of the modules if they don't exist.
 
     Command line has the max length limit, MAX_ARG_STRLEN, and
@@ -433,7 +440,6 @@ def _batch_build_dependencies(verbose, rebuild_targets):
     MAX_ARG_STRLEN to make sure it can be built successfully.
 
     Args:
-        verbose: A boolean, if true displays full build output.
         rebuild_targets: A set of jar or srcjar files which do not exist.
     """
     logging.info('Ready to build the jar or srcjar files. Files count = %s',
@@ -441,10 +447,10 @@ def _batch_build_dependencies(verbose, rebuild_targets):
     arg_max = os.sysconf('SC_PAGE_SIZE') * 32 - _CMD_LENGTH_BUFFER
     rebuild_targets = list(rebuild_targets)
     for start, end in iter(_separate_build_targets(rebuild_targets, arg_max)):
-        _build_target(rebuild_targets[start:end], verbose)
+        _build_target(rebuild_targets[start:end])
 
 
-def _build_target(targets, verbose):
+def _build_target(targets):
     """Build the jar or srcjar files.
 
     Use -k to keep going when some targets can't be built or build failed.
@@ -452,10 +458,10 @@ def _build_target(targets, verbose):
 
     Args:
         targets: A list of jar or srcjar files which need to build.
-        verbose: A boolean, if true displays full build output.
     """
     build_cmd = ['-k', '-j']
     build_cmd.extend(list(targets))
+    verbose = True
     if not atest_utils.build(build_cmd, verbose):
         message = ('Build failed!\n{}\nAIDEGen will proceed but dependency '
                    'correctness is not guaranteed if not all targets being '

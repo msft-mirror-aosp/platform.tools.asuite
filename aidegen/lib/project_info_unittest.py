@@ -16,12 +16,14 @@
 
 """Unittests for project_info."""
 
+import logging
 import os
 import shutil
 import tempfile
 import unittest
 from unittest import mock
 
+from aidegen import constant
 from aidegen import unittest_constants
 from aidegen.lib import common_util
 from aidegen.lib import project_info
@@ -115,17 +117,26 @@ class ProjectInfoUnittests(unittest.TestCase):
         proj_info = project_info.ProjectInfo(self.args.module_name, False)
         self.assertEqual(proj_info.dep_modules, _EXPECT_DEPENDENT_MODULES)
 
+    @mock.patch.object(project_info.ProjectInfo,
+                       '_get_modules_under_project_path')
+    @mock.patch.object(project_info.ProjectInfo, 'get_dep_modules')
+    def test_init(self, mock_get_deps, mock_get_sub_modules):
+        """Test init."""
+        project_info.ProjectInfo(constant.FRAMEWORK_ALL, False)
+        self.assertTrue(mock_get_deps.called)
+        self.assertFalse(mock_get_sub_modules.called)
+
     @mock.patch.object(common_util, 'get_android_root_dir')
     def test_get_target_name(self, mock_get_root):
-        """Test _get_target_name with different conditions."""
+        """Test get_target_name with different conditions."""
         mock_get_root.return_value = unittest_constants.TEST_DATA_PATH
         self.assertEqual(
-            project_info.ProjectInfo._get_target_name(
+            project_info.ProjectInfo.get_target_name(
                 unittest_constants.TEST_MODULE,
                 unittest_constants.TEST_DATA_PATH),
             os.path.basename(unittest_constants.TEST_DATA_PATH))
         self.assertEqual(
-            project_info.ProjectInfo._get_target_name(
+            project_info.ProjectInfo.get_target_name(
                 unittest_constants.TEST_MODULE, unittest_constants.TEST_PATH),
             unittest_constants.TEST_MODULE)
 
@@ -152,7 +163,8 @@ class ProjectInfoUnittests(unittest.TestCase):
             unittest_constants.TEST_MODULE
         ]
         project_config.ProjectConfig(self.args)
-        project_info_obj = project_info.ProjectInfo(mock_module_info)
+        project_info_obj = project_info.ProjectInfo(
+            mock_module_info.get_paths()[0])
         project_info_obj.dep_modules = {
             unittest_constants.TEST_MODULE: locate_module_info
         }
@@ -170,15 +182,82 @@ class ProjectInfoUnittests(unittest.TestCase):
         self.assertEqual(project_info_obj.source_path['test_folder_path'],
                          result_test)
 
+    @mock.patch.object(project_info, 'batch_build_dependencies')
+    @mock.patch.object(common_util, 'get_android_root_dir')
+    @mock.patch('atest.module_info.ModuleInfo')
+    @mock.patch('atest.atest_utils.build')
+    def test_locate_source_with_skip_build(self, mock_atest_utils_build,
+                                           mock_module_info, mock_get_root,
+                                           mock_batch):
+        """Test locate_source handling."""
+        mock_atest_utils_build.build.return_value = True
+        test_root_path = os.path.join(tempfile.mkdtemp(), 'test')
+        shutil.copytree(unittest_constants.TEST_DATA_PATH, test_root_path)
+        mock_get_root.return_value = test_root_path
+        generated_jar = ('out/soong/.intermediates/packages/apps/test/test/'
+                         'android_common/generated.jar')
+        locate_module_info = dict(unittest_constants.MODULE_INFO)
+        locate_module_info['installed'] = [generated_jar]
+        mock_module_info.is_module.return_value = True
+        mock_module_info.get_paths.return_value = [
+            unittest_constants.MODULE_PATH
+        ]
+        mock_module_info.get_module_names.return_value = [
+            unittest_constants.TEST_MODULE
+        ]
+        args = mock.MagicMock()
+        args.module_name = 'm1'
+        args.project_path = ''
+        args.ide = ['j']
+        args.no_launch = True
+        args.depth = 0
+        args.android_tree = False
+        args.skip_build = True
+        args.targets = ['m1']
+        args.verbose = False
+        args.ide_installed_path = None
+        args.config_reset = False
+        project_config.ProjectConfig(args)
+        project_info_obj = project_info.ProjectInfo(
+            mock_module_info.get_paths()[0])
+        project_info_obj.dep_modules = {
+            unittest_constants.TEST_MODULE: locate_module_info
+        }
+        project_info_obj._init_source_path()
+        project_info_obj.locate_source()
+        self.assertFalse(mock_batch.called)
+
+        args.ide = ['v']
+        args.skip_build = False
+        project_config.ProjectConfig(args)
+        project_info_obj = project_info.ProjectInfo(
+            mock_module_info.get_paths()[0])
+        project_info_obj.dep_modules = {
+            unittest_constants.TEST_MODULE: locate_module_info
+        }
+        project_info_obj._init_source_path()
+        project_info_obj.locate_source()
+        self.assertFalse(mock_batch.called)
+
     def test_separate_build_target(self):
         """Test separate_build_target."""
         test_list = ['1', '22', '333', '4444', '55555', '1', '7777777']
-        target = []
+        targets = []
         sample = [['1', '22', '333'], ['4444'], ['55555', '1'], ['7777777']]
         for start, end in iter(
                 project_info._separate_build_targets(test_list, 9)):
-            target.append(test_list[start:end])
-        self.assertEqual(target, sample)
+            targets.append(test_list[start:end])
+        self.assertEqual(targets, sample)
+
+    def test_separate_build_target_with_length_short(self):
+        """Test separate_build_target with length short."""
+        test_list = ['1']
+        sample = [['1']]
+        targets = []
+        for start, end in iter(
+                project_info._separate_build_targets(test_list, 9)):
+            targets.append(test_list[start:end])
+        self.assertEqual(targets, sample)
 
     @mock.patch.object(project_info.ProjectInfo, 'locate_source')
     @mock.patch('atest.module_info.ModuleInfo')
@@ -191,6 +270,62 @@ class ProjectInfoUnittests(unittest.TestCase):
         self.assertEqual(mock_locate_source.call_count, 1)
         proj_info.locate_source(build=True)
         self.assertEqual(mock_locate_source.call_count, 2)
+
+    @mock.patch('builtins.print')
+    @mock.patch('builtins.format')
+    @mock.patch('atest.atest_utils.build')
+    def test_build_target(self, mock_build, mock_format, mock_print):
+        """Test _build_target."""
+        build_argument = ['-k', 'j']
+        test_targets = ['mod_1', 'mod_2']
+        build_argument.extend(test_targets)
+        mock_build.return_value = False
+        project_info._build_target(test_targets)
+        self.assertTrue(mock_build.called_with((build_argument, True)))
+        self.assertTrue(mock_format.called_with('\n'.join(test_targets)))
+        self.assertTrue(mock_print.called)
+        mock_print.reset_mock()
+        mock_format.reset_mock()
+        mock_build.reset_mock()
+
+        mock_build.return_value = True
+        project_info._build_target(test_targets)
+        self.assertTrue(mock_build.called_with((build_argument, True)))
+        self.assertFalse(mock_format.called)
+        self.assertFalse(mock_print.called)
+        mock_print.reset_mock()
+        mock_format.reset_mock()
+        mock_build.reset_mock()
+
+    @mock.patch('builtins.print')
+    @mock.patch.object(project_info.ProjectInfo, '_search_android_make_files')
+    @mock.patch('atest.module_info.ModuleInfo')
+    def test_display_convert_make_files_message(
+            self, mock_module_info, mock_search, mock_print):
+        """Test _display_convert_make_files_message with conditions."""
+        mock_search.return_value = []
+        mock_module_info.get_paths.return_value = ['m1']
+        project_info.ProjectInfo.modules_info = mock_module_info
+        proj_info = project_info.ProjectInfo(self.args.module_name)
+        proj_info._display_convert_make_files_message()
+        self.assertFalse(mock_print.called)
+
+        mock_print.mock_reset()
+        mock_search.return_value = ['a/b/path/to/target.mk']
+        proj_info = project_info.ProjectInfo(self.args.module_name)
+        proj_info._display_convert_make_files_message()
+        self.assertTrue(mock_print.called)
+
+    @mock.patch.object(project_info, '_build_target')
+    @mock.patch.object(project_info, '_separate_build_targets')
+    @mock.patch.object(logging, 'info')
+    def test_batch_build_dependencies(self, mock_log, mock_sep, mock_build):
+        """Test batch_build_dependencies."""
+        mock_sep.return_value = [(0, 1)]
+        project_info.batch_build_dependencies({'m1', 'm2'})
+        self.assertTrue(mock_log.called)
+        self.assertTrue(mock_sep.called)
+        self.assertEqual(mock_build.call_count, 1)
 
 
 if __name__ == '__main__':
