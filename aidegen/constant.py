@@ -145,3 +145,6 @@ RE_INSIDE_PATH_CHECK = r'^{}($|/.+)'
 
 # Constants for Git
 GIT_FOLDER_NAME = '.git'
+
+# Constants for Idea
+IDEA_FOLDER = '.idea'
