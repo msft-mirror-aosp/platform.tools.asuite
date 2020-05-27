@@ -26,6 +26,7 @@ import re
 from aidegen import constant
 from aidegen.lib import common_util
 from aidegen.lib import module_info
+from aidegen.lib import project_config
 
 # Parse package name from the package declaration line of a java.
 # Group matches "foo.bar" of line "package foo.bar;" or "package foo.bar"
@@ -50,6 +51,8 @@ _IGNORE_DIRS = [
 ]
 _ANDROID = 'android'
 _REPACKAGES = 'repackaged'
+_FRAMEWORK_SRCJARS_PATH = os.path.join(constant.FRAMEWORK_PATH,
+                                       constant.FRAMEWORK_SRCJARS)
 
 
 class ModuleData:
@@ -60,12 +63,13 @@ class ModuleData:
         repo root.
 
         module_path: A string of the relative path to the module.
-        src_dirs: A set to keep the unique source folder relative paths.
-        test_dirs: A set to keep the unique test folder relative paths.
-        jar_files: A set to keep the unique jar file relative paths.
-        r_java_paths: A set to keep the R folder paths to use in Eclipse.
-        srcjar_paths: A set to keep the srcjar source root paths to use in
+        src_dirs: A list to keep the unique source folder relative paths.
+        test_dirs: A list to keep the unique test folder relative paths.
+        jar_files: A list to keep the unique jar file relative paths.
+        r_java_paths: A list to keep the R folder paths to use in Eclipse.
+        srcjar_paths: A list to keep the srcjar source root paths to use in
                       IntelliJ.
+        dep_paths: A list to keep the dependency modules' path.
         referenced_by_jar: A boolean to check if the module is referenced by a
                            jar file.
         build_targets: A set to keep the unique build target jar or srcjar file
@@ -113,6 +117,7 @@ class ModuleData:
         self.jar_files = []
         self.r_java_paths = []
         self.srcjar_paths = []
+        self.dep_paths = []
         self.referenced_by_jar = False
         self.build_targets = set()
         self.missing_jars = set()
@@ -564,6 +569,21 @@ class ModuleData:
         """Collect missing jar files to rebuild them."""
         if self.referenced_by_jar and self.missing_jars:
             self.build_targets |= self.missing_jars
+
+    def _collect_dep_paths(self):
+        """Collects the path of dependency modules."""
+        config = project_config.ProjectConfig.get_instance()
+        modules_info = config.atest_module_info
+        self.dep_paths = []
+        if self.module_path != constant.FRAMEWORK_PATH:
+            self.dep_paths.append(constant.FRAMEWORK_PATH)
+        self.dep_paths.append(_FRAMEWORK_SRCJARS_PATH)
+        if self.module_path != constant.LIBCORE_PATH:
+            self.dep_paths.append(constant.LIBCORE_PATH)
+        for module in self.module_data.get(constant.KEY_DEPENDENCIES, []):
+            for path in modules_info.get_paths(module):
+                if path not in self.dep_paths and path != self.module_path:
+                    self.dep_paths.append(path)
 
     def locate_sources_path(self):
         """Locate source folders' paths or jar files."""
