@@ -28,6 +28,7 @@ import shutil
 from aidegen import constant
 from aidegen import templates
 from aidegen.idea import iml
+from aidegen.idea import xml_gen
 from aidegen.lib import common_util
 from aidegen.lib import config
 from aidegen.lib import project_config
@@ -529,7 +530,7 @@ def _merge_project_vcs_xmls(projects):
     if main_project_absolute_path != common_util.get_android_root_dir():
         git_paths = [common_util.find_git_root(project.project_relative_path)
                      for project in projects if project.project_relative_path]
-        _write_vcs_xml(main_project_absolute_path, git_paths)
+        xml_gen.gen_vcs_xml(main_project_absolute_path, git_paths)
 
 
 def _get_all_git_path(root_path):
