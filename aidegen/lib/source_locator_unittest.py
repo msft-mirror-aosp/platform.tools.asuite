@@ -22,6 +22,7 @@ from unittest import mock
 
 from aidegen import unittest_constants
 
+from aidegen.lib import common_util
 from aidegen.lib import module_info
 from aidegen.lib import source_locator
 
@@ -32,17 +33,30 @@ from aidegen.lib import source_locator
 class ModuleDataUnittests(unittest.TestCase):
     """Unit tests for module_data.py"""
 
-    @mock.patch('aidegen.lib.common_util.get_android_root_dir')
-    def test_collect_srcs_paths(self, mock_android_root_dir):
+    @mock.patch('os.path.dirname')
+    @mock.patch('logging.debug')
+    @mock.patch.object(source_locator.ModuleData, '_get_source_folder')
+    @mock.patch.object(source_locator.ModuleData, '_check_key')
+    @mock.patch.object(common_util, 'is_target')
+    @mock.patch.object(common_util, 'get_android_root_dir')
+    def test_collect_srcs_paths(self, mock_android_root_dir, mock_is_target,
+                                mock_check_key, mock_get_src, mock_log,
+                                mock_dirname):
         """Test _collect_srcs_paths create the source path list."""
-        result_source = set(['packages/apps/test/src/main/java'])
-        result_test = set(['packages/apps/test/tests'])
-        mock_android_root_dir.return_value = unittest_constants.TEST_DATA_PATH
-        module_data = source_locator.ModuleData(
+        module = source_locator.ModuleData(
             unittest_constants.TEST_MODULE, unittest_constants.MODULE_INFO, 0)
-        module_data._collect_srcs_paths()
-        self.assertEqual(module_data.src_dirs, result_source)
-        self.assertEqual(module_data.test_dirs, result_test)
+        mock_check_key.return_value = False
+        module._collect_srcs_paths()
+        self.assertFalse(mock_dirname.called)
+        mock_check_key.return_value = True
+        mock_is_target.return_value = True
+        mock_android_root_dir.return_value = unittest_constants.TEST_DATA_PATH
+        module._collect_srcs_paths()
+        self.assertTrue(mock_is_target.called)
+        self.assertTrue(mock_get_src.called)
+        mock_is_target.return_value = False
+        module._collect_srcs_paths()
+        self.assertTrue(mock_log.called)
 
     def test_get_package_name(self):
         """test get the package name from a java file."""
@@ -112,9 +126,11 @@ class ModuleDataUnittests(unittest.TestCase):
         r_dir = module_data._get_r_dir(test_unknown_target)
         self.assertEqual(r_dir, expect_result)
 
+    @mock.patch('os.path.exists')
     @mock.patch('aidegen.lib.common_util.get_android_root_dir')
-    def test_collect_r_src_path(self, mock_android_root_dir):
+    def test_collect_r_src_path(self, mock_android_root_dir, mock_exists):
         """Test collect_r_src_path."""
+        mock_exists.return_value = True
         # Test on target srcjar exists in srcjars.
         test_module = dict(unittest_constants.MODULE_INFO)
         test_module['srcs'] = []
@@ -123,7 +139,7 @@ class ModuleDataUnittests(unittest.TestCase):
                                                 test_module, 0)
         # Test the module is not APPS.
         module_data._collect_r_srcs_paths()
-        expect_result = set()
+        expect_result = []
         self.assertEqual(module_data.r_java_paths, expect_result)
 
         # Test the module is not a target module.
@@ -131,7 +147,7 @@ class ModuleDataUnittests(unittest.TestCase):
         module_data = source_locator.ModuleData(unittest_constants.TEST_MODULE,
                                                 test_module, 1)
         module_data._collect_r_srcs_paths()
-        expect_result = set()
+        expect_result = []
         self.assertEqual(module_data.r_java_paths, expect_result)
 
         # Test the srcjar target doesn't exist.
@@ -140,7 +156,7 @@ class ModuleDataUnittests(unittest.TestCase):
         module_data = source_locator.ModuleData(unittest_constants.TEST_MODULE,
                                                 test_module, 0)
         module_data._collect_r_srcs_paths()
-        expect_result = set()
+        expect_result = []
         self.assertEqual(module_data.r_java_paths, expect_result)
 
         # Test the srcjar target exists.
@@ -149,10 +165,16 @@ class ModuleDataUnittests(unittest.TestCase):
         module_data = source_locator.ModuleData(unittest_constants.TEST_MODULE,
                                                 test_module, 0)
         module_data._collect_r_srcs_paths()
-        expect_result = {
+        expect_result = [
             'out/soong/.intermediates/packages/apps/test_aapt2/aapt2'
-        }
+        ]
         self.assertEqual(module_data.r_java_paths, expect_result)
+        mock_exists.return_value = False
+        module_data._collect_r_srcs_paths()
+        expect_result = set([('out/soong/.intermediates/packages/apps/'
+                              'test_aapt2/aapt2.srcjar')])
+        self.assertEqual(module_data.build_targets, expect_result)
+
 
     def test_parse_source_path(self):
         """Test _parse_source_path."""
@@ -201,30 +223,34 @@ class ModuleDataUnittests(unittest.TestCase):
         """Test _append_jar_file process."""
         # Append an existing jar file path to module_data.jar_files.
         test_jar_file = os.path.join(unittest_constants.MODULE_PATH, 'test.jar')
-        result_jar_list = set([test_jar_file])
+        result_jar_list = [test_jar_file]
         mock_android_root_dir.return_value = unittest_constants.TEST_DATA_PATH
         module_data = source_locator.ModuleData(
             unittest_constants.TEST_MODULE, unittest_constants.MODULE_INFO, 0)
+        module_data._append_jar_file(test_jar_file)
         module_data._append_jar_file(test_jar_file)
         self.assertEqual(module_data.jar_files, result_jar_list)
 
         # Skip if the jar file doesn't exist.
         test_jar_file = os.path.join(unittest_constants.MODULE_PATH,
                                      'jar_not_exist.jar')
-        module_data.jar_files = set()
+        module_data.jar_files = []
         module_data._append_jar_file(test_jar_file)
-        self.assertEqual(module_data.jar_files, set())
+        self.assertEqual(module_data.jar_files, [])
 
         # Skip if it's not a jar file.
         test_jar_file = os.path.join(unittest_constants.MODULE_PATH,
                                      'test.java')
-        module_data.jar_files = set()
+        module_data.jar_files = []
         module_data._append_jar_file(test_jar_file)
-        self.assertEqual(module_data.jar_files, set())
+        self.assertEqual(module_data.jar_files, [])
 
+    @mock.patch.object(source_locator.ModuleData, '_check_key')
     @mock.patch('aidegen.lib.common_util.get_android_root_dir')
-    def test_append_jar_from_installed(self, mock_android_root_dir):
+    def test_append_jar_from_installed(self, mock_android_root_dir,
+                                       mock_check_key):
         """Test _append_jar_from_installed handling."""
+        mock_check_key.return_value = True
         # Test appends the first jar file of 'installed'.
         mod_info = dict(unittest_constants.MODULE_INFO)
         mod_info['installed'] = [
@@ -233,8 +259,9 @@ class ModuleDataUnittests(unittest.TestCase):
             os.path.join(unittest_constants.MODULE_PATH,
                          'tests/test_second.jar')
         ]
-        result_jar_list = set(
-            [os.path.join(unittest_constants.MODULE_PATH, 'test.jar')])
+        result_jar_list = [
+            os.path.join(unittest_constants.MODULE_PATH, 'test.jar')
+        ]
         mock_android_root_dir.return_value = unittest_constants.TEST_DATA_PATH
         module_data = source_locator.ModuleData(unittest_constants.TEST_MODULE,
                                                 mod_info, 0)
@@ -242,14 +269,20 @@ class ModuleDataUnittests(unittest.TestCase):
         self.assertEqual(module_data.jar_files, result_jar_list)
 
         # Test on the jar file path matches the path prefix.
-        module_data.jar_files = set()
-        result_jar_list = set([
+        module_data.jar_files = []
+        result_jar_list = [
             os.path.join(unittest_constants.MODULE_PATH,
                          'tests/test_second.jar')
-        ])
+        ]
         module_data._append_jar_from_installed(
             os.path.join(unittest_constants.MODULE_PATH, 'tests/'))
         self.assertEqual(module_data.jar_files, result_jar_list)
+        mock_check_key.return_value = False
+        module_data.jar_files = []
+        module_data._append_jar_from_installed(
+            os.path.join(unittest_constants.MODULE_PATH, 'tests/'))
+        self.assertEqual(module_data.jar_files, [])
+
 
     @mock.patch('aidegen.lib.common_util.get_android_root_dir')
     def test_set_jars_jarfile(self, mock_android_root_dir):
@@ -262,11 +295,11 @@ class ModuleDataUnittests(unittest.TestCase):
             'src/test.jar',  # This jar file doesn't exist.
             'tests/test_second.jar'
         ]
-        result_jar_list = set([
+        result_jar_list = [
             os.path.join(unittest_constants.MODULE_PATH, 'test.jar'),
             os.path.join(unittest_constants.MODULE_PATH,
                          'tests/test_second.jar')
-        ])
+        ]
         result_missing_jars = set()
         mock_android_root_dir.return_value = unittest_constants.TEST_DATA_PATH
         module_data = source_locator.ModuleData(unittest_constants.TEST_MODULE,
@@ -280,10 +313,10 @@ class ModuleDataUnittests(unittest.TestCase):
         """Test locate_sources_path handling."""
         # Test collect source path.
         mod_info = dict(unittest_constants.MODULE_INFO)
-        result_src_list = set(['packages/apps/test/src/main/java'])
-        result_test_list = set(['packages/apps/test/tests'])
-        result_jar_list = set()
-        result_r_path = set()
+        result_src_list = ['packages/apps/test/src/main/java']
+        result_test_list = ['packages/apps/test/tests']
+        result_jar_list = []
+        result_r_path = []
         mock_android_root_dir.return_value = unittest_constants.TEST_DATA_PATH
         module_data = source_locator.ModuleData(unittest_constants.TEST_MODULE,
                                                 mod_info, 0)
@@ -298,7 +331,7 @@ class ModuleDataUnittests(unittest.TestCase):
                     'android_common/test.jar')
         mod_info['jarjar_rules'] = ['jarjar-rules.txt']
         mod_info['installed'] = [jar_file]
-        result_jar_list = set([jar_file])
+        result_jar_list = [jar_file]
         module_data = source_locator.ModuleData(unittest_constants.TEST_MODULE,
                                                 mod_info, 0)
         module_data.locate_sources_path()
@@ -316,10 +349,11 @@ class ModuleDataUnittests(unittest.TestCase):
             ('out/soong/.intermediates/packages/apps/test/test/android_common/'
              'test.jar')
         ]
-        result_src_list = set()
-        result_jar_list = set(
-            [('out/soong/.intermediates/packages/apps/test/test/'
-              'android_common/test.jar')])
+        result_src_list = []
+        result_jar_list = [
+            ('out/soong/.intermediates/packages/apps/test/test/'
+             'android_common/test.jar')
+        ]
         mock_android_root_dir.return_value = unittest_constants.TEST_DATA_PATH
         module_data = source_locator.ModuleData(unittest_constants.TEST_MODULE,
                                                 mod_info, depth_by_source)
@@ -332,10 +366,10 @@ class ModuleDataUnittests(unittest.TestCase):
         depth_by_source = 2
         mod_info = dict(unittest_constants.MODULE_INFO)
         mod_info['depth'] = 2
-        result_src_list = set(['packages/apps/test/src/main/java'])
-        result_test_list = set(['packages/apps/test/tests'])
-        result_jar_list = set()
-        result_r_path = set()
+        result_src_list = ['packages/apps/test/src/main/java']
+        result_test_list = ['packages/apps/test/tests']
+        result_jar_list = []
+        result_r_path = []
         module_data = source_locator.ModuleData(unittest_constants.TEST_MODULE,
                                                 mod_info, depth_by_source)
         module_data.locate_sources_path()
@@ -349,10 +383,10 @@ class ModuleDataUnittests(unittest.TestCase):
         depth_by_source = 3
         mod_info = dict(unittest_constants.MODULE_INFO)
         mod_info['depth'] = 2
-        result_src_list = set(['packages/apps/test/src/main/java'])
-        result_test_list = set(['packages/apps/test/tests'])
-        result_jar_list = set()
-        result_r_path = set()
+        result_src_list = ['packages/apps/test/src/main/java']
+        result_test_list = ['packages/apps/test/tests']
+        result_jar_list = []
+        result_r_path = []
         module_data = source_locator.ModuleData(unittest_constants.TEST_MODULE,
                                                 mod_info, depth_by_source)
         module_data.locate_sources_path()
@@ -366,27 +400,108 @@ class ModuleDataUnittests(unittest.TestCase):
         srcjar_path = 'a/b/aapt2.srcjar'
         test_module = dict(unittest_constants.MODULE_INFO)
         test_module['srcjars'] = [srcjar_path]
-        expacted_result = set(['%s!/' % srcjar_path])
+        expacted_result = [srcjar_path]
         module_data = source_locator.ModuleData(unittest_constants.TEST_MODULE,
                                                 test_module, 0)
+        module_data._collect_srcjar_path('R.java')
+        self.assertEqual(module_data.srcjar_paths, [])
         module_data._collect_srcjar_path(srcjar_path)
         self.assertEqual(module_data.srcjar_paths, expacted_result)
 
-    def test_collect_all_srcjar_path(self):
+    @mock.patch('os.path.exists')
+    def test_collect_all_srcjar_path(self, mock_exists):
         """Test collect all srcjar paths as source root folders."""
+        mock_exists.return_value = True
         test_module = dict(unittest_constants.MODULE_INFO)
         test_module['srcjars'] = [
             'a/b/aidl0.srcjar',
+            'a/b/aidl2.srcjar',
+            'a/b/aidl1.srcjar',
+            'a/b/aidl2.srcjar'
+        ]
+        expacted_result = [
+            'a/b/aidl0.srcjar',
+            'a/b/aidl2.srcjar',
             'a/b/aidl1.srcjar'
         ]
-        expacted_result = set([
-            'a/b/aidl0.srcjar!/',
-            'a/b/aidl1.srcjar!/'
-        ])
         module_data = source_locator.ModuleData(unittest_constants.TEST_MODULE,
                                                 test_module, 0)
         module_data._collect_all_srcjar_paths()
         self.assertEqual(module_data.srcjar_paths, expacted_result)
+
+
+        mock_exists.return_value = False
+        test_module['srcjars'] = ['a/b/aidl0.srcjar']
+        expacted_result = set(['a/b/aidl0.srcjar'])
+        module_data = source_locator.ModuleData(unittest_constants.TEST_MODULE,
+                                                test_module, 0)
+        module_data._collect_all_srcjar_paths()
+        self.assertEqual(module_data.build_targets, expacted_result)
+
+
+    def test_collect_missing_jars(self):
+        """Test _collect_missing_jars."""
+        mod_name = 'test'
+        mod_info = {'name': 'test'}
+        test_path = 'a/b/c'
+        mod_data = source_locator.EclipseModuleData(mod_name, mod_info,
+                                                    test_path)
+        mod_data.missing_jars = set('a')
+        mod_data.referenced_by_jar = False
+        mod_data._collect_missing_jars()
+        self.assertEqual(mod_data.build_targets, set())
+        mod_data.referenced_by_jar = True
+        mod_data._collect_missing_jars()
+        self.assertEqual(mod_data.build_targets, {'a'})
+
+    @mock.patch.object(source_locator.ModuleData, '_check_key')
+    def test_check_classes_jar_exist(self, mock_check_key):
+        """Test _check_classes_jar_exist."""
+        mod_data = source_locator.ModuleData(
+            unittest_constants.TEST_MODULE, unittest_constants.MODULE_INFO, 0)
+        mod_data._check_classes_jar_exist()
+        self.assertTrue(mock_check_key.called)
+
+    @mock.patch('os.path.exists')
+    @mock.patch.object(common_util, 'get_android_root_dir')
+    def test_switch_repackaged(self, mock_android_root_dir, mock_exist):
+        """Test _switch_repackaged."""
+        mock_android_root_dir.return_value = '/a'
+        mock_exist.return_value = False
+        mod_data = source_locator.ModuleData(
+            unittest_constants.TEST_MODULE, unittest_constants.MODULE_INFO, 0)
+        self.assertEqual(mod_data._switch_repackaged('b/c'), 'b/c')
+        mock_exist.return_value = True
+        self.assertEqual(mod_data._switch_repackaged('b/c'), 'b/repackaged/c')
+
+    def test_add_to_source_or_test_dirs(self):
+        """Test _add_to_source_or_test_dirs."""
+        mod_name = 'test'
+        mod_info = {'name': 'test'}
+        mod_data = source_locator.ModuleData(mod_name, mod_info, 0)
+        mod_data._add_to_source_or_test_dirs('libcore/ojluni/src/lambda/java')
+        self.assertEqual(mod_data.src_dirs, [])
+        mod_data._add_to_source_or_test_dirs('a')
+        self.assertEqual(mod_data.src_dirs, ['a'])
+        mod_data._add_to_source_or_test_dirs('b')
+        self.assertEqual(mod_data.src_dirs, ['a', 'b'])
+        mod_data._add_to_source_or_test_dirs('a')
+        self.assertEqual(mod_data.src_dirs, ['a', 'b'])
+        mod_data._add_to_source_or_test_dirs('tests/src')
+        self.assertEqual(mod_data.test_dirs, ['tests/src'])
+
+    @mock.patch.object(source_locator.ModuleData, '_append_jar_file')
+    def test_append_classes_jar(self, mock_append_jar):
+        """Test _append_classes_jar."""
+        mod_name = 'test'
+        mod_info = {'name': 'test'}
+        mod_data = source_locator.ModuleData(mod_name, mod_info, 0)
+        mod_data.module_data['classes_jar'] = ['a.jar']
+        mod_data._append_classes_jar()
+        self.assertTrue(mock_append_jar.called)
+        mock_append_jar.return_value = False
+        mod_data._append_classes_jar()
+        self.assertEqual(mod_data.jar_files, [])
 
 
 class EclipseModuleDataUnittests(unittest.TestCase):
@@ -443,22 +558,22 @@ class EclipseModuleDataUnittests(unittest.TestCase):
         self.assertTrue(mock_r.called)
 
     @mock.patch.object(source_locator.ModuleData, '_append_classes_jar')
-    @mock.patch.object(source_locator.ModuleData, '_check_classes_jar_exist')
+    @mock.patch.object(source_locator.ModuleData, '_check_key')
     @mock.patch.object(source_locator.ModuleData, '_set_jars_jarfile')
     @mock.patch.object(source_locator.ModuleData, '_check_jars_exist')
     @mock.patch.object(source_locator.ModuleData, '_append_jar_from_installed')
     @mock.patch.object(source_locator.ModuleData, '_check_jarjar_rules_exist')
     def test_locate_jar_path(self, mock_jarjar, mock_append_jar, mock_check_jar,
-                             mock_set_jar, mock_check_class, mock_append_class):
+                             mock_set_jar, mock_check_key, mock_append_class):
         """Test _locate_jar_path."""
         mod_name = 'test'
-        mod_info = {'name': 'test'}
+        mod_info = {'name': 'test', 'path': 'x/y'}
         test_path = 'a/b/c'
         mod_data = source_locator.EclipseModuleData(mod_name, mod_info,
                                                     test_path)
         mock_jarjar.return_value = False
         mock_check_jar.return_value = False
-        mock_check_class.return_value = False
+        mock_check_key.return_value = False
         mod_data._locate_jar_path()
         self.assertTrue(mock_append_jar.called)
         self.assertFalse(mock_set_jar.called)
@@ -467,13 +582,13 @@ class EclipseModuleDataUnittests(unittest.TestCase):
         mock_append_jar.reset_mock()
         mock_jarjar.return_value = False
         mock_check_jar.return_value = False
-        mock_check_class.return_value = True
+        mock_check_key.return_value = True
         mod_data._locate_jar_path()
         self.assertFalse(mock_append_jar.called)
         self.assertFalse(mock_set_jar.called)
         self.assertTrue(mock_append_class.called)
 
-        mock_check_class.reset_mock()
+        mock_check_key.reset_mock()
         mock_append_class.reset_mock()
         mock_append_jar.reset_mock()
         mock_jarjar.return_value = False
@@ -481,13 +596,13 @@ class EclipseModuleDataUnittests(unittest.TestCase):
         mod_data._locate_jar_path()
         self.assertFalse(mock_append_jar.called)
         self.assertTrue(mock_set_jar.called)
-        self.assertFalse(mock_check_class.called)
+        self.assertFalse(mock_check_key.called)
         self.assertFalse(mock_append_class.called)
 
         mock_append_jar.reset_mock()
         mock_set_jar.reset_mock()
         mock_check_jar.reset_mock()
-        mock_check_class.reset_mock()
+        mock_check_key.reset_mock()
         mock_append_class.reset_mock()
 
         mock_jarjar.return_value = True
@@ -495,8 +610,20 @@ class EclipseModuleDataUnittests(unittest.TestCase):
         self.assertTrue(mock_append_jar.called)
         self.assertFalse(mock_check_jar.called)
         self.assertFalse(mock_set_jar.called)
-        self.assertFalse(mock_check_class.called)
+        self.assertFalse(mock_check_key.called)
         self.assertFalse(mock_append_class.called)
+
+    def test_add_to_source_or_test_dirs(self):
+        """Test _add_to_source_or_test_dirs."""
+        mod_name = 'test'
+        mod_info = {'name': 'test'}
+        test_path = 'a/b/c'
+        mod_data = source_locator.EclipseModuleData(mod_name, mod_info,
+                                                    test_path)
+        mod_data._add_to_source_or_test_dirs('libcore/ojluni/src/lambda/java')
+        self.assertEqual(mod_data.src_dirs, [])
+        mod_data._add_to_source_or_test_dirs('a')
+        self.assertEqual(mod_data.src_dirs, ['a'])
 
 
 if __name__ == '__main__':

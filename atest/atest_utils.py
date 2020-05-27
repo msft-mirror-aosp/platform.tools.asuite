@@ -17,9 +17,10 @@ Utility functions for atest.
 """
 
 
+# pylint: disable=import-outside-toplevel
+
 from __future__ import print_function
 
-import curses
 import hashlib
 import itertools
 import json
@@ -30,9 +31,6 @@ import re
 import shutil
 import subprocess
 import sys
-
-from distutils import util
-from urllib.request import urlopen
 
 import atest_decorator
 import atest_error
@@ -132,15 +130,15 @@ def _run_limited_output(cmd, env_vars=None):
     proc = subprocess.Popen(cmd, stdout=subprocess.PIPE,
                             stderr=subprocess.STDOUT, env=env_vars)
     sys.stdout.write('\n')
-    term_width, _ = _get_terminal_size()
+    term_width, _ = get_terminal_size()
     white_space = " " * int(term_width)
     full_output = []
     while proc.poll() is None:
-        line = proc.stdout.readline()
+        line = proc.stdout.readline().decode('utf-8')
         # Readline will often return empty strings.
         if not line:
             continue
-        full_output.append(line.decode('utf-8'))
+        full_output.append(line)
         # Trim the line to the width of the terminal.
         # Note: Does not handle terminal resizing, which is probably not worth
         #       checking the width every loop.
@@ -211,6 +209,7 @@ def _can_upload_to_result_server():
     # TODO: Also check if we have a slow connection to result server.
     if constants.RESULT_SERVER:
         try:
+            from urllib.request import urlopen
             urlopen(constants.RESULT_SERVER,
                     timeout=constants.RESULT_SERVER_TIMEOUT).close()
             return True
@@ -289,6 +288,7 @@ def _has_colors(stream):
         cached_has_colors[stream] = False
         return False
     try:
+        import curses
         curses.setupterm()
         cached_has_colors[stream] = curses.tigetnum("colors") > 2
     # pylint: disable=broad-except
@@ -341,7 +341,7 @@ def colorful_print(text, color, highlight=False, auto_wrap=True):
         print(output, end="")
 
 
-def _get_terminal_size():
+def get_terminal_size():
     """Get terminal size and return a tuple.
 
     Returns:
@@ -423,6 +423,7 @@ def handle_test_runner_cmd(input_test, test_cmds, do_verification=False,
             print('Former cmds = %s' % former_test_cmds)
             print('Current cmds = %s' % test_cmds)
             try:
+                from distutils import util
                 if not util.strtobool(
                         input('Do you want to update former result '
                               'with the latest one?(Y/n)')):
