@@ -531,7 +531,10 @@ def _merge_project_vcs_xmls(projects):
         git_paths = [common_util.find_git_root(project.project_relative_path)
                      for project in projects if project.project_relative_path]
         xml_gen.gen_vcs_xml(main_project_absolute_path, git_paths)
-
+    else:
+        ignore_gits = sorted(_get_all_git_path(main_project_absolute_path))
+        xml_gen.write_ignore_git_dirs_file(main_project_absolute_path,
+                                           ignore_gits)
 
 def _get_all_git_path(root_path):
     """Traverse all subdirectories to get all git folder's path.
