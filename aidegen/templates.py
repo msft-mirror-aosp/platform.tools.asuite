@@ -85,7 +85,7 @@ XML_MODULES = """<?xml version="1.0" encoding="UTF-8"?>
 XML_VCS = """<?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
     <component name="VcsDirectoryMappings">
-@VCS@
+{GIT_MAPPINGS}
     </component>
 </project>
 """
