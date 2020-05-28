@@ -16,6 +16,7 @@
 
 """Unittests for XMLGenerator."""
 
+import os
 import shutil
 import tempfile
 import unittest
@@ -36,6 +37,13 @@ class XMLGenUnittests(unittest.TestCase):
     _DEFAULT_XML = """<?xml version="1.0" encoding="UTF-8"?>
 <project version="4"></project>
 """
+    _IGNORE_GIT_XML = """<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="VcsManagerConfiguration">
+    <ignored-roots><path value="/b" /></ignored-roots>
+  </component>
+</project>
+"""
 
     def setUp(self):
         """Prepare the testdata related path."""
@@ -55,6 +63,12 @@ class XMLGenUnittests(unittest.TestCase):
         elements = self.xml.find_elements_by_name('a', 'b')
         self.assertEqual(len(elements), 1)
 
+    def test_append_node(self):
+        """Test append_node."""
+        node = self.xml.xml_obj.getroot()
+        self.xml.append_node(node, '<a />')
+        self.assertEqual(len(node.findall('a')), 1)
+
     @mock.patch.object(common_util, 'to_pretty_xml')
     @mock.patch.object(common_util, 'file_generate')
     def test_create_xml(self, mock_file_gen, mock_pretty_xml):
@@ -62,20 +76,6 @@ class XMLGenUnittests(unittest.TestCase):
         self.xml.create_xml()
         self.assertTrue(mock_file_gen.called)
         self.assertTrue(mock_pretty_xml.called)
-
-
-class VCSGenUnittests(unittest.TestCase):
-    """Unit tests for generating vcs.xml."""
-
-    _TEST_DIR = None
-
-    def setUp(self):
-        """Prepare the testdata related path."""
-        VCSGenUnittests._TEST_DIR = tempfile.mkdtemp()
-
-    def tearDown(self):
-        """Clear the testdata related path."""
-        shutil.rmtree(self._TEST_DIR)
 
     @mock.patch.object(common_util, 'file_generate')
     @mock.patch.object(common_util, 'get_android_root_dir')
@@ -91,6 +91,33 @@ class VCSGenUnittests(unittest.TestCase):
         mock_root_dir.return_value = '/a'
         xml_gen.gen_vcs_xml(self._TEST_DIR, ['/a'])
         self.assertTrue(mock_file_gen.called)
+
+    @mock.patch.object(os.path, 'exists')
+    @mock.patch.object(common_util, 'file_generate')
+    @mock.patch.object(xml_gen.XMLGenerator, 'create_xml')
+    @mock.patch.object(xml_gen, 'XMLGenerator')
+    def test_write_ignore_git_dirs_file(self, mock_xml_gen, mock_create_xml,
+                                        mock_file_gen, mock_exists):
+        """Test write_ignore_git_dirs_file."""
+        mock_gen_xml = mock.Mock()
+        mock_xml_gen.return_value = mock_gen_xml
+        mock_gen_xml.xml_obj = False
+        mock_exists.return_value = False
+        xml_gen.write_ignore_git_dirs_file(self._TEST_DIR, ['/a'])
+        self.assertTrue(mock_file_gen.called)
+        mock_exists.return_value = True
+        mock_xml_gen.return_value = self.xml
+        xml_gen.write_ignore_git_dirs_file(self._TEST_DIR, ['/a'])
+        ignore_root = self.xml.xml_obj.find('component').find('ignored-roots')
+        self.assertEqual(ignore_root.find('path').attrib['value'], '/a')
+        common_util.file_generate(os.path.join(self._TEST_DIR, 'workspace.xml'),
+                                  self._IGNORE_GIT_XML)
+        self.xml = xml_gen.XMLGenerator(self._TEST_DIR, 'workspace.xml')
+        mock_xml_gen.return_value = self.xml
+        xml_gen.write_ignore_git_dirs_file(self._TEST_DIR, ['/a/b'])
+        ignore_root = self.xml.xml_obj.find('component').find('ignored-roots')
+        self.assertEqual(ignore_root.find('path').attrib['value'], '/a/b')
+        self.assertTrue(mock_create_xml.called)
 
 
 if __name__ == '__main__':
