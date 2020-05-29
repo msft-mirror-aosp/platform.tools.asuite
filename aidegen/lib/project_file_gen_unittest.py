@@ -17,6 +17,7 @@
 """Unittests for project_file_gen."""
 
 import copy
+import logging
 import os
 import shutil
 import unittest
@@ -77,7 +78,7 @@ class AidegenProjectFileGenUnittest(unittest.TestCase):
         pconfig = project_config.ProjectConfig(args)
         pconfig.init_environment()
 
-    @mock.patch('aidegen.lib.project_info.ProjectInfo')
+    @mock.patch.object(project_info, 'ProjectInfo')
     def test_handle_facet_for_android(self, mock_project):
         """Test _handle_facet with android project."""
         mock_project.project_absolute_path = self._ANDROID_PROJECT_PATH
@@ -87,7 +88,7 @@ class AidegenProjectFileGenUnittest(unittest.TestCase):
             self._ANDROID_FACET_SAMPLE)
         self.assertEqual(android_facet, sample_android_facet)
 
-    @mock.patch('aidegen.lib.project_info.ProjectInfo')
+    @mock.patch.object(project_info, 'ProjectInfo')
     def test_handle_facet_for_normal(self, mock_project):
         """Test _handle_facet with normal module."""
         mock_project.project_absolute_path = self._PROJECT_PATH
@@ -112,8 +113,8 @@ class AidegenProjectFileGenUnittest(unittest.TestCase):
         self.assertEqual(url_list, self._SAMPLE_TRIMMED_SOURCE_LIST)
 
     @mock.patch.object(project_config.ProjectConfig, 'init_environment')
-    @mock.patch('aidegen.lib.common_util.get_android_root_dir')
-    @mock.patch('aidegen.lib.project_info.ProjectInfo')
+    @mock.patch.object(common_util, 'get_android_root_dir')
+    @mock.patch.object(project_info, 'ProjectInfo')
     def test_handle_source_folder(self, mock_project, mock_get_root, mock_init):
         """Test _handle_source_folder."""
         args = aidegen_main._parse_args([])
@@ -129,8 +130,8 @@ class AidegenProjectFileGenUnittest(unittest.TestCase):
         self.assertEqual(source, sample_source)
 
     @mock.patch.object(project_config.ProjectConfig, 'init_environment')
-    @mock.patch('aidegen.lib.common_util.get_android_root_dir')
-    @mock.patch('aidegen.lib.project_info.ProjectInfo')
+    @mock.patch.object(common_util, 'get_android_root_dir')
+    @mock.patch.object(project_info, 'ProjectInfo')
     def test_generate_iml(self, mock_project, mock_get_root, mock_init):
         """Test _generate_iml."""
         args = aidegen_main._parse_args([])
@@ -165,8 +166,8 @@ class AidegenProjectFileGenUnittest(unittest.TestCase):
         self.assertEqual(test_iml, sample_iml)
 
     @mock.patch.object(project_config.ProjectConfig, 'init_environment')
-    @mock.patch('aidegen.lib.common_util.get_android_root_dir')
-    @mock.patch('aidegen.lib.project_info.ProjectInfo')
+    @mock.patch.object(common_util, 'get_android_root_dir')
+    @mock.patch.object(project_info, 'ProjectInfo')
     def test_generate_iml_with_excludes(self, mock_project, mock_get_root,
                                         mock_init):
         """Test _generate_iml with exclusive paths."""
@@ -211,8 +212,8 @@ class AidegenProjectFileGenUnittest(unittest.TestCase):
     @mock.patch.object(project_file_gen.ProjectFileGenerator, '_handle_facet')
     @mock.patch.object(project_file_gen.ProjectFileGenerator,
                        '_handle_source_folder')
-    @mock.patch('aidegen.lib.common_util.get_android_root_dir')
-    @mock.patch('aidegen.lib.project_info.ProjectInfo')
+    @mock.patch.object(common_util, 'get_android_root_dir')
+    @mock.patch.object(project_info, 'ProjectInfo')
     def test_generate_iml_for_module(self, mock_project, mock_get_root,
                                      mock_do_src, mock_do_facet,
                                      mock_do_srcjar, mock_file_gen):
@@ -239,8 +240,8 @@ class AidegenProjectFileGenUnittest(unittest.TestCase):
         self.assertTrue(mock_do_srcjar.called_with(test_srcjar_for_sub))
         self.assertEqual(mock_file_gen.call_count, 1)
 
-    @mock.patch('aidegen.lib.project_config.ProjectConfig')
-    @mock.patch('aidegen.lib.project_info.ProjectInfo')
+    @mock.patch.object(project_config, 'ProjectConfig')
+    @mock.patch.object(project_info, 'ProjectInfo')
     def test_generate_modules_xml(self, mock_project, mock_config):
         """Test _generate_modules_xml."""
         mock_config.is_launch_ide = True
@@ -267,12 +268,15 @@ class AidegenProjectFileGenUnittest(unittest.TestCase):
             self._MAIN_MODULE_XML_SAMPLE)
         self.assertEqual(test_module, sample_module)
 
+    @mock.patch.object(project_file_gen, '_get_all_git_path')
+    @mock.patch.object(xml_gen, 'write_ignore_git_dirs_file')
     @mock.patch.object(xml_gen, 'gen_vcs_xml')
-    @mock.patch('aidegen.lib.common_util.get_android_root_dir')
-    @mock.patch('common_util.find_git_root')
-    @mock.patch('aidegen.lib.project_info.ProjectInfo')
+    @mock.patch.object(common_util, 'get_android_root_dir')
+    @mock.patch.object(common_util, 'find_git_root')
+    @mock.patch.object(project_info, 'ProjectInfo')
     def test_merge_project_vcs_xmls(self, mock_project, mock_get_git_root,
-                                    mock_get_root, mock_write):
+                                    mock_get_root, mock_write, mock_ignore_git,
+                                    mock_all_git_path):
         """Test _merge_project_vcs_xmls."""
         mock_get_root.return_value = '/a/b'
         mock_project.project_absolute_path = '/a/b/c'
@@ -283,8 +287,10 @@ class AidegenProjectFileGenUnittest(unittest.TestCase):
         mock_project.project_absolute_path = '/a/b'
         mock_project.project_relative_path = None
         mock_get_git_root.return_value = None
+        mock_all_git_path.return_value = ['/a', '/b']
         project_file_gen._merge_project_vcs_xmls([mock_project])
         self.assertTrue(mock_write.called_with('/a/b', [None]))
+        self.assertTrue(mock_ignore_git.called_with('/a/b', ['/a', '/b']))
 
     def test_get_uniq_iml_name(self):
         """Test the unique name cache mechanism.
@@ -326,7 +332,7 @@ class AidegenProjectFileGenUnittest(unittest.TestCase):
         print('{} {}.'.format('The size of name set is:', len(dic)))
         self.assertEqual(len(dic), len(path_list))
 
-    @mock.patch('aidegen.lib.project_info.ProjectInfo')
+    @mock.patch.object(project_info, 'ProjectInfo')
     def test_copy_project_files(self, mock_project):
         """Test _copy_constant_project_files."""
         mock_project.project_absolute_path = self._ANDROID_PROJECT_PATH
@@ -349,8 +355,8 @@ class AidegenProjectFileGenUnittest(unittest.TestCase):
                              'profiles_settings.xml')))
         shutil.rmtree(self._IDEA_PATH)
 
-    @mock.patch('logging.error')
-    @mock.patch('os.symlink')
+    @mock.patch.object(logging, 'error')
+    @mock.patch.object(os, 'symlink')
     @mock.patch.object(os.path, 'exists')
     def test_generate_git_ignore(self, mock_path_exist, mock_link,
                                  mock_loggin_error):
@@ -376,8 +382,8 @@ class AidegenProjectFileGenUnittest(unittest.TestCase):
                                                                module_relpath)
         self.assertEqual(result_set, expected_result)
 
-    @mock.patch('aidegen.lib.project_info.ProjectInfo')
-    @mock.patch('aidegen.lib.project_info.ProjectInfo')
+    @mock.patch.object(project_info, 'ProjectInfo')
+    @mock.patch.object(project_info, 'ProjectInfo')
     def test_merge_all_source_paths(self, mock_main_project, mock_sub_project):
         """Test _merge_all_shared_source_paths."""
         mock_main_project.project_relative_path = 'main'
@@ -424,8 +430,8 @@ class AidegenProjectFileGenUnittest(unittest.TestCase):
         project_file_gen._merge_all_shared_source_paths(projects)
         self.assertEqual(mock_main_project.source_path, expected_result)
 
-    @mock.patch('aidegen.lib.project_config.ProjectConfig')
-    @mock.patch('aidegen.lib.project_info.ProjectInfo')
+    @mock.patch.object(project_config, 'ProjectConfig')
+    @mock.patch.object(project_info, 'ProjectInfo')
     def test_update_enable_debugger(self, mock_project, mock_config):
         """Test update_enable_debugger."""
         mock_config.is_launch_ide = True
@@ -443,8 +449,8 @@ class AidegenProjectFileGenUnittest(unittest.TestCase):
         finally:
             shutil.rmtree(self._IDEA_PATH)
 
-    @mock.patch('aidegen.lib.common_util.get_android_root_dir')
-    @mock.patch('aidegen.lib.project_info.ProjectInfo')
+    @mock.patch.object(common_util, 'get_android_root_dir')
+    @mock.patch.object(project_info, 'ProjectInfo')
     def test_handle_srcjar_folder(self, mock_project, mock_get_root):
         """Test _handle_srcjar_folder."""
         mock_get_root.return_value = self._AOSP_FOLDER
@@ -503,7 +509,7 @@ class AidegenProjectFileGenUnittest(unittest.TestCase):
         project_gen = project_file_gen.ProjectFileGenerator(mock_project)
         self.assertFalse(project_gen._is_project_relative_source('d/e'))
 
-    @mock.patch('os.walk')
+    @mock.patch.object(os, 'walk')
     def test_get_all_git_path(self, mock_os_walk):
         """Test _get_all_git_path."""
         # Test .git folder exists.
@@ -519,7 +525,7 @@ class AidegenProjectFileGenUnittest(unittest.TestCase):
         self.assertEqual(test_result, expected_result)
 
     @mock.patch.object(common_util, 'file_generate')
-    @mock.patch('os.path.isfile')
+    @mock.patch.object(os.path, 'isfile')
     def test_generate_test_mapping_schema(self, mock_is_file,
                                           mock_file_generate):
         """Test _generate_test_mapping_schema."""
