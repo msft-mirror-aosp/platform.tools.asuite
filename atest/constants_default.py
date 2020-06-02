@@ -241,5 +241,11 @@ REQUIRED_KERNEL_TEST_MODULES = [
     'vts_linux_kselftest_arm_32',
     'vts_linux_kselftest_arm_64',
     'vts_linux_kselftest_x86_32',
-    'vts_linux_kselftest_x86_64'
+    'vts_linux_kselftest_x86_64',
+    'vts_ltp_test_arm_64_lowmem',
+    'vts_ltp_test_arm_64_hwasan',
+    'vts_ltp_test_arm_64_lowmem_hwasan',
+    'vts_ltp_test_arm_lowmem',
+    'vts_ltp_test_x86_64',
+    'vts_ltp_test_x86'
 ]
