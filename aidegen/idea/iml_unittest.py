@@ -25,6 +25,7 @@ from unittest import mock
 from aidegen import templates
 from aidegen.lib import common_util
 from aidegen.idea import iml
+from atest import module_info
 
 
 # pylint: disable=protected-access
@@ -162,6 +163,45 @@ class IMLGenUnittests(unittest.TestCase):
         mock_exists.return_value = True
         self.iml._generate_facet()
         self.assertEqual(self.iml._facet, templates.FACET)
+
+    def test_get_uniq_iml_name(self):
+        """Test the unique name cache mechanism.
+
+        By using the path data in module info json as input, if the count of
+        name data set is the same as sub folder path count, then it means
+        there's no duplicated name, the test PASS.
+        """
+        # Add following test path
+        test_paths = {
+            'cts/tests/tests/app',
+            'cts/tests/app',
+            'cts/tests/app/app1/../app',
+            'cts/tests/app/app2/../app',
+            'cts/tests/app/app3/../app',
+            'frameworks/base/tests/xxxxxxxxxxxx/base',
+            'frameworks/base',
+            'external/xxxxx-xxx/robolectric',
+            'external/robolectric',
+        }
+        mod_info = module_info.ModuleInfo()
+        test_paths.update(mod_info._get_path_to_module_info(
+            mod_info.name_to_module_info).keys())
+        print('\n{} {}.'.format('Test_paths length:', len(test_paths)))
+
+        path_list = []
+        for path in test_paths:
+            path_list.append(path)
+        print('{} {}.'.format('path list with length:', len(path_list)))
+
+        names = [iml.IMLGenerator.get_unique_iml_name(f)
+                 for f in path_list]
+        print('{} {}.'.format('Names list with length:', len(names)))
+        self.assertEqual(len(names), len(path_list))
+        dic = {}
+        for i, path in enumerate(path_list):
+            dic[names[i]] = path
+        print('{} {}.'.format('The size of name set is:', len(dic)))
+        self.assertEqual(len(dic), len(path_list))
 
 
 if __name__ == '__main__':
