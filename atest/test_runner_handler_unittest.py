@@ -123,7 +123,7 @@ class TestRunnerHandlerUnittests(unittest.TestCase):
     def test_run_all_tests(self, _mock_runner_finish):
         """Test that the return value as we expected."""
         results_dir = ""
-        extra_args = []
+        extra_args = {}
         # Tests both run_tests return 0
         test_infos = [MODULE_INFO_A, MODULE_INFO_A_AGAIN]
         self.assertEqual(
