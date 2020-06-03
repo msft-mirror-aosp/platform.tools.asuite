@@ -328,5 +328,30 @@ class ProjectInfoUnittests(unittest.TestCase):
         self.assertEqual(mock_build.call_count, 1)
 
 
+class MultiProjectsInfoUnittests(unittest.TestCase):
+    """Unit tests for MultiProjectsInfo class."""
+
+    @mock.patch.object(project_info.ProjectInfo, '__init__')
+    @mock.patch.object(project_info.ProjectInfo, 'get_dep_modules')
+    @mock.patch.object(project_info.ProjectInfo,
+                       '_get_robolectric_dep_module')
+    @mock.patch.object(project_info.ProjectInfo,
+                       '_get_modules_under_project_path')
+    @mock.patch.object(common_util, 'get_related_paths')
+    def test_collect_all_dep_modules(self, mock_relpath, mock_sub_modules_path,
+                                     mock_robo_module, mock_get_dep_modules,
+                                     mock_init):
+        """Test _collect_all_dep_modules."""
+        mock_init.return_value = None
+        mock_relpath.return_value = ('path/to/sub/module', '')
+        mock_sub_modules_path.return_value = 'sub_module'
+        mock_robo_module.return_value = 'robo_module'
+        expected = set(project_info._CORE_MODULES)
+        expected.update({'sub_module', 'robo_module'})
+        proj = project_info.MultiProjectsInfo(['a'])
+        proj.collect_all_dep_modules()
+        self.assertTrue(mock_get_dep_modules.called_with(expected))
+
+
 if __name__ == '__main__':
     unittest.main()
