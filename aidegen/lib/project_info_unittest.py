@@ -28,6 +28,7 @@ from aidegen import unittest_constants
 from aidegen.lib import common_util
 from aidegen.lib import project_info
 from aidegen.lib import project_config
+from aidegen.lib import source_locator
 
 _MODULE_INFO = {
     'm1': {
@@ -349,8 +350,55 @@ class MultiProjectsInfoUnittests(unittest.TestCase):
         expected = set(project_info._CORE_MODULES)
         expected.update({'sub_module', 'robo_module'})
         proj = project_info.MultiProjectsInfo(['a'])
+        proj.project_module_names = set('framework-all')
         proj.collect_all_dep_modules()
         self.assertTrue(mock_get_dep_modules.called_with(expected))
+
+    @mock.patch.object(logging, 'debug')
+    @mock.patch.object(source_locator, 'ModuleData')
+    @mock.patch.object(project_info.ProjectInfo, '__init__')
+    def test_gen_folder_base_dependencies(self, mock_init, mock_module_data,
+                                          mock_log):
+        """Test _gen_folder_base_dependencies."""
+        mock_init.return_value = None
+        proj = project_info.MultiProjectsInfo(['a'])
+        module = mock.Mock()
+        mock_module_data.return_value = module
+        mock_module_data.module_path = ''
+        proj.gen_folder_base_dependencies(mock_module_data)
+        self.assertTrue(mock_log.called)
+        mock_module_data.module_path = 'a/b'
+        mock_module_data.src_dirs = ['a/b/c']
+        mock_module_data.test_dirs = []
+        mock_module_data.r_java_paths = []
+        mock_module_data.srcjar_paths = []
+        mock_module_data.jar_files = []
+        mock_module_data.dep_paths = []
+        proj.gen_folder_base_dependencies(mock_module_data)
+        expected = {
+            'a/b': {
+                'src_dirs': ['a/b/c'],
+                'test_dirs': [],
+                'r_java_paths': [],
+                'srcjar_paths': [],
+                'jar_files': [],
+                'dep_paths': [],
+            }
+        }
+        self.assertEqual(proj.path_to_sources, expected)
+        mock_module_data.srcjar_paths = ['x/y.srcjar']
+        proj.gen_folder_base_dependencies(mock_module_data)
+        expected = {
+            'a/b': {
+                'src_dirs': ['a/b/c'],
+                'test_dirs': [],
+                'r_java_paths': [],
+                'srcjar_paths': ['x/y.srcjar'],
+                'jar_files': [],
+                'dep_paths': [],
+            }
+        }
+        self.assertEqual(proj.path_to_sources, expected)
 
 
 if __name__ == '__main__':
