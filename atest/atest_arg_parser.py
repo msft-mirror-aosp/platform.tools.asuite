@@ -32,6 +32,7 @@ HELP_DESC = ('A command line tool that allows users to build, install, and run '
              ' options.')
 
 # Constants used for arg help message(sorted in alphabetic)
+ACLOUD_CREATE = 'Create AVD(s) via acloud command.'
 ALL_ABI = 'Set to run tests for all abis.'
 BUILD = 'Run a build.'
 CLEAR_CACHE = 'Wipe out the test_infos cache of the test.'
@@ -156,6 +157,9 @@ class AtestArgParser(argparse.ArgumentParser):
         self.add_argument('-v', '--verbose', action='store_true', help=VERBOSE)
         self.add_argument('-V', '--version', action='store_true', help=VERSION)
 
+        # Options that to do with acloud/AVDs.
+        self.add_argument('--acloud-create', nargs='?', type=str,
+                          help=ACLOUD_CREATE)
         # Obsolete options that will be removed soon.
         self.add_argument('--generate-baseline', nargs='?',
                           type=int, const=5, default=0,
@@ -244,7 +248,8 @@ def print_epilog_text():
     Returns:
         STDOUT from pydoc.pager().
     """
-    epilog_text = EPILOG_TEMPLATE.format(ALL_ABI=ALL_ABI,
+    epilog_text = EPILOG_TEMPLATE.format(ACLOUD_CREATE=ACLOUD_CREATE,
+                                         ALL_ABI=ALL_ABI,
                                          BUILD=BUILD,
                                          CLEAR_CACHE=CLEAR_CACHE,
                                          COLLECT_TESTS_ONLY=COLLECT_TESTS_ONLY,
@@ -396,6 +401,10 @@ OPTIONS
 
         --retry-any-failure
             {RETRY_ANY_FAILURE}
+
+        [ Testing With AVDs ]
+        --acloud-create
+            {ACLOUD_CREATE}
 
         [ Metrics ]
         --no-metrics
@@ -603,8 +612,23 @@ EXAMPLES
         atest <test> --retry-any-failure 20
 
 
+    - - - - - - - - - - - -
+    RUNNING TESTS ON AVD(s)
+    - - - - - - - - - - - -
+
+    Atest is able to run tests with the newly created AVD; however, the test process will take longer because atest must wait AVD creation finishes before testing.
+
+    Example:
+    - specify 'acloud create' arguments.
+
+        atest <test> --acloud-create "--build-id 6509363 --build-target aosp_cf_x86_phone-userdebug"
+
+    To know detail about the argument, please run 'acloud create --help'.
+    [WARNING] This argument is designed for infrastructure(e.g. TreeTop), the test does not guarantee to run on the device created by acloud.
+
+
     - - - - - - - - - - - - - - - -
-    REGRESSION DETECTION (obsolute)
+    REGRESSION DETECTION (obsolete)
     - - - - - - - - - - - - - - - -
 
     ********************** Warning **********************
@@ -685,5 +709,5 @@ EXAMPLES
         atest -v <test> -- <custom_args1> <custom_args2>
 
 
-                                                     2019-12-19
+                                                     2020-06-04
 '''
