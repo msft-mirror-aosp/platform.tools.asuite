@@ -260,7 +260,7 @@ class ResultReporter:
               'VtsTradefedTestRunner': {'Module1': RunStat(passed:4, failed:0)}}
     """
 
-    def __init__(self, silent=False):
+    def __init__(self, silent=False, collect_only=False):
         """Init ResultReporter.
 
         Args:
@@ -274,6 +274,7 @@ class ResultReporter:
         self.log_path = None
         self.silent = silent
         self.rerun_options = ''
+        self.collect_only = collect_only
 
     def process_test_result(self, test):
         """Given the results of a single test, update stats and print results.
@@ -333,17 +334,14 @@ class ResultReporter:
         """Print starting text for running tests."""
         print(au.colorize('\nRunning Tests...', constants.CYAN))
 
-    def print_summary(self, is_collect_tests_only=False):
+    def print_summary(self):
         """Print summary of all test runs.
-
-        Args:
-            is_collect_tests_only: A boolean of collect_tests_only.
 
         Returns:
             0 if all tests pass, non-zero otherwise.
 
         """
-        if is_collect_tests_only:
+        if self.collect_only:
             return self.print_collect_tests()
         tests_ret = constants.EXIT_CODE_SUCCESS
         if not self.runners:
@@ -497,6 +495,7 @@ class ResultReporter:
         underline = '-' * (len(title))
         print('\n%s\n%s' % (title, underline))
 
+    # pylint: disable=too-many-branches
     def _print_result(self, test):
         """Print the results of a single test.
 
@@ -519,37 +518,32 @@ class ResultReporter:
             self.pre_test = test
             return
         if test.test_name:
+            color = ''
             if test.status == test_runner_base.PASSED_STATUS:
                 # Example of output:
                 # [78/92] test_name: PASSED (92ms)
-                print('[%s/%s] %s: %s %s' % (test.test_count,
-                                             test.group_total,
-                                             test.test_name,
-                                             au.colorize(
-                                                 test.status,
-                                                 constants.GREEN),
-                                             test.test_time))
-                for key, data in test.additional_info.items():
-                    if key not in BENCHMARK_EVENT_KEYS:
-                        print('\t%s: %s' % (au.colorize(key, constants.BLUE), data))
-            elif test.status == test_runner_base.IGNORED_STATUS:
+                color = constants.GREEN
+            elif test.status in (test_runner_base.IGNORED_STATUS,
+                                 test_runner_base.ASSUMPTION_FAILED):
                 # Example: [33/92] test_name: IGNORED (12ms)
-                print('[%s/%s] %s: %s %s' % (test.test_count, test.group_total,
-                                             test.test_name, au.colorize(
-                                                 test.status, constants.MAGENTA),
-                                             test.test_time))
-            elif test.status == test_runner_base.ASSUMPTION_FAILED:
                 # Example: [33/92] test_name: ASSUMPTION_FAILED (12ms)
-                print('[%s/%s] %s: %s %s' % (test.test_count, test.group_total,
-                                             test.test_name, au.colorize(
-                                                 test.status, constants.MAGENTA),
-                                             test.test_time))
+                color = constants.MAGENTA
             else:
                 # Example: [26/92] test_name: FAILED (32ms)
-                print('[%s/%s] %s: %s %s' % (test.test_count, test.group_total,
-                                             test.test_name, au.colorize(
-                                                 test.status, constants.RED),
-                                             test.test_time))
-        if test.status == test_runner_base.FAILED_STATUS:
-            print('\nSTACKTRACE:\n%s' % test.details)
+                color = constants.RED
+            print('[{}/{}] {}'.format(test.test_count,
+                                      test.group_total,
+                                      test.test_name), end='')
+            if self.collect_only:
+                print()
+            else:
+                print(': {} {}'.format(au.colorize(test.status, color),
+                                       test.test_time))
+            if test.status == test_runner_base.PASSED_STATUS:
+                for key, data in test.additional_info.items():
+                    if key not in BENCHMARK_EVENT_KEYS:
+                        print('\t%s: %s' % (au.colorize(key, constants.BLUE),
+                                            data))
+            if test.status == test_runner_base.FAILED_STATUS:
+                print('\nSTACKTRACE:\n%s' % test.details)
         self.pre_test = test
