@@ -432,9 +432,12 @@ class MultiProjectsInfo(ProjectInfo):
     """Multiple projects info.
 
     Usage example:
-        project = MultiProjectsInfo(['module_name'])
-        project.collect_all_dep_modules()
-        project.gen_folder_base_dependencies()
+        if folder_base:
+            project = MultiProjectsInfo(['module_name'])
+            project.collect_all_dep_modules()
+            project.gen_folder_base_dependencies()
+        else:
+            ProjectInfo.generate_projects(['module_name'])
 
     Attributes:
         _targets: A list of module names or project paths.
@@ -463,6 +466,43 @@ class MultiProjectsInfo(ProjectInfo):
         self._targets = targets
         self.path_to_sources = {}
 
+    def _clear_srcjar_paths(self, module):
+        """Clears the srcjar_paths.
+
+        Args:
+            module: A ModuleData instance.
+        """
+        module.srcjar_paths = []
+
+    def _collect_framework_srcjar_info(self, module):
+        """Clears the framework's srcjars.
+
+        Args:
+            module: A ModuleData instance.
+        """
+        if module.module_path == constant.FRAMEWORK_PATH:
+            framework_srcjar_path = os.path.join(constant.FRAMEWORK_PATH,
+                                                 constant.FRAMEWORK_SRCJARS)
+            if module.module_name == constant.FRAMEWORK_ALL:
+                self.path_to_sources[framework_srcjar_path] = {
+                    'src_dirs': [],
+                    'test_dirs': [],
+                    'r_java_paths': [],
+                    'srcjar_paths': module.srcjar_paths,
+                    'jar_files': [],
+                    'dep_paths': [constant.FRAMEWORK_PATH],
+                }
+            # In the folder base case, AIDEGen has to ignore all module's srcjar
+            # files under the frameworks/base except the framework-all. Because
+            # there are too many duplicate srcjars of modules under the
+            # frameworks/base. So that AIDEGen keeps the srcjar files only from
+            # the framework-all module. Other modeuls' srcjar files will be
+            # removed. However, when users choose the module base case, srcjar
+            # files will be collected by the ProjectInfo class, so that the
+            # removing srcjar_paths in this class does not impact the
+            # srcjar_paths collection of modules in the ProjectInfo class.
+            self._clear_srcjar_paths(module)
+
     def collect_all_dep_modules(self):
         """Collects all dependency modules for the projects."""
         self.project_module_names.clear()
@@ -484,6 +524,7 @@ class MultiProjectsInfo(ProjectInfo):
         if not mod_path:
             logging.debug('The %s\'s path is empty.', module.module_name)
             return
+        self._collect_framework_srcjar_info(module)
         if mod_path not in self.path_to_sources:
             self.path_to_sources[mod_path] = {
                 'src_dirs': module.src_dirs,
