@@ -68,7 +68,8 @@ class ModuleData:
         jar_files: A list to keep the unique jar file relative paths.
         r_java_paths: A list to keep the R folder paths to use in Eclipse.
         srcjar_paths: A list to keep the srcjar source root paths to use in
-                      IntelliJ.
+                      IntelliJ. Some modules' srcjar_paths will be removed when
+                      run with the MultiProjectInfo.
         dep_paths: A list to keep the dependency modules' path.
         referenced_by_jar: A boolean to check if the module is referenced by a
                            jar file.
