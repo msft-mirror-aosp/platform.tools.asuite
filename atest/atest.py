@@ -730,7 +730,8 @@ def main(argv, results_dir, args):
     if args.detect_regression:
         regression_args = _get_regression_detection_args(args, results_dir)
         # TODO(b/110485713): Should not call run_tests here.
-        reporter = result_reporter.ResultReporter()
+        reporter = result_reporter.ResultReporter(
+            collect_only=extra_args.get(constants.COLLECT_TESTS_ONLY))
         atest_execution_info.AtestExecutionInfo.result_reporters.append(reporter)
         tests_exit_code |= regression_test_runner.RegressionTestRunner(
             '').run_tests(
