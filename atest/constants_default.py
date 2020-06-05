@@ -249,3 +249,6 @@ REQUIRED_KERNEL_TEST_MODULES = [
     'vts_ltp_test_x86_64',
     'vts_ltp_test_x86'
 ]
+
+# Tradefed log file name term.
+TF_HOST_LOG = 'host_log_*'
