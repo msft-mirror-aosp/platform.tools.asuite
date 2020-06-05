@@ -100,7 +100,6 @@ ANDROID_MK = 'Android.mk'
 JAVA_FILES = '*.java'
 VSCODE_CONFIG_DIR = '.vscode'
 ANDROID_MANIFEST = 'AndroidManifest.xml'
-VERSION_FILE = 'VERSION'
 
 # Constants for file paths.
 RELATIVE_NATIVE_PATH = 'development/ide/clion'
