@@ -169,6 +169,7 @@ class AtestTradefedTestRunner(test_runner_base.TestRunnerBase):
         """
         iterations = self._generate_iterations(extra_args)
         ret_code = constants.EXIT_CODE_SUCCESS
+        collect_only = extra_args.get(constants.COLLECT_TESTS_ONLY)
         for _ in range(iterations):
             server = self._start_socket_server()
             run_cmds = self.generate_run_commands(test_infos, extra_args,
@@ -178,20 +179,22 @@ class AtestTradefedTestRunner(test_runner_base.TestRunnerBase):
             self.handle_subprocess(subproc, partial(self._start_monitor,
                                                     server,
                                                     subproc,
-                                                    reporter))
+                                                    reporter,
+                                                    collect_only))
             server.close()
             ret_code |= self.wait_for_subprocess(subproc)
         return ret_code
 
     # pylint: disable=too-many-branches
     # pylint: disable=too-many-locals
-    def _start_monitor(self, server, tf_subproc, reporter):
+    def _start_monitor(self, server, tf_subproc, reporter, collect_only=False):
         """Polling and process event.
 
         Args:
             server: Socket server object.
             tf_subproc: The tradefed subprocess to poll.
             reporter: Result_Reporter object.
+            collect_only: Boolean. True if collect tests only.
         """
         inputs = [server]
         event_handlers = {}
@@ -222,7 +225,8 @@ class AtestTradefedTestRunner(test_runner_base.TestRunnerBase):
                         else:
                             event_handler = event_handlers.setdefault(
                                 socket_object, EventHandler(
-                                    result_reporter.ResultReporter(),
+                                    result_reporter.ResultReporter(
+                                        collect_only=collect_only),
                                     self.NAME))
                         recv_data = self._process_connection(data_map,
                                                              socket_object,
