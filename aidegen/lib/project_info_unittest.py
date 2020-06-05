@@ -400,6 +400,72 @@ class MultiProjectsInfoUnittests(unittest.TestCase):
         }
         self.assertEqual(proj.path_to_sources, expected)
 
+    @mock.patch.object(source_locator, 'ModuleData')
+    @mock.patch.object(project_info.ProjectInfo, '__init__')
+    def test_add_framework_base_path(self, mock_init, mock_module_data):
+        """Test _gen_folder_base_dependencies."""
+        mock_init.return_value = None
+        proj = project_info.MultiProjectsInfo(['a'])
+        module = mock.Mock()
+        mock_module_data.return_value = module
+        mock_module_data.module_path = 'frameworks/base'
+        mock_module_data.module_name = 'framework-other'
+        mock_module_data.src_dirs = ['a/b/c']
+        mock_module_data.test_dirs = []
+        mock_module_data.r_java_paths = []
+        mock_module_data.srcjar_paths = ['x/y.srcjar']
+        mock_module_data.jar_files = []
+        mock_module_data.dep_paths = []
+        proj.gen_folder_base_dependencies(mock_module_data)
+        expected = {
+            'frameworks/base': {
+                'dep_paths': [],
+                'jar_files': [],
+                'r_java_paths': [],
+                'src_dirs': ['a/b/c'],
+                'srcjar_paths': [],
+                'test_dirs': [],
+            }
+        }
+        self.assertDictEqual(proj.path_to_sources, expected)
+
+    @mock.patch.object(source_locator, 'ModuleData')
+    @mock.patch.object(project_info.ProjectInfo, '__init__')
+    def test_add_framework_srcjar_path(self, mock_init, mock_module_data):
+        """Test _gen_folder_base_dependencies."""
+        mock_init.return_value = None
+        proj = project_info.MultiProjectsInfo(['a'])
+        module = mock.Mock()
+        mock_module_data.return_value = module
+        mock_module_data.module_path = 'frameworks/base'
+        mock_module_data.module_name = 'framework-all'
+        mock_module_data.src_dirs = ['a/b/c']
+        mock_module_data.test_dirs = []
+        mock_module_data.r_java_paths = []
+        mock_module_data.srcjar_paths = ['x/y.srcjar']
+        mock_module_data.jar_files = []
+        mock_module_data.dep_paths = []
+        proj.gen_folder_base_dependencies(mock_module_data)
+        expected = {
+            'frameworks/base': {
+                'dep_paths': [],
+                'jar_files': [],
+                'r_java_paths': [],
+                'src_dirs': ['a/b/c'],
+                'srcjar_paths': [],
+                'test_dirs': [],
+            },
+            'frameworks/base/framework_srcjars': {
+                'dep_paths': ['frameworks/base'],
+                'jar_files': [],
+                'r_java_paths': [],
+                'src_dirs': [],
+                'srcjar_paths': ['x/y.srcjar'],
+                'test_dirs': [],
+            }
+        }
+        self.assertDictEqual(proj.path_to_sources, expected)
+
 
 if __name__ == '__main__':
     unittest.main()
