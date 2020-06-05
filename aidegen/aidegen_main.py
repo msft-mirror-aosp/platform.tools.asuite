@@ -168,6 +168,11 @@ def _parse_args(args):
         dest='exclude_paths',
         nargs='*',
         help='Exclude the directories in IDE.')
+    parser.add_argument(
+        '-V',
+        '--version',
+        action='store_true',
+        help='Print aidegen version string.')
     return parser.parse_args(args)
 
 
@@ -380,8 +385,16 @@ def main(argv):
     """
     exit_code = constant.EXIT_CODE_NORMAL
     launch_ide = True
+    ask_version = False
     try:
         args = _parse_args(argv)
+        if args.version:
+            ask_version = True
+            version_file = os.path.join(os.path.dirname(__file__),
+                                        constant.VERSION_FILE)
+            print(common_util.read_file_content(version_file))
+            sys.exit(constant.EXIT_CODE_NORMAL)
+
         launch_ide = not args.no_launch
         common_util.configure_logging(args.verbose)
         is_whole_android_tree = project_config.is_whole_android_tree(
@@ -411,10 +424,11 @@ def main(argv):
             print(traceback_str)
             raise err
     finally:
-        print('\n{0} {1}\n'.format(_INFO, AIDEGEN_REPORT_LINK))
-        # Send the end message here on ignoring launch IDE case.
-        if not launch_ide and exit_code is constant.EXIT_CODE_NORMAL:
-            aidegen_metrics.ends_asuite_metrics(exit_code)
+        if not ask_version:
+            print('\n{0} {1}\n'.format(_INFO, AIDEGEN_REPORT_LINK))
+            # Send the end message here on ignoring launch IDE case.
+            if not launch_ide and exit_code is constant.EXIT_CODE_NORMAL:
+                aidegen_metrics.ends_asuite_metrics(exit_code)
 
 
 def aidegen_main(args):
