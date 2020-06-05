@@ -32,6 +32,7 @@ import atest_error
 import atest_utils
 import constants
 import unittest_utils
+import unittest_constants
 
 from test_finders import test_info
 
@@ -50,6 +51,9 @@ TEST_INFO_A = test_info.TestInfo(TEST_MODULE_NAME_A, TEST_RUNNER_A,
                                  TEST_SUITE_A, TEST_MODULE_CLASS_A,
                                  TEST_INSTALL_LOC_A)
 TEST_INFO_A.test_finder = TEST_FINDER_A
+TEST_ZIP_DATA_DIR = 'zip_files'
+TEST_SINGLE_ZIP_NAME = 'single_file.zip'
+TEST_MULTI_ZIP_NAME = 'multi_file.zip'
 
 #pylint: disable=protected-access
 class AtestUtilsUnittests(unittest.TestCase):
@@ -410,6 +414,35 @@ class AtestUtilsUnittests(unittest.TestCase):
     def test_delimiter(self):
         """Test method delimiter"""
         self.assertEqual('\n===\n\n', atest_utils.delimiter('=', 3, 1, 2))
+
+    @mock.patch.object(atest_utils, 'matched_tf_error_log', return_value=True)
+    def test_read_zip_single_text(self, _matched):
+        """Test method extract_zip_text include only one text file."""
+        zip_path = os.path.join(unittest_constants.TEST_DATA_DIR,
+                                TEST_ZIP_DATA_DIR, TEST_SINGLE_ZIP_NAME)
+        expect_content = '\nfile1_line1\nfile1_line2\n'
+        self.assertEqual(expect_content, atest_utils.extract_zip_text(zip_path))
+
+    @mock.patch.object(atest_utils, 'matched_tf_error_log', return_value=True)
+    def test_read_zip_multi_text(self, _matched):
+        """Test method extract_zip_text include multiple text files."""
+        zip_path = os.path.join(unittest_constants.TEST_DATA_DIR,
+                                TEST_ZIP_DATA_DIR, TEST_MULTI_ZIP_NAME)
+        expect_content = ('\nfile1_line1\nfile1_line2\n\nfile2_line1\n'
+                          'file2_line2\n')
+        self.assertEqual(expect_content, atest_utils.extract_zip_text(zip_path))
+
+    def test_matched_tf_error_log(self):
+        """Test method extract_zip_text include multiple text files."""
+        matched_content = '05-25 17:37:04 E/XXXXX YYYYY'
+        not_matched_content = '05-25 17:37:04 I/XXXXX YYYYY'
+        # Test matched content
+        self.assertEqual(True,
+                         atest_utils.matched_tf_error_log(matched_content))
+        # Test not matched content
+        self.assertEqual(False,
+                         atest_utils.matched_tf_error_log(not_matched_content))
+
 
 if __name__ == "__main__":
     unittest.main()
