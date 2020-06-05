@@ -24,7 +24,9 @@ from aidegen import unittest_constants
 
 from aidegen.lib import common_util
 from aidegen.lib import module_info
+from aidegen.lib import project_config
 from aidegen.lib import source_locator
+from atest import module_info as amodule_info
 
 
 # pylint: disable=too-many-arguments
@@ -502,6 +504,52 @@ class ModuleDataUnittests(unittest.TestCase):
         mock_append_jar.return_value = False
         mod_data._append_classes_jar()
         self.assertEqual(mod_data.jar_files, [])
+
+    @mock.patch.object(amodule_info, 'ModuleInfo')
+    @mock.patch.object(amodule_info.ModuleInfo, 'get_paths')
+    @mock.patch.object(project_config.ProjectConfig, 'get_instance')
+    def test_collect_dep_paths(self, mock_config, mock_get_paths,
+                               mock_atest_module_info):
+        """Test _collect_dep_paths."""
+        mod_name = 'test'
+        mod_info = {
+            'name': 'test',
+            'path': ['frameworks/base'],
+            'dependencies': ['test_module']
+        }
+        mod_data = source_locator.ModuleData(mod_name, mod_info, 0)
+        mock_instance = mock_config.return_value
+        mock_instance.atest_module_info = mock_atest_module_info
+        mock_instance.atest_module_info.get_paths = mock_get_paths
+        mock_get_paths.return_value = []
+        expected = [
+            'frameworks/base/framework_srcjars',
+            'libcore',
+        ]
+        mod_data._collect_dep_paths()
+        self.assertEqual(mod_data.dep_paths, expected)
+        mod_info['path'] = ['libcore']
+        mod_data = source_locator.ModuleData(mod_name, mod_info, 0)
+        expected = [
+            'frameworks/base',
+            'frameworks/base/framework_srcjars',
+        ]
+        mod_data._collect_dep_paths()
+        self.assertEqual(mod_data.dep_paths, expected)
+        mock_get_paths.return_value = ['test']
+        mod_info['path'] = ['test']
+        mod_data = source_locator.ModuleData(mod_name, mod_info, 0)
+        expected = [
+            'frameworks/base',
+            'frameworks/base/framework_srcjars',
+            'libcore',
+        ]
+        mod_data._collect_dep_paths()
+        self.assertEqual(mod_data.dep_paths, expected)
+        mock_get_paths.return_value = ['dep/path']
+        expected.append('dep/path')
+        mod_data._collect_dep_paths()
+        self.assertEqual(mod_data.dep_paths, expected)
 
 
 class EclipseModuleDataUnittests(unittest.TestCase):
