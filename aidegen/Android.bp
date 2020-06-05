@@ -40,9 +40,6 @@ python_binary_host {
         "atest_module_info",
         "asuite_cc_client",
     ],
-    data: [
-        ":asuite_version",
-    ],
     dist: {
         targets: ["droidcore"],
     },

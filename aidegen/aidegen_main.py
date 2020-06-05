@@ -168,11 +168,6 @@ def _parse_args(args):
         dest='exclude_paths',
         nargs='*',
         help='Exclude the directories in IDE.')
-    parser.add_argument(
-        '-V',
-        '--version',
-        action='store_true',
-        help='Print aidegen version string.')
     return parser.parse_args(args)
 
 
@@ -385,13 +380,8 @@ def main(argv):
     """
     exit_code = constant.EXIT_CODE_NORMAL
     launch_ide = True
-    args = _parse_args(argv)
-    if args.version:
-        version_file = os.path.join(os.path.dirname(__file__),
-                                    constant.VERSION_FILE)
-        print(common_util.read_file_content(version_file))
-        sys.exit(constant.EXIT_CODE_NORMAL)
     try:
+        args = _parse_args(argv)
         launch_ide = not args.no_launch
         common_util.configure_logging(args.verbose)
         is_whole_android_tree = project_config.is_whole_android_tree(
