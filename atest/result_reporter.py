@@ -333,18 +333,23 @@ class ResultReporter:
         """Print starting text for running tests."""
         print(au.colorize('\nRunning Tests...', constants.CYAN))
 
-    def print_summary(self):
+    def print_summary(self, is_collect_tests_only=False):
         """Print summary of all test runs.
+
+        Args:
+            is_collect_tests_only: A boolean of collect_tests_only.
 
         Returns:
             0 if all tests pass, non-zero otherwise.
 
         """
+        if is_collect_tests_only:
+            return self.print_collect_tests()
         tests_ret = constants.EXIT_CODE_SUCCESS
         if not self.runners:
             return tests_ret
-        print('\n%s' % au.colorize('Summary', constants.CYAN))
-        print('-------')
+        print('\n{}'.format(au.colorize('Summary', constants.CYAN)))
+        print(au.delimiter('-', 7))
         if self.rerun_options:
             print(self.rerun_options)
         failed_sum = len(self.failed_tests)
@@ -379,6 +384,28 @@ class ResultReporter:
         if self.log_path:
             print('Test Logs have saved in %s' % self.log_path)
         return tests_ret
+
+    def print_collect_tests(self):
+        """Print summary of collect tests only.
+
+        Returns:
+            0 if all tests collection done.
+
+        """
+        tests_ret = constants.EXIT_CODE_SUCCESS
+        if not self.runners:
+            return tests_ret
+        print('\n{}'.format(au.colorize('Summary:' + constants.COLLECT_TESTS_ONLY,
+                                        constants.CYAN)))
+        print(au.delimiter('-', 26))
+        for runner_name, groups in self.runners.items():
+            for group_name, _ in groups.items():
+                name = group_name if group_name else runner_name
+                print(name)
+        print()
+        if self.log_path:
+            print('Test Logs have saved in %s' % self.log_path)
+        return constants.EXIT_CODE_SUCCESS
 
     def print_failed_tests(self):
         """Print the failed tests if existed."""

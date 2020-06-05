@@ -29,8 +29,6 @@ _SOURCE_FOLDERS = [_KEY_SOURCE_PATH, _KEY_TEST_PATH]
 _KEY_SRCJAR_PATH = 'srcjar_path'
 _KEY_R_PATH = 'r_java_path'
 _KEY_JAR_PATH = 'jar_path'
-_FRAMEWORK_PATH = 'frameworks/base'
-_FRAMEWORK_SRCJARS = 'framework_srcjars'
 _EXCLUDE_ITEM = '\n            <excludeFolder url="file://%s" />'
 # Temporarily exclude test-dump and src_stub folders to prevent symbols from
 # resolving failure by incorrect reference. These two folders should be removed
@@ -88,12 +86,13 @@ class ProjectSplitter:
         self._projects = projects
         self._all_srcs = dict(projects[0].source_path)
         self._framework_iml = None
-        self._framework_exist = any({p.project_relative_path == _FRAMEWORK_PATH
-                                     for p in self._projects})
+        self._framework_exist = any(
+            {p.project_relative_path == constant.FRAMEWORK_PATH
+             for p in self._projects})
         if self._framework_exist:
             self._framework_iml = iml.IMLGenerator.get_unique_iml_name(
                 os.path.join(common_util.get_android_root_dir(),
-                             _FRAMEWORK_PATH))
+                             constant.FRAMEWORK_PATH))
         self._full_repo = project_config.ProjectConfig.get_instance().full_repo
         if self._full_repo:
             self._full_repo_iml = os.path.basename(
@@ -169,8 +168,8 @@ class ProjectSplitter:
         for project in sorted(self._projects, key=lambda k: len(
                 k.project_relative_path)):
             proj_path = project.project_relative_path
-            project.dependencies = [_FRAMEWORK_SRCJARS]
-            if self._framework_exist and proj_path != _FRAMEWORK_PATH:
+            project.dependencies = [constant.FRAMEWORK_SRCJARS]
+            if self._framework_exist and proj_path != constant.FRAMEWORK_PATH:
                 project.dependencies.append(self._framework_iml)
             if self._full_repo and proj_path:
                 project.dependencies.append(self._full_repo_iml)
@@ -204,7 +203,7 @@ class ProjectSplitter:
         """
         mod = dict(self._projects[0].dep_modules[constant.FRAMEWORK_ALL])
         mod[constant.KEY_DEPENDENCIES] = []
-        mod[constant.KEY_IML_NAME] = _FRAMEWORK_SRCJARS
+        mod[constant.KEY_IML_NAME] = constant.FRAMEWORK_SRCJARS
         if self._framework_exist:
             mod[constant.KEY_DEPENDENCIES].append(self._framework_iml)
         if self._full_repo:
@@ -224,7 +223,7 @@ class ProjectSplitter:
             constant.KEY_JARS: self._all_srcs[_KEY_JAR_PATH],
             constant.KEY_SRCJARS: (self._all_srcs[_KEY_R_PATH]
                                    | self._all_srcs[_KEY_SRCJAR_PATH]),
-            constant.KEY_DEPENDENCIES: [_FRAMEWORK_SRCJARS],
+            constant.KEY_DEPENDENCIES: [constant.FRAMEWORK_SRCJARS],
             constant.KEY_PATH: [self._projects[0].project_relative_path],
             constant.KEY_MODULE_NAME: constant.KEY_DEPENDENCIES,
             constant.KEY_IML_NAME: constant.KEY_DEPENDENCIES

@@ -71,7 +71,6 @@ class ProjectInfo:
                               directory or it's subdirectories.
         dep_modules: A dict has recursively dependent modules of
                      project_module_names.
-        git_path: The project's git path.
         iml_path: The project's iml file path.
         source_path: A dictionary to keep following data:
                      source_folder_path: A set contains the source folder
@@ -114,7 +113,6 @@ class ProjectInfo:
             self.modules_info.get_module_names(rel_path))
         self.project_relative_path = rel_path
         self.project_absolute_path = abs_path
-        self.git_path = ''
         self.iml_path = ''
         self._set_default_modues()
         self._init_source_path()
@@ -428,6 +426,35 @@ class ProjectInfo:
         """
         for project in projects:
             project.locate_source()
+
+
+class MultiProjectsInfo(ProjectInfo):
+    """Multiple projects info.
+
+    Usage example:
+        project = MultiProjectsInfo(['module_name'])
+        project.collect_all_dep_modules()
+    """
+
+    def __init__(self, targets=None):
+        """MultiProjectsInfo initialize.
+
+        Args:
+            targets: A list of module names or project paths from user's input.
+        """
+        super().__init__(targets[0], True)
+        self._targets = targets
+
+    def collect_all_dep_modules(self):
+        """Collects all dependency modules for the projects."""
+        self.project_module_names = set()
+        module_names = set(_CORE_MODULES)
+        for target in self._targets:
+            relpath, _ = common_util.get_related_paths(self.modules_info,
+                                                       target)
+            module_names.update(self._get_modules_under_project_path(relpath))
+        module_names.update(self._get_robolectric_dep_module(module_names))
+        self.dep_modules = self.get_dep_modules(module_names)
 
 
 def batch_build_dependencies(rebuild_targets):
