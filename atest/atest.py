@@ -71,29 +71,24 @@ TEST_COUNT = 'test_count'
 TEST_TYPE = 'test_type'
 # Tasks that must run in the build time but unable to build by soong.
 # (e.g subprocesses that invoke host commands.)
-EXTRA_TASKS = {
-    'index-targets': atest_tools.index_targets
-}
+INDEX_TARGETS = atest_tools.index_targets
 
 
-def _run_extra_tasks(join=False):
-    """Execute EXTRA_TASKS with multiprocessing.
+def _run_multi_proc(func, *args, **kwargs):
+    """Start a process with multiprocessing and return Process object.
 
     Args:
-        join: A boolean that indicates the process should terminate when
-        the main process ends or keep itself alive. True indicates the
-        main process will wait for all subprocesses finish while False represents
-        killing all subprocesses when the main process exits.
+        func: A string of function name which will be the target name.
+        args/kwargs: check doc page:
+        https://docs.python.org/3.8/library/multiprocessing.html#process-and-exceptions
+
+    Returns:
+        multiprocessing.Process object.
     """
-    _running_procs = []
-    for task in EXTRA_TASKS.values():
-        proc = Process(target=task)
-        proc.daemon = not join
-        proc.start()
-        _running_procs.append(proc)
-    if join:
-        for proc in _running_procs:
-            proc.join()
+
+    proc = Process(target=func, *args, **kwargs)
+    proc.start()
+    return proc
 
 
 def _parse_args(argv):
@@ -666,7 +661,8 @@ def main(argv, results_dir, args):
     _non_action_validator(args)
     mod_info = module_info.ModuleInfo(force_build=args.rebuild_module_info)
     if args.rebuild_module_info:
-        _run_extra_tasks(join=True)
+        proc_idx = _run_multi_proc(INDEX_TARGETS)
+        proc_idx.join()
     translator = cli_translator.CLITranslator(module_info=mod_info,
                                               print_cache_msg=not args.clear_cache)
     if args.list_modules:
@@ -701,7 +697,7 @@ def main(argv, results_dir, args):
         if constants.TEST_STEP in steps and not args.rebuild_module_info:
             # Run extra tasks along with build step concurrently. Note that
             # Atest won't index targets when only "-b" is given(without -t).
-            _run_extra_tasks(join=False)
+            proc_idx = _run_multi_proc(INDEX_TARGETS, daemon=True)
         # Add module-info.json target to the list of build targets to keep the
         # file up to date.
         build_targets.add(mod_info.module_info_target)
