@@ -144,4 +144,5 @@ def run_all_tests(results_dir, test_infos, extra_args,
                    'stacktrace': stacktrace}])
     if delay_print_summary:
         return tests_ret_code, reporter
-    return reporter.print_summary() or tests_ret_code, reporter
+    return (reporter.print_summary(extra_args.get(constants.COLLECT_TESTS_ONLY))
+            or tests_ret_code, reporter)
