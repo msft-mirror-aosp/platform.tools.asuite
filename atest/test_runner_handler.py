@@ -116,7 +116,8 @@ def run_all_tests(results_dir, test_infos, extra_args,
     Returns:
         0 if tests succeed, non-zero otherwise.
     """
-    reporter = result_reporter.ResultReporter()
+    reporter = result_reporter.ResultReporter(
+        collect_only=extra_args.get(constants.COLLECT_TESTS_ONLY))
     reporter.print_starting_text()
     tests_ret_code = constants.EXIT_CODE_SUCCESS
     for test_runner, tests in group_tests_by_test_runners(test_infos):

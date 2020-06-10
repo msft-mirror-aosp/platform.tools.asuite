@@ -41,6 +41,7 @@ from __future__ import absolute_import
 
 import argparse
 import logging
+import os
 import sys
 import traceback
 
@@ -57,11 +58,12 @@ from aidegen.lib import native_util
 from aidegen.lib import project_config
 from aidegen.lib import project_file_gen
 from aidegen.lib import project_info
-from aidegen.vscode import vscode_java_project_file_gen
+from aidegen.vscode import vscode_native_project_file_gen
+from aidegen.vscode import vscode_workspace_file_gen
 
 AIDEGEN_REPORT_LINK = ('To report the AIDEGen tool problem, please use this '
                        'link: https://goto.google.com/aidegen-bug')
-_CONGRATULATION = common_util.COLORED_PASS('CONGRATULATION:')
+_CONGRATULATIONS = common_util.COLORED_PASS('CONGRATULATIONS:')
 _LAUNCH_SUCCESS_MSG = (
     'IDE launched successfully. Please check your IDE window.')
 _LAUNCH_ECLIPSE_SUCCESS_MSG = (
@@ -160,6 +162,17 @@ def _parse_args(args):
         dest='android_tree',
         action='store_true',
         help='Generate whole Android source tree project file for IDE.')
+    parser.add_argument(
+        '-e',
+        '--exclude-paths',
+        dest='exclude_paths',
+        nargs='*',
+        help='Exclude the directories in IDE.')
+    parser.add_argument(
+        '-V',
+        '--version',
+        action='store_true',
+        help='Print aidegen version string.')
     return parser.parse_args(args)
 
 
@@ -192,14 +205,18 @@ def _launch_ide(ide_util_obj, project_absolute_path):
         project_absolute_path: A string of project absolute path.
     """
     ide_util_obj.config_ide(project_absolute_path)
-    ide_util_obj.launch_ide()
     if ide_util_obj.ide_name() == constant.IDE_ECLIPSE:
         launch_msg = ' '.join([_LAUNCH_SUCCESS_MSG,
                                _LAUNCH_ECLIPSE_SUCCESS_MSG.format(
                                    PROJECT_PATH=project_absolute_path)])
     else:
         launch_msg = _LAUNCH_SUCCESS_MSG
-    print('\n{} {}\n'.format(_CONGRATULATION, launch_msg))
+    print('\n{} {}\n'.format(_CONGRATULATIONS, launch_msg))
+    print('\n{} {}\n'.format(_INFO, _IDE_CACHE_REMINDER_MSG))
+    # Send the end message to Clearcut server before launching IDE to make sure
+    # the execution time is correct.
+    aidegen_metrics.ends_asuite_metrics(constant.EXIT_CODE_EXCEPTION)
+    ide_util_obj.launch_ide()
 
 
 def _launch_native_projects(ide_util_obj, args, cmakelists):
@@ -268,6 +285,11 @@ def _launch_ide_by_module_contents(args, ide_util_obj, jlist=None, clist=None,
                                    both=False):
     """Deals with the suitable IDE launch action.
 
+    The rules AIDEGen won't ask users to choose one of the languages are:
+    1. Users set CLion as IDE: CLion only supports C/C++.
+    2. Test mode is true: if AIDEGEN_TEST_MODE is true the default language is
+       Java.
+
     Args:
         args: A list of system arguments.
         ide_util_obj: An ide_util instance.
@@ -284,7 +306,12 @@ def _launch_ide_by_module_contents(args, ide_util_obj, jlist=None, clist=None,
                         ' opened')
         return
     answer = None
-    if jlist and clist:
+    if constant.IDE_NAME_DICT[args.ide[0]] == constant.IDE_CLION:
+        answer = constant.C_CPP
+    elif common_util.to_boolean(
+            os.environ.get(constant.AIDEGEN_TEST_MODE, 'false')):
+        answer = constant.JAVA
+    if not answer and jlist and clist:
         answer = _get_preferred_ide_from_user(_LANGUAGE_OPTIONS)
     if (jlist and not clist) or (answer == constant.JAVA):
         _create_and_launch_java_projects(ide_util_obj, jlist)
@@ -312,14 +339,18 @@ def _launch_vscode(ide_util_obj, atest_module_info, jtargets, ctargets):
         abs_paths.append(abs_path)
     if ctargets:
         cc_module_info = native_module_info.NativeModuleInfo()
+        native_project_info.NativeProjectInfo.generate_projects(ctargets)
+        vs_gen = vscode_native_project_file_gen.VSCodeNativeProjectFileGenerator
         for target in ctargets:
             _, abs_path = common_util.get_related_paths(cc_module_info, target)
-            abs_paths.append(abs_path)
-    vscode_project = vscode_java_project_file_gen.JavaProjectGen
-    abs_jpath = vscode_project.generate_code_workspace_file(abs_paths)
+            vs_native = vs_gen(abs_path)
+            vs_native.generate_c_cpp_properties_json_file()
+            if abs_path not in abs_paths:
+                abs_paths.append(abs_path)
+    vs_path = vscode_workspace_file_gen.generate_code_workspace_file(abs_paths)
     if not ide_util_obj:
         return
-    _launch_ide(ide_util_obj, abs_jpath)
+    _launch_ide(ide_util_obj, vs_path)
 
 
 @common_util.time_logged(message=_TIME_EXCEED_MSG, maximum=_MAX_TIME)
@@ -353,8 +384,18 @@ def main(argv):
         argv: A list of system arguments.
     """
     exit_code = constant.EXIT_CODE_NORMAL
+    launch_ide = True
+    ask_version = False
     try:
         args = _parse_args(argv)
+        if args.version:
+            ask_version = True
+            version_file = os.path.join(os.path.dirname(__file__),
+                                        constant.VERSION_FILE)
+            print(common_util.read_file_content(version_file))
+            sys.exit(constant.EXIT_CODE_NORMAL)
+
+        launch_ide = not args.no_launch
         common_util.configure_logging(args.verbose)
         is_whole_android_tree = project_config.is_whole_android_tree(
             args.targets, args.android_tree)
@@ -383,10 +424,11 @@ def main(argv):
             print(traceback_str)
             raise err
     finally:
-        if exit_code is constant.EXIT_CODE_NORMAL:
-            aidegen_metrics.ends_asuite_metrics(exit_code)
-        print('\n{0} {1}\n\n{0} {2}\n'.format(_INFO, AIDEGEN_REPORT_LINK,
-                                              _IDE_CACHE_REMINDER_MSG))
+        if not ask_version:
+            print('\n{0} {1}\n'.format(_INFO, AIDEGEN_REPORT_LINK))
+            # Send the end message here on ignoring launch IDE case.
+            if not launch_ide and exit_code is constant.EXIT_CODE_NORMAL:
+                aidegen_metrics.ends_asuite_metrics(exit_code)
 
 
 def aidegen_main(args):

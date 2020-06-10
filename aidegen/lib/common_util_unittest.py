@@ -340,7 +340,8 @@ class AidegenCommonUtilUnittests(unittest.TestCase):
         mock_get_root.return_value = 'a/b'
         mock_get_out.return_value = 'out'
         mock_get_path.return_value = 'out/soong/bp_java_file'
-        path_compdb = os.path.join('a/b', 'out', constant.RELATIVE_COMPDB_PATH,
+        path_compdb = os.path.join('a/b', 'out', 'soong',
+                                   constant.RELATIVE_COMPDB_PATH,
                                    constant.COMPDB_JSONFILE_NAME)
         data = {
             constant.GEN_JAVA_DEPS: 'a/b/out/soong/bp_java_file',
@@ -362,6 +363,30 @@ class AidegenCommonUtilUnittests(unittest.TestCase):
         root = ElementTree.fromstring(self._TEST_XML_CONTENT)
         pretty_xml = common_util.to_pretty_xml(root)
         self.assertEqual(pretty_xml, self._SAMPLE_XML_CONTENT)
+
+    def test_to_to_boolean(self):
+        """Test to_boolean function with conditions."""
+        self.assertTrue(common_util.to_boolean('True'))
+        self.assertTrue(common_util.to_boolean('true'))
+        self.assertTrue(common_util.to_boolean('T'))
+        self.assertTrue(common_util.to_boolean('t'))
+        self.assertTrue(common_util.to_boolean('1'))
+        self.assertFalse(common_util.to_boolean('False'))
+        self.assertFalse(common_util.to_boolean('false'))
+        self.assertFalse(common_util.to_boolean('F'))
+        self.assertFalse(common_util.to_boolean('f'))
+        self.assertFalse(common_util.to_boolean('0'))
+        self.assertFalse(common_util.to_boolean(''))
+
+    @mock.patch.object(os.path, 'exists')
+    @mock.patch.object(common_util, 'get_android_root_dir')
+    def test_find_git_root(self, mock_get_root, mock_exist):
+        """Test find_git_root."""
+        mock_get_root.return_value = '/a/b'
+        mock_exist.return_value = True
+        self.assertEqual(common_util.find_git_root('c/d'), '/a/b/c/d')
+        mock_exist.return_value = False
+        self.assertEqual(common_util.find_git_root('c/d'), None)
 
 
 # pylint: disable=unused-argument

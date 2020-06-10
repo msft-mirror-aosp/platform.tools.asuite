@@ -29,6 +29,45 @@ FILE_IML = """<?xml version="1.0" encoding="UTF-8"?>
     </component>
 </module>
 """
+# TODO(b/153704028): Refactor to create iml file.
+IML = """<?xml version="1.0" encoding="UTF-8"?>
+<module type="JAVA_MODULE" version="4">{FACET}
+    <component name="NewModuleRootManager" inherit-compiler-output="true">
+        <exclude-output />{SOURCES}
+        <orderEntry type="sourceFolder" forTests="false" />{SRCJARS}{DEPENDENCIES}{JARS}
+        <orderEntry type="inheritedJdk" />
+    </component>
+</module>
+"""
+FACET = """
+    <facet type="android" name="Android">
+        <configuration />
+    </facet>"""
+CONTENT = """
+        <content url="file://{MODULE_PATH}">{EXCLUDES}{SOURCES}
+        </content>"""
+SOURCE = """
+            <sourceFolder url="file://{SRC}" isTestSource="{IS_TEST}" />"""
+OTHER_SOURCE = """
+        <content url="file://{SRC}">
+            <sourceFolder url="file://{SRC}" isTestSource="{IS_TEST}" />
+        </content>"""
+SRCJAR = """
+        <content url="jar://{SRCJAR}!/">
+            <sourceFolder url="jar://{SRCJAR}!/" isTestSource="False" />
+        </content>"""
+JAR = """
+        <orderEntry type="module-library" exported="">
+          <library>
+            <CLASSES>
+              <root url="jar://{JAR}!/" />
+            </CLASSES>
+            <JAVADOC />
+            <SOURCES />
+          </library>
+        </orderEntry>"""
+DEPENDENCIES = """
+        <orderEntry type="module" module-name="{MODULE}" />"""
 
 # The template content of modules.xml.
 XML_MODULES = """<?xml version="1.0" encoding="UTF-8"?>
@@ -46,7 +85,7 @@ XML_MODULES = """<?xml version="1.0" encoding="UTF-8"?>
 XML_VCS = """<?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
     <component name="VcsDirectoryMappings">
-@VCS@
+{GIT_MAPPINGS}
     </component>
 </project>
 """
@@ -353,4 +392,56 @@ ECLIPSE_PROJECT_XML = """<?xml version="1.0" encoding="UTF-8"?>
 {LINKEDRESOURCES}
         </linkedResources>
 </projectDescription>
+"""
+
+# The template of default AndroidManifest.xml.
+ANDROID_MANIFEST_CONTENT = """<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+          android:versionCode="1"
+          android:versionName="1.0" >
+</manifest>
+"""
+
+# The xml template for enabling debugger.
+XML_ENABLE_DEBUGGER = """<?xml version="1.0" encoding="UTF-8"?>
+<module type="JAVA_MODULE" version="4">
+  <component name="FacetManager">
+    <facet type="android" name="Android">
+      <configuration>
+        <proGuardCfgFiles />
+      </configuration>
+    </facet>
+  </component>
+  <component name="NewModuleRootManager" inherit-compiler-output="true">
+    <exclude-output />
+    <content url="file://$MODULE_DIR$">
+      <sourceFolder url="file://$MODULE_DIR$/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/gen" isTestSource="false" generated="true" />
+    </content>
+    <orderEntry type="jdk" jdkName="{ANDROID_SDK_VERSION}" jdkType="Android SDK" />
+    <orderEntry type="sourceFolder" forTests="false" />
+  </component>
+</module>
+"""
+
+# The default empty template of the jdk.table.xml.
+JDK_TABLE_XML = """<application>
+  <component name="ProjectJdkTable">
+  </component>
+</application>
+"""
+
+XML_WORKSPACE = """<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+    <component name="VcsManagerConfiguration">
+        <ignored-roots>
+{GITS}
+        </ignored-roots>
+    </component>
+</project>
+"""
+
+IGNORED_GITS = """<component name="VcsManagerConfiguration">
+    <ignored-roots>{GITS}</ignored-roots>
+  </component>
 """

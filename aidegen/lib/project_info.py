@@ -50,6 +50,8 @@ _EXCLUDE_MODULES = ['fake-framework']
 _CMD_LENGTH_BUFFER = 5000
 # For each argument, it need a space to separate following argument.
 _BLANK_SIZE = 1
+_CORE_MODULES = [constant.FRAMEWORK_ALL, constant.CORE_ALL,
+                 'org.apache.http.legacy.stubs.system']
 
 
 class ProjectInfo:
@@ -69,7 +71,6 @@ class ProjectInfo:
                               directory or it's subdirectories.
         dep_modules: A dict has recursively dependent modules of
                      project_module_names.
-        git_path: The project's git path.
         iml_path: The project's iml file path.
         source_path: A dictionary to keep following data:
                      source_folder_path: A set contains the source folder
@@ -88,6 +89,8 @@ class ProjectInfo:
                                   The "!/" is a content descriptor for
                                   compressed files in IntelliJ.
         is_main_project: A boolean to verify the project is main project.
+        dependencies: A list of dependency projects' iml file names, e.g. base,
+                      framework-all.
     """
 
     modules_info = None
@@ -110,13 +113,16 @@ class ProjectInfo:
             self.modules_info.get_module_names(rel_path))
         self.project_relative_path = rel_path
         self.project_absolute_path = abs_path
-        self.git_path = ''
         self.iml_path = ''
         self._set_default_modues()
         self._init_source_path()
-        self.dep_modules = self.get_dep_modules()
+        if target == constant.FRAMEWORK_ALL:
+            self.dep_modules = self.get_dep_modules([target])
+        else:
+            self.dep_modules = self.get_dep_modules()
         self._filter_out_modules()
         self._display_convert_make_files_message()
+        self.dependencies = []
 
     def _set_default_modues(self):
         """Append default hard-code modules, source paths and jar files.
@@ -128,10 +134,9 @@ class ProjectInfo:
             error of "cannot resolve symbol" in IntelliJ since they import
             packages android.Manifest and com.android.internal.R.
         """
-        # TODO(b/112058649): Do more research to clarify how to remove these
-        #                    hard-code sources.
-        self.project_module_names.update(
-            ['framework', 'org.apache.http.legacy.stubs.system'])
+        # Set the default modules framework-all and core-all as the core
+        # dependency modules.
+        self.project_module_names.update(_CORE_MODULES)
 
     def _init_source_path(self):
         """Initialize source_path dictionary."""
@@ -193,7 +198,7 @@ class ProjectInfo:
                 if module_info.AidegenModuleInfo.is_target_module(data):
                     modules.add(name)
                 else:
-                    logging.debug(_NOT_TARGET, name, data['class'],
+                    logging.debug(_NOT_TARGET, name, data.get('class', ''),
                                   constant.TARGET_CLASSES)
         return modules
 
@@ -352,10 +357,10 @@ class ProjectInfo:
         for module_name, module_data in self.dep_modules.items():
             module = self._generate_moduledata(module_name, module_data)
             module.locate_sources_path()
-            self.source_path['source_folder_path'].update(module.src_dirs)
-            self.source_path['test_folder_path'].update(module.test_dirs)
-            self.source_path['r_java_path'].update(module.r_java_paths)
-            self.source_path['srcjar_path'].update(module.srcjar_paths)
+            self.source_path['source_folder_path'].update(set(module.src_dirs))
+            self.source_path['test_folder_path'].update(set(module.test_dirs))
+            self.source_path['r_java_path'].update(set(module.r_java_paths))
+            self.source_path['srcjar_path'].update(set(module.srcjar_paths))
             self._append_jars_as_dependencies(module)
             rebuild_targets.update(module.build_targets)
         config = project_config.ProjectConfig.get_instance()
@@ -421,6 +426,117 @@ class ProjectInfo:
         """
         for project in projects:
             project.locate_source()
+
+
+class MultiProjectsInfo(ProjectInfo):
+    """Multiple projects info.
+
+    Usage example:
+        if folder_base:
+            project = MultiProjectsInfo(['module_name'])
+            project.collect_all_dep_modules()
+            project.gen_folder_base_dependencies()
+        else:
+            ProjectInfo.generate_projects(['module_name'])
+
+    Attributes:
+        _targets: A list of module names or project paths.
+        path_to_sources: A dictionary of modules' sources, the module's path
+                         as key and the sources as value.
+                         e.g.
+                         {
+                             'frameworks/base': {
+                                 'src_dirs': [],
+                                 'test_dirs': [],
+                                 'r_java_paths': [],
+                                 'srcjar_paths': [],
+                                 'jar_files': [],
+                                 'dep_paths': [],
+                             }
+                         }
+    """
+
+    def __init__(self, targets=None):
+        """MultiProjectsInfo initialize.
+
+        Args:
+            targets: A list of module names or project paths from user's input.
+        """
+        super().__init__(targets[0], True)
+        self._targets = targets
+        self.path_to_sources = {}
+
+    def _clear_srcjar_paths(self, module):
+        """Clears the srcjar_paths.
+
+        Args:
+            module: A ModuleData instance.
+        """
+        module.srcjar_paths = []
+
+    def _collect_framework_srcjar_info(self, module):
+        """Clears the framework's srcjars.
+
+        Args:
+            module: A ModuleData instance.
+        """
+        if module.module_path == constant.FRAMEWORK_PATH:
+            framework_srcjar_path = os.path.join(constant.FRAMEWORK_PATH,
+                                                 constant.FRAMEWORK_SRCJARS)
+            if module.module_name == constant.FRAMEWORK_ALL:
+                self.path_to_sources[framework_srcjar_path] = {
+                    'src_dirs': [],
+                    'test_dirs': [],
+                    'r_java_paths': [],
+                    'srcjar_paths': module.srcjar_paths,
+                    'jar_files': [],
+                    'dep_paths': [constant.FRAMEWORK_PATH],
+                }
+            # In the folder base case, AIDEGen has to ignore all module's srcjar
+            # files under the frameworks/base except the framework-all. Because
+            # there are too many duplicate srcjars of modules under the
+            # frameworks/base. So that AIDEGen keeps the srcjar files only from
+            # the framework-all module. Other modeuls' srcjar files will be
+            # removed. However, when users choose the module base case, srcjar
+            # files will be collected by the ProjectInfo class, so that the
+            # removing srcjar_paths in this class does not impact the
+            # srcjar_paths collection of modules in the ProjectInfo class.
+            self._clear_srcjar_paths(module)
+
+    def collect_all_dep_modules(self):
+        """Collects all dependency modules for the projects."""
+        self.project_module_names.clear()
+        module_names = set(_CORE_MODULES)
+        for target in self._targets:
+            relpath, _ = common_util.get_related_paths(self.modules_info,
+                                                       target)
+            module_names.update(self._get_modules_under_project_path(relpath))
+        module_names.update(self._get_robolectric_dep_module(module_names))
+        self.dep_modules = self.get_dep_modules(module_names)
+
+    def gen_folder_base_dependencies(self, module):
+        """Generates the folder base dependencies dictionary.
+
+        Args:
+            module: A ModuleData instance.
+        """
+        mod_path = module.module_path
+        if not mod_path:
+            logging.debug('The %s\'s path is empty.', module.module_name)
+            return
+        self._collect_framework_srcjar_info(module)
+        if mod_path not in self.path_to_sources:
+            self.path_to_sources[mod_path] = {
+                'src_dirs': module.src_dirs,
+                'test_dirs': module.test_dirs,
+                'r_java_paths': module.r_java_paths,
+                'srcjar_paths': module.srcjar_paths,
+                'jar_files': module.jar_files,
+                'dep_paths': module.dep_paths,
+            }
+        else:
+            for key, val in self.path_to_sources[mod_path].items():
+                val.extend([v for v in getattr(module, key) if v not in val])
 
 
 def batch_build_dependencies(rebuild_targets):

@@ -109,7 +109,7 @@ class AtestTradefedTestRunner(test_runner_base.TestRunnerBase):
         key_path = os.path.join(self.root_dir, ape_api_key)
         if ape_api_key and os.path.exists(key_path):
             logging.debug('Set APE_API_KEY: %s', ape_api_key)
-            os.environ['APE_API_KEY'] = ape_api_key
+            os.environ['APE_API_KEY'] = key_path
         else:
             logging.debug('APE_API_KEY not set, some GTS tests may fail'
                           ' without authentication.')
@@ -151,7 +151,8 @@ class AtestTradefedTestRunner(test_runner_base.TestRunnerBase):
         ret_code = constants.EXIT_CODE_SUCCESS
         for _ in range(iterations):
             run_cmds = self.generate_run_commands(test_infos, extra_args)
-            subproc = self.run(run_cmds[0], output_to_stdout=True)
+            subproc = self.run(run_cmds[0], output_to_stdout=True,
+                               env_vars=self.generate_env_vars(extra_args))
             ret_code |= self.wait_for_subprocess(subproc)
         return ret_code
 
@@ -168,28 +169,32 @@ class AtestTradefedTestRunner(test_runner_base.TestRunnerBase):
         """
         iterations = self._generate_iterations(extra_args)
         ret_code = constants.EXIT_CODE_SUCCESS
+        collect_only = extra_args.get(constants.COLLECT_TESTS_ONLY)
         for _ in range(iterations):
             server = self._start_socket_server()
             run_cmds = self.generate_run_commands(test_infos, extra_args,
                                                   server.getsockname()[1])
-            subproc = self.run(run_cmds[0], output_to_stdout=self.is_verbose)
+            subproc = self.run(run_cmds[0], output_to_stdout=self.is_verbose,
+                               env_vars=self.generate_env_vars(extra_args))
             self.handle_subprocess(subproc, partial(self._start_monitor,
                                                     server,
                                                     subproc,
-                                                    reporter))
+                                                    reporter,
+                                                    collect_only))
             server.close()
             ret_code |= self.wait_for_subprocess(subproc)
         return ret_code
 
     # pylint: disable=too-many-branches
     # pylint: disable=too-many-locals
-    def _start_monitor(self, server, tf_subproc, reporter):
+    def _start_monitor(self, server, tf_subproc, reporter, collect_only=False):
         """Polling and process event.
 
         Args:
             server: Socket server object.
             tf_subproc: The tradefed subprocess to poll.
             reporter: Result_Reporter object.
+            collect_only: Boolean. True if collect tests only.
         """
         inputs = [server]
         event_handlers = {}
@@ -220,7 +225,8 @@ class AtestTradefedTestRunner(test_runner_base.TestRunnerBase):
                         else:
                             event_handler = event_handlers.setdefault(
                                 socket_object, EventHandler(
-                                    result_reporter.ResultReporter(),
+                                    result_reporter.ResultReporter(
+                                        collect_only=collect_only),
                                     self.NAME))
                         recv_data = self._process_connection(data_map,
                                                              socket_object,
@@ -286,6 +292,15 @@ class AtestTradefedTestRunner(test_runner_base.TestRunnerBase):
         logging.debug('Socket server started on port %s',
                       server.getsockname()[1])
         return server
+
+    def generate_env_vars(self, extra_args):
+        """Convert extra args into env vars."""
+        env_vars = os.environ.copy()
+        debug_port = extra_args.get(constants.TF_DEBUG, '')
+        if debug_port:
+            env_vars['TF_DEBUG'] = 'true'
+            env_vars['TF_DEBUG_PORT'] = str(debug_port)
+        return env_vars
 
     # pylint: disable=unnecessary-pass
     # Please keep above disable flag to ensure host_env_check is overriden.
@@ -412,6 +427,9 @@ class AtestTradefedTestRunner(test_runner_base.TestRunnerBase):
                 continue
             if constants.COLLECT_TESTS_ONLY == arg:
                 args_to_append.append('--collect-tests-only')
+                continue
+            if constants.TF_DEBUG == arg:
+                print("Please attach process to your IDE...")
                 continue
             args_not_supported.append(arg)
         return args_to_append, args_not_supported

@@ -24,6 +24,7 @@ import inspect
 import json
 import logging
 import os
+import re
 import sys
 import time
 import xml.dom.minidom
@@ -195,7 +196,7 @@ def has_build_target(atest_module_info, rel_path):
         True if the relative path contains a build target, otherwise false.
     """
     return any(
-        mod_path.startswith(rel_path)
+        is_source_under_relative_path(mod_path, rel_path)
         for mod_path in atest_module_info.path_to_module_info)
 
 
@@ -268,7 +269,7 @@ def check_module(atest_module_info, target, raise_on_lost_module=True):
         err = FAKE_MODULE_ERROR.format(target)
         logging.error(err)
         raise errors.FakeModuleError(err)
-    if not abs_path.startswith(get_android_root_dir()):
+    if not is_source_under_relative_path(abs_path, get_android_root_dir()):
         err = OUTSIDE_ROOT_ERROR.format(abs_path)
         logging.error(err)
         raise errors.ProjectOutsideAndroidRootError(err)
@@ -302,7 +303,7 @@ def get_abs_path(rel_path):
     """
     if not rel_path:
         return get_android_root_dir()
-    if rel_path.startswith(get_android_root_dir()):
+    if is_source_under_relative_path(rel_path, get_android_root_dir()):
         return rel_path
     return os.path.join(get_android_root_dir(), rel_path)
 
@@ -483,7 +484,8 @@ def is_source_under_relative_path(source, relative_path):
     Returns:
         True if source file is a project relative path file, otherwise False.
     """
-    return source == relative_path or source.startswith(relative_path + os.sep)
+    return re.search(
+        constant.RE_INSIDE_PATH_CHECK.format(relative_path), source)
 
 
 def remove_user_home_path(data):
@@ -545,7 +547,7 @@ def check_args(**decls):
         @wraps(func)
         def decorated(*args, **kwargs):
             """A wrapper function."""
-            params = {x[0]: x[1] for x in zip(fparams, args)}
+            params = dict(zip(fparams, args))
             for arg_name, arg_type in decls.items():
                 try:
                     arg_val = params[arg_name]
@@ -670,7 +672,7 @@ def get_blueprint_json_files_relative_dict():
     bp_cc_path = os.path.join(
         root_dir, get_blueprint_json_path(constant.BLUEPRINT_CC_JSONFILE_NAME))
     data[constant.GEN_CC_DEPS] = bp_cc_path
-    data[constant.GEN_COMPDB] = os.path.join(root_dir, get_android_out_dir(),
+    data[constant.GEN_COMPDB] = os.path.join(get_soong_out_path(),
                                              constant.RELATIVE_COMPDB_PATH,
                                              constant.COMPDB_JSONFILE_NAME)
     return data
@@ -691,3 +693,36 @@ def to_pretty_xml(root, indent="  "):
     xml_string = xml_string.split("\n", 1)[1]
     # Remove the weird newline issue from toprettyxml.
     return os.linesep.join([s for s in xml_string.splitlines() if s.strip()])
+
+
+def to_boolean(str_bool):
+    """Converts a string to a boolean.
+
+    Args:
+        str_bool: A string in the expression of boolean type.
+
+    Returns:
+        A boolean True if the string is one of ('True', 'true', 'T', 't', '1')
+        else False.
+    """
+    return str_bool and str_bool.lower() in ('true', 't', '1')
+
+
+def find_git_root(relpath):
+    """Finds the parent directory which has a .git folder from the relpath.
+
+    Args:
+        relpath: A string of relative path.
+
+    Returns:
+        A string of the absolute path which contains a .git, otherwise, none.
+    """
+    dir_list = relpath.split(os.sep)
+    for i in range(len(dir_list), 0, -1):
+        real_path = os.path.join(get_android_root_dir(),
+                                 os.sep.join(dir_list[:i]),
+                                 constant.GIT_FOLDER_NAME)
+        if os.path.exists(real_path):
+            return os.path.dirname(real_path)
+    logging.warning('%s can\'t find its .git folder.', relpath)
+    return None

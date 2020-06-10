@@ -71,29 +71,24 @@ TEST_COUNT = 'test_count'
 TEST_TYPE = 'test_type'
 # Tasks that must run in the build time but unable to build by soong.
 # (e.g subprocesses that invoke host commands.)
-EXTRA_TASKS = {
-    'index-targets': atest_tools.index_targets
-}
+INDEX_TARGETS = atest_tools.index_targets
 
 
-def _run_extra_tasks(join=False):
-    """Execute EXTRA_TASKS with multiprocessing.
+def _run_multi_proc(func, *args, **kwargs):
+    """Start a process with multiprocessing and return Process object.
 
     Args:
-        join: A boolean that indicates the process should terminate when
-        the main process ends or keep itself alive. True indicates the
-        main process will wait for all subprocesses finish while False represents
-        killing all subprocesses when the main process exits.
+        func: A string of function name which will be the target name.
+        args/kwargs: check doc page:
+        https://docs.python.org/3.8/library/multiprocessing.html#process-and-exceptions
+
+    Returns:
+        multiprocessing.Process object.
     """
-    _running_procs = []
-    for task in EXTRA_TASKS.values():
-        proc = Process(target=task)
-        proc.daemon = not join
-        proc.start()
-        _running_procs.append(proc)
-    if join:
-        for proc in _running_procs:
-            proc.join()
+
+    proc = Process(target=func, *args, **kwargs)
+    proc.start()
+    return proc
 
 
 def _parse_args(argv):
@@ -196,6 +191,7 @@ def get_extra_args(args):
                 'retry_any_failure': constants.RETRY_ANY_FAILURE,
                 'serial': constants.SERIAL,
                 'sharding': constants.SHARDING,
+                'tf_debug': constants.TF_DEBUG,
                 'tf_template': constants.TF_TEMPLATE,
                 'user_type': constants.USER_TYPE}
     not_match = [k for k in arg_maps if k not in vars(args)]
@@ -517,7 +513,7 @@ def _run_test_mapping_tests(results_dir, test_infos, extra_args):
     # List failed tests at the end as a reminder.
     if failed_tests:
         atest_utils.colorful_print(
-            '\n==============================', constants.YELLOW)
+            atest_utils.delimiter('=', 30, prenl=1), constants.YELLOW)
         atest_utils.colorful_print(
             '\nFollowing tests failed:', constants.MAGENTA)
         for failure in failed_tests:
@@ -557,9 +553,10 @@ def _print_testable_modules(mod_info, suite):
     testable_modules = mod_info.get_testable_modules(suite)
     print('\n%s' % atest_utils.colorize('%s Testable %s modules' % (
         len(testable_modules), suite), constants.CYAN))
-    print('-------')
+    print(atest_utils.delimiter('-'))
     for module in sorted(testable_modules):
         print('\t%s' % module)
+
 def _is_inside_android_root():
     """Identify whether the cwd is inside of Android source tree.
 
@@ -568,6 +565,75 @@ def _is_inside_android_root():
     """
     build_top = os.getenv(constants.ANDROID_BUILD_TOP, ' ')
     return build_top in os.getcwd()
+
+def _non_action_validator(args):
+    """Method for non-action arguments such as --version, --help, --history,
+    --latest_result, etc.
+
+    Args:
+        args: An argspace.Namespace class instance holding parsed args.
+    """
+    if not _is_inside_android_root():
+        atest_utils.colorful_print(
+            "\nAtest must always work under ${}!".format(
+                constants.ANDROID_BUILD_TOP), constants.RED)
+        sys.exit(constants.EXIT_CODE_OUTSIDE_ROOT)
+    if args.version:
+        if os.path.isfile(constants.VERSION_FILE):
+            with open(constants.VERSION_FILE) as version_file:
+                print(version_file.read())
+        sys.exit(constants.EXIT_CODE_SUCCESS)
+    if args.help:
+        atest_arg_parser.print_epilog_text()
+        sys.exit(constants.EXIT_CODE_SUCCESS)
+    if args.history:
+        atest_execution_info.print_test_result(constants.ATEST_RESULT_ROOT,
+                                               args.history)
+        sys.exit(constants.EXIT_CODE_SUCCESS)
+    if args.latest_result:
+        atest_execution_info.print_test_result_by_path(
+            constants.LATEST_RESULT_FILE)
+        sys.exit(constants.EXIT_CODE_SUCCESS)
+    # TODO(b/131879842): remove below statement after they are fully removed.
+    if any((args.detect_regression,
+            args.generate_baseline,
+            args.generate_new_metrics)):
+        stop_msg = ('Please STOP using arguments below -- they are obsolete and '
+                    'will be removed in a very near future:\n'
+                    '\t--detect-regression\n'
+                    '\t--generate-baseline\n'
+                    '\t--generate-new-metrics\n')
+        msg = ('Please use below arguments instead:\n'
+               '\t--iterations\n'
+               '\t--rerun-until-failure\n'
+               '\t--retry-any-failure\n')
+        atest_utils.colorful_print(stop_msg, constants.RED)
+        atest_utils.colorful_print(msg, constants.CYAN)
+
+def _dry_run_validator(args, results_dir, extra_args, test_infos):
+    """Method which process --dry-run argument.
+
+    Args:
+        args: An argspace.Namespace class instance holding parsed args.
+        result_dir: A string path of the results dir.
+        extra_args: A dict of extra args for test runners to utilize.
+        test_infos: A list of test_info.
+    """
+    args.tests.sort()
+    dry_run_cmds = _dry_run(results_dir, extra_args, test_infos)
+    if args.verify_cmd_mapping:
+        try:
+            atest_utils.handle_test_runner_cmd(' '.join(args.tests),
+                                               dry_run_cmds,
+                                               do_verification=True)
+        except atest_error.DryRunVerificationError as e:
+            atest_utils.colorful_print(str(e), constants.RED)
+            return constants.EXIT_CODE_VERIFY_FAILURE
+    if args.update_cmd_mapping:
+        atest_utils.handle_test_runner_cmd(' '.join(args.tests),
+                                           dry_run_cmds)
+    sys.exit(constants.EXIT_CODE_SUCCESS)
+
 
 # pylint: disable=too-many-statements
 # pylint: disable=too-many-branches
@@ -586,41 +652,27 @@ def main(argv, results_dir, args):
     _configure_logging(args.verbose)
     _validate_args(args)
     metrics_utils.get_start_time()
+    os_pyver = '{}:{}'.format(platform.platform(), platform.python_version())
     metrics.AtestStartEvent(
         command_line=' '.join(argv),
         test_references=args.tests,
         cwd=os.getcwd(),
-        os=platform.platform())
-    if args.version:
-        if os.path.isfile(constants.VERSION_FILE):
-            with open(constants.VERSION_FILE) as version_file:
-                print(version_file.read())
-        return constants.EXIT_CODE_SUCCESS
-    if not _is_inside_android_root():
-        atest_utils.colorful_print(
-            "\nAtest must always work under ${}!".format(
-                constants.ANDROID_BUILD_TOP), constants.RED)
-        return constants.EXIT_CODE_OUTSIDE_ROOT
-    if args.help:
-        atest_arg_parser.print_epilog_text()
-        return constants.EXIT_CODE_SUCCESS
-    if args.history:
-        atest_execution_info.print_test_result(constants.ATEST_RESULT_ROOT,
-                                               args.history)
-        return constants.EXIT_CODE_SUCCESS
+        os=os_pyver)
+    _non_action_validator(args)
     mod_info = module_info.ModuleInfo(force_build=args.rebuild_module_info)
     if args.rebuild_module_info:
-        _run_extra_tasks(join=True)
+        proc_idx = _run_multi_proc(INDEX_TARGETS)
+        proc_idx.join()
     translator = cli_translator.CLITranslator(module_info=mod_info,
                                               print_cache_msg=not args.clear_cache)
     if args.list_modules:
         _print_testable_modules(mod_info, args.list_modules)
         return constants.EXIT_CODE_SUCCESS
-    build_targets = set()
-    test_infos = set()
     # Clear cache if user pass -c option
     if args.clear_cache:
         atest_utils.clean_test_info_caches(args.tests)
+    build_targets = set()
+    test_infos = set()
     if _will_run_tests(args):
         build_targets, test_infos = translator.translate(args)
         if not test_infos:
@@ -634,23 +686,8 @@ def main(argv, results_dir, args):
     build_targets |= test_runner_handler.get_test_runner_reqs(mod_info,
                                                               test_infos)
     extra_args = get_extra_args(args)
-    if args.update_cmd_mapping or args.verify_cmd_mapping:
-        args.dry_run = True
-    if args.dry_run:
-        args.tests.sort()
-        dry_run_cmds = _dry_run(results_dir, extra_args, test_infos)
-        if args.verify_cmd_mapping:
-            try:
-                atest_utils.handle_test_runner_cmd(' '.join(args.tests),
-                                                   dry_run_cmds,
-                                                   do_verification=True)
-            except atest_error.DryRunVerificationError as e:
-                atest_utils.colorful_print(str(e), constants.RED)
-                return constants.EXIT_CODE_VERIFY_FAILURE
-        if args.update_cmd_mapping:
-            atest_utils.handle_test_runner_cmd(' '.join(args.tests),
-                                               dry_run_cmds)
-        return constants.EXIT_CODE_SUCCESS
+    if any((args.update_cmd_mapping, args.verify_cmd_mapping, args.dry_run)):
+        _dry_run_validator(args, results_dir, extra_args, test_infos)
     if args.detect_regression:
         build_targets |= (regression_test_runner.RegressionTestRunner('')
                           .get_test_runner_build_reqs())
@@ -660,19 +697,12 @@ def main(argv, results_dir, args):
         if constants.TEST_STEP in steps and not args.rebuild_module_info:
             # Run extra tasks along with build step concurrently. Note that
             # Atest won't index targets when only "-b" is given(without -t).
-            _run_extra_tasks(join=False)
+            proc_idx = _run_multi_proc(INDEX_TARGETS, daemon=True)
         # Add module-info.json target to the list of build targets to keep the
         # file up to date.
         build_targets.add(mod_info.module_info_target)
-        # Build the deps-license to generate dependencies data in
-        # module-info.json.
-        build_targets.add(constants.DEPS_LICENSE)
-        # The environment variables PROJ_PATH and DEP_PATH are necessary for the
-        # deps-license.
-        build_env = dict(constants.DEPS_LICENSE_ENV)
         build_start = time.time()
-        success = atest_utils.build(build_targets, verbose=args.verbose,
-                                    env_vars=build_env)
+        success = atest_utils.build(build_targets, verbose=args.verbose)
         metrics.BuildFinishEvent(
             duration=metrics_utils.convert_duration(time.time() - build_start),
             success=success,
@@ -696,7 +726,8 @@ def main(argv, results_dir, args):
     if args.detect_regression:
         regression_args = _get_regression_detection_args(args, results_dir)
         # TODO(b/110485713): Should not call run_tests here.
-        reporter = result_reporter.ResultReporter()
+        reporter = result_reporter.ResultReporter(
+            collect_only=extra_args.get(constants.COLLECT_TESTS_ONLY))
         atest_execution_info.AtestExecutionInfo.result_reporters.append(reporter)
         tests_exit_code |= regression_test_runner.RegressionTestRunner(
             '').run_tests(
@@ -721,7 +752,14 @@ if __name__ == '__main__':
     with atest_execution_info.AtestExecutionInfo(sys.argv[1:],
                                                  RESULTS_DIR,
                                                  ARGS) as result_file:
-        metrics_base.MetricsBase.tool_name = constants.TOOL_NAME
+        if not ARGS.no_metrics:
+            atest_utils.print_data_collection_notice()
+            USER_FROM_TOOL = os.getenv(constants.USER_FROM_TOOL, '')
+            if USER_FROM_TOOL == '':
+                metrics_base.MetricsBase.tool_name = constants.TOOL_NAME
+            else:
+                metrics_base.MetricsBase.tool_name = USER_FROM_TOOL
+
         EXIT_CODE = main(sys.argv[1:], RESULTS_DIR, ARGS)
         DETECTOR = bug_detector.BugDetector(sys.argv[1:], EXIT_CODE)
         metrics.LocalDetectEvent(

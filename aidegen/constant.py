@@ -25,6 +25,7 @@ TARGET_BUILD_VARIANT = 'TARGET_BUILD_VARIANT'
 GEN_JAVA_DEPS = 'SOONG_COLLECT_JAVA_DEPS'
 GEN_CC_DEPS = 'SOONG_COLLECT_CC_DEPS'
 GEN_COMPDB = 'SOONG_GEN_COMPDB'
+AIDEGEN_TEST_MODE = 'AIDEGEN_TEST_MODE'
 
 # Constants for module's info.
 KEY_PATH = 'path'
@@ -42,6 +43,11 @@ KEY_MODULE_NAME = 'module_name'
 KEY_TEST_CONFIG = 'test_config'
 KEY_HEADER = 'header_search_path'
 KEY_SYSTEM = 'system_search_path'
+KEY_TESTS = 'tests'
+KEY_JARS = 'jars'
+KEY_DEP_SRCS = 'dep_srcs'
+KEY_IML_NAME = 'iml_name'
+KEY_EXCLUDES = 'excludes'
 
 # Java related classes.
 JAVA_TARGET_CLASSES = ['APPS', 'JAVA_LIBRARIES', 'ROBOLECTRIC']
@@ -93,6 +99,8 @@ ANDROID_BP = 'Android.bp'
 ANDROID_MK = 'Android.mk'
 JAVA_FILES = '*.java'
 VSCODE_CONFIG_DIR = '.vscode'
+ANDROID_MANIFEST = 'AndroidManifest.xml'
+VERSION_FILE = 'VERSION'
 
 # Constants for file paths.
 RELATIVE_NATIVE_PATH = 'development/ide/clion'
@@ -123,3 +131,21 @@ C_CPP = 'C/C++'
 
 # Constants for error message.
 INVALID_XML = 'The content of {XML_FILE} is not valid.'
+
+# Constants for default modules.
+FRAMEWORK_ALL = 'framework-all'
+CORE_ALL = 'core-all'
+FRAMEWORK_SRCJARS = 'framework_srcjars'
+
+# Constants for module's path.
+FRAMEWORK_PATH = 'frameworks/base'
+LIBCORE_PATH = 'libcore'
+
+# Constants for regular expression
+RE_INSIDE_PATH_CHECK = r'^{}($|/.+)'
+
+# Constants for Git
+GIT_FOLDER_NAME = '.git'
+
+# Constants for Idea
+IDEA_FOLDER = '.idea'

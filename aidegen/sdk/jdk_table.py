@@ -104,9 +104,11 @@ class JDKTableXML():
         self._jdk_path = jdk_path
         self._default_android_sdk_path = default_android_sdk_path
         self._xml = None
-        xml_file = self._DEFAULT_JDK_TABLE_XML
         if os.path.exists(config_file):
             xml_file = config_file
+        else:
+            xml_file = self._DEFAULT_JDK_TABLE_XML
+            common_util.file_generate(xml_file, templates.JDK_TABLE_XML)
         self._xml = xml_util.parse_xml(xml_file)
         self._platform_version = None
         self._android_sdk_version = None

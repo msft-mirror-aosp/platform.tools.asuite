@@ -18,6 +18,7 @@
 
 from __future__ import print_function
 
+import os
 import sys
 import unittest
 from unittest import mock
@@ -37,7 +38,7 @@ from aidegen.lib import native_project_info
 from aidegen.lib import project_config
 from aidegen.lib import project_file_gen
 from aidegen.lib import project_info
-from aidegen.vscode import vscode_java_project_file_gen
+from aidegen.vscode import vscode_workspace_file_gen
 
 
 # pylint: disable=protected-access
@@ -82,6 +83,10 @@ class AidegenMainUnittests(unittest.TestCase):
         self.assertTrue(args.config_reset)
         args = aidegen_main._parse_args(['-s'])
         self.assertTrue(args.skip_build)
+        self.assertEqual(args.exclude_paths, None)
+        excludes = 'path/to/a', 'path/to/b'
+        args = aidegen_main._parse_args(['-e', excludes])
+        self.assertEqual(args.exclude_paths, [excludes])
 
     @mock.patch.object(project_config.ProjectConfig, 'init_environment')
     @mock.patch.object(project_config, 'ProjectConfig')
@@ -106,19 +111,6 @@ class AidegenMainUnittests(unittest.TestCase):
         aidegen_main._generate_project_files(projects)
         self.assertTrue(mock_ide.called_with(projects))
 
-    @mock.patch.object(common_util, 'get_atest_module_info')
-    @mock.patch.object(aidegen_metrics, 'starts_asuite_metrics')
-    def test_show_collect_data_notice(self, mock_metrics, mock_get):
-        """Test main process always run through the target test function."""
-        target = 'nothing'
-        args = aidegen_main._parse_args([target, '-s', '-n'])
-        self._init_project_config(args)
-        with self.assertRaises(errors.ProjectPathNotExistError):
-            err = common_util.PATH_NOT_EXISTS_ERROR.format(target)
-            mock_get.side_effect = errors.ProjectPathNotExistError(err)
-            aidegen_main.main_without_message(args)
-            self.assertTrue(mock_metrics.called)
-
     @mock.patch.object(aidegen_main, 'main_with_message')
     @mock.patch.object(aidegen_main, 'main_without_message')
     def test_main(self, mock_without, mock_with):
@@ -137,10 +129,12 @@ class AidegenMainUnittests(unittest.TestCase):
         """Test main with normal conditions."""
         aidegen_main.main(['-h'])
         self.assertFalse(mock_main.called)
-        mock_ends_metrics.assert_called_with(constant.EXIT_CODE_NORMAL)
         mock_is_whole_tree.return_value = True
         aidegen_main.main([''])
         mock_starts_metrics.assert_called_with([constant.ANDROID_TREE])
+        self.assertFalse(mock_ends_metrics.called)
+        aidegen_main.main(['-n'])
+        mock_ends_metrics.assert_called_with(constant.EXIT_CODE_NORMAL)
 
     @mock.patch.object(aidegen_metrics, 'ends_asuite_metrics')
     @mock.patch.object(aidegen_main, 'main_with_message')
@@ -253,6 +247,7 @@ class AidegenMainUnittests(unittest.TestCase):
         self.assertEqual(5, mock_input.call_count)
         mock_input.reset_mock()
 
+    @mock.patch.object(project_config.ProjectConfig, 'init_environment')
     @mock.patch('logging.warning')
     @mock.patch.object(aidegen_main, '_launch_vscode')
     @mock.patch.object(aidegen_main, '_launch_native_projects')
@@ -263,9 +258,10 @@ class AidegenMainUnittests(unittest.TestCase):
     @mock.patch.object(aidegen_main, '_get_preferred_ide_from_user')
     def test_launch_ide_by_module_contents(self, mock_choice, mock_j,
                                            mock_c_prj, mock_genc, mock_c,
-                                           mock_vs, mock_log):
+                                           mock_vs, mock_log, mock_init):
         """Test _launch_ide_by_module_contents with different conditions."""
         args = aidegen_main._parse_args(['', '-i', 's'])
+        mock_init.return_value = None
         self._init_project_config(args)
         ide_obj = 'ide_obj'
         test_both = False
@@ -338,6 +334,39 @@ class AidegenMainUnittests(unittest.TestCase):
         self.assertFalse(mock_c.called)
         self.assertFalse(mock_genc.called)
 
+        args = aidegen_main._parse_args(['frameworks/base', '-i', 'c'])
+        mock_vs.reset_mock()
+        mock_choice.reset_mock()
+        mock_c.reset_mock()
+        mock_genc.reset_mock()
+        mock_c_prj.reset_mock()
+        mock_j.reset_mock()
+        aidegen_main._launch_ide_by_module_contents(args, ide_obj, test_j,
+                                                    test_c)
+        self.assertFalse(mock_vs.called)
+        self.assertFalse(mock_choice.called)
+        self.assertFalse(mock_j.called)
+        self.assertTrue(mock_c.called)
+        self.assertTrue(mock_c_prj.called)
+        self.assertTrue(mock_genc.called)
+
+        args = aidegen_main._parse_args(['frameworks/base'])
+        mock_vs.reset_mock()
+        mock_choice.reset_mock()
+        mock_c.reset_mock()
+        mock_genc.reset_mock()
+        mock_c_prj.reset_mock()
+        mock_j.reset_mock()
+        os.environ[constant.AIDEGEN_TEST_MODE] = 'true'
+        aidegen_main._launch_ide_by_module_contents(args, None, test_j, test_c)
+        self.assertFalse(mock_vs.called)
+        self.assertFalse(mock_choice.called)
+        self.assertTrue(mock_j.called)
+        self.assertFalse(mock_c.called)
+        self.assertFalse(mock_c_prj.called)
+        self.assertFalse(mock_genc.called)
+        del os.environ[constant.AIDEGEN_TEST_MODE]
+
     @mock.patch.object(aidegen_main, '_launch_ide')
     @mock.patch.object(aidegen_main, '_generate_project_files')
     @mock.patch.object(project_info.ProjectInfo, 'multi_projects_locate_source')
@@ -362,20 +391,20 @@ class AidegenMainUnittests(unittest.TestCase):
         self.assertFalse(mock_launch.called)
 
     @mock.patch.object(aidegen_main, '_launch_ide')
-    @mock.patch.object(vscode_java_project_file_gen.JavaProjectGen,
+    @mock.patch.object(vscode_workspace_file_gen,
                        'generate_code_workspace_file')
     @mock.patch.object(common_util, 'get_related_paths')
     def test_launch_vscode_without_ide_object(
-            self, mock_get_rel, mock_gen_code, mock_get_ide):
+            self, mock_get_rel, mock_gen_code, mock_launch_ide):
         """Test _launch_vscode function without ide object."""
         mock_get_rel.return_value = 'rel', 'abs'
         aidegen_main._launch_vscode(None, mock.Mock(), ['Settings'], [])
         self.assertTrue(mock_get_rel.called)
         self.assertTrue(mock_gen_code.called)
-        self.assertFalse(mock_get_ide.called)
+        self.assertFalse(mock_launch_ide.called)
 
     @mock.patch.object(aidegen_main, '_launch_ide')
-    @mock.patch.object(vscode_java_project_file_gen.JavaProjectGen,
+    @mock.patch.object(vscode_workspace_file_gen,
                        'generate_code_workspace_file')
     @mock.patch.object(common_util, 'get_related_paths')
     def test_launch_vscode_with_ide_object(
@@ -389,7 +418,7 @@ class AidegenMainUnittests(unittest.TestCase):
 
     @mock.patch.object(aidegen_main, '_launch_vscode')
     @mock.patch.object(aidegen_main, '_launch_ide')
-    @mock.patch.object(vscode_java_project_file_gen.JavaProjectGen,
+    @mock.patch.object(vscode_workspace_file_gen,
                        'generate_code_workspace_file')
     @mock.patch.object(common_util, 'get_related_paths')
     def test_launch_vscode_with_both_languages(
