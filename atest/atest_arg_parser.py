@@ -297,6 +297,10 @@ OPTIONS
         -a, --all-abi
             {ALL_ABI}
 
+            If only need to run tests for a specific abi, please use:
+                atest <test> -- --abi arm64-v8a   # ARM 64-bit
+                atest <test> -- --abi armeabi-v7a # ARM 32-bit
+
         -b, --build:
             {BUILD} (default)
 
