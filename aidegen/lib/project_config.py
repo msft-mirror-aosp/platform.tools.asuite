@@ -88,7 +88,10 @@ class ProjectConfig():
     def init_environment(self):
         """Initialize the environment settings for the whole project."""
         self._show_skip_build_msg()
-        self.atest_module_info = common_util.get_atest_module_info(self.targets)
+        # TODO(b/157236303): Avoid CLion IDE case for now, we should avoid
+        # Android Studio's native project's case in the future.
+        targets = self.targets if self.ide_name != constant.IDE_CLION else None
+        self.atest_module_info = common_util.get_atest_module_info(targets)
         self.exclude_paths = _transform_exclusive_paths(
             self.atest_module_info, self.exclude_paths)
         self.targets = _check_whole_android_tree(self.targets, self.full_repo)
