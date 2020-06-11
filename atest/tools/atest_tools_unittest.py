@@ -26,6 +26,7 @@ import unittest
 
 from unittest import mock
 
+import constants
 import unittest_constants as uc
 
 from tools import atest_tools
@@ -105,6 +106,44 @@ class AtestToolsUnittests(unittest.TestCase):
         else:
             self.assertEqual(atest_tools.has_command(UPDATEDB), False)
             self.assertEqual(atest_tools.has_command(LOCATE), False)
+
+    def test_get_report_file(self):
+        """Test method get_report_file."""
+        report_file = '/tmp/acloud_status.json'
+
+        arg_with_equal = '-a --report-file={} --all'.format(report_file)
+        self.assertEqual(atest_tools.get_report_file('/abc', arg_with_equal),
+                         report_file)
+
+        arg_with_equal = '-b --report_file={} --ball'.format(report_file)
+        self.assertEqual(atest_tools.get_report_file('/abc', arg_with_equal),
+                         report_file)
+
+        arg_without_equal = '-c --report-file {} --call'.format(report_file)
+        self.assertEqual(atest_tools.get_report_file('/abc', arg_without_equal),
+                         report_file)
+
+        arg_without_equal = '-d --report_file {} --dall'.format(report_file)
+        self.assertEqual(atest_tools.get_report_file('/abc', arg_without_equal),
+                         report_file)
+
+        arg_without_report = '-e --build-id 1234567'
+        self.assertEqual(atest_tools.get_report_file('/tmp', arg_without_report),
+                         report_file)
+
+    def test_probe_acloud_status(self):
+        """Test method prob_acloud_status."""
+        success = os.path.join(SEARCH_ROOT, 'acloud', 'create_success.json')
+        self.assertEqual(atest_tools.probe_acloud_status(success),
+                         constants.EXIT_CODE_SUCCESS)
+
+        failure = os.path.join(SEARCH_ROOT, 'acloud', 'create_failure.json')
+        self.assertEqual(atest_tools.probe_acloud_status(failure),
+                         constants.EXIT_CODE_AVD_CREATE_FAILURE)
+
+        inexistence = os.path.join(SEARCH_ROOT, 'acloud', 'inexistence.json')
+        self.assertEqual(atest_tools.probe_acloud_status(inexistence),
+                         constants.EXIT_CODE_AVD_INVALID_ARGS)
 
 if __name__ == "__main__":
     unittest.main()
