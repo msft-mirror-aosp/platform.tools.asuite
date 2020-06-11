@@ -66,6 +66,8 @@ EXIT_CODE_TEST_NOT_FOUND = 4
 EXIT_CODE_TEST_FAILURE = 5
 EXIT_CODE_VERIFY_FAILURE = 6
 EXIT_CODE_OUTSIDE_ROOT = 7
+EXIT_CODE_AVD_CREATE_FAILURE = 8
+EXIT_CODE_AVD_INVALID_ARGS = 9
 
 # Codes of specific events. These are exceptions that don't stop anything
 # but sending metrics.
@@ -233,6 +235,7 @@ PACKAGE_OUTPUT_RE = re.compile(r'(?P<java_dir>/.*/).*[.](java|kt)[:]\s*package\s
 
 ATEST_RESULT_ROOT = '/tmp/atest_result'
 LATEST_RESULT_FILE = os.path.join(ATEST_RESULT_ROOT, 'LATEST', 'test_result')
+ACLOUD_REPORT_FILE_RE = re.compile(r'.*--report[_-]file(=|\s+)(?P<report_file>[\w/.]+)')
 
 # Tests list which need vts_kernel_tests as test dependency
 REQUIRED_KERNEL_TEST_MODULES = [
