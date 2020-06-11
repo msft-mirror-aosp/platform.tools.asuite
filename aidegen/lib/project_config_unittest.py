@@ -174,6 +174,11 @@ class AidegenProjectConfigUnittests(unittest.TestCase):
         self.assertTrue(mock_get_atest.called)
         self.assertTrue(mock_trans.called)
         self.assertTrue(mock_check_whole.called)
+        mock_get_atest.mock_reset()
+        args = aidegen_main._parse_args(['-i', 'c'])
+        config = project_config.ProjectConfig(args)
+        config.init_environment()
+        mock_get_atest.assert_called_with(None)
 
     @mock.patch('builtins.print')
     def test_show_skip_build_msg_with_skip(self, mock_print):
