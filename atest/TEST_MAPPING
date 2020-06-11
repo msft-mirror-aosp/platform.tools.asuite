@@ -9,7 +9,7 @@
     },
     {
       // Host side ATest-py3 unittests.
-      "name": "atest-py3_unittests",
+      "name": "atest_unittests",
       "host": true
     },
     {
