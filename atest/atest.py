@@ -52,7 +52,7 @@ from metrics import metrics
 from metrics import metrics_base
 from metrics import metrics_utils
 from test_runners import regression_test_runner
-from tools import atest_tools
+from tools import atest_tools as at
 
 EXPECTED_VARS = frozenset([
     constants.ANDROID_BUILD_TOP,
@@ -71,7 +71,8 @@ TEST_COUNT = 'test_count'
 TEST_TYPE = 'test_type'
 # Tasks that must run in the build time but unable to build by soong.
 # (e.g subprocesses that invoke host commands.)
-INDEX_TARGETS = atest_tools.index_targets
+ACLOUD_CREATE = at.acloud_create
+INDEX_TARGETS = at.index_targets
 
 
 def _run_multi_proc(func, *args, **kwargs):
@@ -634,6 +635,35 @@ def _dry_run_validator(args, results_dir, extra_args, test_infos):
                                            dry_run_cmds)
     sys.exit(constants.EXIT_CODE_SUCCESS)
 
+def acloud_create_validator(results_dir, args):
+    """Check lunch'd target before running 'acloud create'.
+
+    Args:
+        results_dir: A string of the results directory.
+        args: A list of arguments.
+
+    Returns:
+        If the target is valid:
+            A tuple of (multiprocessing.Process, string of report file path)
+        else:
+            None, None
+    """
+    if not args.acloud_create:
+        return None, None
+
+    target = os.getenv('TARGET_PRODUCT', "")
+    if args.acloud_create and 'cf_x86' in target:
+        report_file = at.get_report_file(results_dir, args.acloud_create)
+        acloud_proc = _run_multi_proc(
+            func=ACLOUD_CREATE,
+            args=[report_file],
+            kwargs={'args':args.acloud_create,
+                    'no_metrics_notice':args.no_metrics})
+        return acloud_proc, report_file
+    atest_utils.colorful_print(
+        '{} is not cf_x86 family; will not create any AVD.'.format(target),
+        constants.RED)
+    return None, None
 
 # pylint: disable=too-many-statements
 # pylint: disable=too-many-branches
@@ -659,6 +689,7 @@ def main(argv, results_dir, args):
         cwd=os.getcwd(),
         os=os_pyver)
     _non_action_validator(args)
+    proc_acloud, report_file = acloud_create_validator(results_dir, args)
     mod_info = module_info.ModuleInfo(force_build=args.rebuild_module_info)
     if args.rebuild_module_info:
         proc_idx = _run_multi_proc(INDEX_TARGETS)
@@ -709,6 +740,11 @@ def main(argv, results_dir, args):
             targets=build_targets)
         if not success:
             return constants.EXIT_CODE_BUILD_FAILURE
+        if proc_acloud:
+            proc_acloud.join()
+            status = at.probe_acloud_status(report_file)
+            if status != 0:
+                return status
     elif constants.TEST_STEP not in steps:
         logging.warning('Install step without test step currently not '
                         'supported, installing AND testing instead.')
