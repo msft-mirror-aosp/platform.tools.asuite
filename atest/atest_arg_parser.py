@@ -158,7 +158,7 @@ class AtestArgParser(argparse.ArgumentParser):
         self.add_argument('-V', '--version', action='store_true', help=VERSION)
 
         # Options that to do with acloud/AVDs.
-        self.add_argument('--acloud-create', nargs='?', type=str,
+        self.add_argument('--acloud-create', nargs=argparse.REMAINDER, type=str,
                           help=ACLOUD_CREATE)
         # Obsolete options that will be removed soon.
         self.add_argument('--generate-baseline', nargs='?',
@@ -628,7 +628,10 @@ EXAMPLES
         atest <test> --acloud-create "--build-id 6509363 --build-target aosp_cf_x86_phone-userdebug"
 
     To know detail about the argument, please run 'acloud create --help'.
-    [WARNING] This argument is designed for infrastructure(e.g. TreeTop), the test does not guarantee to run on the device created by acloud.
+
+    [WARNING]
+    * --acloud-create must be the LAST optional argument: the remainder args will be consumed as its positional args.
+    * --acloud-create does not delete newly created AVDs. The users will be deleting them manually.
 
 
     - - - - - - - - - - - - - - - -
