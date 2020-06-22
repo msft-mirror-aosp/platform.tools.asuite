@@ -372,6 +372,8 @@ class ModuleFinder(test_finder_base.TestFinderBase):
         """
         class_name, methods = test_finder_utils.split_methods(class_name)
         test_config = self._get_module_test_config(module_name)
+        if not test_config:
+            return None
         test_config_path = os.path.join(self.root_dir, test_config)
         mod_info = self.module_info.get_module_info(module_name)
         ti_filter = frozenset(
@@ -407,18 +409,24 @@ class ModuleFinder(test_finder_base.TestFinderBase):
             A list of populated TestInfo namedtuple if test found, else None.
         """
         class_name, methods = test_finder_utils.split_methods(class_name)
+        search_class_name = class_name
+        # For parameterized gtest, test class will be automerged to
+        # $(class_prefix)/$(base_class) name. Using $(base_class) for searching
+        # matched TEST_P to make sure test class is matched.
+        if '/' in search_class_name:
+            search_class_name = str(search_class_name).split('/')[-1]
         if rel_config:
             search_dir = os.path.join(self.root_dir,
                                       os.path.dirname(rel_config))
         else:
             search_dir = self.root_dir
-        test_paths = test_finder_utils.find_class_file(search_dir, class_name,
+        test_paths = test_finder_utils.find_class_file(search_dir, search_class_name,
                                                        is_native_test, methods)
         if not test_paths and rel_config:
             logging.info('Did not find class (%s) under module path (%s), '
                          'researching from repo root.', class_name, rel_config)
             test_paths = test_finder_utils.find_class_file(self.root_dir,
-                                                           class_name,
+                                                           search_class_name,
                                                            is_native_test,
                                                            methods)
         if not test_paths:
