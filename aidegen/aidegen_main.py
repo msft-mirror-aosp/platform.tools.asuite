@@ -131,11 +131,9 @@ def _parse_args(args):
     parser.add_argument(
         '-i',
         '--ide',
-        default=['j'],
-        # TODO(b/152571688): Show VSCode in help's Launch IDE type section at
-        # least until one of the launching native or Java features is ready.
+        default=['u'],
         help=('Launch IDE type, j: IntelliJ, s: Android Studio, e: Eclipse, '
-              'c: CLion.'))
+              'c: CLion, v: VS Code. The default value is \'u\': undefined.'))
     parser.add_argument(
         '-p',
         '--ide-path',
@@ -173,6 +171,12 @@ def _parse_args(args):
         '--version',
         action='store_true',
         help='Print aidegen version string.')
+    parser.add_argument(
+        '-l',
+        '--language',
+        default=['u'],
+        help=('Launch IDE with a specific language, j: Java, c: C/C++. The '
+              'default value is \'u\': undefined.'))
     return parser.parse_args(args)
 
 
@@ -220,12 +224,12 @@ def _launch_ide(ide_util_obj, project_absolute_path):
 
 
 def _launch_native_projects(ide_util_obj, args, cmakelists):
-    """Launches native projects with IDE.
+    """Launches C/C++ projects with IDE.
 
     AIDEGen provides the IDE argument for CLion, but there's still a implicit
     way to launch it. The rules to launch it are:
-    1. If no target IDE, we don't have to launch any IDE for native project.
-    2. If the target IDE is IntelliJ or Eclipse, we should launch native
+    1. If no target IDE, we don't have to launch any IDE for C/C++ project.
+    2. If the target IDE is IntelliJ or Eclipse, we should launch C/C++
        projects with CLion.
 
     Args:
@@ -280,21 +284,31 @@ def _get_preferred_ide_from_user(all_choices):
     return all_choices[int(input_data) - 1]
 
 
-# TODO(b/150578306): Refine it when new feature added.
 def _launch_ide_by_module_contents(args, ide_util_obj, jlist=None, clist=None,
                                    both=False):
     """Deals with the suitable IDE launch action.
 
-    The rules AIDEGen won't ask users to choose one of the languages are:
-    1. Users set CLion as IDE: CLion only supports C/C++.
-    2. Test mode is true: if AIDEGEN_TEST_MODE is true the default language is
-       Java.
+    The rules of AIDEGen launching IDE with languages are:
+      1. aidegen frameworks/base
+         aidegen frameworks/base -l j
+         launch Java projects of frameworks/base in IntelliJ.
+      2. aidegen frameworks/base -i c
+         aidegen frameworks/base -l c
+         launch C/C++ projects of frameworks/base in CLion.
+      3. aidegen frameworks/base -i s
+         launch Java projects of frameworks/base in Android Studio.
+         aidegen frameworks/base -i s -l c
+         launch C/C++ projects of frameworks/base in Android Studio.
+      4. aidegen frameworks/base -i j -l c
+         launch Java projects of frameworks/base in IntelliJ.
+      5. aidegen frameworks/base -i c -l j
+         launch C/C++ projects of frameworks/base in CLion.
 
     Args:
         args: A list of system arguments.
         ide_util_obj: An ide_util instance.
         jlist: A list of java build targets.
-        clist: A list of native build targets.
+        clist: A list of C/C++ build targets.
         both: A boolean, True to launch both languages else False.
     """
     if both:
@@ -302,21 +316,16 @@ def _launch_ide_by_module_contents(args, ide_util_obj, jlist=None, clist=None,
                        jlist, clist)
         return
     if not jlist and not clist:
-        logging.warning('\nThere is neither java nor native module needs to be'
+        logging.warning('\nThere is neither java nor C/C++ module needs to be'
                         ' opened')
         return
-    answer = None
-    if constant.IDE_NAME_DICT[args.ide[0]] == constant.IDE_CLION:
-        answer = constant.C_CPP
-    elif common_util.to_boolean(
-            os.environ.get(constant.AIDEGEN_TEST_MODE, 'false')):
-        answer = constant.JAVA
-    if not answer and jlist and clist:
-        answer = _get_preferred_ide_from_user(_LANGUAGE_OPTIONS)
-    if (jlist and not clist) or (answer == constant.JAVA):
+
+    language, _ = common_util.determine_language_ide(
+        args.language[0], args.ide[0])
+    if (jlist and not clist) or (language == constant.JAVA):
         _create_and_launch_java_projects(ide_util_obj, jlist)
         return
-    if (clist and not jlist) or (answer == constant.C_CPP):
+    if (clist and not jlist) or (language == constant.C_CPP):
         native_project_info.NativeProjectInfo.generate_projects(clist)
         native_project_file = native_util.generate_clion_projects(clist)
         if native_project_file:
@@ -331,7 +340,7 @@ def _launch_vscode(ide_util_obj, atest_module_info, jtargets, ctargets):
         atest_module_info: A ModuleInfo instance contains the data of
                 module-info.json.
         jtargets: A list of Java project targets.
-        ctargets: A list of native project targets.
+        ctargets: A list of C/C++ project targets.
     """
     abs_paths = []
     for target in jtargets:
@@ -443,7 +452,7 @@ def aidegen_main(args):
          use ProjectConfig.get_instance() inside the function.
       3. Setup project_info.ProjectInfo.modules_info by instantiate
          AidegenModuleInfo.
-      4. Check if projects contain native projects and launch related IDE.
+      4. Check if projects contain C/C++ projects and launch related IDE.
 
     Args:
         args: A list of system arguments.
@@ -452,13 +461,14 @@ def aidegen_main(args):
     config.init_environment()
     targets = config.targets
     # Called ide_util for pre-check the IDE existence state.
-    ide_util_obj = ide_util.get_ide_util_instance(args.ide[0])
+    _, ide = common_util.determine_language_ide(args.language[0], args.ide[0])
+    ide_util_obj = ide_util.get_ide_util_instance(constant.IDE_DICT[ide])
     project_info.ProjectInfo.modules_info = module_info.AidegenModuleInfo()
     cc_module_info = native_module_info.NativeModuleInfo()
     jtargets, ctargets = native_util.get_native_and_java_projects(
         project_info.ProjectInfo.modules_info, cc_module_info, targets)
     both = config.ide_name == constant.IDE_VSCODE
-    # Backward compatible strategy, when both java and native module exist,
+    # Backward compatible strategy, when both java and C/C++ module exist,
     # check the preferred target from the user and launch single one.
     _launch_ide_by_module_contents(args, ide_util_obj, jtargets, ctargets, both)
 

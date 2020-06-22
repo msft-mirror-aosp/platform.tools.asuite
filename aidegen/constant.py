@@ -63,13 +63,23 @@ IDE_ECLIPSE = 'Eclipse'
 IDE_INTELLIJ = 'IntelliJ'
 IDE_ANDROID_STUDIO = 'Android Studio'
 IDE_CLION = 'CLion'
-IDE_VSCODE = 'VSCode'
+IDE_VSCODE = 'VS Code'
+IDE_UNDEFINED = 'Undefined IDE'
 IDE_NAME_DICT = {
     'j': IDE_INTELLIJ,
     's': IDE_ANDROID_STUDIO,
     'e': IDE_ECLIPSE,
     'c': IDE_CLION,
-    'v': IDE_VSCODE
+    'v': IDE_VSCODE,
+    'u': IDE_UNDEFINED
+}
+IDE_DICT = {
+    IDE_INTELLIJ: 'j',
+    IDE_ANDROID_STUDIO: 's',
+    IDE_ECLIPSE: 'e',
+    IDE_CLION: 'c',
+    IDE_VSCODE: 'v',
+    IDE_UNDEFINED: 'u'
 }
 
 # Constants for asuite metrics.
@@ -128,6 +138,12 @@ LUNCH_TARGET = 'lunch target'
 # Constants for the languages aidegen supports.
 JAVA = 'Java'
 C_CPP = 'C/C++'
+UNDEFINED = 'undefined'
+LANGUAGE_NAME_DICT = {
+    'u': UNDEFINED,
+    'j': JAVA,
+    'c': C_CPP
+}
 
 # Constants for error message.
 INVALID_XML = 'The content of {XML_FILE} is not valid.'
