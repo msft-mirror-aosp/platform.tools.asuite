@@ -648,18 +648,18 @@ def acloud_create_validator(results_dir, args):
         else:
             None, None
     """
-    if not args.acloud_create:
+    if not any((args.acloud_create, args.start_avd)):
         return None, None
-
+    if args.start_avd:
+        args.acloud_create = ['--num=1']
+    acloud_args = ' '.join(args.acloud_create)
     target = os.getenv('TARGET_PRODUCT', "")
-    report_file = at.get_report_file(results_dir, "")
-    if args.acloud_create and 'cf_x86' in target:
-        cmd = ' '.join(args.acloud_create)
-        report_file = at.get_report_file(results_dir, cmd)
+    if 'cf_x86' in target:
+        report_file = at.get_report_file(results_dir, acloud_args)
         acloud_proc = _run_multi_proc(
             func=ACLOUD_CREATE,
             args=[report_file],
-            kwargs={'args':cmd,
+            kwargs={'args':acloud_args,
                     'no_metrics_notice':args.no_metrics})
         return acloud_proc, report_file
     atest_utils.colorful_print(
