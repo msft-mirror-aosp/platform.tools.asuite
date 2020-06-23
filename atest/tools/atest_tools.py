@@ -385,18 +385,13 @@ def acloud_create(report_file, args="", no_metrics_notice=True):
     """
     notice = constants.NO_METRICS_ARG if no_metrics_notice else ""
     match = constants.ACLOUD_REPORT_FILE_RE.match(args)
-    if match:
-        acloud_cmd = ('acloud create {ACLOUD_ARGS} '
-                      '{METRICS_NOTICE} '
-                     ).format(ACLOUD_ARGS=args,
-                              METRICS_NOTICE=notice)
-    else:
-        acloud_cmd = ('acloud create {ACLOUD_ARGS} '
-                      '--report-file={REPORT_FILE} '
-                      '{METRICS_NOTICE} '
-                      ).format(ACLOUD_ARGS=args,
-                               REPORT_FILE=report_file,
-                               METRICS_NOTICE=notice)
+    report_file_arg = '--report-file={}'.format(report_file) if not match else ""
+    acloud_cmd = ('acloud create {ACLOUD_ARGS} '
+                  '{REPORT_FILE_ARG} '
+                  '{METRICS_NOTICE} '
+                  ).format(ACLOUD_ARGS=args,
+                           REPORT_FILE_ARG=report_file_arg,
+                           METRICS_NOTICE=notice)
     au.colorful_print("\nCreating AVD via acloud...", constants.CYAN)
     logging.debug('Executing: %s', acloud_cmd)
     proc = subprocess.Popen(acloud_cmd, shell=True)
