@@ -52,6 +52,8 @@ python_binary_host {
         "asuite_lib_test/*.py",
         "proto/*_pb2.py",
         "proto/__init__.py",
+        "tools/tradefederation/core/proto/__init__.py",
+        "tools/tradefederation/core/proto/*_pb2.py",
     ],
     libs: [
         "atest_py3_proto",
@@ -98,6 +100,8 @@ python_test_host {
         "proto/*_pb2.py",
         "proto/__init__.py",
         "tools/atest_updatedb_unittest.py",
+        "tools/tradefederation/core/proto/__init__.py",
+        "tools/tradefederation/core/proto/*_pb2.py",
     ],
     libs: [
         "atest_py3_proto",
