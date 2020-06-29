@@ -153,7 +153,7 @@ class AidegenModuleInfoUtilUnittests(unittest.TestCase):
         self.assertTrue(mock_log.called)
         self.assertTrue(mock_build.called)
         self.assertFalse(mock_reuse.called)
-        self.assertTrue(mock_fail.called)
+        self.assertFalse(mock_fail.called)
 
     @mock.patch.object(module_info_util, '_show_build_failed_message')
     @mock.patch.object(module_info_util, '_show_files_reuse_message')
@@ -181,7 +181,7 @@ class AidegenModuleInfoUtilUnittests(unittest.TestCase):
         module_info_util._build_bp_info(
             mod_info, main_project=test_prj, skip_build=False)
         self.assertTrue(mock_log.called)
-        self.assertTrue(mock_reuse.called)
+        self.assertFalse(mock_reuse.called)
         self.assertFalse(mock_fail.called)
 
     @mock.patch.object(module_info_util, '_show_build_failed_message')
@@ -287,7 +287,7 @@ class AidegenModuleInfoUtilUnittests(unittest.TestCase):
         module_info_util._build_bp_info(amodule_info, unittest_constants.
                                         TEST_MODULE, False, skip)
         self.assertTrue(mock_time.called)
-        self.assertEqual(mock_build.call_count, 2)
+        self.assertEqual(mock_build.call_count, 1)
 
     @mock.patch('os.path.getmtime')
     @mock.patch('os.path.isfile')
