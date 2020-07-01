@@ -703,3 +703,59 @@ def matched_tf_error_log(content):
     if re.search(reg, content):
         return True
     return False
+
+def get_flakes(branch='',
+               target='',
+               test_name='',
+               test_module='',
+               test_method=''):
+    """Get flake information.
+
+    Args:
+        branch: A string of branch name.
+        target: A string of target.
+        test_name: A string of test suite name.
+        test_module: A string of test module.
+        test_method: A string of test method.
+
+    Returns:
+        A dictionary of flake info. None if no flakes service exists.
+    """
+    if not branch:
+        branch = constants.FLAKE_BRANCH
+    if not target:
+        target = constants.FLAKE_TARGET
+    if not test_name:
+        test_name = constants.FLAKE_TEST_NAME
+    # Currently lock the flake information from test-mapping test
+    # which only runs on cuttlefish(x86) devices.
+    # TODO: extend supporting other devices
+    if test_module:
+        test_module = 'x86 {}'.format(test_module)
+    flake_service = os.path.join(constants.FLAKE_SERVICE_PATH,
+                                 constants.FLAKE_FILE)
+    if not os.path.exists(flake_service):
+        return None
+    flake_info = {}
+    try:
+        shutil.copy2(flake_service, constants.FLAKE_TMP_PATH)
+        tmp_service = os.path.join(constants.FLAKE_TMP_PATH,
+                                   constants.FLAKE_FILE)
+        os.chmod(tmp_service, 0o0755)
+        cmd = [tmp_service, branch, target, test_name, test_module, test_method]
+        logging.debug('Executing: %s', ' '.join(cmd))
+        output = subprocess.check_output(cmd).decode()
+        percent_template = "{}:".format(constants.FLAKE_PERCENT)
+        postsubmit_template = "{}:".format(constants.FLAKE_POSTSUBMIT)
+        for line in output.splitlines():
+            if line.startswith(percent_template):
+                flake_info[constants.FLAKE_PERCENT] = line.replace(
+                    percent_template, '')
+            if line.startswith(postsubmit_template):
+                flake_info[constants.FLAKE_POSTSUBMIT] = line.replace(
+                    postsubmit_template, '')
+    # pylint: disable=broad-except
+    except Exception as e:
+        logging.debug('Exception:%s', e)
+        return None
+    return flake_info

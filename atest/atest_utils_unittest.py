@@ -443,6 +443,25 @@ class AtestUtilsUnittests(unittest.TestCase):
         self.assertEqual(False,
                          atest_utils.matched_tf_error_log(not_matched_content))
 
+    @mock.patch('os.chmod')
+    @mock.patch('shutil.copy2')
+    @mock.patch('subprocess.check_output')
+    @mock.patch('os.path.exists')
+    def test_get_flakes(self, mock_path_exists, mock_output, _cpc, _cm):
+        """Test method get_flakes."""
+        # Test par file does not exist.
+        mock_path_exists.return_value = False
+        self.assertEqual(None, atest_utils.get_flakes())
+        # Test par file exists.
+        mock_path_exists.return_value = True
+        mock_output.return_value = (b'flake_percent:0.10001\n'
+                                    b'postsubmit_flakes_per_week:12.0')
+        expected_flake_info = {'flake_percent':'0.10001',
+                               'postsubmit_flakes_per_week':'12.0'}
+        self.assertEqual(expected_flake_info,
+                         atest_utils.get_flakes())
+
+
 
 if __name__ == "__main__":
     unittest.main()

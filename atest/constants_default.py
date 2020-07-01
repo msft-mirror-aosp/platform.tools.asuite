@@ -255,3 +255,13 @@ REQUIRED_KERNEL_TEST_MODULES = [
 
 # Tradefed log file name term.
 TF_HOST_LOG = 'host_log_*'
+
+# Flake service par path
+FLAKE_SERVICE_PATH = '/foo'
+FLAKE_TMP_PATH = '/tmp'
+FLAKE_FILE = 'flakes_info.par'
+FLAKE_TARGET = 'aosp_cf_x86_phone-userdebug'
+FLAKE_BRANCH = 'aosp-master'
+FLAKE_TEST_NAME = 'suite/test-mapping-presubmit-retry_cloud-tf'
+FLAKE_PERCENT = 'flake_percent'
+FLAKE_POSTSUBMIT = 'postsubmit_flakes_per_week'
