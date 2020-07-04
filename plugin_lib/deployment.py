@@ -17,6 +17,62 @@
 """Asuite plugin deployment."""
 
 
-def install_asuite_plugin():
-    """Ask for affirmative before installing Asuite plugin."""
-    pass
+class PluginDeployment:
+    """The util class of Asuite plugin deployment.
+
+    Usage:
+        PluginDeployment.install_asuite_plugin()
+        It will start installation process.
+
+    Attributes:
+        is_internal: True if the user is a internal user.
+    """
+
+    def __init__(self):
+        """PluginDeployment initialize."""
+        self.is_internal = self._is_internal_user()
+
+    def install_asuite_plugin(self):
+        """It is the main entry function for installing Asuite plugin."""
+
+    def _ask_for_install(self):
+        """Asks the user to install the Asuite plugin."""
+
+    def _ask_for_upgrade(self):
+        """Asks the user to upgrade the Asuite plugin."""
+
+    def _copy_jars(self):
+        """Copies jars to IntelliJ plugin folders."""
+
+    def _is_plugin_installed(self):
+        """Checks if the user has installed Asuite plugin before.
+
+        Return:
+            True if the user has installed Asuite plugin.
+        """
+
+    def _is_version_up_to_date(self):
+        """Checks if all plugins' versions are up to date or not.
+
+        Return:
+            True if all plugins' versions are up to date.
+        """
+
+    def _write_selection(self):
+        """Writes the user's selection to config file."""
+
+    def _read_selection(self):
+        """Reads the user's selection from config file.
+
+        Return:
+            A string of the user's selection: yes/no/auto
+        """
+
+    @staticmethod
+    def _is_internal_user():
+        """Checks if the user is internal user or external user.
+
+        Return:
+            True if the user is a internal user.
+        """
+        return True
