@@ -88,7 +88,7 @@ class ProjectConfig():
     def init_environment(self):
         """Initialize the environment settings for the whole project."""
         self._show_skip_build_msg()
-        # TODO(b/157236303): Avoid CLion IDE case for now, we should avoid
+        # TODO(b/159078170): Avoid CLion IDE case for now, we should avoid
         # Android Studio's native project's case in the future.
         targets = self.targets if self.ide_name != constant.IDE_CLION else None
         self.atest_module_info = common_util.get_atest_module_info(targets)
