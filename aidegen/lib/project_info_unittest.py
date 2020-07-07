@@ -142,11 +142,12 @@ class ProjectInfoUnittests(unittest.TestCase):
             unittest_constants.TEST_MODULE)
 
     # pylint: disable=too-many-locals
+    @mock.patch('logging.info')
     @mock.patch.object(common_util, 'get_android_root_dir')
     @mock.patch('atest.module_info.ModuleInfo')
     @mock.patch('atest.atest_utils.build')
     def test_locate_source(self, mock_atest_utils_build, mock_module_info,
-                           mock_get_root):
+                           mock_get_root, mock_info):
         """Test locate_source handling."""
         mock_atest_utils_build.build.return_value = True
         test_root_path = os.path.join(tempfile.mkdtemp(), 'test')
@@ -174,6 +175,7 @@ class ProjectInfoUnittests(unittest.TestCase):
         result_jar = set()
         project_info_obj.locate_source()
         self.assertEqual(project_info_obj.source_path['jar_path'], result_jar)
+        self.assertTrue(mock_info.called)
 
         # Test collects source and test folders.
         result_source = set(['packages/apps/test/src/main/java'])
