@@ -704,6 +704,20 @@ def matched_tf_error_log(content):
         return True
     return False
 
+def has_valid_cert():
+    """Check whether the certificate is valid.
+
+    Returns: True if the cert is valid.
+    """
+    if not constants.CERT_STATUS_CMD:
+        return False
+    try:
+        return (not subprocess.check_call(constants.CERT_STATUS_CMD,
+                                          stdout=subprocess.DEVNULL,
+                                          stderr=subprocess.DEVNULL))
+    except subprocess.CalledProcessError:
+        return False
+
 def get_flakes(branch='',
                target='',
                test_name='',
@@ -735,6 +749,8 @@ def get_flakes(branch='',
     flake_service = os.path.join(constants.FLAKE_SERVICE_PATH,
                                  constants.FLAKE_FILE)
     if not os.path.exists(flake_service):
+        return None
+    if not has_valid_cert():
         return None
     flake_info = {}
     try:
