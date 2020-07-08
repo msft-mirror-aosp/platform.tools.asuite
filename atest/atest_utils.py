@@ -21,6 +21,7 @@ Utility functions for atest.
 
 from __future__ import print_function
 
+import fnmatch
 import hashlib
 import itertools
 import json
@@ -31,6 +32,7 @@ import re
 import shutil
 import subprocess
 import sys
+import zipfile
 
 import atest_decorator
 import atest_error
@@ -639,3 +641,121 @@ def delimiter(char, length=_DEFAULT_TERMINAL_WIDTH, prenl=0, postnl=0):
         A string of delimiter.
     """
     return prenl * '\n' + char * length + postnl * '\n'
+
+def find_files(path, file_name=constants.TEST_MAPPING):
+    """Find all files with given name under the given path.
+
+    Args:
+        path: A string of path in source.
+        file_name: The file name pattern for finding matched files.
+
+    Returns:
+        A list of paths of the files with the matching name under the given
+        path.
+    """
+    match_files = []
+    for root, _, filenames in os.walk(path):
+        for filename in fnmatch.filter(filenames, file_name):
+            match_files.append(os.path.join(root, filename))
+    return match_files
+
+def extract_zip_text(zip_path):
+    """Extract the text files content for input zip file.
+
+    Args:
+        zip_path: The file path of zip.
+
+    Returns:
+        The string in input zip file.
+    """
+    content = ''
+    try:
+        with zipfile.ZipFile(zip_path) as zip_file:
+            for filename in zip_file.namelist():
+                if os.path.isdir(filename):
+                    continue
+                # Force change line if multiple text files in zip
+                content = content + '\n'
+                # read the file
+                with zip_file.open(filename) as extract_file:
+                    for line in extract_file:
+                        if matched_tf_error_log(line.decode()):
+                            content = content + line.decode()
+    except zipfile.BadZipfile as err:
+        logging.debug('Exception raised: %s', err)
+    return content
+
+def matched_tf_error_log(content):
+    """Check if the input content matched tradefed log pattern.
+    The format will look like this.
+    05-25 17:37:04 W/XXXXXX
+    05-25 17:37:04 E/XXXXXX
+
+    Args:
+        content: Log string.
+
+    Returns:
+        True if the content matches the regular expression for tradefed error or
+        warning log.
+    """
+    reg = ('^((0[1-9])|(1[0-2]))-((0[1-9])|([12][0-9])|(3[0-1])) '
+           '(([0-1][0-9])|([2][0-3])):([0-5][0-9]):([0-5][0-9]) (E|W/)')
+    if re.search(reg, content):
+        return True
+    return False
+
+def get_flakes(branch='',
+               target='',
+               test_name='',
+               test_module='',
+               test_method=''):
+    """Get flake information.
+
+    Args:
+        branch: A string of branch name.
+        target: A string of target.
+        test_name: A string of test suite name.
+        test_module: A string of test module.
+        test_method: A string of test method.
+
+    Returns:
+        A dictionary of flake info. None if no flakes service exists.
+    """
+    if not branch:
+        branch = constants.FLAKE_BRANCH
+    if not target:
+        target = constants.FLAKE_TARGET
+    if not test_name:
+        test_name = constants.FLAKE_TEST_NAME
+    # Currently lock the flake information from test-mapping test
+    # which only runs on cuttlefish(x86) devices.
+    # TODO: extend supporting other devices
+    if test_module:
+        test_module = 'x86 {}'.format(test_module)
+    flake_service = os.path.join(constants.FLAKE_SERVICE_PATH,
+                                 constants.FLAKE_FILE)
+    if not os.path.exists(flake_service):
+        return None
+    flake_info = {}
+    try:
+        shutil.copy2(flake_service, constants.FLAKE_TMP_PATH)
+        tmp_service = os.path.join(constants.FLAKE_TMP_PATH,
+                                   constants.FLAKE_FILE)
+        os.chmod(tmp_service, 0o0755)
+        cmd = [tmp_service, branch, target, test_name, test_module, test_method]
+        logging.debug('Executing: %s', ' '.join(cmd))
+        output = subprocess.check_output(cmd).decode()
+        percent_template = "{}:".format(constants.FLAKE_PERCENT)
+        postsubmit_template = "{}:".format(constants.FLAKE_POSTSUBMIT)
+        for line in output.splitlines():
+            if line.startswith(percent_template):
+                flake_info[constants.FLAKE_PERCENT] = line.replace(
+                    percent_template, '')
+            if line.startswith(postsubmit_template):
+                flake_info[constants.FLAKE_POSTSUBMIT] = line.replace(
+                    postsubmit_template, '')
+    # pylint: disable=broad-except
+    except Exception as e:
+        logging.debug('Exception:%s', e)
+        return None
+    return flake_info

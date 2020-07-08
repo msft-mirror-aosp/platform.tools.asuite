@@ -28,6 +28,7 @@ from aidegen import unittest_constants
 from aidegen.lib import common_util
 from aidegen.lib import project_info
 from aidegen.lib import project_config
+from aidegen.lib import source_locator
 
 _MODULE_INFO = {
     'm1': {
@@ -141,11 +142,12 @@ class ProjectInfoUnittests(unittest.TestCase):
             unittest_constants.TEST_MODULE)
 
     # pylint: disable=too-many-locals
+    @mock.patch('logging.info')
     @mock.patch.object(common_util, 'get_android_root_dir')
     @mock.patch('atest.module_info.ModuleInfo')
     @mock.patch('atest.atest_utils.build')
     def test_locate_source(self, mock_atest_utils_build, mock_module_info,
-                           mock_get_root):
+                           mock_get_root, mock_info):
         """Test locate_source handling."""
         mock_atest_utils_build.build.return_value = True
         test_root_path = os.path.join(tempfile.mkdtemp(), 'test')
@@ -173,6 +175,7 @@ class ProjectInfoUnittests(unittest.TestCase):
         result_jar = set()
         project_info_obj.locate_source()
         self.assertEqual(project_info_obj.source_path['jar_path'], result_jar)
+        self.assertTrue(mock_info.called)
 
         # Test collects source and test folders.
         result_source = set(['packages/apps/test/src/main/java'])
@@ -326,6 +329,144 @@ class ProjectInfoUnittests(unittest.TestCase):
         self.assertTrue(mock_log.called)
         self.assertTrue(mock_sep.called)
         self.assertEqual(mock_build.call_count, 1)
+
+
+class MultiProjectsInfoUnittests(unittest.TestCase):
+    """Unit tests for MultiProjectsInfo class."""
+
+    @mock.patch.object(project_info.ProjectInfo, '__init__')
+    @mock.patch.object(project_info.ProjectInfo, 'get_dep_modules')
+    @mock.patch.object(project_info.ProjectInfo,
+                       '_get_robolectric_dep_module')
+    @mock.patch.object(project_info.ProjectInfo,
+                       '_get_modules_under_project_path')
+    @mock.patch.object(common_util, 'get_related_paths')
+    def test_collect_all_dep_modules(self, mock_relpath, mock_sub_modules_path,
+                                     mock_robo_module, mock_get_dep_modules,
+                                     mock_init):
+        """Test _collect_all_dep_modules."""
+        mock_init.return_value = None
+        mock_relpath.return_value = ('path/to/sub/module', '')
+        mock_sub_modules_path.return_value = 'sub_module'
+        mock_robo_module.return_value = 'robo_module'
+        expected = set(project_info._CORE_MODULES)
+        expected.update({'sub_module', 'robo_module'})
+        proj = project_info.MultiProjectsInfo(['a'])
+        proj.project_module_names = set('framework-all')
+        proj.collect_all_dep_modules()
+        self.assertTrue(mock_get_dep_modules.called_with(expected))
+
+    @mock.patch.object(logging, 'debug')
+    @mock.patch.object(source_locator, 'ModuleData')
+    @mock.patch.object(project_info.ProjectInfo, '__init__')
+    def test_gen_folder_base_dependencies(self, mock_init, mock_module_data,
+                                          mock_log):
+        """Test _gen_folder_base_dependencies."""
+        mock_init.return_value = None
+        proj = project_info.MultiProjectsInfo(['a'])
+        module = mock.Mock()
+        mock_module_data.return_value = module
+        mock_module_data.module_path = ''
+        proj.gen_folder_base_dependencies(mock_module_data)
+        self.assertTrue(mock_log.called)
+        mock_module_data.module_path = 'a/b'
+        mock_module_data.src_dirs = ['a/b/c']
+        mock_module_data.test_dirs = []
+        mock_module_data.r_java_paths = []
+        mock_module_data.srcjar_paths = []
+        mock_module_data.jar_files = []
+        mock_module_data.dep_paths = []
+        proj.gen_folder_base_dependencies(mock_module_data)
+        expected = {
+            'a/b': {
+                'src_dirs': ['a/b/c'],
+                'test_dirs': [],
+                'r_java_paths': [],
+                'srcjar_paths': [],
+                'jar_files': [],
+                'dep_paths': [],
+            }
+        }
+        self.assertEqual(proj.path_to_sources, expected)
+        mock_module_data.srcjar_paths = ['x/y.srcjar']
+        proj.gen_folder_base_dependencies(mock_module_data)
+        expected = {
+            'a/b': {
+                'src_dirs': ['a/b/c'],
+                'test_dirs': [],
+                'r_java_paths': [],
+                'srcjar_paths': ['x/y.srcjar'],
+                'jar_files': [],
+                'dep_paths': [],
+            }
+        }
+        self.assertEqual(proj.path_to_sources, expected)
+
+    @mock.patch.object(source_locator, 'ModuleData')
+    @mock.patch.object(project_info.ProjectInfo, '__init__')
+    def test_add_framework_base_path(self, mock_init, mock_module_data):
+        """Test _gen_folder_base_dependencies."""
+        mock_init.return_value = None
+        proj = project_info.MultiProjectsInfo(['a'])
+        module = mock.Mock()
+        mock_module_data.return_value = module
+        mock_module_data.module_path = 'frameworks/base'
+        mock_module_data.module_name = 'framework-other'
+        mock_module_data.src_dirs = ['a/b/c']
+        mock_module_data.test_dirs = []
+        mock_module_data.r_java_paths = []
+        mock_module_data.srcjar_paths = ['x/y.srcjar']
+        mock_module_data.jar_files = []
+        mock_module_data.dep_paths = []
+        proj.gen_folder_base_dependencies(mock_module_data)
+        expected = {
+            'frameworks/base': {
+                'dep_paths': [],
+                'jar_files': [],
+                'r_java_paths': [],
+                'src_dirs': ['a/b/c'],
+                'srcjar_paths': [],
+                'test_dirs': [],
+            }
+        }
+        self.assertDictEqual(proj.path_to_sources, expected)
+
+    @mock.patch.object(source_locator, 'ModuleData')
+    @mock.patch.object(project_info.ProjectInfo, '__init__')
+    def test_add_framework_srcjar_path(self, mock_init, mock_module_data):
+        """Test _gen_folder_base_dependencies."""
+        mock_init.return_value = None
+        proj = project_info.MultiProjectsInfo(['a'])
+        module = mock.Mock()
+        mock_module_data.return_value = module
+        mock_module_data.module_path = 'frameworks/base'
+        mock_module_data.module_name = 'framework-all'
+        mock_module_data.src_dirs = ['a/b/c']
+        mock_module_data.test_dirs = []
+        mock_module_data.r_java_paths = []
+        mock_module_data.srcjar_paths = ['x/y.srcjar']
+        mock_module_data.jar_files = []
+        mock_module_data.dep_paths = []
+        proj.gen_folder_base_dependencies(mock_module_data)
+        expected = {
+            'frameworks/base': {
+                'dep_paths': [],
+                'jar_files': [],
+                'r_java_paths': [],
+                'src_dirs': ['a/b/c'],
+                'srcjar_paths': [],
+                'test_dirs': [],
+            },
+            'frameworks/base/framework_srcjars': {
+                'dep_paths': ['frameworks/base'],
+                'jar_files': [],
+                'r_java_paths': [],
+                'src_dirs': [],
+                'srcjar_paths': ['x/y.srcjar'],
+                'test_dirs': [],
+            }
+        }
+        self.assertDictEqual(proj.path_to_sources, expected)
 
 
 if __name__ == '__main__':

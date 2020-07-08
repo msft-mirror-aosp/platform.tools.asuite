@@ -52,16 +52,17 @@ def generate_clion_projects(targets):
     """
     cc_module_info = native_module_info.NativeModuleInfo()
     parent_dir, targets = _get_merged_native_target(cc_module_info, targets)
-    module_names = []
-    for target in targets:
-        mod_info = cc_module_info.get_module_info(target)
-        clion_gen = clion_project_file_gen.CLionProjectFileGenerator(mod_info)
-        clion_gen.generate_cmakelists_file()
-        module_names.append(mod_info[constant.KEY_MODULE_NAME])
     rel_path = os.path.relpath(parent_dir, common_util.get_android_root_dir())
     # If the relative path is Android root, we won't show '.' in the path.
     if rel_path == '.':
         rel_path = ''
+    module_names = []
+    for target in targets:
+        mod_info = cc_module_info.get_module_info(target)
+        clion_gen = clion_project_file_gen.CLionProjectFileGenerator(
+            mod_info, rel_path)
+        clion_gen.generate_cmakelists_file()
+        module_names.append(mod_info[constant.KEY_MODULE_NAME])
     return clion_project_file_gen.generate_base_cmakelists_file(
         cc_module_info, rel_path, module_names)
 

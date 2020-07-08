@@ -55,11 +55,6 @@ _INTELLIJ_PROJECT_FILE_EXT = '*.iml'
 _LAUNCH_PROJECT_QUERY = (
     'There exists an IntelliJ project file: %s. Do you want '
     'to launch it (yes/No)?')
-_BUILD_BP_JSON_ENV_OFF = {
-    constant.GEN_JAVA_DEPS: 'false',
-    constant.GEN_CC_DEPS: 'false',
-    constant.GEN_COMPDB: 'false'
-}
 _BUILD_BP_JSON_ENV_ON = {
     constant.GEN_JAVA_DEPS: 'true',
     constant.GEN_CC_DEPS: 'true',
@@ -74,8 +69,7 @@ _TARGET = 'nothing'
 # pylint: disable=dangerous-default-value
 @common_util.back_to_cwd
 @common_util.time_logged
-def generate_merged_module_info(env_off=_BUILD_BP_JSON_ENV_OFF,
-                                env_on=_BUILD_BP_JSON_ENV_ON):
+def generate_merged_module_info(env_on=_BUILD_BP_JSON_ENV_ON):
     """Generate a merged dictionary.
 
     Linked functions:
@@ -84,8 +78,6 @@ def generate_merged_module_info(env_off=_BUILD_BP_JSON_ENV_OFF,
         _merge_dict(mk_dict, bp_dict)
 
     Args:
-        env_off: A dictionary of environment settings to be turned off, the
-                 default value is _BUILD_BP_JSON_ENV_OFF.
         env_on: A dictionary of environment settings to be turned on, the
                 default value is _BUILD_BP_JSON_ENV_ON.
 
@@ -99,7 +91,7 @@ def generate_merged_module_info(env_off=_BUILD_BP_JSON_ENV_OFF,
     skip_build = config.is_skip_build
     main_project = projects[0] if projects else None
     _build_bp_info(
-        module_info, main_project, verbose, skip_build, env_off, env_on)
+        module_info, main_project, verbose, skip_build, env_on)
     json_path = common_util.get_blueprint_json_path(
         constant.BLUEPRINT_JAVA_JSONFILE_NAME)
     bp_dict = common_util.get_json_dict(json_path)
@@ -107,8 +99,7 @@ def generate_merged_module_info(env_off=_BUILD_BP_JSON_ENV_OFF,
 
 
 def _build_bp_info(module_info, main_project=None, verbose=False,
-                   skip_build=False, env_off=_BUILD_BP_JSON_ENV_OFF,
-                   env_on=_BUILD_BP_JSON_ENV_ON):
+                   skip_build=False, env_on=_BUILD_BP_JSON_ENV_ON):
     """Make nothing to create module_bp_java_deps.json, module_bp_cc_deps.json.
 
     Use atest build method to build the target 'nothing' by setting env config
@@ -122,8 +113,6 @@ def _build_bp_info(module_info, main_project=None, verbose=False,
         skip_build: A boolean, if true, skip building if
                     get_blueprint_json_path(file_name) file exists, otherwise
                     build it.
-        env_off: A dictionary of environment settings to be turned off, the
-                 default value is _BUILD_BP_JSON_ENV_OFF.
         env_on: A dictionary of environment settings to be turned on, the
                 default value is _BUILD_BP_JSON_ENV_ON.
 
@@ -148,10 +137,9 @@ def _build_bp_info(module_info, main_project=None, verbose=False,
 
     logging.warning(
         '\nGenerate files:\n %s by atest build method.', files)
-    build_with_off_cmd = atest_utils.build([_TARGET], verbose, env_off)
     build_with_on_cmd = atest_utils.build([_TARGET], verbose, env_on)
 
-    if build_with_off_cmd and build_with_on_cmd:
+    if build_with_on_cmd:
         logging.info('\nGenerate blueprint json successfully.')
     else:
         if not all([_is_new_json_file_generated(

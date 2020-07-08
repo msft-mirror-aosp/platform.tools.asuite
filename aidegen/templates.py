@@ -430,3 +430,18 @@ JDK_TABLE_XML = """<application>
   </component>
 </application>
 """
+
+XML_WORKSPACE = """<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+    <component name="VcsManagerConfiguration">
+        <ignored-roots>
+{GITS}
+        </ignored-roots>
+    </component>
+</project>
+"""
+
+IGNORED_GITS = """<component name="VcsManagerConfiguration">
+    <ignored-roots>{GITS}</ignored-roots>
+  </component>
+"""

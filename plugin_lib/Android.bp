@@ -1,4 +1,4 @@
-// Copyright (C) 2018 The Android Open Source Project
+// Copyright (C) 2020 The Android Open Source Project
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -13,8 +13,8 @@
 // limitations under the License.
 
 python_defaults {
-    name: "aidegen_default",
-    pkg_path: "aidegen",
+    name: "plugin_default",
+    pkg_path: "plugin_lib",
     version: {
         py2: {
             enabled: false,
@@ -27,55 +27,26 @@ python_defaults {
     },
 }
 
-python_binary_host {
-    name: "aidegen",
-    // Make aidegen's built name to aidegen-dev
-    suffix: "-dev",
-    defaults: ["aidegen_default"],
-    main: "aidegen_main.py",
-    srcs: [
-        "**/*.py",
-    ],
-    libs: [
-        "atest_module_info",
-        "asuite_cc_client",
-    ],
-    data: [
-        ":asuite_version",
-    ],
-    dist: {
-        targets: ["droidcore"],
-    },
-}
-
 python_library_host {
-    name: "aidegen_lib",
-    defaults: ["aidegen_default"],
+    name: "asuite_plugin_lib",
+    defaults: ["plugin_default"],
     srcs: [
         "**/*.py",
     ],
     exclude_srcs: [
         "*_unittest.py",
-        "*/*_unittest.py",
-    ]
+        "**/*_unittest.py",
+    ],
 }
 
 python_test_host {
-    name: "aidegen_unittests",
-    main: "aidegen_run_unittests.py",
-    pkg_path: "aidegen",
+    name: "plugin_lib_unittests",
+    main: "plugin_run_unittests.py",
+    pkg_path: "plugin_lib",
     srcs: [
         "**/*.py",
     ],
-    data: [
-        "test_data/**/*",
-    ],
-    libs: [
-        "py-mock",
-        "atest_module_info",
-        "asuite_cc_client",
-    ],
-    test_config: "aidegen_unittests.xml",
+    test_config: "plugin_lib_unittests.xml",
     test_suites: ["general-tests"],
-    defaults: ["aidegen_default"],
+    defaults: ["plugin_default"],
 }

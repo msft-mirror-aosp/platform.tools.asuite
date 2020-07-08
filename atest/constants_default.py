@@ -66,6 +66,8 @@ EXIT_CODE_TEST_NOT_FOUND = 4
 EXIT_CODE_TEST_FAILURE = 5
 EXIT_CODE_VERIFY_FAILURE = 6
 EXIT_CODE_OUTSIDE_ROOT = 7
+EXIT_CODE_AVD_CREATE_FAILURE = 8
+EXIT_CODE_AVD_INVALID_ARGS = 9
 
 # Codes of specific events. These are exceptions that don't stop anything
 # but sending metrics.
@@ -233,6 +235,7 @@ PACKAGE_OUTPUT_RE = re.compile(r'(?P<java_dir>/.*/).*[.](java|kt)[:]\s*package\s
 
 ATEST_RESULT_ROOT = '/tmp/atest_result'
 LATEST_RESULT_FILE = os.path.join(ATEST_RESULT_ROOT, 'LATEST', 'test_result')
+ACLOUD_REPORT_FILE_RE = re.compile(r'.*--report[_-]file(=|\s+)(?P<report_file>[\w/.]+)')
 
 # Tests list which need vts_kernel_tests as test dependency
 REQUIRED_KERNEL_TEST_MODULES = [
@@ -241,5 +244,24 @@ REQUIRED_KERNEL_TEST_MODULES = [
     'vts_linux_kselftest_arm_32',
     'vts_linux_kselftest_arm_64',
     'vts_linux_kselftest_x86_32',
-    'vts_linux_kselftest_x86_64'
+    'vts_linux_kselftest_x86_64',
+    'vts_ltp_test_arm_64_lowmem',
+    'vts_ltp_test_arm_64_hwasan',
+    'vts_ltp_test_arm_64_lowmem_hwasan',
+    'vts_ltp_test_arm_lowmem',
+    'vts_ltp_test_x86_64',
+    'vts_ltp_test_x86'
 ]
+
+# Tradefed log file name term.
+TF_HOST_LOG = 'host_log_*'
+
+# Flake service par path
+FLAKE_SERVICE_PATH = '/foo'
+FLAKE_TMP_PATH = '/tmp'
+FLAKE_FILE = 'flakes_info.par'
+FLAKE_TARGET = 'aosp_cf_x86_phone-userdebug'
+FLAKE_BRANCH = 'aosp-master'
+FLAKE_TEST_NAME = 'suite/test-mapping-presubmit-retry_cloud-tf'
+FLAKE_PERCENT = 'flake_percent'
+FLAKE_POSTSUBMIT = 'postsubmit_flakes_per_week'
