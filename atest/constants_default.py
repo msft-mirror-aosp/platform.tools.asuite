@@ -265,3 +265,6 @@ FLAKE_BRANCH = 'aosp-master'
 FLAKE_TEST_NAME = 'suite/test-mapping-presubmit-retry_cloud-tf'
 FLAKE_PERCENT = 'flake_percent'
 FLAKE_POSTSUBMIT = 'postsubmit_flakes_per_week'
+
+# cert status command
+CERT_STATUS_CMD = ''

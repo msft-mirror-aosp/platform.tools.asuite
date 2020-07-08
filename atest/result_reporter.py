@@ -412,6 +412,7 @@ class ResultReporter:
             for test_name in self.failed_tests:
                 print('%s' % test_name)
 
+    # pylint: disable=too-many-locals
     def process_summary(self, name, stats):
         """Process the summary line.
 
@@ -433,12 +434,25 @@ class ResultReporter:
         """
         passed_label = 'Passed'
         failed_label = 'Failed'
+        flakes_label = ''
         ignored_label = 'Ignored'
         assumption_failed_label = 'Assumption Failed'
         error_label = ''
         host_log_content = ''
+        flakes_percent = ''
         if stats.failed > 0:
             failed_label = au.colorize(failed_label, constants.RED)
+            mod_list = name.split()
+            module = ''
+            if len(mod_list) > 1:
+                module = mod_list[1]
+            if module:
+                flakes_info = au.get_flakes(test_module=module)
+                if flakes_info is not None:
+                    flakes_label = au.colorize('Flakes Percent:',
+                                               constants.RED)
+                    flakes_percent = '{:.2f}%'.format(float(flakes_info.get(
+                        constants.FLAKE_PERCENT, '0')))
         if stats.run_errors:
             error_label = au.colorize('(Completed With ERRORS)', constants.RED)
             # Only extract host_log_content if test name is tradefed
@@ -455,7 +469,7 @@ class ResultReporter:
                         tf_log_zip)
         elif stats.failed == 0:
             passed_label = au.colorize(passed_label, constants.GREEN)
-        summary = ('%s: %s: %s, %s: %s, %s: %s, %s: %s %s %s'
+        summary = ('%s: %s: %s, %s: %s, %s: %s, %s: %s, %s %s %s %s'
                    % (name,
                       passed_label,
                       stats.passed,
@@ -465,6 +479,8 @@ class ResultReporter:
                       stats.ignored,
                       assumption_failed_label,
                       stats.assumption_failed,
+                      flakes_label,
+                      flakes_percent,
                       error_label,
                       host_log_content))
         return summary
