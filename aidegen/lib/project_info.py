@@ -368,6 +368,8 @@ class ProjectInfo:
             return
         if rebuild_targets:
             if build:
+                logging.info('\nThe batch_build_dependencies function is '
+                             'called by ProjectInfo\'s locate_source method.')
                 batch_build_dependencies(rebuild_targets)
                 self.locate_source(build=False)
             else:
