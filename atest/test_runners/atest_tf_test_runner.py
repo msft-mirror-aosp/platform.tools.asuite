@@ -67,7 +67,8 @@ class AtestTradefedTestRunner(test_runner_base.TestRunnerBase):
     # TODO(b/142630648): Enable option enable-granular-attempts
     # in sharding mode.
     _LOG_ARGS = ('--logcat-on-failure --atest-log-file-path={log_path} '
-                 '--no-enable-granular-attempts')
+                 '--no-enable-granular-attempts '
+                 '--proto-output-file={proto_path}')
     _RUN_CMD = ('{exe} {template} --template:map '
                 'test=atest {tf_customize_template} {log_args} {args}')
     _BUILD_REQ = {'tradefed-core'}
@@ -82,7 +83,8 @@ class AtestTradefedTestRunner(test_runner_base.TestRunnerBase):
         self.log_path = os.path.join(results_dir, LOG_FOLDER_NAME)
         if not os.path.exists(self.log_path):
             os.makedirs(self.log_path)
-        log_args = {'log_path': self.log_path}
+        log_args = {'log_path': self.log_path,
+                    'proto_path': os.path.join(self.results_dir, constants.ATEST_TEST_RECORD_PROTO)}
         self.run_cmd_dict = {'exe': self.EXECUTABLE,
                              'template': self._TF_TEMPLATE,
                              'tf_customize_template': '',
