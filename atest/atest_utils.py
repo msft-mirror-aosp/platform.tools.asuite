@@ -38,6 +38,11 @@ import atest_decorator
 import atest_error
 import constants
 
+# This proto related module will be auto generated in build time.
+# pylint: disable=no-name-in-module
+# pylint: disable=import-error
+from tools.tradefederation.core.proto import test_record_pb2
+
 # b/147562331 only occurs when running atest in source code. We don't encourge
 # the users to manually "pip3 install protobuf", therefore when the exception
 # occurs, we don't collect data and the tab completion is for args is silence.
@@ -775,3 +780,17 @@ def get_flakes(branch='',
         logging.debug('Exception:%s', e)
         return None
     return flake_info
+
+def read_test_record(path):
+    """A Helper to read test record proto.
+
+    Args:
+        path: The proto file path.
+
+    Returns:
+        The test_record proto instance.
+    """
+    with open(path, 'rb') as proto_file:
+        msg = test_record_pb2.TestRecord()
+        msg.ParseFromString(proto_file.read())
+    return msg
