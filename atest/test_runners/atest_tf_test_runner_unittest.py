@@ -44,7 +44,8 @@ METRICS_DIR_ARG = '--metrics-folder %s ' % METRICS_DIR
 # arguments testing.
 RUN_CMD_ARGS = '{metrics}--log-level WARN{serial}'
 LOG_ARGS = atf_tr.AtestTradefedTestRunner._LOG_ARGS.format(
-    log_path=os.path.join(TEST_INFO_DIR, atf_tr.LOG_FOLDER_NAME))
+    log_path=os.path.join(TEST_INFO_DIR, atf_tr.LOG_FOLDER_NAME),
+    proto_path=os.path.join(TEST_INFO_DIR, constants.ATEST_TEST_RECORD_PROTO))
 RUN_CMD = atf_tr.AtestTradefedTestRunner._RUN_CMD.format(
     exe=atf_tr.AtestTradefedTestRunner.EXECUTABLE,
     template=atf_tr.AtestTradefedTestRunner._TF_TEMPLATE,
