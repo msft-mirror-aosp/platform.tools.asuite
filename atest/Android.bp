@@ -55,6 +55,7 @@ python_binary_host {
     ],
     libs: [
         "atest_py3_proto",
+        "tradefed-protos-py",
     ],
     data: [
         "tools/updatedb_darwin.sh",
@@ -101,6 +102,7 @@ python_test_host {
     ],
     libs: [
         "atest_py3_proto",
+        "tradefed-protos-py",
     ],
     test_config: "atest_unittests.xml",
     test_suites: ["general-tests"],
