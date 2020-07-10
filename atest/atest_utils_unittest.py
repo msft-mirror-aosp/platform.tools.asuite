@@ -484,6 +484,15 @@ class AtestUtilsUnittests(unittest.TestCase):
             mock_call.return_value = 4
             self.assertFalse(atest_utils.has_valid_cert())
 
+    # pylint: disable=no-member
+    def test_read_test_record_proto(self):
+        """Test method read_test_record."""
+        test_record_file_path = os.path.join(unittest_constants.TEST_DATA_DIR,
+                                             "test_record.proto.testonly")
+        test_record = atest_utils.read_test_record(test_record_file_path)
+        self.assertEqual(test_record.children[0].inline_test_record.test_record_id,
+                         'x86 hello_world_test')
+
 
 if __name__ == "__main__":
     unittest.main()
