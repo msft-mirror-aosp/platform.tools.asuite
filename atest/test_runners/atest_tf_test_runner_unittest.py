@@ -252,7 +252,7 @@ class AtestTradefedTestRunnerUnittests(unittest.TestCase):
         mock_process.side_effect = ['abc', 'def', False, False]
         mock_subproc.poll.side_effect = [None, None, None, None,
                                          None, True]
-        self.tr._start_monitor(mock_server, mock_subproc, mock_reporter)
+        self.tr._start_monitor(mock_server, mock_subproc, mock_reporter, {})
         self.assertEqual(mock_process.call_count, 4)
         calls = [mock.call.accept(), mock.call.close()]
         mock_server.assert_has_calls(calls)
@@ -282,7 +282,7 @@ class AtestTradefedTestRunnerUnittests(unittest.TestCase):
         # TF exit early but have not processed data in socket buffer.
         mock_subproc.poll.side_effect = [None, None, True, True,
                                          True, True]
-        self.tr._start_monitor(mock_server, mock_subproc, mock_reporter)
+        self.tr._start_monitor(mock_server, mock_subproc, mock_reporter, {})
         self.assertEqual(mock_process.call_count, 4)
         calls = [mock.call.accept(), mock.call.close()]
         mock_server.assert_has_calls(calls)
