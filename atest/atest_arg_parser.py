@@ -81,6 +81,7 @@ VERBOSE = 'Display DEBUG level logging.'
 VERIFY_CMD_MAPPING = 'Verify the test command of input tests.'
 VERSION = 'Display version string.'
 WAIT_FOR_DEBUGGER = 'Wait for debugger prior to execution (Instrumentation tests only).'
+FLAKES_INFO = 'Test result with flakes info.'
 
 def _positive_int(value):
     """Verify value by whether or not a positive integer.
@@ -164,6 +165,10 @@ class AtestArgParser(argparse.ArgumentParser):
         agroup.add_argument('--start-avd', action='store_true',
                             help=START_AVD)
         agroup.add_argument('-s', '--serial', help=SERIAL)
+
+        # Options that to query flakes info in test result
+        self.add_argument('--flakes-info', action='store_true',
+                          help=FLAKES_INFO)
 
         # Obsolete options that will be removed soon.
         self.add_argument('--generate-baseline', nargs='?',
@@ -287,7 +292,8 @@ def print_epilog_text():
                                          VERBOSE=VERBOSE,
                                          VERSION=VERSION,
                                          VERIFY_CMD_MAPPING=VERIFY_CMD_MAPPING,
-                                         WAIT_FOR_DEBUGGER=WAIT_FOR_DEBUGGER)
+                                         WAIT_FOR_DEBUGGER=WAIT_FOR_DEBUGGER,
+                                         FLAKES_INFO=FLAKES_INFO)
     return pydoc.pager(epilog_text)
 
 
@@ -419,6 +425,11 @@ OPTIONS
 
         --acloud-create
             {ACLOUD_CREATE}
+
+
+        [ Testing With Flakes Info ]
+        --flakes-info
+            {FLAKES_INFO}
 
 
         [ Metrics ]
