@@ -194,7 +194,8 @@ def get_extra_args(args):
                 'sharding': constants.SHARDING,
                 'tf_debug': constants.TF_DEBUG,
                 'tf_template': constants.TF_TEMPLATE,
-                'user_type': constants.USER_TYPE}
+                'user_type': constants.USER_TYPE,
+                'flakes_info': constants.FLAKES_INFO}
     not_match = [k for k in arg_maps if k not in vars(args)]
     if not_match:
         raise AttributeError('%s object has no attribute %s'
