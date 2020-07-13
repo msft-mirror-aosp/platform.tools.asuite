@@ -253,6 +253,7 @@ class TFIntegrationFinder(test_finder_base.TestFinderBase):
         # create absolute path from cwd and remove symbolic links
         path = os.path.realpath(path)
         if not os.path.exists(path):
+            logging.debug('"%s": file not found!', path)
             return None
         int_dir = test_finder_utils.get_int_dir_from_path(path,
                                                           self.integration_dirs)
