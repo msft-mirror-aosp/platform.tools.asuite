@@ -171,7 +171,6 @@ class AtestTradefedTestRunner(test_runner_base.TestRunnerBase):
         """
         iterations = self._generate_iterations(extra_args)
         ret_code = constants.EXIT_CODE_SUCCESS
-        collect_only = extra_args.get(constants.COLLECT_TESTS_ONLY)
         for _ in range(iterations):
             server = self._start_socket_server()
             run_cmds = self.generate_run_commands(test_infos, extra_args,
@@ -182,21 +181,21 @@ class AtestTradefedTestRunner(test_runner_base.TestRunnerBase):
                                                     server,
                                                     subproc,
                                                     reporter,
-                                                    collect_only))
+                                                    extra_args))
             server.close()
             ret_code |= self.wait_for_subprocess(subproc)
         return ret_code
 
     # pylint: disable=too-many-branches
     # pylint: disable=too-many-locals
-    def _start_monitor(self, server, tf_subproc, reporter, collect_only=False):
+    def _start_monitor(self, server, tf_subproc, reporter, extra_args):
         """Polling and process event.
 
         Args:
             server: Socket server object.
             tf_subproc: The tradefed subprocess to poll.
             reporter: Result_Reporter object.
-            collect_only: Boolean. True if collect tests only.
+            extra_args: Dict of extra args to add to test run.
         """
         inputs = [server]
         event_handlers = {}
@@ -228,7 +227,11 @@ class AtestTradefedTestRunner(test_runner_base.TestRunnerBase):
                             event_handler = event_handlers.setdefault(
                                 socket_object, EventHandler(
                                     result_reporter.ResultReporter(
-                                        collect_only=collect_only),
+                                        collect_only=extra_args.get(
+                                            constants.COLLECT_TESTS_ONLY),
+                                        flakes_info=extra_args.get(
+                                            constants.FLAKES_INFO)),
+
                                     self.NAME))
                         recv_data = self._process_connection(data_map,
                                                              socket_object,
@@ -397,6 +400,8 @@ class AtestTradefedTestRunner(test_runner_base.TestRunnerBase):
                 args_to_append.append('--all-abi')
                 continue
             if constants.DRY_RUN == arg:
+                continue
+            if constants.FLAKES_INFO == arg:
                 continue
             if constants.INSTANT == arg:
                 args_to_append.append('--enable-parameterized-modules')
