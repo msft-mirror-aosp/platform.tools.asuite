@@ -754,8 +754,10 @@ def get_flakes(branch='',
     flake_service = os.path.join(constants.FLAKE_SERVICE_PATH,
                                  constants.FLAKE_FILE)
     if not os.path.exists(flake_service):
+        logging.debug('Get flakes: Flake service path not exist.')
         return None
     if not has_valid_cert():
+        logging.debug('Get flakes: No valid cert.')
         return None
     flake_info = {}
     try:
