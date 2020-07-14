@@ -23,6 +23,7 @@ from __future__ import print_function
 
 import fnmatch
 import hashlib
+import importlib
 import itertools
 import json
 import logging
@@ -796,3 +797,14 @@ def read_test_record(path):
         msg = test_record_pb2.TestRecord()
         msg.ParseFromString(proto_file.read())
     return msg
+
+def has_python_module(module_name):
+    """Detect if the module can be loaded without importing it in real.
+
+    Args:
+        cmd: A string of the tested module name.
+
+    Returns:
+        True if found, False otherwise.
+    """
+    return bool(importlib.util.find_spec(module_name))
