@@ -69,7 +69,7 @@ class AtestTradefedTestRunner(test_runner_base.TestRunnerBase):
     _LOG_ARGS = ('--logcat-on-failure --atest-log-file-path={log_path} '
                  '--no-enable-granular-attempts '
                  '--proto-output-file={proto_path}')
-    _RUN_CMD = ('{exe} {template} --template:map '
+    _RUN_CMD = ('{env} {exe} {template} --template:map '
                 'test=atest {tf_customize_template} {log_args} {args}')
     _BUILD_REQ = {'tradefed-core'}
     _RERUN_OPTION_GROUP = [constants.ITERATIONS,
@@ -85,13 +85,29 @@ class AtestTradefedTestRunner(test_runner_base.TestRunnerBase):
             os.makedirs(self.log_path)
         log_args = {'log_path': self.log_path,
                     'proto_path': os.path.join(self.results_dir, constants.ATEST_TEST_RECORD_PROTO)}
-        self.run_cmd_dict = {'exe': self.EXECUTABLE,
+        self.run_cmd_dict = {'env': self._get_ld_library_path(),
+                             'exe': self.EXECUTABLE,
                              'template': self._TF_TEMPLATE,
                              'tf_customize_template': '',
                              'args': '',
                              'log_args': self._LOG_ARGS.format(**log_args)}
         self.is_verbose = logging.getLogger().isEnabledFor(logging.DEBUG)
         self.root_dir = os.environ.get(constants.ANDROID_BUILD_TOP)
+
+    def _get_ld_library_path(self):
+        """Get the extra environment setup string for running TF.
+
+        Returns:
+            Strings for the environment passed to TF. Currently only
+            LD_LIBRARY_PATH for TF to load the correct local shared libraries.
+        """
+        out_dir = os.environ.get(constants.ANDROID_HOST_OUT, '')
+        lib_dirs = ['lib', 'lib64']
+        path = ''
+        for lib in lib_dirs:
+            lib_dir = os.path.join(out_dir, lib)
+            path = path + lib_dir + ':'
+        return 'LD_LIBRARY_PATH=%s' % path
 
     def _try_set_gts_authentication_key(self):
         """Set GTS authentication key if it is available or exists.
