@@ -261,7 +261,7 @@ class ResultReporter:
               'VtsTradefedTestRunner': {'Module1': RunStat(passed:4, failed:0)}}
     """
 
-    def __init__(self, silent=False, collect_only=False):
+    def __init__(self, silent=False, collect_only=False, flakes_info=False):
         """Init ResultReporter.
 
         Args:
@@ -276,6 +276,7 @@ class ResultReporter:
         self.silent = silent
         self.rerun_options = ''
         self.collect_only = collect_only
+        self.flakes_info = flakes_info
 
     def process_test_result(self, test):
         """Given the results of a single test, update stats and print results.
@@ -410,7 +411,19 @@ class ResultReporter:
         """Print the failed tests if existed."""
         if self.failed_tests:
             for test_name in self.failed_tests:
-                print('%s' % test_name)
+                failed_details = test_name
+                if self.flakes_info:
+                    flakes_method = test_name.replace('#', '.')
+                    flakes_info = au.get_flakes(test_method=flakes_method)
+                    if (flakes_info and
+                            flakes_info.get(constants.FLAKE_PERCENT, None)):
+                        failed_details += (
+                            ': flakes percent: {}%, flakes postsubmit per week:'
+                            ' {}'.format(float(flakes_info.get(
+                                constants.FLAKE_PERCENT)),
+                                         flakes_info.get(
+                                             constants.FLAKE_POSTSUBMIT, '0')))
+                print(failed_details)
 
     # pylint: disable=too-many-locals
     def process_summary(self, name, stats):
@@ -448,11 +461,12 @@ class ResultReporter:
                 module = mod_list[1]
             if module:
                 flakes_info = au.get_flakes(test_module=module)
-                if flakes_info is not None:
+                if (flakes_info and
+                        flakes_info.get(constants.FLAKE_PERCENT, None)):
                     flakes_label = au.colorize('Flakes Percent:',
                                                constants.RED)
                     flakes_percent = '{:.2f}%'.format(float(flakes_info.get(
-                        constants.FLAKE_PERCENT, '0')))
+                        constants.FLAKE_PERCENT)))
         if stats.run_errors:
             error_label = au.colorize('(Completed With ERRORS)', constants.RED)
             # Only extract host_log_content if test name is tradefed
