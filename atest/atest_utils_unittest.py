@@ -415,6 +415,11 @@ class AtestUtilsUnittests(unittest.TestCase):
         """Test method delimiter"""
         self.assertEqual('\n===\n\n', atest_utils.delimiter('=', 3, 1, 2))
 
+    def test_has_python_module(self):
+        """Test method has_python_module"""
+        self.assertFalse(atest_utils.has_python_module('M_M'))
+        self.assertTrue(atest_utils.has_python_module('os'))
+
     @mock.patch.object(atest_utils, 'matched_tf_error_log', return_value=True)
     def test_read_zip_single_text(self, _matched):
         """Test method extract_zip_text include only one text file."""
