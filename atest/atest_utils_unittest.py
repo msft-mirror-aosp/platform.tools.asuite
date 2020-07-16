@@ -415,6 +415,11 @@ class AtestUtilsUnittests(unittest.TestCase):
         """Test method delimiter"""
         self.assertEqual('\n===\n\n', atest_utils.delimiter('=', 3, 1, 2))
 
+    def test_has_python_module(self):
+        """Test method has_python_module"""
+        self.assertFalse(atest_utils.has_python_module('M_M'))
+        self.assertTrue(atest_utils.has_python_module('os'))
+
     @mock.patch.object(atest_utils, 'matched_tf_error_log', return_value=True)
     def test_read_zip_single_text(self, _matched):
         """Test method extract_zip_text include only one text file."""
@@ -445,9 +450,11 @@ class AtestUtilsUnittests(unittest.TestCase):
 
     @mock.patch('os.chmod')
     @mock.patch('shutil.copy2')
+    @mock.patch('atest_utils.has_valid_cert')
     @mock.patch('subprocess.check_output')
     @mock.patch('os.path.exists')
-    def test_get_flakes(self, mock_path_exists, mock_output, _cpc, _cm):
+    def test_get_flakes(self, mock_path_exists, mock_output, mock_valid_cert,
+                        _cpc, _cm):
         """Test method get_flakes."""
         # Test par file does not exist.
         mock_path_exists.return_value = False
@@ -456,11 +463,40 @@ class AtestUtilsUnittests(unittest.TestCase):
         mock_path_exists.return_value = True
         mock_output.return_value = (b'flake_percent:0.10001\n'
                                     b'postsubmit_flakes_per_week:12.0')
+        mock_valid_cert.return_value = True
         expected_flake_info = {'flake_percent':'0.10001',
                                'postsubmit_flakes_per_week':'12.0'}
         self.assertEqual(expected_flake_info,
                          atest_utils.get_flakes())
+        # Test no valid cert
+        mock_valid_cert.return_value = False
+        self.assertEqual(None,
+                         atest_utils.get_flakes())
 
+    @mock.patch('subprocess.check_call')
+    def test_has_valid_cert(self, mock_call):
+        """Test method has_valid_cert."""
+        # raise subprocess.CalledProcessError
+        mock_call.raiseError.side_effect = subprocess.CalledProcessError
+        self.assertFalse(atest_utils.has_valid_cert())
+        with mock.patch("constants.CERT_STATUS_CMD", ''):
+            self.assertFalse(atest_utils.has_valid_cert())
+        with mock.patch("constants.CERT_STATUS_CMD", 'CMD'):
+            # has valid cert
+            mock_call.return_value = 0
+            self.assertTrue(atest_utils.has_valid_cert())
+            # no valid cert
+            mock_call.return_value = 4
+            self.assertFalse(atest_utils.has_valid_cert())
+
+    # pylint: disable=no-member
+    def test_read_test_record_proto(self):
+        """Test method read_test_record."""
+        test_record_file_path = os.path.join(unittest_constants.TEST_DATA_DIR,
+                                             "test_record.proto.testonly")
+        test_record = atest_utils.read_test_record(test_record_file_path)
+        self.assertEqual(test_record.children[0].inline_test_record.test_record_id,
+                         'x86 hello_world_test')
 
 
 if __name__ == "__main__":

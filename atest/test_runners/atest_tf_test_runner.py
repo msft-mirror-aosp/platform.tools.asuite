@@ -67,8 +67,9 @@ class AtestTradefedTestRunner(test_runner_base.TestRunnerBase):
     # TODO(b/142630648): Enable option enable-granular-attempts
     # in sharding mode.
     _LOG_ARGS = ('--logcat-on-failure --atest-log-file-path={log_path} '
-                 '--no-enable-granular-attempts')
-    _RUN_CMD = ('{exe} {template} --template:map '
+                 '--no-enable-granular-attempts '
+                 '--proto-output-file={proto_path}')
+    _RUN_CMD = ('{env} {exe} {template} --template:map '
                 'test=atest {tf_customize_template} {log_args} {args}')
     _BUILD_REQ = {'tradefed-core'}
     _RERUN_OPTION_GROUP = [constants.ITERATIONS,
@@ -82,14 +83,31 @@ class AtestTradefedTestRunner(test_runner_base.TestRunnerBase):
         self.log_path = os.path.join(results_dir, LOG_FOLDER_NAME)
         if not os.path.exists(self.log_path):
             os.makedirs(self.log_path)
-        log_args = {'log_path': self.log_path}
-        self.run_cmd_dict = {'exe': self.EXECUTABLE,
+        log_args = {'log_path': self.log_path,
+                    'proto_path': os.path.join(self.results_dir, constants.ATEST_TEST_RECORD_PROTO)}
+        self.run_cmd_dict = {'env': self._get_ld_library_path(),
+                             'exe': self.EXECUTABLE,
                              'template': self._TF_TEMPLATE,
                              'tf_customize_template': '',
                              'args': '',
                              'log_args': self._LOG_ARGS.format(**log_args)}
         self.is_verbose = logging.getLogger().isEnabledFor(logging.DEBUG)
         self.root_dir = os.environ.get(constants.ANDROID_BUILD_TOP)
+
+    def _get_ld_library_path(self):
+        """Get the extra environment setup string for running TF.
+
+        Returns:
+            Strings for the environment passed to TF. Currently only
+            LD_LIBRARY_PATH for TF to load the correct local shared libraries.
+        """
+        out_dir = os.environ.get(constants.ANDROID_HOST_OUT, '')
+        lib_dirs = ['lib', 'lib64']
+        path = ''
+        for lib in lib_dirs:
+            lib_dir = os.path.join(out_dir, lib)
+            path = path + lib_dir + ':'
+        return 'LD_LIBRARY_PATH=%s' % path
 
     def _try_set_gts_authentication_key(self):
         """Set GTS authentication key if it is available or exists.
@@ -169,7 +187,6 @@ class AtestTradefedTestRunner(test_runner_base.TestRunnerBase):
         """
         iterations = self._generate_iterations(extra_args)
         ret_code = constants.EXIT_CODE_SUCCESS
-        collect_only = extra_args.get(constants.COLLECT_TESTS_ONLY)
         for _ in range(iterations):
             server = self._start_socket_server()
             run_cmds = self.generate_run_commands(test_infos, extra_args,
@@ -180,21 +197,21 @@ class AtestTradefedTestRunner(test_runner_base.TestRunnerBase):
                                                     server,
                                                     subproc,
                                                     reporter,
-                                                    collect_only))
+                                                    extra_args))
             server.close()
             ret_code |= self.wait_for_subprocess(subproc)
         return ret_code
 
     # pylint: disable=too-many-branches
     # pylint: disable=too-many-locals
-    def _start_monitor(self, server, tf_subproc, reporter, collect_only=False):
+    def _start_monitor(self, server, tf_subproc, reporter, extra_args):
         """Polling and process event.
 
         Args:
             server: Socket server object.
             tf_subproc: The tradefed subprocess to poll.
             reporter: Result_Reporter object.
-            collect_only: Boolean. True if collect tests only.
+            extra_args: Dict of extra args to add to test run.
         """
         inputs = [server]
         event_handlers = {}
@@ -226,7 +243,11 @@ class AtestTradefedTestRunner(test_runner_base.TestRunnerBase):
                             event_handler = event_handlers.setdefault(
                                 socket_object, EventHandler(
                                     result_reporter.ResultReporter(
-                                        collect_only=collect_only),
+                                        collect_only=extra_args.get(
+                                            constants.COLLECT_TESTS_ONLY),
+                                        flakes_info=extra_args.get(
+                                            constants.FLAKES_INFO)),
+
                                     self.NAME))
                         recv_data = self._process_connection(data_map,
                                                              socket_object,
@@ -395,6 +416,8 @@ class AtestTradefedTestRunner(test_runner_base.TestRunnerBase):
                 args_to_append.append('--all-abi')
                 continue
             if constants.DRY_RUN == arg:
+                continue
+            if constants.FLAKES_INFO == arg:
                 continue
             if constants.INSTANT == arg:
                 args_to_append.append('--enable-parameterized-modules')

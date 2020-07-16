@@ -56,6 +56,7 @@ RETRY_ANY_FAILURE = 'RETRY_ANY_FAILURE'
 TF_DEBUG = 'TF_DEBUG'
 COLLECT_TESTS_ONLY = 'COLLECT_TESTS_ONLY'
 TF_TEMPLATE = 'TF_TEMPLATE'
+FLAKES_INFO = 'FLAKES_INFO'
 
 # Application exit codes.
 EXIT_CODE_SUCCESS = 0
@@ -234,6 +235,7 @@ PACKAGE_OUTPUT_RE = re.compile(r'(?P<java_dir>/.*/).*[.](java|kt)[:]\s*package\s
                                r'(?P<package>[^(;|\s)]+)\s*')
 
 ATEST_RESULT_ROOT = '/tmp/atest_result'
+ATEST_TEST_RECORD_PROTO = 'test_record.proto'
 LATEST_RESULT_FILE = os.path.join(ATEST_RESULT_ROOT, 'LATEST', 'test_result')
 ACLOUD_REPORT_FILE_RE = re.compile(r'.*--report[_-]file(=|\s+)(?P<report_file>[\w/.]+)')
 
@@ -265,3 +267,6 @@ FLAKE_BRANCH = 'aosp-master'
 FLAKE_TEST_NAME = 'suite/test-mapping-presubmit-retry_cloud-tf'
 FLAKE_PERCENT = 'flake_percent'
 FLAKE_POSTSUBMIT = 'postsubmit_flakes_per_week'
+
+# cert status command
+CERT_STATUS_CMD = ''

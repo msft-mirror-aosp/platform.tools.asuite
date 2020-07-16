@@ -23,6 +23,7 @@ from __future__ import print_function
 
 import fnmatch
 import hashlib
+import importlib
 import itertools
 import json
 import logging
@@ -37,6 +38,11 @@ import zipfile
 import atest_decorator
 import atest_error
 import constants
+
+# This proto related module will be auto generated in build time.
+# pylint: disable=no-name-in-module
+# pylint: disable=import-error
+from tools.tradefederation.core.proto import test_record_pb2
 
 # b/147562331 only occurs when running atest in source code. We don't encourge
 # the users to manually "pip3 install protobuf", therefore when the exception
@@ -704,6 +710,20 @@ def matched_tf_error_log(content):
         return True
     return False
 
+def has_valid_cert():
+    """Check whether the certificate is valid.
+
+    Returns: True if the cert is valid.
+    """
+    if not constants.CERT_STATUS_CMD:
+        return False
+    try:
+        return (not subprocess.check_call(constants.CERT_STATUS_CMD,
+                                          stdout=subprocess.DEVNULL,
+                                          stderr=subprocess.DEVNULL))
+    except subprocess.CalledProcessError:
+        return False
+
 def get_flakes(branch='',
                target='',
                test_name='',
@@ -735,6 +755,10 @@ def get_flakes(branch='',
     flake_service = os.path.join(constants.FLAKE_SERVICE_PATH,
                                  constants.FLAKE_FILE)
     if not os.path.exists(flake_service):
+        logging.debug('Get flakes: Flake service path not exist.')
+        return None
+    if not has_valid_cert():
+        logging.debug('Get flakes: No valid cert.')
         return None
     flake_info = {}
     try:
@@ -759,3 +783,28 @@ def get_flakes(branch='',
         logging.debug('Exception:%s', e)
         return None
     return flake_info
+
+def read_test_record(path):
+    """A Helper to read test record proto.
+
+    Args:
+        path: The proto file path.
+
+    Returns:
+        The test_record proto instance.
+    """
+    with open(path, 'rb') as proto_file:
+        msg = test_record_pb2.TestRecord()
+        msg.ParseFromString(proto_file.read())
+    return msg
+
+def has_python_module(module_name):
+    """Detect if the module can be loaded without importing it in real.
+
+    Args:
+        cmd: A string of the tested module name.
+
+    Returns:
+        True if found, False otherwise.
+    """
+    return bool(importlib.util.find_spec(module_name))

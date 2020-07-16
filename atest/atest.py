@@ -194,7 +194,8 @@ def get_extra_args(args):
                 'sharding': constants.SHARDING,
                 'tf_debug': constants.TF_DEBUG,
                 'tf_template': constants.TF_TEMPLATE,
-                'user_type': constants.USER_TYPE}
+                'user_type': constants.USER_TYPE,
+                'flakes_info': constants.FLAKES_INFO}
     not_match = [k for k in arg_maps if k not in vars(args)]
     if not_match:
         raise AttributeError('%s object has no attribute %s'
@@ -619,6 +620,8 @@ def _dry_run_validator(args, results_dir, extra_args, test_infos):
         result_dir: A string path of the results dir.
         extra_args: A dict of extra args for test runners to utilize.
         test_infos: A list of test_info.
+    Returns:
+        Exit code.
     """
     args.tests.sort()
     dry_run_cmds = _dry_run(results_dir, extra_args, test_infos)
@@ -633,7 +636,7 @@ def _dry_run_validator(args, results_dir, extra_args, test_infos):
     if args.update_cmd_mapping:
         atest_utils.handle_test_runner_cmd(' '.join(args.tests),
                                            dry_run_cmds)
-    sys.exit(constants.EXIT_CODE_SUCCESS)
+    return constants.EXIT_CODE_SUCCESS
 
 def acloud_create_validator(results_dir, args):
     """Check lunch'd target before running 'acloud create'.
@@ -720,7 +723,7 @@ def main(argv, results_dir, args):
                                                               test_infos)
     extra_args = get_extra_args(args)
     if any((args.update_cmd_mapping, args.verify_cmd_mapping, args.dry_run)):
-        _dry_run_validator(args, results_dir, extra_args, test_infos)
+        return _dry_run_validator(args, results_dir, extra_args, test_infos)
     if args.detect_regression:
         build_targets |= (regression_test_runner.RegressionTestRunner('')
                           .get_test_runner_build_reqs())

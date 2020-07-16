@@ -391,7 +391,7 @@ class IdeUtilUnittests(unittest.TestCase):
         # Test _get_ide_cmd.
         ide_base._installed_path = '/a/b'
         ide_base.project_abspath = '/x/y'
-        expected_result = 'nohup /a/b /x/y 2>/dev/null >&2'
+        expected_result = 'nohup /a/b /x/y 2>/dev/null >&2 &'
         self.assertEqual(ide_base._get_ide_cmd(), expected_result)
 
         # Test launch_ide.
@@ -618,7 +618,7 @@ class IdeUtilUnittests(unittest.TestCase):
         mock_exists.return_value = True
         expacted_result = ('eclipse -data '
                            '~/Documents/AIDEGen_Eclipse_workspace '
-                           '2>/dev/null >&2')
+                           '2>/dev/null >&2 &')
         test_result = eclipse._get_ide_cmd()
         self.assertEqual(test_result, expacted_result)
 
@@ -626,7 +626,7 @@ class IdeUtilUnittests(unittest.TestCase):
         eclipse.cmd = ['eclipse']
         mock_exists.return_value = False
         mock_input.return_value = 'n'
-        expacted_result = 'eclipse 2>/dev/null >&2'
+        expacted_result = 'eclipse 2>/dev/null >&2 &'
         test_result = eclipse._get_ide_cmd()
         self.assertEqual(test_result, expacted_result)
 
