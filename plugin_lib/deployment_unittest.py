@@ -15,13 +15,26 @@
 # limitations under the License.
 
 """Unittests for deployment."""
-
+import subprocess
 import unittest
+from unittest import mock
+
+from deployment import PluginDeployment
 
 
+# pylint: disable=protected-access
 class DeploymentUnittests(unittest.TestCase):
     """Unit tests for deployment.py."""
 
-    def test_install_asuite_plugin(self):
-        """Test install_asuite_plugin."""
-        pass
+    @mock.patch('builtins.input')
+    def test_ask_for_install(self, mock_input):
+        """Test _ask_for_install."""
+        mock_input.return_value = 'y'
+        PluginDeployment()._ask_for_install()
+        self.assertTrue(mock_input.call)
+
+    @mock.patch.object(subprocess, 'check_call')
+    def test_build_jars(self, mock_check_call):
+        """Test _build_jars."""
+        PluginDeployment()._build_jars()
+        self.assertTrue(mock_check_call.call)
