@@ -677,7 +677,6 @@ def _compare_sample_native_content():
         becomes
         prebuilts/gcc/linux-x86/x86/x86_64-linux-android-4.9 # in AIDEGen
     """
-    env_off = {'SOONG_COLLECT_JAVA_DEPS': 'false'}
     target_arch_variant = 'x86_64'
     env_on = {
         'TARGET_PRODUCT': 'aosp_x86_64',
@@ -685,14 +684,13 @@ def _compare_sample_native_content():
         'TARGET_ARCH_VARIANT': target_arch_variant,
         'SOONG_COLLECT_JAVA_DEPS': 'true',
         'SOONG_GEN_CMAKEFILES': '1',
-        'SOONG_GEN_CMAKEFILES_DEBUG': '0',
         'SOONG_COLLECT_CC_DEPS': '1'
     }
 
     try:
         project_config.ProjectConfig(
             aidegen_main._parse_args(['-n', '-v'])).init_environment()
-        module_info_util.generate_merged_module_info(env_off, env_on)
+        module_info_util.generate_merged_module_info(env_on)
         cc_path = os.path.join(common_util.get_soong_out_path(),
                                constant.BLUEPRINT_CC_JSONFILE_NAME)
         mod_name = 'libui'
