@@ -60,6 +60,20 @@ python_library_host {
     ]
 }
 
+python_library_host {
+    name: "aidegen_lib_common_util",
+    defaults: ["aidegen_default"],
+    srcs: [
+        "lib/common_util.py",
+        "lib/errors.py",
+        "constant.py",
+    ],
+    exclude_srcs: [
+        "*_unittest.py",
+        "*/*_unittest.py",
+    ]
+}
+
 python_test_host {
     name: "aidegen_unittests",
     main: "aidegen_run_unittests.py",
