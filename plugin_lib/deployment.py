@@ -15,6 +15,26 @@
 # limitations under the License.
 
 """Asuite plugin deployment."""
+import os
+import subprocess
+
+from aidegen.lib import common_util
+
+_ASK_INSTALL_PLUGIN = """\nAsuite plugin is a new tool with following features:
+    -Atest UI widget. For more information: go/atest_plugin
+    -Code search integration. For more information and locate build module: go/android-platform-plugin
+Would you like to install the Asuite plugin? (Yes/No/Auto)"""
+_ASK_UPGRADE_PLUGIN = ('\nAsuite plugin has a new version. Would you like to '
+                       'upgrade Asuite plugin? (Yes/No/Auto)')
+_YES_RESPONSE = 'Thank you, Asuit plugin will be installed in IntelliJ.'
+_NO_RESPONSE = ('Thank you, if you want to install Asuite plugin, please use '
+                'aidegen --plugin.')
+_AUTO_RESPONSE = ('Thank you, Asuit plugin will be installed in IntelliJ, and '
+                  'automatically updated to the newest version.')
+_THANKS_UPGRADE = 'Thank you for upgrading the Asuite plugin.'
+_NO_NEED_UPGRADE = 'Awesome! You have the newest Asuite plugin.'
+_SELECTION_ITEM = {'yes': 'yes', 'no': 'no', 'auto': 'auto', 'y': 'yes',
+                   'n': 'no', 'a': 'auto'}
 
 
 class PluginDeployment:
@@ -37,12 +57,33 @@ class PluginDeployment:
 
     def _ask_for_install(self):
         """Asks the user to install the Asuite plugin."""
+        input_data = input(_ASK_INSTALL_PLUGIN)
+        while input_data.lower() not in _SELECTION_ITEM.keys():
+            input_data = input(_ASK_INSTALL_PLUGIN)
+        choice = _SELECTION_ITEM.get(input_data)
+        self._write_selection(choice)
+        if choice == 'no':
+            print(_NO_RESPONSE)
+        else:
+            self._copy_jars()
+            if choice == 'yes':
+                print(_YES_RESPONSE)
+            else:
+                print(_AUTO_RESPONSE)
 
     def _ask_for_upgrade(self):
         """Asks the user to upgrade the Asuite plugin."""
 
     def _copy_jars(self):
         """Copies jars to IntelliJ plugin folders."""
+
+    def _build_jars(self):
+        """builds jars to IntelliJ plugin folders."""
+        asuite_plugin_path = os.path.join(common_util.get_android_root_dir(),
+                                          'tools/asuite/asuite_plugin/')
+        asuite_plugin_gradle_path = os.path.join(asuite_plugin_path, 'gradlew')
+        cmd = [asuite_plugin_gradle_path, 'build']
+        subprocess.check_call(cmd, cwd=asuite_plugin_path)
 
     def _is_plugin_installed(self):
         """Checks if the user has installed Asuite plugin before.
@@ -58,14 +99,18 @@ class PluginDeployment:
             True if all plugins' versions are up to date.
         """
 
-    def _write_selection(self):
-        """Writes the user's selection to config file."""
+    def _write_selection(self, selection):
+        """Writes the user's selection to config file.
+
+        Args:
+            selection: A string of the user's selection: yes/no/auto.
+        """
 
     def _read_selection(self):
         """Reads the user's selection from config file.
 
         Return:
-            A string of the user's selection: yes/no/auto
+            A string of the user's selection: yes/no/auto.
         """
 
     @staticmethod
