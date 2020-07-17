@@ -39,6 +39,7 @@ python_binary_host {
     libs: [
         "atest_module_info",
         "asuite_cc_client",
+        "asuite_plugin_lib",
     ],
     data: [
         ":asuite_version",
@@ -65,8 +66,10 @@ python_library_host {
     defaults: ["aidegen_default"],
     srcs: [
         "lib/common_util.py",
+        "lib/config.py",
         "lib/errors.py",
         "constant.py",
+        "templates.py"
     ],
     exclude_srcs: [
         "*_unittest.py",
