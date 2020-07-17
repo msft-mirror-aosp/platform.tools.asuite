@@ -35,6 +35,7 @@ ASUITE_PLUGIN_PATH = "tools/asuite/asuite_plugin"
 ATEST_CMD = "echo {}/tools/asuite/atest/atest_run_unittests.py".format(
     os.getenv('ANDROID_BUILD_TOP'))
 AIDEGEN_CMD = "atest aidegen_unittests --host"
+PLUGIN_LIB_CMD = "atest plugin_lib_unittests --host"
 GRADLE_TEST = "/gradlew test"
 
 
@@ -50,9 +51,11 @@ def run_unittests(files):
     cmd_dict = {}
     for f in files:
         if 'atest' in f:
-            cmd_dict.update({ATEST_CMD : None})
+            cmd_dict.update({ATEST_CMD: None})
         if 'aidegen' in f:
-            cmd_dict.update({AIDEGEN_CMD : None})
+            cmd_dict.update({AIDEGEN_CMD: None})
+        if 'plugin_lib' in f:
+            cmd_dict.update({PLUGIN_LIB_CMD: None})
         if 'asuite_plugin' in f:
             full_path = os.path.join(
                 os.getenv('ANDROID_BUILD_TOP'), ASUITE_PLUGIN_PATH)
