@@ -174,8 +174,11 @@ USER_FROM_TOOL = 'USER_FROM_TOOL'
 TF_PREPARATION = 'tf-preparation'
 
 # Detect type for local_detect_event.
-# Next expansion : DETECT_TYPE_XXX = 1
+# Next expansion : DETECT_TYPE_XXX = 3
 DETECT_TYPE_BUG_DETECTED = 0
+DETECT_TYPE_ACLOUD_CREATE = 1
+DETECT_TYPE_FIND_BUILD = 2
+
 # Considering a trade-off between speed and size, we set UPPER_LIMIT to 100000
 # to make maximum file space 10M(100000(records)*100(byte/record)) at most.
 # Therefore, to update history file will spend 1 sec at most in each run.
