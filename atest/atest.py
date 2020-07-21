@@ -647,28 +647,31 @@ def acloud_create_validator(results_dir, args):
 
     Returns:
         If the target is valid:
-            A tuple of (multiprocessing.Process, string of report file path)
+            A tuple of (multiprocessing.Process,
+                        string of report file path,
+                        start time of acloud_create)
         else:
-            None, None
+            None, None, None
     """
     if not any((args.acloud_create, args.start_avd)):
-        return None, None
+        return None, None, None
     if args.start_avd:
         args.acloud_create = ['--num=1']
     acloud_args = ' '.join(args.acloud_create)
     target = os.getenv('TARGET_PRODUCT', "")
     if 'cf_x86' in target:
+        start = time.time()
         report_file = at.get_report_file(results_dir, acloud_args)
         acloud_proc = _run_multi_proc(
             func=ACLOUD_CREATE,
             args=[report_file],
             kwargs={'args':acloud_args,
                     'no_metrics_notice':args.no_metrics})
-        return acloud_proc, report_file
+        return acloud_proc, report_file, start
     atest_utils.colorful_print(
         '{} is not cf_x86 family; will not create any AVD.'.format(target),
         constants.RED)
-    return None, None
+    return None, None, None
 
 # pylint: disable=too-many-statements
 # pylint: disable=too-many-branches
@@ -694,7 +697,7 @@ def main(argv, results_dir, args):
         cwd=os.getcwd(),
         os=os_pyver)
     _non_action_validator(args)
-    proc_acloud, report_file = acloud_create_validator(results_dir, args)
+    proc_acloud, report_file, acloud_start = acloud_create_validator(results_dir, args)
     mod_info = module_info.ModuleInfo(force_build=args.rebuild_module_info)
     if args.rebuild_module_info:
         proc_idx = _run_multi_proc(INDEX_TARGETS)
@@ -710,7 +713,9 @@ def main(argv, results_dir, args):
     build_targets = set()
     test_infos = set()
     if _will_run_tests(args):
+        find_start = time.time()
         build_targets, test_infos = translator.translate(args)
+        find_duration = time.time() - find_start
         if not test_infos:
             return constants.EXIT_CODE_TEST_NOT_FOUND
         if not is_from_test_mapping(test_infos):
@@ -739,8 +744,9 @@ def main(argv, results_dir, args):
         build_targets.add(mod_info.module_info_target)
         build_start = time.time()
         success = atest_utils.build(build_targets, verbose=args.verbose)
+        build_duration = time.time() - build_start
         metrics.BuildFinishEvent(
-            duration=metrics_utils.convert_duration(time.time() - build_start),
+            duration=metrics_utils.convert_duration(build_duration),
             success=success,
             targets=build_targets)
         if not success:
@@ -748,6 +754,22 @@ def main(argv, results_dir, args):
         if proc_acloud:
             proc_acloud.join()
             status = at.probe_acloud_status(report_file)
+            acloud_duration = time.time() - acloud_start
+            find_build_duration = find_duration + build_duration
+            if find_build_duration - acloud_duration >= 0:
+                # find+build took longer, saved acloud create time.
+                logging.debug('Saved acloud create time: %ss.',
+                              acloud_duration)
+                metrics.LocalDetectEvent(
+                    detect_type=constants.DETECT_TYPE_ACLOUD_CREATE,
+                    result=round(acloud_duration))
+            else:
+                # acloud create took longer, saved find+build time.
+                logging.debug('Saved Find and Build time: %ss.',
+                              find_build_duration)
+                metrics.LocalDetectEvent(
+                    detect_type=constants.DETECT_TYPE_FIND_BUILD,
+                    result=round(find_build_duration))
             if status != 0:
                 return status
     elif constants.TEST_STEP not in steps:
