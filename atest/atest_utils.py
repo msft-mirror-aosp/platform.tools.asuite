@@ -69,7 +69,7 @@ _BUILD_COMPILE_STATUS = re.compile(r'\[\s*(\d{1,3}%\s+)?\d+/\d+\]')
 _BUILD_FAILURE = 'FAILED: '
 CMD_RESULT_PATH = os.path.join(os.environ.get(constants.ANDROID_BUILD_TOP,
                                               os.getcwd()),
-                               'tools/tradefederation/core/atest/test_data',
+                               'tools/asuite/atest/test_data',
                                'test_commands.json')
 BUILD_TOP_HASH = hashlib.md5(os.environ.get(constants.ANDROID_BUILD_TOP, '').
                              encode()).hexdigest()
