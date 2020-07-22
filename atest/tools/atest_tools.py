@@ -386,7 +386,8 @@ def acloud_create(report_file, args="", no_metrics_notice=True):
     notice = constants.NO_METRICS_ARG if no_metrics_notice else ""
     match = constants.ACLOUD_REPORT_FILE_RE.match(args)
     report_file_arg = '--report-file={}'.format(report_file) if not match else ""
-    acloud_cmd = ('acloud create {ACLOUD_ARGS} '
+    # (b/161759557) Assume yes for acloud create to streamline atest flow.
+    acloud_cmd = ('acloud create -y {ACLOUD_ARGS} '
                   '{REPORT_FILE_ARG} '
                   '{METRICS_NOTICE} '
                   ).format(ACLOUD_ARGS=args,
