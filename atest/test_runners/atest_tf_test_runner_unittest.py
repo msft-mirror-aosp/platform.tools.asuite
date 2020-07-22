@@ -42,7 +42,7 @@ METRICS_DIR = '%s/baseline-metrics' % TEST_INFO_DIR
 METRICS_DIR_ARG = '--metrics-folder %s ' % METRICS_DIR
 # TODO(147567606): Replace {serial} with {extra_args} for general extra
 # arguments testing.
-RUN_CMD_ARGS = '{metrics}--log-level WARN{serial}'
+RUN_CMD_ARGS = '{metrics}--log-level-display VERBOSE --log-level VERBOSE{serial}'
 LOG_ARGS = atf_tr.AtestTradefedTestRunner._LOG_ARGS.format(
     log_path=os.path.join(TEST_INFO_DIR, atf_tr.LOG_FOLDER_NAME),
     proto_path=os.path.join(TEST_INFO_DIR, constants.ATEST_TEST_RECORD_PROTO))
