@@ -498,10 +498,10 @@ class AtestTradefedTestRunner(test_runner_base.TestRunnerBase):
         if metrics_folder:
             test_args.extend(['--metrics-folder', metrics_folder])
             logging.info('Saved metrics in: %s', metrics_folder)
-        log_level = 'WARN'
-        if self.is_verbose:
-            log_level = 'VERBOSE'
-            test_args.extend(['--log-level-display', log_level])
+        # For detailed logs, set TF options log-level/log-level-display as
+        # 'VERBOSE' by default.
+        log_level = 'VERBOSE'
+        test_args.extend(['--log-level-display', log_level])
         test_args.extend(['--log-level', log_level])
 
         args_to_add, args_not_supported = self._parse_extra_args(extra_args)
