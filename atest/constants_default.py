@@ -269,3 +269,6 @@ FLAKE_POSTSUBMIT = 'postsubmit_flakes_per_week'
 
 # cert status command
 CERT_STATUS_CMD = ''
+
+# logstorage api scope.
+SCOPE_BUILD_API_SCOPE = ''
