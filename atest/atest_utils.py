@@ -421,6 +421,8 @@ def handle_test_runner_cmd(input_test, test_cmds, do_verification=False,
         with open(result_path) as json_file:
             full_result_content = json.load(json_file)
     former_test_cmds = full_result_content.get(input_test, [])
+    test_cmds = _normalize(test_cmds)
+    former_test_cmds = _normalize(former_test_cmds)
     if not _are_identical_cmds(test_cmds, former_test_cmds):
         if do_verification:
             raise atest_error.DryRunVerificationError(
@@ -452,12 +454,37 @@ def handle_test_runner_cmd(input_test, test_cmds, do_verification=False,
         json.dump(full_result_content, outfile, indent=0)
         print('Save result mapping to %s' % result_path)
 
-
-def _are_identical_cmds(current_cmds, former_cmds):
-    """Tell two commands are identical. Note that '--atest-log-file-path' is not
+def _normalize(cmd_list):
+    """Method that normalize commands. Note that '--atest-log-file-path' is not
     considered a critical argument, therefore, it will be removed during
     the comparison. Also, atest can be ran in any place, so verifying relative
-    path is regardless as well.
+    path, LD_LIBRARY_PATH, and --proto-output-file is regardless as well.
+
+    Args:
+        cmd_list: A list with one element. E.g. ['cmd arg1 arg2 True']
+
+    Returns:
+        A list with elements. E.g. ['cmd', 'arg1', 'arg2', 'True']
+    """
+    _cmd = ''.join(cmd_list).split()
+    for cmd in _cmd:
+        if cmd.startswith('--atest-log-file-path'):
+            _cmd.remove(cmd)
+            continue
+        if cmd.startswith('LD_LIBRARY_PATH='):
+            _cmd.remove(cmd)
+            continue
+        if cmd.startswith('--proto-output-file='):
+            _cmd.remove(cmd)
+            continue
+        if _BUILD_CMD in cmd:
+            _cmd.remove(cmd)
+            _cmd.append(os.path.join('./', _BUILD_CMD))
+            continue
+    return _cmd
+
+def _are_identical_cmds(current_cmds, former_cmds):
+    """Tell two commands are identical.
 
     Args:
         current_cmds: A list of strings for running input tests.
@@ -466,32 +493,10 @@ def _are_identical_cmds(current_cmds, former_cmds):
     Returns:
         True if both commands are identical, False otherwise.
     """
-    def _normalize(cmd_list):
-        """Method that normalize commands.
-
-        Args:
-            cmd_list: A list with one element. E.g. ['cmd arg1 arg2 True']
-
-        Returns:
-            A list with elements. E.g. ['cmd', 'arg1', 'arg2', 'True']
-        """
-        _cmd = ''.join(cmd_list).split()
-        for cmd in _cmd:
-            if cmd.startswith('--atest-log-file-path'):
-                _cmd.remove(cmd)
-                continue
-            if _BUILD_CMD in cmd:
-                _cmd.remove(cmd)
-                _cmd.append(os.path.join('./', _BUILD_CMD))
-                continue
-        return _cmd
-
-    _current_cmds = _normalize(current_cmds)
-    _former_cmds = _normalize(former_cmds)
     # Always sort cmd list to make it comparable.
-    _current_cmds.sort()
-    _former_cmds.sort()
-    return _current_cmds == _former_cmds
+    current_cmds.sort()
+    former_cmds.sort()
+    return current_cmds == former_cmds
 
 def _get_hashed_file_name(main_file_name):
     """Convert the input string to a md5-hashed string. If file_extension is
