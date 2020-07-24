@@ -466,7 +466,7 @@ def _normalize(cmd_list):
     Returns:
         A list with elements. E.g. ['cmd', 'arg1', 'arg2', 'True']
     """
-    _cmd = ''.join(cmd_list).split()
+    _cmd = ' '.join(cmd_list).split()
     for cmd in _cmd:
         if cmd.startswith('--atest-log-file-path'):
             _cmd.remove(cmd)
