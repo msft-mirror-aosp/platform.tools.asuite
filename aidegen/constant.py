@@ -141,15 +141,22 @@ LUNCH_TARGET = 'lunch target'
 # Constants for the languages aidegen supports.
 JAVA = 'Java'
 C_CPP = 'C/C++'
+RUST = 'Rust'
 UNDEFINED = 'undefined'
+LANG_UNDEFINED = 'u'
+LANG_JAVA = 'j'
+LANG_CC = 'c'
+LANG_RUST = 'r'
 LANGUAGE_NAME_DICT = {
-    'u': UNDEFINED,
-    'j': JAVA,
-    'c': C_CPP
+    LANG_UNDEFINED: UNDEFINED,
+    LANG_JAVA: JAVA,
+    LANG_CC: C_CPP,
+    LANG_RUST: RUST
 }
 
 # Constants for error message.
 INVALID_XML = 'The content of {XML_FILE} is not valid.'
+WARN_MSG = '\n{} {}\n'
 
 # Constants for default modules.
 FRAMEWORK_ALL = 'framework-all'
