@@ -161,10 +161,13 @@ class ProjectSplitterUnittest(unittest.TestCase):
         self.assertEqual(all_srcs['source_folder_path'], expected_all_srcs)
         self.assertEqual(all_srcs['test_folder_path'], expected_all_tests)
 
-    def test_remove_duplicate_sources(self):
+    @mock.patch.object(
+        source_splitter, '_remove_child_duplicate_sources_from_parent')
+    def test_remove_duplicate_sources(self, mock_remove):
         """Test _remove_duplicate_sources."""
         self.split_projs._collect_all_srcs()
         self.split_projs._keep_local_sources()
+        mock_remove.return_value = set()
         self.split_projs._remove_duplicate_sources()
         srcs2 = self.split_projs._projects[1].source_path
         srcs3 = self.split_projs._projects[2].source_path
@@ -172,6 +175,7 @@ class ProjectSplitterUnittest(unittest.TestCase):
         expected_srcs3 = {'src2/src3'}
         self.assertEqual(srcs2['source_folder_path'], expected_srcs2)
         self.assertEqual(srcs3['source_folder_path'], expected_srcs3)
+        self.assertTrue(mock_remove.called)
 
     def test_get_dependencies(self):
         """Test get_dependencies."""
@@ -248,6 +252,20 @@ class ProjectSplitterUnittest(unittest.TestCase):
         """Test get_exclude_content."""
         exclude_folders = source_splitter.get_exclude_content(self._TEST_PATH)
         self.assertEqual(self._SAMPLE_EXCLUDE_FOLDERS, exclude_folders)
+
+    def test_remove_child_duplicate_sources_from_parent(self):
+        """Test _remove_child_duplicate_sources_from_parent with conditions."""
+        child = mock.Mock()
+        child.project_relative_path = 'c/d'
+        root = 'a/b'
+        parent_sources = ['a/b/d/e', 'a/b/e/f']
+        result = source_splitter._remove_child_duplicate_sources_from_parent(
+            child, parent_sources, root)
+        self.assertEqual(set(), result)
+        parent_sources = ['a/b/c/d/e', 'a/b/e/f']
+        result = source_splitter._remove_child_duplicate_sources_from_parent(
+            child, parent_sources, root)
+        self.assertEqual(set(['a/b/c/d/e']), result)
 
 
 if __name__ == '__main__':
