@@ -59,7 +59,7 @@ class AidegenMainUnittests(unittest.TestCase):
         """Test _parse_args with different conditions."""
         args = aidegen_main._parse_args([])
         self.assertEqual(args.targets, [''])
-        self.assertEqual(args.ide[0], 'j')
+        self.assertEqual(args.ide[0], 'u')
         target = 'tradefed'
         args = aidegen_main._parse_args([target])
         self.assertEqual(args.targets, [target])
@@ -255,10 +255,9 @@ class AidegenMainUnittests(unittest.TestCase):
     @mock.patch.object(native_project_info.NativeProjectInfo,
                        'generate_projects')
     @mock.patch.object(aidegen_main, '_create_and_launch_java_projects')
-    @mock.patch.object(aidegen_main, '_get_preferred_ide_from_user')
-    def test_launch_ide_by_module_contents(self, mock_choice, mock_j,
-                                           mock_c_prj, mock_genc, mock_c,
-                                           mock_vs, mock_log, mock_init):
+    def test_launch_ide_by_module_contents(self, mock_j, mock_c_prj, mock_genc,
+                                           mock_c, mock_vs, mock_log,
+                                           mock_init):
         """Test _launch_ide_by_module_contents with different conditions."""
         args = aidegen_main._parse_args(['', '-i', 's'])
         mock_init.return_value = None
@@ -269,8 +268,6 @@ class AidegenMainUnittests(unittest.TestCase):
                                                     None, test_both)
         self.assertFalse(mock_vs.called)
         self.assertTrue(mock_log.called)
-        self.assertFalse(mock_choice.called)
-        self.assertFalse(mock_choice.called)
         self.assertFalse(mock_j.called)
         self.assertFalse(mock_c_prj.called)
         self.assertFalse(mock_genc.called)
@@ -287,7 +284,6 @@ class AidegenMainUnittests(unittest.TestCase):
 
         test_j = ['a', 'b', 'c']
         test_c = ['1', '2', '3']
-        mock_choice.return_value = constant.JAVA
         aidegen_main._launch_ide_by_module_contents(args, ide_obj, test_j,
                                                     test_c)
         self.assertFalse(mock_vs.called)
@@ -296,11 +292,12 @@ class AidegenMainUnittests(unittest.TestCase):
         self.assertFalse(mock_c.called)
 
         mock_vs.reset_mock()
-        mock_choice.reset_mock()
         mock_c.reset_mock()
         mock_genc.reset_mock()
         mock_j.reset_mock()
-        mock_choice.return_value = constant.C_CPP
+        args = aidegen_main._parse_args(['', '-l', 'c'])
+        mock_init.return_value = None
+        self._init_project_config(args)
         aidegen_main._launch_ide_by_module_contents(args, ide_obj, test_j,
                                                     test_c)
         self.assertTrue(mock_c_prj.called)
@@ -310,7 +307,6 @@ class AidegenMainUnittests(unittest.TestCase):
         self.assertFalse(mock_j.called)
 
         mock_vs.reset_mock()
-        mock_choice.reset_mock()
         mock_c.reset_mock()
         mock_genc.reset_mock()
         mock_j.reset_mock()
@@ -323,7 +319,6 @@ class AidegenMainUnittests(unittest.TestCase):
         self.assertFalse(mock_j.called)
 
         mock_vs.reset_mock()
-        mock_choice.reset_mock()
         mock_c.reset_mock()
         mock_genc.reset_mock()
         mock_j.reset_mock()
@@ -336,7 +331,6 @@ class AidegenMainUnittests(unittest.TestCase):
 
         args = aidegen_main._parse_args(['frameworks/base', '-i', 'c'])
         mock_vs.reset_mock()
-        mock_choice.reset_mock()
         mock_c.reset_mock()
         mock_genc.reset_mock()
         mock_c_prj.reset_mock()
@@ -344,7 +338,6 @@ class AidegenMainUnittests(unittest.TestCase):
         aidegen_main._launch_ide_by_module_contents(args, ide_obj, test_j,
                                                     test_c)
         self.assertFalse(mock_vs.called)
-        self.assertFalse(mock_choice.called)
         self.assertFalse(mock_j.called)
         self.assertTrue(mock_c.called)
         self.assertTrue(mock_c_prj.called)
@@ -352,7 +345,6 @@ class AidegenMainUnittests(unittest.TestCase):
 
         args = aidegen_main._parse_args(['frameworks/base'])
         mock_vs.reset_mock()
-        mock_choice.reset_mock()
         mock_c.reset_mock()
         mock_genc.reset_mock()
         mock_c_prj.reset_mock()
@@ -360,7 +352,6 @@ class AidegenMainUnittests(unittest.TestCase):
         os.environ[constant.AIDEGEN_TEST_MODE] = 'true'
         aidegen_main._launch_ide_by_module_contents(args, None, test_j, test_c)
         self.assertFalse(mock_vs.called)
-        self.assertFalse(mock_choice.called)
         self.assertTrue(mock_j.called)
         self.assertFalse(mock_c.called)
         self.assertFalse(mock_c_prj.called)
