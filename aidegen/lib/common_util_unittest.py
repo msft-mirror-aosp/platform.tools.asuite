@@ -346,7 +346,8 @@ class AidegenCommonUtilUnittests(unittest.TestCase):
         data = {
             constant.GEN_JAVA_DEPS: 'a/b/out/soong/bp_java_file',
             constant.GEN_CC_DEPS: 'a/b/out/soong/bp_java_file',
-            constant.GEN_COMPDB: path_compdb
+            constant.GEN_COMPDB: path_compdb,
+            constant.GEN_RUST: 'a/b/out/soong/bp_java_file'
         }
         self.assertEqual(
             data, common_util.get_blueprint_json_files_relative_dict())
