@@ -389,6 +389,36 @@ class AidegenCommonUtilUnittests(unittest.TestCase):
         mock_exist.return_value = False
         self.assertEqual(common_util.find_git_root('c/d'), None)
 
+    def test_determine_language_ide(self):
+        """Test determine_language_ide function."""
+        ide = 'u'
+        lang = 'u'
+        self.assertEqual((constant.JAVA, constant.IDE_INTELLIJ),
+                         common_util.determine_language_ide(lang, ide))
+        lang = 'j'
+        self.assertEqual((constant.JAVA, constant.IDE_INTELLIJ),
+                         common_util.determine_language_ide(lang, ide))
+        ide = 'c'
+        self.assertEqual((constant.C_CPP, constant.IDE_CLION),
+                         common_util.determine_language_ide(lang, ide))
+        ide = 'j'
+        lang = 'u'
+        self.assertEqual((constant.JAVA, constant.IDE_INTELLIJ),
+                         common_util.determine_language_ide(lang, ide))
+        lang = 'j'
+        self.assertEqual((constant.JAVA, constant.IDE_INTELLIJ),
+                         common_util.determine_language_ide(lang, ide))
+        ide = 'c'
+        self.assertEqual((constant.C_CPP, constant.IDE_CLION),
+                         common_util.determine_language_ide(lang, ide))
+        lang = 'c'
+        ide = 'u'
+        self.assertEqual((constant.C_CPP, constant.IDE_CLION),
+                         common_util.determine_language_ide(lang, ide))
+        ide = 'j'
+        self.assertEqual((constant.JAVA, constant.IDE_INTELLIJ),
+                         common_util.determine_language_ide(lang, ide))
+
 
 # pylint: disable=unused-argument
 def parse_rule(self, name, text):
