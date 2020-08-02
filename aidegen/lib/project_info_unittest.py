@@ -106,6 +106,7 @@ class ProjectInfoUnittests(unittest.TestCase):
         self.args.verbose = False
         self.args.ide_installed_path = None
         self.args.config_reset = False
+        self.args.language = ['j']
 
     @mock.patch('atest.module_info.ModuleInfo')
     def test_get_dep_modules(self, mock_module_info):
@@ -220,6 +221,7 @@ class ProjectInfoUnittests(unittest.TestCase):
         args.verbose = False
         args.ide_installed_path = None
         args.config_reset = False
+        args.language = ['j']
         project_config.ProjectConfig(args)
         project_info_obj = project_info.ProjectInfo(
             mock_module_info.get_paths()[0])

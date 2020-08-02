@@ -346,7 +346,8 @@ class AidegenCommonUtilUnittests(unittest.TestCase):
         data = {
             constant.GEN_JAVA_DEPS: 'a/b/out/soong/bp_java_file',
             constant.GEN_CC_DEPS: 'a/b/out/soong/bp_java_file',
-            constant.GEN_COMPDB: path_compdb
+            constant.GEN_COMPDB: path_compdb,
+            constant.GEN_RUST: 'a/b/out/soong/bp_java_file'
         }
         self.assertEqual(
             data, common_util.get_blueprint_json_files_relative_dict())
@@ -387,6 +388,36 @@ class AidegenCommonUtilUnittests(unittest.TestCase):
         self.assertEqual(common_util.find_git_root('c/d'), '/a/b/c/d')
         mock_exist.return_value = False
         self.assertEqual(common_util.find_git_root('c/d'), None)
+
+    def test_determine_language_ide(self):
+        """Test determine_language_ide function."""
+        ide = 'u'
+        lang = 'u'
+        self.assertEqual((constant.JAVA, constant.IDE_INTELLIJ),
+                         common_util.determine_language_ide(lang, ide))
+        lang = 'j'
+        self.assertEqual((constant.JAVA, constant.IDE_INTELLIJ),
+                         common_util.determine_language_ide(lang, ide))
+        ide = 'c'
+        self.assertEqual((constant.C_CPP, constant.IDE_CLION),
+                         common_util.determine_language_ide(lang, ide))
+        ide = 'j'
+        lang = 'u'
+        self.assertEqual((constant.JAVA, constant.IDE_INTELLIJ),
+                         common_util.determine_language_ide(lang, ide))
+        lang = 'j'
+        self.assertEqual((constant.JAVA, constant.IDE_INTELLIJ),
+                         common_util.determine_language_ide(lang, ide))
+        ide = 'c'
+        self.assertEqual((constant.C_CPP, constant.IDE_CLION),
+                         common_util.determine_language_ide(lang, ide))
+        lang = 'c'
+        ide = 'u'
+        self.assertEqual((constant.C_CPP, constant.IDE_CLION),
+                         common_util.determine_language_ide(lang, ide))
+        ide = 'j'
+        self.assertEqual((constant.JAVA, constant.IDE_INTELLIJ),
+                         common_util.determine_language_ide(lang, ide))
 
 
 # pylint: disable=unused-argument
