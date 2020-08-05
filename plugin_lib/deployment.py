@@ -19,13 +19,14 @@ import os
 import subprocess
 
 from aidegen.lib import common_util
+from aidegen.lib import config
 
 _ASK_INSTALL_PLUGIN = """\nAsuite plugin is a new tool with following features:
     -Atest UI widget. For more information: go/atest_plugin
     -Code search integration. For more information and locate build module: go/android-platform-plugin
-Would you like to install the Asuite plugin? (Yes/No/Auto)"""
+Would you like to install the Asuite plugin? (Yes/no/auto)"""
 _ASK_UPGRADE_PLUGIN = ('\nAsuite plugin has a new version. Would you like to '
-                       'upgrade Asuite plugin? (Yes/No/Auto)')
+                       'upgrade Asuite plugin? (Yes/no/auto)')
 _YES_RESPONSE = 'Thank you, Asuit plugin will be installed in IntelliJ.'
 _NO_RESPONSE = ('Thank you, if you want to install Asuite plugin, please use '
                 'aidegen --plugin.')
@@ -34,7 +35,7 @@ _AUTO_RESPONSE = ('Thank you, Asuit plugin will be installed in IntelliJ, and '
 _THANKS_UPGRADE = 'Thank you for upgrading the Asuite plugin.'
 _NO_NEED_UPGRADE = 'Awesome! You have the newest Asuite plugin.'
 _SELECTION_ITEM = {'yes': 'yes', 'no': 'no', 'auto': 'auto', 'y': 'yes',
-                   'n': 'no', 'a': 'auto'}
+                   'n': 'no', 'a': 'auto', '': 'yes'}
 
 
 class PluginDeployment:
@@ -61,7 +62,7 @@ class PluginDeployment:
         while input_data.lower() not in _SELECTION_ITEM.keys():
             input_data = input(_ASK_INSTALL_PLUGIN)
         choice = _SELECTION_ITEM.get(input_data)
-        self._write_selection(choice)
+        self._user_selection = choice
         if choice == 'no':
             print(_NO_RESPONSE)
         else:
@@ -99,19 +100,25 @@ class PluginDeployment:
             True if all plugins' versions are up to date.
         """
 
-    def _write_selection(self, selection):
-        """Writes the user's selection to config file.
-
-        Args:
-            selection: A string of the user's selection: yes/no/auto.
-        """
-
-    def _read_selection(self):
+    @property
+    def _user_selection(self):
         """Reads the user's selection from config file.
 
         Return:
             A string of the user's selection: yes/no/auto.
         """
+        with config.AidegenConfig() as aconf:
+            return aconf.plugin_preference
+
+    @_user_selection.setter
+    def _user_selection(self, selection):
+        """Writes the user's selection to config file.
+
+        Args:
+            selection: A string of the user's selection: yes/no/auto.
+        """
+        with config.AidegenConfig() as aconf:
+            aconf.plugin_preference = selection
 
     @staticmethod
     def _is_internal_user():
