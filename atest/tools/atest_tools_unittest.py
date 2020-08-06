@@ -145,5 +145,17 @@ class AtestToolsUnittests(unittest.TestCase):
         self.assertEqual(atest_tools.probe_acloud_status(inexistence),
                          constants.EXIT_CODE_AVD_INVALID_ARGS)
 
+    def test_get_acloud_duration(self):
+        """Test method get_acloud_duration."""
+        success = os.path.join(SEARCH_ROOT, 'acloud', 'create_success.json')
+        success_duration = 152.659824
+        self.assertEqual(atest_tools.get_acloud_duration(success),
+                         success_duration)
+
+        failure = os.path.join(SEARCH_ROOT, 'acloud', 'create_failure.json')
+        failure_duration = 178.621254
+        self.assertEqual(atest_tools.get_acloud_duration(failure),
+                         failure_duration)
+
 if __name__ == "__main__":
     unittest.main()
