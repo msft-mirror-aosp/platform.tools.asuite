@@ -37,11 +37,6 @@ python_library_host {
         "*_unittest.py",
         "**/*_unittest.py",
     ],
-    libs: [
-        "aidegen_lib_common_util",
-        "atest_module_info",
-        "asuite_cc_client",
-    ],
 }
 
 python_test_host {
