@@ -20,6 +20,7 @@ This module has a collection of functions that provide helper functions to
 other modules.
 """
 
+import fnmatch
 import inspect
 import json
 import logging
@@ -758,3 +759,19 @@ def determine_language_ide(lang, ide):
         if constant.IDE_NAME_DICT[ide] == constant.IDE_INTELLIJ:
             lang = _LANG_JAVA
     return constant.LANGUAGE_NAME_DICT[lang], constant.IDE_NAME_DICT[ide]
+
+
+def check_java_or_kotlin_file_exists(abs_path):
+    """Checks if any Java or Kotlin files exist in an abs_path directory.
+
+    Args:
+        abs_path: A string of absolute path of a directory to be check.
+
+    Returns:
+        True if any Java or Kotlin files exist otherwise False.
+    """
+    for _, _, filenames in os.walk(abs_path):
+        for extension in (constant.JAVA_FILES, constant.KOTLIN_FILES):
+            if fnmatch.filter(filenames, extension):
+                return True
+    return False

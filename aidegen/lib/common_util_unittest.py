@@ -419,6 +419,22 @@ class AidegenCommonUtilUnittests(unittest.TestCase):
         self.assertEqual((constant.JAVA, constant.IDE_INTELLIJ),
                          common_util.determine_language_ide(lang, ide))
 
+    @mock.patch('os.walk')
+    def test_check_java_or_kotlin_file_exists(self, mock_walk):
+        """Test check_java_or_kotlin_file_exists with conditions."""
+        root_dir = 'a/path/to/dir'
+        folder = 'path/to/dir'
+        target = 'test.java'
+        abs_path = os.path.join(root_dir, folder)
+        mock_walk.return_value = [(root_dir, [folder], [target])]
+        self.assertTrue(common_util.check_java_or_kotlin_file_exists(abs_path))
+        target = 'test.kt'
+        abs_path = os.path.join(root_dir, folder)
+        mock_walk.return_value = [(root_dir, [folder], [target])]
+        self.assertTrue(common_util.check_java_or_kotlin_file_exists(abs_path))
+        target = 'test.cpp'
+        mock_walk.return_value = [(root_dir, [folder], [target])]
+        self.assertFalse(common_util.check_java_or_kotlin_file_exists(abs_path))
 
 # pylint: disable=unused-argument
 def parse_rule(self, name, text):
