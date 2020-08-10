@@ -603,7 +603,8 @@ class IdeIntelliJ(IdeBase):
         """
         versions = re.findall(r'\d+', config_folder_name)
         if not versions:
-            logging.warning('\nInvalid IntelliJ config folder name.')
+            logging.warning('\nInvalid IntelliJ config folder name: %s.',
+                            config_folder_name)
             return None
         return '.'.join(versions)
 
@@ -647,6 +648,7 @@ class IdeIntelliJ(IdeBase):
 
         The IntelliJ config directory is changed from version 2020.1. Get the
         version from app folder name and determine the config directory.
+        URL: https://intellij-support.jetbrains.com/hc/en-us/articles/206544519
 
         Args:
             ide_version: A string of the IntelliJ's version.
@@ -661,7 +663,7 @@ class IdeIntelliJ(IdeBase):
             return None
         if version < _SPECIFIC_INTELLIJ_VERSION:
             return os.path.join(
-                os.getenv('HOME'), config_folder_name, 'config')
+                os.getenv('HOME'), config_folder_name)
         return os.path.join(
             os.getenv('HOME'), '.config', 'JetBrains', config_folder_name)
 
