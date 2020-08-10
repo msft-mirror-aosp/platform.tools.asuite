@@ -32,7 +32,7 @@ class AidegenNativeUtilUnittests(unittest.TestCase):
     """Unit tests for native_util.py"""
 
     @mock.patch.object(native_util, '_check_native_project_exists')
-    @mock.patch.object(native_util, '_check_java_file_exists')
+    @mock.patch.object(common_util, 'check_java_or_kotlin_file_exists')
     @mock.patch.object(common_util, 'get_related_paths')
     def test_analyze_native_and_java_projects(
             self, mock_get_related, mock_check_java, mock_check_native):
@@ -156,19 +156,6 @@ class AidegenNativeUtilUnittests(unittest.TestCase):
             at_mod_info, cc_mod_info, targets)
         self.assertEqual(mock_fil.call_count, 2)
         self.assertEqual(mock_ana.call_count, 1)
-
-    @mock.patch('os.walk')
-    def test_check_java_file_exists(self, mock_walk):
-        """Test _check_java_file_exists with conditions."""
-        root_dir = 'a/path/to/dir'
-        folder = 'path/to/dir'
-        target = 'test.java'
-        abs_path = os.path.join(root_dir, folder)
-        mock_walk.return_value = [(root_dir, [folder], [target])]
-        self.assertTrue(native_util._check_java_file_exists(abs_path))
-        target = 'test.cpp'
-        mock_walk.return_value = [(root_dir, [folder], [target])]
-        self.assertFalse(native_util._check_java_file_exists(abs_path))
 
 
 if __name__ == '__main__':
