@@ -178,6 +178,8 @@ TF_PREPARATION = 'tf-preparation'
 DETECT_TYPE_BUG_DETECTED = 0
 DETECT_TYPE_ACLOUD_CREATE = 1
 DETECT_TYPE_FIND_BUILD = 2
+DETECT_TYPE_NO_FLAKE = 3
+DETECT_TYPE_HAS_FLAKE = 4
 
 # Considering a trade-off between speed and size, we set UPPER_LIMIT to 100000
 # to make maximum file space 10M(100000(records)*100(byte/record)) at most.
