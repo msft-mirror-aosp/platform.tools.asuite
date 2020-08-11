@@ -33,6 +33,7 @@ import re
 import shutil
 import subprocess
 import sys
+import time
 import zipfile
 
 import atest_decorator
@@ -48,6 +49,7 @@ from tools.tradefederation.core.proto import test_record_pb2
 # the users to manually "pip3 install protobuf", therefore when the exception
 # occurs, we don't collect data and the tab completion is for args is silence.
 try:
+    from metrics import metrics
     from metrics import metrics_base
     from metrics import metrics_utils
 except ModuleNotFoundError:
@@ -729,6 +731,7 @@ def has_valid_cert():
     except subprocess.CalledProcessError:
         return False
 
+# pylint: disable=too-many-locals
 def get_flakes(branch='',
                target='',
                test_name='',
@@ -761,11 +764,20 @@ def get_flakes(branch='',
                                  constants.FLAKE_FILE)
     if not os.path.exists(flake_service):
         logging.debug('Get flakes: Flake service path not exist.')
+        # Send (3, 0) to present no flakes info because service does not exist.
+        metrics.LocalDetectEvent(
+            detect_type=constants.DETECT_TYPE_NO_FLAKE,
+            result=0)
         return None
     if not has_valid_cert():
         logging.debug('Get flakes: No valid cert.')
+        # Send (3, 1) to present no flakes info because no valid cert.
+        metrics.LocalDetectEvent(
+            detect_type=constants.DETECT_TYPE_NO_FLAKE,
+            result=1)
         return None
     flake_info = {}
+    start = time.time()
     try:
         shutil.copy2(flake_service, constants.FLAKE_TMP_PATH)
         tmp_service = os.path.join(constants.FLAKE_TMP_PATH,
@@ -787,6 +799,12 @@ def get_flakes(branch='',
     except Exception as e:
         logging.debug('Exception:%s', e)
         return None
+    # Send (4, time) to present having flakes info and it spent time.
+    duration = round(time.time()-start)
+    logging.debug('Flakes info spent time:%s', duration)
+    metrics.LocalDetectEvent(
+        detect_type=constants.DETECT_TYPE_HAS_FLAKE,
+        result=duration)
     return flake_info
 
 def read_test_record(path):
