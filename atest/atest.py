@@ -242,8 +242,11 @@ def _validate_exec_mode(args, test_infos, host_tests=None):
     err_msg = None
     # In the case of '$atest <device-only> --host', exit.
     if (host_tests or args.host) and constants.DEVICE_TEST in all_device_modes:
-        err_msg = ('Test side and option(--host) conflict. Please remove '
-                   '--host if the test run on device side.')
+        device_only_tests = [x.test_name for x in test_infos
+                             if x.get_supported_exec_mode() == constants.DEVICE_TEST]
+        err_msg = ('Specified --host, but the following tests are device-only:\n  ' +
+                   '\n  '.join(sorted(device_only_tests)) + '\nPlease remove the option '
+                   'when running device-only tests.')
     # In the case of '$atest <host-only> <device-only> --host' or
     # '$atest <host-only> <device-only>', exit.
     if (constants.DEVICELESS_TEST in all_device_modes and
