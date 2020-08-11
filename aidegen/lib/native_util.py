@@ -20,7 +20,6 @@ This module has a collection of functions that provide helper functions for
 launching native projects in IDE.
 """
 
-import fnmatch
 import os
 
 from aidegen import constant
@@ -185,26 +184,11 @@ def _analyze_native_and_java_projects(atest_module_info, path_info, targets):
     for target in targets:
         rel_path, abs_path = common_util.get_related_paths(
             atest_module_info, target)
-        if _check_java_file_exists(abs_path):
+        if common_util.check_java_or_kotlin_file_exists(abs_path):
             jtargets.append(target)
         if _check_native_project_exists(path_info, rel_path):
             ctargets.append(target)
     return jtargets, ctargets
-
-
-def _check_java_file_exists(abs_path):
-    """Checks if any Java files exist in an abs_path directory.
-
-    Args:
-        abs_path: A string of absolute path of a directory to be check.
-
-    Returns:
-        True if any Java files exist otherwise False.
-    """
-    for _, _, filenames in os.walk(abs_path):
-        if fnmatch.filter(filenames, constant.JAVA_FILES):
-            return True
-    return False
 
 
 def _check_native_project_exists(path_to_module_info, rel_path):
