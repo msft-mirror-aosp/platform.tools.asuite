@@ -58,6 +58,9 @@ python_binary_host {
     libs: [
         "atest_py3_proto",
         "tradefed-protos-py",
+        "py-google-api-python-client",
+        "py-oauth2client",
+        "py-six",
     ],
     data: [
         "tools/updatedb_darwin.sh",
