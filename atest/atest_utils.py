@@ -801,7 +801,7 @@ def get_flakes(branch='',
         return None
     # Send (4, time) to present having flakes info and it spent time.
     duration = round(time.time()-start)
-    logging.debug('Flakes info spent time:%s', duration)
+    logging.debug('Took %ss to get flakes info', duration)
     metrics.LocalDetectEvent(
         detect_type=constants.DETECT_TYPE_HAS_FLAKE,
         result=duration)
