@@ -25,7 +25,7 @@ MOD_COVERAGE='coverage:import coverage'
 MOD_PROTOBUF='protobuf:from google import protobuf'
 
 function get_python_path() {
-    echo "$PYTHONPATH:$ATEST_DIR:$ASUITE_DIR"
+    echo "$PYTHONPATH:$ASUITE_DIR:$ATEST_DIR"
 }
 
 function print_summary() {
