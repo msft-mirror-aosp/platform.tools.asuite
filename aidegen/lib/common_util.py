@@ -58,12 +58,10 @@ _LOG_FORMAT = '%(asctime)s %(filename)s:%(lineno)s:%(levelname)s: %(message)s'
 _DATE_FORMAT = '%Y-%m-%d %H:%M:%S'
 _ARG_IS_NULL_ERROR = "{0}.{1}: argument '{2}' is null."
 _ARG_TYPE_INCORRECT_ERROR = "{0}.{1}: argument '{2}': type is {3}, must be {4}."
-_LANG_UNDEFINED = constant.IDE_DICT[constant.IDE_UNDEFINED]
-_LANG_JAVA = constant.IDE_DICT[constant.IDE_INTELLIJ]
-_LANG_CC = constant.IDE_DICT[constant.IDE_CLION]
 _IDE_UNDEFINED = constant.IDE_DICT[constant.IDE_UNDEFINED]
 _IDE_INTELLIJ = constant.IDE_DICT[constant.IDE_INTELLIJ]
 _IDE_CLION = constant.IDE_DICT[constant.IDE_CLION]
+_IDE_VSCODE = constant.IDE_DICT[constant.IDE_VSCODE]
 
 
 def time_logged(func=None, *, message='', maximum=1):
@@ -747,17 +745,19 @@ def determine_language_ide(lang, ide):
     Returns:
         A tuple of the determined language and IDE name strings.
     """
-    if lang in (_LANG_UNDEFINED, _LANG_JAVA):
+    if lang in (constant.LANG_UNDEFINED, constant.LANG_JAVA):
         if ide == _IDE_UNDEFINED:
             ide = _IDE_INTELLIJ
-        lang = _LANG_JAVA
+        lang = constant.LANG_JAVA
         if constant.IDE_NAME_DICT[ide] == constant.IDE_CLION:
-            lang = _LANG_CC
-    elif lang == _IDE_CLION:
+            lang = constant.LANG_CC
+    elif lang == constant.LANG_CC:
         if ide == _IDE_UNDEFINED:
             ide = _IDE_CLION
         if constant.IDE_NAME_DICT[ide] == constant.IDE_INTELLIJ:
-            lang = _LANG_JAVA
+            lang = constant.LANG_JAVA
+    elif lang == constant.LANG_RUST:
+        ide = _IDE_VSCODE
     return constant.LANGUAGE_NAME_DICT[lang], constant.IDE_NAME_DICT[ide]
 
 
