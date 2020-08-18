@@ -92,6 +92,7 @@ _CHOOSE_LANGUAGE_MSG = ('The scope of your modules contains {} different '
                         'languages as follows:\n{}\nPlease select the one you '
                         'would like to implement.\t')
 _LANGUAGE_OPTIONS = [constant.JAVA, constant.C_CPP]
+_NO_ANY_PROJECT_EXIST = 'There is no Java, C/C++ or Rust target.'
 
 
 def _parse_args(args):
@@ -175,8 +176,8 @@ def _parse_args(args):
         '-l',
         '--language',
         default=['u'],
-        help=('Launch IDE with a specific language, j: Java, c: C/C++. The '
-              'default value is \'u\': undefined.'))
+        help=('Launch IDE with a specific language, j: Java, c: C/C++, r: '
+              'Rust. The default value is \'u\': undefined.'))
     return parser.parse_args(args)
 
 
@@ -261,31 +262,8 @@ def _create_and_launch_java_projects(ide_util_obj, targets):
         _launch_ide(ide_util_obj, projects[0].project_absolute_path)
 
 
-def _get_preferred_ide_from_user(all_choices):
-    """Provides the option list to get back users single choice.
-
-    Args:
-        all_choices: A list of string type for all options.
-
-    Return:
-        A string of the user's single choice item.
-    """
-    if not all_choices:
-        return None
-    options = []
-    items = []
-    for index, option in enumerate(all_choices, 1):
-        options.append('{}. {}'.format(index, option))
-        items.append(str(index))
-    query = _CHOOSE_LANGUAGE_MSG.format(len(options), '\n'.join(options))
-    input_data = input(query)
-    while input_data not in items:
-        input_data = input('Please select one.\t')
-    return all_choices[int(input_data) - 1]
-
-
 def _launch_ide_by_module_contents(args, ide_util_obj, jlist=None, clist=None,
-                                   both=False):
+                                   rlist=None, all_langs=False):
     """Deals with the suitable IDE launch action.
 
     The rules of AIDEGen launching IDE with languages are:
@@ -303,17 +281,20 @@ def _launch_ide_by_module_contents(args, ide_util_obj, jlist=None, clist=None,
          launch Java projects of frameworks/base in IntelliJ.
       5. aidegen frameworks/base -i c -l j
          launch C/C++ projects of frameworks/base in CLion.
+      6. aidegen external/rust/crates/protobuf -l r
+         launch Rust projects of external/rust/crates/protobuf in VS Code.
 
     Args:
         args: A list of system arguments.
         ide_util_obj: An ide_util instance.
-        jlist: A list of java build targets.
+        jlist: A list of Java build targets.
         clist: A list of C/C++ build targets.
-        both: A boolean, True to launch both languages else False.
+        rlist: A list of Rust build targets.
+        all_langs: A boolean, True to launch all languages else False.
     """
-    if both:
+    if all_langs:
         _launch_vscode(ide_util_obj, project_info.ProjectInfo.modules_info,
-                       jlist, clist)
+                       jlist, clist, rlist)
         return
     if not jlist and not clist:
         logging.warning('\nThere is neither java nor C/C++ module needs to be'
@@ -332,7 +313,8 @@ def _launch_ide_by_module_contents(args, ide_util_obj, jlist=None, clist=None,
             _launch_native_projects(ide_util_obj, args, [native_project_file])
 
 
-def _launch_vscode(ide_util_obj, atest_module_info, jtargets, ctargets):
+def _launch_vscode(ide_util_obj, atest_module_info, jtargets, ctargets,
+                   rtargets):
     """Launches targets with VSCode IDE.
 
     Args:
@@ -341,25 +323,88 @@ def _launch_vscode(ide_util_obj, atest_module_info, jtargets, ctargets):
                 module-info.json.
         jtargets: A list of Java project targets.
         ctargets: A list of C/C++ project targets.
+        rtargets: A list of Rust project targets.
     """
     abs_paths = []
-    for target in jtargets:
-        _, abs_path = common_util.get_related_paths(atest_module_info, target)
-        abs_paths.append(abs_path)
+    if jtargets:
+        abs_paths.extend(_get_java_project_paths(jtargets, atest_module_info))
     if ctargets:
-        cc_module_info = native_module_info.NativeModuleInfo()
-        native_project_info.NativeProjectInfo.generate_projects(ctargets)
-        vs_gen = vscode_native_project_file_gen.VSCodeNativeProjectFileGenerator
-        for target in ctargets:
-            _, abs_path = common_util.get_related_paths(cc_module_info, target)
-            vs_native = vs_gen(abs_path)
-            vs_native.generate_c_cpp_properties_json_file()
-            if abs_path not in abs_paths:
-                abs_paths.append(abs_path)
+        abs_paths.extend(_get_cc_project_paths(ctargets))
+    if rtargets:
+        root_dir = common_util.get_android_root_dir()
+        abs_paths.extend(_get_rust_project_paths(rtargets, root_dir))
+    if not (jtargets or ctargets or rtargets):
+        message = _NO_ANY_PROJECT_EXIST
+        print(constant.WARN_MSG.format(
+            common_util.COLORED_INFO('Warning:'), _NO_ANY_PROJECT_EXIST))
+        return
     vs_path = vscode_workspace_file_gen.generate_code_workspace_file(abs_paths)
     if not ide_util_obj:
         return
     _launch_ide(ide_util_obj, vs_path)
+
+
+def _get_java_project_paths(jtargets, atest_module_info):
+    """Gets the Java absolute project paths from the input Java targets.
+
+    Args:
+        jtargets: A list of strings of Java targets.
+        atest_module_info: A ModuleInfo instance contains the data of
+                module-info.json.
+
+    Returns:
+        A list of the Java absolute project paths.
+    """
+    abs_paths = []
+    for target in jtargets:
+        _, abs_path = common_util.get_related_paths(atest_module_info, target)
+        if abs_path:
+            abs_paths.append(abs_path)
+    return abs_paths
+
+
+def _get_cc_project_paths(ctargets):
+    """Gets the C/C++ absolute project paths from the input C/C++ targets.
+
+    Args:
+        ctargets: A list of strings of C/C++ targets.
+
+    Returns:
+        A list of the C/C++ absolute project paths.
+    """
+    abs_paths = []
+    cc_module_info = native_module_info.NativeModuleInfo()
+    native_project_info.NativeProjectInfo.generate_projects(ctargets)
+    vs_gen = vscode_native_project_file_gen.VSCodeNativeProjectFileGenerator
+    for target in ctargets:
+        _, abs_path = common_util.get_related_paths(cc_module_info, target)
+        if not abs_path:
+            continue
+        vs_native = vs_gen(abs_path)
+        vs_native.generate_c_cpp_properties_json_file()
+        if abs_path not in abs_paths:
+            abs_paths.append(abs_path)
+    return abs_paths
+
+
+def _get_rust_project_paths(rtargets, root_dir):
+    """Gets the Rust absolute project paths from the input Rust targets.
+
+    Args:
+        rtargets: A list of strings of Rust targets.
+        root_dir: A string of the Android root directory.
+
+    Returns:
+        A list of the Rust absolute project paths.
+    """
+    abs_paths = []
+    for rtarget in rtargets:
+        path = rtarget
+        # If rtarget is not an absolute path, make it an absolute one.
+        if not common_util.is_source_under_relative_path(rtarget, root_dir):
+            path = os.path.join(root_dir, rtarget)
+        abs_paths.append(path)
+    return abs_paths
 
 
 @common_util.time_logged(message=_TIME_EXCEED_MSG, maximum=_MAX_TIME)
@@ -461,16 +506,17 @@ def aidegen_main(args):
     config.init_environment()
     targets = config.targets
     # Called ide_util for pre-check the IDE existence state.
-    _, ide = common_util.determine_language_ide(args.language[0], args.ide[0])
-    ide_util_obj = ide_util.get_ide_util_instance(constant.IDE_DICT[ide])
+    ide_util_obj = ide_util.get_ide_util_instance(
+        constant.IDE_DICT[config.ide_name])
     project_info.ProjectInfo.modules_info = module_info.AidegenModuleInfo()
     cc_module_info = native_module_info.NativeModuleInfo()
-    jtargets, ctargets = native_util.get_native_and_java_projects(
+    jtargets, ctargets, rtargets = native_util.get_java_cc_and_rust_projects(
         project_info.ProjectInfo.modules_info, cc_module_info, targets)
-    both = config.ide_name == constant.IDE_VSCODE
+    all_langs = config.ide_name == constant.IDE_VSCODE
     # Backward compatible strategy, when both java and C/C++ module exist,
     # check the preferred target from the user and launch single one.
-    _launch_ide_by_module_contents(args, ide_util_obj, jtargets, ctargets, both)
+    _launch_ide_by_module_contents(
+        args, ide_util_obj, jtargets, ctargets, rtargets, all_langs)
 
 
 if __name__ == '__main__':
