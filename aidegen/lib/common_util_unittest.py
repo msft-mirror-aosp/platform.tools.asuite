@@ -436,6 +436,25 @@ class AidegenCommonUtilUnittests(unittest.TestCase):
         mock_walk.return_value = [(root_dir, [folder], [target])]
         self.assertFalse(common_util.check_java_or_kotlin_file_exists(abs_path))
 
+        # Only VS Code IDE supports Rust projects right now.
+        lang = 'r'
+        ide = 'u'
+        self.assertEqual((constant.RUST, constant.IDE_VSCODE),
+                         common_util.determine_language_ide(lang, ide))
+        lang = 'r'
+        ide = 'v'
+        self.assertEqual((constant.RUST, constant.IDE_VSCODE),
+                         common_util.determine_language_ide(lang, ide))
+        lang = 'r'
+        ide = 'j'
+        self.assertEqual((constant.RUST, constant.IDE_VSCODE),
+                         common_util.determine_language_ide(lang, ide))
+        lang = 'r'
+        ide = 'c'
+        self.assertEqual((constant.RUST, constant.IDE_VSCODE),
+                         common_util.determine_language_ide(lang, ide))
+
+
 # pylint: disable=unused-argument
 def parse_rule(self, name, text):
     """A test function for test_check_args."""
