@@ -63,7 +63,6 @@ _BUILD_BP_JSON_ENV_ON = {
 }
 _GEN_JSON_FAILED = (
     'Generate new {0} failed, AIDEGen will proceed and reuse the old {1}.')
-_WARN_MSG = '\n{} {}\n'
 _TARGET = 'nothing'
 _LINKFILE_WARNING = (
     'File {} does not exist and we can not make a symbolic link for it.')
@@ -202,7 +201,8 @@ def _show_files_reuse_message(file_paths):
     failed_or_file = ' or '.join(file_paths)
     failed_and_file = ' and '.join(file_paths)
     message = _GEN_JSON_FAILED.format(failed_or_file, failed_and_file)
-    print(_WARN_MSG.format(common_util.COLORED_INFO('Warning:'), message))
+    print(constant.WARN_MSG.format(
+        common_util.COLORED_INFO('Warning:'), message))
 
 
 def _show_build_failed_message(module_info, main_project=None):
@@ -319,7 +319,8 @@ def _generate_rust_project_link():
             constant.RUST_PROJECT_JSON))
     if not os.path.isfile(rust_project):
         message = _LINKFILE_WARNING.format(_RUST_PROJECT_JSON)
-        print(_WARN_MSG.format(common_util.COLORED_INFO('Warning:'), message))
+        print(constant.WARN_MSG.format(
+            common_util.COLORED_INFO('Warning:'), message))
         return
     link_rust = os.path.join(root_dir, constant.RUST_PROJECT_JSON)
     if os.path.islink(link_rust):

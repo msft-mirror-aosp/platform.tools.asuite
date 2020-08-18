@@ -303,7 +303,7 @@ def get_exclude_content(root_path, excludes=None):
 def _remove_child_duplicate_sources_from_parent(child, parent_sources, root):
     """Removes the child's duplicate source folders from the parent source list.
 
-    Remove all the child's subdirectories from the parent's source list if thers
+    Remove all the child's subdirectories from the parent's source list if there
     is any.
 
     Args:
