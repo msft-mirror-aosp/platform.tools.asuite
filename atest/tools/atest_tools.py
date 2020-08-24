@@ -26,6 +26,7 @@ import pickle
 import shutil
 import subprocess
 import sys
+import time
 
 import atest_utils as au
 import constants
@@ -37,6 +38,7 @@ MAC_UPDB_SRC = os.path.join(os.path.dirname(__file__), 'updatedb_darwin.sh')
 MAC_UPDB_DST = os.path.join(os.getenv(constants.ANDROID_HOST_OUT, ''), 'bin')
 UPDATEDB = 'updatedb'
 LOCATE = 'locate'
+ACLOUD_DURATION = 'duration'
 SEARCH_TOP = os.getenv(constants.ANDROID_BUILD_TOP, '')
 MACOSX = 'Darwin'
 OSNAME = os.uname()[0]
@@ -395,8 +397,23 @@ def acloud_create(report_file, args="", no_metrics_notice=True):
                            METRICS_NOTICE=notice)
     au.colorful_print("\nCreating AVD via acloud...", constants.CYAN)
     logging.debug('Executing: %s', acloud_cmd)
+    start = time.time()
     proc = subprocess.Popen(acloud_cmd, shell=True)
     proc.communicate()
+    acloud_duration = time.time() - start
+    logging.info('"acloud create" process has completed.')
+    # Insert acloud create duration into the report file.
+    if os.path.exists(report_file):
+        try:
+            with open(report_file, 'r') as _rfile:
+                result = json.load(_rfile)
+            result[ACLOUD_DURATION] = acloud_duration
+            with open(report_file, 'w+') as _wfile:
+                _wfile.write(json.dumps(result))
+        except json.JSONDecodeError:
+            logging.error('Failed loading %s', report_file)
+        except OSError as e:
+            logging.error("Failed dumping duration to the report file: %s", str(e))
 
 def probe_acloud_status(report_file):
     """Method which probes the 'acloud create' result status.
@@ -435,6 +452,24 @@ def probe_acloud_status(report_file):
     # 2. Failed to create because of invalid acloud arguments.
     logging.error('Invalid acloud arguments found!')
     return constants.EXIT_CODE_AVD_INVALID_ARGS
+
+def get_acloud_duration(report_file):
+    """Method which gets the duration of 'acloud create' from a report file.
+
+    Args:
+        report_file: A path string of acloud report file.
+
+    Returns:
+        An float of seconds which acloud create takes.
+    """
+    if not os.path.exists(report_file):
+        return 0
+    try:
+        with open(report_file, 'r') as rfile:
+            return json.load(rfile).get(ACLOUD_DURATION, 0)
+    except json.JSONDecodeError:
+        logging.error('Failed loading %s', report_file)
+        return 0
 
 
 if __name__ == '__main__':
