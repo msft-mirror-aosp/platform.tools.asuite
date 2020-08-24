@@ -43,6 +43,7 @@ import platform
 import sysconfig
 sys.path.insert(0, os.path.dirname(sysconfig.get_paths()['purelib']))
 
+#pylint: disable=wrong-import-position
 from multiprocessing import Process
 
 import atest_arg_parser
@@ -659,30 +660,28 @@ def acloud_create_validator(results_dir, args):
     Returns:
         If the target is valid:
             A tuple of (multiprocessing.Process,
-                        string of report file path,
-                        start time of acloud_create)
+                        string of report file path)
         else:
-            None, None, None
+            None, None
     """
     if not any((args.acloud_create, args.start_avd)):
-        return None, None, None
+        return None, None
     if args.start_avd:
         args.acloud_create = ['--num=1']
     acloud_args = ' '.join(args.acloud_create)
     target = os.getenv('TARGET_PRODUCT', "")
     if 'cf_x86' in target:
-        start = time.time()
         report_file = at.get_report_file(results_dir, acloud_args)
         acloud_proc = _run_multi_proc(
             func=ACLOUD_CREATE,
             args=[report_file],
             kwargs={'args':acloud_args,
                     'no_metrics_notice':args.no_metrics})
-        return acloud_proc, report_file, start
+        return acloud_proc, report_file
     atest_utils.colorful_print(
         '{} is not cf_x86 family; will not create any AVD.'.format(target),
         constants.RED)
-    return None, None, None
+    return None, None
 
 # pylint: disable=too-many-statements
 # pylint: disable=too-many-branches
@@ -708,7 +707,7 @@ def main(argv, results_dir, args):
         cwd=os.getcwd(),
         os=os_pyver)
     _non_action_validator(args)
-    proc_acloud, report_file, acloud_start = acloud_create_validator(results_dir, args)
+    proc_acloud, report_file = acloud_create_validator(results_dir, args)
     mod_info = module_info.ModuleInfo(force_build=args.rebuild_module_info)
     if args.rebuild_module_info:
         proc_idx = _run_multi_proc(INDEX_TARGETS)
@@ -765,7 +764,9 @@ def main(argv, results_dir, args):
         if proc_acloud:
             proc_acloud.join()
             status = at.probe_acloud_status(report_file)
-            acloud_duration = time.time() - acloud_start
+            if status != 0:
+                return status
+            acloud_duration = at.get_acloud_duration(report_file)
             find_build_duration = find_duration + build_duration
             if find_build_duration - acloud_duration >= 0:
                 # find+build took longer, saved acloud create time.
@@ -781,8 +782,6 @@ def main(argv, results_dir, args):
                 metrics.LocalDetectEvent(
                     detect_type=constants.DETECT_TYPE_FIND_BUILD,
                     result=round(find_build_duration))
-            if status != 0:
-                return status
     elif constants.TEST_STEP not in steps:
         logging.warning('Install step without test step currently not '
                         'supported, installing AND testing instead.')
