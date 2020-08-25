@@ -17,5 +17,6 @@
     ]
   },
   "errors": [],
-  "status": "FAILURE"
+  "status": "FAILURE",
+  "duration": 178.621254
 }
