@@ -278,3 +278,5 @@ CERT_STATUS_CMD = ''
 
 # logstorage api scope.
 SCOPE_BUILD_API_SCOPE = ''
+STORAGE_API_VERSION = ''
+STORAGE_SERVICE_NAME = ''
