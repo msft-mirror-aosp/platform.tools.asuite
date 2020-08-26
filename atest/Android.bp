@@ -52,9 +52,15 @@ python_binary_host {
         "asuite_lib_test/*.py",
         "proto/*_pb2.py",
         "proto/__init__.py",
+        "tools/tradefederation/core/proto/__init__.py",
+        "tools/tradefederation/core/proto/*_pb2.py",
     ],
     libs: [
         "atest_py3_proto",
+        "tradefed-protos-py",
+        "py-google-api-python-client",
+        "py-oauth2client",
+        "py-six",
     ],
     data: [
         "tools/updatedb_darwin.sh",
@@ -98,9 +104,12 @@ python_test_host {
         "proto/*_pb2.py",
         "proto/__init__.py",
         "tools/atest_updatedb_unittest.py",
+        "tools/tradefederation/core/proto/__init__.py",
+        "tools/tradefederation/core/proto/*_pb2.py",
     ],
     libs: [
         "atest_py3_proto",
+        "tradefed-protos-py",
     ],
     test_config: "atest_unittests.xml",
     test_suites: ["general-tests"],

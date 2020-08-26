@@ -25,6 +25,7 @@ TARGET_BUILD_VARIANT = 'TARGET_BUILD_VARIANT'
 GEN_JAVA_DEPS = 'SOONG_COLLECT_JAVA_DEPS'
 GEN_CC_DEPS = 'SOONG_COLLECT_CC_DEPS'
 GEN_COMPDB = 'SOONG_GEN_COMPDB'
+GEN_RUST = 'SOONG_GEN_RUST_PROJECT'
 AIDEGEN_TEST_MODE = 'AIDEGEN_TEST_MODE'
 
 # Constants for module's info.
@@ -63,13 +64,23 @@ IDE_ECLIPSE = 'Eclipse'
 IDE_INTELLIJ = 'IntelliJ'
 IDE_ANDROID_STUDIO = 'Android Studio'
 IDE_CLION = 'CLion'
-IDE_VSCODE = 'VSCode'
+IDE_VSCODE = 'VS Code'
+IDE_UNDEFINED = 'Undefined IDE'
 IDE_NAME_DICT = {
     'j': IDE_INTELLIJ,
     's': IDE_ANDROID_STUDIO,
     'e': IDE_ECLIPSE,
     'c': IDE_CLION,
-    'v': IDE_VSCODE
+    'v': IDE_VSCODE,
+    'u': IDE_UNDEFINED
+}
+IDE_DICT = {
+    IDE_INTELLIJ: 'j',
+    IDE_ANDROID_STUDIO: 's',
+    IDE_ECLIPSE: 'e',
+    IDE_CLION: 'c',
+    IDE_VSCODE: 'v',
+    IDE_UNDEFINED: 'u'
 }
 
 # Constants for asuite metrics.
@@ -93,11 +104,13 @@ MERGED_MODULE_INFO = 'merged_module_info.json'
 BLUEPRINT_JAVA_JSONFILE_NAME = 'module_bp_java_deps.json'
 BLUEPRINT_CC_JSONFILE_NAME = 'module_bp_cc_deps.json'
 COMPDB_JSONFILE_NAME = 'compile_commands.json'
+RUST_PROJECT_JSON = 'rust-project.json'
 CMAKELISTS_FILE_NAME = 'clion_project_lists.txt'
 CLION_PROJECT_FILE_NAME = 'CMakeLists.txt'
 ANDROID_BP = 'Android.bp'
 ANDROID_MK = 'Android.mk'
 JAVA_FILES = '*.java'
+KOTLIN_FILES = '*.kt'
 VSCODE_CONFIG_DIR = '.vscode'
 ANDROID_MANIFEST = 'AndroidManifest.xml'
 VERSION_FILE = 'VERSION'
@@ -128,9 +141,22 @@ LUNCH_TARGET = 'lunch target'
 # Constants for the languages aidegen supports.
 JAVA = 'Java'
 C_CPP = 'C/C++'
+RUST = 'Rust'
+UNDEFINED = 'undefined'
+LANG_UNDEFINED = 'u'
+LANG_JAVA = 'j'
+LANG_CC = 'c'
+LANG_RUST = 'r'
+LANGUAGE_NAME_DICT = {
+    LANG_UNDEFINED: UNDEFINED,
+    LANG_JAVA: JAVA,
+    LANG_CC: C_CPP,
+    LANG_RUST: RUST
+}
 
 # Constants for error message.
 INVALID_XML = 'The content of {XML_FILE} is not valid.'
+WARN_MSG = '\n{} {}\n'
 
 # Constants for default modules.
 FRAMEWORK_ALL = 'framework-all'

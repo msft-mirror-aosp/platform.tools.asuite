@@ -42,10 +42,13 @@ METRICS_DIR = '%s/baseline-metrics' % TEST_INFO_DIR
 METRICS_DIR_ARG = '--metrics-folder %s ' % METRICS_DIR
 # TODO(147567606): Replace {serial} with {extra_args} for general extra
 # arguments testing.
-RUN_CMD_ARGS = '{metrics}--log-level WARN{serial}'
+RUN_CMD_ARGS = '{metrics}--log-level-display VERBOSE --log-level VERBOSE{serial}'
 LOG_ARGS = atf_tr.AtestTradefedTestRunner._LOG_ARGS.format(
-    log_path=os.path.join(TEST_INFO_DIR, atf_tr.LOG_FOLDER_NAME))
+    log_path=os.path.join(TEST_INFO_DIR, atf_tr.LOG_FOLDER_NAME),
+    proto_path=os.path.join(TEST_INFO_DIR, constants.ATEST_TEST_RECORD_PROTO))
+RUN_ENV_STR = 'tf_env_var=test'
 RUN_CMD = atf_tr.AtestTradefedTestRunner._RUN_CMD.format(
+    env=RUN_ENV_STR,
     exe=atf_tr.AtestTradefedTestRunner.EXECUTABLE,
     template=atf_tr.AtestTradefedTestRunner._TF_TEMPLATE,
     tf_customize_template='{tf_customize_template}',
@@ -175,8 +178,11 @@ EVENTS_NORMAL = [
 class AtestTradefedTestRunnerUnittests(unittest.TestCase):
     """Unit tests for atest_tf_test_runner.py"""
 
+    #pylint: disable=arguments-differ
+    @mock.patch.object(atf_tr.AtestTradefedTestRunner, '_get_ld_library_path')
     @mock.patch.dict('os.environ', {constants.ANDROID_BUILD_TOP:'/'})
-    def setUp(self):
+    def setUp(self, mock_get_ld_library_path):
+        mock_get_ld_library_path.return_value = RUN_ENV_STR
         self.tr = atf_tr.AtestTradefedTestRunner(results_dir=TEST_INFO_DIR)
 
     def tearDown(self):
@@ -251,7 +257,7 @@ class AtestTradefedTestRunnerUnittests(unittest.TestCase):
         mock_process.side_effect = ['abc', 'def', False, False]
         mock_subproc.poll.side_effect = [None, None, None, None,
                                          None, True]
-        self.tr._start_monitor(mock_server, mock_subproc, mock_reporter)
+        self.tr._start_monitor(mock_server, mock_subproc, mock_reporter, {})
         self.assertEqual(mock_process.call_count, 4)
         calls = [mock.call.accept(), mock.call.close()]
         mock_server.assert_has_calls(calls)
@@ -281,7 +287,7 @@ class AtestTradefedTestRunnerUnittests(unittest.TestCase):
         # TF exit early but have not processed data in socket buffer.
         mock_subproc.poll.side_effect = [None, None, True, True,
                                          True, True]
-        self.tr._start_monitor(mock_server, mock_subproc, mock_reporter)
+        self.tr._start_monitor(mock_server, mock_subproc, mock_reporter, {})
         self.assertEqual(mock_process.call_count, 4)
         calls = [mock.call.accept(), mock.call.close()]
         mock_server.assert_has_calls(calls)
@@ -389,7 +395,8 @@ class AtestTradefedTestRunnerUnittests(unittest.TestCase):
         unittest_utils.assert_strict_equal(
             self,
             self.tr.generate_run_commands([], {}),
-            [RUN_CMD.format(metrics='',
+            [RUN_CMD.format(env=RUN_ENV_STR,
+                            metrics='',
                             serial='',
                             tf_customize_template='')])
         mock_mertrics.return_value = METRICS_DIR

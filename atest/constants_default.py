@@ -56,6 +56,7 @@ RETRY_ANY_FAILURE = 'RETRY_ANY_FAILURE'
 TF_DEBUG = 'TF_DEBUG'
 COLLECT_TESTS_ONLY = 'COLLECT_TESTS_ONLY'
 TF_TEMPLATE = 'TF_TEMPLATE'
+FLAKES_INFO = 'FLAKES_INFO'
 
 # Application exit codes.
 EXIT_CODE_SUCCESS = 0
@@ -66,6 +67,8 @@ EXIT_CODE_TEST_NOT_FOUND = 4
 EXIT_CODE_TEST_FAILURE = 5
 EXIT_CODE_VERIFY_FAILURE = 6
 EXIT_CODE_OUTSIDE_ROOT = 7
+EXIT_CODE_AVD_CREATE_FAILURE = 8
+EXIT_CODE_AVD_INVALID_ARGS = 9
 
 # Codes of specific events. These are exceptions that don't stop anything
 # but sending metrics.
@@ -171,8 +174,13 @@ USER_FROM_TOOL = 'USER_FROM_TOOL'
 TF_PREPARATION = 'tf-preparation'
 
 # Detect type for local_detect_event.
-# Next expansion : DETECT_TYPE_XXX = 1
+# Next expansion : DETECT_TYPE_XXX = 3
 DETECT_TYPE_BUG_DETECTED = 0
+DETECT_TYPE_ACLOUD_CREATE = 1
+DETECT_TYPE_FIND_BUILD = 2
+DETECT_TYPE_NO_FLAKE = 3
+DETECT_TYPE_HAS_FLAKE = 4
+
 # Considering a trade-off between speed and size, we set UPPER_LIMIT to 100000
 # to make maximum file space 10M(100000(records)*100(byte/record)) at most.
 # Therefore, to update history file will spend 1 sec at most in each run.
@@ -232,7 +240,9 @@ PACKAGE_OUTPUT_RE = re.compile(r'(?P<java_dir>/.*/).*[.](java|kt)[:]\s*package\s
                                r'(?P<package>[^(;|\s)]+)\s*')
 
 ATEST_RESULT_ROOT = '/tmp/atest_result'
+ATEST_TEST_RECORD_PROTO = 'test_record.proto'
 LATEST_RESULT_FILE = os.path.join(ATEST_RESULT_ROOT, 'LATEST', 'test_result')
+ACLOUD_REPORT_FILE_RE = re.compile(r'.*--report[_-]file(=|\s+)(?P<report_file>[\w/.]+)')
 
 # Tests list which need vts_kernel_tests as test dependency
 REQUIRED_KERNEL_TEST_MODULES = [
@@ -252,3 +262,21 @@ REQUIRED_KERNEL_TEST_MODULES = [
 
 # Tradefed log file name term.
 TF_HOST_LOG = 'host_log_*'
+
+# Flake service par path
+FLAKE_SERVICE_PATH = '/foo'
+FLAKE_TMP_PATH = '/tmp'
+FLAKE_FILE = 'flakes_info.par'
+FLAKE_TARGET = 'aosp_cf_x86_phone-userdebug'
+FLAKE_BRANCH = 'aosp-master'
+FLAKE_TEST_NAME = 'suite/test-mapping-presubmit-retry_cloud-tf'
+FLAKE_PERCENT = 'flake_percent'
+FLAKE_POSTSUBMIT = 'postsubmit_flakes_per_week'
+
+# cert status command
+CERT_STATUS_CMD = ''
+
+# logstorage api scope.
+SCOPE_BUILD_API_SCOPE = ''
+STORAGE_API_VERSION = ''
+STORAGE_SERVICE_NAME = ''

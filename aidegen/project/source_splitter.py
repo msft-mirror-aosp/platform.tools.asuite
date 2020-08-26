@@ -146,9 +146,13 @@ class ProjectSplitter:
         Priority processing with the longest path length, e.g.
         frameworks/base/packages/SettingsLib must have priority over
         frameworks/base.
+        (b/160303006): Remove the parent project's source and test paths under
+        the child's project path.
         """
-        for child in sorted(self._projects, key=lambda k: len(
-                k.project_relative_path), reverse=True):
+        root = common_util.get_android_root_dir()
+        projects = sorted(self._projects, key=lambda k: len(
+            k.project_relative_path), reverse=True)
+        for child in projects:
             for parent in self._projects:
                 is_root = not parent.project_relative_path
                 if parent is child:
@@ -158,6 +162,9 @@ class ProjectSplitter:
                         parent.project_relative_path) or is_root):
                     for key in _SOURCE_FOLDERS:
                         parent.source_path[key] -= child.source_path[key]
+                        rm_paths = _remove_child_duplicate_sources_from_parent(
+                            child, parent.source_path[key], root)
+                        parent.source_path[key] -= rm_paths
 
     def get_dependencies(self):
         """Gets the dependencies between the projects.
@@ -165,8 +172,9 @@ class ProjectSplitter:
         Check if the current project's source folder exists in other projects.
         If do, the current project is a dependency module to the other.
         """
-        for project in sorted(self._projects, key=lambda k: len(
-                k.project_relative_path)):
+        projects = sorted(self._projects, key=lambda k: len(
+            k.project_relative_path))
+        for project in projects:
             proj_path = project.project_relative_path
             project.dependencies = [constant.FRAMEWORK_SRCJARS]
             if self._framework_exist and proj_path != constant.FRAMEWORK_PATH:
@@ -175,8 +183,9 @@ class ProjectSplitter:
                 project.dependencies.append(self._full_repo_iml)
             srcs = (project.source_path[_KEY_SOURCE_PATH]
                     | project.source_path[_KEY_TEST_PATH])
-            for dep_proj in sorted(self._projects, key=lambda k: len(
-                    k.project_relative_path)):
+            dep_projects = sorted(self._projects, key=lambda k: len(
+                k.project_relative_path))
+            for dep_proj in dep_projects:
                 dep_path = dep_proj.project_relative_path
                 is_root = not dep_path
                 is_child = common_util.is_source_under_relative_path(dep_path,
@@ -290,3 +299,24 @@ def get_exclude_content(root_path, excludes=None):
         if os.path.isdir(folder_path):
             exclude_items.append(_EXCLUDE_ITEM % folder_path)
     return exclude_items
+
+def _remove_child_duplicate_sources_from_parent(child, parent_sources, root):
+    """Removes the child's duplicate source folders from the parent source list.
+
+    Remove all the child's subdirectories from the parent's source list if there
+    is any.
+
+    Args:
+        child: A child project of ProjectInfo instance.
+        parent: The parent project of ProjectInfo instance.
+        root: A string of the Android root.
+
+    Returns:
+        A set of the sources to be removed.
+    """
+    rm_paths = set()
+    for path in parent_sources:
+        if (common_util.is_source_under_relative_path(
+                os.path.relpath(path, root), child.project_relative_path)):
+            rm_paths.add(path)
+    return rm_paths

@@ -175,7 +175,7 @@ class CLITranslator:
                 find_test_err_msg, constants.MAGENTA)))
         else:
             print('(This can happen after a repo sync or if the test'
-                  ' is new. Running: with "%s" may resolve the issue.)'
+                  ' is new. Running with "%s" may resolve the issue.)'
                   '\n' % (atest_utils.colorize(
                       constants.REBUILD_MODULE_INFO_FLAG,
                       constants.RED)))

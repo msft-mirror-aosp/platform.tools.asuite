@@ -23,6 +23,7 @@ from __future__ import print_function
 
 import fnmatch
 import hashlib
+import importlib
 import itertools
 import json
 import logging
@@ -32,16 +33,23 @@ import re
 import shutil
 import subprocess
 import sys
+import time
 import zipfile
 
 import atest_decorator
 import atest_error
 import constants
 
+# This proto related module will be auto generated in build time.
+# pylint: disable=no-name-in-module
+# pylint: disable=import-error
+from tools.tradefederation.core.proto import test_record_pb2
+
 # b/147562331 only occurs when running atest in source code. We don't encourge
 # the users to manually "pip3 install protobuf", therefore when the exception
 # occurs, we don't collect data and the tab completion is for args is silence.
 try:
+    from metrics import metrics
     from metrics import metrics_base
     from metrics import metrics_utils
 except ModuleNotFoundError:
@@ -63,7 +71,7 @@ _BUILD_COMPILE_STATUS = re.compile(r'\[\s*(\d{1,3}%\s+)?\d+/\d+\]')
 _BUILD_FAILURE = 'FAILED: '
 CMD_RESULT_PATH = os.path.join(os.environ.get(constants.ANDROID_BUILD_TOP,
                                               os.getcwd()),
-                               'tools/tradefederation/core/atest/test_data',
+                               'tools/asuite/atest/test_data',
                                'test_commands.json')
 BUILD_TOP_HASH = hashlib.md5(os.environ.get(constants.ANDROID_BUILD_TOP, '').
                              encode()).hexdigest()
@@ -415,6 +423,8 @@ def handle_test_runner_cmd(input_test, test_cmds, do_verification=False,
         with open(result_path) as json_file:
             full_result_content = json.load(json_file)
     former_test_cmds = full_result_content.get(input_test, [])
+    test_cmds = _normalize(test_cmds)
+    former_test_cmds = _normalize(former_test_cmds)
     if not _are_identical_cmds(test_cmds, former_test_cmds):
         if do_verification:
             raise atest_error.DryRunVerificationError(
@@ -446,12 +456,37 @@ def handle_test_runner_cmd(input_test, test_cmds, do_verification=False,
         json.dump(full_result_content, outfile, indent=0)
         print('Save result mapping to %s' % result_path)
 
-
-def _are_identical_cmds(current_cmds, former_cmds):
-    """Tell two commands are identical. Note that '--atest-log-file-path' is not
+def _normalize(cmd_list):
+    """Method that normalize commands. Note that '--atest-log-file-path' is not
     considered a critical argument, therefore, it will be removed during
     the comparison. Also, atest can be ran in any place, so verifying relative
-    path is regardless as well.
+    path, LD_LIBRARY_PATH, and --proto-output-file is regardless as well.
+
+    Args:
+        cmd_list: A list with one element. E.g. ['cmd arg1 arg2 True']
+
+    Returns:
+        A list with elements. E.g. ['cmd', 'arg1', 'arg2', 'True']
+    """
+    _cmd = ' '.join(cmd_list).split()
+    for cmd in _cmd:
+        if cmd.startswith('--atest-log-file-path'):
+            _cmd.remove(cmd)
+            continue
+        if cmd.startswith('LD_LIBRARY_PATH='):
+            _cmd.remove(cmd)
+            continue
+        if cmd.startswith('--proto-output-file='):
+            _cmd.remove(cmd)
+            continue
+        if _BUILD_CMD in cmd:
+            _cmd.remove(cmd)
+            _cmd.append(os.path.join('./', _BUILD_CMD))
+            continue
+    return _cmd
+
+def _are_identical_cmds(current_cmds, former_cmds):
+    """Tell two commands are identical.
 
     Args:
         current_cmds: A list of strings for running input tests.
@@ -460,32 +495,10 @@ def _are_identical_cmds(current_cmds, former_cmds):
     Returns:
         True if both commands are identical, False otherwise.
     """
-    def _normalize(cmd_list):
-        """Method that normalize commands.
-
-        Args:
-            cmd_list: A list with one element. E.g. ['cmd arg1 arg2 True']
-
-        Returns:
-            A list with elements. E.g. ['cmd', 'arg1', 'arg2', 'True']
-        """
-        _cmd = ''.join(cmd_list).split()
-        for cmd in _cmd:
-            if cmd.startswith('--atest-log-file-path'):
-                _cmd.remove(cmd)
-                continue
-            if _BUILD_CMD in cmd:
-                _cmd.remove(cmd)
-                _cmd.append(os.path.join('./', _BUILD_CMD))
-                continue
-        return _cmd
-
-    _current_cmds = _normalize(current_cmds)
-    _former_cmds = _normalize(former_cmds)
     # Always sort cmd list to make it comparable.
-    _current_cmds.sort()
-    _former_cmds.sort()
-    return _current_cmds == _former_cmds
+    current_cmds.sort()
+    former_cmds.sort()
+    return current_cmds == former_cmds
 
 def _get_hashed_file_name(main_file_name):
     """Convert the input string to a md5-hashed string. If file_extension is
@@ -703,3 +716,118 @@ def matched_tf_error_log(content):
     if re.search(reg, content):
         return True
     return False
+
+def has_valid_cert():
+    """Check whether the certificate is valid.
+
+    Returns: True if the cert is valid.
+    """
+    if not constants.CERT_STATUS_CMD:
+        return False
+    try:
+        return (not subprocess.check_call(constants.CERT_STATUS_CMD,
+                                          stdout=subprocess.DEVNULL,
+                                          stderr=subprocess.DEVNULL))
+    except subprocess.CalledProcessError:
+        return False
+
+# pylint: disable=too-many-locals
+def get_flakes(branch='',
+               target='',
+               test_name='',
+               test_module='',
+               test_method=''):
+    """Get flake information.
+
+    Args:
+        branch: A string of branch name.
+        target: A string of target.
+        test_name: A string of test suite name.
+        test_module: A string of test module.
+        test_method: A string of test method.
+
+    Returns:
+        A dictionary of flake info. None if no flakes service exists.
+    """
+    if not branch:
+        branch = constants.FLAKE_BRANCH
+    if not target:
+        target = constants.FLAKE_TARGET
+    if not test_name:
+        test_name = constants.FLAKE_TEST_NAME
+    # Currently lock the flake information from test-mapping test
+    # which only runs on cuttlefish(x86) devices.
+    # TODO: extend supporting other devices
+    if test_module:
+        test_module = 'x86 {}'.format(test_module)
+    flake_service = os.path.join(constants.FLAKE_SERVICE_PATH,
+                                 constants.FLAKE_FILE)
+    if not os.path.exists(flake_service):
+        logging.debug('Get flakes: Flake service path not exist.')
+        # Send (3, 0) to present no flakes info because service does not exist.
+        metrics.LocalDetectEvent(
+            detect_type=constants.DETECT_TYPE_NO_FLAKE,
+            result=0)
+        return None
+    if not has_valid_cert():
+        logging.debug('Get flakes: No valid cert.')
+        # Send (3, 1) to present no flakes info because no valid cert.
+        metrics.LocalDetectEvent(
+            detect_type=constants.DETECT_TYPE_NO_FLAKE,
+            result=1)
+        return None
+    flake_info = {}
+    start = time.time()
+    try:
+        shutil.copy2(flake_service, constants.FLAKE_TMP_PATH)
+        tmp_service = os.path.join(constants.FLAKE_TMP_PATH,
+                                   constants.FLAKE_FILE)
+        os.chmod(tmp_service, 0o0755)
+        cmd = [tmp_service, branch, target, test_name, test_module, test_method]
+        logging.debug('Executing: %s', ' '.join(cmd))
+        output = subprocess.check_output(cmd).decode()
+        percent_template = "{}:".format(constants.FLAKE_PERCENT)
+        postsubmit_template = "{}:".format(constants.FLAKE_POSTSUBMIT)
+        for line in output.splitlines():
+            if line.startswith(percent_template):
+                flake_info[constants.FLAKE_PERCENT] = line.replace(
+                    percent_template, '')
+            if line.startswith(postsubmit_template):
+                flake_info[constants.FLAKE_POSTSUBMIT] = line.replace(
+                    postsubmit_template, '')
+    # pylint: disable=broad-except
+    except Exception as e:
+        logging.debug('Exception:%s', e)
+        return None
+    # Send (4, time) to present having flakes info and it spent time.
+    duration = round(time.time()-start)
+    logging.debug('Took %ss to get flakes info', duration)
+    metrics.LocalDetectEvent(
+        detect_type=constants.DETECT_TYPE_HAS_FLAKE,
+        result=duration)
+    return flake_info
+
+def read_test_record(path):
+    """A Helper to read test record proto.
+
+    Args:
+        path: The proto file path.
+
+    Returns:
+        The test_record proto instance.
+    """
+    with open(path, 'rb') as proto_file:
+        msg = test_record_pb2.TestRecord()
+        msg.ParseFromString(proto_file.read())
+    return msg
+
+def has_python_module(module_name):
+    """Detect if the module can be loaded without importing it in real.
+
+    Args:
+        cmd: A string of the tested module name.
+
+    Returns:
+        True if found, False otherwise.
+    """
+    return bool(importlib.util.find_spec(module_name))

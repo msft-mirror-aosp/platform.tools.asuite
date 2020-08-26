@@ -32,6 +32,7 @@ HELP_DESC = ('A command line tool that allows users to build, install, and run '
              ' options.')
 
 # Constants used for arg help message(sorted in alphabetic)
+ACLOUD_CREATE = 'Create AVD(s) via acloud command.'
 ALL_ABI = 'Set to run tests for all abis.'
 BUILD = 'Run a build.'
 CLEAR_CACHE = 'Wipe out the test_infos cache of the test.'
@@ -63,6 +64,7 @@ RERUN_UNTIL_FAILURE = ('Rerun all tests until a failure occurs or the max '
 RETRY_ANY_FAILURE = ('Rerun failed tests until passed or the max iteration '
                      'is reached. (10 by default)')
 SERIAL = 'The device to run the test on.'
+START_AVD = 'Automatically create an AVD and run tests on the virtual device.'
 TEST = ('Run the tests. WARNING: Many test configs force cleanup of device '
         'after test run. In this case, "-d" must be used in previous test run to '
         'disable cleanup for "-t" to work. Otherwise, device will need to be '
@@ -79,6 +81,7 @@ VERBOSE = 'Display DEBUG level logging.'
 VERIFY_CMD_MAPPING = 'Verify the test command of input tests.'
 VERSION = 'Display version string.'
 WAIT_FOR_DEBUGGER = 'Wait for debugger prior to execution (Instrumentation tests only).'
+FLAKES_INFO = 'Test result with flakes info.'
 
 def _positive_int(value):
     """Verify value by whether or not a positive integer.
@@ -123,7 +126,6 @@ class AtestArgParser(argparse.ArgumentParser):
                           help=INSTALL)
         self.add_argument('-m', constants.REBUILD_MODULE_INFO_FLAG,
                           action='store_true', help=REBUILD_MODULE_INFO)
-        self.add_argument('-s', '--serial', help=SERIAL)
         self.add_argument('--sharding', nargs='?', const=2,
                           type=_positive_int, default=0,
                           help=SHARDING)
@@ -155,6 +157,18 @@ class AtestArgParser(argparse.ArgumentParser):
         self.add_argument('-L', '--list-modules', help=LIST_MODULES)
         self.add_argument('-v', '--verbose', action='store_true', help=VERBOSE)
         self.add_argument('-V', '--version', action='store_true', help=VERSION)
+
+        # Options that to do with acloud/AVDs.
+        agroup = self.add_mutually_exclusive_group()
+        agroup.add_argument('--acloud-create', nargs=argparse.REMAINDER, type=str,
+                            help=ACLOUD_CREATE)
+        agroup.add_argument('--start-avd', action='store_true',
+                            help=START_AVD)
+        agroup.add_argument('-s', '--serial', help=SERIAL)
+
+        # Options that to query flakes info in test result
+        self.add_argument('--flakes-info', action='store_true',
+                          help=FLAKES_INFO)
 
         # Obsolete options that will be removed soon.
         self.add_argument('--generate-baseline', nargs='?',
@@ -244,7 +258,8 @@ def print_epilog_text():
     Returns:
         STDOUT from pydoc.pager().
     """
-    epilog_text = EPILOG_TEMPLATE.format(ALL_ABI=ALL_ABI,
+    epilog_text = EPILOG_TEMPLATE.format(ACLOUD_CREATE=ACLOUD_CREATE,
+                                         ALL_ABI=ALL_ABI,
                                          BUILD=BUILD,
                                          CLEAR_CACHE=CLEAR_CACHE,
                                          COLLECT_TESTS_ONLY=COLLECT_TESTS_ONLY,
@@ -267,6 +282,7 @@ def print_epilog_text():
                                          RETRY_ANY_FAILURE=RETRY_ANY_FAILURE,
                                          SERIAL=SERIAL,
                                          SHARDING=SHARDING,
+                                         START_AVD=START_AVD,
                                          TEST=TEST,
                                          TEST_MAPPING=TEST_MAPPING,
                                          TF_DEBUG=TF_DEBUG,
@@ -276,7 +292,8 @@ def print_epilog_text():
                                          VERBOSE=VERBOSE,
                                          VERSION=VERSION,
                                          VERIFY_CMD_MAPPING=VERIFY_CMD_MAPPING,
-                                         WAIT_FOR_DEBUGGER=WAIT_FOR_DEBUGGER)
+                                         WAIT_FOR_DEBUGGER=WAIT_FOR_DEBUGGER,
+                                         FLAKES_INFO=FLAKES_INFO)
     return pydoc.pager(epilog_text)
 
 
@@ -400,6 +417,20 @@ OPTIONS
 
         --retry-any-failure
             {RETRY_ANY_FAILURE}
+
+
+        [ Testing With AVDs ]
+        --start-avd
+            {START_AVD}
+
+        --acloud-create
+            {ACLOUD_CREATE}
+
+
+        [ Testing With Flakes Info ]
+        --flakes-info
+            {FLAKES_INFO}
+
 
         [ Metrics ]
         --no-metrics
@@ -607,8 +638,34 @@ EXAMPLES
         atest <test> --retry-any-failure 20
 
 
+    - - - - - - - - - - - -
+    RUNNING TESTS ON AVD(s)
+    - - - - - - - - - - - -
+
+    Atest is able to run tests with the newly created AVD. Atest can build and 'acloud create' simultanously, and run tests after the AVD has been created successfully.
+
+    Examples:
+    - Start an AVD before running tests on that newly created device.
+
+        acloud create && atest <test>
+
+    can be simplified by:
+
+        atest <test> --start-avd
+
+    - Start AVD(s) by specifing 'acloud create' arguments and run tests on that newly created device.
+
+        atest <test> --acloud-create "--build-id 6509363 --build-target aosp_cf_x86_phone-userdebug --branch aosp_master"
+
+    To know detail about the argument, please run 'acloud create --help'.
+
+    [WARNING]
+    * --acloud-create must be the LAST optional argument: the remainder args will be consumed as its positional args.
+    * --acloud-create/--start-avd do not delete newly created AVDs. The users will be deleting them manually.
+
+
     - - - - - - - - - - - - - - - -
-    REGRESSION DETECTION (obsolute)
+    REGRESSION DETECTION (obsolete)
     - - - - - - - - - - - - - - - -
 
     ********************** Warning **********************
@@ -689,5 +746,5 @@ EXAMPLES
         atest -v <test> -- <custom_args1> <custom_args2>
 
 
-                                                     2019-12-19
+                                                     2020-06-04
 '''
