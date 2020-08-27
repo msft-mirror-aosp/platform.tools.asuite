@@ -395,6 +395,15 @@ class AidegenCommonUtilUnittests(unittest.TestCase):
         lang = 'u'
         self.assertEqual((constant.JAVA, constant.IDE_INTELLIJ),
                          common_util.determine_language_ide(lang, ide))
+        self.assertEqual((constant.JAVA, constant.IDE_INTELLIJ),
+                         common_util.determine_language_ide(
+                             lang, ide, ['some_module']))
+        self.assertEqual((constant.C_CPP, constant.IDE_CLION),
+                         common_util.determine_language_ide(
+                             lang, ide, None, ['some_module']))
+        self.assertEqual((constant.RUST, constant.IDE_VSCODE),
+                         common_util.determine_language_ide(
+                             lang, ide, None, None, ['some_module']))
         lang = 'j'
         self.assertEqual((constant.JAVA, constant.IDE_INTELLIJ),
                          common_util.determine_language_ide(lang, ide))
