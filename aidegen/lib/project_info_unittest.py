@@ -332,6 +332,39 @@ class ProjectInfoUnittests(unittest.TestCase):
         self.assertTrue(mock_sep.called)
         self.assertEqual(mock_build.call_count, 1)
 
+    @mock.patch('os.path.relpath')
+    def test_get_rel_project_out_soong_jar_path(self, mock_rel):
+        """Test _get_rel_project_out_soong_jar_path."""
+        out_dir = 'a/b/out/soong'
+        mock_rel.return_value = out_dir
+        proj_info = project_info.ProjectInfo(self.args.module_name, False)
+        expected = os.sep.join(
+            [out_dir, constant.INTERMEDIATES, 'm1']) + os.sep
+        self.assertEqual(
+            expected, proj_info._get_rel_project_out_soong_jar_path())
+
+    def test_update_iml_dep_modules(self):
+        """Test _update_iml_dep_modules with conditions."""
+        project1 = mock.Mock()
+        project1.source_path = {
+            'source_folder_path': [], 'test_folder_path': [], 'r_java_path': [],
+            'srcjar_path': [], 'jar_path': []
+        }
+        project1.dependencies = []
+        project2 = mock.Mock()
+        project2.iml_name = 'm2'
+        project2.rel_out_soong_jar_path = 'out/soong/.intermediates/m2'
+        project_info.ProjectInfo.projects = [project1, project2]
+        project_info._update_iml_dep_modules(project1)
+        self.assertEqual([], project1.dependencies)
+        project1.source_path = {
+            'source_folder_path': [], 'test_folder_path': [], 'r_java_path': [],
+            'srcjar_path': [],
+            'jar_path': ['out/soong/.intermediates/m2/a/b/any.jar']
+        }
+        project_info._update_iml_dep_modules(project1)
+        self.assertEqual(['m2'], project1.dependencies)
+
 
 class MultiProjectsInfoUnittests(unittest.TestCase):
     """Unit tests for MultiProjectsInfo class."""
