@@ -267,6 +267,37 @@ class ProjectSplitterUnittest(unittest.TestCase):
             child, parent_sources, root)
         self.assertEqual(set(['a/b/c/d/e']), result)
 
+    @mock.patch('os.path.relpath')
+    def test_get_rel_project_soong_paths(self, mock_rel):
+        """Test _get_rel_project_soong_paths."""
+        mock_rel.return_value = 'out/soong'
+        expected = [
+            'out/soong/.intermediates/src1/',
+            'out/soong/.intermediates/src2/',
+            'out/soong/.intermediates/src2/src3/',
+            'out/soong/.intermediates/frameworks/base/'
+        ]
+        self.assertEqual(
+            expected, self.split_projs._get_rel_project_soong_paths())
+
+    def test_get_real_dependencies_jars(self):
+        """Test _get_real_dependencies_jars with conditions."""
+        expected = ['a/b/c/d']
+        self.assertEqual(expected, source_splitter._get_real_dependencies_jars(
+            [], expected))
+        expected = ['a/b/c/d.jar']
+        self.assertEqual(expected, source_splitter._get_real_dependencies_jars(
+            ['a/e'], expected))
+        expected = ['a/b/c/d.jar']
+        self.assertEqual([], source_splitter._get_real_dependencies_jars(
+            ['a/b'], expected))
+        expected = ['a/b/c/d.srcjar']
+        self.assertEqual(expected, source_splitter._get_real_dependencies_jars(
+            ['a/b'], expected))
+        expected = ['a/b/c/gen']
+        self.assertEqual(expected, source_splitter._get_real_dependencies_jars(
+            ['a/b'], expected))
+
 
 if __name__ == '__main__':
     unittest.main()
