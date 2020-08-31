@@ -114,6 +114,8 @@ KOTLIN_FILES = '*.kt'
 VSCODE_CONFIG_DIR = '.vscode'
 ANDROID_MANIFEST = 'AndroidManifest.xml'
 VERSION_FILE = 'VERSION'
+INTERMEDIATES = '.intermediates'
+
 
 # Constants for file paths.
 RELATIVE_NATIVE_PATH = 'development/ide/clion'
