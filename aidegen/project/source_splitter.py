@@ -221,7 +221,8 @@ class ProjectSplitter:
         framework_srcjars_iml = iml.IMLGenerator(mod)
         framework_srcjars_iml.create({constant.KEY_SRCJARS: True,
                                       constant.KEY_DEPENDENCIES: True})
-        self._all_srcs[_KEY_SRCJAR_PATH] -= set(mod[constant.KEY_SRCJARS])
+        self._all_srcs[_KEY_SRCJAR_PATH] -= set(mod.get(constant.KEY_SRCJARS,
+                                                        []))
         return framework_srcjars_iml.iml_path
 
     def _gen_dependencies_iml(self):
