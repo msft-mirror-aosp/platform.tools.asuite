@@ -17,6 +17,7 @@ Utils for finder classes.
 """
 
 # pylint: disable=line-too-long
+# pylint: disable=too-many-lines
 
 from __future__ import print_function
 
@@ -517,8 +518,10 @@ def find_parent_module_dir(root_dir, start_dir, module_info):
         # TODO (b/112904944) - migrate module_finder functions to here and
         # reuse them.
         rel_dir = os.path.relpath(current_dir, root_dir)
-        # Check if actual config file here
-        if os.path.isfile(os.path.join(current_dir, constants.MODULE_CONFIG)):
+        # Check if actual config file here but need to make sure that there
+        # exist module in module-info with the parent dir.
+        if (os.path.isfile(os.path.join(current_dir, constants.MODULE_CONFIG))
+                and module_info.get_module_names(current_dir)):
             return rel_dir
         # Check module_info if auto_gen config or robo (non-config) here
         for mod in module_info.path_to_module_info.get(rel_dir, []):
