@@ -39,8 +39,8 @@ _ANDROID_MK_WARN = (
     'AIDEGen may not be able to include all module dependencies.\nPlease visit '
     '%s for reference on how to convert makefile.' % _CONVERT_MK_URL)
 _ROBOLECTRIC_MODULE = 'Robolectric_all'
-_NOT_TARGET = ('Module %s\'s class setting is %s, none of which is included in '
-               '%s, skipping this module in the project.')
+_NOT_TARGET = ('The module %s does not contain any Java or Kotlin file, '
+               'therefore we skip this module in the project.')
 # The module fake-framework have the same package name with framework but empty
 # content. It will impact the dependency for framework when referencing the
 # package from fake-framework in IntelliJ.
@@ -190,9 +190,9 @@ class ProjectInfo:
                     yield '\t' + os.path.join(rel_path, constant.ANDROID_MK)
 
     def _get_modules_under_project_path(self, rel_path):
-        """Find modules under the rel_path.
+        """Find qualified modules under the rel_path.
 
-        Find modules whose class is qualified to be included as a target module.
+        Find modules which contain any Java or Kotlin file as a target module.
 
         Args:
             rel_path: A string, the project's relative path.
@@ -200,17 +200,18 @@ class ProjectInfo:
         Returns:
             A set of module names.
         """
-        logging.info('Find modules whose class is in %s under %s.',
-                     constant.TARGET_CLASSES, rel_path)
+        logging.info('Find modules contain any Java or Kotlin file under %s.',
+                     rel_path)
         modules = set()
+        root_dir = common_util.get_android_root_dir()
         for name, data in self.modules_info.name_to_module_info.items():
             if module_info.AidegenModuleInfo.is_project_path_relative_module(
                     data, rel_path):
-                if module_info.AidegenModuleInfo.is_target_module(data):
+                if common_util.check_java_or_kotlin_file_exists(
+                        os.path.join(root_dir, data[constant.KEY_PATH][0])):
                     modules.add(name)
                 else:
-                    logging.debug(_NOT_TARGET, name, data.get('class', ''),
-                                  constant.TARGET_CLASSES)
+                    logging.debug(_NOT_TARGET, name)
         return modules
 
     def _get_robolectric_dep_module(self, modules):
