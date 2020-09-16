@@ -26,12 +26,15 @@ import select
 import shutil
 import socket
 
+from distutils.util import strtobool
 from functools import partial
+from pathlib import Path
 
 import atest_utils
 import constants
 import result_reporter
 
+from logstorage import atest_gcp_utils
 from test_finders import test_info
 from test_runners import test_runner_base
 from .event_handler import EventHandler
@@ -151,6 +154,49 @@ class AtestTradefedTestRunner(test_runner_base.TestRunnerBase):
         if os.getenv(test_runner_base.OLD_OUTPUT_ENV_VAR):
             return self.run_tests_raw(test_infos, extra_args, reporter)
         return self.run_tests_pretty(test_infos, extra_args, reporter)
+
+    def _request_consent_of_upload_test_result(self, config_folder):
+        """Request the consent of upload test results at the first time.
+
+        Args:
+            config_folder: The directory path to put config file.
+        """
+        if not os.path.exists(config_folder):
+            os.makedirs(config_folder)
+        not_upload_file = os.path.join(config_folder,
+                                       constants.DO_NOT_UPLOAD_FILE_NAME)
+        creds_f = os.path.join(config_folder, constants.CREDENTIAL_FILE_NAME)
+        # Do nothing if there are no related config or DO_NOT_UPLOAD exists.
+        if (not constants.CREDENTIAL_FILE_NAME or
+                not constants.GCP_BUCKET_ACCESS_TOKEN or
+                os.path.exists(not_upload_file)):
+            return
+        # If the credential file exists or the user says “Yes”, ATest will
+        # try to get the credential from the file, else will create a
+        # DO_NOT_UPLOAD to keep the user's decision.
+        if (os.path.exists(creds_f) or
+                self._prompt_with_yn_result('Upload test result? (y/N):', 'N')):
+            atest_gcp_utils.GCPHelper(
+                client_id=constants.CLIENT_ID,
+                client_secret=constants.CLIENT_SECRET,
+                user_agent='atest').get_credential_with_auth_flow(creds_f)
+        else:
+            Path(not_upload_file).touch()
+
+
+    def _prompt_with_yn_result(self, msg, default):
+        """Prompt message and get yes or no result.
+
+        Args:
+            msg: The question you want asking.
+            default: string default value.
+        Returns:
+            default value if get KeyboardInterrupt or ValueError exception.
+        """
+        try:
+            return strtobool(input(msg) or default)
+        except (ValueError, KeyboardInterrupt):
+            return default
 
     def run_tests_raw(self, test_infos, extra_args, reporter):
         """Run the list of test_infos. See base class for more.
