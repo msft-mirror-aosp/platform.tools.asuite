@@ -49,10 +49,11 @@ AnimatorTest
 
 ###[Test Finder: CC_CLASS, Test Runner:AtestTradefedTestRunner]###
 ###Purpose: Test with finder: CC_CLASS and runner: AtestTradefedTestRunner###
-PacketFragmenterTest
-# PacketFragmenterTest#test_no_fragment_necessary
-PacketFragmenterTest#test_no_fragment_necessary,test_ble_fragment_necessary
-
+### TODO: (b/168681581): Add PacketFragmenterTest and
+### PacketFragmenterTest#test_no_fragment_necessary,test_ble_fragment_necessary
+### back after following-up enhancements done.
+ProxyResolverV8Test
+ProxyResolverV8Test#Direct,Direct_C_API,ReturnEmptyString
 
 ###[Test Finder: INTEGRATION, Test Runner:AtestTradefedTestRunner]###
 ###Purpose: Test with finder: INTEGRATION and runner: AtestTradefedTestRunner###
