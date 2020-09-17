@@ -46,7 +46,7 @@ SELECT_TIMEOUT = 5
 # EVENT_RE has groups for the name and the data. "." does not match \n.
 EVENT_RE = re.compile(r'\n*(?P<event_name>[A-Z_]+) (?P<json_data>{.*})(?=\n|.)*')
 
-EXEC_DEPENDENCIES = ('adb', 'aapt')
+EXEC_DEPENDENCIES = ('adb', 'aapt', 'fastboot')
 
 TRADEFED_EXIT_MSG = 'TradeFed subprocess exited early with exit code=%s.'
 
