@@ -78,7 +78,8 @@ class ModuleInfo:
             module_file_path = os.path.join(
                 os.environ.get(constants.ANDROID_PRODUCT_OUT), _MODULE_INFO)
             module_info_target = module_file_path
-        if not os.path.isfile(module_file_path) or force_build:
+        # Make sure module-info exist and could be load properly.
+        if not atest_utils.is_valid_json_file(module_file_path) or force_build:
             logging.debug('Generating %s - this is required for '
                           'initial runs.', _MODULE_INFO)
             build_env = dict(constants.ATEST_BUILD_ENV)
