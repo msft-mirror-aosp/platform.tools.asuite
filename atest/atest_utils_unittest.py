@@ -498,6 +498,23 @@ class AtestUtilsUnittests(unittest.TestCase):
         self.assertEqual(test_record.children[0].inline_test_record.test_record_id,
                          'x86 hello_world_test')
 
+    def test_is_valid_json_file_file_not_exist(self):
+        """Test method is_valid_json_file if file not exist."""
+        json_file_path = os.path.join(unittest_constants.TEST_DATA_DIR,
+                                      "not_exist.json")
+        self.assertFalse(atest_utils.is_valid_json_file(json_file_path))
+
+    def test_is_valid_json_file_content_valid(self):
+        """Test method is_valid_json_file if file exist and content is valid."""
+        json_file_path = os.path.join(unittest_constants.TEST_DATA_DIR,
+                                      "module-info.json")
+        self.assertTrue(atest_utils.is_valid_json_file(json_file_path))
+
+    def test_is_valid_json_file_content_not_valid(self):
+        """Test method is_valid_json_file if file exist but content is valid."""
+        json_file_path = os.path.join(unittest_constants.TEST_DATA_DIR,
+                                      "not-valid-module-info.json")
+        self.assertFalse(atest_utils.is_valid_json_file(json_file_path))
 
 if __name__ == "__main__":
     unittest.main()
