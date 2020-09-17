@@ -251,5 +251,39 @@
 ],
 "CarMessengerRoboTests": [
 "./build/soong/soong_ui.bash --make-mode RunCarMessengerRoboTests"
+],
+"ProxyResolverV8Test": [
+"--atest-include-filter",
+"--include-filter",
+"--log-level",
+"--log-level-display",
+"--logcat-on-failure",
+"--no-enable-granular-attempts",
+"--skip-loading-config-jar",
+"--template:map",
+"VERBOSE",
+"VERBOSE",
+"atest_tradefed.sh",
+"proxy_resolver_v8_unittest",
+"proxy_resolver_v8_unittest:ProxyResolverV8Test.*",
+"template/atest_local_min",
+"test=atest"
+],
+"ProxyResolverV8Test#Direct,Direct_C_API,ReturnEmptyString": [
+"--atest-include-filter",
+"--include-filter",
+"--log-level",
+"--log-level-display",
+"--logcat-on-failure",
+"--no-enable-granular-attempts",
+"--skip-loading-config-jar",
+"--template:map",
+"VERBOSE",
+"VERBOSE",
+"atest_tradefed.sh",
+"proxy_resolver_v8_unittest",
+"proxy_resolver_v8_unittest:ProxyResolverV8Test.Direct:ProxyResolverV8Test.Direct_C_API:ProxyResolverV8Test.ReturnEmptyString",
+"template/atest_local_min",
+"test=atest"
 ]
 }

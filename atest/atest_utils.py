@@ -125,6 +125,25 @@ def _capture_fail_section(full_log):
     return capture_output
 
 
+def _capture_limited_output(full_log):
+    """Return the limited error message from capture_failed_section.
+
+    Args:
+        full_log: List of strings representing full output of build.
+
+    Returns:
+        output: List of strings that are build errors.
+    """
+    # Parse out the build error to output.
+    output = _capture_fail_section(full_log)
+    if not output:
+        output = full_log
+    if len(output) >= _FAILED_OUTPUT_LINE_LIMIT:
+        output = output[-_FAILED_OUTPUT_LINE_LIMIT:]
+    output = 'Output (may be trimmed):\n%s' % ''.join(output)
+    return output
+
+
 def _run_limited_output(cmd, env_vars=None):
     """Runs a given command and streams the output on a single line in stdout.
 
@@ -164,14 +183,49 @@ def _run_limited_output(cmd, env_vars=None):
     # Wait for the Popen to finish completely before checking the returncode.
     proc.wait()
     if proc.returncode != 0:
-        # Parse out the build error to output.
-        output = _capture_fail_section(full_output)
+        # get error log from "OUT_DIR/error.log"
+        error_log_file = os.path.join(get_build_out_dir(), "error.log")
+        output = []
+        if os.path.isfile(error_log_file):
+            if os.stat(error_log_file).st_size > 0:
+                with open(error_log_file) as f:
+                    output = f.read()
         if not output:
-            output = full_output
-        if len(output) >= _FAILED_OUTPUT_LINE_LIMIT:
-            output = output[-_FAILED_OUTPUT_LINE_LIMIT:]
-        output = 'Output (may be trimmed):\n%s' % ''.join(output)
+            output = _capture_limited_output(full_output)
         raise subprocess.CalledProcessError(proc.returncode, cmd, output)
+
+
+def get_build_out_dir():
+    """Get android build out directory.
+
+    Returns:
+        String of the out directory.
+    """
+    build_top = os.environ.get(constants.ANDROID_BUILD_TOP)
+    # Get the out folder if user specified $OUT_DIR
+    custom_out_dir = os.environ.get(constants.ANDROID_OUT_DIR)
+    custom_out_dir_common_base = os.environ.get(
+        constants.ANDROID_OUT_DIR_COMMON_BASE)
+    user_out_dir = None
+    if custom_out_dir:
+        if os.path.isabs(custom_out_dir):
+            user_out_dir = custom_out_dir
+        else:
+            user_out_dir = os.path.join(build_top, custom_out_dir)
+    elif custom_out_dir_common_base:
+        # When OUT_DIR_COMMON_BASE is set, the output directory for each
+        # separate source tree is named after the directory holding the
+        # source tree.
+        build_top_basename = os.path.basename(build_top)
+        if os.path.isabs(custom_out_dir_common_base):
+            user_out_dir = os.path.join(custom_out_dir_common_base,
+                                        build_top_basename)
+        else:
+            user_out_dir = os.path.join(build_top, custom_out_dir_common_base,
+                                        build_top_basename)
+    if user_out_dir:
+        return user_out_dir
+    return os.path.join(build_top, "out")
 
 
 def build(build_targets, verbose=False, env_vars=None):
@@ -831,3 +885,22 @@ def has_python_module(module_name):
         True if found, False otherwise.
     """
     return bool(importlib.util.find_spec(module_name))
+
+def is_valid_json_file(path):
+    """Detect if input path exist and content is valid.
+
+    Args:
+        path: The json file path.
+
+    Returns:
+        True if file exist and content is valid, False otherwise.
+    """
+    is_valid = False
+    try:
+        if os.path.isfile(path):
+            with open(path) as json_file:
+                json.load(json_file)
+            is_valid = True
+    except json.JSONDecodeError:
+        logging.warning('Exception happened while loading %s.', path)
+    return is_valid
