@@ -30,14 +30,19 @@ from __future__ import print_function
 
 import os
 import logging
-import httplib2
-
+try:
+    import httplib2
+except ModuleNotFoundError as e:
+    logging.debug('Import error due to %s', e)
 import constants
 
-# pylint: disable=import-error
-from oauth2client import client as oauth2_client
-from oauth2client.contrib import multistore_file
-from oauth2client import tools as oauth2_tools
+try:
+    # pylint: disable=import-error
+    from oauth2client import client as oauth2_client
+    from oauth2client.contrib import multistore_file
+    from oauth2client import tools as oauth2_tools
+except ModuleNotFoundError as e:
+    logging.debug('Import error due to %s', e)
 
 
 class RunFlowFlags():
