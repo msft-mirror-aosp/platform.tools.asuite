@@ -255,6 +255,7 @@ class ModuleFinderUnittests(unittest.TestCase):
         self.mod_finder.module_info.is_auto_gen_test_config.return_value = False
         self.mod_finder.module_info.is_robolectric_test.return_value = False
         self.mod_finder.module_info.has_test_config.return_value = True
+        self.mod_finder.module_info.get_paths.return_value = []
         mock_build.return_value = uc.CLASS_BUILD_TARGETS
         mod_info = {constants.MODULE_INSTALLED: DEFAULT_INSTALL_PATH,
                     constants.MODULE_PATH: [uc.CC_MODULE_DIR],
@@ -293,6 +294,7 @@ class ModuleFinderUnittests(unittest.TestCase):
         self.mod_finder.module_info.is_auto_gen_test_config.return_value = False
         self.mod_finder.module_info.is_robolectric_test.return_value = False
         self.mod_finder.module_info.has_test_config.return_value = True
+        self.mod_finder.module_info.get_paths.return_value = []
         mock_build.return_value = uc.CLASS_BUILD_TARGETS
         mod_info = {constants.MODULE_INSTALLED: DEFAULT_INSTALL_PATH,
                     constants.MODULE_PATH: [uc.CC_MODULE_DIR],
@@ -354,6 +356,7 @@ class ModuleFinderUnittests(unittest.TestCase):
         self.mod_finder.module_info.is_auto_gen_test_config.return_value = False
         self.mod_finder.module_info.is_robolectric_test.return_value = False
         self.mod_finder.module_info.has_test_config.return_value = True
+        self.mod_finder.module_info.get_paths.return_value = []
         mock_build.return_value = uc.CLASS_BUILD_TARGETS
         mod_info = {constants.MODULE_INSTALLED: DEFAULT_INSTALL_PATH,
                     constants.MODULE_PATH: [uc.MODULE_DIR],
@@ -592,6 +595,61 @@ class ModuleFinderUnittests(unittest.TestCase):
         self.assertEqual(self.mod_finder._get_build_targets('', ''),
                          {constants.VTS_CORE_TF_MODULE})
 
+    @mock.patch.object(module_finder.ModuleFinder, '_is_vts_module',
+                       return_value=False)
+    @mock.patch.object(module_finder.ModuleFinder, '_get_build_targets')
+    @mock.patch('subprocess.check_output', return_value='')
+    @mock.patch.object(test_finder_utils, 'get_fully_qualified_class_name',
+                       return_value=uc.FULL_CLASS_NAME)
+    @mock.patch('os.path.isfile', side_effect=unittest_utils.isfile_side_effect)
+    @mock.patch('os.path.isdir', return_value=True)
+    #pylint: disable=unused-argument
+    def test_find_test_by_class_name_w_module(self, _isdir, _isfile, _fqcn,
+                                              mock_checkoutput, mock_build,
+                                              _vts):
+        """Test test_find_test_by_class_name with module but without class found."""
+        mock_build.return_value = uc.CLASS_BUILD_TARGETS
+        self.mod_finder.module_info.is_auto_gen_test_config.return_value = False
+        self.mod_finder.module_info.is_robolectric_test.return_value = False
+        self.mod_finder.module_info.has_test_config.return_value = True
+        self.mod_finder.module_info.get_module_names.return_value = [uc.MODULE_NAME]
+        self.mod_finder.module_info.get_module_info.return_value = {
+            constants.MODULE_INSTALLED: DEFAULT_INSTALL_PATH,
+            constants.MODULE_NAME: uc.MODULE_NAME,
+            constants.MODULE_CLASS: [],
+            constants.MODULE_COMPATIBILITY_SUITES: []}
+        self.mod_finder.module_info.get_paths.return_value = [uc.TEST_DATA_CONFIG]
+        t_infos = self.mod_finder.find_test_by_class_name(uc.FULL_CLASS_NAME, module_name=uc.MODULE_NAME, rel_config=uc.CONFIG_FILE)
+        unittest_utils.assert_equal_testinfos(
+            self, t_infos[0], uc.CLASS_INFO)
+
+    @mock.patch.object(module_finder.ModuleFinder, '_is_vts_module',
+                       return_value=False)
+    @mock.patch.object(module_finder.ModuleFinder, '_get_build_targets')
+    @mock.patch('subprocess.check_output', return_value='')
+    @mock.patch('os.path.isfile', side_effect=unittest_utils.isfile_side_effect)
+    @mock.patch('os.path.isdir', return_value=True)
+    #pylint: disable=unused-argument
+    def test_find_test_by_package_name_w_module(self, _isdir, _isfile,
+                                                mock_checkoutput, mock_build,
+                                                _vts):
+        """Test find_test_by_package_name with module but without package found."""
+        self.mod_finder.module_info.is_auto_gen_test_config.return_value = False
+        self.mod_finder.module_info.is_robolectric_test.return_value = False
+        self.mod_finder.module_info.has_test_config.return_value = True
+        mock_build.return_value = uc.CLASS_BUILD_TARGETS
+        self.mod_finder.module_info.get_module_names.return_value = [uc.MODULE_NAME]
+        self.mod_finder.module_info.get_module_info.return_value = {
+            constants.MODULE_INSTALLED: DEFAULT_INSTALL_PATH,
+            constants.MODULE_NAME: uc.MODULE_NAME,
+            constants.MODULE_CLASS: [],
+            constants.MODULE_COMPATIBILITY_SUITES: []
+        }
+        self.mod_finder.module_info.get_paths.return_value = [uc.TEST_DATA_CONFIG]
+        t_infos = self.mod_finder.find_test_by_package_name(uc.PACKAGE, module_name=uc.MODULE_NAME, rel_config=uc.CONFIG_FILE)
+        unittest_utils.assert_equal_testinfos(
+            self, t_infos[0],
+            uc.PACKAGE_INFO)
 
 if __name__ == '__main__':
     unittest.main()
