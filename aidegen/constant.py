@@ -115,7 +115,7 @@ VSCODE_CONFIG_DIR = '.vscode'
 ANDROID_MANIFEST = 'AndroidManifest.xml'
 VERSION_FILE = 'VERSION'
 INTERMEDIATES = '.intermediates'
-
+TARGET_R_SRCJAR = 'R.srcjar'
 
 # Constants for file paths.
 RELATIVE_NATIVE_PATH = 'development/ide/clion'

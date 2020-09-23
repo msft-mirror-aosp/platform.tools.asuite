@@ -188,8 +188,10 @@ class ProjectSplitterUnittest(unittest.TestCase):
         self.assertEqual(self.split_projs._projects[1].dependencies, dep2)
         self.assertEqual(self.split_projs._projects[2].dependencies, dep3)
 
+    @mock.patch.object(source_splitter.ProjectSplitter,
+                       '_remove_permission_definition_srcjar_path')
     @mock.patch.object(common_util, 'get_android_root_dir')
-    def test_gen_framework_srcjars_iml(self, mock_root):
+    def test_gen_framework_srcjars_iml(self, mock_root, mock_remove):
         """Test gen_framework_srcjars_iml."""
         mock_root.return_value = self._TEST_DIR
         self.split_projs._projects[0].dep_modules = {
@@ -216,6 +218,7 @@ class ProjectSplitterUnittest(unittest.TestCase):
         srcjars = self.split_projs._all_srcs['srcjar_path']
         self.assertEqual(sorted(list(srcjars)), expected_srcjars)
         self.assertEqual(iml_path, expected_path)
+        self.assertTrue(mock_remove.called)
 
     @mock.patch.object(iml.IMLGenerator, 'create')
     @mock.patch.object(common_util, 'get_android_root_dir')
@@ -297,6 +300,44 @@ class ProjectSplitterUnittest(unittest.TestCase):
         expected = ['a/b/c/gen']
         self.assertEqual(expected, source_splitter._get_real_dependencies_jars(
             ['a/b'], expected))
+
+    @mock.patch.object(common_util, 'get_android_root_dir')
+    @mock.patch.object(common_util, 'get_soong_out_path')
+    def test_get_permission_definition_srcjar_path(self, mock_soong, mock_root):
+        """Test _get_permission_definition_srcjar_path."""
+        mock_soong.return_value = 'a/b/out/soong'
+        mock_root.return_value = 'a/b'
+        expected = ('out/soong/.intermediates/frameworks/base/core/res/'
+                    'framework-res/android_common/gen/android/R.srcjar')
+        self.assertEqual(
+            expected, source_splitter._get_permission_definition_srcjar_path())
+
+    @mock.patch.object(
+        source_splitter, '_get_permission_definition_srcjar_path')
+    def test_remove_permission_definition_srcjar_path(self, mock_get):
+        """Test _remove_permission_definition_srcjar_path with conditions."""
+        expected_srcjars = [
+            'other.srcjar',
+            'srcjar1.srcjar',
+            'srcjar2.srcjar',
+            'srcjar3.srcjar',
+        ]
+        mock_get.return_value = 'none.srcjar'
+        self.split_projs._all_srcs['srcjar_path'] = expected_srcjars
+        self.split_projs._remove_permission_definition_srcjar_path()
+        srcjars = self.split_projs._all_srcs['srcjar_path']
+        self.assertEqual(sorted(list(srcjars)), expected_srcjars)
+
+        expected_srcjars = [
+            'other.srcjar',
+            'srcjar2.srcjar',
+            'srcjar3.srcjar',
+        ]
+        mock_get.return_value = 'srcjar1.srcjar'
+        self.split_projs._all_srcs['srcjar_path'] = expected_srcjars
+        self.split_projs._remove_permission_definition_srcjar_path()
+        srcjars = self.split_projs._all_srcs['srcjar_path']
+        self.assertEqual(sorted(list(srcjars)), expected_srcjars)
 
 
 if __name__ == '__main__':
