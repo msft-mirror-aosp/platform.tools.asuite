@@ -41,9 +41,8 @@ _TARGET_FILES = [_JAVA_EXT, _KOTLIN_EXT]
 _JARJAR_RULES_FILE = 'jarjar-rules.txt'
 _KEY_JARJAR_RULES = 'jarjar_rules'
 _NAME_AAPT2 = 'aapt2'
-_TARGET_R_SRCJAR = 'R.srcjar'
 _TARGET_AAPT2_SRCJAR = _NAME_AAPT2 + _SRCJAR_EXT
-_TARGET_BUILD_FILES = [_TARGET_AAPT2_SRCJAR, _TARGET_R_SRCJAR]
+_TARGET_BUILD_FILES = [_TARGET_AAPT2_SRCJAR, constant.TARGET_R_SRCJAR]
 _IGNORE_DIRS = [
     # The java files under this directory have to be ignored because it will
     # cause duplicated classes by libcore/ojluni/src/main/java.
@@ -222,7 +221,7 @@ class ModuleData:
         base_dirname = os.path.basename(target_folder)
         if target_file == _TARGET_AAPT2_SRCJAR:
             return os.path.join(target_folder, _NAME_AAPT2)
-        if target_file == _TARGET_R_SRCJAR and base_dirname == _ANDROID:
+        if target_file == constant.TARGET_R_SRCJAR and base_dirname == _ANDROID:
             return os.path.join(os.path.dirname(target_folder),
                                 _NAME_AAPT2, 'R')
         return None
