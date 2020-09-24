@@ -508,6 +508,8 @@ class AtestTradefedTestRunner(test_runner_base.TestRunnerBase):
             if constants.TF_DEBUG == arg:
                 print("Please attach process to your IDE...")
                 continue
+            if constants.TF_TEMPLATE == arg:
+                continue
             args_not_supported.append(arg)
         return args_to_append, args_not_supported
 
