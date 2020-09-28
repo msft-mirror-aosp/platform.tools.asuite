@@ -19,6 +19,7 @@
 # pylint: disable=line-too-long
 
 import os
+import tempfile
 import unittest
 
 from unittest import mock
@@ -585,6 +586,28 @@ class TestFinderUtilsUnittests(unittest.TestCase):
         self.assertEqual(test_finder_utils.get_levenshtein_distance(uc.MOD3, uc.FUZZY_MOD3,
                                                                     dir_costs=(1, 2, 1)), 8)
 
+    def test_is_parameterized_java_class(self):
+        """Test is_parameterized_java_class method."""
+        matched_contents = (['@RunWith(Parameterized.class)'],
+                            [' @RunWith( Parameterized.class ) '])
+        not_matched_contents = (['// @RunWith(Parameterized.class)'],
+                                ['*RunWith(Parameterized.class)'])
+        # Test matched patterns
+        for matched_content in matched_contents:
+            try:
+                tmp_file = tempfile.NamedTemporaryFile(mode='wt')
+                tmp_file.writelines(matched_content)
+                tmp_file.flush()
+            finally:
+                tmp_file.close()
+        # Test not matched patterns
+        for not_matched_content in not_matched_contents:
+            try:
+                tmp_file = tempfile.NamedTemporaryFile(mode='wt')
+                tmp_file.writelines(not_matched_content)
+                tmp_file.flush()
+            finally:
+                tmp_file.close()
 
 if __name__ == '__main__':
     unittest.main()
