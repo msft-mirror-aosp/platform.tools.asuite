@@ -134,6 +134,23 @@ INT_INFO = test_info.TestInfo(INT_NAME,
                               set(),
                               data={constants.TI_REL_CONFIG: INT_CONFIG,
                                     constants.TI_FILTER: frozenset()})
+# Golden sample test filter for method under parameterized java.
+PARAMETERIZED_METHOD_FILTER = test_info.TestFilter(
+    FULL_CLASS_NAME, frozenset([METHOD_NAME + '*']))
+PARAMETERIZED_METHOD_INFO = test_info.TestInfo(
+    MODULE_NAME,
+    atf_tr.AtestTradefedTestRunner.NAME,
+    MODULE_BUILD_TARGETS,
+    data={constants.TI_FILTER: frozenset([PARAMETERIZED_METHOD_FILTER]),
+          constants.TI_REL_CONFIG: CONFIG_FILE})
+PARAMETERIZED_FLAT_METHOD_FILTER = test_info.TestFilter(
+    FULL_CLASS_NAME, frozenset([METHOD_NAME + '*', METHOD2_NAME + '*']))
+PARAMETERIZED_FLAT_METHOD_INFO = test_info.TestInfo(
+    MODULE_NAME,
+    atf_tr.AtestTradefedTestRunner.NAME,
+    MODULE_BUILD_TARGETS,
+    data={constants.TI_FILTER: frozenset([PARAMETERIZED_FLAT_METHOD_FILTER]),
+          constants.TI_REL_CONFIG: CONFIG_FILE})
 GTF_INT_INFO = test_info.TestInfo(
     GTF_INT_NAME,
     atf_tr.AtestTradefedTestRunner.NAME,
