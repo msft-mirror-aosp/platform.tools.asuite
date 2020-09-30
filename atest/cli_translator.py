@@ -77,13 +77,15 @@ class CLITranslator:
                         'to clean the old cache.)')
 
     # pylint: disable=too-many-locals
-    def _find_test_infos(self, test, tm_test_detail):
+    def _find_test_infos(self, test, tm_test_detail,
+                         is_rebuild_module_info=False):
         """Return set of TestInfos based on a given test.
 
         Args:
             test: A string representing test references.
             tm_test_detail: The TestDetail of test configured in TEST_MAPPING
                 files.
+            is_rebuild_module_info: Boolean of args.is_rebuild_module_info
 
         Returns:
             Set of TestInfos based on the given test.
@@ -125,7 +127,8 @@ class CLITranslator:
                 test_info_str = ','.join([str(x) for x in found_test_infos])
                 break
         if not test_found:
-            f_results = self._fuzzy_search_and_msg(test, find_test_err_msg)
+            f_results = self._fuzzy_search_and_msg(test, find_test_err_msg,
+                                                   is_rebuild_module_info)
             if f_results:
                 test_infos.update(f_results)
                 test_found = True
@@ -145,12 +148,14 @@ class CLITranslator:
             print(self.msg)
         return test_infos
 
-    def _fuzzy_search_and_msg(self, test, find_test_err_msg):
+    def _fuzzy_search_and_msg(self, test, find_test_err_msg,
+                              is_rebuild_module_info=False):
         """ Fuzzy search and print message.
 
         Args:
             test: A string representing test references
             find_test_err_msg: A string of find test error message.
+            is_rebuild_module_info: Boolean of args.is_rebuild_module_info
 
         Returns:
             A list of TestInfos if found, otherwise None.
@@ -174,20 +179,24 @@ class CLITranslator:
             print('%s\n' % (atest_utils.colorize(
                 find_test_err_msg, constants.MAGENTA)))
         else:
-            print('(This can happen after a repo sync or if the test'
-                  ' is new. Running with "%s" may resolve the issue.)'
-                  '\n' % (atest_utils.colorize(
-                      constants.REBUILD_MODULE_INFO_FLAG,
-                      constants.RED)))
+            if not is_rebuild_module_info:
+                print('(This can happen after a repo sync or if the test'
+                      ' is new. Running with "%s" may resolve the issue.)'
+                      % (atest_utils.colorize(
+                          constants.REBUILD_MODULE_INFO_FLAG,
+                          constants.RED)))
+            print('')
         return None
 
-    def _get_test_infos(self, tests, test_mapping_test_details=None):
+    def _get_test_infos(self, tests, test_mapping_test_details=None,
+                        is_rebuild_module_info=False):
         """Return set of TestInfos based on passed in tests.
 
         Args:
             tests: List of strings representing test references.
             test_mapping_test_details: List of TestDetail for tests configured
                 in TEST_MAPPING files.
+            is_rebuild_module_info: Boolean of args.is_rebuild_module_info
 
         Returns:
             Set of TestInfos based on the passed in tests.
@@ -196,7 +205,8 @@ class CLITranslator:
         if not test_mapping_test_details:
             test_mapping_test_details = [None] * len(tests)
         for test, tm_test_detail in zip(tests, test_mapping_test_details):
-            found_test_infos = self._find_test_infos(test, tm_test_detail)
+            found_test_infos = self._find_test_infos(test, tm_test_detail,
+                                                     is_rebuild_module_info)
             test_infos.update(found_test_infos)
         return test_infos
 
@@ -492,7 +502,8 @@ class CLITranslator:
         atest_utils.colorful_print("\nFinding Tests...", constants.CYAN)
         logging.debug('Finding Tests: %s', tests)
         start = time.time()
-        test_infos = self._get_test_infos(tests, test_details_list)
+        test_infos = self._get_test_infos(tests, test_details_list,
+                                          args.rebuild_module_info)
         logging.debug('Found tests in %ss', time.time() - start)
         for test_info in test_infos:
             logging.debug('%s\n', test_info)

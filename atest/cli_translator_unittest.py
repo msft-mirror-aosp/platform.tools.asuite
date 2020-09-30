@@ -58,7 +58,8 @@ SEARCH_DIR_RE = re.compile(r'^find ([^ ]*).*$')
 
 
 #pylint: disable=unused-argument
-def gettestinfos_side_effect(test_names, test_mapping_test_details=None):
+def gettestinfos_side_effect(test_names, test_mapping_test_details=None,
+                             is_rebuild_module_info=False):
     """Mock return values for _get_test_info."""
     test_infos = set()
     for test_name in test_names:
@@ -85,6 +86,7 @@ class CLITranslatorUnittests(unittest.TestCase):
         self.args.test_mapping = False
         self.args.include_subdirs = False
         self.args.enable_file_patterns = False
+        self.args.rebuild_module_info = False
         # Cache finder related args
         self.args.clear_cache = False
         self.ctr.mod_info = mock.Mock
