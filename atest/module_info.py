@@ -78,7 +78,8 @@ class ModuleInfo:
             module_file_path = os.path.join(
                 os.environ.get(constants.ANDROID_PRODUCT_OUT), _MODULE_INFO)
             module_info_target = module_file_path
-        if not os.path.isfile(module_file_path) or force_build:
+        # Make sure module-info exist and could be load properly.
+        if not atest_utils.is_valid_json_file(module_file_path) or force_build:
             logging.debug('Generating %s - this is required for '
                           'initial runs.', _MODULE_INFO)
             build_env = dict(constants.ATEST_BUILD_ENV)
@@ -136,11 +137,13 @@ class ModuleInfo:
 
     def is_module(self, name):
         """Return True if name is a module, False otherwise."""
-        return name in self.name_to_module_info
+        if self.get_module_info(name):
+            return True
+        return False
 
     def get_paths(self, name):
         """Return paths of supplied module name, Empty list if non-existent."""
-        info = self.name_to_module_info.get(name)
+        info = self.get_module_info(name)
         if info:
             return info.get(constants.MODULE_PATH, [])
         return []
@@ -165,9 +168,9 @@ class ModuleInfo:
         # finding matched module. Rescan the module-info with matched module
         # name without bitness.
         if not module_info:
-            for _, module_info in self.name_to_module_info.items():
-                if mod_name == module_info.get(constants.MODULE_NAME, ''):
-                    break
+            for _, mod_info in self.name_to_module_info.items():
+                if mod_name == mod_info.get(constants.MODULE_NAME, ''):
+                    return mod_info
         return module_info
 
     def is_suite_in_compatibility_suites(self, suite, mod_info):
@@ -264,7 +267,7 @@ class ModuleInfo:
             String of module that is the runnable robolectric module, None if
             none could be found.
         """
-        module_name_info = self.name_to_module_info.get(module_name)
+        module_name_info = self.get_module_info(module_name)
         if not module_name_info:
             return None
         module_paths = module_name_info.get(constants.MODULE_PATH, [])
@@ -306,7 +309,7 @@ class ModuleInfo:
             True if the test config file will be generated automatically.
         """
         if self.is_module(module_name):
-            mod_info = self.name_to_module_info.get(module_name)
+            mod_info = self.get_module_info(module_name)
             auto_test_config = mod_info.get('auto_test_config', [])
             return auto_test_config and auto_test_config[0]
         return False

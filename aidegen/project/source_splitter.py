@@ -39,6 +39,8 @@ _EXCLUDE_FOLDERS = ['.idea', '.repo', 'art', 'bionic', 'bootable', 'build',
                     'toolchain', 'tools', 'vendor', 'out',
                     'art/tools/ahat/src/test-dump',
                     'cts/common/device-side/device-info/src_stub']
+_PERMISSION_DEFINED_JAR = ('frameworks/base/core/res/framework-res/'
+                           'android_common/gen/android')
 
 
 class ProjectSplitter:
@@ -76,6 +78,9 @@ class ProjectSplitter:
         _framework_iml: A string, the name of the framework's iml.
         _full_repo: A boolean, True if loading with full Android sources.
         _full_repo_iml: A string, the name of the Android folder's iml.
+        _permission_definition_r_srcjar: A string, the absolute path of R.srcjar
+                                         of the permission and resource content
+                                         of framework-res.
     """
     def __init__(self, projects):
         """ProjectSplitter initialize.
@@ -97,6 +102,7 @@ class ProjectSplitter:
         if self._full_repo:
             self._full_repo_iml = os.path.basename(
                 common_util.get_android_root_dir())
+        self._permission_definition_r_srcjar = ''
 
     def revise_source_folders(self):
         """Resets the source folders of each project.
@@ -146,9 +152,13 @@ class ProjectSplitter:
         Priority processing with the longest path length, e.g.
         frameworks/base/packages/SettingsLib must have priority over
         frameworks/base.
+        (b/160303006): Remove the parent project's source and test paths under
+        the child's project path.
         """
-        for child in sorted(self._projects, key=lambda k: len(
-                k.project_relative_path), reverse=True):
+        root = common_util.get_android_root_dir()
+        projects = sorted(self._projects, key=lambda k: len(
+            k.project_relative_path), reverse=True)
+        for child in projects:
             for parent in self._projects:
                 is_root = not parent.project_relative_path
                 if parent is child:
@@ -158,6 +168,9 @@ class ProjectSplitter:
                         parent.project_relative_path) or is_root):
                     for key in _SOURCE_FOLDERS:
                         parent.source_path[key] -= child.source_path[key]
+                        rm_paths = _remove_child_duplicate_sources_from_parent(
+                            child, parent.source_path[key], root)
+                        parent.source_path[key] -= rm_paths
 
     def get_dependencies(self):
         """Gets the dependencies between the projects.
@@ -165,8 +178,9 @@ class ProjectSplitter:
         Check if the current project's source folder exists in other projects.
         If do, the current project is a dependency module to the other.
         """
-        for project in sorted(self._projects, key=lambda k: len(
-                k.project_relative_path)):
+        projects = sorted(self._projects, key=lambda k: len(
+            k.project_relative_path))
+        for project in projects:
             proj_path = project.project_relative_path
             project.dependencies = [constant.FRAMEWORK_SRCJARS]
             if self._framework_exist and proj_path != constant.FRAMEWORK_PATH:
@@ -175,8 +189,9 @@ class ProjectSplitter:
                 project.dependencies.append(self._full_repo_iml)
             srcs = (project.source_path[_KEY_SOURCE_PATH]
                     | project.source_path[_KEY_TEST_PATH])
-            for dep_proj in sorted(self._projects, key=lambda k: len(
-                    k.project_relative_path)):
+            dep_projects = sorted(self._projects, key=lambda k: len(
+                k.project_relative_path))
+            for dep_proj in dep_projects:
                 dep_path = dep_proj.project_relative_path
                 is_root = not dep_path
                 is_child = common_util.is_source_under_relative_path(dep_path,
@@ -193,14 +208,17 @@ class ProjectSplitter:
             project.dependencies.append(constant.KEY_DEPENDENCIES)
 
     def gen_framework_srcjars_iml(self):
-        """Generates the framework-srcjars.iml.
+        """Generates the framework_srcjars.iml.
 
         Create the iml file with only the srcjars of module framework-all. These
-        srcjars will be separated from the modules under frameworks/base.
+        srcjars will be separated from the modules under frameworks/base. If the
+        framework-res/android_common/gen/android/R.srcjar file exists, add it
+        into framework_srcjars.iml too.
 
         Returns:
             A string of the framework_srcjars.iml's absolute path.
         """
+        self._remove_permission_definition_srcjar_path()
         mod = dict(self._projects[0].dep_modules[constant.FRAMEWORK_ALL])
         mod[constant.KEY_DEPENDENCIES] = []
         mod[constant.KEY_IML_NAME] = constant.FRAMEWORK_SRCJARS
@@ -209,21 +227,30 @@ class ProjectSplitter:
         if self._full_repo:
             mod[constant.KEY_DEPENDENCIES].append(self._full_repo_iml)
         mod[constant.KEY_DEPENDENCIES].append(constant.KEY_DEPENDENCIES)
+        if self._permission_definition_r_srcjar:
+            mod[constant.KEY_SRCJARS] = [self._permission_definition_r_srcjar]
         framework_srcjars_iml = iml.IMLGenerator(mod)
         framework_srcjars_iml.create({constant.KEY_SRCJARS: True,
                                       constant.KEY_DEPENDENCIES: True})
-        self._all_srcs[_KEY_SRCJAR_PATH] -= set(mod[constant.KEY_SRCJARS])
+        self._all_srcs[_KEY_SRCJAR_PATH] -= set(mod.get(constant.KEY_SRCJARS,
+                                                        []))
         return framework_srcjars_iml.iml_path
 
     def _gen_dependencies_iml(self):
         """Generates the dependencies.iml."""
+        rel_project_soong_paths = self._get_rel_project_soong_paths()
         mod = {
-            constant.KEY_SRCS: self._all_srcs[_KEY_SOURCE_PATH],
-            constant.KEY_TESTS: self._all_srcs[_KEY_TEST_PATH],
-            constant.KEY_JARS: self._all_srcs[_KEY_JAR_PATH],
-            constant.KEY_SRCJARS: (self._all_srcs[_KEY_R_PATH]
-                                   | self._all_srcs[_KEY_SRCJAR_PATH]),
-            constant.KEY_DEPENDENCIES: [constant.FRAMEWORK_SRCJARS],
+            constant.KEY_SRCS: _get_real_dependencies_jars(
+                rel_project_soong_paths, self._all_srcs[_KEY_SOURCE_PATH]),
+            constant.KEY_TESTS: _get_real_dependencies_jars(
+                rel_project_soong_paths, self._all_srcs[_KEY_TEST_PATH]),
+            constant.KEY_JARS: _get_real_dependencies_jars(
+                rel_project_soong_paths, self._all_srcs[_KEY_JAR_PATH]),
+            constant.KEY_SRCJARS: _get_real_dependencies_jars(
+                rel_project_soong_paths,
+                self._all_srcs[_KEY_R_PATH] | self._all_srcs[_KEY_SRCJAR_PATH]),
+            constant.KEY_DEPENDENCIES: _get_real_dependencies_jars(
+                rel_project_soong_paths, [constant.FRAMEWORK_SRCJARS]),
             constant.KEY_PATH: [self._projects[0].project_relative_path],
             constant.KEY_MODULE_NAME: constant.KEY_DEPENDENCIES,
             constant.KEY_IML_NAME: constant.KEY_DEPENDENCIES
@@ -265,6 +292,67 @@ class ProjectSplitter:
             project.iml_path = dep_iml.iml_path
         self._gen_dependencies_iml()
 
+    def _get_rel_project_soong_paths(self):
+        """Gets relative projects' paths in 'out/soong/.intermediates' folder.
+
+        Gets relative projects' paths in the 'out/soong/.intermediates'
+        directory. For example, if the self.projects = ['frameworks/base'] the
+        returned list should be ['out/soong/.intermediates/frameworks/base/'].
+
+        Returns:
+            A list of relative projects' paths in out/soong/.intermediates.
+        """
+        out_soong_dir = os.path.relpath(common_util.get_soong_out_path(),
+                                        common_util.get_android_root_dir())
+        rel_project_soong_paths = []
+        for project in self._projects:
+            relpath = project.project_relative_path
+            rel_project_soong_paths.append(os.sep.join(
+                [out_soong_dir, constant.INTERMEDIATES, relpath]) + os.sep)
+        return rel_project_soong_paths
+
+    def _remove_permission_definition_srcjar_path(self):
+        """Removes android.Manifest.permission definition srcjar path.
+
+        If the framework-res/android_common/gen/android/R.srcjar file exists in
+        self._all_srcs[_KEY_SRCJAR_PATH], remove it and later add it into the
+        framework_srcjars.iml file to fix the unresolved symbols of the
+        constants of android.Manifest.permission.
+        """
+        rel_path = _get_permission_definition_srcjar_path()
+        for rjar_path in self._all_srcs[_KEY_SRCJAR_PATH]:
+            if rjar_path.endswith(rel_path):
+                self._permission_definition_r_srcjar = rjar_path
+                break
+        if self._permission_definition_r_srcjar:
+            self._all_srcs[_KEY_SRCJAR_PATH].remove(
+                self._permission_definition_r_srcjar)
+
+
+def _get_real_dependencies_jars(list_to_check, list_to_be_checked):
+    """Gets real dependencies' jar from the input list.
+
+    There are jar files which have the same source codes as the self.projects
+    should be removed from dependencies. Otherwise these files will cause the
+    duplicated codes in IDE and lead to issues. The example: b/158583214.
+
+    Args:
+        list_to_check: A list of relative projects' paths in the folder
+                       out/soong/.intermediates to be checked if are contained
+                       in the list_to_be_checked list.
+        list_to_be_checked: A list of dependencies' paths to be checked.
+
+    Returns:
+        A list of dependency jar paths after duplicated ones removed.
+    """
+    real_jars = list_to_be_checked.copy()
+    for jar in list_to_be_checked:
+        for check_path in list_to_check:
+            if check_path in jar and jar.endswith(constant.JAR_EXT):
+                real_jars.remove(jar)
+                break
+    return real_jars
+
 
 def get_exclude_content(root_path, excludes=None):
     """Get the exclude folder content list.
@@ -290,3 +378,34 @@ def get_exclude_content(root_path, excludes=None):
         if os.path.isdir(folder_path):
             exclude_items.append(_EXCLUDE_ITEM % folder_path)
     return exclude_items
+
+
+def _remove_child_duplicate_sources_from_parent(child, parent_sources, root):
+    """Removes the child's duplicate source folders from the parent source list.
+
+    Remove all the child's subdirectories from the parent's source list if there
+    is any.
+
+    Args:
+        child: A child project of ProjectInfo instance.
+        parent_sources: The parent project sources of the ProjectInfo instance.
+        root: A string of the Android root.
+
+    Returns:
+        A set of the sources to be removed.
+    """
+    rm_paths = set()
+    for path in parent_sources:
+        if (common_util.is_source_under_relative_path(
+                os.path.relpath(path, root), child.project_relative_path)):
+            rm_paths.add(path)
+    return rm_paths
+
+
+def _get_permission_definition_srcjar_path():
+    """Gets android.Manifest.permission definition srcjar path."""
+    out_soong_dir = os.path.relpath(common_util.get_soong_out_path(),
+                                    common_util.get_android_root_dir())
+    return os.sep.join(
+        [out_soong_dir, constant.INTERMEDIATES, _PERMISSION_DEFINED_JAR,
+         constant.TARGET_R_SRCJAR])

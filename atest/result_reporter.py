@@ -459,7 +459,7 @@ class ResultReporter:
             module = ''
             if len(mod_list) > 1:
                 module = mod_list[1]
-            if module:
+            if module and self.flakes_info:
                 flakes_info = au.get_flakes(test_module=module)
                 if (flakes_info and
                         flakes_info.get(constants.FLAKE_PERCENT, None)):

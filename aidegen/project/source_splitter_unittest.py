@@ -161,10 +161,13 @@ class ProjectSplitterUnittest(unittest.TestCase):
         self.assertEqual(all_srcs['source_folder_path'], expected_all_srcs)
         self.assertEqual(all_srcs['test_folder_path'], expected_all_tests)
 
-    def test_remove_duplicate_sources(self):
+    @mock.patch.object(
+        source_splitter, '_remove_child_duplicate_sources_from_parent')
+    def test_remove_duplicate_sources(self, mock_remove):
         """Test _remove_duplicate_sources."""
         self.split_projs._collect_all_srcs()
         self.split_projs._keep_local_sources()
+        mock_remove.return_value = set()
         self.split_projs._remove_duplicate_sources()
         srcs2 = self.split_projs._projects[1].source_path
         srcs3 = self.split_projs._projects[2].source_path
@@ -172,6 +175,7 @@ class ProjectSplitterUnittest(unittest.TestCase):
         expected_srcs3 = {'src2/src3'}
         self.assertEqual(srcs2['source_folder_path'], expected_srcs2)
         self.assertEqual(srcs3['source_folder_path'], expected_srcs3)
+        self.assertTrue(mock_remove.called)
 
     def test_get_dependencies(self):
         """Test get_dependencies."""
@@ -184,8 +188,10 @@ class ProjectSplitterUnittest(unittest.TestCase):
         self.assertEqual(self.split_projs._projects[1].dependencies, dep2)
         self.assertEqual(self.split_projs._projects[2].dependencies, dep3)
 
+    @mock.patch.object(source_splitter.ProjectSplitter,
+                       '_remove_permission_definition_srcjar_path')
     @mock.patch.object(common_util, 'get_android_root_dir')
-    def test_gen_framework_srcjars_iml(self, mock_root):
+    def test_gen_framework_srcjars_iml(self, mock_root, mock_remove):
         """Test gen_framework_srcjars_iml."""
         mock_root.return_value = self._TEST_DIR
         self.split_projs._projects[0].dep_modules = {
@@ -212,6 +218,7 @@ class ProjectSplitterUnittest(unittest.TestCase):
         srcjars = self.split_projs._all_srcs['srcjar_path']
         self.assertEqual(sorted(list(srcjars)), expected_srcjars)
         self.assertEqual(iml_path, expected_path)
+        self.assertTrue(mock_remove.called)
 
     @mock.patch.object(iml.IMLGenerator, 'create')
     @mock.patch.object(common_util, 'get_android_root_dir')
@@ -248,6 +255,89 @@ class ProjectSplitterUnittest(unittest.TestCase):
         """Test get_exclude_content."""
         exclude_folders = source_splitter.get_exclude_content(self._TEST_PATH)
         self.assertEqual(self._SAMPLE_EXCLUDE_FOLDERS, exclude_folders)
+
+    def test_remove_child_duplicate_sources_from_parent(self):
+        """Test _remove_child_duplicate_sources_from_parent with conditions."""
+        child = mock.Mock()
+        child.project_relative_path = 'c/d'
+        root = 'a/b'
+        parent_sources = ['a/b/d/e', 'a/b/e/f']
+        result = source_splitter._remove_child_duplicate_sources_from_parent(
+            child, parent_sources, root)
+        self.assertEqual(set(), result)
+        parent_sources = ['a/b/c/d/e', 'a/b/e/f']
+        result = source_splitter._remove_child_duplicate_sources_from_parent(
+            child, parent_sources, root)
+        self.assertEqual(set(['a/b/c/d/e']), result)
+
+    @mock.patch('os.path.relpath')
+    def test_get_rel_project_soong_paths(self, mock_rel):
+        """Test _get_rel_project_soong_paths."""
+        mock_rel.return_value = 'out/soong'
+        expected = [
+            'out/soong/.intermediates/src1/',
+            'out/soong/.intermediates/src2/',
+            'out/soong/.intermediates/src2/src3/',
+            'out/soong/.intermediates/frameworks/base/'
+        ]
+        self.assertEqual(
+            expected, self.split_projs._get_rel_project_soong_paths())
+
+    def test_get_real_dependencies_jars(self):
+        """Test _get_real_dependencies_jars with conditions."""
+        expected = ['a/b/c/d']
+        self.assertEqual(expected, source_splitter._get_real_dependencies_jars(
+            [], expected))
+        expected = ['a/b/c/d.jar']
+        self.assertEqual(expected, source_splitter._get_real_dependencies_jars(
+            ['a/e'], expected))
+        expected = ['a/b/c/d.jar']
+        self.assertEqual([], source_splitter._get_real_dependencies_jars(
+            ['a/b'], expected))
+        expected = ['a/b/c/d.srcjar']
+        self.assertEqual(expected, source_splitter._get_real_dependencies_jars(
+            ['a/b'], expected))
+        expected = ['a/b/c/gen']
+        self.assertEqual(expected, source_splitter._get_real_dependencies_jars(
+            ['a/b'], expected))
+
+    @mock.patch.object(common_util, 'get_android_root_dir')
+    @mock.patch.object(common_util, 'get_soong_out_path')
+    def test_get_permission_definition_srcjar_path(self, mock_soong, mock_root):
+        """Test _get_permission_definition_srcjar_path."""
+        mock_soong.return_value = 'a/b/out/soong'
+        mock_root.return_value = 'a/b'
+        expected = ('out/soong/.intermediates/frameworks/base/core/res/'
+                    'framework-res/android_common/gen/android/R.srcjar')
+        self.assertEqual(
+            expected, source_splitter._get_permission_definition_srcjar_path())
+
+    @mock.patch.object(
+        source_splitter, '_get_permission_definition_srcjar_path')
+    def test_remove_permission_definition_srcjar_path(self, mock_get):
+        """Test _remove_permission_definition_srcjar_path with conditions."""
+        expected_srcjars = [
+            'other.srcjar',
+            'srcjar1.srcjar',
+            'srcjar2.srcjar',
+            'srcjar3.srcjar',
+        ]
+        mock_get.return_value = 'none.srcjar'
+        self.split_projs._all_srcs['srcjar_path'] = expected_srcjars
+        self.split_projs._remove_permission_definition_srcjar_path()
+        srcjars = self.split_projs._all_srcs['srcjar_path']
+        self.assertEqual(sorted(list(srcjars)), expected_srcjars)
+
+        expected_srcjars = [
+            'other.srcjar',
+            'srcjar2.srcjar',
+            'srcjar3.srcjar',
+        ]
+        mock_get.return_value = 'srcjar1.srcjar'
+        self.split_projs._all_srcs['srcjar_path'] = expected_srcjars
+        self.split_projs._remove_permission_definition_srcjar_path()
+        srcjars = self.split_projs._all_srcs['srcjar_path']
+        self.assertEqual(sorted(list(srcjars)), expected_srcjars)
 
 
 if __name__ == '__main__':

@@ -17,6 +17,7 @@ Utils for finder classes.
 """
 
 # pylint: disable=line-too-long
+# pylint: disable=too-many-lines
 
 from __future__ import print_function
 
@@ -54,6 +55,8 @@ _PACKAGE_RE = re.compile(r'\s*package\s+(?P<package>[^(;|\s)]+)\s*', re.I)
 # Matches install paths in module_info to install location(host or device).
 _HOST_PATH_RE = re.compile(r'.*\/host\/.*', re.I)
 _DEVICE_PATH_RE = re.compile(r'.*\/target\/.*', re.I)
+# RE for checking if parameterized java class.
+_PARAMET_JAVA_CLASS_RE = re.compile(r'^\s*@RunWith\s*\(\s*Parameterized.class\s*\)', re.I)
 
 # Explanation of FIND_REFERENCE_TYPEs:
 # ----------------------------------
@@ -517,8 +520,10 @@ def find_parent_module_dir(root_dir, start_dir, module_info):
         # TODO (b/112904944) - migrate module_finder functions to here and
         # reuse them.
         rel_dir = os.path.relpath(current_dir, root_dir)
-        # Check if actual config file here
-        if os.path.isfile(os.path.join(current_dir, constants.MODULE_CONFIG)):
+        # Check if actual config file here but need to make sure that there
+        # exist module in module-info with the parent dir.
+        if (os.path.isfile(os.path.join(current_dir, constants.MODULE_CONFIG))
+                and module_info.get_module_names(current_dir)):
             return rel_dir
         # Check module_info if auto_gen config or robo (non-config) here
         for mod in module_info.path_to_module_info.get(rel_dir, []):
@@ -995,5 +1000,22 @@ def is_test_from_kernel_xml(xml_file, test_name):
     for option_tag in option_tags:
         if option_tag.attrib['name'] == 'test-command-line':
             if option_tag.attrib['key'] == test_name:
+                return True
+    return False
+
+
+def is_parameterized_java_class(test_path):
+    """Find out if input test path is a parameterized java class.
+
+    Args:
+        test_path: A string of absolute path to the java file.
+
+    Returns:
+        Boolean: Is parameterized class or not.
+    """
+    with open(test_path) as class_file:
+        for line in class_file:
+            match = _PARAMET_JAVA_CLASS_RE.match(line)
+            if match:
                 return True
     return False

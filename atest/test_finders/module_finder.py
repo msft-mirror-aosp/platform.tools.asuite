@@ -220,6 +220,7 @@ class ModuleFinder(test_finder_base.TestFinderBase):
                 return test_config
         return rel_config
 
+    # pylint: disable=too-many-branches
     def _get_test_info_filter(self, path, methods, **kwargs):
         """Get test info filter.
 
@@ -245,6 +246,14 @@ class ModuleFinder(test_finder_base.TestFinderBase):
         elif file_name and constants.JAVA_EXT_RE.match(file_name):
             full_class_name = test_finder_utils.get_fully_qualified_class_name(
                 path)
+            # If input class is parameterized java class, adding * to the end of
+            # method filter string to make sure the generated method name could
+            # be run.
+            if test_finder_utils.is_parameterized_java_class(path):
+                update_methods = []
+                for method in methods:
+                    update_methods.append(method + '*')
+                methods = frozenset(update_methods)
             ti_filter = frozenset(
                 [test_info.TestFilter(full_class_name, methods)])
         # Path to cc file.
@@ -256,6 +265,10 @@ class ModuleFinder(test_finder_base.TestFinderBase):
                 ti_filter = frozenset(
                     [test_info.TestFilter(test_finder_utils.get_cc_filter(
                         kwargs.get('class_name', '*'), methods), frozenset())])
+        # If input path is a folder and have class_name information.
+        elif (not file_name and kwargs.get('class_name', None)):
+            ti_filter = frozenset(
+                [test_info.TestFilter(kwargs.get('class_name', None), methods)])
         # Path to non-module dir, treat as package.
         elif (not file_name
               and kwargs.get('rel_module_dir', None) !=
@@ -429,8 +442,16 @@ class ModuleFinder(test_finder_base.TestFinderBase):
                                                            search_class_name,
                                                            is_native_test,
                                                            methods)
+        test_paths = test_paths if test_paths is not None else []
+        # If we already have module name, use path in module-info as test_path.
         if not test_paths:
-            return None
+            if not module_name:
+                return None
+            # Use the module path as test_path.
+            module_paths = self.module_info.get_paths(module_name)
+            test_paths = []
+            for rel_module_path in module_paths:
+                test_paths.append(os.path.join(self.root_dir, rel_module_path))
         tinfos = []
         for test_path in test_paths:
             test_filter = self._get_test_info_filter(
@@ -440,7 +461,7 @@ class ModuleFinder(test_finder_base.TestFinderBase):
                                          module_name, test_filter)
             if tinfo:
                 tinfos.extend(tinfo)
-        return tinfos
+        return tinfos if tinfos else None
 
     def find_test_by_module_and_class(self, module_class):
         """Find the test info given a MODULE:CLASS string.
@@ -504,9 +525,14 @@ class ModuleFinder(test_finder_base.TestFinderBase):
             search_dir = self.root_dir
         package_paths = test_finder_utils.run_find_cmd(
             test_finder_utils.FIND_REFERENCE_TYPE.PACKAGE, search_dir, package)
+        package_paths = package_paths if package_paths is not None else []
         # Package path will be the full path to the dir represented by package.
         if not package_paths:
-            return None
+            if not module_name:
+                return None
+            module_paths = self.module_info.get_paths(module_name)
+            for rel_module_path in module_paths:
+                package_paths.append(os.path.join(self.root_dir, rel_module_path))
         test_filter = frozenset([test_info.TestFilter(package, frozenset())])
         test_infos = []
         for package_path in package_paths:
@@ -514,7 +540,7 @@ class ModuleFinder(test_finder_base.TestFinderBase):
                                          module_name, test_filter)
             if tinfo:
                 test_infos.extend(tinfo)
-        return test_infos
+        return test_infos if test_infos else None
 
     def find_test_by_module_and_package(self, module_package):
         """Find the test info given a MODULE:PACKAGE string.

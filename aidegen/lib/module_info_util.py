@@ -58,12 +58,15 @@ _LAUNCH_PROJECT_QUERY = (
 _BUILD_BP_JSON_ENV_ON = {
     constant.GEN_JAVA_DEPS: 'true',
     constant.GEN_CC_DEPS: 'true',
-    constant.GEN_COMPDB: 'true'
+    constant.GEN_COMPDB: 'true',
+    constant.GEN_RUST: 'true'
 }
 _GEN_JSON_FAILED = (
     'Generate new {0} failed, AIDEGen will proceed and reuse the old {1}.')
-_WARN_MSG = '\n{} {}\n'
 _TARGET = 'nothing'
+_LINKFILE_WARNING = (
+    'File {} does not exist and we can not make a symbolic link for it.')
+_RUST_PROJECT_JSON = 'out/soong/rust-project.json'
 
 
 # pylint: disable=dangerous-default-value
@@ -103,8 +106,8 @@ def _build_bp_info(module_info, main_project=None, verbose=False,
     """Make nothing to create module_bp_java_deps.json, module_bp_cc_deps.json.
 
     Use atest build method to build the target 'nothing' by setting env config
-    SOONG_COLLECT_JAVA_DEPS to false then true. By this way, we can trigger the
-    process of collecting dependencies and generate module_bp_java_deps.json.
+    SOONG_COLLECT_JAVA_DEPS to true to trigger the process of collecting
+    dependencies and generate module_bp_java_deps.json etc.
 
     Args:
         module_info: A ModuleInfo instance contains data of module-info.json.
@@ -139,6 +142,10 @@ def _build_bp_info(module_info, main_project=None, verbose=False,
         '\nGenerate files:\n %s by atest build method.', files)
     build_with_on_cmd = atest_utils.build([_TARGET], verbose, env_on)
 
+    # For Android Rust projects, we need to create a symbolic link to the file
+    # out/soong/rust-project.json to launch the rust projects in IDEs.
+    _generate_rust_project_link()
+
     if build_with_on_cmd:
         logging.info('\nGenerate blueprint json successfully.')
     else:
@@ -158,12 +165,15 @@ def _get_generated_json_files(env_on=_BUILD_BP_JSON_ENV_ON):
     The generation of json files depends on env_on. If the env_on looks like,
     _BUILD_BP_JSON_ENV_ON = {
         'SOONG_COLLECT_JAVA_DEPS': 'true',
-        'SOONG_COLLECT_CC_DEPS': 'true'
+        'SOONG_COLLECT_CC_DEPS': 'true',
+        'SOONG_GEN_COMPDB': 'true',
+        'SOONG_GEN_RUST_PROJECT': 'true'
     }
-    We want to generate only two files: module_bp_java_deps.json and
-    module_bp_cc_deps.json. And in get_blueprint_json_files_relative_dict
-    function, there are three json files by default. We get the result list by
-    comparsing with these two dictionaries.
+    We want to generate 4 files: module_bp_java_deps.json,
+    module_bp_cc_deps.json, compile_commands.json and rust-project.json. And in
+    get_blueprint_json_files_relative_dict function, there are 4 json files
+    by default and return a result list of the absolute paths of the existent
+    files.
 
     Args:
         env_on: A dictionary of environment settings to be turned on, the
@@ -191,7 +201,8 @@ def _show_files_reuse_message(file_paths):
     failed_or_file = ' or '.join(file_paths)
     failed_and_file = ' and '.join(file_paths)
     message = _GEN_JSON_FAILED.format(failed_or_file, failed_and_file)
-    print(_WARN_MSG.format(common_util.COLORED_INFO('Warning:'), message))
+    print(constant.WARN_MSG.format(
+        common_util.COLORED_INFO('Warning:'), message))
 
 
 def _show_build_failed_message(module_info, main_project=None):
@@ -298,3 +309,20 @@ def _merge_dict(mk_dict, bp_dict):
             merged_dict[module] = dict()
         _merge_module_keys(merged_dict[module], bp_dict[module])
     return merged_dict
+
+
+def _generate_rust_project_link():
+    """Generates out/soong/rust-project.json symbolic link in Android root."""
+    root_dir = common_util.get_android_root_dir()
+    rust_project = os.path.join(
+        root_dir, common_util.get_blueprint_json_path(
+            constant.RUST_PROJECT_JSON))
+    if not os.path.isfile(rust_project):
+        message = _LINKFILE_WARNING.format(_RUST_PROJECT_JSON)
+        print(constant.WARN_MSG.format(
+            common_util.COLORED_INFO('Warning:'), message))
+        return
+    link_rust = os.path.join(root_dir, constant.RUST_PROJECT_JSON)
+    if os.path.islink(link_rust):
+        os.remove(link_rust)
+    os.symlink(rust_project, link_rust)

@@ -26,12 +26,15 @@ import select
 import shutil
 import socket
 
+from distutils.util import strtobool
 from functools import partial
+from pathlib import Path
 
 import atest_utils
 import constants
 import result_reporter
 
+from logstorage import atest_gcp_utils
 from test_finders import test_info
 from test_runners import test_runner_base
 from .event_handler import EventHandler
@@ -46,7 +49,7 @@ SELECT_TIMEOUT = 5
 # EVENT_RE has groups for the name and the data. "." does not match \n.
 EVENT_RE = re.compile(r'\n*(?P<event_name>[A-Z_]+) (?P<json_data>{.*})(?=\n|.)*')
 
-EXEC_DEPENDENCIES = ('adb', 'aapt')
+EXEC_DEPENDENCIES = ('adb', 'aapt', 'fastboot')
 
 TRADEFED_EXIT_MSG = 'TradeFed subprocess exited early with exit code=%s.'
 
@@ -151,6 +154,49 @@ class AtestTradefedTestRunner(test_runner_base.TestRunnerBase):
         if os.getenv(test_runner_base.OLD_OUTPUT_ENV_VAR):
             return self.run_tests_raw(test_infos, extra_args, reporter)
         return self.run_tests_pretty(test_infos, extra_args, reporter)
+
+    def _request_consent_of_upload_test_result(self, config_folder):
+        """Request the consent of upload test results at the first time.
+
+        Args:
+            config_folder: The directory path to put config file.
+        """
+        if not os.path.exists(config_folder):
+            os.makedirs(config_folder)
+        not_upload_file = os.path.join(config_folder,
+                                       constants.DO_NOT_UPLOAD_FILE_NAME)
+        creds_f = os.path.join(config_folder, constants.CREDENTIAL_FILE_NAME)
+        # Do nothing if there are no related config or DO_NOT_UPLOAD exists.
+        if (not constants.CREDENTIAL_FILE_NAME or
+                not constants.GCP_BUCKET_ACCESS_TOKEN or
+                os.path.exists(not_upload_file)):
+            return
+        # If the credential file exists or the user says “Yes”, ATest will
+        # try to get the credential from the file, else will create a
+        # DO_NOT_UPLOAD to keep the user's decision.
+        if (os.path.exists(creds_f) or
+                self._prompt_with_yn_result('Upload test result? (y/N):', 'N')):
+            atest_gcp_utils.GCPHelper(
+                client_id=constants.CLIENT_ID,
+                client_secret=constants.CLIENT_SECRET,
+                user_agent='atest').get_credential_with_auth_flow(creds_f)
+        else:
+            Path(not_upload_file).touch()
+
+
+    def _prompt_with_yn_result(self, msg, default):
+        """Prompt message and get yes or no result.
+
+        Args:
+            msg: The question you want asking.
+            default: string default value.
+        Returns:
+            default value if get KeyboardInterrupt or ValueError exception.
+        """
+        try:
+            return strtobool(input(msg) or default)
+        except (ValueError, KeyboardInterrupt):
+            return default
 
     def run_tests_raw(self, test_infos, extra_args, reporter):
         """Run the list of test_infos. See base class for more.
@@ -321,6 +367,14 @@ class AtestTradefedTestRunner(test_runner_base.TestRunnerBase):
         if debug_port:
             env_vars['TF_DEBUG'] = 'true'
             env_vars['TF_DEBUG_PORT'] = str(debug_port)
+        filtered_paths = []
+        for path in str(env_vars['PYTHONPATH']).split(':'):
+            # TODO (b/166216843) Remove the hacky PYTHON path workaround.
+            if (str(path).startswith('/tmp/Soong.python_') and
+                    str(path).find('googleapiclient') > 0):
+                continue
+            filtered_paths.append(path)
+        env_vars['PYTHONPATH'] = ':'.join(filtered_paths)
         return env_vars
 
     # pylint: disable=unnecessary-pass
@@ -454,6 +508,8 @@ class AtestTradefedTestRunner(test_runner_base.TestRunnerBase):
             if constants.TF_DEBUG == arg:
                 print("Please attach process to your IDE...")
                 continue
+            if constants.TF_TEMPLATE == arg:
+                continue
             args_not_supported.append(arg)
         return args_to_append, args_not_supported
 
@@ -498,10 +554,10 @@ class AtestTradefedTestRunner(test_runner_base.TestRunnerBase):
         if metrics_folder:
             test_args.extend(['--metrics-folder', metrics_folder])
             logging.info('Saved metrics in: %s', metrics_folder)
-        log_level = 'WARN'
-        if self.is_verbose:
-            log_level = 'VERBOSE'
-            test_args.extend(['--log-level-display', log_level])
+        # For detailed logs, set TF options log-level/log-level-display as
+        # 'VERBOSE' by default.
+        log_level = 'VERBOSE'
+        test_args.extend(['--log-level-display', log_level])
         test_args.extend(['--log-level', log_level])
 
         args_to_add, args_not_supported = self._parse_extra_args(extra_args)

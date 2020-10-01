@@ -33,6 +33,7 @@ import re
 import shutil
 import subprocess
 import sys
+import time
 import zipfile
 
 import atest_decorator
@@ -48,6 +49,7 @@ from tools.tradefederation.core.proto import test_record_pb2
 # the users to manually "pip3 install protobuf", therefore when the exception
 # occurs, we don't collect data and the tab completion is for args is silence.
 try:
+    from metrics import metrics
     from metrics import metrics_base
     from metrics import metrics_utils
 except ModuleNotFoundError:
@@ -69,7 +71,7 @@ _BUILD_COMPILE_STATUS = re.compile(r'\[\s*(\d{1,3}%\s+)?\d+/\d+\]')
 _BUILD_FAILURE = 'FAILED: '
 CMD_RESULT_PATH = os.path.join(os.environ.get(constants.ANDROID_BUILD_TOP,
                                               os.getcwd()),
-                               'tools/tradefederation/core/atest/test_data',
+                               'tools/asuite/atest/test_data',
                                'test_commands.json')
 BUILD_TOP_HASH = hashlib.md5(os.environ.get(constants.ANDROID_BUILD_TOP, '').
                              encode()).hexdigest()
@@ -123,6 +125,25 @@ def _capture_fail_section(full_log):
     return capture_output
 
 
+def _capture_limited_output(full_log):
+    """Return the limited error message from capture_failed_section.
+
+    Args:
+        full_log: List of strings representing full output of build.
+
+    Returns:
+        output: List of strings that are build errors.
+    """
+    # Parse out the build error to output.
+    output = _capture_fail_section(full_log)
+    if not output:
+        output = full_log
+    if len(output) >= _FAILED_OUTPUT_LINE_LIMIT:
+        output = output[-_FAILED_OUTPUT_LINE_LIMIT:]
+    output = 'Output (may be trimmed):\n%s' % ''.join(output)
+    return output
+
+
 def _run_limited_output(cmd, env_vars=None):
     """Runs a given command and streams the output on a single line in stdout.
 
@@ -162,14 +183,49 @@ def _run_limited_output(cmd, env_vars=None):
     # Wait for the Popen to finish completely before checking the returncode.
     proc.wait()
     if proc.returncode != 0:
-        # Parse out the build error to output.
-        output = _capture_fail_section(full_output)
+        # get error log from "OUT_DIR/error.log"
+        error_log_file = os.path.join(get_build_out_dir(), "error.log")
+        output = []
+        if os.path.isfile(error_log_file):
+            if os.stat(error_log_file).st_size > 0:
+                with open(error_log_file) as f:
+                    output = f.read()
         if not output:
-            output = full_output
-        if len(output) >= _FAILED_OUTPUT_LINE_LIMIT:
-            output = output[-_FAILED_OUTPUT_LINE_LIMIT:]
-        output = 'Output (may be trimmed):\n%s' % ''.join(output)
+            output = _capture_limited_output(full_output)
         raise subprocess.CalledProcessError(proc.returncode, cmd, output)
+
+
+def get_build_out_dir():
+    """Get android build out directory.
+
+    Returns:
+        String of the out directory.
+    """
+    build_top = os.environ.get(constants.ANDROID_BUILD_TOP)
+    # Get the out folder if user specified $OUT_DIR
+    custom_out_dir = os.environ.get(constants.ANDROID_OUT_DIR)
+    custom_out_dir_common_base = os.environ.get(
+        constants.ANDROID_OUT_DIR_COMMON_BASE)
+    user_out_dir = None
+    if custom_out_dir:
+        if os.path.isabs(custom_out_dir):
+            user_out_dir = custom_out_dir
+        else:
+            user_out_dir = os.path.join(build_top, custom_out_dir)
+    elif custom_out_dir_common_base:
+        # When OUT_DIR_COMMON_BASE is set, the output directory for each
+        # separate source tree is named after the directory holding the
+        # source tree.
+        build_top_basename = os.path.basename(build_top)
+        if os.path.isabs(custom_out_dir_common_base):
+            user_out_dir = os.path.join(custom_out_dir_common_base,
+                                        build_top_basename)
+        else:
+            user_out_dir = os.path.join(build_top, custom_out_dir_common_base,
+                                        build_top_basename)
+    if user_out_dir:
+        return user_out_dir
+    return os.path.join(build_top, "out")
 
 
 def build(build_targets, verbose=False, env_vars=None):
@@ -421,6 +477,8 @@ def handle_test_runner_cmd(input_test, test_cmds, do_verification=False,
         with open(result_path) as json_file:
             full_result_content = json.load(json_file)
     former_test_cmds = full_result_content.get(input_test, [])
+    test_cmds = _normalize(test_cmds)
+    former_test_cmds = _normalize(former_test_cmds)
     if not _are_identical_cmds(test_cmds, former_test_cmds):
         if do_verification:
             raise atest_error.DryRunVerificationError(
@@ -452,12 +510,37 @@ def handle_test_runner_cmd(input_test, test_cmds, do_verification=False,
         json.dump(full_result_content, outfile, indent=0)
         print('Save result mapping to %s' % result_path)
 
-
-def _are_identical_cmds(current_cmds, former_cmds):
-    """Tell two commands are identical. Note that '--atest-log-file-path' is not
+def _normalize(cmd_list):
+    """Method that normalize commands. Note that '--atest-log-file-path' is not
     considered a critical argument, therefore, it will be removed during
     the comparison. Also, atest can be ran in any place, so verifying relative
-    path is regardless as well.
+    path, LD_LIBRARY_PATH, and --proto-output-file is regardless as well.
+
+    Args:
+        cmd_list: A list with one element. E.g. ['cmd arg1 arg2 True']
+
+    Returns:
+        A list with elements. E.g. ['cmd', 'arg1', 'arg2', 'True']
+    """
+    _cmd = ' '.join(cmd_list).split()
+    for cmd in _cmd:
+        if cmd.startswith('--atest-log-file-path'):
+            _cmd.remove(cmd)
+            continue
+        if cmd.startswith('LD_LIBRARY_PATH='):
+            _cmd.remove(cmd)
+            continue
+        if cmd.startswith('--proto-output-file='):
+            _cmd.remove(cmd)
+            continue
+        if _BUILD_CMD in cmd:
+            _cmd.remove(cmd)
+            _cmd.append(os.path.join('./', _BUILD_CMD))
+            continue
+    return _cmd
+
+def _are_identical_cmds(current_cmds, former_cmds):
+    """Tell two commands are identical.
 
     Args:
         current_cmds: A list of strings for running input tests.
@@ -466,32 +549,10 @@ def _are_identical_cmds(current_cmds, former_cmds):
     Returns:
         True if both commands are identical, False otherwise.
     """
-    def _normalize(cmd_list):
-        """Method that normalize commands.
-
-        Args:
-            cmd_list: A list with one element. E.g. ['cmd arg1 arg2 True']
-
-        Returns:
-            A list with elements. E.g. ['cmd', 'arg1', 'arg2', 'True']
-        """
-        _cmd = ''.join(cmd_list).split()
-        for cmd in _cmd:
-            if cmd.startswith('--atest-log-file-path'):
-                _cmd.remove(cmd)
-                continue
-            if _BUILD_CMD in cmd:
-                _cmd.remove(cmd)
-                _cmd.append(os.path.join('./', _BUILD_CMD))
-                continue
-        return _cmd
-
-    _current_cmds = _normalize(current_cmds)
-    _former_cmds = _normalize(former_cmds)
     # Always sort cmd list to make it comparable.
-    _current_cmds.sort()
-    _former_cmds.sort()
-    return _current_cmds == _former_cmds
+    current_cmds.sort()
+    former_cmds.sort()
+    return current_cmds == former_cmds
 
 def _get_hashed_file_name(main_file_name):
     """Convert the input string to a md5-hashed string. If file_extension is
@@ -724,6 +785,7 @@ def has_valid_cert():
     except subprocess.CalledProcessError:
         return False
 
+# pylint: disable=too-many-locals
 def get_flakes(branch='',
                target='',
                test_name='',
@@ -756,11 +818,20 @@ def get_flakes(branch='',
                                  constants.FLAKE_FILE)
     if not os.path.exists(flake_service):
         logging.debug('Get flakes: Flake service path not exist.')
+        # Send (3, 0) to present no flakes info because service does not exist.
+        metrics.LocalDetectEvent(
+            detect_type=constants.DETECT_TYPE_NO_FLAKE,
+            result=0)
         return None
     if not has_valid_cert():
         logging.debug('Get flakes: No valid cert.')
+        # Send (3, 1) to present no flakes info because no valid cert.
+        metrics.LocalDetectEvent(
+            detect_type=constants.DETECT_TYPE_NO_FLAKE,
+            result=1)
         return None
     flake_info = {}
+    start = time.time()
     try:
         shutil.copy2(flake_service, constants.FLAKE_TMP_PATH)
         tmp_service = os.path.join(constants.FLAKE_TMP_PATH,
@@ -782,6 +853,12 @@ def get_flakes(branch='',
     except Exception as e:
         logging.debug('Exception:%s', e)
         return None
+    # Send (4, time) to present having flakes info and it spent time.
+    duration = round(time.time()-start)
+    logging.debug('Took %ss to get flakes info', duration)
+    metrics.LocalDetectEvent(
+        detect_type=constants.DETECT_TYPE_HAS_FLAKE,
+        result=duration)
     return flake_info
 
 def read_test_record(path):
@@ -808,3 +885,22 @@ def has_python_module(module_name):
         True if found, False otherwise.
     """
     return bool(importlib.util.find_spec(module_name))
+
+def is_valid_json_file(path):
+    """Detect if input path exist and content is valid.
+
+    Args:
+        path: The json file path.
+
+    Returns:
+        True if file exist and content is valid, False otherwise.
+    """
+    is_valid = False
+    try:
+        if os.path.isfile(path):
+            with open(path) as json_file:
+                json.load(json_file)
+            is_valid = True
+    except json.JSONDecodeError:
+        logging.warning('Exception happened while loading %s.', path)
+    return is_valid

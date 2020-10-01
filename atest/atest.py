@@ -35,6 +35,15 @@ import tempfile
 import time
 import platform
 
+# This is a workaround of b/144743252, where the http.client failed to loaded
+# because the googleapiclient was found before the built-in libs; enabling embedded
+# launcher(b/135639220) has not been reliable and other issue will raise.
+# The workaround is repositioning the built-in libs before other 3rd libs in PYTHONPATH(sys.path)
+# to eliminate the symptom of failed loading http.client.
+import sysconfig
+sys.path.insert(0, os.path.dirname(sysconfig.get_paths()['purelib']))
+
+#pylint: disable=wrong-import-position
 from multiprocessing import Process
 
 import atest_arg_parser
@@ -242,8 +251,11 @@ def _validate_exec_mode(args, test_infos, host_tests=None):
     err_msg = None
     # In the case of '$atest <device-only> --host', exit.
     if (host_tests or args.host) and constants.DEVICE_TEST in all_device_modes:
-        err_msg = ('Test side and option(--host) conflict. Please remove '
-                   '--host if the test run on device side.')
+        device_only_tests = [x.test_name for x in test_infos
+                             if x.get_supported_exec_mode() == constants.DEVICE_TEST]
+        err_msg = ('Specified --host, but the following tests are device-only:\n  ' +
+                   '\n  '.join(sorted(device_only_tests)) + '\nPlease remove the option '
+                   'when running device-only tests.')
     # In the case of '$atest <host-only> <device-only> --host' or
     # '$atest <host-only> <device-only>', exit.
     if (constants.DEVICELESS_TEST in all_device_modes and
@@ -647,7 +659,8 @@ def acloud_create_validator(results_dir, args):
 
     Returns:
         If the target is valid:
-            A tuple of (multiprocessing.Process, string of report file path)
+            A tuple of (multiprocessing.Process,
+                        string of report file path)
         else:
             None, None
     """
@@ -710,7 +723,9 @@ def main(argv, results_dir, args):
     build_targets = set()
     test_infos = set()
     if _will_run_tests(args):
+        find_start = time.time()
         build_targets, test_infos = translator.translate(args)
+        find_duration = time.time() - find_start
         if not test_infos:
             return constants.EXIT_CODE_TEST_NOT_FOUND
         if not is_from_test_mapping(test_infos):
@@ -739,8 +754,9 @@ def main(argv, results_dir, args):
         build_targets.add(mod_info.module_info_target)
         build_start = time.time()
         success = atest_utils.build(build_targets, verbose=args.verbose)
+        build_duration = time.time() - build_start
         metrics.BuildFinishEvent(
-            duration=metrics_utils.convert_duration(time.time() - build_start),
+            duration=metrics_utils.convert_duration(build_duration),
             success=success,
             targets=build_targets)
         if not success:
@@ -750,6 +766,22 @@ def main(argv, results_dir, args):
             status = at.probe_acloud_status(report_file)
             if status != 0:
                 return status
+            acloud_duration = at.get_acloud_duration(report_file)
+            find_build_duration = find_duration + build_duration
+            if find_build_duration - acloud_duration >= 0:
+                # find+build took longer, saved acloud create time.
+                logging.debug('Saved acloud create time: %ss.',
+                              acloud_duration)
+                metrics.LocalDetectEvent(
+                    detect_type=constants.DETECT_TYPE_ACLOUD_CREATE,
+                    result=round(acloud_duration))
+            else:
+                # acloud create took longer, saved find+build time.
+                logging.debug('Saved Find and Build time: %ss.',
+                              find_build_duration)
+                metrics.LocalDetectEvent(
+                    detect_type=constants.DETECT_TYPE_FIND_BUILD,
+                    result=round(find_build_duration))
     elif constants.TEST_STEP not in steps:
         logging.warning('Install step without test step currently not '
                         'supported, installing AND testing instead.')

@@ -101,6 +101,9 @@ XML_MISC = """<?xml version="1.0" encoding="UTF-8"?>
             </list>
         </option>
     </component>
+    <component name="FrameworkDetectionExcludesConfiguration">
+        <type id="android" />
+    </component>
     <component name="ContinuousBuildConfigurationComponent">
         <builds>
             <build intervalToCheckBuild="1" buildKey="" buildLabel=""
