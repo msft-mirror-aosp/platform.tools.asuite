@@ -39,7 +39,7 @@ MODULE_CLASS = '%s:%s' % (uc.MODULE_NAME, uc.CLASS_NAME)
 MODULE_PACKAGE = '%s:%s' % (uc.MODULE_NAME, uc.PACKAGE)
 CC_MODULE_CLASS = '%s:%s' % (uc.CC_MODULE_NAME, uc.CC_CLASS_NAME)
 KERNEL_TEST_CLASS = 'test_class_1'
-KERNEL_TEST_CONFIG = 'KernelTest.xml'
+KERNEL_TEST_CONFIG = 'KernelTest.xml.data'
 KERNEL_MODULE_CLASS = '%s:%s' % (constants.REQUIRED_KERNEL_TEST_MODULES[0],
                                  KERNEL_TEST_CLASS)
 KERNEL_CONFIG_FILE = os.path.join(uc.TEST_DATA_DIR, KERNEL_TEST_CONFIG)
