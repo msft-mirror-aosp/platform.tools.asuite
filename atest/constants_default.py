@@ -96,6 +96,7 @@ ANDROID_OUT_DIR = 'OUT_DIR'
 ANDROID_OUT_DIR_COMMON_BASE = 'OUT_DIR_COMMON_BASE'
 ANDROID_HOST_OUT = 'ANDROID_HOST_OUT'
 ANDROID_PRODUCT_OUT = 'ANDROID_PRODUCT_OUT'
+ANDROID_TARGET_PRODUCT = 'TARGET_PRODUCT'
 
 # Test Info data keys
 # Value of include-filter option.
@@ -276,6 +277,8 @@ FLAKE_POSTSUBMIT = 'postsubmit_flakes_per_week'
 
 # cert status command
 CERT_STATUS_CMD = ''
+
+ASUITE_REPO_PROJECT_NAME = 'platform/tools/asuite'
 
 # logstorage api scope.
 SCOPE_BUILD_API_SCOPE = ''
