@@ -340,3 +340,20 @@ class ModuleInfo:
         mod_info = self.get_module_info(module_name)
         return constants.MODULE_CLASS_NATIVE_TESTS in mod_info.get(
             constants.MODULE_CLASS, [])
+
+    def has_mainline_modules(self, module_name, mainline_modules):
+        """Check if the mainline modules are in module-info.
+
+        Args:
+            module_name: A string of the module name.
+            mainline_modules: A list of mainline modules.
+
+        Returns:
+            True if mainline_modules is in module-info, False otherwise.
+        """
+        # TODO: (b/165425972)Check AndroidTest.xml or specific test config.
+        mod_info = self.get_module_info(module_name)
+        if mainline_modules in mod_info.get(constants.MODULE_MAINLINE_MODULES,
+                                            []):
+            return True
+        return False
