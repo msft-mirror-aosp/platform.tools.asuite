@@ -904,3 +904,28 @@ def is_valid_json_file(path):
     except json.JSONDecodeError:
         logging.warning('Exception happened while loading %s.', path)
     return is_valid
+
+def get_manifest_branch():
+    """Get the manifest branch via repo info command.
+
+    Returns:
+        None if no system environment parameter ANDROID_BUILD_TOP or
+        running 'repo info' command error, otherwise the manifest branch
+    """
+    build_top = os.getenv(constants.ANDROID_BUILD_TOP, None)
+    if not build_top:
+        return None
+    try:
+        output = subprocess.check_output(
+            ['repo', 'info', '-o', constants.ASUITE_REPO_PROJECT_NAME],
+            cwd=build_top,
+            universal_newlines=True)
+        branch_re = re.compile(r'Manifest branch:\s*(?P<branch>.*)')
+        return branch_re.match(output).group('branch')
+    except subprocess.CalledProcessError:
+        logging.warning('Exception happened while getting branch')
+        return None
+
+def get_build_target():
+    """Get the build target form system environment TARGET_PRODUCT."""
+    return os.getenv(constants.ANDROID_TARGET_PRODUCT, None)
