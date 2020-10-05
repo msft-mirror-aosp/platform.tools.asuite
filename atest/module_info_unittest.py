@@ -218,11 +218,13 @@ class ModuleInfoUnittests(unittest.TestCase):
         self.assertTrue(mod_info.has_test_config({}))
         # Validate when actual config exists and there's no auto-generated config.
         mock_is_auto_gen.return_value = False
+        info = {constants.MODULE_PATH:[uc.TEST_DATA_DIR]}
         self.assertTrue(mod_info.has_test_config(info))
         self.assertFalse(mod_info.has_test_config({}))
         # Validate the case mod_info MODULE_TEST_CONFIG be set
         info2 = {constants.MODULE_PATH:[uc.TEST_CONFIG_DATA_DIR],
-                 constants.MODULE_TEST_CONFIG:[os.path.join(uc.TEST_CONFIG_DATA_DIR, "a.xml")]}
+                 constants.MODULE_TEST_CONFIG:[os.path.join(
+                     uc.TEST_CONFIG_DATA_DIR, "a.xml.data")]}
         self.assertTrue(mod_info.has_test_config(info2))
 
     @mock.patch.object(module_info.ModuleInfo, 'get_module_names')
