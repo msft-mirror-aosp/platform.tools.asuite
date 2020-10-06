@@ -2,11 +2,11 @@
 // the expectation of ASuite are still good.
 {
   "presubmit": [
-//    {
-//      // Host side ATest unittests.
-//      "name": "atest_unittests",
-//      "host": true
-//    },
+    {
+      // Host side ATest unittests.
+      "name": "atest_unittests",
+      "host": true
+    },
     {
       // Host side metrics tests.
       "name": "asuite_metrics_lib_tests",
