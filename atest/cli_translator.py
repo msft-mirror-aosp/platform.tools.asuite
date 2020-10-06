@@ -43,6 +43,8 @@ CACHE_FINDER = 'CACHE'
 _COMMENTS_RE = re.compile(r'(?m)[\s\t]*(#|//).*|(\".*?\")')
 _COMMENTS = frozenset(['//', '#'])
 
+_MAINLINE_MODULES_EXT_RE = re.compile(r'(.apex|.apks|.apk)$')
+
 #pylint: disable=no-self-use
 class CLITranslator:
     """
@@ -96,6 +98,13 @@ class CLITranslator:
         test_finders = []
         test_info_str = ''
         find_test_err_msg = None
+        mm_build_targets = []
+        test, mainline_modules = atest_utils.parse_mainline_modules(test)
+        if not self._verified_mainline_modules(test, mainline_modules):
+            return test_infos
+        if mainline_modules:
+            mm_build_targets = [re.sub(_MAINLINE_MODULES_EXT_RE, '', x)
+                                for x in mainline_modules.split('+')]
         for finder in test_finder_handler.get_find_methods_for_test(
                 self.mod_info, test):
             # For tests in TEST_MAPPING, find method is only related to
@@ -116,6 +125,8 @@ class CLITranslator:
                         test_info.host = tm_test_detail.host
                     if finder_info != CACHE_FINDER:
                         test_info.test_finder = finder_info
+                    test_info.mainline_modules = mainline_modules
+                    test_info.build_targets.update(mm_build_targets)
                     test_infos.add(test_info)
                 test_found = True
                 print("Found '%s' as %s" % (
@@ -147,6 +158,37 @@ class CLITranslator:
             atest_utils.update_test_info_cache(test, test_infos)
             print(self.msg)
         return test_infos
+
+    def _verified_mainline_modules(self, test, mainline_modules):
+        """ Verify the test with mainline modules is acceptable.
+
+        The test must be a module and mainline modules are in module-info.
+        The syntax rule of mainline modules will check in build process.
+        The rule includes mainline modules are sorted alphabetically, no space,
+        and no duplication.
+
+        Args:
+            test: A string representing test references
+            mainline_modules: A string of mainline_modules.
+
+        Returns:
+            True if this test is acceptable. Otherwise, print the reason and
+            return False.
+        """
+        if not mainline_modules:
+            return True
+        if not self.mod_info.is_module(test):
+            print('Test mainline modules(%s) for: %s failed. Only support '
+                  'module tests.'
+                  % (atest_utils.colorize(mainline_modules, constants.RED),
+                     atest_utils.colorize(test, constants.RED)))
+            return False
+        if not self.mod_info.has_mainline_modules(test, mainline_modules):
+            print('Error: Test mainline modules(%s) not for %s.'
+                  % (atest_utils.colorize(mainline_modules, constants.RED),
+                     atest_utils.colorize(test, constants.RED)))
+            return False
+        return True
 
     def _fuzzy_search_and_msg(self, test, find_test_err_msg,
                               is_rebuild_module_info=False):
