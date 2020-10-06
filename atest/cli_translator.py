@@ -79,6 +79,7 @@ class CLITranslator:
                         'to clean the old cache.)')
 
     # pylint: disable=too-many-locals
+    # pylint: disable=too-many-branches
     def _find_test_infos(self, test, tm_test_detail,
                          is_rebuild_module_info=False):
         """Return set of TestInfos based on a given test.
@@ -102,6 +103,13 @@ class CLITranslator:
         test, mainline_modules = atest_utils.parse_mainline_modules(test)
         if not self._verified_mainline_modules(test, mainline_modules):
             return test_infos
+        test_modules_to_build = []
+        test_mainline_modules = self.mod_info.get_module_info(test).get(
+            constants.MODULE_MAINLINE_MODULES, []) if self.mod_info else []
+        for modules in test_mainline_modules:
+            for module in modules.split('+'):
+                test_modules_to_build.append(re.sub(
+                    _MAINLINE_MODULES_EXT_RE, '', module))
         if mainline_modules:
             mm_build_targets = [re.sub(_MAINLINE_MODULES_EXT_RE, '', x)
                                 for x in mainline_modules.split('+')]
@@ -126,6 +134,9 @@ class CLITranslator:
                     if finder_info != CACHE_FINDER:
                         test_info.test_finder = finder_info
                     test_info.mainline_modules = mainline_modules
+                    test_info.build_targets = {
+                        x for x in test_info.build_targets
+                        if x not in test_modules_to_build}
                     test_info.build_targets.update(mm_build_targets)
                     test_infos.add(test_info)
                 test_found = True
