@@ -81,6 +81,7 @@ class EventHandler:
         self.runner_name = name
         self.state = CONNECTION_STATE.copy()
         self.event_stack = deque()
+        self.log_associations = []
 
     def _module_started(self, event_data):
         if atest_execution_info.PREPARE_END_TIME is None:
@@ -200,7 +201,8 @@ class EventHandler:
             test_run_name=self.state['test_run_name']))
 
     def _log_association(self, event_data):
-        pass
+        event_data.setdefault('time', time.time())
+        self.log_associations.append(event_data)
 
     switch_handler = {EVENT_NAMES['module_started']: _module_started,
                       EVENT_NAMES['run_started']: _run_started,
