@@ -62,7 +62,8 @@ native-benchmark
 
 ###[Test Finder: MODULE, Test Runner: VtsTradefedTestRunner]####
 ###Purpose: Test with finder: MODULE and runner: VtsTradefedTestRunner###
-VtsCodelabHelloWorldTest
+# Mark VtsCodelabHelloWorldTest due to vts10 no longer exist.
+#VtsCodelabHelloWorldTest
 
 
 ###[Test Finder: MODULE, Test Runner: RobolectricTestRunner]#####
