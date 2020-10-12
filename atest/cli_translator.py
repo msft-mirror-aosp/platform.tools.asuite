@@ -104,8 +104,10 @@ class CLITranslator:
         if not self._verified_mainline_modules(test, mainline_modules):
             return test_infos
         test_modules_to_build = []
-        test_mainline_modules = self.mod_info.get_module_info(test).get(
-            constants.MODULE_MAINLINE_MODULES, []) if self.mod_info else []
+        test_mainline_modules = []
+        if self.mod_info and self.mod_info.get_module_info(test):
+            test_mainline_modules = self.mod_info.get_module_info(test).get(
+                constants.MODULE_MAINLINE_MODULES, [])
         for modules in test_mainline_modules:
             for module in modules.split('+'):
                 test_modules_to_build.append(re.sub(
