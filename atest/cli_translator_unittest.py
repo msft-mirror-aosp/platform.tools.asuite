@@ -30,6 +30,7 @@ from unittest import mock
 
 import cli_translator as cli_t
 import constants
+import module_info
 import test_finder_handler
 import test_mapping
 import unittest_constants as uc
@@ -215,6 +216,21 @@ class CLITranslatorUnittests(unittest.TestCase):
                 self.assertEqual(
                     test_detail2.options,
                     test_info.data[constants.TI_MODULE_ARG])
+
+    @mock.patch.object(module_finder.ModuleFinder, 'get_fuzzy_searching_results')
+    @mock.patch.object(metrics, 'FindTestFinishEvent')
+    @mock.patch.object(test_finder_handler, 'get_find_methods_for_test')
+    def test_get_test_infos_with_mod_info(
+            self, mock_getfindmethods, _metrics, mock_getfuzzyresults,):
+        """Test _get_test_infos method."""
+        mod_info = module_info.ModuleInfo(
+            module_file=os.path.join(uc.TEST_DATA_DIR, uc.JSON_FILE))
+        ctr = cli_t.CLITranslator(module_info=mod_info)
+        null_test_info = set()
+        mock_getfindmethods.return_value = []
+        mock_getfuzzyresults.return_value = []
+        unittest_utils.assert_strict_equal(
+            self, ctr._get_test_infos('not_exist_module'), null_test_info)
 
     @mock.patch.object(cli_t.CLITranslator, '_get_test_infos',
                        side_effect=gettestinfos_side_effect)
