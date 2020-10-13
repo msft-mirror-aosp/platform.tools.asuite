@@ -66,22 +66,29 @@ RETRY_ANY_FAILURE = ('Rerun failed tests until passed or the max iteration '
 SERIAL = 'The device to run the test on.'
 START_AVD = 'Automatically create an AVD and run tests on the virtual device.'
 TEST = ('Run the tests. WARNING: Many test configs force cleanup of device '
-        'after test run. In this case, "-d" must be used in previous test run to '
-        'disable cleanup for "-t" to work. Otherwise, device will need to be '
-        'setup again with "-i".')
+        'after test run. In this case, "-d" must be used in previous test run '
+        'to disable cleanup for "-t" to work. Otherwise, device will need to '
+        'be setup again with "-i".')
 TEST_MAPPING = 'Run tests defined in TEST_MAPPING files.'
 TF_TEMPLATE = ('Add extra tradefed template for ATest suite, '
                'e.g. atest <test> --tf-template <template_key>=<template_path>')
-TF_DEBUG = 'Enable tradefed debug mode with a specify port. Default value is 10888.'
+TF_DEBUG = ('Enable tradefed debug mode with a specify port. Default value is '
+            '10888.')
 SHARDING = 'Option to specify sharding count. The default value is 2'
 UPDATE_CMD_MAPPING = ('Update the test command of input tests. Warning: result '
-                      'will be saved under tools/tradefederation/core/atest/test_data.')
-USER_TYPE = 'Run test with specific user type, e.g. atest <test> --user-type secondary_user'
+                      'will be saved under '
+                      'tools/tradefederation/core/atest/test_data.')
+USER_TYPE = ('Run test with specific user type, e.g. atest <test> --user-type '
+             'secondary_user')
 VERBOSE = 'Display DEBUG level logging.'
 VERIFY_CMD_MAPPING = 'Verify the test command of input tests.'
 VERSION = 'Display version string.'
-WAIT_FOR_DEBUGGER = 'Wait for debugger prior to execution (Instrumentation tests only).'
+WAIT_FOR_DEBUGGER = ('Wait for debugger prior to execution (Instrumentation '
+                     'tests only).')
 FLAKES_INFO = 'Test result with flakes info.'
+TF_EARLY_DEVICE_RELEASE = ('Tradefed flag to release the device as soon as '
+                           'done with it.')
+
 
 def _positive_int(value):
     """Verify value by whether or not a positive integer.
@@ -169,6 +176,10 @@ class AtestArgParser(argparse.ArgumentParser):
         # Options that to query flakes info in test result
         self.add_argument('--flakes-info', action='store_true',
                           help=FLAKES_INFO)
+
+        # Options for tradefed to release test device earlier.
+        self.add_argument('--tf-early-device-release', action='store_true',
+                          help=TF_EARLY_DEVICE_RELEASE)
 
         # Obsolete options that will be removed soon.
         self.add_argument('--generate-baseline', nargs='?',
@@ -258,42 +269,44 @@ def print_epilog_text():
     Returns:
         STDOUT from pydoc.pager().
     """
-    epilog_text = EPILOG_TEMPLATE.format(ACLOUD_CREATE=ACLOUD_CREATE,
-                                         ALL_ABI=ALL_ABI,
-                                         BUILD=BUILD,
-                                         CLEAR_CACHE=CLEAR_CACHE,
-                                         COLLECT_TESTS_ONLY=COLLECT_TESTS_ONLY,
-                                         DISABLE_TEARDOWN=DISABLE_TEARDOWN,
-                                         DRY_RUN=DRY_RUN,
-                                         ENABLE_FILE_PATTERNS=ENABLE_FILE_PATTERNS,
-                                         HELP_DESC=HELP_DESC,
-                                         HISTORY=HISTORY,
-                                         HOST=HOST,
-                                         INCLUDE_SUBDIRS=INCLUDE_SUBDIRS,
-                                         INFO=INFO,
-                                         INSTALL=INSTALL,
-                                         INSTANT=INSTANT,
-                                         ITERATION=ITERATION,
-                                         LATEST_RESULT=LATEST_RESULT,
-                                         LIST_MODULES=LIST_MODULES,
-                                         NO_METRICS=NO_METRICS,
-                                         REBUILD_MODULE_INFO=REBUILD_MODULE_INFO,
-                                         RERUN_UNTIL_FAILURE=RERUN_UNTIL_FAILURE,
-                                         RETRY_ANY_FAILURE=RETRY_ANY_FAILURE,
-                                         SERIAL=SERIAL,
-                                         SHARDING=SHARDING,
-                                         START_AVD=START_AVD,
-                                         TEST=TEST,
-                                         TEST_MAPPING=TEST_MAPPING,
-                                         TF_DEBUG=TF_DEBUG,
-                                         TF_TEMPLATE=TF_TEMPLATE,
-                                         USER_TYPE=USER_TYPE,
-                                         UPDATE_CMD_MAPPING=UPDATE_CMD_MAPPING,
-                                         VERBOSE=VERBOSE,
-                                         VERSION=VERSION,
-                                         VERIFY_CMD_MAPPING=VERIFY_CMD_MAPPING,
-                                         WAIT_FOR_DEBUGGER=WAIT_FOR_DEBUGGER,
-                                         FLAKES_INFO=FLAKES_INFO)
+    epilog_text = EPILOG_TEMPLATE.format(
+        ACLOUD_CREATE=ACLOUD_CREATE,
+        ALL_ABI=ALL_ABI,
+        BUILD=BUILD,
+        CLEAR_CACHE=CLEAR_CACHE,
+        COLLECT_TESTS_ONLY=COLLECT_TESTS_ONLY,
+        DISABLE_TEARDOWN=DISABLE_TEARDOWN,
+        DRY_RUN=DRY_RUN,
+        ENABLE_FILE_PATTERNS=ENABLE_FILE_PATTERNS,
+        FLAKES_INFO=FLAKES_INFO,
+        HELP_DESC=HELP_DESC,
+        HISTORY=HISTORY,
+        HOST=HOST,
+        INCLUDE_SUBDIRS=INCLUDE_SUBDIRS,
+        INFO=INFO,
+        INSTALL=INSTALL,
+        INSTANT=INSTANT,
+        ITERATION=ITERATION,
+        LATEST_RESULT=LATEST_RESULT,
+        LIST_MODULES=LIST_MODULES,
+        NO_METRICS=NO_METRICS,
+        REBUILD_MODULE_INFO=REBUILD_MODULE_INFO,
+        RERUN_UNTIL_FAILURE=RERUN_UNTIL_FAILURE,
+        RETRY_ANY_FAILURE=RETRY_ANY_FAILURE,
+        SERIAL=SERIAL,
+        SHARDING=SHARDING,
+        START_AVD=START_AVD,
+        TEST=TEST,
+        TEST_MAPPING=TEST_MAPPING,
+        TF_DEBUG=TF_DEBUG,
+        TF_EARLY_DEVICE_RELEASE=TF_EARLY_DEVICE_RELEASE,
+        TF_TEMPLATE=TF_TEMPLATE,
+        USER_TYPE=USER_TYPE,
+        UPDATE_CMD_MAPPING=UPDATE_CMD_MAPPING,
+        VERBOSE=VERBOSE,
+        VERSION=VERSION,
+        VERIFY_CMD_MAPPING=VERIFY_CMD_MAPPING,
+        WAIT_FOR_DEBUGGER=WAIT_FOR_DEBUGGER)
     return pydoc.pager(epilog_text)
 
 
@@ -347,6 +360,9 @@ OPTIONS
 
         -t, --test
             {TEST} (default)
+
+        --tf-early-device-release
+            {TF_EARLY_DEVICE_RELEASE}
 
         --tf-template
             {TF_TEMPLATE}
