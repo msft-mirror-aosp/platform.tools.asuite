@@ -512,6 +512,8 @@ class AtestTradefedTestRunner(test_runner_base.TestRunnerBase):
                 continue
             if constants.TF_TEMPLATE == arg:
                 continue
+            if constants.TF_EARLY_DEVICE_RELEASE == arg:
+                continue
             args_not_supported.append(arg)
         return args_to_append, args_not_supported
 
@@ -561,6 +563,9 @@ class AtestTradefedTestRunner(test_runner_base.TestRunnerBase):
         log_level = 'VERBOSE'
         test_args.extend(['--log-level-display', log_level])
         test_args.extend(['--log-level', log_level])
+        # Set no-early-device-release by default to speed up TF teardown time.
+        if not constants.TF_EARLY_DEVICE_RELEASE in extra_args:
+            test_args.extend(['--no-early-device-release'])
 
         args_to_add, args_not_supported = self._parse_extra_args(extra_args)
 
