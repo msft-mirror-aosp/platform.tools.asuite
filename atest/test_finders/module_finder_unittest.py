@@ -17,6 +17,7 @@
 """Unittests for module_finder."""
 
 # pylint: disable=line-too-long
+# pylint: disable=unsubscriptable-object
 
 import re
 import unittest
@@ -134,6 +135,28 @@ class ModuleFinderUnittests(unittest.TestCase):
         self.mod_finder.module_info.get_module_info.return_value = None
         self.mod_finder.module_info.is_testable_module.return_value = False
         self.assertIsNone(self.mod_finder.find_test_by_module_name('Not_Module'))
+
+    # pylint: disable=unused-argument
+    @mock.patch('builtins.input', return_value='2')
+    @mock.patch.object(module_finder.ModuleFinder, '_get_build_targets',
+                       return_value=uc.MODULE_BUILD_TARGETS)
+    def test_find_test_by_module_name_w_multiple_config(
+            self, _get_targ, _mock_input):
+        """Test find_test_by_module_name."""
+        self.mod_finder.module_info.is_robolectric_test.return_value = False
+        self.mod_finder.module_info.has_test_config.return_value = True
+        mod_info = {'installed': ['/path/to/install'],
+                    'path': [uc.MODULE_DIR],
+                    constants.MODULE_CLASS: [],
+                    constants.MODULE_COMPATIBILITY_SUITES: [],
+                    constants.MODULE_TEST_CONFIG: [
+                        uc.CONFIG_FILE,
+                        uc.EXTRA_CONFIG_FILE]}
+        self.mod_finder.module_info.get_module_info.return_value = mod_info
+        t_infos = self.mod_finder.find_test_by_module_name(uc.MODULE_NAME)
+        unittest_utils.assert_equal_testinfos(self, t_infos[0], uc.MODULE_INFO)
+        unittest_utils.assert_equal_testinfos(
+            self, t_infos[1], uc.MODULE_INFO_W_CONFIG)
 
     @mock.patch.object(test_finder_utils, 'is_parameterized_java_class',
                        return_value=False)
@@ -282,7 +305,7 @@ class ModuleFinderUnittests(unittest.TestCase):
         self.assertIsNone(self.mod_finder.find_test_by_module_and_class(bad_module))
 
     @mock.patch.object(module_finder.ModuleFinder, '_get_module_test_config',
-                       return_value=KERNEL_CONFIG_FILE)
+                       return_value=[KERNEL_CONFIG_FILE])
     @mock.patch.object(module_finder.ModuleFinder, '_is_vts_module',
                        return_value=False)
     @mock.patch.object(module_finder.ModuleFinder, '_get_build_targets')
