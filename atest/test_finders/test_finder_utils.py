@@ -301,7 +301,7 @@ def extract_test_path(output, methods=None):
     return extract_test_from_tests(sorted(list(verified_tests)))
 
 
-def extract_test_from_tests(tests):
+def extract_test_from_tests(tests, default_all=False):
     """Extract the test path from the tests.
 
     Return the test to run from tests. If more than one option, prompt the user
@@ -318,7 +318,7 @@ def extract_test_from_tests(tests):
         A string list of paths.
     """
     count = len(tests)
-    if count <= 1:
+    if default_all or count <= 1:
         return tests if count else None
     mtests = set()
     try:
