@@ -621,8 +621,7 @@ def get_targets_from_xml_root(xml_root, module_info):
         if _is_apk_target(name, value):
             target_to_add = _get_apk_target(value)
         elif _PERF_SETUP_LABEL in value:
-            targets.add(_PERF_SETUP_LABEL)
-            continue
+            target_to_add = _PERF_SETUP_LABEL
 
         # Let's make sure we can actually build the target.
         if target_to_add and module_info.is_module(target_to_add):
