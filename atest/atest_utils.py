@@ -52,11 +52,12 @@ try:
     from metrics import metrics
     from metrics import metrics_base
     from metrics import metrics_utils
-except ModuleNotFoundError:
+except ModuleNotFoundError as err:
     # This exception occurs only when invoking atest in source code.
     print("You shouldn't see this message unless you ran 'atest-src'."
           "To resolve the issue, please run:\n\t{}\n"
           "and try again.".format('pip3 install protobuf'))
+    logging.debug('Import error, %s', err)
     sys.exit(constants.IMPORT_FAILURE)
 
 _BASH_RESET_CODE = '\033[0m\n'
