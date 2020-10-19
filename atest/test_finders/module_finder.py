@@ -721,3 +721,34 @@ class ModuleFinder(test_finder_base.TestFinderBase):
             if _distance <= abs(constants.LD_RANGE):
                 guessed_modules.append(_module)
         return guessed_modules
+
+    def find_test_by_config_name(self, config_name):
+        """Find test for the given config name.
+
+        Args:
+            config_name: A string of the test's config name.
+
+        Returns:
+            A list that includes only 1 populated TestInfo namedtuple
+            if found, otherwise None.
+        """
+        for module_name, mod_info in self.module_info.name_to_module_info.items():
+            test_configs = mod_info.get(constants.MODULE_TEST_CONFIG, [])
+            for test_config in test_configs:
+                test_config_name = os.path.splitext(
+                    os.path.basename(test_config))[0]
+                if test_config_name == config_name:
+                    tinfo = test_info.TestInfo(
+                        test_name=test_config_name,
+                        test_runner=self._TEST_RUNNER,
+                        build_targets=self._get_build_targets(module_name,
+                                                              test_config),
+                        data={constants.TI_REL_CONFIG: test_config,
+                              constants.TI_FILTER: frozenset()},
+                        compatibility_suites=mod_info.get(
+                            constants.MODULE_COMPATIBILITY_SUITES, []))
+                    if tinfo:
+                        # There should have only one test_config with the same
+                        # name in source tree.
+                        return [tinfo]
+        return None
