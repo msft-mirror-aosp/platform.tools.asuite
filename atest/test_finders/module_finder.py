@@ -21,6 +21,7 @@ Module Finder class.
 import logging
 import os
 
+import atest_configs
 import atest_error
 import atest_utils
 import constants
@@ -223,6 +224,8 @@ class ModuleFinder(test_finder_base.TestFinderBase):
         Returns:
             A list of string of test_config path if found, else return rel_config.
         """
+        default_all_config = not (atest_configs.GLOBAL_ARGS and
+                                  atest_configs.GLOBAL_ARGS.test_config_select)
         mod_info = self.module_info.get_module_info(module_name)
         if mod_info:
             test_configs = []
@@ -231,7 +234,7 @@ class ModuleFinder(test_finder_base.TestFinderBase):
                 # multiple test configs
                 if len(test_config_list) > 1:
                     test_configs = test_finder_utils.extract_test_from_tests(
-                        test_config_list)
+                        test_config_list, default_all=default_all_config)
                 else:
                     test_configs = test_config_list
             if test_configs:
