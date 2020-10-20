@@ -88,6 +88,8 @@ WAIT_FOR_DEBUGGER = ('Wait for debugger prior to execution (Instrumentation '
 FLAKES_INFO = 'Test result with flakes info.'
 TF_EARLY_DEVICE_RELEASE = ('Tradefed flag to release the device as soon as '
                            'done with it.')
+TEST_CONFIG_SELECTION = ('If multiple test config belong to same test module '
+                         'pop out a selection menu on console.')
 
 
 def _positive_int(value):
@@ -180,6 +182,11 @@ class AtestArgParser(argparse.ArgumentParser):
         # Options for tradefed to release test device earlier.
         self.add_argument('--tf-early-device-release', action='store_true',
                           help=TF_EARLY_DEVICE_RELEASE)
+
+        # Options to enable selection menu is multiple test config belong to
+        # same test module.
+        self.add_argument('--test-config-select', action='store_true',
+                          help=TEST_CONFIG_SELECTION)
 
         # Obsolete options that will be removed soon.
         self.add_argument('--generate-baseline', nargs='?',
@@ -297,6 +304,7 @@ def print_epilog_text():
         SHARDING=SHARDING,
         START_AVD=START_AVD,
         TEST=TEST,
+        TEST_CONFIG_SELECTION=TEST_CONFIG_SELECTION,
         TEST_MAPPING=TEST_MAPPING,
         TF_DEBUG=TF_DEBUG,
         TF_EARLY_DEVICE_RELEASE=TF_EARLY_DEVICE_RELEASE,
@@ -360,6 +368,9 @@ OPTIONS
 
         -t, --test
             {TEST} (default)
+
+        --test-config-select
+            {TEST_CONFIG_SELECTION}
 
         --tf-early-device-release
             {TF_EARLY_DEVICE_RELEASE}
