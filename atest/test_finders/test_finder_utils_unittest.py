@@ -69,7 +69,7 @@ VTS_PLAN_TARGETS = {os.path.join(uc.TEST_DATA_DIR, VTS_PLAN_DIR, 'vts-staging-de
                     os.path.join(uc.TEST_DATA_DIR, VTS_PLAN_DIR, 'vts-bb.xml.data'),
                     os.path.join(uc.TEST_DATA_DIR, VTS_PLAN_DIR, 'vts-cc.xml.data'),
                     os.path.join(uc.TEST_DATA_DIR, VTS_PLAN_DIR, 'vts-dd.xml.data')}
-XML_TARGETS = {'CtsJankDeviceTestCases', 'perf-setup.sh', 'cts-tradefed',
+XML_TARGETS = {'CtsJankDeviceTestCases', 'perf-setup', 'cts-tradefed',
                'GtsEmptyTestApp'}
 PATH_TO_MODULE_INFO_WITH_AUTOGEN = {
     'foo/bar/jank' : [{'auto_test_config' : True}]}
