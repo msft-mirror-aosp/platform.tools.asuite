@@ -78,6 +78,11 @@ MODULE_INFO2 = test_info.TestInfo(MODULE2_NAME,
                                   atf_tr.AtestTradefedTestRunner.NAME,
                                   MODULE_BUILD_TARGETS2,
                                   MODULE_DATA2)
+TEST_CONFIG_MODULE_INFO = test_info.TestInfo(
+    MODULE_CONFIG_NAME,
+    atf_tr.AtestTradefedTestRunner.NAME,
+    MODULE_BUILD_TARGETS,
+    MODULE_DATA_W_CONFIG)
 MODULE_INFOS = [MODULE_INFO]
 MODULE_INFOS2 = [MODULE_INFO, MODULE_INFO2]
 CLASS_FILTER = test_info.TestFilter(FULL_CLASS_NAME, frozenset())

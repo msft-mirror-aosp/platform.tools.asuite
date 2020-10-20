@@ -800,6 +800,28 @@ class ModuleFinderUnittests(unittest.TestCase):
         unittest_utils.assert_equal_testinfos(
             self, t_infos[0], uc.PARAMETERIZED_FLAT_METHOD_INFO)
 
+    # pylint: disable=unused-argument
+    @mock.patch.object(module_finder.ModuleFinder, '_get_build_targets',
+                       return_value=uc.MODULE_BUILD_TARGETS)
+    def test_find_test_by_config_name(self, _get_targ):
+        """Test find_test_by_config_name."""
+        self.mod_finder.module_info.is_robolectric_test.return_value = False
+        self.mod_finder.module_info.has_test_config.return_value = True
+
+        mod_info = {'installed': ['/path/to/install'],
+                    'path': [uc.MODULE_DIR],
+                    constants.MODULE_TEST_CONFIG: [uc.CONFIG_FILE,
+                                                   uc.EXTRA_CONFIG_FILE],
+                    constants.MODULE_CLASS: [],
+                    constants.MODULE_COMPATIBILITY_SUITES: []}
+        name_to_module_info = {uc.MODULE_NAME: mod_info}
+        self.mod_finder.module_info.name_to_module_info = name_to_module_info
+        t_infos = self.mod_finder.find_test_by_config_name(uc.MODULE_CONFIG_NAME)
+        unittest_utils.assert_equal_testinfos(
+            self,
+            t_infos[0],
+            uc.TEST_CONFIG_MODULE_INFO)
+
 
 if __name__ == '__main__':
     unittest.main()
