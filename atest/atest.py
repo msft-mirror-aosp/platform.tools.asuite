@@ -47,6 +47,7 @@ sys.path.insert(0, os.path.dirname(sysconfig.get_paths()['purelib']))
 from multiprocessing import Process
 
 import atest_arg_parser
+import atest_configs
 import atest_error
 import atest_execution_info
 import atest_utils
@@ -822,11 +823,11 @@ def main(argv, results_dir, args):
 
 if __name__ == '__main__':
     RESULTS_DIR = make_test_run_dir()
-    ARGS = _parse_args(sys.argv[1:])
-    with atest_execution_info.AtestExecutionInfo(sys.argv[1:],
-                                                 RESULTS_DIR,
-                                                 ARGS) as result_file:
-        if not ARGS.no_metrics:
+    atest_configs.GLOBAL_ARGS = _parse_args(sys.argv[1:])
+    with atest_execution_info.AtestExecutionInfo(
+            sys.argv[1:], RESULTS_DIR,
+            atest_configs.GLOBAL_ARGS) as result_file:
+        if not atest_configs.GLOBAL_ARGS.no_metrics:
             atest_utils.print_data_collection_notice()
             USER_FROM_TOOL = os.getenv(constants.USER_FROM_TOOL, '')
             if USER_FROM_TOOL == '':
@@ -834,7 +835,7 @@ if __name__ == '__main__':
             else:
                 metrics_base.MetricsBase.tool_name = USER_FROM_TOOL
 
-        EXIT_CODE = main(sys.argv[1:], RESULTS_DIR, ARGS)
+        EXIT_CODE = main(sys.argv[1:], RESULTS_DIR, atest_configs.GLOBAL_ARGS)
         DETECTOR = bug_detector.BugDetector(sys.argv[1:], EXIT_CODE)
         metrics.LocalDetectEvent(
             detect_type=constants.DETECT_TYPE_BUG_DETECTED,
