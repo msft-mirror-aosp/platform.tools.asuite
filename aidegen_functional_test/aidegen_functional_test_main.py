@@ -17,6 +17,7 @@
 """Functional test for aidegen project files."""
 
 from __future__ import absolute_import
+from __future__ import print_function
 
 import argparse
 import functools
@@ -32,6 +33,7 @@ import xml.parsers.expat
 from aidegen import aidegen_main
 from aidegen import constant
 from aidegen.lib import clion_project_file_gen
+# pylint: disable=no-name-in-module
 from aidegen.lib import common_util
 from aidegen.lib import errors
 from aidegen.lib import module_info_util
@@ -47,6 +49,7 @@ _TEST_DATA_PATH = os.path.join(_ROOT_DIR, 'test_data')
 _VERIFY_COMMANDS_JSON = os.path.join(_TEST_DATA_PATH, 'verify_commands.json')
 _GOLDEN_SAMPLES_JSON = os.path.join(_TEST_DATA_PATH, 'golden_samples.json')
 _VERIFY_BINARY_JSON = os.path.join(_TEST_DATA_PATH, 'verify_binary_upload.json')
+_VERIFY_PRESUBMIT_JSON = os.path.join(_TEST_DATA_PATH, 'verify_presubmit.json')
 _ANDROID_COMMON = 'android_common'
 _LINUX_GLIBC_COMMON = 'linux_glibc_common'
 _SRCS = 'srcs'
@@ -127,6 +130,12 @@ def _parse_args(args):
         help=('Verify aidegen\'s use cases by executing different aidegen '
               'commands.'))
     group.add_argument(
+        '-p',
+        action='store_true',
+        dest='binary_presubmit_verified',
+        help=('Verify aidegen\'s tool in presubmit test by executing'
+              'different aidegen commands.'))
+    group.add_argument(
         '-a',
         '--test-all',
         action='store_true',
@@ -198,6 +207,7 @@ def _get_project_file_names(abs_path):
         dep_name: a string of the merged project and dependencies file's name,
                   e.g., frameworks-dependencies.iml.
     """
+    # pylint: disable=maybe-no-member
     code_name = project_file_gen.ProjectFileGenerator.get_unique_iml_name(
         abs_path)
     file_name = ''.join([code_name, '.iml'])
@@ -410,6 +420,7 @@ def _create_some_sample_json_file(targets):
     with open(_GOLDEN_SAMPLES_JSON, 'r') as infile:
         try:
             data_sample = json.load(infile)
+        # pylint: disable=maybe-no-member
         except json.JSONDecodeError as err:
             print("Json decode error: {}".format(err))
             data_sample = {}
@@ -559,7 +570,8 @@ def _compare_jars_content(module_name, s_items, r_items, msg):
 # pylint: disable=eval-used
 @common_util.back_to_cwd
 @common_util.time_logged
-def _verify_aidegen(verified_file_path, forced_remove_bp_json):
+def _verify_aidegen(verified_file_path, forced_remove_bp_json,
+                    is_presubmit=False):
     """Verify various use cases of executing aidegen.
 
     There are two types of running commands:
@@ -596,9 +608,10 @@ def _verify_aidegen(verified_file_path, forced_remove_bp_json):
         raise errors.JsonFileNotExistError(
             '%s does not exist, error: %s.' % (verified_file_path, err))
 
-    _make_clean()
+    if not is_presubmit:
+        _make_clean()
+        _compare_sample_native_content()
 
-    _compare_sample_native_content()
     os.chdir(common_util.get_android_root_dir())
     for use_case in data:
         print('Use case "{}" is running.'.format(use_case))
@@ -746,6 +759,8 @@ def main(argv):
         _verify_aidegen(_VERIFY_COMMANDS_JSON, args.remove_bp_json)
     elif args.binary_upload_verified:
         _verify_aidegen(_VERIFY_BINARY_JSON, args.remove_bp_json)
+    elif args.binary_presubmit_verified:
+        _verify_aidegen(_VERIFY_PRESUBMIT_JSON, args.remove_bp_json, True)
     elif args.test_all_samples:
         _test_all_samples_iml()
     elif args.compare_sample_native:
