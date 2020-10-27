@@ -57,7 +57,8 @@ except ModuleNotFoundError as err:
     print("You shouldn't see this message unless you ran 'atest-src'."
           "To resolve the issue, please run:\n\t{}\n"
           "and try again.".format('pip3 install protobuf'))
-    logging.debug('Import error, %s', err)
+    print('Import error, %s', err)
+    print('sys.path: %s', sys.path)
     sys.exit(constants.IMPORT_FAILURE)
 
 _BASH_RESET_CODE = '\033[0m\n'
