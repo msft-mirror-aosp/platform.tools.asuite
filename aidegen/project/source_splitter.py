@@ -330,11 +330,12 @@ class ProjectSplitter:
 
 
 def _get_real_dependencies_jars(list_to_check, list_to_be_checked):
-    """Gets real dependencies' jar from the input list.
+    """Gets real dependencies' jar and srcjar from the input list.
 
-    There are jar files which have the same source codes as the self.projects
-    should be removed from dependencies. Otherwise these files will cause the
-    duplicated codes in IDE and lead to issues. The example: b/158583214.
+    There are jar, srcjar files which have the same source codes as the
+    self.projects should be removed from dependencies. Otherwise these files
+    will cause the duplicated codes in IDE and lead to issues: b/158583214 is an
+    example.
 
     Args:
         list_to_check: A list of relative projects' paths in the folder
@@ -345,10 +346,12 @@ def _get_real_dependencies_jars(list_to_check, list_to_be_checked):
     Returns:
         A list of dependency jar paths after duplicated ones removed.
     """
+    file_exts = [constant.JAR_EXT, constant.SRCJAR_EXT]
     real_jars = list_to_be_checked.copy()
     for jar in list_to_be_checked:
+        ext = os.path.splitext(jar)[-1]
         for check_path in list_to_check:
-            if check_path in jar and jar.endswith(constant.JAR_EXT):
+            if check_path in jar and ext in file_exts:
                 real_jars.remove(jar)
                 break
     return real_jars
