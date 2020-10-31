@@ -294,9 +294,9 @@ class ProjectSplitterUnittest(unittest.TestCase):
         expected = ['a/b/c/d.jar']
         self.assertEqual([], source_splitter._get_real_dependencies_jars(
             ['a/b'], expected))
-        expected = ['a/b/c/d.srcjar']
+        expected = ['a/b/c/R']
         self.assertEqual(expected, source_splitter._get_real_dependencies_jars(
-            ['a/b'], expected))
+            ['a/b'], ['a/b/c/d.srcjar', 'a/b/c/R']))
         expected = ['a/b/c/gen']
         self.assertEqual(expected, source_splitter._get_real_dependencies_jars(
             ['a/b'], expected))
