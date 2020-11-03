@@ -557,6 +557,9 @@ class CLITranslator:
         atest_utils.colorful_print("\nFinding Tests...", constants.CYAN)
         logging.debug('Finding Tests: %s', tests)
         start = time.time()
+        # Clear cache if user pass -c option
+        if args.clear_cache:
+            atest_utils.clean_test_info_caches(tests)
         test_infos = self._get_test_infos(tests, test_details_list,
                                           args.rebuild_module_info)
         logging.debug('Found tests in %ss', time.time() - start)
