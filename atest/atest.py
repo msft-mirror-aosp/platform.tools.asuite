@@ -719,9 +719,6 @@ def main(argv, results_dir, args):
     if args.list_modules:
         _print_testable_modules(mod_info, args.list_modules)
         return constants.EXIT_CODE_SUCCESS
-    # Clear cache if user pass -c option
-    if args.clear_cache:
-        atest_utils.clean_test_info_caches(args.tests)
     build_targets = set()
     test_infos = set()
     if _will_run_tests(args):
