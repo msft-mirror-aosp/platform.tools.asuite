@@ -103,8 +103,9 @@ class CLITranslatorUnittests(unittest.TestCase):
     @mock.patch.object(metrics, 'FindTestFinishEvent')
     @mock.patch.object(test_finder_handler, 'get_find_methods_for_test')
     # pylint: disable=too-many-locals
-    def test_get_test_infos(self, mock_getfindmethods, _metrics, mock_getfuzzyresults,
-                            mock_findtestbymodule, mock_input):
+    def test_get_test_infos(self, mock_getfindmethods, _metrics,
+                            mock_getfuzzyresults, mock_findtestbymodule,
+                            mock_input):
         """Test _get_test_infos method."""
         ctr = cli_t.CLITranslator()
         find_method_return_module_info = lambda x, y: uc.MODULE_INFOS
@@ -217,6 +218,7 @@ class CLITranslatorUnittests(unittest.TestCase):
                     test_detail2.options,
                     test_info.data[constants.TI_MODULE_ARG])
 
+    @mock.patch.dict('os.environ', {constants.ANDROID_BUILD_TOP:'/'})
     @mock.patch.object(module_finder.ModuleFinder, 'get_fuzzy_searching_results')
     @mock.patch.object(metrics, 'FindTestFinishEvent')
     @mock.patch.object(test_finder_handler, 'get_find_methods_for_test')
