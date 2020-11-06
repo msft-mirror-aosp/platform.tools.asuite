@@ -24,6 +24,7 @@ import os
 from unittest import mock
 
 import atest_utils
+import module_info
 import unittest_constants as uc
 
 from test_finders import cache_finder
@@ -35,6 +36,7 @@ class CacheFinderUnittests(unittest.TestCase):
     def setUp(self):
         """Set up stuff for testing."""
         self.cache_finder = cache_finder.CacheFinder()
+        self.cache_finder.module_info = mock.Mock(spec=module_info.ModuleInfo)
 
     @mock.patch.object(atest_utils, 'get_test_info_cache_path')
     def test_find_test_by_cache(self, mock_get_cache_path):
@@ -51,6 +53,8 @@ class CacheFinderUnittests(unittest.TestCase):
         self.assertIsNone(self.cache_finder.find_test_by_cache(uncached_test))
         # Hit matched cache file and original_finder is in it,
         # should return cached test infos.
+        self.cache_finder.module_info.get_paths.return_value = [
+            'platform_testing/tests/example/native']
         mock_get_cache_path.return_value = os.path.join(
             test_cache_root,
             '78ea54ef315f5613f7c11dd1a87f10c7.cache')
@@ -60,6 +64,20 @@ class CacheFinderUnittests(unittest.TestCase):
             test_cache_root,
             '39488b7ac83c56d5a7d285519fe3e3fd.cache')
         self.assertIsNone(self.cache_finder.find_test_by_cache(uncached_test2))
+
+    @mock.patch.object(atest_utils, 'get_test_info_cache_path')
+    def test_find_test_by_cache_wo_valid_path(self, mock_get_cache_path):
+        """Test find_test_by_cache method."""
+        cached_test = 'hello_world_test'
+        test_cache_root = os.path.join(uc.TEST_DATA_DIR, 'cache_root')
+        # Return None when the actual test_path is not identical to that in the
+        # existing cache.
+        self.cache_finder.module_info.get_paths.return_value = [
+            'not/matched/test/path']
+        mock_get_cache_path.return_value = os.path.join(
+            test_cache_root,
+            '78ea54ef315f5613f7c11dd1a87f10c7.cache')
+        self.assertIsNone(self.cache_finder.find_test_by_cache(cached_test))
 
 if __name__ == '__main__':
     unittest.main()
