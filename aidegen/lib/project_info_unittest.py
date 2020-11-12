@@ -302,25 +302,6 @@ class ProjectInfoUnittests(unittest.TestCase):
         mock_format.reset_mock()
         mock_build.reset_mock()
 
-    @mock.patch('builtins.print')
-    @mock.patch.object(project_info.ProjectInfo, '_search_android_make_files')
-    @mock.patch('atest.module_info.ModuleInfo')
-    def test_display_convert_make_files_message(
-            self, mock_module_info, mock_search, mock_print):
-        """Test _display_convert_make_files_message with conditions."""
-        mock_search.return_value = []
-        mock_module_info.get_paths.return_value = ['m1']
-        project_info.ProjectInfo.modules_info = mock_module_info
-        proj_info = project_info.ProjectInfo(self.args.module_name)
-        proj_info._display_convert_make_files_message()
-        self.assertFalse(mock_print.called)
-
-        mock_print.mock_reset()
-        mock_search.return_value = ['a/b/path/to/target.mk']
-        proj_info = project_info.ProjectInfo(self.args.module_name)
-        proj_info._display_convert_make_files_message()
-        self.assertTrue(mock_print.called)
-
     @mock.patch.object(project_info, '_build_target')
     @mock.patch.object(project_info, '_separate_build_targets')
     @mock.patch.object(logging, 'info')
