@@ -91,8 +91,6 @@ _FIND_MODIFIED_FILES_CMDS = (
     "| awk '{{print $1}}');"
     # Get the list of modified files from HEAD to previous $ahead generation.
     "git diff HEAD~$ahead --name-only")
-_TEST_WITH_MAINLINE_MODULES_RE = re.compile(
-    r'(?P<test>.*)\[(?P<mainline_modules>.*)\]')
 
 def get_build_cmd():
     """Compose build command with no-absolute path and flag "--make-mode".
@@ -943,7 +941,7 @@ def parse_mainline_modules(test):
         A string of test without mainline modules,
         A string of mainline modules.
     """
-    result = _TEST_WITH_MAINLINE_MODULES_RE.match(test)
+    result = constants.TEST_WITH_MAINLINE_MODULES_RE.match(test)
     if not result:
         return test, ""
     test_wo_mainline_modules = result.group('test')
