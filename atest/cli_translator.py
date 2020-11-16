@@ -347,6 +347,13 @@ class CLITranslator:
                 grouped_tests = all_tests.setdefault(test_group_name, set())
                 tests = []
                 for test in test_list:
+                    # TODO: uncomment below when atest support testing mainline
+                    # module in TEST_MAPPING files.
+                    if constants.TEST_WITH_MAINLINE_MODULES_RE.match(test['name']):
+                        logging.debug('Skipping mainline module: %s',
+                                      atest_utils.colorize(test['name'],
+                                                           constants.RED))
+                        continue
                     if (self.enable_file_patterns and
                             not test_mapping.is_match_file_patterns(
                                 test_mapping_file, test)):
