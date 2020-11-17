@@ -129,8 +129,12 @@ class CLITranslator:
             if found_test_infos:
                 finder_info = finder.finder_info
                 for test_info in found_test_infos:
-                    # TODO (b/172984228): Add back get build dependency.
                     test_deps = set()
+                    if self.mod_info:
+                        test_deps = self.mod_info.get_module_dependency(
+                            test_info.test_name)
+                        logging.debug('(%s) Test dependencies: %s',
+                                      test_info.test_name, test_deps)
                     if tm_test_detail:
                         test_info.data[constants.TI_MODULE_ARG] = (
                             tm_test_detail.options)
