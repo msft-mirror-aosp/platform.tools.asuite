@@ -348,6 +348,21 @@ class ModuleInfoUnittests(unittest.TestCase):
             mod_info.get_module_dependency('dep_test_module'),
             expect_deps)
 
+    @mock.patch.dict('os.environ', {constants.ANDROID_BUILD_TOP:'/'})
+    def test_get_module_dependency_w_loop(self):
+        """Test get_module_dependency with problem dep file."""
+        mod_info = module_info.ModuleInfo(module_file=JSON_FILE_PATH)
+        # Java dependency file with a endless loop define.
+        java_dep_file = os.path.join(uc.TEST_DATA_DIR,
+                                     'module_bp_java_loop_deps.json')
+        expect_deps = {'test_dep_level_1_1', 'module_1', 'test_dep_level_1_2',
+                       'test_dep_level_2_2', 'test_dep_level_2_1', 'module_2'}
+        mod_info._merge_dependency(mod_info.name_to_module_info,
+                                   dep_file_path=java_dep_file)
+        self.assertEqual(
+            mod_info.get_module_dependency('dep_test_module'),
+            expect_deps)
+
 
 if __name__ == '__main__':
     unittest.main()

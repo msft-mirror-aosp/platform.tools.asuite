@@ -398,23 +398,29 @@ class ModuleInfo:
                 json.dump(name_to_module_info, file_out, indent=0)
         return name_to_module_info
 
-    def get_module_dependency(self, module_name):
+    def get_module_dependency(self, module_name, parent_dependencies=None):
         """Get the dependency sets for input module.
 
         Recursively find all the dependencies of the input module.
 
         Args:
             module_name: String of module to check.
+            parent_dependencies: The list of parent dependencies.
 
         Returns:
             Set of dependency modules.
         """
+        if not parent_dependencies:
+            parent_dependencies = set()
         deps = set()
         mod_info = self.get_module_info(module_name)
         if not mod_info:
             return deps
         mod_deps = set(mod_info.get(constants.MODULE_DEPENDENCIES, []))
+        # Remove item in deps if it already in parent_dependencies:
+        mod_deps = mod_deps - parent_dependencies
         deps = deps.union(mod_deps)
         for mod_dep in mod_deps:
-            deps = deps.union(set(self.get_module_dependency(mod_dep)))
+            deps = deps.union(set(self.get_module_dependency(
+                mod_dep, parent_dependencies=parent_dependencies.union(deps))))
         return deps
