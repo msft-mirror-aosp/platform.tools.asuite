@@ -21,6 +21,7 @@ Module Info class used to hold cached module-info.json.
 import json
 import logging
 import os
+import sys
 
 import atest_utils
 import constants
@@ -84,9 +85,10 @@ class ModuleInfo:
             logging.debug('Generating %s - this is required for '
                           'initial runs.', _MODULE_INFO)
             build_env = dict(constants.ATEST_BUILD_ENV)
-            atest_utils.build([module_info_target],
-                              verbose=logging.getLogger().isEnabledFor(
-                                  logging.DEBUG), env_vars=build_env)
+            if not atest_utils.build([module_info_target],
+                                     verbose=logging.getLogger().isEnabledFor(
+                                         logging.DEBUG), env_vars=build_env):
+                sys.exit(constants.EXIT_CODE_BUILD_FAILURE)
         return module_info_target, module_file_path
 
     def _load_module_info_file(self, force_build, module_file):
