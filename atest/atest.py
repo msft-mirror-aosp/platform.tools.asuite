@@ -35,15 +35,6 @@ import tempfile
 import time
 import platform
 
-# This is a workaround of b/144743252, where the http.client failed to loaded
-# because the googleapiclient was found before the built-in libs; enabling embedded
-# launcher(b/135639220) has not been reliable and other issue will raise.
-# The workaround is repositioning the built-in libs before other 3rd libs in PYTHONPATH(sys.path)
-# to eliminate the symptom of failed loading http.client.
-import sysconfig
-sys.path.insert(0, os.path.dirname(sysconfig.get_paths()['purelib']))
-
-#pylint: disable=wrong-import-position
 from multiprocessing import Process
 
 import atest_arg_parser
