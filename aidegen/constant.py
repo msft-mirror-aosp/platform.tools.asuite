@@ -116,10 +116,12 @@ ANDROID_MANIFEST = 'AndroidManifest.xml'
 VERSION_FILE = 'VERSION'
 INTERMEDIATES = '.intermediates'
 TARGET_R_SRCJAR = 'R.srcjar'
+NAME_AAPT2 = 'aapt2'
 
 # Constants for file paths.
 RELATIVE_NATIVE_PATH = 'development/ide/clion'
 RELATIVE_COMPDB_PATH = 'development/ide/compdb'
+UNZIP_SRCJAR_PATH_HEAD = 'aidegen_'
 
 # Constants for whole Android tree.
 WHOLE_ANDROID_TREE_TARGET = '#WHOLE_ANDROID_TREE#'
