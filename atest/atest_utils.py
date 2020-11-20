@@ -958,3 +958,21 @@ def parse_mainline_modules(test):
     test_wo_mainline_modules = result.group('test')
     mainline_modules = result.group('mainline_modules')
     return test_wo_mainline_modules, mainline_modules
+
+def has_wildcard(test_name):
+    """ Tell whether the test_name(either a list or string) contains wildcard
+    symbols.
+
+    Args:
+        test_name: A list or a str.
+
+    Return:
+        True if test_name contains wildcard, False otherwise.
+    """
+    if isinstance(test_name, str):
+        return any(char in test_name for char in ('*', '?'))
+    if isinstance(test_name, list):
+        for name in test_name:
+            if has_wildcard(name):
+                return True
+    return False
