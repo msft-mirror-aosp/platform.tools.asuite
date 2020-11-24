@@ -117,6 +117,12 @@ def _parse_args(args):
         '--remove_bp_json',
         action='store_true',
         help='Remove module_bp_java_deps.json for each use case test.')
+    parser.add_argument(
+        '-m',
+        '--make_clean',
+        action='store_true',
+        help=('Make clean before testing to create a clean environment, the '
+              'aidegen_functional_test can run only once if users command it.'))
     group.add_argument(
         '-u',
         '--use_cases',
@@ -376,6 +382,7 @@ def _generate_sample_json(test_list):
 
     Args:
         test_list: a list of module name and module path.
+
     Returns:
         data: a dictionary contains dependent files' data of project file's
               contents.
@@ -394,7 +401,6 @@ def _generate_sample_json(test_list):
                 ]
             }
     """
-    _make_clean()
     data = {}
     spec_and_cur_commit_id_dict = _checkout_baseline_code_to_spec_commit_id()
     for target in test_list:
@@ -609,7 +615,6 @@ def _verify_aidegen(verified_file_path, forced_remove_bp_json,
             '%s does not exist, error: %s.' % (verified_file_path, err))
 
     if not is_presubmit:
-        _make_clean()
         _compare_sample_native_content()
 
     os.chdir(common_util.get_android_root_dir())
@@ -753,6 +758,10 @@ def main(argv):
     args = _parse_args(argv)
     common_util.configure_logging(args.verbose)
     os.environ[constant.AIDEGEN_TEST_MODE] = 'true'
+
+    if args.make_clean:
+        _make_clean()
+
     if args.create_sample:
         _create_some_sample_json_file(args.targets)
     elif args.use_cases_verified:
@@ -770,6 +779,7 @@ def main(argv):
             _test_some_sample_iml()
         else:
             _test_some_sample_iml(args.targets)
+
     del os.environ[constant.AIDEGEN_TEST_MODE]
 
 
