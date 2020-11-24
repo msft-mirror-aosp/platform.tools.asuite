@@ -285,10 +285,13 @@ class CLionProjectFileGenerator:
             logging.warning("No source files in %s's module info.",
                             self.mod_name)
             return
+        root = common_util.get_android_root_dir()
         source_files = self.mod_info[constant.KEY_SRCS]
         hfile.write(_LIST_APPEND_HEADER)
         hfile.write(_SOURCE_FILES_LINE)
         for src in source_files:
+            if not os.path.exists(os.path.join(root, src)):
+                continue
             hfile.write(''.join([_build_cmake_path(src, '    '), '\n']))
         hfile.write(_END_WITH_ONE_BLANK_LINE)
 
