@@ -114,6 +114,22 @@ class TestInfo:
             return constants.DEVICE_TEST
         return constants.BOTH_TEST
 
+    def get_test_paths(self):
+        """Get the relative path of test_info.
+
+        Search build target's MODULE-IN as the test path.
+
+        Return:
+            A list of string of the relative path for test, None if test
+            path information not found.
+        """
+        test_paths = []
+        for build_target in self.build_targets:
+            if str(build_target).startswith('MODULES-IN-'):
+                test_paths.append(
+                    str(build_target).replace(
+                        'MODULES-IN-', '').replace('-', '/'))
+        return test_paths if test_paths else None
 
 class TestFilter(TestFilterBase):
     """Information needed to filter a test in Tradefed"""
