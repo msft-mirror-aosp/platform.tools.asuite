@@ -825,9 +825,10 @@ if __name__ == '__main__':
 
         EXIT_CODE = main(sys.argv[1:], RESULTS_DIR, atest_configs.GLOBAL_ARGS)
         DETECTOR = bug_detector.BugDetector(sys.argv[1:], EXIT_CODE)
-        metrics.LocalDetectEvent(
-            detect_type=constants.DETECT_TYPE_BUG_DETECTED,
-            result=DETECTOR.caught_result)
-        if result_file:
-            print("Run 'atest --history' to review test result history.")
+        if EXIT_CODE not in constants.EXIT_CODES_BEFORE_TEST:
+            metrics.LocalDetectEvent(
+                detect_type=constants.DETECT_TYPE_BUG_DETECTED,
+                result=DETECTOR.caught_result)
+            if result_file:
+                print("Run 'atest --history' to review test result history.")
     sys.exit(EXIT_CODE)
