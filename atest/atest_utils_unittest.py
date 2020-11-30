@@ -538,6 +538,12 @@ class AtestUtilsUnittests(unittest.TestCase):
         mock_check_output.return_value = REPO_INFO_OUTPUT
         self.assertEqual(None, atest_utils.get_manifest_branch())
 
+    def test_has_wildcard(self):
+        """Test method of has_wildcard"""
+        self.assertFalse(atest_utils.has_wildcard('test1'))
+        self.assertFalse(atest_utils.has_wildcard(['test1']))
+        self.assertTrue(atest_utils.has_wildcard('test1?'))
+        self.assertTrue(atest_utils.has_wildcard(['test1', 'b*', 'a?b*']))
 
 if __name__ == "__main__":
     unittest.main()
