@@ -303,8 +303,8 @@ class ModuleInfoUnittests(unittest.TestCase):
         self.assertFalse(mod_info.is_robolectric_module(MOD_INFO_DICT[MOD_NAME2]))
 
     @mock.patch.dict('os.environ', {constants.ANDROID_BUILD_TOP:'/'})
-    def test_merge_dependency(self):
-        """Test _merge_dependency."""
+    def test_merge_build_system_infos(self):
+        """Test _merge_build_system_infos."""
         mod_info = module_info.ModuleInfo(module_file=JSON_FILE_PATH)
         java_dep_file = os.path.join(uc.TEST_DATA_DIR,
                                      'module_bp_java_deps.json')
@@ -312,8 +312,8 @@ class ModuleInfoUnittests(unittest.TestCase):
                       constants.MODULE_DEPENDENCIES: []}
         name_to_mod_info = {'module_1' : mod_info_1}
         expect_deps = ['test_dep_level_1_1', 'test_dep_level_1_2']
-        name_to_mod_info = mod_info._merge_dependency(
-            name_to_mod_info, dep_file_path=java_dep_file)
+        name_to_mod_info = mod_info._merge_build_system_infos(
+            name_to_mod_info, java_bp_info_path=java_dep_file)
         self.assertEqual(
             name_to_mod_info['module_1'].get(constants.MODULE_DEPENDENCIES),
             expect_deps)
@@ -328,8 +328,8 @@ class ModuleInfoUnittests(unittest.TestCase):
                       constants.MODULE_DEPENDENCIES: ['ori_dep_1']}
         name_to_mod_info = {'module_1' : mod_info_1}
         expect_deps = ['ori_dep_1', 'test_dep_level_1_1', 'test_dep_level_1_2']
-        name_to_mod_info = mod_info._merge_dependency(
-            name_to_mod_info, dep_file_path=java_dep_file)
+        name_to_mod_info = mod_info._merge_build_system_infos(
+            name_to_mod_info, java_bp_info_path=java_dep_file)
         self.assertEqual(
             name_to_mod_info['module_1'].get(constants.MODULE_DEPENDENCIES),
             expect_deps)
@@ -342,8 +342,8 @@ class ModuleInfoUnittests(unittest.TestCase):
                                      'module_bp_java_deps.json')
         expect_deps = {'test_dep_level_1_1', 'module_1', 'test_dep_level_1_2',
                        'test_dep_level_2_2', 'test_dep_level_2_1', 'module_2'}
-        mod_info._merge_dependency(mod_info.name_to_module_info,
-                                   dep_file_path=java_dep_file)
+        mod_info._merge_build_system_infos(mod_info.name_to_module_info,
+                                   java_bp_info_path=java_dep_file)
         self.assertEqual(
             mod_info.get_module_dependency('dep_test_module'),
             expect_deps)
@@ -357,12 +357,27 @@ class ModuleInfoUnittests(unittest.TestCase):
                                      'module_bp_java_loop_deps.json')
         expect_deps = {'test_dep_level_1_1', 'module_1', 'test_dep_level_1_2',
                        'test_dep_level_2_2', 'test_dep_level_2_1', 'module_2'}
-        mod_info._merge_dependency(mod_info.name_to_module_info,
-                                   dep_file_path=java_dep_file)
+        mod_info._merge_build_system_infos(mod_info.name_to_module_info,
+                                   java_bp_info_path=java_dep_file)
         self.assertEqual(
             mod_info.get_module_dependency('dep_test_module'),
             expect_deps)
 
+    @mock.patch.dict('os.environ', {constants.ANDROID_BUILD_TOP:'/'})
+    def test_cc_merge_build_system_infos(self):
+        """Test _merge_build_system_infos for cc."""
+        mod_info = module_info.ModuleInfo(module_file=JSON_FILE_PATH)
+        cc_dep_file = os.path.join(uc.TEST_DATA_DIR,
+                                     'module_bp_cc_deps.json')
+        mod_info_1 = {constants.MODULE_NAME: 'module_cc_1',
+                      constants.MODULE_DEPENDENCIES: []}
+        name_to_mod_info = {'module_cc_1' : mod_info_1}
+        expect_deps = ['test_cc_dep_level_1_1', 'test_cc_dep_level_1_2']
+        name_to_mod_info = mod_info._merge_build_system_infos(
+            name_to_mod_info, cc_bp_info_path=cc_dep_file)
+        self.assertEqual(
+            name_to_mod_info['module_cc_1'].get(constants.MODULE_DEPENDENCIES),
+            expect_deps)
 
 if __name__ == '__main__':
     unittest.main()
