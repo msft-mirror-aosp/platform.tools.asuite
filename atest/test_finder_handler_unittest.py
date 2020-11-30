@@ -98,22 +98,26 @@ class TestFinderHandlerUnittests(unittest.TestCase):
         self.assertEqual(
             test_finder_handler._get_test_reference_types('ModuleOrClassName'),
             [REF_TYPE.CACHE, REF_TYPE.INTEGRATION, REF_TYPE.MODULE,
-             REF_TYPE.SUITE_PLAN, REF_TYPE.CLASS, REF_TYPE.CC_CLASS]
+             REF_TYPE.CONFIG, REF_TYPE.SUITE_PLAN, REF_TYPE.CLASS,
+             REF_TYPE.CC_CLASS]
         )
         self.assertEqual(
             test_finder_handler._get_test_reference_types('Module_or_Class_name'),
             [REF_TYPE.CACHE, REF_TYPE.INTEGRATION, REF_TYPE.MODULE,
-             REF_TYPE.SUITE_PLAN, REF_TYPE.CLASS, REF_TYPE.CC_CLASS]
+             REF_TYPE.CONFIG, REF_TYPE.SUITE_PLAN, REF_TYPE.CLASS,
+             REF_TYPE.CC_CLASS]
         )
         self.assertEqual(
             test_finder_handler._get_test_reference_types('SuiteName'),
             [REF_TYPE.CACHE, REF_TYPE.INTEGRATION, REF_TYPE.MODULE,
-             REF_TYPE.SUITE_PLAN, REF_TYPE.CLASS, REF_TYPE.CC_CLASS]
+             REF_TYPE.CONFIG, REF_TYPE.SUITE_PLAN, REF_TYPE.CLASS,
+             REF_TYPE.CC_CLASS]
         )
         self.assertEqual(
             test_finder_handler._get_test_reference_types('Suite-Name'),
             [REF_TYPE.CACHE, REF_TYPE.INTEGRATION, REF_TYPE.MODULE,
-             REF_TYPE.SUITE_PLAN, REF_TYPE.CLASS, REF_TYPE.CC_CLASS]
+             REF_TYPE.CONFIG, REF_TYPE.SUITE_PLAN, REF_TYPE.CLASS,
+             REF_TYPE.CC_CLASS]
         )
         self.assertEqual(
             test_finder_handler._get_test_reference_types('some.package'),

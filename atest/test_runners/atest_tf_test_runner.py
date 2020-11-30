@@ -35,6 +35,7 @@ import constants
 import result_reporter
 
 from logstorage import atest_gcp_utils
+from metrics import metrics
 from test_finders import test_info
 from test_runners import test_runner_base
 from .event_handler import EventHandler
@@ -308,6 +309,7 @@ class AtestTradefedTestRunner(test_runner_base.TestRunnerBase):
                     if not data_map:
                         raise TradeFedExitError(TRADEFED_EXIT_MSG
                                                 % tf_subproc.returncode)
+                    self._handle_log_associations(event_handlers)
 
     def _process_connection(self, data_map, conn, event_handler):
         """Process a socket connection betwen TF and ATest.
@@ -508,6 +510,10 @@ class AtestTradefedTestRunner(test_runner_base.TestRunnerBase):
             if constants.TF_DEBUG == arg:
                 print("Please attach process to your IDE...")
                 continue
+            if constants.TF_TEMPLATE == arg:
+                continue
+            if constants.TF_EARLY_DEVICE_RELEASE == arg:
+                continue
             args_not_supported.append(arg)
         return args_to_append, args_not_supported
 
@@ -557,6 +563,9 @@ class AtestTradefedTestRunner(test_runner_base.TestRunnerBase):
         log_level = 'VERBOSE'
         test_args.extend(['--log-level-display', log_level])
         test_args.extend(['--log-level', log_level])
+        # Set no-early-device-release by default to speed up TF teardown time.
+        if not constants.TF_EARLY_DEVICE_RELEASE in extra_args:
+            test_args.extend(['--no-early-device-release'])
 
         args_to_add, args_not_supported = self._parse_extra_args(extra_args)
 
@@ -751,3 +760,34 @@ class AtestTradefedTestRunner(test_runner_base.TestRunnerBase):
         """
         return ' '.join(['--template:map %s'
                          % x for x in extra_args.get(constants.TF_TEMPLATE, [])])
+
+    def _handle_log_associations(self, event_handlers):
+        """Handle TF's log associations information data.
+
+        log_association dict:
+        {'loggedFile': '/tmp/serial-util11375755456514097276.ser',
+         'dataName': 'device_logcat_setup_127.0.0.1:58331',
+         'time': 1602038599.856113},
+
+        Args:
+            event_handlers: Dict of {socket_object:EventHandler}.
+
+        """
+        log_associations = []
+        for _, event_handler in event_handlers.items():
+            if event_handler.log_associations:
+                log_associations += event_handler.log_associations
+        device_test_end_log_time = ''
+        device_teardown_log_time = ''
+        for log_association in log_associations:
+            if 'device_logcat_test' in log_association.get('dataName', ''):
+                device_test_end_log_time = log_association.get('time')
+            if 'device_logcat_teardown' in log_association.get('dataName', ''):
+                device_teardown_log_time = log_association.get('time')
+        if device_test_end_log_time and device_test_end_log_time:
+            teardowntime = (int(device_teardown_log_time) -
+                            int(device_test_end_log_time))
+            logging.debug('TF logcat teardown time=%s seconds.', teardowntime)
+            metrics.LocalDetectEvent(
+                detect_type=constants.DETECT_TYPE_TF_TEARDOWN_LOGCAT,
+                result=teardowntime)

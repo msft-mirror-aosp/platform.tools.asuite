@@ -33,9 +33,20 @@ import re
 import shutil
 import subprocess
 import sys
+import sysconfig
 import time
 import zipfile
 
+# This is a workaround of b/144743252, where the http.client failed to loaded
+# because the googleapiclient was found before the built-in libs; enabling
+# embedded launcher(b/135639220) has not been reliable and other issue will
+# raise.
+# The workaround is repositioning the built-in libs before other 3rd libs in
+# PYTHONPATH(sys.path) to eliminate the symptom of failed loading http.client.
+sys.path.insert(0, os.path.dirname(sysconfig.get_paths()['purelib']))
+sys.path.insert(0, os.path.dirname(sysconfig.get_paths()['stdlib']))
+
+#pylint: disable=wrong-import-position
 import atest_decorator
 import atest_error
 import constants
@@ -52,11 +63,13 @@ try:
     from metrics import metrics
     from metrics import metrics_base
     from metrics import metrics_utils
-except ModuleNotFoundError:
+except ModuleNotFoundError as err:
     # This exception occurs only when invoking atest in source code.
     print("You shouldn't see this message unless you ran 'atest-src'."
           "To resolve the issue, please run:\n\t{}\n"
           "and try again.".format('pip3 install protobuf'))
+    print('Import error, %s', err)
+    print('sys.path: %s', sys.path)
     sys.exit(constants.IMPORT_FAILURE)
 
 _BASH_RESET_CODE = '\033[0m\n'
@@ -89,7 +102,6 @@ _FIND_MODIFIED_FILES_CMDS = (
     "| awk '{{print $1}}');"
     # Get the list of modified files from HEAD to previous $ahead generation.
     "git diff HEAD~$ahead --name-only")
-
 
 def get_build_cmd():
     """Compose build command with no-absolute path and flag "--make-mode".
@@ -904,3 +916,63 @@ def is_valid_json_file(path):
     except json.JSONDecodeError:
         logging.warning('Exception happened while loading %s.', path)
     return is_valid
+
+def get_manifest_branch():
+    """Get the manifest branch via repo info command.
+
+    Returns:
+        None if no system environment parameter ANDROID_BUILD_TOP or
+        running 'repo info' command error, otherwise the manifest branch
+    """
+    build_top = os.getenv(constants.ANDROID_BUILD_TOP, None)
+    if not build_top:
+        return None
+    try:
+        output = subprocess.check_output(
+            ['repo', 'info', '-o', constants.ASUITE_REPO_PROJECT_NAME],
+            cwd=build_top,
+            universal_newlines=True)
+        branch_re = re.compile(r'Manifest branch:\s*(?P<branch>.*)')
+        return branch_re.match(output).group('branch')
+    except subprocess.CalledProcessError:
+        logging.warning('Exception happened while getting branch')
+        return None
+
+def get_build_target():
+    """Get the build target form system environment TARGET_PRODUCT."""
+    return os.getenv(constants.ANDROID_TARGET_PRODUCT, None)
+
+def parse_mainline_modules(test):
+    """Parse test reference into test and mainline modules.
+
+    Args:
+        test: An String of test reference.
+
+    Returns:
+        A string of test without mainline modules,
+        A string of mainline modules.
+    """
+    result = constants.TEST_WITH_MAINLINE_MODULES_RE.match(test)
+    if not result:
+        return test, ""
+    test_wo_mainline_modules = result.group('test')
+    mainline_modules = result.group('mainline_modules')
+    return test_wo_mainline_modules, mainline_modules
+
+def has_wildcard(test_name):
+    """ Tell whether the test_name(either a list or string) contains wildcard
+    symbols.
+
+    Args:
+        test_name: A list or a str.
+
+    Return:
+        True if test_name contains wildcard, False otherwise.
+    """
+    if isinstance(test_name, str):
+        return any(char in test_name for char in ('*', '?'))
+    if isinstance(test_name, list):
+        for name in test_name:
+            if has_wildcard(name):
+                return True
+    return False

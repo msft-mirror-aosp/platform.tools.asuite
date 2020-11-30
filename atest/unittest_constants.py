@@ -34,6 +34,7 @@ ROOT = '/'
 MODULE_DIR = 'foo/bar/jank'
 MODULE2_DIR = 'foo/bar/hello'
 MODULE_NAME = 'CtsJankDeviceTestCases'
+MODULE_CONFIG_NAME = 'CtsJankDeviceTestCases2'
 TYPO_MODULE_NAME = 'CtsJankDeviceTestCase'
 MODULE2_NAME = 'HelloWorldTests'
 CLASS_NAME = 'CtsDeviceJankUi'
@@ -51,6 +52,7 @@ INT_DIR = 'tf/contrib/res/config'
 GTF_INT_DIR = 'gtf/core/res/config'
 
 CONFIG_FILE = os.path.join(MODULE_DIR, constants.MODULE_CONFIG)
+EXTRA_CONFIG_FILE = os.path.join(MODULE_DIR, MODULE_CONFIG_NAME + '.xml')
 CONFIG2_FILE = os.path.join(MODULE2_DIR, constants.MODULE_CONFIG)
 JSON_FILE = 'module-info.json'
 MODULE_INFO_TARGET = '/out/%s' % JSON_FILE
@@ -62,14 +64,25 @@ MODULE_DATA = {constants.TI_REL_CONFIG: CONFIG_FILE,
                constants.TI_FILTER: frozenset()}
 MODULE_DATA2 = {constants.TI_REL_CONFIG: CONFIG_FILE,
                 constants.TI_FILTER: frozenset()}
+MODULE_DATA_W_CONFIG = {constants.TI_REL_CONFIG: EXTRA_CONFIG_FILE,
+                        constants.TI_FILTER: frozenset()}
 MODULE_INFO = test_info.TestInfo(MODULE_NAME,
                                  atf_tr.AtestTradefedTestRunner.NAME,
                                  MODULE_BUILD_TARGETS,
                                  MODULE_DATA)
+MODULE_INFO_W_CONFIG = test_info.TestInfo(MODULE_CONFIG_NAME,
+                                          atf_tr.AtestTradefedTestRunner.NAME,
+                                          MODULE_BUILD_TARGETS,
+                                          MODULE_DATA_W_CONFIG)
 MODULE_INFO2 = test_info.TestInfo(MODULE2_NAME,
                                   atf_tr.AtestTradefedTestRunner.NAME,
                                   MODULE_BUILD_TARGETS2,
                                   MODULE_DATA2)
+TEST_CONFIG_MODULE_INFO = test_info.TestInfo(
+    MODULE_CONFIG_NAME,
+    atf_tr.AtestTradefedTestRunner.NAME,
+    MODULE_BUILD_TARGETS,
+    MODULE_DATA_W_CONFIG)
 MODULE_INFOS = [MODULE_INFO]
 MODULE_INFOS2 = [MODULE_INFO, MODULE_INFO2]
 CLASS_FILTER = test_info.TestFilter(FULL_CLASS_NAME, frozenset())
@@ -134,6 +147,23 @@ INT_INFO = test_info.TestInfo(INT_NAME,
                               set(),
                               data={constants.TI_REL_CONFIG: INT_CONFIG,
                                     constants.TI_FILTER: frozenset()})
+# Golden sample test filter for method under parameterized java.
+PARAMETERIZED_METHOD_FILTER = test_info.TestFilter(
+    FULL_CLASS_NAME, frozenset([METHOD_NAME + '*']))
+PARAMETERIZED_METHOD_INFO = test_info.TestInfo(
+    MODULE_NAME,
+    atf_tr.AtestTradefedTestRunner.NAME,
+    MODULE_BUILD_TARGETS,
+    data={constants.TI_FILTER: frozenset([PARAMETERIZED_METHOD_FILTER]),
+          constants.TI_REL_CONFIG: CONFIG_FILE})
+PARAMETERIZED_FLAT_METHOD_FILTER = test_info.TestFilter(
+    FULL_CLASS_NAME, frozenset([METHOD_NAME + '*', METHOD2_NAME + '*']))
+PARAMETERIZED_FLAT_METHOD_INFO = test_info.TestInfo(
+    MODULE_NAME,
+    atf_tr.AtestTradefedTestRunner.NAME,
+    MODULE_BUILD_TARGETS,
+    data={constants.TI_FILTER: frozenset([PARAMETERIZED_FLAT_METHOD_FILTER]),
+          constants.TI_REL_CONFIG: CONFIG_FILE})
 GTF_INT_INFO = test_info.TestInfo(
     GTF_INT_NAME,
     atf_tr.AtestTradefedTestRunner.NAME,

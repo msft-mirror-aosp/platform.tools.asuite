@@ -30,6 +30,7 @@ from unittest import mock
 
 import cli_translator as cli_t
 import constants
+import module_info
 import test_finder_handler
 import test_mapping
 import unittest_constants as uc
@@ -58,7 +59,8 @@ SEARCH_DIR_RE = re.compile(r'^find ([^ ]*).*$')
 
 
 #pylint: disable=unused-argument
-def gettestinfos_side_effect(test_names, test_mapping_test_details=None):
+def gettestinfos_side_effect(test_names, test_mapping_test_details=None,
+                             is_rebuild_module_info=False):
     """Mock return values for _get_test_info."""
     test_infos = set()
     for test_name in test_names:
@@ -85,6 +87,7 @@ class CLITranslatorUnittests(unittest.TestCase):
         self.args.test_mapping = False
         self.args.include_subdirs = False
         self.args.enable_file_patterns = False
+        self.args.rebuild_module_info = False
         # Cache finder related args
         self.args.clear_cache = False
         self.ctr.mod_info = mock.Mock
@@ -100,8 +103,9 @@ class CLITranslatorUnittests(unittest.TestCase):
     @mock.patch.object(metrics, 'FindTestFinishEvent')
     @mock.patch.object(test_finder_handler, 'get_find_methods_for_test')
     # pylint: disable=too-many-locals
-    def test_get_test_infos(self, mock_getfindmethods, _metrics, mock_getfuzzyresults,
-                            mock_findtestbymodule, mock_input):
+    def test_get_test_infos(self, mock_getfindmethods, _metrics,
+                            mock_getfuzzyresults, mock_findtestbymodule,
+                            mock_input):
         """Test _get_test_infos method."""
         ctr = cli_t.CLITranslator()
         find_method_return_module_info = lambda x, y: uc.MODULE_INFOS
@@ -213,6 +217,22 @@ class CLITranslatorUnittests(unittest.TestCase):
                 self.assertEqual(
                     test_detail2.options,
                     test_info.data[constants.TI_MODULE_ARG])
+
+    @mock.patch.dict('os.environ', {constants.ANDROID_BUILD_TOP:'/'})
+    @mock.patch.object(module_finder.ModuleFinder, 'get_fuzzy_searching_results')
+    @mock.patch.object(metrics, 'FindTestFinishEvent')
+    @mock.patch.object(test_finder_handler, 'get_find_methods_for_test')
+    def test_get_test_infos_with_mod_info(
+            self, mock_getfindmethods, _metrics, mock_getfuzzyresults,):
+        """Test _get_test_infos method."""
+        mod_info = module_info.ModuleInfo(
+            module_file=os.path.join(uc.TEST_DATA_DIR, uc.JSON_FILE))
+        ctr = cli_t.CLITranslator(module_info=mod_info)
+        null_test_info = set()
+        mock_getfindmethods.return_value = []
+        mock_getfuzzyresults.return_value = []
+        unittest_utils.assert_strict_equal(
+            self, ctr._get_test_infos('not_exist_module'), null_test_info)
 
     @mock.patch.object(cli_t.CLITranslator, '_get_test_infos',
                        side_effect=gettestinfos_side_effect)

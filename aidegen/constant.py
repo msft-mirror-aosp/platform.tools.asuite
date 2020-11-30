@@ -125,6 +125,7 @@ RELATIVE_COMPDB_PATH = 'development/ide/compdb'
 WHOLE_ANDROID_TREE_TARGET = '#WHOLE_ANDROID_TREE#'
 
 # Constants for ProjectInfo or ModuleData classes.
+SRCJAR_EXT = '.srcjar'
 JAR_EXT = '.jar'
 TARGET_LIBS = [JAR_EXT]
 

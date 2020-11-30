@@ -55,6 +55,12 @@ TEST_ZIP_DATA_DIR = 'zip_files'
 TEST_SINGLE_ZIP_NAME = 'single_file.zip'
 TEST_MULTI_ZIP_NAME = 'multi_file.zip'
 
+REPO_INFO_OUTPUT = '''Manifest branch: test_branch
+Manifest merge branch: refs/heads/test_branch
+Manifest groups: all,-notdefault
+----------------------------
+'''
+
 #pylint: disable=protected-access
 class AtestUtilsUnittests(unittest.TestCase):
     """Unit tests for atest_utils.py"""
@@ -515,6 +521,29 @@ class AtestUtilsUnittests(unittest.TestCase):
         json_file_path = os.path.join(unittest_constants.TEST_DATA_DIR,
                                       "not-valid-module-info.json")
         self.assertFalse(atest_utils.is_valid_json_file(json_file_path))
+
+    @mock.patch('subprocess.check_output')
+    @mock.patch('os.getenv')
+    def test_get_manifest_branch(self, mock_env, mock_check_output):
+        """Test method get_manifest_branch"""
+        mock_env.return_value = 'any_path'
+        mock_check_output.return_value = REPO_INFO_OUTPUT
+        self.assertEqual('test_branch', atest_utils.get_manifest_branch())
+
+        mock_env.return_value = 'any_path'
+        mock_check_output.side_effect = subprocess.CalledProcessError(1, 'repo info')
+        self.assertEqual(None, atest_utils.get_manifest_branch())
+
+        mock_env.return_value = None
+        mock_check_output.return_value = REPO_INFO_OUTPUT
+        self.assertEqual(None, atest_utils.get_manifest_branch())
+
+    def test_has_wildcard(self):
+        """Test method of has_wildcard"""
+        self.assertFalse(atest_utils.has_wildcard('test1'))
+        self.assertFalse(atest_utils.has_wildcard(['test1']))
+        self.assertTrue(atest_utils.has_wildcard('test1?'))
+        self.assertTrue(atest_utils.has_wildcard(['test1', 'b*', 'a?b*']))
 
 if __name__ == "__main__":
     unittest.main()

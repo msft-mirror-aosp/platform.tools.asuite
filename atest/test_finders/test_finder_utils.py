@@ -55,6 +55,8 @@ _PACKAGE_RE = re.compile(r'\s*package\s+(?P<package>[^(;|\s)]+)\s*', re.I)
 # Matches install paths in module_info to install location(host or device).
 _HOST_PATH_RE = re.compile(r'.*\/host\/.*', re.I)
 _DEVICE_PATH_RE = re.compile(r'.*\/target\/.*', re.I)
+# RE for checking if parameterized java class.
+_PARAMET_JAVA_CLASS_RE = re.compile(r'^\s*@RunWith\s*\(\s*Parameterized.class\s*\)', re.I)
 
 # Explanation of FIND_REFERENCE_TYPEs:
 # ----------------------------------
@@ -112,6 +114,7 @@ _XML_PUSH_DELIM = '->'
 _APK_SUFFIX = '.apk'
 # Setup script for device perf tests.
 _PERF_SETUP_LABEL = 'perf-setup.sh'
+_PERF_SETUP_TARGET = 'perf-setup'
 
 # XML tags.
 _XML_NAME = 'name'
@@ -299,7 +302,7 @@ def extract_test_path(output, methods=None):
     return extract_test_from_tests(sorted(list(verified_tests)))
 
 
-def extract_test_from_tests(tests):
+def extract_test_from_tests(tests, default_all=False):
     """Extract the test path from the tests.
 
     Return the test to run from tests. If more than one option, prompt the user
@@ -316,7 +319,7 @@ def extract_test_from_tests(tests):
         A string list of paths.
     """
     count = len(tests)
-    if count <= 1:
+    if default_all or count <= 1:
         return tests if count else None
     mtests = set()
     try:
@@ -619,8 +622,7 @@ def get_targets_from_xml_root(xml_root, module_info):
         if _is_apk_target(name, value):
             target_to_add = _get_apk_target(value)
         elif _PERF_SETUP_LABEL in value:
-            targets.add(_PERF_SETUP_LABEL)
-            continue
+            target_to_add = _PERF_SETUP_TARGET
 
         # Let's make sure we can actually build the target.
         if target_to_add and module_info.is_module(target_to_add):
@@ -998,5 +1000,22 @@ def is_test_from_kernel_xml(xml_file, test_name):
     for option_tag in option_tags:
         if option_tag.attrib['name'] == 'test-command-line':
             if option_tag.attrib['key'] == test_name:
+                return True
+    return False
+
+
+def is_parameterized_java_class(test_path):
+    """Find out if input test path is a parameterized java class.
+
+    Args:
+        test_path: A string of absolute path to the java file.
+
+    Returns:
+        Boolean: Is parameterized class or not.
+    """
+    with open(test_path) as class_file:
+        for line in class_file:
+            match = _PARAMET_JAVA_CLASS_RE.match(line)
+            if match:
                 return True
     return False

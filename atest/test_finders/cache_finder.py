@@ -17,6 +17,7 @@ Cache Finder class.
 """
 
 import atest_utils
+import constants
 
 from test_finders import test_finder_base
 from test_finders import test_info
@@ -25,8 +26,9 @@ class CacheFinder(test_finder_base.TestFinderBase):
     """Cache Finder class."""
     NAME = 'CACHE'
 
-    def __init__(self, **kwargs):
-        super(CacheFinder, self).__init__()
+    def __init__(self, module_info=None):
+        super().__init__()
+        self.module_info = module_info
 
     def _is_latest_testinfos(self, test_infos):
         """Check whether test_infos are up-to-date.
@@ -57,6 +59,71 @@ class CacheFinder(test_finder_base.TestFinderBase):
             TestInfo format, else None.
         """
         test_infos = atest_utils.load_test_info_cache(test_reference)
-        if test_infos and self._is_latest_testinfos(test_infos):
+        if test_infos and self._is_test_infos_valid(test_infos):
             return test_infos
         return None
+
+    def _is_test_infos_valid(self, test_infos):
+        """Check if the given test_infos are valid.
+
+        Args:
+            test_infos: A list of TestInfo.
+
+        Returns:
+            True if test_infos are all valid. Otherwise, False.
+        """
+        if not self._is_latest_testinfos(test_infos):
+            return False
+        for t_info in test_infos:
+            if not self._is_test_path_valid(t_info):
+                return False
+            # TODO: (b/172260100) Check if all the build target is valid.
+            if not self._is_test_build_target_valid(t_info):
+                return False
+            # TODO: (b/172260100) Check if the cached test filter is valid.
+            if not self._is_test_filter_valid(t_info):
+                return False
+        return True
+
+    def _is_test_path_valid(self, t_info):
+        """Check if test path is valid.
+
+        Args:
+            t_info: TestInfo that has been filled out by a find method.
+
+        Returns:
+            True if test path is valid. Otherwise, False.
+        """
+        cached_test_paths = t_info.get_test_paths()
+        current_test_paths = self.module_info.get_paths(t_info.test_name)
+        if not current_test_paths:
+            return False
+        if sorted(cached_test_paths) != sorted(current_test_paths):
+            return False
+        return True
+
+    # pylint: disable=unused-argument
+    def _is_test_build_target_valid(self, t_info):
+        """Check if test build targets are valid.
+
+        Args:
+            t_info: TestInfo that has been filled out by a find method.
+
+        Returns:
+            True if test's build target is valid. Otherwise, False.
+        """
+        # TODO: (b/172260100) Implement the check for test's build target.
+        return True
+
+    def _is_test_filter_valid(self, t_info):
+        """Check if test filter is valid.
+
+        Args:
+            t_info: TestInfo that has been filled out by a find method.
+
+        Returns:
+            True if test filter is valid. Otherwise, False.
+        """
+        # TODO: (b/172260100) Implement the check for test filter.
+        t_info.data.get(constants.TI_FILTER, frozenset())
+        return True
