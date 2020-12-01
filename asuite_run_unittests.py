@@ -27,17 +27,16 @@ import shlex
 import subprocess
 import sys
 
-
-EXIT_ALL_CLEAN = 0
-EXIT_TEST_FAIL = 1
-ASUITE_PLUGIN_PATH = "tools/asuite/asuite_plugin"
-# TODO: remove echo when atest migration has done.
-ATEST_CMD = "echo {}/tools/asuite/atest/atest_run_unittests.py".format(
-    os.getenv('ANDROID_BUILD_TOP'))
+ASUITE_HOME = os.path.dirname(os.path.realpath(__file__))
+ASUITE_PLUGIN_PATH = os.path.join(ASUITE_HOME, "asuite_plugin")
+ATEST_CMD = os.path.join(ASUITE_HOME, "atest", "atest_run_unittests.py")
+ATEST2_CMD = os.path.join(ASUITE_HOME, "atest-py2", "atest_run_unittests.py")
 AIDEGEN_CMD = "atest aidegen_unittests --host"
 PLUGIN_LIB_CMD = "atest plugin_lib_unittests --host"
 GRADLE_TEST = "/gradlew test"
-
+# Definition of exit codes.
+EXIT_ALL_CLEAN = 0
+EXIT_TEST_FAIL = 1
 
 def run_unittests(files):
     """Parse modified files and tell if they belong to aidegen, atest or both.
@@ -52,15 +51,15 @@ def run_unittests(files):
     for f in files:
         if 'atest' in f:
             cmd_dict.update({ATEST_CMD: None})
+        if 'atest-py2' in f:
+            cmd_dict.update({ATEST2_CMD: None})
         if 'aidegen' in f:
             cmd_dict.update({AIDEGEN_CMD: None})
         if 'plugin_lib' in f:
             cmd_dict.update({PLUGIN_LIB_CMD: None})
         if 'asuite_plugin' in f:
-            full_path = os.path.join(
-                os.getenv('ANDROID_BUILD_TOP'), ASUITE_PLUGIN_PATH)
-            cmd = full_path + GRADLE_TEST
-            cmd_dict.update({cmd : full_path})
+            cmd = ASUITE_PLUGIN_PATH + GRADLE_TEST
+            cmd_dict.update({cmd : ASUITE_PLUGIN_PATH})
     try:
         for cmd, path in cmd_dict.items():
             subprocess.check_call(shlex.split(cmd), cwd=path)
