@@ -391,6 +391,30 @@ class CLITranslatorUnittests(unittest.TestCase):
 
         self.assertEqual(test_mapping_dict, test_mapping_dict_gloden)
 
+    @mock.patch.dict('os.environ', {constants.ANDROID_BUILD_TOP:'/'})
+    @mock.patch.object(module_info.ModuleInfo, 'get_testable_modules')
+    def test_extract_testable_modules_by_wildcard(self, mock_mods):
+        """Test _extract_testable_modules_by_wildcard method."""
+        mod_info = module_info.ModuleInfo(
+            module_file=os.path.join(uc.TEST_DATA_DIR, uc.JSON_FILE))
+        ctr = cli_t.CLITranslator(module_info=mod_info)
+        mock_mods.return_value = ['test1', 'test2', 'test3', 'test11',
+                                  'Test22', 'Test100', 'aTest101']
+        # test '*'
+        expr1 = ['test*']
+        result1 = ['test1', 'test2', 'test3', 'test11']
+        self.assertEqual(ctr._extract_testable_modules_by_wildcard(expr1),
+                         result1)
+        # test '?'
+        expr2 = ['test?']
+        result2 = ['test1', 'test2', 'test3']
+        self.assertEqual(ctr._extract_testable_modules_by_wildcard(expr2),
+                         result2)
+        # test '*' and '?'
+        expr3 = ['*Test???']
+        result3 = ['Test100', 'aTest101']
+        self.assertEqual(ctr._extract_testable_modules_by_wildcard(expr3),
+                         result3)
 
 if __name__ == '__main__':
     unittest.main()
