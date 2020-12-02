@@ -102,6 +102,7 @@ _FIND_MODIFIED_FILES_CMDS = (
     "| awk '{{print $1}}');"
     # Get the list of modified files from HEAD to previous $ahead generation.
     "git diff HEAD~$ahead --name-only")
+_ANDROID_BUILD_EXT = ('.bp', '.mk')
 
 def get_build_cmd():
     """Compose build command with no-absolute path and flag "--make-mode".
@@ -976,3 +977,14 @@ def has_wildcard(test_name):
             if has_wildcard(name):
                 return True
     return False
+
+def is_build_file(path):
+    """ If input file is one of an android build file.
+
+    Args:
+        path: A string of file path.
+
+    Return:
+        True if path is android build file, False otherwise.
+    """
+    return bool(os.path.splitext(path)[-1] in _ANDROID_BUILD_EXT)

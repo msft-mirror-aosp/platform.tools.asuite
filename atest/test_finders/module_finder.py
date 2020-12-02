@@ -48,11 +48,11 @@ class ModuleFinder(test_finder_base.TestFinderBase):
     _VTS_TEST_RUNNER = vts_tf_test_runner.VtsTradefedTestRunner.NAME
 
     def __init__(self, module_info=None):
-        super(ModuleFinder, self).__init__()
+        super().__init__()
         self.root_dir = os.environ.get(constants.ANDROID_BUILD_TOP)
         self.module_info = module_info
 
-    def _determine_testable_module(self, path):
+    def _determine_testable_module(self, path, file_path=None):
         """Determine which module the user is trying to test.
 
         Returns the module to test. If there are multiple possibilities, will
@@ -60,6 +60,7 @@ class ModuleFinder(test_finder_base.TestFinderBase):
 
         Args:
             path: String path of module to look for.
+            file_path: String path of input file.
 
         Returns:
             A list of the module names.
@@ -74,6 +75,12 @@ class ModuleFinder(test_finder_base.TestFinderBase):
                 # return a list with one module name if it is robolectric.
                 return [mod]
             if self.module_info.is_testable_module(mod_info):
+                # Input file_path should be defined in the src list of module.
+                if file_path and (os.path.relpath(file_path, self.root_dir)
+                                  not in mod_info.get(constants.MODULE_SRCS,
+                                                      [])):
+                    logging.debug('Skip module: %s for %s', mod, file_path)
+                    continue
                 testable_modules.append(mod_info.get(constants.MODULE_NAME))
         return test_finder_utils.extract_test_from_tests(testable_modules)
 
@@ -283,6 +290,7 @@ class ModuleFinder(test_finder_base.TestFinderBase):
                 [test_info.TestFilter(full_class_name, methods)])
         # Path to cc file.
         elif file_name and constants.CC_EXT_RE.match(file_name):
+            # TODO (b/173019813) Should setup correct filter for an input file.
             if not test_finder_utils.has_cc_class(path):
                 raise atest_error.MissingCCTestCaseError(
                     "Can't find CC class in %s" % path)
@@ -349,7 +357,8 @@ class ModuleFinder(test_finder_base.TestFinderBase):
             module_names = [module_name]
         else:
             module_names = self._determine_testable_module(
-                os.path.dirname(rel_config))
+                os.path.dirname(rel_config),
+                test_path if self._is_comparted_src(test_path) else None)
         test_infos = []
         if module_names:
             for mname in module_names:
@@ -755,3 +764,21 @@ class ModuleFinder(test_finder_base.TestFinderBase):
                         # name in source tree.
                         return [tinfo]
         return None
+
+    def _is_comparted_src(self, path):
+        """Check if the input path need to match srcs information in module.
+
+        If path is a folder or android build file, we don't need to compart
+        with module's srcs.
+
+        Args:
+            path: A string of the test's path.
+
+        Returns:
+            True if input path need to match with module's src info, else False.
+        """
+        if os.path.isdir(path):
+            return False
+        if atest_utils.is_build_file(path):
+            return False
+        return True
