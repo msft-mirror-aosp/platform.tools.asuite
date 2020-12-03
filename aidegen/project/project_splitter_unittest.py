@@ -14,7 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Unittests for source_splitter."""
+"""Unittests for project_splitter."""
 
 import os
 import shutil
@@ -27,7 +27,7 @@ from aidegen.idea import iml
 from aidegen.lib import common_util
 from aidegen.lib import project_config
 from aidegen.lib import project_info
-from aidegen.project import source_splitter
+from aidegen.project import project_splitter
 
 
 # pylint: disable=protected-access
@@ -90,7 +90,7 @@ class ProjectSplitterUnittest(unittest.TestCase):
             config = mock.Mock()
             config.full_repo = False
             proj_cfg.return_value = config
-            self.split_projs = source_splitter.ProjectSplitter(projects)
+            self.split_projs = project_splitter.ProjectSplitter(projects)
 
     def tearDown(self):
         """Clear the testdata related path."""
@@ -110,19 +110,19 @@ class ProjectSplitterUnittest(unittest.TestCase):
             config = mock.Mock()
             config.full_repo = False
             mock_project.return_value = config
-            project = source_splitter.ProjectSplitter(proj_info(['a'], True))
+            project = project_splitter.ProjectSplitter(proj_info(['a'], True))
             self.assertFalse(project._framework_exist)
             config.full_repo = True
-            project = source_splitter.ProjectSplitter(proj_info(['a'], True))
+            project = project_splitter.ProjectSplitter(proj_info(['a'], True))
             self.assertEqual(project._full_repo_iml,
                              os.path.basename(
                                  ProjectSplitterUnittest._TEST_DIR))
 
-    @mock.patch.object(source_splitter.ProjectSplitter,
+    @mock.patch.object(project_splitter.ProjectSplitter,
                        '_remove_duplicate_sources')
-    @mock.patch.object(source_splitter.ProjectSplitter,
+    @mock.patch.object(project_splitter.ProjectSplitter,
                        '_keep_local_sources')
-    @mock.patch.object(source_splitter.ProjectSplitter,
+    @mock.patch.object(project_splitter.ProjectSplitter,
                        '_collect_all_srcs')
     def test_revise_source_folders(self, mock_copy_srcs, mock_keep_srcs,
                                    mock_remove_srcs):
@@ -162,7 +162,7 @@ class ProjectSplitterUnittest(unittest.TestCase):
         self.assertEqual(all_srcs['test_folder_path'], expected_all_tests)
 
     @mock.patch.object(
-        source_splitter, '_remove_child_duplicate_sources_from_parent')
+        project_splitter, '_remove_child_duplicate_sources_from_parent')
     def test_remove_duplicate_sources(self, mock_remove):
         """Test _remove_duplicate_sources."""
         self.split_projs._collect_all_srcs()
@@ -188,7 +188,7 @@ class ProjectSplitterUnittest(unittest.TestCase):
         self.assertEqual(self.split_projs._projects[1].dependencies, dep2)
         self.assertEqual(self.split_projs._projects[2].dependencies, dep3)
 
-    @mock.patch.object(source_splitter.ProjectSplitter,
+    @mock.patch.object(project_splitter.ProjectSplitter,
                        '_remove_permission_definition_srcjar_path')
     @mock.patch.object(common_util, 'get_android_root_dir')
     def test_gen_framework_srcjars_iml(self, mock_root, mock_remove):
@@ -232,7 +232,7 @@ class ProjectSplitterUnittest(unittest.TestCase):
         self.split_projs._gen_dependencies_iml()
         self.assertTrue(mock_create_iml.called)
 
-    @mock.patch.object(source_splitter, 'get_exclude_content')
+    @mock.patch.object(project_splitter, 'get_exclude_content')
     @mock.patch.object(project_config.ProjectConfig, 'get_instance')
     @mock.patch.object(iml.IMLGenerator, 'create')
     @mock.patch.object(common_util, 'get_android_root_dir')
@@ -253,7 +253,7 @@ class ProjectSplitterUnittest(unittest.TestCase):
 
     def test_get_exclude_content(self):
         """Test get_exclude_content."""
-        exclude_folders = source_splitter.get_exclude_content(self._TEST_PATH)
+        exclude_folders = project_splitter.get_exclude_content(self._TEST_PATH)
         self.assertEqual(self._SAMPLE_EXCLUDE_FOLDERS, exclude_folders)
 
     def test_remove_child_duplicate_sources_from_parent(self):
@@ -262,11 +262,11 @@ class ProjectSplitterUnittest(unittest.TestCase):
         child.project_relative_path = 'c/d'
         root = 'a/b'
         parent_sources = ['a/b/d/e', 'a/b/e/f']
-        result = source_splitter._remove_child_duplicate_sources_from_parent(
+        result = project_splitter._remove_child_duplicate_sources_from_parent(
             child, parent_sources, root)
         self.assertEqual(set(), result)
         parent_sources = ['a/b/c/d/e', 'a/b/e/f']
-        result = source_splitter._remove_child_duplicate_sources_from_parent(
+        result = project_splitter._remove_child_duplicate_sources_from_parent(
             child, parent_sources, root)
         self.assertEqual(set(['a/b/c/d/e']), result)
 
@@ -286,19 +286,19 @@ class ProjectSplitterUnittest(unittest.TestCase):
     def test_get_real_dependencies_jars(self):
         """Test _get_real_dependencies_jars with conditions."""
         expected = ['a/b/c/d']
-        self.assertEqual(expected, source_splitter._get_real_dependencies_jars(
+        self.assertEqual(expected, project_splitter._get_real_dependencies_jars(
             [], expected))
         expected = ['a/b/c/d.jar']
-        self.assertEqual(expected, source_splitter._get_real_dependencies_jars(
+        self.assertEqual(expected, project_splitter._get_real_dependencies_jars(
             ['a/e'], expected))
         expected = ['a/b/c/d.jar']
-        self.assertEqual([], source_splitter._get_real_dependencies_jars(
+        self.assertEqual([], project_splitter._get_real_dependencies_jars(
             ['a/b'], expected))
         expected = ['a/b/c/R']
-        self.assertEqual(expected, source_splitter._get_real_dependencies_jars(
+        self.assertEqual(expected, project_splitter._get_real_dependencies_jars(
             ['a/b'], ['a/b/c/d.srcjar', 'a/b/c/R']))
         expected = ['a/b/c/gen']
-        self.assertEqual(expected, source_splitter._get_real_dependencies_jars(
+        self.assertEqual(expected, project_splitter._get_real_dependencies_jars(
             ['a/b'], expected))
 
     @mock.patch.object(common_util, 'get_android_root_dir')
@@ -310,10 +310,10 @@ class ProjectSplitterUnittest(unittest.TestCase):
         expected = ('out/soong/.intermediates/frameworks/base/core/res/'
                     'framework-res/android_common/gen/android/R.srcjar')
         self.assertEqual(
-            expected, source_splitter._get_permission_definition_srcjar_path())
+            expected, project_splitter._get_permission_definition_srcjar_path())
 
     @mock.patch.object(
-        source_splitter, '_get_permission_definition_srcjar_path')
+        project_splitter, '_get_permission_definition_srcjar_path')
     def test_remove_permission_definition_srcjar_path(self, mock_get):
         """Test _remove_permission_definition_srcjar_path with conditions."""
         expected_srcjars = [
