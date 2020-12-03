@@ -625,7 +625,7 @@ def _update_iml_dep_modules(project):
 
     The jar files which have the same source codes as cls.projects' source files
     should be removed from the dependencies.iml file's jar paths. The codes are
-    written in aidegen.project.source_splitter.py.
+    written in aidegen.project.project_splitter.py.
     We should also add the jar project's unique iml name into self.dependencies
     which later will be written into its own iml project file. If we don't
     remove these files in dependencies.iml, it will cause the duplicated codes
