@@ -42,8 +42,13 @@ from metrics import metrics_utils
 # We want to make sure we don't grab apks with paths in their name since we
 # assume the apk name is the build target.
 _APK_RE = re.compile(r'^[^/]+\.apk$', re.I)
-# RE for checking if TEST or TEST_F is in a cc file or not.
-_CC_CLASS_RE = re.compile(r'^[ ]*TEST(_F|_P)?[ ]*\(', re.I)
+# Group matches "class" of line "TEST_F(class, "
+_CC_CLASS_METHOD_RE = re.compile(
+    r'^\s*TEST(_F|_P)?\s*\(\s*(?P<class>\w+)\s*,\s*(?P<method>\w+)\s*\)', re.M)
+# Group matches parameterized "class" of line "INSTANTIATE_TEST_CASE_P( ,class "
+_PARA_CC_CLASS_RE = re.compile(
+    r'^\s*INSTANTIATE[_TYPED]*_TEST_(SUITE|CASE)_P\s*\(\s*(?P<instantiate>\w+)\s*,'
+    r'\s*(?P<class>\w+)\s*\,', re.M)
 # RE for checking if there exists one of the methods in java file.
 _JAVA_METHODS_PATTERN = r'.*[ ]+({0})\(.*'
 # RE for checking if there exists one of the methods in cc file.
@@ -212,7 +217,7 @@ def has_cc_class(test_path):
     """
     with open(test_path) as class_file:
         for line in class_file:
-            match = _CC_CLASS_RE.match(line)
+            match = _CC_CLASS_METHOD_RE.match(line)
             if match:
                 return True
     return False
@@ -1019,3 +1024,35 @@ def is_parameterized_java_class(test_path):
             if match:
                 return True
     return False
+
+
+def get_cc_test_classes_methods(test_path):
+    """Find out the cc test class of input test_path.
+
+    Args:
+        test_path: A string of absolute path to the cc file.
+
+    Returns:
+        A tuple of sets: classes, methods and para_classes.
+    """
+    classes = set()
+    methods = set()
+    para_classes = set()
+    with open(test_path) as class_file:
+        content = class_file.read()
+        # Search matched CC CLASS/METHOD
+        matches = re.findall(_CC_CLASS_METHOD_RE, content)
+        logging.debug('Found cc classes: %s', matches)
+        for match in matches:
+            # The elements of `matches` will be "Group 1"(_F),
+            # "Group class"(MyClass1) and "Group method"(MyMethod1)
+            classes.update([match[1]])
+            methods.update([match[2]])
+        # Search matched parameterized CC CLASS.
+        matches = re.findall(_PARA_CC_CLASS_RE, content)
+        logging.debug('Found parameterized classes: %s', matches)
+        for match in matches:
+            # The elements of `matches` will be "Group 1"(_F),
+            # "Group instantiate class"(MyClass1) and "Group method"(MyMethod1)
+            para_classes.update([match[2]])
+    return classes, methods, para_classes
