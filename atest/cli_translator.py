@@ -148,7 +148,12 @@ class CLITranslator:
                         x for x in test_info.build_targets
                         if x not in test_modules_to_build}
                     test_info.build_targets.update(mm_build_targets)
-                    test_info.build_targets.update(test_deps)
+                    # Only add dependencies to build_targets when they are in
+                    # module info
+                    test_deps_in_mod_info = [
+                        test_dep for test_dep in test_deps
+                        if self.mod_info.is_module(test_dep)]
+                    test_info.build_targets.update(test_deps_in_mod_info)
                     test_infos.add(test_info)
                 test_found = True
                 print("Found '%s' as %s" % (
