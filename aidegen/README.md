@@ -60,20 +60,15 @@ Developers can also use the following optional arguments with AIDEGen commands.
 | Option | Long option       | Description                                     |
 | :----: | :---------------- | ----------------------------------------------- |
 | `-d`   | `--depth`         | The depth of module referenced by source.       |
-| `-i`   | `--ide`           | Launch IDE type,  j = IntelliJ                  |
-:        :                   : s = Android Studio e = Eclipse c = CLion v = VS :
-:        :                   : Code                                            :
+| `-i`   | `--ide`           | Launch IDE type, j=IntelliJ s=Android Studio e=Eclipse c=CLion v=VS Code|
 | `-p`   | `--ide-path`      | Specify user's IDE installed path.              |
 | `-n`   | `--no_launch`     | Do not launch IDE.                              |
-| `-r`   | `--config-reset`  | Reset all AIDEGen's saved configurations,       |
-:        :                   : e.g., preferred IDE version.                    :
+| `-r`   | `--config-reset`  | Reset all AIDEGen's saved configurations.       |
 | `-s`   | `--skip-build`    | Skip building jars or modules.                  |
 | `-v`   | `--verbose`       | Displays DEBUG level logging.                   |
-| `-a`   | `--android-tree`  | Generate whole Android source tree project file |
-:        :                   : for IDE.                                        :
+| `-a`   | `--android-tree`  | Generate whole Android source tree project file for IDE.|
 | `-e`   | `--exclude-paths` | Exclude the directories in IDE.                 |
-| `-l`   | `--language`      | Launch IDE with a specific language,j = java    |
-:        :                   : c = C/C++ r = Rust                              :
+| `-l`   | `--language`      | Launch IDE with a specific language,j=java c=C/C++ r=Rust|
 | `-h`   | `--help`          | Shows help message and exits.                   |
 
 ## 4. FAQ:
