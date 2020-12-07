@@ -102,7 +102,6 @@ class CacheFinder(test_finder_base.TestFinderBase):
             return False
         return True
 
-    # pylint: disable=unused-argument
     def _is_test_build_target_valid(self, t_info):
         """Check if test build targets are valid.
 
@@ -112,7 +111,11 @@ class CacheFinder(test_finder_base.TestFinderBase):
         Returns:
             True if test's build target is valid. Otherwise, False.
         """
-        # TODO: (b/172260100) Implement the check for test's build target.
+        # If the cached build target can be found in current module-info, then
+        # it is a valid build targets of the test.
+        for build_target in t_info.build_targets:
+            if self.module_info.is_module(build_target):
+                return False
         return True
 
     def _is_test_filter_valid(self, t_info):
