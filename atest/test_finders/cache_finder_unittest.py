@@ -38,8 +38,11 @@ class CacheFinderUnittests(unittest.TestCase):
         self.cache_finder = cache_finder.CacheFinder()
         self.cache_finder.module_info = mock.Mock(spec=module_info.ModuleInfo)
 
+    @mock.patch.object(cache_finder.CacheFinder, '_is_test_build_target_valid',
+                       return_value=True)
     @mock.patch.object(atest_utils, 'get_test_info_cache_path')
-    def test_find_test_by_cache(self, mock_get_cache_path):
+    def test_find_test_by_cache(self, mock_get_cache_path,
+            _mock_build_target_valid):
         """Test find_test_by_cache method."""
         uncached_test = 'mytest1'
         cached_test = 'hello_world_test'
@@ -65,8 +68,11 @@ class CacheFinderUnittests(unittest.TestCase):
             '39488b7ac83c56d5a7d285519fe3e3fd.cache')
         self.assertIsNone(self.cache_finder.find_test_by_cache(uncached_test2))
 
+    @mock.patch.object(cache_finder.CacheFinder, '_is_test_build_target_valid',
+                       return_value=True)
     @mock.patch.object(atest_utils, 'get_test_info_cache_path')
-    def test_find_test_by_cache_wo_valid_path(self, mock_get_cache_path):
+    def test_find_test_by_cache_wo_valid_path(self, mock_get_cache_path,
+            _mock_build_target_valid):
         """Test find_test_by_cache method."""
         cached_test = 'hello_world_test'
         test_cache_root = os.path.join(uc.TEST_DATA_DIR, 'cache_root')
@@ -74,6 +80,22 @@ class CacheFinderUnittests(unittest.TestCase):
         # existing cache.
         self.cache_finder.module_info.get_paths.return_value = [
             'not/matched/test/path']
+        mock_get_cache_path.return_value = os.path.join(
+            test_cache_root,
+            '78ea54ef315f5613f7c11dd1a87f10c7.cache')
+        self.assertIsNone(self.cache_finder.find_test_by_cache(cached_test))
+
+    @mock.patch.object(cache_finder.CacheFinder, '_is_test_build_target_valid',
+                       return_value=False)
+    @mock.patch.object(cache_finder.CacheFinder, '_is_test_path_valid',
+                       return_value=True)
+    @mock.patch.object(atest_utils, 'get_test_info_cache_path')
+    def test_find_test_by_cache_wo_valid_build_target(self, mock_get_cache_path,
+            _mock_path_valid, _mock_build_target_valid):
+        """Test find_test_by_cache method."""
+        cached_test = 'hello_world_test'
+        test_cache_root = os.path.join(uc.TEST_DATA_DIR, 'cache_root')
+        # Return None when the build target is not exist in module-info.
         mock_get_cache_path.return_value = os.path.join(
             test_cache_root,
             '78ea54ef315f5613f7c11dd1a87f10c7.cache')
