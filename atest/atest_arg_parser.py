@@ -348,9 +348,6 @@ OPTIONS
         -D --tf-debug
             {TF_DEBUG}
 
-        --history
-            {HISTORY}
-
         --host
             {HOST}
 
@@ -396,6 +393,9 @@ OPTIONS
         [ Information/Queries ]
         --collect-tests-only
             {COLLECT_TESTS_ONLY}
+
+        --history
+            {HISTORY}
 
         --info
             {INFO}
@@ -773,5 +773,5 @@ EXAMPLES
         atest -v <test> -- <custom_args1> <custom_args2>
 
 
-                                                     2020-06-04
+                                                     2020-12-09
 '''
