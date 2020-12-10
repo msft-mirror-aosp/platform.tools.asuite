@@ -173,18 +173,33 @@ class IMLGenerator:
     def _generate_srcs(self):
         """Generates the source urls of the project's iml file."""
         srcs = []
+        framework_srcs = []
         for src in self._mod_info.get(constant.KEY_SRCS, []):
+            if constant.FRAMEWORK_PATH in src:
+                framework_srcs.append(templates.SOURCE.format(
+                    SRC=os.path.join(self._android_root, src),
+                    IS_TEST='false'))
+                continue
             srcs.append(templates.SOURCE.format(
                 SRC=os.path.join(self._android_root, src),
                 IS_TEST='false'))
         for test in self._mod_info.get(constant.KEY_TESTS, []):
+            if constant.FRAMEWORK_PATH in test:
+                framework_srcs.append(templates.SOURCE.format(
+                    SRC=os.path.join(self._android_root, test),
+                    IS_TEST='true'))
+                continue
             srcs.append(templates.SOURCE.format(
                 SRC=os.path.join(self._android_root, test),
                 IS_TEST='true'))
         self._excludes = self._mod_info.get(constant.KEY_EXCLUDES, '')
+
+        #For sovling duplicate package name, frameworks/base will be higher
+        #priority.
+        srcs = sorted(framework_srcs) + sorted(srcs)
         self._srcs = templates.CONTENT.format(MODULE_PATH=self._mod_path,
                                               EXCLUDES=self._excludes,
-                                              SOURCES=''.join(sorted(srcs)))
+                                              SOURCES=''.join(srcs))
 
     def _generate_dep_srcs(self):
         """Generates the source urls of the dependencies.iml."""
