@@ -66,6 +66,8 @@ class ModuleFinder(test_finder_base.TestFinderBase):
             A list of the module names.
         """
         testable_modules = []
+        # A list to save those testable modules but srcs information is empty.
+        testable_modules_no_srcs = []
         for mod in self.module_info.get_module_names(path):
             mod_info = self.module_info.get_module_info(mod)
             # Robolectric tests always exist in pairs of 2, one module to build
@@ -75,13 +77,22 @@ class ModuleFinder(test_finder_base.TestFinderBase):
                 # return a list with one module name if it is robolectric.
                 return [mod]
             if self.module_info.is_testable_module(mod_info):
-                # Input file_path should be defined in the src list of module.
-                if file_path and (os.path.relpath(file_path, self.root_dir)
-                                  not in mod_info.get(constants.MODULE_SRCS,
-                                                      [])):
+                # If test module defined srcs, input file_path should be defined
+                # in the src list of module.
+                module_srcs = mod_info.get(constants.MODULE_SRCS, [])
+                if file_path and os.path.relpath(
+                    file_path, self.root_dir) not in module_srcs:
                     logging.debug('Skip module: %s for %s', mod, file_path)
+                    # Collect those modules if they don't have srcs information
+                    # in module-info, use this list if there's no other matched
+                    # module with src information.
+                    if not module_srcs:
+                        testable_modules_no_srcs.append(
+                            mod_info.get(constants.MODULE_NAME))
                     continue
                 testable_modules.append(mod_info.get(constants.MODULE_NAME))
+        if not testable_modules:
+            testable_modules.extend(testable_modules_no_srcs)
         return test_finder_utils.extract_test_from_tests(testable_modules)
 
     def _is_vts_module(self, module_name):
