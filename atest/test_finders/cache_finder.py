@@ -130,7 +130,10 @@ class CacheFinder(test_finder_base.TestFinderBase):
         Returns:
             True if test filter is valid. Otherwise, False.
         """
-        for test_filter in t_info.data.get(constants.TI_FILTER, []):
+        test_filters = t_info.data.get(constants.TI_FILTER, [])
+        if not test_filters:
+            return True
+        for test_filter in test_filters:
             # Check if the class filter is under current module.
             # TODO: (b/172260100) The test_name may not be inevitably equal to
             #  the module_name.
