@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+#!/usr/bin/env python
 #
 # Copyright 2018, The Android Open Source Project
 #
@@ -13,21 +13,17 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
 """Unittests for robolectric_test_runner."""
 
-# pylint: disable=line-too-long
-
 import json
-import platform
+import unittest
 import subprocess
 import tempfile
-import unittest
+import mock
 
-from unittest import mock
-
+import event_handler
+# pylint: disable=import-error
 from test_finders import test_info
-from test_runners import event_handler
 from test_runners import robolectric_test_runner
 
 # pylint: disable=protected-access
@@ -70,7 +66,7 @@ class RobolectricTestRunnerUnittests(unittest.TestCase):
 
         json_event_data = json.dumps(event_data)
         data = '%s %s\n\n' %(event_name, json_event_data)
-        event_file = tempfile.NamedTemporaryFile(delete=True)
+        event_file = tempfile.NamedTemporaryFile(mode='w+r', delete=True)
         subprocess.call("echo '%s' -n >> %s" %(data, event_file.name), shell=True)
         robo_proc = subprocess.Popen("sleep %s" %str(self.polling_time * 2), shell=True)
         self.suite_tr. _exec_with_robo_polling(event_file, robo_proc, mock_pe)
@@ -85,7 +81,7 @@ class RobolectricTestRunnerUnittests(unittest.TestCase):
         event2 = 'Name":"SomeTestName"}\n\n'
         data1 = '%s %s'%(event_name, event1)
         data2 = event2
-        event_file = tempfile.NamedTemporaryFile(delete=True)
+        event_file = tempfile.NamedTemporaryFile(mode='w+r', delete=True)
         subprocess.Popen("echo -n '%s' >> %s" %(data1, event_file.name), shell=True)
         robo_proc = subprocess.Popen("echo '%s' >> %s && sleep %s"
                                      %(data2,
@@ -95,10 +91,7 @@ class RobolectricTestRunnerUnittests(unittest.TestCase):
         self.suite_tr. _exec_with_robo_polling(event_file, robo_proc, mock_pe)
         calls = [mock.call.process_event(event_name,
                                          json.loads(event1 + event2))]
-        # (b/147569951) subprocessing 'echo'  behaves differently between
-        # linux/darwin. Ensure it is not called in MacOS.
-        if platform.system() == 'Linux':
-            mock_pe.assert_has_calls(calls)
+        mock_pe.assert_has_calls(calls)
 
     @mock.patch.object(event_handler.EventHandler, 'process_event')
     def test_exec_with_robo_polling_with_fail_stacktrace(self, mock_pe):
@@ -109,7 +102,7 @@ class RobolectricTestRunnerUnittests(unittest.TestCase):
                               'at FailureStrategy.fail(FailureStrategy.java:24)\n'
                               'at FailureStrategy.fail(FailureStrategy.java:20)\n'}
         data = '%s %s\n\n'%(event_name, json.dumps(event_data))
-        event_file = tempfile.NamedTemporaryFile(delete=True)
+        event_file = tempfile.NamedTemporaryFile(mode='w+r', delete=True)
         subprocess.call("echo '%s' -n >> %s" %(data, event_file.name), shell=True)
         robo_proc = subprocess.Popen("sleep %s" %str(self.polling_time * 2), shell=True)
         self.suite_tr. _exec_with_robo_polling(event_file, robo_proc, mock_pe)
@@ -119,7 +112,7 @@ class RobolectricTestRunnerUnittests(unittest.TestCase):
     @mock.patch.object(event_handler.EventHandler, 'process_event')
     def test_exec_with_robo_polling_with_multi_event(self, mock_pe):
         """Test _exec_with_robo_polling method."""
-        event_file = tempfile.NamedTemporaryFile(delete=True)
+        event_file = tempfile.NamedTemporaryFile(mode='w+r', delete=True)
         events = [
             ('TEST_MODULE_STARTED', {
                 'moduleContextFileName':'serial-util1146216{974}2772610436.ser',

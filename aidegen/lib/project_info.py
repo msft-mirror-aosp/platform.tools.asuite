@@ -179,6 +179,7 @@ class ProjectInfo:
         """Find qualified modules under the rel_path.
 
         Find modules which contain any Java or Kotlin file as a target module.
+        If it's the whole source tree project, add all modules into it.
 
         Args:
             rel_path: A string, the project's relative path.
@@ -188,6 +189,8 @@ class ProjectInfo:
         """
         logging.info('Find modules contain any Java or Kotlin file under %s.',
                      rel_path)
+        if rel_path == '':
+            return self.modules_info.name_to_module_info.keys()
         modules = set()
         root_dir = common_util.get_android_root_dir()
         for name, data in self.modules_info.name_to_module_info.items():
