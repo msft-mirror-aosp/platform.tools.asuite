@@ -16,7 +16,9 @@
 
 """Separate the sources from multiple projects."""
 
+import logging
 import os
+import shutil
 
 from aidegen import constant
 from aidegen.idea import iml
@@ -39,8 +41,10 @@ _EXCLUDE_FOLDERS = ['.idea', '.repo', 'art', 'bionic', 'bootable', 'build',
                     'toolchain', 'tools', 'vendor', 'out',
                     'art/tools/ahat/src/test-dump',
                     'cts/common/device-side/device-info/src_stub']
-_PERMISSION_DEFINED_JAR = ('frameworks/base/core/res/framework-res/'
-                           'android_common/gen/android')
+_PERMISSION_DEFINED_PATH = ('frameworks/base/core/res/framework-res/'
+                            'android_common/gen/')
+_ANDROID = 'android'
+_R = 'R'
 
 
 class ProjectSplitter:
@@ -78,9 +82,10 @@ class ProjectSplitter:
         _framework_iml: A string, the name of the framework's iml.
         _full_repo: A boolean, True if loading with full Android sources.
         _full_repo_iml: A string, the name of the Android folder's iml.
-        _permission_definition_r_srcjar: A string, the absolute path of R.srcjar
-                                         of the permission and resource content
-                                         of framework-res.
+        _permission_r_srcjar: A string, the absolute path of R.srcjar file where
+                              the permission relative constants are defined.
+        _permission_aapt2: A string, the absolute path of aapt2/R directory
+                           where the permission relative constants are defined.
     """
     def __init__(self, projects):
         """ProjectSplitter initialize.
@@ -102,7 +107,8 @@ class ProjectSplitter:
         if self._full_repo:
             self._full_repo_iml = os.path.basename(
                 common_util.get_android_root_dir())
-        self._permission_definition_r_srcjar = ''
+        self._permission_r_srcjar = _get_permission_r_srcjar_rel_path()
+        self._permission_aapt2 = _get_permission_aapt2_rel_path()
 
     def revise_source_folders(self):
         """Resets the source folders of each project.
@@ -211,9 +217,7 @@ class ProjectSplitter:
         """Generates the framework_srcjars.iml.
 
         Create the iml file with only the srcjars of module framework-all. These
-        srcjars will be separated from the modules under frameworks/base. If the
-        framework-res/android_common/gen/android/R.srcjar file exists, add it
-        into framework_srcjars.iml too.
+        srcjars will be separated from the modules under frameworks/base.
 
         Returns:
             A string of the framework_srcjars.iml's absolute path.
@@ -227,18 +231,54 @@ class ProjectSplitter:
         if self._full_repo:
             mod[constant.KEY_DEPENDENCIES].append(self._full_repo_iml)
         mod[constant.KEY_DEPENDENCIES].append(constant.KEY_DEPENDENCIES)
-        if self._permission_definition_r_srcjar:
-            mod[constant.KEY_SRCJARS] = [self._permission_definition_r_srcjar]
+        srcjar_dict = dict()
+        permission_src = self._get_permission_defined_source_path()
+        if permission_src:
+            mod[constant.KEY_SRCS] = [permission_src]
+            srcjar_dict = {constant.KEY_DEP_SRCS: True,
+                           constant.KEY_SRCJARS: True,
+                           constant.KEY_DEPENDENCIES: True}
+        else:
+            logging.warning('The permission definition relative paths are '
+                            'missing.')
+            srcjar_dict = {constant.KEY_SRCJARS: True,
+                           constant.KEY_DEPENDENCIES: True}
         framework_srcjars_iml = iml.IMLGenerator(mod)
-        framework_srcjars_iml.create({constant.KEY_SRCJARS: True,
-                                      constant.KEY_DEPENDENCIES: True})
+        framework_srcjars_iml.create(srcjar_dict)
         self._all_srcs[_KEY_SRCJAR_PATH] -= set(mod.get(constant.KEY_SRCJARS,
                                                         []))
         return framework_srcjars_iml.iml_path
 
+    def _get_permission_defined_source_path(self):
+        """Gets the source path where permission relative constants are defined.
+
+        For the definition permission constants, the priority is,
+        1) If framework-res/android_common/gen/aapt2/R directory exists, return
+           it.
+        2) If the framework-res/android_common/gen/android/R.srcjar file exists,
+           unzip it to 'aidegen_r.srcjar' folder and return the path.
+
+        Returns:
+            A string of the path of aapt2/R or android/aidegen_r.srcjar folder,
+            else None.
+        """
+        if os.path.isdir(self._permission_aapt2):
+            return self._permission_aapt2
+        if os.path.isfile(self._permission_r_srcjar):
+            dest = os.path.join(
+                os.path.dirname(self._permission_r_srcjar),
+                ''.join([constant.UNZIP_SRCJAR_PATH_HEAD,
+                         os.path.basename(self._permission_r_srcjar).lower()]))
+            if os.path.isdir(dest):
+                shutil.rmtree(dest)
+            common_util.unzip_file(self._permission_r_srcjar, dest)
+            return dest
+        return None
+
     def _gen_dependencies_iml(self):
         """Generates the dependencies.iml."""
         rel_project_soong_paths = self._get_rel_project_soong_paths()
+        self._unzip_all_scrjars()
         mod = {
             constant.KEY_SRCS: _get_real_dependencies_jars(
                 rel_project_soong_paths, self._all_srcs[_KEY_SOURCE_PATH]),
@@ -264,6 +304,41 @@ class ProjectSplitter:
                         constant.KEY_SRCJARS: True,
                         constant.KEY_JARS: True,
                         constant.KEY_DEPENDENCIES: True})
+
+    def _unzip_all_scrjars(self):
+        """Unzips all scrjar files to a specific folder 'aidegen_r.srcjar'.
+
+        For some versions of IntelliJ no more supports unzipping srcjar files
+        automatically, we have to unzip it to a 'aidegen_r.srcjar' directory.
+        The rules of the unzip process are,
+        1) If it's a aapt2/R type jar or other directory type sources, add them
+           into self._all_srcs[_KEY_SOURCE_PATH].
+        2) If it's an R.srcjar file, check if the same path of aapt2/R directory
+           exists if so add aapt2/R path into into the
+           self._all_srcs[_KEY_SOURCE_PATH], otherwise unzip R.srcjar into
+           the 'aidegen_r.srcjar' directory and add the unzipped path into
+           self._all_srcs[_KEY_SOURCE_PATH].
+        """
+        sjars = self._all_srcs[_KEY_R_PATH] | self._all_srcs[_KEY_SRCJAR_PATH]
+        self._all_srcs[_KEY_R_PATH] = set()
+        self._all_srcs[_KEY_SRCJAR_PATH] = set()
+        for sjar in sjars:
+            if os.path.isdir(sjar):
+                self._all_srcs[_KEY_SOURCE_PATH].add(sjar)
+                continue
+            sjar_dir = os.path.dirname(sjar)
+            sjar_name = os.path.basename(sjar).lower()
+            aapt2 = os.path.join(
+                os.path.dirname(sjar_dir), constant.NAME_AAPT2, _R)
+            if os.path.isdir(aapt2):
+                self._all_srcs[_KEY_SOURCE_PATH].add(aapt2)
+                continue
+            dest = os.path.join(
+                sjar_dir, ''.join([constant.UNZIP_SRCJAR_PATH_HEAD, sjar_name]))
+            if os.path.isdir(dest):
+                shutil.rmtree(dest)
+            common_util.unzip_file(sjar, dest)
+            self._all_srcs[_KEY_SOURCE_PATH].add(dest)
 
     def gen_projects_iml(self):
         """Generates the projects' iml file."""
@@ -314,19 +389,14 @@ class ProjectSplitter:
     def _remove_permission_definition_srcjar_path(self):
         """Removes android.Manifest.permission definition srcjar path.
 
-        If the framework-res/android_common/gen/android/R.srcjar file exists in
-        self._all_srcs[_KEY_SRCJAR_PATH], remove it and later add it into the
-        framework_srcjars.iml file to fix the unresolved symbols of the
-        constants of android.Manifest.permission.
+        If framework-res/android_common/gen/aapt2/R directory or
+        framework-res/android_common/gen/android/R.srcjar file exists in
+        self._all_srcs[_KEY_SRCJAR_PATH], remove them.
         """
-        rel_path = _get_permission_definition_srcjar_path()
-        for rjar_path in self._all_srcs[_KEY_SRCJAR_PATH]:
-            if rjar_path.endswith(rel_path):
-                self._permission_definition_r_srcjar = rjar_path
-                break
-        if self._permission_definition_r_srcjar:
-            self._all_srcs[_KEY_SRCJAR_PATH].remove(
-                self._permission_definition_r_srcjar)
+        if self._permission_aapt2 in self._all_srcs[_KEY_SRCJAR_PATH]:
+            self._all_srcs[_KEY_SRCJAR_PATH].remove(self._permission_aapt2)
+        if self._permission_r_srcjar in self._all_srcs[_KEY_SRCJAR_PATH]:
+            self._all_srcs[_KEY_SRCJAR_PATH].remove(self._permission_r_srcjar)
 
 
 def _get_real_dependencies_jars(list_to_check, list_to_be_checked):
@@ -405,10 +475,18 @@ def _remove_child_duplicate_sources_from_parent(child, parent_sources, root):
     return rm_paths
 
 
-def _get_permission_definition_srcjar_path():
+def _get_permission_aapt2_rel_path():
     """Gets android.Manifest.permission definition srcjar path."""
     out_soong_dir = os.path.relpath(common_util.get_soong_out_path(),
                                     common_util.get_android_root_dir())
-    return os.sep.join(
-        [out_soong_dir, constant.INTERMEDIATES, _PERMISSION_DEFINED_JAR,
-         constant.TARGET_R_SRCJAR])
+    return os.path.join(out_soong_dir, constant.INTERMEDIATES,
+                        _PERMISSION_DEFINED_PATH, constant.NAME_AAPT2, _R)
+
+
+def _get_permission_r_srcjar_rel_path():
+    """Gets android.Manifest.permission definition srcjar path."""
+    out_soong_dir = os.path.relpath(common_util.get_soong_out_path(),
+                                    common_util.get_android_root_dir())
+    return os.path.join(out_soong_dir, constant.INTERMEDIATES,
+                        _PERMISSION_DEFINED_PATH, _ANDROID,
+                        constant.TARGET_R_SRCJAR)
