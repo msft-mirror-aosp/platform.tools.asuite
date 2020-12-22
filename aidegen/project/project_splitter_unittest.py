@@ -22,6 +22,7 @@ import tempfile
 import unittest
 from unittest import mock
 
+from aidegen import constant
 from aidegen import unittest_constants
 from aidegen.idea import iml
 from aidegen.lib import common_util
@@ -188,12 +189,17 @@ class ProjectSplitterUnittest(unittest.TestCase):
         self.assertEqual(self.split_projs._projects[1].dependencies, dep2)
         self.assertEqual(self.split_projs._projects[2].dependencies, dep3)
 
+    @mock.patch.object(iml.IMLGenerator, 'create')
+    @mock.patch.object(project_splitter.ProjectSplitter,
+                       '_get_permission_defined_source_path')
     @mock.patch.object(project_splitter.ProjectSplitter,
                        '_remove_permission_definition_srcjar_path')
     @mock.patch.object(common_util, 'get_android_root_dir')
-    def test_gen_framework_srcjars_iml(self, mock_root, mock_remove):
+    def test_gen_framework_srcjars_iml(
+        self, mock_root, mock_remove, mock_get, mock_create_iml):
         """Test gen_framework_srcjars_iml."""
         mock_root.return_value = self._TEST_DIR
+        mock_get.return_value = 'aapt2/R'
         self.split_projs._projects[0].dep_modules = {
             'framework-all': {
                 'module_name': 'framework-all',
@@ -204,6 +210,9 @@ class ProjectSplitterUnittest(unittest.TestCase):
         }
         self.split_projs._framework_exist = False
         self.split_projs.gen_framework_srcjars_iml()
+        srcjar_dict = {constant.KEY_DEP_SRCS: True, constant.KEY_SRCJARS: True,
+                       constant.KEY_DEPENDENCIES: True}
+        mock_create_iml.assert_called_with(srcjar_dict)
         expected_srcjars = [
             'other.srcjar',
             'srcjar1.srcjar',
@@ -214,30 +223,39 @@ class ProjectSplitterUnittest(unittest.TestCase):
                                      'frameworks/base/framework_srcjars.iml')
         self.split_projs._framework_exist = True
         self.split_projs.revise_source_folders()
+        mock_get.return_value = None
         iml_path = self.split_projs.gen_framework_srcjars_iml()
         srcjars = self.split_projs._all_srcs['srcjar_path']
         self.assertEqual(sorted(list(srcjars)), expected_srcjars)
         self.assertEqual(iml_path, expected_path)
         self.assertTrue(mock_remove.called)
+        srcjar_dict = {constant.KEY_SRCJARS: True,
+                       constant.KEY_DEPENDENCIES: True}
+        mock_create_iml.assert_called_with(srcjar_dict)
 
+    @mock.patch.object(project_splitter.ProjectSplitter, '_unzip_all_scrjars')
     @mock.patch.object(iml.IMLGenerator, 'create')
     @mock.patch.object(common_util, 'get_android_root_dir')
-    def test_gen_dependencies_iml(self, mock_root, mock_create_iml):
+    def test_gen_dependencies_iml(self, mock_root, mock_create_iml, mock_unzip):
         """Test _gen_dependencies_iml."""
         mock_root.return_value = self._TEST_DIR
         self.split_projs.revise_source_folders()
         self.split_projs._framework_exist = False
         self.split_projs._gen_dependencies_iml()
+        self.assertTrue(mock_unzip.called)
+        mock_unzip.mock_reset()
         self.split_projs._framework_exist = True
         self.split_projs._gen_dependencies_iml()
         self.assertTrue(mock_create_iml.called)
+        self.assertTrue(mock_unzip.called)
 
+    @mock.patch.object(project_splitter.ProjectSplitter, '_unzip_all_scrjars')
     @mock.patch.object(project_splitter, 'get_exclude_content')
     @mock.patch.object(project_config.ProjectConfig, 'get_instance')
     @mock.patch.object(iml.IMLGenerator, 'create')
     @mock.patch.object(common_util, 'get_android_root_dir')
     def test_gen_projects_iml(self, mock_root, mock_create_iml, mock_project,
-                              mock_get_excludes):
+                              mock_get_excludes, mock_unzip):
         """Test gen_projects_iml."""
         mock_root.return_value = self._TEST_DIR
         config = mock.Mock()
@@ -246,10 +264,13 @@ class ProjectSplitterUnittest(unittest.TestCase):
         self.split_projs.revise_source_folders()
         self.split_projs.gen_projects_iml()
         self.assertTrue(mock_create_iml.called)
+        self.assertTrue(mock_unzip.called)
+        mock_unzip.mock_reset()
         self.assertFalse(mock_get_excludes.called)
         config.exclude_paths = ['a']
         self.split_projs.gen_projects_iml()
         self.assertTrue(mock_get_excludes.called)
+        self.assertTrue(mock_unzip.called)
 
     def test_get_exclude_content(self):
         """Test get_exclude_content."""
@@ -303,18 +324,30 @@ class ProjectSplitterUnittest(unittest.TestCase):
 
     @mock.patch.object(common_util, 'get_android_root_dir')
     @mock.patch.object(common_util, 'get_soong_out_path')
-    def test_get_permission_definition_srcjar_path(self, mock_soong, mock_root):
-        """Test _get_permission_definition_srcjar_path."""
+    def test_get_permission_aapt2_rel_path(self, mock_soong, mock_root):
+        """Test _get_permission_aapt2_rel_path."""
+        mock_soong.return_value = 'a/b/out/soong'
+        mock_root.return_value = 'a/b'
+        expected = ('out/soong/.intermediates/frameworks/base/core/res/'
+                    'framework-res/android_common/gen/aapt2/R')
+        self.assertEqual(
+            expected, project_splitter._get_permission_aapt2_rel_path())
+
+    @mock.patch.object(common_util, 'get_android_root_dir')
+    @mock.patch.object(common_util, 'get_soong_out_path')
+    def test_get_permission_r_srcjar_rel_path(self, mock_soong, mock_root):
+        """Test _get_permission_r_srcjar_rel_path."""
         mock_soong.return_value = 'a/b/out/soong'
         mock_root.return_value = 'a/b'
         expected = ('out/soong/.intermediates/frameworks/base/core/res/'
                     'framework-res/android_common/gen/android/R.srcjar')
         self.assertEqual(
-            expected, project_splitter._get_permission_definition_srcjar_path())
+            expected, project_splitter._get_permission_r_srcjar_rel_path())
 
-    @mock.patch.object(
-        project_splitter, '_get_permission_definition_srcjar_path')
-    def test_remove_permission_definition_srcjar_path(self, mock_get):
+    @mock.patch.object(project_splitter, '_get_permission_r_srcjar_rel_path')
+    @mock.patch.object(project_splitter, '_get_permission_aapt2_rel_path')
+    def test_remove_permission_definition_srcjar_path(
+        self, mock_get_aapt2, mock_get_r_srcjar):
         """Test _remove_permission_definition_srcjar_path with conditions."""
         expected_srcjars = [
             'other.srcjar',
@@ -322,7 +355,8 @@ class ProjectSplitterUnittest(unittest.TestCase):
             'srcjar2.srcjar',
             'srcjar3.srcjar',
         ]
-        mock_get.return_value = 'none.srcjar'
+        mock_get_aapt2.return_value = 'none/aapt2/R'
+        mock_get_r_srcjar.return_value = 'none.srcjar'
         self.split_projs._all_srcs['srcjar_path'] = expected_srcjars
         self.split_projs._remove_permission_definition_srcjar_path()
         srcjars = self.split_projs._all_srcs['srcjar_path']
@@ -333,11 +367,47 @@ class ProjectSplitterUnittest(unittest.TestCase):
             'srcjar2.srcjar',
             'srcjar3.srcjar',
         ]
-        mock_get.return_value = 'srcjar1.srcjar'
+        mock_get_r_srcjar.return_value = 'srcjar1.srcjar'
         self.split_projs._all_srcs['srcjar_path'] = expected_srcjars
         self.split_projs._remove_permission_definition_srcjar_path()
         srcjars = self.split_projs._all_srcs['srcjar_path']
         self.assertEqual(sorted(list(srcjars)), expected_srcjars)
+
+    @mock.patch('os.path.join')
+    @mock.patch.object(common_util, 'unzip_file')
+    @mock.patch('shutil.rmtree')
+    @mock.patch('os.path.isfile')
+    @mock.patch('os.path.isdir')
+    def test_get_permission_defined_source_path(
+        self, mock_is_dir, mock_is_file, mock_rmtree, mock_unzip, mock_join):
+        """Test _get_permission_defined_source_path function."""
+        mock_is_dir.return_value = True
+        self.split_projs._get_permission_defined_source_path()
+        self.assertFalse(mock_is_file.called)
+        self.assertFalse(mock_join.called)
+        self.assertFalse(mock_rmtree.called)
+        self.assertFalse(mock_unzip.called)
+        mock_is_dir.return_value = False
+        self.split_projs._get_permission_defined_source_path()
+        self.assertTrue(mock_is_file.called)
+        self.assertTrue(mock_join.called)
+        self.assertFalse(mock_rmtree.called)
+        self.assertTrue(mock_unzip.called)
+
+    @mock.patch.object(common_util, 'unzip_file')
+    @mock.patch('shutil.rmtree')
+    @mock.patch('os.path.join')
+    @mock.patch('os.path.dirname')
+    @mock.patch('os.path.isdir')
+    def test_unzip_all_scrjars(
+        self, mock_is_dir, mock_dirname, mock_join, mock_rmtree, mock_unzip):
+        """Test _unzip_all_scrjars function."""
+        mock_is_dir.return_value = True
+        self.split_projs._unzip_all_scrjars()
+        self.assertFalse(mock_dirname.called)
+        self.assertFalse(mock_join.called)
+        self.assertFalse(mock_rmtree.called)
+        self.assertFalse(mock_unzip.called)
 
 
 if __name__ == '__main__':
