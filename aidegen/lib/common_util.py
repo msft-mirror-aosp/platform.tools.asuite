@@ -29,6 +29,7 @@ import re
 import sys
 import time
 import xml.dom.minidom
+import zipfile
 
 from functools import partial
 from functools import wraps
@@ -775,3 +776,15 @@ def check_java_or_kotlin_file_exists(abs_path):
             if fnmatch.filter(filenames, extension):
                 return True
     return False
+
+
+@io_error_handle
+def unzip_file(src, dest):
+    """Unzips the source zip file and extract it to the destination directory.
+
+    Args:
+        src: A string of the file to be unzipped.
+        dest: A string of the destination directory to be extracted to.
+    """
+    with zipfile.ZipFile(src, 'r') as zip_ref:
+        zip_ref.extractall(dest)
