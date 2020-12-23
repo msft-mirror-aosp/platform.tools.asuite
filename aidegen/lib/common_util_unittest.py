@@ -419,6 +419,16 @@ class AidegenCommonUtilUnittests(unittest.TestCase):
         self.assertEqual((constant.JAVA, constant.IDE_INTELLIJ),
                          common_util.determine_language_ide(lang, ide))
 
+    @mock.patch('zipfile.ZipFile.extractall')
+    @mock.patch('zipfile.ZipFile')
+    def test_unzip_file(self, mock_zipfile, mock_extract):
+        """Test unzip_file function."""
+        src = 'a/b/c.zip'
+        dest = 'a/b/d'
+        common_util.unzip_file(src, dest)
+        mock_zipfile.assert_called_with(src, 'r')
+        self.assertFalse(mock_extract.called)
+
     @mock.patch('os.walk')
     def test_check_java_or_kotlin_file_exists(self, mock_walk):
         """Test check_java_or_kotlin_file_exists with conditions."""
