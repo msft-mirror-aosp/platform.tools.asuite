@@ -95,7 +95,11 @@ class CacheFinder(test_finder_base.TestFinderBase):
         Returns:
             True if test path is valid. Otherwise, False.
         """
+        # For RoboTest it won't have 'MODULES-IN-' as build target. Treat test
+        # path is valid if cached_test_paths is None.
         cached_test_paths = t_info.get_test_paths()
+        if cached_test_paths is None:
+            return True
         current_test_paths = self.module_info.get_paths(t_info.test_name)
         if not current_test_paths:
             return False
@@ -157,13 +161,18 @@ class CacheFinder(test_finder_base.TestFinderBase):
         mod_info = self.module_info.get_module_info(module_name)
         if not mod_info:
             return False
+        module_srcs = mod_info.get(constants.MODULE_SRCS, [])
+        # If module didn't have src information treat the cached filter still
+        # valid. Remove this after all java srcs could be found in module-info.
+        if not module_srcs:
+            return True
         ref_end = filter_class.rsplit('.', 1)[-1]
         if '.' in filter_class:
             file_path = str(filter_class).replace('.', '/')
             # A Java class file always starts with a capital letter.
             if ref_end[0].isupper():
                 file_path = file_path + '.'
-            for src_path in mod_info.get(constants.MODULE_SRCS, []):
+            for src_path in module_srcs:
                 # If java class, check if class file in module's src.
                 if src_path.find(file_path) >= 0:
                     return True
