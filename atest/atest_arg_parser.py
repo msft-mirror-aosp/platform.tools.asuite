@@ -73,8 +73,10 @@ TF_TEMPLATE = ('Add extra tradefed template for ATest suite, '
 TF_DEBUG = 'Enable tradefed debug mode with a specify port. Default value is 10888.'
 SHARDING = 'Option to specify sharding count. The default value is 2'
 UPDATE_CMD_MAPPING = ('Update the test command of input tests. Warning: result '
-                      'will be saved under tools/tradefederation/core/atest/test_data.')
-USER_TYPE = 'Run test with specific user type, e.g. atest <test> --user-type secondary_user'
+                      'will be saved under '
+                      'tools/asuite/atest/test_data.')
+USER_TYPE = ('Run test with specific user type, e.g. atest <test> --user-type '
+             'secondary_user')
 VERBOSE = 'Display DEBUG level logging.'
 VERIFY_CMD_MAPPING = 'Verify the test command of input tests.'
 VERSION = 'Display version string.'
@@ -96,8 +98,8 @@ def _positive_int(value):
         if converted_value < 1:
             raise argparse.ArgumentTypeError(err_msg)
         return converted_value
-    except ValueError:
-        raise argparse.ArgumentTypeError(err_msg)
+    except ValueError as value_err:
+        raise argparse.ArgumentTypeError(err_msg) from value_err
 
 
 class AtestArgParser(argparse.ArgumentParser):
@@ -105,8 +107,7 @@ class AtestArgParser(argparse.ArgumentParser):
 
     def __init__(self):
         """Initialise an ArgumentParser instance."""
-        super(AtestArgParser, self).__init__(
-            description=HELP_DESC, add_help=False)
+        super().__init__(description=HELP_DESC, add_help=False)
 
     def add_atest_args(self):
         """A function that does ArgumentParser.add_argument()"""
