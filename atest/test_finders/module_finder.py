@@ -264,6 +264,7 @@ class ModuleFinder(test_finder_base.TestFinderBase):
         return [rel_config] if rel_config else []
 
     # pylint: disable=too-many-branches
+    # pylint: disable=too-many-locals
     def _get_test_info_filter(self, path, methods, **kwargs):
         """Get test info filter.
 
@@ -305,10 +306,21 @@ class ModuleFinder(test_finder_base.TestFinderBase):
             if not test_finder_utils.has_cc_class(path):
                 raise atest_error.MissingCCTestCaseError(
                     "Can't find CC class in %s" % path)
-            if methods:
-                ti_filter = frozenset(
-                    [test_info.TestFilter(test_finder_utils.get_cc_filter(
-                        kwargs.get('class_name', '*'), methods), frozenset())])
+            # Extract class_name, method_name and parameterized_class from
+            # the given cc path.
+            file_classes, _, file_para_classes = (
+                test_finder_utils.get_cc_test_classes_methods(path))
+            cc_filters = []
+            # When instantiate tests found, recompose the class name in
+            # $(InstantiationName)/$(ClassName)
+            for file_class in file_classes:
+                if file_class in file_para_classes:
+                    file_class = '*/%s' % file_class
+                cc_filters.append(
+                    test_info.TestFilter(
+                        test_finder_utils.get_cc_filter(file_class, methods),
+                        frozenset()))
+            ti_filter = frozenset(cc_filters)
         # If input path is a folder and have class_name information.
         elif (not file_name and kwargs.get('class_name', None)):
             ti_filter = frozenset(
@@ -330,6 +342,7 @@ class ModuleFinder(test_finder_base.TestFinderBase):
                         ti_filter = frozenset(
                             [test_info.TestFilter(package_name, methods)])
                         break
+        logging.debug('_get_test_info_filter() ti_filter: %s', ti_filter)
         return ti_filter
 
     def _get_rel_config(self, test_path):
