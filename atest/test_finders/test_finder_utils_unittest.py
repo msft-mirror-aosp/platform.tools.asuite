@@ -615,5 +615,23 @@ class TestFinderUtilsUnittests(unittest.TestCase):
             finally:
                 tmp_file.close()
 
+    def test_get_cc_test_classes_methods(self):
+        """Test get_cc_test_classes_methods method."""
+        expect_classes = ('MyClass1', 'MyClass2', 'MyClass3', 'MyClass4',
+                          'MyClass5')
+        expect_methods = ('Method1', 'Method2', 'Method3', 'Method5')
+        expect_para_classes = ('MyInstantClass1', 'MyInstantClass2',
+                               'MyInstantClass3', 'MyInstantTypeClass1',
+                               'MyInstantTypeClass2')
+        expected_result = [sorted(expect_classes), sorted(expect_methods),
+                           sorted(expect_para_classes)]
+        file_path = os.path.join(uc.TEST_DATA_DIR, 'my_cc_test.cc')
+        classes, methods, para_classes = (
+            test_finder_utils.get_cc_test_classes_methods(file_path))
+        self.assertEqual(expected_result,
+                         [sorted(classes),
+                          sorted(methods),
+                          sorted(para_classes)])
+
 if __name__ == '__main__':
     unittest.main()
