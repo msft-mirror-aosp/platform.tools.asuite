@@ -93,7 +93,7 @@ def _get_grouping_key():
 def _get_old_key():
     """Get key from old meta data file if exists, else return None."""
     old_file = os.path.join(os.environ[_ANDROID_BUILD_TOP],
-                            'tools/tradefederation/core/atest', '.metadata')
+                            'tools/asuite/atest', '.metadata')
     key = None
     if os.path.isfile(old_file):
         with open(old_file) as f:
