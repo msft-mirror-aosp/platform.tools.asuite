@@ -545,5 +545,13 @@ class AtestUtilsUnittests(unittest.TestCase):
         self.assertTrue(atest_utils.has_wildcard('test1?'))
         self.assertTrue(atest_utils.has_wildcard(['test1', 'b*', 'a?b*']))
 
+    # pylint: disable=anomalous-backslash-in-string
+    def test_quote(self):
+        """Test method of quote()"""
+        target_str = r'TEST_(F|P)[0-9].*\w$'
+        expected_str = '\'TEST_(F|P)[0-9].*\w$\''
+        self.assertEqual(atest_utils.quote(target_str), expected_str)
+        self.assertEqual(atest_utils.quote('TEST_P224'), 'TEST_P224')
+
 if __name__ == "__main__":
     unittest.main()

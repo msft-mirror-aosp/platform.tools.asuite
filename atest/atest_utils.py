@@ -18,6 +18,7 @@ Utility functions for atest.
 
 
 # pylint: disable=import-outside-toplevel
+# pylint: disable=too-many-lines
 
 from __future__ import print_function
 
@@ -988,3 +989,20 @@ def is_build_file(path):
         True if path is android build file, False otherwise.
     """
     return bool(os.path.splitext(path)[-1] in _ANDROID_BUILD_EXT)
+
+def quote(input_str):
+    """ If the input string -- especially in custom args -- contains shell-aware
+    characters, insert a blackslash "\" before the char.
+
+    e.g. unit(test|testing|testing) -> 'unit(test|testing|testing)'
+
+    Args:
+        input_str: A string from user input.
+
+    Returns: A string with single quotes if regex chars were detected.
+    """
+    special_chars = {'[', '(', '{', '|', '\\', '*', '?', '+', '^'}
+    for char in special_chars:
+        if char in input_str:
+            return "\'" + input_str + "\'"
+    return input_str
