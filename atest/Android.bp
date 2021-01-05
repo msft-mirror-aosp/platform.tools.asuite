@@ -94,6 +94,9 @@ python_test_host {
     srcs: [
         "**/*.py",
     ],
+    test_options: {
+        unit_test: true,
+    },
     data: [
         "tools/updatedb_darwin.sh",
         "unittest_data/**/*",
