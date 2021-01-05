@@ -30,7 +30,6 @@ python_binary_host {
     ],
     data: [
         "tools/updatedb_darwin.sh",
-        ":asuite_version",
     ],
     // Make atest's built name to atest-py2-dev
     stem: "atest-py2-dev",

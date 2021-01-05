@@ -18,7 +18,7 @@
 
 // For testing asuite_metrics python2 libs
 python_test_host {
-    name: "asuite_metrics_lib_tests",
+    name: "asuite_metrics_lib_py2_tests",
     main: "asuite_lib_run_tests.py",
     // These tests primarily check that the metric libs can be imported properly (see b/132086641).
     // Specify a different pkg_path so that we can properly test them in isolation.
@@ -39,7 +39,7 @@ python_test_host {
 
 // For testing asuite_metrics python3 libs
 python_test_host {
-    name: "asuite_metrics_lib_py3_tests",
+    name: "asuite_metrics_lib_tests",
     main: "asuite_lib_run_tests.py",
     pkg_path: "asuite_test",
     srcs: [
@@ -58,7 +58,7 @@ python_test_host {
 
 // For testing asuite_cc_client python2 libs
 python_test_host {
-    name: "asuite_cc_lib_tests",
+    name: "asuite_cc_lib_py2_tests",
     main: "asuite_lib_run_tests.py",
     pkg_path: "asuite_test",
     srcs: [
@@ -77,7 +77,7 @@ python_test_host {
 
 // For testing asuite_cc_client python3 libs
 python_test_host {
-    name: "asuite_cc_lib_py3_tests",
+    name: "asuite_cc_lib_tests",
     main: "asuite_lib_run_tests.py",
     pkg_path: "asuite_test",
     srcs: [
