@@ -27,6 +27,9 @@ python_test_host {
         "asuite_lib_run_test.py",
         "asuite_metrics_test.py",
     ],
+    test_options: {
+        unit_test: true,
+    },
     libs: [
         "asuite_metrics",
     ],
@@ -46,6 +49,9 @@ python_test_host {
     libs: [
         "asuite_metrics",
     ],
+    test_options: {
+        unit_test: true,
+    },
     test_suites: ["general-tests"],
     defaults: ["atest_lib_default"],
 }
@@ -62,6 +68,9 @@ python_test_host {
     libs: [
         "asuite_cc_client",
     ],
+    test_options: {
+        unit_test: true,
+    },
     test_suites: ["general-tests"],
     defaults: ["atest_py2_default"],
 }
@@ -78,6 +87,9 @@ python_test_host {
     libs: [
         "asuite_cc_client",
     ],
+    test_options: {
+        unit_test: true,
+    },
     test_suites: ["general-tests"],
     defaults: ["atest_lib_default"],
 }
