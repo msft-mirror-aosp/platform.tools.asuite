@@ -113,7 +113,9 @@ def _parse_args(argv):
     args = parser.parse_args(pruned_argv)
     args.custom_args = []
     if custom_args_index is not None:
-        args.custom_args = argv[custom_args_index+1:]
+        for arg in argv[custom_args_index+1:]:
+            logging.debug('Quoting regex argument %s', arg)
+            args.custom_args.append(atest_utils.quote(arg))
     return args
 
 
