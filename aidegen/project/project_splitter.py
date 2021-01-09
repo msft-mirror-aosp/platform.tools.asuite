@@ -323,6 +323,8 @@ class ProjectSplitter:
         self._all_srcs[_KEY_R_PATH] = set()
         self._all_srcs[_KEY_SRCJAR_PATH] = set()
         for sjar in sjars:
+            if not os.path.exists(sjar):
+                continue
             if os.path.isdir(sjar):
                 self._all_srcs[_KEY_SOURCE_PATH].add(sjar)
                 continue
