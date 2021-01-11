@@ -143,13 +143,12 @@ class ProjectFileGenerator:
             os.path.join(code_style_dir, _CODE_STYLE_CONFIG_XML),
             templates.XML_CODE_STYLE_CONFIG)
         code_style_target_path = os.path.join(code_style_dir, _PROJECT_XML)
-        if os.path.exists(code_style_target_path):
-            os.remove(code_style_target_path)
-        try:
-            shutil.copy2(_CODE_STYLE_SRC_PATH, code_style_target_path)
-        except (OSError, SystemError) as err:
-            logging.warning('%s can\'t copy the project files\n %s',
-                            code_style_target_path, err)
+        if not os.path.exists(code_style_target_path):
+            try:
+                shutil.copy2(_CODE_STYLE_SRC_PATH, code_style_target_path)
+            except (OSError, SystemError) as err:
+                logging.warning('%s can\'t copy the project files\n %s',
+                                code_style_target_path, err)
         # Create .gitignore if it doesn't exist.
         _generate_git_ignore(target_path)
         # Create jsonSchemas.xml for TEST_MAPPING.
