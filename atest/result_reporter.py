@@ -277,6 +277,7 @@ class ResultReporter:
         self.rerun_options = ''
         self.collect_only = collect_only
         self.flakes_info = flakes_info
+        self.test_result_link = None
 
     def process_test_result(self, test):
         """Given the results of a single test, update stats and print results.
@@ -336,6 +337,7 @@ class ResultReporter:
         """Print starting text for running tests."""
         print(au.colorize('\nRunning Tests...', constants.CYAN))
 
+    # pylint: disable=too-many-branches
     def print_summary(self):
         """Print summary of all test runs.
 
@@ -383,6 +385,12 @@ class ResultReporter:
             self.print_failed_tests()
         if self.log_path:
             print('Test Logs have saved in %s' % self.log_path)
+        # TODO(b/174535786) Error handling while uploading test results has
+        # unexpected exceptions.
+        # TODO (b/174627499) Saving this information in atest history.
+        if self.test_result_link:
+            print('Test Result uploaded to %s'
+                  % au.colorize(self.test_result_link, constants.GREEN))
         return tests_ret
 
     def print_collect_tests(self):
