@@ -40,11 +40,15 @@
 """ Utility functions for logstorage. """
 from __future__ import print_function
 
-import httplib2
+import logging
 import constants
 
 # pylint: disable=import-error
-from googleapiclient.discovery import build
+try:
+    import httplib2
+    from googleapiclient.discovery import build
+except ImportError as e:
+    logging.debug('Import error due to: %s', e)
 
 
 class BuildClient:
@@ -61,6 +65,15 @@ class BuildClient:
             version=constants.STORAGE_API_VERSION,
             cache_discovery=False,
             http=http_auth)
+
+    def list_branch(self):
+        """List all branch."""
+        return self.client.branch().list(maxResults=10000).execute()
+
+    def list_target(self, branch):
+        """List all target in the branch."""
+        return self.client.target().list(branch=branch,
+                                         maxResults=10000).execute()
 
     def insert_local_build(self, external_id, target, branch):
         """Insert a build record.
@@ -85,11 +98,10 @@ class BuildClient:
         return self.client.build().insert(buildType="local",
                                           body=body).execute()
 
-    def insert_build_attempts(self, build_id, target):
+    def insert_build_attempts(self, build_record):
         """Insert a build attempt record.
         Args:
-            build_id: id of build record.
-            target: build target.
+            build_record: build record.
 
         Returns:
             An build attempt object.
@@ -99,39 +111,50 @@ class BuildClient:
             "status": "complete",
             "successful": True
         }
-        return self.client.buildattempt().insert(buildId=build_id,
-                                                 target=target,
-                                                 body=build_attempt).execute()
+        return self.client.buildattempt().insert(
+            buildId=build_record['buildId'],
+            target=build_record['target']['name'],
+            body=build_attempt).execute()
 
-    def insert_invocation(self, build_id, target, branch):
+    def insert_invocation(self, build_record):
         """Insert a build invocation record.
         Args:
-            build_id: id of build record.
-            target: build target.
-            branch: build branch.
+            build_record: build record.
 
         Returns:
             A build invocation object.
         """
         invocation = {
             "primaryBuild": {
-                "buildId": build_id,
-                "buildTarget": target,
-                "branch": branch,
+                "buildId": build_record['buildId'],
+                "buildTarget": build_record['target']['name'],
+                "branch": build_record['branch'],
             },
             "schedulerState": "running"
         }
         return self.client.invocation().insert(body=invocation).execute()
 
-    def insert_work_unit(self, invocation_id):
+    def update_invocation(self, invocation):
+        """Insert a build invocation record.
+        Args:
+            invocation: invocation record.
+
+        Returns:
+            A invocation object.
+        """
+        return self.client.invocation().update(
+            resourceId=invocation['invocationId'],
+            body=invocation).execute()
+
+    def insert_work_unit(self, invocation_record):
         """Insert a workunit record.
           Args:
-              invocation_id: id of the invocation.
+              invocation_record: invocation record.
 
           Returns:
               the workunit object.
           """
         workunit = {
-            'invocationId': invocation_id
+            'invocationId': invocation_record['invocationId']
         }
         return self.client.workunit().insert(body=workunit).execute()

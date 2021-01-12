@@ -297,6 +297,7 @@ def _can_upload_to_result_server():
     return False
 
 
+# pylint: disable=unused-argument
 def get_result_server_args(for_test_mapping=False):
     """Return list of args for communication with result server.
 
@@ -304,15 +305,8 @@ def get_result_server_args(for_test_mapping=False):
         for_test_mapping: True if the test run is for Test Mapping to include
             additional reporting args. Default is False.
     """
-    # TODO (b/147644460) Temporarily disable Sponge V1 since it will be turned
-    # down.
-    if _can_upload_to_result_server():
-        if for_test_mapping:
-            return (constants.RESULT_SERVER_ARGS +
-                    constants.TEST_MAPPING_RESULT_SERVER_ARGS)
-        return constants.RESULT_SERVER_ARGS
-    return []
-
+    # Customize test mapping argument here if needed.
+    return constants.RESULT_SERVER_ARGS
 
 def sort_and_group(iterable, key):
     """Sort and group helper function."""
@@ -930,8 +924,17 @@ def get_manifest_branch():
     if not build_top:
         return None
     try:
+        # Command repo need use default lib "http", add non-default lib
+        # might cause repo command execution error.
+        splitter = ':'
+        env_vars = os.environ.copy()
+        org_python_path = env_vars['PYTHONPATH'].split(splitter)
+        default_python_path = [p for p in org_python_path
+                               if not p.startswith('/tmp/Soong.python_')]
+        env_vars['PYTHONPATH'] = splitter.join(default_python_path)
         output = subprocess.check_output(
             ['repo', 'info', '-o', constants.ASUITE_REPO_PROJECT_NAME],
+            env=env_vars,
             cwd=build_top,
             universal_newlines=True)
         branch_re = re.compile(r'Manifest branch:\s*(?P<branch>.*)')
