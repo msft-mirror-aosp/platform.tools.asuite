@@ -90,7 +90,7 @@ TF_EARLY_DEVICE_RELEASE = ('Tradefed flag to release the device as soon as '
                            'done with it.')
 TEST_CONFIG_SELECTION = ('If multiple test config belong to same test module '
                          'pop out a selection menu on console.')
-
+REQUEST_UPLOAD_RESULT = 'Show the prompt to decide upload test result or not.'
 
 def _positive_int(value):
     """Verify value by whether or not a positive integer.
@@ -141,6 +141,8 @@ class AtestArgParser(argparse.ArgumentParser):
                           const=constants.TEST_STEP, help=TEST)
         self.add_argument('-w', '--wait-for-debugger', action='store_true',
                           help=WAIT_FOR_DEBUGGER)
+        self.add_argument('--request-upload-result', action='store_true',
+                          help=REQUEST_UPLOAD_RESULT)
 
         # Options related to Test Mapping
         self.add_argument('-p', '--test-mapping', action='store_true',
@@ -377,6 +379,8 @@ OPTIONS
         -w, --wait-for-debugger
             {WAIT_FOR_DEBUGGER}
 
+        --request-upload-result
+            {REQUEST_UPLOAD_TEST_RESULT}
 
         [ Test Mapping ]
         -p, --test-mapping
