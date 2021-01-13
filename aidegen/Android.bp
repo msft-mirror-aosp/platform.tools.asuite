@@ -41,9 +41,6 @@ python_binary_host {
         "asuite_cc_client",
         "asuite_plugin_lib",
     ],
-    data: [
-        ":asuite_version",
-    ],
     dist: {
         targets: ["droidcore"],
     },
