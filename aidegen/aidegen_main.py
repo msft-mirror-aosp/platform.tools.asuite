@@ -262,31 +262,55 @@ def _create_and_launch_java_projects(ide_util_obj, targets):
         _launch_ide(ide_util_obj, projects[0].project_absolute_path)
 
 
-def _launch_ide_by_module_contents(args, ide_util_obj, jlist=None, clist=None,
-                                   rlist=None, all_langs=False):
+def _launch_ide_by_module_contents(args, ide_util_obj, language, jlist=None,
+                                   clist=None, rlist=None, all_langs=False):
     """Deals with the suitable IDE launch action.
 
     The rules of AIDEGen launching IDE with languages are:
-      1. aidegen frameworks/base
-         aidegen frameworks/base -l j
-         launch Java projects of frameworks/base in IntelliJ.
-      2. aidegen frameworks/base -i c
-         aidegen frameworks/base -l c
-         launch C/C++ projects of frameworks/base in CLion.
-      3. aidegen frameworks/base -i s
-         launch Java projects of frameworks/base in Android Studio.
-         aidegen frameworks/base -i s -l c
-         launch C/C++ projects of frameworks/base in Android Studio.
-      4. aidegen frameworks/base -i j -l c
-         launch Java projects of frameworks/base in IntelliJ.
-      5. aidegen frameworks/base -i c -l j
-         launch C/C++ projects of frameworks/base in CLion.
-      6. aidegen external/rust/crates/protobuf -l r
-         launch Rust projects of external/rust/crates/protobuf in VS Code.
+      1. If no IDE or language is specific, the priority of the language is:
+         a) Java
+            aidegen frameworks/base
+            launch Java projects of frameworks/base in IntelliJ.
+         b) C/C++
+            aidegen hardware/interfaces/vibrator/aidl/default
+            launch C/C++ project of hardware/interfaces/vibrator/aidl/default
+            in CLion.
+         c) Rust
+            aidegen external/rust/crates/protobuf
+            launch Rust project of external/rust/crates/protobuf in VS Code.
+      2. If the IDE is specific, launch related projects in the IDE.
+         a) aidegen frameworks/base -i j
+            launch Java projects of frameworks/base in IntelliJ.
+            aidegen frameworks/base -i s
+            launch Java projects of frameworks/base in Android Studio.
+            aidegen frameworks/base -i e
+            launch Java projects of frameworks/base in Eclipse.
+         b) aidegen frameworks/base -i c
+            launch C/C++ projects of frameworks/base in CLion.
+         c) aidegen external/rust/crates/protobuf -i v
+            launch Rust project of external/rust/crates/protobuf in VS Code.
+      3. If the launguage is specific, launch relative language projects in the
+         relative IDE.
+         a) aidegen frameworks/base -l j
+            launch Java projects of frameworks/base in IntelliJ.
+         b) aidegen frameworks/base -l c
+            launch C/C++ projects of frameworks/base in CLion.
+         c) aidegen external/rust/crates/protobuf -l r
+            launch Rust projects of external/rust/crates/protobuf in VS Code.
+      4. Both of the IDE and language are specific, launch the IDE with the
+         relative language projects. If the IDE conflicts with the language, the
+         IDE is prior to the language.
+         a) aidegen frameworks/base -i j -l j
+            launch Java projects of frameworks/base in IntelliJ.
+         b) aidegen frameworks/base -i s -l c
+            launch C/C++ projects of frameworks/base in Android Studio.
+         c) aidegen frameworks/base -i c -l j
+            launch C/C++ projects of frameworks/base in CLion.
 
     Args:
         args: A list of system arguments.
         ide_util_obj: An ide_util instance.
+        language: A string of the language to be edited in the IDE.
         jlist: A list of Java build targets.
         clist: A list of C/C++ build targets.
         rlist: A list of Rust build targets.
@@ -296,17 +320,14 @@ def _launch_ide_by_module_contents(args, ide_util_obj, jlist=None, clist=None,
         _launch_vscode(ide_util_obj, project_info.ProjectInfo.modules_info,
                        jlist, clist, rlist)
         return
-    if not jlist and not clist:
-        logging.warning('\nThere is neither java nor C/C++ module needs to be'
-                        ' opened')
+    if not (jlist or clist or rlist):
+        print(constant.WARN_MSG.format(
+            common_util.COLORED_INFO('Warning:'), _NO_ANY_PROJECT_EXIST))
         return
-
-    language, _ = common_util.determine_language_ide(
-        args.language[0], args.ide[0])
-    if (jlist and not clist) or (language == constant.JAVA):
+    if language == constant.JAVA:
         _create_and_launch_java_projects(ide_util_obj, jlist)
         return
-    if (clist and not jlist) or (language == constant.C_CPP):
+    if language == constant.C_CPP:
         native_project_info.NativeProjectInfo.generate_projects(clist)
         native_project_file = native_util.generate_clion_projects(clist)
         if native_project_file:
@@ -334,7 +355,6 @@ def _launch_vscode(ide_util_obj, atest_module_info, jtargets, ctargets,
         root_dir = common_util.get_android_root_dir()
         abs_paths.extend(_get_rust_project_paths(rtargets, root_dir))
     if not (jtargets or ctargets or rtargets):
-        message = _NO_ANY_PROJECT_EXIST
         print(constant.WARN_MSG.format(
             common_util.COLORED_INFO('Warning:'), _NO_ANY_PROJECT_EXIST))
         return
@@ -505,18 +525,20 @@ def aidegen_main(args):
     config = project_config.ProjectConfig(args)
     config.init_environment()
     targets = config.targets
-    # Called ide_util for pre-check the IDE existence state.
-    ide_util_obj = ide_util.get_ide_util_instance(
-        constant.IDE_DICT[config.ide_name])
     project_info.ProjectInfo.modules_info = module_info.AidegenModuleInfo()
     cc_module_info = native_module_info.NativeModuleInfo()
     jtargets, ctargets, rtargets = native_util.get_java_cc_and_rust_projects(
         project_info.ProjectInfo.modules_info, cc_module_info, targets)
+    config.language, config.ide_name = common_util.determine_language_ide(
+        args.language[0], args.ide[0], jtargets, ctargets, rtargets)
+    # Called ide_util for pre-check the IDE existence state.
+    ide_util_obj = ide_util.get_ide_util_instance(
+        constant.IDE_DICT[config.ide_name])
     all_langs = config.ide_name == constant.IDE_VSCODE
     # Backward compatible strategy, when both java and C/C++ module exist,
     # check the preferred target from the user and launch single one.
-    _launch_ide_by_module_contents(
-        args, ide_util_obj, jtargets, ctargets, rtargets, all_langs)
+    _launch_ide_by_module_contents(args, ide_util_obj, config.language,
+                                   jtargets, ctargets, rtargets, all_langs)
 
 
 if __name__ == '__main__':
