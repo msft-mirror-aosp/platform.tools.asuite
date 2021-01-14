@@ -222,7 +222,7 @@ class AidegenMainUnittests(unittest.TestCase):
         mock_print.return_value = None
 
     @mock.patch.object(project_config.ProjectConfig, 'init_environment')
-    @mock.patch('logging.warning')
+    @mock.patch('builtins.print')
     @mock.patch.object(aidegen_main, '_launch_vscode')
     @mock.patch.object(aidegen_main, '_launch_native_projects')
     @mock.patch.object(native_util, 'generate_clion_projects')
@@ -230,26 +230,27 @@ class AidegenMainUnittests(unittest.TestCase):
                        'generate_projects')
     @mock.patch.object(aidegen_main, '_create_and_launch_java_projects')
     def test_launch_ide_by_module_contents(self, mock_j, mock_c_prj, mock_genc,
-                                           mock_c, mock_vs, mock_log,
+                                           mock_c, mock_vs, mock_print,
                                            mock_init):
         """Test _launch_ide_by_module_contents with different conditions."""
         args = aidegen_main._parse_args(['', '-i', 's'])
         mock_init.return_value = None
         self._init_project_config(args)
         ide_obj = 'ide_obj'
-        test_both = False
-        aidegen_main._launch_ide_by_module_contents(args, ide_obj, None,
-                                                    None, None, test_both)
+        test_all = False
+        lang = constant.JAVA
+        aidegen_main._launch_ide_by_module_contents(args, ide_obj, lang, None,
+                                                    None, None, test_all)
         self.assertFalse(mock_vs.called)
-        self.assertTrue(mock_log.called)
+        self.assertTrue(mock_print.called)
         self.assertFalse(mock_j.called)
         self.assertFalse(mock_c_prj.called)
         self.assertFalse(mock_genc.called)
         self.assertFalse(mock_c.called)
 
-        test_both = True
-        aidegen_main._launch_ide_by_module_contents(args, ide_obj, None,
-                                                    None, None, test_both)
+        test_all = True
+        aidegen_main._launch_ide_by_module_contents(args, ide_obj, lang, None,
+                                                    None, None, test_all)
         self.assertTrue(mock_vs.called)
         self.assertFalse(mock_j.called)
         self.assertFalse(mock_genc.called)
@@ -258,7 +259,7 @@ class AidegenMainUnittests(unittest.TestCase):
 
         test_j = ['a', 'b', 'c']
         test_c = ['1', '2', '3']
-        aidegen_main._launch_ide_by_module_contents(args, ide_obj, test_j,
+        aidegen_main._launch_ide_by_module_contents(args, ide_obj, lang, test_j,
                                                     test_c)
         self.assertFalse(mock_vs.called)
         self.assertTrue(mock_j.called)
@@ -272,7 +273,8 @@ class AidegenMainUnittests(unittest.TestCase):
         args = aidegen_main._parse_args(['', '-l', 'c'])
         mock_init.return_value = None
         self._init_project_config(args)
-        aidegen_main._launch_ide_by_module_contents(args, ide_obj, test_j,
+        lang = constant.C_CPP
+        aidegen_main._launch_ide_by_module_contents(args, ide_obj, lang, test_j,
                                                     test_c)
         self.assertTrue(mock_c_prj.called)
         self.assertFalse(mock_vs.called)
@@ -285,8 +287,8 @@ class AidegenMainUnittests(unittest.TestCase):
         mock_genc.reset_mock()
         mock_j.reset_mock()
         test_none = None
-        aidegen_main._launch_ide_by_module_contents(args, ide_obj, test_none,
-                                                    test_c)
+        aidegen_main._launch_ide_by_module_contents(args, ide_obj, lang,
+                                                    test_none, test_c)
         self.assertFalse(mock_vs.called)
         self.assertTrue(mock_genc.called)
         self.assertTrue(mock_c.called)
@@ -296,7 +298,8 @@ class AidegenMainUnittests(unittest.TestCase):
         mock_c.reset_mock()
         mock_genc.reset_mock()
         mock_j.reset_mock()
-        aidegen_main._launch_ide_by_module_contents(args, ide_obj, test_j,
+        lang = constant.JAVA
+        aidegen_main._launch_ide_by_module_contents(args, ide_obj, lang, test_j,
                                                     test_none)
         self.assertFalse(mock_vs.called)
         self.assertTrue(mock_j.called)
@@ -309,7 +312,8 @@ class AidegenMainUnittests(unittest.TestCase):
         mock_genc.reset_mock()
         mock_c_prj.reset_mock()
         mock_j.reset_mock()
-        aidegen_main._launch_ide_by_module_contents(args, ide_obj, test_j,
+        lang = constant.C_CPP
+        aidegen_main._launch_ide_by_module_contents(args, ide_obj, lang, test_j,
                                                     test_c)
         self.assertFalse(mock_vs.called)
         self.assertFalse(mock_j.called)
@@ -324,7 +328,9 @@ class AidegenMainUnittests(unittest.TestCase):
         mock_c_prj.reset_mock()
         mock_j.reset_mock()
         os.environ[constant.AIDEGEN_TEST_MODE] = 'true'
-        aidegen_main._launch_ide_by_module_contents(args, None, test_j, test_c)
+        lang = constant.JAVA
+        aidegen_main._launch_ide_by_module_contents(args, None, lang, test_j,
+                                                    test_c)
         self.assertFalse(mock_vs.called)
         self.assertTrue(mock_j.called)
         self.assertFalse(mock_c.called)
@@ -518,7 +524,7 @@ class AidegenMainUnittests(unittest.TestCase):
         self.assertTrue(mock_native.called)
         self.assertTrue(mock_get_project.called)
         mock_launch_ide.assert_called_with(
-            args, ide, config.targets, [], [], True)
+            args, ide, constant.JAVA, config.targets, [], [], True)
 
         mock_config.mock_reset()
         mock_get_ide.mock_reset()
@@ -536,7 +542,7 @@ class AidegenMainUnittests(unittest.TestCase):
         self.assertTrue(mock_native.called)
         self.assertTrue(mock_get_project.called)
         mock_launch_ide.assert_called_with(
-            args, ide, config.targets, [], [], False)
+            args, ide, constant.JAVA, config.targets, [], [], False)
 
 
 if __name__ == '__main__':
