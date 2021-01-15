@@ -33,7 +33,6 @@ python_test_host {
     libs: [
         "asuite_metrics",
     ],
-    test_suites: ["general-tests"],
     defaults: ["atest_py2_default"],
 }
 
@@ -52,7 +51,6 @@ python_test_host {
     test_options: {
         unit_test: true,
     },
-    test_suites: ["general-tests"],
     defaults: ["atest_lib_default"],
 }
 
@@ -71,7 +69,6 @@ python_test_host {
     test_options: {
         unit_test: true,
     },
-    test_suites: ["general-tests"],
     defaults: ["atest_py2_default"],
 }
 
@@ -90,6 +87,5 @@ python_test_host {
     test_options: {
         unit_test: true,
     },
-    test_suites: ["general-tests"],
     defaults: ["atest_lib_default"],
 }
