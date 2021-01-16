@@ -84,7 +84,7 @@ class AtestTradefedTestRunner(test_runner_base.TestRunnerBase):
 
     def __init__(self, results_dir, module_info=None, **kwargs):
         """Init stuff for base class."""
-        super(AtestTradefedTestRunner, self).__init__(results_dir, **kwargs)
+        super().__init__(results_dir, **kwargs)
         self.module_info = module_info
         self.log_path = os.path.join(results_dir, LOG_FOLDER_NAME)
         if not os.path.exists(self.log_path):
@@ -412,6 +412,11 @@ class AtestTradefedTestRunner(test_runner_base.TestRunnerBase):
                 # Subprocess ended and all socket clients were closed.
                 if tf_subproc.poll() is not None and len(inputs) == 1:
                     inputs.pop().close()
+                    if not reporter.all_test_results:
+                        atest_utils.colorful_print(
+                            r'No test to run. Please check: '
+                            r'{} for detail.'.format(reporter.log_path),
+                            constants.RED, highlight=True)
                     if not data_map:
                         raise TradeFedExitError(TRADEFED_EXIT_MSG
                                                 % tf_subproc.returncode)
