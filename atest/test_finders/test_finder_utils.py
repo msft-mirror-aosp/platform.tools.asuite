@@ -62,6 +62,7 @@ _HOST_PATH_RE = re.compile(r'.*\/host\/.*', re.I)
 _DEVICE_PATH_RE = re.compile(r'.*\/target\/.*', re.I)
 # RE for checking if parameterized java class.
 _PARAMET_JAVA_CLASS_RE = re.compile(r'^\s*@RunWith\s*\(\s*Parameterized.class\s*\)', re.I)
+_PARENT_CLS_RE = re.compile(r'.*class\s+\w+\s+extends\s+(?P<parent>[\w\.]+.*)\s\{')
 
 # Explanation of FIND_REFERENCE_TYPEs:
 # ----------------------------------
@@ -231,7 +232,7 @@ def get_package_name(file_name):
 
     Returns:
         A string of the package name or None
-      """
+    """
     with open(file_name) as data:
         for line in data:
             match = _PACKAGE_RE.match(line)
@@ -239,6 +240,22 @@ def get_package_name(file_name):
                 return match.group('package')
 
 
+def get_parent_cls_name(file_name):
+    """Parse the parent class name from a java file.
+
+    Args:
+        file_name: A string of the absolute path to the java file.
+
+    Returns:
+        A string of the parent class name or None
+    """
+    with open(file_name) as data:
+        for line in data:
+            match = _PARENT_CLS_RE.match(line)
+            if match:
+                return match.group('parent')
+
+# pylint: disable=too-many-branches
 def has_method_in_file(test_path, methods):
     """Find out if there is at least one method in the file.
 
@@ -257,11 +274,43 @@ def has_method_in_file(test_path, methods):
     methods_re = None
     if constants.JAVA_EXT_RE.match(test_path):
         methods_re = re.compile(_JAVA_METHODS_PATTERN.format(
-            '|'.join([r'%s' % x for x in methods])))
-    elif constants.CC_EXT_RE.match(test_path):
+            '|'.join([r'%s' % re.sub(r'\[\d+\]', '', x) for x in methods])))
+        with open(test_path) as test_file:
+            for line in test_file:
+                match = re.match(methods_re, line)
+                if match:
+                    return True
+        parent = get_parent_cls_name(test_path)
+        package = get_package_name(test_path)
+        if parent and package:
+            # Remove <Generics> when needed.
+            parent_cls = re.sub(r'\<\w+\>', '', parent)
+            # Use Full Qualified Class Name for searching precisely.
+            # package org.gnome;
+            # public class Foo extends com.android.Boo -> com.android.Boo
+            # public class Foo extends Boo -> org.gnome.Boo
+            if '.' in parent_cls:
+                parent_fqcn = parent_cls
+            else:
+                parent_fqcn = package + '.' + parent_cls
+            try:
+                logging.debug('Searching methods in %s', parent_fqcn)
+                return has_method_in_file(
+                    run_find_cmd(FIND_REFERENCE_TYPE.QUALIFIED_CLASS,
+                                os.environ.get(constants.ANDROID_BUILD_TOP),
+                                parent_fqcn,
+                                methods)[0], methods)
+            except TypeError:
+                logging.debug('Out of searching range: no test found.')
+    if constants.CC_EXT_RE.match(test_path):
+        # TODO: (b/158602365) parse parameterized gtest. Right now if one of the
+        # test methods is parameterized test, ignore it.
+        para_method_re = re.compile(r'.*\/.*')
+        for method in methods:
+            if re.match(para_method_re, method):
+                return True
         methods_re = re.compile(_CC_METHODS_PATTERN.format(
             '|'.join([r'%s' % x for x in methods])))
-    if methods_re:
         with open(test_path) as test_file:
             for line in test_file:
                 match = re.match(methods_re, line)
@@ -289,20 +338,14 @@ def extract_test_path(output, methods=None):
     if isinstance(output, str):
         output = output.splitlines()
     for test in output:
-        # compare CC_OUTPUT_RE with output
         match_obj = constants.CC_OUTPUT_RE.match(test)
+        # Legacy "find" cc output (with TEST_P() syntax):
         if match_obj:
-            # cc/cpp
             fpath = match_obj.group('file_path')
             if not methods or match_obj.group('method_name') in methods:
                 verified_tests.add(fpath)
-        else:
-            # TODO (b/138997521) - Atest checks has_method_in_file of a class
-            #  without traversing its parent classes. A workaround for this is
-            #  do not check has_method_in_file. Uncomment below when a solution
-            #  to it is applied.
-            # java/kt
-            #if not methods or has_method_in_file(test, methods):
+        # "locate" output path for both java/cc.
+        elif not methods or has_method_in_file(test, methods):
             verified_tests.add(test)
     return extract_test_from_tests(sorted(list(verified_tests)))
 
@@ -445,8 +488,8 @@ def run_find_cmd(ref_type, search_dir, target, methods=None):
                     constants.ACCESS_CACHE_FAILURE)
                 os.remove(FIND_INDEXES[ref_type])
         if _dict.get(target):
-            logging.debug('Found %s in %s', target, FIND_INDEXES[ref_type])
             out = [path for path in _dict.get(target) if search_dir in path]
+            logging.debug('Found %s in %s', target, out)
     else:
         prune_cond = _get_prune_cond_of_ignored_dirs()
         if '.' in target:
