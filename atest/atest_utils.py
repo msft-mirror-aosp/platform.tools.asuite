@@ -105,6 +105,10 @@ _FIND_MODIFIED_FILES_CMDS = (
     "git diff HEAD~$ahead --name-only")
 _ANDROID_BUILD_EXT = ('.bp', '.mk')
 
+# Set of special chars for various purposes.
+_REGEX_CHARS = {'[', '(', '{', '|', '\\', '*', '?', '+', '^'}
+_WILDCARD_CHARS = {'?', '*'}
+
 def get_build_cmd():
     """Compose build command with no-absolute path and flag "--make-mode".
 
@@ -975,7 +979,7 @@ def has_wildcard(test_name):
         True if test_name contains wildcard, False otherwise.
     """
     if isinstance(test_name, str):
-        return any(char in test_name for char in ('*', '?'))
+        return any(char in test_name for char in _WILDCARD_CHARS)
     if isinstance(test_name, list):
         for name in test_name:
             if has_wildcard(name):
@@ -995,7 +999,7 @@ def is_build_file(path):
 
 def quote(input_str):
     """ If the input string -- especially in custom args -- contains shell-aware
-    characters, insert a blackslash "\" before the char.
+    characters, insert a pair of "\" to the input string.
 
     e.g. unit(test|testing|testing) -> 'unit(test|testing|testing)'
 
@@ -1004,8 +1008,21 @@ def quote(input_str):
 
     Returns: A string with single quotes if regex chars were detected.
     """
-    special_chars = {'[', '(', '{', '|', '\\', '*', '?', '+', '^'}
-    for char in special_chars:
-        if char in input_str:
-            return "\'" + input_str + "\'"
+    if has_chars(input_str, _REGEX_CHARS):
+        return "\'" + input_str + "\'"
     return input_str
+
+def has_chars(input_str, chars):
+    """ Check if the input string contains one of the designated characters.
+
+    Args:
+        input_str: A string from user input.
+        chars: An iterable object.
+
+    Returns:
+        True if the input string contains one of the special chars.
+    """
+    for char in chars:
+        if char in input_str:
+            return True
+    return False
