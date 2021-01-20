@@ -49,8 +49,8 @@ _CC_CLASS_METHOD_RE = re.compile(
 _PARA_CC_CLASS_RE = re.compile(
     r'^\s*INSTANTIATE[_TYPED]*_TEST_(SUITE|CASE)_P\s*\(\s*(?P<instantiate>\w+)\s*,'
     r'\s*(?P<class>\w+)\s*\,', re.M)
-# RE for checking if there exists one of the methods in java file.
-_JAVA_METHODS_PATTERN = r'.*[ ]+({0})\(.*'
+# Group that matches java method.
+_JAVA_METHODS_RE = r'.*\s+void\s+(?P<methods>\w+)\(\)'
 # RE for checking if there exists one of the methods in cc file.
 _CC_METHODS_PATTERN = r'^[ ]*TEST(_F|_P)?[ ]*\(.*,[ ]*({0})\).*'
 # Parse package name from the package declaration line of a java or
@@ -257,10 +257,9 @@ def get_parent_cls_name(file_name):
 
 # pylint: disable=too-many-branches
 def has_method_in_file(test_path, methods):
-    """Find out if there is at least one method in the file.
+    """Find out if every method can be found in the file.
 
-    Note: This method doesn't handle if method is in comment sections or not.
-    If the file has any method(even in comment sections), it will return True.
+    Note: This method doesn't handle if method is in comment sections.
 
     Args:
         test_path: A string of absolute path to the test file.
@@ -273,13 +272,10 @@ def has_method_in_file(test_path, methods):
         return False
     methods_re = None
     if constants.JAVA_EXT_RE.match(test_path):
-        methods_re = re.compile(_JAVA_METHODS_PATTERN.format(
-            '|'.join([r'%s' % re.sub(r'\[\d+\]', '', x) for x in methods])))
-        with open(test_path) as test_file:
-            for line in test_file:
-                match = re.match(methods_re, line)
-                if match:
-                    return True
+        # omit parameterized pattern: method[0]
+        _methods = set(re.sub(r'\[\d+\]', '', x) for x in methods)
+        if _methods.issubset(get_java_methods(test_path)):
+            return True
         parent = get_parent_cls_name(test_path)
         package = get_package_name(test_path)
         if parent and package:
@@ -1067,6 +1063,21 @@ def is_parameterized_java_class(test_path):
             if match:
                 return True
     return False
+
+
+def get_java_methods(test_path):
+    """Find out the java test class of input test_path.
+
+    Args:
+        test_path: A string of absolute path to the java file.
+
+    Returns:
+        A set of methods.
+    """
+    with open(test_path) as class_file:
+        content = class_file.read()
+        matches = re.findall(_JAVA_METHODS_RE, content)
+    return set(matches) if matches else None
 
 
 def get_cc_test_classes_methods(test_path):
