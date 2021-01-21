@@ -39,6 +39,7 @@ from test_finders import module_finder
 
 FUZZY_FINDER = 'FUZZY'
 CACHE_FINDER = 'CACHE'
+TESTNAME_CHARS = {'#', ':', '/'}
 
 # Pattern used to identify comments start with '//' or '#' in TEST_MAPPING.
 _COMMENTS_RE = re.compile(r'(?m)[\s\t]*(#|//).*|(\".*?\")')
@@ -233,6 +234,8 @@ class CLITranslator:
               atest_utils.colorize(test, constants.RED))
         # Currently we focus on guessing module names. Append names on
         # results if more finders support fuzzy searching.
+        if atest_utils.has_chars(test, TESTNAME_CHARS):
+            return None
         mod_finder = module_finder.ModuleFinder(self.mod_info)
         results = mod_finder.get_fuzzy_searching_results(test)
         if len(results) == 1 and self._confirm_running(results):
