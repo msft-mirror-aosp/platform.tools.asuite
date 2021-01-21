@@ -51,8 +51,6 @@ _PARA_CC_CLASS_RE = re.compile(
     r'\s*(?P<class>\w+)\s*\,', re.M)
 # Group that matches java method.
 _JAVA_METHODS_RE = r'.*\s+void\s+(?P<methods>\w+)\(\)'
-# RE for checking if there exists one of the methods in cc file.
-_CC_METHODS_PATTERN = r'^[ ]*TEST(_F|_P)?[ ]*\(.*,[ ]*({0})\).*'
 # Parse package name from the package declaration line of a java or
 # a kotlin file.
 # Group matches "foo.bar" of line "package foo.bar;" or "package foo.bar"
@@ -270,7 +268,6 @@ def has_method_in_file(test_path, methods):
     """
     if not os.path.isfile(test_path):
         return False
-    methods_re = None
     if constants.JAVA_EXT_RE.match(test_path):
         # omit parameterized pattern: method[0]
         _methods = set(re.sub(r'\[\d+\]', '', x) for x in methods)
@@ -298,20 +295,13 @@ def has_method_in_file(test_path, methods):
                                 methods)[0], methods)
             except TypeError:
                 logging.debug('Out of searching range: no test found.')
+                return False
     if constants.CC_EXT_RE.match(test_path):
-        # TODO: (b/158602365) parse parameterized gtest. Right now if one of the
-        # test methods is parameterized test, ignore it.
-        para_method_re = re.compile(r'.*\/.*')
-        for method in methods:
-            if re.match(para_method_re, method):
-                return True
-        methods_re = re.compile(_CC_METHODS_PATTERN.format(
-            '|'.join([r'%s' % x for x in methods])))
-        with open(test_path) as test_file:
-            for line in test_file:
-                match = re.match(methods_re, line)
-                if match:
-                    return True
+        # omit parameterized pattern: method/argument
+        _methods = set(re.sub(r'\/.*', '', x) for x in methods)
+        _, cc_methods, _ = get_cc_test_classes_methods(test_path)
+        if _methods.issubset(cc_methods):
+            return True
     return False
 
 
@@ -1107,6 +1097,7 @@ def get_cc_test_classes_methods(test_path):
         logging.debug('Found parameterized classes: %s', matches)
         for match in matches:
             # The elements of `matches` will be "Group 1"(_F),
-            # "Group instantiate class"(MyClass1) and "Group method"(MyMethod1)
+            # "Group instantiate class"(MyInstantClass1)
+            # and "Group class"(MyClass1)
             para_classes.update([match[2]])
     return classes, methods, para_classes
