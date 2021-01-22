@@ -95,3 +95,6 @@ VtsHalCameraProviderV2_4TargetTest:PerInstance/CameraHidlTest#startStopPreview/0
 ###Purpose: Test with Paramatize Java testcases###
 CtsWindowManagerDeviceTestCases:android.server.wm.DisplayCutoutTests#testDisplayCutout_default
 cts/tests/framework/base/windowmanager/src/android/server/wm/DisplayCutoutTests.java#testDisplayCutout_default
+
+###[Option verify]###
+--help
