@@ -151,7 +151,7 @@ class TestFinderUtilsUnittests(unittest.TestCase):
             test_path, frozenset(['testMethod1'])))
         test_path = os.path.join(uc.TEST_DATA_DIR, 'class_file_path_testing',
                                  'hello_world_test.java')
-        self.assertTrue(test_finder_utils.has_method_in_file(
+        self.assertFalse(test_finder_utils.has_method_in_file(
             test_path, frozenset(['testMethod', 'testMethod2'])))
         test_path = os.path.join(uc.TEST_DATA_DIR, 'class_file_path_testing',
                                  'hello_world_test.java')
