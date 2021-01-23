@@ -299,6 +299,7 @@ def print_epilog_text():
         LIST_MODULES=LIST_MODULES,
         NO_METRICS=NO_METRICS,
         REBUILD_MODULE_INFO=REBUILD_MODULE_INFO,
+        REQUEST_UPLOAD_RESULT=REQUEST_UPLOAD_RESULT,
         RERUN_UNTIL_FAILURE=RERUN_UNTIL_FAILURE,
         RETRY_ANY_FAILURE=RETRY_ANY_FAILURE,
         SERIAL=SERIAL,
@@ -380,7 +381,7 @@ OPTIONS
             {WAIT_FOR_DEBUGGER}
 
         --request-upload-result
-            {REQUEST_UPLOAD_TEST_RESULT}
+            {REQUEST_UPLOAD_RESULT}
 
         [ Test Mapping ]
         -p, --test-mapping
