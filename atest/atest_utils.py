@@ -105,6 +105,10 @@ _FIND_MODIFIED_FILES_CMDS = (
     "git diff HEAD~$ahead --name-only")
 _ANDROID_BUILD_EXT = ('.bp', '.mk')
 
+# Set of special chars for various purposes.
+_REGEX_CHARS = {'[', '(', '{', '|', '\\', '*', '?', '+', '^'}
+_WILDCARD_CHARS = {'?', '*'}
+
 def get_build_cmd():
     """Compose build command with no-absolute path and flag "--make-mode".
 
@@ -297,6 +301,7 @@ def _can_upload_to_result_server():
     return False
 
 
+# pylint: disable=unused-argument
 def get_result_server_args(for_test_mapping=False):
     """Return list of args for communication with result server.
 
@@ -304,15 +309,8 @@ def get_result_server_args(for_test_mapping=False):
         for_test_mapping: True if the test run is for Test Mapping to include
             additional reporting args. Default is False.
     """
-    # TODO (b/147644460) Temporarily disable Sponge V1 since it will be turned
-    # down.
-    if _can_upload_to_result_server():
-        if for_test_mapping:
-            return (constants.RESULT_SERVER_ARGS +
-                    constants.TEST_MAPPING_RESULT_SERVER_ARGS)
-        return constants.RESULT_SERVER_ARGS
-    return []
-
+    # Customize test mapping argument here if needed.
+    return constants.RESULT_SERVER_ARGS
 
 def sort_and_group(iterable, key):
     """Sort and group helper function."""
@@ -930,8 +928,17 @@ def get_manifest_branch():
     if not build_top:
         return None
     try:
+        # Command repo need use default lib "http", add non-default lib
+        # might cause repo command execution error.
+        splitter = ':'
+        env_vars = os.environ.copy()
+        org_python_path = env_vars['PYTHONPATH'].split(splitter)
+        default_python_path = [p for p in org_python_path
+                               if not p.startswith('/tmp/Soong.python_')]
+        env_vars['PYTHONPATH'] = splitter.join(default_python_path)
         output = subprocess.check_output(
             ['repo', 'info', '-o', constants.ASUITE_REPO_PROJECT_NAME],
+            env=env_vars,
             cwd=build_top,
             universal_newlines=True)
         branch_re = re.compile(r'Manifest branch:\s*(?P<branch>.*)')
@@ -972,7 +979,7 @@ def has_wildcard(test_name):
         True if test_name contains wildcard, False otherwise.
     """
     if isinstance(test_name, str):
-        return any(char in test_name for char in ('*', '?'))
+        return any(char in test_name for char in _WILDCARD_CHARS)
     if isinstance(test_name, list):
         for name in test_name:
             if has_wildcard(name):
@@ -992,7 +999,7 @@ def is_build_file(path):
 
 def quote(input_str):
     """ If the input string -- especially in custom args -- contains shell-aware
-    characters, insert a blackslash "\" before the char.
+    characters, insert a pair of "\" to the input string.
 
     e.g. unit(test|testing|testing) -> 'unit(test|testing|testing)'
 
@@ -1001,8 +1008,21 @@ def quote(input_str):
 
     Returns: A string with single quotes if regex chars were detected.
     """
-    special_chars = {'[', '(', '{', '|', '\\', '*', '?', '+', '^'}
-    for char in special_chars:
-        if char in input_str:
-            return "\'" + input_str + "\'"
+    if has_chars(input_str, _REGEX_CHARS):
+        return "\'" + input_str + "\'"
     return input_str
+
+def has_chars(input_str, chars):
+    """ Check if the input string contains one of the designated characters.
+
+    Args:
+        input_str: A string from user input.
+        chars: An iterable object.
+
+    Returns:
+        True if the input string contains one of the special chars.
+    """
+    for char in chars:
+        if char in input_str:
+            return True
+    return False

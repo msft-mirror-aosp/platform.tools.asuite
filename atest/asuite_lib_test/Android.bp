@@ -18,13 +18,13 @@
 
 // For testing asuite_metrics python2 libs
 python_test_host {
-    name: "asuite_metrics_lib_tests",
-    main: "asuite_lib_run_test.py",
+    name: "asuite_metrics_lib_py2_tests",
+    main: "asuite_lib_run_tests.py",
     // These tests primarily check that the metric libs can be imported properly (see b/132086641).
     // Specify a different pkg_path so that we can properly test them in isolation.
     pkg_path: "asuite_test",
     srcs: [
-        "asuite_lib_run_test.py",
+        "asuite_lib_run_tests.py",
         "asuite_metrics_test.py",
     ],
     test_options: {
@@ -33,17 +33,16 @@ python_test_host {
     libs: [
         "asuite_metrics",
     ],
-    test_suites: ["general-tests"],
     defaults: ["atest_py2_default"],
 }
 
 // For testing asuite_metrics python3 libs
 python_test_host {
-    name: "asuite_metrics_lib_py3_tests",
-    main: "asuite_lib_run_test.py",
+    name: "asuite_metrics_lib_tests",
+    main: "asuite_lib_run_tests.py",
     pkg_path: "asuite_test",
     srcs: [
-        "asuite_lib_run_test.py",
+        "asuite_lib_run_tests.py",
         "asuite_metrics_test.py",
     ],
     libs: [
@@ -52,17 +51,16 @@ python_test_host {
     test_options: {
         unit_test: true,
     },
-    test_suites: ["general-tests"],
     defaults: ["atest_lib_default"],
 }
 
 // For testing asuite_cc_client python2 libs
 python_test_host {
-    name: "asuite_cc_lib_tests",
-    main: "asuite_lib_run_test.py",
+    name: "asuite_cc_lib_py2_tests",
+    main: "asuite_lib_run_tests.py",
     pkg_path: "asuite_test",
     srcs: [
-        "asuite_lib_run_test.py",
+        "asuite_lib_run_tests.py",
         "asuite_cc_client_test.py",
     ],
     libs: [
@@ -71,17 +69,16 @@ python_test_host {
     test_options: {
         unit_test: true,
     },
-    test_suites: ["general-tests"],
     defaults: ["atest_py2_default"],
 }
 
 // For testing asuite_cc_client python3 libs
 python_test_host {
-    name: "asuite_cc_lib_py3_tests",
-    main: "asuite_lib_run_test.py",
+    name: "asuite_cc_lib_tests",
+    main: "asuite_lib_run_tests.py",
     pkg_path: "asuite_test",
     srcs: [
-        "asuite_lib_run_test.py",
+        "asuite_lib_run_tests.py",
         "asuite_cc_client_test.py",
     ],
     libs: [
@@ -90,6 +87,5 @@ python_test_host {
     test_options: {
         unit_test: true,
     },
-    test_suites: ["general-tests"],
     defaults: ["atest_lib_default"],
 }
