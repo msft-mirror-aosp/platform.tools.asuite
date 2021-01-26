@@ -565,7 +565,10 @@ def find_parent_module_dir(root_dir, start_dir, module_info):
             if module_info.is_robolectric_module(mod):
                 return rel_dir
             for test_config in mod.get(constants.MODULE_TEST_CONFIG, []):
-                if os.path.isfile(os.path.join(root_dir, test_config)):
+                # If the test config doesn's exist until it was auto-generated
+                # in the build time(under <android_root>/out), atest still
+                # recognizes it testable.
+                if test_config:
                     return rel_dir
             if mod.get('auto_test_config'):
                 auto_gen_dir = rel_dir
