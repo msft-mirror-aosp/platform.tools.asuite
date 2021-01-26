@@ -65,6 +65,7 @@ class ModuleInfo:
         Returns:
             Tuple of module_info_target and path to module file.
         """
+        logging.debug('Probing and validating module info...')
         module_info_target = None
         root_dir = os.environ.get(constants.ANDROID_BUILD_TOP, '/')
         out_dir = os.environ.get(constants.ANDROID_PRODUCT_OUT, root_dir)
@@ -385,6 +386,7 @@ class ModuleInfo:
             try:
                 with open(java_bp_info_path) as json_file:
                     java_bp_infos = json.load(json_file)
+                logging.debug('Merging Java build info: %s', java_bp_info_path)
                 name_to_module_info = self._merge_soong_info(
                     name_to_module_info, java_bp_infos)
             except json.JSONDecodeError:
@@ -397,7 +399,8 @@ class ModuleInfo:
             try:
                 with open(cc_bp_info_path) as json_file:
                     cc_bp_infos = json.load(json_file)
-                # CC's dep json format is different with j.
+                logging.debug('Merging CC build info: %s', cc_bp_info_path)
+                # CC's dep json format is different with java.
                 # Below is the example content:
                 # {
                 #   "clang": "${ANDROID_ROOT}/bin/clang",
