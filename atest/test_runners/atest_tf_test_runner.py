@@ -267,8 +267,7 @@ class AtestTradefedTestRunner(test_runner_base.TestRunnerBase):
                                        constants.DO_NOT_UPLOAD_FILE_NAME)
         # Do nothing if there are no related config or DO_NOT_UPLOAD exists.
         if (not constants.CREDENTIAL_FILE_NAME or
-                not constants.TOKEN_FILE_PATH or
-                os.path.exists(not_upload_file)):
+                not constants.TOKEN_FILE_PATH):
             return None
 
         creds_f = os.path.join(config_folder, constants.CREDENTIAL_FILE_NAME)
@@ -281,12 +280,14 @@ class AtestTradefedTestRunner(test_runner_base.TestRunnerBase):
         # If the credential file exists or the user says “Yes”, ATest will
         # try to get the credential from the file, else will create a
         # DO_NOT_UPLOAD to keep the user's decision.
-        if (os.path.exists(creds_f) or
-                self._prompt_with_yn_result('Upload test result? (y/N):', 'N')):
-            return atest_gcp_utils.GCPHelper(
-                client_id=constants.CLIENT_ID,
-                client_secret=constants.CLIENT_SECRET,
-                user_agent='atest').get_credential_with_auth_flow(creds_f)
+        if not os.path.exists(not_upload_file):
+            if (os.path.exists(creds_f) or
+                    (request_to_upload_result and self._prompt_with_yn_result(
+                        constants.UPLOAD_TEST_RESULT_MSG, 'N'))):
+                return atest_gcp_utils.GCPHelper(
+                    client_id=constants.CLIENT_ID,
+                    client_secret=constants.CLIENT_SECRET,
+                    user_agent='atest').get_credential_with_auth_flow(creds_f)
 
         Path(not_upload_file).touch()
         return None
@@ -626,6 +627,8 @@ class AtestTradefedTestRunner(test_runner_base.TestRunnerBase):
             if constants.TF_TEMPLATE == arg:
                 continue
             if constants.TF_EARLY_DEVICE_RELEASE == arg:
+                continue
+            if constants.INVOCATION_ID == arg:
                 continue
             args_not_supported.append(arg)
         return args_to_append, args_not_supported

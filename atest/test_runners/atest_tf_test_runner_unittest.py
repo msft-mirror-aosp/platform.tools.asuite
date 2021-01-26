@@ -671,11 +671,11 @@ class AtestTradefedTestRunnerUnittests(unittest.TestCase):
         not_upload_file = os.path.join(tmp_folder,
                                        constants.DO_NOT_UPLOAD_FILE_NAME)
 
-        self.tr._request_consent_of_upload_test_result(tmp_folder, None)
+        self.tr._request_consent_of_upload_test_result(tmp_folder, True)
         self.assertEqual(1, mock_get_credential_with_auth_flow.call_count)
         self.assertFalse(os.path.exists(not_upload_file))
 
-        self.tr._request_consent_of_upload_test_result(tmp_folder, None)
+        self.tr._request_consent_of_upload_test_result(tmp_folder, True)
         self.assertEqual(2, mock_get_credential_with_auth_flow.call_count)
         self.assertFalse(os.path.exists(not_upload_file))
 
@@ -692,10 +692,10 @@ class AtestTradefedTestRunnerUnittests(unittest.TestCase):
         not_upload_file = os.path.join(tmp_folder,
                                        constants.DO_NOT_UPLOAD_FILE_NAME)
 
-        self.tr._request_consent_of_upload_test_result(tmp_folder, None)
+        self.tr._request_consent_of_upload_test_result(tmp_folder, True)
         self.assertTrue(os.path.exists(not_upload_file))
         self.assertEqual(0, mock_get_credential_with_auth_flow.call_count)
-        self.tr._request_consent_of_upload_test_result(tmp_folder, None)
+        self.tr._request_consent_of_upload_test_result(tmp_folder, True)
         self.assertEqual(0, mock_get_credential_with_auth_flow.call_count)
 
     @mock.patch('os.environ.get', return_value=None)
