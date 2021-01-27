@@ -318,5 +318,23 @@
 "atest_tradefed.sh",
 "template/atest_local_min",
 "test=atest"
+],
+"MixedManagedProfileOwnerTest#testPasswordSufficientInitially": [
+"--atest-include-filter",
+"--include-filter",
+"--log-level",
+"--log-level-display",
+"--logcat-on-failure",
+"--no-early-device-release",
+"--no-enable-granular-attempts",
+"--skip-loading-config-jar",
+"--template:map",
+"CtsDevicePolicyManagerTestCases",
+"CtsDevicePolicyManagerTestCases:com.android.cts.devicepolicy.MixedManagedProfileOwnerTest#testPasswordSufficientInitially",
+"VERBOSE",
+"VERBOSE",
+"atest_tradefed.sh",
+"template/atest_local_min",
+"test=atest"
 ]
 }
