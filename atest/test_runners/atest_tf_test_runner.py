@@ -27,7 +27,6 @@ import shutil
 import socket
 import uuid
 
-from distutils.util import strtobool
 from functools import partial
 from pathlib import Path
 
@@ -264,7 +263,7 @@ class AtestTradefedTestRunner(test_runner_base.TestRunnerBase):
         if not os.path.exists(config_folder):
             os.makedirs(config_folder)
         not_upload_file = os.path.join(config_folder,
-                                       constants.DO_NOT_UPLOAD_FILE_NAME)
+                                       constants.DO_NOT_UPLOAD)
         # Do nothing if there are no related config or DO_NOT_UPLOAD exists.
         if (not constants.CREDENTIAL_FILE_NAME or
                 not constants.TOKEN_FILE_PATH):
@@ -282,8 +281,9 @@ class AtestTradefedTestRunner(test_runner_base.TestRunnerBase):
         # DO_NOT_UPLOAD to keep the user's decision.
         if not os.path.exists(not_upload_file):
             if (os.path.exists(creds_f) or
-                    (request_to_upload_result and self._prompt_with_yn_result(
-                        constants.UPLOAD_TEST_RESULT_MSG, 'N'))):
+                    (request_to_upload_result and
+                        atest_utils.prompt_with_yn_result(
+                            constants.UPLOAD_TEST_RESULT_MSG, False))):
                 return atest_gcp_utils.GCPHelper(
                     client_id=constants.CLIENT_ID,
                     client_secret=constants.CLIENT_SECRET,
@@ -291,20 +291,6 @@ class AtestTradefedTestRunner(test_runner_base.TestRunnerBase):
 
         Path(not_upload_file).touch()
         return None
-
-    def _prompt_with_yn_result(self, msg, default):
-        """Prompt message and get yes or no result.
-
-        Args:
-            msg: The question you want asking.
-            default: string default value.
-        Returns:
-            default value if get KeyboardInterrupt or ValueError exception.
-        """
-        try:
-            return strtobool(input(msg) or default)
-        except (ValueError, KeyboardInterrupt):
-            return default
 
     def run_tests_raw(self, test_infos, extra_args, reporter):
         """Run the list of test_infos. See base class for more.
