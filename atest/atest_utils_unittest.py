@@ -553,5 +553,17 @@ class AtestUtilsUnittests(unittest.TestCase):
         self.assertEqual(atest_utils.quote(target_str), expected_str)
         self.assertEqual(atest_utils.quote('TEST_P224'), 'TEST_P224')
 
+    @mock.patch('builtins.input', return_value='')
+    def test_prompt_with_yn_result(self, mock_input):
+        """Test method of prompt_with_yn_result"""
+        msg = 'Do you want to continue?'
+        mock_input.return_value = ''
+        self.assertTrue(atest_utils.prompt_with_yn_result(msg, True))
+        self.assertFalse(atest_utils.prompt_with_yn_result(msg, False))
+        mock_input.return_value = 'y'
+        self.assertTrue(atest_utils.prompt_with_yn_result(msg, True))
+        mock_input.return_value = 'nO'
+        self.assertFalse(atest_utils.prompt_with_yn_result(msg, True))
+
 if __name__ == "__main__":
     unittest.main()
