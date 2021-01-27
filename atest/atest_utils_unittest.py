@@ -531,6 +531,10 @@ class AtestUtilsUnittests(unittest.TestCase):
         self.assertEqual('test_branch', atest_utils.get_manifest_branch())
 
         mock_env.return_value = 'any_path'
+        mock_check_output.return_value = 'not_matched_branch_pattern.'
+        self.assertEqual(None, atest_utils.get_manifest_branch())
+
+        mock_env.return_value = 'any_path'
         mock_check_output.side_effect = subprocess.CalledProcessError(1, 'repo info')
         self.assertEqual(None, atest_utils.get_manifest_branch())
 

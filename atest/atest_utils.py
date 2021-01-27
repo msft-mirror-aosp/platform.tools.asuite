@@ -942,10 +942,13 @@ def get_manifest_branch():
             cwd=build_top,
             universal_newlines=True)
         branch_re = re.compile(r'Manifest branch:\s*(?P<branch>.*)')
-        return branch_re.match(output).group('branch')
+        match = branch_re.match(output)
+        if match:
+            return match.group('branch')
+        logging.warning('Unable to detect branch name through:\n %s', output)
     except subprocess.CalledProcessError:
         logging.warning('Exception happened while getting branch')
-        return None
+    return None
 
 def get_build_target():
     """Get the build target form system environment TARGET_PRODUCT."""
