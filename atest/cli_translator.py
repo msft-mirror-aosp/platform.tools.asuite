@@ -291,9 +291,9 @@ class CLITranslator:
         Returns:
             True is the answer is affirmative.
         """
-        decision = input('Did you mean {0}? [Y/n] '.format(
-            atest_utils.colorize(results[0], constants.GREEN)))
-        return decision in constants.AFFIRMATIVES
+        return atest_utils.prompt_with_yn_result(
+            'Did you mean {0}?'.format(
+                atest_utils.colorize(results[0], constants.GREEN)), True)
 
     def _print_fuzzy_searching_results(self, results):
         """Print modules when fuzzy searching gives multiple results.
