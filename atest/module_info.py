@@ -86,7 +86,7 @@ class ModuleInfo:
         # Make sure module-info exist and could be load properly.
         if not atest_utils.is_valid_json_file(module_file_path) or force_build:
             logging.debug('Generating %s - this is required for '
-                          'initial runs.', _MODULE_INFO)
+                          'initial runs or forced rebuilds.', _MODULE_INFO)
             build_env = dict(constants.ATEST_BUILD_ENV)
             if not atest_utils.build([module_info_target],
                                      verbose=logging.getLogger().isEnabledFor(
@@ -167,11 +167,11 @@ class ModuleInfo:
                 for m in self.path_to_module_info.get(rel_module_path, [])]
 
     def get_module_info(self, mod_name):
-        """Return dict of info for given module name, None if non-existent."""
+        """Return dict of info for given module name, None if non-existence."""
         module_info = self.name_to_module_info.get(mod_name)
         # Android's build system will automatically adding 2nd arch bitness
         # string at the end of the module name which will make atest could not
-        # finding matched module. Rescan the module-info with matched module
+        # find the matched module. Rescan the module-info with the matched module
         # name without bitness.
         if not module_info:
             for _, mod_info in self.name_to_module_info.items():
@@ -382,42 +382,36 @@ class ModuleInfo:
         if not java_bp_info_path:
             java_bp_info_path = os.path.join(atest_utils.get_build_out_dir(),
                                              'soong', _JAVA_DEP_INFO)
-        if os.path.isfile(java_bp_info_path):
-            try:
-                with open(java_bp_info_path) as json_file:
-                    java_bp_infos = json.load(json_file)
+        if atest_utils.is_valid_json_file(java_bp_info_path):
+            with open(java_bp_info_path) as json_file:
+                java_bp_infos = json.load(json_file)
                 logging.debug('Merging Java build info: %s', java_bp_info_path)
                 name_to_module_info = self._merge_soong_info(
                     name_to_module_info, java_bp_infos)
-            except json.JSONDecodeError:
-                logging.debug('Failed loading %s', java_bp_info_path)
         # Merge _CC_DEP_INFO
         if not cc_bp_info_path:
             cc_bp_info_path = os.path.join(atest_utils.get_build_out_dir(),
                                            'soong', _CC_DEP_INFO)
-        if os.path.isfile(cc_bp_info_path):
-            try:
-                with open(cc_bp_info_path) as json_file:
-                    cc_bp_infos = json.load(json_file)
-                logging.debug('Merging CC build info: %s', cc_bp_info_path)
-                # CC's dep json format is different with java.
-                # Below is the example content:
-                # {
-                #   "clang": "${ANDROID_ROOT}/bin/clang",
-                #   "clang++": "${ANDROID_ROOT}/bin/clang++",
-                #   "modules": {
-                #       "ACameraNdkVendorTest": {
-                #           "path": [
-                #                   "frameworks/av/camera/ndk"
-                #           ],
-                #           "srcs": [
-                #                   "frameworks/tests/AImageVendorTest.cpp",
-                #                   "frameworks/tests/ACameraManagerTest.cpp"
-                #           ],
-                name_to_module_info = self._merge_soong_info(
-                    name_to_module_info, cc_bp_infos.get('modules', {}))
-            except json.JSONDecodeError:
-                logging.debug('Failed loading %s', cc_bp_info_path)
+        if atest_utils.is_valid_json_file(cc_bp_info_path):
+            with open(cc_bp_info_path) as json_file:
+                cc_bp_infos = json.load(json_file)
+            logging.debug('Merging CC build info: %s', cc_bp_info_path)
+            # CC's dep json format is different with java.
+            # Below is the example content:
+            # {
+            #   "clang": "${ANDROID_ROOT}/bin/clang",
+            #   "clang++": "${ANDROID_ROOT}/bin/clang++",
+            #   "modules": {
+            #       "ACameraNdkVendorTest": {
+            #           "path": [
+            #                   "frameworks/av/camera/ndk"
+            #           ],
+            #           "srcs": [
+            #                   "frameworks/tests/AImageVendorTest.cpp",
+            #                   "frameworks/tests/ACameraManagerTest.cpp"
+            #           ],
+            name_to_module_info = self._merge_soong_info(
+                name_to_module_info, cc_bp_infos.get('modules', {}))
         return name_to_module_info
 
     def _merge_soong_info(self, name_to_module_info, mod_bp_infos):
