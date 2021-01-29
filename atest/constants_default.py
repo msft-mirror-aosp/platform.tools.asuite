@@ -155,13 +155,10 @@ ALL_STEPS = [BUILD_STEP, INSTALL_STEP, TEST_STEP]
 # ANSI code shift for colorful print
 BLACK, RED, GREEN, YELLOW, BLUE, MAGENTA, CYAN, WHITE = range(8)
 
-# Answers equivalent to YES!
-AFFIRMATIVES = ['y', 'Y', 'yes', 'Yes', 'YES', '']
-LD_RANGE = 2
-
 # Types of Levenshetine Distance Cost
 COST_TYPO = (1, 1, 1)
 COST_SEARCH = (8, 1, 5)
+LD_RANGE = 2
 
 # Value of TestInfo install_locations.
 DEVICELESS_TEST = 'host'
@@ -299,7 +296,7 @@ ASUITE_REPO_PROJECT_NAME = 'platform/tools/asuite'
 SCOPE_BUILD_API_SCOPE = ''
 STORAGE_API_VERSION = ''
 STORAGE_SERVICE_NAME = ''
-DO_NOT_UPLOAD_FILE_NAME = 'DO_NOT_UPLOAD'
+DO_NOT_UPLOAD = 'DO_NOT_UPLOAD'
 CLIENT_ID = ''
 CLIENT_SECRET = ''
 CREDENTIAL_FILE_NAME = ''
@@ -308,3 +305,4 @@ INVOCATION_ID = 'INVOCATION_ID'
 WORKUNIT_ID = 'WORKUNIT_ID'
 RESULT_LINK = ''
 TF_GLOBAL_CONFIG = ''
+UPLOAD_TEST_RESULT_MSG = 'Upload test result?'

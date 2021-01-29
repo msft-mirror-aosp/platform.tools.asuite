@@ -38,6 +38,8 @@ import sysconfig
 import time
 import zipfile
 
+from distutils.util import strtobool
+
 # This is a workaround of b/144743252, where the http.client failed to loaded
 # because the googleapiclient was found before the built-in libs; enabling
 # embedded launcher(b/135639220) has not been reliable and other issue will
@@ -501,18 +503,10 @@ def handle_test_runner_cmd(input_test, test_cmds, do_verification=False,
             # are willing to update the result.
             print('Former cmds = %s' % former_test_cmds)
             print('Current cmds = %s' % test_cmds)
-            try:
-                from distutils import util
-                if not util.strtobool(
-                        input('Do you want to update former result '
-                              'with the latest one?(Y/n)')):
-                    print('SKIP updating result!!!')
-                    return
-            except ValueError:
-                # Default action is updating the command result of the
-                # input_test. If the user input is unrecognizable telling yes
-                # or no, "Y" is implicitly applied.
-                pass
+            if not prompt_with_yn_result('Do you want to update former result '
+                                         'to the latest one?', True):
+                print('SKIP updating result!!!')
+                return
     else:
         # If current commands are the same as the formers, no need to update
         # result.
@@ -942,10 +936,13 @@ def get_manifest_branch():
             cwd=build_top,
             universal_newlines=True)
         branch_re = re.compile(r'Manifest branch:\s*(?P<branch>.*)')
-        return branch_re.match(output).group('branch')
+        match = branch_re.match(output)
+        if match:
+            return match.group('branch')
+        logging.warning('Unable to detect branch name through:\n %s', output)
     except subprocess.CalledProcessError:
         logging.warning('Exception happened while getting branch')
-        return None
+    return None
 
 def get_build_target():
     """Get the build target form system environment TARGET_PRODUCT."""
@@ -1026,3 +1023,18 @@ def has_chars(input_str, chars):
         if char in input_str:
             return True
     return False
+
+def prompt_with_yn_result(msg, default=True):
+    """Prompt message and get yes or no result.
+
+    Args:
+        msg: The question you want asking.
+        default: boolean to True/Yes or False/No
+    Returns:
+        default value if get KeyboardInterrupt or ValueError exception.
+    """
+    suffix = '[Y/n]: ' if default else '[y/N]: '
+    try:
+        return strtobool(input(msg+suffix))
+    except (ValueError, KeyboardInterrupt):
+        return default

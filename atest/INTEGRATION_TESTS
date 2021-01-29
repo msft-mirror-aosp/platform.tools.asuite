@@ -96,5 +96,9 @@ VtsHalCameraProviderV2_4TargetTest:PerInstance/CameraHidlTest#startStopPreview/0
 CtsWindowManagerDeviceTestCases:android.server.wm.DisplayCutoutTests#testDisplayCutout_default
 cts/tests/framework/base/windowmanager/src/android/server/wm/DisplayCutoutTests.java#testDisplayCutout_default
 
+### Java Test ###
+####Purpose: Find the test method by traversing parent classes###
+MixedManagedProfileOwnerTest#testPasswordSufficientInitially
+
 ###[Option verify]###
 --help
