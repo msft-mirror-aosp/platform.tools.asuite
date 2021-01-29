@@ -21,6 +21,7 @@ Module Finder class.
 import logging
 import os
 
+import atest_configs
 import atest_error
 import atest_utils
 import constants
@@ -47,11 +48,11 @@ class ModuleFinder(test_finder_base.TestFinderBase):
     _VTS_TEST_RUNNER = vts_tf_test_runner.VtsTradefedTestRunner.NAME
 
     def __init__(self, module_info=None):
-        super(ModuleFinder, self).__init__()
+        super().__init__()
         self.root_dir = os.environ.get(constants.ANDROID_BUILD_TOP)
         self.module_info = module_info
 
-    def _determine_testable_module(self, path):
+    def _determine_testable_module(self, path, file_path=None):
         """Determine which module the user is trying to test.
 
         Returns the module to test. If there are multiple possibilities, will
@@ -59,11 +60,14 @@ class ModuleFinder(test_finder_base.TestFinderBase):
 
         Args:
             path: String path of module to look for.
+            file_path: String path of input file.
 
         Returns:
             A list of the module names.
         """
         testable_modules = []
+        # A list to save those testable modules but srcs information is empty.
+        testable_modules_no_srcs = []
         for mod in self.module_info.get_module_names(path):
             mod_info = self.module_info.get_module_info(mod)
             # Robolectric tests always exist in pairs of 2, one module to build
@@ -73,7 +77,22 @@ class ModuleFinder(test_finder_base.TestFinderBase):
                 # return a list with one module name if it is robolectric.
                 return [mod]
             if self.module_info.is_testable_module(mod_info):
+                # If test module defined srcs, input file_path should be defined
+                # in the src list of module.
+                module_srcs = mod_info.get(constants.MODULE_SRCS, [])
+                if file_path and os.path.relpath(
+                    file_path, self.root_dir) not in module_srcs:
+                    logging.debug('Skip module: %s for %s', mod, file_path)
+                    # Collect those modules if they don't have srcs information
+                    # in module-info, use this list if there's no other matched
+                    # module with src information.
+                    if not module_srcs:
+                        testable_modules_no_srcs.append(
+                            mod_info.get(constants.MODULE_NAME))
+                    continue
                 testable_modules.append(mod_info.get(constants.MODULE_NAME))
+        if not testable_modules:
+            testable_modules.extend(testable_modules_no_srcs)
         return test_finder_utils.extract_test_from_tests(testable_modules)
 
     def _is_vts_module(self, module_name):
@@ -165,6 +184,19 @@ class ModuleFinder(test_finder_base.TestFinderBase):
             return self._update_to_robolectric_test_info(test)
         rel_config = test.data[constants.TI_REL_CONFIG]
         test.build_targets = self._get_build_targets(module_name, rel_config)
+        # Update test name if the test belong to extra config which means it's
+        # test config name is not the same as module name. For extra config, it
+        # index will be greater or equal to 1.
+        try:
+            if (mod_info.get(constants.MODULE_TEST_CONFIG, []).index(rel_config)
+                    > 0):
+                config_test_name = os.path.splitext(os.path.basename(
+                    rel_config))[0]
+                logging.debug('Replace test_info.name(%s) to %s',
+                              test.test_name, config_test_name)
+                test.test_name = config_test_name
+        except ValueError:
+            pass
         return test
 
     def _get_build_targets(self, module_name, rel_config):
@@ -208,19 +240,31 @@ class ModuleFinder(test_finder_base.TestFinderBase):
             rel_config: XML for the given test.
 
         Returns:
-            A string of test_config path if found, else return rel_config.
+            A list of string of test_config path if found, else return rel_config.
         """
+        default_all_config = not (atest_configs.GLOBAL_ARGS and
+                                  atest_configs.GLOBAL_ARGS.test_config_select)
         mod_info = self.module_info.get_module_info(module_name)
         if mod_info:
-            test_config = ''
+            test_configs = []
             test_config_list = mod_info.get(constants.MODULE_TEST_CONFIG, [])
             if test_config_list:
-                test_config = test_config_list[0]
-            if not self.module_info.is_auto_gen_test_config(module_name) and test_config != '':
-                return test_config
-        return rel_config
+                # multiple test configs
+                if len(test_config_list) > 1:
+                    test_configs = test_finder_utils.extract_test_from_tests(
+                        test_config_list, default_all=default_all_config)
+                else:
+                    test_configs = test_config_list
+            if test_configs:
+                return test_configs
+            # Double check if below section is needed.
+            if (not self.module_info.is_auto_gen_test_config(module_name)
+                    and len(test_configs) > 0):
+                return test_configs
+        return [rel_config] if rel_config else []
 
     # pylint: disable=too-many-branches
+    # pylint: disable=too-many-locals
     def _get_test_info_filter(self, path, methods, **kwargs):
         """Get test info filter.
 
@@ -258,13 +302,25 @@ class ModuleFinder(test_finder_base.TestFinderBase):
                 [test_info.TestFilter(full_class_name, methods)])
         # Path to cc file.
         elif file_name and constants.CC_EXT_RE.match(file_name):
+            # TODO (b/173019813) Should setup correct filter for an input file.
             if not test_finder_utils.has_cc_class(path):
                 raise atest_error.MissingCCTestCaseError(
                     "Can't find CC class in %s" % path)
-            if methods:
-                ti_filter = frozenset(
-                    [test_info.TestFilter(test_finder_utils.get_cc_filter(
-                        kwargs.get('class_name', '*'), methods), frozenset())])
+            # Extract class_name, method_name and parameterized_class from
+            # the given cc path.
+            file_classes, _, file_para_classes = (
+                test_finder_utils.get_cc_test_classes_methods(path))
+            cc_filters = []
+            # When instantiate tests found, recompose the class name in
+            # $(InstantiationName)/$(ClassName)
+            for file_class in file_classes:
+                if file_class in file_para_classes:
+                    file_class = '*/%s' % file_class
+                cc_filters.append(
+                    test_info.TestFilter(
+                        test_finder_utils.get_cc_filter(file_class, methods),
+                        frozenset()))
+            ti_filter = frozenset(cc_filters)
         # If input path is a folder and have class_name information.
         elif (not file_name and kwargs.get('class_name', None)):
             ti_filter = frozenset(
@@ -286,6 +342,7 @@ class ModuleFinder(test_finder_base.TestFinderBase):
                         ti_filter = frozenset(
                             [test_info.TestFilter(package_name, methods)])
                         break
+        logging.debug('_get_test_info_filter() ti_filter: %s', ti_filter)
         return ti_filter
 
     def _get_rel_config(self, test_path):
@@ -324,24 +381,26 @@ class ModuleFinder(test_finder_base.TestFinderBase):
             module_names = [module_name]
         else:
             module_names = self._determine_testable_module(
-                os.path.dirname(rel_config))
+                os.path.dirname(rel_config),
+                test_path if self._is_comparted_src(test_path) else None)
         test_infos = []
         if module_names:
             for mname in module_names:
                 # The real test config might be record in module-info.
-                rel_config = self._get_module_test_config(mname,
-                                                          rel_config=rel_config)
-                mod_info = self.module_info.get_module_info(mname)
-                tinfo = self._process_test_info(test_info.TestInfo(
-                    test_name=mname,
-                    test_runner=self._TEST_RUNNER,
-                    build_targets=set(),
-                    data={constants.TI_FILTER: test_filter,
-                          constants.TI_REL_CONFIG: rel_config},
-                    compatibility_suites=mod_info.get(
-                        constants.MODULE_COMPATIBILITY_SUITES, [])))
-                if tinfo:
-                    test_infos.append(tinfo)
+                rel_configs = self._get_module_test_config(
+                    mname, rel_config=rel_config)
+                for rel_cfg in rel_configs:
+                    mod_info = self.module_info.get_module_info(mname)
+                    tinfo = self._process_test_info(test_info.TestInfo(
+                        test_name=mname,
+                        test_runner=self._TEST_RUNNER,
+                        build_targets=set(),
+                        data={constants.TI_FILTER: test_filter,
+                              constants.TI_REL_CONFIG: rel_cfg},
+                        compatibility_suites=mod_info.get(
+                            constants.MODULE_COMPATIBILITY_SUITES, [])))
+                    if tinfo:
+                        test_infos.append(tinfo)
         return test_infos
 
     def find_test_by_module_name(self, module_name):
@@ -354,23 +413,27 @@ class ModuleFinder(test_finder_base.TestFinderBase):
             A list that includes only 1 populated TestInfo namedtuple
             if found, otherwise None.
         """
+        tinfos = []
         mod_info = self.module_info.get_module_info(module_name)
         if self.module_info.is_testable_module(mod_info):
             # path is a list with only 1 element.
             rel_config = os.path.join(mod_info['path'][0],
                                       constants.MODULE_CONFIG)
-            rel_config = self._get_module_test_config(module_name,
-                                                      rel_config=rel_config)
-            tinfo = self._process_test_info(test_info.TestInfo(
-                test_name=module_name,
-                test_runner=self._TEST_RUNNER,
-                build_targets=set(),
-                data={constants.TI_REL_CONFIG: rel_config,
-                      constants.TI_FILTER: frozenset()},
-                compatibility_suites=mod_info.get(
-                    constants.MODULE_COMPATIBILITY_SUITES, [])))
-            if tinfo:
-                return [tinfo]
+            rel_configs = self._get_module_test_config(module_name,
+                                                       rel_config=rel_config)
+            for rel_config in rel_configs:
+                tinfo = self._process_test_info(test_info.TestInfo(
+                    test_name=module_name,
+                    test_runner=self._TEST_RUNNER,
+                    build_targets=set(),
+                    data={constants.TI_REL_CONFIG: rel_config,
+                          constants.TI_FILTER: frozenset()},
+                    compatibility_suites=mod_info.get(
+                        constants.MODULE_COMPATIBILITY_SUITES, [])))
+                if tinfo:
+                    tinfos.append(tinfo)
+            if tinfos:
+                return tinfos
         return None
 
     def find_test_by_kernel_class_name(self, module_name, class_name):
@@ -383,25 +446,30 @@ class ModuleFinder(test_finder_base.TestFinderBase):
         Returns:
             A list of populated TestInfo namedtuple if test found, else None.
         """
+
         class_name, methods = test_finder_utils.split_methods(class_name)
-        test_config = self._get_module_test_config(module_name)
-        if not test_config:
+        test_configs = self._get_module_test_config(module_name)
+        if not test_configs:
             return None
-        test_config_path = os.path.join(self.root_dir, test_config)
-        mod_info = self.module_info.get_module_info(module_name)
-        ti_filter = frozenset(
-            [test_info.TestFilter(class_name, methods)])
-        if test_finder_utils.is_test_from_kernel_xml(test_config_path, class_name):
-            tinfo = self._process_test_info(test_info.TestInfo(
-                test_name=module_name,
-                test_runner=self._TEST_RUNNER,
-                build_targets=set(),
-                data={constants.TI_REL_CONFIG: test_config,
-                      constants.TI_FILTER: ti_filter},
-                compatibility_suites=mod_info.get(
-                    constants.MODULE_COMPATIBILITY_SUITES, [])))
-            if tinfo:
-                return [tinfo]
+        tinfos = []
+        for test_config in test_configs:
+            test_config_path = os.path.join(self.root_dir, test_config)
+            mod_info = self.module_info.get_module_info(module_name)
+            ti_filter = frozenset(
+                [test_info.TestFilter(class_name, methods)])
+            if test_finder_utils.is_test_from_kernel_xml(test_config_path, class_name):
+                tinfo = self._process_test_info(test_info.TestInfo(
+                    test_name=module_name,
+                    test_runner=self._TEST_RUNNER,
+                    build_targets=set(),
+                    data={constants.TI_REL_CONFIG: test_config,
+                          constants.TI_FILTER: ti_filter},
+                    compatibility_suites=mod_info.get(
+                        constants.MODULE_COMPATIBILITY_SUITES, [])))
+                if tinfo:
+                    tinfos.append(tinfo)
+        if tinfos:
+            return tinfos
         return None
 
     def find_test_by_class_name(self, class_name, module_name=None,
@@ -689,3 +757,52 @@ class ModuleFinder(test_finder_base.TestFinderBase):
             if _distance <= abs(constants.LD_RANGE):
                 guessed_modules.append(_module)
         return guessed_modules
+
+    def find_test_by_config_name(self, config_name):
+        """Find test for the given config name.
+
+        Args:
+            config_name: A string of the test's config name.
+
+        Returns:
+            A list that includes only 1 populated TestInfo namedtuple
+            if found, otherwise None.
+        """
+        for module_name, mod_info in self.module_info.name_to_module_info.items():
+            test_configs = mod_info.get(constants.MODULE_TEST_CONFIG, [])
+            for test_config in test_configs:
+                test_config_name = os.path.splitext(
+                    os.path.basename(test_config))[0]
+                if test_config_name == config_name:
+                    tinfo = test_info.TestInfo(
+                        test_name=test_config_name,
+                        test_runner=self._TEST_RUNNER,
+                        build_targets=self._get_build_targets(module_name,
+                                                              test_config),
+                        data={constants.TI_REL_CONFIG: test_config,
+                              constants.TI_FILTER: frozenset()},
+                        compatibility_suites=mod_info.get(
+                            constants.MODULE_COMPATIBILITY_SUITES, []))
+                    if tinfo:
+                        # There should have only one test_config with the same
+                        # name in source tree.
+                        return [tinfo]
+        return None
+
+    def _is_comparted_src(self, path):
+        """Check if the input path need to match srcs information in module.
+
+        If path is a folder or android build file, we don't need to compart
+        with module's srcs.
+
+        Args:
+            path: A string of the test's path.
+
+        Returns:
+            True if input path need to match with module's src info, else False.
+        """
+        if os.path.isdir(path):
+            return False
+        if atest_utils.is_build_file(path):
+            return False
+        return True

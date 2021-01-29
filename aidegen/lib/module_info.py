@@ -14,7 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Module Info class used to hold cached merged_module_info.json.json."""
+"""Module Info class used to hold cached merged_module_info.json."""
 
 import logging
 import os

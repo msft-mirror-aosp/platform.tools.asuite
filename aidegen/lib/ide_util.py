@@ -88,15 +88,20 @@ ALTERNAIVE_FILE_TYPE_XML_PATH = 'options/filetypes.xml'
 MAC_ANDROID_SDK_PATH = os.path.join(os.getenv('HOME'), 'Library/Android/sdk')
 PATTERN_KEY = 'pattern'
 TYPE_KEY = 'type'
-JSON_TYPE = 'JSON'
+_TEST_MAPPING_FILE_TYPE = 'JSON'
 TEST_MAPPING_NAME = 'TEST_MAPPING'
 _TEST_MAPPING_TYPE = '<mapping pattern="TEST_MAPPING" type="JSON" />'
 _XPATH_EXTENSION_MAP = 'component/extensionMap'
 _XPATH_MAPPING = _XPATH_EXTENSION_MAP + '/mapping'
 _SPECIFIC_INTELLIJ_VERSION = 2020.1
+_TEST_MAPPING_FILE_TYPE_ADDING_WARN = '\n{} {}\n'.format(
+    common_util.COLORED_INFO('WARNING:'),
+    ('TEST_MAPPING file type can\'t be added to filetypes.xml. The reason '
+     'might be: lack of the parent tag to add TEST_MAPPING file type.'))
 
 
 # pylint: disable=too-many-lines
+# pylint: disable=invalid-name
 class IdeUtil:
     """Provide a set of IDE operations, e.g., launch and configuration.
 
@@ -254,7 +259,7 @@ class IdeBase:
         """
         file_type_path = os.path.join(_config_path, self._IDE_FILE_TYPE_PATH)
         if not os.path.isfile(file_type_path):
-            logging.warning('Filetypes.xml is not found.')
+            logging.warning('The file: filetypes.xml is not found.')
             return
 
         file_type_xml = xml_util.parse_xml(file_type_path)
@@ -268,14 +273,17 @@ class IdeBase:
             attrib = mapping.attrib
             if PATTERN_KEY in attrib and TYPE_KEY in attrib:
                 if attrib[PATTERN_KEY] == TEST_MAPPING_NAME:
-                    if attrib[TYPE_KEY] != JSON_TYPE:
-                        attrib[TYPE_KEY] = JSON_TYPE
+                    if attrib[TYPE_KEY] != _TEST_MAPPING_FILE_TYPE:
+                        attrib[TYPE_KEY] = _TEST_MAPPING_FILE_TYPE
                         file_type_xml.write(file_type_path)
                     add_pattern = False
                     break
         if add_pattern:
-            root.find(_XPATH_EXTENSION_MAP).append(
-                ElementTree.fromstring(_TEST_MAPPING_TYPE))
+            ext_attrib = root.find(_XPATH_EXTENSION_MAP)
+            if not ext_attrib:
+                print(_TEST_MAPPING_FILE_TYPE_ADDING_WARN)
+                return
+            ext_attrib.append(ElementTree.fromstring(_TEST_MAPPING_TYPE))
             pretty_xml = common_util.to_pretty_xml(root)
             common_util.file_generate(file_type_path, pretty_xml)
 

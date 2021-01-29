@@ -35,18 +35,10 @@ import tempfile
 import time
 import platform
 
-# This is a workaround of b/144743252, where the http.client failed to loaded
-# because the googleapiclient was found before the built-in libs; enabling embedded
-# launcher(b/135639220) has not been reliable and other issue will raise.
-# The workaround is repositioning the built-in libs before other 3rd libs in PYTHONPATH(sys.path)
-# to eliminate the symptom of failed loading http.client.
-import sysconfig
-sys.path.insert(0, os.path.dirname(sysconfig.get_paths()['purelib']))
-
-#pylint: disable=wrong-import-position
 from multiprocessing import Process
 
 import atest_arg_parser
+import atest_configs
 import atest_error
 import atest_execution_info
 import atest_utils
@@ -121,7 +113,9 @@ def _parse_args(argv):
     args = parser.parse_args(pruned_argv)
     args.custom_args = []
     if custom_args_index is not None:
-        args.custom_args = argv[custom_args_index+1:]
+        for arg in argv[custom_args_index+1:]:
+            logging.debug('Quoting regex argument %s', arg)
+            args.custom_args.append(atest_utils.quote(arg))
     return args
 
 
@@ -204,7 +198,9 @@ def get_extra_args(args):
                 'tf_debug': constants.TF_DEBUG,
                 'tf_template': constants.TF_TEMPLATE,
                 'user_type': constants.USER_TYPE,
-                'flakes_info': constants.FLAKES_INFO}
+                'flakes_info': constants.FLAKES_INFO,
+                'tf_early_device_release': constants.TF_EARLY_DEVICE_RELEASE,
+                'request_upload_result': constants.REQUEST_UPLOAD_RESULT}
     not_match = [k for k in arg_maps if k not in vars(args)]
     if not_match:
         raise AttributeError('%s object has no attribute %s'
@@ -717,9 +713,6 @@ def main(argv, results_dir, args):
     if args.list_modules:
         _print_testable_modules(mod_info, args.list_modules)
         return constants.EXIT_CODE_SUCCESS
-    # Clear cache if user pass -c option
-    if args.clear_cache:
-        atest_utils.clean_test_info_caches(args.tests)
     build_targets = set()
     test_infos = set()
     if _will_run_tests(args):
@@ -821,11 +814,11 @@ def main(argv, results_dir, args):
 
 if __name__ == '__main__':
     RESULTS_DIR = make_test_run_dir()
-    ARGS = _parse_args(sys.argv[1:])
-    with atest_execution_info.AtestExecutionInfo(sys.argv[1:],
-                                                 RESULTS_DIR,
-                                                 ARGS) as result_file:
-        if not ARGS.no_metrics:
+    atest_configs.GLOBAL_ARGS = _parse_args(sys.argv[1:])
+    with atest_execution_info.AtestExecutionInfo(
+            sys.argv[1:], RESULTS_DIR,
+            atest_configs.GLOBAL_ARGS) as result_file:
+        if not atest_configs.GLOBAL_ARGS.no_metrics:
             atest_utils.print_data_collection_notice()
             USER_FROM_TOOL = os.getenv(constants.USER_FROM_TOOL, '')
             if USER_FROM_TOOL == '':
@@ -833,11 +826,12 @@ if __name__ == '__main__':
             else:
                 metrics_base.MetricsBase.tool_name = USER_FROM_TOOL
 
-        EXIT_CODE = main(sys.argv[1:], RESULTS_DIR, ARGS)
+        EXIT_CODE = main(sys.argv[1:], RESULTS_DIR, atest_configs.GLOBAL_ARGS)
         DETECTOR = bug_detector.BugDetector(sys.argv[1:], EXIT_CODE)
-        metrics.LocalDetectEvent(
-            detect_type=constants.DETECT_TYPE_BUG_DETECTED,
-            result=DETECTOR.caught_result)
-        if result_file:
-            print("Run 'atest --history' to review test result history.")
+        if EXIT_CODE not in constants.EXIT_CODES_BEFORE_TEST:
+            metrics.LocalDetectEvent(
+                detect_type=constants.DETECT_TYPE_BUG_DETECTED,
+                result=DETECTOR.caught_result)
+            if result_file:
+                print("Run 'atest --history' to review test result history.")
     sys.exit(EXIT_CODE)

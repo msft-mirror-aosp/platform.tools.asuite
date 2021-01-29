@@ -33,11 +33,6 @@ from atest import atest_utils
 
 _CONVERT_MK_URL = ('https://android.googlesource.com/platform/build/soong/'
                    '#convert-android_mk-files')
-_ANDROID_MK_WARN = (
-    '{} contains Android.mk file(s) in its dependencies:\n{}\nPlease help '
-    'convert these files into blueprint format in the future, otherwise '
-    'AIDEGen may not be able to include all module dependencies.\nPlease visit '
-    '%s for reference on how to convert makefile.' % _CONVERT_MK_URL)
 _ROBOLECTRIC_MODULE = 'Robolectric_all'
 _NOT_TARGET = ('The module %s does not contain any Java or Kotlin file, '
                'therefore we skip this module in the project.')
@@ -130,7 +125,6 @@ class ProjectInfo:
         else:
             self.dep_modules = self.get_dep_modules()
         self._filter_out_modules()
-        self._display_convert_make_files_message()
         self.dependencies = []
         self.iml_name = iml.IMLGenerator.get_unique_iml_name(abs_path)
         self.rel_out_soong_jar_path = self._get_rel_project_out_soong_jar_path()
@@ -160,14 +154,6 @@ class ProjectInfo:
             'srcjar_path': set()
         }
 
-    def _display_convert_make_files_message(self):
-        """Show message info users convert their Android.mk to Android.bp."""
-        mk_set = set(self._search_android_make_files())
-        if mk_set:
-            print('\n{} {}\n'.format(
-                common_util.COLORED_INFO('Warning:'),
-                _ANDROID_MK_WARN.format(self.module_name, '\n'.join(mk_set))))
-
     def _search_android_make_files(self):
         """Search project and dependency modules contain Android.mk files.
 
@@ -193,6 +179,7 @@ class ProjectInfo:
         """Find qualified modules under the rel_path.
 
         Find modules which contain any Java or Kotlin file as a target module.
+        If it's the whole source tree project, add all modules into it.
 
         Args:
             rel_path: A string, the project's relative path.
@@ -202,6 +189,8 @@ class ProjectInfo:
         """
         logging.info('Find modules contain any Java or Kotlin file under %s.',
                      rel_path)
+        if rel_path == '':
+            return self.modules_info.name_to_module_info.keys()
         modules = set()
         root_dir = common_util.get_android_root_dir()
         for name, data in self.modules_info.name_to_module_info.items():
@@ -639,7 +628,7 @@ def _update_iml_dep_modules(project):
 
     The jar files which have the same source codes as cls.projects' source files
     should be removed from the dependencies.iml file's jar paths. The codes are
-    written in aidegen.project.source_splitter.py.
+    written in aidegen.project.project_splitter.py.
     We should also add the jar project's unique iml name into self.dependencies
     which later will be written into its own iml project file. If we don't
     remove these files in dependencies.iml, it will cause the duplicated codes

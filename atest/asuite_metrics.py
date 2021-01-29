@@ -19,9 +19,13 @@ import logging
 import os
 import uuid
 
-from urllib.request import Request
-from urllib.request import urlopen
-
+try:
+    from urllib.request import Request
+    from urllib.request import urlopen
+except ImportError:
+    # for compatibility of asuite_metrics_lib_tests and asuite_cc_lib_tests.
+    from urllib2 import Request
+    from urllib2 import urlopen
 
 _JSON_HEADERS = {'Content-Type': 'application/json'}
 _METRICS_RESPONSE = 'done'
@@ -93,7 +97,7 @@ def _get_grouping_key():
 def _get_old_key():
     """Get key from old meta data file if exists, else return None."""
     old_file = os.path.join(os.environ[_ANDROID_BUILD_TOP],
-                            'tools/tradefederation/core/atest', '.metadata')
+                            'tools/asuite/atest', '.metadata')
     key = None
     if os.path.isfile(old_file):
         with open(old_file) as f:

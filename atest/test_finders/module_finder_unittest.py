@@ -17,6 +17,7 @@
 """Unittests for module_finder."""
 
 # pylint: disable=line-too-long
+# pylint: disable=unsubscriptable-object
 
 import re
 import unittest
@@ -25,6 +26,8 @@ import os
 from unittest import mock
 
 import atest_error
+import atest_configs
+import atest_utils
 import constants
 import module_info
 import unittest_constants as uc
@@ -39,7 +42,7 @@ MODULE_CLASS = '%s:%s' % (uc.MODULE_NAME, uc.CLASS_NAME)
 MODULE_PACKAGE = '%s:%s' % (uc.MODULE_NAME, uc.PACKAGE)
 CC_MODULE_CLASS = '%s:%s' % (uc.CC_MODULE_NAME, uc.CC_CLASS_NAME)
 KERNEL_TEST_CLASS = 'test_class_1'
-KERNEL_TEST_CONFIG = 'KernelTest.xml'
+KERNEL_TEST_CONFIG = 'KernelTest.xml.data'
 KERNEL_MODULE_CLASS = '%s:%s' % (constants.REQUIRED_KERNEL_TEST_MODULES[0],
                                  KERNEL_TEST_CLASS)
 KERNEL_CONFIG_FILE = os.path.join(uc.TEST_DATA_DIR, KERNEL_TEST_CONFIG)
@@ -135,6 +138,54 @@ class ModuleFinderUnittests(unittest.TestCase):
         self.mod_finder.module_info.is_testable_module.return_value = False
         self.assertIsNone(self.mod_finder.find_test_by_module_name('Not_Module'))
 
+    @mock.patch('builtins.input', return_value='1')
+    @mock.patch.object(module_finder.ModuleFinder, '_get_build_targets',
+                       return_value=uc.MODULE_BUILD_TARGETS)
+    def test_find_test_by_module_name_w_multiple_config(
+            self, _get_targ, _mock_input):
+        """Test find_test_by_module_name."""
+        atest_configs.GLOBAL_ARGS = mock.Mock()
+        atest_configs.GLOBAL_ARGS.test_config_select = True
+        self.mod_finder.module_info.is_robolectric_test.return_value = False
+        self.mod_finder.module_info.has_test_config.return_value = True
+        mod_info = {'installed': ['/path/to/install'],
+                    'path': [uc.MODULE_DIR],
+                    constants.MODULE_CLASS: [],
+                    constants.MODULE_COMPATIBILITY_SUITES: [],
+                    constants.MODULE_TEST_CONFIG: [
+                        uc.CONFIG_FILE,
+                        uc.EXTRA_CONFIG_FILE]}
+        self.mod_finder.module_info.get_module_info.return_value = mod_info
+        t_infos = self.mod_finder.find_test_by_module_name(uc.MODULE_NAME)
+        # Only select one test
+        self.assertEqual(len(t_infos), 1)
+        # The t_info should be the EXTRA_CONFIG_FILE one.
+        unittest_utils.assert_equal_testinfos(
+            self, t_infos[0], uc.MODULE_INFO_W_CONFIG)
+
+    @mock.patch.object(module_finder.ModuleFinder, '_get_build_targets',
+                       return_value=uc.MODULE_BUILD_TARGETS)
+    def test_find_test_by_module_name_w_multiple_config_all(
+            self, _get_targ,):
+        """Test find_test_by_module_name."""
+        atest_configs.GLOBAL_ARGS = mock.Mock()
+        atest_configs.GLOBAL_ARGS.test_config_select = False
+        self.mod_finder.module_info.is_robolectric_test.return_value = False
+        self.mod_finder.module_info.has_test_config.return_value = True
+        mod_info = {'installed': ['/path/to/install'],
+                    'path': [uc.MODULE_DIR],
+                    constants.MODULE_CLASS: [],
+                    constants.MODULE_COMPATIBILITY_SUITES: [],
+                    constants.MODULE_TEST_CONFIG: [
+                        uc.CONFIG_FILE,
+                        uc.EXTRA_CONFIG_FILE]}
+        self.mod_finder.module_info.get_module_info.return_value = mod_info
+        t_infos = self.mod_finder.find_test_by_module_name(uc.MODULE_NAME)
+        unittest_utils.assert_equal_testinfos(self, t_infos[0], uc.MODULE_INFO)
+        unittest_utils.assert_equal_testinfos(
+            self, t_infos[1], uc.MODULE_INFO_W_CONFIG)
+
+    @mock.patch.object(atest_utils, 'is_build_file', return_value=True)
     @mock.patch.object(test_finder_utils, 'is_parameterized_java_class',
                        return_value=False)
     @mock.patch.object(test_finder_utils, 'has_method_in_file',
@@ -151,7 +202,7 @@ class ModuleFinderUnittests(unittest.TestCase):
     def test_find_test_by_class_name(self, _isdir, _isfile, _fqcn,
                                      mock_checkoutput, mock_build,
                                      _vts, _has_method_in_file,
-                                     _is_parameterized):
+                                     _is_parameterized, _is_build_file):
         """Test find_test_by_class_name."""
         mock_build.return_value = uc.CLASS_BUILD_TARGETS
         self.mod_finder.module_info.is_auto_gen_test_config.return_value = False
@@ -282,7 +333,7 @@ class ModuleFinderUnittests(unittest.TestCase):
         self.assertIsNone(self.mod_finder.find_test_by_module_and_class(bad_module))
 
     @mock.patch.object(module_finder.ModuleFinder, '_get_module_test_config',
-                       return_value=KERNEL_CONFIG_FILE)
+                       return_value=[KERNEL_CONFIG_FILE])
     @mock.patch.object(module_finder.ModuleFinder, '_is_vts_module',
                        return_value=False)
     @mock.patch.object(module_finder.ModuleFinder, '_get_build_targets')
@@ -392,6 +443,9 @@ class ModuleFinderUnittests(unittest.TestCase):
         self.mod_finder.module_info.get_module_info.return_value = mod_info
         self.assertIsNone(self.mod_finder.find_test_by_module_and_package(bad_pkg))
 
+    @mock.patch.object(test_finder_utils, 'get_cc_test_classes_methods',
+                       return_value=(set(), set(), set()))
+    @mock.patch.object(atest_utils, 'is_build_file', return_value=True)
     @mock.patch.object(test_finder_utils, 'is_parameterized_java_class',
                        return_value=False)
     @mock.patch.object(test_finder_utils, 'has_method_in_file',
@@ -411,7 +465,8 @@ class ModuleFinderUnittests(unittest.TestCase):
     #pylint: disable=unused-argument
     def test_find_test_by_path(self, mock_pathexists, mock_dir, _isfile, _real,
                                _fqcn, _vts, mock_build, _has_cc_class,
-                               _has_method_in_file, _is_parameterized):
+                               _has_method_in_file, _is_parameterized,
+                                _is_build_file, _get_cc_test_classed):
         """Test find_test_by_path."""
         self.mod_finder.module_info.is_robolectric_test.return_value = False
         self.mod_finder.module_info.has_test_config.return_value = True
@@ -514,6 +569,7 @@ class ModuleFinderUnittests(unittest.TestCase):
         unittest_utils.assert_equal_testinfos(
             self, uc.CC_PATH_INFO, t_infos[0])
 
+    @mock.patch.object(atest_utils, 'is_build_file', return_value=True)
     @mock.patch.object(test_finder_utils, 'has_method_in_file',
                        return_value=True)
     @mock.patch.object(module_finder.ModuleFinder, '_is_vts_module',
@@ -525,7 +581,7 @@ class ModuleFinderUnittests(unittest.TestCase):
     #pylint: disable=unused-argument
     def test_find_test_by_cc_class_name(self, _isdir, _isfile,
                                         mock_checkoutput, mock_build,
-                                        _vts, _has_method):
+                                        _vts, _has_method, _is_build_file):
         """Test find_test_by_cc_class_name."""
         mock_build.return_value = uc.CLASS_BUILD_TARGETS
         self.mod_finder.module_info.is_auto_gen_test_config.return_value = False
@@ -664,6 +720,7 @@ class ModuleFinderUnittests(unittest.TestCase):
             self, t_infos[0],
             uc.PACKAGE_INFO)
 
+    @mock.patch.object(atest_utils, 'is_build_file', return_value=True)
     @mock.patch.object(test_finder_utils, 'is_parameterized_java_class',
                        return_value=True)
     @mock.patch.object(test_finder_utils, 'has_method_in_file',
@@ -683,7 +740,8 @@ class ModuleFinderUnittests(unittest.TestCase):
     #pylint: disable=unused-argument
     def test_find_test_by_path_is_parameterized_java(
             self, mock_pathexists, mock_dir, _isfile, _real, _fqcn, _vts,
-            mock_build, _has_cc_class, _has_method_in_file, _is_parameterized):
+            mock_build, _has_cc_class, _has_method_in_file, _is_parameterized,
+            _is_build_file):
         """Test find_test_by_path and input path is parameterized class."""
         self.mod_finder.module_info.is_robolectric_test.return_value = False
         self.mod_finder.module_info.has_test_config.return_value = True
@@ -711,6 +769,7 @@ class ModuleFinderUnittests(unittest.TestCase):
         unittest_utils.assert_equal_testinfos(
             self, t_infos[0], uc.PARAMETERIZED_FLAT_METHOD_INFO)
 
+    @mock.patch.object(atest_utils, 'is_build_file', return_value=True)
     @mock.patch.object(test_finder_utils, 'is_parameterized_java_class',
                        return_value=True)
     @mock.patch.object(test_finder_utils, 'has_method_in_file',
@@ -726,7 +785,7 @@ class ModuleFinderUnittests(unittest.TestCase):
     #pylint: disable=unused-argument
     def test_find_test_by_class_name_is_parameterized(
             self, _isdir, _isfile, _fqcn, mock_checkoutput, mock_build, _vts,
-            _has_method_in_file, _is_parameterized):
+            _has_method_in_file, _is_parameterized, _is_build_file):
         """Test find_test_by_class_name and the class is parameterized java."""
         mock_build.return_value = uc.CLASS_BUILD_TARGETS
         self.mod_finder.module_info.is_auto_gen_test_config.return_value = False
@@ -751,6 +810,159 @@ class ModuleFinderUnittests(unittest.TestCase):
         unittest_utils.assert_equal_testinfos(
             self, t_infos[0], uc.PARAMETERIZED_FLAT_METHOD_INFO)
 
+    # pylint: disable=unused-argument
+    @mock.patch.object(module_finder.ModuleFinder, '_get_build_targets',
+                       return_value=uc.MODULE_BUILD_TARGETS)
+    def test_find_test_by_config_name(self, _get_targ):
+        """Test find_test_by_config_name."""
+        self.mod_finder.module_info.is_robolectric_test.return_value = False
+        self.mod_finder.module_info.has_test_config.return_value = True
+
+        mod_info = {'installed': ['/path/to/install'],
+                    'path': [uc.MODULE_DIR],
+                    constants.MODULE_TEST_CONFIG: [uc.CONFIG_FILE,
+                                                   uc.EXTRA_CONFIG_FILE],
+                    constants.MODULE_CLASS: [],
+                    constants.MODULE_COMPATIBILITY_SUITES: []}
+        name_to_module_info = {uc.MODULE_NAME: mod_info}
+        self.mod_finder.module_info.name_to_module_info = name_to_module_info
+        t_infos = self.mod_finder.find_test_by_config_name(uc.MODULE_CONFIG_NAME)
+        unittest_utils.assert_equal_testinfos(
+            self,
+            t_infos[0],
+            uc.TEST_CONFIG_MODULE_INFO)
+
+    @mock.patch.object(test_finder_utils, 'is_parameterized_java_class',
+                       return_value=False)
+    @mock.patch.object(test_finder_utils, 'has_method_in_file',
+                       return_value=True)
+    @mock.patch.object(test_finder_utils, 'has_cc_class',
+                       return_value=True)
+    @mock.patch.object(module_finder.ModuleFinder, '_get_build_targets')
+    @mock.patch.object(module_finder.ModuleFinder, '_is_vts_module',
+                       return_value=False)
+    @mock.patch.object(test_finder_utils, 'get_fully_qualified_class_name',
+                       return_value=uc.FULL_CLASS_NAME)
+    @mock.patch('os.path.realpath',
+                side_effect=unittest_utils.realpath_side_effect)
+    @mock.patch('os.path.isfile', side_effect=unittest_utils.isfile_side_effect)
+    @mock.patch.object(test_finder_utils, 'find_parent_module_dir')
+    @mock.patch('os.path.exists')
+    #pylint: disable=unused-argument
+    def test_find_test_by_path_w_src_verify(
+            self, mock_pathexists, mock_dir, _isfile, _real, _fqcn, _vts,
+            mock_build, _has_cc_class, _has_method_in_file, _is_parameterized):
+        """Test find_test_by_path with src information."""
+        self.mod_finder.module_info.is_robolectric_test.return_value = False
+        self.mod_finder.module_info.has_test_config.return_value = True
+        self.mod_finder.module_info.get_module_names.return_value = [uc.MODULE_NAME]
+        mock_build.return_value = uc.CLASS_BUILD_TARGETS
+
+        # Happy path testing.
+        mock_dir.return_value = uc.MODULE_DIR
+        # Test path not in module's src list.
+        class_path = '%s.java' % uc.CLASS_NAME
+        self.mod_finder.module_info.get_module_info.return_value = {
+            constants.MODULE_INSTALLED: DEFAULT_INSTALL_PATH,
+            constants.MODULE_NAME: uc.MODULE_NAME,
+            constants.MODULE_CLASS: [],
+            constants.MODULE_COMPATIBILITY_SUITES: [],
+            constants.MODULE_SRCS: ['not_matched_%s' % class_path]}
+        t_infos = self.mod_finder.find_test_by_path(class_path)
+        self.assertEqual(0, len(t_infos))
+
+        # Test input file is in module's src list.
+        class_path = '%s.java' % uc.CLASS_NAME
+        self.mod_finder.module_info.get_module_info.return_value = {
+            constants.MODULE_INSTALLED: DEFAULT_INSTALL_PATH,
+            constants.MODULE_NAME: uc.MODULE_NAME,
+            constants.MODULE_CLASS: [],
+            constants.MODULE_COMPATIBILITY_SUITES: [],
+            constants.MODULE_SRCS: [class_path]}
+        t_infos = self.mod_finder.find_test_by_path(class_path)
+        unittest_utils.assert_equal_testinfos(self, uc.CLASS_INFO, t_infos[0])
+
+    @mock.patch.object(test_finder_utils, 'get_cc_test_classes_methods')
+    @mock.patch.object(atest_utils, 'is_build_file', return_value=True)
+    @mock.patch.object(test_finder_utils, 'is_parameterized_java_class',
+                       return_value=False)
+    @mock.patch.object(test_finder_utils, 'has_method_in_file',
+                       return_value=True)
+    @mock.patch.object(test_finder_utils, 'has_cc_class',
+                       return_value=True)
+    @mock.patch.object(module_finder.ModuleFinder, '_get_build_targets')
+    @mock.patch.object(module_finder.ModuleFinder, '_is_vts_module',
+                       return_value=False)
+    @mock.patch.object(test_finder_utils, 'get_fully_qualified_class_name',
+                       return_value=uc.FULL_CLASS_NAME)
+    @mock.patch('os.path.realpath',
+                side_effect=unittest_utils.realpath_side_effect)
+    @mock.patch('os.path.isfile', side_effect=unittest_utils.isfile_side_effect)
+    @mock.patch.object(test_finder_utils, 'find_parent_module_dir')
+    @mock.patch('os.path.exists')
+    #pylint: disable=unused-argument
+    def test_find_test_by_path_for_cc_file(self, mock_pathexists, mock_dir,
+        _isfile, _real, _fqcn, _vts, mock_build, _has_cc_class,
+        _has_method_in_file, _is_parameterized, _is_build_file,
+        _mock_get_cc_test_class):
+        """Test find_test_by_path for handling correct CC filter."""
+        self.mod_finder.module_info.is_robolectric_test.return_value = False
+        self.mod_finder.module_info.has_test_config.return_value = True
+        mock_build.return_value = set()
+        # Check that we don't return anything with invalid test references.
+        mock_pathexists.return_value = False
+        mock_pathexists.return_value = True
+        mock_dir.return_value = None
+        self.mod_finder.module_info.get_module_names.return_value = [uc.MODULE_NAME]
+        self.mod_finder.module_info.get_module_info.return_value = {
+            constants.MODULE_INSTALLED: DEFAULT_INSTALL_PATH,
+            constants.MODULE_NAME: uc.MODULE_NAME,
+            constants.MODULE_CLASS: [],
+            constants.MODULE_COMPATIBILITY_SUITES: []}
+        # Happy path testing.
+        mock_dir.return_value = uc.MODULE_DIR
+        # Cc path testing if get_cc_test_classes_methods found those information.
+        self.mod_finder.module_info.get_module_names.return_value = [uc.CC_MODULE_NAME]
+        self.mod_finder.module_info.get_module_info.return_value = {
+            constants.MODULE_INSTALLED: DEFAULT_INSTALL_PATH,
+            constants.MODULE_NAME: uc.CC_MODULE_NAME,
+            constants.MODULE_CLASS: [],
+            constants.MODULE_COMPATIBILITY_SUITES: []}
+        mock_dir.return_value = uc.CC_MODULE_DIR
+        class_path = '%s' % uc.CC_PATH
+        mock_build.return_value = uc.CLASS_BUILD_TARGETS
+        # Test without paramertize test
+        founded_classed = {'class1'}
+        founded_methods = {'method1'}
+        founded_para_classes = set()
+        _mock_get_cc_test_class.return_value = (founded_classed,
+                                                founded_methods,
+                                                founded_para_classes)
+        cc_path_data = {constants.TI_REL_CONFIG: uc.CC_CONFIG_FILE,
+                        constants.TI_FILTER: frozenset(
+                            {test_info.TestFilter(class_name='class1.*',
+                                                  methods=frozenset())})}
+        cc_path_info = test_info.TestInfo(uc.CC_MODULE_NAME,
+                                          atf_tr.AtestTradefedTestRunner.NAME,
+                                          uc.CLASS_BUILD_TARGETS, cc_path_data)
+        t_infos = self.mod_finder.find_test_by_path(class_path)
+        unittest_utils.assert_equal_testinfos(self, cc_path_info, t_infos[0])
+        # Test with paramertize test defined in input path
+        founded_classed = {'class1'}
+        founded_methods = {'method1'}
+        founded_para_classes = {'class1'}
+        _mock_get_cc_test_class.return_value = (founded_classed,
+                                                founded_methods,
+                                                founded_para_classes)
+        cc_path_data = {constants.TI_REL_CONFIG: uc.CC_CONFIG_FILE,
+                        constants.TI_FILTER: frozenset(
+                            {test_info.TestFilter(class_name='*/class1.*',
+                                                  methods=frozenset())})}
+        cc_path_info = test_info.TestInfo(uc.CC_MODULE_NAME,
+                                          atf_tr.AtestTradefedTestRunner.NAME,
+                                          uc.CLASS_BUILD_TARGETS, cc_path_data)
+        t_infos = self.mod_finder.find_test_by_path(class_path)
+        unittest_utils.assert_equal_testinfos(self, cc_path_info, t_infos[0])
 
 if __name__ == '__main__':
     unittest.main()

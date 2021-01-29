@@ -57,6 +57,8 @@ TF_DEBUG = 'TF_DEBUG'
 COLLECT_TESTS_ONLY = 'COLLECT_TESTS_ONLY'
 TF_TEMPLATE = 'TF_TEMPLATE'
 FLAKES_INFO = 'FLAKES_INFO'
+TF_EARLY_DEVICE_RELEASE = 'TF_EARLY_DEVICE_RELEASE'
+REQUEST_UPLOAD_RESULT = 'REQUEST_UPLOAD_RESULT'
 
 # Application exit codes.
 EXIT_CODE_SUCCESS = 0
@@ -69,6 +71,12 @@ EXIT_CODE_VERIFY_FAILURE = 6
 EXIT_CODE_OUTSIDE_ROOT = 7
 EXIT_CODE_AVD_CREATE_FAILURE = 8
 EXIT_CODE_AVD_INVALID_ARGS = 9
+# Conditions that atest should exit without sending result to metrics.
+EXIT_CODES_BEFORE_TEST = [EXIT_CODE_ENV_NOT_SETUP,
+                          EXIT_CODE_TEST_NOT_FOUND,
+                          EXIT_CODE_OUTSIDE_ROOT,
+                          EXIT_CODE_AVD_CREATE_FAILURE,
+                          EXIT_CODE_AVD_INVALID_ARGS]
 
 # Codes of specific events. These are exceptions that don't stop anything
 # but sending metrics.
@@ -88,6 +96,9 @@ MODULE_CLASS_ROBOLECTRIC = 'ROBOLECTRIC'
 MODULE_CLASS_NATIVE_TESTS = 'NATIVE_TESTS'
 MODULE_CLASS_JAVA_LIBRARIES = 'JAVA_LIBRARIES'
 MODULE_TEST_CONFIG = 'test_config'
+MODULE_MAINLINE_MODULES = 'test_mainline_modules'
+MODULE_DEPENDENCIES = 'dependencies'
+MODULE_SRCS = 'srcs'
 
 # Env constants
 ANDROID_BUILD_TOP = 'ANDROID_BUILD_TOP'
@@ -96,6 +107,7 @@ ANDROID_OUT_DIR = 'OUT_DIR'
 ANDROID_OUT_DIR_COMMON_BASE = 'OUT_DIR_COMMON_BASE'
 ANDROID_HOST_OUT = 'ANDROID_HOST_OUT'
 ANDROID_PRODUCT_OUT = 'ANDROID_PRODUCT_OUT'
+ANDROID_TARGET_PRODUCT = 'TARGET_PRODUCT'
 
 # Test Info data keys
 # Value of include-filter option.
@@ -143,13 +155,10 @@ ALL_STEPS = [BUILD_STEP, INSTALL_STEP, TEST_STEP]
 # ANSI code shift for colorful print
 BLACK, RED, GREEN, YELLOW, BLUE, MAGENTA, CYAN, WHITE = range(8)
 
-# Answers equivalent to YES!
-AFFIRMATIVES = ['y', 'Y', 'yes', 'Yes', 'YES', '']
-LD_RANGE = 2
-
 # Types of Levenshetine Distance Cost
 COST_TYPO = (1, 1, 1)
 COST_SEARCH = (8, 1, 5)
+LD_RANGE = 2
 
 # Value of TestInfo install_locations.
 DEVICELESS_TEST = 'host'
@@ -175,12 +184,13 @@ USER_FROM_TOOL = 'USER_FROM_TOOL'
 TF_PREPARATION = 'tf-preparation'
 
 # Detect type for local_detect_event.
-# Next expansion : DETECT_TYPE_XXX = 3
+# Next expansion : DETECT_TYPE_XXX = 6
 DETECT_TYPE_BUG_DETECTED = 0
 DETECT_TYPE_ACLOUD_CREATE = 1
 DETECT_TYPE_FIND_BUILD = 2
 DETECT_TYPE_NO_FLAKE = 3
 DETECT_TYPE_HAS_FLAKE = 4
+DETECT_TYPE_TF_TEARDOWN_LOGCAT = 5
 
 # Considering a trade-off between speed and size, we set UPPER_LIMIT to 100000
 # to make maximum file space 10M(100000(records)*100(byte/record)) at most.
@@ -211,7 +221,8 @@ ATEST_TF_MODULE = 'atest-tradefed'
 # generate modules' dependencies info when make.
 # With SOONG_COLLECT_JAVA_DEPS enabled, out/soong/module_bp_java_deps.json will
 # be generated when make.
-ATEST_BUILD_ENV = {'RECORD_ALL_DEPS':'true', 'SOONG_COLLECT_JAVA_DEPS':'true'}
+ATEST_BUILD_ENV = {'RECORD_ALL_DEPS':'true', 'SOONG_COLLECT_JAVA_DEPS':'true',
+                   'SOONG_COLLECT_CC_DEPS':'true'}
 
 # Atest index path and relative dirs/caches.
 INDEX_DIR = os.path.join(os.getenv(ANDROID_HOST_OUT, ''), 'indexes')
@@ -244,6 +255,8 @@ ATEST_RESULT_ROOT = '/tmp/atest_result'
 ATEST_TEST_RECORD_PROTO = 'test_record.proto'
 LATEST_RESULT_FILE = os.path.join(ATEST_RESULT_ROOT, 'LATEST', 'test_result')
 ACLOUD_REPORT_FILE_RE = re.compile(r'.*--report[_-]file(=|\s+)(?P<report_file>[\w/.]+)')
+TEST_WITH_MAINLINE_MODULES_RE = re.compile(r'(?P<test>.*)\[(?P<mainline_modules>.*'
+                                           r'[.](apk|apks|apex))\]$')
 
 # Tests list which need vts_kernel_tests as test dependency
 REQUIRED_KERNEL_TEST_MODULES = [
@@ -277,12 +290,19 @@ FLAKE_POSTSUBMIT = 'postsubmit_flakes_per_week'
 # cert status command
 CERT_STATUS_CMD = ''
 
+ASUITE_REPO_PROJECT_NAME = 'platform/tools/asuite'
+
 # logstorage api scope.
 SCOPE_BUILD_API_SCOPE = ''
 STORAGE_API_VERSION = ''
 STORAGE_SERVICE_NAME = ''
-DO_NOT_UPLOAD_FILE_NAME = 'DO_NOT_UPLOAD'
+DO_NOT_UPLOAD = 'DO_NOT_UPLOAD'
 CLIENT_ID = ''
 CLIENT_SECRET = ''
 CREDENTIAL_FILE_NAME = ''
-GCP_BUCKET_ACCESS_TOKEN = ''
+TOKEN_FILE_PATH = ''
+INVOCATION_ID = 'INVOCATION_ID'
+WORKUNIT_ID = 'WORKUNIT_ID'
+RESULT_LINK = ''
+TF_GLOBAL_CONFIG = ''
+UPLOAD_TEST_RESULT_MSG = 'Upload test result?'

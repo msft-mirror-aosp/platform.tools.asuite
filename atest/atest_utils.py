@@ -18,6 +18,7 @@ Utility functions for atest.
 
 
 # pylint: disable=import-outside-toplevel
+# pylint: disable=too-many-lines
 
 from __future__ import print_function
 
@@ -33,9 +34,22 @@ import re
 import shutil
 import subprocess
 import sys
+import sysconfig
 import time
 import zipfile
 
+from distutils.util import strtobool
+
+# This is a workaround of b/144743252, where the http.client failed to loaded
+# because the googleapiclient was found before the built-in libs; enabling
+# embedded launcher(b/135639220) has not been reliable and other issue will
+# raise.
+# The workaround is repositioning the built-in libs before other 3rd libs in
+# PYTHONPATH(sys.path) to eliminate the symptom of failed loading http.client.
+sys.path.insert(0, os.path.dirname(sysconfig.get_paths()['purelib']))
+sys.path.insert(0, os.path.dirname(sysconfig.get_paths()['stdlib']))
+
+#pylint: disable=wrong-import-position
 import atest_decorator
 import atest_error
 import constants
@@ -43,7 +57,7 @@ import constants
 # This proto related module will be auto generated in build time.
 # pylint: disable=no-name-in-module
 # pylint: disable=import-error
-from tools.tradefederation.core.proto import test_record_pb2
+from tools.asuite.atest.tf_proto import test_record_pb2
 
 # b/147562331 only occurs when running atest in source code. We don't encourge
 # the users to manually "pip3 install protobuf", therefore when the exception
@@ -52,11 +66,13 @@ try:
     from metrics import metrics
     from metrics import metrics_base
     from metrics import metrics_utils
-except ModuleNotFoundError:
+except ModuleNotFoundError as err:
     # This exception occurs only when invoking atest in source code.
     print("You shouldn't see this message unless you ran 'atest-src'."
           "To resolve the issue, please run:\n\t{}\n"
           "and try again.".format('pip3 install protobuf'))
+    print('Import error, %s', err)
+    print('sys.path: %s', sys.path)
     sys.exit(constants.IMPORT_FAILURE)
 
 _BASH_RESET_CODE = '\033[0m\n'
@@ -89,7 +105,11 @@ _FIND_MODIFIED_FILES_CMDS = (
     "| awk '{{print $1}}');"
     # Get the list of modified files from HEAD to previous $ahead generation.
     "git diff HEAD~$ahead --name-only")
+_ANDROID_BUILD_EXT = ('.bp', '.mk')
 
+# Set of special chars for various purposes.
+_REGEX_CHARS = {'[', '(', '{', '|', '\\', '*', '?', '+', '^'}
+_WILDCARD_CHARS = {'?', '*'}
 
 def get_build_cmd():
     """Compose build command with no-absolute path and flag "--make-mode".
@@ -283,6 +303,7 @@ def _can_upload_to_result_server():
     return False
 
 
+# pylint: disable=unused-argument
 def get_result_server_args(for_test_mapping=False):
     """Return list of args for communication with result server.
 
@@ -290,15 +311,8 @@ def get_result_server_args(for_test_mapping=False):
         for_test_mapping: True if the test run is for Test Mapping to include
             additional reporting args. Default is False.
     """
-    # TODO (b/147644460) Temporarily disable Sponge V1 since it will be turned
-    # down.
-    if _can_upload_to_result_server():
-        if for_test_mapping:
-            return (constants.RESULT_SERVER_ARGS +
-                    constants.TEST_MAPPING_RESULT_SERVER_ARGS)
-        return constants.RESULT_SERVER_ARGS
-    return []
-
+    # Customize test mapping argument here if needed.
+    return constants.RESULT_SERVER_ARGS
 
 def sort_and_group(iterable, key):
     """Sort and group helper function."""
@@ -489,18 +503,10 @@ def handle_test_runner_cmd(input_test, test_cmds, do_verification=False,
             # are willing to update the result.
             print('Former cmds = %s' % former_test_cmds)
             print('Current cmds = %s' % test_cmds)
-            try:
-                from distutils import util
-                if not util.strtobool(
-                        input('Do you want to update former result '
-                              'with the latest one?(Y/n)')):
-                    print('SKIP updating result!!!')
-                    return
-            except ValueError:
-                # Default action is updating the command result of the
-                # input_test. If the user input is unrecognizable telling yes
-                # or no, "Y" is implicitly applied.
-                pass
+            if not prompt_with_yn_result('Do you want to update former result '
+                                         'to the latest one?', True):
+                print('SKIP updating result!!!')
+                return
     else:
         # If current commands are the same as the formers, no need to update
         # result.
@@ -904,3 +910,131 @@ def is_valid_json_file(path):
     except json.JSONDecodeError:
         logging.warning('Exception happened while loading %s.', path)
     return is_valid
+
+def get_manifest_branch():
+    """Get the manifest branch via repo info command.
+
+    Returns:
+        None if no system environment parameter ANDROID_BUILD_TOP or
+        running 'repo info' command error, otherwise the manifest branch
+    """
+    build_top = os.getenv(constants.ANDROID_BUILD_TOP, None)
+    if not build_top:
+        return None
+    try:
+        # Command repo need use default lib "http", add non-default lib
+        # might cause repo command execution error.
+        splitter = ':'
+        env_vars = os.environ.copy()
+        org_python_path = env_vars['PYTHONPATH'].split(splitter)
+        default_python_path = [p for p in org_python_path
+                               if not p.startswith('/tmp/Soong.python_')]
+        env_vars['PYTHONPATH'] = splitter.join(default_python_path)
+        output = subprocess.check_output(
+            ['repo', 'info', '-o', constants.ASUITE_REPO_PROJECT_NAME],
+            env=env_vars,
+            cwd=build_top,
+            universal_newlines=True)
+        branch_re = re.compile(r'Manifest branch:\s*(?P<branch>.*)')
+        match = branch_re.match(output)
+        if match:
+            return match.group('branch')
+        logging.warning('Unable to detect branch name through:\n %s', output)
+    except subprocess.CalledProcessError:
+        logging.warning('Exception happened while getting branch')
+    return None
+
+def get_build_target():
+    """Get the build target form system environment TARGET_PRODUCT."""
+    return os.getenv(constants.ANDROID_TARGET_PRODUCT, None)
+
+def parse_mainline_modules(test):
+    """Parse test reference into test and mainline modules.
+
+    Args:
+        test: An String of test reference.
+
+    Returns:
+        A string of test without mainline modules,
+        A string of mainline modules.
+    """
+    result = constants.TEST_WITH_MAINLINE_MODULES_RE.match(test)
+    if not result:
+        return test, ""
+    test_wo_mainline_modules = result.group('test')
+    mainline_modules = result.group('mainline_modules')
+    return test_wo_mainline_modules, mainline_modules
+
+def has_wildcard(test_name):
+    """ Tell whether the test_name(either a list or string) contains wildcard
+    symbols.
+
+    Args:
+        test_name: A list or a str.
+
+    Return:
+        True if test_name contains wildcard, False otherwise.
+    """
+    if isinstance(test_name, str):
+        return any(char in test_name for char in _WILDCARD_CHARS)
+    if isinstance(test_name, list):
+        for name in test_name:
+            if has_wildcard(name):
+                return True
+    return False
+
+def is_build_file(path):
+    """ If input file is one of an android build file.
+
+    Args:
+        path: A string of file path.
+
+    Return:
+        True if path is android build file, False otherwise.
+    """
+    return bool(os.path.splitext(path)[-1] in _ANDROID_BUILD_EXT)
+
+def quote(input_str):
+    """ If the input string -- especially in custom args -- contains shell-aware
+    characters, insert a pair of "\" to the input string.
+
+    e.g. unit(test|testing|testing) -> 'unit(test|testing|testing)'
+
+    Args:
+        input_str: A string from user input.
+
+    Returns: A string with single quotes if regex chars were detected.
+    """
+    if has_chars(input_str, _REGEX_CHARS):
+        return "\'" + input_str + "\'"
+    return input_str
+
+def has_chars(input_str, chars):
+    """ Check if the input string contains one of the designated characters.
+
+    Args:
+        input_str: A string from user input.
+        chars: An iterable object.
+
+    Returns:
+        True if the input string contains one of the special chars.
+    """
+    for char in chars:
+        if char in input_str:
+            return True
+    return False
+
+def prompt_with_yn_result(msg, default=True):
+    """Prompt message and get yes or no result.
+
+    Args:
+        msg: The question you want asking.
+        default: boolean to True/Yes or False/No
+    Returns:
+        default value if get KeyboardInterrupt or ValueError exception.
+    """
+    suffix = '[Y/n]: ' if default else '[y/N]: '
+    try:
+        return strtobool(input(msg+suffix))
+    except (ValueError, KeyboardInterrupt):
+        return default

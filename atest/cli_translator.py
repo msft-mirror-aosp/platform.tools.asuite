@@ -19,6 +19,7 @@
 
 from __future__ import print_function
 
+import fnmatch
 import json
 import logging
 import os
@@ -38,10 +39,13 @@ from test_finders import module_finder
 
 FUZZY_FINDER = 'FUZZY'
 CACHE_FINDER = 'CACHE'
+TESTNAME_CHARS = {'#', ':', '/'}
 
 # Pattern used to identify comments start with '//' or '#' in TEST_MAPPING.
 _COMMENTS_RE = re.compile(r'(?m)[\s\t]*(#|//).*|(\".*?\")')
 _COMMENTS = frozenset(['//', '#'])
+
+_MAINLINE_MODULES_EXT_RE = re.compile(r'(.apex|.apks|.apk)$')
 
 #pylint: disable=no-self-use
 class CLITranslator:
@@ -77,6 +81,8 @@ class CLITranslator:
                         'to clean the old cache.)')
 
     # pylint: disable=too-many-locals
+    # pylint: disable=too-many-branches
+    # pylint: disable=too-many-statements
     def _find_test_infos(self, test, tm_test_detail,
                          is_rebuild_module_info=False):
         """Return set of TestInfos based on a given test.
@@ -96,6 +102,22 @@ class CLITranslator:
         test_finders = []
         test_info_str = ''
         find_test_err_msg = None
+        mm_build_targets = []
+        test, mainline_modules = atest_utils.parse_mainline_modules(test)
+        if not self._verified_mainline_modules(test, mainline_modules):
+            return test_infos
+        test_modules_to_build = []
+        test_mainline_modules = []
+        if self.mod_info and self.mod_info.get_module_info(test):
+            test_mainline_modules = self.mod_info.get_module_info(test).get(
+                constants.MODULE_MAINLINE_MODULES, [])
+        for modules in test_mainline_modules:
+            for module in modules.split('+'):
+                test_modules_to_build.append(re.sub(
+                    _MAINLINE_MODULES_EXT_RE, '', module))
+        if mainline_modules:
+            mm_build_targets = [re.sub(_MAINLINE_MODULES_EXT_RE, '', x)
+                                for x in mainline_modules.split('+')]
         for finder in test_finder_handler.get_find_methods_for_test(
                 self.mod_info, test):
             # For tests in TEST_MAPPING, find method is only related to
@@ -109,6 +131,12 @@ class CLITranslator:
             if found_test_infos:
                 finder_info = finder.finder_info
                 for test_info in found_test_infos:
+                    test_deps = set()
+                    if self.mod_info:
+                        test_deps = self.mod_info.get_module_dependency(
+                            test_info.test_name)
+                        logging.debug('(%s) Test dependencies: %s',
+                                      test_info.test_name, test_deps)
                     if tm_test_detail:
                         test_info.data[constants.TI_MODULE_ARG] = (
                             tm_test_detail.options)
@@ -116,6 +144,17 @@ class CLITranslator:
                         test_info.host = tm_test_detail.host
                     if finder_info != CACHE_FINDER:
                         test_info.test_finder = finder_info
+                    test_info.mainline_modules = mainline_modules
+                    test_info.build_targets = {
+                        x for x in test_info.build_targets
+                        if x not in test_modules_to_build}
+                    test_info.build_targets.update(mm_build_targets)
+                    # Only add dependencies to build_targets when they are in
+                    # module info
+                    test_deps_in_mod_info = [
+                        test_dep for test_dep in test_deps
+                        if self.mod_info.is_module(test_dep)]
+                    test_info.build_targets.update(test_deps_in_mod_info)
                     test_infos.add(test_info)
                 test_found = True
                 print("Found '%s' as %s" % (
@@ -148,6 +187,37 @@ class CLITranslator:
             print(self.msg)
         return test_infos
 
+    def _verified_mainline_modules(self, test, mainline_modules):
+        """ Verify the test with mainline modules is acceptable.
+
+        The test must be a module and mainline modules are in module-info.
+        The syntax rule of mainline modules will check in build process.
+        The rule includes mainline modules are sorted alphabetically, no space,
+        and no duplication.
+
+        Args:
+            test: A string representing test references
+            mainline_modules: A string of mainline_modules.
+
+        Returns:
+            True if this test is acceptable. Otherwise, print the reason and
+            return False.
+        """
+        if not mainline_modules:
+            return True
+        if not self.mod_info.is_module(test):
+            print('Test mainline modules(%s) for: %s failed. Only support '
+                  'module tests.'
+                  % (atest_utils.colorize(mainline_modules, constants.RED),
+                     atest_utils.colorize(test, constants.RED)))
+            return False
+        if not self.mod_info.has_mainline_modules(test, mainline_modules):
+            print('Error: Test mainline modules(%s) not for %s.'
+                  % (atest_utils.colorize(mainline_modules, constants.RED),
+                     atest_utils.colorize(test, constants.RED)))
+            return False
+        return True
+
     def _fuzzy_search_and_msg(self, test, find_test_err_msg,
                               is_rebuild_module_info=False):
         """ Fuzzy search and print message.
@@ -164,6 +234,8 @@ class CLITranslator:
               atest_utils.colorize(test, constants.RED))
         # Currently we focus on guessing module names. Append names on
         # results if more finders support fuzzy searching.
+        if atest_utils.has_chars(test, TESTNAME_CHARS):
+            return None
         mod_finder = module_finder.ModuleFinder(self.mod_info)
         results = mod_finder.get_fuzzy_searching_results(test)
         if len(results) == 1 and self._confirm_running(results):
@@ -219,9 +291,9 @@ class CLITranslator:
         Returns:
             True is the answer is affirmative.
         """
-        decision = input('Did you mean {0}? [Y/n] '.format(
-            atest_utils.colorize(results[0], constants.GREEN)))
-        return decision in constants.AFFIRMATIVES
+        return atest_utils.prompt_with_yn_result(
+            'Did you mean {0}?'.format(
+                atest_utils.colorize(results[0], constants.GREEN)), True)
 
     def _print_fuzzy_searching_results(self, results):
         """Print modules when fuzzy searching gives multiple results.
@@ -288,6 +360,13 @@ class CLITranslator:
                 grouped_tests = all_tests.setdefault(test_group_name, set())
                 tests = []
                 for test in test_list:
+                    # TODO: uncomment below when atest support testing mainline
+                    # module in TEST_MAPPING files.
+                    if constants.TEST_WITH_MAINLINE_MODULES_RE.match(test['name']):
+                        logging.debug('Skipping mainline module: %s',
+                                      atest_utils.colorize(test['name'],
+                                                           constants.RED))
+                        continue
                     if (self.enable_file_patterns and
                             not test_mapping.is_match_file_patterns(
                                 test_mapping_file, test)):
@@ -482,6 +561,31 @@ class CLITranslator:
         test_names = [detail.name for detail in test_details_list]
         return test_names, test_details_list
 
+    def _extract_testable_modules_by_wildcard(self, user_input):
+        """Extract the given string with wildcard symbols to testable
+        module names.
+
+        Assume the available testable modules is:
+            ['Google', 'google', 'G00gle', 'g00gle']
+        and the user_input is:
+            ['*oo*', 'g00gle']
+        This method will return:
+            ['Google', 'google', 'g00gle']
+
+        Args:
+            user_input: A list of input.
+
+        Returns:
+            A list of testable modules.
+        """
+        testable_mods = self.mod_info.get_testable_modules()
+        extracted_tests = []
+        for test in user_input:
+            if atest_utils.has_wildcard(test):
+                extracted_tests.extend(fnmatch.filter(testable_mods, test))
+            else:
+                extracted_tests.append(test)
+        return extracted_tests
 
     def translate(self, args):
         """Translate atest command line into build targets and run commands.
@@ -502,6 +606,12 @@ class CLITranslator:
         atest_utils.colorful_print("\nFinding Tests...", constants.CYAN)
         logging.debug('Finding Tests: %s', tests)
         start = time.time()
+        # Clear cache if user pass -c option
+        if args.clear_cache:
+            atest_utils.clean_test_info_caches(tests)
+        # Process tests which might contain wildcard symbols in advance.
+        if atest_utils.has_wildcard(tests):
+            tests = self._extract_testable_modules_by_wildcard(tests)
         test_infos = self._get_test_infos(tests, test_details_list,
                                           args.rebuild_module_info)
         logging.debug('Found tests in %ss', time.time() - start)

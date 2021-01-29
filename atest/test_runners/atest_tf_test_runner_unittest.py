@@ -43,7 +43,7 @@ METRICS_DIR = '%s/baseline-metrics' % TEST_INFO_DIR
 METRICS_DIR_ARG = '--metrics-folder %s ' % METRICS_DIR
 # TODO(147567606): Replace {serial} with {extra_args} for general extra
 # arguments testing.
-RUN_CMD_ARGS = '{metrics}--log-level-display VERBOSE --log-level VERBOSE{serial}'
+RUN_CMD_ARGS = '{metrics}--log-level-display VERBOSE --log-level VERBOSE{device_early_release}{serial}'
 LOG_ARGS = atf_tr.AtestTradefedTestRunner._LOG_ARGS.format(
     log_path=os.path.join(TEST_INFO_DIR, atf_tr.LOG_FOLDER_NAME),
     proto_path=os.path.join(TEST_INFO_DIR, constants.ATEST_TEST_RECORD_PROTO))
@@ -399,24 +399,28 @@ class AtestTradefedTestRunnerUnittests(unittest.TestCase):
             [RUN_CMD.format(env=RUN_ENV_STR,
                             metrics='',
                             serial='',
-                            tf_customize_template='')])
+                            tf_customize_template='',
+                            device_early_release=' --no-early-device-release')])
         mock_mertrics.return_value = METRICS_DIR
         unittest_utils.assert_strict_equal(
             self,
             self.tr.generate_run_commands([], {}),
             [RUN_CMD.format(metrics=METRICS_DIR_ARG,
                             serial='',
-                            tf_customize_template='')])
+                            tf_customize_template='',
+                            device_early_release=' --no-early-device-release')])
         # Run cmd with result server args.
         result_arg = '--result_arg'
         mock_resultargs.return_value = [result_arg]
         mock_mertrics.return_value = ''
         unittest_utils.assert_strict_equal(
             self,
-            self.tr.generate_run_commands([], {}),
+            self.tr.generate_run_commands(
+                [], {}),
             [RUN_CMD.format(metrics='',
                             serial='',
-                            tf_customize_template='') + ' ' + result_arg])
+                            tf_customize_template='',
+                            device_early_release=' --no-early-device-release') + ' ' + result_arg])
 
     @mock.patch('os.environ.get')
     @mock.patch.object(atf_tr.AtestTradefedTestRunner, '_generate_metrics_folder')
@@ -435,7 +439,8 @@ class AtestTradefedTestRunnerUnittests(unittest.TestCase):
             self.tr.generate_run_commands([], {}),
             [RUN_CMD.format(metrics='',
                             serial=env_serial_arg,
-                            tf_customize_template='')])
+                            tf_customize_template='',
+                            device_early_release=' --no-early-device-release')])
         # Serial env be set but with --serial arg.
         arg_device_serial = 'arg-device-0'
         arg_serial_arg = ' --serial %s' % arg_device_serial
@@ -444,14 +449,16 @@ class AtestTradefedTestRunnerUnittests(unittest.TestCase):
             self.tr.generate_run_commands([], {constants.SERIAL:arg_device_serial}),
             [RUN_CMD.format(metrics='',
                             serial=arg_serial_arg,
-                            tf_customize_template='')])
+                            tf_customize_template='',
+                            device_early_release=' --no-early-device-release')])
         # Serial env be set but with -n arg
         unittest_utils.assert_strict_equal(
             self,
             self.tr.generate_run_commands([], {constants.HOST: True}),
             [RUN_CMD.format(metrics='',
                             serial='',
-                            tf_customize_template='') +
+                            tf_customize_template='',
+                            device_early_release=' --no-early-device-release') +
              ' -n --prioritize-host-config --skip-host-arch-check'])
 
 
@@ -590,7 +597,8 @@ class AtestTradefedTestRunnerUnittests(unittest.TestCase):
             [RUN_CMD.format(
                 metrics='',
                 serial='',
-                tf_customize_template='')])
+                tf_customize_template='',
+                device_early_release=' --no-early-device-release')])
         # Testing  with collect-tests-only
         mock_resultargs.return_value = []
         mock_mertrics.return_value = ''
@@ -601,7 +609,8 @@ class AtestTradefedTestRunnerUnittests(unittest.TestCase):
             [RUN_CMD.format(
                 metrics='',
                 serial=' --collect-tests-only',
-                tf_customize_template='')])
+                tf_customize_template='',
+                device_early_release=' --no-early-device-release')])
 
 
     @mock.patch('os.environ.get', return_value=None)
@@ -625,6 +634,7 @@ class AtestTradefedTestRunnerUnittests(unittest.TestCase):
             [RUN_CMD.format(
                 metrics='',
                 serial='',
+                device_early_release=' --no-early-device-release',
                 tf_customize_template=
                 '--template:map {}={}').format(tf_tmplate_key1,
                                                tf_tmplate_val1)])
@@ -640,6 +650,7 @@ class AtestTradefedTestRunnerUnittests(unittest.TestCase):
             [RUN_CMD.format(
                 metrics='',
                 serial='',
+                device_early_release=' --no-early-device-release',
                 tf_customize_template=
                 '--template:map {}={} --template:map {}={}').format(
                     tf_tmplate_key1,
@@ -654,17 +665,17 @@ class AtestTradefedTestRunnerUnittests(unittest.TestCase):
                                                        mock_get_credential_with_auth_flow):
         """test request_consent_of_upload_test_result method."""
         constants.CREDENTIAL_FILE_NAME = 'cred_file'
-        constants.GCP_BUCKET_ACCESS_TOKEN = 'access_token'
+        constants.GCP_ACCESS_TOKEN = 'access_token'
         tmp_folder = tempfile.mkdtemp()
         mock_input.return_value = 'Y'
         not_upload_file = os.path.join(tmp_folder,
-                                       constants.DO_NOT_UPLOAD_FILE_NAME)
+                                       constants.DO_NOT_UPLOAD)
 
-        self.tr._request_consent_of_upload_test_result(tmp_folder)
+        self.tr._request_consent_of_upload_test_result(tmp_folder, True)
         self.assertEqual(1, mock_get_credential_with_auth_flow.call_count)
         self.assertFalse(os.path.exists(not_upload_file))
 
-        self.tr._request_consent_of_upload_test_result(tmp_folder)
+        self.tr._request_consent_of_upload_test_result(tmp_folder, True)
         self.assertEqual(2, mock_get_credential_with_auth_flow.call_count)
         self.assertFalse(os.path.exists(not_upload_file))
 
@@ -676,17 +687,60 @@ class AtestTradefedTestRunnerUnittests(unittest.TestCase):
         """test request_consent_of_upload_test_result method."""
         mock_input.return_value = 'N'
         constants.CREDENTIAL_FILE_NAME = 'cred_file'
-        constants.GCP_BUCKET_ACCESS_TOKEN = 'access_token'
+        constants.GCP_ACCESS_TOKEN = 'access_token'
         tmp_folder = tempfile.mkdtemp()
         not_upload_file = os.path.join(tmp_folder,
-                                       constants.DO_NOT_UPLOAD_FILE_NAME)
+                                       constants.DO_NOT_UPLOAD)
 
-        self.tr._request_consent_of_upload_test_result(tmp_folder)
+        self.tr._request_consent_of_upload_test_result(tmp_folder, True)
         self.assertTrue(os.path.exists(not_upload_file))
         self.assertEqual(0, mock_get_credential_with_auth_flow.call_count)
-        self.tr._request_consent_of_upload_test_result(tmp_folder)
+        self.tr._request_consent_of_upload_test_result(tmp_folder, True)
         self.assertEqual(0, mock_get_credential_with_auth_flow.call_count)
 
+    @mock.patch('os.environ.get', return_value=None)
+    @mock.patch.object(atf_tr.AtestTradefedTestRunner, '_generate_metrics_folder')
+    @mock.patch('atest_utils.get_result_server_args')
+    def test_generate_run_commands_with_tf_early_device_release(
+            self, mock_resultargs, mock_mertrics, _):
+        """Test generate_run_command method."""
+        # Testing  without collect-tests-only
+        mock_resultargs.return_value = []
+        mock_mertrics.return_value = ''
+        extra_args = {constants.TF_EARLY_DEVICE_RELEASE: True}
+        unittest_utils.assert_strict_equal(
+            self,
+            self.tr.generate_run_commands([], extra_args),
+            [RUN_CMD.format(
+                metrics='',
+                serial='',
+                tf_customize_template='',
+                device_early_release='')])
+
+    @mock.patch.object(atf_tr.AtestTradefedTestRunner, '_prepare_data')
+    @mock.patch.object(atf_tr.AtestTradefedTestRunner, '_request_consent_of_upload_test_result')
+    def test_do_upload_flow(self, mock_request, mock_prepare):
+        """test _do_upload_flow method."""
+        fake_extra_args = {}
+        fake_creds = mock.Mock()
+        fake_creds.token_response = {'access_token': 'fake_token'}
+        mock_request.return_value = fake_creds
+        fake_inv = {'invocationId': 'inv_id'}
+        fake_workunit = {'id': 'workunit_id'}
+        mock_prepare.return_value = fake_inv, fake_workunit
+        constants.TOKEN_FILE_PATH = tempfile.NamedTemporaryFile().name
+        creds, inv = self.tr._do_upload_flow(fake_extra_args)
+        self.assertEqual(fake_creds, creds)
+        self.assertEqual(fake_inv, inv)
+        self.assertEqual(fake_extra_args[constants.INVOCATION_ID],
+                         fake_inv['invocationId'])
+        self.assertEqual(fake_extra_args[constants.WORKUNIT_ID],
+                         fake_workunit['id'])
+
+        mock_request.return_value = None
+        creds, inv = self.tr._do_upload_flow(fake_extra_args)
+        self.assertEqual(None, creds)
+        self.assertEqual(None, inv)
 
 if __name__ == '__main__':
     unittest.main()
