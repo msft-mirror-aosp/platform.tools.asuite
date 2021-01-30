@@ -901,15 +901,15 @@ def is_valid_json_file(path):
     Returns:
         True if file exist and content is valid, False otherwise.
     """
-    is_valid = False
     try:
         if os.path.isfile(path):
             with open(path) as json_file:
                 json.load(json_file)
-            is_valid = True
+            return True
+        logging.warning('%s: File not found.', path)
     except json.JSONDecodeError:
         logging.warning('Exception happened while loading %s.', path)
-    return is_valid
+    return False
 
 def get_manifest_branch():
     """Get the manifest branch via repo info command.
