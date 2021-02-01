@@ -27,7 +27,6 @@ import shutil
 import socket
 import uuid
 
-from distutils.util import strtobool
 from functools import partial
 from pathlib import Path
 
@@ -264,11 +263,10 @@ class AtestTradefedTestRunner(test_runner_base.TestRunnerBase):
         if not os.path.exists(config_folder):
             os.makedirs(config_folder)
         not_upload_file = os.path.join(config_folder,
-                                       constants.DO_NOT_UPLOAD_FILE_NAME)
+                                       constants.DO_NOT_UPLOAD)
         # Do nothing if there are no related config or DO_NOT_UPLOAD exists.
         if (not constants.CREDENTIAL_FILE_NAME or
-                not constants.TOKEN_FILE_PATH or
-                os.path.exists(not_upload_file)):
+                not constants.TOKEN_FILE_PATH):
             return None
 
         creds_f = os.path.join(config_folder, constants.CREDENTIAL_FILE_NAME)
@@ -281,29 +279,18 @@ class AtestTradefedTestRunner(test_runner_base.TestRunnerBase):
         # If the credential file exists or the user says “Yes”, ATest will
         # try to get the credential from the file, else will create a
         # DO_NOT_UPLOAD to keep the user's decision.
-        if (os.path.exists(creds_f) or
-                self._prompt_with_yn_result('Upload test result? (y/N):', 'N')):
-            return atest_gcp_utils.GCPHelper(
-                client_id=constants.CLIENT_ID,
-                client_secret=constants.CLIENT_SECRET,
-                user_agent='atest').get_credential_with_auth_flow(creds_f)
+        if not os.path.exists(not_upload_file):
+            if (os.path.exists(creds_f) or
+                    (request_to_upload_result and
+                        atest_utils.prompt_with_yn_result(
+                            constants.UPLOAD_TEST_RESULT_MSG, False))):
+                return atest_gcp_utils.GCPHelper(
+                    client_id=constants.CLIENT_ID,
+                    client_secret=constants.CLIENT_SECRET,
+                    user_agent='atest').get_credential_with_auth_flow(creds_f)
 
         Path(not_upload_file).touch()
         return None
-
-    def _prompt_with_yn_result(self, msg, default):
-        """Prompt message and get yes or no result.
-
-        Args:
-            msg: The question you want asking.
-            default: string default value.
-        Returns:
-            default value if get KeyboardInterrupt or ValueError exception.
-        """
-        try:
-            return strtobool(input(msg) or default)
-        except (ValueError, KeyboardInterrupt):
-            return default
 
     def run_tests_raw(self, test_infos, extra_args, reporter):
         """Run the list of test_infos. See base class for more.
@@ -626,6 +613,8 @@ class AtestTradefedTestRunner(test_runner_base.TestRunnerBase):
             if constants.TF_TEMPLATE == arg:
                 continue
             if constants.TF_EARLY_DEVICE_RELEASE == arg:
+                continue
+            if constants.INVOCATION_ID == arg:
                 continue
             args_not_supported.append(arg)
         return args_to_append, args_not_supported
