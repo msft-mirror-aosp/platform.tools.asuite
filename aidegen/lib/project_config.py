@@ -73,8 +73,8 @@ class ProjectConfig():
         Args:
             An argparse.Namespace object holds parsed args.
         """
-        self.language, self.ide_name = common_util.determine_language_ide(
-            args.language[0], args.ide[0])
+        self.language = constant.LANGUAGE_NAME_DICT[args.language[0]]
+        self.ide_name = constant.IDE_NAME_DICT[args.ide[0]]
         self.is_launch_ide = not args.no_launch
         self.depth = args.depth
         self.full_repo = args.android_tree

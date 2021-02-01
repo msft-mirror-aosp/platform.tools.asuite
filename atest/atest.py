@@ -113,7 +113,9 @@ def _parse_args(argv):
     args = parser.parse_args(pruned_argv)
     args.custom_args = []
     if custom_args_index is not None:
-        args.custom_args = argv[custom_args_index+1:]
+        for arg in argv[custom_args_index+1:]:
+            logging.debug('Quoting regex argument %s', arg)
+            args.custom_args.append(atest_utils.quote(arg))
     return args
 
 
@@ -197,7 +199,8 @@ def get_extra_args(args):
                 'tf_template': constants.TF_TEMPLATE,
                 'user_type': constants.USER_TYPE,
                 'flakes_info': constants.FLAKES_INFO,
-                'tf_early_device_release': constants.TF_EARLY_DEVICE_RELEASE}
+                'tf_early_device_release': constants.TF_EARLY_DEVICE_RELEASE,
+                'request_upload_result': constants.REQUEST_UPLOAD_RESULT}
     not_match = [k for k in arg_maps if k not in vars(args)]
     if not_match:
         raise AttributeError('%s object has no attribute %s'

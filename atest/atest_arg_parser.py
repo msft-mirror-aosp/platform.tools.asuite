@@ -77,7 +77,7 @@ TF_DEBUG = ('Enable tradefed debug mode with a specify port. Default value is '
 SHARDING = 'Option to specify sharding count. The default value is 2'
 UPDATE_CMD_MAPPING = ('Update the test command of input tests. Warning: result '
                       'will be saved under '
-                      'tools/tradefederation/core/atest/test_data.')
+                      'tools/asuite/atest/test_data.')
 USER_TYPE = ('Run test with specific user type, e.g. atest <test> --user-type '
              'secondary_user')
 VERBOSE = 'Display DEBUG level logging.'
@@ -90,7 +90,7 @@ TF_EARLY_DEVICE_RELEASE = ('Tradefed flag to release the device as soon as '
                            'done with it.')
 TEST_CONFIG_SELECTION = ('If multiple test config belong to same test module '
                          'pop out a selection menu on console.')
-
+REQUEST_UPLOAD_RESULT = 'Show the prompt to decide upload test result or not.'
 
 def _positive_int(value):
     """Verify value by whether or not a positive integer.
@@ -108,8 +108,8 @@ def _positive_int(value):
         if converted_value < 1:
             raise argparse.ArgumentTypeError(err_msg)
         return converted_value
-    except ValueError:
-        raise argparse.ArgumentTypeError(err_msg)
+    except ValueError as value_err:
+        raise argparse.ArgumentTypeError(err_msg) from value_err
 
 
 class AtestArgParser(argparse.ArgumentParser):
@@ -117,8 +117,7 @@ class AtestArgParser(argparse.ArgumentParser):
 
     def __init__(self):
         """Initialise an ArgumentParser instance."""
-        super(AtestArgParser, self).__init__(
-            description=HELP_DESC, add_help=False)
+        super().__init__(description=HELP_DESC, add_help=False)
 
     def add_atest_args(self):
         """A function that does ArgumentParser.add_argument()"""
@@ -142,6 +141,8 @@ class AtestArgParser(argparse.ArgumentParser):
                           const=constants.TEST_STEP, help=TEST)
         self.add_argument('-w', '--wait-for-debugger', action='store_true',
                           help=WAIT_FOR_DEBUGGER)
+        self.add_argument('--request-upload-result', action='store_true',
+                          help=REQUEST_UPLOAD_RESULT)
 
         # Options related to Test Mapping
         self.add_argument('-p', '--test-mapping', action='store_true',
@@ -298,6 +299,7 @@ def print_epilog_text():
         LIST_MODULES=LIST_MODULES,
         NO_METRICS=NO_METRICS,
         REBUILD_MODULE_INFO=REBUILD_MODULE_INFO,
+        REQUEST_UPLOAD_RESULT=REQUEST_UPLOAD_RESULT,
         RERUN_UNTIL_FAILURE=RERUN_UNTIL_FAILURE,
         RETRY_ANY_FAILURE=RETRY_ANY_FAILURE,
         SERIAL=SERIAL,
@@ -348,9 +350,6 @@ OPTIONS
         -D --tf-debug
             {TF_DEBUG}
 
-        --history
-            {HISTORY}
-
         --host
             {HOST}
 
@@ -381,6 +380,8 @@ OPTIONS
         -w, --wait-for-debugger
             {WAIT_FOR_DEBUGGER}
 
+        --request-upload-result
+            {REQUEST_UPLOAD_RESULT}
 
         [ Test Mapping ]
         -p, --test-mapping
@@ -396,6 +397,9 @@ OPTIONS
         [ Information/Queries ]
         --collect-tests-only
             {COLLECT_TESTS_ONLY}
+
+        --history
+            {HISTORY}
 
         --info
             {INFO}
@@ -773,5 +777,5 @@ EXAMPLES
         atest -v <test> -- <custom_args1> <custom_args2>
 
 
-                                                     2020-06-04
+                                                     2020-12-09
 '''

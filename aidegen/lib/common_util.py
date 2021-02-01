@@ -29,6 +29,7 @@ import re
 import sys
 import time
 import xml.dom.minidom
+import zipfile
 
 from functools import partial
 from functools import wraps
@@ -735,16 +736,31 @@ def find_git_root(relpath):
     return None
 
 
-def determine_language_ide(lang, ide):
+def determine_language_ide(lang, ide, jlist=None, clist=None, rlist=None):
     """Determines the language and IDE by the input language and IDE arguments.
+
+    If IDE and language are undefined, the priority of the language is:
+      1. Java
+      2. C/C++
+      3. Rust
 
     Args:
         lang: A character represents the input language.
         ide: A character represents the input IDE.
+        jlist: A list of Android Java projects, the default value is None.
+        clist: A list of Android C/C++ projects, the default value is None.
+        clist: A list of Android Rust projects, the default value is None.
 
     Returns:
         A tuple of the determined language and IDE name strings.
     """
+    if ide == _IDE_UNDEFINED and lang == constant.LANG_UNDEFINED:
+        if jlist:
+            lang = constant.LANG_JAVA
+        elif clist:
+            lang = constant.LANG_CC
+        elif rlist:
+            lang = constant.LANG_RUST
     if lang in (constant.LANG_UNDEFINED, constant.LANG_JAVA):
         if ide == _IDE_UNDEFINED:
             ide = _IDE_INTELLIJ
@@ -775,3 +791,15 @@ def check_java_or_kotlin_file_exists(abs_path):
             if fnmatch.filter(filenames, extension):
                 return True
     return False
+
+
+@io_error_handle
+def unzip_file(src, dest):
+    """Unzips the source zip file and extract it to the destination directory.
+
+    Args:
+        src: A string of the file to be unzipped.
+        dest: A string of the destination directory to be extracted to.
+    """
+    with zipfile.ZipFile(src, 'r') as zip_ref:
+        zip_ref.extractall(dest)

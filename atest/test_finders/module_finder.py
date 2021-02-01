@@ -66,6 +66,8 @@ class ModuleFinder(test_finder_base.TestFinderBase):
             A list of the module names.
         """
         testable_modules = []
+        # A list to save those testable modules but srcs information is empty.
+        testable_modules_no_srcs = []
         for mod in self.module_info.get_module_names(path):
             mod_info = self.module_info.get_module_info(mod)
             # Robolectric tests always exist in pairs of 2, one module to build
@@ -75,13 +77,22 @@ class ModuleFinder(test_finder_base.TestFinderBase):
                 # return a list with one module name if it is robolectric.
                 return [mod]
             if self.module_info.is_testable_module(mod_info):
-                # Input file_path should be defined in the src list of module.
-                if file_path and (os.path.relpath(file_path, self.root_dir)
-                                  not in mod_info.get(constants.MODULE_SRCS,
-                                                      [])):
+                # If test module defined srcs, input file_path should be defined
+                # in the src list of module.
+                module_srcs = mod_info.get(constants.MODULE_SRCS, [])
+                if file_path and os.path.relpath(
+                    file_path, self.root_dir) not in module_srcs:
                     logging.debug('Skip module: %s for %s', mod, file_path)
+                    # Collect those modules if they don't have srcs information
+                    # in module-info, use this list if there's no other matched
+                    # module with src information.
+                    if not module_srcs:
+                        testable_modules_no_srcs.append(
+                            mod_info.get(constants.MODULE_NAME))
                     continue
                 testable_modules.append(mod_info.get(constants.MODULE_NAME))
+        if not testable_modules:
+            testable_modules.extend(testable_modules_no_srcs)
         return test_finder_utils.extract_test_from_tests(testable_modules)
 
     def _is_vts_module(self, module_name):
@@ -253,6 +264,7 @@ class ModuleFinder(test_finder_base.TestFinderBase):
         return [rel_config] if rel_config else []
 
     # pylint: disable=too-many-branches
+    # pylint: disable=too-many-locals
     def _get_test_info_filter(self, path, methods, **kwargs):
         """Get test info filter.
 
@@ -294,10 +306,21 @@ class ModuleFinder(test_finder_base.TestFinderBase):
             if not test_finder_utils.has_cc_class(path):
                 raise atest_error.MissingCCTestCaseError(
                     "Can't find CC class in %s" % path)
-            if methods:
-                ti_filter = frozenset(
-                    [test_info.TestFilter(test_finder_utils.get_cc_filter(
-                        kwargs.get('class_name', '*'), methods), frozenset())])
+            # Extract class_name, method_name and parameterized_class from
+            # the given cc path.
+            file_classes, _, file_para_classes = (
+                test_finder_utils.get_cc_test_classes_methods(path))
+            cc_filters = []
+            # When instantiate tests found, recompose the class name in
+            # $(InstantiationName)/$(ClassName)
+            for file_class in file_classes:
+                if file_class in file_para_classes:
+                    file_class = '*/%s' % file_class
+                cc_filters.append(
+                    test_info.TestFilter(
+                        test_finder_utils.get_cc_filter(file_class, methods),
+                        frozenset()))
+            ti_filter = frozenset(cc_filters)
         # If input path is a folder and have class_name information.
         elif (not file_name and kwargs.get('class_name', None)):
             ti_filter = frozenset(
@@ -319,6 +342,7 @@ class ModuleFinder(test_finder_base.TestFinderBase):
                         ti_filter = frozenset(
                             [test_info.TestFilter(package_name, methods)])
                         break
+        logging.debug('_get_test_info_filter() ti_filter: %s', ti_filter)
         return ti_filter
 
     def _get_rel_config(self, test_path):

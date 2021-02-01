@@ -49,11 +49,8 @@ AnimatorTest
 
 ###[Test Finder: CC_CLASS, Test Runner:AtestTradefedTestRunner]###
 ###Purpose: Test with finder: CC_CLASS and runner: AtestTradefedTestRunner###
-### TODO: (b/168681581): Add PacketFragmenterTest and
-### PacketFragmenterTest#test_no_fragment_necessary,test_ble_fragment_necessary
-### back after following-up enhancements done.
-TestBufferQueue
-TestBufferQueue#testSeek,testEnqueueExtraBuffer,testStateTransitionNonEmptyQueue
+PacketFragmenterTest
+PacketFragmenterTest#test_no_fragment_necessary,test_ble_fragment_necessary
 
 ###[Test Finder: INTEGRATION, Test Runner:AtestTradefedTestRunner]###
 ###Purpose: Test with finder: INTEGRATION and runner: AtestTradefedTestRunner###
@@ -91,10 +88,17 @@ CtsSampleDeviceTestCases CtsAnimationTestCases
 ###[Paramatize GTest + AtestTradefedTestRunner]###
 ###Purpose: Test with Paramatize GTest testcases###
 # Mark this due to multiple selection not support in integration test.
-# Run/HeapprofdEndToEnd
-perfetto_integrationtests:Run/HeapprofdEndToEnd
+# PerInstance/CameraHidlTest.startStopPreview/0_internal_0
+VtsHalCameraProviderV2_4TargetTest:PerInstance/CameraHidlTest#startStopPreview/0_internal_0
 
 ###[Paramatize Java Test + AtestTradefedTestRunner]###
 ###Purpose: Test with Paramatize Java testcases###
 CtsWindowManagerDeviceTestCases:android.server.wm.DisplayCutoutTests#testDisplayCutout_default
 cts/tests/framework/base/windowmanager/src/android/server/wm/DisplayCutoutTests.java#testDisplayCutout_default
+
+### Java Test ###
+####Purpose: Find the test method by traversing parent classes###
+MixedManagedProfileOwnerTest#testPasswordSufficientInitially
+
+###[Option verify]###
+--help

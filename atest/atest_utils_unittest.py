@@ -531,6 +531,10 @@ class AtestUtilsUnittests(unittest.TestCase):
         self.assertEqual('test_branch', atest_utils.get_manifest_branch())
 
         mock_env.return_value = 'any_path'
+        mock_check_output.return_value = 'not_matched_branch_pattern.'
+        self.assertEqual(None, atest_utils.get_manifest_branch())
+
+        mock_env.return_value = 'any_path'
         mock_check_output.side_effect = subprocess.CalledProcessError(1, 'repo info')
         self.assertEqual(None, atest_utils.get_manifest_branch())
 
@@ -544,6 +548,26 @@ class AtestUtilsUnittests(unittest.TestCase):
         self.assertFalse(atest_utils.has_wildcard(['test1']))
         self.assertTrue(atest_utils.has_wildcard('test1?'))
         self.assertTrue(atest_utils.has_wildcard(['test1', 'b*', 'a?b*']))
+
+    # pylint: disable=anomalous-backslash-in-string
+    def test_quote(self):
+        """Test method of quote()"""
+        target_str = r'TEST_(F|P)[0-9].*\w$'
+        expected_str = '\'TEST_(F|P)[0-9].*\w$\''
+        self.assertEqual(atest_utils.quote(target_str), expected_str)
+        self.assertEqual(atest_utils.quote('TEST_P224'), 'TEST_P224')
+
+    @mock.patch('builtins.input', return_value='')
+    def test_prompt_with_yn_result(self, mock_input):
+        """Test method of prompt_with_yn_result"""
+        msg = 'Do you want to continue?'
+        mock_input.return_value = ''
+        self.assertTrue(atest_utils.prompt_with_yn_result(msg, True))
+        self.assertFalse(atest_utils.prompt_with_yn_result(msg, False))
+        mock_input.return_value = 'y'
+        self.assertTrue(atest_utils.prompt_with_yn_result(msg, True))
+        mock_input.return_value = 'nO'
+        self.assertFalse(atest_utils.prompt_with_yn_result(msg, True))
 
 if __name__ == "__main__":
     unittest.main()

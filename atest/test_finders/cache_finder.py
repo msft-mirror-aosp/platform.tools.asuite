@@ -16,6 +16,8 @@
 Cache Finder class.
 """
 
+import logging
+
 import atest_utils
 import constants
 
@@ -45,6 +47,7 @@ class CacheFinder(test_finder_base.TestFinderBase):
         for cached_test_info in test_infos:
             sorted_cache_ti = sorted(vars(cached_test_info).keys())
             if not sorted_cache_ti == sorted_base_ti:
+                logging.debug('test_info is not up-to-date.')
                 return False
         return True
 
@@ -77,10 +80,8 @@ class CacheFinder(test_finder_base.TestFinderBase):
         for t_info in test_infos:
             if not self._is_test_path_valid(t_info):
                 return False
-            # TODO: (b/172260100) Check if all the build target is valid.
             if not self._is_test_build_target_valid(t_info):
                 return False
-            # TODO: (b/172260100) Check if the cached test filter is valid.
             if not self._is_test_filter_valid(t_info):
                 return False
         return True
@@ -94,15 +95,19 @@ class CacheFinder(test_finder_base.TestFinderBase):
         Returns:
             True if test path is valid. Otherwise, False.
         """
+        # For RoboTest it won't have 'MODULES-IN-' as build target. Treat test
+        # path is valid if cached_test_paths is None.
         cached_test_paths = t_info.get_test_paths()
+        if cached_test_paths is None:
+            return True
         current_test_paths = self.module_info.get_paths(t_info.test_name)
         if not current_test_paths:
             return False
         if sorted(cached_test_paths) != sorted(current_test_paths):
+            logging.debug('Not a valid test path.')
             return False
         return True
 
-    # pylint: disable=unused-argument
     def _is_test_build_target_valid(self, t_info):
         """Check if test build targets are valid.
 
@@ -112,7 +117,12 @@ class CacheFinder(test_finder_base.TestFinderBase):
         Returns:
             True if test's build target is valid. Otherwise, False.
         """
-        # TODO: (b/172260100) Implement the check for test's build target.
+        # If the cached build target can be found in current module-info, then
+        # it is a valid build targets of the test.
+        for build_target in t_info.build_targets:
+            if self.module_info.is_module(build_target):
+                logging.debug('Not a valid build target.')
+                return False
         return True
 
     def _is_test_filter_valid(self, t_info):
@@ -124,6 +134,46 @@ class CacheFinder(test_finder_base.TestFinderBase):
         Returns:
             True if test filter is valid. Otherwise, False.
         """
-        # TODO: (b/172260100) Implement the check for test filter.
-        t_info.data.get(constants.TI_FILTER, frozenset())
-        return True
+        test_filters = t_info.data.get(constants.TI_FILTER, [])
+        if not test_filters:
+            return True
+        for test_filter in test_filters:
+            # Check if the class filter is under current module.
+            # TODO: (b/172260100) The test_name may not be inevitably equal to
+            #  the module_name.
+            if self._is_java_filter_in_module(t_info.test_name ,
+                                              test_filter.class_name):
+                return True
+            # TODO: (b/172260100) Also check for CC.
+        logging.debug('Not a valid test filter.')
+        return False
+
+    def _is_java_filter_in_module(self, module_name, filter_class):
+        """Check if input class is part of input module.
+
+        Args:
+            module_name: A string of the module name of the test.
+            filter_class: A string of the class name field of TI_FILTER.
+
+        Returns:
+            True if input filter_class is in the input module. Otherwise, False.
+        """
+        mod_info = self.module_info.get_module_info(module_name)
+        if not mod_info:
+            return False
+        module_srcs = mod_info.get(constants.MODULE_SRCS, [])
+        # If module didn't have src information treat the cached filter still
+        # valid. Remove this after all java srcs could be found in module-info.
+        if not module_srcs:
+            return True
+        ref_end = filter_class.rsplit('.', 1)[-1]
+        if '.' in filter_class:
+            file_path = str(filter_class).replace('.', '/')
+            # A Java class file always starts with a capital letter.
+            if ref_end[0].isupper():
+                file_path = file_path + '.'
+            for src_path in module_srcs:
+                # If java class, check if class file in module's src.
+                if src_path.find(file_path) >= 0:
+                    return True
+        return False
