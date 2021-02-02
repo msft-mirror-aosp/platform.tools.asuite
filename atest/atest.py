@@ -125,6 +125,8 @@ def _configure_logging(verbose):
     Args:
         verbose: A boolean. If true display DEBUG level logs.
     """
+    # Clear the handlers to prevent logging.basicConfig from being called twice.
+    logging.getLogger('').handlers = []
     log_format = '%(asctime)s %(filename)s:%(lineno)s:%(levelname)s: %(message)s'
     datefmt = '%Y-%m-%d %H:%M:%S'
     if verbose:
