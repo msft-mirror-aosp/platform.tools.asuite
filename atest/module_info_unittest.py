@@ -23,6 +23,7 @@ import unittest
 
 from unittest import mock
 
+import atest_utils
 import constants
 import module_info
 import unittest_utils
@@ -378,6 +379,33 @@ class ModuleInfoUnittests(unittest.TestCase):
         self.assertEqual(
             name_to_mod_info['module_cc_1'].get(constants.MODULE_DEPENDENCIES),
             expect_deps)
+
+    @mock.patch.object(atest_utils, 'get_build_out_dir')
+    def test_get_atest_merged_info_path(self, mock_out_dir):
+        """Test get_atest_merged_info_path."""
+        expect_out = '/test/output/'
+        mock_out_dir.return_value = expect_out
+        expect_path = os.path.join(expect_out, 'soong',
+                                   module_info._MERGED_INFO)
+        self.assertEqual(expect_path, module_info.ModuleInfo.get_atest_merged_info_path())
+
+    @mock.patch.object(atest_utils, 'get_build_out_dir')
+    def test_get_java_dep_info_path(self, mock_out_dir):
+        """Test get_java_dep_info_path."""
+        expect_out = '/test/output/'
+        mock_out_dir.return_value = expect_out
+        expect_path = os.path.join(expect_out, 'soong',
+                                   module_info._JAVA_DEP_INFO)
+        self.assertEqual(expect_path, module_info.ModuleInfo.get_java_dep_info_path())
+
+    @mock.patch.object(atest_utils, 'get_build_out_dir')
+    def test_get_cc_dep_info_path(self, mock_out_dir):
+        """Test get_cc_dep_info_path."""
+        expect_out = '/test/output/'
+        mock_out_dir.return_value = expect_out
+        expect_path = os.path.join(expect_out, 'soong',
+                                   module_info._CC_DEP_INFO)
+        self.assertEqual(expect_path, module_info.ModuleInfo.get_cc_dep_info_path())
 
 if __name__ == '__main__':
     unittest.main()
