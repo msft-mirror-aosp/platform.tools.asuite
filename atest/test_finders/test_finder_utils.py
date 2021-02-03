@@ -49,8 +49,8 @@ _CC_CLASS_METHOD_RE = re.compile(
 _PARA_CC_CLASS_RE = re.compile(
     r'^\s*INSTANTIATE[_TYPED]*_TEST_(SUITE|CASE)_P\s*\(\s*(?P<instantiate>\w+)\s*,'
     r'\s*(?P<class>\w+)\s*\,', re.M)
-# Group that matches java method.
-_JAVA_METHODS_RE = r'.*\s+void\s+(?P<methods>\w+)\(\)'
+# Group that matches java/kt method.
+_JAVA_METHODS_RE = r'.*\s+(fun|void)\s+(?P<methods>\w+)\(\)'
 # Parse package name from the package declaration line of a java or
 # a kotlin file.
 # Group matches "foo.bar" of line "package foo.bar;" or "package foo.bar"
@@ -1069,8 +1069,12 @@ def get_java_methods(test_path):
     """
     with open(test_path) as class_file:
         content = class_file.read()
-        matches = re.findall(_JAVA_METHODS_RE, content)
-    return set(matches) if matches else None
+    matches = re.findall(_JAVA_METHODS_RE, content)
+    if matches:
+        methods = {match[1] for match in matches}
+        logging.debug('Available methods: %s', methods)
+        return methods
+    return set()
 
 
 def get_cc_test_classes_methods(test_path):
