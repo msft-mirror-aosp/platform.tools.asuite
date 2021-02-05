@@ -646,5 +646,42 @@ class TestFinderUtilsUnittests(unittest.TestCase):
                           sorted(methods),
                           sorted(para_classes)])
 
+    def test_get_java_method(self):
+        """Test get_java_method"""
+        expect_methods = {'testMethod1', 'testMethod2'}
+        target_java = os.path.join(uc.TEST_DATA_DIR,
+                                   'class_file_path_testing',
+                                   'hello_world_test.java')
+        self.assertEqual(expect_methods,
+                         test_finder_utils.get_java_methods(target_java))
+        target_kt = os.path.join(uc.TEST_DATA_DIR,
+                                 'class_file_path_testing',
+                                 'hello_world_test.kt')
+        self.assertEqual(expect_methods,
+                         test_finder_utils.get_java_methods(target_kt))
+
+    def test_get_parent_cls_name(self):
+        """Test get_parent_cls_name"""
+        parent_cls = 'AtestClass'
+        target_java = os.path.join(uc.TEST_DATA_DIR,
+                                   'path_testing',
+                                   'PathTesting.java')
+        self.assertEqual(parent_cls,
+                         test_finder_utils.get_parent_cls_name(target_java))
+
+    def test_get_package_name(self):
+        """Test get_package_name"""
+        package_name = 'com.test.hello_world_test'
+        target_java = os.path.join(uc.TEST_DATA_DIR,
+                                   'class_file_path_testing',
+                                   'hello_world_test.java')
+        self.assertEqual(package_name,
+                         test_finder_utils.get_package_name(target_java))
+        target_kt = os.path.join(uc.TEST_DATA_DIR,
+                                 'class_file_path_testing',
+                                 'hello_world_test.kt')
+        self.assertEqual(package_name,
+                         test_finder_utils.get_package_name(target_kt))
+
 if __name__ == '__main__':
     unittest.main()
