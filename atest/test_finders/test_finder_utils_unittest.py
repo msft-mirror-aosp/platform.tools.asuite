@@ -158,6 +158,19 @@ class TestFinderUtilsUnittests(unittest.TestCase):
         self.assertFalse(test_finder_utils.has_method_in_file(
             test_path, frozenset(['testMethod'])))
 
+    def test_has_method_in_kt_file(self):
+        """Test has_method_in_file method with kt class path."""
+        test_path = os.path.join(uc.TEST_DATA_DIR, 'class_file_path_testing',
+                                 'hello_world_test.kt')
+        self.assertTrue(test_finder_utils.has_method_in_file(
+            test_path, frozenset(['testMethod1'])))
+        self.assertFalse(test_finder_utils.has_method_in_file(
+            test_path, frozenset(['testMethod'])))
+        self.assertTrue(test_finder_utils.has_method_in_file(
+            test_path, frozenset(['testMethod1', 'testMethod2'])))
+        self.assertFalse(test_finder_utils.has_method_in_file(
+            test_path, frozenset(['testMethod', 'testMethod2'])))
+
     @mock.patch('builtins.input', return_value='1')
     def test_extract_test_from_tests(self, mock_input):
         """Test method extract_test_from_tests method."""
