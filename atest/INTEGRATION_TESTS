@@ -28,8 +28,12 @@ CtsSampleDeviceTestCases:android.sample.cts.SampleDeviceReportLogTest
 
 ###[Test Finder: QUALIFIED_CLASS, Test Runner:AtestTradefedTestRunner]###
 ###Purpose: Test with finder: QUALIFIED_CLASS and runner: AtestTradefedTestRunner###
-# com.android.server.display.DisplayManagerServiceTest
-# com.android.server.wm.ScreenDecorWindowTests#testMultipleDecors
+# .java class
+android.sample.cts.SampleDeviceReportLogTest
+android.sample.cts.SampleDeviceTest#testSharedPreferences
+# .kt class
+android.os.cts.CompanionDeviceManagerTest
+android.os.cts.CompanionDeviceManagerTest#testIsDeviceAssociatedWithCompanionApproveWifiConnectionsPermission
 
 
 ###[Test Finder: MODULE_PACKAGE, Test Runner:AtestTradefedTestRunner]###
@@ -95,6 +99,7 @@ VtsHalCameraProviderV2_4TargetTest:PerInstance/CameraHidlTest#startStopPreview/0
 ###Purpose: Test with Paramatize Java testcases###
 CtsWindowManagerDeviceTestCases:android.server.wm.DisplayCutoutTests#testDisplayCutout_default
 cts/tests/framework/base/windowmanager/src/android/server/wm/DisplayCutoutTests.java#testDisplayCutout_default
+cts/tests/tests/os/src/android/os/cts/CompanionDeviceManagerTest.kt#testIsDeviceAssociated
 
 ### Java Test ###
 ####Purpose: Find the test method by traversing parent classes###
