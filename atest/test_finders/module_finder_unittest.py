@@ -495,6 +495,12 @@ class ModuleFinderUnittests(unittest.TestCase):
         unittest_utils.assert_equal_testinfos(
             self, uc.CLASS_INFO, t_infos[0])
 
+        class_with_method = '%s#%s' % (class_path, uc.METHOD_NAME)
+        mock_build.return_value = uc.MODULE_BUILD_TARGETS
+        t_infos = self.mod_finder.find_test_by_path(class_with_method)
+        unittest_utils.assert_equal_testinfos(
+            self, t_infos[0], uc.METHOD_INFO)
+
         class_path = '%s.java' % uc.CLASS_NAME
         mock_build.return_value = uc.CLASS_BUILD_TARGETS
         t_infos = self.mod_finder.find_test_by_path(class_path)
