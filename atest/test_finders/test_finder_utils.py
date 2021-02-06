@@ -270,7 +270,7 @@ def has_method_in_file(test_path, methods):
         return False
     if constants.JAVA_EXT_RE.match(test_path):
         # omit parameterized pattern: method[0]
-        _methods = set(re.sub(r'\[\d+\]', '', x) for x in methods)
+        _methods = set(re.sub(r'\[\S+\]', '', x) for x in methods)
         if _methods.issubset(get_java_methods(test_path)):
             return True
         parent = get_parent_cls_name(test_path)

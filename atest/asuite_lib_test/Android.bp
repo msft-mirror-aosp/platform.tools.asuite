@@ -17,6 +17,10 @@
 // tests result is accurate, separate them to two different test modules.
 
 // For testing asuite_metrics python2 libs
+package {
+    default_applicable_licenses: ["Android-Apache-2.0"],
+}
+
 python_test_host {
     name: "asuite_metrics_lib_py2_tests",
     main: "asuite_lib_run_tests.py",
