@@ -43,8 +43,8 @@ ROBO_MOD_PATH = ['/shared/robo/path']
 NON_RUN_ROBO_MOD_NAME = 'robo_mod'
 RUN_ROBO_MOD_NAME = 'run_robo_mod'
 NON_RUN_ROBO_MOD = {constants.MODULE_NAME: NON_RUN_ROBO_MOD_NAME,
-                    constants.MODULE_PATH: ROBO_MOD_PATH,
-                    constants.MODULE_CLASS: ['random_class']}
+                        constants.MODULE_PATH: ROBO_MOD_PATH,
+                        constants.MODULE_CLASS: ['random_class']}
 RUN_ROBO_MOD = {constants.MODULE_NAME: RUN_ROBO_MOD_NAME,
                 constants.MODULE_PATH: ROBO_MOD_PATH,
                 constants.MODULE_CLASS: [constants.MODULE_CLASS_ROBOLECTRIC]}
@@ -423,6 +423,15 @@ class ModuleInfoUnittests(unittest.TestCase):
         expect_path = os.path.join(expect_out, 'soong',
                                    module_info._CC_DEP_INFO)
         self.assertEqual(expect_path, module_info.ModuleInfo.get_cc_dep_info_path())
+
+    @mock.patch.dict('os.environ', {constants.ANDROID_BUILD_TOP:'/'})
+    def test_is_unit_test(self):
+        """Test is_unit_test."""
+        module_name = 'myModule'
+        maininfo_with_unittest = {constants.MODULE_NAME: module_name,
+                                  constants.MODULE_IS_UNIT_TEST: 'true'}
+        mod_info = module_info.ModuleInfo(module_file=JSON_FILE_PATH)
+        self.assertTrue(mod_info.is_unit_test(maininfo_with_unittest))
 
 if __name__ == '__main__':
     unittest.main()
