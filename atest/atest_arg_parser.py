@@ -46,6 +46,7 @@ HISTORY = ('Show test results in chronological order(with specified number or '
 HOST = ('Run the test completely on the host without a device. '
         '(Note: running a host test that requires a device without '
         '--host will fail.)')
+HOST_UNIT_TEST_ONLY = ('Run all host unit tests under the current directory.')
 INCLUDE_SUBDIRS = 'Search TEST_MAPPING files in subdirs as well.'
 INFO = 'Show module information.'
 INSTALL = 'Install an APK.'
@@ -153,6 +154,10 @@ class AtestArgParser(argparse.ArgumentParser):
         # file-patterns in TEST_MAPPING by default.
         self.add_argument('--enable-file-patterns', action='store_true',
                           help=ENABLE_FILE_PATTERNS)
+
+        # Options related to Host Unit Test.
+        self.add_argument('--host-unit-test-only', action='store_true',
+                          help=HOST_UNIT_TEST_ONLY)
 
         # Options for information queries and dry-runs:
         # A group of options for dry-runs. They are mutually exclusive
@@ -290,6 +295,7 @@ def print_epilog_text():
         HELP_DESC=HELP_DESC,
         HISTORY=HISTORY,
         HOST=HOST,
+        HOST_UNIT_TEST_ONLY=HOST_UNIT_TEST_ONLY,
         INCLUDE_SUBDIRS=INCLUDE_SUBDIRS,
         INFO=INFO,
         INSTALL=INSTALL,
@@ -352,6 +358,9 @@ OPTIONS
 
         --host
             {HOST}
+
+        --host-unit-test-only
+            {HOST_UNIT_TEST_ONLY}
 
         -i, --install
             {INSTALL} (default)
