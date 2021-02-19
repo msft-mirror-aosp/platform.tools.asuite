@@ -493,7 +493,6 @@ class ModuleInfo:
                 mod_dep, parent_dependencies=parent_dependencies.union(deps))))
         return deps
 
-
     @staticmethod
     def get_atest_merged_info_path():
         """Returns the path for atest_merged_dep.json.
@@ -550,3 +549,23 @@ class ModuleInfo:
         return (force_build or
                 (self.has_soong_info() and
                  not os.path.exists(self.get_atest_merged_info_path())))
+
+    def is_unit_test(self, mod_info):
+        """Return True if input module is unit test, False otherwise.
+
+        Args:
+            mod_info: ModuleInfo to check.
+
+        Returns:
+            True if if input module is unit test, False otherwise.
+        """
+        return mod_info.get(constants.MODULE_IS_UNIT_TEST, '') == 'true'
+
+    def get_all_unit_tests(self):
+        """Get a list of all the module names which are unit tests."""
+        unit_tests = []
+        for mod_name, mod_info in self.name_to_module_info.items():
+            if mod_info.get(constants.MODULE_NAME, '') == mod_name:
+                if self.is_unit_test(mod_info):
+                    unit_tests.append(mod_name)
+        return unit_tests

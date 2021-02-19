@@ -1108,3 +1108,24 @@ def get_cc_test_classes_methods(test_path):
             # and "Group class"(MyClass1)
             para_classes.update([match[2]])
     return classes, methods, para_classes
+
+def find_host_unit_tests(module_info, path):
+    """Find host unit tests for the input path.
+
+    Args:
+        module_info: ModuleInfo obj.
+        path: A string of the relative path from $BUILD_TOP we want to search.
+
+    Returns:
+        A list that includes the module name of unit tests, otherwise an empty
+        list.
+    """
+    logging.debug('finding unit tests under %s', path)
+    found_unit_tests = []
+    unit_test_names = module_info.get_all_unit_tests()
+    logging.debug('All the unit tests: %s', unit_test_names)
+    for unit_test_name in unit_test_names:
+        for test_path in module_info.get_paths(unit_test_name):
+            if test_path.find(path) == 0:
+                found_unit_tests.append(unit_test_name)
+    return found_unit_tests
