@@ -99,6 +99,7 @@ MODULE_TEST_CONFIG = 'test_config'
 MODULE_MAINLINE_MODULES = 'test_mainline_modules'
 MODULE_DEPENDENCIES = 'dependencies'
 MODULE_SRCS = 'srcs'
+MODULE_IS_UNIT_TEST = 'is_unit_test'
 
 # Env constants
 ANDROID_BUILD_TOP = 'ANDROID_BUILD_TOP'

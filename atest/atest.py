@@ -710,8 +710,9 @@ def main(argv, results_dir, args):
     if args.rebuild_module_info:
         proc_idx = _run_multi_proc(INDEX_TARGETS)
         proc_idx.join()
-    translator = cli_translator.CLITranslator(module_info=mod_info,
-                                              print_cache_msg=not args.clear_cache)
+    translator = cli_translator.CLITranslator(
+        module_info=mod_info,
+        print_cache_msg=not args.clear_cache)
     if args.list_modules:
         _print_testable_modules(mod_info, args.list_modules)
         return constants.EXIT_CODE_SUCCESS
