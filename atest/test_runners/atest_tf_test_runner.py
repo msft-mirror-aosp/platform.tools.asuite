@@ -282,8 +282,8 @@ class AtestTradefedTestRunner(test_runner_base.TestRunnerBase):
         if not os.path.exists(not_upload_file):
             if (os.path.exists(creds_f) or
                     (request_to_upload_result and
-                        atest_utils.prompt_with_yn_result(
-                            constants.UPLOAD_TEST_RESULT_MSG, False))):
+                     atest_utils.prompt_with_yn_result(
+                         constants.UPLOAD_TEST_RESULT_MSG, False))):
                 return atest_gcp_utils.GCPHelper(
                     client_id=constants.CLIENT_ID,
                     client_secret=constants.CLIENT_SECRET,
@@ -610,11 +610,10 @@ class AtestTradefedTestRunner(test_runner_base.TestRunnerBase):
             if constants.TF_DEBUG == arg:
                 print("Please attach process to your IDE...")
                 continue
-            if constants.TF_TEMPLATE == arg:
-                continue
-            if constants.TF_EARLY_DEVICE_RELEASE == arg:
-                continue
-            if constants.INVOCATION_ID == arg:
+            if arg in (constants.TF_TEMPLATE,
+                       constants.TF_EARLY_DEVICE_RELEASE,
+                       constants.INVOCATION_ID,
+                       constants.WORKUNIT_ID):
                 continue
             args_not_supported.append(arg)
         return args_to_append, args_not_supported
