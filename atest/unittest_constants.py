@@ -59,6 +59,8 @@ MODULE_INFO_TARGET = '/out/%s' % JSON_FILE
 MODULE_BUILD_TARGETS = {'tradefed-core', MODULE_INFO_TARGET,
                         'MODULES-IN-%s' % MODULE_DIR.replace('/', '-'),
                         'module-specific-target'}
+MODULE_BUILD_TARGETS_W_DALVIK = (MODULE_BUILD_TARGETS |
+                                 {'cts-dalvik-device-test-runner'})
 MODULE_BUILD_TARGETS2 = {'build-target2'}
 MODULE_DATA = {constants.TI_REL_CONFIG: CONFIG_FILE,
                constants.TI_FILTER: frozenset()}
@@ -70,6 +72,12 @@ MODULE_INFO = test_info.TestInfo(MODULE_NAME,
                                  atf_tr.AtestTradefedTestRunner.NAME,
                                  MODULE_BUILD_TARGETS,
                                  MODULE_DATA)
+MODULE_INFO_W_DALVIK = test_info.TestInfo(
+    MODULE_NAME,
+    atf_tr.AtestTradefedTestRunner.NAME,
+    MODULE_BUILD_TARGETS_W_DALVIK,
+    MODULE_DATA,
+    module_class=[constants.MODULE_CLASS_JAVA_LIBRARIES])
 MODULE_INFO_W_CONFIG = test_info.TestInfo(MODULE_CONFIG_NAME,
                                           atf_tr.AtestTradefedTestRunner.NAME,
                                           MODULE_BUILD_TARGETS,
