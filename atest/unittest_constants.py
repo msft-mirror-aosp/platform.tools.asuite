@@ -35,6 +35,8 @@ MODULE_DIR = 'foo/bar/jank'
 MODULE2_DIR = 'foo/bar/hello'
 MODULE_NAME = 'CtsJankDeviceTestCases'
 MODULE_CONFIG_NAME = 'CtsJankDeviceTestCases2'
+HOST_UNIT_TEST_NAME_1 = 'host_unit_test1'
+HOST_UNIT_TEST_NAME_2 = 'host_unit_test2'
 TYPO_MODULE_NAME = 'CtsJankDeviceTestCase'
 MODULE2_NAME = 'HelloWorldTests'
 CLASS_NAME = 'CtsDeviceJankUi'
@@ -91,6 +93,14 @@ TEST_CONFIG_MODULE_INFO = test_info.TestInfo(
     atf_tr.AtestTradefedTestRunner.NAME,
     MODULE_BUILD_TARGETS,
     MODULE_DATA_W_CONFIG)
+MODULE_INFO_HOST_1 = test_info.TestInfo(HOST_UNIT_TEST_NAME_1,
+                                        atf_tr.AtestTradefedTestRunner.NAME,
+                                        MODULE_BUILD_TARGETS,
+                                        MODULE_DATA)
+MODULE_INFO_HOST_2 = test_info.TestInfo(HOST_UNIT_TEST_NAME_2,
+                                        atf_tr.AtestTradefedTestRunner.NAME,
+                                        MODULE_BUILD_TARGETS,
+                                        MODULE_DATA)
 MODULE_INFOS = [MODULE_INFO]
 MODULE_INFOS2 = [MODULE_INFO, MODULE_INFO2]
 CLASS_FILTER = test_info.TestFilter(FULL_CLASS_NAME, frozenset())
