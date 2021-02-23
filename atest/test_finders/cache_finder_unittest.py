@@ -124,7 +124,6 @@ class CacheFinderUnittests(unittest.TestCase):
 
     def test_is_java_filter_in_module_for_java_class(self):
         """Test _is_java_filter_in_module method if input is java class."""
-        print('Bill test_is_java_filter_in_module_for_java_class()')
         mock_mod = {constants.MODULE_SRCS:
                              ['src/a/b/c/MyTestClass1.java']}
         self.cache_finder.module_info.get_module_info.return_value = mock_mod
@@ -147,7 +146,6 @@ class CacheFinderUnittests(unittest.TestCase):
             self.cache_finder._is_java_filter_in_module(
                 'MyModule', 'a.b.c.d'))
         # Should match if package name matches the src.
-        print('Bill test_is_java_filter_in_module_for_java_package()')
         self.assertTrue(
             self.cache_finder._is_java_filter_in_module(
                 'MyModule', 'a.b.c'))
