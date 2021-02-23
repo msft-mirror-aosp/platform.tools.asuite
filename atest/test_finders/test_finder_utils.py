@@ -116,6 +116,8 @@ _COMPATIBILITY_PACKAGE_PREFIX = "com.android.compatibility"
 _CTS_JAR = "cts-tradefed"
 _XML_PUSH_DELIM = '->'
 _APK_SUFFIX = '.apk'
+DALVIK_TEST_RUNNER_CLASS = 'com.android.compatibility.testtype.DalvikTest'
+DALVIK_DEVICE_RUNNER_JAR = 'cts-dalvik-device-test-runner'
 # Setup script for device perf tests.
 _PERF_SETUP_LABEL = 'perf-setup.sh'
 _PERF_SETUP_TARGET = 'perf-setup'
@@ -675,6 +677,8 @@ def get_targets_from_xml_root(xml_root, module_info):
         fqcn = class_attr.attrib['class'].strip()
         if fqcn.startswith(_COMPATIBILITY_PACKAGE_PREFIX):
             targets.add(_CTS_JAR)
+        if fqcn == DALVIK_TEST_RUNNER_CLASS:
+            targets.add(DALVIK_DEVICE_RUNNER_JAR)
     logging.debug('Targets found in config file: %s', targets)
     return targets
 

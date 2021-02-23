@@ -630,11 +630,8 @@ class CLITranslator:
         test_infos = self._get_test_infos(tests, test_details_list,
                                           args.rebuild_module_info)
         if host_unit_tests:
-            host_unit_test_details = []
-            for host_unit_test in host_unit_tests:
-                host_unit_test_details.append(
-                    test_mapping.TestDetail({'name':host_unit_test,
-                                             'host':True}))
+            host_unit_test_details = [test_mapping.TestDetail(
+                {'name':test, 'host':True}) for test in host_unit_tests]
             host_unit_test_infos = self._get_test_infos(host_unit_tests,
                                                         host_unit_test_details)
             test_infos.update(host_unit_test_infos)

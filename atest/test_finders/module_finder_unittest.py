@@ -17,8 +17,10 @@
 """Unittests for module_finder."""
 
 # pylint: disable=line-too-long
+# pylint: disable=too-many-lines
 # pylint: disable=unsubscriptable-object
 
+import copy
 import re
 import unittest
 import os
@@ -982,6 +984,28 @@ class ModuleFinderUnittests(unittest.TestCase):
                                           uc.CLASS_BUILD_TARGETS, cc_path_data)
         t_infos = self.mod_finder.find_test_by_path(class_path)
         unittest_utils.assert_equal_testinfos(self, cc_path_info, t_infos[0])
+
+    # pylint: disable=unused-argument
+    @mock.patch.object(module_finder.ModuleFinder, '_is_vts_module',
+                       return_value=False)
+    @mock.patch.object(module_finder.ModuleFinder, '_get_build_targets',
+                       return_value=uc.MODULE_BUILD_TARGETS)
+    def test_process_test_info(self, _get_targ, _is_vts):
+        """Test _process_test_info."""
+        mod_info = {'installed': ['/path/to/install'],
+                    'path': [uc.MODULE_DIR],
+                    constants.MODULE_CLASS: [
+                        constants.MODULE_CLASS_JAVA_LIBRARIES],
+                    constants.MODULE_COMPATIBILITY_SUITES: []}
+        self.mod_finder.module_info.is_robolectric_test.return_value = False
+        self.mod_finder.module_info.is_auto_gen_test_config.return_value = True
+        self.mod_finder.module_info.get_module_info.return_value = mod_info
+        processed_info = self.mod_finder._process_test_info(
+            copy.copy(uc.MODULE_INFO))
+        unittest_utils.assert_equal_testinfos(
+            self,
+            processed_info,
+            uc.MODULE_INFO_W_DALVIK)
 
 if __name__ == '__main__':
     unittest.main()
