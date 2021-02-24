@@ -49,8 +49,8 @@ _CC_CLASS_METHOD_RE = re.compile(
 _PARA_CC_CLASS_RE = re.compile(
     r'^\s*INSTANTIATE[_TYPED]*_TEST_(SUITE|CASE)_P\s*\(\s*(?P<instantiate>\w+)\s*,'
     r'\s*(?P<class>\w+)\s*\,', re.M)
-# Group that matches java method.
-_JAVA_METHODS_RE = r'.*\s+void\s+(?P<methods>\w+)\(\)'
+# Group that matches java/kt method.
+_JAVA_METHODS_RE = r'.*\s+(fun|void)\s+(?P<methods>\w+)\(\)'
 # Parse package name from the package declaration line of a java or
 # a kotlin file.
 # Group matches "foo.bar" of line "package foo.bar;" or "package foo.bar"
@@ -116,6 +116,8 @@ _COMPATIBILITY_PACKAGE_PREFIX = "com.android.compatibility"
 _CTS_JAR = "cts-tradefed"
 _XML_PUSH_DELIM = '->'
 _APK_SUFFIX = '.apk'
+DALVIK_TEST_RUNNER_CLASS = 'com.android.compatibility.testtype.DalvikTest'
+DALVIK_DEVICE_RUNNER_JAR = 'cts-dalvik-device-test-runner'
 # Setup script for device perf tests.
 _PERF_SETUP_LABEL = 'perf-setup.sh'
 _PERF_SETUP_TARGET = 'perf-setup'
@@ -270,7 +272,7 @@ def has_method_in_file(test_path, methods):
         return False
     if constants.JAVA_EXT_RE.match(test_path):
         # omit parameterized pattern: method[0]
-        _methods = set(re.sub(r'\[\d+\]', '', x) for x in methods)
+        _methods = set(re.sub(r'\[\S+\]', '', x) for x in methods)
         if _methods.issubset(get_java_methods(test_path)):
             return True
         parent = get_parent_cls_name(test_path)
@@ -675,6 +677,8 @@ def get_targets_from_xml_root(xml_root, module_info):
         fqcn = class_attr.attrib['class'].strip()
         if fqcn.startswith(_COMPATIBILITY_PACKAGE_PREFIX):
             targets.add(_CTS_JAR)
+        if fqcn == DALVIK_TEST_RUNNER_CLASS:
+            targets.add(DALVIK_DEVICE_RUNNER_JAR)
     logging.debug('Targets found in config file: %s', targets)
     return targets
 
@@ -1069,8 +1073,12 @@ def get_java_methods(test_path):
     """
     with open(test_path) as class_file:
         content = class_file.read()
-        matches = re.findall(_JAVA_METHODS_RE, content)
-    return set(matches) if matches else None
+    matches = re.findall(_JAVA_METHODS_RE, content)
+    if matches:
+        methods = {match[1] for match in matches}
+        logging.debug('Available methods: %s', methods)
+        return methods
+    return set()
 
 
 def get_cc_test_classes_methods(test_path):
@@ -1104,3 +1112,24 @@ def get_cc_test_classes_methods(test_path):
             # and "Group class"(MyClass1)
             para_classes.update([match[2]])
     return classes, methods, para_classes
+
+def find_host_unit_tests(module_info, path):
+    """Find host unit tests for the input path.
+
+    Args:
+        module_info: ModuleInfo obj.
+        path: A string of the relative path from $BUILD_TOP we want to search.
+
+    Returns:
+        A list that includes the module name of unit tests, otherwise an empty
+        list.
+    """
+    logging.debug('finding unit tests under %s', path)
+    found_unit_tests = []
+    unit_test_names = module_info.get_all_unit_tests()
+    logging.debug('All the unit tests: %s', unit_test_names)
+    for unit_test_name in unit_test_names:
+        for test_path in module_info.get_paths(unit_test_name):
+            if test_path.find(path) == 0:
+                found_unit_tests.append(unit_test_name)
+    return found_unit_tests

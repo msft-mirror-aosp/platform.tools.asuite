@@ -184,6 +184,13 @@ class ModuleFinder(test_finder_base.TestFinderBase):
             return self._update_to_robolectric_test_info(test)
         rel_config = test.data[constants.TI_REL_CONFIG]
         test.build_targets = self._get_build_targets(module_name, rel_config)
+        # For device side java test, it will use
+        # com.android.compatibility.testtype.DalvikTest as test runner in
+        # cts-dalvik-device-test-runner.jar
+        if self.module_info.is_auto_gen_test_config(module_name):
+            if constants.MODULE_CLASS_JAVA_LIBRARIES in test.module_class:
+                test.build_targets.add(
+                    test_finder_utils.DALVIK_DEVICE_RUNNER_JAR)
         # Update test name if the test belong to extra config which means it's
         # test config name is not the same as module name. For extra config, it
         # index will be greater or equal to 1.
@@ -629,7 +636,7 @@ class ModuleFinder(test_finder_base.TestFinderBase):
             package, module_info.test_name,
             module_info.data.get(constants.TI_REL_CONFIG))
 
-    def find_test_by_path(self, path):
+    def find_test_by_path(self, rel_path):
         """Find the first test info matching the given path.
 
         Strategy:
@@ -641,13 +648,13 @@ class ModuleFinder(test_finder_base.TestFinderBase):
             path_to_any_other_dir --> Resolve as MODULE
 
         Args:
-            path: A string of the test's path.
+            rel_path: A string of the relative path to $BUILD_TOP.
 
         Returns:
             A list of populated TestInfo namedtuple if test found, else None
         """
-        logging.debug('Finding test by path: %s', path)
-        path, methods = test_finder_utils.split_methods(path)
+        logging.debug('Finding test by path: %s', rel_path)
+        path, methods = test_finder_utils.split_methods(rel_path)
         # TODO: See if this can be generalized and shared with methods above
         # create absolute path from cwd and remove symbolic links
         path = os.path.realpath(path)
@@ -661,6 +668,20 @@ class ModuleFinder(test_finder_base.TestFinderBase):
         rel_module_dir = test_finder_utils.find_parent_module_dir(
             self.root_dir, dir_path, self.module_info)
         if not rel_module_dir:
+            # Try to find unit-test for input path.
+            path = os.path.relpath(
+                os.path.realpath(rel_path),
+                os.environ.get(constants.ANDROID_BUILD_TOP, ''))
+            unit_tests = test_finder_utils.find_host_unit_tests(
+                self.module_info, path)
+            if unit_tests:
+                tinfos = []
+                for unit_test in unit_tests:
+                    tinfo = self._get_test_infos(path, constants.MODULE_CONFIG,
+                                                 unit_test, frozenset())
+                    if tinfo:
+                        tinfos.extend(tinfo)
+                return tinfos
             return None
         rel_config = os.path.join(rel_module_dir, constants.MODULE_CONFIG)
         test_filter = self._get_test_info_filter(path, methods,

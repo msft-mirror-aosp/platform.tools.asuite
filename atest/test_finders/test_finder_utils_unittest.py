@@ -32,6 +32,7 @@ import unittest_utils
 
 from test_finders import test_finder_utils
 
+JSON_FILE_PATH = os.path.join(uc.TEST_DATA_DIR, uc.JSON_FILE)
 CLASS_DIR = 'foo/bar/jank/src/android/jank/cts/ui'
 OTHER_DIR = 'other/dir/'
 OTHER_CLASS_NAME = 'test.java'
@@ -80,6 +81,16 @@ PATH_TO_MODULE_INFO_WITH_MULTI_AUTOGEN_AND_ROBO = {
     'foo/bar' : [{'auto_test_config' : True},
                  {'auto_test_config' : True}],
     'foo/bar/jank': [{constants.MODULE_CLASS : [constants.MODULE_CLASS_ROBOLECTRIC]}]}
+UNIT_TEST_SEARCH_ROOT = 'my/unit/test/root'
+IT_TEST_MATCHED_1_PATH = os.path.join(UNIT_TEST_SEARCH_ROOT, 'sub1')
+UNIT_TEST_MATCHED_2_PATH = os.path.join(UNIT_TEST_SEARCH_ROOT, 'sub1', 'sub2')
+UNIT_TEST_NOT_MATCHED_1_PATH = os.path.join(
+    os.path.dirname(UNIT_TEST_SEARCH_ROOT), 'sub1')
+UNIT_TEST_MODULE_1 = 'unit_test_module_1'
+UNIT_TEST_MODULE_2 = 'unit_test_module_2'
+UNIT_TEST_MODULE_3 = 'unit_test_module_3'
+DALVIK_TEST_CONFIG = 'AndroidDalvikTest.xml.data'
+DALVIK_XML_TARGETS = XML_TARGETS | {test_finder_utils.DALVIK_DEVICE_RUNNER_JAR}
 
 #pylint: disable=protected-access
 class TestFinderUtilsUnittests(unittest.TestCase):
@@ -157,6 +168,19 @@ class TestFinderUtilsUnittests(unittest.TestCase):
                                  'hello_world_test.java')
         self.assertFalse(test_finder_utils.has_method_in_file(
             test_path, frozenset(['testMethod'])))
+
+    def test_has_method_in_kt_file(self):
+        """Test has_method_in_file method with kt class path."""
+        test_path = os.path.join(uc.TEST_DATA_DIR, 'class_file_path_testing',
+                                 'hello_world_test.kt')
+        self.assertTrue(test_finder_utils.has_method_in_file(
+            test_path, frozenset(['testMethod1'])))
+        self.assertFalse(test_finder_utils.has_method_in_file(
+            test_path, frozenset(['testMethod'])))
+        self.assertTrue(test_finder_utils.has_method_in_file(
+            test_path, frozenset(['testMethod1', 'testMethod2'])))
+        self.assertFalse(test_finder_utils.has_method_in_file(
+            test_path, frozenset(['testMethod', 'testMethod2'])))
 
     @mock.patch('builtins.input', return_value='1')
     def test_extract_test_from_tests(self, mock_input):
@@ -345,10 +369,24 @@ class TestFinderUtilsUnittests(unittest.TestCase):
             test_finder_utils.get_targets_from_xml(xml_file, mock_module_info),
             XML_TARGETS)
 
+    def test_get_targets_from_dalvik_xml(self):
+        """Test get_targets_from_xml method with dalvik class."""
+        # Mocking Etree is near impossible, so use a real file, but mocking
+        # ModuleInfo is still fine. Just have it return False when it finds a
+        # module that states it's not a module.
+        mock_module_info = mock.Mock(spec=module_info.ModuleInfo)
+        mock_module_info.is_module.side_effect = lambda module: (
+            not module == 'is_not_module')
+        xml_file = os.path.join(uc.TEST_DATA_DIR, DALVIK_TEST_CONFIG)
+        unittest_utils.assert_strict_equal(
+            self,
+            test_finder_utils.get_targets_from_xml(xml_file, mock_module_info),
+            DALVIK_XML_TARGETS)
+
     @mock.patch.object(test_finder_utils, '_VTS_PUSH_DIR',
                        os.path.join(uc.TEST_DATA_DIR, VTS_PUSH_DIR))
     def test_get_targets_from_vts_xml(self):
-        """Test get_targets_from_xml method."""
+        """Test get_targets_from_vts_xml method."""
         # Mocking Etree is near impossible, so use a real file, but mock out
         # ModuleInfo,
         mock_module_info = mock.Mock(spec=module_info.ModuleInfo)
@@ -632,6 +670,69 @@ class TestFinderUtilsUnittests(unittest.TestCase):
                          [sorted(classes),
                           sorted(methods),
                           sorted(para_classes)])
+
+    def test_get_java_method(self):
+        """Test get_java_method"""
+        expect_methods = {'testMethod1', 'testMethod2'}
+        target_java = os.path.join(uc.TEST_DATA_DIR,
+                                   'class_file_path_testing',
+                                   'hello_world_test.java')
+        self.assertEqual(expect_methods,
+                         test_finder_utils.get_java_methods(target_java))
+        target_kt = os.path.join(uc.TEST_DATA_DIR,
+                                 'class_file_path_testing',
+                                 'hello_world_test.kt')
+        self.assertEqual(expect_methods,
+                         test_finder_utils.get_java_methods(target_kt))
+
+    def test_get_parent_cls_name(self):
+        """Test get_parent_cls_name"""
+        parent_cls = 'AtestClass'
+        target_java = os.path.join(uc.TEST_DATA_DIR,
+                                   'path_testing',
+                                   'PathTesting.java')
+        self.assertEqual(parent_cls,
+                         test_finder_utils.get_parent_cls_name(target_java))
+
+    def test_get_package_name(self):
+        """Test get_package_name"""
+        package_name = 'com.test.hello_world_test'
+        target_java = os.path.join(uc.TEST_DATA_DIR,
+                                   'class_file_path_testing',
+                                   'hello_world_test.java')
+        self.assertEqual(package_name,
+                         test_finder_utils.get_package_name(target_java))
+        target_kt = os.path.join(uc.TEST_DATA_DIR,
+                                 'class_file_path_testing',
+                                 'hello_world_test.kt')
+        self.assertEqual(package_name,
+                         test_finder_utils.get_package_name(target_kt))
+
+    def get_paths_side_effect(self, module_name):
+        """Mock return values for module_info.get_paths."""
+        if module_name == UNIT_TEST_MODULE_1:
+            return [IT_TEST_MATCHED_1_PATH]
+        if module_name == UNIT_TEST_MODULE_2:
+            return [UNIT_TEST_MATCHED_2_PATH]
+        if module_name == UNIT_TEST_MODULE_3:
+            return [UNIT_TEST_NOT_MATCHED_1_PATH]
+        return []
+
+    @mock.patch.dict('os.environ', {constants.ANDROID_BUILD_TOP:'/'})
+    @mock.patch.object(module_info.ModuleInfo, 'get_all_unit_tests',
+                       return_value=[UNIT_TEST_MODULE_1,
+                                     UNIT_TEST_MODULE_2,
+                                     UNIT_TEST_MODULE_3])
+    @mock.patch.object(module_info.ModuleInfo, 'get_paths',)
+    def test_find_host_unit_tests(self, _get_paths, _mock_get_unit_tests):
+        """Test find_host_unit_tests"""
+        mod_info = module_info.ModuleInfo(module_file=JSON_FILE_PATH)
+        _get_paths.side_effect = self.get_paths_side_effect
+        expect_unit_tests = [UNIT_TEST_MODULE_1, UNIT_TEST_MODULE_2]
+        self.assertEqual(
+            sorted(expect_unit_tests),
+            sorted(test_finder_utils.find_host_unit_tests(
+                mod_info, UNIT_TEST_SEARCH_ROOT)))
 
 if __name__ == '__main__':
     unittest.main()

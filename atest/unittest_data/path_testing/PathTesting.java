@@ -17,6 +17,6 @@
 package android.jank.cts.ui;
 
 /** Unused Class file for unit tests. */
-public class SomeClassForTesting {
+public class SomeClassForTesting extends AtestClass {
     private static final String SOME_UNUSED_VAR = "For testing purposes";
 }

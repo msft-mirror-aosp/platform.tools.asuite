@@ -23,6 +23,7 @@ import unittest
 
 from unittest import mock
 
+import atest_utils
 import constants
 import module_info
 import unittest_utils
@@ -42,8 +43,8 @@ ROBO_MOD_PATH = ['/shared/robo/path']
 NON_RUN_ROBO_MOD_NAME = 'robo_mod'
 RUN_ROBO_MOD_NAME = 'run_robo_mod'
 NON_RUN_ROBO_MOD = {constants.MODULE_NAME: NON_RUN_ROBO_MOD_NAME,
-                    constants.MODULE_PATH: ROBO_MOD_PATH,
-                    constants.MODULE_CLASS: ['random_class']}
+                        constants.MODULE_PATH: ROBO_MOD_PATH,
+                        constants.MODULE_CLASS: ['random_class']}
 RUN_ROBO_MOD = {constants.MODULE_NAME: RUN_ROBO_MOD_NAME,
                 constants.MODULE_PATH: ROBO_MOD_PATH,
                 constants.MODULE_CLASS: [constants.MODULE_CLASS_ROBOLECTRIC]}
@@ -60,15 +61,22 @@ MODULE_INFO = {constants.MODULE_NAME: 'random_name',
                constants.MODULE_PATH: 'a/b/c/path',
                constants.MODULE_CLASS: ['random_class']}
 NAME_TO_MODULE_INFO = {'random_name' : MODULE_INFO}
+MERGED_DEP = '/tmp/out/atest_merged_dep.json'
 
 #pylint: disable=protected-access
 class ModuleInfoUnittests(unittest.TestCase):
     """Unit tests for module_info.py"""
 
+    def tearDown(self):
+        if os.path.isfile(MERGED_DEP):
+            os.remove(MERGED_DEP)
+
+    @mock.patch.object(module_info.ModuleInfo, '_merge_soong_info')
     @mock.patch('json.load', return_value={})
     @mock.patch('builtins.open', new_callable=mock.mock_open)
     @mock.patch('os.path.isfile', return_value=True)
-    def test_load_mode_info_file_out_dir_handling(self, _isfile, _open, _json):
+    def test_load_mode_info_file_out_dir_handling(self, _isfile, _open, _json,
+                                                 _merge):
         """Test _load_module_info_file out dir handling."""
         # Test out default out dir is used.
         build_top = '/path/to/top'
@@ -105,7 +113,7 @@ class ModuleInfoUnittests(unittest.TestCase):
                              mod_info.module_info_target)
 
     @mock.patch.dict('os.environ', {constants.ANDROID_BUILD_TOP:'/'})
-    @mock.patch.object(module_info.ModuleInfo, '_load_module_info_file',)
+    @mock.patch.object(module_info.ModuleInfo, '_load_module_info_file')
     def test_get_path_to_module_info(self, mock_load_module):
         """Test that we correctly create the path to module info dict."""
         mod_one = 'mod1'
@@ -302,9 +310,11 @@ class ModuleInfoUnittests(unittest.TestCase):
         self.assertTrue(mod_info.is_robolectric_module(MOD_INFO_DICT[MOD_NAME1]))
         self.assertFalse(mod_info.is_robolectric_module(MOD_INFO_DICT[MOD_NAME2]))
 
+    @mock.patch.object(module_info.ModuleInfo, 'get_atest_merged_info_path')
     @mock.patch.dict('os.environ', {constants.ANDROID_BUILD_TOP:'/'})
-    def test_merge_build_system_infos(self):
+    def test_merge_build_system_infos(self, _merge):
         """Test _merge_build_system_infos."""
+        _merge.return_value = MERGED_DEP
         mod_info = module_info.ModuleInfo(module_file=JSON_FILE_PATH)
         java_dep_file = os.path.join(uc.TEST_DATA_DIR,
                                      'module_bp_java_deps.json')
@@ -318,9 +328,11 @@ class ModuleInfoUnittests(unittest.TestCase):
             name_to_mod_info['module_1'].get(constants.MODULE_DEPENDENCIES),
             expect_deps)
 
+    @mock.patch.object(module_info.ModuleInfo, 'get_atest_merged_info_path')
     @mock.patch.dict('os.environ', {constants.ANDROID_BUILD_TOP:'/'})
-    def test_merge_dependency_with_ori_dependency(self):
+    def test_merge_dependency_with_ori_dependency(self, _merge):
         """Test _merge_dependency."""
+        _merge.return_value = MERGED_DEP
         mod_info = module_info.ModuleInfo(module_file=JSON_FILE_PATH)
         java_dep_file = os.path.join(uc.TEST_DATA_DIR,
                                      'module_bp_java_deps.json')
@@ -334,9 +346,11 @@ class ModuleInfoUnittests(unittest.TestCase):
             name_to_mod_info['module_1'].get(constants.MODULE_DEPENDENCIES),
             expect_deps)
 
+    @mock.patch.object(module_info.ModuleInfo, 'get_atest_merged_info_path')
     @mock.patch.dict('os.environ', {constants.ANDROID_BUILD_TOP:'/'})
-    def test_get_module_dependency(self):
+    def test_get_module_dependency(self, _merge):
         """Test get_module_dependency."""
+        _merge.return_value = MERGED_DEP
         mod_info = module_info.ModuleInfo(module_file=JSON_FILE_PATH)
         java_dep_file = os.path.join(uc.TEST_DATA_DIR,
                                      'module_bp_java_deps.json')
@@ -348,9 +362,11 @@ class ModuleInfoUnittests(unittest.TestCase):
             mod_info.get_module_dependency('dep_test_module'),
             expect_deps)
 
+    @mock.patch.object(module_info.ModuleInfo, 'get_atest_merged_info_path')
     @mock.patch.dict('os.environ', {constants.ANDROID_BUILD_TOP:'/'})
-    def test_get_module_dependency_w_loop(self):
+    def test_get_module_dependency_w_loop(self, _merge):
         """Test get_module_dependency with problem dep file."""
+        _merge.return_value = MERGED_DEP
         mod_info = module_info.ModuleInfo(module_file=JSON_FILE_PATH)
         # Java dependency file with a endless loop define.
         java_dep_file = os.path.join(uc.TEST_DATA_DIR,
@@ -363,9 +379,11 @@ class ModuleInfoUnittests(unittest.TestCase):
             mod_info.get_module_dependency('dep_test_module'),
             expect_deps)
 
+    @mock.patch.object(module_info.ModuleInfo, 'get_atest_merged_info_path')
     @mock.patch.dict('os.environ', {constants.ANDROID_BUILD_TOP:'/'})
-    def test_cc_merge_build_system_infos(self):
+    def test_cc_merge_build_system_infos(self, _merge):
         """Test _merge_build_system_infos for cc."""
+        _merge.return_value = MERGED_DEP
         mod_info = module_info.ModuleInfo(module_file=JSON_FILE_PATH)
         cc_dep_file = os.path.join(uc.TEST_DATA_DIR,
                                      'module_bp_cc_deps.json')
@@ -378,6 +396,42 @@ class ModuleInfoUnittests(unittest.TestCase):
         self.assertEqual(
             name_to_mod_info['module_cc_1'].get(constants.MODULE_DEPENDENCIES),
             expect_deps)
+
+    @mock.patch.object(atest_utils, 'get_build_out_dir')
+    def test_get_atest_merged_info_path(self, mock_out_dir):
+        """Test get_atest_merged_info_path."""
+        expect_out = '/test/output/'
+        mock_out_dir.return_value = expect_out
+        expect_path = os.path.join(expect_out, 'soong',
+                                   module_info._MERGED_INFO)
+        self.assertEqual(expect_path, module_info.ModuleInfo.get_atest_merged_info_path())
+
+    @mock.patch.object(atest_utils, 'get_build_out_dir')
+    def test_get_java_dep_info_path(self, mock_out_dir):
+        """Test get_java_dep_info_path."""
+        expect_out = '/test/output/'
+        mock_out_dir.return_value = expect_out
+        expect_path = os.path.join(expect_out, 'soong',
+                                   module_info._JAVA_DEP_INFO)
+        self.assertEqual(expect_path, module_info.ModuleInfo.get_java_dep_info_path())
+
+    @mock.patch.object(atest_utils, 'get_build_out_dir')
+    def test_get_cc_dep_info_path(self, mock_out_dir):
+        """Test get_cc_dep_info_path."""
+        expect_out = '/test/output/'
+        mock_out_dir.return_value = expect_out
+        expect_path = os.path.join(expect_out, 'soong',
+                                   module_info._CC_DEP_INFO)
+        self.assertEqual(expect_path, module_info.ModuleInfo.get_cc_dep_info_path())
+
+    @mock.patch.dict('os.environ', {constants.ANDROID_BUILD_TOP:'/'})
+    def test_is_unit_test(self):
+        """Test is_unit_test."""
+        module_name = 'myModule'
+        maininfo_with_unittest = {constants.MODULE_NAME: module_name,
+                                  constants.MODULE_IS_UNIT_TEST: 'true'}
+        mod_info = module_info.ModuleInfo(module_file=JSON_FILE_PATH)
+        self.assertTrue(mod_info.is_unit_test(maininfo_with_unittest))
 
 if __name__ == '__main__':
     unittest.main()

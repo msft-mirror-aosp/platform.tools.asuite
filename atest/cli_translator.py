@@ -36,6 +36,7 @@ import test_mapping
 from metrics import metrics
 from metrics import metrics_utils
 from test_finders import module_finder
+from test_finders import test_finder_utils
 
 FUZZY_FINDER = 'FUZZY'
 CACHE_FINDER = 'CACHE'
@@ -184,7 +185,8 @@ class CLITranslator:
         # non-test_mapping tests.
         if test_infos and not tm_test_detail:
             atest_utils.update_test_info_cache(test, test_infos)
-            print(self.msg)
+            if self.msg:
+                print(self.msg)
         return test_infos
 
     def _verified_mainline_modules(self, test, mainline_modules):
@@ -512,11 +514,13 @@ class CLITranslator:
             targets |= test_info.build_targets
         return targets
 
-    def _get_test_mapping_tests(self, args):
+    def _get_test_mapping_tests(self, args, exit_if_no_test_found=True):
         """Find the tests in TEST_MAPPING files.
 
         Args:
             args: arg parsed object.
+            exit_if_no_test(s)_found: A flag to exit atest if no test mapping
+                                      tests found.
 
         Returns:
             A tuple of (test_names, test_details_list), where
@@ -537,7 +541,7 @@ class CLITranslator:
             path=src_path, test_group=test_group,
             include_subdirs=args.include_subdirs, checked_files=set())
         test_details_list = list(test_details)
-        if not test_details_list:
+        if not test_details_list and exit_if_no_test_found:
             logging.warning(
                 'No tests of group `%s` found in TEST_MAPPING at %s or its '
                 'parent directories.\nYou might be missing atest arguments,'
@@ -599,21 +603,38 @@ class CLITranslator:
         tests = args.tests
         # Test details from TEST_MAPPING files
         test_details_list = None
+        # Loading Host Unit Tests.
+        host_unit_tests = []
+        if not args.tests:
+            logging.debug('Finding Host Unit Tests...')
+            path = os.path.relpath(
+                os.path.realpath(''),
+                os.environ.get(constants.ANDROID_BUILD_TOP, ''))
+            host_unit_tests = test_finder_utils.find_host_unit_tests(
+                self.mod_info, path)
+            logging.debug('Found host_unit_tests: %s', host_unit_tests)
         if atest_utils.is_test_mapping(args):
             if args.enable_file_patterns:
                 self.enable_file_patterns = True
-            tests, test_details_list = self._get_test_mapping_tests(args)
+            tests, test_details_list = self._get_test_mapping_tests(
+                args, not bool(host_unit_tests))
         atest_utils.colorful_print("\nFinding Tests...", constants.CYAN)
         logging.debug('Finding Tests: %s', tests)
         start = time.time()
         # Clear cache if user pass -c option
         if args.clear_cache:
-            atest_utils.clean_test_info_caches(tests)
+            atest_utils.clean_test_info_caches(tests + host_unit_tests)
         # Process tests which might contain wildcard symbols in advance.
         if atest_utils.has_wildcard(tests):
             tests = self._extract_testable_modules_by_wildcard(tests)
         test_infos = self._get_test_infos(tests, test_details_list,
                                           args.rebuild_module_info)
+        if host_unit_tests:
+            host_unit_test_details = [test_mapping.TestDetail(
+                {'name':test, 'host':True}) for test in host_unit_tests]
+            host_unit_test_infos = self._get_test_infos(host_unit_tests,
+                                                        host_unit_test_details)
+            test_infos.update(host_unit_test_infos)
         logging.debug('Found tests in %ss', time.time() - start)
         for test_info in test_infos:
             logging.debug('%s\n', test_info)

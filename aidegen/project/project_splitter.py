@@ -38,7 +38,7 @@ _EXCLUDE_ITEM = '\n            <excludeFolder url="file://%s" />'
 _EXCLUDE_FOLDERS = ['.idea', '.repo', 'art', 'bionic', 'bootable', 'build',
                     'dalvik', 'developers', 'device', 'hardware', 'kernel',
                     'libnativehelper', 'pdk', 'prebuilts', 'sdk', 'system',
-                    'toolchain', 'tools', 'vendor', 'out',
+                    'toolchain', 'tools', 'vendor', 'out', 'external',
                     'art/tools/ahat/src/test-dump',
                     'cts/common/device-side/device-info/src_stub']
 _PERMISSION_DEFINED_PATH = ('frameworks/base/core/res/framework-res/'
