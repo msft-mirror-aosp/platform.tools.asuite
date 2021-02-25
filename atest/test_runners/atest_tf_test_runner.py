@@ -892,10 +892,10 @@ class AtestTradefedTestRunner(test_runner_base.TestRunnerBase):
                 device_test_end_log_time = log_association.get('time')
             if 'device_logcat_teardown' in log_association.get('dataName', ''):
                 device_teardown_log_time = log_association.get('time')
-        if device_test_end_log_time and device_test_end_log_time:
-            teardowntime = (int(device_teardown_log_time) -
-                            int(device_test_end_log_time))
+        if device_test_end_log_time and device_teardown_log_time:
+            teardowntime = (float(device_teardown_log_time) -
+                            float(device_test_end_log_time))
             logging.debug('TF logcat teardown time=%s seconds.', teardowntime)
             metrics.LocalDetectEvent(
                 detect_type=constants.DETECT_TYPE_TF_TEARDOWN_LOGCAT,
-                result=teardowntime)
+                result=int(teardowntime))
