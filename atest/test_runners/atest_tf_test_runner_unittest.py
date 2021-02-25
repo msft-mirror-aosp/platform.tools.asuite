@@ -38,15 +38,14 @@ from test_runners import atest_tf_test_runner as atf_tr
 
 #pylint: disable=protected-access
 #pylint: disable=invalid-name
-TEST_INFO_DIR = '/tmp/atest_run_1510085893_pi_Nbi'
-METRICS_DIR = '%s/baseline-metrics' % TEST_INFO_DIR
+METRICS_DIR = '%s/baseline-metrics' % uc.TEST_INFO_DIR
 METRICS_DIR_ARG = '--metrics-folder %s ' % METRICS_DIR
 # TODO(147567606): Replace {serial} with {extra_args} for general extra
 # arguments testing.
 RUN_CMD_ARGS = '{metrics}--log-level-display VERBOSE --log-level VERBOSE{device_early_release}{serial}'
 LOG_ARGS = atf_tr.AtestTradefedTestRunner._LOG_ARGS.format(
-    log_path=os.path.join(TEST_INFO_DIR, atf_tr.LOG_FOLDER_NAME),
-    proto_path=os.path.join(TEST_INFO_DIR, constants.ATEST_TEST_RECORD_PROTO))
+    log_path=os.path.join(uc.TEST_INFO_DIR, atf_tr.LOG_FOLDER_NAME),
+    proto_path=os.path.join(uc.TEST_INFO_DIR, constants.ATEST_TEST_RECORD_PROTO))
 RUN_ENV_STR = 'tf_env_var=test'
 RUN_CMD = atf_tr.AtestTradefedTestRunner._RUN_CMD.format(
     env=RUN_ENV_STR,
@@ -184,7 +183,7 @@ class AtestTradefedTestRunnerUnittests(unittest.TestCase):
     @mock.patch.dict('os.environ', {constants.ANDROID_BUILD_TOP:'/'})
     def setUp(self, mock_get_ld_library_path):
         mock_get_ld_library_path.return_value = RUN_ENV_STR
-        self.tr = atf_tr.AtestTradefedTestRunner(results_dir=TEST_INFO_DIR)
+        self.tr = atf_tr.AtestTradefedTestRunner(results_dir=uc.TEST_INFO_DIR)
 
     def tearDown(self):
         mock.patch.stopall()
