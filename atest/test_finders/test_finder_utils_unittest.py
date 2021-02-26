@@ -90,7 +90,7 @@ UNIT_TEST_MODULE_1 = 'unit_test_module_1'
 UNIT_TEST_MODULE_2 = 'unit_test_module_2'
 UNIT_TEST_MODULE_3 = 'unit_test_module_3'
 DALVIK_TEST_CONFIG = 'AndroidDalvikTest.xml.data'
-DALVIK_XML_TARGETS = XML_TARGETS | {test_finder_utils.DALVIK_DEVICE_RUNNER_JAR}
+DALVIK_XML_TARGETS = XML_TARGETS | test_finder_utils.DALVIK_TEST_DEPS
 
 #pylint: disable=protected-access
 class TestFinderUtilsUnittests(unittest.TestCase):
