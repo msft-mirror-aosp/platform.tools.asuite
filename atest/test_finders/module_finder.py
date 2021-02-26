@@ -189,8 +189,7 @@ class ModuleFinder(test_finder_base.TestFinderBase):
         # cts-dalvik-device-test-runner.jar
         if self.module_info.is_auto_gen_test_config(module_name):
             if constants.MODULE_CLASS_JAVA_LIBRARIES in test.module_class:
-                test.build_targets.add(
-                    test_finder_utils.DALVIK_DEVICE_RUNNER_JAR)
+                test.build_targets.update(test_finder_utils.DALVIK_TEST_DEPS)
         # Update test name if the test belong to extra config which means it's
         # test config name is not the same as module name. For extra config, it
         # index will be greater or equal to 1.
