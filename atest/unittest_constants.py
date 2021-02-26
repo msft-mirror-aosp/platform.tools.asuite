@@ -62,7 +62,9 @@ MODULE_BUILD_TARGETS = {'tradefed-core', MODULE_INFO_TARGET,
                         'MODULES-IN-%s' % MODULE_DIR.replace('/', '-'),
                         'module-specific-target'}
 MODULE_BUILD_TARGETS_W_DALVIK = (MODULE_BUILD_TARGETS |
-                                 {'cts-dalvik-device-test-runner'})
+                                 {'cts-dalvik-device-test-runner',
+                                  'cts-dalvik-host-test-runner',
+                                  'cts-tradefed'})
 MODULE_BUILD_TARGETS2 = {'build-target2'}
 MODULE_DATA = {constants.TI_REL_CONFIG: CONFIG_FILE,
                constants.TI_FILTER: frozenset()}
@@ -296,3 +298,6 @@ QCLASS_INDEX = '/tmp/fqcn.idx'
 CC_CLASS_INDEX = '/tmp/cc_classes.idx'
 PACKAGE_INDEX = '/tmp/packages.idx'
 MODULE_INDEX = '/tmp/modules.idx'
+
+# TF's log dir
+TEST_INFO_DIR = '/tmp/atest_run_1510085893_pi_Nbi'
