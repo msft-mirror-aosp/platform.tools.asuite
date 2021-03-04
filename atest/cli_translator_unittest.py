@@ -39,6 +39,7 @@ import unittest_utils
 from metrics import metrics
 from test_finders import module_finder
 from test_finders import test_finder_base
+from test_finders import test_finder_utils
 
 
 # TEST_MAPPING related consts
@@ -68,6 +69,10 @@ def gettestinfos_side_effect(test_names, test_mapping_test_details=None,
             test_infos.add(uc.MODULE_INFO)
         if test_name == uc.CLASS_NAME:
             test_infos.add(uc.CLASS_INFO)
+        if test_name == uc.HOST_UNIT_TEST_NAME_1:
+            test_infos.add(uc.MODULE_INFO_HOST_1)
+        if test_name == uc.HOST_UNIT_TEST_NAME_2:
+            test_infos.add(uc.MODULE_INFO_HOST_2)
     return test_infos
 
 
@@ -240,6 +245,7 @@ class CLITranslatorUnittests(unittest.TestCase):
         """Test translate method for tests by class name."""
         # Check that we can find a class.
         self.args.tests = [uc.CLASS_NAME]
+        self.args.host_unit_test_only = False
         targets, test_infos = self.ctr.translate(self.args)
         unittest_utils.assert_strict_equal(
             self, targets, uc.CLASS_BUILD_TARGETS)
@@ -251,22 +257,27 @@ class CLITranslatorUnittests(unittest.TestCase):
         """Test translate method for tests by module or class name."""
         # Check that we get all the build targets we expect.
         self.args.tests = [uc.MODULE_NAME, uc.CLASS_NAME]
+        self.args.host_unit_test_only = False
         targets, test_infos = self.ctr.translate(self.args)
         unittest_utils.assert_strict_equal(
             self, targets, uc.MODULE_CLASS_COMBINED_BUILD_TARGETS)
         unittest_utils.assert_strict_equal(self, test_infos, {uc.MODULE_INFO,
                                                               uc.CLASS_INFO})
 
+    @mock.patch.object(test_finder_utils, 'find_host_unit_tests', return_value=[])
     @mock.patch.object(cli_t.CLITranslator, '_find_tests_by_test_mapping')
     @mock.patch.object(cli_t.CLITranslator, '_get_test_infos',
                        side_effect=gettestinfos_side_effect)
-    def test_translate_test_mapping(self, _info, mock_testmapping):
+    def test_translate_test_mapping(self, _info, mock_testmapping,
+        _find_unit_tests):
         """Test translate method for tests in test mapping."""
         # Check that test mappings feeds into get_test_info properly.
         test_detail1 = test_mapping.TestDetail(uc.TEST_MAPPING_TEST)
         test_detail2 = test_mapping.TestDetail(uc.TEST_MAPPING_TEST_WITH_OPTION)
         mock_testmapping.return_value = ([test_detail1, test_detail2], None)
         self.args.tests = []
+        self.args.host = False
+        self.args.host_unit_test_only = False
         targets, test_infos = self.ctr.translate(self.args)
         unittest_utils.assert_strict_equal(
             self, targets, uc.MODULE_CLASS_COMBINED_BUILD_TARGETS)
@@ -284,6 +295,7 @@ class CLITranslatorUnittests(unittest.TestCase):
         mock_testmapping.return_value = ([test_detail1, test_detail2], None)
         self.args.tests = ['src_path:all']
         self.args.test_mapping = True
+        self.args.host = False
         targets, test_infos = self.ctr.translate(self.args)
         unittest_utils.assert_strict_equal(
             self, targets, uc.MODULE_CLASS_COMBINED_BUILD_TARGETS)
@@ -415,6 +427,30 @@ class CLITranslatorUnittests(unittest.TestCase):
         result3 = ['Test100', 'aTest101']
         self.assertEqual(ctr._extract_testable_modules_by_wildcard(expr3),
                          result3)
+
+    @mock.patch.object(test_finder_utils, 'find_host_unit_tests',
+                       return_value=[uc.HOST_UNIT_TEST_NAME_1,
+                                     uc.HOST_UNIT_TEST_NAME_2])
+    @mock.patch.object(cli_t.CLITranslator, '_find_tests_by_test_mapping')
+    @mock.patch.object(cli_t.CLITranslator, '_get_test_infos',
+                       side_effect=gettestinfos_side_effect)
+    def test_translate_test_mapping_host_unit_test(self, _info, mock_testmapping,
+        _find_unit_tests):
+        """Test translate method for tests belong to host unit tests."""
+        # Check that test mappings feeds into get_test_info properly.
+        test_detail1 = test_mapping.TestDetail(uc.TEST_MAPPING_TEST)
+        test_detail2 = test_mapping.TestDetail(uc.TEST_MAPPING_TEST_WITH_OPTION)
+        mock_testmapping.return_value = ([test_detail1, test_detail2], None)
+        self.args.tests = []
+        self.args.host = False
+        self.args.host_unit_test_only = False
+        _, test_infos = self.ctr.translate(self.args)
+        unittest_utils.assert_strict_equal(self,
+                                           test_infos,
+                                           {uc.MODULE_INFO,
+                                            uc.CLASS_INFO,
+                                            uc.MODULE_INFO_HOST_1,
+                                            uc.MODULE_INFO_HOST_2})
 
 if __name__ == '__main__':
     unittest.main()

@@ -35,6 +35,8 @@ MODULE_DIR = 'foo/bar/jank'
 MODULE2_DIR = 'foo/bar/hello'
 MODULE_NAME = 'CtsJankDeviceTestCases'
 MODULE_CONFIG_NAME = 'CtsJankDeviceTestCases2'
+HOST_UNIT_TEST_NAME_1 = 'host_unit_test1'
+HOST_UNIT_TEST_NAME_2 = 'host_unit_test2'
 TYPO_MODULE_NAME = 'CtsJankDeviceTestCase'
 MODULE2_NAME = 'HelloWorldTests'
 CLASS_NAME = 'CtsDeviceJankUi'
@@ -59,6 +61,10 @@ MODULE_INFO_TARGET = '/out/%s' % JSON_FILE
 MODULE_BUILD_TARGETS = {'tradefed-core', MODULE_INFO_TARGET,
                         'MODULES-IN-%s' % MODULE_DIR.replace('/', '-'),
                         'module-specific-target'}
+MODULE_BUILD_TARGETS_W_DALVIK = (MODULE_BUILD_TARGETS |
+                                 {'cts-dalvik-device-test-runner',
+                                  'cts-dalvik-host-test-runner',
+                                  'cts-tradefed'})
 MODULE_BUILD_TARGETS2 = {'build-target2'}
 MODULE_DATA = {constants.TI_REL_CONFIG: CONFIG_FILE,
                constants.TI_FILTER: frozenset()}
@@ -70,6 +76,12 @@ MODULE_INFO = test_info.TestInfo(MODULE_NAME,
                                  atf_tr.AtestTradefedTestRunner.NAME,
                                  MODULE_BUILD_TARGETS,
                                  MODULE_DATA)
+MODULE_INFO_W_DALVIK = test_info.TestInfo(
+    MODULE_NAME,
+    atf_tr.AtestTradefedTestRunner.NAME,
+    MODULE_BUILD_TARGETS_W_DALVIK,
+    MODULE_DATA,
+    module_class=[constants.MODULE_CLASS_JAVA_LIBRARIES])
 MODULE_INFO_W_CONFIG = test_info.TestInfo(MODULE_CONFIG_NAME,
                                           atf_tr.AtestTradefedTestRunner.NAME,
                                           MODULE_BUILD_TARGETS,
@@ -83,6 +95,14 @@ TEST_CONFIG_MODULE_INFO = test_info.TestInfo(
     atf_tr.AtestTradefedTestRunner.NAME,
     MODULE_BUILD_TARGETS,
     MODULE_DATA_W_CONFIG)
+MODULE_INFO_HOST_1 = test_info.TestInfo(HOST_UNIT_TEST_NAME_1,
+                                        atf_tr.AtestTradefedTestRunner.NAME,
+                                        MODULE_BUILD_TARGETS,
+                                        MODULE_DATA)
+MODULE_INFO_HOST_2 = test_info.TestInfo(HOST_UNIT_TEST_NAME_2,
+                                        atf_tr.AtestTradefedTestRunner.NAME,
+                                        MODULE_BUILD_TARGETS,
+                                        MODULE_DATA)
 MODULE_INFOS = [MODULE_INFO]
 MODULE_INFOS2 = [MODULE_INFO, MODULE_INFO2]
 CLASS_FILTER = test_info.TestFilter(FULL_CLASS_NAME, frozenset())
@@ -278,3 +298,6 @@ QCLASS_INDEX = '/tmp/fqcn.idx'
 CC_CLASS_INDEX = '/tmp/cc_classes.idx'
 PACKAGE_INDEX = '/tmp/packages.idx'
 MODULE_INDEX = '/tmp/modules.idx'
+
+# TF's log dir
+TEST_INFO_DIR = '/tmp/atest_run_1510085893_pi_Nbi'

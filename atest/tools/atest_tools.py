@@ -230,7 +230,13 @@ def _index_testable_modules(index):
         index: A string path of the index file.
     """
     logging.debug('indexing testable modules.')
-    testable_modules = module_info.ModuleInfo().get_testable_modules()
+    try:
+        # b/178559543 The module-info.json becomes invalid after a success build is
+        # unlikely to happen, wrap with a try-catch to prevent it from happening.
+        testable_modules = module_info.ModuleInfo().get_testable_modules()
+    except json.JSONDecodeError:
+        logging.error('Invalid module-info.json detected. Will not index modules.')
+        return
     with open(index, 'wb') as cache:
         try:
             pickle.dump(testable_modules, cache, protocol=2)
@@ -403,15 +409,13 @@ def acloud_create(report_file, args="", no_metrics_notice=True):
     acloud_duration = time.time() - start
     logging.info('"acloud create" process has completed.')
     # Insert acloud create duration into the report file.
-    if os.path.exists(report_file):
+    if au.is_valid_json_file(report_file):
         try:
             with open(report_file, 'r') as _rfile:
                 result = json.load(_rfile)
             result[ACLOUD_DURATION] = acloud_duration
             with open(report_file, 'w+') as _wfile:
                 _wfile.write(json.dumps(result))
-        except json.JSONDecodeError:
-            logging.error('Failed loading %s', report_file)
         except OSError as e:
             logging.error("Failed dumping duration to the report file: %s", str(e))
 
@@ -431,12 +435,10 @@ def probe_acloud_status(report_file):
     """
     # 1. Created but the status is not 'SUCCESS'
     if os.path.exists(report_file):
-        try:
-            with open(report_file, 'r') as rfile:
-                result = json.load(rfile)
-        except json.JSONDecodeError:
-            logging.error('Failed loading %s', report_file)
+        if not au.is_valid_json_file(report_file):
             return constants.EXIT_CODE_AVD_CREATE_FAILURE
+        with open(report_file, 'r') as rfile:
+            result = json.load(rfile)
 
         if result.get('status') == 'SUCCESS':
             logging.info('acloud create successfully!')
@@ -462,14 +464,10 @@ def get_acloud_duration(report_file):
     Returns:
         An float of seconds which acloud create takes.
     """
-    if not os.path.exists(report_file):
+    if not au.is_valid_json_file(report_file):
         return 0
-    try:
-        with open(report_file, 'r') as rfile:
-            return json.load(rfile).get(ACLOUD_DURATION, 0)
-    except json.JSONDecodeError:
-        logging.error('Failed loading %s', report_file)
-        return 0
+    with open(report_file, 'r') as rfile:
+        return json.load(rfile).get(ACLOUD_DURATION, 0)
 
 
 if __name__ == '__main__':

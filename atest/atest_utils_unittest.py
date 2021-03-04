@@ -92,6 +92,7 @@ class AtestUtilsUnittests(unittest.TestCase):
             for attr in tm_option_attributes:
                 setattr(args, attr, attr == attr_to_test)
             args.tests = []
+            args.host_unit_test_only = False
             self.assertTrue(
                 atest_utils.is_test_mapping(args),
                 'Failed to validate option %s' % attr_to_test)
@@ -99,19 +100,29 @@ class AtestUtilsUnittests(unittest.TestCase):
         args = mock.Mock()
         for attr in tm_option_attributes:
             setattr(args, attr, False)
+        args.tests = []
+        args.host_unit_test_only = True
+        self.assertFalse(atest_utils.is_test_mapping(args))
+
+        args = mock.Mock()
+        for attr in tm_option_attributes:
+            setattr(args, attr, False)
         args.tests = [':group_name']
+        args.host_unit_test_only = False
         self.assertTrue(atest_utils.is_test_mapping(args))
 
         args = mock.Mock()
         for attr in tm_option_attributes:
             setattr(args, attr, False)
         args.tests = [':test1', 'test2']
+        args.host_unit_test_only = False
         self.assertFalse(atest_utils.is_test_mapping(args))
 
         args = mock.Mock()
         for attr in tm_option_attributes:
             setattr(args, attr, False)
         args.tests = ['test2']
+        args.host_unit_test_only = False
         self.assertFalse(atest_utils.is_test_mapping(args))
 
     @mock.patch('curses.tigetnum')

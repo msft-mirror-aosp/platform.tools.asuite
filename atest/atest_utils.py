@@ -327,6 +327,7 @@ def is_test_mapping(args):
     which means the test value is a test group name in TEST_MAPPING file, e.g.,
     `:postsubmit`.
 
+    If --host-unit-test-only be applied, it's not test mapping.
     If any test mapping options is specified, the atest command must also be
     set to run tests in test mapping files.
 
@@ -338,10 +339,12 @@ def is_test_mapping(args):
         otherwise.
     """
     return (
-        args.test_mapping or
+        not args.host_unit_test_only and
+        (args.test_mapping or
         args.include_subdirs or
         not args.tests or
-        (len(args.tests) == 1 and args.tests[0][0] == ':'))
+        (len(args.tests) == 1 and args.tests[0][0] == ':')))
+
 
 @atest_decorator.static_var("cached_has_colors", {})
 def _has_colors(stream):
@@ -901,15 +904,15 @@ def is_valid_json_file(path):
     Returns:
         True if file exist and content is valid, False otherwise.
     """
-    is_valid = False
     try:
         if os.path.isfile(path):
             with open(path) as json_file:
                 json.load(json_file)
-            is_valid = True
+            return True
+        logging.warning('%s: File not found.', path)
     except json.JSONDecodeError:
         logging.warning('Exception happened while loading %s.', path)
-    return is_valid
+    return False
 
 def get_manifest_branch():
     """Get the manifest branch via repo info command.
