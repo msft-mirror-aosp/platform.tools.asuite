@@ -381,6 +381,21 @@ class ModuleInfoUnittests(unittest.TestCase):
 
     @mock.patch.object(module_info.ModuleInfo, 'get_atest_merged_info_path')
     @mock.patch.dict('os.environ', {constants.ANDROID_BUILD_TOP:'/'})
+    def test_get_install_module_dependency(self, _merge):
+        """Test get_install_module_dependency."""
+        _merge.return_value = MERGED_DEP
+        mod_info = module_info.ModuleInfo(module_file=JSON_FILE_PATH)
+        java_dep_file = os.path.join(uc.TEST_DATA_DIR,
+                                     'module_bp_java_deps.json')
+        expect_deps = {'module_1', 'test_dep_level_2_1'}
+        mod_info._merge_build_system_infos(mod_info.name_to_module_info,
+                                           java_bp_info_path=java_dep_file)
+        self.assertEqual(
+            mod_info.get_install_module_dependency('dep_test_module'),
+            expect_deps)
+
+    @mock.patch.object(module_info.ModuleInfo, 'get_atest_merged_info_path')
+    @mock.patch.dict('os.environ', {constants.ANDROID_BUILD_TOP:'/'})
     def test_cc_merge_build_system_infos(self, _merge):
         """Test _merge_build_system_infos for cc."""
         _merge.return_value = MERGED_DEP
