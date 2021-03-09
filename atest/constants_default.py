@@ -275,6 +275,9 @@ REQUIRED_KERNEL_TEST_MODULES = [
     'vts_ltp_test_x86'
 ]
 
+# XTS suite set dependency.
+SUITE_DEPS = {}
+
 # Tradefed log file name term.
 TF_HOST_LOG = 'host_log_*'
 
