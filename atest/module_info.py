@@ -466,32 +466,53 @@ class ModuleInfo:
         temp_file.close()
         return name_to_module_info
 
-    def get_module_dependency(self, module_name, parent_dependencies=None):
+    def get_module_dependency(self, module_name, depend_on=None):
         """Get the dependency sets for input module.
 
         Recursively find all the dependencies of the input module.
 
         Args:
             module_name: String of module to check.
-            parent_dependencies: The list of parent dependencies.
+            depend_on: The list of parent dependencies.
 
         Returns:
             Set of dependency modules.
         """
-        if not parent_dependencies:
-            parent_dependencies = set()
+        if not depend_on:
+            depend_on = set()
         deps = set()
         mod_info = self.get_module_info(module_name)
         if not mod_info:
             return deps
         mod_deps = set(mod_info.get(constants.MODULE_DEPENDENCIES, []))
-        # Remove item in deps if it already in parent_dependencies:
-        mod_deps = mod_deps - parent_dependencies
+        # Remove item in deps if it already in depend_on:
+        mod_deps = mod_deps - depend_on
         deps = deps.union(mod_deps)
         for mod_dep in mod_deps:
             deps = deps.union(set(self.get_module_dependency(
-                mod_dep, parent_dependencies=parent_dependencies.union(deps))))
+                mod_dep, depend_on=depend_on.union(deps))))
         return deps
+
+    def get_install_module_dependency(self, module_name, depend_on=None):
+        """Get the dependency set for the given modules with installed path.
+
+        Args:
+            module_name: String of module to check.
+            depend_on: The list of parent dependencies.
+
+        Returns:
+            Set of dependency modules which has installed path.
+        """
+        install_deps = set()
+        deps = self.get_module_dependency(module_name, depend_on)
+        logging.debug('%s depends on: %s', module_name, deps)
+        for module in deps:
+            mod_info = self.get_module_info(module)
+            if mod_info.get(constants.MODULE_INSTALLED, []):
+                install_deps.add(module)
+        logging.debug('modules %s required by %s were not installed',
+                      install_deps, module_name)
+        return install_deps
 
     @staticmethod
     def get_atest_merged_info_path():

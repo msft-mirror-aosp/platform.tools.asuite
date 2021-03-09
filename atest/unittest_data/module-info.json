@@ -17,11 +17,11 @@
   "multiarch3": { "class": ["JAVA_LIBRARIES"],  "path": ["shared/path/to/be/used2"], "tags": ["optional"],  "installed": ["out/host/linux-x86/framework/tradefed-contrib.jar"], "module_name": "multiarch3" },
   "multiarch3_32": { "class": ["JAVA_LIBRARIES"],  "path": ["shared/path/to/be/used2"], "tags": ["optional"],  "installed": ["out/host/linux-x86/framework/tradefed-contrib.jar"], "module_name": "multiarch3_32" },
   "dep_test_module": { "module_name": "dep_test_module", "dependencies": ["module_1", "module_2"] },
-  "module_1": { "module_name": "module_1", "dependencies": [] },
+  "module_1": { "module_name": "module_1", "dependencies": [], "installed": ["path1"] },
   "module_2": { "module_name": "module_2", "dependencies": [] },
   "module_3": { "module_name": "module_3", "dependencies": [] },
   "test_dep_level_1_1": { "module_name": "test_dep_level_1_1", "dependencies": [] },
   "test_dep_level_1_2": { "module_name": "test_dep_level_1_2", "dependencies": [] },
-  "test_dep_level_2_1": { "module_name": "test_dep_level_2_1", "dependencies": [] },
+  "test_dep_level_2_1": { "module_name": "test_dep_level_2_1", "dependencies": [], "installed": ["path2"] },
   "test_dep_level_2_2": { "module_name": "test_dep_level_2_2", "dependencies": [] }
 }
