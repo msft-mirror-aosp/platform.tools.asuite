@@ -17,8 +17,6 @@ Utility functions for atest.
 """
 
 
-# pylint: disable=import-outside-toplevel
-
 from __future__ import print_function
 
 import hashlib
@@ -36,23 +34,9 @@ import atest_decorator
 import atest_error
 import constants
 
-# This proto related module will be auto generated in build time.
-# pylint: disable=no-name-in-module
-# pylint: disable=import-error
-from tools.asuite.atest.tf_proto import test_record_pb2
+from metrics import metrics_base
+from metrics import metrics_utils
 
-# b/147562331 only occurs when running atest in source code. We don't encourge
-# the users to manually "pip3 install protobuf", therefore when the exception
-# occurs, we don't collect data and the tab completion is for args is silence.
-try:
-    from metrics import metrics_base
-    from metrics import metrics_utils
-except ModuleNotFoundError:
-    # This exception occurs only when invoking atest in source code.
-    print("You shouldn't see this message unless you ran 'atest-src'."
-          "To resolve the issue, please run:\n\t{}\n"
-          "and try again.".format('pip3 install protobuf'))
-    sys.exit(constants.IMPORT_FAILURE)
 
 _BASH_RESET_CODE = '\033[0m\n'
 # Arbitrary number to limit stdout for failed runs in _run_limited_output.
@@ -87,7 +71,7 @@ _FIND_MODIFIED_FILES_CMDS = (
 
 
 def get_build_cmd():
-    """Compose build command with no-absolute path and flag "--make-mode".
+    """Compose build command with relative path and flag "--make-mode".
 
     Returns:
         A list of soong build command.
@@ -139,11 +123,11 @@ def _run_limited_output(cmd, env_vars=None):
     white_space = " " * int(term_width)
     full_output = []
     while proc.poll() is None:
-        line = proc.stdout.readline().decode('utf-8')
+        line = proc.stdout.readline()
         # Readline will often return empty strings.
         if not line:
             continue
-        full_output.append(line)
+        full_output.append(line.decode('utf-8'))
         # Trim the line to the width of the terminal.
         # Note: Does not handle terminal resizing, which is probably not worth
         #       checking the width every loop.
@@ -214,7 +198,13 @@ def _can_upload_to_result_server():
     # TODO: Also check if we have a slow connection to result server.
     if constants.RESULT_SERVER:
         try:
-            from urllib.request import urlopen
+            try:
+                # If PYTHON2
+                from urllib2 import urlopen
+            except ImportError:
+                metrics_utils.handle_exc_and_send_exit_event(
+                    constants.IMPORT_FAILURE)
+                from urllib.request import urlopen
             urlopen(constants.RESULT_SERVER,
                     timeout=constants.RESULT_SERVER_TIMEOUT).close()
             return True
@@ -283,7 +273,8 @@ def _has_colors(stream):
     cached_has_colors = _has_colors.cached_has_colors
     if stream in cached_has_colors:
         return cached_has_colors[stream]
-    cached_has_colors[stream] = True
+    else:
+        cached_has_colors[stream] = True
     # Following from Python cookbook, #475186
     if not hasattr(stream, "isatty"):
         cached_has_colors[stream] = False
@@ -346,6 +337,8 @@ def colorful_print(text, color, highlight=False, auto_wrap=True):
         print(output, end="")
 
 
+# pylint: disable=no-member
+# TODO: remove the above disable when migrating to python3.
 def get_terminal_size():
     """Get terminal size and return a tuple.
 
@@ -354,10 +347,15 @@ def get_terminal_size():
     """
     # Determine the width of the terminal. We'll need to clear this many
     # characters when carriage returning. Set default value as 80.
-    columns, rows = shutil.get_terminal_size(
-        fallback=(_DEFAULT_TERMINAL_WIDTH,
-                  _DEFAULT_TERMINAL_HEIGHT))
-    return columns, rows
+    try:
+        if sys.version_info[0] == 2:
+            _y, _x = subprocess.check_output(['stty', 'size']).decode().split()
+            return int(_x), int(_y)
+        return (shutil.get_terminal_size().columns,
+                shutil.get_terminal_size().lines)
+    # b/137521782 stty size could have changed for reasones.
+    except subprocess.CalledProcessError:
+        return _DEFAULT_TERMINAL_WIDTH, _DEFAULT_TERMINAL_HEIGHT
 
 
 def is_external_run():
@@ -392,10 +390,10 @@ def print_data_collection_notice():
                   constants.PRIVACY_POLICY_URL,
                   constants.TERMS_SERVICE_URL
                  )
-    print(delimiter('=', 18, prenl=1))
+    print('\n==================')
     colorful_print("Notice:", constants.RED)
     colorful_print("%s" % notice, constants.GREEN)
-    print(delimiter('=', 18, postnl=1))
+    print('==================\n')
 
 
 def handle_test_runner_cmd(input_test, test_cmds, do_verification=False,
@@ -420,25 +418,28 @@ def handle_test_runner_cmd(input_test, test_cmds, do_verification=False,
     former_test_cmds = full_result_content.get(input_test, [])
     if not _are_identical_cmds(test_cmds, former_test_cmds):
         if do_verification:
-            raise atest_error.DryRunVerificationError(
-                'Dry run verification failed, former commands: {}'.format(
-                    former_test_cmds))
+            raise atest_error.DryRunVerificationError('Dry run verification failed,'
+                                                      ' former commands: %s' %
+                                                      former_test_cmds)
         if former_test_cmds:
             # If former_test_cmds is different from test_cmds, ask users if they
             # are willing to update the result.
             print('Former cmds = %s' % former_test_cmds)
             print('Current cmds = %s' % test_cmds)
             try:
-                from distutils import util
-                if not util.strtobool(
-                        input('Do you want to update former result '
-                              'with the latest one?(Y/n)')):
+                # TODO(b/137156054):
+                # Move the import statement into a method for that distutils is
+                # not a built-in lib in older python3(b/137017806). Will move it
+                # back when embedded_launcher fully supports Python3.
+                from distutils.util import strtobool
+                if not strtobool(raw_input('Do you want to update former result'
+                                           'with the latest one?(Y/n)')):
                     print('SKIP updating result!!!')
                     return
             except ValueError:
-                # Default action is updating the command result of the
-                # input_test. If the user input is unrecognizable telling yes
-                # or no, "Y" is implicitly applied.
+                # Default action is updating the command result of the input_test.
+                # If the user input is unrecognizable telling yes or no,
+                # "Y" is implicitly applied.
                 pass
     else:
         # If current commands are the same as the formers, no need to update
@@ -472,7 +473,7 @@ def _are_identical_cmds(current_cmds, former_cmds):
         Returns:
             A list with elements. E.g. ['cmd', 'arg1', 'arg2', 'True']
         """
-        _cmd = ''.join(cmd_list).split()
+        _cmd = ''.join(cmd_list).encode('utf-8').split()
         for cmd in _cmd:
             if cmd.startswith('--atest-log-file-path'):
                 _cmd.remove(cmd)
@@ -559,14 +560,10 @@ def load_test_info_cache(test_reference, cache_root=TEST_INFO_CACHE_ROOT):
         logging.debug('Loading cache %s.', cache_file)
         try:
             with open(cache_file, 'rb') as config_dictionary_file:
-                return pickle.load(config_dictionary_file, encoding='utf-8')
-        except (pickle.UnpicklingError,
-                ValueError,
-                TypeError,
-                EOFError,
-                IOError) as err:
-            # Won't break anything, just remove the old cache, log this error,
-            # and collect the exception by metrics.
+                return pickle.load(config_dictionary_file)
+        except (pickle.UnpicklingError, ValueError, EOFError, IOError) as err:
+            # Won't break anything, just remove the old cache, log this error, and
+            # collect the exception by metrics.
             logging.debug('Exception raised: %s', err)
             os.remove(cache_file)
             metrics_utils.handle_exc_and_send_exit_event(
@@ -610,37 +607,23 @@ def get_modified_files(root_dir):
     try:
         find_git_cmd = 'cd {}; git rev-parse --show-toplevel'.format(root_dir)
         git_paths = subprocess.check_output(
-            find_git_cmd, shell=True).decode().splitlines()
+            find_git_cmd, shell=True).splitlines()
         for git_path in git_paths:
             # Find modified files from git working tree status.
             git_status_cmd = ("repo forall {} -c git status --short | "
                               "awk '{{print $NF}}'").format(git_path)
             modified_wo_commit = subprocess.check_output(
-                git_status_cmd, shell=True).decode().rstrip().splitlines()
+                git_status_cmd, shell=True).rstrip().splitlines()
             for change in modified_wo_commit:
                 modified_files.add(
                     os.path.normpath('{}/{}'.format(git_path, change)))
             # Find modified files that are committed but not yet merged.
             find_modified_files = _FIND_MODIFIED_FILES_CMDS.format(git_path)
             commit_modified_files = subprocess.check_output(
-                find_modified_files, shell=True).decode().splitlines()
+                find_modified_files, shell=True).splitlines()
             for line in commit_modified_files:
                 modified_files.add(os.path.normpath('{}/{}'.format(
                     git_path, line)))
     except (OSError, subprocess.CalledProcessError) as err:
         logging.debug('Exception raised: %s', err)
     return modified_files
-
-def delimiter(char, length=_DEFAULT_TERMINAL_WIDTH, prenl=0, postnl=0):
-    """A handy delimiter printer.
-
-    Args:
-        char: A string used for delimiter.
-        length: An integer for the replication.
-        prenl: An integer that insert '\n' before delimiter.
-        postnl: An integer that insert '\n' after delimiter.
-
-    Returns:
-        A string of delimiter.
-    """
-    return prenl * '\n' + char * length + postnl * '\n'
