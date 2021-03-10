@@ -134,7 +134,7 @@ class CLITranslator:
                 for test_info in found_test_infos:
                     test_deps = set()
                     if self.mod_info:
-                        test_deps = self.mod_info.get_module_dependency(
+                        test_deps = self.mod_info.get_install_module_dependency(
                             test_info.test_name)
                         logging.debug('(%s) Test dependencies: %s',
                                       test_info.test_name, test_deps)
