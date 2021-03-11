@@ -508,7 +508,7 @@ class ModuleInfo:
         logging.debug('%s depends on: %s', module_name, deps)
         for module in deps:
             mod_info = self.get_module_info(module)
-            if mod_info.get(constants.MODULE_INSTALLED, []):
+            if mod_info and mod_info.get(constants.MODULE_INSTALLED, []):
                 install_deps.add(module)
         logging.debug('modules %s required by %s were not installed',
                       install_deps, module_name)
