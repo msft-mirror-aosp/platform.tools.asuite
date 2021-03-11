@@ -71,7 +71,12 @@ Developers can also use the following optional arguments with AIDEGen commands.
 | `-l`   | `--language`      | Launch IDE with a specific language,j=java c=C/C++ r=Rust|
 | `-h`   | `--help`          | Shows help message and exits.                   |
 
-## 4. FAQ:
+## 4. Troubleshooting tips:
+
+If you get an error like: "Dependent modules dictionary is empty." or other errors, try a make
+clean.
+
+## 5. FAQ:
 
 Q1. If I already have an IDE project file, and I run command AIDEGen to generate
 the same project file again, what'll happen?
@@ -83,7 +88,7 @@ Q2: When do I need to re-run AIDEGen?
 
 A2: Re-run AIDEGen after repo sync.
 
-## 5. Hint:
+## 6. Hint:
 
 1. In Intellij, uses [File] > [Invalidate Caches / Restart...] to force
        project panel updated when your IDE didn't sync.
