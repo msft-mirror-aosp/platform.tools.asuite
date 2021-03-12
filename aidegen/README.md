@@ -44,7 +44,7 @@ Example to generate and launch IntelliJ project for framework and Settings:
 $ aidegen packages/apps/Settings frameworks/base
 ```
 
-### Example 3: Launch IDE with sikpping build time
+### Example 3: Launch IDE with build skipped
 
 Example to generate and launch IntelliJ project for framework and Settings and
 skip build time:
