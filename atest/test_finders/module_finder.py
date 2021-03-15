@@ -223,6 +223,9 @@ class ModuleFinder(test_finder_base.TestFinderBase):
         if constants.VTS_CORE_SUITE in self.module_info.get_module_info(
                 module_name).get(constants.MODULE_COMPATIBILITY_SUITES, []):
             targets.add(constants.VTS_CORE_TF_MODULE)
+        for suite in self.module_info.get_module_info(
+            module_name).get(constants.MODULE_COMPATIBILITY_SUITES, []):
+            targets.update(constants.SUITE_DEPS.get(suite, []))
         for module_path in self.module_info.get_paths(module_name):
             mod_dir = module_path.replace('/', '-')
             targets.add(_MODULES_IN % mod_dir)
