@@ -29,6 +29,7 @@ import module_info
 import unittest_constants as uc
 
 from test_finders import cache_finder
+from test_finders import test_info
 
 
 #pylint: disable=protected-access
@@ -149,6 +150,20 @@ class CacheFinderUnittests(unittest.TestCase):
         self.assertTrue(
             self.cache_finder._is_java_filter_in_module(
                 'MyModule', 'a.b.c'))
+
+    def test_is_test_build_target_valid_module_in(self):
+        """Test _is_test_build_target_valid method if target has MODULES-IN."""
+        t_info = test_info.TestInfo('mock_name', 'mock_runner',
+                                    {'MODULES-IN-my-test-dir'})
+        self.cache_finder.module_info.is_module.return_value = False
+        self.assertTrue(self.cache_finder._is_test_build_target_valid(t_info))
+
+    def test_is_test_build_target_valid(self):
+        """Test _is_test_build_target_valid method."""
+        t_info = test_info.TestInfo('mock_name', 'mock_runner',
+                                    {'my-test-target'})
+        self.cache_finder.module_info.is_module.return_value = False
+        self.assertFalse(self.cache_finder._is_test_build_target_valid(t_info))
 
 if __name__ == '__main__':
     unittest.main()
