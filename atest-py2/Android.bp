@@ -43,30 +43,30 @@ python_binary_host {
     },
 }
 
-python_test_host {
-    name: "atest-py2_unittests",
-    main: "atest_run_unittests.py",
-    pkg_path: "atest",
-    srcs: [
-        "**/*.py",
-    ],
-    data: [
-        "tools/updatedb_darwin.sh",
-        "unittest_data/**/*",
-        "unittest_data/**/.*",
-    ],
-    exclude_srcs: [
-        "asuite_lib_test/*.py",
-        "proto/*_pb2.py",
-        "proto/__init__.py",
-    ],
-    libs: [
-        "py-mock",
-        "atest_py2_proto",
-    ],
-    test_config: "atest_unittests.xml",
-    defaults: ["atest_py2_default"],
-}
+//python_test_host {
+//    name: "atest-py2_unittests",
+//    main: "atest_run_unittests.py",
+//    pkg_path: "atest",
+//    srcs: [
+//        "**/*.py",
+//    ],
+//    data: [
+//        "tools/updatedb_darwin.sh",
+//        "unittest_data/**/*",
+//        "unittest_data/**/.*",
+//    ],
+//    exclude_srcs: [
+//        "asuite_lib_test/*.py",
+//        "proto/*_pb2.py",
+//        "proto/__init__.py",
+//    ],
+//    libs: [
+//        "py-mock",
+//        "atest_py2_proto",
+//    ],
+//    test_config: "atest_unittests.xml",
+//    defaults: ["atest_py2_default"],
+//}
 
 python_library_host {
     name: "atest_py2_proto",
