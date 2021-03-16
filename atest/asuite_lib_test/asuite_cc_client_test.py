@@ -33,6 +33,7 @@ class AsuiteCCLibTest(unittest.TestCase):
         from asuite.metrics import metrics
         from asuite.metrics import metrics_base
         from asuite.metrics import metrics_utils
+        from asuite import atest_utils
 
         # TODO (b/132602907): Add the real usage for checking if metrics pass or fail.
 
