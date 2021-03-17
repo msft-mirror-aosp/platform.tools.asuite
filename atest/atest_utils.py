@@ -57,8 +57,10 @@ import constants
 # This proto related module will be auto generated in build time.
 # pylint: disable=no-name-in-module
 # pylint: disable=import-error
-from tools.asuite.atest.tf_proto import test_record_pb2
-
+try:
+    from tools.asuite.atest.tf_proto import test_record_pb2
+except ImportError as err:
+    pass
 # b/147562331 only occurs when running atest in source code. We don't encourge
 # the users to manually "pip3 install protobuf", therefore when the exception
 # occurs, we don't collect data and the tab completion is for args is silence.
@@ -66,14 +68,20 @@ try:
     from metrics import metrics
     from metrics import metrics_base
     from metrics import metrics_utils
-except ModuleNotFoundError as err:
-    # This exception occurs only when invoking atest in source code.
-    print("You shouldn't see this message unless you ran 'atest-src'."
-          "To resolve the issue, please run:\n\t{}\n"
-          "and try again.".format('pip3 install protobuf'))
-    print('Import error, %s', err)
-    print('sys.path: %s', sys.path)
-    sys.exit(constants.IMPORT_FAILURE)
+except ImportError as err:
+    # TODO(b/182854938): remove this ImportError after refactor metrics dir.
+    try:
+        from asuite.metrics import metrics
+        from asuite.metrics import metrics_base
+        from asuite.metrics import metrics_utils
+    except ImportError as err:
+        # This exception occurs only when invoking atest in source code.
+        print("You shouldn't see this message unless you ran 'atest-src'."
+              "To resolve the issue, please run:\n\t{}\n"
+              "and try again.".format('pip3 install protobuf'))
+        print('Import error, %s', err)
+        print('sys.path: %s', sys.path)
+        sys.exit(constants.IMPORT_FAILURE)
 
 _BASH_RESET_CODE = '\033[0m\n'
 # Arbitrary number to limit stdout for failed runs in _run_limited_output.
@@ -283,6 +291,9 @@ def build(build_targets, verbose=False, env_vars=None):
         return True
     except subprocess.CalledProcessError as err:
         logging.error('Error building: %s', build_targets)
+        print(constants.REBUILD_MODULE_INFO_MSG.format(
+            colorize(constants.REBUILD_MODULE_INFO_FLAG,
+                     constants.RED)))
         if err.output:
             logging.error(err.output)
         return False
