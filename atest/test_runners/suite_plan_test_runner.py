@@ -32,7 +32,7 @@ class SuitePlanTestRunner(atest_tf_test_runner.AtestTradefedTestRunner):
 
     def __init__(self, results_dir, **kwargs):
         """Init stuff for suite tradefed runner class."""
-        super(SuitePlanTestRunner, self).__init__(results_dir, **kwargs)
+        super().__init__(results_dir, **kwargs)
         self.run_cmd_dict = {'exe': '',
                              'test': '',
                              'args': ''}
@@ -44,8 +44,7 @@ class SuitePlanTestRunner(atest_tf_test_runner.AtestTradefedTestRunner):
             Set of build targets.
         """
         build_req = set()
-        build_req |= super(SuitePlanTestRunner,
-                           self).get_test_runner_build_reqs()
+        build_req |= super().get_test_runner_build_reqs()
         return build_req
 
     def run_tests(self, test_infos, extra_args, reporter):
@@ -62,8 +61,7 @@ class SuitePlanTestRunner(atest_tf_test_runner.AtestTradefedTestRunner):
         run_cmds = self.generate_run_commands(test_infos, extra_args)
         ret_code = constants.EXIT_CODE_SUCCESS
         for run_cmd in run_cmds:
-            proc = super(SuitePlanTestRunner, self).run(run_cmd,
-                                                        output_to_stdout=True)
+            proc = super().run(run_cmd, output_to_stdout=True)
             ret_code |= self.wait_for_subprocess(proc)
         return ret_code
 
