@@ -114,7 +114,8 @@ class SuitePlanTestRunner(atest_tf_test_runner.AtestTradefedTestRunner):
         cmds = []
         args = []
         args.extend(self._parse_extra_args(extra_args))
-        args.extend(atest_utils.get_result_server_args())
+        # TODO(b/183069337): Enable result server args after suite ready.
+        #args.extend(atest_utils.get_result_server_args())
         for test_info in test_infos:
             cmd_dict = copy.deepcopy(self.run_cmd_dict)
             cmd_dict['test'] = test_info.test_name
