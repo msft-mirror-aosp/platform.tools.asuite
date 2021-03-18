@@ -589,7 +589,29 @@ def _get_hashed_file_name(main_file_name):
     hashed_name = hashed_fn.hexdigest()
     return hashed_name + '.cache'
 
-def get_test_info_cache_path(test_reference, cache_root=TEST_INFO_CACHE_ROOT):
+def get_cache_root():
+    """Get the root path dir for cache.
+
+    Use branch and target information as cache_root.
+    The path will look like ~/.atest/info_cache/$hash(branch+target)
+
+    Returns:
+        A string of the path of the root dir of cache.
+    """
+    manifest_branch = get_manifest_branch()
+    if not manifest_branch:
+        manifest_branch = os.environ.get(
+            constants.ANDROID_BUILD_TOP, constants.ANDROID_BUILD_TOP)
+    # target
+    build_target = os.path.basename(
+        os.environ.get(constants.ANDROID_PRODUCT_OUT,
+                       constants.ANDROID_PRODUCT_OUT))
+    branch_target_hash = hashlib.md5((manifest_branch + build_target).encode()
+                                     ).hexdigest()
+    return os.path.join(os.path.expanduser('~'), '.atest','info_cache',
+                        branch_target_hash[:8])
+
+def get_test_info_cache_path(test_reference, cache_root=None):
     """Get the cache path of the desired test_infos.
 
     Args:
@@ -599,11 +621,12 @@ def get_test_info_cache_path(test_reference, cache_root=TEST_INFO_CACHE_ROOT):
     Returns:
         A string of the path of test_info cache.
     """
-    return os.path.join(cache_root,
-                        _get_hashed_file_name(test_reference))
+    if not cache_root:
+        cache_root = get_cache_root()
+    return os.path.join(cache_root, _get_hashed_file_name(test_reference))
 
 def update_test_info_cache(test_reference, test_infos,
-                           cache_root=TEST_INFO_CACHE_ROOT):
+                           cache_root=None):
     """Update cache content which stores a set of test_info objects through
        pickle module, each test_reference will be saved as a cache file.
 
@@ -612,6 +635,8 @@ def update_test_info_cache(test_reference, test_infos,
         test_infos: A set of TestInfos.
         cache_root: Folder path for saving caches.
     """
+    if not cache_root:
+        cache_root = get_cache_root()
     if not os.path.isdir(cache_root):
         os.makedirs(cache_root)
     cache_path = get_test_info_cache_path(test_reference, cache_root)
@@ -628,7 +653,7 @@ def update_test_info_cache(test_reference, test_infos,
             constants.ACCESS_CACHE_FAILURE)
 
 
-def load_test_info_cache(test_reference, cache_root=TEST_INFO_CACHE_ROOT):
+def load_test_info_cache(test_reference, cache_root=None):
     """Load cache by test_reference to a set of test_infos object.
 
     Args:
@@ -638,6 +663,8 @@ def load_test_info_cache(test_reference, cache_root=TEST_INFO_CACHE_ROOT):
     Returns:
         A list of TestInfo namedtuple if cache found, else None.
     """
+    if not cache_root:
+        cache_root = get_cache_root()
     cache_file = get_test_info_cache_path(test_reference, cache_root)
     if os.path.isfile(cache_file):
         logging.debug('Loading cache %s.', cache_file)
@@ -657,13 +684,15 @@ def load_test_info_cache(test_reference, cache_root=TEST_INFO_CACHE_ROOT):
                 constants.ACCESS_CACHE_FAILURE)
     return None
 
-def clean_test_info_caches(tests, cache_root=TEST_INFO_CACHE_ROOT):
+def clean_test_info_caches(tests, cache_root=None):
     """Clean caches of input tests.
 
     Args:
         tests: A list of test references.
         cache_root: Folder path for finding caches.
     """
+    if not cache_root:
+        cache_root = get_cache_root()
     for test in tests:
         cache_file = get_test_info_cache_path(test, cache_root)
         if os.path.isfile(cache_file):
