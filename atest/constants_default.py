@@ -275,6 +275,9 @@ REQUIRED_KERNEL_TEST_MODULES = [
     'vts_ltp_test_x86'
 ]
 
+# XTS suite set dependency.
+SUITE_DEPS = {}
+
 # Tradefed log file name term.
 TF_HOST_LOG = 'host_log_*'
 
@@ -307,3 +310,7 @@ WORKUNIT_ID = 'WORKUNIT_ID'
 RESULT_LINK = ''
 TF_GLOBAL_CONFIG = ''
 UPLOAD_TEST_RESULT_MSG = 'Upload test result?'
+
+# messages that share among libraries.
+REBUILD_MODULE_INFO_MSG = ('(This can happen after a repo sync or if the test'
+                           ' is new. Running with "{}" may resolve the issue.)')

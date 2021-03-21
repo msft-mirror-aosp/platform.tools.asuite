@@ -57,8 +57,10 @@ import constants
 # This proto related module will be auto generated in build time.
 # pylint: disable=no-name-in-module
 # pylint: disable=import-error
-from tools.asuite.atest.tf_proto import test_record_pb2
-
+try:
+    from tools.asuite.atest.tf_proto import test_record_pb2
+except ImportError as err:
+    pass
 # b/147562331 only occurs when running atest in source code. We don't encourge
 # the users to manually "pip3 install protobuf", therefore when the exception
 # occurs, we don't collect data and the tab completion is for args is silence.
@@ -66,14 +68,20 @@ try:
     from metrics import metrics
     from metrics import metrics_base
     from metrics import metrics_utils
-except ModuleNotFoundError as err:
-    # This exception occurs only when invoking atest in source code.
-    print("You shouldn't see this message unless you ran 'atest-src'."
-          "To resolve the issue, please run:\n\t{}\n"
-          "and try again.".format('pip3 install protobuf'))
-    print('Import error, %s', err)
-    print('sys.path: %s', sys.path)
-    sys.exit(constants.IMPORT_FAILURE)
+except ImportError as err:
+    # TODO(b/182854938): remove this ImportError after refactor metrics dir.
+    try:
+        from asuite.metrics import metrics
+        from asuite.metrics import metrics_base
+        from asuite.metrics import metrics_utils
+    except ImportError as err:
+        # This exception occurs only when invoking atest in source code.
+        print("You shouldn't see this message unless you ran 'atest-src'."
+              "To resolve the issue, please run:\n\t{}\n"
+              "and try again.".format('pip3 install protobuf'))
+        print('Import error, %s', err)
+        print('sys.path: %s', sys.path)
+        sys.exit(constants.IMPORT_FAILURE)
 
 _BASH_RESET_CODE = '\033[0m\n'
 # Arbitrary number to limit stdout for failed runs in _run_limited_output.
@@ -283,6 +291,9 @@ def build(build_targets, verbose=False, env_vars=None):
         return True
     except subprocess.CalledProcessError as err:
         logging.error('Error building: %s', build_targets)
+        print(constants.REBUILD_MODULE_INFO_MSG.format(
+            colorize(constants.REBUILD_MODULE_INFO_FLAG,
+                     constants.RED)))
         if err.output:
             logging.error(err.output)
         return False
@@ -578,7 +589,29 @@ def _get_hashed_file_name(main_file_name):
     hashed_name = hashed_fn.hexdigest()
     return hashed_name + '.cache'
 
-def get_test_info_cache_path(test_reference, cache_root=TEST_INFO_CACHE_ROOT):
+def get_cache_root():
+    """Get the root path dir for cache.
+
+    Use branch and target information as cache_root.
+    The path will look like ~/.atest/info_cache/$hash(branch+target)
+
+    Returns:
+        A string of the path of the root dir of cache.
+    """
+    manifest_branch = get_manifest_branch()
+    if not manifest_branch:
+        manifest_branch = os.environ.get(
+            constants.ANDROID_BUILD_TOP, constants.ANDROID_BUILD_TOP)
+    # target
+    build_target = os.path.basename(
+        os.environ.get(constants.ANDROID_PRODUCT_OUT,
+                       constants.ANDROID_PRODUCT_OUT))
+    branch_target_hash = hashlib.md5((manifest_branch + build_target).encode()
+                                     ).hexdigest()
+    return os.path.join(os.path.expanduser('~'), '.atest','info_cache',
+                        branch_target_hash[:8])
+
+def get_test_info_cache_path(test_reference, cache_root=None):
     """Get the cache path of the desired test_infos.
 
     Args:
@@ -588,11 +621,12 @@ def get_test_info_cache_path(test_reference, cache_root=TEST_INFO_CACHE_ROOT):
     Returns:
         A string of the path of test_info cache.
     """
-    return os.path.join(cache_root,
-                        _get_hashed_file_name(test_reference))
+    if not cache_root:
+        cache_root = get_cache_root()
+    return os.path.join(cache_root, _get_hashed_file_name(test_reference))
 
 def update_test_info_cache(test_reference, test_infos,
-                           cache_root=TEST_INFO_CACHE_ROOT):
+                           cache_root=None):
     """Update cache content which stores a set of test_info objects through
        pickle module, each test_reference will be saved as a cache file.
 
@@ -601,6 +635,8 @@ def update_test_info_cache(test_reference, test_infos,
         test_infos: A set of TestInfos.
         cache_root: Folder path for saving caches.
     """
+    if not cache_root:
+        cache_root = get_cache_root()
     if not os.path.isdir(cache_root):
         os.makedirs(cache_root)
     cache_path = get_test_info_cache_path(test_reference, cache_root)
@@ -617,7 +653,7 @@ def update_test_info_cache(test_reference, test_infos,
             constants.ACCESS_CACHE_FAILURE)
 
 
-def load_test_info_cache(test_reference, cache_root=TEST_INFO_CACHE_ROOT):
+def load_test_info_cache(test_reference, cache_root=None):
     """Load cache by test_reference to a set of test_infos object.
 
     Args:
@@ -627,6 +663,8 @@ def load_test_info_cache(test_reference, cache_root=TEST_INFO_CACHE_ROOT):
     Returns:
         A list of TestInfo namedtuple if cache found, else None.
     """
+    if not cache_root:
+        cache_root = get_cache_root()
     cache_file = get_test_info_cache_path(test_reference, cache_root)
     if os.path.isfile(cache_file):
         logging.debug('Loading cache %s.', cache_file)
@@ -646,13 +684,15 @@ def load_test_info_cache(test_reference, cache_root=TEST_INFO_CACHE_ROOT):
                 constants.ACCESS_CACHE_FAILURE)
     return None
 
-def clean_test_info_caches(tests, cache_root=TEST_INFO_CACHE_ROOT):
+def clean_test_info_caches(tests, cache_root=None):
     """Clean caches of input tests.
 
     Args:
         tests: A list of test references.
         cache_root: Folder path for finding caches.
     """
+    if not cache_root:
+        cache_root = get_cache_root()
     for test in tests:
         cache_file = get_test_info_cache_path(test, cache_root)
         if os.path.isfile(cache_file):

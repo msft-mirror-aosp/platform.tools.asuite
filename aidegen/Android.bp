@@ -89,7 +89,6 @@ python_test_host {
         "test_data/**/*",
     ],
     libs: [
-        "py-mock",
         "atest_module_info",
         "asuite_cc_client",
     ],
