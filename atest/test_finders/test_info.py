@@ -66,7 +66,7 @@ class TestInfo:
         # attribute is only set through TEST_MAPPING file.
         self.host = False
         self.test_finder = test_finder
-        self.compatibility_suites = (map(str, compatibility_suites)
+        self.compatibility_suites = (compatibility_suites
                                      if compatibility_suites else [])
         self.mainline_modules = mainline_modules if mainline_modules else []
 
