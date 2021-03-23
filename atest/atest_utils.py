@@ -606,8 +606,8 @@ def get_cache_root():
     build_target = os.path.basename(
         os.environ.get(constants.ANDROID_PRODUCT_OUT,
                        constants.ANDROID_PRODUCT_OUT))
-    branch_target_hash = hashlib.md5((manifest_branch + build_target).encode()
-                                     ).hexdigest()
+    branch_target_hash = hashlib.md5(
+        (constants.MODE + manifest_branch + build_target).encode()).hexdigest()
     return os.path.join(os.path.expanduser('~'), '.atest','info_cache',
                         branch_target_hash[:8])
 
