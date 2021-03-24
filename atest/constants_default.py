@@ -192,6 +192,9 @@ DETECT_TYPE_FIND_BUILD = 2
 DETECT_TYPE_NO_FLAKE = 3
 DETECT_TYPE_HAS_FLAKE = 4
 DETECT_TYPE_TF_TEARDOWN_LOGCAT = 5
+# XTS suite types encode from 100 to 199
+DETECT_TYPE_XTS_SUITE = {'cts': 101,
+                         'vts': 104}
 
 # Considering a trade-off between speed and size, we set UPPER_LIMIT to 100000
 # to make maximum file space 10M(100000(records)*100(byte/record)) at most.
