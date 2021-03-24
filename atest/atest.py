@@ -755,6 +755,12 @@ def main(argv, results_dir, args):
             duration=metrics_utils.convert_duration(build_duration),
             success=success,
             targets=build_targets)
+        rebuild_module_info = constants.DETECT_TYPE_NOT_REBUILD_MODULE_INFO
+        if args.rebuild_module_info:
+            rebuild_module_info = constants.DETECT_TYPE_REBUILD_MODULE_INFO
+        metrics.LocalDetectEvent(
+            detect_type=rebuild_module_info,
+            result=int(build_duration))
         if not success:
             return constants.EXIT_CODE_BUILD_FAILURE
         # Always reload module-info after build finish.
