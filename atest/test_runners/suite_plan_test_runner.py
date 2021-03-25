@@ -19,9 +19,9 @@ SUITE Tradefed test runner class.
 import copy
 import logging
 
-import atest_utils
 import constants
 
+from metrics import metrics
 from test_runners import atest_tf_test_runner
 
 class SuitePlanTestRunner(atest_tf_test_runner.AtestTradefedTestRunner):
@@ -120,4 +120,11 @@ class SuitePlanTestRunner(atest_tf_test_runner.AtestTradefedTestRunner):
             cmd_dict['args'] = ' '.join(args)
             cmd_dict['exe'] = self.EXECUTABLE % test_info.suite
             cmds.append(self._RUN_CMD.format(**cmd_dict))
+            if constants.DETECT_TYPE_XTS_SUITE:
+                xts_detect_type = constants.DETECT_TYPE_XTS_SUITE.get(
+                    test_info.suite, '')
+                if xts_detect_type:
+                    metrics.LocalDetectEvent(
+                        detect_type=xts_detect_type,
+                        result=1)
         return cmds

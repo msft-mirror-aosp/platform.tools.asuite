@@ -90,3 +90,11 @@ A2: Re-run AIDEGen after repo sync.
 
 2. If you run aidegen on a remote desktop, make sure there is no IntelliJ
        running in a different desktop session.
+
+## 6. Feedback:
+
+If you have any questions or feedback, contact aidegen_tnn@google.com.
+
+If you have any bugs or feature requests email them to buganizer-system+429701@google.com.
+
+
