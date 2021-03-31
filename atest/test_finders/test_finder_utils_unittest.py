@@ -31,6 +31,7 @@ import unittest_constants as uc
 import unittest_utils
 
 from test_finders import test_finder_utils
+from test_finders import test_info
 
 JSON_FILE_PATH = os.path.join(uc.TEST_DATA_DIR, uc.JSON_FILE)
 CLASS_DIR = 'foo/bar/jank/src/android/jank/cts/ui'
@@ -733,6 +734,69 @@ class TestFinderUtilsUnittests(unittest.TestCase):
             sorted(expect_unit_tests),
             sorted(test_finder_utils.find_host_unit_tests(
                 mod_info, UNIT_TEST_SEARCH_ROOT)))
+
+    def test_get_annotated_methods(self):
+        """Test get_annotated_methods"""
+        sample_path = os.path.join(
+            uc.TEST_DATA_DIR, 'annotation', 'sample.txt')
+        real_methods = list(test_finder_utils.get_annotated_methods(
+            'TestAnnotation1', sample_path))
+        real_methods.sort()
+        expect_methods = ['annotation1_method1', 'annotation1_method2']
+        expect_methods.sort()
+        self.assertEqual(expect_methods, real_methods)
+
+    @mock.patch.dict('os.environ', {constants.ANDROID_BUILD_TOP:'/'})
+    @mock.patch('os.path.isfile', side_effect=unittest_utils.isfile_side_effect)
+    def test_get_test_config_use_androidtestxml(self, _isfile):
+        """Test get_test_config_and_srcs using default AndroidTest.xml"""
+        android_root = '/'
+        mod_info = module_info.ModuleInfo(module_file=JSON_FILE_PATH)
+        t_info = test_info.TestInfo(
+            'androidtest_config_module', 'mock_runner', build_targets=set())
+        expect_config = os.path.join(android_root, uc.ANDTEST_CONFIG_PATH,
+                                     constants.MODULE_CONFIG)
+        result, _ = test_finder_utils.get_test_config_and_srcs(t_info, mod_info)
+        self.assertEqual(expect_config, result)
+
+    @mock.patch.dict('os.environ', {constants.ANDROID_BUILD_TOP:'/'})
+    @mock.patch('os.path.isfile', side_effect=unittest_utils.isfile_side_effect)
+    def test_get_test_config_single_config(self, _isfile):
+        """Test get_test_config_and_srcs manualy set it's config"""
+        android_root = '/'
+        mod_info = module_info.ModuleInfo(module_file=JSON_FILE_PATH)
+        t_info = test_info.TestInfo(
+            'single_config_module', 'mock_runner', build_targets=set())
+        expect_config = os.path.join(
+            android_root, uc.SINGLE_CONFIG_PATH, uc.SINGLE_CONFIG_NAME)
+        result, _ = test_finder_utils.get_test_config_and_srcs(t_info, mod_info)
+        self.assertEqual(expect_config, result)
+
+    @mock.patch.dict('os.environ', {constants.ANDROID_BUILD_TOP:'/'})
+    @mock.patch('os.path.isfile', side_effect=unittest_utils.isfile_side_effect)
+    def test_get_test_config_main_multiple_config(self, _isfile):
+        """Test get_test_config_and_srcs which is the main module of multiple config"""
+        android_root = '/'
+        mod_info = module_info.ModuleInfo(module_file=JSON_FILE_PATH)
+        t_info = test_info.TestInfo(
+            'multiple_config_module', 'mock_runner', build_targets=set())
+        expect_config = os.path.join(
+            android_root, uc.MULTIPLE_CONFIG_PATH, uc.MAIN_CONFIG_NAME)
+        result, _ = test_finder_utils.get_test_config_and_srcs(t_info, mod_info)
+        self.assertEqual(expect_config, result)
+
+    @mock.patch.dict('os.environ', {constants.ANDROID_BUILD_TOP:'/'})
+    @mock.patch('os.path.isfile', side_effect=unittest_utils.isfile_side_effect)
+    def test_get_test_config_subtest_in_multiple_config(self, _isfile):
+        """Test get_test_config_and_srcs not the main module of multiple config"""
+        android_root = '/'
+        mod_info = module_info.ModuleInfo(module_file=JSON_FILE_PATH)
+        t_info = test_info.TestInfo(
+            'Multiple2', 'mock_runner', build_targets=set())
+        expect_config = os.path.join(
+            android_root, uc.MULTIPLE_CONFIG_PATH, uc.SUB_CONFIG_NAME_2)
+        result, _ = test_finder_utils.get_test_config_and_srcs(t_info, mod_info)
+        self.assertEqual(expect_config, result)
 
 if __name__ == '__main__':
     unittest.main()

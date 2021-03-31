@@ -38,6 +38,8 @@ import sysconfig
 import time
 import zipfile
 
+import xml.etree.ElementTree as ET
+
 from distutils.util import strtobool
 
 # This is a workaround of b/144743252, where the http.client failed to loaded
@@ -1081,3 +1083,23 @@ def prompt_with_yn_result(msg, default=True):
         return strtobool(input(msg+suffix))
     except (ValueError, KeyboardInterrupt):
         return default
+
+def get_android_junit_config_filters(test_config):
+    """Get the dictionary of a input config for junit config's filters
+
+    Args:
+        test_config: The path of the test config.
+    Returns:
+        A dictionary include all the filters in the input config.
+    """
+    filter_dict = {}
+    xml_root = ET.parse(test_config).getroot()
+    option_tags = xml_root.findall('.//option')
+    for tag in option_tags:
+        name = tag.attrib['name'].strip()
+        if name in constants.SUPPORTED_FILTERS:
+            filter_values = filter_dict.get(name, [])
+            value = tag.attrib['value'].strip()
+            filter_values.append(value)
+            filter_dict.update({name: filter_values})
+    return filter_dict
