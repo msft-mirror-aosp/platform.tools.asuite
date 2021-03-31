@@ -152,6 +152,7 @@ class AtestTradefedTestRunner(test_runner_base.TestRunnerBase):
         reporter.rerun_options = self._extract_rerun_options(extra_args)
         # Set google service key if it's available or found before
         # running tests.
+        self._try_set_gts_authentication_key()
         result = 0
         creds, inv = self._do_upload_flow(extra_args)
         try:
