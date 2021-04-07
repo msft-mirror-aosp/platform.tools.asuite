@@ -33,7 +33,6 @@ from test_runners import atest_tf_test_runner
 from test_runners import robolectric_test_runner
 from test_runners import vts_tf_test_runner
 
-_MODULES_IN = 'MODULES-IN-%s'
 _ANDROID_MK = 'Android.mk'
 
 # These are suites in LOCAL_COMPATIBILITY_SUITE that aren't really suites so
@@ -228,12 +227,16 @@ class ModuleFinder(test_finder_base.TestFinderBase):
             targets.update(constants.SUITE_DEPS.get(suite, []))
         for module_path in self.module_info.get_paths(module_name):
             mod_dir = module_path.replace('/', '-')
-            targets.add(_MODULES_IN % mod_dir)
+            targets.add(constants.MODULES_IN + mod_dir)
         # (b/156457698) Force add vts_kernel_tests as build target if our test
         # belong to REQUIRED_KERNEL_TEST_MODULES due to required_module option
         # not working for sh_test in soong.
         if module_name in constants.REQUIRED_KERNEL_TEST_MODULES:
             targets.add('vts_kernel_tests')
+        # (b/184567849) Force adding module_name as a build_target. This will
+        # allow excluding MODULES-IN-* and prevent from missing build targets.
+        if module_name and self.module_info.is_module(module_name):
+            targets.add(module_name)
         return targets
 
     def _get_module_test_config(self, module_name, rel_config=None):
