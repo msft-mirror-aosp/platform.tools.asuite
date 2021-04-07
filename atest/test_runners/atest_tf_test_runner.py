@@ -45,7 +45,7 @@ POLL_FREQ_SECS = 10
 SOCKET_HOST = '127.0.0.1'
 SOCKET_QUEUE_MAX = 1
 SOCKET_BUFFER = 4096
-SELECT_TIMEOUT = 5
+SELECT_TIMEOUT = 0.5
 
 # Socket Events of form FIRST_EVENT {JSON_DATA}\nSECOND_EVENT {JSON_DATA}
 # EVENT_RE has groups for the name and the data. "." does not match \n.
@@ -152,6 +152,7 @@ class AtestTradefedTestRunner(test_runner_base.TestRunnerBase):
         reporter.rerun_options = self._extract_rerun_options(extra_args)
         # Set google service key if it's available or found before
         # running tests.
+        self._try_set_gts_authentication_key()
         result = 0
         creds, inv = self._do_upload_flow(extra_args)
         try:
