@@ -20,8 +20,10 @@ from __future__ import absolute_import
 
 import logging
 import os
+import time
 
 from aidegen import constant
+from aidegen.lib import aidegen_metrics
 from aidegen.lib import common_util
 from aidegen.lib import errors
 from aidegen.lib import module_info
@@ -573,12 +575,17 @@ def batch_build_dependencies(rebuild_targets):
     Args:
         rebuild_targets: A set of jar or srcjar files which do not exist.
     """
+    start_time = time.time()
     logging.info('Ready to build the jar or srcjar files. Files count = %s',
                  str(len(rebuild_targets)))
     arg_max = os.sysconf('SC_PAGE_SIZE') * 32 - _CMD_LENGTH_BUFFER
     rebuild_targets = list(rebuild_targets)
     for start, end in iter(_separate_build_targets(rebuild_targets, arg_max)):
         _build_target(rebuild_targets[start:end])
+    duration = time.time() - start_time
+    logging.debug('Build Time,  duration = %s', str(duration))
+    aidegen_metrics.performance_metrics(constant.TYPE_AIDEGEN_BUILD_TIME,
+                                        duration)
 
 
 def _build_target(targets):
