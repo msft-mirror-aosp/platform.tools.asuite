@@ -23,5 +23,8 @@
   "test_dep_level_1_1": { "module_name": "test_dep_level_1_1", "dependencies": [] },
   "test_dep_level_1_2": { "module_name": "test_dep_level_1_2", "dependencies": [] },
   "test_dep_level_2_1": { "module_name": "test_dep_level_2_1", "dependencies": [], "installed": ["path2"] },
-  "test_dep_level_2_2": { "module_name": "test_dep_level_2_2", "dependencies": [] }
+  "test_dep_level_2_2": { "module_name": "test_dep_level_2_2", "dependencies": [] },
+  "single_config_module": {"module_name": "single_config_module", "test_config":  ["my/single/config/path/test_config.xml"],  "path": ["my/single/config/path"]},
+  "androidtest_config_module": {"module_name": "androidtest_config_module", "test_config":  [],  "path": ["my/android/config/path"]},
+  "multiple_config_module": {"module_name": "multiple_config_module", "test_config":  ["my/multiple/config/path/main_test_config.xml", "my/multiple/config/path/Multiple1.xml", "my/multiple/config/path/Multiple2.xml"], "path": ["my/multiple/config/path"]}
 }
