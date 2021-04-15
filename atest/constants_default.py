@@ -320,3 +320,9 @@ UPLOAD_TEST_RESULT_MSG = 'Upload test result?'
 # messages that share among libraries.
 REBUILD_MODULE_INFO_MSG = ('(This can happen after a repo sync or if the test'
                            ' is new. Running with "{}" may resolve the issue.)')
+
+# AndroidJUnitTest related argument.
+ANDROID_JUNIT_CLASS = 'com.android.tradefed.testtype.AndroidJUnitTest'
+INCLUDE_ANNOTATION = 'include-annotation'
+EXCLUDE_ANNOTATION = 'exclude-annotation'
+SUPPORTED_FILTERS = [INCLUDE_ANNOTATION, EXCLUDE_ANNOTATION]
