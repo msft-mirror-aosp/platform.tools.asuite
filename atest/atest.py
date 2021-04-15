@@ -648,6 +648,24 @@ def _dry_run_validator(args, results_dir, extra_args, test_infos):
                                            dry_run_cmds)
     return constants.EXIT_CODE_SUCCESS
 
+def _exclude_modules_in_targets(build_targets):
+    """Method that excludes MODULES-IN-* targets.
+
+    Args:
+        build_targets: A set of build targets.
+
+    Returns:
+        A set of build targets that excludes MODULES-IN-*.
+    """
+    shrank_build_targets = build_targets.copy()
+    logging.debug('Will exclude all "%s*" from the build targets.',
+                  constants.MODULES_IN)
+    for target in build_targets:
+        if target.startswith(constants.MODULES_IN):
+            logging.debug('Ignore %s.', target)
+            shrank_build_targets.remove(target)
+    return shrank_build_targets
+
 def acloud_create_validator(results_dir, args):
     """Check lunch'd target before running 'acloud create'.
 
@@ -721,6 +739,8 @@ def main(argv, results_dir, args):
     if _will_run_tests(args):
         find_start = time.time()
         build_targets, test_infos = translator.translate(args)
+        if args.no_modules_in:
+            build_targets = _exclude_modules_in_targets(build_targets)
         find_duration = time.time() - find_start
         if not test_infos:
             return constants.EXIT_CODE_TEST_NOT_FOUND
