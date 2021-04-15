@@ -125,10 +125,10 @@ class TestInfo:
         """
         test_paths = []
         for build_target in self.build_targets:
-            if str(build_target).startswith('MODULES-IN-'):
+            if str(build_target).startswith(constants.MODULES_IN):
                 test_paths.append(
                     str(build_target).replace(
-                        'MODULES-IN-', '').replace('-', '/'))
+                        constants.MODULES_IN, '').replace('-', '/'))
         return test_paths if test_paths else None
 
 class TestFilter(TestFilterBase):
