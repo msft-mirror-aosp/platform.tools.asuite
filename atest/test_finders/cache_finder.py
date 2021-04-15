@@ -120,7 +120,7 @@ class CacheFinder(test_finder_base.TestFinderBase):
         # If the cached build target can be found in current module-info, then
         # it is a valid build targets of the test.
         for build_target in t_info.build_targets:
-            if str(build_target).startswith('MODULES-IN-'):
+            if str(build_target).startswith(constants.MODULES_IN):
                 continue
             if not self.module_info.is_module(build_target):
                 logging.debug('%s is not a valid build target.', build_target)
