@@ -66,7 +66,7 @@ class TestInfo:
         # attribute is only set through TEST_MAPPING file.
         self.host = False
         self.test_finder = test_finder
-        self.compatibility_suites = (map(str, compatibility_suites)
+        self.compatibility_suites = (compatibility_suites
                                      if compatibility_suites else [])
         self.mainline_modules = mainline_modules if mainline_modules else []
 
@@ -125,10 +125,10 @@ class TestInfo:
         """
         test_paths = []
         for build_target in self.build_targets:
-            if str(build_target).startswith('MODULES-IN-'):
+            if str(build_target).startswith(constants.MODULES_IN):
                 test_paths.append(
                     str(build_target).replace(
-                        'MODULES-IN-', '').replace('-', '/'))
+                        constants.MODULES_IN, '').replace('-', '/'))
         return test_paths if test_paths else None
 
 class TestFilter(TestFilterBase):

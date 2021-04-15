@@ -41,6 +41,7 @@ COLLECT_TESTS_ONLY = ('Collect a list test cases of the instrumentation tests '
 DISABLE_TEARDOWN = 'Disable test teardown and cleanup.'
 DRY_RUN = 'Dry run atest without building, installing and running tests in real.'
 ENABLE_FILE_PATTERNS = 'Enable FILE_PATTERNS in TEST_MAPPING.'
+FLAKES_INFO = 'Test result with flakes info.'
 HISTORY = ('Show test results in chronological order(with specified number or '
            'all by default).')
 HOST = ('Run the test completely on the host without a device. '
@@ -57,25 +58,32 @@ ITERATION = 'Loop-run tests until the max iteration is reached. (10 by default)'
 LATEST_RESULT = 'Print latest test result.'
 LIST_MODULES = 'List testable modules for the given suite.'
 NO_METRICS = 'Do not send metrics.'
+NO_MODULES_IN = ('Do not include MODULES-IN-* as build targets. Warning: This '
+                 'may result in missing dependencies issue.')
 REBUILD_MODULE_INFO = ('Forces a rebuild of the module-info.json file. '
                        'This may be necessary following a repo sync or '
                        'when writing a new test.')
+REQUEST_UPLOAD_RESULT = 'Request permission to upload test result or not.'
 RERUN_UNTIL_FAILURE = ('Rerun all tests until a failure occurs or the max '
                        'iteration is reached. (10 by default)')
 RETRY_ANY_FAILURE = ('Rerun failed tests until passed or the max iteration '
                      'is reached. (10 by default)')
 SERIAL = 'The device to run the test on.'
+SHARDING = 'Option to specify sharding count. The default value is 2'
 START_AVD = 'Automatically create an AVD and run tests on the virtual device.'
 TEST = ('Run the tests. WARNING: Many test configs force cleanup of device '
         'after test run. In this case, "-d" must be used in previous test run '
         'to disable cleanup for "-t" to work. Otherwise, device will need to '
         'be setup again with "-i".')
 TEST_MAPPING = 'Run tests defined in TEST_MAPPING files.'
-TF_TEMPLATE = ('Add extra tradefed template for ATest suite, '
-               'e.g. atest <test> --tf-template <template_key>=<template_path>')
+TEST_CONFIG_SELECTION = ('If multiple test config belong to same test module '
+                         'pop out a selection menu on console.')
 TF_DEBUG = ('Enable tradefed debug mode with a specify port. Default value is '
             '10888.')
-SHARDING = 'Option to specify sharding count. The default value is 2'
+TF_EARLY_DEVICE_RELEASE = ('Tradefed flag to release the device as soon as '
+                           'done with it.')
+TF_TEMPLATE = ('Add extra tradefed template for ATest suite, '
+               'e.g. atest <test> --tf-template <template_key>=<template_path>')
 UPDATE_CMD_MAPPING = ('Update the test command of input tests. Warning: result '
                       'will be saved under '
                       'tools/asuite/atest/test_data.')
@@ -86,12 +94,6 @@ VERIFY_CMD_MAPPING = 'Verify the test command of input tests.'
 VERSION = 'Display version string.'
 WAIT_FOR_DEBUGGER = ('Wait for debugger prior to execution (Instrumentation '
                      'tests only).')
-FLAKES_INFO = 'Test result with flakes info.'
-TF_EARLY_DEVICE_RELEASE = ('Tradefed flag to release the device as soon as '
-                           'done with it.')
-TEST_CONFIG_SELECTION = ('If multiple test config belong to same test module '
-                         'pop out a selection menu on console.')
-REQUEST_UPLOAD_RESULT = 'Show the prompt to decide upload test result or not.'
 
 def _positive_int(value):
     """Verify value by whether or not a positive integer.
@@ -120,6 +122,7 @@ class AtestArgParser(argparse.ArgumentParser):
         """Initialise an ArgumentParser instance."""
         super().__init__(description=HELP_DESC, add_help=False)
 
+    # pylint: disable=too-many-statements
     def add_atest_args(self):
         """A function that does ArgumentParser.add_argument()"""
         self.add_argument('tests', nargs='*', help='Tests to build and/or run.')
@@ -135,6 +138,8 @@ class AtestArgParser(argparse.ArgumentParser):
                           help=INSTALL)
         self.add_argument('-m', constants.REBUILD_MODULE_INFO_FLAG,
                           action='store_true', help=REBUILD_MODULE_INFO)
+        self.add_argument('--no-modules-in', help=NO_MODULES_IN,
+                          action='store_true')
         self.add_argument('--sharding', nargs='?', const=2,
                           type=_positive_int, default=0,
                           help=SHARDING)
@@ -304,6 +309,7 @@ def print_epilog_text():
         LATEST_RESULT=LATEST_RESULT,
         LIST_MODULES=LIST_MODULES,
         NO_METRICS=NO_METRICS,
+        NO_MODULES_IN=NO_MODULES_IN,
         REBUILD_MODULE_INFO=REBUILD_MODULE_INFO,
         REQUEST_UPLOAD_RESULT=REQUEST_UPLOAD_RESULT,
         RERUN_UNTIL_FAILURE=RERUN_UNTIL_FAILURE,
@@ -353,7 +359,7 @@ OPTIONS
         -d, --disable-teardown
             {DISABLE_TEARDOWN}
 
-        -D --tf-debug
+        -D, --tf-debug
             {TF_DEBUG}
 
         --host
@@ -367,6 +373,9 @@ OPTIONS
 
         -m, --rebuild-module-info
             {REBUILD_MODULE_INFO} (default)
+
+        --no-modules-in
+            {NO_MODULES_IN}
 
         -s, --serial
             {SERIAL}

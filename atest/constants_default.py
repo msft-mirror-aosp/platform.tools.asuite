@@ -59,6 +59,7 @@ TF_TEMPLATE = 'TF_TEMPLATE'
 FLAKES_INFO = 'FLAKES_INFO'
 TF_EARLY_DEVICE_RELEASE = 'TF_EARLY_DEVICE_RELEASE'
 REQUEST_UPLOAD_RESULT = 'REQUEST_UPLOAD_RESULT'
+MODULES_IN = 'MODULES-IN-'
 
 # Application exit codes.
 EXIT_CODE_SUCCESS = 0
@@ -185,13 +186,19 @@ USER_FROM_TOOL = 'USER_FROM_TOOL'
 TF_PREPARATION = 'tf-preparation'
 
 # Detect type for local_detect_event.
-# Next expansion : DETECT_TYPE_XXX = 6
+# Next expansion : DETECT_TYPE_XXX = 8
 DETECT_TYPE_BUG_DETECTED = 0
 DETECT_TYPE_ACLOUD_CREATE = 1
 DETECT_TYPE_FIND_BUILD = 2
 DETECT_TYPE_NO_FLAKE = 3
 DETECT_TYPE_HAS_FLAKE = 4
 DETECT_TYPE_TF_TEARDOWN_LOGCAT = 5
+DETECT_TYPE_REBUILD_MODULE_INFO = 6
+DETECT_TYPE_NOT_REBUILD_MODULE_INFO = 7
+DETECT_TYPE_ONLY_BUILD_MODULE_INFO = 8
+# XTS suite types encode from 100 to 199
+DETECT_TYPE_XTS_SUITE = {'cts': 101,
+                         'vts': 104}
 
 # Considering a trade-off between speed and size, we set UPPER_LIMIT to 100000
 # to make maximum file space 10M(100000(records)*100(byte/record)) at most.
@@ -314,3 +321,9 @@ UPLOAD_TEST_RESULT_MSG = 'Upload test result?'
 # messages that share among libraries.
 REBUILD_MODULE_INFO_MSG = ('(This can happen after a repo sync or if the test'
                            ' is new. Running with "{}" may resolve the issue.)')
+
+# AndroidJUnitTest related argument.
+ANDROID_JUNIT_CLASS = 'com.android.tradefed.testtype.AndroidJUnitTest'
+INCLUDE_ANNOTATION = 'include-annotation'
+EXCLUDE_ANNOTATION = 'exclude-annotation'
+SUPPORTED_FILTERS = [INCLUDE_ANNOTATION, EXCLUDE_ANNOTATION]
