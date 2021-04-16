@@ -546,7 +546,9 @@ class AtestUtilsUnittests(unittest.TestCase):
         self.assertEqual(None, atest_utils.get_manifest_branch())
 
         mock_env.return_value = 'any_path'
-        mock_check_output.side_effect = subprocess.CalledProcessError(1, 'repo info')
+        mock_check_output.side_effect = subprocess.CalledProcessError(
+            1,
+            'repo info')
         self.assertEqual(None, atest_utils.get_manifest_branch())
 
         mock_env.return_value = None
@@ -579,6 +581,31 @@ class AtestUtilsUnittests(unittest.TestCase):
         self.assertTrue(atest_utils.prompt_with_yn_result(msg, True))
         mock_input.return_value = 'nO'
         self.assertFalse(atest_utils.prompt_with_yn_result(msg, True))
+
+    def test_get_android_junit_config_filters(self):
+        """Test method of get_android_junit_config_filters"""
+        no_filter_test_config = os.path.join(
+            unittest_constants.TEST_DATA_DIR,
+            "filter_configs", "no_filter.cfg")
+        self.assertEqual({},
+                         atest_utils.get_android_junit_config_filters(
+                             no_filter_test_config))
+
+        filtered_test_config = os.path.join(
+            unittest_constants.TEST_DATA_DIR,
+            'filter_configs', 'filter.cfg')
+        filter_dict = atest_utils.get_android_junit_config_filters(
+            filtered_test_config)
+        include_annotations = filter_dict.get(constants.INCLUDE_ANNOTATION)
+        include_annotations.sort()
+        self.assertEqual(
+            ['include1', 'include2'],
+            include_annotations)
+        exclude_annotation = filter_dict.get(constants.EXCLUDE_ANNOTATION)
+        exclude_annotation.sort()
+        self.assertEqual(
+            ['exclude1', 'exclude2'],
+            exclude_annotation)
 
 if __name__ == "__main__":
     unittest.main()
