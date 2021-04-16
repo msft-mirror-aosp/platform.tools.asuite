@@ -301,3 +301,11 @@ MODULE_INDEX = '/tmp/modules.idx'
 
 # TF's log dir
 TEST_INFO_DIR = '/tmp/atest_run_1510085893_pi_Nbi'
+
+# Constants for get_test_config unit tests.
+ANDTEST_CONFIG_PATH = 'my/android/config/path'
+SINGLE_CONFIG_PATH = 'my/single/config/path'
+MULTIPLE_CONFIG_PATH = 'my/multiple/config/path'
+MAIN_CONFIG_NAME = 'main_test_config.xml'
+SINGLE_CONFIG_NAME = 'test_config.xml'
+SUB_CONFIG_NAME_2 = 'Multiple2.xml'
