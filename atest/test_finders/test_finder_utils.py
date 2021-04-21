@@ -117,6 +117,9 @@ _CTS_JAR = "cts-tradefed"
 _XML_PUSH_DELIM = '->'
 _APK_SUFFIX = '.apk'
 DALVIK_TEST_RUNNER_CLASS = 'com.android.compatibility.testtype.DalvikTest'
+LIBCORE_TEST_RUNNER_CLASS = 'com.android.compatibility.testtype.LibcoreTest'
+DALVIK_TESTRUNNER_JAR_CLASSES = [DALVIK_TEST_RUNNER_CLASS,
+                                 LIBCORE_TEST_RUNNER_CLASS]
 DALVIK_DEVICE_RUNNER_JAR = 'cts-dalvik-device-test-runner'
 DALVIK_HOST_RUNNER_JAR = 'cts-dalvik-host-test-runner'
 DALVIK_TEST_DEPS = {DALVIK_DEVICE_RUNNER_JAR,
@@ -681,7 +684,7 @@ def get_targets_from_xml_root(xml_root, module_info):
         fqcn = class_attr.attrib['class'].strip()
         if fqcn.startswith(_COMPATIBILITY_PACKAGE_PREFIX):
             targets.add(_CTS_JAR)
-        if fqcn == DALVIK_TEST_RUNNER_CLASS:
+        if fqcn in DALVIK_TESTRUNNER_JAR_CLASSES:
             targets.update(DALVIK_TEST_DEPS)
     logging.debug('Targets found in config file: %s', targets)
     return targets
@@ -1137,3 +1140,74 @@ def find_host_unit_tests(module_info, path):
             if test_path.find(path) == 0:
                 found_unit_tests.append(unit_test_name)
     return found_unit_tests
+
+def get_annotated_methods(annotation, file_path):
+    """Find all the methods annotated by the input annotation in the file_path.
+
+    Args:
+        annotation: A string of the annotation class.
+        file_path: A string of the file path.
+
+    Returns:
+        A set of all the methods annotated.
+    """
+    methods = set()
+    annotation_name = '@' + str(annotation).split('.')[-1]
+    with open(file_path) as class_file:
+        enter_annotation_block = False
+        for line in class_file:
+            if str(line).strip().startswith(annotation_name):
+                enter_annotation_block = True
+                continue
+            if enter_annotation_block:
+                matches = re.findall(_JAVA_METHODS_RE, line)
+                if matches:
+                    methods.update({match[1] for match in matches})
+                    enter_annotation_block = False
+                    continue
+    return methods
+
+def get_test_config_and_srcs(test_info, module_info):
+    """Get the test config path for the input test_info.
+
+    The search rule will be:
+    Check if test name in test_info could be found in module_info
+      1. AndroidTest.xml under module path if no test config be set.
+      2. The first test config defined in Android.bp if test config be set.
+    If test name could not found matched module in module_info, search all the
+    test config name if match.
+
+    Args:
+        test_info: TestInfo obj.
+        module_info: ModuleInfo obj.
+
+    Returns:
+        A string of the config path and list of srcs, None if test config not
+        exist.
+    """
+    android_root_dir = os.environ.get(constants.ANDROID_BUILD_TOP)
+    test_name = test_info.test_name
+    mod_info = module_info.get_module_info(test_name)
+    if mod_info:
+        test_configs = mod_info.get(constants.MODULE_TEST_CONFIG, [])
+        if len(test_configs) == 0:
+            # Check for AndroidTest.xml at the module path.
+            for path in mod_info.get(constants.MODULE_PATH, []):
+                config_path = os.path.join(
+                    android_root_dir, path, constants.MODULE_CONFIG)
+                if os.path.isfile(config_path):
+                    return config_path, mod_info.get(constants.MODULE_SRCS, [])
+        if len(test_configs) >= 1:
+            test_config = test_configs[0]
+            config_path = os.path.join(android_root_dir, test_config)
+            if os.path.isfile(config_path):
+                return config_path, mod_info.get(constants.MODULE_SRCS, [])
+    else:
+        for _, info in module_info.name_to_module_info.items():
+            test_configs = info.get(constants.MODULE_TEST_CONFIG, [])
+            for test_config in test_configs:
+                config_path = os.path.join(android_root_dir, test_config)
+                config_name = os.path.splitext(os.path.basename(config_path))[0]
+                if config_name == test_name and os.path.isfile(config_path):
+                    return config_path, info.get(constants.MODULE_SRCS, [])
+    return None, None
