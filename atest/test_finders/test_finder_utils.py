@@ -117,6 +117,9 @@ _CTS_JAR = "cts-tradefed"
 _XML_PUSH_DELIM = '->'
 _APK_SUFFIX = '.apk'
 DALVIK_TEST_RUNNER_CLASS = 'com.android.compatibility.testtype.DalvikTest'
+LIBCORE_TEST_RUNNER_CLASS = 'com.android.compatibility.testtype.LibcoreTest'
+DALVIK_TESTRUNNER_JAR_CLASSES = [DALVIK_TEST_RUNNER_CLASS,
+                                 LIBCORE_TEST_RUNNER_CLASS]
 DALVIK_DEVICE_RUNNER_JAR = 'cts-dalvik-device-test-runner'
 DALVIK_HOST_RUNNER_JAR = 'cts-dalvik-host-test-runner'
 DALVIK_TEST_DEPS = {DALVIK_DEVICE_RUNNER_JAR,
@@ -681,7 +684,7 @@ def get_targets_from_xml_root(xml_root, module_info):
         fqcn = class_attr.attrib['class'].strip()
         if fqcn.startswith(_COMPATIBILITY_PACKAGE_PREFIX):
             targets.add(_CTS_JAR)
-        if fqcn == DALVIK_TEST_RUNNER_CLASS:
+        if fqcn in DALVIK_TESTRUNNER_JAR_CLASSES:
             targets.update(DALVIK_TEST_DEPS)
     logging.debug('Targets found in config file: %s', targets)
     return targets
