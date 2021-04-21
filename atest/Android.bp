@@ -225,8 +225,11 @@ python_test_host {
         "INTEGRATION_TESTS",
     ],
     test_config: "atest_integration_tests.xml",
-    test_suites: ["general-tests"],
+    test_suites: ["null-suite"],
     defaults: ["atest_default"],
+    test_options: {
+        unit_test: false,
+    },
 }
 
 sh_binary_host {
