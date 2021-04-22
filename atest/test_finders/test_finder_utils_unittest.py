@@ -91,6 +91,7 @@ UNIT_TEST_MODULE_1 = 'unit_test_module_1'
 UNIT_TEST_MODULE_2 = 'unit_test_module_2'
 UNIT_TEST_MODULE_3 = 'unit_test_module_3'
 DALVIK_TEST_CONFIG = 'AndroidDalvikTest.xml.data'
+LIBCORE_TEST_CONFIG = 'AndroidLibCoreTest.xml.data'
 DALVIK_XML_TARGETS = XML_TARGETS | test_finder_utils.DALVIK_TEST_DEPS
 
 #pylint: disable=protected-access
@@ -379,6 +380,20 @@ class TestFinderUtilsUnittests(unittest.TestCase):
         mock_module_info.is_module.side_effect = lambda module: (
             not module == 'is_not_module')
         xml_file = os.path.join(uc.TEST_DATA_DIR, DALVIK_TEST_CONFIG)
+        unittest_utils.assert_strict_equal(
+            self,
+            test_finder_utils.get_targets_from_xml(xml_file, mock_module_info),
+            DALVIK_XML_TARGETS)
+
+    def test_get_targets_from_libcore_xml(self):
+        """Test get_targets_from_xml method with libcore class."""
+        # Mocking Etree is near impossible, so use a real file, but mocking
+        # ModuleInfo is still fine. Just have it return False when it finds a
+        # module that states it's not a module.
+        mock_module_info = mock.Mock(spec=module_info.ModuleInfo)
+        mock_module_info.is_module.side_effect = lambda module: (
+            not module == 'is_not_module')
+        xml_file = os.path.join(uc.TEST_DATA_DIR, LIBCORE_TEST_CONFIG)
         unittest_utils.assert_strict_equal(
             self,
             test_finder_utils.get_targets_from_xml(xml_file, mock_module_info),
