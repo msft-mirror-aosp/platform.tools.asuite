@@ -794,6 +794,14 @@ EXAMPLES
     Example:
         atest -v <test> -- <custom_args1> <custom_args2>
 
+    Examples of passing options to the modules:
+        atest <test> -- --module-arg <module-name>:<option-name>:<option-value>
+        atest GtsPermissionTestCases -- --module-arg GtsPermissionTestCases:ignore-business-logic-failure:true
 
-                                                     2020-12-09
+    Examples of passing options to the runner type or class:
+        atest <test> -- --test-arg <test-class>:<option-name>:<option-value>
+        atest CtsVideoTestCases -- --test-arg com.android.tradefed.testtype.JarHosttest:collect-tests-only:true
+
+
+                                                     2021-04-22
 '''
