@@ -127,8 +127,10 @@ GTF_TARGET = 'google-tradefed-core'
 TEST_MAPPING = 'TEST_MAPPING'
 # Test group for tests in TEST_MAPPING
 TEST_GROUP_PRESUBMIT = 'presubmit'
+TEST_GROUP_PRESUBMIT_LARGE = 'presubmit-large'
 TEST_GROUP_POSTSUBMIT = 'postsubmit'
 TEST_GROUP_ALL = 'all'
+DEFAULT_TEST_GROUPS = [TEST_GROUP_PRESUBMIT, TEST_GROUP_PRESUBMIT_LARGE]
 # Key in TEST_MAPPING file for a list of imported TEST_MAPPING file
 TEST_MAPPING_IMPORTS = 'imports'
 
