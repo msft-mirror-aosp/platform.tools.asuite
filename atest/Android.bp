@@ -217,6 +217,7 @@ python_test_host {
     test_suites: ["general-tests"],
     defaults: ["atest_py3_default"],
 }
+
 genrule {
     name: "asuite_version",
     cmd: "DATETIME=$$(TZ='America/Log_Angelos' date +'%F');" +
@@ -230,3 +231,7 @@ genrule {
     ],
 }
 
+sh_binary_host {
+    name: "atest_tradefed.sh",
+    src: "atest_tradefed.sh",
+}
