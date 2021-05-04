@@ -235,6 +235,7 @@ ATEST_BUILD_ENV = {'RECORD_ALL_DEPS':'true', 'SOONG_COLLECT_JAVA_DEPS':'true',
 # Atest index path and relative dirs/caches.
 INDEX_DIR = os.path.join(os.getenv(ANDROID_HOST_OUT, ''), 'indexes')
 LOCATE_CACHE = os.path.join(INDEX_DIR, 'mlocate.db')
+LOCATE_CACHE_MD5 = os.path.join(INDEX_DIR, 'mlocate.md5')
 INT_INDEX = os.path.join(INDEX_DIR, 'integration.idx')
 CLASS_INDEX = os.path.join(INDEX_DIR, 'classes.idx')
 CC_CLASS_INDEX = os.path.join(INDEX_DIR, 'cc_classes.idx')
