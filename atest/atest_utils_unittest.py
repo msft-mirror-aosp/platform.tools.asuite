@@ -17,7 +17,6 @@
 """Unittests for atest_utils."""
 
 # pylint: disable=line-too-long
-# pylint: disable=consider-using-with
 
 import hashlib
 import os
@@ -629,6 +628,25 @@ class AtestUtilsUnittests(unittest.TestCase):
         os.remove(checksum_file)
         self.assertFalse(atest_utils.check_md5(checksum_file))
         self.assertTrue(atest_utils.check_md5(checksum_file, missing_ok=True))
+
+    def test_get_config_parameter(self):
+        """Test method of get_config_parameter"""
+        parameter_config = os.path.join(
+            unittest_constants.TEST_DATA_DIR,
+            "parameter_config", "parameter.cfg")
+        no_parameter_config = os.path.join(
+            unittest_constants.TEST_DATA_DIR,
+            "parameter_config", "no_parameter.cfg")
+
+        # Test parameter empty value
+        self.assertEqual(set(),
+                         atest_utils.get_config_parameter(
+                             no_parameter_config))
+
+        # Test parameter empty value
+        self.assertEqual({'value_1', 'value_2', 'value_3', 'value_4'},
+                         atest_utils.get_config_parameter(
+                             parameter_config))
 
 if __name__ == "__main__":
     unittest.main()
