@@ -174,7 +174,6 @@ def _capture_limited_output(full_log):
     return output
 
 
-# pylint: disable=consider-using-with
 # TODO: b/187122993 refine subprocess with 'with-statement' in fixit week.
 def _run_limited_output(cmd, env_vars=None):
     """Runs a given command and streams the output on a single line in stdout.
@@ -1167,3 +1166,23 @@ def get_android_junit_config_filters(test_config):
             filter_values.append(value)
             filter_dict.update({name: filter_values})
     return filter_dict
+
+def get_config_parameter(test_config):
+    """Get all the parameter values for the input config
+
+    Args:
+        test_config: The path of the test config.
+    Returns:
+        A set include all the parameters of the input config.
+    """
+    parameters = set()
+    xml_root = ET.parse(test_config).getroot()
+    option_tags = xml_root.findall('.//option')
+    for tag in option_tags:
+        name = tag.attrib['name'].strip()
+        if name == constants.CONFIG_DESCRIPTOR:
+            key = tag.attrib['key'].strip()
+            if key == constants.PARAMETER_KEY:
+                value = tag.attrib['value'].strip()
+                parameters.add(value)
+    return parameters
