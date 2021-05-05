@@ -330,3 +330,7 @@ ANDROID_JUNIT_CLASS = 'com.android.tradefed.testtype.AndroidJUnitTest'
 INCLUDE_ANNOTATION = 'include-annotation'
 EXCLUDE_ANNOTATION = 'exclude-annotation'
 SUPPORTED_FILTERS = [INCLUDE_ANNOTATION, EXCLUDE_ANNOTATION]
+
+# Tradefed config-descriptor metadata.
+CONFIG_DESCRIPTOR = 'config-descriptor:metadata'
+PARAMETER_KEY = 'parameter'
