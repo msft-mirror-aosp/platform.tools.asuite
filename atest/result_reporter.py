@@ -81,6 +81,7 @@ BENCHMARK_ESSENTIAL_KEYS = {'repetition_index', 'cpu_time', 'name', 'repetitions
 BENCHMARK_OPTIONAL_KEYS = {'bytes_per_second', 'label'}
 BENCHMARK_EVENT_KEYS = BENCHMARK_ESSENTIAL_KEYS.union(BENCHMARK_OPTIONAL_KEYS)
 INT_KEYS = {'cpu_time', 'real_time'}
+ITER_SUMMARY = {}
 
 class PerfInfo():
     """Class for storing performance test of a test run."""
@@ -337,6 +338,20 @@ class ResultReporter:
         """Print starting text for running tests."""
         print(au.colorize('\nRunning Tests...', constants.CYAN))
 
+    def set_current_summary(self, run_num):
+        """Set current test summary to ITER_SUMMARY."""
+        run_summary = []
+        for runner_name, groups in self.runners.items():
+            for group_name, stats in groups.items():
+                name = group_name if group_name else runner_name
+                summary = self.process_summary(name, stats)
+                run_summary.append(summary)
+        summary_list = ITER_SUMMARY.get(run_num, [])
+        # Not contain redundant item
+        if not set(run_summary).issubset(set(summary_list)):
+            summary_list.extend(run_summary)
+            ITER_SUMMARY[run_num] = summary_list
+
     # pylint: disable=too-many-branches
     def print_summary(self):
         """Print summary of all test runs.
@@ -352,8 +367,13 @@ class ResultReporter:
             return tests_ret
         print('\n{}'.format(au.colorize('Summary', constants.CYAN)))
         print(au.delimiter('-', 7))
-        if self.rerun_options:
-            print(self.rerun_options)
+        iterations = len(ITER_SUMMARY)
+        for iter_num, summary_list in ITER_SUMMARY.items():
+            if iterations > 1:
+                print(au.colorize("ITERATION %s" % (int(iter_num) + 1),
+                                  constants.BLUE))
+            for summary in summary_list:
+                print(summary)
         failed_sum = len(self.failed_tests)
         for runner_name, groups in self.runners.items():
             if groups == UNSUPPORTED_FLAG:
@@ -372,7 +392,8 @@ class ResultReporter:
                 if stats.run_errors:
                     tests_ret = constants.EXIT_CODE_TEST_FAILURE
                     failed_sum += 1 if not stats.failed else 0
-                print(summary)
+                if not ITER_SUMMARY:
+                    print(summary)
         self.run_stats.perf_info.print_perf_info()
         print()
         if tests_ret == constants.EXIT_CODE_SUCCESS:
