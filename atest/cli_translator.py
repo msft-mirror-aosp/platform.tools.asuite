@@ -396,11 +396,12 @@ class CLITranslator:
         return all_tests, imports
 
     def _get_tests_from_test_mapping_files(
-            self, test_group, test_mapping_files):
+            self, test_groups, test_mapping_files):
         """Get tests in the given test mapping files with the match group.
 
         Args:
-            test_group: Group of tests to run. Default is set to `presubmit`.
+            test_groups: Groups of tests to run. Default is set to `presubmit`
+            and `presubmit-large`.
             test_mapping_files: A list of path of TEST_MAPPING files.
 
         Returns:
@@ -424,24 +425,26 @@ class CLITranslator:
                 grouped_tests = merged_all_tests.setdefault(
                     test_group_name, set())
                 grouped_tests.update(test_list)
-
-        tests = set(merged_all_tests.get(test_group, []))
-        if test_group == constants.TEST_GROUP_ALL:
-            for grouped_tests in merged_all_tests.values():
-                tests.update(grouped_tests)
+        tests = set()
+        for test_group in test_groups:
+            temp_tests = set(merged_all_tests.get(test_group, []))
+            tests.update(temp_tests)
+            if test_group == constants.TEST_GROUP_ALL:
+                for grouped_tests in merged_all_tests.values():
+                    tests.update(grouped_tests)
         return tests, merged_all_tests, all_imports
 
     # pylint: disable=too-many-arguments
     # pylint: disable=too-many-locals
     def _find_tests_by_test_mapping(
-            self, path='', test_group=constants.TEST_GROUP_PRESUBMIT,
+            self, path='', test_groups=None,
             file_name=constants.TEST_MAPPING, include_subdirs=False,
             checked_files=None):
         """Find tests defined in TEST_MAPPING in the given path.
 
         Args:
             path: A string of path in source. Default is set to '', i.e., CWD.
-            test_group: Group of tests to run. Default is set to `presubmit`.
+            test_groups: A List of test groups to run.
             file_name: Name of TEST_MAPPING file. Default is set to
                 `TEST_MAPPING`. The argument is added for testing purpose.
             include_subdirs: True to include tests in TEST_MAPPING files in sub
@@ -457,6 +460,9 @@ class CLITranslator:
             grouped by test group.
         """
         path = os.path.realpath(path)
+        # Default test_groups is set to [`presubmit`, `presubmit-large`].
+        if not test_groups:
+            test_groups = constants.DEFAULT_TEST_GROUPS
         test_mapping_files = set()
         all_tests = {}
         test_mapping_file = os.path.join(path, file_name)
@@ -482,7 +488,7 @@ class CLITranslator:
             return test_mapping_files, all_tests
 
         tests, all_tests, imports = self._get_tests_from_test_mapping_files(
-            test_group, test_mapping_files)
+            test_groups, test_mapping_files)
 
         # Load TEST_MAPPING files from imports recursively.
         if imports:
@@ -497,7 +503,7 @@ class CLITranslator:
                 # Search for tests based on the imported search path.
                 import_tests, import_all_tests = (
                     self._find_tests_by_test_mapping(
-                        path, test_group, file_name, include_subdirs,
+                        path, test_groups, file_name, include_subdirs,
                         checked_files))
                 # Merge the collections
                 tests.update(import_tests)
@@ -528,15 +534,16 @@ class CLITranslator:
         """
         # Pull out tests from test mapping
         src_path = ''
-        test_group = constants.TEST_GROUP_PRESUBMIT
+        test_groups = constants.DEFAULT_TEST_GROUPS
         if args.tests:
             if ':' in args.tests[0]:
                 src_path, test_group = args.tests[0].split(':')
+                test_groups = [test_group]
             else:
                 src_path = args.tests[0]
 
         test_details, all_test_details = self._find_tests_by_test_mapping(
-            path=src_path, test_group=test_group,
+            path=src_path, test_groups=test_groups,
             include_subdirs=args.include_subdirs, checked_files=set())
         test_details_list = list(test_details)
         if not test_details_list and exit_if_no_test_found:
@@ -544,12 +551,12 @@ class CLITranslator:
                 'No tests of group `%s` found in TEST_MAPPING at %s or its '
                 'parent directories.\nYou might be missing atest arguments,'
                 ' try `atest --help` for more information',
-                test_group, os.path.realpath(''))
+                test_groups, os.path.realpath(''))
             if all_test_details:
                 tests = ''
                 for test_group, test_list in all_test_details.items():
                     tests += '%s:\n' % test_group
-                    for test_detail in sorted(test_list):
+                    for test_detail in sorted(test_list, key=str):
                         tests += '\t%s\n' % test_detail
                 logging.warning(
                     'All available tests in TEST_MAPPING files are:\n%s',
