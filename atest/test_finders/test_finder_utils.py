@@ -60,7 +60,10 @@ _PACKAGE_RE = re.compile(r'\s*package\s+(?P<package>[^(;|\s)]+)\s*', re.I)
 _HOST_PATH_RE = re.compile(r'.*\/host\/.*', re.I)
 _DEVICE_PATH_RE = re.compile(r'.*\/target\/.*', re.I)
 # RE for checking if parameterized java class.
-_PARAMET_JAVA_CLASS_RE = re.compile(r'^\s*@RunWith\s*\(\s*Parameterized.class\s*\)', re.I)
+_PARAMET_JAVA_CLASS_RE = re.compile(
+    r'^\s*@RunWith\s*\(\s*(Parameterized|TestParameterInjector|'
+    r'JUnitParamsRunner|DataProviderRunner|JukitoRunner|Theories|BedsteadJUnit4'
+    r').class\s*\)', re.I)
 _PARENT_CLS_RE = re.compile(r'.*class\s+\w+\s+extends\s+(?P<parent>[\w\.]+.*)\s\{')
 
 # Explanation of FIND_REFERENCE_TYPEs:
