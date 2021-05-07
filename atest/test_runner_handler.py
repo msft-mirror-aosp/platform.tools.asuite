@@ -104,7 +104,7 @@ def get_test_runner_reqs(module_info, test_infos):
     return test_runner_build_req
 
 
-def run_all_tests(results_dir, test_infos, extra_args,
+def run_all_tests(results_dir, test_infos, extra_args, module_info,
                   delay_print_summary=False):
     """Run the given tests.
 
@@ -112,6 +112,7 @@ def run_all_tests(results_dir, test_infos, extra_args,
         results_dir: String directory to store atest results.
         test_infos: List of TestInfo.
         extra_args: Dict of extra args for test runners to use.
+        module_info: ModuleInfo object.
 
     Returns:
         0 if tests succeed, non-zero otherwise.
@@ -128,7 +129,7 @@ def run_all_tests(results_dir, test_infos, extra_args,
         ret_code = constants.EXIT_CODE_TEST_FAILURE
         stacktrace = ''
         try:
-            test_runner = test_runner(results_dir)
+            test_runner = test_runner(results_dir, module_info=module_info)
             ret_code = test_runner.run_tests(tests, extra_args, reporter)
             tests_ret_code |= ret_code
         # pylint: disable=broad-except
