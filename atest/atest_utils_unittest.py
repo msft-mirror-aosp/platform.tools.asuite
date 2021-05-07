@@ -607,5 +607,46 @@ class AtestUtilsUnittests(unittest.TestCase):
             ['exclude1', 'exclude2'],
             exclude_annotation)
 
+    def test_md5sum(self):
+        """Test method of md5sum"""
+        exist_string = os.path.join(unittest_constants.TEST_DATA_DIR,
+                                    unittest_constants.JSON_FILE)
+        inexist_string = os.path.join(unittest_constants.TEST_DATA_DIR,
+                                      unittest_constants.CLASS_NAME)
+        self.assertEqual(
+            atest_utils.md5sum(exist_string), 'c26aab9baae99bcfb97633b69e9ceefd')
+        self.assertEqual(
+            atest_utils.md5sum(inexist_string), '')
+
+    def test_check_md5(self):
+        """Test method of check_md5"""
+        file1 = os.path.join(unittest_constants.TEST_DATA_DIR,
+                            unittest_constants.JSON_FILE)
+        checksum_file = '/tmp/_tmp_module-info.json'
+        atest_utils.save_md5([file1], '/tmp/_tmp_module-info.json')
+        self.assertTrue(atest_utils.check_md5(checksum_file))
+        os.remove(checksum_file)
+        self.assertFalse(atest_utils.check_md5(checksum_file))
+        self.assertTrue(atest_utils.check_md5(checksum_file, missing_ok=True))
+
+    def test_get_config_parameter(self):
+        """Test method of get_config_parameter"""
+        parameter_config = os.path.join(
+            unittest_constants.TEST_DATA_DIR,
+            "parameter_config", "parameter.cfg")
+        no_parameter_config = os.path.join(
+            unittest_constants.TEST_DATA_DIR,
+            "parameter_config", "no_parameter.cfg")
+
+        # Test parameter empty value
+        self.assertEqual(set(),
+                         atest_utils.get_config_parameter(
+                             no_parameter_config))
+
+        # Test parameter empty value
+        self.assertEqual({'value_1', 'value_2', 'value_3', 'value_4'},
+                         atest_utils.get_config_parameter(
+                             parameter_config))
+
 if __name__ == "__main__":
     unittest.main()

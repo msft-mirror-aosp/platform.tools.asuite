@@ -33,6 +33,7 @@ import xml.etree.ElementTree as ET
 import atest_decorator
 import atest_error
 import atest_enum
+import atest_utils
 import constants
 
 from metrics import metrics_utils
@@ -59,7 +60,10 @@ _PACKAGE_RE = re.compile(r'\s*package\s+(?P<package>[^(;|\s)]+)\s*', re.I)
 _HOST_PATH_RE = re.compile(r'.*\/host\/.*', re.I)
 _DEVICE_PATH_RE = re.compile(r'.*\/target\/.*', re.I)
 # RE for checking if parameterized java class.
-_PARAMET_JAVA_CLASS_RE = re.compile(r'^\s*@RunWith\s*\(\s*Parameterized.class\s*\)', re.I)
+_PARAMET_JAVA_CLASS_RE = re.compile(
+    r'^\s*@RunWith\s*\(\s*(Parameterized|TestParameterInjector|'
+    r'JUnitParamsRunner|DataProviderRunner|JukitoRunner|Theories|BedsteadJUnit4'
+    r').class\s*\)', re.I)
 _PARENT_CLS_RE = re.compile(r'.*class\s+\w+\s+extends\s+(?P<parent>[\w\.]+.*)\s\{')
 
 # Explanation of FIND_REFERENCE_TYPEs:
@@ -472,7 +476,10 @@ def run_find_cmd(ref_type, search_dir, target, methods=None):
         return None
     ref_name = FIND_REFERENCE_TYPE[ref_type]
     start = time.time()
-    if os.path.isfile(FIND_INDEXES[ref_type]):
+    # Validate mlocate.db before using 'locate' or 'find'.
+    # TODO: b/187146540 record abnormal mlocate.db in Metrics.
+    is_valid_mlocate = atest_utils.check_md5(constants.LOCATE_CACHE_MD5)
+    if os.path.isfile(FIND_INDEXES[ref_type]) and is_valid_mlocate:
         _dict, out = {}, None
         with open(FIND_INDEXES[ref_type], 'rb') as index:
             try:

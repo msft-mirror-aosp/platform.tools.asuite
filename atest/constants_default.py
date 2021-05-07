@@ -127,8 +127,10 @@ GTF_TARGET = 'google-tradefed-core'
 TEST_MAPPING = 'TEST_MAPPING'
 # Test group for tests in TEST_MAPPING
 TEST_GROUP_PRESUBMIT = 'presubmit'
+TEST_GROUP_PRESUBMIT_LARGE = 'presubmit-large'
 TEST_GROUP_POSTSUBMIT = 'postsubmit'
 TEST_GROUP_ALL = 'all'
+DEFAULT_TEST_GROUPS = [TEST_GROUP_PRESUBMIT, TEST_GROUP_PRESUBMIT_LARGE]
 # Key in TEST_MAPPING file for a list of imported TEST_MAPPING file
 TEST_MAPPING_IMPORTS = 'imports'
 
@@ -235,6 +237,7 @@ ATEST_BUILD_ENV = {'RECORD_ALL_DEPS':'true', 'SOONG_COLLECT_JAVA_DEPS':'true',
 # Atest index path and relative dirs/caches.
 INDEX_DIR = os.path.join(os.getenv(ANDROID_HOST_OUT, ''), 'indexes')
 LOCATE_CACHE = os.path.join(INDEX_DIR, 'mlocate.db')
+LOCATE_CACHE_MD5 = os.path.join(INDEX_DIR, 'mlocate.md5')
 INT_INDEX = os.path.join(INDEX_DIR, 'integration.idx')
 CLASS_INDEX = os.path.join(INDEX_DIR, 'classes.idx')
 CC_CLASS_INDEX = os.path.join(INDEX_DIR, 'cc_classes.idx')
@@ -327,3 +330,7 @@ ANDROID_JUNIT_CLASS = 'com.android.tradefed.testtype.AndroidJUnitTest'
 INCLUDE_ANNOTATION = 'include-annotation'
 EXCLUDE_ANNOTATION = 'exclude-annotation'
 SUPPORTED_FILTERS = [INCLUDE_ANNOTATION, EXCLUDE_ANNOTATION]
+
+# Tradefed config-descriptor metadata.
+CONFIG_DESCRIPTOR = 'config-descriptor:metadata'
+PARAMETER_KEY = 'parameter'

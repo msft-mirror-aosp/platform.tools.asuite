@@ -20,6 +20,7 @@ package {
 
 java_library_host {
     name: "atest-tradefed-shell",
+    java_resource_dirs: ["res"],
 }
 
 java_library_host {
@@ -39,6 +40,7 @@ tradefed_binary_host {
     short_name: "ATEST",
     full_name: "ATest Test Suite",
     static_libs: ["atest-tradefed-shell"],
+    required: ["atest_tradefed.sh", "atest_script_help.sh"],
 }
 
 python_defaults {
@@ -235,4 +237,9 @@ python_test_host {
 sh_binary_host {
     name: "atest_tradefed.sh",
     src: "atest_tradefed.sh",
+}
+
+sh_binary_host {
+    name: "atest_script_help.sh",
+    src: "atest_script_help.sh",
 }

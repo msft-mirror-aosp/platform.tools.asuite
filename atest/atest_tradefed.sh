@@ -15,7 +15,7 @@
 # limitations under the License.
 
 # A helper script that launches Trade Federation for atest
-source "$(dirname $0)/script_help.sh"
+source "$(dirname $0)/atest_script_help.sh"
 
 # TODO b/63295046 (sbasi) - Remove this when LOCAL_JAVA_LIBRARIES includes
 # installation.
@@ -35,7 +35,6 @@ if [[ ! -z "$ANDROID_HOST_OUT" ]]; then
           cts-tradefed.jar
           sts-tradefed.jar
           vts-tradefed.jar
-          vts10-tradefed.jar
           csuite-harness.jar
           tradefed-isolation.jar
           host-libprotobuf-java-full.jar
