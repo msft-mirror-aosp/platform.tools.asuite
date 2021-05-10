@@ -334,3 +334,10 @@ SUPPORTED_FILTERS = [INCLUDE_ANNOTATION, EXCLUDE_ANNOTATION]
 # Tradefed config-descriptor metadata.
 CONFIG_DESCRIPTOR = 'config-descriptor:metadata'
 PARAMETER_KEY = 'parameter'
+
+# Tradefed related constant.
+TF_TEST_ARG = '--test-arg'
+TF_AND_JUNIT_CLASS = 'com.android.tradefed.testtype.AndroidJUnitTest'
+TF_EXCLUDE_ANNOTATE = 'exclude-annotation'
+INSTANT_MODE_ANNOTATE = 'android.platform.test.annotations.AppModeInstant'
+TF_INSTANT_APP = 'instant_app'
