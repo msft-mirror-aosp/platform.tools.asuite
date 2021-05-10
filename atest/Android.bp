@@ -16,6 +16,7 @@
 // PackageLocation check requires the androidCompatible=false otherwise it does not do anything.
 java_library_host {
     name: "atest-tradefed-shell",
+    java_resource_dirs: ["res"],
 }
 
 java_library_host {
