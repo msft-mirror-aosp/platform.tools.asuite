@@ -37,6 +37,7 @@ import result_reporter
 from logstorage import atest_gcp_utils
 from logstorage import logstorage_utils
 from metrics import metrics
+from test_finders import test_finder_utils
 from test_finders import test_info
 from test_runners import test_runner_base
 from .event_handler import EventHandler
@@ -529,8 +530,7 @@ class AtestTradefedTestRunner(test_runner_base.TestRunnerBase):
 
     # pylint: disable=too-many-branches
     # pylint: disable=too-many-statements
-    @staticmethod
-    def _parse_extra_args(extra_args):
+    def _parse_extra_args(self, test_infos, extra_args):
         """Convert the extra args into something tf can understand.
 
         Args:
@@ -617,6 +617,15 @@ class AtestTradefedTestRunner(test_runner_base.TestRunnerBase):
                        constants.WORKUNIT_ID):
                 continue
             args_not_supported.append(arg)
+        # Set exclude instant app annotation for non-instant mode run.
+        if (constants.INSTANT not in extra_args and
+            self._has_instant_app_config(test_infos, self.module_info)):
+            args_to_append.append(constants.TF_TEST_ARG)
+            args_to_append.append(
+                '{tf_class}:{option_name}:{option_value}'.format(
+                    tf_class=constants.TF_AND_JUNIT_CLASS,
+                    option_name=constants.TF_EXCLUDE_ANNOTATE,
+                    option_value=constants.INSTANT_MODE_ANNOTATE))
         return args_to_append, args_not_supported
 
     def _generate_metrics_folder(self, extra_args):
@@ -675,7 +684,7 @@ class AtestTradefedTestRunner(test_runner_base.TestRunnerBase):
         if not constants.TF_EARLY_DEVICE_RELEASE in extra_args:
             test_args.extend(['--no-early-device-release'])
 
-        args_to_add, args_not_supported = self._parse_extra_args(extra_args)
+        args_to_add, args_not_supported = self._parse_extra_args(test_infos, extra_args)
 
         # TODO(b/122889707) Remove this after finding the root cause.
         env_serial = os.environ.get(constants.ANDROID_SERIAL)
@@ -899,3 +908,22 @@ class AtestTradefedTestRunner(test_runner_base.TestRunnerBase):
             metrics.LocalDetectEvent(
                 detect_type=constants.DETECT_TYPE_TF_TEARDOWN_LOGCAT,
                 result=int(teardowntime))
+
+    @staticmethod
+    def _has_instant_app_config(test_infos, mod_info):
+        """Check if input tests defined instant app mode in config.
+
+        Args:
+            test_infos: A set of TestInfo instances.
+            mod_info: ModuleInfo object.
+
+        Returns: True if one of the tests set up instant app mode.
+        """
+        for tinfo in test_infos:
+            test_config, _ = test_finder_utils.get_test_config_and_srcs(
+                tinfo, mod_info)
+            if test_config:
+                parameters = atest_utils.get_config_parameter(test_config)
+                if constants.TF_INSTANT_APP in parameters:
+                    return True
+        return False
