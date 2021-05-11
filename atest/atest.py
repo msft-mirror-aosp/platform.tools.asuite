@@ -477,13 +477,14 @@ def _split_test_mapping_tests(test_infos):
 
 
 # pylint: disable=too-many-locals
-def _run_test_mapping_tests(results_dir, test_infos, extra_args):
+def _run_test_mapping_tests(results_dir, test_infos, extra_args, mod_info):
     """Run all tests in TEST_MAPPING files.
 
     Args:
         results_dir: String directory to store atest results.
         test_infos: A set of TestInfos.
         extra_args: Dict of extra args to add to test run.
+        mod_info: ModuleInfo object.
 
     Returns:
         Exit code.
@@ -508,7 +509,7 @@ def _run_test_mapping_tests(results_dir, test_infos, extra_args):
         atest_utils.colorful_print(header, constants.MAGENTA)
         logging.debug('\n'.join([str(info) for info in tests]))
         tests_exit_code, reporter = test_runner_handler.run_all_tests(
-            results_dir, tests, args, delay_print_summary=True)
+            results_dir, tests, args, mod_info, delay_print_summary=True)
         atest_execution_info.AtestExecutionInfo.result_reporters.append(reporter)
         test_results.append((tests_exit_code, reporter, test_type))
 
@@ -534,20 +535,21 @@ def _run_test_mapping_tests(results_dir, test_infos, extra_args):
     return all_tests_exit_code
 
 
-def _dry_run(results_dir, extra_args, test_infos):
+def _dry_run(results_dir, extra_args, test_infos, mod_info):
     """Only print the commands of the target tests rather than running them in actual.
 
     Args:
         results_dir: Path for saving atest logs.
         extra_args: Dict of extra args for test runners to utilize.
         test_infos: A list of TestInfos.
+        mod_info: ModuleInfo object.
 
     Returns:
         A list of test commands.
     """
     all_run_cmds = []
     for test_runner, tests in test_runner_handler.group_tests_by_test_runners(test_infos):
-        runner = test_runner(results_dir)
+        runner = test_runner(results_dir, module_info=mod_info)
         run_cmds = runner.generate_run_commands(tests, extra_args)
         for run_cmd in run_cmds:
             all_run_cmds.append(run_cmd)
@@ -622,7 +624,7 @@ def _non_action_validator(args):
         atest_utils.colorful_print(stop_msg, constants.RED)
         atest_utils.colorful_print(msg, constants.CYAN)
 
-def _dry_run_validator(args, results_dir, extra_args, test_infos):
+def _dry_run_validator(args, results_dir, extra_args, test_infos, mod_info):
     """Method which process --dry-run argument.
 
     Args:
@@ -630,11 +632,12 @@ def _dry_run_validator(args, results_dir, extra_args, test_infos):
         result_dir: A string path of the results dir.
         extra_args: A dict of extra args for test runners to utilize.
         test_infos: A list of test_info.
+        mod_info: ModuleInfo object.
     Returns:
         Exit code.
     """
     args.tests.sort()
-    dry_run_cmds = _dry_run(results_dir, extra_args, test_infos)
+    dry_run_cmds = _dry_run(results_dir, extra_args, test_infos, mod_info)
     if args.verify_cmd_mapping:
         try:
             atest_utils.handle_test_runner_cmd(' '.join(args.tests),
@@ -754,7 +757,8 @@ def main(argv, results_dir, args):
                                                               test_infos)
     extra_args = get_extra_args(args)
     if any((args.update_cmd_mapping, args.verify_cmd_mapping, args.dry_run)):
-        return _dry_run_validator(args, results_dir, extra_args, test_infos)
+        return _dry_run_validator(args, results_dir, extra_args, test_infos,
+                                  mod_info)
     if args.detect_regression:
         build_targets |= (regression_test_runner.RegressionTestRunner('')
                           .get_test_runner_build_reqs())
@@ -816,11 +820,11 @@ def main(argv, results_dir, args):
     if constants.TEST_STEP in steps:
         if not is_from_test_mapping(test_infos):
             tests_exit_code, reporter = test_runner_handler.run_all_tests(
-                results_dir, test_infos, extra_args)
+                results_dir, test_infos, extra_args, mod_info)
             atest_execution_info.AtestExecutionInfo.result_reporters.append(reporter)
         else:
             tests_exit_code = _run_test_mapping_tests(
-                results_dir, test_infos, extra_args)
+                results_dir, test_infos, extra_args, mod_info)
     if args.detect_regression:
         regression_args = _get_regression_detection_args(args, results_dir)
         # TODO(b/110485713): Should not call run_tests here.
