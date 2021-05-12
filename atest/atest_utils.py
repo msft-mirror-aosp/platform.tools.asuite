@@ -612,20 +612,30 @@ def check_md5(check_file, missing_ok=False):
 
     Args:
         check_file: A string of filename that stores filename and its
-                    md5 checksum.
-        missing_ok: A boolean that controls returns.
+                   md5 checksum.
+        missing_ok: A boolean that considers OK even when the check_file does
+                    not exist. Using missing_ok=True allows ignoring md5 check
+                    especially for initial run that the check_file has not yet
+                    generated. Using missing_ok=False ensures the consistency of
+                    files, and guarantees the process is successfully completed.
 
     Returns:
-        When missing_ok is True (usually used for checking bp/mk files):
+        When missing_ok is True (soft check):
           - True if the checksum is consistent with the actual MD5, even the
             check_file is missing or not a valid JSON.
           - False when the checksum is inconsistent with the actual MD5.
-        When missing_ok is False (ensure the files were properly generated):
+        When missing_ok is False (ensure the process completed properly):
           - True if the checksum is consistent with the actual MD5.
           - False otherwise.
     """
-    if not os.path.isfile(check_file) or not is_valid_json_file(check_file):
-        logging.warning('Unable to verify: %s not found or invalid format.')
+    if not os.path.isfile(check_file):
+        if not missing_ok:
+            logging.warning(
+                'Unable to verify: %s not found.', check_file)
+        return missing_ok
+    if not is_valid_json_file(check_file):
+        logging.warning(
+            'Unable to verify: %s invalid JSON format.', check_file)
         return missing_ok
     with open(check_file, 'r+') as _file:
         content = json.load(_file)
