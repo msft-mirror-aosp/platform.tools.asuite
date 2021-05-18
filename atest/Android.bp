@@ -16,6 +16,19 @@
 // PackageLocation check requires the androidCompatible=false otherwise it does not do anything.
 java_library_host {
     name: "atest-tradefed-shell",
+    java_resource_dirs: ["res"],
+}
+
+java_library_host {
+    name: "asuite_proto_java",
+    srcs: [
+        "proto/*.proto",
+    ],
+    proto: {
+        type: "full",
+        canonical_path_from_root: false,
+        include_dirs: ["external/protobuf/src"],
+    },
 }
 
 tradefed_binary_host {
@@ -23,6 +36,7 @@ tradefed_binary_host {
     short_name: "ATEST",
     full_name: "ATest Test Suite",
     static_libs: ["atest-tradefed-shell"],
+    required: ["atest_tradefed.sh", "atest_script_help.sh"],
 }
 
 python_defaults {
@@ -31,6 +45,36 @@ python_defaults {
     version: {
         py2: {
             enabled: false,
+            embedded_launcher: false,
+        },
+        py3: {
+            enabled: true,
+            embedded_launcher: false,
+        },
+    },
+}
+
+python_defaults {
+    name: "atest_lib_default",
+    pkg_path: "atest",
+    version: {
+        py2: {
+            enabled: false,
+            embedded_launcher: false,
+        },
+        py3: {
+            enabled: true,
+            embedded_launcher: false,
+        },
+    },
+}
+
+python_defaults {
+    name: "asuite_default",
+    pkg_path: "asuite",
+    version: {
+        py2: {
+            enabled: true,
             embedded_launcher: false,
         },
         py3: {
@@ -52,6 +96,8 @@ python_binary_host {
         "asuite_lib_test/*.py",
         "proto/*_pb2.py",
         "proto/__init__.py",
+        "tf_proto/__init__.py",
+        "tf_proto/*_pb2.py",
     ],
     libs: [
         "atest_py3_proto",
@@ -69,6 +115,22 @@ python_binary_host {
 }
 
 python_library_host {
+    name: "atest_module_info",
+    defaults: ["atest_lib_default"],
+    srcs: [
+        "atest_error.py",
+        "atest_decorator.py",
+        "atest_utils.py",
+        "constants.py",
+        "constants_default.py",
+        "module_info.py",
+    ],
+    libs: [
+        "metrics-protos",
+    ]
+}
+
+python_library_host {
     name: "atest_py3_proto",
     defaults: ["atest_py3_default"],
     srcs: [
@@ -79,8 +141,42 @@ python_library_host {
     },
 }
 
-// Exclude atest_updatedb_unittest due to it's a test for ATest's wrapper
-// of updatedb, but there's no updatedb binary on test server.
+python_library_host {
+    name: "asuite_proto",
+    defaults: ["asuite_default"],
+    srcs: [
+        "proto/*.proto",
+    ],
+    proto: {
+        canonical_path_from_root: false,
+    },
+}
+
+python_library_host {
+    name: "asuite_metrics",
+    defaults: ["asuite_default"],
+    srcs: [
+        "asuite_metrics.py",
+    ],
+}
+
+python_library_host {
+    name: "asuite_cc_client",
+    defaults: ["asuite_default"],
+    srcs: [
+        "atest_error.py",
+        "atest_decorator.py",
+        "atest_utils.py",
+        "constants.py",
+        "constants_default.py",
+        "metrics/*.py",
+    ],
+    libs: [
+        "asuite_proto",
+        "asuite_metrics",
+    ],
+}
+
 python_test_host {
     name: "atest_unittests",
     main: "atest_run_unittests.py",
@@ -98,6 +194,8 @@ python_test_host {
         "proto/*_pb2.py",
         "proto/__init__.py",
         "tools/atest_updatedb_unittest.py",
+        "tf_proto/__init__.py",
+        "tf_proto/*_pb2.py",
     ],
     libs: [
         "atest_py3_proto",
@@ -122,3 +220,25 @@ python_test_host {
     defaults: ["atest_py3_default"],
 }
 
+genrule {
+    name: "asuite_version",
+    cmd: "DATETIME=$$(TZ='America/Log_Angelos' date +'%F');" +
+         "if [[ -n $$BUILD_NUMBER ]]; then" +
+         "  echo $${DATETIME}_$${BUILD_NUMBER} > $(out);" +
+         "else" +
+         "  echo $$(date +'%F_%R') > $(out);" +
+         "fi",
+    out: [
+        "VERSION",
+    ],
+}
+
+sh_binary_host {
+    name: "atest_tradefed.sh",
+    src: "atest_tradefed.sh",
+}
+
+sh_binary_host {
+    name: "atest_script_help.sh",
+    src: "atest_script_help.sh",
+}
