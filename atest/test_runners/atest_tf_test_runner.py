@@ -108,7 +108,12 @@ class AtestTradefedTestRunner(test_runner_base.TestRunnerBase):
             LD_LIBRARY_PATH for TF to load the correct local shared libraries.
         """
         out_dir = os.environ.get(constants.ANDROID_HOST_OUT, '')
-        lib_dirs = ['lib', 'lib64']
+        # From b/188179058, if a 64bit tests, it will break the tests due to the
+        # elf format is not 64bit for the lib path. But for b/160741384, it is
+        # ok to load lib path first. Change the lib_dirs sequence to lib64 first
+        # due to ATest by default only testing the main abi and even a 32bit
+        # only target the lib64 folder is actually not exist.
+        lib_dirs = ['lib64', 'lib']
         path = ''
         for lib in lib_dirs:
             lib_dir = os.path.join(out_dir, lib)
