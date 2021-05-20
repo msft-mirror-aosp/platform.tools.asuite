@@ -145,6 +145,7 @@ TF_MODULE_ARG = '--module-arg'
 TF_MODULE_ARG_VALUE_FMT = '{test_name}:{option_name}:{option_value}'
 TF_SUITE_FILTER_ARG_VALUE_FMT = '"{test_name} {option_value}"'
 TF_SKIP_LOADING_CONFIG_JAR = '--skip-loading-config-jar'
+TF_MODULE_FILTER = '--module'
 
 # Suite Plans
 SUITE_PLANS = frozenset(['cts'])
@@ -340,4 +341,13 @@ TF_TEST_ARG = '--test-arg'
 TF_AND_JUNIT_CLASS = 'com.android.tradefed.testtype.AndroidJUnitTest'
 TF_EXCLUDE_ANNOTATE = 'exclude-annotation'
 INSTANT_MODE_ANNOTATE = 'android.platform.test.annotations.AppModeInstant'
-TF_INSTANT_APP = 'instant_app'
+TF_PARA_INSTANT_APP = 'instant_app'
+TF_PARA_SECOND_USR = 'secondary_user'
+TF_PARA_MULTIABI = 'multi_abi'
+DEFAULT_EXCLUDE_PARAS = {TF_PARA_INSTANT_APP,
+                         TF_PARA_SECOND_USR,
+                         TF_PARA_MULTIABI
+                         }
+DEFAULT_EXCLUDE_NOT_PARAS = {'not_' + TF_PARA_INSTANT_APP,
+                            'not_' + TF_PARA_SECOND_USR,
+                            'not_' + TF_PARA_MULTIABI}
