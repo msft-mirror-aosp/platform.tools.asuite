@@ -631,6 +631,16 @@ class AtestTradefedTestRunner(test_runner_base.TestRunnerBase):
                     tf_class=constants.TF_AND_JUNIT_CLASS,
                     option_name=constants.TF_EXCLUDE_ANNOTATE,
                     option_value=constants.INSTANT_MODE_ANNOTATE))
+        # If test config has config with auto enable parameter, force exclude
+        # those default parameters(ex: instant_app, secondary_user)
+        if '--enable-parameterized-modules' not in args_to_append:
+            for tinfo in test_infos:
+                if self._is_parameter_auto_enabled_cfg(tinfo, self.module_info):
+                    args_to_append.append('--enable-parameterized-modules')
+                    for exclude_parameter in constants.DEFAULT_EXCLUDE_PARAS:
+                        args_to_append.append('--exclude-module-parameters')
+                        args_to_append.append(exclude_parameter)
+                    break
         return args_to_append, args_not_supported
 
     def _generate_metrics_folder(self, extra_args):
@@ -828,7 +838,13 @@ class AtestTradefedTestRunner(test_runner_base.TestRunnerBase):
             # if it's integration finder.
             if info.test_finder in _INTEGRATION_FINDERS:
                 has_integration_test = True
-            args.extend([constants.TF_INCLUDE_FILTER, info.test_name])
+            # For non-paramertize test module, use --include-filter, but for
+            # tests which have auto enable paramertize config use --module
+            # instead.
+            if self._is_parameter_auto_enabled_cfg(info, self.module_info):
+                args.extend([constants.TF_MODULE_FILTER, info.test_name])
+            else:
+                args.extend([constants.TF_INCLUDE_FILTER, info.test_name])
             filters = set()
             for test_filter in info.data.get(constants.TI_FILTER, []):
                 filters.update(test_filter.to_set_of_tf_strings())
@@ -916,7 +932,7 @@ class AtestTradefedTestRunner(test_runner_base.TestRunnerBase):
 
     @staticmethod
     def _has_instant_app_config(test_infos, mod_info):
-        """Check if input tests defined instant app mode in config.
+        """Check if one of the input tests defined instant app mode in config.
 
         Args:
             test_infos: A set of TestInfo instances.
@@ -929,6 +945,26 @@ class AtestTradefedTestRunner(test_runner_base.TestRunnerBase):
                 tinfo, mod_info)
             if test_config:
                 parameters = atest_utils.get_config_parameter(test_config)
-                if constants.TF_INSTANT_APP in parameters:
+                if constants.TF_PARA_INSTANT_APP in parameters:
                     return True
+        return False
+
+    @staticmethod
+    def _is_parameter_auto_enabled_cfg(tinfo, mod_info):
+        """Check if input tests contains auto enable support parameters.
+
+        Args:
+            test_infos: A set of TestInfo instances.
+            mod_info: ModuleInfo object.
+
+        Returns: True if input test has parameter setting which is not in the
+                 exclude list.
+        """
+        test_config, _ = test_finder_utils.get_test_config_and_srcs(
+            tinfo, mod_info)
+        if test_config:
+            parameters = atest_utils.get_config_parameter(test_config)
+            if (parameters - constants.DEFAULT_EXCLUDE_PARAS
+                - constants.DEFAULT_EXCLUDE_NOT_PARAS):
+                return True
         return False
