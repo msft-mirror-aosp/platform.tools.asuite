@@ -1007,5 +1007,155 @@ class ModuleFinderUnittests(unittest.TestCase):
             processed_info,
             uc.MODULE_INFO_W_DALVIK)
 
+    @mock.patch.object(test_finder_utils, 'get_annotated_methods')
+    def test_is_srcs_match_method_annotation_include_anno(
+        self, _mock_get_anno_methods):
+        """Test _is_srcs_match_method_annotation with include annotation."""
+        annotation_dict = {constants.INCLUDE_ANNOTATION: 'includeAnnotation1'}
+        input_method = 'my_input_method'
+        input_srcs = ['src1']
+        # Test if input method matched include annotation.
+        _mock_get_anno_methods.return_value = {input_method,
+                                               'not_my_input_method'}
+
+        is_matched = self.mod_finder._is_srcs_match_method_annotation(
+            input_method, input_srcs, annotation_dict)
+
+        self.assertTrue(is_matched)
+        # Test if input method not matched include annotation.
+        _mock_get_anno_methods.return_value = {'not_my_input_method'}
+
+        is_matched = self.mod_finder._is_srcs_match_method_annotation(
+            input_method, input_srcs, annotation_dict)
+
+        self.assertFalse(is_matched)
+
+    @mock.patch.object(test_finder_utils, 'get_annotated_methods')
+    @mock.patch.object(test_finder_utils, 'get_java_methods')
+    def test_is_srcs_match_method_exclude_anno(self, _mock_get_java_methods,
+        _mock_get_exclude_anno_methods):
+        """Test _is_srcs_match_method_annotation with exclude annotation."""
+        annotation_dict = {constants.EXCLUDE_ANNOTATION: 'excludeAnnotation1'}
+        input_method = 'my_input_method'
+        input_srcs = ['src1']
+        _mock_get_java_methods.return_value = {input_method,
+                                               'method1',
+                                               'method2'}
+        # Test if input method matched exclude annotation.
+        _mock_get_exclude_anno_methods.return_value = {input_method, 'method1'}
+
+        is_matched = self.mod_finder._is_srcs_match_method_annotation(
+            input_method, input_srcs, annotation_dict)
+
+        self.assertFalse(is_matched)
+
+        # Test if input method not matched exclude annotation.
+        _mock_get_exclude_anno_methods.return_value = {'method2'}
+
+        is_matched = self.mod_finder._is_srcs_match_method_annotation(
+            input_method, input_srcs, annotation_dict)
+
+        self.assertTrue(is_matched)
+
+    @mock.patch.object(atest_utils, 'get_android_junit_config_filters')
+    @mock.patch.object(test_finder_utils, 'get_test_config_and_srcs')
+    def test_get_matched_test_infos_no_filter(self, _mock_get_conf_srcs,
+        _mock_get_filters):
+        """Test _get_matched_test_infos without test filters."""
+        test_info1 = 'test_info1'
+        test_infos = [test_info1]
+        test_config = 'test_config'
+        test_srcs = ['src1', 'src2']
+        _mock_get_conf_srcs.return_value = test_config, test_srcs
+        filter_dict = {}
+        _mock_get_filters.return_value = filter_dict
+
+        self.assertEqual(
+            self.mod_finder._get_matched_test_infos(test_infos, {'method'}),
+            test_infos)
+
+    @mock.patch.object(module_finder.ModuleFinder,
+                       '_is_srcs_match_method_annotation')
+    @mock.patch.object(atest_utils, 'get_android_junit_config_filters')
+    @mock.patch.object(test_finder_utils, 'get_test_config_and_srcs')
+    def test_get_matched_test_infos_get_filter_method_match(
+        self, _mock_get_conf_srcs, _mock_get_filters, _mock_method_match):
+        """Test _get_matched_test_infos with test filters and method match."""
+        test_infos = [KERNEL_MODULE_CLASS_INFO]
+        test_config = 'test_config'
+        test_srcs = ['src1', 'src2']
+        _mock_get_conf_srcs.return_value = test_config, test_srcs
+        filter_dict = {'include-annotation': 'annotate1'}
+        _mock_get_filters.return_value = filter_dict
+        _mock_method_match.return_value = True
+
+        unittest_utils.assert_strict_equal(
+            self,
+            self.mod_finder._get_matched_test_infos(test_infos, {'method'}),
+            test_infos)
+
+    @mock.patch.object(module_finder.ModuleFinder,
+                       '_is_srcs_match_method_annotation')
+    @mock.patch.object(atest_utils, 'get_android_junit_config_filters')
+    @mock.patch.object(test_finder_utils, 'get_test_config_and_srcs')
+    def test_get_matched_test_infos_filter_method_not_match(
+        self, _mock_get_conf_srcs, _mock_get_filters, _mock_method_match):
+        """Test _get_matched_test_infos but method not match."""
+        test_infos = [KERNEL_MODULE_CLASS_INFO]
+        test_config = 'test_config'
+        test_srcs = ['src1', 'src2']
+        _mock_get_conf_srcs.return_value = test_config, test_srcs
+        filter_dict = {'include-annotation': 'annotate1'}
+        _mock_get_filters.return_value = filter_dict
+        _mock_method_match.return_value = False
+
+        self.assertEqual(
+            self.mod_finder._get_matched_test_infos(test_infos, {'method'}),
+            [])
+
+    @mock.patch.object(module_finder.ModuleFinder, '_get_matched_test_infos')
+    @mock.patch.object(module_finder.ModuleFinder, '_get_test_infos',
+                       return_value=uc.MODULE_INFO)
+    @mock.patch.object(module_finder.ModuleFinder, '_get_test_info_filter',
+                       return_value=uc.CLASS_FILTER)
+    @mock.patch.object(test_finder_utils, 'find_class_file',
+                       return_value=['path1'])
+    def test_find_test_by_class_name_not_matched_filters(
+        self, _mock_class_path, _mock_test_filters,
+        _mock_test_infos, _mock_matched_test_infos):
+        """Test find_test_by_class_name which has not matched filters."""
+        found_test_infos = [uc.MODULE_INFO, uc.MODULE_INFO2]
+        _mock_test_infos.return_value = found_test_infos
+        matched_test_infos = [uc.MODULE_INFO2]
+        _mock_matched_test_infos.return_value = matched_test_infos
+
+        # Test if class without method
+        test_infos = self.mod_finder.find_test_by_class_name('my.test.class')
+        self.assertEqual(len(test_infos), 2)
+        unittest_utils.assert_equal_testinfos(
+            self, test_infos[0], uc.MODULE_INFO)
+        unittest_utils.assert_equal_testinfos(
+            self, test_infos[1], uc.MODULE_INFO2)
+
+        # Test if class with method
+        test_infos = self.mod_finder.find_test_by_class_name(
+            'my.test.class#myMethod')
+        self.assertEqual(len(test_infos), 1)
+        unittest_utils.assert_equal_testinfos(
+            self, test_infos[0], uc.MODULE_INFO2)
+
+    @mock.patch.object(module_finder.ModuleFinder, '_get_test_infos',
+                       return_value=None)
+    @mock.patch.object(module_finder.ModuleFinder, '_get_test_info_filter',
+                       return_value=uc.CLASS_FILTER)
+    @mock.patch.object(test_finder_utils, 'find_class_file',
+                       return_value=['path1'])
+    def test_find_test_by_class_name_get_test_infos_none(
+        self, _mock_class_path, _mock_test_filters, _mock_test_infos):
+        """Test find_test_by_class_name which has not matched test infos."""
+        self.assertEqual(
+            self.mod_finder.find_test_by_class_name('my.test.class'),
+            None)
+
 if __name__ == '__main__':
     unittest.main()

@@ -150,7 +150,8 @@ def run_updatedb(search_root=SEARCH_TOP, output_cache=constants.LOCATE_CACHE,
     try:
         full_env_vars = os.environ.copy()
         logging.debug('Executing: %s', updatedb_cmd)
-        subprocess.check_call(updatedb_cmd, env=full_env_vars)
+        if subprocess.check_call(updatedb_cmd, env=full_env_vars) == 0:
+            au.save_md5([constants.LOCATE_CACHE], constants.LOCATE_CACHE_MD5)
     except (KeyboardInterrupt, SystemExit):
         logging.error('Process interrupted or failure.')
 
@@ -383,6 +384,8 @@ def index_targets(output_cache=constants.LOCATE_CACHE, **kwargs):
             logging.error(err.output)
         _delete_indexes()
 
+# pylint: disable=consider-using-with
+# TODO: b/187122993 refine subprocess with 'with-statement' in fixit week.
 def acloud_create(report_file, args="", no_metrics_notice=True):
     """Method which runs acloud create with specified args in background.
 

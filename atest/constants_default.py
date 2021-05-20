@@ -127,8 +127,10 @@ GTF_TARGET = 'google-tradefed-core'
 TEST_MAPPING = 'TEST_MAPPING'
 # Test group for tests in TEST_MAPPING
 TEST_GROUP_PRESUBMIT = 'presubmit'
+TEST_GROUP_PRESUBMIT_LARGE = 'presubmit-large'
 TEST_GROUP_POSTSUBMIT = 'postsubmit'
 TEST_GROUP_ALL = 'all'
+DEFAULT_TEST_GROUPS = [TEST_GROUP_PRESUBMIT, TEST_GROUP_PRESUBMIT_LARGE]
 # Key in TEST_MAPPING file for a list of imported TEST_MAPPING file
 TEST_MAPPING_IMPORTS = 'imports'
 
@@ -143,6 +145,7 @@ TF_MODULE_ARG = '--module-arg'
 TF_MODULE_ARG_VALUE_FMT = '{test_name}:{option_name}:{option_value}'
 TF_SUITE_FILTER_ARG_VALUE_FMT = '"{test_name} {option_value}"'
 TF_SKIP_LOADING_CONFIG_JAR = '--skip-loading-config-jar'
+TF_MODULE_FILTER = '--module'
 
 # Suite Plans
 SUITE_PLANS = frozenset(['cts'])
@@ -235,6 +238,7 @@ ATEST_BUILD_ENV = {'RECORD_ALL_DEPS':'true', 'SOONG_COLLECT_JAVA_DEPS':'true',
 # Atest index path and relative dirs/caches.
 INDEX_DIR = os.path.join(os.getenv(ANDROID_HOST_OUT, ''), 'indexes')
 LOCATE_CACHE = os.path.join(INDEX_DIR, 'mlocate.db')
+LOCATE_CACHE_MD5 = os.path.join(INDEX_DIR, 'mlocate.md5')
 INT_INDEX = os.path.join(INDEX_DIR, 'integration.idx')
 CLASS_INDEX = os.path.join(INDEX_DIR, 'classes.idx')
 CC_CLASS_INDEX = os.path.join(INDEX_DIR, 'cc_classes.idx')
@@ -327,3 +331,23 @@ ANDROID_JUNIT_CLASS = 'com.android.tradefed.testtype.AndroidJUnitTest'
 INCLUDE_ANNOTATION = 'include-annotation'
 EXCLUDE_ANNOTATION = 'exclude-annotation'
 SUPPORTED_FILTERS = [INCLUDE_ANNOTATION, EXCLUDE_ANNOTATION]
+
+# Tradefed config-descriptor metadata.
+CONFIG_DESCRIPTOR = 'config-descriptor:metadata'
+PARAMETER_KEY = 'parameter'
+
+# Tradefed related constant.
+TF_TEST_ARG = '--test-arg'
+TF_AND_JUNIT_CLASS = 'com.android.tradefed.testtype.AndroidJUnitTest'
+TF_EXCLUDE_ANNOTATE = 'exclude-annotation'
+INSTANT_MODE_ANNOTATE = 'android.platform.test.annotations.AppModeInstant'
+TF_PARA_INSTANT_APP = 'instant_app'
+TF_PARA_SECOND_USR = 'secondary_user'
+TF_PARA_MULTIABI = 'multi_abi'
+DEFAULT_EXCLUDE_PARAS = {TF_PARA_INSTANT_APP,
+                         TF_PARA_SECOND_USR,
+                         TF_PARA_MULTIABI
+                         }
+DEFAULT_EXCLUDE_NOT_PARAS = {'not_' + TF_PARA_INSTANT_APP,
+                            'not_' + TF_PARA_SECOND_USR,
+                            'not_' + TF_PARA_MULTIABI}

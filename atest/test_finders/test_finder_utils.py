@@ -33,6 +33,7 @@ import xml.etree.ElementTree as ET
 import atest_decorator
 import atest_error
 import atest_enum
+import atest_utils
 import constants
 
 from metrics import metrics_utils
@@ -59,7 +60,10 @@ _PACKAGE_RE = re.compile(r'\s*package\s+(?P<package>[^(;|\s)]+)\s*', re.I)
 _HOST_PATH_RE = re.compile(r'.*\/host\/.*', re.I)
 _DEVICE_PATH_RE = re.compile(r'.*\/target\/.*', re.I)
 # RE for checking if parameterized java class.
-_PARAMET_JAVA_CLASS_RE = re.compile(r'^\s*@RunWith\s*\(\s*Parameterized.class\s*\)', re.I)
+_PARAMET_JAVA_CLASS_RE = re.compile(
+    r'^\s*@RunWith\s*\(\s*(Parameterized|TestParameterInjector|'
+    r'JUnitParamsRunner|DataProviderRunner|JukitoRunner|Theories|BedsteadJUnit4'
+    r').class\s*\)', re.I)
 _PARENT_CLS_RE = re.compile(r'.*class\s+\w+\s+extends\s+(?P<parent>[\w\.]+.*)\s\{')
 
 # Explanation of FIND_REFERENCE_TYPEs:
@@ -117,6 +121,9 @@ _CTS_JAR = "cts-tradefed"
 _XML_PUSH_DELIM = '->'
 _APK_SUFFIX = '.apk'
 DALVIK_TEST_RUNNER_CLASS = 'com.android.compatibility.testtype.DalvikTest'
+LIBCORE_TEST_RUNNER_CLASS = 'com.android.compatibility.testtype.LibcoreTest'
+DALVIK_TESTRUNNER_JAR_CLASSES = [DALVIK_TEST_RUNNER_CLASS,
+                                 LIBCORE_TEST_RUNNER_CLASS]
 DALVIK_DEVICE_RUNNER_JAR = 'cts-dalvik-device-test-runner'
 DALVIK_HOST_RUNNER_JAR = 'cts-dalvik-host-test-runner'
 DALVIK_TEST_DEPS = {DALVIK_DEVICE_RUNNER_JAR,
@@ -469,7 +476,10 @@ def run_find_cmd(ref_type, search_dir, target, methods=None):
         return None
     ref_name = FIND_REFERENCE_TYPE[ref_type]
     start = time.time()
-    if os.path.isfile(FIND_INDEXES[ref_type]):
+    # Validate mlocate.db before using 'locate' or 'find'.
+    # TODO: b/187146540 record abnormal mlocate.db in Metrics.
+    is_valid_mlocate = atest_utils.check_md5(constants.LOCATE_CACHE_MD5)
+    if os.path.isfile(FIND_INDEXES[ref_type]) and is_valid_mlocate:
         _dict, out = {}, None
         with open(FIND_INDEXES[ref_type], 'rb') as index:
             try:
@@ -681,7 +691,7 @@ def get_targets_from_xml_root(xml_root, module_info):
         fqcn = class_attr.attrib['class'].strip()
         if fqcn.startswith(_COMPATIBILITY_PACKAGE_PREFIX):
             targets.add(_CTS_JAR)
-        if fqcn == DALVIK_TEST_RUNNER_CLASS:
+        if fqcn in DALVIK_TESTRUNNER_JAR_CLASSES:
             targets.update(DALVIK_TEST_DEPS)
     logging.debug('Targets found in config file: %s', targets)
     return targets
