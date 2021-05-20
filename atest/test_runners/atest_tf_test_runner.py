@@ -297,6 +297,10 @@ class AtestTradefedTestRunner(test_runner_base.TestRunnerBase):
                     user_agent='atest').get_credential_with_auth_flow(creds_f)
 
         Path(not_upload_file).touch()
+        atest_utils.colorful_print(
+            'WARNING: In order to allow upload local test results to AnTS, it '
+            'is recommended you add the option --request-upload-result.',
+            constants.YELLOW)
         return None
 
     def run_tests_raw(self, test_infos, extra_args, reporter):
@@ -619,7 +623,8 @@ class AtestTradefedTestRunner(test_runner_base.TestRunnerBase):
             if arg in (constants.TF_TEMPLATE,
                        constants.TF_EARLY_DEVICE_RELEASE,
                        constants.INVOCATION_ID,
-                       constants.WORKUNIT_ID):
+                       constants.WORKUNIT_ID,
+                       constants.REQUEST_UPLOAD_RESULT):
                 continue
             args_not_supported.append(arg)
         # Set exclude instant app annotation for non-instant mode run.
