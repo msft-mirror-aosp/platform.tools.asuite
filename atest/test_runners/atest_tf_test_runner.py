@@ -617,6 +617,9 @@ class AtestTradefedTestRunner(test_runner_base.TestRunnerBase):
             if constants.COLLECT_TESTS_ONLY == arg:
                 args_to_append.append('--collect-tests-only')
                 continue
+            if constants.NO_ENABLE_ROOT == arg:
+                args_to_append.append('--no-enable-root')
+                continue
             if constants.TF_DEBUG == arg:
                 print("Please attach process to your IDE...")
                 continue
