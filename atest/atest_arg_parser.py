@@ -57,6 +57,8 @@ INSTANT = ('Run the instant_app version of the module if the module supports it.
 ITERATION = 'Loop-run tests until the max iteration is reached. (10 by default)'
 LATEST_RESULT = 'Print latest test result.'
 LIST_MODULES = 'List testable modules for the given suite.'
+NO_ENABLE_ROOT = ('Set ADB as NOT root even though the test config has '
+                  'RootTargetPreparer. Default is False(as root).')
 NO_METRICS = 'Do not send metrics.'
 NO_MODULES_IN = ('Do not include MODULES-IN-* as build targets. Warning: This '
                  'may result in missing dependencies issue.')
@@ -138,6 +140,8 @@ class AtestArgParser(argparse.ArgumentParser):
                           help=INSTALL)
         self.add_argument('-m', constants.REBUILD_MODULE_INFO_FLAG,
                           action='store_true', help=REBUILD_MODULE_INFO)
+        self.add_argument('--no-enable-root', help=NO_ENABLE_ROOT,
+                          action='store_true')
         self.add_argument('--no-modules-in', help=NO_MODULES_IN,
                           action='store_true')
         self.add_argument('--sharding', nargs='?', const=2,
@@ -308,6 +312,7 @@ def print_epilog_text():
         ITERATION=ITERATION,
         LATEST_RESULT=LATEST_RESULT,
         LIST_MODULES=LIST_MODULES,
+        NO_ENABLE_ROOT=NO_ENABLE_ROOT,
         NO_METRICS=NO_METRICS,
         NO_MODULES_IN=NO_MODULES_IN,
         REBUILD_MODULE_INFO=REBUILD_MODULE_INFO,
@@ -373,6 +378,9 @@ OPTIONS
 
         -m, --rebuild-module-info
             {REBUILD_MODULE_INFO} (default)
+
+        --no-enable-root
+            {NO_ENABLE_ROOT}
 
         --no-modules-in
             {NO_MODULES_IN}
