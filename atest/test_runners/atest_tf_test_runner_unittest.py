@@ -27,6 +27,7 @@ import json
 from io import StringIO
 from unittest import mock
 
+import atest_utils
 import constants
 import unittest_constants as uc
 import unittest_utils
@@ -559,10 +560,12 @@ class AtestTradefedTestRunnerUnittests(unittest.TestCase):
         unittest_utils.assert_equal_testinfo_sets(self, test_infos,
                                                   {FLAT2_CLASS_INFO})
 
-    def test_create_test_args(self):
+    @mock.patch.object(test_finder_utils, 'get_test_config_and_srcs')
+    def test_create_test_args(self, mock_config):
         """Test _create_test_args method."""
         # Only compile '--skip-loading-config-jar' in TF if it's not
         # INTEGRATION finder or the finder property isn't set.
+        mock_config.return_value = '', ''
         args = self.tr._create_test_args([MOD_INFO])
         self.assertTrue(constants.TF_SKIP_LOADING_CONFIG_JAR in args)
 
@@ -788,6 +791,71 @@ class AtestTradefedTestRunnerUnittests(unittest.TestCase):
                             tf_customize_template='',
                             device_early_release=' --no-early-device-release '
                                                  + extra_tf_arg)])
+
+    @mock.patch.object(atest_utils, 'get_config_parameter')
+    @mock.patch.object(test_finder_utils, 'get_test_config_and_srcs')
+    def test_is_parameter_auto_enabled_cfg(self, mock_config, mock_cfg_para):
+        """test _is_parameter_auto_enabled_cfg method."""
+        # Test if TF_PARA_INSTANT_APP is match
+        mock_config.return_value = 'test_config', ''
+        mock_cfg_para.return_value = {list(constants.DEFAULT_EXCLUDE_PARAS)[1],
+                                      list(constants.DEFAULT_EXCLUDE_PARAS)[0]}
+        self.assertFalse(
+            atf_tr.AtestTradefedTestRunner._is_parameter_auto_enabled_cfg(
+                ['test_info'], 'module_info_obj'))
+        # Test if DEFAULT_EXCLUDE_NOT_PARAS is match
+        mock_cfg_para.return_value = {
+            list(constants.DEFAULT_EXCLUDE_NOT_PARAS)[2],
+            list(constants.DEFAULT_EXCLUDE_NOT_PARAS)[0]}
+        self.assertFalse(
+            atf_tr.AtestTradefedTestRunner._is_parameter_auto_enabled_cfg(
+                ['test_info'], 'module_info_obj'))
+        # Test if have parameter not in default exclude paras
+        mock_cfg_para.return_value = {
+            'not match parameter',
+            list(constants.DEFAULT_EXCLUDE_PARAS)[1],
+            list(constants.DEFAULT_EXCLUDE_NOT_PARAS)[2]}
+        self.assertTrue(
+            atf_tr.AtestTradefedTestRunner._is_parameter_auto_enabled_cfg(
+                ['test_info'], 'module_info_obj'))
+
+    @mock.patch.object(atf_tr.AtestTradefedTestRunner,
+                       '_is_parameter_auto_enabled_cfg',
+                       return_value=True)
+    @mock.patch.object(test_finder_utils, 'get_test_config_and_srcs')
+    def test_create_test_args_with_auto_enable_parameter(
+        self, mock_config, _mock_is_enable):
+        """Test _create_test_args method with auto enabled parameter config."""
+        # Should have --m on args and should not have --include-filter.
+        mock_config.return_value = '', ''
+        args = self.tr._create_test_args([MOD_INFO])
+        self.assertTrue(constants.TF_MODULE_FILTER in args)
+        self.assertFalse(constants.TF_INCLUDE_FILTER in args)
+
+    @mock.patch.object(atf_tr.AtestTradefedTestRunner,
+                       '_is_parameter_auto_enabled_cfg')
+    @mock.patch.object(test_finder_utils, 'get_test_config_and_srcs')
+    def test_parse_extra_args(self, mock_config, _mock_is_enable):
+        """Test _parse_extra_args ."""
+        # If extra_arg enable instant_app or secondary users, should not have
+        # --exclude-module-rameters even though test config parameter is auto
+        # enabled.
+        mock_config.return_value = '', ''
+        _mock_is_enable.return_value = True
+        args, _ = self.tr._parse_extra_args([MOD_INFO], [constants.INSTANT])
+        self.assertFalse('--exclude-module-parameters' in args)
+
+        # If extra_arg not enable instant_app or secondary users, should have
+        # --exclude-module-rameters if config parameter is auto enabled.
+        _mock_is_enable.return_value = True
+        args, _ = self.tr._parse_extra_args([MOD_INFO], [constants.ALL_ABI])
+        self.assertTrue('--exclude-module-parameters' in args)
+
+        # If extra_arg not enable instant_app or secondary users, should not
+        # have --exclude-module-rameters if config parameter is not auto enabled
+        _mock_is_enable.return_value = False
+        args, _ = self.tr._parse_extra_args([MOD_INFO], [constants.ALL_ABI])
+        self.assertFalse('--exclude-module-parameters' in args)
 
 if __name__ == '__main__':
     unittest.main()
