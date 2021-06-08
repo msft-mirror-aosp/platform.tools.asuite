@@ -572,6 +572,10 @@ class AtestTradefedTestRunner(test_runner_base.TestRunnerBase):
         if extra_args.get(constants.WORKUNIT_ID, None):
             test_args.append('--invocation-data work_unit_id=%s'
                              % extra_args[constants.WORKUNIT_ID])
+        for info in test_infos:
+            if constants.TEST_WITH_MAINLINE_MODULES_RE.match(info.test_name):
+                test_args.append(constants.TF_ENABLE_MAINLINE_PARAMETERIZED_MODULES)
+                break
         # For detailed logs, set TF options log-level/log-level-display as
         # 'VERBOSE' by default.
         log_level = 'VERBOSE'
