@@ -120,7 +120,7 @@ class SuitePlanTestRunnerUnittests(unittest.TestCase):
     def test_run_tests(self, _mock_gen_cmd, _mock_run, _mock_popen):
         """Test run_tests method."""
         test_infos = []
-        extra_args = []
+        extra_args = {}
         mock_reporter = mock.Mock()
         _mock_gen_cmd.return_value = ["cmd1", "cmd2"]
         # Test Build Pass
