@@ -18,6 +18,7 @@ SUITE Tradefed test runner class.
 
 import copy
 import logging
+import os
 
 import constants
 
@@ -61,10 +62,12 @@ class SuitePlanTestRunner(atest_tf_test_runner.AtestTradefedTestRunner):
         run_cmds = self.generate_run_commands(test_infos, extra_args)
         ret_code = constants.EXIT_CODE_SUCCESS
         for run_cmd in run_cmds:
-            proc = super().run(run_cmd, output_to_stdout=True)
+            proc = super().run(run_cmd, output_to_stdout=True,
+                               env_vars=self.generate_env_vars(extra_args))
             ret_code |= self.wait_for_subprocess(proc)
         return ret_code
 
+    # pylint: disable=arguments-differ
     def _parse_extra_args(self, extra_args):
         """Convert the extra args into something *ts-tf can understand.
 
@@ -90,6 +93,12 @@ class SuitePlanTestRunner(atest_tf_test_runner.AtestTradefedTestRunner):
                 args_to_append.extend(extra_args[arg])
                 continue
             if constants.DRY_RUN == arg:
+                continue
+            if constants.TF_DEBUG == arg:
+                debug_port = extra_args.get(constants.TF_DEBUG, '')
+                port = (debug_port if debug_port else
+                        constants.DEFAULT_DEBUG_PORT)
+                print('Please attach process to your IDE...(%s)' % port)
                 continue
             args_not_supported.append(arg)
         if args_not_supported:
@@ -128,3 +137,12 @@ class SuitePlanTestRunner(atest_tf_test_runner.AtestTradefedTestRunner):
                         detect_type=xts_detect_type,
                         result=1)
         return cmds
+
+    def generate_env_vars(self, extra_args):
+        """Convert extra args into env vars."""
+        env_vars = os.environ.copy()
+        debug_port = extra_args.get(constants.TF_DEBUG, '')
+        if debug_port:
+            env_vars['TF_DEBUG'] = 'true'
+            env_vars['TF_DEBUG_PORT'] = str(debug_port)
+        return env_vars
