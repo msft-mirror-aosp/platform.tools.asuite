@@ -32,7 +32,6 @@ import constants
 import unittest_constants as uc
 import unittest_utils
 
-from logstorage import atest_gcp_utils
 from test_finders import test_finder_utils
 from test_finders import test_info
 from test_runners import event_handler
@@ -662,46 +661,6 @@ class AtestTradefedTestRunnerUnittests(unittest.TestCase):
                     tf_tmplate_key2,
                     tf_tmplate_val2)])
 
-    @mock.patch.object(atest_gcp_utils.GCPHelper, 'get_credential_with_auth_flow')
-    @mock.patch('builtins.input')
-    def test_request_consent_of_upload_test_result_yes(self,
-                                                       mock_input,
-                                                       mock_get_credential_with_auth_flow):
-        """test request_consent_of_upload_test_result method."""
-        constants.CREDENTIAL_FILE_NAME = 'cred_file'
-        constants.GCP_ACCESS_TOKEN = 'access_token'
-        tmp_folder = tempfile.mkdtemp()
-        mock_input.return_value = 'Y'
-        not_upload_file = os.path.join(tmp_folder,
-                                       constants.DO_NOT_UPLOAD)
-
-        self.tr._request_consent_of_upload_test_result(tmp_folder, True)
-        self.assertEqual(1, mock_get_credential_with_auth_flow.call_count)
-        self.assertFalse(os.path.exists(not_upload_file))
-
-        self.tr._request_consent_of_upload_test_result(tmp_folder, True)
-        self.assertEqual(2, mock_get_credential_with_auth_flow.call_count)
-        self.assertFalse(os.path.exists(not_upload_file))
-
-    @mock.patch.object(atest_gcp_utils.GCPHelper, 'get_credential_with_auth_flow')
-    @mock.patch('builtins.input')
-    def test_request_consent_of_upload_test_result_no(self,
-                                                      mock_input,
-                                                      mock_get_credential_with_auth_flow):
-        """test request_consent_of_upload_test_result method."""
-        mock_input.return_value = 'N'
-        constants.CREDENTIAL_FILE_NAME = 'cred_file'
-        constants.GCP_ACCESS_TOKEN = 'access_token'
-        tmp_folder = tempfile.mkdtemp()
-        not_upload_file = os.path.join(tmp_folder,
-                                       constants.DO_NOT_UPLOAD)
-
-        self.tr._request_consent_of_upload_test_result(tmp_folder, True)
-        self.assertTrue(os.path.exists(not_upload_file))
-        self.assertEqual(0, mock_get_credential_with_auth_flow.call_count)
-        self.tr._request_consent_of_upload_test_result(tmp_folder, True)
-        self.assertEqual(0, mock_get_credential_with_auth_flow.call_count)
-
     @mock.patch('os.environ.get', return_value=None)
     @mock.patch.object(atf_tr.AtestTradefedTestRunner, '_generate_metrics_folder')
     @mock.patch('atest_utils.get_result_server_args')
@@ -720,31 +679,6 @@ class AtestTradefedTestRunnerUnittests(unittest.TestCase):
                 serial='',
                 tf_customize_template='',
                 device_early_release='')])
-
-    @mock.patch.object(atf_tr.AtestTradefedTestRunner, '_prepare_data')
-    @mock.patch.object(atf_tr.AtestTradefedTestRunner, '_request_consent_of_upload_test_result')
-    def test_do_upload_flow(self, mock_request, mock_prepare):
-        """test _do_upload_flow method."""
-        fake_extra_args = {}
-        fake_creds = mock.Mock()
-        fake_creds.token_response = {'access_token': 'fake_token'}
-        mock_request.return_value = fake_creds
-        fake_inv = {'invocationId': 'inv_id'}
-        fake_workunit = {'id': 'workunit_id'}
-        mock_prepare.return_value = fake_inv, fake_workunit
-        constants.TOKEN_FILE_PATH = tempfile.NamedTemporaryFile().name
-        creds, inv = self.tr._do_upload_flow(fake_extra_args)
-        self.assertEqual(fake_creds, creds)
-        self.assertEqual(fake_inv, inv)
-        self.assertEqual(fake_extra_args[constants.INVOCATION_ID],
-                         fake_inv['invocationId'])
-        self.assertEqual(fake_extra_args[constants.WORKUNIT_ID],
-                         fake_workunit['id'])
-
-        mock_request.return_value = None
-        creds, inv = self.tr._do_upload_flow(fake_extra_args)
-        self.assertEqual(None, creds)
-        self.assertEqual(None, inv)
 
     @mock.patch.object(test_finder_utils, 'get_test_config_and_srcs')
     def test_has_instant_app_config(self, mock_config):
