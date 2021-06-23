@@ -191,20 +191,22 @@ def request_consent_of_upload_test_result(config_folder,
         return None
 
     creds_f = os.path.join(config_folder, constants.CREDENTIAL_FILE_NAME)
+    yn_result = False
     if request_to_upload_result:
-        if os.path.exists(not_upload_file):
-            os.remove(not_upload_file)
-        if os.path.exists(creds_f):
-            os.remove(creds_f)
+        yn_result = atest_utils.prompt_with_yn_result(
+            constants.UPLOAD_TEST_RESULT_MSG, False)
+        if yn_result:
+            if os.path.exists(not_upload_file):
+                os.remove(not_upload_file)
+        else:
+            if os.path.exists(creds_f):
+                os.remove(creds_f)
 
     # If the credential file exists or the user says “Yes”, ATest will
     # try to get the credential from the file, else will create a
     # DO_NOT_UPLOAD to keep the user's decision.
     if not os.path.exists(not_upload_file):
-        if (os.path.exists(creds_f) or
-                (request_to_upload_result and
-                    atest_utils.prompt_with_yn_result(
-                        constants.UPLOAD_TEST_RESULT_MSG, False))):
+        if os.path.exists(creds_f) or yn_result:
             return GCPHelper(
                 client_id=constants.CLIENT_ID,
                 client_secret=constants.CLIENT_SECRET,
