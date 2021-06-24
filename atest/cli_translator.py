@@ -104,29 +104,26 @@ class CLITranslator:
         test_info_str = ''
         find_test_err_msg = None
         mm_build_targets = []
-        test, mainline_modules = atest_utils.parse_mainline_modules(test)
-        if not self._verified_mainline_modules(test, mainline_modules):
+        test_name, mainline_modules = atest_utils.parse_mainline_modules(test)
+        if not self._verified_mainline_modules(test_name, mainline_modules):
             return test_infos
         test_modules_to_build = []
         test_mainline_modules = []
-        if self.mod_info and self.mod_info.get_module_info(test):
-            test_mainline_modules = self.mod_info.get_module_info(test).get(
+        if self.mod_info and self.mod_info.get_module_info(test_name):
+            test_mainline_modules = self.mod_info.get_module_info(test_name).get(
                 constants.MODULE_MAINLINE_MODULES, [])
         for modules in test_mainline_modules:
             for module in modules.split('+'):
                 test_modules_to_build.append(re.sub(
                     _MAINLINE_MODULES_EXT_RE, '', module))
-        if mainline_modules:
-            mm_build_targets = [re.sub(_MAINLINE_MODULES_EXT_RE, '', x)
-                                for x in mainline_modules.split('+')]
         for finder in test_finder_handler.get_find_methods_for_test(
-                self.mod_info, test):
+                self.mod_info, test_name):
             # For tests in TEST_MAPPING, find method is only related to
             # test name, so the details can be set after test_info object
             # is created.
             try:
                 found_test_infos = finder.find_method(
-                    finder.test_finder_instance, test)
+                    finder.test_finder_instance, test_name)
             except atest_error.TestDiscoveryException as e:
                 find_test_err_msg = e
             if found_test_infos:
@@ -145,10 +142,16 @@ class CLITranslator:
                         test_info.host = tm_test_detail.host
                     if finder_info != CACHE_FINDER:
                         test_info.test_finder = finder_info
-                    test_info.mainline_modules = mainline_modules
+                    if mainline_modules:
+                        mm_build_targets = [re.sub(_MAINLINE_MODULES_EXT_RE, '', x)
+                                           for x in mainline_modules.split('+')]
+                        test_info.test_name = test
+                        if not test_info.mainline_modules:
+                            test_info.mainline_modules = mainline_modules
                     test_info.build_targets = {
                         x for x in test_info.build_targets
                         if x not in test_modules_to_build}
+                    # TODO: b/165425972 build mainline modules separately.
                     test_info.build_targets.update(mm_build_targets)
                     # Only add dependencies to build_targets when they are in
                     # module info
@@ -208,13 +211,12 @@ class CLITranslator:
         if not mainline_modules:
             return True
         if not self.mod_info.is_module(test):
-            print('Test mainline modules(%s) for: %s failed. Only support '
-                  'module tests.'
-                  % (atest_utils.colorize(mainline_modules, constants.RED),
-                     atest_utils.colorize(test, constants.RED)))
+            print('Error: "%s" is not a testable module.'
+                  % atest_utils.colorize(test, constants.RED))
             return False
         if not self.mod_info.has_mainline_modules(test, mainline_modules):
-            print('Error: Test mainline modules(%s) not for %s.'
+            print('Error: Mainline modules "%s" were not defined for %s in '
+                  'neither build file nor test config.'
                   % (atest_utils.colorize(mainline_modules, constants.RED),
                      atest_utils.colorize(test, constants.RED)))
             return False
@@ -360,20 +362,13 @@ class CLITranslator:
                 grouped_tests = all_tests.setdefault(test_group_name, set())
                 tests = []
                 for test in test_list:
-                    # TODO: uncomment below when atest support testing mainline
-                    # module in TEST_MAPPING files.
-                    if constants.TEST_WITH_MAINLINE_MODULES_RE.match(test['name']):
-                        logging.debug('Skipping mainline module: %s',
-                                      atest_utils.colorize(test['name'],
-                                                           constants.RED))
-                        continue
                     if (self.enable_file_patterns and
                             not test_mapping.is_match_file_patterns(
                                 test_mapping_file, test)):
                         continue
                     test_mod_info = self.mod_info.name_to_module_info.get(
-                        test['name'])
-                    if not test_mod_info:
+                        atest_utils.parse_mainline_modules(test['name'])[0])
+                    if not test_mod_info :
                         print('WARNING: %s is not a valid build target and '
                               'may not be discoverable by TreeHugger. If you '
                               'want to specify a class or test-package, '
