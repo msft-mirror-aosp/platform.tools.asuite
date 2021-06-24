@@ -1063,7 +1063,10 @@ def get_manifest_branch():
 
 def get_build_target():
     """Get the build target form system environment TARGET_PRODUCT."""
-    return os.getenv(constants.ANDROID_TARGET_PRODUCT, None)
+    build_target = '%s-%s' % (
+        os.getenv(constants.ANDROID_TARGET_PRODUCT, None),
+        os.getenv(constants.TARGET_BUILD_VARIANT, None))
+    return build_target
 
 def parse_mainline_modules(test):
     """Parse test reference into test and mainline modules.
