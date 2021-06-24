@@ -614,7 +614,7 @@ class AtestUtilsUnittests(unittest.TestCase):
         inexist_string = os.path.join(unittest_constants.TEST_DATA_DIR,
                                       unittest_constants.CLASS_NAME)
         self.assertEqual(
-            atest_utils.md5sum(exist_string), 'c26aab9baae99bcfb97633b69e9ceefd')
+            atest_utils.md5sum(exist_string), '24dd0dd8c92bcf14400a66ef990cac24')
         self.assertEqual(
             atest_utils.md5sum(inexist_string), '')
 
@@ -647,6 +647,21 @@ class AtestUtilsUnittests(unittest.TestCase):
         self.assertEqual({'value_1', 'value_2', 'value_3', 'value_4'},
                          atest_utils.get_config_parameter(
                              parameter_config))
+
+    def test_get_mainline_param(self):
+        """Test method of get_mainline_param"""
+        mainline_param_config = os.path.join(
+            unittest_constants.TEST_DATA_DIR,
+            "parameter_config", "mainline_param.cfg")
+        self.assertEqual({'foo1.apex', 'foo2.apk+foo3.apk'},
+                         atest_utils.get_mainline_param(
+                             mainline_param_config))
+        no_mainline_param_config = os.path.join(
+            unittest_constants.TEST_DATA_DIR,
+            "parameter_config", "parameter.cfg")
+        self.assertEqual(set(),
+                         atest_utils.get_mainline_param(
+                             no_mainline_param_config))
 
 if __name__ == "__main__":
     unittest.main()
