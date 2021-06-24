@@ -33,7 +33,6 @@ from test_runners import atest_tf_test_runner
 from test_runners import robolectric_test_runner
 from test_runners import vts_tf_test_runner
 
-_MODULES_IN = 'MODULES-IN-%s'
 _ANDROID_MK = 'Android.mk'
 
 # These are suites in LOCAL_COMPATIBILITY_SUITE that aren't really suites so
@@ -228,12 +227,16 @@ class ModuleFinder(test_finder_base.TestFinderBase):
             targets.update(constants.SUITE_DEPS.get(suite, []))
         for module_path in self.module_info.get_paths(module_name):
             mod_dir = module_path.replace('/', '-')
-            targets.add(_MODULES_IN % mod_dir)
+            targets.add(constants.MODULES_IN + mod_dir)
         # (b/156457698) Force add vts_kernel_tests as build target if our test
         # belong to REQUIRED_KERNEL_TEST_MODULES due to required_module option
         # not working for sh_test in soong.
         if module_name in constants.REQUIRED_KERNEL_TEST_MODULES:
             targets.add('vts_kernel_tests')
+        # (b/184567849) Force adding module_name as a build_target. This will
+        # allow excluding MODULES-IN-* and prevent from missing build targets.
+        if module_name and self.module_info.is_module(module_name):
+            targets.add(module_name)
         return targets
 
     def _get_module_test_config(self, module_name, rel_config=None):
@@ -534,11 +537,83 @@ class ModuleFinder(test_finder_base.TestFinderBase):
             test_filter = self._get_test_info_filter(
                 test_path, methods, class_name=class_name,
                 is_native_test=is_native_test)
-            tinfo = self._get_test_infos(test_path, rel_config,
-                                         module_name, test_filter)
-            if tinfo:
-                tinfos.extend(tinfo)
+            test_infos = self._get_test_infos(
+                test_path, rel_config, module_name, test_filter)
+            # If input include methods, check if tinfo match.
+            if test_infos and len(test_infos) > 1 and methods:
+                test_infos = self._get_matched_test_infos(test_infos, methods)
+            if test_infos:
+                tinfos.extend(test_infos)
         return tinfos if tinfos else None
+
+    def _get_matched_test_infos(self, test_infos, methods):
+        """Get the test_infos matched the given methods.
+
+        Args:
+            test_infos: A list of TestInfo obj.
+            methods: A set of method name strings.
+
+        Returns:
+            A list of matched TestInfo namedtuple, else None.
+        """
+        matched_test_infos = set()
+        for tinfo in test_infos:
+            test_config, test_srcs = test_finder_utils.get_test_config_and_srcs(
+                tinfo, self.module_info)
+            if test_config:
+                filter_dict = atest_utils.get_android_junit_config_filters(
+                    test_config)
+                # Always treat the test_info is matched if no filters found.
+                if not filter_dict.keys():
+                    matched_test_infos.add(tinfo)
+                    continue
+                for method in methods:
+                    if self._is_srcs_match_method_annotation(method, test_srcs,
+                                                             filter_dict):
+                        logging.debug('For method:%s Test:%s matched '
+                                      'filter_dict: %s', method,
+                                      tinfo.test_name, filter_dict)
+                        matched_test_infos.add(tinfo)
+        return list(matched_test_infos)
+
+    def _is_srcs_match_method_annotation(self, method, srcs, annotation_dict):
+        """Check if input srcs matched annotation.
+
+        Args:
+            method: A string of test method name.
+            srcs: A list of source file of test.
+            annotation_dict: A dictionary record the include and exclude
+                             annotations.
+
+        Returns:
+            True if input method matched the annotation of input srcs, else
+            None.
+        """
+        include_annotations = annotation_dict.get(
+            constants.INCLUDE_ANNOTATION, [])
+        exclude_annotations = annotation_dict.get(
+            constants.EXCLUDE_ANNOTATION, [])
+        for src in srcs:
+            include_methods = set()
+            src_path = os.path.join(self.root_dir, src)
+            # Add methods matched include_annotations.
+            for annotation in include_annotations:
+                include_methods.update(
+                    test_finder_utils.get_annotated_methods(
+                        annotation, src_path))
+            if exclude_annotations:
+                # For exclude annotation, get all the method in the input srcs,
+                # and filter out the matched annotation.
+                exclude_methods = set()
+                all_methods = test_finder_utils.get_java_methods(src_path)
+                for annotation in exclude_annotations:
+                    exclude_methods.update(
+                        test_finder_utils.get_annotated_methods(
+                            annotation, src_path))
+                include_methods = all_methods - exclude_methods
+            if method in include_methods:
+                return True
+        return False
 
     def find_test_by_module_and_class(self, module_class):
         """Find the test info given a MODULE:CLASS string.

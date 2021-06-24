@@ -38,6 +38,8 @@ import sysconfig
 import time
 import zipfile
 
+import xml.etree.ElementTree as ET
+
 from distutils.util import strtobool
 
 # This is a workaround of b/144743252, where the http.client failed to loaded
@@ -172,6 +174,7 @@ def _capture_limited_output(full_log):
     return output
 
 
+# TODO: b/187122993 refine subprocess with 'with-statement' in fixit week.
 def _run_limited_output(cmd, env_vars=None):
     """Runs a given command and streams the output on a single line in stdout.
 
@@ -589,6 +592,76 @@ def _get_hashed_file_name(main_file_name):
     hashed_name = hashed_fn.hexdigest()
     return hashed_name + '.cache'
 
+def md5sum(filename):
+    """Generate MD5 checksum of a file.
+
+    Args:
+        name: A string of a filename.
+
+    Returns:
+        A string of hashed MD5 checksum.
+    """
+    if not os.path.isfile(filename):
+        return ""
+    with open(filename, 'rb') as target:
+        content = target.read()
+    return hashlib.md5(content).hexdigest()
+
+def check_md5(check_file, missing_ok=False):
+    """Method equivalent to 'md5sum --check /file/to/check'.
+
+    Args:
+        check_file: A string of filename that stores filename and its
+                   md5 checksum.
+        missing_ok: A boolean that considers OK even when the check_file does
+                    not exist. Using missing_ok=True allows ignoring md5 check
+                    especially for initial run that the check_file has not yet
+                    generated. Using missing_ok=False ensures the consistency of
+                    files, and guarantees the process is successfully completed.
+
+    Returns:
+        When missing_ok is True (soft check):
+          - True if the checksum is consistent with the actual MD5, even the
+            check_file is missing or not a valid JSON.
+          - False when the checksum is inconsistent with the actual MD5.
+        When missing_ok is False (ensure the process completed properly):
+          - True if the checksum is consistent with the actual MD5.
+          - False otherwise.
+    """
+    if not os.path.isfile(check_file):
+        if not missing_ok:
+            logging.warning(
+                'Unable to verify: %s not found.', check_file)
+        return missing_ok
+    if not is_valid_json_file(check_file):
+        logging.warning(
+            'Unable to verify: %s invalid JSON format.', check_file)
+        return missing_ok
+    with open(check_file, 'r+') as _file:
+        content = json.load(_file)
+        for filename, md5 in content.items():
+            if md5sum(filename) != md5:
+                logging.debug('%s has altered.', filename)
+                return False
+    return True
+
+def save_md5(filenames, save_file):
+    """Method equivalent to 'md5sum file1 file2 > /file/to/check'
+
+    Args:
+        filenames: A list of filenames.
+        save_file: Filename for storing files and their md5 checksums.
+    """
+    if os.path.isfile(save_file):
+        os.remove(save_file)
+    data = {}
+    for name in filenames:
+        if not os.path.isfile(name):
+            logging.warning('%s is not a file.', name)
+        data.update({name: md5sum(name)})
+    with open(save_file, 'w+') as _file:
+        json.dump(data, _file)
+
 def get_cache_root():
     """Get the root path dir for cache.
 
@@ -944,6 +1017,8 @@ def is_valid_json_file(path):
     Returns:
         True if file exist and content is valid, False otherwise.
     """
+    if isinstance(path, bytes):
+        path = path.decode('utf-8')
     try:
         if os.path.isfile(path):
             with open(path) as json_file:
@@ -1081,3 +1156,43 @@ def prompt_with_yn_result(msg, default=True):
         return strtobool(input(msg+suffix))
     except (ValueError, KeyboardInterrupt):
         return default
+
+def get_android_junit_config_filters(test_config):
+    """Get the dictionary of a input config for junit config's filters
+
+    Args:
+        test_config: The path of the test config.
+    Returns:
+        A dictionary include all the filters in the input config.
+    """
+    filter_dict = {}
+    xml_root = ET.parse(test_config).getroot()
+    option_tags = xml_root.findall('.//option')
+    for tag in option_tags:
+        name = tag.attrib['name'].strip()
+        if name in constants.SUPPORTED_FILTERS:
+            filter_values = filter_dict.get(name, [])
+            value = tag.attrib['value'].strip()
+            filter_values.append(value)
+            filter_dict.update({name: filter_values})
+    return filter_dict
+
+def get_config_parameter(test_config):
+    """Get all the parameter values for the input config
+
+    Args:
+        test_config: The path of the test config.
+    Returns:
+        A set include all the parameters of the input config.
+    """
+    parameters = set()
+    xml_root = ET.parse(test_config).getroot()
+    option_tags = xml_root.findall('.//option')
+    for tag in option_tags:
+        name = tag.attrib['name'].strip()
+        if name == constants.CONFIG_DESCRIPTOR:
+            key = tag.attrib['key'].strip()
+            if key == constants.PARAMETER_KEY:
+                value = tag.attrib['value'].strip()
+                parameters.add(value)
+    return parameters

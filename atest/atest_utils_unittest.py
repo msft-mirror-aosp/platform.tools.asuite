@@ -546,7 +546,9 @@ class AtestUtilsUnittests(unittest.TestCase):
         self.assertEqual(None, atest_utils.get_manifest_branch())
 
         mock_env.return_value = 'any_path'
-        mock_check_output.side_effect = subprocess.CalledProcessError(1, 'repo info')
+        mock_check_output.side_effect = subprocess.CalledProcessError(
+            1,
+            'repo info')
         self.assertEqual(None, atest_utils.get_manifest_branch())
 
         mock_env.return_value = None
@@ -579,6 +581,72 @@ class AtestUtilsUnittests(unittest.TestCase):
         self.assertTrue(atest_utils.prompt_with_yn_result(msg, True))
         mock_input.return_value = 'nO'
         self.assertFalse(atest_utils.prompt_with_yn_result(msg, True))
+
+    def test_get_android_junit_config_filters(self):
+        """Test method of get_android_junit_config_filters"""
+        no_filter_test_config = os.path.join(
+            unittest_constants.TEST_DATA_DIR,
+            "filter_configs", "no_filter.cfg")
+        self.assertEqual({},
+                         atest_utils.get_android_junit_config_filters(
+                             no_filter_test_config))
+
+        filtered_test_config = os.path.join(
+            unittest_constants.TEST_DATA_DIR,
+            'filter_configs', 'filter.cfg')
+        filter_dict = atest_utils.get_android_junit_config_filters(
+            filtered_test_config)
+        include_annotations = filter_dict.get(constants.INCLUDE_ANNOTATION)
+        include_annotations.sort()
+        self.assertEqual(
+            ['include1', 'include2'],
+            include_annotations)
+        exclude_annotation = filter_dict.get(constants.EXCLUDE_ANNOTATION)
+        exclude_annotation.sort()
+        self.assertEqual(
+            ['exclude1', 'exclude2'],
+            exclude_annotation)
+
+    def test_md5sum(self):
+        """Test method of md5sum"""
+        exist_string = os.path.join(unittest_constants.TEST_DATA_DIR,
+                                    unittest_constants.JSON_FILE)
+        inexist_string = os.path.join(unittest_constants.TEST_DATA_DIR,
+                                      unittest_constants.CLASS_NAME)
+        self.assertEqual(
+            atest_utils.md5sum(exist_string), 'c26aab9baae99bcfb97633b69e9ceefd')
+        self.assertEqual(
+            atest_utils.md5sum(inexist_string), '')
+
+    def test_check_md5(self):
+        """Test method of check_md5"""
+        file1 = os.path.join(unittest_constants.TEST_DATA_DIR,
+                            unittest_constants.JSON_FILE)
+        checksum_file = '/tmp/_tmp_module-info.json'
+        atest_utils.save_md5([file1], '/tmp/_tmp_module-info.json')
+        self.assertTrue(atest_utils.check_md5(checksum_file))
+        os.remove(checksum_file)
+        self.assertFalse(atest_utils.check_md5(checksum_file))
+        self.assertTrue(atest_utils.check_md5(checksum_file, missing_ok=True))
+
+    def test_get_config_parameter(self):
+        """Test method of get_config_parameter"""
+        parameter_config = os.path.join(
+            unittest_constants.TEST_DATA_DIR,
+            "parameter_config", "parameter.cfg")
+        no_parameter_config = os.path.join(
+            unittest_constants.TEST_DATA_DIR,
+            "parameter_config", "no_parameter.cfg")
+
+        # Test parameter empty value
+        self.assertEqual(set(),
+                         atest_utils.get_config_parameter(
+                             no_parameter_config))
+
+        # Test parameter empty value
+        self.assertEqual({'value_1', 'value_2', 'value_3', 'value_4'},
+                         atest_utils.get_config_parameter(
+                             parameter_config))
 
 if __name__ == "__main__":
     unittest.main()

@@ -324,7 +324,7 @@ class CLITranslatorUnittests(unittest.TestCase):
         with mock.patch.dict('os.environ', os_environ_mock, clear=True):
             tests, all_tests = self.ctr._find_tests_by_test_mapping(
                 path=TEST_MAPPING_DIR,
-                test_group=constants.TEST_GROUP_POSTSUBMIT,
+                test_groups=[constants.TEST_GROUP_POSTSUBMIT],
                 file_name='test_mapping_sample', checked_files=set())
         expected_presubmit = set([TEST_1, TEST_2, TEST_5, TEST_7, TEST_9])
         expected = set([TEST_3, TEST_6, TEST_8, TEST_10])
@@ -341,7 +341,7 @@ class CLITranslatorUnittests(unittest.TestCase):
         os_environ_mock = {constants.ANDROID_BUILD_TOP: uc.TEST_DATA_DIR}
         with mock.patch.dict('os.environ', os_environ_mock, clear=True):
             tests, all_tests = self.ctr._find_tests_by_test_mapping(
-                path=TEST_MAPPING_DIR, test_group=constants.TEST_GROUP_ALL,
+                path=TEST_MAPPING_DIR, test_groups=[constants.TEST_GROUP_ALL],
                 file_name='test_mapping_sample', checked_files=set())
         expected_presubmit = set([TEST_1, TEST_2, TEST_5, TEST_7, TEST_9])
         expected = set([
