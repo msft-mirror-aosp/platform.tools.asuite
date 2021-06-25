@@ -48,9 +48,8 @@ class TestInfo:
             compatibility_suites: A list of compatibility_suites. It's a
                         snippet of compatibility_suites in module_info. e.g.
                         ["device-tests",  "vts10"]
-            mainline_modules: A list of mainline modules.
-                    e.g. ['some1.apk', 'some2.apex', 'some3.apks',
-                          'some1.apk+some2.apex']
+            mainline_modules: A string of mainline modules.
+                    e.g. 'some1.apk+some2.apex+some3.apks'
         """
         self.test_name = test_name
         self.test_runner = test_runner
@@ -68,14 +67,14 @@ class TestInfo:
         self.test_finder = test_finder
         self.compatibility_suites = (compatibility_suites
                                      if compatibility_suites else [])
-        self.mainline_modules = mainline_modules if mainline_modules else []
+        self.mainline_modules = mainline_modules if mainline_modules else ""
 
     def __str__(self):
         host_info = (' - runs on host without device required.' if self.host
                      else '')
         return ('test_name: %s - test_runner:%s - build_targets:%s - data:%s - '
                 'suite:%s - module_class: %s - install_locations:%s%s - '
-                'test_finder: %s - compatibility_suites:%s -'
+                'test_finder: %s - compatibility_suites:%s - '
                 'mainline_modules:%s' % (
                     self.test_name, self.test_runner, self.build_targets,
                     self.data, self.suite, self.module_class,
