@@ -133,7 +133,6 @@ def get_build_cmd():
                  _BUILD_CMD))
     return [make_cmd, '--make-mode']
 
-
 def _capture_fail_section(full_log):
     """Return the error message from the build output.
 
@@ -1064,7 +1063,10 @@ def get_manifest_branch():
 
 def get_build_target():
     """Get the build target form system environment TARGET_PRODUCT."""
-    return os.getenv(constants.ANDROID_TARGET_PRODUCT, None)
+    build_target = '%s-%s' % (
+        os.getenv(constants.ANDROID_TARGET_PRODUCT, None),
+        os.getenv(constants.TARGET_BUILD_VARIANT, None))
+    return build_target
 
 def parse_mainline_modules(test):
     """Parse test reference into test and mainline modules.
@@ -1196,3 +1198,23 @@ def get_config_parameter(test_config):
                 value = tag.attrib['value'].strip()
                 parameters.add(value)
     return parameters
+
+def get_mainline_param(test_config):
+    """Get all the mainline-param values for the input config
+
+    Args:
+        test_config: The path of the test config.
+    Returns:
+        A set include all the parameters of the input config.
+    """
+    mainline_param = set()
+    xml_root = ET.parse(test_config).getroot()
+    option_tags = xml_root.findall('.//option')
+    for tag in option_tags:
+        name = tag.attrib['name'].strip()
+        if name == constants.CONFIG_DESCRIPTOR:
+            key = tag.attrib['key'].strip()
+            if key == constants.MAINLINE_PARAM_KEY:
+                value = tag.attrib['value'].strip()
+                mainline_param.add(value)
+    return mainline_param
