@@ -386,7 +386,7 @@ class ModuleInfo:
             # Check the value of 'mainline-param' in the test config.
             if not self.is_auto_gen_test_config(module_name):
                 return mainline_modules in atest_utils.get_mainline_param(
-                    test_config)
+                    os.path.join(self.root_dir, test_config))
             # Unable to verify mainline modules in an auto-gen test config.
             logging.debug('%s is associated with an auto-generated test config.',
                           module_name)
