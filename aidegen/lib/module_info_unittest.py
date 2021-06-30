@@ -52,6 +52,10 @@ class AidegenModuleInfoUnittests(unittest.TestCase):
         self.assertFalse(
             module_info.AidegenModuleInfo.is_project_path_relative_module(
                 mod_info, ''))
+        mod_info = {'class':['APPS'], 'path':[]}
+        self.assertFalse(
+            module_info.AidegenModuleInfo.is_project_path_relative_module(
+                mod_info, ''))
         mod_info = {'class':['APPS'], 'path':['path_to_a']}
         self.assertTrue(
             module_info.AidegenModuleInfo.is_project_path_relative_module(
