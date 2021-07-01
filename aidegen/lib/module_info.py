@@ -99,7 +99,8 @@ class AidegenModuleInfo(module_info.ModuleInfo, metaclass=Singleton):
             True if it's the given project path is relative to the module,
             otherwise False.
         """
-        if constant.KEY_PATH not in mod_info:
+        if (constant.KEY_PATH not in mod_info
+                or not mod_info[constant.KEY_PATH]):
             return False
         path = mod_info[constant.KEY_PATH][0]
         if rel_path == '':
