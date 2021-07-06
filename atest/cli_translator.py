@@ -117,7 +117,7 @@ class CLITranslator:
                 test_modules_to_build.append(re.sub(
                     _MAINLINE_MODULES_EXT_RE, '', module))
         for finder in test_finder_handler.get_find_methods_for_test(
-                self.mod_info, test_name):
+                self.mod_info, test):
             # For tests in TEST_MAPPING, find method is only related to
             # test name, so the details can be set after test_info object
             # is created.
