@@ -156,9 +156,10 @@ class EventHandler:
 
     # pylint: disable=unused-argument
     def _run_ended(self, event_data):
-        self.reporter.silent = False
-        self.reporter.set_current_summary(self.run_num)
-        self.reporter = result_reporter.ResultReporter()
+        # Renew ResultReport if is module level(reporter.silent=False)
+        if not self.reporter.silent:
+            self.reporter.set_current_summary(self.run_num)
+            self.reporter = result_reporter.ResultReporter(silent=False)
 
     def _module_ended(self, event_data):
         pass
