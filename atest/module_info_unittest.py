@@ -448,7 +448,7 @@ class ModuleInfoUnittests(unittest.TestCase):
         mod_info = module_info.ModuleInfo(module_file=JSON_FILE_PATH)
         self.assertTrue(mod_info.is_unit_test(maininfo_with_unittest))
 
-    @mock.patch.dict('os.environ', {constants.ANDROID_BUILD_TOP:'/'})
+    @mock.patch.dict('os.environ', {constants.ANDROID_BUILD_TOP:os.path.dirname(__file__)})
     def test_has_mainline_modules(self):
         """Test has_mainline_modules."""
         name1 = 'MainModule1'
@@ -458,7 +458,6 @@ class ModuleInfoUnittests(unittest.TestCase):
         name3 = 'MainModule3'
 
         mod_info = module_info.ModuleInfo(module_file=JSON_FILE_PATH)
-        os.chdir(os.path.dirname(__file__))
         # found in 'test_mainlne_modules' attribute.
         self.assertTrue(mod_info.has_mainline_modules(name1, mainline_module1))
         # found in the value of 'mainline-param' in test_config.
