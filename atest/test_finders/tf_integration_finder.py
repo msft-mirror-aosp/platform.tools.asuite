@@ -38,7 +38,7 @@ _INT_NAME_RE = re.compile(r'^.*\/res\/config\/(?P<int_name>.*).xml$')
 _TF_TARGETS = frozenset(['tradefed', 'tradefed-contrib'])
 _GTF_TARGETS = frozenset(['google-tradefed', 'google-tradefed-contrib'])
 _CONTRIB_TARGETS = frozenset(['google-tradefed-contrib'])
-_TF_RES_DIR = '../res/config'
+_TF_RES_DIRS = frozenset(['../res/config', 'res/config'])
 
 
 class TFIntegrationFinder(test_finder_base.TestFinderBase):
@@ -48,7 +48,7 @@ class TFIntegrationFinder(test_finder_base.TestFinderBase):
 
 
     def __init__(self, module_info=None):
-        super(TFIntegrationFinder, self).__init__()
+        super().__init__()
         self.root_dir = os.environ.get(constants.ANDROID_BUILD_TOP)
         self.module_info = module_info
         # TODO: Break this up into AOSP/google_tf integration finders.
@@ -62,7 +62,8 @@ class TFIntegrationFinder(test_finder_base.TestFinderBase):
             # changed to ../res/config.
             if module_name in _CONTRIB_TARGETS:
                 mod_paths = self.module_info.get_paths(module_name)
-                return [os.path.join(path, _TF_RES_DIR) for path in mod_paths]
+                return [os.path.join(path, res_path) for path in mod_paths
+                        for res_path in _TF_RES_DIRS]
             return self.module_info.get_paths(module_name)
         return []
 
@@ -253,6 +254,7 @@ class TFIntegrationFinder(test_finder_base.TestFinderBase):
         # create absolute path from cwd and remove symbolic links
         path = os.path.realpath(path)
         if not os.path.exists(path):
+            logging.debug('"%s": file not found!', path)
             return None
         int_dir = test_finder_utils.get_int_dir_from_path(path,
                                                           self.integration_dirs)
