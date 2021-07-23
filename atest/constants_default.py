@@ -151,6 +151,8 @@ TF_SUITE_FILTER_ARG_VALUE_FMT = '"{test_name} {option_value}"'
 TF_SKIP_LOADING_CONFIG_JAR = '--skip-loading-config-jar'
 TF_MODULE_FILTER = '--module'
 TF_ENABLE_MAINLINE_PARAMETERIZED_MODULES = '--enable-mainline-parameterized-modules'
+TF_ENABLE_PARAMETERIZED_MODULES = '--enable-parameterized-modules'
+TF_MODULE_PARAMETER = '--module-parameter'
 
 # Suite Plans
 SUITE_PLANS = frozenset(['cts'])
