@@ -791,5 +791,19 @@ class AtestTradefedTestRunnerUnittests(unittest.TestCase):
         args, _ = self.tr._parse_extra_args([MOD_INFO], [constants.ALL_ABI])
         self.assertFalse('--exclude-module-parameters' in args)
 
+    @mock.patch.object(atf_tr.AtestTradefedTestRunner,
+                       '_is_parameter_auto_enabled_cfg', return_value=False)
+    @mock.patch.object(atf_tr.AtestTradefedTestRunner,
+                       '_has_instant_app_config', return_value=False)
+    def test_parse_extra_args_has_instant_app(
+        self, _mock_has_instant, _mock_is_para):
+        """Test _parse_extra_args with instant app in customize flag."""
+        # If customize_arg has module-parameter should also include
+        # --enable-parameterized-modules.
+        args, _ = self.tr._parse_extra_args(
+            [MOD_INFO],
+            {constants.CUSTOM_ARGS: [constants.TF_MODULE_PARAMETER]})
+        self.assertTrue(constants.TF_ENABLE_PARAMETERIZED_MODULES in args)
+
 if __name__ == '__main__':
     unittest.main()
