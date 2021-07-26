@@ -460,14 +460,14 @@ class AtestTradefedTestRunner(test_runner_base.TestRunnerBase):
             if constants.FLAKES_INFO == arg:
                 continue
             if constants.INSTANT == arg:
-                args_to_append.append('--enable-parameterized-modules')
-                args_to_append.append('--module-parameter')
+                args_to_append.append(constants.TF_ENABLE_PARAMETERIZED_MODULES)
+                args_to_append.append(constants.TF_MODULE_PARAMETER)
                 args_to_append.append('instant_app')
                 continue
             if constants.USER_TYPE == arg:
-                args_to_append.append('--enable-parameterized-modules')
+                args_to_append.append(constants.TF_ENABLE_PARAMETERIZED_MODULES)
                 args_to_append.append('--enable-optional-parameterization')
-                args_to_append.append('--module-parameter')
+                args_to_append.append(constants.TF_MODULE_PARAMETER)
                 args_to_append.append(extra_args[arg])
                 continue
             if constants.ITERATIONS == arg:
@@ -513,12 +513,18 @@ class AtestTradefedTestRunner(test_runner_base.TestRunnerBase):
                     tf_class=constants.TF_AND_JUNIT_CLASS,
                     option_name=constants.TF_EXCLUDE_ANNOTATE,
                     option_value=constants.INSTANT_MODE_ANNOTATE))
+        # Force append --enable-parameterized-modules if args_to_append has
+        # --module-parameter in args_to_append
+        if constants.TF_MODULE_PARAMETER in args_to_append:
+            if constants.TF_ENABLE_PARAMETERIZED_MODULES not in args_to_append:
+                args_to_append.append(constants.TF_ENABLE_PARAMETERIZED_MODULES)
         # If test config has config with auto enable parameter, force exclude
         # those default parameters(ex: instant_app, secondary_user)
-        if '--enable-parameterized-modules' not in args_to_append:
+        if constants.TF_ENABLE_PARAMETERIZED_MODULES not in args_to_append:
             for tinfo in test_infos:
                 if self._is_parameter_auto_enabled_cfg(tinfo, self.module_info):
-                    args_to_append.append('--enable-parameterized-modules')
+                    args_to_append.append(
+                        constants.TF_ENABLE_PARAMETERIZED_MODULES)
                     for exclude_parameter in constants.DEFAULT_EXCLUDE_PARAS:
                         args_to_append.append('--exclude-module-parameters')
                         args_to_append.append(exclude_parameter)
