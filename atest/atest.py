@@ -862,6 +862,11 @@ if __name__ == '__main__':
                 metrics_base.MetricsBase.tool_name = constants.TOOL_NAME
             else:
                 metrics_base.MetricsBase.tool_name = USER_FROM_TOOL
+            USER_FROM_SUB_TOOL = os.getenv(constants.USER_FROM_SUB_TOOL, '')
+            if USER_FROM_SUB_TOOL == '':
+                metrics_base.MetricsBase.sub_tool_name = constants.SUB_TOOL_NAME
+            else:
+                metrics_base.MetricsBase.sub_tool_name = USER_FROM_SUB_TOOL
 
         EXIT_CODE = main(sys.argv[1:], RESULTS_DIR, atest_configs.GLOBAL_ARGS)
         DETECTOR = bug_detector.BugDetector(sys.argv[1:], EXIT_CODE)
