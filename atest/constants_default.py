@@ -231,6 +231,12 @@ VTS_CORE_TF_MODULE = 'vts-tradefed'
 # VTS suite set
 VTS_CORE_SUITE = 'vts'
 
+# MTS suite set
+MTS_SUITE = 'mts'
+
+# CTS tradefed jar
+CTS_JAR = "cts-tradefed"
+
 # ATest TF
 ATEST_TF_MODULE = 'atest-tradefed'
 
