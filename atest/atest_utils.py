@@ -121,8 +121,25 @@ _ANDROID_BUILD_EXT = ('.bp', '.mk')
 _REGEX_CHARS = {'[', '(', '{', '|', '\\', '*', '?', '+', '^'}
 _WILDCARD_CHARS = {'?', '*'}
 
-def get_build_cmd():
+# TODO: (b/180394948) remove this after the universal build script lands.
+# Variables for building mainline modules:
+_VARS_FOR_MAINLINE = {
+    "TARGET_BUILD_DENSITY": "alldpi",
+    "TARGET_BUILD_TYPE": "release",
+    "OVERRIDE_PRODUCT_COMPRESSED_APEX": "false",
+    "UNBUNDLED_BUILD_SDKS_FROM_SOURCE": "true",
+    "ALWAYS_EMBED_NOTICES": "true",
+}
+
+def get_build_cmd(dump=False):
     """Compose build command with no-absolute path and flag "--make-mode".
+
+    Args:
+        dump: boolean that determines the option of build/soong/soong_iu.bash.
+              True: used to dump build variables, equivalent to printconfig.
+                    e.g. build/soong/soong_iu.bash --dumpvar-mode <VAR_NAME>
+              False: (default) used to build targets in make mode.
+                    e.g. build/soong/soong_iu.bash --make-mode <MOD_NAME>
 
     Returns:
         A list of soong build command.
@@ -131,6 +148,8 @@ def get_build_cmd():
                 (os.path.relpath(os.environ.get(
                     constants.ANDROID_BUILD_TOP, os.getcwd()), os.getcwd()),
                  _BUILD_CMD))
+    if dump:
+        return [make_cmd, '--dumpvar-mode', 'report_config']
     return [make_cmd, '--make-mode']
 
 def _capture_fail_section(full_log):
@@ -258,14 +277,56 @@ def get_build_out_dir():
     return os.path.join(build_top, "out")
 
 
-def build(build_targets, verbose=False, env_vars=None):
-    """Shell out and make build_targets.
+def get_mainline_build_cmd(build_targets):
+    """Method that assembles cmd for building mainline modules.
+
+    Args:
+        build_targets: A set of strings of build targets to make.
+
+    Returns:
+        A list of build command.
+    """
+    print('%s\n%s' % (
+        colorize("Building Mainline Modules...", constants.CYAN),
+                 ', '.join(build_targets)))
+    logging.debug('Building Mainline Modules: %s', ' '.join(build_targets))
+    # TODO: (b/180394948) use the consolidated build script when it lands.
+    config = get_android_config()
+    branch = config.get('BUILD_ID')
+    arch = config.get('TARGET_ARCH')
+    # 2. Assemble TARGET_BUILD_APPS and TARGET_PRODUCT.
+    target_build_apps = 'TARGET_BUILD_APPS={}'.format(
+        ' '.join(build_targets))
+    target_product = 'TARGET_PRODUCT=mainline_modules_{}'.format(arch)
+    if 'AOSP' in branch:
+        target_product = 'TARGET_PRODUCT=module_{}'.format(arch)
+    # 3. Assemble DIST_DIR and the rest of static targets.
+    dist_dir = 'DIST_DIR={}'.format(
+        os.path.join('out', 'dist', 'mainline_modules_{}'.format(arch)))
+    static_targets = [
+        'dist',
+        'apps_only',
+        'out/soong/host/linux-x86/bin/merge_zips',
+        'out/soong/host/linux-x86/bin/aapt2'
+    ]
+    cmd = get_build_cmd()
+    cmd.append(target_build_apps)
+    cmd.append(target_product)
+    cmd.append(dist_dir)
+    cmd.extend(static_targets)
+    return cmd
+
+
+def build(build_targets, verbose=False, env_vars=None, mm_build_targets=None):
+    """Shell out and invoke run_build_cmd to make build_targets.
 
     Args:
         build_targets: A set of strings of build targets to make.
         verbose: Optional arg. If True output is streamed to the console.
                  If False, only the last line of the build output is outputted.
         env_vars: Optional arg. Dict of env vars to set during build.
+        mm_build_targets: A set of string like build_targets, but will build
+                          in unbundled(mainline) module mode.
 
     Returns:
         Boolean of whether build command was successful, True if nothing to
@@ -277,25 +338,56 @@ def build(build_targets, verbose=False, env_vars=None):
     full_env_vars = os.environ.copy()
     if env_vars:
         full_env_vars.update(env_vars)
-    print('\n%s\n%s' % (colorize("Building Dependencies...", constants.CYAN),
-                        ', '.join(build_targets)))
+    print('\n%s\n%s' % (
+        colorize("Building Dependencies...", constants.CYAN),
+                 ', '.join(build_targets)))
     logging.debug('Building Dependencies: %s', ' '.join(build_targets))
     cmd = get_build_cmd() + list(build_targets)
+    status = run_build_cmd(cmd, verbose, full_env_vars)
+    if not status:
+        return status
+    if mm_build_targets:
+        # Set up necessary variables for building mainline modules.
+        full_env_vars.update(_VARS_FOR_MAINLINE)
+        if not os.getenv('TARGET_BUILD_VARIANT'):
+            full_env_vars.update({'TARGET_BUILD_VARIANT': 'user'})
+        # Inject APEX_BUILD_FOR_PRE_S_DEVICES=true for all products.
+        # TODO: support _bundled(S+) artifacts that link shared libs.
+        colorful_print(
+            '\nWARNING: Only support building pre-S products for now.',
+            constants.YELLOW)
+        full_env_vars.update({'APEX_BUILD_FOR_PRE_S_DEVICES': 'true'})
+        mm_build_cmd = get_mainline_build_cmd(mm_build_targets)
+        return run_build_cmd(mm_build_cmd, verbose, full_env_vars)
+    return status
+
+def run_build_cmd(cmd, verbose=False, env_vars=None):
+    """The main process of building targets.
+
+    Args:
+        cmd: A list of soong command.
+        verbose: Optional arg. If True output is streamed to the console.
+                 If False, only the last line of the build output is outputted.
+        env_vars: Optional arg. Dict of env vars to set during build.
+
+    Returns:
+        Boolean of whether build command was successful, True if nothing to
+        build.
+    """
     logging.debug('Executing command: %s', cmd)
     try:
         if verbose:
-            subprocess.check_call(cmd, stderr=subprocess.STDOUT,
-                                  env=full_env_vars)
+            subprocess.check_call(cmd, stderr=subprocess.STDOUT, env=env_vars)
         else:
             # TODO: Save output to a log file.
-            _run_limited_output(cmd, env_vars=full_env_vars)
+            _run_limited_output(cmd, env_vars=env_vars)
         logging.info('Build successful')
         return True
     except subprocess.CalledProcessError as err:
-        logging.error('Error building: %s', build_targets)
+        logging.error('Build faliure when running: %s', ' '.join(cmd))
         print(constants.REBUILD_MODULE_INFO_MSG.format(
-            colorize(constants.REBUILD_MODULE_INFO_FLAG,
-                     constants.RED)))
+        colorize(constants.REBUILD_MODULE_INFO_FLAG,
+                 constants.RED)))
         if err.output:
             logging.error(err.output)
         return False
@@ -1218,3 +1310,18 @@ def get_mainline_param(test_config):
                 value = tag.attrib['value'].strip()
                 mainline_param.add(value)
     return mainline_param
+
+def get_android_config():
+    """Get Android config as "printconfig" shows.
+
+    Returns:
+        A dict of Android configurations.
+    """
+    dump_cmd = get_build_cmd(dump=True)
+    raw_config = subprocess.check_output(dump_cmd).decode('utf-8')
+    android_config = {}
+    for element in raw_config.splitlines():
+        if not element.startswith('='):
+            key, value = tuple(element.split('=', 1))
+            android_config.setdefault(key, value)
+    return android_config
