@@ -248,3 +248,6 @@ QCLASS_INDEX = '/tmp/fqcn.idx'
 CC_CLASS_INDEX = '/tmp/cc_classes.idx'
 PACKAGE_INDEX = '/tmp/packages.idx'
 MODULE_INDEX = '/tmp/modules.idx'
+
+# TF's log dir
+TEST_INFO_DIR = '/tmp/atest_run_1510085893_pi_Nbi'

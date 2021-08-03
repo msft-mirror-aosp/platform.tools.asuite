@@ -37,14 +37,13 @@ from test_runners import atest_tf_test_runner as atf_tr
 
 #pylint: disable=protected-access
 #pylint: disable=invalid-name
-TEST_INFO_DIR = '/tmp/atest_run_1510085893_pi_Nbi'
-METRICS_DIR = '%s/baseline-metrics' % TEST_INFO_DIR
+METRICS_DIR = '%s/baseline-metrics' % uc.TEST_INFO_DIR
 METRICS_DIR_ARG = '--metrics-folder %s ' % METRICS_DIR
 # TODO(147567606): Replace {serial} with {extra_args} for general extra
 # arguments testing.
 RUN_CMD_ARGS = '{metrics}--log-level WARN{serial}'
 LOG_ARGS = atf_tr.AtestTradefedTestRunner._LOG_ARGS.format(
-    log_path=os.path.join(TEST_INFO_DIR, atf_tr.LOG_FOLDER_NAME))
+    log_path=os.path.join(uc.TEST_INFO_DIR, atf_tr.LOG_FOLDER_NAME))
 RUN_CMD = atf_tr.AtestTradefedTestRunner._RUN_CMD.format(
     exe=atf_tr.AtestTradefedTestRunner.EXECUTABLE,
     template=atf_tr.AtestTradefedTestRunner._TF_TEMPLATE,
@@ -177,7 +176,7 @@ class AtestTradefedTestRunnerUnittests(unittest.TestCase):
 
     @mock.patch.dict('os.environ', {constants.ANDROID_BUILD_TOP:'/'})
     def setUp(self):
-        self.tr = atf_tr.AtestTradefedTestRunner(results_dir=TEST_INFO_DIR)
+        self.tr = atf_tr.AtestTradefedTestRunner(results_dir=uc.TEST_INFO_DIR)
 
     def tearDown(self):
         mock.patch.stopall()
