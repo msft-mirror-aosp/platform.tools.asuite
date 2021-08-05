@@ -75,7 +75,7 @@ def get_user_type():
     try:
         hostname = socket.getfqdn()
         if (hostname and
-                any([(x in hostname) for x in constants.INTERNAL_HOSTNAME])):
+                any((x in hostname) for x in constants.INTERNAL_HOSTNAME)):
             return INTERNAL_USER
     except IOError:
         logging.debug('Unable to determine if this is an external run, '
@@ -124,6 +124,7 @@ class MetricsBase:
                   'run_id': cls._run_id,
                   'user_type': cls._user_type,
                   'tool_name': cls.tool_name,
+                  'sub_tool_name': cls.sub_tool_name,
                   cls._EVENT_NAME: fields_and_values}
         log_event = cls._build_full_event(
             ATEST_EVENTS[cls._user_type](**params))
