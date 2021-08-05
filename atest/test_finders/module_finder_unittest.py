@@ -677,6 +677,16 @@ class ModuleFinderUnittests(unittest.TestCase):
         self.assertEqual(self.mod_finder._get_build_targets('', ''),
                          {constants.VTS_CORE_TF_MODULE})
 
+    def test_get_build_targets_w_mts(self):
+        """Test _get_build_targets if module belong to mts."""
+        self.mod_finder.module_info.is_auto_gen_test_config.return_value = True
+        self.mod_finder.module_info.get_paths.return_value = []
+        mod_info = {constants.MODULE_COMPATIBILITY_SUITES:
+                        [constants.MTS_SUITE]}
+        self.mod_finder.module_info.get_module_info.return_value = mod_info
+        self.assertEqual(self.mod_finder._get_build_targets('', ''),
+                         {constants.CTS_JAR})
+
     @mock.patch.object(test_finder_utils, 'is_parameterized_java_class',
                        return_value=False)
     @mock.patch.object(module_finder.ModuleFinder, '_is_vts_module',

@@ -237,6 +237,10 @@ class ModuleFinder(test_finder_base.TestFinderBase):
         # allow excluding MODULES-IN-* and prevent from missing build targets.
         if module_name and self.module_info.is_module(module_name):
             targets.add(module_name)
+        # If it's a MTS test, add cts-tradefed as test dependency.
+        if constants.MTS_SUITE in self.module_info.get_module_info(
+            module_name).get(constants.MODULE_COMPATIBILITY_SUITES, []):
+            targets.add(constants.CTS_JAR)
         return targets
 
     def _get_module_test_config(self, module_name, rel_config=None):
