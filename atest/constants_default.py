@@ -192,7 +192,9 @@ CONTRIBUTOR_AGREEMENT_URL = {
 PRIVACY_POLICY_URL = 'https://policies.google.com/privacy'
 TERMS_SERVICE_URL = 'https://policies.google.com/terms'
 TOOL_NAME = 'atest'
+SUB_TOOL_NAME = ''
 USER_FROM_TOOL = 'USER_FROM_TOOL'
+USER_FROM_SUB_TOOL = 'USER_FROM_SUB_TOOL'
 TF_PREPARATION = 'tf-preparation'
 
 # Detect type for local_detect_event.
