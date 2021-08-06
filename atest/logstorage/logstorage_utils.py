@@ -142,6 +142,17 @@ class BuildClient:
         Returns:
             A invocation object.
         """
+        # Because invocation revision will be update by TF, we need to fetch
+        # latest invocation revision to update status correctly.
+        invocations = self.client.invocation().list(
+            invocationId=invocation['invocationId'],
+            maxResults=10).execute().get('invocations', [])
+        if invocations:
+            latest_revision = invocations[-1].get('revision', '')
+            if latest_revision:
+                logging.debug('Get latest_revision:%s from invocations:%s',
+                              latest_revision, invocations)
+                invocation['revision'] = latest_revision
         return self.client.invocation().update(
             resourceId=invocation['invocationId'],
             body=invocation).execute()
