@@ -142,6 +142,7 @@ class CLITranslator:
                     test_deps_in_mod_info = [
                         test_dep for test_dep in test_deps
                         if self.mod_info.is_module(test_dep)]
+                    test_info.build_targets = set(test_info.build_targets)
                     test_info.build_targets.update(test_deps_in_mod_info)
                     test_infos.add(test_info)
                 test_found = True
