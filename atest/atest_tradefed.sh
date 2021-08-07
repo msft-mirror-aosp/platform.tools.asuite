@@ -46,6 +46,20 @@ if [[ ! -z "$ANDROID_HOST_OUT" ]]; then
     done
 fi
 
+# Accumulate prebuilt jars as a part of classpath when the configurations are
+# packaged into a prebuilt jar (b/192046472)
+TF_CORE_DIR=$ANDROID_BUILD_TOP/tools/tradefederation/core
+if [ ! -d $TF_CORE_DIR ]; then
+    TF_DIR=$ANDROID_BUILD_TOP/tools/tradefederation/prebuilts/filegroups
+    GTF_DIR=$ANDROID_BUILD_TOP/vendor/google_tradefederation/prebuilts/filegroups
+    PREBUILT_JARS=$(find $TF_DIR $GTF_DIR -type f -name *.jar 2>/dev/null)
+    if [ -n "$PREBUILT_JARS" ]; then
+        for jar in $PREBUILT_JARS; do
+            TF_PATH+=":$jar"
+        done
+    fi
+fi
+
 if [ "$(uname)" == "Darwin" ]; then
     local_tmp_dir="$ANDROID_HOST_OUT/tmp"
     [[ -f "$local_tmp_dir" ]] || mkdir -p "$local_tmp_dir"
