@@ -795,6 +795,8 @@ def main(argv, results_dir, args):
         metrics.LocalDetectEvent(
             detect_type=rebuild_module_info,
             result=int(build_duration))
+        if not success:
+            return constants.EXIT_CODE_BUILD_FAILURE
         # Always reload module-info after build finish.
         # TODO(b/178675689) Move it to a thread when running test.
         mod_info.generate_atest_merged_dep_file()
