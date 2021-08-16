@@ -338,14 +338,6 @@ def build(build_targets, verbose=False, env_vars=None, mm_build_targets=None):
     full_env_vars = os.environ.copy()
     if env_vars:
         full_env_vars.update(env_vars)
-    print('\n%s\n%s' % (
-        colorize("Building Dependencies...", constants.CYAN),
-                 ', '.join(build_targets)))
-    logging.debug('Building Dependencies: %s', ' '.join(build_targets))
-    cmd = get_build_cmd() + list(build_targets)
-    status = run_build_cmd(cmd, verbose, full_env_vars)
-    if not status:
-        return status
     if mm_build_targets:
         # Set up necessary variables for building mainline modules.
         full_env_vars.update(_VARS_FOR_MAINLINE)
@@ -358,8 +350,15 @@ def build(build_targets, verbose=False, env_vars=None, mm_build_targets=None):
             constants.YELLOW)
         full_env_vars.update({'APEX_BUILD_FOR_PRE_S_DEVICES': 'true'})
         mm_build_cmd = get_mainline_build_cmd(mm_build_targets)
-        return run_build_cmd(mm_build_cmd, verbose, full_env_vars)
-    return status
+        status = run_build_cmd(mm_build_cmd, verbose, full_env_vars)
+        if not status:
+            return status
+    print('\n%s\n%s' % (
+        colorize("Building Dependencies...", constants.CYAN),
+                 ', '.join(build_targets)))
+    logging.debug('Building Dependencies: %s', ' '.join(build_targets))
+    cmd = get_build_cmd() + list(build_targets)
+    return run_build_cmd(cmd, verbose, full_env_vars)
 
 def run_build_cmd(cmd, verbose=False, env_vars=None):
     """The main process of building targets.
