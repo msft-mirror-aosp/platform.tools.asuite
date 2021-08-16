@@ -613,6 +613,9 @@ class AtestTradefedTestRunner(test_runner_base.TestRunnerBase):
         self.run_cmd_dict['args'] = ' '.join(test_args)
         self.run_cmd_dict['tf_customize_template'] = (
             self._extract_customize_tf_templates(extra_args))
+
+        # Copy symbols if there are tests belong to native test.
+        self._handle_native_tests(test_infos)
         return [self._RUN_CMD.format(**self.run_cmd_dict)]
 
     def _flatten_test_infos(self, test_infos):
@@ -860,3 +863,18 @@ class AtestTradefedTestRunner(test_runner_base.TestRunnerBase):
                 - constants.DEFAULT_EXCLUDE_NOT_PARAS):
                 return True
         return False
+
+    def _handle_native_tests(self, test_infos):
+        """Handling some extra tasks for running native tests from tradefed.
+
+        Args:
+            test_infos: A set of TestInfo instances.
+        """
+        for tinfo in test_infos:
+            test_config, _ = test_finder_utils.get_test_config_and_srcs(
+                tinfo, self.module_info)
+            if test_config:
+                module_name, device_path = atest_utils.get_config_gtest_args(
+                    test_config)
+                if module_name and device_path:
+                    atest_utils.copy_native_symbols(module_name, device_path)
