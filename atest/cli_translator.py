@@ -46,7 +46,6 @@ TESTNAME_CHARS = {'#', ':', '/'}
 _COMMENTS_RE = re.compile(r'(?m)[\s\t]*(#|//).*|(\".*?\")')
 _COMMENTS = frozenset(['//', '#'])
 
-_MAINLINE_MODULES_EXT_RE = re.compile(r'(.apex|.apks|.apk)$')
 
 #pylint: disable=no-self-use
 class CLITranslator:
@@ -103,19 +102,9 @@ class CLITranslator:
         test_finders = []
         test_info_str = ''
         find_test_err_msg = None
-        mm_build_targets = []
         test_name, mainline_modules = atest_utils.parse_mainline_modules(test)
         if not self._verified_mainline_modules(test_name, mainline_modules):
             return test_infos
-        test_modules_to_build = []
-        test_mainline_modules = []
-        if self.mod_info and self.mod_info.get_module_info(test_name):
-            test_mainline_modules = self.mod_info.get_module_info(test_name).get(
-                constants.MODULE_MAINLINE_MODULES, [])
-        for modules in test_mainline_modules:
-            for module in modules.split('+'):
-                test_modules_to_build.append(re.sub(
-                    _MAINLINE_MODULES_EXT_RE, '', module))
         for finder in test_finder_handler.get_find_methods_for_test(
                 self.mod_info, test_name):
             # For tests in TEST_MAPPING, find method is only related to
@@ -143,21 +132,17 @@ class CLITranslator:
                     if finder_info != CACHE_FINDER:
                         test_info.test_finder = finder_info
                     if mainline_modules:
-                        mm_build_targets = [re.sub(_MAINLINE_MODULES_EXT_RE, '', x)
-                                           for x in mainline_modules.split('+')]
                         test_info.test_name = test
-                        if not test_info.mainline_modules:
-                            test_info.mainline_modules = mainline_modules
-                    test_info.build_targets = {
-                        x for x in test_info.build_targets
-                        if x not in test_modules_to_build}
-                    # TODO: b/165425972 build mainline modules separately.
-                    test_info.build_targets.update(mm_build_targets)
+                        # TODO: remove below statement when soong can also
+                        # parse TestConfig and inject mainline modules information
+                        # to module-info.
+                        test_info.mainline_modules = mainline_modules
                     # Only add dependencies to build_targets when they are in
                     # module info
                     test_deps_in_mod_info = [
                         test_dep for test_dep in test_deps
                         if self.mod_info.is_module(test_dep)]
+                    test_info.build_targets = set(test_info.build_targets)
                     test_info.build_targets.update(test_deps_in_mod_info)
                     test_infos.add(test_info)
                 test_found = True
@@ -543,10 +528,13 @@ class CLITranslator:
         test_details_list = list(test_details)
         if not test_details_list and exit_if_no_test_found:
             logging.warning(
-                'No tests of group `%s` found in TEST_MAPPING at %s or its '
-                'parent directories.\nYou might be missing atest arguments,'
-                ' try `atest --help` for more information',
-                test_groups, os.path.realpath(''))
+                'No tests of group `%s` found in %s or its '
+                'parent directories. (Available groups: %s)\n'
+                'You might be missing atest arguments,'
+                ' try `atest --help` for more information.',
+                test_groups,
+                os.path.join(src_path, constants.TEST_MAPPING),
+                ', '.join(all_test_details.keys()))
             if all_test_details:
                 tests = ''
                 for test_group, test_list in all_test_details.items():

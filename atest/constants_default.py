@@ -113,6 +113,7 @@ ANDROID_HOST_OUT = 'ANDROID_HOST_OUT'
 ANDROID_PRODUCT_OUT = 'ANDROID_PRODUCT_OUT'
 ANDROID_TARGET_PRODUCT = 'TARGET_PRODUCT'
 TARGET_BUILD_VARIANT = 'TARGET_BUILD_VARIANT'
+ANDROID_TARGET_OUT_TESTCASES = 'ANDROID_TARGET_OUT_TESTCASES'
 
 # Test Info data keys
 # Value of include-filter option.
@@ -151,6 +152,8 @@ TF_SUITE_FILTER_ARG_VALUE_FMT = '"{test_name} {option_value}"'
 TF_SKIP_LOADING_CONFIG_JAR = '--skip-loading-config-jar'
 TF_MODULE_FILTER = '--module'
 TF_ENABLE_MAINLINE_PARAMETERIZED_MODULES = '--enable-mainline-parameterized-modules'
+TF_ENABLE_PARAMETERIZED_MODULES = '--enable-parameterized-modules'
+TF_MODULE_PARAMETER = '--module-parameter'
 
 # Suite Plans
 SUITE_PLANS = frozenset(['cts'])
@@ -190,7 +193,9 @@ CONTRIBUTOR_AGREEMENT_URL = {
 PRIVACY_POLICY_URL = 'https://policies.google.com/privacy'
 TERMS_SERVICE_URL = 'https://policies.google.com/terms'
 TOOL_NAME = 'atest'
+SUB_TOOL_NAME = ''
 USER_FROM_TOOL = 'USER_FROM_TOOL'
+USER_FROM_SUB_TOOL = 'USER_FROM_SUB_TOOL'
 TF_PREPARATION = 'tf-preparation'
 
 # Detect type for local_detect_event.
@@ -228,6 +233,12 @@ VTS_CORE_TF_MODULE = 'vts-tradefed'
 
 # VTS suite set
 VTS_CORE_SUITE = 'vts'
+
+# MTS suite set
+MTS_SUITE = 'mts'
+
+# CTS tradefed jar
+CTS_JAR = "cts-tradefed"
 
 # ATest TF
 ATEST_TF_MODULE = 'atest-tradefed'

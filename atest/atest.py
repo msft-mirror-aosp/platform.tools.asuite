@@ -34,6 +34,7 @@ import sys
 import tempfile
 import time
 import platform
+import re
 
 from multiprocessing import Process
 
@@ -70,6 +71,7 @@ RESULT_HEADER_FMT = '\nResults from %(test_type)s:'
 RUN_HEADER_FMT = '\nRunning %(test_count)d %(test_type)s.'
 TEST_COUNT = 'test_count'
 TEST_TYPE = 'test_type'
+MAINLINE_MODULES_EXT_RE = re.compile(r'(.apex|.apks|.apk)$')
 # Tasks that must run in the build time but unable to build by soong.
 # (e.g subprocesses that invoke host commands.)
 ACLOUD_CREATE = at.acloud_create
@@ -739,6 +741,7 @@ def main(argv, results_dir, args):
         _print_testable_modules(mod_info, args.list_modules)
         return constants.EXIT_CODE_SUCCESS
     build_targets = set()
+    mm_build_targets = set()
     test_infos = set()
     if _will_run_tests(args):
         find_start = time.time()
@@ -752,6 +755,11 @@ def main(argv, results_dir, args):
             _validate_exec_mode(args, test_infos)
         else:
             _validate_tm_tests_exec_mode(args, test_infos)
+        for test_info in test_infos:
+            if test_info.mainline_modules:
+                for module in test_info.mainline_modules.split('+'):
+                    mm_build_targets.add(re.sub(
+                         MAINLINE_MODULES_EXT_RE, '', module))
     if args.info:
         return _print_test_info(mod_info, test_infos)
     build_targets |= test_runner_handler.get_test_runner_reqs(mod_info,
@@ -774,12 +782,13 @@ def main(argv, results_dir, args):
         # file up to date.
         build_targets.add(mod_info.module_info_target)
         build_start = time.time()
-        success = atest_utils.build(build_targets, verbose=args.verbose)
+        success = atest_utils.build(build_targets, verbose=args.verbose,
+                                    mm_build_targets=mm_build_targets)
         build_duration = time.time() - build_start
         metrics.BuildFinishEvent(
             duration=metrics_utils.convert_duration(build_duration),
             success=success,
-            targets=build_targets)
+            targets=build_targets.update(mm_build_targets))
         rebuild_module_info = constants.DETECT_TYPE_NOT_REBUILD_MODULE_INFO
         if args.rebuild_module_info:
             rebuild_module_info = constants.DETECT_TYPE_REBUILD_MODULE_INFO
@@ -862,6 +871,11 @@ if __name__ == '__main__':
                 metrics_base.MetricsBase.tool_name = constants.TOOL_NAME
             else:
                 metrics_base.MetricsBase.tool_name = USER_FROM_TOOL
+            USER_FROM_SUB_TOOL = os.getenv(constants.USER_FROM_SUB_TOOL, '')
+            if USER_FROM_SUB_TOOL == '':
+                metrics_base.MetricsBase.sub_tool_name = constants.SUB_TOOL_NAME
+            else:
+                metrics_base.MetricsBase.sub_tool_name = USER_FROM_SUB_TOOL
 
         EXIT_CODE = main(sys.argv[1:], RESULTS_DIR, atest_configs.GLOBAL_ARGS)
         DETECTOR = bug_detector.BugDetector(sys.argv[1:], EXIT_CODE)
