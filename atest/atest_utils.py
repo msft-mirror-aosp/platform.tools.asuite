@@ -383,7 +383,7 @@ def run_build_cmd(cmd, verbose=False, env_vars=None):
         logging.info('Build successful')
         return True
     except subprocess.CalledProcessError as err:
-        logging.error('Build faliure when running: %s', ' '.join(cmd))
+        logging.error('Build failure when running: %s', ' '.join(cmd))
         print(constants.REBUILD_MODULE_INFO_MSG.format(
         colorize(constants.REBUILD_MODULE_INFO_FLAG,
                  constants.RED)))
