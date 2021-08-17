@@ -338,14 +338,6 @@ def build(build_targets, verbose=False, env_vars=None, mm_build_targets=None):
     full_env_vars = os.environ.copy()
     if env_vars:
         full_env_vars.update(env_vars)
-    print('\n%s\n%s' % (
-        colorize("Building Dependencies...", constants.CYAN),
-                 ', '.join(build_targets)))
-    logging.debug('Building Dependencies: %s', ' '.join(build_targets))
-    cmd = get_build_cmd() + list(build_targets)
-    status = run_build_cmd(cmd, verbose, full_env_vars)
-    if not status:
-        return status
     if mm_build_targets:
         # Set up necessary variables for building mainline modules.
         full_env_vars.update(_VARS_FOR_MAINLINE)
@@ -358,8 +350,15 @@ def build(build_targets, verbose=False, env_vars=None, mm_build_targets=None):
             constants.YELLOW)
         full_env_vars.update({'APEX_BUILD_FOR_PRE_S_DEVICES': 'true'})
         mm_build_cmd = get_mainline_build_cmd(mm_build_targets)
-        return run_build_cmd(mm_build_cmd, verbose, full_env_vars)
-    return status
+        status = run_build_cmd(mm_build_cmd, verbose, full_env_vars)
+        if not status:
+            return status
+    print('\n%s\n%s' % (
+        colorize("Building Dependencies...", constants.CYAN),
+                 ', '.join(build_targets)))
+    logging.debug('Building Dependencies: %s', ' '.join(build_targets))
+    cmd = get_build_cmd() + list(build_targets)
+    return run_build_cmd(cmd, verbose, full_env_vars)
 
 def run_build_cmd(cmd, verbose=False, env_vars=None):
     """The main process of building targets.
@@ -1325,3 +1324,104 @@ def get_android_config():
             key, value = tuple(element.split('=', 1))
             android_config.setdefault(key, value)
     return android_config
+
+def get_config_gtest_args(test_config):
+    """Get gtest's module-name and device-path option from the input config
+
+    Args:
+        test_config: The path of the test config.
+    Returns:
+        A string of gtest's module name.
+        A string of gtest's device path.
+    """
+    module_name = ''
+    device_path = ''
+    xml_root = ET.parse(test_config).getroot()
+    option_tags = xml_root.findall('.//option')
+    for tag in option_tags:
+        name = tag.attrib['name'].strip()
+        value = tag.attrib['value'].strip()
+        if name == 'native-test-device-path':
+            device_path = value
+        elif name == 'module-name':
+            module_name = value
+    return module_name, device_path
+
+def get_arch_name(module_name, is_64=False):
+    """Get the arch folder name for the input module.
+
+        Scan the test case folders to get the matched arch folder name.
+
+        Args:
+            module_name: The module_name of test
+            is_64: If need 64 bit arch name, False otherwise.
+        Returns:
+            A string of the arch name.
+    """
+    arch_32 = ['arm', 'x86']
+    arch_64 = ['arm64', 'x86_64']
+    arch_list = arch_32
+    if is_64:
+        arch_list = arch_64
+    test_case_root = os.path.join(
+        os.environ.get(constants.ANDROID_TARGET_OUT_TESTCASES, ''),
+        module_name
+    )
+    for f in os.listdir(test_case_root):
+        if f in arch_list:
+            return f
+    return ''
+
+def copy_single_arch_native_symbols(
+    symbol_root, module_name, device_path, is_64=False):
+    """Copy symbol files for native tests which belong to input arch.
+
+        Args:
+            module_name: The module_name of test
+            device_path: The device path define in test config.
+            is_64: True if need to copy 64bit symbols, False otherwise.
+    """
+    src_symbol = os.path.join(symbol_root, 'data', 'nativetest', module_name)
+    if is_64:
+        src_symbol = os.path.join(
+            symbol_root, 'data', 'nativetest64', module_name)
+    dst_symbol = os.path.join(
+        symbol_root, device_path[1:], module_name,
+        get_arch_name(module_name, is_64))
+    if os.path.isdir(src_symbol):
+        # TODO: Use shutil.copytree(src, dst, dirs_exist_ok=True) after
+        #  python3.8
+        if os.path.isdir(dst_symbol):
+            shutil.rmtree(dst_symbol)
+        shutil.copytree(src_symbol, dst_symbol)
+
+
+def copy_native_symbols(module_name, device_path):
+    """Copy symbol files for native tests to match with tradefed file structure.
+
+    The original symbols will locate at
+    $(PRODUCT_OUT)/symbols/data/nativetest(64)/$(module)/$(stem).
+    From TF, the test binary will locate at
+    /data/local/tmp/$(module)/$(arch)/$(stem).
+    In order to make trace work need to copy the original symbol to
+    $(PRODUCT_OUT)/symbols/data/local/tmp/$(module)/$(arch)/$(stem)
+
+    Args:
+        module_name: The module_name of test
+        device_path: The device path define in test config.
+    """
+    symbol_root = os.path.join(
+        os.environ.get(constants.ANDROID_PRODUCT_OUT, ''),
+        'symbols')
+    if not os.path.isdir(symbol_root):
+        logging.debug('Symbol dir:%s not exist, skip copy symbols.',
+                      symbol_root)
+        return
+    # Copy 32 bit symbols
+    if get_arch_name(module_name, is_64=False):
+        copy_single_arch_native_symbols(
+            symbol_root, module_name, device_path, is_64=False)
+    # Copy 64 bit symbols
+    if get_arch_name(module_name, is_64=True):
+        copy_single_arch_native_symbols(
+            symbol_root, module_name, device_path, is_64=True)
