@@ -781,6 +781,8 @@ EXAMPLES
               (Run tests from all groups in TEST_MAPPING files)
         atest --test-mapping </path/to/project>:postsubmit
               (run postsubmit tests in TEST_MAPPING files in </path/to/project> and its parent directories)
+        atest --test-mapping </path/to/project>:mainline-presubmit
+              (run mainline tests in TEST_MAPPING files in </path/to/project> and its parent directories)
 
     3) Run tests in TEST_MAPPING files including sub directories
 
