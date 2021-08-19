@@ -20,6 +20,7 @@ Module Finder class.
 
 import logging
 import os
+import time
 
 import atest_configs
 import atest_error
@@ -826,8 +827,9 @@ class ModuleFinder(test_finder_base.TestFinderBase):
         """
         atest_utils.colorful_print('\nSearching for similar module names using '
                                    'fuzzy search...', constants.CYAN)
-        testable_modules = sorted(self.module_info.get_testable_modules(),
-                                  key=len)
+        search_start = time.time()
+        testable_modules = sorted(
+            self.module_info.get_testable_modules(), key=len)
         lower_bound = len(user_input) - ld_range
         upper_bound = len(user_input) + ld_range
         testable_modules_with_ld = []
@@ -841,6 +843,8 @@ class ModuleFinder(test_finder_base.TestFinderBase):
             testable_modules_with_ld.append(
                 [test_finder_utils.get_levenshtein_distance(
                     user_input, module_name), module_name])
+        search_duration = time.time() - search_start
+        logging.debug('Fuzzy search took %ss', search_duration)
         return testable_modules_with_ld
 
     def get_fuzzy_searching_results(self, user_input):
