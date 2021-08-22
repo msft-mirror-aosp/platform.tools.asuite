@@ -121,7 +121,7 @@ class ModuleFinderUnittests(unittest.TestCase):
 
     # pylint: disable=unused-argument
     @mock.patch.object(module_finder.ModuleFinder, '_get_build_targets',
-                       return_value=uc.MODULE_BUILD_TARGETS)
+                       return_value=copy.deepcopy(uc.MODULE_BUILD_TARGETS))
     def test_find_test_by_module_name(self, _get_targ):
         """Test find_test_by_module_name."""
         self.mod_finder.module_info.is_robolectric_test.return_value = False
@@ -142,7 +142,7 @@ class ModuleFinderUnittests(unittest.TestCase):
 
     @mock.patch('builtins.input', return_value='1')
     @mock.patch.object(module_finder.ModuleFinder, '_get_build_targets',
-                       return_value=uc.MODULE_BUILD_TARGETS)
+                       return_value=copy.deepcopy(uc.MODULE_BUILD_TARGETS))
     def test_find_test_by_module_name_w_multiple_config(
             self, _get_targ, _mock_input):
         """Test find_test_by_module_name."""
@@ -166,7 +166,7 @@ class ModuleFinderUnittests(unittest.TestCase):
             self, t_infos[0], uc.MODULE_INFO_W_CONFIG)
 
     @mock.patch.object(module_finder.ModuleFinder, '_get_build_targets',
-                       return_value=uc.MODULE_BUILD_TARGETS)
+                       return_value=copy.deepcopy(uc.MODULE_BUILD_TARGETS))
     def test_find_test_by_module_name_w_multiple_config_all(
             self, _get_targ,):
         """Test find_test_by_module_name."""
@@ -224,12 +224,12 @@ class ModuleFinderUnittests(unittest.TestCase):
             self, t_infos[0], uc.CLASS_INFO)
 
         # with method
-        mock_build.return_value = uc.MODULE_BUILD_TARGETS
+        mock_build.return_value = copy.deepcopy(uc.MODULE_BUILD_TARGETS)
         class_with_method = '%s#%s' % (uc.CLASS_NAME, uc.METHOD_NAME)
         t_infos = self.mod_finder.find_test_by_class_name(class_with_method)
         unittest_utils.assert_equal_testinfos(
             self, t_infos[0], uc.METHOD_INFO)
-        mock_build.return_value = uc.MODULE_BUILD_TARGETS
+        mock_build.return_value = copy.deepcopy(uc.MODULE_BUILD_TARGETS)
         class_methods = '%s,%s' % (class_with_method, uc.METHOD2_NAME)
         t_infos = self.mod_finder.find_test_by_class_name(class_methods)
         unittest_utils.assert_equal_testinfos(
@@ -284,7 +284,7 @@ class ModuleFinderUnittests(unittest.TestCase):
         t_infos = self.mod_finder.find_test_by_module_and_class(MODULE_CLASS)
         unittest_utils.assert_equal_testinfos(self, t_infos[0], uc.CLASS_INFO)
         # with method
-        mock_build.return_value = uc.MODULE_BUILD_TARGETS
+        mock_build.return_value = copy.deepcopy(uc.MODULE_BUILD_TARGETS)
         t_infos = self.mod_finder.find_test_by_module_and_class(MODULE_CLASS_METHOD)
         unittest_utils.assert_equal_testinfos(self, t_infos[0], uc.METHOD_INFO)
         self.mod_finder.module_info.is_testable_module.return_value = False
@@ -327,7 +327,7 @@ class ModuleFinderUnittests(unittest.TestCase):
         t_infos = self.mod_finder.find_test_by_module_and_class(CC_MODULE_CLASS)
         unittest_utils.assert_equal_testinfos(self, t_infos[0], uc.CC_MODULE_CLASS_INFO)
         # with method
-        mock_build.return_value = uc.MODULE_BUILD_TARGETS
+        mock_build.return_value = copy.deepcopy(uc.MODULE_BUILD_TARGETS)
         mock_fcf.side_effect = [None, None, '/']
         t_infos = self.mod_finder.find_test_by_module_and_class(CC_MODULE_CLASS_METHOD)
         unittest_utils.assert_equal_testinfos(self, t_infos[0], uc.CC_METHOD_INFO)
@@ -505,7 +505,7 @@ class ModuleFinderUnittests(unittest.TestCase):
             self, uc.CLASS_INFO, t_infos[0])
 
         class_with_method = '%s#%s' % (class_path, uc.METHOD_NAME)
-        mock_build.return_value = uc.MODULE_BUILD_TARGETS
+        mock_build.return_value = copy.deepcopy(uc.MODULE_BUILD_TARGETS)
         t_infos = self.mod_finder.find_test_by_path(class_with_method)
         unittest_utils.assert_equal_testinfos(
             self, t_infos[0], uc.METHOD_INFO)
@@ -517,13 +517,13 @@ class ModuleFinderUnittests(unittest.TestCase):
             self, uc.CLASS_INFO, t_infos[0])
 
         class_with_method = '%s#%s' % (class_path, uc.METHOD_NAME)
-        mock_build.return_value = uc.MODULE_BUILD_TARGETS
+        mock_build.return_value = copy.deepcopy(uc.MODULE_BUILD_TARGETS)
         t_infos = self.mod_finder.find_test_by_path(class_with_method)
         unittest_utils.assert_equal_testinfos(
             self, t_infos[0], uc.METHOD_INFO)
 
         class_with_methods = '%s,%s' % (class_with_method, uc.METHOD2_NAME)
-        mock_build.return_value = uc.MODULE_BUILD_TARGETS
+        mock_build.return_value = copy.deepcopy(uc.MODULE_BUILD_TARGETS)
         t_infos = self.mod_finder.find_test_by_path(class_with_methods)
         unittest_utils.assert_equal_testinfos(
             self, t_infos[0],
@@ -544,7 +544,7 @@ class ModuleFinderUnittests(unittest.TestCase):
             self, uc.CC_PATH_INFO2, t_infos[0])
 
     @mock.patch.object(module_finder.ModuleFinder, '_get_build_targets',
-                       return_value=uc.MODULE_BUILD_TARGETS)
+                       return_value=copy.deepcopy(uc.MODULE_BUILD_TARGETS))
     @mock.patch.object(module_finder.ModuleFinder, '_is_vts_module',
                        return_value=False)
     @mock.patch.object(test_finder_utils, 'find_parent_module_dir',
@@ -616,14 +616,14 @@ class ModuleFinderUnittests(unittest.TestCase):
             self, t_infos[0], uc.CC_CLASS_INFO)
 
         # with method
-        mock_build.return_value = uc.MODULE_BUILD_TARGETS
+        mock_build.return_value = copy.deepcopy(uc.MODULE_BUILD_TARGETS)
         class_with_method = '%s#%s' % (uc.CC_CLASS_NAME, uc.CC_METHOD_NAME)
         t_infos = self.mod_finder.find_test_by_cc_class_name(class_with_method)
         unittest_utils.assert_equal_testinfos(
             self,
             t_infos[0],
             uc.CC_METHOD_INFO)
-        mock_build.return_value = uc.MODULE_BUILD_TARGETS
+        mock_build.return_value = copy.deepcopy(uc.MODULE_BUILD_TARGETS)
         class_methods = '%s,%s' % (class_with_method, uc.CC_METHOD2_NAME)
         t_infos = self.mod_finder.find_test_by_cc_class_name(class_methods)
         unittest_utils.assert_equal_testinfos(
@@ -676,6 +676,16 @@ class ModuleFinderUnittests(unittest.TestCase):
         self.mod_finder.module_info.get_module_info.return_value = mod_info
         self.assertEqual(self.mod_finder._get_build_targets('', ''),
                          {constants.VTS_CORE_TF_MODULE})
+
+    def test_get_build_targets_w_mts(self):
+        """Test _get_build_targets if module belong to mts."""
+        self.mod_finder.module_info.is_auto_gen_test_config.return_value = True
+        self.mod_finder.module_info.get_paths.return_value = []
+        mod_info = {constants.MODULE_COMPATIBILITY_SUITES:
+                        [constants.MTS_SUITE]}
+        self.mod_finder.module_info.get_module_info.return_value = mod_info
+        self.assertEqual(self.mod_finder._get_build_targets('', ''),
+                         {constants.CTS_JAR})
 
     @mock.patch.object(test_finder_utils, 'is_parameterized_java_class',
                        return_value=False)
@@ -776,13 +786,13 @@ class ModuleFinderUnittests(unittest.TestCase):
         class_path = '%s.java' % uc.CLASS_NAME
         # Input include only one method
         class_with_method = '%s#%s' % (class_path, uc.METHOD_NAME)
-        mock_build.return_value = uc.MODULE_BUILD_TARGETS
+        mock_build.return_value = copy.deepcopy(uc.MODULE_BUILD_TARGETS)
         t_infos = self.mod_finder.find_test_by_path(class_with_method)
         unittest_utils.assert_equal_testinfos(
             self, t_infos[0], uc.PARAMETERIZED_METHOD_INFO)
         # Input include multiple methods
         class_with_methods = '%s,%s' % (class_with_method, uc.METHOD2_NAME)
-        mock_build.return_value = uc.MODULE_BUILD_TARGETS
+        mock_build.return_value = copy.deepcopy(uc.MODULE_BUILD_TARGETS)
         t_infos = self.mod_finder.find_test_by_path(class_with_methods)
         unittest_utils.assert_equal_testinfos(
             self, t_infos[0], uc.PARAMETERIZED_FLAT_METHOD_INFO)
@@ -819,13 +829,13 @@ class ModuleFinderUnittests(unittest.TestCase):
             constants.MODULE_CLASS: [],
             constants.MODULE_COMPATIBILITY_SUITES: []}
         # With method
-        mock_build.return_value = uc.MODULE_BUILD_TARGETS
+        mock_build.return_value = copy.deepcopy(uc.MODULE_BUILD_TARGETS)
         class_with_method = '%s#%s' % (uc.CLASS_NAME, uc.METHOD_NAME)
         t_infos = self.mod_finder.find_test_by_class_name(class_with_method)
         unittest_utils.assert_equal_testinfos(
             self, t_infos[0], uc.PARAMETERIZED_METHOD_INFO)
         # With multiple method
-        mock_build.return_value = uc.MODULE_BUILD_TARGETS
+        mock_build.return_value = copy.deepcopy(uc.MODULE_BUILD_TARGETS)
         class_methods = '%s,%s' % (class_with_method, uc.METHOD2_NAME)
         t_infos = self.mod_finder.find_test_by_class_name(class_methods)
         unittest_utils.assert_equal_testinfos(
@@ -833,7 +843,7 @@ class ModuleFinderUnittests(unittest.TestCase):
 
     # pylint: disable=unused-argument
     @mock.patch.object(module_finder.ModuleFinder, '_get_build_targets',
-                       return_value=uc.MODULE_BUILD_TARGETS)
+                       return_value=copy.deepcopy(uc.MODULE_BUILD_TARGETS))
     def test_find_test_by_config_name(self, _get_targ):
         """Test find_test_by_config_name."""
         self.mod_finder.module_info.is_robolectric_test.return_value = False
@@ -989,7 +999,7 @@ class ModuleFinderUnittests(unittest.TestCase):
     @mock.patch.object(module_finder.ModuleFinder, '_is_vts_module',
                        return_value=False)
     @mock.patch.object(module_finder.ModuleFinder, '_get_build_targets',
-                       return_value=uc.MODULE_BUILD_TARGETS)
+                       return_value=copy.deepcopy(uc.MODULE_BUILD_TARGETS))
     def test_process_test_info(self, _get_targ, _is_vts):
         """Test _process_test_info."""
         mod_info = {'installed': ['/path/to/install'],

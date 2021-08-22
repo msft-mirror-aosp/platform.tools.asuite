@@ -377,12 +377,21 @@ class ModuleInfo:
         Returns:
             True if mainline_modules is in module-info, False otherwise.
         """
-        # TODO: (b/165425972)Check AndroidTest.xml or specific test config.
         mod_info = self.get_module_info(module_name)
+        # Check 'test_mainline_modules' attribute of the module-info.json.
         if mainline_modules in mod_info.get(constants.MODULE_MAINLINE_MODULES,
                                             []):
             return True
-        return False
+        for test_config in mod_info.get(constants.MODULE_TEST_CONFIG, []):
+            # Check the value of 'mainline-param' in the test config.
+            if not self.is_auto_gen_test_config(module_name):
+                return mainline_modules in atest_utils.get_mainline_param(
+                    os.path.join(self.root_dir, test_config))
+            # Unable to verify mainline modules in an auto-gen test config.
+            logging.debug('%s is associated with an auto-generated test config.',
+                          module_name)
+            return True
+
 
     def generate_atest_merged_dep_file(self):
         """Method for generating atest_merged_dep.json."""

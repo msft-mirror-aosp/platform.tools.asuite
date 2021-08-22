@@ -448,5 +448,22 @@ class ModuleInfoUnittests(unittest.TestCase):
         mod_info = module_info.ModuleInfo(module_file=JSON_FILE_PATH)
         self.assertTrue(mod_info.is_unit_test(maininfo_with_unittest))
 
+    @mock.patch.dict('os.environ', {constants.ANDROID_BUILD_TOP:os.path.dirname(__file__)})
+    def test_has_mainline_modules(self):
+        """Test has_mainline_modules."""
+        name1 = 'MainModule1'
+        mainline_module1 = 'foo2.apk+foo3.apk'
+        name2 = 'MainModule2'
+        mainline_module2 = 'foo1.apex'
+        name3 = 'MainModule3'
+
+        mod_info = module_info.ModuleInfo(module_file=JSON_FILE_PATH)
+        # found in 'test_mainlne_modules' attribute.
+        self.assertTrue(mod_info.has_mainline_modules(name1, mainline_module1))
+        # found in the value of 'mainline-param' in test_config.
+        self.assertTrue(mod_info.has_mainline_modules(name2, mainline_module2))
+        # cannot be found in both 'test_mainline_modules' and 'test_config'.
+        self.assertFalse(mod_info.has_mainline_modules(name3, mainline_module2))
+
 if __name__ == '__main__':
     unittest.main()
