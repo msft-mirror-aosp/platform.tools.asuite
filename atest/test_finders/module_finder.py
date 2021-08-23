@@ -908,3 +908,10 @@ class ModuleFinder(test_finder_base.TestFinderBase):
         if atest_utils.is_build_file(path):
             return False
         return True
+
+class MainlineModuleFinder(ModuleFinder):
+    """Mainline Module finder class."""
+    NAME = 'MAINLINE_MODULE'
+
+    def __init__(self, module_info=None):
+        super().__init__()
