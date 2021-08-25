@@ -97,6 +97,7 @@ class MetricsBase:
     _log_source = ATEST_LOG_SOURCE[_user_type]
     cc = clearcut_client.Clearcut(_log_source)
     tool_name = None
+    sub_tool_name = ''
 
     def __new__(cls, **kwargs):
         """Send metric event to clearcut.
