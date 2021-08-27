@@ -188,8 +188,7 @@ class ModuleInfoUnittests(unittest.TestCase):
     @mock.patch.dict('os.environ', {constants.ANDROID_BUILD_TOP:'/'})
     @mock.patch.object(module_info.ModuleInfo, 'is_testable_module')
     @mock.patch.object(module_info.ModuleInfo, 'is_suite_in_compatibility_suites')
-    @mock.patch('os.path.isfile', return_value=False)
-    def test_get_testable_modules(self, _isfile, mock_is_suite_exist, mock_is_testable):
+    def test_get_testable_modules(self, mock_is_suite_exist, mock_is_testable):
         """Test get_testable_modules."""
         mod_info = module_info.ModuleInfo(module_file=JSON_FILE_PATH)
         mock_is_testable.return_value = False
