@@ -623,7 +623,7 @@ class CLITranslator:
             host_unit_test_infos = self._get_test_infos(host_unit_tests,
                                                         host_unit_test_details)
             test_infos.update(host_unit_test_infos)
-        logging.debug('Finding tests finished in %ss', time.time() - start)
+        logging.debug('Found tests in %ss', time.time() - start)
         for test_info in test_infos:
             logging.debug('%s\n', test_info)
         build_targets = self._gather_build_targets(test_infos)
