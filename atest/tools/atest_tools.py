@@ -234,7 +234,7 @@ def _index_testable_modules(index):
     try:
         # b/178559543 The module-info.json becomes invalid after a success build is
         # unlikely to happen, wrap with a try-catch to prevent it from happening.
-        testable_modules = module_info.ModuleInfo().get_testable_modules(from_index=False)
+        testable_modules = module_info.ModuleInfo().get_testable_modules()
     except json.JSONDecodeError:
         logging.error('Invalid module-info.json detected. Will not index modules.')
         return
@@ -384,6 +384,8 @@ def index_targets(output_cache=constants.LOCATE_CACHE, **kwargs):
             logging.error(err.output)
         _delete_indexes()
 
+# pylint: disable=consider-using-with
+# TODO: b/187122993 refine subprocess with 'with-statement' in fixit week.
 def acloud_create(report_file, args="", no_metrics_notice=True):
     """Method which runs acloud create with specified args in background.
 

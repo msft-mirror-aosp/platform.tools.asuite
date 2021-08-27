@@ -21,7 +21,6 @@ Module Info class used to hold cached module-info.json.
 import json
 import logging
 import os
-import pickle
 import shutil
 import sys
 import tempfile
@@ -212,39 +211,25 @@ class ModuleInfo:
         """
         return suite in mod_info.get(constants.MODULE_COMPATIBILITY_SUITES, [])
 
-    def get_testable_modules(self, suite=None, from_index=True):
+    def get_testable_modules(self, suite=None):
         """Return the testable modules of the given suite name.
 
         Args:
             suite: A string of suite name. Set to None to return all testable
-                   modules.
-            from_index: A boolean whether reading modules.idx or generating from
-                        module_info.json. Especially useful for atest_tools.py.
+            modules.
 
         Returns:
             List of testable modules. Empty list if non-existent.
             If suite is None, return all the testable modules in module-info.
         """
         modules = set()
-        if from_index and os.path.isfile(constants.MODULE_INDEX):
-            with open(constants.MODULE_INDEX, 'rb') as cache:
-                try:
-                    modules = set(sorted(
-                        pickle.load(cache, encoding="utf-8"), key=len))
-                except (pickle.UnpicklingError,
-                        ValueError,
-                        TypeError,
-                        EOFError,
-                        IOError) as err:
-                    logging.debug('Exception raised: %s.', err)
-        if not modules:
-            for _, info in self.name_to_module_info.items():
-                if self.is_testable_module(info):
-                    if suite:
-                        if self.is_suite_in_compatibility_suites(suite, info):
-                            modules.add(info.get(constants.MODULE_NAME))
-                    else:
+        for _, info in self.name_to_module_info.items():
+            if self.is_testable_module(info):
+                if suite:
+                    if self.is_suite_in_compatibility_suites(suite, info):
                         modules.add(info.get(constants.MODULE_NAME))
+                else:
+                    modules.add(info.get(constants.MODULE_NAME))
         return modules
 
     def is_testable_module(self, mod_info):
