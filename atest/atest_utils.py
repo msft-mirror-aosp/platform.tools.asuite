@@ -579,7 +579,7 @@ def print_data_collection_notice():
 
 
 def handle_test_runner_cmd(input_test, test_cmds, do_verification=False,
-                           result_path=CMD_RESULT_PATH):
+                           result_path=constants.VERIFY_DATA_PATH):
     """Handle the runner command of input tests.
 
     Args:
