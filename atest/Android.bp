@@ -209,6 +209,7 @@ python_test_host {
     ],
     libs: [
         "atest_proto",
+        "pyfakefs",
         "tradefed-protos-py",
     ],
     test_config: "atest_unittests.xml",
