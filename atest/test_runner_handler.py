@@ -26,6 +26,7 @@ import traceback
 import atest_error
 import constants
 import result_reporter
+import bazel_mode
 
 from metrics import metrics
 from metrics import metrics_utils
@@ -39,6 +40,7 @@ _TEST_RUNNERS = {
     robolectric_test_runner.RobolectricTestRunner.NAME: robolectric_test_runner.RobolectricTestRunner,
     suite_plan_test_runner.SuitePlanTestRunner.NAME: suite_plan_test_runner.SuitePlanTestRunner,
     vts_tf_test_runner.VtsTradefedTestRunner.NAME: vts_tf_test_runner.VtsTradefedTestRunner,
+    bazel_mode.BazelTestRunner.NAME: bazel_mode.BazelTestRunner,
 }
 
 
