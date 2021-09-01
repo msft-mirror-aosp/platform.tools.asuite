@@ -736,7 +736,8 @@ def main(argv, results_dir, args):
         proc_idx.join()
     translator = cli_translator.CLITranslator(
         module_info=mod_info,
-        print_cache_msg=not args.clear_cache)
+        print_cache_msg=not args.clear_cache,
+        bazel_mode_enabled=args.bazel_mode)
     if args.list_modules:
         _print_testable_modules(mod_info, args.list_modules)
         return constants.EXIT_CODE_SUCCESS
