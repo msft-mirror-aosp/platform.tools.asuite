@@ -69,10 +69,9 @@ native-benchmark
 
 ###[Test Finder: MODULE, Test Runner: RobolectricTestRunner]#####
 ###Purpose: Test with finder: MODULE and runner: RobolectricTestRunner###
-CarMessengerRoboTests
+QuickAccessWalletRoboTests
 ###Purpose: Test with input path for RobolectricTest###
-packages/apps/Car/Messenger/tests/robotests/src/com/android/car/messenger/MessengerDelegateTest.java
-
+packages/apps/QuickAccessWallet/tests/robolectric/src/com/android/systemui/plugin/globalactions/wallet/WalletPluginServiceTest.java
 
 ###[Test Finder: SUITE_PLAN, Test Runner: SuitePlanTestRunner]###
 ###Purpose: Test with finder: SUITE_PLAN and runner: SuitePlanTestRunner###
