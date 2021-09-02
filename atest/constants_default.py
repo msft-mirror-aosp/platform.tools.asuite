@@ -209,6 +209,7 @@ DETECT_TYPE_TF_TEARDOWN_LOGCAT = 5
 DETECT_TYPE_REBUILD_MODULE_INFO = 6
 DETECT_TYPE_NOT_REBUILD_MODULE_INFO = 7
 DETECT_TYPE_ONLY_BUILD_MODULE_INFO = 8
+DETECT_TYPE_FUZZY_SEARCH_TIME = 9
 # XTS suite types encode from 100 to 199
 DETECT_TYPE_XTS_SUITE = {'cts': 101,
                          'vts': 104}
@@ -368,3 +369,11 @@ DEFAULT_EXCLUDE_PARAS = {TF_PARA_INSTANT_APP,
 DEFAULT_EXCLUDE_NOT_PARAS = {'not_' + TF_PARA_INSTANT_APP,
                             'not_' + TF_PARA_SECOND_USR,
                             'not_' + TF_PARA_MULTIABI}
+
+# ATest integration test related constants.
+INTEGRATION_TESTS = [os.path.join(
+    os.environ.get(ANDROID_BUILD_TOP, os.getcwd()),
+    'tools/asuite/atest/test_plans/INTEGRATION_TESTS')]
+VERIFY_DATA_PATH = os.path.join(
+    os.environ.get(ANDROID_BUILD_TOP, os.getcwd()),
+    'tools/asuite/atest/test_data/test_commands.json')

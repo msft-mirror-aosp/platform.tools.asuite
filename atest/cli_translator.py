@@ -29,6 +29,7 @@ import time
 
 import atest_error
 import atest_utils
+import bazel_mode
 import constants
 import test_finder_handler
 import test_mapping
@@ -64,15 +65,18 @@ class CLITranslator:
         3. If test files found, generate Build Targets and the Run Command.
     """
 
-    def __init__(self, module_info=None, print_cache_msg=True):
+    def __init__(self, module_info=None, print_cache_msg=True,
+                 bazel_mode_enabled=False):
         """CLITranslator constructor
 
         Args:
             module_info: ModuleInfo class that has cached module-info.json.
             print_cache_msg: Boolean whether printing clear cache message or not.
                              True will print message while False won't print.
+            bazel_mode_enabled: Boolean of args.bazel_mode.
         """
         self.mod_info = module_info
+        self._bazel_mode = bazel_mode_enabled
         self.enable_file_patterns = False
         self.msg = ''
         if print_cache_msg:
@@ -105,8 +109,12 @@ class CLITranslator:
         test_name, mainline_modules = atest_utils.parse_mainline_modules(test)
         if not self._verified_mainline_modules(test_name, mainline_modules):
             return test_infos
-        for finder in test_finder_handler.get_find_methods_for_test(
-                self.mod_info, test):
+        find_methods = test_finder_handler.get_find_methods_for_test(
+            self.mod_info, test)
+        if self._bazel_mode:
+            find_methods = [bazel_mode.create_new_finder(self.mod_info, f)
+                            for f in find_methods]
+        for finder in find_methods:
             # For tests in TEST_MAPPING, find method is only related to
             # test name, so the details can be set after test_info object
             # is created.
@@ -623,7 +631,7 @@ class CLITranslator:
             host_unit_test_infos = self._get_test_infos(host_unit_tests,
                                                         host_unit_test_details)
             test_infos.update(host_unit_test_infos)
-        logging.debug('Found tests in %ss', time.time() - start)
+        logging.debug('Finding tests finished in %ss', time.time() - start)
         for test_info in test_infos:
             logging.debug('%s\n', test_info)
         build_targets = self._gather_build_targets(test_infos)

@@ -35,6 +35,7 @@ HELP_DESC = ('A command line tool that allows users to build, install, and run '
 ACLOUD_CREATE = 'Create AVD(s) via acloud command.'
 ALL_ABI = 'Set to run tests for all abis.'
 BUILD = 'Run a build.'
+BAZEL_MODE = 'Run tests using Bazel.'
 CLEAR_CACHE = 'Wipe out the test_infos cache of the test.'
 COLLECT_TESTS_ONLY = ('Collect a list test cases of the instrumentation tests '
                       'without testing them in real.')
@@ -132,6 +133,7 @@ class AtestArgParser(argparse.ArgumentParser):
         self.add_argument('-a', '--all-abi', action='store_true', help=ALL_ABI)
         self.add_argument('-b', '--build', action='append_const', dest='steps',
                           const=constants.BUILD_STEP, help=BUILD)
+        self.add_argument('--bazel-mode', action='store_true', help=BAZEL_MODE)
         self.add_argument('-d', '--disable-teardown', action='store_true',
                           help=DISABLE_TEARDOWN)
         self.add_argument('--host', action='store_true', help=HOST)
@@ -295,6 +297,7 @@ def print_epilog_text():
         ACLOUD_CREATE=ACLOUD_CREATE,
         ALL_ABI=ALL_ABI,
         BUILD=BUILD,
+        BAZEL_MODE=BAZEL_MODE,
         CLEAR_CACHE=CLEAR_CACHE,
         COLLECT_TESTS_ONLY=COLLECT_TESTS_ONLY,
         DISABLE_TEARDOWN=DISABLE_TEARDOWN,
@@ -360,6 +363,9 @@ OPTIONS
 
         -b, --build:
             {BUILD} (default)
+
+        --bazel-mode
+            {BAZEL_MODE}
 
         -d, --disable-teardown
             {DISABLE_TEARDOWN}
