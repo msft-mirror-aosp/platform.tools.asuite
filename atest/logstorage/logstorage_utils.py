@@ -132,7 +132,9 @@ class BuildClient:
                 "buildTarget": build_record['target']['name'],
                 "branch": build_record['branch'],
             },
-            "schedulerState": "running"
+            "schedulerState": "running",
+            "runner": "atest",
+            "scheduler": "atest"
         }
         return self.client.invocation().insert(body=invocation).execute()
 
