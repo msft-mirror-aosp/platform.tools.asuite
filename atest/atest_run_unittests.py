@@ -28,6 +28,15 @@ import atest_utils
 COVERAGE = 'coverage'
 RUN_COVERAGE = COVERAGE in sys.argv
 SHOW_MISSING = '--show-missing' in sys.argv
+BUILD_TOP = os.path.join(
+    os.path.dirname(os.path.realpath(__file__)),
+    '../../..')
+# list of 3rd party libraries
+_PYFAKEFS = os.path.join(BUILD_TOP, 'external', 'python', 'pyfakefs')
+EXTERNAL_PYTHONPATHS = [_PYFAKEFS]
+for lib in EXTERNAL_PYTHONPATHS:
+    if os.path.exists(lib):
+        sys.path.insert(0, lib)
 # Setup logging to be silent so unittests can pass through TF.
 logging.disable(logging.ERROR)
 
