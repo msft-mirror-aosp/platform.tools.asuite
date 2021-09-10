@@ -292,12 +292,14 @@ FUZZY_MOD1 = 'Mod1'
 FUZZY_MOD2 = 'nod2'
 FUZZY_MOD3 = 'mod3mod3'
 
-LOCATE_CACHE = '/tmp/mcloate.db'
-CLASS_INDEX = '/tmp/classes.idx'
-QCLASS_INDEX = '/tmp/fqcn.idx'
-CC_CLASS_INDEX = '/tmp/cc_classes.idx'
-PACKAGE_INDEX = '/tmp/packages.idx'
-MODULE_INDEX = '/tmp/modules.idx'
+INDEX_DIR = os.path.join('/tmp', 'indexes')
+LOCATE_CACHE = os.path.join(INDEX_DIR, 'mlocate.db')
+LOCATE_CACHE_MD5 = os.path.join(INDEX_DIR, 'mlocate.md5')
+CLASS_INDEX = os.path.join(INDEX_DIR, 'classes.idx')
+QCLASS_INDEX = os.path.join(INDEX_DIR, 'fqcn.idx')
+CC_CLASS_INDEX = os.path.join(INDEX_DIR, 'cc_classes.idx')
+PACKAGE_INDEX = os.path.join(INDEX_DIR, 'packages.idx')
+MODULE_INDEX = os.path.join(INDEX_DIR, 'modules.idx')
 
 # TF's log dir
 TEST_INFO_DIR = '/tmp/atest_run_1510085893_pi_Nbi'
