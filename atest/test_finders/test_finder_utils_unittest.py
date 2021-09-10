@@ -64,7 +64,6 @@ VTS_XML_TARGETS = {'VtsTestName',
                    'push_file2_target1',
                    'push_file2_target2',
                    'CtsDeviceInfo.apk',
-                   'DATA/app/DeviceHealthTests/DeviceHealthTests.apk',
                    'DATA/app/sl4a/sl4a.apk'}
 VTS_PLAN_TARGETS = {os.path.join(uc.TEST_DATA_DIR, VTS_PLAN_DIR, 'vts-staging-default.xml.data'),
                     os.path.join(uc.TEST_DATA_DIR, VTS_PLAN_DIR, 'vts-aa.xml.data'),
