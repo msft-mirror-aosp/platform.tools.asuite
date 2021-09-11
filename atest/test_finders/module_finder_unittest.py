@@ -298,6 +298,7 @@ class ModuleFinderUnittests(unittest.TestCase):
         self.mod_finder.module_info.get_module_info.return_value = mod_info
         self.assertIsNone(self.mod_finder.find_test_by_module_and_class(bad_class))
 
+    @mock.patch.object(module_finder.test_finder_utils, 'get_cc_test_classes_methods')
     @mock.patch.object(module_finder.ModuleFinder, 'find_test_by_kernel_class_name',
                        return_value=None)
     @mock.patch.object(module_finder.ModuleFinder, '_is_vts_module',
@@ -310,7 +311,7 @@ class ModuleFinderUnittests(unittest.TestCase):
     #pylint: disable=unused-argument
     def test_find_test_by_module_and_class_part_2(self, _isfile, mock_fcf,
                                                   mock_checkoutput, mock_build,
-                                                  _vts, _find_kernel):
+                                                  _vts, _find_kernel, _class_method):
         """Test find_test_by_module_and_class for MODULE:CC_CLASS."""
         # Native test was tested in test_find_test_by_cc_class_name()
         self.mod_finder.module_info.is_native_test.return_value = False
@@ -324,6 +325,7 @@ class ModuleFinderUnittests(unittest.TestCase):
                     constants.MODULE_CLASS: [],
                     constants.MODULE_COMPATIBILITY_SUITES: []}
         self.mod_finder.module_info.get_module_info.return_value = mod_info
+        _class_method.return_value = ({'PFTest'}, {'test1', 'test2'}, set(), False)
         t_infos = self.mod_finder.find_test_by_module_and_class(CC_MODULE_CLASS)
         unittest_utils.assert_equal_testinfos(self, t_infos[0], uc.CC_MODULE_CLASS_INFO)
         # with method
@@ -453,7 +455,7 @@ class ModuleFinderUnittests(unittest.TestCase):
     @mock.patch.object(test_finder_utils, 'find_host_unit_tests',
                        return_value=[])
     @mock.patch.object(test_finder_utils, 'get_cc_test_classes_methods',
-                       return_value=(set(), set(), set()))
+                       return_value=(set(), set(), set(), False))
     @mock.patch.object(atest_utils, 'is_build_file', return_value=True)
     @mock.patch.object(test_finder_utils, 'is_parameterized_java_class',
                        return_value=False)
@@ -584,6 +586,7 @@ class ModuleFinderUnittests(unittest.TestCase):
         unittest_utils.assert_equal_testinfos(
             self, uc.CC_PATH_INFO, t_infos[0])
 
+    @mock.patch.object(module_finder.test_finder_utils, 'get_cc_test_classes_methods')
     @mock.patch.object(test_finder_utils, 'find_host_unit_tests',
                        return_value=[])
     @mock.patch.object(atest_utils, 'is_build_file', return_value=True)
@@ -599,7 +602,7 @@ class ModuleFinderUnittests(unittest.TestCase):
     def test_find_test_by_cc_class_name(self, _isdir, _isfile,
                                         mock_checkoutput, mock_build,
                                         _vts, _has_method, _is_build_file,
-                                       _mock_unit_tests):
+                                       _mock_unit_tests, _class_method):
         """Test find_test_by_cc_class_name."""
         mock_build.return_value = uc.CLASS_BUILD_TARGETS
         self.mod_finder.module_info.is_auto_gen_test_config.return_value = False
@@ -611,6 +614,7 @@ class ModuleFinderUnittests(unittest.TestCase):
             constants.MODULE_NAME: uc.CC_MODULE_NAME,
             constants.MODULE_CLASS: [],
             constants.MODULE_COMPATIBILITY_SUITES: []}
+        _class_method.return_value = ({'PFTest'}, {'test1', 'test2'}, set(), False)
         t_infos = self.mod_finder.find_test_by_cc_class_name(uc.CC_CLASS_NAME)
         unittest_utils.assert_equal_testinfos(
             self, t_infos[0], uc.CC_CLASS_INFO)
@@ -962,13 +966,14 @@ class ModuleFinderUnittests(unittest.TestCase):
         mock_dir.return_value = uc.CC_MODULE_DIR
         class_path = '%s' % uc.CC_PATH
         mock_build.return_value = uc.CLASS_BUILD_TARGETS
-        # Test without paramertize test
+        # Test without parameterized test
         founded_classed = {'class1'}
         founded_methods = {'method1'}
         founded_para_classes = set()
         _mock_get_cc_test_class.return_value = (founded_classed,
                                                 founded_methods,
-                                                founded_para_classes)
+                                                founded_para_classes,
+                                                False)
         cc_path_data = {constants.TI_REL_CONFIG: uc.CC_CONFIG_FILE,
                         constants.TI_FILTER: frozenset(
                             {test_info.TestFilter(class_name='class1.*',
@@ -984,7 +989,8 @@ class ModuleFinderUnittests(unittest.TestCase):
         founded_para_classes = {'class1'}
         _mock_get_cc_test_class.return_value = (founded_classed,
                                                 founded_methods,
-                                                founded_para_classes)
+                                                founded_para_classes,
+                                                False)
         cc_path_data = {constants.TI_REL_CONFIG: uc.CC_CONFIG_FILE,
                         constants.TI_FILTER: frozenset(
                             {test_info.TestFilter(class_name='*/class1.*',
