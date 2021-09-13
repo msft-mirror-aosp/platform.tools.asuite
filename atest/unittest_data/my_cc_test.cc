@@ -7,7 +7,7 @@ INSTANTIATE_TEST_SUITE_P( Instantiation1, MyInstantClass1,
              std::get<1>(info.param).kind;
     });
 
-INSTANTIATE_TEST_CASE_P(Instantiation2,
+INSTANTIATE_TEST_SUITE_P(Instantiation2,
     MyInstantClass2,
     testing::Combine(testing::Values(Options::Language::CPP, Options::Language::JAVA,
                                      Options::Language::NDK, Options::Language::RUST),
@@ -28,7 +28,7 @@ INSTANTIATE_TEST_SUITE_P(
     });
 
 
-INSTANTIATE_TEST_CASE_P(
+INSTANTIATE_TEST_SUITE_P(
     Instantiation4,
     MyInstantClass3,
     testing::Combine(testing::Values(Options::Language::CPP, Options::Language::JAVA,
@@ -66,7 +66,7 @@ TEST(MyClass5, Method5) {
   Run("List<{}>", kListSupportExpectations);
 }
 
-INSTANTIATE_TYPED_TEST_CASE_P(Instantiation5, MyInstantTypeClass1, IntTypes);
+INSTANTIATE_TYPED_TEST_SUITE_P(Instantiation5, MyInstantTypeClass1, IntTypes);
 
 INSTANTIATE_TYPED_TEST_SUITE_P(Instantiation6, MyInstantTypeClass2, IntTypes);
 
