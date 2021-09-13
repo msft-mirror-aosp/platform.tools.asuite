@@ -679,18 +679,15 @@ class TestFinderUtilsUnittests(unittest.TestCase):
         expect_classes = ('MyClass1', 'MyClass2', 'MyClass3', 'MyClass4',
                           'MyClass5')
         expect_methods = ('Method1', 'Method2', 'Method3', 'Method5')
-        expect_para_classes = ('MyInstantClass1', 'MyInstantClass2',
-                               'MyInstantClass3', 'MyInstantTypeClass1',
-                               'MyInstantTypeClass2')
-        expected_result = [sorted(expect_classes), sorted(expect_methods),
-                           sorted(expect_para_classes)]
+        expect_prefixes = ('Instantiation1', 'Instantiation2',
+                           'Instantiation3', 'Instantiation4',
+                           'Instantiation5', 'Instantiation6')
         file_path = os.path.join(uc.TEST_DATA_DIR, 'my_cc_test.cc')
-        classes, methods, para_classes = (
+        classes, methods, prefixes, _ = (
             test_finder_utils.get_cc_test_classes_methods(file_path))
-        self.assertEqual(expected_result,
-                         [sorted(classes),
-                          sorted(methods),
-                          sorted(para_classes)])
+        self.assertEqual(sorted(expect_classes), sorted(classes))
+        self.assertEqual(sorted(expect_methods), sorted(methods))
+        self.assertEqual(sorted(expect_prefixes), sorted(prefixes))
 
     def test_get_java_method(self):
         """Test get_java_method"""
