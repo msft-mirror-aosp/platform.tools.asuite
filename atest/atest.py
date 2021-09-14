@@ -639,18 +639,23 @@ def _dry_run_validator(args, results_dir, extra_args, test_infos, mod_info):
     Returns:
         Exit code.
     """
-    args.tests.sort()
+    # test_commands is a concatenated string of sorted test_ref+extra_args.
+    # For example, "ITERATIONS=5 hello_world_test"
+    test_commands = args.tests
+    for key, value in extra_args.items():
+        test_commands.append('%s=%s' % (key, str(value)))
+    test_commands.sort()
     dry_run_cmds = _dry_run(results_dir, extra_args, test_infos, mod_info)
     if args.verify_cmd_mapping:
         try:
-            atest_utils.handle_test_runner_cmd(' '.join(args.tests),
+            atest_utils.handle_test_runner_cmd(' '.join(test_commands),
                                                dry_run_cmds,
                                                do_verification=True)
         except atest_error.DryRunVerificationError as e:
             atest_utils.colorful_print(str(e), constants.RED)
             return constants.EXIT_CODE_VERIFY_FAILURE
     if args.update_cmd_mapping:
-        atest_utils.handle_test_runner_cmd(' '.join(args.tests),
+        atest_utils.handle_test_runner_cmd(' '.join(test_commands),
                                            dry_run_cmds)
     return constants.EXIT_CODE_SUCCESS
 
