@@ -39,6 +39,7 @@ UPDATEDB = atest_tools.UPDATEDB
 class AtestToolsUnittests(unittest.TestCase):
     """"Unittest Class for atest_tools.py."""
 
+    @mock.patch('constants.INDEX_DIR', uc.INDEX_DIR)
     @mock.patch('constants.LOCATE_CACHE_MD5', uc.LOCATE_CACHE_MD5)
     @mock.patch('constants.LOCATE_CACHE', uc.LOCATE_CACHE)
     @mock.patch('tools.atest_tools.SEARCH_TOP', uc.TEST_DATA_DIR)
