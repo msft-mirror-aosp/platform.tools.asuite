@@ -67,10 +67,11 @@ _CC_CLASS_METHOD_RE = re.compile(
     r'^\s(TYPED_TEST(_P)*|TEST(_F|_P)*)\s*\(\s*'
     r'(?P<class_name>\w+),\s*(?P<method_name>\w+)\)\s*\{', re.M)
 # Macros with (prefix, class, ...) pattern.
-# Note: Since v1.10, the INSTANTIATE_TEST_CASE_P was replaced with
-#       INSTANTIATE_TEST_SUITE_P, so we ignore *_CASE_* marcos.
+# Note: Since v1.08, the INSTANTIATE_TEST_CASE_P was replaced with
+#   INSTANTIATE_TEST_SUITE_P. However, Atest does not intend to change the
+#   behavior of a test, so we still search *_CASE_* macros.
 _CC_PARAM_CLASS_RE = re.compile(
-    r'^\s*INSTANTIATE_(TYPED_)*TEST_SUITE_P\s*\(\s*'
+    r'^\s*INSTANTIATE_(TYPED_)*TEST_(?:SUITE|CASE)_P\s*\(\s*'
     r'(?P<instantiate>\w+),\s*(?P<class>\w+)\s*,', re.M)
 # Type/Type-parameterized Test macros:
 _TYPE_CC_CLASS_RE = re.compile(
@@ -1172,6 +1173,7 @@ def get_cc_test_classes_methods(test_path):
         matches = re.findall(_CC_PARAM_CLASS_RE, content)
         logging.debug('Probing InstantiationName/TestCase pattern:')
         for match in matches:
+            print(match)
             # ('TYPED_', 'OnTheFlyAndPreCalculated', 'PrimeTableTest2')
             logging.debug('  Found %s/%s', match[1], match[2])
             prefixes.update([match[1]])

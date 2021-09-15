@@ -53,6 +53,7 @@ import test_runner_handler
 from metrics import metrics
 from metrics import metrics_base
 from metrics import metrics_utils
+from test_finders import test_finder_utils
 from test_runners import regression_test_runner
 from tools import atest_tools as at
 
@@ -639,18 +640,23 @@ def _dry_run_validator(args, results_dir, extra_args, test_infos, mod_info):
     Returns:
         Exit code.
     """
-    args.tests.sort()
+    # test_commands is a concatenated string of sorted test_ref+extra_args.
+    # For example, "ITERATIONS=5 hello_world_test"
+    test_commands = args.tests
+    for key, value in extra_args.items():
+        test_commands.append('%s=%s' % (key, str(value)))
+    test_commands.sort()
     dry_run_cmds = _dry_run(results_dir, extra_args, test_infos, mod_info)
     if args.verify_cmd_mapping:
         try:
-            atest_utils.handle_test_runner_cmd(' '.join(args.tests),
+            atest_utils.handle_test_runner_cmd(' '.join(test_commands),
                                                dry_run_cmds,
                                                do_verification=True)
         except atest_error.DryRunVerificationError as e:
             atest_utils.colorful_print(str(e), constants.RED)
             return constants.EXIT_CODE_VERIFY_FAILURE
     if args.update_cmd_mapping:
-        atest_utils.handle_test_runner_cmd(' '.join(args.tests),
+        atest_utils.handle_test_runner_cmd(' '.join(test_commands),
                                            dry_run_cmds)
     return constants.EXIT_CODE_SUCCESS
 
@@ -704,6 +710,27 @@ def acloud_create_validator(results_dir, args):
         '{} is not cf_x86 family; will not create any AVD.'.format(target),
         constants.RED)
     return None, None
+
+def perm_consistency_metrics(test_infos, mod_info, args):
+    """collect inconsistency between preparer and device root permission.
+
+    Args:
+        test_infos: TestInfo obj.
+        mod_info: ModuleInfo obj.
+        args: An argspace.Namespace class instance holding parsed args.
+    """
+    try:
+        # whether device has root permission
+        adb_root = atest_utils.is_adb_root(args)
+        logging.debug('is_adb_root: %s', adb_root)
+        for test_info in test_infos:
+            config_path, _ = test_finder_utils.get_test_config_and_srcs(
+                test_info, mod_info)
+            atest_utils.perm_metrics(config_path, adb_root)
+    # pylint: disable=broad-except
+    except Exception as err:
+        logging.debug('perm_consistency_metrics raised exception: %s', err)
+        return
 
 # pylint: disable=too-many-statements
 # pylint: disable=too-many-branches
@@ -829,6 +856,7 @@ def main(argv, results_dir, args):
     tests_exit_code = constants.EXIT_CODE_SUCCESS
     test_start = time.time()
     if constants.TEST_STEP in steps:
+        perm_consistency_metrics(test_infos, mod_info, args)
         if not is_from_test_mapping(test_infos):
             tests_exit_code, reporter = test_runner_handler.run_all_tests(
                 results_dir, test_infos, extra_args, mod_info)
