@@ -94,6 +94,7 @@ USER_TYPE = ('Run test with specific user type, e.g. atest <test> --user-type '
              'secondary_user')
 VERBOSE = 'Display DEBUG level logging.'
 VERIFY_CMD_MAPPING = 'Verify the test command of input tests.'
+VERIFY_ENV_VARIABLE = 'Verify environment variables of input tests'
 VERSION = 'Display version string.'
 WAIT_FOR_DEBUGGER = ('Wait for debugger prior to execution (Instrumentation '
                      'tests only).')
@@ -231,6 +232,8 @@ class AtestArgParser(argparse.ArgumentParser):
                           help=UPDATE_CMD_MAPPING)
         self.add_argument('-y', '--verify-cmd-mapping', action='store_true',
                           help=VERIFY_CMD_MAPPING)
+        self.add_argument('-e', '--verify-env-variable', action='store_true',
+                          help=VERIFY_ENV_VARIABLE)
         # Options for Tradefed debug mode.
         self.add_argument('-D', '--tf-debug', nargs='?', const=10888,
                           type=_positive_int, default=0,
@@ -336,6 +339,7 @@ def print_epilog_text():
         VERBOSE=VERBOSE,
         VERSION=VERSION,
         VERIFY_CMD_MAPPING=VERIFY_CMD_MAPPING,
+        VERIFY_ENV_VARIABLE=VERIFY_ENV_VARIABLE,
         WAIT_FOR_DEBUGGER=WAIT_FOR_DEBUGGER)
     return pydoc.pager(epilog_text)
 
@@ -461,6 +465,9 @@ OPTIONS
 
         -y, --verify-cmd-mapping
             {VERIFY_CMD_MAPPING}
+
+        -e, --varify-env-variable
+            {VERIFY_ENV_VARIABLE}
 
 
         [ Module Parameterization ]
