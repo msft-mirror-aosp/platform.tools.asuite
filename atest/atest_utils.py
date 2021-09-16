@@ -131,6 +131,8 @@ _VARS_FOR_MAINLINE = {
     "ALWAYS_EMBED_NOTICES": "true",
 }
 
+_ROOT_PREPARER = "com.android.tradefed.targetprep.RootTargetPreparer"
+
 def get_build_cmd(dump=False):
     """Compose build command with no-absolute path and flag "--make-mode".
 
@@ -1395,7 +1397,6 @@ def copy_single_arch_native_symbols(
             shutil.rmtree(dst_symbol)
         shutil.copytree(src_symbol, dst_symbol)
 
-
 def copy_native_symbols(module_name, device_path):
     """Copy symbol files for native tests to match with tradefed file structure.
 
@@ -1425,3 +1426,70 @@ def copy_native_symbols(module_name, device_path):
     if get_arch_name(module_name, is_64=True):
         copy_single_arch_native_symbols(
             symbol_root, module_name, device_path, is_64=True)
+
+def get_config_preparer_options(test_config, class_name):
+    """Get all the parameter values for the input config
+
+    Args:
+        test_config: The path of the test config.
+        class_name: A string of target_preparer
+    Returns:
+        A set include all the parameters of the input config.
+    """
+    options = {}
+    xml_root = ET.parse(test_config).getroot()
+    option_tags = xml_root.findall(
+        './/target_preparer[@class="%s"]/option' % class_name)
+    for tag in option_tags:
+        name = tag.attrib['name'].strip()
+        value = tag.attrib['value'].strip()
+        options[name] = value
+    return options
+
+def is_adb_root(args):
+    """Check whether device has root permission.
+
+    Args:
+        args: An argspace.Namespace class instance holding parsed args.
+    Returns:
+        True if adb has root permission.
+    """
+    try:
+        serial = os.environ.get(constants.ANDROID_SERIAL, '')
+        if not serial:
+            serial = args.serial
+        serial_options = ('-s ' + serial) if serial else ''
+        output = subprocess.check_output("adb %s shell id" % serial_options,
+                                         shell=True,
+                                         stderr=subprocess.STDOUT).decode()
+        return "uid=0(root)" in output
+    except subprocess.CalledProcessError as err:
+        logging.debug('Exception raised(): %s, Output: %s', err, err.output)
+        raise err
+
+def perm_metrics(config_path, adb_root):
+    """Compare adb root permission with RootTargetPreparer in config.
+
+    Args:
+        config_path: A string of AndroidTest.xml file path.
+        adb_root: A boolean of whether device is root or not.
+    """
+    # RootTargetPreparer's force-root set in config
+    options = get_config_preparer_options(config_path, _ROOT_PREPARER)
+    if not options:
+        return
+    logging.debug('preparer_options: %s', options)
+    preparer_force_root = True
+    if options.get('force-root', '').upper() == "FALSE":
+        preparer_force_root = False
+    logging.debug(' preparer_force_root: %s', preparer_force_root)
+    if preparer_force_root and not adb_root:
+        logging.debug('DETECT_TYPE_PERMISSION_INCONSISTENT:0')
+        metrics.LocalDetectEvent(
+            detect_type=constants.DETECT_TYPE_PERMISSION_INCONSISTENT,
+            result=0)
+    elif not preparer_force_root and adb_root:
+        logging.debug('DETECT_TYPE_PERMISSION_INCONSISTENT:1')
+        metrics.LocalDetectEvent(
+            detect_type=constants.DETECT_TYPE_PERMISSION_INCONSISTENT,
+            result=1)
