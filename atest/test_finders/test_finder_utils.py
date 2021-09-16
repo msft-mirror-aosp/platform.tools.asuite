@@ -1173,7 +1173,6 @@ def get_cc_test_classes_methods(test_path):
         matches = re.findall(_CC_PARAM_CLASS_RE, content)
         logging.debug('Probing InstantiationName/TestCase pattern:')
         for match in matches:
-            print(match)
             # ('TYPED_', 'OnTheFlyAndPreCalculated', 'PrimeTableTest2')
             logging.debug('  Found %s/%s', match[1], match[2])
             prefixes.update([match[1]])
