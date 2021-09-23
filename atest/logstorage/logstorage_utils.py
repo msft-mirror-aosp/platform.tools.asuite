@@ -41,7 +41,7 @@
 from __future__ import print_function
 
 import logging
-import constants
+import time
 
 # pylint: disable=import-error
 try:
@@ -49,6 +49,8 @@ try:
     from googleapiclient.discovery import build
 except ImportError as e:
     logging.debug('Import error due to: %s', e)
+
+import constants
 
 
 class BuildClient:
@@ -130,7 +132,9 @@ class BuildClient:
                 "buildTarget": build_record['target']['name'],
                 "branch": build_record['branch'],
             },
-            "schedulerState": "running"
+            "schedulerState": "running",
+            "runner": "atest",
+            "scheduler": "atest"
         }
         return self.client.invocation().insert(body=invocation).execute()
 
@@ -144,9 +148,16 @@ class BuildClient:
         """
         # Because invocation revision will be update by TF, we need to fetch
         # latest invocation revision to update status correctly.
-        invocations = self.client.invocation().list(
-            invocationId=invocation['invocationId'],
-            maxResults=10).execute().get('invocations', [])
+        count = 0
+        invocations = None
+        while count < 5:
+            invocations = self.client.invocation().list(
+                invocationId=invocation['invocationId'],
+                maxResults=10).execute().get('invocations', [])
+            if invocations:
+                break
+            time.sleep(0.5)
+            count = count + 1
         if invocations:
             latest_revision = invocations[-1].get('revision', '')
             if latest_revision:

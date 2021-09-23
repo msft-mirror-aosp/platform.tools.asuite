@@ -196,14 +196,13 @@ def _get_cc_result(locatedb=None):
     """
     if not locatedb:
         locatedb = constants.LOCATE_CACHE
-    cc_grep_re = r'^\s*TEST(_P|_F)?\s*\(\w+,'
     if OSNAME == MACOSX:
         find_cmd = (r"locate -d {0} '*.cpp' '*.cc' | grep -i test "
                     "| xargs egrep -sH '{1}' || true")
     else:
         find_cmd = (r"locate -d {0} / | egrep -i '/*.test.*\.(cc|cpp)$' "
                     "| xargs egrep -sH '{1}' || true")
-    find_cc_cmd = find_cmd.format(locatedb, cc_grep_re)
+    find_cc_cmd = find_cmd.format(locatedb, constants.CC_GREP_RE)
     logging.debug('Probing CC classes:\n %s', find_cc_cmd)
     return subprocess.check_output(find_cc_cmd, shell=True)
 
@@ -384,8 +383,6 @@ def index_targets(output_cache=constants.LOCATE_CACHE, **kwargs):
             logging.error(err.output)
         _delete_indexes()
 
-# pylint: disable=consider-using-with
-# TODO: b/187122993 refine subprocess with 'with-statement' in fixit week.
 def acloud_create(report_file, args="", no_metrics_notice=True):
     """Method which runs acloud create with specified args in background.
 

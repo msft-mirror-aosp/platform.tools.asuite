@@ -27,6 +27,7 @@ import os
 import pickle
 import re
 import subprocess
+import tempfile
 import time
 import xml.etree.ElementTree as ET
 
@@ -37,19 +38,45 @@ import atest_utils
 import constants
 
 from metrics import metrics_utils
+from tools import atest_tools
 
 # Helps find apk files listed in a test config (AndroidTest.xml) file.
 # Matches "filename.apk" in <option name="foo", value="filename.apk" />
 # We want to make sure we don't grab apks with paths in their name since we
 # assume the apk name is the build target.
 _APK_RE = re.compile(r'^[^/]+\.apk$', re.I)
-# Group matches "class" of line "TEST_F(class, "
+
+# Macros that used in GTest. Detailed explanation can be found in
+# $ANDROID_BUILD_TOP/external/googletest/googletest/samples/sample*_unittest.cc
+# 1. Traditional Tests:
+#   TEST(class, method)
+#   TEST_F(class, method)
+# 2. Type Tests:
+#   TYPED_TEST_SUITE(class, types)
+#     INSTANTIATE_TEST_SUITE_P(Prefix, class, param_generator, name_generator)
+# 3. Value-parameterized Tests:
+#   TEST_P(class, method)
+#     INSTANTIATE_TEST_SUITE_P(Prefix, class, param_generator, name_generator)
+# 4. Type-parameterized Tests:
+#   TYPED_TEST_SUITE_P(class)
+#     TYPES_TEST_P(class, method)
+#       REGISTER_TYPED_TEST_SUITE_P(class, method)
+#         INSTANTIATE_TYPED_TEST_SUITE_P(Prefix, class, Types)
+# Macros with (class, method) pattern.
 _CC_CLASS_METHOD_RE = re.compile(
-    r'^\s*TEST(_F|_P)?\s*\(\s*(?P<class>\w+)\s*,\s*(?P<method>\w+)\s*\)', re.M)
-# Group matches parameterized "class" of line "INSTANTIATE_TEST_CASE_P( ,class "
-_PARA_CC_CLASS_RE = re.compile(
-    r'^\s*INSTANTIATE[_TYPED]*_TEST_(SUITE|CASE)_P\s*\(\s*(?P<instantiate>\w+)\s*,'
-    r'\s*(?P<class>\w+)\s*\,', re.M)
+    r'^\s(TYPED_TEST(_P)*|TEST(_F|_P)*)\s*\(\s*'
+    r'(?P<class_name>\w+),\s*(?P<method_name>\w+)\)\s*\{', re.M)
+# Macros with (prefix, class, ...) pattern.
+# Note: Since v1.08, the INSTANTIATE_TEST_CASE_P was replaced with
+#   INSTANTIATE_TEST_SUITE_P. However, Atest does not intend to change the
+#   behavior of a test, so we still search *_CASE_* macros.
+_CC_PARAM_CLASS_RE = re.compile(
+    r'^\s*INSTANTIATE_(TYPED_)*TEST_(?:SUITE|CASE)_P\s*\(\s*'
+    r'(?P<instantiate>\w+),\s*(?P<class>\w+)\s*,', re.M)
+# Type/Type-parameterized Test macros:
+_TYPE_CC_CLASS_RE = re.compile(
+    r'\s*TYPED_TEST_SUITE(_P)*\(\s*(?P<class_name>\w+)', re.M)
+
 # Group that matches java/kt method.
 _JAVA_METHODS_RE = r'.*\s+(fun|void)\s+(?P<methods>\w+)\(\)'
 # Parse package name from the package declaration line of a java or
@@ -101,8 +128,8 @@ FIND_CMDS = {
     # is case-insensitive.
     FIND_REFERENCE_TYPE.CC_CLASS: r"find {0} {1} -type f -print"
                                   r"| egrep -i '/*test.*\.(cc|cpp)$'"
-                                  r"| xargs -P" + str(_CPU_COUNT) +
-                                  r" egrep -sH '^[ ]*TEST(_F|_P)?[ ]*\({2}' "
+                                  r"| xargs -P" + str(_CPU_COUNT) + r" egrep -sH"
+                                  r" '{}' ".format(constants.CC_GREP_KWRE) +
                                   " || true"
 }
 
@@ -227,10 +254,9 @@ def has_cc_class(test_path):
         Boolean: has cc class in test_path or not.
     """
     with open(test_path) as class_file:
-        for line in class_file:
-            match = _CC_CLASS_METHOD_RE.match(line)
-            if match:
-                return True
+        content = class_file.read()
+        if re.findall(_CC_CLASS_METHOD_RE, content):
+            return True
     return False
 
 
@@ -311,7 +337,7 @@ def has_method_in_file(test_path, methods):
     if constants.CC_EXT_RE.match(test_path):
         # omit parameterized pattern: method/argument
         _methods = set(re.sub(r'\/.*', '', x) for x in methods)
-        _, cc_methods, _ = get_cc_test_classes_methods(test_path)
+        _, cc_methods, _, _ = get_cc_test_classes_methods(test_path)
         if _methods.issubset(cc_methods):
             return True
     return False
@@ -897,17 +923,26 @@ def get_dir_path_and_filename(path):
     return dir_path, file_path
 
 
-def get_cc_filter(class_name, methods):
+def get_cc_filter(class_name, methods, is_typed_test=False):
     """Get the cc filter.
 
     Args:
         class_name: class name of the cc test.
         methods: a list of method names.
+        is_typed_test: a boolean whether is's a typed test.
 
     Returns:
         A formatted string for cc filter.
-        Ex: "class1.method1:class1.method2" or "class1.*"
+        For a Type/Typed-parameterized test, it will be:
+          "class1/*.method1:class1/*.method2" or "class1/*.*"
+        For the rest the pattern will be:
+          "class1.method1:class1.method2" or "class1.*"
     """
+    if is_typed_test:
+        if methods:
+            sorted_methods = sorted(list(methods))
+            return ":".join(["%s/*.%s" % (class_name, x) for x in sorted_methods])
+        return "%s/*.*" % class_name
     if methods:
         sorted_methods = sorted(list(methods))
         return ":".join(["%s.%s" % (class_name, x) for x in sorted_methods])
@@ -1101,30 +1136,48 @@ def get_cc_test_classes_methods(test_path):
         test_path: A string of absolute path to the cc file.
 
     Returns:
-        A tuple of sets: classes, methods and para_classes.
+        A tuple of sets: classes, methods, prefixes and is_typed.
     """
     classes = set()
     methods = set()
-    para_classes = set()
-    with open(test_path) as class_file:
+    prefixes = set()
+    is_typed = False
+    # Strip comments prior to parsing class and method names if possible.
+    _test_path = tempfile.NamedTemporaryFile()
+    if atest_tools.has_command('gcc'):
+        strip_comment_cmd = 'gcc -fpreprocessed -dD -E {} > {}'
+        if subprocess.getoutput(
+            strip_comment_cmd.format(test_path, _test_path.name)):
+            logging.debug('Failed to strip comments in %s. Parsing class/method'
+                          'names may not be accurate.', test_path)
+    file_to_parse = test_path
+    # If failed to strip comments, it will be empty.
+    if os.stat(_test_path.name).st_size != 0:
+        file_to_parse = _test_path.name
+
+    with open(file_to_parse) as class_file:
+        logging.debug('Parsing: %s', test_path)
         content = class_file.read()
-        # Search matched CC CLASS/METHOD
+        # 1. Check if it contains Type/Type-paramerterized tests.
+        if re.findall(_TYPE_CC_CLASS_RE, content):
+            is_typed = True
+        # 2. Search context that matched (CLASS, METHOD) pattern.
         matches = re.findall(_CC_CLASS_METHOD_RE, content)
-        logging.debug('Found cc classes: %s', matches)
+        logging.debug('Probing TestCase.TestName pattern:')
         for match in matches:
-            # The elements of `matches` will be "Group 1"(_F),
-            # "Group class"(MyClass1) and "Group method"(MyMethod1)
-            classes.update([match[1]])
-            methods.update([match[2]])
-        # Search matched parameterized CC CLASS.
-        matches = re.findall(_PARA_CC_CLASS_RE, content)
-        logging.debug('Found parameterized classes: %s', matches)
+            # ('TYPED_TEST', '', '', 'PrimeTableTest', 'ReturnsTrueForPrimes')
+            logging.debug('  Found %s.%s', match[3], match[4])
+            classes.update([match[3]])
+            methods.update([match[4]])
+        # Search prefix in parameteried tests.
+        matches = re.findall(_CC_PARAM_CLASS_RE, content)
+        logging.debug('Probing InstantiationName/TestCase pattern:')
         for match in matches:
-            # The elements of `matches` will be "Group 1"(_F),
-            # "Group instantiate class"(MyInstantClass1)
-            # and "Group class"(MyClass1)
-            para_classes.update([match[2]])
-    return classes, methods, para_classes
+            # ('TYPED_', 'OnTheFlyAndPreCalculated', 'PrimeTableTest2')
+            logging.debug('  Found %s/%s', match[1], match[2])
+            prefixes.update([match[1]])
+    _test_path.close()
+    return classes, methods, prefixes, is_typed
 
 def find_host_unit_tests(module_info, path):
     """Find host unit tests for the input path.

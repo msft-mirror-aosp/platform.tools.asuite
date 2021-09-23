@@ -19,10 +19,10 @@
 "template/atest_local_min",
 "test=atest"
 ],
-"CarMessengerRoboTests": [
+"QuickAccessWalletRoboTests": [
 "--make-mode",
 "./build/soong/soong_ui.bash",
-"RunCarMessengerRoboTests"
+"RunQuickAccessWalletRoboTests"
 ],
 "CtsAnimationTestCases:AnimatorTest": [
 "--atest-include-filter",
@@ -227,10 +227,10 @@
 "template/atest_local_min",
 "test=atest"
 ],
-"packages/apps/Car/Messenger/tests/robotests/src/com/android/car/messenger/MessengerDelegateTest.java": [
+"packages/apps/QuickAccessWallet/tests/robolectric/src/com/android/systemui/plugin/globalactions/wallet/WalletPluginServiceTest.java": [
 "--make-mode",
 "./build/soong/soong_ui.bash",
-"RunCarMessengerRoboTests"
+"RunQuickAccessWalletRoboTests"
 ],
 "platform_testing/tests/example/native": [
 "--include-filter",

@@ -209,6 +209,8 @@ DETECT_TYPE_TF_TEARDOWN_LOGCAT = 5
 DETECT_TYPE_REBUILD_MODULE_INFO = 6
 DETECT_TYPE_NOT_REBUILD_MODULE_INFO = 7
 DETECT_TYPE_ONLY_BUILD_MODULE_INFO = 8
+DETECT_TYPE_FUZZY_SEARCH_TIME = 9
+DETECT_TYPE_PERMISSION_INCONSISTENT = 10
 # XTS suite types encode from 100 to 199
 DETECT_TYPE_XTS_SUITE = {'cts': 101,
                          'vts': 104}
@@ -266,11 +268,14 @@ VERSION_FILE = os.path.join(os.path.dirname(__file__), 'VERSION')
 # Regeular Expressions
 CC_EXT_RE = re.compile(r'.*\.(cc|cpp)$')
 JAVA_EXT_RE = re.compile(r'.*\.(java|kt)$')
-# e.g. /path/to/ccfile.cc: TEST_F(test_name, method_name){
-CC_OUTPUT_RE = re.compile(r'(?P<file_path>/.*):\s*TEST(_F|_P)?[ ]*\('
-                          r'(?P<test_name>\w+)\s*,\s*(?P<method_name>\w+)\)'
-                          r'\s*\{')
-CC_GREP_RE = r'^[ ]*TEST(_P|_F)?[ ]*\([[:alnum:]].*,'
+# e.g. /path/to/ccfile.cc: TYPED_TEST_P(test_name, method_name){
+CC_OUTPUT_RE = re.compile(
+    r'(?P<file_path>/.*):\s*(TYPED_TEST(_P)*|TEST(_F|_P)*)\s*\('
+    r'(?P<test_name>\w+)\s*,\s*(?P<method_name>\w+)\)\s*\{')
+# Used by locate command.
+CC_GREP_RE = r'^\s*(TYPED_TEST(_P)*|TEST(_F|_P)*)\s*\(\w+,'
+# Used by find command.
+CC_GREP_KWRE = r'^\s*(TYPED_TEST(_P)*|TEST(_F|_P)*)\s*\({2},'
 # e.g. /path/to/Javafile.java:package com.android.settings.accessibility
 # grab the path, Javafile(class) and com.android.settings.accessibility(package)
 CLASS_OUTPUT_RE = re.compile(r'(?P<java_path>.*/(?P<class>[A-Z]\w+)\.\w+)[:].*')
@@ -368,3 +373,11 @@ DEFAULT_EXCLUDE_PARAS = {TF_PARA_INSTANT_APP,
 DEFAULT_EXCLUDE_NOT_PARAS = {'not_' + TF_PARA_INSTANT_APP,
                             'not_' + TF_PARA_SECOND_USR,
                             'not_' + TF_PARA_MULTIABI}
+
+# ATest integration test related constants.
+INTEGRATION_TESTS = [os.path.join(
+    os.environ.get(ANDROID_BUILD_TOP, os.getcwd()),
+    'tools/asuite/atest/test_plans/INTEGRATION_TESTS')]
+VERIFY_DATA_PATH = os.path.join(
+    os.environ.get(ANDROID_BUILD_TOP, os.getcwd()),
+    'tools/asuite/atest/test_data/test_commands.json')

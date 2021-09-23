@@ -20,12 +20,14 @@ Module Finder class.
 
 import logging
 import os
+import time
 
 import atest_configs
 import atest_error
 import atest_utils
 import constants
 
+from metrics import metrics
 from test_finders import test_info
 from test_finders import test_finder_base
 from test_finders import test_finder_utils
@@ -299,9 +301,10 @@ class ModuleFinder(test_finder_base.TestFinderBase):
         _, file_name = test_finder_utils.get_dir_path_and_filename(path)
         ti_filter = frozenset()
         if kwargs.get('is_native_test', None):
+            _, _, _, is_typed = test_finder_utils.get_cc_test_classes_methods(path)
             ti_filter = frozenset([test_info.TestFilter(
                 test_finder_utils.get_cc_filter(
-                    kwargs.get('class_name', '*'), methods), frozenset())])
+                    kwargs.get('class_name', '*'), methods, is_typed), frozenset())])
         # Path to java file.
         elif file_name and constants.JAVA_EXT_RE.match(file_name):
             full_class_name = test_finder_utils.get_fully_qualified_class_name(
@@ -322,19 +325,19 @@ class ModuleFinder(test_finder_base.TestFinderBase):
             if not test_finder_utils.has_cc_class(path):
                 raise atest_error.MissingCCTestCaseError(
                     "Can't find CC class in %s" % path)
-            # Extract class_name, method_name and parameterized_class from
+            # Extract class_name, method_name and prefixes from
             # the given cc path.
-            file_classes, _, file_para_classes = (
+            classnames, _, prefixes, is_typed = (
                 test_finder_utils.get_cc_test_classes_methods(path))
             cc_filters = []
             # When instantiate tests found, recompose the class name in
             # $(InstantiationName)/$(ClassName)
-            for file_class in file_classes:
-                if file_class in file_para_classes:
-                    file_class = '*/%s' % file_class
+            for classname in classnames:
+                if prefixes:
+                    classname = '*/%s' % classname
                 cc_filters.append(
                     test_info.TestFilter(
-                        test_finder_utils.get_cc_filter(file_class, methods),
+                        test_finder_utils.get_cc_filter(classname, methods, is_typed),
                         frozenset()))
             ti_filter = frozenset(cc_filters)
         # If input path is a folder and have class_name information.
@@ -826,6 +829,7 @@ class ModuleFinder(test_finder_base.TestFinderBase):
         """
         atest_utils.colorful_print('\nSearching for similar module names using '
                                    'fuzzy search...', constants.CYAN)
+        search_start = time.time()
         testable_modules = sorted(self.module_info.get_testable_modules(),
                                   key=len)
         lower_bound = len(user_input) - ld_range
@@ -841,6 +845,11 @@ class ModuleFinder(test_finder_base.TestFinderBase):
             testable_modules_with_ld.append(
                 [test_finder_utils.get_levenshtein_distance(
                     user_input, module_name), module_name])
+        search_duration = time.time() - search_start
+        logging.debug('Fuzzy search took %ss', search_duration)
+        metrics.LocalDetectEvent(
+            detect_type=constants.DETECT_TYPE_FUZZY_SEARCH_TIME,
+            result=round(search_duration))
         return testable_modules_with_ld
 
     def get_fuzzy_searching_results(self, user_input):
