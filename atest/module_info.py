@@ -593,8 +593,10 @@ class ModuleInfo:
         Returns:
             String for atest_merged_dep.json.
         """
-        return os.path.join(atest_utils.get_build_out_dir(),
-                            'soong', _MERGED_INFO)
+        # Move the merged file to the same folder as module-info.json due to it
+        # will not be update if lunch target be changed.
+        return os.path.join(os.environ.get(constants.ANDROID_PRODUCT_OUT, ''),
+                            _MERGED_INFO)
 
     @staticmethod
     def get_java_dep_info_path():
