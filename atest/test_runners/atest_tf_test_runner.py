@@ -28,6 +28,7 @@ import socket
 
 from functools import partial
 
+import atest_error
 import atest_utils
 import constants
 import result_reporter
@@ -160,9 +161,19 @@ class AtestTradefedTestRunner(test_runner_base.TestRunnerBase):
         result = 0
         creds, inv = atest_gcp_utils.do_upload_flow(extra_args)
         try:
+            verify_key = atest_utils.get_verify_key([test_infos[0].test_name],
+                                                    extra_args)
+            if extra_args.get(constants.VERIFY_ENV_VARIABLE, False):
+                # check environment variables.
+                atest_utils.handle_test_env_var(
+                    verify_key, result_path=constants.VERIFY_ENV_PATH)
+                return 0
             if os.getenv(test_runner_base.OLD_OUTPUT_ENV_VAR):
                 result = self.run_tests_raw(test_infos, extra_args, reporter)
             result = self.run_tests_pretty(test_infos, extra_args, reporter)
+        except atest_error.DryRunVerificationError as e:
+            atest_utils.colorful_print(str(e), constants.RED)
+            return constants.EXIT_CODE_VERIFY_FAILURE
         finally:
             if inv:
                 try:
@@ -456,6 +467,8 @@ class AtestTradefedTestRunner(test_runner_base.TestRunnerBase):
                 args_to_append.append('--all-abi')
                 continue
             if constants.DRY_RUN == arg:
+                continue
+            if constants.VERIFY_ENV_VARIABLE == arg:
                 continue
             if constants.FLAKES_INFO == arg:
                 continue
