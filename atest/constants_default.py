@@ -62,6 +62,8 @@ TF_EARLY_DEVICE_RELEASE = 'TF_EARLY_DEVICE_RELEASE'
 REQUEST_UPLOAD_RESULT = 'REQUEST_UPLOAD_RESULT'
 MODULES_IN = 'MODULES-IN-'
 NO_ENABLE_ROOT = 'NO_ENABLE_ROOT'
+VERIFY_ENV_VARIABLE = 'VERIFY_ENV_VARIABLE'
+SKIP_VARS = [VERIFY_ENV_VARIABLE]
 
 # Application exit codes.
 EXIT_CODE_SUCCESS = 0
@@ -381,3 +383,6 @@ INTEGRATION_TESTS = [os.path.join(
 VERIFY_DATA_PATH = os.path.join(
     os.environ.get(ANDROID_BUILD_TOP, os.getcwd()),
     'tools/asuite/atest/test_data/test_commands.json')
+VERIFY_ENV_PATH = os.path.join(
+    os.environ.get(ANDROID_BUILD_TOP, os.getcwd()),
+    'tools/asuite/atest/test_data/test_environ.json')
