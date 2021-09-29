@@ -48,9 +48,10 @@ from distutils.util import strtobool
 # raise.
 # The workaround is repositioning the built-in libs before other 3rd libs in
 # PYTHONPATH(sys.path) to eliminate the symptom of failed loading http.client.
-sys.path.insert(0, os.path.dirname(sysconfig.get_paths()['purelib']))
-sys.path.insert(0, os.path.dirname(sysconfig.get_paths()['stdlib']))
-
+for lib in (sysconfig.get_paths()['stdlib'], sysconfig.get_paths()['purelib']):
+    if lib in sys.path:
+        sys.path.remove(lib)
+    sys.path.insert(0, lib)
 #pylint: disable=wrong-import-position
 import atest_decorator
 import atest_error
@@ -78,11 +79,11 @@ except ImportError as err:
         from asuite.metrics import metrics_utils
     except ImportError as err:
         # This exception occurs only when invoking atest in source code.
-        print("You shouldn't see this message unless you ran 'atest-src'."
+        print("You shouldn't see this message unless you ran 'atest-src'. "
               "To resolve the issue, please run:\n\t{}\n"
               "and try again.".format('pip3 install protobuf'))
-        print('Import error, %s', err)
-        print('sys.path: %s', sys.path)
+        print('Import error: ', err)
+        print('sys.path:\n', '\n'.join(sys.path))
         sys.exit(constants.IMPORT_FAILURE)
 
 _BASH_RESET_CODE = '\033[0m\n'
@@ -1132,13 +1133,16 @@ def get_manifest_branch():
     if not build_top:
         return None
     try:
-        # Command repo need use default lib "http", add non-default lib
-        # might cause repo command execution error.
         splitter = ':'
         env_vars = os.environ.copy()
-        org_python_path = env_vars['PYTHONPATH'].split(splitter)
-        default_python_path = [p for p in org_python_path
-                               if not p.startswith('/tmp/Soong.python_')]
+        orig_pythonpath = env_vars['PYTHONPATH'].split(splitter)
+        # Command repo imports stdlib "http.client", so adding non-default lib
+        # e.g. googleapiclient, may cause repo command execution error.
+        # The temporary dir is not presumably always /tmp, especially in MacOS.
+        # b/169936306, b/190647636 are the cases we should never ignore.
+        soong_path_re = re.compile(r'.*/Soong.python_.*/')
+        default_python_path = [p for p in orig_pythonpath
+                               if not soong_path_re.match(p)]
         env_vars['PYTHONPATH'] = splitter.join(default_python_path)
         output = subprocess.check_output(
             ['repo', 'info', '-o', constants.ASUITE_REPO_PROJECT_NAME],
