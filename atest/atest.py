@@ -191,26 +191,27 @@ def get_extra_args(args):
                 'custom_args': constants.CUSTOM_ARGS,
                 'disable_teardown': constants.DISABLE_TEARDOWN,
                 'dry_run': constants.DRY_RUN,
+                'flakes_info': constants.FLAKES_INFO,
                 'generate_baseline': constants.PRE_PATCH_ITERATIONS,
                 'generate_new_metrics': constants.POST_PATCH_ITERATIONS,
                 'host': constants.HOST,
                 'instant': constants.INSTANT,
                 'iterations': constants.ITERATIONS,
                 'no_enable_root': constants.NO_ENABLE_ROOT,
+                'request_upload_result': constants.REQUEST_UPLOAD_RESULT,
                 'rerun_until_failure': constants.RERUN_UNTIL_FAILURE,
                 'retry_any_failure': constants.RETRY_ANY_FAILURE,
                 'serial': constants.SERIAL,
                 'sharding': constants.SHARDING,
+                'tf_early_device_release': constants.TF_EARLY_DEVICE_RELEASE,
                 'tf_debug': constants.TF_DEBUG,
                 'tf_template': constants.TF_TEMPLATE,
                 'user_type': constants.USER_TYPE,
-                'flakes_info': constants.FLAKES_INFO,
-                'tf_early_device_release': constants.TF_EARLY_DEVICE_RELEASE,
-                'request_upload_result': constants.REQUEST_UPLOAD_RESULT}
+                'verify_env_variable': constants.VERIFY_ENV_VARIABLE}
     not_match = [k for k in arg_maps if k not in vars(args)]
     if not_match:
         raise AttributeError('%s object has no attribute %s'
-                             %(type(args).__name__, not_match))
+                             % (type(args).__name__, not_match))
     extra_args.update({arg_maps.get(k): v for k, v in vars(args).items()
                        if arg_maps.get(k) and v})
     return extra_args
@@ -640,23 +641,18 @@ def _dry_run_validator(args, results_dir, extra_args, test_infos, mod_info):
     Returns:
         Exit code.
     """
-    # test_commands is a concatenated string of sorted test_ref+extra_args.
-    # For example, "ITERATIONS=5 hello_world_test"
-    test_commands = args.tests
-    for key, value in extra_args.items():
-        test_commands.append('%s=%s' % (key, str(value)))
-    test_commands.sort()
+    test_commands = atest_utils.get_verify_key(args.tests, extra_args)
     dry_run_cmds = _dry_run(results_dir, extra_args, test_infos, mod_info)
     if args.verify_cmd_mapping:
         try:
-            atest_utils.handle_test_runner_cmd(' '.join(test_commands),
+            atest_utils.handle_test_runner_cmd(test_commands,
                                                dry_run_cmds,
                                                do_verification=True)
         except atest_error.DryRunVerificationError as e:
             atest_utils.colorful_print(str(e), constants.RED)
             return constants.EXIT_CODE_VERIFY_FAILURE
     if args.update_cmd_mapping:
-        atest_utils.handle_test_runner_cmd(' '.join(test_commands),
+        atest_utils.handle_test_runner_cmd(test_commands,
                                            dry_run_cmds)
     return constants.EXIT_CODE_SUCCESS
 
@@ -794,8 +790,15 @@ def main(argv, results_dir, args):
                                                               test_infos)
     extra_args = get_extra_args(args)
     if any((args.update_cmd_mapping, args.verify_cmd_mapping, args.dry_run)):
-        return _dry_run_validator(args, results_dir, extra_args, test_infos,
-                                  mod_info)
+        if not extra_args.get(constants.VERIFY_ENV_VARIABLE, False):
+            return _dry_run_validator(args, results_dir, extra_args, test_infos,
+                                      mod_info)
+    if extra_args.get(constants.VERIFY_ENV_VARIABLE, False):
+        # check environment variables.
+        verify_key = atest_utils.get_verify_key(args.tests, extra_args)
+        if not atest_utils.handle_test_env_var(verify_key, pre_verify=True):
+            print('No environ variable needs to verify.')
+            return 0
     if args.detect_regression:
         build_targets |= (regression_test_runner.RegressionTestRunner('')
                           .get_test_runner_build_reqs())
