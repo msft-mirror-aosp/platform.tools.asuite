@@ -64,7 +64,7 @@ _APK_RE = re.compile(r'^[^/]+\.apk$', re.I)
 #         INSTANTIATE_TYPED_TEST_SUITE_P(Prefix, class, Types)
 # Macros with (class, method) pattern.
 _CC_CLASS_METHOD_RE = re.compile(
-    r'^\s(TYPED_TEST(_P)*|TEST(_F|_P)*)\s*\(\s*'
+    r'^\s*(TYPED_TEST(_P)*|TEST(_F|_P)*)\s*\(\s*'
     r'(?P<class_name>\w+),\s*(?P<method_name>\w+)\)\s*\{', re.M)
 # Macros with (prefix, class, ...) pattern.
 # Note: Since v1.08, the INSTANTIATE_TEST_CASE_P was replaced with
