@@ -48,9 +48,10 @@ from distutils.util import strtobool
 # raise.
 # The workaround is repositioning the built-in libs before other 3rd libs in
 # PYTHONPATH(sys.path) to eliminate the symptom of failed loading http.client.
-sys.path.insert(0, os.path.dirname(sysconfig.get_paths()['purelib']))
-sys.path.insert(0, os.path.dirname(sysconfig.get_paths()['stdlib']))
-
+for lib in (sysconfig.get_paths()['stdlib'], sysconfig.get_paths()['purelib']):
+    if lib in sys.path:
+        sys.path.remove(lib)
+    sys.path.insert(0, lib)
 #pylint: disable=wrong-import-position
 import atest_decorator
 import atest_error
@@ -78,11 +79,11 @@ except ImportError as err:
         from asuite.metrics import metrics_utils
     except ImportError as err:
         # This exception occurs only when invoking atest in source code.
-        print("You shouldn't see this message unless you ran 'atest-src'."
+        print("You shouldn't see this message unless you ran 'atest-src'. "
               "To resolve the issue, please run:\n\t{}\n"
               "and try again.".format('pip3 install protobuf'))
-        print('Import error, %s', err)
-        print('sys.path: %s', sys.path)
+        print('Import error: ', err)
+        print('sys.path:\n', '\n'.join(sys.path))
         sys.exit(constants.IMPORT_FAILURE)
 
 _BASH_RESET_CODE = '\033[0m\n'
@@ -1132,13 +1133,16 @@ def get_manifest_branch():
     if not build_top:
         return None
     try:
-        # Command repo need use default lib "http", add non-default lib
-        # might cause repo command execution error.
         splitter = ':'
         env_vars = os.environ.copy()
-        org_python_path = env_vars['PYTHONPATH'].split(splitter)
-        default_python_path = [p for p in org_python_path
-                               if not p.startswith('/tmp/Soong.python_')]
+        orig_pythonpath = env_vars['PYTHONPATH'].split(splitter)
+        # Command repo imports stdlib "http.client", so adding non-default lib
+        # e.g. googleapiclient, may cause repo command execution error.
+        # The temporary dir is not presumably always /tmp, especially in MacOS.
+        # b/169936306, b/190647636 are the cases we should never ignore.
+        soong_path_re = re.compile(r'.*/Soong.python_.*/')
+        default_python_path = [p for p in orig_pythonpath
+                               if not soong_path_re.match(p)]
         env_vars['PYTHONPATH'] = splitter.join(default_python_path)
         output = subprocess.check_output(
             ['repo', 'info', '-o', constants.ASUITE_REPO_PROJECT_NAME],
@@ -1493,3 +1497,61 @@ def perm_metrics(config_path, adb_root):
         metrics.LocalDetectEvent(
             detect_type=constants.DETECT_TYPE_PERMISSION_INCONSISTENT,
             result=1)
+
+def get_verify_key(tests, extra_args):
+    """Compose test command key.
+
+    Args:
+        test_name: A list of input tests.
+        extra_args: Dict of extra args to add to test run.
+    Returns:
+        A composed test commands.
+    """
+    # test_commands is a concatenated string of sorted test_ref+extra_args.
+    # For example, "ITERATIONS=5 hello_world_test"
+    test_commands = tests
+    for key, value in extra_args.items():
+        if key not in constants.SKIP_VARS:
+            test_commands.append('%s=%s' % (key, str(value)))
+    test_commands.sort()
+    return ' '.join(test_commands)
+
+def handle_test_env_var(input_test, result_path=constants.VERIFY_ENV_PATH,
+                        pre_verify=False):
+    """Handle the environment variable of input tests.
+
+    Args:
+        input_test: A string of input tests pass to atest.
+        result_path: The file path for saving result.
+        pre_verify: A booloan to separate into pre-verify and actually verify.
+    Returns:
+        0 is no variable needs to verify, 1 has some variables to next verify.
+    """
+    full_result_content = {}
+    if os.path.isfile(result_path):
+        with open(result_path) as json_file:
+            full_result_content = json.load(json_file)
+    demand_env_vars = []
+    demand_env_vars = full_result_content.get(input_test)
+    if demand_env_vars is None:
+        raise atest_error.DryRunVerificationError(
+            '{}: No verify key.'.format(input_test))
+    # No mapping variables.
+    if demand_env_vars == []:
+        return 0
+    if pre_verify:
+        return 1
+    verify_error = []
+    for env in demand_env_vars:
+        if '=' in env:
+            key, value = env.split('=', 1)
+            env_value = os.environ.get(key, None)
+            if env_value is None or env_value != value:
+                verify_error.append('Environ verification failed, ({0},{1})!='
+                    '({0},{2})'.format(key, value, env_value))
+        else:
+            if not os.environ.get(env, None):
+                verify_error.append('Missing environ:{}'.format(env))
+    if verify_error:
+        raise atest_error.DryRunVerificationError('\n'.join(verify_error))
+    return 1
