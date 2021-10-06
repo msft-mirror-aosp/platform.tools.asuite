@@ -36,7 +36,7 @@ ACLOUD_CREATE = 'Create AVD(s) via acloud command.'
 ALL_ABI = 'Set to run tests for all abis.'
 BUILD = 'Run a build.'
 BAZEL_MODE = 'Run tests using Bazel.'
-CLEAR_CACHE = 'Wipe out the test_infos cache of the test.'
+CLEAR_CACHE = 'Wipe out the test_infos cache of the test and start a new search.'
 COLLECT_TESTS_ONLY = ('Collect a list test cases of the instrumentation tests '
                       'without testing them in real.')
 DISABLE_TEARDOWN = 'Disable test teardown and cleanup.'
@@ -55,24 +55,27 @@ INSTALL = 'Install an APK.'
 INSTANT = ('Run the instant_app version of the module if the module supports it. '
            'Note: Nothing\'s going to run if it\'s not an Instant App test and '
            '"--instant" is passed.')
-ITERATION = 'Loop-run tests until the max iteration is reached. (10 by default)'
+ITERATION = 'Loop-run tests until the max iteration is reached. (default: 10)'
 LATEST_RESULT = 'Print latest test result.'
-LIST_MODULES = 'List testable modules for the given suite.'
-NO_ENABLE_ROOT = ('Set ADB as NOT root even though the test config has '
-                  'RootTargetPreparer. Default is False(as root).')
+LIST_MODULES = 'List testable modules of the given suite.'
+NO_ENABLE_ROOT = ('Do NOT restart adbd with root permission even the test config '
+                  'has RootTargetPreparer.')
 NO_METRICS = 'Do not send metrics.'
 NO_MODULES_IN = ('Do not include MODULES-IN-* as build targets. Warning: This '
                  'may result in missing dependencies issue.')
 REBUILD_MODULE_INFO = ('Forces a rebuild of the module-info.json file. '
                        'This may be necessary following a repo sync or '
                        'when writing a new test.')
-REQUEST_UPLOAD_RESULT = 'Request permission to upload test result or not.'
+REQUEST_UPLOAD_RESULT = 'Request permission to upload test result.'
 RERUN_UNTIL_FAILURE = ('Rerun all tests until a failure occurs or the max '
-                       'iteration is reached. (10 by default)')
+                       'iteration is reached. (default: forever!)')
+# For Integer.MAX_VALUE == (2**31 - 1) and not possible to give a larger integer
+# to Tradefed, 2147483647 will be plentiful (~68 years).
+RERUN_UNTIL_FAILURE_N = 2147483647
 RETRY_ANY_FAILURE = ('Rerun failed tests until passed or the max iteration '
-                     'is reached. (10 by default)')
+                     'is reached. (default: 10)')
 SERIAL = 'The device to run the test on.'
-SHARDING = 'Option to specify sharding count. The default value is 2'
+SHARDING = 'Option to specify sharding count. (default: 2)'
 START_AVD = 'Automatically create an AVD and run tests on the virtual device.'
 TEST = ('Run the tests. WARNING: Many test configs force cleanup of device '
         'after test run. In this case, "-d" must be used in previous test run '
@@ -81,10 +84,9 @@ TEST = ('Run the tests. WARNING: Many test configs force cleanup of device '
 TEST_MAPPING = 'Run tests defined in TEST_MAPPING files.'
 TEST_CONFIG_SELECTION = ('If multiple test config belong to same test module '
                          'pop out a selection menu on console.')
-TF_DEBUG = ('Enable tradefed debug mode with a specify port. Default value is '
-            '10888.')
-TF_EARLY_DEVICE_RELEASE = ('Tradefed flag to release the device as soon as '
-                           'done with it.')
+TF_DEBUG = 'Enable tradefed debug mode with a specified port. (default: 10888)'
+TF_EARLY_DEVICE_RELEASE = ('Inform Tradefed to release the device as soon as '
+                           'when done with it.')
 TF_TEMPLATE = ('Add extra tradefed template for ATest suite, '
                'e.g. atest <test> --tf-template <template_key>=<template_path>')
 UPDATE_CMD_MAPPING = ('Update the test command of input tests. Warning: result '
@@ -201,12 +203,12 @@ class AtestArgParser(argparse.ArgumentParser):
         self.add_argument('--tf-early-device-release', action='store_true',
                           help=TF_EARLY_DEVICE_RELEASE)
 
-        # Options to enable selection menu is multiple test config belong to
+        # Options to enable selection menu when multiple test configs belong to
         # same test module.
         self.add_argument('--test-config-select', action='store_true',
                           help=TEST_CONFIG_SELECTION)
 
-        # Obsolete options that will be removed soon.
+        # Obsolete options that will be removed without warning.
         self.add_argument('--generate-baseline', nargs='?',
                           type=int, const=5, default=0,
                           help='Generate baseline metrics, run 5 iterations by'
@@ -250,7 +252,8 @@ class AtestArgParser(argparse.ArgumentParser):
                            type=_positive_int, const=10, default=0,
                            metavar='MAX_ITERATIONS', help=ITERATION)
         group.add_argument('--rerun-until-failure', nargs='?',
-                           type=_positive_int, const=10, default=0,
+                           type=_positive_int, const=RERUN_UNTIL_FAILURE_N,
+                           default=0,
                            metavar='MAX_ITERATIONS', help=RERUN_UNTIL_FAILURE)
         group.add_argument('--retry-any-failure', nargs='?',
                            type=_positive_int, const=10, default=0,
@@ -355,7 +358,7 @@ SYNOPSIS
 
 
 OPTIONS
-        Below arguments are catagorised by features and purposes. Arguments marked with default will apply even the user does not pass it explicitly.
+        Below arguments are catagorised by features and purposes. Arguments marked with implicit default will apply even the user does not pass it explicitly.
 
         [ Testing ]
         -a, --all-abi
@@ -365,8 +368,8 @@ OPTIONS
                 atest <test> -- --abi arm64-v8a   # ARM 64-bit
                 atest <test> -- --abi armeabi-v7a # ARM 32-bit
 
-        -b, --build:
-            {BUILD} (default)
+        -b, --build
+            {BUILD} (implicit default)
 
         --bazel-mode
             {BAZEL_MODE}
@@ -374,7 +377,7 @@ OPTIONS
         -d, --disable-teardown
             {DISABLE_TEARDOWN}
 
-        -D, --tf-debug
+        -D, --tf-debug [PORT]
             {TF_DEBUG}
 
         --host
@@ -384,10 +387,10 @@ OPTIONS
             {HOST_UNIT_TEST_ONLY}
 
         -i, --install
-            {INSTALL} (default)
+            {INSTALL} (implicit default)
 
         -m, --rebuild-module-info
-            {REBUILD_MODULE_INFO} (default)
+            {REBUILD_MODULE_INFO}
 
         --no-enable-root
             {NO_ENABLE_ROOT}
@@ -395,14 +398,14 @@ OPTIONS
         --no-modules-in
             {NO_MODULES_IN}
 
-        -s, --serial
+        -s, --serial [SERIAL]
             {SERIAL}
 
-        --sharding
+        --sharding [SHARD_NUMBER]
           {SHARDING}
 
-        -t, --test
-            {TEST} (default)
+        -t, --test [TEST1, TEST2, ...]
+            {TEST} (implicit default)
 
         --test-config-select
             {TEST_CONFIG_SELECTION}
@@ -460,15 +463,6 @@ OPTIONS
         -c, --clear-cache
             {CLEAR_CACHE}
 
-        -u, --update-cmd-mapping
-            {UPDATE_CMD_MAPPING}
-
-        -y, --verify-cmd-mapping
-            {VERIFY_CMD_MAPPING}
-
-        -e, --varify-env-variable
-            {VERIFY_ENV_VARIABLE}
-
 
         [ Module Parameterization ]
         --instant
@@ -479,13 +473,13 @@ OPTIONS
 
 
         [ Iteration Testing ]
-        --iterations
+        --iterations [NUMBER]
             {ITERATION}
 
-        --rerun-until-failure
+        --rerun-until-failure [NUMBER]
             {RERUN_UNTIL_FAILURE}
 
-        --retry-any-failure
+        --retry-any-failure [NUMBER]
             {RETRY_ANY_FAILURE}
 
 
