@@ -83,6 +83,10 @@ EXIT_CODES_BEFORE_TEST = [EXIT_CODE_ENV_NOT_SETUP,
                           EXIT_CODE_AVD_CREATE_FAILURE,
                           EXIT_CODE_AVD_INVALID_ARGS]
 
+# Robolectric Types:
+ROBOTYPE_MODERN = 1
+ROBOTYPE_LEGACY = 2
+
 # Codes of specific events. These are exceptions that don't stop anything
 # but sending metrics.
 ACCESS_CACHE_FAILURE = 101
