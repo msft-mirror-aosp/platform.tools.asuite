@@ -157,7 +157,9 @@ class TestRunnerBase:
             is started in a process group, so this SIGINT is sufficient to
             kill all the child processes TradeFed spawns as well.
             """
-            logging.info('Ctrl-C received. Killing subprocess group')
+            print('Process ID: %s', proc.pid)
+            logging.info('Ctrl-C received. Killing process group ID: %s',
+                         os.getpgid(proc.pid))
             os.killpg(os.getpgid(proc.pid), signal.SIGINT)
         return signal_handler
 
