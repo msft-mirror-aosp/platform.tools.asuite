@@ -283,15 +283,20 @@ class ModuleInfo:
     def get_robolectric_test_name(self, module_name):
         """Returns runnable robolectric module name.
 
-        There are at least 2 modules in every robolectric module path, return
-        the module that we can run as a build target.
+        This method is for legacy robolectric tests and returns one of associated
+        modules. The pattern is determined by the amount of shards:
+
+        10 shards:
+            FooTests -> RunFooTests0, RunFooTests1 ... RunFooTests9
+        No shard:
+            FooTests -> RunFooTests
 
         Arg:
             module_name: String of module.
 
         Returns:
-            String of module that is the runnable robolectric module, None if
-            none could be found.
+            String of the first-matched associated module that belongs to the
+            actual robolectric module, None if nothing has been found.
         """
         module_name_info = self.get_module_info(module_name)
         if not module_name_info:
@@ -305,25 +310,67 @@ class ModuleInfo:
         return None
 
     def is_robolectric_test(self, module_name):
-        """Check if module is a robolectric test.
-
-        A module can be a robolectric test if the specified module has their
-        class set as ROBOLECTRIC (or shares their path with a module that does).
+        """Check if the given module is a robolectric test.
 
         Args:
             module_name: String of module to check.
 
         Returns:
-            True if the module is a robolectric module, else False.
+            Boolean whether it's a robotest or not.
         """
-        # Check 1, module class is ROBOLECTRIC
-        mod_info = self.get_module_info(module_name)
-        if self.is_robolectric_module(mod_info):
-            return True
-        # Check 2, shared modules in the path have class ROBOLECTRIC_CLASS.
-        if self.get_robolectric_test_name(module_name):
+        if self.get_robolectric_type(module_name):
             return True
         return False
+
+    def get_robolectric_type(self, module_name):
+        """Check if the given module is a robolectric test and return type of it.
+
+        Robolectric declaration is converting from Android.mk to Android.bp, and
+        in the interim Atest needs to support testing both types of tests.
+
+        The modern robolectric tests defined by 'android_robolectric_test' in an
+        Android.bp file can can be run in Tradefed Test Runner:
+
+            SettingsRoboTests -> Tradefed Test Runner
+
+        Legacy tests defined in an Android.mk can only run with the 'make' way.
+
+            SettingsRoboTests -> make RunSettingsRoboTests0
+
+        To determine whether the test is a modern/legacy robolectric test:
+            1. Traverse all modules share the module path. If one of the
+               modules has a ROBOLECTRIC class, it is a robolectric test.
+            2. If found an Android.bp in that path, it's a modern one, otherwise
+               it's a legacy test and will go to the build route.
+
+        Args:
+            module_name: String of module to check.
+
+        Returns:
+            0: not a robolectric test.
+            1: a modern robolectric test(defined in Android.bp)
+            2: a legacy robolectric test(defined in Android.mk)
+        """
+        not_a_robo_test = 0
+        module_name_info = self.get_module_info(module_name)
+        mod_path = module_name_info.get(constants.MODULE_PATH, [])
+        if mod_path:
+            # Check1: If the associated modules are "ROBOLECTRIC".
+            is_a_robotest = False
+            modules_in_path = self.get_module_names(mod_path[0])
+            for mod in modules_in_path:
+                mod_info = self.get_module_info(mod)
+                if self.is_robolectric_module(mod_info):
+                    is_a_robotest = True
+                    break
+            if not is_a_robotest:
+                return not_a_robo_test
+            # Check 2: If found Android.bp in path, call it a modern test.
+            bpfile = os.path.join(self.root_dir, mod_path[0], 'Android.bp')
+            if os.path.isfile(bpfile):
+                return constants.ROBOTYPE_MODERN
+            return constants.ROBOTYPE_LEGACY
+        return not_a_robo_test
 
     def is_auto_gen_test_config(self, module_name):
         """Check if the test config file will be generated automatically.
@@ -342,6 +389,10 @@ class ModuleInfo:
 
     def is_robolectric_module(self, mod_info):
         """Check if a module is a robolectric module.
+
+        This method is for legacy robolectric tests that the associated modules
+        contain:
+            'class': ['ROBOLECTRIC']
 
         Args:
             mod_info: ModuleInfo to check.
