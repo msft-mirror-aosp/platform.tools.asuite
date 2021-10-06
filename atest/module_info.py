@@ -26,6 +26,8 @@ import sys
 import tempfile
 import time
 
+from pathlib import Path
+
 import atest_utils
 import constants
 
@@ -54,6 +56,7 @@ class ModuleInfo:
                          module_info file regardless if it's created or not.
             module_file: String of path to file to load up. Used for testing.
         """
+        self.mod_info_file_path = Path(module_file) if module_file else None
         module_info_target, name_to_module_info = self._load_module_info_file(
             force_build, module_file)
         self.name_to_module_info = name_to_module_info
@@ -125,6 +128,7 @@ class ModuleInfo:
         if not file_path:
             module_info_target, file_path = self._discover_mod_file_and_target(
                 force_build)
+            self.mod_info_file_path = Path(file_path)
         merged_file_path = self.get_atest_merged_info_path()
         if (not self.need_update_merged_file(force_build)
             and os.path.exists(merged_file_path)):
