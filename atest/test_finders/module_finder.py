@@ -145,14 +145,21 @@ class ModuleFinder(test_finder_base.TestFinderBase):
         test.build_targets.add(test.test_name)
         return test
 
-    def _update_to_robolectric_test_info(self, test):
-        """Update the fields for a robolectric test.
+    def _update_legacy_robolectric_test_info(self, test):
+        """Update the fields for a legacy robolectric test.
+
+        This method is updating test_name when the given is a legacy robolectric
+        test, and assigning Robolectric Runner for it.
+
+        e.g. WallPaperPicker2RoboTests is a legacy robotest, and the test_name
+        will become RunWallPaperPicker2RoboTests and run it with Robolectric
+        Runner.
 
         Args:
-          test: TestInfo to be updated with robolectric fields.
+            test: TestInfo to be updated with robolectric fields.
 
         Returns:
-          TestInfo with robolectric fields.
+            TestInfo with updated robolectric fields.
         """
         test.test_runner = self._ROBOLECTRIC_RUNNER
         test.test_name = self.module_info.get_robolectric_test_name(test.test_name)
@@ -181,8 +188,12 @@ class ModuleFinder(test_finder_base.TestFinderBase):
         # Check if this is only a vts10 module.
         if self._is_vts_module(test.test_name):
             return self._update_to_vts_test_info(test)
-        if self.module_info.is_robolectric_test(test.test_name):
-            return self._update_to_robolectric_test_info(test)
+        robo_type = self.module_info.get_robolectric_type(test.test_name)
+        if robo_type == constants.ROBOTYPE_MODERN:
+            test.build_targets.add(test.test_name)
+            return test
+        if robo_type == constants.ROBOTYPE_LEGACY:
+            return self._update_legacy_robolectric_test_info(test)
         rel_config = test.data[constants.TI_REL_CONFIG]
         test.build_targets = self._get_build_targets(module_name, rel_config)
         # For device side java test, it will use
