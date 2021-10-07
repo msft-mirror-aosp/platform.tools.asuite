@@ -53,6 +53,17 @@ skip build time:
 $ aidegen Settings framework -s
 ```
 
+### Example 4: Launch IDE with native module
+
+Example to generate and launch CLion project:
+
+```
+$ aidegen <module> -i c
+```
+The native projects will be launched in CLion and you have to select,
+**Tools > CMake > Change Project Root**
+Change project root to the directory: development/ide/clion/rel_path, while rel_path is the directory shown in CLion’s project view.
+
 ## 3. Optional arguments:
 
 Developers can also use the following optional arguments with AIDEGen commands.
