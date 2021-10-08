@@ -312,10 +312,11 @@ class ModuleFinder(test_finder_base.TestFinderBase):
         _, file_name = test_finder_utils.get_dir_path_and_filename(path)
         ti_filter = frozenset()
         if kwargs.get('is_native_test', None):
-            _, _, _, is_typed = test_finder_utils.get_cc_test_classes_methods(path)
+            class_info = test_finder_utils.get_cc_class_info(path)
             ti_filter = frozenset([test_info.TestFilter(
                 test_finder_utils.get_cc_filter(
-                    kwargs.get('class_name', '*'), methods, is_typed), frozenset())])
+                    class_info, kwargs.get('class_name', '*'), methods),
+                frozenset())])
         # Path to java file.
         elif file_name and constants.JAVA_EXT_RE.match(file_name):
             full_class_name = test_finder_utils.get_fully_qualified_class_name(
@@ -336,19 +337,16 @@ class ModuleFinder(test_finder_base.TestFinderBase):
             if not test_finder_utils.has_cc_class(path):
                 raise atest_error.MissingCCTestCaseError(
                     "Can't find CC class in %s" % path)
-            # Extract class_name, method_name and prefixes from
-            # the given cc path.
-            classnames, _, prefixes, is_typed = (
-                test_finder_utils.get_cc_test_classes_methods(path))
+            class_info = test_finder_utils.get_cc_class_info(path)
             cc_filters = []
             # When instantiate tests found, recompose the class name in
             # $(InstantiationName)/$(ClassName)
-            for classname in classnames:
-                if prefixes:
+            for classname, info in class_info.items():
+                if info['prefixes']:
                     classname = '*/%s' % classname
                 cc_filters.append(
                     test_info.TestFilter(
-                        test_finder_utils.get_cc_filter(classname, methods, is_typed),
+                        test_finder_utils.get_cc_filter(class_info, classname, methods),
                         frozenset()))
             ti_filter = frozenset(cc_filters)
         # If input path is a folder and have class_name information.
