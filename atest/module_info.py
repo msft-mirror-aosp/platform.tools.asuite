@@ -594,20 +594,20 @@ class ModuleInfo:
 
     @staticmethod
     def get_java_dep_info_path():
-        """Returns the path for atest_merged_dep.json.
+        """Returns the path for module_bp_java_deps.json
 
         Returns:
-            String for atest_merged_dep.json.
+            String for module_bp_java_deps.json.
         """
         return os.path.join(atest_utils.get_build_out_dir(),
                             'soong', _JAVA_DEP_INFO)
 
     @staticmethod
     def get_cc_dep_info_path():
-        """Returns the path for atest_merged_dep.json.
+        """Returns the path for module_bp_cc_deps.json.
 
         Returns:
-            String for atest_merged_dep.json.
+            String for module_bp_cc_deps.json.
         """
         return os.path.join(atest_utils.get_build_out_dir(),
                             'soong', _CC_DEP_INFO)
@@ -624,16 +624,17 @@ class ModuleInfo:
     def need_update_merged_file(self, force_build=False):
         """Check if need to update/generated atest_merged_dep.
 
-        If force_build, always update merged info.
-        If not force build, if soong info exist but merged inforamtion not exist,
-        need to update merged file.
+        If force_build: always update merged info.
+        If not force build: only update merged info when soong info exists and
+            the merged info does not.
 
         Args:
-            force_build: Boolean to indicate that if user want to rebuild
-                         module_info file regardless if it's created or not.
+            force_build: Boolean that indicates if users want to arbitrarily
+            rebuild module_info file regardless of the existence of soong info
+            and the merged info.
 
         Returns:
-            True if atest_merged_dep should be updated, false otherwise.
+            True if atest_merged_dep.json should be updated, false otherwise.
         """
         return (force_build or
                 (self.has_soong_info() and
