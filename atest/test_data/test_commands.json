@@ -20,9 +20,20 @@
 "test=atest"
 ],
 "QuickAccessWalletRoboTests": [
-"--make-mode",
-"./build/soong/soong_ui.bash",
-"RunQuickAccessWalletRoboTests"
+"--include-filter",
+"--log-level",
+"--log-level-display",
+"--logcat-on-failure",
+"--no-early-device-release",
+"--no-enable-granular-attempts",
+"--skip-loading-config-jar",
+"--template:map",
+"QuickAccessWalletRoboTests",
+"VERBOSE",
+"VERBOSE",
+"atest_tradefed.sh",
+"template/atest_local_min",
+"test=atest"
 ],
 "CtsAnimationTestCases:AnimatorTest": [
 "--atest-include-filter",
@@ -228,9 +239,22 @@
 "test=atest"
 ],
 "packages/apps/QuickAccessWallet/tests/robolectric/src/com/android/systemui/plugin/globalactions/wallet/WalletPluginServiceTest.java": [
-"--make-mode",
-"./build/soong/soong_ui.bash",
-"RunQuickAccessWalletRoboTests"
+"--atest-include-filter",
+"--include-filter",
+"--log-level",
+"--log-level-display",
+"--logcat-on-failure",
+"--no-early-device-release",
+"--no-enable-granular-attempts",
+"--skip-loading-config-jar",
+"--template:map",
+"QuickAccessWalletRoboTests",
+"QuickAccessWalletRoboTests:com.android.systemui.plugin.globalactions.wallet.WalletPluginServiceTest",
+"VERBOSE",
+"VERBOSE",
+"atest_tradefed.sh",
+"template/atest_local_min",
+"test=atest"
 ],
 "platform_testing/tests/example/native": [
 "--include-filter",
