@@ -168,6 +168,9 @@ class AtestTradefedTestRunner(test_runner_base.TestRunnerBase):
                 atest_utils.handle_test_env_var(
                     verify_key, result_path=constants.VERIFY_ENV_PATH)
                 return 0
+            # Change CWD to repo root to ensure TF can find prebuilt SDKs
+            # for some path-sensitive tests like robolectric.
+            os.chdir(os.path.abspath(os.getenv(constants.ANDROID_BUILD_TOP)))
             if os.getenv(test_runner_base.OLD_OUTPUT_ENV_VAR):
                 result = self.run_tests_raw(test_infos, extra_args, reporter)
             result = self.run_tests_pretty(test_infos, extra_args, reporter)

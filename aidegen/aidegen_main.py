@@ -61,7 +61,7 @@ from aidegen.lib import project_info
 from aidegen.vscode import vscode_native_project_file_gen
 from aidegen.vscode import vscode_workspace_file_gen
 
-AIDEGEN_REPORT_LINK = ('To report the AIDEGen tool problem, please use this '
+AIDEGEN_REPORT_LINK = ('To report an AIDEGen tool problem, please use this '
                        'link: https://goto.google.com/aidegen-bug')
 _CONGRATULATIONS = common_util.COLORED_PASS('CONGRATULATIONS:')
 _LAUNCH_SUCCESS_MSG = (

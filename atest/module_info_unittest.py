@@ -40,18 +40,20 @@ PATH_TO_MULT_MODULES_WITH_MULTI_ARCH = 'shared/path/to/be/used2'
 TESTABLE_MODULES_WITH_SHARED_PATH = ['multiarch1', 'multiarch2', 'multiarch3', 'multiarch3_32']
 
 ROBO_MOD_PATH = ['/shared/robo/path']
-NON_RUN_ROBO_MOD_NAME = 'robo_mod'
-RUN_ROBO_MOD_NAME = 'run_robo_mod'
-NON_RUN_ROBO_MOD = {constants.MODULE_NAME: NON_RUN_ROBO_MOD_NAME,
-                        constants.MODULE_PATH: ROBO_MOD_PATH,
-                        constants.MODULE_CLASS: ['random_class']}
-RUN_ROBO_MOD = {constants.MODULE_NAME: RUN_ROBO_MOD_NAME,
-                constants.MODULE_PATH: ROBO_MOD_PATH,
-                constants.MODULE_CLASS: [constants.MODULE_CLASS_ROBOLECTRIC]}
-MOD_PATH_INFO_DICT = {ROBO_MOD_PATH[0]: [RUN_ROBO_MOD, NON_RUN_ROBO_MOD]}
+ROBO_MODULE = 'FooTests'
+ASSOCIATED_ROBO_MODULE = 'RunFooTests'
+ROBO_MODULE_INFO = {
+    constants.MODULE_NAME: ROBO_MODULE,
+    constants.MODULE_PATH: ROBO_MOD_PATH,
+    constants.MODULE_CLASS: [constants.MODULE_CLASS_JAVA_LIBRARIES]}
+ASSOCIATED_ROBO_MODULE_INFO = {
+    constants.MODULE_NAME: ASSOCIATED_ROBO_MODULE,
+    constants.MODULE_PATH: ROBO_MOD_PATH,
+    constants.MODULE_CLASS: [constants.MODULE_CLASS_ROBOLECTRIC]}
+MOD_PATH_INFO_DICT = {ROBO_MOD_PATH[0]: [ASSOCIATED_ROBO_MODULE_INFO, ROBO_MODULE_INFO]}
 MOD_NAME_INFO_DICT = {
-    RUN_ROBO_MOD_NAME: RUN_ROBO_MOD,
-    NON_RUN_ROBO_MOD_NAME: NON_RUN_ROBO_MOD}
+    ASSOCIATED_ROBO_MODULE: ASSOCIATED_ROBO_MODULE_INFO,
+    ROBO_MODULE: ROBO_MODULE_INFO}
 MOD_NAME1 = 'mod1'
 MOD_NAME2 = 'mod2'
 MOD_NAME3 = 'mod3'
@@ -251,33 +253,59 @@ class ModuleInfoUnittests(unittest.TestCase):
         mod_info = module_info.ModuleInfo(module_file=JSON_FILE_PATH)
         mod_info.name_to_module_info = MOD_NAME_INFO_DICT
         mod_info.path_to_module_info = MOD_PATH_INFO_DICT
-        mock_get_module_names.return_value = [RUN_ROBO_MOD_NAME, NON_RUN_ROBO_MOD_NAME]
+        mock_get_module_names.return_value = [ASSOCIATED_ROBO_MODULE, ROBO_MODULE]
         self.assertEqual(mod_info.get_robolectric_test_name(
-            NON_RUN_ROBO_MOD_NAME), RUN_ROBO_MOD_NAME)
+            ROBO_MODULE), ASSOCIATED_ROBO_MODULE)
         # Let's also make sure we don't return anything when we're not supposed
         # to.
-        mock_get_module_names.return_value = [NON_RUN_ROBO_MOD_NAME]
+        mock_get_module_names.return_value = [ROBO_MODULE]
         self.assertEqual(mod_info.get_robolectric_test_name(
-            NON_RUN_ROBO_MOD_NAME), None)
+            ROBO_MODULE), None)
 
     @mock.patch.dict('os.environ', {constants.ANDROID_BUILD_TOP:'/'})
+    @mock.patch.object(module_info.ModuleInfo, 'is_robolectric_module')
+    @mock.patch('os.path.isfile', return_value=False)
     @mock.patch.object(module_info.ModuleInfo, 'get_module_info')
     @mock.patch.object(module_info.ModuleInfo, 'get_module_names')
-    def test_is_robolectric_test(self, mock_get_module_names, mock_get_module_info):
-        """Test is_robolectric_test."""
+    def test_get_robolectric_type(self, mock_get_module_names, mock_get_module_info,
+        mock_isfile, mock_is_robo_mod):
+        """Test get_robolectric_type."""
         # Happy path testing, make sure we get the run robo target.
         mod_info = module_info.ModuleInfo(module_file=JSON_FILE_PATH)
         mod_info.name_to_module_info = MOD_NAME_INFO_DICT
         mod_info.path_to_module_info = MOD_PATH_INFO_DICT
-        mock_get_module_names.return_value = [RUN_ROBO_MOD_NAME, NON_RUN_ROBO_MOD_NAME]
-        mock_get_module_info.return_value = RUN_ROBO_MOD
-        # Test on a run robo module.
-        self.assertTrue(mod_info.is_robolectric_test(RUN_ROBO_MOD_NAME))
-        # Test on a non-run robo module but shares with a run robo module.
-        self.assertTrue(mod_info.is_robolectric_test(NON_RUN_ROBO_MOD_NAME))
-        # Make sure we don't find robo tests where they don't exist.
-        mock_get_module_info.return_value = None
-        self.assertFalse(mod_info.is_robolectric_test('rand_mod'))
+        mock_isfile.return_value = False
+        mock_get_module_names.return_value = [ASSOCIATED_ROBO_MODULE, ROBO_MODULE]
+        mock_get_module_info.return_value = ASSOCIATED_ROBO_MODULE_INFO
+        # Test on an legacy associated robo module.
+        self.assertEqual(
+            mod_info.get_robolectric_type(ASSOCIATED_ROBO_MODULE), constants.ROBOTYPE_LEGACY)
+        # Test on a legacy robo module.
+        self.assertEqual(
+            mod_info.get_robolectric_type(ROBO_MODULE), constants.ROBOTYPE_LEGACY)
+        # Test on a modern robo module.
+        mock_isfile.return_value = True
+        self.assertEqual(
+            mod_info.get_robolectric_type(ROBO_MODULE), constants.ROBOTYPE_MODERN)
+        # Two situations that are not a robolectric test:
+        # 1. Not is_robolectric_module:
+        mock_is_robo_mod.return_value = False
+        self.assertEqual(mod_info.get_robolectric_type(ROBO_MODULE), 0)
+        # 2. The path in the mod_info is inexistent.
+        mod_info.path_to_module_info = {'/inexist': ['Foo', 'RunFoo']}
+        self.assertEqual(mod_info.get_robolectric_type(ROBO_MODULE), 0)
+
+    @mock.patch.dict('os.environ', {constants.ANDROID_BUILD_TOP:'/'})
+    @mock.patch.object(module_info.ModuleInfo, 'get_robolectric_type')
+    def test_is_robolectric_test(self, mock_type):
+        """Test is_robolectric_test."""
+        mod_info = module_info.ModuleInfo(module_file=JSON_FILE_PATH)
+        mock_type.return_value = constants.ROBOTYPE_MODERN
+        self.assertTrue(mod_info.is_robolectric_test(ROBO_MODULE))
+        mock_type.return_value = constants.ROBOTYPE_LEGACY
+        self.assertTrue(mod_info.is_robolectric_test(ROBO_MODULE))
+        mock_type.return_value = 0
+        self.assertFalse(mod_info.is_robolectric_test(ROBO_MODULE))
 
     @mock.patch.dict('os.environ', {constants.ANDROID_BUILD_TOP:'/'})
     @mock.patch.object(module_info.ModuleInfo, 'is_module')
