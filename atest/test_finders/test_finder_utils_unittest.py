@@ -94,6 +94,7 @@ LIBCORE_TEST_CONFIG = 'AndroidLibCoreTest.xml.data'
 DALVIK_XML_TARGETS = XML_TARGETS | test_finder_utils.DALVIK_TEST_DEPS
 
 #pylint: disable=protected-access
+#pylint: disable=unnecessary-comprehension
 class TestFinderUtilsUnittests(unittest.TestCase):
     """Unit tests for test_finder_utils.py"""
 
@@ -674,20 +675,36 @@ class TestFinderUtilsUnittests(unittest.TestCase):
             finally:
                 tmp_file.close()
 
-    def test_get_cc_test_classes_methods(self):
-        """Test get_cc_test_classes_methods method."""
-        expect_classes = ('MyClass1', 'MyClass2', 'MyClass3', 'MyClass4',
-                          'MyClass5')
-        expect_methods = ('Method1', 'Method2', 'Method3', 'Method5')
-        expect_prefixes = ('Instantiation1', 'Instantiation2',
-                           'Instantiation3', 'Instantiation4',
-                           'Instantiation5', 'Instantiation6')
+    # pylint: disable=consider-iterating-dictionary
+    def test_get_cc_class_info(self):
+        """Test get_cc_class_info method."""
         file_path = os.path.join(uc.TEST_DATA_DIR, 'my_cc_test.cc')
-        classes, methods, prefixes, _ = (
-            test_finder_utils.get_cc_test_classes_methods(file_path))
-        self.assertEqual(sorted(expect_classes), sorted(classes))
-        self.assertEqual(sorted(expect_methods), sorted(methods))
-        self.assertEqual(sorted(expect_prefixes), sorted(prefixes))
+        class_info = test_finder_utils.get_cc_class_info(file_path)
+
+        #1. Ensure all classes are in the class info dict.
+        expect_classes = {'Class1', 'FClass', 'ValueParamClass1', 'ValueParamClass2',
+                          'TypedTestClass', 'TypedParamTestClass'}
+        self.assertEqual({key for key in class_info.keys()}, expect_classes)
+
+        #2. Ensure methods are correctly mapping to the right class.
+        self.assertEqual(class_info['ValueParamClass1']['methods'], {'VPMethod1'})
+        self.assertEqual(class_info['ValueParamClass2']['methods'], {'VPMethod2'})
+        self.assertEqual(class_info['TypedTestClass']['methods'], {'TypedTestName'})
+        self.assertEqual(class_info['TypedParamTestClass']['methods'], {'TypedParamTestName'})
+        self.assertEqual(class_info['Class1']['methods'], {'Method1','Method2'})
+        self.assertEqual(class_info['FClass']['methods'], {'FMethod1','FMethod2'})
+
+        #3. Ensure prefixes are correctly mapping to the right class.
+        self.assertEqual(class_info['TypedParamTestClass']['prefixes'], {'Instantiation3','Instantiation4'})
+        self.assertEqual(class_info['ValueParamClass1']['prefixes'], {'Instantiation1'})
+        self.assertEqual(class_info['ValueParamClass2']['prefixes'], {'Instantiation2'})
+
+        #4. Ensure we can tell typed test.
+        self.assertTrue(class_info['TypedParamTestClass']['typed'])
+        self.assertTrue(class_info['TypedTestClass']['typed'])
+        self.assertFalse(class_info['ValueParamClass1']['typed'])
+        self.assertFalse(class_info['FClass']['typed'])
+        self.assertFalse(class_info['Class1']['typed'])
 
     def test_get_java_method(self):
         """Test get_java_method"""
