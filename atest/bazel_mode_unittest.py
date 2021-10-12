@@ -15,11 +15,15 @@
 # limitations under the License.
 
 """Unit tests for bazel_mode."""
+# pylint: disable=invalid-name
+# pylint: disable=missing-function-docstring
 
+import shutil
 import tempfile
 import unittest
 
 from unittest import mock
+from pathlib import Path
 # pylint: disable=import-error
 from pyfakefs import fake_filesystem_unittest
 
@@ -36,15 +40,117 @@ BAZEL_RUNNER = bazel_mode.BazelTestRunner.NAME
 MODULE_BUILD_TARGETS = {'foo1', 'foo2', 'foo3'}
 MODULE_NAME = 'foo'
 
+
+class WorkspaceGeneratorTest(fake_filesystem_unittest.TestCase):
+    """Tests for WorkspaceGenerator."""
+
+    def setUp(self):
+        self.setUpPyfakefs()
+
+    def test_generate_workspace_when_nonexistent(self):
+        workspace_generator = self.create_workspace_generator()
+        shutil.rmtree(workspace_generator.workspace_out_path,
+                      ignore_errors=True)
+
+        workspace_generator.generate()
+
+        self.assertTrue(workspace_generator.workspace_out_path.is_dir())
+
+    def test_regenerate_workspace_when_module_info_deleted(self):
+        workspace_generator = self.create_workspace_generator()
+        workspace_generator.generate()
+        workspace_stat = workspace_generator.workspace_out_path.stat()
+
+        workspace_generator.mod_info.mod_info_file_path.unlink()
+        workspace_generator.generate()
+
+        new_workspace_stat = workspace_generator.workspace_out_path.stat()
+        self.assertNotEqual(workspace_stat, new_workspace_stat)
+
+    def test_not_regenerate_workspace_when_module_info_unchanged(self):
+        workspace_generator = self.create_workspace_generator()
+        workspace_generator.generate()
+        workspace_stat = workspace_generator.workspace_out_path.stat()
+
+        workspace_generator.generate()
+
+        new_workspace_stat = workspace_generator.workspace_out_path.stat()
+        self.assertEqual(workspace_stat, new_workspace_stat)
+
+    def test_not_regenerate_worksapce_when_module_only_touched(self):
+        workspace_generator = self.create_workspace_generator()
+        workspace_generator.generate()
+        workspace_stat = workspace_generator.workspace_out_path.stat()
+
+        Path(workspace_generator.mod_info.mod_info_file_path).touch()
+        workspace_generator.generate()
+
+        new_workspace_stat = workspace_generator.workspace_out_path.stat()
+        self.assertEqual(workspace_stat, new_workspace_stat)
+
+    def test_regenerate_workspace_when_module_info_changed(self):
+        workspace_generator = self.create_workspace_generator()
+        workspace_generator.generate()
+        workspace_stat = workspace_generator.workspace_out_path.stat()
+
+        mod_info_file_path =  workspace_generator.mod_info.mod_info_file_path
+        with open(mod_info_file_path, 'a') as f:
+            f.write(' ')
+        workspace_generator.generate()
+
+        new_workspace_stat = workspace_generator.workspace_out_path.stat()
+        self.assertNotEqual(workspace_stat, new_workspace_stat)
+
+    def test_regenerate_workspace_when_md5_file_removed(self):
+        workspace_generator = self.create_workspace_generator()
+        workspace_generator.generate()
+        workspace_stat = workspace_generator.workspace_out_path.stat()
+
+        workspace_generator.mod_info.mod_info_file_path.unlink()
+        workspace_generator.generate()
+
+        new_workspace_stat = workspace_generator.workspace_out_path.stat()
+        self.assertNotEqual(workspace_stat, new_workspace_stat)
+
+    def test_scrub_old_workspace_when_regenerating(self):
+        workspace_generator = self.create_workspace_generator()
+        workspace_generator.generate()
+        some_file = workspace_generator.workspace_out_path.joinpath("some_file")
+        some_file.touch()
+        self.assertTrue(some_file.is_file())
+
+        # Remove the md5 file to regenerate workspace.
+        workspace_generator.mod_info.mod_info_file_path.unlink()
+        workspace_generator.generate()
+
+        self.assertFalse(some_file.is_file())
+
+    def create_workspace_generator(self, src_root_path="/foo/src_root_path",
+                                   workspace_out_path="/foo/workspace_out_path",
+                                   product_out_path="/foo/product_out_path",
+                                   host_out_path="/foo/host_out_path"):
+        mod_info = self.create_module_info()
+        workspace_generator = bazel_mode.WorkspaceGenerator(
+            Path(src_root_path), Path(workspace_out_path),
+            Path(product_out_path), Path(host_out_path), mod_info)
+        return workspace_generator
+
+    # pylint: disable=protected-access
+    @mock.patch.dict('os.environ', {constants.ANDROID_BUILD_TOP:'/'})
+    def create_module_info(self):
+        fake_temp_file_name = next(tempfile._get_candidate_names())
+        self.fs.create_file(fake_temp_file_name,
+                            contents='{"module_name": {"class":' +
+                            '["NATIVE_TESTS"]}}')
+        return module_info.ModuleInfo(module_file=fake_temp_file_name)
+
 class DecorateFinderMethodTest(fake_filesystem_unittest.TestCase):
     """Tests for _decorate_find_method()."""
 
-    # pylint: disable=missing-function-docstring
     def setUp(self):
         self.setUpPyfakefs()
 
     # pylint: disable=protected-access
-    # pylint: disable=missing-function-docstring
     # TODO(b/197600827): Add self._env in Module_info instead of mocking
     #                    os.environ directly.
     @mock.patch.dict('os.environ', {constants.ANDROID_BUILD_TOP:'/'})
@@ -63,7 +169,6 @@ class DecorateFinderMethodTest(fake_filesystem_unittest.TestCase):
         self.assertEqual(test_infos[0].test_runner, BAZEL_RUNNER)
 
     # pylint: disable=protected-access
-    # pylint: disable=missing-function-docstring
     @mock.patch.dict('os.environ', {constants.ANDROID_BUILD_TOP:'/'})
     def test_not_unit_test_runner_is_preserved(self):
         original_find_method = lambda obj, test_id:(
@@ -97,7 +202,6 @@ class DecorateFinderMethodTest(fake_filesystem_unittest.TestCase):
         self.fs.create_file(fake_temp_file_name,
                             contents=unit_test_mod_info_content)
         return module_info.ModuleInfo(module_file=fake_temp_file_name)
-
 
 
 if __name__ == '__main__':
