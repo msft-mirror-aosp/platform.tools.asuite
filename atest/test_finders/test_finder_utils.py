@@ -91,7 +91,11 @@ _PARAMET_JAVA_CLASS_RE = re.compile(
     r'^\s*@RunWith\s*\(\s*(Parameterized|TestParameterInjector|'
     r'JUnitParamsRunner|DataProviderRunner|JukitoRunner|Theories|BedsteadJUnit4'
     r').class\s*\)', re.I)
-_PARENT_CLS_RE = re.compile(r'.*class\s+\w+\s+extends\s+(?P<parent>[\w\.]+.*)\s\{')
+# RE for Java/Kt parent classes:
+# Java:   class A extends B {...}
+# Kotlin: class A : B (...)
+_PARENT_CLS_RE = re.compile(r'.*class\s+\w+\s+(?:extends|:)\s+'
+                            r'(?P<parent>[\w\.]+)\s*(?:\{|\()')
 
 # Explanation of FIND_REFERENCE_TYPEs:
 # ----------------------------------
@@ -277,10 +281,10 @@ def get_package_name(file_name):
 
 
 def get_parent_cls_name(file_name):
-    """Parse the parent class name from a java file.
+    """Parse the parent class name from a java/kt file.
 
     Args:
-        file_name: A string of the absolute path to the java file.
+        file_name: A string of the absolute path to the javai/kt file.
 
     Returns:
         A string of the parent class name or None
