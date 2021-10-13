@@ -390,3 +390,9 @@ VERIFY_DATA_PATH = os.path.join(
 VERIFY_ENV_PATH = os.path.join(
     os.environ.get(ANDROID_BUILD_TOP, os.getcwd()),
     'tools/asuite/atest/test_data/test_environ.json')
+
+# Gtest Types
+GTEST_REGULAR = 'regular native test'
+GTEST_TYPED = 'typed test'
+GTEST_TYPED_PARAM = 'typed-parameterized test'
+GTEST_PARAM = 'value-parameterized test'
