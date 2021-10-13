@@ -422,7 +422,8 @@ class AtestTradefedTestRunner(test_runner_base.TestRunnerBase):
         # Add adb if we can't find it.
         for executable in EXEC_DEPENDENCIES:
             if self._is_missing_exec(executable):
-                build_req.add(executable)
+                if self.module_info.is_module(executable):
+                    build_req.add(executable)
         return build_req
 
     # pylint: disable=too-many-branches
