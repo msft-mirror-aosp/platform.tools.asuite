@@ -946,7 +946,9 @@ def get_cc_filter(class_info, class_name, methods):
     _class_name = class_name
     if '/' in class_name:
         _class_name = str(class_name).split('/')[-1]
-    if class_info.get(_class_name).get('typed'):
+    type_str = get_cc_class_type(class_info, _class_name)
+    logging.debug('%s is a "%s".', _class_name, type_str)
+    if type_str in (constants.GTEST_TYPED, constants.GTEST_TYPED_PARAM):
         if methods:
             sorted_methods = sorted(list(methods))
             return ":".join(["%s/*.%s" % (class_name, x) for x in sorted_methods])
@@ -1144,11 +1146,11 @@ def get_cc_class_info(test_path):
         {'classA': {
             'methods': {'m1', 'm2'}, 'prefixes': {'pfx1'}, 'typed': True},
          'classB': {
-             'methods': {'m3', 'm4'}, 'prefixes': set(), 'typed': False},
+            'methods': {'m3', 'm4'}, 'prefixes': set(), 'typed': False},
          'classC': {
-             'methods': {'m5', 'm6'}, 'prefixes': set(), 'typed': True},
+            'methods': {'m5', 'm6'}, 'prefixes': set(), 'typed': True},
          'classD': {
-             'methods': {'m7', 'm8'}, 'prefixes': {'pfx3'}, 'typed': False}}
+            'methods': {'m7', 'm8'}, 'prefixes': {'pfx3'}, 'typed': False}}
     According to the class info, we can tell that:
         classA is a typed-parameterized test. (TYPED_TEST_SUITE_P)
         classB is a regular gtest.            (TEST_F|TEST)
@@ -1206,6 +1208,27 @@ def get_cc_class_info(test_path):
         class_info[match]['typed'] = True
     return class_info
 
+def get_cc_class_type(class_info, classname):
+    """Tell the type of the given class.
+
+    Args:
+        class_info: A dict of class info.
+        classname: A string of class name.
+
+    Returns:
+        String of the gtest type to prompt. The output will be one of:
+        1. 'regular test'             (GTEST_REGULAR)
+        2. 'typed test'               (GTEST_TYPED)
+        3. 'value-parameterized test' (GTEST_PARAM)
+        4. 'typed-parameterized test' (GTEST_TYPED_PARAM)
+    """
+    if class_info.get(classname).get('prefixes'):
+        if class_info.get(classname).get('typed'):
+            return constants.GTEST_TYPED_PARAM
+        return constants.GTEST_PARAM
+    if class_info.get(classname).get('typed'):
+        return constants.GTEST_TYPED
+    return constants.GTEST_REGULAR
 
 def find_host_unit_tests(module_info, path):
     """Find host unit tests for the input path.
