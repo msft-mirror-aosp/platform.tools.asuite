@@ -20,19 +20,64 @@ that contains test targets. Using Bazel allow Atest to leverage features
 such as sandboxing, caching, and remote execution.
 """
 
+import os
+import shutil
+
+from pathlib import Path
+
+import atest_utils
 import constants
+import module_info
 
 from test_finders import test_finder_base
 from test_runners import test_runner_base
 
 
-# pylint: disable=unused-argument
-def generate_bazel_workspace(mod_info):
-    """Generate bazel test workspace.
+def generate_bazel_workspace(mod_info: module_info.ModuleInfo):
+    """Generate or update the Bazel workspace used for running tests."""
+    src_root_path = Path(os.environ.get(constants.ANDROID_BUILD_TOP))
+    workspace_generator = WorkspaceGenerator(
+        src_root_path, src_root_path.joinpath("out/atest_bazel_workspace"),
+        Path(os.environ.get(constants.ANDROID_PRODUCT_OUT)),
+        Path(os.environ.get(constants.ANDROID_HOST_OUT)), mod_info)
+    workspace_generator.generate()
 
-    Args:
-        mod_info: ModuleInfo Object.
-    """
+class WorkspaceGenerator:
+    """Class for generating Bazel workspace."""
+
+    def __init__(self, src_root_path: Path, workspace_out_path: Path,
+                 product_out_path: Path, host_out_path: Path,
+                 mod_info: module_info.ModuleInfo):
+        """Initialize the WorkspaceGenerator object.
+
+        Args:
+            src_root_path: Path of the ANDROID_BUILD_TOP.
+            workspace_out_path: Path of the root dir of bazel workspace.
+            product_out_path: Path of the ANDROID_PRODUCT_OUT.
+            host_out_path: Path of the ANDROID_HOST_OUT.
+            mod_info: ModuleInfo Object.
+        """
+        self.src_root_path = src_root_path
+        self.workspace_out_path = workspace_out_path
+        self.product_out_path = product_out_path
+        self.host_out_path = host_out_path
+        self.mod_info = mod_info
+        self.mod_info_md5_path = self.workspace_out_path.joinpath(
+            "mod_info_md5")
+
+    def generate(self):
+        """Generate Bazel workspace when mod_info updated."""
+        if atest_utils.check_md5(self.mod_info_md5_path):
+            return
+        atest_utils.colorful_print("Updating stale Bazel workspace.\n",
+                                   constants.RED)
+        if self.workspace_out_path.exists():
+            # We raise an exception if rmtree fails to avoid leaving stale
+            # files in the workspace that could interfere with execution.
+            shutil.rmtree(self.workspace_out_path)
+        self.workspace_out_path.mkdir(parents=True)
+        atest_utils.save_md5([str(self.mod_info.mod_info_file_path)],
+                             self.mod_info_md5_path)
 
 def _decorate_find_method(mod_info, finder_method_func):
     """A finder_method decorator to override TestInfo properties."""
