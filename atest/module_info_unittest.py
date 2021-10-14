@@ -440,13 +440,12 @@ class ModuleInfoUnittests(unittest.TestCase):
             name_to_mod_info['module_cc_1'].get(constants.MODULE_DEPENDENCIES),
             expect_deps)
 
-    @mock.patch.object(atest_utils, 'get_build_out_dir')
-    def test_get_atest_merged_info_path(self, mock_out_dir):
+    @mock.patch.dict('os.environ',
+                     {constants.ANDROID_PRODUCT_OUT:'/test/output/'})
+    def test_get_atest_merged_info_path(self):
         """Test get_atest_merged_info_path."""
         expect_out = '/test/output/'
-        mock_out_dir.return_value = expect_out
-        expect_path = os.path.join(expect_out, 'soong',
-                                   module_info._MERGED_INFO)
+        expect_path = os.path.join(expect_out, module_info._MERGED_INFO)
         self.assertEqual(expect_path, module_info.ModuleInfo.get_atest_merged_info_path())
 
     @mock.patch.object(atest_utils, 'get_build_out_dir')
