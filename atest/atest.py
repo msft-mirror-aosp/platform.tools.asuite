@@ -43,6 +43,7 @@ import atest_configs
 import atest_error
 import atest_execution_info
 import atest_utils
+import bazel_mode
 import bug_detector
 import cli_translator
 import constants
@@ -757,6 +758,8 @@ def main(argv, results_dir, args):
     if args.rebuild_module_info:
         proc_idx = _run_multi_proc(INDEX_TARGETS)
         proc_idx.join()
+    if args.bazel_mode:
+        bazel_mode.generate_bazel_workspace(mod_info)
     translator = cli_translator.CLITranslator(
         module_info=mod_info,
         print_cache_msg=not args.clear_cache,
