@@ -728,6 +728,12 @@ class TestFinderUtilsUnittests(unittest.TestCase):
                                    'PathTesting.java')
         self.assertEqual(parent_cls,
                          test_finder_utils.get_parent_cls_name(target_java))
+        parent_cls = 'AtestClassKt'
+        target_java = os.path.join(uc.TEST_DATA_DIR,
+                                   'path_testing',
+                                   'PathTesting.kt')
+        self.assertEqual(parent_cls,
+                         test_finder_utils.get_parent_cls_name(target_java))
 
     def test_get_package_name(self):
         """Test get_package_name"""
