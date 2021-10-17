@@ -26,6 +26,8 @@ import sys
 import tempfile
 import time
 
+from pathlib import Path
+
 import atest_utils
 import constants
 
@@ -54,6 +56,7 @@ class ModuleInfo:
                          module_info file regardless if it's created or not.
             module_file: String of path to file to load up. Used for testing.
         """
+        self.mod_info_file_path = Path(module_file) if module_file else None
         module_info_target, name_to_module_info = self._load_module_info_file(
             force_build, module_file)
         self.name_to_module_info = name_to_module_info
@@ -125,6 +128,7 @@ class ModuleInfo:
         if not file_path:
             module_info_target, file_path = self._discover_mod_file_and_target(
                 force_build)
+            self.mod_info_file_path = Path(file_path)
         merged_file_path = self.get_atest_merged_info_path()
         if (not self.need_update_merged_file(force_build)
             and os.path.exists(merged_file_path)):
@@ -589,25 +593,27 @@ class ModuleInfo:
         Returns:
             String for atest_merged_dep.json.
         """
-        return os.path.join(atest_utils.get_build_out_dir(),
-                            'soong', _MERGED_INFO)
+        # Move the merged file to the same folder as module-info.json due to it
+        # will not be update if lunch target be changed.
+        return os.path.join(os.environ.get(constants.ANDROID_PRODUCT_OUT, ''),
+                            _MERGED_INFO)
 
     @staticmethod
     def get_java_dep_info_path():
-        """Returns the path for atest_merged_dep.json.
+        """Returns the path for module_bp_java_deps.json
 
         Returns:
-            String for atest_merged_dep.json.
+            String for module_bp_java_deps.json.
         """
         return os.path.join(atest_utils.get_build_out_dir(),
                             'soong', _JAVA_DEP_INFO)
 
     @staticmethod
     def get_cc_dep_info_path():
-        """Returns the path for atest_merged_dep.json.
+        """Returns the path for module_bp_cc_deps.json.
 
         Returns:
-            String for atest_merged_dep.json.
+            String for module_bp_cc_deps.json.
         """
         return os.path.join(atest_utils.get_build_out_dir(),
                             'soong', _CC_DEP_INFO)
@@ -624,16 +630,17 @@ class ModuleInfo:
     def need_update_merged_file(self, force_build=False):
         """Check if need to update/generated atest_merged_dep.
 
-        If force_build, always update merged info.
-        If not force build, if soong info exist but merged inforamtion not exist,
-        need to update merged file.
+        If force_build: always update merged info.
+        If not force build: only update merged info when soong info exists and
+            the merged info does not.
 
         Args:
-            force_build: Boolean to indicate that if user want to rebuild
-                         module_info file regardless if it's created or not.
+            force_build: Boolean that indicates if users want to arbitrarily
+            rebuild module_info file regardless of the existence of soong info
+            and the merged info.
 
         Returns:
-            True if atest_merged_dep should be updated, false otherwise.
+            True if atest_merged_dep.json should be updated, false otherwise.
         """
         return (force_build or
                 (self.has_soong_info() and
