@@ -339,11 +339,7 @@ class ModuleFinder(test_finder_base.TestFinderBase):
                     "Can't find CC class in %s" % path)
             class_info = test_finder_utils.get_cc_class_info(path)
             cc_filters = []
-            # When instantiate tests found, recompose the class name in
-            # $(InstantiationName)/$(ClassName)
-            for classname, info in class_info.items():
-                if info['prefixes']:
-                    classname = '*/%s' % classname
+            for classname, _ in class_info.items():
                 cc_filters.append(
                     test_info.TestFilter(
                         test_finder_utils.get_cc_filter(class_info, classname, methods),
