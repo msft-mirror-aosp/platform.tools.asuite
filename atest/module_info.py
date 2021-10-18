@@ -357,6 +357,8 @@ class ModuleInfo:
         """
         not_a_robo_test = 0
         module_name_info = self.get_module_info(module_name)
+        if not module_name_info:
+            return not_a_robo_test
         mod_path = module_name_info.get(constants.MODULE_PATH, [])
         if mod_path:
             # Check1: If the associated modules are "ROBOLECTRIC".
