@@ -943,6 +943,8 @@ def get_cc_filter(class_info, class_name, methods):
         A formatted string for cc filter.
         For a Type/Typed-parameterized test, it will be:
           "class1/*.method1:class1/*.method2" or "class1/*.*"
+        For a parameterized test, it will be:
+          "*/class1.*" or "prefix/class1.*"
         For the rest the pattern will be:
           "class1.method1:class1.method2" or "class1.*"
     """
@@ -952,6 +954,11 @@ def get_cc_filter(class_info, class_name, methods):
         _class_name = str(class_name).split('/')[-1]
     type_str = get_cc_class_type(class_info, _class_name)
     logging.debug('%s is a "%s".', _class_name, type_str)
+    # When found parameterized tests, recompose the class name
+    # in */$(ClassName) if the prefix is not given.
+    if type_str in (constants.GTEST_TYPED_PARAM, constants.GTEST_PARAM):
+        if not '/' in class_name:
+            class_name = '*/%s' % class_name
     if type_str in (constants.GTEST_TYPED, constants.GTEST_TYPED_PARAM):
         if methods:
             sorted_methods = sorted(list(methods))

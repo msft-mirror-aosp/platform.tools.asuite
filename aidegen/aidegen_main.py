@@ -488,6 +488,10 @@ def main(argv):
     ask_version = False
     try:
         args = _parse_args(argv)
+        # If the targets is the default value, sets it to the absolute path to
+        # avoid the issues caused by the empty path.
+        if args.targets == ['']:
+            args.targets = [os.path.abspath(os.getcwd())]
         if args.version:
             ask_version = True
             version_file = os.path.join(os.path.dirname(__file__),
