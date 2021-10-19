@@ -786,7 +786,8 @@ class TestFinderUtilsUnittests(unittest.TestCase):
         expect_methods.sort()
         self.assertEqual(expect_methods, real_methods)
 
-    @mock.patch.dict('os.environ', {constants.ANDROID_BUILD_TOP:'/'})
+    @mock.patch.dict('os.environ', {constants.ANDROID_BUILD_TOP:'/',
+                                    constants.ANDROID_PRODUCT_OUT:'/test/output/'})
     @mock.patch('os.path.isfile', side_effect=unittest_utils.isfile_side_effect)
     def test_get_test_config_use_androidtestxml(self, _isfile):
         """Test get_test_config_and_srcs using default AndroidTest.xml"""
@@ -799,7 +800,8 @@ class TestFinderUtilsUnittests(unittest.TestCase):
         result, _ = test_finder_utils.get_test_config_and_srcs(t_info, mod_info)
         self.assertEqual(expect_config, result)
 
-    @mock.patch.dict('os.environ', {constants.ANDROID_BUILD_TOP:'/'})
+    @mock.patch.dict('os.environ', {constants.ANDROID_BUILD_TOP:'/',
+                                    constants.ANDROID_PRODUCT_OUT:'/test/output/'})
     @mock.patch('os.path.isfile', side_effect=unittest_utils.isfile_side_effect)
     def test_get_test_config_single_config(self, _isfile):
         """Test get_test_config_and_srcs manualy set it's config"""
@@ -812,7 +814,8 @@ class TestFinderUtilsUnittests(unittest.TestCase):
         result, _ = test_finder_utils.get_test_config_and_srcs(t_info, mod_info)
         self.assertEqual(expect_config, result)
 
-    @mock.patch.dict('os.environ', {constants.ANDROID_BUILD_TOP:'/'})
+    @mock.patch.dict('os.environ', {constants.ANDROID_BUILD_TOP:'/',
+                                    constants.ANDROID_PRODUCT_OUT:'/test/output/'})
     @mock.patch('os.path.isfile', side_effect=unittest_utils.isfile_side_effect)
     def test_get_test_config_main_multiple_config(self, _isfile):
         """Test get_test_config_and_srcs which is the main module of multiple config"""
@@ -825,7 +828,8 @@ class TestFinderUtilsUnittests(unittest.TestCase):
         result, _ = test_finder_utils.get_test_config_and_srcs(t_info, mod_info)
         self.assertEqual(expect_config, result)
 
-    @mock.patch.dict('os.environ', {constants.ANDROID_BUILD_TOP:'/'})
+    @mock.patch.dict('os.environ', {constants.ANDROID_BUILD_TOP:'/',
+                                    constants.ANDROID_PRODUCT_OUT:'/test/output/'})
     @mock.patch('os.path.isfile', side_effect=unittest_utils.isfile_side_effect)
     def test_get_test_config_subtest_in_multiple_config(self, _isfile):
         """Test get_test_config_and_srcs not the main module of multiple config"""
