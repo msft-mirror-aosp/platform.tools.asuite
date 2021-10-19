@@ -143,7 +143,8 @@ class ModuleInfoUnittests(unittest.TestCase):
         self.assertTrue(mod_info.is_module(EXPECTED_MOD_TARGET))
         self.assertFalse(mod_info.is_module(UNEXPECTED_MOD_TARGET))
 
-    @mock.patch.dict('os.environ', {constants.ANDROID_BUILD_TOP:'/'})
+    @mock.patch.dict('os.environ', {constants.ANDROID_BUILD_TOP:'/',
+                                    constants.ANDROID_PRODUCT_OUT:'/test/output/'})
     def test_get_path(self):
         """Test that we get the module path when it's properly loaded."""
         # Load up the test json file and check that module is in it
@@ -152,7 +153,8 @@ class ModuleInfoUnittests(unittest.TestCase):
                          EXPECTED_MOD_TARGET_PATH)
         self.assertEqual(mod_info.get_paths(MOD_NO_PATH), [])
 
-    @mock.patch.dict('os.environ', {constants.ANDROID_BUILD_TOP:'/'})
+    @mock.patch.dict('os.environ', {constants.ANDROID_BUILD_TOP:'/',
+                                    constants.ANDROID_PRODUCT_OUT:'/test/output/'})
     def test_get_module_names(self):
         """test that we get the module name properly."""
         mod_info = module_info.ModuleInfo(module_file=JSON_FILE_PATH)
@@ -162,7 +164,8 @@ class ModuleInfoUnittests(unittest.TestCase):
             self, mod_info.get_module_names(PATH_TO_MULT_MODULES),
             MULT_MOODULES_WITH_SHARED_PATH)
 
-    @mock.patch.dict('os.environ', {constants.ANDROID_BUILD_TOP:'/'})
+    @mock.patch.dict('os.environ', {constants.ANDROID_BUILD_TOP:'/',
+                                    constants.ANDROID_PRODUCT_OUT:'/test/output/'})
     def test_path_to_mod_info(self):
         """test that we get the module name properly."""
         mod_info = module_info.ModuleInfo(module_file=JSON_FILE_PATH)
@@ -475,7 +478,8 @@ class ModuleInfoUnittests(unittest.TestCase):
         mod_info = module_info.ModuleInfo(module_file=JSON_FILE_PATH)
         self.assertTrue(mod_info.is_unit_test(maininfo_with_unittest))
 
-    @mock.patch.dict('os.environ', {constants.ANDROID_BUILD_TOP:os.path.dirname(__file__)})
+    @mock.patch.dict('os.environ', {constants.ANDROID_BUILD_TOP:os.path.dirname(__file__),
+                                    constants.ANDROID_PRODUCT_OUT:'/test/output/'})
     def test_has_mainline_modules(self):
         """Test has_mainline_modules."""
         name1 = 'MainModule1'
