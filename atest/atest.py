@@ -840,9 +840,6 @@ def main(argv, results_dir, args):
             result=int(build_duration))
         if not success:
             return constants.EXIT_CODE_BUILD_FAILURE
-        # Always reload module-info after build finish.
-        # TODO(b/178675689) Move it to a thread when running test.
-        mod_info.generate_atest_merged_dep_file()
         if proc_acloud:
             proc_acloud.join()
             status = at.probe_acloud_status(report_file)
