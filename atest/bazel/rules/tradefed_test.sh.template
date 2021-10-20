@@ -1,0 +1,27 @@
+#!/bin/bash
+set -e
+set -x
+
+TEST_MODULE="{module_name}"
+TEST_PATH="{tradefed_tests_dir}"
+ATEST_TF_LAUNCHER="{atest_tradefed_launcher}"
+SHARED_LIB_PATHS="{shared_lib_paths}"
+
+# Export variables expected by the Atest launcher script.
+export LD_LIBRARY_PATH="${SHARED_LIB_PATHS}"
+export TF_PATH="{tradefed_classpath}"
+
+exec "${ATEST_TF_LAUNCHER}" template/atest_local_min \
+    --template:map test=atest \
+    --tests-dir "${TEST_PATH}" \
+    --logcat-on-failure \
+    --no-enable-granular-attempts \
+    --no-early-device-release \
+    --include-filter "${TEST_MODULE}" \
+    --skip-loading-config-jar \
+    --log-level-display VERBOSE \
+    --log-level VERBOSE \
+    -n \
+    --prioritize-host-config \
+    --skip-host-arch-check \
+    "$@"
