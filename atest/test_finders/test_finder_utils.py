@@ -91,7 +91,11 @@ _PARAMET_JAVA_CLASS_RE = re.compile(
     r'^\s*@RunWith\s*\(\s*(Parameterized|TestParameterInjector|'
     r'JUnitParamsRunner|DataProviderRunner|JukitoRunner|Theories|BedsteadJUnit4'
     r').class\s*\)', re.I)
-_PARENT_CLS_RE = re.compile(r'.*class\s+\w+\s+extends\s+(?P<parent>[\w\.]+.*)\s\{')
+# RE for Java/Kt parent classes:
+# Java:   class A extends B {...}
+# Kotlin: class A : B (...)
+_PARENT_CLS_RE = re.compile(r'.*class\s+\w+\s+(?:extends|:)\s+'
+                            r'(?P<parent>[\w\.]+)\s*(?:\{|\()')
 
 # Explanation of FIND_REFERENCE_TYPEs:
 # ----------------------------------
@@ -277,10 +281,10 @@ def get_package_name(file_name):
 
 
 def get_parent_cls_name(file_name):
-    """Parse the parent class name from a java file.
+    """Parse the parent class name from a java/kt file.
 
     Args:
-        file_name: A string of the absolute path to the java file.
+        file_name: A string of the absolute path to the javai/kt file.
 
     Returns:
         A string of the parent class name or None
@@ -939,6 +943,8 @@ def get_cc_filter(class_info, class_name, methods):
         A formatted string for cc filter.
         For a Type/Typed-parameterized test, it will be:
           "class1/*.method1:class1/*.method2" or "class1/*.*"
+        For a parameterized test, it will be:
+          "*/class1.*" or "prefix/class1.*"
         For the rest the pattern will be:
           "class1.method1:class1.method2" or "class1.*"
     """
@@ -948,6 +954,11 @@ def get_cc_filter(class_info, class_name, methods):
         _class_name = str(class_name).split('/')[-1]
     type_str = get_cc_class_type(class_info, _class_name)
     logging.debug('%s is a "%s".', _class_name, type_str)
+    # When found parameterized tests, recompose the class name
+    # in */$(ClassName) if the prefix is not given.
+    if type_str in (constants.GTEST_TYPED_PARAM, constants.GTEST_PARAM):
+        if not '/' in class_name:
+            class_name = '*/%s' % class_name
     if type_str in (constants.GTEST_TYPED, constants.GTEST_TYPED_PARAM):
         if methods:
             sorted_methods = sorted(list(methods))
