@@ -38,6 +38,8 @@ import sysconfig
 import time
 import zipfile
 
+from multiprocessing import Process
+
 import xml.etree.ElementTree as ET
 
 from distutils.util import strtobool
@@ -1573,3 +1575,19 @@ def generate_buildfiles_checksum():
         except subprocess.CalledProcessError:
             logging.error('Failed to generate %s',
                           constants.BUILDFILES_MD5)
+
+def run_multi_proc(func, *args, **kwargs):
+    """Start a process with multiprocessing and return Process object.
+
+    Args:
+        func: A string of function name which will be the target name.
+        args/kwargs: check doc page:
+        https://docs.python.org/3.8/library/multiprocessing.html#process-and-exceptions
+
+    Returns:
+        multiprocessing.Process object.
+    """
+
+    proc = Process(target=func, *args, **kwargs)
+    proc.start()
+    return proc
