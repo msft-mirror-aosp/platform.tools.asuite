@@ -145,25 +145,25 @@ def _get_test_reference_types(ref):
     """
     if ref.startswith('.') or '..' in ref:
         return [_REFERENCE_TYPE.CACHE,
-                _REFERENCE_TYPE.INTEGRATION_FILE_PATH,
                 _REFERENCE_TYPE.MODULE_FILE_PATH,
+                _REFERENCE_TYPE.INTEGRATION_FILE_PATH,
                 _REFERENCE_TYPE.SUITE_PLAN_FILE_PATH]
     if '/' in ref:
         if ref.startswith('/'):
             return [_REFERENCE_TYPE.CACHE,
-                    _REFERENCE_TYPE.INTEGRATION_FILE_PATH,
                     _REFERENCE_TYPE.MODULE_FILE_PATH,
+                    _REFERENCE_TYPE.INTEGRATION_FILE_PATH,
                     _REFERENCE_TYPE.SUITE_PLAN_FILE_PATH]
         if ':' in ref:
             return [_REFERENCE_TYPE.CACHE,
-                    _REFERENCE_TYPE.INTEGRATION_FILE_PATH,
                     _REFERENCE_TYPE.MODULE_FILE_PATH,
+                    _REFERENCE_TYPE.INTEGRATION_FILE_PATH,
                     _REFERENCE_TYPE.INTEGRATION,
                     _REFERENCE_TYPE.SUITE_PLAN_FILE_PATH,
                     _REFERENCE_TYPE.MODULE_CLASS]
         return [_REFERENCE_TYPE.CACHE,
-                _REFERENCE_TYPE.INTEGRATION_FILE_PATH,
                 _REFERENCE_TYPE.MODULE_FILE_PATH,
+                _REFERENCE_TYPE.INTEGRATION_FILE_PATH,
                 _REFERENCE_TYPE.INTEGRATION,
                 _REFERENCE_TYPE.SUITE_PLAN_FILE_PATH,
                 _REFERENCE_TYPE.CC_CLASS,
@@ -180,15 +180,15 @@ def _get_test_reference_types(ref):
             if ref_end_is_upper:
                 # Module:fully.qualified.Class or Integration:fully.q.Class
                 return [_REFERENCE_TYPE.CACHE,
-                        _REFERENCE_TYPE.INTEGRATION,
-                        _REFERENCE_TYPE.MODULE_CLASS]
+                        _REFERENCE_TYPE.MODULE_CLASS,
+                        _REFERENCE_TYPE.INTEGRATION]
             # Module:some.package
             return [_REFERENCE_TYPE.CACHE, _REFERENCE_TYPE.MODULE_PACKAGE,
                     _REFERENCE_TYPE.MODULE_CLASS]
         # Module:Class or IntegrationName:Class
         return [_REFERENCE_TYPE.CACHE,
-                _REFERENCE_TYPE.INTEGRATION,
-                _REFERENCE_TYPE.MODULE_CLASS]
+                _REFERENCE_TYPE.MODULE_CLASS,
+                _REFERENCE_TYPE.INTEGRATION]
     if '.' in ref:
         # The string of ref_end possibly includes specific mathods, e.g.
         # foo.java#method, so let ref_end be the first part of splitting '#'.
@@ -209,10 +209,10 @@ def _get_test_reference_types(ref):
     # that file must have a '.' in its name, i.e. foo.java, foo.xml.
     # If this ever becomes not the case, then we need to include path below.
     return [_REFERENCE_TYPE.CACHE,
+            _REFERENCE_TYPE.MODULE,
             _REFERENCE_TYPE.INTEGRATION,
             # TODO: Uncomment in SUITE when it's supported
             # _REFERENCE_TYPE.SUITE,
-            _REFERENCE_TYPE.MODULE,
             _REFERENCE_TYPE.CONFIG,
             _REFERENCE_TYPE.SUITE_PLAN,
             _REFERENCE_TYPE.CLASS,
