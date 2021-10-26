@@ -123,7 +123,8 @@ class TestRunnerHandlerUnittests(unittest.TestCase):
             test_runner_handler.get_test_runner_reqs(empty_module_info,
                                                      test_infos))
 
-    @mock.patch.dict('os.environ', {constants.ANDROID_BUILD_TOP:'/'})
+    @mock.patch.dict('os.environ', {constants.ANDROID_BUILD_TOP:'/',
+                                    constants.ANDROID_PRODUCT_OUT:'/test/output'})
     @mock.patch.object(metrics, 'RunnerFinishEvent')
     def test_run_all_tests(self, _mock_runner_finish):
         """Test that the return value as we expected."""
