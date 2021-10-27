@@ -28,7 +28,7 @@ import shutil
 from abc import ABC, abstractmethod
 from collections import defaultdict, namedtuple, OrderedDict
 from pathlib import Path
-from typing import Any, IO
+from typing import IO
 
 import atest_utils
 import constants
@@ -228,7 +228,7 @@ class SoongPrebuiltTarget(Target):
     """Class for generating a Soong prebuilt target on disk."""
 
     @staticmethod
-    def create(gen: WorkspaceGenerator, info: dict[str, Any]):
+    def create(gen: WorkspaceGenerator, info: 'dict[str, Any]'):
         module_name = info['module_name']
 
         configs = [
@@ -245,7 +245,7 @@ class SoongPrebuiltTarget(Target):
 
         return SoongPrebuiltTarget(module_name, config_files)
 
-    def __init__(self, name: str, config_files: dict[Config, list[Path]]):
+    def __init__(self, name: str, config_files: 'dict[Config, list[Path]]'):
         self._name = name
         self.config_files = config_files
 
@@ -288,7 +288,7 @@ class SoongPrebuiltTarget(Target):
 
 
 def group_paths_by_config(
-    configs: list[Config], paths: list[Path]) -> dict[Config, list[Path]]:
+    configs: 'list[Config]', paths: 'list[Path]') -> 'dict[Config, list[Path]]':
 
     config_files = defaultdict(list)
 
@@ -306,7 +306,7 @@ def group_paths_by_config(
 
 
 def get_module_installed_paths(
-    info: dict[str, Any], src_root_path: Path) -> list[Path]:
+    info: 'dict[str, Any]', src_root_path: Path) -> 'list[Path]':
 
     # Install paths in module-info are usually relative to the Android
     # source root ${ANDROID_BUILD_TOP}. When the output directory is
