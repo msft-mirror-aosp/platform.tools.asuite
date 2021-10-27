@@ -754,6 +754,8 @@ def main(argv, results_dir, args):
         os=os_pyver)
     _non_action_validator(args)
     proc_acloud, report_file = acloud_create_validator(results_dir, args)
+    is_clean = not os.path.exists(
+        os.environ.get(constants.ANDROID_PRODUCT_OUT, ''))
     mod_info = module_info.ModuleInfo(force_build=args.rebuild_module_info)
     if args.rebuild_module_info:
         proc_idx = _run_multi_proc(INDEX_TARGETS)
@@ -825,7 +827,9 @@ def main(argv, results_dir, args):
             success=success,
             targets=build_targets)
         rebuild_module_info = constants.DETECT_TYPE_NOT_REBUILD_MODULE_INFO
-        if args.rebuild_module_info:
+        if is_clean:
+            rebuild_module_info = constants.DETECT_TYPE_CLEAN_BUILD
+        elif args.rebuild_module_info:
             rebuild_module_info = constants.DETECT_TYPE_REBUILD_MODULE_INFO
         metrics.LocalDetectEvent(
             detect_type=rebuild_module_info,
