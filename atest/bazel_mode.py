@@ -114,7 +114,8 @@ class WorkspaceGenerator:
         path = self._get_module_path(module_name, info)
 
         package = self.path_to_package.setdefault(path, Package(path))
-        package.add_target(SoongPrebuiltTarget.create(self, info))
+        package.add_target(SoongPrebuiltTarget.create(
+            self, info, self.mod_info.is_testable_module(info)))
 
     def _get_module_info(self, module_name: str) -> {str:[str]}:
         info = self.mod_info.get_module_info(module_name)
@@ -208,7 +209,7 @@ Config = namedtuple('Config', ['name', 'out_path'])
 
 
 class Target(ABC):
-    """Class for generating a Soong prebuilt target on disk."""
+    """Abstract class for a Bazel target."""
 
     @abstractmethod
     def name(self):
@@ -228,7 +229,8 @@ class SoongPrebuiltTarget(Target):
     """Class for generating a Soong prebuilt target on disk."""
 
     @staticmethod
-    def create(gen: WorkspaceGenerator, info: 'dict[str, Any]'):
+    def create(gen: WorkspaceGenerator, info: 'dict[str, Any]',
+               test_module=False):
         module_name = info['module_name']
 
         configs = [
@@ -238,6 +240,12 @@ class SoongPrebuiltTarget(Target):
 
         installed_paths = get_module_installed_paths(info, gen.src_root_path)
         config_files = group_paths_by_config(configs, installed_paths)
+
+        # For test modules, we only create symbolic link to the 'testcases'
+        # directory since the information in module-info is not accurate.
+        if test_module:
+            config_files = {c: [c.out_path.joinpath(f'testcases/{module_name}')]
+                            for c in config_files.keys()}
 
         if not config_files:
             raise Exception(f'Module `{module_name}` does not have any'
@@ -295,7 +303,8 @@ def group_paths_by_config(
     for f in paths:
         matching_configs = [c for c in configs if f.is_relative_to(c.out_path)]
 
-        # TODO(hzalek): Fix message.
+        # The path can only appear in ANDROID_HOST_OUT for host target or
+        # ANDROID_PRODUCT_OUT, but cannot appear in both.
         if len(matching_configs) != 1:
             raise Exception(f'Installed path `{f}` is not in'
                             f' ANDROID_HOST_OUT or ANDROID_PRODUCT_OUT')
