@@ -501,6 +501,51 @@ class SoongPrebuiltTargetTest(fake_filesystem_unittest.TestCase):
 
         self.assertFalse(module_out_path.joinpath('host').exists())
 
+    def test_create_symlinks_to_testcases_for_test_module(self):
+        module_name = 'libhello'
+        module = self.create_module(module_name)
+        module['installed'] = [
+            str(self.host_out_path.joinpath('a/b/f1')),
+            str(self.product_out_path.joinpath('a/b/f1')),
+        ]
+        target = self.create_target(module, test_module=True)
+        module_out_path = self.out_dir_path.joinpath(module_name)
+
+        target.create_filesystem_layout(self.out_dir_path)
+
+        self.assertSymlinkTo(
+            module_out_path.joinpath(f'host/testcases/{module_name}'),
+            self.host_out_path.joinpath(f'testcases/{module_name}'))
+        self.assertSymlinkTo(
+            module_out_path.joinpath(f'device/testcases/{module_name}'),
+            self.product_out_path.joinpath(f'testcases/{module_name}'))
+
+    def test_not_create_device_symlinks_for_host_test_module(self):
+        module_name = 'libhello'
+        module = self.create_module(module_name)
+        module['installed'] = [
+            str(self.host_out_path.joinpath('a/b/f1')),
+        ]
+        target = self.create_target(module, test_module=True)
+        module_out_path = self.out_dir_path.joinpath(module_name)
+
+        target.create_filesystem_layout(self.out_dir_path)
+
+        self.assertFalse(module_out_path.joinpath('device').exists())
+
+    def test_not_create_host_symlinks_for_device_test_module(self):
+        module_name = 'libhello'
+        module = self.create_module(module_name)
+        module['installed'] = [
+            str(self.product_out_path.joinpath('a/b/f1')),
+        ]
+        target = self.create_target(module, test_module=True)
+        module_out_path = self.out_dir_path.joinpath(module_name)
+
+        target.create_filesystem_layout(self.out_dir_path)
+
+        self.assertFalse(module_out_path.joinpath('host').exists())
+
     def assertSymlinkTo(self, symlink_path, target_path):
         self.assertEqual(symlink_path.resolve(strict=False), target_path)
 
@@ -539,8 +584,9 @@ class SoongPrebuiltTargetTest(fake_filesystem_unittest.TestCase):
 
         return module
 
-    def create_target(self, module):
-        return bazel_mode.SoongPrebuiltTarget.create(self.gen, module)
+    def create_target(self, module, test_module=False):
+        return bazel_mode.SoongPrebuiltTarget.create(self.gen, module,
+                                                     test_module)
 
 
 class DecorateFinderMethodTest(fake_filesystem_unittest.TestCase):
