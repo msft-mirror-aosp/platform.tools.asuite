@@ -28,7 +28,7 @@ import shutil
 from abc import ABC, abstractmethod
 from collections import defaultdict, namedtuple, OrderedDict
 from pathlib import Path
-from typing import Any, IO
+from typing import IO
 
 import atest_utils
 import constants
@@ -114,7 +114,8 @@ class WorkspaceGenerator:
         path = self._get_module_path(module_name, info)
 
         package = self.path_to_package.setdefault(path, Package(path))
-        package.add_target(SoongPrebuiltTarget.create(self, info))
+        package.add_target(SoongPrebuiltTarget.create(
+            self, info, self.mod_info.is_testable_module(info)))
 
     def _get_module_info(self, module_name: str) -> {str:[str]}:
         info = self.mod_info.get_module_info(module_name)
@@ -208,7 +209,7 @@ Config = namedtuple('Config', ['name', 'out_path'])
 
 
 class Target(ABC):
-    """Class for generating a Soong prebuilt target on disk."""
+    """Abstract class for a Bazel target."""
 
     @abstractmethod
     def name(self):
@@ -228,7 +229,8 @@ class SoongPrebuiltTarget(Target):
     """Class for generating a Soong prebuilt target on disk."""
 
     @staticmethod
-    def create(gen: WorkspaceGenerator, info: dict[str, Any]):
+    def create(gen: WorkspaceGenerator, info: 'dict[str, Any]',
+               test_module=False):
         module_name = info['module_name']
 
         configs = [
@@ -239,13 +241,19 @@ class SoongPrebuiltTarget(Target):
         installed_paths = get_module_installed_paths(info, gen.src_root_path)
         config_files = group_paths_by_config(configs, installed_paths)
 
+        # For test modules, we only create symbolic link to the 'testcases'
+        # directory since the information in module-info is not accurate.
+        if test_module:
+            config_files = {c: [c.out_path.joinpath(f'testcases/{module_name}')]
+                            for c in config_files.keys()}
+
         if not config_files:
             raise Exception(f'Module `{module_name}` does not have any'
                             f' installed paths')
 
         return SoongPrebuiltTarget(module_name, config_files)
 
-    def __init__(self, name: str, config_files: dict[Config, list[Path]]):
+    def __init__(self, name: str, config_files: 'dict[Config, list[Path]]'):
         self._name = name
         self.config_files = config_files
 
@@ -288,14 +296,15 @@ class SoongPrebuiltTarget(Target):
 
 
 def group_paths_by_config(
-    configs: list[Config], paths: list[Path]) -> dict[Config, list[Path]]:
+    configs: 'list[Config]', paths: 'list[Path]') -> 'dict[Config, list[Path]]':
 
     config_files = defaultdict(list)
 
     for f in paths:
         matching_configs = [c for c in configs if f.is_relative_to(c.out_path)]
 
-        # TODO(hzalek): Fix message.
+        # The path can only appear in ANDROID_HOST_OUT for host target or
+        # ANDROID_PRODUCT_OUT, but cannot appear in both.
         if len(matching_configs) != 1:
             raise Exception(f'Installed path `{f}` is not in'
                             f' ANDROID_HOST_OUT or ANDROID_PRODUCT_OUT')
@@ -306,7 +315,7 @@ def group_paths_by_config(
 
 
 def get_module_installed_paths(
-    info: dict[str, Any], src_root_path: Path) -> list[Path]:
+    info: 'dict[str, Any]', src_root_path: Path) -> 'list[Path]':
 
     # Install paths in module-info are usually relative to the Android
     # source root ${ANDROID_BUILD_TOP}. When the output directory is
