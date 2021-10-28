@@ -28,7 +28,7 @@ import shutil
 from abc import ABC, abstractmethod
 from collections import defaultdict, namedtuple, OrderedDict
 from pathlib import Path
-from typing import IO
+from typing import Any, Dict, IO, List, Set
 
 import atest_utils
 import constants
@@ -215,7 +215,7 @@ class Target(ABC):
     def name(self):
         pass
 
-    def required_imports(self) -> 'set[Import]':
+    def required_imports(self) -> Set[Import]:
         return set()
 
     def write_to_build_file(self, f: IO):
@@ -229,7 +229,7 @@ class SoongPrebuiltTarget(Target):
     """Class for generating a Soong prebuilt target on disk."""
 
     @staticmethod
-    def create(gen: WorkspaceGenerator, info: 'dict[str, Any]',
+    def create(gen: WorkspaceGenerator, info: Dict[str, Any],
                test_module=False):
         module_name = info['module_name']
 
@@ -253,14 +253,14 @@ class SoongPrebuiltTarget(Target):
 
         return SoongPrebuiltTarget(module_name, config_files)
 
-    def __init__(self, name: str, config_files: 'dict[Config, list[Path]]'):
+    def __init__(self, name: str, config_files: Dict[Config, List[Path]]):
         self._name = name
         self.config_files = config_files
 
     def name(self):
         return self._name
 
-    def required_imports(self) -> 'set[Import]':
+    def required_imports(self) -> Set[Import]:
         return {
             Import('//bazel/rules:soong_prebuilt.bzl', 'soong_prebuilt'),
         }
@@ -296,12 +296,13 @@ class SoongPrebuiltTarget(Target):
 
 
 def group_paths_by_config(
-    configs: 'list[Config]', paths: 'list[Path]') -> 'dict[Config, list[Path]]':
+    configs: List[Config], paths: List[Path]) -> Dict[Config, List[Path]]:
 
     config_files = defaultdict(list)
 
     for f in paths:
-        matching_configs = [c for c in configs if f.is_relative_to(c.out_path)]
+        matching_configs = [
+            c for c in configs if _is_relative_to(f, c.out_path)]
 
         # The path can only appear in ANDROID_HOST_OUT for host target or
         # ANDROID_PRODUCT_OUT, but cannot appear in both.
@@ -314,8 +315,19 @@ def group_paths_by_config(
     return config_files
 
 
+def _is_relative_to(path1: Path, path2: Path) -> bool:
+    """Return True if the path is relative to another path or False."""
+    # Note that this implementation is required because Path.is_relative_to only
+    # exists starting with Python 3.9.
+    try:
+        path1.relative_to(path2)
+        return True
+    except ValueError:
+        return False
+
+
 def get_module_installed_paths(
-    info: 'dict[str, Any]', src_root_path: Path) -> 'list[Path]':
+    info: Dict[str, Any], src_root_path: Path) -> List[Path]:
 
     # Install paths in module-info are usually relative to the Android
     # source root ${ANDROID_BUILD_TOP}. When the output directory is
