@@ -195,11 +195,13 @@ def _get_cc_result(locatedb=None):
     if not locatedb:
         locatedb = constants.LOCATE_CACHE
     if OSNAME == MACOSX:
+        # (b/204398677) suppress stderr when indexing target terminated because
+        # the main process has exited. (daemon=True)
         find_cmd = (r"locate -d {0} '*.cpp' '*.cc' | grep -i test "
-                    "| xargs egrep -sH '{1}' || true")
+                    "| xargs egrep -sH '{1}' 2>/dev/null || true")
     else:
         find_cmd = (r"locate -d {0} / | egrep -i '/*.test.*\.(cc|cpp)$' "
-                    "| xargs egrep -sH '{1}' || true")
+                    "| xargs egrep -sH '{1}' 2>/dev/null || true")
     find_cc_cmd = find_cmd.format(locatedb, constants.CC_GREP_RE)
     logging.debug('Probing CC classes:\n %s', find_cc_cmd)
     return subprocess.check_output(find_cc_cmd, shell=True)
@@ -217,7 +219,9 @@ def _get_java_result(locatedb=None):
         find_cmd = r"locate -d%s '*.java' '*.kt'|grep -i test" % locatedb
     else:
         find_cmd = r"locate -d%s / | egrep -i '/*.test.*\.(java|kt)$'" % locatedb
-    find_java_cmd = find_cmd + '| xargs egrep -sH \'%s\' || true' % package_grep_re
+    # (b/204398677) suppress stderr when indexing target terminated because
+    # the main process has exited. (daemon=True)
+    find_java_cmd = find_cmd + '| xargs egrep -sH \'%s\' 2>/dev/null|| true' % package_grep_re
     logging.debug('Probing Java classes:\n %s', find_java_cmd)
     return subprocess.check_output(find_java_cmd, shell=True)
 
