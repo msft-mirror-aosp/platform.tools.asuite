@@ -356,6 +356,25 @@ class PackageTest(fake_filesystem_unittest.TestCase):
                                                 'BUILD.bazel').read_text()
 
 
+class DevicelessTestTargetTest(unittest.TestCase):
+    """Tests for DevicelessTestTarget."""
+
+    def test_write_to_build_file(self):
+        module_name = 'hello_test'
+        target = bazel_mode.DevicelessTestTarget.create_for_test_target(
+            module_name)
+        f = io.StringIO()
+
+        target.write_to_build_file(f)
+
+        self.assertIn(
+            'tradefed_deviceless_test(\n'
+            '    name = "hello_test_host",\n'
+            '    test = ":hello_test",\n'
+            ')',
+            f.getvalue())
+
+
 class SoongPrebuiltTargetTest(fake_filesystem_unittest.TestCase):
     """Tests for SoongPrebuiltTarget."""
 
@@ -502,7 +521,7 @@ class SoongPrebuiltTargetTest(fake_filesystem_unittest.TestCase):
         self.assertFalse(module_out_path.joinpath('host').exists())
 
     def test_create_symlinks_to_testcases_for_test_module(self):
-        module_name = 'libhello'
+        module_name = 'hello_test'
         module = self.create_module(module_name)
         module['installed'] = [
             str(self.host_out_path.joinpath('a/b/f1')),
@@ -521,7 +540,7 @@ class SoongPrebuiltTargetTest(fake_filesystem_unittest.TestCase):
             self.product_out_path.joinpath(f'testcases/{module_name}'))
 
     def test_not_create_device_symlinks_for_host_test_module(self):
-        module_name = 'libhello'
+        module_name = 'hello_test'
         module = self.create_module(module_name)
         module['installed'] = [
             str(self.host_out_path.joinpath('a/b/f1')),
@@ -534,7 +553,7 @@ class SoongPrebuiltTargetTest(fake_filesystem_unittest.TestCase):
         self.assertFalse(module_out_path.joinpath('device').exists())
 
     def test_not_create_host_symlinks_for_device_test_module(self):
-        module_name = 'libhello'
+        module_name = 'hello_test'
         module = self.create_module(module_name)
         module['installed'] = [
             str(self.product_out_path.joinpath('a/b/f1')),
