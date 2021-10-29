@@ -225,6 +225,37 @@ class Target(ABC):
         pass
 
 
+class DevicelessTestTarget(Target):
+    """Class for generating a deviceless test target."""
+
+    @staticmethod
+    def create_for_test_target(test_target_name):
+        return DevicelessTestTarget(f'{test_target_name}_host',
+                                    test_target_name)
+
+    def __init__(self, name: str, test_target_name: str):
+        self._name = name
+        self._test_target_name = test_target_name
+
+    def name(self):
+        return self._name
+
+    def required_imports(self) -> Set[Import]:
+        return {
+            Import('//bazel/rules:tradefed_test.bzl',
+                   'tradefed_deviceless_test'),
+        }
+
+    def write_to_build_file(self, f: IO):
+        def fprint(text):
+            print(text, file=f)
+
+        fprint('tradefed_deviceless_test(')
+        fprint(f'    name = "{self._name}",')
+        fprint(f'    test = ":{self._test_target_name}",')
+        fprint(')')
+
+
 class SoongPrebuiltTarget(Target):
     """Class for generating a Soong prebuilt target on disk."""
 
