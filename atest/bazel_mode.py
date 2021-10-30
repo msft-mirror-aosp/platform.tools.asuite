@@ -98,6 +98,7 @@ class WorkspaceGenerator:
             shutil.rmtree(self.workspace_out_path)
 
         self._add_prerequisite_module_targets()
+        self._add_test_module_targets()
 
         self.workspace_out_path.mkdir(parents=True)
         self._generate_artifacts()
@@ -107,15 +108,35 @@ class WorkspaceGenerator:
 
     def _add_prerequisite_module_targets(self):
         for module_name in self.prerequisite_modules:
-            self._add_soong_prebuilt_target(module_name)
+            self._add_target(module_name)
 
-    def _add_soong_prebuilt_target(self, module_name: str):
+    def _add_test_module_targets(self):
+        for name, info in self.mod_info.name_to_module_info.items():
+            # Ignore modules that have a 'host_cross_' prefix since they are
+            # duplicates of existing modules. For example,
+            # 'host_cross_aapt2_tests' is a duplicate of 'aapt2_tests'. We also
+            # ignore modules with a '_32' suffix since these also are redundant
+            # given that modules have both 32 and 64-bit variants built by
+            # default. See b/77288544#comment6 and b/23566667 for more context.
+            if name.endswith("_32") or name.startswith("host_cross_"):
+                continue
+            if not self.is_host_unit_test(info):
+                continue
+            if not self.mod_info.is_testable_module(info):
+                continue
+            self._add_target(name)
+
+    def _add_target(self, module_name):
         info = self._get_module_info(module_name)
         path = self._get_module_path(module_name, info)
 
         package = self.path_to_package.setdefault(path, Package(path))
         package.add_target(SoongPrebuiltTarget.create(
             self, info, self.mod_info.is_testable_module(info)))
+
+        if self.is_host_unit_test(info):
+            package.add_target(DevicelessTestTarget.create_for_test_target(
+                module_name))
 
     def _get_module_info(self, module_name: str) -> {str:[str]}:
         info = self.mod_info.get_module_info(module_name)
@@ -126,7 +147,7 @@ class WorkspaceGenerator:
 
         return info
 
-    def _get_module_path(self, module_name: str, info: {str:[str]}) -> str:
+    def _get_module_path(self, module_name: str, info: Dict[str, Any]) -> str:
         mod_path = info.get(constants.MODULE_PATH)
 
         if len(mod_path) != 1:
@@ -137,6 +158,10 @@ class WorkspaceGenerator:
                             f' path: {mod_path}')
 
         return mod_path[0]
+
+    def is_host_unit_test(self, info: Dict[str, Any]) -> bool:
+        return self.mod_info.is_suite_in_compatibility_suites(
+            'host-unit-tests', info)
 
     def _generate_artifacts(self):
         """Generate workspace files on disk."""
@@ -223,6 +248,37 @@ class Target(ABC):
 
     def create_filesystem_layout(self, package_dir: Path):
         pass
+
+
+class DevicelessTestTarget(Target):
+    """Class for generating a deviceless test target."""
+
+    @staticmethod
+    def create_for_test_target(test_target_name):
+        return DevicelessTestTarget(f'{test_target_name}_host',
+                                    test_target_name)
+
+    def __init__(self, name: str, test_target_name: str):
+        self._name = name
+        self._test_target_name = test_target_name
+
+    def name(self):
+        return self._name
+
+    def required_imports(self) -> Set[Import]:
+        return {
+            Import('//bazel/rules:tradefed_test.bzl',
+                   'tradefed_deviceless_test'),
+        }
+
+    def write_to_build_file(self, f: IO):
+        def fprint(text):
+            print(text, file=f)
+
+        fprint('tradefed_deviceless_test(')
+        fprint(f'    name = "{self._name}",')
+        fprint(f'    test = ":{self._test_target_name}",')
+        fprint(')')
 
 
 class SoongPrebuiltTarget(Target):
