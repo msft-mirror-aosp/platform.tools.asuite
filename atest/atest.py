@@ -754,10 +754,12 @@ def main(argv, results_dir, args):
         os=os_pyver)
     _non_action_validator(args)
     proc_acloud, report_file = acloud_create_validator(results_dir, args)
+    is_clean = not os.path.exists(
+        os.environ.get(constants.ANDROID_PRODUCT_OUT, ''))
+    # daemon=True keeps the task working in the background without blocking the
+    # main proress exiting.
+    _run_multi_proc(INDEX_TARGETS, daemon=True)
     mod_info = module_info.ModuleInfo(force_build=args.rebuild_module_info)
-    if args.rebuild_module_info:
-        proc_idx = _run_multi_proc(INDEX_TARGETS)
-        proc_idx.join()
     if args.bazel_mode:
         bazel_mode.generate_bazel_workspace(mod_info)
     translator = cli_translator.CLITranslator(
@@ -808,10 +810,6 @@ def main(argv, results_dir, args):
     # args.steps will be None if none of -bit set, else list of params set.
     steps = args.steps if args.steps else constants.ALL_STEPS
     if build_targets and constants.BUILD_STEP in steps:
-        if constants.TEST_STEP in steps and not args.rebuild_module_info:
-            # Run extra tasks along with build step concurrently. Note that
-            # Atest won't index targets when only "-b" is given(without -t).
-            proc_idx = _run_multi_proc(INDEX_TARGETS, daemon=True)
         # Add module-info.json target to the list of build targets to keep the
         # file up to date.
         build_targets.add(mod_info.module_info_target)
@@ -825,7 +823,9 @@ def main(argv, results_dir, args):
             success=success,
             targets=build_targets)
         rebuild_module_info = constants.DETECT_TYPE_NOT_REBUILD_MODULE_INFO
-        if args.rebuild_module_info:
+        if is_clean:
+            rebuild_module_info = constants.DETECT_TYPE_CLEAN_BUILD
+        elif args.rebuild_module_info:
             rebuild_module_info = constants.DETECT_TYPE_REBUILD_MODULE_INFO
         metrics.LocalDetectEvent(
             detect_type=rebuild_module_info,
