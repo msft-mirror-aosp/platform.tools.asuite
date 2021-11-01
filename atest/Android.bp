@@ -200,8 +200,6 @@ python_test_host {
         "unittest_data/**/.*",
     ],
     exclude_srcs: [
-        // (b/204140931) Add back bazel_mode_unittest.py.
-        "bazel_mode_unittest.py",
         "asuite_lib_test/*.py",
         "proto/*_pb2.py",
         "proto/__init__.py",
