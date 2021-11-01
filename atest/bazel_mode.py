@@ -76,6 +76,7 @@ class WorkspaceGenerator:
             'mod_info_md5')
         self.path_to_package = {}
         self.prerequisite_modules = {
+            'adb',
             'tradefed',
             'tradefed-contrib',
             'tradefed-test-framework',
