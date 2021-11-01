@@ -77,19 +77,19 @@ tradefed_deviceless_test = rule(
             cfg = host_transition,
         ),
         "_atest_tradefed_launcher": attr.label(
-            default = "//tools/asuite/atest:atest-tradefed-launcher",
+            default = "//tools/asuite/atest:atest_tradefed.sh",
             allow_single_file = True,
             cfg = host_transition,
         ),
         "_atest_deps": attr.label_list(
             default = [
-                "//tools/asuite/atest:atest-script-help",
+                "//tools/asuite/atest:atest_script_help.sh",
             ],
             allow_files = True,
             cfg = host_transition,
         ),
         "_adb": attr.label(
-            default = "//system/core/adb:adb",
+            default = "//packages/modules/adb:adb",
             allow_single_file = True,
             cfg = host_transition,
         ),
