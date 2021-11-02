@@ -1103,8 +1103,7 @@ def is_test_from_kernel_xml(xml_file, test_name):
         True if test_name in xml_file, False otherwise.
     """
     if not os.path.exists(xml_file):
-        raise atest_error.XmlNotExistError('%s: The xml file does'
-                                           'not exist' % xml_file)
+        return False
     xml_root = ET.parse(xml_file).getroot()
     option_tags = xml_root.findall('.//option')
     for option_tag in option_tags:
