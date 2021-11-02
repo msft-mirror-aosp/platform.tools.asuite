@@ -16,7 +16,9 @@
 
 """Unittests for test_finder_utils."""
 
+# pylint: disable=invalid-name
 # pylint: disable=line-too-long
+# pylint: disable=missing-function-docstring
 
 import os
 import tempfile
@@ -841,6 +843,15 @@ class TestFinderUtilsUnittests(unittest.TestCase):
             android_root, uc.MULTIPLE_CONFIG_PATH, uc.SUB_CONFIG_NAME_2)
         result, _ = test_finder_utils.get_test_config_and_srcs(t_info, mod_info)
         self.assertEqual(expect_config, result)
+
+    def test_is_test_from_kernel_xml_input_xml_not_exist_return_false(self):
+        not_exist_xml = 'not/exist/xml/path'
+        test_name = 'test_name'
+
+        exist = test_finder_utils.is_test_from_kernel_xml(
+            not_exist_xml, test_name)
+
+        self.assertEqual(exist, False)
 
 if __name__ == '__main__':
     unittest.main()
