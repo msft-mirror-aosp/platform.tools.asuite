@@ -296,7 +296,7 @@ class SoongPrebuiltTarget(Target):
 
     @staticmethod
     def create(gen: WorkspaceGenerator, info: Dict[str, Any],
-               test_module=False):
+               test_module: bool=False):
         module_name = info['module_name']
 
         configs = [
@@ -344,6 +344,7 @@ class SoongPrebuiltTarget(Target):
                    f' glob(["{self._name}/{config.name}/**/*"]),')
 
         fprint('    }),')
+        fprint(f'    module_name = "{self._name}",')
         fprint(')')
 
     def create_filesystem_layout(self, package_dir: Path):
