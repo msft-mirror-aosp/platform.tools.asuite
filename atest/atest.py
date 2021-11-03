@@ -36,8 +36,6 @@ import time
 import platform
 import re
 
-from multiprocessing import Process
-
 import atest_arg_parser
 import atest_configs
 import atest_error
@@ -78,23 +76,6 @@ MAINLINE_MODULES_EXT_RE = re.compile(r'(.apex|.apks|.apk)$')
 # (e.g subprocesses that invoke host commands.)
 ACLOUD_CREATE = at.acloud_create
 INDEX_TARGETS = at.index_targets
-
-
-def _run_multi_proc(func, *args, **kwargs):
-    """Start a process with multiprocessing and return Process object.
-
-    Args:
-        func: A string of function name which will be the target name.
-        args/kwargs: check doc page:
-        https://docs.python.org/3.8/library/multiprocessing.html#process-and-exceptions
-
-    Returns:
-        multiprocessing.Process object.
-    """
-
-    proc = Process(target=func, *args, **kwargs)
-    proc.start()
-    return proc
 
 
 def _parse_args(argv):
@@ -718,7 +699,7 @@ def acloud_create_validator(results_dir, args):
     target = os.getenv('TARGET_PRODUCT', "")
     if 'cf_x86' in target:
         report_file = at.get_report_file(results_dir, acloud_args)
-        acloud_proc = _run_multi_proc(
+        acloud_proc = atest_utils.run_multi_proc(
             func=ACLOUD_CREATE,
             args=[report_file],
             kwargs={'args':acloud_args,
@@ -779,7 +760,7 @@ def main(argv, results_dir, args):
         os.environ.get(constants.ANDROID_PRODUCT_OUT, ''))
     # daemon=True keeps the task working in the background without blocking the
     # main proress exiting.
-    _run_multi_proc(INDEX_TARGETS, daemon=True)
+    atest_utils.run_multi_proc(INDEX_TARGETS, daemon=True)
     smart_rebuild = need_rebuild_module_info(args.rebuild_module_info)
     mod_info = module_info.ModuleInfo(force_build=smart_rebuild)
     atest_utils.generate_buildfiles_checksum()
