@@ -22,11 +22,12 @@ sandboxing, caching, and remote execution.
 # pylint: disable=missing-function-docstring
 # pylint: disable=missing-class-docstring
 
+import dataclasses
 import os
 import shutil
 
 from abc import ABC, abstractmethod
-from collections import defaultdict, namedtuple, OrderedDict
+from collections import defaultdict, OrderedDict
 from pathlib import Path
 from typing import Any, Dict, IO, List, Set
 
@@ -202,8 +203,8 @@ class Package:
 
         self.name_to_target[target_name] = target
 
-        for bzl_package, symbol in target.required_imports():
-            self.imports[bzl_package].add(symbol)
+        for i in target.required_imports():
+            self.imports[i.bzl_package].add(i.symbol)
 
     def generate(self, workspace_out_path: Path):
         package_dir = workspace_out_path.joinpath(self.path)
@@ -230,8 +231,16 @@ class Package:
                 target.write_to_build_file(f)
 
 
-Import = namedtuple('Import', ['bzl_package', 'symbol'])
-Config = namedtuple('Config', ['name', 'out_path'])
+@dataclasses.dataclass(frozen=True)
+class Import:
+    bzl_package: str
+    symbol: str
+
+
+@dataclasses.dataclass(frozen=True)
+class Config:
+    name: str
+    out_path: Path
 
 
 class Target(ABC):
@@ -287,7 +296,7 @@ class SoongPrebuiltTarget(Target):
 
     @staticmethod
     def create(gen: WorkspaceGenerator, info: Dict[str, Any],
-               test_module=False):
+               test_module: bool=False):
         module_name = info['module_name']
 
         configs = [
@@ -330,11 +339,12 @@ class SoongPrebuiltTarget(Target):
         fprint(f'    name = "{self._name}",')
         fprint('    files = select({')
 
-        for config in sorted(self.config_files.keys()):
+        for config in sorted(self.config_files.keys(), key=lambda c: c.name):
             fprint(f'        "//bazel/rules:{config.name}":'
                    f' glob(["{self._name}/{config.name}/**/*"]),')
 
         fprint('    }),')
+        fprint(f'    module_name = "{self._name}",')
         fprint(')')
 
     def create_filesystem_layout(self, package_dir: Path):

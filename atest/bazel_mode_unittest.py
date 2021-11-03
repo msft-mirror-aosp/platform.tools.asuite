@@ -483,6 +483,7 @@ class SoongPrebuiltTargetTest(fake_filesystem_unittest.TestCase):
             '        "//bazel/rules:device": glob(["libhello/device/**/*"]),\n'
             '        "//bazel/rules:host": glob(["libhello/host/**/*"]),\n'
             '    }),\n'
+            '    module_name = "libhello",\n'
             ')\n',
             f.getvalue())
 
