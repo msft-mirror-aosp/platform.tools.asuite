@@ -217,6 +217,7 @@ DETECT_TYPE_NOT_REBUILD_MODULE_INFO = 7
 DETECT_TYPE_ONLY_BUILD_MODULE_INFO = 8
 DETECT_TYPE_FUZZY_SEARCH_TIME = 9
 DETECT_TYPE_PERMISSION_INCONSISTENT = 10
+DETECT_TYPE_SMART_REBUILD_MODULE_INFO = 11
 DETECT_TYPE_CLEAN_BUILD = 12
 # XTS suite types encode from 100 to 199
 DETECT_TYPE_XTS_SUITE = {'cts': 101,
@@ -264,6 +265,7 @@ ATEST_BUILD_ENV = {'RECORD_ALL_DEPS':'true', 'SOONG_COLLECT_JAVA_DEPS':'true',
 INDEX_DIR = os.path.join(os.getenv(ANDROID_HOST_OUT, ''), 'indexes')
 LOCATE_CACHE = os.path.join(INDEX_DIR, 'mlocate.db')
 LOCATE_CACHE_MD5 = os.path.join(INDEX_DIR, 'mlocate.md5')
+BUILDFILES_MD5 = os.path.join(INDEX_DIR, 'buildfiles.md5')
 INT_INDEX = os.path.join(INDEX_DIR, 'integration.idx')
 CLASS_INDEX = os.path.join(INDEX_DIR, 'classes.idx')
 CC_CLASS_INDEX = os.path.join(INDEX_DIR, 'cc_classes.idx')
