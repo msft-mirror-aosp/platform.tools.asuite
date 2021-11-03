@@ -31,7 +31,23 @@ import re
 import shutil
 import subprocess
 import sys
+import sysconfig
 
+import xml.etree.ElementTree as ET
+
+from distutils.util import strtobool
+
+# This is a workaround of b/144743252, where the http.client failed to loaded
+# because the googleapiclient was found before the built-in libs; enabling
+# embedded launcher(b/135639220) has not been reliable and other issue will
+# raise.
+# The workaround is repositioning the built-in libs before other 3rd libs in
+# PYTHONPATH(sys.path) to eliminate the symptom of failed loading http.client.
+for lib in (sysconfig.get_paths()['stdlib'], sysconfig.get_paths()['purelib']):
+    if lib in sys.path:
+        sys.path.remove(lib)
+    sys.path.insert(0, lib)
+#pylint: disable=wrong-import-position
 import atest_decorator
 import atest_error
 import constants
@@ -47,12 +63,20 @@ from tools.asuite.atest.tf_proto import test_record_pb2
 try:
     from metrics import metrics_base
     from metrics import metrics_utils
-except ModuleNotFoundError:
-    # This exception occurs only when invoking atest in source code.
-    print("You shouldn't see this message unless you ran 'atest-src'."
-          "To resolve the issue, please run:\n\t{}\n"
-          "and try again.".format('pip3 install protobuf'))
-    sys.exit(constants.IMPORT_FAILURE)
+except ImportError as err:
+    # TODO(b/182854938): remove this ImportError after refactor metrics dir.
+    try:
+        from asuite.metrics import metrics
+        from asuite.metrics import metrics_base
+        from asuite.metrics import metrics_utils
+    except ImportError as err:
+        # This exception occurs only when invoking atest in source code.
+        print("You shouldn't see this message unless you ran 'atest-src'. "
+              "To resolve the issue, please run:\n\t{}\n"
+              "and try again.".format('pip3 install protobuf'))
+        print('Import error: ', err)
+        print('sys.path:\n', '\n'.join(sys.path))
+        sys.exit(constants.IMPORT_FAILURE)
 
 _BASH_RESET_CODE = '\033[0m\n'
 # Arbitrary number to limit stdout for failed runs in _run_limited_output.
@@ -644,3 +668,577 @@ def delimiter(char, length=_DEFAULT_TERMINAL_WIDTH, prenl=0, postnl=0):
         A string of delimiter.
     """
     return prenl * '\n' + char * length + postnl * '\n'
+
+def find_files(path, file_name=constants.TEST_MAPPING):
+    """Find all files with given name under the given path.
+
+    Args:
+        path: A string of path in source.
+        file_name: The file name pattern for finding matched files.
+
+    Returns:
+        A list of paths of the files with the matching name under the given
+        path.
+    """
+    match_files = []
+    for root, _, filenames in os.walk(path):
+        for filename in fnmatch.filter(filenames, file_name):
+            match_files.append(os.path.join(root, filename))
+    return match_files
+
+def extract_zip_text(zip_path):
+    """Extract the text files content for input zip file.
+
+    Args:
+        zip_path: The file path of zip.
+
+    Returns:
+        The string in input zip file.
+    """
+    content = ''
+    try:
+        with zipfile.ZipFile(zip_path) as zip_file:
+            for filename in zip_file.namelist():
+                if os.path.isdir(filename):
+                    continue
+                # Force change line if multiple text files in zip
+                content = content + '\n'
+                # read the file
+                with zip_file.open(filename) as extract_file:
+                    for line in extract_file:
+                        if matched_tf_error_log(line.decode()):
+                            content = content + line.decode()
+    except zipfile.BadZipfile as err:
+        logging.debug('Exception raised: %s', err)
+    return content
+
+def matched_tf_error_log(content):
+    """Check if the input content matched tradefed log pattern.
+    The format will look like this.
+    05-25 17:37:04 W/XXXXXX
+    05-25 17:37:04 E/XXXXXX
+
+    Args:
+        content: Log string.
+
+    Returns:
+        True if the content matches the regular expression for tradefed error or
+        warning log.
+    """
+    reg = ('^((0[1-9])|(1[0-2]))-((0[1-9])|([12][0-9])|(3[0-1])) '
+           '(([0-1][0-9])|([2][0-3])):([0-5][0-9]):([0-5][0-9]) (E|W/)')
+    if re.search(reg, content):
+        return True
+    return False
+
+def has_valid_cert():
+    """Check whether the certificate is valid.
+
+    Returns: True if the cert is valid.
+    """
+    if not constants.CERT_STATUS_CMD:
+        return False
+    try:
+        return (not subprocess.check_call(constants.CERT_STATUS_CMD,
+                                          stdout=subprocess.DEVNULL,
+                                          stderr=subprocess.DEVNULL))
+    except subprocess.CalledProcessError:
+        return False
+
+# pylint: disable=too-many-locals
+def get_flakes(branch='',
+               target='',
+               test_name='',
+               test_module='',
+               test_method=''):
+    """Get flake information.
+
+    Args:
+        branch: A string of branch name.
+        target: A string of target.
+        test_name: A string of test suite name.
+        test_module: A string of test module.
+        test_method: A string of test method.
+
+    Returns:
+        A dictionary of flake info. None if no flakes service exists.
+    """
+    if not branch:
+        branch = constants.FLAKE_BRANCH
+    if not target:
+        target = constants.FLAKE_TARGET
+    if not test_name:
+        test_name = constants.FLAKE_TEST_NAME
+    # Currently lock the flake information from test-mapping test
+    # which only runs on cuttlefish(x86) devices.
+    # TODO: extend supporting other devices
+    if test_module:
+        test_module = 'x86 {}'.format(test_module)
+    flake_service = os.path.join(constants.FLAKE_SERVICE_PATH,
+                                 constants.FLAKE_FILE)
+    if not os.path.exists(flake_service):
+        logging.debug('Get flakes: Flake service path not exist.')
+        # Send (3, 0) to present no flakes info because service does not exist.
+        metrics.LocalDetectEvent(
+            detect_type=constants.DETECT_TYPE_NO_FLAKE,
+            result=0)
+        return None
+    if not has_valid_cert():
+        logging.debug('Get flakes: No valid cert.')
+        # Send (3, 1) to present no flakes info because no valid cert.
+        metrics.LocalDetectEvent(
+            detect_type=constants.DETECT_TYPE_NO_FLAKE,
+            result=1)
+        return None
+    flake_info = {}
+    start = time.time()
+    try:
+        shutil.copy2(flake_service, constants.FLAKE_TMP_PATH)
+        tmp_service = os.path.join(constants.FLAKE_TMP_PATH,
+                                   constants.FLAKE_FILE)
+        os.chmod(tmp_service, 0o0755)
+        cmd = [tmp_service, branch, target, test_name, test_module, test_method]
+        logging.debug('Executing: %s', ' '.join(cmd))
+        output = subprocess.check_output(cmd).decode()
+        percent_template = "{}:".format(constants.FLAKE_PERCENT)
+        postsubmit_template = "{}:".format(constants.FLAKE_POSTSUBMIT)
+        for line in output.splitlines():
+            if line.startswith(percent_template):
+                flake_info[constants.FLAKE_PERCENT] = line.replace(
+                    percent_template, '')
+            if line.startswith(postsubmit_template):
+                flake_info[constants.FLAKE_POSTSUBMIT] = line.replace(
+                    postsubmit_template, '')
+    # pylint: disable=broad-except
+    except Exception as e:
+        logging.debug('Exception:%s', e)
+        return None
+    # Send (4, time) to present having flakes info and it spent time.
+    duration = round(time.time()-start)
+    logging.debug('Took %ss to get flakes info', duration)
+    metrics.LocalDetectEvent(
+        detect_type=constants.DETECT_TYPE_HAS_FLAKE,
+        result=duration)
+    return flake_info
+
+def read_test_record(path):
+    """A Helper to read test record proto.
+
+    Args:
+        path: The proto file path.
+
+    Returns:
+        The test_record proto instance.
+    """
+    with open(path, 'rb') as proto_file:
+        msg = test_record_pb2.TestRecord()
+        msg.ParseFromString(proto_file.read())
+    return msg
+
+def has_python_module(module_name):
+    """Detect if the module can be loaded without importing it in real.
+
+    Args:
+        cmd: A string of the tested module name.
+
+    Returns:
+        True if found, False otherwise.
+    """
+    return bool(importlib.util.find_spec(module_name))
+
+def is_valid_json_file(path):
+    """Detect if input path exist and content is valid.
+
+    Args:
+        path: The json file path.
+
+    Returns:
+        True if file exist and content is valid, False otherwise.
+    """
+    if isinstance(path, bytes):
+        path = path.decode('utf-8')
+    try:
+        if os.path.isfile(path):
+            with open(path) as json_file:
+                json.load(json_file)
+            return True
+        logging.warning('%s: File not found.', path)
+    except json.JSONDecodeError:
+        logging.warning('Exception happened while loading %s.', path)
+    return False
+
+def get_manifest_branch():
+    """Get the manifest branch via repo info command.
+
+    Returns:
+        None if no system environment parameter ANDROID_BUILD_TOP or
+        running 'repo info' command error, otherwise the manifest branch
+    """
+    build_top = os.getenv(constants.ANDROID_BUILD_TOP, None)
+    if not build_top:
+        return None
+    try:
+        splitter = ':'
+        env_vars = os.environ.copy()
+        orig_pythonpath = env_vars['PYTHONPATH'].split(splitter)
+        # Command repo imports stdlib "http.client", so adding non-default lib
+        # e.g. googleapiclient, may cause repo command execution error.
+        # The temporary dir is not presumably always /tmp, especially in MacOS.
+        # b/169936306, b/190647636 are the cases we should never ignore.
+        soong_path_re = re.compile(r'.*/Soong.python_.*/')
+        default_python_path = [p for p in orig_pythonpath
+                               if not soong_path_re.match(p)]
+        env_vars['PYTHONPATH'] = splitter.join(default_python_path)
+        output = subprocess.check_output(
+            ['repo', 'info', '-o', constants.ASUITE_REPO_PROJECT_NAME],
+            env=env_vars,
+            cwd=build_top,
+            universal_newlines=True)
+        branch_re = re.compile(r'Manifest branch:\s*(?P<branch>.*)')
+        match = branch_re.match(output)
+        if match:
+            return match.group('branch')
+        logging.warning('Unable to detect branch name through:\n %s', output)
+    except subprocess.CalledProcessError:
+        logging.warning('Exception happened while getting branch')
+    return None
+
+def get_build_target():
+    """Get the build target form system environment TARGET_PRODUCT."""
+    build_target = '%s-%s' % (
+        os.getenv(constants.ANDROID_TARGET_PRODUCT, None),
+        os.getenv(constants.TARGET_BUILD_VARIANT, None))
+    return build_target
+
+def parse_mainline_modules(test):
+    """Parse test reference into test and mainline modules.
+
+    Args:
+        test: An String of test reference.
+
+    Returns:
+        A string of test without mainline modules,
+        A string of mainline modules.
+    """
+    result = constants.TEST_WITH_MAINLINE_MODULES_RE.match(test)
+    if not result:
+        return test, ""
+    test_wo_mainline_modules = result.group('test')
+    mainline_modules = result.group('mainline_modules')
+    return test_wo_mainline_modules, mainline_modules
+
+def has_wildcard(test_name):
+    """ Tell whether the test_name(either a list or string) contains wildcard
+    symbols.
+
+    Args:
+        test_name: A list or a str.
+
+    Return:
+        True if test_name contains wildcard, False otherwise.
+    """
+    if isinstance(test_name, str):
+        return any(char in test_name for char in _WILDCARD_CHARS)
+    if isinstance(test_name, list):
+        for name in test_name:
+            if has_wildcard(name):
+                return True
+    return False
+
+def is_build_file(path):
+    """ If input file is one of an android build file.
+
+    Args:
+        path: A string of file path.
+
+    Return:
+        True if path is android build file, False otherwise.
+    """
+    return bool(os.path.splitext(path)[-1] in _ANDROID_BUILD_EXT)
+
+def quote(input_str):
+    """ If the input string -- especially in custom args -- contains shell-aware
+    characters, insert a pair of "\" to the input string.
+
+    e.g. unit(test|testing|testing) -> 'unit(test|testing|testing)'
+
+    Args:
+        input_str: A string from user input.
+
+    Returns: A string with single quotes if regex chars were detected.
+    """
+    if has_chars(input_str, _REGEX_CHARS):
+        return "\'" + input_str + "\'"
+    return input_str
+
+def has_chars(input_str, chars):
+    """ Check if the input string contains one of the designated characters.
+
+    Args:
+        input_str: A string from user input.
+        chars: An iterable object.
+
+    Returns:
+        True if the input string contains one of the special chars.
+    """
+    for char in chars:
+        if char in input_str:
+            return True
+    return False
+
+def prompt_with_yn_result(msg, default=True):
+    """Prompt message and get yes or no result.
+
+    Args:
+        msg: The question you want asking.
+        default: boolean to True/Yes or False/No
+    Returns:
+        default value if get KeyboardInterrupt or ValueError exception.
+    """
+    suffix = '[Y/n]: ' if default else '[y/N]: '
+    try:
+        return strtobool(input(msg+suffix))
+    except (ValueError, KeyboardInterrupt):
+        return default
+
+def get_android_junit_config_filters(test_config):
+    """Get the dictionary of a input config for junit config's filters
+
+    Args:
+        test_config: The path of the test config.
+    Returns:
+        A dictionary include all the filters in the input config.
+    """
+    filter_dict = {}
+    xml_root = ET.parse(test_config).getroot()
+    option_tags = xml_root.findall('.//option')
+    for tag in option_tags:
+        name = tag.attrib['name'].strip()
+        if name in constants.SUPPORTED_FILTERS:
+            filter_values = filter_dict.get(name, [])
+            value = tag.attrib['value'].strip()
+            filter_values.append(value)
+            filter_dict.update({name: filter_values})
+    return filter_dict
+
+def get_config_parameter(test_config):
+    """Get all the parameter values for the input config
+
+    Args:
+        test_config: The path of the test config.
+    Returns:
+        A set include all the parameters of the input config.
+    """
+    parameters = set()
+    xml_root = ET.parse(test_config).getroot()
+    option_tags = xml_root.findall('.//option')
+    for tag in option_tags:
+        name = tag.attrib['name'].strip()
+        if name == constants.CONFIG_DESCRIPTOR:
+            key = tag.attrib['key'].strip()
+            if key == constants.PARAMETER_KEY:
+                value = tag.attrib['value'].strip()
+                parameters.add(value)
+    return parameters
+
+def get_mainline_param(test_config):
+    """Get all the mainline-param values for the input config
+
+    Args:
+        test_config: The path of the test config.
+    Returns:
+        A set include all the parameters of the input config.
+    """
+    mainline_param = set()
+    xml_root = ET.parse(test_config).getroot()
+    option_tags = xml_root.findall('.//option')
+    for tag in option_tags:
+        name = tag.attrib['name'].strip()
+        if name == constants.CONFIG_DESCRIPTOR:
+            key = tag.attrib['key'].strip()
+            if key == constants.MAINLINE_PARAM_KEY:
+                value = tag.attrib['value'].strip()
+                mainline_param.add(value)
+    return mainline_param
+
+def get_android_config():
+    """Get Android config as "printconfig" shows.
+
+    Returns:
+        A dict of Android configurations.
+    """
+    dump_cmd = get_build_cmd(dump=True)
+    raw_config = subprocess.check_output(dump_cmd).decode('utf-8')
+    android_config = {}
+    for element in raw_config.splitlines():
+        if not element.startswith('='):
+            key, value = tuple(element.split('=', 1))
+            android_config.setdefault(key, value)
+    return android_config
+
+def get_config_gtest_args(test_config):
+    """Get gtest's module-name and device-path option from the input config
+
+    Args:
+        test_config: The path of the test config.
+    Returns:
+        A string of gtest's module name.
+        A string of gtest's device path.
+    """
+    module_name = ''
+    device_path = ''
+    xml_root = ET.parse(test_config).getroot()
+    option_tags = xml_root.findall('.//option')
+    for tag in option_tags:
+        name = tag.attrib['name'].strip()
+        value = tag.attrib['value'].strip()
+        if name == 'native-test-device-path':
+            device_path = value
+        elif name == 'module-name':
+            module_name = value
+    return module_name, device_path
+
+def get_arch_name(module_name, is_64=False):
+    """Get the arch folder name for the input module.
+
+        Scan the test case folders to get the matched arch folder name.
+
+        Args:
+            module_name: The module_name of test
+            is_64: If need 64 bit arch name, False otherwise.
+        Returns:
+            A string of the arch name.
+    """
+    arch_32 = ['arm', 'x86']
+    arch_64 = ['arm64', 'x86_64']
+    arch_list = arch_32
+    if is_64:
+        arch_list = arch_64
+    test_case_root = os.path.join(
+        os.environ.get(constants.ANDROID_TARGET_OUT_TESTCASES, ''),
+        module_name
+    )
+    for f in os.listdir(test_case_root):
+        if f in arch_list:
+            return f
+    return ''
+
+def copy_single_arch_native_symbols(
+    symbol_root, module_name, device_path, is_64=False):
+    """Copy symbol files for native tests which belong to input arch.
+
+        Args:
+            module_name: The module_name of test
+            device_path: The device path define in test config.
+            is_64: True if need to copy 64bit symbols, False otherwise.
+    """
+    src_symbol = os.path.join(symbol_root, 'data', 'nativetest', module_name)
+    if is_64:
+        src_symbol = os.path.join(
+            symbol_root, 'data', 'nativetest64', module_name)
+    dst_symbol = os.path.join(
+        symbol_root, device_path[1:], module_name,
+        get_arch_name(module_name, is_64))
+    if os.path.isdir(src_symbol):
+        # TODO: Use shutil.copytree(src, dst, dirs_exist_ok=True) after
+        #  python3.8
+        if os.path.isdir(dst_symbol):
+            shutil.rmtree(dst_symbol)
+        shutil.copytree(src_symbol, dst_symbol)
+
+def copy_native_symbols(module_name, device_path):
+    """Copy symbol files for native tests to match with tradefed file structure.
+
+    The original symbols will locate at
+    $(PRODUCT_OUT)/symbols/data/nativetest(64)/$(module)/$(stem).
+    From TF, the test binary will locate at
+    /data/local/tmp/$(module)/$(arch)/$(stem).
+    In order to make trace work need to copy the original symbol to
+    $(PRODUCT_OUT)/symbols/data/local/tmp/$(module)/$(arch)/$(stem)
+
+    Args:
+        module_name: The module_name of test
+        device_path: The device path define in test config.
+    """
+    symbol_root = os.path.join(
+        os.environ.get(constants.ANDROID_PRODUCT_OUT, ''),
+        'symbols')
+    if not os.path.isdir(symbol_root):
+        logging.debug('Symbol dir:%s not exist, skip copy symbols.',
+                      symbol_root)
+        return
+    # Copy 32 bit symbols
+    if get_arch_name(module_name, is_64=False):
+        copy_single_arch_native_symbols(
+            symbol_root, module_name, device_path, is_64=False)
+    # Copy 64 bit symbols
+    if get_arch_name(module_name, is_64=True):
+        copy_single_arch_native_symbols(
+            symbol_root, module_name, device_path, is_64=True)
+
+def get_config_preparer_options(test_config, class_name):
+    """Get all the parameter values for the input config
+
+    Args:
+        test_config: The path of the test config.
+        class_name: A string of target_preparer
+    Returns:
+        A set include all the parameters of the input config.
+    """
+    options = {}
+    xml_root = ET.parse(test_config).getroot()
+    option_tags = xml_root.findall(
+        './/target_preparer[@class="%s"]/option' % class_name)
+    for tag in option_tags:
+        name = tag.attrib['name'].strip()
+        value = tag.attrib['value'].strip()
+        options[name] = value
+    return options
+
+def is_adb_root(args):
+    """Check whether device has root permission.
+
+    Args:
+        args: An argspace.Namespace class instance holding parsed args.
+    Returns:
+        True if adb has root permission.
+    """
+    try:
+        serial = os.environ.get(constants.ANDROID_SERIAL, '')
+        if not serial:
+            serial = args.serial
+        serial_options = ('-s ' + serial) if serial else ''
+        output = subprocess.check_output("adb %s shell id" % serial_options,
+                                         shell=True,
+                                         stderr=subprocess.STDOUT).decode()
+        return "uid=0(root)" in output
+    except subprocess.CalledProcessError as err:
+        logging.debug('Exception raised(): %s, Output: %s', err, err.output)
+        raise err
+
+def perm_metrics(config_path, adb_root):
+    """Compare adb root permission with RootTargetPreparer in config.
+
+    Args:
+        config_path: A string of AndroidTest.xml file path.
+        adb_root: A boolean of whether device is root or not.
+    """
+    # RootTargetPreparer's force-root set in config
+    options = get_config_preparer_options(config_path, _ROOT_PREPARER)
+    if not options:
+        return
+    logging.debug('preparer_options: %s', options)
+    preparer_force_root = True
+    if options.get('force-root', '').upper() == "FALSE":
+        preparer_force_root = False
+    logging.debug(' preparer_force_root: %s', preparer_force_root)
+    if preparer_force_root and not adb_root:
+        logging.debug('DETECT_TYPE_PERMISSION_INCONSISTENT:0')
+        metrics.LocalDetectEvent(
+            detect_type=constants.DETECT_TYPE_PERMISSION_INCONSISTENT,
+            result=0)
+    elif not preparer_force_root and adb_root:
+        logging.debug('DETECT_TYPE_PERMISSION_INCONSISTENT:1')
+        metrics.LocalDetectEvent(
+            detect_type=constants.DETECT_TYPE_PERMISSION_INCONSISTENT,
+            result=1)
