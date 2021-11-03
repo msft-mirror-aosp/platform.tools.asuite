@@ -40,7 +40,7 @@ tradefed_binary_host {
 }
 
 python_defaults {
-    name: "atest_py3_default",
+    name: "atest_default",
     pkg_path: "atest",
     version: {
         py2: {
@@ -100,17 +100,31 @@ python_binary_host {
         "tf_proto/*_pb2.py",
     ],
     libs: [
-        "atest_py3_proto",
+        "atest_proto",
+        "tradefed-protos-py",
+        "py-google-api-python-client",
+        "py-oauth2client",
+        "py-six",
     ],
     data: [
         "tools/updatedb_darwin.sh",
-        ":asuite_version",
     ],
     // Make atest's built name to atest-dev
     stem: "atest-dev",
-    defaults: ["atest_py3_default"],
+    defaults: ["atest_default"],
     dist: {
         targets: ["droidcore"],
+    },
+}
+
+python_library_host {
+    name: "atest_proto",
+    defaults: ["atest_default"],
+    srcs: [
+        "proto/*.proto",
+    ],
+    proto: {
+        canonical_path_from_root: false,
     },
 }
 
@@ -128,17 +142,6 @@ python_library_host {
     libs: [
         "metrics-protos",
     ]
-}
-
-python_library_host {
-    name: "atest_py3_proto",
-    defaults: ["atest_py3_default"],
-    srcs: [
-        "proto/*.proto",
-    ],
-    proto: {
-        canonical_path_from_root: false,
-    },
 }
 
 python_library_host {
@@ -198,11 +201,12 @@ python_test_host {
         "tf_proto/*_pb2.py",
     ],
     libs: [
-        "atest_py3_proto",
+        "atest_proto",
+        "tradefed-protos-py",
     ],
     test_config: "atest_unittests.xml",
     test_suites: ["general-tests"],
-    defaults: ["atest_py3_default"],
+    defaults: ["atest_default"],
 }
 
 python_test_host {
@@ -217,20 +221,7 @@ python_test_host {
     ],
     test_config: "atest_integration_tests.xml",
     test_suites: ["general-tests"],
-    defaults: ["atest_py3_default"],
-}
-
-genrule {
-    name: "asuite_version",
-    cmd: "DATETIME=$$(TZ='America/Log_Angelos' date +'%F');" +
-         "if [[ -n $$BUILD_NUMBER ]]; then" +
-         "  echo $${DATETIME}_$${BUILD_NUMBER} > $(out);" +
-         "else" +
-         "  echo $$(date +'%F_%R') > $(out);" +
-         "fi",
-    out: [
-        "VERSION",
-    ],
+    defaults: ["atest_default"],
 }
 
 sh_binary_host {
