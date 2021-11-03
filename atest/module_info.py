@@ -56,6 +56,11 @@ class ModuleInfo:
                          module_info file regardless if it's created or not.
             module_file: String of path to file to load up. Used for testing.
         """
+        # when force_build == True, Atest can:
+        #   * rebuild module-info
+        #   * decide need_update_merged_file()
+        #   * re-index testable modules
+        self.force_build = force_build
         self.mod_info_file_path = Path(module_file) if module_file else None
         module_info_target, name_to_module_info = self._load_module_info_file(
             force_build, module_file)
