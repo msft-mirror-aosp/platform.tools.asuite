@@ -223,3 +223,8 @@ python_test_host {
     test_suites: ["general-tests"],
     defaults: ["atest_default"],
 }
+
+sh_binary_host {
+    name: "atest_tradefed.sh",
+    src: "atest_tradefed.sh",
+}
