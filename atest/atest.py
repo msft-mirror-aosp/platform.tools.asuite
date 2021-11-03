@@ -675,6 +675,27 @@ def _exclude_modules_in_targets(build_targets):
             shrank_build_targets.remove(target)
     return shrank_build_targets
 
+def need_rebuild_module_info(force_build):
+    """Method that tells whether we need to rebuild module-info.json or not.
+
+    Args:
+        force_build: A boolean flag that determine everything.
+
+    Returns:
+        - When force_build is True, return True (will rebuild module-info).
+        - When force_build is False, then check the consistency of build files.
+        If the checksum file of build files is missing, considered check passed
+        (no need to rebuild module-info.json)
+    """
+    logging.debug('Examinating the consistency of build files...')
+    if force_build:
+        return True
+    if atest_utils.check_md5(constants.BUILDFILES_MD5, missing_ok=True):
+        logging.debug('All build files stay untouched.')
+        return False
+    logging.debug('Found build files were changed.')
+    return True
+
 def acloud_create_validator(results_dir, args):
     """Check lunch'd target before running 'acloud create'.
 
@@ -759,7 +780,9 @@ def main(argv, results_dir, args):
     # daemon=True keeps the task working in the background without blocking the
     # main proress exiting.
     _run_multi_proc(INDEX_TARGETS, daemon=True)
-    mod_info = module_info.ModuleInfo(force_build=args.rebuild_module_info)
+    smart_rebuild = need_rebuild_module_info(args.rebuild_module_info)
+    mod_info = module_info.ModuleInfo(force_build=smart_rebuild)
+    atest_utils.generate_buildfiles_checksum()
     if args.bazel_mode:
         bazel_mode.generate_bazel_workspace(mod_info)
     translator = cli_translator.CLITranslator(
@@ -827,6 +850,8 @@ def main(argv, results_dir, args):
             rebuild_module_info = constants.DETECT_TYPE_CLEAN_BUILD
         elif args.rebuild_module_info:
             rebuild_module_info = constants.DETECT_TYPE_REBUILD_MODULE_INFO
+        elif smart_rebuild:
+            rebuild_module_info = constants.DETECT_TYPE_SMART_REBUILD_MODULE_INFO
         metrics.LocalDetectEvent(
             detect_type=rebuild_module_info,
             result=int(build_duration))
