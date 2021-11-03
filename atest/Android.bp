@@ -69,6 +69,39 @@ python_binary_host {
 }
 
 python_library_host {
+    name: "atest_module_info",
+    defaults: ["atest_lib_default"],
+    srcs: [
+        "atest_error.py",
+        "atest_decorator.py",
+        "atest_utils.py",
+        "constants.py",
+        "constants_default.py",
+        "module_info.py",
+    ],
+    libs: [
+        "metrics-protos",
+    ]
+}
+
+python_library_host {
+    name: "asuite_cc_client",
+    defaults: ["asuite_default"],
+    srcs: [
+        "atest_error.py",
+        "atest_decorator.py",
+        "atest_utils.py",
+        "constants.py",
+        "constants_default.py",
+        "metrics/*.py",
+    ],
+    libs: [
+        "asuite_proto",
+        "asuite_metrics",
+    ],
+}
+
+python_library_host {
     name: "atest_py3_proto",
     defaults: ["atest_py3_default"],
     srcs: [
@@ -121,4 +154,3 @@ python_test_host {
     test_suites: ["general-tests"],
     defaults: ["atest_py3_default"],
 }
-
