@@ -272,6 +272,7 @@ class ModuleInfo:
             info, otherwise return only modules that belong to the suite.
         """
         modules = set()
+        start = time.time()
         # 1. modules.idx did not change; read it directly.
         if atest_utils.check_md5(constants.MODULE_INDEX_MD5):
             if os.path.isfile(constants.MODULE_INDEX) and not suite:
@@ -293,6 +294,10 @@ class ModuleInfo:
                     info = self.get_module_info(module_name)
                     if self.is_suite_in_compatibility_suites(suite, info):
                         modules.add(info.get(constants.MODULE_NAME))
+        duration = time.time() - start
+        metrics.LocalDetectEvent(
+            detect_type=constants.DETECT_TYPE_TESTABLE_MODULES,
+            result=int(duration))
         return modules
 
     def is_testable_module(self, mod_info):
