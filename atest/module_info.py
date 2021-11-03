@@ -21,6 +21,7 @@ Module Info class used to hold cached module-info.json.
 import json
 import logging
 import os
+import pickle
 import shutil
 import sys
 import tempfile
@@ -170,6 +171,42 @@ class ModuleInfo:
                     path_to_module_info[path] = [mod_info]
         return path_to_module_info
 
+    def _index_testable_modules(self, content):
+        """Dump testable modules.
+
+        Args:
+            content: An object that will be written to the index file.
+        """
+        logging.debug('Indexing testable modules.')
+        index_dir = Path(constants.INDEX_DIR)
+        if not index_dir.is_dir():
+            os.makedirs(index_dir)
+        with open(constants.MODULE_INDEX, 'wb') as cache:
+            try:
+                pickle.dump(content, cache, protocol=2)
+                atest_utils.save_md5([constants.MODULE_INDEX],
+                                     constants.MODULE_INDEX_MD5)
+                logging.debug('Done')
+            except IOError:
+                logging.error('Failed in dumping %s', cache)
+                os.remove(cache)
+
+    def _get_testable_modules(self):
+        """Return all available testable modules and index them.
+
+        Returns:
+            Set of all testable modules.
+        """
+        modules = set()
+        begin = time.time()
+        for _, info in self.name_to_module_info.items():
+            if self.is_testable_module(info):
+                modules.add(info.get(constants.MODULE_NAME))
+        self._index_testable_modules(modules)
+        logging.debug('Probing all testable modules took %ss',
+                      time.time() - begin)
+        return modules
+
     def is_module(self, name):
         """Return True if name is a module, False otherwise."""
         if self.get_module_info(name):
@@ -223,22 +260,39 @@ class ModuleInfo:
     def get_testable_modules(self, suite=None):
         """Return the testable modules of the given suite name.
 
+        Atest does not index testable modules against compatibility_suites. When
+        suite was given, or the index file was interrupted, always run
+        _get_testable_modules() and re-index.
+
         Args:
-            suite: A string of suite name. Set to None to return all testable
-            modules.
+            suite: A string of suite name.
 
         Returns:
-            List of testable modules. Empty list if non-existent.
-            If suite is None, return all the testable modules in module-info.
+            If suite is not given, return all the testable modules in module
+            info, otherwise return only modules that belong to the suite.
         """
         modules = set()
-        for _, info in self.name_to_module_info.items():
-            if self.is_testable_module(info):
-                if suite:
+        # 1. modules.idx did not change; read it directly.
+        if atest_utils.check_md5(constants.MODULE_INDEX_MD5):
+            if os.path.isfile(constants.MODULE_INDEX) and not suite:
+                with open(constants.MODULE_INDEX, 'rb') as cache:
+                    try:
+                        modules = pickle.load(cache, encoding="utf-8")
+                    except UnicodeDecodeError:
+                        modules = pickle.load(cache)
+                    # when module indexing was interrupted.
+                    except EOFError:
+                        pass
+        # 2. modules.idx does not yet exist or has changed.
+        # Will generate modules.idx for speeding up the next query.
+        if not modules:
+            if not suite:
+                modules = self._get_testable_modules()
+            else:
+                for module_name in self._get_testable_modules():
+                    info = self.get_module_info(module_name)
                     if self.is_suite_in_compatibility_suites(suite, info):
                         modules.add(info.get(constants.MODULE_NAME))
-                else:
-                    modules.add(info.get(constants.MODULE_NAME))
         return modules
 
     def is_testable_module(self, mod_info):
