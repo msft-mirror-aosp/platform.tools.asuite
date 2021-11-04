@@ -52,11 +52,6 @@ import atest_decorator
 import atest_error
 import constants
 
-# This proto related module will be auto generated in build time.
-# pylint: disable=no-name-in-module
-# pylint: disable=import-error
-from tools.asuite.atest.tf_proto import test_record_pb2
-
 # b/147562331 only occurs when running atest in source code. We don't encourge
 # the users to manually "pip3 install protobuf", therefore when the exception
 # occurs, we don't collect data and the tab completion is for args is silence.
