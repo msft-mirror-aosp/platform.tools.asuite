@@ -39,6 +39,7 @@ python_binary_host {
     libs: [
         "atest_module_info",
         "asuite_cc_client",
+        "asuite_plugin_lib",
     ],
     dist: {
         targets: ["droidcore"],
