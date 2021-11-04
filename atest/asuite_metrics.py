@@ -19,13 +19,9 @@ import logging
 import os
 import uuid
 
-try:
-    from urllib.request import Request
-    from urllib.request import urlopen
-except ImportError:
-    # for compatibility of asuite_metrics_lib_tests and asuite_cc_lib_tests.
-    from urllib2 import Request
-    from urllib2 import urlopen
+from urllib.request import Request
+from urllib.request import urlopen
+
 
 _JSON_HEADERS = {'Content-Type': 'application/json'}
 _METRICS_RESPONSE = 'done'

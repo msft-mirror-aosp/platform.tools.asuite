@@ -27,17 +27,10 @@ import logging
 import threading
 import time
 
-try:
-    from urllib.request import urlopen
-    from urllib.request import Request
-    from urllib.request import HTTPError
-    from urllib.request import URLError
-except ImportError:
-    # for compatibility of asuite_metrics_lib_tests and asuite_cc_lib_tests.
-    from urllib2 import Request
-    from urllib2 import urlopen
-    from urllib2 import HTTPError
-    from urllib2 import URLError
+from urllib.request import urlopen
+from urllib.request import Request
+from urllib.request import HTTPError
+from urllib.request import URLError
 
 from proto import clientanalytics_pb2
 
