@@ -52,7 +52,7 @@ supports the following test runners:
 
 ##### Where does the Python code live?
 
-The python code lives here: `tools/asuite/atest/`
+The python code lives here: `tools/tradefederation/core/atest/`
 (path relative to android repo root)
 
 ##### Writing tests
