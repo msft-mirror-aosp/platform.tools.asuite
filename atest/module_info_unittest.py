@@ -70,8 +70,10 @@ class ModuleInfoUnittests(unittest.TestCase):
     """Unit tests for module_info.py"""
 
     def tearDown(self):
-        if os.path.isfile(MERGED_DEP):
-            os.remove(MERGED_DEP)
+        files_to_clean = (MERGED_DEP, uc.MODULE_INDEX, uc.MODULE_INDEX_MD5)
+        for _file in files_to_clean:
+            if os.path.isfile(_file):
+                os.remove(_file)
 
     @mock.patch.object(module_info.ModuleInfo, '_merge_soong_info')
     @mock.patch('json.load', return_value={})
@@ -193,15 +195,24 @@ class ModuleInfoUnittests(unittest.TestCase):
         self.assertTrue(mod_info.is_suite_in_compatibility_suites("vts10", info3))
         self.assertFalse(mod_info.is_suite_in_compatibility_suites("ats", info3))
 
+    @mock.patch('constants.INDEX_DIR', uc.INDEX_DIR)
+    @mock.patch('constants.MODULE_INDEX', uc.MODULE_INDEX)
+    @mock.patch('constants.MODULE_INDEX_MD5', uc.MODULE_INDEX_MD5)
     @mock.patch.dict('os.environ', {constants.ANDROID_BUILD_TOP:'/',
-                                    constants.ANDROID_PRODUCT_OUT:'/test/output'})
+                                    constants.ANDROID_PRODUCT_OUT:'/test/output/'})
     @mock.patch.object(module_info.ModuleInfo, 'is_testable_module')
     @mock.patch.object(module_info.ModuleInfo, 'is_suite_in_compatibility_suites')
     def test_get_testable_modules(self, mock_is_suite_exist, mock_is_testable):
         """Test get_testable_modules."""
+        # 1. No modules.idx yet, will run _get_testable_modules()
         mod_info = module_info.ModuleInfo(module_file=JSON_FILE_PATH)
-        mock_is_testable.return_value = False
-        self.assertEqual(mod_info.get_testable_modules(), set())
+        self.assertEqual(len(mod_info.get_testable_modules()), 28)
+
+        # 2. read modules.idx.
+        expected_modules = {'dep_test_module', 'MainModule2', 'test_dep_level_1_1'}
+        self.assertTrue(expected_modules.issubset(mod_info.get_testable_modules()))
+
+        # 3. search modules by giving a suite name, run _get_testable_modules()
         mod_info.name_to_module_info = NAME_TO_MODULE_INFO
         mock_is_testable.return_value = True
         mock_is_suite_exist.return_value = True

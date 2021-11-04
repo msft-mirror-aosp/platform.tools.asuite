@@ -36,8 +36,6 @@ import time
 import platform
 import re
 
-from multiprocessing import Process
-
 import atest_arg_parser
 import atest_configs
 import atest_error
@@ -78,23 +76,6 @@ MAINLINE_MODULES_EXT_RE = re.compile(r'(.apex|.apks|.apk)$')
 # (e.g subprocesses that invoke host commands.)
 ACLOUD_CREATE = at.acloud_create
 INDEX_TARGETS = at.index_targets
-
-
-def _run_multi_proc(func, *args, **kwargs):
-    """Start a process with multiprocessing and return Process object.
-
-    Args:
-        func: A string of function name which will be the target name.
-        args/kwargs: check doc page:
-        https://docs.python.org/3.8/library/multiprocessing.html#process-and-exceptions
-
-    Returns:
-        multiprocessing.Process object.
-    """
-
-    proc = Process(target=func, *args, **kwargs)
-    proc.start()
-    return proc
 
 
 def _parse_args(argv):
@@ -675,6 +656,27 @@ def _exclude_modules_in_targets(build_targets):
             shrank_build_targets.remove(target)
     return shrank_build_targets
 
+def need_rebuild_module_info(force_build):
+    """Method that tells whether we need to rebuild module-info.json or not.
+
+    Args:
+        force_build: A boolean flag that determine everything.
+
+    Returns:
+        - When force_build is True, return True (will rebuild module-info).
+        - When force_build is False, then check the consistency of build files.
+        If the checksum file of build files is missing, considered check passed
+        (no need to rebuild module-info.json)
+    """
+    logging.debug('Examinating the consistency of build files...')
+    if force_build:
+        return True
+    if atest_utils.check_md5(constants.BUILDFILES_MD5, missing_ok=True):
+        logging.debug('All build files stay untouched.')
+        return False
+    logging.debug('Found build files were changed.')
+    return True
+
 def acloud_create_validator(results_dir, args):
     """Check lunch'd target before running 'acloud create'.
 
@@ -697,7 +699,7 @@ def acloud_create_validator(results_dir, args):
     target = os.getenv('TARGET_PRODUCT', "")
     if 'cf_x86' in target:
         report_file = at.get_report_file(results_dir, acloud_args)
-        acloud_proc = _run_multi_proc(
+        acloud_proc = atest_utils.run_multi_proc(
             func=ACLOUD_CREATE,
             args=[report_file],
             kwargs={'args':acloud_args,
@@ -758,8 +760,10 @@ def main(argv, results_dir, args):
         os.environ.get(constants.ANDROID_PRODUCT_OUT, ''))
     # daemon=True keeps the task working in the background without blocking the
     # main proress exiting.
-    _run_multi_proc(INDEX_TARGETS, daemon=True)
-    mod_info = module_info.ModuleInfo(force_build=args.rebuild_module_info)
+    atest_utils.run_multi_proc(INDEX_TARGETS, daemon=True)
+    smart_rebuild = need_rebuild_module_info(args.rebuild_module_info)
+    mod_info = module_info.ModuleInfo(force_build=smart_rebuild)
+    atest_utils.generate_buildfiles_checksum()
     if args.bazel_mode:
         bazel_mode.generate_bazel_workspace(mod_info)
     translator = cli_translator.CLITranslator(
@@ -827,6 +831,8 @@ def main(argv, results_dir, args):
             rebuild_module_info = constants.DETECT_TYPE_CLEAN_BUILD
         elif args.rebuild_module_info:
             rebuild_module_info = constants.DETECT_TYPE_REBUILD_MODULE_INFO
+        elif smart_rebuild:
+            rebuild_module_info = constants.DETECT_TYPE_SMART_REBUILD_MODULE_INFO
         metrics.LocalDetectEvent(
             detect_type=rebuild_module_info,
             result=int(build_duration))
