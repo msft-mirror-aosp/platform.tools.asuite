@@ -43,12 +43,8 @@ class AtestToolsUnittests(unittest.TestCase):
     @mock.patch('constants.LOCATE_CACHE_MD5', uc.LOCATE_CACHE_MD5)
     @mock.patch('constants.LOCATE_CACHE', uc.LOCATE_CACHE)
     @mock.patch('tools.atest_tools.SEARCH_TOP', uc.TEST_DATA_DIR)
-    @mock.patch('module_info.ModuleInfo.get_testable_modules')
-    @mock.patch('module_info.ModuleInfo.__init__')
-    def test_index_targets(self, mock_mod_info, mock_testable_mod):
+    def test_index_targets(self):
         """Test method index_targets."""
-        mock_mod_info.return_value = None
-        mock_testable_mod.return_value = {uc.MODULE_NAME, uc.MODULE2_NAME}
         if atest_tools.has_command(UPDATEDB) and atest_tools.has_command(LOCATE):
             # 1. Test run_updatedb() is functional.
             atest_tools.run_updatedb(SEARCH_ROOT, uc.LOCATE_CACHE,
@@ -70,7 +66,6 @@ class AtestToolsUnittests(unittest.TestCase):
             atest_tools.index_targets(uc.LOCATE_CACHE,
                                       class_index=uc.CLASS_INDEX,
                                       cc_class_index=uc.CC_CLASS_INDEX,
-                                      module_index=uc.MODULE_INDEX,
                                       package_index=uc.PACKAGE_INDEX,
                                       qclass_index=uc.QCLASS_INDEX)
             _cache = {}
@@ -90,17 +85,10 @@ class AtestToolsUnittests(unittest.TestCase):
             with open(uc.QCLASS_INDEX, 'rb') as cache:
                 _cache = pickle.load(cache)
             self.assertIsNotNone(_cache.get('android.jank.cts.ui.PathTesting'))
-            _cache = set()
-            # Test finding a module name.
-            with open(uc.MODULE_INDEX, 'rb') as cache:
-                _cache = pickle.load(cache)
-            self.assertTrue(uc.MODULE_NAME in _cache)
-            self.assertFalse(uc.CLASS_NAME in _cache)
             # Clean up.
             targets_to_delete = (uc.CC_CLASS_INDEX,
                                  uc.CLASS_INDEX,
                                  uc.LOCATE_CACHE,
-                                 uc.MODULE_INDEX,
                                  uc.PACKAGE_INDEX,
                                  uc.QCLASS_INDEX)
             for idx in targets_to_delete:

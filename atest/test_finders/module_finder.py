@@ -795,6 +795,7 @@ class ModuleFinder(test_finder_base.TestFinderBase):
         # Check if class_name is prepended with file name. If so, trim the
         # prefix and keep only the class_name.
         if '.' in class_name:
+            # (b/202764540) Strip prefixes of a cc class.
             # Assume the class name has a format of file_name.class_name
             class_name = class_name[class_name.rindex('.')+1:]
             logging.info('Search with updated class name: %s', class_name)

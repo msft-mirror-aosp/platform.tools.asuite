@@ -22,13 +22,14 @@ sandboxing, caching, and remote execution.
 # pylint: disable=missing-function-docstring
 # pylint: disable=missing-class-docstring
 
+import dataclasses
 import os
 import shutil
 
 from abc import ABC, abstractmethod
-from collections import defaultdict, namedtuple, OrderedDict
+from collections import defaultdict, OrderedDict
 from pathlib import Path
-from typing import IO
+from typing import Any, Dict, IO, List, Set
 
 import atest_utils
 import constants
@@ -76,6 +77,7 @@ class WorkspaceGenerator:
             'mod_info_md5')
         self.path_to_package = {}
         self.prerequisite_modules = {
+            'adb',
             'tradefed',
             'tradefed-contrib',
             'tradefed-test-framework',
@@ -98,6 +100,7 @@ class WorkspaceGenerator:
             shutil.rmtree(self.workspace_out_path)
 
         self._add_prerequisite_module_targets()
+        self._add_test_module_targets()
 
         self.workspace_out_path.mkdir(parents=True)
         self._generate_artifacts()
@@ -107,15 +110,35 @@ class WorkspaceGenerator:
 
     def _add_prerequisite_module_targets(self):
         for module_name in self.prerequisite_modules:
-            self._add_soong_prebuilt_target(module_name)
+            self._add_target(module_name)
 
-    def _add_soong_prebuilt_target(self, module_name: str):
+    def _add_test_module_targets(self):
+        for name, info in self.mod_info.name_to_module_info.items():
+            # Ignore modules that have a 'host_cross_' prefix since they are
+            # duplicates of existing modules. For example,
+            # 'host_cross_aapt2_tests' is a duplicate of 'aapt2_tests'. We also
+            # ignore modules with a '_32' suffix since these also are redundant
+            # given that modules have both 32 and 64-bit variants built by
+            # default. See b/77288544#comment6 and b/23566667 for more context.
+            if name.endswith("_32") or name.startswith("host_cross_"):
+                continue
+            if not self.is_host_unit_test(info):
+                continue
+            if not self.mod_info.is_testable_module(info):
+                continue
+            self._add_target(name)
+
+    def _add_target(self, module_name):
         info = self._get_module_info(module_name)
         path = self._get_module_path(module_name, info)
 
         package = self.path_to_package.setdefault(path, Package(path))
         package.add_target(SoongPrebuiltTarget.create(
             self, info, self.mod_info.is_testable_module(info)))
+
+        if self.is_host_unit_test(info):
+            package.add_target(DevicelessTestTarget.create_for_test_target(
+                module_name))
 
     def _get_module_info(self, module_name: str) -> {str:[str]}:
         info = self.mod_info.get_module_info(module_name)
@@ -126,7 +149,7 @@ class WorkspaceGenerator:
 
         return info
 
-    def _get_module_path(self, module_name: str, info: {str:[str]}) -> str:
+    def _get_module_path(self, module_name: str, info: Dict[str, Any]) -> str:
         mod_path = info.get(constants.MODULE_PATH)
 
         if len(mod_path) != 1:
@@ -137,6 +160,10 @@ class WorkspaceGenerator:
                             f' path: {mod_path}')
 
         return mod_path[0]
+
+    def is_host_unit_test(self, info: Dict[str, Any]) -> bool:
+        return self.mod_info.is_suite_in_compatibility_suites(
+            'host-unit-tests', info)
 
     def _generate_artifacts(self):
         """Generate workspace files on disk."""
@@ -176,8 +203,8 @@ class Package:
 
         self.name_to_target[target_name] = target
 
-        for bzl_package, symbol in target.required_imports():
-            self.imports[bzl_package].add(symbol)
+        for i in target.required_imports():
+            self.imports[i.bzl_package].add(i.symbol)
 
     def generate(self, workspace_out_path: Path):
         package_dir = workspace_out_path.joinpath(self.path)
@@ -204,8 +231,16 @@ class Package:
                 target.write_to_build_file(f)
 
 
-Import = namedtuple('Import', ['bzl_package', 'symbol'])
-Config = namedtuple('Config', ['name', 'out_path'])
+@dataclasses.dataclass(frozen=True)
+class Import:
+    bzl_package: str
+    symbol: str
+
+
+@dataclasses.dataclass(frozen=True)
+class Config:
+    name: str
+    out_path: Path
 
 
 class Target(ABC):
@@ -215,7 +250,7 @@ class Target(ABC):
     def name(self):
         pass
 
-    def required_imports(self) -> 'set[Import]':
+    def required_imports(self) -> Set[Import]:
         return set()
 
     def write_to_build_file(self, f: IO):
@@ -225,12 +260,43 @@ class Target(ABC):
         pass
 
 
+class DevicelessTestTarget(Target):
+    """Class for generating a deviceless test target."""
+
+    @staticmethod
+    def create_for_test_target(test_target_name):
+        return DevicelessTestTarget(f'{test_target_name}_host',
+                                    test_target_name)
+
+    def __init__(self, name: str, test_target_name: str):
+        self._name = name
+        self._test_target_name = test_target_name
+
+    def name(self):
+        return self._name
+
+    def required_imports(self) -> Set[Import]:
+        return {
+            Import('//bazel/rules:tradefed_test.bzl',
+                   'tradefed_deviceless_test'),
+        }
+
+    def write_to_build_file(self, f: IO):
+        def fprint(text):
+            print(text, file=f)
+
+        fprint('tradefed_deviceless_test(')
+        fprint(f'    name = "{self._name}",')
+        fprint(f'    test = ":{self._test_target_name}",')
+        fprint(')')
+
+
 class SoongPrebuiltTarget(Target):
     """Class for generating a Soong prebuilt target on disk."""
 
     @staticmethod
-    def create(gen: WorkspaceGenerator, info: 'dict[str, Any]',
-               test_module=False):
+    def create(gen: WorkspaceGenerator, info: Dict[str, Any],
+               test_module: bool=False):
         module_name = info['module_name']
 
         configs = [
@@ -253,14 +319,14 @@ class SoongPrebuiltTarget(Target):
 
         return SoongPrebuiltTarget(module_name, config_files)
 
-    def __init__(self, name: str, config_files: 'dict[Config, list[Path]]'):
+    def __init__(self, name: str, config_files: Dict[Config, List[Path]]):
         self._name = name
         self.config_files = config_files
 
     def name(self):
         return self._name
 
-    def required_imports(self) -> 'set[Import]':
+    def required_imports(self) -> Set[Import]:
         return {
             Import('//bazel/rules:soong_prebuilt.bzl', 'soong_prebuilt'),
         }
@@ -273,11 +339,12 @@ class SoongPrebuiltTarget(Target):
         fprint(f'    name = "{self._name}",')
         fprint('    files = select({')
 
-        for config in sorted(self.config_files.keys()):
+        for config in sorted(self.config_files.keys(), key=lambda c: c.name):
             fprint(f'        "//bazel/rules:{config.name}":'
                    f' glob(["{self._name}/{config.name}/**/*"]),')
 
         fprint('    }),')
+        fprint(f'    module_name = "{self._name}",')
         fprint(')')
 
     def create_filesystem_layout(self, package_dir: Path):
@@ -296,12 +363,13 @@ class SoongPrebuiltTarget(Target):
 
 
 def group_paths_by_config(
-    configs: 'list[Config]', paths: 'list[Path]') -> 'dict[Config, list[Path]]':
+    configs: List[Config], paths: List[Path]) -> Dict[Config, List[Path]]:
 
     config_files = defaultdict(list)
 
     for f in paths:
-        matching_configs = [c for c in configs if f.is_relative_to(c.out_path)]
+        matching_configs = [
+            c for c in configs if _is_relative_to(f, c.out_path)]
 
         # The path can only appear in ANDROID_HOST_OUT for host target or
         # ANDROID_PRODUCT_OUT, but cannot appear in both.
@@ -314,8 +382,19 @@ def group_paths_by_config(
     return config_files
 
 
+def _is_relative_to(path1: Path, path2: Path) -> bool:
+    """Return True if the path is relative to another path or False."""
+    # Note that this implementation is required because Path.is_relative_to only
+    # exists starting with Python 3.9.
+    try:
+        path1.relative_to(path2)
+        return True
+    except ValueError:
+        return False
+
+
 def get_module_installed_paths(
-    info: 'dict[str, Any]', src_root_path: Path) -> 'list[Path]':
+    info: Dict[str, Any], src_root_path: Path) -> List[Path]:
 
     # Install paths in module-info are usually relative to the Android
     # source root ${ANDROID_BUILD_TOP}. When the output directory is

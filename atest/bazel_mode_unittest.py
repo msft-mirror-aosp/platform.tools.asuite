@@ -206,6 +206,35 @@ class WorkspaceGeneratorTest(fake_filesystem_unittest.TestCase):
 
         self.assertTrue(expected_path.is_file())
 
+    def test_generate_host_unit_test_module(self):
+        module = self.create_host_unit_test_module()
+        gen = self.create_workspace_generator(modules=[module])
+        expected_path = self.expected_package_path(module)
+
+        gen.generate()
+
+        self.assertTrue(expected_path.is_dir())
+
+    def test_not_generate_non_host_unit_test_module(self):
+        module = self.create_host_unit_test_module()
+        module['compatibility_suites'].clear()
+        gen = self.create_workspace_generator(modules=[module])
+        expected_path = self.expected_package_path(module)
+
+        gen.generate()
+
+        self.assertFalse(expected_path.is_dir())
+
+    def test_not_generate_non_testable_host_unit_test_module(self):
+        module = self.create_host_unit_test_module()
+        module['auto_test_config'].clear()
+        gen = self.create_workspace_generator(modules=[module])
+        expected_path = self.expected_package_path(module)
+
+        gen.generate()
+
+        self.assertFalse(expected_path.is_dir())
+
     def create_workspace_generator(self, prerequisites=None, mod_info=None,
                                    modules=None):
         prerequisites = prerequisites or []
@@ -246,6 +275,18 @@ class WorkspaceGeneratorTest(fake_filesystem_unittest.TestCase):
         module["is_unit_test"] = 'false'
 
         return module
+
+
+    def create_host_unit_test_module(self, name='hello_test'):
+        module = self.create_module(name)
+
+        module['compatibility_suites'] = ["host-unit-tests"]
+        module['auto_test_config'] = ["true"]
+
+        return module
+
+    def expected_package_path(self, module):
+        return self.workspace_out_path.joinpath(module['path'][0])
 
     def assertSymlinkTo(self, symlink_path, target_path):
         self.assertEqual(symlink_path.resolve(strict=False), target_path)
@@ -356,6 +397,25 @@ class PackageTest(fake_filesystem_unittest.TestCase):
                                                 'BUILD.bazel').read_text()
 
 
+class DevicelessTestTargetTest(unittest.TestCase):
+    """Tests for DevicelessTestTarget."""
+
+    def test_write_to_build_file(self):
+        module_name = 'hello_test'
+        target = bazel_mode.DevicelessTestTarget.create_for_test_target(
+            module_name)
+        f = io.StringIO()
+
+        target.write_to_build_file(f)
+
+        self.assertIn(
+            'tradefed_deviceless_test(\n'
+            '    name = "hello_test_host",\n'
+            '    test = ":hello_test",\n'
+            ')',
+            f.getvalue())
+
+
 class SoongPrebuiltTargetTest(fake_filesystem_unittest.TestCase):
     """Tests for SoongPrebuiltTarget."""
 
@@ -423,6 +483,7 @@ class SoongPrebuiltTargetTest(fake_filesystem_unittest.TestCase):
             '        "//bazel/rules:device": glob(["libhello/device/**/*"]),\n'
             '        "//bazel/rules:host": glob(["libhello/host/**/*"]),\n'
             '    }),\n'
+            '    module_name = "libhello",\n'
             ')\n',
             f.getvalue())
 
@@ -502,7 +563,7 @@ class SoongPrebuiltTargetTest(fake_filesystem_unittest.TestCase):
         self.assertFalse(module_out_path.joinpath('host').exists())
 
     def test_create_symlinks_to_testcases_for_test_module(self):
-        module_name = 'libhello'
+        module_name = 'hello_test'
         module = self.create_module(module_name)
         module['installed'] = [
             str(self.host_out_path.joinpath('a/b/f1')),
@@ -521,7 +582,7 @@ class SoongPrebuiltTargetTest(fake_filesystem_unittest.TestCase):
             self.product_out_path.joinpath(f'testcases/{module_name}'))
 
     def test_not_create_device_symlinks_for_host_test_module(self):
-        module_name = 'libhello'
+        module_name = 'hello_test'
         module = self.create_module(module_name)
         module['installed'] = [
             str(self.host_out_path.joinpath('a/b/f1')),
@@ -534,7 +595,7 @@ class SoongPrebuiltTargetTest(fake_filesystem_unittest.TestCase):
         self.assertFalse(module_out_path.joinpath('device').exists())
 
     def test_not_create_host_symlinks_for_device_test_module(self):
-        module_name = 'libhello'
+        module_name = 'hello_test'
         module = self.create_module(module_name)
         module['installed'] = [
             str(self.product_out_path.joinpath('a/b/f1')),
