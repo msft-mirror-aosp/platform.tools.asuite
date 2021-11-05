@@ -347,7 +347,7 @@ def has_method_in_file(test_path, methods):
             cc_methods |= info.get('methods')
         if _methods.issubset(cc_methods):
             return True
-    logging.error('Cannot find method %s in %s', ','.join(methods), test_path)
+    logging.debug('Cannot find method %s in %s', ','.join(methods), test_path)
     return False
 
 
@@ -714,8 +714,8 @@ def get_targets_from_xml_root(xml_root, module_info):
         if target_to_add and module_info.is_module(target_to_add):
             targets.add(target_to_add)
         elif target_to_add:
-            logging.warning('Build target (%s) not present in module info, '
-                            'skipping build', target_to_add)
+            logging.debug('Build target (%s) not present in module info, '
+                          'skipping build', target_to_add)
 
     # TODO (b/70813166): Remove this lookup once all runtime dependencies
     # can be listed as a build dependencies or are in the base test harness.
@@ -874,8 +874,8 @@ def get_targets_from_vts_xml(xml_file, rel_out_dir, module_info):
             if module_info.is_module(value):
                 targets.add(value)
             else:
-                logging.warning('vts10 test module (%s) not present in module '
-                                'info, skipping build', value)
+                logging.debug('vts10 test module (%s) not present in module '
+                              'info, skipping build', value)
         elif name == _VTS_BINARY_SRC:
             targets.add(_get_vts_binary_src_target(value, rel_out_dir))
         elif name == _VTS_PUSH_GROUP:
@@ -1014,12 +1014,12 @@ def get_int_dir_from_path(path, int_dirs):
             int_dir = abs_int_dir
             break
     if not file_name:
-        logging.warning('Found dir (%s) matching input (%s).'
-                        ' Referencing an entire Integration/Suite dir'
-                        ' is not supported. If you are trying to reference'
-                        ' a test by its path, please input the path to'
-                        ' the integration/suite config file itself.',
-                        int_dir, path)
+        logging.debug('Found dir (%s) matching input (%s).'
+                      ' Referencing an entire Integration/Suite dir'
+                      ' is not supported. If you are trying to reference'
+                      ' a test by its path, please input the path to'
+                      ' the integration/suite config file itself.',
+                      int_dir, path)
         return None
     return int_dir
 
