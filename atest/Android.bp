@@ -12,8 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Set of error prone rules to ensure code quality
-// PackageLocation check requires the androidCompatible=false otherwise it does not do anything.
+package {
+    default_applicable_licenses: ["Android-Apache-2.0"],
+}
+
 java_library_host {
     name: "atest-tradefed-shell",
     java_resource_dirs: ["res"],
