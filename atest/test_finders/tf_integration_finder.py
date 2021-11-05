@@ -259,8 +259,8 @@ class TFIntegrationFinder(test_finder_base.TestFinderBase):
             return None
         int_name = match.group('int_name')
         if int_name != name:
-            logging.warning('Input (%s) not valid integration name, '
-                            'did you mean: %s?', name, int_name)
+            logging.debug('Input (%s) not valid integration name, '
+                          'did you mean: %s?', name, int_name)
             return None
         rel_config = os.path.relpath(test_file, self.root_dir)
         filters = frozenset()
@@ -270,9 +270,9 @@ class TFIntegrationFinder(test_finder_base.TestFinderBase):
             if '.' in class_name:
                 test_filters.append(test_info.TestFilter(class_name, methods))
             else:
-                logging.warning('Looking up fully qualified class name for: %s.'
-                                'Improve speed by using fully qualified names.',
-                                class_name)
+                logging.debug('Looking up fully qualified class name for: %s.'
+                              'Improve speed by using fully qualified names.',
+                              class_name)
                 paths = test_finder_utils.find_class_file(self.root_dir,
                                                           class_name)
                 if not paths:
