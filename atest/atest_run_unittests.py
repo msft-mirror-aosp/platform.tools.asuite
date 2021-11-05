@@ -98,6 +98,7 @@ def main(run_coverage=False, show_missing=False):
             sys.exit(not result.wasSuccessful())
         sys.exit(0)
 
+    # pylint: disable=import-error
     from coverage import coverage
     # The cover_pylib=False ignores only std libs; therefore, these 3rd-party
     # libs must be omitted before creating coverage class.
@@ -118,6 +119,7 @@ def main(run_coverage=False, show_missing=False):
 
 
 if __name__ == '__main__':
+    print(sys.version_info)
     if len(sys.argv) > 1:
         main(RUN_COVERAGE, SHOW_MISSING)
     else:

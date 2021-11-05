@@ -30,7 +30,6 @@ import time
 
 import atest_utils as au
 import constants
-import module_info
 
 from metrics import metrics_utils
 
@@ -46,7 +45,6 @@ OSNAME = os.uname()[0]
 INDEXES = (constants.CC_CLASS_INDEX,
            constants.CLASS_INDEX,
            constants.LOCATE_CACHE,
-           constants.MODULE_INDEX,
            constants.PACKAGE_INDEX,
            constants.QCLASS_INDEX)
 
@@ -197,11 +195,13 @@ def _get_cc_result(locatedb=None):
     if not locatedb:
         locatedb = constants.LOCATE_CACHE
     if OSNAME == MACOSX:
+        # (b/204398677) suppress stderr when indexing target terminated because
+        # the main process has exited. (daemon=True)
         find_cmd = (r"locate -d {0} '*.cpp' '*.cc' | grep -i test "
-                    "| xargs egrep -sH '{1}' || true")
+                    "| xargs egrep -sH '{1}' 2>/dev/null || true")
     else:
         find_cmd = (r"locate -d {0} / | egrep -i '/*.test.*\.(cc|cpp)$' "
-                    "| xargs egrep -sH '{1}' || true")
+                    "| xargs egrep -sH '{1}' 2>/dev/null || true")
     find_cc_cmd = find_cmd.format(locatedb, constants.CC_GREP_RE)
     logging.debug('Probing CC classes:\n %s', find_cc_cmd)
     return subprocess.check_output(find_cc_cmd, shell=True)
@@ -219,31 +219,11 @@ def _get_java_result(locatedb=None):
         find_cmd = r"locate -d%s '*.java' '*.kt'|grep -i test" % locatedb
     else:
         find_cmd = r"locate -d%s / | egrep -i '/*.test.*\.(java|kt)$'" % locatedb
-    find_java_cmd = find_cmd + '| xargs egrep -sH \'%s\' || true' % package_grep_re
+    # (b/204398677) suppress stderr when indexing target terminated because
+    # the main process has exited. (daemon=True)
+    find_java_cmd = find_cmd + '| xargs egrep -sH \'%s\' 2>/dev/null|| true' % package_grep_re
     logging.debug('Probing Java classes:\n %s', find_java_cmd)
     return subprocess.check_output(find_java_cmd, shell=True)
-
-def _index_testable_modules(index):
-    """Dump testable modules read by tab completion.
-
-    Args:
-        index: A string path of the index file.
-    """
-    logging.debug('indexing testable modules.')
-    try:
-        # b/178559543 The module-info.json becomes invalid after a success build is
-        # unlikely to happen, wrap with a try-catch to prevent it from happening.
-        testable_modules = module_info.ModuleInfo().get_testable_modules()
-    except json.JSONDecodeError:
-        logging.error('Invalid module-info.json detected. Will not index modules.')
-        return
-    with open(index, 'wb') as cache:
-        try:
-            pickle.dump(testable_modules, cache, protocol=2)
-            logging.debug('Done')
-        except IOError:
-            os.remove(cache)
-            logging.error('Failed in dumping %s', cache)
 
 def _index_cc_classes(output, index):
     """Index CC classes.
@@ -343,14 +323,12 @@ def index_targets(output_cache=constants.LOCATE_CACHE, **kwargs):
             qclass_index: A path string of the qualified class index.
             package_index: A path string of the package index.
             cc_class_index: A path string of the CC class index.
-            module_index: A path string of the testable module index.
             integration_index: A path string of the integration index.
     """
     class_index = kwargs.pop('class_index', constants.CLASS_INDEX)
     qclass_index = kwargs.pop('qclass_index', constants.QCLASS_INDEX)
     package_index = kwargs.pop('package_index', constants.PACKAGE_INDEX)
     cc_class_index = kwargs.pop('cc_class_index', constants.CC_CLASS_INDEX)
-    module_index = kwargs.pop('module_index', constants.MODULE_INDEX)
     # Uncomment below if we decide to support INTEGRATION.
     #integration_index = kwargs.pop('integration_index', constants.INT_INDEX)
     if kwargs:
@@ -370,8 +348,6 @@ def index_targets(output_cache=constants.LOCATE_CACHE, **kwargs):
         _index_java_classes(java_result, class_index)
         _index_qualified_classes(java_result, qclass_index)
         _index_packages(java_result, package_index)
-        # Step 3: index testable mods and TEST_MAPPING files.
-        _index_testable_modules(module_index)
 
     # Delete indexes when mlocate.db is locked() or other CalledProcessError.
     # (b/141588997)
