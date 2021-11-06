@@ -34,6 +34,7 @@ if [[ ! -z "$ANDROID_HOST_OUT" ]]; then
     # then other *ts-tradefed.jar.
     deps="atest-tradefed.jar
           compatibility-host-util.jar
+          hamcrest-library.jar
           hosttestlib.jar
           cts-tradefed.jar
           sts-tradefed.jar
