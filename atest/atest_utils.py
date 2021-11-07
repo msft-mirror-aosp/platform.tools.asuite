@@ -38,6 +38,8 @@ import sysconfig
 import time
 import zipfile
 
+from multiprocessing import Process
+
 import xml.etree.ElementTree as ET
 
 from distutils.util import strtobool
@@ -723,11 +725,11 @@ def check_md5(check_file, missing_ok=False):
     """
     if not os.path.isfile(check_file):
         if not missing_ok:
-            logging.warning(
+            logging.debug(
                 'Unable to verify: %s not found.', check_file)
         return missing_ok
     if not is_valid_json_file(check_file):
-        logging.warning(
+        logging.debug(
             'Unable to verify: %s invalid JSON format.', check_file)
         return missing_ok
     with open(check_file, 'r+') as _file:
@@ -1117,9 +1119,9 @@ def is_valid_json_file(path):
             with open(path) as json_file:
                 json.load(json_file)
             return True
-        logging.warning('%s: File not found.', path)
+        logging.debug('%s: File not found.', path)
     except json.JSONDecodeError:
-        logging.warning('Exception happened while loading %s.', path)
+        logging.debug('Exception happened while loading %s.', path)
     return False
 
 def get_manifest_branch():
@@ -1555,3 +1557,37 @@ def handle_test_env_var(input_test, result_path=constants.VERIFY_ENV_PATH,
     if verify_error:
         raise atest_error.DryRunVerificationError('\n'.join(verify_error))
     return 1
+
+def generate_buildfiles_checksum():
+    """ Method that generate md5 checksum of Android.{bp,mk} files.
+
+    The checksum of build files are stores in
+        $ANDROID_HOST_OUT/indexes/buildfiles.md5
+    """
+    if os.path.isfile(constants.LOCATE_CACHE):
+        arg = '--existing' if os.uname()[0] == 'Linux' else ''
+        cmd = (r'locate -d{} {} Android.bp Android.mk'
+               r'|egrep ".*(bp|mk)$"').format(
+                   constants.LOCATE_CACHE, arg)
+        try:
+            result = subprocess.check_output(cmd, shell=True).decode('utf-8')
+            save_md5(result.split(), constants.BUILDFILES_MD5)
+        except subprocess.CalledProcessError:
+            logging.error('Failed to generate %s',
+                          constants.BUILDFILES_MD5)
+
+def run_multi_proc(func, *args, **kwargs):
+    """Start a process with multiprocessing and return Process object.
+
+    Args:
+        func: A string of function name which will be the target name.
+        args/kwargs: check doc page:
+        https://docs.python.org/3.8/library/multiprocessing.html#process-and-exceptions
+
+    Returns:
+        multiprocessing.Process object.
+    """
+
+    proc = Process(target=func, *args, **kwargs)
+    proc.start()
+    return proc

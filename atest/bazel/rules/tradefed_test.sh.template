@@ -5,6 +5,7 @@ set -x
 TEST_MODULE="{module_name}"
 TEST_PATH="{tradefed_tests_dir}"
 ATEST_TF_LAUNCHER="{atest_tradefed_launcher}"
+ATEST_HELPER="{atest_helper}"
 SHARED_LIB_PATHS="{shared_lib_paths}"
 PATH_ADDITIONS="{path_additions}"
 TRADEFED_CLASSPATH="{tradefed_classpath}"
@@ -13,6 +14,7 @@ TRADEFED_CLASSPATH="{tradefed_classpath}"
 export LD_LIBRARY_PATH="${SHARED_LIB_PATHS}"
 export TF_PATH="${TRADEFED_CLASSPATH}"
 export PATH="${PATH_ADDITIONS}":$PATH
+export ATEST_HELPER="${ATEST_HELPER}"
 
 exec "${ATEST_TF_LAUNCHER}" template/atest_local_min \
     --template:map test=atest \
