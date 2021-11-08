@@ -14,8 +14,8 @@
 
 """Rule used to import artifacts prebuilt by Soong into the Bazel workspace.
 
-The rule returns a DefaultInfo provider with all artifacts and a SoongPrebuiltInfo
-provider with the original Soong module name, artifacts and shared libraries.
+The rule returns a DefaultInfo provider with all artifacts and runtime dependencies,
+and a SoongPrebuiltInfo provider with the original Soong module name and artifacts.
 """
 
 SoongPrebuiltInfo = provider(
@@ -23,7 +23,6 @@ SoongPrebuiltInfo = provider(
     fields = {
         "files": "Files imported from Soong outputs",
         "module_name": "Name of the original Soong build module",
-        "shared_libs": "Targets that should be dynamically linked into this target",
     },
 )
 
@@ -32,9 +31,11 @@ def _soong_prebuilt_impl(ctx):
         SoongPrebuiltInfo(
             files = depset(ctx.files.files),
             module_name = ctx.attr.module_name,
-            shared_libs = ctx.files.shared_libs,
         ),
-        DefaultInfo(files = depset(ctx.files.files)),
+        DefaultInfo(
+            files = depset(ctx.files.files),
+            runfiles = ctx.runfiles(files = ctx.files.runtime_deps),
+        ),
     ]
 
 soong_prebuilt = rule(
@@ -42,8 +43,8 @@ soong_prebuilt = rule(
         "module_name": attr.string(),
         # Artifacts prebuilt by Soong.
         "files": attr.label_list(allow_files = True),
-        # Targets that should be dynamically linked into this target.
-        "shared_libs": attr.label_list(),
+        # Targets that are needed by this target during runtime.
+        "runtime_deps": attr.label_list(),
         # Build setting used to select artifacts.
         "_platform_flavor": attr.label(default = "//bazel/rules:platform_flavor"),
     },
