@@ -42,7 +42,6 @@ def _soong_prebuilt_tradefed_aspect_impl(target, ctx):
             module_name = target[SoongPrebuiltInfo].module_name,
             test_binaries = test_binary_files,
             test_configs = test_config_files,
-            shared_libs = target[SoongPrebuiltInfo].shared_libs,
         ),
     ]
 
