@@ -45,8 +45,6 @@ soong_prebuilt = rule(
         "files": attr.label_list(allow_files = True),
         # Targets that are needed by this target during runtime.
         "runtime_deps": attr.label_list(),
-        # Build setting used to select artifacts.
-        "_platform_flavor": attr.label(default = "//bazel/rules:platform_flavor"),
     },
     implementation = _soong_prebuilt_impl,
     doc = "A rule that imports artifacts prebuilt by Soong into the Bazel workspace",
