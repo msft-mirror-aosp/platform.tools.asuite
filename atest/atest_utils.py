@@ -1375,6 +1375,9 @@ def get_arch_name(module_name, is_64=False):
         os.environ.get(constants.ANDROID_TARGET_OUT_TESTCASES, ''),
         module_name
     )
+    if not os.path.isdir(test_case_root):
+        logging.debug('%s does not exist.', test_case_root)
+        return ''
     for f in os.listdir(test_case_root):
         if f in arch_list:
             return f
