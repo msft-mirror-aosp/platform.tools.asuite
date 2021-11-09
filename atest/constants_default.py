@@ -78,6 +78,7 @@ EXIT_CODE_VERIFY_FAILURE = 6
 EXIT_CODE_OUTSIDE_ROOT = 7
 EXIT_CODE_AVD_CREATE_FAILURE = 8
 EXIT_CODE_AVD_INVALID_ARGS = 9
+EXIT_CODE_EXIT_BEFORE_MAIN = 10
 # Conditions that atest should exit without sending result to metrics.
 EXIT_CODES_BEFORE_TEST = [EXIT_CODE_ENV_NOT_SETUP,
                           EXIT_CODE_TEST_NOT_FOUND,
@@ -361,6 +362,19 @@ UPLOAD_TEST_RESULT_MSG = 'Upload test result?'
 # messages that share among libraries.
 REBUILD_MODULE_INFO_MSG = ('(This can happen after a repo sync or if the test'
                            ' is new. Running with "{}" may resolve the issue.)')
+
+# Example arguments used in ~/.atest/config
+ATEST_EXAMPLE_ARGS = ('## Specify only one option per line; any test name/path will be ignored automatically.\n'
+                      '## Option that follows a "#" will be ignored.\n'
+                      'hello_world_test   # Test name will be skipped WITHOUT warning.\n'
+                      '# -- --module-arg Foo:variable:value   # Only support atest arguments so "--" will be ignored.\n'
+                      '                                       # and will stop running tests.\n'
+                      '# --iterations=3\n'
+                      '# --retry-any-failure=5\n'
+                      '# --rerun-until-failure=5\n'
+                      '# --start-avd        # also run "acloud create" concurrently.\n'
+                      '# --all-abi          # Set to run tests for all abis.\n'
+                      '# --verbose          # turn on verbose mode for debugging.\n')
 
 # AndroidJUnitTest related argument.
 ANDROID_JUNIT_CLASS = 'com.android.tradefed.testtype.AndroidJUnitTest'
