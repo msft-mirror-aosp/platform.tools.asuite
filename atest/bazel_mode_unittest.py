@@ -235,6 +235,31 @@ class WorkspaceGeneratorTest(fake_filesystem_unittest.TestCase):
 
         self.assertFalse(expected_path.is_dir())
 
+    def test_generate_shared_lib_for_dependent_target(self):
+        lib_module_name = 'libhello'
+        lib_module = self.create_module(lib_module_name)
+        module = self.create_host_unit_test_module()
+        module['shared_libs'] = [lib_module_name]
+        gen = self.create_workspace_generator(modules=[module, lib_module])
+
+        gen.generate()
+
+        self.assertInModuleBuildFile(f'name = "{lib_module_name}"',
+                                     lib_module)
+
+    def test_not_generate_uninstalled_shared_lib_target(self):
+        lib_module_name = 'libhello'
+        lib_module = self.create_module(lib_module_name)
+        lib_module['installed'] = []
+        module = self.create_host_unit_test_module()
+        module['shared_libs'] = [lib_module_name]
+        gen = self.create_workspace_generator(modules=[module, lib_module])
+        expected_path = self.expected_package_path(lib_module)
+
+        gen.generate()
+
+        self.assertFalse(expected_path.joinpath('BUILD.bazel').is_file())
+
     def create_workspace_generator(self, prerequisites=None, mod_info=None,
                                    modules=None):
         prerequisites = prerequisites or []
@@ -290,6 +315,12 @@ class WorkspaceGeneratorTest(fake_filesystem_unittest.TestCase):
 
     def assertSymlinkTo(self, symlink_path, target_path):
         self.assertEqual(symlink_path.resolve(strict=False), target_path)
+
+    def assertInModuleBuildFile(self, compare_str, module):
+        module_build_file = self.expected_package_path(module).joinpath(
+            'BUILD.bazel')
+        self.assertTrue(module_build_file.is_file())
+        self.assertIn(compare_str, module_build_file.read_text())
 
 
 class PackageTest(fake_filesystem_unittest.TestCase):

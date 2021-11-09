@@ -110,7 +110,7 @@ class WorkspaceGenerator:
 
     def _add_prerequisite_module_targets(self):
         for module_name in self.prerequisite_modules:
-            self._add_target(module_name)
+            self._add_target_by_module_name(module_name)
 
     def _add_test_module_targets(self):
         for name, info in self.mod_info.name_to_module_info.items():
@@ -126,21 +126,38 @@ class WorkspaceGenerator:
                 continue
             if not self.mod_info.is_testable_module(info):
                 continue
-            self._add_target(name)
+            self._add_target(name, info)
 
-    def _add_target(self, module_name):
+    def _add_target_by_module_name(self, module_name: str):
         info = self._get_module_info(module_name)
+        self._add_target(module_name, info)
+
+    def _add_target(self,module_name: str, info: Dict[str, Any]):
         path = self._get_module_path(module_name, info)
 
+        if self.path_to_package.get(
+            path, Package(path)).contains_target(module_name):
+            return
+
         package = self.path_to_package.setdefault(path, Package(path))
+
+
+        for lib in info.get(constants.MODULE_SHARED_LIBS, []):
+            lib_info = self._get_module_info(lib)
+            if not lib_info.get(constants.MODULE_INSTALLED):
+                continue
+            self._add_target(lib, lib_info)
+
         package.add_target(SoongPrebuiltTarget.create(
             self, info, self.mod_info.is_testable_module(info)))
 
-        if self.is_host_unit_test(info):
-            package.add_target(DevicelessTestTarget.create_for_test_target(
-                module_name))
+        if not self.is_host_unit_test(info):
+            return
 
-    def _get_module_info(self, module_name: str) -> {str:[str]}:
+        package.add_target(DevicelessTestTarget.create_for_test_target(
+            module_name))
+
+    def _get_module_info(self, module_name: str) -> Dict[str, Any]:
         info = self.mod_info.get_module_info(module_name)
 
         if not info:
@@ -229,6 +246,9 @@ class Package:
             for target in self.name_to_target.values():
                 f.write('\n')
                 target.write_to_build_file(f)
+
+    def contains_target(self, target: str) -> bool:
+        return target in self.name_to_target
 
 
 @dataclasses.dataclass(frozen=True)
