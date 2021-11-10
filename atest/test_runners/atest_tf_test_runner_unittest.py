@@ -47,6 +47,8 @@ METRICS_DIR_ARG = '--metrics-folder %s ' % METRICS_DIR
 RUN_CMD_ARGS = ('{metrics}--log-level-display VERBOSE --log-level VERBOSE'
                 '{device_early_release}{serial}')
 LOG_ARGS = atf_tr.AtestTradefedTestRunner._LOG_ARGS.format(
+    log_root_option_name=constants.LOG_ROOT_OPTION_NAME,
+    log_ext_option=constants.LOG_SAVER_EXT_OPTION,
     log_path=os.path.join(uc.TEST_INFO_DIR, atf_tr.LOG_FOLDER_NAME),
     proto_path=os.path.join(uc.TEST_INFO_DIR, constants.ATEST_TEST_RECORD_PROTO))
 RUN_ENV_STR = 'tf_env_var=test'

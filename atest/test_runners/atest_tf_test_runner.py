@@ -76,7 +76,8 @@ class AtestTradefedTestRunner(test_runner_base.TestRunnerBase):
     # Use --no-enable-granular-attempts to control reporter replay behavior.
     # TODO(b/142630648): Enable option enable-granular-attempts
     # in sharding mode.
-    _LOG_ARGS = ('--logcat-on-failure --atest-log-file-path={log_path} '
+    _LOG_ARGS = ('--logcat-on-failure --{log_root_option_name}={log_path} '
+                 '{log_ext_option} '
                  '--no-enable-granular-attempts '
                  '--proto-output-file={proto_path}')
     _RUN_CMD = ('{env} {exe} {template} '
@@ -95,9 +96,10 @@ class AtestTradefedTestRunner(test_runner_base.TestRunnerBase):
         self.log_path = os.path.join(results_dir, LOG_FOLDER_NAME)
         if not os.path.exists(self.log_path):
             os.makedirs(self.log_path)
-        log_args = {'log_path': self.log_path,
-                    'proto_path': os.path.join(
-                        self.results_dir, constants.ATEST_TEST_RECORD_PROTO)}
+        log_args = {'log_root_option_name': constants.LOG_ROOT_OPTION_NAME,
+                    'log_ext_option': constants.LOG_SAVER_EXT_OPTION,
+                    'log_path': self.log_path,
+                    'proto_path': os.path.join(self.results_dir, constants.ATEST_TEST_RECORD_PROTO)}
         self.run_cmd_dict = {'env': self._get_ld_library_path(),
                              'exe': self.EXECUTABLE,
                              'template': self._TF_TEMPLATE,
