@@ -53,6 +53,7 @@ RUN_CMD = atf_tr.AtestTradefedTestRunner._RUN_CMD.format(
     env=RUN_ENV_STR,
     exe=atf_tr.AtestTradefedTestRunner.EXECUTABLE,
     template=atf_tr.AtestTradefedTestRunner._TF_TEMPLATE,
+    log_saver=constants.ATEST_TF_LOG_SAVER,
     tf_customize_template='{tf_customize_template}',
     args=RUN_CMD_ARGS,
     log_args=LOG_ARGS)
