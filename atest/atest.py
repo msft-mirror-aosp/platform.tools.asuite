@@ -758,9 +758,10 @@ def main(argv, results_dir, args):
     proc_acloud, report_file = acloud_create_validator(results_dir, args)
     is_clean = not os.path.exists(
         os.environ.get(constants.ANDROID_PRODUCT_OUT, ''))
-    # daemon=True keeps the task working in the background without blocking the
-    # main proress exiting.
-    atest_utils.run_multi_proc(INDEX_TARGETS, daemon=True)
+    # Do not index targets while the users intend to dry-run tests.
+    dry_run_args = (args.update_cmd_mapping, args.verify_cmd_mapping, args.dry_run)
+    if not any(dry_run_args):
+        atest_utils.run_multi_proc(INDEX_TARGETS)
     smart_rebuild = need_rebuild_module_info(args.rebuild_module_info)
     mod_info = module_info.ModuleInfo(force_build=smart_rebuild)
     atest_utils.generate_buildfiles_checksum()
@@ -798,7 +799,7 @@ def main(argv, results_dir, args):
     build_targets |= test_runner_handler.get_test_runner_reqs(mod_info,
                                                               test_infos)
     extra_args = get_extra_args(args)
-    if any((args.update_cmd_mapping, args.verify_cmd_mapping, args.dry_run)):
+    if any(dry_run_args):
         if not extra_args.get(constants.VERIFY_ENV_VARIABLE, False):
             return _dry_run_validator(args, results_dir, extra_args, test_infos,
                                       mod_info)
