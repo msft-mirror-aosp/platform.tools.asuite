@@ -512,7 +512,8 @@ def _decorate_find_method(mod_info, finder_method_func):
             return test_infos
         for tinfo in test_infos:
             m_info = mod_info.get_module_info(tinfo.test_name)
-            if mod_info.is_unit_test(m_info):
+            if mod_info.is_suite_in_compatibility_suites(
+                'host-unit-tests', m_info):
                 tinfo.test_runner = BazelTestRunner.NAME
         return test_infos
     return use_bazel_runner
