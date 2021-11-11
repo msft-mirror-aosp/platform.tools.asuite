@@ -19,7 +19,6 @@ TradefedTestInfo = provider(
     fields = {
         "test_binaries": "Test binary files",
         "test_configs": "Tradefed config files",
-        "shared_libs": "Targets that should be dynamically linked into this target",
         "module_name": "Test module name",
     },
 )

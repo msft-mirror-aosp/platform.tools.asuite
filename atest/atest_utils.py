@@ -725,11 +725,11 @@ def check_md5(check_file, missing_ok=False):
     """
     if not os.path.isfile(check_file):
         if not missing_ok:
-            logging.warning(
+            logging.debug(
                 'Unable to verify: %s not found.', check_file)
         return missing_ok
     if not is_valid_json_file(check_file):
-        logging.warning(
+        logging.debug(
             'Unable to verify: %s invalid JSON format.', check_file)
         return missing_ok
     with open(check_file, 'r+') as _file:
@@ -1119,9 +1119,9 @@ def is_valid_json_file(path):
             with open(path) as json_file:
                 json.load(json_file)
             return True
-        logging.warning('%s: File not found.', path)
+        logging.debug('%s: File not found.', path)
     except json.JSONDecodeError:
-        logging.warning('Exception happened while loading %s.', path)
+        logging.debug('Exception happened while loading %s.', path)
     return False
 
 def get_manifest_branch():
@@ -1375,6 +1375,9 @@ def get_arch_name(module_name, is_64=False):
         os.environ.get(constants.ANDROID_TARGET_OUT_TESTCASES, ''),
         module_name
     )
+    if not os.path.isdir(test_case_root):
+        logging.debug('%s does not exist.', test_case_root)
+        return ''
     for f in os.listdir(test_case_root):
         if f in arch_list:
             return f
