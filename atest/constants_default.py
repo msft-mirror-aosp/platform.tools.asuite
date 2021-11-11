@@ -402,3 +402,6 @@ GTEST_REGULAR = 'regular native test'
 GTEST_TYPED = 'typed test'
 GTEST_TYPED_PARAM = 'typed-parameterized test'
 GTEST_PARAM = 'value-parameterized test'
+
+# Tradefed log saver template for ATest
+ATEST_TF_LOG_SAVER = 'template/log/atest_log_saver'
