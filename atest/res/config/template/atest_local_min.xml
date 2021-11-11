@@ -21,7 +21,7 @@
 
     <template-include name="test" default="empty" />
 
-    <template-include name="log_saver" default="empty" />
+    <log_saver class="com.android.tradefed.result.ATestFileSystemLogSaver" />
 
     <logger class="com.android.tradefed.log.FileLogger">
         <option name="log-level" value="VERBOSE" />
