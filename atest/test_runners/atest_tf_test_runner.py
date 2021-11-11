@@ -74,8 +74,10 @@ class AtestTradefedTestRunner(test_runner_base.TestRunnerBase):
     _LOG_ARGS = ('--logcat-on-failure --atest-log-file-path={log_path} '
                  '--no-enable-granular-attempts '
                  '--proto-output-file={proto_path}')
-    _RUN_CMD = ('{env} {exe} {template} --template:map '
-                'test=atest {tf_customize_template} {log_args} {args}')
+    _RUN_CMD = ('{env} {exe} {template} '
+                '--template:map test=atest '
+                '--template:map log_saver={log_saver} '
+                '{tf_customize_template} {log_args} {args}')
     _BUILD_REQ = {'tradefed-core'}
     _RERUN_OPTION_GROUP = [constants.ITERATIONS,
                            constants.RERUN_UNTIL_FAILURE,
@@ -93,6 +95,7 @@ class AtestTradefedTestRunner(test_runner_base.TestRunnerBase):
         self.run_cmd_dict = {'env': self._get_ld_library_path(),
                              'exe': self.EXECUTABLE,
                              'template': self._TF_TEMPLATE,
+                             'log_saver': constants.ATEST_TF_LOG_SAVER,
                              'tf_customize_template': '',
                              'args': '',
                              'log_args': self._LOG_ARGS.format(**log_args)}
