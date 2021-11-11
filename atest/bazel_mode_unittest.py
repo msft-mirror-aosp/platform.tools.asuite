@@ -431,10 +431,10 @@ class PackageTest(fake_filesystem_unittest.TestCase):
 class DevicelessTestTargetTest(unittest.TestCase):
     """Tests for DevicelessTestTarget."""
 
-    def test_write_to_build_file(self):
+    def test_create_for_test_target(self):
         module_name = 'hello_test'
-        target = bazel_mode.DevicelessTestTarget.create_for_test_target(
-            module_name)
+        target = bazel_mode.DevicelessTestTarget.create(
+            module_name + '_host', 'package_name', module_name)
         f = io.StringIO()
 
         target.write_to_build_file(f)
@@ -638,6 +638,98 @@ class SoongPrebuiltTargetTest(fake_filesystem_unittest.TestCase):
 
         self.assertFalse(module_out_path.joinpath('host').exists())
 
+    def test_write_multi_config_runtime_deps(self):
+        lib1_name = 'libhello'
+        lib1_module = self.create_module(lib1_name)
+        lib1_module['installed'] = [
+            str(self.host_out_path.joinpath(lib1_name)),
+            str(self.product_out_path.joinpath(lib1_name)),
+        ]
+        lib2_name = 'libhello2'
+        lib2_module = self.create_module(lib2_name)
+        lib2_module['installed'] = [
+            str(self.product_out_path.joinpath(lib2_name)),
+        ]
+        module_name = 'hello_test'
+        module = self.create_module(module_name)
+        target = self.create_target(
+            module, runtime_dep_targets=[self.create_target(lib1_module),
+                                         self.create_target(lib2_module)])
+        f = io.StringIO()
+
+        target.write_to_build_file(f)
+
+        self.assertIn(
+            '    runtime_deps = select({\n'
+            '        "//bazel/rules:device": [\n'
+            '            "//src/libhello2:libhello2",\n'
+            '            "//src/libhello:libhello",\n'
+            '        ],\n'
+            '        "//bazel/rules:host": [\n'
+            '            "//src/libhello:libhello",\n'
+            '        ],\n'
+            '    }),\n',
+            f.getvalue())
+
+    def test_write_runtime_deps_in_order(self):
+        lib1_name = '1_libhello'
+        lib1_module = self.create_module(lib1_name)
+        lib2_name = '2_libhello'
+        lib2_module = self.create_module(lib2_name)
+        module_name = 'hello_test'
+        module = self.create_module(module_name)
+        target = self.create_target(
+            module, runtime_dep_targets=[self.create_target(lib1_module),
+                                         self.create_target(lib2_module)])
+        f = io.StringIO()
+
+        target.write_to_build_file(f)
+
+        self.assertIn(
+            '    runtime_deps = select({\n'
+            '        "//bazel/rules:host": [\n'
+            '            "//src/1_libhello:1_libhello",\n'
+            '            "//src/2_libhello:2_libhello",\n'
+            '        ],\n'
+            '    }),',
+            f.getvalue())
+
+    def test_not_write_device_condition_for_host_runtime_deps(self):
+        lib1_name = 'libhello'
+        lib1_module = self.create_module(lib1_name)
+        lib1_module['installed'] = [
+            str(self.host_out_path.joinpath(lib1_name)),
+        ]
+        module_name = 'hello_test'
+        module = self.create_module(module_name)
+        target = self.create_target(
+            module, runtime_dep_targets=[self.create_target(lib1_module)])
+        f = io.StringIO()
+
+        target.write_to_build_file(f)
+
+        self.assertNotIn(
+            '"//bazel/rules:device":',
+            f.getvalue())
+
+    def test_not_write_host_condition_for_device_runtime_deps(self):
+        lib1_name = 'libhello'
+        lib1_module = self.create_module(lib1_name)
+        lib1_module['installed'] = [
+            str(self.product_out_path.joinpath(lib1_name)),
+        ]
+        module_name = 'hello_test'
+        module = self.create_module(module_name)
+        target = self.create_target(
+            module, runtime_dep_targets=[self.create_target(lib1_module)])
+        f = io.StringIO()
+
+        target.write_to_build_file(f)
+
+        self.assertNotIn(
+            '"//bazel/rules:host": [\'//src/libhello:libhello\'],',
+            f.getvalue())
+
     def assertSymlinkTo(self, symlink_path, target_path):
         self.assertEqual(symlink_path.resolve(strict=False), target_path)
 
@@ -676,9 +768,14 @@ class SoongPrebuiltTargetTest(fake_filesystem_unittest.TestCase):
 
         return module
 
-    def create_target(self, module, test_module=False):
-        return bazel_mode.SoongPrebuiltTarget.create(self.gen, module,
-                                                     test_module)
+    def create_target(self, module, test_module=False,
+                      runtime_dep_targets=None):
+        return bazel_mode.SoongPrebuiltTarget.create(
+            self.gen, module,
+            module['path'][0],
+            test_module=test_module,
+            runtime_dep_targets=runtime_dep_targets
+        )
 
 
 class DecorateFinderMethodTest(fake_filesystem_unittest.TestCase):
