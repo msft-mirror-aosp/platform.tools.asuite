@@ -22,12 +22,14 @@ sandboxing, caching, and remote execution.
 # pylint: disable=missing-function-docstring
 # pylint: disable=missing-class-docstring
 
+from __future__ import annotations
+
 import dataclasses
 import os
 import shutil
 
 from abc import ABC, abstractmethod
-from collections import defaultdict, OrderedDict
+from collections import defaultdict, deque, OrderedDict
 from pathlib import Path
 from typing import Any, Dict, IO, List, Set, Callable
 
@@ -112,10 +114,58 @@ class WorkspaceGenerator:
                 continue
             if not self.mod_info.is_testable_module(info):
                 continue
-            self._add_deviceless_test_target(info)
+
+            target = self._add_deviceless_test_target(info)
+            self._resolve_dependencies(target)
+
+    def _resolve_dependencies(self, top_level_target: Target):
+        stack = [deque([top_level_target])]
+
+        while stack:
+            top = stack[-1]
+
+            if not top:
+                stack.pop()
+                continue
+
+            target = top.popleft()
+            next_top = deque()
+
+            for ref in target.dependencies():
+                info = ref.info or self._get_module_info(ref.name)
+                ref.set(self._add_prebuilt_target(info))
+                next_top.append(ref.target())
+
+            stack.append(next_top)
+
+    def _add_deviceless_test_target(self, info: Dict[str, Any]) -> Target:
+        package_name = self._get_module_path(info)
+        name = info['module_name'] + "_host"
+
+        def create():
+            return DevicelessTestTarget.create(
+                name,
+                package_name,
+                info,
+            )
+
+        return self._add_target(package_name, name, create)
+
+    def _add_prebuilt_target(self, info: Dict[str, Any]) -> Target:
+        package_name = self._get_module_path(info)
+        name = info['module_name']
+
+        def create():
+            return SoongPrebuiltTarget.create(
+                self,
+                info,
+                package_name,
+            )
+
+        return self._add_target(package_name, name, create)
 
     def _add_target(self, package_path: str, target_name: str,
-                    create_fn: Callable) -> 'Target':
+                    create_fn: Callable) -> Target:
         package = self.path_to_package.setdefault(package_path,
                                                   Package(package_path))
         target = package.get_target(target_name)
@@ -125,48 +175,8 @@ class WorkspaceGenerator:
 
         target = create_fn()
         package.add_target(target)
+
         return target
-
-    def _add_prebuilt_target_by_module_name(self, module_name: str):
-        self._add_prebuilt_target(self._get_module_info(module_name))
-
-    def _add_prebuilt_target(self, info: Dict[str, Any]) -> 'Target':
-        package_name = self._get_module_path(info)
-        name = info['module_name']
-
-        def create():
-            runtime_dep_targets = []
-
-            for lib_name in info.get(constants.MODULE_SHARED_LIBS, []):
-                lib_info = self._get_module_info(lib_name)
-                if not lib_info.get(constants.MODULE_INSTALLED):
-                    continue
-                runtime_dep_targets.append(self._add_prebuilt_target(lib_info))
-
-            return SoongPrebuiltTarget.create(
-                self,
-                info,
-                package_name,
-                self.mod_info.is_testable_module(info),
-                runtime_dep_targets
-            )
-
-        return self._add_target(package_name, name, create)
-
-    def _add_deviceless_test_target(self, info: Dict[str, Any]) -> 'Target':
-        package_name = self._get_module_path(info)
-        name = info['module_name'] + "_host"
-
-        def create():
-            for prerequisite in DevicelessTestTarget.PREREQUISITES:
-                self._add_prebuilt_target_by_module_name(prerequisite)
-
-            test_prebuilt_target = self._add_prebuilt_target(info)
-
-            return DevicelessTestTarget.create(
-                name, package_name, test_prebuilt_target.qualified_name())
-
-        return self._add_target(package_name, name, create)
 
     def _get_module_info(self, module_name: str) -> Dict[str, Any]:
         info = self.mod_info.get_module_info(module_name)
@@ -259,7 +269,7 @@ class Package:
                 f.write('\n')
                 target.write_to_build_file(f)
 
-    def get_target(self, target_name: str) -> 'Target':
+    def get_target(self, target_name: str) -> Target:
         return self.name_to_target.get(target_name, None)
 
 
@@ -273,6 +283,32 @@ class Import:
 class Config:
     name: str
     out_path: Path
+
+
+class ModuleRef:
+
+    @staticmethod
+    def for_info(info) -> ModuleRef:
+        return ModuleRef(info=info)
+
+    @staticmethod
+    def for_name(name) -> ModuleRef:
+        return ModuleRef(name=name)
+
+    def __init__(self, info=None, name=None):
+        self.info = info
+        self.name = name
+        self._target = None
+
+    def target(self) -> Target:
+        if not self._target:
+            module_name = self.info['module_name']
+            raise Exception(f'Target not set for ref `{module_name}`')
+
+        return self._target
+
+    def set(self, target):
+        self._target = target
 
 
 class Target(ABC):
@@ -293,6 +329,9 @@ class Target(ABC):
 
     def supported_configs(self) -> Set[Config]:
         return set()
+
+    def dependencies(self) -> List[ModuleRef]:
+        return []
 
     def write_to_build_file(self, f: IO):
         pass
@@ -315,13 +354,13 @@ class DevicelessTestTarget(Target):
     })
 
     @staticmethod
-    def create(name: str, package_name: str, prebuilt_target_name: str):
-        return DevicelessTestTarget(name, package_name, prebuilt_target_name)
+    def create(name: str, package_name: str, info: Dict[str, Any]):
+        return DevicelessTestTarget(name, package_name, info)
 
-    def __init__(self, name: str, package_name: str, prebuilt_target_name: str):
+    def __init__(self, name: str, package_name: str, info: Dict[str, Any]):
         self._name = name
         self._package_name = package_name
-        self._prebuilt_target_name = prebuilt_target_name
+        self._test_module_ref = ModuleRef.for_info(info)
 
     def name(self) -> str:
         return self._name
@@ -338,13 +377,20 @@ class DevicelessTestTarget(Target):
     def supported_configs(self) -> Set[Config]:
         return set()
 
+    def dependencies(self) -> List[ModuleRef]:
+        prerequisite_refs = map(
+            ModuleRef.for_name, DevicelessTestTarget.PREREQUISITES)
+        return [self._test_module_ref] + list(prerequisite_refs)
+
     def write_to_build_file(self, f: IO):
         def fprint(text):
             print(text, file=f)
 
+        prebuilt_target_name = self._test_module_ref.target().qualified_name()
+
         fprint('tradefed_deviceless_test(')
         fprint(f'    name = "{self._name}",')
-        fprint(f'    test = "{self._prebuilt_target_name}",')
+        fprint(f'    test = "{prebuilt_target_name}",')
         fprint(')')
 
 
@@ -354,9 +400,7 @@ class SoongPrebuiltTarget(Target):
     @staticmethod
     def create(gen: WorkspaceGenerator,
                info: Dict[str, Any],
-               package_name: str='',
-               test_module: bool=False,
-               runtime_dep_targets: List[Target]=None):
+               package_name: str=''):
         module_name = info['module_name']
 
         configs = [
@@ -369,7 +413,7 @@ class SoongPrebuiltTarget(Target):
 
         # For test modules, we only create symbolic link to the 'testcases'
         # directory since the information in module-info is not accurate.
-        if test_module:
+        if gen.mod_info.is_testable_module(info):
             config_files = {c: [c.out_path.joinpath(f'testcases/{module_name}')]
                             for c in config_files.keys()}
 
@@ -377,17 +421,30 @@ class SoongPrebuiltTarget(Target):
             raise Exception(f'Module `{module_name}` does not have any'
                             f' installed paths')
 
-        return SoongPrebuiltTarget(module_name, package_name, config_files,
-                                   runtime_dep_targets)
+        runtime_dep_refs = []
+
+        for lib_name in info.get(constants.MODULE_SHARED_LIBS, []):
+            lib_info = gen.mod_info.get_module_info(lib_name)
+            if not lib_info:
+                continue
+            if not lib_info.get(constants.MODULE_INSTALLED):
+                continue
+            runtime_dep_refs.append(ModuleRef.for_info(lib_info))
+
+        return SoongPrebuiltTarget(
+            module_name,
+            package_name,
+            config_files,
+            runtime_dep_refs
+        )
 
     def __init__(self, name: str, package_name: str,
                  config_files: Dict[Config, List[Path]],
-                 runtime_dep_targets: List[Target]=None):
+                 runtime_dep_refs: List[ModuleRef]):
         self._name = name
         self._package_name = package_name
         self.config_files = config_files
-        self.config_dep_targets = group_targets_by_config(
-            runtime_dep_targets or [])
+        self.runtime_dep_refs = runtime_dep_refs
 
     def name(self) -> str:
         return self._name
@@ -402,6 +459,9 @@ class SoongPrebuiltTarget(Target):
 
     def supported_configs(self) -> Set[Config]:
         return self.config_files.keys()
+
+    def dependencies(self) -> List[ModuleRef]:
+        return self.runtime_dep_refs
 
     def write_to_build_file(self, f: IO):
         def fprint(text):
@@ -418,11 +478,15 @@ class SoongPrebuiltTarget(Target):
         fprint('    }),')
         fprint(f'    module_name = "{self._name}",')
 
-        if self.config_dep_targets:
+        config_dep_targets = group_targets_by_config(
+            r.target() for r in self.runtime_dep_refs)
+
+        if config_dep_targets:
             fprint('    runtime_deps = select({')
 
-            for config, deps in sorted(self.config_dep_targets.items(),
-                                     key=lambda c: c[0].name):
+            for config, deps in sorted(
+                config_dep_targets.items(), key=lambda c: c[0].name):
+
                 runtime_dep_names = sorted(d.qualified_name() for d in deps)
 
                 fprint(f'        "//bazel/rules:{config.name}": [')
