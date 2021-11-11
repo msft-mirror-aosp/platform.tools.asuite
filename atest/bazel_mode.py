@@ -76,15 +76,6 @@ class WorkspaceGenerator:
         self.mod_info_md5_path = self.workspace_out_path.joinpath(
             'mod_info_md5')
         self.path_to_package = {}
-        self.prerequisite_modules = {
-            'adb',
-            'tradefed',
-            'tradefed-contrib',
-            'tradefed-test-framework',
-            'atest-tradefed',
-            'atest_tradefed.sh',
-            'atest_script_help.sh',
-        }
 
     def generate(self):
         """Generate the Bazel workspace if mod_info doesn't exist or stale."""
@@ -99,7 +90,6 @@ class WorkspaceGenerator:
             # files in the workspace that could interfere with execution.
             shutil.rmtree(self.workspace_out_path)
 
-        self._add_prerequisite_module_targets()
         self._add_test_module_targets()
 
         self.workspace_out_path.mkdir(parents=True)
@@ -107,10 +97,6 @@ class WorkspaceGenerator:
 
         atest_utils.save_md5([str(self.mod_info.mod_info_file_path)],
                              self.mod_info_md5_path)
-
-    def _add_prerequisite_module_targets(self):
-        for module_name in self.prerequisite_modules:
-            self._add_prebuilt_target_by_module_name(module_name)
 
     def _add_test_module_targets(self):
         for name, info in self.mod_info.name_to_module_info.items():
@@ -172,7 +158,11 @@ class WorkspaceGenerator:
         name = info['module_name'] + "_host"
 
         def create():
+            for prerequisite in DevicelessTestTarget.PREREQUISITES:
+                self._add_prebuilt_target_by_module_name(prerequisite)
+
             test_prebuilt_target = self._add_prebuilt_target(info)
+
             return DevicelessTestTarget.create(
                 name, package_name, test_prebuilt_target.qualified_name())
 
@@ -313,6 +303,16 @@ class Target(ABC):
 
 class DevicelessTestTarget(Target):
     """Class for generating a deviceless test target."""
+
+    PREREQUISITES = frozenset({
+        'adb',
+        'atest-tradefed',
+        'atest_script_help.sh',
+        'atest_tradefed.sh',
+        'tradefed',
+        'tradefed-contrib',
+        'tradefed-test-framework',
+    })
 
     @staticmethod
     def create(name: str, package_name: str, prebuilt_target_name: str):
