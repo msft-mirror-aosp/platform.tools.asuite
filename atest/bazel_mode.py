@@ -174,7 +174,7 @@ class WorkspaceGenerator:
         def create():
             test_prebuilt_target = self._add_prebuilt_target(info)
             return DevicelessTestTarget.create(
-                name, package_name, test_prebuilt_target.name())
+                name, package_name, test_prebuilt_target.qualified_name())
 
         return self._add_target(package_name, name, create)
 
@@ -344,7 +344,7 @@ class DevicelessTestTarget(Target):
 
         fprint('tradefed_deviceless_test(')
         fprint(f'    name = "{self._name}",')
-        fprint(f'    test = ":{self._prebuilt_target_name}",')
+        fprint(f'    test = "{self._prebuilt_target_name}",')
         fprint(')')
 
 
