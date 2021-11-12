@@ -819,12 +819,12 @@ class DecorateFinderMethodTest(fake_filesystem_unittest.TestCase):
 
     def create_single_test_module_info(self, module_name, is_unit_test=True):
         """Create module-info file with single module."""
-        set_as_unit_test = 'true'
+        compatibility_suites = '["host-unit-tests"]'
         if not is_unit_test:
-            set_as_unit_test = 'false'
+            compatibility_suites = "[]"
         unit_test_mod_info_content = ('{"%s": {"class": ["NATIVE_TESTS"],' +
-                                      ' "is_unit_test": "%s" }}') % (
-                                          module_name, set_as_unit_test)
+                                      ' "compatibility_suites": %s }}') % (
+                                          module_name, compatibility_suites)
         fake_temp_file_name = next(tempfile._get_candidate_names())
         self.fs.create_file(fake_temp_file_name,
                             contents=unit_test_mod_info_content)
