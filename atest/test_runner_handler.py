@@ -99,10 +99,12 @@ def get_test_runner_reqs(module_info, test_infos):
     """
     unused_result_dir = ''
     test_runner_build_req = set()
-    for test_runner, _ in group_tests_by_test_runners(test_infos):
+    for test_runner, tests in group_tests_by_test_runners(test_infos):
         test_runner_build_req |= test_runner(
             unused_result_dir,
-            module_info=module_info).get_test_runner_build_reqs()
+            module_info=module_info,
+            test_infos=tests,
+        ).get_test_runner_build_reqs()
     return test_runner_build_req
 
 
