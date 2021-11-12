@@ -29,7 +29,7 @@ import shutil
 from abc import ABC, abstractmethod
 from collections import defaultdict, OrderedDict
 from pathlib import Path
-from typing import Any, Dict, IO, List, Set
+from typing import Any, Dict, IO, List, Set, Callable
 
 import atest_utils
 import constants
@@ -110,7 +110,7 @@ class WorkspaceGenerator:
 
     def _add_prerequisite_module_targets(self):
         for module_name in self.prerequisite_modules:
-            self._add_target_by_module_name(module_name)
+            self._add_prebuilt_target_by_module_name(module_name)
 
     def _add_test_module_targets(self):
         for name, info in self.mod_info.name_to_module_info.items():
@@ -126,36 +126,54 @@ class WorkspaceGenerator:
                 continue
             if not self.mod_info.is_testable_module(info):
                 continue
-            self._add_target(name, info)
+            self._add_deviceless_test_target(name, info)
 
-    def _add_target_by_module_name(self, module_name: str):
+    def _add_target(self, package_path: str, target_name: str,
+                    create_fn: Callable) -> 'Target':
+        package = self.path_to_package.setdefault(package_path,
+                                                  Package(package_path))
+        target = package.get_target(target_name)
+
+        if target:
+            return target
+
+        target = create_fn()
+        package.add_target(target)
+        return target
+
+    def _add_prebuilt_target_by_module_name(self, module_name: str):
         info = self._get_module_info(module_name)
-        self._add_target(module_name, info)
+        self._add_prebuilt_target(module_name, info)
 
-    def _add_target(self,module_name: str, info: Dict[str, Any]):
+    def _add_prebuilt_target(self, module_name: str,
+                             info: Dict[str, Any]) -> 'Target':
         path = self._get_module_path(module_name, info)
 
-        if self.path_to_package.get(
-            path, Package(path)).contains_target(module_name):
-            return
-
-        package = self.path_to_package.setdefault(path, Package(path))
-
-
+        runtime_dep_targets = []
         for lib in info.get(constants.MODULE_SHARED_LIBS, []):
             lib_info = self._get_module_info(lib)
             if not lib_info.get(constants.MODULE_INSTALLED):
                 continue
-            self._add_target(lib, lib_info)
+            runtime_dep_targets.append(self._add_prebuilt_target(lib, lib_info))
 
-        package.add_target(SoongPrebuiltTarget.create(
-            self, info, self.mod_info.is_testable_module(info)))
+        return self._add_target(
+            path, module_name,
+            lambda: SoongPrebuiltTarget.create(
+                self, info, path, self.mod_info.is_testable_module(info),
+                runtime_dep_targets))
 
-        if not self.is_host_unit_test(info):
-            return
+    def _add_deviceless_test_target(self, module_name: str,
+                                    info: Dict[str, Any]) -> 'Target':
+        test_prebuilt_target = self._add_prebuilt_target(module_name, info)
 
-        package.add_target(DevicelessTestTarget.create_for_test_target(
-            module_name))
+        name = test_prebuilt_target.name() + "_host"
+        package_name = test_prebuilt_target.package_name()
+
+        return self._add_target(
+            package_name,
+            name,
+            lambda: DevicelessTestTarget.create(
+                name, package_name, test_prebuilt_target.name()))
 
     def _get_module_info(self, module_name: str) -> Dict[str, Any]:
         info = self.mod_info.get_module_info(module_name)
@@ -247,8 +265,8 @@ class Package:
                 f.write('\n')
                 target.write_to_build_file(f)
 
-    def contains_target(self, target: str) -> bool:
-        return target in self.name_to_target
+    def get_target(self, target_name: str) -> 'Target':
+        return self.name_to_target.get(target_name, None)
 
 
 @dataclasses.dataclass(frozen=True)
@@ -267,10 +285,19 @@ class Target(ABC):
     """Abstract class for a Bazel target."""
 
     @abstractmethod
-    def name(self):
+    def name(self) -> str:
         pass
 
+    def package_name(self) -> str:
+        pass
+
+    def qualified_name(self) -> str:
+        return f'//{self.package_name()}:{self.name()}'
+
     def required_imports(self) -> Set[Import]:
+        return set()
+
+    def supported_configs(self) -> Set[Config]:
         return set()
 
     def write_to_build_file(self, f: IO):
@@ -284,16 +311,19 @@ class DevicelessTestTarget(Target):
     """Class for generating a deviceless test target."""
 
     @staticmethod
-    def create_for_test_target(test_target_name):
-        return DevicelessTestTarget(f'{test_target_name}_host',
-                                    test_target_name)
+    def create(name: str, package_name: str, prebuilt_target_name):
+        return DevicelessTestTarget(name, package_name, prebuilt_target_name)
 
-    def __init__(self, name: str, test_target_name: str):
+    def __init__(self, name: str, package_name: str, prebuilt_target_name: str):
         self._name = name
-        self._test_target_name = test_target_name
+        self._package_name = package_name
+        self._prebuilt_target_name = prebuilt_target_name
 
-    def name(self):
+    def name(self) -> str:
         return self._name
+
+    def package_name(self) -> str:
+        return self._package_name
 
     def required_imports(self) -> Set[Import]:
         return {
@@ -301,13 +331,16 @@ class DevicelessTestTarget(Target):
                    'tradefed_deviceless_test'),
         }
 
+    def supported_configs(self) -> Set[Config]:
+        return set()
+
     def write_to_build_file(self, f: IO):
         def fprint(text):
             print(text, file=f)
 
         fprint('tradefed_deviceless_test(')
         fprint(f'    name = "{self._name}",')
-        fprint(f'    test = ":{self._test_target_name}",')
+        fprint(f'    test = ":{self._prebuilt_target_name}",')
         fprint(')')
 
 
@@ -315,8 +348,11 @@ class SoongPrebuiltTarget(Target):
     """Class for generating a Soong prebuilt target on disk."""
 
     @staticmethod
-    def create(gen: WorkspaceGenerator, info: Dict[str, Any],
-               test_module: bool=False):
+    def create(gen: WorkspaceGenerator,
+               info: Dict[str, Any],
+               package_name: str='',
+               test_module: bool=False,
+               runtime_dep_targets: List[Target]=None):
         module_name = info['module_name']
 
         configs = [
@@ -337,19 +373,31 @@ class SoongPrebuiltTarget(Target):
             raise Exception(f'Module `{module_name}` does not have any'
                             f' installed paths')
 
-        return SoongPrebuiltTarget(module_name, config_files)
+        return SoongPrebuiltTarget(module_name, package_name, config_files,
+                                   runtime_dep_targets)
 
-    def __init__(self, name: str, config_files: Dict[Config, List[Path]]):
+    def __init__(self, name: str, package_name: str,
+                 config_files: Dict[Config, List[Path]],
+                 runtime_dep_targets: List[Target]=None):
         self._name = name
+        self._package_name = package_name
         self.config_files = config_files
+        self.config_dep_targets = group_targets_by_config(
+            runtime_dep_targets or [])
 
-    def name(self):
+    def name(self) -> str:
         return self._name
+
+    def package_name(self) -> str:
+        return self._package_name
 
     def required_imports(self) -> Set[Import]:
         return {
             Import('//bazel/rules:soong_prebuilt.bzl', 'soong_prebuilt'),
         }
+
+    def supported_configs(self) -> Set[Config]:
+        return self.config_files.keys()
 
     def write_to_build_file(self, f: IO):
         def fprint(text):
@@ -365,6 +413,21 @@ class SoongPrebuiltTarget(Target):
 
         fprint('    }),')
         fprint(f'    module_name = "{self._name}",')
+
+        if self.config_dep_targets:
+            fprint('    runtime_deps = select({')
+
+            for config, deps in sorted(self.config_dep_targets.items(),
+                                     key=lambda c: c[0].name):
+                runtime_dep_names = sorted(d.qualified_name() for d in deps)
+
+                fprint(f'        "//bazel/rules:{config.name}": [')
+                fprint('\n'.join(
+                    f'            "{d}",' for d in runtime_dep_names))
+                fprint('        ],')
+
+            fprint('    }),')
+
         fprint(')')
 
     def create_filesystem_layout(self, package_dir: Path):
@@ -400,6 +463,18 @@ def group_paths_by_config(
         config_files[matching_configs[0]].append(f)
 
     return config_files
+
+
+def group_targets_by_config(
+    targets: List[Target]) -> Dict[Config, List[Target]]:
+
+    config_to_targets = defaultdict(list)
+
+    for target in targets:
+        for config in target.supported_configs():
+            config_to_targets[config].append(target)
+
+    return config_to_targets
 
 
 def _is_relative_to(path1: Path, path2: Path) -> bool:
