@@ -126,7 +126,7 @@ class WorkspaceGenerator:
                 continue
             if not self.mod_info.is_testable_module(info):
                 continue
-            self._add_deviceless_test_target(name, info)
+            self._add_deviceless_test_target(info)
 
     def _add_target(self, package_path: str, target_name: str,
                     create_fn: Callable) -> 'Target':
@@ -142,38 +142,41 @@ class WorkspaceGenerator:
         return target
 
     def _add_prebuilt_target_by_module_name(self, module_name: str):
-        info = self._get_module_info(module_name)
-        self._add_prebuilt_target(module_name, info)
+        self._add_prebuilt_target(self._get_module_info(module_name))
 
-    def _add_prebuilt_target(self, module_name: str,
-                             info: Dict[str, Any]) -> 'Target':
-        path = self._get_module_path(module_name, info)
+    def _add_prebuilt_target(self, info: Dict[str, Any]) -> 'Target':
+        package_name = self._get_module_path(info)
+        name = info['module_name']
 
-        runtime_dep_targets = []
-        for lib in info.get(constants.MODULE_SHARED_LIBS, []):
-            lib_info = self._get_module_info(lib)
-            if not lib_info.get(constants.MODULE_INSTALLED):
-                continue
-            runtime_dep_targets.append(self._add_prebuilt_target(lib, lib_info))
+        def create():
+            runtime_dep_targets = []
 
-        return self._add_target(
-            path, module_name,
-            lambda: SoongPrebuiltTarget.create(
-                self, info, path, self.mod_info.is_testable_module(info),
-                runtime_dep_targets))
+            for lib_name in info.get(constants.MODULE_SHARED_LIBS, []):
+                lib_info = self._get_module_info(lib_name)
+                if not lib_info.get(constants.MODULE_INSTALLED):
+                    continue
+                runtime_dep_targets.append(self._add_prebuilt_target(lib_info))
 
-    def _add_deviceless_test_target(self, module_name: str,
-                                    info: Dict[str, Any]) -> 'Target':
-        test_prebuilt_target = self._add_prebuilt_target(module_name, info)
+            return SoongPrebuiltTarget.create(
+                self,
+                info,
+                package_name,
+                self.mod_info.is_testable_module(info),
+                runtime_dep_targets
+            )
 
-        name = test_prebuilt_target.name() + "_host"
-        package_name = test_prebuilt_target.package_name()
+        return self._add_target(package_name, name, create)
 
-        return self._add_target(
-            package_name,
-            name,
-            lambda: DevicelessTestTarget.create(
-                name, package_name, test_prebuilt_target.name()))
+    def _add_deviceless_test_target(self, info: Dict[str, Any]) -> 'Target':
+        package_name = self._get_module_path(info)
+        name = info['module_name'] + "_host"
+
+        def create():
+            test_prebuilt_target = self._add_prebuilt_target(info)
+            return DevicelessTestTarget.create(
+                name, package_name, test_prebuilt_target.name())
+
+        return self._add_target(package_name, name, create)
 
     def _get_module_info(self, module_name: str) -> Dict[str, Any]:
         info = self.mod_info.get_module_info(module_name)
@@ -184,10 +187,11 @@ class WorkspaceGenerator:
 
         return info
 
-    def _get_module_path(self, module_name: str, info: Dict[str, Any]) -> str:
+    def _get_module_path(self, info: Dict[str, Any]) -> str:
         mod_path = info.get(constants.MODULE_PATH)
 
         if len(mod_path) != 1:
+            module_name = info['module_name']
             # We usually have a single path but there are a few exceptions for
             # modules like libLLVM_android and libclang_android.
             # TODO(nelsonli): Remove this check once b/153609531 is fixed.
@@ -311,7 +315,7 @@ class DevicelessTestTarget(Target):
     """Class for generating a deviceless test target."""
 
     @staticmethod
-    def create(name: str, package_name: str, prebuilt_target_name):
+    def create(name: str, package_name: str, prebuilt_target_name: str):
         return DevicelessTestTarget(name, package_name, prebuilt_target_name)
 
     def __init__(self, name: str, package_name: str, prebuilt_target_name: str):
