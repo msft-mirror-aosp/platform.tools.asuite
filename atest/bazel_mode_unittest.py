@@ -432,9 +432,8 @@ class DevicelessTestTargetTest(unittest.TestCase):
     """Tests for DevicelessTestTarget."""
 
     def test_create_for_test_target(self):
-        module_name = 'hello_test'
         target = bazel_mode.DevicelessTestTarget.create(
-            module_name + '_host', 'package_name', module_name)
+            'hello_test_host', 'package_name', '//package_name:hello_test')
         f = io.StringIO()
 
         target.write_to_build_file(f)
@@ -442,7 +441,7 @@ class DevicelessTestTargetTest(unittest.TestCase):
         self.assertIn(
             'tradefed_deviceless_test(\n'
             '    name = "hello_test_host",\n'
-            '    test = ":hello_test",\n'
+            '    test = "//package_name:hello_test",\n'
             ')',
             f.getvalue())
 
