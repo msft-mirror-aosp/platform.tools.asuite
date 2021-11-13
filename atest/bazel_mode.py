@@ -76,15 +76,6 @@ class WorkspaceGenerator:
         self.mod_info_md5_path = self.workspace_out_path.joinpath(
             'mod_info_md5')
         self.path_to_package = {}
-        self.prerequisite_modules = {
-            'adb',
-            'tradefed',
-            'tradefed-contrib',
-            'tradefed-test-framework',
-            'atest-tradefed',
-            'atest_tradefed.sh',
-            'atest_script_help.sh',
-        }
 
     def generate(self):
         """Generate the Bazel workspace if mod_info doesn't exist or stale."""
@@ -99,7 +90,6 @@ class WorkspaceGenerator:
             # files in the workspace that could interfere with execution.
             shutil.rmtree(self.workspace_out_path)
 
-        self._add_prerequisite_module_targets()
         self._add_test_module_targets()
 
         self.workspace_out_path.mkdir(parents=True)
@@ -107,10 +97,6 @@ class WorkspaceGenerator:
 
         atest_utils.save_md5([str(self.mod_info.mod_info_file_path)],
                              self.mod_info_md5_path)
-
-    def _add_prerequisite_module_targets(self):
-        for module_name in self.prerequisite_modules:
-            self._add_prebuilt_target_by_module_name(module_name)
 
     def _add_test_module_targets(self):
         for name, info in self.mod_info.name_to_module_info.items():
@@ -126,7 +112,7 @@ class WorkspaceGenerator:
                 continue
             if not self.mod_info.is_testable_module(info):
                 continue
-            self._add_deviceless_test_target(name, info)
+            self._add_deviceless_test_target(info)
 
     def _add_target(self, package_path: str, target_name: str,
                     create_fn: Callable) -> 'Target':
@@ -142,38 +128,45 @@ class WorkspaceGenerator:
         return target
 
     def _add_prebuilt_target_by_module_name(self, module_name: str):
-        info = self._get_module_info(module_name)
-        self._add_prebuilt_target(module_name, info)
+        self._add_prebuilt_target(self._get_module_info(module_name))
 
-    def _add_prebuilt_target(self, module_name: str,
-                             info: Dict[str, Any]) -> 'Target':
-        path = self._get_module_path(module_name, info)
+    def _add_prebuilt_target(self, info: Dict[str, Any]) -> 'Target':
+        package_name = self._get_module_path(info)
+        name = info['module_name']
 
-        runtime_dep_targets = []
-        for lib in info.get(constants.MODULE_SHARED_LIBS, []):
-            lib_info = self._get_module_info(lib)
-            if not lib_info.get(constants.MODULE_INSTALLED):
-                continue
-            runtime_dep_targets.append(self._add_prebuilt_target(lib, lib_info))
+        def create():
+            runtime_dep_targets = []
 
-        return self._add_target(
-            path, module_name,
-            lambda: SoongPrebuiltTarget.create(
-                self, info, path, self.mod_info.is_testable_module(info),
-                runtime_dep_targets))
+            for lib_name in info.get(constants.MODULE_SHARED_LIBS, []):
+                lib_info = self._get_module_info(lib_name)
+                if not lib_info.get(constants.MODULE_INSTALLED):
+                    continue
+                runtime_dep_targets.append(self._add_prebuilt_target(lib_info))
 
-    def _add_deviceless_test_target(self, module_name: str,
-                                    info: Dict[str, Any]) -> 'Target':
-        test_prebuilt_target = self._add_prebuilt_target(module_name, info)
+            return SoongPrebuiltTarget.create(
+                self,
+                info,
+                package_name,
+                self.mod_info.is_testable_module(info),
+                runtime_dep_targets
+            )
 
-        name = test_prebuilt_target.name() + "_host"
-        package_name = test_prebuilt_target.package_name()
+        return self._add_target(package_name, name, create)
 
-        return self._add_target(
-            package_name,
-            name,
-            lambda: DevicelessTestTarget.create(
-                name, package_name, test_prebuilt_target.name()))
+    def _add_deviceless_test_target(self, info: Dict[str, Any]) -> 'Target':
+        package_name = self._get_module_path(info)
+        name = info['module_name'] + "_host"
+
+        def create():
+            for prerequisite in DevicelessTestTarget.PREREQUISITES:
+                self._add_prebuilt_target_by_module_name(prerequisite)
+
+            test_prebuilt_target = self._add_prebuilt_target(info)
+
+            return DevicelessTestTarget.create(
+                name, package_name, test_prebuilt_target.qualified_name())
+
+        return self._add_target(package_name, name, create)
 
     def _get_module_info(self, module_name: str) -> Dict[str, Any]:
         info = self.mod_info.get_module_info(module_name)
@@ -184,10 +177,11 @@ class WorkspaceGenerator:
 
         return info
 
-    def _get_module_path(self, module_name: str, info: Dict[str, Any]) -> str:
+    def _get_module_path(self, info: Dict[str, Any]) -> str:
         mod_path = info.get(constants.MODULE_PATH)
 
         if len(mod_path) != 1:
+            module_name = info['module_name']
             # We usually have a single path but there are a few exceptions for
             # modules like libLLVM_android and libclang_android.
             # TODO(nelsonli): Remove this check once b/153609531 is fixed.
@@ -310,8 +304,18 @@ class Target(ABC):
 class DevicelessTestTarget(Target):
     """Class for generating a deviceless test target."""
 
+    PREREQUISITES = frozenset({
+        'adb',
+        'atest-tradefed',
+        'atest_script_help.sh',
+        'atest_tradefed.sh',
+        'tradefed',
+        'tradefed-contrib',
+        'tradefed-test-framework',
+    })
+
     @staticmethod
-    def create(name: str, package_name: str, prebuilt_target_name):
+    def create(name: str, package_name: str, prebuilt_target_name: str):
         return DevicelessTestTarget(name, package_name, prebuilt_target_name)
 
     def __init__(self, name: str, package_name: str, prebuilt_target_name: str):
@@ -340,7 +344,7 @@ class DevicelessTestTarget(Target):
 
         fprint('tradefed_deviceless_test(')
         fprint(f'    name = "{self._name}",')
-        fprint(f'    test = ":{self._prebuilt_target_name}",')
+        fprint(f'    test = "{self._prebuilt_target_name}",')
         fprint(')')
 
 
@@ -512,7 +516,8 @@ def _decorate_find_method(mod_info, finder_method_func):
             return test_infos
         for tinfo in test_infos:
             m_info = mod_info.get_module_info(tinfo.test_name)
-            if mod_info.is_unit_test(m_info):
+            if mod_info.is_suite_in_compatibility_suites(
+                'host-unit-tests', m_info):
                 tinfo.test_runner = BazelTestRunner.NAME
         return test_infos
     return use_bazel_runner
