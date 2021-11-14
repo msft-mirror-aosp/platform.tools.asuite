@@ -170,42 +170,6 @@ class WorkspaceGeneratorTest(fake_filesystem_unittest.TestCase):
             self.src_root_path.joinpath('tools/asuite/atest/bazel/rules')
         )
 
-    def test_raise_when_prerequisite_module_not_in_module_info(self):
-        module_name = 'libhello'
-        gen = self.create_workspace_generator(
-            prerequisites=[module_name], modules=[])
-
-        with self.assertRaises(Exception) as context:
-            gen.generate()
-
-        self.assertIn(module_name, str(context.exception))
-
-    def test_raise_when_prerequisite_module_missing_path(self):
-        module_name = 'libhello'
-        module = self.create_module(module_name)
-        module.get('path').clear()
-        gen = self.create_workspace_generator(
-            prerequisites=[module_name], modules=[module])
-
-        with self.assertRaises(Exception) as context:
-            gen.generate()
-
-        self.assertIn(module_name, str(context.exception))
-
-    def test_write_build_file_in_package_dir(self):
-        module_name = 'libhello'
-        module_path = 'example/tests'
-        module = self.create_module(module_name)
-        module['path'] = [module_path]
-        gen = self.create_workspace_generator(
-            prerequisites=[module_name], modules=[module])
-        expected_path = self.workspace_out_path.joinpath(module_path,
-                                                         'BUILD.bazel')
-
-        gen.generate()
-
-        self.assertTrue(expected_path.is_file())
-
     def test_generate_host_unit_test_module(self):
         module = self.create_host_unit_test_module()
         gen = self.create_workspace_generator(modules=[module])
@@ -214,6 +178,38 @@ class WorkspaceGeneratorTest(fake_filesystem_unittest.TestCase):
         gen.generate()
 
         self.assertTrue(expected_path.is_dir())
+
+    def test_raise_when_host_unit_test_prerequisite_not_in_module_info(self):
+        module = self.create_host_unit_test_module()
+        gen = self.create_workspace_generator(modules=[module])
+        del gen.mod_info.name_to_module_info['adb']
+
+        with self.assertRaises(Exception) as context:
+            gen.generate()
+
+        self.assertIn('adb', str(context.exception))
+
+    def test_raise_when_host_unit_test_prerequisite_module_missing_path(self):
+        module = self.create_host_unit_test_module()
+        gen = self.create_workspace_generator(modules=[module])
+        gen.mod_info.name_to_module_info['adb'].get('path').clear()
+
+        with self.assertRaises(Exception) as context:
+            gen.generate()
+
+        self.assertIn('adb', str(context.exception))
+
+    def test_write_build_file_in_package_dir(self):
+        module_path = 'example/tests'
+        module = self.create_host_unit_test_module()
+        module['path'] = [module_path]
+        expected_path = self.workspace_out_path.joinpath(module_path,
+                                                         'BUILD.bazel')
+        gen = self.create_workspace_generator(modules=[module])
+
+        gen.generate()
+
+        self.assertTrue(expected_path.is_file())
 
     def test_not_generate_non_host_unit_test_module(self):
         module = self.create_host_unit_test_module()
@@ -235,11 +231,38 @@ class WorkspaceGeneratorTest(fake_filesystem_unittest.TestCase):
 
         self.assertFalse(expected_path.is_dir())
 
-    def create_workspace_generator(self, prerequisites=None, mod_info=None,
-                                   modules=None):
-        prerequisites = prerequisites or []
+    def test_generate_shared_lib_for_dependent_target(self):
+        lib_module_name = 'libhello'
+        lib_module = self.create_module(lib_module_name)
+        module = self.create_host_unit_test_module()
+        module['shared_libs'] = [lib_module_name]
+        gen = self.create_workspace_generator(modules=[module, lib_module])
+
+        gen.generate()
+
+        self.assertInModuleBuildFile(f'name = "{lib_module_name}"',
+                                     lib_module)
+
+    def test_not_generate_uninstalled_shared_lib_target(self):
+        lib_module_name = 'libhello'
+        lib_module = self.create_module(lib_module_name)
+        lib_module['installed'] = []
+        module = self.create_host_unit_test_module()
+        module['shared_libs'] = [lib_module_name]
+        gen = self.create_workspace_generator(modules=[module, lib_module])
+        expected_path = self.expected_package_path(lib_module)
+
+        gen.generate()
+
+        self.assertFalse(expected_path.joinpath('BUILD.bazel').is_file())
+
+    def create_workspace_generator(self, mod_info=None, modules=None):
         mod_info = mod_info or self.create_empty_module_info()
         modules = modules or []
+
+        for module_name in bazel_mode.DevicelessTestTarget.PREREQUISITES:
+            info = self.create_module(module_name)
+            mod_info.name_to_module_info[module_name] = info
 
         for m in modules:
             mod_info.name_to_module_info[m['module_name']] = m
@@ -252,8 +275,6 @@ class WorkspaceGeneratorTest(fake_filesystem_unittest.TestCase):
             self.out_dir_path,
             mod_info
         )
-
-        generator.prerequisite_modules = prerequisites
 
         return generator
 
@@ -290,6 +311,12 @@ class WorkspaceGeneratorTest(fake_filesystem_unittest.TestCase):
 
     def assertSymlinkTo(self, symlink_path, target_path):
         self.assertEqual(symlink_path.resolve(strict=False), target_path)
+
+    def assertInModuleBuildFile(self, compare_str, module):
+        module_build_file = self.expected_package_path(module).joinpath(
+            'BUILD.bazel')
+        self.assertTrue(module_build_file.is_file())
+        self.assertIn(compare_str, module_build_file.read_text())
 
 
 class PackageTest(fake_filesystem_unittest.TestCase):
@@ -400,10 +427,9 @@ class PackageTest(fake_filesystem_unittest.TestCase):
 class DevicelessTestTargetTest(unittest.TestCase):
     """Tests for DevicelessTestTarget."""
 
-    def test_write_to_build_file(self):
-        module_name = 'hello_test'
-        target = bazel_mode.DevicelessTestTarget.create_for_test_target(
-            module_name)
+    def test_create_for_test_target(self):
+        target = bazel_mode.DevicelessTestTarget.create(
+            'hello_test_host', 'package_name', '//package_name:hello_test')
         f = io.StringIO()
 
         target.write_to_build_file(f)
@@ -411,7 +437,7 @@ class DevicelessTestTargetTest(unittest.TestCase):
         self.assertIn(
             'tradefed_deviceless_test(\n'
             '    name = "hello_test_host",\n'
-            '    test = ":hello_test",\n'
+            '    test = "//package_name:hello_test",\n'
             ')',
             f.getvalue())
 
@@ -607,6 +633,98 @@ class SoongPrebuiltTargetTest(fake_filesystem_unittest.TestCase):
 
         self.assertFalse(module_out_path.joinpath('host').exists())
 
+    def test_write_multi_config_runtime_deps(self):
+        lib1_name = 'libhello'
+        lib1_module = self.create_module(lib1_name)
+        lib1_module['installed'] = [
+            str(self.host_out_path.joinpath(lib1_name)),
+            str(self.product_out_path.joinpath(lib1_name)),
+        ]
+        lib2_name = 'libhello2'
+        lib2_module = self.create_module(lib2_name)
+        lib2_module['installed'] = [
+            str(self.product_out_path.joinpath(lib2_name)),
+        ]
+        module_name = 'hello_test'
+        module = self.create_module(module_name)
+        target = self.create_target(
+            module, runtime_dep_targets=[self.create_target(lib1_module),
+                                         self.create_target(lib2_module)])
+        f = io.StringIO()
+
+        target.write_to_build_file(f)
+
+        self.assertIn(
+            '    runtime_deps = select({\n'
+            '        "//bazel/rules:device": [\n'
+            '            "//src/libhello2:libhello2",\n'
+            '            "//src/libhello:libhello",\n'
+            '        ],\n'
+            '        "//bazel/rules:host": [\n'
+            '            "//src/libhello:libhello",\n'
+            '        ],\n'
+            '    }),\n',
+            f.getvalue())
+
+    def test_write_runtime_deps_in_order(self):
+        lib1_name = '1_libhello'
+        lib1_module = self.create_module(lib1_name)
+        lib2_name = '2_libhello'
+        lib2_module = self.create_module(lib2_name)
+        module_name = 'hello_test'
+        module = self.create_module(module_name)
+        target = self.create_target(
+            module, runtime_dep_targets=[self.create_target(lib1_module),
+                                         self.create_target(lib2_module)])
+        f = io.StringIO()
+
+        target.write_to_build_file(f)
+
+        self.assertIn(
+            '    runtime_deps = select({\n'
+            '        "//bazel/rules:host": [\n'
+            '            "//src/1_libhello:1_libhello",\n'
+            '            "//src/2_libhello:2_libhello",\n'
+            '        ],\n'
+            '    }),',
+            f.getvalue())
+
+    def test_not_write_device_condition_for_host_runtime_deps(self):
+        lib1_name = 'libhello'
+        lib1_module = self.create_module(lib1_name)
+        lib1_module['installed'] = [
+            str(self.host_out_path.joinpath(lib1_name)),
+        ]
+        module_name = 'hello_test'
+        module = self.create_module(module_name)
+        target = self.create_target(
+            module, runtime_dep_targets=[self.create_target(lib1_module)])
+        f = io.StringIO()
+
+        target.write_to_build_file(f)
+
+        self.assertNotIn(
+            '"//bazel/rules:device":',
+            f.getvalue())
+
+    def test_not_write_host_condition_for_device_runtime_deps(self):
+        lib1_name = 'libhello'
+        lib1_module = self.create_module(lib1_name)
+        lib1_module['installed'] = [
+            str(self.product_out_path.joinpath(lib1_name)),
+        ]
+        module_name = 'hello_test'
+        module = self.create_module(module_name)
+        target = self.create_target(
+            module, runtime_dep_targets=[self.create_target(lib1_module)])
+        f = io.StringIO()
+
+        target.write_to_build_file(f)
+
+        self.assertNotIn(
+            '"//bazel/rules:host": [\'//src/libhello:libhello\'],',
+            f.getvalue())
+
     def assertSymlinkTo(self, symlink_path, target_path):
         self.assertEqual(symlink_path.resolve(strict=False), target_path)
 
@@ -621,8 +739,6 @@ class SoongPrebuiltTargetTest(fake_filesystem_unittest.TestCase):
             self.out_dir_path,
             mod_info
         )
-
-        generator.prerequisite_prebuilts = []
 
         return generator
 
@@ -645,9 +761,14 @@ class SoongPrebuiltTargetTest(fake_filesystem_unittest.TestCase):
 
         return module
 
-    def create_target(self, module, test_module=False):
-        return bazel_mode.SoongPrebuiltTarget.create(self.gen, module,
-                                                     test_module)
+    def create_target(self, module, test_module=False,
+                      runtime_dep_targets=None):
+        return bazel_mode.SoongPrebuiltTarget.create(
+            self.gen, module,
+            module['path'][0],
+            test_module=test_module,
+            runtime_dep_targets=runtime_dep_targets
+        )
 
 
 class DecorateFinderMethodTest(fake_filesystem_unittest.TestCase):
@@ -698,12 +819,12 @@ class DecorateFinderMethodTest(fake_filesystem_unittest.TestCase):
 
     def create_single_test_module_info(self, module_name, is_unit_test=True):
         """Create module-info file with single module."""
-        set_as_unit_test = 'true'
+        compatibility_suites = '["host-unit-tests"]'
         if not is_unit_test:
-            set_as_unit_test = 'false'
+            compatibility_suites = "[]"
         unit_test_mod_info_content = ('{"%s": {"class": ["NATIVE_TESTS"],' +
-                                      ' "is_unit_test": "%s" }}') % (
-                                          module_name, set_as_unit_test)
+                                      ' "compatibility_suites": %s }}') % (
+                                          module_name, compatibility_suites)
         fake_temp_file_name = next(tempfile._get_candidate_names())
         self.fs.create_file(fake_temp_file_name,
                             contents=unit_test_mod_info_content)

@@ -21,7 +21,7 @@ BAZEL_BINARY="${ANDROID_BUILD_TOP}/prebuilts/bazel/linux-x86_64/bazel"
 function create_bazel_workspace(){
     source "${ANDROID_BUILD_TOP}/build/envsetup.sh"
     cd ${ANDROID_BUILD_TOP}
-    python ${ATEST_SRC} --bazel-mode hello_world_test --dry-run
+    python ${ATEST_SRC} --bazel-mode atest_unittests --build
 }
 
 function bazel_query(){
