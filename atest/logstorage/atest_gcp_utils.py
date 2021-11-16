@@ -161,9 +161,10 @@ def do_upload_flow(extra_args):
         config_folder,
         extra_args.get(constants.REQUEST_UPLOAD_RESULT, None))
     if creds:
-        inv, workunit = _prepare_data(creds)
+        inv, workunit, local_build_id = _prepare_data(creds)
         extra_args[constants.INVOCATION_ID] = inv['invocationId']
         extra_args[constants.WORKUNIT_ID] = workunit['id']
+        extra_args[constants.LOCAL_BUILD_ID] = local_build_id
         if not os.path.exists(os.path.dirname(constants.TOKEN_FILE_PATH)):
             os.makedirs(os.path.dirname(constants.TOKEN_FILE_PATH))
         with open(constants.TOKEN_FILE_PATH, 'w') as token_file:
@@ -239,7 +240,7 @@ def _prepare_data(creds):
         client.insert_build_attempts(build_record)
         invocation = client.insert_invocation(build_record)
         workunit = client.insert_work_unit(invocation)
-        return invocation, workunit
+        return invocation, workunit, build_record['buildId']
     finally:
         logging.disable(logging.NOTSET)
 
