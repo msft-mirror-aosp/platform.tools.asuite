@@ -104,11 +104,10 @@ class ModuleInfo:
         if not atest_utils.is_valid_json_file(module_file_path) or force_build:
             logging.debug('Generating %s - this is required for '
                           'initial runs or forced rebuilds.', _MODULE_INFO)
-            build_env = dict(constants.ATEST_BUILD_ENV)
             build_start = time.time()
             if not atest_utils.build([module_info_target],
                                      verbose=logging.getLogger().isEnabledFor(
-                                         logging.DEBUG), env_vars=build_env):
+                                         logging.DEBUG)):
                 sys.exit(constants.EXIT_CODE_BUILD_FAILURE)
             build_duration = time.time() - build_start
             metrics.LocalDetectEvent(
