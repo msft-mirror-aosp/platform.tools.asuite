@@ -39,7 +39,8 @@ class AtestGcpUtilsUnittests(unittest.TestCase):
         mock_request.return_value = fake_creds
         fake_inv = {'invocationId': 'inv_id'}
         fake_workunit = {'id': 'workunit_id'}
-        mock_prepare.return_value = fake_inv, fake_workunit
+        fake_local_build_id = 'L1234567'
+        mock_prepare.return_value = fake_inv, fake_workunit, fake_local_build_id
         constants.TOKEN_FILE_PATH = tempfile.NamedTemporaryFile().name
         creds, inv = atest_gcp_utils.do_upload_flow(fake_extra_args)
         self.assertEqual(fake_creds, creds)
@@ -48,6 +49,8 @@ class AtestGcpUtilsUnittests(unittest.TestCase):
                          fake_inv['invocationId'])
         self.assertEqual(fake_extra_args[constants.WORKUNIT_ID],
                          fake_workunit['id'])
+        self.assertEqual(fake_extra_args[constants.LOCAL_BUILD_ID],
+                         fake_local_build_id)
 
         mock_request.return_value = None
         creds, inv = atest_gcp_utils.do_upload_flow(fake_extra_args)
