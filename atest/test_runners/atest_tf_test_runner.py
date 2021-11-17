@@ -313,6 +313,9 @@ class AtestTradefedTestRunner(test_runner_base.TestRunnerBase):
                             r'{} for detail.'.format(reporter.log_path),
                             constants.RED, highlight=True)
                     if not data_map:
+                        metrics.LocalDetectEvent(
+                            detect_type=constants.DETECT_TYPE_TF_EXIT_CODE,
+                            result=tf_subproc.returncode)
                         raise TradeFedExitError(TRADEFED_EXIT_MSG
                                                 % tf_subproc.returncode)
                     self._handle_log_associations(event_handlers)
