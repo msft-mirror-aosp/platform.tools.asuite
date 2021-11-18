@@ -27,6 +27,7 @@ import shutil
 import socket
 
 from functools import partial
+from pathlib import Path
 
 import atest_error
 import atest_utils
@@ -51,13 +52,17 @@ SELECT_TIMEOUT = 0.5
 # EVENT_RE has groups for the name and the data. "." does not match \n.
 EVENT_RE = re.compile(r'\n*(?P<event_name>[A-Z_]+) (?P<json_data>{.*})(?=\n|.)*')
 
-EXEC_DEPENDENCIES = ('adb', 'aapt', 'fastboot')
+# Remove aapt from build dependency, use prebuilt version instead.
+EXEC_DEPENDENCIES = ('adb', 'fastboot')
 
 TRADEFED_EXIT_MSG = 'TradeFed subprocess exited early with exit code=%s.'
 
 LOG_FOLDER_NAME = 'log'
 
 _INTEGRATION_FINDERS = frozenset(['', 'INTEGRATION', 'INTEGRATION_FILE_PATH'])
+
+# AAPT binary name
+_AAPT = 'aapt'
 
 class TradeFedExitError(Exception):
     """Raised when TradeFed exists before test run has finished."""
@@ -91,7 +96,8 @@ class AtestTradefedTestRunner(test_runner_base.TestRunnerBase):
         if not os.path.exists(self.log_path):
             os.makedirs(self.log_path)
         log_args = {'log_path': self.log_path,
-                    'proto_path': os.path.join(self.results_dir, constants.ATEST_TEST_RECORD_PROTO)}
+                    'proto_path': os.path.join(
+                        self.results_dir, constants.ATEST_TEST_RECORD_PROTO)}
         self.run_cmd_dict = {'env': self._get_ld_library_path(),
                              'exe': self.EXECUTABLE,
                              'template': self._TF_TEMPLATE,
@@ -307,6 +313,9 @@ class AtestTradefedTestRunner(test_runner_base.TestRunnerBase):
                             r'{} for detail.'.format(reporter.log_path),
                             constants.RED, highlight=True)
                     if not data_map:
+                        metrics.LocalDetectEvent(
+                            detect_type=constants.DETECT_TYPE_TF_EXIT_CODE,
+                            result=tf_subproc.returncode)
                         raise TradeFedExitError(TRADEFED_EXIT_MSG
                                                 % tf_subproc.returncode)
                     self._handle_log_associations(event_handlers)
@@ -379,6 +388,16 @@ class AtestTradefedTestRunner(test_runner_base.TestRunnerBase):
                 continue
             filtered_paths.append(path)
         env_vars['PYTHONPATH'] = ':'.join(filtered_paths)
+
+        # Use prebuilt aapt if there's no aapt under android system path which
+        # is aligned with build system.
+        # https://android.googlesource.com/platform/build/+/master/core/config.mk#529
+        if self._is_missing_exec(_AAPT):
+            prebuilt_aapt = Path.joinpath(
+                atest_utils.get_prebuilt_sdk_tools_dir(), _AAPT)
+            if os.path.exists(prebuilt_aapt):
+                env_vars['PATH'] = (str(prebuilt_aapt.parent) + ':'
+                                    + env_vars['PATH'])
         return env_vars
 
     # pylint: disable=unnecessary-pass
@@ -407,7 +426,7 @@ class AtestTradefedTestRunner(test_runner_base.TestRunnerBase):
             return True
         # TODO: Check if there is a clever way to determine if system adb is
         # good enough.
-        root_dir = os.environ.get(constants.ANDROID_BUILD_TOP)
+        root_dir = os.environ.get(constants.ANDROID_BUILD_TOP, '')
         return os.path.commonprefix([output, root_dir]) != root_dir
 
     def get_test_runner_build_reqs(self):

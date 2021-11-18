@@ -30,6 +30,7 @@ import json
 import logging
 import os
 import pickle
+import platform
 import re
 import shutil
 import subprocess
@@ -39,6 +40,7 @@ import time
 import zipfile
 
 from multiprocessing import Process
+from pathlib import Path
 
 import xml.etree.ElementTree as ET
 
@@ -1594,3 +1596,12 @@ def run_multi_proc(func, *args, **kwargs):
     proc = Process(target=func, *args, **kwargs)
     proc.start()
     return proc
+
+def get_prebuilt_sdk_tools_dir():
+    """Get the path for the prebuilt sdk tools root dir.
+
+    Returns: The absolute path of prebuilt sdk tools directory.
+    """
+    build_top = Path(os.environ.get(constants.ANDROID_BUILD_TOP, ''))
+    return build_top.joinpath(
+        'prebuilts/sdk/tools/', str(platform.system()).lower(), 'bin')
