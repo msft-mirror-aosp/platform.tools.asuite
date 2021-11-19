@@ -405,3 +405,5 @@ GTEST_PARAM = 'value-parameterized test'
 
 # Tradefed log saver template for ATest
 ATEST_TF_LOG_SAVER = 'template/log/atest_log_saver'
+LOG_ROOT_OPTION_NAME = 'atest-log-file-path'
+LOG_SAVER_EXT_OPTION = ''
