@@ -24,6 +24,7 @@ sandboxing, caching, and remote execution.
 
 from __future__ import annotations
 
+import contextlib
 import dataclasses
 import os
 import shutil
@@ -32,7 +33,7 @@ import subprocess
 from abc import ABC, abstractmethod
 from collections import defaultdict, deque, OrderedDict
 from pathlib import Path
-from typing import Any, Dict, IO, List, Set, Callable
+from typing import Any, Callable, Dict, IO, List, Set
 
 import atest_utils
 import constants
@@ -396,15 +397,16 @@ class DevicelessTestTarget(Target):
         return [self._test_module_ref] + list(prerequisite_refs)
 
     def write_to_build_file(self, f: IO):
-        def fprint(text):
-            print(text, file=f)
-
         prebuilt_target_name = self._test_module_ref.target().qualified_name()
+        writer = IndentWriter(f)
 
-        fprint('tradefed_deviceless_test(')
-        fprint(f'    name = "{self._name}",')
-        fprint(f'    test = "{prebuilt_target_name}",')
-        fprint(')')
+        writer.write_line('tradefed_deviceless_test(')
+
+        with writer.indent():
+            writer.write_line(f'name = "{self._name}",')
+            writer.write_line(f'test = "{prebuilt_target_name}",')
+
+        writer.write_line(')')
 
 
 class SoongPrebuiltTarget(Target):
@@ -471,45 +473,23 @@ class SoongPrebuiltTarget(Target):
         }
 
     def supported_configs(self) -> Set[Config]:
-        return self.config_files.keys()
+        return set(self.config_files.keys())
 
     def dependencies(self) -> List[ModuleRef]:
         return self.runtime_dep_refs
 
     def write_to_build_file(self, f: IO):
-        def fprint(text):
-            print(text, file=f)
+        writer = IndentWriter(f)
 
-        fprint('soong_prebuilt(')
-        fprint(f'    name = "{self._name}",')
-        fprint('    files = select({')
+        writer.write_line('soong_prebuilt(')
 
-        for config in sorted(self.config_files.keys(), key=lambda c: c.name):
-            fprint(f'        "//bazel/rules:{config.name}":'
-                   f' glob(["{self._name}/{config.name}/**/*"]),')
+        with writer.indent():
+            writer.write_line(f'name = "{self._name}",')
+            writer.write_line(f'module_name = "{self._name}",')
+            self._write_files_attribute(writer)
+            self._write_runtime_deps_attribute(writer)
 
-        fprint('    }),')
-        fprint(f'    module_name = "{self._name}",')
-
-        config_dep_targets = group_targets_by_config(
-            r.target() for r in self.runtime_dep_refs)
-
-        if config_dep_targets:
-            fprint('    runtime_deps = select({')
-
-            for config, deps in sorted(
-                config_dep_targets.items(), key=lambda c: c[0].name):
-
-                runtime_dep_names = sorted(d.qualified_name() for d in deps)
-
-                fprint(f'        "//bazel/rules:{config.name}": [')
-                fprint('\n'.join(
-                    f'            "{d}",' for d in runtime_dep_names))
-                fprint('        ],')
-
-            fprint('    }),')
-
-        fprint(')')
+        writer.write_line(')')
 
     def create_filesystem_layout(self, package_dir: Path):
         prebuilts_dir = package_dir.joinpath(self._name)
@@ -524,6 +504,37 @@ class SoongPrebuiltTarget(Target):
                 symlink = config_prebuilts_dir.joinpath(rel_path)
                 symlink.parent.mkdir(parents=True, exist_ok=True)
                 symlink.symlink_to(f)
+
+    def _write_files_attribute(self, writer: IndentWriter):
+        name = self._name
+
+        writer.write('files = ')
+        write_config_select(
+            writer,
+            self.config_files,
+            lambda c, _: writer.write(f'glob(["{name}/{c.name}/**/*"])'),
+        )
+        writer.write_line(',')
+
+    def _write_runtime_deps_attribute(self, writer):
+        config_deps = filter_configs(
+            group_targets_by_config(r.target() for r in self.runtime_dep_refs),
+            self.supported_configs()
+        )
+
+        if not config_deps:
+            return
+
+        for config in self.supported_configs():
+            config_deps.setdefault(config, list())
+
+        writer.write('runtime_deps = ')
+        write_config_select(
+            writer,
+            config_deps,
+            lambda _, targets: write_target_list(writer, targets),
+        )
+        writer.write_line(',')
 
 
 def group_paths_by_config(
@@ -558,6 +569,11 @@ def group_targets_by_config(
     return config_to_targets
 
 
+def filter_configs(
+    config_dict: Dict[Config, Any], configs: Set[Config],) -> Dict[Config, Any]:
+    return { k: v for (k, v) in config_dict.items() if k in configs }
+
+
 def _is_relative_to(path1: Path, path2: Path) -> bool:
     """Return True if the path is relative to another path or False."""
     # Note that this implementation is required because Path.is_relative_to only
@@ -582,6 +598,63 @@ def get_module_installed_paths(
         return install_path
 
     return map(resolve, info.get(constants.MODULE_INSTALLED))
+
+
+class IndentWriter:
+
+    def __init__(self, f: IO):
+        self._file = f
+        self._indent_level = 0
+        self._indent_string = 4 * ' '
+        self._indent_next = True
+
+    def write_line(self, text: str=''):
+        if text:
+            self.write(text)
+
+        self._file.write('\n')
+        self._indent_next = True
+
+    def write(self, text):
+        if self._indent_next:
+            self._file.write(self._indent_string * self._indent_level)
+            self._indent_next = False
+
+        self._file.write(text)
+
+    @contextlib.contextmanager
+    def indent(self):
+        self._indent_level += 1
+        yield
+        self._indent_level -= 1
+
+
+def write_config_select(
+    writer: IndentWriter,
+    config_dict: Dict[Config, Any],
+    write_value_fn: Callable,
+):
+    writer.write_line('select({')
+
+    with writer.indent():
+        for config, value in sorted(
+            config_dict.items(), key=lambda c: c[0].name):
+
+            writer.write(f'"//bazel/rules:{config.name}": ')
+            write_value_fn(config, value)
+            writer.write_line(',')
+
+    writer.write('})')
+
+
+def write_target_list(writer: IndentWriter, targets: List[Target]):
+    writer.write_line('[')
+
+    with writer.indent():
+        for label in sorted(set(t.qualified_name() for t in targets)):
+            writer.write_line(f'"{label}",')
+
+    writer.write(']')
 
 
 def _decorate_find_method(mod_info, finder_method_func):
