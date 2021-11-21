@@ -27,13 +27,47 @@ SoongPrebuiltInfo = provider(
 )
 
 def _soong_prebuilt_impl(ctx):
+
+    files = ctx.files.files
+
+    # Ensure that soong_prebuilt targets always have at least one file to avoid
+    # evaluation errors when running Bazel cquery on a clean tree to find
+    # dependencies.
+    #
+    # This happens because soong_prebuilt dependency target globs don't match
+    # any files when the workspace symlinks are broken and point to build
+    # artifacts that still don't exist. This in turn causes errors in rules
+    # that reference these targets via attributes with allow_single_file=True
+    # and which expect a file to be present.
+    #
+    # Note that the below action is never really executed during cquery
+    # evaluation but fails when run as part of a test execution to signal that
+    # prebuilts were not correctly imported.
+    if not files:
+        placeholder_file = ctx.actions.declare_file(ctx.label.name + ".missing")
+
+        progress_message = (
+            "Attempting to import missing artifacts for Soong module '%s'; " +
+            "please make sure that the module is built with Soong before " +
+            "running Bazel"
+        ) % ctx.attr.module_name
+
+        # Note that we don't write the file for the action to always be
+        # executed and display the warning message.
+        ctx.actions.run_shell(
+            outputs=[placeholder_file],
+            command="/bin/false",
+            progress_message=progress_message
+        )
+        files = [placeholder_file]
+
     return [
         SoongPrebuiltInfo(
-            files = depset(ctx.files.files),
+            files = depset(files),
             module_name = ctx.attr.module_name,
         ),
         DefaultInfo(
-            files = depset(ctx.files.files),
+            files = depset(files),
             runfiles = ctx.runfiles(files = ctx.files.runtime_deps),
         ),
     ]
