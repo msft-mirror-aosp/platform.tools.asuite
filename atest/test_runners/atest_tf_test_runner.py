@@ -27,10 +27,12 @@ import shutil
 import socket
 
 from functools import partial
+from pathlib import Path
 
 import atest_error
 import atest_utils
 import constants
+import module_info
 import result_reporter
 
 from logstorage import atest_gcp_utils
@@ -51,13 +53,17 @@ SELECT_TIMEOUT = 0.5
 # EVENT_RE has groups for the name and the data. "." does not match \n.
 EVENT_RE = re.compile(r'\n*(?P<event_name>[A-Z_]+) (?P<json_data>{.*})(?=\n|.)*')
 
-EXEC_DEPENDENCIES = ('adb', 'aapt', 'fastboot')
+# Remove aapt from build dependency, use prebuilt version instead.
+EXEC_DEPENDENCIES = ('adb', 'fastboot')
 
 TRADEFED_EXIT_MSG = 'TradeFed subprocess exited early with exit code=%s.'
 
 LOG_FOLDER_NAME = 'log'
 
 _INTEGRATION_FINDERS = frozenset(['', 'INTEGRATION', 'INTEGRATION_FILE_PATH'])
+
+# AAPT binary name
+_AAPT = 'aapt'
 
 class TradeFedExitError(Exception):
     """Raised when TradeFed exists before test run has finished."""
@@ -71,28 +77,35 @@ class AtestTradefedTestRunner(test_runner_base.TestRunnerBase):
     # Use --no-enable-granular-attempts to control reporter replay behavior.
     # TODO(b/142630648): Enable option enable-granular-attempts
     # in sharding mode.
-    _LOG_ARGS = ('--logcat-on-failure --atest-log-file-path={log_path} '
+    _LOG_ARGS = ('--logcat-on-failure --{log_root_option_name}={log_path} '
+                 '{log_ext_option} '
                  '--no-enable-granular-attempts '
                  '--proto-output-file={proto_path}')
-    _RUN_CMD = ('{env} {exe} {template} --template:map '
-                'test=atest {tf_customize_template} {log_args} {args}')
+    _RUN_CMD = ('{env} {exe} {template} '
+                '--template:map test=atest '
+                '--template:map log_saver={log_saver} '
+                '{tf_customize_template} {log_args} {args}')
     _BUILD_REQ = {'tradefed-core'}
     _RERUN_OPTION_GROUP = [constants.ITERATIONS,
                            constants.RERUN_UNTIL_FAILURE,
                            constants.RETRY_ANY_FAILURE]
 
-    def __init__(self, results_dir, module_info=None, **kwargs):
+    def __init__(self, results_dir: str,
+                 mod_info: module_info.ModuleInfo=None, **kwargs):
         """Init stuff for base class."""
         super().__init__(results_dir, **kwargs)
-        self.module_info = module_info
+        self.module_info = mod_info
         self.log_path = os.path.join(results_dir, LOG_FOLDER_NAME)
         if not os.path.exists(self.log_path):
             os.makedirs(self.log_path)
-        log_args = {'log_path': self.log_path,
+        log_args = {'log_root_option_name': constants.LOG_ROOT_OPTION_NAME,
+                    'log_ext_option': constants.LOG_SAVER_EXT_OPTION,
+                    'log_path': self.log_path,
                     'proto_path': os.path.join(self.results_dir, constants.ATEST_TEST_RECORD_PROTO)}
         self.run_cmd_dict = {'env': self._get_ld_library_path(),
                              'exe': self.EXECUTABLE,
                              'template': self._TF_TEMPLATE,
+                             'log_saver': constants.ATEST_TF_LOG_SAVER,
                              'tf_customize_template': '',
                              'args': '',
                              'log_args': self._LOG_ARGS.format(**log_args)}
@@ -304,6 +317,9 @@ class AtestTradefedTestRunner(test_runner_base.TestRunnerBase):
                             r'{} for detail.'.format(reporter.log_path),
                             constants.RED, highlight=True)
                     if not data_map:
+                        metrics.LocalDetectEvent(
+                            detect_type=constants.DETECT_TYPE_TF_EXIT_CODE,
+                            result=tf_subproc.returncode)
                         raise TradeFedExitError(TRADEFED_EXIT_MSG
                                                 % tf_subproc.returncode)
                     self._handle_log_associations(event_handlers)
@@ -376,6 +392,16 @@ class AtestTradefedTestRunner(test_runner_base.TestRunnerBase):
                 continue
             filtered_paths.append(path)
         env_vars['PYTHONPATH'] = ':'.join(filtered_paths)
+
+        # Use prebuilt aapt if there's no aapt under android system path which
+        # is aligned with build system.
+        # https://android.googlesource.com/platform/build/+/master/core/config.mk#529
+        if self._is_missing_exec(_AAPT):
+            prebuilt_aapt = Path.joinpath(
+                atest_utils.get_prebuilt_sdk_tools_dir(), _AAPT)
+            if os.path.exists(prebuilt_aapt):
+                env_vars['PATH'] = (str(prebuilt_aapt.parent) + ':'
+                                    + env_vars['PATH'])
         return env_vars
 
     # pylint: disable=unnecessary-pass
@@ -404,7 +430,7 @@ class AtestTradefedTestRunner(test_runner_base.TestRunnerBase):
             return True
         # TODO: Check if there is a clever way to determine if system adb is
         # good enough.
-        root_dir = os.environ.get(constants.ANDROID_BUILD_TOP)
+        root_dir = os.environ.get(constants.ANDROID_BUILD_TOP, '')
         return os.path.commonprefix([output, root_dir]) != root_dir
 
     def get_test_runner_build_reqs(self):
@@ -518,7 +544,8 @@ class AtestTradefedTestRunner(test_runner_base.TestRunnerBase):
                        constants.TF_EARLY_DEVICE_RELEASE,
                        constants.INVOCATION_ID,
                        constants.WORKUNIT_ID,
-                       constants.REQUEST_UPLOAD_RESULT):
+                       constants.REQUEST_UPLOAD_RESULT,
+                       constants.LOCAL_BUILD_ID):
                 continue
             args_not_supported.append(arg)
         # Set exclude instant app annotation for non-instant mode run.
@@ -595,6 +622,9 @@ class AtestTradefedTestRunner(test_runner_base.TestRunnerBase):
         if extra_args.get(constants.WORKUNIT_ID, None):
             test_args.append('--invocation-data work_unit_id=%s'
                              % extra_args[constants.WORKUNIT_ID])
+        if extra_args.get(constants.LOCAL_BUILD_ID, None):
+            test_args.append('--build-id %s'
+                             % extra_args[constants.LOCAL_BUILD_ID])
         for info in test_infos:
             if constants.TEST_WITH_MAINLINE_MODULES_RE.match(info.test_name):
                 test_args.append(constants.TF_ENABLE_MAINLINE_PARAMETERIZED_MODULES)

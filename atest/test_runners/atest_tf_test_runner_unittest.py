@@ -25,6 +25,7 @@ import unittest
 import json
 
 from io import StringIO
+from pathlib import Path
 from unittest import mock
 
 import atest_utils
@@ -46,6 +47,8 @@ METRICS_DIR_ARG = '--metrics-folder %s ' % METRICS_DIR
 RUN_CMD_ARGS = ('{metrics}--log-level-display VERBOSE --log-level VERBOSE'
                 '{device_early_release}{serial}')
 LOG_ARGS = atf_tr.AtestTradefedTestRunner._LOG_ARGS.format(
+    log_root_option_name=constants.LOG_ROOT_OPTION_NAME,
+    log_ext_option=constants.LOG_SAVER_EXT_OPTION,
     log_path=os.path.join(uc.TEST_INFO_DIR, atf_tr.LOG_FOLDER_NAME),
     proto_path=os.path.join(uc.TEST_INFO_DIR, constants.ATEST_TEST_RECORD_PROTO))
 RUN_ENV_STR = 'tf_env_var=test'
@@ -53,6 +56,7 @@ RUN_CMD = atf_tr.AtestTradefedTestRunner._RUN_CMD.format(
     env=RUN_ENV_STR,
     exe=atf_tr.AtestTradefedTestRunner.EXECUTABLE,
     template=atf_tr.AtestTradefedTestRunner._TF_TEMPLATE,
+    log_saver=constants.ATEST_TF_LOG_SAVER,
     tf_customize_template='{tf_customize_template}',
     args=RUN_CMD_ARGS,
     log_args=LOG_ARGS)
@@ -804,6 +808,34 @@ class AtestTradefedTestRunnerUnittests(unittest.TestCase):
             [MOD_INFO],
             {constants.CUSTOM_ARGS: [constants.TF_MODULE_PARAMETER]})
         self.assertTrue(constants.TF_ENABLE_PARAMETERIZED_MODULES in args)
+
+    @mock.patch('atest_utils.get_prebuilt_sdk_tools_dir')
+    @mock.patch.object(atf_tr.AtestTradefedTestRunner,
+                       '_is_missing_exec', return_value=False)
+    def test_generate_env_vars_aapt_already_in_system_path(
+        self, _mock_is_missing_exec, mock_prebuilt_sdk_dir):
+        """Test generate_env_vars if aapt already in system path."""
+        prebuilt_sdk_dir = Path('/my/test/sdk/dir')
+        mock_prebuilt_sdk_dir.return_value = prebuilt_sdk_dir
+
+        env_vars = self.tr.generate_env_vars(extra_args={})
+
+        self.assertFalse(
+            str(prebuilt_sdk_dir) + ':' in env_vars.get('PATH', ''))
+
+    @mock.patch('os.path.exists', return_value=True)
+    @mock.patch('atest_utils.get_prebuilt_sdk_tools_dir')
+    @mock.patch.object(atf_tr.AtestTradefedTestRunner,
+                       '_is_missing_exec', return_value=True)
+    def test_generate_env_vars_aapt_not_in_system_path(
+        self, _mock_is_missing_exec, mock_prebuilt_sdk_dir, _mock_exist):
+        """Test generate_env_vars if aapt not in system path."""
+        prebuilt_sdk_dir = Path('/my/test/sdk/dir')
+        mock_prebuilt_sdk_dir.return_value = prebuilt_sdk_dir
+
+        env_vars = self.tr.generate_env_vars(extra_args={})
+
+        self.assertTrue(str(prebuilt_sdk_dir) + ':' in env_vars.get('PATH', ''))
 
 if __name__ == '__main__':
     unittest.main()

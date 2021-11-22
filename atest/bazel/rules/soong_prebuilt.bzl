@@ -14,8 +14,8 @@
 
 """Rule used to import artifacts prebuilt by Soong into the Bazel workspace.
 
-The rule returns a DefaultInfo provider with all artifacts and a SoongPrebuiltInfo
-provider with the original Soong module name, artifacts and shared libraries.
+The rule returns a DefaultInfo provider with all artifacts and runtime dependencies,
+and a SoongPrebuiltInfo provider with the original Soong module name and artifacts.
 """
 
 SoongPrebuiltInfo = provider(
@@ -23,18 +23,53 @@ SoongPrebuiltInfo = provider(
     fields = {
         "files": "Files imported from Soong outputs",
         "module_name": "Name of the original Soong build module",
-        "shared_libs": "Targets that should be dynamically linked into this target",
     },
 )
 
 def _soong_prebuilt_impl(ctx):
+
+    files = ctx.files.files
+
+    # Ensure that soong_prebuilt targets always have at least one file to avoid
+    # evaluation errors when running Bazel cquery on a clean tree to find
+    # dependencies.
+    #
+    # This happens because soong_prebuilt dependency target globs don't match
+    # any files when the workspace symlinks are broken and point to build
+    # artifacts that still don't exist. This in turn causes errors in rules
+    # that reference these targets via attributes with allow_single_file=True
+    # and which expect a file to be present.
+    #
+    # Note that the below action is never really executed during cquery
+    # evaluation but fails when run as part of a test execution to signal that
+    # prebuilts were not correctly imported.
+    if not files:
+        placeholder_file = ctx.actions.declare_file(ctx.label.name + ".missing")
+
+        progress_message = (
+            "Attempting to import missing artifacts for Soong module '%s'; " +
+            "please make sure that the module is built with Soong before " +
+            "running Bazel"
+        ) % ctx.attr.module_name
+
+        # Note that we don't write the file for the action to always be
+        # executed and display the warning message.
+        ctx.actions.run_shell(
+            outputs=[placeholder_file],
+            command="/bin/false",
+            progress_message=progress_message
+        )
+        files = [placeholder_file]
+
     return [
         SoongPrebuiltInfo(
-            files = depset(ctx.files.files),
+            files = depset(files),
             module_name = ctx.attr.module_name,
-            shared_libs = ctx.files.shared_libs,
         ),
-        DefaultInfo(files = depset(ctx.files.files)),
+        DefaultInfo(
+            files = depset(files),
+            runfiles = ctx.runfiles(files = ctx.files.runtime_deps),
+        ),
     ]
 
 soong_prebuilt = rule(
@@ -42,10 +77,8 @@ soong_prebuilt = rule(
         "module_name": attr.string(),
         # Artifacts prebuilt by Soong.
         "files": attr.label_list(allow_files = True),
-        # Targets that should be dynamically linked into this target.
-        "shared_libs": attr.label_list(),
-        # Build setting used to select artifacts.
-        "_platform_flavor": attr.label(default = "//bazel/rules:platform_flavor"),
+        # Targets that are needed by this target during runtime.
+        "runtime_deps": attr.label_list(),
     },
     implementation = _soong_prebuilt_impl,
     doc = "A rule that imports artifacts prebuilt by Soong into the Bazel workspace",

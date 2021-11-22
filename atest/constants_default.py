@@ -109,6 +109,7 @@ MODULE_MAINLINE_MODULES = 'test_mainline_modules'
 MODULE_DEPENDENCIES = 'dependencies'
 MODULE_SRCS = 'srcs'
 MODULE_IS_UNIT_TEST = 'is_unit_test'
+MODULE_SHARED_LIBS = 'shared_libs'
 
 # Env constants
 ANDROID_BUILD_TOP = 'ANDROID_BUILD_TOP'
@@ -205,7 +206,7 @@ USER_FROM_SUB_TOOL = 'USER_FROM_SUB_TOOL'
 TF_PREPARATION = 'tf-preparation'
 
 # Detect type for local_detect_event.
-# Next expansion : DETECT_TYPE_XXX = 14
+# Next expansion : DETECT_TYPE_XXX = 15
 DETECT_TYPE_BUG_DETECTED = 0
 DETECT_TYPE_ACLOUD_CREATE = 1
 DETECT_TYPE_FIND_BUILD = 2
@@ -220,6 +221,13 @@ DETECT_TYPE_PERMISSION_INCONSISTENT = 10
 DETECT_TYPE_SMART_REBUILD_MODULE_INFO = 11
 DETECT_TYPE_CLEAN_BUILD = 12
 DETECT_TYPE_TESTABLE_MODULES = 13
+# Tradefed exit codes v.s. exit conditions
+# 0: NO_ERROR             1: CONFIG_EXCEPTION
+# 2: NO_BUILD             3: DEVICE_UNRESPONSIVE
+# 4: DEVICE_UNAVAILABLE   5: FATAL_HOST_ERROR
+# 6: THROWABLE_EXCEPTION  7: NO_DEVICE_ALLOCATED
+# 8: WRONG_JAVA_VERSION
+DETECT_TYPE_TF_EXIT_CODE = 14
 # XTS suite types encode from 100 to 199
 DETECT_TYPE_XTS_SUITE = {'cts': 101,
                          'vts': 104}
@@ -253,14 +261,6 @@ CTS_JAR = "cts-tradefed"
 
 # ATest TF
 ATEST_TF_MODULE = 'atest-tradefed'
-
-# Build environment variable for each build on ATest
-# With RECORD_ALL_DEPS enabled, ${ANDROID_PRODUCT_OUT}/module-info.json will
-# generate modules' dependencies info when make.
-# With SOONG_COLLECT_JAVA_DEPS enabled, out/soong/module_bp_java_deps.json will
-# be generated when make.
-ATEST_BUILD_ENV = {'RECORD_ALL_DEPS':'true', 'SOONG_COLLECT_JAVA_DEPS':'true',
-                   'SOONG_COLLECT_CC_DEPS':'true'}
 
 # Atest index path and relative dirs/caches.
 INDEX_DIR = os.path.join(os.getenv(ANDROID_HOST_OUT, ''), 'indexes')
@@ -350,6 +350,7 @@ CREDENTIAL_FILE_NAME = ''
 TOKEN_FILE_PATH = ''
 INVOCATION_ID = 'INVOCATION_ID'
 WORKUNIT_ID = 'WORKUNIT_ID'
+LOCAL_BUILD_ID = 'LOCAL_BUILD_ID'
 RESULT_LINK = ''
 TF_GLOBAL_CONFIG = ''
 UPLOAD_TEST_RESULT_MSG = 'Upload test result?'
@@ -401,3 +402,8 @@ GTEST_REGULAR = 'regular native test'
 GTEST_TYPED = 'typed test'
 GTEST_TYPED_PARAM = 'typed-parameterized test'
 GTEST_PARAM = 'value-parameterized test'
+
+# Tradefed log saver template for ATest
+ATEST_TF_LOG_SAVER = 'template/log/atest_log_saver'
+LOG_ROOT_OPTION_NAME = 'atest-log-file-path'
+LOG_SAVER_EXT_OPTION = ''
