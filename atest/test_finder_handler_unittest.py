@@ -121,11 +121,13 @@ class TestFinderHandlerUnittests(unittest.TestCase):
         )
         self.assertEqual(
             test_finder_handler._get_test_reference_types('some.package'),
-            [REF_TYPE.CACHE, REF_TYPE.MODULE, REF_TYPE.PACKAGE]
+            [REF_TYPE.CACHE, REF_TYPE.MODULE,
+             REF_TYPE.QUALIFIED_CLASS, REF_TYPE.PACKAGE]
         )
         self.assertEqual(
             test_finder_handler._get_test_reference_types('fully.q.Class'),
-            [REF_TYPE.CACHE, REF_TYPE.QUALIFIED_CLASS]
+            [REF_TYPE.CACHE, REF_TYPE.MODULE,
+             REF_TYPE.QUALIFIED_CLASS, REF_TYPE.PACKAGE]
         )
         self.assertEqual(
             test_finder_handler._get_test_reference_types('Integration.xml'),

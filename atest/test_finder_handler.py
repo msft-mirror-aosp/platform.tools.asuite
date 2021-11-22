@@ -200,10 +200,10 @@ def _get_test_reference_types(ref):
             return [_REFERENCE_TYPE.CACHE,
                     _REFERENCE_TYPE.INTEGRATION_FILE_PATH,
                     _REFERENCE_TYPE.SUITE_PLAN_FILE_PATH]
-        if ref_end_is_upper:
-            return [_REFERENCE_TYPE.CACHE, _REFERENCE_TYPE.QUALIFIED_CLASS]
+        # (b/207327349) ref_end_is_upper does not guarantee a classname anymore.
         return [_REFERENCE_TYPE.CACHE,
                 _REFERENCE_TYPE.MODULE,
+                _REFERENCE_TYPE.QUALIFIED_CLASS,
                 _REFERENCE_TYPE.PACKAGE]
     # Note: We assume that if you're referencing a file in your cwd,
     # that file must have a '.' in its name, i.e. foo.java, foo.xml.
