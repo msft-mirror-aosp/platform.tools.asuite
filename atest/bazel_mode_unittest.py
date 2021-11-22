@@ -914,7 +914,7 @@ class BazelTestRunnerTest(unittest.TestCase):
     def create_bazel_test_runner(self, modules, test_infos, run_command):
         return bazel_mode.BazelTestRunner(
             'result_dir',
-            module_info=create_module_info(modules),
+            mod_info=create_module_info(modules),
             test_infos=test_infos,
             src_top=Path('/src'),
             workspace_path=Path('/src/workspace'),
