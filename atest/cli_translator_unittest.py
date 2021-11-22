@@ -233,7 +233,7 @@ class CLITranslatorUnittests(unittest.TestCase):
         """Test _get_test_infos method."""
         mod_info = module_info.ModuleInfo(
             module_file=os.path.join(uc.TEST_DATA_DIR, uc.JSON_FILE))
-        ctr = cli_t.CLITranslator(module_info=mod_info)
+        ctr = cli_t.CLITranslator(mod_info=mod_info)
         null_test_info = set()
         mock_getfindmethods.return_value = []
         mock_getfuzzyresults.return_value = []
@@ -411,7 +411,7 @@ class CLITranslatorUnittests(unittest.TestCase):
         """Test _extract_testable_modules_by_wildcard method."""
         mod_info = module_info.ModuleInfo(
             module_file=os.path.join(uc.TEST_DATA_DIR, uc.JSON_FILE))
-        ctr = cli_t.CLITranslator(module_info=mod_info)
+        ctr = cli_t.CLITranslator(mod_info=mod_info)
         mock_mods.return_value = ['test1', 'test2', 'test3', 'test11',
                                   'Test22', 'Test100', 'aTest101']
         # test '*'
