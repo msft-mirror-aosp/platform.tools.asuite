@@ -635,14 +635,14 @@ class BazelTestRunner(test_runner_base.TestRunnerBase):
     # pylint: disable=too-many-arguments
     def __init__(self,
                  results_dir,
-                 module_info: module_info.ModuleInfo,
+                 mod_info: module_info.ModuleInfo,
                  test_infos: List[test_info.TestInfo]=None,
                  src_top: Path=None,
                  workspace_path: Path=None,
                  run_command: Callable=default_run_command,
                  **kwargs):
         super().__init__(results_dir, **kwargs)
-        self.module_info = module_info
+        self.mod_info = mod_info
         self.test_infos = test_infos
         self.src_top = src_top or Path(os.environ.get(
             constants.ANDROID_BUILD_TOP))
@@ -702,7 +702,7 @@ class BazelTestRunner(test_runner_base.TestRunnerBase):
         return set(filter(bool, map(str.strip, output.splitlines())))
 
     def test_info_target_label(self, test: test_info.TestInfo) -> str:
-        info = self.module_info.get_module_info(test.test_name)
+        info = self.mod_info.get_module_info(test.test_name)
         package_name = info.get(constants.MODULE_PATH)[0]
         return f'//{package_name}:{test.test_name}_host'
 

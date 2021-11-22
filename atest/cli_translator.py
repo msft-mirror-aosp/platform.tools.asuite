@@ -65,17 +65,17 @@ class CLITranslator:
         3. If test files found, generate Build Targets and the Run Command.
     """
 
-    def __init__(self, module_info=None, print_cache_msg=True,
+    def __init__(self, mod_info=None, print_cache_msg=True,
                  bazel_mode_enabled=False):
         """CLITranslator constructor
 
         Args:
-            module_info: ModuleInfo class that has cached module-info.json.
+            mod_info: ModuleInfo class that has cached module-info.json.
             print_cache_msg: Boolean whether printing clear cache message or not.
                              True will print message while False won't print.
             bazel_mode_enabled: Boolean of args.bazel_mode.
         """
-        self.mod_info = module_info
+        self.mod_info = mod_info
         self._bazel_mode = bazel_mode_enabled
         self.enable_file_patterns = False
         self.msg = ''

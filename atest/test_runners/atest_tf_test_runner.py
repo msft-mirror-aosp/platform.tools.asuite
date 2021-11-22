@@ -32,6 +32,7 @@ from pathlib import Path
 import atest_error
 import atest_utils
 import constants
+import module_info
 import result_reporter
 
 from logstorage import atest_gcp_utils
@@ -89,10 +90,11 @@ class AtestTradefedTestRunner(test_runner_base.TestRunnerBase):
                            constants.RERUN_UNTIL_FAILURE,
                            constants.RETRY_ANY_FAILURE]
 
-    def __init__(self, results_dir, module_info=None, **kwargs):
+    def __init__(self, results_dir: str,
+                 mod_info: module_info.ModuleInfo=None, **kwargs):
         """Init stuff for base class."""
         super().__init__(results_dir, **kwargs)
-        self.module_info = module_info
+        self.module_info = mod_info
         self.log_path = os.path.join(results_dir, LOG_FOLDER_NAME)
         if not os.path.exists(self.log_path):
             os.makedirs(self.log_path)
