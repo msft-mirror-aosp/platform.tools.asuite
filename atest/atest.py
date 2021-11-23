@@ -536,7 +536,7 @@ def _dry_run(results_dir, extra_args, test_infos, mod_info):
     """
     all_run_cmds = []
     for test_runner, tests in test_runner_handler.group_tests_by_test_runners(test_infos):
-        runner = test_runner(results_dir, module_info=mod_info)
+        runner = test_runner(results_dir, mod_info=mod_info)
         run_cmds = runner.generate_run_commands(tests, extra_args)
         for run_cmd in run_cmds:
             all_run_cmds.append(run_cmd)
@@ -768,7 +768,7 @@ def main(argv, results_dir, args):
     if args.bazel_mode:
         bazel_mode.generate_bazel_workspace(mod_info)
     translator = cli_translator.CLITranslator(
-        module_info=mod_info,
+        mod_info=mod_info,
         print_cache_msg=not args.clear_cache,
         bazel_mode_enabled=args.bazel_mode)
     if args.list_modules:
