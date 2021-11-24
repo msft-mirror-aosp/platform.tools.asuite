@@ -18,6 +18,7 @@
 # pylint: disable=invalid-name
 # pylint: disable=missing-function-docstring
 
+import shlex
 import shutil
 import tempfile
 import unittest
@@ -911,18 +912,46 @@ class BazelTestRunnerTest(unittest.TestCase):
 
         self.assertSetEqual({'test1', 'test2'}, reqs)
 
-    def create_bazel_test_runner(self, modules, test_infos, run_command):
+    def test_generate_single_run_command(self):
+        test_infos = [test_info_of('test1')]
+        runner = self.create_bazel_test_runner_for_tests(test_infos)
+
+        cmd = runner.generate_run_commands(test_infos, {})
+
+        self.assertEqual(1, len(cmd))
+
+    def test_generate_run_command_containing_targets(self):
+        test_infos = [test_info_of('test1'), test_info_of('test2')]
+        runner = self.create_bazel_test_runner_for_tests(test_infos)
+
+        cmd = runner.generate_run_commands(test_infos, {})
+
+        self.assertTokensIn(['//path:test1_host', '//path:test2_host'], cmd[0])
+
+    def create_bazel_test_runner(self, modules, test_infos, run_command=None):
         return bazel_mode.BazelTestRunner(
             'result_dir',
             mod_info=create_module_info(modules),
             test_infos=test_infos,
             src_top=Path('/src'),
             workspace_path=Path('/src/workspace'),
-            run_command=run_command,
+            run_command=run_command or self.mock_run_command()
+        )
+
+    def create_bazel_test_runner_for_tests(self, test_infos):
+        return self.create_bazel_test_runner(
+            modules=[supported_test_module(name=t.test_name, path='path')
+                     for t in test_infos],
+            test_infos=test_infos
         )
 
     def mock_run_command(self, **kwargs):
         return mock.create_autospec(bazel_mode.default_run_command, **kwargs)
+
+    def assertTokensIn(self, expected_tokens, s):
+        tokens = shlex.split(s)
+        for token in expected_tokens:
+            self.assertIn(token, tokens)
 
 
 def test_info_of(module_name):
