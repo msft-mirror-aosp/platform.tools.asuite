@@ -668,8 +668,7 @@ class BazelTestRunner(test_runner_base.TestRunnerBase):
 
         run_cmds = self.generate_run_commands(test_infos, extra_args)
         for run_cmd in run_cmds:
-            subproc = self.run(run_cmd,
-                               output_to_stdout=True)
+            subproc = self.run(run_cmd, output_to_stdout=True)
             ret_code |= self.wait_for_subprocess(subproc)
         return ret_code
 
@@ -719,7 +718,9 @@ class BazelTestRunner(test_runner_base.TestRunnerBase):
         Returns:
             A list of run commands to run the tests.
         """
-        run_cmds = []
-        for tinfo in test_infos:
-            run_cmds.append('echo "bazel test";')
-        return run_cmds
+        target_patterns = ' '.join(self.test_info_target_label(i)
+                                   for i in test_infos)
+        # Use 'cd' instead of setting the working directory in the subprocess
+        # call for a working --dry-run command that users can run.
+        return [f'cd {self.bazel_workspace} &&'
+                f'{self.bazel_binary} test {target_patterns}']
