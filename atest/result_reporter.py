@@ -65,12 +65,14 @@ WmTests: Passed: 0, Failed: 0 (Completed With ERRORS)
 
 from __future__ import print_function
 
+import logging
 import os
 import re
 
 from collections import OrderedDict
 
 import constants
+import atest_configs
 import atest_utils as au
 
 from test_runners import test_runner_base
@@ -441,8 +443,20 @@ class ResultReporter:
         if test_name:
             print('{}:'.format(au.colorize(test_name, constants.CYAN)))
             with open(metric_file, 'r') as f:
+                matched = False
+                filter_re = atest_configs.GLOBAL_ARGS.aggregate_metric_filter
+                logging.debug('Aggregate metric filter: %s', filter_re)
                 for line in f.readlines():
+                    if (filter_re and
+                        not re.match(re.compile(filter_re), line)):
+                        continue
+                    matched = True
                     print(' ' * 4 + str(line).strip())
+                if not matched:
+                    au.colorful_print(
+                        '  Nothing returned by the pattern: {}'.format(
+                            filter_re), constants.RED)
+                print()
 
     def print_collect_tests(self):
         """Print summary of collect tests only.
