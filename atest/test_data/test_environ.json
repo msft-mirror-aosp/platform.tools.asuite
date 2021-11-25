@@ -56,5 +56,13 @@
 "android.os.cts.CompanionDeviceManagerTest#testIsDeviceAssociatedWithCompanionApproveWifiConnectionsPermission": [
 ],
 "cts/tests/tests/os/src/android/os/cts/CompanionDeviceManagerTest.kt#testIsDeviceAssociated": [
+],
+"RpcWire": [
+],
+"RpcWire#CurrentVersion,ReleaseBranchHasFrozenRpcWireProtocol,IfNotExperimentalCodeHasNoExperimentalFeatures": [
+],
+"VtsHalCameraProviderV2_4TargetTest:PerInstance/CameraHidlTest#configureInjectionStreamsAvailableOutputs/0_internal_0": [
+],
+"PerInstance/CameraHidlTest#configureInjectionStreamsAvailableOutputs/0_internal_0": [
 ]
 }

@@ -27,6 +27,7 @@ from __future__ import annotations
 import dataclasses
 import os
 import shutil
+import subprocess
 
 from abc import ABC, abstractmethod
 from collections import defaultdict, deque, OrderedDict
@@ -38,17 +39,29 @@ import constants
 import module_info
 
 from test_finders import test_finder_base
+from test_finders import test_info
 from test_runners import test_runner_base
+
+
+_BAZEL_WORKSPACE_DIR = 'atest_bazel_workspace'
+
+
+def get_bazel_workspace_dir() -> Path:
+    return Path(atest_utils.get_build_out_dir()).joinpath(_BAZEL_WORKSPACE_DIR)
 
 
 def generate_bazel_workspace(mod_info: module_info.ModuleInfo):
     """Generate or update the Bazel workspace used for running tests."""
     src_root_path = Path(os.environ.get(constants.ANDROID_BUILD_TOP))
+    workspace_path = get_bazel_workspace_dir()
     workspace_generator = WorkspaceGenerator(
-        src_root_path, src_root_path.joinpath('out/atest_bazel_workspace'),
+        src_root_path,
+        workspace_path,
         Path(os.environ.get(constants.ANDROID_PRODUCT_OUT)),
         Path(os.environ.get(constants.ANDROID_HOST_OUT)),
-        Path(atest_utils.get_build_out_dir()), mod_info)
+        Path(atest_utils.get_build_out_dir()),
+        mod_info,
+    )
     workspace_generator.generate()
 
 
@@ -602,10 +615,44 @@ def create_new_finder(mod_info, finder):
                                        finder.find_method),
                                    finder.finder_info)
 
+
+def default_run_command(args: List[str], cwd: Path) -> str:
+    return subprocess.check_output(
+        args=args,
+        cwd=cwd,
+        text=True,
+        stderr=subprocess.DEVNULL,
+    )
+
+
 class BazelTestRunner(test_runner_base.TestRunnerBase):
     """Bazel Test Runner class."""
+
     NAME = 'BazelTestRunner'
     EXECUTABLE = 'none'
+
+    # pylint: disable=redefined-outer-name
+    # pylint: disable=too-many-arguments
+    def __init__(self,
+                 results_dir,
+                 mod_info: module_info.ModuleInfo,
+                 test_infos: List[test_info.TestInfo]=None,
+                 src_top: Path=None,
+                 workspace_path: Path=None,
+                 run_command: Callable=default_run_command,
+                 **kwargs):
+        super().__init__(results_dir, **kwargs)
+        self.mod_info = mod_info
+        self.test_infos = test_infos
+        self.src_top = src_top or Path(os.environ.get(
+            constants.ANDROID_BUILD_TOP))
+        self.starlark_file = self.src_top.joinpath(
+            'tools/asuite/atest/bazel/format_as_soong_module_name.cquery')
+
+        self.bazel_binary = self.src_top.joinpath(
+            'prebuilts/bazel/linux-x86_64/bazel')
+        self.bazel_workspace = workspace_path or get_bazel_workspace_dir()
+        self.run_command = run_command
 
     # pylint: disable=unused-argument
     def run_tests(self, test_infos, extra_args, reporter):
@@ -621,8 +668,7 @@ class BazelTestRunner(test_runner_base.TestRunnerBase):
 
         run_cmds = self.generate_run_commands(test_infos, extra_args)
         for run_cmd in run_cmds:
-            subproc = self.run(run_cmd,
-                               output_to_stdout=True)
+            subproc = self.run(run_cmd, output_to_stdout=True)
             ret_code |= self.wait_for_subprocess(subproc)
         return ret_code
 
@@ -634,13 +680,30 @@ class BazelTestRunner(test_runner_base.TestRunnerBase):
         if that changes.
         """
 
-    def get_test_runner_build_reqs(self):
-        """Return the build requirements.
+    def get_test_runner_build_reqs(self) -> Set[str]:
+        if not self.test_infos:
+            return set()
 
-        Returns:
-            Set of build targets.
-        """
-        return set()
+        deps_expression = ' + '.join(
+            sorted(self.test_info_target_label(i) for i in self.test_infos)
+        )
+
+        query_args = [
+            self.bazel_binary,
+            'cquery',
+            f'deps(tests({deps_expression}))',
+            '--output=starlark',
+            f'--starlark:file={self.starlark_file}',
+        ]
+
+        output = self.run_command(query_args, self.bazel_workspace)
+
+        return set(filter(bool, map(str.strip, output.splitlines())))
+
+    def test_info_target_label(self, test: test_info.TestInfo) -> str:
+        info = self.mod_info.get_module_info(test.test_name)
+        package_name = info.get(constants.MODULE_PATH)[0]
+        return f'//{package_name}:{test.test_name}_host'
 
     # pylint: disable=unused-argument
     # pylint: disable=unused-variable
@@ -655,7 +718,9 @@ class BazelTestRunner(test_runner_base.TestRunnerBase):
         Returns:
             A list of run commands to run the tests.
         """
-        run_cmds = []
-        for tinfo in test_infos:
-            run_cmds.append('echo "bazel test";')
-        return run_cmds
+        target_patterns = ' '.join(self.test_info_target_label(i)
+                                   for i in test_infos)
+        # Use 'cd' instead of setting the working directory in the subprocess
+        # call for a working --dry-run command that users can run.
+        return [f'cd {self.bazel_workspace} &&'
+                f'{self.bazel_binary} test {target_patterns}']

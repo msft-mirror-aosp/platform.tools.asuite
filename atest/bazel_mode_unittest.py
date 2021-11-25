@@ -18,12 +18,14 @@
 # pylint: disable=invalid-name
 # pylint: disable=missing-function-docstring
 
+import shlex
 import shutil
 import tempfile
 import unittest
 
-from unittest import mock
 from pathlib import Path
+from unittest import mock
+
 # pylint: disable=import-error
 from pyfakefs import fake_filesystem_unittest
 
@@ -574,6 +576,25 @@ class SharedLibPrebuiltTargetGenerationTest(GenerationTestFixture):
         self.assertFileNotInWorkspace('libhello/host')
 
 
+@mock.patch.dict('os.environ', {constants.ANDROID_BUILD_TOP:'/'})
+def create_empty_module_info():
+    with fake_filesystem_unittest.Patcher() as patcher:
+        # pylint: disable=protected-access
+        fake_temp_file_name = next(tempfile._get_candidate_names())
+        patcher.fs.create_file(fake_temp_file_name, contents='{}')
+        return module_info.ModuleInfo(module_file=fake_temp_file_name)
+
+
+def create_module_info(modules=None):
+    mod_info = create_empty_module_info()
+    modules = modules or []
+
+    for m in modules:
+        mod_info.name_to_module_info[m['module_name']] = m
+
+    return mod_info
+
+
 def host_unit_test_module(**kwargs):
     return host_unit_suite(host_test_module(**kwargs))
 
@@ -807,8 +828,8 @@ class DecorateFinderMethodTest(fake_filesystem_unittest.TestCase):
         original_find_method = lambda obj, test_id:(
             self.create_single_test_infos(obj, test_id, test_name=MODULE_NAME,
                                           runner=ATEST_TF_RUNNER))
-        mod_info = self.create_single_test_module_info(MODULE_NAME,
-                                                  is_unit_test=False)
+        mod_info = self.create_single_test_module_info(
+            MODULE_NAME, is_unit_test=False)
         new_find_method = bazel_mode._decorate_find_method(
             mod_info, original_find_method)
 
@@ -835,6 +856,106 @@ class DecorateFinderMethodTest(fake_filesystem_unittest.TestCase):
         self.fs.create_file(fake_temp_file_name,
                             contents=unit_test_mod_info_content)
         return module_info.ModuleInfo(module_file=fake_temp_file_name)
+
+
+class BazelTestRunnerTest(unittest.TestCase):
+    """Tests for BazelTestRunner."""
+
+    def test_return_empty_build_reqs_when_no_test_infos(self):
+        run_command = self.mock_run_command(side_effect=Exception(''))
+        runner = self.create_bazel_test_runner(
+            modules=[
+                supported_test_module(name='test1', path='path1'),
+            ],
+            test_infos=[],
+            run_command=run_command,
+        )
+
+        reqs = runner.get_test_runner_build_reqs()
+
+        self.assertFalse(reqs)
+
+    def test_query_bazel_test_targets_deps_for_build_reqs(self):
+        run_command = self.mock_run_command()
+        runner = self.create_bazel_test_runner(
+            modules=[
+                supported_test_module(name='test1', path='path1'),
+                supported_test_module(name='test2', path='path2')
+            ],
+            test_infos = [
+                test_info_of('test2'),
+                test_info_of('test1'),  # Intentionally out of order.
+            ],
+            run_command=run_command,
+        )
+
+        runner.get_test_runner_build_reqs()
+
+        call_args = run_command.call_args[0][0]
+        self.assertIn(
+            'deps(tests(//path1:test1_host + //path2:test2_host))',
+            call_args,
+        )
+
+    def test_trim_whitespace_in_bazel_query_output(self):
+        run_command = self.mock_run_command(
+            return_value='\n'.join(['  test1  ', 'test2  ', '  ']))
+        runner = self.create_bazel_test_runner(
+            modules=[
+                supported_test_module(name='test1', path='path1'),
+            ],
+            test_infos = [test_info_of('test1')],
+            run_command=run_command,
+        )
+
+        reqs = runner.get_test_runner_build_reqs()
+
+        self.assertSetEqual({'test1', 'test2'}, reqs)
+
+    def test_generate_single_run_command(self):
+        test_infos = [test_info_of('test1')]
+        runner = self.create_bazel_test_runner_for_tests(test_infos)
+
+        cmd = runner.generate_run_commands(test_infos, {})
+
+        self.assertEqual(1, len(cmd))
+
+    def test_generate_run_command_containing_targets(self):
+        test_infos = [test_info_of('test1'), test_info_of('test2')]
+        runner = self.create_bazel_test_runner_for_tests(test_infos)
+
+        cmd = runner.generate_run_commands(test_infos, {})
+
+        self.assertTokensIn(['//path:test1_host', '//path:test2_host'], cmd[0])
+
+    def create_bazel_test_runner(self, modules, test_infos, run_command=None):
+        return bazel_mode.BazelTestRunner(
+            'result_dir',
+            mod_info=create_module_info(modules),
+            test_infos=test_infos,
+            src_top=Path('/src'),
+            workspace_path=Path('/src/workspace'),
+            run_command=run_command or self.mock_run_command()
+        )
+
+    def create_bazel_test_runner_for_tests(self, test_infos):
+        return self.create_bazel_test_runner(
+            modules=[supported_test_module(name=t.test_name, path='path')
+                     for t in test_infos],
+            test_infos=test_infos
+        )
+
+    def mock_run_command(self, **kwargs):
+        return mock.create_autospec(bazel_mode.default_run_command, **kwargs)
+
+    def assertTokensIn(self, expected_tokens, s):
+        tokens = shlex.split(s)
+        for token in expected_tokens:
+            self.assertIn(token, tokens)
+
+
+def test_info_of(module_name):
+    return test_info.TestInfo(module_name, BAZEL_RUNNER, [])
 
 
 if __name__ == '__main__':
