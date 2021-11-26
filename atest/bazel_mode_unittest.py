@@ -353,11 +353,11 @@ class ModulePrebuiltTargetGenerationTest(GenerationTestFixture):
         self.assertInBuildFile(
             'soong_prebuilt(\n'
             '    name = "libhello",\n'
+            '    module_name = "libhello",\n'
             '    files = select({\n'
             '        "//bazel/rules:device": glob(["libhello/device/**/*"]),\n'
             '        "//bazel/rules:host": glob(["libhello/host/**/*"]),\n'
             '    }),\n'
-            '    module_name = "libhello",\n'
             ')\n'
         )
 
@@ -425,13 +425,62 @@ class ModulePrebuiltTargetGenerationTest(GenerationTestFixture):
 class ModuleSharedLibGenerationTest(GenerationTestFixture):
     """Tests for module shared libs target generation."""
 
-    def test_generate_runtime_deps_per_shared_lib_config(self):
+    def test_not_generate_runtime_deps_when_all_configs_incompatible(self):
         mod_info = self.create_module_info(modules=[
-            supported_test_module(shared_libs=[
+            host_only_config(supported_test_module(shared_libs=['libdevice'])),
+            device_only_config(module(name='libdevice')),
+        ])
+
+        self.run_generator(mod_info)
+
+        self.assertNotInBuildFile('runtime_deps')
+
+    def test_generate_runtime_deps_when_configs_compatible(self):
+        mod_info = self.create_module_info(modules=[
+            multi_config(supported_test_module(shared_libs=['libmulti'])),
+            multi_config_module(name='libmulti'),
+        ])
+
+        self.run_generator(mod_info)
+
+        self.assertInBuildFile(
+            '    runtime_deps = select({\n'
+            '        "//bazel/rules:device": [\n'
+            '            "//:libmulti",\n'
+            '        ],\n'
+            '        "//bazel/rules:host": [\n'
+            '            "//:libmulti",\n'
+            '        ],\n'
+            '    }),\n'
+        )
+
+    def test_generate_runtime_deps_when_configs_partially_compatible(self):
+        mod_info = self.create_module_info(modules=[
+            multi_config(supported_test_module(shared_libs=[
+                'libhost',
+            ])),
+            host_module(name='libhost'),
+        ])
+
+        self.run_generator(mod_info)
+
+        self.assertInBuildFile(
+            '    runtime_deps = select({\n'
+            '        "//bazel/rules:device": [\n'
+            '        ],\n'
+            '        "//bazel/rules:host": [\n'
+            '            "//:libhost",\n'
+            '        ],\n'
+            '    }),\n'
+        )
+
+    def test_generate_runtime_deps_with_mixed_compatibility(self):
+        mod_info = self.create_module_info(modules=[
+            multi_config(supported_test_module(shared_libs=[
                 'libhost',
                 'libdevice',
                 'libmulti'
-            ]),
+            ])),
             host_module(name='libhost'),
             device_module(name='libdevice'),
             multi_config_module(name='libmulti'),
@@ -486,7 +535,7 @@ class ModuleSharedLibGenerationTest(GenerationTestFixture):
         self.assertNotInBuildFile('            "//:libhello",\n')
         self.assertTargetNotInWorkspace('libhello')
 
-    def test_not_generate_for_uninstalled_shared_lib(self):
+    def test_not_generate_when_shared_lib_uninstalled(self):
         mod_info = self.create_module_info(modules=[
             supported_test_module(shared_libs=['libhello']),
             host_module(name='libhello', installed=[]),

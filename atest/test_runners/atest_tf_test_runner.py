@@ -545,7 +545,8 @@ class AtestTradefedTestRunner(test_runner_base.TestRunnerBase):
                        constants.INVOCATION_ID,
                        constants.WORKUNIT_ID,
                        constants.REQUEST_UPLOAD_RESULT,
-                       constants.LOCAL_BUILD_ID):
+                       constants.LOCAL_BUILD_ID,
+                       constants.BUILD_TARGET):
                 continue
             args_not_supported.append(arg)
         # Set exclude instant app annotation for non-instant mode run.
@@ -623,8 +624,12 @@ class AtestTradefedTestRunner(test_runner_base.TestRunnerBase):
             test_args.append('--invocation-data work_unit_id=%s'
                              % extra_args[constants.WORKUNIT_ID])
         if extra_args.get(constants.LOCAL_BUILD_ID, None):
-            test_args.append('--build-id %s'
+            # TODO: (b/207584685) Replace with TF local build solutions.
+            test_args.append('--use-stub-build true')
+            test_args.append('--stub-build-id %s'
                              % extra_args[constants.LOCAL_BUILD_ID])
+            test_args.append('--stub-build-target %s'
+                             % extra_args[constants.BUILD_TARGET])
         for info in test_infos:
             if constants.TEST_WITH_MAINLINE_MODULES_RE.match(info.test_name):
                 test_args.append(constants.TF_ENABLE_MAINLINE_PARAMETERIZED_MODULES)
