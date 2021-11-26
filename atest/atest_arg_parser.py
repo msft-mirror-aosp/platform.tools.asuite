@@ -33,6 +33,8 @@ HELP_DESC = ('A command line tool that allows users to build, install, and run '
 
 # Constants used for arg help message(sorted in alphabetic)
 ACLOUD_CREATE = 'Create AVD(s) via acloud command.'
+AGGREGATE_METRIC_FILTER = ('Regular expression that will be used for filtering '
+                           'the aggregated metrics.')
 ALL_ABI = 'Set to run tests for all abis.'
 BUILD = 'Run a build.'
 BAZEL_MODE = 'Run tests using Bazel.'
@@ -189,8 +191,8 @@ class AtestArgParser(argparse.ArgumentParser):
 
         # Options that to do with acloud/AVDs.
         agroup = self.add_mutually_exclusive_group()
-        agroup.add_argument('--acloud-create', nargs=argparse.REMAINDER, type=str,
-                            help=ACLOUD_CREATE)
+        agroup.add_argument('--acloud-create', nargs=argparse.REMAINDER,
+                            type=str, help=ACLOUD_CREATE)
         agroup.add_argument('--start-avd', action='store_true',
                             help=START_AVD)
         agroup.add_argument('-s', '--serial', help=SERIAL)
@@ -272,6 +274,10 @@ class AtestArgParser(argparse.ArgumentParser):
         self.add_argument(constants.NO_METRICS_ARG, action='store_true',
                           help=NO_METRICS)
 
+        # Option to filter the output of aggregate metrics content.
+        self.add_argument('--aggregate-metric-filter', default='',
+                          help=AGGREGATE_METRIC_FILTER)
+
         # This arg actually doesn't consume anything, it's primarily used for
         # the help description and creating custom_args in the NameSpace object.
         self.add_argument('--', dest='custom_args', nargs='*',
@@ -301,6 +307,7 @@ def print_epilog_text():
     """
     epilog_text = EPILOG_TEMPLATE.format(
         ACLOUD_CREATE=ACLOUD_CREATE,
+        AGGREGATE_METRIC_FILTER=AGGREGATE_METRIC_FILTER,
         ALL_ABI=ALL_ABI,
         BUILD=BUILD,
         BAZEL_MODE=BAZEL_MODE,
@@ -499,6 +506,10 @@ OPTIONS
         [ Metrics ]
         --no-metrics
             {NO_METRICS}
+
+        [ Performance Testing ]
+        --aggregate-metric-filter
+            {AGGREGATE_METRIC_FILTER}
 
 
 EXAMPLES
