@@ -18,6 +18,7 @@
 # pylint: disable=invalid-name
 # pylint: disable=missing-function-docstring
 
+import shlex
 import shutil
 import tempfile
 import unittest
@@ -352,11 +353,11 @@ class ModulePrebuiltTargetGenerationTest(GenerationTestFixture):
         self.assertInBuildFile(
             'soong_prebuilt(\n'
             '    name = "libhello",\n'
+            '    module_name = "libhello",\n'
             '    files = select({\n'
             '        "//bazel/rules:device": glob(["libhello/device/**/*"]),\n'
             '        "//bazel/rules:host": glob(["libhello/host/**/*"]),\n'
             '    }),\n'
-            '    module_name = "libhello",\n'
             ')\n'
         )
 
@@ -424,13 +425,62 @@ class ModulePrebuiltTargetGenerationTest(GenerationTestFixture):
 class ModuleSharedLibGenerationTest(GenerationTestFixture):
     """Tests for module shared libs target generation."""
 
-    def test_generate_runtime_deps_per_shared_lib_config(self):
+    def test_not_generate_runtime_deps_when_all_configs_incompatible(self):
         mod_info = self.create_module_info(modules=[
-            supported_test_module(shared_libs=[
+            host_only_config(supported_test_module(shared_libs=['libdevice'])),
+            device_only_config(module(name='libdevice')),
+        ])
+
+        self.run_generator(mod_info)
+
+        self.assertNotInBuildFile('runtime_deps')
+
+    def test_generate_runtime_deps_when_configs_compatible(self):
+        mod_info = self.create_module_info(modules=[
+            multi_config(supported_test_module(shared_libs=['libmulti'])),
+            multi_config_module(name='libmulti'),
+        ])
+
+        self.run_generator(mod_info)
+
+        self.assertInBuildFile(
+            '    runtime_deps = select({\n'
+            '        "//bazel/rules:device": [\n'
+            '            "//:libmulti",\n'
+            '        ],\n'
+            '        "//bazel/rules:host": [\n'
+            '            "//:libmulti",\n'
+            '        ],\n'
+            '    }),\n'
+        )
+
+    def test_generate_runtime_deps_when_configs_partially_compatible(self):
+        mod_info = self.create_module_info(modules=[
+            multi_config(supported_test_module(shared_libs=[
+                'libhost',
+            ])),
+            host_module(name='libhost'),
+        ])
+
+        self.run_generator(mod_info)
+
+        self.assertInBuildFile(
+            '    runtime_deps = select({\n'
+            '        "//bazel/rules:device": [\n'
+            '        ],\n'
+            '        "//bazel/rules:host": [\n'
+            '            "//:libhost",\n'
+            '        ],\n'
+            '    }),\n'
+        )
+
+    def test_generate_runtime_deps_with_mixed_compatibility(self):
+        mod_info = self.create_module_info(modules=[
+            multi_config(supported_test_module(shared_libs=[
                 'libhost',
                 'libdevice',
                 'libmulti'
-            ]),
+            ])),
             host_module(name='libhost'),
             device_module(name='libdevice'),
             multi_config_module(name='libmulti'),
@@ -485,7 +535,7 @@ class ModuleSharedLibGenerationTest(GenerationTestFixture):
         self.assertNotInBuildFile('            "//:libhello",\n')
         self.assertTargetNotInWorkspace('libhello')
 
-    def test_not_generate_for_uninstalled_shared_lib(self):
+    def test_not_generate_when_shared_lib_uninstalled(self):
         mod_info = self.create_module_info(modules=[
             supported_test_module(shared_libs=['libhello']),
             host_module(name='libhello', installed=[]),
@@ -911,18 +961,46 @@ class BazelTestRunnerTest(unittest.TestCase):
 
         self.assertSetEqual({'test1', 'test2'}, reqs)
 
-    def create_bazel_test_runner(self, modules, test_infos, run_command):
+    def test_generate_single_run_command(self):
+        test_infos = [test_info_of('test1')]
+        runner = self.create_bazel_test_runner_for_tests(test_infos)
+
+        cmd = runner.generate_run_commands(test_infos, {})
+
+        self.assertEqual(1, len(cmd))
+
+    def test_generate_run_command_containing_targets(self):
+        test_infos = [test_info_of('test1'), test_info_of('test2')]
+        runner = self.create_bazel_test_runner_for_tests(test_infos)
+
+        cmd = runner.generate_run_commands(test_infos, {})
+
+        self.assertTokensIn(['//path:test1_host', '//path:test2_host'], cmd[0])
+
+    def create_bazel_test_runner(self, modules, test_infos, run_command=None):
         return bazel_mode.BazelTestRunner(
             'result_dir',
             mod_info=create_module_info(modules),
             test_infos=test_infos,
             src_top=Path('/src'),
             workspace_path=Path('/src/workspace'),
-            run_command=run_command,
+            run_command=run_command or self.mock_run_command()
+        )
+
+    def create_bazel_test_runner_for_tests(self, test_infos):
+        return self.create_bazel_test_runner(
+            modules=[supported_test_module(name=t.test_name, path='path')
+                     for t in test_infos],
+            test_infos=test_infos
         )
 
     def mock_run_command(self, **kwargs):
         return mock.create_autospec(bazel_mode.default_run_command, **kwargs)
+
+    def assertTokensIn(self, expected_tokens, s):
+        tokens = shlex.split(s)
+        for token in expected_tokens:
+            self.assertIn(token, tokens)
 
 
 def test_info_of(module_name):
