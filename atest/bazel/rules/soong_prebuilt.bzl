@@ -61,6 +61,11 @@ def _soong_prebuilt_impl(ctx):
         )
         files = [placeholder_file]
 
+    runfiles = ctx.runfiles(files = files).merge_all([
+        dep[DefaultInfo].default_runfiles
+        for dep in ctx.attr.runtime_deps
+    ])
+
     return [
         SoongPrebuiltInfo(
             files = depset(files),
@@ -68,7 +73,7 @@ def _soong_prebuilt_impl(ctx):
         ),
         DefaultInfo(
             files = depset(files),
-            runfiles = ctx.runfiles(files = ctx.files.runtime_deps),
+            runfiles = runfiles,
         ),
     ]
 
