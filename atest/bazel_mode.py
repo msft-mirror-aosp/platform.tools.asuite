@@ -115,6 +115,8 @@ class WorkspaceGenerator:
                              self.mod_info_md5_path)
 
     def _add_test_module_targets(self):
+        seen = set()
+
         for name, info in self.mod_info.name_to_module_info.items():
             # Ignore modules that have a 'host_cross_' prefix since they are
             # duplicates of existing modules. For example,
@@ -130,9 +132,11 @@ class WorkspaceGenerator:
                 continue
 
             target = self._add_deviceless_test_target(info)
-            self._resolve_dependencies(target)
+            self._resolve_dependencies(target, seen)
 
-    def _resolve_dependencies(self, top_level_target: Target):
+    def _resolve_dependencies(
+        self, top_level_target: Target, seen: Set[Target]):
+
         stack = [deque([top_level_target])]
 
         while stack:
@@ -143,6 +147,15 @@ class WorkspaceGenerator:
                 continue
 
             target = top.popleft()
+
+            # Note that we're relying on Python's default identity-based hash
+            # and equality methods. This is fine since we actually DO want
+            # reference-equality semantics for Target objects in this context.
+            if target in seen:
+                continue
+
+            seen.add(target)
+
             next_top = deque()
 
             for ref in target.dependencies():
