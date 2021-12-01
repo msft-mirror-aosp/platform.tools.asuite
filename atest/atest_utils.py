@@ -1592,7 +1592,6 @@ def run_multi_proc(func, *args, **kwargs):
     Returns:
         multiprocessing.Process object.
     """
-
     proc = Process(target=func, *args, **kwargs)
     proc.start()
     return proc

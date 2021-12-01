@@ -26,6 +26,7 @@ import unittest
 
 from unittest import mock
 
+import atest_utils as au
 import constants
 import unittest_constants as uc
 
@@ -62,30 +63,37 @@ class AtestToolsUnittests(unittest.TestCase):
             locate_cmd2 = [LOCATE, '-d', uc.LOCATE_CACHE, 'module-info.json']
             self.assertEqual(subprocess.call(locate_cmd2), 0)
 
-            # 2. Test index_targets() is functional.
-            atest_tools.index_targets(uc.LOCATE_CACHE,
-                                      class_index=uc.CLASS_INDEX,
-                                      cc_class_index=uc.CC_CLASS_INDEX,
-                                      package_index=uc.PACKAGE_INDEX,
-                                      qclass_index=uc.QCLASS_INDEX)
+            # 2. Test get_java_result is functional.
             _cache = {}
-            # Test finding a Java class.
+            jproc = au.run_multi_proc(
+                    func=atest_tools.get_java_result, args=[uc.LOCATE_CACHE],
+                    kwargs={'class_index':uc.CLASS_INDEX,
+                            'package_index':uc.PACKAGE_INDEX,
+                            'qclass_index':uc.QCLASS_INDEX})
+            jproc.join()
+            # 2.1 Test finding a Java class.
             with open(uc.CLASS_INDEX, 'rb') as cache:
                 _cache = pickle.load(cache)
             self.assertIsNotNone(_cache.get('PathTesting'))
-            # Test finding a CC class.
-            with open(uc.CC_CLASS_INDEX, 'rb') as cache:
-                _cache = pickle.load(cache)
-            self.assertIsNotNone(_cache.get('HelloWorldTest'))
-            # Test finding a package.
+            # 2.2 Test finding a package.
             with open(uc.PACKAGE_INDEX, 'rb') as cache:
                 _cache = pickle.load(cache)
             self.assertIsNotNone(_cache.get(uc.PACKAGE))
-            # Test finding a fully qualified class name.
+            # 2.3 Test finding a fully qualified class name.
             with open(uc.QCLASS_INDEX, 'rb') as cache:
                 _cache = pickle.load(cache)
             self.assertIsNotNone(_cache.get('android.jank.cts.ui.PathTesting'))
-            # Clean up.
+
+            # 3. Test get_cc_result is functional.
+            cproc = au.run_multi_proc(
+                    func=atest_tools.get_cc_result, args=[uc.LOCATE_CACHE],
+                    kwargs={'cc_class_index':uc.CC_CLASS_INDEX})
+            cproc.join()
+            # 3.1 Test finding a CC class.
+            with open(uc.CC_CLASS_INDEX, 'rb') as cache:
+                _cache = pickle.load(cache)
+            self.assertIsNotNone(_cache.get('HelloWorldTest'))
+            # 4. Clean up.
             targets_to_delete = (uc.CC_CLASS_INDEX,
                                  uc.CLASS_INDEX,
                                  uc.LOCATE_CACHE,
