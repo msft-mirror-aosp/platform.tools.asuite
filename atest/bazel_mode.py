@@ -193,8 +193,13 @@ class WorkspaceGenerator:
 
     def _add_target(self, package_path: str, target_name: str,
                     create_fn: Callable) -> Target:
-        package = self.path_to_package.setdefault(package_path,
-                                                  Package(package_path))
+
+        package = self.path_to_package.get(package_path)
+
+        if not package:
+            package = Package(package_path)
+            self.path_to_package[package_path] = package
+
         target = package.get_target(target_name)
 
         if target:
