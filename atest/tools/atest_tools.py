@@ -72,8 +72,6 @@ PRUNENAMES = ['.abc', '.appveyor', '.azure-pipelines',
               '.travis_scripts',
               '.tx',
               '.vscode']
-# Allow for scanning on bound mounts.
-PRUNE_BIND_MOUNTS = 'no'
 
 def _mkdir_when_inexists(dirname):
     if not os.path.isdir(dirname):
@@ -144,10 +142,15 @@ def run_updatedb(search_root=SEARCH_TOP, output_cache=constants.LOCATE_CACHE,
     updatedb_cmd.append('-U%s' % search_root)
     updatedb_cmd.append('-n%s' % prunenames)
     updatedb_cmd.append('-o%s' % output_cache)
-    updatedb_cmd.append('--prunepaths')
-    updatedb_cmd.append(prunepaths)
-    updatedb_cmd.append('--prune-bind-mounts')
-    updatedb_cmd.append(PRUNE_BIND_MOUNTS)
+    if OSNAME == MACOSX:
+        updatedb_cmd.append('-e%s' % prunepaths)
+    else:
+        # (b/206866627) /etc/updatedb.conf excludes /mnt from scanning on Linux.
+        # Use --prunepaths to override the default configuration.
+        updatedb_cmd.append('--prunepaths')
+        updatedb_cmd.append(prunepaths)
+        # Support scanning bind mounts as well.
+        updatedb_cmd.extend(['--prune-bind-mounts', 'no'])
     try:
         _install_updatedb()
     except IOError as e:
