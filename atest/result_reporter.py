@@ -68,6 +68,7 @@ from __future__ import print_function
 import logging
 import os
 import re
+import zipfile
 
 from collections import OrderedDict
 
@@ -550,10 +551,16 @@ class ResultReporter:
                                           file_name=constants.TF_HOST_LOG)
                 if find_logs:
                     host_log_content = au.colorize(
-                        '\n\nTradefederation host log:', constants.RED)
-                for tf_log_zip in find_logs:
-                    host_log_content = host_log_content + au.extract_zip_text(
-                        tf_log_zip)
+                        '\n\nTradefederation host log:\n', constants.RED)
+                for tf_log in find_logs:
+                    if zipfile.is_zipfile(tf_log):
+                        host_log_content = (host_log_content +
+                                            au.extract_zip_text(tf_log))
+                    else:
+                        with open(tf_log, 'r') as f:
+                            for line in f.readlines():
+                                host_log_content = host_log_content + line
+
             # Print the content for the standard error file for a single module.
             if name and self.log_path and len(str(name).split()) > 1:
                 log_name = str(name).split()[1] + '-stderr_*.txt'
