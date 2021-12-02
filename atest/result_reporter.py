@@ -554,6 +554,17 @@ class ResultReporter:
                 for tf_log_zip in find_logs:
                     host_log_content = host_log_content + au.extract_zip_text(
                         tf_log_zip)
+            # Print the content for the standard error file for a single module.
+            if name and self.log_path and len(str(name).split()) > 1:
+                log_name = str(name).split()[1] + '-stderr_*.txt'
+                module_logs = au.find_files(self.log_path, file_name=log_name)
+                for log_file in module_logs:
+                    print(' ' * 2  + au.colorize(
+                        f'Logs in {os.path.basename(log_file)}:',
+                        constants.MAGENTA))
+                    with open(log_file, 'r') as f:
+                        for line in f.readlines():
+                            print(' ' * 2 + str(line), end='')
         elif stats.failed == 0:
             passed_label = au.colorize(passed_label, constants.GREEN)
         summary = ('%s: %s: %s, %s: %s, %s: %s, %s: %s, %s %s %s %s'
