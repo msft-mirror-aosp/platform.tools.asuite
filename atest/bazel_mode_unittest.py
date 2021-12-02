@@ -17,13 +17,16 @@
 """Unit tests for bazel_mode."""
 # pylint: disable=invalid-name
 # pylint: disable=missing-function-docstring
+# pylint: disable=too-many-lines
 
+import re
 import shlex
 import shutil
 import tempfile
 import unittest
 
 from pathlib import Path
+from typing import List
 from unittest import mock
 
 # pylint: disable=import-error
@@ -106,13 +109,33 @@ class GenerationTestFixture(fake_filesystem_unittest.TestCase):
         self.assertEqual(symlink_path.resolve(strict=False), target_path)
 
     def assertTargetInWorkspace(self, name, package=''):
-        self.assertInBuildFile(f'name = "{name}"', package=package)
+        build_file = self.workspace_out_path.joinpath(package, 'BUILD.bazel')
+        contents = build_file.read_text()
+        occurrences = len(self.find_target_by_name(name, contents))
+
+        if occurrences == 1:
+            return
+
+        cardinality = 'Multiple' if occurrences else 'Zero'
+        self.fail(
+            f'{cardinality} targets named \'{name}\' found in \'{contents}\''
+        )
 
     def assertTargetNotInWorkspace(self, name, package=''):
         build_file = self.workspace_out_path.joinpath(package, 'BUILD.bazel')
+
         if not build_file.exists():
             return
-        self.assertNotIn(f'name = "{name}"', build_file.read_text())
+
+        contents = build_file.read_text()
+        matches = self.find_target_by_name(name, contents)
+
+        if not matches:
+            return
+
+        self.fail(
+            f'Unexpectedly found target(s) named \'{name}\' in \'{contents}\''
+        )
 
     def assertInBuildFile(self, substring, package=''):
         build_file = self.workspace_out_path.joinpath(package, 'BUILD.bazel')
@@ -129,6 +152,9 @@ class GenerationTestFixture(fake_filesystem_unittest.TestCase):
     def assertFileNotInWorkspace(self, relative_path, package=''):
         path = self.workspace_out_path.joinpath(package, relative_path)
         self.assertFalse(path.exists())
+
+    def find_target_by_name(self, name: str, contents: str) -> List[str]:
+        return re.findall(rf'\bname\s*=\s*"{name}"', contents)
 
 
 class BasicWorkspaceGenerationTest(GenerationTestFixture):
@@ -500,6 +526,40 @@ class ModuleSharedLibGenerationTest(GenerationTestFixture):
             '        ],\n'
             '    }),\n'
         )
+
+    def test_generate_runtime_deps_recursively(self):
+        mod_info = self.create_module_info(modules=[
+            multi_config(supported_test_module(shared_libs=[
+                'libdirect',
+            ])),
+            multi_config_module(name='libdirect', shared_libs=[
+                'libtransitive',
+            ]),
+            multi_config_module(name='libtransitive'),
+        ])
+
+        self.run_generator(mod_info)
+
+        self.assertTargetInWorkspace('libtransitive')
+
+    def test_generate_shared_runtime_deps_once(self):
+        mod_info = self.create_module_info(modules=[
+            multi_config(supported_test_module(shared_libs=[
+                'libleft',
+                'libright',
+            ])),
+            multi_config_module(name='libleft', shared_libs=[
+                'libshared',
+            ]),
+            multi_config_module(name='libright', shared_libs=[
+                'libshared',
+            ]),
+            multi_config_module(name='libshared'),
+        ])
+
+        self.run_generator(mod_info)
+
+        self.assertTargetInWorkspace('libshared')
 
     def test_generate_runtime_deps_in_order(self):
         mod_info = self.create_module_info(modules=[
