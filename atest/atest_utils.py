@@ -653,6 +653,9 @@ def _normalize(cmd_list):
         if cmd.startswith('--proto-output-file='):
             _cmd.remove(cmd)
             continue
+        if cmd.startswith('--log-root-path'):
+            _cmd.remove(cmd)
+            continue
         if _BUILD_CMD in cmd:
             _cmd.remove(cmd)
             _cmd.append(os.path.join('./', _BUILD_CMD))
@@ -1592,7 +1595,6 @@ def run_multi_proc(func, *args, **kwargs):
     Returns:
         multiprocessing.Process object.
     """
-
     proc = Process(target=func, *args, **kwargs)
     proc.start()
     return proc
