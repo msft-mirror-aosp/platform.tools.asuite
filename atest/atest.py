@@ -760,7 +760,9 @@ def main(argv, results_dir, args):
         os.environ.get(constants.ANDROID_PRODUCT_OUT, ''))
     # Do not index targets while the users intend to dry-run tests.
     dry_run_args = (args.update_cmd_mapping, args.verify_cmd_mapping, args.dry_run)
-    if not any(dry_run_args):
+    extra_args = get_extra_args(args)
+    verify_env_variables = extra_args.get(constants.VERIFY_ENV_VARIABLE, False)
+    if not (any(dry_run_args) or verify_env_variables):
         atest_utils.run_multi_proc(INDEX_TARGETS)
     smart_rebuild = need_rebuild_module_info(args.rebuild_module_info)
     mod_info = module_info.ModuleInfo(force_build=smart_rebuild)
@@ -798,16 +800,15 @@ def main(argv, results_dir, args):
         return _print_test_info(mod_info, test_infos)
     build_targets |= test_runner_handler.get_test_runner_reqs(mod_info,
                                                               test_infos)
-    extra_args = get_extra_args(args)
     if any(dry_run_args):
-        if not extra_args.get(constants.VERIFY_ENV_VARIABLE, False):
+        if not verify_env_variables:
             return _dry_run_validator(args, results_dir, extra_args, test_infos,
                                       mod_info)
-    if extra_args.get(constants.VERIFY_ENV_VARIABLE, False):
+    if verify_env_variables:
         # check environment variables.
         verify_key = atest_utils.get_verify_key(args.tests, extra_args)
         if not atest_utils.handle_test_env_var(verify_key, pre_verify=True):
-            print('No environ variable needs to verify.')
+            print('No environment variables need to verify.')
             return 0
     if args.detect_regression:
         build_targets |= (regression_test_runner.RegressionTestRunner('')
