@@ -64,7 +64,7 @@ class ModuleInfo:
         self.force_build = force_build
         self.mod_info_file_path = Path(module_file) if module_file else None
         module_info_target, name_to_module_info = self._load_module_info_file(
-            force_build, module_file)
+            module_file)
         self.name_to_module_info = name_to_module_info
         self.module_info_target = module_info_target
         self.path_to_module_info = self._get_path_to_module_info(
@@ -115,12 +115,10 @@ class ModuleInfo:
                 result=int(build_duration))
         return module_info_target, module_file_path
 
-    def _load_module_info_file(self, force_build, module_file):
+    def _load_module_info_file(self, module_file):
         """Load the module file.
 
         Args:
-            force_build: Boolean to indicate if we should rebuild the
-                         module_info file regardless if it's created or not.
             module_file: String of path to file to load up. Used for testing.
 
         Returns:
@@ -132,16 +130,16 @@ class ModuleInfo:
         file_path = module_file
         if not file_path:
             module_info_target, file_path = self._discover_mod_file_and_target(
-                force_build)
+                self.force_build)
             self.mod_info_file_path = Path(file_path)
         merged_file_path = self.get_atest_merged_info_path()
-        if (not self.need_update_merged_file(force_build)
+        if (not self.need_update_merged_file()
             and os.path.exists(merged_file_path)):
             file_path = merged_file_path
-            logging.debug('Loading %s as module-info.', file_path)
+        logging.debug('Loading %s as module-info.', file_path)
         with open(file_path) as json_file:
             mod_info = json.load(json_file)
-        if self.need_update_merged_file(force_build):
+        if self.need_update_merged_file():
             mod_info = self._merge_build_system_infos(mod_info)
         return module_info_target, mod_info
 
@@ -512,13 +510,6 @@ class ModuleInfo:
                           module_name)
             return True
 
-
-    def generate_atest_merged_dep_file(self):
-        """Method for generating atest_merged_dep.json."""
-        self._merge_build_system_infos(self.name_to_module_info,
-                                       self.get_java_dep_info_path(),
-                                       self.get_cc_dep_info_path())
-
     def _merge_build_system_infos(self, name_to_module_info,
         java_bp_info_path=None, cc_bp_info_path=None):
         """Merge the full build system's info to name_to_module_info.
@@ -692,22 +683,17 @@ class ModuleInfo:
         return (os.path.isfile(self.get_java_dep_info_path()) and
                 os.path.isfile(self.get_cc_dep_info_path()))
 
-    def need_update_merged_file(self, force_build=False):
+    def need_update_merged_file(self):
         """Check if need to update/generated atest_merged_dep.
 
-        If force_build: always update merged info.
-        If not force build: only update merged info when soong info exists and
-            the merged info does not.
-
-        Args:
-            force_build: Boolean that indicates if users want to arbitrarily
-            rebuild module_info file regardless of the existence of soong info
-            and the merged info.
+        If self.force_build == True: always update merged info.
+        Otherwise: only update merged info when soong info exists and the merged
+                   info does not.
 
         Returns:
             True if atest_merged_dep.json should be updated, false otherwise.
         """
-        return (force_build or
+        return (self.force_build or
                 (self.has_soong_info() and
                  not os.path.exists(self.get_atest_merged_info_path())))
 

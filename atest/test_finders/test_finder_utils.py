@@ -34,7 +34,6 @@ import xml.etree.ElementTree as ET
 import atest_decorator
 import atest_error
 import atest_enum
-import atest_utils
 import constants
 
 from metrics import metrics_utils
@@ -509,10 +508,7 @@ def run_find_cmd(ref_type, search_dir, target, methods=None):
         return None
     ref_name = FIND_REFERENCE_TYPE[ref_type]
     start = time.time()
-    # Validate mlocate.db before using 'locate' or 'find'.
-    # TODO: b/187146540 record abnormal mlocate.db in Metrics.
-    is_valid_mlocate = atest_utils.check_md5(constants.LOCATE_CACHE_MD5)
-    if os.path.isfile(FIND_INDEXES[ref_type]) and is_valid_mlocate:
+    if os.path.isfile(FIND_INDEXES[ref_type]):
         _dict, out = {}, None
         with open(FIND_INDEXES[ref_type], 'rb') as index:
             try:
