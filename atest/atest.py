@@ -762,8 +762,9 @@ def main(argv, results_dir, args):
     dry_run_args = (args.update_cmd_mapping, args.verify_cmd_mapping, args.dry_run)
     extra_args = get_extra_args(args)
     verify_env_variables = extra_args.get(constants.VERIFY_ENV_VARIABLE, False)
+    proc_idx = None
     if not (any(dry_run_args) or verify_env_variables):
-        atest_utils.run_multi_proc(INDEX_TARGETS)
+        proc_idx = atest_utils.run_multi_proc(INDEX_TARGETS)
     smart_rebuild = need_rebuild_module_info(args.rebuild_module_info)
     mod_info = module_info.ModuleInfo(force_build=smart_rebuild)
     atest_utils.generate_buildfiles_checksum()
@@ -780,6 +781,8 @@ def main(argv, results_dir, args):
     mm_build_targets = set()
     test_infos = set()
     if _will_run_tests(args):
+        if proc_idx:
+            proc_idx.join()
         find_start = time.time()
         build_targets, test_infos = translator.translate(args)
         if args.no_modules_in:
