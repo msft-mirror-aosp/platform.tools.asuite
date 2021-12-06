@@ -345,12 +345,19 @@ def index_targets(output_cache=constants.LOCATE_CACHE):
         output_cache: A file path of the updatedb cache
                       (e.g. /path/to/mlocate.db).
     """
+    if not has_command(LOCATE):
+        logging.debug('command %s is unavailable; skip indexing.', LOCATE)
+        return
+    pre_md5sum = ""
     try:
         # Step 0: generate mlocate database prior to indexing targets.
-        run_updatedb(SEARCH_TOP, constants.LOCATE_CACHE)
-        if not has_command(LOCATE):
+        if os.path.exists(constants.LOCATE_CACHE_MD5):
+            pre_md5sum = au.md5sum(constants.LOCATE_CACHE_MD5)
+        run_updatedb(SEARCH_TOP, output_cache)
+        if pre_md5sum == au.md5sum(constants.LOCATE_CACHE_MD5):
+            logging.debug('%s remains the same.', output_cache)
             return
-        # Step 1: generate output string for indexing targets.
+        # Step 1: generate output string for indexing targets when needed.
         logging.debug('Indexing targets... ')
         au.run_multi_proc(func=get_java_result, args=[output_cache])
         au.run_multi_proc(func=get_cc_result, args=[output_cache])
