@@ -377,6 +377,15 @@ class AtestTradefedTestRunner(test_runner_base.TestRunnerBase):
         if debug_port:
             env_vars['TF_DEBUG'] = 'true'
             env_vars['TF_DEBUG_PORT'] = str(debug_port)
+        filtered_paths = []
+        for path in str(env_vars['PYTHONPATH']).split(':'):
+            # TODO (b/166216843) Remove the hacky PYTHON path workaround.
+            if (str(path).startswith('/tmp/Soong.python_') and
+                    str(path).find('googleapiclient') > 0):
+                continue
+            filtered_paths.append(path)
+        env_vars['PYTHONPATH'] = ':'.join(filtered_paths)
+
         # Use prebuilt aapt if there's no aapt under android system path which
         # is aligned with build system.
         # https://android.googlesource.com/platform/build/+/master/core/config.mk#529
