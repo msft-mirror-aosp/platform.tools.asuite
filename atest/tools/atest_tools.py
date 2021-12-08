@@ -52,22 +52,26 @@ INDEXES = (constants.CC_CLASS_INDEX,
 # find `gettop` -type d -wholename `gettop`/out -prune  -o -type d -name '.*'
 # -print | awk -F/ '{{print $NF}}'| sort -u
 PRUNENAMES = ['.abc', '.appveyor', '.azure-pipelines',
-              '.bazelci', '.buildscript',
-              '.cache', '.ci', '.circleci', '.conan', '.config',
+              '.bazelci', '.build-id', '.buildkite', '.buildscript',
+              '.cargo', '.ci', '.circleci', '.clusterfuzzlite', '.conan',
+              '.devcontainer',
+              '.dwz',
               '.externalToolBuilders',
-              '.git', '.github', '.gitlab-ci', '.google', '.gradle',
+              '.git', '.githooks', '.github', '.gitlab', '.gitlab-ci', '.google',
+              '.hidden',
               '.idea', '.intermediates',
               '.jenkins',
               '.kokoro',
               '.libs_cffi_backend',
-              '.mvn',
+              '.more', '.mvn',
               '.prebuilt_info', '.private', '__pycache__',
               '.repo',
-              '.semaphore', '.settings', '.static', '.svn',
-              '.test', '.travis', '.travis_scripts', '.tx',
+              '.settings', '.static', '.svn',
+              '.test',
+              '.travis',
+              '.travis_scripts',
+              '.tx',
               '.vscode']
-# Allow for scanning on bound mounts.
-PRUNE_BIND_MOUNTS = 'no'
 
 def _mkdir_when_inexists(dirname):
     if not os.path.isdir(dirname):
@@ -138,10 +142,15 @@ def run_updatedb(search_root=SEARCH_TOP, output_cache=constants.LOCATE_CACHE,
     updatedb_cmd.append('-U%s' % search_root)
     updatedb_cmd.append('-n%s' % prunenames)
     updatedb_cmd.append('-o%s' % output_cache)
-    updatedb_cmd.append('--prunepaths')
-    updatedb_cmd.append(prunepaths)
-    updatedb_cmd.append('--prune-bind-mounts')
-    updatedb_cmd.append(PRUNE_BIND_MOUNTS)
+    if OSNAME == MACOSX:
+        updatedb_cmd.append('-e%s' % prunepaths)
+    else:
+        # (b/206866627) /etc/updatedb.conf excludes /mnt from scanning on Linux.
+        # Use --prunepaths to override the default configuration.
+        updatedb_cmd.append('--prunepaths')
+        updatedb_cmd.append(prunepaths)
+        # Support scanning bind mounts as well.
+        updatedb_cmd.extend(['--prune-bind-mounts', 'no'])
     try:
         _install_updatedb()
     except IOError as e:
@@ -336,12 +345,19 @@ def index_targets(output_cache=constants.LOCATE_CACHE):
         output_cache: A file path of the updatedb cache
                       (e.g. /path/to/mlocate.db).
     """
+    if not has_command(LOCATE):
+        logging.debug('command %s is unavailable; skip indexing.', LOCATE)
+        return
+    pre_md5sum = ""
     try:
         # Step 0: generate mlocate database prior to indexing targets.
-        run_updatedb(SEARCH_TOP, constants.LOCATE_CACHE)
-        if not has_command(LOCATE):
+        if os.path.exists(constants.LOCATE_CACHE_MD5):
+            pre_md5sum = au.md5sum(constants.LOCATE_CACHE_MD5)
+        run_updatedb(SEARCH_TOP, output_cache)
+        if pre_md5sum == au.md5sum(constants.LOCATE_CACHE_MD5):
+            logging.debug('%s remains the same.', output_cache)
             return
-        # Step 1: generate output string for indexing targets.
+        # Step 1: generate output string for indexing targets when needed.
         logging.debug('Indexing targets... ')
         au.run_multi_proc(func=get_java_result, args=[output_cache])
         au.run_multi_proc(func=get_cc_result, args=[output_cache])

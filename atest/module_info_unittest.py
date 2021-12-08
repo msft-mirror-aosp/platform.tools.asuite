@@ -17,6 +17,7 @@
 """Unittests for module_info."""
 
 # pylint: disable=line-too-long
+# pylint: disable=missing-function-docstring
 
 import os
 import unittest
@@ -524,6 +525,17 @@ class ModuleInfoUnittests(unittest.TestCase):
         self.assertTrue(mod_info.has_mainline_modules(name2, mainline_module2))
         # cannot be found in both 'test_mainline_modules' and 'test_config'.
         self.assertFalse(mod_info.has_mainline_modules(name3, mainline_module2))
+
+    @mock.patch.dict('os.environ',
+                     {constants.ANDROID_BUILD_TOP:os.path.dirname(__file__),
+                      constants.ANDROID_PRODUCT_OUT:'/test/output/'})
+    def test_get_module_info_for_multi_lib_module(self):
+        my_module_name = 'MyMultiArchTestModule'
+        multi_arch_json = os.path.join(uc.TEST_DATA_DIR,
+                                       'multi_arch_module-info.json')
+        mod_info = module_info.ModuleInfo(module_file=multi_arch_json)
+
+        self.assertIsNotNone(mod_info.get_module_info(my_module_name))
 
 if __name__ == '__main__':
     unittest.main()

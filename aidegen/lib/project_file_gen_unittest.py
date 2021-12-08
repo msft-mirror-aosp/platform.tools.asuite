@@ -136,6 +136,19 @@ class AidegenProjectFileGenUnittest(unittest.TestCase):
                 os.path.join(self._IDEA_PATH,
                              project_file_gen._CODE_STYLE_FOLDER,
                              'codeStyleConfig.xml')))
+
+        self.assertTrue(
+            os.path.isfile(
+                os.path.join(self._IDEA_PATH,
+                             project_file_gen._INSPECTION_FOLDER,
+                             'profiles_settings.xml')))
+
+        self.assertTrue(
+            os.path.isfile(
+                os.path.join(self._IDEA_PATH,
+                             project_file_gen._INSPECTION_FOLDER,
+                             'Aidegen_Inspections.xml')))
+
         self.assertTrue(
             os.path.isfile(
                 os.path.join(self._IDEA_PATH,
