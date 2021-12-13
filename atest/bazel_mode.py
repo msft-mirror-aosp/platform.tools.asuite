@@ -383,6 +383,7 @@ class DevicelessTestTarget(Target):
         'tradefed',
         'tradefed-contrib',
         'tradefed-test-framework',
+        'bazel-result-reporter'
     })
 
     @staticmethod
