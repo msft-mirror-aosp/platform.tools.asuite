@@ -74,6 +74,7 @@ tradefed_deviceless_test = rule(
                 "//tools/tradefederation/core/test_framework:tradefed-test-framework",
                 "//tools/tradefederation/core:tradefed",
                 "//tools/asuite/atest:atest-tradefed",
+                "//tools/asuite/atest/bazel/reporter:bazel-result-reporter",
             ],
             cfg = host_transition,
         ),
