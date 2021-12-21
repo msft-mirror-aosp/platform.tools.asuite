@@ -701,7 +701,8 @@ def md5sum(filename):
     Returns:
         A string of hashed MD5 checksum.
     """
-    if not os.path.isfile(filename):
+    filename = Path(filename)
+    if not filename.is_file():
         return ""
     with open(filename, 'rb') as target:
         content = target.read()
@@ -752,13 +753,12 @@ def save_md5(filenames, save_file):
         filenames: A list of filenames.
         save_file: Filename for storing files and their md5 checksums.
     """
-    if os.path.isfile(save_file):
-        os.remove(save_file)
     data = {}
-    for name in filenames:
-        if not os.path.isfile(name):
-            logging.warning('%s is not a file.', name)
-        data.update({name: md5sum(name)})
+    for f in filenames:
+        name = Path(f)
+        if not name.is_file():
+            logging.warning(' ignore %s: not a file.', name)
+        data.update({str(name): md5sum(name)})
     with open(save_file, 'w+') as _file:
         json.dump(data, _file)
 
