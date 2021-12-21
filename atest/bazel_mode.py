@@ -111,7 +111,7 @@ class WorkspaceGenerator:
         self.workspace_out_path.mkdir(parents=True)
         self._generate_artifacts()
 
-        atest_utils.save_md5([str(self.mod_info.mod_info_file_path)],
+        atest_utils.save_md5([self.mod_info.mod_info_file_path],
                              self.mod_info_md5_path)
 
     def _add_test_module_targets(self):
