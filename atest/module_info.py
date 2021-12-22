@@ -56,6 +56,30 @@ class ModuleInfo:
         """Initialize the ModuleInfo object.
 
         Load up the module-info.json file and initialize the helper vars.
+        Note that module-info.json does not contain all module dependencies,
+        therefore, Atest needs to accumulate dependencies defined in bp files.
+
+          +----------------------+     +----------------------------+
+          | $ANDROID_PRODUCT_OUT |     |$ANDROID_BUILD_TOP/out/soong|
+          |  /module-info.json   |     |  /module_bp_java_deps.json |
+          +-----------+----------+     +-------------+--------------+
+                      |     _merge_soong_info()      |
+                      +------------------------------+
+                      |
+                      v
+        +----------------------------+  +----------------------------+
+        |tempfile.NamedTemporaryFile |  |$ANDROID_BUILD_TOP/out/soong|
+        +-------------+--------------+  |  /module_bp_cc_deps.json   |
+                      |                 +-------------+--------------+
+                      |     _merge_soong_info()       |
+                      +-------------------------------+
+                                     |
+                             +-------|
+                             v
+                +============================+
+                |  $ANDROID_PRODUCT_OUT      |
+                |    /atest_merged_dep.json  |--> load as module info.
+                +============================+
 
         Args:
             force_build: Boolean to indicate if we should rebuild the
