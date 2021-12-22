@@ -30,8 +30,6 @@ except ImportError:
 _JSON_HEADERS = {'Content-Type': 'application/json'}
 _METRICS_RESPONSE = 'done'
 _METRICS_TIMEOUT = 2 #seconds
-_META_FILE = os.path.join(os.path.expanduser('~'),
-                          '.config', 'asuite', '.metadata')
 _ANDROID_BUILD_TOP = 'ANDROID_BUILD_TOP'
 
 UNUSED_UUID = '00000000-0000-4000-8000-000000000000'
@@ -73,15 +71,21 @@ def log_event(metrics_url, unused_key_fallback=True, **kwargs):
 
 def _get_grouping_key():
     """Get grouping key. Returns UUID.uuid4."""
-    if os.path.isfile(_META_FILE):
-        with open(_META_FILE) as f:
+    # In order to prevent circular import
+    #pylint: disable= import-outside-toplevel
+    import atest_utils
+
+    meta_file = os.path.join(atest_utils.get_misc_dir(),
+                              '.config', 'asuite', '.metadata')
+    if os.path.isfile(meta_file):
+        with open(meta_file) as f:
             try:
                 return uuid.UUID(f.read(), version=4)
             except ValueError:
                 logging.debug('malformed group_key in file, rewriting')
     # TODO: Delete get_old_key() on 11/17/2018
     key = _get_old_key() or uuid.uuid4()
-    dir_path = os.path.dirname(_META_FILE)
+    dir_path = os.path.dirname(meta_file)
     if os.path.isfile(dir_path):
         os.remove(dir_path)
     try:
@@ -89,7 +93,7 @@ def _get_grouping_key():
     except OSError as e:
         if not os.path.isdir(dir_path):
             raise e
-    with open(_META_FILE, 'w+') as f:
+    with open(meta_file, 'w+') as f:
         f.write(str(key))
     return key
 
