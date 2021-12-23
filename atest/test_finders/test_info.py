@@ -67,6 +67,8 @@ class TestInfo:
         self.test_finder = test_finder
         self.compatibility_suites = (compatibility_suites
                                      if compatibility_suites else [])
+        # True if test need to generate aggregate metrics result.
+        self.aggregate_metrics_result = False
         self.mainline_modules = mainline_modules if mainline_modules else ""
 
     def __str__(self):
@@ -75,11 +77,12 @@ class TestInfo:
         return ('test_name: %s - test_runner:%s - build_targets:%s - data:%s - '
                 'suite:%s - module_class: %s - install_locations:%s%s - '
                 'test_finder: %s - compatibility_suites:%s - '
-                'mainline_modules:%s' % (
+                'mainline_modules:%s - aggregate_metrics_result:%s' % (
                     self.test_name, self.test_runner, self.build_targets,
                     self.data, self.suite, self.module_class,
                     self.install_locations, host_info, self.test_finder,
-                    self.compatibility_suites, self.mainline_modules))
+                    self.compatibility_suites, self.mainline_modules,
+                    self.aggregate_metrics_result))
 
     def get_supported_exec_mode(self):
         """Get the supported execution mode of the test.
