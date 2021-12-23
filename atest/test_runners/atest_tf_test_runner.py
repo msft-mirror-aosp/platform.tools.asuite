@@ -685,7 +685,7 @@ class AtestTradefedTestRunner(test_runner_base.TestRunnerBase):
         test_args.extend(atest_utils.get_result_server_args(for_test_mapping))
         self.run_cmd_dict['args'] = ' '.join(test_args)
         self.run_cmd_dict['tf_customize_template'] = (
-            self._extract_customize_tf_templates(extra_args))
+            self._extract_customize_tf_templates(extra_args, test_infos))
 
         # Copy symbols if there are tests belong to native test.
         self._handle_native_tests(test_infos)
@@ -856,16 +856,23 @@ class AtestTradefedTestRunner(test_runner_base.TestRunnerBase):
                              if arg in self._RERUN_OPTION_GROUP]
         return ' '.join(extracted_options)
 
-    def _extract_customize_tf_templates(self, extra_args):
+    def _extract_customize_tf_templates(self, extra_args, test_infos):
         """Extract tradefed template options to a string for output.
 
         Args:
             extra_args: Dict of extra args for test runners to use.
+            test_infos: A set of TestInfo instances.
 
         Returns: A string of tradefed template options.
         """
-        return ' '.join(['--template:map %s'
-                         % x for x in extra_args.get(constants.TF_TEMPLATE, [])])
+        tf_templates = extra_args.get(constants.TF_TEMPLATE, [])
+        for info in test_infos:
+            if info.aggregate_metrics_result:
+                template_key = 'metric_post_processor'
+                template_value = (
+                    'google/template/postprocessors/metric-file-aggregate')
+                tf_templates.append(f'{template_key}={template_value}')
+        return ' '.join(['--template:map %s' % x for x in tf_templates])
 
     def _handle_log_associations(self, event_handlers):
         """Handle TF's log associations information data.
