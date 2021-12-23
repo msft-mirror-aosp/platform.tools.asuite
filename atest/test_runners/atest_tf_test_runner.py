@@ -56,8 +56,6 @@ EVENT_RE = re.compile(r'\n*(?P<event_name>[A-Z_]+) (?P<json_data>{.*})(?=\n|.)*'
 # Remove aapt from build dependency, use prebuilt version instead.
 EXEC_DEPENDENCIES = ('adb', 'fastboot')
 
-TRADEFED_EXIT_MSG = 'TradeFed subprocess exited early with exit code=%s.'
-
 LOG_FOLDER_NAME = 'log'
 
 _INTEGRATION_FINDERS = frozenset(['', 'INTEGRATION', 'INTEGRATION_FILE_PATH'])
@@ -65,9 +63,33 @@ _INTEGRATION_FINDERS = frozenset(['', 'INTEGRATION', 'INTEGRATION_FILE_PATH'])
 # AAPT binary name
 _AAPT = 'aapt'
 
+# The exist code mapping of tradefed.
+_TF_EXIT_CODE = [
+    'NO_ERROR',
+    'CONFIG_EXCEPTION',
+    'NO_BUILD',
+    'DEVICE_UNRESPONSIVE',
+    'DEVICE_UNAVAILABLE',
+    'FATAL_HOST_ERROR',
+    'THROWABLE_EXCEPTION',
+    'NO_DEVICE_ALLOCATED',
+    'WRONG_JAVA_VERSION']
+
 class TradeFedExitError(Exception):
     """Raised when TradeFed exists before test run has finished."""
+    def __init__(self, exit_code):
+        super().__init__()
+        self.exit_code = exit_code
 
+    def __str__(self):
+        tf_error_reason = self._get_exit_reason(self.exit_code)
+        return (f'TradeFed subprocess exited early with exit code='
+                f'{self.exit_code}({tf_error_reason}).')
+
+    def _get_exit_reason(self, exit_code):
+        if 0 < exit_code < len(_TF_EXIT_CODE):
+            return atest_utils.colorize(_TF_EXIT_CODE[exit_code], constants.RED)
+        return 'Unknown exit status'
 
 class AtestTradefedTestRunner(test_runner_base.TestRunnerBase):
     """TradeFed Test Runner class."""
@@ -320,8 +342,7 @@ class AtestTradefedTestRunner(test_runner_base.TestRunnerBase):
                         metrics.LocalDetectEvent(
                             detect_type=constants.DETECT_TYPE_TF_EXIT_CODE,
                             result=tf_subproc.returncode)
-                        raise TradeFedExitError(TRADEFED_EXIT_MSG
-                                                % tf_subproc.returncode)
+                        raise TradeFedExitError(tf_subproc.returncode)
                     self._handle_log_associations(event_handlers)
 
     def _process_connection(self, data_map, conn, event_handler):

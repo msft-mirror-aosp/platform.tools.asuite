@@ -26,6 +26,7 @@ from __future__ import annotations
 
 import contextlib
 import dataclasses
+import functools
 import os
 import shutil
 import subprocess
@@ -111,7 +112,7 @@ class WorkspaceGenerator:
         self.workspace_out_path.mkdir(parents=True)
         self._generate_artifacts()
 
-        atest_utils.save_md5([str(self.mod_info.mod_info_file_path)],
+        atest_utils.save_md5([self.mod_info.mod_info_file_path],
                              self.mod_info_md5_path)
 
     def _add_test_module_targets(self):
@@ -451,25 +452,12 @@ class SoongPrebuiltTarget(Target):
             config_files = {c: [c.out_path.joinpath(f'testcases/{module_name}')]
                             for c in config_files.keys()}
 
-        if not config_files:
-            raise Exception(f'Module `{module_name}` does not have any'
-                            f' installed paths')
-
-        runtime_dep_refs = []
-
-        for lib_name in info.get(constants.MODULE_SHARED_LIBS, []):
-            lib_info = gen.mod_info.get_module_info(lib_name)
-            if not lib_info:
-                continue
-            if not lib_info.get(constants.MODULE_INSTALLED):
-                continue
-            runtime_dep_refs.append(ModuleRef.for_info(lib_info))
-
         return SoongPrebuiltTarget(
             module_name,
             package_name,
             config_files,
-            runtime_dep_refs
+            find_runtime_dep_refs(gen.mod_info, info, configs,
+                                  gen.src_root_path)
         )
 
     def __init__(self, name: str, package_name: str,
@@ -488,11 +476,24 @@ class SoongPrebuiltTarget(Target):
 
     def required_imports(self) -> Set[Import]:
         return {
-            Import('//bazel/rules:soong_prebuilt.bzl', 'soong_prebuilt'),
+            Import('//bazel/rules:soong_prebuilt.bzl', self._rule_name()),
         }
 
+    @functools.lru_cache(maxsize=None)
     def supported_configs(self) -> Set[Config]:
-        return set(self.config_files.keys())
+        supported_configs = set(self.config_files.keys())
+
+        if supported_configs:
+            return supported_configs
+
+        # If a target has no installed files, then it supports the same
+        # configurations as its dependencies. This is required because some
+        # build modules are just intermediate targets that don't produce any
+        # output but that still have transitive dependencies.
+        for ref in self.runtime_dep_refs:
+            supported_configs.update(ref.target().supported_configs())
+
+        return supported_configs
 
     def dependencies(self) -> List[ModuleRef]:
         return self.runtime_dep_refs
@@ -500,7 +501,7 @@ class SoongPrebuiltTarget(Target):
     def write_to_build_file(self, f: IO):
         writer = IndentWriter(f)
 
-        writer.write_line('soong_prebuilt(')
+        writer.write_line(f'{self._rule_name()}(')
 
         with writer.indent():
             writer.write_line(f'name = "{self._name}",')
@@ -524,7 +525,14 @@ class SoongPrebuiltTarget(Target):
                 symlink.parent.mkdir(parents=True, exist_ok=True)
                 symlink.symlink_to(f)
 
+    def _rule_name(self):
+        return ('soong_prebuilt' if self.config_files
+                else 'soong_uninstalled_prebuilt')
+
     def _write_files_attribute(self, writer: IndentWriter):
+        if not self.config_files:
+            return
+
         name = self._name
 
         writer.write('files = ')
@@ -565,9 +573,12 @@ def group_paths_by_config(
         matching_configs = [
             c for c in configs if _is_relative_to(f, c.out_path)]
 
+        if not matching_configs:
+            continue
+
         # The path can only appear in ANDROID_HOST_OUT for host target or
         # ANDROID_PRODUCT_OUT, but cannot appear in both.
-        if len(matching_configs) != 1:
+        if len(matching_configs) > 1:
             raise Exception(f'Installed path `{f}` is not in'
                             f' ANDROID_HOST_OUT or ANDROID_PRODUCT_OUT')
 
@@ -617,6 +628,54 @@ def get_module_installed_paths(
         return install_path
 
     return map(resolve, info.get(constants.MODULE_INSTALLED))
+
+
+def find_runtime_dep_refs(
+    mod_info: module_info.ModuleInfo,
+    info: module_info.Module,
+    configs: List[Config],
+    src_root_path: Path,
+) -> List[ModuleRef]:
+    """Return module dependencies required at runtime."""
+
+    runtime_dep_refs = []
+
+    # We don't use the `dependencies` module-info field for shared libraries
+    # since it's ambiguous and could generate more targets and pull in more
+    # dependencies than necessary. In particular, libraries that support both
+    # static and dynamic linking could end up becoming runtime dependencies
+    # even though the build specifies static linking. For example, if a target
+    # 'T' is statically linked to 'U' which supports both variants, the latter
+    # still appears as a dependency. Since we can't tell, this would result in
+    # the shared library variant of 'U' being added on the library path.
+    for lib_name in info.get(constants.MODULE_SHARED_LIBS, []):
+        lib_info = mod_info.get_module_info(lib_name)
+        if not lib_info:
+            continue
+        installed_paths = get_module_installed_paths(lib_info,
+                                                     src_root_path)
+        config_files = group_paths_by_config(configs, installed_paths)
+        if not config_files:
+            continue
+
+        runtime_dep_refs.append(ModuleRef.for_info(lib_info))
+
+    runtime_library_class = {'RLIB_LIBRARIES', 'DYLIB_LIBRARIES'}
+    # We collect rlibs even though they are technically static libraries since
+    # they could refer to dylibs which are required at runtime. Generating
+    # Bazel targets for these intermediate modules keeps the generator simple
+    # and preserves the shape (isomorphic) of the Soong structure making the
+    # workspace easier to debug.
+    for dep_name in info.get(constants.MODULE_DEPENDENCIES, []):
+        dep_info = mod_info.get_module_info(dep_name)
+        if not dep_info:
+            continue
+        if not runtime_library_class.intersection(
+            dep_info.get(constants.MODULE_CLASS, [])):
+            continue
+        runtime_dep_refs.append(ModuleRef.for_info(dep_info))
+
+    return runtime_dep_refs
 
 
 class IndentWriter:
