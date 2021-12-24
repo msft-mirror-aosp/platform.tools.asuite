@@ -900,6 +900,9 @@ class ModuleFinder(test_finder_base.TestFinderBase):
                               constants.TI_FILTER: frozenset()},
                         compatibility_suites=mod_info.get(
                             constants.MODULE_COMPATIBILITY_SUITES, []))
+                    test_config_path = os.path.join(self.root_dir, test_config)
+                    if test_finder_utils.need_aggregate_metrics_result(test_config_path):
+                        tinfo.aggregate_metrics_result = True
                     if tinfo:
                         # There should have only one test_config with the same
                         # name in source tree.
