@@ -106,8 +106,6 @@ CMD_RESULT_PATH = os.path.join(os.environ.get(constants.ANDROID_BUILD_TOP,
                                'test_commands.json')
 BUILD_TOP_HASH = hashlib.md5(os.environ.get(constants.ANDROID_BUILD_TOP, '').
                              encode()).hexdigest()
-TEST_INFO_CACHE_ROOT = os.path.join(os.path.expanduser('~'), '.atest',
-                                    'info_cache', BUILD_TOP_HASH[:8])
 _DEFAULT_TERMINAL_WIDTH = 80
 _DEFAULT_TERMINAL_HEIGHT = 25
 _BUILD_CMD = 'build/soong/soong_ui.bash'
@@ -781,7 +779,7 @@ def get_cache_root():
                        constants.ANDROID_PRODUCT_OUT))
     branch_target_hash = hashlib.md5(
         (constants.MODE + manifest_branch + build_target).encode()).hexdigest()
-    return os.path.join(os.path.expanduser('~'), '.atest','info_cache',
+    return os.path.join(get_misc_dir(), '.atest', 'info_cache',
                         branch_target_hash[:8])
 
 def get_test_info_cache_path(test_reference, cache_root=None):
@@ -1607,3 +1605,24 @@ def get_prebuilt_sdk_tools_dir():
     build_top = Path(os.environ.get(constants.ANDROID_BUILD_TOP, ''))
     return build_top.joinpath(
         'prebuilts/sdk/tools/', str(platform.system()).lower(), 'bin')
+
+
+def is_writable(path):
+    """Check if the given path is writable.
+
+    Returns: True if input path is writable, False otherwise.
+    """
+    if not os.path.exists(path):
+        return is_writable(os.path.dirname(path))
+    return os.access(path, os.W_OK)
+
+
+def get_misc_dir():
+    """Get the path for the ATest data root dir.
+
+    Returns: The absolute path of the ATest data root dir.
+    """
+    home_dir = os.path.expanduser('~')
+    if is_writable(home_dir):
+        return home_dir
+    return get_build_out_dir()
