@@ -261,22 +261,17 @@ def _get_all_git_path(root_path):
 def _generate_git_ignore(target_folder):
     """Generate .gitignore file.
 
-    In target_folder, if there's no .gitignore file, uses symlink() to generate
-    one to hide project content files from git.
+    In target_folder, if there's no .gitignore file, generate one to hide
+    project content files from git.
 
     Args:
         target_folder: An absolute path string of target folder.
     """
-    # TODO(b/133639849): Provide a common method to create symbolic link.
     # TODO(b/133641803): Move out aidegen artifacts from Android repo.
     try:
         gitignore_abs_path = os.path.join(target_folder, _GITIGNORE_FILE_NAME)
-        rel_target = os.path.relpath(gitignore_abs_path, os.getcwd())
-        rel_source = os.path.relpath(_GITIGNORE_ABS_PATH, target_folder)
-        logging.debug('Relative target symlink path: %s.', rel_target)
-        logging.debug('Relative ignore_template source path: %s.', rel_source)
         if not os.path.exists(gitignore_abs_path):
-            os.symlink(rel_source, rel_target)
+            shutil.copy(_GITIGNORE_ABS_PATH, gitignore_abs_path)
     except OSError as err:
         logging.error('Not support to run aidegen on Windows.\n %s', err)
 
