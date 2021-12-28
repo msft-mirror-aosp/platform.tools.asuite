@@ -223,7 +223,7 @@ FIND_CC_ONE = ROOT + 'foo/bt/hci/test/pf_test.cc\n'
 CC_MODULE_NAME = 'net_test_hci'
 CC_CLASS_NAME = 'PFTest'
 CC_MODULE_DIR = 'system/bt/hci'
-CC_CLASS_FILTER = test_info.TestFilter(CC_CLASS_NAME+".*", frozenset())
+CC_CLASS_FILTER = test_info.TestFilter(CC_CLASS_NAME, frozenset())
 CC_CONFIG_FILE = os.path.join(CC_MODULE_DIR, constants.MODULE_CONFIG)
 CC_MODULE_CLASS_DATA = {constants.TI_REL_CONFIG: CC_CONFIG_FILE,
                         constants.TI_FILTER: frozenset([CC_CLASS_FILTER])}
@@ -251,6 +251,8 @@ CC_METHOD_FILTER = test_info.TestFilter(CC_CLASS_NAME+"."+CC_METHOD_NAME,
 CC_METHOD2_FILTER = test_info.TestFilter(CC_CLASS_NAME+"."+CC_METHOD_NAME+ \
                                          ":"+CC_CLASS_NAME+"."+CC_METHOD2_NAME,
                                          frozenset())
+CC_METHOD3_FILTER = test_info.TestFilter(CC_CLASS_NAME,
+                                         frozenset([CC_METHOD_NAME]))
 CC_METHOD_INFO = test_info.TestInfo(
     CC_MODULE_NAME,
     atf_tr.AtestTradefedTestRunner.NAME,
@@ -263,6 +265,12 @@ CC_METHOD2_INFO = test_info.TestInfo(
     MODULE_BUILD_TARGETS,
     data={constants.TI_REL_CONFIG: CC_CONFIG_FILE,
           constants.TI_FILTER: frozenset([CC_METHOD2_FILTER])})
+CC_METHOD3_INFO = test_info.TestInfo(
+    CC_MODULE_NAME,
+    atf_tr.AtestTradefedTestRunner.NAME,
+    MODULE_BUILD_TARGETS,
+    data={constants.TI_REL_CONFIG: CC_CONFIG_FILE,
+          constants.TI_FILTER: frozenset([CC_METHOD3_FILTER])})
 CC_PATH_DATA = {
     constants.TI_REL_CONFIG: TEST_DATA_CONFIG,
     constants.TI_FILTER: frozenset()}
