@@ -285,6 +285,7 @@ class ResultReporter:
         self.collect_only = collect_only
         self.flakes_info = flakes_info
         self.test_result_link = None
+        self.device_count = 0
 
     def process_test_result(self, test):
         """Given the results of a single test, update stats and print results.
@@ -371,7 +372,11 @@ class ResultReporter:
         tests_ret = constants.EXIT_CODE_SUCCESS
         if not self.runners:
             return tests_ret
-        print('\n{}'.format(au.colorize('Summary', constants.CYAN)))
+        device_detail =  (
+            ' (Test executed with {} devices.)'.format(self.device_count)
+            ) if self.device_count else ''
+        print('\n{}'.format(au.colorize('Summary{}'.format(device_detail),
+        constants.CYAN)))
         print(au.delimiter('-', 7))
         iterations = len(ITER_SUMMARY)
         for iter_num, summary_list in ITER_SUMMARY.items():
