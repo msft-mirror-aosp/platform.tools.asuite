@@ -721,7 +721,9 @@ def get_targets_from_xml_root(xml_root, module_info):
         if fqcn.startswith(_COMPATIBILITY_PACKAGE_PREFIX):
             targets.add(constants.CTS_JAR)
         if fqcn in DALVIK_TESTRUNNER_JAR_CLASSES:
-            targets.update(DALVIK_TEST_DEPS)
+            for dalvik_dep in DALVIK_TEST_DEPS:
+                if module_info.is_module(dalvik_dep):
+                    targets.add(dalvik_dep)
     logging.debug('Targets found in config file: %s', targets)
     return targets
 
