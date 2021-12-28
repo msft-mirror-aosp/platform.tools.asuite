@@ -313,7 +313,7 @@ class ModuleFinder(test_finder_base.TestFinderBase):
         """
         _, file_name = test_finder_utils.get_dir_path_and_filename(path)
         ti_filter = frozenset()
-        if kwargs.get('is_native_test', None):
+        if os.path.isfile(path) and kwargs.get('is_native_test', None):
             class_info = test_finder_utils.get_cc_class_info(path)
             ti_filter = frozenset([test_info.TestFilter(
                 test_finder_utils.get_cc_filter(
