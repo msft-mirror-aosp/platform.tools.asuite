@@ -334,7 +334,7 @@ class ModuleFinderUnittests(unittest.TestCase):
         mock_build.return_value = copy.deepcopy(uc.MODULE_BUILD_TARGETS)
         mock_fcf.side_effect = [None, None, '/']
         t_infos = self.mod_finder.find_test_by_module_and_class(CC_MODULE_CLASS_METHOD)
-        unittest_utils.assert_equal_testinfos(self, t_infos[0], uc.CC_METHOD_INFO)
+        unittest_utils.assert_equal_testinfos(self, t_infos[0], uc.CC_METHOD3_INFO)
         # bad module, good class, returns None
         bad_module = '%s:%s' % ('BadMod', uc.CC_CLASS_NAME)
         self.mod_finder.module_info.get_module_info.return_value = None
