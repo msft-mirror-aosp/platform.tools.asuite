@@ -201,7 +201,9 @@ class ModuleFinder(test_finder_base.TestFinderBase):
         # cts-dalvik-device-test-runner.jar
         if self.module_info.is_auto_gen_test_config(module_name):
             if constants.MODULE_CLASS_JAVA_LIBRARIES in test.module_class:
-                test.build_targets.update(test_finder_utils.DALVIK_TEST_DEPS)
+                for dalvik_dep in test_finder_utils.DALVIK_TEST_DEPS:
+                    if self.module_info.is_module(dalvik_dep):
+                        test.build_targets.add(dalvik_dep)
         # Update test name if the test belong to extra config which means it's
         # test config name is not the same as module name. For extra config, it
         # index will be greater or equal to 1.
@@ -311,7 +313,7 @@ class ModuleFinder(test_finder_base.TestFinderBase):
         """
         _, file_name = test_finder_utils.get_dir_path_and_filename(path)
         ti_filter = frozenset()
-        if kwargs.get('is_native_test', None):
+        if os.path.isfile(path) and kwargs.get('is_native_test', None):
             class_info = test_finder_utils.get_cc_class_info(path)
             ti_filter = frozenset([test_info.TestFilter(
                 test_finder_utils.get_cc_filter(
@@ -900,6 +902,9 @@ class ModuleFinder(test_finder_base.TestFinderBase):
                               constants.TI_FILTER: frozenset()},
                         compatibility_suites=mod_info.get(
                             constants.MODULE_COMPATIBILITY_SUITES, []))
+                    test_config_path = os.path.join(self.root_dir, test_config)
+                    if test_finder_utils.need_aggregate_metrics_result(test_config_path):
+                        tinfo.aggregate_metrics_result = True
                     if tinfo:
                         # There should have only one test_config with the same
                         # name in source tree.

@@ -584,17 +584,14 @@ class AtestTradefedTestRunner(test_runner_base.TestRunnerBase):
         if constants.TF_MODULE_PARAMETER in args_to_append:
             if constants.TF_ENABLE_PARAMETERIZED_MODULES not in args_to_append:
                 args_to_append.append(constants.TF_ENABLE_PARAMETERIZED_MODULES)
-        # If test config has config with auto enable parameter, force exclude
-        # those default parameters(ex: instant_app, secondary_user)
-        if constants.TF_ENABLE_PARAMETERIZED_MODULES not in args_to_append:
-            for tinfo in test_infos:
-                if self._is_parameter_auto_enabled_cfg(tinfo, self.module_info):
-                    args_to_append.append(
-                        constants.TF_ENABLE_PARAMETERIZED_MODULES)
-                    for exclude_parameter in constants.DEFAULT_EXCLUDE_PARAS:
-                        args_to_append.append('--exclude-module-parameters')
-                        args_to_append.append(exclude_parameter)
-                    break
+        # If all the test config has config with auto enable parameter, force
+        # exclude those default parameters(ex: instant_app, secondary_user)
+        if self._is_all_tests_parameter_auto_enabled(test_infos):
+            if constants.TF_ENABLE_PARAMETERIZED_MODULES not in args_to_append:
+                args_to_append.append(constants.TF_ENABLE_PARAMETERIZED_MODULES)
+                for exclude_parameter in constants.DEFAULT_EXCLUDE_PARAS:
+                    args_to_append.append('--exclude-module-parameters')
+                    args_to_append.append(exclude_parameter)
         return args_to_append, args_not_supported
 
     def _generate_metrics_folder(self, extra_args):
@@ -685,7 +682,7 @@ class AtestTradefedTestRunner(test_runner_base.TestRunnerBase):
         test_args.extend(atest_utils.get_result_server_args(for_test_mapping))
         self.run_cmd_dict['args'] = ' '.join(test_args)
         self.run_cmd_dict['tf_customize_template'] = (
-            self._extract_customize_tf_templates(extra_args))
+            self._extract_customize_tf_templates(extra_args, test_infos))
 
         # Copy symbols if there are tests belong to native test.
         self._handle_native_tests(test_infos)
@@ -787,6 +784,19 @@ class AtestTradefedTestRunner(test_runner_base.TestRunnerBase):
             results.add(test_info.TestFilter(class_name, frozenset(methods)))
         return frozenset(results)
 
+    def _is_all_tests_parameter_auto_enabled(self, test_infos):
+        """Check if all the test infos are parameter auto enabled.
+
+        Args:
+            test_infos: A set of TestInfo instances.
+
+        Returns: True if all tests are parameter auto enabled, False otherwise.
+        """
+        for info in test_infos:
+            if not self._is_parameter_auto_enabled_cfg(info, self.module_info):
+                return False
+        return True
+
     def _create_test_args(self, test_infos):
         """Compile TF command line args based on the given test infos.
 
@@ -801,6 +811,13 @@ class AtestTradefedTestRunner(test_runner_base.TestRunnerBase):
 
         test_infos = self._flatten_test_infos(test_infos)
         has_integration_test = False
+
+        # Because current --include-filter arg will not working if ATest pass
+        # both --module and --include-filter to TF, only test by --module will
+        # be run. Make a check first, only use --module if all tests are all
+        # parameter auto enabled.
+        use_module_arg = self._is_all_tests_parameter_auto_enabled(test_infos)
+
         for info in test_infos:
             # Integration test exists in TF's jar, so it must have the option
             # if it's integration finder.
@@ -809,7 +826,9 @@ class AtestTradefedTestRunner(test_runner_base.TestRunnerBase):
             # For non-paramertize test module, use --include-filter, but for
             # tests which have auto enable paramertize config use --module
             # instead.
-            if self._is_parameter_auto_enabled_cfg(info, self.module_info):
+            if (use_module_arg
+                and self._is_parameter_auto_enabled_cfg(
+                    info, self.module_info)):
                 args.extend([constants.TF_MODULE_FILTER, info.test_name])
             else:
                 args.extend([constants.TF_INCLUDE_FILTER, info.test_name])
@@ -856,16 +875,23 @@ class AtestTradefedTestRunner(test_runner_base.TestRunnerBase):
                              if arg in self._RERUN_OPTION_GROUP]
         return ' '.join(extracted_options)
 
-    def _extract_customize_tf_templates(self, extra_args):
+    def _extract_customize_tf_templates(self, extra_args, test_infos):
         """Extract tradefed template options to a string for output.
 
         Args:
             extra_args: Dict of extra args for test runners to use.
+            test_infos: A set of TestInfo instances.
 
         Returns: A string of tradefed template options.
         """
-        return ' '.join(['--template:map %s'
-                         % x for x in extra_args.get(constants.TF_TEMPLATE, [])])
+        tf_templates = extra_args.get(constants.TF_TEMPLATE, [])
+        for info in test_infos:
+            if info.aggregate_metrics_result:
+                template_key = 'metric_post_processor'
+                template_value = (
+                    'google/template/postprocessors/metric-file-aggregate')
+                tf_templates.append(f'{template_key}={template_value}')
+        return ' '.join(['--template:map %s' % x for x in tf_templates])
 
     def _handle_log_associations(self, event_handlers):
         """Handle TF's log associations information data.

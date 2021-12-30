@@ -721,7 +721,9 @@ def get_targets_from_xml_root(xml_root, module_info):
         if fqcn.startswith(_COMPATIBILITY_PACKAGE_PREFIX):
             targets.add(constants.CTS_JAR)
         if fqcn in DALVIK_TESTRUNNER_JAR_CLASSES:
-            targets.update(DALVIK_TEST_DEPS)
+            for dalvik_dep in DALVIK_TEST_DEPS:
+                if module_info.is_module(dalvik_dep):
+                    targets.add(dalvik_dep)
     logging.debug('Targets found in config file: %s', targets)
     return targets
 
@@ -1327,3 +1329,31 @@ def get_test_config_and_srcs(test_info, module_info):
                 if config_name == test_name and os.path.isfile(config_path):
                     return config_path, info.get(constants.MODULE_SRCS, [])
     return None, None
+
+
+def need_aggregate_metrics_result(test_xml):
+    """Check if input test config need aggregate metrics.
+
+    If the input test define metrics_collector, which means there's a need for
+    atest to have the aggregate metrcis result.
+
+    Args:
+        test_xml: A string of the path for the test xml.
+
+    Returns:
+        True if input test need to enable aggregate metrics result.
+    """
+    if os.path.isfile(test_xml):
+        xml_root = ET.parse(test_xml).getroot()
+        if xml_root.findall('.//metrics_collector'):
+            return True
+        # Check if include other config
+        include_configs = xml_root.findall('.//include')
+        for include_config in include_configs:
+            name = include_config.attrib[_XML_NAME].strip()
+            # Get the absolute path for the include config.
+            include_path = os.path.join(
+                str(test_xml).split(str(name).split('/')[0])[0], name)
+            if need_aggregate_metrics_result(include_path):
+                return True
+    return False

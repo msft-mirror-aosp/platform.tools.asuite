@@ -156,7 +156,7 @@ def do_upload_flow(extra_args):
     Return:
         tuple(invocation, workunit)
     """
-    config_folder = os.path.join(os.path.expanduser('~'), '.atest')
+    config_folder = os.path.join(atest_utils.get_misc_dir(), '.atest')
     creds = request_consent_of_upload_test_result(
         config_folder,
         extra_args.get(constants.REQUEST_UPLOAD_RESULT, None))
