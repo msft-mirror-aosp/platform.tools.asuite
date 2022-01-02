@@ -723,6 +723,41 @@ class SharedLibPrebuiltTargetGenerationTest(GenerationTestFixture):
         self.assertSymlinkTo(
             package_path.joinpath('libhello/device/a/b/f1'), device_file1)
 
+    def test_create_symlinks_to_installed_path_for_non_tf_testable_deps(self):
+        host_file = self.host_out_path.joinpath('a/b/f1')
+        mod_info = self.create_module_info(modules=[
+            supported_test_module(shared_libs=['libhello']),
+            host_module(
+                name='libhello',
+                installed=[str(host_file)],
+                auto_test_config=['true']
+            )
+        ])
+        package_path = self.workspace_out_path
+
+        self.run_generator(mod_info)
+
+        self.assertSymlinkTo(
+            package_path.joinpath('libhello/host/a/b/f1'), host_file)
+
+    def test_create_symlinks_to_installed_path_for_lib_with_test_config(self):
+        host_file = self.host_out_path.joinpath('a/b/f1')
+        mod_info = self.create_module_info(modules=[
+            supported_test_module(shared_libs=['libhello']),
+            host_module(
+                name='libhello',
+                installed=[str(host_file)],
+                path='src/lib'
+            )
+        ])
+        self.fs.create_file(Path('src/lib/AndroidTest.xml'), contents='')
+        package_path = self.workspace_out_path
+
+        self.run_generator(mod_info)
+
+        self.assertSymlinkTo(
+            package_path.joinpath('src/lib/libhello/host/a/b/f1'), host_file)
+
     def test_generate_for_host_only_shared_lib_dependency(self):
         mod_info = self.create_module_info(modules=[
             supported_test_module(shared_libs=['libhello']),
