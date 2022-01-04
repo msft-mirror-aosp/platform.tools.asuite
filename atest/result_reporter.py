@@ -452,15 +452,33 @@ class ResultReporter:
                 matched = False
                 filter_re = atest_configs.GLOBAL_ARGS.aggregate_metric_filter
                 logging.debug('Aggregate metric filter: %s', filter_re)
+                test_methods = []
+                # Collect all test methods
+                if filter_re:
+                    test_re = re.compile(r'\n\n(.*)\n\n', re.MULTILINE)
+                    test_methods = re.findall(test_re, f.read())
+                    f.seek(0)
+                    # The first line of the file is also a test method but could
+                    # not parsed by test_re; add the first line manually.
+                    first_line = f.readline()
+                    test_methods.insert(0, str(first_line).strip())
+                    f.seek(0)
                 for line in f.readlines():
-                    if (filter_re and
-                        not re.match(re.compile(filter_re), line)):
-                        continue
-                    matched = True
-                    print(' ' * 4 + str(line).strip())
+                    stripped_line = str(line).strip()
+                    if filter_re:
+                        if stripped_line in test_methods:
+                            print()
+                            au.colorful_print(
+                                ' ' * 4 + stripped_line, constants.MAGENTA)
+                        if re.match(re.compile(filter_re), line):
+                            matched = True
+                            print(' ' * 4 + stripped_line)
+                    else:
+                        matched = True
+                        print(' ' * 4 + stripped_line)
                 if not matched:
                     au.colorful_print(
-                        '  Nothing returned by the pattern: {}'.format(
+                        '  Warning: Nothing returned by the pattern: {}'.format(
                             filter_re), constants.RED)
                 print()
 
