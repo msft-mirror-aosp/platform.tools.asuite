@@ -494,8 +494,9 @@ class AtestTradefedTestRunner(test_runner_base.TestRunnerBase):
                 args_to_append.append('--disable-target-preparers')
                 continue
             if constants.SERIAL == arg:
-                args_to_append.append('--serial')
-                args_to_append.append(extra_args[arg])
+                for device in extra_args[arg]:
+                    args_to_append.append('--serial')
+                    args_to_append.append(device)
                 continue
             if constants.SHARDING == arg:
                 args_to_append.append('--shard-count')
