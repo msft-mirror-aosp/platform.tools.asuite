@@ -252,24 +252,31 @@ def _run_limited_output(cmd, env_vars=None):
 def get_build_out_dir():
     """Get android build out directory.
 
+    The order of the rules are:
+    1. OUT_DIR
+    2. OUT_DIR_COMMON_BASE
+    3. ANDROID_BUILD_TOP/out
+
     Returns:
         String of the out directory.
     """
-    build_top = os.environ.get(constants.ANDROID_BUILD_TOP)
+    build_top = os.environ.get(constants.ANDROID_BUILD_TOP, '/')
     # Get the out folder if user specified $OUT_DIR
     custom_out_dir = os.environ.get(constants.ANDROID_OUT_DIR)
     custom_out_dir_common_base = os.environ.get(
         constants.ANDROID_OUT_DIR_COMMON_BASE)
     user_out_dir = None
+    # If OUT_DIR == /output, the output dir will always be /outdir
+    # regardless of branch names. (Not recommended.)
     if custom_out_dir:
         if os.path.isabs(custom_out_dir):
             user_out_dir = custom_out_dir
         else:
             user_out_dir = os.path.join(build_top, custom_out_dir)
+    # https://source.android.com/setup/build/initializing#using-a-separate-output-directory
+    # If OUT_DIR_COMMON_BASE is /output and the source tree is /src/master1,
+    # the output dir will be /output/master1.
     elif custom_out_dir_common_base:
-        # When OUT_DIR_COMMON_BASE is set, the output directory for each
-        # separate source tree is named after the directory holding the
-        # source tree.
         build_top_basename = os.path.basename(build_top)
         if os.path.isabs(custom_out_dir_common_base):
             user_out_dir = os.path.join(custom_out_dir_common_base,
