@@ -87,15 +87,13 @@ class CLITranslator:
     # pylint: disable=too-many-locals
     # pylint: disable=too-many-branches
     # pylint: disable=too-many-statements
-    def _find_test_infos(self, test, tm_test_detail,
-                         is_rebuild_module_info=False):
+    def _find_test_infos(self, test, tm_test_detail):
         """Return set of TestInfos based on a given test.
 
         Args:
             test: A string representing test references.
             tm_test_detail: The TestDetail of test configured in TEST_MAPPING
                 files.
-            is_rebuild_module_info: Boolean of args.is_rebuild_module_info
 
         Returns:
             Set of TestInfos based on the given test.
@@ -163,8 +161,7 @@ class CLITranslator:
                 test_info_str = ','.join([str(x) for x in found_test_infos])
                 break
         if not test_found:
-            f_results = self._fuzzy_search_and_msg(test, find_test_err_msg,
-                                                   is_rebuild_module_info)
+            f_results = self._fuzzy_search_and_msg(test, find_test_err_msg)
             if f_results:
                 test_infos.update(f_results)
                 test_found = True
@@ -215,14 +212,12 @@ class CLITranslator:
             return False
         return True
 
-    def _fuzzy_search_and_msg(self, test, find_test_err_msg,
-                              is_rebuild_module_info=False):
+    def _fuzzy_search_and_msg(self, test, find_test_err_msg):
         """ Fuzzy search and print message.
 
         Args:
             test: A string representing test references
             find_test_err_msg: A string of find test error message.
-            is_rebuild_module_info: Boolean of args.is_rebuild_module_info
 
         Returns:
             A list of TestInfos if found, otherwise None.
@@ -248,22 +243,21 @@ class CLITranslator:
             print('%s\n' % (atest_utils.colorize(
                 find_test_err_msg, constants.MAGENTA)))
         else:
-            if not is_rebuild_module_info:
+            # TODO: remove "self.mod_info is None" after refactoring module_info
+            if self.mod_info is None or not self.mod_info.force_build:
                 print(constants.REBUILD_MODULE_INFO_MSG.format(
                     atest_utils.colorize(constants.REBUILD_MODULE_INFO_FLAG,
                                          constants.RED)))
             print('')
         return None
 
-    def _get_test_infos(self, tests, test_mapping_test_details=None,
-                        is_rebuild_module_info=False):
+    def _get_test_infos(self, tests, test_mapping_test_details=None):
         """Return set of TestInfos based on passed in tests.
 
         Args:
             tests: List of strings representing test references.
             test_mapping_test_details: List of TestDetail for tests configured
                 in TEST_MAPPING files.
-            is_rebuild_module_info: Boolean of args.is_rebuild_module_info
 
         Returns:
             Set of TestInfos based on the passed in tests.
@@ -272,8 +266,7 @@ class CLITranslator:
         if not test_mapping_test_details:
             test_mapping_test_details = [None] * len(tests)
         for test, tm_test_detail in zip(tests, test_mapping_test_details):
-            found_test_infos = self._find_test_infos(test, tm_test_detail,
-                                                     is_rebuild_module_info)
+            found_test_infos = self._find_test_infos(test, tm_test_detail)
             test_infos.update(found_test_infos)
         return test_infos
 
@@ -623,8 +616,7 @@ class CLITranslator:
         # Process tests which might contain wildcard symbols in advance.
         if atest_utils.has_wildcard(tests):
             tests = self._extract_testable_modules_by_wildcard(tests)
-        test_infos = self._get_test_infos(tests, test_details_list,
-                                          args.rebuild_module_info)
+        test_infos = self._get_test_infos(tests, test_details_list)
         if host_unit_tests:
             host_unit_test_details = [test_mapping.TestDetail(
                 {'name':test, 'host':True}) for test in host_unit_tests]
