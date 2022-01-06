@@ -255,7 +255,8 @@ class ModuleFinder(test_finder_base.TestFinderBase):
         # If it's a MTS test, add cts-tradefed as test dependency.
         if constants.MTS_SUITE in self.module_info.get_module_info(
             module_name).get(constants.MODULE_COMPATIBILITY_SUITES, []):
-            targets.add(constants.CTS_JAR)
+            if self.module_info.is_module(constants.CTS_JAR):
+                targets.add(constants.CTS_JAR)
         return targets
 
     def _get_module_test_config(self, module_name, rel_config=None):
