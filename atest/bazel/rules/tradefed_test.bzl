@@ -27,19 +27,19 @@ def _tradefed_deviceless_test_impl(ctx):
             tradefed_classpath.append(_BAZEL_WORK_DIR + f.short_path)
     tradefed_classpath = ":".join(tradefed_classpath)
 
-    dep_runfiles = _collect_runfiles(
-        ctx,
-        _flatten([
-            ctx.attr.test,
-            ctx.attr._tradefed_classpath_jars,
-            ctx.attr._atest_tradefed_launcher,
-            ctx.attr._atest_helper,
-            ctx.attr._adb,
-        ]),
-    )
+    all_deps = []
+    all_deps.extend(ctx.attr.test)
+    all_deps.extend(ctx.attr._tradefed_classpath_jars)
+    all_deps.extend(ctx.attr._atest_tradefed_launcher)
+    all_deps.extend(ctx.attr._atest_helper)
+    all_deps.extend(ctx.attr._adb)
+
+    runfiles = ctx.runfiles().merge_all([
+        dep[DefaultInfo].default_runfiles for dep in all_deps
+    ])
 
     shared_lib_dirs = []
-    for f in dep_runfiles.files.to_list():
+    for f in runfiles.files.to_list():
         if f.extension == "so":
             shared_lib_dirs.append(_BAZEL_WORK_DIR + f.dirname)
     shared_lib_dirs = ":".join(shared_lib_dirs)
@@ -60,18 +60,6 @@ def _tradefed_deviceless_test_impl(ctx):
         },
     )
 
-    runfiles = ctx.runfiles(
-        transitive_files = depset(transitive = [
-            depset(ctx.files._atest_tradefed_launcher),
-            depset(ctx.files._atest_helper),
-            depset(ctx.files._tradefed_classpath_jars),
-            depset(ctx.attr.test[0][TradefedTestInfo].test_binaries),
-            depset(ctx.attr.test[0][TradefedTestInfo].test_configs),
-            depset(ctx.files._adb),
-        ]),
-    )
-    runfiles = runfiles.merge(dep_runfiles)
-
     return [DefaultInfo(executable = script, runfiles = runfiles)]
 
 tradefed_deviceless_test = rule(
@@ -86,6 +74,7 @@ tradefed_deviceless_test = rule(
                 "//tools/tradefederation/core/test_framework:tradefed-test-framework",
                 "//tools/tradefederation/core:tradefed",
                 "//tools/asuite/atest:atest-tradefed",
+                "//tools/asuite/atest/bazel/reporter:bazel-result-reporter",
             ],
             cfg = host_transition,
         ),
@@ -120,10 +109,3 @@ tradefed_deviceless_test = rule(
     implementation = _tradefed_deviceless_test_impl,
     doc = "A rule used to run host-side deviceless tests using Tradefed",
 )
-
-def _collect_runfiles(ctx, targets):
-    all_runfiles = [t[DefaultInfo].default_runfiles for t in targets if t[DefaultInfo]]
-    return ctx.runfiles().merge_all(all_runfiles)
-
-def _flatten(deps):
-    return [t for d in deps for t in d]

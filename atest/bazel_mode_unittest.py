@@ -17,12 +17,16 @@
 """Unit tests for bazel_mode."""
 # pylint: disable=invalid-name
 # pylint: disable=missing-function-docstring
+# pylint: disable=too-many-lines
 
+import re
+import shlex
 import shutil
 import tempfile
 import unittest
 
 from pathlib import Path
+from typing import List
 from unittest import mock
 
 # pylint: disable=import-error
@@ -105,13 +109,33 @@ class GenerationTestFixture(fake_filesystem_unittest.TestCase):
         self.assertEqual(symlink_path.resolve(strict=False), target_path)
 
     def assertTargetInWorkspace(self, name, package=''):
-        self.assertInBuildFile(f'name = "{name}"', package=package)
+        build_file = self.workspace_out_path.joinpath(package, 'BUILD.bazel')
+        contents = build_file.read_text()
+        occurrences = len(self.find_target_by_name(name, contents))
+
+        if occurrences == 1:
+            return
+
+        cardinality = 'Multiple' if occurrences else 'Zero'
+        self.fail(
+            f'{cardinality} targets named \'{name}\' found in \'{contents}\''
+        )
 
     def assertTargetNotInWorkspace(self, name, package=''):
         build_file = self.workspace_out_path.joinpath(package, 'BUILD.bazel')
+
         if not build_file.exists():
             return
-        self.assertNotIn(f'name = "{name}"', build_file.read_text())
+
+        contents = build_file.read_text()
+        matches = self.find_target_by_name(name, contents)
+
+        if not matches:
+            return
+
+        self.fail(
+            f'Unexpectedly found target(s) named \'{name}\' in \'{contents}\''
+        )
 
     def assertInBuildFile(self, substring, package=''):
         build_file = self.workspace_out_path.joinpath(package, 'BUILD.bazel')
@@ -128,6 +152,9 @@ class GenerationTestFixture(fake_filesystem_unittest.TestCase):
     def assertFileNotInWorkspace(self, relative_path, package=''):
         path = self.workspace_out_path.joinpath(package, relative_path)
         self.assertFalse(path.exists())
+
+    def find_target_by_name(self, name: str, contents: str) -> List[str]:
+        return re.findall(rf'\bname\s*=\s*"{name}"', contents)
 
 
 class BasicWorkspaceGenerationTest(GenerationTestFixture):
@@ -352,11 +379,11 @@ class ModulePrebuiltTargetGenerationTest(GenerationTestFixture):
         self.assertInBuildFile(
             'soong_prebuilt(\n'
             '    name = "libhello",\n'
+            '    module_name = "libhello",\n'
             '    files = select({\n'
             '        "//bazel/rules:device": glob(["libhello/device/**/*"]),\n'
             '        "//bazel/rules:host": glob(["libhello/host/**/*"]),\n'
             '    }),\n'
-            '    module_name = "libhello",\n'
             ')\n'
         )
 
@@ -424,13 +451,62 @@ class ModulePrebuiltTargetGenerationTest(GenerationTestFixture):
 class ModuleSharedLibGenerationTest(GenerationTestFixture):
     """Tests for module shared libs target generation."""
 
-    def test_generate_runtime_deps_per_shared_lib_config(self):
+    def test_not_generate_runtime_deps_when_all_configs_incompatible(self):
         mod_info = self.create_module_info(modules=[
-            supported_test_module(shared_libs=[
+            host_only_config(supported_test_module(shared_libs=['libdevice'])),
+            device_only_config(module(name='libdevice')),
+        ])
+
+        self.run_generator(mod_info)
+
+        self.assertNotInBuildFile('runtime_deps')
+
+    def test_generate_runtime_deps_when_configs_compatible(self):
+        mod_info = self.create_module_info(modules=[
+            multi_config(supported_test_module(shared_libs=['libmulti'])),
+            multi_config_module(name='libmulti'),
+        ])
+
+        self.run_generator(mod_info)
+
+        self.assertInBuildFile(
+            '    runtime_deps = select({\n'
+            '        "//bazel/rules:device": [\n'
+            '            "//:libmulti",\n'
+            '        ],\n'
+            '        "//bazel/rules:host": [\n'
+            '            "//:libmulti",\n'
+            '        ],\n'
+            '    }),\n'
+        )
+
+    def test_generate_runtime_deps_when_configs_partially_compatible(self):
+        mod_info = self.create_module_info(modules=[
+            multi_config(supported_test_module(shared_libs=[
+                'libhost',
+            ])),
+            host_module(name='libhost'),
+        ])
+
+        self.run_generator(mod_info)
+
+        self.assertInBuildFile(
+            '    runtime_deps = select({\n'
+            '        "//bazel/rules:device": [\n'
+            '        ],\n'
+            '        "//bazel/rules:host": [\n'
+            '            "//:libhost",\n'
+            '        ],\n'
+            '    }),\n'
+        )
+
+    def test_generate_runtime_deps_with_mixed_compatibility(self):
+        mod_info = self.create_module_info(modules=[
+            multi_config(supported_test_module(shared_libs=[
                 'libhost',
                 'libdevice',
                 'libmulti'
-            ]),
+            ])),
             host_module(name='libhost'),
             device_module(name='libdevice'),
             multi_config_module(name='libmulti'),
@@ -450,6 +526,40 @@ class ModuleSharedLibGenerationTest(GenerationTestFixture):
             '        ],\n'
             '    }),\n'
         )
+
+    def test_generate_runtime_deps_recursively(self):
+        mod_info = self.create_module_info(modules=[
+            multi_config(supported_test_module(shared_libs=[
+                'libdirect',
+            ])),
+            multi_config_module(name='libdirect', shared_libs=[
+                'libtransitive',
+            ]),
+            multi_config_module(name='libtransitive'),
+        ])
+
+        self.run_generator(mod_info)
+
+        self.assertTargetInWorkspace('libtransitive')
+
+    def test_generate_shared_runtime_deps_once(self):
+        mod_info = self.create_module_info(modules=[
+            multi_config(supported_test_module(shared_libs=[
+                'libleft',
+                'libright',
+            ])),
+            multi_config_module(name='libleft', shared_libs=[
+                'libshared',
+            ]),
+            multi_config_module(name='libright', shared_libs=[
+                'libshared',
+            ]),
+            multi_config_module(name='libshared'),
+        ])
+
+        self.run_generator(mod_info)
+
+        self.assertTargetInWorkspace('libshared')
 
     def test_generate_runtime_deps_in_order(self):
         mod_info = self.create_module_info(modules=[
@@ -485,7 +595,7 @@ class ModuleSharedLibGenerationTest(GenerationTestFixture):
         self.assertNotInBuildFile('            "//:libhello",\n')
         self.assertTargetNotInWorkspace('libhello')
 
-    def test_not_generate_for_uninstalled_shared_lib(self):
+    def test_not_generate_when_shared_lib_uninstalled(self):
         mod_info = self.create_module_info(modules=[
             supported_test_module(shared_libs=['libhello']),
             host_module(name='libhello', installed=[]),
@@ -496,27 +606,96 @@ class ModuleSharedLibGenerationTest(GenerationTestFixture):
         self.assertNotInBuildFile('            "//:libhello",\n')
         self.assertTargetNotInWorkspace('libhello')
 
-    def test_raise_when_shared_lib_install_path_for_unsupported_config(self):
+    def test_not_generate_when_shared_lib_installed_path_unsupported(self):
         unsupported_install_path = 'out/other'
         mod_info = self.create_module_info(modules=[
             supported_test_module(shared_libs=['libhello']),
-            module('libhello', installed=[unsupported_install_path]),
+            shared_lib(module('libhello',
+                              installed=[unsupported_install_path])),
         ])
 
-        with self.assertRaises(Exception) as context:
-            self.run_generator(mod_info)
+        self.run_generator(mod_info)
 
-        self.assertIn(unsupported_install_path, str(context.exception))
+        self.assertNotInBuildFile('"//:libhello",\n')
+        self.assertTargetNotInWorkspace('libhello')
 
-    def test_raise_when_shared_lib_module_install_path_ambiguous(self):
+    def test_not_generate_when_shared_lib_install_path_ambiguous(self):
         ambiguous_install_path = 'out/f1'
         mod_info = self.create_module_info(modules=[
             supported_test_module(shared_libs=['libhello']),
             module(name='libhello', installed=[ambiguous_install_path]),
         ])
 
-        with self.assertRaises(Exception):
-            self.run_generator(mod_info)
+        self.run_generator(mod_info)
+
+        self.assertNotInBuildFile('"//:libhello",\n')
+        self.assertTargetNotInWorkspace('libhello')
+
+    def test_generate_target_for_rlib_dependency(self):
+        mod_info = self.create_module_info(modules=[
+            supported_test_module(dependencies=['libhello']),
+            rlib(module(name='libhello'))
+        ])
+
+        self.run_generator(mod_info)
+
+        self.assertInBuildFile(
+            'soong_uninstalled_prebuilt(\n'
+            '    name = "libhello",\n'
+            '    module_name = "libhello",\n'
+            ')\n'
+        )
+
+    def test_generate_target_for_rlib_dylib_dependency(self):
+        mod_info = self.create_module_info(modules=[
+            supported_test_module(dependencies=['libhello']),
+            rlib(module(name='libhello', dependencies=['libworld'])),
+            host_only_config(dylib(module(name='libworld')))
+        ])
+
+        self.run_generator(mod_info)
+
+        self.assertTargetInWorkspace('libworld')
+
+    def test_generate_target_for_dylib_dependency(self):
+        mod_info = self.create_module_info(modules=[
+            supported_test_module(dependencies=['libhello']),
+            host_only_config(dylib(module(name='libhello')))
+        ])
+
+        self.run_generator(mod_info)
+
+        self.assertInBuildFile(
+            'soong_prebuilt(\n'
+            '    name = "libhello",\n'
+            '    module_name = "libhello",\n'
+        )
+
+    def test_generate_target_for_uninstalled_dylib_dependency(self):
+        mod_info = self.create_module_info(modules=[
+            supported_test_module(dependencies=['libhello']),
+            dylib(module(name='libhello', installed=[]))
+        ])
+
+        self.run_generator(mod_info)
+
+        self.assertInBuildFile(
+            'soong_uninstalled_prebuilt(\n'
+            '    name = "libhello",\n'
+            '    module_name = "libhello",\n'
+            ')\n'
+        )
+
+    def test_not_generate_target_for_non_runtime_dependency(self):
+        mod_info = self.create_module_info(modules=[
+            supported_test_module(dependencies=['libhello']),
+            host_module(name='libhello', classes=['NOT_SUPPORTED'])
+        ])
+
+        self.run_generator(mod_info)
+
+        self.assertNotInBuildFile('"//:libhello",\n')
+        self.assertTargetNotInWorkspace('libhello')
 
 
 class SharedLibPrebuiltTargetGenerationTest(GenerationTestFixture):
@@ -543,6 +722,41 @@ class SharedLibPrebuiltTargetGenerationTest(GenerationTestFixture):
             package_path.joinpath('libhello/host/a/c/f2'), host_file2)
         self.assertSymlinkTo(
             package_path.joinpath('libhello/device/a/b/f1'), device_file1)
+
+    def test_create_symlinks_to_installed_path_for_non_tf_testable_deps(self):
+        host_file = self.host_out_path.joinpath('a/b/f1')
+        mod_info = self.create_module_info(modules=[
+            supported_test_module(shared_libs=['libhello']),
+            host_module(
+                name='libhello',
+                installed=[str(host_file)],
+                auto_test_config=['true']
+            )
+        ])
+        package_path = self.workspace_out_path
+
+        self.run_generator(mod_info)
+
+        self.assertSymlinkTo(
+            package_path.joinpath('libhello/host/a/b/f1'), host_file)
+
+    def test_create_symlinks_to_installed_path_for_lib_with_test_config(self):
+        host_file = self.host_out_path.joinpath('a/b/f1')
+        mod_info = self.create_module_info(modules=[
+            supported_test_module(shared_libs=['libhello']),
+            host_module(
+                name='libhello',
+                installed=[str(host_file)],
+                path='src/lib'
+            )
+        ])
+        self.fs.create_file(Path('src/lib/AndroidTest.xml'), contents='')
+        package_path = self.workspace_out_path
+
+        self.run_generator(mod_info)
+
+        self.assertSymlinkTo(
+            package_path.joinpath('src/lib/libhello/host/a/b/f1'), host_file)
 
     def test_generate_for_host_only_shared_lib_dependency(self):
         mod_info = self.create_module_info(modules=[
@@ -640,24 +854,49 @@ def test_module(**kwargs):
     return test(module(**kwargs))
 
 
-def module(name=None, path=None, shared_libs=None, installed=None):
+# pylint: disable=too-many-arguments
+def module(
+    name=None,
+    path=None,
+    installed=None,
+    classes=None,
+    auto_test_config=None,
+    shared_libs=None,
+    dependencies=None,
+):
     name = name or 'libhello'
 
     m = {}
 
     m['module_name'] = name
+    m['class'] = classes
     m['path'] = [path or '']
     m['installed'] = installed or []
-    m['test_class'] = []
-    m['dependencies'] = []
     m['is_unit_test'] = 'false'
+    m['auto_test_config'] = auto_test_config or []
     m['shared_libs'] = shared_libs or []
-
+    m['dependencies'] = dependencies or []
     return m
 
 
 def test(info):
     info['auto_test_config'] = ['true']
+    return info
+
+
+def shared_lib(info):
+    info['class'] = ['SHARED_LIBRARIES']
+    return info
+
+
+def rlib(info):
+    info['class'] = ['RLIB_LIBRARIES']
+    info['installed'] = []
+    return info
+
+
+def dylib(info):
+    info['class'] = ['DYLIB_LIBRARIES']
     return info
 
 
@@ -911,18 +1150,46 @@ class BazelTestRunnerTest(unittest.TestCase):
 
         self.assertSetEqual({'test1', 'test2'}, reqs)
 
-    def create_bazel_test_runner(self, modules, test_infos, run_command):
+    def test_generate_single_run_command(self):
+        test_infos = [test_info_of('test1')]
+        runner = self.create_bazel_test_runner_for_tests(test_infos)
+
+        cmd = runner.generate_run_commands(test_infos, {})
+
+        self.assertEqual(1, len(cmd))
+
+    def test_generate_run_command_containing_targets(self):
+        test_infos = [test_info_of('test1'), test_info_of('test2')]
+        runner = self.create_bazel_test_runner_for_tests(test_infos)
+
+        cmd = runner.generate_run_commands(test_infos, {})
+
+        self.assertTokensIn(['//path:test1_host', '//path:test2_host'], cmd[0])
+
+    def create_bazel_test_runner(self, modules, test_infos, run_command=None):
         return bazel_mode.BazelTestRunner(
             'result_dir',
             mod_info=create_module_info(modules),
             test_infos=test_infos,
             src_top=Path('/src'),
             workspace_path=Path('/src/workspace'),
-            run_command=run_command,
+            run_command=run_command or self.mock_run_command()
+        )
+
+    def create_bazel_test_runner_for_tests(self, test_infos):
+        return self.create_bazel_test_runner(
+            modules=[supported_test_module(name=t.test_name, path='path')
+                     for t in test_infos],
+            test_infos=test_infos
         )
 
     def mock_run_command(self, **kwargs):
         return mock.create_autospec(bazel_mode.default_run_command, **kwargs)
+
+    def assertTokensIn(self, expected_tokens, s):
+        tokens = shlex.split(s)
+        for token in expected_tokens:
+            self.assertIn(token, tokens)
 
 
 def test_info_of(module_name):

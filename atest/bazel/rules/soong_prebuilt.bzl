@@ -61,6 +61,11 @@ def _soong_prebuilt_impl(ctx):
         )
         files = [placeholder_file]
 
+    runfiles = ctx.runfiles(files = files).merge_all([
+        dep[DefaultInfo].default_runfiles
+        for dep in ctx.attr.runtime_deps
+    ])
+
     return [
         SoongPrebuiltInfo(
             files = depset(files),
@@ -68,7 +73,7 @@ def _soong_prebuilt_impl(ctx):
         ),
         DefaultInfo(
             files = depset(files),
-            runfiles = ctx.runfiles(files = ctx.files.runtime_deps),
+            runfiles = runfiles,
         ),
     ]
 
@@ -82,4 +87,29 @@ soong_prebuilt = rule(
     },
     implementation = _soong_prebuilt_impl,
     doc = "A rule that imports artifacts prebuilt by Soong into the Bazel workspace",
+)
+
+def _soong_uninstalled_prebuilt_impl(ctx):
+
+    runfiles = ctx.runfiles().merge_all([
+        dep[DefaultInfo].default_runfiles
+        for dep in ctx.attr.runtime_deps
+    ])
+
+    return [
+        SoongPrebuiltInfo(
+            module_name = ctx.attr.module_name,
+        ),
+        DefaultInfo(
+            runfiles = runfiles,
+        ),
+    ]
+
+soong_uninstalled_prebuilt = rule(
+    attrs = {
+        "module_name": attr.string(),
+        "runtime_deps": attr.label_list(),
+    },
+    implementation = _soong_uninstalled_prebuilt_impl,
+    doc = "A rule for targets with no runtime outputs",
 )

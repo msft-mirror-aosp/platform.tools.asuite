@@ -760,8 +760,11 @@ def main(argv, results_dir, args):
         os.environ.get(constants.ANDROID_PRODUCT_OUT, ''))
     # Do not index targets while the users intend to dry-run tests.
     dry_run_args = (args.update_cmd_mapping, args.verify_cmd_mapping, args.dry_run)
-    if not any(dry_run_args):
-        atest_utils.run_multi_proc(INDEX_TARGETS)
+    extra_args = get_extra_args(args)
+    verify_env_variables = extra_args.get(constants.VERIFY_ENV_VARIABLE, False)
+    proc_idx = None
+    if not (any(dry_run_args) or verify_env_variables):
+        proc_idx = atest_utils.run_multi_proc(INDEX_TARGETS)
     smart_rebuild = need_rebuild_module_info(args.rebuild_module_info)
     mod_info = module_info.ModuleInfo(force_build=smart_rebuild)
     atest_utils.generate_buildfiles_checksum()
@@ -778,6 +781,8 @@ def main(argv, results_dir, args):
     mm_build_targets = set()
     test_infos = set()
     if _will_run_tests(args):
+        if proc_idx:
+            proc_idx.join()
         find_start = time.time()
         build_targets, test_infos = translator.translate(args)
         if args.no_modules_in:
@@ -798,16 +803,15 @@ def main(argv, results_dir, args):
         return _print_test_info(mod_info, test_infos)
     build_targets |= test_runner_handler.get_test_runner_reqs(mod_info,
                                                               test_infos)
-    extra_args = get_extra_args(args)
     if any(dry_run_args):
-        if not extra_args.get(constants.VERIFY_ENV_VARIABLE, False):
+        if not verify_env_variables:
             return _dry_run_validator(args, results_dir, extra_args, test_infos,
                                       mod_info)
-    if extra_args.get(constants.VERIFY_ENV_VARIABLE, False):
+    if verify_env_variables:
         # check environment variables.
         verify_key = atest_utils.get_verify_key(args.tests, extra_args)
         if not atest_utils.handle_test_env_var(verify_key, pre_verify=True):
-            print('No environ variable needs to verify.')
+            print('No environment variables need to verify.')
             return 0
     if args.detect_regression:
         build_targets |= (regression_test_runner.RegressionTestRunner('')
@@ -839,9 +843,6 @@ def main(argv, results_dir, args):
             result=int(build_duration))
         if not success:
             return constants.EXIT_CODE_BUILD_FAILURE
-        # Always reload module-info after build finish.
-        # TODO(b/178675689) Move it to a thread when running test.
-        mod_info.generate_atest_merged_dep_file()
         if proc_acloud:
             proc_acloud.join()
             status = at.probe_acloud_status(report_file)
