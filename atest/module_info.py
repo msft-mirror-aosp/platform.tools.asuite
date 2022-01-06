@@ -52,7 +52,7 @@ Module = Dict[str, Any]
 class ModuleInfo:
     """Class that offers fast/easy lookup for Module related details."""
 
-    def __init__(self, force_build=False, module_file=None):
+    def __init__(self, force_build=False, module_file=None, index_dir=None):
         """Initialize the ModuleInfo object.
 
         Load up the module-info.json file and initialize the helper vars.
@@ -85,12 +85,22 @@ class ModuleInfo:
             force_build: Boolean to indicate if we should rebuild the
                          module_info file regardless if it's created or not.
             module_file: String of path to file to load up. Used for testing.
+            index_dir: String of path to store testable module index and md5.
         """
         # when force_build == True, Atest can:
         #   * rebuild module-info
         #   * decide need_update_merged_file()
         #   * re-index testable modules
         self.force_build = force_build
+        # Index and checksum files that will be used.
+        if not index_dir:
+            index_dir = Path(
+                os.getenv(constants.ANDROID_HOST_OUT,
+                          tempfile.TemporaryDirectory().name)).joinpath('indexes')
+        index_dir = Path(index_dir)
+        if not index_dir.is_dir():
+            index_dir.mkdir(parents=True)
+        self.module_index = index_dir.joinpath(constants.MODULE_INDEX)
         self.mod_info_file_path = Path(module_file) if module_file else None
         module_info_target, name_to_module_info = self._load_module_info_file(
             module_file)
@@ -229,14 +239,12 @@ class ModuleInfo:
         Args:
             content: An object that will be written to the index file.
         """
-        logging.debug('Indexing testable modules.')
-        index_dir = Path(constants.INDEX_DIR)
-        if not index_dir.is_dir():
-            os.makedirs(index_dir)
-        with open(constants.MODULE_INDEX, 'wb') as cache:
+        logging.debug(r'Indexing testable modules... '
+                      r'This is required whenever module-info.json was rebuilt.')
+        with open(self.module_index, 'wb') as cache:
             try:
                 pickle.dump(content, cache, protocol=2)
-                atest_utils.save_md5([constants.MODULE_INDEX],
+                atest_utils.save_md5([self.module_index],
                                      constants.MODULE_INDEX_MD5)
                 logging.debug('Done')
             except IOError:
@@ -318,8 +326,8 @@ class ModuleInfo:
         start = time.time()
         # 1. modules.idx did not change; read it directly.
         if atest_utils.check_md5(constants.MODULE_INDEX_MD5):
-            if os.path.isfile(constants.MODULE_INDEX) and not suite:
-                with open(constants.MODULE_INDEX, 'rb') as cache:
+            if os.path.isfile(self.module_index) and not suite:
+                with open(self.module_index, 'rb') as cache:
                     try:
                         modules = pickle.load(cache, encoding="utf-8")
                     except UnicodeDecodeError:
