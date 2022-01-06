@@ -101,6 +101,15 @@ class ModuleInfo:
         if not index_dir.is_dir():
             index_dir.mkdir(parents=True)
         self.module_index = index_dir.joinpath(constants.MODULE_INDEX)
+
+        # Paths to java, cc and merged module info json files.
+        self.java_dep_path = Path(
+            atest_utils.get_build_out_dir()).joinpath('soong', _JAVA_DEP_INFO)
+        self.cc_dep_path = Path(
+            atest_utils.get_build_out_dir()).joinpath('soong', _CC_DEP_INFO)
+        self.merged_dep_path = Path(
+            os.getenv(constants.ANDROID_PRODUCT_OUT, '')).joinpath(_MERGED_INFO)
+
         self.mod_info_file_path = Path(module_file) if module_file else None
         module_info_target, name_to_module_info = self._load_module_info_file(
             module_file)
@@ -194,10 +203,9 @@ class ModuleInfo:
             module_info_target, file_path = self._discover_mod_file_and_target(
                 self.force_build)
             self.mod_info_file_path = Path(file_path)
-        merged_file_path = self.get_atest_merged_info_path()
         if (not self.need_update_merged_file()
-            and os.path.exists(merged_file_path)):
-            file_path = merged_file_path
+            and os.path.exists(self.merged_dep_path)):
+            file_path = self.merged_dep_path
         logging.debug('Loading %s as module-info.', file_path)
         with open(file_path) as json_file:
             mod_info = json.load(json_file)
@@ -580,7 +588,7 @@ class ModuleInfo:
         """
         # Merge _JAVA_DEP_INFO
         if not java_bp_info_path:
-            java_bp_info_path = self.get_java_dep_info_path()
+            java_bp_info_path = self.java_dep_path
         if atest_utils.is_valid_json_file(java_bp_info_path):
             with open(java_bp_info_path) as json_file:
                 java_bp_infos = json.load(json_file)
@@ -589,7 +597,7 @@ class ModuleInfo:
                     name_to_module_info, java_bp_infos)
         # Merge _CC_DEP_INFO
         if not cc_bp_info_path:
-            cc_bp_info_path = self.get_cc_dep_info_path()
+            cc_bp_info_path = self.cc_dep_path
         if atest_utils.is_valid_json_file(cc_bp_info_path):
             with open(cc_bp_info_path) as json_file:
                 cc_bp_infos = json.load(json_file)
@@ -635,16 +643,15 @@ class ModuleInfo:
                     mod_info_values.sort()
                     name_to_module_info[
                         module_name][merge_item] = mod_info_values
-        output_file = self.get_atest_merged_info_path()
-        if not os.path.isdir(os.path.dirname(output_file)):
-            os.makedirs(os.path.dirname(output_file))
+        if not os.path.isdir(os.path.dirname(self.merged_dep_path)):
+            os.makedirs(os.path.dirname(self.merged_dep_path))
         # b/178559543 saving merged module info in a temp file and copying it to
         # atest_merged_dep.json can eliminate the possibility of accessing it
         # concurrently and resulting in invalid JSON format.
         temp_file = tempfile.NamedTemporaryFile()
         with open(temp_file.name, 'w') as _temp:
             json.dump(name_to_module_info, _temp, indent=0)
-        shutil.copy(temp_file.name, output_file)
+        shutil.copy(temp_file.name, self.merged_dep_path)
         temp_file.close()
         return name_to_module_info
 
@@ -696,60 +703,18 @@ class ModuleInfo:
                       install_deps, module_name)
         return install_deps
 
-    @staticmethod
-    def get_atest_merged_info_path():
-        """Returns the path for atest_merged_dep.json.
-
-        Returns:
-            String for atest_merged_dep.json.
-        """
-        # Move the merged file to the same folder as module-info.json due to it
-        # will not be update if lunch target be changed.
-        return os.path.join(os.environ.get(constants.ANDROID_PRODUCT_OUT, ''),
-                            _MERGED_INFO)
-
-    @staticmethod
-    def get_java_dep_info_path():
-        """Returns the path for module_bp_java_deps.json
-
-        Returns:
-            String for module_bp_java_deps.json.
-        """
-        return os.path.join(atest_utils.get_build_out_dir(),
-                            'soong', _JAVA_DEP_INFO)
-
-    @staticmethod
-    def get_cc_dep_info_path():
-        """Returns the path for module_bp_cc_deps.json.
-
-        Returns:
-            String for module_bp_cc_deps.json.
-        """
-        return os.path.join(atest_utils.get_build_out_dir(),
-                            'soong', _CC_DEP_INFO)
-
-    def has_soong_info(self):
-        """Ensure the existence of soong info files.
-
-        Returns:
-            True if soong info need to merge, false otherwise.
-        """
-        return (os.path.isfile(self.get_java_dep_info_path()) and
-                os.path.isfile(self.get_cc_dep_info_path()))
-
     def need_update_merged_file(self):
         """Check if need to update/generated atest_merged_dep.
 
         If self.force_build == True: always update merged info.
-        Otherwise: only update merged info when soong info exists and the merged
-                   info does not.
+        Otherwise: only update merged info when atest_merged_dep.json does
+                   not exist.
 
         Returns:
             True if atest_merged_dep.json should be updated, false otherwise.
         """
         return (self.force_build or
-                (self.has_soong_info() and
-                 not os.path.exists(self.get_atest_merged_info_path())))
+                not os.path.exists(self.merged_dep_path))
 
     def is_unit_test(self, mod_info):
         """Return True if input module is unit test, False otherwise.
