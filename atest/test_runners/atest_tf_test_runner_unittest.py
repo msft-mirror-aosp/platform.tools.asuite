@@ -460,7 +460,8 @@ class AtestTradefedTestRunnerUnittests(unittest.TestCase):
         arg_serial_arg = ' --serial %s' % arg_device_serial
         unittest_utils.assert_strict_equal(
             self,
-            self.tr.generate_run_commands([], {constants.SERIAL:arg_device_serial}),
+            self.tr.generate_run_commands(
+                [], {constants.SERIAL: [arg_device_serial]}),
             [RUN_CMD.format(metrics='',
                             serial=arg_serial_arg,
                             tf_customize_template='',
