@@ -77,7 +77,7 @@ _TYPE_CC_CLASS_RE = re.compile(
     r'^\s*TYPED_TEST_SUITE(?:|_P)\(\s*(?P<class_name>\w+)', re.M)
 
 # Group that matches java/kt method.
-_JAVA_METHODS_RE = r'.*\s+(fun|void)\s+(?P<methods>\w+)\(\)'
+_JAVA_METHODS_RE = r'.*\s+(fun|void)\s+(?P<method>\w+)\('
 # Parse package name from the package declaration line of a java or
 # a kotlin file.
 # Group matches "foo.bar" of line "package foo.bar;" or "package foo.bar"
