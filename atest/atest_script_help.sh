@@ -31,13 +31,6 @@ checkPath() {
     fi;
 }
 
-checkFile() {
-    if [ ! -f "$1" ]; then
-        >&2 echo "Unable to locate $1"
-        exit 1
-    fi;
-}
-
 # All to specify an alternative Java binary, other than the one on PATH
 TF_JAVA="java"
 if [ ! -z "${TF_JAVA_HOME}" ]; then
