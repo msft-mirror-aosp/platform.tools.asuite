@@ -673,5 +673,31 @@ class AtestUtilsUnittests(unittest.TestCase):
                          atest_utils.get_mainline_param(
                              no_mainline_param_config))
 
+    def test_get_full_annotation_class_name(self):
+        """Test method of get_full_annotation_class_name."""
+        app_mode_full = 'android.platform.test.annotations.AppModeFull'
+        presubmit = 'android.platform.test.annotations.Presubmit'
+        module_info = {'srcs': [os.path.join(unittest_constants.TEST_DATA_DIR,
+                                'annotation_testing',
+                                'Annotation.src')]}
+        # get annotation class from keyword
+        self.assertEqual(
+            atest_utils.get_full_annotation_class_name(module_info, 'presubmit'),
+            presubmit)
+        # get annotation class from an accurate fqcn keyword.
+        self.assertEqual(
+            atest_utils.get_full_annotation_class_name(module_info, presubmit),
+            presubmit)
+        # accept fqcn keyword in lowercase.
+        self.assertEqual(
+            atest_utils.get_full_annotation_class_name(module_info, 'android.platform.test.annotations.presubmit'),
+            presubmit)
+        # unable to get annotation class from keyword.
+        self.assertNotEqual(
+            atest_utils.get_full_annotation_class_name(module_info, 'appleModefull'), app_mode_full)
+        # do not support partial-correct keyword.
+        self.assertNotEqual(
+            atest_utils.get_full_annotation_class_name(module_info, 'android.platform.test.annotations.pres'), presubmit)
+
 if __name__ == "__main__":
     unittest.main()
