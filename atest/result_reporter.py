@@ -431,6 +431,7 @@ class ResultReporter:
         """Print aggregate test metrics text content if metric files exist."""
         metric_files = au.find_files(
             self.log_path, file_name='*_aggregate_test_metrics_*.txt')
+
         if metric_files:
             print('\n{}'.format(au.colorize(
                 'Aggregate test metrics', constants.CYAN)))
@@ -450,11 +451,11 @@ class ResultReporter:
             print('{}:'.format(au.colorize(test_name, constants.CYAN)))
             with open(metric_file, 'r') as f:
                 matched = False
-                filter_re = atest_configs.GLOBAL_ARGS.aggregate_metric_filter
-                logging.debug('Aggregate metric filter: %s', filter_re)
+                filter_res = atest_configs.GLOBAL_ARGS.aggregate_metric_filter
+                logging.debug('Aggregate metric filters: %s', filter_res)
                 test_methods = []
                 # Collect all test methods
-                if filter_re:
+                if filter_res:
                     test_re = re.compile(r'\n\n(.*)\n\n', re.MULTILINE)
                     test_methods = re.findall(test_re, f.read())
                     f.seek(0)
@@ -465,21 +466,22 @@ class ResultReporter:
                     f.seek(0)
                 for line in f.readlines():
                     stripped_line = str(line).strip()
-                    if filter_re:
+                    if filter_res:
                         if stripped_line in test_methods:
                             print()
                             au.colorful_print(
                                 ' ' * 4 + stripped_line, constants.MAGENTA)
-                        if re.match(re.compile(filter_re), line):
-                            matched = True
-                            print(' ' * 4 + stripped_line)
+                        for filter_re in filter_res:
+                            if re.match(re.compile(filter_re), line):
+                                matched = True
+                                print(' ' * 4 + stripped_line)
                     else:
                         matched = True
                         print(' ' * 4 + stripped_line)
                 if not matched:
                     au.colorful_print(
                         '  Warning: Nothing returned by the pattern: {}'.format(
-                            filter_re), constants.RED)
+                            filter_res), constants.RED)
                 print()
 
     def print_collect_tests(self):
