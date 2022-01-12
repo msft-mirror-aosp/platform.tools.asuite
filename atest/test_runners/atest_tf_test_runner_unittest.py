@@ -820,11 +820,13 @@ class AtestTradefedTestRunnerUnittests(unittest.TestCase):
         self.assertFalse('--exclude-module-parameters' in args)
 
     @mock.patch.object(atf_tr.AtestTradefedTestRunner,
+                       '_get_device_count_config', return_value=0)
+    @mock.patch.object(atf_tr.AtestTradefedTestRunner,
                        '_is_parameter_auto_enabled_cfg', return_value=False)
     @mock.patch.object(atf_tr.AtestTradefedTestRunner,
                        '_has_instant_app_config', return_value=False)
     def test_parse_extra_args_has_instant_app(
-        self, _mock_has_instant, _mock_is_para):
+        self, _mock_has_instant, _mock_is_para, _mock_device_count):
         """Test _parse_extra_args with instant app in customize flag."""
         # If customize_arg has module-parameter should also include
         # --enable-parameterized-modules.
