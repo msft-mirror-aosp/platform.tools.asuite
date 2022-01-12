@@ -1308,6 +1308,22 @@ def get_config_parameter(test_config):
                 parameters.add(value)
     return parameters
 
+def get_config_device(test_config):
+    """Get all the device names from the input config
+
+    Args:
+        test_config: The path of the test config.
+    Returns:
+        A set include all the device name of the input config.
+    """
+    devices = set()
+    xml_root = ET.parse(test_config).getroot()
+    device_tags = xml_root.findall('.//device')
+    for tag in device_tags:
+        name = tag.attrib['name'].strip()
+        devices.add(name)
+    return devices
+
 def get_mainline_param(test_config):
     """Get all the mainline-param values for the input config
 
