@@ -110,7 +110,7 @@ class GenerationTestFixture(fake_filesystem_unittest.TestCase):
 
     def assertTargetInWorkspace(self, name, package=''):
         build_file = self.workspace_out_path.joinpath(package, 'BUILD.bazel')
-        contents = build_file.read_text()
+        contents = build_file.read_text(encoding='utf8')
         occurrences = len(self.find_target_by_name(name, contents))
 
         if occurrences == 1:
@@ -127,7 +127,7 @@ class GenerationTestFixture(fake_filesystem_unittest.TestCase):
         if not build_file.exists():
             return
 
-        contents = build_file.read_text()
+        contents = build_file.read_text(encoding='utf8')
         matches = self.find_target_by_name(name, contents)
 
         if not matches:
@@ -139,11 +139,11 @@ class GenerationTestFixture(fake_filesystem_unittest.TestCase):
 
     def assertInBuildFile(self, substring, package=''):
         build_file = self.workspace_out_path.joinpath(package, 'BUILD.bazel')
-        self.assertIn(substring, build_file.read_text())
+        self.assertIn(substring, build_file.read_text(encoding='utf8'))
 
     def assertNotInBuildFile(self, substring, package=''):
         build_file = self.workspace_out_path.joinpath(package, 'BUILD.bazel')
-        self.assertNotIn(substring, build_file.read_text())
+        self.assertNotIn(substring, build_file.read_text(encoding='utf8'))
 
     def assertFileInWorkspace(self, relative_path, package=''):
         path = self.workspace_out_path.joinpath(package, relative_path)
@@ -210,7 +210,7 @@ class BasicWorkspaceGenerationTest(GenerationTestFixture):
         workspace_stat = workspace_generator.workspace_out_path.stat()
 
         mod_info_file_path = workspace_generator.mod_info.mod_info_file_path
-        with open(mod_info_file_path, 'a') as f:
+        with open(mod_info_file_path, 'a', encoding='utf8') as f:
             f.write(' ')
         workspace_generator = self.create_workspace_generator()
         workspace_generator.generate()
@@ -1032,8 +1032,8 @@ class PackageTest(fake_filesystem_unittest.TestCase):
         self.assertTrue(self.workspace_out_path.joinpath(parent_path).is_dir())
 
     def package_build_file_text(self, package):
-        return self.workspace_out_path.joinpath(package.path,
-                                                'BUILD.bazel').read_text()
+        return self.workspace_out_path.joinpath(
+            package.path, 'BUILD.bazel').read_text(encoding='utf8')
 
 
 class DecorateFinderMethodTest(fake_filesystem_unittest.TestCase):
@@ -1165,6 +1165,61 @@ class BazelTestRunnerTest(unittest.TestCase):
         cmd = runner.generate_run_commands(test_infos, {})
 
         self.assertTokensIn(['//path:test1_host', '//path:test2_host'], cmd[0])
+
+    def test_generate_run_command_with_multi_bazel_args(self):
+        test_infos = [test_info_of('test1')]
+        runner = self.create_bazel_test_runner_for_tests(test_infos)
+        extra_args = {constants.BAZEL_ARG: [['--option1=value1'],
+                                            ['--option2=value2']]}
+
+        cmd = runner.generate_run_commands(test_infos, extra_args)
+
+        self.assertTokensIn(['--option1=value1', '--option2=value2'], cmd[0])
+
+    def test_generate_run_command_with_multi_custom_args(self):
+        test_infos = [test_info_of('test1')]
+        runner = self.create_bazel_test_runner_for_tests(test_infos)
+        extra_args = {constants.CUSTOM_ARGS: ['-hello', '--world=value']}
+
+        cmd = runner.generate_run_commands(test_infos, extra_args)
+
+        self.assertTokensIn(['--test_arg=-hello',
+                             '--test_arg=--world=value'], cmd[0])
+
+    def test_generate_run_command_with_custom_and_bazel_args(self):
+        test_infos = [test_info_of('test1')]
+        runner = self.create_bazel_test_runner_for_tests(test_infos)
+        extra_args = {constants.CUSTOM_ARGS: ['-hello', '--world=value'],
+                      constants.BAZEL_ARG: [['--option1=value1']]}
+
+        cmd = runner.generate_run_commands(test_infos, extra_args)
+
+        self.assertTokensIn(['--test_arg=-hello',
+                             '--test_arg=--world=value',
+                             '--option1=value1'], cmd[0])
+
+    def test_generate_run_command_with_tf_supported_host_arg(self):
+        test_infos = [test_info_of('test1')]
+        runner = self.create_bazel_test_runner_for_tests(test_infos)
+        extra_args = {constants.HOST: True}
+
+        cmd = runner.generate_run_commands(test_infos, extra_args)
+
+        self.assertTokensIn(['--test_arg=-n',
+                             '--test_arg=--prioritize-host-config',
+                             '--test_arg=--skip-host-arch-check'], cmd[0])
+
+    def test_generate_run_command_with_iterations_args(self):
+        test_infos = [test_info_of('test1')]
+        runner = self.create_bazel_test_runner_for_tests(test_infos)
+        extra_args = {constants.ITERATIONS: 2}
+
+        cmd = runner.generate_run_commands(test_infos, extra_args)
+
+        self.assertTokensIn(['--test_arg=--retry-strategy',
+                             '--test_arg=ITERATIONS',
+                             '--test_arg=--max-testcase-run-count',
+                             '--test_arg=2'], cmd[0])
 
     def create_bazel_test_runner(self, modules, test_infos, run_command=None):
         return bazel_mode.BazelTestRunner(
