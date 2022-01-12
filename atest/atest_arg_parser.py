@@ -275,7 +275,7 @@ class AtestArgParser(argparse.ArgumentParser):
                           help=NO_METRICS)
 
         # Option to filter the output of aggregate metrics content.
-        self.add_argument('--aggregate-metric-filter', default='',
+        self.add_argument('--aggregate-metric-filter', action='append',
                           help=AGGREGATE_METRIC_FILTER)
 
         # This arg actually doesn't consume anything, it's primarily used for
