@@ -650,6 +650,14 @@ class AtestUtilsUnittests(unittest.TestCase):
                          atest_utils.get_config_parameter(
                              parameter_config))
 
+    def test_get_config_device(self):
+        """Test method of get_config_device"""
+        device_config = os.path.join(
+            unittest_constants.TEST_DATA_DIR,
+            "parameter_config", "multiple_device.cfg")
+        self.assertEqual({'device_1', 'device_2'},
+                         atest_utils.get_config_device(device_config))
+
     def test_get_mainline_param(self):
         """Test method of get_mainline_param"""
         mainline_param_config = os.path.join(
