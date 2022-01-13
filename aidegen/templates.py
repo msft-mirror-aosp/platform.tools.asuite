@@ -221,6 +221,9 @@ XML_INSPECTIONS = """<component name="InspectionProjectProfileManager">
     <inspection_tool class="JavaDoc" enabled="true" level="WARNING" enabled_by_default="true">
       <option name="myAdditionalJavadocTags" value="hide,attr" />
     </inspection_tool>
+    <inspection_tool class="MissortedModifiers" enabled="true" level="WARNING" enabled_by_default="true">
+      <option name="m_requireAnnotationsFirst" value="true" />
+    </inspection_tool>
   </profile>
 </component>
 """

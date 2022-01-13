@@ -28,6 +28,7 @@ from importlib import reload
 from io import StringIO
 from unittest import mock
 
+import atest_utils
 import cli_translator as cli_t
 import constants
 import module_info
@@ -102,6 +103,7 @@ class CLITranslatorUnittests(unittest.TestCase):
         """Run after execution of every test"""
         reload(uc)
 
+    @mock.patch.object(atest_utils, 'update_test_info_cache')
     @mock.patch('builtins.input', return_value='n')
     @mock.patch.object(module_finder.ModuleFinder, 'find_test_by_module_name')
     @mock.patch.object(module_finder.ModuleFinder, 'get_fuzzy_searching_results')
@@ -110,7 +112,7 @@ class CLITranslatorUnittests(unittest.TestCase):
     # pylint: disable=too-many-locals
     def test_get_test_infos(self, mock_getfindmethods, _metrics,
                             mock_getfuzzyresults, mock_findtestbymodule,
-                            mock_input):
+                            mock_input, _mock_update_test_info):
         """Test _get_test_infos method."""
         ctr = cli_t.CLITranslator()
         find_method_return_module_info = lambda x, y: uc.MODULE_INFOS
@@ -175,9 +177,11 @@ class CLITranslatorUnittests(unittest.TestCase):
                     test_detail2.options,
                     test_info.data[constants.TI_MODULE_ARG])
 
+    @mock.patch.object(atest_utils, 'update_test_info_cache')
     @mock.patch.object(metrics, 'FindTestFinishEvent')
     @mock.patch.object(test_finder_handler, 'get_find_methods_for_test')
-    def test_get_test_infos_2(self, mock_getfindmethods, _metrics):
+    def test_get_test_infos_2(self, mock_getfindmethods, _metrics,
+        _mock_update_test_info):
         """Test _get_test_infos method."""
         ctr = cli_t.CLITranslator()
         find_method_return_module_info2 = lambda x, y: uc.MODULE_INFOS2

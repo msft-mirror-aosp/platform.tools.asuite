@@ -106,7 +106,7 @@ class ModuleInfo:
 
         Args:
             force_build: Boolean to indicate if we should rebuild the
-                         module_info file regardless if it's created or not.
+                         module_info file regardless of the existence of it.
 
         Returns:
             Tuple of module_info_target and path to module file.
@@ -147,8 +147,31 @@ class ModuleInfo:
     def _load_module_info_file(self, module_file):
         """Load the module file.
 
+        No matter whether passing module_file or not, ModuleInfo will load
+        atest_merged_dep.json as module info eventually.
+
+        +--------------+                  +----------------------------------+
+        | ModuleInfo() |                  | ModuleInfo(module_file=foo.json) |
+        +-------+------+                  +----------------+-----------------+
+                | _discover_mod_file_and_target()          |
+                | atest_utils.build()                      | load
+                v                                          V
+        +--------------------------+         +--------------------------+
+        | module-info.json         |         | foo.json                 |
+        | module_bp_cc_deps.json   |         | module_bp_cc_deps.json   |
+        | module_bp_java_deps.json |         | module_bp_java_deps.json |
+        +--------------------------+         +--------------------------+
+                |                                          |
+                | _merge_soong_info() <--------------------+
+                v
+        +============================+
+        |  $ANDROID_PRODUCT_OUT      |
+        |    /atest_merged_dep.json  |--> load as module info.
+        +============================+
+
         Args:
             module_file: String of path to file to load up. Used for testing.
+                         Note: if set, ModuleInfo will skip build process.
 
         Returns:
             Tuple of module_info_target and dict of json.

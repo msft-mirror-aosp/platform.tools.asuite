@@ -195,7 +195,7 @@ class AtestArgParser(argparse.ArgumentParser):
                             type=str, help=ACLOUD_CREATE)
         agroup.add_argument('--start-avd', action='store_true',
                             help=START_AVD)
-        agroup.add_argument('-s', '--serial', help=SERIAL)
+        agroup.add_argument('-s', '--serial', action='append', help=SERIAL)
 
         # Options that to query flakes info in test result
         self.add_argument('--flakes-info', action='store_true',
@@ -275,7 +275,7 @@ class AtestArgParser(argparse.ArgumentParser):
                           help=NO_METRICS)
 
         # Option to filter the output of aggregate metrics content.
-        self.add_argument('--aggregate-metric-filter', default='',
+        self.add_argument('--aggregate-metric-filter', action='append',
                           help=AGGREGATE_METRIC_FILTER)
 
         # This arg actually doesn't consume anything, it's primarily used for
