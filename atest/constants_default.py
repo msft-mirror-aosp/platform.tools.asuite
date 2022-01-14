@@ -65,6 +65,7 @@ NO_ENABLE_ROOT = 'NO_ENABLE_ROOT'
 VERIFY_ENV_VARIABLE = 'VERIFY_ENV_VARIABLE'
 SKIP_VARS = [VERIFY_ENV_VARIABLE]
 AGGREGATE_METRIC_FILTER_ARG = 'AGGREGATE_METRIC_FILTER'
+ENABLE_DEVICE_PREPARER = 'ENABLE_DEVICE_PREPARER'
 
 # Application exit codes.
 EXIT_CODE_SUCCESS = 0
@@ -407,5 +408,6 @@ GTEST_PARAM = 'value-parameterized test'
 
 # Tradefed log saver template for ATest
 ATEST_TF_LOG_SAVER = 'template/log/atest_log_saver'
+DEVICE_SETUP_PREPARER = 'template/preparers/device-preparer'
 LOG_ROOT_OPTION_NAME = 'atest-log-file-path'
 LOG_SAVER_EXT_OPTION = ''
