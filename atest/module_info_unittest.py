@@ -486,6 +486,20 @@ class ModuleInfoUnittests(unittest.TestCase):
         mod_info = module_info.ModuleInfo(module_file=JSON_FILE_PATH)
         self.assertTrue(mod_info.is_unit_test(maininfo_with_unittest))
 
+
+    @mock.patch.dict('os.environ', {constants.ANDROID_BUILD_TOP: '/',
+                                    constants.ANDROID_PRODUCT_OUT: '/test/output'})
+    def test_is_host_unit_test(self):
+        """Test is_host_unit_test."""
+        module_name = 'myModule'
+        maininfo_with_host_unittest = {
+            constants.MODULE_NAME: module_name,
+            constants.MODULE_IS_UNIT_TEST: 'true',
+            'compatibility_suites': ['host-unit-tests']
+        }
+        mod_info = module_info.ModuleInfo(module_file=JSON_FILE_PATH)
+        self.assertTrue(mod_info.is_host_unit_test(maininfo_with_host_unittest))
+
     @mock.patch.dict('os.environ', {constants.ANDROID_BUILD_TOP:os.path.dirname(__file__),
                                     constants.ANDROID_PRODUCT_OUT:'/test/output/'})
     def test_has_mainline_modules(self):
