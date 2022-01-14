@@ -727,6 +727,18 @@ class ModuleInfo:
         """
         return mod_info.get(constants.MODULE_IS_UNIT_TEST, '') == 'true'
 
+    def is_host_unit_test(self, mod_info):
+        """Return True if input module is host unit test, False otherwise.
+
+        Args:
+            mod_info: ModuleInfo to check.
+
+        Returns:
+            True if if input module is host unit test, False otherwise.
+        """
+        return self.is_suite_in_compatibility_suites(
+          'host-unit-tests', mod_info)
+
     def get_all_unit_tests(self):
         """Get a list of all the module names which are unit tests."""
         unit_tests = []
@@ -736,6 +748,14 @@ class ModuleInfo:
                     unit_tests.append(mod_name)
         return unit_tests
 
+    def get_all_host_unit_tests(self):
+        """Get a list of all the module names which are host unit tests."""
+        tests = []
+        for mod_name, mod_info in self.name_to_module_info.items():
+            if mod_info.get(constants.MODULE_NAME, '') == mod_name:
+                if self.is_host_unit_test(mod_info):
+                    tests.append(mod_name)
+        return tests
 
 def _add_missing_variant_modules(name_to_module_info: Dict[str, Module]):
     missing_modules = dict()
