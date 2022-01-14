@@ -94,7 +94,7 @@ class AtestUnittests(unittest.TestCase):
                     atest._has_valid_test_mapping_args(parsed_args),
                     'Failed to validate: %s' % args)
 
-    @mock.patch.object(module_info.ModuleInfo, '_merge_soong_info')
+    @mock.patch.object(module_info.ModuleInfo, '_merge_build_system_infos')
     @mock.patch.dict('os.environ', {constants.ANDROID_BUILD_TOP:'/'})
     @mock.patch('json.load', return_value={})
     @mock.patch('builtins.open', new_callable=mock.mock_open)
@@ -148,7 +148,7 @@ class AtestUnittests(unittest.TestCase):
         # Check if no module_info, then nothing printed to screen.
         self.assertEqual(capture_output.getvalue(), null_output)
 
-    @mock.patch.object(module_info.ModuleInfo, '_merge_soong_info')
+    @mock.patch.object(module_info.ModuleInfo, '_merge_build_system_infos')
     @mock.patch.dict('os.environ', {constants.ANDROID_BUILD_TOP:'/'})
     @mock.patch('json.load', return_value={})
     @mock.patch('builtins.open', new_callable=mock.mock_open)
