@@ -173,6 +173,7 @@ def get_extra_args(args):
                 'custom_args': constants.CUSTOM_ARGS,
                 'disable_teardown': constants.DISABLE_TEARDOWN,
                 'dry_run': constants.DRY_RUN,
+                'enable_device_preparer': constants.ENABLE_DEVICE_PREPARER,
                 'flakes_info': constants.FLAKES_INFO,
                 'generate_baseline': constants.PRE_PATCH_ITERATIONS,
                 'generate_new_metrics': constants.POST_PATCH_ITERATIONS,
