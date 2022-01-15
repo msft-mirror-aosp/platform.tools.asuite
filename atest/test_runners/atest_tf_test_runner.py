@@ -569,7 +569,8 @@ class AtestTradefedTestRunner(test_runner_base.TestRunnerBase):
                        constants.WORKUNIT_ID,
                        constants.REQUEST_UPLOAD_RESULT,
                        constants.LOCAL_BUILD_ID,
-                       constants.BUILD_TARGET):
+                       constants.BUILD_TARGET,
+                       constants.ENABLE_DEVICE_PREPARER):
                 continue
             args_not_supported.append(arg)
         # Set exclude instant app annotation for non-instant mode run.
@@ -658,6 +659,9 @@ class AtestTradefedTestRunner(test_runner_base.TestRunnerBase):
                              % extra_args[constants.LOCAL_BUILD_ID])
             test_args.append('--stub-build-target %s'
                              % extra_args[constants.BUILD_TARGET])
+        if extra_args.get(constants.ENABLE_DEVICE_PREPARER, False):
+            test_args.append('--template:map preparers=%s'
+                             % constants.DEVICE_SETUP_PREPARER)
         for info in test_infos:
             if constants.TEST_WITH_MAINLINE_MODULES_RE.match(info.test_name):
                 test_args.append(constants.TF_ENABLE_MAINLINE_PARAMETERIZED_MODULES)

@@ -66,7 +66,8 @@ class BuildClient:
             serviceName=constants.STORAGE_SERVICE_NAME,
             version=constants.STORAGE_API_VERSION,
             cache_discovery=False,
-            http=http_auth)
+            http=http_auth,
+            discoveryServiceUrl=constants.DISCOVERY_SERVICE)
 
     def list_branch(self):
         """List all branch."""
