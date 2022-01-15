@@ -762,7 +762,7 @@ class TestFinderUtilsUnittests(unittest.TestCase):
         return []
 
     @mock.patch.dict('os.environ', {constants.ANDROID_BUILD_TOP:'/'})
-    @mock.patch.object(module_info.ModuleInfo, 'get_all_unit_tests',
+    @mock.patch.object(module_info.ModuleInfo, 'get_all_host_unit_tests',
                        return_value=[UNIT_TEST_MODULE_1,
                                      UNIT_TEST_MODULE_2,
                                      UNIT_TEST_MODULE_3])
