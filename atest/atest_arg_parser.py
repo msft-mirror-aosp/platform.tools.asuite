@@ -43,6 +43,8 @@ COLLECT_TESTS_ONLY = ('Collect a list test cases of the instrumentation tests '
                       'without testing them in real.')
 DISABLE_TEARDOWN = 'Disable test teardown and cleanup.'
 DRY_RUN = 'Dry run atest without building, installing and running tests in real.'
+ENABLE_DEVICE_PREPARER = ('Enable template/preparers/device-preparer as the '
+                          'default preparer.')
 ENABLE_FILE_PATTERNS = 'Enable FILE_PATTERNS in TEST_MAPPING.'
 FLAKES_INFO = 'Test result with flakes info.'
 HISTORY = ('Show test results in chronological order(with specified number or '
@@ -141,6 +143,7 @@ class AtestArgParser(argparse.ArgumentParser):
         self.add_argument('--bazel-mode', action='store_true', help=BAZEL_MODE)
         self.add_argument('-d', '--disable-teardown', action='store_true',
                           help=DISABLE_TEARDOWN)
+        self.add_argument('--enable-device-preparer', action='store_true', help=HOST)
         self.add_argument('--host', action='store_true', help=HOST)
         self.add_argument('-i', '--install', action='append_const',
                           dest='steps', const=constants.INSTALL_STEP,
@@ -275,7 +278,7 @@ class AtestArgParser(argparse.ArgumentParser):
                           help=NO_METRICS)
 
         # Option to filter the output of aggregate metrics content.
-        self.add_argument('--aggregate-metric-filter', default='',
+        self.add_argument('--aggregate-metric-filter', action='append',
                           help=AGGREGATE_METRIC_FILTER)
 
         # This arg actually doesn't consume anything, it's primarily used for
@@ -315,6 +318,7 @@ def print_epilog_text():
         COLLECT_TESTS_ONLY=COLLECT_TESTS_ONLY,
         DISABLE_TEARDOWN=DISABLE_TEARDOWN,
         DRY_RUN=DRY_RUN,
+        ENABLE_DEVICE_PREPARER=ENABLE_DEVICE_PREPARER,
         ENABLE_FILE_PATTERNS=ENABLE_FILE_PATTERNS,
         FLAKES_INFO=FLAKES_INFO,
         HELP_DESC=HELP_DESC,
@@ -386,6 +390,9 @@ OPTIONS
 
         -D, --tf-debug [PORT]
             {TF_DEBUG}
+
+        --enable-device-preparer
+            {ENABLE_DEVICE_PREPARER}
 
         --host
             {HOST}

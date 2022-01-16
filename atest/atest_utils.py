@@ -44,8 +44,6 @@ from pathlib import Path
 
 import xml.etree.ElementTree as ET
 
-from distutils.util import strtobool
-
 # This is a workaround of b/144743252, where the http.client failed to loaded
 # because the googleapiclient was found before the built-in libs; enabling
 # embedded launcher(b/135639220) has not been reliable and other issue will
@@ -1268,6 +1266,23 @@ def prompt_with_yn_result(msg, default=True):
     except (ValueError, KeyboardInterrupt):
         return default
 
+def strtobool(val):
+    """Convert a string representation of truth to True or False.
+
+    Args:
+        val: a string of input value.
+
+    Returns:
+        True when values are 'y', 'yes', 't', 'true', 'on', and '1';
+        False when 'n', 'no', 'f', 'false', 'off', and '0'.
+        Raises ValueError if 'val' is anything else.
+    """
+    if val.lower() in ('y', 'yes', 't', 'true', 'on', '1'):
+        return True
+    if val.lower() in ('n', 'no', 'f', 'false', 'off', '0'):
+        return False
+    raise ValueError("invalid truth value %r" % (val,))
+
 def get_android_junit_config_filters(test_config):
     """Get the dictionary of a input config for junit config's filters
 
@@ -1307,6 +1322,22 @@ def get_config_parameter(test_config):
                 value = tag.attrib['value'].strip()
                 parameters.add(value)
     return parameters
+
+def get_config_device(test_config):
+    """Get all the device names from the input config
+
+    Args:
+        test_config: The path of the test config.
+    Returns:
+        A set include all the device name of the input config.
+    """
+    devices = set()
+    xml_root = ET.parse(test_config).getroot()
+    device_tags = xml_root.findall('.//device')
+    for tag in device_tags:
+        name = tag.attrib['name'].strip()
+        devices.add(name)
+    return devices
 
 def get_mainline_param(test_config):
     """Get all the mainline-param values for the input config

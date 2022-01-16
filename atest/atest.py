@@ -173,6 +173,7 @@ def get_extra_args(args):
                 'custom_args': constants.CUSTOM_ARGS,
                 'disable_teardown': constants.DISABLE_TEARDOWN,
                 'dry_run': constants.DRY_RUN,
+                'enable_device_preparer': constants.ENABLE_DEVICE_PREPARER,
                 'flakes_info': constants.FLAKES_INFO,
                 'generate_baseline': constants.PRE_PATCH_ITERATIONS,
                 'generate_new_metrics': constants.POST_PATCH_ITERATIONS,
@@ -819,6 +820,11 @@ def main(argv, results_dir, args):
     # args.steps will be None if none of -bit set, else list of params set.
     steps = args.steps if args.steps else constants.ALL_STEPS
     if build_targets and constants.BUILD_STEP in steps:
+        # smart_rebuild -> merge_soong_info -> index_testable_modules
+        # TODO: after landing smart merging, we can make the statement more precisely.
+        # pylint: disable=protected-access
+        if not atest_utils.check_md5(constants.MODULE_INDEX_MD5):
+            atest_utils.run_multi_proc(mod_info._get_testable_modules)
         # Add module-info.json target to the list of build targets to keep the
         # file up to date.
         build_targets.add(mod_info.module_info_target)

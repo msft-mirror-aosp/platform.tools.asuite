@@ -15,6 +15,7 @@
 """Atest Tradefed test runner class."""
 
 # pylint: disable=line-too-long
+# pylint: disable=too-many-lines
 
 from __future__ import print_function
 
@@ -568,7 +569,8 @@ class AtestTradefedTestRunner(test_runner_base.TestRunnerBase):
                        constants.WORKUNIT_ID,
                        constants.REQUEST_UPLOAD_RESULT,
                        constants.LOCAL_BUILD_ID,
-                       constants.BUILD_TARGET):
+                       constants.BUILD_TARGET,
+                       constants.ENABLE_DEVICE_PREPARER):
                 continue
             args_not_supported.append(arg)
         # Set exclude instant app annotation for non-instant mode run.
@@ -593,6 +595,14 @@ class AtestTradefedTestRunner(test_runner_base.TestRunnerBase):
                 for exclude_parameter in constants.DEFAULT_EXCLUDE_PARAS:
                     args_to_append.append('--exclude-module-parameters')
                     args_to_append.append(exclude_parameter)
+        # If multiple devices in test config, automatically append
+        # --replicate-parent-setup and --multi-device-count
+        device_count = self._get_device_count_config(test_infos,
+                                                     self.module_info)
+        if device_count > 1:
+            args_to_append.append('--replicate-parent-setup')
+            args_to_append.append('--multi-device-count')
+            args_to_append.append(str(device_count))
         return args_to_append, args_not_supported
 
     def _generate_metrics_folder(self, extra_args):
@@ -649,6 +659,9 @@ class AtestTradefedTestRunner(test_runner_base.TestRunnerBase):
                              % extra_args[constants.LOCAL_BUILD_ID])
             test_args.append('--stub-build-target %s'
                              % extra_args[constants.BUILD_TARGET])
+        if extra_args.get(constants.ENABLE_DEVICE_PREPARER, False):
+            test_args.append('--template:map preparers=%s'
+                             % constants.DEVICE_SETUP_PREPARER)
         for info in test_infos:
             if constants.TEST_WITH_MAINLINE_MODULES_RE.match(info.test_name):
                 test_args.append(constants.TF_ENABLE_MAINLINE_PARAMETERIZED_MODULES)
@@ -943,6 +956,24 @@ class AtestTradefedTestRunner(test_runner_base.TestRunnerBase):
                 if constants.TF_PARA_INSTANT_APP in parameters:
                     return True
         return False
+
+    @staticmethod
+    def _get_device_count_config(test_infos, mod_info):
+        """Get the amount of desired devices from the test config.
+
+        Args:
+            test_infos: A set of TestInfo instances.
+            mod_info: ModuleInfo object.
+
+        Returns: the count of devices in test config.
+        """
+        for tinfo in test_infos:
+            test_config, _ = test_finder_utils.get_test_config_and_srcs(
+                tinfo, mod_info)
+            if test_config:
+                devices = atest_utils.get_config_device(test_config)
+                return len(devices)
+        return 0
 
     @staticmethod
     def _is_parameter_auto_enabled_cfg(tinfo, mod_info):
