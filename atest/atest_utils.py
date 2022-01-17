@@ -709,6 +709,8 @@ def md5sum(filename):
         return ""
     with open(filename, 'rb') as target:
         content = target.read()
+    if not isinstance(content, bytes):
+        content = content.encode('utf-8')
     return hashlib.md5(content).hexdigest()
 
 def check_md5(check_file, missing_ok=False):
