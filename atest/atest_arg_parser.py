@@ -371,6 +371,18 @@ SYNOPSIS
 OPTIONS
         Below arguments are catagorised by features and purposes. Arguments marked with implicit default will apply even the user does not pass it explicitly.
 
+        *NOTE* Atest reads ~/.atest/config that supports all optional arguments to help users reduce repeating options they often use.
+        E.g. Assume "--all-abi" and "--verbose" are frequently used and have been defined line-by-line in ~/.atest/config, issuing
+
+            atest hello_world_test -v -- --test-arg xxx
+
+        is equivalent to
+
+            atest hello_world_test -v --all-abi --verbose -- --test-arg xxx
+
+        Also, to avoid confusing Atest from testing TEST_MAPPING file and implicit test names from ~/.atest/config, any test names defined in the config file
+        will be ignored without any hints.
+
         [ Testing ]
         -a, --all-abi
             {ALL_ABI}
