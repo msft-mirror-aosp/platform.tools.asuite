@@ -87,11 +87,11 @@ class ModuleInfo:
             module_file: String of path to file to load up. Used for testing.
             index_dir: String of path to store testable module index and md5.
         """
-        # when force_build == True, Atest can:
-        #   * rebuild module-info
-        #   * decide need_update_merged_file()
-        #   * re-index testable modules
+        # force_build could be from "-m" or smart_build(build files change).
         self.force_build = force_build
+        # update_merge_info flag will merge dep files only when any of them have
+        # changed even force_build == True.
+        self.update_merge_info = False
         # Index and checksum files that will be used.
         if not index_dir:
             index_dir = Path(
@@ -101,6 +101,7 @@ class ModuleInfo:
         if not index_dir.is_dir():
             index_dir.mkdir(parents=True)
         self.module_index = index_dir.joinpath(constants.MODULE_INDEX)
+        self.module_info_checksum = index_dir.joinpath(constants.MODULE_INFO_MD5)
 
         # Paths to java, cc and merged module info json files.
         self.java_dep_path = Path(
@@ -195,26 +196,59 @@ class ModuleInfo:
         Returns:
             Tuple of module_info_target and dict of json.
         """
-        # If module_file is specified, we're testing so we don't care if
+        # If module_file is specified, we're gonna test it so we don't care if
         # module_info_target stays None.
         module_info_target = None
         file_path = module_file
+        previous_checksum = self._get_module_info_checksums()
         if not file_path:
             module_info_target, file_path = self._discover_mod_file_and_target(
                 self.force_build)
             self.mod_info_file_path = Path(file_path)
-        if (not self.need_update_merged_file()
-            and os.path.exists(self.merged_dep_path)):
-            file_path = self.merged_dep_path
-        logging.debug('Loading %s as module-info.', file_path)
-        with open(file_path) as json_file:
-            mod_info = json.load(json_file)
-        if self.need_update_merged_file():
-            mod_info = self._merge_build_system_infos(mod_info)
-
+        # Even undergone a rebuild after _discover_mod_file_and_target(), merge
+        # atest_merged_dep.json only when module_deps_infos actually change so
+        # that Atest can decrease disk I/O and ensure data accuracy at all.
+        module_deps_infos = [file_path, self.java_dep_path, self.cc_dep_path]
+        self._save_module_info_checksum(module_deps_infos)
+        self.update_merge_info = self.need_update_merged_file(previous_checksum)
+        if self.update_merge_info:
+            # Load the $ANDROID_PRODUCT_OUT/module-info.json for merging.
+            with open(file_path) as module_info_json:
+                mod_info = self._merge_build_system_infos(
+                    json.load(module_info_json))
+        else:
+            # Load $ANDROID_PRODUCT_OUT/atest_merged_dep.json directly.
+            with open(self.merged_dep_path) as merged_info_json:
+                mod_info = json.load(merged_info_json)
         _add_missing_variant_modules(mod_info)
-
+        logging.debug('Loading %s as module-info.', self.merged_dep_path)
         return module_info_target, mod_info
+
+    def _get_module_info_checksums(self):
+        """Load the module-info.md5 and return the content.
+
+        Returns:
+            A dict of filename and checksum.
+        """
+        if os.path.exists(self.module_info_checksum):
+            with open(self.module_info_checksum) as cache:
+                try:
+                    content = json.load(cache)
+                    return content
+                except json.JSONDecodeError:
+                    pass
+        return {}
+
+    def _save_module_info_checksum(self, filenames):
+        """Dump the checksum of essential module info files.
+           * module-info.json
+           * module_bp_cc_deps.json
+           * module_bp_java_deps.json
+        """
+        dirname = Path(self.module_info_checksum).parent
+        if not dirname.is_dir():
+            dirname.mkdir(parents=True)
+        atest_utils.save_md5(filenames, self.module_info_checksum)
 
     @staticmethod
     def _get_path_to_module_info(name_to_module_info):
@@ -252,8 +286,6 @@ class ModuleInfo:
         with open(self.module_index, 'wb') as cache:
             try:
                 pickle.dump(content, cache, protocol=2)
-                atest_utils.save_md5([self.module_index],
-                                     constants.MODULE_INDEX_MD5)
                 logging.debug('Done')
             except IOError:
                 logging.error('Failed in dumping %s', cache)
@@ -332,9 +364,9 @@ class ModuleInfo:
         """
         modules = set()
         start = time.time()
-        # 1. modules.idx did not change; read it directly.
-        if atest_utils.check_md5(constants.MODULE_INDEX_MD5):
-            if os.path.isfile(self.module_index) and not suite:
+        # 1. atest_merged_dep.json did not change; read modules.idx directly.
+        if not self.update_merge_info:
+            if self.module_index.is_file() and not suite:
                 with open(self.module_index, 'rb') as cache:
                     try:
                         modules = pickle.load(cache, encoding="utf-8")
@@ -703,18 +735,21 @@ class ModuleInfo:
                       install_deps, module_name)
         return install_deps
 
-    def need_update_merged_file(self):
+    def need_update_merged_file(self, checksum):
         """Check if need to update/generated atest_merged_dep.
 
-        If self.force_build == True: always update merged info.
-        Otherwise: only update merged info when atest_merged_dep.json does
-                   not exist.
+        There are 2 scienarios that atest_merged_dep.json will be updated.
+        1. One of the checksum of module-info.json, module_bp_java_deps.json and
+           module_cc_java_deps.json have changed.
+        2. atest_merged_deps.json does not exist.
+
+        If fits one of above scienarios, it is recognized to update.
 
         Returns:
-            True if atest_merged_dep.json should be updated, false otherwise.
+            True if one of the scienarios reaches, False otherwise.
         """
-        return (self.force_build or
-                not os.path.exists(self.merged_dep_path))
+        return (checksum != self._get_module_info_checksums() or
+            not Path(self.merged_dep_path).is_file())
 
     def is_unit_test(self, mod_info):
         """Return True if input module is unit test, False otherwise.
