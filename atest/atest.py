@@ -971,10 +971,15 @@ if __name__ == '__main__':
         print('The actual cmd will be: \n\t{}\n'.format(
             atest_utils.colorize("atest " + " ".join(final_args),
                                  constants.CYAN)))
+        metrics.LocalDetectEvent(
+            detect_type=constants.DETECT_TYPE_ATEST_CONFIG, result=1)
         if HAS_IGNORED_ARGS:
             atest_utils.colorful_print(
                 'Please correct the config and try again.', constants.YELLOW)
             sys.exit(constants.EXIT_CODE_EXIT_BEFORE_MAIN)
+    else:
+        metrics.LocalDetectEvent(
+            detect_type=constants.DETECT_TYPE_ATEST_CONFIG, result=0)
     atest_configs.GLOBAL_ARGS = _parse_args(final_args)
     with atest_execution_info.AtestExecutionInfo(
             final_args, RESULTS_DIR,
