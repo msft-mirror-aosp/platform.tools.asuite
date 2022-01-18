@@ -34,7 +34,7 @@ import unittest_constants as uc
 
 JSON_FILE_PATH = os.path.join(uc.TEST_DATA_DIR, uc.JSON_FILE)
 CC_DEP_PATH = os.path.join(uc.TEST_DATA_DIR, uc.CC_DEP_FILE)
-JAVA_DEP_PATH = os.path.join(uc.TEST_DATA_DIR, uc.JAVA_DPE_FILE)
+JAVA_DEP_PATH = os.path.join(uc.TEST_DATA_DIR, uc.JAVA_DEP_FILE)
 EXPECTED_MOD_TARGET = 'tradefed'
 EXPECTED_MOD_TARGET_PATH = ['tf/core']
 UNEXPECTED_MOD_TARGET = 'this_should_not_be_in_module-info.json'
@@ -87,7 +87,7 @@ class ModuleInfoUnittests(unittest.TestCase):
         shutil.copy2(CC_DEP_PATH, SOONG_OUT_DIR)
         self.cc_dep_path = Path(SOONG_OUT_DIR).joinpath(uc.CC_DEP_FILE)
         shutil.copy2(JAVA_DEP_PATH, SOONG_OUT_DIR)
-        self.java_dep_path = Path(SOONG_OUT_DIR).joinpath(uc.JAVA_DPE_FILE)
+        self.java_dep_path = Path(SOONG_OUT_DIR).joinpath(uc.JAVA_DEP_FILE)
         self.merged_dep_path = Path(PRODUCT_OUT_DIR).joinpath(uc.MERGED_DEP_FILE)
 
     def tearDown(self) -> None:
