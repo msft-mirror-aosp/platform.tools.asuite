@@ -36,6 +36,8 @@ import time
 import platform
 import re
 
+from pathlib import Path
+
 import atest_arg_parser
 import atest_configs
 import atest_error
@@ -76,7 +78,56 @@ MAINLINE_MODULES_EXT_RE = re.compile(r'(.apex|.apks|.apk)$')
 # (e.g subprocesses that invoke host commands.)
 ACLOUD_CREATE = at.acloud_create
 INDEX_TARGETS = at.index_targets
+END_OF_OPTION = '--'
+HAS_IGNORED_ARGS = False
 
+def _get_args_from_config():
+    """Get customized atest arguments in the config file.
+
+    If the config has not existed yet, atest will initialize an example
+    config file for it without any effective options.
+
+    Returns:
+        A list read from the config file.
+    """
+    _config = Path(atest_utils.get_misc_dir()).joinpath('atest', 'config')
+    if not _config.parent.is_dir():
+        _config.parent.mkdir(parents=True)
+    args = []
+    if not _config.is_file():
+        with open(_config, 'w+') as cache:
+            cache.write(constants.ATEST_EXAMPLE_ARGS)
+        return args
+    warning = 'Line {} contains {} and will be ignored.'
+    print('\n{} {}'.format(
+        atest_utils.colorize('Reading config:', constants.CYAN),
+        atest_utils.colorize(_config, constants.YELLOW)))
+    # pylint: disable=global-statement:
+    global HAS_IGNORED_ARGS
+    with open(_config, 'r') as cache:
+        for entry in cache.readlines():
+            # Strip comments.
+            arg_in_line = entry.partition('#')[0].strip()
+            # Strip test name/path.
+            if arg_in_line.startswith('-'):
+                # Process argument that contains whitespaces.
+                # e.g. ["--serial foo"] -> ["--serial", "foo"]
+                if len(arg_in_line.split()) > 1:
+                    # remove "--" to avoid messing up atest/tradefed commands.
+                    if END_OF_OPTION in arg_in_line.split():
+                        HAS_IGNORED_ARGS = True
+                        print(warning.format(
+                            atest_utils.colorize(arg_in_line, constants.YELLOW),
+                            END_OF_OPTION))
+                    args.extend(arg_in_line.split())
+                else:
+                    if END_OF_OPTION == arg_in_line:
+                        HAS_IGNORED_ARGS = True
+                        print(warning.format(
+                            atest_utils.colorize(arg_in_line, constants.YELLOW),
+                            END_OF_OPTION))
+                    args.append(arg_in_line)
+    return args
 
 def _parse_args(argv):
     """Parse command line arguments.
@@ -821,9 +872,8 @@ def main(argv, results_dir, args):
     steps = args.steps if args.steps else constants.ALL_STEPS
     if build_targets and constants.BUILD_STEP in steps:
         # smart_rebuild -> merge_soong_info -> index_testable_modules
-        # TODO: after landing smart merging, we can make the statement more precisely.
-        # pylint: disable=protected-access
-        if not atest_utils.check_md5(constants.MODULE_INDEX_MD5):
+        if not mod_info.module_index.is_file() or mod_info.update_merge_info:
+            # pylint: disable=protected-access
             atest_utils.run_multi_proc(mod_info._get_testable_modules)
         # Add module-info.json target to the list of build targets to keep the
         # file up to date.
@@ -910,9 +960,28 @@ def main(argv, results_dir, args):
 
 if __name__ == '__main__':
     RESULTS_DIR = make_test_run_dir()
-    atest_configs.GLOBAL_ARGS = _parse_args(sys.argv[1:])
+    final_args = [*sys.argv[1:], *_get_args_from_config()]
+    if END_OF_OPTION in sys.argv:
+        end_position = sys.argv.index(END_OF_OPTION)
+        final_args = [*sys.argv[1:end_position],
+                      *_get_args_from_config(),
+                      *sys.argv[end_position:]]
+    if final_args != sys.argv[1:]:
+        print('The actual cmd will be: \n\t{}\n'.format(
+            atest_utils.colorize("atest " + " ".join(final_args),
+                                 constants.CYAN)))
+        metrics.LocalDetectEvent(
+            detect_type=constants.DETECT_TYPE_ATEST_CONFIG, result=1)
+        if HAS_IGNORED_ARGS:
+            atest_utils.colorful_print(
+                'Please correct the config and try again.', constants.YELLOW)
+            sys.exit(constants.EXIT_CODE_EXIT_BEFORE_MAIN)
+    else:
+        metrics.LocalDetectEvent(
+            detect_type=constants.DETECT_TYPE_ATEST_CONFIG, result=0)
+    atest_configs.GLOBAL_ARGS = _parse_args(final_args)
     with atest_execution_info.AtestExecutionInfo(
-            sys.argv[1:], RESULTS_DIR,
+            final_args, RESULTS_DIR,
             atest_configs.GLOBAL_ARGS) as result_file:
         if not atest_configs.GLOBAL_ARGS.no_metrics:
             atest_utils.print_data_collection_notice()
@@ -927,8 +996,8 @@ if __name__ == '__main__':
             else:
                 metrics_base.MetricsBase.sub_tool_name = USER_FROM_SUB_TOOL
 
-        EXIT_CODE = main(sys.argv[1:], RESULTS_DIR, atest_configs.GLOBAL_ARGS)
-        DETECTOR = bug_detector.BugDetector(sys.argv[1:], EXIT_CODE)
+        EXIT_CODE = main(final_args, RESULTS_DIR, atest_configs.GLOBAL_ARGS)
+        DETECTOR = bug_detector.BugDetector(final_args, EXIT_CODE)
         if EXIT_CODE not in constants.EXIT_CODES_BEFORE_TEST:
             metrics.LocalDetectEvent(
                 detect_type=constants.DETECT_TYPE_BUG_DETECTED,
