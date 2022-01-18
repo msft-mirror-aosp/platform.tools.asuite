@@ -23,6 +23,7 @@ import json
 import os
 import re
 import sys
+import tempfile
 
 from importlib import reload
 from io import StringIO
@@ -58,7 +59,8 @@ TEST_9 = test_mapping.TestDetail({'name': 'test9'})
 TEST_10 = test_mapping.TestDetail({'name': 'test10'})
 
 SEARCH_DIR_RE = re.compile(r'^find ([^ ]*).*$')
-
+BUILD_TOP_DIR = tempfile.TemporaryDirectory().name
+PRODUCT_OUT_DIR = os.path.join(BUILD_TOP_DIR, 'out/target/product/vsoc_x86_64')
 
 #pylint: disable=unused-argument
 def gettestinfos_side_effect(test_names, test_mapping_test_details=None,
@@ -228,7 +230,7 @@ class CLITranslatorUnittests(unittest.TestCase):
                     test_info.data[constants.TI_MODULE_ARG])
 
     @mock.patch.dict('os.environ', {constants.ANDROID_BUILD_TOP:'/',
-                                    constants.ANDROID_PRODUCT_OUT:'/test/output'})
+                                    constants.ANDROID_PRODUCT_OUT:PRODUCT_OUT_DIR})
     @mock.patch.object(module_finder.ModuleFinder, 'get_fuzzy_searching_results')
     @mock.patch.object(metrics, 'FindTestFinishEvent')
     @mock.patch.object(test_finder_handler, 'get_find_methods_for_test')
@@ -409,7 +411,7 @@ class CLITranslatorUnittests(unittest.TestCase):
         self.assertEqual(test_mapping_dict, test_mapping_dict_gloden)
 
     @mock.patch.dict('os.environ', {constants.ANDROID_BUILD_TOP:'/',
-                                    constants.ANDROID_PRODUCT_OUT:'/test/output'})
+                                    constants.ANDROID_PRODUCT_OUT:PRODUCT_OUT_DIR})
     @mock.patch.object(module_info.ModuleInfo, 'get_testable_modules')
     def test_extract_testable_modules_by_wildcard(self, mock_mods):
         """Test _extract_testable_modules_by_wildcard method."""

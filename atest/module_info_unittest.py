@@ -214,7 +214,6 @@ class ModuleInfoUnittests(unittest.TestCase):
         self.assertTrue(mod_info.is_suite_in_compatibility_suites("vts10", info3))
         self.assertFalse(mod_info.is_suite_in_compatibility_suites("ats", info3))
 
-    @mock.patch('constants.MODULE_INDEX_MD5', uc.MODULE_INDEX_MD5)
     @mock.patch.dict('os.environ', {constants.ANDROID_BUILD_TOP:'/',
                                     constants.ANDROID_PRODUCT_OUT:PRODUCT_OUT_DIR})
     @mock.patch.object(module_info.ModuleInfo, 'is_testable_module')
@@ -487,8 +486,8 @@ class ModuleInfoUnittests(unittest.TestCase):
         self.assertTrue(mod_info.is_unit_test(maininfo_with_unittest))
 
 
-    @mock.patch.dict('os.environ', {constants.ANDROID_BUILD_TOP: '/',
-                                    constants.ANDROID_PRODUCT_OUT: '/test/output'})
+    @mock.patch.dict('os.environ', {constants.ANDROID_BUILD_TOP:'/',
+                                    constants.ANDROID_PRODUCT_OUT:PRODUCT_OUT_DIR})
     def test_is_host_unit_test(self):
         """Test is_host_unit_test."""
         module_name = 'myModule'
@@ -501,7 +500,7 @@ class ModuleInfoUnittests(unittest.TestCase):
         self.assertTrue(mod_info.is_host_unit_test(maininfo_with_host_unittest))
 
     @mock.patch.dict('os.environ', {constants.ANDROID_BUILD_TOP:os.path.dirname(__file__),
-                                    constants.ANDROID_PRODUCT_OUT:'/test/output/'})
+                                    constants.ANDROID_PRODUCT_OUT:PRODUCT_OUT_DIR})
     def test_has_mainline_modules(self):
         """Test has_mainline_modules."""
         name1 = 'MainModule1'
@@ -520,7 +519,7 @@ class ModuleInfoUnittests(unittest.TestCase):
 
     @mock.patch.dict('os.environ',
                      {constants.ANDROID_BUILD_TOP:os.path.dirname(__file__),
-                      constants.ANDROID_PRODUCT_OUT:'/test/output/'})
+                      constants.ANDROID_PRODUCT_OUT:PRODUCT_OUT_DIR})
     def test_get_module_info_for_multi_lib_module(self):
         my_module_name = 'MyMultiArchTestModule'
         multi_arch_json = os.path.join(uc.TEST_DATA_DIR,
