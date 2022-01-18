@@ -17,8 +17,11 @@
 """Unittests for atest_tf_test_runner."""
 
 # pylint: disable=line-too-long
+# pylint: disable=missing-function-docstring
+# pylint: disable=too-many-lines
 
 import os
+import shlex
 import sys
 import tempfile
 import unittest
@@ -181,6 +184,7 @@ EVENTS_NORMAL = [
     ('TEST_MODULE_ENDED', {'foo': 'bar'}),
 ]
 
+#pylint: disable=too-many-public-methods
 class AtestTradefedTestRunnerUnittests(unittest.TestCase):
     """Unit tests for atest_tf_test_runner.py"""
 
@@ -475,7 +479,6 @@ class AtestTradefedTestRunnerUnittests(unittest.TestCase):
                             tf_customize_template='',
                             device_early_release=' --no-early-device-release') +
              ' -n --prioritize-host-config --skip-host-arch-check'])
-
 
     def test_flatten_test_filters(self):
         """Test _flatten_test_filters method."""
@@ -923,6 +926,182 @@ class AtestTradefedTestRunnerUnittests(unittest.TestCase):
 
         args, _ = self.tr._parse_extra_args([MOD_INFO], [])
         self.assertFalse('--enable-parameterized-modules' in args)
+
+    def assertTokensIn(self, expected_tokens, s):
+        tokens = shlex.split(s)
+        for token in expected_tokens:
+            self.assertIn(token, tokens)
+
+    def assertTokensNotIn(self, unwanted_tokens, s):
+        tokens = shlex.split(s)
+        for token in unwanted_tokens:
+            self.assertNotIn(token, tokens)
+
+
+class ExtraArgsTest(AtestTradefedTestRunnerUnittests):
+    """Unit tests for parsing extra args"""
+
+    def test_args_with_wait_for_debug_and_generate_in_run_cmd(self):
+        extra_args = {constants.WAIT_FOR_DEBUGGER: None}
+
+        cmd = self.tr.generate_run_commands([], extra_args)
+
+        self.assertTokensIn(['--wait-for-debugger'], cmd[0])
+
+    def test_args_with_disable_installed_and_generate_in_run_cmd(self):
+        extra_args = {constants.DISABLE_INSTALL: None}
+
+        cmd = self.tr.generate_run_commands([], extra_args)
+
+        self.assertTokensIn(['--disable-target-preparers'], cmd[0])
+
+    def test_args_with_serial_no_and_generate_in_run_cmd(self):
+        extra_args = {constants.SERIAL: ['device1']}
+
+        cmd = self.tr.generate_run_commands([], extra_args)
+
+        self.assertTokensIn(['--serial', 'device1'], cmd[0])
+
+    def test_args_with_multi_serial_no_and_generate_in_run_cmd(self):
+        extra_args = {constants.SERIAL: ['device1', 'device2']}
+
+        cmd = self.tr.generate_run_commands([], extra_args)
+
+        self.assertIn('--serial device1 --serial device2', cmd[0])
+
+    def test_args_with_sharding_and_generate_in_run_cmd(self):
+        extra_args = {constants.SHARDING: 2}
+
+        cmd = self.tr.generate_run_commands([], extra_args)
+
+        self.assertIn('--shard-count 2', cmd[0])
+
+    def test_args_with_disable_teardown_and_generate_in_run_cmd(self):
+        extra_args = {constants.DISABLE_TEARDOWN: True}
+
+        cmd = self.tr.generate_run_commands([], extra_args)
+
+        self.assertTokensIn(['--disable-teardown'], cmd[0])
+
+    def test_args_with_host_and_generate_in_run_cmd(self):
+        extra_args = {constants.HOST: True}
+
+        cmd = self.tr.generate_run_commands([], extra_args)
+
+        self.assertTokensIn(['-n', '--prioritize-host-config',
+                             '--skip-host-arch-check'], cmd[0])
+
+    def test_args_with_custom_args_and_generate_in_run_cmd(self):
+        extra_args = {constants.CUSTOM_ARGS: ['--a=b']}
+
+        cmd = self.tr.generate_run_commands([], extra_args)
+
+        self.assertTokensIn(['--a=b'], cmd[0])
+
+    def test_args_with_multi_custom_args_and_generate_in_run_cmd(self):
+        extra_args = {constants.CUSTOM_ARGS: ['--a=b', '--c=d']}
+
+        cmd = self.tr.generate_run_commands([], extra_args)
+
+        self.assertTokensIn(['--a=b', '--c=d'], cmd[0])
+
+    def test_args_with_all_abi_and_generate_in_run_cmd(self):
+        extra_args = {constants.ALL_ABI: True}
+
+        cmd = self.tr.generate_run_commands([], extra_args)
+
+        self.assertTokensIn(['--all-abi'], cmd[0])
+
+    def test_args_with_dry_run_but_not_generate_in_run_cmd(self):
+        extra_args = {constants.DRY_RUN: True}
+
+        cmd = self.tr.generate_run_commands([], extra_args)
+
+        self.assertTokensNotIn(['--dry-run'], cmd[0])
+
+    def test_args_with_verify_env_variable_but_not_generate_in_run_cmd(self):
+        extra_args = {constants.VERIFY_ENV_VARIABLE: True}
+
+        cmd = self.tr.generate_run_commands([], extra_args)
+
+        self.assertTokensNotIn(['--verify-env-variable'], cmd[0])
+
+    def test_args_with_fakes_info_but_not_generate_in_run_cmd(self):
+        extra_args = {constants.FLAKES_INFO: True}
+
+        cmd = self.tr.generate_run_commands([], extra_args)
+
+        self.assertTokensNotIn(['--flakes-info'], cmd[0])
+
+    def test_args_with_instant_and_generate_in_run_cmd(self):
+        extra_args = {constants.INSTANT: True}
+
+        cmd = self.tr.generate_run_commands([], extra_args)
+
+        self.assertTokensIn(['--enable-parameterized-modules',
+                             '--module-parameter', 'instant_app'], cmd[0])
+
+    def test_args_with_user_type_and_generate_in_run_cmd(self):
+        extra_args = {constants.USER_TYPE: 'hello_user'}
+
+        cmd = self.tr.generate_run_commands([], extra_args)
+
+        self.assertTokensIn(['--enable-parameterized-modules',
+                             '--enable-optional-parameterization',
+                             '--module-parameter', 'hello_user'], cmd[0])
+
+    def test_args_with_iterations_and_generate_in_run_cmd(self):
+        extra_args = {constants.ITERATIONS: 2}
+
+        cmd = self.tr.generate_run_commands([], extra_args)
+
+        self.assertIn('--retry-strategy ITERATIONS', cmd[0])
+        self.assertIn('--max-testcase-run-count 2', cmd[0])
+
+    def test_args_with_retry_until_failure_and_generate_in_run_cmd(self):
+        extra_args = {constants.RERUN_UNTIL_FAILURE: 2}
+
+        cmd = self.tr.generate_run_commands([], extra_args)
+
+        self.assertIn('--retry-strategy RERUN_UNTIL_FAILURE', cmd[0])
+        self.assertIn('--max-testcase-run-count 2', cmd[0])
+
+    def test_args_with_retry_any_failure_and_generate_in_run_cmd(self):
+        extra_args = {constants.RETRY_ANY_FAILURE: 2}
+
+        cmd = self.tr.generate_run_commands([], extra_args)
+
+        self.assertIn('--retry-strategy RETRY_ANY_FAILURE', cmd[0])
+        self.assertIn('--max-testcase-run-count 2', cmd[0])
+
+    def test_args_with_collect_test_only_and_generate_in_run_cmd(self):
+        extra_args = {constants.COLLECT_TESTS_ONLY: True}
+
+        cmd = self.tr.generate_run_commands([], extra_args)
+
+        self.assertTokensIn(['--collect-tests-only'], cmd[0])
+
+    def test_args_with_no_enable_root_and_generate_in_run_cmd(self):
+        extra_args = {constants.NO_ENABLE_ROOT: True}
+
+        cmd = self.tr.generate_run_commands([], extra_args)
+
+        self.assertTokensIn(['--no-enable-root'], cmd[0])
+
+    def test_args_with_tf_template_but_not_generate_in_run_cmd(self):
+        extra_args = {constants.TF_TEMPLATE: ['hello']}
+
+        cmd = self.tr.generate_run_commands([], extra_args)
+
+        self.assertTokensNotIn(['--tf-template'], cmd[0])
+
+    def test_args_with_tf_early_device_release_but_not_generate_in_cmd(self):
+        extra_args = {constants.TF_EARLY_DEVICE_RELEASE: True}
+
+        cmd = self.tr.generate_run_commands([], extra_args)
+
+        self.assertTokensNotIn(['--tf-early-device-release'], cmd[0])
+
 
 if __name__ == '__main__':
     unittest.main()

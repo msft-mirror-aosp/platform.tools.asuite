@@ -28,6 +28,7 @@ import tempfile
 import os
 
 from collections import namedtuple
+from typing import Any, Dict
 
 import atest_error
 import atest_utils
@@ -46,6 +47,9 @@ FAILED_STATUS = 'FAILED'
 PASSED_STATUS = 'PASSED'
 IGNORED_STATUS = 'IGNORED'
 ERROR_STATUS = 'ERROR'
+
+ARGS = Dict[str, Any]
+
 
 class TestRunnerBase:
     """Base Test Runner class."""
