@@ -563,6 +563,17 @@ class AtestTradefedTestRunner(test_runner_base.TestRunnerBase):
             if constants.TF_DEBUG == arg:
                 print("Please attach process to your IDE...")
                 continue
+            if constants.ANNOTATION_FILTER == arg:
+                for info in test_infos:
+                    test_name = info.test_name
+                    for annotation in extra_args[constants.ANNOTATION_FILTER]:
+                        module_arg = (
+                            constants.TF_MODULE_ARG_VALUE_FMT.format(
+                                test_name=test_name,
+                                option_name=constants.INCLUDE_ANNOTATION,
+                                option_value=annotation))
+                        args_to_append.extend([constants.TF_MODULE_ARG, module_arg])
+                continue
             if arg in (constants.TF_TEMPLATE,
                        constants.TF_EARLY_DEVICE_RELEASE,
                        constants.INVOCATION_ID,
