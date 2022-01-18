@@ -566,13 +566,22 @@ class AtestTradefedTestRunner(test_runner_base.TestRunnerBase):
             if constants.ANNOTATION_FILTER == arg:
                 for info in test_infos:
                     test_name = info.test_name
-                    for annotation in extra_args[constants.ANNOTATION_FILTER]:
-                        module_arg = (
-                            constants.TF_MODULE_ARG_VALUE_FMT.format(
-                                test_name=test_name,
-                                option_name=constants.INCLUDE_ANNOTATION,
-                                option_value=annotation))
-                        args_to_append.extend([constants.TF_MODULE_ARG, module_arg])
+                    for keyword in extra_args[constants.ANNOTATION_FILTER]:
+                        annotation = atest_utils.get_full_annotation_class_name(
+                            self.module_info.get_module_info(test_name),
+                            keyword)
+                        if annotation:
+                            module_arg = (
+                                constants.TF_MODULE_ARG_VALUE_FMT.format(
+                                    test_name=test_name,
+                                    option_name=constants.INCLUDE_ANNOTATION,
+                                    option_value=annotation))
+                            args_to_append.extend([constants.TF_MODULE_ARG,
+                                                  module_arg])
+                        else:
+                            logging.error(atest_utils.colorize(
+                                f'Cannot find similar annotation: {keyword}',
+                                constants.RED))
                 continue
             if arg in (constants.TF_TEMPLATE,
                        constants.TF_EARLY_DEVICE_RELEASE,
