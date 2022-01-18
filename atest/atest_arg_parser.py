@@ -36,6 +36,8 @@ ACLOUD_CREATE = 'Create AVD(s) via acloud command.'
 AGGREGATE_METRIC_FILTER = ('Regular expression that will be used for filtering '
                            'the aggregated metrics.')
 ALL_ABI = 'Set to run tests for all abis.'
+ANNOTATION_FILTER = ('Accept keyword that will be translated to fully qualified'
+                     'annotation class name.')
 BUILD = 'Run a build.'
 BAZEL_MODE = 'Run tests using Bazel.'
 CLEAR_CACHE = 'Wipe out the test_infos cache of the test and start a new search.'
@@ -43,6 +45,8 @@ COLLECT_TESTS_ONLY = ('Collect a list test cases of the instrumentation tests '
                       'without testing them in real.')
 DISABLE_TEARDOWN = 'Disable test teardown and cleanup.'
 DRY_RUN = 'Dry run atest without building, installing and running tests in real.'
+ENABLE_DEVICE_PREPARER = ('Enable template/preparers/device-preparer as the '
+                          'default preparer.')
 ENABLE_FILE_PATTERNS = 'Enable FILE_PATTERNS in TEST_MAPPING.'
 FLAKES_INFO = 'Test result with flakes info.'
 HISTORY = ('Show test results in chronological order(with specified number or '
@@ -141,6 +145,7 @@ class AtestArgParser(argparse.ArgumentParser):
         self.add_argument('--bazel-mode', action='store_true', help=BAZEL_MODE)
         self.add_argument('-d', '--disable-teardown', action='store_true',
                           help=DISABLE_TEARDOWN)
+        self.add_argument('--enable-device-preparer', action='store_true', help=HOST)
         self.add_argument('--host', action='store_true', help=HOST)
         self.add_argument('-i', '--install', action='append_const',
                           dest='steps', const=constants.INSTALL_STEP,
@@ -228,6 +233,7 @@ class AtestArgParser(argparse.ArgumentParser):
         # Options related to module parameterization
         self.add_argument('--instant', action='store_true', help=INSTANT)
         self.add_argument('--user-type', help=USER_TYPE)
+        self.add_argument('--annotation-filter', action='append', help=ANNOTATION_FILTER)
 
         # Option for dry-run command mapping result and cleaning cache.
         self.add_argument('-c', '--clear-cache', action='store_true',
@@ -309,12 +315,14 @@ def print_epilog_text():
         ACLOUD_CREATE=ACLOUD_CREATE,
         AGGREGATE_METRIC_FILTER=AGGREGATE_METRIC_FILTER,
         ALL_ABI=ALL_ABI,
+        ANNOTATION_FILTER=ANNOTATION_FILTER,
         BUILD=BUILD,
         BAZEL_MODE=BAZEL_MODE,
         CLEAR_CACHE=CLEAR_CACHE,
         COLLECT_TESTS_ONLY=COLLECT_TESTS_ONLY,
         DISABLE_TEARDOWN=DISABLE_TEARDOWN,
         DRY_RUN=DRY_RUN,
+        ENABLE_DEVICE_PREPARER=ENABLE_DEVICE_PREPARER,
         ENABLE_FILE_PATTERNS=ENABLE_FILE_PATTERNS,
         FLAKES_INFO=FLAKES_INFO,
         HELP_DESC=HELP_DESC,
@@ -367,6 +375,18 @@ SYNOPSIS
 OPTIONS
         Below arguments are catagorised by features and purposes. Arguments marked with implicit default will apply even the user does not pass it explicitly.
 
+        *NOTE* Atest reads ~/.atest/config that supports all optional arguments to help users reduce repeating options they often use.
+        E.g. Assume "--all-abi" and "--verbose" are frequently used and have been defined line-by-line in ~/.atest/config, issuing
+
+            atest hello_world_test -v -- --test-arg xxx
+
+        is equivalent to
+
+            atest hello_world_test -v --all-abi --verbose -- --test-arg xxx
+
+        Also, to avoid confusing Atest from testing TEST_MAPPING file and implicit test names from ~/.atest/config, any test names defined in the config file
+        will be ignored without any hints.
+
         [ Testing ]
         -a, --all-abi
             {ALL_ABI}
@@ -386,6 +406,9 @@ OPTIONS
 
         -D, --tf-debug [PORT]
             {TF_DEBUG}
+
+        --enable-device-preparer
+            {ENABLE_DEVICE_PREPARER}
 
         --host
             {HOST}
@@ -475,8 +498,15 @@ OPTIONS
         --instant
             {INSTANT}
 
-        --user-type
+        --user-type [TYPE]
             {USER_TYPE}
+
+        --annotation-filter [KEYWORD]
+            {ANNOTATION_FILTER} e.g.
+
+                atest TeleServiceTests --annotation-filter smallTest
+
+            where "smalltest" will be translated to "androidx.test.filters.SmallTest" or other class accordingly.
 
 
         [ Iteration Testing ]

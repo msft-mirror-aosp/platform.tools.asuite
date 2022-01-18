@@ -65,6 +65,8 @@ NO_ENABLE_ROOT = 'NO_ENABLE_ROOT'
 VERIFY_ENV_VARIABLE = 'VERIFY_ENV_VARIABLE'
 SKIP_VARS = [VERIFY_ENV_VARIABLE]
 AGGREGATE_METRIC_FILTER_ARG = 'AGGREGATE_METRIC_FILTER'
+ENABLE_DEVICE_PREPARER = 'ENABLE_DEVICE_PREPARER'
+ANNOTATION_FILTER = 'ANNOTATION_FILTER'
 
 # Application exit codes.
 EXIT_CODE_SUCCESS = 0
@@ -77,6 +79,7 @@ EXIT_CODE_VERIFY_FAILURE = 6
 EXIT_CODE_OUTSIDE_ROOT = 7
 EXIT_CODE_AVD_CREATE_FAILURE = 8
 EXIT_CODE_AVD_INVALID_ARGS = 9
+EXIT_CODE_EXIT_BEFORE_MAIN = 10
 # Conditions that atest should exit without sending result to metrics.
 EXIT_CODES_BEFORE_TEST = [EXIT_CODE_ENV_NOT_SETUP,
                           EXIT_CODE_TEST_NOT_FOUND,
@@ -207,7 +210,7 @@ USER_FROM_SUB_TOOL = 'USER_FROM_SUB_TOOL'
 TF_PREPARATION = 'tf-preparation'
 
 # Detect type for local_detect_event.
-# Next expansion : DETECT_TYPE_XXX = 15
+# Next expansion : DETECT_TYPE_XXX = 18
 DETECT_TYPE_BUG_DETECTED = 0
 DETECT_TYPE_ACLOUD_CREATE = 1
 DETECT_TYPE_FIND_BUILD = 2
@@ -229,6 +232,9 @@ DETECT_TYPE_TESTABLE_MODULES = 13
 # 6: THROWABLE_EXCEPTION  7: NO_DEVICE_ALLOCATED
 # 8: WRONG_JAVA_VERSION
 DETECT_TYPE_TF_EXIT_CODE = 14
+DETECT_TYPE_ATEST_CONFIG = 15
+DETECT_TYPE_TEST_WITH_ARGS = 16
+DETECT_TYPE_TEST_NULL_ARGS = 17
 # XTS suite types encode from 100 to 199
 DETECT_TYPE_XTS_SUITE = {'cts': 101,
                          'vts': 104}
@@ -273,8 +279,8 @@ CLASS_INDEX = os.path.join(INDEX_DIR, 'classes.idx')
 CC_CLASS_INDEX = os.path.join(INDEX_DIR, 'cc_classes.idx')
 PACKAGE_INDEX = os.path.join(INDEX_DIR, 'packages.idx')
 QCLASS_INDEX = os.path.join(INDEX_DIR, 'fqcn.idx')
-MODULE_INDEX = os.path.join(INDEX_DIR, 'modules.idx')
-MODULE_INDEX_MD5 = os.path.join(INDEX_DIR, 'modules.md5')
+MODULE_INDEX = 'modules.idx'
+MODULE_INFO_MD5 = 'module-info.md5'
 VERSION_FILE = os.path.join(os.path.dirname(__file__), 'VERSION')
 
 # Regeular Expressions
@@ -356,10 +362,25 @@ BUILD_TARGET = 'BUILD_TARGET'
 RESULT_LINK = ''
 TF_GLOBAL_CONFIG = ''
 UPLOAD_TEST_RESULT_MSG = 'Upload test result?'
+DISCOVERY_SERVICE = ''
+STORAGE2_TEST_URI = ''
 
 # messages that share among libraries.
 REBUILD_MODULE_INFO_MSG = ('(This can happen after a repo sync or if the test'
                            ' is new. Running with "{}" may resolve the issue.)')
+
+# Example arguments used in ~/.atest/config
+ATEST_EXAMPLE_ARGS = ('## Specify only one option per line; any test name/path will be ignored automatically.\n'
+                      '## Option that follows a "#" will be ignored.\n'
+                      'hello_world_test   # Test name will be skipped WITHOUT warning.\n'
+                      '# -- --module-arg Foo:variable:value   # Only support atest arguments so "--" will be ignored.\n'
+                      '                                       # and will stop running tests.\n'
+                      '# --iterations=3\n'
+                      '# --retry-any-failure=5\n'
+                      '# --rerun-until-failure=5\n'
+                      '# --start-avd        # also run "acloud create" concurrently.\n'
+                      '# --all-abi          # Set to run tests for all abis.\n'
+                      '# --verbose          # turn on verbose mode for debugging.\n')
 
 # AndroidJUnitTest related argument.
 ANDROID_JUNIT_CLASS = 'com.android.tradefed.testtype.AndroidJUnitTest'
@@ -407,5 +428,6 @@ GTEST_PARAM = 'value-parameterized test'
 
 # Tradefed log saver template for ATest
 ATEST_TF_LOG_SAVER = 'template/log/atest_log_saver'
+DEVICE_SETUP_PREPARER = 'template/preparers/device-preparer'
 LOG_ROOT_OPTION_NAME = 'atest-log-file-path'
 LOG_SAVER_EXT_OPTION = ''
