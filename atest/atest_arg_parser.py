@@ -504,7 +504,9 @@ OPTIONS
         --annotation-filter [KEYWORD]
             {ANNOTATION_FILTER} e.g.
 
-                atest TeleServiceTests --annotation-filter android.test.suitebuilder.annotation.SmallTest
+                atest TeleServiceTests --annotation-filter smallTest
+
+            where "smalltest" will be translated to "androidx.test.filters.SmallTest" or other class accordingly.
 
 
         [ Iteration Testing ]
