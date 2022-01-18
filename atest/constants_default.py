@@ -361,6 +361,7 @@ RESULT_LINK = ''
 TF_GLOBAL_CONFIG = ''
 UPLOAD_TEST_RESULT_MSG = 'Upload test result?'
 DISCOVERY_SERVICE = ''
+STORAGE2_TEST_URI = ''
 
 # messages that share among libraries.
 REBUILD_MODULE_INFO_MSG = ('(This can happen after a repo sync or if the test'
