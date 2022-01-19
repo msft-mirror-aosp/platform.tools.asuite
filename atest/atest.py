@@ -220,6 +220,7 @@ def get_extra_args(args):
     # if args.aaaa:
     #     extra_args[constants.AAAA] = args.aaaa
     arg_maps = {'all_abi': constants.ALL_ABI,
+                'annotation_filter': constants.ANNOTATION_FILTER,
                 'collect_tests_only': constants.COLLECT_TESTS_ONLY,
                 'custom_args': constants.CUSTOM_ARGS,
                 'disable_teardown': constants.DISABLE_TEARDOWN,
