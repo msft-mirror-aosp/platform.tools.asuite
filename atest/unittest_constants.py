@@ -59,7 +59,7 @@ CONFIG2_FILE = os.path.join(MODULE2_DIR, constants.MODULE_CONFIG)
 JSON_FILE = 'module-info.json'
 MODULE_INFO_TARGET = '/out/%s' % JSON_FILE
 CC_DEP_FILE = 'module_bp_cc_deps.json'
-JAVA_DPE_FILE = 'module_bp_java_deps.json'
+JAVA_DEP_FILE = 'module_bp_java_deps.json'
 MERGED_DEP_FILE = 'atest_merged_dep.json'
 MODULE_BUILD_TARGETS = {'tradefed-core', MODULE_INFO_TARGET,
                         'MODULES-IN-%s' % MODULE_DIR.replace('/', '-'),
