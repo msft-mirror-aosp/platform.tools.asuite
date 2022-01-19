@@ -91,7 +91,7 @@ def _get_args_from_config():
     Returns:
         A list read from the config file.
     """
-    _config = Path(atest_utils.get_misc_dir()).joinpath('atest', 'config')
+    _config = Path(atest_utils.get_misc_dir()).joinpath('.atest', 'config')
     if not _config.parent.is_dir():
         _config.parent.mkdir(parents=True)
     args = []
