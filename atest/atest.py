@@ -24,6 +24,7 @@ atest is designed to support any test types that can be ran by TradeFederation.
 """
 
 # pylint: disable=line-too-long
+# pylint: disable=too-many-lines
 
 from __future__ import print_function
 
@@ -65,7 +66,7 @@ EXPECTED_VARS = frozenset([
 TEST_RUN_DIR_PREFIX = "%Y%m%d_%H%M%S"
 CUSTOM_ARG_FLAG = '--'
 OPTION_NOT_FOR_TEST_MAPPING = (
-    'Option `%s` does not work for running tests in TEST_MAPPING files')
+    'Option "{}" does not work for running tests in TEST_MAPPING files')
 
 DEVICE_TESTS = 'tests that require device'
 HOST_TESTS = 'tests that do NOT require device'
@@ -406,13 +407,15 @@ def _has_valid_test_mapping_args(args):
     if not is_test_mapping:
         return True
     options_to_validate = [
+        (args.annotation_filter, '--annotation-filter'),
         (args.generate_baseline, '--generate-baseline'),
         (args.detect_regression, '--detect-regression'),
         (args.generate_new_metrics, '--generate-new-metrics'),
     ]
     for arg_value, arg in options_to_validate:
         if arg_value:
-            logging.error(OPTION_NOT_FOR_TEST_MAPPING, arg)
+            logging.error(atest_utils.colorize(
+                OPTION_NOT_FOR_TEST_MAPPING.format(arg), constants.RED))
             return False
     return True
 
