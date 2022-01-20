@@ -58,6 +58,9 @@ EXTRA_CONFIG_FILE = os.path.join(MODULE_DIR, MODULE_CONFIG_NAME + '.xml')
 CONFIG2_FILE = os.path.join(MODULE2_DIR, constants.MODULE_CONFIG)
 JSON_FILE = 'module-info.json'
 MODULE_INFO_TARGET = '/out/%s' % JSON_FILE
+CC_DEP_FILE = 'module_bp_cc_deps.json'
+JAVA_DEP_FILE = 'module_bp_java_deps.json'
+MERGED_DEP_FILE = 'atest_merged_dep.json'
 MODULE_BUILD_TARGETS = {'tradefed-core', MODULE_INFO_TARGET,
                         'MODULES-IN-%s' % MODULE_DIR.replace('/', '-'),
                         'module-specific-target'}
@@ -307,8 +310,6 @@ CLASS_INDEX = os.path.join(INDEX_DIR, 'classes.idx')
 QCLASS_INDEX = os.path.join(INDEX_DIR, 'fqcn.idx')
 CC_CLASS_INDEX = os.path.join(INDEX_DIR, 'cc_classes.idx')
 PACKAGE_INDEX = os.path.join(INDEX_DIR, 'packages.idx')
-MODULE_INDEX = os.path.join(INDEX_DIR, 'modules.idx')
-MODULE_INDEX_MD5 = os.path.join(INDEX_DIR, 'modules.md5')
 
 # TF's log dir
 TEST_INFO_DIR = '/tmp/atest_run_1510085893_pi_Nbi'

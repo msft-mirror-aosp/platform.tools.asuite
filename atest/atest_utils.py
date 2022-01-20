@@ -44,8 +44,6 @@ from pathlib import Path
 
 import xml.etree.ElementTree as ET
 
-from distutils.util import strtobool
-
 # This is a workaround of b/144743252, where the http.client failed to loaded
 # because the googleapiclient was found before the built-in libs; enabling
 # embedded launcher(b/135639220) has not been reliable and other issue will
@@ -711,6 +709,8 @@ def md5sum(filename):
         return ""
     with open(filename, 'rb') as target:
         content = target.read()
+    if not isinstance(content, bytes):
+        content = content.encode('utf-8')
     return hashlib.md5(content).hexdigest()
 
 def check_md5(check_file, missing_ok=False):
@@ -1268,6 +1268,23 @@ def prompt_with_yn_result(msg, default=True):
     except (ValueError, KeyboardInterrupt):
         return default
 
+def strtobool(val):
+    """Convert a string representation of truth to True or False.
+
+    Args:
+        val: a string of input value.
+
+    Returns:
+        True when values are 'y', 'yes', 't', 'true', 'on', and '1';
+        False when 'n', 'no', 'f', 'false', 'off', and '0'.
+        Raises ValueError if 'val' is anything else.
+    """
+    if val.lower() in ('y', 'yes', 't', 'true', 'on', '1'):
+        return True
+    if val.lower() in ('n', 'no', 'f', 'false', 'off', '0'):
+        return False
+    raise ValueError("invalid truth value %r" % (val,))
+
 def get_android_junit_config_filters(test_config):
     """Get the dictionary of a input config for junit config's filters
 
@@ -1649,3 +1666,37 @@ def get_misc_dir():
     if is_writable(home_dir):
         return home_dir
     return get_build_out_dir()
+
+def get_full_annotation_class_name(module_info, class_name):
+    """ Get fully qualified class name from a class name.
+
+    If the given keyword(class_name) is "smalltest", this method can search
+    among source codes and grep the accurate annotation class name:
+
+        android.test.suitebuilder.annotation.SmallTest
+
+    Args:
+        module_info: A dict of module_info.
+        class_name: A string of class name.
+
+    Returns:
+        A string of fully qualified class name, empty string otherwise.
+    """
+    fullname_re = re.compile(
+        r'import\s+(?P<fqcn>{})(|;)$'.format(class_name), re.I)
+    keyword_re = re.compile(
+        r'import\s+(?P<fqcn>.*\.{})(|;)$'.format(class_name), re.I)
+    build_top = Path(os.environ.get(constants.ANDROID_BUILD_TOP, ''))
+    for f in module_info.get('srcs'):
+        full_path = build_top.joinpath(f)
+        with open(full_path, 'r') as cache:
+            for line in cache.readlines():
+                # Accept full class name.
+                match = fullname_re.match(line)
+                if match:
+                    return match.group('fqcn')
+                # Search annotation class from keyword.
+                match = keyword_re.match(line)
+                if match:
+                    return match.group('fqcn')
+    return ""

@@ -39,11 +39,15 @@ import os
 import pickle
 import sys
 
+from pathlib import Path
+
 sys.path.append(os.getenv('ATEST_DIR'))
 import constants
 
-if os.path.isfile(constants.MODULE_INDEX):
-    with open(constants.MODULE_INDEX, 'rb') as cache:
+index_dir = Path(os.getenv(constants.ANDROID_HOST_OUT)).joinpath('indexes')
+module_index = index_dir.joinpath(constants.MODULE_INDEX)
+if os.path.isfile(module_index):
+    with open(module_index, 'rb') as cache:
         try:
             print("\n".join(pickle.load(cache, encoding="utf-8")))
         except:
