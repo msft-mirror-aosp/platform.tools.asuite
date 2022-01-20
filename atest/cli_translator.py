@@ -610,6 +610,10 @@ class CLITranslator:
         test_details_list = None
         # Loading Host Unit Tests.
         host_unit_tests = []
+        detect_type = constants.DETECT_TYPE_TEST_WITH_ARGS
+        if not args.tests or atest_utils.is_test_mapping(args):
+            detect_type = constants.DETECT_TYPE_TEST_NULL_ARGS
+        start = time.time()
         if not args.tests:
             logging.debug('Finding Host Unit Tests...')
             path = os.path.relpath(
@@ -625,7 +629,6 @@ class CLITranslator:
                 args, not bool(host_unit_tests))
         atest_utils.colorful_print("\nFinding Tests...", constants.CYAN)
         logging.debug('Finding Tests: %s', tests)
-        start = time.time()
         # Clear cache if user pass -c option
         if args.clear_cache:
             atest_utils.clean_test_info_caches(tests + host_unit_tests)
@@ -640,7 +643,11 @@ class CLITranslator:
             host_unit_test_infos = self._get_test_infos(host_unit_tests,
                                                         host_unit_test_details)
             test_infos.update(host_unit_test_infos)
-        logging.debug('Found tests in %ss', time.time() - start)
+        finished_time = time.time() - start
+        logging.debug('Finding tests finished in %ss', finished_time)
+        metrics.LocalDetectEvent(
+            detect_type=detect_type,
+            result=int(finished_time))
         for test_info in test_infos:
             logging.debug('%s\n', test_info)
         build_targets = self._gather_build_targets(test_infos)
