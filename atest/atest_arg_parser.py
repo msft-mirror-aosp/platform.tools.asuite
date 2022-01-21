@@ -40,6 +40,8 @@ ANNOTATION_FILTER = ('Accept keyword that will be translated to fully qualified'
                      'annotation class name.')
 BUILD = 'Run a build.'
 BAZEL_MODE = 'Run tests using Bazel.'
+BAZEL_ARG = ('Forward a flag to Bazel for tests executed with Bazel; '
+             'see --bazel-mode.')
 CLEAR_CACHE = 'Wipe out the test_infos cache of the test and start a new search.'
 COLLECT_TESTS_ONLY = ('Collect a list test cases of the instrumentation tests '
                       'without testing them in real.')
@@ -143,6 +145,7 @@ class AtestArgParser(argparse.ArgumentParser):
         self.add_argument('-b', '--build', action='append_const', dest='steps',
                           const=constants.BUILD_STEP, help=BUILD)
         self.add_argument('--bazel-mode', action='store_true', help=BAZEL_MODE)
+        self.add_argument('--bazel-arg', nargs='*', action='append', help=BAZEL_ARG)
         self.add_argument('-d', '--disable-teardown', action='store_true',
                           help=DISABLE_TEARDOWN)
         self.add_argument('--enable-device-preparer', action='store_true', help=HOST)
@@ -318,6 +321,7 @@ def print_epilog_text():
         ANNOTATION_FILTER=ANNOTATION_FILTER,
         BUILD=BUILD,
         BAZEL_MODE=BAZEL_MODE,
+        BAZEL_ARG=BAZEL_ARG,
         CLEAR_CACHE=CLEAR_CACHE,
         COLLECT_TESTS_ONLY=COLLECT_TESTS_ONLY,
         DISABLE_TEARDOWN=DISABLE_TEARDOWN,
@@ -400,6 +404,9 @@ OPTIONS
 
         --bazel-mode
             {BAZEL_MODE}
+
+        --bazel-arg
+            {BAZEL_ARG}
 
         -d, --disable-teardown
             {DISABLE_TEARDOWN}
