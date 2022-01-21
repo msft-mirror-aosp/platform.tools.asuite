@@ -77,8 +77,8 @@ More details about Bazel [--test_output flag](https://docs.bazel.build/versions/
 * In Atest Standard Mode, user can identify tests by module name, class name,
 file path or package name, while in Bazel Mode, we only support module name
 currently. Supporting flexible test finder is work in progress.
-* Some features that were handled by TradeFed in Atest Standard Mode are now
-handled by Bazel. For example, sharding and iteration testing.
+* In Atest Standard Mode, test logs are saved under ```/tmp/atest_result```, while in
+Bazel Mode, test logs are saved under ```$ANDROID_BUILD_TOP/out/atest_bazel_workspace/bazel-testlogs```
 
 
 ## <a name="faq">Frequently Asked Questions</a>
@@ -112,7 +112,3 @@ error message.
 One example is C++ android::base::ReadFileToString function. The solution is to
 enable following symbolic link when calling the function.
 More details can be find [here.](https://cs.android.com/android/platform/superproject/+/master:external/googletest/googletest/include/gtest/gtest.h;drc=master;l=2353)
-
-
-
-
