@@ -96,7 +96,7 @@ def _get_args_from_config():
         _config.parent.mkdir(parents=True)
     args = []
     if not _config.is_file():
-        with open(_config, 'w+') as cache:
+        with open(_config, 'w+', encoding='utf8') as cache:
             cache.write(constants.ATEST_EXAMPLE_ARGS)
         return args
     warning = 'Line {} contains {} and will be ignored.'
@@ -105,7 +105,7 @@ def _get_args_from_config():
         atest_utils.colorize(_config, constants.YELLOW)))
     # pylint: disable=global-statement:
     global HAS_IGNORED_ARGS
-    with open(_config, 'r') as cache:
+    with open(_config, 'r', encoding='utf8') as cache:
         for entry in cache.readlines():
             # Strip comments.
             arg_in_line = entry.partition('#')[0].strip()
@@ -222,6 +222,7 @@ def get_extra_args(args):
     #     extra_args[constants.AAAA] = args.aaaa
     arg_maps = {'all_abi': constants.ALL_ABI,
                 'annotation_filter': constants.ANNOTATION_FILTER,
+                'bazel_arg': constants.BAZEL_ARG,
                 'collect_tests_only': constants.COLLECT_TESTS_ONLY,
                 'custom_args': constants.CUSTOM_ARGS,
                 'disable_teardown': constants.DISABLE_TEARDOWN,
@@ -637,7 +638,7 @@ def _non_action_validator(args):
         sys.exit(constants.EXIT_CODE_OUTSIDE_ROOT)
     if args.version:
         if os.path.isfile(constants.VERSION_FILE):
-            with open(constants.VERSION_FILE) as version_file:
+            with open(constants.VERSION_FILE, encoding='utf8') as version_file:
                 print(version_file.read())
         sys.exit(constants.EXIT_CODE_SUCCESS)
     if args.help:
