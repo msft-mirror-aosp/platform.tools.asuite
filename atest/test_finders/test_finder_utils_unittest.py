@@ -763,7 +763,8 @@ class TestFinderUtilsUnittests(unittest.TestCase):
             return [UNIT_TEST_NOT_MATCHED_1_PATH]
         return []
 
-    @mock.patch.dict('os.environ', {constants.ANDROID_BUILD_TOP:'/'})
+    @mock.patch.dict('os.environ', {constants.ANDROID_BUILD_TOP:'/',
+                                    constants.ANDROID_PRODUCT_OUT:PRODUCT_OUT_DIR})
     @mock.patch.object(module_info.ModuleInfo, 'get_all_host_unit_tests',
                        return_value=[UNIT_TEST_MODULE_1,
                                      UNIT_TEST_MODULE_2,
