@@ -1243,16 +1243,22 @@ def find_host_unit_tests(module_info, path):
 
     Args:
         module_info: ModuleInfo obj.
-        path: A string of the relative path from $BUILD_TOP we want to search.
+        path: A string of the relative path from $ANDROID_BUILD_TOP that we want
+              to search.
 
     Returns:
         A list that includes the module name of host unit tests, otherwise an empty
         list.
     """
     logging.debug('finding host unit tests under %s', path)
-    tests = []
     host_unit_test_names = module_info.get_all_host_unit_tests()
     logging.debug('All the host unit tests: %s', host_unit_test_names)
+
+    # Return all tests if the path relative to ${ANDROID_BUILD_TOP} is '.'.
+    if path == '.':
+        return host_unit_test_names
+
+    tests = []
     for name in host_unit_test_names:
         for test_path in module_info.get_paths(name):
             if test_path.find(path) == 0:
