@@ -42,7 +42,8 @@ import module_info
 
 from test_finders import test_finder_base
 from test_finders import test_info
-from test_runners import test_runner_base
+from test_runners import test_runner_base as trb
+from test_runners import atest_tf_test_runner as tfr
 
 
 _BAZEL_WORKSPACE_DIR = 'atest_bazel_workspace'
@@ -569,7 +570,7 @@ class SoongPrebuiltTarget(Target):
             return
 
         for config in self.supported_configs():
-            config_deps.setdefault(config, list())
+            config_deps.setdefault(config, [])
 
         writer.write('runtime_deps = ')
         write_config_select(
@@ -808,7 +809,7 @@ def default_run_command(args: List[str], cwd: Path) -> str:
     )
 
 
-class BazelTestRunner(test_runner_base.TestRunnerBase):
+class BazelTestRunner(trb.TestRunnerBase):
     """Bazel Test Runner class."""
 
     NAME = 'BazelTestRunner'
@@ -903,7 +904,28 @@ class BazelTestRunner(test_runner_base.TestRunnerBase):
         """
         target_patterns = ' '.join(self.test_info_target_label(i)
                                    for i in test_infos)
+        bazel_args = ' '.join(self._parse_extra_args(test_infos, extra_args))
         # Use 'cd' instead of setting the working directory in the subprocess
         # call for a working --dry-run command that users can run.
         return [f'cd {self.bazel_workspace} &&'
-                f'{self.bazel_binary} test {target_patterns}']
+                f'{self.bazel_binary} test {target_patterns} {bazel_args}']
+
+    def _parse_extra_args(self, test_infos: List[test_info.TestInfo],
+                          extra_args: trb.ARGS) -> trb.ARGS:
+
+        def flatten(i):
+            return [item for sublist in i for item in sublist]
+
+        args_to_append = []
+        tf_args, tf_not_supported_args = tfr.extra_args_to_tf_args(
+            self.mod_info, test_infos, extra_args)
+
+        # TODO(b/215461642): Store the extra_args in the top-level object so
+        # that we don't have to re-parse the extra args to get BAZEL_ARG again.
+        for arg in tf_not_supported_args:
+            if constants.BAZEL_ARG == arg:
+                args_to_append.extend(flatten(extra_args[arg]))
+
+        args_to_append.extend([f'--test_arg={i}' for i in tf_args])
+
+        return args_to_append
