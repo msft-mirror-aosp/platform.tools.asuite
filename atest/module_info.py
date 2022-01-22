@@ -606,7 +606,8 @@ class ModuleInfo:
 
     def _merge_build_system_infos(self, name_to_module_info,
         java_bp_info_path=None, cc_bp_info_path=None):
-        """Merge the full build system's info to name_to_module_info.
+        """Merge the content of module-info.json and CC/Java dependency files
+        to name_to_module_info.
 
         Args:
             name_to_module_info: Dict of module name to module info dict.
@@ -616,8 +617,9 @@ class ModuleInfo:
                              Used for testing.
 
         Returns:
-            Dict of merged json of input def_file_path and name_to_module_info.
+            Dict of updated name_to_module_info.
         """
+        start = time.time()
         # Merge _JAVA_DEP_INFO
         if not java_bp_info_path:
             java_bp_info_path = self.java_dep_path
@@ -650,6 +652,22 @@ class ModuleInfo:
             #           ],
             name_to_module_info = self._merge_soong_info(
                 name_to_module_info, cc_bp_infos.get('modules', {}))
+        # If $ANDROID_PRODUCT_OUT was not created in pyfakefs, simply return it
+        # without dumping atest_merged_dep.json in real.
+        if not self.merged_dep_path.parent.is_dir():
+            return name_to_module_info
+        # b/178559543 saving merged module info in a temp file and copying it to
+        # atest_merged_dep.json can eliminate the possibility of accessing it
+        # concurrently and resulting in invalid JSON format.
+        temp_file = tempfile.NamedTemporaryFile()
+        with open(temp_file.name, 'w') as _temp:
+            json.dump(name_to_module_info, _temp, indent=0)
+        shutil.copy(temp_file.name, self.merged_dep_path)
+        temp_file.close()
+        duration = time.time() - start
+        logging.debug('Merging module info took %ss', duration)
+        metrics.LocalDetectEvent(
+            detect_type=constants.DETECT_TYPE_MODULE_MERGE, result=int(duration))
         return name_to_module_info
 
     def _merge_soong_info(self, name_to_module_info, mod_bp_infos):
@@ -660,7 +678,7 @@ class ModuleInfo:
             mod_bp_infos: Dict of module name to bp's module info dict.
 
         Returns:
-            Dict of merged json of input def_file_path and name_to_module_info.
+            Dict of updated name_to_module_info.
         """
         merge_items = [constants.MODULE_DEPENDENCIES, constants.MODULE_SRCS]
         for module_name, dep_info in mod_bp_infos.items():
@@ -669,22 +687,12 @@ class ModuleInfo:
                 for merge_item in merge_items:
                     dep_info_values = dep_info.get(merge_item, [])
                     mod_info_values = mod_info.get(merge_item, [])
-                    for dep_info_value in dep_info_values:
-                        if dep_info_value not in mod_info_values:
-                            mod_info_values.append(dep_info_value)
+                    mod_info_values.extend(dep_info_values)
                     mod_info_values.sort()
+                    # deduplicate values just in case.
+                    mod_info_values = list(dict.fromkeys(mod_info_values))
                     name_to_module_info[
                         module_name][merge_item] = mod_info_values
-        if not os.path.isdir(os.path.dirname(self.merged_dep_path)):
-            os.makedirs(os.path.dirname(self.merged_dep_path))
-        # b/178559543 saving merged module info in a temp file and copying it to
-        # atest_merged_dep.json can eliminate the possibility of accessing it
-        # concurrently and resulting in invalid JSON format.
-        temp_file = tempfile.NamedTemporaryFile()
-        with open(temp_file.name, 'w') as _temp:
-            json.dump(name_to_module_info, _temp, indent=0)
-        shutil.copy(temp_file.name, self.merged_dep_path)
-        temp_file.close()
         return name_to_module_info
 
     def get_module_dependency(self, module_name, depend_on=None):
