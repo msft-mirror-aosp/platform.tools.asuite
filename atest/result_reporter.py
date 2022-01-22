@@ -456,7 +456,7 @@ class ResultReporter:
                 test_methods = []
                 # Collect all test methods
                 if filter_res:
-                    test_re = re.compile(r'\n\n(.*)\n\n', re.MULTILINE)
+                    test_re = re.compile(r'\n\n(\S+)\n\n', re.MULTILINE)
                     test_methods = re.findall(test_re, f.read())
                     f.seek(0)
                     # The first line of the file is also a test method but could
