@@ -94,6 +94,8 @@ UNIT_TEST_MODULE_3 = 'unit_test_module_3'
 DALVIK_TEST_CONFIG = 'AndroidDalvikTest.xml.data'
 LIBCORE_TEST_CONFIG = 'AndroidLibCoreTest.xml.data'
 DALVIK_XML_TARGETS = XML_TARGETS | test_finder_utils.DALVIK_TEST_DEPS
+BUILD_TOP_DIR = tempfile.TemporaryDirectory().name
+PRODUCT_OUT_DIR = os.path.join(BUILD_TOP_DIR, 'out/target/product/vsoc_x86_64')
 
 #pylint: disable=protected-access
 #pylint: disable=unnecessary-comprehension
@@ -761,7 +763,8 @@ class TestFinderUtilsUnittests(unittest.TestCase):
             return [UNIT_TEST_NOT_MATCHED_1_PATH]
         return []
 
-    @mock.patch.dict('os.environ', {constants.ANDROID_BUILD_TOP:'/'})
+    @mock.patch.dict('os.environ', {constants.ANDROID_BUILD_TOP:'/',
+                                    constants.ANDROID_PRODUCT_OUT:PRODUCT_OUT_DIR})
     @mock.patch.object(module_info.ModuleInfo, 'get_all_host_unit_tests',
                        return_value=[UNIT_TEST_MODULE_1,
                                      UNIT_TEST_MODULE_2,
@@ -789,7 +792,7 @@ class TestFinderUtilsUnittests(unittest.TestCase):
         self.assertEqual(expect_methods, real_methods)
 
     @mock.patch.dict('os.environ', {constants.ANDROID_BUILD_TOP:'/',
-                                    constants.ANDROID_PRODUCT_OUT:'/test/output/'})
+                                    constants.ANDROID_PRODUCT_OUT:PRODUCT_OUT_DIR})
     @mock.patch('os.path.isfile', side_effect=unittest_utils.isfile_side_effect)
     def test_get_test_config_use_androidtestxml(self, _isfile):
         """Test get_test_config_and_srcs using default AndroidTest.xml"""
@@ -803,7 +806,7 @@ class TestFinderUtilsUnittests(unittest.TestCase):
         self.assertEqual(expect_config, result)
 
     @mock.patch.dict('os.environ', {constants.ANDROID_BUILD_TOP:'/',
-                                    constants.ANDROID_PRODUCT_OUT:'/test/output/'})
+                                    constants.ANDROID_PRODUCT_OUT:PRODUCT_OUT_DIR})
     @mock.patch('os.path.isfile', side_effect=unittest_utils.isfile_side_effect)
     def test_get_test_config_single_config(self, _isfile):
         """Test get_test_config_and_srcs manualy set it's config"""
@@ -817,7 +820,7 @@ class TestFinderUtilsUnittests(unittest.TestCase):
         self.assertEqual(expect_config, result)
 
     @mock.patch.dict('os.environ', {constants.ANDROID_BUILD_TOP:'/',
-                                    constants.ANDROID_PRODUCT_OUT:'/test/output/'})
+                                    constants.ANDROID_PRODUCT_OUT:PRODUCT_OUT_DIR})
     @mock.patch('os.path.isfile', side_effect=unittest_utils.isfile_side_effect)
     def test_get_test_config_main_multiple_config(self, _isfile):
         """Test get_test_config_and_srcs which is the main module of multiple config"""
@@ -831,7 +834,7 @@ class TestFinderUtilsUnittests(unittest.TestCase):
         self.assertEqual(expect_config, result)
 
     @mock.patch.dict('os.environ', {constants.ANDROID_BUILD_TOP:'/',
-                                    constants.ANDROID_PRODUCT_OUT:'/test/output/'})
+                                    constants.ANDROID_PRODUCT_OUT:PRODUCT_OUT_DIR})
     @mock.patch('os.path.isfile', side_effect=unittest_utils.isfile_side_effect)
     def test_get_test_config_subtest_in_multiple_config(self, _isfile):
         """Test get_test_config_and_srcs not the main module of multiple config"""

@@ -34,7 +34,7 @@ import unittest_constants as uc
 
 JSON_FILE_PATH = os.path.join(uc.TEST_DATA_DIR, uc.JSON_FILE)
 CC_DEP_PATH = os.path.join(uc.TEST_DATA_DIR, uc.CC_DEP_FILE)
-JAVA_DEP_PATH = os.path.join(uc.TEST_DATA_DIR, uc.JAVA_DPE_FILE)
+JAVA_DEP_PATH = os.path.join(uc.TEST_DATA_DIR, uc.JAVA_DEP_FILE)
 EXPECTED_MOD_TARGET = 'tradefed'
 EXPECTED_MOD_TARGET_PATH = ['tf/core']
 UNEXPECTED_MOD_TARGET = 'this_should_not_be_in_module-info.json'
@@ -87,19 +87,17 @@ class ModuleInfoUnittests(unittest.TestCase):
         shutil.copy2(CC_DEP_PATH, SOONG_OUT_DIR)
         self.cc_dep_path = Path(SOONG_OUT_DIR).joinpath(uc.CC_DEP_FILE)
         shutil.copy2(JAVA_DEP_PATH, SOONG_OUT_DIR)
-        self.java_dep_path = Path(SOONG_OUT_DIR).joinpath(uc.JAVA_DPE_FILE)
+        self.java_dep_path = Path(SOONG_OUT_DIR).joinpath(uc.JAVA_DEP_FILE)
         self.merged_dep_path = Path(PRODUCT_OUT_DIR).joinpath(uc.MERGED_DEP_FILE)
 
     def tearDown(self) -> None:
         if self.merged_dep_path.is_file():
             os.remove(self.merged_dep_path)
 
-    @mock.patch.object(module_info.ModuleInfo, '_merge_soong_info')
     @mock.patch('json.load', return_value={})
     @mock.patch('builtins.open', new_callable=mock.mock_open)
     @mock.patch('os.path.isfile', return_value=True)
-    def test_load_mode_info_file_out_dir_handling(self, _isfile, _open, _json,
-                                                 _merge):
+    def test_load_mode_info_file_out_dir_handling(self, _isfile, _open, _json):
         """Test _load_module_info_file out dir handling."""
         # Test out default out dir is used.
         build_top = '/path/to/top'
@@ -384,14 +382,12 @@ class ModuleInfoUnittests(unittest.TestCase):
     def test_merge_build_system_infos(self):
         """Test _merge_build_system_infos."""
         mod_info = module_info.ModuleInfo(module_file=JSON_FILE_PATH)
-        java_dep_file = os.path.join(uc.TEST_DATA_DIR,
-                                     'module_bp_java_deps.json')
         mod_info_1 = {constants.MODULE_NAME: 'module_1',
                       constants.MODULE_DEPENDENCIES: []}
         name_to_mod_info = {'module_1' : mod_info_1}
         expect_deps = ['test_dep_level_1_1', 'test_dep_level_1_2']
         name_to_mod_info = mod_info._merge_build_system_infos(
-            name_to_mod_info, java_bp_info_path=java_dep_file)
+            name_to_mod_info, java_bp_info_path=self.java_dep_path)
         self.assertEqual(
             name_to_mod_info['module_1'].get(constants.MODULE_DEPENDENCIES),
             expect_deps)
@@ -401,14 +397,12 @@ class ModuleInfoUnittests(unittest.TestCase):
     def test_merge_dependency_with_ori_dependency(self):
         """Test _merge_dependency."""
         mod_info = module_info.ModuleInfo(module_file=JSON_FILE_PATH)
-        java_dep_file = os.path.join(uc.TEST_DATA_DIR,
-                                     'module_bp_java_deps.json')
         mod_info_1 = {constants.MODULE_NAME: 'module_1',
                       constants.MODULE_DEPENDENCIES: ['ori_dep_1']}
         name_to_mod_info = {'module_1' : mod_info_1}
         expect_deps = ['ori_dep_1', 'test_dep_level_1_1', 'test_dep_level_1_2']
         name_to_mod_info = mod_info._merge_build_system_infos(
-            name_to_mod_info, java_bp_info_path=java_dep_file)
+            name_to_mod_info, java_bp_info_path=self.java_dep_path)
         self.assertEqual(
             name_to_mod_info['module_1'].get(constants.MODULE_DEPENDENCIES),
             expect_deps)
@@ -418,12 +412,10 @@ class ModuleInfoUnittests(unittest.TestCase):
     def test_get_module_dependency(self):
         """Test get_module_dependency."""
         mod_info = module_info.ModuleInfo(module_file=JSON_FILE_PATH)
-        java_dep_file = os.path.join(uc.TEST_DATA_DIR,
-                                     'module_bp_java_deps.json')
         expect_deps = {'test_dep_level_1_1', 'module_1', 'test_dep_level_1_2',
                        'test_dep_level_2_2', 'test_dep_level_2_1', 'module_2'}
         mod_info._merge_build_system_infos(mod_info.name_to_module_info,
-                                   java_bp_info_path=java_dep_file)
+                                   java_bp_info_path=self.java_dep_path)
         self.assertEqual(
             mod_info.get_module_dependency('dep_test_module'),
             expect_deps)
@@ -449,11 +441,9 @@ class ModuleInfoUnittests(unittest.TestCase):
     def test_get_install_module_dependency(self):
         """Test get_install_module_dependency."""
         mod_info = module_info.ModuleInfo(module_file=JSON_FILE_PATH)
-        java_dep_file = os.path.join(uc.TEST_DATA_DIR,
-                                     'module_bp_java_deps.json')
         expect_deps = {'module_1', 'test_dep_level_2_1'}
         mod_info._merge_build_system_infos(mod_info.name_to_module_info,
-                                           java_bp_info_path=java_dep_file)
+                                           java_bp_info_path=self.java_dep_path)
         self.assertEqual(
             mod_info.get_install_module_dependency('dep_test_module'),
             expect_deps)
@@ -463,14 +453,12 @@ class ModuleInfoUnittests(unittest.TestCase):
     def test_cc_merge_build_system_infos(self):
         """Test _merge_build_system_infos for cc."""
         mod_info = module_info.ModuleInfo(module_file=JSON_FILE_PATH)
-        cc_dep_file = os.path.join(uc.TEST_DATA_DIR,
-                                     'module_bp_cc_deps.json')
         mod_info_1 = {constants.MODULE_NAME: 'module_cc_1',
                       constants.MODULE_DEPENDENCIES: []}
         name_to_mod_info = {'module_cc_1' : mod_info_1}
         expect_deps = ['test_cc_dep_level_1_1', 'test_cc_dep_level_1_2']
         name_to_mod_info = mod_info._merge_build_system_infos(
-            name_to_mod_info, cc_bp_info_path=cc_dep_file)
+            name_to_mod_info, cc_bp_info_path=self.cc_dep_path)
         self.assertEqual(
             name_to_mod_info['module_cc_1'].get(constants.MODULE_DEPENDENCIES),
             expect_deps)
@@ -486,8 +474,8 @@ class ModuleInfoUnittests(unittest.TestCase):
         self.assertTrue(mod_info.is_unit_test(maininfo_with_unittest))
 
 
-    @mock.patch.dict('os.environ', {constants.ANDROID_BUILD_TOP: '/',
-                                    constants.ANDROID_PRODUCT_OUT: '/test/output'})
+    @mock.patch.dict('os.environ', {constants.ANDROID_BUILD_TOP:'/',
+                                    constants.ANDROID_PRODUCT_OUT:PRODUCT_OUT_DIR})
     def test_is_host_unit_test(self):
         """Test is_host_unit_test."""
         module_name = 'myModule'
@@ -500,7 +488,7 @@ class ModuleInfoUnittests(unittest.TestCase):
         self.assertTrue(mod_info.is_host_unit_test(maininfo_with_host_unittest))
 
     @mock.patch.dict('os.environ', {constants.ANDROID_BUILD_TOP:os.path.dirname(__file__),
-                                    constants.ANDROID_PRODUCT_OUT:'/test/output/'})
+                                    constants.ANDROID_PRODUCT_OUT:PRODUCT_OUT_DIR})
     def test_has_mainline_modules(self):
         """Test has_mainline_modules."""
         name1 = 'MainModule1'
@@ -519,7 +507,7 @@ class ModuleInfoUnittests(unittest.TestCase):
 
     @mock.patch.dict('os.environ',
                      {constants.ANDROID_BUILD_TOP:os.path.dirname(__file__),
-                      constants.ANDROID_PRODUCT_OUT:'/test/output/'})
+                      constants.ANDROID_PRODUCT_OUT:PRODUCT_OUT_DIR})
     def test_get_module_info_for_multi_lib_module(self):
         my_module_name = 'MyMultiArchTestModule'
         multi_arch_json = os.path.join(uc.TEST_DATA_DIR,

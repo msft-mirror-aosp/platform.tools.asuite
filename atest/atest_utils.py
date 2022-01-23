@@ -1666,3 +1666,37 @@ def get_misc_dir():
     if is_writable(home_dir):
         return home_dir
     return get_build_out_dir()
+
+def get_full_annotation_class_name(module_info, class_name):
+    """ Get fully qualified class name from a class name.
+
+    If the given keyword(class_name) is "smalltest", this method can search
+    among source codes and grep the accurate annotation class name:
+
+        android.test.suitebuilder.annotation.SmallTest
+
+    Args:
+        module_info: A dict of module_info.
+        class_name: A string of class name.
+
+    Returns:
+        A string of fully qualified class name, empty string otherwise.
+    """
+    fullname_re = re.compile(
+        r'import\s+(?P<fqcn>{})(|;)$'.format(class_name), re.I)
+    keyword_re = re.compile(
+        r'import\s+(?P<fqcn>.*\.{})(|;)$'.format(class_name), re.I)
+    build_top = Path(os.environ.get(constants.ANDROID_BUILD_TOP, ''))
+    for f in module_info.get('srcs'):
+        full_path = build_top.joinpath(f)
+        with open(full_path, 'r') as cache:
+            for line in cache.readlines():
+                # Accept full class name.
+                match = fullname_re.match(line)
+                if match:
+                    return match.group('fqcn')
+                # Search annotation class from keyword.
+                match = keyword_re.match(line)
+                if match:
+                    return match.group('fqcn')
+    return ""

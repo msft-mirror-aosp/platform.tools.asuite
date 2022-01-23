@@ -24,6 +24,7 @@ atest is designed to support any test types that can be ran by TradeFederation.
 """
 
 # pylint: disable=line-too-long
+# pylint: disable=too-many-lines
 
 from __future__ import print_function
 
@@ -65,7 +66,7 @@ EXPECTED_VARS = frozenset([
 TEST_RUN_DIR_PREFIX = "%Y%m%d_%H%M%S"
 CUSTOM_ARG_FLAG = '--'
 OPTION_NOT_FOR_TEST_MAPPING = (
-    'Option `%s` does not work for running tests in TEST_MAPPING files')
+    'Option "{}" does not work for running tests in TEST_MAPPING files')
 
 DEVICE_TESTS = 'tests that require device'
 HOST_TESTS = 'tests that do NOT require device'
@@ -90,12 +91,12 @@ def _get_args_from_config():
     Returns:
         A list read from the config file.
     """
-    _config = Path(atest_utils.get_misc_dir()).joinpath('atest', 'config')
+    _config = Path(atest_utils.get_misc_dir()).joinpath('.atest', 'config')
     if not _config.parent.is_dir():
         _config.parent.mkdir(parents=True)
     args = []
     if not _config.is_file():
-        with open(_config, 'w+') as cache:
+        with open(_config, 'w+', encoding='utf8') as cache:
             cache.write(constants.ATEST_EXAMPLE_ARGS)
         return args
     warning = 'Line {} contains {} and will be ignored.'
@@ -104,7 +105,7 @@ def _get_args_from_config():
         atest_utils.colorize(_config, constants.YELLOW)))
     # pylint: disable=global-statement:
     global HAS_IGNORED_ARGS
-    with open(_config, 'r') as cache:
+    with open(_config, 'r', encoding='utf8') as cache:
         for entry in cache.readlines():
             # Strip comments.
             arg_in_line = entry.partition('#')[0].strip()
@@ -220,6 +221,8 @@ def get_extra_args(args):
     # if args.aaaa:
     #     extra_args[constants.AAAA] = args.aaaa
     arg_maps = {'all_abi': constants.ALL_ABI,
+                'annotation_filter': constants.ANNOTATION_FILTER,
+                'bazel_arg': constants.BAZEL_ARG,
                 'collect_tests_only': constants.COLLECT_TESTS_ONLY,
                 'custom_args': constants.CUSTOM_ARGS,
                 'disable_teardown': constants.DISABLE_TEARDOWN,
@@ -405,13 +408,15 @@ def _has_valid_test_mapping_args(args):
     if not is_test_mapping:
         return True
     options_to_validate = [
+        (args.annotation_filter, '--annotation-filter'),
         (args.generate_baseline, '--generate-baseline'),
         (args.detect_regression, '--detect-regression'),
         (args.generate_new_metrics, '--generate-new-metrics'),
     ]
     for arg_value, arg in options_to_validate:
         if arg_value:
-            logging.error(OPTION_NOT_FOR_TEST_MAPPING, arg)
+            logging.error(atest_utils.colorize(
+                OPTION_NOT_FOR_TEST_MAPPING.format(arg), constants.RED))
             return False
     return True
 
@@ -633,7 +638,7 @@ def _non_action_validator(args):
         sys.exit(constants.EXIT_CODE_OUTSIDE_ROOT)
     if args.version:
         if os.path.isfile(constants.VERSION_FILE):
-            with open(constants.VERSION_FILE) as version_file:
+            with open(constants.VERSION_FILE, encoding='utf8') as version_file:
                 print(version_file.read())
         sys.exit(constants.EXIT_CODE_SUCCESS)
     if args.help:
