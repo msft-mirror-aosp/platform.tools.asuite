@@ -310,6 +310,7 @@ def _validate_exec_mode(args, test_infos, host_tests=None):
     # In the case of '$atest <host-only>', we add --host to run on host-side.
     # The option should only be overridden if `host_tests` is not set.
     if not args.host and host_tests is None:
+        logging.debug('Appending "--host" for a deviceless test...')
         args.host = bool(constants.DEVICELESS_TEST in all_device_modes)
 
 
@@ -849,6 +850,9 @@ def main(argv, results_dir, args):
             return constants.EXIT_CODE_TEST_NOT_FOUND
         if not is_from_test_mapping(test_infos):
             _validate_exec_mode(args, test_infos)
+            # _validate_exec_mode appends --host automatically when pure
+            # host-side tests, so re-parsing extra_args is a must.
+            extra_args = get_extra_args(args)
         else:
             _validate_tm_tests_exec_mode(args, test_infos)
         for test_info in test_infos:
