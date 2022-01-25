@@ -30,6 +30,7 @@ from unittest import mock
 
 # pylint: disable=wrong-import-order
 import atest
+import atest_utils
 import constants
 import module_info
 
@@ -223,11 +224,12 @@ class AtestUnittests(unittest.TestCase):
                           '\x1b[1;37m\x1b[0m\n')
         self.assertEqual(capture_output.getvalue(), correct_output)
 
+    @mock.patch.object(atest_utils, 'get_adb_devices')
     @mock.patch.object(metrics_utils, 'send_exit_event')
-    def test_validate_exec_mode(self, _send_exit):
+    def test_validate_exec_mode(self, _send_exit, _devs):
         """Test _validate_exec_mode."""
+        _devs.return_value = ['127.0.0.1:34556']
         args = []
-        parsed_args = atest._parse_args(args)
         no_install_test_info = test_info.TestInfo(
             'mod', '', set(), data={}, module_class=["JAVA_LIBRARIES"],
             install_locations=set(['device']))
@@ -242,6 +244,7 @@ class AtestUnittests(unittest.TestCase):
             install_locations=set(['host', 'device']))
 
         # $atest <Both-support>
+        parsed_args = atest._parse_args(args)
         test_infos = [host_test_info]
         atest._validate_exec_mode(parsed_args, test_infos)
         self.assertFalse(parsed_args.host)
