@@ -242,21 +242,32 @@ class WorkspaceGenerator:
         """Generate workspace files on disk."""
 
         self._create_base_files()
-        self._create_rules_dir()
+        self._symlink(src='tools/asuite/atest/bazel/rules',
+                      target='bazel/rules')
+        self._symlink(src='tools/asuite/atest/bazel/configs',
+                      target='bazel/configs')
 
         for package in self.path_to_package.values():
             package.generate(self.workspace_out_path)
 
-    def _create_rules_dir(self):
-        symlink = self.workspace_out_path.joinpath('bazel/rules')
-        symlink.parent.mkdir(parents=True)
-        symlink.symlink_to(self.src_root_path.joinpath(
-            'tools/asuite/atest/bazel/rules'))
+    def _symlink(self, *, src, target):
+        """Create a symbolic link in workspace pointing to source file/dir.
+
+        Args:
+            src: A string of a relative path to root of Android source tree.
+                This is the source file/dir path for which the symbolic link
+                will be created.
+            target: A string of a relative path to workspace root. This is the
+                target file/dir path where the symbolic link will be created.
+        """
+        symlink = self.workspace_out_path.joinpath(target)
+        symlink.parent.mkdir(parents=True, exist_ok=True)
+        symlink.symlink_to(self.src_root_path.joinpath(src))
 
     def _create_base_files(self):
         self.workspace_out_path.joinpath('WORKSPACE').touch()
-        self.workspace_out_path.joinpath('.bazelrc').symlink_to(
-            self.src_root_path.joinpath('tools/asuite/atest/bazel/bazelrc'))
+        self._symlink(src='tools/asuite/atest/bazel/bazelrc',
+                      target='.bazelrc')
 
 
 class Package:
