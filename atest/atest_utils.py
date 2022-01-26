@@ -1361,6 +1361,17 @@ def get_mainline_param(test_config):
                 mainline_param.add(value)
     return mainline_param
 
+def get_adb_devices():
+    """Run `adb devices` and return a list of devices.
+
+    Returns:
+        A list of devices. e.g.
+        ['127.0.0.1:40623', '127.0.0.1:40625']
+    """
+    probe_cmd = "adb devices | egrep -v \"^List|^$\"||true"
+    suts = subprocess.check_output(probe_cmd, shell=True).decode().splitlines()
+    return [sut.split('\t')[0] for sut in suts]
+
 def get_android_config():
     """Get Android config as "printconfig" shows.
 

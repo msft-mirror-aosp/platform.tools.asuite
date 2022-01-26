@@ -240,6 +240,7 @@ def get_extra_args(args):
                 'retry_any_failure': constants.RETRY_ANY_FAILURE,
                 'serial': constants.SERIAL,
                 'sharding': constants.SHARDING,
+                'test_filter': constants.TEST_FILTER,
                 'tf_early_device_release': constants.TF_EARLY_DEVICE_RELEASE,
                 'tf_debug': constants.TF_DEBUG,
                 'tf_template': constants.TF_TEMPLATE,
@@ -287,7 +288,7 @@ def _validate_exec_mode(args, test_infos, host_tests=None):
             should be device tests. Default is set to None, which means
             tests can be either deviceless or device tests.
     """
-    all_device_modes = [x.get_supported_exec_mode() for x in test_infos]
+    all_device_modes = {x.get_supported_exec_mode() for x in test_infos}
     err_msg = None
     # In the case of '$atest <device-only> --host', exit.
     if (host_tests or args.host) and constants.DEVICE_TEST in all_device_modes:
@@ -307,6 +308,19 @@ def _validate_exec_mode(args, test_infos, host_tests=None):
         logging.error(err_msg)
         metrics_utils.send_exit_event(constants.EXIT_CODE_ERROR, logs=err_msg)
         sys.exit(constants.EXIT_CODE_ERROR)
+    device_tests = [x.test_name for x in test_infos
+        if x.get_supported_exec_mode() != constants.DEVICELESS_TEST]
+    if not constants.DEVICELESS_TEST in all_device_modes:
+        if (not any((args.host, args.start_avd, args.acloud_create))
+            and not atest_utils.get_adb_devices()):
+            err_msg = (f'Stop running test(s): '
+                       f'{", ".join(device_tests)} require a device.')
+            atest_utils.colorful_print(err_msg, constants.RED)
+            logging.debug(atest_utils.colorize(
+                constants.REQUIRE_DEVICES_MSG, constants.RED))
+            metrics_utils.send_exit_event(constants.EXIT_CODE_DEVICE_NOT_FOUND,
+                                          logs=err_msg)
+            sys.exit(constants.EXIT_CODE_DEVICE_NOT_FOUND)
     # In the case of '$atest <host-only>', we add --host to run on host-side.
     # The option should only be overridden if `host_tests` is not set.
     if not args.host and host_tests is None:

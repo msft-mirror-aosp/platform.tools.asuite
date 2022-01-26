@@ -273,6 +273,17 @@ class BasicWorkspaceGenerationTest(GenerationTestFixture):
             self.src_root_path.joinpath('tools/asuite/atest/bazel/rules')
         )
 
+    def test_generate_configs_dir(self):
+        gen = self.create_workspace_generator()
+        configs_dir_path = gen.workspace_out_path.joinpath('bazel/configs')
+
+        gen.generate()
+
+        self.assertSymlinkTo(
+            configs_dir_path,
+            self.src_root_path.joinpath('tools/asuite/atest/bazel/configs')
+        )
+
     def test_generate_host_unit_test_module_target(self):
         mod_info = self.create_module_info(modules=[
             host_unit_test_module(name='hello_world_test')
