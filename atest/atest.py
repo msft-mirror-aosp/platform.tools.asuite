@@ -240,6 +240,7 @@ def get_extra_args(args):
                 'retry_any_failure': constants.RETRY_ANY_FAILURE,
                 'serial': constants.SERIAL,
                 'sharding': constants.SHARDING,
+                'test_filter': constants.TEST_FILTER,
                 'tf_early_device_release': constants.TF_EARLY_DEVICE_RELEASE,
                 'tf_debug': constants.TF_DEBUG,
                 'tf_template': constants.TF_TEMPLATE,
