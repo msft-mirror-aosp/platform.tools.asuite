@@ -92,6 +92,7 @@ TEST = ('Run the tests. WARNING: Many test configs force cleanup of device '
 TEST_MAPPING = 'Run tests defined in TEST_MAPPING files.'
 TEST_CONFIG_SELECTION = ('If multiple test config belong to same test module '
                          'pop out a selection menu on console.')
+TEST_FILTER = 'Run tests which are specified using this option.'
 TF_DEBUG = 'Enable tradefed debug mode with a specified port. (default: 10888)'
 TF_EARLY_DEVICE_RELEASE = ('Inform Tradefed to release the device as soon as '
                            'when done with it.')
@@ -254,6 +255,8 @@ class AtestArgParser(argparse.ArgumentParser):
         # Options for Tradefed customization related.
         self.add_argument('--tf-template', action='append',
                           help=TF_TEMPLATE)
+        self.add_argument('--test-filter', nargs='?',
+                          help=TEST_FILTER)
 
         # A group of options for rerun strategy. They are mutually exclusive
         # in a command line.
@@ -355,6 +358,7 @@ def print_epilog_text():
         TEST_MAPPING=TEST_MAPPING,
         TF_DEBUG=TF_DEBUG,
         TF_EARLY_DEVICE_RELEASE=TF_EARLY_DEVICE_RELEASE,
+        TEST_FILTER=TEST_FILTER,
         TF_TEMPLATE=TF_TEMPLATE,
         USER_TYPE=USER_TYPE,
         UPDATE_CMD_MAPPING=UPDATE_CMD_MAPPING,
@@ -446,6 +450,11 @@ OPTIONS
 
         --test-config-select
             {TEST_CONFIG_SELECTION}
+
+        --test-filter [FILTER]
+            {TEST_FILTER} e.g.
+                atest perfetto_integrationtests --test-filter *ConsoleInterceptorVerify*
+                atest HelloWorldTests --test-filter testHalloWelt*
 
         --tf-early-device-release
             {TF_EARLY_DEVICE_RELEASE}
