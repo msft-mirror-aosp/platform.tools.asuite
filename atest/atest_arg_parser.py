@@ -40,6 +40,8 @@ ANNOTATION_FILTER = ('Accept keyword that will be translated to fully qualified'
                      'annotation class name.')
 BUILD = 'Run a build.'
 BAZEL_MODE = 'Run tests using Bazel.'
+BAZEL_ARG = ('Forward a flag to Bazel for tests executed with Bazel; '
+             'see --bazel-mode.')
 CLEAR_CACHE = 'Wipe out the test_infos cache of the test and start a new search.'
 COLLECT_TESTS_ONLY = ('Collect a list test cases of the instrumentation tests '
                       'without testing them in real.')
@@ -90,6 +92,7 @@ TEST = ('Run the tests. WARNING: Many test configs force cleanup of device '
 TEST_MAPPING = 'Run tests defined in TEST_MAPPING files.'
 TEST_CONFIG_SELECTION = ('If multiple test config belong to same test module '
                          'pop out a selection menu on console.')
+TEST_FILTER = 'Run tests which are specified using this option.'
 TF_DEBUG = 'Enable tradefed debug mode with a specified port. (default: 10888)'
 TF_EARLY_DEVICE_RELEASE = ('Inform Tradefed to release the device as soon as '
                            'when done with it.')
@@ -143,6 +146,7 @@ class AtestArgParser(argparse.ArgumentParser):
         self.add_argument('-b', '--build', action='append_const', dest='steps',
                           const=constants.BUILD_STEP, help=BUILD)
         self.add_argument('--bazel-mode', action='store_true', help=BAZEL_MODE)
+        self.add_argument('--bazel-arg', nargs='*', action='append', help=BAZEL_ARG)
         self.add_argument('-d', '--disable-teardown', action='store_true',
                           help=DISABLE_TEARDOWN)
         self.add_argument('--enable-device-preparer', action='store_true', help=HOST)
@@ -251,6 +255,8 @@ class AtestArgParser(argparse.ArgumentParser):
         # Options for Tradefed customization related.
         self.add_argument('--tf-template', action='append',
                           help=TF_TEMPLATE)
+        self.add_argument('--test-filter', nargs='?',
+                          help=TEST_FILTER)
 
         # A group of options for rerun strategy. They are mutually exclusive
         # in a command line.
@@ -318,6 +324,7 @@ def print_epilog_text():
         ANNOTATION_FILTER=ANNOTATION_FILTER,
         BUILD=BUILD,
         BAZEL_MODE=BAZEL_MODE,
+        BAZEL_ARG=BAZEL_ARG,
         CLEAR_CACHE=CLEAR_CACHE,
         COLLECT_TESTS_ONLY=COLLECT_TESTS_ONLY,
         DISABLE_TEARDOWN=DISABLE_TEARDOWN,
@@ -351,6 +358,7 @@ def print_epilog_text():
         TEST_MAPPING=TEST_MAPPING,
         TF_DEBUG=TF_DEBUG,
         TF_EARLY_DEVICE_RELEASE=TF_EARLY_DEVICE_RELEASE,
+        TEST_FILTER=TEST_FILTER,
         TF_TEMPLATE=TF_TEMPLATE,
         USER_TYPE=USER_TYPE,
         UPDATE_CMD_MAPPING=UPDATE_CMD_MAPPING,
@@ -401,6 +409,9 @@ OPTIONS
         --bazel-mode
             {BAZEL_MODE}
 
+        --bazel-arg
+            {BAZEL_ARG}
+
         -d, --disable-teardown
             {DISABLE_TEARDOWN}
 
@@ -439,6 +450,11 @@ OPTIONS
 
         --test-config-select
             {TEST_CONFIG_SELECTION}
+
+        --test-filter [FILTER]
+            {TEST_FILTER} e.g.
+                atest perfetto_integrationtests --test-filter *ConsoleInterceptorVerify*
+                atest HelloWorldTests --test-filter testHalloWelt*
 
         --tf-early-device-release
             {TF_EARLY_DEVICE_RELEASE}
