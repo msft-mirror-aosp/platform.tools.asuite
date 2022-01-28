@@ -9,6 +9,7 @@ ATEST_HELPER="{atest_helper}"
 SHARED_LIB_DIRS="{shared_lib_dirs}"
 PATH_ADDITIONS="{path_additions}"
 TRADEFED_CLASSPATH="{tradefed_classpath}"
+read -a ADDITIONAL_TRADEFED_OPTIONS <<< "{additional_tradefed_options}"
 
 # Export variables expected by the Atest launcher script.
 export LD_LIBRARY_PATH="${SHARED_LIB_DIRS}"
@@ -29,9 +30,7 @@ exit_code_file="$(mktemp /tmp/tf-exec-XXXXXXXXXX)"
     --skip-loading-config-jar \
     --log-level-display VERBOSE \
     --log-level VERBOSE \
-    -n \
-    --prioritize-host-config \
-    --skip-host-arch-check \
+    "${ADDITIONAL_TRADEFED_OPTIONS[@]}" \
     --bazel-exit-code-result-reporter:file=${exit_code_file} \
     "$@"
 
