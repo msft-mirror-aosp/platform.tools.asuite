@@ -1036,6 +1036,16 @@ def extra_args_to_tf_args(
                             f'Cannot find similar annotation: {keyword}',
                             constants.RED))
             continue
+        if constants.TEST_FILTER == arg:
+            supported_args.append('--test-arg')
+            supported_args.append(
+                'com.android.tradefed.testtype.AndroidJUnitTest:'
+                f'include-filter:{extra_args[arg]}')
+            supported_args.append('--test-arg')
+            supported_args.append(
+                'com.android.tradefed.testtype.GTest:native-test-flag:'
+                f'--gtest_filter={extra_args[arg]}')
+            continue
         if arg in (constants.TF_TEMPLATE,
                    constants.TF_EARLY_DEVICE_RELEASE,
                    constants.INVOCATION_ID,

@@ -188,12 +188,14 @@ class ModuleFinder(test_finder_base.TestFinderBase):
         # Check if this is only a vts10 module.
         if self._is_vts_module(test.test_name):
             return self._update_to_vts_test_info(test)
-        robo_type = self.module_info.get_robolectric_type(test.test_name)
-        if robo_type == constants.ROBOTYPE_MODERN:
-            test.build_targets.add(test.test_name)
-            return test
-        if robo_type == constants.ROBOTYPE_LEGACY:
-            return self._update_legacy_robolectric_test_info(test)
+        test.robo_type = self.module_info.get_robolectric_type(test.test_name)
+        if test.robo_type:
+            test.install_locations = {constants.DEVICELESS_TEST}
+            if test.robo_type == constants.ROBOTYPE_MODERN:
+                test.build_targets.add(test.test_name)
+                return test
+            if test.robo_type == constants.ROBOTYPE_LEGACY:
+                return self._update_legacy_robolectric_test_info(test)
         rel_config = test.data[constants.TI_REL_CONFIG]
         test.build_targets = self._get_build_targets(module_name, rel_config)
         # For device side java test, it will use

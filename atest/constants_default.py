@@ -68,6 +68,7 @@ AGGREGATE_METRIC_FILTER_ARG = 'AGGREGATE_METRIC_FILTER'
 ENABLE_DEVICE_PREPARER = 'ENABLE_DEVICE_PREPARER'
 ANNOTATION_FILTER = 'ANNOTATION_FILTER'
 BAZEL_ARG = 'BAZEL_ARG'
+TEST_FILTER = 'TEST_FILTER'
 
 # Application exit codes.
 EXIT_CODE_SUCCESS = 0
@@ -81,6 +82,7 @@ EXIT_CODE_OUTSIDE_ROOT = 7
 EXIT_CODE_AVD_CREATE_FAILURE = 8
 EXIT_CODE_AVD_INVALID_ARGS = 9
 EXIT_CODE_EXIT_BEFORE_MAIN = 10
+EXIT_CODE_DEVICE_NOT_FOUND = 11
 # Conditions that atest should exit without sending result to metrics.
 EXIT_CODES_BEFORE_TEST = [EXIT_CODE_ENV_NOT_SETUP,
                           EXIT_CODE_TEST_NOT_FOUND,
@@ -433,3 +435,8 @@ ATEST_TF_LOG_SAVER = 'template/log/atest_log_saver'
 DEVICE_SETUP_PREPARER = 'template/preparers/device-preparer'
 LOG_ROOT_OPTION_NAME = 'atest-log-file-path'
 LOG_SAVER_EXT_OPTION = ''
+
+# Log messages here.
+REQUIRE_DEVICES_MSG = (
+    'Please ensure there is at least one connected device via:\n'
+    '    $ adb devices')
