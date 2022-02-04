@@ -12,19 +12,32 @@ that requires a device is still work in progress.
 
 ##### Table of Contents
 1. [Basic Usage](#basic-usage)
-2. [How It Works](#how-it-works)
-3. [Difference from Atest Standard Mode](#difference-from-atest-standard-mode)
-4. [Frequently Asked Questions](#faq)
+2. [Advanced Usage](#advanced-usage)
+3. [How It Works](#how-it-works)
+4. [Difference from Atest Standard Mode](#difference-from-atest-standard-mode)
+5. [Frequently Asked Questions](#faq)
 
 ## <a name="basic-usage">Basic Usage</a>
 
 Atest Bazel Mode commands take the following form:
 
-> ```$ atest --bazel-mode HelloWorldHostTest```
+>```$ atest --bazel-mode --host HelloWorldHostTest```
+<p>Note: "--host" is needed to run the test completely on the host without a device.
 
 To run multiple tests, separate test references with spaces. For example:
 
-> ```$ atest --bazel-mode HelloWorldHostTest fastdeploy_test aapt2_tests```
+>```$ atest --bazel-mode --host HelloWorldHostTest fastdeploy_test aapt2_tests```
+
+To run all host unit tests from the current directory:
+
+>```$ atest --bazel-mode --host --host-unit-test-only```
+
+## <a name="advanced-usage">Advanced Usage</a>
+
+Use `--bazel-arg` to forward arguments to Bazel. For example, the following
+command increases the test timeout:
+
+>```$ atest --bazel-mode --host CtsNNAPITestCases --bazel-arg=--test_timeout=600```
 
 ## <a name="how-it-works">How It Works</a>
 Bazel needs a Bazel workspace to execute tests.
