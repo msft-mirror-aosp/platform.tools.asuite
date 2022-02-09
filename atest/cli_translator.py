@@ -34,6 +34,7 @@ import constants
 import test_finder_handler
 import test_mapping
 
+from atest_enum import DetectType
 from metrics import metrics
 from metrics import metrics_utils
 from test_finders import module_finder
@@ -594,9 +595,9 @@ class CLITranslator:
         test_details_list = None
         # Loading Host Unit Tests.
         host_unit_tests = []
-        detect_type = constants.DETECT_TYPE_TEST_WITH_ARGS
+        detect_type = DetectType.TEST_WITH_ARGS
         if not args.tests or atest_utils.is_test_mapping(args):
-            detect_type = constants.DETECT_TYPE_TEST_NULL_ARGS
+            detect_type = DetectType.TEST_NULL_ARGS
         start = time.time()
         if not args.tests:
             logging.debug('Finding Host Unit Tests...')

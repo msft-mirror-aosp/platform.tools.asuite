@@ -44,6 +44,8 @@ from pathlib import Path
 
 import xml.etree.ElementTree as ET
 
+from atest_enum import DetectType
+
 # This is a workaround of b/144743252, where the http.client failed to loaded
 # because the googleapiclient was found before the built-in libs; enabling
 # embedded launcher(b/135639220) has not been reliable and other issue will
@@ -1047,15 +1049,13 @@ def get_flakes(branch='',
         logging.debug('Get flakes: Flake service path not exist.')
         # Send (3, 0) to present no flakes info because service does not exist.
         metrics.LocalDetectEvent(
-            detect_type=constants.DETECT_TYPE_NO_FLAKE,
-            result=0)
+            detect_type=DetectType.NO_FLAKE, result=0)
         return None
     if not has_valid_cert():
         logging.debug('Get flakes: No valid cert.')
         # Send (3, 1) to present no flakes info because no valid cert.
         metrics.LocalDetectEvent(
-            detect_type=constants.DETECT_TYPE_NO_FLAKE,
-            result=1)
+            detect_type=DetectType.NO_FLAKE, result=1)
         return None
     flake_info = {}
     start = time.time()
@@ -1084,7 +1084,7 @@ def get_flakes(branch='',
     duration = round(time.time()-start)
     logging.debug('Took %ss to get flakes info', duration)
     metrics.LocalDetectEvent(
-        detect_type=constants.DETECT_TYPE_HAS_FLAKE,
+        detect_type=DetectType.HAS_FLAKE,
         result=duration)
     return flake_info
 
@@ -1549,12 +1549,12 @@ def perm_metrics(config_path, adb_root):
     if preparer_force_root and not adb_root:
         logging.debug('DETECT_TYPE_PERMISSION_INCONSISTENT:0')
         metrics.LocalDetectEvent(
-            detect_type=constants.DETECT_TYPE_PERMISSION_INCONSISTENT,
+            detect_type=DetectType.PERMISSION_INCONSISTENT,
             result=0)
     elif not preparer_force_root and adb_root:
         logging.debug('DETECT_TYPE_PERMISSION_INCONSISTENT:1')
         metrics.LocalDetectEvent(
-            detect_type=constants.DETECT_TYPE_PERMISSION_INCONSISTENT,
+            detect_type=DetectType.PERMISSION_INCONSISTENT,
             result=1)
 
 def get_verify_key(tests, extra_args):
