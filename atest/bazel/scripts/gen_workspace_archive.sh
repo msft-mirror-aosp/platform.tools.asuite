@@ -31,10 +31,12 @@ function get_build_var()
   (build/soong/soong_ui.bash --dumpvar-mode --abs $1)
 }
 
+out=$(get_build_var PRODUCT_OUT)
+
 export \
   ANDROID_BUILD_TOP=$(pwd) \
-  ANDROID_PRODUCT_OUT=$(get_build_var PRODUCT_OUT) \
-  OUT=${ANDROID_PRODUCT_OUT} \
+  ANDROID_PRODUCT_OUT=${out} \
+  OUT=${out} \
   ANDROID_HOST_OUT=$(get_build_var HOST_OUT) \
   ANDROID_TARGET_OUT_TESTCASES=$(get_build_var TARGET_OUT_TESTCASES)
 
