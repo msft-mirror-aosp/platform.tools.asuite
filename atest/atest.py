@@ -331,7 +331,8 @@ def _validate_adb_devices(args, test_infos):
     all_device_modes = {x.get_supported_exec_mode() for x in test_infos}
     device_tests = [x.test_name for x in test_infos
         if x.get_supported_exec_mode() != constants.DEVICELESS_TEST]
-    if not constants.DEVICELESS_TEST in all_device_modes:
+    # Only block testing if it is a device test.
+    if constants.DEVICE_TEST in all_device_modes:
         if (not any((args.host, args.start_avd, args.acloud_create))
             and not atest_utils.get_adb_devices()):
             err_msg = (f'Stop running test(s): '
