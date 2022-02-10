@@ -807,29 +807,27 @@ class AtestTradefedTestRunnerUnittests(unittest.TestCase):
         # enabled.
         mock_config.return_value = '', ''
         _mock_is_enable.return_value = True
-        args, _ = self.tr._parse_extra_args([MOD_INFO], [constants.INSTANT])
+        args, _ = self.tr._parse_extra_args([MOD_INFO], {constants.INSTANT: ''})
         self.assertFalse('--exclude-module-parameters' in args)
 
         # If extra_arg not enable instant_app or secondary users, should have
         # --exclude-module-rameters if config parameter is auto enabled.
         _mock_is_enable.return_value = True
-        args, _ = self.tr._parse_extra_args([MOD_INFO], [constants.ALL_ABI])
+        args, _ = self.tr._parse_extra_args([MOD_INFO], {constants.ALL_ABI: ''})
         self.assertTrue('--exclude-module-parameters' in args)
 
         # If extra_arg not enable instant_app or secondary users, should not
         # have --exclude-module-rameters if config parameter is not auto enabled
         _mock_is_enable.return_value = False
-        args, _ = self.tr._parse_extra_args([MOD_INFO], [constants.ALL_ABI])
+        args, _ = self.tr._parse_extra_args([MOD_INFO], {constants.ALL_ABI: ''})
         self.assertFalse('--exclude-module-parameters' in args)
 
-    @mock.patch.object(atf_tr.AtestTradefedTestRunner,
-                       '_get_device_count_config', return_value=0)
     @mock.patch.object(atf_tr.AtestTradefedTestRunner,
                        '_is_parameter_auto_enabled_cfg', return_value=False)
     @mock.patch.object(atf_tr.AtestTradefedTestRunner,
                        '_has_instant_app_config', return_value=False)
     def test_parse_extra_args_has_instant_app(
-        self, _mock_has_instant, _mock_is_para, _mock_device_count):
+        self, _mock_has_instant, _mock_is_para):
         """Test _parse_extra_args with instant app in customize flag."""
         # If customize_arg has module-parameter should also include
         # --enable-parameterized-modules.
@@ -924,7 +922,7 @@ class AtestTradefedTestRunnerUnittests(unittest.TestCase):
         mock_config.return_value = '', ''
         _mock_is_enable.return_value = True
 
-        args, _ = self.tr._parse_extra_args([MOD_INFO], [])
+        args, _ = self.tr._parse_extra_args([MOD_INFO], {})
         self.assertFalse('--enable-parameterized-modules' in args)
 
     def assertTokensIn(self, expected_tokens, s):
