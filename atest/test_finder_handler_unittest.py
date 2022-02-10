@@ -17,19 +17,17 @@
 """Unittests for test_finder_handler."""
 
 # pylint: disable=line-too-long
-
+# pylint: disable=protected-access
 import unittest
 
 from unittest import mock
 
 from atest import atest_error
 from atest import test_finder_handler
-
+from atest.test_finder_handler import FinderMethod as REF_TYPE
 from atest.test_finders import test_info
 from atest.test_finders import test_finder_base
 
-#pylint: disable=protected-access
-REF_TYPE = test_finder_handler._REFERENCE_TYPE
 
 _EXAMPLE_FINDER_A = 'EXAMPLE_A'
 
