@@ -196,17 +196,17 @@ def _get_test_reference_types(ref):
                     _REFERENCE_TYPE.SUITE_PLAN_FILE_PATH]
         if ref_end_is_upper:
             return [_REFERENCE_TYPE.CACHE, _REFERENCE_TYPE.QUALIFIED_CLASS]
-        return [_REFERENCE_TYPE.CACHE,
-                _REFERENCE_TYPE.MODULE,
+        return [_REFERENCE_TYPE.MODULE,
+                _REFERENCE_TYPE.CACHE,
                 _REFERENCE_TYPE.PACKAGE]
     # Note: We assume that if you're referencing a file in your cwd,
     # that file must have a '.' in its name, i.e. foo.java, foo.xml.
     # If this ever becomes not the case, then we need to include path below.
-    return [_REFERENCE_TYPE.CACHE,
+    return [_REFERENCE_TYPE.MODULE,
             _REFERENCE_TYPE.INTEGRATION,
             # TODO: Uncomment in SUITE when it's supported
             # _REFERENCE_TYPE.SUITE,
-            _REFERENCE_TYPE.MODULE,
+            _REFERENCE_TYPE.CACHE,
             _REFERENCE_TYPE.CONFIG,
             _REFERENCE_TYPE.SUITE_PLAN,
             _REFERENCE_TYPE.CLASS,
