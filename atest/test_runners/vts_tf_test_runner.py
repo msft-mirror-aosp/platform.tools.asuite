@@ -70,6 +70,7 @@ class VtsTradefedTestRunner(atest_tf_test_runner.AtestTradefedTestRunner):
             ret_code |= self.wait_for_subprocess(proc)
         return ret_code
 
+    # pylint: disable=arguments-differ
     def _parse_extra_args(self, extra_args):
         """Convert the extra args into something vts10-tf can understand.
 
