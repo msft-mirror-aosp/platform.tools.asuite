@@ -37,6 +37,7 @@ import constants
 import module_info
 import result_reporter
 
+from atest_enum import DetectType
 from logstorage import atest_gcp_utils
 from logstorage import logstorage_utils
 from metrics import metrics
@@ -343,7 +344,7 @@ class AtestTradefedTestRunner(trb.TestRunnerBase):
                             constants.RED, highlight=True)
                     if not data_map:
                         metrics.LocalDetectEvent(
-                            detect_type=constants.DETECT_TYPE_TF_EXIT_CODE,
+                            detect_type=DetectType.TF_EXIT_CODE,
                             result=tf_subproc.returncode)
                         raise TradeFedExitError(tf_subproc.returncode)
                     self._handle_log_associations(event_handlers)
@@ -849,7 +850,7 @@ class AtestTradefedTestRunner(trb.TestRunnerBase):
                             float(device_test_end_log_time))
             logging.debug('TF logcat teardown time=%s seconds.', teardowntime)
             metrics.LocalDetectEvent(
-                detect_type=constants.DETECT_TYPE_TF_TEARDOWN_LOGCAT,
+                detect_type=DetectType.TF_TEARDOWN_LOGCAT,
                 result=int(teardowntime))
 
     @staticmethod

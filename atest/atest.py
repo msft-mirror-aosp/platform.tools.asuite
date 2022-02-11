@@ -52,6 +52,7 @@ import module_info
 import result_reporter
 import test_runner_handler
 
+from atest_enum import DetectType
 from metrics import metrics
 from metrics import metrics_base
 from metrics import metrics_utils
@@ -960,13 +961,13 @@ def main(argv, results_dir, args):
             duration=metrics_utils.convert_duration(build_duration),
             success=success,
             targets=build_targets)
-        rebuild_module_info = constants.DETECT_TYPE_NOT_REBUILD_MODULE_INFO
+        rebuild_module_info = DetectType.NOT_REBUILD_MODULE_INFO
         if is_clean:
-            rebuild_module_info = constants.DETECT_TYPE_CLEAN_BUILD
+            rebuild_module_info = DetectType.CLEAN_BUILD
         elif args.rebuild_module_info:
-            rebuild_module_info = constants.DETECT_TYPE_REBUILD_MODULE_INFO
+            rebuild_module_info = DetectType.REBUILD_MODULE_INFO
         elif smart_rebuild:
-            rebuild_module_info = constants.DETECT_TYPE_SMART_REBUILD_MODULE_INFO
+            rebuild_module_info = DetectType.SMART_REBUILD_MODULE_INFO
         metrics.LocalDetectEvent(
             detect_type=rebuild_module_info,
             result=int(build_duration))
@@ -984,14 +985,14 @@ def main(argv, results_dir, args):
                 logging.debug('Saved acloud create time: %ss.',
                               acloud_duration)
                 metrics.LocalDetectEvent(
-                    detect_type=constants.DETECT_TYPE_ACLOUD_CREATE,
+                    detect_type=DetectType.ACLOUD_CREATE,
                     result=round(acloud_duration))
             else:
                 # acloud create took longer, saved find+build time.
                 logging.debug('Saved Find and Build time: %ss.',
                               find_build_duration)
                 metrics.LocalDetectEvent(
-                    detect_type=constants.DETECT_TYPE_FIND_BUILD,
+                    detect_type=DetectType.FIND_BUILD,
                     result=round(find_build_duration))
         # After build step 'adb' command will be available, and stop forward to
         # Tradefed if the tests require a device.
@@ -1047,14 +1048,14 @@ if __name__ == '__main__':
             atest_utils.colorize("atest " + " ".join(final_args),
                                  constants.CYAN)))
         metrics.LocalDetectEvent(
-            detect_type=constants.DETECT_TYPE_ATEST_CONFIG, result=1)
+            detect_type=DetectType.ATEST_CONFIG, result=1)
         if HAS_IGNORED_ARGS:
             atest_utils.colorful_print(
                 'Please correct the config and try again.', constants.YELLOW)
             sys.exit(constants.EXIT_CODE_EXIT_BEFORE_MAIN)
     else:
         metrics.LocalDetectEvent(
-            detect_type=constants.DETECT_TYPE_ATEST_CONFIG, result=0)
+            detect_type=DetectType.ATEST_CONFIG, result=0)
     atest_configs.GLOBAL_ARGS = _parse_args(final_args)
     with atest_execution_info.AtestExecutionInfo(
             final_args, RESULTS_DIR,
@@ -1076,7 +1077,7 @@ if __name__ == '__main__':
         DETECTOR = bug_detector.BugDetector(final_args, EXIT_CODE)
         if EXIT_CODE not in constants.EXIT_CODES_BEFORE_TEST:
             metrics.LocalDetectEvent(
-                detect_type=constants.DETECT_TYPE_BUG_DETECTED,
+                detect_type=DetectType.BUG_DETECTED,
                 result=DETECTOR.caught_result)
             if result_file:
                 print("Run 'atest --history' to review test result history.")
