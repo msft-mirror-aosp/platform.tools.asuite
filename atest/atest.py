@@ -331,7 +331,8 @@ def _validate_adb_devices(args, test_infos):
     all_device_modes = {x.get_supported_exec_mode() for x in test_infos}
     device_tests = [x.test_name for x in test_infos
         if x.get_supported_exec_mode() != constants.DEVICELESS_TEST]
-    if not constants.DEVICELESS_TEST in all_device_modes:
+    # Only block testing if it is a device test.
+    if constants.DEVICE_TEST in all_device_modes:
         if (not any((args.host, args.start_avd, args.acloud_create))
             and not atest_utils.get_adb_devices()):
             err_msg = (f'Stop running test(s): '
@@ -819,6 +820,26 @@ def perm_consistency_metrics(test_infos, mod_info, args):
         logging.debug('perm_consistency_metrics raised exception: %s', err)
         return
 
+def get_device_count_config(test_infos, mod_info):
+    """Get the amount of desired devices from the test config.
+
+    Args:
+        test_infos: A set of TestInfo instances.
+        mod_info: ModuleInfo object.
+
+    Returns: the count of devices in test config. If there are more than one
+             configs, return the maximum.
+    """
+    max_count = 0
+    for tinfo in test_infos:
+        test_config, _ = test_finder_utils.get_test_config_and_srcs(
+            tinfo, mod_info)
+        if test_config:
+            devices = atest_utils.get_config_device(test_config)
+            if devices:
+                max_count = max(len(devices), max_count)
+    return max_count
+
 # pylint: disable=too-many-statements
 # pylint: disable=too-many-branches
 # pylint: disable=too-many-return-statements
@@ -873,6 +894,19 @@ def main(argv, results_dir, args):
             proc_idx.join()
         find_start = time.time()
         build_targets, test_infos = translator.translate(args)
+        given_amount  = len(args.serial) if args.serial else 0
+        required_amount = get_device_count_config(test_infos, mod_info)
+        extra_args[constants.DEVICE_COUNT_CONFIG] = required_amount
+        # Only check when both given_amount and required_amount are non zero.
+        if all((given_amount, required_amount)):
+            # Base on TF rules, given_amount can be greater than or equal to
+            # required_amount.
+            if required_amount > given_amount:
+                atest_utils.colorful_print(
+                    f'The test requires {required_amount} devices, '
+                    f'but {given_amount} were given.',
+                    constants.RED)
+                return 0
         if args.no_modules_in:
             build_targets = _exclude_modules_in_targets(build_targets)
         find_duration = time.time() - find_start

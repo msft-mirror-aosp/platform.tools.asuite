@@ -96,7 +96,6 @@ class TestInfo:
         Determine which execution mode does the test support by strategy:
         Modern Robolectric --> 'host'
         Legacy Robolectric --> 'both'
-        JAVA_LIBRARIES and install_path == {'host'} --> 'host'
         JAVA_LIBRARIES --> 'both'
         Not native tests or installed only in out/target --> 'device'
         Installed only in out/host --> 'both'
@@ -114,10 +113,6 @@ class TestInfo:
         if self.robo_type == constants.ROBOTYPE_LEGACY:
             return constants.BOTH_TEST
         if constants.MODULE_CLASS_JAVA_LIBRARIES in self.module_class:
-            # If it's a JAVA_LIBRARIES and install_path is host -> DEVICELESS
-            if {constants.DEVICELESS_TEST} == install_path:
-                return constants.DEVICELESS_TEST
-            # Otherwise support both.
             return constants.BOTH_TEST
         if not install_path:
             return constants.DEVICE_TEST
