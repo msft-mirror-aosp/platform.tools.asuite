@@ -173,6 +173,7 @@ python_library_host {
     srcs: [
         "atest_error.py",
         "atest_decorator.py",
+        "atest_enum.py",
         "atest_utils.py",
         "constants.py",
         "constants_default.py",
