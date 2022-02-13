@@ -709,6 +709,23 @@ class ModuleSharedLibGenerationTest(GenerationTestFixture):
         self.assertTargetNotInWorkspace('libhello')
 
 
+    def test_generate_target_for_runtime_dependency(self):
+        mod_info = self.create_module_info(modules=[
+            supported_test_module(runtime_dependencies=['libhello']),
+            host_only_config(
+                module(name='libhello', classes=['SHARED_LIBRARIES']))
+        ])
+
+        self.run_generator(mod_info)
+
+        self.assertInBuildFile(
+            '    runtime_deps = select({\n'
+            '        "//bazel/rules:host": [\n'
+            '            "//:libhello",\n'
+            '        ],\n'
+            '    }),\n'
+        )
+
 class SharedLibPrebuiltTargetGenerationTest(GenerationTestFixture):
     """Tests for runtime dependency module prebuilt target generation."""
 
@@ -874,6 +891,7 @@ def module(
     auto_test_config=None,
     shared_libs=None,
     dependencies=None,
+    runtime_dependencies=None,
 ):
     name = name or 'libhello'
 
@@ -886,6 +904,7 @@ def module(
     m['is_unit_test'] = 'false'
     m['auto_test_config'] = auto_test_config or []
     m['shared_libs'] = shared_libs or []
+    m['runtime_dependencies'] = runtime_dependencies or []
     m['dependencies'] = dependencies or []
     return m
 
