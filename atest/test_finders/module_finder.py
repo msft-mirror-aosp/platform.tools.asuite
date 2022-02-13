@@ -27,6 +27,7 @@ import atest_error
 import atest_utils
 import constants
 
+from atest_enum import DetectType
 from metrics import metrics
 from test_finders import test_info
 from test_finders import test_finder_base
@@ -859,7 +860,7 @@ class ModuleFinder(test_finder_base.TestFinderBase):
         search_duration = time.time() - search_start
         logging.debug('Fuzzy search took %ss', search_duration)
         metrics.LocalDetectEvent(
-            detect_type=constants.DETECT_TYPE_FUZZY_SEARCH_TIME,
+            detect_type=DetectType.FUZZY_SEARCH_TIME,
             result=round(search_duration))
         return testable_modules_with_ld
 

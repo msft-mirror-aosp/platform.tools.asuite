@@ -52,6 +52,7 @@ import module_info
 import result_reporter
 import test_runner_handler
 
+from atest_enum import DetectType
 from metrics import metrics
 from metrics import metrics_base
 from metrics import metrics_utils
@@ -308,9 +309,31 @@ def _validate_exec_mode(args, test_infos, host_tests=None):
         logging.error(err_msg)
         metrics_utils.send_exit_event(constants.EXIT_CODE_ERROR, logs=err_msg)
         sys.exit(constants.EXIT_CODE_ERROR)
+    # The 'adb' may not be available for the first repo sync or a clean build; run
+    # `adb devices` in the build step again.
+    if at.has_command('adb'):
+        _validate_adb_devices(args, test_infos)
+    # In the case of '$atest <host-only>', we add --host to run on host-side.
+    # The option should only be overridden if `host_tests` is not set.
+    if not args.host and host_tests is None:
+        logging.debug('Appending "--host" for a deviceless test...')
+        args.host = bool(constants.DEVICELESS_TEST in all_device_modes)
+
+
+def _validate_adb_devices(args, test_infos):
+    """Validate the availability of connected devices via adb command.
+
+    Exit the program with error code if have device-only and host-only.
+
+    Args:
+        args: parsed args object.
+        test_info: TestInfo object.
+    """
+    all_device_modes = {x.get_supported_exec_mode() for x in test_infos}
     device_tests = [x.test_name for x in test_infos
         if x.get_supported_exec_mode() != constants.DEVICELESS_TEST]
-    if not constants.DEVICELESS_TEST in all_device_modes:
+    # Only block testing if it is a device test.
+    if constants.DEVICE_TEST in all_device_modes:
         if (not any((args.host, args.start_avd, args.acloud_create))
             and not atest_utils.get_adb_devices()):
             err_msg = (f'Stop running test(s): '
@@ -321,11 +344,6 @@ def _validate_exec_mode(args, test_infos, host_tests=None):
             metrics_utils.send_exit_event(constants.EXIT_CODE_DEVICE_NOT_FOUND,
                                           logs=err_msg)
             sys.exit(constants.EXIT_CODE_DEVICE_NOT_FOUND)
-    # In the case of '$atest <host-only>', we add --host to run on host-side.
-    # The option should only be overridden if `host_tests` is not set.
-    if not args.host and host_tests is None:
-        logging.debug('Appending "--host" for a deviceless test...')
-        args.host = bool(constants.DEVICELESS_TEST in all_device_modes)
 
 
 def _validate_tm_tests_exec_mode(args, test_infos):
@@ -803,6 +821,26 @@ def perm_consistency_metrics(test_infos, mod_info, args):
         logging.debug('perm_consistency_metrics raised exception: %s', err)
         return
 
+def get_device_count_config(test_infos, mod_info):
+    """Get the amount of desired devices from the test config.
+
+    Args:
+        test_infos: A set of TestInfo instances.
+        mod_info: ModuleInfo object.
+
+    Returns: the count of devices in test config. If there are more than one
+             configs, return the maximum.
+    """
+    max_count = 0
+    for tinfo in test_infos:
+        test_config, _ = test_finder_utils.get_test_config_and_srcs(
+            tinfo, mod_info)
+        if test_config:
+            devices = atest_utils.get_config_device(test_config)
+            if devices:
+                max_count = max(len(devices), max_count)
+    return max_count
+
 # pylint: disable=too-many-statements
 # pylint: disable=too-many-branches
 # pylint: disable=too-many-return-statements
@@ -857,6 +895,19 @@ def main(argv, results_dir, args):
             proc_idx.join()
         find_start = time.time()
         build_targets, test_infos = translator.translate(args)
+        given_amount  = len(args.serial) if args.serial else 0
+        required_amount = get_device_count_config(test_infos, mod_info)
+        extra_args[constants.DEVICE_COUNT_CONFIG] = required_amount
+        # Only check when both given_amount and required_amount are non zero.
+        if all((given_amount, required_amount)):
+            # Base on TF rules, given_amount can be greater than or equal to
+            # required_amount.
+            if required_amount > given_amount:
+                atest_utils.colorful_print(
+                    f'The test requires {required_amount} devices, '
+                    f'but {given_amount} were given.',
+                    constants.RED)
+                return 0
         if args.no_modules_in:
             build_targets = _exclude_modules_in_targets(build_targets)
         find_duration = time.time() - find_start
@@ -910,13 +961,13 @@ def main(argv, results_dir, args):
             duration=metrics_utils.convert_duration(build_duration),
             success=success,
             targets=build_targets)
-        rebuild_module_info = constants.DETECT_TYPE_NOT_REBUILD_MODULE_INFO
+        rebuild_module_info = DetectType.NOT_REBUILD_MODULE_INFO
         if is_clean:
-            rebuild_module_info = constants.DETECT_TYPE_CLEAN_BUILD
+            rebuild_module_info = DetectType.CLEAN_BUILD
         elif args.rebuild_module_info:
-            rebuild_module_info = constants.DETECT_TYPE_REBUILD_MODULE_INFO
+            rebuild_module_info = DetectType.REBUILD_MODULE_INFO
         elif smart_rebuild:
-            rebuild_module_info = constants.DETECT_TYPE_SMART_REBUILD_MODULE_INFO
+            rebuild_module_info = DetectType.SMART_REBUILD_MODULE_INFO
         metrics.LocalDetectEvent(
             detect_type=rebuild_module_info,
             result=int(build_duration))
@@ -934,15 +985,18 @@ def main(argv, results_dir, args):
                 logging.debug('Saved acloud create time: %ss.',
                               acloud_duration)
                 metrics.LocalDetectEvent(
-                    detect_type=constants.DETECT_TYPE_ACLOUD_CREATE,
+                    detect_type=DetectType.ACLOUD_CREATE,
                     result=round(acloud_duration))
             else:
                 # acloud create took longer, saved find+build time.
                 logging.debug('Saved Find and Build time: %ss.',
                               find_build_duration)
                 metrics.LocalDetectEvent(
-                    detect_type=constants.DETECT_TYPE_FIND_BUILD,
+                    detect_type=DetectType.FIND_BUILD,
                     result=round(find_build_duration))
+        # After build step 'adb' command will be available, and stop forward to
+        # Tradefed if the tests require a device.
+        _validate_adb_devices(args, test_infos)
     elif constants.TEST_STEP not in steps:
         logging.warning('Install step without test step currently not '
                         'supported, installing AND testing instead.')
@@ -994,14 +1048,14 @@ if __name__ == '__main__':
             atest_utils.colorize("atest " + " ".join(final_args),
                                  constants.CYAN)))
         metrics.LocalDetectEvent(
-            detect_type=constants.DETECT_TYPE_ATEST_CONFIG, result=1)
+            detect_type=DetectType.ATEST_CONFIG, result=1)
         if HAS_IGNORED_ARGS:
             atest_utils.colorful_print(
                 'Please correct the config and try again.', constants.YELLOW)
             sys.exit(constants.EXIT_CODE_EXIT_BEFORE_MAIN)
     else:
         metrics.LocalDetectEvent(
-            detect_type=constants.DETECT_TYPE_ATEST_CONFIG, result=0)
+            detect_type=DetectType.ATEST_CONFIG, result=0)
     atest_configs.GLOBAL_ARGS = _parse_args(final_args)
     with atest_execution_info.AtestExecutionInfo(
             final_args, RESULTS_DIR,
@@ -1023,7 +1077,7 @@ if __name__ == '__main__':
         DETECTOR = bug_detector.BugDetector(final_args, EXIT_CODE)
         if EXIT_CODE not in constants.EXIT_CODES_BEFORE_TEST:
             metrics.LocalDetectEvent(
-                detect_type=constants.DETECT_TYPE_BUG_DETECTED,
+                detect_type=DetectType.BUG_DETECTED,
                 result=DETECTOR.caught_result)
             if result_file:
                 print("Run 'atest --history' to review test result history.")

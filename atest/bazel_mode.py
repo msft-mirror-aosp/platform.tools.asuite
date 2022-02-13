@@ -676,7 +676,10 @@ def find_runtime_dep_refs(
     # 'T' is statically linked to 'U' which supports both variants, the latter
     # still appears as a dependency. Since we can't tell, this would result in
     # the shared library variant of 'U' being added on the library path.
-    for lib_name in info.get(constants.MODULE_SHARED_LIBS, []):
+    libs = set()
+    libs.update(info.get(constants.MODULE_SHARED_LIBS, []))
+    libs.update(info.get(constants.MODULE_RUNTIME_DEPS, []))
+    for lib_name in libs:
         lib_info = mod_info.get_module_info(lib_name)
         if not lib_info:
             continue

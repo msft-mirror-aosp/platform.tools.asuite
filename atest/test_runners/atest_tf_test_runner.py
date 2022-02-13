@@ -37,6 +37,7 @@ import constants
 import module_info
 import result_reporter
 
+from atest_enum import DetectType
 from logstorage import atest_gcp_utils
 from logstorage import logstorage_utils
 from metrics import metrics
@@ -343,7 +344,7 @@ class AtestTradefedTestRunner(trb.TestRunnerBase):
                             constants.RED, highlight=True)
                     if not data_map:
                         metrics.LocalDetectEvent(
-                            detect_type=constants.DETECT_TYPE_TF_EXIT_CODE,
+                            detect_type=DetectType.TF_EXIT_CODE,
                             result=tf_subproc.returncode)
                         raise TradeFedExitError(tf_subproc.returncode)
                     self._handle_log_associations(event_handlers)
@@ -512,8 +513,7 @@ class AtestTradefedTestRunner(trb.TestRunnerBase):
                     args_to_append.append(exclude_parameter)
         # If multiple devices in test config, automatically append
         # --replicate-parent-setup and --multi-device-count
-        device_count = self._get_device_count_config(test_infos,
-                                                     self.module_info)
+        device_count = extra_args.get(constants.DEVICE_COUNT_CONFIG, 0)
         if device_count > 1:
             args_to_append.append('--replicate-parent-setup')
             args_to_append.append('--multi-device-count')
@@ -850,7 +850,7 @@ class AtestTradefedTestRunner(trb.TestRunnerBase):
                             float(device_test_end_log_time))
             logging.debug('TF logcat teardown time=%s seconds.', teardowntime)
             metrics.LocalDetectEvent(
-                detect_type=constants.DETECT_TYPE_TF_TEARDOWN_LOGCAT,
+                detect_type=DetectType.TF_TEARDOWN_LOGCAT,
                 result=int(teardowntime))
 
     @staticmethod
@@ -871,24 +871,6 @@ class AtestTradefedTestRunner(trb.TestRunnerBase):
                 if constants.TF_PARA_INSTANT_APP in parameters:
                     return True
         return False
-
-    @staticmethod
-    def _get_device_count_config(test_infos, mod_info):
-        """Get the amount of desired devices from the test config.
-
-        Args:
-            test_infos: A set of TestInfo instances.
-            mod_info: ModuleInfo object.
-
-        Returns: the count of devices in test config.
-        """
-        for tinfo in test_infos:
-            test_config, _ = test_finder_utils.get_test_config_and_srcs(
-                tinfo, mod_info)
-            if test_config:
-                devices = atest_utils.get_config_device(test_config)
-                return len(devices)
-        return 0
 
     @staticmethod
     def _is_parameter_auto_enabled_cfg(tinfo, mod_info):
