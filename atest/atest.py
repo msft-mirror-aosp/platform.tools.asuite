@@ -914,10 +914,11 @@ def main(argv, results_dir, args):
         if not test_infos:
             return constants.EXIT_CODE_TEST_NOT_FOUND
         if not is_from_test_mapping(test_infos):
-            _validate_exec_mode(args, test_infos)
-            # _validate_exec_mode appends --host automatically when pure
-            # host-side tests, so re-parsing extra_args is a must.
-            extra_args = get_extra_args(args)
+            if not (any(dry_run_args) or verify_env_variables):
+                _validate_exec_mode(args, test_infos)
+                # _validate_exec_mode appends --host automatically when pure
+                # host-side tests, so re-parsing extra_args is a must.
+                extra_args = get_extra_args(args)
         else:
             _validate_tm_tests_exec_mode(args, test_infos)
         for test_info in test_infos:
