@@ -23,11 +23,13 @@ import json
 import os
 import re
 import sys
+import tempfile
 
 from importlib import reload
 from io import StringIO
 from unittest import mock
 
+import atest_utils
 import cli_translator as cli_t
 import constants
 import module_info
@@ -57,7 +59,8 @@ TEST_9 = test_mapping.TestDetail({'name': 'test9'})
 TEST_10 = test_mapping.TestDetail({'name': 'test10'})
 
 SEARCH_DIR_RE = re.compile(r'^find ([^ ]*).*$')
-
+BUILD_TOP_DIR = tempfile.TemporaryDirectory().name
+PRODUCT_OUT_DIR = os.path.join(BUILD_TOP_DIR, 'out/target/product/vsoc_x86_64')
 
 #pylint: disable=unused-argument
 def gettestinfos_side_effect(test_names, test_mapping_test_details=None,
@@ -102,6 +105,7 @@ class CLITranslatorUnittests(unittest.TestCase):
         """Run after execution of every test"""
         reload(uc)
 
+    @mock.patch.object(atest_utils, 'update_test_info_cache')
     @mock.patch('builtins.input', return_value='n')
     @mock.patch.object(module_finder.ModuleFinder, 'find_test_by_module_name')
     @mock.patch.object(module_finder.ModuleFinder, 'get_fuzzy_searching_results')
@@ -110,7 +114,7 @@ class CLITranslatorUnittests(unittest.TestCase):
     # pylint: disable=too-many-locals
     def test_get_test_infos(self, mock_getfindmethods, _metrics,
                             mock_getfuzzyresults, mock_findtestbymodule,
-                            mock_input):
+                            mock_input, _mock_update_test_info):
         """Test _get_test_infos method."""
         ctr = cli_t.CLITranslator()
         find_method_return_module_info = lambda x, y: uc.MODULE_INFOS
@@ -175,9 +179,11 @@ class CLITranslatorUnittests(unittest.TestCase):
                     test_detail2.options,
                     test_info.data[constants.TI_MODULE_ARG])
 
+    @mock.patch.object(atest_utils, 'update_test_info_cache')
     @mock.patch.object(metrics, 'FindTestFinishEvent')
     @mock.patch.object(test_finder_handler, 'get_find_methods_for_test')
-    def test_get_test_infos_2(self, mock_getfindmethods, _metrics):
+    def test_get_test_infos_2(self, mock_getfindmethods, _metrics,
+        _mock_update_test_info):
         """Test _get_test_infos method."""
         ctr = cli_t.CLITranslator()
         find_method_return_module_info2 = lambda x, y: uc.MODULE_INFOS2
@@ -224,7 +230,7 @@ class CLITranslatorUnittests(unittest.TestCase):
                     test_info.data[constants.TI_MODULE_ARG])
 
     @mock.patch.dict('os.environ', {constants.ANDROID_BUILD_TOP:'/',
-                                    constants.ANDROID_PRODUCT_OUT:'/test/output'})
+                                    constants.ANDROID_PRODUCT_OUT:PRODUCT_OUT_DIR})
     @mock.patch.object(module_finder.ModuleFinder, 'get_fuzzy_searching_results')
     @mock.patch.object(metrics, 'FindTestFinishEvent')
     @mock.patch.object(test_finder_handler, 'get_find_methods_for_test')
@@ -405,7 +411,7 @@ class CLITranslatorUnittests(unittest.TestCase):
         self.assertEqual(test_mapping_dict, test_mapping_dict_gloden)
 
     @mock.patch.dict('os.environ', {constants.ANDROID_BUILD_TOP:'/',
-                                    constants.ANDROID_PRODUCT_OUT:'/test/output'})
+                                    constants.ANDROID_PRODUCT_OUT:PRODUCT_OUT_DIR})
     @mock.patch.object(module_info.ModuleInfo, 'get_testable_modules')
     def test_extract_testable_modules_by_wildcard(self, mock_mods):
         """Test _extract_testable_modules_by_wildcard method."""

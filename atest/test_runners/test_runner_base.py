@@ -28,6 +28,7 @@ import tempfile
 import os
 
 from collections import namedtuple
+from typing import Any, Dict
 
 import atest_error
 import atest_utils
@@ -47,6 +48,9 @@ PASSED_STATUS = 'PASSED'
 IGNORED_STATUS = 'IGNORED'
 ERROR_STATUS = 'ERROR'
 
+ARGS = Dict[str, Any]
+
+
 class TestRunnerBase:
     """Base Test Runner class."""
     NAME = ''
@@ -62,7 +66,10 @@ class TestRunnerBase:
             raise atest_error.NoTestRunnerExecutable('Class var EXECUTABLE is '
                                                      'not defined.')
         if kwargs:
-            logging.debug('ignoring the following args: %s', kwargs)
+            for k, v in kwargs.items():
+                if not 'test_infos' in k:
+                    logging.debug('ignoring the following args: %s=%s',
+                                  k, v)
 
     def run(self, cmd, output_to_stdout=False, env_vars=None):
         """Shell out and execute command.

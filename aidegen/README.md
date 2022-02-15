@@ -62,7 +62,7 @@ $ aidegen <module> -i c
 ```
 The native projects will be launched in CLion and you have to select,
 **Tools > CMake > Change Project Root**
-Change project root to the directory: development/ide/clion/rel_path, while rel_path is the directory shown in CLion’s project view.
+Change project root to the source directory: the relative path which is the directory shown in CLion’s project view. For example, if frameworks/base/media is your project, please change project root directly to frameworks/base/media.
 
 ## 3. Optional arguments:
 

@@ -26,6 +26,7 @@ from __future__ import annotations
 
 import contextlib
 import dataclasses
+import functools
 import os
 import shutil
 import subprocess
@@ -41,7 +42,8 @@ import module_info
 
 from test_finders import test_finder_base
 from test_finders import test_info
-from test_runners import test_runner_base
+from test_runners import test_runner_base as trb
+from test_runners import atest_tf_test_runner as tfr
 
 
 _BAZEL_WORKSPACE_DIR = 'atest_bazel_workspace'
@@ -111,7 +113,7 @@ class WorkspaceGenerator:
         self.workspace_out_path.mkdir(parents=True)
         self._generate_artifacts()
 
-        atest_utils.save_md5([str(self.mod_info.mod_info_file_path)],
+        atest_utils.save_md5([self.mod_info.mod_info_file_path],
                              self.mod_info_md5_path)
 
     def _add_test_module_targets(self):
@@ -240,21 +242,32 @@ class WorkspaceGenerator:
         """Generate workspace files on disk."""
 
         self._create_base_files()
-        self._create_rules_dir()
+        self._symlink(src='tools/asuite/atest/bazel/rules',
+                      target='bazel/rules')
+        self._symlink(src='tools/asuite/atest/bazel/configs',
+                      target='bazel/configs')
 
         for package in self.path_to_package.values():
             package.generate(self.workspace_out_path)
 
-    def _create_rules_dir(self):
-        symlink = self.workspace_out_path.joinpath('bazel/rules')
-        symlink.parent.mkdir(parents=True)
-        symlink.symlink_to(self.src_root_path.joinpath(
-            'tools/asuite/atest/bazel/rules'))
+    def _symlink(self, *, src, target):
+        """Create a symbolic link in workspace pointing to source file/dir.
+
+        Args:
+            src: A string of a relative path to root of Android source tree.
+                This is the source file/dir path for which the symbolic link
+                will be created.
+            target: A string of a relative path to workspace root. This is the
+                target file/dir path where the symbolic link will be created.
+        """
+        symlink = self.workspace_out_path.joinpath(target)
+        symlink.parent.mkdir(parents=True, exist_ok=True)
+        symlink.symlink_to(self.src_root_path.joinpath(src))
 
     def _create_base_files(self):
         self.workspace_out_path.joinpath('WORKSPACE').touch()
-        self.workspace_out_path.joinpath('.bazelrc').symlink_to(
-            self.src_root_path.joinpath('tools/asuite/atest/bazel/bazelrc'))
+        self._symlink(src='tools/asuite/atest/bazel/bazelrc',
+                      target='.bazelrc')
 
 
 class Package:
@@ -447,29 +460,32 @@ class SoongPrebuiltTarget(Target):
 
         # For test modules, we only create symbolic link to the 'testcases'
         # directory since the information in module-info is not accurate.
-        if gen.mod_info.is_testable_module(info):
+        #
+        # Note that we use is_tf_testable_module here instead of ModuleInfo
+        # class's is_testable_module method to avoid misadding a shared library
+        # as a test module.
+        # e.g.
+        # 1. test_module A has a shared_lib (or RLIB, DYLIB) of B
+        # 2. We create target B as a result of method _resolve_dependencies for
+        #    target A
+        # 3. B matches the conditions of is_testable_module:
+        #     a. B has installed path.
+        #     b. has_config return True
+        #     Note that has_config method also looks for AndroidTest.xml in the
+        #     dir of B. If there is a test module in the same dir, B could be
+        #     added as a test module.
+        # 4. We create symbolic link to the 'testcases' for non test target B
+        #    and cause errors.
+        if is_tf_testable_module(gen.mod_info, info):
             config_files = {c: [c.out_path.joinpath(f'testcases/{module_name}')]
                             for c in config_files.keys()}
-
-        if not config_files:
-            raise Exception(f'Module `{module_name}` does not have any'
-                            f' installed paths')
-
-        runtime_dep_refs = []
-
-        for lib_name in info.get(constants.MODULE_SHARED_LIBS, []):
-            lib_info = gen.mod_info.get_module_info(lib_name)
-            if not lib_info:
-                continue
-            if not lib_info.get(constants.MODULE_INSTALLED):
-                continue
-            runtime_dep_refs.append(ModuleRef.for_info(lib_info))
 
         return SoongPrebuiltTarget(
             module_name,
             package_name,
             config_files,
-            runtime_dep_refs
+            find_runtime_dep_refs(gen.mod_info, info, configs,
+                                  gen.src_root_path)
         )
 
     def __init__(self, name: str, package_name: str,
@@ -488,11 +504,24 @@ class SoongPrebuiltTarget(Target):
 
     def required_imports(self) -> Set[Import]:
         return {
-            Import('//bazel/rules:soong_prebuilt.bzl', 'soong_prebuilt'),
+            Import('//bazel/rules:soong_prebuilt.bzl', self._rule_name()),
         }
 
+    @functools.lru_cache(maxsize=None)
     def supported_configs(self) -> Set[Config]:
-        return set(self.config_files.keys())
+        supported_configs = set(self.config_files.keys())
+
+        if supported_configs:
+            return supported_configs
+
+        # If a target has no installed files, then it supports the same
+        # configurations as its dependencies. This is required because some
+        # build modules are just intermediate targets that don't produce any
+        # output but that still have transitive dependencies.
+        for ref in self.runtime_dep_refs:
+            supported_configs.update(ref.target().supported_configs())
+
+        return supported_configs
 
     def dependencies(self) -> List[ModuleRef]:
         return self.runtime_dep_refs
@@ -500,7 +529,7 @@ class SoongPrebuiltTarget(Target):
     def write_to_build_file(self, f: IO):
         writer = IndentWriter(f)
 
-        writer.write_line('soong_prebuilt(')
+        writer.write_line(f'{self._rule_name()}(')
 
         with writer.indent():
             writer.write_line(f'name = "{self._name}",')
@@ -524,7 +553,14 @@ class SoongPrebuiltTarget(Target):
                 symlink.parent.mkdir(parents=True, exist_ok=True)
                 symlink.symlink_to(f)
 
+    def _rule_name(self):
+        return ('soong_prebuilt' if self.config_files
+                else 'soong_uninstalled_prebuilt')
+
     def _write_files_attribute(self, writer: IndentWriter):
+        if not self.config_files:
+            return
+
         name = self._name
 
         writer.write('files = ')
@@ -545,7 +581,7 @@ class SoongPrebuiltTarget(Target):
             return
 
         for config in self.supported_configs():
-            config_deps.setdefault(config, list())
+            config_deps.setdefault(config, [])
 
         writer.write('runtime_deps = ')
         write_config_select(
@@ -565,9 +601,12 @@ def group_paths_by_config(
         matching_configs = [
             c for c in configs if _is_relative_to(f, c.out_path)]
 
+        if not matching_configs:
+            continue
+
         # The path can only appear in ANDROID_HOST_OUT for host target or
         # ANDROID_PRODUCT_OUT, but cannot appear in both.
-        if len(matching_configs) != 1:
+        if len(matching_configs) > 1:
             raise Exception(f'Installed path `{f}` is not in'
                             f' ANDROID_HOST_OUT or ANDROID_PRODUCT_OUT')
 
@@ -617,6 +656,57 @@ def get_module_installed_paths(
         return install_path
 
     return map(resolve, info.get(constants.MODULE_INSTALLED))
+
+
+def find_runtime_dep_refs(
+    mod_info: module_info.ModuleInfo,
+    info: module_info.Module,
+    configs: List[Config],
+    src_root_path: Path,
+) -> List[ModuleRef]:
+    """Return module dependencies required at runtime."""
+
+    runtime_dep_refs = []
+
+    # We don't use the `dependencies` module-info field for shared libraries
+    # since it's ambiguous and could generate more targets and pull in more
+    # dependencies than necessary. In particular, libraries that support both
+    # static and dynamic linking could end up becoming runtime dependencies
+    # even though the build specifies static linking. For example, if a target
+    # 'T' is statically linked to 'U' which supports both variants, the latter
+    # still appears as a dependency. Since we can't tell, this would result in
+    # the shared library variant of 'U' being added on the library path.
+    libs = set()
+    libs.update(info.get(constants.MODULE_SHARED_LIBS, []))
+    libs.update(info.get(constants.MODULE_RUNTIME_DEPS, []))
+    for lib_name in libs:
+        lib_info = mod_info.get_module_info(lib_name)
+        if not lib_info:
+            continue
+        installed_paths = get_module_installed_paths(lib_info,
+                                                     src_root_path)
+        config_files = group_paths_by_config(configs, installed_paths)
+        if not config_files:
+            continue
+
+        runtime_dep_refs.append(ModuleRef.for_info(lib_info))
+
+    runtime_library_class = {'RLIB_LIBRARIES', 'DYLIB_LIBRARIES'}
+    # We collect rlibs even though they are technically static libraries since
+    # they could refer to dylibs which are required at runtime. Generating
+    # Bazel targets for these intermediate modules keeps the generator simple
+    # and preserves the shape (isomorphic) of the Soong structure making the
+    # workspace easier to debug.
+    for dep_name in info.get(constants.MODULE_DEPENDENCIES, []):
+        dep_info = mod_info.get_module_info(dep_name)
+        if not dep_info:
+            continue
+        if not runtime_library_class.intersection(
+            dep_info.get(constants.MODULE_CLASS, [])):
+            continue
+        runtime_dep_refs.append(ModuleRef.for_info(dep_info))
+
+    return runtime_dep_refs
 
 
 class IndentWriter:
@@ -676,6 +766,21 @@ def write_target_list(writer: IndentWriter, targets: List[Target]):
     writer.write(']')
 
 
+def is_tf_testable_module(mod_info: module_info.ModuleInfo,
+                          info: Dict[str, Any]):
+    """Check if the module is a Tradefed runnable test module.
+
+    ModuleInfo.is_testable_module() is from ATest's point of view. It only
+    checks if a module has installed path and has local config files. This
+    way is not reliable since some libraries might match these two conditions
+    and be included mistakenly. Robolectric_utils is an example that matched
+    these two conditions but not testable. This function make sure the module
+    is a TF runnable test module.
+    """
+    return (mod_info.is_testable_module(info)
+            and info.get(constants.MODULE_COMPATIBILITY_SUITES))
+
+
 def _decorate_find_method(mod_info, finder_method_func):
     """A finder_method decorator to override TestInfo properties."""
 
@@ -690,6 +795,7 @@ def _decorate_find_method(mod_info, finder_method_func):
                 tinfo.test_runner = BazelTestRunner.NAME
         return test_infos
     return use_bazel_runner
+
 
 def create_new_finder(mod_info, finder):
     """Create new test_finder_base.Finder with decorated find_method.
@@ -717,7 +823,7 @@ def default_run_command(args: List[str], cwd: Path) -> str:
     )
 
 
-class BazelTestRunner(test_runner_base.TestRunnerBase):
+class BazelTestRunner(trb.TestRunnerBase):
     """Bazel Test Runner class."""
 
     NAME = 'BazelTestRunner'
@@ -812,7 +918,28 @@ class BazelTestRunner(test_runner_base.TestRunnerBase):
         """
         target_patterns = ' '.join(self.test_info_target_label(i)
                                    for i in test_infos)
+        bazel_args = ' '.join(self._parse_extra_args(test_infos, extra_args))
         # Use 'cd' instead of setting the working directory in the subprocess
         # call for a working --dry-run command that users can run.
         return [f'cd {self.bazel_workspace} &&'
-                f'{self.bazel_binary} test {target_patterns}']
+                f'{self.bazel_binary} test {target_patterns} {bazel_args}']
+
+    def _parse_extra_args(self, test_infos: List[test_info.TestInfo],
+                          extra_args: trb.ARGS) -> trb.ARGS:
+
+        def flatten(i):
+            return [item for sublist in i for item in sublist]
+
+        args_to_append = []
+        tf_args, tf_not_supported_args = tfr.extra_args_to_tf_args(
+            self.mod_info, test_infos, extra_args)
+
+        # TODO(b/215461642): Store the extra_args in the top-level object so
+        # that we don't have to re-parse the extra args to get BAZEL_ARG again.
+        for arg in tf_not_supported_args:
+            if constants.BAZEL_ARG == arg:
+                args_to_append.extend(flatten(extra_args[arg]))
+
+        args_to_append.extend([f'--test_arg={i}' for i in tf_args])
+
+        return args_to_append

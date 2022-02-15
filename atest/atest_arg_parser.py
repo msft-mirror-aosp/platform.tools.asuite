@@ -36,13 +36,19 @@ ACLOUD_CREATE = 'Create AVD(s) via acloud command.'
 AGGREGATE_METRIC_FILTER = ('Regular expression that will be used for filtering '
                            'the aggregated metrics.')
 ALL_ABI = 'Set to run tests for all abis.'
+ANNOTATION_FILTER = ('Accept keyword that will be translated to fully qualified'
+                     'annotation class name.')
 BUILD = 'Run a build.'
 BAZEL_MODE = 'Run tests using Bazel.'
+BAZEL_ARG = ('Forward a flag to Bazel for tests executed with Bazel; '
+             'see --bazel-mode.')
 CLEAR_CACHE = 'Wipe out the test_infos cache of the test and start a new search.'
 COLLECT_TESTS_ONLY = ('Collect a list test cases of the instrumentation tests '
                       'without testing them in real.')
 DISABLE_TEARDOWN = 'Disable test teardown and cleanup.'
 DRY_RUN = 'Dry run atest without building, installing and running tests in real.'
+ENABLE_DEVICE_PREPARER = ('Enable template/preparers/device-preparer as the '
+                          'default preparer.')
 ENABLE_FILE_PATTERNS = 'Enable FILE_PATTERNS in TEST_MAPPING.'
 FLAKES_INFO = 'Test result with flakes info.'
 HISTORY = ('Show test results in chronological order(with specified number or '
@@ -86,6 +92,7 @@ TEST = ('Run the tests. WARNING: Many test configs force cleanup of device '
 TEST_MAPPING = 'Run tests defined in TEST_MAPPING files.'
 TEST_CONFIG_SELECTION = ('If multiple test config belong to same test module '
                          'pop out a selection menu on console.')
+TEST_FILTER = 'Run tests which are specified using this option.'
 TF_DEBUG = 'Enable tradefed debug mode with a specified port. (default: 10888)'
 TF_EARLY_DEVICE_RELEASE = ('Inform Tradefed to release the device as soon as '
                            'when done with it.')
@@ -139,8 +146,10 @@ class AtestArgParser(argparse.ArgumentParser):
         self.add_argument('-b', '--build', action='append_const', dest='steps',
                           const=constants.BUILD_STEP, help=BUILD)
         self.add_argument('--bazel-mode', action='store_true', help=BAZEL_MODE)
+        self.add_argument('--bazel-arg', nargs='*', action='append', help=BAZEL_ARG)
         self.add_argument('-d', '--disable-teardown', action='store_true',
                           help=DISABLE_TEARDOWN)
+        self.add_argument('--enable-device-preparer', action='store_true', help=HOST)
         self.add_argument('--host', action='store_true', help=HOST)
         self.add_argument('-i', '--install', action='append_const',
                           dest='steps', const=constants.INSTALL_STEP,
@@ -195,7 +204,7 @@ class AtestArgParser(argparse.ArgumentParser):
                             type=str, help=ACLOUD_CREATE)
         agroup.add_argument('--start-avd', action='store_true',
                             help=START_AVD)
-        agroup.add_argument('-s', '--serial', help=SERIAL)
+        agroup.add_argument('-s', '--serial', action='append', help=SERIAL)
 
         # Options that to query flakes info in test result
         self.add_argument('--flakes-info', action='store_true',
@@ -228,6 +237,7 @@ class AtestArgParser(argparse.ArgumentParser):
         # Options related to module parameterization
         self.add_argument('--instant', action='store_true', help=INSTANT)
         self.add_argument('--user-type', help=USER_TYPE)
+        self.add_argument('--annotation-filter', action='append', help=ANNOTATION_FILTER)
 
         # Option for dry-run command mapping result and cleaning cache.
         self.add_argument('-c', '--clear-cache', action='store_true',
@@ -245,6 +255,8 @@ class AtestArgParser(argparse.ArgumentParser):
         # Options for Tradefed customization related.
         self.add_argument('--tf-template', action='append',
                           help=TF_TEMPLATE)
+        self.add_argument('--test-filter', nargs='?',
+                          help=TEST_FILTER)
 
         # A group of options for rerun strategy. They are mutually exclusive
         # in a command line.
@@ -275,7 +287,7 @@ class AtestArgParser(argparse.ArgumentParser):
                           help=NO_METRICS)
 
         # Option to filter the output of aggregate metrics content.
-        self.add_argument('--aggregate-metric-filter', default='',
+        self.add_argument('--aggregate-metric-filter', action='append',
                           help=AGGREGATE_METRIC_FILTER)
 
         # This arg actually doesn't consume anything, it's primarily used for
@@ -309,12 +321,15 @@ def print_epilog_text():
         ACLOUD_CREATE=ACLOUD_CREATE,
         AGGREGATE_METRIC_FILTER=AGGREGATE_METRIC_FILTER,
         ALL_ABI=ALL_ABI,
+        ANNOTATION_FILTER=ANNOTATION_FILTER,
         BUILD=BUILD,
         BAZEL_MODE=BAZEL_MODE,
+        BAZEL_ARG=BAZEL_ARG,
         CLEAR_CACHE=CLEAR_CACHE,
         COLLECT_TESTS_ONLY=COLLECT_TESTS_ONLY,
         DISABLE_TEARDOWN=DISABLE_TEARDOWN,
         DRY_RUN=DRY_RUN,
+        ENABLE_DEVICE_PREPARER=ENABLE_DEVICE_PREPARER,
         ENABLE_FILE_PATTERNS=ENABLE_FILE_PATTERNS,
         FLAKES_INFO=FLAKES_INFO,
         HELP_DESC=HELP_DESC,
@@ -343,6 +358,7 @@ def print_epilog_text():
         TEST_MAPPING=TEST_MAPPING,
         TF_DEBUG=TF_DEBUG,
         TF_EARLY_DEVICE_RELEASE=TF_EARLY_DEVICE_RELEASE,
+        TEST_FILTER=TEST_FILTER,
         TF_TEMPLATE=TF_TEMPLATE,
         USER_TYPE=USER_TYPE,
         UPDATE_CMD_MAPPING=UPDATE_CMD_MAPPING,
@@ -367,6 +383,18 @@ SYNOPSIS
 OPTIONS
         Below arguments are catagorised by features and purposes. Arguments marked with implicit default will apply even the user does not pass it explicitly.
 
+        *NOTE* Atest reads ~/.atest/config that supports all optional arguments to help users reduce repeating options they often use.
+        E.g. Assume "--all-abi" and "--verbose" are frequently used and have been defined line-by-line in ~/.atest/config, issuing
+
+            atest hello_world_test -v -- --test-arg xxx
+
+        is equivalent to
+
+            atest hello_world_test -v --all-abi --verbose -- --test-arg xxx
+
+        Also, to avoid confusing Atest from testing TEST_MAPPING file and implicit test names from ~/.atest/config, any test names defined in the config file
+        will be ignored without any hints.
+
         [ Testing ]
         -a, --all-abi
             {ALL_ABI}
@@ -381,11 +409,17 @@ OPTIONS
         --bazel-mode
             {BAZEL_MODE}
 
+        --bazel-arg
+            {BAZEL_ARG}
+
         -d, --disable-teardown
             {DISABLE_TEARDOWN}
 
         -D, --tf-debug [PORT]
             {TF_DEBUG}
+
+        --enable-device-preparer
+            {ENABLE_DEVICE_PREPARER}
 
         --host
             {HOST}
@@ -416,6 +450,11 @@ OPTIONS
 
         --test-config-select
             {TEST_CONFIG_SELECTION}
+
+        --test-filter [FILTER]
+            {TEST_FILTER} e.g.
+                atest perfetto_integrationtests --test-filter *ConsoleInterceptorVerify*
+                atest HelloWorldTests --test-filter testHalloWelt*
 
         --tf-early-device-release
             {TF_EARLY_DEVICE_RELEASE}
@@ -475,8 +514,15 @@ OPTIONS
         --instant
             {INSTANT}
 
-        --user-type
+        --user-type [TYPE]
             {USER_TYPE}
+
+        --annotation-filter [KEYWORD]
+            {ANNOTATION_FILTER} e.g.
+
+                atest TeleServiceTests --annotation-filter smallTest
+
+            where "smalltest" will be translated to "androidx.test.filters.SmallTest" or other class accordingly.
 
 
         [ Iteration Testing ]

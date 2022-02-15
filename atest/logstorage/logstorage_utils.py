@@ -41,6 +41,7 @@
 from __future__ import print_function
 
 import logging
+import uuid
 import time
 
 # pylint: disable=import-error
@@ -66,7 +67,8 @@ class BuildClient:
             serviceName=constants.STORAGE_SERVICE_NAME,
             version=constants.STORAGE_API_VERSION,
             cache_discovery=False,
-            http=http_auth)
+            http=http_auth,
+            discoveryServiceUrl=constants.DISCOVERY_SERVICE)
 
     def list_branch(self):
         """List all branch."""
@@ -126,6 +128,7 @@ class BuildClient:
         Returns:
             A build invocation object.
         """
+        sponge_invocation_id = str(uuid.uuid4())
         invocation = {
             "primaryBuild": {
                 "buildId": build_record['buildId'],
@@ -134,7 +137,14 @@ class BuildClient:
             },
             "schedulerState": "running",
             "runner": "atest",
-            "scheduler": "atest"
+            "scheduler": "atest",
+            "properties": [{
+                'name': 'sponge_invocation_id',
+                'value': sponge_invocation_id,
+            }, {
+                'name': 'test_uri',
+                'value': f'{constants.STORAGE2_TEST_URI}{sponge_invocation_id}'
+            }]
         }
         return self.client.invocation().insert(body=invocation).execute()
 
