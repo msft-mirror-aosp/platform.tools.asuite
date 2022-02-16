@@ -388,7 +388,8 @@ class ResultReporter:
         failed_sum = len(self.failed_tests)
         for runner_name, groups in self.runners.items():
             if groups == UNSUPPORTED_FLAG:
-                print(runner_name, 'Unsupported. See raw output above.')
+                print(f'Pretty output does not support {runner_name}. '
+                      f'See raw output above.')
                 continue
             if groups == FAILURE_FLAG:
                 tests_ret = constants.EXIT_CODE_TEST_FAILURE
