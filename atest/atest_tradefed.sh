@@ -15,10 +15,7 @@
 # limitations under the License.
 
 # A helper script that launches Trade Federation for atest
-if [[ -z "${ATEST_HELPER}" ]]; then
-    ATEST_HELPER="$(dirname $0)/atest_script_help.sh"
-fi
-source $ATEST_HELPER
+source "$(dirname $0)/atest_script_help.sh"
 
 # TODO b/63295046 (sbasi) - Remove this when LOCAL_JAVA_LIBRARIES includes
 # installation.
@@ -34,7 +31,6 @@ if [[ ! -z "$ANDROID_HOST_OUT" ]]; then
     # then other *ts-tradefed.jar.
     deps="atest-tradefed.jar
           compatibility-host-util.jar
-          hamcrest-library.jar
           hosttestlib.jar
           cts-tradefed.jar
           sts-tradefed.jar
@@ -50,20 +46,6 @@ if [[ ! -z "$ANDROID_HOST_OUT" ]]; then
     done
 fi
 
-# Accumulate prebuilt jars as a part of classpath when the configurations are
-# packaged into a prebuilt jar (b/192046472)
-TF_CORE_DIR=$ANDROID_BUILD_TOP/tools/tradefederation/core
-if [ ! -d $TF_CORE_DIR ]; then
-    TF_DIR=$ANDROID_BUILD_TOP/tools/tradefederation/prebuilts/filegroups
-    GTF_DIR=$ANDROID_BUILD_TOP/vendor/google_tradefederation/prebuilts/filegroups
-    PREBUILT_JARS=$(find $TF_DIR $GTF_DIR -type f -name *.jar 2>/dev/null)
-    if [ -n "$PREBUILT_JARS" ]; then
-        for jar in $PREBUILT_JARS; do
-            TF_PATH+=":$jar"
-        done
-    fi
-fi
-
 if [ "$(uname)" == "Darwin" ]; then
     local_tmp_dir="$ANDROID_HOST_OUT/tmp"
     [[ -f "$local_tmp_dir" ]] || mkdir -p "$local_tmp_dir"
@@ -71,7 +53,7 @@ if [ "$(uname)" == "Darwin" ]; then
 fi
 
 # Note: must leave $RDBG_FLAG and $TRADEFED_OPTS unquoted so that they go away when unset
-${TF_JAVA} $RDBG_FLAG \
+java $RDBG_FLAG \
     -XX:+HeapDumpOnOutOfMemoryError \
     -XX:-OmitStackTraceInFastThrow \
     $TRADEFED_OPTS \
