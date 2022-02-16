@@ -28,7 +28,6 @@ import tempfile
 import os
 
 from collections import namedtuple
-from typing import Any, Dict
 
 import atest_error
 import atest_utils
@@ -48,9 +47,6 @@ PASSED_STATUS = 'PASSED'
 IGNORED_STATUS = 'IGNORED'
 ERROR_STATUS = 'ERROR'
 
-ARGS = Dict[str, Any]
-
-
 class TestRunnerBase:
     """Base Test Runner class."""
     NAME = ''
@@ -66,10 +62,7 @@ class TestRunnerBase:
             raise atest_error.NoTestRunnerExecutable('Class var EXECUTABLE is '
                                                      'not defined.')
         if kwargs:
-            for k, v in kwargs.items():
-                if not 'test_infos' in k:
-                    logging.debug('ignoring the following args: %s=%s',
-                                  k, v)
+            logging.debug('ignoring the following args: %s', kwargs)
 
     def run(self, cmd, output_to_stdout=False, env_vars=None):
         """Shell out and execute command.
@@ -164,9 +157,7 @@ class TestRunnerBase:
             is started in a process group, so this SIGINT is sufficient to
             kill all the child processes TradeFed spawns as well.
             """
-            print('Process ID: %s', proc.pid)
-            logging.info('Ctrl-C received. Killing process group ID: %s',
-                         os.getpgid(proc.pid))
+            logging.info('Ctrl-C received. Killing subprocess group')
             os.killpg(os.getpgid(proc.pid), signal.SIGINT)
         return signal_handler
 
