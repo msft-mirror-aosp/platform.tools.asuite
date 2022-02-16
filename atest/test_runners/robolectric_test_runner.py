@@ -29,6 +29,7 @@ import tempfile
 import time
 
 from functools import partial
+from pathlib import Path
 
 import atest_utils
 import constants
@@ -100,6 +101,8 @@ class RobolectricTestRunner(test_runner_base.TestRunnerBase):
                                output_to_stdout=self.is_verbose,
                                env_vars=full_env_vars)
             ret_code |= self.wait_for_subprocess(subproc)
+        if not ret_code:
+            ret_code = self._check_robo_tests_result(test_infos)
         return ret_code
 
     def run_tests_pretty(self, test_infos, extra_args, reporter):
@@ -133,6 +136,8 @@ class RobolectricTestRunner(test_runner_base.TestRunnerBase):
                                                subproc,
                                                event_handler))
                 ret_code |= self.wait_for_subprocess(subproc)
+        if not ret_code:
+            ret_code = self._check_robo_tests_result(test_infos)
         return ret_code
 
     def _get_full_build_environ(self, test_info=None, extra_args=None,
@@ -268,3 +273,27 @@ class RobolectricTestRunner(test_runner_base.TestRunnerBase):
                     os.environ.get(constants.ANDROID_BUILD_TOP) + os.sep, '')
             run_cmds.append(run_cmd)
         return run_cmds
+
+    @staticmethod
+    def _check_robo_tests_result(test_infos):
+        """Check the result of test_infos with raw output.
+
+        Args:
+            test_infos: List of TestInfo.
+
+        Returns:
+            0 if tests succeed, non-zero otherwise.
+        """
+        for test_info in test_infos:
+            result_output = Path(
+                os.getenv(constants.ANDROID_PRODUCT_OUT, '')).joinpath(
+                f'obj/ROBOLECTRIC/{test_info.test_name}'
+                f'_intermediates/output.out')
+            if result_output.exists():
+                with result_output.open() as f:
+                    for line in f.readlines():
+                        if str(line).find('FAILURES!!!') >= 0:
+                            logging.debug('%s is failed from %s',
+                                          test_info.test_name, result_output)
+                            return constants.EXIT_CODE_TEST_FAILURE
+        return constants.EXIT_CODE_SUCCESS
