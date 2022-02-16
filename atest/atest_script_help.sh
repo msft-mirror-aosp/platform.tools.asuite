@@ -27,7 +27,14 @@
 checkPath() {
     if ! type -P "$1" &> /dev/null; then
         >&2 echo "Unable to find $1."
-        exit 1
+        exit
+    fi;
+}
+
+checkFile() {
+    if [ ! -f "$1" ]; then
+        >&2 echo "Unable to locate $1"
+        exit
     fi;
 }
 
@@ -86,7 +93,7 @@ fi
 
 if [ -z "${TF_PATH}" ]; then
     >&2 echo "ERROR: Could not find tradefed jar files"
-    exit 1
+    exit
 fi
 
 # include any host-side test jars from suite
