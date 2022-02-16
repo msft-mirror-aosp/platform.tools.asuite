@@ -148,9 +148,7 @@ class AtestUtilsUnittests(unittest.TestCase):
         stream = mock.Mock()
         stream.isatty.return_value = True
         mock_curses_tigetnum.return_value = 256
-        # TODO(b/205641611): test failed in bazel mode.
-        # Wll enable it when this issue be fixed.
-        #self.assertTrue(atest_utils._has_colors(stream))
+        self.assertTrue(atest_utils._has_colors(stream))
 
 
     @mock.patch('atest_utils._has_colors')
@@ -616,7 +614,7 @@ class AtestUtilsUnittests(unittest.TestCase):
         inexist_string = os.path.join(unittest_constants.TEST_DATA_DIR,
                                       unittest_constants.CLASS_NAME)
         self.assertEqual(
-            atest_utils.md5sum(exist_string), 'f02c1a648f16e5e9d7035bb11486ac2b')
+            atest_utils.md5sum(exist_string), 'c26aab9baae99bcfb97633b69e9ceefd')
         self.assertEqual(
             atest_utils.md5sum(inexist_string), '')
 
@@ -649,55 +647,6 @@ class AtestUtilsUnittests(unittest.TestCase):
         self.assertEqual({'value_1', 'value_2', 'value_3', 'value_4'},
                          atest_utils.get_config_parameter(
                              parameter_config))
-
-    def test_get_config_device(self):
-        """Test method of get_config_device"""
-        device_config = os.path.join(
-            unittest_constants.TEST_DATA_DIR,
-            "parameter_config", "multiple_device.cfg")
-        self.assertEqual({'device_1', 'device_2'},
-                         atest_utils.get_config_device(device_config))
-
-    def test_get_mainline_param(self):
-        """Test method of get_mainline_param"""
-        mainline_param_config = os.path.join(
-            unittest_constants.TEST_DATA_DIR,
-            "parameter_config", "mainline_param.cfg")
-        self.assertEqual({'foo1.apex', 'foo2.apk+foo3.apk'},
-                         atest_utils.get_mainline_param(
-                             mainline_param_config))
-        no_mainline_param_config = os.path.join(
-            unittest_constants.TEST_DATA_DIR,
-            "parameter_config", "parameter.cfg")
-        self.assertEqual(set(),
-                         atest_utils.get_mainline_param(
-                             no_mainline_param_config))
-
-    def test_get_full_annotation_class_name(self):
-        """Test method of get_full_annotation_class_name."""
-        app_mode_full = 'android.platform.test.annotations.AppModeFull'
-        presubmit = 'android.platform.test.annotations.Presubmit'
-        module_info = {'srcs': [os.path.join(unittest_constants.TEST_DATA_DIR,
-                                'annotation_testing',
-                                'Annotation.src')]}
-        # get annotation class from keyword
-        self.assertEqual(
-            atest_utils.get_full_annotation_class_name(module_info, 'presubmit'),
-            presubmit)
-        # get annotation class from an accurate fqcn keyword.
-        self.assertEqual(
-            atest_utils.get_full_annotation_class_name(module_info, presubmit),
-            presubmit)
-        # accept fqcn keyword in lowercase.
-        self.assertEqual(
-            atest_utils.get_full_annotation_class_name(module_info, 'android.platform.test.annotations.presubmit'),
-            presubmit)
-        # unable to get annotation class from keyword.
-        self.assertNotEqual(
-            atest_utils.get_full_annotation_class_name(module_info, 'appleModefull'), app_mode_full)
-        # do not support partial-correct keyword.
-        self.assertNotEqual(
-            atest_utils.get_full_annotation_class_name(module_info, 'android.platform.test.annotations.pres'), presubmit)
 
 if __name__ == "__main__":
     unittest.main()
