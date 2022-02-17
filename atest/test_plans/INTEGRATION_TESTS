@@ -53,8 +53,8 @@ AnimatorTest
 
 ###[Test Finder: CC_CLASS, Test Runner:AtestTradefedTestRunner]###
 ###Purpose: Test with finder: CC_CLASS and runner: AtestTradefedTestRunner###
-PacketFragmenterTest
-PacketFragmenterTest#test_no_fragment_necessary,test_ble_fragment_necessary
+RpcWire
+RpcWire#CurrentVersion,ReleaseBranchHasFrozenRpcWireProtocol,IfNotExperimentalCodeHasNoExperimentalFeatures
 
 ###[Test Finder: INTEGRATION, Test Runner:AtestTradefedTestRunner]###
 ###Purpose: Test with finder: INTEGRATION and runner: AtestTradefedTestRunner###
@@ -69,10 +69,9 @@ native-benchmark
 
 ###[Test Finder: MODULE, Test Runner: RobolectricTestRunner]#####
 ###Purpose: Test with finder: MODULE and runner: RobolectricTestRunner###
-CarMessengerRoboTests
+QuickAccessWalletRoboTests
 ###Purpose: Test with input path for RobolectricTest###
-packages/apps/Car/Messenger/tests/robotests/src/com/android/car/messenger/MessengerDelegateTest.java
-
+packages/apps/QuickAccessWallet/tests/robolectric/src/com/android/systemui/plugin/globalactions/wallet/WalletPluginServiceTest.java
 
 ###[Test Finder: SUITE_PLAN, Test Runner: SuitePlanTestRunner]###
 ###Purpose: Test with finder: SUITE_PLAN and runner: SuitePlanTestRunner###
@@ -93,7 +92,8 @@ CtsSampleDeviceTestCases CtsAnimationTestCases
 ###Purpose: Test with Paramatize GTest testcases###
 # Mark this due to multiple selection not support in integration test.
 # PerInstance/CameraHidlTest.startStopPreview/0_internal_0
-VtsHalCameraProviderV2_4TargetTest:PerInstance/CameraHidlTest#startStopPreview/0_internal_0
+VtsHalCameraProviderV2_4TargetTest:PerInstance/CameraHidlTest#configureInjectionStreamsAvailableOutputs/0_internal_0
+PerInstance/CameraHidlTest#configureInjectionStreamsAvailableOutputs/0_internal_0
 
 ###[Paramatize Java Test + AtestTradefedTestRunner]###
 ###Purpose: Test with Paramatize Java testcases###
