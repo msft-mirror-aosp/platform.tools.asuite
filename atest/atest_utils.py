@@ -56,6 +56,13 @@ for lib in (sysconfig.get_paths()['stdlib'], sysconfig.get_paths()['purelib']):
     if lib in sys.path:
         sys.path.remove(lib)
     sys.path.insert(0, lib)
+# (b/219847353) Move googleapiclient to the last position of sys.path when
+#  existed.
+for lib in sys.path:
+    if lib == 'googleapiclient':
+        sys.path.remove(lib)
+        sys.path.append(lib)
+        break
 #pylint: disable=wrong-import-position
 import atest_decorator
 import atest_error
