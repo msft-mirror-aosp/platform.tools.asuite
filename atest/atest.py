@@ -957,10 +957,6 @@ def main(argv, results_dir, args):
     # args.steps will be None if none of -bit set, else list of params set.
     steps = args.steps if args.steps else constants.ALL_STEPS
     if build_targets and constants.BUILD_STEP in steps:
-        # smart_rebuild -> merge_soong_info -> index_testable_modules
-        if not mod_info.module_index.is_file() or mod_info.update_merge_info:
-            # pylint: disable=protected-access
-            atest_utils.run_multi_proc(mod_info._get_testable_modules)
         # Add module-info.json target to the list of build targets to keep the
         # file up to date.
         build_targets.add(mod_info.module_info_target)
