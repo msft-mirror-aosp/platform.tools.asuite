@@ -16,25 +16,31 @@
 
 # A script to generate an Atest Bazel workspace for execution on the Android CI.
 
-if [ ! -n "$TARGET_PRODUCT" ] ; then
-  echo "Target product not found, exiting. "
-  exit 1
-fi
+function check_env_var()
+{
+  if [ ! -n "${!1}" ] ; then
+    echo "Necessary environment variable ${1} missing, exiting."
+    exit 1
+  fi
+}
 
-if [ ! -n "$TARGET_BUILD_VARIANT" ] ; then
-  echo "Target build variant not found, exiting."
-  exit 1
-fi
+# Check for necessary environment variables.
+check_env_var "ANDROID_BUILD_TOP"
+check_env_var "TARGET_PRODUCT"
+check_env_var "TARGET_BUILD_VARIANT"
 
 function get_build_var()
 {
-  (build/soong/soong_ui.bash --dumpvar-mode --abs $1)
+  (${ANDROID_BUILD_TOP}/build/soong/soong_ui.bash --dumpvar-mode --abs $1)
 }
 
 out=$(get_build_var PRODUCT_OUT)
 
+# Use the versioned JDK and Python binaries in prebuilts/ for a reproducible
+# build with minimal reliance on host tools.
+export PATH=${ANDROID_BUILD_TOP}/prebuilts/build-tools/path/linux-x86:${ANDROID_BUILD_TOP}/prebuilts/jdk/jdk11/linux-x86/bin:${PATH}
+
 export \
-  ANDROID_BUILD_TOP=$(pwd) \
   ANDROID_PRODUCT_OUT=${out} \
   OUT=${out} \
   ANDROID_HOST_OUT=$(get_build_var HOST_OUT) \
@@ -49,17 +55,20 @@ if [ ! -n "$DIST_DIR" ] ; then
   export DIST_DIR=${OUT_DIR}/dist
 fi
 
+# Build Atest from source to pick up the latest changes.
+${ANDROID_BUILD_TOP}/build/soong/soong_ui.bash --make-mode atest
+
 # Generate the initial workspace via Atest Bazel mode.
-tools/asuite/atest/atest.py --bazel-mode --dry-run -m
+${OUT_DIR}/host/linux-x86/bin/atest-dev --bazel-mode --dry-run -m
 
 # Copy over some needed dependencies. We need Bazel for querying dependencies
 # and actually running the test. The JDK is for the Tradefed test runner and
 # Java tests.
-cp prebuilts/bazel/linux-x86_64/bazel_* $OUT_DIR/atest_bazel_workspace/bazelbin
-mkdir $OUT_DIR/atest_bazel_workspace/prebuilts/jdk
-cp -a prebuilts/jdk/jdk11/linux-x86/* $OUT_DIR/atest_bazel_workspace/prebuilts/jdk/.
+cp prebuilts/bazel/linux-x86_64/bazel_* ${OUT_DIR}/atest_bazel_workspace/bazelbin
+mkdir ${OUT_DIR}/atest_bazel_workspace/prebuilts/jdk
+cp -a prebuilts/jdk/jdk11/linux-x86/* ${OUT_DIR}/atest_bazel_workspace/prebuilts/jdk/.
 
-pushd $OUT_DIR/atest_bazel_workspace
+pushd ${OUT_DIR}/atest_bazel_workspace
 
 # TODO(b/201242197): Create a stub workspace for the remote_coverage_tools
 # package so that Bazel does not attempt to fetch resources online which is not
@@ -82,9 +91,9 @@ EOF
   --output_user_root=/tmp/bazel_cquery_out \
   --max_idle_secs=5 \
   cquery \
-  --override_repository=remote_coverage_tools=$(pwd)/remote_coverage_tools \
+  --override_repository=remote_coverage_tools=${OUT_DIR}/remote_coverage_tools \
   --output=starlark \
-  --starlark:file=$ANDROID_BUILD_TOP/tools/asuite/atest/bazel/format_as_soong_module_name.cquery \
+  --starlark:file=${ANDROID_BUILD_TOP}/tools/asuite/atest/bazel/format_as_soong_module_name.cquery \
   "deps( $(./bazelbin --output_user_root=/tmp/bazel_cquery_out \
   --max_idle_secs=5 query "tests(...)" | paste -sd "+" -) )"  | \
   sed '/^$/d' | \
@@ -94,7 +103,7 @@ EOF
 popd
 
 # Build all test dependencies.
-build/soong/soong_ui.bash --make-mode $(cat $OUT_DIR/atest_bazel_workspace/build_targets)
+${ANDROID_BUILD_TOP}/build/soong/soong_ui.bash --make-mode $(cat $OUT_DIR/atest_bazel_workspace/build_targets)
 
 # Create the workspace archive which will be downloaded by the Tradefed hosts.
 tar zcfh ${DIST_DIR}/atest_bazel_workspace.tar.gz out/atest_bazel_workspace/
