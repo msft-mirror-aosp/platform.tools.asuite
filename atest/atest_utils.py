@@ -56,6 +56,13 @@ for lib in (sysconfig.get_paths()['stdlib'], sysconfig.get_paths()['purelib']):
     if lib in sys.path:
         sys.path.remove(lib)
     sys.path.insert(0, lib)
+# (b/219847353) Move googleapiclient to the last position of sys.path when
+#  existed.
+for lib in sys.path:
+    if 'googleapiclient' in lib:
+        sys.path.remove(lib)
+        sys.path.append(lib)
+        break
 #pylint: disable=wrong-import-position
 import atest_decorator
 import atest_error
@@ -1144,30 +1151,36 @@ def get_manifest_branch():
     build_top = os.getenv(constants.ANDROID_BUILD_TOP, None)
     if not build_top:
         return None
+    splitter = ':'
+    env_vars = os.environ.copy()
+    orig_pythonpath = env_vars['PYTHONPATH'].split(splitter)
+    # Command repo imports stdlib "http.client", so adding non-default lib
+    # e.g. googleapiclient, may cause repo command execution error.
+    # The temporary dir is not presumably always /tmp, especially in MacOS.
+    # b/169936306, b/190647636 are the cases we should never ignore.
+    soong_path_re = re.compile(r'.*/Soong.python_.*/')
+    default_python_path = [p for p in orig_pythonpath
+                            if not soong_path_re.match(p)]
+    env_vars['PYTHONPATH'] = splitter.join(default_python_path)
+    proc = subprocess.Popen(f'repo info '
+                            f'-o {constants.ASUITE_REPO_PROJECT_NAME}',
+                            shell=True,
+                            env=env_vars,
+                            cwd=build_top,
+                            universal_newlines=True,
+                            stdout=subprocess.PIPE,
+                            stderr=subprocess.PIPE)
     try:
-        splitter = ':'
-        env_vars = os.environ.copy()
-        orig_pythonpath = env_vars['PYTHONPATH'].split(splitter)
-        # Command repo imports stdlib "http.client", so adding non-default lib
-        # e.g. googleapiclient, may cause repo command execution error.
-        # The temporary dir is not presumably always /tmp, especially in MacOS.
-        # b/169936306, b/190647636 are the cases we should never ignore.
-        soong_path_re = re.compile(r'.*/Soong.python_.*/')
-        default_python_path = [p for p in orig_pythonpath
-                               if not soong_path_re.match(p)]
-        env_vars['PYTHONPATH'] = splitter.join(default_python_path)
-        output = subprocess.check_output(
-            ['repo', 'info', '-o', constants.ASUITE_REPO_PROJECT_NAME],
-            env=env_vars,
-            cwd=build_top,
-            universal_newlines=True)
+        cmd_out, err_out = proc.communicate()
         branch_re = re.compile(r'Manifest branch:\s*(?P<branch>.*)')
-        match = branch_re.match(output)
+        match = branch_re.match(cmd_out)
         if match:
             return match.group('branch')
-        logging.warning('Unable to detect branch name through:\n %s', output)
-    except subprocess.CalledProcessError:
+        logging.warning('Unable to detect branch name through:\n %s, %s',
+                        cmd_out, err_out)
+    except subprocess.TimeoutExpired:
         logging.warning('Exception happened while getting branch')
+        proc.kill()
     return None
 
 def get_build_target():
