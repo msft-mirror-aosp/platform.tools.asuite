@@ -817,6 +817,38 @@ class SharedLibPrebuiltTargetGenerationTest(GenerationTestFixture):
         self.assertFileNotInWorkspace('libhello/host')
 
 
+class DataDependenciesGenerationTest(GenerationTestFixture):
+    """Tests for module data dependencies target generation."""
+
+    def test_generate_target_for_data_dependency(self):
+        mod_info = self.create_module_info(modules=[
+            supported_test_module(data_dependencies=['libdata']),
+            host_module(name='libdata'),
+        ])
+
+        self.run_generator(mod_info)
+
+        self.assertInBuildFile(
+        '    data = select({\n'
+        '        "//bazel/rules:host": [\n'
+        '            "//:libdata",\n'
+        '        ],\n'
+        '    }),\n'
+        )
+        self.assertTargetInWorkspace('libdata')
+
+    def test_not_generate_target_for_data_file(self):
+        # Data files are included in "data", but not in "data_dependencies".
+        mod_info = self.create_module_info(modules=[
+            supported_test_module(data=['libdata']),
+            host_module(name='libdata'),
+        ])
+
+        self.run_generator(mod_info)
+
+        self.assertTargetNotInWorkspace('libdata')
+
+
 @mock.patch.dict('os.environ', {constants.ANDROID_BUILD_TOP:'/'})
 def create_empty_module_info():
     with fake_filesystem_unittest.Patcher() as patcher:
@@ -892,6 +924,8 @@ def module(
     shared_libs=None,
     dependencies=None,
     runtime_dependencies=None,
+    data=None,
+    data_dependencies=None,
 ):
     name = name or 'libhello'
 
@@ -906,6 +940,8 @@ def module(
     m['shared_libs'] = shared_libs or []
     m['runtime_dependencies'] = runtime_dependencies or []
     m['dependencies'] = dependencies or []
+    m['data'] = data or []
+    m['data_dependencies'] = data_dependencies or []
     return m
 
 
