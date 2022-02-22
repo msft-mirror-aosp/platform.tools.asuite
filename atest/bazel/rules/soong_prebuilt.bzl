@@ -61,9 +61,12 @@ def _soong_prebuilt_impl(ctx):
         )
         files = [placeholder_file]
 
+    deps = []
+    deps.extend(ctx.attr.runtime_deps)
+    deps.extend(ctx.attr.data)
     runfiles = ctx.runfiles(files = files).merge_all([
         dep[DefaultInfo].default_runfiles
-        for dep in ctx.attr.runtime_deps
+        for dep in deps
     ])
 
     return [
@@ -84,6 +87,7 @@ soong_prebuilt = rule(
         "files": attr.label_list(allow_files = True),
         # Targets that are needed by this target during runtime.
         "runtime_deps": attr.label_list(),
+        "data": attr.label_list(),
     },
     implementation = _soong_prebuilt_impl,
     doc = "A rule that imports artifacts prebuilt by Soong into the Bazel workspace",
