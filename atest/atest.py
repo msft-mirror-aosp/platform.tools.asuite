@@ -897,7 +897,7 @@ def main(argv, results_dir, args):
         build_targets, test_infos = translator.translate(args)
         given_amount  = len(args.serial) if args.serial else 0
         required_amount = get_device_count_config(test_infos, mod_info)
-        extra_args[constants.DEVICE_COUNT_CONFIG] = required_amount
+        args.device_count_config = required_amount
         # Only check when both given_amount and required_amount are non zero.
         if all((given_amount, required_amount)):
             # Base on TF rules, given_amount can be greater than or equal to
