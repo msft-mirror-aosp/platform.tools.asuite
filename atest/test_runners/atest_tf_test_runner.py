@@ -31,6 +31,7 @@ from functools import partial
 from pathlib import Path
 from typing import List, Tuple
 
+import atest_configs
 import atest_error
 import atest_utils
 import constants
@@ -511,13 +512,6 @@ class AtestTradefedTestRunner(trb.TestRunnerBase):
                 for exclude_parameter in constants.DEFAULT_EXCLUDE_PARAS:
                     args_to_append.append('--exclude-module-parameters')
                     args_to_append.append(exclude_parameter)
-        # If multiple devices in test config, automatically append
-        # --replicate-parent-setup and --multi-device-count
-        device_count = extra_args.get(constants.DEVICE_COUNT_CONFIG, 0)
-        if device_count > 1:
-            args_to_append.append('--replicate-parent-setup')
-            args_to_append.append('--multi-device-count')
-            args_to_append.append(str(device_count))
         return args_to_append, args_not_supported
 
     def _generate_metrics_folder(self, extra_args):
@@ -591,6 +585,14 @@ class AtestTradefedTestRunner(trb.TestRunnerBase):
             test_args.extend(['--no-early-device-release'])
 
         args_to_add, args_not_supported = self._parse_extra_args(test_infos, extra_args)
+
+        # If multiple devices in test config, automatically append
+        # --replicate-parent-setup and --multi-device-count
+        device_count = atest_configs.GLOBAL_ARGS.device_count_config
+        if device_count and device_count > 1:
+            args_to_add.append('--replicate-parent-setup')
+            args_to_add.append('--multi-device-count')
+            args_to_add.append(str(device_count))
 
         # TODO(b/122889707) Remove this after finding the root cause.
         env_serial = os.environ.get(constants.ANDROID_SERIAL)
