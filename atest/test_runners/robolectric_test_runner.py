@@ -34,6 +34,7 @@ from pathlib import Path
 import atest_utils
 import constants
 
+from atest_enum import ExitCode
 from test_runners import test_runner_base
 from .event_handler import EventHandler
 
@@ -92,7 +93,7 @@ class RobolectricTestRunner(test_runner_base.TestRunnerBase):
             0 if tests succeed, non-zero otherwise.
         """
         reporter.register_unsupported_runner(self.NAME)
-        ret_code = constants.EXIT_CODE_SUCCESS
+        ret_code = ExitCode.SUCCESS
         for test_info in test_infos:
             full_env_vars = self._get_full_build_environ(test_info,
                                                          extra_args)
@@ -116,7 +117,7 @@ class RobolectricTestRunner(test_runner_base.TestRunnerBase):
         Returns:
             0 if tests succeed, non-zero otherwise.
         """
-        ret_code = constants.EXIT_CODE_SUCCESS
+        ret_code = ExitCode.SUCCESS
         for test_info in test_infos:
             # Create a temp communication file.
             with tempfile.NamedTemporaryFile(dir=self.results_dir) as event_file:
@@ -295,5 +296,5 @@ class RobolectricTestRunner(test_runner_base.TestRunnerBase):
                         if str(line).find('FAILURES!!!') >= 0:
                             logging.debug('%s is failed from %s',
                                           test_info.test_name, result_output)
-                            return constants.EXIT_CODE_TEST_FAILURE
-        return constants.EXIT_CODE_SUCCESS
+                            return ExitCode.TEST_FAILURE
+        return ExitCode.SUCCESS
