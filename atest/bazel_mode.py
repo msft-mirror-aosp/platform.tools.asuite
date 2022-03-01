@@ -70,15 +70,18 @@ _SUPPORTED_BAZEL_ARGS = MappingProxyType({
 
 @enum.unique
 class Features(enum.Enum):
-    NULL_FEATURE = ('--null-feature', 'Enables a no-action feature.')
+    NULL_FEATURE = ('--null-feature', 'Enables a no-action feature.', True)
     EXPERIMENTAL_DEVICE_DRIVEN_TEST = (
         '--experimental-device-driven-test',
-        'Enables running device-driven tests in Bazel mode.'
-    )
+        'Enables running device-driven tests in Bazel mode.', True)
+    EXPERIMENTAL_BES_PUBLISH = ('--experimental-bes-publish',
+                                'Upload test results via BES in Bazel mode.',
+                                False)
 
-    def __init__(self, arg_flag, description):
+    def __init__(self, arg_flag, description, affects_workspace):
         self.arg_flag = arg_flag
         self.description = description
+        self.affects_workspace = affects_workspace
 
 
 def add_parser_arguments(parser: argparse.ArgumentParser, dest: str):
@@ -110,6 +113,11 @@ def generate_bazel_workspace(mod_info: module_info.ModuleInfo,
         enabled_features,
     )
     workspace_generator.generate()
+
+
+def get_default_build_metadata():
+    return BuildMetadata(atest_utils.get_manifest_branch(),
+                         atest_utils.get_build_target())
 
 
 class WorkspaceGenerator:
@@ -152,7 +160,7 @@ class WorkspaceGenerator:
         enabled_features_file = self.workspace_out_path.joinpath(
             'atest_bazel_mode_enabled_features')
         enabled_features_file_contents = '\n'.join(sorted(
-            f.name for f in self.enabled_features))
+            f.name for f in self.enabled_features if f.affects_workspace))
 
         if self.workspace_out_path.exists():
             # Update the file with the set of the currently enabled features to
@@ -961,6 +969,12 @@ def default_run_command(args: List[str], cwd: Path) -> str:
     )
 
 
+@dataclasses.dataclass
+class BuildMetadata:
+    build_branch: str
+    build_target: str
+
+
 class BazelTestRunner(trb.TestRunnerBase):
     """Bazel Test Runner class."""
 
@@ -977,6 +991,8 @@ class BazelTestRunner(trb.TestRunnerBase):
                  src_top: Path=None,
                  workspace_path: Path=None,
                  run_command: Callable=default_run_command,
+                 build_metadata: BuildMetadata=None,
+                 env: Dict[str, str]=None,
                  **kwargs):
         super().__init__(results_dir, **kwargs)
         self.mod_info = mod_info
@@ -991,6 +1007,8 @@ class BazelTestRunner(trb.TestRunnerBase):
         self.bazel_workspace = workspace_path or get_bazel_workspace_dir()
         self.run_command = run_command
         self._extra_args = extra_args or {}
+        self.build_metadata = build_metadata or get_default_build_metadata()
+        self.env = env or os.environ
 
     # pylint: disable=unused-argument
     def run_tests(self, test_infos, extra_args, reporter):
@@ -999,7 +1017,7 @@ class BazelTestRunner(trb.TestRunnerBase):
         Args:
             test_infos: List of TestInfo.
             extra_args: Dict of extra args to add to test run.
-            reporter: An instance of result_report.ResultReporter
+            reporter: An instance of result_report.ResultReporter.
         """
         reporter.register_unsupported_runner(self.NAME)
         ret_code = ExitCode.SUCCESS
@@ -1009,6 +1027,22 @@ class BazelTestRunner(trb.TestRunnerBase):
             subproc = self.run(run_cmd, output_to_stdout=True)
             ret_code |= self.wait_for_subprocess(subproc)
         return ret_code
+
+    def _get_bes_publish_args(self):
+        args = []
+
+        if not self.env.get("ATEST_BAZEL_BES_PUBLISH_CONFIG"):
+            return args
+
+        config = self.env["ATEST_BAZEL_BES_PUBLISH_CONFIG"]
+        branch = self.build_metadata.build_branch
+        target = self.build_metadata.build_target
+
+        args.append(f'--config={config}')
+        args.append(f'--build_metadata=ab_branch={branch}')
+        args.append(f'--build_metadata=ab_target={target}')
+
+        return args
 
     def host_env_check(self):
         """Check that host env has everything we need.
@@ -1052,7 +1086,6 @@ class BazelTestRunner(trb.TestRunnerBase):
         return f'//{package_name}:{module_name}_{target_suffix}'
 
     # pylint: disable=unused-argument
-    # pylint: disable=unused-variable
     def generate_run_commands(self, test_infos, extra_args, port=None):
         """Generate a list of run commands from TestInfos.
 
@@ -1064,13 +1097,30 @@ class BazelTestRunner(trb.TestRunnerBase):
         Returns:
             A list of run commands to run the tests.
         """
-        target_patterns = ' '.join(self.test_info_target_label(i)
-                                   for i in test_infos)
-        bazel_args = ' '.join(self._parse_extra_args(test_infos, extra_args))
+        startup_options = ''
+        bazelrc = self.env.get('ATEST_BAZELRC')
+
+        if bazelrc:
+            startup_options = f'--bazelrc={bazelrc}'
+
+        target_patterns = ' '.join(
+            self.test_info_target_label(i) for i in test_infos)
+
+        bazel_args = self._parse_extra_args(test_infos, extra_args)
+
+        if Features.EXPERIMENTAL_BES_PUBLISH in extra_args.get(
+                'BAZEL_MODE_FEATURES', []):
+            bazel_args.extend(self._get_bes_publish_args())
+
+        bazel_args_str = ' '.join(bazel_args)
+
         # Use 'cd' instead of setting the working directory in the subprocess
         # call for a working --dry-run command that users can run.
-        return [f'cd {self.bazel_workspace} &&'
-                f'{self.bazel_binary} test {target_patterns} {bazel_args}']
+        return [
+            f'cd {self.bazel_workspace} &&'
+            f'{self.bazel_binary} {startup_options} '
+            f'test {target_patterns} {bazel_args_str}'
+        ]
 
     def _parse_extra_args(self, test_infos: List[test_info.TestInfo],
                           extra_args: trb.ARGS) -> trb.ARGS:
