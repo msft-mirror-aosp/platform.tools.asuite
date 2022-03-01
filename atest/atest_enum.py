@@ -48,6 +48,22 @@ class DetectType(IntEnum):
     TEST_NULL_ARGS = 17
     MODULE_MERGE = 18
 
+@unique
+class ExitCode(IntEnum):
+    """An Enum class for sys.exit()"""
+    SUCCESS = 0
+    ENV_NOT_SETUP = 1
+    BUILD_FAILURE = 2
+    ERROR = 3
+    TEST_NOT_FOUND = 4
+    TEST_FAILURE = 5
+    VERIFY_FAILURE = 6
+    OUTSIDE_ROOT = 7
+    AVD_CREATE_FAILURE = 8
+    AVD_INVALID_ARGS = 9
+    EXIT_BEFORE_MAIN = 10
+    DEVICE_NOT_FOUND = 11
+
 # TODO: (b/218441706) Convert AtestEnum to a real Enum class.
 class AtestEnum(tuple):
     """enum library isn't a Python 2.7 built-in, so roll our own."""

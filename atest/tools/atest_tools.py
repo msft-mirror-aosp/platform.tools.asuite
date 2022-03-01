@@ -31,6 +31,7 @@ import time
 import atest_utils as au
 import constants
 
+from atest_enum import ExitCode
 from metrics import metrics_utils
 
 MAC_UPDB_SRC = os.path.join(os.path.dirname(__file__), 'updatedb_darwin.sh')
@@ -424,7 +425,7 @@ def probe_acloud_status(report_file):
     # 1. Created but the status is not 'SUCCESS'
     if os.path.exists(report_file):
         if not au.is_valid_json_file(report_file):
-            return constants.EXIT_CODE_AVD_CREATE_FAILURE
+            return ExitCode.AVD_CREATE_FAILURE
         with open(report_file, 'r') as rfile:
             result = json.load(rfile)
 
@@ -433,15 +434,15 @@ def probe_acloud_status(report_file):
             # Always fetch the adb of the first created AVD.
             adb_port = result.get('data').get('devices')[0].get('adb_port')
             os.environ[constants.ANDROID_SERIAL] = '127.0.0.1:{}'.format(adb_port)
-            return constants.EXIT_CODE_SUCCESS
+            return ExitCode.SUCCESS
         au.colorful_print(
             'acloud create failed. Please check\n{}\nfor detail'.format(
                 report_file), constants.RED)
-        return constants.EXIT_CODE_AVD_CREATE_FAILURE
+        return ExitCode.AVD_CREATE_FAILURE
 
     # 2. Failed to create because of invalid acloud arguments.
     logging.error('Invalid acloud arguments found!')
-    return constants.EXIT_CODE_AVD_INVALID_ARGS
+    return ExitCode.AVD_INVALID_ARGS
 
 def get_acloud_duration(report_file):
     """Method which gets the duration of 'acloud create' from a report file.
