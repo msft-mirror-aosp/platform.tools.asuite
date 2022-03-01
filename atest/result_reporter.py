@@ -76,6 +76,7 @@ import constants
 import atest_configs
 import atest_utils as au
 
+from atest_enum import ExitCode
 from test_runners import test_runner_base
 
 UNSUPPORTED_FLAG = 'UNSUPPORTED_RUNNER'
@@ -369,7 +370,7 @@ class ResultReporter:
         """
         if self.collect_only:
             return self.print_collect_tests()
-        tests_ret = constants.EXIT_CODE_SUCCESS
+        tests_ret = ExitCode.SUCCESS
         if not self.runners:
             return tests_ret
         device_detail =  (
@@ -392,7 +393,7 @@ class ResultReporter:
                       f'See raw output above.')
                 continue
             if groups == FAILURE_FLAG:
-                tests_ret = constants.EXIT_CODE_TEST_FAILURE
+                tests_ret = ExitCode.TEST_FAILURE
                 print(runner_name, 'Crashed. No results to report.')
                 failed_sum += 1
                 continue
@@ -400,15 +401,15 @@ class ResultReporter:
                 name = group_name if group_name else runner_name
                 summary = self.process_summary(name, stats)
                 if stats.failed > 0:
-                    tests_ret = constants.EXIT_CODE_TEST_FAILURE
+                    tests_ret = ExitCode.TEST_FAILURE
                 if stats.run_errors:
-                    tests_ret = constants.EXIT_CODE_TEST_FAILURE
+                    tests_ret = ExitCode.TEST_FAILURE
                     failed_sum += 1 if not stats.failed else 0
                 if not ITER_SUMMARY:
                     print(summary)
         self.run_stats.perf_info.print_perf_info()
         print()
-        if tests_ret == constants.EXIT_CODE_SUCCESS:
+        if tests_ret == ExitCode.SUCCESS:
             print(au.colorize('All tests passed!', constants.GREEN))
         else:
             message = '%d %s failed' % (failed_sum,
@@ -492,7 +493,7 @@ class ResultReporter:
             0 if all tests collection done.
 
         """
-        tests_ret = constants.EXIT_CODE_SUCCESS
+        tests_ret = ExitCode.SUCCESS
         if not self.runners:
             return tests_ret
         print('\n{}'.format(au.colorize('Summary:' + constants.COLLECT_TESTS_ONLY,
@@ -505,7 +506,7 @@ class ResultReporter:
         print()
         if self.log_path:
             print('Test Logs have saved in %s' % self.log_path)
-        return constants.EXIT_CODE_SUCCESS
+        return ExitCode.SUCCESS
 
     def print_failed_tests(self):
         """Print the failed tests if existed."""
