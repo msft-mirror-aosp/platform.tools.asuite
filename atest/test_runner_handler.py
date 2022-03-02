@@ -31,6 +31,7 @@ import constants
 import module_info
 import result_reporter
 
+from atest_enum import ExitCode
 from metrics import metrics
 from metrics import metrics_utils
 from test_finders import test_info
@@ -130,12 +131,12 @@ def run_all_tests(results_dir, test_infos, extra_args, mod_info,
         collect_only=extra_args.get(constants.COLLECT_TESTS_ONLY),
         flakes_info=extra_args.get(constants.FLAKES_INFO))
     reporter.print_starting_text()
-    tests_ret_code = constants.EXIT_CODE_SUCCESS
+    tests_ret_code = ExitCode.SUCCESS
     for test_runner, tests in group_tests_by_test_runners(test_infos):
         test_name = ' '.join([test.test_name for test in tests])
         test_start = time.time()
         is_success = True
-        ret_code = constants.EXIT_CODE_TEST_FAILURE
+        ret_code = ExitCode.TEST_FAILURE
         stacktrace = ''
         try:
             test_runner = test_runner(results_dir, mod_info=mod_info)
@@ -145,7 +146,7 @@ def run_all_tests(results_dir, test_infos, extra_args, mod_info,
         except Exception:
             stacktrace = traceback.format_exc()
             reporter.runner_failure(test_runner.NAME, stacktrace)
-            tests_ret_code = constants.EXIT_CODE_TEST_FAILURE
+            tests_ret_code = ExitCode.TEST_FAILURE
             is_success = False
         metrics.RunnerFinishEvent(
             duration=metrics_utils.convert_duration(time.time() - test_start),
