@@ -34,7 +34,7 @@ import constants
 import test_finder_handler
 import test_mapping
 
-from atest_enum import DetectType
+from atest_enum import DetectType, ExitCode
 from metrics import metrics
 from metrics import metrics_utils
 from test_finders import module_finder
@@ -546,8 +546,8 @@ class CLITranslator:
                 logging.warning(
                     'All available tests in TEST_MAPPING files are:\n%s',
                     tests)
-            metrics_utils.send_exit_event(constants.EXIT_CODE_TEST_NOT_FOUND)
-            sys.exit(constants.EXIT_CODE_TEST_NOT_FOUND)
+            metrics_utils.send_exit_event(ExitCode.TEST_NOT_FOUND)
+            sys.exit(ExitCode.TEST_NOT_FOUND)
 
         logging.debug(
             'Test details:\n%s',
