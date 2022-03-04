@@ -107,3 +107,7 @@ MixedManagedProfileOwnerTest#testPasswordSufficientInitially
 
 ###[Option verify]###
 --help
+
+###[Multi-device]###
+###Purpose: Test with case(s) of multiple devices in test config###
+CtsWifiAwareTestCases
