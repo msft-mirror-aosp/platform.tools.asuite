@@ -590,5 +590,25 @@
 "log_saver=template/log/atest_log_saver",
 "template/atest_local_min",
 "test=atest"
+],
+"CtsWifiAwareTestCases": [
+"--include-filter",
+"--log-level",
+"--log-level-display",
+"--logcat-on-failure",
+"--multi-device-count",
+"--no-early-device-release",
+"--no-enable-granular-attempts",
+"--replicate-parent-setup",
+"--skip-loading-config-jar",
+"--template:map",
+"--template:map",
+"2",
+"CtsWifiAwareTestCases",
+"VERBOSE",
+"VERBOSE",
+"atest_tradefed.sh",
+"log_saver=template/log/atest_log_saver",
+"template/atest_local_min",
+"test=atest"
 ]
-}
