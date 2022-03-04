@@ -125,8 +125,7 @@ class AtestUtilsUnittests(unittest.TestCase):
         args.host_unit_test_only = False
         self.assertFalse(atest_utils.is_test_mapping(args))
 
-    @mock.patch('curses.tigetnum')
-    def test_has_colors(self, mock_curses_tigetnum):
+    def test_has_colors(self):
         """Test method _has_colors."""
         # stream is file I/O
         stream = open('/tmp/test_has_colors.txt', 'wb')
@@ -138,19 +137,10 @@ class AtestUtilsUnittests(unittest.TestCase):
         stream.isatty.return_value = False
         self.assertFalse(atest_utils._has_colors(stream))
 
-        # stream is a tty(terminal) and colors < 2.
+        # stream is a tty(terminal).
         stream = mock.Mock()
         stream.isatty.return_value = True
-        mock_curses_tigetnum.return_value = 1
-        self.assertFalse(atest_utils._has_colors(stream))
-
-        # stream is a tty(terminal) and colors > 2.
-        stream = mock.Mock()
-        stream.isatty.return_value = True
-        mock_curses_tigetnum.return_value = 256
-        # TODO(b/205641611): test failed in bazel mode.
-        # Wll enable it when this issue be fixed.
-        #self.assertTrue(atest_utils._has_colors(stream))
+        self.assertTrue(atest_utils._has_colors(stream))
 
 
     @mock.patch('atest_utils._has_colors')
