@@ -40,6 +40,7 @@ import atest_utils
 import constants
 import module_info
 
+from atest_enum import ExitCode
 from test_finders import test_finder_base
 from test_finders import test_info
 from test_runners import test_runner_base as trb
@@ -485,16 +486,20 @@ class SoongPrebuiltTarget(Target):
             package_name,
             config_files,
             find_runtime_dep_refs(gen.mod_info, info, configs,
+                                  gen.src_root_path),
+            find_data_dep_refs(gen.mod_info, info, configs,
                                   gen.src_root_path)
         )
 
     def __init__(self, name: str, package_name: str,
                  config_files: Dict[Config, List[Path]],
-                 runtime_dep_refs: List[ModuleRef]):
+                 runtime_dep_refs: List[ModuleRef],
+                 data_dep_refs: List[ModuleRef]):
         self._name = name
         self._package_name = package_name
         self.config_files = config_files
         self.runtime_dep_refs = runtime_dep_refs
+        self.data_dep_refs = data_dep_refs
 
     def name(self) -> str:
         return self._name
@@ -524,7 +529,9 @@ class SoongPrebuiltTarget(Target):
         return supported_configs
 
     def dependencies(self) -> List[ModuleRef]:
-        return self.runtime_dep_refs
+        all_deps = set(self.runtime_dep_refs)
+        all_deps.update(self.data_dep_refs)
+        return list(all_deps)
 
     def write_to_build_file(self, f: IO):
         writer = IndentWriter(f)
@@ -535,7 +542,9 @@ class SoongPrebuiltTarget(Target):
             writer.write_line(f'name = "{self._name}",')
             writer.write_line(f'module_name = "{self._name}",')
             self._write_files_attribute(writer)
-            self._write_runtime_deps_attribute(writer)
+            self._write_deps_attribute(writer, 'runtime_deps',
+                                       self.runtime_dep_refs)
+            self._write_deps_attribute(writer, 'data', self.data_dep_refs)
 
         writer.write_line(')')
 
@@ -571,9 +580,9 @@ class SoongPrebuiltTarget(Target):
         )
         writer.write_line(',')
 
-    def _write_runtime_deps_attribute(self, writer):
+    def _write_deps_attribute(self, writer, attribute_name, module_refs):
         config_deps = filter_configs(
-            group_targets_by_config(r.target() for r in self.runtime_dep_refs),
+            group_targets_by_config(r.target() for r in module_refs),
             self.supported_configs()
         )
 
@@ -583,7 +592,7 @@ class SoongPrebuiltTarget(Target):
         for config in self.supported_configs():
             config_deps.setdefault(config, [])
 
-        writer.write('runtime_deps = ')
+        writer.write(f'{attribute_name} = ')
         write_config_select(
             writer,
             config_deps,
@@ -664,9 +673,7 @@ def find_runtime_dep_refs(
     configs: List[Config],
     src_root_path: Path,
 ) -> List[ModuleRef]:
-    """Return module dependencies required at runtime."""
-
-    runtime_dep_refs = []
+    """Return module references for runtime dependencies."""
 
     # We don't use the `dependencies` module-info field for shared libraries
     # since it's ambiguous and could generate more targets and pull in more
@@ -676,17 +683,10 @@ def find_runtime_dep_refs(
     # 'T' is statically linked to 'U' which supports both variants, the latter
     # still appears as a dependency. Since we can't tell, this would result in
     # the shared library variant of 'U' being added on the library path.
-    for lib_name in info.get(constants.MODULE_SHARED_LIBS, []):
-        lib_info = mod_info.get_module_info(lib_name)
-        if not lib_info:
-            continue
-        installed_paths = get_module_installed_paths(lib_info,
-                                                     src_root_path)
-        config_files = group_paths_by_config(configs, installed_paths)
-        if not config_files:
-            continue
-
-        runtime_dep_refs.append(ModuleRef.for_info(lib_info))
+    libs = set()
+    libs.update(info.get(constants.MODULE_SHARED_LIBS, []))
+    libs.update(info.get(constants.MODULE_RUNTIME_DEPS, []))
+    runtime_dep_refs = _find_module_refs(mod_info, configs, src_root_path, libs)
 
     runtime_library_class = {'RLIB_LIBRARIES', 'DYLIB_LIBRARIES'}
     # We collect rlibs even though they are technically static libraries since
@@ -704,6 +704,45 @@ def find_runtime_dep_refs(
         runtime_dep_refs.append(ModuleRef.for_info(dep_info))
 
     return runtime_dep_refs
+
+
+def find_data_dep_refs(
+    mod_info: module_info.ModuleInfo,
+    info: module_info.Module,
+    configs: List[Config],
+    src_root_path: Path,
+) -> List[ModuleRef]:
+    """Return module references for data dependencies."""
+
+    return _find_module_refs(mod_info,
+                             configs,
+                             src_root_path,
+                             info.get(constants.MODULE_DATA_DEPS, []))
+
+
+def _find_module_refs(
+    mod_info: module_info.ModuleInfo,
+    configs: List[Config],
+    src_root_path: Path,
+    module_names: List[str],
+) -> List[ModuleRef]:
+    """Return module references for modules."""
+
+    module_refs = []
+
+    for name in module_names:
+        info = mod_info.get_module_info(name)
+        if not info:
+            continue
+
+        installed_paths = get_module_installed_paths(info, src_root_path)
+        config_files = group_paths_by_config(configs, installed_paths)
+        if not config_files:
+            continue
+
+        module_refs.append(ModuleRef.for_info(info))
+
+    return module_refs
 
 
 class IndentWriter:
@@ -859,7 +898,7 @@ class BazelTestRunner(trb.TestRunnerBase):
             reporter: An instance of result_report.ResultReporter
         """
         reporter.register_unsupported_runner(self.NAME)
-        ret_code = constants.EXIT_CODE_SUCCESS
+        ret_code = ExitCode.SUCCESS
 
         run_cmds = self.generate_run_commands(test_infos, extra_args)
         for run_cmd in run_cmds:

@@ -125,8 +125,7 @@ class AtestUtilsUnittests(unittest.TestCase):
         args.host_unit_test_only = False
         self.assertFalse(atest_utils.is_test_mapping(args))
 
-    @mock.patch('curses.tigetnum')
-    def test_has_colors(self, mock_curses_tigetnum):
+    def test_has_colors(self):
         """Test method _has_colors."""
         # stream is file I/O
         stream = open('/tmp/test_has_colors.txt', 'wb')
@@ -138,19 +137,10 @@ class AtestUtilsUnittests(unittest.TestCase):
         stream.isatty.return_value = False
         self.assertFalse(atest_utils._has_colors(stream))
 
-        # stream is a tty(terminal) and colors < 2.
+        # stream is a tty(terminal).
         stream = mock.Mock()
         stream.isatty.return_value = True
-        mock_curses_tigetnum.return_value = 1
-        self.assertFalse(atest_utils._has_colors(stream))
-
-        # stream is a tty(terminal) and colors > 2.
-        stream = mock.Mock()
-        stream.isatty.return_value = True
-        mock_curses_tigetnum.return_value = 256
-        # TODO(b/205641611): test failed in bazel mode.
-        # Wll enable it when this issue be fixed.
-        #self.assertTrue(atest_utils._has_colors(stream))
+        self.assertTrue(atest_utils._has_colors(stream))
 
 
     @mock.patch('atest_utils._has_colors')
@@ -535,26 +525,27 @@ class AtestUtilsUnittests(unittest.TestCase):
                                       "not-valid-module-info.json")
         self.assertFalse(atest_utils.is_valid_json_file(json_file_path))
 
-    @mock.patch('subprocess.check_output')
+    @mock.patch('subprocess.Popen')
     @mock.patch('os.getenv')
-    def test_get_manifest_branch(self, mock_env, mock_check_output):
+    def test_get_manifest_branch(self, mock_env, mock_popen):
         """Test method get_manifest_branch"""
         mock_env.return_value = 'any_path'
-        mock_check_output.return_value = REPO_INFO_OUTPUT
+        process = mock_popen.return_value
+        process.communicate.return_value = (REPO_INFO_OUTPUT, '')
         self.assertEqual('test_branch', atest_utils.get_manifest_branch())
 
         mock_env.return_value = 'any_path'
-        mock_check_output.return_value = 'not_matched_branch_pattern.'
+        process.communicate.return_value = ('not_matched_branch_pattern.', '')
         self.assertEqual(None, atest_utils.get_manifest_branch())
 
         mock_env.return_value = 'any_path'
-        mock_check_output.side_effect = subprocess.CalledProcessError(
+        process.communicate.side_effect = subprocess.TimeoutExpired(
             1,
             'repo info')
         self.assertEqual(None, atest_utils.get_manifest_branch())
 
         mock_env.return_value = None
-        mock_check_output.return_value = REPO_INFO_OUTPUT
+        process.communicate.return_value = (REPO_INFO_OUTPUT, '')
         self.assertEqual(None, atest_utils.get_manifest_branch())
 
     def test_has_wildcard(self):
