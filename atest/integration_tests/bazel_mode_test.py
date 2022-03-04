@@ -52,19 +52,30 @@ class BazelModeTest(unittest.TestCase):
         module_name = 'passing_java_host_test'
         self.add_passing_test(module_name)
 
-        exit_code = self.run_shell_command(
+        completed_process = self.run_shell_command(
             f'atest -c -m --bazel-mode {module_name}')
 
-        self.assertEqual(exit_code, 0)
+        self.assertEqual(completed_process.returncode, 0)
 
     def test_failing_test_returns_nonzero_exit_code(self):
         module_name = 'failing_java_host_test'
         self.add_failing_test(module_name)
 
-        exit_code = self.run_shell_command(
+        completed_process = self.run_shell_command(
             f'atest -c -m --bazel-mode {module_name}')
 
-        self.assertNotEqual(exit_code, 0)
+        self.assertNotEqual(completed_process.returncode, 0)
+
+    def test_passing_test_is_cached_when_rerun(self):
+        module_name = 'passing_java_host_test'
+        self.add_passing_test(module_name)
+
+        completed_process = self.run_shell_command(
+            f'atest -c -m --bazel-mode {module_name} && '
+            f'atest --bazel-mode {module_name}')
+
+        self.assertIn(f':{module_name}_host (cached) PASSED',
+                      completed_process.stdout.decode())
 
     def setup_test_env(self) -> Dict[str, Any]:
         test_env = {
@@ -74,8 +85,11 @@ class BazelModeTest(unittest.TestCase):
         }
         return test_env
 
-    def run_shell_command(self, shell_command: str) -> int:
-        completed_process = subprocess.run(
+    def run_shell_command(
+        self,
+        shell_command: str,
+    ) -> subprocess.CompletedProcess:
+        return subprocess.run(
             '. build/envsetup.sh && '
             'lunch aosp_cf_x86_64_pc-userdebug && '
             f'{shell_command}',
@@ -83,8 +97,8 @@ class BazelModeTest(unittest.TestCase):
             cwd=self.src_root_path,
             shell=True,
             check=False,
-            stderr=subprocess.DEVNULL)
-        return completed_process.returncode
+            stderr=subprocess.STDOUT,
+            stdout=subprocess.PIPE)
 
     def add_passing_test(self, module_name: str):
         test_method_body = 'Assert.assertEquals("Pass", "Pass");'
