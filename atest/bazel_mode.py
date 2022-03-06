@@ -40,6 +40,7 @@ import atest_utils
 import constants
 import module_info
 
+from atest_enum import ExitCode
 from test_finders import test_finder_base
 from test_finders import test_info
 from test_runners import test_runner_base as trb
@@ -897,7 +898,7 @@ class BazelTestRunner(trb.TestRunnerBase):
             reporter: An instance of result_report.ResultReporter
         """
         reporter.register_unsupported_runner(self.NAME)
-        ret_code = constants.EXIT_CODE_SUCCESS
+        ret_code = ExitCode.SUCCESS
 
         run_cmds = self.generate_run_commands(test_infos, extra_args)
         for run_cmd in run_cmds:
