@@ -19,6 +19,7 @@
 # pylint: disable=missing-function-docstring
 # pylint: disable=too-many-lines
 
+import argparse
 import re
 import shlex
 import shutil
@@ -59,7 +60,7 @@ class GenerationTestFixture(fake_filesystem_unittest.TestCase):
         self.host_out_path = self.out_dir_path.joinpath('host')
         self.workspace_out_path = self.out_dir_path.joinpath('workspace')
 
-    def create_workspace_generator(self, modules=None):
+    def create_workspace_generator(self, modules=None, enabled_features=None):
         mod_info = self.create_module_info(modules)
 
         generator = bazel_mode.WorkspaceGenerator(
@@ -68,7 +69,8 @@ class GenerationTestFixture(fake_filesystem_unittest.TestCase):
             self.product_out_path,
             self.host_out_path,
             self.out_dir_path,
-            mod_info
+            mod_info,
+            enabled_features=enabled_features,
         )
 
         return generator
@@ -168,6 +170,31 @@ class BasicWorkspaceGenerationTest(GenerationTestFixture):
         workspace_generator.generate()
 
         self.assertTrue(workspace_generator.workspace_out_path.is_dir())
+
+    def test_regenerate_workspace_when_features_changed(self):
+        workspace_generator = self.create_workspace_generator(
+            enabled_features={bazel_mode.Features.NULL_FEATURE})
+        workspace_generator.generate()
+        workspace_stat = workspace_generator.workspace_out_path.stat()
+
+        workspace_generator = self.create_workspace_generator()
+        workspace_generator.generate()
+        new_workspace_stat = workspace_generator.workspace_out_path.stat()
+
+        self.assertNotEqual(workspace_stat, new_workspace_stat)
+
+    def test_not_regenerate_workspace_when_features_unchanged(self):
+        workspace_generator = self.create_workspace_generator(
+            enabled_features={bazel_mode.Features.NULL_FEATURE})
+        workspace_generator.generate()
+        workspace_stat = workspace_generator.workspace_out_path.stat()
+
+        workspace_generator = self.create_workspace_generator(
+            enabled_features={bazel_mode.Features.NULL_FEATURE})
+        workspace_generator.generate()
+        new_workspace_stat = workspace_generator.workspace_out_path.stat()
+
+        self.assertEqual(workspace_stat, new_workspace_stat)
 
     def test_regenerate_workspace_when_module_info_deleted(self):
         workspace_generator = self.create_workspace_generator()
@@ -1311,6 +1338,30 @@ class BazelTestRunnerTest(unittest.TestCase):
         tokens = shlex.split(s)
         for token in expected_tokens:
             self.assertIn(token, tokens)
+
+
+class FeatureParserTest(unittest.TestCase):
+    """Tests for parsing Bazel mode feature flags."""
+
+    def test_parse_args_with_bazel_mode_feature(self):
+        parser = argparse.ArgumentParser()
+        bazel_mode.add_parser_arguments(parser, dest='bazel_mode_features')
+        # pylint: disable=no-member
+        args = parser.parse_args([bazel_mode.Features.NULL_FEATURE.arg_flag])
+
+        self.assertListEqual([bazel_mode.Features.NULL_FEATURE],
+                             args.bazel_mode_features)
+
+    def test_parse_args_without_bazel_mode_feature(self):
+        parser = argparse.ArgumentParser()
+        parser.add_argument('--foo',
+                            action='append_const',
+                            const='foo',
+                            dest='foo')
+        bazel_mode.add_parser_arguments(parser, dest='bazel_mode_features')
+        args = parser.parse_args(['--foo'])
+
+        self.assertIsNone(args.bazel_mode_features)
 
 
 def test_info_of(module_name):

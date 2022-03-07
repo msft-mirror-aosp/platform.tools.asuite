@@ -885,7 +885,9 @@ def main(argv, results_dir, args):
     mod_info = module_info.ModuleInfo(force_build=smart_rebuild)
     atest_utils.generate_buildfiles_checksum()
     if args.bazel_mode:
-        bazel_mode.generate_bazel_workspace(mod_info)
+        bazel_mode.generate_bazel_workspace(
+            mod_info,
+            enabled_features=set(args.bazel_mode_features or []))
     translator = cli_translator.CLITranslator(
         mod_info=mod_info,
         print_cache_msg=not args.clear_cache,

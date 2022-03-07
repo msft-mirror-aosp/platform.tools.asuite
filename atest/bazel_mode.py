@@ -21,11 +21,14 @@ sandboxing, caching, and remote execution.
 """
 # pylint: disable=missing-function-docstring
 # pylint: disable=missing-class-docstring
+# pylint: disable=too-many-lines
 
 from __future__ import annotations
 
+import argparse
 import contextlib
 import dataclasses
+import enum
 import functools
 import os
 import shutil
@@ -50,12 +53,32 @@ from test_runners import atest_tf_test_runner as tfr
 _BAZEL_WORKSPACE_DIR = 'atest_bazel_workspace'
 
 
+@enum.unique
+class Features(enum.Enum):
+    NULL_FEATURE = ('--null-feature', 'Enables a no-action feature.')
+
+    def __init__(self, arg_flag, description):
+        self.arg_flag = arg_flag
+        self.description = description
+
+
+def add_parser_arguments(parser: argparse.ArgumentParser, dest: str):
+    for _, member in Features.__members__.items():
+        parser.add_argument(member.arg_flag,
+                            action='append_const',
+                            const=member,
+                            dest=dest,
+                            help=member.description)
+
+
 def get_bazel_workspace_dir() -> Path:
     return Path(atest_utils.get_build_out_dir()).joinpath(_BAZEL_WORKSPACE_DIR)
 
 
-def generate_bazel_workspace(mod_info: module_info.ModuleInfo):
+def generate_bazel_workspace(mod_info: module_info.ModuleInfo,
+                             enabled_features: Set[Features] = None):
     """Generate or update the Bazel workspace used for running tests."""
+
     src_root_path = Path(os.environ.get(constants.ANDROID_BUILD_TOP))
     workspace_path = get_bazel_workspace_dir()
     workspace_generator = WorkspaceGenerator(
@@ -65,6 +88,7 @@ def generate_bazel_workspace(mod_info: module_info.ModuleInfo):
         Path(os.environ.get(constants.ANDROID_HOST_OUT)),
         Path(atest_utils.get_build_out_dir()),
         mod_info,
+        enabled_features,
     )
     workspace_generator.generate()
 
@@ -75,7 +99,8 @@ class WorkspaceGenerator:
     # pylint: disable=too-many-arguments
     def __init__(self, src_root_path: Path, workspace_out_path: Path,
                  product_out_path: Path, host_out_path: Path,
-                 build_out_dir: Path, mod_info: module_info.ModuleInfo):
+                 build_out_dir: Path, mod_info: module_info.ModuleInfo,
+                 enabled_features: Set[Features] = None):
         """Initializes the generator.
 
         Args:
@@ -85,37 +110,60 @@ class WorkspaceGenerator:
             host_out_path: Path of the ANDROID_HOST_OUT.
             build_out_dir: Path of OUT_DIR
             mod_info: ModuleInfo object.
+            enabled_features: Set of enabled features.
         """
+        self.enabled_features = enabled_features or set()
         self.src_root_path = src_root_path
         self.workspace_out_path = workspace_out_path
         self.product_out_path = product_out_path
         self.host_out_path = host_out_path
         self.build_out_dir = build_out_dir
         self.mod_info = mod_info
-        self.mod_info_md5_path = self.workspace_out_path.joinpath(
-            'mod_info_md5')
         self.path_to_package = {}
 
     def generate(self):
-        """Generate the Bazel workspace if mod_info doesn't exist or stale."""
-        if atest_utils.check_md5(self.mod_info_md5_path):
-            return
+        """Generate a Bazel workspace.
 
-        atest_utils.colorful_print("Generating Bazel workspace.\n",
-                                   constants.RED)
+        If the workspace md5 checksum file doesn't exist or is stale, a new
+        workspace will be generated. Otherwise, the existing workspace will be
+        reused.
+        """
+        workspace_md5_checksum_file = self.workspace_out_path.joinpath(
+            'workspace_md5_checksum')
+        enabled_features_file = self.workspace_out_path.joinpath(
+            'atest_bazel_mode_enabled_features')
+        enabled_features_file_contents = '\n'.join(sorted(
+            f.name for f in self.enabled_features))
 
         if self.workspace_out_path.exists():
+            # Update the file with the set of the currently enabled features to
+            # make sure that changes are detected in the workspace checksum.
+            enabled_features_file.write_text(enabled_features_file_contents)
+            if atest_utils.check_md5(workspace_md5_checksum_file):
+                return
+
             # We raise an exception if rmtree fails to avoid leaving stale
             # files in the workspace that could interfere with execution.
             shutil.rmtree(self.workspace_out_path)
+
+        atest_utils.colorful_print("Generating Bazel workspace.\n",
+                                   constants.RED)
 
         self._add_test_module_targets()
 
         self.workspace_out_path.mkdir(parents=True)
         self._generate_artifacts()
 
-        atest_utils.save_md5([self.mod_info.mod_info_file_path],
-                             self.mod_info_md5_path)
+        # Note that we write the set of enabled features despite having written
+        # it above since the workspace no longer exists at this point.
+        enabled_features_file.write_text(enabled_features_file_contents)
+        atest_utils.save_md5(
+            [
+                self.mod_info.mod_info_file_path,
+                enabled_features_file,
+            ],
+            workspace_md5_checksum_file
+        )
 
     def _add_test_module_targets(self):
         seen = set()
