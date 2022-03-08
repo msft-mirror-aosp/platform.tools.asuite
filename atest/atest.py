@@ -752,6 +752,7 @@ def _exclude_modules_in_targets(build_targets):
             shrank_build_targets.remove(target)
     return shrank_build_targets
 
+# pylint: disable=protected-access
 def need_rebuild_module_info(force_build):
     """Method that tells whether we need to rebuild module-info.json or not.
 
@@ -761,13 +762,17 @@ def need_rebuild_module_info(force_build):
     Returns:
         - When force_build is True, return True (will rebuild module-info).
         - When force_build is False, then check the consistency of build files.
-        If the checksum file of build files is missing, considered check passed
-        (no need to rebuild module-info.json)
+        If the checksum file of build files is missing, considered check False
+        (need to rebuild module-info.json)
     """
     logging.debug('Examinating the consistency of build files...')
     if force_build:
+        msg = (f'`{constants.REBUILD_MODULE_INFO_FLAG}` is no longer needed '
+               f'since Atest can smartly rebuild {module_info._MODULE_INFO} '
+               r'only when needed.')
+        atest_utils.colorful_print(msg, constants.YELLOW)
         return True
-    if atest_utils.check_md5(constants.BUILDFILES_MD5, missing_ok=True):
+    if atest_utils.check_md5(constants.BUILDFILES_MD5, missing_ok=False):
         logging.debug('All build files stay untouched.')
         return False
     logging.debug('Found build files were changed.')
