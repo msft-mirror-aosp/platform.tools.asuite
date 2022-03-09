@@ -491,14 +491,8 @@ def _has_colors(stream):
         # Auto color only on TTYs
         cached_has_colors[stream] = False
         return False
-    try:
-        import curses
-        curses.setupterm()
-        cached_has_colors[stream] = curses.tigetnum("colors") > 2
-    # pylint: disable=broad-except
-    except Exception as err:
-        logging.debug('Checking colorful raised exception: %s', err)
-        cached_has_colors[stream] = False
+    # curses.tigetnum() cannot be used for telling supported color numbers
+    # because it does not come with the prebuilt py3-cmd.
     return cached_has_colors[stream]
 
 
