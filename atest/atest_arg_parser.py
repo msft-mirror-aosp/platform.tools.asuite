@@ -23,6 +23,7 @@ Atest Argument Parser class for atest.
 import argparse
 import pydoc
 
+import bazel_mode
 import constants
 
 # Constants used for AtestArgParser and EPILOG_TEMPLATE
@@ -147,6 +148,8 @@ class AtestArgParser(argparse.ArgumentParser):
                           const=constants.BUILD_STEP, help=BUILD)
         self.add_argument('--bazel-mode', action='store_true', help=BAZEL_MODE)
         self.add_argument('--bazel-arg', nargs='*', action='append', help=BAZEL_ARG)
+        bazel_mode.add_parser_arguments(self, dest='bazel_mode_features')
+
         self.add_argument('-d', '--disable-teardown', action='store_true',
                           help=DISABLE_TEARDOWN)
         self.add_argument('--enable-device-preparer', action='store_true', help=HOST)
