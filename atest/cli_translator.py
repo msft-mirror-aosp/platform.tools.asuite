@@ -34,7 +34,7 @@ import constants
 import test_finder_handler
 import test_mapping
 
-from atest_enum import DetectType
+from atest_enum import DetectType, ExitCode
 from metrics import metrics
 from metrics import metrics_utils
 from test_finders import module_finder
@@ -546,8 +546,8 @@ class CLITranslator:
                 logging.warning(
                     'All available tests in TEST_MAPPING files are:\n%s',
                     tests)
-            metrics_utils.send_exit_event(constants.EXIT_CODE_TEST_NOT_FOUND)
-            sys.exit(constants.EXIT_CODE_TEST_NOT_FOUND)
+            metrics_utils.send_exit_event(ExitCode.TEST_NOT_FOUND)
+            sys.exit(ExitCode.TEST_NOT_FOUND)
 
         logging.debug(
             'Test details:\n%s',
@@ -580,6 +580,21 @@ class CLITranslator:
             else:
                 extracted_tests.append(test)
         return extracted_tests
+
+    def _has_host_unit_test(self, tests):
+        """Tell whether one of the given testis a host unit test.
+
+        Args:
+            tests: A list of test names.
+
+        Returns:
+            True when one of the given testis a host unit test.
+        """
+        all_host_unit_tests = self.mod_info.get_all_host_unit_tests()
+        for test in tests:
+            if test in all_host_unit_tests:
+                return True
+        return False
 
     def translate(self, args):
         """Translate atest command line into build targets and run commands.
@@ -635,4 +650,9 @@ class CLITranslator:
         for test_info in test_infos:
             logging.debug('%s\n', test_info)
         build_targets = self._gather_build_targets(test_infos)
+        if not self._bazel_mode:
+            if host_unit_tests or self._has_host_unit_test(tests):
+                msg = (r"It is recommended to run host unit tests with "
+                       r"--bazel-mode.")
+                atest_utils.colorful_print(msg, constants.YELLOW)
         return build_targets, test_infos

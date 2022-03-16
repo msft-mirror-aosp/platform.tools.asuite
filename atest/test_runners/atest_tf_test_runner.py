@@ -38,7 +38,7 @@ import constants
 import module_info
 import result_reporter
 
-from atest_enum import DetectType
+from atest_enum import DetectType, ExitCode
 from logstorage import atest_gcp_utils
 from logstorage import logstorage_utils
 from metrics import metrics
@@ -216,7 +216,7 @@ class AtestTradefedTestRunner(trb.TestRunnerBase):
             result = self.run_tests_pretty(test_infos, extra_args, reporter)
         except atest_error.DryRunVerificationError as e:
             atest_utils.colorful_print(str(e), constants.RED)
-            return constants.EXIT_CODE_VERIFY_FAILURE
+            return ExitCode.VERIFY_FAILURE
         finally:
             if inv:
                 try:
@@ -245,7 +245,7 @@ class AtestTradefedTestRunner(trb.TestRunnerBase):
         iterations = self._generate_iterations(extra_args)
         reporter.register_unsupported_runner(self.NAME)
 
-        ret_code = constants.EXIT_CODE_SUCCESS
+        ret_code = ExitCode.SUCCESS
         for _ in range(iterations):
             run_cmds = self.generate_run_commands(test_infos, extra_args)
             subproc = self.run(run_cmds[0], output_to_stdout=True,
@@ -265,7 +265,7 @@ class AtestTradefedTestRunner(trb.TestRunnerBase):
             0 if tests succeed, non-zero otherwise.
         """
         iterations = self._generate_iterations(extra_args)
-        ret_code = constants.EXIT_CODE_SUCCESS
+        ret_code = ExitCode.SUCCESS
         for _ in range(iterations):
             server = self._start_socket_server()
             run_cmds = self.generate_run_commands(test_infos, extra_args,

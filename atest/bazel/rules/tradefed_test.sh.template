@@ -32,6 +32,7 @@ exit_code_file="$(mktemp /tmp/tf-exec-XXXXXXXXXX)"
     --log-level VERBOSE \
     "${ADDITIONAL_TRADEFED_OPTIONS[@]}" \
     --bazel-exit-code-result-reporter:file=${exit_code_file} \
+    --bazel-xml-result-reporter:file=${XML_OUTPUT_FILE} \
     "$@"
 
 # Use the TF exit code if it terminates abnormally.
