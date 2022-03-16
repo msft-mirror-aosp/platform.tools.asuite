@@ -35,6 +35,8 @@ function get_build_var()
 }
 
 out=$(get_build_var PRODUCT_OUT)
+JDK_PATH="${ANDROID_BUILD_TOP}/prebuilts/jdk/jdk11/linux-x86"
+BAZEL_BINARY="${ANDROID_BUILD_TOP}/prebuilts/bazel/linux-x86_64/bazel"
 
 # Use the versioned JDK and Python binaries in prebuilts/ for a reproducible
 # build with minimal reliance on host tools.
@@ -64,9 +66,9 @@ ${OUT_DIR}/host/linux-x86/bin/atest-dev --bazel-mode --dry-run -m
 # Copy over some needed dependencies. We need Bazel for querying dependencies
 # and actually running the test. The JDK is for the Tradefed test runner and
 # Java tests.
-cp prebuilts/bazel/linux-x86_64/bazel_* ${OUT_DIR}/atest_bazel_workspace/bazelbin
+cp -L ${BAZEL_BINARY} ${OUT_DIR}/atest_bazel_workspace/bazelbin
 mkdir ${OUT_DIR}/atest_bazel_workspace/prebuilts/jdk
-cp -a prebuilts/jdk/jdk11/linux-x86/* ${OUT_DIR}/atest_bazel_workspace/prebuilts/jdk/.
+cp -a ${JDK_PATH}/* ${OUT_DIR}/atest_bazel_workspace/prebuilts/jdk/.
 
 pushd ${OUT_DIR}/atest_bazel_workspace
 
@@ -84,17 +86,30 @@ filegroup(
 )
 EOF
 
+# Make directories for temporary output.
+JAVA_TEMP_DIR=$(mktemp -d)
+trap "rm -rf ${JAVA_TEMP_DIR}" EXIT
+
+BAZEL_TEMP_DIR=$(mktemp -d)
+trap "rm -rf ${BAZEL_TEMP_DIR}" EXIT
+
 # Query the list of dependencies needed by the tests.
 # TODO(b/217658764): Consolidate Bazel query functions into a separate script
 # that other components can use.
-./bazelbin \
-  --output_user_root=/tmp/bazel_cquery_out \
+JAVA_HOME="${JDK_PATH}" \
+  "${BAZEL_BINARY}" \
+  --server_javabase="${JDK_PATH}" \
+  --host_jvm_args=-Djava.io.tmpdir=${JAVA_TEMP_DIR} \
+  --output_user_root=${BAZEL_TEMP_DIR} \
   --max_idle_secs=5 \
   cquery \
-  --override_repository=remote_coverage_tools=${OUT_DIR}/remote_coverage_tools \
+  --override_repository=remote_coverage_tools=${ANDROID_BUILD_TOP}/out/atest_bazel_workspace/remote_coverage_tools \
   --output=starlark \
   --starlark:file=${ANDROID_BUILD_TOP}/tools/asuite/atest/bazel/format_as_soong_module_name.cquery \
-  "deps( $(./bazelbin --output_user_root=/tmp/bazel_cquery_out \
+  "deps( $(${BAZEL_BINARY} \
+  --server_javabase="${JDK_PATH}" \
+  --host_jvm_args=-Djava.io.tmpdir=${JAVA_TEMP_DIR} \
+  --output_user_root=${BAZEL_TEMP_DIR} \
   --max_idle_secs=5 query "tests(...)" | paste -sd "+" -) )"  | \
   sed '/^$/d' | \
   sort -u \
