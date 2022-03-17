@@ -409,14 +409,15 @@ class ResultReporter:
                     print(summary)
         self.run_stats.perf_info.print_perf_info()
         print()
-        if tests_ret == ExitCode.SUCCESS:
-            print(au.colorize('All tests passed!', constants.GREEN))
-        else:
-            message = '%d %s failed' % (failed_sum,
-                                        'tests' if failed_sum > 1 else 'test')
-            print(au.colorize(message, constants.RED))
-            print('-'*len(message))
-            self.print_failed_tests()
+        if not UNSUPPORTED_FLAG in self.runners.values():
+            if tests_ret == ExitCode.SUCCESS:
+                print(au.colorize('All tests passed!', constants.GREEN))
+            else:
+                message = '%d %s failed' % (failed_sum,
+                                            'tests' if failed_sum > 1 else 'test')
+                print(au.colorize(message, constants.RED))
+                print('-'*len(message))
+                self.print_failed_tests()
         if self.log_path:
             # Print aggregate result if any.
             self._print_aggregate_test_metrics()
