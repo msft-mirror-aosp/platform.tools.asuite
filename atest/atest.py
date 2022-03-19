@@ -921,7 +921,9 @@ def main(argv, results_dir, args):
                     f'but {given_amount} were given.',
                     constants.RED)
                 return 0
-        if args.no_modules_in:
+        # Remove MODULE-IN-* from build targets if not bazel mode and user not
+        # force set --use-modules-in.
+        if not args.bazel_mode and not args.use_modules_in:
             build_targets = _exclude_modules_in_targets(build_targets)
         find_duration = time.time() - find_start
         if not test_infos:
