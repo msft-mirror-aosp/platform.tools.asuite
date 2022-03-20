@@ -56,6 +56,10 @@ _BAZEL_WORKSPACE_DIR = 'atest_bazel_workspace'
 @enum.unique
 class Features(enum.Enum):
     NULL_FEATURE = ('--null-feature', 'Enables a no-action feature.')
+    EXPERIMENTAL_DEVICE_DRIVEN_TEST = (
+        '--experimental-device-driven-test',
+        'Enables running device-driven tests in Bazel mode.'
+    )
 
     def __init__(self, arg_flag, description):
         self.arg_flag = arg_flag
@@ -177,13 +181,19 @@ class WorkspaceGenerator:
             # default. See b/77288544#comment6 and b/23566667 for more context.
             if name.endswith("_32") or name.startswith("host_cross_"):
                 continue
-            if not self.is_host_unit_test(info):
-                continue
-            if not self.mod_info.is_testable_module(info):
-                continue
 
-            target = self._add_deviceless_test_target(info)
-            self._resolve_dependencies(target, seen)
+            if (Features.EXPERIMENTAL_DEVICE_DRIVEN_TEST in
+                    self.enabled_features and self.is_device_driven_test(info)):
+                self._resolve_dependencies(
+                    self._add_test_target(
+                        info, 'device',
+                        TestTarget.create_device_test_target), seen)
+
+            if self.is_host_unit_test(info):
+                self._resolve_dependencies(
+                    self._add_test_target(
+                        info, 'host',
+                        TestTarget.create_deviceless_test_target), seen)
 
     def _resolve_dependencies(
         self, top_level_target: Target, seen: Set[Target]):
@@ -216,12 +226,13 @@ class WorkspaceGenerator:
 
             stack.append(next_top)
 
-    def _add_deviceless_test_target(self, info: Dict[str, Any]) -> Target:
+    def _add_test_target(self, info: Dict[str, Any], name_suffix: str,
+                         create_fn: Callable) -> Target:
         package_name = self._get_module_path(info)
-        name = info['module_name'] + "_host"
+        name = f'{info["module_name"]}_{name_suffix}'
 
         def create():
-            return DevicelessTestTarget.create(
+            return create_fn(
                 name,
                 package_name,
                 info,
@@ -283,9 +294,13 @@ class WorkspaceGenerator:
 
         return mod_path[0]
 
+    def is_device_driven_test(self, info: Dict[str, Any]) -> bool:
+        return self.mod_info.is_testable_module(info) and 'DEVICE' in info.get(
+            constants.MODULE_SUPPORTED_VARIANTS, [])
+
     def is_host_unit_test(self, info: Dict[str, Any]) -> bool:
-        return self.mod_info.is_suite_in_compatibility_suites(
-            'host-unit-tests', info)
+        return self.mod_info.is_testable_module(
+            info) and self.mod_info.is_host_unit_test(info)
 
     def _generate_artifacts(self):
         """Generate workspace files on disk."""
@@ -434,10 +449,10 @@ class Target(ABC):
         pass
 
 
-class DevicelessTestTarget(Target):
-    """Class for generating a deviceless test target."""
+class TestTarget(Target):
+    """Class for generating a test target."""
 
-    PREREQUISITES = frozenset({
+    _TEST_PREREQUISITES = frozenset({
         'adb',
         'atest-tradefed',
         'atest_script_help.sh',
@@ -448,14 +463,29 @@ class DevicelessTestTarget(Target):
         'bazel-result-reporter'
     })
 
-    @staticmethod
-    def create(name: str, package_name: str, info: Dict[str, Any]):
-        return DevicelessTestTarget(name, package_name, info)
+    DEVICELESS_TEST_PREREQUISITES = _TEST_PREREQUISITES
 
-    def __init__(self, name: str, package_name: str, info: Dict[str, Any]):
+    DEVICE_TEST_PREREQUISITES = frozenset({'aapt'}).union(_TEST_PREREQUISITES)
+
+    @staticmethod
+    def create_deviceless_test_target(name: str, package_name: str,
+                                      info: Dict[str, Any]):
+        return TestTarget(name, package_name, info, 'tradefed_deviceless_test',
+                          TestTarget.DEVICELESS_TEST_PREREQUISITES)
+
+    @staticmethod
+    def create_device_test_target(name: str, package_name: str,
+                                  info: Dict[str, Any]):
+        return TestTarget(name, package_name, info, 'tradefed_device_test',
+                          TestTarget.DEVICE_TEST_PREREQUISITES)
+
+    def __init__(self, name: str, package_name: str, info: Dict[str, Any],
+                 rule_name: str, prerequisites=frozenset()):
         self._name = name
         self._package_name = package_name
         self._test_module_ref = ModuleRef.for_info(info)
+        self._rule_name = rule_name
+        self._prerequisites = prerequisites
 
     def name(self) -> str:
         return self._name
@@ -464,24 +494,17 @@ class DevicelessTestTarget(Target):
         return self._package_name
 
     def required_imports(self) -> Set[Import]:
-        return {
-            Import('//bazel/rules:tradefed_test.bzl',
-                   'tradefed_deviceless_test'),
-        }
-
-    def supported_configs(self) -> Set[Config]:
-        return set()
+        return { Import('//bazel/rules:tradefed_test.bzl', self._rule_name) }
 
     def dependencies(self) -> List[ModuleRef]:
-        prerequisite_refs = map(
-            ModuleRef.for_name, DevicelessTestTarget.PREREQUISITES)
+        prerequisite_refs = map(ModuleRef.for_name, self._prerequisites)
         return [self._test_module_ref] + list(prerequisite_refs)
 
     def write_to_build_file(self, f: IO):
         prebuilt_target_name = self._test_module_ref.target().qualified_name()
         writer = IndentWriter(f)
 
-        writer.write_line('tradefed_deviceless_test(')
+        writer.write_line(f'{self._rule_name}(')
 
         with writer.indent():
             writer.write_line(f'name = "{self._name}",')
