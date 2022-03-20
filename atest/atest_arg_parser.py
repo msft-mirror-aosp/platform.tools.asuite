@@ -23,6 +23,7 @@ Atest Argument Parser class for atest.
 import argparse
 import pydoc
 
+import bazel_mode
 import constants
 
 # Constants used for AtestArgParser and EPILOG_TEMPLATE
@@ -69,8 +70,6 @@ LIST_MODULES = 'List testable modules of the given suite.'
 NO_ENABLE_ROOT = ('Do NOT restart adbd with root permission even the test config '
                   'has RootTargetPreparer.')
 NO_METRICS = 'Do not send metrics.'
-NO_MODULES_IN = ('Do not include MODULES-IN-* as build targets. Warning: This '
-                 'may result in missing dependencies issue.')
 REBUILD_MODULE_INFO = ('Forces a rebuild of the module-info.json file. '
                        'This may be necessary following a repo sync or '
                        'when writing a new test.')
@@ -101,6 +100,8 @@ TF_TEMPLATE = ('Add extra tradefed template for ATest suite, '
 UPDATE_CMD_MAPPING = ('Update the test command of input tests. Warning: result '
                       'will be saved under '
                       'tools/asuite/atest/test_data.')
+USE_MODULES_IN = ('Force include MODULES-IN-* as build targets. '
+                  'Hint: This may solve missing test dependencies issue.')
 USER_TYPE = ('Run test with specific user type, e.g. atest <test> --user-type '
              'secondary_user')
 VERBOSE = 'Display DEBUG level logging.'
@@ -147,6 +148,8 @@ class AtestArgParser(argparse.ArgumentParser):
                           const=constants.BUILD_STEP, help=BUILD)
         self.add_argument('--bazel-mode', action='store_true', help=BAZEL_MODE)
         self.add_argument('--bazel-arg', nargs='*', action='append', help=BAZEL_ARG)
+        bazel_mode.add_parser_arguments(self, dest='bazel_mode_features')
+
         self.add_argument('-d', '--disable-teardown', action='store_true',
                           help=DISABLE_TEARDOWN)
         self.add_argument('--enable-device-preparer', action='store_true', help=HOST)
@@ -158,13 +161,13 @@ class AtestArgParser(argparse.ArgumentParser):
                           action='store_true', help=REBUILD_MODULE_INFO)
         self.add_argument('--no-enable-root', help=NO_ENABLE_ROOT,
                           action='store_true')
-        self.add_argument('--no-modules-in', help=NO_MODULES_IN,
-                          action='store_true')
         self.add_argument('--sharding', nargs='?', const=2,
                           type=_positive_int, default=0,
                           help=SHARDING)
         self.add_argument('-t', '--test', action='append_const', dest='steps',
                           const=constants.TEST_STEP, help=TEST)
+        self.add_argument('--use-modules-in', help=USE_MODULES_IN,
+                          action='store_true')
         self.add_argument('-w', '--wait-for-debugger', action='store_true',
                           help=WAIT_FOR_DEBUGGER)
         self.add_argument('--request-upload-result', action='store_true',
@@ -345,7 +348,6 @@ def print_epilog_text():
         LIST_MODULES=LIST_MODULES,
         NO_ENABLE_ROOT=NO_ENABLE_ROOT,
         NO_METRICS=NO_METRICS,
-        NO_MODULES_IN=NO_MODULES_IN,
         REBUILD_MODULE_INFO=REBUILD_MODULE_INFO,
         REQUEST_UPLOAD_RESULT=REQUEST_UPLOAD_RESULT,
         RERUN_UNTIL_FAILURE=RERUN_UNTIL_FAILURE,
@@ -362,6 +364,7 @@ def print_epilog_text():
         TF_TEMPLATE=TF_TEMPLATE,
         USER_TYPE=USER_TYPE,
         UPDATE_CMD_MAPPING=UPDATE_CMD_MAPPING,
+        USE_MODULES_IN=USE_MODULES_IN,
         VERBOSE=VERBOSE,
         VERSION=VERSION,
         VERIFY_CMD_MAPPING=VERIFY_CMD_MAPPING,
@@ -436,9 +439,6 @@ OPTIONS
         --no-enable-root
             {NO_ENABLE_ROOT}
 
-        --no-modules-in
-            {NO_MODULES_IN}
-
         -s, --serial [SERIAL]
             {SERIAL}
 
@@ -467,6 +467,9 @@ OPTIONS
 
         --request-upload-result
             {REQUEST_UPLOAD_RESULT}
+
+        --use-modules-in
+            {USE_MODULES_IN}
 
         [ Test Mapping ]
         -p, --test-mapping

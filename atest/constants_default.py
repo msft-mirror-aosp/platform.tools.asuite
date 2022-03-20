@@ -99,6 +99,7 @@ MODULE_IS_UNIT_TEST = 'is_unit_test'
 MODULE_SHARED_LIBS = 'shared_libs'
 MODULE_RUNTIME_DEPS = 'runtime_dependencies'
 MODULE_DATA_DEPS = 'data_dependencies'
+MODULE_SUPPORTED_VARIANTS = 'supported_variants'
 
 
 # Env constants
