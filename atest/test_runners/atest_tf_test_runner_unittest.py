@@ -27,6 +27,7 @@ import tempfile
 import unittest
 import json
 
+from argparse import Namespace
 from io import StringIO
 from pathlib import Path
 from unittest import mock
@@ -195,6 +196,8 @@ class AtestTradefedTestRunnerUnittests(unittest.TestCase):
     def setUp(self, mock_get_ld_library_path):
         mock_get_ld_library_path.return_value = RUN_ENV_STR
         self.tr = atf_tr.AtestTradefedTestRunner(results_dir=uc.TEST_INFO_DIR)
+        if not atest_configs.GLOBAL_ARGS:
+            atest_configs.GLOBAL_ARGS = Namespace()
         atest_configs.GLOBAL_ARGS.device_count_config = None
 
     def tearDown(self):
