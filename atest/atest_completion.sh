@@ -130,13 +130,12 @@ function _atest_main() {
     # adapts both conditions.
     [[ ! $- =~ 'i' ]] && return 0
 
-    # Use Py3 as the default interpreter. This script is aiming for being
-    # compatible with both Py2 and Py3.
-    if [ -x "$(which python3)" ]; then
-        PYTHON=$(which python3)
-    elif [ -x "$(which python2)" ]; then
-        PYTHON=$(which python2)
-    else
+    local T="$(gettop)"
+    local PREBUILT_TOOLS_DIR="$T/prebuilts/build-tools/path/linux-x86"
+    PYTHON=$PREBUILT_TOOLS_DIR/python3
+    # Use prebuilt python3(py3-cmd) as the default interpreter; if it does not
+    # exist, use the system installed version.
+    if [ ! -x "$PYTHON" ]; then
         PYTHON="/usr/bin/env python3"
     fi
 
@@ -151,8 +150,19 @@ function _atest_main() {
     done
 
     # Install atest-src for the convenience of debugging.
-    local atest_src="$(gettop)/$ATEST_REL_DIR/atest.py"
+    local atest_src="$T/$ATEST_REL_DIR/atest.py"
     [[ -f "$atest_src" ]] && alias atest-src="$atest_src"
+
+    # Use prebuilt python3 for atest-dev
+    function atest-dev() {
+        atest_dev="$ANDROID_BUILD_TOP/out/host/$(uname -s | tr '[:upper:]' '[:lower:]')-x86/bin/atest-dev"
+        if [ ! -f $atest_dev ]; then
+            echo "Cannot find atest-dev. Run 'm atest' to generate one."
+            return 1
+        fi
+        PREBUILT_TOOLS_DIR="$ANDROID_BUILD_TOP/prebuilts/build-tools/path/linux-x86"
+        PATH=$PREBUILT_TOOLS_DIR:$PATH $atest_dev "$@"
+    }
 }
 
 _atest_main
