@@ -75,14 +75,15 @@ class GenerationTestFixture(fake_filesystem_unittest.TestCase):
 
         return generator
 
-    def run_generator(self, mod_info):
+    def run_generator(self, mod_info, enabled_features=None):
         generator = bazel_mode.WorkspaceGenerator(
             self.src_root_path,
             self.workspace_out_path,
             self.product_out_path,
             self.host_out_path,
             self.out_dir_path,
-            mod_info
+            mod_info,
+            enabled_features=enabled_features,
         )
 
         generator.generate()
@@ -98,7 +99,11 @@ class GenerationTestFixture(fake_filesystem_unittest.TestCase):
         mod_info = self.create_empty_module_info()
         modules = modules or []
 
-        for module_name in bazel_mode.DevicelessTestTarget.PREREQUISITES:
+        prerequisites = frozenset().union(
+            bazel_mode.TestTarget.DEVICE_TEST_PREREQUISITES,
+            bazel_mode.TestTarget.DEVICELESS_TEST_PREREQUISITES)
+
+        for module_name in prerequisites:
             info = host_module(name=module_name, path='prebuilts')
             mod_info.name_to_module_info[module_name] = info
 
@@ -328,6 +333,109 @@ class BasicWorkspaceGenerationTest(GenerationTestFixture):
         self.run_generator(mod_info)
 
         self.assertTargetNotInWorkspace('hello_world_test')
+
+    def test_not_generate_test_module_target_with_invalid_installed_path(self):
+        mod_info = self.create_module_info(modules=[
+            test_module(name='hello_world_test', installed='out/invalid/path')
+        ])
+
+        self.run_generator(mod_info)
+
+        self.assertTargetNotInWorkspace('hello_world_test_device')
+        self.assertTargetNotInWorkspace('hello_world_test_host')
+
+
+class MultiConfigTestModuleTestTargetGenerationTest(GenerationTestFixture):
+    """Tests for test target generation of test modules with multi-configs."""
+
+    def test_generate_test_rule_imports(self):
+        mod_info = self.create_module_info(modules=[
+            multi_config(host_unit_suite(test_module(
+                name='hello_world_test', path='example/tests'))),
+        ])
+
+        self.run_generator(mod_info, enabled_features=set([
+            bazel_mode.Features.EXPERIMENTAL_DEVICE_DRIVEN_TEST]))
+
+        self.assertInBuildFile(
+            'load("//bazel/rules:tradefed_test.bzl",'
+            ' "tradefed_device_test", "tradefed_deviceless_test")\n',
+            package='example/tests',
+        )
+
+    def test_not_generate_device_test_import_when_feature_disabled(self):
+        mod_info = self.create_module_info(modules=[
+            multi_config(host_unit_suite(test_module(
+                name='hello_world_test', path='example/tests'))),
+        ])
+
+        self.run_generator(mod_info)
+
+        self.assertInBuildFile(
+            'load("//bazel/rules:tradefed_test.bzl",'
+            ' "tradefed_deviceless_test")\n',
+            package='example/tests',
+        )
+
+    def test_generate_test_targets(self):
+        mod_info = self.create_module_info(modules=[
+            multi_config(host_unit_suite(test_module(
+                name='hello_world_test', path='example/tests'))),
+        ])
+
+        self.run_generator(mod_info, enabled_features=set([
+            bazel_mode.Features.EXPERIMENTAL_DEVICE_DRIVEN_TEST]))
+
+        self.assertTargetInWorkspace('hello_world_test_device',
+                                     package='example/tests')
+        self.assertTargetInWorkspace('hello_world_test_host',
+                                     package='example/tests')
+
+    def test_not_generate_device_test_target_when_feature_disabled(self):
+        mod_info = self.create_module_info(modules=[
+            multi_config(host_unit_suite(test_module(
+                name='hello_world_test', path='example/tests'))),
+        ])
+
+        self.run_generator(mod_info)
+
+        self.assertTargetNotInWorkspace('hello_world_test_device',
+                                        package='example/tests')
+        self.assertTargetInWorkspace('hello_world_test_host',
+                                     package='example/tests')
+
+
+class DeviceTestModuleTestTargetGenerationTest(GenerationTestFixture):
+    """Tests for device test module test target generation."""
+
+    def test_generate_device_driven_test_target(self):
+        mod_info = self.create_module_info(modules=[
+            device_test_module(
+                name='hello_world_test', path='example/tests'),
+        ])
+
+        self.run_generator(mod_info, enabled_features=set([
+            bazel_mode.Features.EXPERIMENTAL_DEVICE_DRIVEN_TEST]))
+
+        self.assertInBuildFile(
+            'load("//bazel/rules:tradefed_test.bzl",'
+            ' "tradefed_device_test")\n',
+            package='example/tests',
+        )
+        self.assertTargetInWorkspace('hello_world_test_device',
+                                     package='example/tests')
+
+    def test_raise_when_prerequisite_not_in_module_info(self):
+        mod_info = self.create_module_info(modules=[
+            device_test_module(),
+        ])
+        del mod_info.name_to_module_info['aapt']
+
+        with self.assertRaises(Exception) as context:
+            self.run_generator(mod_info, enabled_features=set([
+                bazel_mode.Features.EXPERIMENTAL_DEVICE_DRIVEN_TEST]))
+
+        self.assertIn('aapt', str(context.exception))
 
 
 class HostUnitTestModuleTestTargetGenerationTest(GenerationTestFixture):
@@ -909,6 +1017,11 @@ def host_test_module(**kwargs):
     return host_only_config(test_module(**kwargs))
 
 
+def device_test_module(**kwargs):
+    kwargs.setdefault('name', 'hello_world_test')
+    return device_only_config(test_module(**kwargs))
+
+
 def host_module(**kwargs):
     m = module(**kwargs)
 
@@ -1005,6 +1118,10 @@ def multi_config(info):
         f'out/host/linux-x86/{name}/{name}.jar',
         f'out/product/vsoc_x86/{name}/{name}.apk',
     ]
+    info['supported_variants'] = [
+        'DEVICE',
+        'HOST',
+    ]
     return info
 
 
@@ -1013,6 +1130,9 @@ def host_only_config(info):
     info['installed'] = [
         f'out/host/linux-x86/{name}/{name}.jar',
     ]
+    info['supported_variants'] = [
+        'HOST',
+    ]
     return info
 
 
@@ -1020,6 +1140,9 @@ def device_only_config(info):
     name = info.get('module_name', 'lib')
     info['installed'] = [
         f'out/product/vsoc_x86/{name}/{name}.jar',
+    ]
+    info['supported_variants'] = [
+        'DEVICE',
     ]
     return info
 
