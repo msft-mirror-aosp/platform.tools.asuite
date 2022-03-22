@@ -1432,10 +1432,8 @@ class BazelTestRunnerTest(unittest.TestCase):
 
         cmd = runner.generate_run_commands(test_infos, extra_args)
 
-        self.assertTokensIn(['--test_arg=--retry-strategy',
-                             '--test_arg=ITERATIONS',
-                             '--test_arg=--max-testcase-run-count',
-                             '--test_arg=2'], cmd[0])
+        self.assertTokensIn(['--runs_per_test=2'], cmd[0])
+        self.assertNotIn('--test_arg=--retry-strategy', shlex.split(cmd[0]))
 
     def create_bazel_test_runner(self, modules, test_infos, run_command=None):
         return bazel_mode.BazelTestRunner(
