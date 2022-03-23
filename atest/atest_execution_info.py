@@ -27,7 +27,6 @@ import sys
 import atest_utils as au
 import constants
 
-from atest_enum import ExitCode
 from metrics import metrics_utils
 
 _ARGS_KEY = 'args'
@@ -300,8 +299,9 @@ class AtestExecutionInfo:
             self.result_file.close()
             symlink_latest_result(self.work_dir)
         main_module = sys.modules.get(_MAIN_MODULE_KEY)
-        main_exit_code = getattr(main_module, _EXIT_CODE_ATTR, ExitCode.ERROR)
-        if main_exit_code == ExitCode.SUCCESS:
+        main_exit_code = getattr(main_module, _EXIT_CODE_ATTR,
+                                 constants.EXIT_CODE_ERROR)
+        if main_exit_code == constants.EXIT_CODE_SUCCESS:
             metrics_utils.send_exit_event(main_exit_code)
         else:
             metrics_utils.handle_exc_and_send_exit_event(main_exit_code)
@@ -324,7 +324,6 @@ class AtestExecutionInfo:
             return json.dumps(info_dict)
         except ValueError as err:
             logging.warning('Parsing test result failed due to : %s', err)
-        return {}
 
     @staticmethod
     def _arrange_test_result(info_dict, reporters):
