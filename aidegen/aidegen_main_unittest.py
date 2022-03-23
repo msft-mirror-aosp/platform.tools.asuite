@@ -47,7 +47,6 @@ from aidegen.vscode import vscode_native_project_file_gen
 # pylint: disable=too-many-arguments
 # pylint: disable=too-many-function-args
 # pylint: disable=too-many-statements
-# pylint: disable=too-many-locals
 class AidegenMainUnittests(unittest.TestCase):
     """Unit tests for aidegen_main.py"""
 
@@ -239,41 +238,9 @@ class AidegenMainUnittests(unittest.TestCase):
         self._init_project_config(args)
         ide_obj = 'ide_obj'
         test_all = False
-        lang = constant.C_CPP
-        java_targets = {constant.JAVA: ['a', 'b', 'c'],
-                        constant.C_CPP: None, constant.RUST: None}
-
-        aidegen_main._launch_ide_by_module_contents(args, ide_obj, lang,
-                                                    java_targets, test_all)
-
-        self.assertFalse(mock_vs.called)
-        self.assertTrue(mock_print.called)
-        self.assertFalse(mock_j.called)
-        self.assertFalse(mock_c_prj.called)
-        self.assertFalse(mock_genc.called)
-        self.assertFalse(mock_c.called)
-
         lang = constant.JAVA
-        none_targets = {constant.JAVA: None,
-                        constant.C_CPP: None,
-                        constant.RUST: None}
-
-        aidegen_main._launch_ide_by_module_contents(args, ide_obj, lang,
-                                                    none_targets)
-
-        self.assertFalse(mock_vs.called)
-        self.assertTrue(mock_print.called)
-        self.assertFalse(mock_j.called)
-        self.assertFalse(mock_c_prj.called)
-        self.assertFalse(mock_genc.called)
-        self.assertFalse(mock_c.called)
-
-        c_targets = {constant.JAVA: None,
-                     constant.C_CPP: ['1', '2', '3'],
-                     constant.RUST: None}
-
-        aidegen_main._launch_ide_by_module_contents(args, ide_obj, lang,
-                                                    c_targets, False)
+        aidegen_main._launch_ide_by_module_contents(args, ide_obj, lang, None,
+                                                    None, None, test_all)
         self.assertFalse(mock_vs.called)
         self.assertTrue(mock_print.called)
         self.assertFalse(mock_j.called)
@@ -282,21 +249,18 @@ class AidegenMainUnittests(unittest.TestCase):
         self.assertFalse(mock_c.called)
 
         test_all = True
-
-        aidegen_main._launch_ide_by_module_contents(args, ide_obj, lang,
-                                                    none_targets, test_all)
+        aidegen_main._launch_ide_by_module_contents(args, ide_obj, lang, None,
+                                                    None, None, test_all)
         self.assertTrue(mock_vs.called)
         self.assertFalse(mock_j.called)
         self.assertFalse(mock_genc.called)
         self.assertFalse(mock_c.called)
         mock_vs.reset_mock()
 
-        lang_targets = {constant.JAVA: ['a', 'b', 'c'],
-                        constant.C_CPP: ['1', '2', '3'],
-                        constant.RUST: None}
-
-        aidegen_main._launch_ide_by_module_contents(args, ide_obj, lang,
-                                                    lang_targets)
+        test_j = ['a', 'b', 'c']
+        test_c = ['1', '2', '3']
+        aidegen_main._launch_ide_by_module_contents(args, ide_obj, lang, test_j,
+                                                    test_c)
         self.assertFalse(mock_vs.called)
         self.assertTrue(mock_j.called)
         self.assertFalse(mock_genc.called)
@@ -310,8 +274,8 @@ class AidegenMainUnittests(unittest.TestCase):
         mock_init.return_value = None
         self._init_project_config(args)
         lang = constant.C_CPP
-        aidegen_main._launch_ide_by_module_contents(args, ide_obj, lang,
-                                                    lang_targets)
+        aidegen_main._launch_ide_by_module_contents(args, ide_obj, lang, test_j,
+                                                    test_c)
         self.assertTrue(mock_c_prj.called)
         self.assertFalse(mock_vs.called)
         self.assertTrue(mock_genc.called)
@@ -322,8 +286,9 @@ class AidegenMainUnittests(unittest.TestCase):
         mock_c.reset_mock()
         mock_genc.reset_mock()
         mock_j.reset_mock()
+        test_none = None
         aidegen_main._launch_ide_by_module_contents(args, ide_obj, lang,
-                                                    c_targets)
+                                                    test_none, test_c)
         self.assertFalse(mock_vs.called)
         self.assertTrue(mock_genc.called)
         self.assertTrue(mock_c.called)
@@ -334,8 +299,8 @@ class AidegenMainUnittests(unittest.TestCase):
         mock_genc.reset_mock()
         mock_j.reset_mock()
         lang = constant.JAVA
-        aidegen_main._launch_ide_by_module_contents(args, ide_obj, lang,
-                                                    java_targets)
+        aidegen_main._launch_ide_by_module_contents(args, ide_obj, lang, test_j,
+                                                    test_none)
         self.assertFalse(mock_vs.called)
         self.assertTrue(mock_j.called)
         self.assertFalse(mock_c.called)
@@ -348,8 +313,8 @@ class AidegenMainUnittests(unittest.TestCase):
         mock_c_prj.reset_mock()
         mock_j.reset_mock()
         lang = constant.C_CPP
-        aidegen_main._launch_ide_by_module_contents(args, ide_obj, lang,
-                                                    lang_targets)
+        aidegen_main._launch_ide_by_module_contents(args, ide_obj, lang, test_j,
+                                                    test_c)
         self.assertFalse(mock_vs.called)
         self.assertFalse(mock_j.called)
         self.assertTrue(mock_c.called)
@@ -364,8 +329,8 @@ class AidegenMainUnittests(unittest.TestCase):
         mock_j.reset_mock()
         os.environ[constant.AIDEGEN_TEST_MODE] = 'true'
         lang = constant.JAVA
-        aidegen_main._launch_ide_by_module_contents(args, None, lang,
-                                                    lang_targets)
+        aidegen_main._launch_ide_by_module_contents(args, None, lang, test_j,
+                                                    test_c)
         self.assertFalse(mock_vs.called)
         self.assertTrue(mock_j.called)
         self.assertFalse(mock_c.called)
@@ -559,9 +524,7 @@ class AidegenMainUnittests(unittest.TestCase):
         self.assertTrue(mock_native.called)
         self.assertTrue(mock_get_project.called)
         mock_launch_ide.assert_called_with(
-            args, ide, constant.JAVA,
-            {constant.JAVA: [target], constant.C_CPP: [], constant.RUST: []},
-            True)
+            args, ide, constant.JAVA, config.targets, [], [], True)
 
         mock_config.mock_reset()
         mock_get_ide.mock_reset()
@@ -579,9 +542,7 @@ class AidegenMainUnittests(unittest.TestCase):
         self.assertTrue(mock_native.called)
         self.assertTrue(mock_get_project.called)
         mock_launch_ide.assert_called_with(
-            args, ide, constant.JAVA,
-            {constant.JAVA: [target], constant.C_CPP: [], constant.RUST: []},
-            False)
+            args, ide, constant.JAVA, config.targets, [], [], False)
 
 
 if __name__ == '__main__':
