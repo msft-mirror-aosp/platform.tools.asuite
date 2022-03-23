@@ -112,7 +112,6 @@ class TestInfo:
             return constants.DEVICELESS_TEST
         if self.robo_type == constants.ROBOTYPE_LEGACY:
             return constants.BOTH_TEST
-        # Let JAVA_LIBRARIES support device only.
         if constants.MODULE_CLASS_JAVA_LIBRARIES in self.module_class:
             return constants.BOTH_TEST
         if not install_path:

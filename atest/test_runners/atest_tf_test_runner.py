@@ -29,14 +29,16 @@ import socket
 
 from functools import partial
 from pathlib import Path
-from typing import List, Tuple
+from typing import Any, List, Tuple
 
+import atest_configs
 import atest_error
 import atest_utils
 import constants
 import module_info
 import result_reporter
 
+from atest_enum import DetectType, ExitCode
 from logstorage import atest_gcp_utils
 from logstorage import logstorage_utils
 from metrics import metrics
@@ -214,7 +216,7 @@ class AtestTradefedTestRunner(trb.TestRunnerBase):
             result = self.run_tests_pretty(test_infos, extra_args, reporter)
         except atest_error.DryRunVerificationError as e:
             atest_utils.colorful_print(str(e), constants.RED)
-            return constants.EXIT_CODE_VERIFY_FAILURE
+            return ExitCode.VERIFY_FAILURE
         finally:
             if inv:
                 try:
@@ -243,7 +245,7 @@ class AtestTradefedTestRunner(trb.TestRunnerBase):
         iterations = self._generate_iterations(extra_args)
         reporter.register_unsupported_runner(self.NAME)
 
-        ret_code = constants.EXIT_CODE_SUCCESS
+        ret_code = ExitCode.SUCCESS
         for _ in range(iterations):
             run_cmds = self.generate_run_commands(test_infos, extra_args)
             subproc = self.run(run_cmds[0], output_to_stdout=True,
@@ -263,7 +265,7 @@ class AtestTradefedTestRunner(trb.TestRunnerBase):
             0 if tests succeed, non-zero otherwise.
         """
         iterations = self._generate_iterations(extra_args)
-        ret_code = constants.EXIT_CODE_SUCCESS
+        ret_code = ExitCode.SUCCESS
         for _ in range(iterations):
             server = self._start_socket_server()
             run_cmds = self.generate_run_commands(test_infos, extra_args,
@@ -343,7 +345,7 @@ class AtestTradefedTestRunner(trb.TestRunnerBase):
                             constants.RED, highlight=True)
                     if not data_map:
                         metrics.LocalDetectEvent(
-                            detect_type=constants.DETECT_TYPE_TF_EXIT_CODE,
+                            detect_type=DetectType.TF_EXIT_CODE,
                             result=tf_subproc.returncode)
                         raise TradeFedExitError(tf_subproc.returncode)
                     self._handle_log_associations(event_handlers)
@@ -510,14 +512,6 @@ class AtestTradefedTestRunner(trb.TestRunnerBase):
                 for exclude_parameter in constants.DEFAULT_EXCLUDE_PARAS:
                     args_to_append.append('--exclude-module-parameters')
                     args_to_append.append(exclude_parameter)
-        # If multiple devices in test config, automatically append
-        # --replicate-parent-setup and --multi-device-count
-        device_count = self._get_device_count_config(test_infos,
-                                                     self.module_info)
-        if device_count > 1:
-            args_to_append.append('--replicate-parent-setup')
-            args_to_append.append('--multi-device-count')
-            args_to_append.append(str(device_count))
         return args_to_append, args_not_supported
 
     def _generate_metrics_folder(self, extra_args):
@@ -591,6 +585,14 @@ class AtestTradefedTestRunner(trb.TestRunnerBase):
             test_args.extend(['--no-early-device-release'])
 
         args_to_add, args_not_supported = self._parse_extra_args(test_infos, extra_args)
+
+        # If multiple devices in test config, automatically append
+        # --replicate-parent-setup and --multi-device-count
+        device_count = atest_configs.GLOBAL_ARGS.device_count_config
+        if device_count and device_count > 1:
+            args_to_add.append('--replicate-parent-setup')
+            args_to_add.append('--multi-device-count')
+            args_to_add.append(str(device_count))
 
         # TODO(b/122889707) Remove this after finding the root cause.
         env_serial = os.environ.get(constants.ANDROID_SERIAL)
@@ -850,7 +852,7 @@ class AtestTradefedTestRunner(trb.TestRunnerBase):
                             float(device_test_end_log_time))
             logging.debug('TF logcat teardown time=%s seconds.', teardowntime)
             metrics.LocalDetectEvent(
-                detect_type=constants.DETECT_TYPE_TF_TEARDOWN_LOGCAT,
+                detect_type=DetectType.TF_TEARDOWN_LOGCAT,
                 result=int(teardowntime))
 
     @staticmethod
@@ -871,24 +873,6 @@ class AtestTradefedTestRunner(trb.TestRunnerBase):
                 if constants.TF_PARA_INSTANT_APP in parameters:
                     return True
         return False
-
-    @staticmethod
-    def _get_device_count_config(test_infos, mod_info):
-        """Get the amount of desired devices from the test config.
-
-        Args:
-            test_infos: A set of TestInfo instances.
-            mod_info: ModuleInfo object.
-
-        Returns: the count of devices in test config.
-        """
-        for tinfo in test_infos:
-            test_config, _ = test_finder_utils.get_test_config_and_srcs(
-                tinfo, mod_info)
-            if test_config:
-                devices = atest_utils.get_config_device(test_config)
-                return len(devices)
-        return 0
 
     @staticmethod
     def _is_parameter_auto_enabled_cfg(tinfo, mod_info):
@@ -926,13 +910,41 @@ class AtestTradefedTestRunner(trb.TestRunnerBase):
                     atest_utils.copy_native_symbols(module_name, device_path)
 
 
-# pylint: disable=too-many-branches
-# pylint: disable=too-many-statements
-def extra_args_to_tf_args(
-    mod_info: module_info.ModuleInfo,
-    test_infos: List[test_info.TestInfo],
-    extra_args: trb.ARGS
-) -> Tuple[trb.ARGS, trb.ARGS]:
+def generate_annotation_filter_args(
+        arg_value: Any, mod_info: module_info.ModuleInfo,
+        test_infos: List[test_info.TestInfo]) -> List[str]:
+    """Generate TF annotation filter arguments.
+
+    Args:
+        arg_value: Argument value for annotation filter.
+        mod_info: ModuleInfo object.
+        test_infos: A set of TestInfo instances.
+
+    Returns:
+        List of TF annotation filter arguments.
+    """
+    annotation_filter_args = []
+    for info in test_infos:
+        test_name = info.test_name
+        for keyword in arg_value:
+            annotation = atest_utils.get_full_annotation_class_name(
+                mod_info.get_module_info(test_name), keyword)
+            if annotation:
+                module_arg = (constants.TF_MODULE_ARG_VALUE_FMT.format(
+                    test_name=test_name,
+                    option_name=constants.INCLUDE_ANNOTATION,
+                    option_value=annotation))
+                annotation_filter_args.extend([constants.TF_MODULE_ARG, module_arg])
+            logging.error(
+                atest_utils.colorize(
+                    f'Cannot find similar annotation: {keyword}',
+                    constants.RED))
+    return annotation_filter_args
+
+
+def extra_args_to_tf_args(mod_info: module_info.ModuleInfo,
+                          test_infos: List[test_info.TestInfo],
+                          extra_args: trb.ARGS) -> Tuple[trb.ARGS, trb.ARGS]:
     """Convert the extra args into atest_tf_test_runner supported args.
 
     Args:
@@ -946,106 +958,87 @@ def extra_args_to_tf_args(
     supported_args = []
     unsupported_args = []
 
+    def constant_list(*value):
+        return lambda *_: value
+
+    def print_message(message):
+        def inner(*args):
+            print(message)
+            return []
+        return inner
+
+    # Mapping supported TF arguments to the processing function.
+    supported_tf_args = dict({
+        constants.WAIT_FOR_DEBUGGER:
+            constant_list('--wait-for-debugger'),
+        constants.DISABLE_INSTALL:
+            constant_list('--disable-target-preparers'),
+        constants.SERIAL:
+            lambda arg_value, *_:
+            [j for d in arg_value for j in ('--serial', d)],
+        constants.SHARDING:
+            lambda arg_value, *_: ['--shard-count',
+                                   str(arg_value)],
+        constants.DISABLE_TEARDOWN:
+            constant_list('--disable-teardown'),
+        constants.HOST:
+            constant_list('-n', '--prioritize-host-config',
+                          '--skip-host-arch-check'),
+        constants.CUSTOM_ARGS:
+            # custom args value is a list.
+            lambda arg_value, *_: arg_value,
+        constants.ALL_ABI:
+            constant_list('--all-abi'),
+        constants.INSTANT:
+            constant_list(constants.TF_ENABLE_PARAMETERIZED_MODULES,
+                          constants.TF_MODULE_PARAMETER, 'instant_app'),
+        constants.USER_TYPE:
+            lambda arg_value, *_: [
+                constants.TF_ENABLE_PARAMETERIZED_MODULES,
+                '--enable-optional-parameterization',
+                constants.TF_MODULE_PARAMETER,
+                str(arg_value)
+            ],
+        constants.ITERATIONS:
+            lambda arg_value, *_: [
+                '--retry-strategy', constants.ITERATIONS,
+                '--max-testcase-run-count', str(arg_value)
+            ],
+        constants.RERUN_UNTIL_FAILURE:
+            lambda arg_value, *_: [
+                '--retry-strategy', constants.RERUN_UNTIL_FAILURE,
+                '--max-testcase-run-count', str(arg_value)
+            ],
+        constants.RETRY_ANY_FAILURE:
+            lambda arg_value, *_: [
+                '--retry-strategy', constants.RETRY_ANY_FAILURE,
+                '--max-testcase-run-count', str(arg_value)
+            ],
+        constants.COLLECT_TESTS_ONLY:
+            constant_list('--collect-tests-only'),
+        constants.NO_ENABLE_ROOT:
+            constant_list('--no-enable-root'),
+        constants.TF_DEBUG:
+            print_message("Please attach process to your IDE..."),
+        constants.ANNOTATION_FILTER:
+            generate_annotation_filter_args,
+        constants.TEST_FILTER:
+            lambda arg_value, *_: [
+                '--test-arg',
+                f'com.android.tradefed.testtype.AndroidJUnitTest:include-filter:{arg_value}',
+                '--test-arg',
+                f'com.android.tradefed.testtype.GTest:native-test-flag:--gtest_filter={arg_value}'
+            ]
+    })
+
     for arg in extra_args:
-        if constants.WAIT_FOR_DEBUGGER == arg:
-            supported_args.append('--wait-for-debugger')
+        if arg in supported_tf_args:
+            tf_args = supported_tf_args[arg](extra_args[arg], mod_info,
+                                             test_infos)
+            if tf_args:
+                supported_args.extend(tf_args)
             continue
-        if constants.DISABLE_INSTALL == arg:
-            supported_args.append('--disable-target-preparers')
-            continue
-        if constants.SERIAL == arg:
-            for device in extra_args[arg]:
-                supported_args.append('--serial')
-                supported_args.append(device)
-            continue
-        if constants.SHARDING == arg:
-            supported_args.append('--shard-count')
-            supported_args.append(str(extra_args[arg]))
-            continue
-        if constants.DISABLE_TEARDOWN == arg:
-            supported_args.append('--disable-teardown')
-            continue
-        if constants.HOST == arg:
-            supported_args.append('-n')
-            supported_args.append('--prioritize-host-config')
-            supported_args.append('--skip-host-arch-check')
-            continue
-        if constants.CUSTOM_ARGS == arg:
-            # We might need to sanitize it prior to appending but for now
-            # let's just treat it like a simple arg to pass on through.
-            supported_args.extend(extra_args[arg])
-            continue
-        if constants.ALL_ABI == arg:
-            supported_args.append('--all-abi')
-            continue
-        if constants.INSTANT == arg:
-            supported_args.append(constants.TF_ENABLE_PARAMETERIZED_MODULES)
-            supported_args.append(constants.TF_MODULE_PARAMETER)
-            supported_args.append('instant_app')
-            continue
-        if constants.USER_TYPE == arg:
-            supported_args.append(constants.TF_ENABLE_PARAMETERIZED_MODULES)
-            supported_args.append('--enable-optional-parameterization')
-            supported_args.append(constants.TF_MODULE_PARAMETER)
-            supported_args.append(extra_args[arg])
-            continue
-        if constants.ITERATIONS == arg:
-            supported_args.append('--retry-strategy')
-            supported_args.append(constants.ITERATIONS)
-            supported_args.append('--max-testcase-run-count')
-            supported_args.append(str(extra_args[arg]))
-            continue
-        if constants.RERUN_UNTIL_FAILURE == arg:
-            supported_args.append('--retry-strategy')
-            supported_args.append(constants.RERUN_UNTIL_FAILURE)
-            supported_args.append('--max-testcase-run-count')
-            supported_args.append(str(extra_args[arg]))
-            continue
-        if constants.RETRY_ANY_FAILURE == arg:
-            supported_args.append('--retry-strategy')
-            supported_args.append(constants.RETRY_ANY_FAILURE)
-            supported_args.append('--max-testcase-run-count')
-            supported_args.append(str(extra_args[arg]))
-            continue
-        if constants.COLLECT_TESTS_ONLY == arg:
-            supported_args.append('--collect-tests-only')
-            continue
-        if constants.NO_ENABLE_ROOT == arg:
-            supported_args.append('--no-enable-root')
-            continue
-        if constants.TF_DEBUG == arg:
-            print("Please attach process to your IDE...")
-            continue
-        if constants.ANNOTATION_FILTER == arg:
-            for info in test_infos:
-                test_name = info.test_name
-                for keyword in extra_args[constants.ANNOTATION_FILTER]:
-                    annotation = atest_utils.get_full_annotation_class_name(
-                        mod_info.get_module_info(test_name),
-                        keyword)
-                    if annotation:
-                        module_arg = (
-                            constants.TF_MODULE_ARG_VALUE_FMT.format(
-                                test_name=test_name,
-                                option_name=constants.INCLUDE_ANNOTATION,
-                                option_value=annotation))
-                        supported_args.extend([constants.TF_MODULE_ARG,
-                                              module_arg])
-                    else:
-                        logging.error(atest_utils.colorize(
-                            f'Cannot find similar annotation: {keyword}',
-                            constants.RED))
-            continue
-        if constants.TEST_FILTER == arg:
-            supported_args.append('--test-arg')
-            supported_args.append(
-                'com.android.tradefed.testtype.AndroidJUnitTest:'
-                f'include-filter:{extra_args[arg]}')
-            supported_args.append('--test-arg')
-            supported_args.append(
-                'com.android.tradefed.testtype.GTest:native-test-flag:'
-                f'--gtest_filter={extra_args[arg]}')
-            continue
+
         if arg in (constants.TF_TEMPLATE,
                    constants.TF_EARLY_DEVICE_RELEASE,
                    constants.INVOCATION_ID,

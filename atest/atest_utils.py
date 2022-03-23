@@ -44,6 +44,8 @@ from pathlib import Path
 
 import xml.etree.ElementTree as ET
 
+from atest_enum import DetectType
+
 # This is a workaround of b/144743252, where the http.client failed to loaded
 # because the googleapiclient was found before the built-in libs; enabling
 # embedded launcher(b/135639220) has not been reliable and other issue will
@@ -54,6 +56,13 @@ for lib in (sysconfig.get_paths()['stdlib'], sysconfig.get_paths()['purelib']):
     if lib in sys.path:
         sys.path.remove(lib)
     sys.path.insert(0, lib)
+# (b/219847353) Move googleapiclient to the last position of sys.path when
+#  existed.
+for lib in sys.path:
+    if 'googleapiclient' in lib:
+        sys.path.remove(lib)
+        sys.path.append(lib)
+        break
 #pylint: disable=wrong-import-position
 import atest_decorator
 import atest_error
@@ -482,14 +491,8 @@ def _has_colors(stream):
         # Auto color only on TTYs
         cached_has_colors[stream] = False
         return False
-    try:
-        import curses
-        curses.setupterm()
-        cached_has_colors[stream] = curses.tigetnum("colors") > 2
-    # pylint: disable=broad-except
-    except Exception as err:
-        logging.debug('Checking colorful raised exception: %s', err)
-        cached_has_colors[stream] = False
+    # curses.tigetnum() cannot be used for telling supported color numbers
+    # because it does not come with the prebuilt py3-cmd.
     return cached_has_colors[stream]
 
 
@@ -1047,15 +1050,13 @@ def get_flakes(branch='',
         logging.debug('Get flakes: Flake service path not exist.')
         # Send (3, 0) to present no flakes info because service does not exist.
         metrics.LocalDetectEvent(
-            detect_type=constants.DETECT_TYPE_NO_FLAKE,
-            result=0)
+            detect_type=DetectType.NO_FLAKE, result=0)
         return None
     if not has_valid_cert():
         logging.debug('Get flakes: No valid cert.')
         # Send (3, 1) to present no flakes info because no valid cert.
         metrics.LocalDetectEvent(
-            detect_type=constants.DETECT_TYPE_NO_FLAKE,
-            result=1)
+            detect_type=DetectType.NO_FLAKE, result=1)
         return None
     flake_info = {}
     start = time.time()
@@ -1084,7 +1085,7 @@ def get_flakes(branch='',
     duration = round(time.time()-start)
     logging.debug('Took %ss to get flakes info', duration)
     metrics.LocalDetectEvent(
-        detect_type=constants.DETECT_TYPE_HAS_FLAKE,
+        detect_type=DetectType.HAS_FLAKE,
         result=duration)
     return flake_info
 
@@ -1144,30 +1145,36 @@ def get_manifest_branch():
     build_top = os.getenv(constants.ANDROID_BUILD_TOP, None)
     if not build_top:
         return None
+    splitter = ':'
+    env_vars = os.environ.copy()
+    orig_pythonpath = env_vars['PYTHONPATH'].split(splitter)
+    # Command repo imports stdlib "http.client", so adding non-default lib
+    # e.g. googleapiclient, may cause repo command execution error.
+    # The temporary dir is not presumably always /tmp, especially in MacOS.
+    # b/169936306, b/190647636 are the cases we should never ignore.
+    soong_path_re = re.compile(r'.*/Soong.python_.*/')
+    default_python_path = [p for p in orig_pythonpath
+                            if not soong_path_re.match(p)]
+    env_vars['PYTHONPATH'] = splitter.join(default_python_path)
+    proc = subprocess.Popen(f'repo info '
+                            f'-o {constants.ASUITE_REPO_PROJECT_NAME}',
+                            shell=True,
+                            env=env_vars,
+                            cwd=build_top,
+                            universal_newlines=True,
+                            stdout=subprocess.PIPE,
+                            stderr=subprocess.PIPE)
     try:
-        splitter = ':'
-        env_vars = os.environ.copy()
-        orig_pythonpath = env_vars['PYTHONPATH'].split(splitter)
-        # Command repo imports stdlib "http.client", so adding non-default lib
-        # e.g. googleapiclient, may cause repo command execution error.
-        # The temporary dir is not presumably always /tmp, especially in MacOS.
-        # b/169936306, b/190647636 are the cases we should never ignore.
-        soong_path_re = re.compile(r'.*/Soong.python_.*/')
-        default_python_path = [p for p in orig_pythonpath
-                               if not soong_path_re.match(p)]
-        env_vars['PYTHONPATH'] = splitter.join(default_python_path)
-        output = subprocess.check_output(
-            ['repo', 'info', '-o', constants.ASUITE_REPO_PROJECT_NAME],
-            env=env_vars,
-            cwd=build_top,
-            universal_newlines=True)
+        cmd_out, err_out = proc.communicate()
         branch_re = re.compile(r'Manifest branch:\s*(?P<branch>.*)')
-        match = branch_re.match(output)
+        match = branch_re.match(cmd_out)
         if match:
             return match.group('branch')
-        logging.warning('Unable to detect branch name through:\n %s', output)
-    except subprocess.CalledProcessError:
+        logging.warning('Unable to detect branch name through:\n %s, %s',
+                        cmd_out, err_out)
+    except subprocess.TimeoutExpired:
         logging.warning('Exception happened while getting branch')
+        proc.kill()
     return None
 
 def get_build_target():
@@ -1549,12 +1556,12 @@ def perm_metrics(config_path, adb_root):
     if preparer_force_root and not adb_root:
         logging.debug('DETECT_TYPE_PERMISSION_INCONSISTENT:0')
         metrics.LocalDetectEvent(
-            detect_type=constants.DETECT_TYPE_PERMISSION_INCONSISTENT,
+            detect_type=DetectType.PERMISSION_INCONSISTENT,
             result=0)
     elif not preparer_force_root and adb_root:
         logging.debug('DETECT_TYPE_PERMISSION_INCONSISTENT:1')
         metrics.LocalDetectEvent(
-            detect_type=constants.DETECT_TYPE_PERMISSION_INCONSISTENT,
+            detect_type=DetectType.PERMISSION_INCONSISTENT,
             result=1)
 
 def get_verify_key(tests, extra_args):

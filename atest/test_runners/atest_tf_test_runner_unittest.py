@@ -27,10 +27,12 @@ import tempfile
 import unittest
 import json
 
+from argparse import Namespace
 from io import StringIO
 from pathlib import Path
 from unittest import mock
 
+import atest_configs
 import atest_utils
 import constants
 import unittest_constants as uc
@@ -194,6 +196,9 @@ class AtestTradefedTestRunnerUnittests(unittest.TestCase):
     def setUp(self, mock_get_ld_library_path):
         mock_get_ld_library_path.return_value = RUN_ENV_STR
         self.tr = atf_tr.AtestTradefedTestRunner(results_dir=uc.TEST_INFO_DIR)
+        if not atest_configs.GLOBAL_ARGS:
+            atest_configs.GLOBAL_ARGS = Namespace()
+        atest_configs.GLOBAL_ARGS.device_count_config = None
 
     def tearDown(self):
         mock.patch.stopall()
@@ -807,29 +812,27 @@ class AtestTradefedTestRunnerUnittests(unittest.TestCase):
         # enabled.
         mock_config.return_value = '', ''
         _mock_is_enable.return_value = True
-        args, _ = self.tr._parse_extra_args([MOD_INFO], [constants.INSTANT])
+        args, _ = self.tr._parse_extra_args([MOD_INFO], {constants.INSTANT: ''})
         self.assertFalse('--exclude-module-parameters' in args)
 
         # If extra_arg not enable instant_app or secondary users, should have
         # --exclude-module-rameters if config parameter is auto enabled.
         _mock_is_enable.return_value = True
-        args, _ = self.tr._parse_extra_args([MOD_INFO], [constants.ALL_ABI])
+        args, _ = self.tr._parse_extra_args([MOD_INFO], {constants.ALL_ABI: ''})
         self.assertTrue('--exclude-module-parameters' in args)
 
         # If extra_arg not enable instant_app or secondary users, should not
         # have --exclude-module-rameters if config parameter is not auto enabled
         _mock_is_enable.return_value = False
-        args, _ = self.tr._parse_extra_args([MOD_INFO], [constants.ALL_ABI])
+        args, _ = self.tr._parse_extra_args([MOD_INFO], {constants.ALL_ABI: ''})
         self.assertFalse('--exclude-module-parameters' in args)
 
-    @mock.patch.object(atf_tr.AtestTradefedTestRunner,
-                       '_get_device_count_config', return_value=0)
     @mock.patch.object(atf_tr.AtestTradefedTestRunner,
                        '_is_parameter_auto_enabled_cfg', return_value=False)
     @mock.patch.object(atf_tr.AtestTradefedTestRunner,
                        '_has_instant_app_config', return_value=False)
     def test_parse_extra_args_has_instant_app(
-        self, _mock_has_instant, _mock_is_para, _mock_device_count):
+        self, _mock_has_instant, _mock_is_para):
         """Test _parse_extra_args with instant app in customize flag."""
         # If customize_arg has module-parameter should also include
         # --enable-parameterized-modules.
@@ -924,7 +927,7 @@ class AtestTradefedTestRunnerUnittests(unittest.TestCase):
         mock_config.return_value = '', ''
         _mock_is_enable.return_value = True
 
-        args, _ = self.tr._parse_extra_args([MOD_INFO], [])
+        args, _ = self.tr._parse_extra_args([MOD_INFO], {})
         self.assertFalse('--enable-parameterized-modules' in args)
 
     def assertTokensIn(self, expected_tokens, s):
@@ -954,6 +957,22 @@ class ExtraArgsTest(AtestTradefedTestRunnerUnittests):
         cmd = self.tr.generate_run_commands([], extra_args)
 
         self.assertTokensIn(['--disable-target-preparers'], cmd[0])
+
+    def test_multidevice_in_config_and_generate_in_run_cmd(self):
+        atest_configs.GLOBAL_ARGS.device_count_config = 2
+        cmd = self.tr.generate_run_commands([], {})
+        self.assertTokensIn(
+            ['--replicate-parent-setup', '--multi-device-count', '2'], cmd[0])
+
+        atest_configs.GLOBAL_ARGS.device_count_config = 1
+        cmd = self.tr.generate_run_commands([], {})
+        self.assertTokensNotIn(
+            ['--replicate-parent-setup', '--multi-device-count'], cmd[0])
+
+        atest_configs.GLOBAL_ARGS.device_count_config = None
+        cmd = self.tr.generate_run_commands([], {})
+        self.assertTokensNotIn(
+            ['--replicate-parent-setup', '--multi-device-count'], cmd[0])
 
     def test_args_with_serial_no_and_generate_in_run_cmd(self):
         extra_args = {constants.SERIAL: ['device1']}
