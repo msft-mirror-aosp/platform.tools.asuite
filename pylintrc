@@ -9,8 +9,7 @@ disable=
     too-many-instance-attributes,
     # Atest unittests requires below flags:
     no-self-use,
-    duplicate-code,
-    consider-using-f-string
+    duplicate-code
 
 [MASTER]
 

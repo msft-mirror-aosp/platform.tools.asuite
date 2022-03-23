@@ -29,12 +29,10 @@ import time
 
 import atest_error
 import atest_utils
-import bazel_mode
 import constants
 import test_finder_handler
 import test_mapping
 
-from atest_enum import DetectType, ExitCode
 from metrics import metrics
 from metrics import metrics_utils
 from test_finders import module_finder
@@ -48,6 +46,7 @@ TESTNAME_CHARS = {'#', ':', '/'}
 _COMMENTS_RE = re.compile(r'(?m)[\s\t]*(#|//).*|(\".*?\")')
 _COMMENTS = frozenset(['//', '#'])
 
+_MAINLINE_MODULES_EXT_RE = re.compile(r'(.apex|.apks|.apk)$')
 
 #pylint: disable=no-self-use
 class CLITranslator:
@@ -66,18 +65,15 @@ class CLITranslator:
         3. If test files found, generate Build Targets and the Run Command.
     """
 
-    def __init__(self, mod_info=None, print_cache_msg=True,
-                 bazel_mode_enabled=False):
+    def __init__(self, module_info=None, print_cache_msg=True):
         """CLITranslator constructor
 
         Args:
-            mod_info: ModuleInfo class that has cached module-info.json.
+            module_info: ModuleInfo class that has cached module-info.json.
             print_cache_msg: Boolean whether printing clear cache message or not.
                              True will print message while False won't print.
-            bazel_mode_enabled: Boolean of args.bazel_mode.
         """
-        self.mod_info = mod_info
-        self._bazel_mode = bazel_mode_enabled
+        self.mod_info = module_info
         self.enable_file_patterns = False
         self.msg = ''
         if print_cache_msg:
@@ -88,13 +84,15 @@ class CLITranslator:
     # pylint: disable=too-many-locals
     # pylint: disable=too-many-branches
     # pylint: disable=too-many-statements
-    def _find_test_infos(self, test, tm_test_detail):
+    def _find_test_infos(self, test, tm_test_detail,
+                         is_rebuild_module_info=False):
         """Return set of TestInfos based on a given test.
 
         Args:
             test: A string representing test references.
             tm_test_detail: The TestDetail of test configured in TEST_MAPPING
                 files.
+            is_rebuild_module_info: Boolean of args.is_rebuild_module_info
 
         Returns:
             Set of TestInfos based on the given test.
@@ -105,21 +103,30 @@ class CLITranslator:
         test_finders = []
         test_info_str = ''
         find_test_err_msg = None
-        test_name, mainline_modules = atest_utils.parse_mainline_modules(test)
-        if not self._verified_mainline_modules(test_name, mainline_modules):
+        mm_build_targets = []
+        test, mainline_modules = atest_utils.parse_mainline_modules(test)
+        if not self._verified_mainline_modules(test, mainline_modules):
             return test_infos
-        find_methods = test_finder_handler.get_find_methods_for_test(
-            self.mod_info, test)
-        if self._bazel_mode:
-            find_methods = [bazel_mode.create_new_finder(self.mod_info, f)
-                            for f in find_methods]
-        for finder in find_methods:
+        test_modules_to_build = []
+        test_mainline_modules = []
+        if self.mod_info and self.mod_info.get_module_info(test):
+            test_mainline_modules = self.mod_info.get_module_info(test).get(
+                constants.MODULE_MAINLINE_MODULES, [])
+        for modules in test_mainline_modules:
+            for module in modules.split('+'):
+                test_modules_to_build.append(re.sub(
+                    _MAINLINE_MODULES_EXT_RE, '', module))
+        if mainline_modules:
+            mm_build_targets = [re.sub(_MAINLINE_MODULES_EXT_RE, '', x)
+                                for x in mainline_modules.split('+')]
+        for finder in test_finder_handler.get_find_methods_for_test(
+                self.mod_info, test):
             # For tests in TEST_MAPPING, find method is only related to
             # test name, so the details can be set after test_info object
             # is created.
             try:
                 found_test_infos = finder.find_method(
-                    finder.test_finder_instance, test_name)
+                    finder.test_finder_instance, test)
             except atest_error.TestDiscoveryException as e:
                 find_test_err_msg = e
             if found_test_infos:
@@ -138,18 +145,16 @@ class CLITranslator:
                         test_info.host = tm_test_detail.host
                     if finder_info != CACHE_FINDER:
                         test_info.test_finder = finder_info
-                    if mainline_modules:
-                        test_info.test_name = test
-                        # TODO: remove below statement when soong can also
-                        # parse TestConfig and inject mainline modules information
-                        # to module-info.
-                        test_info.mainline_modules = mainline_modules
+                    test_info.mainline_modules = mainline_modules
+                    test_info.build_targets = {
+                        x for x in test_info.build_targets
+                        if x not in test_modules_to_build}
+                    test_info.build_targets.update(mm_build_targets)
                     # Only add dependencies to build_targets when they are in
                     # module info
                     test_deps_in_mod_info = [
                         test_dep for test_dep in test_deps
                         if self.mod_info.is_module(test_dep)]
-                    test_info.build_targets = set(test_info.build_targets)
                     test_info.build_targets.update(test_deps_in_mod_info)
                     test_infos.add(test_info)
                 test_found = True
@@ -162,7 +167,8 @@ class CLITranslator:
                 test_info_str = ','.join([str(x) for x in found_test_infos])
                 break
         if not test_found:
-            f_results = self._fuzzy_search_and_msg(test, find_test_err_msg)
+            f_results = self._fuzzy_search_and_msg(test, find_test_err_msg,
+                                                   is_rebuild_module_info)
             if f_results:
                 test_infos.update(f_results)
                 test_found = True
@@ -202,23 +208,26 @@ class CLITranslator:
         if not mainline_modules:
             return True
         if not self.mod_info.is_module(test):
-            print('Error: "%s" is not a testable module.'
-                  % atest_utils.colorize(test, constants.RED))
+            print('Test mainline modules(%s) for: %s failed. Only support '
+                  'module tests.'
+                  % (atest_utils.colorize(mainline_modules, constants.RED),
+                     atest_utils.colorize(test, constants.RED)))
             return False
         if not self.mod_info.has_mainline_modules(test, mainline_modules):
-            print('Error: Mainline modules "%s" were not defined for %s in '
-                  'neither build file nor test config.'
+            print('Error: Test mainline modules(%s) not for %s.'
                   % (atest_utils.colorize(mainline_modules, constants.RED),
                      atest_utils.colorize(test, constants.RED)))
             return False
         return True
 
-    def _fuzzy_search_and_msg(self, test, find_test_err_msg):
+    def _fuzzy_search_and_msg(self, test, find_test_err_msg,
+                              is_rebuild_module_info=False):
         """ Fuzzy search and print message.
 
         Args:
             test: A string representing test references
             find_test_err_msg: A string of find test error message.
+            is_rebuild_module_info: Boolean of args.is_rebuild_module_info
 
         Returns:
             A list of TestInfos if found, otherwise None.
@@ -244,21 +253,22 @@ class CLITranslator:
             print('%s\n' % (atest_utils.colorize(
                 find_test_err_msg, constants.MAGENTA)))
         else:
-            # TODO: remove "self.mod_info is None" after refactoring module_info
-            if self.mod_info is None or not self.mod_info.force_build:
+            if not is_rebuild_module_info:
                 print(constants.REBUILD_MODULE_INFO_MSG.format(
                     atest_utils.colorize(constants.REBUILD_MODULE_INFO_FLAG,
                                          constants.RED)))
             print('')
         return None
 
-    def _get_test_infos(self, tests, test_mapping_test_details=None):
+    def _get_test_infos(self, tests, test_mapping_test_details=None,
+                        is_rebuild_module_info=False):
         """Return set of TestInfos based on passed in tests.
 
         Args:
             tests: List of strings representing test references.
             test_mapping_test_details: List of TestDetail for tests configured
                 in TEST_MAPPING files.
+            is_rebuild_module_info: Boolean of args.is_rebuild_module_info
 
         Returns:
             Set of TestInfos based on the passed in tests.
@@ -267,7 +277,8 @@ class CLITranslator:
         if not test_mapping_test_details:
             test_mapping_test_details = [None] * len(tests)
         for test, tm_test_detail in zip(tests, test_mapping_test_details):
-            found_test_infos = self._find_test_infos(test, tm_test_detail)
+            found_test_infos = self._find_test_infos(test, tm_test_detail,
+                                                     is_rebuild_module_info)
             test_infos.update(found_test_infos)
         return test_infos
 
@@ -349,13 +360,20 @@ class CLITranslator:
                 grouped_tests = all_tests.setdefault(test_group_name, set())
                 tests = []
                 for test in test_list:
+                    # TODO: uncomment below when atest support testing mainline
+                    # module in TEST_MAPPING files.
+                    if constants.TEST_WITH_MAINLINE_MODULES_RE.match(test['name']):
+                        logging.debug('Skipping mainline module: %s',
+                                      atest_utils.colorize(test['name'],
+                                                           constants.RED))
+                        continue
                     if (self.enable_file_patterns and
                             not test_mapping.is_match_file_patterns(
                                 test_mapping_file, test)):
                         continue
                     test_mod_info = self.mod_info.name_to_module_info.get(
-                        atest_utils.parse_mainline_modules(test['name'])[0])
-                    if not test_mod_info :
+                        test['name'])
+                    if not test_mod_info:
                         print('WARNING: %s is not a valid build target and '
                               'may not be discoverable by TreeHugger. If you '
                               'want to specify a class or test-package, '
@@ -530,13 +548,10 @@ class CLITranslator:
         test_details_list = list(test_details)
         if not test_details_list and exit_if_no_test_found:
             logging.warning(
-                'No tests of group `%s` found in %s or its '
-                'parent directories. (Available groups: %s)\n'
-                'You might be missing atest arguments,'
-                ' try `atest --help` for more information.',
-                test_groups,
-                os.path.join(src_path, constants.TEST_MAPPING),
-                ', '.join(all_test_details.keys()))
+                'No tests of group `%s` found in TEST_MAPPING at %s or its '
+                'parent directories.\nYou might be missing atest arguments,'
+                ' try `atest --help` for more information',
+                test_groups, os.path.realpath(''))
             if all_test_details:
                 tests = ''
                 for test_group, test_list in all_test_details.items():
@@ -546,8 +561,8 @@ class CLITranslator:
                 logging.warning(
                     'All available tests in TEST_MAPPING files are:\n%s',
                     tests)
-            metrics_utils.send_exit_event(ExitCode.TEST_NOT_FOUND)
-            sys.exit(ExitCode.TEST_NOT_FOUND)
+            metrics_utils.send_exit_event(constants.EXIT_CODE_TEST_NOT_FOUND)
+            sys.exit(constants.EXIT_CODE_TEST_NOT_FOUND)
 
         logging.debug(
             'Test details:\n%s',
@@ -581,21 +596,6 @@ class CLITranslator:
                 extracted_tests.append(test)
         return extracted_tests
 
-    def _has_host_unit_test(self, tests):
-        """Tell whether one of the given testis a host unit test.
-
-        Args:
-            tests: A list of test names.
-
-        Returns:
-            True when one of the given testis a host unit test.
-        """
-        all_host_unit_tests = self.mod_info.get_all_host_unit_tests()
-        for test in tests:
-            if test in all_host_unit_tests:
-                return True
-        return False
-
     def translate(self, args):
         """Translate atest command line into build targets and run commands.
 
@@ -610,9 +610,9 @@ class CLITranslator:
         test_details_list = None
         # Loading Host Unit Tests.
         host_unit_tests = []
-        detect_type = DetectType.TEST_WITH_ARGS
+        detect_type = constants.DETECT_TYPE_TEST_WITH_ARGS
         if not args.tests or atest_utils.is_test_mapping(args):
-            detect_type = DetectType.TEST_NULL_ARGS
+            detect_type = constants.DETECT_TYPE_TEST_NULL_ARGS
         start = time.time()
         if not args.tests:
             logging.debug('Finding Host Unit Tests...')
@@ -635,7 +635,8 @@ class CLITranslator:
         # Process tests which might contain wildcard symbols in advance.
         if atest_utils.has_wildcard(tests):
             tests = self._extract_testable_modules_by_wildcard(tests)
-        test_infos = self._get_test_infos(tests, test_details_list)
+        test_infos = self._get_test_infos(tests, test_details_list,
+                                          args.rebuild_module_info)
         if host_unit_tests:
             host_unit_test_details = [test_mapping.TestDetail(
                 {'name':test, 'host':True}) for test in host_unit_tests]
@@ -650,9 +651,4 @@ class CLITranslator:
         for test_info in test_infos:
             logging.debug('%s\n', test_info)
         build_targets = self._gather_build_targets(test_infos)
-        if not self._bazel_mode:
-            if host_unit_tests or self._has_host_unit_test(tests):
-                msg = (r"It is recommended to run host unit tests with "
-                       r"--bazel-mode.")
-                atest_utils.colorful_print(msg, constants.YELLOW)
         return build_targets, test_infos

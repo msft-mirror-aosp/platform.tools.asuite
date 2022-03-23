@@ -41,8 +41,7 @@
 from __future__ import print_function
 
 import logging
-import uuid
-import time
+import constants
 
 # pylint: disable=import-error
 try:
@@ -50,8 +49,6 @@ try:
     from googleapiclient.discovery import build
 except ImportError as e:
     logging.debug('Import error due to: %s', e)
-
-import constants
 
 
 class BuildClient:
@@ -67,8 +64,7 @@ class BuildClient:
             serviceName=constants.STORAGE_SERVICE_NAME,
             version=constants.STORAGE_API_VERSION,
             cache_discovery=False,
-            http=http_auth,
-            discoveryServiceUrl=constants.DISCOVERY_SERVICE)
+            http=http_auth)
 
     def list_branch(self):
         """List all branch."""
@@ -128,23 +124,13 @@ class BuildClient:
         Returns:
             A build invocation object.
         """
-        sponge_invocation_id = str(uuid.uuid4())
         invocation = {
             "primaryBuild": {
                 "buildId": build_record['buildId'],
                 "buildTarget": build_record['target']['name'],
                 "branch": build_record['branch'],
             },
-            "schedulerState": "running",
-            "runner": "atest",
-            "scheduler": "atest",
-            "properties": [{
-                'name': 'sponge_invocation_id',
-                'value': sponge_invocation_id,
-            }, {
-                'name': 'test_uri',
-                'value': f'{constants.STORAGE2_TEST_URI}{sponge_invocation_id}'
-            }]
+            "schedulerState": "running"
         }
         return self.client.invocation().insert(body=invocation).execute()
 
@@ -156,24 +142,6 @@ class BuildClient:
         Returns:
             A invocation object.
         """
-        # Because invocation revision will be update by TF, we need to fetch
-        # latest invocation revision to update status correctly.
-        count = 0
-        invocations = None
-        while count < 5:
-            invocations = self.client.invocation().list(
-                invocationId=invocation['invocationId'],
-                maxResults=10).execute().get('invocations', [])
-            if invocations:
-                break
-            time.sleep(0.5)
-            count = count + 1
-        if invocations:
-            latest_revision = invocations[-1].get('revision', '')
-            if latest_revision:
-                logging.debug('Get latest_revision:%s from invocations:%s',
-                              latest_revision, invocations)
-                invocation['revision'] = latest_revision
         return self.client.invocation().update(
             resourceId=invocation['invocationId'],
             body=invocation).execute()
