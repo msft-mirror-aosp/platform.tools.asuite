@@ -22,7 +22,6 @@ import logging
 import atest_utils
 import constants
 
-from atest_enum import ExitCode
 from test_runners import atest_tf_test_runner
 
 class VtsTradefedTestRunner(atest_tf_test_runner.AtestTradefedTestRunner):
@@ -37,7 +36,7 @@ class VtsTradefedTestRunner(atest_tf_test_runner.AtestTradefedTestRunner):
 
     def __init__(self, results_dir, **kwargs):
         """Init stuff for vts10 tradefed runner class."""
-        super().__init__(results_dir, **kwargs)
+        super(VtsTradefedTestRunner, self).__init__(results_dir, **kwargs)
         self.run_cmd_dict = {'exe': self.EXECUTABLE,
                              'test': '',
                              'args': ''}
@@ -49,7 +48,8 @@ class VtsTradefedTestRunner(atest_tf_test_runner.AtestTradefedTestRunner):
             Set of build targets.
         """
         build_req = self._BUILD_REQ
-        build_req |= super().get_test_runner_build_reqs()
+        build_req |= super(VtsTradefedTestRunner,
+                           self).get_test_runner_build_reqs()
         return build_req
 
     def run_tests(self, test_infos, extra_args, reporter):
@@ -63,15 +63,15 @@ class VtsTradefedTestRunner(atest_tf_test_runner.AtestTradefedTestRunner):
         Returns:
             Return code of the process for running tests.
         """
-        ret_code = ExitCode.SUCCESS
+        ret_code = constants.EXIT_CODE_SUCCESS
         reporter.register_unsupported_runner(self.NAME)
         run_cmds = self.generate_run_commands(test_infos, extra_args)
         for run_cmd in run_cmds:
-            proc = super().run(run_cmd, output_to_stdout=True)
+            proc = super(VtsTradefedTestRunner, self).run(run_cmd,
+                                                          output_to_stdout=True)
             ret_code |= self.wait_for_subprocess(proc)
         return ret_code
 
-    # pylint: disable=arguments-differ
     def _parse_extra_args(self, extra_args):
         """Convert the extra args into something vts10-tf can understand.
 

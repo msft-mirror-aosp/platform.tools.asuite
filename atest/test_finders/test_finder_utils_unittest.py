@@ -16,9 +16,7 @@
 
 """Unittests for test_finder_utils."""
 
-# pylint: disable=invalid-name
 # pylint: disable=line-too-long
-# pylint: disable=missing-function-docstring
 
 import os
 import tempfile
@@ -66,6 +64,7 @@ VTS_XML_TARGETS = {'VtsTestName',
                    'push_file2_target1',
                    'push_file2_target2',
                    'CtsDeviceInfo.apk',
+                   'DATA/app/DeviceHealthTests/DeviceHealthTests.apk',
                    'DATA/app/sl4a/sl4a.apk'}
 VTS_PLAN_TARGETS = {os.path.join(uc.TEST_DATA_DIR, VTS_PLAN_DIR, 'vts-staging-default.xml.data'),
                     os.path.join(uc.TEST_DATA_DIR, VTS_PLAN_DIR, 'vts-aa.xml.data'),
@@ -94,11 +93,8 @@ UNIT_TEST_MODULE_3 = 'unit_test_module_3'
 DALVIK_TEST_CONFIG = 'AndroidDalvikTest.xml.data'
 LIBCORE_TEST_CONFIG = 'AndroidLibCoreTest.xml.data'
 DALVIK_XML_TARGETS = XML_TARGETS | test_finder_utils.DALVIK_TEST_DEPS
-BUILD_TOP_DIR = tempfile.TemporaryDirectory().name
-PRODUCT_OUT_DIR = os.path.join(BUILD_TOP_DIR, 'out/target/product/vsoc_x86_64')
 
 #pylint: disable=protected-access
-#pylint: disable=unnecessary-comprehension
 class TestFinderUtilsUnittests(unittest.TestCase):
     """Unit tests for test_finder_utils.py"""
 
@@ -179,16 +175,14 @@ class TestFinderUtilsUnittests(unittest.TestCase):
         """Test has_method_in_file method with kt class path."""
         test_path = os.path.join(uc.TEST_DATA_DIR, 'class_file_path_testing',
                                  'hello_world_test.kt')
-        os_environ_mock = {constants.ANDROID_BUILD_TOP: uc.TEST_DATA_DIR}
-        with mock.patch.dict('os.environ', os_environ_mock, clear=True):
-            self.assertTrue(test_finder_utils.has_method_in_file(
-                test_path, frozenset(['testMethod1'])))
-            self.assertFalse(test_finder_utils.has_method_in_file(
-                test_path, frozenset(['testMethod'])))
-            self.assertTrue(test_finder_utils.has_method_in_file(
-                test_path, frozenset(['testMethod1', 'testMethod2'])))
-            self.assertFalse(test_finder_utils.has_method_in_file(
-                test_path, frozenset(['testMethod', 'testMethod2'])))
+        self.assertTrue(test_finder_utils.has_method_in_file(
+            test_path, frozenset(['testMethod1'])))
+        self.assertFalse(test_finder_utils.has_method_in_file(
+            test_path, frozenset(['testMethod'])))
+        self.assertTrue(test_finder_utils.has_method_in_file(
+            test_path, frozenset(['testMethod1', 'testMethod2'])))
+        self.assertFalse(test_finder_utils.has_method_in_file(
+            test_path, frozenset(['testMethod', 'testMethod2'])))
 
     @mock.patch('builtins.input', return_value='1')
     def test_extract_test_from_tests(self, mock_input):
@@ -681,36 +675,23 @@ class TestFinderUtilsUnittests(unittest.TestCase):
             finally:
                 tmp_file.close()
 
-    # pylint: disable=consider-iterating-dictionary
-    def test_get_cc_class_info(self):
-        """Test get_cc_class_info method."""
+    def test_get_cc_test_classes_methods(self):
+        """Test get_cc_test_classes_methods method."""
+        expect_classes = ('MyClass1', 'MyClass2', 'MyClass3', 'MyClass4',
+                          'MyClass5')
+        expect_methods = ('Method1', 'Method2', 'Method3', 'Method5')
+        expect_para_classes = ('MyInstantClass1', 'MyInstantClass2',
+                               'MyInstantClass3', 'MyInstantTypeClass1',
+                               'MyInstantTypeClass2')
+        expected_result = [sorted(expect_classes), sorted(expect_methods),
+                           sorted(expect_para_classes)]
         file_path = os.path.join(uc.TEST_DATA_DIR, 'my_cc_test.cc')
-        class_info = test_finder_utils.get_cc_class_info(file_path)
-
-        #1. Ensure all classes are in the class info dict.
-        expect_classes = {'Class1', 'FClass', 'ValueParamClass1', 'ValueParamClass2',
-                          'TypedTestClass', 'TypedParamTestClass'}
-        self.assertEqual({key for key in class_info.keys()}, expect_classes)
-
-        #2. Ensure methods are correctly mapping to the right class.
-        self.assertEqual(class_info['ValueParamClass1']['methods'], {'VPMethod1'})
-        self.assertEqual(class_info['ValueParamClass2']['methods'], {'VPMethod2'})
-        self.assertEqual(class_info['TypedTestClass']['methods'], {'TypedTestName'})
-        self.assertEqual(class_info['TypedParamTestClass']['methods'], {'TypedParamTestName'})
-        self.assertEqual(class_info['Class1']['methods'], {'Method1','Method2'})
-        self.assertEqual(class_info['FClass']['methods'], {'FMethod1','FMethod2'})
-
-        #3. Ensure prefixes are correctly mapping to the right class.
-        self.assertEqual(class_info['TypedParamTestClass']['prefixes'], {'Instantiation3','Instantiation4'})
-        self.assertEqual(class_info['ValueParamClass1']['prefixes'], {'Instantiation1'})
-        self.assertEqual(class_info['ValueParamClass2']['prefixes'], {'Instantiation2'})
-
-        #4. Ensure we can tell typed test.
-        self.assertTrue(class_info['TypedParamTestClass']['typed'])
-        self.assertTrue(class_info['TypedTestClass']['typed'])
-        self.assertFalse(class_info['ValueParamClass1']['typed'])
-        self.assertFalse(class_info['FClass']['typed'])
-        self.assertFalse(class_info['Class1']['typed'])
+        classes, methods, para_classes = (
+            test_finder_utils.get_cc_test_classes_methods(file_path))
+        self.assertEqual(expected_result,
+                         [sorted(classes),
+                          sorted(methods),
+                          sorted(para_classes)])
 
     def test_get_java_method(self):
         """Test get_java_method"""
@@ -732,12 +713,6 @@ class TestFinderUtilsUnittests(unittest.TestCase):
         target_java = os.path.join(uc.TEST_DATA_DIR,
                                    'path_testing',
                                    'PathTesting.java')
-        self.assertEqual(parent_cls,
-                         test_finder_utils.get_parent_cls_name(target_java))
-        parent_cls = 'AtestClassKt'
-        target_java = os.path.join(uc.TEST_DATA_DIR,
-                                   'path_testing',
-                                   'PathTesting.kt')
         self.assertEqual(parent_cls,
                          test_finder_utils.get_parent_cls_name(target_java))
 
@@ -765,9 +740,8 @@ class TestFinderUtilsUnittests(unittest.TestCase):
             return [UNIT_TEST_NOT_MATCHED_1_PATH]
         return []
 
-    @mock.patch.dict('os.environ', {constants.ANDROID_BUILD_TOP:'/',
-                                    constants.ANDROID_PRODUCT_OUT:PRODUCT_OUT_DIR})
-    @mock.patch.object(module_info.ModuleInfo, 'get_all_host_unit_tests',
+    @mock.patch.dict('os.environ', {constants.ANDROID_BUILD_TOP:'/'})
+    @mock.patch.object(module_info.ModuleInfo, 'get_all_unit_tests',
                        return_value=[UNIT_TEST_MODULE_1,
                                      UNIT_TEST_MODULE_2,
                                      UNIT_TEST_MODULE_3])
@@ -793,8 +767,7 @@ class TestFinderUtilsUnittests(unittest.TestCase):
         expect_methods.sort()
         self.assertEqual(expect_methods, real_methods)
 
-    @mock.patch.dict('os.environ', {constants.ANDROID_BUILD_TOP:'/',
-                                    constants.ANDROID_PRODUCT_OUT:PRODUCT_OUT_DIR})
+    @mock.patch.dict('os.environ', {constants.ANDROID_BUILD_TOP:'/'})
     @mock.patch('os.path.isfile', side_effect=unittest_utils.isfile_side_effect)
     def test_get_test_config_use_androidtestxml(self, _isfile):
         """Test get_test_config_and_srcs using default AndroidTest.xml"""
@@ -807,8 +780,7 @@ class TestFinderUtilsUnittests(unittest.TestCase):
         result, _ = test_finder_utils.get_test_config_and_srcs(t_info, mod_info)
         self.assertEqual(expect_config, result)
 
-    @mock.patch.dict('os.environ', {constants.ANDROID_BUILD_TOP:'/',
-                                    constants.ANDROID_PRODUCT_OUT:PRODUCT_OUT_DIR})
+    @mock.patch.dict('os.environ', {constants.ANDROID_BUILD_TOP:'/'})
     @mock.patch('os.path.isfile', side_effect=unittest_utils.isfile_side_effect)
     def test_get_test_config_single_config(self, _isfile):
         """Test get_test_config_and_srcs manualy set it's config"""
@@ -821,8 +793,7 @@ class TestFinderUtilsUnittests(unittest.TestCase):
         result, _ = test_finder_utils.get_test_config_and_srcs(t_info, mod_info)
         self.assertEqual(expect_config, result)
 
-    @mock.patch.dict('os.environ', {constants.ANDROID_BUILD_TOP:'/',
-                                    constants.ANDROID_PRODUCT_OUT:PRODUCT_OUT_DIR})
+    @mock.patch.dict('os.environ', {constants.ANDROID_BUILD_TOP:'/'})
     @mock.patch('os.path.isfile', side_effect=unittest_utils.isfile_side_effect)
     def test_get_test_config_main_multiple_config(self, _isfile):
         """Test get_test_config_and_srcs which is the main module of multiple config"""
@@ -835,8 +806,7 @@ class TestFinderUtilsUnittests(unittest.TestCase):
         result, _ = test_finder_utils.get_test_config_and_srcs(t_info, mod_info)
         self.assertEqual(expect_config, result)
 
-    @mock.patch.dict('os.environ', {constants.ANDROID_BUILD_TOP:'/',
-                                    constants.ANDROID_PRODUCT_OUT:PRODUCT_OUT_DIR})
+    @mock.patch.dict('os.environ', {constants.ANDROID_BUILD_TOP:'/'})
     @mock.patch('os.path.isfile', side_effect=unittest_utils.isfile_side_effect)
     def test_get_test_config_subtest_in_multiple_config(self, _isfile):
         """Test get_test_config_and_srcs not the main module of multiple config"""
@@ -848,15 +818,6 @@ class TestFinderUtilsUnittests(unittest.TestCase):
             android_root, uc.MULTIPLE_CONFIG_PATH, uc.SUB_CONFIG_NAME_2)
         result, _ = test_finder_utils.get_test_config_and_srcs(t_info, mod_info)
         self.assertEqual(expect_config, result)
-
-    def test_is_test_from_kernel_xml_input_xml_not_exist_return_false(self):
-        not_exist_xml = 'not/exist/xml/path'
-        test_name = 'test_name'
-
-        exist = test_finder_utils.is_test_from_kernel_xml(
-            not_exist_xml, test_name)
-
-        self.assertEqual(exist, False)
 
 if __name__ == '__main__':
     unittest.main()
