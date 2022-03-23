@@ -325,6 +325,9 @@ class WorkspaceGenerator:
                       target='bazel/rules')
         self._symlink(src='tools/asuite/atest/bazel/configs',
                       target='bazel/configs')
+        # Symlink to package with toolchain definitions.
+        self._symlink(src='prebuilts/build-tools',
+                      target='prebuilts/build-tools')
 
         for package in self.path_to_package.values():
             package.generate(self.workspace_out_path)
@@ -344,7 +347,8 @@ class WorkspaceGenerator:
         symlink.symlink_to(self.src_root_path.joinpath(src))
 
     def _create_base_files(self):
-        self.workspace_out_path.joinpath('WORKSPACE').touch()
+        self._symlink(src='tools/asuite/atest/bazel/WORKSPACE',
+                      target='WORKSPACE')
         self._symlink(src='tools/asuite/atest/bazel/bazelrc',
                       target='.bazelrc')
 
