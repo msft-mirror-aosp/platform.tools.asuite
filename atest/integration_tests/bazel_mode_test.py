@@ -20,6 +20,7 @@
 # pylint: disable=missing-class-docstring
 # pylint: disable=missing-function-docstring
 
+import dataclasses
 import os
 import shutil
 import string
@@ -28,10 +29,20 @@ import tempfile
 import unittest
 
 from pathlib import Path
-from typing import Any, Dict
+from typing import Any, Dict, Tuple
 
 
 _ENV_BUILD_TOP = 'ANDROID_BUILD_TOP'
+_PASSING_CLASS_NAME = 'PassingHostTest'
+_FAILING_CLASS_NAME = 'FailingHostTest'
+_PASSING_METHOD_NAME = 'testPass'
+_FAILING_METHOD_NAME = 'testFAIL'
+
+
+@dataclasses.dataclass(frozen=True)
+class TestSource:
+    class_name: str
+    src_body: str
 
 
 class BazelModeTest(unittest.TestCase):
@@ -74,8 +85,40 @@ class BazelModeTest(unittest.TestCase):
             f'atest -c -m --bazel-mode {module_name} && '
             f'atest --bazel-mode {module_name}')
 
-        self.assertIn(f':{module_name}_host (cached) PASSED',
-                      completed_process.stdout.decode())
+        self.assert_in_stdout(f':{module_name}_host (cached) PASSED',
+                              completed_process)
+
+    def test_cached_test_reruns_when_modified(self):
+        module_name = 'passing_java_host_test'
+        java_test_file, _ = self.write_java_test_module(
+            module_name, passing_java_test_source())
+        self.run_shell_command(
+            f'atest -c -m --bazel-mode {module_name}')
+
+        java_test_file.write_text(
+            failing_java_test_source(
+                test_class_name=_PASSING_CLASS_NAME).src_body)
+        completed_process = self.run_shell_command(
+            f'atest --bazel-mode {module_name}')
+
+        self.assert_in_stdout(f':{module_name}_host FAILED',
+                              completed_process)
+
+    def test_only_supported_test_run_with_bazel(self):
+        module_name = 'passing_java_host_test'
+        unsupported_module_name = 'unsupported_passing_java_test'
+        self.add_passing_test(module_name)
+        self.add_unsupported_passing_test(unsupported_module_name)
+
+        completed_process = self.run_shell_command(
+            f'atest -c -m --host --bazel-mode {module_name} '
+            f'{unsupported_module_name}')
+
+        self.assert_in_stdout(f':{module_name}_host PASSED',
+                              completed_process)
+        self.assert_in_stdout(
+            f'{_PASSING_CLASS_NAME}#{_PASSING_METHOD_NAME}: PASSED',
+            completed_process)
 
     def setup_test_env(self) -> Dict[str, Any]:
         test_env = {
@@ -101,39 +144,79 @@ class BazelModeTest(unittest.TestCase):
             stdout=subprocess.PIPE)
 
     def add_passing_test(self, module_name: str):
-        test_method_body = 'Assert.assertEquals("Pass", "Pass");'
-        self.create_java_test_module_files(
-            module_name=module_name, test_class_name='PassingHostTest',
-            test_method_name='testPass', test_method_body=test_method_body)
+        self.write_java_test_module(
+            module_name, passing_java_test_source())
 
     def add_failing_test(self, module_name: str):
-        test_method_body = 'Assert.assertEquals("Pass", "Fail");'
-        self.create_java_test_module_files(
-            module_name=module_name, test_class_name='FailingHostTest',
-            test_method_name='testFail', test_method_body=test_method_body)
+        self.write_java_test_module(
+            module_name, failing_java_test_source())
 
-    def create_java_test_module_files(
+    def add_unsupported_passing_test(self, module_name: str):
+        self.write_java_test_module(
+            module_name, passing_java_test_source(), is_unit_test='false')
+
+    def write_java_test_module(
         self,
         module_name: str,
-        test_class_name: str,
-        test_method_name:str,
-        test_method_body: str,
-    ):
+        test_src: TestSource,
+        is_unit_test: str='true',
+    ) -> Tuple[Path, Path]:
         test_dir = self.test_dir.joinpath(module_name)
         test_dir.mkdir(parents=True, exist_ok=True)
-        src_file_name = f'{test_class_name}.java'
 
-        with open(test_dir.joinpath('Android.bp'), "w",
-                  encoding='utf8') as output:
-            output.write(ANDROID_BP_TEMPLATE.substitute(
-                module_name=module_name, src_file=src_file_name))
+        src_file_name = f'{test_src.class_name}.java'
+        src_file_path = test_dir.joinpath(f'{src_file_name}')
+        src_file_path.write_text(test_src.src_body, encoding='utf8')
 
-        with open(test_dir.joinpath(src_file_name), "w",
-                  encoding='utf8') as output:
-            output.write(JAVA_TEST_TEMPLATE.substitute(
-                test_class_name=test_class_name,
-                test_method_name=test_method_name,
-                test_method_body=test_method_body))
+        bp_file_path = test_dir.joinpath('Android.bp')
+        bp_file_path.write_text(
+            android_bp_source(module_name=module_name,
+                              src_file=str(src_file_name),
+                              is_unit_test=is_unit_test),
+            encoding='utf8')
+        return (src_file_path, bp_file_path)
+
+    def assert_in_stdout(
+        self,
+        message: str,
+        completed_process: subprocess.CompletedProcess,
+    ):
+        self.assertIn(message, completed_process.stdout.decode())
+
+
+def passing_java_test_source() -> TestSource:
+    return java_test_source(
+        test_class_name=_PASSING_CLASS_NAME,
+        test_method_name=_PASSING_METHOD_NAME,
+        test_method_body='Assert.assertEquals("Pass", "Pass");')
+
+
+def failing_java_test_source(test_class_name=_FAILING_CLASS_NAME) -> TestSource:
+    return java_test_source(
+        test_class_name=test_class_name,
+        test_method_name=_FAILING_METHOD_NAME,
+        test_method_body='Assert.assertEquals("Pass", "Fail");')
+
+
+def java_test_source(
+    test_class_name: str,
+    test_method_name: str,
+    test_method_body: str,
+) -> TestSource:
+    return TestSource(test_class_name, JAVA_TEST_TEMPLATE.substitute(
+        test_class_name=test_class_name,
+        test_method_name=test_method_name,
+        test_method_body=test_method_body))
+
+
+def android_bp_source(
+    module_name: str,
+    src_file: str,
+    is_unit_test: str = 'true',
+):
+    return ANDROID_BP_TEMPLATE.substitute(
+        module_name=module_name, src_file=src_file,
+        is_unit_test=is_unit_test)
 
 
 ANDROID_BP_TEMPLATE = string.Template("""\
@@ -148,6 +231,9 @@ java_test_host {
     static_libs: [
         "junit",
     ],
+    test_options: {
+        unit_test: ${is_unit_test},
+    },
 }
 """)
 
