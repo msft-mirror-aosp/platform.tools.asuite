@@ -17,7 +17,7 @@ ATEST_REL_DIR="tools/asuite/atest"
 _fetch_testable_modules() {
     [[ -z $ANDROID_BUILD_TOP ]] && return 0
     export ATEST_DIR="$ANDROID_BUILD_TOP/$ATEST_REL_DIR"
-    $PYTHON - << END
+    /usr/bin/env python3 - << END
 import os
 import pickle
 import sys
@@ -46,7 +46,7 @@ END
 _fetch_atest_args() {
     [[ -z $ANDROID_BUILD_TOP ]] && return 0
     export ATEST_DIR="$ANDROID_BUILD_TOP/$ATEST_REL_DIR"
-    $PYTHON - << END
+    /usr/bin/env python3 - << END
 import os
 import sys
 
@@ -131,13 +131,6 @@ function _atest_main() {
     [[ ! $- =~ 'i' ]] && return 0
 
     local T="$(gettop)"
-    local PREBUILT_TOOLS_DIR="$T/prebuilts/build-tools/path/linux-x86"
-    PYTHON=$PREBUILT_TOOLS_DIR/python3
-    # Use prebuilt python3(py3-cmd) as the default interpreter; if it does not
-    # exist, use the system installed version.
-    if [ ! -x "$PYTHON" ]; then
-        PYTHON="/usr/bin/env python3"
-    fi
 
     # Complete file/dir name first by using option "nosort".
     # BASH version <= 4.3 doesn't have nosort option.
