@@ -16,6 +16,6 @@
 <configuration>
     <test class="com.android.tradefed.testtype.python.PythonBinaryHostTest" >
       <option name="par-file-name" value="{MODULE}"/>
-        <option name="test-timeout" value="120m" />
+        <option name="test-timeout" value="420m" />
     </test>
 </configuration>
