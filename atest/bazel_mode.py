@@ -37,6 +37,7 @@ import subprocess
 from abc import ABC, abstractmethod
 from collections import defaultdict, deque, OrderedDict
 from pathlib import Path
+from types import MappingProxyType
 from typing import Any, Callable, Dict, IO, List, Set
 
 import atest_utils
@@ -51,6 +52,20 @@ from test_runners import atest_tf_test_runner as tfr
 
 
 _BAZEL_WORKSPACE_DIR = 'atest_bazel_workspace'
+_SUPPORTED_BAZEL_ARGS = MappingProxyType({
+    # https://docs.bazel.build/versions/main/command-line-reference.html#flag--runs_per_test
+    constants.ITERATIONS:
+        lambda arg_value: [f'--runs_per_test={str(arg_value)}'],
+    # https://docs.bazel.build/versions/main/command-line-reference.html#flag--test_keep_going
+    constants.RERUN_UNTIL_FAILURE:
+        lambda arg_value:
+        ['--notest_keep_going', f'--runs_per_test={str(arg_value)}'],
+    # https://docs.bazel.build/versions/main/command-line-reference.html#flag--flaky_test_attempts
+    constants.RETRY_ANY_FAILURE:
+        lambda arg_value: [f'--flaky_test_attempts={str(arg_value)}'],
+    constants.BAZEL_ARG:
+        lambda arg_value: [item for sublist in arg_value for item in sublist]
+})
 
 
 @enum.unique
@@ -1033,20 +1048,34 @@ class BazelTestRunner(trb.TestRunnerBase):
 
     def _parse_extra_args(self, test_infos: List[test_info.TestInfo],
                           extra_args: trb.ARGS) -> trb.ARGS:
-
-        def flatten(i):
-            return [item for sublist in i for item in sublist]
-
         args_to_append = []
-        tf_args, tf_not_supported_args = tfr.extra_args_to_tf_args(
-            self.mod_info, test_infos, extra_args)
+        # Make a copy of the `extra_args` dict to avoid modifying it for other
+        # Atest runners.
+        extra_args_copy = extra_args.copy()
+
+        # Map args to their native Bazel counterparts.
+        for arg in _SUPPORTED_BAZEL_ARGS:
+            if arg not in extra_args_copy:
+                continue
+            args_to_append.extend(
+                self.map_to_bazel_args(arg, extra_args_copy[arg]))
+            # Remove the argument since we already mapped it to a Bazel option
+            # and no longer need it mapped to a Tradefed argument below.
+            del extra_args_copy[arg]
 
         # TODO(b/215461642): Store the extra_args in the top-level object so
         # that we don't have to re-parse the extra args to get BAZEL_ARG again.
-        for arg in tf_not_supported_args:
-            if constants.BAZEL_ARG == arg:
-                args_to_append.extend(flatten(extra_args[arg]))
+        tf_args, _ = tfr.extra_args_to_tf_args(
+            self.mod_info, test_infos, extra_args_copy)
+
+        # Add ATest include filter argument to allow testcase filtering.
+        tf_args.extend(tfr.get_include_filter(test_infos))
 
         args_to_append.extend([f'--test_arg={i}' for i in tf_args])
 
         return args_to_append
+
+    @staticmethod
+    def map_to_bazel_args(arg: str, arg_value: Any) -> List[str]:
+        return _SUPPORTED_BAZEL_ARGS[arg](
+            arg_value) if arg in _SUPPORTED_BAZEL_ARGS else []

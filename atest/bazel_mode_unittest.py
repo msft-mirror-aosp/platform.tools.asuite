@@ -1432,10 +1432,18 @@ class BazelTestRunnerTest(unittest.TestCase):
 
         cmd = runner.generate_run_commands(test_infos, extra_args)
 
-        self.assertTokensIn(['--test_arg=--retry-strategy',
-                             '--test_arg=ITERATIONS',
-                             '--test_arg=--max-testcase-run-count',
-                             '--test_arg=2'], cmd[0])
+        self.assertTokensIn(['--runs_per_test=2'], cmd[0])
+        self.assertNotIn('--test_arg=--retry-strategy', shlex.split(cmd[0]))
+
+    def test_generate_run_command_with_testinfo_filter(self):
+        test_filter = test_filter_of('class1', ['method1'])
+        test_infos = [test_info_of('test1', test_filters=[test_filter])]
+        runner = self.create_bazel_test_runner_for_tests(test_infos)
+
+        cmd = runner.generate_run_commands(test_infos, {})
+
+        self.assertTokensIn(['--test_arg=--atest-include-filter',
+                             '--test_arg=test1:class1#method1'], cmd[0])
 
     def create_bazel_test_runner(self, modules, test_infos, run_command=None):
         return bazel_mode.BazelTestRunner(
@@ -1487,8 +1495,16 @@ class FeatureParserTest(unittest.TestCase):
         self.assertIsNone(args.bazel_mode_features)
 
 
-def test_info_of(module_name):
-    return test_info.TestInfo(module_name, BAZEL_RUNNER, [])
+def test_info_of(module_name, test_filters=None):
+    return test_info.TestInfo(
+        module_name, BAZEL_RUNNER, [],
+        data={constants.TI_FILTER: frozenset(test_filters)}
+        if test_filters else None)
+
+
+def test_filter_of(class_name, methods=None):
+    return test_info.TestFilter(
+        class_name, frozenset(methods) if methods else frozenset())
 
 
 if __name__ == '__main__':
