@@ -1067,6 +1067,10 @@ class BazelTestRunner(trb.TestRunnerBase):
         # that we don't have to re-parse the extra args to get BAZEL_ARG again.
         tf_args, _ = tfr.extra_args_to_tf_args(
             self.mod_info, test_infos, extra_args_copy)
+
+        # Add ATest include filter argument to allow testcase filtering.
+        tf_args.extend(tfr.get_include_filter(test_infos))
+
         args_to_append.extend([f'--test_arg={i}' for i in tf_args])
 
         return args_to_append
