@@ -942,6 +942,15 @@ def main(argv, results_dir, args):
                 for module in test_info.mainline_modules.split('+'):
                     mm_build_targets.add(re.sub(
                          MAINLINE_MODULES_EXT_RE, '', module))
+
+    # For TEST_MAPPING, set timeout to 600000ms.
+    if args.test_timeout is None:
+        if is_from_test_mapping(test_infos):
+            extra_args.update({constants.TEST_TIMEOUT: 600000})
+            logging.debug(
+                'Set test timeout to %sms to align it in TEST_MAPPING.',
+                extra_args.get(constants.TEST_TIMEOUT))
+
     if args.info:
         return _print_test_info(mod_info, test_infos)
     build_targets |= test_runner_handler.get_test_runner_reqs(mod_info,
