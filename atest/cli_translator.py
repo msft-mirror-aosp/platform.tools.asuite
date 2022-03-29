@@ -642,6 +642,12 @@ class CLITranslator:
             host_unit_test_infos = self._get_test_infos(host_unit_tests,
                                                         host_unit_test_details)
             test_infos.update(host_unit_test_infos)
+        if atest_utils.has_mixed_type_filters(test_infos):
+            atest_utils.colorful_print(
+                'Mixed type filters found. '
+                'Please separate tests into different runs.',
+                constants.YELLOW)
+            sys.exit(ExitCode.MIXED_TYPE_FILTER)
         finished_time = time.time() - start
         logging.debug('Finding tests finished in %ss', finished_time)
         metrics.LocalDetectEvent(

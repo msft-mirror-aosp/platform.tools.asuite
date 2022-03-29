@@ -16,7 +16,7 @@
 Atest custom enum class.
 """
 
-from enum import IntEnum, unique
+from enum import IntEnum, unique, Enum
 
 @unique
 class DetectType(IntEnum):
@@ -63,6 +63,13 @@ class ExitCode(IntEnum):
     AVD_INVALID_ARGS = 9
     EXIT_BEFORE_MAIN = 10
     DEVICE_NOT_FOUND = 11
+    MIXED_TYPE_FILTER = 12
+
+@unique
+class FilterType(Enum):
+    """An Enum class for filter types"""
+    WILDCARD_FILTER = 'wildcard class_method'
+    REGULAR_FILTER = 'regular class_method'
 
 # TODO: (b/218441706) Convert AtestEnum to a real Enum class.
 class AtestEnum(tuple):
