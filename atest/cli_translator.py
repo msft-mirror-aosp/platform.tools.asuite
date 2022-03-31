@@ -581,6 +581,21 @@ class CLITranslator:
                 extracted_tests.append(test)
         return extracted_tests
 
+    def _has_host_unit_test(self, tests):
+        """Tell whether one of the given testis a host unit test.
+
+        Args:
+            tests: A list of test names.
+
+        Returns:
+            True when one of the given testis a host unit test.
+        """
+        all_host_unit_tests = self.mod_info.get_all_host_unit_tests()
+        for test in tests:
+            if test in all_host_unit_tests:
+                return True
+        return False
+
     def translate(self, args):
         """Translate atest command line into build targets and run commands.
 
@@ -627,6 +642,12 @@ class CLITranslator:
             host_unit_test_infos = self._get_test_infos(host_unit_tests,
                                                         host_unit_test_details)
             test_infos.update(host_unit_test_infos)
+        if atest_utils.has_mixed_type_filters(test_infos):
+            atest_utils.colorful_print(
+                'Mixed type filters found. '
+                'Please separate tests into different runs.',
+                constants.YELLOW)
+            sys.exit(ExitCode.MIXED_TYPE_FILTER)
         finished_time = time.time() - start
         logging.debug('Finding tests finished in %ss', finished_time)
         metrics.LocalDetectEvent(
@@ -635,4 +656,9 @@ class CLITranslator:
         for test_info in test_infos:
             logging.debug('%s\n', test_info)
         build_targets = self._gather_build_targets(test_infos)
+        if not self._bazel_mode:
+            if host_unit_tests or self._has_host_unit_test(tests):
+                msg = (r"It is recommended to run host unit tests with "
+                       r"--bazel-mode.")
+                atest_utils.colorful_print(msg, constants.YELLOW)
         return build_targets, test_infos

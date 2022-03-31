@@ -16,4 +16,5 @@
 <!-- A reporter template for Bazel result reporting. -->
 <configuration description="A reporter template for Bazel Exit Code result reporting." >
     <result_reporter class="com.android.tradefed.result.BazelExitCodeResultReporter" />
+    <result_reporter class="com.android.tradefed.result.BazelXmlResultReporter" />
 </configuration>
