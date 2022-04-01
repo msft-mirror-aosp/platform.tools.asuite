@@ -248,6 +248,7 @@ def get_extra_args(args):
                 'serial': constants.SERIAL,
                 'sharding': constants.SHARDING,
                 'test_filter': constants.TEST_FILTER,
+                'test_timeout': constants.TEST_TIMEOUT,
                 'tf_early_device_release': constants.TF_EARLY_DEVICE_RELEASE,
                 'tf_debug': constants.TF_DEBUG,
                 'tf_template': constants.TF_TEMPLATE,
@@ -896,7 +897,8 @@ def main(argv, results_dir, args):
     translator = cli_translator.CLITranslator(
         mod_info=mod_info,
         print_cache_msg=not args.clear_cache,
-        bazel_mode_enabled=args.bazel_mode)
+        bazel_mode_enabled=args.bazel_mode,
+        host=args.host)
     if args.list_modules:
         _print_testable_modules(mod_info, args.list_modules)
         return ExitCode.SUCCESS
@@ -941,6 +943,15 @@ def main(argv, results_dir, args):
                 for module in test_info.mainline_modules.split('+'):
                     mm_build_targets.add(re.sub(
                          MAINLINE_MODULES_EXT_RE, '', module))
+
+    # For TEST_MAPPING, set timeout to 600000ms.
+    if args.test_timeout is None:
+        if is_from_test_mapping(test_infos):
+            extra_args.update({constants.TEST_TIMEOUT: 600000})
+            logging.debug(
+                'Set test timeout to %sms to align it in TEST_MAPPING.',
+                extra_args.get(constants.TEST_TIMEOUT))
+
     if args.info:
         return _print_test_info(mod_info, test_infos)
     build_targets |= test_runner_handler.get_test_runner_reqs(mod_info,

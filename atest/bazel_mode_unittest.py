@@ -37,7 +37,7 @@ import bazel_mode
 import constants
 import module_info
 
-from test_finders import test_info
+from test_finders import example_finder, test_finder_base, test_info
 from test_runners import atest_tf_test_runner
 
 
@@ -278,10 +278,14 @@ class BasicWorkspaceGenerationTest(GenerationTestFixture):
 
     def test_generate_workspace_file(self):
         gen = self.create_workspace_generator()
+        workspace_path = gen.workspace_out_path.joinpath('WORKSPACE')
 
         gen.generate()
 
-        self.assertTrue(gen.workspace_out_path.joinpath('WORKSPACE').exists())
+        self.assertSymlinkTo(
+            workspace_path,
+            self.src_root_path.joinpath('tools/asuite/atest/bazel/WORKSPACE')
+        )
 
     def test_generate_bazelrc_file(self):
         gen = self.create_workspace_generator()
@@ -1252,42 +1256,110 @@ class PackageTest(fake_filesystem_unittest.TestCase):
             package.path, 'BUILD.bazel').read_text(encoding='utf8')
 
 
-class DecorateFinderMethodTest(fake_filesystem_unittest.TestCase):
+class DecorateFinderMethodTest(GenerationTestFixture):
     """Tests for _decorate_find_method()."""
 
     def setUp(self):
         self.setUpPyfakefs()
 
-    # pylint: disable=protected-access
-    # TODO(b/197600827): Add self._env in Module_info instead of mocking
-    #                    os.environ directly.
-    @mock.patch.dict('os.environ', {constants.ANDROID_BUILD_TOP:'/'})
-    def test_unit_test_runner_is_overridden(self):
+    def test_host_unit_test_with_host_arg_runner_is_overridden(self):
         original_find_method = lambda obj, test_id:(
             self.create_single_test_infos(obj, test_id, test_name=MODULE_NAME,
                                           runner=ATEST_TF_RUNNER))
-        mod_info = self.create_single_test_module_info(MODULE_NAME,
-                                                  is_unit_test=True)
-        new_find_method = bazel_mode._decorate_find_method(
-            mod_info, original_find_method)
+        mod_info = self.create_module_info(modules=[
+            host_unit_test_module(name=MODULE_NAME)
+        ])
+        original_finder = self.create_finder(mod_info, original_find_method)
+        new_finder = bazel_mode.create_new_finder(
+            mod_info, original_finder, host=True)
 
-        test_infos = new_find_method('finder_obj', 'test_id')
+        test_infos = new_finder.find_method(
+            new_finder.test_finder_instance, MODULE_NAME)
 
         self.assertEqual(len(test_infos), 1)
         self.assertEqual(test_infos[0].test_runner, BAZEL_RUNNER)
 
-    # pylint: disable=protected-access
-    @mock.patch.dict('os.environ', {constants.ANDROID_BUILD_TOP:'/'})
-    def test_not_unit_test_runner_is_preserved(self):
+    def test_host_unit_test_without_host_arg_runner_is_overridden(self):
         original_find_method = lambda obj, test_id:(
             self.create_single_test_infos(obj, test_id, test_name=MODULE_NAME,
                                           runner=ATEST_TF_RUNNER))
-        mod_info = self.create_single_test_module_info(
-            MODULE_NAME, is_unit_test=False)
-        new_find_method = bazel_mode._decorate_find_method(
-            mod_info, original_find_method)
+        mod_info = self.create_module_info(modules=[
+            host_unit_test_module(name=MODULE_NAME)
+        ])
+        original_finder = self.create_finder(mod_info, original_find_method)
+        new_finder = bazel_mode.create_new_finder(
+            mod_info, original_finder, host=False)
 
-        test_infos = new_find_method('finder_obj', 'test_id')
+        test_infos = new_finder.find_method(
+            new_finder.test_finder_instance, MODULE_NAME)
+
+        self.assertEqual(len(test_infos), 1)
+        self.assertEqual(test_infos[0].test_runner, BAZEL_RUNNER)
+
+    def test_device_test_with_host_arg_runner_is_preserved(self):
+        original_find_method = lambda obj, test_id:(
+            self.create_single_test_infos(obj, test_id, test_name=MODULE_NAME,
+                                          runner=ATEST_TF_RUNNER))
+        mod_info = self.create_module_info(modules=[
+            device_test_module(name=MODULE_NAME)
+        ])
+        original_finder = self.create_finder(mod_info, original_find_method)
+        new_finder = bazel_mode.create_new_finder(
+            mod_info, original_finder, host=True)
+
+        test_infos = new_finder.find_method(
+            new_finder.test_finder_instance, MODULE_NAME)
+
+        self.assertEqual(len(test_infos), 1)
+        self.assertEqual(test_infos[0].test_runner, ATEST_TF_RUNNER)
+
+    def test_device_test_without_host_arg_runner_is_preserved(self):
+        original_find_method = lambda obj, test_id:(
+            self.create_single_test_infos(obj, test_id, test_name=MODULE_NAME,
+                                          runner=ATEST_TF_RUNNER))
+        mod_info = self.create_module_info(modules=[
+            device_test_module(name=MODULE_NAME)
+        ])
+        original_finder = self.create_finder(mod_info, original_find_method)
+        new_finder = bazel_mode.create_new_finder(
+            mod_info, original_finder, host=False)
+
+        test_infos = new_finder.find_method(
+            new_finder.test_finder_instance, MODULE_NAME)
+
+        self.assertEqual(len(test_infos), 1)
+        self.assertEqual(test_infos[0].test_runner, ATEST_TF_RUNNER)
+
+    def test_multi_config_test_with_host_arg_runner_is_overridden(self):
+        original_find_method = lambda obj, test_id:(
+            self.create_single_test_infos(obj, test_id, test_name=MODULE_NAME,
+                                          runner=ATEST_TF_RUNNER))
+        mod_info = self.create_module_info(modules=[
+            multi_config(supported_test_module(name=MODULE_NAME))
+        ])
+        original_finder = self.create_finder(mod_info, original_find_method)
+        new_finder = bazel_mode.create_new_finder(
+            mod_info, original_finder, host=True)
+
+        test_infos = new_finder.find_method(
+            new_finder.test_finder_instance, MODULE_NAME)
+
+        self.assertEqual(len(test_infos), 1)
+        self.assertEqual(test_infos[0].test_runner, BAZEL_RUNNER)
+
+    def test_multi_config_test_without_host_arg_runner_is_preserved(self):
+        original_find_method = lambda obj, test_id:(
+            self.create_single_test_infos(obj, test_id, test_name=MODULE_NAME,
+                                          runner=ATEST_TF_RUNNER))
+        mod_info = self.create_module_info(modules=[
+            multi_config(supported_test_module(name=MODULE_NAME))
+        ])
+        original_finder = self.create_finder(mod_info, original_find_method)
+        new_finder = bazel_mode.create_new_finder(
+            mod_info, original_finder, host=False)
+
+        test_infos = new_finder.find_method(
+            new_finder.test_finder_instance, MODULE_NAME)
 
         self.assertEqual(len(test_infos), 1)
         self.assertEqual(test_infos[0].test_runner, ATEST_TF_RUNNER)
@@ -1298,19 +1370,10 @@ class DecorateFinderMethodTest(fake_filesystem_unittest.TestCase):
         """Create list of test_info.TestInfo."""
         return [test_info.TestInfo(test_name, runner, MODULE_BUILD_TARGETS)]
 
-    def create_single_test_module_info(self, module_name, is_unit_test=True):
-        """Create module-info file with single module."""
-        compatibility_suites = '["host-unit-tests"]'
-        if not is_unit_test:
-            compatibility_suites = "[]"
-        unit_test_mod_info_content = ('{"%s": {"class": ["NATIVE_TESTS"],' +
-                                      ' "compatibility_suites": %s }}') % (
-                                          module_name, compatibility_suites)
-        fake_temp_file_name = next(tempfile._get_candidate_names())
-        self.fs.create_file(fake_temp_file_name,
-                            contents=unit_test_mod_info_content)
-        return module_info.ModuleInfo(module_file=fake_temp_file_name)
-
+    def create_finder(self, mod_info, find_method):
+        return test_finder_base.Finder(
+            example_finder.ExampleFinder(mod_info),
+            find_method, 'FINDER_NAME')
 
 class BazelTestRunnerTest(unittest.TestCase):
     """Tests for BazelTestRunner."""
