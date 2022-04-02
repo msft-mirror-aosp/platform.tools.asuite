@@ -897,7 +897,8 @@ def main(argv, results_dir, args):
     translator = cli_translator.CLITranslator(
         mod_info=mod_info,
         print_cache_msg=not args.clear_cache,
-        bazel_mode_enabled=args.bazel_mode)
+        bazel_mode_enabled=args.bazel_mode,
+        host=args.host)
     if args.list_modules:
         _print_testable_modules(mod_info, args.list_modules)
         return ExitCode.SUCCESS
