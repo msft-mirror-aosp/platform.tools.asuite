@@ -67,7 +67,7 @@ class CLITranslator:
     """
 
     def __init__(self, mod_info=None, print_cache_msg=True,
-                 bazel_mode_enabled=False):
+                 bazel_mode_enabled=False, host=False):
         """CLITranslator constructor
 
         Args:
@@ -75,9 +75,11 @@ class CLITranslator:
             print_cache_msg: Boolean whether printing clear cache message or not.
                              True will print message while False won't print.
             bazel_mode_enabled: Boolean of args.bazel_mode.
+            host: Boolean of args.host.
         """
         self.mod_info = mod_info
         self._bazel_mode = bazel_mode_enabled
+        self._host = host
         self.enable_file_patterns = False
         self.msg = ''
         if print_cache_msg:
@@ -111,8 +113,11 @@ class CLITranslator:
         find_methods = test_finder_handler.get_find_methods_for_test(
             self.mod_info, test)
         if self._bazel_mode:
-            find_methods = [bazel_mode.create_new_finder(self.mod_info, f)
-                            for f in find_methods]
+            find_methods = [bazel_mode.create_new_finder(
+                self.mod_info,
+                f,
+                host=self._host
+            ) for f in find_methods]
         for finder in find_methods:
             # For tests in TEST_MAPPING, find method is only related to
             # test name, so the details can be set after test_info object
