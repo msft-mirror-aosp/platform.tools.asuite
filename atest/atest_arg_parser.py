@@ -92,6 +92,8 @@ TEST_MAPPING = 'Run tests defined in TEST_MAPPING files.'
 TEST_CONFIG_SELECTION = ('If multiple test config belong to same test module '
                          'pop out a selection menu on console.')
 TEST_FILTER = 'Run tests which are specified using this option.'
+TEST_TIMEOUT = ('Customize test timeout. E.g. 60000(in milliseconds) '
+                'represents 1 minute timeout. For no timeout, set to 0.')
 TF_DEBUG = 'Enable tradefed debug mode with a specified port. (default: 10888)'
 TF_EARLY_DEVICE_RELEASE = ('Inform Tradefed to release the device as soon as '
                            'when done with it.')
@@ -260,6 +262,8 @@ class AtestArgParser(argparse.ArgumentParser):
                           help=TF_TEMPLATE)
         self.add_argument('--test-filter', nargs='?',
                           help=TEST_FILTER)
+        self.add_argument('--test-timeout', nargs='?', type=int,
+                          help=TEST_TIMEOUT)
 
         # A group of options for rerun strategy. They are mutually exclusive
         # in a command line.
@@ -358,6 +362,7 @@ def print_epilog_text():
         TEST=TEST,
         TEST_CONFIG_SELECTION=TEST_CONFIG_SELECTION,
         TEST_MAPPING=TEST_MAPPING,
+        TEST_TIMEOUT=TEST_TIMEOUT,
         TF_DEBUG=TF_DEBUG,
         TF_EARLY_DEVICE_RELEASE=TF_EARLY_DEVICE_RELEASE,
         TEST_FILTER=TEST_FILTER,
@@ -461,6 +466,9 @@ OPTIONS
 
         --tf-template
             {TF_TEMPLATE}
+
+        --test-timeout [NUMBER in milliseconds]
+            {TEST_TIMEOUT}
 
         -w, --wait-for-debugger
             {WAIT_FOR_DEBUGGER}
@@ -880,5 +888,5 @@ EXAMPLES
         atest CtsVideoTestCases -- --test-arg com.android.tradefed.testtype.JarHosttest:collect-tests-only:true
 
 
-                                                     2021-04-22
+                                                     2022-03-25
 '''
