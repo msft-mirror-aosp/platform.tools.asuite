@@ -21,11 +21,14 @@ sandboxing, caching, and remote execution.
 """
 # pylint: disable=missing-function-docstring
 # pylint: disable=missing-class-docstring
+# pylint: disable=too-many-lines
 
 from __future__ import annotations
 
+import argparse
 import contextlib
 import dataclasses
+import enum
 import functools
 import os
 import shutil
@@ -34,6 +37,7 @@ import subprocess
 from abc import ABC, abstractmethod
 from collections import defaultdict, deque, OrderedDict
 from pathlib import Path
+from types import MappingProxyType
 from typing import Any, Callable, Dict, IO, List, Set
 
 import atest_utils
@@ -48,14 +52,52 @@ from test_runners import atest_tf_test_runner as tfr
 
 
 _BAZEL_WORKSPACE_DIR = 'atest_bazel_workspace'
+_SUPPORTED_BAZEL_ARGS = MappingProxyType({
+    # https://docs.bazel.build/versions/main/command-line-reference.html#flag--runs_per_test
+    constants.ITERATIONS:
+        lambda arg_value: [f'--runs_per_test={str(arg_value)}'],
+    # https://docs.bazel.build/versions/main/command-line-reference.html#flag--test_keep_going
+    constants.RERUN_UNTIL_FAILURE:
+        lambda arg_value:
+        ['--notest_keep_going', f'--runs_per_test={str(arg_value)}'],
+    # https://docs.bazel.build/versions/main/command-line-reference.html#flag--flaky_test_attempts
+    constants.RETRY_ANY_FAILURE:
+        lambda arg_value: [f'--flaky_test_attempts={str(arg_value)}'],
+    constants.BAZEL_ARG:
+        lambda arg_value: [item for sublist in arg_value for item in sublist]
+})
+
+
+@enum.unique
+class Features(enum.Enum):
+    NULL_FEATURE = ('--null-feature', 'Enables a no-action feature.')
+    EXPERIMENTAL_DEVICE_DRIVEN_TEST = (
+        '--experimental-device-driven-test',
+        'Enables running device-driven tests in Bazel mode.'
+    )
+
+    def __init__(self, arg_flag, description):
+        self.arg_flag = arg_flag
+        self.description = description
+
+
+def add_parser_arguments(parser: argparse.ArgumentParser, dest: str):
+    for _, member in Features.__members__.items():
+        parser.add_argument(member.arg_flag,
+                            action='append_const',
+                            const=member,
+                            dest=dest,
+                            help=member.description)
 
 
 def get_bazel_workspace_dir() -> Path:
     return Path(atest_utils.get_build_out_dir()).joinpath(_BAZEL_WORKSPACE_DIR)
 
 
-def generate_bazel_workspace(mod_info: module_info.ModuleInfo):
+def generate_bazel_workspace(mod_info: module_info.ModuleInfo,
+                             enabled_features: Set[Features] = None):
     """Generate or update the Bazel workspace used for running tests."""
+
     src_root_path = Path(os.environ.get(constants.ANDROID_BUILD_TOP))
     workspace_path = get_bazel_workspace_dir()
     workspace_generator = WorkspaceGenerator(
@@ -65,6 +107,7 @@ def generate_bazel_workspace(mod_info: module_info.ModuleInfo):
         Path(os.environ.get(constants.ANDROID_HOST_OUT)),
         Path(atest_utils.get_build_out_dir()),
         mod_info,
+        enabled_features,
     )
     workspace_generator.generate()
 
@@ -75,7 +118,8 @@ class WorkspaceGenerator:
     # pylint: disable=too-many-arguments
     def __init__(self, src_root_path: Path, workspace_out_path: Path,
                  product_out_path: Path, host_out_path: Path,
-                 build_out_dir: Path, mod_info: module_info.ModuleInfo):
+                 build_out_dir: Path, mod_info: module_info.ModuleInfo,
+                 enabled_features: Set[Features] = None):
         """Initializes the generator.
 
         Args:
@@ -85,37 +129,60 @@ class WorkspaceGenerator:
             host_out_path: Path of the ANDROID_HOST_OUT.
             build_out_dir: Path of OUT_DIR
             mod_info: ModuleInfo object.
+            enabled_features: Set of enabled features.
         """
+        self.enabled_features = enabled_features or set()
         self.src_root_path = src_root_path
         self.workspace_out_path = workspace_out_path
         self.product_out_path = product_out_path
         self.host_out_path = host_out_path
         self.build_out_dir = build_out_dir
         self.mod_info = mod_info
-        self.mod_info_md5_path = self.workspace_out_path.joinpath(
-            'mod_info_md5')
         self.path_to_package = {}
 
     def generate(self):
-        """Generate the Bazel workspace if mod_info doesn't exist or stale."""
-        if atest_utils.check_md5(self.mod_info_md5_path):
-            return
+        """Generate a Bazel workspace.
 
-        atest_utils.colorful_print("Generating Bazel workspace.\n",
-                                   constants.RED)
+        If the workspace md5 checksum file doesn't exist or is stale, a new
+        workspace will be generated. Otherwise, the existing workspace will be
+        reused.
+        """
+        workspace_md5_checksum_file = self.workspace_out_path.joinpath(
+            'workspace_md5_checksum')
+        enabled_features_file = self.workspace_out_path.joinpath(
+            'atest_bazel_mode_enabled_features')
+        enabled_features_file_contents = '\n'.join(sorted(
+            f.name for f in self.enabled_features))
 
         if self.workspace_out_path.exists():
+            # Update the file with the set of the currently enabled features to
+            # make sure that changes are detected in the workspace checksum.
+            enabled_features_file.write_text(enabled_features_file_contents)
+            if atest_utils.check_md5(workspace_md5_checksum_file):
+                return
+
             # We raise an exception if rmtree fails to avoid leaving stale
             # files in the workspace that could interfere with execution.
             shutil.rmtree(self.workspace_out_path)
+
+        atest_utils.colorful_print("Generating Bazel workspace.\n",
+                                   constants.RED)
 
         self._add_test_module_targets()
 
         self.workspace_out_path.mkdir(parents=True)
         self._generate_artifacts()
 
-        atest_utils.save_md5([self.mod_info.mod_info_file_path],
-                             self.mod_info_md5_path)
+        # Note that we write the set of enabled features despite having written
+        # it above since the workspace no longer exists at this point.
+        enabled_features_file.write_text(enabled_features_file_contents)
+        atest_utils.save_md5(
+            [
+                self.mod_info.mod_info_file_path,
+                enabled_features_file,
+            ],
+            workspace_md5_checksum_file
+        )
 
     def _add_test_module_targets(self):
         seen = set()
@@ -129,13 +196,20 @@ class WorkspaceGenerator:
             # default. See b/77288544#comment6 and b/23566667 for more context.
             if name.endswith("_32") or name.startswith("host_cross_"):
                 continue
-            if not self.is_host_unit_test(info):
-                continue
-            if not self.mod_info.is_testable_module(info):
-                continue
 
-            target = self._add_deviceless_test_target(info)
-            self._resolve_dependencies(target, seen)
+            if (Features.EXPERIMENTAL_DEVICE_DRIVEN_TEST in
+                    self.enabled_features and
+                    is_device_driven_test(info, self.mod_info)):
+                self._resolve_dependencies(
+                    self._add_test_target(
+                        info, 'device',
+                        TestTarget.create_device_test_target), seen)
+
+            if self.is_host_unit_test(info):
+                self._resolve_dependencies(
+                    self._add_test_target(
+                        info, 'host',
+                        TestTarget.create_deviceless_test_target), seen)
 
     def _resolve_dependencies(
         self, top_level_target: Target, seen: Set[Target]):
@@ -168,12 +242,13 @@ class WorkspaceGenerator:
 
             stack.append(next_top)
 
-    def _add_deviceless_test_target(self, info: Dict[str, Any]) -> Target:
+    def _add_test_target(self, info: Dict[str, Any], name_suffix: str,
+                         create_fn: Callable) -> Target:
         package_name = self._get_module_path(info)
-        name = info['module_name'] + "_host"
+        name = f'{info["module_name"]}_{name_suffix}'
 
         def create():
-            return DevicelessTestTarget.create(
+            return create_fn(
                 name,
                 package_name,
                 info,
@@ -236,8 +311,8 @@ class WorkspaceGenerator:
         return mod_path[0]
 
     def is_host_unit_test(self, info: Dict[str, Any]) -> bool:
-        return self.mod_info.is_suite_in_compatibility_suites(
-            'host-unit-tests', info)
+        return self.mod_info.is_testable_module(
+            info) and self.mod_info.is_host_unit_test(info)
 
     def _generate_artifacts(self):
         """Generate workspace files on disk."""
@@ -247,6 +322,9 @@ class WorkspaceGenerator:
                       target='bazel/rules')
         self._symlink(src='tools/asuite/atest/bazel/configs',
                       target='bazel/configs')
+        # Symlink to package with toolchain definitions.
+        self._symlink(src='prebuilts/build-tools',
+                      target='prebuilts/build-tools')
 
         for package in self.path_to_package.values():
             package.generate(self.workspace_out_path)
@@ -266,7 +344,8 @@ class WorkspaceGenerator:
         symlink.symlink_to(self.src_root_path.joinpath(src))
 
     def _create_base_files(self):
-        self.workspace_out_path.joinpath('WORKSPACE').touch()
+        self._symlink(src='tools/asuite/atest/bazel/WORKSPACE',
+                      target='WORKSPACE')
         self._symlink(src='tools/asuite/atest/bazel/bazelrc',
                       target='.bazelrc')
 
@@ -386,10 +465,10 @@ class Target(ABC):
         pass
 
 
-class DevicelessTestTarget(Target):
-    """Class for generating a deviceless test target."""
+class TestTarget(Target):
+    """Class for generating a test target."""
 
-    PREREQUISITES = frozenset({
+    _TEST_PREREQUISITES = frozenset({
         'adb',
         'atest-tradefed',
         'atest_script_help.sh',
@@ -400,14 +479,29 @@ class DevicelessTestTarget(Target):
         'bazel-result-reporter'
     })
 
-    @staticmethod
-    def create(name: str, package_name: str, info: Dict[str, Any]):
-        return DevicelessTestTarget(name, package_name, info)
+    DEVICELESS_TEST_PREREQUISITES = _TEST_PREREQUISITES
 
-    def __init__(self, name: str, package_name: str, info: Dict[str, Any]):
+    DEVICE_TEST_PREREQUISITES = frozenset({'aapt'}).union(_TEST_PREREQUISITES)
+
+    @staticmethod
+    def create_deviceless_test_target(name: str, package_name: str,
+                                      info: Dict[str, Any]):
+        return TestTarget(name, package_name, info, 'tradefed_deviceless_test',
+                          TestTarget.DEVICELESS_TEST_PREREQUISITES)
+
+    @staticmethod
+    def create_device_test_target(name: str, package_name: str,
+                                  info: Dict[str, Any]):
+        return TestTarget(name, package_name, info, 'tradefed_device_test',
+                          TestTarget.DEVICE_TEST_PREREQUISITES)
+
+    def __init__(self, name: str, package_name: str, info: Dict[str, Any],
+                 rule_name: str, prerequisites=frozenset()):
         self._name = name
         self._package_name = package_name
         self._test_module_ref = ModuleRef.for_info(info)
+        self._rule_name = rule_name
+        self._prerequisites = prerequisites
 
     def name(self) -> str:
         return self._name
@@ -416,24 +510,17 @@ class DevicelessTestTarget(Target):
         return self._package_name
 
     def required_imports(self) -> Set[Import]:
-        return {
-            Import('//bazel/rules:tradefed_test.bzl',
-                   'tradefed_deviceless_test'),
-        }
-
-    def supported_configs(self) -> Set[Config]:
-        return set()
+        return { Import('//bazel/rules:tradefed_test.bzl', self._rule_name) }
 
     def dependencies(self) -> List[ModuleRef]:
-        prerequisite_refs = map(
-            ModuleRef.for_name, DevicelessTestTarget.PREREQUISITES)
+        prerequisite_refs = map(ModuleRef.for_name, self._prerequisites)
         return [self._test_module_ref] + list(prerequisite_refs)
 
     def write_to_build_file(self, f: IO):
         prebuilt_target_name = self._test_module_ref.target().qualified_name()
         writer = IndentWriter(f)
 
-        writer.write_line('tradefed_deviceless_test(')
+        writer.write_line(f'{self._rule_name}(')
 
         with writer.indent():
             writer.write_line(f'name = "{self._name}",')
@@ -817,7 +904,13 @@ def is_tf_testable_module(mod_info: module_info.ModuleInfo,
             and info.get(constants.MODULE_COMPATIBILITY_SUITES))
 
 
-def _decorate_find_method(mod_info, finder_method_func):
+def is_device_driven_test(info: Dict[str, Any],
+                          mod_info: module_info.ModuleInfo) -> bool:
+    return mod_info.is_testable_module(info) and 'DEVICE' in info.get(
+        constants.MODULE_SUPPORTED_VARIANTS, [])
+
+
+def _decorate_find_method(mod_info, finder_method_func, host=False):
     """A finder_method decorator to override TestInfo properties."""
 
     def use_bazel_runner(finder_obj, test_id):
@@ -826,6 +919,12 @@ def _decorate_find_method(mod_info, finder_method_func):
             return test_infos
         for tinfo in test_infos:
             m_info = mod_info.get_module_info(tinfo.test_name)
+
+            # Ignore tests that have a device variant unless explicitly
+            # requested with the `--host` command-line argument.
+            if not host and is_device_driven_test(m_info, mod_info):
+                continue
+
             if mod_info.is_suite_in_compatibility_suites(
                 'host-unit-tests', m_info):
                 tinfo.test_runner = BazelTestRunner.NAME
@@ -833,12 +932,15 @@ def _decorate_find_method(mod_info, finder_method_func):
     return use_bazel_runner
 
 
-def create_new_finder(mod_info, finder):
+def create_new_finder(mod_info: module_info.ModuleInfo,
+                      finder: test_finder_base.TestFinderBase,
+                      host: bool):
     """Create new test_finder_base.Finder with decorated find_method.
 
     Args:
       mod_info: ModuleInfo object.
       finder: Test Finder class.
+      host: Whether to run the host variant.
 
     Returns:
         List of ordered find methods.
@@ -846,7 +948,8 @@ def create_new_finder(mod_info, finder):
     return test_finder_base.Finder(finder.test_finder_instance,
                                    _decorate_find_method(
                                        mod_info,
-                                       finder.find_method),
+                                       finder.find_method,
+                                       host),
                                    finder.finder_info)
 
 
@@ -962,20 +1065,34 @@ class BazelTestRunner(trb.TestRunnerBase):
 
     def _parse_extra_args(self, test_infos: List[test_info.TestInfo],
                           extra_args: trb.ARGS) -> trb.ARGS:
-
-        def flatten(i):
-            return [item for sublist in i for item in sublist]
-
         args_to_append = []
-        tf_args, tf_not_supported_args = tfr.extra_args_to_tf_args(
-            self.mod_info, test_infos, extra_args)
+        # Make a copy of the `extra_args` dict to avoid modifying it for other
+        # Atest runners.
+        extra_args_copy = extra_args.copy()
+
+        # Map args to their native Bazel counterparts.
+        for arg in _SUPPORTED_BAZEL_ARGS:
+            if arg not in extra_args_copy:
+                continue
+            args_to_append.extend(
+                self.map_to_bazel_args(arg, extra_args_copy[arg]))
+            # Remove the argument since we already mapped it to a Bazel option
+            # and no longer need it mapped to a Tradefed argument below.
+            del extra_args_copy[arg]
 
         # TODO(b/215461642): Store the extra_args in the top-level object so
         # that we don't have to re-parse the extra args to get BAZEL_ARG again.
-        for arg in tf_not_supported_args:
-            if constants.BAZEL_ARG == arg:
-                args_to_append.extend(flatten(extra_args[arg]))
+        tf_args, _ = tfr.extra_args_to_tf_args(
+            self.mod_info, test_infos, extra_args_copy)
+
+        # Add ATest include filter argument to allow testcase filtering.
+        tf_args.extend(tfr.get_include_filter(test_infos))
 
         args_to_append.extend([f'--test_arg={i}' for i in tf_args])
 
         return args_to_append
+
+    @staticmethod
+    def map_to_bazel_args(arg: str, arg_value: Any) -> List[str]:
+        return _SUPPORTED_BAZEL_ARGS[arg](
+            arg_value) if arg in _SUPPORTED_BAZEL_ARGS else []
