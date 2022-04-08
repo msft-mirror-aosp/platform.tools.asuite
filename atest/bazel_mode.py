@@ -199,7 +199,7 @@ class WorkspaceGenerator:
 
             if (Features.EXPERIMENTAL_DEVICE_DRIVEN_TEST in
                     self.enabled_features and
-                    is_device_driven_test(info, self.mod_info)):
+                    self.mod_info.is_device_driven_test(info)):
                 self._resolve_dependencies(
                     self._add_test_target(
                         info, 'device',
@@ -322,9 +322,6 @@ class WorkspaceGenerator:
                       target='bazel/rules')
         self._symlink(src='tools/asuite/atest/bazel/configs',
                       target='bazel/configs')
-        # Symlink to package with toolchain definitions.
-        self._symlink(src='prebuilts/build-tools',
-                      target='prebuilts/build-tools')
 
         for package in self.path_to_package.values():
             package.generate(self.workspace_out_path)
@@ -344,8 +341,7 @@ class WorkspaceGenerator:
         symlink.symlink_to(self.src_root_path.joinpath(src))
 
     def _create_base_files(self):
-        self._symlink(src='tools/asuite/atest/bazel/WORKSPACE',
-                      target='WORKSPACE')
+        self.workspace_out_path.joinpath('WORKSPACE').touch()
         self._symlink(src='tools/asuite/atest/bazel/bazelrc',
                       target='.bazelrc')
 
@@ -904,12 +900,6 @@ def is_tf_testable_module(mod_info: module_info.ModuleInfo,
             and info.get(constants.MODULE_COMPATIBILITY_SUITES))
 
 
-def is_device_driven_test(info: Dict[str, Any],
-                          mod_info: module_info.ModuleInfo) -> bool:
-    return mod_info.is_testable_module(info) and 'DEVICE' in info.get(
-        constants.MODULE_SUPPORTED_VARIANTS, [])
-
-
 def _decorate_find_method(mod_info, finder_method_func, host=False):
     """A finder_method decorator to override TestInfo properties."""
 
@@ -922,7 +912,7 @@ def _decorate_find_method(mod_info, finder_method_func, host=False):
 
             # Ignore tests that have a device variant unless explicitly
             # requested with the `--host` command-line argument.
-            if not host and is_device_driven_test(m_info, mod_info):
+            if not host and mod_info.is_device_driven_test(m_info):
                 continue
 
             if mod_info.is_suite_in_compatibility_suites(
