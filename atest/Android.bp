@@ -12,8 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Set of error prone rules to ensure code quality
-// PackageLocation check requires the androidCompatible=false otherwise it does not do anything.
 package {
     default_applicable_licenses: ["Android-Apache-2.0"],
 }
@@ -191,9 +189,6 @@ python_test_host {
     srcs: [
         "**/*.py",
     ],
-    test_options: {
-        unit_test: true,
-    },
     data: [
         "tools/updatedb_darwin.sh",
         "unittest_data/**/*",
@@ -227,11 +222,8 @@ python_test_host {
         "INTEGRATION_TESTS",
     ],
     test_config: "atest_integration_tests.xml",
-    test_suites: ["null-suite"],
+    test_suites: ["general-tests"],
     defaults: ["atest_default"],
-    test_options: {
-        unit_test: false,
-    },
 }
 
 sh_binary_host {

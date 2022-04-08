@@ -15,54 +15,13 @@
 # limitations under the License.
 
 """Unittests for deployment."""
-import os
-import shutil
-import subprocess
-import tempfile
+
 import unittest
-from unittest import mock
-
-from deployment import PluginDeployment
-
-
-# pylint: disable=protected-access
-from aidegen.lib import config
 
 
 class DeploymentUnittests(unittest.TestCase):
     """Unit tests for deployment.py."""
 
-    _TMP_DIR = None
-
-    def setUp(self):
-        """Prepare the testdata related path."""
-        DeploymentUnittests._TMP_DIR = tempfile.mkdtemp()
-        config.AidegenConfig._CONFIG_DIR = os.path.join(
-            DeploymentUnittests._TMP_DIR, '.config', 'asuite', 'aidegen')
-        config.AidegenConfig._CONFIG_FILE_PATH = os.path.join(
-            config.AidegenConfig._CONFIG_DIR,
-            config.AidegenConfig._DEFAULT_CONFIG_FILE)
-
-    def tearDown(self):
-        """Clear the testdata related path."""
-        shutil.rmtree(DeploymentUnittests._TMP_DIR)
-
-    @mock.patch('builtins.input')
-    def test_ask_for_install(self, mock_input):
-        """Test _ask_for_install."""
-        mock_input.return_value = 'y'
-        PluginDeployment()._ask_for_install()
-        self.assertTrue(mock_input.call)
-
-    @mock.patch.object(subprocess, 'check_call')
-    def test_build_jars(self, mock_check_call):
-        """Test _build_jars."""
-        PluginDeployment()._build_jars()
-        self.assertTrue(mock_check_call.call)
-
-    def test_write_read_selection(self):
-        """Test _read_selection and _write_selection."""
-        PluginDeployment._user_selection = 'yes'
-        self.assertEqual(PluginDeployment._user_selection, 'yes')
-        PluginDeployment._user_selection = 'no'
-        self.assertEqual(PluginDeployment._user_selection, 'no')
+    def test_install_asuite_plugin(self):
+        """Test install_asuite_plugin."""
+        pass

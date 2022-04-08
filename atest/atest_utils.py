@@ -18,13 +18,10 @@ Utility functions for atest.
 
 
 # pylint: disable=import-outside-toplevel
-# pylint: disable=too-many-lines
 
 from __future__ import print_function
 
-import fnmatch
 import hashlib
-import importlib
 import itertools
 import json
 import logging
@@ -35,8 +32,6 @@ import shutil
 import subprocess
 import sys
 import sysconfig
-import time
-import zipfile
 
 import xml.etree.ElementTree as ET
 
@@ -48,9 +43,10 @@ from distutils.util import strtobool
 # raise.
 # The workaround is repositioning the built-in libs before other 3rd libs in
 # PYTHONPATH(sys.path) to eliminate the symptom of failed loading http.client.
-sys.path.insert(0, os.path.dirname(sysconfig.get_paths()['purelib']))
-sys.path.insert(0, os.path.dirname(sysconfig.get_paths()['stdlib']))
-
+for lib in (sysconfig.get_paths()['stdlib'], sysconfig.get_paths()['purelib']):
+    if lib in sys.path:
+        sys.path.remove(lib)
+    sys.path.insert(0, lib)
 #pylint: disable=wrong-import-position
 import atest_decorator
 import atest_error
@@ -59,15 +55,12 @@ import constants
 # This proto related module will be auto generated in build time.
 # pylint: disable=no-name-in-module
 # pylint: disable=import-error
-try:
-    from tools.asuite.atest.tf_proto import test_record_pb2
-except ImportError as err:
-    pass
+from tools.asuite.atest.tf_proto import test_record_pb2
+
 # b/147562331 only occurs when running atest in source code. We don't encourge
 # the users to manually "pip3 install protobuf", therefore when the exception
 # occurs, we don't collect data and the tab completion is for args is silence.
 try:
-    from metrics import metrics
     from metrics import metrics_base
     from metrics import metrics_utils
 except ImportError as err:
@@ -78,11 +71,11 @@ except ImportError as err:
         from asuite.metrics import metrics_utils
     except ImportError as err:
         # This exception occurs only when invoking atest in source code.
-        print("You shouldn't see this message unless you ran 'atest-src'."
+        print("You shouldn't see this message unless you ran 'atest-src'. "
               "To resolve the issue, please run:\n\t{}\n"
               "and try again.".format('pip3 install protobuf'))
-        print('Import error, %s', err)
-        print('sys.path: %s', sys.path)
+        print('Import error: ', err)
+        print('sys.path:\n', '\n'.join(sys.path))
         sys.exit(constants.IMPORT_FAILURE)
 
 _BASH_RESET_CODE = '\033[0m\n'
@@ -97,7 +90,7 @@ _BUILD_COMPILE_STATUS = re.compile(r'\[\s*(\d{1,3}%\s+)?\d+/\d+\]')
 _BUILD_FAILURE = 'FAILED: '
 CMD_RESULT_PATH = os.path.join(os.environ.get(constants.ANDROID_BUILD_TOP,
                                               os.getcwd()),
-                               'tools/asuite/atest/test_data',
+                               'tools/tradefederation/core/atest/test_data',
                                'test_commands.json')
 BUILD_TOP_HASH = hashlib.md5(os.environ.get(constants.ANDROID_BUILD_TOP, '').
                              encode()).hexdigest()
@@ -115,11 +108,7 @@ _FIND_MODIFIED_FILES_CMDS = (
     "| awk '{{print $1}}');"
     # Get the list of modified files from HEAD to previous $ahead generation.
     "git diff HEAD~$ahead --name-only")
-_ANDROID_BUILD_EXT = ('.bp', '.mk')
 
-# Set of special chars for various purposes.
-_REGEX_CHARS = {'[', '(', '{', '|', '\\', '*', '?', '+', '^'}
-_WILDCARD_CHARS = {'?', '*'}
 
 def get_build_cmd():
     """Compose build command with no-absolute path and flag "--make-mode".
@@ -155,26 +144,6 @@ def _capture_fail_section(full_log):
     return capture_output
 
 
-def _capture_limited_output(full_log):
-    """Return the limited error message from capture_failed_section.
-
-    Args:
-        full_log: List of strings representing full output of build.
-
-    Returns:
-        output: List of strings that are build errors.
-    """
-    # Parse out the build error to output.
-    output = _capture_fail_section(full_log)
-    if not output:
-        output = full_log
-    if len(output) >= _FAILED_OUTPUT_LINE_LIMIT:
-        output = output[-_FAILED_OUTPUT_LINE_LIMIT:]
-    output = 'Output (may be trimmed):\n%s' % ''.join(output)
-    return output
-
-
-# TODO: b/187122993 refine subprocess with 'with-statement' in fixit week.
 def _run_limited_output(cmd, env_vars=None):
     """Runs a given command and streams the output on a single line in stdout.
 
@@ -214,49 +183,14 @@ def _run_limited_output(cmd, env_vars=None):
     # Wait for the Popen to finish completely before checking the returncode.
     proc.wait()
     if proc.returncode != 0:
-        # get error log from "OUT_DIR/error.log"
-        error_log_file = os.path.join(get_build_out_dir(), "error.log")
-        output = []
-        if os.path.isfile(error_log_file):
-            if os.stat(error_log_file).st_size > 0:
-                with open(error_log_file) as f:
-                    output = f.read()
+        # Parse out the build error to output.
+        output = _capture_fail_section(full_output)
         if not output:
-            output = _capture_limited_output(full_output)
+            output = full_output
+        if len(output) >= _FAILED_OUTPUT_LINE_LIMIT:
+            output = output[-_FAILED_OUTPUT_LINE_LIMIT:]
+        output = 'Output (may be trimmed):\n%s' % ''.join(output)
         raise subprocess.CalledProcessError(proc.returncode, cmd, output)
-
-
-def get_build_out_dir():
-    """Get android build out directory.
-
-    Returns:
-        String of the out directory.
-    """
-    build_top = os.environ.get(constants.ANDROID_BUILD_TOP)
-    # Get the out folder if user specified $OUT_DIR
-    custom_out_dir = os.environ.get(constants.ANDROID_OUT_DIR)
-    custom_out_dir_common_base = os.environ.get(
-        constants.ANDROID_OUT_DIR_COMMON_BASE)
-    user_out_dir = None
-    if custom_out_dir:
-        if os.path.isabs(custom_out_dir):
-            user_out_dir = custom_out_dir
-        else:
-            user_out_dir = os.path.join(build_top, custom_out_dir)
-    elif custom_out_dir_common_base:
-        # When OUT_DIR_COMMON_BASE is set, the output directory for each
-        # separate source tree is named after the directory holding the
-        # source tree.
-        build_top_basename = os.path.basename(build_top)
-        if os.path.isabs(custom_out_dir_common_base):
-            user_out_dir = os.path.join(custom_out_dir_common_base,
-                                        build_top_basename)
-        else:
-            user_out_dir = os.path.join(build_top, custom_out_dir_common_base,
-                                        build_top_basename)
-    if user_out_dir:
-        return user_out_dir
-    return os.path.join(build_top, "out")
 
 
 def build(build_targets, verbose=False, env_vars=None):
@@ -294,9 +228,6 @@ def build(build_targets, verbose=False, env_vars=None):
         return True
     except subprocess.CalledProcessError as err:
         logging.error('Error building: %s', build_targets)
-        print(constants.REBUILD_MODULE_INFO_MSG.format(
-            colorize(constants.REBUILD_MODULE_INFO_FLAG,
-                     constants.RED)))
         if err.output:
             logging.error(err.output)
         return False
@@ -317,7 +248,6 @@ def _can_upload_to_result_server():
     return False
 
 
-# pylint: disable=unused-argument
 def get_result_server_args(for_test_mapping=False):
     """Return list of args for communication with result server.
 
@@ -325,8 +255,15 @@ def get_result_server_args(for_test_mapping=False):
         for_test_mapping: True if the test run is for Test Mapping to include
             additional reporting args. Default is False.
     """
-    # Customize test mapping argument here if needed.
-    return constants.RESULT_SERVER_ARGS
+    # TODO (b/147644460) Temporarily disable Sponge V1 since it will be turned
+    # down.
+    if _can_upload_to_result_server():
+        if for_test_mapping:
+            return (constants.RESULT_SERVER_ARGS +
+                    constants.TEST_MAPPING_RESULT_SERVER_ARGS)
+        return constants.RESULT_SERVER_ARGS
+    return []
+
 
 def sort_and_group(iterable, key):
     """Sort and group helper function."""
@@ -341,7 +278,6 @@ def is_test_mapping(args):
     which means the test value is a test group name in TEST_MAPPING file, e.g.,
     `:postsubmit`.
 
-    If --host-unit-test-only be applied, it's not test mapping.
     If any test mapping options is specified, the atest command must also be
     set to run tests in test mapping files.
 
@@ -353,12 +289,10 @@ def is_test_mapping(args):
         otherwise.
     """
     return (
-        not args.host_unit_test_only and
-        (args.test_mapping or
+        args.test_mapping or
         args.include_subdirs or
         not args.tests or
-        (len(args.tests) == 1 and args.tests[0][0] == ':')))
-
+        (len(args.tests) == 1 and args.tests[0][0] == ':'))
 
 @atest_decorator.static_var("cached_has_colors", {})
 def _has_colors(stream):
@@ -508,8 +442,6 @@ def handle_test_runner_cmd(input_test, test_cmds, do_verification=False,
         with open(result_path) as json_file:
             full_result_content = json.load(json_file)
     former_test_cmds = full_result_content.get(input_test, [])
-    test_cmds = _normalize(test_cmds)
-    former_test_cmds = _normalize(former_test_cmds)
     if not _are_identical_cmds(test_cmds, former_test_cmds):
         if do_verification:
             raise atest_error.DryRunVerificationError(
@@ -520,10 +452,18 @@ def handle_test_runner_cmd(input_test, test_cmds, do_verification=False,
             # are willing to update the result.
             print('Former cmds = %s' % former_test_cmds)
             print('Current cmds = %s' % test_cmds)
-            if not prompt_with_yn_result('Do you want to update former result '
-                                         'to the latest one?', True):
-                print('SKIP updating result!!!')
-                return
+            try:
+                from distutils import util
+                if not util.strtobool(
+                        input('Do you want to update former result '
+                              'with the latest one?(Y/n)')):
+                    print('SKIP updating result!!!')
+                    return
+            except ValueError:
+                # Default action is updating the command result of the
+                # input_test. If the user input is unrecognizable telling yes
+                # or no, "Y" is implicitly applied.
+                pass
     else:
         # If current commands are the same as the formers, no need to update
         # result.
@@ -533,37 +473,12 @@ def handle_test_runner_cmd(input_test, test_cmds, do_verification=False,
         json.dump(full_result_content, outfile, indent=0)
         print('Save result mapping to %s' % result_path)
 
-def _normalize(cmd_list):
-    """Method that normalize commands. Note that '--atest-log-file-path' is not
-    considered a critical argument, therefore, it will be removed during
-    the comparison. Also, atest can be ran in any place, so verifying relative
-    path, LD_LIBRARY_PATH, and --proto-output-file is regardless as well.
-
-    Args:
-        cmd_list: A list with one element. E.g. ['cmd arg1 arg2 True']
-
-    Returns:
-        A list with elements. E.g. ['cmd', 'arg1', 'arg2', 'True']
-    """
-    _cmd = ' '.join(cmd_list).split()
-    for cmd in _cmd:
-        if cmd.startswith('--atest-log-file-path'):
-            _cmd.remove(cmd)
-            continue
-        if cmd.startswith('LD_LIBRARY_PATH='):
-            _cmd.remove(cmd)
-            continue
-        if cmd.startswith('--proto-output-file='):
-            _cmd.remove(cmd)
-            continue
-        if _BUILD_CMD in cmd:
-            _cmd.remove(cmd)
-            _cmd.append(os.path.join('./', _BUILD_CMD))
-            continue
-    return _cmd
 
 def _are_identical_cmds(current_cmds, former_cmds):
-    """Tell two commands are identical.
+    """Tell two commands are identical. Note that '--atest-log-file-path' is not
+    considered a critical argument, therefore, it will be removed during
+    the comparison. Also, atest can be ran in any place, so verifying relative
+    path is regardless as well.
 
     Args:
         current_cmds: A list of strings for running input tests.
@@ -572,10 +487,32 @@ def _are_identical_cmds(current_cmds, former_cmds):
     Returns:
         True if both commands are identical, False otherwise.
     """
+    def _normalize(cmd_list):
+        """Method that normalize commands.
+
+        Args:
+            cmd_list: A list with one element. E.g. ['cmd arg1 arg2 True']
+
+        Returns:
+            A list with elements. E.g. ['cmd', 'arg1', 'arg2', 'True']
+        """
+        _cmd = ''.join(cmd_list).split()
+        for cmd in _cmd:
+            if cmd.startswith('--atest-log-file-path'):
+                _cmd.remove(cmd)
+                continue
+            if _BUILD_CMD in cmd:
+                _cmd.remove(cmd)
+                _cmd.append(os.path.join('./', _BUILD_CMD))
+                continue
+        return _cmd
+
+    _current_cmds = _normalize(current_cmds)
+    _former_cmds = _normalize(former_cmds)
     # Always sort cmd list to make it comparable.
-    current_cmds.sort()
-    former_cmds.sort()
-    return current_cmds == former_cmds
+    _current_cmds.sort()
+    _former_cmds.sort()
+    return _current_cmds == _former_cmds
 
 def _get_hashed_file_name(main_file_name):
     """Convert the input string to a md5-hashed string. If file_extension is
@@ -592,99 +529,7 @@ def _get_hashed_file_name(main_file_name):
     hashed_name = hashed_fn.hexdigest()
     return hashed_name + '.cache'
 
-def md5sum(filename):
-    """Generate MD5 checksum of a file.
-
-    Args:
-        name: A string of a filename.
-
-    Returns:
-        A string of hashed MD5 checksum.
-    """
-    if not os.path.isfile(filename):
-        return ""
-    with open(filename, 'rb') as target:
-        content = target.read()
-    return hashlib.md5(content).hexdigest()
-
-def check_md5(check_file, missing_ok=False):
-    """Method equivalent to 'md5sum --check /file/to/check'.
-
-    Args:
-        check_file: A string of filename that stores filename and its
-                   md5 checksum.
-        missing_ok: A boolean that considers OK even when the check_file does
-                    not exist. Using missing_ok=True allows ignoring md5 check
-                    especially for initial run that the check_file has not yet
-                    generated. Using missing_ok=False ensures the consistency of
-                    files, and guarantees the process is successfully completed.
-
-    Returns:
-        When missing_ok is True (soft check):
-          - True if the checksum is consistent with the actual MD5, even the
-            check_file is missing or not a valid JSON.
-          - False when the checksum is inconsistent with the actual MD5.
-        When missing_ok is False (ensure the process completed properly):
-          - True if the checksum is consistent with the actual MD5.
-          - False otherwise.
-    """
-    if not os.path.isfile(check_file):
-        if not missing_ok:
-            logging.warning(
-                'Unable to verify: %s not found.', check_file)
-        return missing_ok
-    if not is_valid_json_file(check_file):
-        logging.warning(
-            'Unable to verify: %s invalid JSON format.', check_file)
-        return missing_ok
-    with open(check_file, 'r+') as _file:
-        content = json.load(_file)
-        for filename, md5 in content.items():
-            if md5sum(filename) != md5:
-                logging.debug('%s has altered.', filename)
-                return False
-    return True
-
-def save_md5(filenames, save_file):
-    """Method equivalent to 'md5sum file1 file2 > /file/to/check'
-
-    Args:
-        filenames: A list of filenames.
-        save_file: Filename for storing files and their md5 checksums.
-    """
-    if os.path.isfile(save_file):
-        os.remove(save_file)
-    data = {}
-    for name in filenames:
-        if not os.path.isfile(name):
-            logging.warning('%s is not a file.', name)
-        data.update({name: md5sum(name)})
-    with open(save_file, 'w+') as _file:
-        json.dump(data, _file)
-
-def get_cache_root():
-    """Get the root path dir for cache.
-
-    Use branch and target information as cache_root.
-    The path will look like ~/.atest/info_cache/$hash(branch+target)
-
-    Returns:
-        A string of the path of the root dir of cache.
-    """
-    manifest_branch = get_manifest_branch()
-    if not manifest_branch:
-        manifest_branch = os.environ.get(
-            constants.ANDROID_BUILD_TOP, constants.ANDROID_BUILD_TOP)
-    # target
-    build_target = os.path.basename(
-        os.environ.get(constants.ANDROID_PRODUCT_OUT,
-                       constants.ANDROID_PRODUCT_OUT))
-    branch_target_hash = hashlib.md5(
-        (constants.MODE + manifest_branch + build_target).encode()).hexdigest()
-    return os.path.join(os.path.expanduser('~'), '.atest','info_cache',
-                        branch_target_hash[:8])
-
-def get_test_info_cache_path(test_reference, cache_root=None):
+def get_test_info_cache_path(test_reference, cache_root=TEST_INFO_CACHE_ROOT):
     """Get the cache path of the desired test_infos.
 
     Args:
@@ -694,12 +539,11 @@ def get_test_info_cache_path(test_reference, cache_root=None):
     Returns:
         A string of the path of test_info cache.
     """
-    if not cache_root:
-        cache_root = get_cache_root()
-    return os.path.join(cache_root, _get_hashed_file_name(test_reference))
+    return os.path.join(cache_root,
+                        _get_hashed_file_name(test_reference))
 
 def update_test_info_cache(test_reference, test_infos,
-                           cache_root=None):
+                           cache_root=TEST_INFO_CACHE_ROOT):
     """Update cache content which stores a set of test_info objects through
        pickle module, each test_reference will be saved as a cache file.
 
@@ -708,8 +552,6 @@ def update_test_info_cache(test_reference, test_infos,
         test_infos: A set of TestInfos.
         cache_root: Folder path for saving caches.
     """
-    if not cache_root:
-        cache_root = get_cache_root()
     if not os.path.isdir(cache_root):
         os.makedirs(cache_root)
     cache_path = get_test_info_cache_path(test_reference, cache_root)
@@ -726,7 +568,7 @@ def update_test_info_cache(test_reference, test_infos,
             constants.ACCESS_CACHE_FAILURE)
 
 
-def load_test_info_cache(test_reference, cache_root=None):
+def load_test_info_cache(test_reference, cache_root=TEST_INFO_CACHE_ROOT):
     """Load cache by test_reference to a set of test_infos object.
 
     Args:
@@ -736,8 +578,6 @@ def load_test_info_cache(test_reference, cache_root=None):
     Returns:
         A list of TestInfo namedtuple if cache found, else None.
     """
-    if not cache_root:
-        cache_root = get_cache_root()
     cache_file = get_test_info_cache_path(test_reference, cache_root)
     if os.path.isfile(cache_file):
         logging.debug('Loading cache %s.', cache_file)
@@ -757,15 +597,13 @@ def load_test_info_cache(test_reference, cache_root=None):
                 constants.ACCESS_CACHE_FAILURE)
     return None
 
-def clean_test_info_caches(tests, cache_root=None):
+def clean_test_info_caches(tests, cache_root=TEST_INFO_CACHE_ROOT):
     """Clean caches of input tests.
 
     Args:
         tests: A list of test references.
         cache_root: Folder path for finding caches.
     """
-    if not cache_root:
-        cache_root = get_cache_root()
     for test in tests:
         cache_file = get_test_info_cache_path(test, cache_root)
         if os.path.isfile(cache_file):
@@ -1040,13 +878,16 @@ def get_manifest_branch():
     if not build_top:
         return None
     try:
-        # Command repo need use default lib "http", add non-default lib
-        # might cause repo command execution error.
         splitter = ':'
         env_vars = os.environ.copy()
-        org_python_path = env_vars['PYTHONPATH'].split(splitter)
-        default_python_path = [p for p in org_python_path
-                               if not p.startswith('/tmp/Soong.python_')]
+        orig_pythonpath = env_vars['PYTHONPATH'].split(splitter)
+        # Command repo imports stdlib "http.client", so adding non-default lib
+        # e.g. googleapiclient, may cause repo command execution error.
+        # The temporary dir is not presumably always /tmp, especially in MacOS.
+        # b/169936306, b/190647636 are the cases we should never ignore.
+        soong_path_re = re.compile(r'.*/Soong.python_.*/')
+        default_python_path = [p for p in orig_pythonpath
+                               if not soong_path_re.match(p)]
         env_vars['PYTHONPATH'] = splitter.join(default_python_path)
         output = subprocess.check_output(
             ['repo', 'info', '-o', constants.ASUITE_REPO_PROJECT_NAME],
@@ -1064,7 +905,10 @@ def get_manifest_branch():
 
 def get_build_target():
     """Get the build target form system environment TARGET_PRODUCT."""
-    return os.getenv(constants.ANDROID_TARGET_PRODUCT, None)
+    build_target = '%s-%s' % (
+        os.getenv(constants.ANDROID_TARGET_PRODUCT, None),
+        os.getenv(constants.TARGET_BUILD_VARIANT, None))
+    return build_target
 
 def parse_mainline_modules(test):
     """Parse test reference into test and mainline modules.
@@ -1196,3 +1040,205 @@ def get_config_parameter(test_config):
                 value = tag.attrib['value'].strip()
                 parameters.add(value)
     return parameters
+
+def get_mainline_param(test_config):
+    """Get all the mainline-param values for the input config
+
+    Args:
+        test_config: The path of the test config.
+    Returns:
+        A set include all the parameters of the input config.
+    """
+    mainline_param = set()
+    xml_root = ET.parse(test_config).getroot()
+    option_tags = xml_root.findall('.//option')
+    for tag in option_tags:
+        name = tag.attrib['name'].strip()
+        if name == constants.CONFIG_DESCRIPTOR:
+            key = tag.attrib['key'].strip()
+            if key == constants.MAINLINE_PARAM_KEY:
+                value = tag.attrib['value'].strip()
+                mainline_param.add(value)
+    return mainline_param
+
+def get_android_config():
+    """Get Android config as "printconfig" shows.
+
+    Returns:
+        A dict of Android configurations.
+    """
+    dump_cmd = get_build_cmd(dump=True)
+    raw_config = subprocess.check_output(dump_cmd).decode('utf-8')
+    android_config = {}
+    for element in raw_config.splitlines():
+        if not element.startswith('='):
+            key, value = tuple(element.split('=', 1))
+            android_config.setdefault(key, value)
+    return android_config
+
+def get_config_gtest_args(test_config):
+    """Get gtest's module-name and device-path option from the input config
+
+    Args:
+        test_config: The path of the test config.
+    Returns:
+        A string of gtest's module name.
+        A string of gtest's device path.
+    """
+    module_name = ''
+    device_path = ''
+    xml_root = ET.parse(test_config).getroot()
+    option_tags = xml_root.findall('.//option')
+    for tag in option_tags:
+        name = tag.attrib['name'].strip()
+        value = tag.attrib['value'].strip()
+        if name == 'native-test-device-path':
+            device_path = value
+        elif name == 'module-name':
+            module_name = value
+    return module_name, device_path
+
+def get_arch_name(module_name, is_64=False):
+    """Get the arch folder name for the input module.
+
+        Scan the test case folders to get the matched arch folder name.
+
+        Args:
+            module_name: The module_name of test
+            is_64: If need 64 bit arch name, False otherwise.
+        Returns:
+            A string of the arch name.
+    """
+    arch_32 = ['arm', 'x86']
+    arch_64 = ['arm64', 'x86_64']
+    arch_list = arch_32
+    if is_64:
+        arch_list = arch_64
+    test_case_root = os.path.join(
+        os.environ.get(constants.ANDROID_TARGET_OUT_TESTCASES, ''),
+        module_name
+    )
+    for f in os.listdir(test_case_root):
+        if f in arch_list:
+            return f
+    return ''
+
+def copy_single_arch_native_symbols(
+    symbol_root, module_name, device_path, is_64=False):
+    """Copy symbol files for native tests which belong to input arch.
+
+        Args:
+            module_name: The module_name of test
+            device_path: The device path define in test config.
+            is_64: True if need to copy 64bit symbols, False otherwise.
+    """
+    src_symbol = os.path.join(symbol_root, 'data', 'nativetest', module_name)
+    if is_64:
+        src_symbol = os.path.join(
+            symbol_root, 'data', 'nativetest64', module_name)
+    dst_symbol = os.path.join(
+        symbol_root, device_path[1:], module_name,
+        get_arch_name(module_name, is_64))
+    if os.path.isdir(src_symbol):
+        # TODO: Use shutil.copytree(src, dst, dirs_exist_ok=True) after
+        #  python3.8
+        if os.path.isdir(dst_symbol):
+            shutil.rmtree(dst_symbol)
+        shutil.copytree(src_symbol, dst_symbol)
+
+def copy_native_symbols(module_name, device_path):
+    """Copy symbol files for native tests to match with tradefed file structure.
+
+    The original symbols will locate at
+    $(PRODUCT_OUT)/symbols/data/nativetest(64)/$(module)/$(stem).
+    From TF, the test binary will locate at
+    /data/local/tmp/$(module)/$(arch)/$(stem).
+    In order to make trace work need to copy the original symbol to
+    $(PRODUCT_OUT)/symbols/data/local/tmp/$(module)/$(arch)/$(stem)
+
+    Args:
+        module_name: The module_name of test
+        device_path: The device path define in test config.
+    """
+    symbol_root = os.path.join(
+        os.environ.get(constants.ANDROID_PRODUCT_OUT, ''),
+        'symbols')
+    if not os.path.isdir(symbol_root):
+        logging.debug('Symbol dir:%s not exist, skip copy symbols.',
+                      symbol_root)
+        return
+    # Copy 32 bit symbols
+    if get_arch_name(module_name, is_64=False):
+        copy_single_arch_native_symbols(
+            symbol_root, module_name, device_path, is_64=False)
+    # Copy 64 bit symbols
+    if get_arch_name(module_name, is_64=True):
+        copy_single_arch_native_symbols(
+            symbol_root, module_name, device_path, is_64=True)
+
+def get_config_preparer_options(test_config, class_name):
+    """Get all the parameter values for the input config
+
+    Args:
+        test_config: The path of the test config.
+        class_name: A string of target_preparer
+    Returns:
+        A set include all the parameters of the input config.
+    """
+    options = {}
+    xml_root = ET.parse(test_config).getroot()
+    option_tags = xml_root.findall(
+        './/target_preparer[@class="%s"]/option' % class_name)
+    for tag in option_tags:
+        name = tag.attrib['name'].strip()
+        value = tag.attrib['value'].strip()
+        options[name] = value
+    return options
+
+def is_adb_root(args):
+    """Check whether device has root permission.
+
+    Args:
+        args: An argspace.Namespace class instance holding parsed args.
+    Returns:
+        True if adb has root permission.
+    """
+    try:
+        serial = os.environ.get(constants.ANDROID_SERIAL, '')
+        if not serial:
+            serial = args.serial
+        serial_options = ('-s ' + serial) if serial else ''
+        output = subprocess.check_output("adb %s shell id" % serial_options,
+                                         shell=True,
+                                         stderr=subprocess.STDOUT).decode()
+        return "uid=0(root)" in output
+    except subprocess.CalledProcessError as err:
+        logging.debug('Exception raised(): %s, Output: %s', err, err.output)
+        raise err
+
+def perm_metrics(config_path, adb_root):
+    """Compare adb root permission with RootTargetPreparer in config.
+
+    Args:
+        config_path: A string of AndroidTest.xml file path.
+        adb_root: A boolean of whether device is root or not.
+    """
+    # RootTargetPreparer's force-root set in config
+    options = get_config_preparer_options(config_path, _ROOT_PREPARER)
+    if not options:
+        return
+    logging.debug('preparer_options: %s', options)
+    preparer_force_root = True
+    if options.get('force-root', '').upper() == "FALSE":
+        preparer_force_root = False
+    logging.debug(' preparer_force_root: %s', preparer_force_root)
+    if preparer_force_root and not adb_root:
+        logging.debug('DETECT_TYPE_PERMISSION_INCONSISTENT:0')
+        metrics.LocalDetectEvent(
+            detect_type=constants.DETECT_TYPE_PERMISSION_INCONSISTENT,
+            result=0)
+    elif not preparer_force_root and adb_root:
+        logging.debug('DETECT_TYPE_PERMISSION_INCONSISTENT:1')
+        metrics.LocalDetectEvent(
+            detect_type=constants.DETECT_TYPE_PERMISSION_INCONSISTENT,
+            result=1)

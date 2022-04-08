@@ -17,7 +17,6 @@
 """Functional test for aidegen project files."""
 
 from __future__ import absolute_import
-from __future__ import print_function
 
 import argparse
 import functools
@@ -33,7 +32,6 @@ import xml.parsers.expat
 from aidegen import aidegen_main
 from aidegen import constant
 from aidegen.lib import clion_project_file_gen
-# pylint: disable=no-name-in-module
 from aidegen.lib import common_util
 from aidegen.lib import errors
 from aidegen.lib import module_info_util
@@ -49,7 +47,6 @@ _TEST_DATA_PATH = os.path.join(_ROOT_DIR, 'test_data')
 _VERIFY_COMMANDS_JSON = os.path.join(_TEST_DATA_PATH, 'verify_commands.json')
 _GOLDEN_SAMPLES_JSON = os.path.join(_TEST_DATA_PATH, 'golden_samples.json')
 _VERIFY_BINARY_JSON = os.path.join(_TEST_DATA_PATH, 'verify_binary_upload.json')
-_VERIFY_PRESUBMIT_JSON = os.path.join(_TEST_DATA_PATH, 'verify_presubmit.json')
 _ANDROID_COMMON = 'android_common'
 _LINUX_GLIBC_COMMON = 'linux_glibc_common'
 _SRCS = 'srcs'
@@ -117,12 +114,6 @@ def _parse_args(args):
         '--remove_bp_json',
         action='store_true',
         help='Remove module_bp_java_deps.json for each use case test.')
-    parser.add_argument(
-        '-m',
-        '--make_clean',
-        action='store_true',
-        help=('Make clean before testing to create a clean environment, the '
-              'aidegen_functional_test can run only once if users command it.'))
     group.add_argument(
         '-u',
         '--use_cases',
@@ -135,12 +126,6 @@ def _parse_args(args):
         dest='binary_upload_verified',
         help=('Verify aidegen\'s use cases by executing different aidegen '
               'commands.'))
-    group.add_argument(
-        '-p',
-        action='store_true',
-        dest='binary_presubmit_verified',
-        help=('Verify aidegen\'s tool in presubmit test by executing'
-              'different aidegen commands.'))
     group.add_argument(
         '-a',
         '--test-all',
@@ -213,7 +198,6 @@ def _get_project_file_names(abs_path):
         dep_name: a string of the merged project and dependencies file's name,
                   e.g., frameworks-dependencies.iml.
     """
-    # pylint: disable=maybe-no-member
     code_name = project_file_gen.ProjectFileGenerator.get_unique_iml_name(
         abs_path)
     file_name = ''.join([code_name, '.iml'])
@@ -382,7 +366,6 @@ def _generate_sample_json(test_list):
 
     Args:
         test_list: a list of module name and module path.
-
     Returns:
         data: a dictionary contains dependent files' data of project file's
               contents.
@@ -401,6 +384,7 @@ def _generate_sample_json(test_list):
                 ]
             }
     """
+    _make_clean()
     data = {}
     spec_and_cur_commit_id_dict = _checkout_baseline_code_to_spec_commit_id()
     for target in test_list:
@@ -426,7 +410,6 @@ def _create_some_sample_json_file(targets):
     with open(_GOLDEN_SAMPLES_JSON, 'r') as infile:
         try:
             data_sample = json.load(infile)
-        # pylint: disable=maybe-no-member
         except json.JSONDecodeError as err:
             print("Json decode error: {}".format(err))
             data_sample = {}
@@ -576,8 +559,7 @@ def _compare_jars_content(module_name, s_items, r_items, msg):
 # pylint: disable=eval-used
 @common_util.back_to_cwd
 @common_util.time_logged
-def _verify_aidegen(verified_file_path, forced_remove_bp_json,
-                    is_presubmit=False):
+def _verify_aidegen(verified_file_path, forced_remove_bp_json):
     """Verify various use cases of executing aidegen.
 
     There are two types of running commands:
@@ -614,9 +596,9 @@ def _verify_aidegen(verified_file_path, forced_remove_bp_json,
         raise errors.JsonFileNotExistError(
             '%s does not exist, error: %s.' % (verified_file_path, err))
 
-    if not is_presubmit:
-        _compare_sample_native_content()
+    _make_clean()
 
+    _compare_sample_native_content()
     os.chdir(common_util.get_android_root_dir())
     for use_case in data:
         print('Use case "{}" is running.'.format(use_case))
@@ -695,6 +677,7 @@ def _compare_sample_native_content():
         becomes
         prebuilts/gcc/linux-x86/x86/x86_64-linux-android-4.9 # in AIDEGen
     """
+    env_off = {'SOONG_COLLECT_JAVA_DEPS': 'false'}
     target_arch_variant = 'x86_64'
     env_on = {
         'TARGET_PRODUCT': 'aosp_x86_64',
@@ -702,13 +685,14 @@ def _compare_sample_native_content():
         'TARGET_ARCH_VARIANT': target_arch_variant,
         'SOONG_COLLECT_JAVA_DEPS': 'true',
         'SOONG_GEN_CMAKEFILES': '1',
+        'SOONG_GEN_CMAKEFILES_DEBUG': '0',
         'SOONG_COLLECT_CC_DEPS': '1'
     }
 
     try:
         project_config.ProjectConfig(
             aidegen_main._parse_args(['-n', '-v'])).init_environment()
-        module_info_util.generate_merged_module_info(env_on)
+        module_info_util.generate_merged_module_info(env_off, env_on)
         cc_path = os.path.join(common_util.get_soong_out_path(),
                                constant.BLUEPRINT_CC_JSONFILE_NAME)
         mod_name = 'libui'
@@ -758,18 +742,12 @@ def main(argv):
     args = _parse_args(argv)
     common_util.configure_logging(args.verbose)
     os.environ[constant.AIDEGEN_TEST_MODE] = 'true'
-
-    if args.make_clean:
-        _make_clean()
-
     if args.create_sample:
         _create_some_sample_json_file(args.targets)
     elif args.use_cases_verified:
         _verify_aidegen(_VERIFY_COMMANDS_JSON, args.remove_bp_json)
     elif args.binary_upload_verified:
         _verify_aidegen(_VERIFY_BINARY_JSON, args.remove_bp_json)
-    elif args.binary_presubmit_verified:
-        _verify_aidegen(_VERIFY_PRESUBMIT_JSON, args.remove_bp_json, True)
     elif args.test_all_samples:
         _test_all_samples_iml()
     elif args.compare_sample_native:
@@ -779,7 +757,6 @@ def main(argv):
             _test_some_sample_iml()
         else:
             _test_some_sample_iml(args.targets)
-
     del os.environ[constant.AIDEGEN_TEST_MODE]
 
 

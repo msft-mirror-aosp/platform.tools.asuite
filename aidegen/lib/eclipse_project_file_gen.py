@@ -176,7 +176,7 @@ class EclipseConf(project_file_gen.ProjectFileGenerator):
         links.update(self._gen_r_link())
         links.update(self._gen_bin_link())
         self.project_content = templates.ECLIPSE_PROJECT_XML.format(
-            PROJECTNAME=self.module_name.replace('/', '_'),
+            PROJECTNAME=self.module_name,
             LINKEDRESOURCES=''.join(sorted(list(links))))
 
     def _gen_r_path_entries(self):

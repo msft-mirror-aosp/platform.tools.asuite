@@ -25,7 +25,6 @@ from collections import deque
 from datetime import timedelta
 
 import atest_execution_info
-import result_reporter
 
 from test_runners import test_runner_base
 
@@ -82,8 +81,6 @@ class EventHandler:
         self.runner_name = name
         self.state = CONNECTION_STATE.copy()
         self.event_stack = deque()
-        self.log_associations = []
-        self.run_num = 0
 
     def _module_started(self, event_data):
         if atest_execution_info.PREPARE_END_TIME is None:
@@ -94,7 +91,6 @@ class EventHandler:
 
     def _run_started(self, event_data):
         # Technically there can be more than one run per module.
-        self.run_num = event_data.get('runAttempt', 0)
         self.state['test_run_name'] = event_data.setdefault('runName', '')
         self.state['current_group_total'] = event_data['testCount']
         self.state['test_count'] = 0
@@ -154,12 +150,8 @@ class EventHandler:
             additional_info={},
             test_run_name=self.state['test_run_name']))
 
-    # pylint: disable=unused-argument
     def _run_ended(self, event_data):
-        # Renew ResultReport if is module level(reporter.silent=False)
-        if not self.reporter.silent:
-            self.reporter.set_current_summary(self.run_num)
-            self.reporter = result_reporter.ResultReporter(silent=False)
+        pass
 
     def _module_ended(self, event_data):
         pass
@@ -208,8 +200,7 @@ class EventHandler:
             test_run_name=self.state['test_run_name']))
 
     def _log_association(self, event_data):
-        event_data.setdefault('time', time.time())
-        self.log_associations.append(event_data)
+        pass
 
     switch_handler = {EVENT_NAMES['module_started']: _module_started,
                       EVENT_NAMES['run_started']: _run_started,

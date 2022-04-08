@@ -101,9 +101,6 @@ XML_MISC = """<?xml version="1.0" encoding="UTF-8"?>
             </list>
         </option>
     </component>
-    <component name="FrameworkDetectionExcludesConfiguration">
-        <type id="android" />
-    </component>
     <component name="ContinuousBuildConfigurationComponent">
         <builds>
             <build intervalToCheckBuild="1" buildKey="" buildLabel=""
@@ -410,7 +407,9 @@ XML_ENABLE_DEBUGGER = """<?xml version="1.0" encoding="UTF-8"?>
 <module type="JAVA_MODULE" version="4">
   <component name="FacetManager">
     <facet type="android" name="Android">
-      <configuration />
+      <configuration>
+        <proGuardCfgFiles />
+      </configuration>
     </facet>
   </component>
   <component name="NewModuleRootManager" inherit-compiler-output="true">
