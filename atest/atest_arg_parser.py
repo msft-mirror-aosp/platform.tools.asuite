@@ -148,7 +148,10 @@ class AtestArgParser(argparse.ArgumentParser):
         self.add_argument('-a', '--all-abi', action='store_true', help=ALL_ABI)
         self.add_argument('-b', '--build', action='append_const', dest='steps',
                           const=constants.BUILD_STEP, help=BUILD)
-        self.add_argument('--bazel-mode', action='store_true', help=BAZEL_MODE)
+        self.add_argument('--bazel-mode', default=True, action='store_true',
+                            help=BAZEL_MODE)
+        self.add_argument('--no-bazel-mode', dest='bazel_mode',
+                            action='store_false', help=BAZEL_MODE)
         self.add_argument('--bazel-arg', nargs='*', action='append', help=BAZEL_ARG)
         bazel_mode.add_parser_arguments(self, dest='bazel_mode_features')
 
@@ -414,7 +417,7 @@ OPTIONS
         -b, --build
             {BUILD} (implicit default)
 
-        --bazel-mode
+        --[no-]bazel-mode
             {BAZEL_MODE}
 
         --bazel-arg
