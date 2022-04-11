@@ -763,13 +763,6 @@ class AtestTradefedTestRunner(trb.TestRunnerBase):
                 args.extend([constants.TF_MODULE_FILTER, info.test_name])
             else:
                 args.extend([constants.TF_INCLUDE_FILTER, info.test_name])
-            filters = set()
-            for test_filter in info.data.get(constants.TI_FILTER, []):
-                filters.update(test_filter.to_set_of_tf_strings())
-            for test_filter in filters:
-                filter_arg = constants.TF_ATEST_INCLUDE_FILTER_VALUE_FMT.format(
-                    test_name=info.test_name, test_filter=test_filter)
-                args.extend([constants.TF_ATEST_INCLUDE_FILTER, filter_arg])
             for option in info.data.get(constants.TI_MODULE_ARG, []):
                 if constants.TF_INCLUDE_FILTER_OPTION == option[0]:
                     suite_filter = (
@@ -787,6 +780,10 @@ class AtestTradefedTestRunner(trb.TestRunnerBase):
                             test_name=info.test_name, option_name=option[0],
                             option_value=option[1]))
                     args.extend([constants.TF_MODULE_ARG, module_arg])
+
+        # Add ATest include filter
+        args.extend(get_include_filter(test_infos))
+
         # TODO (b/141090547) Pass the config path to TF to load configs.
         # Compile option in TF if finder is not INTEGRATION or not set.
         if not has_integration_test:
@@ -961,6 +958,7 @@ def extra_args_to_tf_args(mod_info: module_info.ModuleInfo,
     def constant_list(*value):
         return lambda *_: value
 
+    # pylint: disable=unused-argument
     def print_message(message):
         def inner(*args):
             print(message)
@@ -1025,9 +1023,26 @@ def extra_args_to_tf_args(mod_info: module_info.ModuleInfo,
         constants.TEST_FILTER:
             lambda arg_value, *_: [
                 '--test-arg',
-                f'com.android.tradefed.testtype.AndroidJUnitTest:include-filter:{arg_value}',
+                'com.android.tradefed.testtype.AndroidJUnitTest:'
+                f'include-filter:{arg_value}',
                 '--test-arg',
-                f'com.android.tradefed.testtype.GTest:native-test-flag:--gtest_filter={arg_value}'
+                'com.android.tradefed.testtype.GTest:native-test-flag:'
+                f'--gtest_filter={arg_value}'
+            ],
+        constants.TEST_TIMEOUT:
+            lambda arg_value, *_: [
+                '--test-arg',
+                'com.android.tradefed.testtype.AndroidJUnitTest:'
+                f'shell-timeout:{arg_value}',
+                '--test-arg',
+                'com.android.tradefed.testtype.AndroidJUnitTest:'
+                f'test-timeout:{arg_value}',
+                '--test-arg',
+                'com.android.tradefed.testtype.HostGTest:'
+                f'native-test-timeout:{arg_value}',
+                '--test-arg',
+                'com.android.tradefed.testtype.GTest:'
+                f'native-test-timeout:{arg_value}',
             ]
     })
 
@@ -1053,3 +1068,20 @@ def extra_args_to_tf_args(mod_info: module_info.ModuleInfo,
             continue
         unsupported_args.append(arg)
     return supported_args, unsupported_args
+
+def get_include_filter(test_infos: List[test_info.TestInfo]) -> List[str]:
+    """Generate a list of tradefed filter argument from TestInfos.
+
+    The tradefed argument format should be:
+    atest-include-filter <module-name>:<include-filter-value>
+    """
+    tf_args = []
+    for info in test_infos:
+        filters = set()
+        for test_info_filter in info.data.get(constants.TI_FILTER, []):
+            filters.update(test_info_filter.to_set_of_tf_strings())
+        for test_filter in filters:
+            filter_arg = constants.TF_ATEST_INCLUDE_FILTER_VALUE_FMT.format(
+                test_name=info.test_name, test_filter=test_filter)
+            tf_args.extend([constants.TF_ATEST_INCLUDE_FILTER, filter_arg])
+    return tf_args

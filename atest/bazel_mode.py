@@ -198,7 +198,8 @@ class WorkspaceGenerator:
                 continue
 
             if (Features.EXPERIMENTAL_DEVICE_DRIVEN_TEST in
-                    self.enabled_features and self.is_device_driven_test(info)):
+                    self.enabled_features and
+                    self.mod_info.is_device_driven_test(info)):
                 self._resolve_dependencies(
                     self._add_test_target(
                         info, 'device',
@@ -308,10 +309,6 @@ class WorkspaceGenerator:
                             f' path: {mod_path}')
 
         return mod_path[0]
-
-    def is_device_driven_test(self, info: Dict[str, Any]) -> bool:
-        return self.mod_info.is_testable_module(info) and 'DEVICE' in info.get(
-            constants.MODULE_SUPPORTED_VARIANTS, [])
 
     def is_host_unit_test(self, info: Dict[str, Any]) -> bool:
         return self.mod_info.is_testable_module(
@@ -903,7 +900,7 @@ def is_tf_testable_module(mod_info: module_info.ModuleInfo,
             and info.get(constants.MODULE_COMPATIBILITY_SUITES))
 
 
-def _decorate_find_method(mod_info, finder_method_func):
+def _decorate_find_method(mod_info, finder_method_func, host=False):
     """A finder_method decorator to override TestInfo properties."""
 
     def use_bazel_runner(finder_obj, test_id):
@@ -912,6 +909,12 @@ def _decorate_find_method(mod_info, finder_method_func):
             return test_infos
         for tinfo in test_infos:
             m_info = mod_info.get_module_info(tinfo.test_name)
+
+            # Ignore tests that have a device variant unless explicitly
+            # requested with the `--host` command-line argument.
+            if not host and mod_info.is_device_driven_test(m_info):
+                continue
+
             if mod_info.is_suite_in_compatibility_suites(
                 'host-unit-tests', m_info):
                 tinfo.test_runner = BazelTestRunner.NAME
@@ -919,12 +922,15 @@ def _decorate_find_method(mod_info, finder_method_func):
     return use_bazel_runner
 
 
-def create_new_finder(mod_info, finder):
+def create_new_finder(mod_info: module_info.ModuleInfo,
+                      finder: test_finder_base.TestFinderBase,
+                      host: bool):
     """Create new test_finder_base.Finder with decorated find_method.
 
     Args:
       mod_info: ModuleInfo object.
       finder: Test Finder class.
+      host: Whether to run the host variant.
 
     Returns:
         List of ordered find methods.
@@ -932,7 +938,8 @@ def create_new_finder(mod_info, finder):
     return test_finder_base.Finder(finder.test_finder_instance,
                                    _decorate_find_method(
                                        mod_info,
-                                       finder.find_method),
+                                       finder.find_method,
+                                       host),
                                    finder.finder_info)
 
 
@@ -1067,6 +1074,10 @@ class BazelTestRunner(trb.TestRunnerBase):
         # that we don't have to re-parse the extra args to get BAZEL_ARG again.
         tf_args, _ = tfr.extra_args_to_tf_args(
             self.mod_info, test_infos, extra_args_copy)
+
+        # Add ATest include filter argument to allow testcase filtering.
+        tf_args.extend(tfr.get_include_filter(test_infos))
+
         args_to_append.extend([f'--test_arg={i}' for i in tf_args])
 
         return args_to_append
