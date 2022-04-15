@@ -144,7 +144,7 @@ function _atest_main() {
     # BASH version <= 4.3 doesn't have nosort option.
     # Note that nosort has no effect for zsh.
     local _atest_comp_options="-o default -o nosort"
-    local _atest_executables=(atest atest-dev atest-src atest-py3 _atest_profile_web)
+    local _atest_executables=(atest atest-dev atest-src atest-py3 _atest_profile_web _atest_profile_cli)
     for exec in "${_atest_executables[*]}"; do
         complete -F _atest $_atest_comp_options $exec 2>/dev/null || \
         complete -F _atest -o default $exec
@@ -163,6 +163,17 @@ function _atest_main() {
         fi
         PREBUILT_TOOLS_DIR="$ANDROID_BUILD_TOP/prebuilts/build-tools/path/linux-x86"
         PATH=$PREBUILT_TOOLS_DIR:$PATH $atest_dev "$@"
+    }
+
+    # pyinstrument profiler
+    function _atest_profile_cli() {
+        profile="$HOME/.atest/$(date +'%F_%H-%M-%S').pyisession"
+        module="pyinstrument"
+        _pip_install $module
+        if [ "$?" -eq 0 ]; then
+            $module --timeline --color -o $profile $atest_src "$@" && cat $profile
+            echo "$(tput setaf 3)$profile$(tput sgr0) saved."
+        fi
     }
 
     # cProfile profiler + snakeviz visualization
