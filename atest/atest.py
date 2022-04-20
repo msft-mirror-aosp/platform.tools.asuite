@@ -888,10 +888,7 @@ def main(argv, results_dir, args):
     if not (any(dry_run_args) or verify_env_variables):
         proc_idx = atest_utils.run_multi_proc(INDEX_TARGETS)
     smart_rebuild = need_rebuild_module_info(args.rebuild_module_info)
-    mod_start = time.time()
     mod_info = module_info.ModuleInfo(force_build=smart_rebuild)
-    metrics.LocalDetectEvent(detect_type=DetectType.MODULE_INFO_INIT,
-                             result=int(time.time() - mod_start))
     atest_utils.generate_buildfiles_checksum()
     if args.bazel_mode:
         bazel_mode.generate_bazel_workspace(
