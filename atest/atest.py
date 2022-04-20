@@ -898,7 +898,8 @@ def main(argv, results_dir, args):
         mod_info=mod_info,
         print_cache_msg=not args.clear_cache,
         bazel_mode_enabled=args.bazel_mode,
-        host=args.host)
+        host=args.host,
+        bazel_mode_features=args.bazel_mode_features)
     if args.list_modules:
         _print_testable_modules(mod_info, args.list_modules)
         return ExitCode.SUCCESS
@@ -954,8 +955,8 @@ def main(argv, results_dir, args):
 
     if args.info:
         return _print_test_info(mod_info, test_infos)
-    build_targets |= test_runner_handler.get_test_runner_reqs(mod_info,
-                                                              test_infos)
+    build_targets |= test_runner_handler.get_test_runner_reqs(
+        mod_info, test_infos, extra_args=extra_args)
     if any(dry_run_args):
         if not verify_env_variables:
             return _dry_run_validator(args, results_dir, extra_args, test_infos,
