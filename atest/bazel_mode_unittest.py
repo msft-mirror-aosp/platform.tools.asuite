@@ -298,10 +298,14 @@ class BasicWorkspaceGenerationTest(GenerationTestFixture):
 
     def test_generate_workspace_file(self):
         gen = self.create_workspace_generator()
+        workspace_path = gen.workspace_out_path.joinpath('WORKSPACE')
 
         gen.generate()
 
-        self.assertTrue(gen.workspace_out_path.joinpath('WORKSPACE').exists())
+        self.assertSymlinkTo(
+            workspace_path,
+            self.src_root_path.joinpath('tools/asuite/atest/bazel/WORKSPACE')
+        )
 
     def test_generate_bazelrc_file(self):
         gen = self.create_workspace_generator()
