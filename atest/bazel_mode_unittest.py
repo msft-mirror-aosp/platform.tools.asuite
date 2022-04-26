@@ -89,7 +89,7 @@ class GenerationTestFixture(fake_filesystem_unittest.TestCase):
         generator.generate()
 
     # pylint: disable=protected-access
-    @mock.patch.dict('os.environ', {constants.ANDROID_BUILD_TOP:'/'})
+    @mock.patch.dict('os.environ', {constants.ANDROID_BUILD_TOP: '/'})
     def create_empty_module_info(self):
         fake_temp_file_name = next(tempfile._get_candidate_names())
         self.fs.create_file(fake_temp_file_name, contents='{}')
@@ -187,6 +187,26 @@ class BasicWorkspaceGenerationTest(GenerationTestFixture):
         new_workspace_stat = workspace_generator.workspace_out_path.stat()
 
         self.assertNotEqual(workspace_stat, new_workspace_stat)
+
+    def test_not_regenerate_when_feature_does_not_affect_workspace(self):
+        workspace_generator = self.create_workspace_generator(
+            enabled_features={bazel_mode.Features.NULL_FEATURE})
+        workspace_generator.generate()
+        workspace_stat = workspace_generator.workspace_out_path.stat()
+
+        parser = argparse.ArgumentParser()
+        bazel_mode.add_parser_arguments(parser, dest='bazel_mode_features')
+        # pylint: disable=no-member
+        args = parser.parse_args([
+            bazel_mode.Features.NULL_FEATURE.arg_flag,
+            '--experimental-bes-publish'
+        ])
+        workspace_generator = self.create_workspace_generator(
+            enabled_features=set(args.bazel_mode_features))
+        workspace_generator.generate()
+        new_workspace_stat = workspace_generator.workspace_out_path.stat()
+
+        self.assertEqual(workspace_stat, new_workspace_stat)
 
     def test_not_regenerate_workspace_when_features_unchanged(self):
         workspace_generator = self.create_workspace_generator(
@@ -984,7 +1004,7 @@ class DataDependenciesGenerationTest(GenerationTestFixture):
         self.assertTargetNotInWorkspace('libdata')
 
 
-@mock.patch.dict('os.environ', {constants.ANDROID_BUILD_TOP:'/'})
+@mock.patch.dict('os.environ', {constants.ANDROID_BUILD_TOP: '/'})
 def create_empty_module_info():
     with fake_filesystem_unittest.Patcher() as patcher:
         # pylint: disable=protected-access
@@ -1613,8 +1633,41 @@ class BazelTestRunnerTest(unittest.TestCase):
         self.assertTokensIn(['--test_arg=--atest-include-filter',
                              '--test_arg=test1:class1#method1'], cmd[0])
 
-    def create_bazel_test_runner(self, modules, test_infos, run_command=None,
-                                 host=False):
+    def test_generate_run_command_with_bes_publish_enabled(self):
+        test_infos = [test_info_of('test1')]
+        extra_args = {
+            constants.BAZEL_MODE_FEATURES: [
+                bazel_mode.Features.EXPERIMENTAL_BES_PUBLISH
+            ]
+        }
+        build_metadata = bazel_mode.BuildMetadata(
+            'master', 'aosp_cf_x86_64_phone-userdebug')
+        env = {
+            'ATEST_BAZELRC': '/dir/atest.bazelrc',
+            'ATEST_BAZEL_BES_PUBLISH_CONFIG': 'bes_publish'
+        }
+        runner = self.create_bazel_test_runner_for_tests(
+            test_infos, build_metadata=build_metadata, env=env)
+
+        cmd = runner.generate_run_commands(
+            test_infos,
+            extra_args,
+        )
+
+        self.assertTokensIn([
+            '--bazelrc=/dir/atest.bazelrc',
+            '--config=bes_publish',
+            '--build_metadata=ab_branch=master',
+            '--build_metadata=ab_target=aosp_cf_x86_64_phone-userdebug'
+        ], cmd[0])
+
+    def create_bazel_test_runner(self,
+                                 modules,
+                                 test_infos,
+                                 run_command=None,
+                                 host=False,
+                                 build_metadata=None,
+                                 env=None):
         return bazel_mode.BazelTestRunner(
             'result_dir',
             mod_info=create_module_info(modules),
@@ -1623,13 +1676,20 @@ class BazelTestRunnerTest(unittest.TestCase):
             workspace_path=Path('/src/workspace'),
             run_command=run_command or self.mock_run_command(),
             extra_args={constants.HOST: host},
+            build_metadata = build_metadata,
+            env = env
         )
 
-    def create_bazel_test_runner_for_tests(self, test_infos):
+    def create_bazel_test_runner_for_tests(self,
+                                           test_infos,
+                                           build_metadata=None,
+                                           env=None):
         return self.create_bazel_test_runner(
             modules=[supported_test_module(name=t.test_name, path='path')
                      for t in test_infos],
-            test_infos=test_infos
+            test_infos=test_infos,
+            build_metadata=build_metadata,
+            env=env
         )
 
     def mock_run_command(self, **kwargs):
