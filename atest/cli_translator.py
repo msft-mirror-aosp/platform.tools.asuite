@@ -27,6 +27,8 @@ import re
 import sys
 import time
 
+from typing import List
+
 import atest_error
 import atest_utils
 import bazel_mode
@@ -67,7 +69,8 @@ class CLITranslator:
     """
 
     def __init__(self, mod_info=None, print_cache_msg=True,
-                 bazel_mode_enabled=False):
+                 bazel_mode_enabled=False, host=False,
+                 bazel_mode_features: List[bazel_mode.Features]=None):
         """CLITranslator constructor
 
         Args:
@@ -75,9 +78,13 @@ class CLITranslator:
             print_cache_msg: Boolean whether printing clear cache message or not.
                              True will print message while False won't print.
             bazel_mode_enabled: Boolean of args.bazel_mode.
+            host: Boolean of args.host.
+            bazel_mode_features: List of args.bazel_mode_features.
         """
         self.mod_info = mod_info
         self._bazel_mode = bazel_mode_enabled
+        self._bazel_mode_features = bazel_mode_features or []
+        self._host = host
         self.enable_file_patterns = False
         self.msg = ''
         if print_cache_msg:
@@ -111,8 +118,12 @@ class CLITranslator:
         find_methods = test_finder_handler.get_find_methods_for_test(
             self.mod_info, test)
         if self._bazel_mode:
-            find_methods = [bazel_mode.create_new_finder(self.mod_info, f)
-                            for f in find_methods]
+            find_methods = [bazel_mode.create_new_finder(
+                self.mod_info,
+                f,
+                host=self._host,
+                enabled_features=self._bazel_mode_features
+            ) for f in find_methods]
         for finder in find_methods:
             # For tests in TEST_MAPPING, find method is only related to
             # test name, so the details can be set after test_info object
@@ -581,6 +592,21 @@ class CLITranslator:
                 extracted_tests.append(test)
         return extracted_tests
 
+    def _has_host_unit_test(self, tests):
+        """Tell whether one of the given testis a host unit test.
+
+        Args:
+            tests: A list of test names.
+
+        Returns:
+            True when one of the given testis a host unit test.
+        """
+        all_host_unit_tests = self.mod_info.get_all_host_unit_tests()
+        for test in tests:
+            if test in all_host_unit_tests:
+                return True
+        return False
+
     def translate(self, args):
         """Translate atest command line into build targets and run commands.
 
@@ -627,6 +653,12 @@ class CLITranslator:
             host_unit_test_infos = self._get_test_infos(host_unit_tests,
                                                         host_unit_test_details)
             test_infos.update(host_unit_test_infos)
+        if atest_utils.has_mixed_type_filters(test_infos):
+            atest_utils.colorful_print(
+                'Mixed type filters found. '
+                'Please separate tests into different runs.',
+                constants.YELLOW)
+            sys.exit(ExitCode.MIXED_TYPE_FILTER)
         finished_time = time.time() - start
         logging.debug('Finding tests finished in %ss', finished_time)
         metrics.LocalDetectEvent(
@@ -635,4 +667,9 @@ class CLITranslator:
         for test_info in test_infos:
             logging.debug('%s\n', test_info)
         build_targets = self._gather_build_targets(test_infos)
+        if not self._bazel_mode:
+            if host_unit_tests or self._has_host_unit_test(tests):
+                msg = (r"It is recommended to run host unit tests with "
+                       r"--bazel-mode.")
+                atest_utils.colorful_print(msg, constants.YELLOW)
         return build_targets, test_infos
