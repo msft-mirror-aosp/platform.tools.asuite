@@ -52,6 +52,7 @@ import module_info
 import result_reporter
 import test_runner_handler
 
+from atest_enum import DetectType, ExitCode
 from metrics import metrics
 from metrics import metrics_base
 from metrics import metrics_utils
@@ -81,6 +82,12 @@ ACLOUD_CREATE = at.acloud_create
 INDEX_TARGETS = at.index_targets
 END_OF_OPTION = '--'
 HAS_IGNORED_ARGS = False
+# Conditions that atest should exit without sending result to metrics.
+EXIT_CODES_BEFORE_TEST = [ExitCode.ENV_NOT_SETUP,
+                          ExitCode.TEST_NOT_FOUND,
+                          ExitCode.OUTSIDE_ROOT,
+                          ExitCode.AVD_CREATE_FAILURE,
+                          ExitCode.AVD_INVALID_ARGS]
 
 def _get_args_from_config():
     """Get customized atest arguments in the config file.
@@ -241,6 +248,7 @@ def get_extra_args(args):
                 'serial': constants.SERIAL,
                 'sharding': constants.SHARDING,
                 'test_filter': constants.TEST_FILTER,
+                'test_timeout': constants.TEST_TIMEOUT,
                 'tf_early_device_release': constants.TF_EARLY_DEVICE_RELEASE,
                 'tf_debug': constants.TF_DEBUG,
                 'tf_template': constants.TF_TEMPLATE,
@@ -306,11 +314,33 @@ def _validate_exec_mode(args, test_infos, host_tests=None):
         err_msg = 'There are host-only tests in command.'
     if err_msg:
         logging.error(err_msg)
-        metrics_utils.send_exit_event(constants.EXIT_CODE_ERROR, logs=err_msg)
-        sys.exit(constants.EXIT_CODE_ERROR)
+        metrics_utils.send_exit_event(ExitCode.ERROR, logs=err_msg)
+        sys.exit(ExitCode.ERROR)
+    # The 'adb' may not be available for the first repo sync or a clean build; run
+    # `adb devices` in the build step again.
+    if at.has_command('adb'):
+        _validate_adb_devices(args, test_infos)
+    # In the case of '$atest <host-only>', we add --host to run on host-side.
+    # The option should only be overridden if `host_tests` is not set.
+    if not args.host and host_tests is None:
+        logging.debug('Appending "--host" for a deviceless test...')
+        args.host = bool(constants.DEVICELESS_TEST in all_device_modes)
+
+
+def _validate_adb_devices(args, test_infos):
+    """Validate the availability of connected devices via adb command.
+
+    Exit the program with error code if have device-only and host-only.
+
+    Args:
+        args: parsed args object.
+        test_info: TestInfo object.
+    """
+    all_device_modes = {x.get_supported_exec_mode() for x in test_infos}
     device_tests = [x.test_name for x in test_infos
         if x.get_supported_exec_mode() != constants.DEVICELESS_TEST]
-    if not constants.DEVICELESS_TEST in all_device_modes:
+    # Only block testing if it is a device test.
+    if constants.DEVICE_TEST in all_device_modes:
         if (not any((args.host, args.start_avd, args.acloud_create))
             and not atest_utils.get_adb_devices()):
             err_msg = (f'Stop running test(s): '
@@ -318,14 +348,9 @@ def _validate_exec_mode(args, test_infos, host_tests=None):
             atest_utils.colorful_print(err_msg, constants.RED)
             logging.debug(atest_utils.colorize(
                 constants.REQUIRE_DEVICES_MSG, constants.RED))
-            metrics_utils.send_exit_event(constants.EXIT_CODE_DEVICE_NOT_FOUND,
+            metrics_utils.send_exit_event(ExitCode.DEVICE_NOT_FOUND,
                                           logs=err_msg)
-            sys.exit(constants.EXIT_CODE_DEVICE_NOT_FOUND)
-    # In the case of '$atest <host-only>', we add --host to run on host-side.
-    # The option should only be overridden if `host_tests` is not set.
-    if not args.host and host_tests is None:
-        logging.debug('Appending "--host" for a deviceless test...')
-        args.host = bool(constants.DEVICELESS_TEST in all_device_modes)
+            sys.exit(ExitCode.DEVICE_NOT_FOUND)
 
 
 def _validate_tm_tests_exec_mode(args, test_infos):
@@ -445,15 +470,15 @@ def _validate_args(args):
         args: parsed args object.
     """
     if _missing_environment_variables():
-        sys.exit(constants.EXIT_CODE_ENV_NOT_SETUP)
+        sys.exit(ExitCode.ENV_NOT_SETUP)
     if args.generate_baseline and args.generate_new_metrics:
         logging.error(
             'Cannot collect both baseline and new metrics at the same time.')
-        sys.exit(constants.EXIT_CODE_ERROR)
+        sys.exit(ExitCode.ERROR)
     if not _has_valid_regression_detection_args(args):
-        sys.exit(constants.EXIT_CODE_ERROR)
+        sys.exit(ExitCode.ERROR)
     if not _has_valid_test_mapping_args(args):
-        sys.exit(constants.EXIT_CODE_ERROR)
+        sys.exit(ExitCode.ERROR)
 
 
 def _print_module_info_from_module_name(mod_info, module_name):
@@ -502,7 +527,7 @@ def _print_test_info(mod_info, test_infos):
             if build_target != test_info.test_name:
                 _print_module_info_from_module_name(mod_info, build_target)
         atest_utils.colorful_print("", constants.WHITE)
-    return constants.EXIT_CODE_SUCCESS
+    return ExitCode.SUCCESS
 
 
 def is_from_test_mapping(test_infos):
@@ -572,7 +597,7 @@ def _run_test_mapping_tests(results_dir, test_infos, extra_args, mod_info):
         atest_execution_info.AtestExecutionInfo.result_reporters.append(reporter)
         test_results.append((tests_exit_code, reporter, test_type))
 
-    all_tests_exit_code = constants.EXIT_CODE_SUCCESS
+    all_tests_exit_code = ExitCode.SUCCESS
     failed_tests = []
     for tests_exit_code, reporter, test_type in test_results:
         atest_utils.colorful_print(
@@ -650,23 +675,23 @@ def _non_action_validator(args):
         atest_utils.colorful_print(
             "\nAtest must always work under ${}!".format(
                 constants.ANDROID_BUILD_TOP), constants.RED)
-        sys.exit(constants.EXIT_CODE_OUTSIDE_ROOT)
+        sys.exit(ExitCode.OUTSIDE_ROOT)
     if args.version:
         if os.path.isfile(constants.VERSION_FILE):
             with open(constants.VERSION_FILE, encoding='utf8') as version_file:
                 print(version_file.read())
-        sys.exit(constants.EXIT_CODE_SUCCESS)
+        sys.exit(ExitCode.SUCCESS)
     if args.help:
         atest_arg_parser.print_epilog_text()
-        sys.exit(constants.EXIT_CODE_SUCCESS)
+        sys.exit(ExitCode.SUCCESS)
     if args.history:
         atest_execution_info.print_test_result(constants.ATEST_RESULT_ROOT,
                                                args.history)
-        sys.exit(constants.EXIT_CODE_SUCCESS)
+        sys.exit(ExitCode.SUCCESS)
     if args.latest_result:
         atest_execution_info.print_test_result_by_path(
             constants.LATEST_RESULT_FILE)
-        sys.exit(constants.EXIT_CODE_SUCCESS)
+        sys.exit(ExitCode.SUCCESS)
     # TODO(b/131879842): remove below statement after they are fully removed.
     if any((args.detect_regression,
             args.generate_baseline,
@@ -704,11 +729,11 @@ def _dry_run_validator(args, results_dir, extra_args, test_infos, mod_info):
                                                do_verification=True)
         except atest_error.DryRunVerificationError as e:
             atest_utils.colorful_print(str(e), constants.RED)
-            return constants.EXIT_CODE_VERIFY_FAILURE
+            return ExitCode.VERIFY_FAILURE
     if args.update_cmd_mapping:
         atest_utils.handle_test_runner_cmd(test_commands,
                                            dry_run_cmds)
-    return constants.EXIT_CODE_SUCCESS
+    return ExitCode.SUCCESS
 
 def _exclude_modules_in_targets(build_targets):
     """Method that excludes MODULES-IN-* targets.
@@ -728,6 +753,7 @@ def _exclude_modules_in_targets(build_targets):
             shrank_build_targets.remove(target)
     return shrank_build_targets
 
+# pylint: disable=protected-access
 def need_rebuild_module_info(force_build):
     """Method that tells whether we need to rebuild module-info.json or not.
 
@@ -737,13 +763,17 @@ def need_rebuild_module_info(force_build):
     Returns:
         - When force_build is True, return True (will rebuild module-info).
         - When force_build is False, then check the consistency of build files.
-        If the checksum file of build files is missing, considered check passed
-        (no need to rebuild module-info.json)
+        If the checksum file of build files is missing, considered check False
+        (need to rebuild module-info.json)
     """
     logging.debug('Examinating the consistency of build files...')
     if force_build:
+        msg = (f'`{constants.REBUILD_MODULE_INFO_FLAG}` is no longer needed '
+               f'since Atest can smartly rebuild {module_info._MODULE_INFO} '
+               r'only when needed.')
+        atest_utils.colorful_print(msg, constants.YELLOW)
         return True
-    if atest_utils.check_md5(constants.BUILDFILES_MD5, missing_ok=True):
+    if atest_utils.check_md5(constants.BUILDFILES_MD5, missing_ok=False):
         logging.debug('All build files stay untouched.')
         return False
     logging.debug('Found build files were changed.')
@@ -803,6 +833,26 @@ def perm_consistency_metrics(test_infos, mod_info, args):
         logging.debug('perm_consistency_metrics raised exception: %s', err)
         return
 
+def get_device_count_config(test_infos, mod_info):
+    """Get the amount of desired devices from the test config.
+
+    Args:
+        test_infos: A set of TestInfo instances.
+        mod_info: ModuleInfo object.
+
+    Returns: the count of devices in test config. If there are more than one
+             configs, return the maximum.
+    """
+    max_count = 0
+    for tinfo in test_infos:
+        test_config, _ = test_finder_utils.get_test_config_and_srcs(
+            tinfo, mod_info)
+        if test_config:
+            devices = atest_utils.get_config_device(test_config)
+            if devices:
+                max_count = max(len(devices), max_count)
+    return max_count
+
 # pylint: disable=too-many-statements
 # pylint: disable=too-many-branches
 # pylint: disable=too-many-return-statements
@@ -838,17 +888,24 @@ def main(argv, results_dir, args):
     if not (any(dry_run_args) or verify_env_variables):
         proc_idx = atest_utils.run_multi_proc(INDEX_TARGETS)
     smart_rebuild = need_rebuild_module_info(args.rebuild_module_info)
+    mod_start = time.time()
     mod_info = module_info.ModuleInfo(force_build=smart_rebuild)
+    metrics.LocalDetectEvent(detect_type=DetectType.MODULE_INFO_INIT_TIME,
+                             result=int(time.time() - mod_start))
     atest_utils.generate_buildfiles_checksum()
     if args.bazel_mode:
-        bazel_mode.generate_bazel_workspace(mod_info)
+        bazel_mode.generate_bazel_workspace(
+            mod_info,
+            enabled_features=set(args.bazel_mode_features or []))
     translator = cli_translator.CLITranslator(
         mod_info=mod_info,
         print_cache_msg=not args.clear_cache,
-        bazel_mode_enabled=args.bazel_mode)
+        bazel_mode_enabled=args.bazel_mode,
+        host=args.host,
+        bazel_mode_features=args.bazel_mode_features)
     if args.list_modules:
         _print_testable_modules(mod_info, args.list_modules)
-        return constants.EXIT_CODE_SUCCESS
+        return ExitCode.SUCCESS
     build_targets = set()
     mm_build_targets = set()
     test_infos = set()
@@ -857,16 +914,32 @@ def main(argv, results_dir, args):
             proc_idx.join()
         find_start = time.time()
         build_targets, test_infos = translator.translate(args)
-        if args.no_modules_in:
+        given_amount  = len(args.serial) if args.serial else 0
+        required_amount = get_device_count_config(test_infos, mod_info)
+        args.device_count_config = required_amount
+        # Only check when both given_amount and required_amount are non zero.
+        if all((given_amount, required_amount)):
+            # Base on TF rules, given_amount can be greater than or equal to
+            # required_amount.
+            if required_amount > given_amount:
+                atest_utils.colorful_print(
+                    f'The test requires {required_amount} devices, '
+                    f'but {given_amount} were given.',
+                    constants.RED)
+                return 0
+        # Remove MODULE-IN-* from build targets if not bazel mode and user not
+        # force set --use-modules-in.
+        if not args.bazel_mode and not args.use_modules_in:
             build_targets = _exclude_modules_in_targets(build_targets)
         find_duration = time.time() - find_start
         if not test_infos:
-            return constants.EXIT_CODE_TEST_NOT_FOUND
+            return ExitCode.TEST_NOT_FOUND
         if not is_from_test_mapping(test_infos):
-            _validate_exec_mode(args, test_infos)
-            # _validate_exec_mode appends --host automatically when pure
-            # host-side tests, so re-parsing extra_args is a must.
-            extra_args = get_extra_args(args)
+            if not (any(dry_run_args) or verify_env_variables):
+                _validate_exec_mode(args, test_infos)
+                # _validate_exec_mode appends --host automatically when pure
+                # host-side tests, so re-parsing extra_args is a must.
+                extra_args = get_extra_args(args)
         else:
             _validate_tm_tests_exec_mode(args, test_infos)
         for test_info in test_infos:
@@ -874,10 +947,19 @@ def main(argv, results_dir, args):
                 for module in test_info.mainline_modules.split('+'):
                     mm_build_targets.add(re.sub(
                          MAINLINE_MODULES_EXT_RE, '', module))
+
+    # For TEST_MAPPING, set timeout to 600000ms.
+    if args.test_timeout is None:
+        if is_from_test_mapping(test_infos):
+            extra_args.update({constants.TEST_TIMEOUT: 600000})
+            logging.debug(
+                'Set test timeout to %sms to align it in TEST_MAPPING.',
+                extra_args.get(constants.TEST_TIMEOUT))
+
     if args.info:
         return _print_test_info(mod_info, test_infos)
-    build_targets |= test_runner_handler.get_test_runner_reqs(mod_info,
-                                                              test_infos)
+    build_targets |= test_runner_handler.get_test_runner_reqs(
+        mod_info, test_infos, extra_args=extra_args)
     if any(dry_run_args):
         if not verify_env_variables:
             return _dry_run_validator(args, results_dir, extra_args, test_infos,
@@ -894,10 +976,6 @@ def main(argv, results_dir, args):
     # args.steps will be None if none of -bit set, else list of params set.
     steps = args.steps if args.steps else constants.ALL_STEPS
     if build_targets and constants.BUILD_STEP in steps:
-        # smart_rebuild -> merge_soong_info -> index_testable_modules
-        if not mod_info.module_index.is_file() or mod_info.update_merge_info:
-            # pylint: disable=protected-access
-            atest_utils.run_multi_proc(mod_info._get_testable_modules)
         # Add module-info.json target to the list of build targets to keep the
         # file up to date.
         build_targets.add(mod_info.module_info_target)
@@ -910,18 +988,18 @@ def main(argv, results_dir, args):
             duration=metrics_utils.convert_duration(build_duration),
             success=success,
             targets=build_targets)
-        rebuild_module_info = constants.DETECT_TYPE_NOT_REBUILD_MODULE_INFO
+        rebuild_module_info = DetectType.NOT_REBUILD_MODULE_INFO
         if is_clean:
-            rebuild_module_info = constants.DETECT_TYPE_CLEAN_BUILD
+            rebuild_module_info = DetectType.CLEAN_BUILD
         elif args.rebuild_module_info:
-            rebuild_module_info = constants.DETECT_TYPE_REBUILD_MODULE_INFO
+            rebuild_module_info = DetectType.REBUILD_MODULE_INFO
         elif smart_rebuild:
-            rebuild_module_info = constants.DETECT_TYPE_SMART_REBUILD_MODULE_INFO
+            rebuild_module_info = DetectType.SMART_REBUILD_MODULE_INFO
         metrics.LocalDetectEvent(
             detect_type=rebuild_module_info,
             result=int(build_duration))
         if not success:
-            return constants.EXIT_CODE_BUILD_FAILURE
+            return ExitCode.BUILD_FAILURE
         if proc_acloud:
             proc_acloud.join()
             status = at.probe_acloud_status(report_file)
@@ -934,20 +1012,23 @@ def main(argv, results_dir, args):
                 logging.debug('Saved acloud create time: %ss.',
                               acloud_duration)
                 metrics.LocalDetectEvent(
-                    detect_type=constants.DETECT_TYPE_ACLOUD_CREATE,
+                    detect_type=DetectType.ACLOUD_CREATE,
                     result=round(acloud_duration))
             else:
                 # acloud create took longer, saved find+build time.
                 logging.debug('Saved Find and Build time: %ss.',
                               find_build_duration)
                 metrics.LocalDetectEvent(
-                    detect_type=constants.DETECT_TYPE_FIND_BUILD,
+                    detect_type=DetectType.FIND_BUILD,
                     result=round(find_build_duration))
+        # After build step 'adb' command will be available, and stop forward to
+        # Tradefed if the tests require a device.
+        _validate_adb_devices(args, test_infos)
     elif constants.TEST_STEP not in steps:
         logging.warning('Install step without test step currently not '
                         'supported, installing AND testing instead.')
         steps.append(constants.TEST_STEP)
-    tests_exit_code = constants.EXIT_CODE_SUCCESS
+    tests_exit_code = ExitCode.SUCCESS
     test_start = time.time()
     if constants.TEST_STEP in steps:
         perm_consistency_metrics(test_infos, mod_info, args)
@@ -977,8 +1058,8 @@ def main(argv, results_dir, args):
             success=True,
             runner_name=constants.TF_PREPARATION,
             test=[])
-    if tests_exit_code != constants.EXIT_CODE_SUCCESS:
-        tests_exit_code = constants.EXIT_CODE_TEST_FAILURE
+    if tests_exit_code != ExitCode.SUCCESS:
+        tests_exit_code = ExitCode.TEST_FAILURE
     return tests_exit_code
 
 if __name__ == '__main__':
@@ -994,14 +1075,14 @@ if __name__ == '__main__':
             atest_utils.colorize("atest " + " ".join(final_args),
                                  constants.CYAN)))
         metrics.LocalDetectEvent(
-            detect_type=constants.DETECT_TYPE_ATEST_CONFIG, result=1)
+            detect_type=DetectType.ATEST_CONFIG, result=1)
         if HAS_IGNORED_ARGS:
             atest_utils.colorful_print(
                 'Please correct the config and try again.', constants.YELLOW)
-            sys.exit(constants.EXIT_CODE_EXIT_BEFORE_MAIN)
+            sys.exit(ExitCode.EXIT_BEFORE_MAIN)
     else:
         metrics.LocalDetectEvent(
-            detect_type=constants.DETECT_TYPE_ATEST_CONFIG, result=0)
+            detect_type=DetectType.ATEST_CONFIG, result=0)
     atest_configs.GLOBAL_ARGS = _parse_args(final_args)
     with atest_execution_info.AtestExecutionInfo(
             final_args, RESULTS_DIR,
@@ -1021,9 +1102,9 @@ if __name__ == '__main__':
 
         EXIT_CODE = main(final_args, RESULTS_DIR, atest_configs.GLOBAL_ARGS)
         DETECTOR = bug_detector.BugDetector(final_args, EXIT_CODE)
-        if EXIT_CODE not in constants.EXIT_CODES_BEFORE_TEST:
+        if EXIT_CODE not in EXIT_CODES_BEFORE_TEST:
             metrics.LocalDetectEvent(
-                detect_type=constants.DETECT_TYPE_BUG_DETECTED,
+                detect_type=DetectType.BUG_DETECTED,
                 result=DETECTOR.caught_result)
             if result_file:
                 print("Run 'atest --history' to review test result history.")
