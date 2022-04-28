@@ -1023,9 +1023,26 @@ def extra_args_to_tf_args(mod_info: module_info.ModuleInfo,
         constants.TEST_FILTER:
             lambda arg_value, *_: [
                 '--test-arg',
-                f'com.android.tradefed.testtype.AndroidJUnitTest:include-filter:{arg_value}',
+                'com.android.tradefed.testtype.AndroidJUnitTest:'
+                f'include-filter:{arg_value}',
                 '--test-arg',
-                f'com.android.tradefed.testtype.GTest:native-test-flag:--gtest_filter={arg_value}'
+                'com.android.tradefed.testtype.GTest:native-test-flag:'
+                f'--gtest_filter={arg_value}'
+            ],
+        constants.TEST_TIMEOUT:
+            lambda arg_value, *_: [
+                '--test-arg',
+                'com.android.tradefed.testtype.AndroidJUnitTest:'
+                f'shell-timeout:{arg_value}',
+                '--test-arg',
+                'com.android.tradefed.testtype.AndroidJUnitTest:'
+                f'test-timeout:{arg_value}',
+                '--test-arg',
+                'com.android.tradefed.testtype.HostGTest:'
+                f'native-test-timeout:{arg_value}',
+                '--test-arg',
+                'com.android.tradefed.testtype.GTest:'
+                f'native-test-timeout:{arg_value}',
             ]
     })
 
