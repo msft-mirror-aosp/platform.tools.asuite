@@ -373,11 +373,14 @@ class ResultReporter:
         tests_ret = ExitCode.SUCCESS
         if not self.runners:
             return tests_ret
-        device_detail =  (
-            ' (Test executed with {} device(s).)'.format(self.device_count)
-        ) if self.device_count else ''
-        print('\n{}'.format(au.colorize('Summary{}'.format(device_detail),
-        constants.CYAN)))
+        if not self.device_count:
+            device_detail = ''
+        elif self.device_count == 1:
+            device_detail = '(Test executed with 1 device.)'
+        else:
+            device_detail = f'(Test executed with {self.device_count} devices.)'
+        print('\n{}'.format(au.colorize(f'Summary {device_detail}',
+                                        constants.CYAN)))
         print(au.delimiter('-', 7))
         iterations = len(ITER_SUMMARY)
         for iter_num, summary_list in ITER_SUMMARY.items():
@@ -677,7 +680,7 @@ class ResultReporter:
             print('%s (%s %s)' % (au.colorize(test.test_run_name,
                                               constants.BLUE),
                                   test.group_total,
-                                  'Test(s)'))
+                                  'Test' if test.group_total == 1 else 'Tests'))
         if test.status == test_runner_base.ERROR_STATUS:
             print('RUNNER ERROR: %s\n' % test.details)
             self.pre_test = test
