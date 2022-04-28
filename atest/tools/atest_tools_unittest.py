@@ -27,6 +27,7 @@ from unittest import mock
 
 import atest_utils as au
 import unittest_constants as uc
+import constants
 
 from atest_enum import ExitCode
 from tools import atest_tools
@@ -131,6 +132,14 @@ class AtestToolsUnittests(unittest.TestCase):
         success = os.path.join(SEARCH_ROOT, 'acloud', 'create_success.json')
         self.assertEqual(atest_tools.probe_acloud_status(success),
                          ExitCode.SUCCESS)
+        self.assertEqual(
+            os.environ[constants.ANDROID_SERIAL], '127.0.0.1:58167')
+
+        success_local_instance = os.path.join(
+            SEARCH_ROOT, 'acloud', 'create_success_local_instance.json')
+        self.assertEqual(atest_tools.probe_acloud_status(success_local_instance),
+                         ExitCode.SUCCESS)
+        self.assertEqual(os.environ[constants.ANDROID_SERIAL], '0.0.0.0:6521')
 
         failure = os.path.join(SEARCH_ROOT, 'acloud', 'create_failure.json')
         self.assertEqual(atest_tools.probe_acloud_status(failure),
