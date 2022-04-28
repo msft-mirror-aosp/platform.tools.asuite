@@ -198,7 +198,8 @@ class WorkspaceGenerator:
                 continue
 
             if (Features.EXPERIMENTAL_DEVICE_DRIVEN_TEST in
-                    self.enabled_features and self.is_device_driven_test(info)):
+                    self.enabled_features and
+                    self.mod_info.is_device_driven_test(info)):
                 self._resolve_dependencies(
                     self._add_test_target(
                         info, 'device',
@@ -309,10 +310,6 @@ class WorkspaceGenerator:
 
         return mod_path[0]
 
-    def is_device_driven_test(self, info: Dict[str, Any]) -> bool:
-        return self.mod_info.is_testable_module(info) and 'DEVICE' in info.get(
-            constants.MODULE_SUPPORTED_VARIANTS, [])
-
     def is_host_unit_test(self, info: Dict[str, Any]) -> bool:
         return self.mod_info.is_testable_module(
             info) and self.mod_info.is_host_unit_test(info)
@@ -325,9 +322,6 @@ class WorkspaceGenerator:
                       target='bazel/rules')
         self._symlink(src='tools/asuite/atest/bazel/configs',
                       target='bazel/configs')
-        # Symlink to package with toolchain definitions.
-        self._symlink(src='prebuilts/build-tools',
-                      target='prebuilts/build-tools')
 
         for package in self.path_to_package.values():
             package.generate(self.workspace_out_path)
@@ -347,8 +341,7 @@ class WorkspaceGenerator:
         symlink.symlink_to(self.src_root_path.joinpath(src))
 
     def _create_base_files(self):
-        self._symlink(src='tools/asuite/atest/bazel/WORKSPACE',
-                      target='WORKSPACE')
+        self.workspace_out_path.joinpath('WORKSPACE').touch()
         self._symlink(src='tools/asuite/atest/bazel/bazelrc',
                       target='.bazelrc')
 
@@ -907,7 +900,7 @@ def is_tf_testable_module(mod_info: module_info.ModuleInfo,
             and info.get(constants.MODULE_COMPATIBILITY_SUITES))
 
 
-def _decorate_find_method(mod_info, finder_method_func):
+def _decorate_find_method(mod_info, finder_method_func, host, enabled_features):
     """A finder_method decorator to override TestInfo properties."""
 
     def use_bazel_runner(finder_obj, test_id):
@@ -916,6 +909,14 @@ def _decorate_find_method(mod_info, finder_method_func):
             return test_infos
         for tinfo in test_infos:
             m_info = mod_info.get_module_info(tinfo.test_name)
+
+            # Only run device-driven tests in Bazel mode when '--host' is not
+            # specified and the feature is enabled.
+            if not host and mod_info.is_device_driven_test(m_info):
+                if Features.EXPERIMENTAL_DEVICE_DRIVEN_TEST in enabled_features:
+                    tinfo.test_runner = BazelTestRunner.NAME
+                continue
+
             if mod_info.is_suite_in_compatibility_suites(
                 'host-unit-tests', m_info):
                 tinfo.test_runner = BazelTestRunner.NAME
@@ -923,12 +924,17 @@ def _decorate_find_method(mod_info, finder_method_func):
     return use_bazel_runner
 
 
-def create_new_finder(mod_info, finder):
+def create_new_finder(mod_info: module_info.ModuleInfo,
+                      finder: test_finder_base.TestFinderBase,
+                      host: bool,
+                      enabled_features: List[Features]=None):
     """Create new test_finder_base.Finder with decorated find_method.
 
     Args:
       mod_info: ModuleInfo object.
       finder: Test Finder class.
+      host: Whether to run the host variant.
+      enabled_features: List of enabled features.
 
     Returns:
         List of ordered find methods.
@@ -936,7 +942,9 @@ def create_new_finder(mod_info, finder):
     return test_finder_base.Finder(finder.test_finder_instance,
                                    _decorate_find_method(
                                        mod_info,
-                                       finder.find_method),
+                                       finder.find_method,
+                                       host,
+                                       enabled_features or []),
                                    finder.finder_info)
 
 
@@ -960,6 +968,7 @@ class BazelTestRunner(trb.TestRunnerBase):
     def __init__(self,
                  results_dir,
                  mod_info: module_info.ModuleInfo,
+                 extra_args: Dict[str, Any]=None,
                  test_infos: List[test_info.TestInfo]=None,
                  src_top: Path=None,
                  workspace_path: Path=None,
@@ -977,6 +986,7 @@ class BazelTestRunner(trb.TestRunnerBase):
             'prebuilts/bazel/linux-x86_64/bazel')
         self.bazel_workspace = workspace_path or get_bazel_workspace_dir()
         self.run_command = run_command
+        self._extra_args = extra_args or {}
 
     # pylint: disable=unused-argument
     def run_tests(self, test_infos, extra_args, reporter):
@@ -1025,9 +1035,17 @@ class BazelTestRunner(trb.TestRunnerBase):
         return set(filter(bool, map(str.strip, output.splitlines())))
 
     def test_info_target_label(self, test: test_info.TestInfo) -> str:
-        info = self.mod_info.get_module_info(test.test_name)
+        module_name = test.test_name
+        info = self.mod_info.get_module_info(module_name)
         package_name = info.get(constants.MODULE_PATH)[0]
-        return f'//{package_name}:{test.test_name}_host'
+        target_suffix = 'host'
+
+        if not self._extra_args.get(
+                constants.HOST,
+                False) and self.mod_info.is_device_driven_test(info):
+            target_suffix = 'device'
+
+        return f'//{package_name}:{module_name}_{target_suffix}'
 
     # pylint: disable=unused-argument
     # pylint: disable=unused-variable
