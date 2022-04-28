@@ -46,6 +46,8 @@ ${ANDROID_BUILD_TOP}/prebuilts/build-tools/linux-x86/bin/nsjail \
   -E DIST_DIR=${OUT_DIR}/dist \
   -E TARGET_BUILD_VARIANT=${TARGET_BUILD_VARIANT} \
   -E OUT_DIR=${OUT_DIR} \
+  -E ANDROID_BUILD_TOP=${ANDROID_BUILD_TOP} \
+  -E HOME=${HOME} \
   -u nobody \
   -g $(id -g) \
   -R / \

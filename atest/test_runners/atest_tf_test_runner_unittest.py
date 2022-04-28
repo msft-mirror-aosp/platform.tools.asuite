@@ -27,10 +27,12 @@ import tempfile
 import unittest
 import json
 
+from argparse import Namespace
 from io import StringIO
 from pathlib import Path
 from unittest import mock
 
+import atest_configs
 import atest_utils
 import constants
 import unittest_constants as uc
@@ -194,6 +196,9 @@ class AtestTradefedTestRunnerUnittests(unittest.TestCase):
     def setUp(self, mock_get_ld_library_path):
         mock_get_ld_library_path.return_value = RUN_ENV_STR
         self.tr = atf_tr.AtestTradefedTestRunner(results_dir=uc.TEST_INFO_DIR)
+        if not atest_configs.GLOBAL_ARGS:
+            atest_configs.GLOBAL_ARGS = Namespace()
+        atest_configs.GLOBAL_ARGS.device_count_config = None
 
     def tearDown(self):
         mock.patch.stopall()
@@ -953,6 +958,22 @@ class ExtraArgsTest(AtestTradefedTestRunnerUnittests):
 
         self.assertTokensIn(['--disable-target-preparers'], cmd[0])
 
+    def test_multidevice_in_config_and_generate_in_run_cmd(self):
+        atest_configs.GLOBAL_ARGS.device_count_config = 2
+        cmd = self.tr.generate_run_commands([], {})
+        self.assertTokensIn(
+            ['--replicate-parent-setup', '--multi-device-count', '2'], cmd[0])
+
+        atest_configs.GLOBAL_ARGS.device_count_config = 1
+        cmd = self.tr.generate_run_commands([], {})
+        self.assertTokensNotIn(
+            ['--replicate-parent-setup', '--multi-device-count'], cmd[0])
+
+        atest_configs.GLOBAL_ARGS.device_count_config = None
+        cmd = self.tr.generate_run_commands([], {})
+        self.assertTokensNotIn(
+            ['--replicate-parent-setup', '--multi-device-count'], cmd[0])
+
     def test_args_with_serial_no_and_generate_in_run_cmd(self):
         extra_args = {constants.SERIAL: ['device1']}
 
@@ -1100,6 +1121,25 @@ class ExtraArgsTest(AtestTradefedTestRunnerUnittests):
 
         self.assertTokensNotIn(['--tf-early-device-release'], cmd[0])
 
+    def test_args_with_timeout_and_generate_in_run_cmd(self):
+        extra_args = {constants.TEST_TIMEOUT: 10000}
+
+        cmd = self.tr.generate_run_commands([], extra_args)
+
+        self.assertTokensIn(
+            ['--test-arg',
+             'com.android.tradefed.testtype.AndroidJUnitTest:'
+             'shell-timeout:10000',
+             '--test-arg',
+             'com.android.tradefed.testtype.AndroidJUnitTest:'
+             'test-timeout:10000',
+             '--test-arg',
+             'com.android.tradefed.testtype.HostGTest:'
+             'native-test-timeout:10000',
+             '--test-arg',
+             'com.android.tradefed.testtype.GTest:'
+             'native-test-timeout:10000'],
+            cmd[0])
 
 if __name__ == '__main__':
     unittest.main()

@@ -151,7 +151,8 @@ class ModuleInfoUnittests(unittest.TestCase):
                                             constants.MODULE_PATH: [mod_path_one]}],
                             mod_path_two: [{constants.MODULE_NAME: mod_two,
                                             constants.MODULE_PATH: [mod_path_two]}]}
-        mod_info = module_info.ModuleInfo(index_dir=HOST_OUT_DIR)
+        mod_info = module_info.ModuleInfo(module_file=JSON_FILE_PATH,
+                                          index_dir=HOST_OUT_DIR)
         self.assertDictEqual(path_to_mod_info,
                              mod_info._get_path_to_module_info(mod_info_dict))
 
@@ -213,7 +214,8 @@ class ModuleInfoUnittests(unittest.TestCase):
         self.assertFalse(mod_info.is_suite_in_compatibility_suites("ats", info3))
 
     @mock.patch.dict('os.environ', {constants.ANDROID_BUILD_TOP:'/',
-                                    constants.ANDROID_PRODUCT_OUT:PRODUCT_OUT_DIR})
+                                    constants.ANDROID_PRODUCT_OUT:PRODUCT_OUT_DIR,
+                                    constants.ANDROID_HOST_OUT:HOST_OUT_DIR})
     @mock.patch.object(module_info.ModuleInfo, 'is_testable_module')
     @mock.patch.object(module_info.ModuleInfo, 'is_suite_in_compatibility_suites')
     def test_get_testable_modules(self, mock_is_suite_exist, mock_is_testable):
@@ -486,6 +488,21 @@ class ModuleInfoUnittests(unittest.TestCase):
         }
         mod_info = module_info.ModuleInfo(module_file=JSON_FILE_PATH)
         self.assertTrue(mod_info.is_host_unit_test(maininfo_with_host_unittest))
+
+    @mock.patch.dict('os.environ', {constants.ANDROID_BUILD_TOP:'/',
+                                    constants.ANDROID_PRODUCT_OUT:PRODUCT_OUT_DIR})
+    def test_is_device_driven_test(self):
+        module_name = 'myModule'
+        maininfo_with_device_driven_test = {
+            constants.MODULE_NAME: module_name,
+            constants.MODULE_TEST_CONFIG:[os.path.join(
+                     uc.TEST_CONFIG_DATA_DIR, "a.xml.data")],
+            constants.MODULE_INSTALLED: uc.DEFAULT_INSTALL_PATH,
+            'supported_variants': ['DEVICE']
+        }
+        mod_info = module_info.ModuleInfo(module_file=JSON_FILE_PATH)
+
+        self.assertTrue(mod_info.is_device_driven_test(maininfo_with_device_driven_test))
 
     @mock.patch.dict('os.environ', {constants.ANDROID_BUILD_TOP:os.path.dirname(__file__),
                                     constants.ANDROID_PRODUCT_OUT:PRODUCT_OUT_DIR})
