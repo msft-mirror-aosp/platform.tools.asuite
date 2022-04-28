@@ -23,7 +23,7 @@ import itertools
 import time
 import traceback
 
-from typing import List
+from typing import Any, Dict, List
 
 import atest_error
 import bazel_mode
@@ -93,12 +93,14 @@ def group_tests_by_test_runners(test_infos):
 
 
 def get_test_runner_reqs(mod_info: module_info.ModuleInfo,
-                         test_infos: List[test_info.TestInfo]):
+                         test_infos: List[test_info.TestInfo],
+                         extra_args: Dict[str, Any]=None):
     """Returns the requirements for all test runners specified in the tests.
 
     Args:
         mod_info: ModuleInfo object.
         test_infos: List of TestInfo.
+        extra_args: Dict of extra args for test runners to use.
 
     Returns:
         Set of build targets required by the test runners.
@@ -110,6 +112,7 @@ def get_test_runner_reqs(mod_info: module_info.ModuleInfo,
             unused_result_dir,
             mod_info=mod_info,
             test_infos=tests,
+            extra_args=extra_args or {},
         ).get_test_runner_build_reqs()
     return test_runner_build_req
 
@@ -139,7 +142,11 @@ def run_all_tests(results_dir, test_infos, extra_args, mod_info,
         ret_code = ExitCode.TEST_FAILURE
         stacktrace = ''
         try:
-            test_runner = test_runner(results_dir, mod_info=mod_info)
+            test_runner = test_runner(
+                results_dir,
+                mod_info=mod_info,
+                extra_args=extra_args,
+            )
             ret_code = test_runner.run_tests(tests, extra_args, reporter)
             tests_ret_code |= ret_code
         # pylint: disable=broad-except
