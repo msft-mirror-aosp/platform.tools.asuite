@@ -179,14 +179,16 @@ class TestFinderUtilsUnittests(unittest.TestCase):
         """Test has_method_in_file method with kt class path."""
         test_path = os.path.join(uc.TEST_DATA_DIR, 'class_file_path_testing',
                                  'hello_world_test.kt')
-        self.assertTrue(test_finder_utils.has_method_in_file(
-            test_path, frozenset(['testMethod1'])))
-        self.assertFalse(test_finder_utils.has_method_in_file(
-            test_path, frozenset(['testMethod'])))
-        self.assertTrue(test_finder_utils.has_method_in_file(
-            test_path, frozenset(['testMethod1', 'testMethod2'])))
-        self.assertFalse(test_finder_utils.has_method_in_file(
-            test_path, frozenset(['testMethod', 'testMethod2'])))
+        os_environ_mock = {constants.ANDROID_BUILD_TOP: uc.TEST_DATA_DIR}
+        with mock.patch.dict('os.environ', os_environ_mock, clear=True):
+            self.assertTrue(test_finder_utils.has_method_in_file(
+                test_path, frozenset(['testMethod1'])))
+            self.assertFalse(test_finder_utils.has_method_in_file(
+                test_path, frozenset(['testMethod'])))
+            self.assertTrue(test_finder_utils.has_method_in_file(
+                test_path, frozenset(['testMethod1', 'testMethod2'])))
+            self.assertFalse(test_finder_utils.has_method_in_file(
+                test_path, frozenset(['testMethod', 'testMethod2'])))
 
     @mock.patch('builtins.input', return_value='1')
     def test_extract_test_from_tests(self, mock_input):
