@@ -44,7 +44,7 @@ from pathlib import Path
 
 import xml.etree.ElementTree as ET
 
-from atest_enum import DetectType
+from atest_enum import DetectType, FilterType
 
 # This is a workaround of b/144743252, where the http.client failed to loaded
 # because the googleapiclient was found before the built-in libs; enabling
@@ -56,6 +56,13 @@ for lib in (sysconfig.get_paths()['stdlib'], sysconfig.get_paths()['purelib']):
     if lib in sys.path:
         sys.path.remove(lib)
     sys.path.insert(0, lib)
+# (b/219847353) Move googleapiclient to the last position of sys.path when
+#  existed.
+for lib in sys.path:
+    if 'googleapiclient' in lib:
+        sys.path.remove(lib)
+        sys.path.append(lib)
+        break
 #pylint: disable=wrong-import-position
 import atest_decorator
 import atest_error
@@ -135,6 +142,9 @@ _VARS_FOR_MAINLINE = {
 }
 
 _ROOT_PREPARER = "com.android.tradefed.targetprep.RootTargetPreparer"
+
+_WILDCARD_FILTER_RE = re.compile(r'.*[?|*]$')
+_REGULAR_FILTER_RE = re.compile(r'.*\w$')
 
 def get_build_cmd(dump=False):
     """Compose build command with no-absolute path and flag "--make-mode".
@@ -484,14 +494,8 @@ def _has_colors(stream):
         # Auto color only on TTYs
         cached_has_colors[stream] = False
         return False
-    try:
-        import curses
-        curses.setupterm()
-        cached_has_colors[stream] = curses.tigetnum("colors") > 2
-    # pylint: disable=broad-except
-    except Exception as err:
-        logging.debug('Checking colorful raised exception: %s', err)
-        cached_has_colors[stream] = False
+    # curses.tigetnum() cannot be used for telling supported color numbers
+    # because it does not come with the prebuilt py3-cmd.
     return cached_has_colors[stream]
 
 
@@ -1717,3 +1721,54 @@ def get_full_annotation_class_name(module_info, class_name):
                 if match:
                     return match.group('fqcn')
     return ""
+
+def has_mixed_type_filters(test_infos):
+    """ There are different types in a test module.
+
+    Dict test_to_types is mapping module name and the set of types.
+    For example,
+    {
+        'module_1': {'wildcard class_method'},
+        'module_2': {'wildcard class_method', 'regular class_method'},
+        'module_3': set()
+        }
+
+    Args:
+        test_infos: A set of TestInfos.
+
+    Returns:
+        True if more than one filter type in a test module, False otherwise.
+    """
+    test_to_types = dict()
+    for test_info in test_infos:
+        filters = test_info.data.get(constants.TI_FILTER, [])
+        filter_types = set()
+        for flt in filters:
+            filter_types |= get_filter_types(flt.to_set_of_tf_strings())
+        filter_types |= test_to_types.get(test_info.test_name, set())
+        test_to_types[test_info.test_name] = filter_types
+    for _, types in test_to_types.items():
+        if len(types) > 1:
+            return True
+    return False
+
+def get_filter_types(tf_filter_set):
+    """ Get filter types.
+
+    Args:
+        tf_filter_set: A set of tf filter strings.
+
+    Returns:
+        A set of FilterType.
+    """
+    type_set = set()
+    for tf_filter in tf_filter_set:
+        if _WILDCARD_FILTER_RE.match(tf_filter):
+            logging.debug('Filter and type: (%s, %s)',
+                          tf_filter, FilterType.WILDCARD_FILTER.value)
+            type_set.add(FilterType.WILDCARD_FILTER.value)
+        if _REGULAR_FILTER_RE.match(tf_filter):
+            logging.debug('Filter and type: (%s, %s)',
+                         tf_filter, FilterType.REGULAR_FILTER.value)
+            type_set.add(FilterType.REGULAR_FILTER.value)
+    return type_set
