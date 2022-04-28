@@ -34,6 +34,7 @@ import xml.etree.ElementTree as ET
 import atest_decorator
 import atest_error
 import atest_enum
+import atest_utils
 import constants
 
 from metrics import metrics_utils
@@ -294,7 +295,42 @@ def get_parent_cls_name(file_name):
             if match:
                 return match.group('parent')
 
-# pylint: disable=too-many-branches
+
+def get_java_parent_paths(test_path):
+    """Find out the paths of parent classes, including itself.
+
+    Args:
+        test_path: A string of absolute path to the test file.
+
+    Returns:
+        A set of test paths.
+    """
+    all_parent_test_paths = set([test_path])
+    parent = get_parent_cls_name(test_path)
+    if not parent:
+        return all_parent_test_paths
+    # Remove <Generics> if any.
+    parent_cls = re.sub(r'\<\w+\>', '', parent)
+    package = get_package_name(test_path)
+    # Use Fully Qualified Class Name for searching precisely.
+    # package org.gnome;
+    # public class Foo extends com.android.Boo -> com.android.Boo
+    # public class Foo extends Boo -> org.gnome.Boo
+    if '.' in parent_cls:
+        parent_fqcn = parent_cls
+    else:
+        parent_fqcn = package + '.' + parent_cls
+    parent_test_paths = run_find_cmd(
+        FIND_REFERENCE_TYPE.QUALIFIED_CLASS,
+        os.environ.get(constants.ANDROID_BUILD_TOP),
+        parent_fqcn)
+    # Recursively search parent classes until the class is not found.
+    if parent_test_paths:
+        for parent_test_path in parent_test_paths:
+            all_parent_test_paths |= get_java_parent_paths(parent_test_path)
+    return all_parent_test_paths
+
+
 def has_method_in_file(test_path, methods):
     """Find out if every method can be found in the file.
 
@@ -309,44 +345,36 @@ def has_method_in_file(test_path, methods):
     """
     if not os.path.isfile(test_path):
         return False
+    all_methods = set()
     if constants.JAVA_EXT_RE.match(test_path):
         # omit parameterized pattern: method[0]
         _methods = set(re.sub(r'\[\S+\]', '', x) for x in methods)
+        # Return True when every method is in the same Java file.
         if _methods.issubset(get_java_methods(test_path)):
             return True
-        parent = get_parent_cls_name(test_path)
-        package = get_package_name(test_path)
-        if parent and package:
-            # Remove <Generics> when needed.
-            parent_cls = re.sub(r'\<\w+\>', '', parent)
-            # Use Full Qualified Class Name for searching precisely.
-            # package org.gnome;
-            # public class Foo extends com.android.Boo -> com.android.Boo
-            # public class Foo extends Boo -> org.gnome.Boo
-            if '.' in parent_cls:
-                parent_fqcn = parent_cls
-            else:
-                parent_fqcn = package + '.' + parent_cls
-            try:
-                logging.debug('Searching methods in %s', parent_fqcn)
-                return has_method_in_file(
-                    run_find_cmd(FIND_REFERENCE_TYPE.QUALIFIED_CLASS,
-                                os.environ.get(constants.ANDROID_BUILD_TOP),
-                                parent_fqcn,
-                                methods)[0], methods)
-            except TypeError:
-                logging.debug('Out of searching range: no test found.')
-                return False
-    if constants.CC_EXT_RE.match(test_path):
+        # Otherwise, search itself and all the parent classes respectively
+        # to get all test names.
+        parent_test_paths = get_java_parent_paths(test_path)
+        logging.debug('Will search methods %s in %s\n',
+                      _methods, parent_test_paths)
+        for path in parent_test_paths:
+            all_methods |= get_java_methods(path)
+        if _methods.issubset(all_methods):
+            return True
+        # If cannot find all methods, override the test_path for debugging.
+        test_path = parent_test_paths
+    elif constants.CC_EXT_RE.match(test_path):
         # omit parameterized pattern: method/argument
         _methods = set(re.sub(r'\/.*', '', x) for x in methods)
         class_info = get_cc_class_info(test_path)
-        cc_methods = set()
         for info in class_info.values():
-            cc_methods |= info.get('methods')
-        if _methods.issubset(cc_methods):
+            all_methods |= info.get('methods')
+        if _methods.issubset(all_methods):
             return True
-    logging.debug('Cannot find method %s in %s', ','.join(methods), test_path)
+    missing_methods = _methods - all_methods
+    logging.debug('Cannot find methods %s in %s',
+        atest_utils.colorize(','.join(missing_methods), constants.RED),
+        test_path)
     return False
 
 
@@ -1137,12 +1165,13 @@ def get_java_methods(test_path):
     Returns:
         A set of methods.
     """
+    logging.debug('Probing %s:', test_path)
     with open(test_path) as class_file:
         content = class_file.read()
     matches = re.findall(_JAVA_METHODS_RE, content)
     if matches:
         methods = {match[1] for match in matches}
-        logging.debug('Available methods: %s', methods)
+        logging.debug('Available methods: %s\n', methods)
         return methods
     return set()
 
