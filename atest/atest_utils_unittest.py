@@ -16,6 +16,7 @@
 
 """Unittests for atest_utils."""
 
+# pylint: disable=invalid-name
 # pylint: disable=line-too-long
 
 import hashlib
@@ -35,6 +36,7 @@ import unittest_utils
 import unittest_constants
 
 from test_finders import test_info
+from atest_enum import FilterType
 
 
 TEST_MODULE_NAME_A = 'ModuleNameA'
@@ -689,6 +691,63 @@ class AtestUtilsUnittests(unittest.TestCase):
         # do not support partial-correct keyword.
         self.assertNotEqual(
             atest_utils.get_full_annotation_class_name(module_info, 'android.platform.test.annotations.pres'), presubmit)
+
+    def test_has_mixed_type_filters_one_module_with_one_type_return_false(self):
+        """Test method of has_mixed_type_filters"""
+        filter_1 = test_info.TestFilter('CLASS', frozenset(['METHOD']))
+        test_data_1 = {constants.TI_FILTER: [filter_1]}
+        test_info_1 = test_info.TestInfo('MODULE', 'RUNNER',
+                                set(), test_data_1,
+                                'SUITE', '',
+                                set())
+        self.assertFalse(atest_utils.has_mixed_type_filters([test_info_1]))
+
+    def test_has_mixed_type_filters_one_module_with_mixed_types_return_true(self):
+        """Test method of has_mixed_type_filters"""
+        filter_1 = test_info.TestFilter('CLASS', frozenset(['METHOD']))
+        filter_2 = test_info.TestFilter('CLASS', frozenset(['METHOD*']))
+        test_data_2 = {constants.TI_FILTER: [filter_1, filter_2]}
+        test_info_2 = test_info.TestInfo('MODULE', 'RUNNER',
+                                set(), test_data_2,
+                                'SUITE', '',
+                                set())
+        self.assertTrue(atest_utils.has_mixed_type_filters([test_info_2]))
+
+    def test_has_mixed_type_filters_two_module_with_mixed_types_return_false(self):
+        """Test method of has_mixed_type_filters"""
+        filter_1 = test_info.TestFilter('CLASS', frozenset(['METHOD']))
+        test_data_1 = {constants.TI_FILTER: [filter_1]}
+        test_info_1 = test_info.TestInfo('MODULE', 'RUNNER',
+                                set(), test_data_1,
+                                'SUITE', '',
+                                set())
+        filter_3 = test_info.TestFilter('CLASS', frozenset(['METHOD*']))
+        test_data_3 = {constants.TI_FILTER: [filter_3]}
+        test_info_3 = test_info.TestInfo('MODULE3', 'RUNNER',
+                                set(), test_data_3,
+                                'SUITE', '',
+                                set())
+        self.assertFalse(atest_utils.has_mixed_type_filters(
+            [test_info_1, test_info_3]))
+
+    def test_get_filter_types(self):
+        """Test method of get_filter_types."""
+        filters = set(['CLASS#METHOD'])
+        expect_types = set([FilterType.REGULAR_FILTER.value])
+        self.assertEqual(atest_utils.get_filter_types(filters), expect_types)
+
+        filters = set(['CLASS#METHOD*'])
+        expect_types = set([FilterType.WILDCARD_FILTER.value])
+        self.assertEqual(atest_utils.get_filter_types(filters), expect_types)
+
+        filters = set(['CLASS#METHOD', 'CLASS#METHOD*'])
+        expect_types = set([FilterType.WILDCARD_FILTER.value,
+                          FilterType.REGULAR_FILTER.value])
+        self.assertEqual(atest_utils.get_filter_types(filters), expect_types)
+
+        filters = set(['CLASS#METHOD?', 'CLASS#METHOD*'])
+        expect_types = set([FilterType.WILDCARD_FILTER.value])
+        self.assertEqual(atest_utils.get_filter_types(filters), expect_types)
 
 if __name__ == "__main__":
     unittest.main()
