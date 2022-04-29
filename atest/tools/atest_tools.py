@@ -433,7 +433,9 @@ def probe_acloud_status(report_file):
             logging.info('acloud create successfully!')
             # Always fetch the adb of the first created AVD.
             adb_port = result.get('data').get('devices')[0].get('adb_port')
-            os.environ[constants.ANDROID_SERIAL] = '127.0.0.1:{}'.format(adb_port)
+            is_remote_instance = result.get('command') == 'create_cf'
+            adb_ip = '127.0.0.1' if is_remote_instance else '0.0.0.0'
+            os.environ[constants.ANDROID_SERIAL] = f'{adb_ip}:{adb_port}'
             return ExitCode.SUCCESS
         au.colorful_print(
             'acloud create failed. Please check\n{}\nfor detail'.format(
