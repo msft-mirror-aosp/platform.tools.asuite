@@ -27,6 +27,8 @@ import re
 import sys
 import time
 
+from typing import List
+
 import atest_error
 import atest_utils
 import bazel_mode
@@ -67,7 +69,8 @@ class CLITranslator:
     """
 
     def __init__(self, mod_info=None, print_cache_msg=True,
-                 bazel_mode_enabled=False, host=False):
+                 bazel_mode_enabled=False, host=False,
+                 bazel_mode_features: List[bazel_mode.Features]=None):
         """CLITranslator constructor
 
         Args:
@@ -76,9 +79,11 @@ class CLITranslator:
                              True will print message while False won't print.
             bazel_mode_enabled: Boolean of args.bazel_mode.
             host: Boolean of args.host.
+            bazel_mode_features: List of args.bazel_mode_features.
         """
         self.mod_info = mod_info
         self._bazel_mode = bazel_mode_enabled
+        self._bazel_mode_features = bazel_mode_features or []
         self._host = host
         self.enable_file_patterns = False
         self.msg = ''
@@ -116,7 +121,8 @@ class CLITranslator:
             find_methods = [bazel_mode.create_new_finder(
                 self.mod_info,
                 f,
-                host=self._host
+                host=self._host,
+                enabled_features=self._bazel_mode_features
             ) for f in find_methods]
         for finder in find_methods:
             # For tests in TEST_MAPPING, find method is only related to

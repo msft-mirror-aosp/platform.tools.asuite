@@ -120,6 +120,14 @@ class ModuleInfo:
         self.path_to_module_info = self._get_path_to_module_info(
             self.name_to_module_info)
         self.root_dir = os.environ.get(constants.ANDROID_BUILD_TOP)
+        self.module_index_proc = None
+        if self.update_merge_info or not self.module_index.is_file():
+            # Assumably null module_file reflects a common run, and index testable
+            # modules only when common runs.
+            if not module_file:
+                self.module_index_proc = atest_utils.run_multi_proc(
+                    func=self._get_testable_modules,
+                    kwargs={'index': True})
 
     @staticmethod
     def _discover_mod_file_and_target(force_build):
@@ -283,17 +291,21 @@ class ModuleInfo:
             content: An object that will be written to the index file.
         """
         logging.debug(r'Indexing testable modules... '
-                      r'This is required whenever module-info.json was rebuilt.')
+                      r'(This is required whenever module-info.json '
+                      r'was rebuilt.)')
         with open(self.module_index, 'wb') as cache:
             try:
                 pickle.dump(content, cache, protocol=2)
-                logging.debug('Done')
             except IOError:
                 logging.error('Failed in dumping %s', cache)
                 os.remove(cache)
 
-    def _get_testable_modules(self):
+    def _get_testable_modules(self, index=False, suite=None):
         """Return all available testable modules and index them.
+
+        Args:
+            index: boolean that determines running _index_testable_modules().
+            suite: string for the suite name.
 
         Returns:
             Set of all testable modules.
@@ -303,9 +315,17 @@ class ModuleInfo:
         for _, info in self.name_to_module_info.items():
             if self.is_testable_module(info):
                 modules.add(info.get(constants.MODULE_NAME))
-        self._index_testable_modules(modules)
         logging.debug('Probing all testable modules took %ss',
                       time.time() - begin)
+        if index:
+            self._index_testable_modules(modules)
+        if suite:
+            _modules = set()
+            for module_name in modules:
+                info = self.get_module_info(module_name)
+                if self.is_suite_in_compatibility_suites(suite, info):
+                    _modules.add(info.get(constants.MODULE_NAME))
+            return _modules
         return modules
 
     def is_module(self, name):
@@ -347,7 +367,10 @@ class ModuleInfo:
         Returns:
             True if it exists in mod_info, False otherwise.
         """
-        return suite in mod_info.get(constants.MODULE_COMPATIBILITY_SUITES, [])
+        if mod_info:
+            return suite in mod_info.get(
+                constants.MODULE_COMPATIBILITY_SUITES, [])
+        return []
 
     def get_testable_modules(self, suite=None):
         """Return the testable modules of the given suite name.
@@ -365,9 +388,11 @@ class ModuleInfo:
         """
         modules = set()
         start = time.time()
-        # 1. atest_merged_dep.json did not change; read modules.idx directly.
-        if not self.update_merge_info:
-            if self.module_index.is_file() and not suite:
+        if self.module_index_proc:
+            self.module_index_proc.join()
+
+        if self.module_index.is_file():
+            if not suite:
                 with open(self.module_index, 'rb') as cache:
                     try:
                         modules = pickle.load(cache, encoding="utf-8")
@@ -376,16 +401,15 @@ class ModuleInfo:
                     # when module indexing was interrupted.
                     except EOFError:
                         pass
-        # 2. modules.idx does not yet exist or has changed.
-        # Will generate modules.idx for speeding up the next query.
+            else:
+                modules = self._get_testable_modules(suite=suite)
+        # If the modules.idx does not exist or invalid for any reason, generate
+        # a new one arbitrarily.
         if not modules:
             if not suite:
-                modules = self._get_testable_modules()
+                modules = self._get_testable_modules(index=True)
             else:
-                for module_name in self._get_testable_modules():
-                    info = self.get_module_info(module_name)
-                    if self.is_suite_in_compatibility_suites(suite, info):
-                        modules.add(info.get(constants.MODULE_NAME))
+                modules = self._get_testable_modules(index=True, suite=suite)
         duration = time.time() - start
         metrics.LocalDetectEvent(
             detect_type=DetectType.TESTABLE_MODULES,
@@ -783,23 +807,47 @@ class ModuleInfo:
         return self.is_suite_in_compatibility_suites(
           'host-unit-tests', mod_info)
 
+    def is_device_driven_test(self, mod_info):
+        """Return True if input module is device driven test, False otherwise.
+
+        Args:
+            mod_info: ModuleInfo to check.
+
+        Returns:
+            True if if input module is device driven test, False otherwise.
+        """
+        return self.is_testable_module(mod_info) and 'DEVICE' in mod_info.get(
+            constants.MODULE_SUPPORTED_VARIANTS, [])
+
+    def _any_module(self, _: Module) -> bool:
+        return True
+
+    def get_all_tests(self):
+        """Get a list of all the module names which are tests."""
+        return self._get_all_modules(type_predicate=self.is_testable_module)
+
     def get_all_unit_tests(self):
         """Get a list of all the module names which are unit tests."""
-        unit_tests = []
-        for mod_name, mod_info in self.name_to_module_info.items():
-            if mod_info.get(constants.MODULE_NAME, '') == mod_name:
-                if self.is_unit_test(mod_info):
-                    unit_tests.append(mod_name)
-        return unit_tests
+        return self._get_all_modules(type_predicate=self.is_unit_test)
 
     def get_all_host_unit_tests(self):
         """Get a list of all the module names which are host unit tests."""
-        tests = []
+        return self._get_all_modules(type_predicate=self.is_host_unit_test)
+
+    def get_all_device_driven_tests(self):
+        """Get a list of all the module names which are device driven tests."""
+        return self._get_all_modules(type_predicate=self.is_device_driven_test)
+
+    def _get_all_modules(self, type_predicate=None):
+        """Get a list of all the module names that passed the predicate."""
+        modules = []
+        type_predicate = type_predicate or self._any_module
         for mod_name, mod_info in self.name_to_module_info.items():
             if mod_info.get(constants.MODULE_NAME, '') == mod_name:
-                if self.is_host_unit_test(mod_info):
-                    tests.append(mod_name)
-        return tests
+                if type_predicate(mod_info):
+                    modules.append(mod_name)
+        return modules
+
 
 def _add_missing_variant_modules(name_to_module_info: Dict[str, Module]):
     missing_modules = dict()
