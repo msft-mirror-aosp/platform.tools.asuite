@@ -81,7 +81,7 @@ ROBOTYPE_LEGACY = 2
 ACCESS_CACHE_FAILURE = 101
 ACCESS_HISTORY_FAILURE = 102
 IMPORT_FAILURE = 103
-MLOCATEDB_LOCKED = 104
+PLOCATEDB_LOCKED = 104
 
 # Test finder constants.
 MODULE_CONFIG = 'AndroidTest.xml'
@@ -235,8 +235,8 @@ ATEST_TF_MODULE = 'atest-tradefed'
 
 # Atest index path and relative dirs/caches.
 INDEX_DIR = os.path.join(os.getenv(ANDROID_HOST_OUT, ''), 'indexes')
-LOCATE_CACHE = os.path.join(INDEX_DIR, 'mlocate.db')
-LOCATE_CACHE_MD5 = os.path.join(INDEX_DIR, 'mlocate.md5')
+LOCATE_CACHE = os.path.join(INDEX_DIR, 'plocate.db')
+LOCATE_CACHE_MD5 = os.path.join(INDEX_DIR, 'plocate.md5')
 BUILDFILES_MD5 = os.path.join(INDEX_DIR, 'buildfiles.md5')
 INT_INDEX = os.path.join(INDEX_DIR, 'integration.idx')
 CLASS_INDEX = os.path.join(INDEX_DIR, 'classes.idx')
