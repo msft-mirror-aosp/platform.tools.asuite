@@ -126,7 +126,7 @@ def has_command(cmd):
 
 def run_updatedb(search_root=SEARCH_TOP, output_cache=constants.LOCATE_CACHE,
                  **kwargs):
-    """Run updatedb and generate cache in $ANDROID_HOST_OUT/indexes/mlocate.db
+    """Run updatedb and generate cache in $ANDROID_HOST_OUT/indexes/plocate.db
 
     Args:
         search_root: The path of the search root(-U).
@@ -206,7 +206,7 @@ def get_cc_result(locatedb=constants.LOCATE_CACHE, **kwargs):
     After searching cc/cpp files, index corresponding data types in parallel.
 
     Args:
-        locatedb: A string of the absolute path of the mlocate.db
+        locatedb: A string of the absolute path of the plocate.db
         kwargs: (optional)
             cc_class_index: A path string of the CC class index.
     """
@@ -230,7 +230,7 @@ def get_java_result(locatedb=constants.LOCATE_CACHE, **kwargs):
     After searching java/kt files, index corresponding data types in parallel.
 
     Args:
-        locatedb: A string of the absolute path of the mlocate.db
+        locatedb: A string of the absolute path of the plocate.db
         kwargs: (optional)
             class_index: A path string of the Java class index.
             qclass_index: A path string of the qualified class index.
@@ -338,20 +338,20 @@ def _index_qualified_classes(output, index):
 def index_targets(output_cache=constants.LOCATE_CACHE):
     """The entrypoint of indexing targets.
 
-    Utilise mlocate database to index reference types of CLASS, CC_CLASS,
+    Utilise plocate database to index reference types of CLASS, CC_CLASS,
     PACKAGE and QUALIFIED_CLASS. Testable module for tab completion is also
     generated in this method.
 
     Args:
         output_cache: A file path of the updatedb cache
-                      (e.g. /path/to/mlocate.db).
+                      (e.g. /path/to/plocate.db).
     """
     if not has_command(LOCATE):
         logging.debug('command %s is unavailable; skip indexing.', LOCATE)
         return
     pre_md5sum = ""
     try:
-        # Step 0: generate mlocate database prior to indexing targets.
+        # Step 0: generate plocate database prior to indexing targets.
         if os.path.exists(constants.LOCATE_CACHE_MD5):
             pre_md5sum = au.md5sum(constants.LOCATE_CACHE_MD5)
         run_updatedb(SEARCH_TOP, output_cache)
@@ -362,12 +362,12 @@ def index_targets(output_cache=constants.LOCATE_CACHE):
         logging.debug('Indexing targets... ')
         au.run_multi_proc(func=get_java_result, args=[output_cache])
         au.run_multi_proc(func=get_cc_result, args=[output_cache])
-    # Delete indexes when mlocate.db is locked() or other CalledProcessError.
+    # Delete indexes when plocate.db is locked() or other CalledProcessError.
     # (b/141588997)
     except subprocess.CalledProcessError as err:
         logging.error('Executing %s error.', UPDATEDB)
         metrics_utils.handle_exc_and_send_exit_event(
-            constants.MLOCATEDB_LOCKED)
+            constants.PLOCATEDB_LOCKED)
         if err.output:
             logging.error(err.output)
         _delete_indexes()
