@@ -367,7 +367,10 @@ class ModuleInfo:
         Returns:
             True if it exists in mod_info, False otherwise.
         """
-        return suite in mod_info.get(constants.MODULE_COMPATIBILITY_SUITES, [])
+        if mod_info:
+            return suite in mod_info.get(
+                constants.MODULE_COMPATIBILITY_SUITES, [])
+        return []
 
     def get_testable_modules(self, suite=None):
         """Return the testable modules of the given suite name.
@@ -804,23 +807,47 @@ class ModuleInfo:
         return self.is_suite_in_compatibility_suites(
           'host-unit-tests', mod_info)
 
+    def is_device_driven_test(self, mod_info):
+        """Return True if input module is device driven test, False otherwise.
+
+        Args:
+            mod_info: ModuleInfo to check.
+
+        Returns:
+            True if if input module is device driven test, False otherwise.
+        """
+        return self.is_testable_module(mod_info) and 'DEVICE' in mod_info.get(
+            constants.MODULE_SUPPORTED_VARIANTS, [])
+
+    def _any_module(self, _: Module) -> bool:
+        return True
+
+    def get_all_tests(self):
+        """Get a list of all the module names which are tests."""
+        return self._get_all_modules(type_predicate=self.is_testable_module)
+
     def get_all_unit_tests(self):
         """Get a list of all the module names which are unit tests."""
-        unit_tests = []
-        for mod_name, mod_info in self.name_to_module_info.items():
-            if mod_info.get(constants.MODULE_NAME, '') == mod_name:
-                if self.is_unit_test(mod_info):
-                    unit_tests.append(mod_name)
-        return unit_tests
+        return self._get_all_modules(type_predicate=self.is_unit_test)
 
     def get_all_host_unit_tests(self):
         """Get a list of all the module names which are host unit tests."""
-        tests = []
+        return self._get_all_modules(type_predicate=self.is_host_unit_test)
+
+    def get_all_device_driven_tests(self):
+        """Get a list of all the module names which are device driven tests."""
+        return self._get_all_modules(type_predicate=self.is_device_driven_test)
+
+    def _get_all_modules(self, type_predicate=None):
+        """Get a list of all the module names that passed the predicate."""
+        modules = []
+        type_predicate = type_predicate or self._any_module
         for mod_name, mod_info in self.name_to_module_info.items():
             if mod_info.get(constants.MODULE_NAME, '') == mod_name:
-                if self.is_host_unit_test(mod_info):
-                    tests.append(mod_name)
-        return tests
+                if type_predicate(mod_info):
+                    modules.append(mod_name)
+        return modules
+
 
 def _add_missing_variant_modules(name_to_module_info: Dict[str, Module]):
     missing_modules = dict()
