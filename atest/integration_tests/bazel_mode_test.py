@@ -23,13 +23,12 @@
 import dataclasses
 import os
 import shutil
-import string
 import subprocess
 import tempfile
 import unittest
 
 from pathlib import Path
-from typing import Any, Dict, Tuple
+from typing import Any, Dict, List, Tuple
 
 
 _ENV_BUILD_TOP = 'ANDROID_BUILD_TOP'
@@ -120,6 +119,37 @@ class BazelModeTest(unittest.TestCase):
             f'{_PASSING_CLASS_NAME}#{_PASSING_METHOD_NAME}: PASSED',
             completed_process)
 
+    def test_defaults_to_device_variant(self):
+        module_name = 'passing_cc_host_test'
+        self.write_cc_test_module(module_name, passing_cc_test_source())
+
+        completed_process = self.run_shell_command(
+            f'atest -c -m --bazel-mode {module_name}')
+
+        self.assert_in_stdout('AtestTradefedTestRunner:',
+                              completed_process)
+
+    def test_runs_host_variant_when_requested(self):
+        module_name = 'passing_cc_host_test'
+        self.write_cc_test_module(module_name, passing_cc_test_source())
+
+        completed_process = self.run_shell_command(
+            f'atest -c -m --host --bazel-mode {module_name}')
+
+        self.assert_in_stdout(f':{module_name}_host   PASSED',
+                              completed_process)
+
+    def test_ignores_host_arg_for_device_only_test(self):
+        module_name = 'passing_cc_device_test'
+        self.write_cc_test_module(module_name, passing_cc_test_source(),
+                                  host_supported=False)
+
+        completed_process = self.run_shell_command(
+            f'atest -c -m --host --bazel-mode {module_name}')
+
+        self.assert_in_stdout('Specified --host, but the following tests are '
+                              'device-only', completed_process)
+
     def setup_test_env(self) -> Dict[str, Any]:
         test_env = {
             'PATH': os.environ['PATH'],
@@ -153,13 +183,13 @@ class BazelModeTest(unittest.TestCase):
 
     def add_unsupported_passing_test(self, module_name: str):
         self.write_java_test_module(
-            module_name, passing_java_test_source(), is_unit_test='false')
+            module_name, passing_java_test_source(), unit_test=False)
 
     def write_java_test_module(
         self,
         module_name: str,
         test_src: TestSource,
-        is_unit_test: str='true',
+        unit_test: bool=True,
     ) -> Tuple[Path, Path]:
         test_dir = self.test_dir.joinpath(module_name)
         test_dir.mkdir(parents=True, exist_ok=True)
@@ -170,9 +200,42 @@ class BazelModeTest(unittest.TestCase):
 
         bp_file_path = test_dir.joinpath('Android.bp')
         bp_file_path.write_text(
-            android_bp_source(module_name=module_name,
-                              src_file=str(src_file_name),
-                              is_unit_test=is_unit_test),
+            android_bp(
+                java_test_host(
+                    name=module_name,
+                    srcs=[
+                        str(src_file_name),
+                    ],
+                    unit_test=unit_test,
+                ),
+            ),
+            encoding='utf8')
+        return (src_file_path, bp_file_path)
+
+    def write_cc_test_module(
+        self,
+        module_name: str,
+        test_src: str,
+        host_supported: bool=True,
+    ) -> Tuple[Path, Path]:
+        test_dir = self.test_dir.joinpath(module_name)
+        test_dir.mkdir(parents=True, exist_ok=True)
+
+        src_file_name = f'{module_name}.cpp'
+        src_file_path = test_dir.joinpath(f'{src_file_name}')
+        src_file_path.write_text(test_src, encoding='utf8')
+
+        bp_file_path = test_dir.joinpath('Android.bp')
+        bp_file_path.write_text(
+            android_bp(
+                cc_test(
+                    name=module_name,
+                    srcs=[
+                        str(src_file_name),
+                    ],
+                    host_supported=host_supported,
+                ),
+            ),
             encoding='utf8')
         return (src_file_path, bp_file_path)
 
@@ -203,42 +266,8 @@ def java_test_source(
     test_method_name: str,
     test_method_body: str,
 ) -> TestSource:
-    return TestSource(test_class_name, JAVA_TEST_TEMPLATE.substitute(
-        test_class_name=test_class_name,
-        test_method_name=test_method_name,
-        test_method_body=test_method_body))
-
-
-def android_bp_source(
-    module_name: str,
-    src_file: str,
-    is_unit_test: str = 'true',
-):
-    return ANDROID_BP_TEMPLATE.substitute(
-        module_name=module_name, src_file=src_file,
-        is_unit_test=is_unit_test)
-
-
-ANDROID_BP_TEMPLATE = string.Template("""\
-package {
-    default_applicable_licenses: ["Android-Apache-2.0"],
-}
-
-java_test_host {
-    name: "${module_name}",
-    test_suites: ["general-tests"],
-    srcs: ["${src_file}"],
-    static_libs: [
-        "junit",
-    ],
-    test_options: {
-        unit_test: ${is_unit_test},
-    },
-}
-""")
-
-
-JAVA_TEST_TEMPLATE = string.Template("""\
+    return TestSource(test_class_name,
+                      f"""\
 package android.android;
 
 import org.junit.Assert;
@@ -247,14 +276,93 @@ import org.junit.runners.JUnit4;
 import org.junit.runner.RunWith;
 
 @RunWith(JUnit4.class)
-public final class ${test_class_name} {
+public final class {test_class_name} {{
 
     @Test
-    public void ${test_method_name}() {
-        ${test_method_body}
-    }
-}
+    public void {test_method_name}() {{
+        {test_method_body}
+    }}
+}}
 """)
+
+
+def passing_cc_test_source() -> str:
+    return cc_test_source(
+        test_suite_name='TestSuite',
+        test_name='PassingTest',
+        test_body='')
+
+
+def cc_test_source(
+    test_suite_name: str,
+    test_name: str,
+    test_body: str,
+) -> str:
+    return f"""\
+#include <gtest/gtest.h>
+
+TEST({test_suite_name}, {test_name}) {{
+    {test_body}
+}}
+"""
+
+
+def android_bp(
+    modules: str='',
+) -> str:
+    return f"""\
+package {{
+    default_applicable_licenses: ["Android-Apache-2.0"],
+}}
+
+{modules}
+"""
+
+
+def cc_test(
+    name: str,
+    srcs: List[str],
+    host_supported: bool,
+) -> str:
+    src_files = ',\n'.join(
+        [f'"{f}"' for f in srcs])
+
+    return f"""\
+cc_test {{
+    name: "{name}",
+    srcs: [
+        {src_files},
+    ],
+    test_options: {{
+        unit_test: true,
+    }},
+    host_supported: {str(host_supported).lower()},
+}}
+"""
+
+
+def java_test_host(
+    name: str,
+    srcs: List[str],
+    unit_test: bool,
+) -> str:
+    src_files = ',\n'.join(
+        [f'"{f}"' for f in srcs])
+
+    return f"""\
+java_test_host {{
+    name: "{name}",
+    srcs: [
+        {src_files},
+    ],
+    test_options: {{
+        unit_test: {str(unit_test).lower()},
+    }},
+    static_libs: [
+        "junit",
+    ],
+}}
+"""
 
 
 if __name__ == '__main__':
