@@ -23,6 +23,7 @@ Atest Argument Parser class for atest.
 import argparse
 import pydoc
 
+import bazel_mode
 import constants
 
 # Constants used for AtestArgParser and EPILOG_TEMPLATE
@@ -51,6 +52,7 @@ ENABLE_DEVICE_PREPARER = ('Enable template/preparers/device-preparer as the '
                           'default preparer.')
 ENABLE_FILE_PATTERNS = 'Enable FILE_PATTERNS in TEST_MAPPING.'
 FLAKES_INFO = 'Test result with flakes info.'
+GENERATE_RUNNER_CMD = 'Generate the runner command(s) of given tests.'
 HISTORY = ('Show test results in chronological order(with specified number or '
            'all by default).')
 HOST = ('Run the test completely on the host without a device. '
@@ -69,8 +71,6 @@ LIST_MODULES = 'List testable modules of the given suite.'
 NO_ENABLE_ROOT = ('Do NOT restart adbd with root permission even the test config '
                   'has RootTargetPreparer.')
 NO_METRICS = 'Do not send metrics.'
-NO_MODULES_IN = ('Do not include MODULES-IN-* as build targets. Warning: This '
-                 'may result in missing dependencies issue.')
 REBUILD_MODULE_INFO = ('Forces a rebuild of the module-info.json file. '
                        'This may be necessary following a repo sync or '
                        'when writing a new test.')
@@ -93,6 +93,8 @@ TEST_MAPPING = 'Run tests defined in TEST_MAPPING files.'
 TEST_CONFIG_SELECTION = ('If multiple test config belong to same test module '
                          'pop out a selection menu on console.')
 TEST_FILTER = 'Run tests which are specified using this option.'
+TEST_TIMEOUT = ('Customize test timeout. E.g. 60000(in milliseconds) '
+                'represents 1 minute timeout. For no timeout, set to 0.')
 TF_DEBUG = 'Enable tradefed debug mode with a specified port. (default: 10888)'
 TF_EARLY_DEVICE_RELEASE = ('Inform Tradefed to release the device as soon as '
                            'when done with it.')
@@ -101,6 +103,8 @@ TF_TEMPLATE = ('Add extra tradefed template for ATest suite, '
 UPDATE_CMD_MAPPING = ('Update the test command of input tests. Warning: result '
                       'will be saved under '
                       'tools/asuite/atest/test_data.')
+USE_MODULES_IN = ('Force include MODULES-IN-* as build targets. '
+                  'Hint: This may solve missing test dependencies issue.')
 USER_TYPE = ('Run test with specific user type, e.g. atest <test> --user-type '
              'secondary_user')
 VERBOSE = 'Display DEBUG level logging.'
@@ -145,8 +149,13 @@ class AtestArgParser(argparse.ArgumentParser):
         self.add_argument('-a', '--all-abi', action='store_true', help=ALL_ABI)
         self.add_argument('-b', '--build', action='append_const', dest='steps',
                           const=constants.BUILD_STEP, help=BUILD)
-        self.add_argument('--bazel-mode', action='store_true', help=BAZEL_MODE)
+        self.add_argument('--bazel-mode', default=True, action='store_true',
+                            help=BAZEL_MODE)
+        self.add_argument('--no-bazel-mode', dest='bazel_mode',
+                            action='store_false', help=BAZEL_MODE)
         self.add_argument('--bazel-arg', nargs='*', action='append', help=BAZEL_ARG)
+        bazel_mode.add_parser_arguments(self, dest='bazel_mode_features')
+
         self.add_argument('-d', '--disable-teardown', action='store_true',
                           help=DISABLE_TEARDOWN)
         self.add_argument('--enable-device-preparer', action='store_true', help=HOST)
@@ -158,13 +167,13 @@ class AtestArgParser(argparse.ArgumentParser):
                           action='store_true', help=REBUILD_MODULE_INFO)
         self.add_argument('--no-enable-root', help=NO_ENABLE_ROOT,
                           action='store_true')
-        self.add_argument('--no-modules-in', help=NO_MODULES_IN,
-                          action='store_true')
         self.add_argument('--sharding', nargs='?', const=2,
                           type=_positive_int, default=0,
                           help=SHARDING)
         self.add_argument('-t', '--test', action='append_const', dest='steps',
                           const=constants.TEST_STEP, help=TEST)
+        self.add_argument('--use-modules-in', help=USE_MODULES_IN,
+                          action='store_true')
         self.add_argument('-w', '--wait-for-debugger', action='store_true',
                           help=WAIT_FOR_DEBUGGER)
         self.add_argument('--request-upload-result', action='store_true',
@@ -248,6 +257,8 @@ class AtestArgParser(argparse.ArgumentParser):
                           help=VERIFY_CMD_MAPPING)
         self.add_argument('-e', '--verify-env-variable', action='store_true',
                           help=VERIFY_ENV_VARIABLE)
+        self.add_argument('-g', '--generate-runner-cmd', action='store_true',
+                          help=GENERATE_RUNNER_CMD)
         # Options for Tradefed debug mode.
         self.add_argument('-D', '--tf-debug', nargs='?', const=10888,
                           type=_positive_int, default=0,
@@ -257,6 +268,8 @@ class AtestArgParser(argparse.ArgumentParser):
                           help=TF_TEMPLATE)
         self.add_argument('--test-filter', nargs='?',
                           help=TEST_FILTER)
+        self.add_argument('--test-timeout', nargs='?', type=int,
+                          help=TEST_TIMEOUT)
 
         # A group of options for rerun strategy. They are mutually exclusive
         # in a command line.
@@ -332,6 +345,7 @@ def print_epilog_text():
         ENABLE_DEVICE_PREPARER=ENABLE_DEVICE_PREPARER,
         ENABLE_FILE_PATTERNS=ENABLE_FILE_PATTERNS,
         FLAKES_INFO=FLAKES_INFO,
+        GENERATE_RUNNER_CMD=GENERATE_RUNNER_CMD,
         HELP_DESC=HELP_DESC,
         HISTORY=HISTORY,
         HOST=HOST,
@@ -345,7 +359,6 @@ def print_epilog_text():
         LIST_MODULES=LIST_MODULES,
         NO_ENABLE_ROOT=NO_ENABLE_ROOT,
         NO_METRICS=NO_METRICS,
-        NO_MODULES_IN=NO_MODULES_IN,
         REBUILD_MODULE_INFO=REBUILD_MODULE_INFO,
         REQUEST_UPLOAD_RESULT=REQUEST_UPLOAD_RESULT,
         RERUN_UNTIL_FAILURE=RERUN_UNTIL_FAILURE,
@@ -356,12 +369,14 @@ def print_epilog_text():
         TEST=TEST,
         TEST_CONFIG_SELECTION=TEST_CONFIG_SELECTION,
         TEST_MAPPING=TEST_MAPPING,
+        TEST_TIMEOUT=TEST_TIMEOUT,
         TF_DEBUG=TF_DEBUG,
         TF_EARLY_DEVICE_RELEASE=TF_EARLY_DEVICE_RELEASE,
         TEST_FILTER=TEST_FILTER,
         TF_TEMPLATE=TF_TEMPLATE,
         USER_TYPE=USER_TYPE,
         UPDATE_CMD_MAPPING=UPDATE_CMD_MAPPING,
+        USE_MODULES_IN=USE_MODULES_IN,
         VERBOSE=VERBOSE,
         VERSION=VERSION,
         VERIFY_CMD_MAPPING=VERIFY_CMD_MAPPING,
@@ -406,7 +421,7 @@ OPTIONS
         -b, --build
             {BUILD} (implicit default)
 
-        --bazel-mode
+        --[no-]bazel-mode
             {BAZEL_MODE}
 
         --bazel-arg
@@ -436,9 +451,6 @@ OPTIONS
         --no-enable-root
             {NO_ENABLE_ROOT}
 
-        --no-modules-in
-            {NO_MODULES_IN}
-
         -s, --serial [SERIAL]
             {SERIAL}
 
@@ -462,11 +474,17 @@ OPTIONS
         --tf-template
             {TF_TEMPLATE}
 
+        --test-timeout [NUMBER in milliseconds]
+            {TEST_TIMEOUT}
+
         -w, --wait-for-debugger
             {WAIT_FOR_DEBUGGER}
 
         --request-upload-result
             {REQUEST_UPLOAD_RESULT}
+
+        --use-modules-in
+            {USE_MODULES_IN}
 
         [ Test Mapping ]
         -p, --test-mapping
@@ -877,5 +895,5 @@ EXAMPLES
         atest CtsVideoTestCases -- --test-arg com.android.tradefed.testtype.JarHosttest:collect-tests-only:true
 
 
-                                                     2021-04-22
+                                                     2022-03-25
 '''

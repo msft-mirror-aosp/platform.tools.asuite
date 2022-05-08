@@ -27,6 +27,7 @@ import tempfile
 import unittest
 import json
 
+from argparse import Namespace
 from io import StringIO
 from pathlib import Path
 from unittest import mock
@@ -195,6 +196,8 @@ class AtestTradefedTestRunnerUnittests(unittest.TestCase):
     def setUp(self, mock_get_ld_library_path):
         mock_get_ld_library_path.return_value = RUN_ENV_STR
         self.tr = atf_tr.AtestTradefedTestRunner(results_dir=uc.TEST_INFO_DIR)
+        if not atest_configs.GLOBAL_ARGS:
+            atest_configs.GLOBAL_ARGS = Namespace()
         atest_configs.GLOBAL_ARGS.device_count_config = None
 
     def tearDown(self):
@@ -1118,6 +1121,25 @@ class ExtraArgsTest(AtestTradefedTestRunnerUnittests):
 
         self.assertTokensNotIn(['--tf-early-device-release'], cmd[0])
 
+    def test_args_with_timeout_and_generate_in_run_cmd(self):
+        extra_args = {constants.TEST_TIMEOUT: 10000}
+
+        cmd = self.tr.generate_run_commands([], extra_args)
+
+        self.assertTokensIn(
+            ['--test-arg',
+             'com.android.tradefed.testtype.AndroidJUnitTest:'
+             'shell-timeout:10000',
+             '--test-arg',
+             'com.android.tradefed.testtype.AndroidJUnitTest:'
+             'test-timeout:10000',
+             '--test-arg',
+             'com.android.tradefed.testtype.HostGTest:'
+             'native-test-timeout:10000',
+             '--test-arg',
+             'com.android.tradefed.testtype.GTest:'
+             'native-test-timeout:10000'],
+            cmd[0])
 
 if __name__ == '__main__':
     unittest.main()

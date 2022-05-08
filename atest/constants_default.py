@@ -59,6 +59,7 @@ COLLECT_TESTS_ONLY = 'COLLECT_TESTS_ONLY'
 TF_TEMPLATE = 'TF_TEMPLATE'
 FLAKES_INFO = 'FLAKES_INFO'
 TF_EARLY_DEVICE_RELEASE = 'TF_EARLY_DEVICE_RELEASE'
+BAZEL_MODE_FEATURES = 'BAZEL_MODE_FEATURES'
 REQUEST_UPLOAD_RESULT = 'REQUEST_UPLOAD_RESULT'
 MODULES_IN = 'MODULES-IN-'
 NO_ENABLE_ROOT = 'NO_ENABLE_ROOT'
@@ -69,6 +70,7 @@ ENABLE_DEVICE_PREPARER = 'ENABLE_DEVICE_PREPARER'
 ANNOTATION_FILTER = 'ANNOTATION_FILTER'
 BAZEL_ARG = 'BAZEL_ARG'
 TEST_FILTER = 'TEST_FILTER'
+TEST_TIMEOUT = 'TEST_TIMEOUT'
 
 # Robolectric Types:
 ROBOTYPE_MODERN = 1
@@ -79,7 +81,7 @@ ROBOTYPE_LEGACY = 2
 ACCESS_CACHE_FAILURE = 101
 ACCESS_HISTORY_FAILURE = 102
 IMPORT_FAILURE = 103
-MLOCATEDB_LOCKED = 104
+PLOCATEDB_LOCKED = 104
 
 # Test finder constants.
 MODULE_CONFIG = 'AndroidTest.xml'
@@ -99,6 +101,7 @@ MODULE_IS_UNIT_TEST = 'is_unit_test'
 MODULE_SHARED_LIBS = 'shared_libs'
 MODULE_RUNTIME_DEPS = 'runtime_dependencies'
 MODULE_DATA_DEPS = 'data_dependencies'
+MODULE_SUPPORTED_VARIANTS = 'supported_variants'
 
 
 # Env constants
@@ -232,8 +235,8 @@ ATEST_TF_MODULE = 'atest-tradefed'
 
 # Atest index path and relative dirs/caches.
 INDEX_DIR = os.path.join(os.getenv(ANDROID_HOST_OUT, ''), 'indexes')
-LOCATE_CACHE = os.path.join(INDEX_DIR, 'mlocate.db')
-LOCATE_CACHE_MD5 = os.path.join(INDEX_DIR, 'mlocate.md5')
+LOCATE_CACHE = os.path.join(INDEX_DIR, 'plocate.db')
+LOCATE_CACHE_MD5 = os.path.join(INDEX_DIR, 'plocate.md5')
 BUILDFILES_MD5 = os.path.join(INDEX_DIR, 'buildfiles.md5')
 INT_INDEX = os.path.join(INDEX_DIR, 'integration.idx')
 CLASS_INDEX = os.path.join(INDEX_DIR, 'classes.idx')
