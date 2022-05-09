@@ -163,6 +163,14 @@ class AidegenMainUnittests(unittest.TestCase):
                                                  exc_traceback, msg)
 
     @mock.patch.object(aidegen_main, '_launch_ide')
+    def test_main_with_wrong_ide_path(self, mock_launch_ide):
+        """Test main function with wrong ide path."""
+        target = 'libui'
+        args = [target, '-p', '/opt/abc/bin/idea.sh']
+        aidegen_main.main(args)
+        self.assertFalse(mock_launch_ide.called)
+
+    @mock.patch.object(aidegen_main, '_launch_ide')
     @mock.patch.object(ide_util, 'get_ide_util_instance')
     def test_launch_native_projects_without_ide_object(
             self, mock_get_ide, mock_launch_ide):
