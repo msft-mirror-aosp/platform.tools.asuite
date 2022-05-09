@@ -20,16 +20,15 @@
 
 import os
 import pickle
-import platform
 import subprocess
 import unittest
 
 from unittest import mock
 
 import atest_utils as au
-import constants
 import unittest_constants as uc
 
+from atest_enum import ExitCode
 from tools import atest_tools
 
 SEARCH_ROOT = uc.TEST_DATA_DIR
@@ -52,13 +51,11 @@ class AtestToolsUnittests(unittest.TestCase):
                                      prunepaths=PRUNEPATH)
             # test_config/ is excluded so that a.xml won't be found.
             locate_cmd1 = [LOCATE, '-d', uc.LOCATE_CACHE, '/a.xml']
-            # locate always return 0 when not found in Darwin, therefore,
-            # check null return in Darwin and return value in Linux.
-            if platform.system() == 'Darwin':
-                output = subprocess.check_output(locate_cmd1).decode()
-                self.assertEqual(output, "")
-            else:
-                self.assertEqual(subprocess.call(locate_cmd1), 1)
+            # locate always return 0 when not found, therefore check null
+            # return if nothing found.
+            output = subprocess.check_output(locate_cmd1).decode()
+            self.assertEqual(output, '')
+
             # module-info.json can be found in the search_root.
             locate_cmd2 = [LOCATE, '-d', uc.LOCATE_CACHE, 'module-info.json']
             self.assertEqual(subprocess.call(locate_cmd2), 0)
@@ -133,15 +130,15 @@ class AtestToolsUnittests(unittest.TestCase):
         """Test method prob_acloud_status."""
         success = os.path.join(SEARCH_ROOT, 'acloud', 'create_success.json')
         self.assertEqual(atest_tools.probe_acloud_status(success),
-                         constants.EXIT_CODE_SUCCESS)
+                         ExitCode.SUCCESS)
 
         failure = os.path.join(SEARCH_ROOT, 'acloud', 'create_failure.json')
         self.assertEqual(atest_tools.probe_acloud_status(failure),
-                         constants.EXIT_CODE_AVD_CREATE_FAILURE)
+                         ExitCode.AVD_CREATE_FAILURE)
 
         inexistence = os.path.join(SEARCH_ROOT, 'acloud', 'inexistence.json')
         self.assertEqual(atest_tools.probe_acloud_status(inexistence),
-                         constants.EXIT_CODE_AVD_INVALID_ARGS)
+                         ExitCode.AVD_INVALID_ARGS)
 
     def test_get_acloud_duration(self):
         """Test method get_acloud_duration."""
