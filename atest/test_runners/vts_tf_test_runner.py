@@ -22,6 +22,7 @@ import logging
 import atest_utils
 import constants
 
+from atest_enum import ExitCode
 from test_runners import atest_tf_test_runner
 
 class VtsTradefedTestRunner(atest_tf_test_runner.AtestTradefedTestRunner):
@@ -62,7 +63,7 @@ class VtsTradefedTestRunner(atest_tf_test_runner.AtestTradefedTestRunner):
         Returns:
             Return code of the process for running tests.
         """
-        ret_code = constants.EXIT_CODE_SUCCESS
+        ret_code = ExitCode.SUCCESS
         reporter.register_unsupported_runner(self.NAME)
         run_cmds = self.generate_run_commands(test_infos, extra_args)
         for run_cmd in run_cmds:

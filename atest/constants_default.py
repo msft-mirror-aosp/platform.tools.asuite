@@ -69,27 +69,7 @@ ENABLE_DEVICE_PREPARER = 'ENABLE_DEVICE_PREPARER'
 ANNOTATION_FILTER = 'ANNOTATION_FILTER'
 BAZEL_ARG = 'BAZEL_ARG'
 TEST_FILTER = 'TEST_FILTER'
-DEVICE_COUNT_CONFIG = 'DEVICE_COUNT_CONFIG'
-
-# Application exit codes.
-EXIT_CODE_SUCCESS = 0
-EXIT_CODE_ENV_NOT_SETUP = 1
-EXIT_CODE_BUILD_FAILURE = 2
-EXIT_CODE_ERROR = 3
-EXIT_CODE_TEST_NOT_FOUND = 4
-EXIT_CODE_TEST_FAILURE = 5
-EXIT_CODE_VERIFY_FAILURE = 6
-EXIT_CODE_OUTSIDE_ROOT = 7
-EXIT_CODE_AVD_CREATE_FAILURE = 8
-EXIT_CODE_AVD_INVALID_ARGS = 9
-EXIT_CODE_EXIT_BEFORE_MAIN = 10
-EXIT_CODE_DEVICE_NOT_FOUND = 11
-# Conditions that atest should exit without sending result to metrics.
-EXIT_CODES_BEFORE_TEST = [EXIT_CODE_ENV_NOT_SETUP,
-                          EXIT_CODE_TEST_NOT_FOUND,
-                          EXIT_CODE_OUTSIDE_ROOT,
-                          EXIT_CODE_AVD_CREATE_FAILURE,
-                          EXIT_CODE_AVD_INVALID_ARGS]
+TEST_TIMEOUT = 'TEST_TIMEOUT'
 
 # Robolectric Types:
 ROBOTYPE_MODERN = 1
@@ -100,7 +80,7 @@ ROBOTYPE_LEGACY = 2
 ACCESS_CACHE_FAILURE = 101
 ACCESS_HISTORY_FAILURE = 102
 IMPORT_FAILURE = 103
-MLOCATEDB_LOCKED = 104
+PLOCATEDB_LOCKED = 104
 
 # Test finder constants.
 MODULE_CONFIG = 'AndroidTest.xml'
@@ -119,6 +99,9 @@ MODULE_SRCS = 'srcs'
 MODULE_IS_UNIT_TEST = 'is_unit_test'
 MODULE_SHARED_LIBS = 'shared_libs'
 MODULE_RUNTIME_DEPS = 'runtime_dependencies'
+MODULE_DATA_DEPS = 'data_dependencies'
+MODULE_SUPPORTED_VARIANTS = 'supported_variants'
+
 
 # Env constants
 ANDROID_BUILD_TOP = 'ANDROID_BUILD_TOP'
@@ -251,8 +234,8 @@ ATEST_TF_MODULE = 'atest-tradefed'
 
 # Atest index path and relative dirs/caches.
 INDEX_DIR = os.path.join(os.getenv(ANDROID_HOST_OUT, ''), 'indexes')
-LOCATE_CACHE = os.path.join(INDEX_DIR, 'mlocate.db')
-LOCATE_CACHE_MD5 = os.path.join(INDEX_DIR, 'mlocate.md5')
+LOCATE_CACHE = os.path.join(INDEX_DIR, 'plocate.db')
+LOCATE_CACHE_MD5 = os.path.join(INDEX_DIR, 'plocate.md5')
 BUILDFILES_MD5 = os.path.join(INDEX_DIR, 'buildfiles.md5')
 INT_INDEX = os.path.join(INDEX_DIR, 'integration.idx')
 CLASS_INDEX = os.path.join(INDEX_DIR, 'classes.idx')
