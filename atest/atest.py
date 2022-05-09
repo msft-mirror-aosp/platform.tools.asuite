@@ -780,6 +780,31 @@ def need_rebuild_module_info(force_build):
     logging.debug('Found build files were changed.')
     return True
 
+def need_run_index_targets(args, extra_args):
+    """Method that determines whether Atest need to run index_targets or not.
+
+
+    There are 3 conditions that Atest does not run index_targets():
+    1. dry-run flags were found.
+    2. VERIFY_ENV_VARIABLE was found in extra_args.
+    3. --test flag was found.
+
+    Args:
+        args: A list of argument.
+        extra_args: A list of extra argument.
+
+    Returns:
+        True when none of the above conditions were found.
+    """
+    ignore_args = (args.update_cmd_mapping, args.verify_cmd_mapping, args.dry_run)
+    if any(ignore_args):
+        return False
+    if extra_args.get(constants.VERIFY_ENV_VARIABLE, False):
+        return False
+    if args.steps and 'test' in args.steps:
+        return False
+    return True
+
 def acloud_create_validator(results_dir, args):
     """Check lunch'd target before running 'acloud create'.
 
@@ -881,12 +906,11 @@ def main(argv, results_dir, args):
     proc_acloud, report_file = acloud_create_validator(results_dir, args)
     is_clean = not os.path.exists(
         os.environ.get(constants.ANDROID_PRODUCT_OUT, ''))
-    # Do not index targets while the users intend to dry-run tests.
-    dry_run_args = (args.update_cmd_mapping, args.verify_cmd_mapping, args.dry_run)
     extra_args = get_extra_args(args)
     verify_env_variables = extra_args.get(constants.VERIFY_ENV_VARIABLE, False)
     proc_idx = None
-    if not (any(dry_run_args) or verify_env_variables):
+    # Do not index targets while the users intend to dry-run tests.
+    if need_run_index_targets(args, extra_args):
         proc_idx = atest_utils.run_multi_proc(INDEX_TARGETS)
     smart_rebuild = need_rebuild_module_info(args.rebuild_module_info)
     mod_start = time.time()
@@ -910,6 +934,7 @@ def main(argv, results_dir, args):
     build_targets = set()
     mm_build_targets = set()
     test_infos = set()
+    dry_run_args = (args.update_cmd_mapping, args.verify_cmd_mapping, args.dry_run)
     if _will_run_tests(args):
         if proc_idx:
             proc_idx.join()
