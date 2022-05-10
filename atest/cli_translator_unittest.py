@@ -61,6 +61,7 @@ TEST_10 = test_mapping.TestDetail({'name': 'test10'})
 SEARCH_DIR_RE = re.compile(r'^find ([^ ]*).*$')
 BUILD_TOP_DIR = tempfile.TemporaryDirectory().name
 PRODUCT_OUT_DIR = os.path.join(BUILD_TOP_DIR, 'out/target/product/vsoc_x86_64')
+HOST_OUT_DIR = os.path.join(BUILD_TOP_DIR, 'out/host/linux-x86')
 
 #pylint: disable=unused-argument
 def gettestinfos_side_effect(test_names, test_mapping_test_details=None,
@@ -238,7 +239,8 @@ class CLITranslatorUnittests(unittest.TestCase):
             self, mock_getfindmethods, _metrics, mock_getfuzzyresults,):
         """Test _get_test_infos method."""
         mod_info = module_info.ModuleInfo(
-            module_file=os.path.join(uc.TEST_DATA_DIR, uc.JSON_FILE))
+            module_file=os.path.join(uc.TEST_DATA_DIR, uc.JSON_FILE),
+            index_dir=HOST_OUT_DIR)
         ctr = cli_t.CLITranslator(mod_info=mod_info)
         null_test_info = set()
         mock_getfindmethods.return_value = []
@@ -424,7 +426,8 @@ class CLITranslatorUnittests(unittest.TestCase):
     def test_extract_testable_modules_by_wildcard(self, mock_mods):
         """Test _extract_testable_modules_by_wildcard method."""
         mod_info = module_info.ModuleInfo(
-            module_file=os.path.join(uc.TEST_DATA_DIR, uc.JSON_FILE))
+            module_file=os.path.join(uc.TEST_DATA_DIR, uc.JSON_FILE),
+            index_dir=HOST_OUT_DIR)
         ctr = cli_t.CLITranslator(mod_info=mod_info)
         mock_mods.return_value = ['test1', 'test2', 'test3', 'test11',
                                   'Test22', 'Test100', 'aTest101']
