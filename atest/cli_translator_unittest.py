@@ -450,8 +450,8 @@ class CLITranslatorUnittests(unittest.TestCase):
     @mock.patch.object(cli_t.CLITranslator, '_find_tests_by_test_mapping')
     @mock.patch.object(cli_t.CLITranslator, '_get_test_infos',
                        side_effect=gettestinfos_side_effect)
-    def test_translate_test_mapping_host_unit_test(self, _info, mock_testmapping,
-        _find_unit_tests):
+    def test_translate_test_mapping_host_unit_test(
+        self, _info, mock_testmapping, _find_unit_tests):
         """Test translate method for tests belong to host unit tests."""
         # Check that test mappings feeds into get_test_info properly.
         test_detail1 = test_mapping.TestDetail(uc.TEST_MAPPING_TEST)
@@ -467,6 +467,32 @@ class CLITranslatorUnittests(unittest.TestCase):
                                             uc.CLASS_INFO,
                                             uc.MODULE_INFO_HOST_1,
                                             uc.MODULE_INFO_HOST_2})
+
+    @mock.patch.object(cli_t.CLITranslator, '_has_host_unit_test',
+                       return_value=True)
+    @mock.patch.object(test_finder_utils, 'find_host_unit_tests',
+                       return_value=[uc.HOST_UNIT_TEST_NAME_1,
+                                     uc.HOST_UNIT_TEST_NAME_2])
+    @mock.patch.object(cli_t.CLITranslator, '_find_tests_by_test_mapping')
+    @mock.patch.object(cli_t.CLITranslator, '_get_test_infos',
+                       side_effect=gettestinfos_side_effect)
+    def test_translate_test_mapping_without_host_unit_test(
+        self, _info, mock_testmapping, _find_unit_tests, _has_host_unit_test):
+        """Test translate method not using host unit tests if test_mapping arg .
+        """
+        # Check that test mappings feeds into get_test_info properly.
+        test_detail1 = test_mapping.TestDetail(uc.TEST_MAPPING_TEST)
+        test_detail2 = test_mapping.TestDetail(uc.TEST_MAPPING_TEST_WITH_OPTION)
+        mock_testmapping.return_value = ([test_detail1, test_detail2], None)
+        self.args.tests = []
+        self.args.host = False
+        self.args.test_mapping = True
+        self.args.host_unit_test_only = False
+        _, test_infos = self.ctr.translate(self.args)
+        unittest_utils.assert_strict_equal(
+            self,
+            test_infos,
+            {uc.MODULE_INFO, uc.CLASS_INFO})
 
 if __name__ == '__main__':
     unittest.main()
