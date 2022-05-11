@@ -625,7 +625,8 @@ class CLITranslator:
         if not args.tests or atest_utils.is_test_mapping(args):
             detect_type = DetectType.TEST_NULL_ARGS
         start = time.time()
-        if not args.tests:
+        # Not including host unit tests if user specify --test-mapping arg.
+        if not args.tests and not args.test_mapping:
             logging.debug('Finding Host Unit Tests...')
             path = os.path.relpath(
                 os.path.realpath(''),
