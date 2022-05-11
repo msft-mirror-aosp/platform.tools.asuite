@@ -22,7 +22,10 @@ import copy
 import logging
 import os
 import re
+import tempfile
 import xml.etree.ElementTree as ElementTree
+
+from zipfile import ZipFile
 
 import atest_error
 import constants
@@ -33,8 +36,9 @@ from test_finders import test_finder_utils
 from test_runners import atest_tf_test_runner
 
 # Find integration name based on file path of integration config xml file.
-# Group matches "foo/bar" given "blah/res/config/blah/res/config/foo/bar.xml
-_INT_NAME_RE = re.compile(r'^.*\/res\/config\/(?P<int_name>.*).xml$')
+# Group matches "foo/bar" given "blah/res/config/foo/bar.xml from source code
+# res directory or "blah/config/foo/bar.xml from prebuilt jars.
+_INT_NAME_RE = re.compile(r'^.*\/config\/(?P<int_name>.*).xml$')
 _TF_TARGETS = frozenset(['tradefed', 'tradefed-contrib'])
 _GTF_TARGETS = frozenset(['google-tradefed', 'google-tradefed-contrib'])
 _CONTRIB_TARGETS = frozenset(['google-tradefed-contrib'])
@@ -54,6 +58,7 @@ class TFIntegrationFinder(test_finder_base.TestFinderBase):
         # TODO: Break this up into AOSP/google_tf integration finders.
         self.tf_dirs, self.gtf_dirs = self._get_integration_dirs()
         self.integration_dirs = self.tf_dirs + self.gtf_dirs
+        self.temp_dir = tempfile.TemporaryDirectory()
 
     def _get_mod_paths(self, module_name):
         """Return the paths of the given module name."""
@@ -126,6 +131,8 @@ class TFIntegrationFinder(test_finder_base.TestFinderBase):
                     logging.warning('skipping <include> tag with no "name" value')
                     continue
                 full_paths = self._search_integration_dirs(integration_name)
+                if not full_paths:
+                    full_paths = self._search_prebuilt_jars(integration_name)
                 node = None
                 if full_paths:
                     node = self._load_xml_file(full_paths[0])
@@ -169,8 +176,9 @@ class TFIntegrationFinder(test_finder_base.TestFinderBase):
         if ':' in name:
             name, class_name = name.split(':')
         test_files = self._search_integration_dirs(name)
-        if test_files is None:
-            return None
+        if not test_files:
+            # Check prebuilt jars if input name is in jars.
+            test_files = self._search_prebuilt_jars(name)
         # Don't use names that simply match the path,
         # must be the actual name used by TF to run the test.
         t_infos = []
@@ -179,6 +187,59 @@ class TFIntegrationFinder(test_finder_base.TestFinderBase):
             if t_info:
                 t_infos.append(t_info)
         return t_infos
+
+    def _get_prebuilt_jars(self):
+        """Get prebuilt jars based on targets.
+
+        Returns:
+            A tuple of lists of strings of prebuilt jars.
+        """
+        prebuilt_jars = []
+        for tf_dir in self.tf_dirs:
+            for tf_target in _TF_TARGETS:
+                jar_path = os.path.join(
+                    self.root_dir, tf_dir, '..', 'filegroups', 'tradefed',
+                    tf_target + '.jar')
+                if os.path.exists(jar_path):
+                    prebuilt_jars.append(jar_path)
+        for gtf_dir in self.gtf_dirs:
+            for gtf_target in _GTF_TARGETS:
+                jar_path = os.path.join(
+                    self.root_dir, gtf_dir, '..', 'filegroups',
+                    'google-tradefed', gtf_target + '.jar')
+                if os.path.exists(jar_path):
+                    prebuilt_jars.append(jar_path)
+        return prebuilt_jars
+
+    def _search_prebuilt_jars(self, name):
+        """Search tradefed prebuilt jar which has matched name.
+
+        Search if input name matched prebuilt tradefed jar. If matched, extract
+        the jar file to temp directly for later on test info handling.
+
+        Args:
+            name: A string of integration name as seen in tf's list configs.
+
+        Returns:
+            A list of test path.
+        """
+
+        xml_path = 'config/{}.xml'.format(name)
+        test_files = []
+        prebuilt_jars = self._get_prebuilt_jars()
+        logging.debug('Found prebuilt_jars=%s', prebuilt_jars)
+        for prebuilt_jar in prebuilt_jars:
+            with ZipFile(prebuilt_jar, 'r') as jar_file:
+                jar_contents = jar_file.namelist()
+                if xml_path in jar_contents:
+                    extract_path = os.path.join(
+                        self.temp_dir.name, os.path.basename(prebuilt_jar))
+                    if not os.path.exists(extract_path):
+                        logging.debug('Extracting %s to %s',
+                                      prebuilt_jar, extract_path)
+                        jar_file.extractall(extract_path)
+                    test_files.append(os.path.join(extract_path, xml_path))
+        return test_files
 
     def _get_test_info(self, name, test_file, class_name):
         """Find the test info matching the given test_file and class_name.
@@ -198,8 +259,8 @@ class TFIntegrationFinder(test_finder_base.TestFinderBase):
             return None
         int_name = match.group('int_name')
         if int_name != name:
-            logging.warning('Input (%s) not valid integration name, '
-                            'did you mean: %s?', name, int_name)
+            logging.debug('Input (%s) not valid integration name, '
+                          'did you mean: %s?', name, int_name)
             return None
         rel_config = os.path.relpath(test_file, self.root_dir)
         filters = frozenset()
@@ -209,9 +270,9 @@ class TFIntegrationFinder(test_finder_base.TestFinderBase):
             if '.' in class_name:
                 test_filters.append(test_info.TestFilter(class_name, methods))
             else:
-                logging.warning('Looking up fully qualified class name for: %s.'
-                                'Improve speed by using fully qualified names.',
-                                class_name)
+                logging.debug('Looking up fully qualified class name for: %s.'
+                              'Improve speed by using fully qualified names.',
+                              class_name)
                 paths = test_finder_utils.find_class_file(self.root_dir,
                                                           class_name)
                 if not paths:
