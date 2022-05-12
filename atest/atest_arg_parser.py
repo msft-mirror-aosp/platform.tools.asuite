@@ -850,7 +850,7 @@ EXAMPLES
        directories. You can also specify a target directory.
 
     Example:
-        atest  (run presubmit tests in TEST_MAPPING files in current and parent directories)
+        atest  (run presubmit tests in TEST_MAPPING files and host unit tests in current and parent directories)
         atest --test-mapping </path/to/project>
                (run presubmit tests in TEST_MAPPING files in </path/to/project> and its parent directories)
 
