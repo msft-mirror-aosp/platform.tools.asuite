@@ -454,6 +454,27 @@ def _get_rust_project_paths(rtargets, root_dir):
         abs_paths.append(path)
     return abs_paths
 
+def _get_targets_from_args(targets, android_tree):
+    """Gets targets for specific argument.
+
+    For example:
+        $aidegen     : targets = ['.']
+        $aidegen -a  : targets = []
+        $aidegen .   : targets = ['.']
+        $aidegen . -a: targets = []
+
+    Args:
+        targets: A list of strings of targets.
+        android_tree: A boolean, True with '-a' argument else False.
+
+    Returns:
+        A list of the Rust absolute project paths.
+    """
+    if targets == [''] and not android_tree:
+        return ['.']
+    if android_tree:
+        return []
+    return targets
 
 @common_util.time_logged(message=_TIME_EXCEED_MSG, maximum=_MAX_TIME)
 def main_with_message(args):
@@ -490,10 +511,7 @@ def main(argv):
     ask_version = False
     try:
         args = _parse_args(argv)
-        # If the targets is the default value, sets it to the absolute path to
-        # avoid the issues caused by the empty path.
-        if args.targets == ['']:
-            args.targets = [os.path.abspath(os.getcwd())]
+        args.targets = _get_targets_from_args(args.targets, args.android_tree)
         if args.version:
             ask_version = True
             version_file = os.path.join(os.path.dirname(__file__),
