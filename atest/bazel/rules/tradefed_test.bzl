@@ -18,6 +18,16 @@ load("//bazel/rules:platform_transitions.bzl", "host_transition", "device_transi
 load("//bazel/rules:tradefed_test_aspects.bzl", "soong_prebuilt_tradefed_test_aspect")
 load("//bazel/rules:tradefed_test_info.bzl", "TradefedTestInfo")
 load("//bazel/rules:common_settings.bzl", "BuildSettingInfo")
+load("//:constants.bzl",
+    "aapt_label",
+    "adb_label",
+    "atest_script_help_sh_label",
+    "atest_tradefed_label",
+    "atest_tradefed_sh_label",
+    "bazel_result_reporter_label",
+    "tradefed_label",
+    "tradefed_test_framework_label"
+)
 
 _BAZEL_WORK_DIR = "${TEST_SRCDIR}/${TEST_WORKSPACE}/"
 _PY_TOOLCHAIN = "@bazel_tools//tools/python:toolchain_type"
@@ -30,26 +40,25 @@ _TRADEFED_TEST_ATTRIBUTES = {
     ),
     "_tradefed_classpath_jars": attr.label_list(
         default = [
-            "//tools/tradefederation/contrib:tradefed-contrib",
-            "//tools/tradefederation/core/test_framework:tradefed-test-framework",
-            "//tools/tradefederation/core:tradefed",
-            "//tools/asuite/atest:atest-tradefed",
-            "//tools/asuite/atest/bazel/reporter:bazel-result-reporter",
+            atest_tradefed_label,
+            tradefed_label,
+            tradefed_test_framework_label,
+            bazel_result_reporter_label,
         ],
-        cfg = host_transition,
+        cfg = host_transition
     ),
     "_atest_tradefed_launcher": attr.label(
-        default = "//tools/asuite/atest:atest_tradefed.sh",
+        default = atest_tradefed_sh_label,
         allow_single_file = True,
         cfg = host_transition,
     ),
     "_atest_helper": attr.label(
-        default = "//tools/asuite/atest:atest_script_help.sh",
+        default = atest_script_help_sh_label,
         allow_single_file = True,
         cfg = host_transition,
     ),
     "_adb": attr.label(
-        default = "//packages/modules/adb:adb",
+        default = adb_label,
         allow_single_file = True,
         cfg = host_transition,
     ),
@@ -134,7 +143,7 @@ tradefed_device_test = rule(
                 aspects = [soong_prebuilt_tradefed_test_aspect],
             ),
             "_aapt": attr.label(
-                default = "//frameworks/base/tools/aapt:aapt",
+                default = aapt_label,
                 allow_single_file = True,
                 cfg = host_transition,
             ),
