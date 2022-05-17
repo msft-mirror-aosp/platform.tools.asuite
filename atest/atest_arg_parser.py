@@ -52,6 +52,7 @@ ENABLE_DEVICE_PREPARER = ('Enable template/preparers/device-preparer as the '
                           'default preparer.')
 ENABLE_FILE_PATTERNS = 'Enable FILE_PATTERNS in TEST_MAPPING.'
 FLAKES_INFO = 'Test result with flakes info.'
+GENERATE_RUNNER_CMD = 'Generate the runner command(s) of given tests.'
 HISTORY = ('Show test results in chronological order(with specified number or '
            'all by default).')
 HOST = ('Run the test completely on the host without a device. '
@@ -256,6 +257,8 @@ class AtestArgParser(argparse.ArgumentParser):
                           help=VERIFY_CMD_MAPPING)
         self.add_argument('-e', '--verify-env-variable', action='store_true',
                           help=VERIFY_ENV_VARIABLE)
+        self.add_argument('-g', '--generate-runner-cmd', action='store_true',
+                          help=GENERATE_RUNNER_CMD)
         # Options for Tradefed debug mode.
         self.add_argument('-D', '--tf-debug', nargs='?', const=10888,
                           type=_positive_int, default=0,
@@ -342,6 +345,7 @@ def print_epilog_text():
         ENABLE_DEVICE_PREPARER=ENABLE_DEVICE_PREPARER,
         ENABLE_FILE_PATTERNS=ENABLE_FILE_PATTERNS,
         FLAKES_INFO=FLAKES_INFO,
+        GENERATE_RUNNER_CMD=GENERATE_RUNNER_CMD,
         HELP_DESC=HELP_DESC,
         HISTORY=HISTORY,
         HOST=HOST,
@@ -846,7 +850,7 @@ EXAMPLES
        directories. You can also specify a target directory.
 
     Example:
-        atest  (run presubmit tests in TEST_MAPPING files in current and parent directories)
+        atest  (run presubmit tests in TEST_MAPPING files and host unit tests in current and parent directories)
         atest --test-mapping </path/to/project>
                (run presubmit tests in TEST_MAPPING files in </path/to/project> and its parent directories)
 

@@ -89,7 +89,7 @@ class GenerationTestFixture(fake_filesystem_unittest.TestCase):
         generator.generate()
 
     # pylint: disable=protected-access
-    @mock.patch.dict('os.environ', {constants.ANDROID_BUILD_TOP:'/'})
+    @mock.patch.dict('os.environ', {constants.ANDROID_BUILD_TOP: '/'})
     def create_empty_module_info(self):
         fake_temp_file_name = next(tempfile._get_candidate_names())
         self.fs.create_file(fake_temp_file_name, contents='{}')
@@ -188,6 +188,26 @@ class BasicWorkspaceGenerationTest(GenerationTestFixture):
 
         self.assertNotEqual(workspace_stat, new_workspace_stat)
 
+    def test_not_regenerate_when_feature_does_not_affect_workspace(self):
+        workspace_generator = self.create_workspace_generator(
+            enabled_features={bazel_mode.Features.NULL_FEATURE})
+        workspace_generator.generate()
+        workspace_stat = workspace_generator.workspace_out_path.stat()
+
+        parser = argparse.ArgumentParser()
+        bazel_mode.add_parser_arguments(parser, dest='bazel_mode_features')
+        # pylint: disable=no-member
+        args = parser.parse_args([
+            bazel_mode.Features.NULL_FEATURE.arg_flag,
+            '--experimental-bes-publish'
+        ])
+        workspace_generator = self.create_workspace_generator(
+            enabled_features=set(args.bazel_mode_features))
+        workspace_generator.generate()
+        new_workspace_stat = workspace_generator.workspace_out_path.stat()
+
+        self.assertEqual(workspace_stat, new_workspace_stat)
+
     def test_not_regenerate_workspace_when_features_unchanged(self):
         workspace_generator = self.create_workspace_generator(
             enabled_features={bazel_mode.Features.NULL_FEATURE})
@@ -278,10 +298,14 @@ class BasicWorkspaceGenerationTest(GenerationTestFixture):
 
     def test_generate_workspace_file(self):
         gen = self.create_workspace_generator()
+        workspace_path = gen.workspace_out_path.joinpath('WORKSPACE')
 
         gen.generate()
 
-        self.assertTrue(gen.workspace_out_path.joinpath('WORKSPACE').exists())
+        self.assertSymlinkTo(
+            workspace_path,
+            self.src_root_path.joinpath('tools/asuite/atest/bazel/WORKSPACE')
+        )
 
     def test_generate_bazelrc_file(self):
         gen = self.create_workspace_generator()
@@ -984,7 +1008,7 @@ class DataDependenciesGenerationTest(GenerationTestFixture):
         self.assertTargetNotInWorkspace('libdata')
 
 
-@mock.patch.dict('os.environ', {constants.ANDROID_BUILD_TOP:'/'})
+@mock.patch.dict('os.environ', {constants.ANDROID_BUILD_TOP: '/'})
 def create_empty_module_info():
     with fake_filesystem_unittest.Patcher() as patcher:
         # pylint: disable=protected-access
@@ -1301,7 +1325,13 @@ class DecorateFinderMethodTest(GenerationTestFixture):
         ])
         original_finder = self.create_finder(mod_info, original_find_method)
         new_finder = bazel_mode.create_new_finder(
-            mod_info, original_finder, host=True)
+            mod_info,
+            original_finder,
+            host=True,
+            enabled_features=[
+                bazel_mode.Features.EXPERIMENTAL_DEVICE_DRIVEN_TEST
+            ]
+        )
 
         test_infos = new_finder.find_method(
             new_finder.test_finder_instance, MODULE_NAME)
@@ -1309,7 +1339,7 @@ class DecorateFinderMethodTest(GenerationTestFixture):
         self.assertEqual(len(test_infos), 1)
         self.assertEqual(test_infos[0].test_runner, ATEST_TF_RUNNER)
 
-    def test_device_test_without_host_arg_runner_is_preserved(self):
+    def test_device_test_without_host_arg_runner_is_overridden(self):
         original_find_method = lambda obj, test_id:(
             self.create_single_test_infos(obj, test_id, test_name=MODULE_NAME,
                                           runner=ATEST_TF_RUNNER))
@@ -1318,13 +1348,19 @@ class DecorateFinderMethodTest(GenerationTestFixture):
         ])
         original_finder = self.create_finder(mod_info, original_find_method)
         new_finder = bazel_mode.create_new_finder(
-            mod_info, original_finder, host=False)
+            mod_info,
+            original_finder,
+            host=False,
+            enabled_features=[
+                bazel_mode.Features.EXPERIMENTAL_DEVICE_DRIVEN_TEST
+            ]
+        )
 
         test_infos = new_finder.find_method(
             new_finder.test_finder_instance, MODULE_NAME)
 
         self.assertEqual(len(test_infos), 1)
-        self.assertEqual(test_infos[0].test_runner, ATEST_TF_RUNNER)
+        self.assertEqual(test_infos[0].test_runner, BAZEL_RUNNER)
 
     def test_multi_config_test_with_host_arg_runner_is_overridden(self):
         original_find_method = lambda obj, test_id:(
@@ -1335,7 +1371,13 @@ class DecorateFinderMethodTest(GenerationTestFixture):
         ])
         original_finder = self.create_finder(mod_info, original_find_method)
         new_finder = bazel_mode.create_new_finder(
-            mod_info, original_finder, host=True)
+            mod_info,
+            original_finder,
+            host=True,
+            enabled_features=[
+                bazel_mode.Features.EXPERIMENTAL_DEVICE_DRIVEN_TEST
+            ]
+        )
 
         test_infos = new_finder.find_method(
             new_finder.test_finder_instance, MODULE_NAME)
@@ -1343,12 +1385,58 @@ class DecorateFinderMethodTest(GenerationTestFixture):
         self.assertEqual(len(test_infos), 1)
         self.assertEqual(test_infos[0].test_runner, BAZEL_RUNNER)
 
-    def test_multi_config_test_without_host_arg_runner_is_preserved(self):
+    def test_multi_config_test_without_host_arg_runner_is_overridden(self):
         original_find_method = lambda obj, test_id:(
             self.create_single_test_infos(obj, test_id, test_name=MODULE_NAME,
                                           runner=ATEST_TF_RUNNER))
         mod_info = self.create_module_info(modules=[
             multi_config(supported_test_module(name=MODULE_NAME))
+        ])
+        original_finder = self.create_finder(mod_info, original_find_method)
+        new_finder = bazel_mode.create_new_finder(
+            mod_info,
+            original_finder,
+            host=False,
+            enabled_features=[
+                bazel_mode.Features.EXPERIMENTAL_DEVICE_DRIVEN_TEST
+            ]
+        )
+
+        test_infos = new_finder.find_method(
+            new_finder.test_finder_instance, MODULE_NAME)
+
+        self.assertEqual(len(test_infos), 1)
+        self.assertEqual(test_infos[0].test_runner, BAZEL_RUNNER)
+
+    def test_host_non_unit_test_with_host_arg_runner_is_preserved(self):
+        original_find_method = lambda obj, test_id:(
+            self.create_single_test_infos(obj, test_id, test_name=MODULE_NAME,
+                                          runner=ATEST_TF_RUNNER))
+        mod_info = self.create_module_info(modules=[
+            host_test_module(name=MODULE_NAME)
+        ])
+        original_finder = self.create_finder(mod_info, original_find_method)
+        new_finder = bazel_mode.create_new_finder(
+            mod_info,
+            original_finder,
+            host=True,
+            enabled_features=[
+                bazel_mode.Features.EXPERIMENTAL_DEVICE_DRIVEN_TEST
+            ]
+        )
+
+        test_infos = new_finder.find_method(
+            new_finder.test_finder_instance, MODULE_NAME)
+
+        self.assertEqual(len(test_infos), 1)
+        self.assertEqual(test_infos[0].test_runner, ATEST_TF_RUNNER)
+
+    def test_disable_device_driven_test_feature_runner_is_preserved(self):
+        original_find_method = lambda obj, test_id:(
+            self.create_single_test_infos(obj, test_id, test_name=MODULE_NAME,
+                                          runner=ATEST_TF_RUNNER))
+        mod_info = self.create_module_info(modules=[
+            device_test_module(name=MODULE_NAME)
         ])
         original_finder = self.create_finder(mod_info, original_find_method)
         new_finder = bazel_mode.create_new_finder(
@@ -1388,16 +1476,39 @@ class BazelTestRunnerTest(unittest.TestCase):
 
         self.assertFalse(reqs)
 
-    def test_query_bazel_test_targets_deps_for_build_reqs(self):
+    def test_query_bazel_test_targets_deps_with_host_arg(self):
         run_command = self.mock_run_command()
         runner = self.create_bazel_test_runner(
             modules=[
-                supported_test_module(name='test1', path='path1'),
-                supported_test_module(name='test2', path='path2')
+                multi_config(host_unit_test_module(name='test1', path='path1')),
+                multi_config(host_unit_test_module(name='test2', path='path2')),
             ],
             test_infos = [
                 test_info_of('test2'),
                 test_info_of('test1'),  # Intentionally out of order.
+            ],
+            run_command=run_command,
+            host=True,
+        )
+
+        runner.get_test_runner_build_reqs()
+
+        call_args = run_command.call_args[0][0]
+        self.assertIn(
+            'deps(tests(//path1:test1_host + //path2:test2_host))',
+            call_args,
+        )
+
+    def test_query_bazel_test_targets_deps_without_host_arg(self):
+        run_command = self.mock_run_command()
+        runner = self.create_bazel_test_runner(
+            modules=[
+                multi_config(host_unit_test_module(name='test1', path='path1')),
+                host_unit_test_module(name='test2', path='path2'),
+            ],
+            test_infos = [
+                test_info_of('test2'),
+                test_info_of('test1'),
             ],
             run_command=run_command,
         )
@@ -1406,7 +1517,7 @@ class BazelTestRunnerTest(unittest.TestCase):
 
         call_args = run_command.call_args[0][0]
         self.assertIn(
-            'deps(tests(//path1:test1_host + //path2:test2_host))',
+            'deps(tests(//path1:test1_device + //path2:test2_host))',
             call_args,
         )
 
@@ -1433,13 +1544,35 @@ class BazelTestRunnerTest(unittest.TestCase):
 
         self.assertEqual(1, len(cmd))
 
-    def test_generate_run_command_containing_targets(self):
+    def test_generate_run_command_containing_targets_with_host_arg(self):
         test_infos = [test_info_of('test1'), test_info_of('test2')]
-        runner = self.create_bazel_test_runner_for_tests(test_infos)
+        runner = self.create_bazel_test_runner(
+            [
+                multi_config(host_unit_test_module(name='test1', path='path')),
+                multi_config(host_unit_test_module(name='test2', path='path')),
+            ],
+            test_infos,
+            host=True
+        )
 
         cmd = runner.generate_run_commands(test_infos, {})
 
         self.assertTokensIn(['//path:test1_host', '//path:test2_host'], cmd[0])
+
+    def test_generate_run_command_containing_targets_without_host_arg(self):
+        test_infos = [test_info_of('test1'), test_info_of('test2')]
+        runner = self.create_bazel_test_runner(
+            [
+                multi_config(host_unit_test_module(name='test1', path='path')),
+                host_unit_test_module(name='test2', path='path'),
+            ],
+            test_infos,
+        )
+
+        cmd = runner.generate_run_commands(test_infos, {})
+
+        self.assertTokensIn(['//path:test1_device', '//path:test2_host'],
+                            cmd[0])
 
     def test_generate_run_command_with_multi_bazel_args(self):
         test_infos = [test_info_of('test1')]
@@ -1504,21 +1637,63 @@ class BazelTestRunnerTest(unittest.TestCase):
         self.assertTokensIn(['--test_arg=--atest-include-filter',
                              '--test_arg=test1:class1#method1'], cmd[0])
 
-    def create_bazel_test_runner(self, modules, test_infos, run_command=None):
+    def test_generate_run_command_with_bes_publish_enabled(self):
+        test_infos = [test_info_of('test1')]
+        extra_args = {
+            constants.BAZEL_MODE_FEATURES: [
+                bazel_mode.Features.EXPERIMENTAL_BES_PUBLISH
+            ]
+        }
+        build_metadata = bazel_mode.BuildMetadata(
+            'master', 'aosp_cf_x86_64_phone-userdebug')
+        env = {
+            'ATEST_BAZELRC': '/dir/atest.bazelrc',
+            'ATEST_BAZEL_BES_PUBLISH_CONFIG': 'bes_publish'
+        }
+        runner = self.create_bazel_test_runner_for_tests(
+            test_infos, build_metadata=build_metadata, env=env)
+
+        cmd = runner.generate_run_commands(
+            test_infos,
+            extra_args,
+        )
+
+        self.assertTokensIn([
+            '--bazelrc=/dir/atest.bazelrc',
+            '--config=bes_publish',
+            '--build_metadata=ab_branch=master',
+            '--build_metadata=ab_target=aosp_cf_x86_64_phone-userdebug'
+        ], cmd[0])
+
+    def create_bazel_test_runner(self,
+                                 modules,
+                                 test_infos,
+                                 run_command=None,
+                                 host=False,
+                                 build_metadata=None,
+                                 env=None):
         return bazel_mode.BazelTestRunner(
             'result_dir',
             mod_info=create_module_info(modules),
             test_infos=test_infos,
             src_top=Path('/src'),
             workspace_path=Path('/src/workspace'),
-            run_command=run_command or self.mock_run_command()
+            run_command=run_command or self.mock_run_command(),
+            extra_args={constants.HOST: host},
+            build_metadata = build_metadata,
+            env = env
         )
 
-    def create_bazel_test_runner_for_tests(self, test_infos):
+    def create_bazel_test_runner_for_tests(self,
+                                           test_infos,
+                                           build_metadata=None,
+                                           env=None):
         return self.create_bazel_test_runner(
             modules=[supported_test_module(name=t.test_name, path='path')
                      for t in test_infos],
-            test_infos=test_infos
+            test_infos=test_infos,
+            build_metadata=build_metadata,
+            env=env
         )
 
     def mock_run_command(self, **kwargs):

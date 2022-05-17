@@ -59,6 +59,7 @@ COLLECT_TESTS_ONLY = 'COLLECT_TESTS_ONLY'
 TF_TEMPLATE = 'TF_TEMPLATE'
 FLAKES_INFO = 'FLAKES_INFO'
 TF_EARLY_DEVICE_RELEASE = 'TF_EARLY_DEVICE_RELEASE'
+BAZEL_MODE_FEATURES = 'BAZEL_MODE_FEATURES'
 REQUEST_UPLOAD_RESULT = 'REQUEST_UPLOAD_RESULT'
 MODULES_IN = 'MODULES-IN-'
 NO_ENABLE_ROOT = 'NO_ENABLE_ROOT'
@@ -80,7 +81,7 @@ ROBOTYPE_LEGACY = 2
 ACCESS_CACHE_FAILURE = 101
 ACCESS_HISTORY_FAILURE = 102
 IMPORT_FAILURE = 103
-MLOCATEDB_LOCKED = 104
+PLOCATEDB_LOCKED = 104
 
 # Test finder constants.
 MODULE_CONFIG = 'AndroidTest.xml'
@@ -234,14 +235,15 @@ ATEST_TF_MODULE = 'atest-tradefed'
 
 # Atest index path and relative dirs/caches.
 INDEX_DIR = os.path.join(os.getenv(ANDROID_HOST_OUT, ''), 'indexes')
-LOCATE_CACHE = os.path.join(INDEX_DIR, 'mlocate.db')
-LOCATE_CACHE_MD5 = os.path.join(INDEX_DIR, 'mlocate.md5')
+LOCATE_CACHE = os.path.join(INDEX_DIR, 'plocate.db')
+LOCATE_CACHE_MD5 = os.path.join(INDEX_DIR, 'plocate.md5')
 BUILDFILES_MD5 = os.path.join(INDEX_DIR, 'buildfiles.md5')
 INT_INDEX = os.path.join(INDEX_DIR, 'integration.idx')
 CLASS_INDEX = os.path.join(INDEX_DIR, 'classes.idx')
 CC_CLASS_INDEX = os.path.join(INDEX_DIR, 'cc_classes.idx')
 PACKAGE_INDEX = os.path.join(INDEX_DIR, 'packages.idx')
 QCLASS_INDEX = os.path.join(INDEX_DIR, 'fqcn.idx')
+MANIFEST_INDEX = os.path.join(INDEX_DIR, 'manifests.idx')
 MODULE_INDEX = 'modules.idx'
 MODULE_INFO_MD5 = 'module-info.md5'
 VERSION_FILE = os.path.join(os.path.dirname(__file__), 'VERSION')
@@ -264,6 +266,8 @@ QCLASS_OUTPUT_RE = re.compile(r'(?P<java_path>.*/(?P<class>[A-Z]\w+)\.\w+)'
                               r'[:]\s*package\s+(?P<package>[^(;|\s)]+)\s*')
 PACKAGE_OUTPUT_RE = re.compile(r'(?P<java_dir>/.*/).*[.](java|kt)[:]\s*package\s+'
                                r'(?P<package>[^(;|\s)]+)\s*')
+MANIFEST_OUTPUT_RE =  re.compile(
+        r'(?P<filename>/.*/AndroidManifest.xml):.*\s*package=.*[\'\"](?P<package>.*)[\'\"]')
 
 ATEST_RESULT_ROOT = '/tmp/atest_result'
 ATEST_TEST_RECORD_PROTO = 'test_record.proto'
