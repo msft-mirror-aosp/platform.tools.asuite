@@ -30,6 +30,7 @@ import contextlib
 import dataclasses
 import enum
 import functools
+import logging
 import os
 import shutil
 import subprocess
@@ -1028,13 +1029,9 @@ class BazelTestRunner(trb.TestRunnerBase):
             ret_code |= self.wait_for_subprocess(subproc)
         return ret_code
 
-    def _get_bes_publish_args(self):
+    def _get_bes_publish_args(self, config):
         args = []
 
-        if not self.env.get("ATEST_BAZEL_BES_PUBLISH_CONFIG"):
-            return args
-
-        config = self.env["ATEST_BAZEL_BES_PUBLISH_CONFIG"]
         branch = self.build_metadata.build_branch
         target = self.build_metadata.build_target
 
@@ -1110,7 +1107,16 @@ class BazelTestRunner(trb.TestRunnerBase):
 
         if Features.EXPERIMENTAL_BES_PUBLISH in extra_args.get(
                 'BAZEL_MODE_FEATURES', []):
-            bazel_args.extend(self._get_bes_publish_args())
+            bes_publish_config = self.env.get("ATEST_BAZEL_BES_PUBLISH_CONFIG")
+            if not bes_publish_config:
+                logging.warning(
+                    'Ignoring `%s` because the `ATEST_BAZEL_BES_PUBLISH_CONFIG`'
+                    ' environment variable is not set.',
+                    # pylint: disable=no-member
+                    Features.EXPERIMENTAL_BES_PUBLISH.arg_flag)
+            else:
+                bazel_args.extend(
+                    self._get_bes_publish_args(bes_publish_config))
 
         bazel_args_str = ' '.join(bazel_args)
 
