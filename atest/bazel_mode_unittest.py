@@ -368,6 +368,14 @@ class BasicWorkspaceGenerationTest(GenerationTestFixture):
         self.assertTargetNotInWorkspace('hello_world_test_device')
         self.assertTargetNotInWorkspace('hello_world_test_host')
 
+    def test_generate_variable_file(self):
+        gen = self.create_workspace_generator()
+
+        gen.generate()
+
+        self.assertFileInWorkspace('BUILD.bazel')
+        self.assertFileInWorkspace('constants.bzl')
+
 
 class MultiConfigTestModuleTestTargetGenerationTest(GenerationTestFixture):
     """Tests for test target generation of test modules with multi-configs."""
