@@ -32,6 +32,7 @@ import enum
 import functools
 import logging
 import os
+import re
 import shutil
 import subprocess
 
@@ -334,9 +335,12 @@ class WorkspaceGenerator:
         # Symlink to package with toolchain definitions.
         self._symlink(src='prebuilts/build-tools',
                       target='prebuilts/build-tools')
+        self._create_constants_file()
 
         for package in self.path_to_package.values():
             package.generate(self.workspace_out_path)
+
+
 
     def _symlink(self, *, src, target):
         """Create a symbolic link in workspace pointing to source file/dir.
@@ -357,6 +361,31 @@ class WorkspaceGenerator:
                       target='WORKSPACE')
         self._symlink(src='tools/asuite/atest/bazel/bazelrc',
                       target='.bazelrc')
+        self.workspace_out_path.joinpath('BUILD.bazel').touch()
+
+    def _create_constants_file(self):
+
+        def variable_name(target_name):
+            return re.sub(r'[.-]', '_', target_name) + '_label'
+
+        targets = []
+        seen = set()
+
+        for module_name in TestTarget.DEVICELESS_TEST_PREREQUISITES.union(
+                TestTarget.DEVICE_TEST_PREREQUISITES):
+            info = self.mod_info.get_module_info(module_name)
+            target = self._add_prebuilt_target(info)
+            self._resolve_dependencies(target, seen)
+            targets.append(target)
+
+        with self.workspace_out_path.joinpath(
+                'constants.bzl').open('w') as f:
+            writer = IndentWriter(f)
+            for target in targets:
+                writer.write_line(
+                    '%s = "%s"' %
+                    (variable_name(target.name()), target.qualified_name())
+                )
 
 
 class Package:
@@ -477,20 +506,18 @@ class Target(ABC):
 class TestTarget(Target):
     """Class for generating a test target."""
 
-    _TEST_PREREQUISITES = frozenset({
+    DEVICELESS_TEST_PREREQUISITES = frozenset({
         'adb',
         'atest-tradefed',
         'atest_script_help.sh',
         'atest_tradefed.sh',
         'tradefed',
-        'tradefed-contrib',
         'tradefed-test-framework',
         'bazel-result-reporter'
     })
 
-    DEVICELESS_TEST_PREREQUISITES = _TEST_PREREQUISITES
-
-    DEVICE_TEST_PREREQUISITES = frozenset({'aapt'}).union(_TEST_PREREQUISITES)
+    DEVICE_TEST_PREREQUISITES = frozenset(
+        {'aapt'}).union(DEVICELESS_TEST_PREREQUISITES)
 
     @staticmethod
     def create_deviceless_test_target(name: str, package_name: str,
