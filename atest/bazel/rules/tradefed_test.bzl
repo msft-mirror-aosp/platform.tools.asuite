@@ -17,13 +17,14 @@
 load("//bazel/rules:platform_transitions.bzl", "host_transition", "device_transition")
 load("//bazel/rules:tradefed_test_aspects.bzl", "soong_prebuilt_tradefed_test_aspect")
 load("//bazel/rules:tradefed_test_info.bzl", "TradefedTestInfo")
+load("//bazel/rules:common_settings.bzl", "BuildSettingInfo")
 
 _BAZEL_WORK_DIR = "${TEST_SRCDIR}/${TEST_WORKSPACE}/"
 _PY_TOOLCHAIN = "@bazel_tools//tools/python:toolchain_type"
 _TOOLCHAINS = [_PY_TOOLCHAIN]
 
 _TRADEFED_TEST_ATTRIBUTES = {
-    "_template": attr.label(
+    "_tradefed_test_template": attr.label(
         default = "//bazel/rules:tradefed_test.sh.template",
         allow_single_file = True,
     ),
@@ -51,6 +52,9 @@ _TRADEFED_TEST_ATTRIBUTES = {
         default = "//packages/modules/adb:adb",
         allow_single_file = True,
         cfg = host_transition,
+    ),
+    "_extra_tradefed_result_reporters": attr.label(
+        default = "//bazel/rules:extra_tradefed_result_reporters",
     ),
     # This attribute is required to use Starlark transitions. It allows
     # allowlisting usage of this rule. For more information, see
@@ -190,9 +194,21 @@ def _tradefed_test_impl(
         _BAZEL_WORK_DIR + py3_interpreter.dirname,
     ]
 
+    result_reporters = [
+        "com.android.tradefed.result.BazelExitCodeResultReporter",
+        "com.android.tradefed.result.BazelXmlResultReporter",
+    ]
+
+    result_reporters.extend(ctx.attr._extra_tradefed_result_reporters[BuildSettingInfo].value)
+
+    result_reporters_config_file = ctx.actions.declare_file("result-reporters-%s.xml" % ctx.label.name)
+    _write_reporters_config_file(
+        ctx, result_reporters_config_file, result_reporters)
+    reporter_runfiles = ctx.runfiles(files = [result_reporters_config_file])
+
     script = ctx.actions.declare_file("tradefed_test_%s.sh" % ctx.label.name)
     ctx.actions.expand_template(
-        template = ctx.file._template,
+        template = ctx.file._tradefed_test_template,
         output = script,
         is_executable = True,
         substitutions = {
@@ -204,12 +220,26 @@ def _tradefed_test_impl(
             "{shared_lib_dirs}": shared_lib_dirs,
             "{path_additions}": ":".join(path_additions),
             "{additional_tradefed_options}": " ".join(tradefed_options),
+            "{result_reporters_config_file}": _BAZEL_WORK_DIR + result_reporters_config_file.short_path,
         },
     )
 
     device_runfiles = _get_runfiles_from_targets(ctx, device_deps)
     return [DefaultInfo(executable = script,
-                        runfiles = host_runfiles.merge(device_runfiles))]
+                        runfiles = host_runfiles.merge_all([device_runfiles, reporter_runfiles]))]
+
+def _write_reporters_config_file(ctx, config_file, result_reporters):
+    config_lines = [
+        "<?xml version=\"1.0\" encoding=\"utf-8\"?>",
+        "<configuration>"
+    ]
+
+    for result_reporter in result_reporters:
+        config_lines.append("    <result_reporter class=\"%s\" />" % result_reporter)
+
+    config_lines.append("</configuration>")
+
+    ctx.actions.write(config_file, "\n".join(config_lines))
 
 def _get_runfiles_from_targets(ctx, targets):
     return ctx.runfiles().merge_all([
