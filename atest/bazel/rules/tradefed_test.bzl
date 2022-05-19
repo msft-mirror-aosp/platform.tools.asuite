@@ -19,6 +19,8 @@ load("//bazel/rules:tradefed_test_aspects.bzl", "soong_prebuilt_tradefed_test_as
 load("//bazel/rules:tradefed_test_info.bzl", "TradefedTestInfo")
 
 _BAZEL_WORK_DIR = "${TEST_SRCDIR}/${TEST_WORKSPACE}/"
+_PY_TOOLCHAIN = "@bazel_tools//tools/python:toolchain_type"
+_TOOLCHAINS = [_PY_TOOLCHAIN]
 
 _TRADEFED_TEST_ATTRIBUTES = {
     "_template": attr.label(
@@ -104,6 +106,7 @@ tradefed_deviceless_test = rule(
     ),
     test = True,
     implementation = _tradefed_deviceless_test_impl,
+    toolchains = _TOOLCHAINS,
     doc = "A rule used to run host-side deviceless tests using Tradefed",
 )
 
@@ -135,6 +138,7 @@ tradefed_device_test = rule(
     ),
     test = True,
     implementation = _tradefed_device_test_impl,
+    toolchains = _TOOLCHAINS,
     doc = "A rule used to run device tests using Tradefed",
 )
 
@@ -169,6 +173,22 @@ def _tradefed_test_impl(
         if f.extension == "so":
             shared_lib_dirs.append(_BAZEL_WORK_DIR + f.dirname)
     shared_lib_dirs = ":".join(shared_lib_dirs)
+
+    # Configure the Python toolchain.
+    py_toolchain_info = ctx.toolchains[_PY_TOOLCHAIN]
+    py2_interpreter = py_toolchain_info.py2_runtime.interpreter
+    py3_interpreter = py_toolchain_info.py3_runtime.interpreter
+
+    # Create `python` and `python3` symlinks in the runfiles tree and add them to the executable
+    # path. This is required because scripts reference these commands in their shebang line.
+    host_runfiles = host_runfiles.merge(ctx.runfiles(symlinks = {
+        "/".join([py2_interpreter.dirname, "python"]): py2_interpreter,
+        "/".join([py3_interpreter.dirname, "python3"]): py3_interpreter,
+    }))
+    path_additions = path_additions + [
+        _BAZEL_WORK_DIR + py2_interpreter.dirname,
+        _BAZEL_WORK_DIR + py3_interpreter.dirname,
+    ]
 
     script = ctx.actions.declare_file("tradefed_test_%s.sh" % ctx.label.name)
     ctx.actions.expand_template(
