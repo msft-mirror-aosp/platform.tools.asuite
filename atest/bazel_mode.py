@@ -511,7 +511,6 @@ class TestTarget(Target):
         'atest_script_help.sh',
         'atest_tradefed.sh',
         'tradefed',
-        'tradefed-contrib',
         'tradefed-test-framework',
         'bazel-result-reporter'
     })
