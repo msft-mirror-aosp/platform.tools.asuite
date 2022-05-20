@@ -308,7 +308,7 @@ def _launch_ide_by_module_contents(args, ide_util_obj, language,
          b) aidegen frameworks/base -i s -l c
             launch C/C++ projects of frameworks/base in Android Studio.
          c) aidegen frameworks/base -i c -l j
-            launch C/C++ projects of frameworks/base in CLion.
+            launch Java projects of frameworks/base in CLion.
 
     Args:
         args: A list of system arguments.
