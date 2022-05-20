@@ -9,6 +9,7 @@ ATEST_HELPER="{atest_helper}"
 SHARED_LIB_DIRS="{shared_lib_dirs}"
 PATH_ADDITIONS="{path_additions}"
 TRADEFED_CLASSPATH="{tradefed_classpath}"
+RESULT_REPORTERS_CONFIG_FILE="{result_reporters_config_file}"
 read -a ADDITIONAL_TRADEFED_OPTIONS <<< "{additional_tradefed_options}"
 
 # Export variables expected by the Atest launcher script.
@@ -27,7 +28,7 @@ exit_code_file="$(mktemp /tmp/tf-exec-XXXXXXXXXX)"
 
 "${ATEST_TF_LAUNCHER}" template/atest_local_min \
     --template:map test=atest \
-    --template:map reporters=bazel-result-reporter.xml \
+    --template:map reporters="${RESULT_REPORTERS_CONFIG_FILE}" \
     --tests-dir "${TEST_PATH}" \
     --logcat-on-failure \
     --no-enable-granular-attempts \
