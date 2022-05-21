@@ -17,38 +17,53 @@
 load("//bazel/rules:platform_transitions.bzl", "host_transition", "device_transition")
 load("//bazel/rules:tradefed_test_aspects.bzl", "soong_prebuilt_tradefed_test_aspect")
 load("//bazel/rules:tradefed_test_info.bzl", "TradefedTestInfo")
+load("//bazel/rules:common_settings.bzl", "BuildSettingInfo")
+load("//:constants.bzl",
+    "aapt_label",
+    "adb_label",
+    "atest_script_help_sh_label",
+    "atest_tradefed_label",
+    "atest_tradefed_sh_label",
+    "bazel_result_reporter_label",
+    "tradefed_label",
+    "tradefed_test_framework_label"
+)
 
 _BAZEL_WORK_DIR = "${TEST_SRCDIR}/${TEST_WORKSPACE}/"
+_PY_TOOLCHAIN = "@bazel_tools//tools/python:toolchain_type"
+_TOOLCHAINS = [_PY_TOOLCHAIN]
 
 _TRADEFED_TEST_ATTRIBUTES = {
-    "_template": attr.label(
+    "_tradefed_test_template": attr.label(
         default = "//bazel/rules:tradefed_test.sh.template",
         allow_single_file = True,
     ),
     "_tradefed_classpath_jars": attr.label_list(
         default = [
-            "//tools/tradefederation/contrib:tradefed-contrib",
-            "//tools/tradefederation/core/test_framework:tradefed-test-framework",
-            "//tools/tradefederation/core:tradefed",
-            "//tools/asuite/atest:atest-tradefed",
-            "//tools/asuite/atest/bazel/reporter:bazel-result-reporter",
+            atest_tradefed_label,
+            tradefed_label,
+            tradefed_test_framework_label,
+            bazel_result_reporter_label,
         ],
-        cfg = host_transition,
+        cfg = host_transition
     ),
     "_atest_tradefed_launcher": attr.label(
-        default = "//tools/asuite/atest:atest_tradefed.sh",
+        default = atest_tradefed_sh_label,
         allow_single_file = True,
         cfg = host_transition,
     ),
     "_atest_helper": attr.label(
-        default = "//tools/asuite/atest:atest_script_help.sh",
+        default = atest_script_help_sh_label,
         allow_single_file = True,
         cfg = host_transition,
     ),
     "_adb": attr.label(
-        default = "//packages/modules/adb:adb",
+        default = adb_label,
         allow_single_file = True,
         cfg = host_transition,
+    ),
+    "_extra_tradefed_result_reporters": attr.label(
+        default = "//bazel/rules:extra_tradefed_result_reporters",
     ),
     # This attribute is required to use Starlark transitions. It allows
     # allowlisting usage of this rule. For more information, see
@@ -104,6 +119,7 @@ tradefed_deviceless_test = rule(
     ),
     test = True,
     implementation = _tradefed_deviceless_test_impl,
+    toolchains = _TOOLCHAINS,
     doc = "A rule used to run host-side deviceless tests using Tradefed",
 )
 
@@ -127,7 +143,7 @@ tradefed_device_test = rule(
                 aspects = [soong_prebuilt_tradefed_test_aspect],
             ),
             "_aapt": attr.label(
-                default = "//frameworks/base/tools/aapt:aapt",
+                default = aapt_label,
                 allow_single_file = True,
                 cfg = host_transition,
             ),
@@ -135,6 +151,7 @@ tradefed_device_test = rule(
     ),
     test = True,
     implementation = _tradefed_device_test_impl,
+    toolchains = _TOOLCHAINS,
     doc = "A rule used to run device tests using Tradefed",
 )
 
@@ -170,9 +187,37 @@ def _tradefed_test_impl(
             shared_lib_dirs.append(_BAZEL_WORK_DIR + f.dirname)
     shared_lib_dirs = ":".join(shared_lib_dirs)
 
+    # Configure the Python toolchain.
+    py_toolchain_info = ctx.toolchains[_PY_TOOLCHAIN]
+    py2_interpreter = py_toolchain_info.py2_runtime.interpreter
+    py3_interpreter = py_toolchain_info.py3_runtime.interpreter
+
+    # Create `python` and `python3` symlinks in the runfiles tree and add them to the executable
+    # path. This is required because scripts reference these commands in their shebang line.
+    host_runfiles = host_runfiles.merge(ctx.runfiles(symlinks = {
+        "/".join([py2_interpreter.dirname, "python"]): py2_interpreter,
+        "/".join([py3_interpreter.dirname, "python3"]): py3_interpreter,
+    }))
+    path_additions = path_additions + [
+        _BAZEL_WORK_DIR + py2_interpreter.dirname,
+        _BAZEL_WORK_DIR + py3_interpreter.dirname,
+    ]
+
+    result_reporters = [
+        "com.android.tradefed.result.BazelExitCodeResultReporter",
+        "com.android.tradefed.result.BazelXmlResultReporter",
+    ]
+
+    result_reporters.extend(ctx.attr._extra_tradefed_result_reporters[BuildSettingInfo].value)
+
+    result_reporters_config_file = ctx.actions.declare_file("result-reporters-%s.xml" % ctx.label.name)
+    _write_reporters_config_file(
+        ctx, result_reporters_config_file, result_reporters)
+    reporter_runfiles = ctx.runfiles(files = [result_reporters_config_file])
+
     script = ctx.actions.declare_file("tradefed_test_%s.sh" % ctx.label.name)
     ctx.actions.expand_template(
-        template = ctx.file._template,
+        template = ctx.file._tradefed_test_template,
         output = script,
         is_executable = True,
         substitutions = {
@@ -184,12 +229,26 @@ def _tradefed_test_impl(
             "{shared_lib_dirs}": shared_lib_dirs,
             "{path_additions}": ":".join(path_additions),
             "{additional_tradefed_options}": " ".join(tradefed_options),
+            "{result_reporters_config_file}": _BAZEL_WORK_DIR + result_reporters_config_file.short_path,
         },
     )
 
     device_runfiles = _get_runfiles_from_targets(ctx, device_deps)
     return [DefaultInfo(executable = script,
-                        runfiles = host_runfiles.merge(device_runfiles))]
+                        runfiles = host_runfiles.merge_all([device_runfiles, reporter_runfiles]))]
+
+def _write_reporters_config_file(ctx, config_file, result_reporters):
+    config_lines = [
+        "<?xml version=\"1.0\" encoding=\"utf-8\"?>",
+        "<configuration>"
+    ]
+
+    for result_reporter in result_reporters:
+        config_lines.append("    <result_reporter class=\"%s\" />" % result_reporter)
+
+    config_lines.append("</configuration>")
+
+    ctx.actions.write(config_file, "\n".join(config_lines))
 
 def _get_runfiles_from_targets(ctx, targets):
     return ctx.runfiles().merge_all([
