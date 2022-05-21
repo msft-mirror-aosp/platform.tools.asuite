@@ -1632,10 +1632,8 @@ def generate_buildfiles_checksum():
         $ANDROID_HOST_OUT/indexes/buildfiles.md5
     """
     if os.path.isfile(constants.LOCATE_CACHE):
-        arg = '--existing' if os.uname()[0] == 'Linux' else ''
-        cmd = (r'locate -d{} {} Android.bp Android.mk'
-               r'|egrep ".*(bp|mk)$"').format(
-                   constants.LOCATE_CACHE, arg)
+        cmd = (f'locate -d{constants.LOCATE_CACHE} --existing '
+               r'--regex "/Android.(bp|mk)$"')
         try:
             result = subprocess.check_output(cmd, shell=True).decode('utf-8')
             save_md5(result.split(), constants.BUILDFILES_MD5)
