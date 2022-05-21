@@ -243,11 +243,13 @@ def get_extra_args(args):
                 'iterations': constants.ITERATIONS,
                 'no_enable_root': constants.NO_ENABLE_ROOT,
                 'request_upload_result': constants.REQUEST_UPLOAD_RESULT,
+                'bazel_mode_features': constants.BAZEL_MODE_FEATURES,
                 'rerun_until_failure': constants.RERUN_UNTIL_FAILURE,
                 'retry_any_failure': constants.RETRY_ANY_FAILURE,
                 'serial': constants.SERIAL,
                 'sharding': constants.SHARDING,
                 'test_filter': constants.TEST_FILTER,
+                'test_timeout': constants.TEST_TIMEOUT,
                 'tf_early_device_release': constants.TF_EARLY_DEVICE_RELEASE,
                 'tf_debug': constants.TF_DEBUG,
                 'tf_template': constants.TF_TEMPLATE,
@@ -887,7 +889,10 @@ def main(argv, results_dir, args):
     if not (any(dry_run_args) or verify_env_variables):
         proc_idx = atest_utils.run_multi_proc(INDEX_TARGETS)
     smart_rebuild = need_rebuild_module_info(args.rebuild_module_info)
+    mod_start = time.time()
     mod_info = module_info.ModuleInfo(force_build=smart_rebuild)
+    metrics.LocalDetectEvent(detect_type=DetectType.MODULE_INFO_INIT_TIME,
+                             result=int(time.time() - mod_start))
     atest_utils.generate_buildfiles_checksum()
     if args.bazel_mode:
         bazel_mode.generate_bazel_workspace(
@@ -896,7 +901,9 @@ def main(argv, results_dir, args):
     translator = cli_translator.CLITranslator(
         mod_info=mod_info,
         print_cache_msg=not args.clear_cache,
-        bazel_mode_enabled=args.bazel_mode)
+        bazel_mode_enabled=args.bazel_mode,
+        host=args.host,
+        bazel_mode_features=args.bazel_mode_features)
     if args.list_modules:
         _print_testable_modules(mod_info, args.list_modules)
         return ExitCode.SUCCESS
@@ -941,10 +948,19 @@ def main(argv, results_dir, args):
                 for module in test_info.mainline_modules.split('+'):
                     mm_build_targets.add(re.sub(
                          MAINLINE_MODULES_EXT_RE, '', module))
+
+    # For TEST_MAPPING, set timeout to 600000ms.
+    if args.test_timeout is None:
+        if is_from_test_mapping(test_infos):
+            extra_args.update({constants.TEST_TIMEOUT: 600000})
+            logging.debug(
+                'Set test timeout to %sms to align it in TEST_MAPPING.',
+                extra_args.get(constants.TEST_TIMEOUT))
+
     if args.info:
         return _print_test_info(mod_info, test_infos)
-    build_targets |= test_runner_handler.get_test_runner_reqs(mod_info,
-                                                              test_infos)
+    build_targets |= test_runner_handler.get_test_runner_reqs(
+        mod_info, test_infos, extra_args=extra_args)
     if any(dry_run_args):
         if not verify_env_variables:
             return _dry_run_validator(args, results_dir, extra_args, test_infos,
@@ -961,10 +977,6 @@ def main(argv, results_dir, args):
     # args.steps will be None if none of -bit set, else list of params set.
     steps = args.steps if args.steps else constants.ALL_STEPS
     if build_targets and constants.BUILD_STEP in steps:
-        # smart_rebuild -> merge_soong_info -> index_testable_modules
-        if not mod_info.module_index.is_file() or mod_info.update_merge_info:
-            # pylint: disable=protected-access
-            atest_utils.run_multi_proc(mod_info._get_testable_modules)
         # Add module-info.json target to the list of build targets to keep the
         # file up to date.
         build_targets.add(mod_info.module_info_target)

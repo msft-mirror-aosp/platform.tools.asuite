@@ -31,6 +31,7 @@ import dataclasses
 import enum
 import functools
 import os
+import re
 import shutil
 import subprocess
 
@@ -70,15 +71,18 @@ _SUPPORTED_BAZEL_ARGS = MappingProxyType({
 
 @enum.unique
 class Features(enum.Enum):
-    NULL_FEATURE = ('--null-feature', 'Enables a no-action feature.')
+    NULL_FEATURE = ('--null-feature', 'Enables a no-action feature.', True)
     EXPERIMENTAL_DEVICE_DRIVEN_TEST = (
         '--experimental-device-driven-test',
-        'Enables running device-driven tests in Bazel mode.'
-    )
+        'Enables running device-driven tests in Bazel mode.', True)
+    EXPERIMENTAL_BES_PUBLISH = ('--experimental-bes-publish',
+                                'Upload test results via BES in Bazel mode.',
+                                False)
 
-    def __init__(self, arg_flag, description):
+    def __init__(self, arg_flag, description, affects_workspace):
         self.arg_flag = arg_flag
         self.description = description
+        self.affects_workspace = affects_workspace
 
 
 def add_parser_arguments(parser: argparse.ArgumentParser, dest: str):
@@ -110,6 +114,11 @@ def generate_bazel_workspace(mod_info: module_info.ModuleInfo,
         enabled_features,
     )
     workspace_generator.generate()
+
+
+def get_default_build_metadata():
+    return BuildMetadata(atest_utils.get_manifest_branch(),
+                         atest_utils.get_build_target())
 
 
 class WorkspaceGenerator:
@@ -152,7 +161,7 @@ class WorkspaceGenerator:
         enabled_features_file = self.workspace_out_path.joinpath(
             'atest_bazel_mode_enabled_features')
         enabled_features_file_contents = '\n'.join(sorted(
-            f.name for f in self.enabled_features))
+            f.name for f in self.enabled_features if f.affects_workspace))
 
         if self.workspace_out_path.exists():
             # Update the file with the set of the currently enabled features to
@@ -198,7 +207,8 @@ class WorkspaceGenerator:
                 continue
 
             if (Features.EXPERIMENTAL_DEVICE_DRIVEN_TEST in
-                    self.enabled_features and self.is_device_driven_test(info)):
+                    self.enabled_features and
+                    self.mod_info.is_device_driven_test(info)):
                 self._resolve_dependencies(
                     self._add_test_target(
                         info, 'device',
@@ -309,10 +319,6 @@ class WorkspaceGenerator:
 
         return mod_path[0]
 
-    def is_device_driven_test(self, info: Dict[str, Any]) -> bool:
-        return self.mod_info.is_testable_module(info) and 'DEVICE' in info.get(
-            constants.MODULE_SUPPORTED_VARIANTS, [])
-
     def is_host_unit_test(self, info: Dict[str, Any]) -> bool:
         return self.mod_info.is_testable_module(
             info) and self.mod_info.is_host_unit_test(info)
@@ -325,9 +331,15 @@ class WorkspaceGenerator:
                       target='bazel/rules')
         self._symlink(src='tools/asuite/atest/bazel/configs',
                       target='bazel/configs')
+        # Symlink to package with toolchain definitions.
+        self._symlink(src='prebuilts/build-tools',
+                      target='prebuilts/build-tools')
+        self._create_constants_file()
 
         for package in self.path_to_package.values():
             package.generate(self.workspace_out_path)
+
+
 
     def _symlink(self, *, src, target):
         """Create a symbolic link in workspace pointing to source file/dir.
@@ -344,9 +356,35 @@ class WorkspaceGenerator:
         symlink.symlink_to(self.src_root_path.joinpath(src))
 
     def _create_base_files(self):
-        self.workspace_out_path.joinpath('WORKSPACE').touch()
+        self._symlink(src='tools/asuite/atest/bazel/WORKSPACE',
+                      target='WORKSPACE')
         self._symlink(src='tools/asuite/atest/bazel/bazelrc',
                       target='.bazelrc')
+        self.workspace_out_path.joinpath('BUILD.bazel').touch()
+
+    def _create_constants_file(self):
+
+        def variable_name(target_name):
+            return re.sub(r'[.-]', '_', target_name) + '_label'
+
+        targets = []
+        seen = set()
+
+        for module_name in TestTarget.DEVICELESS_TEST_PREREQUISITES.union(
+                TestTarget.DEVICE_TEST_PREREQUISITES):
+            info = self.mod_info.get_module_info(module_name)
+            target = self._add_prebuilt_target(info)
+            self._resolve_dependencies(target, seen)
+            targets.append(target)
+
+        with self.workspace_out_path.joinpath(
+                'constants.bzl').open('w') as f:
+            writer = IndentWriter(f)
+            for target in targets:
+                writer.write_line(
+                    '%s = "%s"' %
+                    (variable_name(target.name()), target.qualified_name())
+                )
 
 
 class Package:
@@ -467,20 +505,18 @@ class Target(ABC):
 class TestTarget(Target):
     """Class for generating a test target."""
 
-    _TEST_PREREQUISITES = frozenset({
+    DEVICELESS_TEST_PREREQUISITES = frozenset({
         'adb',
         'atest-tradefed',
         'atest_script_help.sh',
         'atest_tradefed.sh',
         'tradefed',
-        'tradefed-contrib',
         'tradefed-test-framework',
         'bazel-result-reporter'
     })
 
-    DEVICELESS_TEST_PREREQUISITES = _TEST_PREREQUISITES
-
-    DEVICE_TEST_PREREQUISITES = frozenset({'aapt'}).union(_TEST_PREREQUISITES)
+    DEVICE_TEST_PREREQUISITES = frozenset(
+        {'aapt'}).union(DEVICELESS_TEST_PREREQUISITES)
 
     @staticmethod
     def create_deviceless_test_target(name: str, package_name: str,
@@ -903,7 +939,7 @@ def is_tf_testable_module(mod_info: module_info.ModuleInfo,
             and info.get(constants.MODULE_COMPATIBILITY_SUITES))
 
 
-def _decorate_find_method(mod_info, finder_method_func):
+def _decorate_find_method(mod_info, finder_method_func, host, enabled_features):
     """A finder_method decorator to override TestInfo properties."""
 
     def use_bazel_runner(finder_obj, test_id):
@@ -912,6 +948,14 @@ def _decorate_find_method(mod_info, finder_method_func):
             return test_infos
         for tinfo in test_infos:
             m_info = mod_info.get_module_info(tinfo.test_name)
+
+            # Only run device-driven tests in Bazel mode when '--host' is not
+            # specified and the feature is enabled.
+            if not host and mod_info.is_device_driven_test(m_info):
+                if Features.EXPERIMENTAL_DEVICE_DRIVEN_TEST in enabled_features:
+                    tinfo.test_runner = BazelTestRunner.NAME
+                continue
+
             if mod_info.is_suite_in_compatibility_suites(
                 'host-unit-tests', m_info):
                 tinfo.test_runner = BazelTestRunner.NAME
@@ -919,12 +963,17 @@ def _decorate_find_method(mod_info, finder_method_func):
     return use_bazel_runner
 
 
-def create_new_finder(mod_info, finder):
+def create_new_finder(mod_info: module_info.ModuleInfo,
+                      finder: test_finder_base.TestFinderBase,
+                      host: bool,
+                      enabled_features: List[Features]=None):
     """Create new test_finder_base.Finder with decorated find_method.
 
     Args:
       mod_info: ModuleInfo object.
       finder: Test Finder class.
+      host: Whether to run the host variant.
+      enabled_features: List of enabled features.
 
     Returns:
         List of ordered find methods.
@@ -932,7 +981,9 @@ def create_new_finder(mod_info, finder):
     return test_finder_base.Finder(finder.test_finder_instance,
                                    _decorate_find_method(
                                        mod_info,
-                                       finder.find_method),
+                                       finder.find_method,
+                                       host,
+                                       enabled_features or []),
                                    finder.finder_info)
 
 
@@ -943,6 +994,12 @@ def default_run_command(args: List[str], cwd: Path) -> str:
         text=True,
         stderr=subprocess.DEVNULL,
     )
+
+
+@dataclasses.dataclass
+class BuildMetadata:
+    build_branch: str
+    build_target: str
 
 
 class BazelTestRunner(trb.TestRunnerBase):
@@ -956,10 +1013,13 @@ class BazelTestRunner(trb.TestRunnerBase):
     def __init__(self,
                  results_dir,
                  mod_info: module_info.ModuleInfo,
+                 extra_args: Dict[str, Any]=None,
                  test_infos: List[test_info.TestInfo]=None,
                  src_top: Path=None,
                  workspace_path: Path=None,
                  run_command: Callable=default_run_command,
+                 build_metadata: BuildMetadata=None,
+                 env: Dict[str, str]=None,
                  **kwargs):
         super().__init__(results_dir, **kwargs)
         self.mod_info = mod_info
@@ -973,6 +1033,9 @@ class BazelTestRunner(trb.TestRunnerBase):
             'prebuilts/bazel/linux-x86_64/bazel')
         self.bazel_workspace = workspace_path or get_bazel_workspace_dir()
         self.run_command = run_command
+        self._extra_args = extra_args or {}
+        self.build_metadata = build_metadata or get_default_build_metadata()
+        self.env = env or os.environ
 
     # pylint: disable=unused-argument
     def run_tests(self, test_infos, extra_args, reporter):
@@ -981,7 +1044,7 @@ class BazelTestRunner(trb.TestRunnerBase):
         Args:
             test_infos: List of TestInfo.
             extra_args: Dict of extra args to add to test run.
-            reporter: An instance of result_report.ResultReporter
+            reporter: An instance of result_report.ResultReporter.
         """
         reporter.register_unsupported_runner(self.NAME)
         ret_code = ExitCode.SUCCESS
@@ -991,6 +1054,22 @@ class BazelTestRunner(trb.TestRunnerBase):
             subproc = self.run(run_cmd, output_to_stdout=True)
             ret_code |= self.wait_for_subprocess(subproc)
         return ret_code
+
+    def _get_bes_publish_args(self):
+        args = []
+
+        if not self.env.get("ATEST_BAZEL_BES_PUBLISH_CONFIG"):
+            return args
+
+        config = self.env["ATEST_BAZEL_BES_PUBLISH_CONFIG"]
+        branch = self.build_metadata.build_branch
+        target = self.build_metadata.build_target
+
+        args.append(f'--config={config}')
+        args.append(f'--build_metadata=ab_branch={branch}')
+        args.append(f'--build_metadata=ab_target={target}')
+
+        return args
 
     def host_env_check(self):
         """Check that host env has everything we need.
@@ -1021,12 +1100,19 @@ class BazelTestRunner(trb.TestRunnerBase):
         return set(filter(bool, map(str.strip, output.splitlines())))
 
     def test_info_target_label(self, test: test_info.TestInfo) -> str:
-        info = self.mod_info.get_module_info(test.test_name)
+        module_name = test.test_name
+        info = self.mod_info.get_module_info(module_name)
         package_name = info.get(constants.MODULE_PATH)[0]
-        return f'//{package_name}:{test.test_name}_host'
+        target_suffix = 'host'
+
+        if not self._extra_args.get(
+                constants.HOST,
+                False) and self.mod_info.is_device_driven_test(info):
+            target_suffix = 'device'
+
+        return f'//{package_name}:{module_name}_{target_suffix}'
 
     # pylint: disable=unused-argument
-    # pylint: disable=unused-variable
     def generate_run_commands(self, test_infos, extra_args, port=None):
         """Generate a list of run commands from TestInfos.
 
@@ -1038,13 +1124,30 @@ class BazelTestRunner(trb.TestRunnerBase):
         Returns:
             A list of run commands to run the tests.
         """
-        target_patterns = ' '.join(self.test_info_target_label(i)
-                                   for i in test_infos)
-        bazel_args = ' '.join(self._parse_extra_args(test_infos, extra_args))
+        startup_options = ''
+        bazelrc = self.env.get('ATEST_BAZELRC')
+
+        if bazelrc:
+            startup_options = f'--bazelrc={bazelrc}'
+
+        target_patterns = ' '.join(
+            self.test_info_target_label(i) for i in test_infos)
+
+        bazel_args = self._parse_extra_args(test_infos, extra_args)
+
+        if Features.EXPERIMENTAL_BES_PUBLISH in extra_args.get(
+                'BAZEL_MODE_FEATURES', []):
+            bazel_args.extend(self._get_bes_publish_args())
+
+        bazel_args_str = ' '.join(bazel_args)
+
         # Use 'cd' instead of setting the working directory in the subprocess
         # call for a working --dry-run command that users can run.
-        return [f'cd {self.bazel_workspace} &&'
-                f'{self.bazel_binary} test {target_patterns} {bazel_args}']
+        return [
+            f'cd {self.bazel_workspace} &&'
+            f'{self.bazel_binary} {startup_options} '
+            f'test {target_patterns} {bazel_args_str}'
+        ]
 
     def _parse_extra_args(self, test_infos: List[test_info.TestInfo],
                           extra_args: trb.ARGS) -> trb.ARGS:
