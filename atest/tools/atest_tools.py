@@ -23,10 +23,13 @@ import json
 import logging
 import os
 import pickle
+import re
 import shutil
 import subprocess
 import sys
 import time
+
+import xml.etree.ElementTree as ET
 
 import atest_utils as au
 import constants
@@ -188,8 +191,7 @@ def get_manifest_result(locatedb=constants.LOCATE_CACHE, **kwargs):
             manifest_index: A path string of the manifest index.
     """
     find_manifest_cmd = (
-        f"{LOCATE} -d{locatedb} --regex '/AndroidManifest\.xml$' "
-        r"| xargs egrep -sH '\s*package\s*='")
+        f"{LOCATE} -d{locatedb} --regex '/AndroidManifest\.xml$'")
     logging.debug('Probing AndroidManifest.xml files:\n %s', find_manifest_cmd)
     result = subprocess.check_output(find_manifest_cmd, shell=True)
 
@@ -258,9 +260,30 @@ def _index_manifests(output, index):
         index: A string path of the index file.
     """
     logging.debug('indexing package names for instrumentation tests.')
-    _dump_index(dump_file=index, output=output,
-                output_re=constants.MANIFEST_OUTPUT_RE,
-                key='package', value='filename')
+    _dict = {}
+    manifest_package_re =  re.compile(r'[a-z][\w]+(\.[\w]+)*')
+    if isinstance(output, bytes):
+        output = output.decode()
+    manifest_files = output.splitlines()
+    with open(index, 'wb') as cache_file:
+        for xml in manifest_files:
+            try:
+                xml_root = ET.parse(xml).getroot()
+                for item in xml_root.findall('.'):
+                    if 'package' in item.attrib.keys():
+                        pkg = item.attrib.get('package')
+                        match = manifest_package_re.match(pkg)
+                        if match:
+                            _dict.setdefault(pkg, set()).add(xml)
+            except ET.ParseError:
+                logging.debug('%s: not a valid xml.', xml)
+        try:
+            pickle.dump(_dict, cache_file, protocol=2)
+        except (KeyboardInterrupt, SystemExit):
+            logging.error('Process interrupted or failure.')
+            os.remove(index)
+        except IOError:
+            logging.error('Failed in dumping %s', index)
 
 def _index_cc_classes(output, index):
     """Index CC classes.
