@@ -9,19 +9,26 @@ ATEST_HELPER="{atest_helper}"
 SHARED_LIB_DIRS="{shared_lib_dirs}"
 PATH_ADDITIONS="{path_additions}"
 TRADEFED_CLASSPATH="{tradefed_classpath}"
+RESULT_REPORTERS_CONFIG_FILE="{result_reporters_config_file}"
 read -a ADDITIONAL_TRADEFED_OPTIONS <<< "{additional_tradefed_options}"
 
 # Export variables expected by the Atest launcher script.
 export LD_LIBRARY_PATH="${SHARED_LIB_DIRS}"
 export TF_PATH="${TRADEFED_CLASSPATH}"
-export PATH="${PATH_ADDITIONS}":$PATH
+export PATH="${PATH_ADDITIONS}:${PATH}"
 export ATEST_HELPER="${ATEST_HELPER}"
+
+# Prepend the TF_JAVA_HOME environment variable to the path to ensure that all Java invocations
+# throughout the test execution flow use the same version.
+if [ ! -z "${TF_JAVA_HOME}" ]; then
+  export PATH="${TF_JAVA_HOME}/bin:${PATH}"
+fi
 
 exit_code_file="$(mktemp /tmp/tf-exec-XXXXXXXXXX)"
 
 "${ATEST_TF_LAUNCHER}" template/atest_local_min \
     --template:map test=atest \
-    --template:map reporters=bazel-result-reporter.xml \
+    --template:map reporters="${RESULT_REPORTERS_CONFIG_FILE}" \
     --tests-dir "${TEST_PATH}" \
     --logcat-on-failure \
     --no-enable-granular-attempts \

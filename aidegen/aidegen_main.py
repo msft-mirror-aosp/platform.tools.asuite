@@ -44,6 +44,8 @@ import os
 import sys
 import traceback
 
+from pathlib import Path
+
 from aidegen import constant
 from aidegen.lib import aidegen_metrics
 from aidegen.lib import common_util
@@ -93,7 +95,7 @@ _CHOOSE_LANGUAGE_MSG = ('The scope of your modules contains {} different '
 _LANGUAGE_OPTIONS = [constant.JAVA, constant.C_CPP]
 _NO_ANY_PROJECT_EXIST = 'There is no Java, C/C++ or Rust target.'
 _NO_LANGUAGE_PROJECT_EXIST = 'There is no {} target.'
-
+_NO_IDE_LAUNCH_PATH = 'Can not find the IDE path : {}'
 
 def _parse_args(args):
     """Parse command line arguments.
@@ -498,6 +500,10 @@ def main(argv):
                                         constant.VERSION_FILE)
             print(common_util.read_file_content(version_file))
             sys.exit(constant.EXIT_CODE_NORMAL)
+        if args.ide_installed_path:
+            if not Path(args.ide_installed_path).exists():
+                print(_NO_IDE_LAUNCH_PATH.format(args.ide_installed_path))
+                sys.exit(constant.EXIT_CODE_NORMAL)
 
         launch_ide = not args.no_launch
         common_util.configure_logging(args.verbose)

@@ -1121,6 +1121,25 @@ class ExtraArgsTest(AtestTradefedTestRunnerUnittests):
 
         self.assertTokensNotIn(['--tf-early-device-release'], cmd[0])
 
+    def test_args_with_timeout_and_generate_in_run_cmd(self):
+        extra_args = {constants.TEST_TIMEOUT: 10000}
+
+        cmd = self.tr.generate_run_commands([], extra_args)
+
+        self.assertTokensIn(
+            ['--test-arg',
+             'com.android.tradefed.testtype.AndroidJUnitTest:'
+             'shell-timeout:10000',
+             '--test-arg',
+             'com.android.tradefed.testtype.AndroidJUnitTest:'
+             'test-timeout:10000',
+             '--test-arg',
+             'com.android.tradefed.testtype.HostGTest:'
+             'native-test-timeout:10000',
+             '--test-arg',
+             'com.android.tradefed.testtype.GTest:'
+             'native-test-timeout:10000'],
+            cmd[0])
 
 if __name__ == '__main__':
     unittest.main()
