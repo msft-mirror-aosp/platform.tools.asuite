@@ -243,6 +243,7 @@ def get_extra_args(args):
                 'iterations': constants.ITERATIONS,
                 'no_enable_root': constants.NO_ENABLE_ROOT,
                 'request_upload_result': constants.REQUEST_UPLOAD_RESULT,
+                'bazel_mode_features': constants.BAZEL_MODE_FEATURES,
                 'rerun_until_failure': constants.RERUN_UNTIL_FAILURE,
                 'retry_any_failure': constants.RETRY_ANY_FAILURE,
                 'serial': constants.SERIAL,
