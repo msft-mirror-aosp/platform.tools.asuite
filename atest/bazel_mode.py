@@ -65,6 +65,9 @@ _SUPPORTED_BAZEL_ARGS = MappingProxyType({
     # https://docs.bazel.build/versions/main/command-line-reference.html#flag--flaky_test_attempts
     constants.RETRY_ANY_FAILURE:
         lambda arg_value: [f'--flaky_test_attempts={str(arg_value)}'],
+    # https://docs.bazel.build/versions/main/command-line-reference.html#flag--test_output
+    constants.VERBOSE:
+        lambda arg_value: ['--test_output=all'] if arg_value else [],
     constants.BAZEL_ARG:
         lambda arg_value: [item for sublist in arg_value for item in sublist]
 })
