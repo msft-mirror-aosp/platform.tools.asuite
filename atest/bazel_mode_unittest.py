@@ -1673,6 +1673,15 @@ class BazelTestRunnerTest(unittest.TestCase):
             '--build_metadata=ab_target=aosp_cf_x86_64_phone-userdebug'
         ], cmd[0])
 
+    def test_generate_run_command_with_verbose_args(self):
+        test_infos = [test_info_of('test1')]
+        runner = self.create_bazel_test_runner_for_tests(test_infos)
+        extra_args = {constants.VERBOSE: True}
+
+        cmd = runner.generate_run_commands(test_infos, extra_args)
+
+        self.assertTokensIn(['--test_output=all'], cmd[0])
+
     def create_bazel_test_runner(self,
                                  modules,
                                  test_infos,
