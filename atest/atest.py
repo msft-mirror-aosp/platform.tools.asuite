@@ -254,6 +254,7 @@ def get_extra_args(args):
                 'tf_debug': constants.TF_DEBUG,
                 'tf_template': constants.TF_TEMPLATE,
                 'user_type': constants.USER_TYPE,
+                'verbose': constants.VERBOSE,
                 'verify_env_variable': constants.VERIFY_ENV_VARIABLE}
     not_match = [k for k in arg_maps if k not in vars(args)]
     if not_match:
