@@ -368,6 +368,14 @@ class BasicWorkspaceGenerationTest(GenerationTestFixture):
         self.assertTargetNotInWorkspace('hello_world_test_device')
         self.assertTargetNotInWorkspace('hello_world_test_host')
 
+    def test_generate_variable_file(self):
+        gen = self.create_workspace_generator()
+
+        gen.generate()
+
+        self.assertFileInWorkspace('BUILD.bazel')
+        self.assertFileInWorkspace('constants.bzl')
+
 
 class MultiConfigTestModuleTestTargetGenerationTest(GenerationTestFixture):
     """Tests for test target generation of test modules with multi-configs."""
@@ -1664,6 +1672,15 @@ class BazelTestRunnerTest(unittest.TestCase):
             '--build_metadata=ab_branch=master',
             '--build_metadata=ab_target=aosp_cf_x86_64_phone-userdebug'
         ], cmd[0])
+
+    def test_generate_run_command_with_verbose_args(self):
+        test_infos = [test_info_of('test1')]
+        runner = self.create_bazel_test_runner_for_tests(test_infos)
+        extra_args = {constants.VERBOSE: True}
+
+        cmd = runner.generate_run_commands(test_infos, extra_args)
+
+        self.assertTokensIn(['--test_output=all'], cmd[0])
 
     def create_bazel_test_runner(self,
                                  modules,

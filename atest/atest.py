@@ -254,6 +254,7 @@ def get_extra_args(args):
                 'tf_debug': constants.TF_DEBUG,
                 'tf_template': constants.TF_TEMPLATE,
                 'user_type': constants.USER_TYPE,
+                'verbose': constants.VERBOSE,
                 'verify_env_variable': constants.VERIFY_ENV_VARIABLE}
     not_match = [k for k in arg_maps if k not in vars(args)]
     if not_match:
@@ -721,8 +722,18 @@ def _dry_run_validator(args, results_dir, extra_args, test_infos, mod_info):
     Returns:
         Exit code.
     """
-    test_commands = atest_utils.get_verify_key(args.tests, extra_args)
     dry_run_cmds = _dry_run(results_dir, extra_args, test_infos, mod_info)
+    if args.generate_runner_cmd:
+        dry_run_cmd_str = ' '.join(dry_run_cmds)
+        tests_str = ' '.join(args.tests)
+        test_commands = atest_utils.gen_runner_cmd_to_file(tests_str,
+                                                           dry_run_cmd_str)
+        print("add command %s to file %s" % (
+            atest_utils.colorize(test_commands, constants.GREEN),
+            atest_utils.colorize(constants.RUNNER_COMMAND_PATH,
+                                 constants.GREEN)))
+    else:
+        test_commands = atest_utils.get_verify_key(args.tests, extra_args)
     if args.verify_cmd_mapping:
         try:
             atest_utils.handle_test_runner_cmd(test_commands,
@@ -934,7 +945,8 @@ def main(argv, results_dir, args):
     build_targets = set()
     mm_build_targets = set()
     test_infos = set()
-    dry_run_args = (args.update_cmd_mapping, args.verify_cmd_mapping, args.dry_run)
+    dry_run_args = (args.update_cmd_mapping, args.verify_cmd_mapping,
+                    args.dry_run, args.generate_runner_cmd)
     if _will_run_tests(args):
         if proc_idx:
             proc_idx.join()

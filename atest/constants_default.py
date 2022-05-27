@@ -71,6 +71,7 @@ ANNOTATION_FILTER = 'ANNOTATION_FILTER'
 BAZEL_ARG = 'BAZEL_ARG'
 TEST_FILTER = 'TEST_FILTER'
 TEST_TIMEOUT = 'TEST_TIMEOUT'
+VERBOSE = 'VERBOSE'
 
 # Robolectric Types:
 ROBOTYPE_MODERN = 1
@@ -266,8 +267,6 @@ QCLASS_OUTPUT_RE = re.compile(r'(?P<java_path>.*/(?P<class>[A-Z]\w+)\.\w+)'
                               r'[:]\s*package\s+(?P<package>[^(;|\s)]+)\s*')
 PACKAGE_OUTPUT_RE = re.compile(r'(?P<java_dir>/.*/).*[.](java|kt)[:]\s*package\s+'
                                r'(?P<package>[^(;|\s)]+)\s*')
-MANIFEST_OUTPUT_RE =  re.compile(
-        r'(?P<filename>/.*/AndroidManifest.xml):.*\s*package=.*[\'\"](?P<package>.*)[\'\"]')
 
 ATEST_RESULT_ROOT = '/tmp/atest_result'
 ATEST_TEST_RECORD_PROTO = 'test_record.proto'
@@ -386,6 +385,9 @@ VERIFY_DATA_PATH = os.path.join(
 VERIFY_ENV_PATH = os.path.join(
     os.environ.get(ANDROID_BUILD_TOP, os.getcwd()),
     'tools/asuite/atest/test_data/test_environ.json')
+RUNNER_COMMAND_PATH = os.path.join(
+    os.environ.get(ANDROID_BUILD_TOP, os.getcwd()),
+    'tools/asuite/atest/test_data/runner_commands.json')
 
 # Gtest Types
 GTEST_REGULAR = 'regular native test'
