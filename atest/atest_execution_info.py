@@ -300,10 +300,15 @@ class AtestExecutionInfo:
             self.result_file.close()
             symlink_latest_result(self.work_dir)
         main_module = sys.modules.get(_MAIN_MODULE_KEY)
-        main_exit_code = getattr(main_module, _EXIT_CODE_ATTR, ExitCode.ERROR)
-        if main_exit_code == ExitCode.SUCCESS:
+        main_exit_code = value.code if isinstance(value, SystemExit) else (
+            getattr(main_module, _EXIT_CODE_ATTR, ExitCode.ERROR))
+        # Do not send stacktrace with send_exit_event when exit code is not
+        # ERROR.
+        if main_exit_code != ExitCode.ERROR:
+            logging.debug('send_exit_event:%s', main_exit_code)
             metrics_utils.send_exit_event(main_exit_code)
         else:
+            logging.debug('handle_exc_and_send_exit_event:%s', main_exit_code)
             metrics_utils.handle_exc_and_send_exit_event(main_exit_code)
 
     @staticmethod
