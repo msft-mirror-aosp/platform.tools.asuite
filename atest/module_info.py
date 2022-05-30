@@ -692,7 +692,7 @@ class ModuleInfo:
         duration = time.time() - start
         logging.debug('Merging module info took %ss', duration)
         metrics.LocalDetectEvent(
-            detect_type=DetectType.MODULE_MERGE, result=int(duration))
+            detect_type=DetectType.MODULE_MERGE_MS, result=int(duration*1000))
         return name_to_module_info
 
     def _merge_soong_info(self, name_to_module_info, mod_bp_infos):
