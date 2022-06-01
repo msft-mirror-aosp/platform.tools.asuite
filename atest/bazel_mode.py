@@ -90,6 +90,10 @@ class Features(enum.Enum):
         'these dependencies to set up the execution environment and ensure '
         'that all transitive runtime dependencies are present.',
         True)
+    EXPERIMENTAL_REMOTE = (
+        '--experimental-remote',
+        'Use Bazel remote execution and caching where supported.',
+        False)
 
     def __init__(self, arg_flag, description, affects_workspace):
         self.arg_flag = arg_flag
@@ -1112,17 +1116,42 @@ class BazelTestRunner(trb.TestRunnerBase):
             ret_code |= self.wait_for_subprocess(subproc)
         return ret_code
 
-    def _get_bes_publish_args(self, config):
+    def _get_feature_config_or_warn(self, feature, env_var_name):
+        feature_config = self.env.get(env_var_name)
+        if not feature_config:
+            logging.warning(
+                'Ignoring `%s` because the `%s`'
+                ' environment variable is not set.',
+                # pylint: disable=no-member
+                feature, env_var_name
+            )
+        return feature_config
+
+    def _get_bes_publish_args(self, feature):
+        bes_publish_config = self._get_feature_config_or_warn(
+            feature, 'ATEST_BAZEL_BES_PUBLISH_CONFIG')
+
+        if not bes_publish_config:
+            return []
+
         args = []
 
         branch = self.build_metadata.build_branch
         target = self.build_metadata.build_target
 
-        args.append(f'--config={config}')
+        args.append(f'--config={bes_publish_config}')
         args.append(f'--build_metadata=ab_branch={branch}')
         args.append(f'--build_metadata=ab_target={target}')
 
         return args
+
+    def _get_remote_args(self, feature):
+        remote_config = self._get_feature_config_or_warn(
+            feature, 'ATEST_BAZEL_REMOTE_CONFIG')
+
+        if not remote_config:
+            return []
+        return [f'--config={remote_config}']
 
     def host_env_check(self):
         """Check that host env has everything we need.
@@ -1165,6 +1194,11 @@ class BazelTestRunner(trb.TestRunnerBase):
 
         return f'//{package_name}:{module_name}_{target_suffix}'
 
+    def _get_bazel_feature_args(self, feature, extra_args, generator):
+        if feature not in extra_args.get('BAZEL_MODE_FEATURES', []):
+            return []
+        return generator(feature)
+
     # pylint: disable=unused-argument
     def generate_run_commands(self, test_infos, extra_args, port=None):
         """Generate a list of run commands from TestInfos.
@@ -1188,18 +1222,16 @@ class BazelTestRunner(trb.TestRunnerBase):
 
         bazel_args = self._parse_extra_args(test_infos, extra_args)
 
-        if Features.EXPERIMENTAL_BES_PUBLISH in extra_args.get(
-                'BAZEL_MODE_FEATURES', []):
-            bes_publish_config = self.env.get("ATEST_BAZEL_BES_PUBLISH_CONFIG")
-            if not bes_publish_config:
-                logging.warning(
-                    'Ignoring `%s` because the `ATEST_BAZEL_BES_PUBLISH_CONFIG`'
-                    ' environment variable is not set.',
-                    # pylint: disable=no-member
-                    Features.EXPERIMENTAL_BES_PUBLISH.arg_flag)
-            else:
-                bazel_args.extend(
-                    self._get_bes_publish_args(bes_publish_config))
+        bazel_args.extend(
+            self._get_bazel_feature_args(
+                Features.EXPERIMENTAL_BES_PUBLISH,
+                extra_args,
+                self._get_bes_publish_args))
+        bazel_args.extend(
+            self._get_bazel_feature_args(
+                Features.EXPERIMENTAL_REMOTE,
+                extra_args,
+                self._get_remote_args))
 
         bazel_args_str = ' '.join(bazel_args)
 
