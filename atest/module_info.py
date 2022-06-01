@@ -705,7 +705,8 @@ class ModuleInfo:
         Returns:
             Dict of updated name_to_module_info.
         """
-        merge_items = [constants.MODULE_DEPENDENCIES, constants.MODULE_SRCS]
+        merge_items = [constants.MODULE_DEPENDENCIES, constants.MODULE_SRCS,
+                       constants.MODULE_LIBS, constants.MODULE_STATIC_LIBS]
         for module_name, dep_info in mod_bp_infos.items():
             if name_to_module_info.get(module_name, None):
                 mod_info = name_to_module_info.get(module_name)
