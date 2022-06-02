@@ -83,6 +83,13 @@ class Features(enum.Enum):
     EXPERIMENTAL_BES_PUBLISH = ('--experimental-bes-publish',
                                 'Upload test results via BES in Bazel mode.',
                                 False)
+    EXPERIMENTAL_JAVA_RUNTIME_DEPENDENCIES = (
+        '--experimental-java-runtime-dependencies',
+        'Mirrors Soong Java `libs` and `static_libs` as Bazel target '
+        'dependencies in the generated workspace. Tradefed test rules use '
+        'these dependencies to set up the execution environment and ensure '
+        'that all transitive runtime dependencies are present.',
+        True)
 
     def __init__(self, arg_flag, description, affects_workspace):
         self.arg_flag = arg_flag
@@ -575,6 +582,13 @@ class TestTarget(Target):
         writer.write_line(')')
 
 
+@dataclasses.dataclass(frozen=True)
+class Dependencies:
+    static_dep_refs: List[ModuleRef]
+    runtime_dep_refs: List[ModuleRef]
+    data_dep_refs: List[ModuleRef]
+
+
 class SoongPrebuiltTarget(Target):
     """Class for generating a Soong prebuilt target on disk."""
 
@@ -614,25 +628,31 @@ class SoongPrebuiltTarget(Target):
             config_files = {c: [c.out_path.joinpath(f'testcases/{module_name}')]
                             for c in config_files.keys()}
 
+        enabled_features = gen.enabled_features
+
         return SoongPrebuiltTarget(
             module_name,
             package_name,
             config_files,
-            find_runtime_dep_refs(gen.mod_info, info, configs,
-                                  gen.src_root_path),
-            find_data_dep_refs(gen.mod_info, info, configs,
-                                  gen.src_root_path)
+            Dependencies(
+                static_dep_refs = find_static_dep_refs(
+                    gen.mod_info, info, configs, gen.src_root_path,
+                    enabled_features),
+                runtime_dep_refs = find_runtime_dep_refs(
+                    gen.mod_info, info, configs, gen.src_root_path,
+                    enabled_features),
+                data_dep_refs = find_data_dep_refs(
+                    gen.mod_info, info, configs, gen.src_root_path),
+            ),
         )
 
     def __init__(self, name: str, package_name: str,
                  config_files: Dict[Config, List[Path]],
-                 runtime_dep_refs: List[ModuleRef],
-                 data_dep_refs: List[ModuleRef]):
+                 deps: Dependencies):
         self._name = name
         self._package_name = package_name
         self.config_files = config_files
-        self.runtime_dep_refs = runtime_dep_refs
-        self.data_dep_refs = data_dep_refs
+        self.deps = deps
 
     def name(self) -> str:
         return self._name
@@ -656,14 +676,15 @@ class SoongPrebuiltTarget(Target):
         # configurations as its dependencies. This is required because some
         # build modules are just intermediate targets that don't produce any
         # output but that still have transitive dependencies.
-        for ref in self.runtime_dep_refs:
+        for ref in self.deps.runtime_dep_refs:
             supported_configs.update(ref.target().supported_configs())
 
         return supported_configs
 
     def dependencies(self) -> List[ModuleRef]:
-        all_deps = set(self.runtime_dep_refs)
-        all_deps.update(self.data_dep_refs)
+        all_deps = set(self.deps.runtime_dep_refs)
+        all_deps.update(self.deps.data_dep_refs)
+        all_deps.update(self.deps.static_dep_refs)
         return list(all_deps)
 
     def write_to_build_file(self, f: IO):
@@ -675,9 +696,11 @@ class SoongPrebuiltTarget(Target):
             writer.write_line(f'name = "{self._name}",')
             writer.write_line(f'module_name = "{self._name}",')
             self._write_files_attribute(writer)
+            self._write_deps_attribute(writer, 'static_deps',
+                                       self.deps.static_dep_refs)
             self._write_deps_attribute(writer, 'runtime_deps',
-                                       self.runtime_dep_refs)
-            self._write_deps_attribute(writer, 'data', self.data_dep_refs)
+                                       self.deps.runtime_dep_refs)
+            self._write_deps_attribute(writer, 'data', self.deps.data_dep_refs)
 
         writer.write_line(')')
 
@@ -805,6 +828,7 @@ def find_runtime_dep_refs(
     info: module_info.Module,
     configs: List[Config],
     src_root_path: Path,
+    enabled_features: List[Features],
 ) -> List[ModuleRef]:
     """Return module references for runtime dependencies."""
 
@@ -819,6 +843,10 @@ def find_runtime_dep_refs(
     libs = set()
     libs.update(info.get(constants.MODULE_SHARED_LIBS, []))
     libs.update(info.get(constants.MODULE_RUNTIME_DEPS, []))
+
+    if Features.EXPERIMENTAL_JAVA_RUNTIME_DEPENDENCIES in enabled_features:
+        libs.update(info.get(constants.MODULE_LIBS, []))
+
     runtime_dep_refs = _find_module_refs(mod_info, configs, src_root_path, libs)
 
     runtime_library_class = {'RLIB_LIBRARIES', 'DYLIB_LIBRARIES'}
@@ -851,6 +879,24 @@ def find_data_dep_refs(
                              configs,
                              src_root_path,
                              info.get(constants.MODULE_DATA_DEPS, []))
+
+
+def find_static_dep_refs(
+        mod_info: module_info.ModuleInfo,
+        info: module_info.Module,
+        configs: List[Config],
+        src_root_path: Path,
+        enabled_features: List[Features],
+) -> List[ModuleRef]:
+    """Return module references for static libraries."""
+
+    if Features.EXPERIMENTAL_JAVA_RUNTIME_DEPENDENCIES not in enabled_features:
+        return []
+
+    return _find_module_refs(mod_info,
+                             configs,
+                             src_root_path,
+                             info.get(constants.MODULE_STATIC_LIBS, []))
 
 
 def _find_module_refs(
