@@ -34,6 +34,7 @@ import os
 import re
 import shutil
 import subprocess
+import warnings
 
 from abc import ABC, abstractmethod
 from collections import defaultdict, deque, OrderedDict
@@ -309,13 +310,19 @@ class WorkspaceGenerator:
     def _get_module_path(self, info: Dict[str, Any]) -> str:
         mod_path = info.get(constants.MODULE_PATH)
 
-        if len(mod_path) != 1:
+        if len(mod_path) < 1:
+            module_name = info['module_name']
+            raise Exception(f'Module `{module_name}` does not have any path')
+
+        if len(mod_path) > 1:
             module_name = info['module_name']
             # We usually have a single path but there are a few exceptions for
             # modules like libLLVM_android and libclang_android.
-            # TODO(nelsonli): Remove this check once b/153609531 is fixed.
-            raise Exception(f'Module `{module_name}` does not have exactly one'
-                            f' path: {mod_path}')
+            # TODO(yangbill): Raise an exception for multiple paths once
+            # b/233581382 is resolved.
+            warnings.formatwarning = lambda msg, *args, **kwargs: f'{msg}\n'
+            warnings.warn(
+                f'Module `{module_name}` has more than one path: `{mod_path}`')
 
         return mod_path[0]
 
