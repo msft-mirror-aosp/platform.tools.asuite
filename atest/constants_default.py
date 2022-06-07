@@ -250,7 +250,6 @@ CLASS_INDEX = os.path.join(INDEX_DIR, 'classes.idx')
 CC_CLASS_INDEX = os.path.join(INDEX_DIR, 'cc_classes.idx')
 PACKAGE_INDEX = os.path.join(INDEX_DIR, 'packages.idx')
 QCLASS_INDEX = os.path.join(INDEX_DIR, 'fqcn.idx')
-MANIFEST_INDEX = os.path.join(INDEX_DIR, 'manifests.idx')
 MODULE_INDEX = 'modules.idx'
 MODULE_INFO_MD5 = 'module-info.md5'
 VERSION_FILE = os.path.join(os.path.dirname(__file__), 'VERSION')
