@@ -79,6 +79,19 @@ class BuildClient:
         return self.client.target().list(branch=branch,
                                          maxResults=10000).execute()
 
+    def get_branch(self, branch):
+        """Get BuildInfo for specific branch.
+        Args:
+            branch: A string of branch name to query.
+        """
+        query_branch = ''
+        try:
+            query_branch = self.client.branch().get(resourceId=branch).execute()
+        # pylint: disable=broad-except
+        except Exception:
+            return ''
+        return query_branch
+
     def insert_local_build(self, external_id, target, branch):
         """Insert a build record.
         Args:
