@@ -256,9 +256,9 @@ def _get_branch(build_client):
     """
     default_branch = ('git_master'
                         if constants.CREDENTIAL_FILE_NAME else 'aosp-master')
-    local_branch = atest_utils.get_manifest_branch()
-    branches = [b['name'] for b in build_client.list_branch()['branches']]
-    return local_branch if local_branch in branches else default_branch
+    local_branch = "git_%s" % atest_utils.get_manifest_branch()
+    branch = build_client.get_branch(local_branch)
+    return local_branch if branch else default_branch
 
 def _get_target(branch, build_client):
     """Get local build selected target.
