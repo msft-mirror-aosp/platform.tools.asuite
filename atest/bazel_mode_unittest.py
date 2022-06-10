@@ -1683,6 +1683,29 @@ class BazelTestRunnerTest(unittest.TestCase):
             '--build_metadata=ab_target=aosp_cf_x86_64_phone-userdebug'
         ], cmd[0])
 
+    def test_generate_run_command_with_remote_enabled(self):
+        test_infos = [test_info_of('test1')]
+        extra_args = {
+            constants.BAZEL_MODE_FEATURES: [
+                bazel_mode.Features.EXPERIMENTAL_REMOTE
+            ]
+        }
+        env = {
+            'ATEST_BAZELRC': '/dir/atest.bazelrc',
+            'ATEST_BAZEL_REMOTE_CONFIG': 'remote'
+        }
+        runner = self.create_bazel_test_runner_for_tests(
+            test_infos, env=env)
+
+        cmd = runner.generate_run_commands(
+            test_infos,
+            extra_args,
+        )
+
+        self.assertTokensIn([
+            '--config=remote',
+        ], cmd[0])
+
     def test_generate_run_command_with_verbose_args(self):
         test_infos = [test_info_of('test1')]
         runner = self.create_bazel_test_runner_for_tests(test_infos)
