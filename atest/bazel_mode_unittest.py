@@ -532,6 +532,16 @@ class HostUnitTestModuleTestTargetGenerationTest(GenerationTestFixture):
 
         self.assertIn('adb', str(context.exception))
 
+    def test_warning_when_prerequisite_module_has_multiple_path(self):
+        mod_info = self.create_module_info(modules=[
+            host_unit_test_module(),
+        ])
+        mod_info.name_to_module_info['adb'].get('path').append('the/2nd/path')
+
+        with self.assertWarns(Warning) as context:
+            self.run_generator(mod_info)
+
+        self.assertIn('adb', str(context.warnings[0].message))
 
 class ModulePrebuiltTargetGenerationTest(GenerationTestFixture):
     """Tests for module prebuilt target generation."""
