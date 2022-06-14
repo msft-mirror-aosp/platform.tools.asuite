@@ -73,6 +73,14 @@ _fetch_test_mapping_files() {
     find -maxdepth 5 -type f -name TEST_MAPPING |sed 's/^.\///g'| xargs dirname 2>/dev/null
 }
 
+function _pip_install() {
+    if ! which $1 >/dev/null; then
+        install_cmd="pip3 install --user $1"
+        echo "${FUNCNAME[1]} requires $1 but not found. Installing..."
+        eval $install_cmd >/dev/null
+    fi
+}
+
 # The main tab completion function.
 _atest() {
     local cur prev
@@ -136,14 +144,14 @@ function _atest_main() {
     # BASH version <= 4.3 doesn't have nosort option.
     # Note that nosort has no effect for zsh.
     local _atest_comp_options="-o default -o nosort"
-    local _atest_executables=(atest atest-dev atest-src atest-py3)
+    local _atest_executables=(atest atest-dev atest-src atest-py3 _atest_profile_web _atest_profile_cli)
     for exec in "${_atest_executables[*]}"; do
         complete -F _atest $_atest_comp_options $exec 2>/dev/null || \
         complete -F _atest -o default $exec
     done
 
     # Install atest-src for the convenience of debugging.
-    local atest_src="$T/$ATEST_REL_DIR/atest.py"
+    atest_src="$T/$ATEST_REL_DIR/atest.py"
     [[ -f "$atest_src" ]] && alias atest-src="$atest_src"
 
     # Use prebuilt python3 for atest-dev
@@ -155,6 +163,36 @@ function _atest_main() {
         fi
         PREBUILT_TOOLS_DIR="$ANDROID_BUILD_TOP/prebuilts/build-tools/path/linux-x86"
         PATH=$PREBUILT_TOOLS_DIR:$PATH $atest_dev "$@"
+    }
+
+    # pyinstrument profiler
+    function _atest_profile_cli() {
+        profile="$HOME/.atest/$(date +'%F_%H-%M-%S').pyisession"
+        module="pyinstrument"
+        _pip_install $module
+        if [ "$?" -eq 0 ]; then
+            $module --timeline --color -o $profile $atest_src "$@" && cat $profile
+            echo "$(tput setaf 3)$profile$(tput sgr0) saved."
+        fi
+    }
+
+    # cProfile profiler + snakeviz visualization
+    function _atest_profile_web() {
+        profile="$HOME/.atest/$(date +'%F_%H-%M-%S').pstats"
+        python3 -m cProfile -o $profile $atest_src "$@" && \
+            echo "$profile saved." || return 1
+
+        module="snakeviz"
+        _pip_install $module
+        if [ "$?" -eq 0 ]; then
+            run_cmd="$module -H $HOSTNAME $profile >/dev/null 2>&1"
+            echo "$(tput bold)Use Ctrl-C to stop.$(tput sgr0)"
+            eval $run_cmd
+            echo
+            echo "To permanently start a web server, please run:"
+            echo $(tput setaf 3)"nohup $run_cmd &"$(tput sgr0)
+            echo "and share $(tput setaf 3)http://$HOSTNAME:8080/snakeviz/$profile$(tput sgr0)."
+        fi
     }
 }
 
