@@ -890,6 +890,27 @@ def get_device_count_config(test_infos, mod_info):
                 max_count = max(len(devices), max_count)
     return max_count
 
+
+def _get_host_framework_targets(mod_info):
+    """Get the build target name for all the existing jars under host framework.
+
+    Args:
+        mod_info: ModuleInfo object.
+
+    Returns:
+        A set of build target name under $(ANDROID_HOST_OUT)/framework.
+    """
+    host_targets = set()
+    framework_host_dir = Path(
+        os.environ.get(constants.ANDROID_HOST_OUT)).joinpath('framework')
+    if framework_host_dir.is_dir():
+        jars = framework_host_dir.glob('*.jar')
+        for jar in jars:
+            if mod_info.get_module_info(jar.stem):
+                host_targets.add(jar.stem)
+        logging.debug('Found exist host framework target:%s', host_targets)
+    return host_targets
+
 # pylint: disable=too-many-statements
 # pylint: disable=too-many-branches
 # pylint: disable=too-many-return-statements
@@ -1017,6 +1038,9 @@ def main(argv, results_dir, args):
         # Add module-info.json target to the list of build targets to keep the
         # file up to date.
         build_targets.add(mod_info.module_info_target)
+        # Force rebuilt all jars under $ANDROID_HOST_OUT to prevent old version
+        # host jars break the test.
+        build_targets |= _get_host_framework_targets(mod_info)
         build_start = time.time()
         success = atest_utils.build(build_targets, verbose=args.verbose,
                                     mm_build_targets=mm_build_targets)
