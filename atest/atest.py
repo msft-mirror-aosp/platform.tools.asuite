@@ -951,9 +951,14 @@ def main(argv, results_dir, args):
                              result=int(time.time() - mod_start))
     atest_utils.generate_buildfiles_checksum()
     if args.bazel_mode:
+        start = time.time()
         bazel_mode.generate_bazel_workspace(
             mod_info,
             enabled_features=set(args.bazel_mode_features or []))
+        metrics.LocalDetectEvent(
+            detect_type=DetectType.BAZEL_WORKSPACE_GENERATE_TIME,
+            result=int(time.time() - start))
+
     translator = cli_translator.CLITranslator(
         mod_info=mod_info,
         print_cache_msg=not args.clear_cache,
