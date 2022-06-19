@@ -74,7 +74,12 @@ NO_METRICS = 'Do not send metrics.'
 REBUILD_MODULE_INFO = ('Forces a rebuild of the module-info.json file. '
                        'This may be necessary following a repo sync or '
                        'when writing a new test.')
-REQUEST_UPLOAD_RESULT = 'Request permission to upload test result.'
+# TODO: (b/236097856) rephrase below description when --disable-upload-request
+# lands.
+REQUEST_UPLOAD_RESULT = ('Request permission to upload test result. This option '
+                         'only needs to set once and takes effect forever until '
+                         'changed; to turn it off, pass the option again and set '
+                         'No to stop uploading result to AnTS from now on.')
 RERUN_UNTIL_FAILURE = ('Rerun all tests until a failure occurs or the max '
                        'iteration is reached. (default: forever!)')
 # For Integer.MAX_VALUE == (2**31 - 1) and not possible to give a larger integer
