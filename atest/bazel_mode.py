@@ -33,6 +33,7 @@ import functools
 import logging
 import os
 import re
+import shlex
 import shutil
 import subprocess
 import warnings
@@ -72,6 +73,10 @@ _SUPPORTED_BAZEL_ARGS = MappingProxyType({
     constants.BAZEL_ARG:
         lambda arg_value: [item for sublist in arg_value for item in sublist]
 })
+
+
+class AbortRunException(Exception):
+    pass
 
 
 @enum.unique
@@ -1110,7 +1115,13 @@ class BazelTestRunner(trb.TestRunnerBase):
         reporter.register_unsupported_runner(self.NAME)
         ret_code = ExitCode.SUCCESS
 
-        run_cmds = self.generate_run_commands(test_infos, extra_args)
+        try:
+            run_cmds = self.generate_run_commands(test_infos, extra_args)
+        except AbortRunException as e:
+            atest_utils.colorful_print(f'Stop running test(s): {e}',
+                                       constants.RED)
+            return ExitCode.ERROR
+
         for run_cmd in run_cmds:
             subproc = self.run(run_cmd, output_to_stdout=True)
             ret_code |= self.wait_for_subprocess(subproc)
@@ -1134,16 +1145,40 @@ class BazelTestRunner(trb.TestRunnerBase):
         if not bes_publish_config:
             return []
 
-        args = []
-
         branch = self.build_metadata.build_branch
         target = self.build_metadata.build_target
 
+        args = []
         args.append(f'--config={bes_publish_config}')
         args.append(f'--build_metadata=ab_branch={branch}')
         args.append(f'--build_metadata=ab_target={target}')
 
+        auth_script = self.env.get('ATEST_BAZEL_BES_PUBLISH_AUTH_SCRIPT')
+        if auth_script:
+            args.extend(self._get_auth_args(auth_script))
+
         return args
+
+    def _get_auth_args(self, auth_script):
+        """Get Bazel authentication arguments from running a script.
+
+        Args:
+            auth_script: path to the authentication script.
+        Returns:
+            the Bazel arguments used for authentication.
+        """
+        try:
+            result = subprocess.run(auth_script,
+                                    check=True,
+                                    text=True,
+                                    shell=True,
+                                    stdout=subprocess.PIPE)
+        except subprocess.CalledProcessError as e:
+            raise AbortRunException(
+                f'Error running authentication script `{auth_script}`: {e}'
+            ) from e
+
+        return result.stdout.splitlines()
 
     def _get_remote_args(self, feature):
         remote_config = self._get_feature_config_or_warn(
@@ -1233,7 +1268,9 @@ class BazelTestRunner(trb.TestRunnerBase):
                 extra_args,
                 self._get_remote_args))
 
-        bazel_args_str = ' '.join(bazel_args)
+        # This is an alternative to shlex.join that doesn't exist in Python
+        # versions < 3.8.
+        bazel_args_str = ' '.join(shlex.quote(arg) for arg in bazel_args)
 
         # Use 'cd' instead of setting the working directory in the subprocess
         # call for a working --dry-run command that users can run.
