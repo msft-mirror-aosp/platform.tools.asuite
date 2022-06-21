@@ -233,6 +233,7 @@ def get_extra_args(args):
                 'collect_tests_only': constants.COLLECT_TESTS_ONLY,
                 'custom_args': constants.CUSTOM_ARGS,
                 'disable_teardown': constants.DISABLE_TEARDOWN,
+                'disable_upload_result': constants.DISABLE_UPLOAD_RESULT,
                 'dry_run': constants.DRY_RUN,
                 'enable_device_preparer': constants.ENABLE_DEVICE_PREPARER,
                 'flakes_info': constants.FLAKES_INFO,
