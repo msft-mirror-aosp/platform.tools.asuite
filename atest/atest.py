@@ -232,6 +232,7 @@ def get_extra_args(args):
                 'bazel_arg': constants.BAZEL_ARG,
                 'collect_tests_only': constants.COLLECT_TESTS_ONLY,
                 'custom_args': constants.CUSTOM_ARGS,
+                'device_only': constants.DEVICE_ONLY,
                 'disable_teardown': constants.DISABLE_TEARDOWN,
                 'dry_run': constants.DRY_RUN,
                 'enable_device_preparer': constants.ENABLE_DEVICE_PREPARER,
@@ -583,6 +584,11 @@ def _run_test_mapping_tests(results_dir, test_infos, extra_args, mod_info):
     if extra_args.get(constants.HOST):
         atest_utils.colorful_print(
             'Option `--host` specified. Skip running device tests.',
+            constants.MAGENTA)
+    elif extra_args.get(constants.DEVICE_ONLY):
+        test_runs = [(device_test_infos, extra_args, DEVICE_TESTS)]
+        atest_utils.colorful_print(
+            'Option `--device-only` specified. Skip running deviceless tests.',
             constants.MAGENTA)
     else:
         test_runs.append((device_test_infos, extra_args, DEVICE_TESTS))
