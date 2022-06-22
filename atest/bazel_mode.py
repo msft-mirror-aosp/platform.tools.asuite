@@ -149,7 +149,7 @@ class WorkspaceGenerator:
     def __init__(self, src_root_path: Path, workspace_out_path: Path,
                  product_out_path: Path, host_out_path: Path,
                  build_out_dir: Path, mod_info: module_info.ModuleInfo,
-                 enabled_features: Set[Features] = None):
+                 enabled_features: Set[Features] = None, resource_root = None):
         """Initializes the generator.
 
         Args:
@@ -163,6 +163,7 @@ class WorkspaceGenerator:
         """
         self.enabled_features = enabled_features or set()
         self.src_root_path = src_root_path
+        self.resource_root = resource_root or _get_resource_root()
         self.workspace_out_path = workspace_out_path
         self.product_out_path = product_out_path
         self.host_out_path = host_out_path
@@ -354,10 +355,10 @@ class WorkspaceGenerator:
         """Generate workspace files on disk."""
 
         self._create_base_files()
-        self._symlink(src='tools/asuite/atest/bazel/rules',
-                      target='bazel/rules')
-        self._symlink(src='tools/asuite/atest/bazel/configs',
-                      target='bazel/configs')
+
+        self._add_workspace_resource(src='rules', dst='bazel/rules')
+        self._add_workspace_resource(src='configs', dst='bazel/configs')
+
         # Symlink to package with toolchain definitions.
         self._symlink(src='prebuilts/build-tools',
                       target='prebuilts/build-tools')
@@ -365,8 +366,6 @@ class WorkspaceGenerator:
 
         for package in self.path_to_package.values():
             package.generate(self.workspace_out_path)
-
-
 
     def _symlink(self, *, src, target):
         """Create a symbolic link in workspace pointing to source file/dir.
@@ -383,11 +382,29 @@ class WorkspaceGenerator:
         symlink.symlink_to(self.src_root_path.joinpath(src))
 
     def _create_base_files(self):
-        self._symlink(src='tools/asuite/atest/bazel/WORKSPACE',
-                      target='WORKSPACE')
-        self._symlink(src='tools/asuite/atest/bazel/bazelrc',
-                      target='.bazelrc')
+        self._add_workspace_resource(src='WORKSPACE', dst='WORKSPACE')
+        self._add_workspace_resource(src='bazelrc', dst='.bazelrc')
+
         self.workspace_out_path.joinpath('BUILD.bazel').touch()
+
+    def _add_workspace_resource(self, src, dst):
+        """Add resource to the given destination in workspace.
+
+        Args:
+            src: A string of a relative path to root of Bazel artifacts. This is
+                the source file/dir path that will be added to workspace.
+            dst: A string of a relative path to workspace root. This is the
+                destination file/dir path where the artifacts will be added.
+        """
+        src = self.resource_root.joinpath(src)
+        dst = self.workspace_out_path.joinpath(dst)
+        dst.parent.mkdir(parents=True, exist_ok=True)
+
+        if src.is_file():
+            shutil.copy(src, dst)
+        else:
+            shutil.copytree(src, dst,
+                            ignore=shutil.ignore_patterns('__init__.py'))
 
     def _create_constants_file(self):
 
@@ -412,6 +429,10 @@ class WorkspaceGenerator:
                     '%s = "%s"' %
                     (variable_name(target.name()), target.qualified_name())
                 )
+
+
+def _get_resource_root():
+    return Path(os.path.dirname(__file__)).joinpath('bazel')
 
 
 class Package:
@@ -1092,8 +1113,8 @@ class BazelTestRunner(trb.TestRunnerBase):
         self.test_infos = test_infos
         self.src_top = src_top or Path(os.environ.get(
             constants.ANDROID_BUILD_TOP))
-        self.starlark_file = self.src_top.joinpath(
-            'tools/asuite/atest/bazel/format_as_soong_module_name.cquery')
+        self.starlark_file = _get_resource_root().joinpath(
+            'format_as_soong_module_name.cquery')
 
         self.bazel_binary = self.src_top.joinpath(
             'prebuilts/bazel/linux-x86_64/bazel')
