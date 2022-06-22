@@ -61,6 +61,20 @@ class GenerationTestFixture(fake_filesystem_unittest.TestCase):
         self.host_out_path = self.out_dir_path.joinpath('host')
         self.workspace_out_path = self.out_dir_path.joinpath('workspace')
 
+        self.resource_root = self.src_root_path.joinpath(
+            'tools/asuite/atest/bazel')
+
+        bazel_rules = self.resource_root.joinpath('rules')
+        bazel_rules.mkdir(parents=True)
+        bazel_rules.joinpath('rules.bzl').touch()
+
+        bazel_configs = self.resource_root.joinpath('configs')
+        bazel_configs.mkdir(parents=True)
+        bazel_configs.joinpath('configs.bzl').touch()
+
+        self.resource_root.joinpath('WORKSPACE').touch()
+        self.resource_root.joinpath('bazelrc').touch()
+
     def create_workspace_generator(self, modules=None, enabled_features=None):
         mod_info = self.create_module_info(modules)
 
@@ -72,6 +86,7 @@ class GenerationTestFixture(fake_filesystem_unittest.TestCase):
             self.out_dir_path,
             mod_info,
             enabled_features=enabled_features,
+            resource_root=self.resource_root,
         )
 
         return generator
@@ -85,6 +100,7 @@ class GenerationTestFixture(fake_filesystem_unittest.TestCase):
             self.out_dir_path,
             mod_info,
             enabled_features=enabled_features,
+            resource_root=self.resource_root,
         )
 
         generator.generate()
@@ -156,6 +172,10 @@ class GenerationTestFixture(fake_filesystem_unittest.TestCase):
     def assertFileInWorkspace(self, relative_path, package=''):
         path = self.workspace_out_path.joinpath(package, relative_path)
         self.assertTrue(path.exists())
+
+    def assertDirInWorkspace(self, relative_path, package=''):
+        path = self.workspace_out_path.joinpath(package, relative_path)
+        self.assertTrue(path.is_dir())
 
     def assertFileNotInWorkspace(self, relative_path, package=''):
         path = self.workspace_out_path.joinpath(package, relative_path)
@@ -297,49 +317,15 @@ class BasicWorkspaceGenerationTest(GenerationTestFixture):
 
         self.assertFalse(some_file.is_file())
 
-    def test_generate_workspace_file(self):
+    def test_copy_workspace_resources(self):
         gen = self.create_workspace_generator()
-        workspace_path = gen.workspace_out_path.joinpath('WORKSPACE')
 
         gen.generate()
 
-        self.assertSymlinkTo(
-            workspace_path,
-            self.src_root_path.joinpath('tools/asuite/atest/bazel/WORKSPACE')
-        )
-
-    def test_generate_bazelrc_file(self):
-        gen = self.create_workspace_generator()
-        bazelrc_path = gen.workspace_out_path.joinpath('.bazelrc')
-
-        gen.generate()
-
-        self.assertSymlinkTo(
-            bazelrc_path,
-            self.src_root_path.joinpath('tools/asuite/atest/bazel/bazelrc')
-        )
-
-    def test_generate_rules_dir(self):
-        gen = self.create_workspace_generator()
-        rules_dir_path = gen.workspace_out_path.joinpath('bazel/rules')
-
-        gen.generate()
-
-        self.assertSymlinkTo(
-            rules_dir_path,
-            self.src_root_path.joinpath('tools/asuite/atest/bazel/rules')
-        )
-
-    def test_generate_configs_dir(self):
-        gen = self.create_workspace_generator()
-        configs_dir_path = gen.workspace_out_path.joinpath('bazel/configs')
-
-        gen.generate()
-
-        self.assertSymlinkTo(
-            configs_dir_path,
-            self.src_root_path.joinpath('tools/asuite/atest/bazel/configs')
-        )
+        self.assertFileInWorkspace('WORKSPACE')
+        self.assertFileInWorkspace('.bazelrc')
+        self.assertDirInWorkspace('bazel/rules')
+        self.assertDirInWorkspace('bazel/configs')
 
     def test_generate_host_unit_test_module_target(self):
         mod_info = self.create_module_info(modules=[
