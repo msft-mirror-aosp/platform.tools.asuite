@@ -28,6 +28,7 @@ load(
     "bazel_result_reporter_label",
     "tradefed_label",
     "tradefed_test_framework_label",
+    "compatibility_tradefed_label",
 )
 
 _BAZEL_WORK_DIR = "${TEST_SRCDIR}/${TEST_WORKSPACE}/"
@@ -129,16 +130,20 @@ tradefed_deviceless_test = rule(
 )
 
 def _tradefed_device_test_impl(ctx):
+    tradefed_deps = []
+    tradefed_deps.extend(ctx.attr._aapt)
+    tradefed_deps.extend(ctx.attr.tradefed_deps)
+
     return _tradefed_test_impl(
         ctx,
-        tradefed_deps = ctx.attr._aapt,
+        tradefed_deps = tradefed_deps,
         device_deps = ctx.attr.test,
         path_additions = [
             _BAZEL_WORK_DIR + ctx.file._aapt.dirname,
         ],
     )
 
-tradefed_device_test = rule(
+_tradefed_device_test = rule(
     attrs = _add_dicts(
         _TRADEFED_TEST_ATTRIBUTES,
         {
@@ -146,6 +151,10 @@ tradefed_device_test = rule(
                 mandatory = True,
                 cfg = device_transition,
                 aspects = [soong_prebuilt_tradefed_test_aspect],
+            ),
+            "tradefed_deps": attr.label_list(
+                cfg = host_transition,
+                aspects = [soong_prebuilt_tradefed_test_aspect]
             ),
             "_aapt": attr.label(
                 default = aapt_label,
@@ -160,6 +169,21 @@ tradefed_device_test = rule(
     toolchains = _TOOLCHAINS,
     doc = "A rule used to run device tests using Tradefed",
 )
+
+def tradefed_device_test(tradefed_deps = [], suites = [], **attrs):
+    non_compatibility_suites = {
+        'host-unit-tests': None,
+        'null-suite': None,
+        'device-tests': None,
+        'general-tests': None,
+    }
+    all_tradefed_deps = []
+    all_tradefed_deps.extend(tradefed_deps)
+
+    if [s for s in suites if s not in non_compatibility_suites]:
+        all_tradefed_deps.append(compatibility_tradefed_label)
+
+    _tradefed_device_test(tradefed_deps=all_tradefed_deps, **attrs)
 
 def _tradefed_test_impl(
         ctx,
