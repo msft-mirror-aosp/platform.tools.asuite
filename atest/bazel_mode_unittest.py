@@ -444,6 +444,25 @@ class DeviceTestModuleTestTargetGenerationTest(GenerationTestFixture):
         self.assertTargetInWorkspace('hello_world_test_device',
                                      package='example/tests')
 
+    def test_generate_target_with_suites(self):
+        mod_info = self.create_module_info(modules=[
+            device_test_module(
+                name='hello_world_test',
+                path='example/tests',
+                compatibility_suites=['cts', 'mts']),
+        ])
+
+        self.run_generator(mod_info, enabled_features=set([
+            bazel_mode.Features.EXPERIMENTAL_DEVICE_DRIVEN_TEST]))
+
+        self.assertInBuildFile(
+            '    suites = [\n'
+            '        "cts",\n'
+            '        "mts",\n'
+            '    ],\n',
+            package='example/tests',
+        )
+
     def test_raise_when_prerequisite_not_in_module_info(self):
         mod_info = self.create_module_info(modules=[
             device_test_module(),
@@ -1095,6 +1114,7 @@ def module(
     runtime_dependencies=None,
     data=None,
     data_dependencies=None,
+    compatibility_suites=None,
 ):
     name = name or 'libhello'
 
@@ -1111,6 +1131,7 @@ def module(
     m['dependencies'] = dependencies or []
     m['data'] = data or []
     m['data_dependencies'] = data_dependencies or []
+    m['compatibility_suites'] = compatibility_suites or []
     return m
 
 
