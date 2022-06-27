@@ -149,7 +149,7 @@ class WorkspaceGenerator:
     def __init__(self, src_root_path: Path, workspace_out_path: Path,
                  product_out_path: Path, host_out_path: Path,
                  build_out_dir: Path, mod_info: module_info.ModuleInfo,
-                 enabled_features: Set[Features] = None):
+                 enabled_features: Set[Features] = None, resource_root = None):
         """Initializes the generator.
 
         Args:
@@ -163,6 +163,7 @@ class WorkspaceGenerator:
         """
         self.enabled_features = enabled_features or set()
         self.src_root_path = src_root_path
+        self.resource_root = resource_root or _get_resource_root()
         self.workspace_out_path = workspace_out_path
         self.product_out_path = product_out_path
         self.host_out_path = host_out_path
@@ -354,10 +355,10 @@ class WorkspaceGenerator:
         """Generate workspace files on disk."""
 
         self._create_base_files()
-        self._symlink(src='tools/asuite/atest/bazel/rules',
-                      target='bazel/rules')
-        self._symlink(src='tools/asuite/atest/bazel/configs',
-                      target='bazel/configs')
+
+        self._add_workspace_resource(src='rules', dst='bazel/rules')
+        self._add_workspace_resource(src='configs', dst='bazel/configs')
+
         # Symlink to package with toolchain definitions.
         self._symlink(src='prebuilts/build-tools',
                       target='prebuilts/build-tools')
@@ -365,8 +366,6 @@ class WorkspaceGenerator:
 
         for package in self.path_to_package.values():
             package.generate(self.workspace_out_path)
-
-
 
     def _symlink(self, *, src, target):
         """Create a symbolic link in workspace pointing to source file/dir.
@@ -383,11 +382,29 @@ class WorkspaceGenerator:
         symlink.symlink_to(self.src_root_path.joinpath(src))
 
     def _create_base_files(self):
-        self._symlink(src='tools/asuite/atest/bazel/WORKSPACE',
-                      target='WORKSPACE')
-        self._symlink(src='tools/asuite/atest/bazel/bazelrc',
-                      target='.bazelrc')
+        self._add_workspace_resource(src='WORKSPACE', dst='WORKSPACE')
+        self._add_workspace_resource(src='bazelrc', dst='.bazelrc')
+
         self.workspace_out_path.joinpath('BUILD.bazel').touch()
+
+    def _add_workspace_resource(self, src, dst):
+        """Add resource to the given destination in workspace.
+
+        Args:
+            src: A string of a relative path to root of Bazel artifacts. This is
+                the source file/dir path that will be added to workspace.
+            dst: A string of a relative path to workspace root. This is the
+                destination file/dir path where the artifacts will be added.
+        """
+        src = self.resource_root.joinpath(src)
+        dst = self.workspace_out_path.joinpath(dst)
+        dst.parent.mkdir(parents=True, exist_ok=True)
+
+        if src.is_file():
+            shutil.copy(src, dst)
+        else:
+            shutil.copytree(src, dst,
+                            ignore=shutil.ignore_patterns('__init__.py'))
 
     def _create_constants_file(self):
 
@@ -412,6 +429,10 @@ class WorkspaceGenerator:
                     '%s = "%s"' %
                     (variable_name(target.name()), target.qualified_name())
                 )
+
+
+def _get_resource_root():
+    return Path(os.path.dirname(__file__)).joinpath('bazel')
 
 
 class Package:
@@ -542,31 +563,46 @@ class TestTarget(Target):
         'bazel-result-reporter'
     })
 
-    DEVICE_TEST_PREREQUISITES = frozenset(
-        {'aapt'}).union(DEVICELESS_TEST_PREREQUISITES)
+    DEVICE_TEST_PREREQUISITES = frozenset(DEVICELESS_TEST_PREREQUISITES.union(
+        frozenset({'aapt', 'compatibility-tradefed'})))
 
     @staticmethod
     def create_deviceless_test_target(name: str, package_name: str,
                                       info: Dict[str, Any]):
-        return TestTarget(name, package_name, info, 'tradefed_deviceless_test',
-                          TestTarget.DEVICELESS_TEST_PREREQUISITES)
+        return TestTarget(
+            package_name,
+            'tradefed_deviceless_test',
+            {
+                'name': name,
+                'test': ModuleRef.for_info(info),
+            },
+            TestTarget.DEVICELESS_TEST_PREREQUISITES,
+        )
 
     @staticmethod
     def create_device_test_target(name: str, package_name: str,
                                   info: Dict[str, Any]):
-        return TestTarget(name, package_name, info, 'tradefed_device_test',
-                          TestTarget.DEVICE_TEST_PREREQUISITES)
+        return TestTarget(
+            package_name,
+            'tradefed_device_test',
+            {
+                'name': name,
+                'test': ModuleRef.for_info(info),
+                'suites': set(
+                    info.get(constants.MODULE_COMPATIBILITY_SUITES, [])),
+            },
+            TestTarget.DEVICE_TEST_PREREQUISITES,
+        )
 
-    def __init__(self, name: str, package_name: str, info: Dict[str, Any],
-                 rule_name: str, prerequisites=frozenset()):
-        self._name = name
+    def __init__(self, package_name: str, rule_name: str,
+                 attributes: Dict[str, Any], prerequisites=frozenset()):
+        self._attributes = attributes
         self._package_name = package_name
-        self._test_module_ref = ModuleRef.for_info(info)
         self._rule_name = rule_name
         self._prerequisites = prerequisites
 
     def name(self) -> str:
-        return self._name
+        return self._attributes['name']
 
     def package_name(self) -> str:
         return self._package_name
@@ -576,19 +612,43 @@ class TestTarget(Target):
 
     def dependencies(self) -> List[ModuleRef]:
         prerequisite_refs = map(ModuleRef.for_name, self._prerequisites)
-        return [self._test_module_ref] + list(prerequisite_refs)
+        return [self._attributes['test']] + list(prerequisite_refs)
 
     def write_to_build_file(self, f: IO):
-        prebuilt_target_name = self._test_module_ref.target().qualified_name()
+        prebuilt_target_name = self._attributes['test'].target(
+            ).qualified_name()
         writer = IndentWriter(f)
+        build_file_writer = BuildFileWriter(writer)
 
         writer.write_line(f'{self._rule_name}(')
 
         with writer.indent():
-            writer.write_line(f'name = "{self._name}",')
+            writer.write_line(f'name = "{self._attributes["name"]}",')
             writer.write_line(f'test = "{prebuilt_target_name}",')
 
+            build_file_writer.write_string_list_attribute(
+                'suites', sorted(self._attributes.get('suites', [])))
+
         writer.write_line(')')
+
+
+class BuildFileWriter:
+    """Class for writing BUILD files."""
+
+    def __init__(self, underlying: IndentWriter):
+        self._underlying = underlying
+
+    def write_string_list_attribute(self, attribute_name, values):
+        if not values:
+            return
+
+        self._underlying.write_line(f'{attribute_name} = [')
+
+        with self._underlying.indent():
+            for value in values:
+                self._underlying.write_line(f'"{value}",')
+
+        self._underlying.write_line('],')
 
 
 @dataclasses.dataclass(frozen=True)
@@ -1092,8 +1152,8 @@ class BazelTestRunner(trb.TestRunnerBase):
         self.test_infos = test_infos
         self.src_top = src_top or Path(os.environ.get(
             constants.ANDROID_BUILD_TOP))
-        self.starlark_file = self.src_top.joinpath(
-            'tools/asuite/atest/bazel/format_as_soong_module_name.cquery')
+        self.starlark_file = _get_resource_root().joinpath(
+            'format_as_soong_module_name.cquery')
 
         self.bazel_binary = self.src_top.joinpath(
             'prebuilts/bazel/linux-x86_64/bazel')

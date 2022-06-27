@@ -46,6 +46,8 @@ BAZEL_ARG = ('Forward a flag to Bazel for tests executed with Bazel; '
 CLEAR_CACHE = 'Wipe out the test_infos cache of the test and start a new search.'
 COLLECT_TESTS_ONLY = ('Collect a list test cases of the instrumentation tests '
                       'without testing them in real.')
+DEVICE_ONLY = ('Only run tests that require a device. (Note: only workable with'
+               ' --test-mapping.)')
 DISABLE_TEARDOWN = 'Disable test teardown and cleanup.'
 DRY_RUN = 'Dry run atest without building, installing and running tests in real.'
 ENABLE_DEVICE_PREPARER = ('Enable template/preparers/device-preparer as the '
@@ -163,8 +165,15 @@ class AtestArgParser(argparse.ArgumentParser):
 
         self.add_argument('-d', '--disable-teardown', action='store_true',
                           help=DISABLE_TEARDOWN)
-        self.add_argument('--enable-device-preparer', action='store_true', help=HOST)
-        self.add_argument('--host', action='store_true', help=HOST)
+        self.add_argument('--enable-device-preparer', action='store_true',
+                          help=ENABLE_DEVICE_PREPARER)
+        # Options for host and device-only:
+        # A group of options for testing mapping tests. They are mutually
+        # exclusive in a command line.
+        hgroup = self.add_mutually_exclusive_group()
+        hgroup.add_argument('--host', action='store_true', help=HOST)
+        hgroup.add_argument('--device-only', action='store_true',
+                            help=DEVICE_ONLY)
         self.add_argument('-i', '--install', action='append_const',
                           dest='steps', const=constants.INSTALL_STEP,
                           help=INSTALL)
@@ -345,6 +354,7 @@ def print_epilog_text():
         BAZEL_ARG=BAZEL_ARG,
         CLEAR_CACHE=CLEAR_CACHE,
         COLLECT_TESTS_ONLY=COLLECT_TESTS_ONLY,
+        DEVICE_ONLY=DEVICE_ONLY,
         DISABLE_TEARDOWN=DISABLE_TEARDOWN,
         DRY_RUN=DRY_RUN,
         ENABLE_DEVICE_PREPARER=ENABLE_DEVICE_PREPARER,
@@ -431,6 +441,9 @@ OPTIONS
 
         --bazel-arg
             {BAZEL_ARG}
+
+        --device-only
+            {DEVICE_ONLY}
 
         -d, --disable-teardown
             {DISABLE_TEARDOWN}
