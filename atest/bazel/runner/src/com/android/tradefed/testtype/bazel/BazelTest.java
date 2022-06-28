@@ -35,6 +35,7 @@ import com.android.tradefed.util.StreamUtil;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.io.CharStreams;
+import com.google.common.io.MoreFiles;
 
 import java.io.File;
 import java.io.InputStreamReader;
@@ -46,11 +47,9 @@ import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
 import java.util.ArrayList;
 import java.util.Collections;
-import java.util.Comparator;
 import java.util.concurrent.TimeUnit;
 import java.util.List;
 import java.util.Map;
-import java.util.stream.Collectors;
 import java.time.Duration;
 
 /** Test runner for executing Bazel tests. */
@@ -70,6 +69,8 @@ public final class BazelTest implements IRemoteTest {
     private final ImmutableMap<String, String> mEnvironment;
     private final ProcessStarter mProcessStarter;
     private final Path mTemporaryDirectory;
+
+    private Path mRunTemporaryDirectory;
 
     @Option(
             name = "bazel-test-command-timeout",
@@ -130,6 +131,7 @@ public final class BazelTest implements IRemoteTest {
         FailureDescription infraRunFailure = null;
 
         try {
+            initialize();
             Path workspaceDirectory = extractWorkspace(mBazelWorkspaceArchive.toPath());
 
             List<String> testTargets = listTestTargets(workspaceDirectory);
@@ -160,6 +162,10 @@ public final class BazelTest implements IRemoteTest {
 
         addTestLogs(listener);
         cleanup();
+    }
+
+    private void initialize() throws IOException {
+        mRunTemporaryDirectory = Files.createTempDirectory(mTemporaryDirectory, "bazel-test-");
     }
 
     private Path extractWorkspace(Path workspaceArchive) throws IOException, InterruptedException {
@@ -305,9 +311,7 @@ public final class BazelTest implements IRemoteTest {
 
     private void cleanup() {
         try {
-            for (Path m : mTemporaryPaths) {
-                deleteFileOrDirectory(m);
-            }
+            MoreFiles.deleteRecursively(mRunTemporaryDirectory);
         } catch (IOException e) {
             CLog.e(e);
         }
@@ -336,31 +340,15 @@ public final class BazelTest implements IRemoteTest {
     }
 
     private Path createTemporaryDirectory(String prefix) throws IOException {
-        Path dir = Files.createTempDirectory(mTemporaryDirectory, prefix);
-
-        mTemporaryPaths.add(dir);
-
-        return dir;
+        return Files.createTempDirectory(mRunTemporaryDirectory, prefix);
     }
 
     private Path createLogFile(String name) throws IOException {
-        Path logFile = Files.createTempFile(mTemporaryDirectory, name, ".txt");
+        Path logFile = Files.createTempFile(mRunTemporaryDirectory, name, ".txt");
 
-        mTemporaryPaths.add(logFile);
         mLogFiles.add(logFile);
 
         return logFile;
-    }
-
-    private static void deleteFileOrDirectory(Path dir) throws IOException {
-        if (!Files.exists(dir)) {
-            return;
-        }
-
-        for (Path file :
-                Files.walk(dir).sorted(Comparator.reverseOrder()).collect(Collectors.toList())) {
-            Files.delete(file);
-        }
     }
 
     private static FailureDescription throwableToFailureDescription(Exception e) {
