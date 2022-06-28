@@ -432,7 +432,7 @@ class WorkspaceGenerator:
 
 
 def _get_resource_root():
-    return Path(os.path.dirname(__file__)).joinpath('bazel')
+    return Path(os.path.dirname(__file__)).joinpath('bazel/resources')
 
 
 class Package:
