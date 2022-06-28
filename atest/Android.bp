@@ -112,7 +112,7 @@ python_binary_host {
     ],
     data: [
         "tools/updatedb_darwin.sh",
-        "bazel/**/*",
+        "bazel/resources/**/*",
     ],
     // Make atest's built name to atest-dev
     stem: "atest-dev",
