@@ -157,9 +157,7 @@ def do_upload_flow(extra_args):
         tuple(invocation, workunit)
     """
     config_folder = os.path.join(atest_utils.get_misc_dir(), '.atest')
-    creds = request_consent_of_upload_test_result(
-        config_folder,
-        extra_args.get(constants.REQUEST_UPLOAD_RESULT, None))
+    creds = fetch_credential(config_folder, extra_args)
     if creds:
         inv, workunit, local_build_id, build_target = _prepare_data(creds)
         extra_args[constants.INVOCATION_ID] = inv['invocationId']
@@ -173,52 +171,47 @@ def do_upload_flow(extra_args):
         return creds, inv
     return None, None
 
-def request_consent_of_upload_test_result(config_folder,
-                                            request_to_upload_result):
-    """Request the consent of upload test results at the first time.
+def fetch_credential(config_folder, extra_args):
+    """Fetch the credential whenever --request-upload-result is specified.
 
     Args:
-        config_folder: The directory path to put config file.
-        request_to_upload_result: Prompt message for user determine.
+        config_folder: The directory path to put config file. The default path
+                       is ~/.atest.
+        extra_args: Dict of extra args to add to test run.
     Return:
         The credential object.
     """
     if not os.path.exists(config_folder):
         os.makedirs(config_folder)
-    not_upload_file = os.path.join(config_folder,
-                                    constants.DO_NOT_UPLOAD)
+    not_upload_file = os.path.join(config_folder, constants.DO_NOT_UPLOAD)
     # Do nothing if there are no related config or DO_NOT_UPLOAD exists.
     if (not constants.CREDENTIAL_FILE_NAME or
             not constants.TOKEN_FILE_PATH):
         return None
 
     creds_f = os.path.join(config_folder, constants.CREDENTIAL_FILE_NAME)
-    yn_result = False
-    if request_to_upload_result:
-        yn_result = atest_utils.prompt_with_yn_result(
-            constants.UPLOAD_TEST_RESULT_MSG, False)
-        if yn_result:
-            if os.path.exists(not_upload_file):
-                os.remove(not_upload_file)
-        else:
+    if extra_args.get(constants.REQUEST_UPLOAD_RESULT):
+        if os.path.exists(not_upload_file):
+            os.remove(not_upload_file)
+    else:
+        if extra_args.get(constants.DISABLE_UPLOAD_RESULT):
             if os.path.exists(creds_f):
                 os.remove(creds_f)
+            Path(not_upload_file).touch()
 
-    # If the credential file exists or the user says “Yes”, ATest will
-    # try to get the credential from the file, else will create a
-    # DO_NOT_UPLOAD to keep the user's decision.
+    # If DO_NOT_UPLOAD not exist, ATest will try to get the credential
+    # from the file.
     if not os.path.exists(not_upload_file):
-        if os.path.exists(creds_f) or yn_result:
-            return GCPHelper(
-                client_id=constants.CLIENT_ID,
-                client_secret=constants.CLIENT_SECRET,
-                user_agent='atest').get_credential_with_auth_flow(creds_f)
+        return GCPHelper(
+            client_id=constants.CLIENT_ID,
+            client_secret=constants.CLIENT_SECRET,
+            user_agent='atest').get_credential_with_auth_flow(creds_f)
 
-    Path(not_upload_file).touch()
     atest_utils.colorful_print(
-        'WARNING: In order to allow upload local test results to AnTS, it '
-        'is recommended you add the option --request-upload-result.',
-        constants.YELLOW)
+        'WARNING: In order to allow uploading local test results to AnTS, it '
+        'is recommended you add the option --request-upload-result. This option'
+        ' only needs to set once and takes effect until --disable-upload-result'
+        ' is set.', constants.YELLOW)
     return None
 
 def _prepare_data(creds):
@@ -256,9 +249,9 @@ def _get_branch(build_client):
     """
     default_branch = ('git_master'
                         if constants.CREDENTIAL_FILE_NAME else 'aosp-master')
-    local_branch = atest_utils.get_manifest_branch()
-    branches = [b['name'] for b in build_client.list_branch()['branches']]
-    return local_branch if local_branch in branches else default_branch
+    local_branch = "git_%s" % atest_utils.get_manifest_branch()
+    branch = build_client.get_branch(local_branch)
+    return local_branch if branch else default_branch
 
 def _get_target(branch, build_client):
     """Get local build selected target.

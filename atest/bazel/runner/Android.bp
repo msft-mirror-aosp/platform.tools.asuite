@@ -1,4 +1,4 @@
-// Copyright (C) 2021 The Android Open Source Project
+// Copyright (C) 2022 The Android Open Source Project
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -17,10 +17,9 @@ package {
 }
 
 java_library_host {
-    name: "bazel-result-reporter",
+    name: "bazel-test-runner",
     srcs: [
-        "src/com/android/tradefed/result/BazelExitCodeResultReporter.java",
-        "src/com/android/tradefed/result/BazelXmlResultReporter.java"
+        "src/com/android/tradefed/testtype/bazel/BazelTest.java",
     ],
     libs: [
         "tradefed",
@@ -28,15 +27,15 @@ java_library_host {
 }
 
 java_test_host {
-    name: "bazel-result-reporter-tests",
+    name: "bazel-test-runner-tests",
     srcs: [
-        "javatests/com/android/tradefed/result/BazelExitCodeResultReporterTest.java",
-        "javatests/com/android/tradefed/result/BazelXmlResultReporterTest.java"
+        "tests/src/com/android/tradefed/testtype/bazel/BazelTestTest.java",
     ],
     static_libs: [
-        "bazel-result-reporter",
-        "jimfs",
+        "bazel-test-runner",
         "tradefed",
+        "mockito",
+        "objenesis",
     ],
     test_options: {
         unit_test: true,

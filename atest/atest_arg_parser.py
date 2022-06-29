@@ -46,6 +46,8 @@ BAZEL_ARG = ('Forward a flag to Bazel for tests executed with Bazel; '
 CLEAR_CACHE = 'Wipe out the test_infos cache of the test and start a new search.'
 COLLECT_TESTS_ONLY = ('Collect a list test cases of the instrumentation tests '
                       'without testing them in real.')
+DEVICE_ONLY = ('Only run tests that require a device. (Note: only workable with'
+               ' --test-mapping.)')
 DISABLE_TEARDOWN = 'Disable test teardown and cleanup.'
 DRY_RUN = 'Dry run atest without building, installing and running tests in real.'
 ENABLE_DEVICE_PREPARER = ('Enable template/preparers/device-preparer as the '
@@ -74,7 +76,12 @@ NO_METRICS = 'Do not send metrics.'
 REBUILD_MODULE_INFO = ('Forces a rebuild of the module-info.json file. '
                        'This may be necessary following a repo sync or '
                        'when writing a new test.')
-REQUEST_UPLOAD_RESULT = 'Request permission to upload test result.'
+REQUEST_UPLOAD_RESULT = ('Request permission to upload test result. This option '
+                         'only needs to set once and takes effect until '
+                         '--disable-upload-result is set.')
+DISABLE_UPLOAD_RESULT = ('Turn off the upload of test result. This option '
+                         'only needs to set once and takes effect until '
+                         '--request-upload-result is set')
 RERUN_UNTIL_FAILURE = ('Rerun all tests until a failure occurs or the max '
                        'iteration is reached. (default: forever!)')
 # For Integer.MAX_VALUE == (2**31 - 1) and not possible to give a larger integer
@@ -158,8 +165,15 @@ class AtestArgParser(argparse.ArgumentParser):
 
         self.add_argument('-d', '--disable-teardown', action='store_true',
                           help=DISABLE_TEARDOWN)
-        self.add_argument('--enable-device-preparer', action='store_true', help=HOST)
-        self.add_argument('--host', action='store_true', help=HOST)
+        self.add_argument('--enable-device-preparer', action='store_true',
+                          help=ENABLE_DEVICE_PREPARER)
+        # Options for host and device-only:
+        # A group of options for testing mapping tests. They are mutually
+        # exclusive in a command line.
+        hgroup = self.add_mutually_exclusive_group()
+        hgroup.add_argument('--host', action='store_true', help=HOST)
+        hgroup.add_argument('--device-only', action='store_true',
+                            help=DEVICE_ONLY)
         self.add_argument('-i', '--install', action='append_const',
                           dest='steps', const=constants.INSTALL_STEP,
                           help=INSTALL)
@@ -176,8 +190,14 @@ class AtestArgParser(argparse.ArgumentParser):
                           action='store_true')
         self.add_argument('-w', '--wait-for-debugger', action='store_true',
                           help=WAIT_FOR_DEBUGGER)
-        self.add_argument('--request-upload-result', action='store_true',
+
+        # Options for request/disable upload results. They are mutually
+        # exclusive in a command line.
+        ugroup = self.add_mutually_exclusive_group()
+        ugroup.add_argument('--request-upload-result', action='store_true',
                           help=REQUEST_UPLOAD_RESULT)
+        ugroup.add_argument('--disable-upload-result', action='store_true',
+                          help=DISABLE_UPLOAD_RESULT)
 
         # Options related to Test Mapping
         self.add_argument('-p', '--test-mapping', action='store_true',
@@ -340,7 +360,9 @@ def print_epilog_text():
         BAZEL_ARG=BAZEL_ARG,
         CLEAR_CACHE=CLEAR_CACHE,
         COLLECT_TESTS_ONLY=COLLECT_TESTS_ONLY,
+        DEVICE_ONLY=DEVICE_ONLY,
         DISABLE_TEARDOWN=DISABLE_TEARDOWN,
+        DISABLE_UPLOAD_RESULT=DISABLE_UPLOAD_RESULT,
         DRY_RUN=DRY_RUN,
         ENABLE_DEVICE_PREPARER=ENABLE_DEVICE_PREPARER,
         ENABLE_FILE_PATTERNS=ENABLE_FILE_PATTERNS,
@@ -427,6 +449,9 @@ OPTIONS
         --bazel-arg
             {BAZEL_ARG}
 
+        --device-only
+            {DEVICE_ONLY}
+
         -d, --disable-teardown
             {DISABLE_TEARDOWN}
 
@@ -480,11 +505,15 @@ OPTIONS
         -w, --wait-for-debugger
             {WAIT_FOR_DEBUGGER}
 
+        --use-modules-in
+            {USE_MODULES_IN}
+
+        [ Upload Test Result ]
         --request-upload-result
             {REQUEST_UPLOAD_RESULT}
 
-        --use-modules-in
-            {USE_MODULES_IN}
+        --disable-upload-result
+            {DISABLE_UPLOAD_RESULT}
 
         [ Test Mapping ]
         -p, --test-mapping
@@ -850,7 +879,7 @@ EXAMPLES
        directories. You can also specify a target directory.
 
     Example:
-        atest  (run presubmit tests in TEST_MAPPING files in current and parent directories)
+        atest  (run presubmit tests in TEST_MAPPING files and host unit tests in current and parent directories)
         atest --test-mapping </path/to/project>
                (run presubmit tests in TEST_MAPPING files in </path/to/project> and its parent directories)
 

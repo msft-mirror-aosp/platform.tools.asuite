@@ -45,6 +45,7 @@ SERIAL = 'SERIAL'
 SHARDING = 'SHARDING'
 ALL_ABI = 'ALL_ABI'
 HOST = 'HOST'
+DEVICE_ONLY = 'DEVICE_ONLY'
 CUSTOM_ARGS = 'CUSTOM_ARGS'
 DRY_RUN = 'DRY_RUN'
 ANDROID_SERIAL = 'ANDROID_SERIAL'
@@ -61,6 +62,7 @@ FLAKES_INFO = 'FLAKES_INFO'
 TF_EARLY_DEVICE_RELEASE = 'TF_EARLY_DEVICE_RELEASE'
 BAZEL_MODE_FEATURES = 'BAZEL_MODE_FEATURES'
 REQUEST_UPLOAD_RESULT = 'REQUEST_UPLOAD_RESULT'
+DISABLE_UPLOAD_RESULT = 'DISABLE_UPLOAD_RESULT'
 MODULES_IN = 'MODULES-IN-'
 NO_ENABLE_ROOT = 'NO_ENABLE_ROOT'
 VERIFY_ENV_VARIABLE = 'VERIFY_ENV_VARIABLE'
@@ -71,6 +73,7 @@ ANNOTATION_FILTER = 'ANNOTATION_FILTER'
 BAZEL_ARG = 'BAZEL_ARG'
 TEST_FILTER = 'TEST_FILTER'
 TEST_TIMEOUT = 'TEST_TIMEOUT'
+VERBOSE = 'VERBOSE'
 
 # Robolectric Types:
 ROBOTYPE_MODERN = 1
@@ -102,6 +105,8 @@ MODULE_SHARED_LIBS = 'shared_libs'
 MODULE_RUNTIME_DEPS = 'runtime_dependencies'
 MODULE_DATA_DEPS = 'data_dependencies'
 MODULE_SUPPORTED_VARIANTS = 'supported_variants'
+MODULE_LIBS = 'libs'
+MODULE_STATIC_LIBS = 'static_libs'
 
 
 # Env constants
@@ -243,6 +248,7 @@ CLASS_INDEX = os.path.join(INDEX_DIR, 'classes.idx')
 CC_CLASS_INDEX = os.path.join(INDEX_DIR, 'cc_classes.idx')
 PACKAGE_INDEX = os.path.join(INDEX_DIR, 'packages.idx')
 QCLASS_INDEX = os.path.join(INDEX_DIR, 'fqcn.idx')
+MANIFEST_INDEX = os.path.join(INDEX_DIR, 'manifests.idx')
 MODULE_INDEX = 'modules.idx'
 MODULE_INFO_MD5 = 'module-info.md5'
 VERSION_FILE = os.path.join(os.path.dirname(__file__), 'VERSION')
@@ -383,6 +389,9 @@ VERIFY_DATA_PATH = os.path.join(
 VERIFY_ENV_PATH = os.path.join(
     os.environ.get(ANDROID_BUILD_TOP, os.getcwd()),
     'tools/asuite/atest/test_data/test_environ.json')
+RUNNER_COMMAND_PATH = os.path.join(
+    os.environ.get(ANDROID_BUILD_TOP, os.getcwd()),
+    'tools/asuite/atest/test_data/runner_commands.json')
 
 # Gtest Types
 GTEST_REGULAR = 'regular native test'

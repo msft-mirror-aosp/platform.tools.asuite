@@ -310,6 +310,8 @@ CLASS_INDEX = os.path.join(INDEX_DIR, 'classes.idx')
 QCLASS_INDEX = os.path.join(INDEX_DIR, 'fqcn.idx')
 CC_CLASS_INDEX = os.path.join(INDEX_DIR, 'cc_classes.idx')
 PACKAGE_INDEX = os.path.join(INDEX_DIR, 'packages.idx')
+MODULE_INFO_MD5 = os.path.join(INDEX_DIR, 'module-info.md5')
+MANIFEST_INDEX = os.path.join(INDEX_DIR, 'manifests.idx')
 
 # TF's log dir
 TEST_INFO_DIR = '/tmp/atest_run_1510085893_pi_Nbi'

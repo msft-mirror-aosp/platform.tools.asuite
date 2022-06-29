@@ -23,6 +23,7 @@ import argparse
 import re
 import shlex
 import shutil
+import subprocess
 import tempfile
 import unittest
 
@@ -60,6 +61,20 @@ class GenerationTestFixture(fake_filesystem_unittest.TestCase):
         self.host_out_path = self.out_dir_path.joinpath('host')
         self.workspace_out_path = self.out_dir_path.joinpath('workspace')
 
+        self.resource_root = self.src_root_path.joinpath(
+            'tools/asuite/atest/bazel')
+
+        bazel_rules = self.resource_root.joinpath('rules')
+        bazel_rules.mkdir(parents=True)
+        bazel_rules.joinpath('rules.bzl').touch()
+
+        bazel_configs = self.resource_root.joinpath('configs')
+        bazel_configs.mkdir(parents=True)
+        bazel_configs.joinpath('configs.bzl').touch()
+
+        self.resource_root.joinpath('WORKSPACE').touch()
+        self.resource_root.joinpath('bazelrc').touch()
+
     def create_workspace_generator(self, modules=None, enabled_features=None):
         mod_info = self.create_module_info(modules)
 
@@ -71,6 +86,7 @@ class GenerationTestFixture(fake_filesystem_unittest.TestCase):
             self.out_dir_path,
             mod_info,
             enabled_features=enabled_features,
+            resource_root=self.resource_root,
         )
 
         return generator
@@ -84,6 +100,7 @@ class GenerationTestFixture(fake_filesystem_unittest.TestCase):
             self.out_dir_path,
             mod_info,
             enabled_features=enabled_features,
+            resource_root=self.resource_root,
         )
 
         generator.generate()
@@ -155,6 +172,10 @@ class GenerationTestFixture(fake_filesystem_unittest.TestCase):
     def assertFileInWorkspace(self, relative_path, package=''):
         path = self.workspace_out_path.joinpath(package, relative_path)
         self.assertTrue(path.exists())
+
+    def assertDirInWorkspace(self, relative_path, package=''):
+        path = self.workspace_out_path.joinpath(package, relative_path)
+        self.assertTrue(path.is_dir())
 
     def assertFileNotInWorkspace(self, relative_path, package=''):
         path = self.workspace_out_path.joinpath(package, relative_path)
@@ -296,49 +317,15 @@ class BasicWorkspaceGenerationTest(GenerationTestFixture):
 
         self.assertFalse(some_file.is_file())
 
-    def test_generate_workspace_file(self):
+    def test_copy_workspace_resources(self):
         gen = self.create_workspace_generator()
-        workspace_path = gen.workspace_out_path.joinpath('WORKSPACE')
 
         gen.generate()
 
-        self.assertSymlinkTo(
-            workspace_path,
-            self.src_root_path.joinpath('tools/asuite/atest/bazel/WORKSPACE')
-        )
-
-    def test_generate_bazelrc_file(self):
-        gen = self.create_workspace_generator()
-        bazelrc_path = gen.workspace_out_path.joinpath('.bazelrc')
-
-        gen.generate()
-
-        self.assertSymlinkTo(
-            bazelrc_path,
-            self.src_root_path.joinpath('tools/asuite/atest/bazel/bazelrc')
-        )
-
-    def test_generate_rules_dir(self):
-        gen = self.create_workspace_generator()
-        rules_dir_path = gen.workspace_out_path.joinpath('bazel/rules')
-
-        gen.generate()
-
-        self.assertSymlinkTo(
-            rules_dir_path,
-            self.src_root_path.joinpath('tools/asuite/atest/bazel/rules')
-        )
-
-    def test_generate_configs_dir(self):
-        gen = self.create_workspace_generator()
-        configs_dir_path = gen.workspace_out_path.joinpath('bazel/configs')
-
-        gen.generate()
-
-        self.assertSymlinkTo(
-            configs_dir_path,
-            self.src_root_path.joinpath('tools/asuite/atest/bazel/configs')
-        )
+        self.assertFileInWorkspace('WORKSPACE')
+        self.assertFileInWorkspace('.bazelrc')
+        self.assertDirInWorkspace('bazel/rules')
+        self.assertDirInWorkspace('bazel/configs')
 
     def test_generate_host_unit_test_module_target(self):
         mod_info = self.create_module_info(modules=[
@@ -367,6 +354,14 @@ class BasicWorkspaceGenerationTest(GenerationTestFixture):
 
         self.assertTargetNotInWorkspace('hello_world_test_device')
         self.assertTargetNotInWorkspace('hello_world_test_host')
+
+    def test_generate_variable_file(self):
+        gen = self.create_workspace_generator()
+
+        gen.generate()
+
+        self.assertFileInWorkspace('BUILD.bazel')
+        self.assertFileInWorkspace('constants.bzl')
 
 
 class MultiConfigTestModuleTestTargetGenerationTest(GenerationTestFixture):
@@ -449,6 +444,25 @@ class DeviceTestModuleTestTargetGenerationTest(GenerationTestFixture):
         self.assertTargetInWorkspace('hello_world_test_device',
                                      package='example/tests')
 
+    def test_generate_target_with_suites(self):
+        mod_info = self.create_module_info(modules=[
+            device_test_module(
+                name='hello_world_test',
+                path='example/tests',
+                compatibility_suites=['cts', 'mts']),
+        ])
+
+        self.run_generator(mod_info, enabled_features=set([
+            bazel_mode.Features.EXPERIMENTAL_DEVICE_DRIVEN_TEST]))
+
+        self.assertInBuildFile(
+            '    suites = [\n'
+            '        "cts",\n'
+            '        "mts",\n'
+            '    ],\n',
+            package='example/tests',
+        )
+
     def test_raise_when_prerequisite_not_in_module_info(self):
         mod_info = self.create_module_info(modules=[
             device_test_module(),
@@ -524,6 +538,16 @@ class HostUnitTestModuleTestTargetGenerationTest(GenerationTestFixture):
 
         self.assertIn('adb', str(context.exception))
 
+    def test_warning_when_prerequisite_module_has_multiple_path(self):
+        mod_info = self.create_module_info(modules=[
+            host_unit_test_module(),
+        ])
+        mod_info.name_to_module_info['adb'].get('path').append('the/2nd/path')
+
+        with self.assertWarns(Warning) as context:
+            self.run_generator(mod_info)
+
+        self.assertIn('adb', str(context.warnings[0].message))
 
 class ModulePrebuiltTargetGenerationTest(GenerationTestFixture):
     """Tests for module prebuilt target generation."""
@@ -1090,6 +1114,7 @@ def module(
     runtime_dependencies=None,
     data=None,
     data_dependencies=None,
+    compatibility_suites=None,
 ):
     name = name or 'libhello'
 
@@ -1106,6 +1131,7 @@ def module(
     m['dependencies'] = dependencies or []
     m['data'] = data or []
     m['data_dependencies'] = data_dependencies or []
+    m['compatibility_suites'] = compatibility_suites or []
     return m
 
 
@@ -1665,6 +1691,99 @@ class BazelTestRunnerTest(unittest.TestCase):
             '--build_metadata=ab_target=aosp_cf_x86_64_phone-userdebug'
         ], cmd[0])
 
+    @mock.patch('bazel_mode.subprocess.run')
+    def test_generate_run_command_with_auth_when_bes_publish_enabled(
+            self, mock_subprocess_run):
+        test_infos = [test_info_of('test1')]
+        extra_args = {
+            constants.BAZEL_MODE_FEATURES: [
+                bazel_mode.Features.EXPERIMENTAL_BES_PUBLISH
+            ]
+        }
+        build_metadata = bazel_mode.BuildMetadata(
+            'master', 'aosp_cf_x86_64_phone-userdebug')
+        env = {
+            'ATEST_BAZELRC': '/dir/atest.bazelrc',
+            'ATEST_BAZEL_BES_PUBLISH_CONFIG': 'bes_publish',
+            'ATEST_BAZEL_BES_PUBLISH_AUTH_SCRIPT': 'myscript',
+        }
+        runner = self.create_bazel_test_runner_for_tests(
+            test_infos, build_metadata=build_metadata, env=env)
+        auth_options = [
+            '--nogoogle_default_credentials',
+            '--bes_header=Authorization=Bearer mytoken',
+            '--remote_header=Authorization=Bearer mytoken',
+            '--google_auth_scopes='
+            'https://www.googleapis.com/auth/cloud-platform'
+        ]
+        mock_subprocess_run.side_effect = [
+            self.create_completed_process('myarg',
+                                          0,
+                                          stdout='\n'.join(auth_options))
+        ]
+
+        cmd = runner.generate_run_commands(
+            test_infos,
+            extra_args,
+        )
+
+        self.assertTokensIn(auth_options, cmd[0])
+
+    @mock.patch('bazel_mode.subprocess.run',
+                side_effect=subprocess.CalledProcessError(cmd='cmd',
+                                                          returncode=1))
+    def test_generate_run_command_with_bes_publish_enabled_and_no_auth(self, _):
+        test_infos = [test_info_of('test1')]
+        extra_args = {
+            constants.BAZEL_MODE_FEATURES: [
+                bazel_mode.Features.EXPERIMENTAL_BES_PUBLISH
+            ]
+        }
+        build_metadata = bazel_mode.BuildMetadata(
+            'master', 'aosp_cf_x86_64_phone-userdebug')
+        env = {
+            'ATEST_BAZELRC': '/dir/atest.bazelrc',
+            'ATEST_BAZEL_BES_PUBLISH_CONFIG': 'bes_publish',
+            'ATEST_BAZEL_BES_PUBLISH_AUTH_SCRIPT': 'myscript',
+        }
+        runner = self.create_bazel_test_runner_for_tests(
+            test_infos, build_metadata=build_metadata, env=env)
+
+        with self.assertRaises(bazel_mode.AbortRunException):
+            runner.generate_run_commands(test_infos, extra_args)
+
+    def test_generate_run_command_with_remote_enabled(self):
+        test_infos = [test_info_of('test1')]
+        extra_args = {
+            constants.BAZEL_MODE_FEATURES: [
+                bazel_mode.Features.EXPERIMENTAL_REMOTE
+            ]
+        }
+        env = {
+            'ATEST_BAZELRC': '/dir/atest.bazelrc',
+            'ATEST_BAZEL_REMOTE_CONFIG': 'remote'
+        }
+        runner = self.create_bazel_test_runner_for_tests(
+            test_infos, env=env)
+
+        cmd = runner.generate_run_commands(
+            test_infos,
+            extra_args,
+        )
+
+        self.assertTokensIn([
+            '--config=remote',
+        ], cmd[0])
+
+    def test_generate_run_command_with_verbose_args(self):
+        test_infos = [test_info_of('test1')]
+        runner = self.create_bazel_test_runner_for_tests(test_infos)
+        extra_args = {constants.VERBOSE: True}
+
+        cmd = runner.generate_run_commands(test_infos, extra_args)
+
+        self.assertTokensIn(['--test_output=all'], cmd[0])
+
     def create_bazel_test_runner(self,
                                  modules,
                                  test_infos,
@@ -1695,6 +1814,9 @@ class BazelTestRunnerTest(unittest.TestCase):
             build_metadata=build_metadata,
             env=env
         )
+
+    def create_completed_process(self, args, returncode, stdout):
+        return subprocess.CompletedProcess(args, returncode, stdout)
 
     def mock_run_command(self, **kwargs):
         return mock.create_autospec(bazel_mode.default_run_command, **kwargs)

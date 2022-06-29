@@ -232,7 +232,9 @@ def get_extra_args(args):
                 'bazel_arg': constants.BAZEL_ARG,
                 'collect_tests_only': constants.COLLECT_TESTS_ONLY,
                 'custom_args': constants.CUSTOM_ARGS,
+                'device_only': constants.DEVICE_ONLY,
                 'disable_teardown': constants.DISABLE_TEARDOWN,
+                'disable_upload_result': constants.DISABLE_UPLOAD_RESULT,
                 'dry_run': constants.DRY_RUN,
                 'enable_device_preparer': constants.ENABLE_DEVICE_PREPARER,
                 'flakes_info': constants.FLAKES_INFO,
@@ -254,6 +256,7 @@ def get_extra_args(args):
                 'tf_debug': constants.TF_DEBUG,
                 'tf_template': constants.TF_TEMPLATE,
                 'user_type': constants.USER_TYPE,
+                'verbose': constants.VERBOSE,
                 'verify_env_variable': constants.VERIFY_ENV_VARIABLE}
     not_match = [k for k in arg_maps if k not in vars(args)]
     if not_match:
@@ -583,6 +586,11 @@ def _run_test_mapping_tests(results_dir, test_infos, extra_args, mod_info):
         atest_utils.colorful_print(
             'Option `--host` specified. Skip running device tests.',
             constants.MAGENTA)
+    elif extra_args.get(constants.DEVICE_ONLY):
+        test_runs = [(device_test_infos, extra_args, DEVICE_TESTS)]
+        atest_utils.colorful_print(
+            'Option `--device-only` specified. Skip running deviceless tests.',
+            constants.MAGENTA)
     else:
         test_runs.append((device_test_infos, extra_args, DEVICE_TESTS))
 
@@ -721,8 +729,18 @@ def _dry_run_validator(args, results_dir, extra_args, test_infos, mod_info):
     Returns:
         Exit code.
     """
-    test_commands = atest_utils.get_verify_key(args.tests, extra_args)
     dry_run_cmds = _dry_run(results_dir, extra_args, test_infos, mod_info)
+    if args.generate_runner_cmd:
+        dry_run_cmd_str = ' '.join(dry_run_cmds)
+        tests_str = ' '.join(args.tests)
+        test_commands = atest_utils.gen_runner_cmd_to_file(tests_str,
+                                                           dry_run_cmd_str)
+        print("add command %s to file %s" % (
+            atest_utils.colorize(test_commands, constants.GREEN),
+            atest_utils.colorize(constants.RUNNER_COMMAND_PATH,
+                                 constants.GREEN)))
+    else:
+        test_commands = atest_utils.get_verify_key(args.tests, extra_args)
     if args.verify_cmd_mapping:
         try:
             atest_utils.handle_test_runner_cmd(test_commands,
@@ -780,6 +798,31 @@ def need_rebuild_module_info(force_build):
     logging.debug('Found build files were changed.')
     return True
 
+def need_run_index_targets(args, extra_args):
+    """Method that determines whether Atest need to run index_targets or not.
+
+
+    There are 3 conditions that Atest does not run index_targets():
+    1. dry-run flags were found.
+    2. VERIFY_ENV_VARIABLE was found in extra_args.
+    3. --test flag was found.
+
+    Args:
+        args: A list of argument.
+        extra_args: A list of extra argument.
+
+    Returns:
+        True when none of the above conditions were found.
+    """
+    ignore_args = (args.update_cmd_mapping, args.verify_cmd_mapping, args.dry_run)
+    if any(ignore_args):
+        return False
+    if extra_args.get(constants.VERIFY_ENV_VARIABLE, False):
+        return False
+    if args.steps and 'test' in args.steps:
+        return False
+    return True
+
 def acloud_create_validator(results_dir, args):
     """Check lunch'd target before running 'acloud create'.
 
@@ -797,7 +840,7 @@ def acloud_create_validator(results_dir, args):
     if not any((args.acloud_create, args.start_avd)):
         return None, None
     if args.start_avd:
-        args.acloud_create = ['--num=1']
+        args.acloud_create = []
     acloud_args = ' '.join(args.acloud_create)
     target = os.getenv('TARGET_PRODUCT', "")
     if 'cf_x86' in target:
@@ -854,6 +897,27 @@ def get_device_count_config(test_infos, mod_info):
                 max_count = max(len(devices), max_count)
     return max_count
 
+
+def _get_host_framework_targets(mod_info):
+    """Get the build target name for all the existing jars under host framework.
+
+    Args:
+        mod_info: ModuleInfo object.
+
+    Returns:
+        A set of build target name under $(ANDROID_HOST_OUT)/framework.
+    """
+    host_targets = set()
+    framework_host_dir = Path(
+        os.environ.get(constants.ANDROID_HOST_OUT)).joinpath('framework')
+    if framework_host_dir.is_dir():
+        jars = framework_host_dir.glob('*.jar')
+        for jar in jars:
+            if mod_info.get_module_info(jar.stem):
+                host_targets.add(jar.stem)
+        logging.debug('Found exist host framework target:%s', host_targets)
+    return host_targets
+
 # pylint: disable=too-many-statements
 # pylint: disable=too-many-branches
 # pylint: disable=too-many-return-statements
@@ -881,12 +945,11 @@ def main(argv, results_dir, args):
     proc_acloud, report_file = acloud_create_validator(results_dir, args)
     is_clean = not os.path.exists(
         os.environ.get(constants.ANDROID_PRODUCT_OUT, ''))
-    # Do not index targets while the users intend to dry-run tests.
-    dry_run_args = (args.update_cmd_mapping, args.verify_cmd_mapping, args.dry_run)
     extra_args = get_extra_args(args)
     verify_env_variables = extra_args.get(constants.VERIFY_ENV_VARIABLE, False)
     proc_idx = None
-    if not (any(dry_run_args) or verify_env_variables):
+    # Do not index targets while the users intend to dry-run tests.
+    if need_run_index_targets(args, extra_args):
         proc_idx = atest_utils.run_multi_proc(INDEX_TARGETS)
     smart_rebuild = need_rebuild_module_info(args.rebuild_module_info)
     mod_start = time.time()
@@ -895,9 +958,14 @@ def main(argv, results_dir, args):
                              result=int(time.time() - mod_start))
     atest_utils.generate_buildfiles_checksum()
     if args.bazel_mode:
+        start = time.time()
         bazel_mode.generate_bazel_workspace(
             mod_info,
             enabled_features=set(args.bazel_mode_features or []))
+        metrics.LocalDetectEvent(
+            detect_type=DetectType.BAZEL_WORKSPACE_GENERATE_TIME,
+            result=int(time.time() - start))
+
     translator = cli_translator.CLITranslator(
         mod_info=mod_info,
         print_cache_msg=not args.clear_cache,
@@ -910,6 +978,8 @@ def main(argv, results_dir, args):
     build_targets = set()
     mm_build_targets = set()
     test_infos = set()
+    dry_run_args = (args.update_cmd_mapping, args.verify_cmd_mapping,
+                    args.dry_run, args.generate_runner_cmd)
     if _will_run_tests(args):
         if proc_idx:
             proc_idx.join()
@@ -980,6 +1050,9 @@ def main(argv, results_dir, args):
         # Add module-info.json target to the list of build targets to keep the
         # file up to date.
         build_targets.add(mod_info.module_info_target)
+        # Force rebuilt all jars under $ANDROID_HOST_OUT to prevent old version
+        # host jars break the test.
+        build_targets |= _get_host_framework_targets(mod_info)
         build_start = time.time()
         success = atest_utils.build(build_targets, verbose=args.verbose,
                                     mm_build_targets=mm_build_targets)
