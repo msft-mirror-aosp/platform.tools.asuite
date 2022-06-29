@@ -432,7 +432,7 @@ class WorkspaceGenerator:
 
 
 def _get_resource_root():
-    return Path(os.path.dirname(__file__)).joinpath('bazel')
+    return Path(os.path.dirname(__file__)).joinpath('bazel/resources')
 
 
 class Package:
@@ -1243,10 +1243,15 @@ class BazelTestRunner(trb.TestRunnerBase):
     def _get_remote_args(self, feature):
         remote_config = self._get_feature_config_or_warn(
             feature, 'ATEST_BAZEL_REMOTE_CONFIG')
-
         if not remote_config:
             return []
-        return [f'--config={remote_config}']
+
+        args = [f'--config={remote_config}']
+        auth_script = self.env.get('ATEST_BAZEL_REMOTE_AUTH_SCRIPT')
+        if auth_script:
+            args.extend(self._get_auth_args(auth_script))
+
+        return args
 
     def host_env_check(self):
         """Check that host env has everything we need.
