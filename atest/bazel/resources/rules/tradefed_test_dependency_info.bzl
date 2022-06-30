@@ -26,9 +26,6 @@ provider types.
 TradefedTestDependencyInfo = provider(
     doc = "Info required by Tradefed rules to run tests",
     fields = {
-        # TODO(b/234521767): Replace this field with a `module_name` attribute
-        # in Tradefed test rules.
-        "module_name": "Name of the original Soong build module",
         "runtime_jars": "Jars required on the runtime classpath",
         "runtime_shared_libraries": "Shared libraries that are required at runtime",
     },
