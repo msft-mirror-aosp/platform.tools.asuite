@@ -576,6 +576,7 @@ class TestTarget(Target):
             {
                 'name': name,
                 'test': ModuleRef.for_info(info),
+                'module_name': info["module_name"],
             },
             TestTarget.DEVICELESS_TEST_PREREQUISITES,
         )
@@ -589,6 +590,7 @@ class TestTarget(Target):
             {
                 'name': name,
                 'test': ModuleRef.for_info(info),
+                'module_name': info["module_name"],
                 'suites': set(
                     info.get(constants.MODULE_COMPATIBILITY_SUITES, [])),
                 'tradefed_deps': list(map(
@@ -636,8 +638,14 @@ class TestTarget(Target):
         writer.write_line(f'{self._rule_name}(')
 
         with writer.indent():
-            writer.write_line(f'name = "{self._attributes["name"]}",')
-            writer.write_line(f'test = "{prebuilt_target_name}",')
+            build_file_writer.write_string_attribute(
+                'name', self._attributes['name'])
+
+            build_file_writer.write_string_attribute(
+                'module_name', self._attributes['module_name'])
+
+            build_file_writer.write_string_attribute(
+                'test', prebuilt_target_name)
 
             build_file_writer.write_label_list_attribute(
                 'tradefed_deps', self._attributes.get('tradefed_deps'))
@@ -653,6 +661,12 @@ class BuildFileWriter:
 
     def __init__(self, underlying: IndentWriter):
         self._underlying = underlying
+
+    def write_string_attribute(self, attribute_name, value):
+        if value is None:
+            return
+
+        self._underlying.write_line(f'{attribute_name} = "{value}",')
 
     def write_string_list_attribute(self, attribute_name, values):
         if not values:
