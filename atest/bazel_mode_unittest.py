@@ -523,6 +523,7 @@ class HostUnitTestModuleTestTargetGenerationTest(GenerationTestFixture):
         self.assertInBuildFile(
             'tradefed_deviceless_test(\n'
             '    name = "hello_world_test_host",\n'
+            '    module_name = "hello_world_test",\n'
             '    test = "//example/tests:hello_world_test",\n'
             ')',
             package='example/tests',
