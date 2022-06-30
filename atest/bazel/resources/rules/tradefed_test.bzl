@@ -36,6 +36,7 @@ _PY_TOOLCHAIN = "@bazel_tools//tools/python:toolchain_type"
 _TOOLCHAINS = [_PY_TOOLCHAIN]
 
 _TRADEFED_TEST_ATTRIBUTES = {
+    "module_name": attr.string(),
     "_tradefed_test_template": attr.label(
         default = "//bazel/rules:tradefed_test.sh.template",
         allow_single_file = True,
@@ -260,7 +261,7 @@ def _tradefed_test_impl(
         output = script,
         is_executable = True,
         substitutions = {
-            "{module_name}": ctx.attr.test[0][TradefedTestDependencyInfo].module_name,
+            "{module_name}": ctx.attr.module_name,
             "{atest_tradefed_launcher}": _abspath(ctx.file._atest_tradefed_launcher),
             "{atest_helper}": _abspath(ctx.file._atest_helper),
             "{tradefed_tests_dir}": _BAZEL_WORK_DIR + ctx.attr.test[0].label.package,
