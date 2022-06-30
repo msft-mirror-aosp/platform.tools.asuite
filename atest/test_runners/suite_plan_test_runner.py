@@ -23,6 +23,7 @@ import os
 import atest_utils
 import constants
 
+from atest_enum import ExitCode
 from logstorage import atest_gcp_utils
 from logstorage import logstorage_utils
 from metrics import metrics
@@ -65,7 +66,7 @@ class SuitePlanTestRunner(atest_tf_test_runner.AtestTradefedTestRunner):
         creds, inv = atest_gcp_utils.do_upload_flow(extra_args)
 
         run_cmds = self.generate_run_commands(test_infos, extra_args)
-        ret_code = constants.EXIT_CODE_SUCCESS
+        ret_code = ExitCode.SUCCESS
         for run_cmd in run_cmds:
             try:
                 proc = super().run(run_cmd, output_to_stdout=True,

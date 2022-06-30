@@ -20,9 +20,7 @@ java_library_host {
     name: "bazel-result-reporter",
     srcs: [
         "src/com/android/tradefed/result/BazelExitCodeResultReporter.java",
-    ],
-    java_resource_dirs: [
-        "res",
+        "src/com/android/tradefed/result/BazelXmlResultReporter.java"
     ],
     libs: [
         "tradefed",
@@ -33,6 +31,7 @@ java_test_host {
     name: "bazel-result-reporter-tests",
     srcs: [
         "javatests/com/android/tradefed/result/BazelExitCodeResultReporterTest.java",
+        "javatests/com/android/tradefed/result/BazelXmlResultReporterTest.java"
     ],
     static_libs: [
         "bazel-result-reporter",
