@@ -107,6 +107,7 @@ MODULE_DATA_DEPS = 'data_dependencies'
 MODULE_SUPPORTED_VARIANTS = 'supported_variants'
 MODULE_LIBS = 'libs'
 MODULE_STATIC_LIBS = 'static_libs'
+MODULE_HOST_DEPS = 'host_dependencies'
 
 
 # Env constants
