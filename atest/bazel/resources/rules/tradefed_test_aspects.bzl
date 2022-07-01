@@ -37,7 +37,6 @@ def _soong_prebuilt_tradefed_aspect_impl(target, ctx):
 
     return [
         TradefedTestDependencyInfo(
-            module_name = target[SoongPrebuiltInfo].module_name,
             runtime_jars = depset(runtime_jars),
             runtime_shared_libraries = depset(runtime_shared_libraries),
         ),
