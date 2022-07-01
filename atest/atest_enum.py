@@ -51,6 +51,7 @@ class DetectType(IntEnum):
     MODULE_MERGE_MS = 20
     NATIVE_TEST_NOT_FOUND = 21
     BAZEL_WORKSPACE_GENERATE_TIME = 22
+    MODULE_LOAD_MS = 23
 
 @unique
 class ExitCode(IntEnum):
