@@ -125,7 +125,7 @@ FIND_CMDS = {
     FIND_REFERENCE_TYPE.PACKAGE: r"find {0} {1} -wholename "
                                  r"'*{2}' -type d -print",
     FIND_REFERENCE_TYPE.INTEGRATION: r"find {0} {1} -wholename "
-                                     r"'*{2}.xml' -print",
+                                     r"'*/{2}\.xml' -print",
     # Searching a test among files where the absolute paths contain *test*.
     # If users complain atest couldn't find a CC_CLASS, ask them to follow the
     # convention that the filename or dirname must contain *test*, where *test*
