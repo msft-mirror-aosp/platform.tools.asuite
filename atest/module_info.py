@@ -220,15 +220,24 @@ class ModuleInfo:
         module_deps_infos = [file_path, self.java_dep_path, self.cc_dep_path]
         self._save_module_info_checksum(module_deps_infos)
         self.update_merge_info = self.need_update_merged_file(previous_checksum)
+        start = time.time()
         if self.update_merge_info:
             # Load the $ANDROID_PRODUCT_OUT/module-info.json for merging.
             with open(file_path) as module_info_json:
                 mod_info = self._merge_build_system_infos(
                     json.load(module_info_json))
+            duration = time.time() - start
+            logging.debug('Merging module info took %ss', duration)
+            metrics.LocalDetectEvent(
+                detect_type=DetectType.MODULE_MERGE_MS, result=int(duration*1000))
         else:
             # Load $ANDROID_PRODUCT_OUT/atest_merged_dep.json directly.
             with open(self.merged_dep_path) as merged_info_json:
                 mod_info = json.load(merged_info_json)
+            duration = time.time() - start
+            logging.debug('Loading module info took %ss', duration)
+            metrics.LocalDetectEvent(
+                detect_type=DetectType.MODULE_LOAD_MS, result=int(duration*1000))
         _add_missing_variant_modules(mod_info)
         logging.debug('Loading %s as module-info.', self.merged_dep_path)
         return module_info_target, mod_info
@@ -644,7 +653,6 @@ class ModuleInfo:
         Returns:
             Dict of updated name_to_module_info.
         """
-        start = time.time()
         # Merge _JAVA_DEP_INFO
         if not java_bp_info_path:
             java_bp_info_path = self.java_dep_path
@@ -689,10 +697,6 @@ class ModuleInfo:
             json.dump(name_to_module_info, _temp, indent=0)
         shutil.copy(temp_file.name, self.merged_dep_path)
         temp_file.close()
-        duration = time.time() - start
-        logging.debug('Merging module info took %ss', duration)
-        metrics.LocalDetectEvent(
-            detect_type=DetectType.MODULE_MERGE_MS, result=int(duration*1000))
         return name_to_module_info
 
     def _merge_soong_info(self, name_to_module_info, mod_bp_infos):
