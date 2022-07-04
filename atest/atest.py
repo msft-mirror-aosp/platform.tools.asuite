@@ -954,8 +954,9 @@ def main(argv, results_dir, args):
     smart_rebuild = need_rebuild_module_info(args.rebuild_module_info)
     mod_start = time.time()
     mod_info = module_info.ModuleInfo(force_build=smart_rebuild)
-    metrics.LocalDetectEvent(detect_type=DetectType.MODULE_INFO_INIT_TIME,
-                             result=int(time.time() - mod_start))
+    mod_stop = time.time() - mod_start
+    metrics.LocalDetectEvent(detect_type=DetectType.MODULE_INFO_INIT_MS,
+                             result=int(mod_stop * 1000))
     atest_utils.generate_buildfiles_checksum()
     if args.bazel_mode:
         start = time.time()
