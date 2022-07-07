@@ -119,7 +119,7 @@ class AtestUnittests(unittest.TestCase):
         mock_get_module_info.return_value = mod_one
         capture_output = StringIO()
         sys.stdout = capture_output
-        mod_info = module_info.ModuleInfo()
+        mod_info = module_info.ModuleInfo(module_file='/somewhere/module-info')
         # Check return value = True, since 'mod_one' can be found.
         self.assertTrue(
             atest._print_module_info_from_module_name(mod_info, mod_one_name))
@@ -194,7 +194,7 @@ class AtestUnittests(unittest.TestCase):
 
         capture_output = StringIO()
         sys.stdout = capture_output
-        mod_info = module_info.ModuleInfo()
+        mod_info = module_info.ModuleInfo(module_file='/somewhere/module-info')
         atest._print_test_info(mod_info, test_infos)
         # Assign sys.stdout back to default.
         sys.stdout = sys.__stdout__

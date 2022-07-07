@@ -98,11 +98,14 @@ class ModuleInfoUnittests(unittest.TestCase):
         if self.merged_dep_path.is_file():
             os.remove(self.merged_dep_path)
 
+    @mock.patch.object(module_info.ModuleInfo, 'need_update_merged_file')
     @mock.patch('json.load', return_value={})
     @mock.patch('builtins.open', new_callable=mock.mock_open)
     @mock.patch('os.path.isfile', return_value=True)
-    def test_load_mode_info_file_out_dir_handling(self, _isfile, _open, _json):
+    def test_load_mode_info_file_out_dir_handling(self, _isfile, _open, _json,
+        _merge):
         """Test _load_module_info_file out dir handling."""
+        _merge.return_value = False
         # Test out default out dir is used.
         build_top = '/path/to/top'
         default_out_dir = os.path.join(build_top, 'out/dir/here')
