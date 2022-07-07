@@ -1148,46 +1148,64 @@ def is_valid_json_file(path):
     return False
 
 def get_manifest_branch():
-    """Get the manifest branch via repo info command.
+    """Get the manifest branch.
+
+         (portal xml)                            (default xml)
+    +--------------------+ _get_include() +-----------------------------+
+    | .repo/manifest.xml |--------------->| .repo/manifests/default.xml |
+    +--------------------+                +---------------+-------------+
+                             <default revision="master" |
+                                      remote="aosp"     | _get_revision()
+                                      sync-j="4"/>      V
+                                                    +--------+
+                                                    | master |
+                                                    +--------+
 
     Returns:
-        None if no system environment parameter ANDROID_BUILD_TOP or
-        running 'repo info' command error, otherwise the manifest branch
+        The value of 'revision' of the included xml or default.xml.
+
+        None when no ANDROID_BUILD_TOP or unable to access default.xml.
     """
-    build_top = os.getenv(constants.ANDROID_BUILD_TOP, None)
+    build_top = os.getenv(constants.ANDROID_BUILD_TOP)
     if not build_top:
         return None
-    splitter = ':'
-    env_vars = os.environ.copy()
-    orig_pythonpath = env_vars['PYTHONPATH'].split(splitter)
-    # Command repo imports stdlib "http.client", so adding non-default lib
-    # e.g. googleapiclient, may cause repo command execution error.
-    # The temporary dir is not presumably always /tmp, especially in MacOS.
-    # b/169936306, b/190647636 are the cases we should never ignore.
-    soong_path_re = re.compile(r'.*/Soong.python_.*/')
-    default_python_path = [p for p in orig_pythonpath
-                            if not soong_path_re.match(p)]
-    env_vars['PYTHONPATH'] = splitter.join(default_python_path)
-    proc = subprocess.Popen(f'repo info '
-                            f'-o {constants.ASUITE_REPO_PROJECT_NAME}',
-                            shell=True,
-                            env=env_vars,
-                            cwd=build_top,
-                            universal_newlines=True,
-                            stdout=subprocess.PIPE,
-                            stderr=subprocess.PIPE)
-    try:
-        cmd_out, err_out = proc.communicate()
-        branch_re = re.compile(r'Manifest branch:\s*(?P<branch>.*)')
-        match = branch_re.match(cmd_out)
-        if match:
-            return match.group('branch')
-        logging.warning('Unable to detect branch name through:\n %s, %s',
-                        cmd_out, err_out)
-    except subprocess.TimeoutExpired:
-        logging.warning('Exception happened while getting branch')
-        proc.kill()
-    return None
+    portal_xml = Path(build_top).joinpath('.repo', 'manifest.xml')
+    default_xml = Path(build_top).joinpath('.repo/manifests', 'default.xml')
+    def _get_revision(xml):
+        try:
+            xml_root = ET.parse(xml).getroot()
+        except (IOError, OSError, ET.ParseError):
+            logging.warning('%s could not be read.', xml)
+            return ''
+        default_tags = xml_root.findall('./default')
+        if default_tags:
+            for tag in default_tags:
+                branch = tag.attrib.get('revision')
+                return branch
+        return ''
+    def _get_include(xml):
+        try:
+            xml_root = ET.parse(xml).getroot()
+        except (IOError, OSError, ET.ParseError):
+            logging.warning('%s could not be read.', xml)
+            return Path()
+        include_tags = xml_root.findall('./include')
+        if include_tags:
+            for tag in include_tags:
+                name = tag.attrib.get('name')
+                if name:
+                    return Path(build_top).joinpath('.repo/manifests', name)
+        return default_xml
+
+    # 1. Try getting revision from .repo/manifests/default.xml
+    if default_xml.is_file():
+        return _get_revision(default_xml)
+    # 2. Try getting revision from the included xml of .repo/manifest.xml
+    include_xml = _get_include(portal_xml)
+    if include_xml.is_file():
+        return _get_revision(include_xml)
+    # 3. Try getting revision directly from manifest.xml (unlikely to happen)
+    return _get_revision(portal_xml)
 
 def get_build_target():
     """Get the build target form system environment TARGET_PRODUCT."""
