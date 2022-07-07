@@ -780,13 +780,14 @@ def need_rebuild_module_info(test_steps: None,
     """Method that tells whether we need to rebuild module-info.json or not.
 
     Args:
-        force_build: A boolean flag that determine everything.
+        args: An argparse.Namespace class instance holding parsed args.
 
     Returns:
-        - When force_build is True, return True (will rebuild module-info).
-        - When force_build is False, then check the consistency of build files.
-        If the checksum file of build files is missing, considered check False
-        (need to rebuild module-info.json)
+        - When only --test is set, return False (won't build module-info.json).
+        - When --rebuild-module-info is set, return True (forcely rebuild).
+        - When the build files were changed, return True(smartly rebuild).
+        - When the checksum file of build files is inexistent, return True
+          (smartly rebuild).
     """
     if test_steps and constants.BUILD_STEP not in test_steps:
         logging.debug('\"--test\" mode detected, will not rebuild module-info.')
@@ -971,7 +972,9 @@ def main(argv, results_dir, args):
         args=[[mod_info.mod_info_file_path,
                mod_info.java_dep_path,
                mod_info.cc_dep_path]])
-    atest_utils.generate_buildfiles_checksum()
+    atest_utils.run_multi_proc(
+        func=atest_utils.generate_buildfiles_checksum,
+        args=[mod_info.module_index.parent])
     if args.bazel_mode:
         start = time.time()
         bazel_mode.generate_bazel_workspace(
