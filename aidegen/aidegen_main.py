@@ -76,7 +76,7 @@ _LAUNCH_ECLIPSE_SUCCESS_MSG = (
 _IDE_CACHE_REMINDER_MSG = (
     'To prevent the existed IDE cache from impacting your IDE dependency '
     'analysis, please consider to clear IDE caches if necessary. To do that, in'
-    ' IntelliJ IDEA, go to [File > Invalidate Caches / Restart...].')
+    ' IntelliJ IDEA, go to [File > Invalidate Caches -> Invalidate and Restart].')
 
 _MAX_TIME = 1
 _SKIP_BUILD_INFO_FUTURE = ''.join([
