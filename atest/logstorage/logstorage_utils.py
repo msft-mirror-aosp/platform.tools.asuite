@@ -52,6 +52,7 @@ except ImportError as e:
     logging.debug('Import error due to: %s', e)
 
 import constants
+import metrics
 
 
 class BuildClient:
@@ -142,6 +143,7 @@ class BuildClient:
             A build invocation object.
         """
         sponge_invocation_id = str(uuid.uuid4())
+        user_email = metrics.metrics_base.get_user_email()
         invocation = {
             "primaryBuild": {
                 "buildId": build_record['buildId'],
@@ -151,6 +153,7 @@ class BuildClient:
             "schedulerState": "running",
             "runner": "atest",
             "scheduler": "atest",
+            "users": [user_email],
             "properties": [{
                 'name': 'sponge_invocation_id',
                 'value': sponge_invocation_id,
