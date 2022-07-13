@@ -131,15 +131,16 @@ class TestInfo:
         Search build target's MODULE-IN as the test path.
 
         Return:
-            A list of string of the relative path for test, None if test
-            path information not found.
+            A list of string of the relative path for test(build target
+            formats, e.g., platform_testing-tests-example-native),
+            None if test path information not found.
         """
         test_paths = []
         for build_target in self.build_targets:
             if str(build_target).startswith(constants.MODULES_IN):
                 test_paths.append(
                     str(build_target).replace(
-                        constants.MODULES_IN, '').replace('-', '/'))
+                        constants.MODULES_IN, ''))
         return test_paths if test_paths else None
 
 class TestFilter(TestFilterBase):
