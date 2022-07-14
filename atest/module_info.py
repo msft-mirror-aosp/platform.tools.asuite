@@ -28,7 +28,7 @@ import tempfile
 import time
 
 from pathlib import Path
-from typing import Any, Dict
+from typing import Any, Dict, Set
 
 import atest_utils
 import constants
@@ -302,6 +302,7 @@ class ModuleInfo:
         logging.debug(r'Indexing testable modules... '
                       r'(This is required whenever module-info.json '
                       r'was rebuilt.)')
+        Path(self.module_index).parent.mkdir(parents=True, exist_ok=True)
         with open(self.module_index, 'wb') as cache:
             try:
                 pickle.dump(content, cache, protocol=2)
@@ -851,6 +852,43 @@ class ModuleInfo:
             if mod_info.get(constants.MODULE_NAME, '') == mod_name:
                 if type_predicate(mod_info):
                     modules.append(mod_name)
+        return modules
+
+    def get_modules_by_path_in_srcs(self, path: str) -> str:
+        """Get the module name that the given path belongs to.(in 'srcs')
+
+        Args:
+            path: Relative path to ANDROID_BUILD_TOP of a file.
+
+        Returns:
+            A set of string for matched module names, empty set if nothing find.
+        """
+        modules = set()
+        for _, mod_info in self.name_to_module_info.items():
+            if path in mod_info.get(constants.MODULE_SRCS):
+                modules.add(mod_info.get(constants.MODULE_NAME))
+        return modules
+
+    def get_modules_by_include_deps(
+            self, deps: Set[str],
+            testable_module_only: bool = False) -> Set[str]:
+        """Get the matched module names for the input dependencies.
+
+        Args:
+            deps: A set of string for dependencies.
+            testable_module_only: Option if only want to get testable module.
+
+        Returns:
+            A set of matched module names for the input dependencies.
+        """
+        modules = set()
+
+        for mod_name in (self.get_testable_modules() if testable_module_only
+                         else self.name_to_module_info.keys()):
+            mod_info = self.get_module_info(mod_name)
+            if mod_info and deps.intersection(
+                set(mod_info.get(constants.MODULE_DEPENDENCIES, []))):
+                modules.add(mod_info.get(constants.MODULE_NAME))
         return modules
 
 
