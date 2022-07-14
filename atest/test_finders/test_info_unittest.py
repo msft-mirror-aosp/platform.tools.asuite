@@ -29,7 +29,7 @@ class TestInfoUnittests(unittest.TestCase):
     def test_get_test_path(self):
         """Test test_get_test_paths method."""
         build_targets = set()
-        exp_rel_paths = ['a/b/c', 'd/e/f']
+        exp_rel_paths = ['a-b-c', 'd-e-f']
         for exp_rel_path in exp_rel_paths:
             build_targets.add('MODULES-IN-%s' % exp_rel_path.replace('/', '-'))
         t_info = test_info.TestInfo('mock_name', 'mock_runner', build_targets)
