@@ -105,7 +105,8 @@ class CacheFinder(test_finder_base.TestFinderBase):
         current_test_paths = self.module_info.get_paths(t_info.test_name)
         if not current_test_paths:
             return False
-        if sorted(cached_test_paths) != sorted(current_test_paths):
+        formatted_paths = [p.replace('/', '-') for p in current_test_paths]
+        if sorted(cached_test_paths) != sorted(formatted_paths):
             logging.debug('Not a valid test path.')
             return False
         return True
