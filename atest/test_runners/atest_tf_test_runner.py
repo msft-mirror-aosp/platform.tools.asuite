@@ -595,14 +595,16 @@ class AtestTradefedTestRunner(trb.TestRunnerBase):
             args_to_add.append('--replicate-parent-setup')
             args_to_add.append('--multi-device-count')
             args_to_add.append(str(device_count))
-
-        # TODO(b/122889707) Remove this after finding the root cause.
-        env_serial = os.environ.get(constants.ANDROID_SERIAL)
-        # Use the env variable ANDROID_SERIAL if it's set by user but only when
-        # the target tests are not deviceless tests.
-        if env_serial and '--serial' not in args_to_add and '-n' not in args_to_add:
-            args_to_add.append("--serial")
-            args_to_add.append(env_serial)
+            os.environ.pop(constants.ANDROID_SERIAL, None)
+        else:
+            # TODO(b/122889707) Remove this after finding the root cause.
+            env_serial = os.environ.get(constants.ANDROID_SERIAL)
+            # Use the env variable ANDROID_SERIAL if it's set by user but only
+            # when the target tests are not deviceless tests.
+            if (env_serial and '--serial' not in args_to_add
+                and '-n' not in args_to_add):
+                args_to_add.append("--serial")
+                args_to_add.append(env_serial)
 
         test_args.extend(args_to_add)
         if args_not_supported:
