@@ -70,6 +70,7 @@ class ExitCode(IntEnum):
     EXIT_BEFORE_MAIN = 10
     DEVICE_NOT_FOUND = 11
     MIXED_TYPE_FILTER = 12
+    INPUT_TEST_REFERENCE_ERROR = 13
 
 @unique
 class FilterType(Enum):
