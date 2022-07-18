@@ -21,7 +21,7 @@ from enum import IntEnum, unique, Enum
 @unique
 class DetectType(IntEnum):
     """An Enum class for local_detect_event."""
-    # Detect type for local_detect_event; next expansion: 23
+    # Detect type for local_detect_event; next expansion: 25
     BUG_DETECTED = 0
     ACLOUD_CREATE = 1
     FIND_BUILD = 2
@@ -46,11 +46,13 @@ class DetectType(IntEnum):
     ATEST_CONFIG = 15
     TEST_WITH_ARGS = 16
     TEST_NULL_ARGS = 17
-    MODULE_MERGE = 18         # Deprecated. Use MODULE_MERGE_MS instead.
-    MODULE_INFO_INIT_TIME = 19
+    MODULE_MERGE = 18          # Deprecated. Use MODULE_MERGE_MS instead.
+    MODULE_INFO_INIT_TIME = 19 # Deprecated. Use MODULE_INFO_INIT_MS instead.
     MODULE_MERGE_MS = 20
     NATIVE_TEST_NOT_FOUND = 21
     BAZEL_WORKSPACE_GENERATE_TIME = 22
+    MODULE_LOAD_MS = 23
+    MODULE_INFO_INIT_MS = 24
 
 @unique
 class ExitCode(IntEnum):
@@ -68,6 +70,7 @@ class ExitCode(IntEnum):
     EXIT_BEFORE_MAIN = 10
     DEVICE_NOT_FOUND = 11
     MIXED_TYPE_FILTER = 12
+    INPUT_TEST_REFERENCE_ERROR = 13
 
 @unique
 class FilterType(Enum):

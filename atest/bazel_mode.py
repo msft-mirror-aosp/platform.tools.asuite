@@ -40,6 +40,7 @@ import warnings
 
 from abc import ABC, abstractmethod
 from collections import defaultdict, deque, OrderedDict
+from collections.abc import Iterable
 from pathlib import Path
 from types import MappingProxyType
 from typing import Any, Callable, Dict, IO, List, Set
@@ -432,7 +433,7 @@ class WorkspaceGenerator:
 
 
 def _get_resource_root():
-    return Path(os.path.dirname(__file__)).joinpath('bazel')
+    return Path(os.path.dirname(__file__)).joinpath('bazel/resources')
 
 
 class Package:
@@ -575,6 +576,7 @@ class TestTarget(Target):
             {
                 'name': name,
                 'test': ModuleRef.for_info(info),
+                'module_name': info["module_name"],
             },
             TestTarget.DEVICELESS_TEST_PREREQUISITES,
         )
@@ -588,8 +590,12 @@ class TestTarget(Target):
             {
                 'name': name,
                 'test': ModuleRef.for_info(info),
+                'module_name': info["module_name"],
                 'suites': set(
                     info.get(constants.MODULE_COMPATIBILITY_SUITES, [])),
+                'tradefed_deps': list(map(
+                    ModuleRef.for_name,
+                    info.get(constants.MODULE_HOST_DEPS, []))),
             },
             TestTarget.DEVICE_TEST_PREREQUISITES,
         )
@@ -612,7 +618,16 @@ class TestTarget(Target):
 
     def dependencies(self) -> List[ModuleRef]:
         prerequisite_refs = map(ModuleRef.for_name, self._prerequisites)
-        return [self._attributes['test']] + list(prerequisite_refs)
+
+        declared_dep_refs = []
+        for value in self._attributes.values():
+            if isinstance(value, Iterable):
+                declared_dep_refs.extend(
+                    [dep for dep in value if isinstance(dep, ModuleRef)])
+            elif isinstance(value, ModuleRef):
+                declared_dep_refs.append(value)
+
+        return declared_dep_refs + list(prerequisite_refs)
 
     def write_to_build_file(self, f: IO):
         prebuilt_target_name = self._attributes['test'].target(
@@ -623,8 +638,17 @@ class TestTarget(Target):
         writer.write_line(f'{self._rule_name}(')
 
         with writer.indent():
-            writer.write_line(f'name = "{self._attributes["name"]}",')
-            writer.write_line(f'test = "{prebuilt_target_name}",')
+            build_file_writer.write_string_attribute(
+                'name', self._attributes['name'])
+
+            build_file_writer.write_string_attribute(
+                'module_name', self._attributes['module_name'])
+
+            build_file_writer.write_string_attribute(
+                'test', prebuilt_target_name)
+
+            build_file_writer.write_label_list_attribute(
+                'tradefed_deps', self._attributes.get('tradefed_deps'))
 
             build_file_writer.write_string_list_attribute(
                 'suites', sorted(self._attributes.get('suites', [])))
@@ -638,6 +662,12 @@ class BuildFileWriter:
     def __init__(self, underlying: IndentWriter):
         self._underlying = underlying
 
+    def write_string_attribute(self, attribute_name, value):
+        if value is None:
+            return
+
+        self._underlying.write_line(f'{attribute_name} = "{value}",')
+
     def write_string_list_attribute(self, attribute_name, values):
         if not values:
             return
@@ -647,6 +677,20 @@ class BuildFileWriter:
         with self._underlying.indent():
             for value in values:
                 self._underlying.write_line(f'"{value}",')
+
+        self._underlying.write_line('],')
+
+    def write_label_list_attribute(
+            self, attribute_name: str, modules: List[ModuleRef]):
+        if not modules:
+            return
+
+        self._underlying.write_line(f'{attribute_name} = [')
+
+        with self._underlying.indent():
+            for label in sorted(set(
+                    m.target().qualified_name() for m in modules)):
+                self._underlying.write_line(f'"{label}",')
 
         self._underlying.write_line('],')
 
@@ -1243,10 +1287,15 @@ class BazelTestRunner(trb.TestRunnerBase):
     def _get_remote_args(self, feature):
         remote_config = self._get_feature_config_or_warn(
             feature, 'ATEST_BAZEL_REMOTE_CONFIG')
-
         if not remote_config:
             return []
-        return [f'--config={remote_config}']
+
+        args = [f'--config={remote_config}']
+        auth_script = self.env.get('ATEST_BAZEL_REMOTE_AUTH_SCRIPT')
+        if auth_script:
+            args.extend(self._get_auth_args(auth_script))
+
+        return args
 
     def host_env_check(self):
         """Check that host env has everything we need.
