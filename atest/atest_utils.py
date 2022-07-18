@@ -44,7 +44,7 @@ from pathlib import Path
 
 import xml.etree.ElementTree as ET
 
-from atest_enum import DetectType, FilterType
+from atest_enum import DetectType, FilterType, ExitCode
 
 # This is a workaround of b/144743252, where the http.client failed to loaded
 # because the googleapiclient was found before the built-in libs; enabling
@@ -1344,11 +1344,16 @@ def get_config_device(test_config):
         A set include all the device name of the input config.
     """
     devices = set()
-    xml_root = ET.parse(test_config).getroot()
-    device_tags = xml_root.findall('.//device')
-    for tag in device_tags:
-        name = tag.attrib['name'].strip()
-        devices.add(name)
+    try:
+        xml_root = ET.parse(test_config).getroot()
+        device_tags = xml_root.findall('.//device')
+        for tag in device_tags:
+            name = tag.attrib['name'].strip()
+            devices.add(name)
+    except ET.ParseError as e:
+        colorful_print('Config has invalid format.', constants.RED)
+        colorful_print('File %s : %s' % (test_config, str(e)), constants.YELLOW)
+        sys.exit(ExitCode.CONFIG_INVALID_FORMAT)
     return devices
 
 def get_mainline_param(test_config):
