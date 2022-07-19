@@ -89,12 +89,17 @@ except ImportError as err:
         from asuite.metrics import metrics_base
         from asuite.metrics import metrics_utils
     except ImportError as err:
-        # This exception occurs only when invoking atest in source code.
-        print("You shouldn't see this message unless you ran 'atest-src'. "
-              "To resolve the issue, please run:\n\t{}\n"
-              "and try again.".format('pip3 install protobuf'))
         print('Import error: ', err)
         print('sys.path:\n', '\n'.join(sys.path))
+        # Error occurs in prebuilt atest + prebuilt executable python3.
+        if Path(constants.VERSION_FILE).is_file():
+            colorful_print("This error may occur in unexpected conditions. "
+                "Please report this bug and use 'atest-src' as alternative.",
+                constants.RED)
+        else:
+            print("You shouldn't see this message unless you ran 'atest-src'. "
+              "To resolve the issue, please run:\n\t{}\n"
+              "and try again.".format('pip3 install protobuf'))
         sys.exit(constants.IMPORT_FAILURE)
 
 _BASH_RESET_CODE = '\033[0m\n'
