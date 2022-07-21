@@ -72,6 +72,7 @@ class ExitCode(IntEnum):
     DEVICE_NOT_FOUND = 11
     MIXED_TYPE_FILTER = 12
     INPUT_TEST_REFERENCE_ERROR = 13
+    CONFIG_INVALID_FORMAT = 14
 
 @unique
 class FilterType(Enum):
