@@ -30,7 +30,6 @@ SoongPrebuiltInfo = provider(
 )
 
 def _soong_prebuilt_impl(ctx):
-
     files = ctx.files.files
 
     # Ensure that soong_prebuilt targets always have at least one file to avoid
@@ -58,9 +57,9 @@ def _soong_prebuilt_impl(ctx):
         # Note that we don't write the file for the action to always be
         # executed and display the warning message.
         ctx.actions.run_shell(
-            outputs=[placeholder_file],
-            command="/bin/false",
-            progress_message=progress_message
+            outputs = [placeholder_file],
+            command = "/bin/false",
+            progress_message = progress_message,
         )
         files = [placeholder_file]
 
@@ -78,9 +77,10 @@ def _soong_prebuilt_impl(ctx):
         ctx.runfiles(
             files = _exclude_files(
                 dep[DefaultInfo].default_runfiles.files,
-                dep[DefaultInfo].files
-            ).to_list()
-        ) for dep in ctx.attr.static_deps
+                dep[DefaultInfo].files,
+            ).to_list(),
+        )
+        for dep in ctx.attr.static_deps
     ])
 
     return [
@@ -114,7 +114,6 @@ soong_prebuilt = rule(
 )
 
 def _soong_uninstalled_prebuilt_impl(ctx):
-
     runfiles = ctx.runfiles().merge_all([
         dep[DefaultInfo].default_runfiles
         for dep in ctx.attr.runtime_deps
@@ -140,10 +139,10 @@ soong_uninstalled_prebuilt = rule(
 )
 
 def _make_soong_prebuilt_info(
-    module_name,
-    files = [],
-    runtime_deps = [],
-    static_deps = []):
+        module_name,
+        files = [],
+        runtime_deps = [],
+        static_deps = []):
     """Build a SoongPrebuiltInfo based on the given information.
 
     Args:
@@ -154,7 +153,8 @@ def _make_soong_prebuilt_info(
         An instance of SoongPrebuiltInfo.
     """
     transitive_runtime_outputs = [
-        dep[SoongPrebuiltInfo].transitive_runtime_outputs for dep in runtime_deps
+        dep[SoongPrebuiltInfo].transitive_runtime_outputs
+        for dep in runtime_deps
     ]
 
     # We exclude the outputs of static dependencies from the transitive runtime
@@ -166,8 +166,9 @@ def _make_soong_prebuilt_info(
     transitive_runtime_outputs.extend([
         _exclude_files(
             dep[SoongPrebuiltInfo].transitive_runtime_outputs,
-            dep[DefaultInfo].files
-        ) for dep in static_deps
+            dep[DefaultInfo].files,
+        )
+        for dep in static_deps
     ])
 
     return SoongPrebuiltInfo(
