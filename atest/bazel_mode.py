@@ -565,7 +565,11 @@ class TestTarget(Target):
     })
 
     DEVICE_TEST_PREREQUISITES = frozenset(DEVICELESS_TEST_PREREQUISITES.union(
-        frozenset({'aapt', 'compatibility-tradefed'})))
+        frozenset({
+            'aapt',
+            'compatibility-tradefed',
+            'vts-core-tradefed-harness',
+        })))
 
     @staticmethod
     def create_deviceless_test_target(name: str, package_name: str,
