@@ -53,6 +53,7 @@ import result_reporter
 import test_runner_handler
 
 from atest_enum import DetectType, ExitCode
+from coverage import coverage
 from metrics import metrics
 from metrics import metrics_base
 from metrics import metrics_utils
@@ -231,6 +232,7 @@ def get_extra_args(args):
                 'annotation_filter': constants.ANNOTATION_FILTER,
                 'bazel_arg': constants.BAZEL_ARG,
                 'collect_tests_only': constants.COLLECT_TESTS_ONLY,
+                'coverage': constants.COVERAGE,
                 'custom_args': constants.CUSTOM_ARGS,
                 'device_only': constants.DEVICE_ONLY,
                 'disable_teardown': constants.DISABLE_TEARDOWN,
@@ -1049,6 +1051,11 @@ def main(argv, results_dir, args):
     # args.steps will be None if none of -bit set, else list of params set.
     steps = args.steps if args.steps else constants.ALL_STEPS
     if build_targets and constants.BUILD_STEP in steps:
+        # Set coverage environment variables.
+        env_vars = {}
+        if args.coverage:
+            env_vars.update(coverage.build_env_vars())
+
         # Add module-info.json target to the list of build targets to keep the
         # file up to date.
         build_targets.add(mod_info.module_info_target)
@@ -1057,6 +1064,7 @@ def main(argv, results_dir, args):
         build_targets |= _get_host_framework_targets(mod_info)
         build_start = time.time()
         success = atest_utils.build(build_targets, verbose=args.verbose,
+                                    env_vars=env_vars,
                                     mm_build_targets=mm_build_targets)
         build_duration = time.time() - build_start
         build_targets.update(mm_build_targets)
