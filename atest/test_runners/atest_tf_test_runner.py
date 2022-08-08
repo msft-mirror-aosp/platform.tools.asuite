@@ -1038,6 +1038,9 @@ def extra_args_to_tf_args(mod_info: module_info.ModuleInfo,
                 f'include-filter:{arg_value}',
                 '--test-arg',
                 'com.android.tradefed.testtype.GTest:native-test-flag:'
+                f'--gtest_filter={arg_value}',
+                '--test-arg',
+                'com.android.tradefed.testtype.HostGTest:native-test-flag:'
                 f'--gtest_filter={arg_value}'
             ],
         constants.TEST_TIMEOUT:
