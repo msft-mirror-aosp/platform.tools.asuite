@@ -822,8 +822,10 @@ class AtestTradefedTestRunner(trb.TestRunnerBase):
         Returns: A string of tradefed template options.
         """
         tf_templates = extra_args.get(constants.TF_TEMPLATE, [])
+        tf_template_keys = [i.split('=')[0] for i in tf_templates]
         for info in test_infos:
-            if info.aggregate_metrics_result:
+            if (info.aggregate_metrics_result
+                    and 'metric_post_processor' not in tf_template_keys):
                 template_key = 'metric_post_processor'
                 template_value = (
                     'google/template/postprocessors/metric-file-aggregate')
