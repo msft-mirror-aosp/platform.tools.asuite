@@ -896,6 +896,38 @@ class AtestTradefedTestRunnerUnittests(unittest.TestCase):
                 'metric_post_processor='
                 'google/template/postprocessors/metric-file-aggregate') > 0)
 
+    @mock.patch.object(atf_tr.AtestTradefedTestRunner, '_handle_native_tests')
+    @mock.patch.object(atf_tr.AtestTradefedTestRunner, '_parse_extra_args')
+    @mock.patch.object(atf_tr.AtestTradefedTestRunner, '_create_test_args')
+    @mock.patch('os.environ.get', return_value=None)
+    @mock.patch.object(
+        atf_tr.AtestTradefedTestRunner, '_generate_metrics_folder')
+    @mock.patch('atest_utils.get_result_server_args')
+    def test_run_commands_for_aggregate_metric_result_with_manually_input(
+        self, mock_resultargs, mock_mertrics, _mock_env, _mock_create,
+            _mock_parse, _mock_handle_native):
+        """Test generate_run_command method for test need aggregate metric."""
+        mock_resultargs.return_value = []
+        mock_mertrics.return_value = ''
+        _mock_create.return_value = []
+        _mock_parse.return_value = [], []
+        test_info_with_aggregate_metrics = test_info.TestInfo(
+            test_name='perf_test', test_runner='test_runner',
+            build_targets=set())
+        test_info_with_aggregate_metrics.aggregate_metrics_result = True
+
+        run_cmd = self.tr.generate_run_commands(
+            [test_info_with_aggregate_metrics],
+            extra_args={constants.TF_TEMPLATE: ['metric_post_processor=a/b/c']})
+
+        self.assertTrue(
+            str(run_cmd).find(
+                'metric_post_processor='
+                'google/template/postprocessors/metric-file-aggregate') < 0)
+
+        self.assertTrue(
+            str(run_cmd).find('metric_post_processor=a/b/c') > 0)
+
     @mock.patch.object(atf_tr.AtestTradefedTestRunner,
                        '_is_all_tests_parameter_auto_enabled',
                        return_value=False)
