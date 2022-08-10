@@ -960,8 +960,12 @@ def find_files(path, file_name=constants.TEST_MAPPING):
     """
     match_files = []
     for root, _, filenames in os.walk(path):
-        for filename in fnmatch.filter(filenames, file_name):
-            match_files.append(os.path.join(root, filename))
+        try:
+            for filename in fnmatch.filter(filenames, file_name):
+                match_files.append(os.path.join(root, filename))
+        except re.error as e:
+            logging.debug("Unable to locate %s among %s", file_name, filenames)
+            logging.debug("Exception: %s", e)
     return match_files
 
 def extract_zip_text(zip_path):
