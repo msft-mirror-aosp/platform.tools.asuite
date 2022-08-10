@@ -1745,7 +1745,7 @@ def get_full_annotation_class_name(module_info, class_name):
     keyword_re = re.compile(
         r'import\s+(?P<fqcn>.*\.{})(|;)$'.format(class_name), re.I)
     build_top = Path(os.environ.get(constants.ANDROID_BUILD_TOP, ''))
-    for f in module_info.get('srcs'):
+    for f in module_info.get(constants.MODULE_SRCS, []):
         full_path = build_top.joinpath(f)
         with open(full_path, 'r') as cache:
             for line in cache.readlines():
