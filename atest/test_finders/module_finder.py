@@ -104,7 +104,7 @@ class ModuleFinder(test_finder_base.TestFinderBase):
         mod_info = self.module_info.get_module_info(module_name)
         suites = []
         if mod_info:
-            suites = mod_info.get('compatibility_suites', [])
+            suites = mod_info.get(constants.MODULE_COMPATIBILITY_SUITES, [])
         # Pull out all *ts (cts, tvts, etc) suites.
         suites = [suite for suite in suites if suite not in _SUITES_TO_IGNORE]
         return len(suites) == 1 and 'vts10' in suites

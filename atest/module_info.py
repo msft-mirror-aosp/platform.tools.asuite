@@ -441,7 +441,8 @@ class ModuleInfo:
         """
         if not mod_info:
             return False
-        if mod_info.get(constants.MODULE_INSTALLED) and self.has_test_config(mod_info):
+        if all((mod_info.get(constants.MODULE_INSTALLED, []),
+                self.has_test_config(mod_info))):
             return True
         if self.is_robolectric_test(mod_info.get(constants.MODULE_NAME)):
             return True
@@ -865,7 +866,7 @@ class ModuleInfo:
         """
         modules = set()
         for _, mod_info in self.name_to_module_info.items():
-            if path in mod_info.get(constants.MODULE_SRCS):
+            if path in mod_info.get(constants.MODULE_SRCS, []):
                 modules.add(mod_info.get(constants.MODULE_NAME))
         return modules
 
