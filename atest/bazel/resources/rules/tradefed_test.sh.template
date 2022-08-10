@@ -3,7 +3,7 @@ set -e
 set -x
 
 TEST_MODULE="{module_name}"
-TEST_PATH="{tradefed_tests_dir}"
+TEST_PATH="{tradefed_test_dir}"
 ATEST_TF_LAUNCHER="{atest_tradefed_launcher}"
 ATEST_HELPER="{atest_helper}"
 SHARED_LIB_DIRS="{shared_lib_dirs}"

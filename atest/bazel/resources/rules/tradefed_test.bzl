@@ -32,8 +32,7 @@ load(
     "vts_core_tradefed_harness_label",
 )
 
-_TEST_SRCDIR = "${TEST_SRCDIR}"
-_BAZEL_WORK_DIR = "%s/${TEST_WORKSPACE}/" % _TEST_SRCDIR
+_BAZEL_WORK_DIR = "${TEST_SRCDIR}/${TEST_WORKSPACE}/"
 _PY_TOOLCHAIN = "@bazel_tools//tools/python:toolchain_type"
 _TOOLCHAINS = [_PY_TOOLCHAIN]
 
@@ -268,6 +267,18 @@ def _tradefed_test_impl(
     )
     reporter_runfiles = ctx.runfiles(files = [result_reporters_config_file])
 
+    tradefed_test_dir = "tradefed_test_dir"
+    tradefed_test_files = []
+
+    for dep in tradefed_deps + test_host_deps + test_device_deps:
+        for f in dep[TradefedTestDependencyInfo].transitive_test_files.to_list():
+            symlink = ctx.actions.declare_file(
+                "%s/%s" % (tradefed_test_dir, f.short_path),
+            )
+            ctx.actions.symlink(output = symlink, target_file = f)
+
+            tradefed_test_files.append(symlink)
+
     script = ctx.actions.declare_file("tradefed_test_%s.sh" % ctx.label.name)
     ctx.actions.expand_template(
         template = ctx.file._tradefed_test_template,
@@ -277,7 +288,10 @@ def _tradefed_test_impl(
             "{module_name}": ctx.attr.module_name,
             "{atest_tradefed_launcher}": _abspath(ctx.file._atest_tradefed_launcher),
             "{atest_helper}": _abspath(ctx.file._atest_helper),
-            "{tradefed_tests_dir}": _TEST_SRCDIR,
+            "{tradefed_test_dir}": _BAZEL_WORK_DIR + "%s/%s" % (
+                ctx.label.package,
+                tradefed_test_dir,
+            ),
             "{tradefed_classpath}": tradefed_classpath,
             "{shared_lib_dirs}": shared_lib_dirs,
             "{path_additions}": ":".join(path_additions),
@@ -289,7 +303,11 @@ def _tradefed_test_impl(
     device_runfiles = _get_runfiles_from_targets(ctx, test_device_deps)
     return [DefaultInfo(
         executable = script,
-        runfiles = host_runfiles.merge_all([device_runfiles, reporter_runfiles]),
+        runfiles = host_runfiles.merge_all([
+            device_runfiles,
+            reporter_runfiles,
+            ctx.runfiles(tradefed_test_files),
+        ]),
     )]
 
 def _get_tradefed_deps(suites, tradefed_deps = []):
