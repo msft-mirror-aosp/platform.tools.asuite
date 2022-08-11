@@ -775,7 +775,8 @@ def _exclude_modules_in_targets(build_targets):
     return shrank_build_targets
 
 # pylint: disable=protected-access
-def need_rebuild_module_info(force_build):
+def need_rebuild_module_info(test_steps: None,
+                             force_rebuild: bool = False) -> bool:
     """Method that tells whether we need to rebuild module-info.json or not.
 
     Args:
@@ -787,8 +788,11 @@ def need_rebuild_module_info(force_build):
         If the checksum file of build files is missing, considered check False
         (need to rebuild module-info.json)
     """
+    if test_steps and constants.BUILD_STEP not in test_steps:
+        logging.debug('\"--test\" mode detected, will not rebuild module-info.')
+        return False
     logging.debug('Examinating the consistency of build files...')
-    if force_build:
+    if force_rebuild:
         msg = (f'`{constants.REBUILD_MODULE_INFO_FLAG}` is no longer needed '
                f'since Atest can smartly rebuild {module_info._MODULE_INFO} '
                r'only when needed.')
@@ -954,7 +958,9 @@ def main(argv, results_dir, args):
     # Do not index targets while the users intend to dry-run tests.
     if need_run_index_targets(args, extra_args):
         proc_idx = atest_utils.run_multi_proc(INDEX_TARGETS)
-    smart_rebuild = need_rebuild_module_info(args.rebuild_module_info)
+    smart_rebuild = need_rebuild_module_info(
+        test_steps=args.steps,
+        force_rebuild=args.rebuild_module_info)
     mod_start = time.time()
     mod_info = module_info.ModuleInfo(force_build=smart_rebuild)
     mod_stop = time.time() - mod_start
