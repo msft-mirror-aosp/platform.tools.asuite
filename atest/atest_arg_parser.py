@@ -46,6 +46,8 @@ BAZEL_ARG = ('Forward a flag to Bazel for tests executed with Bazel; '
 CLEAR_CACHE = 'Wipe out the test_infos cache of the test and start a new search.'
 COLLECT_TESTS_ONLY = ('Collect a list test cases of the instrumentation tests '
                       'without testing them in real.')
+COVERAGE = ('Instrument tests with code coverage and generate a code coverage '
+            'report.')
 DEVICE_ONLY = ('Only run tests that require a device. (Note: only workable with'
                ' --test-mapping.)')
 DISABLE_TEARDOWN = 'Disable test teardown and cleanup.'
@@ -165,6 +167,7 @@ class AtestArgParser(argparse.ArgumentParser):
         self.add_argument('--bazel-arg', nargs='*', action='append', help=BAZEL_ARG)
         bazel_mode.add_parser_arguments(self, dest='bazel_mode_features')
 
+        self.add_argument('--coverage', action='store_true', help=COVERAGE)
         self.add_argument('-d', '--disable-teardown', action='store_true',
                           help=DISABLE_TEARDOWN)
         self.add_argument('--enable-device-preparer', action='store_true',
@@ -450,6 +453,9 @@ OPTIONS
 
         --bazel-arg
             {BAZEL_ARG}
+
+        --coverage
+            {COVERAGE}
 
         --device-only
             {DEVICE_ONLY}
