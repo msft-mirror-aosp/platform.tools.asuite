@@ -22,6 +22,7 @@ Test Finder Handler module.
 
 import inspect
 import logging
+import sys
 
 import atest_enum
 import constants
@@ -176,6 +177,10 @@ def _get_test_reference_types(ref):
         ref_end = ref.rsplit('.', 1)[-1]
         ref_end_is_upper = ref_end[0].isupper()
     if ':' in ref:
+        if ref.count(':') > 1:
+            logging.error('More than 1 colon (:) in the test reference(%s). '
+                          'Please correct it and try again.', ref)
+            sys.exit(atest_enum.ExitCode.INPUT_TEST_REFERENCE_ERROR)
         if '.' in ref:
             if ref_end_is_upper:
                 # Module:fully.qualified.Class or Integration:fully.q.Class

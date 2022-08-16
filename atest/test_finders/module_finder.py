@@ -22,6 +22,8 @@ import logging
 import os
 import time
 
+from typing import List
+
 import atest_configs
 import atest_error
 import atest_utils
@@ -102,7 +104,7 @@ class ModuleFinder(test_finder_base.TestFinderBase):
         mod_info = self.module_info.get_module_info(module_name)
         suites = []
         if mod_info:
-            suites = mod_info.get('compatibility_suites', [])
+            suites = mod_info.get(constants.MODULE_COMPATIBILITY_SUITES, [])
         # Pull out all *ts (cts, tvts, etc) suites.
         suites = [suite for suite in suites if suite not in _SUITES_TO_IGNORE]
         return len(suites) == 1 and 'vts10' in suites
@@ -731,7 +733,7 @@ class ModuleFinder(test_finder_base.TestFinderBase):
             package, module_info.test_name,
             module_info.data.get(constants.TI_REL_CONFIG))
 
-    def find_test_by_path(self, rel_path):
+    def find_test_by_path(self, rel_path: str) -> List[test_info.TestInfo]:
         """Find the first test info matching the given path.
 
         Strategy:
@@ -762,6 +764,27 @@ class ModuleFinder(test_finder_base.TestFinderBase):
         # Module/Class
         rel_module_dir = test_finder_utils.find_parent_module_dir(
             self.root_dir, dir_path, self.module_info)
+
+        # If the input file path does not belong to a module(by searching
+        # upwards to the build_top), check whether it belongs to the dependency
+        # of modules.
+        if not rel_module_dir:
+            testable_modules = self.module_info.get_modules_by_include_deps(
+                self.module_info.get_modules_by_path_in_srcs(rel_path),
+                testable_module_only=True)
+            if testable_modules:
+                test_filter = self._get_test_info_filter(
+                    path, methods, rel_module_dir=rel_module_dir)
+                tinfos = []
+                for testable_module in testable_modules:
+                    rel_config = os.path.join(
+                        self.module_info.get_paths(
+                            testable_module)[0], constants.MODULE_CONFIG)
+                    tinfos.extend(
+                        self._get_test_infos(
+                            path, rel_config, testable_module, test_filter))
+                return tinfos
+
         if not rel_module_dir:
             # Try to find unit-test for input path.
             path = os.path.relpath(

@@ -463,6 +463,27 @@ class DeviceTestModuleTestTargetGenerationTest(GenerationTestFixture):
             package='example/tests',
         )
 
+    def test_generate_target_with_host_dependencies(self):
+        mod_info = self.create_module_info(modules=[
+            device_test_module(
+                name='hello_world_test',
+                path='example/tests',
+                host_dependencies=['vts_dep', 'cts_dep']),
+            host_module(name='vts_dep'),
+            host_module(name='cts_dep'),
+        ])
+
+        self.run_generator(mod_info, enabled_features=set([
+            bazel_mode.Features.EXPERIMENTAL_DEVICE_DRIVEN_TEST]))
+
+        self.assertInBuildFile(
+            '    tradefed_deps = [\n'
+            '        "//:cts_dep",\n'
+            '        "//:vts_dep",\n'
+            '    ],\n',
+            package='example/tests',
+        )
+
     def test_raise_when_prerequisite_not_in_module_info(self):
         mod_info = self.create_module_info(modules=[
             device_test_module(),
@@ -502,6 +523,7 @@ class HostUnitTestModuleTestTargetGenerationTest(GenerationTestFixture):
         self.assertInBuildFile(
             'tradefed_deviceless_test(\n'
             '    name = "hello_world_test_host",\n'
+            '    module_name = "hello_world_test",\n'
             '    test = "//example/tests:hello_world_test",\n'
             ')',
             package='example/tests',
@@ -1115,6 +1137,7 @@ def module(
     data=None,
     data_dependencies=None,
     compatibility_suites=None,
+    host_dependencies=None,
 ):
     name = name or 'libhello'
 
@@ -1132,6 +1155,7 @@ def module(
     m['data'] = data or []
     m['data_dependencies'] = data_dependencies or []
     m['compatibility_suites'] = compatibility_suites or []
+    m['host_dependencies'] = host_dependencies or []
     return m
 
 

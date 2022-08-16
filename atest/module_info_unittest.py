@@ -16,6 +16,7 @@
 
 """Unittests for module_info."""
 
+# pylint: disable=invalid-name
 # pylint: disable=line-too-long
 # pylint: disable=missing-function-docstring
 
@@ -26,6 +27,9 @@ import unittest
 
 from pathlib import Path
 from unittest import mock
+
+# pylint: disable=import-error
+from pyfakefs import fake_filesystem_unittest
 
 import constants
 import module_info
@@ -532,6 +536,132 @@ class ModuleInfoUnittests(unittest.TestCase):
         mod_info = module_info.ModuleInfo(module_file=multi_arch_json, index_dir=HOST_OUT_DIR)
 
         self.assertIsNotNone(mod_info.get_module_info(my_module_name))
+
+    def test_get_modules_by_include_deps_w_testable_module_only_false(self):
+        module_1 = module(name='module_1',
+                          dependencies=['dep1', 'dep2'],
+                          )
+        module_2 = module(name='module_2',
+                          dependencies=['dep1', 'dep3']
+                          )
+        mod_info = create_module_info([module_1, module_2])
+
+        self.assertEqual({'module_1', 'module_2'},
+                         mod_info.get_modules_by_include_deps(
+                             {'dep1'}, testable_module_only=False))
+        self.assertEqual({'module_1'},
+                         mod_info.get_modules_by_include_deps(
+                             {'dep2'}, testable_module_only=False))
+        self.assertEqual({'module_2'},
+                         mod_info.get_modules_by_include_deps(
+                             {'dep3'}, testable_module_only=False))
+
+    @mock.patch.object(module_info.ModuleInfo, 'get_testable_modules')
+    def test_get_modules_by_include_deps_w_testable_module_only_true(
+            self, _testable_modules):
+        module_1 = module(name='module_1',
+                          dependencies=['dep1', 'dep2'],
+                          )
+        module_2 = module(name='module_2',
+                          dependencies=['dep1', 'dep3']
+                          )
+        mod_info = create_module_info([module_1, module_2])
+        _testable_modules.return_value = []
+
+        self.assertEqual(set(),
+                         mod_info.get_modules_by_include_deps(
+                             {'dep1'}, testable_module_only=True))
+
+    def test_get_modules_by_path_in_srcs_no_module_found(self):
+        module_1 = module(name='module_1',
+                          srcs=['path/src1', 'path/src2'],
+                          )
+        module_2 = module(name='module_2',
+                          srcs=['path/src2', 'path/src3']
+                          )
+        mod_info = create_module_info([module_1, module_2])
+
+        self.assertEqual(set(),
+                         mod_info.get_modules_by_path_in_srcs('path/src4'))
+
+    def test_get_modules_by_path_in_srcs_one_module_found(self):
+        module_1 = module(name='module_1',
+                          srcs=['path/src1', 'path/src2'],
+                          )
+        module_2 = module(name='module_2',
+                          srcs=['path/src2', 'path/src3']
+                          )
+        mod_info = create_module_info([module_1, module_2])
+
+        self.assertEqual({'module_1'},
+                         mod_info.get_modules_by_path_in_srcs('path/src1'))
+
+    def test_get_modules_by_path_in_srcs_multiple_module_found(self):
+        module_1 = module(name='module_1',
+                          srcs=['path/src1', 'path/src2'],
+                          )
+        module_2 = module(name='module_2',
+                          srcs=['path/src2', 'path/src3']
+                          )
+        mod_info = create_module_info([module_1, module_2])
+
+        self.assertEqual({'module_1', 'module_2'},
+                         mod_info.get_modules_by_path_in_srcs('path/src2'))
+
+@mock.patch.dict('os.environ', {constants.ANDROID_BUILD_TOP: '/'})
+def create_empty_module_info():
+    with fake_filesystem_unittest.Patcher() as patcher:
+        # pylint: disable=protected-access
+        fake_temp_file_name = next(tempfile._get_candidate_names())
+        patcher.fs.create_file(fake_temp_file_name, contents='{}')
+        return module_info.ModuleInfo(module_file=fake_temp_file_name)
+
+
+def create_module_info(modules=None):
+    mod_info = create_empty_module_info()
+    modules = modules or []
+
+    for m in modules:
+        mod_info.name_to_module_info[m['module_name']] = m
+
+    return mod_info
+
+
+# pylint: disable=too-many-arguments
+def module(
+    name=None,
+    path=None,
+    installed=None,
+    classes=None,
+    auto_test_config=None,
+    shared_libs=None,
+    dependencies=None,
+    runtime_dependencies=None,
+    data=None,
+    data_dependencies=None,
+    compatibility_suites=None,
+    host_dependencies=None,
+    srcs=None,
+):
+    name = name or 'libhello'
+
+    m = {}
+
+    m['module_name'] = name
+    m['class'] = classes
+    m['path'] = [path or '']
+    m['installed'] = installed or []
+    m['is_unit_test'] = 'false'
+    m['auto_test_config'] = auto_test_config or []
+    m['shared_libs'] = shared_libs or []
+    m['runtime_dependencies'] = runtime_dependencies or []
+    m['dependencies'] = dependencies or []
+    m['data'] = data or []
+    m['data_dependencies'] = data_dependencies or []
+    m['compatibility_suites'] = compatibility_suites or []
+    m['host_dependencies'] = host_dependencies or []
+    m['srcs'] = srcs or []
+    return m
 
 if __name__ == '__main__':
     unittest.main()

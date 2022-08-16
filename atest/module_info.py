@@ -28,7 +28,7 @@ import tempfile
 import time
 
 from pathlib import Path
-from typing import Any, Dict
+from typing import Any, Dict, Set
 
 import atest_utils
 import constants
@@ -220,15 +220,24 @@ class ModuleInfo:
         module_deps_infos = [file_path, self.java_dep_path, self.cc_dep_path]
         self._save_module_info_checksum(module_deps_infos)
         self.update_merge_info = self.need_update_merged_file(previous_checksum)
+        start = time.time()
         if self.update_merge_info:
             # Load the $ANDROID_PRODUCT_OUT/module-info.json for merging.
             with open(file_path) as module_info_json:
                 mod_info = self._merge_build_system_infos(
                     json.load(module_info_json))
+            duration = time.time() - start
+            logging.debug('Merging module info took %ss', duration)
+            metrics.LocalDetectEvent(
+                detect_type=DetectType.MODULE_MERGE_MS, result=int(duration*1000))
         else:
             # Load $ANDROID_PRODUCT_OUT/atest_merged_dep.json directly.
             with open(self.merged_dep_path) as merged_info_json:
                 mod_info = json.load(merged_info_json)
+            duration = time.time() - start
+            logging.debug('Loading module info took %ss', duration)
+            metrics.LocalDetectEvent(
+                detect_type=DetectType.MODULE_LOAD_MS, result=int(duration*1000))
         _add_missing_variant_modules(mod_info)
         logging.debug('Loading %s as module-info.', self.merged_dep_path)
         return module_info_target, mod_info
@@ -293,6 +302,7 @@ class ModuleInfo:
         logging.debug(r'Indexing testable modules... '
                       r'(This is required whenever module-info.json '
                       r'was rebuilt.)')
+        Path(self.module_index).parent.mkdir(parents=True, exist_ok=True)
         with open(self.module_index, 'wb') as cache:
             try:
                 pickle.dump(content, cache, protocol=2)
@@ -431,7 +441,8 @@ class ModuleInfo:
         """
         if not mod_info:
             return False
-        if mod_info.get(constants.MODULE_INSTALLED) and self.has_test_config(mod_info):
+        if all((mod_info.get(constants.MODULE_INSTALLED, []),
+                self.has_test_config(mod_info))):
             return True
         if self.is_robolectric_test(mod_info.get(constants.MODULE_NAME)):
             return True
@@ -644,7 +655,6 @@ class ModuleInfo:
         Returns:
             Dict of updated name_to_module_info.
         """
-        start = time.time()
         # Merge _JAVA_DEP_INFO
         if not java_bp_info_path:
             java_bp_info_path = self.java_dep_path
@@ -689,10 +699,6 @@ class ModuleInfo:
             json.dump(name_to_module_info, _temp, indent=0)
         shutil.copy(temp_file.name, self.merged_dep_path)
         temp_file.close()
-        duration = time.time() - start
-        logging.debug('Merging module info took %ss', duration)
-        metrics.LocalDetectEvent(
-            detect_type=DetectType.MODULE_MERGE_MS, result=int(duration*1000))
         return name_to_module_info
 
     def _merge_soong_info(self, name_to_module_info, mod_bp_infos):
@@ -847,6 +853,43 @@ class ModuleInfo:
             if mod_info.get(constants.MODULE_NAME, '') == mod_name:
                 if type_predicate(mod_info):
                     modules.append(mod_name)
+        return modules
+
+    def get_modules_by_path_in_srcs(self, path: str) -> str:
+        """Get the module name that the given path belongs to.(in 'srcs')
+
+        Args:
+            path: Relative path to ANDROID_BUILD_TOP of a file.
+
+        Returns:
+            A set of string for matched module names, empty set if nothing find.
+        """
+        modules = set()
+        for _, mod_info in self.name_to_module_info.items():
+            if path in mod_info.get(constants.MODULE_SRCS, []):
+                modules.add(mod_info.get(constants.MODULE_NAME))
+        return modules
+
+    def get_modules_by_include_deps(
+            self, deps: Set[str],
+            testable_module_only: bool = False) -> Set[str]:
+        """Get the matched module names for the input dependencies.
+
+        Args:
+            deps: A set of string for dependencies.
+            testable_module_only: Option if only want to get testable module.
+
+        Returns:
+            A set of matched module names for the input dependencies.
+        """
+        modules = set()
+
+        for mod_name in (self.get_testable_modules() if testable_module_only
+                         else self.name_to_module_info.keys()):
+            mod_info = self.get_module_info(mod_name)
+            if mod_info and deps.intersection(
+                set(mod_info.get(constants.MODULE_DEPENDENCIES, []))):
+                modules.add(mod_info.get(constants.MODULE_NAME))
         return modules
 
 

@@ -595,14 +595,16 @@ class AtestTradefedTestRunner(trb.TestRunnerBase):
             args_to_add.append('--replicate-parent-setup')
             args_to_add.append('--multi-device-count')
             args_to_add.append(str(device_count))
-
-        # TODO(b/122889707) Remove this after finding the root cause.
-        env_serial = os.environ.get(constants.ANDROID_SERIAL)
-        # Use the env variable ANDROID_SERIAL if it's set by user but only when
-        # the target tests are not deviceless tests.
-        if env_serial and '--serial' not in args_to_add and '-n' not in args_to_add:
-            args_to_add.append("--serial")
-            args_to_add.append(env_serial)
+            os.environ.pop(constants.ANDROID_SERIAL, None)
+        else:
+            # TODO(b/122889707) Remove this after finding the root cause.
+            env_serial = os.environ.get(constants.ANDROID_SERIAL)
+            # Use the env variable ANDROID_SERIAL if it's set by user but only
+            # when the target tests are not deviceless tests.
+            if (env_serial and '--serial' not in args_to_add
+                and '-n' not in args_to_add):
+                args_to_add.append("--serial")
+                args_to_add.append(env_serial)
 
         test_args.extend(args_to_add)
         if args_not_supported:
@@ -820,8 +822,10 @@ class AtestTradefedTestRunner(trb.TestRunnerBase):
         Returns: A string of tradefed template options.
         """
         tf_templates = extra_args.get(constants.TF_TEMPLATE, [])
+        tf_template_keys = [i.split('=')[0] for i in tf_templates]
         for info in test_infos:
-            if info.aggregate_metrics_result:
+            if (info.aggregate_metrics_result
+                    and 'metric_post_processor' not in tf_template_keys):
                 template_key = 'metric_post_processor'
                 template_value = (
                     'google/template/postprocessors/metric-file-aggregate')
@@ -1034,6 +1038,9 @@ def extra_args_to_tf_args(mod_info: module_info.ModuleInfo,
                 f'include-filter:{arg_value}',
                 '--test-arg',
                 'com.android.tradefed.testtype.GTest:native-test-flag:'
+                f'--gtest_filter={arg_value}',
+                '--test-arg',
+                'com.android.tradefed.testtype.HostGTest:native-test-flag:'
                 f'--gtest_filter={arg_value}'
             ],
         constants.TEST_TIMEOUT:

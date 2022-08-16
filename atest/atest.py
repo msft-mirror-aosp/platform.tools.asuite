@@ -53,6 +53,7 @@ import result_reporter
 import test_runner_handler
 
 from atest_enum import DetectType, ExitCode
+from coverage import coverage
 from metrics import metrics
 from metrics import metrics_base
 from metrics import metrics_utils
@@ -231,6 +232,7 @@ def get_extra_args(args):
                 'annotation_filter': constants.ANNOTATION_FILTER,
                 'bazel_arg': constants.BAZEL_ARG,
                 'collect_tests_only': constants.COLLECT_TESTS_ONLY,
+                'coverage': constants.COVERAGE,
                 'custom_args': constants.CUSTOM_ARGS,
                 'device_only': constants.DEVICE_ONLY,
                 'disable_teardown': constants.DISABLE_TEARDOWN,
@@ -932,6 +934,7 @@ def main(argv, results_dir, args):
     Returns:
         Exit code.
     """
+    _begin_time = time.time()
     _configure_logging(args.verbose)
     _validate_args(args)
     metrics_utils.get_start_time()
@@ -954,8 +957,9 @@ def main(argv, results_dir, args):
     smart_rebuild = need_rebuild_module_info(args.rebuild_module_info)
     mod_start = time.time()
     mod_info = module_info.ModuleInfo(force_build=smart_rebuild)
-    metrics.LocalDetectEvent(detect_type=DetectType.MODULE_INFO_INIT_TIME,
-                             result=int(time.time() - mod_start))
+    mod_stop = time.time() - mod_start
+    metrics.LocalDetectEvent(detect_type=DetectType.MODULE_INFO_INIT_MS,
+                             result=int(mod_stop * 1000))
     atest_utils.generate_buildfiles_checksum()
     if args.bazel_mode:
         start = time.time()
@@ -1047,6 +1051,11 @@ def main(argv, results_dir, args):
     # args.steps will be None if none of -bit set, else list of params set.
     steps = args.steps if args.steps else constants.ALL_STEPS
     if build_targets and constants.BUILD_STEP in steps:
+        # Set coverage environment variables.
+        env_vars = {}
+        if args.coverage:
+            env_vars.update(coverage.build_env_vars())
+
         # Add module-info.json target to the list of build targets to keep the
         # file up to date.
         build_targets.add(mod_info.module_info_target)
@@ -1055,6 +1064,7 @@ def main(argv, results_dir, args):
         build_targets |= _get_host_framework_targets(mod_info)
         build_start = time.time()
         success = atest_utils.build(build_targets, verbose=args.verbose,
+                                    env_vars=env_vars,
                                     mm_build_targets=mm_build_targets)
         build_duration = time.time() - build_start
         build_targets.update(mm_build_targets)
@@ -1105,6 +1115,13 @@ def main(argv, results_dir, args):
     tests_exit_code = ExitCode.SUCCESS
     test_start = time.time()
     if constants.TEST_STEP in steps:
+        # Only send duration to metrics when passing --test and not --build.
+        if constants.BUILD_STEP not in steps:
+            _init_and_find = time.time() - _begin_time
+            logging.debug('Initiation and finding tests took %ss', _init_and_find)
+            metrics.LocalDetectEvent(
+                detect_type=DetectType.INIT_AND_FIND_MS,
+                result=int(_init_and_find*1000))
         perm_consistency_metrics(test_infos, mod_info, args)
         if not is_from_test_mapping(test_infos):
             tests_exit_code, reporter = test_runner_handler.run_all_tests(

@@ -44,7 +44,7 @@ from pathlib import Path
 
 import xml.etree.ElementTree as ET
 
-from atest_enum import DetectType, FilterType
+from atest_enum import DetectType, FilterType, ExitCode
 
 # This is a workaround of b/144743252, where the http.client failed to loaded
 # because the googleapiclient was found before the built-in libs; enabling
@@ -89,12 +89,17 @@ except ImportError as err:
         from asuite.metrics import metrics_base
         from asuite.metrics import metrics_utils
     except ImportError as err:
-        # This exception occurs only when invoking atest in source code.
-        print("You shouldn't see this message unless you ran 'atest-src'. "
-              "To resolve the issue, please run:\n\t{}\n"
-              "and try again.".format('pip3 install protobuf'))
         print('Import error: ', err)
         print('sys.path:\n', '\n'.join(sys.path))
+        # Error occurs in prebuilt atest + prebuilt executable python3.
+        if Path(constants.VERSION_FILE).is_file():
+            colorful_print("This error may occur in unexpected conditions. "
+                "Please report this bug and use 'atest-src' as alternative.",
+                constants.RED)
+        else:
+            print("You shouldn't see this message unless you ran 'atest-src'. "
+              "To resolve the issue, please run:\n\t{}\n"
+              "and try again.".format('pip3 install protobuf'))
         sys.exit(constants.IMPORT_FAILURE)
 
 _BASH_RESET_CODE = '\033[0m\n'
@@ -328,8 +333,8 @@ def get_mainline_build_cmd(build_targets):
     static_targets = [
         'dist',
         'apps_only',
-        'out/soong/host/linux-x86/bin/merge_zips',
-        'out/soong/host/linux-x86/bin/aapt2'
+        'merge_zips',
+        'aapt2'
     ]
     cmd = get_build_cmd()
     cmd.append(target_build_apps)
@@ -955,8 +960,12 @@ def find_files(path, file_name=constants.TEST_MAPPING):
     """
     match_files = []
     for root, _, filenames in os.walk(path):
-        for filename in fnmatch.filter(filenames, file_name):
-            match_files.append(os.path.join(root, filename))
+        try:
+            for filename in fnmatch.filter(filenames, file_name):
+                match_files.append(os.path.join(root, filename))
+        except re.error as e:
+            logging.debug("Unable to locate %s among %s", file_name, filenames)
+            logging.debug("Exception: %s", e)
     return match_files
 
 def extract_zip_text(zip_path):
@@ -1344,11 +1353,16 @@ def get_config_device(test_config):
         A set include all the device name of the input config.
     """
     devices = set()
-    xml_root = ET.parse(test_config).getroot()
-    device_tags = xml_root.findall('.//device')
-    for tag in device_tags:
-        name = tag.attrib['name'].strip()
-        devices.add(name)
+    try:
+        xml_root = ET.parse(test_config).getroot()
+        device_tags = xml_root.findall('.//device')
+        for tag in device_tags:
+            name = tag.attrib['name'].strip()
+            devices.add(name)
+    except ET.ParseError as e:
+        colorful_print('Config has invalid format.', constants.RED)
+        colorful_print('File %s : %s' % (test_config, str(e)), constants.YELLOW)
+        sys.exit(ExitCode.CONFIG_INVALID_FORMAT)
     return devices
 
 def get_mainline_param(test_config):
@@ -1735,7 +1749,7 @@ def get_full_annotation_class_name(module_info, class_name):
     keyword_re = re.compile(
         r'import\s+(?P<fqcn>.*\.{})(|;)$'.format(class_name), re.I)
     build_top = Path(os.environ.get(constants.ANDROID_BUILD_TOP, ''))
-    for f in module_info.get('srcs'):
+    for f in module_info.get(constants.MODULE_SRCS, []):
         full_path = build_top.joinpath(f)
         with open(full_path, 'r') as cache:
             for line in cache.readlines():

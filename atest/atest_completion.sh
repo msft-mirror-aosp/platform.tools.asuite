@@ -167,11 +167,11 @@ function _atest_main() {
 
     # pyinstrument profiler
     function _atest_profile_cli() {
-        profile="$HOME/.atest/$(date +'%F_%H-%M-%S').pyisession"
+        profile="$HOME/.atest/$(date +'%FT%H-%M-%S').pyisession"
         module="pyinstrument"
         _pip_install $module
         if [ "$?" -eq 0 ]; then
-            $module --timeline --color -o $profile $atest_src "$@" && cat $profile
+            $module -o $profile $atest_src "$@" && $module -t --show-all --load $profile
             echo "$(tput setaf 3)$profile$(tput sgr0) saved."
         fi
     }

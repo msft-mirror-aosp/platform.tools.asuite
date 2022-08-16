@@ -28,8 +28,9 @@ import shutil
 import subprocess
 import sys
 import time
-
 import xml.etree.ElementTree as ET
+
+from pathlib import Path
 
 import atest_utils as au
 import constants
@@ -382,10 +383,17 @@ def index_targets(output_cache=constants.LOCATE_CACHE):
         logging.debug('command %s is unavailable; skip indexing.', LOCATE)
         return
     pre_md5sum = au.md5sum(constants.LOCATE_CACHE)
+    pre_size = sys.maxsize
+    if Path(constants.LOCATE_CACHE).is_file():
+        pre_size = Path(constants.LOCATE_CACHE).stat().st_size
     try:
         # Step 0: generate plocate database prior to indexing targets.
         run_updatedb(SEARCH_TOP, output_cache)
-        if pre_md5sum == au.md5sum(constants.LOCATE_CACHE):
+        # (b/206886222) checksum may be different even the src is not changed.
+        # check filesize as well to tell whether there are src changes or just
+        # metadata changes.
+        if any((pre_md5sum == au.md5sum(constants.LOCATE_CACHE),
+                pre_size == Path(constants.LOCATE_CACHE).stat().st_size)):
             logging.debug('%s remains the same. Ignore indexing', output_cache)
             return
         # Step 1: generate output string for indexing targets when needed.

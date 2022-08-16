@@ -16,16 +16,22 @@
 
 """Unittests for module_finder."""
 
+# pylint: disable=invalid-name
 # pylint: disable=line-too-long
+# pylint: disable=missing-function-docstring
 # pylint: disable=too-many-lines
 # pylint: disable=unsubscriptable-object
 
 import copy
 import re
+import tempfile
 import unittest
 import os
 
 from unittest import mock
+
+# pylint: disable=import-error
+from pyfakefs import fake_filesystem_unittest
 
 import atest_error
 import atest_configs
@@ -491,6 +497,7 @@ class ModuleFinderUnittests(unittest.TestCase):
         """Test find_test_by_path."""
         self.mod_finder.module_info.is_robolectric_test.return_value = False
         self.mod_finder.module_info.has_test_config.return_value = True
+        self.mod_finder.module_info.get_modules_by_include_deps.return_value = set()
         mock_build.return_value = set()
         # Check that we don't return anything with invalid test references.
         mock_pathexists.return_value = False
@@ -597,6 +604,51 @@ class ModuleFinderUnittests(unittest.TestCase):
         t_infos = self.mod_finder.find_test_by_path(class_dir)
         unittest_utils.assert_equal_testinfos(
             self, uc.CC_PATH_INFO, t_infos[0])
+
+    @mock.patch('constants.MODULE_INDEX', uc.MODULE_INDEX)
+    @mock.patch.object(module_finder.ModuleFinder, '_get_build_targets')
+    @mock.patch.object(module_finder.ModuleFinder, '_get_test_info_filter')
+    @mock.patch.object(test_finder_utils, 'find_parent_module_dir',
+                       return_value=None)
+    @mock.patch('os.path.exists')
+    #pylint: disable=unused-argument
+    def test_find_test_by_path_belong_to_dependencies(
+            self, _mock_exists, _mock_find_parent, _mock_test_filter,
+            _build_targets):
+        """Test find_test_by_path if belong to test dependencies."""
+        test1 = module(name='test1',
+                       classes=['class'],
+                       dependencies=['lib1'],
+                       installed=['install/test1'],
+                       auto_test_config=[True])
+        test2 = module(name='test2',
+                       classes=['class'],
+                       dependencies=['lib2'],
+                       installed=['install/test2'],
+                       auto_test_config=[True])
+        lib1 = module(name='lib1',
+                      srcs=['path/src1'])
+        lib2 = module(name='lib2',
+                      srcs=['path/src2'])
+        self.mod_finder.module_info = create_module_info(
+            [test1, test2, lib1, lib2])
+        _mock_exists.return_value = True
+        test1_filter = test_info.TestFilter('test1Filter', frozenset())
+        _mock_test_filter.return_value = test1_filter
+        _build_targets.return_value = ['test1_target']
+
+        t_infos = self.mod_finder.find_test_by_path('path/src1')
+
+        unittest_utils.assert_equal_testinfos(
+            self,
+            test_info.TestInfo(
+                'test1',
+                atf_tr.AtestTradefedTestRunner.NAME,
+                ['test1_target'],
+                {constants.TI_FILTER: test1_filter,
+                 constants.TI_REL_CONFIG: 'AndroidTest.xml'},
+                module_class=['class']),
+            t_infos[0])
 
     @mock.patch.object(module_finder.test_finder_utils, 'get_cc_class_info')
     @mock.patch.object(test_finder_utils, 'find_host_unit_tests',
@@ -1192,6 +1244,62 @@ class ModuleFinderUnittests(unittest.TestCase):
         self.assertEqual(
             self.mod_finder.find_test_by_class_name('my.test.class'),
             None)
+
+
+@mock.patch.dict('os.environ', {constants.ANDROID_BUILD_TOP: '/'})
+def create_empty_module_info():
+    with fake_filesystem_unittest.Patcher() as patcher:
+        # pylint: disable=protected-access
+        fake_temp_file_name = next(tempfile._get_candidate_names())
+        patcher.fs.create_file(fake_temp_file_name, contents='{}')
+        return module_info.ModuleInfo(module_file=fake_temp_file_name)
+
+
+def create_module_info(modules=None):
+    mod_info = create_empty_module_info()
+    modules = modules or []
+
+    for m in modules:
+        mod_info.name_to_module_info[m['module_name']] = m
+
+    return mod_info
+
+
+# pylint: disable=too-many-arguments
+def module(
+    name=None,
+    path=None,
+    installed=None,
+    classes=None,
+    auto_test_config=None,
+    shared_libs=None,
+    dependencies=None,
+    runtime_dependencies=None,
+    data=None,
+    data_dependencies=None,
+    compatibility_suites=None,
+    host_dependencies=None,
+    srcs=None,
+):
+    name = name or 'libhello'
+
+    m = {}
+
+    m['module_name'] = name
+    m['class'] = classes
+    m['path'] = [path or '']
+    m['installed'] = installed or []
+    m['is_unit_test'] = 'false'
+    m['auto_test_config'] = auto_test_config or []
+    m['shared_libs'] = shared_libs or []
+    m['runtime_dependencies'] = runtime_dependencies or []
+    m['dependencies'] = dependencies or []
+    m['data'] = data or []
+    m['data_dependencies'] = data_dependencies or []
+    m['compatibility_suites'] = compatibility_suites or []
+    m['host_dependencies'] = host_dependencies or []
+    m['srcs'] = srcs or []
+    return m
 
 if __name__ == '__main__':
     unittest.main()
