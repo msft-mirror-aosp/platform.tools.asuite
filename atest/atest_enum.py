@@ -73,6 +73,9 @@ class ExitCode(IntEnum):
     MIXED_TYPE_FILTER = 12
     INPUT_TEST_REFERENCE_ERROR = 13
     CONFIG_INVALID_FORMAT = 14
+    # The code > 100 are reserved for collecting data only, actually the run
+    # doesn't finish at the point.
+    COLLECT_ONLY_FILE_NOT_FOUND = 101
 
 @unique
 class FilterType(Enum):
