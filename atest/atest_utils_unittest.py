@@ -27,6 +27,7 @@ import tempfile
 import unittest
 
 from io import StringIO
+from pathlib import Path
 from unittest import mock
 
 import atest_error
@@ -37,7 +38,6 @@ import unittest_constants
 
 from test_finders import test_info
 from atest_enum import FilterType
-
 
 TEST_MODULE_NAME_A = 'ModuleNameA'
 TEST_RUNNER_A = 'FakeTestRunnerA'
@@ -527,28 +527,55 @@ class AtestUtilsUnittests(unittest.TestCase):
                                       "not-valid-module-info.json")
         self.assertFalse(atest_utils.is_valid_json_file(json_file_path))
 
-    @mock.patch('subprocess.Popen')
     @mock.patch('os.getenv')
-    def test_get_manifest_branch(self, mock_env, mock_popen):
+    def test_get_manifest_branch(self, mock_env):
         """Test method get_manifest_branch"""
-        mock_env.return_value = 'any_path'
-        process = mock_popen.return_value
-        process.communicate.return_value = (REPO_INFO_OUTPUT, '')
-        self.assertEqual('test_branch', atest_utils.get_manifest_branch())
+        build_top = tempfile.TemporaryDirectory()
+        mock_env.return_value = build_top.name
+        repo_dir = Path(build_top.name).joinpath('.repo')
+        portal_xml = repo_dir.joinpath('manifest.xml')
+        manifest_dir = repo_dir.joinpath('manifests')
+        target_xml = manifest_dir.joinpath('Default.xml')
+        repo_dir.mkdir()
+        manifest_dir.mkdir()
+        content_portal = '<manifest><include name="Default.xml" /></manifest>'
+        content_manifest = '''<manifest>
+            <remote name="aosp" fetch=".." review="https://android-review.googlesource.com/" />
+            <default revision="MONSTER-dev" remote="aosp" sync-j="4" />
+        </manifest>'''
 
-        mock_env.return_value = 'any_path'
-        process.communicate.return_value = ('not_matched_branch_pattern.', '')
-        self.assertEqual(None, atest_utils.get_manifest_branch())
+        # 1. The manifest.xml(portal) contains 'include' directive: 'Default.xml'.
+        # Search revision in .repo/manifests/Default.xml.
+        with open(portal_xml, 'w') as cache:
+            cache.write(content_portal)
+        with open(target_xml, 'w') as cache:
+            cache.write(content_manifest)
+        self.assertEqual("MONSTER-dev", atest_utils.get_manifest_branch())
+        os.remove(target_xml)
+        os.remove(portal_xml)
 
-        mock_env.return_value = 'any_path'
-        process.communicate.side_effect = subprocess.TimeoutExpired(
-            1,
-            'repo info')
-        self.assertEqual(None, atest_utils.get_manifest_branch())
+        # 2. The manifest.xml contains neither 'include' nor 'revision' directive,
+        # keep searching revision in .repo/manifests/default.xml by default.
+        with open(portal_xml, 'w') as cache:
+            cache.write('<manifest></manifest>')
+        default_xml = manifest_dir.joinpath('default.xml')
+        with open(default_xml, 'w') as cache:
+            cache.write(content_manifest)
+        self.assertEqual("MONSTER-dev", atest_utils.get_manifest_branch())
+        os.remove(default_xml)
+        os.remove(portal_xml)
 
-        mock_env.return_value = None
-        process.communicate.return_value = (REPO_INFO_OUTPUT, '')
-        self.assertEqual(None, atest_utils.get_manifest_branch())
+        # 3. revision was directly defined in 'manifest.xml'.
+        with open(portal_xml, 'w') as cache:
+            cache.write(content_manifest)
+        self.assertEqual("MONSTER-dev", atest_utils.get_manifest_branch())
+        os.remove(portal_xml)
+
+        # 4. Return None if the included xml does not exist.
+        with open(portal_xml, 'w') as cache:
+            cache.write(content_portal)
+        self.assertEqual('', atest_utils.get_manifest_branch())
+        os.remove(portal_xml)
 
     def test_has_wildcard(self):
         """Test method of has_wildcard"""
