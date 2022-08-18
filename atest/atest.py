@@ -1155,12 +1155,13 @@ def main(argv, results_dir, args):
 
 if __name__ == '__main__':
     RESULTS_DIR = make_test_run_dir()
-    final_args = [*sys.argv[1:], *_get_args_from_config()]
     if END_OF_OPTION in sys.argv:
         end_position = sys.argv.index(END_OF_OPTION)
         final_args = [*sys.argv[1:end_position],
                       *_get_args_from_config(),
                       *sys.argv[end_position:]]
+    else:
+        final_args = [*sys.argv[1:], *_get_args_from_config()]
     if final_args != sys.argv[1:]:
         print('The actual cmd will be: \n\t{}\n'.format(
             atest_utils.colorize("atest " + " ".join(final_args),
