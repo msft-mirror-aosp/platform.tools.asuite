@@ -964,8 +964,14 @@ def find_files(path, file_name=constants.TEST_MAPPING):
             for filename in fnmatch.filter(filenames, file_name):
                 match_files.append(os.path.join(root, filename))
         except re.error as e:
-            logging.debug("Unable to locate %s among %s", file_name, filenames)
+            msg = "Unable to locate %s among %s" % (file_name, filenames)
+            logging.debug(msg)
             logging.debug("Exception: %s", e)
+            metrics.AtestExitEvent(
+                duration=0,
+                exit_code=ExitCode.COLLECT_ONLY_FILE_NOT_FOUND,
+                stacktrace=msg,
+                logs=e)
     return match_files
 
 def extract_zip_text(zip_path):
