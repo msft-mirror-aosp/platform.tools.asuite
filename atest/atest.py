@@ -996,7 +996,10 @@ def main(argv, results_dir, args):
     dry_run_args = (args.update_cmd_mapping, args.verify_cmd_mapping,
                     args.dry_run, args.generate_runner_cmd)
     if _will_run_tests(args):
-        if proc_idx:
+        # (b/242567487) index_targets may finish after cli_translator; to
+        # mitigate the overhead, the main waits until it finished when no index
+        # files are available (e.g. fresh repo sync)
+        if proc_idx and not atest_utils.has_index_files():
             proc_idx.join()
         find_start = time.time()
         build_targets, test_infos = translator.translate(args)
