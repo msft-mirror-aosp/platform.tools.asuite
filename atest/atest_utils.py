@@ -1712,21 +1712,22 @@ def handle_test_env_var(input_test, result_path=constants.VERIFY_ENV_PATH,
         raise atest_error.DryRunVerificationError('\n'.join(verify_error))
     return 1
 
-def generate_buildfiles_checksum():
+def generate_buildfiles_checksum(target_dir: Path):
     """ Method that generate md5 checksum of Android.{bp,mk} files.
 
     The checksum of build files are stores in
         $ANDROID_HOST_OUT/indexes/buildfiles.md5
     """
-    if os.path.isfile(constants.LOCATE_CACHE):
-        cmd = (f'locate -d{constants.LOCATE_CACHE} --existing '
-               r'--regex "/Android.(bp|mk)$"')
+    plocate_db = Path(target_dir).joinpath(constants.LOCATE_CACHE)
+    checksum_file = Path(target_dir).joinpath(constants.BUILDFILES_MD5)
+    if plocate_db.is_file():
+        cmd = (f'locate -d{plocate_db} --existing '
+               r'--regex "/Android\.(bp|mk)$"')
         try:
             result = subprocess.check_output(cmd, shell=True).decode('utf-8')
-            save_md5(result.split(), constants.BUILDFILES_MD5)
+            save_md5(result.split(), checksum_file)
         except subprocess.CalledProcessError:
-            logging.error('Failed to generate %s',
-                          constants.BUILDFILES_MD5)
+            logging.error('Failed to generate %s', checksum_file)
 
 def run_multi_proc(func, *args, **kwargs):
     """Start a process with multiprocessing and return Process object.
