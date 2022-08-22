@@ -91,6 +91,7 @@ class CLITranslator:
             self.msg = ('(Test info has been cached for speeding up the next '
                         'run, if test info need to be updated, please add -c '
                         'to clean the old cache.)')
+        self.fuzzy_search = True
 
     # pylint: disable=too-many-locals
     # pylint: disable=too-many-branches
@@ -173,11 +174,14 @@ class CLITranslator:
                 test_info_str = ','.join([str(x) for x in found_test_infos])
                 break
         if not test_found:
-            f_results = self._fuzzy_search_and_msg(test, find_test_err_msg)
-            if f_results:
-                test_infos.update(f_results)
-                test_found = True
-                test_finders.append(FUZZY_FINDER)
+            print('No test found for: {}'.format(
+                atest_utils.colorize(test, constants.RED)))
+            if self.fuzzy_search:
+                f_results = self._fuzzy_search_and_msg(test, find_test_err_msg)
+                if f_results:
+                    test_infos.update(f_results)
+                    test_found = True
+                    test_finders.append(FUZZY_FINDER)
         metrics.FindTestFinishEvent(
             duration=metrics_utils.convert_duration(
                 time.time() - test_find_starts),
@@ -234,8 +238,6 @@ class CLITranslator:
         Returns:
             A list of TestInfos if found, otherwise None.
         """
-        print('No test found for: %s' %
-              atest_utils.colorize(test, constants.RED))
         # Currently we focus on guessing module names. Append names on
         # results if more finders support fuzzy searching.
         if atest_utils.has_chars(test, TESTNAME_CHARS):
@@ -617,12 +619,14 @@ class CLITranslator:
             A tuple with set of build_target strings and list of TestInfos.
         """
         tests = args.tests
+        self.fuzzy_search = args.fuzzy_search
         # Test details from TEST_MAPPING files
         test_details_list = None
         # Loading Host Unit Tests.
         host_unit_tests = []
         detect_type = DetectType.TEST_WITH_ARGS
         if not args.tests or atest_utils.is_test_mapping(args):
+            self.fuzzy_search = False
             detect_type = DetectType.TEST_NULL_ARGS
         start = time.time()
         # Not including host unit tests if user specify --test-mapping arg.
