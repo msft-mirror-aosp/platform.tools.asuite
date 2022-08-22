@@ -32,7 +32,8 @@ load(
     "vts_core_tradefed_harness_label",
 )
 
-_BAZEL_WORK_DIR = "${TEST_SRCDIR}/${TEST_WORKSPACE}/"
+_TEST_SRCDIR = "${TEST_SRCDIR}"
+_BAZEL_WORK_DIR = "%s/${TEST_WORKSPACE}/" % _TEST_SRCDIR
 _PY_TOOLCHAIN = "@bazel_tools//tools/python:toolchain_type"
 _TOOLCHAINS = [_PY_TOOLCHAIN]
 
@@ -273,7 +274,7 @@ def _tradefed_test_impl(
             "{module_name}": ctx.attr.module_name,
             "{atest_tradefed_launcher}": _abspath(ctx.file._atest_tradefed_launcher),
             "{atest_helper}": _abspath(ctx.file._atest_helper),
-            "{tradefed_tests_dir}": _BAZEL_WORK_DIR + ctx.attr.test[0].label.package,
+            "{tradefed_tests_dir}": _TEST_SRCDIR,
             "{tradefed_classpath}": tradefed_classpath,
             "{shared_lib_dirs}": shared_lib_dirs,
             "{path_additions}": ":".join(path_additions),
