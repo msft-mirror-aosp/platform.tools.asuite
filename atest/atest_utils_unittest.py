@@ -509,23 +509,25 @@ class AtestUtilsUnittests(unittest.TestCase):
         self.assertEqual(test_record.children[0].inline_test_record.test_record_id,
                          'x86 hello_world_test')
 
-    def test_is_valid_json_file_file_not_exist(self):
-        """Test method is_valid_json_file if file not exist."""
-        json_file_path = os.path.join(unittest_constants.TEST_DATA_DIR,
-                                      "not_exist.json")
-        self.assertFalse(atest_utils.is_valid_json_file(json_file_path))
+    def test_load_json_safely_file_inexistent(self):
+        """Test method load_json_safely if file does not exist."""
+        json_file_path = Path(
+            unittest_constants.TEST_DATA_DIR).joinpath("not_exist.json")
+        self.assertEqual({}, atest_utils.load_json_safely(json_file_path))
 
-    def test_is_valid_json_file_content_valid(self):
-        """Test method is_valid_json_file if file exist and content is valid."""
-        json_file_path = os.path.join(unittest_constants.TEST_DATA_DIR,
-                                      "module-info.json")
-        self.assertTrue(atest_utils.is_valid_json_file(json_file_path))
+    def test_load_json_safely_valid_json_format(self):
+        """Test method load_json_safely if file exists and format is valid."""
+        json_file_path = Path(
+            unittest_constants.TEST_DATA_DIR).joinpath("module-info.json")
+        content = atest_utils.load_json_safely(json_file_path)
+        self.assertEqual('MainModule1', content.get('MainModule1').get('module_name'))
+        self.assertEqual([], content.get('MainModule2').get('test_mainline_modules'))
 
-    def test_is_valid_json_file_content_not_valid(self):
-        """Test method is_valid_json_file if file exist but content is valid."""
-        json_file_path = os.path.join(unittest_constants.TEST_DATA_DIR,
-                                      "not-valid-module-info.json")
-        self.assertFalse(atest_utils.is_valid_json_file(json_file_path))
+    def test_load_json_safely_invalid_json_format(self):
+        """Test method load_json_safely if file exist but content is invalid."""
+        json_file_path = Path(
+            unittest_constants.TEST_DATA_DIR).joinpath("not-valid-module-info.json")
+        self.assertEqual({}, atest_utils.load_json_safely(json_file_path))
 
     @mock.patch('os.getenv')
     def test_get_manifest_branch(self, mock_env):
