@@ -1857,3 +1857,18 @@ def get_filter_types(tf_filter_set):
                          tf_filter, FilterType.REGULAR_FILTER.value)
             type_set.add(FilterType.REGULAR_FILTER.value)
     return type_set
+
+def has_index_files():
+    """Determine whether the essential index files are done.
+
+    (b/206886222) checksum may be different even the src is not changed; so
+    the main process needs to wait when the essential index files do not exist.
+
+    Returns:
+        False if one of the index file does not exist; True otherwise.
+    """
+    return all(Path(f).is_file() for f in [
+        constants.CLASS_INDEX,
+        constants.CC_CLASS_INDEX,
+        constants.QCLASS_INDEX,
+        constants.PACKAGE_INDEX])

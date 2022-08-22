@@ -27,6 +27,7 @@ import re
 import shutil
 import subprocess
 import sys
+import tempfile
 import time
 import xml.etree.ElementTree as ET
 
@@ -167,8 +168,9 @@ def _dump_index(dump_file, output, output_re, key, value):
       'Boo': {'/path3/to/Boo.java'}
     }
     """
+    temp_file = tempfile.NamedTemporaryFile()
     _dict = {}
-    with open(dump_file, 'wb') as cache_file:
+    with open(temp_file.name, 'wb') as cache_file:
         if isinstance(output, bytes):
             output = output.decode()
         for entry in output.splitlines():
@@ -179,8 +181,9 @@ def _dump_index(dump_file, output, output_re, key, value):
         try:
             pickle.dump(_dict, cache_file, protocol=2)
         except IOError:
-            os.remove(dump_file)
             logging.error('Failed in dumping %s', dump_file)
+    shutil.copy(temp_file.name, dump_file)
+    temp_file.close()
 
 # pylint: disable=anomalous-backslash-in-string
 def get_manifest_result(locatedb=constants.LOCATE_CACHE, **kwargs):
@@ -351,8 +354,9 @@ def _index_qualified_classes(output, index):
         index: A string path of the index file.
     """
     logging.debug('indexing qualified classes.')
+    temp_file = tempfile.NamedTemporaryFile()
     _dict = {}
-    with open(index, 'wb') as cache_file:
+    with open(temp_file.name, 'wb') as cache_file:
         if isinstance(output, bytes):
             output = output.decode()
         for entry in output.split('\n'):
@@ -364,9 +368,10 @@ def _index_qualified_classes(output, index):
             pickle.dump(_dict, cache_file, protocol=2)
         except (KeyboardInterrupt, SystemExit):
             logging.error('Process interrupted or failure.')
-            os.remove(index)
         except IOError:
             logging.error('Failed in dumping %s', index)
+    shutil.copy(temp_file.name, index)
+    temp_file.close()
 
 def index_targets(output_cache=constants.LOCATE_CACHE):
     """The entrypoint of indexing targets.
