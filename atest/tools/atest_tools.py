@@ -437,11 +437,10 @@ def acloud_create(report_file, args="", no_metrics_notice=True):
     acloud_duration = time.time() - start
     logging.info('"acloud create" process has completed.')
     # Insert acloud create duration into the report file.
-    if au.is_valid_json_file(report_file):
+    result = au.load_json_safely(report_file)
+    if result:
+        result[ACLOUD_DURATION] = acloud_duration
         try:
-            with open(report_file, 'r') as _rfile:
-                result = json.load(_rfile)
-            result[ACLOUD_DURATION] = acloud_duration
             with open(report_file, 'w+') as _wfile:
                 _wfile.write(json.dumps(result))
         except OSError as e:
@@ -463,7 +462,7 @@ def probe_acloud_status(report_file):
     """
     # 1. Created but the status is not 'SUCCESS'
     if os.path.exists(report_file):
-        if not au.is_valid_json_file(report_file):
+        if not au.load_json_safely(report_file):
             return ExitCode.AVD_CREATE_FAILURE
         with open(report_file, 'r') as rfile:
             result = json.load(rfile)
@@ -494,10 +493,10 @@ def get_acloud_duration(report_file):
     Returns:
         An float of seconds which acloud create takes.
     """
-    if not au.is_valid_json_file(report_file):
+    content = au.load_json_safely(report_file)
+    if not content:
         return 0
-    with open(report_file, 'r') as rfile:
-        return json.load(rfile).get(ACLOUD_DURATION, 0)
+    return content.get(ACLOUD_DURATION, 0)
 
 
 if __name__ == '__main__':
