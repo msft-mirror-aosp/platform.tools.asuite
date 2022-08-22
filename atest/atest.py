@@ -960,6 +960,11 @@ def main(argv, results_dir, args):
     mod_stop = time.time() - mod_start
     metrics.LocalDetectEvent(detect_type=DetectType.MODULE_INFO_INIT_MS,
                              result=int(mod_stop * 1000))
+    atest_utils.run_multi_proc(
+        func=mod_info._save_module_info_checksum,
+        args=[[mod_info.mod_info_file_path,
+               mod_info.java_dep_path,
+               mod_info.cc_dep_path]])
     atest_utils.generate_buildfiles_checksum()
     if args.bazel_mode:
         start = time.time()
