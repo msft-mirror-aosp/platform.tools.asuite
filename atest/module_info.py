@@ -205,8 +205,6 @@ class ModuleInfo:
         # Even undergone a rebuild after _discover_mod_file_and_target(), merge
         # atest_merged_dep.json only when module_deps_infos actually change so
         # that Atest can decrease disk I/O and ensure data accuracy at all.
-        module_deps_infos = [file_path, self.java_dep_path, self.cc_dep_path]
-        self._save_module_info_checksum(module_deps_infos)
         self.update_merge_info = self.need_update_merged_file(previous_checksum)
         start = time.time()
         if self.update_merge_info:
