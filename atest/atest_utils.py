@@ -44,7 +44,7 @@ from pathlib import Path
 
 import xml.etree.ElementTree as ET
 
-from atest_enum import DetectType, FilterType, ExitCode
+from atest_enum import DetectType, ExitCode, FilterType
 
 # This is a workaround of b/144743252, where the http.client failed to loaded
 # because the googleapiclient was found before the built-in libs; enabling
@@ -745,22 +745,19 @@ def check_md5(check_file, missing_ok=False):
           - True if the checksum is consistent with the actual MD5.
           - False otherwise.
     """
-    if not os.path.isfile(check_file):
+    if not Path(check_file).is_file():
         if not missing_ok:
             logging.debug(
                 'Unable to verify: %s not found.', check_file)
         return missing_ok
-    if not is_valid_json_file(check_file):
-        logging.debug(
-            'Unable to verify: %s invalid JSON format.', check_file)
-        return missing_ok
-    with open(check_file, 'r+') as _file:
-        content = json.load(_file)
+    content = load_json_safely(check_file)
+    if content:
         for filename, md5 in content.items():
             if md5sum(filename) != md5:
                 logging.debug('%s has altered.', filename)
                 return False
-    return True
+        return True
+    return False
 
 def save_md5(filenames, save_file):
     """Method equivalent to 'md5sum file1 file2 > /file/to/check'
@@ -1132,26 +1129,27 @@ def has_python_module(module_name):
     """
     return bool(importlib.util.find_spec(module_name))
 
-def is_valid_json_file(path):
-    """Detect if input path exist and content is valid.
+def load_json_safely(jsonfile):
+    """Load the given json file as an object.
 
     Args:
-        path: The json file path.
+        jsonfile: The json file path.
 
     Returns:
-        True if file exist and content is valid, False otherwise.
+        The content of the give json file. Null dict when:
+        1. the given path doesn't exist.
+        2. the given path is not a json or invalid format.
     """
-    if isinstance(path, bytes):
-        path = path.decode('utf-8')
-    try:
-        if os.path.isfile(path):
-            with open(path) as json_file:
-                json.load(json_file)
-            return True
-        logging.debug('%s: File not found.', path)
-    except json.JSONDecodeError:
-        logging.debug('Exception happened while loading %s.', path)
-    return False
+    if isinstance(jsonfile, bytes):
+        jsonfile = jsonfile.decode('utf-8')
+    if Path(jsonfile).is_file():
+        try:
+            return json.load(open(jsonfile))
+        except json.JSONDecodeError:
+            logging.debug('Exception happened while loading %s.', jsonfile)
+    else:
+        logging.debug('%s: File not found.', jsonfile)
+    return {}
 
 def get_manifest_branch():
     """Get the manifest branch.
@@ -1219,6 +1217,28 @@ def get_build_target():
         os.getenv(constants.ANDROID_TARGET_PRODUCT, None),
         os.getenv(constants.TARGET_BUILD_VARIANT, None))
     return build_target
+
+def build_module_info_target(module_info_target):
+    """Build module-info.json after deleting the original one.
+
+    Args:
+        module_info_target: the target name that soong is going to build.
+    """
+    module_file = 'module-info.json'
+    logging.debug('Generating %s - this is required for '
+                  'initial runs or forced rebuilds.', module_file)
+    build_start = time.time()
+    product_out = os.getenv(constants.ANDROID_PRODUCT_OUT, None)
+    module_info_path = Path(product_out).joinpath('module-info.json')
+    if module_info_path.is_file():
+        os.remove(module_info_path)
+    if not build([module_info_target],
+                  verbose=logging.getLogger().isEnabledFor(logging.DEBUG)):
+        sys.exit(ExitCode.BUILD_FAILURE)
+    build_duration = time.time() - build_start
+    metrics.LocalDetectEvent(
+        detect_type=DetectType.ONLY_BUILD_MODULE_INFO,
+        result=int(build_duration))
 
 def parse_mainline_modules(test):
     """Parse test reference into test and mainline modules.
@@ -1692,21 +1712,22 @@ def handle_test_env_var(input_test, result_path=constants.VERIFY_ENV_PATH,
         raise atest_error.DryRunVerificationError('\n'.join(verify_error))
     return 1
 
-def generate_buildfiles_checksum():
+def generate_buildfiles_checksum(target_dir: Path):
     """ Method that generate md5 checksum of Android.{bp,mk} files.
 
     The checksum of build files are stores in
         $ANDROID_HOST_OUT/indexes/buildfiles.md5
     """
-    if os.path.isfile(constants.LOCATE_CACHE):
-        cmd = (f'locate -d{constants.LOCATE_CACHE} --existing '
-               r'--regex "/Android.(bp|mk)$"')
+    plocate_db = Path(target_dir).joinpath(constants.LOCATE_CACHE)
+    checksum_file = Path(target_dir).joinpath(constants.BUILDFILES_MD5)
+    if plocate_db.is_file():
+        cmd = (f'locate -d{plocate_db} --existing '
+               r'--regex "/Android\.(bp|mk)$"')
         try:
             result = subprocess.check_output(cmd, shell=True).decode('utf-8')
-            save_md5(result.split(), constants.BUILDFILES_MD5)
+            save_md5(result.split(), checksum_file)
         except subprocess.CalledProcessError:
-            logging.error('Failed to generate %s',
-                          constants.BUILDFILES_MD5)
+            logging.error('Failed to generate %s', checksum_file)
 
 def run_multi_proc(func, *args, **kwargs):
     """Start a process with multiprocessing and return Process object.
@@ -1837,3 +1858,18 @@ def get_filter_types(tf_filter_set):
                          tf_filter, FilterType.REGULAR_FILTER.value)
             type_set.add(FilterType.REGULAR_FILTER.value)
     return type_set
+
+def has_index_files():
+    """Determine whether the essential index files are done.
+
+    (b/206886222) checksum may be different even the src is not changed; so
+    the main process needs to wait when the essential index files do not exist.
+
+    Returns:
+        False if one of the index file does not exist; True otherwise.
+    """
+    return all(Path(f).is_file() for f in [
+        constants.CLASS_INDEX,
+        constants.CC_CLASS_INDEX,
+        constants.QCLASS_INDEX,
+        constants.PACKAGE_INDEX])
