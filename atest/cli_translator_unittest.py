@@ -29,6 +29,7 @@ from importlib import reload
 from io import StringIO
 from unittest import mock
 
+import atest_arg_parser
 import atest_utils
 import cli_translator as cli_t
 import constants
@@ -90,7 +91,9 @@ class CLITranslatorUnittests(unittest.TestCase):
         self.ctr = cli_t.CLITranslator()
 
         # Create a mock of args.
-        self.args = mock.Mock
+        parser = atest_arg_parser.AtestArgParser()
+        parser.add_atest_args()
+        self.args = parser.parse_args()
         self.args.tests = []
         # Test mapping related args
         self.args.test_mapping = False

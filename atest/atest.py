@@ -775,20 +775,25 @@ def _exclude_modules_in_targets(build_targets):
     return shrank_build_targets
 
 # pylint: disable=protected-access
-def need_rebuild_module_info(force_build):
+def need_rebuild_module_info(test_steps: None,
+                             force_rebuild: bool = False) -> bool:
     """Method that tells whether we need to rebuild module-info.json or not.
 
     Args:
-        force_build: A boolean flag that determine everything.
+        args: An argparse.Namespace class instance holding parsed args.
 
     Returns:
-        - When force_build is True, return True (will rebuild module-info).
-        - When force_build is False, then check the consistency of build files.
-        If the checksum file of build files is missing, considered check False
-        (need to rebuild module-info.json)
+        - When only --test is set, return False (won't build module-info.json).
+        - When --rebuild-module-info is set, return True (forcely rebuild).
+        - When the build files were changed, return True(smartly rebuild).
+        - When the checksum file of build files is inexistent, return True
+          (smartly rebuild).
     """
+    if test_steps and constants.BUILD_STEP not in test_steps:
+        logging.debug('\"--test\" mode detected, will not rebuild module-info.')
+        return False
     logging.debug('Examinating the consistency of build files...')
-    if force_build:
+    if force_rebuild:
         msg = (f'`{constants.REBUILD_MODULE_INFO_FLAG}` is no longer needed '
                f'since Atest can smartly rebuild {module_info._MODULE_INFO} '
                r'only when needed.')
@@ -954,13 +959,22 @@ def main(argv, results_dir, args):
     # Do not index targets while the users intend to dry-run tests.
     if need_run_index_targets(args, extra_args):
         proc_idx = atest_utils.run_multi_proc(INDEX_TARGETS)
-    smart_rebuild = need_rebuild_module_info(args.rebuild_module_info)
+    smart_rebuild = need_rebuild_module_info(
+        test_steps=args.steps,
+        force_rebuild=args.rebuild_module_info)
     mod_start = time.time()
     mod_info = module_info.ModuleInfo(force_build=smart_rebuild)
     mod_stop = time.time() - mod_start
     metrics.LocalDetectEvent(detect_type=DetectType.MODULE_INFO_INIT_MS,
                              result=int(mod_stop * 1000))
-    atest_utils.generate_buildfiles_checksum()
+    atest_utils.run_multi_proc(
+        func=mod_info._save_module_info_checksum,
+        args=[[mod_info.mod_info_file_path,
+               mod_info.java_dep_path,
+               mod_info.cc_dep_path]])
+    atest_utils.run_multi_proc(
+        func=atest_utils.generate_buildfiles_checksum,
+        args=[mod_info.module_index.parent])
     if args.bazel_mode:
         start = time.time()
         bazel_mode.generate_bazel_workspace(
@@ -985,7 +999,10 @@ def main(argv, results_dir, args):
     dry_run_args = (args.update_cmd_mapping, args.verify_cmd_mapping,
                     args.dry_run, args.generate_runner_cmd)
     if _will_run_tests(args):
-        if proc_idx:
+        # (b/242567487) index_targets may finish after cli_translator; to
+        # mitigate the overhead, the main waits until it finished when no index
+        # files are available (e.g. fresh repo sync)
+        if proc_idx and not atest_utils.has_index_files():
             proc_idx.join()
         find_start = time.time()
         build_targets, test_infos = translator.translate(args)
