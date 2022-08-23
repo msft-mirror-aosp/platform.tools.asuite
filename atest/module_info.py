@@ -197,7 +197,8 @@ class ModuleInfo:
         # module_info_target stays None.
         module_info_target = None
         file_path = module_file
-        previous_checksum = self._get_module_info_checksums()
+        previous_checksum = atest_utils.load_json_safely(
+            self.module_info_checksum)
         if not file_path:
             module_info_target, file_path = self._discover_mod_file_and_target(
                 self.force_build)
@@ -234,15 +235,7 @@ class ModuleInfo:
         logging.debug('Loading %s as module-info.', self.merged_dep_path)
         return module_info_target, mod_info
 
-    def _get_module_info_checksums(self):
-        """Load the module-info.md5 and return the content.
-
-        Returns:
-            A dict of filename and checksum.
-        """
-        return atest_utils.load_json_safely(self.module_info_checksum)
-
-    def _save_module_info_checksum(self, filenames):
+    def _save_module_info_checksum(self):
         """Dump the checksum of essential module info files.
            * module-info.json
            * module_bp_cc_deps.json
@@ -251,7 +244,10 @@ class ModuleInfo:
         dirname = Path(self.module_info_checksum).parent
         if not dirname.is_dir():
             dirname.mkdir(parents=True)
-        atest_utils.save_md5(filenames, self.module_info_checksum)
+        atest_utils.save_md5([
+            self.mod_info_file_path,
+            self.java_dep_path,
+            self.cc_dep_path], self.module_info_checksum)
 
     @staticmethod
     def _get_path_to_module_info(name_to_module_info):
@@ -771,7 +767,11 @@ class ModuleInfo:
         Returns:
             True if one of the scienarios reaches, False otherwise.
         """
-        return (checksum != self._get_module_info_checksums() or
+        current_checksum = {str(name): atest_utils.md5sum(name) for name in [
+            self.mod_info_file_path,
+            self.java_dep_path,
+            self.cc_dep_path]}
+        return (checksum != current_checksum or
             not Path(self.merged_dep_path).is_file())
 
     def is_unit_test(self, mod_info):
