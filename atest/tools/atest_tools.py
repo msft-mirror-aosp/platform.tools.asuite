@@ -72,6 +72,7 @@ PRUNENAMES = ['.abc', '.appveyor', '.azure-pipelines',
               '.travis_scripts',
               '.tx',
               '.vscode']
+PRUNEPATHS = ['out', 'prebuilts']
 
 def _delete_indexes():
     """Delete all available index files."""
@@ -123,7 +124,8 @@ def run_updatedb(search_root=SEARCH_TOP, output_cache=constants.LOCATE_CACHE,
             prunenames: A list of dirname that won't be cached(-n).
     """
     prunenames = kwargs.pop('prunenames', ' '.join(PRUNENAMES))
-    prunepaths = kwargs.pop('prunepaths', os.path.join(search_root, 'out'))
+    prunepaths = kwargs.pop('prunepaths', ' '.join(
+        [os.path.join(SEARCH_TOP, p) for p in PRUNEPATHS]))
     if kwargs:
         raise TypeError('Unexpected **kwargs: %r' % kwargs)
     updatedb_cmd = [UPDATEDB, '-l0']
