@@ -128,19 +128,26 @@ class AtestTradefedTestRunner(trb.TestRunnerBase):
         log_args = {'log_root_option_name': constants.LOG_ROOT_OPTION_NAME,
                     'log_ext_option': constants.LOG_SAVER_EXT_OPTION,
                     'log_path': self.log_path,
-                    'proto_path': os.path.join(self.results_dir, constants.ATEST_TEST_RECORD_PROTO)}
-        self.run_cmd_dict = {'env': self._get_ld_library_path(),
+                    'proto_path': os.path.join(
+                        self.results_dir,
+                        constants.ATEST_TEST_RECORD_PROTO)}
+        self.run_cmd_dict = {'env': '',
                              'exe': self.EXECUTABLE,
                              'template': self._TF_TEMPLATE,
                              'log_saver': constants.ATEST_TF_LOG_SAVER,
                              'tf_customize_template': '',
                              'args': '',
                              'log_args': self._LOG_ARGS.format(**log_args)}
+        if kwargs.get('extra_args', {}).get(constants.LD_LIBRARY_PATH, False):
+            self.run_cmd_dict.update({'env': self._get_ld_library_path()})
         self.is_verbose = logging.getLogger().isEnabledFor(logging.DEBUG)
         self.root_dir = os.environ.get(constants.ANDROID_BUILD_TOP)
 
-    def _get_ld_library_path(self):
-        """Get the extra environment setup string for running TF.
+    def _get_ld_library_path(self) -> str:
+        """Get the corresponding LD_LIBRARY_PATH string for running TF.
+
+        This method will insert $ANDROID_HOST_OUT/{lib,lib64} to LD_LIBRARY_PATH
+        and returns the updated LD_LIBRARY_PATH.
 
         Returns:
             Strings for the environment passed to TF. Currently only
@@ -153,11 +160,8 @@ class AtestTradefedTestRunner(trb.TestRunnerBase):
         # due to ATest by default only testing the main abi and even a 32bit
         # only target the lib64 folder is actually not exist.
         lib_dirs = ['lib64', 'lib']
-        path = ''
-        for lib in lib_dirs:
-            lib_dir = os.path.join(out_dir, lib)
-            path = path + lib_dir + ':'
-        return 'LD_LIBRARY_PATH=%s' % path
+        path = ':'.join([os.path.join(out_dir, dir) for dir in lib_dirs])
+        return f'LD_LIBRARY_PATH={path}:{os.getenv("LD_LIBRARY_PATH", "")}'
 
     def _try_set_gts_authentication_key(self):
         """Set GTS authentication key if it is available or exists.
@@ -586,7 +590,8 @@ class AtestTradefedTestRunner(trb.TestRunnerBase):
         if not constants.TF_EARLY_DEVICE_RELEASE in extra_args:
             test_args.extend(['--no-early-device-release'])
 
-        args_to_add, args_not_supported = self._parse_extra_args(test_infos, extra_args)
+        args_to_add, args_not_supported = self._parse_extra_args(
+            test_infos, extra_args)
 
         # If multiple devices in test config, automatically append
         # --replicate-parent-setup and --multi-device-count
@@ -1079,7 +1084,8 @@ def extra_args_to_tf_args(mod_info: module_info.ModuleInfo,
                    constants.ENABLE_DEVICE_PREPARER,
                    constants.DRY_RUN,
                    constants.VERIFY_ENV_VARIABLE,
-                   constants.FLAKES_INFO):
+                   constants.FLAKES_INFO,
+                   constants.LD_LIBRARY_PATH):
             continue
         unsupported_args.append(arg)
     return supported_args, unsupported_args

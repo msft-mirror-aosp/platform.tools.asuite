@@ -56,7 +56,7 @@ LOG_ARGS = atf_tr.AtestTradefedTestRunner._LOG_ARGS.format(
     log_ext_option=constants.LOG_SAVER_EXT_OPTION,
     log_path=os.path.join(uc.TEST_INFO_DIR, atf_tr.LOG_FOLDER_NAME),
     proto_path=os.path.join(uc.TEST_INFO_DIR, constants.ATEST_TEST_RECORD_PROTO))
-RUN_ENV_STR = 'tf_env_var=test'
+RUN_ENV_STR = ''
 RUN_CMD = atf_tr.AtestTradefedTestRunner._RUN_CMD.format(
     env=RUN_ENV_STR,
     exe=atf_tr.AtestTradefedTestRunner.EXECUTABLE,
