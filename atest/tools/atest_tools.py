@@ -27,6 +27,7 @@ import re
 import shutil
 import subprocess
 import sys
+import tempfile
 import time
 import xml.etree.ElementTree as ET
 
@@ -167,8 +168,9 @@ def _dump_index(dump_file, output, output_re, key, value):
       'Boo': {'/path3/to/Boo.java'}
     }
     """
+    temp_file = tempfile.NamedTemporaryFile()
     _dict = {}
-    with open(dump_file, 'wb') as cache_file:
+    with open(temp_file.name, 'wb') as cache_file:
         if isinstance(output, bytes):
             output = output.decode()
         for entry in output.splitlines():
@@ -179,8 +181,9 @@ def _dump_index(dump_file, output, output_re, key, value):
         try:
             pickle.dump(_dict, cache_file, protocol=2)
         except IOError:
-            os.remove(dump_file)
             logging.error('Failed in dumping %s', dump_file)
+    shutil.copy(temp_file.name, dump_file)
+    temp_file.close()
 
 # pylint: disable=anomalous-backslash-in-string
 def get_manifest_result(locatedb=constants.LOCATE_CACHE, **kwargs):
@@ -351,8 +354,9 @@ def _index_qualified_classes(output, index):
         index: A string path of the index file.
     """
     logging.debug('indexing qualified classes.')
+    temp_file = tempfile.NamedTemporaryFile()
     _dict = {}
-    with open(index, 'wb') as cache_file:
+    with open(temp_file.name, 'wb') as cache_file:
         if isinstance(output, bytes):
             output = output.decode()
         for entry in output.split('\n'):
@@ -364,9 +368,10 @@ def _index_qualified_classes(output, index):
             pickle.dump(_dict, cache_file, protocol=2)
         except (KeyboardInterrupt, SystemExit):
             logging.error('Process interrupted or failure.')
-            os.remove(index)
         except IOError:
             logging.error('Failed in dumping %s', index)
+    shutil.copy(temp_file.name, index)
+    temp_file.close()
 
 def index_targets(output_cache=constants.LOCATE_CACHE):
     """The entrypoint of indexing targets.
@@ -437,11 +442,10 @@ def acloud_create(report_file, args="", no_metrics_notice=True):
     acloud_duration = time.time() - start
     logging.info('"acloud create" process has completed.')
     # Insert acloud create duration into the report file.
-    if au.is_valid_json_file(report_file):
+    result = au.load_json_safely(report_file)
+    if result:
+        result[ACLOUD_DURATION] = acloud_duration
         try:
-            with open(report_file, 'r') as _rfile:
-                result = json.load(_rfile)
-            result[ACLOUD_DURATION] = acloud_duration
             with open(report_file, 'w+') as _wfile:
                 _wfile.write(json.dumps(result))
         except OSError as e:
@@ -463,7 +467,7 @@ def probe_acloud_status(report_file):
     """
     # 1. Created but the status is not 'SUCCESS'
     if os.path.exists(report_file):
-        if not au.is_valid_json_file(report_file):
+        if not au.load_json_safely(report_file):
             return ExitCode.AVD_CREATE_FAILURE
         with open(report_file, 'r') as rfile:
             result = json.load(rfile)
@@ -494,10 +498,10 @@ def get_acloud_duration(report_file):
     Returns:
         An float of seconds which acloud create takes.
     """
-    if not au.is_valid_json_file(report_file):
+    content = au.load_json_safely(report_file)
+    if not content:
         return 0
-    with open(report_file, 'r') as rfile:
-        return json.load(rfile).get(ACLOUD_DURATION, 0)
+    return content.get(ACLOUD_DURATION, 0)
 
 
 if __name__ == '__main__':

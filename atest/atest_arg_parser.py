@@ -46,6 +46,8 @@ BAZEL_ARG = ('Forward a flag to Bazel for tests executed with Bazel; '
 CLEAR_CACHE = 'Wipe out the test_infos cache of the test and start a new search.'
 COLLECT_TESTS_ONLY = ('Collect a list test cases of the instrumentation tests '
                       'without testing them in real.')
+COVERAGE = ('Instrument tests with code coverage and generate a code coverage '
+            'report.')
 DEVICE_ONLY = ('Only run tests that require a device. (Note: only workable with'
                ' --test-mapping.)')
 DISABLE_TEARDOWN = 'Disable test teardown and cleanup.'
@@ -54,6 +56,7 @@ ENABLE_DEVICE_PREPARER = ('Enable template/preparers/device-preparer as the '
                           'default preparer.')
 ENABLE_FILE_PATTERNS = 'Enable FILE_PATTERNS in TEST_MAPPING.'
 FLAKES_INFO = 'Test result with flakes info.'
+FUZZY_SEARCH = 'Running fuzzy search when test not found. (implicit True)'
 GENERATE_RUNNER_CMD = 'Generate the runner command(s) of given tests.'
 HISTORY = ('Show test results in chronological order(with specified number or '
            'all by default).')
@@ -69,6 +72,8 @@ INSTANT = ('Run the instant_app version of the module if the module supports it.
            '"--instant" is passed.')
 ITERATION = 'Loop-run tests until the max iteration is reached. (default: 10)'
 LATEST_RESULT = 'Print latest test result.'
+LD_LIB_PATH = ('Insert $ANDROID_HOST_OUT/{lib,lib64} to LD_LIBRARY_PATH when '
+               'running tests with Tradefed.')
 LIST_MODULES = 'List testable modules of the given suite.'
 NO_ENABLE_ROOT = ('Do NOT restart adbd with root permission even the test config '
                   'has RootTargetPreparer.')
@@ -111,7 +116,9 @@ UPDATE_CMD_MAPPING = ('Update the test command of input tests. Warning: result '
                       'will be saved under '
                       'tools/asuite/atest/test_data.')
 USE_MODULES_IN = ('Force include MODULES-IN-* as build targets. '
-                  'Hint: This may solve missing test dependencies issue.')
+                  'Hint: This may solve missing test dependencies issue. '
+                  'MODULES-IN-* is always included except if --no-bazel-mode '
+                  'is given.')
 USER_TYPE = ('Run test with specific user type, e.g. atest <test> --user-type '
              'secondary_user')
 VERBOSE = 'Display DEBUG level logging.'
@@ -163,6 +170,7 @@ class AtestArgParser(argparse.ArgumentParser):
         self.add_argument('--bazel-arg', nargs='*', action='append', help=BAZEL_ARG)
         bazel_mode.add_parser_arguments(self, dest='bazel_mode_features')
 
+        self.add_argument('--coverage', action='store_true', help=COVERAGE)
         self.add_argument('-d', '--disable-teardown', action='store_true',
                           help=DISABLE_TEARDOWN)
         self.add_argument('--enable-device-preparer', action='store_true',
@@ -190,6 +198,8 @@ class AtestArgParser(argparse.ArgumentParser):
                           action='store_true')
         self.add_argument('-w', '--wait-for-debugger', action='store_true',
                           help=WAIT_FOR_DEBUGGER)
+        self.add_argument('--auto-ld-library-path', action='store_true',
+                          help=LD_LIB_PATH)
 
         # Options for request/disable upload results. They are mutually
         # exclusive in a command line.
@@ -226,6 +236,13 @@ class AtestArgParser(argparse.ArgumentParser):
         self.add_argument('-L', '--list-modules', help=LIST_MODULES)
         self.add_argument('-v', '--verbose', action='store_true', help=VERBOSE)
         self.add_argument('-V', '--version', action='store_true', help=VERSION)
+
+        # Options that switch on/off fuzzy searching.
+        fgroup = self.add_mutually_exclusive_group()
+        fgroup.add_argument('--no-fuzzy-search', action='store_false',
+                            default=True, dest='fuzzy_search', help=FUZZY_SEARCH)
+        fgroup.add_argument('--fuzzy-search', action='store_true',
+                            help=FUZZY_SEARCH)
 
         # Options that to do with acloud/AVDs.
         agroup = self.add_mutually_exclusive_group()
@@ -360,6 +377,7 @@ def print_epilog_text():
         BAZEL_ARG=BAZEL_ARG,
         CLEAR_CACHE=CLEAR_CACHE,
         COLLECT_TESTS_ONLY=COLLECT_TESTS_ONLY,
+        COVERAGE=COVERAGE,
         DEVICE_ONLY=DEVICE_ONLY,
         DISABLE_TEARDOWN=DISABLE_TEARDOWN,
         DISABLE_UPLOAD_RESULT=DISABLE_UPLOAD_RESULT,
@@ -378,9 +396,11 @@ def print_epilog_text():
         INSTANT=INSTANT,
         ITERATION=ITERATION,
         LATEST_RESULT=LATEST_RESULT,
+        LD_LIB_PATH=LD_LIB_PATH,
         LIST_MODULES=LIST_MODULES,
         NO_ENABLE_ROOT=NO_ENABLE_ROOT,
         NO_METRICS=NO_METRICS,
+        FUZZY_SEARCH=FUZZY_SEARCH,
         REBUILD_MODULE_INFO=REBUILD_MODULE_INFO,
         REQUEST_UPLOAD_RESULT=REQUEST_UPLOAD_RESULT,
         RERUN_UNTIL_FAILURE=RERUN_UNTIL_FAILURE,
@@ -440,6 +460,9 @@ OPTIONS
                 atest <test> -- --abi arm64-v8a   # ARM 64-bit
                 atest <test> -- --abi armeabi-v7a # ARM 32-bit
 
+        --auto-ld-library-path
+            {LD_LIB_PATH}
+
         -b, --build
             {BUILD} (implicit default)
 
@@ -448,6 +471,9 @@ OPTIONS
 
         --bazel-arg
             {BAZEL_ARG}
+
+        --coverage
+            {COVERAGE}
 
         --device-only
             {DEVICE_ONLY}
@@ -538,6 +564,9 @@ OPTIONS
 
         -L, --list-modules
             {LIST_MODULES}
+
+        --[no-]fuzzy-search
+            {FUZZY_SEARCH}
 
         --latest-result
             {LATEST_RESULT}
