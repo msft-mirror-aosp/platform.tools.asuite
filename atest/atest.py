@@ -24,6 +24,7 @@ atest is designed to support any test types that can be ran by TradeFederation.
 """
 
 # pylint: disable=line-too-long
+# pylint: disable=no-member
 # pylint: disable=too-many-lines
 
 from __future__ import print_function
@@ -251,6 +252,7 @@ def get_extra_args(args):
                 'rerun_until_failure': constants.RERUN_UNTIL_FAILURE,
                 'retry_any_failure': constants.RETRY_ANY_FAILURE,
                 'serial': constants.SERIAL,
+                'auto_ld_library_path': constants.LD_LIBRARY_PATH,
                 'sharding': constants.SHARDING,
                 'test_filter': constants.TEST_FILTER,
                 'test_timeout': constants.TEST_TIMEOUT,
@@ -643,8 +645,10 @@ def _dry_run(results_dir, extra_args, test_infos, mod_info):
         A list of test commands.
     """
     all_run_cmds = []
-    for test_runner, tests in test_runner_handler.group_tests_by_test_runners(test_infos):
-        runner = test_runner(results_dir, mod_info=mod_info)
+    for test_runner, tests in test_runner_handler.group_tests_by_test_runners(
+            test_infos):
+        runner = test_runner(results_dir, mod_info=mod_info,
+                             extra_args=extra_args)
         run_cmds = runner.generate_run_commands(tests, extra_args)
         for run_cmd in run_cmds:
             all_run_cmds.append(run_cmd)
