@@ -484,6 +484,24 @@ class DeviceTestModuleTestTargetGenerationTest(GenerationTestFixture):
             package='example/tests',
         )
 
+    def test_generate_target_with_tags(self):
+        mod_info = self.create_module_info(modules=[
+            device_test_module(
+                name='hello_world_test',
+                path='example/tests',
+                test_options_tags=['no-remote']),
+        ])
+
+        self.run_generator(mod_info, enabled_features=set([
+            bazel_mode.Features.EXPERIMENTAL_DEVICE_DRIVEN_TEST]))
+
+        self.assertInBuildFile(
+            '    tags = [\n'
+            '        "no-remote",\n'
+            '    ],\n',
+            package='example/tests',
+        )
+
     def test_raise_when_prerequisite_not_in_module_info(self):
         mod_info = self.create_module_info(modules=[
             device_test_module(),
@@ -526,6 +544,23 @@ class HostUnitTestModuleTestTargetGenerationTest(GenerationTestFixture):
             '    module_name = "hello_world_test",\n'
             '    test = "//example/tests:hello_world_test",\n'
             ')',
+            package='example/tests',
+        )
+
+    def test_generate_target_with_tags(self):
+        mod_info = self.create_module_info(modules=[
+            host_unit_test_module(
+                name='hello_world_test',
+                path='example/tests',
+                test_options_tags=['no-remote']),
+        ])
+
+        self.run_generator(mod_info)
+
+        self.assertInBuildFile(
+            '    tags = [\n'
+            '        "no-remote",\n'
+            '    ],\n',
             package='example/tests',
         )
 
@@ -1138,6 +1173,7 @@ def module(
     data_dependencies=None,
     compatibility_suites=None,
     host_dependencies=None,
+    test_options_tags=None,
 ):
     name = name or 'libhello'
 
@@ -1156,6 +1192,7 @@ def module(
     m['data_dependencies'] = data_dependencies or []
     m['compatibility_suites'] = compatibility_suites or []
     m['host_dependencies'] = host_dependencies or []
+    m['test_options_tags'] = test_options_tags or []
     return m
 
 
