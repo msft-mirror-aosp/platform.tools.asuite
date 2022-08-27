@@ -346,7 +346,7 @@ class AtestTradefedTestRunner(trb.TestRunnerBase):
                         atest_utils.colorful_print(
                             r'No test to run. Please check: '
                             r'{} for detail.'.format(reporter.log_path),
-                            constants.RED, highlight=True)
+                            constants.RED, constants.WHITE)
                     if not data_map:
                         metrics.LocalDetectEvent(
                             detect_type=DetectType.TF_EXIT_CODE,
