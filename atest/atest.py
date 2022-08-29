@@ -975,6 +975,10 @@ def main(argv, results_dir, args):
     atest_utils.run_multi_proc(
         func=atest_utils.generate_buildfiles_checksum,
         args=[mod_info.module_index.parent])
+
+    # Run Test Mapping by no-bazel-mode.
+    if atest_utils.is_test_mapping(args):
+        args.bazel_mode = False
     if args.bazel_mode:
         start = time.time()
         bazel_mode.generate_bazel_workspace(
