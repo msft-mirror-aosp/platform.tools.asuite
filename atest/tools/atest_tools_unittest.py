@@ -91,27 +91,12 @@ class AtestToolsUnittests(unittest.TestCase):
             with open(uc.CC_CLASS_INDEX, 'rb') as cache:
                 _cache = pickle.load(cache)
             self.assertIsNotNone(_cache.get('HelloWorldTest'))
-            # 4. Test get_manifest_result is functional.
-            _cache = {}
-            mproc = au.run_multi_proc(
-                    func=atest_tools.get_manifest_result, args=[uc.LOCATE_CACHE],
-                    kwargs={'manifest_index':uc.MANIFEST_INDEX}
-            )
-            mproc.join()
-            with open(uc.MANIFEST_INDEX, 'rb') as cache:
-                _cache = pickle.load(cache)
-            self.assertEqual(_cache.get('com.android.settings.tests.unit'),
-                {os.path.join(uc.TEST_DATA_DIR, 'foo/bar/AmSlam/test/AndroidManifest.xml')})
-            self.assertEqual(_cache.get('c0m.andr0id.settingS'),
-                {os.path.join(uc.TEST_DATA_DIR, 'foo/bar/AmSlam/AndroidManifest.xml')})
-            self.assertEqual(_cache.get('package.does.not.exist'), None)
-            # 5. Clean up.
+            # 4. Clean up.
             targets_to_delete = (uc.CC_CLASS_INDEX,
                                  uc.CLASS_INDEX,
                                  uc.LOCATE_CACHE,
                                  uc.PACKAGE_INDEX,
-                                 uc.QCLASS_INDEX,
-                                 uc.MANIFEST_INDEX)
+                                 uc.QCLASS_INDEX)
             for idx in targets_to_delete:
                 os.remove(idx)
         else:
