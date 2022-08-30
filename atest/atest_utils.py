@@ -504,14 +504,14 @@ def _has_colors(stream):
     return cached_has_colors[stream]
 
 
-def colorize(text, color, highlight=None):
+def colorize(text, color, bp_color=None):
     """ Convert to colorful string with ANSI escape code.
 
     Args:
         text: A string to print.
-        color: ANSI code shift for colorful print. They are defined
-               in constants_default.py.
-        highlight: Backgroud color which is an ANSI code shift for colorful
+        color: Forground(Text) color which is an ANSI code shift for colorful
+               print. They are defined in constants_default.py.
+        bp_color: Backgroud color which is an ANSI code shift for colorful
                    print.
 
     Returns:
@@ -522,11 +522,11 @@ def colorize(text, color, highlight=None):
     has_colors = _has_colors(sys.stdout)
     if has_colors:
         background_color = ''
-        if highlight:
+        if bp_color:
             # Foreground(Text) ranges from 30-37
             text_color = 30 + color
             # Background ranges from 40-47
-            background_color = ';%d' % (40 + highlight)
+            background_color = ';%d' % (40 + bp_color)
         else:
             text_color = 30 + color
         clr_str = "%s%d%sm%s%s" % (clr_pref, text_color, background_color,
@@ -536,18 +536,18 @@ def colorize(text, color, highlight=None):
     return clr_str
 
 
-def colorful_print(text, color, highlight=None, auto_wrap=True):
+def colorful_print(text, color, bp_color=None, auto_wrap=True):
     """Print out the text with color.
 
     Args:
         text: A string to print.
-        color: ANSI code shift for colorful print. They are defined
-               in constants_default.py.
-        highlight: Backgroud color which is an ANSI code shift for colorful
+        color: Forground(Text) color which is an ANSI code shift for colorful
+               print. They are defined in constants_default.py.
+        bp_color: Backgroud color which is an ANSI code shift for colorful
                    print.
         auto_wrap: If True, Text wraps while print.
     """
-    output = colorize(text, color, highlight)
+    output = colorize(text, color, bp_color)
     if auto_wrap:
         print(output)
     else:
