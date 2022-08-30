@@ -154,20 +154,19 @@ class AtestUtilsUnittests(unittest.TestCase):
         # _has_colors() return False.
         mock_has_colors.return_value = False
         converted_str = atest_utils.colorize(original_str, green_no,
-                                             highlight=True)
+                                             bp_color=constants.RED)
         self.assertEqual(original_str, converted_str)
 
-        # Green with highlight.
+        # Green text with red background.
         mock_has_colors.return_value = True
         converted_str = atest_utils.colorize(original_str, green_no,
-                                             highlight=True)
-        green_highlight_string = '\x1b[1;42m%s\x1b[0m' % original_str
+                                             bp_color=constants.RED)
+        green_highlight_string = '\x1b[1;32;41m%s\x1b[0m' % original_str
         self.assertEqual(green_highlight_string, converted_str)
 
-        # Green, no highlight.
+        # Green text, no background.
         mock_has_colors.return_value = True
-        converted_str = atest_utils.colorize(original_str, green_no,
-                                             highlight=False)
+        converted_str = atest_utils.colorize(original_str, green_no)
         green_no_highlight_string = '\x1b[1;32m%s\x1b[0m' % original_str
         self.assertEqual(green_no_highlight_string, converted_str)
 
@@ -182,49 +181,52 @@ class AtestUtilsUnittests(unittest.TestCase):
         mock_has_colors.return_value = False
         capture_output = StringIO()
         sys.stdout = capture_output
-        atest_utils.colorful_print(testing_str, green_no, highlight=True,
+        atest_utils.colorful_print(testing_str, green_no,
+                                   bp_color=constants.RED,
                                    auto_wrap=False)
         sys.stdout = sys.__stdout__
         uncolored_string = testing_str
         self.assertEqual(capture_output.getvalue(), uncolored_string)
 
-        # Green with highlight, but no wrap.
+        # Green text with red background, but no wrap.
         mock_has_colors.return_value = True
         capture_output = StringIO()
         sys.stdout = capture_output
-        atest_utils.colorful_print(testing_str, green_no, highlight=True,
+        atest_utils.colorful_print(testing_str, green_no,
+                                   bp_color=constants.RED,
                                    auto_wrap=False)
         sys.stdout = sys.__stdout__
-        green_highlight_no_wrap_string = '\x1b[1;42m%s\x1b[0m' % testing_str
+        green_highlight_no_wrap_string = '\x1b[1;32;41m%s\x1b[0m' % testing_str
         self.assertEqual(capture_output.getvalue(),
                          green_highlight_no_wrap_string)
 
-        # Green, no highlight, no wrap.
+        # Green text, no background, no wrap.
         mock_has_colors.return_value = True
         capture_output = StringIO()
         sys.stdout = capture_output
-        atest_utils.colorful_print(testing_str, green_no, highlight=False,
+        atest_utils.colorful_print(testing_str, green_no,
                                    auto_wrap=False)
         sys.stdout = sys.__stdout__
         green_no_high_no_wrap_string = '\x1b[1;32m%s\x1b[0m' % testing_str
         self.assertEqual(capture_output.getvalue(),
                          green_no_high_no_wrap_string)
 
-        # Green with highlight and wrap.
+        # Green text with red background and wrap.
         mock_has_colors.return_value = True
         capture_output = StringIO()
         sys.stdout = capture_output
-        atest_utils.colorful_print(testing_str, green_no, highlight=True,
+        atest_utils.colorful_print(testing_str, green_no,
+                                   bp_color=constants.RED,
                                    auto_wrap=True)
         sys.stdout = sys.__stdout__
-        green_highlight_wrap_string = '\x1b[1;42m%s\x1b[0m\n' % testing_str
+        green_highlight_wrap_string = '\x1b[1;32;41m%s\x1b[0m\n' % testing_str
         self.assertEqual(capture_output.getvalue(), green_highlight_wrap_string)
 
-        # Green with wrap, but no highlight.
+        # Green text with wrap, but no background.
         mock_has_colors.return_value = True
         capture_output = StringIO()
         sys.stdout = capture_output
-        atest_utils.colorful_print(testing_str, green_no, highlight=False,
+        atest_utils.colorful_print(testing_str, green_no,
                                    auto_wrap=True)
         sys.stdout = sys.__stdout__
         green_wrap_no_highlight_string = '\x1b[1;32m%s\x1b[0m\n' % testing_str
