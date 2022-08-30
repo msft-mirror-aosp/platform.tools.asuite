@@ -63,7 +63,8 @@ Manifest groups: all,-notdefault
 ----------------------------
 '''
 
-#pylint: disable=protected-access
+# pylint: disable=protected-access
+# pylint: disable=too-many-public-methods
 class AtestUtilsUnittests(unittest.TestCase):
     """Unit tests for atest_utils.py"""
 
@@ -640,7 +641,7 @@ class AtestUtilsUnittests(unittest.TestCase):
         inexist_string = os.path.join(unittest_constants.TEST_DATA_DIR,
                                       unittest_constants.CLASS_NAME)
         self.assertEqual(
-            atest_utils.md5sum(exist_string), 'f02c1a648f16e5e9d7035bb11486ac2b')
+            atest_utils.md5sum(exist_string), '062160df00c20b1ee4d916b7baf71346')
         self.assertEqual(
             atest_utils.md5sum(inexist_string), '')
 
@@ -779,6 +780,76 @@ class AtestUtilsUnittests(unittest.TestCase):
         filters = set(['CLASS#METHOD?', 'CLASS#METHOD*'])
         expect_types = set([FilterType.WILDCARD_FILTER.value])
         self.assertEqual(atest_utils.get_filter_types(filters), expect_types)
+
+    def test_get_bp_content(self):
+        """Method get_bp_content."""
+        # 1. "manifest" and "instrumentation_for" are defined.
+        content = '''android_test    {
+                // comment
+                instrumentation_for: "AmSlam", // comment
+                manifest: "AndroidManifest-test.xml",
+                name: "AmSlamTests",
+        }'''
+        expected_result = {"AmSlamTests":
+                           {"target_module": "AmSlam", "manifest": "AndroidManifest-test.xml"}}
+        temp_dir = tempfile.TemporaryDirectory()
+        tmpbp = Path(temp_dir.name).joinpath('Android.bp')
+        with open(tmpbp, 'w') as cache:
+            cache.write(content)
+        self.assertEqual(atest_utils.get_bp_content(tmpbp, 'android_test'),
+                         expected_result)
+        temp_dir.cleanup()
+
+        # 2. Only name is defined, will give default manifest and null target_module.
+        content = '''android_app    {
+                // comment
+                name: "AmSlam",
+                srcs: ["src1.java", "src2.java"]
+        }'''
+        expected_result = {"AmSlam":
+                           {"target_module": "", "manifest": "AndroidManifest.xml"}}
+        temp_dir = tempfile.TemporaryDirectory()
+        tmpbp = Path(temp_dir.name).joinpath('Android.bp')
+        with open(tmpbp, 'w') as cache:
+            cache.write(content)
+        self.assertEqual(atest_utils.get_bp_content(tmpbp, 'android_app'),
+                         expected_result)
+        temp_dir.cleanup()
+
+        # 3. Not even an Android.bp.
+        content = '''LOCAL_PATH := $(call my-dir)
+                # comment
+                include $(call all-subdir-makefiles)
+                LOCAL_MODULE := atest_foo_test
+        }'''
+        temp_dir = tempfile.TemporaryDirectory()
+        tmpbp = Path(temp_dir.name).joinpath('Android.mk')
+        with open(tmpbp, 'w') as cache:
+            cache.write(content)
+        self.assertEqual(atest_utils.get_bp_content(tmpbp, 'android_app'), {})
+        temp_dir.cleanup()
+
+    def test_get_manifest_info(self):
+        """test get_manifest_info method."""
+        # An instrumentation test:
+        test_xml = os.path.join(unittest_constants.TEST_DATA_DIR,
+                                'foo/bar/AmSlam/test/AndroidManifest.xml')
+        expected = {
+            'package': 'com.android.settings.tests.unit',
+            'target_package': 'c0m.andr0id.settingS',
+            'persistent': False
+        }
+        self.assertEqual(expected, atest_utils.get_manifest_info(test_xml))
+
+        # A target module:
+        target_xml = os.path.join(unittest_constants.TEST_DATA_DIR,
+                                  'foo/bar/AmSlam/AndroidManifest.xml')
+        expected = {
+            'package': 'c0m.andr0id.settingS',
+            'target_package': '',
+            'persistent': False
+        }
+        self.assertEqual(expected, atest_utils.get_manifest_info(target_xml))
 
 if __name__ == "__main__":
     unittest.main()
