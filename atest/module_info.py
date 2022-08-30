@@ -706,6 +706,13 @@ class ModuleInfo:
                         module_name][merge_item] = mod_info_values
         return name_to_module_info
 
+    def get_filepath_from_module(self, module_name: str, filename: str) -> Path:
+        """Return absolute path of the given module and filename."""
+        mod_path = self.get_paths(module_name)
+        if mod_path:
+            return Path(self.root_dir).joinpath(mod_path[0], filename)
+        return Path()
+
     def get_module_dependency(self, module_name, depend_on=None):
         """Get the dependency sets for input module.
 
