@@ -26,16 +26,12 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.spy;
 
-import com.android.tradefed.build.BuildInfo;
-import com.android.tradefed.build.IBuildInfo;
 import com.android.tradefed.config.OptionSetter;
-import com.android.tradefed.device.ITestDevice;
 import com.android.tradefed.invoker.InvocationContext;
 import com.android.tradefed.invoker.TestInformation;
 import com.android.tradefed.result.FailureDescription;
 import com.android.tradefed.result.ITestInvocationListener;
 import com.android.tradefed.result.error.ErrorIdentifier;
-import com.android.tradefed.result.error.InfraErrorIdentifier;
 import com.android.tradefed.result.error.TestErrorIdentifier;
 import com.android.tradefed.result.proto.TestRecordProto.FailureStatus;
 import com.google.common.collect.ImmutableMap;
@@ -50,7 +46,6 @@ import org.mockito.ArgumentMatcher;
 
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
-import java.io.File;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.nio.file.Files;
@@ -64,9 +59,7 @@ import java.util.stream.Collectors;
 public final class BazelTestTest {
 
     private ITestInvocationListener mMockListener;
-    private ITestDevice mMockDevice;
     private TestInformation mTestInfo;
-    private IBuildInfo mBuildInfo;
     private Path mTempPath;
     private Map<String, String> mEnvironment;
 
@@ -80,13 +73,8 @@ public final class BazelTestTest {
     @Before
     public void setUp() {
         mMockListener = mock(ITestInvocationListener.class);
-        mMockDevice = mock(ITestDevice.class);
-        mBuildInfo = new BuildInfo();
-        mBuildInfo.setFile("atest_bazel_workspace.tar.gz", new File(ARCHIVE_PATH), "1.0");
-        InvocationContext context = new InvocationContext();
-        context.addAllocatedDevice("device", mMockDevice);
-        context.addDeviceBuildInfo("device", mBuildInfo);
-        mTestInfo = TestInformation.newBuilder().setInvocationContext(context).build();
+        mTestInfo =
+                TestInformation.newBuilder().setInvocationContext(new InvocationContext()).build();
         mTempPath = tempDir.getRoot().toPath();
         mEnvironment = ImmutableMap.of("PATH", "/phony/path");
     }
@@ -135,16 +123,6 @@ public final class BazelTestTest {
         bazelTest.run(mTestInfo, mMockListener);
 
         verify(processStarter).start(eq(BazelTest.RUN_TESTS), hasCommandElement(targetName));
-    }
-
-    @Test
-    public void archiveNotFound_runAborted() throws Exception {
-        BazelTest bazelTest = newBazelTest();
-
-        bazelTest.run(newTestInformationWithoutArchive(), mMockListener);
-
-        verify(mMockListener)
-                .testRunFailed(hasErrorIdentifier(InfraErrorIdentifier.ARTIFACT_NOT_FOUND));
     }
 
     @Test
