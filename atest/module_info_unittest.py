@@ -229,7 +229,7 @@ class ModuleInfoUnittests(unittest.TestCase):
         """Test get_testable_modules."""
         # 1. No modules.idx yet, will run _get_testable_modules()
         mod_info = module_info.ModuleInfo(module_file=JSON_FILE_PATH)
-        self.assertEqual(len(mod_info.get_testable_modules()), 28)
+        self.assertEqual(len(mod_info.get_testable_modules()), 29)
 
         # 2. read modules.idx.
         expected_modules = {'dep_test_module', 'MainModule2', 'test_dep_level_1_1'}
@@ -415,6 +415,24 @@ class ModuleInfoUnittests(unittest.TestCase):
         self.assertEqual(
             name_to_mod_info['module_1'].get(constants.MODULE_DEPENDENCIES),
             expect_deps)
+
+    @mock.patch.dict('os.environ', {constants.ANDROID_BUILD_TOP:uc.TEST_DATA_DIR,
+                                    constants.ANDROID_PRODUCT_OUT:PRODUCT_OUT_DIR})
+    def test_get_filepath_from_module(self):
+        """Test for get_filepath_from_module."""
+        mod_info = module_info.ModuleInfo(module_file=JSON_FILE_PATH, index_dir=HOST_OUT_DIR)
+
+        expected_filepath = Path(uc.TEST_DATA_DIR).joinpath(
+            'foo/bar/AmSlam', 'AndroidManifest.xml')
+        self.assertEqual(
+            mod_info.get_filepath_from_module('AmSlam', 'AndroidManifest.xml'),
+            expected_filepath)
+
+        expected_filepath = Path(uc.TEST_DATA_DIR).joinpath(
+            'foo/bar/AmSlam/test', 'AndroidManifest.xml')
+        self.assertEqual(
+            mod_info.get_filepath_from_module('AmSlamTests', 'AndroidManifest.xml'),
+            expected_filepath)
 
     @mock.patch.dict('os.environ', {constants.ANDROID_BUILD_TOP:'/',
                                     constants.ANDROID_PRODUCT_OUT:PRODUCT_OUT_DIR})

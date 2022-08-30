@@ -41,6 +41,7 @@ import zipfile
 
 from multiprocessing import Process
 from pathlib import Path
+from typing import Any, Dict
 
 import xml.etree.ElementTree as ET
 
@@ -1880,3 +1881,104 @@ def has_index_files():
         constants.CC_CLASS_INDEX,
         constants.QCLASS_INDEX,
         constants.PACKAGE_INDEX])
+
+# pylint: disable=anomalous-backslash-in-string,too-many-branches
+def get_bp_content(filename: Path, module_type: str) -> Dict:
+    """Get essential content info from an Android.bp.
+    By specifying module_type (e.g. 'android_test', 'android_app'), this method
+    can parse the given starting point and grab 'name', 'instrumentation_for'
+    and 'manifest'.
+
+    Returns:
+        A dict of mapping test module and target module; e.g.
+        {
+         'FooUnitTests':
+             {'manifest': 'AndroidManifest.xml', 'target_module': 'Foo'},
+         'Foo':
+             {'manifest': 'AndroidManifest-common.xml', 'target_module': ''}
+        }
+        Null dict if there is no content of the given module_type.
+    """
+    build_file = Path(filename)
+    if not any((build_file.suffix == '.bp', build_file.is_file())):
+        return {}
+    start_from = re.compile(f'^{module_type}\s*\{{')
+    end_with = re.compile(r'^\}$')
+    context_re = re.compile(
+        r'\s*(?P<key>(name|manifest|instrumentation_for))\s*:'
+        r'\s*\"(?P<value>.*)\"\s*,', re.M)
+    with open(build_file, 'r') as cache:
+        data = cache.readlines()
+    content_dict = {}
+    start_recording = False
+    for _line in data:
+        line = _line.strip()
+        if re.match(start_from, line):
+            start_recording = True
+            _dict = {}
+            continue
+        if start_recording:
+            if not re.match(end_with, line):
+                match = re.match(context_re, line)
+                if match:
+                    _dict.update(
+                        {match.group('key'): match.group('value')})
+            else:
+                start_recording = False
+                module_name = _dict.get('name')
+                if module_name:
+                    content_dict.update(
+                        {module_name: {
+                            'manifest': _dict.get(
+                                'manifest', 'AndroidManifest.xml'),
+                            'target_module': _dict.get(
+                                'instrumentation_for', '')}
+                        })
+    return content_dict
+
+def get_manifest_info(manifest: Path) -> Dict[str, Any]:
+    """Get the essential info from the given manifest file.
+    This method cares only three attributes:
+        * package
+        * targetPackage
+        * persistent
+    For an instrumentation test, the result will be like:
+    {
+        'package': 'com.android.foo.tests.unit',
+        'targetPackage': 'com.android.foo',
+        'persistent': False
+    }
+    For a target module of the instrumentation test:
+    {
+        'package': 'com.android.foo',
+        'targetPackage': '',
+        'persistent': True
+    }
+    """
+    mdict = {'package': '', 'target_package': '', 'persistent': False}
+    try:
+        xml_root = ET.parse(manifest).getroot()
+    except ET.ParseError:
+        return mdict
+    manifest_package_re =  re.compile(r'[a-z][\w]+(\.[\w]+)*')
+    # 1. Must probe 'package' name from the top.
+    for item in xml_root.findall('.'):
+        if 'package' in item.attrib.keys():
+            pkg = item.attrib.get('package')
+            match = manifest_package_re.match(pkg)
+            if match:
+                mdict['package'] = pkg
+                break
+    for item in xml_root.findall('*'):
+        # 2. Probe 'targetPackage' in 'instrumentation' tag.
+        if item.tag == 'instrumentation':
+            for key, value in item.attrib.items():
+                if 'targetPackage' in key:
+                    mdict['target_package'] = value
+                    break
+        # 3. Probe 'persistent' in any tags.
+        for key, value in item.attrib.items():
+            if 'persistent' in key:
+                mdict['persistent'] = value.lower() == 'true'
+                break
+    return mdict
