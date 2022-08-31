@@ -54,6 +54,8 @@ class DetectType(IntEnum):
     MODULE_LOAD_MS = 23
     MODULE_INFO_INIT_MS = 24
     INIT_AND_FIND_MS = 25
+    FOUND_INSTRUMENTATION_TEST = 26
+    FOUND_TARGET_ARTIFACTS = 27
 
 @unique
 class ExitCode(IntEnum):
