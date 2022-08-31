@@ -1958,7 +1958,7 @@ def get_manifest_info(manifest: Path) -> Dict[str, Any]:
     mdict = {'package': '', 'target_package': '', 'persistent': False}
     try:
         xml_root = ET.parse(manifest).getroot()
-    except ET.ParseError:
+    except (ET.ParseError, FileNotFoundError):
         return mdict
     manifest_package_re =  re.compile(r'[a-z][\w]+(\.[\w]+)*')
     # 1. Must probe 'package' name from the top.
