@@ -418,6 +418,55 @@ class ModuleInfoUnittests(unittest.TestCase):
 
     @mock.patch.dict('os.environ', {constants.ANDROID_BUILD_TOP:uc.TEST_DATA_DIR,
                                     constants.ANDROID_PRODUCT_OUT:PRODUCT_OUT_DIR})
+    def test_get_instrumentation_target_apps(self):
+        mod_info = module_info.ModuleInfo(
+            module_file=JSON_FILE_PATH, index_dir=HOST_OUT_DIR)
+        artifacts = {
+            'AmSlam': {os.path.join(uc.TEST_DATA_DIR,
+                       "out/target/product/generic/data/app/AmSlam/AmSlam.apk")}
+        }
+        # 1. If Android.bp is available, use `manifest` to determine the actual
+        # manifest.
+        bp_context = """android_test    {
+            name: "AmSlamTests",
+            manifest: 'AndroidManifest.xml',
+            instrumentation_for: "AmSlam"
+        }"""
+        bp_file = os.path.join(uc.TEST_DATA_DIR, 'foo/bar/AmSlam/test/Android.bp')
+        with open(bp_file, 'w') as cache:
+            cache.write(bp_context)
+        self.assertEqual(
+            mod_info.get_instrumentation_target_apps('AmSlamTests'), artifacts)
+        os.remove(bp_file)
+        # 2. If Android.bp is unavailable, search `AndroidManifest.xml`
+        # arbitrarily.
+        self.assertEqual(
+            mod_info.get_instrumentation_target_apps('AmSlamTests'), artifacts)
+
+    @mock.patch.dict('os.environ', {constants.ANDROID_BUILD_TOP:uc.TEST_DATA_DIR,
+                                    constants.ANDROID_PRODUCT_OUT:PRODUCT_OUT_DIR})
+    def test_get_target_module_by_pkg(self):
+        mod_info = module_info.ModuleInfo(
+            module_file=JSON_FILE_PATH, index_dir=HOST_OUT_DIR)
+        self.assertEqual(
+            'AmSlam',
+            mod_info.get_target_module_by_pkg(
+                package='c0m.andr0id.settingS',
+                search_from=Path(uc.TEST_DATA_DIR).joinpath('foo/bar/AmSlam/test')))
+
+    @mock.patch.dict('os.environ', {constants.ANDROID_BUILD_TOP:uc.TEST_DATA_DIR,
+                                    constants.ANDROID_PRODUCT_OUT:PRODUCT_OUT_DIR})
+    def test_get_artifact_map(self):
+        mod_info = module_info.ModuleInfo(
+            module_file=JSON_FILE_PATH, index_dir=HOST_OUT_DIR)
+        artifacts = {
+            'AmSlam': {os.path.join(uc.TEST_DATA_DIR,
+                       'out/target/product/generic/data/app/AmSlam/AmSlam.apk')}
+        }
+        self.assertEqual(mod_info.get_artifact_map('AmSlam'), artifacts)
+
+    @mock.patch.dict('os.environ', {constants.ANDROID_BUILD_TOP:uc.TEST_DATA_DIR,
+                                    constants.ANDROID_PRODUCT_OUT:PRODUCT_OUT_DIR})
     def test_get_filepath_from_module(self):
         """Test for get_filepath_from_module."""
         mod_info = module_info.ModuleInfo(module_file=JSON_FILE_PATH, index_dir=HOST_OUT_DIR)
