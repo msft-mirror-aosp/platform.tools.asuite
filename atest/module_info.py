@@ -564,6 +564,8 @@ class ModuleInfo:
         bpfile = self.get_filepath_from_module(module_name, 'Android.bp')
         if bpfile.is_file():
             bp_info = atest_utils.get_bp_content(bpfile, 'android_test')
+            if not bp_info:
+                return {}
             manifest = self.get_filepath_from_module(
                 module_name,
                 bp_info.get(module_name).get('manifest'))

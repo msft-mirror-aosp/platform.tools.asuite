@@ -131,6 +131,7 @@ class ModuleFinderUnittests(unittest.TestCase):
     def test_find_test_by_module_name(self, _get_targ):
         """Test find_test_by_module_name."""
         self.mod_finder.module_info.is_robolectric_test.return_value = False
+        self.mod_finder.module_info.get_instrumentation_target_apps.return_value = {}
         self.mod_finder.module_info.has_test_config.return_value = True
         mod_info = {'installed': ['/path/to/install'],
                     'path': [uc.MODULE_DIR],
@@ -156,6 +157,7 @@ class ModuleFinderUnittests(unittest.TestCase):
         atest_configs.GLOBAL_ARGS = mock.Mock()
         atest_configs.GLOBAL_ARGS.test_config_select = True
         self.mod_finder.module_info.is_robolectric_test.return_value = False
+        self.mod_finder.module_info.get_instrumentation_target_apps.return_value = {}
         self.mod_finder.module_info.has_test_config.return_value = True
         mod_info = {'installed': ['/path/to/install'],
                     'path': [uc.MODULE_DIR],
@@ -181,6 +183,7 @@ class ModuleFinderUnittests(unittest.TestCase):
         atest_configs.GLOBAL_ARGS = mock.Mock()
         atest_configs.GLOBAL_ARGS.test_config_select = False
         self.mod_finder.module_info.is_robolectric_test.return_value = False
+        self.mod_finder.module_info.get_instrumentation_target_apps.return_value = {}
         self.mod_finder.module_info.has_test_config.return_value = True
         mod_info = {'installed': ['/path/to/install'],
                     'path': [uc.MODULE_DIR],
@@ -221,6 +224,7 @@ class ModuleFinderUnittests(unittest.TestCase):
         mock_build.return_value = uc.CLASS_BUILD_TARGETS
         self.mod_finder.module_info.is_auto_gen_test_config.return_value = False
         self.mod_finder.module_info.is_robolectric_test.return_value = False
+        self.mod_finder.module_info.get_instrumentation_target_apps.return_value = {}
         self.mod_finder.module_info.has_test_config.return_value = True
         self.mod_finder.module_info.get_module_names.return_value = [uc.MODULE_NAME]
         self.mod_finder.module_info.get_module_info.return_value = {
@@ -292,6 +296,7 @@ class ModuleFinderUnittests(unittest.TestCase):
                     constants.MODULE_COMPATIBILITY_SUITES: []}
         self.mod_finder.module_info.get_module_info.return_value = mod_info
         self.mod_finder.module_info.get_robolectric_type.return_value = 0
+        self.mod_finder.module_info.get_instrumentation_target_apps.return_value = {}
         t_infos = self.mod_finder.find_test_by_module_and_class(MODULE_CLASS)
         unittest_utils.assert_equal_testinfos(self, t_infos[0], uc.CLASS_INFO)
         # with method
@@ -340,6 +345,7 @@ class ModuleFinderUnittests(unittest.TestCase):
                                                'prefixes': set(),
                                                'typed': False}}
         self.mod_finder.module_info.get_robolectric_type.return_value = 0
+        self.mod_finder.module_info.get_instrumentation_target_apps.return_value = {}
         t_infos = self.mod_finder.find_test_by_module_and_class(CC_MODULE_CLASS)
         unittest_utils.assert_equal_testinfos(self, t_infos[0], uc.CC_MODULE_CLASS_INFO)
         # with method
@@ -380,6 +386,7 @@ class ModuleFinderUnittests(unittest.TestCase):
                     constants.MODULE_COMPATIBILITY_SUITES: []}
         self.mod_finder.module_info.get_module_info.return_value = mod_info
         self.mod_finder.module_info.get_robolectric_type.return_value = 0
+        self.mod_finder.module_info.get_instrumentation_target_apps.return_value = {}
         t_infos = self.mod_finder.find_test_by_module_and_class(KERNEL_MODULE_CLASS)
         unittest_utils.assert_equal_testinfos(self, t_infos[0], KERNEL_MODULE_CLASS_INFO)
 
@@ -407,6 +414,7 @@ class ModuleFinderUnittests(unittest.TestCase):
             constants.MODULE_COMPATIBILITY_SUITES: []
             }
         self.mod_finder.module_info.get_robolectric_type.return_value = 0
+        self.mod_finder.module_info.get_instrumentation_target_apps.return_value = {}
         t_infos = self.mod_finder.find_test_by_package_name(uc.PACKAGE)
         unittest_utils.assert_equal_testinfos(
             self, t_infos[0],
@@ -445,6 +453,7 @@ class ModuleFinderUnittests(unittest.TestCase):
                     constants.MODULE_CLASS: [],
                     constants.MODULE_COMPATIBILITY_SUITES: []}
         self.mod_finder.module_info.get_module_info.return_value = mod_info
+        self.mod_finder.module_info.get_instrumentation_target_apps.return_value = {}
         t_infos = self.mod_finder.find_test_by_module_and_package(MODULE_PACKAGE)
         self.assertEqual(t_infos, None)
         _isdir.return_value = True
@@ -520,6 +529,7 @@ class ModuleFinderUnittests(unittest.TestCase):
         class_path = '%s.kt' % uc.CLASS_NAME
         mock_build.return_value = uc.CLASS_BUILD_TARGETS
         self.mod_finder.module_info.get_robolectric_type.return_value = 0
+        self.mod_finder.module_info.get_instrumentation_target_apps.return_value = {}
         t_infos = self.mod_finder.find_test_by_path(class_path)
         unittest_utils.assert_equal_testinfos(
             self, uc.CLASS_INFO, t_infos[0])
@@ -584,6 +594,7 @@ class ModuleFinderUnittests(unittest.TestCase):
             constants.MODULE_CLASS: [],
             constants.MODULE_COMPATIBILITY_SUITES: []}
         self.mod_finder.module_info.get_robolectric_type.return_value = 0
+        self.mod_finder.module_info.get_instrumentation_target_apps.return_value = {}
         t_infos = self.mod_finder.find_test_by_path(class_dir)
         unittest_utils.assert_equal_testinfos(
             self, uc.PATH_INFO, t_infos[0])
@@ -679,6 +690,7 @@ class ModuleFinderUnittests(unittest.TestCase):
             constants.MODULE_CLASS: [],
             constants.MODULE_COMPATIBILITY_SUITES: []}
         self.mod_finder.module_info.get_robolectric_type.return_value = 0
+        self.mod_finder.module_info.get_instrumentation_target_apps.return_value = {}
         _class_info.return_value = {'PFTest': {'methods': {'test1', 'test2'},
                                                'prefixes': set(),
                                                'typed': False}}
@@ -785,6 +797,7 @@ class ModuleFinderUnittests(unittest.TestCase):
             constants.MODULE_COMPATIBILITY_SUITES: []}
         self.mod_finder.module_info.get_paths.return_value = [uc.TEST_DATA_CONFIG]
         self.mod_finder.module_info.get_robolectric_type.return_value = 0
+        self.mod_finder.module_info.get_instrumentation_target_apps.return_value = {}
         t_infos = self.mod_finder.find_test_by_class_name(
             uc.FULL_CLASS_NAME, module_name=uc.MODULE_NAME,
             rel_config=uc.CONFIG_FILE)
@@ -815,6 +828,7 @@ class ModuleFinderUnittests(unittest.TestCase):
         }
         self.mod_finder.module_info.get_paths.return_value = [uc.TEST_DATA_CONFIG]
         self.mod_finder.module_info.get_robolectric_type.return_value = 0
+        self.mod_finder.module_info.get_instrumentation_target_apps.return_value = {}
         t_infos = self.mod_finder.find_test_by_package_name(
             uc.PACKAGE, module_name=uc.MODULE_NAME, rel_config=uc.CONFIG_FILE)
         unittest_utils.assert_equal_testinfos(
@@ -855,6 +869,7 @@ class ModuleFinderUnittests(unittest.TestCase):
             constants.MODULE_CLASS: [],
             constants.MODULE_COMPATIBILITY_SUITES: []}
         self.mod_finder.module_info.get_robolectric_type.return_value = 0
+        self.mod_finder.module_info.get_instrumentation_target_apps.return_value = {}
         # Happy path testing.
         mock_dir.return_value = uc.MODULE_DIR
         class_path = '%s.java' % uc.CLASS_NAME
@@ -895,6 +910,7 @@ class ModuleFinderUnittests(unittest.TestCase):
         mock_build.return_value = uc.CLASS_BUILD_TARGETS
         self.mod_finder.module_info.is_auto_gen_test_config.return_value = False
         self.mod_finder.module_info.is_robolectric_test.return_value = False
+        self.mod_finder.module_info.get_instrumentation_target_apps.return_value = {}
         self.mod_finder.module_info.has_test_config.return_value = True
         self.mod_finder.module_info.get_module_names.return_value = [uc.MODULE_NAME]
         self.mod_finder.module_info.get_module_info.return_value = {
@@ -986,6 +1002,7 @@ class ModuleFinderUnittests(unittest.TestCase):
             constants.MODULE_COMPATIBILITY_SUITES: [],
             constants.MODULE_SRCS: [class_path]}
         self.mod_finder.module_info.get_robolectric_type.return_value = 0
+        self.mod_finder.module_info.get_instrumentation_target_apps.return_value = {}
         t_infos = self.mod_finder.find_test_by_path(class_path)
         unittest_utils.assert_equal_testinfos(self, uc.CLASS_INFO, t_infos[0])
 
@@ -1047,6 +1064,7 @@ class ModuleFinderUnittests(unittest.TestCase):
                                               'prefixes': founded_prefixes,
                                               'typed': False}}
         self.mod_finder.module_info.get_robolectric_type.return_value = 0
+        self.mod_finder.module_info.get_instrumentation_target_apps.return_value = {}
         cc_path_data = {constants.TI_REL_CONFIG: uc.CC_CONFIG_FILE,
                         constants.TI_FILTER: frozenset(
                             {test_info.TestFilter(class_name='class1.*',
@@ -1087,6 +1105,7 @@ class ModuleFinderUnittests(unittest.TestCase):
         self.mod_finder.module_info.is_robolectric_test.return_value = False
         self.mod_finder.module_info.is_auto_gen_test_config.return_value = True
         self.mod_finder.module_info.get_robolectric_type.return_value = 0
+        self.mod_finder.module_info.get_instrumentation_target_apps.return_value = {}
         self.mod_finder.module_info.get_module_info.return_value = mod_info
         processed_info = self.mod_finder._process_test_info(
             copy.copy(uc.MODULE_INFO))
@@ -1094,6 +1113,43 @@ class ModuleFinderUnittests(unittest.TestCase):
             self,
             processed_info,
             uc.MODULE_INFO_W_DALVIK)
+
+    # pylint: disable=unused-argument
+    @mock.patch.object(module_finder.ModuleFinder, '_get_build_targets')
+    @mock.patch.object(module_info.ModuleInfo, 'get_instrumentation_target_apps')
+    @mock.patch.object(module_info.ModuleInfo, 'get_robolectric_type')
+    @mock.patch.object(module_info.ModuleInfo, 'is_testable_module')
+    def test_process_test_info_with_instrumentation_target_apps(
+        self, testable, robotype, tapps, btargets):
+        """Test _process_test_info."""
+        testable.return_value = True
+        robotype.return_value = 0
+        target_module = 'AmSlam'
+        test_module = 'AmSlamTests'
+        artifact_path = '/out/somewhere/app/AmSlam.apk'
+        tapps.return_value = {target_module: {artifact_path}}
+        btargets.return_value = {target_module}
+        self.mod_finder.module_info.is_auto_gen_test_config.return_value = True
+        self.mod_finder.module_info.get_robolectric_type.return_value = 0
+        test1 = module(name=target_module,
+                       classes=['APPS'],
+                       path=['foo/bar/AmSlam'],
+                       installed=[artifact_path])
+        test2 = module(name=test_module,
+                       classes=['APPS'],
+                       path=['foo/bar/AmSlam/test'],
+                       installed=['/out/somewhere/app/AmSlamTests.apk'])
+        info = test_info.TestInfo(test_module,
+                                  atf_tr.AtestTradefedTestRunner.NAME,
+                                  set(),
+                                  {constants.TI_REL_CONFIG: uc.CONFIG_FILE,
+                                   constants.TI_FILTER: frozenset()})
+
+        self.mod_finder.module_info = create_module_info([test1, test2])
+        t_infos = self.mod_finder._process_test_info(info)
+
+        self.assertTrue(target_module in t_infos.build_targets)
+        self.assertEqual([artifact_path], t_infos.artifacts)
 
     @mock.patch.object(test_finder_utils, 'get_annotated_methods')
     def test_is_srcs_match_method_annotation_include_anno(
