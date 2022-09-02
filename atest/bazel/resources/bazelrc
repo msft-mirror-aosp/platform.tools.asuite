@@ -11,8 +11,8 @@ common --announce_rc
 # for a remote machine to execute them.
 build:remote --jobs=200
 
-# Set the Java used to launch Tradefed.
-build:remote --action_env=TF_JAVA_HOME=/usr/lib/jvm/11.29.3-ca-jdk11.0.2/reduced
+# Set the Java used in remote environment.
+build:remote --action_env=REMOTE_JAVA_HOME=/usr/lib/jvm/11.29.3-ca-jdk11.0.2/reduced
 
 # Set a host platform specifying the Docker container image used by the RBE
 # instance.
