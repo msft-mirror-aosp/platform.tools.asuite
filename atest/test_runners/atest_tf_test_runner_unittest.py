@@ -19,6 +19,7 @@
 # pylint: disable=line-too-long
 # pylint: disable=missing-function-docstring
 # pylint: disable=too-many-lines
+# pylint: disable=unused-argument
 
 import os
 import shlex
@@ -711,6 +712,37 @@ class AtestTradefedTestRunnerUnittests(unittest.TestCase):
                 serial='',
                 tf_customize_template='',
                 device_early_release='')])
+
+    @mock.patch.object(atf_tr.AtestTradefedTestRunner, '_handle_native_tests')
+    @mock.patch.object(atf_tr.AtestTradefedTestRunner, '_parse_extra_args')
+    @mock.patch.object(atf_tr.AtestTradefedTestRunner,
+                       '_is_all_tests_parameter_auto_enabled',
+                       return_value=False)
+    @mock.patch('os.environ.get', return_value=None)
+    @mock.patch.object(atf_tr.AtestTradefedTestRunner, '_generate_metrics_folder')
+    @mock.patch('atest_utils.get_result_server_args')
+    def test_generate_run_commands_with_artifacts(
+            self, mock_resultargs, mock_mertrics, _, mock_all, mock_parse, mock_handle):
+        """Test generate_run_command method."""
+        # Testing  without collect-tests-only
+        mock_resultargs.return_value = []
+        mock_mertrics.return_value = ''
+        mock_parse.return_value = [], []
+        test_module = 'AmSlamTests'
+        artifact_path = '/out/somewhere/app/AmSlam.apk'
+        t_info = test_info.TestInfo(
+            test_module,
+            atf_tr.AtestTradefedTestRunner.NAME,
+            set(),
+            {constants.TI_REL_CONFIG: uc.CONFIG_FILE,
+            constants.TI_FILTER: frozenset()},
+            artifacts={artifact_path})
+        cmd = self.tr.generate_run_commands([t_info], {})
+        template_str = (
+            '--include-filter {0} --module-arg {0}:'
+            'test-file-name:{1}')
+        self.assertTrue(
+            template_str.format(test_module, artifact_path) in cmd[0])
 
     @mock.patch.object(test_finder_utils, 'get_test_config_and_srcs')
     def test_has_instant_app_config(self, mock_config):
