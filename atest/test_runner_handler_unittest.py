@@ -134,7 +134,8 @@ class TestRunnerHandlerUnittests(unittest.TestCase):
         results_dir = ""
         extra_args = {}
         mod_info = module_info.ModuleInfo(
-            module_file=os.path.join(uc.TEST_DATA_DIR, uc.JSON_FILE))
+            module_file=os.path.join(uc.TEST_DATA_DIR, uc.JSON_FILE),
+            index_dir=tempfile.NamedTemporaryFile().name)
         # Tests both run_tests return 0
         test_infos = [MODULE_INFO_A, MODULE_INFO_A_AGAIN]
         self.assertEqual(

@@ -44,6 +44,8 @@ import os
 import sys
 import traceback
 
+from pathlib import Path
+
 from aidegen import constant
 from aidegen.lib import aidegen_metrics
 from aidegen.lib import common_util
@@ -74,7 +76,7 @@ _LAUNCH_ECLIPSE_SUCCESS_MSG = (
 _IDE_CACHE_REMINDER_MSG = (
     'To prevent the existed IDE cache from impacting your IDE dependency '
     'analysis, please consider to clear IDE caches if necessary. To do that, in'
-    ' IntelliJ IDEA, go to [File > Invalidate Caches / Restart...].')
+    ' IntelliJ IDEA, go to [File > Invalidate Caches -> Invalidate and Restart].')
 
 _MAX_TIME = 1
 _SKIP_BUILD_INFO_FUTURE = ''.join([
@@ -93,7 +95,7 @@ _CHOOSE_LANGUAGE_MSG = ('The scope of your modules contains {} different '
 _LANGUAGE_OPTIONS = [constant.JAVA, constant.C_CPP]
 _NO_ANY_PROJECT_EXIST = 'There is no Java, C/C++ or Rust target.'
 _NO_LANGUAGE_PROJECT_EXIST = 'There is no {} target.'
-
+_NO_IDE_LAUNCH_PATH = 'Can not find the IDE path : {}'
 
 def _parse_args(args):
     """Parse command line arguments.
@@ -306,7 +308,7 @@ def _launch_ide_by_module_contents(args, ide_util_obj, language,
          b) aidegen frameworks/base -i s -l c
             launch C/C++ projects of frameworks/base in Android Studio.
          c) aidegen frameworks/base -i c -l j
-            launch C/C++ projects of frameworks/base in CLion.
+            launch Java projects of frameworks/base in CLion.
 
     Args:
         args: A list of system arguments.
@@ -452,6 +454,27 @@ def _get_rust_project_paths(rtargets, root_dir):
         abs_paths.append(path)
     return abs_paths
 
+def _get_targets_from_args(targets, android_tree):
+    """Gets targets for specific argument.
+
+    For example:
+        $aidegen     : targets = ['.']
+        $aidegen -a  : targets = []
+        $aidegen .   : targets = ['.']
+        $aidegen . -a: targets = []
+
+    Args:
+        targets: A list of strings of targets.
+        android_tree: A boolean, True with '-a' argument else False.
+
+    Returns:
+        A list of the Rust absolute project paths.
+    """
+    if targets == [''] and not android_tree:
+        return ['.']
+    if android_tree:
+        return []
+    return targets
 
 @common_util.time_logged(message=_TIME_EXCEED_MSG, maximum=_MAX_TIME)
 def main_with_message(args):
@@ -488,16 +511,17 @@ def main(argv):
     ask_version = False
     try:
         args = _parse_args(argv)
-        # If the targets is the default value, sets it to the absolute path to
-        # avoid the issues caused by the empty path.
-        if args.targets == ['']:
-            args.targets = [os.path.abspath(os.getcwd())]
+        args.targets = _get_targets_from_args(args.targets, args.android_tree)
         if args.version:
             ask_version = True
             version_file = os.path.join(os.path.dirname(__file__),
                                         constant.VERSION_FILE)
             print(common_util.read_file_content(version_file))
             sys.exit(constant.EXIT_CODE_NORMAL)
+        if args.ide_installed_path:
+            if not Path(args.ide_installed_path).exists():
+                print(_NO_IDE_LAUNCH_PATH.format(args.ide_installed_path))
+                sys.exit(constant.EXIT_CODE_NORMAL)
 
         launch_ide = not args.no_launch
         common_util.configure_logging(args.verbose)

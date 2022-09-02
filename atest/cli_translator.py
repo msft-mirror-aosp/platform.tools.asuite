@@ -27,6 +27,8 @@ import re
 import sys
 import time
 
+from typing import List
+
 import atest_error
 import atest_utils
 import bazel_mode
@@ -67,7 +69,8 @@ class CLITranslator:
     """
 
     def __init__(self, mod_info=None, print_cache_msg=True,
-                 bazel_mode_enabled=False):
+                 bazel_mode_enabled=False, host=False,
+                 bazel_mode_features: List[bazel_mode.Features]=None):
         """CLITranslator constructor
 
         Args:
@@ -75,15 +78,20 @@ class CLITranslator:
             print_cache_msg: Boolean whether printing clear cache message or not.
                              True will print message while False won't print.
             bazel_mode_enabled: Boolean of args.bazel_mode.
+            host: Boolean of args.host.
+            bazel_mode_features: List of args.bazel_mode_features.
         """
         self.mod_info = mod_info
         self._bazel_mode = bazel_mode_enabled
+        self._bazel_mode_features = bazel_mode_features or []
+        self._host = host
         self.enable_file_patterns = False
         self.msg = ''
         if print_cache_msg:
             self.msg = ('(Test info has been cached for speeding up the next '
                         'run, if test info need to be updated, please add -c '
                         'to clean the old cache.)')
+        self.fuzzy_search = True
 
     # pylint: disable=too-many-locals
     # pylint: disable=too-many-branches
@@ -111,8 +119,12 @@ class CLITranslator:
         find_methods = test_finder_handler.get_find_methods_for_test(
             self.mod_info, test)
         if self._bazel_mode:
-            find_methods = [bazel_mode.create_new_finder(self.mod_info, f)
-                            for f in find_methods]
+            find_methods = [bazel_mode.create_new_finder(
+                self.mod_info,
+                f,
+                host=self._host,
+                enabled_features=self._bazel_mode_features
+            ) for f in find_methods]
         for finder in find_methods:
             # For tests in TEST_MAPPING, find method is only related to
             # test name, so the details can be set after test_info object
@@ -162,11 +174,14 @@ class CLITranslator:
                 test_info_str = ','.join([str(x) for x in found_test_infos])
                 break
         if not test_found:
-            f_results = self._fuzzy_search_and_msg(test, find_test_err_msg)
-            if f_results:
-                test_infos.update(f_results)
-                test_found = True
-                test_finders.append(FUZZY_FINDER)
+            print('No test found for: {}'.format(
+                atest_utils.colorize(test, constants.RED)))
+            if self.fuzzy_search:
+                f_results = self._fuzzy_search_and_msg(test, find_test_err_msg)
+                if f_results:
+                    test_infos.update(f_results)
+                    test_found = True
+                    test_finders.append(FUZZY_FINDER)
         metrics.FindTestFinishEvent(
             duration=metrics_utils.convert_duration(
                 time.time() - test_find_starts),
@@ -223,8 +238,6 @@ class CLITranslator:
         Returns:
             A list of TestInfos if found, otherwise None.
         """
-        print('No test found for: %s' %
-              atest_utils.colorize(test, constants.RED))
         # Currently we focus on guessing module names. Append names on
         # results if more finders support fuzzy searching.
         if atest_utils.has_chars(test, TESTNAME_CHARS):
@@ -606,15 +619,18 @@ class CLITranslator:
             A tuple with set of build_target strings and list of TestInfos.
         """
         tests = args.tests
+        self.fuzzy_search = args.fuzzy_search
         # Test details from TEST_MAPPING files
         test_details_list = None
         # Loading Host Unit Tests.
         host_unit_tests = []
         detect_type = DetectType.TEST_WITH_ARGS
         if not args.tests or atest_utils.is_test_mapping(args):
+            self.fuzzy_search = False
             detect_type = DetectType.TEST_NULL_ARGS
         start = time.time()
-        if not args.tests:
+        # Not including host unit tests if user specify --test-mapping arg.
+        if not args.tests and not args.test_mapping:
             logging.debug('Finding Host Unit Tests...')
             path = os.path.relpath(
                 os.path.realpath(''),
@@ -642,6 +658,12 @@ class CLITranslator:
             host_unit_test_infos = self._get_test_infos(host_unit_tests,
                                                         host_unit_test_details)
             test_infos.update(host_unit_test_infos)
+        if atest_utils.has_mixed_type_filters(test_infos):
+            atest_utils.colorful_print(
+                'Mixed type filters found. '
+                'Please separate tests into different runs.',
+                constants.YELLOW)
+            sys.exit(ExitCode.MIXED_TYPE_FILTER)
         finished_time = time.time() - start
         logging.debug('Finding tests finished in %ss', finished_time)
         metrics.LocalDetectEvent(

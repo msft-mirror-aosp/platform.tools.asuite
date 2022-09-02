@@ -12,40 +12,36 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Aspects used to transform certain providers into a TradefedTestInfo.
+"""Aspects used to transform certain providers into a TradefedTestDependencyInfo.
 
-Tradefed tests require a TradefedTestInfo provider that is not usually
-returned by most rules. Instead of creating custom rules to adapt build
-rule providers, we use Bazel aspects to convert the input rule's provider
-into a suitable type.
+Tradefed tests require a TradefedTestDependencyInfo provider that is not
+usually returned by most rules. Instead of creating custom rules to adapt
+build rule providers, we use Bazel aspects to convert the input rule's
+provider into a suitable type.
 
 See https://docs.bazel.build/versions/main/skylark/aspects.html#aspects
 for more information on how aspects work.
 """
 
 load("//bazel/rules:soong_prebuilt.bzl", "SoongPrebuiltInfo")
-load("//bazel/rules:tradefed_test_info.bzl", "TradefedTestInfo")
+load("//bazel/rules:tradefed_test_dependency_info.bzl", "TradefedTestDependencyInfo")
 
 def _soong_prebuilt_tradefed_aspect_impl(target, ctx):
-    test_config_files = []
-    test_binary_files = []
-
-    # Partition files into config files and test binaries.
-    for f in target[SoongPrebuiltInfo].files.to_list():
-        if f.extension == "config" or f.extension == "xml":
-            test_config_files.append(f)
-        else:
-            test_binary_files.append(f)
+    runtime_jars = []
+    runtime_shared_libraries = []
+    for f in target[SoongPrebuiltInfo].transitive_runtime_outputs.to_list():
+        if f.extension == "so":
+            runtime_shared_libraries.append(f)
+        elif f.extension == "jar":
+            runtime_jars.append(f)
 
     return [
-        TradefedTestInfo(
-            module_name = target[SoongPrebuiltInfo].module_name,
-            test_binaries = test_binary_files,
-            test_configs = test_config_files,
+        TradefedTestDependencyInfo(
+            runtime_jars = depset(runtime_jars),
+            runtime_shared_libraries = depset(runtime_shared_libraries),
         ),
     ]
 
 soong_prebuilt_tradefed_test_aspect = aspect(
-    attr_aspects = ["test"],
     implementation = _soong_prebuilt_tradefed_aspect_impl,
 )

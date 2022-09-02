@@ -41,10 +41,11 @@ import zipfile
 
 from multiprocessing import Process
 from pathlib import Path
+from typing import Any, Dict
 
 import xml.etree.ElementTree as ET
 
-from atest_enum import DetectType
+from atest_enum import DetectType, ExitCode, FilterType
 
 # This is a workaround of b/144743252, where the http.client failed to loaded
 # because the googleapiclient was found before the built-in libs; enabling
@@ -89,12 +90,17 @@ except ImportError as err:
         from asuite.metrics import metrics_base
         from asuite.metrics import metrics_utils
     except ImportError as err:
-        # This exception occurs only when invoking atest in source code.
-        print("You shouldn't see this message unless you ran 'atest-src'. "
-              "To resolve the issue, please run:\n\t{}\n"
-              "and try again.".format('pip3 install protobuf'))
         print('Import error: ', err)
         print('sys.path:\n', '\n'.join(sys.path))
+        # Error occurs in prebuilt atest + prebuilt executable python3.
+        if Path(constants.VERSION_FILE).is_file():
+            colorful_print("This error may occur in unexpected conditions. "
+                "Please report this bug and use 'atest-src' as alternative.",
+                constants.RED)
+        else:
+            print("You shouldn't see this message unless you ran 'atest-src'. "
+              "To resolve the issue, please run:\n\t{}\n"
+              "and try again.".format('pip3 install protobuf'))
         sys.exit(constants.IMPORT_FAILURE)
 
 _BASH_RESET_CODE = '\033[0m\n'
@@ -142,6 +148,9 @@ _VARS_FOR_MAINLINE = {
 }
 
 _ROOT_PREPARER = "com.android.tradefed.targetprep.RootTargetPreparer"
+
+_WILDCARD_FILTER_RE = re.compile(r'.*[?|*]$')
+_REGULAR_FILTER_RE = re.compile(r'.*\w$')
 
 def get_build_cmd(dump=False):
     """Compose build command with no-absolute path and flag "--make-mode".
@@ -325,8 +334,9 @@ def get_mainline_build_cmd(build_targets):
     static_targets = [
         'dist',
         'apps_only',
-        'out/soong/host/linux-x86/bin/merge_zips',
-        'out/soong/host/linux-x86/bin/aapt2'
+        'merge_zips',
+        'aapt2',
+        'aapt' # To avoid 'apk installed but AaptParser failed' error.
     ]
     cmd = get_build_cmd()
     cmd.append(target_build_apps)
@@ -496,14 +506,15 @@ def _has_colors(stream):
     return cached_has_colors[stream]
 
 
-def colorize(text, color, highlight=False):
+def colorize(text, color, bp_color=None):
     """ Convert to colorful string with ANSI escape code.
 
     Args:
         text: A string to print.
-        color: ANSI code shift for colorful print. They are defined
-               in constants_default.py.
-        highlight: True to print with highlight.
+        color: Forground(Text) color which is an ANSI code shift for colorful
+               print. They are defined in constants_default.py.
+        bp_color: Backgroud color which is an ANSI code shift for colorful
+                   print.
 
     Returns:
         Colorful string with ANSI escape code.
@@ -512,27 +523,33 @@ def colorize(text, color, highlight=False):
     clr_suff = '\033[0m'
     has_colors = _has_colors(sys.stdout)
     if has_colors:
-        if highlight:
-            ansi_shift = 40 + color
+        background_color = ''
+        if bp_color:
+            # Foreground(Text) ranges from 30-37
+            text_color = 30 + color
+            # Background ranges from 40-47
+            background_color = ';%d' % (40 + bp_color)
         else:
-            ansi_shift = 30 + color
-        clr_str = "%s%dm%s%s" % (clr_pref, ansi_shift, text, clr_suff)
+            text_color = 30 + color
+        clr_str = "%s%d%sm%s%s" % (clr_pref, text_color, background_color,
+                                    text, clr_suff)
     else:
         clr_str = text
     return clr_str
 
 
-def colorful_print(text, color, highlight=False, auto_wrap=True):
+def colorful_print(text, color, bp_color=None, auto_wrap=True):
     """Print out the text with color.
 
     Args:
         text: A string to print.
-        color: ANSI code shift for colorful print. They are defined
-               in constants_default.py.
-        highlight: True to print with highlight.
+        color: Forground(Text) color which is an ANSI code shift for colorful
+               print. They are defined in constants_default.py.
+        bp_color: Backgroud color which is an ANSI code shift for colorful
+                   print.
         auto_wrap: If True, Text wraps while print.
     """
-    output = colorize(text, color, highlight)
+    output = colorize(text, color, bp_color)
     if auto_wrap:
         print(output)
     else:
@@ -737,22 +754,19 @@ def check_md5(check_file, missing_ok=False):
           - True if the checksum is consistent with the actual MD5.
           - False otherwise.
     """
-    if not os.path.isfile(check_file):
+    if not Path(check_file).is_file():
         if not missing_ok:
             logging.debug(
                 'Unable to verify: %s not found.', check_file)
         return missing_ok
-    if not is_valid_json_file(check_file):
-        logging.debug(
-            'Unable to verify: %s invalid JSON format.', check_file)
-        return missing_ok
-    with open(check_file, 'r+') as _file:
-        content = json.load(_file)
+    content = load_json_safely(check_file)
+    if content:
         for filename, md5 in content.items():
             if md5sum(filename) != md5:
                 logging.debug('%s has altered.', filename)
                 return False
-    return True
+        return True
+    return False
 
 def save_md5(filenames, save_file):
     """Method equivalent to 'md5sum file1 file2 > /file/to/check'
@@ -952,8 +966,18 @@ def find_files(path, file_name=constants.TEST_MAPPING):
     """
     match_files = []
     for root, _, filenames in os.walk(path):
-        for filename in fnmatch.filter(filenames, file_name):
-            match_files.append(os.path.join(root, filename))
+        try:
+            for filename in fnmatch.filter(filenames, file_name):
+                match_files.append(os.path.join(root, filename))
+        except re.error as e:
+            msg = "Unable to locate %s among %s" % (file_name, filenames)
+            logging.debug(msg)
+            logging.debug("Exception: %s", e)
+            metrics.AtestExitEvent(
+                duration=0,
+                exit_code=ExitCode.COLLECT_ONLY_FILE_NOT_FOUND,
+                stacktrace=msg,
+                logs=e)
     return match_files
 
 def extract_zip_text(zip_path):
@@ -1114,68 +1138,87 @@ def has_python_module(module_name):
     """
     return bool(importlib.util.find_spec(module_name))
 
-def is_valid_json_file(path):
-    """Detect if input path exist and content is valid.
+def load_json_safely(jsonfile):
+    """Load the given json file as an object.
 
     Args:
-        path: The json file path.
+        jsonfile: The json file path.
 
     Returns:
-        True if file exist and content is valid, False otherwise.
+        The content of the give json file. Null dict when:
+        1. the given path doesn't exist.
+        2. the given path is not a json or invalid format.
     """
-    if isinstance(path, bytes):
-        path = path.decode('utf-8')
-    try:
-        if os.path.isfile(path):
-            with open(path) as json_file:
-                json.load(json_file)
-            return True
-        logging.debug('%s: File not found.', path)
-    except json.JSONDecodeError:
-        logging.debug('Exception happened while loading %s.', path)
-    return False
+    if isinstance(jsonfile, bytes):
+        jsonfile = jsonfile.decode('utf-8')
+    if Path(jsonfile).is_file():
+        try:
+            return json.load(open(jsonfile))
+        except json.JSONDecodeError:
+            logging.debug('Exception happened while loading %s.', jsonfile)
+    else:
+        logging.debug('%s: File not found.', jsonfile)
+    return {}
 
 def get_manifest_branch():
-    """Get the manifest branch via repo info command.
+    """Get the manifest branch.
+
+         (portal xml)                            (default xml)
+    +--------------------+ _get_include() +-----------------------------+
+    | .repo/manifest.xml |--------------->| .repo/manifests/default.xml |
+    +--------------------+                +---------------+-------------+
+                             <default revision="master" |
+                                      remote="aosp"     | _get_revision()
+                                      sync-j="4"/>      V
+                                                    +--------+
+                                                    | master |
+                                                    +--------+
 
     Returns:
-        None if no system environment parameter ANDROID_BUILD_TOP or
-        running 'repo info' command error, otherwise the manifest branch
+        The value of 'revision' of the included xml or default.xml.
+
+        None when no ANDROID_BUILD_TOP or unable to access default.xml.
     """
-    build_top = os.getenv(constants.ANDROID_BUILD_TOP, None)
+    build_top = os.getenv(constants.ANDROID_BUILD_TOP)
     if not build_top:
         return None
-    splitter = ':'
-    env_vars = os.environ.copy()
-    orig_pythonpath = env_vars['PYTHONPATH'].split(splitter)
-    # Command repo imports stdlib "http.client", so adding non-default lib
-    # e.g. googleapiclient, may cause repo command execution error.
-    # The temporary dir is not presumably always /tmp, especially in MacOS.
-    # b/169936306, b/190647636 are the cases we should never ignore.
-    soong_path_re = re.compile(r'.*/Soong.python_.*/')
-    default_python_path = [p for p in orig_pythonpath
-                            if not soong_path_re.match(p)]
-    env_vars['PYTHONPATH'] = splitter.join(default_python_path)
-    proc = subprocess.Popen(f'repo info '
-                            f'-o {constants.ASUITE_REPO_PROJECT_NAME}',
-                            shell=True,
-                            env=env_vars,
-                            cwd=build_top,
-                            universal_newlines=True,
-                            stdout=subprocess.PIPE,
-                            stderr=subprocess.PIPE)
-    try:
-        cmd_out, err_out = proc.communicate()
-        branch_re = re.compile(r'Manifest branch:\s*(?P<branch>.*)')
-        match = branch_re.match(cmd_out)
-        if match:
-            return match.group('branch')
-        logging.warning('Unable to detect branch name through:\n %s, %s',
-                        cmd_out, err_out)
-    except subprocess.TimeoutExpired:
-        logging.warning('Exception happened while getting branch')
-        proc.kill()
-    return None
+    portal_xml = Path(build_top).joinpath('.repo', 'manifest.xml')
+    default_xml = Path(build_top).joinpath('.repo/manifests', 'default.xml')
+    def _get_revision(xml):
+        try:
+            xml_root = ET.parse(xml).getroot()
+        except (IOError, OSError, ET.ParseError):
+            logging.warning('%s could not be read.', xml)
+            return ''
+        default_tags = xml_root.findall('./default')
+        if default_tags:
+            for tag in default_tags:
+                branch = tag.attrib.get('revision')
+                return branch
+        return ''
+    def _get_include(xml):
+        try:
+            xml_root = ET.parse(xml).getroot()
+        except (IOError, OSError, ET.ParseError):
+            logging.warning('%s could not be read.', xml)
+            return Path()
+        include_tags = xml_root.findall('./include')
+        if include_tags:
+            for tag in include_tags:
+                name = tag.attrib.get('name')
+                if name:
+                    return Path(build_top).joinpath('.repo/manifests', name)
+        return default_xml
+
+    # 1. Try getting revision from .repo/manifests/default.xml
+    if default_xml.is_file():
+        return _get_revision(default_xml)
+    # 2. Try getting revision from the included xml of .repo/manifest.xml
+    include_xml = _get_include(portal_xml)
+    if include_xml.is_file():
+        return _get_revision(include_xml)
+    # 3. Try getting revision directly from manifest.xml (unlikely to happen)
+    return _get_revision(portal_xml)
 
 def get_build_target():
     """Get the build target form system environment TARGET_PRODUCT."""
@@ -1183,6 +1226,28 @@ def get_build_target():
         os.getenv(constants.ANDROID_TARGET_PRODUCT, None),
         os.getenv(constants.TARGET_BUILD_VARIANT, None))
     return build_target
+
+def build_module_info_target(module_info_target):
+    """Build module-info.json after deleting the original one.
+
+    Args:
+        module_info_target: the target name that soong is going to build.
+    """
+    module_file = 'module-info.json'
+    logging.debug('Generating %s - this is required for '
+                  'initial runs or forced rebuilds.', module_file)
+    build_start = time.time()
+    product_out = os.getenv(constants.ANDROID_PRODUCT_OUT, None)
+    module_info_path = Path(product_out).joinpath('module-info.json')
+    if module_info_path.is_file():
+        os.remove(module_info_path)
+    if not build([module_info_target],
+                  verbose=logging.getLogger().isEnabledFor(logging.DEBUG)):
+        sys.exit(ExitCode.BUILD_FAILURE)
+    build_duration = time.time() - build_start
+    metrics.LocalDetectEvent(
+        detect_type=DetectType.ONLY_BUILD_MODULE_INFO,
+        result=int(build_duration))
 
 def parse_mainline_modules(test):
     """Parse test reference into test and mainline modules.
@@ -1341,11 +1406,16 @@ def get_config_device(test_config):
         A set include all the device name of the input config.
     """
     devices = set()
-    xml_root = ET.parse(test_config).getroot()
-    device_tags = xml_root.findall('.//device')
-    for tag in device_tags:
-        name = tag.attrib['name'].strip()
-        devices.add(name)
+    try:
+        xml_root = ET.parse(test_config).getroot()
+        device_tags = xml_root.findall('.//device')
+        for tag in device_tags:
+            name = tag.attrib['name'].strip()
+            devices.add(name)
+    except ET.ParseError as e:
+        colorful_print('Config has invalid format.', constants.RED)
+        colorful_print('File %s : %s' % (test_config, str(e)), constants.YELLOW)
+        sys.exit(ExitCode.CONFIG_INVALID_FORMAT)
     return devices
 
 def get_mainline_param(test_config):
@@ -1582,6 +1652,35 @@ def get_verify_key(tests, extra_args):
     test_commands.sort()
     return ' '.join(test_commands)
 
+def gen_runner_cmd_to_file(tests, dry_run_cmd,
+                           result_path=constants.RUNNER_COMMAND_PATH):
+    """Generate test command and save to file.
+
+    Args:
+        tests: A String of input tests.
+        dry_run_cmd: A String of dry run command.
+        result_path: A file path for saving result.
+    Returns:
+        A composed run commands.
+    """
+    normalized_cmd = dry_run_cmd
+    root_path = os.environ.get(constants.ANDROID_BUILD_TOP)
+    if root_path in dry_run_cmd:
+        normalized_cmd = dry_run_cmd.replace(root_path,
+                                             f"${constants.ANDROID_BUILD_TOP}")
+    results = {}
+    if not os.path.isfile(result_path):
+        results[tests] = normalized_cmd
+    else:
+        with open(result_path) as json_file:
+            results = json.load(json_file)
+            if results.get(tests) != normalized_cmd:
+                results[tests] = normalized_cmd
+    with open(result_path, 'w+') as _file:
+        json.dump(results, _file, indent=0)
+    return results.get(tests, '')
+
+
 def handle_test_env_var(input_test, result_path=constants.VERIFY_ENV_PATH,
                         pre_verify=False):
     """Handle the environment variable of input tests.
@@ -1622,23 +1721,22 @@ def handle_test_env_var(input_test, result_path=constants.VERIFY_ENV_PATH,
         raise atest_error.DryRunVerificationError('\n'.join(verify_error))
     return 1
 
-def generate_buildfiles_checksum():
+def generate_buildfiles_checksum(target_dir: Path):
     """ Method that generate md5 checksum of Android.{bp,mk} files.
 
     The checksum of build files are stores in
         $ANDROID_HOST_OUT/indexes/buildfiles.md5
     """
-    if os.path.isfile(constants.LOCATE_CACHE):
-        arg = '--existing' if os.uname()[0] == 'Linux' else ''
-        cmd = (r'locate -d{} {} Android.bp Android.mk'
-               r'|egrep ".*(bp|mk)$"').format(
-                   constants.LOCATE_CACHE, arg)
+    plocate_db = Path(target_dir).joinpath(constants.LOCATE_CACHE)
+    checksum_file = Path(target_dir).joinpath(constants.BUILDFILES_MD5)
+    if plocate_db.is_file():
+        cmd = (f'locate -d{plocate_db} --existing '
+               r'--regex "/Android\.(bp|mk)$"')
         try:
             result = subprocess.check_output(cmd, shell=True).decode('utf-8')
-            save_md5(result.split(), constants.BUILDFILES_MD5)
+            save_md5(result.split(), checksum_file)
         except subprocess.CalledProcessError:
-            logging.error('Failed to generate %s',
-                          constants.BUILDFILES_MD5)
+            logging.error('Failed to generate %s', checksum_file)
 
 def run_multi_proc(func, *args, **kwargs):
     """Start a process with multiprocessing and return Process object.
@@ -1705,7 +1803,7 @@ def get_full_annotation_class_name(module_info, class_name):
     keyword_re = re.compile(
         r'import\s+(?P<fqcn>.*\.{})(|;)$'.format(class_name), re.I)
     build_top = Path(os.environ.get(constants.ANDROID_BUILD_TOP, ''))
-    for f in module_info.get('srcs'):
+    for f in module_info.get(constants.MODULE_SRCS, []):
         full_path = build_top.joinpath(f)
         with open(full_path, 'r') as cache:
             for line in cache.readlines():
@@ -1718,3 +1816,170 @@ def get_full_annotation_class_name(module_info, class_name):
                 if match:
                     return match.group('fqcn')
     return ""
+
+def has_mixed_type_filters(test_infos):
+    """ There are different types in a test module.
+
+    Dict test_to_types is mapping module name and the set of types.
+    For example,
+    {
+        'module_1': {'wildcard class_method'},
+        'module_2': {'wildcard class_method', 'regular class_method'},
+        'module_3': set()
+        }
+
+    Args:
+        test_infos: A set of TestInfos.
+
+    Returns:
+        True if more than one filter type in a test module, False otherwise.
+    """
+    test_to_types = dict()
+    for test_info in test_infos:
+        filters = test_info.data.get(constants.TI_FILTER, [])
+        filter_types = set()
+        for flt in filters:
+            filter_types |= get_filter_types(flt.to_set_of_tf_strings())
+        filter_types |= test_to_types.get(test_info.test_name, set())
+        test_to_types[test_info.test_name] = filter_types
+    for _, types in test_to_types.items():
+        if len(types) > 1:
+            return True
+    return False
+
+def get_filter_types(tf_filter_set):
+    """ Get filter types.
+
+    Args:
+        tf_filter_set: A set of tf filter strings.
+
+    Returns:
+        A set of FilterType.
+    """
+    type_set = set()
+    for tf_filter in tf_filter_set:
+        if _WILDCARD_FILTER_RE.match(tf_filter):
+            logging.debug('Filter and type: (%s, %s)',
+                          tf_filter, FilterType.WILDCARD_FILTER.value)
+            type_set.add(FilterType.WILDCARD_FILTER.value)
+        if _REGULAR_FILTER_RE.match(tf_filter):
+            logging.debug('Filter and type: (%s, %s)',
+                         tf_filter, FilterType.REGULAR_FILTER.value)
+            type_set.add(FilterType.REGULAR_FILTER.value)
+    return type_set
+
+def has_index_files():
+    """Determine whether the essential index files are done.
+
+    (b/206886222) checksum may be different even the src is not changed; so
+    the main process needs to wait when the essential index files do not exist.
+
+    Returns:
+        False if one of the index file does not exist; True otherwise.
+    """
+    return all(Path(f).is_file() for f in [
+        constants.CLASS_INDEX,
+        constants.CC_CLASS_INDEX,
+        constants.QCLASS_INDEX,
+        constants.PACKAGE_INDEX])
+
+# pylint: disable=anomalous-backslash-in-string,too-many-branches
+def get_bp_content(filename: Path, module_type: str) -> Dict:
+    """Get essential content info from an Android.bp.
+    By specifying module_type (e.g. 'android_test', 'android_app'), this method
+    can parse the given starting point and grab 'name', 'instrumentation_for'
+    and 'manifest'.
+
+    Returns:
+        A dict of mapping test module and target module; e.g.
+        {
+         'FooUnitTests':
+             {'manifest': 'AndroidManifest.xml', 'target_module': 'Foo'},
+         'Foo':
+             {'manifest': 'AndroidManifest-common.xml', 'target_module': ''}
+        }
+        Null dict if there is no content of the given module_type.
+    """
+    build_file = Path(filename)
+    if not any((build_file.suffix == '.bp', build_file.is_file())):
+        return {}
+    start_from = re.compile(f'^{module_type}\s*\{{')
+    end_with = re.compile(r'^\}$')
+    context_re = re.compile(
+        r'\s*(?P<key>(name|manifest|instrumentation_for))\s*:'
+        r'\s*\"(?P<value>.*)\"\s*,', re.M)
+    with open(build_file, 'r') as cache:
+        data = cache.readlines()
+    content_dict = {}
+    start_recording = False
+    for _line in data:
+        line = _line.strip()
+        if re.match(start_from, line):
+            start_recording = True
+            _dict = {}
+            continue
+        if start_recording:
+            if not re.match(end_with, line):
+                match = re.match(context_re, line)
+                if match:
+                    _dict.update(
+                        {match.group('key'): match.group('value')})
+            else:
+                start_recording = False
+                module_name = _dict.get('name')
+                if module_name:
+                    content_dict.update(
+                        {module_name: {
+                            'manifest': _dict.get(
+                                'manifest', 'AndroidManifest.xml'),
+                            'target_module': _dict.get(
+                                'instrumentation_for', '')}
+                        })
+    return content_dict
+
+def get_manifest_info(manifest: Path) -> Dict[str, Any]:
+    """Get the essential info from the given manifest file.
+    This method cares only three attributes:
+        * package
+        * targetPackage
+        * persistent
+    For an instrumentation test, the result will be like:
+    {
+        'package': 'com.android.foo.tests.unit',
+        'targetPackage': 'com.android.foo',
+        'persistent': False
+    }
+    For a target module of the instrumentation test:
+    {
+        'package': 'com.android.foo',
+        'targetPackage': '',
+        'persistent': True
+    }
+    """
+    mdict = {'package': '', 'target_package': '', 'persistent': False}
+    try:
+        xml_root = ET.parse(manifest).getroot()
+    except (ET.ParseError, FileNotFoundError):
+        return mdict
+    manifest_package_re =  re.compile(r'[a-z][\w]+(\.[\w]+)*')
+    # 1. Must probe 'package' name from the top.
+    for item in xml_root.findall('.'):
+        if 'package' in item.attrib.keys():
+            pkg = item.attrib.get('package')
+            match = manifest_package_re.match(pkg)
+            if match:
+                mdict['package'] = pkg
+                break
+    for item in xml_root.findall('*'):
+        # 2. Probe 'targetPackage' in 'instrumentation' tag.
+        if item.tag == 'instrumentation':
+            for key, value in item.attrib.items():
+                if 'targetPackage' in key:
+                    mdict['target_package'] = value
+                    break
+        # 3. Probe 'persistent' in any tags.
+        for key, value in item.attrib.items():
+            if 'persistent' in key:
+                mdict['persistent'] = value.lower() == 'true'
+                break
+    return mdict

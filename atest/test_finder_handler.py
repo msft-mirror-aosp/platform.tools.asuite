@@ -22,6 +22,7 @@ Test Finder Handler module.
 
 import inspect
 import logging
+import sys
 
 import atest_enum
 import constants
@@ -176,6 +177,10 @@ def _get_test_reference_types(ref):
         ref_end = ref.rsplit('.', 1)[-1]
         ref_end_is_upper = ref_end[0].isupper()
     if ':' in ref:
+        if ref.count(':') > 1:
+            logging.error('More than 1 colon (:) in the test reference(%s). '
+                          'Please correct it and try again.', ref)
+            sys.exit(atest_enum.ExitCode.INPUT_TEST_REFERENCE_ERROR)
         if '.' in ref:
             if ref_end_is_upper:
                 # Module:fully.qualified.Class or Integration:fully.q.Class
@@ -201,15 +206,15 @@ def _get_test_reference_types(ref):
                     _REFERENCE_TYPE.INTEGRATION_FILE_PATH,
                     _REFERENCE_TYPE.SUITE_PLAN_FILE_PATH]
         # (b/207327349) ref_end_is_upper does not guarantee a classname anymore.
-        return [_REFERENCE_TYPE.MODULE,
-                _REFERENCE_TYPE.CACHE,
+        return [_REFERENCE_TYPE.CACHE,
+                _REFERENCE_TYPE.MODULE,
                 _REFERENCE_TYPE.QUALIFIED_CLASS,
                 _REFERENCE_TYPE.PACKAGE]
     # Note: We assume that if you're referencing a file in your cwd,
     # that file must have a '.' in its name, i.e. foo.java, foo.xml.
     # If this ever becomes not the case, then we need to include path below.
-    return [_REFERENCE_TYPE.MODULE,
-            _REFERENCE_TYPE.CACHE,
+    return [_REFERENCE_TYPE.CACHE,
+            _REFERENCE_TYPE.MODULE,
             _REFERENCE_TYPE.INTEGRATION,
             # TODO: Uncomment in SUITE when it's supported
             # _REFERENCE_TYPE.SUITE,

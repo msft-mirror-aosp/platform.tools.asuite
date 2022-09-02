@@ -29,6 +29,7 @@ from importlib import reload
 from io import StringIO
 from unittest import mock
 
+import atest_arg_parser
 import atest_utils
 import cli_translator as cli_t
 import constants
@@ -61,6 +62,7 @@ TEST_10 = test_mapping.TestDetail({'name': 'test10'})
 SEARCH_DIR_RE = re.compile(r'^find ([^ ]*).*$')
 BUILD_TOP_DIR = tempfile.TemporaryDirectory().name
 PRODUCT_OUT_DIR = os.path.join(BUILD_TOP_DIR, 'out/target/product/vsoc_x86_64')
+HOST_OUT_DIR = os.path.join(BUILD_TOP_DIR, 'out/host/linux-x86')
 
 #pylint: disable=unused-argument
 def gettestinfos_side_effect(test_names, test_mapping_test_details=None,
@@ -89,7 +91,9 @@ class CLITranslatorUnittests(unittest.TestCase):
         self.ctr = cli_t.CLITranslator()
 
         # Create a mock of args.
-        self.args = mock.Mock
+        parser = atest_arg_parser.AtestArgParser()
+        parser.add_atest_args()
+        self.args = parser.parse_args()
         self.args.tests = []
         # Test mapping related args
         self.args.test_mapping = False
@@ -238,7 +242,8 @@ class CLITranslatorUnittests(unittest.TestCase):
             self, mock_getfindmethods, _metrics, mock_getfuzzyresults,):
         """Test _get_test_infos method."""
         mod_info = module_info.ModuleInfo(
-            module_file=os.path.join(uc.TEST_DATA_DIR, uc.JSON_FILE))
+            module_file=os.path.join(uc.TEST_DATA_DIR, uc.JSON_FILE),
+            index_dir=HOST_OUT_DIR)
         ctr = cli_t.CLITranslator(mod_info=mod_info)
         null_test_info = set()
         mock_getfindmethods.return_value = []
@@ -424,7 +429,8 @@ class CLITranslatorUnittests(unittest.TestCase):
     def test_extract_testable_modules_by_wildcard(self, mock_mods):
         """Test _extract_testable_modules_by_wildcard method."""
         mod_info = module_info.ModuleInfo(
-            module_file=os.path.join(uc.TEST_DATA_DIR, uc.JSON_FILE))
+            module_file=os.path.join(uc.TEST_DATA_DIR, uc.JSON_FILE),
+            index_dir=HOST_OUT_DIR)
         ctr = cli_t.CLITranslator(mod_info=mod_info)
         mock_mods.return_value = ['test1', 'test2', 'test3', 'test11',
                                   'Test22', 'Test100', 'aTest101']
@@ -450,8 +456,8 @@ class CLITranslatorUnittests(unittest.TestCase):
     @mock.patch.object(cli_t.CLITranslator, '_find_tests_by_test_mapping')
     @mock.patch.object(cli_t.CLITranslator, '_get_test_infos',
                        side_effect=gettestinfos_side_effect)
-    def test_translate_test_mapping_host_unit_test(self, _info, mock_testmapping,
-        _find_unit_tests):
+    def test_translate_test_mapping_host_unit_test(
+        self, _info, mock_testmapping, _find_unit_tests):
         """Test translate method for tests belong to host unit tests."""
         # Check that test mappings feeds into get_test_info properly.
         test_detail1 = test_mapping.TestDetail(uc.TEST_MAPPING_TEST)
@@ -467,6 +473,32 @@ class CLITranslatorUnittests(unittest.TestCase):
                                             uc.CLASS_INFO,
                                             uc.MODULE_INFO_HOST_1,
                                             uc.MODULE_INFO_HOST_2})
+
+    @mock.patch.object(cli_t.CLITranslator, '_has_host_unit_test',
+                       return_value=True)
+    @mock.patch.object(test_finder_utils, 'find_host_unit_tests',
+                       return_value=[uc.HOST_UNIT_TEST_NAME_1,
+                                     uc.HOST_UNIT_TEST_NAME_2])
+    @mock.patch.object(cli_t.CLITranslator, '_find_tests_by_test_mapping')
+    @mock.patch.object(cli_t.CLITranslator, '_get_test_infos',
+                       side_effect=gettestinfos_side_effect)
+    def test_translate_test_mapping_without_host_unit_test(
+        self, _info, mock_testmapping, _find_unit_tests, _has_host_unit_test):
+        """Test translate method not using host unit tests if test_mapping arg .
+        """
+        # Check that test mappings feeds into get_test_info properly.
+        test_detail1 = test_mapping.TestDetail(uc.TEST_MAPPING_TEST)
+        test_detail2 = test_mapping.TestDetail(uc.TEST_MAPPING_TEST_WITH_OPTION)
+        mock_testmapping.return_value = ([test_detail1, test_detail2], None)
+        self.args.tests = []
+        self.args.host = False
+        self.args.test_mapping = True
+        self.args.host_unit_test_only = False
+        _, test_infos = self.ctr.translate(self.args)
+        unittest_utils.assert_strict_equal(
+            self,
+            test_infos,
+            {uc.MODULE_INFO, uc.CLASS_INFO})
 
 if __name__ == '__main__':
     unittest.main()

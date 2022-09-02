@@ -46,12 +46,18 @@ BAZEL_ARG = ('Forward a flag to Bazel for tests executed with Bazel; '
 CLEAR_CACHE = 'Wipe out the test_infos cache of the test and start a new search.'
 COLLECT_TESTS_ONLY = ('Collect a list test cases of the instrumentation tests '
                       'without testing them in real.')
+COVERAGE = ('Instrument tests with code coverage and generate a code coverage '
+            'report.')
+DEVICE_ONLY = ('Only run tests that require a device. (Note: only workable with'
+               ' --test-mapping.)')
 DISABLE_TEARDOWN = 'Disable test teardown and cleanup.'
 DRY_RUN = 'Dry run atest without building, installing and running tests in real.'
 ENABLE_DEVICE_PREPARER = ('Enable template/preparers/device-preparer as the '
                           'default preparer.')
 ENABLE_FILE_PATTERNS = 'Enable FILE_PATTERNS in TEST_MAPPING.'
 FLAKES_INFO = 'Test result with flakes info.'
+FUZZY_SEARCH = 'Running fuzzy search when test not found. (implicit True)'
+GENERATE_RUNNER_CMD = 'Generate the runner command(s) of given tests.'
 HISTORY = ('Show test results in chronological order(with specified number or '
            'all by default).')
 HOST = ('Run the test completely on the host without a device. '
@@ -66,6 +72,8 @@ INSTANT = ('Run the instant_app version of the module if the module supports it.
            '"--instant" is passed.')
 ITERATION = 'Loop-run tests until the max iteration is reached. (default: 10)'
 LATEST_RESULT = 'Print latest test result.'
+LD_LIB_PATH = ('Insert $ANDROID_HOST_OUT/{lib,lib64} to LD_LIBRARY_PATH when '
+               'running tests with Tradefed.')
 LIST_MODULES = 'List testable modules of the given suite.'
 NO_ENABLE_ROOT = ('Do NOT restart adbd with root permission even the test config '
                   'has RootTargetPreparer.')
@@ -73,7 +81,12 @@ NO_METRICS = 'Do not send metrics.'
 REBUILD_MODULE_INFO = ('Forces a rebuild of the module-info.json file. '
                        'This may be necessary following a repo sync or '
                        'when writing a new test.')
-REQUEST_UPLOAD_RESULT = 'Request permission to upload test result.'
+REQUEST_UPLOAD_RESULT = ('Request permission to upload test result. This option '
+                         'only needs to set once and takes effect until '
+                         '--disable-upload-result is set.')
+DISABLE_UPLOAD_RESULT = ('Turn off the upload of test result. This option '
+                         'only needs to set once and takes effect until '
+                         '--request-upload-result is set')
 RERUN_UNTIL_FAILURE = ('Rerun all tests until a failure occurs or the max '
                        'iteration is reached. (default: forever!)')
 # For Integer.MAX_VALUE == (2**31 - 1) and not possible to give a larger integer
@@ -92,6 +105,8 @@ TEST_MAPPING = 'Run tests defined in TEST_MAPPING files.'
 TEST_CONFIG_SELECTION = ('If multiple test config belong to same test module '
                          'pop out a selection menu on console.')
 TEST_FILTER = 'Run tests which are specified using this option.'
+TEST_TIMEOUT = ('Customize test timeout. E.g. 60000(in milliseconds) '
+                'represents 1 minute timeout. For no timeout, set to 0.')
 TF_DEBUG = 'Enable tradefed debug mode with a specified port. (default: 10888)'
 TF_EARLY_DEVICE_RELEASE = ('Inform Tradefed to release the device as soon as '
                            'when done with it.')
@@ -101,7 +116,9 @@ UPDATE_CMD_MAPPING = ('Update the test command of input tests. Warning: result '
                       'will be saved under '
                       'tools/asuite/atest/test_data.')
 USE_MODULES_IN = ('Force include MODULES-IN-* as build targets. '
-                  'Hint: This may solve missing test dependencies issue.')
+                  'Hint: This may solve missing test dependencies issue. '
+                  'MODULES-IN-* is always included except if --no-bazel-mode '
+                  'is given.')
 USER_TYPE = ('Run test with specific user type, e.g. atest <test> --user-type '
              'secondary_user')
 VERBOSE = 'Display DEBUG level logging.'
@@ -146,14 +163,25 @@ class AtestArgParser(argparse.ArgumentParser):
         self.add_argument('-a', '--all-abi', action='store_true', help=ALL_ABI)
         self.add_argument('-b', '--build', action='append_const', dest='steps',
                           const=constants.BUILD_STEP, help=BUILD)
-        self.add_argument('--bazel-mode', action='store_true', help=BAZEL_MODE)
+        self.add_argument('--bazel-mode', default=True, action='store_true',
+                            help=BAZEL_MODE)
+        self.add_argument('--no-bazel-mode', dest='bazel_mode',
+                            action='store_false', help=BAZEL_MODE)
         self.add_argument('--bazel-arg', nargs='*', action='append', help=BAZEL_ARG)
         bazel_mode.add_parser_arguments(self, dest='bazel_mode_features')
 
+        self.add_argument('--coverage', action='store_true', help=COVERAGE)
         self.add_argument('-d', '--disable-teardown', action='store_true',
                           help=DISABLE_TEARDOWN)
-        self.add_argument('--enable-device-preparer', action='store_true', help=HOST)
-        self.add_argument('--host', action='store_true', help=HOST)
+        self.add_argument('--enable-device-preparer', action='store_true',
+                          help=ENABLE_DEVICE_PREPARER)
+        # Options for host and device-only:
+        # A group of options for testing mapping tests. They are mutually
+        # exclusive in a command line.
+        hgroup = self.add_mutually_exclusive_group()
+        hgroup.add_argument('--host', action='store_true', help=HOST)
+        hgroup.add_argument('--device-only', action='store_true',
+                            help=DEVICE_ONLY)
         self.add_argument('-i', '--install', action='append_const',
                           dest='steps', const=constants.INSTALL_STEP,
                           help=INSTALL)
@@ -170,8 +198,16 @@ class AtestArgParser(argparse.ArgumentParser):
                           action='store_true')
         self.add_argument('-w', '--wait-for-debugger', action='store_true',
                           help=WAIT_FOR_DEBUGGER)
-        self.add_argument('--request-upload-result', action='store_true',
+        self.add_argument('--auto-ld-library-path', action='store_true',
+                          help=LD_LIB_PATH)
+
+        # Options for request/disable upload results. They are mutually
+        # exclusive in a command line.
+        ugroup = self.add_mutually_exclusive_group()
+        ugroup.add_argument('--request-upload-result', action='store_true',
                           help=REQUEST_UPLOAD_RESULT)
+        ugroup.add_argument('--disable-upload-result', action='store_true',
+                          help=DISABLE_UPLOAD_RESULT)
 
         # Options related to Test Mapping
         self.add_argument('-p', '--test-mapping', action='store_true',
@@ -200,6 +236,13 @@ class AtestArgParser(argparse.ArgumentParser):
         self.add_argument('-L', '--list-modules', help=LIST_MODULES)
         self.add_argument('-v', '--verbose', action='store_true', help=VERBOSE)
         self.add_argument('-V', '--version', action='store_true', help=VERSION)
+
+        # Options that switch on/off fuzzy searching.
+        fgroup = self.add_mutually_exclusive_group()
+        fgroup.add_argument('--no-fuzzy-search', action='store_false',
+                            default=True, dest='fuzzy_search', help=FUZZY_SEARCH)
+        fgroup.add_argument('--fuzzy-search', action='store_true',
+                            help=FUZZY_SEARCH)
 
         # Options that to do with acloud/AVDs.
         agroup = self.add_mutually_exclusive_group()
@@ -251,6 +294,8 @@ class AtestArgParser(argparse.ArgumentParser):
                           help=VERIFY_CMD_MAPPING)
         self.add_argument('-e', '--verify-env-variable', action='store_true',
                           help=VERIFY_ENV_VARIABLE)
+        self.add_argument('-g', '--generate-runner-cmd', action='store_true',
+                          help=GENERATE_RUNNER_CMD)
         # Options for Tradefed debug mode.
         self.add_argument('-D', '--tf-debug', nargs='?', const=10888,
                           type=_positive_int, default=0,
@@ -260,6 +305,8 @@ class AtestArgParser(argparse.ArgumentParser):
                           help=TF_TEMPLATE)
         self.add_argument('--test-filter', nargs='?',
                           help=TEST_FILTER)
+        self.add_argument('--test-timeout', nargs='?', type=int,
+                          help=TEST_TIMEOUT)
 
         # A group of options for rerun strategy. They are mutually exclusive
         # in a command line.
@@ -330,11 +377,15 @@ def print_epilog_text():
         BAZEL_ARG=BAZEL_ARG,
         CLEAR_CACHE=CLEAR_CACHE,
         COLLECT_TESTS_ONLY=COLLECT_TESTS_ONLY,
+        COVERAGE=COVERAGE,
+        DEVICE_ONLY=DEVICE_ONLY,
         DISABLE_TEARDOWN=DISABLE_TEARDOWN,
+        DISABLE_UPLOAD_RESULT=DISABLE_UPLOAD_RESULT,
         DRY_RUN=DRY_RUN,
         ENABLE_DEVICE_PREPARER=ENABLE_DEVICE_PREPARER,
         ENABLE_FILE_PATTERNS=ENABLE_FILE_PATTERNS,
         FLAKES_INFO=FLAKES_INFO,
+        GENERATE_RUNNER_CMD=GENERATE_RUNNER_CMD,
         HELP_DESC=HELP_DESC,
         HISTORY=HISTORY,
         HOST=HOST,
@@ -345,9 +396,11 @@ def print_epilog_text():
         INSTANT=INSTANT,
         ITERATION=ITERATION,
         LATEST_RESULT=LATEST_RESULT,
+        LD_LIB_PATH=LD_LIB_PATH,
         LIST_MODULES=LIST_MODULES,
         NO_ENABLE_ROOT=NO_ENABLE_ROOT,
         NO_METRICS=NO_METRICS,
+        FUZZY_SEARCH=FUZZY_SEARCH,
         REBUILD_MODULE_INFO=REBUILD_MODULE_INFO,
         REQUEST_UPLOAD_RESULT=REQUEST_UPLOAD_RESULT,
         RERUN_UNTIL_FAILURE=RERUN_UNTIL_FAILURE,
@@ -358,6 +411,7 @@ def print_epilog_text():
         TEST=TEST,
         TEST_CONFIG_SELECTION=TEST_CONFIG_SELECTION,
         TEST_MAPPING=TEST_MAPPING,
+        TEST_TIMEOUT=TEST_TIMEOUT,
         TF_DEBUG=TF_DEBUG,
         TF_EARLY_DEVICE_RELEASE=TF_EARLY_DEVICE_RELEASE,
         TEST_FILTER=TEST_FILTER,
@@ -406,14 +460,23 @@ OPTIONS
                 atest <test> -- --abi arm64-v8a   # ARM 64-bit
                 atest <test> -- --abi armeabi-v7a # ARM 32-bit
 
+        --auto-ld-library-path
+            {LD_LIB_PATH}
+
         -b, --build
             {BUILD} (implicit default)
 
-        --bazel-mode
+        --[no-]bazel-mode
             {BAZEL_MODE}
 
         --bazel-arg
             {BAZEL_ARG}
+
+        --coverage
+            {COVERAGE}
+
+        --device-only
+            {DEVICE_ONLY}
 
         -d, --disable-teardown
             {DISABLE_TEARDOWN}
@@ -462,14 +525,21 @@ OPTIONS
         --tf-template
             {TF_TEMPLATE}
 
+        --test-timeout [NUMBER in milliseconds]
+            {TEST_TIMEOUT}
+
         -w, --wait-for-debugger
             {WAIT_FOR_DEBUGGER}
 
+        --use-modules-in
+            {USE_MODULES_IN}
+
+        [ Upload Test Result ]
         --request-upload-result
             {REQUEST_UPLOAD_RESULT}
 
-        --use-modules-in
-            {USE_MODULES_IN}
+        --disable-upload-result
+            {DISABLE_UPLOAD_RESULT}
 
         [ Test Mapping ]
         -p, --test-mapping
@@ -494,6 +564,9 @@ OPTIONS
 
         -L, --list-modules
             {LIST_MODULES}
+
+        --[no-]fuzzy-search
+            {FUZZY_SEARCH}
 
         --latest-result
             {LATEST_RESULT}
@@ -835,7 +908,7 @@ EXAMPLES
        directories. You can also specify a target directory.
 
     Example:
-        atest  (run presubmit tests in TEST_MAPPING files in current and parent directories)
+        atest  (run presubmit tests in TEST_MAPPING files and host unit tests in current and parent directories)
         atest --test-mapping </path/to/project>
                (run presubmit tests in TEST_MAPPING files in </path/to/project> and its parent directories)
 
@@ -880,5 +953,5 @@ EXAMPLES
         atest CtsVideoTestCases -- --test-arg com.android.tradefed.testtype.JarHosttest:collect-tests-only:true
 
 
-                                                     2021-04-22
+                                                     2022-03-25
 '''

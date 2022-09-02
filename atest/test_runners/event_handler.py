@@ -156,7 +156,7 @@ class EventHandler:
             test_run_name=self.state['test_run_name']))
 
     def _invocation_ended(self, event_data):
-        self.reporter.device_count = event_data['device_count']
+        self.reporter.device_count = event_data.get('device_count', None)
 
     # pylint: disable=unused-argument
     def _run_ended(self, event_data):

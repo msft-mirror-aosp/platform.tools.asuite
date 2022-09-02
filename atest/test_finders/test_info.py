@@ -31,7 +31,7 @@ class TestInfo:
     def __init__(self, test_name, test_runner, build_targets, data=None,
                  suite=None, module_class=None, install_locations=None,
                  test_finder='', compatibility_suites=None,
-                 mainline_modules=None, robo_type=None):
+                 mainline_modules=None, robo_type=None, artifacts=None):
         """Init for TestInfo.
 
         Args:
@@ -54,6 +54,7 @@ class TestInfo:
                        0: Not robolectric test
                        1. Modern robolectric test(Tradefed Runner)
                        2: Legacy robolectric test(Robolectric Runner)
+            artifacts: A set of artifacts.
         """
         self.test_name = test_name
         self.test_runner = test_runner
@@ -75,6 +76,7 @@ class TestInfo:
         # True if test need to generate aggregate metrics result.
         self.aggregate_metrics_result = False
         self.mainline_modules = mainline_modules if mainline_modules else ""
+        self.artifacts = artifacts if artifacts else set()
 
     def __str__(self):
         host_info = (' - runs on host without device required.' if self.host
@@ -88,7 +90,8 @@ class TestInfo:
                 f'compatibility_suites:{self.compatibility_suites} - '
                 f'mainline_modules:{self.mainline_modules} - '
                 f'aggregate_metrics_result:{self.aggregate_metrics_result} - '
-                f'robo_type:{self.robo_type}')
+                f'robo_type:{self.robo_type} - '
+                f'artifacts:{self.artifacts}')
 
     def get_supported_exec_mode(self):
         """Get the supported execution mode of the test.
@@ -131,15 +134,16 @@ class TestInfo:
         Search build target's MODULE-IN as the test path.
 
         Return:
-            A list of string of the relative path for test, None if test
-            path information not found.
+            A list of string of the relative path for test(build target
+            formats, e.g., platform_testing-tests-example-native),
+            None if test path information not found.
         """
         test_paths = []
         for build_target in self.build_targets:
             if str(build_target).startswith(constants.MODULES_IN):
                 test_paths.append(
                     str(build_target).replace(
-                        constants.MODULES_IN, '').replace('-', '/'))
+                        constants.MODULES_IN, ''))
         return test_paths if test_paths else None
 
 class TestFilter(TestFilterBase):

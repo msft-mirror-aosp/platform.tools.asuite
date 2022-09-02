@@ -15,19 +15,21 @@
 """Rule used to import artifacts prebuilt by Soong into the Bazel workspace.
 
 The rule returns a DefaultInfo provider with all artifacts and runtime dependencies,
-and a SoongPrebuiltInfo provider with the original Soong module name and artifacts.
+and a SoongPrebuiltInfo provider with the original Soong module name, artifacts,
+runtime dependencies and data dependencies.
 """
 
 SoongPrebuiltInfo = provider(
     doc = "Info about a prebuilt Soong build module",
     fields = {
-        "files": "Files imported from Soong outputs",
         "module_name": "Name of the original Soong build module",
+        # This field contains this target's outputs and all runtime dependency
+        # outputs.
+        "transitive_runtime_outputs": "Files required in the runtime environment",
     },
 )
 
 def _soong_prebuilt_impl(ctx):
-
     files = ctx.files.files
 
     # Ensure that soong_prebuilt targets always have at least one file to avoid
@@ -55,24 +57,38 @@ def _soong_prebuilt_impl(ctx):
         # Note that we don't write the file for the action to always be
         # executed and display the warning message.
         ctx.actions.run_shell(
-            outputs=[placeholder_file],
-            command="/bin/false",
-            progress_message=progress_message
+            outputs = [placeholder_file],
+            command = "/bin/false",
+            progress_message = progress_message,
         )
         files = [placeholder_file]
 
-    deps = []
-    deps.extend(ctx.attr.runtime_deps)
-    deps.extend(ctx.attr.data)
     runfiles = ctx.runfiles(files = files).merge_all([
         dep[DefaultInfo].default_runfiles
-        for dep in deps
+        for dep in ctx.attr.runtime_deps + ctx.attr.data
+    ])
+
+    # We exclude the outputs of static dependencies from the runfiles since
+    # they're already embedded in this target's output. Note that this is done
+    # recursively such that only transitive runtime dependency outputs are
+    # included. For example, in a chain A -> B -> C -> D where B and C are
+    # statically linked, only A's and D's outputs would remain in the runfiles.
+    runfiles = runfiles.merge_all([
+        ctx.runfiles(
+            files = _exclude_files(
+                dep[DefaultInfo].default_runfiles.files,
+                dep[DefaultInfo].files,
+            ).to_list(),
+        )
+        for dep in ctx.attr.static_deps
     ])
 
     return [
-        SoongPrebuiltInfo(
-            files = depset(files),
-            module_name = ctx.attr.module_name,
+        _make_soong_prebuilt_info(
+            ctx.attr.module_name,
+            files = files,
+            runtime_deps = ctx.attr.runtime_deps,
+            static_deps = ctx.attr.static_deps,
         ),
         DefaultInfo(
             files = depset(files),
@@ -87,6 +103,10 @@ soong_prebuilt = rule(
         "files": attr.label_list(allow_files = True),
         # Targets that are needed by this target during runtime.
         "runtime_deps": attr.label_list(),
+        # Note that while the outputs of static deps are not required for test
+        # execution we include them since they have their own runtime
+        # dependencies.
+        "static_deps": attr.label_list(),
         "data": attr.label_list(),
     },
     implementation = _soong_prebuilt_impl,
@@ -94,15 +114,15 @@ soong_prebuilt = rule(
 )
 
 def _soong_uninstalled_prebuilt_impl(ctx):
-
     runfiles = ctx.runfiles().merge_all([
         dep[DefaultInfo].default_runfiles
         for dep in ctx.attr.runtime_deps
     ])
 
     return [
-        SoongPrebuiltInfo(
-            module_name = ctx.attr.module_name,
+        _make_soong_prebuilt_info(
+            ctx.attr.module_name,
+            runtime_deps = ctx.attr.runtime_deps,
         ),
         DefaultInfo(
             runfiles = runfiles,
@@ -117,3 +137,49 @@ soong_uninstalled_prebuilt = rule(
     implementation = _soong_uninstalled_prebuilt_impl,
     doc = "A rule for targets with no runtime outputs",
 )
+
+def _make_soong_prebuilt_info(
+        module_name,
+        files = [],
+        runtime_deps = [],
+        static_deps = []):
+    """Build a SoongPrebuiltInfo based on the given information.
+
+    Args:
+        runtime_deps: List of runtime dependencies required by this target.
+        static_deps: List of static dependencies required by this target.
+
+    Returns:
+        An instance of SoongPrebuiltInfo.
+    """
+    transitive_runtime_outputs = [
+        dep[SoongPrebuiltInfo].transitive_runtime_outputs
+        for dep in runtime_deps
+    ]
+
+    # We exclude the outputs of static dependencies from the transitive runtime
+    # outputs since they're already embedded in this target's output. Note that
+    # this is done recursively such that only transitive runtime dependency
+    # outputs are included. For example, in a chain A -> B -> C -> D where B and
+    # C are statically linked, only A's and D's outputs would remain in the
+    # transitive runtime outputs.
+    transitive_runtime_outputs.extend([
+        _exclude_files(
+            dep[SoongPrebuiltInfo].transitive_runtime_outputs,
+            dep[DefaultInfo].files,
+        )
+        for dep in static_deps
+    ])
+
+    return SoongPrebuiltInfo(
+        module_name = module_name,
+        transitive_runtime_outputs = depset(files, transitive = transitive_runtime_outputs),
+    )
+
+def _exclude_files(all_files, files_to_exclude):
+    files = []
+    files_to_exclude = {f: None for f in files_to_exclude.to_list()}
+    for f in all_files.to_list():
+        if f not in files_to_exclude:
+            files.append(f)
+    return depset(files)

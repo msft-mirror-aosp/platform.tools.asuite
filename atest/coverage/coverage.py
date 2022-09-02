@@ -1,10 +1,10 @@
-# Copyright (C) 2021 The Android Open Source Project
+# Copyright 2022, The Android Open Source Project
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
 #
-#      http://www.apache.org/licenses/LICENSE-2.0
+#     http://www.apache.org/licenses/LICENSE-2.0
 #
 # Unless required by applicable law or agreed to in writing, software
 # distributed under the License is distributed on an "AS IS" BASIS,
@@ -12,13 +12,19 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""A provider used to provide test information required by Tradefed rules."""
+"""
+Code coverage instrumentation and collection class
+"""
 
-TradefedTestInfo = provider(
-    doc = "Info required by Tradefed rules to run tests",
-    fields = {
-        "test_binaries": "Test binary files",
-        "test_configs": "Tradefed config files",
-        "module_name": "Test module name",
-    },
-)
+def build_env_vars():
+    """Environment variables for building with code coverage instrumentation.
+
+    Returns:
+        A dict with the environment variables to set.
+    """
+    env_vars = {
+        'CLANG_COVERAGE': 'true',
+        'NATIVE_COVERAGE_PATHS': '*',
+        'EMMA_INSTRUMENT': 'true',
+    }
+    return env_vars

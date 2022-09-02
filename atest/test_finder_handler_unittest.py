@@ -97,36 +97,36 @@ class TestFinderHandlerUnittests(unittest.TestCase):
         """Test _get_test_reference_types parses reference types correctly."""
         self.assertEqual(
             test_finder_handler._get_test_reference_types('ModuleOrClassName'),
-            [REF_TYPE.MODULE, REF_TYPE.CACHE, REF_TYPE.INTEGRATION,
+            [REF_TYPE.CACHE, REF_TYPE.MODULE, REF_TYPE.INTEGRATION,
              REF_TYPE.CONFIG, REF_TYPE.SUITE_PLAN, REF_TYPE.CLASS,
              REF_TYPE.CC_CLASS]
         )
         self.assertEqual(
             test_finder_handler._get_test_reference_types('Module_or_Class_name'),
-            [REF_TYPE.MODULE, REF_TYPE.CACHE, REF_TYPE.INTEGRATION,
+            [REF_TYPE.CACHE, REF_TYPE.MODULE, REF_TYPE.INTEGRATION,
              REF_TYPE.CONFIG, REF_TYPE.SUITE_PLAN, REF_TYPE.CLASS,
              REF_TYPE.CC_CLASS]
         )
         self.assertEqual(
             test_finder_handler._get_test_reference_types('SuiteName'),
-            [REF_TYPE.MODULE, REF_TYPE.CACHE, REF_TYPE.INTEGRATION,
+            [REF_TYPE.CACHE, REF_TYPE.MODULE, REF_TYPE.INTEGRATION,
              REF_TYPE.CONFIG, REF_TYPE.SUITE_PLAN, REF_TYPE.CLASS,
              REF_TYPE.CC_CLASS]
         )
         self.assertEqual(
             test_finder_handler._get_test_reference_types('Suite-Name'),
-            [REF_TYPE.MODULE, REF_TYPE.CACHE, REF_TYPE.INTEGRATION,
+            [REF_TYPE.CACHE, REF_TYPE.MODULE, REF_TYPE.INTEGRATION,
              REF_TYPE.CONFIG, REF_TYPE.SUITE_PLAN, REF_TYPE.CLASS,
              REF_TYPE.CC_CLASS]
         )
         self.assertEqual(
             test_finder_handler._get_test_reference_types('some.package'),
-            [REF_TYPE.MODULE, REF_TYPE.CACHE,
+            [REF_TYPE.CACHE, REF_TYPE.MODULE,
              REF_TYPE.QUALIFIED_CLASS, REF_TYPE.PACKAGE]
         )
         self.assertEqual(
             test_finder_handler._get_test_reference_types('fully.q.Class'),
-            [REF_TYPE.MODULE, REF_TYPE.CACHE,
+            [REF_TYPE.CACHE, REF_TYPE.MODULE,
              REF_TYPE.QUALIFIED_CLASS, REF_TYPE.PACKAGE]
         )
         self.assertEqual(

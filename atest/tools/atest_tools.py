@@ -26,7 +26,10 @@ import pickle
 import shutil
 import subprocess
 import sys
+import tempfile
 import time
+
+from pathlib import Path
 
 import atest_utils as au
 import constants
@@ -34,14 +37,10 @@ import constants
 from atest_enum import ExitCode
 from metrics import metrics_utils
 
-MAC_UPDB_SRC = os.path.join(os.path.dirname(__file__), 'updatedb_darwin.sh')
-MAC_UPDB_DST = os.path.join(os.getenv(constants.ANDROID_HOST_OUT, ''), 'bin')
 UPDATEDB = 'updatedb'
 LOCATE = 'locate'
 ACLOUD_DURATION = 'duration'
 SEARCH_TOP = os.getenv(constants.ANDROID_BUILD_TOP, '')
-MACOSX = 'Darwin'
-OSNAME = os.uname()[0]
 # When adding new index, remember to append constants to below tuple.
 INDEXES = (constants.CC_CLASS_INDEX,
            constants.CLASS_INDEX,
@@ -73,18 +72,6 @@ PRUNENAMES = ['.abc', '.appveyor', '.azure-pipelines',
               '.travis_scripts',
               '.tx',
               '.vscode']
-
-def _mkdir_when_inexists(dirname):
-    if not os.path.isdir(dirname):
-        os.makedirs(dirname)
-
-def _install_updatedb():
-    """Install a customized updatedb for MacOS and ensure it is executable."""
-    _mkdir_when_inexists(MAC_UPDB_DST)
-    _mkdir_when_inexists(constants.INDEX_DIR)
-    if OSNAME == MACOSX:
-        shutil.copy2(MAC_UPDB_SRC, os.path.join(MAC_UPDB_DST, UPDATEDB))
-        os.chmod(os.path.join(MAC_UPDB_DST, UPDATEDB), 0o0755)
 
 def _delete_indexes():
     """Delete all available index files."""
@@ -126,7 +113,7 @@ def has_command(cmd):
 
 def run_updatedb(search_root=SEARCH_TOP, output_cache=constants.LOCATE_CACHE,
                  **kwargs):
-    """Run updatedb and generate cache in $ANDROID_HOST_OUT/indexes/mlocate.db
+    """Run updatedb and generate cache in $ANDROID_HOST_OUT/indexes/plocate.db
 
     Args:
         search_root: The path of the search root(-U).
@@ -143,19 +130,12 @@ def run_updatedb(search_root=SEARCH_TOP, output_cache=constants.LOCATE_CACHE,
     updatedb_cmd.append('-U%s' % search_root)
     updatedb_cmd.append('-n%s' % prunenames)
     updatedb_cmd.append('-o%s' % output_cache)
-    if OSNAME == MACOSX:
-        updatedb_cmd.append('-e%s' % prunepaths)
-    else:
-        # (b/206866627) /etc/updatedb.conf excludes /mnt from scanning on Linux.
-        # Use --prunepaths to override the default configuration.
-        updatedb_cmd.append('--prunepaths')
-        updatedb_cmd.append(prunepaths)
-        # Support scanning bind mounts as well.
-        updatedb_cmd.extend(['--prune-bind-mounts', 'no'])
-    try:
-        _install_updatedb()
-    except IOError as e:
-        logging.error('Error installing updatedb: %s', e)
+    # (b/206866627) /etc/updatedb.conf excludes /mnt from scanning on Linux.
+    # Use --prunepaths to override the default configuration.
+    updatedb_cmd.append('--prunepaths')
+    updatedb_cmd.append(prunepaths)
+    # Support scanning bind mounts as well.
+    updatedb_cmd.extend(['--prune-bind-mounts', 'no'])
 
     if not has_command(UPDATEDB):
         return
@@ -163,8 +143,9 @@ def run_updatedb(search_root=SEARCH_TOP, output_cache=constants.LOCATE_CACHE,
     try:
         full_env_vars = os.environ.copy()
         logging.debug('Executing: %s', updatedb_cmd)
-        if subprocess.check_call(updatedb_cmd, env=full_env_vars) == 0:
-            au.save_md5([constants.LOCATE_CACHE], constants.LOCATE_CACHE_MD5)
+        if not os.path.isdir(constants.INDEX_DIR):
+            os.makedirs(constants.INDEX_DIR)
+        subprocess.call(updatedb_cmd, env=full_env_vars)
     except (KeyboardInterrupt, SystemExit):
         logging.error('Process interrupted or failure.')
 
@@ -185,8 +166,9 @@ def _dump_index(dump_file, output, output_re, key, value):
       'Boo': {'/path3/to/Boo.java'}
     }
     """
+    temp_file = tempfile.NamedTemporaryFile()
     _dict = {}
-    with open(dump_file, 'wb') as cache_file:
+    with open(temp_file.name, 'wb') as cache_file:
         if isinstance(output, bytes):
             output = output.decode()
         for entry in output.splitlines():
@@ -197,52 +179,48 @@ def _dump_index(dump_file, output, output_re, key, value):
         try:
             pickle.dump(_dict, cache_file, protocol=2)
         except IOError:
-            os.remove(dump_file)
             logging.error('Failed in dumping %s', dump_file)
+    shutil.copy(temp_file.name, dump_file)
+    temp_file.close()
 
+# pylint: disable=anomalous-backslash-in-string
 def get_cc_result(locatedb=constants.LOCATE_CACHE, **kwargs):
     """Search all testable cc/cpp and grep TEST(), TEST_F() or TEST_P().
 
     After searching cc/cpp files, index corresponding data types in parallel.
 
     Args:
-        locatedb: A string of the absolute path of the mlocate.db
+        locatedb: A string of the absolute path of the plocate.db
         kwargs: (optional)
             cc_class_index: A path string of the CC class index.
     """
-    if OSNAME == MACOSX:
-        # (b/204398677) suppress stderr when indexing target terminated.
-        find_cmd = (r"locate -d {0} '*.cpp' '*.cc' | grep -i test "
-                    "| xargs egrep -sH '{1}' 2>/dev/null || true")
-    else:
-        find_cmd = (r"locate -d {0} / | egrep -i '/*.test.*\.(cc|cpp)$' "
-                    "| xargs egrep -sH '{1}' 2>/dev/null || true")
-    find_cc_cmd = find_cmd.format(locatedb, constants.CC_GREP_RE)
+    find_cc_cmd = (
+        f"{LOCATE} -id{locatedb} --regex '/*.test.*\.(cc|cpp)$'"
+        f"| xargs egrep -sH '{constants.CC_GREP_RE}' 2>/dev/null || true")
     logging.debug('Probing CC classes:\n %s', find_cc_cmd)
     result = subprocess.check_output(find_cc_cmd, shell=True)
 
     cc_class_index = kwargs.pop('cc_class_index', constants.CC_CLASS_INDEX)
     au.run_multi_proc(func=_index_cc_classes, args=[result, cc_class_index])
 
+# pylint: disable=anomalous-backslash-in-string
 def get_java_result(locatedb=constants.LOCATE_CACHE, **kwargs):
     """Search all testable java/kt and grep package.
 
     After searching java/kt files, index corresponding data types in parallel.
 
     Args:
-        locatedb: A string of the absolute path of the mlocate.db
+        locatedb: A string of the absolute path of the plocate.db
         kwargs: (optional)
             class_index: A path string of the Java class index.
             qclass_index: A path string of the qualified class index.
             package_index: A path string of the package index.
     """
     package_grep_re = r'^\s*package\s+[a-z][[:alnum:]]+[^{]'
-    if OSNAME == MACOSX:
-        find_cmd = r"locate -d%s '*.java' '*.kt'|grep -i test" % locatedb
-    else:
-        find_cmd = r"locate -d%s / | egrep -i '/*.test.*\.(java|kt)$'" % locatedb
-    # (b/204398677) suppress stderr when indexing target terminated.
-    find_java_cmd = find_cmd + '| xargs egrep -sH \'%s\' 2>/dev/null|| true' % package_grep_re
+    find_java_cmd = (
+        f"{LOCATE} -id{locatedb} --regex '/*.test.*\.(java|kt)$' "
+        # (b/204398677) suppress stderr when indexing target terminated.
+        f"| xargs egrep -sH '{package_grep_re}' 2>/dev/null|| true")
     logging.debug('Probing Java classes:\n %s', find_java_cmd)
     result = subprocess.check_output(find_java_cmd, shell=True)
 
@@ -318,8 +296,9 @@ def _index_qualified_classes(output, index):
         index: A string path of the index file.
     """
     logging.debug('indexing qualified classes.')
+    temp_file = tempfile.NamedTemporaryFile()
     _dict = {}
-    with open(index, 'wb') as cache_file:
+    with open(temp_file.name, 'wb') as cache_file:
         if isinstance(output, bytes):
             output = output.decode()
         for entry in output.split('\n'):
@@ -331,43 +310,49 @@ def _index_qualified_classes(output, index):
             pickle.dump(_dict, cache_file, protocol=2)
         except (KeyboardInterrupt, SystemExit):
             logging.error('Process interrupted or failure.')
-            os.remove(index)
         except IOError:
             logging.error('Failed in dumping %s', index)
+    shutil.copy(temp_file.name, index)
+    temp_file.close()
 
 def index_targets(output_cache=constants.LOCATE_CACHE):
     """The entrypoint of indexing targets.
 
-    Utilise mlocate database to index reference types of CLASS, CC_CLASS,
+    Utilise plocate database to index reference types of CLASS, CC_CLASS,
     PACKAGE and QUALIFIED_CLASS. Testable module for tab completion is also
     generated in this method.
 
     Args:
         output_cache: A file path of the updatedb cache
-                      (e.g. /path/to/mlocate.db).
+                      (e.g. /path/to/plocate.db).
     """
     if not has_command(LOCATE):
         logging.debug('command %s is unavailable; skip indexing.', LOCATE)
         return
-    pre_md5sum = ""
+    pre_md5sum = au.md5sum(constants.LOCATE_CACHE)
+    pre_size = sys.maxsize
+    if Path(constants.LOCATE_CACHE).is_file():
+        pre_size = Path(constants.LOCATE_CACHE).stat().st_size
     try:
-        # Step 0: generate mlocate database prior to indexing targets.
-        if os.path.exists(constants.LOCATE_CACHE_MD5):
-            pre_md5sum = au.md5sum(constants.LOCATE_CACHE_MD5)
+        # Step 0: generate plocate database prior to indexing targets.
         run_updatedb(SEARCH_TOP, output_cache)
-        if pre_md5sum == au.md5sum(constants.LOCATE_CACHE_MD5):
-            logging.debug('%s remains the same.', output_cache)
+        # (b/206886222) checksum may be different even the src is not changed.
+        # check filesize as well to tell whether there are src changes or just
+        # metadata changes.
+        if any((pre_md5sum == au.md5sum(constants.LOCATE_CACHE),
+                pre_size == Path(constants.LOCATE_CACHE).stat().st_size)):
+            logging.debug('%s remains the same. Ignore indexing', output_cache)
             return
         # Step 1: generate output string for indexing targets when needed.
         logging.debug('Indexing targets... ')
         au.run_multi_proc(func=get_java_result, args=[output_cache])
         au.run_multi_proc(func=get_cc_result, args=[output_cache])
-    # Delete indexes when mlocate.db is locked() or other CalledProcessError.
+    # Delete indexes when plocate.db is locked() or other CalledProcessError.
     # (b/141588997)
     except subprocess.CalledProcessError as err:
         logging.error('Executing %s error.', UPDATEDB)
         metrics_utils.handle_exc_and_send_exit_event(
-            constants.MLOCATEDB_LOCKED)
+            constants.PLOCATEDB_LOCKED)
         if err.output:
             logging.error(err.output)
         _delete_indexes()
@@ -398,11 +383,10 @@ def acloud_create(report_file, args="", no_metrics_notice=True):
     acloud_duration = time.time() - start
     logging.info('"acloud create" process has completed.')
     # Insert acloud create duration into the report file.
-    if au.is_valid_json_file(report_file):
+    result = au.load_json_safely(report_file)
+    if result:
+        result[ACLOUD_DURATION] = acloud_duration
         try:
-            with open(report_file, 'r') as _rfile:
-                result = json.load(_rfile)
-            result[ACLOUD_DURATION] = acloud_duration
             with open(report_file, 'w+') as _wfile:
                 _wfile.write(json.dumps(result))
         except OSError as e:
@@ -424,7 +408,7 @@ def probe_acloud_status(report_file):
     """
     # 1. Created but the status is not 'SUCCESS'
     if os.path.exists(report_file):
-        if not au.is_valid_json_file(report_file):
+        if not au.load_json_safely(report_file):
             return ExitCode.AVD_CREATE_FAILURE
         with open(report_file, 'r') as rfile:
             result = json.load(rfile)
@@ -433,7 +417,9 @@ def probe_acloud_status(report_file):
             logging.info('acloud create successfully!')
             # Always fetch the adb of the first created AVD.
             adb_port = result.get('data').get('devices')[0].get('adb_port')
-            os.environ[constants.ANDROID_SERIAL] = '127.0.0.1:{}'.format(adb_port)
+            is_remote_instance = result.get('command') == 'create_cf'
+            adb_ip = '127.0.0.1' if is_remote_instance else '0.0.0.0'
+            os.environ[constants.ANDROID_SERIAL] = f'{adb_ip}:{adb_port}'
             return ExitCode.SUCCESS
         au.colorful_print(
             'acloud create failed. Please check\n{}\nfor detail'.format(
@@ -453,10 +439,10 @@ def get_acloud_duration(report_file):
     Returns:
         An float of seconds which acloud create takes.
     """
-    if not au.is_valid_json_file(report_file):
+    content = au.load_json_safely(report_file)
+    if not content:
         return 0
-    with open(report_file, 'r') as rfile:
-        return json.load(rfile).get(ACLOUD_DURATION, 0)
+    return content.get(ACLOUD_DURATION, 0)
 
 
 if __name__ == '__main__':

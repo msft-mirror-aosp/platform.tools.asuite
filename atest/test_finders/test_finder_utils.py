@@ -31,13 +31,15 @@ import tempfile
 import time
 import xml.etree.ElementTree as ET
 
+from pathlib import Path
+
 import atest_decorator
 import atest_error
-import atest_enum
 import atest_utils
 import constants
 
-from metrics import metrics_utils
+from atest_enum import AtestEnum, DetectType
+from metrics import metrics, metrics_utils
 from tools import atest_tools
 
 # Helps find apk files listed in a test config (AndroidTest.xml) file.
@@ -107,11 +109,11 @@ _PARENT_CLS_RE = re.compile(r'.*class\s+\w+\s+(?:extends|:)\s+'
 # 3. INTEGRATION: XML file name in one of the 4 integration config directories.
 # 4. CC_CLASS: Name of a cc class.
 
-FIND_REFERENCE_TYPE = atest_enum.AtestEnum(['CLASS',
-                                            'QUALIFIED_CLASS',
-                                            'PACKAGE',
-                                            'INTEGRATION',
-                                            'CC_CLASS'])
+FIND_REFERENCE_TYPE = AtestEnum(['CLASS',
+                                 'QUALIFIED_CLASS',
+                                 'PACKAGE',
+                                 'INTEGRATION',
+                                 'CC_CLASS'])
 # Get cpu count.
 _CPU_COUNT = 0 if os.uname()[0] == 'Linux' else multiprocessing.cpu_count()
 
@@ -125,7 +127,7 @@ FIND_CMDS = {
     FIND_REFERENCE_TYPE.PACKAGE: r"find {0} {1} -wholename "
                                  r"'*{2}' -type d -print",
     FIND_REFERENCE_TYPE.INTEGRATION: r"find {0} {1} -wholename "
-                                     r"'*{2}.xml' -print",
+                                     r"'*/{2}\.xml' -print",
     # Searching a test among files where the absolute paths contain *test*.
     # If users complain atest couldn't find a CC_CLASS, ask them to follow the
     # convention that the filename or dirname must contain *test*, where *test*
@@ -1176,6 +1178,7 @@ def get_java_methods(test_path):
     return set()
 
 
+# pylint: disable=too-many-branches
 def get_cc_class_info(test_path):
     """Get the class info of the given cc input test_path.
 
@@ -1213,6 +1216,7 @@ def get_cc_class_info(test_path):
     if os.stat(_test_path.name).st_size != 0:
         file_to_parse = _test_path.name
 
+    # TODO: b/234531695 support reading header files as well.
     with open(file_to_parse) as class_file:
         logging.debug('Parsing: %s', test_path)
         content = class_file.read()
@@ -1225,24 +1229,38 @@ def get_cc_class_info(test_path):
 
     classes = {cls[1] for cls in method_matches}
     class_info = {}
+    test_not_found = False
     for cls in classes:
         class_info.setdefault(cls, {'methods': set(),
                                     'prefixes': set(),
                                     'typed': False})
     logging.debug('Probing TestCase.TestName pattern:')
     for match in method_matches:
-        logging.debug('  Found %s.%s', match[1], match[2])
-        class_info[match[1]]['methods'].add(match[2])
+        if class_info.get(match[1]):
+            logging.debug('  Found %s.%s', match[1], match[2])
+            class_info[match[1]]['methods'].add(match[2])
+        else:
+            test_not_found = True
     # Parameterized test.
     logging.debug('Probing InstantiationName/TestCase pattern:')
     for match in prefix_matches:
-        logging.debug('  Found %s/%s', match[0], match[1])
-        class_info[match[1]]['prefixes'].add(match[0])
+        if class_info.get(match[1]):
+            logging.debug('  Found %s/%s', match[0], match[1])
+            class_info[match[1]]['prefixes'].add(match[0])
+        else:
+            test_not_found = True
     # Typed test
     logging.debug('Probing typed test names:')
     for match in typed_matches:
-        logging.debug('  Found %s', match)
-        class_info[match]['typed'] = True
+        if class_info.get(match):
+            logging.debug('  Found %s', match)
+            class_info[match]['typed'] = True
+        else:
+            test_not_found = True
+    if test_not_found:
+        metrics.LocalDetectEvent(
+            detect_type=DetectType.NATIVE_TEST_NOT_FOUND,
+            result=DetectType.NATIVE_TEST_NOT_FOUND)
     return class_info
 
 def get_cc_class_type(class_info, classname):
@@ -1366,11 +1384,11 @@ def get_test_config_and_srcs(test_info, module_info):
     return None, None
 
 
-def need_aggregate_metrics_result(test_xml):
+def need_aggregate_metrics_result(test_xml: str) -> bool:
     """Check if input test config need aggregate metrics.
 
     If the input test define metrics_collector, which means there's a need for
-    atest to have the aggregate metrcis result.
+    atest to have the aggregate metrics result.
 
     Args:
         test_xml: A string of the path for the test xml.
@@ -1378,17 +1396,44 @@ def need_aggregate_metrics_result(test_xml):
     Returns:
         True if input test need to enable aggregate metrics result.
     """
-    if os.path.isfile(test_xml):
+    # Due to (b/211640060) it may replace .xml with .config in the xml as
+    # workaround.
+    if not Path(test_xml).is_file():
+        if Path(test_xml).suffix == '.config':
+            test_xml = test_xml.rsplit('.', 1)[0] + '.xml'
+
+    if Path(test_xml).is_file():
         xml_root = ET.parse(test_xml).getroot()
         if xml_root.findall('.//metrics_collector'):
             return True
-        # Check if include other config
+        # Recursively check included configs in the same git repository.
+        git_dir = get_git_path(test_xml)
         include_configs = xml_root.findall('.//include')
         for include_config in include_configs:
             name = include_config.attrib[_XML_NAME].strip()
-            # Get the absolute path for the include config.
-            include_path = os.path.join(
-                str(test_xml).split(str(name).split('/')[0])[0], name)
-            if need_aggregate_metrics_result(include_path):
-                return True
+            # Get the absolute path for the included configs.
+            include_paths = search_integration_dirs(
+                os.path.splitext(name)[0], [git_dir])
+            for include_path in include_paths:
+                if need_aggregate_metrics_result(include_path):
+                    return True
     return False
+
+
+def get_git_path(file_path: str) -> str:
+    """Get the path of the git repository for the input file.
+
+    Args:
+        file_path: A string of the path to find the git path it belongs.
+
+    Returns:
+        The path of the git repository for the input file, return the path of
+        $ANDROID_BUILD_TOP if nothing find.
+    """
+    build_top = os.environ.get(constants.ANDROID_BUILD_TOP)
+    parent = Path(file_path).absolute().parent
+    while not parent.samefile('/') and not parent.samefile(build_top):
+        if parent.joinpath('.git').is_dir():
+            return parent.absolute()
+        parent = parent.parent
+    return build_top

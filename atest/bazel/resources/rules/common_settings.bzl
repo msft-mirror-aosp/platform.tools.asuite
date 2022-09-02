@@ -46,3 +46,12 @@ string_flag = rule(
     },
     doc = "A string-typed build setting that can be set on the command line",
 )
+
+def _impl(ctx):
+    return BuildSettingInfo(value = ctx.build_setting_value)
+
+string_list_flag = rule(
+    implementation = _impl,
+    build_setting = config.string_list(flag = True),
+    doc = "A string list-typed build setting that can be set on the command line",
+)

@@ -395,7 +395,6 @@ ECLIPSE_CLASSPATH_XML = """<?xml version="1.0" encoding="UTF-8"?>
 <classpath>
 {SRC}
 {LIB}
-    <classpathentry kind="con" path="org.eclipse.jdt.launching.JRE_CONTAINER"/>
 </classpath>
 """
 

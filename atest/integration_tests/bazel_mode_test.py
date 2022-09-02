@@ -23,13 +23,12 @@
 import dataclasses
 import os
 import shutil
-import string
 import subprocess
 import tempfile
 import unittest
 
 from pathlib import Path
-from typing import Any, Dict, Tuple
+from typing import Any, Dict, List, Tuple
 
 
 _ENV_BUILD_TOP = 'ANDROID_BUILD_TOP'
@@ -40,7 +39,7 @@ _FAILING_METHOD_NAME = 'testFAIL'
 
 
 @dataclasses.dataclass(frozen=True)
-class TestSource:
+class JavaSourceFile:
     class_name: str
     src_body: str
 
@@ -120,6 +119,72 @@ class BazelModeTest(unittest.TestCase):
             f'{_PASSING_CLASS_NAME}#{_PASSING_METHOD_NAME}: PASSED',
             completed_process)
 
+    def test_defaults_to_device_variant(self):
+        module_name = 'passing_cc_host_test'
+        self.write_cc_test_module(module_name, passing_cc_test_source())
+
+        completed_process = self.run_shell_command(
+            f'atest -c -m --bazel-mode {module_name}')
+
+        self.assert_in_stdout('AtestTradefedTestRunner:',
+                              completed_process)
+
+    def test_runs_host_variant_when_requested(self):
+        module_name = 'passing_cc_host_test'
+        self.write_cc_test_module(module_name, passing_cc_test_source())
+
+        completed_process = self.run_shell_command(
+            f'atest -c -m --host --bazel-mode {module_name}')
+
+        self.assert_in_stdout(f':{module_name}_host   PASSED',
+                              completed_process)
+
+    def test_ignores_host_arg_for_device_only_test(self):
+        module_name = 'passing_cc_device_test'
+        self.write_cc_test_module(module_name, passing_cc_test_source(),
+                                  host_supported=False)
+
+        completed_process = self.run_shell_command(
+            f'atest -c -m --host --bazel-mode {module_name}')
+
+        self.assert_in_stdout('Specified --host, but the following tests are '
+                              'device-only', completed_process)
+
+    def test_supports_extra_tradefed_reporters(self):
+        test_module_name = 'passing_java_host_test'
+        self.add_passing_test(test_module_name)
+
+        reporter_module_name = 'test-result-reporter'
+        reporter_class_name = 'TestResultReporter'
+        expected_output_string = '0xFEEDF00D'
+
+        self.write_java_reporter_module(
+            reporter_module_name,
+            java_reporter_source(
+                reporter_class_name,
+                expected_output_string
+            )
+        )
+
+        self.run_shell_command(
+            f'm {reporter_module_name}', check=True)
+        self.run_shell_command(
+            f'atest -c -m --bazel-mode {test_module_name} --dry-run',
+            check=True)
+        self.run_shell_command(
+            f'cp ${{ANDROID_HOST_OUT}}/framework/{reporter_module_name}.jar '
+            f'{self.out_dir_path}/atest_bazel_workspace/tools/asuite/atest/'
+            'bazel/reporter/bazel-result-reporter/host/framework/.',
+            check=True)
+
+        completed_process = self.run_shell_command(
+            f'atest --bazel-mode {test_module_name} --bazel-arg='
+            '--//bazel/rules:extra_tradefed_result_reporters=android.'
+            f'{reporter_class_name} --bazel-arg=--test_output=all', check=True)
+
+        self.assert_in_stdout(
+            expected_output_string, completed_process)
+
     def setup_test_env(self) -> Dict[str, Any]:
         test_env = {
             'PATH': os.environ['PATH'],
@@ -131,6 +196,7 @@ class BazelModeTest(unittest.TestCase):
     def run_shell_command(
         self,
         shell_command: str,
+        check: bool=False
     ) -> subprocess.CompletedProcess:
         return subprocess.run(
             '. build/envsetup.sh && '
@@ -139,7 +205,7 @@ class BazelModeTest(unittest.TestCase):
             env=self.test_env,
             cwd=self.src_root_path,
             shell=True,
-            check=False,
+            check=check,
             stderr=subprocess.STDOUT,
             stdout=subprocess.PIPE)
 
@@ -153,13 +219,13 @@ class BazelModeTest(unittest.TestCase):
 
     def add_unsupported_passing_test(self, module_name: str):
         self.write_java_test_module(
-            module_name, passing_java_test_source(), is_unit_test='false')
+            module_name, passing_java_test_source(), unit_test=False)
 
     def write_java_test_module(
         self,
         module_name: str,
-        test_src: TestSource,
-        is_unit_test: str='true',
+        test_src: JavaSourceFile,
+        unit_test: bool=True,
     ) -> Tuple[Path, Path]:
         test_dir = self.test_dir.joinpath(module_name)
         test_dir.mkdir(parents=True, exist_ok=True)
@@ -170,9 +236,67 @@ class BazelModeTest(unittest.TestCase):
 
         bp_file_path = test_dir.joinpath('Android.bp')
         bp_file_path.write_text(
-            android_bp_source(module_name=module_name,
-                              src_file=str(src_file_name),
-                              is_unit_test=is_unit_test),
+            android_bp(
+                java_test_host(
+                    name=module_name,
+                    srcs=[
+                        str(src_file_name),
+                    ],
+                    unit_test=unit_test,
+                ),
+            ),
+            encoding='utf8')
+        return (src_file_path, bp_file_path)
+
+    def write_cc_test_module(
+        self,
+        module_name: str,
+        test_src: str,
+        host_supported: bool=True,
+    ) -> Tuple[Path, Path]:
+        test_dir = self.test_dir.joinpath(module_name)
+        test_dir.mkdir(parents=True, exist_ok=True)
+
+        src_file_name = f'{module_name}.cpp'
+        src_file_path = test_dir.joinpath(f'{src_file_name}')
+        src_file_path.write_text(test_src, encoding='utf8')
+
+        bp_file_path = test_dir.joinpath('Android.bp')
+        bp_file_path.write_text(
+            android_bp(
+                cc_test(
+                    name=module_name,
+                    srcs=[
+                        str(src_file_name),
+                    ],
+                    host_supported=host_supported,
+                ),
+            ),
+            encoding='utf8')
+        return (src_file_path, bp_file_path)
+
+    def write_java_reporter_module(
+        self,
+        module_name: str,
+        reporter_src: JavaSourceFile,
+    ) -> Tuple[Path, Path]:
+        test_dir = self.test_dir.joinpath(module_name)
+        test_dir.mkdir(parents=True, exist_ok=True)
+
+        src_file_name = f'{reporter_src.class_name}.java'
+        src_file_path = test_dir.joinpath(f'{src_file_name}')
+        src_file_path.write_text(reporter_src.src_body, encoding='utf8')
+
+        bp_file_path = test_dir.joinpath('Android.bp')
+        bp_file_path.write_text(
+            android_bp(
+                java_library(
+                    name=module_name,
+                    srcs=[
+                        str(src_file_name),
+                    ],
+                ),
+            ),
             encoding='utf8')
         return (src_file_path, bp_file_path)
 
@@ -184,14 +308,16 @@ class BazelModeTest(unittest.TestCase):
         self.assertIn(message, completed_process.stdout.decode())
 
 
-def passing_java_test_source() -> TestSource:
+def passing_java_test_source() -> JavaSourceFile:
     return java_test_source(
         test_class_name=_PASSING_CLASS_NAME,
         test_method_name=_PASSING_METHOD_NAME,
         test_method_body='Assert.assertEquals("Pass", "Pass");')
 
 
-def failing_java_test_source(test_class_name=_FAILING_CLASS_NAME) -> TestSource:
+def failing_java_test_source(
+    test_class_name=_FAILING_CLASS_NAME
+)-> JavaSourceFile:
     return java_test_source(
         test_class_name=test_class_name,
         test_method_name=_FAILING_METHOD_NAME,
@@ -202,44 +328,9 @@ def java_test_source(
     test_class_name: str,
     test_method_name: str,
     test_method_body: str,
-) -> TestSource:
-    return TestSource(test_class_name, JAVA_TEST_TEMPLATE.substitute(
-        test_class_name=test_class_name,
-        test_method_name=test_method_name,
-        test_method_body=test_method_body))
-
-
-def android_bp_source(
-    module_name: str,
-    src_file: str,
-    is_unit_test: str = 'true',
-):
-    return ANDROID_BP_TEMPLATE.substitute(
-        module_name=module_name, src_file=src_file,
-        is_unit_test=is_unit_test)
-
-
-ANDROID_BP_TEMPLATE = string.Template("""\
-package {
-    default_applicable_licenses: ["Android-Apache-2.0"],
-}
-
-java_test_host {
-    name: "${module_name}",
-    test_suites: ["general-tests"],
-    srcs: ["${src_file}"],
-    static_libs: [
-        "junit",
-    ],
-    test_options: {
-        unit_test: ${is_unit_test},
-    },
-}
-""")
-
-
-JAVA_TEST_TEMPLATE = string.Template("""\
-package android.android;
+) -> JavaSourceFile:
+    return JavaSourceFile(test_class_name, f"""\
+package android;
 
 import org.junit.Assert;
 import org.junit.Test;
@@ -247,14 +338,129 @@ import org.junit.runners.JUnit4;
 import org.junit.runner.RunWith;
 
 @RunWith(JUnit4.class)
-public final class ${test_class_name} {
+public final class {test_class_name} {{
 
     @Test
-    public void ${test_method_name}() {
-        ${test_method_body}
-    }
-}
+    public void {test_method_name}() {{
+        {test_method_body}
+    }}
+}}
 """)
+
+def java_reporter_source(
+    reporter_class_name: str,
+    output_string: str,
+) -> JavaSourceFile:
+    return JavaSourceFile(reporter_class_name, f"""\
+package android;
+
+import com.android.tradefed.result.ITestInvocationListener;
+
+public final class {reporter_class_name} implements ITestInvocationListener {{
+
+    @Override
+    public void invocationEnded(long elapsedTime) {{
+        System.out.println("{output_string}");
+    }}
+}}
+""")
+
+def passing_cc_test_source() -> str:
+    return cc_test_source(
+        test_suite_name='TestSuite',
+        test_name='PassingTest',
+        test_body='')
+
+
+def cc_test_source(
+    test_suite_name: str,
+    test_name: str,
+    test_body: str,
+) -> str:
+    return f"""\
+#include <gtest/gtest.h>
+
+TEST({test_suite_name}, {test_name}) {{
+    {test_body}
+}}
+"""
+
+
+def android_bp(
+    modules: str='',
+) -> str:
+    return f"""\
+package {{
+    default_applicable_licenses: ["Android-Apache-2.0"],
+}}
+
+{modules}
+"""
+
+
+def cc_test(
+    name: str,
+    srcs: List[str],
+    host_supported: bool,
+) -> str:
+    src_files = ',\n'.join(
+        [f'"{f}"' for f in srcs])
+
+    return f"""\
+cc_test {{
+    name: "{name}",
+    srcs: [
+        {src_files},
+    ],
+    test_options: {{
+        unit_test: true,
+    }},
+    host_supported: {str(host_supported).lower()},
+}}
+"""
+
+
+def java_test_host(
+    name: str,
+    srcs: List[str],
+    unit_test: bool,
+) -> str:
+    src_files = ',\n'.join(
+        [f'"{f}"' for f in srcs])
+
+    return f"""\
+java_test_host {{
+    name: "{name}",
+    srcs: [
+        {src_files},
+    ],
+    test_options: {{
+        unit_test: {str(unit_test).lower()},
+    }},
+    static_libs: [
+        "junit",
+    ],
+}}
+"""
+
+def java_library(
+    name: str,
+    srcs: List[str],
+) -> str:
+    src_files = ',\n'.join(
+        [f'"{f}"' for f in srcs])
+
+    return f"""\
+java_library_host {{
+    name: "{name}",
+    srcs: [
+        {src_files},
+    ],
+    libs: [
+        "tradefed",
+    ],
+}}
+"""
 
 
 if __name__ == '__main__':

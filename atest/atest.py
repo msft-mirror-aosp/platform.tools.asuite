@@ -24,6 +24,7 @@ atest is designed to support any test types that can be ran by TradeFederation.
 """
 
 # pylint: disable=line-too-long
+# pylint: disable=no-member
 # pylint: disable=too-many-lines
 
 from __future__ import print_function
@@ -53,6 +54,7 @@ import result_reporter
 import test_runner_handler
 
 from atest_enum import DetectType, ExitCode
+from coverage import coverage
 from metrics import metrics
 from metrics import metrics_base
 from metrics import metrics_utils
@@ -231,8 +233,11 @@ def get_extra_args(args):
                 'annotation_filter': constants.ANNOTATION_FILTER,
                 'bazel_arg': constants.BAZEL_ARG,
                 'collect_tests_only': constants.COLLECT_TESTS_ONLY,
+                'coverage': constants.COVERAGE,
                 'custom_args': constants.CUSTOM_ARGS,
+                'device_only': constants.DEVICE_ONLY,
                 'disable_teardown': constants.DISABLE_TEARDOWN,
+                'disable_upload_result': constants.DISABLE_UPLOAD_RESULT,
                 'dry_run': constants.DRY_RUN,
                 'enable_device_preparer': constants.ENABLE_DEVICE_PREPARER,
                 'flakes_info': constants.FLAKES_INFO,
@@ -243,15 +248,19 @@ def get_extra_args(args):
                 'iterations': constants.ITERATIONS,
                 'no_enable_root': constants.NO_ENABLE_ROOT,
                 'request_upload_result': constants.REQUEST_UPLOAD_RESULT,
+                'bazel_mode_features': constants.BAZEL_MODE_FEATURES,
                 'rerun_until_failure': constants.RERUN_UNTIL_FAILURE,
                 'retry_any_failure': constants.RETRY_ANY_FAILURE,
                 'serial': constants.SERIAL,
+                'auto_ld_library_path': constants.LD_LIBRARY_PATH,
                 'sharding': constants.SHARDING,
                 'test_filter': constants.TEST_FILTER,
+                'test_timeout': constants.TEST_TIMEOUT,
                 'tf_early_device_release': constants.TF_EARLY_DEVICE_RELEASE,
                 'tf_debug': constants.TF_DEBUG,
                 'tf_template': constants.TF_TEMPLATE,
                 'user_type': constants.USER_TYPE,
+                'verbose': constants.VERBOSE,
                 'verify_env_variable': constants.VERIFY_ENV_VARIABLE}
     not_match = [k for k in arg_maps if k not in vars(args)]
     if not_match:
@@ -581,6 +590,11 @@ def _run_test_mapping_tests(results_dir, test_infos, extra_args, mod_info):
         atest_utils.colorful_print(
             'Option `--host` specified. Skip running device tests.',
             constants.MAGENTA)
+    elif extra_args.get(constants.DEVICE_ONLY):
+        test_runs = [(device_test_infos, extra_args, DEVICE_TESTS)]
+        atest_utils.colorful_print(
+            'Option `--device-only` specified. Skip running deviceless tests.',
+            constants.MAGENTA)
     else:
         test_runs.append((device_test_infos, extra_args, DEVICE_TESTS))
 
@@ -631,8 +645,10 @@ def _dry_run(results_dir, extra_args, test_infos, mod_info):
         A list of test commands.
     """
     all_run_cmds = []
-    for test_runner, tests in test_runner_handler.group_tests_by_test_runners(test_infos):
-        runner = test_runner(results_dir, mod_info=mod_info)
+    for test_runner, tests in test_runner_handler.group_tests_by_test_runners(
+            test_infos):
+        runner = test_runner(results_dir, mod_info=mod_info,
+                             extra_args=extra_args)
         run_cmds = runner.generate_run_commands(tests, extra_args)
         for run_cmd in run_cmds:
             all_run_cmds.append(run_cmd)
@@ -719,8 +735,18 @@ def _dry_run_validator(args, results_dir, extra_args, test_infos, mod_info):
     Returns:
         Exit code.
     """
-    test_commands = atest_utils.get_verify_key(args.tests, extra_args)
     dry_run_cmds = _dry_run(results_dir, extra_args, test_infos, mod_info)
+    if args.generate_runner_cmd:
+        dry_run_cmd_str = ' '.join(dry_run_cmds)
+        tests_str = ' '.join(args.tests)
+        test_commands = atest_utils.gen_runner_cmd_to_file(tests_str,
+                                                           dry_run_cmd_str)
+        print("add command %s to file %s" % (
+            atest_utils.colorize(test_commands, constants.GREEN),
+            atest_utils.colorize(constants.RUNNER_COMMAND_PATH,
+                                 constants.GREEN)))
+    else:
+        test_commands = atest_utils.get_verify_key(args.tests, extra_args)
     if args.verify_cmd_mapping:
         try:
             atest_utils.handle_test_runner_cmd(test_commands,
@@ -753,20 +779,25 @@ def _exclude_modules_in_targets(build_targets):
     return shrank_build_targets
 
 # pylint: disable=protected-access
-def need_rebuild_module_info(force_build):
+def need_rebuild_module_info(test_steps: None,
+                             force_rebuild: bool = False) -> bool:
     """Method that tells whether we need to rebuild module-info.json or not.
 
     Args:
-        force_build: A boolean flag that determine everything.
+        args: An argparse.Namespace class instance holding parsed args.
 
     Returns:
-        - When force_build is True, return True (will rebuild module-info).
-        - When force_build is False, then check the consistency of build files.
-        If the checksum file of build files is missing, considered check False
-        (need to rebuild module-info.json)
+        - When only --test is set, return False (won't build module-info.json).
+        - When --rebuild-module-info is set, return True (forcely rebuild).
+        - When the build files were changed, return True(smartly rebuild).
+        - When the checksum file of build files is inexistent, return True
+          (smartly rebuild).
     """
+    if test_steps and constants.BUILD_STEP not in test_steps:
+        logging.debug('\"--test\" mode detected, will not rebuild module-info.')
+        return False
     logging.debug('Examinating the consistency of build files...')
-    if force_build:
+    if force_rebuild:
         msg = (f'`{constants.REBUILD_MODULE_INFO_FLAG}` is no longer needed '
                f'since Atest can smartly rebuild {module_info._MODULE_INFO} '
                r'only when needed.')
@@ -776,6 +807,31 @@ def need_rebuild_module_info(force_build):
         logging.debug('All build files stay untouched.')
         return False
     logging.debug('Found build files were changed.')
+    return True
+
+def need_run_index_targets(args, extra_args):
+    """Method that determines whether Atest need to run index_targets or not.
+
+
+    There are 3 conditions that Atest does not run index_targets():
+    1. dry-run flags were found.
+    2. VERIFY_ENV_VARIABLE was found in extra_args.
+    3. --test flag was found.
+
+    Args:
+        args: A list of argument.
+        extra_args: A list of extra argument.
+
+    Returns:
+        True when none of the above conditions were found.
+    """
+    ignore_args = (args.update_cmd_mapping, args.verify_cmd_mapping, args.dry_run)
+    if any(ignore_args):
+        return False
+    if extra_args.get(constants.VERIFY_ENV_VARIABLE, False):
+        return False
+    if args.steps and 'test' in args.steps:
+        return False
     return True
 
 def acloud_create_validator(results_dir, args):
@@ -795,7 +851,7 @@ def acloud_create_validator(results_dir, args):
     if not any((args.acloud_create, args.start_avd)):
         return None, None
     if args.start_avd:
-        args.acloud_create = ['--num=1']
+        args.acloud_create = []
     acloud_args = ' '.join(args.acloud_create)
     target = os.getenv('TARGET_PRODUCT', "")
     if 'cf_x86' in target:
@@ -852,6 +908,27 @@ def get_device_count_config(test_infos, mod_info):
                 max_count = max(len(devices), max_count)
     return max_count
 
+
+def _get_host_framework_targets(mod_info):
+    """Get the build target name for all the existing jars under host framework.
+
+    Args:
+        mod_info: ModuleInfo object.
+
+    Returns:
+        A set of build target name under $(ANDROID_HOST_OUT)/framework.
+    """
+    host_targets = set()
+    framework_host_dir = Path(
+        os.environ.get(constants.ANDROID_HOST_OUT)).joinpath('framework')
+    if framework_host_dir.is_dir():
+        jars = framework_host_dir.glob('*.jar')
+        for jar in jars:
+            if mod_info.get_module_info(jar.stem):
+                host_targets.add(jar.stem)
+        logging.debug('Found exist host framework target:%s', host_targets)
+    return host_targets
+
 # pylint: disable=too-many-statements
 # pylint: disable=too-many-branches
 # pylint: disable=too-many-return-statements
@@ -866,6 +943,7 @@ def main(argv, results_dir, args):
     Returns:
         Exit code.
     """
+    _begin_time = time.time()
     _configure_logging(args.verbose)
     _validate_args(args)
     metrics_utils.get_start_time()
@@ -879,32 +957,56 @@ def main(argv, results_dir, args):
     proc_acloud, report_file = acloud_create_validator(results_dir, args)
     is_clean = not os.path.exists(
         os.environ.get(constants.ANDROID_PRODUCT_OUT, ''))
-    # Do not index targets while the users intend to dry-run tests.
-    dry_run_args = (args.update_cmd_mapping, args.verify_cmd_mapping, args.dry_run)
     extra_args = get_extra_args(args)
     verify_env_variables = extra_args.get(constants.VERIFY_ENV_VARIABLE, False)
     proc_idx = None
-    if not (any(dry_run_args) or verify_env_variables):
+    # Do not index targets while the users intend to dry-run tests.
+    if need_run_index_targets(args, extra_args):
         proc_idx = atest_utils.run_multi_proc(INDEX_TARGETS)
-    smart_rebuild = need_rebuild_module_info(args.rebuild_module_info)
+    smart_rebuild = need_rebuild_module_info(
+        test_steps=args.steps,
+        force_rebuild=args.rebuild_module_info)
+    mod_start = time.time()
     mod_info = module_info.ModuleInfo(force_build=smart_rebuild)
-    atest_utils.generate_buildfiles_checksum()
+    mod_stop = time.time() - mod_start
+    metrics.LocalDetectEvent(detect_type=DetectType.MODULE_INFO_INIT_MS,
+                             result=int(mod_stop * 1000))
+    atest_utils.run_multi_proc(func=mod_info._save_module_info_checksum)
+    atest_utils.run_multi_proc(
+        func=atest_utils.generate_buildfiles_checksum,
+        args=[mod_info.module_index.parent])
+
+    # Run Test Mapping by no-bazel-mode.
+    if atest_utils.is_test_mapping(args):
+        args.bazel_mode = False
     if args.bazel_mode:
+        start = time.time()
         bazel_mode.generate_bazel_workspace(
             mod_info,
             enabled_features=set(args.bazel_mode_features or []))
+        metrics.LocalDetectEvent(
+            detect_type=DetectType.BAZEL_WORKSPACE_GENERATE_TIME,
+            result=int(time.time() - start))
+
     translator = cli_translator.CLITranslator(
         mod_info=mod_info,
         print_cache_msg=not args.clear_cache,
-        bazel_mode_enabled=args.bazel_mode)
+        bazel_mode_enabled=args.bazel_mode,
+        host=args.host,
+        bazel_mode_features=args.bazel_mode_features)
     if args.list_modules:
         _print_testable_modules(mod_info, args.list_modules)
         return ExitCode.SUCCESS
     build_targets = set()
     mm_build_targets = set()
     test_infos = set()
+    dry_run_args = (args.update_cmd_mapping, args.verify_cmd_mapping,
+                    args.dry_run, args.generate_runner_cmd)
     if _will_run_tests(args):
-        if proc_idx:
+        # (b/242567487) index_targets may finish after cli_translator; to
+        # mitigate the overhead, the main waits until it finished when no index
+        # files are available (e.g. fresh repo sync)
+        if proc_idx and not atest_utils.has_index_files():
             proc_idx.join()
         find_start = time.time()
         build_targets, test_infos = translator.translate(args)
@@ -941,10 +1043,19 @@ def main(argv, results_dir, args):
                 for module in test_info.mainline_modules.split('+'):
                     mm_build_targets.add(re.sub(
                          MAINLINE_MODULES_EXT_RE, '', module))
+
+    # For TEST_MAPPING, set timeout to 600000ms.
+    if args.test_timeout is None:
+        if is_from_test_mapping(test_infos):
+            extra_args.update({constants.TEST_TIMEOUT: 600000})
+            logging.debug(
+                'Set test timeout to %sms to align it in TEST_MAPPING.',
+                extra_args.get(constants.TEST_TIMEOUT))
+
     if args.info:
         return _print_test_info(mod_info, test_infos)
-    build_targets |= test_runner_handler.get_test_runner_reqs(mod_info,
-                                                              test_infos)
+    build_targets |= test_runner_handler.get_test_runner_reqs(
+        mod_info, test_infos, extra_args=extra_args)
     if any(dry_run_args):
         if not verify_env_variables:
             return _dry_run_validator(args, results_dir, extra_args, test_infos,
@@ -961,15 +1072,20 @@ def main(argv, results_dir, args):
     # args.steps will be None if none of -bit set, else list of params set.
     steps = args.steps if args.steps else constants.ALL_STEPS
     if build_targets and constants.BUILD_STEP in steps:
-        # smart_rebuild -> merge_soong_info -> index_testable_modules
-        if not mod_info.module_index.is_file() or mod_info.update_merge_info:
-            # pylint: disable=protected-access
-            atest_utils.run_multi_proc(mod_info._get_testable_modules)
+        # Set coverage environment variables.
+        env_vars = {}
+        if args.coverage:
+            env_vars.update(coverage.build_env_vars())
+
         # Add module-info.json target to the list of build targets to keep the
         # file up to date.
         build_targets.add(mod_info.module_info_target)
+        # Force rebuilt all jars under $ANDROID_HOST_OUT to prevent old version
+        # host jars break the test.
+        build_targets |= _get_host_framework_targets(mod_info)
         build_start = time.time()
         success = atest_utils.build(build_targets, verbose=args.verbose,
+                                    env_vars=env_vars,
                                     mm_build_targets=mm_build_targets)
         build_duration = time.time() - build_start
         build_targets.update(mm_build_targets)
@@ -1020,6 +1136,13 @@ def main(argv, results_dir, args):
     tests_exit_code = ExitCode.SUCCESS
     test_start = time.time()
     if constants.TEST_STEP in steps:
+        # Only send duration to metrics when passing --test and not --build.
+        if constants.BUILD_STEP not in steps:
+            _init_and_find = time.time() - _begin_time
+            logging.debug('Initiation and finding tests took %ss', _init_and_find)
+            metrics.LocalDetectEvent(
+                detect_type=DetectType.INIT_AND_FIND_MS,
+                result=int(_init_and_find*1000))
         perm_consistency_metrics(test_infos, mod_info, args)
         if not is_from_test_mapping(test_infos):
             tests_exit_code, reporter = test_runner_handler.run_all_tests(
@@ -1053,12 +1176,13 @@ def main(argv, results_dir, args):
 
 if __name__ == '__main__':
     RESULTS_DIR = make_test_run_dir()
-    final_args = [*sys.argv[1:], *_get_args_from_config()]
     if END_OF_OPTION in sys.argv:
         end_position = sys.argv.index(END_OF_OPTION)
         final_args = [*sys.argv[1:end_position],
                       *_get_args_from_config(),
                       *sys.argv[end_position:]]
+    else:
+        final_args = [*sys.argv[1:], *_get_args_from_config()]
     if final_args != sys.argv[1:]:
         print('The actual cmd will be: \n\t{}\n'.format(
             atest_utils.colorize("atest " + " ".join(final_args),

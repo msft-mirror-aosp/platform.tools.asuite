@@ -19,6 +19,7 @@
 # pylint: disable=line-too-long
 # pylint: disable=missing-function-docstring
 # pylint: disable=too-many-lines
+# pylint: disable=unused-argument
 
 import os
 import shlex
@@ -56,7 +57,7 @@ LOG_ARGS = atf_tr.AtestTradefedTestRunner._LOG_ARGS.format(
     log_ext_option=constants.LOG_SAVER_EXT_OPTION,
     log_path=os.path.join(uc.TEST_INFO_DIR, atf_tr.LOG_FOLDER_NAME),
     proto_path=os.path.join(uc.TEST_INFO_DIR, constants.ATEST_TEST_RECORD_PROTO))
-RUN_ENV_STR = 'tf_env_var=test'
+RUN_ENV_STR = ''
 RUN_CMD = atf_tr.AtestTradefedTestRunner._RUN_CMD.format(
     env=RUN_ENV_STR,
     exe=atf_tr.AtestTradefedTestRunner.EXECUTABLE,
@@ -712,6 +713,37 @@ class AtestTradefedTestRunnerUnittests(unittest.TestCase):
                 tf_customize_template='',
                 device_early_release='')])
 
+    @mock.patch.object(atf_tr.AtestTradefedTestRunner, '_handle_native_tests')
+    @mock.patch.object(atf_tr.AtestTradefedTestRunner, '_parse_extra_args')
+    @mock.patch.object(atf_tr.AtestTradefedTestRunner,
+                       '_is_all_tests_parameter_auto_enabled',
+                       return_value=False)
+    @mock.patch('os.environ.get', return_value=None)
+    @mock.patch.object(atf_tr.AtestTradefedTestRunner, '_generate_metrics_folder')
+    @mock.patch('atest_utils.get_result_server_args')
+    def test_generate_run_commands_with_artifacts(
+            self, mock_resultargs, mock_mertrics, _, mock_all, mock_parse, mock_handle):
+        """Test generate_run_command method."""
+        # Testing  without collect-tests-only
+        mock_resultargs.return_value = []
+        mock_mertrics.return_value = ''
+        mock_parse.return_value = [], []
+        test_module = 'AmSlamTests'
+        artifact_path = '/out/somewhere/app/AmSlam.apk'
+        t_info = test_info.TestInfo(
+            test_module,
+            atf_tr.AtestTradefedTestRunner.NAME,
+            set(),
+            {constants.TI_REL_CONFIG: uc.CONFIG_FILE,
+            constants.TI_FILTER: frozenset()},
+            artifacts={artifact_path})
+        cmd = self.tr.generate_run_commands([t_info], {})
+        template_str = (
+            '--include-filter {0} --module-arg {0}:'
+            'test-file-name:{1}')
+        self.assertTrue(
+            template_str.format(test_module, artifact_path) in cmd[0])
+
     @mock.patch.object(test_finder_utils, 'get_test_config_and_srcs')
     def test_has_instant_app_config(self, mock_config):
         """test _has_instant_app_config method."""
@@ -895,6 +927,38 @@ class AtestTradefedTestRunnerUnittests(unittest.TestCase):
             str(run_cmd).find(
                 'metric_post_processor='
                 'google/template/postprocessors/metric-file-aggregate') > 0)
+
+    @mock.patch.object(atf_tr.AtestTradefedTestRunner, '_handle_native_tests')
+    @mock.patch.object(atf_tr.AtestTradefedTestRunner, '_parse_extra_args')
+    @mock.patch.object(atf_tr.AtestTradefedTestRunner, '_create_test_args')
+    @mock.patch('os.environ.get', return_value=None)
+    @mock.patch.object(
+        atf_tr.AtestTradefedTestRunner, '_generate_metrics_folder')
+    @mock.patch('atest_utils.get_result_server_args')
+    def test_run_commands_for_aggregate_metric_result_with_manually_input(
+        self, mock_resultargs, mock_mertrics, _mock_env, _mock_create,
+            _mock_parse, _mock_handle_native):
+        """Test generate_run_command method for test need aggregate metric."""
+        mock_resultargs.return_value = []
+        mock_mertrics.return_value = ''
+        _mock_create.return_value = []
+        _mock_parse.return_value = [], []
+        test_info_with_aggregate_metrics = test_info.TestInfo(
+            test_name='perf_test', test_runner='test_runner',
+            build_targets=set())
+        test_info_with_aggregate_metrics.aggregate_metrics_result = True
+
+        run_cmd = self.tr.generate_run_commands(
+            [test_info_with_aggregate_metrics],
+            extra_args={constants.TF_TEMPLATE: ['metric_post_processor=a/b/c']})
+
+        self.assertTrue(
+            str(run_cmd).find(
+                'metric_post_processor='
+                'google/template/postprocessors/metric-file-aggregate') < 0)
+
+        self.assertTrue(
+            str(run_cmd).find('metric_post_processor=a/b/c') > 0)
 
     @mock.patch.object(atf_tr.AtestTradefedTestRunner,
                        '_is_all_tests_parameter_auto_enabled',
@@ -1121,6 +1185,25 @@ class ExtraArgsTest(AtestTradefedTestRunnerUnittests):
 
         self.assertTokensNotIn(['--tf-early-device-release'], cmd[0])
 
+    def test_args_with_timeout_and_generate_in_run_cmd(self):
+        extra_args = {constants.TEST_TIMEOUT: 10000}
+
+        cmd = self.tr.generate_run_commands([], extra_args)
+
+        self.assertTokensIn(
+            ['--test-arg',
+             'com.android.tradefed.testtype.AndroidJUnitTest:'
+             'shell-timeout:10000',
+             '--test-arg',
+             'com.android.tradefed.testtype.AndroidJUnitTest:'
+             'test-timeout:10000',
+             '--test-arg',
+             'com.android.tradefed.testtype.HostGTest:'
+             'native-test-timeout:10000',
+             '--test-arg',
+             'com.android.tradefed.testtype.GTest:'
+             'native-test-timeout:10000'],
+            cmd[0])
 
 if __name__ == '__main__':
     unittest.main()

@@ -16,6 +16,7 @@
 
 """Unittests for atest_utils."""
 
+# pylint: disable=invalid-name
 # pylint: disable=line-too-long
 
 import hashlib
@@ -26,6 +27,7 @@ import tempfile
 import unittest
 
 from io import StringIO
+from pathlib import Path
 from unittest import mock
 
 import atest_error
@@ -35,7 +37,7 @@ import unittest_utils
 import unittest_constants
 
 from test_finders import test_info
-
+from atest_enum import FilterType
 
 TEST_MODULE_NAME_A = 'ModuleNameA'
 TEST_RUNNER_A = 'FakeTestRunnerA'
@@ -61,7 +63,8 @@ Manifest groups: all,-notdefault
 ----------------------------
 '''
 
-#pylint: disable=protected-access
+# pylint: disable=protected-access
+# pylint: disable=too-many-public-methods
 class AtestUtilsUnittests(unittest.TestCase):
     """Unit tests for atest_utils.py"""
 
@@ -152,20 +155,19 @@ class AtestUtilsUnittests(unittest.TestCase):
         # _has_colors() return False.
         mock_has_colors.return_value = False
         converted_str = atest_utils.colorize(original_str, green_no,
-                                             highlight=True)
+                                             bp_color=constants.RED)
         self.assertEqual(original_str, converted_str)
 
-        # Green with highlight.
+        # Green text with red background.
         mock_has_colors.return_value = True
         converted_str = atest_utils.colorize(original_str, green_no,
-                                             highlight=True)
-        green_highlight_string = '\x1b[1;42m%s\x1b[0m' % original_str
+                                             bp_color=constants.RED)
+        green_highlight_string = '\x1b[1;32;41m%s\x1b[0m' % original_str
         self.assertEqual(green_highlight_string, converted_str)
 
-        # Green, no highlight.
+        # Green text, no background.
         mock_has_colors.return_value = True
-        converted_str = atest_utils.colorize(original_str, green_no,
-                                             highlight=False)
+        converted_str = atest_utils.colorize(original_str, green_no)
         green_no_highlight_string = '\x1b[1;32m%s\x1b[0m' % original_str
         self.assertEqual(green_no_highlight_string, converted_str)
 
@@ -180,49 +182,52 @@ class AtestUtilsUnittests(unittest.TestCase):
         mock_has_colors.return_value = False
         capture_output = StringIO()
         sys.stdout = capture_output
-        atest_utils.colorful_print(testing_str, green_no, highlight=True,
+        atest_utils.colorful_print(testing_str, green_no,
+                                   bp_color=constants.RED,
                                    auto_wrap=False)
         sys.stdout = sys.__stdout__
         uncolored_string = testing_str
         self.assertEqual(capture_output.getvalue(), uncolored_string)
 
-        # Green with highlight, but no wrap.
+        # Green text with red background, but no wrap.
         mock_has_colors.return_value = True
         capture_output = StringIO()
         sys.stdout = capture_output
-        atest_utils.colorful_print(testing_str, green_no, highlight=True,
+        atest_utils.colorful_print(testing_str, green_no,
+                                   bp_color=constants.RED,
                                    auto_wrap=False)
         sys.stdout = sys.__stdout__
-        green_highlight_no_wrap_string = '\x1b[1;42m%s\x1b[0m' % testing_str
+        green_highlight_no_wrap_string = '\x1b[1;32;41m%s\x1b[0m' % testing_str
         self.assertEqual(capture_output.getvalue(),
                          green_highlight_no_wrap_string)
 
-        # Green, no highlight, no wrap.
+        # Green text, no background, no wrap.
         mock_has_colors.return_value = True
         capture_output = StringIO()
         sys.stdout = capture_output
-        atest_utils.colorful_print(testing_str, green_no, highlight=False,
+        atest_utils.colorful_print(testing_str, green_no,
                                    auto_wrap=False)
         sys.stdout = sys.__stdout__
         green_no_high_no_wrap_string = '\x1b[1;32m%s\x1b[0m' % testing_str
         self.assertEqual(capture_output.getvalue(),
                          green_no_high_no_wrap_string)
 
-        # Green with highlight and wrap.
+        # Green text with red background and wrap.
         mock_has_colors.return_value = True
         capture_output = StringIO()
         sys.stdout = capture_output
-        atest_utils.colorful_print(testing_str, green_no, highlight=True,
+        atest_utils.colorful_print(testing_str, green_no,
+                                   bp_color=constants.RED,
                                    auto_wrap=True)
         sys.stdout = sys.__stdout__
-        green_highlight_wrap_string = '\x1b[1;42m%s\x1b[0m\n' % testing_str
+        green_highlight_wrap_string = '\x1b[1;32;41m%s\x1b[0m\n' % testing_str
         self.assertEqual(capture_output.getvalue(), green_highlight_wrap_string)
 
-        # Green with wrap, but no highlight.
+        # Green text with wrap, but no background.
         mock_has_colors.return_value = True
         capture_output = StringIO()
         sys.stdout = capture_output
-        atest_utils.colorful_print(testing_str, green_no, highlight=False,
+        atest_utils.colorful_print(testing_str, green_no,
                                    auto_wrap=True)
         sys.stdout = sys.__stdout__
         green_wrap_no_highlight_string = '\x1b[1;32m%s\x1b[0m\n' % testing_str
@@ -507,46 +512,75 @@ class AtestUtilsUnittests(unittest.TestCase):
         self.assertEqual(test_record.children[0].inline_test_record.test_record_id,
                          'x86 hello_world_test')
 
-    def test_is_valid_json_file_file_not_exist(self):
-        """Test method is_valid_json_file if file not exist."""
-        json_file_path = os.path.join(unittest_constants.TEST_DATA_DIR,
-                                      "not_exist.json")
-        self.assertFalse(atest_utils.is_valid_json_file(json_file_path))
+    def test_load_json_safely_file_inexistent(self):
+        """Test method load_json_safely if file does not exist."""
+        json_file_path = Path(
+            unittest_constants.TEST_DATA_DIR).joinpath("not_exist.json")
+        self.assertEqual({}, atest_utils.load_json_safely(json_file_path))
 
-    def test_is_valid_json_file_content_valid(self):
-        """Test method is_valid_json_file if file exist and content is valid."""
-        json_file_path = os.path.join(unittest_constants.TEST_DATA_DIR,
-                                      "module-info.json")
-        self.assertTrue(atest_utils.is_valid_json_file(json_file_path))
+    def test_load_json_safely_valid_json_format(self):
+        """Test method load_json_safely if file exists and format is valid."""
+        json_file_path = Path(
+            unittest_constants.TEST_DATA_DIR).joinpath("module-info.json")
+        content = atest_utils.load_json_safely(json_file_path)
+        self.assertEqual('MainModule1', content.get('MainModule1').get('module_name'))
+        self.assertEqual([], content.get('MainModule2').get('test_mainline_modules'))
 
-    def test_is_valid_json_file_content_not_valid(self):
-        """Test method is_valid_json_file if file exist but content is valid."""
-        json_file_path = os.path.join(unittest_constants.TEST_DATA_DIR,
-                                      "not-valid-module-info.json")
-        self.assertFalse(atest_utils.is_valid_json_file(json_file_path))
+    def test_load_json_safely_invalid_json_format(self):
+        """Test method load_json_safely if file exist but content is invalid."""
+        json_file_path = Path(
+            unittest_constants.TEST_DATA_DIR).joinpath("not-valid-module-info.json")
+        self.assertEqual({}, atest_utils.load_json_safely(json_file_path))
 
-    @mock.patch('subprocess.Popen')
     @mock.patch('os.getenv')
-    def test_get_manifest_branch(self, mock_env, mock_popen):
+    def test_get_manifest_branch(self, mock_env):
         """Test method get_manifest_branch"""
-        mock_env.return_value = 'any_path'
-        process = mock_popen.return_value
-        process.communicate.return_value = (REPO_INFO_OUTPUT, '')
-        self.assertEqual('test_branch', atest_utils.get_manifest_branch())
+        build_top = tempfile.TemporaryDirectory()
+        mock_env.return_value = build_top.name
+        repo_dir = Path(build_top.name).joinpath('.repo')
+        portal_xml = repo_dir.joinpath('manifest.xml')
+        manifest_dir = repo_dir.joinpath('manifests')
+        target_xml = manifest_dir.joinpath('Default.xml')
+        repo_dir.mkdir()
+        manifest_dir.mkdir()
+        content_portal = '<manifest><include name="Default.xml" /></manifest>'
+        content_manifest = '''<manifest>
+            <remote name="aosp" fetch=".." review="https://android-review.googlesource.com/" />
+            <default revision="MONSTER-dev" remote="aosp" sync-j="4" />
+        </manifest>'''
 
-        mock_env.return_value = 'any_path'
-        process.communicate.return_value = ('not_matched_branch_pattern.', '')
-        self.assertEqual(None, atest_utils.get_manifest_branch())
+        # 1. The manifest.xml(portal) contains 'include' directive: 'Default.xml'.
+        # Search revision in .repo/manifests/Default.xml.
+        with open(portal_xml, 'w') as cache:
+            cache.write(content_portal)
+        with open(target_xml, 'w') as cache:
+            cache.write(content_manifest)
+        self.assertEqual("MONSTER-dev", atest_utils.get_manifest_branch())
+        os.remove(target_xml)
+        os.remove(portal_xml)
 
-        mock_env.return_value = 'any_path'
-        process.communicate.side_effect = subprocess.TimeoutExpired(
-            1,
-            'repo info')
-        self.assertEqual(None, atest_utils.get_manifest_branch())
+        # 2. The manifest.xml contains neither 'include' nor 'revision' directive,
+        # keep searching revision in .repo/manifests/default.xml by default.
+        with open(portal_xml, 'w') as cache:
+            cache.write('<manifest></manifest>')
+        default_xml = manifest_dir.joinpath('default.xml')
+        with open(default_xml, 'w') as cache:
+            cache.write(content_manifest)
+        self.assertEqual("MONSTER-dev", atest_utils.get_manifest_branch())
+        os.remove(default_xml)
+        os.remove(portal_xml)
 
-        mock_env.return_value = None
-        process.communicate.return_value = (REPO_INFO_OUTPUT, '')
-        self.assertEqual(None, atest_utils.get_manifest_branch())
+        # 3. revision was directly defined in 'manifest.xml'.
+        with open(portal_xml, 'w') as cache:
+            cache.write(content_manifest)
+        self.assertEqual("MONSTER-dev", atest_utils.get_manifest_branch())
+        os.remove(portal_xml)
+
+        # 4. Return None if the included xml does not exist.
+        with open(portal_xml, 'w') as cache:
+            cache.write(content_portal)
+        self.assertEqual('', atest_utils.get_manifest_branch())
+        os.remove(portal_xml)
 
     def test_has_wildcard(self):
         """Test method of has_wildcard"""
@@ -607,7 +641,7 @@ class AtestUtilsUnittests(unittest.TestCase):
         inexist_string = os.path.join(unittest_constants.TEST_DATA_DIR,
                                       unittest_constants.CLASS_NAME)
         self.assertEqual(
-            atest_utils.md5sum(exist_string), 'f02c1a648f16e5e9d7035bb11486ac2b')
+            atest_utils.md5sum(exist_string), '062160df00c20b1ee4d916b7baf71346')
         self.assertEqual(
             atest_utils.md5sum(inexist_string), '')
 
@@ -689,6 +723,133 @@ class AtestUtilsUnittests(unittest.TestCase):
         # do not support partial-correct keyword.
         self.assertNotEqual(
             atest_utils.get_full_annotation_class_name(module_info, 'android.platform.test.annotations.pres'), presubmit)
+
+    def test_has_mixed_type_filters_one_module_with_one_type_return_false(self):
+        """Test method of has_mixed_type_filters"""
+        filter_1 = test_info.TestFilter('CLASS', frozenset(['METHOD']))
+        test_data_1 = {constants.TI_FILTER: [filter_1]}
+        test_info_1 = test_info.TestInfo('MODULE', 'RUNNER',
+                                set(), test_data_1,
+                                'SUITE', '',
+                                set())
+        self.assertFalse(atest_utils.has_mixed_type_filters([test_info_1]))
+
+    def test_has_mixed_type_filters_one_module_with_mixed_types_return_true(self):
+        """Test method of has_mixed_type_filters"""
+        filter_1 = test_info.TestFilter('CLASS', frozenset(['METHOD']))
+        filter_2 = test_info.TestFilter('CLASS', frozenset(['METHOD*']))
+        test_data_2 = {constants.TI_FILTER: [filter_1, filter_2]}
+        test_info_2 = test_info.TestInfo('MODULE', 'RUNNER',
+                                set(), test_data_2,
+                                'SUITE', '',
+                                set())
+        self.assertTrue(atest_utils.has_mixed_type_filters([test_info_2]))
+
+    def test_has_mixed_type_filters_two_module_with_mixed_types_return_false(self):
+        """Test method of has_mixed_type_filters"""
+        filter_1 = test_info.TestFilter('CLASS', frozenset(['METHOD']))
+        test_data_1 = {constants.TI_FILTER: [filter_1]}
+        test_info_1 = test_info.TestInfo('MODULE', 'RUNNER',
+                                set(), test_data_1,
+                                'SUITE', '',
+                                set())
+        filter_3 = test_info.TestFilter('CLASS', frozenset(['METHOD*']))
+        test_data_3 = {constants.TI_FILTER: [filter_3]}
+        test_info_3 = test_info.TestInfo('MODULE3', 'RUNNER',
+                                set(), test_data_3,
+                                'SUITE', '',
+                                set())
+        self.assertFalse(atest_utils.has_mixed_type_filters(
+            [test_info_1, test_info_3]))
+
+    def test_get_filter_types(self):
+        """Test method of get_filter_types."""
+        filters = set(['CLASS#METHOD'])
+        expect_types = set([FilterType.REGULAR_FILTER.value])
+        self.assertEqual(atest_utils.get_filter_types(filters), expect_types)
+
+        filters = set(['CLASS#METHOD*'])
+        expect_types = set([FilterType.WILDCARD_FILTER.value])
+        self.assertEqual(atest_utils.get_filter_types(filters), expect_types)
+
+        filters = set(['CLASS#METHOD', 'CLASS#METHOD*'])
+        expect_types = set([FilterType.WILDCARD_FILTER.value,
+                          FilterType.REGULAR_FILTER.value])
+        self.assertEqual(atest_utils.get_filter_types(filters), expect_types)
+
+        filters = set(['CLASS#METHOD?', 'CLASS#METHOD*'])
+        expect_types = set([FilterType.WILDCARD_FILTER.value])
+        self.assertEqual(atest_utils.get_filter_types(filters), expect_types)
+
+    def test_get_bp_content(self):
+        """Method get_bp_content."""
+        # 1. "manifest" and "instrumentation_for" are defined.
+        content = '''android_test    {
+                // comment
+                instrumentation_for: "AmSlam", // comment
+                manifest: "AndroidManifest-test.xml",
+                name: "AmSlamTests",
+        }'''
+        expected_result = {"AmSlamTests":
+                           {"target_module": "AmSlam", "manifest": "AndroidManifest-test.xml"}}
+        temp_dir = tempfile.TemporaryDirectory()
+        tmpbp = Path(temp_dir.name).joinpath('Android.bp')
+        with open(tmpbp, 'w') as cache:
+            cache.write(content)
+        self.assertEqual(atest_utils.get_bp_content(tmpbp, 'android_test'),
+                         expected_result)
+        temp_dir.cleanup()
+
+        # 2. Only name is defined, will give default manifest and null target_module.
+        content = '''android_app    {
+                // comment
+                name: "AmSlam",
+                srcs: ["src1.java", "src2.java"]
+        }'''
+        expected_result = {"AmSlam":
+                           {"target_module": "", "manifest": "AndroidManifest.xml"}}
+        temp_dir = tempfile.TemporaryDirectory()
+        tmpbp = Path(temp_dir.name).joinpath('Android.bp')
+        with open(tmpbp, 'w') as cache:
+            cache.write(content)
+        self.assertEqual(atest_utils.get_bp_content(tmpbp, 'android_app'),
+                         expected_result)
+        temp_dir.cleanup()
+
+        # 3. Not even an Android.bp.
+        content = '''LOCAL_PATH := $(call my-dir)
+                # comment
+                include $(call all-subdir-makefiles)
+                LOCAL_MODULE := atest_foo_test
+        }'''
+        temp_dir = tempfile.TemporaryDirectory()
+        tmpbp = Path(temp_dir.name).joinpath('Android.mk')
+        with open(tmpbp, 'w') as cache:
+            cache.write(content)
+        self.assertEqual(atest_utils.get_bp_content(tmpbp, 'android_app'), {})
+        temp_dir.cleanup()
+
+    def test_get_manifest_info(self):
+        """test get_manifest_info method."""
+        # An instrumentation test:
+        test_xml = os.path.join(unittest_constants.TEST_DATA_DIR,
+                                'foo/bar/AmSlam/test/AndroidManifest.xml')
+        expected = {
+            'package': 'com.android.settings.tests.unit',
+            'target_package': 'c0m.andr0id.settingS',
+            'persistent': False
+        }
+        self.assertEqual(expected, atest_utils.get_manifest_info(test_xml))
+
+        # A target module:
+        target_xml = os.path.join(unittest_constants.TEST_DATA_DIR,
+                                  'foo/bar/AmSlam/AndroidManifest.xml')
+        expected = {
+            'package': 'c0m.andr0id.settingS',
+            'target_package': '',
+            'persistent': False
+        }
+        self.assertEqual(expected, atest_utils.get_manifest_info(target_xml))
 
 if __name__ == "__main__":
     unittest.main()

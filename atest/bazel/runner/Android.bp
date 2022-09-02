@@ -1,4 +1,4 @@
-// Copyright 2021 The Android Open Source Project
+// Copyright (C) 2022 The Android Open Source Project
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -12,24 +12,32 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// This is a copy of the proto from Tradefed at tools/tradefederation/core/proto
 package {
     default_applicable_licenses: ["Android-Apache-2.0"],
 }
 
-python_library_host {
-    name: "metrics-protos",
-    pkg_path: "tools",
-    srcs: ["asuite/atest/tf_proto/*_pb2.py"],
-    proto: {
-        include_dirs: ["external/protobuf/src"],
-    },
-    version: {
-        py2: {
-            enabled: true,
-        },
-        py3: {
-            enabled: true,
-        },
+java_library_host {
+    name: "bazel-test-runner",
+    srcs: [
+        "src/com/android/tradefed/testtype/bazel/BazelTest.java",
+    ],
+    libs: [
+        "tradefed",
+    ],
+}
+
+java_test_host {
+    name: "bazel-test-runner-tests",
+    srcs: [
+        "tests/src/com/android/tradefed/testtype/bazel/BazelTestTest.java",
+    ],
+    static_libs: [
+        "bazel-test-runner",
+        "tradefed",
+        "mockito",
+        "objenesis",
+    ],
+    test_options: {
+        unit_test: true,
     },
 }

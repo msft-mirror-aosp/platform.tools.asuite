@@ -47,6 +47,25 @@ ATEST_LOG_SOURCE = {
     EXTERNAL_USER: 934
 }
 
+def get_user_email():
+    """Get user mail in git config.
+
+    Returns:
+        user's email.
+    """
+    try:
+        output = subprocess.check_output(
+            ['git', 'config', '--get', 'user.email'], universal_newlines=True)
+        return output.strip() if output else ''
+    except OSError:
+        # OSError can be raised when running atest_unittests on a host
+        # without git being set up.
+        logging.debug('Unable to determine if this is an external run, git is '
+                      'not found.')
+    except subprocess.CalledProcessError:
+        logging.debug('Unable to determine if this is an external run, email '
+                      'is not found in git config.')
+    return ''
 
 def get_user_type():
     """Get user type.
@@ -59,19 +78,10 @@ def get_user_type():
     Returns:
         INTERNAL_USER if user is internal, EXTERNAL_USER otherwise.
     """
-    try:
-        output = subprocess.check_output(
-            ['git', 'config', '--get', 'user.email'], universal_newlines=True)
-        if output and output.strip().endswith(constants.INTERNAL_EMAIL):
-            return INTERNAL_USER
-    except OSError:
-        # OSError can be raised when running atest_unittests on a host
-        # without git being set up.
-        logging.debug('Unable to determine if this is an external run, git is '
-                      'not found.')
-    except subprocess.CalledProcessError:
-        logging.debug('Unable to determine if this is an external run, email '
-                      'is not found in git config.')
+    email = get_user_email()
+    if email.endswith(constants.INTERNAL_EMAIL):
+        return INTERNAL_USER
+
     try:
         hostname = socket.getfqdn()
         if (hostname and

@@ -64,5 +64,7 @@
 "VtsHalCameraProviderV2_4TargetTest:PerInstance/CameraHidlTest#configureInjectionStreamsAvailableOutputs/0_internal_0": [
 ],
 "PerInstance/CameraHidlTest#configureInjectionStreamsAvailableOutputs/0_internal_0": [
+],
+"CtsWifiAwareTestCases": [
 ]
 }

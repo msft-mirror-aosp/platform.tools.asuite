@@ -128,19 +128,26 @@ class AtestTradefedTestRunner(trb.TestRunnerBase):
         log_args = {'log_root_option_name': constants.LOG_ROOT_OPTION_NAME,
                     'log_ext_option': constants.LOG_SAVER_EXT_OPTION,
                     'log_path': self.log_path,
-                    'proto_path': os.path.join(self.results_dir, constants.ATEST_TEST_RECORD_PROTO)}
-        self.run_cmd_dict = {'env': self._get_ld_library_path(),
+                    'proto_path': os.path.join(
+                        self.results_dir,
+                        constants.ATEST_TEST_RECORD_PROTO)}
+        self.run_cmd_dict = {'env': '',
                              'exe': self.EXECUTABLE,
                              'template': self._TF_TEMPLATE,
                              'log_saver': constants.ATEST_TF_LOG_SAVER,
                              'tf_customize_template': '',
                              'args': '',
                              'log_args': self._LOG_ARGS.format(**log_args)}
+        if kwargs.get('extra_args', {}).get(constants.LD_LIBRARY_PATH, False):
+            self.run_cmd_dict.update({'env': self._get_ld_library_path()})
         self.is_verbose = logging.getLogger().isEnabledFor(logging.DEBUG)
         self.root_dir = os.environ.get(constants.ANDROID_BUILD_TOP)
 
-    def _get_ld_library_path(self):
-        """Get the extra environment setup string for running TF.
+    def _get_ld_library_path(self) -> str:
+        """Get the corresponding LD_LIBRARY_PATH string for running TF.
+
+        This method will insert $ANDROID_HOST_OUT/{lib,lib64} to LD_LIBRARY_PATH
+        and returns the updated LD_LIBRARY_PATH.
 
         Returns:
             Strings for the environment passed to TF. Currently only
@@ -153,11 +160,8 @@ class AtestTradefedTestRunner(trb.TestRunnerBase):
         # due to ATest by default only testing the main abi and even a 32bit
         # only target the lib64 folder is actually not exist.
         lib_dirs = ['lib64', 'lib']
-        path = ''
-        for lib in lib_dirs:
-            lib_dir = os.path.join(out_dir, lib)
-            path = path + lib_dir + ':'
-        return 'LD_LIBRARY_PATH=%s' % path
+        path = ':'.join([os.path.join(out_dir, dir) for dir in lib_dirs])
+        return f'LD_LIBRARY_PATH={path}:{os.getenv("LD_LIBRARY_PATH", "")}'
 
     def _try_set_gts_authentication_key(self):
         """Set GTS authentication key if it is available or exists.
@@ -342,7 +346,7 @@ class AtestTradefedTestRunner(trb.TestRunnerBase):
                         atest_utils.colorful_print(
                             r'No test to run. Please check: '
                             r'{} for detail.'.format(reporter.log_path),
-                            constants.RED, highlight=True)
+                            constants.RED, constants.WHITE)
                     if not data_map:
                         metrics.LocalDetectEvent(
                             detect_type=DetectType.TF_EXIT_CODE,
@@ -506,7 +510,9 @@ class AtestTradefedTestRunner(trb.TestRunnerBase):
                 args_to_append.append(constants.TF_ENABLE_PARAMETERIZED_MODULES)
         # If all the test config has config with auto enable parameter, force
         # exclude those default parameters(ex: instant_app, secondary_user)
-        if self._is_all_tests_parameter_auto_enabled(test_infos):
+        # TODO: (b/228433541) Remove the limitation after the root cause fixed.
+        if (len(test_infos) <= 1 and
+                self._is_all_tests_parameter_auto_enabled(test_infos)):
             if constants.TF_ENABLE_PARAMETERIZED_MODULES not in args_to_append:
                 args_to_append.append(constants.TF_ENABLE_PARAMETERIZED_MODULES)
                 for exclude_parameter in constants.DEFAULT_EXCLUDE_PARAS:
@@ -572,6 +578,12 @@ class AtestTradefedTestRunner(trb.TestRunnerBase):
             test_args.append('--template:map preparers=%s'
                              % constants.DEVICE_SETUP_PREPARER)
         for info in test_infos:
+            # Only change tradefed cmd when running local tests.
+            if hasattr(info, 'artifacts') and self.root_dir:
+                for artifact in info.artifacts:
+                    test_args.append(
+                        f'{constants.TF_MODULE_ARG} '
+                        f'{info.test_name}:test-file-name:{artifact}')
             if constants.TEST_WITH_MAINLINE_MODULES_RE.match(info.test_name):
                 test_args.append(constants.TF_ENABLE_MAINLINE_PARAMETERIZED_MODULES)
                 break
@@ -584,7 +596,8 @@ class AtestTradefedTestRunner(trb.TestRunnerBase):
         if not constants.TF_EARLY_DEVICE_RELEASE in extra_args:
             test_args.extend(['--no-early-device-release'])
 
-        args_to_add, args_not_supported = self._parse_extra_args(test_infos, extra_args)
+        args_to_add, args_not_supported = self._parse_extra_args(
+            test_infos, extra_args)
 
         # If multiple devices in test config, automatically append
         # --replicate-parent-setup and --multi-device-count
@@ -593,14 +606,16 @@ class AtestTradefedTestRunner(trb.TestRunnerBase):
             args_to_add.append('--replicate-parent-setup')
             args_to_add.append('--multi-device-count')
             args_to_add.append(str(device_count))
-
-        # TODO(b/122889707) Remove this after finding the root cause.
-        env_serial = os.environ.get(constants.ANDROID_SERIAL)
-        # Use the env variable ANDROID_SERIAL if it's set by user but only when
-        # the target tests are not deviceless tests.
-        if env_serial and '--serial' not in args_to_add and '-n' not in args_to_add:
-            args_to_add.append("--serial")
-            args_to_add.append(env_serial)
+            os.environ.pop(constants.ANDROID_SERIAL, None)
+        else:
+            # TODO(b/122889707) Remove this after finding the root cause.
+            env_serial = os.environ.get(constants.ANDROID_SERIAL)
+            # Use the env variable ANDROID_SERIAL if it's set by user but only
+            # when the target tests are not deviceless tests.
+            if (env_serial and '--serial' not in args_to_add
+                and '-n' not in args_to_add):
+                args_to_add.append("--serial")
+                args_to_add.append(env_serial)
 
         test_args.extend(args_to_add)
         if args_not_supported:
@@ -747,7 +762,12 @@ class AtestTradefedTestRunner(trb.TestRunnerBase):
         # both --module and --include-filter to TF, only test by --module will
         # be run. Make a check first, only use --module if all tests are all
         # parameter auto enabled.
-        use_module_arg = self._is_all_tests_parameter_auto_enabled(test_infos)
+        # Only auto-enable the parameter if there's only one test.
+        # TODO: (b/228433541) Remove the limitation after the root cause fixed.
+        use_module_arg = False
+        if len(test_infos) <= 1:
+            use_module_arg = self._is_all_tests_parameter_auto_enabled(
+                test_infos)
 
         for info in test_infos:
             # Integration test exists in TF's jar, so it must have the option
@@ -813,8 +833,10 @@ class AtestTradefedTestRunner(trb.TestRunnerBase):
         Returns: A string of tradefed template options.
         """
         tf_templates = extra_args.get(constants.TF_TEMPLATE, [])
+        tf_template_keys = [i.split('=')[0] for i in tf_templates]
         for info in test_infos:
-            if info.aggregate_metrics_result:
+            if (info.aggregate_metrics_result
+                    and 'metric_post_processor' not in tf_template_keys):
                 template_key = 'metric_post_processor'
                 template_value = (
                     'google/template/postprocessors/metric-file-aggregate')
@@ -1023,9 +1045,29 @@ def extra_args_to_tf_args(mod_info: module_info.ModuleInfo,
         constants.TEST_FILTER:
             lambda arg_value, *_: [
                 '--test-arg',
-                f'com.android.tradefed.testtype.AndroidJUnitTest:include-filter:{arg_value}',
+                'com.android.tradefed.testtype.AndroidJUnitTest:'
+                f'include-filter:{arg_value}',
                 '--test-arg',
-                f'com.android.tradefed.testtype.GTest:native-test-flag:--gtest_filter={arg_value}'
+                'com.android.tradefed.testtype.GTest:native-test-flag:'
+                f'--gtest_filter={arg_value}',
+                '--test-arg',
+                'com.android.tradefed.testtype.HostGTest:native-test-flag:'
+                f'--gtest_filter={arg_value}'
+            ],
+        constants.TEST_TIMEOUT:
+            lambda arg_value, *_: [
+                '--test-arg',
+                'com.android.tradefed.testtype.AndroidJUnitTest:'
+                f'shell-timeout:{arg_value}',
+                '--test-arg',
+                'com.android.tradefed.testtype.AndroidJUnitTest:'
+                f'test-timeout:{arg_value}',
+                '--test-arg',
+                'com.android.tradefed.testtype.HostGTest:'
+                f'native-test-timeout:{arg_value}',
+                '--test-arg',
+                'com.android.tradefed.testtype.GTest:'
+                f'native-test-timeout:{arg_value}',
             ]
     })
 
@@ -1042,12 +1084,14 @@ def extra_args_to_tf_args(mod_info: module_info.ModuleInfo,
                    constants.INVOCATION_ID,
                    constants.WORKUNIT_ID,
                    constants.REQUEST_UPLOAD_RESULT,
+                   constants.DISABLE_UPLOAD_RESULT,
                    constants.LOCAL_BUILD_ID,
                    constants.BUILD_TARGET,
                    constants.ENABLE_DEVICE_PREPARER,
                    constants.DRY_RUN,
                    constants.VERIFY_ENV_VARIABLE,
-                   constants.FLAKES_INFO):
+                   constants.FLAKES_INFO,
+                   constants.LD_LIBRARY_PATH):
             continue
         unsupported_args.append(arg)
     return supported_args, unsupported_args

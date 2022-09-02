@@ -98,10 +98,9 @@ python_binary_host {
         "*_unittest.py",
         "*/*_unittest.py",
         "asuite_lib_test/*.py",
-        "proto/*_pb2.py",
-        "proto/__init__.py",
-        "tf_proto/__init__.py",
-        "tf_proto/*_pb2.py",
+        "proto/*.py",
+        "tf_proto/*.py",
+        "tools/asuite/atest/tf_proto/*.py",
     ],
     libs: [
         "atest_proto",
@@ -112,6 +111,7 @@ python_binary_host {
     ],
     data: [
         "tools/updatedb_darwin.sh",
+        "bazel/resources/**/*",
     ],
     // Make atest's built name to atest-dev
     stem: "atest-dev",
@@ -144,7 +144,7 @@ python_library_host {
         "module_info.py",
     ],
     libs: [
-        "metrics-protos",
+        "tradefed-protos-py",
     ]
 }
 
@@ -202,11 +202,10 @@ python_test_host {
     ],
     exclude_srcs: [
         "asuite_lib_test/*.py",
-        "proto/*_pb2.py",
-        "proto/__init__.py",
+        "proto/*.py",
         "tools/atest_updatedb_unittest.py",
-        "tf_proto/__init__.py",
-        "tf_proto/*_pb2.py",
+        "tf_proto/*.py",
+        "tools/asuite/atest/tf_proto/*.py",
     ],
     libs: [
         "atest_proto",

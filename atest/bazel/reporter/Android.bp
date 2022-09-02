@@ -22,9 +22,6 @@ java_library_host {
         "src/com/android/tradefed/result/BazelExitCodeResultReporter.java",
         "src/com/android/tradefed/result/BazelXmlResultReporter.java"
     ],
-    java_resource_dirs: [
-        "res",
-    ],
     libs: [
         "tradefed",
     ],
