@@ -64,7 +64,7 @@ class CacheFinderUnittests(unittest.TestCase):
             'platform_testing/tests/example/native']
         mock_get_cache_path.return_value = os.path.join(
             test_cache_root,
-            '78ea54ef315f5613f7c11dd1a87f10c7.cache')
+            '9d6d6ce207bc393ccdabe6c30be5211c.cache')
         self.assertIsNotNone(self.cache_finder.find_test_by_cache(cached_test))
         # Does not hit matched cache file, should return cached test infos.
         mock_get_cache_path.return_value = os.path.join(
