@@ -38,8 +38,6 @@ from test_runners import atest_tf_test_runner
 from test_runners import robolectric_test_runner
 from test_runners import vts_tf_test_runner
 
-_ANDROID_MK = 'Android.mk'
-
 # These are suites in LOCAL_COMPATIBILITY_SUITE that aren't really suites so
 # we can ignore them.
 _SUITES_TO_IGNORE = frozenset({'general-tests', 'device-tests', 'tests'})
@@ -168,6 +166,7 @@ class ModuleFinder(test_finder_base.TestFinderBase):
         test.test_name = self.module_info.get_robolectric_test_name(test.test_name)
         return test
 
+    # pylint: disable=too-many-branches
     def _process_test_info(self, test):
         """Process the test info and return some fields updated/changed.
 
@@ -201,6 +200,21 @@ class ModuleFinder(test_finder_base.TestFinderBase):
                 return self._update_legacy_robolectric_test_info(test)
         rel_config = test.data[constants.TI_REL_CONFIG]
         test.build_targets = self._get_build_targets(module_name, rel_config)
+        # (b/177626045) Probe target APK for running instrumentation tests to
+        # prevent RUNNER ERROR by adding target application(module) to the
+        # build_targets, and install these target apks before testing.
+        artifact_map = self.module_info.get_instrumentation_target_apps(
+            module_name)
+        if artifact_map:
+            logging.debug('Found %s an instrumentation test.', module_name)
+            test.build_targets |= set(artifact_map.keys())
+            logging.debug('Add %s to build targets...',
+                          ', '.join(artifact_map.keys()))
+            test.artifacts = [apk for p in artifact_map.values() for apk in p]
+            logging.debug('Will install target APK: %s\n', test.artifacts)
+            metrics.LocalDetectEvent(
+                detect_type=DetectType.FOUND_TARGET_ARTIFACTS,
+                result=len(test.artifacts))
         # For device side java test, it will use
         # com.android.compatibility.testtype.DalvikTest as test runner in
         # cts-dalvik-device-test-runner.jar
