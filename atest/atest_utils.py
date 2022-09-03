@@ -335,7 +335,8 @@ def get_mainline_build_cmd(build_targets):
         'dist',
         'apps_only',
         'merge_zips',
-        'aapt2'
+        'aapt2',
+        'aapt' # To avoid 'apk installed but AaptParser failed' error.
     ]
     cmd = get_build_cmd()
     cmd.append(target_build_apps)
