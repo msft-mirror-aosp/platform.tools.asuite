@@ -16,12 +16,13 @@
 Module Info class used to hold cached module-info.json.
 """
 
-# pylint: disable=line-too-long
+# pylint: disable=line-too-long,too-many-lines
 
 import json
 import logging
 import os
 import pickle
+import re
 import shutil
 import tempfile
 import time
@@ -549,6 +550,99 @@ class ModuleInfo:
                 return constants.ROBOTYPE_MODERN
             return constants.ROBOTYPE_LEGACY
         return not_a_robo_test
+
+    def get_instrumentation_target_apps(self, module_name: str) -> Dict:
+        """Return target APKs of an instrumentation test.
+
+        Returns:
+            A dict of target module and target APK(s). e.g.
+            {"FooService": {"/path/to/the/FooService.apk"}}
+        """
+        # 1. Determine the actual manifest filename from an Android.bp(if any)
+        manifest = self.get_filepath_from_module(module_name,
+                                                 'AndroidManifest.xml')
+        bpfile = self.get_filepath_from_module(module_name, 'Android.bp')
+        if bpfile.is_file():
+            bp_info = atest_utils.get_bp_content(bpfile, 'android_test')
+            if not bp_info or not bp_info.get(module_name):
+                return {}
+            manifest = self.get_filepath_from_module(
+                module_name,
+                bp_info.get(module_name).get('manifest'))
+        xml_info = atest_utils.get_manifest_info(manifest)
+        # 2. Translate package name to a module name.
+        package = xml_info.get('package')
+        target_package = xml_info.get('target_package')
+        # Ensure it's an instrumentation test(excluding self-instrmented)
+        if target_package and package != target_package:
+            logging.debug('Found %s an instrumentation test.', module_name)
+            metrics.LocalDetectEvent(
+                detect_type=DetectType.FOUND_INSTRUMENTATION_TEST, result=1)
+            target_module = self.get_target_module_by_pkg(
+                package=target_package,
+                search_from=manifest.parent)
+            if target_module:
+                return self.get_artifact_map(target_module)
+        return {}
+
+    # pylint: disable=anomalous-backslash-in-string
+    def get_target_module_by_pkg(self, package: str, search_from: Path) -> str:
+        """Translate package name to the target module name.
+
+        This method is dedicated to determine the target module by translating
+        a package name.
+
+        Phase 1: Find out possible manifest files among parent directories.
+        Phase 2. Look for the defined package fits the given name, and ensure
+                 it is not a persistent app.
+        Phase 3: Translate the manifest path to possible modules. A valid module
+                 must fulfill:
+                 1. The 'class' type must be ['APPS'].
+                 2. It is not a Robolectric test.
+
+        Returns:
+            A string of module name.
+        """
+        xmls = []
+        for pth in search_from.parents:
+            if pth == Path(self.root_dir):
+                break
+            for name in os.listdir(pth):
+                if pth.joinpath(name).is_file():
+                    match = re.match('.*AndroidManifest.*\.xml$', name)
+                    if match:
+                        xmls.append(os.path.join(pth, name))
+        possible_modules = []
+        for xml in xmls:
+            rel_dir = str(Path(xml).relative_to(self.root_dir).parent)
+            logging.debug('Looking for package "%s" in %s...', package, xml)
+            xml_info = atest_utils.get_manifest_info(xml)
+            if xml_info.get('package') == package:
+                if xml_info.get('persistent'):
+                    logging.debug('%s is a persistent app.', package)
+                    continue
+                for _m in self.path_to_module_info.get(rel_dir):
+                    possible_modules.append(_m)
+        if possible_modules:
+            for mod in possible_modules:
+                name = mod.get('module_name')
+                if (mod.get('class') == ['APPS'] and
+                    not self.is_robolectric_test(name)):
+                    return name
+        return ''
+
+    def get_artifact_map(self, module_name: str) -> Dict:
+        """Get the installed APK path of the given module."""
+        target_mod_info = self.get_module_info(module_name)
+        artifact_map = {}
+        if target_mod_info:
+            apks = set()
+            artifacts = target_mod_info.get('installed')
+            for artifact in artifacts:
+                if Path(artifact).suffix == '.apk':
+                    apks.add(os.path.join(self.root_dir, artifact))
+            artifact_map.update({module_name: apks})
+        return artifact_map
 
     def is_auto_gen_test_config(self, module_name):
         """Check if the test config file will be generated automatically.

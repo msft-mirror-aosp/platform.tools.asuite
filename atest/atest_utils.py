@@ -335,7 +335,8 @@ def get_mainline_build_cmd(build_targets):
         'dist',
         'apps_only',
         'merge_zips',
-        'aapt2'
+        'aapt2',
+        'aapt' # To avoid 'apk installed but AaptParser failed' error.
     ]
     cmd = get_build_cmd()
     cmd.append(target_build_apps)
@@ -1958,7 +1959,7 @@ def get_manifest_info(manifest: Path) -> Dict[str, Any]:
     mdict = {'package': '', 'target_package': '', 'persistent': False}
     try:
         xml_root = ET.parse(manifest).getroot()
-    except ET.ParseError:
+    except (ET.ParseError, FileNotFoundError):
         return mdict
     manifest_package_re =  re.compile(r'[a-z][\w]+(\.[\w]+)*')
     # 1. Must probe 'package' name from the top.
