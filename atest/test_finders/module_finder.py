@@ -797,6 +797,9 @@ class ModuleFinder(test_finder_base.TestFinderBase):
                     tinfos.extend(
                         self._get_test_infos(
                             path, rel_config, testable_module, test_filter))
+                metrics.LocalDetectEvent(
+                    detect_type=DetectType.FIND_TEST_IN_DEPS,
+                    result=1)
                 return tinfos
 
         if not rel_module_dir:
