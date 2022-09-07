@@ -328,8 +328,8 @@ def get_mainline_build_cmd(build_targets):
     static_targets = [
         'dist',
         'apps_only',
-        'out/soong/host/linux-x86/bin/merge_zips',
-        'out/soong/host/linux-x86/bin/aapt2'
+        'merge_zips',
+        'aapt2'
     ]
     cmd = get_build_cmd()
     cmd.append(target_build_apps)
