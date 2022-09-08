@@ -282,20 +282,23 @@ ACLOUD_REPORT_FILE_RE = re.compile(r'.*--report[_-]file(=|\s+)(?P<report_file>[\
 TEST_WITH_MAINLINE_MODULES_RE = re.compile(r'(?P<test>.*)\[(?P<mainline_modules>.*'
                                            r'[.](apk|apks|apex))\]$')
 
-# Tests list which need vts_kernel_tests as test dependency
-REQUIRED_KERNEL_TEST_MODULES = [
+# Tests list which need vts_ltp_tests as test dependency
+REQUIRED_LTP_TEST_MODULES = [
     'vts_ltp_test_arm',
     'vts_ltp_test_arm_64',
-    'vts_linux_kselftest_arm_32',
-    'vts_linux_kselftest_arm_64',
-    'vts_linux_kselftest_x86_32',
-    'vts_linux_kselftest_x86_64',
     'vts_ltp_test_arm_64_lowmem',
     'vts_ltp_test_arm_64_hwasan',
     'vts_ltp_test_arm_64_lowmem_hwasan',
     'vts_ltp_test_arm_lowmem',
     'vts_ltp_test_x86_64',
     'vts_ltp_test_x86'
+]
+# Tests list which need vts_kselftest_tests as test dependency
+REQUIRED_KSELFTEST_TEST_MODULES = [
+    'vts_linux_kselftest_arm_32',
+    'vts_linux_kselftest_arm_64',
+    'vts_linux_kselftest_x86_32',
+    'vts_linux_kselftest_x86_64',
 ]
 
 # XTS suite set dependency.
