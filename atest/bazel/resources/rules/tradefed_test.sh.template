@@ -18,10 +18,11 @@ export TF_PATH="${TRADEFED_CLASSPATH}"
 export PATH="${PATH_ADDITIONS}:${PATH}"
 export ATEST_HELPER="${ATEST_HELPER}"
 
-# Prepend the TF_JAVA_HOME environment variable to the path to ensure that all Java invocations
-# throughout the test execution flow use the same version.
-if [ ! -z "${TF_JAVA_HOME}" ]; then
-  export PATH="${TF_JAVA_HOME}/bin:${PATH}"
+# Prepend the REMOTE_JAVA_HOME environment variable to the path to ensure
+# that all Java invocations throughout the test execution flow use the same
+# version.
+if [ ! -z "${REMOTE_JAVA_HOME}" ]; then
+  export PATH="${REMOTE_JAVA_HOME}/bin:${PATH}"
 fi
 
 exit_code_file="$(mktemp /tmp/tf-exec-XXXXXXXXXX)"
