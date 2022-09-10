@@ -76,16 +76,6 @@ python_defaults {
 python_defaults {
     name: "asuite_default",
     pkg_path: "asuite",
-    version: {
-        py2: {
-            enabled: true,
-            embedded_launcher: false,
-        },
-        py3: {
-            enabled: true,
-            embedded_launcher: false,
-        },
-    },
 }
 
 python_binary_host {
