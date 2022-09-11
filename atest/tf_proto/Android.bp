@@ -30,12 +30,4 @@ python_library_host {
     proto: {
         include_dirs: ["external/protobuf/src"],
     },
-    version: {
-        py2: {
-            enabled: true,
-        },
-        py3: {
-            enabled: true,
-        },
-    },
 }
