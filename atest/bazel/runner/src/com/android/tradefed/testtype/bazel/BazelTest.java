@@ -16,7 +16,6 @@
 package com.android.tradefed.testtype.bazel;
 
 import com.android.annotations.VisibleForTesting;
-import com.android.tradefed.build.IBuildInfo;
 import com.android.tradefed.config.Option;
 import com.android.tradefed.config.OptionClass;
 import com.android.tradefed.device.DeviceNotAvailableException;
@@ -30,7 +29,6 @@ import com.android.tradefed.result.ITestInvocationListener;
 import com.android.tradefed.result.LogDataType;
 import com.android.tradefed.result.TestDescription;
 import com.android.tradefed.result.error.ErrorIdentifier;
-import com.android.tradefed.result.error.InfraErrorIdentifier;
 import com.android.tradefed.result.error.TestErrorIdentifier;
 import com.android.tradefed.result.proto.TestRecordProto.FailureStatus;
 import com.android.tradefed.testtype.IRemoteTest;
@@ -79,8 +77,10 @@ public final class BazelTest implements IRemoteTest {
             description = "Timeout for running the Bazel test.")
     private Duration mBazelCommandTimeout = Duration.ofHours(1L);
 
-    @Option(name = "bazel-workspace-archive", description = "Name of the Bazel workspace archive.")
-    private String mBazelWorkspaceArchive;
+    @Option(
+            name = "bazel-workspace-archive",
+            description = "Location of the Bazel workspace archive.")
+    private File mBazelWorkspaceArchive;
 
     @Option(
             name = "bazel-startup-options",
@@ -130,8 +130,7 @@ public final class BazelTest implements IRemoteTest {
         listener.testRunStarted(TEST_NAME, 1);
 
         try {
-            Path workspaceArchive = findWorkspaceArchive(testInfo);
-            Path workspaceDirectory = extractWorkspace(workspaceArchive);
+            Path workspaceDirectory = extractWorkspace(mBazelWorkspaceArchive.toPath());
 
             List<String> testTargets = listTestTargets(workspaceDirectory);
             if (testTargets.isEmpty()) {
@@ -153,20 +152,6 @@ public final class BazelTest implements IRemoteTest {
             addTestLogs(listener);
             cleanup();
         }
-    }
-
-    private Path findWorkspaceArchive(TestInformation testInfo) throws IOException {
-        for (IBuildInfo buildInfo : testInfo.getContext().getBuildInfos()) {
-            File bazelWorkspaceArchive = buildInfo.getFile(mBazelWorkspaceArchive);
-            if (bazelWorkspaceArchive != null) {
-                return bazelWorkspaceArchive.toPath();
-            }
-        }
-
-        throw new AbortRunException(
-                "Did not find Atest Bazel workspace archive, aborting.",
-                FailureStatus.DEPENDENCY_ISSUE,
-                InfraErrorIdentifier.ARTIFACT_NOT_FOUND);
     }
 
     private Path extractWorkspace(Path workspaceArchive) throws IOException, InterruptedException {
