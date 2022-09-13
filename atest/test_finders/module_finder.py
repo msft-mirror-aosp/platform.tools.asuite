@@ -667,12 +667,11 @@ class ModuleFinder(test_finder_base.TestFinderBase):
         if not module_info:
             return None
         find_result = None
-        # If the target module is NATIVE_TEST, search CC classes only.
-        if not self.module_info.is_native_test(module_name):
-            # Find by java class.
-            find_result = self.find_test_by_class_name(
-                class_name, module_info.test_name,
-                module_info.data.get(constants.TI_REL_CONFIG))
+        # If the target module is JAVA or Python test, search class name.
+        find_result = self.find_test_by_class_name(
+            class_name, module_info.test_name,
+            module_info.data.get(constants.TI_REL_CONFIG),
+            self.module_info.is_native_test(module_name))
         # kernel target test is also define as NATIVE_TEST in build system.
         # TODO (b/157210083) Update find_test_by_kernel_class_name method to
         # support gen_rule use case.
