@@ -1015,10 +1015,14 @@ def find_static_dep_refs(
     if Features.EXPERIMENTAL_JAVA_RUNTIME_DEPENDENCIES not in enabled_features:
         return []
 
+    static_libs = set()
+    static_libs.update(info.get(constants.MODULE_STATIC_LIBS, []))
+    static_libs.update(info.get(constants.MODULE_STATIC_DEPS, []))
+
     return _find_module_refs(mod_info,
                              configs,
                              src_root_path,
-                             info.get(constants.MODULE_STATIC_LIBS, []))
+                             static_libs)
 
 
 def _find_module_refs(
