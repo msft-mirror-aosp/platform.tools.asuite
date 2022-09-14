@@ -368,11 +368,14 @@ def acloud_create(report_file, args="", no_metrics_notice=True):
     notice = constants.NO_METRICS_ARG if no_metrics_notice else ""
     match = constants.ACLOUD_REPORT_FILE_RE.match(args)
     report_file_arg = '--report-file={}'.format(report_file) if not match else ""
+    hostname = os.uname()[1].split('.')[0]
     # (b/161759557) Assume yes for acloud create to streamline atest flow.
     acloud_cmd = ('acloud create -y {ACLOUD_ARGS} '
+                  '--pet-name {HOSTNAME} '
                   '{REPORT_FILE_ARG} '
                   '{METRICS_NOTICE} '
                   ).format(ACLOUD_ARGS=args,
+                           HOSTNAME=hostname,
                            REPORT_FILE_ARG=report_file_arg,
                            METRICS_NOTICE=notice)
     au.colorful_print("\nCreating AVD via acloud...", constants.CYAN)
