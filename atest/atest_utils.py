@@ -1154,7 +1154,8 @@ def load_json_safely(jsonfile):
         jsonfile = jsonfile.decode('utf-8')
     if Path(jsonfile).is_file():
         try:
-            return json.load(open(jsonfile))
+            with open(jsonfile, 'r') as cache:
+                return json.load(cache)
         except json.JSONDecodeError:
             logging.debug('Exception happened while loading %s.', jsonfile)
     else:
