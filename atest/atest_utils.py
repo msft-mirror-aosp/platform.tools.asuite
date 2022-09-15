@@ -1985,22 +1985,26 @@ def get_manifest_info(manifest: Path) -> Dict[str, Any]:
                 break
     return mdict
 
+# pylint: disable=broad-except
 def generate_print_result_html(result_file: Path):
     """Generate a html that collects all log files."""
     result_file = Path(result_file)
     search_dir = Path(result_file).parent.joinpath('log')
     result_html = Path(search_dir, 'test_logs.html')
-    logs = sorted(find_files(str(search_dir), file_name='*'))
-    with open(result_html, 'w') as cache:
-        cache.write('<!DOCTYPE html><html><body>')
-        result = load_json_safely(result_file)
-        if result:
-            cache.write(f'<h1>{"atest " + result.get("args")}</h1>')
-            timestamp = datetime.datetime.fromtimestamp(
-                result_file.stat().st_ctime)
-            cache.write(f'<h2>{timestamp}</h2>')
-        for log in logs:
-            cache.write(f'<p><a href="{log}">{Path(log).name}</a></p>')
-        cache.write('</body></html>')
-    print(f'\nTo access logs, press "ctrl" and click on\n'
-          f'file://{result_html}\n')
+    try:
+        logs = sorted(find_files(str(search_dir), file_name='*'))
+        with open(result_html, 'w') as cache:
+            cache.write('<!DOCTYPE html><html><body>')
+            result = load_json_safely(result_file)
+            if result:
+                cache.write(f'<h1>{"atest " + result.get("args")}</h1>')
+                timestamp = datetime.datetime.fromtimestamp(
+                    result_file.stat().st_ctime)
+                cache.write(f'<h2>{timestamp}</h2>')
+            for log in logs:
+                cache.write(f'<p><a href="{log}">{Path(log).name}</a></p>')
+            cache.write('</body></html>')
+        print(f'\nTo access logs, press "ctrl" and click on\n'
+              f'file://{result_html}\n')
+    except Exception as e:
+        logging.debug('Did not generate log html for reason: %s', e)
