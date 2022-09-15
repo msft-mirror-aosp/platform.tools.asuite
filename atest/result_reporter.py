@@ -708,7 +708,7 @@ class ResultReporter:
                 print(': {} {}'.format(au.colorize(test.status, color),
                                        test.test_time))
             if test.status == test_runner_base.PASSED_STATUS:
-                for key, data in test.additional_info.items():
+                for key, data in sorted(test.additional_info.items()):
                     if key not in BENCHMARK_EVENT_KEYS:
                         print('\t%s: %s' % (au.colorize(key, constants.BLUE),
                                             data))
