@@ -36,7 +36,6 @@ python_test_host {
     test_options: {
         unit_test: true,
     },
-    defaults: ["atest_lib_default"],
 }
 
 // For testing asuite_cc_client python3 libs
@@ -54,5 +53,4 @@ python_test_host {
     test_options: {
         unit_test: true,
     },
-    defaults: ["atest_lib_default"],
 }
