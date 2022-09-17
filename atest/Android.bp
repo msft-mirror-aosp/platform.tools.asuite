@@ -44,42 +44,13 @@ tradefed_binary_host {
 }
 
 python_defaults {
-    name: "atest_default",
-    pkg_path: "atest",
-    version: {
-        py2: {
-            enabled: false,
-            embedded_launcher: false,
-        },
-        py3: {
-            enabled: true,
-            embedded_launcher: false,
-        },
-    },
-}
-
-python_defaults {
-    name: "atest_lib_default",
-    pkg_path: "atest",
-    version: {
-        py2: {
-            enabled: false,
-            embedded_launcher: false,
-        },
-        py3: {
-            enabled: true,
-            embedded_launcher: false,
-        },
-    },
-}
-
-python_defaults {
     name: "asuite_default",
     pkg_path: "asuite",
 }
 
 python_binary_host {
     name: "atest",
+    pkg_path: "atest",
     main: "atest.py",
     srcs: [
         "**/*.py",
@@ -105,7 +76,6 @@ python_binary_host {
     ],
     // Make atest's built name to atest-dev
     stem: "atest-dev",
-    defaults: ["atest_default"],
     dist: {
         targets: ["droidcore"],
     },
@@ -113,7 +83,7 @@ python_binary_host {
 
 python_library_host {
     name: "atest_proto",
-    defaults: ["atest_default"],
+    pkg_path: "atest",
     srcs: [
         "proto/*.proto",
     ],
@@ -124,7 +94,7 @@ python_library_host {
 
 python_library_host {
     name: "atest_module_info",
-    defaults: ["atest_lib_default"],
+    pkg_path: "atest",
     srcs: [
         "atest_error.py",
         "atest_decorator.py",
@@ -204,7 +174,6 @@ python_test_host {
     ],
     test_config: "atest_unittests.xml",
     test_suites: ["general-tests"],
-    defaults: ["atest_default"],
 }
 
 python_test_host {
@@ -219,7 +188,6 @@ python_test_host {
     ],
     test_config: "atest_integration_tests.xml",
     test_suites: ["null-suite"],
-    defaults: ["atest_default"],
     test_options: {
         unit_test: false,
     },

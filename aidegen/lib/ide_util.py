@@ -280,7 +280,7 @@ class IdeBase:
                     break
         if add_pattern:
             ext_attrib = root.find(_XPATH_EXTENSION_MAP)
-            if not ext_attrib:
+            if ext_attrib is None:
                 print(_TEST_MAPPING_FILE_TYPE_ADDING_WARN)
                 return
             ext_attrib.append(ElementTree.fromstring(_TEST_MAPPING_TYPE))
