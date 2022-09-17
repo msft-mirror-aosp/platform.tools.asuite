@@ -42,12 +42,9 @@ from atest import constants
 from atest import module_info
 
 
-COLORED_INFO = partial(
-    atest_utils.colorize, color=constants.MAGENTA, highlight=False)
-COLORED_PASS = partial(
-    atest_utils.colorize, color=constants.GREEN, highlight=False)
-COLORED_FAIL = partial(
-    atest_utils.colorize, color=constants.RED, highlight=False)
+COLORED_INFO = partial(atest_utils.colorize, color=constants.MAGENTA)
+COLORED_PASS = partial(atest_utils.colorize, color=constants.GREEN)
+COLORED_FAIL = partial(atest_utils.colorize, color=constants.RED)
 FAKE_MODULE_ERROR = '{} is a fake module.'
 OUTSIDE_ROOT_ERROR = '{} is outside android root.'
 PATH_NOT_EXISTS_ERROR = 'The path {} doesn\'t exist.'
@@ -584,7 +581,7 @@ def dump_json_dict(json_path, data):
         json_path: An absolute json file path string.
         data: A dictionary of data to be written into a json file.
     """
-    with open(json_path, 'w') as json_file:
+    with open(json_path, 'w', encoding='utf-8') as json_file:
         json.dump(data, json_file, indent=4)
 
 
@@ -598,7 +595,7 @@ def get_json_dict(json_path):
     Returns:
         A dictionary loaded from the json_path.
     """
-    with open(json_path) as jfile:
+    with open(json_path, encoding='utf-8') as jfile:
         return json.load(jfile)
 
 
@@ -644,7 +641,7 @@ def file_generate(path, content):
     """
     if not os.path.exists(os.path.dirname(path)):
         os.makedirs(os.path.dirname(path))
-    with open(path, 'w') as target:
+    with open(path, 'w', encoding='utf-8') as target:
         target.write(content)
 
 
