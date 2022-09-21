@@ -56,7 +56,7 @@ def convert_duration(diff_time_sec):
     resolution.
 
     Args:
-        dur_time_sec: The time in seconds as a floating point number.
+        diff_time_sec: The time in seconds as a floating point number.
 
     Returns:
         A dict of Duration.

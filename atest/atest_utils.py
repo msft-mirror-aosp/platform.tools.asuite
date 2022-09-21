@@ -975,7 +975,7 @@ def find_files(path, file_name=constants.TEST_MAPPING):
             logging.debug(msg)
             logging.debug("Exception: %s", e)
             metrics.AtestExitEvent(
-                duration=0,
+                duration=metrics_utils.convert_duration(0),
                 exit_code=ExitCode.COLLECT_ONLY_FILE_NOT_FOUND,
                 stacktrace=msg,
                 logs=e)
