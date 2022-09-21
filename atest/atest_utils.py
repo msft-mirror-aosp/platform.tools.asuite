@@ -149,6 +149,13 @@ _ROOT_PREPARER = "com.android.tradefed.targetprep.RootTargetPreparer"
 _WILDCARD_FILTER_RE = re.compile(r'.*[?|*]$')
 _REGULAR_FILTER_RE = re.compile(r'.*\w$')
 
+SUGGESTIONS = {
+    # (b/198581508) Do not run "adb sync" for the users.
+    'CANNOT LINK EXECUTABLE': 'Please run "adb sync" or reflash the device(s).',
+    # (b/177626045) If Atest does not install target application properly.
+    'Runner reported an invalid method': 'Please reflash the device(s).'
+}
+
 def get_build_cmd(dump=False):
     """Compose build command with no-absolute path and flag "--make-mode".
 
@@ -1967,3 +1974,22 @@ def generate_print_result_html(result_file: Path):
               f'file://{result_html}\n')
     except Exception as e:
         logging.debug('Did not generate log html for reason: %s', e)
+
+# pylint: disable=broad-except
+def prompt_suggestions(result_file: Path):
+    """Generate suggestions when detecting keywords in logs."""
+    result_file = Path(result_file)
+    search_dir = Path(result_file).parent.joinpath('log')
+    logs = sorted(find_files(str(search_dir), file_name='*'))
+    for log in logs:
+        for keyword, suggestion in SUGGESTIONS.items():
+            try:
+                with open(log, 'r') as cache:
+                    content = cache.read()
+                    if keyword in content:
+                        colorful_print(
+                            '[Suggestion] ' + suggestion, color=constants.RED)
+                        break
+            # If the given is not a plain text, just ignore it.
+            except Exception:
+                pass
