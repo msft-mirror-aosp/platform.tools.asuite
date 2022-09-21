@@ -498,6 +498,25 @@ class DeviceTestModuleTestTargetGenerationTest(GenerationTestFixture):
             package='example/tests',
         )
 
+    def test_generate_target_with_device_dependencies(self):
+        mod_info = self.create_module_info(modules=[
+            host_test_module(
+                name='hello_world_test',
+                path='example/tests',
+                target_dependencies=['helper_app']),
+            device_module(name='helper_app'),
+        ])
+
+        self.run_generator(mod_info, enabled_features=set([
+            bazel_mode.Features.EXPERIMENTAL_HOST_DRIVEN_TEST]))
+
+        self.assertInBuildFile(
+            '    device_data = [\n'
+            '        "//:helper_app",\n'
+            '    ],\n',
+            package='example/tests',
+        )
+
     def test_generate_target_with_tags(self):
         mod_info = self.create_module_info(modules=[
             device_test_module(
@@ -1234,6 +1253,7 @@ def module(
     data_dependencies=None,
     compatibility_suites=None,
     host_dependencies=None,
+    target_dependencies=None,
     test_options_tags=None,
 ):
     name = name or 'libhello'
@@ -1253,6 +1273,7 @@ def module(
     m['data_dependencies'] = data_dependencies or []
     m['compatibility_suites'] = compatibility_suites or []
     m['host_dependencies'] = host_dependencies or []
+    m['target_dependencies'] = target_dependencies or []
     m['test_options_tags'] = test_options_tags or []
     return m
 

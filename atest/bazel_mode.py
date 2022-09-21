@@ -731,6 +731,7 @@ class Dependencies:
     static_dep_refs: List[ModuleRef]
     runtime_dep_refs: List[ModuleRef]
     data_dep_refs: List[ModuleRef]
+    device_data_dep_refs: List[ModuleRef]
 
 
 class SoongPrebuiltTarget(Target):
@@ -789,6 +790,7 @@ class SoongPrebuiltTarget(Target):
                     enabled_features),
                 data_dep_refs = find_data_dep_refs(
                     gen.mod_info, info, configs, gen.src_root_path),
+                device_data_dep_refs = find_device_data_dep_refs(gen, info),
             ),
         )
 
@@ -831,11 +833,13 @@ class SoongPrebuiltTarget(Target):
     def dependencies(self) -> List[ModuleRef]:
         all_deps = set(self.deps.runtime_dep_refs)
         all_deps.update(self.deps.data_dep_refs)
+        all_deps.update(self.deps.device_data_dep_refs)
         all_deps.update(self.deps.static_dep_refs)
         return list(all_deps)
 
     def write_to_build_file(self, f: IO):
         writer = IndentWriter(f)
+        build_file_writer = BuildFileWriter(writer)
 
         writer.write_line(f'{self._rule_name()}(')
 
@@ -848,6 +852,9 @@ class SoongPrebuiltTarget(Target):
             self._write_deps_attribute(writer, 'runtime_deps',
                                        self.deps.runtime_dep_refs)
             self._write_deps_attribute(writer, 'data', self.deps.data_dep_refs)
+
+            build_file_writer.write_label_list_attribute(
+                'device_data', self.deps.device_data_dep_refs)
 
         writer.write_line(')')
 
@@ -1025,6 +1032,18 @@ def find_data_dep_refs(
                              configs,
                              src_root_path,
                              info.get(constants.MODULE_DATA_DEPS, []))
+
+
+def find_device_data_dep_refs(
+        gen: WorkspaceGenerator,
+        info: module_info.Module,
+) -> List[ModuleRef]:
+    """Return module references for device data dependencies."""
+
+    return _find_module_refs(gen.mod_info,
+                             [Config('device', gen.product_out_path)],
+                             gen.src_root_path,
+                             info.get(constants.MODULE_TARGET_DEPS, []))
 
 
 def find_static_dep_refs(
