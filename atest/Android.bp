@@ -59,9 +59,6 @@ python_binary_host {
         "*_unittest.py",
         "*/*_unittest.py",
         "asuite_lib_test/*.py",
-        "proto/*.py",
-        "tf_proto/*.py",
-        "tools/asuite/atest/tf_proto/*.py",
     ],
     libs: [
         "atest_proto",
@@ -161,10 +158,7 @@ python_test_host {
     ],
     exclude_srcs: [
         "asuite_lib_test/*.py",
-        "proto/*.py",
         "tools/atest_updatedb_unittest.py",
-        "tf_proto/*.py",
-        "tools/asuite/atest/tf_proto/*.py",
     ],
     libs: [
         "atest_proto",
