@@ -23,9 +23,9 @@ import unittest
 from pathlib import Path
 from unittest import mock
 
-import constants
+from atest import constants
 
-from logstorage import atest_gcp_utils
+from atest.logstorage import atest_gcp_utils
 
 class AtestGcpUtilsUnittests(unittest.TestCase):
     """Unit tests for atest_gcp_utils.py"""

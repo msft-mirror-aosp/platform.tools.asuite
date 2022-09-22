@@ -24,8 +24,8 @@ from aidegen.lib import aidegen_metrics
 
 
 try:
-    from asuite.metrics import metrics
-    from asuite.metrics import metrics_utils
+    from atest.metrics import metrics
+    from atest.metrics import metrics_utils
 except ImportError:
     metrics = None
     metrics_utils = None

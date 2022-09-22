@@ -23,18 +23,6 @@ java_library_host {
     java_resource_dirs: ["res"],
 }
 
-java_library_host {
-    name: "asuite_proto_java",
-    srcs: [
-        "proto/*.proto",
-    ],
-    proto: {
-        type: "full",
-        canonical_path_from_root: false,
-        include_dirs: ["external/protobuf/src"],
-    },
-}
-
 tradefed_binary_host {
     name: "atest-tradefed",
     short_name: "ATEST",
@@ -43,13 +31,9 @@ tradefed_binary_host {
     required: ["atest_tradefed.sh", "atest_script_help.sh"],
 }
 
-python_defaults {
-    name: "asuite_default",
-    pkg_path: "asuite",
-}
-
 python_binary_host {
     name: "atest",
+    defaults: ["modern_python_path_defaults"],
     pkg_path: "atest",
     main: "atest.py",
     srcs: [
@@ -61,7 +45,7 @@ python_binary_host {
         "asuite_lib_test/*.py",
     ],
     libs: [
-        "atest_proto",
+        "asuite_proto",
         "tradefed-protos-py",
         "py-google-api-python-client",
         "py-oauth2client",
@@ -78,19 +62,10 @@ python_binary_host {
     },
 }
 
-python_library_host {
-    name: "atest_proto",
-    pkg_path: "atest",
-    srcs: [
-        "proto/*.proto",
-    ],
-    proto: {
-        canonical_path_from_root: false,
-    },
-}
 
 python_library_host {
     name: "atest_module_info",
+    defaults: ["modern_python_path_defaults"],
     pkg_path: "atest",
     srcs: [
         "atest_error.py",
@@ -102,23 +77,13 @@ python_library_host {
     ],
     libs: [
         "tradefed-protos-py",
-    ]
-}
-
-python_library_host {
-    name: "asuite_proto",
-    defaults: ["asuite_default"],
-    srcs: [
-        "proto/*.proto",
     ],
-    proto: {
-        canonical_path_from_root: false,
-    },
 }
 
 python_library_host {
     name: "asuite_metrics",
-    defaults: ["asuite_default"],
+    defaults: ["modern_python_path_defaults"],
+    pkg_path: "atest",
     srcs: [
         "asuite_metrics.py",
     ],
@@ -126,23 +91,22 @@ python_library_host {
 
 python_library_host {
     name: "asuite_cc_client",
-    defaults: ["asuite_default"],
+    defaults: ["modern_python_path_defaults"],
+    pkg_path: "atest",
     srcs: [
-        "atest_error.py",
-        "atest_decorator.py",
         "atest_enum.py",
-        "constants.py",
-        "constants_default.py",
         "metrics/*.py",
     ],
     libs: [
         "asuite_proto",
         "asuite_metrics",
+        "atest_module_info",
     ],
 }
 
 python_test_host {
     name: "atest_unittests",
+    defaults: ["modern_python_path_defaults"],
     main: "atest_run_unittests.py",
     pkg_path: "atest",
     srcs: [
@@ -161,7 +125,7 @@ python_test_host {
         "tools/atest_updatedb_unittest.py",
     ],
     libs: [
-        "atest_proto",
+        "asuite_proto",
         "pyfakefs",
         "tradefed-protos-py",
     ],
@@ -171,6 +135,7 @@ python_test_host {
 
 python_test_host {
     name: "atest_integration_tests",
+    defaults: ["modern_python_path_defaults"],
     main: "atest_integration_tests.py",
     pkg_path: "atest",
     srcs: [

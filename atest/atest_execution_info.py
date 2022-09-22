@@ -24,11 +24,11 @@ import json
 import os
 import sys
 
-import atest_utils as au
-import constants
+import atest.atest_utils as au
+from atest import constants
 
-from atest_enum import ExitCode
-from metrics import metrics_utils
+from atest.atest_enum import ExitCode
+from atest.metrics import metrics_utils
 
 _ARGS_KEY = 'args'
 _STATUS_PASSED_KEY = 'PASSED'

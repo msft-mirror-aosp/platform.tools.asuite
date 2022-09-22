@@ -36,7 +36,6 @@ import re
 import shutil
 import subprocess
 import sys
-import sysconfig
 import time
 import zipfile
 
@@ -46,75 +45,20 @@ from typing import Any, Dict
 
 import xml.etree.ElementTree as ET
 
-from atest_enum import DetectType, ExitCode, FilterType
+from atest.atest_enum import DetectType, ExitCode, FilterType
 
-# This is a workaround of b/144743252, where the http.client failed to loaded
-# because the googleapiclient was found before the built-in libs; enabling
-# embedded launcher(b/135639220) has not been reliable and other issue will
-# raise.
-# The workaround is repositioning the built-in libs before other 3rd libs in
-# PYTHONPATH(sys.path) to eliminate the symptom of failed loading http.client.
-for lib in (sysconfig.get_paths()['stdlib'], sysconfig.get_paths()['purelib']):
-    if lib in sys.path:
-        sys.path.remove(lib)
-    sys.path.insert(0, lib)
-# (b/219847353) Move googleapiclient to the last position of sys.path when
-#  existed.
-for lib in sys.path:
-    if 'googleapiclient' in lib:
-        sys.path.remove(lib)
-        sys.path.append(lib)
-        break
 #pylint: disable=wrong-import-position
-import atest_decorator
-import atest_error
-import constants
+from atest import atest_decorator
+from atest import atest_error
+from atest import constants
 
 _BASH_RESET_CODE = '\033[0m\n'
-# (b/248507158) extract only pb2 files for running atest-src.
-cur_dir = Path(__file__).resolve().parent
-try:
-    subprocess.check_call(
-        'unzip -oj $(which atest-py3) "atest/proto/*py" -d {} '
-        '>/dev/null'.format(cur_dir.joinpath('proto')),
-        shell=True)
-except subprocess.CalledProcessError as e:
-    print('\033[1;31m'
-          'Unable to generate pb2 on demand; running "atest-src" will fail.'
-          f'{_BASH_RESET_CODE}')
-    print(e)
 
-# pylint: disable=no-name-in-module
-# pylint: disable=import-error
-try:
-    from tools.asuite.atest.tf_proto import test_record_pb2
-except (ModuleNotFoundError, ImportError) as err:
-    # This proto related module will be auto generated in build time; simply
-    # pass when import error occurs.
-    pass
+from tools.asuite.atest.tf_proto import test_record_pb2
 
-# b/147562331 only occurs when running atest in source code. We don't encourge
-# the users to manually "pip3 install protobuf", therefore when the exception
-# occurs, we don't collect data and the tab completion is for args is silence.
-try:
-    from metrics import metrics
-    from metrics import metrics_utils
-except ImportError as err:
-    print('Import error: ', err)
-    print('sys.path:\n', '\n'.join(sys.path))
-    # Error occurs in prebuilt atest + prebuilt executable python3.
-    if Path(constants.VERSION_FILE).is_file():
-        print("\033[1;31m"
-              "This error may occur in unexpected conditions. "
-              "Please report this bug and use 'atest-src' as alternative."
-              f'{_BASH_RESET_CODE}')
-    else:
-        print("\033[1;31m"
-              "You shouldn't see this message unless you ran "
-              "'atest-src'. To resolve the issue, please run:\n\t"
-              f"'pip3 install --user protobuf==3.20.0'\nand try again."
-              f'{_BASH_RESET_CODE}')
-    sys.exit(constants.IMPORT_FAILURE)
+from atest.metrics import metrics
+from atest.metrics import metrics_utils
+
 # Arbitrary number to limit stdout for failed runs in _run_limited_output.
 # Reason for its use is that the make command itself has its own carriage
 # return output mechanism that when collected line by line causes the streaming
@@ -850,7 +794,8 @@ def load_test_info_cache(test_reference, cache_root=None):
                 ValueError,
                 TypeError,
                 EOFError,
-                IOError) as err:
+                IOError,
+                ImportError) as err:
             # Won't break anything, just remove the old cache, log this error,
             # and collect the exception by metrics.
             logging.debug('Exception raised: %s', err)

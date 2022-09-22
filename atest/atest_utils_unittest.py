@@ -30,14 +30,14 @@ from io import StringIO
 from pathlib import Path
 from unittest import mock
 
-import atest_error
-import atest_utils
-import constants
-import unittest_utils
-import unittest_constants
+from atest import atest_error
+from atest import atest_utils
+from atest import constants
+from atest import unittest_utils
+from atest import unittest_constants
 
-from test_finders import test_info
-from atest_enum import FilterType
+from atest.test_finders import test_info
+from atest.atest_enum import FilterType
 
 TEST_MODULE_NAME_A = 'ModuleNameA'
 TEST_RUNNER_A = 'FakeTestRunnerA'
@@ -146,7 +146,7 @@ class AtestUtilsUnittests(unittest.TestCase):
         self.assertTrue(atest_utils._has_colors(stream))
 
 
-    @mock.patch('atest_utils._has_colors')
+    @mock.patch('atest.atest_utils._has_colors')
     def test_colorize(self, mock_has_colors):
         """Test method colorize."""
         original_str = "test string"
@@ -172,7 +172,7 @@ class AtestUtilsUnittests(unittest.TestCase):
         self.assertEqual(green_no_highlight_string, converted_str)
 
 
-    @mock.patch('atest_utils._has_colors')
+    @mock.patch('atest.atest_utils._has_colors')
     def test_colorful_print(self, mock_has_colors):
         """Test method colorful_print."""
         testing_str = "color_print_test"
@@ -389,7 +389,7 @@ class AtestUtilsUnittests(unittest.TestCase):
 
     @mock.patch('os.chmod')
     @mock.patch('shutil.copy2')
-    @mock.patch('atest_utils.has_valid_cert')
+    @mock.patch('atest.atest_utils.has_valid_cert')
     @mock.patch('subprocess.check_output')
     @mock.patch('os.path.exists')
     def test_get_flakes(self, mock_path_exists, mock_output, mock_valid_cert,
@@ -418,9 +418,9 @@ class AtestUtilsUnittests(unittest.TestCase):
         # raise subprocess.CalledProcessError
         mock_call.raiseError.side_effect = subprocess.CalledProcessError
         self.assertFalse(atest_utils.has_valid_cert())
-        with mock.patch("constants.CERT_STATUS_CMD", ''):
+        with mock.patch("atest.constants.CERT_STATUS_CMD", ''):
             self.assertFalse(atest_utils.has_valid_cert())
-        with mock.patch("constants.CERT_STATUS_CMD", 'CMD'):
+        with mock.patch("atest.constants.CERT_STATUS_CMD", 'CMD'):
             # has valid cert
             mock_call.return_value = 0
             self.assertTrue(atest_utils.has_valid_cert())
@@ -431,15 +431,13 @@ class AtestUtilsUnittests(unittest.TestCase):
     # pylint: disable=no-member
     def test_read_test_record_proto(self):
         """Test method read_test_record."""
-        # (b/248507158) test_record_pb2.py only exists in prebuilt.
-        if Path(constants.VERSION_FILE).is_file():
-            test_record_file_path = os.path.join(
-                unittest_constants.TEST_DATA_DIR,
-                "test_record.proto.testonly")
-            test_record = atest_utils.read_test_record(test_record_file_path)
-            self.assertEqual(
-                test_record.children[0].inline_test_record.test_record_id,
-                'x86 hello_world_test')
+        test_record_file_path = os.path.join(
+            unittest_constants.TEST_DATA_DIR,
+            "test_record.proto.testonly")
+        test_record = atest_utils.read_test_record(test_record_file_path)
+        self.assertEqual(
+            test_record.children[0].inline_test_record.test_record_id,
+            'x86 hello_world_test')
 
     def test_load_json_safely_file_inexistent(self):
         """Test method load_json_safely if file does not exist."""
