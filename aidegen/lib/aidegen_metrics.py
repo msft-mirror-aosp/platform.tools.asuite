@@ -22,7 +22,6 @@ import sys
 
 from aidegen import constant
 from aidegen.lib import common_util
-from atest import atest_utils
 
 # When combine 3 paths in a single try block, it's hard for the coverage
 # counting algorithm to judge the each real path clearly. So, separating them
@@ -68,7 +67,7 @@ def starts_asuite_metrics(references):
     """
     if not metrics:
         return
-    atest_utils.print_data_collection_notice()
+    metrics_utils.print_data_collection_notice()
     metrics_base.MetricsBase.tool_name = constant.AIDEGEN_TOOL_NAME
     metrics_utils.get_start_time()
     command = ' '.join(sys.argv)
