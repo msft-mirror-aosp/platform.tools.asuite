@@ -1201,7 +1201,7 @@ if __name__ == '__main__':
             final_args, RESULTS_DIR,
             atest_configs.GLOBAL_ARGS) as result_file:
         if not atest_configs.GLOBAL_ARGS.no_metrics:
-            atest_utils.print_data_collection_notice()
+            metrics_utils.print_data_collection_notice()
             USER_FROM_TOOL = os.getenv(constants.USER_FROM_TOOL, '')
             if USER_FROM_TOOL == '':
                 metrics_base.MetricsBase.tool_name = constants.TOOL_NAME
