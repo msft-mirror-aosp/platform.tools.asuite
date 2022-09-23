@@ -1390,6 +1390,10 @@ class BazelTestRunner(trb.TestRunnerBase):
                 extra_args,
                 self._get_remote_args))
 
+        # Default to --test_output=errors unless specified otherwise
+        if not any(arg.startswith('--test_output=') for arg in bazel_args):
+            bazel_args.append('--test_output=errors')
+
         # This is an alternative to shlex.join that doesn't exist in Python
         # versions < 3.8.
         bazel_args_str = ' '.join(shlex.quote(arg) for arg in bazel_args)
