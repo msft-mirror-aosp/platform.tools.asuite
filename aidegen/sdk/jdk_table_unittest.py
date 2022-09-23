@@ -100,7 +100,7 @@ class JDKTableXMLUnittests(unittest.TestCase):
         self.jdk_table_xml._xml = ElementTree.parse(tmp_file)
         self.assertTrue(self.jdk_table_xml._check_structure())
 
-    @mock.patch.object(jdk_table.JDKTableXML, '_check_jdk18_in_xml')
+    @mock.patch.object(jdk_table.JDKTableXML, '_check_jdk11_in_xml')
     def test_generate_jdk_config_string(self, mock_jdk_exists):
         """Test _generate_jdk_config_string."""
         mock_jdk_exists.return_value = True
@@ -170,19 +170,19 @@ class JDKTableXMLUnittests(unittest.TestCase):
         mock_override.return_value = True
         self.assertTrue(mock_gen_jdk.called)
 
-    def test_check_jdk18_in_xml(self):
-        """Test _check_jdk18_in_xml."""
-        xml_str = ('<test><jdk><name value="JDK18" /><type value="JavaSDK" />'
+    def test_check_jdk11_in_xml(self):
+        """Test _check_jdk11_in_xml."""
+        xml_str = ('<test><jdk><name value="JDK11" /><type value="JavaSDK" />'
                    '</jdk></test>')
         self.jdk_table_xml._xml = ElementTree.fromstring(xml_str)
-        self.assertTrue(self.jdk_table_xml._check_jdk18_in_xml())
+        self.assertTrue(self.jdk_table_xml._check_jdk11_in_xml())
         xml_str = ('<test><jdk><name value="test" /><type value="JavaSDK" />'
                    '</jdk></test>')
         self.jdk_table_xml._xml = ElementTree.fromstring(xml_str)
-        self.assertFalse(self.jdk_table_xml._check_jdk18_in_xml())
+        self.assertFalse(self.jdk_table_xml._check_jdk11_in_xml())
         xml_str = ('<test><jdk><name value="test" /></jdk></test>')
         self.jdk_table_xml._xml = ElementTree.fromstring(xml_str)
-        self.assertFalse(self.jdk_table_xml._check_jdk18_in_xml())
+        self.assertFalse(self.jdk_table_xml._check_jdk11_in_xml())
 
     @mock.patch.object(android_sdk.AndroidSDK, 'is_android_sdk_path')
     def test_check_android_sdk_in_xml(self, mock_is_android_sdk):
@@ -194,27 +194,27 @@ class JDKTableXMLUnittests(unittest.TestCase):
             },
         }
         mock_is_android_sdk.return_value = True
-        xml_str = ('<test><jdk><name value="JDK18" /><type value="JavaSDK" />'
+        xml_str = ('<test><jdk><name value="JDK11" /><type value="JavaSDK" />'
                    '</jdk></test>')
         self.jdk_table_xml._xml = ElementTree.fromstring(xml_str)
         self.assertFalse(self.jdk_table_xml._check_android_sdk_in_xml())
         xml_str = ('<test><jdk><name value="Android SDK 29 platform" />'
                    '<type value="Android SDK" />'
-                   '<additional jdk="JDK18" sdk="android-29" />'
+                   '<additional jdk="JDK11" sdk="android-29" />'
                    '</jdk></test>')
         self.jdk_table_xml._xml = ElementTree.fromstring(xml_str)
         self.assertFalse(self.jdk_table_xml._check_android_sdk_in_xml())
         xml_str = ('<test><jdk><name value="Android SDK 28 platform" />'
                    '<type value="Android SDK" />'
                    '<homePath value="/path/to/Android/SDK" />'
-                   '<additional jdk="JDK18" sdk="android-28" />'
+                   '<additional jdk="JDK11" sdk="android-28" />'
                    '</jdk></test>')
         self.jdk_table_xml._xml = ElementTree.fromstring(xml_str)
         self.assertFalse(self.jdk_table_xml._check_android_sdk_in_xml())
         xml_str = ('<test><jdk><name value="Android SDK 29 platform" />'
                    '<type value="Android SDK" />'
                    '<homePath value="/path/to/Android/SDK" />'
-                   '<additional jdk="JDK18" sdk="android-29" />'
+                   '<additional jdk="JDK11" sdk="android-29" />'
                    '</jdk></test>')
         self.jdk_table_xml._xml = ElementTree.fromstring(xml_str)
         self.assertTrue(self.jdk_table_xml._check_android_sdk_in_xml())

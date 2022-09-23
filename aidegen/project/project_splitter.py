@@ -42,7 +42,9 @@ _EXCLUDE_FOLDERS = ['.idea', '.repo', 'art', 'bionic', 'bootable', 'build',
                     'libnativehelper', 'pdk', 'prebuilts', 'sdk', 'system',
                     'toolchain', 'tools', 'vendor', 'out', 'external',
                     'art/tools/ahat/src/test-dump',
-                    'cts/common/device-side/device-info/src_stub']
+                    'cts/common/device-side/device-info/src_stub',
+                    'external/gson/gson/src/main/java'
+                    ]
 _PERMISSION_DEFINED_PATH = ('frameworks/base/core/res/framework-res/'
                             'android_common/gen/')
 _ANDROID = 'android'
