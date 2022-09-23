@@ -77,12 +77,12 @@ _INFO_IMPORT_CONFIG = ('{} needs to import the application configuration for '
                        '\n\n')
 CONFIG_DIR = 'config'
 LINUX_JDK_PATH = os.path.join(common_util.get_android_root_dir(),
-                              'prebuilts/jdk/jdk8/linux-x86')
+                              'prebuilts/jdk/jdk11/linux-x86')
 LINUX_JDK_TABLE_PATH = 'config/options/jdk.table.xml'
 LINUX_FILE_TYPE_PATH = 'config/options/filetypes.xml'
 LINUX_ANDROID_SDK_PATH = os.path.join(os.getenv('HOME'), 'Android/Sdk')
 MAC_JDK_PATH = os.path.join(common_util.get_android_root_dir(),
-                            'prebuilts/jdk/jdk8/darwin-x86')
+                            'prebuilts/jdk/jdk11/darwin-x86')
 ALTERNAIVE_JDK_TABLE_PATH = 'options/jdk.table.xml'
 ALTERNAIVE_FILE_TYPE_XML_PATH = 'options/filetypes.xml'
 MAC_ANDROID_SDK_PATH = os.path.join(os.getenv('HOME'), 'Library/Android/sdk')
