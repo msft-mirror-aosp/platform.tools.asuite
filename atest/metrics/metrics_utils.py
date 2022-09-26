@@ -25,6 +25,14 @@ import traceback
 from . import metrics
 from . import metrics_base
 
+CONTENT_LICENSES_URL = 'https://source.android.com/setup/start/licenses'
+CONTRIBUTOR_AGREEMENT_URL = {
+    'INTERNAL': 'https://cla.developers.google.com/',
+    'EXTERNAL': 'https://opensource.google.com/docs/cla/'
+}
+PRIVACY_POLICY_URL = 'https://policies.google.com/privacy'
+TERMS_SERVICE_URL = 'https://policies.google.com/terms'
+
 
 def static_var(varname, value):
     """Decorator to cache static variable."""
@@ -56,7 +64,7 @@ def convert_duration(diff_time_sec):
     resolution.
 
     Args:
-        dur_time_sec: The time in seconds as a floating point number.
+        diff_time_sec: The time in seconds as a floating point number.
 
     Returns:
         A dict of Duration.
@@ -126,3 +134,31 @@ def send_start_event(tool_name, command_line='', test_references='',
                             test_references=test_references,
                             cwd=cwd,
                             os=operating_system)
+
+
+def print_data_collection_notice(colorful=True):
+    """Print the data collection notice."""
+    red = '31m'
+    green = '32m'
+    start = '\033[1;'
+    end = '\033[0m'
+    delimiter = '=' * 18
+    anonymous = ''
+    user_type = 'INTERNAL'
+    if metrics_base.get_user_type() == metrics_base.EXTERNAL_USER:
+        anonymous = ' anonymous'
+        user_type = 'EXTERNAL'
+    notice = ('  We collect%s usage statistics in accordance with our Content '
+              'Licenses (%s), Contributor License Agreement (%s), Privacy '
+              'Policy (%s) and Terms of Service (%s).'
+             ) % (anonymous,
+                  CONTENT_LICENSES_URL,
+                  CONTRIBUTOR_AGREEMENT_URL[user_type],
+                  PRIVACY_POLICY_URL,
+                  TERMS_SERVICE_URL)
+    if colorful:
+        print(f'\n{delimiter}\n{start}{red}Notice:{end}')
+        print(f'{start}{green} {notice}{end}\n{delimiter}\n')
+    else:
+        print(f'\n{delimiter}\nNotice:')
+        print(f' {notice}\n{delimiter}\n')

@@ -77,34 +77,30 @@ try:
     from tools.asuite.atest.tf_proto import test_record_pb2
 except ImportError as err:
     pass
+
+_BASH_RESET_CODE = '\033[0m\n'
 # b/147562331 only occurs when running atest in source code. We don't encourge
 # the users to manually "pip3 install protobuf", therefore when the exception
 # occurs, we don't collect data and the tab completion is for args is silence.
 try:
     from metrics import metrics
-    from metrics import metrics_base
     from metrics import metrics_utils
 except ImportError as err:
-    # TODO(b/182854938): remove this ImportError after refactor metrics dir.
-    try:
-        from asuite.metrics import metrics
-        from asuite.metrics import metrics_base
-        from asuite.metrics import metrics_utils
-    except ImportError as err:
-        print('Import error: ', err)
-        print('sys.path:\n', '\n'.join(sys.path))
-        # Error occurs in prebuilt atest + prebuilt executable python3.
-        if Path(constants.VERSION_FILE).is_file():
-            colorful_print("This error may occur in unexpected conditions. "
-                "Please report this bug and use 'atest-src' as alternative.",
-                constants.RED)
-        else:
-            print("You shouldn't see this message unless you ran 'atest-src'. "
-              "To resolve the issue, please run:\n\t{}\n"
-              "and try again.".format('pip3 install protobuf'))
-        sys.exit(constants.IMPORT_FAILURE)
-
-_BASH_RESET_CODE = '\033[0m\n'
+    print('Import error: ', err)
+    print('sys.path:\n', '\n'.join(sys.path))
+    # Error occurs in prebuilt atest + prebuilt executable python3.
+    if Path(constants.VERSION_FILE).is_file():
+        print("\033[1;31m"
+              "This error may occur in unexpected conditions. "
+              "Please report this bug and use 'atest-src' as alternative."
+              f'{_BASH_RESET_CODE}')
+    else:
+        print("\033[1;31m"
+              "You shouldn't see this message unless you ran "
+              "'atest-src'. To resolve the issue, please run:\n\t"
+              f"'pip3 install --user protobuf=3.19.0'\nand try again."
+              f'{_BASH_RESET_CODE}')
+    sys.exit(constants.IMPORT_FAILURE)
 # Arbitrary number to limit stdout for failed runs in _run_limited_output.
 # Reason for its use is that the make command itself has its own carriage
 # return output mechanism that when collected line by line causes the streaming
@@ -571,44 +567,6 @@ def get_terminal_size():
     return columns, rows
 
 
-def is_external_run():
-    # TODO(b/133905312): remove this function after aidegen calling
-    #       metrics_base.get_user_type directly.
-    """Check is external run or not.
-
-    Determine the internal user by passing at least one check:
-      - whose git mail domain is from google
-      - whose hostname is from google
-    Otherwise is external user.
-
-    Returns:
-        True if this is an external run, False otherwise.
-    """
-    return metrics_base.get_user_type() == metrics_base.EXTERNAL_USER
-
-
-def print_data_collection_notice():
-    """Print the data collection notice."""
-    anonymous = ''
-    user_type = 'INTERNAL'
-    if metrics_base.get_user_type() == metrics_base.EXTERNAL_USER:
-        anonymous = ' anonymous'
-        user_type = 'EXTERNAL'
-    notice = ('  We collect%s usage statistics in accordance with our Content '
-              'Licenses (%s), Contributor License Agreement (%s), Privacy '
-              'Policy (%s) and Terms of Service (%s).'
-             ) % (anonymous,
-                  constants.CONTENT_LICENSES_URL,
-                  constants.CONTRIBUTOR_AGREEMENT_URL[user_type],
-                  constants.PRIVACY_POLICY_URL,
-                  constants.TERMS_SERVICE_URL
-                 )
-    print(delimiter('=', 18, prenl=1))
-    colorful_print("Notice:", constants.RED)
-    colorful_print("%s" % notice, constants.GREEN)
-    print(delimiter('=', 18, postnl=1))
-
-
 def handle_test_runner_cmd(input_test, test_cmds, do_verification=False,
                            result_path=constants.VERIFY_DATA_PATH):
     """Handle the runner command of input tests.
@@ -975,7 +933,7 @@ def find_files(path, file_name=constants.TEST_MAPPING):
             logging.debug(msg)
             logging.debug("Exception: %s", e)
             metrics.AtestExitEvent(
-                duration=0,
+                duration=metrics_utils.convert_duration(0),
                 exit_code=ExitCode.COLLECT_ONLY_FILE_NOT_FOUND,
                 stacktrace=msg,
                 logs=e)
