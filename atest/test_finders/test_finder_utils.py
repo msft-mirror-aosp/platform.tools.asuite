@@ -666,6 +666,8 @@ def get_targets_from_xml(xml_file, module_info):
     Returns:
         A set of build targets based on the signals found in the xml file.
     """
+    if not os.path.isfile(xml_file):
+        return set()
     xml_root = ET.parse(xml_file).getroot()
     return get_targets_from_xml_root(xml_root, module_info)
 
