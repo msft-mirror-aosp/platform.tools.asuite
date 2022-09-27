@@ -298,6 +298,7 @@ class AtestExecutionInfo:
             self.result_file_obj.write(AtestExecutionInfo.
                                    _generate_execution_detail(self.args))
             self.result_file_obj.close()
+            au.prompt_suggestions(self.test_result)
             au.generate_print_result_html(self.test_result)
             symlink_latest_result(self.work_dir)
         main_module = sys.modules.get(_MAIN_MODULE_KEY)
