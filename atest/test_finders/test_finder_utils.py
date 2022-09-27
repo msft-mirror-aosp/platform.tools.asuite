@@ -22,15 +22,16 @@ Utils for finder classes.
 from __future__ import print_function
 
 import logging
-import multiprocessing
 import os
 import pickle
 import re
+import shutil
 import subprocess
 import tempfile
 import time
 import xml.etree.ElementTree as ET
 
+from contextlib import contextmanager
 from pathlib import Path
 
 import atest_decorator
@@ -38,9 +39,8 @@ import atest_error
 import atest_utils
 import constants
 
-from atest_enum import AtestEnum, DetectType
+from atest_enum import AtestEnum, ExitCode, DetectType
 from metrics import metrics, metrics_utils
-from tools import atest_tools
 
 # Helps find apk files listed in a test config (AndroidTest.xml) file.
 # Matches "filename.apk" in <option name="foo", value="filename.apk" />
@@ -114,8 +114,6 @@ FIND_REFERENCE_TYPE = AtestEnum(['CLASS',
                                  'PACKAGE',
                                  'INTEGRATION',
                                  'CC_CLASS'])
-# Get cpu count.
-_CPU_COUNT = 0 if os.uname()[0] == 'Linux' else multiprocessing.cpu_count()
 
 # Unix find commands for searching for test files based on test type input.
 # Note: Find (unlike grep) exits with status 0 if nothing found.
@@ -134,9 +132,8 @@ FIND_CMDS = {
     # is case-insensitive.
     FIND_REFERENCE_TYPE.CC_CLASS: r"find {0} {1} -type f -print"
                                   r"| egrep -i '/*test.*\.(cc|cpp)$'"
-                                  r"| xargs -P" + str(_CPU_COUNT) + r" egrep -sH"
-                                  r" '{}' ".format(constants.CC_GREP_KWRE) +
-                                  " || true"
+                                  r"| xargs -P0 egrep -sH"
+                                  f" '{constants.CC_GREP_KWRE}' || true"
 }
 
 # Map ref_type with its index file.
@@ -259,9 +256,13 @@ def has_cc_class(test_path):
     Returns:
         Boolean: has cc class in test_path or not.
     """
-    with open(test_path) as class_file:
+    with open_cc(test_path) as class_file:
         content = class_file.read()
         if re.findall(_CC_CLASS_METHOD_RE, content):
+            return True
+        if re.findall(_CC_PARAM_CLASS_RE, content):
+            return True
+        if re.findall(_TYPE_CC_CLASS_RE, content):
             return True
     return False
 
@@ -1178,6 +1179,29 @@ def get_java_methods(test_path):
     return set()
 
 
+@contextmanager
+def open_cc(filename: str):
+    """Open a cc/cpp file with comments trimmed."""
+    target_cc = filename
+    if shutil.which('gcc'):
+        tmp = tempfile.NamedTemporaryFile()
+        cmd = (f'gcc -fpreprocessed -dD -E {filename} > {tmp.name}')
+        strip_proc = subprocess.run(cmd, shell=True, check=True)
+        if strip_proc.returncode == ExitCode.SUCCESS:
+            target_cc = tmp.name
+        else:
+            logging.debug('Failed to strip comments in %s. Parsing '
+                          'class/method name may not be accurate.',
+                          target_cc)
+    else:
+        logging.debug('Cannot find "gcc" and unable to trim comments.')
+    try:
+        cc_obj = open(target_cc, 'r')
+        yield cc_obj
+    finally:
+        cc_obj.close()
+
+
 # pylint: disable=too-many-branches
 def get_cc_class_info(test_path):
     """Get the class info of the given cc input test_path.
@@ -1203,22 +1227,8 @@ def get_cc_class_info(test_path):
     Returns:
         A dict of class info.
     """
-    # Strip comments prior to parsing class and method names if possible.
-    _test_path = tempfile.NamedTemporaryFile()
-    if atest_tools.has_command('gcc'):
-        strip_comment_cmd = 'gcc -fpreprocessed -dD -E {} > {}'
-        if subprocess.getoutput(
-            strip_comment_cmd.format(test_path, _test_path.name)):
-            logging.debug('Failed to strip comments in %s. Parsing class/method'
-                          'names may not be accurate.', test_path)
-    file_to_parse = test_path
-    # If failed to strip comments, it will be empty.
-    if os.stat(_test_path.name).st_size != 0:
-        file_to_parse = _test_path.name
-
-    # TODO: b/234531695 support reading header files as well.
-    with open(file_to_parse) as class_file:
-        logging.debug('Parsing: %s', test_path)
+    logging.debug('Parsing: %s', test_path)
+    with open_cc(test_path) as class_file:
         content = class_file.read()
         # ('TYPED_TEST', 'PrimeTableTest', 'ReturnsTrueForPrimes')
         method_matches = re.findall(_CC_CLASS_METHOD_RE, content)
