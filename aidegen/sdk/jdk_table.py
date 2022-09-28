@@ -70,7 +70,7 @@ class JDKTableXML():
     _ADDITIONAL = 'additional'
     _ANDROID_SDK = 'Android SDK'
     _JAVA_SDK = 'JavaSDK'
-    _JDK_VERSION = 'JDK18'
+    _JDK_VERSION = 'JDK11'
     _APPLICATION = 'application'
     _COMPONENT = 'component'
     _PROJECTJDKTABLE = 'ProjectJdkTable'
@@ -162,11 +162,11 @@ class JDKTableXML():
             return True
         return False
 
-    def _check_jdk18_in_xml(self):
-        """Checks if the JDK18 is already set in jdk.table.xml.
+    def _check_jdk11_in_xml(self):
+        """Checks if the JDK11 is already set in jdk.table.xml.
 
         Returns:
-            Boolean: True if the JDK18 exists else False.
+            Boolean: True if the JDK11 exists else False.
         """
         for jdk in self._xml.iter(self._JDK):
             _name = jdk.find(self._NAME)
@@ -230,7 +230,7 @@ class JDKTableXML():
 
     def _generate_jdk_config_string(self):
         """Generates the default JDK configuration."""
-        if self._check_jdk18_in_xml():
+        if self._check_jdk11_in_xml():
             return
         self._append_config(self._jdk_content.format(JDKpath=self._jdk_path))
         self._modify_config = True
@@ -257,10 +257,10 @@ class JDKTableXML():
     def config_jdk_table_xml(self):
         """Configures the jdk.table.xml.
 
-        1. Generate the JDK18 configuration if it does not exist.
+        1. Generate the JDK11 configuration if it does not exist.
         2. Generate the Android SDK configuration if it does not exist and
            save the Android SDK path.
-        3. Update the jdk.table.xml if AIDEGen needs to append JDK18 or
+        3. Update the jdk.table.xml if AIDEGen needs to append JDK11 or
            Android SDK configuration.
 
         Returns:
