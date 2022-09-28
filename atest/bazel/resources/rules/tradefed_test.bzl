@@ -137,10 +137,19 @@ def _tradefed_device_test_impl(ctx):
     tradefed_deps.extend(ctx.attr._aapt)
     tradefed_deps.extend(ctx.attr.tradefed_deps)
 
+    test_device_deps = []
+    test_host_deps = []
+
+    if ctx.attr.host_test:
+        test_host_deps.extend(ctx.attr.host_test)
+    if ctx.attr.device_test:
+        test_device_deps.extend(ctx.attr.device_test)
+
     return _tradefed_test_impl(
         ctx,
         tradefed_deps = tradefed_deps,
-        device_deps = ctx.attr.test,
+        test_device_deps = test_device_deps,
+        test_host_deps = test_host_deps,
         path_additions = [
             _BAZEL_WORK_DIR + ctx.file._aapt.dirname,
         ],
@@ -150,9 +159,12 @@ _tradefed_device_test = rule(
     attrs = _add_dicts(
         _TRADEFED_TEST_ATTRIBUTES,
         {
-            "test": attr.label(
-                mandatory = True,
+            "device_test": attr.label(
                 cfg = device_transition,
+                aspects = [soong_prebuilt_tradefed_test_aspect],
+            ),
+            "host_test": attr.label(
+                cfg = host_transition,
                 aspects = [soong_prebuilt_tradefed_test_aspect],
             ),
             "tradefed_deps": attr.label_list(
@@ -173,35 +185,26 @@ _tradefed_device_test = rule(
     doc = "A rule used to run device tests using Tradefed",
 )
 
-def tradefed_device_test(tradefed_deps = [], suites = [], **attrs):
-    suite_to_deps = {
-        "host-unit-tests": [],
-        "null-suite": [],
-        "device-tests": [],
-        "general-tests": [],
-        "vts": [vts_core_tradefed_harness_label],
-    }
-    all_tradefed_deps = {d: None for d in tradefed_deps}
+def tradefed_device_driven_test(test, tradefed_deps = [], suites = [], **attrs):
+    _tradefed_device_test(
+        device_test = test,
+        tradefed_deps = _get_tradefed_deps(suites, tradefed_deps),
+        **attrs
+    )
 
-    for s in suites:
-        all_tradefed_deps.update({
-            d: None
-            for d in suite_to_deps.get(s, [compatibility_tradefed_label])
-        })
-
-    # Since `vts-core-tradefed-harness` includes `compatibility-tradefed`, we
-    # will exclude `compatibility-tradefed` if `vts-core-tradefed-harness` exists.
-    if vts_core_tradefed_harness_label in all_tradefed_deps:
-        all_tradefed_deps.pop(compatibility_tradefed_label, default = None)
-
-    _tradefed_device_test(tradefed_deps = all_tradefed_deps.keys(), **attrs)
+def tradefed_host_driven_device_test(test, tradefed_deps = [], suites = [], **attrs):
+    _tradefed_device_test(
+        host_test = test,
+        tradefed_deps = _get_tradefed_deps(suites, tradefed_deps),
+        **attrs
+    )
 
 def _tradefed_test_impl(
         ctx,
         tradefed_options = [],
         tradefed_deps = [],
         test_host_deps = [],
-        device_deps = [],
+        test_device_deps = [],
         path_additions = []):
     path_additions = path_additions + [_BAZEL_WORK_DIR + ctx.file._adb.dirname]
 
@@ -283,11 +286,34 @@ def _tradefed_test_impl(
         },
     )
 
-    device_runfiles = _get_runfiles_from_targets(ctx, device_deps)
+    device_runfiles = _get_runfiles_from_targets(ctx, test_device_deps)
     return [DefaultInfo(
         executable = script,
         runfiles = host_runfiles.merge_all([device_runfiles, reporter_runfiles]),
     )]
+
+def _get_tradefed_deps(suites, tradefed_deps = []):
+    suite_to_deps = {
+        "host-unit-tests": [],
+        "null-suite": [],
+        "device-tests": [],
+        "general-tests": [],
+        "vts": [vts_core_tradefed_harness_label],
+    }
+    all_tradefed_deps = {d: None for d in tradefed_deps}
+
+    for s in suites:
+        all_tradefed_deps.update({
+            d: None
+            for d in suite_to_deps.get(s, [compatibility_tradefed_label])
+        })
+
+    # Since `vts-core-tradefed-harness` includes `compatibility-tradefed`, we
+    # will exclude `compatibility-tradefed` if `vts-core-tradefed-harness` exists.
+    if vts_core_tradefed_harness_label in all_tradefed_deps:
+        all_tradefed_deps.pop(compatibility_tradefed_label, default = None)
+
+    return all_tradefed_deps.keys()
 
 def _write_reporters_config_file(ctx, config_file, result_reporters):
     config_lines = [
