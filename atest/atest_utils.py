@@ -70,15 +70,29 @@ import atest_decorator
 import atest_error
 import constants
 
-# This proto related module will be auto generated in build time.
+_BASH_RESET_CODE = '\033[0m\n'
+# (b/248507158) extract only pb2 files for running atest-src.
+cur_dir = Path(__file__).resolve().parent
+try:
+    subprocess.check_call(
+        'unzip -oj $(which atest-py3) "atest/proto/*py" -d {} '
+        '>/dev/null'.format(cur_dir.joinpath('proto')),
+        shell=True)
+except subprocess.CalledProcessError as e:
+    print('\033[1;31m'
+          'Unable to generate pb2 on demand; running "atest-src" will fail.'
+          f'{_BASH_RESET_CODE}')
+    print(e)
+
 # pylint: disable=no-name-in-module
 # pylint: disable=import-error
 try:
     from tools.asuite.atest.tf_proto import test_record_pb2
-except ImportError as err:
+except (ModuleNotFoundError, ImportError) as err:
+    # This proto related module will be auto generated in build time; simply
+    # pass when import error occurs.
     pass
 
-_BASH_RESET_CODE = '\033[0m\n'
 # b/147562331 only occurs when running atest in source code. We don't encourge
 # the users to manually "pip3 install protobuf", therefore when the exception
 # occurs, we don't collect data and the tab completion is for args is silence.
@@ -98,7 +112,7 @@ except ImportError as err:
         print("\033[1;31m"
               "You shouldn't see this message unless you ran "
               "'atest-src'. To resolve the issue, please run:\n\t"
-              f"'pip3 install --user protobuf=3.19.0'\nand try again."
+              f"'pip3 install --user protobuf==3.20.0'\nand try again."
               f'{_BASH_RESET_CODE}')
     sys.exit(constants.IMPORT_FAILURE)
 # Arbitrary number to limit stdout for failed runs in _run_limited_output.
@@ -148,6 +162,13 @@ _ROOT_PREPARER = "com.android.tradefed.targetprep.RootTargetPreparer"
 
 _WILDCARD_FILTER_RE = re.compile(r'.*[?|*]$')
 _REGULAR_FILTER_RE = re.compile(r'.*\w$')
+
+SUGGESTIONS = {
+    # (b/198581508) Do not run "adb sync" for the users.
+    'CANNOT LINK EXECUTABLE': 'Please run "adb sync" or reflash the device(s).',
+    # (b/177626045) If Atest does not install target application properly.
+    'Runner reported an invalid method': 'Please reflash the device(s).'
+}
 
 def get_build_cmd(dump=False):
     """Compose build command with no-absolute path and flag "--make-mode".
@@ -1967,3 +1988,22 @@ def generate_print_result_html(result_file: Path):
               f'file://{result_html}\n')
     except Exception as e:
         logging.debug('Did not generate log html for reason: %s', e)
+
+# pylint: disable=broad-except
+def prompt_suggestions(result_file: Path):
+    """Generate suggestions when detecting keywords in logs."""
+    result_file = Path(result_file)
+    search_dir = Path(result_file).parent.joinpath('log')
+    logs = sorted(find_files(str(search_dir), file_name='*'))
+    for log in logs:
+        for keyword, suggestion in SUGGESTIONS.items():
+            try:
+                with open(log, 'r') as cache:
+                    content = cache.read()
+                    if keyword in content:
+                        colorful_print(
+                            '[Suggestion] ' + suggestion, color=constants.RED)
+                        break
+            # If the given is not a plain text, just ignore it.
+            except Exception:
+                pass
