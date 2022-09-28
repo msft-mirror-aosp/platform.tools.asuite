@@ -431,11 +431,15 @@ class AtestUtilsUnittests(unittest.TestCase):
     # pylint: disable=no-member
     def test_read_test_record_proto(self):
         """Test method read_test_record."""
-        test_record_file_path = os.path.join(unittest_constants.TEST_DATA_DIR,
-                                             "test_record.proto.testonly")
-        test_record = atest_utils.read_test_record(test_record_file_path)
-        self.assertEqual(test_record.children[0].inline_test_record.test_record_id,
-                         'x86 hello_world_test')
+        # (b/248507158) test_record_pb2.py only exists in prebuilt.
+        if Path(constants.VERSION_FILE).is_file():
+            test_record_file_path = os.path.join(
+                unittest_constants.TEST_DATA_DIR,
+                "test_record.proto.testonly")
+            test_record = atest_utils.read_test_record(test_record_file_path)
+            self.assertEqual(
+                test_record.children[0].inline_test_record.test_record_id,
+                'x86 hello_world_test')
 
     def test_load_json_safely_file_inexistent(self):
         """Test method load_json_safely if file does not exist."""
