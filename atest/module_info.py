@@ -762,6 +762,11 @@ class ModuleInfo:
                 name_to_module_info, cc_bp_infos.get('modules', {}))
         # If $ANDROID_PRODUCT_OUT was not created in pyfakefs, simply return it
         # without dumping atest_merged_dep.json in real.
+
+        # Adds the key into module info as a unique ID.
+        for key, info in name_to_module_info.items():
+            info[constants.MODULE_INFO_ID] = key
+
         if not self.merged_dep_path.parent.is_dir():
             return name_to_module_info
         # b/178559543 saving merged module info in a temp file and copying it to
