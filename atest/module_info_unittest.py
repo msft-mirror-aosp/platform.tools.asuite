@@ -578,6 +578,23 @@ class ModuleInfoUnittests(unittest.TestCase):
 
         self.assertTrue(mod_info.is_device_driven_test(maininfo_with_device_driven_test))
 
+    @mock.patch.dict('os.environ', {constants.ANDROID_BUILD_TOP:'/',
+                                    constants.ANDROID_PRODUCT_OUT:PRODUCT_OUT_DIR})
+    def test_is_host_driven_test(self):
+        """Test is_host_driven_test."""
+        module_name = 'myModule'
+        maininfo_with_host_driven_test = {
+            constants.MODULE_NAME: module_name,
+            constants.MODULE_TEST_CONFIG:[os.path.join(
+                uc.TEST_CONFIG_DATA_DIR, "a.xml.data")],
+            constants.MODULE_INSTALLED: uc.DEFAULT_INSTALL_PATH,
+            'supported_variants': ['HOST']
+        }
+
+        mod_info = module_info.ModuleInfo(module_file=JSON_FILE_PATH)
+
+        self.assertTrue(mod_info.is_host_driven_test(maininfo_with_host_driven_test))
+
     @mock.patch.dict('os.environ', {constants.ANDROID_BUILD_TOP:os.path.dirname(__file__),
                                     constants.ANDROID_PRODUCT_OUT:PRODUCT_OUT_DIR})
     def test_has_mainline_modules(self):

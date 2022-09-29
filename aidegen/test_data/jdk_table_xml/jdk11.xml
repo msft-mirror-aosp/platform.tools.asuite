@@ -1,10 +1,6 @@
 <application>
   <component name="ProjectJdkTable">
     <jdk version="2">
-      <name value="JDK_OTHER" />
-      <type value="JavaSDK" />
-    </jdk>
-    <jdk version="2">
       <name value="JDK11" />
       <type value="JavaSDK" />
       <version value="java version &quot;11.0.15&quot;" />

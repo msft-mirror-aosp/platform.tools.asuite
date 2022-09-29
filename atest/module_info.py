@@ -911,6 +911,18 @@ class ModuleInfo:
         return self.is_testable_module(mod_info) and 'DEVICE' in mod_info.get(
             constants.MODULE_SUPPORTED_VARIANTS, [])
 
+    def is_host_driven_test(self, mod_info):
+        """Return True if input module is host driven test, False otherwise.
+
+        Args:
+            mod_info: ModuleInfo to check.
+
+        Returns:
+            True if input module is host driven test, False otherwise.
+        """
+        return self.is_testable_module(mod_info) and 'HOST' in mod_info.get(
+            constants.MODULE_SUPPORTED_VARIANTS, [])
+
     def _any_module(self, _: Module) -> bool:
         return True
 
