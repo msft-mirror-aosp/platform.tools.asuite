@@ -282,7 +282,7 @@ class WorkspaceGenerator:
                                 is_host_driven: bool) -> Target:
         package_name = self._get_module_path(info)
         name_suffix = 'host' if is_host_driven else 'device'
-        name = f'{info["module_name"]}_{name_suffix}'
+        name = f'{info[constants.MODULE_INFO_ID]}_{name_suffix}'
 
         def create():
             return TestTarget.create_device_test_target(
@@ -296,7 +296,7 @@ class WorkspaceGenerator:
 
     def _add_deviceless_test_target(self, info: Dict[str, Any]) -> Target:
         package_name = self._get_module_path(info)
-        name = f'{info["module_name"]}_host'
+        name = f'{info[constants.MODULE_INFO_ID]}_host'
 
         def create():
             return TestTarget.create_deviceless_test_target(
@@ -309,7 +309,7 @@ class WorkspaceGenerator:
 
     def _add_prebuilt_target(self, info: Dict[str, Any]) -> Target:
         package_name = self._get_module_path(info)
-        name = info['module_name']
+        name = info[constants.MODULE_INFO_ID]
 
         def create():
             return SoongPrebuiltTarget.create(
@@ -532,8 +532,8 @@ class ModuleRef:
 
     def target(self) -> Target:
         if not self._target:
-            module_name = self.info['module_name']
-            raise Exception(f'Target not set for ref `{module_name}`')
+            target_name = self.info[constants.MODULE_INFO_ID]
+            raise Exception(f'Target not set for ref `{target_name}`')
 
         return self._target
 
@@ -740,6 +740,7 @@ class SoongPrebuiltTarget(Target):
     def create(gen: WorkspaceGenerator,
                info: Dict[str, Any],
                package_name: str=''):
+        target_name = info[constants.MODULE_INFO_ID]
         module_name = info['module_name']
 
         configs = [
@@ -775,6 +776,7 @@ class SoongPrebuiltTarget(Target):
         enabled_features = gen.enabled_features
 
         return SoongPrebuiltTarget(
+            target_name,
             module_name,
             package_name,
             config_files,
@@ -790,16 +792,17 @@ class SoongPrebuiltTarget(Target):
             ),
         )
 
-    def __init__(self, name: str, package_name: str,
+    def __init__(self, target_name: str, module_name: str, package_name: str,
                  config_files: Dict[Config, List[Path]],
                  deps: Dependencies):
-        self._name = name
+        self._target_name = target_name
+        self._module_name = module_name
         self._package_name = package_name
         self.config_files = config_files
         self.deps = deps
 
     def name(self) -> str:
-        return self._name
+        return self._target_name
 
     def package_name(self) -> str:
         return self._package_name
@@ -837,8 +840,8 @@ class SoongPrebuiltTarget(Target):
         writer.write_line(f'{self._rule_name()}(')
 
         with writer.indent():
-            writer.write_line(f'name = "{self._name}",')
-            writer.write_line(f'module_name = "{self._name}",')
+            writer.write_line(f'name = "{self._target_name}",')
+            writer.write_line(f'module_name = "{self._module_name}",')
             self._write_files_attribute(writer)
             self._write_deps_attribute(writer, 'static_deps',
                                        self.deps.static_dep_refs)
@@ -849,7 +852,7 @@ class SoongPrebuiltTarget(Target):
         writer.write_line(')')
 
     def create_filesystem_layout(self, package_dir: Path):
-        prebuilts_dir = package_dir.joinpath(self._name)
+        prebuilts_dir = package_dir.joinpath(self._target_name)
         prebuilts_dir.mkdir()
 
         for config, files in self.config_files.items():
@@ -870,13 +873,12 @@ class SoongPrebuiltTarget(Target):
         if not self.config_files:
             return
 
-        name = self._name
-
         writer.write('files = ')
         write_config_select(
             writer,
             self.config_files,
-            lambda c, _: writer.write(f'glob(["{name}/{c.name}/**/*"])'),
+            lambda c, _: writer.write(
+                f'glob(["{self._target_name}/{c.name}/**/*"])'),
         )
         writer.write_line(',')
 
