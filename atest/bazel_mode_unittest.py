@@ -122,9 +122,11 @@ class GenerationTestFixture(fake_filesystem_unittest.TestCase):
 
         for module_name in prerequisites:
             info = host_module(name=module_name, path='prebuilts')
+            info[constants.MODULE_INFO_ID] = module_name
             mod_info.name_to_module_info[module_name] = info
 
         for m in modules:
+            m[constants.MODULE_INFO_ID] = m['module_name']
             mod_info.name_to_module_info[m['module_name']] = m
 
         return mod_info
@@ -326,6 +328,18 @@ class BasicWorkspaceGenerationTest(GenerationTestFixture):
         self.assertFileInWorkspace('.bazelrc')
         self.assertDirInWorkspace('bazel/rules')
         self.assertDirInWorkspace('bazel/configs')
+
+    def test_generated_target_name(self):
+        mod_info = self.create_module_info(modules=[
+            host_unit_test_module(name='hello_world_test')
+        ])
+        info = mod_info.get_module_info('hello_world_test')
+        info[constants.MODULE_INFO_ID] = 'new_hello_world_test'
+
+        self.run_generator(mod_info)
+
+        self.assertTargetInWorkspace('new_hello_world_test')
+        self.assertTargetNotInWorkspace('hello_world_test')
 
     def test_generate_host_unit_test_module_target(self):
         mod_info = self.create_module_info(modules=[
