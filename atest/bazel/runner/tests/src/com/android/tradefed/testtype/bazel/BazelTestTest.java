@@ -85,7 +85,7 @@ public final class BazelTestTest {
 
         bazelTest.run(mTestInfo, mMockListener);
 
-        verify(mMockListener).testRunStarted(eq(BazelTest.class.getName()), eq(1));
+        verify(mMockListener).testRunStarted(eq(BazelTest.class.getName()), eq(0));
         verify(mMockListener).testRunEnded(anyLong(), anyMap());
     }
 
@@ -155,7 +155,7 @@ public final class BazelTestTest {
 
         bazelTest.run(mTestInfo, mMockListener);
 
-        verify(mMockListener).testFailed(any(), hasFailureStatus(FailureStatus.TIMED_OUT));
+        verify(mMockListener).testRunFailed(hasErrorIdentifier(TestErrorIdentifier.TEST_ABORTED));
     }
 
     @Test
