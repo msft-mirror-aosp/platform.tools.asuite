@@ -25,7 +25,7 @@ if [ ! -z "${REMOTE_JAVA_HOME}" ]; then
   export PATH="${REMOTE_JAVA_HOME}/bin:${PATH}"
 fi
 
-exit_code_file="$(mktemp /tmp/tf-exec-XXXXXXXXXX)"
+exit_code_file="/tmp/tf-exec-${TEST_ID}"
 
 "${ATEST_TF_LAUNCHER}" template/atest_local_min \
     --template:map test=atest \
@@ -59,6 +59,17 @@ if [ $? -ne 0 ]
 then
   echo "Could not read exit code file: ${exit_code_file}"
   exit 36
+fi
+
+# No tests found.
+# https://android.git.corp.google.com/platform/tools/asuite/+/refs/heads/master/atest/bazel/reporter/src/com/android/tradefed/result/BazelExitCodeResultReporter.java#138
+if [ ${exit_code} -eq 4 ]
+then
+  echo "Warning:  No tests to run"
+  # Returning exit code 4 in this script results in exit code 3 (failure)
+  # Returning 0 (success) and having atest check the temp file to warn that
+  # no were tests found.
+  exit 0
 fi
 
 if [ ${exit_code} -ne 0 ]
