@@ -35,12 +35,12 @@ function get_build_var()
 }
 
 out=$(get_build_var PRODUCT_OUT)
-JDK_PATH="${ANDROID_BUILD_TOP}/prebuilts/jdk/jdk11/linux-x86"
+JDK_PATH="${ANDROID_BUILD_TOP}/prebuilts/jdk/jdk17/linux-x86"
 BAZEL_BINARY="${ANDROID_BUILD_TOP}/prebuilts/bazel/linux-x86_64/bazel"
 
 # Use the versioned JDK and Python binaries in prebuilts/ for a reproducible
 # build with minimal reliance on host tools.
-export PATH=${ANDROID_BUILD_TOP}/prebuilts/build-tools/path/linux-x86:${ANDROID_BUILD_TOP}/prebuilts/jdk/jdk11/linux-x86/bin:${PATH}
+export PATH=${ANDROID_BUILD_TOP}/prebuilts/build-tools/path/linux-x86:${ANDROID_BUILD_TOP}/prebuilts/jdk/jdk17/linux-x86/bin:${PATH}
 
 export \
   ANDROID_PRODUCT_OUT=${out} \
