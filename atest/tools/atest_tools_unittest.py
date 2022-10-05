@@ -25,12 +25,12 @@ import unittest
 
 from unittest import mock
 
-import atest_utils as au
-import unittest_constants as uc
-import constants
+from atest import atest_utils as au
+from atest import unittest_constants as uc
+from atest import constants
 
-from atest_enum import ExitCode
-from tools import atest_tools
+from atest.atest_enum import ExitCode
+from atest.tools import atest_tools
 
 SEARCH_ROOT = uc.TEST_DATA_DIR
 PRUNEPATH = uc.TEST_CONFIG_DATA_DIR
@@ -40,10 +40,10 @@ UPDATEDB = atest_tools.UPDATEDB
 class AtestToolsUnittests(unittest.TestCase):
     """"Unittest Class for atest_tools.py."""
 
-    @mock.patch('constants.INDEX_DIR', uc.INDEX_DIR)
-    @mock.patch('constants.LOCATE_CACHE_MD5', uc.LOCATE_CACHE_MD5)
-    @mock.patch('constants.LOCATE_CACHE', uc.LOCATE_CACHE)
-    @mock.patch('tools.atest_tools.SEARCH_TOP', uc.TEST_DATA_DIR)
+    @mock.patch('atest.constants.INDEX_DIR', uc.INDEX_DIR)
+    @mock.patch('atest.constants.LOCATE_CACHE_MD5', uc.LOCATE_CACHE_MD5)
+    @mock.patch('atest.constants.LOCATE_CACHE', uc.LOCATE_CACHE)
+    @mock.patch('atest.tools.atest_tools.SEARCH_TOP', uc.TEST_DATA_DIR)
     def test_index_targets(self):
         """Test method index_targets."""
         if atest_tools.has_command(UPDATEDB) and atest_tools.has_command(LOCATE):

@@ -26,14 +26,14 @@ import unittest
 
 from unittest import mock
 
-import atest_error
-import constants
-import module_info
-import unittest_constants as uc
-import unittest_utils
+from atest import atest_error
+from atest import constants
+from atest import module_info
+from atest import unittest_constants as uc
+from atest import unittest_utils
 
-from test_finders import test_finder_utils
-from test_finders import test_info
+from atest.test_finders import test_finder_utils
+from atest.test_finders import test_info
 
 JSON_FILE_PATH = os.path.join(uc.TEST_DATA_DIR, uc.JSON_FILE)
 CLASS_DIR = 'foo/bar/jank/src/android/jank/cts/ui'

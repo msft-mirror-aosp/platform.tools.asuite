@@ -33,16 +33,16 @@ from io import StringIO
 from pathlib import Path
 from unittest import mock
 
-import atest_configs
-import atest_utils
-import constants
-import unittest_constants as uc
-import unittest_utils
+from atest import atest_configs
+from atest import atest_utils
+from atest import constants
+from atest import unittest_constants as uc
+from atest import unittest_utils
 
-from test_finders import test_finder_utils
-from test_finders import test_info
-from test_runners import event_handler
-from test_runners import atest_tf_test_runner as atf_tr
+from atest.test_finders import test_finder_utils
+from atest.test_finders import test_info
+from atest.test_runners import event_handler
+from atest.test_runners import atest_tf_test_runner as atf_tr
 
 #pylint: disable=protected-access
 #pylint: disable=invalid-name
@@ -406,7 +406,7 @@ class AtestTradefedTestRunnerUnittests(unittest.TestCase):
     @mock.patch('os.environ.get', return_value=None)
     @mock.patch.object(atf_tr.AtestTradefedTestRunner,
                        '_generate_metrics_folder')
-    @mock.patch('atest_utils.get_result_server_args')
+    @mock.patch('atest.atest_utils.get_result_server_args')
     def test_generate_run_commands_without_serial_env(
         self, mock_resultargs, mock_mertrics, _, _mock_all):
         """Test generate_run_command method."""
@@ -447,7 +447,7 @@ class AtestTradefedTestRunnerUnittests(unittest.TestCase):
                        return_value=False)
     @mock.patch('os.environ.get')
     @mock.patch.object(atf_tr.AtestTradefedTestRunner, '_generate_metrics_folder')
-    @mock.patch('atest_utils.get_result_server_args')
+    @mock.patch('atest.atest_utils.get_result_server_args')
     def test_generate_run_commands_with_serial_env(
         self, mock_resultargs, mock_mertrics, mock_env, _mock_all):
         """Test generate_run_command method."""
@@ -612,7 +612,7 @@ class AtestTradefedTestRunnerUnittests(unittest.TestCase):
     @mock.patch('os.environ.get', return_value=None)
     @mock.patch.object(atf_tr.AtestTradefedTestRunner,
                        '_generate_metrics_folder')
-    @mock.patch('atest_utils.get_result_server_args')
+    @mock.patch('atest.atest_utils.get_result_server_args')
     def test_generate_run_commands_collect_tests_only(
         self, mock_resultargs, mock_mertrics, _, _mock_is_all):
         """Test generate_run_command method."""
@@ -647,7 +647,7 @@ class AtestTradefedTestRunnerUnittests(unittest.TestCase):
                        return_value=False)
     @mock.patch('os.environ.get', return_value=None)
     @mock.patch.object(atf_tr.AtestTradefedTestRunner, '_generate_metrics_folder')
-    @mock.patch('atest_utils.get_result_server_args')
+    @mock.patch('atest.atest_utils.get_result_server_args')
     def test_generate_run_commands_with_tf_template(
         self, mock_resultargs, mock_mertrics, _, _mock_all):
         """Test generate_run_command method."""
@@ -696,7 +696,7 @@ class AtestTradefedTestRunnerUnittests(unittest.TestCase):
                        return_value=False)
     @mock.patch('os.environ.get', return_value=None)
     @mock.patch.object(atf_tr.AtestTradefedTestRunner, '_generate_metrics_folder')
-    @mock.patch('atest_utils.get_result_server_args')
+    @mock.patch('atest.atest_utils.get_result_server_args')
     def test_generate_run_commands_with_tf_early_device_release(
             self, mock_resultargs, mock_mertrics, _, _mock_all):
         """Test generate_run_command method."""
@@ -720,7 +720,7 @@ class AtestTradefedTestRunnerUnittests(unittest.TestCase):
                        return_value=False)
     @mock.patch('os.environ.get', return_value=None)
     @mock.patch.object(atf_tr.AtestTradefedTestRunner, '_generate_metrics_folder')
-    @mock.patch('atest_utils.get_result_server_args')
+    @mock.patch('atest.atest_utils.get_result_server_args')
     def test_generate_run_commands_with_artifacts(
             self, mock_resultargs, mock_mertrics, _, mock_all, mock_parse, mock_handle):
         """Test generate_run_command method."""
@@ -770,7 +770,7 @@ class AtestTradefedTestRunnerUnittests(unittest.TestCase):
     @mock.patch('os.environ.get', return_value=None)
     @mock.patch.object(atf_tr.AtestTradefedTestRunner,
                        '_generate_metrics_folder')
-    @mock.patch('atest_utils.get_result_server_args')
+    @mock.patch('atest.atest_utils.get_result_server_args')
     def test_generate_run_commands_has_instant_app_config(
         self, mock_resultargs, mock_mertrics, _, _mock_has_config,
         _mock_is_all):
@@ -873,7 +873,7 @@ class AtestTradefedTestRunnerUnittests(unittest.TestCase):
             {constants.CUSTOM_ARGS: [constants.TF_MODULE_PARAMETER]})
         self.assertTrue(constants.TF_ENABLE_PARAMETERIZED_MODULES in args)
 
-    @mock.patch('atest_utils.get_prebuilt_sdk_tools_dir')
+    @mock.patch('atest.atest_utils.get_prebuilt_sdk_tools_dir')
     @mock.patch.object(atf_tr.AtestTradefedTestRunner,
                        '_is_missing_exec', return_value=False)
     def test_generate_env_vars_aapt_already_in_system_path(
@@ -888,7 +888,7 @@ class AtestTradefedTestRunnerUnittests(unittest.TestCase):
             str(prebuilt_sdk_dir) + ':' in env_vars.get('PATH', ''))
 
     @mock.patch('os.path.exists', return_value=True)
-    @mock.patch('atest_utils.get_prebuilt_sdk_tools_dir')
+    @mock.patch('atest.atest_utils.get_prebuilt_sdk_tools_dir')
     @mock.patch.object(atf_tr.AtestTradefedTestRunner,
                        '_is_missing_exec', return_value=True)
     def test_generate_env_vars_aapt_not_in_system_path(
@@ -907,7 +907,7 @@ class AtestTradefedTestRunnerUnittests(unittest.TestCase):
     @mock.patch('os.environ.get', return_value=None)
     @mock.patch.object(
         atf_tr.AtestTradefedTestRunner, '_generate_metrics_folder')
-    @mock.patch('atest_utils.get_result_server_args')
+    @mock.patch('atest.atest_utils.get_result_server_args')
     def test_generate_run_commands_for_aggregate_metric_result(
         self, mock_resultargs, mock_mertrics, _mock_env, _mock_create, _mock_parse, _mock_handle_native):
         """Test generate_run_command method for test need aggregate metric."""
@@ -934,7 +934,7 @@ class AtestTradefedTestRunnerUnittests(unittest.TestCase):
     @mock.patch('os.environ.get', return_value=None)
     @mock.patch.object(
         atf_tr.AtestTradefedTestRunner, '_generate_metrics_folder')
-    @mock.patch('atest_utils.get_result_server_args')
+    @mock.patch('atest.atest_utils.get_result_server_args')
     def test_run_commands_for_aggregate_metric_result_with_manually_input(
         self, mock_resultargs, mock_mertrics, _mock_env, _mock_create,
             _mock_parse, _mock_handle_native):

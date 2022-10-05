@@ -34,12 +34,12 @@ from unittest import mock
 # pylint: disable=import-error
 from pyfakefs import fake_filesystem_unittest
 
-import bazel_mode
-import constants
-import module_info
+from atest import bazel_mode
+from atest import constants
+from atest import module_info
 
-from test_finders import example_finder, test_finder_base, test_info
-from test_runners import atest_tf_test_runner
+from atest.test_finders import example_finder, test_finder_base, test_info
+from atest.test_runners import atest_tf_test_runner
 
 
 ATEST_TF_RUNNER = atest_tf_test_runner.AtestTradefedTestRunner.NAME
@@ -1842,7 +1842,7 @@ class BazelTestRunnerTest(unittest.TestCase):
             '--build_metadata=ab_target=aosp_cf_x86_64_phone-userdebug'
         ], cmd[0])
 
-    @mock.patch('bazel_mode.subprocess.run')
+    @mock.patch('atest.bazel_mode.subprocess.run')
     def test_generate_run_command_with_auth_when_bes_publish_enabled(
             self, mock_subprocess_run):
         test_infos = [test_info_of('test1')]
@@ -1880,7 +1880,7 @@ class BazelTestRunnerTest(unittest.TestCase):
 
         self.assertTokensIn(auth_options, cmd[0])
 
-    @mock.patch('bazel_mode.subprocess.run',
+    @mock.patch('atest.bazel_mode.subprocess.run',
                 side_effect=subprocess.CalledProcessError(cmd='cmd',
                                                           returncode=1))
     def test_generate_run_command_with_bes_publish_enabled_and_no_auth(self, _):

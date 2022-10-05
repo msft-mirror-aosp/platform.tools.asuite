@@ -31,10 +31,10 @@ from unittest import mock
 # pylint: disable=import-error
 from pyfakefs import fake_filesystem_unittest
 
-import constants
-import module_info
-import unittest_utils
-import unittest_constants as uc
+from atest import constants
+from atest import module_info
+from atest import unittest_utils
+from atest import unittest_constants as uc
 
 JSON_FILE_PATH = os.path.join(uc.TEST_DATA_DIR, uc.JSON_FILE)
 CC_DEP_PATH = os.path.join(uc.TEST_DATA_DIR, uc.CC_DEP_FILE)

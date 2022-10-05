@@ -114,7 +114,7 @@ class AidegenModuleInfoUnittests(unittest.TestCase):
                        '_discover_mod_file_and_target')
     def test_load_module_info_file(self, mock_discover):
         """Test _load_module_info_file with conditions."""
-        json_path = 'test_data/out/soong/merged_module_info.json'
+        json_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'test_data/out/soong/merged_module_info.json')
         # Test file exist case.
         module_file = json_path
         module_info.AidegenModuleInfo._load_module_info_file(self, module_file)
