@@ -27,7 +27,6 @@ import com.android.tradefed.result.FailureDescription;
 import com.android.tradefed.result.FileInputStreamSource;
 import com.android.tradefed.result.ITestInvocationListener;
 import com.android.tradefed.result.LogDataType;
-import com.android.tradefed.result.TestDescription;
 import com.android.tradefed.result.error.ErrorIdentifier;
 import com.android.tradefed.result.error.TestErrorIdentifier;
 import com.android.tradefed.result.proto.TestRecordProto.FailureStatus;
@@ -127,7 +126,8 @@ public final class BazelTest implements IRemoteTest {
             throws DeviceNotAvailableException {
 
         long startTime = System.currentTimeMillis();
-        listener.testRunStarted(TEST_NAME, 1);
+
+        FailureDescription infraRunFailure = null;
 
         try {
             Path workspaceDirectory = extractWorkspace(mBazelWorkspaceArchive.toPath());
@@ -143,15 +143,23 @@ public final class BazelTest implements IRemoteTest {
             runTests(testInfo, listener, testTargets, workspaceDirectory);
         } catch (IOException | InterruptedException e) {
             CLog.e(e);
-            listener.testRunFailed(throwableToFailureDescription(e));
+            infraRunFailure =
+                    throwableToFailureDescription(e).setFailureStatus(FailureStatus.TEST_FAILURE);
         } catch (AbortRunException e) {
             CLog.e(e);
-            listener.testRunFailed(e.getFailureDescription());
-        } finally {
-            listener.testRunEnded(System.currentTimeMillis() - startTime, Collections.emptyMap());
-            addTestLogs(listener);
-            cleanup();
+            infraRunFailure = e.getFailureDescription();
         }
+
+        listener.testModuleStarted(testInfo.getContext());
+        listener.testRunStarted(TEST_NAME, 0);
+        if (infraRunFailure != null) {
+            listener.testRunFailed(infraRunFailure);
+        }
+        listener.testRunEnded(System.currentTimeMillis() - startTime, Collections.emptyMap());
+        listener.testModuleEnded();
+
+        addTestLogs(listener);
+        cleanup();
     }
 
     private Path extractWorkspace(Path workspaceArchive) throws IOException, InterruptedException {
@@ -242,7 +250,7 @@ public final class BazelTest implements IRemoteTest {
             ITestInvocationListener listener,
             List<String> testTargets,
             Path workspaceDirectory)
-            throws IOException {
+            throws IOException, InterruptedException {
         Path logFile = createLogFile(String.format("%s-log", RUN_TESTS));
 
         ProcessBuilder builder = createBazelCommand(workspaceDirectory, RUN_TESTS);
@@ -259,22 +267,7 @@ public final class BazelTest implements IRemoteTest {
         builder.redirectErrorStream(true);
         builder.redirectOutput(Redirect.appendTo(logFile.toFile()));
 
-        TestDescription description = new TestDescription(BazelTest.class.getName(), TEST_NAME);
-        listener.testStarted(description);
-
-        try {
-            startAndWaitForProcess(RUN_TESTS, builder, mBazelCommandTimeout);
-        } catch (AbortRunException e) {
-            CLog.e(e);
-            listener.testFailed(description, e.getFailureDescription());
-        } catch (IOException | InterruptedException e) {
-            CLog.e(e);
-            listener.testFailed(
-                    description,
-                    throwableToFailureDescription(e).setFailureStatus(FailureStatus.TEST_FAILURE));
-        } finally {
-            listener.testEnded(description, Collections.emptyMap());
-        }
+        startAndWaitForProcess(RUN_TESTS, builder, mBazelCommandTimeout);
     }
 
     private Process startAndWaitForProcess(
