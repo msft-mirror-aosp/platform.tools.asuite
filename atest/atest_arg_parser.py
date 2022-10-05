@@ -23,8 +23,8 @@ Atest Argument Parser class for atest.
 import argparse
 import pydoc
 
-import bazel_mode
-import constants
+from atest import bazel_mode
+from atest import constants
 
 # Constants used for AtestArgParser and EPILOG_TEMPLATE
 HELP_DESC = ('A command line tool that allows users to build, install, and run '

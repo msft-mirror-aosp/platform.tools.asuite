@@ -22,8 +22,8 @@ import sys
 import time
 import traceback
 
-from . import metrics
-from . import metrics_base
+from atest.metrics import metrics
+from atest.metrics import metrics_base
 
 CONTENT_LICENSES_URL = 'https://source.android.com/setup/start/licenses'
 CONTRIBUTOR_AGREEMENT_URL = {
