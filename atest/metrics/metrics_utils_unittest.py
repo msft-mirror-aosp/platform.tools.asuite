@@ -24,14 +24,14 @@ import unittest
 from io import StringIO
 from unittest import mock
 
-from metrics import metrics_utils
+from atest.metrics import metrics_utils
 
 class MetricsUtilsUnittests(unittest.TestCase):
     """Unit tests for metrics_utils.py"""
     def setUp(self) -> None:
         self.maxDiff = None
 
-    @mock.patch('metrics.metrics_base.get_user_type')
+    @mock.patch('atest.metrics.metrics_base.get_user_type')
     def test_print_data_collection_notice(self, mock_get_user_type):
         """Test method print_data_collection_notice."""
 

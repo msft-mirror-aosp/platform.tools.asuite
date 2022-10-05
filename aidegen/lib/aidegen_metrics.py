@@ -29,28 +29,28 @@ from aidegen.lib import common_util
 
 # Original code as follows,
 # try:
-#     from asuite.metrics import metrics
-#     from asuite.metrics import metrics_base
-#     from asuite.metrics import metrics_utils
+#     from atest.metrics import metrics
+#     from atest.metrics import metrics_base
+#     from atest.metrics import metrics_utils
 # except ImportError:
 #     logging.debug('Import metrics fail, can\'t send metrics.')
 #     metrics = None
 #     metrics_base = None
 #     metrics_utils = None
 try:
-    from asuite.metrics import metrics
+    from atest.metrics import metrics
 except ImportError:
     logging.debug('Import metrics fail, can\'t send metrics.')
     metrics = None
 
 try:
-    from asuite.metrics import metrics_base
+    from atest.metrics import metrics_base
 except ImportError:
     logging.debug('Import metrics fail, can\'t send metrics.')
     metrics_base = None
 
 try:
-    from asuite.metrics import metrics_utils
+    from atest.metrics import metrics_utils
 except ImportError:
     logging.debug('Import metrics fail, can\'t send metrics.')
     metrics_utils = None

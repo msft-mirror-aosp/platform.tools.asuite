@@ -24,19 +24,19 @@ import time
 
 from typing import List
 
-import atest_configs
-import atest_error
-import atest_utils
-import constants
+from atest import atest_configs
+from atest import atest_error
+from atest import atest_utils
+from atest import constants
 
-from atest_enum import DetectType
-from metrics import metrics
-from test_finders import test_info
-from test_finders import test_finder_base
-from test_finders import test_finder_utils
-from test_runners import atest_tf_test_runner
-from test_runners import robolectric_test_runner
-from test_runners import vts_tf_test_runner
+from atest.atest_enum import DetectType
+from atest.metrics import metrics
+from atest.test_finders import test_info
+from atest.test_finders import test_finder_base
+from atest.test_finders import test_finder_utils
+from atest.test_runners import atest_tf_test_runner
+from atest.test_runners import robolectric_test_runner
+from atest.test_runners import vts_tf_test_runner
 
 # These are suites in LOCAL_COMPATIBILITY_SUITE that aren't really suites so
 # we can ignore them.

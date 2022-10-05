@@ -20,14 +20,14 @@ import copy
 import logging
 import os
 
-import atest_utils
-import constants
+from atest import atest_utils
+from atest import constants
 
-from atest_enum import ExitCode
-from logstorage import atest_gcp_utils
-from logstorage import logstorage_utils
-from metrics import metrics
-from test_runners import atest_tf_test_runner
+from atest.atest_enum import ExitCode
+from atest.logstorage import atest_gcp_utils
+from atest.logstorage import logstorage_utils
+from atest.metrics import metrics
+from atest.test_runners import atest_tf_test_runner
 
 class SuitePlanTestRunner(atest_tf_test_runner.AtestTradefedTestRunner):
     """Suite Plan Test Runner class."""

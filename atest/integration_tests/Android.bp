@@ -28,6 +28,7 @@ package {
 
 python_test_host {
     name: "bazel_mode_test",
+    defaults: ["modern_python_path_defaults"],
     srcs: [
         "bazel_mode_test.py",
     ],
@@ -42,6 +43,7 @@ python_test_host {
 
 python_test_host {
     name: "result_compare_test",
+    defaults: ["modern_python_path_defaults"],
     srcs: [
         "result_compare_test.py",
     ],
