@@ -25,10 +25,10 @@ constant, do so with care and run all unittests to make sure nothing breaks.
 
 import os
 
-import constants
+from atest import constants
 
-from test_finders import test_info
-from test_runners import atest_tf_test_runner as atf_tr
+from atest.test_finders import test_info
+from atest.test_runners import atest_tf_test_runner as atf_tr
 
 ROOT = '/'
 MODULE_DIR = 'foo/bar/jank'

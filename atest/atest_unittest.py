@@ -29,13 +29,13 @@ from io import StringIO
 from unittest import mock
 
 # pylint: disable=wrong-import-order
-import atest
-import atest_utils
-import constants
-import module_info
+from atest import atest
+from atest import atest_utils
+from atest import constants
+from atest import module_info
 
-from metrics import metrics_utils
-from test_finders import test_info
+from atest.metrics import metrics_utils
+from atest.test_finders import test_info
 
 #pylint: disable=protected-access
 class AtestUnittests(unittest.TestCase):
@@ -100,7 +100,7 @@ class AtestUnittests(unittest.TestCase):
     @mock.patch('json.load', return_value={})
     @mock.patch('builtins.open', new_callable=mock.mock_open)
     @mock.patch('os.path.isfile', return_value=True)
-    @mock.patch('atest_utils._has_colors', return_value=True)
+    @mock.patch('atest.atest_utils._has_colors', return_value=True)
     @mock.patch.object(module_info.ModuleInfo, 'get_module_info',)
     def test_print_module_info_from_module_name(self, mock_get_module_info,
                                                 _mock_has_colors, _isfile,
@@ -154,7 +154,7 @@ class AtestUnittests(unittest.TestCase):
     @mock.patch('json.load', return_value={})
     @mock.patch('builtins.open', new_callable=mock.mock_open)
     @mock.patch('os.path.isfile', return_value=True)
-    @mock.patch('atest_utils._has_colors', return_value=True)
+    @mock.patch('atest.atest_utils._has_colors', return_value=True)
     @mock.patch.object(module_info.ModuleInfo, 'get_module_info',)
     def test_print_test_info(self, mock_get_module_info, _mock_has_colors,
                              _isfile, _open, _json, _merge):

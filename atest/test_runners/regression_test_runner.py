@@ -16,9 +16,9 @@
 Regression Detection test runner class.
 """
 
-import constants
+from atest import constants
 
-from test_runners import test_runner_base
+from atest.test_runners import test_runner_base
 
 
 class RegressionTestRunner(test_runner_base.TestRunnerBase):

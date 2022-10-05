@@ -24,14 +24,14 @@ import inspect
 import logging
 import sys
 
-import atest_enum
-import constants
+from atest import atest_enum
+from atest import constants
 
-from test_finders import cache_finder
-from test_finders import test_finder_base
-from test_finders import suite_plan_finder
-from test_finders import tf_integration_finder
-from test_finders import module_finder
+from atest.test_finders import cache_finder
+from atest.test_finders import test_finder_base
+from atest.test_finders import suite_plan_finder
+from atest.test_finders import tf_integration_finder
+from atest.test_finders import module_finder
 
 # List of default test finder classes.
 _TEST_FINDERS = {

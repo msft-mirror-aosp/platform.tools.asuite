@@ -31,11 +31,11 @@ import time
 
 from pathlib import Path
 
-import atest_utils as au
-import constants
+from atest import atest_utils as au
+from atest import constants
 
-from atest_enum import ExitCode
-from metrics import metrics_utils
+from atest.atest_enum import ExitCode
+from atest.metrics import metrics_utils
 
 UPDATEDB = 'updatedb'
 LOCATE = 'locate'
