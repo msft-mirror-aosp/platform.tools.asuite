@@ -26,9 +26,9 @@ import unittest
 
 from unittest import mock
 
-from test_finders import test_info
-from test_runners import event_handler
-from test_runners import robolectric_test_runner
+from atest.test_finders import test_info
+from atest.test_runners import event_handler
+from atest.test_runners import robolectric_test_runner
 
 # pylint: disable=protected-access
 class RobolectricTestRunnerUnittests(unittest.TestCase):

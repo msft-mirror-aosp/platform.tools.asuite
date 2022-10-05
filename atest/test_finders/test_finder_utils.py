@@ -34,13 +34,13 @@ import xml.etree.ElementTree as ET
 from contextlib import contextmanager
 from pathlib import Path
 
-import atest_decorator
-import atest_error
-import atest_utils
-import constants
+from atest import atest_decorator
+from atest import atest_error
+from atest import atest_utils
+from atest import constants
 
-from atest_enum import AtestEnum, ExitCode, DetectType
-from metrics import metrics, metrics_utils
+from atest.atest_enum import AtestEnum, ExitCode, DetectType
+from atest.metrics import metrics, metrics_utils
 
 # Helps find apk files listed in a test config (AndroidTest.xml) file.
 # Matches "filename.apk" in <option name="foo", value="filename.apk" />

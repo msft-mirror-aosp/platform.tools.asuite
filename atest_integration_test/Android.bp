@@ -28,6 +28,7 @@ package {
 
 python_test_host {
     name: "atest_normal_mode_integration_test",
+    defaults: ["modern_python_path_defaults"],
     srcs: [
         "atest_normal_mode_integration_test.py",
     ],

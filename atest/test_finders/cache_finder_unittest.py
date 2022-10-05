@@ -23,13 +23,13 @@ import os
 
 from unittest import mock
 
-import atest_utils
-import constants
-import module_info
-import unittest_constants as uc
+from atest import atest_utils
+from atest import constants
+from atest import module_info
+from atest import unittest_constants as uc
 
-from test_finders import cache_finder
-from test_finders import test_info
+from atest.test_finders import cache_finder
+from atest.test_finders import test_info
 
 
 #pylint: disable=protected-access
@@ -64,7 +64,7 @@ class CacheFinderUnittests(unittest.TestCase):
             'platform_testing/tests/example/native']
         mock_get_cache_path.return_value = os.path.join(
             test_cache_root,
-            '9d6d6ce207bc393ccdabe6c30be5211c.cache')
+            '78ea54ef315f5613f7c11dd1a87f10c7.cache')
         self.assertIsNotNone(self.cache_finder.find_test_by_cache(cached_test))
         # Does not hit matched cache file, should return cached test infos.
         mock_get_cache_path.return_value = os.path.join(

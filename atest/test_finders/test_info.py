@@ -18,7 +18,7 @@ TestInfo class.
 
 from collections import namedtuple
 
-import constants
+from atest import constants
 
 
 TestFilterBase = namedtuple('TestFilter', ['class_name', 'methods'])

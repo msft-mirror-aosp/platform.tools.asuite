@@ -29,20 +29,20 @@ from importlib import reload
 from io import StringIO
 from unittest import mock
 
-import atest_arg_parser
-import atest_utils
-import cli_translator as cli_t
-import constants
-import module_info
-import test_finder_handler
-import test_mapping
-import unittest_constants as uc
-import unittest_utils
+from atest import atest_arg_parser
+from atest import atest_utils
+from atest import cli_translator as cli_t
+from atest import constants
+from atest import module_info
+from atest import test_finder_handler
+from atest import test_mapping
+from atest import unittest_constants as uc
+from atest import unittest_utils
 
-from metrics import metrics
-from test_finders import module_finder
-from test_finders import test_finder_base
-from test_finders import test_finder_utils
+from atest.metrics import metrics
+from atest.test_finders import module_finder
+from atest.test_finders import test_finder_base
+from atest.test_finders import test_finder_utils
 
 
 # TEST_MAPPING related consts

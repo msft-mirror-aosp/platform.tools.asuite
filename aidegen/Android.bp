@@ -18,6 +18,7 @@ package {
 
 python_binary_host {
     name: "aidegen",
+    defaults: ["modern_python_path_defaults"],
     // Make aidegen's built name to aidegen-dev
     suffix: "-dev",
     main: "aidegen_main.py",
@@ -37,6 +38,7 @@ python_binary_host {
 
 python_library_host {
     name: "aidegen_lib",
+    defaults: ["modern_python_path_defaults"],
     pkg_path: "aidegen",
     srcs: [
         "**/*.py",
@@ -49,6 +51,7 @@ python_library_host {
 
 python_library_host {
     name: "aidegen_lib_common_util",
+    defaults: ["modern_python_path_defaults"],
     pkg_path: "aidegen",
     srcs: [
         "lib/common_util.py",
@@ -65,6 +68,7 @@ python_library_host {
 
 python_test_host {
     name: "aidegen_unittests",
+    defaults: ["modern_python_path_defaults"],
     main: "aidegen_run_unittests.py",
     pkg_path: "aidegen",
     srcs: [
