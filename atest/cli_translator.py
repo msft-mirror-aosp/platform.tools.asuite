@@ -256,13 +256,6 @@ class CLITranslator:
         if find_test_err_msg:
             print('%s\n' % (atest_utils.colorize(
                 find_test_err_msg, constants.MAGENTA)))
-        else:
-            # TODO: remove "self.mod_info is None" after refactoring module_info
-            if self.mod_info is None or not self.mod_info.force_build:
-                print(constants.REBUILD_MODULE_INFO_MSG.format(
-                    atest_utils.colorize(constants.REBUILD_MODULE_INFO_FLAG,
-                                         constants.RED)))
-            print('')
         return None
 
     def _get_test_infos(self, tests, test_mapping_test_details=None):
