@@ -72,12 +72,12 @@ import zipfile
 
 from collections import OrderedDict
 
-import constants
-import atest_configs
-import atest_utils as au
+from atest import constants
+from atest import atest_configs
+from atest import atest_utils as au
 
-from atest_enum import ExitCode
-from test_runners import test_runner_base
+from atest.atest_enum import ExitCode
+from atest.test_runners import test_runner_base
 
 UNSUPPORTED_FLAG = 'UNSUPPORTED_RUNNER'
 FAILURE_FLAG = 'RUNNER_FAILURE'
@@ -575,7 +575,7 @@ class ResultReporter:
             error_label = au.colorize('(Completed With ERRORS)', constants.RED)
             # Only extract host_log_content if test name is tradefed
             # Import here to prevent circular-import error.
-            from test_runners import atest_tf_test_runner
+            from atest.test_runners import atest_tf_test_runner
             if name == atest_tf_test_runner.AtestTradefedTestRunner.NAME:
                 find_logs = au.find_files(self.log_path,
                                           file_name=constants.TF_HOST_LOG)

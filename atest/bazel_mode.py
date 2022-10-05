@@ -45,15 +45,15 @@ from pathlib import Path
 from types import MappingProxyType
 from typing import Any, Callable, Dict, IO, List, Set
 
-import atest_utils
-import constants
-import module_info
+from atest import atest_utils
+from atest import constants
+from atest import module_info
 
-from atest_enum import ExitCode
-from test_finders import test_finder_base
-from test_finders import test_info
-from test_runners import test_runner_base as trb
-from test_runners import atest_tf_test_runner as tfr
+from atest.atest_enum import ExitCode
+from atest.test_finders import test_finder_base
+from atest.test_finders import test_info
+from atest.test_runners import test_runner_base as trb
+from atest.test_runners import atest_tf_test_runner as tfr
 
 
 _BAZEL_WORKSPACE_DIR = 'atest_bazel_workspace'

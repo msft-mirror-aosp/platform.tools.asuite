@@ -36,7 +36,7 @@ import tempfile
 import time
 import unittest
 
-import constants
+from atest import constants
 
 _TEST_RUN_DIR_PREFIX = 'atest_integration_tests_%s_'
 _LOG_FILE = 'integration_tests.log'

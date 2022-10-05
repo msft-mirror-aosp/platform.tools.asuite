@@ -31,20 +31,20 @@ from functools import partial
 from pathlib import Path
 from typing import Any, List, Tuple
 
-import atest_configs
-import atest_error
-import atest_utils
-import constants
-import module_info
-import result_reporter
+from atest import atest_configs
+from atest import atest_error
+from atest import atest_utils
+from atest import constants
+from atest import module_info
+from atest import result_reporter
 
-from atest_enum import DetectType, ExitCode
-from logstorage import atest_gcp_utils
-from logstorage import logstorage_utils
-from metrics import metrics
-from test_finders import test_finder_utils
-from test_finders import test_info
-from test_runners import test_runner_base as trb
+from atest.atest_enum import DetectType, ExitCode
+from atest.logstorage import atest_gcp_utils
+from atest.logstorage import logstorage_utils
+from atest.metrics import metrics
+from atest.test_finders import test_finder_utils
+from atest.test_finders import test_info
+from atest.test_runners import test_runner_base as trb
 from .event_handler import EventHandler
 
 POLL_FREQ_SECS = 10

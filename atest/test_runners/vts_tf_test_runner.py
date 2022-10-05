@@ -19,11 +19,11 @@ VTS Tradefed test runner class.
 import copy
 import logging
 
-import atest_utils
-import constants
+from atest import atest_utils
+from atest import constants
 
-from atest_enum import ExitCode
-from test_runners import atest_tf_test_runner
+from atest.atest_enum import ExitCode
+from atest.test_runners import atest_tf_test_runner
 
 class VtsTradefedTestRunner(atest_tf_test_runner.AtestTradefedTestRunner):
     """TradeFed Test Runner class."""
