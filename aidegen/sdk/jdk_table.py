@@ -17,7 +17,7 @@
 """Configs the jdk.table.xml.
 
 In order to enable the feature "Attach debugger to Android process" in Android
-Studio or IntelliJ, AIDEGen needs the JDK and Android SDK been set-up. The class
+Studio or IntelliJ, AIDEGen needs the JDK and Android SDK been set up. The class
 JDKTableXML parses the jdk.table.xml to find the existing JDK and Android SDK
 information. If they do not exist, AIDEGen will create them.
 
@@ -44,7 +44,7 @@ from aidegen.lib import xml_util
 from aidegen.sdk import android_sdk
 
 
-class JDKTableXML():
+class JDKTableXML:
     """Configs jdk.table.xml for IntelliJ and Android Studio.
 
     Attributes:
@@ -185,7 +185,7 @@ class JDKTableXML():
         and platform version.
         1. Check if the Android SDK path is valid.
         2. Check if the platform version exists in the Android SDK.
-        The Android SDK version can be used to generate enble_debugger module
+        The Android SDK version can be used to generate enable_debugger module
         when condition 1 and 2 are true.
 
         Returns:
