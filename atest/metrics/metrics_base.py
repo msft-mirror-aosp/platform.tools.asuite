@@ -25,14 +25,14 @@ import subprocess
 import time
 import uuid
 
-import asuite_metrics
-import constants
+from atest import asuite_metrics
+from atest import constants
 
-from proto import clientanalytics_pb2
-from proto import external_user_log_pb2
-from proto import internal_user_log_pb2
+from atest.proto import clientanalytics_pb2
+from atest.proto import external_user_log_pb2
+from atest.proto import internal_user_log_pb2
 
-from . import clearcut_client
+from atest.metrics import clearcut_client
 
 INTERNAL_USER = 0
 EXTERNAL_USER = 1

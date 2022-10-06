@@ -30,9 +30,9 @@ import os
 from collections import namedtuple
 from typing import Any, Dict
 
-import atest_error
-import atest_utils
-import constants
+from atest import atest_error
+from atest import atest_utils
+from atest import constants
 
 OLD_OUTPUT_ENV_VAR = 'ATEST_OLD_OUTPUT'
 
