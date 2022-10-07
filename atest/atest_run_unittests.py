@@ -23,20 +23,12 @@ import unittest
 
 from importlib import import_module
 
-import atest_utils
+from atest import atest_utils
 
 COVERAGE = 'coverage'
 RUN_COVERAGE = COVERAGE in sys.argv
 SHOW_MISSING = '--show-missing' in sys.argv
-BUILD_TOP = os.path.join(
-    os.path.dirname(os.path.realpath(__file__)),
-    '../../..')
-# list of 3rd party libraries
-_PYFAKEFS = os.path.join(BUILD_TOP, 'external', 'python', 'pyfakefs')
-EXTERNAL_PYTHONPATHS = [_PYFAKEFS]
-for lib in EXTERNAL_PYTHONPATHS:
-    if os.path.exists(lib):
-        sys.path.insert(0, lib)
+
 # Setup logging to be silent so unittests can pass through TF.
 logging.disable(logging.ERROR)
 
@@ -51,9 +43,10 @@ def get_test_modules():
         List of strings (the testable module import path).
     """
     testable_modules = []
-    base_path = os.path.dirname(os.path.realpath(__file__))
+    package = os.path.dirname(os.path.realpath(__file__))
+    base_path = os.path.dirname(package)
 
-    for dirpath, _, files in os.walk(base_path):
+    for dirpath, _, files in os.walk(package):
         for f in files:
             if f.endswith("_unittest.py"):
                 # Now transform it into a no-absolute import path.

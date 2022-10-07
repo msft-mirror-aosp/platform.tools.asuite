@@ -22,11 +22,11 @@ import unittest
 
 from unittest import mock
 
-import atest_error
-import test_finder_handler
+from atest import atest_error
+from atest import test_finder_handler
 
-from test_finders import test_info
-from test_finders import test_finder_base
+from atest.test_finders import test_info
+from atest.test_finders import test_finder_base
 
 #pylint: disable=protected-access
 REF_TYPE = test_finder_handler._REFERENCE_TYPE
@@ -75,15 +75,15 @@ class TestFinderHandlerUnittests(unittest.TestCase):
         self.maxDiff = None
         self.empty_mod_info = None
         # We want to control the finders we return.
-        mock.patch('test_finder_handler._get_test_finders',
+        mock.patch('atest.test_finder_handler._get_test_finders',
                    lambda: _TEST_FINDERS_PATCH).start()
         # Since we're going to be comparing instance objects, we'll need to keep
         # track of the objects so they align.
-        mock.patch('test_finder_handler._get_finder_instance_dict',
+        mock.patch('atest.test_finder_handler._get_finder_instance_dict',
                    lambda x: _FINDER_INSTANCES).start()
         # We want to mock out the default find methods to make sure we got all
         # the methods we expect.
-        mock.patch('test_finder_handler._get_default_find_methods',
+        mock.patch('atest.test_finder_handler._get_default_find_methods',
                    lambda x, y: [test_finder_base.Finder(
                        _FINDER_INSTANCES[_EXAMPLE_FINDER_A],
                        ExampleFinderA.unregistered_find_method_from_example_finder,
