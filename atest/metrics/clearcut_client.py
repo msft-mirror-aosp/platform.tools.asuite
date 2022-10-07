@@ -40,7 +40,7 @@ except ImportError:
     from urllib2 import HTTPError
     from urllib2 import URLError
 
-from proto import clientanalytics_pb2
+from atest.proto import clientanalytics_pb2
 
 _CLEARCUT_PROD_URL = 'https://play.googleapis.com/log'
 _DEFAULT_BUFFER_SIZE = 100  # Maximum number of events to be buffered.

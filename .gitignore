@@ -11,9 +11,6 @@
 **/.idea
 **/*.iml
 
-# proto files for atest-src
-atest/proto/*.py
-
 # Exceptions
 !aidegen/test_data/*.iml
 !aidegen/test_data/.idea
