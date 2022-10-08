@@ -377,9 +377,6 @@ DEFAULT_EXCLUDE_NOT_PARAS = {'not_' + TF_PARA_INSTANT_APP,
                             'not_' + TF_PARA_MULTIABI}
 
 # ATest integration test related constants.
-INTEGRATION_TESTS = [os.path.join(
-    os.environ.get(ANDROID_BUILD_TOP, os.getcwd()),
-    'tools/asuite/atest/test_plans/INTEGRATION_TESTS')]
 VERIFY_DATA_PATH = os.path.join(
     os.environ.get(ANDROID_BUILD_TOP, os.getcwd()),
     'tools/asuite/atest/test_data/test_commands.json')
