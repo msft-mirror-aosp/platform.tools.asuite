@@ -34,6 +34,7 @@ import com.android.tradefed.result.ITestInvocationListener;
 import com.android.tradefed.result.error.ErrorIdentifier;
 import com.android.tradefed.result.error.TestErrorIdentifier;
 import com.android.tradefed.result.proto.TestRecordProto.FailureStatus;
+import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableMap;
 
 import org.junit.Before;
@@ -46,10 +47,13 @@ import org.mockito.ArgumentMatcher;
 
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
+import java.io.File;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.util.Collections;
 import java.util.concurrent.TimeUnit;
 import java.util.HashMap;
 import java.util.Map;
@@ -67,6 +71,7 @@ public final class BazelTestTest {
     private static final String ARCHIVE_NAME = "atest_bazel_workspace.tar.gz";
     private static final String BAZEL_TEST_TARGETS_OPTION = "bazel-test-target-patterns";
     private static final String BAZEL_WORKSPACE_ARCHIVE_OPTION = "bazel-workspace-archive";
+    private static final String BAZEL_JDK_RELATIVE_PATH = "prebuilts/jdk/bin";
 
     @Rule public final TemporaryFolder tempDir = new TemporaryFolder();
 
@@ -114,11 +119,35 @@ public final class BazelTestTest {
     }
 
     @Test
+    public void systemPathSet_jdkAddedToPath() throws Exception {
+        TestProcessStarter processStarter = spy(newTestProcessStarter());
+        BazelTest bazelTest =
+                newBazelTestWithProcessStarterAndEnvironment(
+                        processStarter, ImmutableMap.of("PATH", "/bin"));
+
+        bazelTest.run(mTestInfo, mMockListener);
+
+        verify(processStarter).start(eq(BazelTest.RUN_TESTS), pathContainsJdkEntry());
+    }
+
+    @Test
+    public void systemPathUnset_jdkAddedToPath() throws Exception {
+        TestProcessStarter processStarter = spy(newTestProcessStarter());
+        BazelTest bazelTest =
+                newBazelTestWithProcessStarterAndEnvironment(
+                        processStarter, Collections.emptyMap());
+
+        bazelTest.run(mTestInfo, mMockListener);
+
+        verify(processStarter).start(eq(BazelTest.RUN_TESTS), pathContainsJdkEntry());
+    }
+
+    @Test
     public void targetsNotSet_testsAllTargets() throws Exception {
         String targetName = "customTestTarget";
         TestProcessStarter processStarter = spy(newTestProcessStarter());
         processStarter.put(BazelTest.QUERY_TARGETS, newPassingProcessWithStdout(targetName));
-        BazelTest bazelTest = newBazelTest(processStarter);
+        BazelTest bazelTest = newBazelTestWithProcessStarter(processStarter);
 
         bazelTest.run(mTestInfo, mMockListener);
 
@@ -129,7 +158,7 @@ public final class BazelTestTest {
     public void archiveExtractionFails_runAborted() throws Exception {
         TestProcessStarter processStarter = newTestProcessStarter();
         processStarter.put(BazelTest.EXTRACT_ARCHIVE, newFailingProcess());
-        BazelTest bazelTest = newBazelTest(processStarter);
+        BazelTest bazelTest = newBazelTestWithProcessStarter(processStarter);
 
         bazelTest.run(mTestInfo, mMockListener);
 
@@ -140,7 +169,7 @@ public final class BazelTestTest {
     public void bazelQueryFails_runAborted() throws Exception {
         TestProcessStarter processStarter = newTestProcessStarter();
         processStarter.put(BazelTest.QUERY_TARGETS, newFailingProcess());
-        BazelTest bazelTest = newBazelTest(processStarter);
+        BazelTest bazelTest = newBazelTestWithProcessStarter(processStarter);
 
         bazelTest.run(mTestInfo, mMockListener);
 
@@ -151,7 +180,7 @@ public final class BazelTestTest {
     public void testTimeout_causesTestFailure() throws Exception {
         TestProcessStarter processStarter = newTestProcessStarter();
         processStarter.put(BazelTest.RUN_TESTS, newEternalProcess());
-        BazelTest bazelTest = newBazelTest(processStarter);
+        BazelTest bazelTest = newBazelTestWithProcessStarter(processStarter);
 
         bazelTest.run(mTestInfo, mMockListener);
 
@@ -161,7 +190,7 @@ public final class BazelTestTest {
     @Test
     public void customTargetOption_testsCustomTargets() throws Exception {
         TestProcessStarter processStarter = spy(newTestProcessStarter());
-        BazelTest bazelTest = newBazelTest(processStarter);
+        BazelTest bazelTest = newBazelTestWithProcessStarter(processStarter);
         String targetName = "//my/custom:test";
         OptionSetter setter = new OptionSetter(bazelTest);
         setter.setOptionValue(BAZEL_TEST_TARGETS_OPTION, targetName);
@@ -175,7 +204,7 @@ public final class BazelTestTest {
     public void queryStdoutEmpty_abortsRun() throws Exception {
         TestProcessStarter processStarter = newTestProcessStarter();
         processStarter.put(BazelTest.QUERY_TARGETS, newPassingProcessWithStdout(""));
-        BazelTest bazelTest = newBazelTest(processStarter);
+        BazelTest bazelTest = newBazelTestWithProcessStarter(processStarter);
 
         bazelTest.run(mTestInfo, mMockListener);
 
@@ -232,16 +261,20 @@ public final class BazelTestTest {
         setter.setOptionValue(BAZEL_WORKSPACE_ARCHIVE_OPTION, ARCHIVE_NAME);
     }
 
-    private BazelTest newBazelTest(BazelTest.ProcessStarter starter) throws Exception {
-        BazelTest bazelTest = new BazelTest(starter, mEnvironment, mTempPath);
+    private BazelTest newBazelTestWithProcessStarter(BazelTest.ProcessStarter starter)
+            throws Exception {
+        return newBazelTestWithProcessStarterAndEnvironment(starter, mEnvironment);
+    }
+
+    private BazelTest newBazelTestWithProcessStarterAndEnvironment(
+            BazelTest.ProcessStarter starter, Map<String, String> environment) throws Exception {
+        BazelTest bazelTest = new BazelTest(starter, environment, mTempPath);
         setBazelArchiveOption(bazelTest);
         return bazelTest;
     }
 
     private BazelTest newBazelTest() throws Exception {
-        BazelTest bazelTest = new BazelTest(newTestProcessStarter(), mEnvironment, mTempPath);
-        setBazelArchiveOption(bazelTest);
-        return bazelTest;
+        return newBazelTestWithProcessStarterAndEnvironment(newTestProcessStarter(), mEnvironment);
     }
 
     private static FailureDescription hasErrorIdentifier(ErrorIdentifier error) {
@@ -270,6 +303,22 @@ public final class BazelTestTest {
                     @Override
                     public boolean matches(ProcessBuilder right) {
                         return right.command().contains(element);
+                    }
+                });
+    }
+
+    private static ProcessBuilder pathContainsJdkEntry() {
+        return argThat(
+                new ArgumentMatcher<ProcessBuilder>() {
+                    @Override
+                    public boolean matches(ProcessBuilder right) {
+                        return Splitter.on(File.pathSeparator)
+                                .splitToList(right.environment().getOrDefault("PATH", ""))
+                                .stream()
+                                .map(s -> Paths.get(s))
+                                .filter(s -> s.endsWith(BAZEL_JDK_RELATIVE_PATH))
+                                .findFirst()
+                                .isPresent();
                     }
                 });
     }
