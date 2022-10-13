@@ -203,7 +203,7 @@ public final class BazelTest implements IRemoteTest {
                 createTemporaryDirectory(String.format("%s-bazel-tmp-out", tmpDirPrefix));
 
         // Append the JDK from the workspace archive to PATH.
-        Joiner joiner = Joiner.on(";").skipNulls();
+        Joiner joiner = Joiner.on(File.pathSeparator).skipNulls();
         String path =
                 joiner.join(
                         workspaceDirectory.resolve("prebuilts/jdk/bin").toAbsolutePath().toString(),
