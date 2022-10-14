@@ -26,6 +26,7 @@ atest is designed to support any test types that can be ran by TradeFederation.
 # pylint: disable=line-too-long
 # pylint: disable=no-member
 # pylint: disable=too-many-lines
+# pylint: disable=wrong-import-position
 
 from __future__ import print_function
 
