@@ -130,17 +130,21 @@ class GCPHelper():
     def _run_auth_flow(self, storage):
         """Get user oauth2 credentials.
 
+        Using the loopback IP address flow for desktop clients.
+
         Args:
             storage: GCP storage object.
         Returns:
             An oauth2client.OAuth2Credentials instance.
         """
-        flags = RunFlowFlags(browser_auth=False)
+        flags = RunFlowFlags(browser_auth=True)
+        _REDIRECT_URI = 'http://localhost:8080'
         flow = oauth2_client.OAuth2WebServerFlow(
             client_id=self.client_id,
             client_secret=self.client_secret,
             scope=self.scope,
-            user_agent=self.user_agent)
+            user_agent=self.user_agent,
+            redirect_uri=f'{_REDIRECT_URI}')
         credentials = oauth2_tools.run_flow(
             flow=flow, storage=storage, flags=flags)
         return credentials
