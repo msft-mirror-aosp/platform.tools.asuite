@@ -1,7 +1,7 @@
 # TODO (b/121362882): Add deviceless tests when dry-run is ready.
 ###[Test Finder: MODULE, Test Runner:AtestTradefedTestRunner]###
 ###Purpose: Test with finder: MODULE and runner: AtestTradefedTestRunner###
-#HelloWorldTests
+HelloWorldTests
 hello_world_test
 
 
