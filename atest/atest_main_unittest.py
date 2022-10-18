@@ -29,7 +29,7 @@ from io import StringIO
 from unittest import mock
 
 # pylint: disable=wrong-import-order
-from atest import atest
+from atest import atest_main
 from atest import atest_utils
 from atest import constants
 from atest import module_info
@@ -39,17 +39,17 @@ from atest.test_finders import test_info
 
 #pylint: disable=protected-access
 class AtestUnittests(unittest.TestCase):
-    """Unit tests for atest.py"""
+    """Unit tests for atest_main.py"""
 
     @mock.patch('os.environ.get', return_value=None)
     def test_missing_environment_variables_uninitialized(self, _):
         """Test _has_environment_variables when no env vars."""
-        self.assertTrue(atest._missing_environment_variables())
+        self.assertTrue(atest_main._missing_environment_variables())
 
     @mock.patch('os.environ.get', return_value='out/testcases/')
     def test_missing_environment_variables_initialized(self, _):
         """Test _has_environment_variables when env vars."""
-        self.assertFalse(atest._missing_environment_variables())
+        self.assertFalse(atest_main._missing_environment_variables())
 
     def test_parse_args(self):
         """Test _parse_args parses command line args."""
@@ -61,13 +61,13 @@ class AtestUnittests(unittest.TestCase):
 
         # Test out test and custom args are properly retrieved.
         args = [test_one, test_two, '--', custom_arg, custom_arg_val]
-        parsed_args = atest._parse_args(args)
+        parsed_args = atest_main._parse_args(args)
         self.assertEqual(parsed_args.tests, [test_one, test_two])
         self.assertEqual(parsed_args.custom_args, [custom_arg, custom_arg_val])
 
         # Test out custom positional args with no test args.
         args = ['--', pos_custom_arg, custom_arg_val]
-        parsed_args = atest._parse_args(args)
+        parsed_args = atest_main._parse_args(args)
         self.assertEqual(parsed_args.tests, [])
         self.assertEqual(parsed_args.custom_args, [pos_custom_arg,
                                                    custom_arg_val])
@@ -90,9 +90,9 @@ class AtestUnittests(unittest.TestCase):
                 args = [tm_option, no_tm_option]
                 if no_tm_option_value is not None:
                     args.append(no_tm_option_value)
-                parsed_args = atest._parse_args(args)
+                parsed_args = atest_main._parse_args(args)
                 self.assertFalse(
-                    atest._has_valid_test_mapping_args(parsed_args),
+                    atest_main._has_valid_test_mapping_args(parsed_args),
                     'Failed to validate: %s' % args)
 
     @mock.patch.object(module_info.ModuleInfo, '_merge_build_system_infos')
@@ -122,7 +122,7 @@ class AtestUnittests(unittest.TestCase):
         mod_info = module_info.ModuleInfo(module_file='/somewhere/module-info')
         # Check return value = True, since 'mod_one' can be found.
         self.assertTrue(
-            atest._print_module_info_from_module_name(mod_info, mod_one_name))
+            atest_main._print_module_info_from_module_name(mod_info, mod_one_name))
         # Assign sys.stdout back to default.
         sys.stdout = sys.__stdout__
         correct_output = ('\x1b[1;32mmod1\x1b[0m\n'
@@ -142,7 +142,7 @@ class AtestUnittests(unittest.TestCase):
         sys.stdout = capture_output
         # Check return value = False, since 'mod_one' can NOT be found.
         self.assertFalse(
-            atest._print_module_info_from_module_name(mod_info, mod_one_name))
+            atest_main._print_module_info_from_module_name(mod_info, mod_one_name))
         # Assign sys.stdout back to default.
         sys.stdout = sys.__stdout__
         null_output = ''
@@ -195,7 +195,7 @@ class AtestUnittests(unittest.TestCase):
         capture_output = StringIO()
         sys.stdout = capture_output
         mod_info = module_info.ModuleInfo(module_file='/somewhere/module-info')
-        atest._print_test_info(mod_info, test_infos)
+        atest_main._print_test_info(mod_info, test_infos)
         # Assign sys.stdout back to default.
         sys.stdout = sys.__stdout__
         correct_output = ('\x1b[1;32mmod1\x1b[0m\n'
@@ -244,47 +244,47 @@ class AtestUnittests(unittest.TestCase):
             install_locations=set(['host', 'device']))
 
         # $atest <Both-support>
-        parsed_args = atest._parse_args(args)
+        parsed_args = atest_main._parse_args(args)
         test_infos = [host_test_info]
-        atest._validate_exec_mode(parsed_args, test_infos)
+        atest_main._validate_exec_mode(parsed_args, test_infos)
         self.assertFalse(parsed_args.host)
 
         # $atest <Both-support> with host_tests set to True
-        parsed_args = atest._parse_args([])
+        parsed_args = atest_main._parse_args([])
         test_infos = [host_test_info]
-        atest._validate_exec_mode(parsed_args, test_infos, host_tests=True)
+        atest_main._validate_exec_mode(parsed_args, test_infos, host_tests=True)
         # Make sure the host option is not set.
         self.assertFalse(parsed_args.host)
 
         # $atest <Both-support> with host_tests set to False
-        parsed_args = atest._parse_args([])
+        parsed_args = atest_main._parse_args([])
         test_infos = [host_test_info]
-        atest._validate_exec_mode(parsed_args, test_infos, host_tests=False)
+        atest_main._validate_exec_mode(parsed_args, test_infos, host_tests=False)
         self.assertFalse(parsed_args.host)
 
         # $atest <device-only> with host_tests set to False
-        parsed_args = atest._parse_args([])
+        parsed_args = atest_main._parse_args([])
         test_infos = [device_test_info]
-        atest._validate_exec_mode(parsed_args, test_infos, host_tests=False)
+        atest_main._validate_exec_mode(parsed_args, test_infos, host_tests=False)
         # Make sure the host option is not set.
         self.assertFalse(parsed_args.host)
 
         # $atest <device-only> with host_tests set to True
-        parsed_args = atest._parse_args([])
+        parsed_args = atest_main._parse_args([])
         test_infos = [device_test_info]
-        self.assertRaises(SystemExit, atest._validate_exec_mode,
+        self.assertRaises(SystemExit, atest_main._validate_exec_mode,
                           parsed_args, test_infos, host_tests=True)
 
         # $atest <Both-support>
-        parsed_args = atest._parse_args([])
+        parsed_args = atest_main._parse_args([])
         test_infos = [both_test_info]
-        atest._validate_exec_mode(parsed_args, test_infos)
+        atest_main._validate_exec_mode(parsed_args, test_infos)
         self.assertFalse(parsed_args.host)
 
         # $atest <no_install_test_info>
-        parsed_args = atest._parse_args([])
+        parsed_args = atest_main._parse_args([])
         test_infos = [no_install_test_info]
-        atest._validate_exec_mode(parsed_args, test_infos)
+        atest_main._validate_exec_mode(parsed_args, test_infos)
         self.assertFalse(parsed_args.host)
 
     def test_make_test_run_dir(self):
@@ -293,10 +293,10 @@ class AtestUnittests(unittest.TestCase):
         constants.ATEST_RESULT_ROOT = tmp_dir
         date_time = None
 
-        work_dir = atest.make_test_run_dir()
+        work_dir = atest_main.make_test_run_dir()
         folder_name = os.path.basename(work_dir)
         date_time = datetime.datetime.strptime('_'.join(folder_name.split('_')[0:2]),
-                                               atest.TEST_RUN_DIR_PREFIX)
+                                               atest_main.TEST_RUN_DIR_PREFIX)
         reload(constants)
         self.assertTrue(date_time)
 

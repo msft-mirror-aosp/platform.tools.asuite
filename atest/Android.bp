@@ -35,7 +35,7 @@ python_binary_host {
     name: "atest",
     defaults: ["modern_python_path_defaults"],
     pkg_path: "atest",
-    main: "atest.py",
+    main: "atest_main.py",
     srcs: [
         "**/*.py",
     ],
@@ -43,6 +43,8 @@ python_binary_host {
         "*_unittest.py",
         "*/*_unittest.py",
         "asuite_lib_test/*.py",
+        "proto/*.py",
+        "tf_proto/*.py",
     ],
     libs: [
         "asuite_proto",
@@ -52,7 +54,6 @@ python_binary_host {
         "py-six",
     ],
     data: [
-        "tools/updatedb_darwin.sh",
         "bazel/resources/**/*",
     ],
     // Make atest's built name to atest-dev
@@ -116,13 +117,14 @@ python_test_host {
         unit_test: true,
     },
     data: [
-        "tools/updatedb_darwin.sh",
         "unittest_data/**/*",
         "unittest_data/**/.*",
     ],
     exclude_srcs: [
         "asuite_lib_test/*.py",
         "tools/atest_updatedb_unittest.py",
+        "proto/*.py",
+        "tf_proto/*.py",
     ],
     libs: [
         "asuite_proto",
