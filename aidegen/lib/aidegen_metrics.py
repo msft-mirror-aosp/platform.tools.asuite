@@ -23,8 +23,8 @@ import sys
 from aidegen import constant
 from aidegen.lib import common_util
 
-# When combine 3 paths in a single try block, it's hard for the coverage
-# counting algorithm to judge the each real path clearly. So, separating them
+# When combining 3 paths in a single try block, it's hard for the coverage
+# counting algorithm to judge each real path clearly. So, separating them
 # into its own try block will increase the coverage.
 
 # Original code as follows,
@@ -137,7 +137,7 @@ def performance_metrics(process_type, duration):
         return False
 
     metrics.LocalDetectEvent(
-        detect_type = process_type,
-        result = int(duration)
+        detect_type=process_type,
+        result=int(duration)
         )
     return True
