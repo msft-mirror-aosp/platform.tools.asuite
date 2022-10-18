@@ -104,7 +104,7 @@ function _atest_main() {
 
     function atest-src() {
         echo "atest-src is deprecated, use m atest && atest-dev instead" >&2
-        exit 1
+        return 1
     }
 
     # Use prebuilt python3 for atest-dev
