@@ -28,8 +28,10 @@ Utility functions for atest.
 """
 from __future__ import print_function
 
-import os
+import getpass
 import logging
+import os
+import subprocess
 import uuid
 try:
     import httplib2
@@ -117,6 +119,13 @@ class GCPHelper():
         Returns:
             An oauth2client.OAuth2Credentials instance.
         """
+        # SSO auth
+        token = self._get_sso_access_token()
+        credentials = oauth2_client.AccessTokenCredentials(
+            token , 'atest')
+        if credentials:
+            return credentials
+        # GCP auth flow
         credentials = self.get_refreshed_credential_from_file(creds_file_path)
         if not credentials:
             storage = multistore_file.get_credential_storage(
@@ -149,6 +158,26 @@ class GCPHelper():
             flow=flow, storage=storage, flags=flags)
         return credentials
 
+    def _get_sso_access_token(self):
+        """Use stubby command line to exchange corp sso to a scoped oauth
+        token.
+
+        Returns:
+            A token string.
+        """
+        if not constants.TOKEN_EXCHANGE_COMMAND:
+            return None
+
+        request = constants.TOKEN_EXCHANGE_REQUEST.format(
+            user=getpass.getuser(), scope=constants.SCOPE)
+        # The output format is: oauth2_token: "<TOKEN>"
+        return subprocess.run(constants.TOKEN_EXCHANGE_COMMAND,
+                              input=request,
+                              check=True,
+                              text=True,
+                              shell=True,
+                              stdout=subprocess.PIPE).stdout.split('"')[1]
+
 
 def do_upload_flow(extra_args):
     """Run upload flow.
@@ -171,7 +200,10 @@ def do_upload_flow(extra_args):
         if not os.path.exists(os.path.dirname(constants.TOKEN_FILE_PATH)):
             os.makedirs(os.path.dirname(constants.TOKEN_FILE_PATH))
         with open(constants.TOKEN_FILE_PATH, 'w') as token_file:
-            token_file.write(creds.token_response['access_token'])
+            if creds.token_response:
+                token_file.write(creds.token_response['access_token'])
+            else:
+                token_file.write(creds.access_token)
         return creds, inv
     return None, None
 
