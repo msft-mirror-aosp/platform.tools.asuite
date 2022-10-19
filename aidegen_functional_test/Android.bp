@@ -18,7 +18,6 @@ package {
 
 python_binary_host {
     name: "aidegen_functional_test",
-    defaults: ["modern_python_path_defaults"],
     suffix: "-dev",
     pkg_path: "aidegen_functional_test",
     main: "aidegen_functional_test_main.py",
