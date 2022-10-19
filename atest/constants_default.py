@@ -336,6 +336,11 @@ UPLOAD_TEST_RESULT_MSG = 'Upload test result?'
 DISCOVERY_SERVICE = ''
 STORAGE2_TEST_URI = ''
 
+# SSO constants.
+TOKEN_EXCHANGE_COMMAND = ''
+TOKEN_EXCHANGE_REQUEST = ''
+SCOPE = ''
+
 # Example arguments used in ~/.atest/config
 ATEST_EXAMPLE_ARGS = ('## Specify only one option per line; any test name/path will be ignored automatically.\n'
                       '## Option that follows a "#" will be ignored.\n'
