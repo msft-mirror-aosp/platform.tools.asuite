@@ -52,13 +52,11 @@ from atest import atest_decorator
 from atest import atest_error
 from atest import constants
 
-_BASH_RESET_CODE = '\033[0m\n'
-
-from tools.asuite.atest.tf_proto import test_record_pb2
-
 from atest.metrics import metrics
 from atest.metrics import metrics_utils
+from atest.tf_proto import test_record_pb2
 
+_BASH_RESET_CODE = '\033[0m\n'
 # Arbitrary number to limit stdout for failed runs in _run_limited_output.
 # Reason for its use is that the make command itself has its own carriage
 # return output mechanism that when collected line by line causes the streaming

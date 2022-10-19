@@ -38,3 +38,21 @@ java_library_host {
         include_dirs: ["external/protobuf/src"],
     },
 }
+
+python_library_host {
+    name: "tradefed-protos-py",
+    defaults: ["modern_python_path_defaults"],
+    srcs: [
+        "atest/tf_proto/*.proto",
+    ],
+    visibility: [
+        "//tools/asuite/atest",
+    ],
+    libs: [
+        "libprotobuf-python",
+    ],
+    proto: {
+        include_dirs: ["external/protobuf/src"],
+        canonical_path_from_root: false,
+    },
+}
