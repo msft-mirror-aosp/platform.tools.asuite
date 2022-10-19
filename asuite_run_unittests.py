@@ -30,7 +30,7 @@ import sys
 ASUITE_HOME = os.path.dirname(os.path.realpath(__file__))
 ASUITE_PLUGIN_PATH = os.path.join(ASUITE_HOME, "asuite_plugin")
 # Temporarily running full module testing for atest due to b/248507158.
-ATEST_CMD = "atest atest_unittests --host --no-bazel-mode"
+ATEST_CMD = "atest atest_unittests --host"
 AIDEGEN_CMD = "atest aidegen_unittests --host"
 PLUGIN_LIB_CMD = "atest plugin_lib_unittests --host"
 GRADLE_TEST = "/gradlew test"
