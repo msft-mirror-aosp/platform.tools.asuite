@@ -15,8 +15,11 @@
 # limitations under the License.
 """The iml/xml templates of AIDEgen."""
 
+# pylint: disable=line-too-long
+
 # Content of iml file.
-FILE_IML = """<?xml version="1.0" encoding="UTF-8"?>
+FILE_IML = """\
+<?xml version="1.0" encoding="UTF-8"?>
 <module type="JAVA_MODULE" version="4">
 @FACETS@
     <component name="NewModuleRootManager" inherit-compiler-output="true">
@@ -30,7 +33,8 @@ FILE_IML = """<?xml version="1.0" encoding="UTF-8"?>
 </module>
 """
 # TODO(b/153704028): Refactor to create iml file.
-IML = """<?xml version="1.0" encoding="UTF-8"?>
+IML = """\
+<?xml version="1.0" encoding="UTF-8"?>
 <module type="JAVA_MODULE" version="4">{FACET}
     <component name="NewModuleRootManager" inherit-compiler-output="true">
         <exclude-output />{SOURCES}
@@ -70,7 +74,8 @@ DEPENDENCIES = """
         <orderEntry type="module" module-name="{MODULE}" />"""
 
 # The template content of modules.xml.
-XML_MODULES = """<?xml version="1.0" encoding="UTF-8"?>
+XML_MODULES = """\
+<?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
     <component name="ProjectModuleManager">
         <modules>
@@ -82,7 +87,8 @@ XML_MODULES = """<?xml version="1.0" encoding="UTF-8"?>
 """
 
 # The template content of vcs.xml.
-XML_VCS = """<?xml version="1.0" encoding="UTF-8"?>
+XML_VCS = """\
+<?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
     <component name="VcsDirectoryMappings">
 {GIT_MAPPINGS}
@@ -91,7 +97,8 @@ XML_VCS = """<?xml version="1.0" encoding="UTF-8"?>
 """
 
 # The template content of misc.xml
-XML_MISC = """<?xml version="1.0" encoding="UTF-8"?>
+XML_MISC = """\
+<?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
     <component name="ConfigCheckProjectState">
         <option name="disabledCheckers">
@@ -143,11 +150,11 @@ XML_MISC = """<?xml version="1.0" encoding="UTF-8"?>
                project-jdk-type="JavaSDK"/>
     <component name="WebServicesPlugin" addRequiredLibraries="true"/>
 </project>
-
 """
 
 # The template content of compiler.xml
-XML_COMPILER = """<?xml version="1.0" encoding="UTF-8"?>
+XML_COMPILER = """\
+<?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
     <component name="CompilerConfiguration">
         <option name="DEFAULT_COMPILER" value="Javac"/>
@@ -173,7 +180,8 @@ XML_COMPILER = """<?xml version="1.0" encoding="UTF-8"?>
 """
 
 # The template content of codeStyleConfig.xml
-XML_CODE_STYLE_CONFIG = """<component name="ProjectCodeStyleConfiguration">
+XML_CODE_STYLE_CONFIG = """\
+<component name="ProjectCodeStyleConfiguration">
   <state>
     <option name="USE_PER_PROJECT_SETTINGS" value="true" />
   </state>
@@ -181,7 +189,8 @@ XML_CODE_STYLE_CONFIG = """<component name="ProjectCodeStyleConfiguration">
 """
 
 # The template content of Apache_2.xml
-XML_APACHE_2 = """<component name="CopyrightManager">
+XML_APACHE_2 = """\
+<component name="CopyrightManager">
     <copyright>
         <option name="notice"
                 value="Copyright (C) &amp;#36;today.year The Android Open Source Project&#10;&#10;Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);&#10;you may not use this file except in compliance with the License.&#10;You may obtain a copy of the License at&#10;&#10;     http://www.apache.org/licenses/LICENSE-2.0&#10;&#10;Unless required by applicable law or agreed to in writing, software&#10;distributed under the License is distributed on an &quot;AS IS&quot; BASIS,&#10;WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.&#10;See the License for the specific language governing permissions and&#10;limitations under the License."/>
@@ -194,7 +203,8 @@ XML_APACHE_2 = """<component name="CopyrightManager">
 """
 
 # The template content of copyright/profiles_settings.xml
-XML_COPYRIGHT_PROFILES_SETTINGS = """<component name="CopyrightManager">
+XML_COPYRIGHT_PROFILES_SETTINGS = """\
+<component name="CopyrightManager">
     <settings default="">
         <module2copyright>
             <element module="Project Files" copyright="Apache 2"/>
@@ -204,7 +214,8 @@ XML_COPYRIGHT_PROFILES_SETTINGS = """<component name="CopyrightManager">
 """
 
 # The template content of inspectionProfiles/profiles_settings.xml
-XML_INSPECTION_PROFILES_SETTINGS = """<component name="InspectionProjectProfileManager">
+XML_INSPECTION_PROFILES_SETTINGS = """\
+<component name="InspectionProjectProfileManager">
   <settings>
     <option name="PROJECT_PROFILE" value="Aidegen_Inspections" />
     <version value="1.0" />
@@ -215,7 +226,8 @@ XML_INSPECTION_PROFILES_SETTINGS = """<component name="InspectionProjectProfileM
 # The template content of inspectionProfiles/Aidegen_Inspections.xml
 # N.b. this minimal configuration leaves most of the options unspecified,
 # which means that they will be filled with default values set by Jetbrains.
-XML_INSPECTIONS = """<component name="InspectionProjectProfileManager">
+XML_INSPECTIONS = """\
+<component name="InspectionProjectProfileManager">
   <profile version="1.0">
     <option name="myName" value="Aidegen_Inspections" />
     <inspection_tool class="JavaDoc" enabled="true" level="WARNING" enabled_by_default="true">
@@ -229,7 +241,8 @@ XML_INSPECTIONS = """<component name="InspectionProjectProfileManager">
 """
 
 # The configuration of JDK on Linux.
-LINUX_JDK_XML = """    <jdk version="2">
+LINUX_JDK_XML = """\
+    <jdk version="2">
       <name value="JDK11" />
       <type value="JavaSDK" />
       <version value="java version &quot;11.0.15&quot;" />
@@ -330,7 +343,8 @@ LINUX_JDK_XML = """    <jdk version="2">
 """
 
 # The configuration of JDK on Mac.
-MAC_JDK_XML = """    <jdk version="2">
+MAC_JDK_XML = """\
+    <jdk version="2">
       <name value="JDK11" />
       <type value="JavaSDK" />
       <version value="java version &quot;11.0.15&quot;" />
@@ -431,7 +445,8 @@ MAC_JDK_XML = """    <jdk version="2">
 """
 
 # The file's header of CLion project file.
-CMAKELISTS_HEADER = """# THIS FILE WAS AUTOMATICALLY GENERATED!
+CMAKELISTS_HEADER = """\
+# THIS FILE WAS AUTOMATICALLY GENERATED!
 # ANY MODIFICATION WILL BE OVERWRITTEN!
 
 # To improve project view in Clion    :
@@ -443,7 +458,8 @@ set(ANDROID_ROOT @ANDROIDROOT@)
 """
 
 # The configuration of Android SDK.
-ANDROID_SDK_XML = """    <jdk version="2">
+ANDROID_SDK_XML = """\
+    <jdk version="2">
       <name value="Android API {CODE_NAME} Platform" />
       <type value="Android SDK" />
       <version value="java version &quot;11.0.15&quot;" />
@@ -469,7 +485,8 @@ ANDROID_SDK_XML = """    <jdk version="2">
 """
 
 # The configuration of TEST_MAPPING in jsonSchemas.xml.
-TEST_MAPPING_SCHEMAS_XML = """<?xml version="1.0" encoding="UTF-8"?>
+TEST_MAPPING_SCHEMAS_XML = """\
+<?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
   <component name="JsonSchemaMappingsProjectConfiguration">
     <state>
@@ -498,7 +515,8 @@ TEST_MAPPING_SCHEMAS_XML = """<?xml version="1.0" encoding="UTF-8"?>
 
 # The xml templates for Eclipse.
 # .classpath template
-ECLIPSE_CLASSPATH_XML = """<?xml version="1.0" encoding="UTF-8"?>
+ECLIPSE_CLASSPATH_XML = """<\
+?xml version="1.0" encoding="UTF-8"?>
 <classpath>
 {SRC}
 {LIB}
@@ -506,7 +524,8 @@ ECLIPSE_CLASSPATH_XML = """<?xml version="1.0" encoding="UTF-8"?>
 """
 
 # .project template
-ECLIPSE_PROJECT_XML = """<?xml version="1.0" encoding="UTF-8"?>
+ECLIPSE_PROJECT_XML = """\
+<?xml version="1.0" encoding="UTF-8"?>
 <projectDescription>
         <name>{PROJECTNAME}</name>
         <comment></comment>
@@ -529,7 +548,8 @@ ECLIPSE_PROJECT_XML = """<?xml version="1.0" encoding="UTF-8"?>
 """
 
 # The template of default AndroidManifest.xml.
-ANDROID_MANIFEST_CONTENT = """<?xml version="1.0" encoding="utf-8"?>
+ANDROID_MANIFEST_CONTENT = """\
+<?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
           android:versionCode="1"
           android:versionName="1.0" >
@@ -537,7 +557,8 @@ ANDROID_MANIFEST_CONTENT = """<?xml version="1.0" encoding="utf-8"?>
 """
 
 # The xml template for enabling debugger.
-XML_ENABLE_DEBUGGER = """<?xml version="1.0" encoding="UTF-8"?>
+XML_ENABLE_DEBUGGER = """\
+<?xml version="1.0" encoding="UTF-8"?>
 <module type="JAVA_MODULE" version="4">
   <component name="FacetManager">
     <facet type="android" name="Android">
@@ -557,13 +578,15 @@ XML_ENABLE_DEBUGGER = """<?xml version="1.0" encoding="UTF-8"?>
 """
 
 # The default empty template of the jdk.table.xml.
-JDK_TABLE_XML = """<application>
+JDK_TABLE_XML = """\
+<application>
   <component name="ProjectJdkTable">
   </component>
 </application>
 """
 
-XML_WORKSPACE = """<?xml version="1.0" encoding="UTF-8"?>
+XML_WORKSPACE = """\
+<?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
     <component name="VcsManagerConfiguration">
         <ignored-roots>
@@ -573,7 +596,8 @@ XML_WORKSPACE = """<?xml version="1.0" encoding="UTF-8"?>
 </project>
 """
 
-IGNORED_GITS = """<component name="VcsManagerConfiguration">
+IGNORED_GITS = """\
+<component name="VcsManagerConfiguration">
     <ignored-roots>{GITS}</ignored-roots>
   </component>
 """

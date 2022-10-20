@@ -7,6 +7,9 @@
 **/.coverage
 **/htmlcov
 
+atest/proto/*.py
+atest/tf_proto/*.py
+
 # Intellij generated files
 **/.idea
 **/*.iml

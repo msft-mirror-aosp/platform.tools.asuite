@@ -64,5 +64,6 @@ class AidegenMetricsUnittests(unittest.TestCase):
         aidegen_metrics.send_exception_metrics(1, '', '', 'err_test')
         self.assertTrue(mock_ends_metrics.called)
 
+
 if __name__ == '__main__':
     unittest.main()
