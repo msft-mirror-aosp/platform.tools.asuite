@@ -195,7 +195,7 @@ class AndroidSDK:
     def path_analysis(self, sdk_path):
         """Analyses the Android SDK path.
 
-        Confirm the path is a Android SDK folder. If it's not correct, ask user
+        Confirm the path is an Android SDK folder. If it's not correct, ask user
         to enter a new one. Skip asking when enter nothing.
 
         Args:

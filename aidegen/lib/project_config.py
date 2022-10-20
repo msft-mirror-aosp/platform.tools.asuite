@@ -34,7 +34,7 @@ _INSTANCE_NOT_EXIST_ERROR = ('The instance of {} does not exist. Please '
                              'initialize it before using.')
 
 
-class ProjectConfig():
+class ProjectConfig:
     """A singleton class manages AIDEGen's configurations.
 
     ProjectConfig is a singleton class that can be accessed in other modules.

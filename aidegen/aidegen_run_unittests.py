@@ -24,6 +24,7 @@ from importlib import import_module
 # Setup logging to be silent so unittests can pass through TF.
 logging.disable(logging.ERROR)
 
+
 def get_test_modules():
     """Returns a list of testable modules.
 

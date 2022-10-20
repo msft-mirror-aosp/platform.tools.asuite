@@ -40,14 +40,15 @@ class JDKTableXMLUnittests(unittest.TestCase):
     _CONFIG_FILE = '/path/to/jdk.table.xml'
     _JDK_CONTENT = '<jdk />'
     _JDK_PATH = '/path/to/JDK'
-    _DEFULAT_ANDROID_SDK_PATH = '/path/to/Android/SDK'
+    _DEFAULT_ANDROID_SDK_PATH = '/path/to/Android/SDK'
+    _TEST_DIR = None
 
     def setUp(self):
         """Prepare the JDKTableXML class."""
         JDKTableXMLUnittests._TEST_DIR = tempfile.mkdtemp()
         self.jdk_table_xml = jdk_table.JDKTableXML(
             self._CONFIG_FILE, self._JDK_CONTENT, self._JDK_PATH,
-            self._DEFULAT_ANDROID_SDK_PATH)
+            self._DEFAULT_ANDROID_SDK_PATH)
 
     def tearDown(self):
         """Clear the JDKTableXML class."""
@@ -79,7 +80,7 @@ class JDKTableXMLUnittests(unittest.TestCase):
         """Test _check_structure."""
         tmp_file = os.path.join(self._TEST_DIR, self._JDK_TABLE_XML)
         xml_str = ('<application>\n</application>')
-        with open(tmp_file, 'w') as tmp_jdk_xml:
+        with open(tmp_file, 'w', encoding='utf-8') as tmp_jdk_xml:
             tmp_jdk_xml.write(xml_str)
         self.jdk_table_xml._xml = ElementTree.parse(tmp_file)
         self.assertFalse(self.jdk_table_xml._check_structure())
@@ -87,7 +88,7 @@ class JDKTableXMLUnittests(unittest.TestCase):
                    '  <component>\n'
                    '  </component>\n'
                    '</application>')
-        with open(tmp_file, 'w') as tmp_jdk_xml:
+        with open(tmp_file, 'w', encoding='utf-8') as tmp_jdk_xml:
             tmp_jdk_xml.write(xml_str)
         self.jdk_table_xml._xml = ElementTree.parse(tmp_file)
         self.assertFalse(self.jdk_table_xml._check_structure())
@@ -95,7 +96,7 @@ class JDKTableXMLUnittests(unittest.TestCase):
                    '  <component name="ProjectJdkTable">\n'
                    '  </component>\n'
                    '</application>')
-        with open(tmp_file, 'w') as tmp_jdk_xml:
+        with open(tmp_file, 'w', encoding='utf-8') as tmp_jdk_xml:
             tmp_jdk_xml.write(xml_str)
         self.jdk_table_xml._xml = ElementTree.parse(tmp_file)
         self.assertTrue(self.jdk_table_xml._check_structure())
@@ -134,7 +135,7 @@ class JDKTableXMLUnittests(unittest.TestCase):
                            b'  </component>\n'
                            b'</application>')
         tmp_file = os.path.join(self._TEST_DIR, self._JDK_TABLE_XML)
-        with open(tmp_file, 'w') as tmp_jdk_xml:
+        with open(tmp_file, 'w', encoding='utf-8') as tmp_jdk_xml:
             tmp_jdk_xml.write(xml_str)
         self.jdk_table_xml._xml = ElementTree.parse(tmp_file)
         self.jdk_table_xml._generate_jdk_config_string()
