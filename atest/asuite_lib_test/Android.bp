@@ -24,7 +24,6 @@ package {
 // For testing asuite_metrics python3 libs
 python_test_host {
     name: "asuite_metrics_lib_tests",
-    defaults: ["modern_python_path_defaults"],
     main: "asuite_lib_run_tests.py",
     pkg_path: "asuite_test",
     srcs: [
@@ -42,7 +41,6 @@ python_test_host {
 // For testing asuite_cc_client python3 libs
 python_test_host {
     name: "asuite_cc_lib_tests",
-    defaults: ["modern_python_path_defaults"],
     main: "asuite_lib_run_tests.py",
     pkg_path: "asuite_test",
     srcs: [
