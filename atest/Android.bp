@@ -33,7 +33,6 @@ tradefed_binary_host {
 
 python_binary_host {
     name: "atest",
-    defaults: ["modern_python_path_defaults"],
     pkg_path: "atest",
     main: "atest_main.py",
     srcs: [
@@ -66,7 +65,6 @@ python_binary_host {
 
 python_library_host {
     name: "atest_module_info",
-    defaults: ["modern_python_path_defaults"],
     pkg_path: "atest",
     srcs: [
         "atest_error.py",
@@ -83,7 +81,6 @@ python_library_host {
 
 python_library_host {
     name: "asuite_metrics",
-    defaults: ["modern_python_path_defaults"],
     pkg_path: "atest",
     srcs: [
         "asuite_metrics.py",
@@ -92,7 +89,6 @@ python_library_host {
 
 python_library_host {
     name: "asuite_cc_client",
-    defaults: ["modern_python_path_defaults"],
     pkg_path: "atest",
     srcs: [
         "atest_enum.py",
@@ -107,7 +103,6 @@ python_library_host {
 
 python_test_host {
     name: "atest_unittests",
-    defaults: ["modern_python_path_defaults"],
     main: "atest_run_unittests.py",
     pkg_path: "atest",
     srcs: [
@@ -137,7 +132,6 @@ python_test_host {
 
 python_test_host {
     name: "atest_integration_tests",
-    defaults: ["modern_python_path_defaults"],
     main: "atest_integration_tests.py",
     pkg_path: "atest",
     srcs: [

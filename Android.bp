@@ -41,7 +41,6 @@ java_library_host {
 
 python_library_host {
     name: "tradefed-protos-py",
-    defaults: ["modern_python_path_defaults"],
     srcs: [
         "atest/tf_proto/*.proto",
     ],
