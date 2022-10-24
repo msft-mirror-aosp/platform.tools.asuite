@@ -19,6 +19,8 @@ and a SoongPrebuiltInfo provider with the original Soong module name, artifacts,
 runtime dependencies and data dependencies.
 """
 
+load("//bazel/rules:platform_transitions.bzl", "device_transition")
+
 SoongPrebuiltInfo = provider(
     doc = "Info about a prebuilt Soong build module",
     fields = {
@@ -65,7 +67,7 @@ def _soong_prebuilt_impl(ctx):
 
     runfiles = ctx.runfiles(files = files).merge_all([
         dep[DefaultInfo].default_runfiles
-        for dep in ctx.attr.runtime_deps + ctx.attr.data
+        for dep in ctx.attr.runtime_deps + ctx.attr.data + ctx.attr.device_data
     ])
 
     # We exclude the outputs of static dependencies from the runfiles since
@@ -108,6 +110,15 @@ soong_prebuilt = rule(
         # dependencies.
         "static_deps": attr.label_list(),
         "data": attr.label_list(),
+        "device_data": attr.label_list(
+            cfg = device_transition,
+        ),
+        # This attribute is required to use Starlark transitions. It allows
+        # allowlisting usage of this rule. For more information, see
+        # https://docs.bazel.build/versions/master/skylark/config.html#user-defined-transitions
+        "_allowlist_function_transition": attr.label(
+            default = "@bazel_tools//tools/allowlists/function_transition_allowlist",
+        ),
     },
     implementation = _soong_prebuilt_impl,
     doc = "A rule that imports artifacts prebuilt by Soong into the Bazel workspace",
