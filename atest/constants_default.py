@@ -111,6 +111,7 @@ MODULE_SUPPORTED_VARIANTS = 'supported_variants'
 MODULE_LIBS = 'libs'
 MODULE_STATIC_LIBS = 'static_libs'
 MODULE_HOST_DEPS = 'host_dependencies'
+MODULE_TARGET_DEPS = 'target_dependencies'
 MODULE_TEST_OPTIONS_TAGS = 'test_options_tags'
 MODULE_INFO_ID = 'module_info_id'
 
