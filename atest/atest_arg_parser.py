@@ -174,11 +174,11 @@ class AtestArgParser(argparse.ArgumentParser):
         self.add_argument('--bazel-arg', nargs='*', action='append', help=BAZEL_ARG)
         bazel_mode.add_parser_arguments(self, dest='bazel_mode_features')
 
-        self.add_argument('--coverage', action='store_true', help=COVERAGE)
         self.add_argument('-d', '--disable-teardown', action='store_true',
                           help=DISABLE_TEARDOWN)
         self.add_argument('--enable-device-preparer', action='store_true',
                           help=ENABLE_DEVICE_PREPARER)
+        self.add_argument('--experimental-coverage', action='store_true', help=COVERAGE)
         # Options for host and device-only:
         # A group of options for testing mapping tests. They are mutually
         # exclusive in a command line.
@@ -484,9 +484,6 @@ OPTIONS
         --bazel-arg
             {BAZEL_ARG}
 
-        --coverage
-            {COVERAGE}
-
         --device-only
             {DEVICE_ONLY}
 
@@ -498,6 +495,9 @@ OPTIONS
 
         --enable-device-preparer
             {ENABLE_DEVICE_PREPARER}
+
+        --experimental-coverage
+            {COVERAGE}
 
         --host
             {HOST}
