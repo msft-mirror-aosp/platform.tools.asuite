@@ -20,6 +20,7 @@ java_library_host {
     name: "bazel-test-runner",
     srcs: [
         "src/com/android/tradefed/testtype/bazel/BazelTest.java",
+        "src/main/protobuf/*.proto",
     ],
     libs: [
         "tradefed",
@@ -27,6 +28,13 @@ java_library_host {
     java_resource_dirs: [
         "config",
     ],
+    proto: {
+        type: "full",
+        include_dirs: [
+            "external/protobuf/src",
+        ],
+        canonical_path_from_root: false,
+    },
 }
 
 java_genrule_host {
