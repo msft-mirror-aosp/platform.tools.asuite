@@ -39,6 +39,7 @@ except ModuleNotFoundError as e:
     logging.debug('Import error due to %s', e)
 
 from pathlib import Path
+from socket import socket
 
 try:
     # pylint: disable=import-error
@@ -119,12 +120,17 @@ class GCPHelper():
         Returns:
             An oauth2client.OAuth2Credentials instance.
         """
+        credentials = None
         # SSO auth
-        token = self._get_sso_access_token()
-        credentials = oauth2_client.AccessTokenCredentials(
-            token , 'atest')
-        if credentials:
-            return credentials
+        try:
+            token = self._get_sso_access_token()
+            credentials = oauth2_client.AccessTokenCredentials(
+                token , 'atest')
+            if credentials:
+                return credentials
+        # pylint: disable=broad-except
+        except Exception as e:
+            logging.debug('Exception:%s', e)
         # GCP auth flow
         credentials = self.get_refreshed_credential_from_file(creds_file_path)
         if not credentials:
@@ -147,13 +153,21 @@ class GCPHelper():
             An oauth2client.OAuth2Credentials instance.
         """
         flags = RunFlowFlags(browser_auth=True)
-        _REDIRECT_URI = 'http://localhost:8080'
+
+        # Get a free port on demand.
+        port = None
+        while not port or port < 10000:
+            with socket() as local_socket:
+                local_socket.bind(('',0))
+                _, port = local_socket.getsockname()
+        _localhost_port = port
+        _direct_uri = f'http://localhost:{_localhost_port}'
         flow = oauth2_client.OAuth2WebServerFlow(
             client_id=self.client_id,
             client_secret=self.client_secret,
             scope=self.scope,
             user_agent=self.user_agent,
-            redirect_uri=f'{_REDIRECT_URI}')
+            redirect_uri=f'{_direct_uri}')
         credentials = oauth2_tools.run_flow(
             flow=flow, storage=storage, flags=flags)
         return credentials
