@@ -505,6 +505,8 @@ class IdeIntelliJ(IdeBase):
         tmp_versions = all_versions.copy()
         for version in tmp_versions:
             real_version = os.path.realpath(version)
+            if os.path.islink(version.split('/bin')[0]):
+                all_versions.remove(real_version)
             if config.AidegenConfig.deprecated_intellij_version(real_version):
                 all_versions.remove(version)
         return self._get_user_preference(all_versions)
@@ -866,6 +868,8 @@ class IdeStudio(IdeBase):
             return None
         for version in versions:
             real_version = os.path.realpath(version)
+            if os.path.islink(version.split('/bin')[0]):
+                all_versions.remove(real_version)
             if config.AidegenConfig.deprecated_studio_version(real_version):
                 versions.remove(version)
         return self._get_user_preference(versions)
