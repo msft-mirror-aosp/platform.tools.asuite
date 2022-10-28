@@ -244,6 +244,7 @@ class JDKTableXML:
             #                    abandoning the sdk_config.py.
             self._append_config(templates.ANDROID_SDK_XML.format(
                 ANDROID_SDK_PATH=self._sdk.android_sdk_path,
+                FOLDER_NAME=self._sdk.max_folder_name,
                 CODE_NAME=self._sdk.max_code_name))
             self._android_sdk_version = self._ANDROID_SDK_VERSION.format(
                 CODE_NAME=self._sdk.max_code_name)

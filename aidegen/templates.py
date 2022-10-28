@@ -466,15 +466,20 @@ ANDROID_SDK_XML = """\
       <homePath value="{ANDROID_SDK_PATH}" />
       <roots>
         <annotationsPath>
-          <root type="composite" />
+          <root type="composite" >
+            <root url="jar://{ANDROID_SDK_PATH}/platforms/{FOLDER_NAME}/data/annotations.zip!/" type="simple" />
+          </root>
         </annotationsPath>
         <classPath>
           <root type="composite">
-            <root url="file://{ANDROID_SDK_PATH}/platforms/android-{CODE_NAME}/data/res" type="simple" />
+            <root url="jar://{ANDROID_SDK_PATH}/platforms/{FOLDER_NAME}/android.jar!/" type="simple" />
+            <root url="file://{ANDROID_SDK_PATH}/platforms/{FOLDER_NAME}/data/res" type="simple" />
           </root>
         </classPath>
         <javadocPath>
-          <root type="composite" />
+          <root type="composite" >
+            <root url="http://developer.android.com/reference/" type="simple" />
+          </root>
         </javadocPath>
         <sourcePath>
           <root type="composite" />
