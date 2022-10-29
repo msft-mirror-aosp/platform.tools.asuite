@@ -1091,7 +1091,8 @@ def extra_args_to_tf_args(mod_info: module_info.ModuleInfo,
                    constants.DRY_RUN,
                    constants.VERIFY_ENV_VARIABLE,
                    constants.FLAKES_INFO,
-                   constants.LD_LIBRARY_PATH):
+                   constants.LD_LIBRARY_PATH,
+                   constants.DEVICE_ONLY):
             continue
         unsupported_args.append(arg)
     return supported_args, unsupported_args
