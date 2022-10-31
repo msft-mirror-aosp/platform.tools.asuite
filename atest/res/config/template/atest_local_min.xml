@@ -25,7 +25,9 @@
 
     <template-include name="log_saver" default="empty" />
 
-    <system_checker class="com.android.tradefed.suite.checker.DeviceBaselineChecker" />
+    <system_checker class="com.android.tradefed.suite.checker.DeviceBaselineChecker">
+        <option name="enable-device-baseline-settings" value="false" />
+    </system_checker>
 
     <logger class="com.android.tradefed.log.FileLogger">
         <option name="log-level" value="VERBOSE" />
