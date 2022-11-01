@@ -43,13 +43,15 @@ _atest() {
 
     case "$cur" in
         -*)
-            COMPREPLY=($(compgen -W "$($cmd fetch_atest_args)" -- $cur))
+            COMPREPLY=($(compgen -W "$(unzip -p `which $cmd` atest/atest_flag_list_for_completion.txt)" -- $cur))
             ;;
         */*)
             ;;
         *)
-            local candidate_args=$(ls; $cmd fetch_testable_modules)
-            COMPREPLY=($(compgen -W "$candidate_args" -- $cur))
+            # Use grep instead of compgen -W because compgen -W is very slow. It takes
+            # ~0.7 seconds for compgen to read the all_modules.txt file.
+            # TODO(b/256228056) This fails if $cur has special characters in it
+            COMPREPLY=($(ls | grep "^$cur"; grep "^$cur" $ANDROID_PRODUCT_OUT/all_modules.txt 2>/dev/null))
             ;;
     esac
 
