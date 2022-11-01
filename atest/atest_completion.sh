@@ -36,14 +36,20 @@ function _pip_install() {
 # The main tab completion function.
 _atest() {
     COMPREPLY=()
-    local cmd=$1
+    local cmd=$(which $1)
     local cur="${COMP_WORDS[COMP_CWORD]}"
     local prev="${COMP_WORDS[COMP_CWORD-1]}"
     _get_comp_words_by_ref -n : cur prev || true
 
+    if [[ "$cmd" == *prebuilts/asuite/atest/linux-x86/atest ]]; then
+        # prebuilts/asuite/atest/linux-x86/atest is shell script wrapper around
+        # atest-py3, which is what we should actually use.
+        cmd=$ANDROID_BUILD_TOP/prebuilts/asuite/atest/linux-x86/atest-py3
+    fi
+
     case "$cur" in
         -*)
-            COMPREPLY=($(compgen -W "$(unzip -p `which $cmd` atest/atest_flag_list_for_completion.txt)" -- $cur))
+            COMPREPLY=($(compgen -W "$(unzip -p $cmd atest/atest_flag_list_for_completion.txt)" -- $cur))
             ;;
         */*)
             ;;
