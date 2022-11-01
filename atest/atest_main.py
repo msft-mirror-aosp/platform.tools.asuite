@@ -41,14 +41,8 @@ import re
 
 from pathlib import Path
 
-if len(sys.argv) >= 2 and sys.argv[1] in ["fetch_atest_args", "fetch_testable_modules"]:
-    # If we're being run for bash autocompletion, increase the logging level to ERROR+
-    # so a oauth2 deprecation warning isn't printed.
-    logging.basicConfig(level=logging.ERROR)
-
 from atest import atest_arg_parser
 from atest import atest_configs
-from atest import atest_completion
 from atest import atest_error
 from atest import atest_execution_info
 from atest import atest_utils
@@ -1182,12 +1176,6 @@ def main(argv, results_dir, args):
     return tests_exit_code
 
 if __name__ == '__main__':
-    if len(sys.argv) >= 2:
-        if sys.argv[1] == "fetch_atest_args":
-            sys.exit(atest_completion.fetch_atest_args())
-        if sys.argv[1] == "fetch_testable_modules":
-            sys.exit(atest_completion.fetch_testable_modules())
-
     RESULTS_DIR = make_test_run_dir()
     if END_OF_OPTION in sys.argv:
         end_position = sys.argv.index(END_OF_OPTION)

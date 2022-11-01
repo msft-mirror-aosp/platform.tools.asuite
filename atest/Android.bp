@@ -31,10 +31,10 @@ tradefed_binary_host {
     required: ["atest_tradefed.sh", "atest_script_help.sh"],
 }
 
-python_binary_host {
-    name: "atest",
+// Attributes common to both atest and atest_flag_list_generator.
+python_defaults {
+    name: "atest_defaults",
     pkg_path: "atest",
-    main: "atest_main.py",
     srcs: [
         "**/*.py",
     ],
@@ -55,13 +55,39 @@ python_binary_host {
     data: [
         "bazel/resources/**/*",
     ],
-    // Make atest's built name to atest-dev
+}
+
+python_binary_host {
+    name: "atest",
+    defaults: ["atest_defaults"],
+    main: "atest_main.py",
+    data: [
+        ":atest_flag_list_for_completion",
+    ],
+    // Make atest's built name be atest-dev
     stem: "atest-dev",
     dist: {
         targets: ["droidcore"],
     },
 }
 
+// A helper binary used to generate the atest_flag_list_for_completion.txt
+// file, it should never be run outside of the build. It's the same
+// as atest except it has atest_flag_list_generator.py as it's main python
+// file. The atest_flag_list_for_completion.txt file is extracted from the
+// atest binary during autocompletion.
+python_binary_host {
+    name: "atest_flag_list_generator",
+    defaults: ["atest_defaults"],
+    main: "atest_flag_list_generator.py",
+}
+
+genrule {
+    name: "atest_flag_list_for_completion",
+    out: ["atest_flag_list_for_completion.txt"],
+    tools: ["atest_flag_list_generator"],
+    cmd: "$(location atest_flag_list_generator) > $(out)",
+}
 
 python_library_host {
     name: "atest_module_info",
