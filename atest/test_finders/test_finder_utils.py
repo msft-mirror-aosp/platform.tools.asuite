@@ -33,11 +33,11 @@ import xml.etree.ElementTree as ET
 
 import atest_decorator
 import atest_error
-import atest_enum
 import atest_utils
 import constants
 
-from metrics import metrics_utils
+from atest_enum import AtestEnum, DetectType
+from metrics import metrics, metrics_utils
 from tools import atest_tools
 
 # Helps find apk files listed in a test config (AndroidTest.xml) file.
@@ -107,11 +107,11 @@ _PARENT_CLS_RE = re.compile(r'.*class\s+\w+\s+(?:extends|:)\s+'
 # 3. INTEGRATION: XML file name in one of the 4 integration config directories.
 # 4. CC_CLASS: Name of a cc class.
 
-FIND_REFERENCE_TYPE = atest_enum.AtestEnum(['CLASS',
-                                            'QUALIFIED_CLASS',
-                                            'PACKAGE',
-                                            'INTEGRATION',
-                                            'CC_CLASS'])
+FIND_REFERENCE_TYPE = AtestEnum(['CLASS',
+                                 'QUALIFIED_CLASS',
+                                 'PACKAGE',
+                                 'INTEGRATION',
+                                 'CC_CLASS'])
 # Get cpu count.
 _CPU_COUNT = 0 if os.uname()[0] == 'Linux' else multiprocessing.cpu_count()
 
@@ -1176,6 +1176,7 @@ def get_java_methods(test_path):
     return set()
 
 
+# pylint: disable=too-many-branches
 def get_cc_class_info(test_path):
     """Get the class info of the given cc input test_path.
 
@@ -1213,6 +1214,7 @@ def get_cc_class_info(test_path):
     if os.stat(_test_path.name).st_size != 0:
         file_to_parse = _test_path.name
 
+    # TODO: b/234531695 support reading header files as well.
     with open(file_to_parse) as class_file:
         logging.debug('Parsing: %s', test_path)
         content = class_file.read()
@@ -1225,24 +1227,38 @@ def get_cc_class_info(test_path):
 
     classes = {cls[1] for cls in method_matches}
     class_info = {}
+    test_not_found = False
     for cls in classes:
         class_info.setdefault(cls, {'methods': set(),
                                     'prefixes': set(),
                                     'typed': False})
     logging.debug('Probing TestCase.TestName pattern:')
     for match in method_matches:
-        logging.debug('  Found %s.%s', match[1], match[2])
-        class_info[match[1]]['methods'].add(match[2])
+        if class_info.get(match[1]):
+            logging.debug('  Found %s.%s', match[1], match[2])
+            class_info[match[1]]['methods'].add(match[2])
+        else:
+            test_not_found = True
     # Parameterized test.
     logging.debug('Probing InstantiationName/TestCase pattern:')
     for match in prefix_matches:
-        logging.debug('  Found %s/%s', match[0], match[1])
-        class_info[match[1]]['prefixes'].add(match[0])
+        if class_info.get(match[1]):
+            logging.debug('  Found %s/%s', match[0], match[1])
+            class_info[match[1]]['prefixes'].add(match[0])
+        else:
+            test_not_found = True
     # Typed test
     logging.debug('Probing typed test names:')
     for match in typed_matches:
-        logging.debug('  Found %s', match)
-        class_info[match]['typed'] = True
+        if class_info.get(match):
+            logging.debug('  Found %s', match)
+            class_info[match]['typed'] = True
+        else:
+            test_not_found = True
+    if test_not_found:
+        metrics.LocalDetectEvent(
+            detect_type=DetectType.NATIVE_TEST_NOT_FOUND,
+            result=DetectType.NATIVE_TEST_NOT_FOUND)
     return class_info
 
 def get_cc_class_type(class_info, classname):
