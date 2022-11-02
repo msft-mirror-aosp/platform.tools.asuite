@@ -14,7 +14,7 @@ disable=
 
 [MASTER]
 
-init-hook='import sys, os; sys.path.append(os.getcwd() + '/atest')'
+init-hook='import sys, os; sys.path.append(os.getcwd())'
 
 [BASIC]
 
