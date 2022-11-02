@@ -3,7 +3,7 @@
     <jdk version="2">
       <name value="Android API 28 Platform" />
       <type value="Fake Android SDK" />
-      <version value="java version &quot;11.0.15&quot;" />
+      <version value="java version &quot;17.0.4&quot;" />
       <homePath value="/path/to/Android/Sdk" />
       <roots>
         <annotationsPath>
@@ -21,7 +21,7 @@
           <root type="composite" />
         </sourcePath>
       </roots>
-      <additional jdk="JDK11" sdk="android-28" />
+      <additional jdk="JDK17" sdk="android-28" />
     </jdk>
   </component>
 </application>
