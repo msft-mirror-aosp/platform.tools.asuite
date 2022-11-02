@@ -379,6 +379,8 @@ class WorkspaceGenerator:
         self._add_workspace_resource(src='rules', dst='bazel/rules')
         self._add_workspace_resource(src='configs', dst='bazel/configs')
 
+        self._add_bazel_bootstrap_files()
+
         # Symlink to package with toolchain definitions.
         self._symlink(src='prebuilts/build-tools',
                       target='prebuilts/build-tools')
@@ -406,6 +408,15 @@ class WorkspaceGenerator:
         self._add_workspace_resource(src='bazelrc', dst='.bazelrc')
 
         self.workspace_out_path.joinpath('BUILD.bazel').touch()
+
+    def _add_bazel_bootstrap_files(self):
+        self._symlink(src='tools/asuite/atest/bazel/resources/bazel.sh',
+                      target='bazel.sh')
+        # TODO(b/256924541): Consolidate JDK version with Roboleaf team.
+        self._symlink(src='prebuilts/jdk/jdk11/linux-x86',
+                      target='prebuilts/jdk/jdk11/linux-x86')
+        self._symlink(src='prebuilts/bazel/linux-x86_64/bazel',
+                      target='prebuilts/bazel/linux-x86_64/bazel')
 
     def _add_workspace_resource(self, src, dst):
         """Add resource to the given destination in workspace.
@@ -1257,9 +1268,9 @@ class BazelTestRunner(trb.TestRunnerBase):
         self.starlark_file = _get_resource_root().joinpath(
             'format_as_soong_module_name.cquery')
 
-        self.bazel_binary = self.src_top.joinpath(
-            'prebuilts/bazel/linux-x86_64/bazel')
         self.bazel_workspace = workspace_path or get_bazel_workspace_dir()
+        self.bazel_binary = self.bazel_workspace.joinpath(
+            'bazel.sh')
         self.run_command = run_command
         self._extra_args = extra_args or {}
         self.build_metadata = build_metadata or get_default_build_metadata()
