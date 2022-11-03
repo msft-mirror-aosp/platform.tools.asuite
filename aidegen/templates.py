@@ -145,8 +145,8 @@ XML_MISC = """\
         <default-html-doctype>http://www.w3.org/1999/xhtml
         </default-html-doctype>
     </component>
-    <component name="ProjectRootManager" version="2" languageLevel="JDK_11"
-               assert-keyword="true" project-jdk-name="JDK11"
+    <component name="ProjectRootManager" version="2" languageLevel="JDK_17"
+               assert-keyword="true" project-jdk-name="JDK17"
                project-jdk-type="JavaSDK"/>
     <component name="WebServicesPlugin" addRequiredLibraries="true"/>
 </project>
@@ -243,14 +243,14 @@ XML_INSPECTIONS = """\
 # The configuration of JDK on Linux.
 LINUX_JDK_XML = """\
     <jdk version="2">
-      <name value="JDK11" />
+      <name value="JDK17" />
       <type value="JavaSDK" />
-      <version value="java version &quot;11.0.15&quot;" />
+      <version value="java version &quot;17.0.4&quot;" />
       <homePath value="{JDKpath}" />
       <roots>
         <annotationsPath>
           <root type="composite">
-            <root url="jar://$APPLICATION_HOME_DIR$/lib/jdkAnnotations.jar!/" type="simple" />
+            <root url="jar://$APPLICATION_HOME_DIR$/plugins/java/lib/jdkAnnotations.jar!/" type="simple" />
           </root>
         </annotationsPath>
         <classPath>
@@ -268,17 +268,16 @@ LINUX_JDK_XML = """\
             <root url="jrt://{JDKpath}!/java.prefs" type="simple" />
             <root url="jrt://{JDKpath}!/java.rmi" type="simple" />
             <root url="jrt://{JDKpath}!/java.scripting" type="simple" />
+            <root url="jrt://{JDKpath}!/java.se" type="simple" />
             <root url="jrt://{JDKpath}!/java.security.jgss" type="simple" />
             <root url="jrt://{JDKpath}!/java.security.sasl" type="simple" />
-            <root url="jrt://{JDKpath}!/java.se" type="simple" />
             <root url="jrt://{JDKpath}!/java.smartcardio" type="simple" />
             <root url="jrt://{JDKpath}!/java.sql" type="simple" />
             <root url="jrt://{JDKpath}!/java.sql.rowset" type="simple" />
             <root url="jrt://{JDKpath}!/java.transaction.xa" type="simple" />
-            <root url="jrt://{JDKpath}!/java.xml.crypto" type="simple" />
             <root url="jrt://{JDKpath}!/java.xml" type="simple" />
+            <root url="jrt://{JDKpath}!/java.xml.crypto" type="simple" />
             <root url="jrt://{JDKpath}!/jdk.accessibility" type="simple" />
-            <root url="jrt://{JDKpath}!/jdk.aot" type="simple" />
             <root url="jrt://{JDKpath}!/jdk.attach" type="simple" />
             <root url="jrt://{JDKpath}!/jdk.charsets" type="simple" />
             <root url="jrt://{JDKpath}!/jdk.compiler" type="simple" />
@@ -288,6 +287,8 @@ LINUX_JDK_XML = """\
             <root url="jrt://{JDKpath}!/jdk.editpad" type="simple" />
             <root url="jrt://{JDKpath}!/jdk.hotspot.agent" type="simple" />
             <root url="jrt://{JDKpath}!/jdk.httpserver" type="simple" />
+            <root url="jrt://{JDKpath}!/jdk.incubator.foreign" type="simple" />
+            <root url="jrt://{JDKpath}!/jdk.incubator.vector" type="simple" />
             <root url="jrt://{JDKpath}!/jdk.internal.ed" type="simple" />
             <root url="jrt://{JDKpath}!/jdk.internal.jvmstat" type="simple" />
             <root url="jrt://{JDKpath}!/jdk.internal.le" type="simple" />
@@ -304,29 +305,26 @@ LINUX_JDK_XML = """\
             <root url="jrt://{JDKpath}!/jdk.jdwp.agent" type="simple" />
             <root url="jrt://{JDKpath}!/jdk.jfr" type="simple" />
             <root url="jrt://{JDKpath}!/jdk.jlink" type="simple" />
+            <root url="jrt://{JDKpath}!/jdk.jpackage" type="simple" />
             <root url="jrt://{JDKpath}!/jdk.jshell" type="simple" />
             <root url="jrt://{JDKpath}!/jdk.jsobject" type="simple" />
             <root url="jrt://{JDKpath}!/jdk.jstatd" type="simple" />
             <root url="jrt://{JDKpath}!/jdk.localedata" type="simple" />
+            <root url="jrt://{JDKpath}!/jdk.management" type="simple" />
             <root url="jrt://{JDKpath}!/jdk.management.agent" type="simple" />
             <root url="jrt://{JDKpath}!/jdk.management.jfr" type="simple" />
-            <root url="jrt://{JDKpath}!/jdk.management" type="simple" />
             <root url="jrt://{JDKpath}!/jdk.naming.dns" type="simple" />
-            <root url="jrt://{JDKpath}!/jdk.naming.ldap" type="simple" />
             <root url="jrt://{JDKpath}!/jdk.naming.rmi" type="simple" />
             <root url="jrt://{JDKpath}!/jdk.net" type="simple" />
-            <root url="jrt://{JDKpath}!/jdk.pack" type="simple" />
-            <root url="jrt://{JDKpath}!/jdk.rmic" type="simple" />
-            <root url="jrt://{JDKpath}!/jdk.scripting.nashorn" type="simple" />
-            <root url="jrt://{JDKpath}!/jdk.scripting.nashorn.shell" type="simple" />
+            <root url="jrt://{JDKpath}!/jdk.nio.mapmode" type="simple" />
+            <root url="jrt://{JDKpath}!/jdk.random" type="simple" />
             <root url="jrt://{JDKpath}!/jdk.sctp" type="simple" />
             <root url="jrt://{JDKpath}!/jdk.security.auth" type="simple" />
             <root url="jrt://{JDKpath}!/jdk.security.jgss" type="simple" />
-            <root url="jrt://{JDKpath}!/jdk.unsupported.desktop" type="simple" />
             <root url="jrt://{JDKpath}!/jdk.unsupported" type="simple" />
+            <root url="jrt://{JDKpath}!/jdk.unsupported.desktop" type="simple" />
             <root url="jrt://{JDKpath}!/jdk.xml.dom" type="simple" />
             <root url="jrt://{JDKpath}!/jdk.zipfs" type="simple" />
-            <root url="jar://{JDKpath}/lib/jrt-fs.jar!/" type="simple" />
           </root>
         </classPath>
         <javadocPath>
@@ -334,7 +332,76 @@ LINUX_JDK_XML = """\
         </javadocPath>
         <sourcePath>
           <root type="composite">
-            <root url="jar://{JDKpath}/lib/src.zip!/" type="simple" />
+            <root url="jar://{JDKpath}/lib/src.zip!/java.se" type="simple" />
+            <root url="jar://{JDKpath}/lib/src.zip!/jdk.jdi" type="simple" />
+            <root url="jar://{JDKpath}/lib/src.zip!/jdk.jfr" type="simple" />
+            <root url="jar://{JDKpath}/lib/src.zip!/jdk.net" type="simple" />
+            <root url="jar://{JDKpath}/lib/src.zip!/java.rmi" type="simple" />
+            <root url="jar://{JDKpath}/lib/src.zip!/java.sql" type="simple" />
+            <root url="jar://{JDKpath}/lib/src.zip!/java.xml" type="simple" />
+            <root url="jar://{JDKpath}/lib/src.zip!/jdk.jcmd" type="simple" />
+            <root url="jar://{JDKpath}/lib/src.zip!/jdk.sctp" type="simple" />
+            <root url="jar://{JDKpath}/lib/src.zip!/java.base" type="simple" />
+            <root url="jar://{JDKpath}/lib/src.zip!/jdk.jdeps" type="simple" />
+            <root url="jar://{JDKpath}/lib/src.zip!/jdk.jlink" type="simple" />
+            <root url="jar://{JDKpath}/lib/src.zip!/jdk.zipfs" type="simple" />
+            <root url="jar://{JDKpath}/lib/src.zip!/java.prefs" type="simple" />
+            <root url="jar://{JDKpath}/lib/src.zip!/jdk.attach" type="simple" />
+            <root url="jar://{JDKpath}/lib/src.zip!/jdk.jshell" type="simple" />
+            <root url="jar://{JDKpath}/lib/src.zip!/jdk.jstatd" type="simple" />
+            <root url="jar://{JDKpath}/lib/src.zip!/jdk.random" type="simple" />
+            <root url="jar://{JDKpath}/lib/src.zip!/java.naming" type="simple" />
+            <root url="jar://{JDKpath}/lib/src.zip!/jdk.editpad" type="simple" />
+            <root url="jar://{JDKpath}/lib/src.zip!/jdk.jartool" type="simple" />
+            <root url="jar://{JDKpath}/lib/src.zip!/jdk.javadoc" type="simple" />
+            <root url="jar://{JDKpath}/lib/src.zip!/jdk.xml.dom" type="simple" />
+            <root url="jar://{JDKpath}/lib/src.zip!/java.desktop" type="simple" />
+            <root url="jar://{JDKpath}/lib/src.zip!/java.logging" type="simple" />
+            <root url="jar://{JDKpath}/lib/src.zip!/jdk.charsets" type="simple" />
+            <root url="jar://{JDKpath}/lib/src.zip!/jdk.compiler" type="simple" />
+            <root url="jar://{JDKpath}/lib/src.zip!/jdk.dynalink" type="simple" />
+            <root url="jar://{JDKpath}/lib/src.zip!/jdk.jconsole" type="simple" />
+            <root url="jar://{JDKpath}/lib/src.zip!/jdk.jpackage" type="simple" />
+            <root url="jar://{JDKpath}/lib/src.zip!/jdk.jsobject" type="simple" />
+            <root url="jar://{JDKpath}/lib/src.zip!/java.compiler" type="simple" />
+            <root url="jar://{JDKpath}/lib/src.zip!/java.net.http" type="simple" />
+            <root url="jar://{JDKpath}/lib/src.zip!/jdk.crypto.ec" type="simple" />
+            <root url="jar://{JDKpath}/lib/src.zip!/java.scripting" type="simple" />
+            <root url="jar://{JDKpath}/lib/src.zip!/jdk.httpserver" type="simple" />
+            <root url="jar://{JDKpath}/lib/src.zip!/jdk.jdwp.agent" type="simple" />
+            <root url="jar://{JDKpath}/lib/src.zip!/jdk.localedata" type="simple" />
+            <root url="jar://{JDKpath}/lib/src.zip!/jdk.management" type="simple" />
+            <root url="jar://{JDKpath}/lib/src.zip!/jdk.naming.dns" type="simple" />
+            <root url="jar://{JDKpath}/lib/src.zip!/jdk.naming.rmi" type="simple" />
+            <root url="jar://{JDKpath}/lib/src.zip!/java.instrument" type="simple" />
+            <root url="jar://{JDKpath}/lib/src.zip!/java.management" type="simple" />
+            <root url="jar://{JDKpath}/lib/src.zip!/java.sql.rowset" type="simple" />
+            <root url="jar://{JDKpath}/lib/src.zip!/java.xml.crypto" type="simple" />
+            <root url="jar://{JDKpath}/lib/src.zip!/jdk.internal.ed" type="simple" />
+            <root url="jar://{JDKpath}/lib/src.zip!/jdk.internal.le" type="simple" />
+            <root url="jar://{JDKpath}/lib/src.zip!/jdk.nio.mapmode" type="simple" />
+            <root url="jar://{JDKpath}/lib/src.zip!/jdk.unsupported" type="simple" />
+            <root url="jar://{JDKpath}/lib/src.zip!/java.smartcardio" type="simple" />
+            <root url="jar://{JDKpath}/lib/src.zip!/jdk.internal.opt" type="simple" />
+            <root url="jar://{JDKpath}/lib/src.zip!/java.datatransfer" type="simple" />
+            <root url="jar://{JDKpath}/lib/src.zip!/jdk.accessibility" type="simple" />
+            <root url="jar://{JDKpath}/lib/src.zip!/jdk.hotspot.agent" type="simple" />
+            <root url="jar://{JDKpath}/lib/src.zip!/jdk.security.auth" type="simple" />
+            <root url="jar://{JDKpath}/lib/src.zip!/jdk.security.jgss" type="simple" />
+            <root url="jar://{JDKpath}/lib/src.zip!/java.security.jgss" type="simple" />
+            <root url="jar://{JDKpath}/lib/src.zip!/java.security.sasl" type="simple" />
+            <root url="jar://{JDKpath}/lib/src.zip!/jdk.internal.vm.ci" type="simple" />
+            <root url="jar://{JDKpath}/lib/src.zip!/jdk.management.jfr" type="simple" />
+            <root url="jar://{JDKpath}/lib/src.zip!/java.management.rmi" type="simple" />
+            <root url="jar://{JDKpath}/lib/src.zip!/java.transaction.xa" type="simple" />
+            <root url="jar://{JDKpath}/lib/src.zip!/jdk.crypto.cryptoki" type="simple" />
+            <root url="jar://{JDKpath}/lib/src.zip!/jdk.incubator.vector" type="simple" />
+            <root url="jar://{JDKpath}/lib/src.zip!/jdk.internal.jvmstat" type="simple" />
+            <root url="jar://{JDKpath}/lib/src.zip!/jdk.management.agent" type="simple" />
+            <root url="jar://{JDKpath}/lib/src.zip!/jdk.incubator.foreign" type="simple" />
+            <root url="jar://{JDKpath}/lib/src.zip!/jdk.unsupported.desktop" type="simple" />
+            <root url="jar://{JDKpath}/lib/src.zip!/jdk.internal.vm.compiler" type="simple" />
+            <root url="jar://{JDKpath}/lib/src.zip!/jdk.internal.vm.compiler.management" type="simple" />
           </root>
         </sourcePath>
       </roots>
@@ -345,14 +412,14 @@ LINUX_JDK_XML = """\
 # The configuration of JDK on Mac.
 MAC_JDK_XML = """\
     <jdk version="2">
-      <name value="JDK11" />
+      <name value="JDK17" />
       <type value="JavaSDK" />
-      <version value="java version &quot;11.0.15&quot;" />
+      <version value="java version &quot;17.0.4&quot;" />
       <homePath value="{JDKpath}" />
       <roots>
         <annotationsPath>
           <root type="composite">
-            <root url="jar://$APPLICATION_HOME_DIR$/lib/jdkAnnotations.jar!/" type="simple" />
+            <root url="jar://$APPLICATION_HOME_DIR$/plugins/java/lib/jdkAnnotations.jar!/" type="simple" />
           </root>
         </annotationsPath>
         <classPath>
@@ -370,17 +437,16 @@ MAC_JDK_XML = """\
             <root url="jrt://{JDKpath}!/java.prefs" type="simple" />
             <root url="jrt://{JDKpath}!/java.rmi" type="simple" />
             <root url="jrt://{JDKpath}!/java.scripting" type="simple" />
+            <root url="jrt://{JDKpath}!/java.se" type="simple" />
             <root url="jrt://{JDKpath}!/java.security.jgss" type="simple" />
             <root url="jrt://{JDKpath}!/java.security.sasl" type="simple" />
-            <root url="jrt://{JDKpath}!/java.se" type="simple" />
             <root url="jrt://{JDKpath}!/java.smartcardio" type="simple" />
             <root url="jrt://{JDKpath}!/java.sql" type="simple" />
             <root url="jrt://{JDKpath}!/java.sql.rowset" type="simple" />
             <root url="jrt://{JDKpath}!/java.transaction.xa" type="simple" />
-            <root url="jrt://{JDKpath}!/java.xml.crypto" type="simple" />
             <root url="jrt://{JDKpath}!/java.xml" type="simple" />
+            <root url="jrt://{JDKpath}!/java.xml.crypto" type="simple" />
             <root url="jrt://{JDKpath}!/jdk.accessibility" type="simple" />
-            <root url="jrt://{JDKpath}!/jdk.aot" type="simple" />
             <root url="jrt://{JDKpath}!/jdk.attach" type="simple" />
             <root url="jrt://{JDKpath}!/jdk.charsets" type="simple" />
             <root url="jrt://{JDKpath}!/jdk.compiler" type="simple" />
@@ -390,6 +456,8 @@ MAC_JDK_XML = """\
             <root url="jrt://{JDKpath}!/jdk.editpad" type="simple" />
             <root url="jrt://{JDKpath}!/jdk.hotspot.agent" type="simple" />
             <root url="jrt://{JDKpath}!/jdk.httpserver" type="simple" />
+            <root url="jrt://{JDKpath}!/jdk.incubator.foreign" type="simple" />
+            <root url="jrt://{JDKpath}!/jdk.incubator.vector" type="simple" />
             <root url="jrt://{JDKpath}!/jdk.internal.ed" type="simple" />
             <root url="jrt://{JDKpath}!/jdk.internal.jvmstat" type="simple" />
             <root url="jrt://{JDKpath}!/jdk.internal.le" type="simple" />
@@ -406,29 +474,26 @@ MAC_JDK_XML = """\
             <root url="jrt://{JDKpath}!/jdk.jdwp.agent" type="simple" />
             <root url="jrt://{JDKpath}!/jdk.jfr" type="simple" />
             <root url="jrt://{JDKpath}!/jdk.jlink" type="simple" />
+            <root url="jrt://{JDKpath}!/jdk.jpackage" type="simple" />
             <root url="jrt://{JDKpath}!/jdk.jshell" type="simple" />
             <root url="jrt://{JDKpath}!/jdk.jsobject" type="simple" />
             <root url="jrt://{JDKpath}!/jdk.jstatd" type="simple" />
             <root url="jrt://{JDKpath}!/jdk.localedata" type="simple" />
+            <root url="jrt://{JDKpath}!/jdk.management" type="simple" />
             <root url="jrt://{JDKpath}!/jdk.management.agent" type="simple" />
             <root url="jrt://{JDKpath}!/jdk.management.jfr" type="simple" />
-            <root url="jrt://{JDKpath}!/jdk.management" type="simple" />
             <root url="jrt://{JDKpath}!/jdk.naming.dns" type="simple" />
-            <root url="jrt://{JDKpath}!/jdk.naming.ldap" type="simple" />
             <root url="jrt://{JDKpath}!/jdk.naming.rmi" type="simple" />
             <root url="jrt://{JDKpath}!/jdk.net" type="simple" />
-            <root url="jrt://{JDKpath}!/jdk.pack" type="simple" />
-            <root url="jrt://{JDKpath}!/jdk.rmic" type="simple" />
-            <root url="jrt://{JDKpath}!/jdk.scripting.nashorn" type="simple" />
-            <root url="jrt://{JDKpath}!/jdk.scripting.nashorn.shell" type="simple" />
+            <root url="jrt://{JDKpath}!/jdk.nio.mapmode" type="simple" />
+            <root url="jrt://{JDKpath}!/jdk.random" type="simple" />
             <root url="jrt://{JDKpath}!/jdk.sctp" type="simple" />
             <root url="jrt://{JDKpath}!/jdk.security.auth" type="simple" />
             <root url="jrt://{JDKpath}!/jdk.security.jgss" type="simple" />
-            <root url="jrt://{JDKpath}!/jdk.unsupported.desktop" type="simple" />
             <root url="jrt://{JDKpath}!/jdk.unsupported" type="simple" />
+            <root url="jrt://{JDKpath}!/jdk.unsupported.desktop" type="simple" />
             <root url="jrt://{JDKpath}!/jdk.xml.dom" type="simple" />
             <root url="jrt://{JDKpath}!/jdk.zipfs" type="simple" />
-            <root url="jar://{JDKpath}/lib/jrt-fs.jar!/" type="simple" />
           </root>
         </classPath>
         <javadocPath>
@@ -436,7 +501,76 @@ MAC_JDK_XML = """\
         </javadocPath>
         <sourcePath>
           <root type="composite">
-            <root url="jar://{JDKpath}/lib/src.zip!/" type="simple" />
+            <root url="jar://{JDKpath}/lib/src.zip!/java.se" type="simple" />
+            <root url="jar://{JDKpath}/lib/src.zip!/jdk.jdi" type="simple" />
+            <root url="jar://{JDKpath}/lib/src.zip!/jdk.jfr" type="simple" />
+            <root url="jar://{JDKpath}/lib/src.zip!/jdk.net" type="simple" />
+            <root url="jar://{JDKpath}/lib/src.zip!/java.rmi" type="simple" />
+            <root url="jar://{JDKpath}/lib/src.zip!/java.sql" type="simple" />
+            <root url="jar://{JDKpath}/lib/src.zip!/java.xml" type="simple" />
+            <root url="jar://{JDKpath}/lib/src.zip!/jdk.jcmd" type="simple" />
+            <root url="jar://{JDKpath}/lib/src.zip!/jdk.sctp" type="simple" />
+            <root url="jar://{JDKpath}/lib/src.zip!/java.base" type="simple" />
+            <root url="jar://{JDKpath}/lib/src.zip!/jdk.jdeps" type="simple" />
+            <root url="jar://{JDKpath}/lib/src.zip!/jdk.jlink" type="simple" />
+            <root url="jar://{JDKpath}/lib/src.zip!/jdk.zipfs" type="simple" />
+            <root url="jar://{JDKpath}/lib/src.zip!/java.prefs" type="simple" />
+            <root url="jar://{JDKpath}/lib/src.zip!/jdk.attach" type="simple" />
+            <root url="jar://{JDKpath}/lib/src.zip!/jdk.jshell" type="simple" />
+            <root url="jar://{JDKpath}/lib/src.zip!/jdk.jstatd" type="simple" />
+            <root url="jar://{JDKpath}/lib/src.zip!/jdk.random" type="simple" />
+            <root url="jar://{JDKpath}/lib/src.zip!/java.naming" type="simple" />
+            <root url="jar://{JDKpath}/lib/src.zip!/jdk.editpad" type="simple" />
+            <root url="jar://{JDKpath}/lib/src.zip!/jdk.jartool" type="simple" />
+            <root url="jar://{JDKpath}/lib/src.zip!/jdk.javadoc" type="simple" />
+            <root url="jar://{JDKpath}/lib/src.zip!/jdk.xml.dom" type="simple" />
+            <root url="jar://{JDKpath}/lib/src.zip!/java.desktop" type="simple" />
+            <root url="jar://{JDKpath}/lib/src.zip!/java.logging" type="simple" />
+            <root url="jar://{JDKpath}/lib/src.zip!/jdk.charsets" type="simple" />
+            <root url="jar://{JDKpath}/lib/src.zip!/jdk.compiler" type="simple" />
+            <root url="jar://{JDKpath}/lib/src.zip!/jdk.dynalink" type="simple" />
+            <root url="jar://{JDKpath}/lib/src.zip!/jdk.jconsole" type="simple" />
+            <root url="jar://{JDKpath}/lib/src.zip!/jdk.jpackage" type="simple" />
+            <root url="jar://{JDKpath}/lib/src.zip!/jdk.jsobject" type="simple" />
+            <root url="jar://{JDKpath}/lib/src.zip!/java.compiler" type="simple" />
+            <root url="jar://{JDKpath}/lib/src.zip!/java.net.http" type="simple" />
+            <root url="jar://{JDKpath}/lib/src.zip!/jdk.crypto.ec" type="simple" />
+            <root url="jar://{JDKpath}/lib/src.zip!/java.scripting" type="simple" />
+            <root url="jar://{JDKpath}/lib/src.zip!/jdk.httpserver" type="simple" />
+            <root url="jar://{JDKpath}/lib/src.zip!/jdk.jdwp.agent" type="simple" />
+            <root url="jar://{JDKpath}/lib/src.zip!/jdk.localedata" type="simple" />
+            <root url="jar://{JDKpath}/lib/src.zip!/jdk.management" type="simple" />
+            <root url="jar://{JDKpath}/lib/src.zip!/jdk.naming.dns" type="simple" />
+            <root url="jar://{JDKpath}/lib/src.zip!/jdk.naming.rmi" type="simple" />
+            <root url="jar://{JDKpath}/lib/src.zip!/java.instrument" type="simple" />
+            <root url="jar://{JDKpath}/lib/src.zip!/java.management" type="simple" />
+            <root url="jar://{JDKpath}/lib/src.zip!/java.sql.rowset" type="simple" />
+            <root url="jar://{JDKpath}/lib/src.zip!/java.xml.crypto" type="simple" />
+            <root url="jar://{JDKpath}/lib/src.zip!/jdk.internal.ed" type="simple" />
+            <root url="jar://{JDKpath}/lib/src.zip!/jdk.internal.le" type="simple" />
+            <root url="jar://{JDKpath}/lib/src.zip!/jdk.nio.mapmode" type="simple" />
+            <root url="jar://{JDKpath}/lib/src.zip!/jdk.unsupported" type="simple" />
+            <root url="jar://{JDKpath}/lib/src.zip!/java.smartcardio" type="simple" />
+            <root url="jar://{JDKpath}/lib/src.zip!/jdk.internal.opt" type="simple" />
+            <root url="jar://{JDKpath}/lib/src.zip!/java.datatransfer" type="simple" />
+            <root url="jar://{JDKpath}/lib/src.zip!/jdk.accessibility" type="simple" />
+            <root url="jar://{JDKpath}/lib/src.zip!/jdk.hotspot.agent" type="simple" />
+            <root url="jar://{JDKpath}/lib/src.zip!/jdk.security.auth" type="simple" />
+            <root url="jar://{JDKpath}/lib/src.zip!/jdk.security.jgss" type="simple" />
+            <root url="jar://{JDKpath}/lib/src.zip!/java.security.jgss" type="simple" />
+            <root url="jar://{JDKpath}/lib/src.zip!/java.security.sasl" type="simple" />
+            <root url="jar://{JDKpath}/lib/src.zip!/jdk.internal.vm.ci" type="simple" />
+            <root url="jar://{JDKpath}/lib/src.zip!/jdk.management.jfr" type="simple" />
+            <root url="jar://{JDKpath}/lib/src.zip!/java.management.rmi" type="simple" />
+            <root url="jar://{JDKpath}/lib/src.zip!/java.transaction.xa" type="simple" />
+            <root url="jar://{JDKpath}/lib/src.zip!/jdk.crypto.cryptoki" type="simple" />
+            <root url="jar://{JDKpath}/lib/src.zip!/jdk.incubator.vector" type="simple" />
+            <root url="jar://{JDKpath}/lib/src.zip!/jdk.internal.jvmstat" type="simple" />
+            <root url="jar://{JDKpath}/lib/src.zip!/jdk.management.agent" type="simple" />
+            <root url="jar://{JDKpath}/lib/src.zip!/jdk.incubator.foreign" type="simple" />
+            <root url="jar://{JDKpath}/lib/src.zip!/jdk.unsupported.desktop" type="simple" />
+            <root url="jar://{JDKpath}/lib/src.zip!/jdk.internal.vm.compiler" type="simple" />
+            <root url="jar://{JDKpath}/lib/src.zip!/jdk.internal.vm.compiler.management" type="simple" />
           </root>
         </sourcePath>
       </roots>
@@ -462,7 +596,7 @@ ANDROID_SDK_XML = """\
     <jdk version="2">
       <name value="Android API {CODE_NAME} Platform" />
       <type value="Android SDK" />
-      <version value="java version &quot;11.0.15&quot;" />
+      <version value="java version &quot;17.0.4&quot;" />
       <homePath value="{ANDROID_SDK_PATH}" />
       <roots>
         <annotationsPath>
@@ -480,7 +614,7 @@ ANDROID_SDK_XML = """\
           <root type="composite" />
         </sourcePath>
       </roots>
-      <additional jdk="JDK11" sdk="android-{CODE_NAME}" />
+      <additional jdk="JDK17" sdk="android-{CODE_NAME}" />
     </jdk>
 """
 
