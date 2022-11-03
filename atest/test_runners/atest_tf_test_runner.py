@@ -39,6 +39,7 @@ from atest import module_info
 from atest import result_reporter
 
 from atest.atest_enum import DetectType, ExitCode
+from atest.coverage import coverage
 from atest.logstorage import atest_gcp_utils
 from atest.logstorage import logstorage_utils
 from atest.metrics import metrics
@@ -1111,7 +1112,8 @@ def extra_args_to_tf_args(mod_info: module_info.ModuleInfo,
                 '--test-arg',
                 'com.android.tradefed.testtype.GTest:'
                 f'native-test-timeout:{arg_value}',
-            ]
+            ],
+        constants.COVERAGE: coverage.tf_args,
     })
 
     for arg in extra_args:
