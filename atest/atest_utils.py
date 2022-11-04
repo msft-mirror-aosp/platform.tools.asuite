@@ -406,9 +406,6 @@ def run_build_cmd(cmd, verbose=False, env_vars=None):
         return True
     except subprocess.CalledProcessError as err:
         logging.error('Build failure when running: %s', ' '.join(cmd))
-        print(constants.REBUILD_MODULE_INFO_MSG.format(
-        colorize(constants.REBUILD_MODULE_INFO_FLAG,
-                 constants.RED)))
         if err.output:
             logging.error(err.output)
         return False
