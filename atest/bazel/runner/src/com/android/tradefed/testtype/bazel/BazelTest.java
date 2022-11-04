@@ -37,8 +37,6 @@ import com.android.tradefed.testtype.IRemoteTest;
 import com.android.tradefed.util.ZipUtil;
 import com.android.tradefed.util.proto.TestRecordProtoUtil;
 
-import com.google.common.base.Joiner;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.io.CharStreams;
 import com.google.common.io.MoreFiles;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos;
@@ -85,7 +83,6 @@ public final class BazelTest implements IRemoteTest {
 
     private final List<Path> mTemporaryPaths = new ArrayList<>();
     private final List<Path> mLogFiles = new ArrayList<>();
-    private final ImmutableMap<String, String> mEnvironment;
     private final ProcessStarter mProcessStarter;
     private final Path mTemporaryDirectory;
 
@@ -130,14 +127,12 @@ public final class BazelTest implements IRemoteTest {
 
     public BazelTest() {
         mProcessStarter = new DefaultProcessStarter();
-        mEnvironment = ImmutableMap.copyOf(System.getenv());
         mTemporaryDirectory = Paths.get(System.getProperty("java.io.tmpdir"));
     }
 
     @VisibleForTesting
-    BazelTest(ProcessStarter processStarter, Map<String, String> environment, Path tmpDir) {
+    BazelTest(ProcessStarter processStarter, Path tmpDir) {
         mProcessStarter = processStarter;
-        mEnvironment = ImmutableMap.copyOf(environment);
         mTemporaryDirectory = tmpDir;
     }
 
@@ -235,20 +230,9 @@ public final class BazelTest implements IRemoteTest {
         Path bazelTmpDir =
                 createTemporaryDirectory(String.format("%s-bazel-tmp-out", tmpDirPrefix));
 
-        // Append the JDK from the workspace archive to PATH.
-        Joiner joiner = Joiner.on(File.pathSeparator).skipNulls();
-        String path =
-                joiner.join(
-                        workspaceDirectory.resolve("prebuilts/jdk/bin").toAbsolutePath().toString(),
-                        mEnvironment.get("PATH"));
-
         List<String> command = new ArrayList<>();
 
-        command.add(workspaceDirectory.resolve("bazelbin").toAbsolutePath().toString());
-        command.add(
-                String.format(
-                        "--server_javabase=%s",
-                        workspaceDirectory.resolve("prebuilts/jdk").toAbsolutePath().toString()));
+        command.add(workspaceDirectory.resolve("bazel.sh").toAbsolutePath().toString());
         command.add(
                 String.format(
                         "--host_jvm_args=-Djava.io.tmpdir=%s",
@@ -259,7 +243,6 @@ public final class BazelTest implements IRemoteTest {
 
         ProcessBuilder builder = new ProcessBuilder(command);
 
-        builder.environment().put("PATH", path);
         builder.directory(workspaceDirectory.toFile());
 
         return builder;

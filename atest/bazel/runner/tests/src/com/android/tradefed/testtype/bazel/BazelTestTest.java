@@ -45,7 +45,6 @@ import com.android.tradefed.util.ZipUtil;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.io.MoreFiles;
-import com.google.common.truth.Correspondence;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos;
 
 import org.junit.Before;
@@ -90,15 +89,7 @@ public final class BazelTestTest {
     private static final String ARCHIVE_NAME = "atest_bazel_workspace.tar.gz";
     private static final String BAZEL_TEST_TARGETS_OPTION = "bazel-test-target-patterns";
     private static final String BAZEL_WORKSPACE_ARCHIVE_OPTION = "bazel-workspace-archive";
-    private static final Path BAZEL_JDK_RELATIVE_PATH = Paths.get("prebuilts/jdk/bin");
     private static final String BEP_FILE_OPTION_NAME = "--build_event_binary_file";
-
-    private static final Correspondence<String, Path> PATH_ENDS_WITH =
-            Correspondence.from(
-                    (String s, Path p) -> {
-                        return Paths.get(s).endsWith(p);
-                    },
-                    "path ends with");
 
     @Rule public final TemporaryFolder tempDir = new TemporaryFolder();
 
@@ -145,50 +136,6 @@ public final class BazelTestTest {
                 .testLog(contains(String.format("%s-log", BazelTest.QUERY_TARGETS)), any(), any());
         verify(mMockListener)
                 .testLog(contains(String.format("%s-log", BazelTest.RUN_TESTS)), any(), any());
-    }
-
-    @Test
-    public void systemPathSet_jdkAddedToPath() throws Exception {
-        Map<String, String> env = new HashMap<>();
-        FakeProcessStarter processStarter = newFakeProcessStarter();
-        processStarter.put(
-                BazelTest.RUN_TESTS,
-                builder -> {
-                    env.putAll(builder.environment());
-                    return new FakeBazelTestProcess(builder, mBazelTempPath);
-                });
-        BazelTest bazelTest =
-                newBazelTestWithProcessStarterAndEnvironment(
-                        processStarter, ImmutableMap.of("PATH", "/bin"));
-
-        bazelTest.run(mTestInfo, mMockListener);
-
-        assertThat(env).containsKey("PATH");
-        assertThat(Splitter.on(File.pathSeparator).splitToList(env.get("PATH")))
-                .comparingElementsUsing(PATH_ENDS_WITH)
-                .contains(BAZEL_JDK_RELATIVE_PATH);
-    }
-
-    @Test
-    public void systemPathUnset_jdkAddedToPath() throws Exception {
-        Map<String, String> env = new HashMap<>();
-        FakeProcessStarter processStarter = newFakeProcessStarter();
-        processStarter.put(
-                BazelTest.RUN_TESTS,
-                builder -> {
-                    env.putAll(builder.environment());
-                    return new FakeBazelTestProcess(builder, mBazelTempPath);
-                });
-        BazelTest bazelTest =
-                newBazelTestWithProcessStarterAndEnvironment(
-                        processStarter, Collections.emptyMap());
-
-        bazelTest.run(mTestInfo, mMockListener);
-
-        assertThat(env).containsKey("PATH");
-        assertThat(Splitter.on(File.pathSeparator).splitToList(env.get("PATH")))
-                .comparingElementsUsing(PATH_ENDS_WITH)
-                .contains(BAZEL_JDK_RELATIVE_PATH);
     }
 
     @Test
@@ -400,20 +347,14 @@ public final class BazelTestTest {
     private BazelTest newBazelTestWithProcessStarter(BazelTest.ProcessStarter starter)
             throws Exception {
 
-        return newBazelTestWithProcessStarterAndEnvironment(starter, mEnvironment);
-    }
-
-    private BazelTest newBazelTestWithProcessStarterAndEnvironment(
-            BazelTest.ProcessStarter starter, Map<String, String> environment) throws Exception {
-
-        BazelTest bazelTest = new BazelTest(starter, environment, mBazelTempPath);
+        BazelTest bazelTest = new BazelTest(starter, mBazelTempPath);
         OptionSetter setter = new OptionSetter(bazelTest);
         setter.setOptionValue(BAZEL_WORKSPACE_ARCHIVE_OPTION, ARCHIVE_NAME);
         return bazelTest;
     }
 
     private BazelTest newBazelTest() throws Exception {
-        return newBazelTestWithProcessStarterAndEnvironment(newFakeProcessStarter(), mEnvironment);
+        return newBazelTestWithProcessStarter(newFakeProcessStarter());
     }
 
     private static FailureDescription hasErrorIdentifier(ErrorIdentifier error) {
