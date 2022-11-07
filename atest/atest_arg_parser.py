@@ -116,9 +116,7 @@ UPDATE_CMD_MAPPING = ('Update the test command of input tests. Warning: result '
                       'will be saved under '
                       'tools/asuite/atest/test_data.')
 USE_MODULES_IN = ('Force include MODULES-IN-* as build targets. '
-                  'Hint: This may solve missing test dependencies issue. '
-                  'MODULES-IN-* is always included except if --no-bazel-mode '
-                  'is given.')
+                  'Hint: This may solve missing test dependencies issue.')
 USER_TYPE = ('Run test with specific user type, e.g. atest <test> --user-type '
              'secondary_user')
 VERBOSE = 'Display DEBUG level logging.'
