@@ -403,6 +403,19 @@ class ModuleInfoUnittests(unittest.TestCase):
 
     @mock.patch.dict('os.environ', {constants.ANDROID_BUILD_TOP:'/',
                                     constants.ANDROID_PRODUCT_OUT:PRODUCT_OUT_DIR})
+    def test_merge_build_system_infos_missing_keys(self):
+        """Test _merge_build_system_infos for keys missing from module-info.json."""
+        mod_info = module_info.ModuleInfo(module_file=JSON_FILE_PATH, index_dir=HOST_OUT_DIR)
+        name_to_mod_info = mod_info._merge_build_system_infos(
+            {}, java_bp_info_path=self.java_dep_path)
+
+        expect_deps = ['test_dep_level_1_1']
+        self.assertEqual(
+            name_to_mod_info['not_in_module_info'].get(constants.MODULE_DEPENDENCIES),
+            expect_deps)
+
+    @mock.patch.dict('os.environ', {constants.ANDROID_BUILD_TOP:'/',
+                                    constants.ANDROID_PRODUCT_OUT:PRODUCT_OUT_DIR})
     def test_merge_dependency_with_ori_dependency(self):
         """Test _merge_dependency."""
         mod_info = module_info.ModuleInfo(module_file=JSON_FILE_PATH, index_dir=HOST_OUT_DIR)
