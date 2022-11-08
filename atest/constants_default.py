@@ -61,6 +61,7 @@ FLAKES_INFO = 'FLAKES_INFO'
 TF_EARLY_DEVICE_RELEASE = 'TF_EARLY_DEVICE_RELEASE'
 BAZEL_MODE_FEATURES = 'BAZEL_MODE_FEATURES'
 REQUEST_UPLOAD_RESULT = 'REQUEST_UPLOAD_RESULT'
+DISABLE_UPLOAD_RESULT = 'DISABLE_UPLOAD_RESULT'
 MODULES_IN = 'MODULES-IN-'
 NO_ENABLE_ROOT = 'NO_ENABLE_ROOT'
 VERIFY_ENV_VARIABLE = 'VERIFY_ENV_VARIABLE'
@@ -329,9 +330,10 @@ UPLOAD_TEST_RESULT_MSG = 'Upload test result?'
 DISCOVERY_SERVICE = ''
 STORAGE2_TEST_URI = ''
 
-# messages that share among libraries.
-REBUILD_MODULE_INFO_MSG = ('(This can happen after a repo sync or if the test'
-                           ' is new. Running with "{}" may resolve the issue.)')
+# SSO constants.
+TOKEN_EXCHANGE_COMMAND = ''
+TOKEN_EXCHANGE_REQUEST = ''
+SCOPE = ''
 
 # Example arguments used in ~/.atest/config
 ATEST_EXAMPLE_ARGS = ('## Specify only one option per line; any test name/path will be ignored automatically.\n'
