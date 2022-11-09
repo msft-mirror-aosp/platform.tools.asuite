@@ -1863,67 +1863,6 @@ class BazelTestRunnerTest(unittest.TestCase):
             '--build_metadata=ab_target=aosp_cf_x86_64_phone-userdebug'
         ], cmd[0])
 
-    @mock.patch('atest.bazel_mode.subprocess.run')
-    def test_generate_run_command_with_auth_when_bes_publish_enabled(
-            self, mock_subprocess_run):
-        test_infos = [test_info_of('test1')]
-        extra_args = {
-            constants.BAZEL_MODE_FEATURES: [
-                bazel_mode.Features.EXPERIMENTAL_BES_PUBLISH
-            ]
-        }
-        build_metadata = bazel_mode.BuildMetadata(
-            'master', 'aosp_cf_x86_64_phone-userdebug')
-        env = {
-            'ATEST_BAZELRC': '/dir/atest.bazelrc',
-            'ATEST_BAZEL_BES_PUBLISH_CONFIG': 'bes_publish',
-            'ATEST_BAZEL_BES_PUBLISH_AUTH_SCRIPT': 'myscript',
-        }
-        runner = self.create_bazel_test_runner_for_tests(
-            test_infos, build_metadata=build_metadata, env=env)
-        auth_options = [
-            '--nogoogle_default_credentials',
-            '--bes_header=Authorization=Bearer mytoken',
-            '--remote_header=Authorization=Bearer mytoken',
-            '--google_auth_scopes='
-            'https://www.googleapis.com/auth/cloud-platform'
-        ]
-        mock_subprocess_run.side_effect = [
-            self.create_completed_process('myarg',
-                                          0,
-                                          stdout='\n'.join(auth_options))
-        ]
-
-        cmd = runner.generate_run_commands(
-            test_infos,
-            extra_args,
-        )
-
-        self.assertTokensIn(auth_options, cmd[0])
-
-    @mock.patch('atest.bazel_mode.subprocess.run',
-                side_effect=subprocess.CalledProcessError(cmd='cmd',
-                                                          returncode=1))
-    def test_generate_run_command_with_bes_publish_enabled_and_no_auth(self, _):
-        test_infos = [test_info_of('test1')]
-        extra_args = {
-            constants.BAZEL_MODE_FEATURES: [
-                bazel_mode.Features.EXPERIMENTAL_BES_PUBLISH
-            ]
-        }
-        build_metadata = bazel_mode.BuildMetadata(
-            'master', 'aosp_cf_x86_64_phone-userdebug')
-        env = {
-            'ATEST_BAZELRC': '/dir/atest.bazelrc',
-            'ATEST_BAZEL_BES_PUBLISH_CONFIG': 'bes_publish',
-            'ATEST_BAZEL_BES_PUBLISH_AUTH_SCRIPT': 'myscript',
-        }
-        runner = self.create_bazel_test_runner_for_tests(
-            test_infos, build_metadata=build_metadata, env=env)
-
-        with self.assertRaises(bazel_mode.AbortRunException):
-            runner.generate_run_commands(test_infos, extra_args)
-
     def test_generate_run_command_with_remote_enabled(self):
         test_infos = [test_info_of('test1')]
         extra_args = {
