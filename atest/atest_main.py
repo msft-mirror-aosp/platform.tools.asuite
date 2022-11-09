@@ -803,30 +803,46 @@ def need_rebuild_module_info(test_steps: None,
     """Method that tells whether we need to rebuild module-info.json or not.
 
     Args:
-        args: An argparse.Namespace class instance holding parsed args.
+        test_steps: a list of steps, e.g. ['build','test']
+        force_rebuild: a boolean given from args.rebuild_module_info.
+
+        +-----------------+
+        | Explicitly pass |  yes
+        |    '--test'     +-------> False (won't rebuild)
+        +--------+--------+
+                 | no
+                 V
+        +-------------------------+
+        | Explicitly pass         |  yes
+        | '--rebuild-module-info' +-------> True (forcely rebuild)
+        +--------+----------------+
+                 | no
+                 V
+        +-------------------+
+        |    Build files    |  no
+        | integrity is good +-------> True (smartly rebuild)
+        +--------+----------+
+                 | yes
+                 V
+               False (won't rebuild)
 
     Returns:
-        - When only --test is set, return False (won't build module-info.json).
-        - When --rebuild-module-info is set, return True (forcely rebuild).
-        - When the build files were changed, return True(smartly rebuild).
-        - When the checksum file of build files is inexistent, return True
-          (smartly rebuild).
+        True for forcely/smartly rebuild, otherwise False without rebuilding.
     """
     if test_steps and constants.BUILD_STEP not in test_steps:
         logging.debug('\"--test\" mode detected, will not rebuild module-info.')
         return False
-    logging.debug('Examinating the consistency of build files...')
     if force_rebuild:
         msg = (f'`{constants.REBUILD_MODULE_INFO_FLAG}` is no longer needed '
                f'since Atest can smartly rebuild {module_info._MODULE_INFO} '
                r'only when needed.')
         atest_utils.colorful_print(msg, constants.YELLOW)
         return True
-    if atest_utils.check_md5(constants.BUILDFILES_MD5, missing_ok=False):
-        logging.debug('All build files stay untouched.')
-        return False
-    logging.debug('Found build files were changed.')
-    return True
+    logging.debug('Examinating the consistency of build files...')
+    if not atest_utils.build_files_integrity_is_ok():
+        logging.debug('Found build files were changed.')
+        return True
+    return False
 
 def need_run_index_targets(args, extra_args):
     """Method that determines whether Atest need to run index_targets or not.

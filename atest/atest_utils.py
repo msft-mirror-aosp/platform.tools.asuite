@@ -1890,3 +1890,18 @@ def prompt_suggestions(result_file: Path):
             # If the given is not a plain text, just ignore it.
             except Exception:
                 pass
+
+def build_files_integrity_is_ok() -> bool:
+    """Return Whether the integrity of build files is OK."""
+    # 0. Inexistence of the checksum file means a fresh repo sync.
+    if not Path(constants.BUILDFILES_MD5).is_file():
+        return False
+    # 1. Ensure no build files were added/deleted.
+    with open(constants.BUILDFILES_MD5, 'r') as cache:
+        recorded_amount = len(json.load(cache).keys())
+        cmd = (f'locate -d{constants.LOCATE_CACHE} --regex '
+               r'"/Android\.(bp|mk)$" | wc -l')
+        if int(subprocess.getoutput(cmd)) != recorded_amount:
+            return False
+    # 2. Ensure the consistency of all build files.
+    return check_md5(constants.BUILDFILES_MD5, missing_ok=False)
