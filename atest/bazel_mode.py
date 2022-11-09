@@ -1321,37 +1321,11 @@ class BazelTestRunner(trb.TestRunnerBase):
         branch = self.build_metadata.build_branch
         target = self.build_metadata.build_target
 
-        args = []
-        args.append(f'--config={bes_publish_config}')
-        args.append(f'--build_metadata=ab_branch={branch}')
-        args.append(f'--build_metadata=ab_target={target}')
-
-        auth_script = self.env.get('ATEST_BAZEL_BES_PUBLISH_AUTH_SCRIPT')
-        if auth_script:
-            args.extend(self._get_auth_args(auth_script))
-
-        return args
-
-    def _get_auth_args(self, auth_script):
-        """Get Bazel authentication arguments from running a script.
-
-        Args:
-            auth_script: path to the authentication script.
-        Returns:
-            the Bazel arguments used for authentication.
-        """
-        try:
-            result = subprocess.run(auth_script,
-                                    check=True,
-                                    text=True,
-                                    shell=True,
-                                    stdout=subprocess.PIPE)
-        except subprocess.CalledProcessError as e:
-            raise AbortRunException(
-                f'Error running authentication script `{auth_script}`: {e}'
-            ) from e
-
-        return result.stdout.splitlines()
+        return [
+            f'--config={bes_publish_config}',
+            f'--build_metadata=ab_branch={branch}',
+            f'--build_metadata=ab_target={target}'
+        ]
 
     def _get_remote_args(self, feature):
         remote_config = self._get_feature_config_or_warn(
