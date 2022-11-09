@@ -1064,7 +1064,8 @@ def extra_args_to_tf_args(mod_info: module_info.ModuleInfo,
                    constants.ENABLE_DEVICE_PREPARER,
                    constants.DRY_RUN,
                    constants.VERIFY_ENV_VARIABLE,
-                   constants.FLAKES_INFO):
+                   constants.FLAKES_INFO,
+                   constants.DISABLE_UPLOAD_RESULT):
             continue
         unsupported_args.append(arg)
     return supported_args, unsupported_args
