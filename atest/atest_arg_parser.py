@@ -73,7 +73,14 @@ NO_METRICS = 'Do not send metrics.'
 REBUILD_MODULE_INFO = ('Forces a rebuild of the module-info.json file. '
                        'This may be necessary following a repo sync or '
                        'when writing a new test.')
-REQUEST_UPLOAD_RESULT = 'Request permission to upload test result.'
+
+REQUEST_UPLOAD_RESULT = ('Request permission to upload test result. This option '
+                         'only needs to set once and takes effect until '
+                         '--disable-upload-result is set.')
+DISABLE_UPLOAD_RESULT = ('Turn off the upload of test result. This option '
+                         'only needs to set once and takes effect until '
+                         '--request-upload-result is set')
+
 RERUN_UNTIL_FAILURE = ('Rerun all tests until a failure occurs or the max '
                        'iteration is reached. (default: forever!)')
 # For Integer.MAX_VALUE == (2**31 - 1) and not possible to give a larger integer
@@ -175,8 +182,13 @@ class AtestArgParser(argparse.ArgumentParser):
                           action='store_true')
         self.add_argument('-w', '--wait-for-debugger', action='store_true',
                           help=WAIT_FOR_DEBUGGER)
-        self.add_argument('--request-upload-result', action='store_true',
+        # Options for request/disable upload results. They are mutually
+        # exclusive in a command line.
+        ugroup = self.add_mutually_exclusive_group()
+        ugroup.add_argument('--request-upload-result', action='store_true',
                           help=REQUEST_UPLOAD_RESULT)
+        ugroup.add_argument('--disable-upload-result', action='store_true',
+                          help=DISABLE_UPLOAD_RESULT)
 
         # Options related to Test Mapping
         self.add_argument('-p', '--test-mapping', action='store_true',
@@ -338,6 +350,7 @@ def print_epilog_text():
         CLEAR_CACHE=CLEAR_CACHE,
         COLLECT_TESTS_ONLY=COLLECT_TESTS_ONLY,
         DISABLE_TEARDOWN=DISABLE_TEARDOWN,
+        DISABLE_UPLOAD_RESULT=DISABLE_UPLOAD_RESULT,
         DRY_RUN=DRY_RUN,
         ENABLE_DEVICE_PREPARER=ENABLE_DEVICE_PREPARER,
         ENABLE_FILE_PATTERNS=ENABLE_FILE_PATTERNS,
