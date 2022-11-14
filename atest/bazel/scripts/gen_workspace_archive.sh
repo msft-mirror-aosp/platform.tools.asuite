@@ -58,6 +58,9 @@ fi
 # Build Atest from source to pick up the latest changes.
 ${ANDROID_BUILD_TOP}/build/soong/soong_ui.bash --make-mode atest
 
+# Build the Bazel test suite needed by BazelTest
+${ANDROID_BUILD_TOP}/build/soong/soong_ui.bash --make-mode dist bazel-test-suite
+
 # Generate the initial workspace via Atest Bazel mode.
 pushd ${ANDROID_BUILD_TOP}
 ${OUT_DIR}/host/linux-x86/bin/atest-dev \
