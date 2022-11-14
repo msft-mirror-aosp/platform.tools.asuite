@@ -10,7 +10,7 @@ set -eo pipefail
 
 SCRIPT_DIR=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" &> /dev/null && pwd)
 
-JDK_PATH="${SCRIPT_DIR}"/prebuilts/jdk/jdk11/linux-x86
+JDK_PATH="${SCRIPT_DIR}"/prebuilts/jdk/jdk17/linux-x86
 BAZEL_BINARY="${SCRIPT_DIR}"/prebuilts/bazel/linux-x86_64/bazel
 
 PROCESS_PATH="${JDK_PATH}"/bin:"${PATH}"
