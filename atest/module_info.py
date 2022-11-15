@@ -793,17 +793,16 @@ class ModuleInfo:
                        constants.MODULE_LIBS, constants.MODULE_STATIC_LIBS,
                        constants.MODULE_STATIC_DEPS]
         for module_name, dep_info in mod_bp_infos.items():
-            if name_to_module_info.get(module_name, None):
-                mod_info = name_to_module_info.get(module_name)
-                for merge_item in merge_items:
-                    dep_info_values = dep_info.get(merge_item, [])
-                    mod_info_values = mod_info.get(merge_item, [])
-                    mod_info_values.extend(dep_info_values)
-                    mod_info_values.sort()
-                    # deduplicate values just in case.
-                    mod_info_values = list(dict.fromkeys(mod_info_values))
-                    name_to_module_info[
-                        module_name][merge_item] = mod_info_values
+            mod_info = name_to_module_info.setdefault(module_name, {})
+            for merge_item in merge_items:
+                dep_info_values = dep_info.get(merge_item, [])
+                mod_info_values = mod_info.get(merge_item, [])
+                mod_info_values.extend(dep_info_values)
+                mod_info_values.sort()
+                # deduplicate values just in case.
+                mod_info_values = list(dict.fromkeys(mod_info_values))
+                name_to_module_info[
+                    module_name][merge_item] = mod_info_values
         return name_to_module_info
 
     def get_filepath_from_module(self, module_name: str, filename: str) -> Path:
