@@ -578,12 +578,6 @@ class AtestTradefedTestRunner(trb.TestRunnerBase):
             test_args.append('--template:map preparers=%s'
                              % constants.DEVICE_SETUP_PREPARER)
         for info in test_infos:
-            # Only change tradefed cmd when running local tests.
-            if hasattr(info, 'artifacts') and self.root_dir:
-                for artifact in info.artifacts:
-                    test_args.append(
-                        f'{constants.TF_MODULE_ARG} '
-                        f'{info.test_name}:test-file-name:{artifact}')
             if constants.TEST_WITH_MAINLINE_MODULES_RE.match(info.test_name):
                 test_args.append(constants.TF_ENABLE_MAINLINE_PARAMETERIZED_MODULES)
                 break
