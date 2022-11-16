@@ -157,7 +157,7 @@ class TFIntegrationFinder(test_finder_base.TestFinderBase):
         for integration_dir in self.integration_dirs:
             abs_path = os.path.join(self.root_dir, integration_dir)
             found_test_files = test_finder_utils.run_find_cmd(
-                test_finder_utils.FIND_REFERENCE_TYPE.INTEGRATION,
+                test_finder_utils.TestReferenceType.INTEGRATION,
                 abs_path, name)
             if found_test_files:
                 test_files.extend(found_test_files)
