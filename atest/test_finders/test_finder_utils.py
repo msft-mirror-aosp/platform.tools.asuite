@@ -32,6 +32,7 @@ import time
 import xml.etree.ElementTree as ET
 
 from contextlib import contextmanager
+from enum import unique, Enum
 from pathlib import Path
 
 from atest import atest_decorator
@@ -39,7 +40,7 @@ from atest import atest_error
 from atest import atest_utils
 from atest import constants
 
-from atest.atest_enum import AtestEnum, ExitCode, DetectType
+from atest.atest_enum import ExitCode, DetectType
 from atest.metrics import metrics, metrics_utils
 
 # Helps find apk files listed in a test config (AndroidTest.xml) file.
@@ -99,51 +100,36 @@ _PARAMET_JAVA_CLASS_RE = re.compile(
 _PARENT_CLS_RE = re.compile(r'.*class\s+\w+\s+(?:extends|:)\s+'
                             r'(?P<parent>[\w\.]+)\s*(?:\{|\()')
 
-# Explanation of FIND_REFERENCE_TYPEs:
-# ----------------------------------
-# 0. CLASS: Name of a java/kotlin class, usually file is named the same
-#    (HostTest lives in HostTest.java or HostTest.kt)
-# 1. QUALIFIED_CLASS: Like CLASS but also contains the package in front like
-#                     com.android.tradefed.testtype.HostTest.
-# 2. PACKAGE: Name of a java package.
-# 3. INTEGRATION: XML file name in one of the 4 integration config directories.
-# 4. CC_CLASS: Name of a cc class.
+@unique
+class TestReferenceType(Enum):
+    """An Enum class that stores the ways of finding a reference."""
+    # Name of a java/kotlin class, usually file is named the same
+    # (HostTest lives in HostTest.java or HostTest.kt)
+    CLASS = (
+        constants.CLASS_INDEX,
+        r"find {0} {1} -type f| egrep '.*/{2}\.(kt|java)$' || true")
+    # Like CLASS but also contains the package in front like
+    # com.android.tradefed.testtype.HostTest.
+    QUALIFIED_CLASS = (
+        constants.QCLASS_INDEX,
+        r"find {0} {1} -type f | egrep '.*{2}\.(kt|java)$' || true")
+    # Name of a Java package.
+    PACKAGE = (
+        constants.PACKAGE_INDEX,
+        r"find {0} {1} -wholename '*{2}' -type d -print")
+    # XML file name in one of the 4 integration config directories.
+    INTEGRATION = (
+        constants.INT_INDEX,
+        r"find {0} {1} -wholename '*/{2}\.xml' -print")
+    # Name of a cc/cpp class.
+    CC_CLASS = (
+        constants.CC_CLASS_INDEX,
+        (r"find {0} {1} -type f -print | egrep -i '/*test.*\.(cc|cpp)$'"
+         f"| xargs -P0 egrep -sH '{constants.CC_GREP_KWRE}' || true"))
 
-FIND_REFERENCE_TYPE = AtestEnum(['CLASS',
-                                 'QUALIFIED_CLASS',
-                                 'PACKAGE',
-                                 'INTEGRATION',
-                                 'CC_CLASS'])
-
-# Unix find commands for searching for test files based on test type input.
-# Note: Find (unlike grep) exits with status 0 if nothing found.
-FIND_CMDS = {
-    FIND_REFERENCE_TYPE.CLASS: r"find {0} {1} -type f"
-                               r"| egrep '.*/{2}\.(kt|java)$' || true",
-    FIND_REFERENCE_TYPE.QUALIFIED_CLASS: r"find {0} {1} -type f"
-                                         r"| egrep '.*{2}\.(kt|java)$' || true",
-    FIND_REFERENCE_TYPE.PACKAGE: r"find {0} {1} -wholename "
-                                 r"'*{2}' -type d -print",
-    FIND_REFERENCE_TYPE.INTEGRATION: r"find {0} {1} -wholename "
-                                     r"'*/{2}\.xml' -print",
-    # Searching a test among files where the absolute paths contain *test*.
-    # If users complain atest couldn't find a CC_CLASS, ask them to follow the
-    # convention that the filename or dirname must contain *test*, where *test*
-    # is case-insensitive.
-    FIND_REFERENCE_TYPE.CC_CLASS: r"find {0} {1} -type f -print"
-                                  r"| egrep -i '/*test.*\.(cc|cpp)$'"
-                                  r"| xargs -P0 egrep -sH"
-                                  f" '{constants.CC_GREP_KWRE}' || true"
-}
-
-# Map ref_type with its index file.
-FIND_INDEXES = {
-    FIND_REFERENCE_TYPE.CLASS: constants.CLASS_INDEX,
-    FIND_REFERENCE_TYPE.QUALIFIED_CLASS: constants.QCLASS_INDEX,
-    FIND_REFERENCE_TYPE.PACKAGE: constants.PACKAGE_INDEX,
-    FIND_REFERENCE_TYPE.INTEGRATION: constants.INT_INDEX,
-    FIND_REFERENCE_TYPE.CC_CLASS: constants.CC_CLASS_INDEX
-}
+    def __init__(self, index_file, find_command):
+        self.index_file = index_file
+        self.find_command = find_command
 
 # XML parsing related constants.
 _COMPATIBILITY_PACKAGE_PREFIX = "com.android.compatibility"
@@ -324,7 +310,7 @@ def get_java_parent_paths(test_path):
     else:
         parent_fqcn = package + '.' + parent_cls
     parent_test_paths = run_find_cmd(
-        FIND_REFERENCE_TYPE.QUALIFIED_CLASS,
+        TestReferenceType.QUALIFIED_CLASS,
         os.environ.get(constants.ANDROID_BUILD_TOP),
         parent_fqcn)
     # Recursively search parent classes until the class is not found.
@@ -522,7 +508,7 @@ def run_find_cmd(ref_type, search_dir, target, methods=None):
     """Find a path to a target given a search dir and a target name.
 
     Args:
-        ref_type: An AtestEnum of the reference type.
+        ref_type: An Enum of the reference type.
         search_dir: A string of the dirpath to search in.
         target: A string of what you're trying to find.
         methods: A set of method names.
@@ -531,24 +517,22 @@ def run_find_cmd(ref_type, search_dir, target, methods=None):
         A list of the path to the target.
         If the search_dir is inexistent, None will be returned.
     """
-    # If module_info.json is outdated, finding in the search_dir can result in
-    # raising exception. Return null immediately can guild users to run
-    # --rebuild-module-info to resolve the problem.
     if not os.path.isdir(search_dir):
         logging.debug('\'%s\' does not exist!', search_dir)
         return None
-    ref_name = FIND_REFERENCE_TYPE[ref_type]
+    ref_name = ref_type.name
+    index_file = ref_type.index_file
     start = time.time()
-    if os.path.isfile(FIND_INDEXES[ref_type]):
+    if os.path.isfile(index_file):
         _dict, out = {}, None
-        with open(FIND_INDEXES[ref_type], 'rb') as index:
+        with open(index_file, 'rb') as index:
             try:
                 _dict = pickle.load(index, encoding='utf-8')
             except (TypeError, IOError, EOFError, pickle.UnpicklingError) as err:
                 logging.debug('Exception raised: %s', err)
                 metrics_utils.handle_exc_and_send_exit_event(
                     constants.ACCESS_CACHE_FAILURE)
-                os.remove(FIND_INDEXES[ref_type])
+                os.remove(index_file)
         if _dict.get(target):
             out = [path for path in _dict.get(target) if search_dir in path]
             logging.debug('Found %s in %s', target, out)
@@ -556,7 +540,7 @@ def run_find_cmd(ref_type, search_dir, target, methods=None):
         prune_cond = _get_prune_cond_of_ignored_dirs()
         if '.' in target:
             target = target.replace('.', '/')
-        find_cmd = FIND_CMDS[ref_type].format(search_dir, prune_cond, target)
+        find_cmd = ref_type.find_command.format(search_dir, prune_cond, target)
         logging.debug('Executing %s find cmd: %s', ref_name, find_cmd)
         out = subprocess.check_output(find_cmd, shell=True)
         if isinstance(out, bytes):
@@ -580,11 +564,11 @@ def find_class_file(search_dir, class_name, is_native_test=False, methods=None):
         A list of the path to the java/cc file.
     """
     if is_native_test:
-        ref_type = FIND_REFERENCE_TYPE.CC_CLASS
+        ref_type = TestReferenceType.CC_CLASS
     elif '.' in class_name:
-        ref_type = FIND_REFERENCE_TYPE.QUALIFIED_CLASS
+        ref_type = TestReferenceType.QUALIFIED_CLASS
     else:
-        ref_type = FIND_REFERENCE_TYPE.CLASS
+        ref_type = TestReferenceType.CLASS
     return run_find_cmd(ref_type, search_dir, class_name, methods)
 
 
@@ -1017,7 +1001,7 @@ def search_integration_dirs(name, int_dirs):
     test_files = []
     for integration_dir in int_dirs:
         abs_path = os.path.join(root_dir, integration_dir)
-        test_paths = run_find_cmd(FIND_REFERENCE_TYPE.INTEGRATION, abs_path,
+        test_paths = run_find_cmd(TestReferenceType.INTEGRATION, abs_path,
                                   name)
         if test_paths:
             test_files.extend(test_paths)
