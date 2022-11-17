@@ -85,8 +85,3 @@ class FilterType(Enum):
     """An Enum class for filter types"""
     WILDCARD_FILTER = 'wildcard class_method'
     REGULAR_FILTER = 'regular class_method'
-
-# TODO: (b/218441706) Convert AtestEnum to a real Enum class.
-class AtestEnum(tuple):
-    """enum library isn't a Python 2.7 built-in, so roll our own."""
-    __getattr__ = tuple.index
