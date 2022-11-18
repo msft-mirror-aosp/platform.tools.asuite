@@ -925,7 +925,7 @@ def _get_host_framework_targets(mod_info):
     if framework_host_dir.is_dir():
         jars = framework_host_dir.glob('*.jar')
         for jar in jars:
-            if mod_info.get_module_info(jar.stem):
+            if mod_info.is_module(jar.stem):
                 host_targets.add(jar.stem)
         logging.debug('Found exist host framework target:%s', host_targets)
     return host_targets
