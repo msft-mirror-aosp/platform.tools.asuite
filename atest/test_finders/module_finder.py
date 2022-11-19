@@ -140,10 +140,11 @@ class ModuleFinder(test_finder_base.TestFinderBase):
             vts_xmls |= test_finder_utils.get_plans_from_vts_xml(xml_path)
         for config_file in vts_xmls:
             # Add in vts10 test build targets.
-            test.build_targets |= test_finder_utils.get_targets_from_vts_xml(
-                config_file, vts_out_dir, self.module_info)
-        test.build_targets.add('vts-test-core')
-        test.build_targets.add(test.test_name)
+            for t in test_finder_utils.get_targets_from_vts_xml(
+                config_file, vts_out_dir, self.module_info):
+                test.add_build_target(t)
+        test.add_build_target('vts-test-core')
+        test.add_build_target(test.test_name)
         return test
 
     def _update_legacy_robolectric_test_info(self, test):
@@ -194,12 +195,13 @@ class ModuleFinder(test_finder_base.TestFinderBase):
         if test.robo_type:
             test.install_locations = {constants.DEVICELESS_TEST}
             if test.robo_type == constants.ROBOTYPE_MODERN:
-                test.build_targets.add(test.test_name)
+                test.add_build_targets(test.test_name)
                 return test
             if test.robo_type == constants.ROBOTYPE_LEGACY:
                 return self._update_legacy_robolectric_test_info(test)
         rel_config = test.data[constants.TI_REL_CONFIG]
-        test.build_targets = self._get_build_targets(module_name, rel_config)
+        for t in self._get_build_targets(module_name, rel_config):
+            test.add_build_target(t)
         # (b/177626045) Probe target APK for running instrumentation tests to
         # prevent RUNNER ERROR by adding target application(module) to the
         # build_targets, and install these target apks before testing.
@@ -207,7 +209,8 @@ class ModuleFinder(test_finder_base.TestFinderBase):
             module_name)
         if artifact_map:
             logging.debug('Found %s an instrumentation test.', module_name)
-            test.build_targets |= set(artifact_map.keys())
+            for t in artifact_map.keys():
+                test.add_build_target(t)
             logging.debug('Add %s to build targets...',
                           ', '.join(artifact_map.keys()))
             test.artifacts = [apk for p in artifact_map.values() for apk in p]
@@ -222,7 +225,7 @@ class ModuleFinder(test_finder_base.TestFinderBase):
             if constants.MODULE_CLASS_JAVA_LIBRARIES in test.module_class:
                 for dalvik_dep in test_finder_utils.DALVIK_TEST_DEPS:
                     if self.module_info.is_module(dalvik_dep):
-                        test.build_targets.add(dalvik_dep)
+                        test.add_build_target(dalvik_dep)
         # Update test name if the test belong to extra config which means it's
         # test config name is not the same as module name. For extra config, it
         # index will be greater or equal to 1.

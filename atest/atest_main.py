@@ -78,7 +78,6 @@ RESULT_HEADER_FMT = '\nResults from %(test_type)s:'
 RUN_HEADER_FMT = '\nRunning %(test_count)d %(test_type)s.'
 TEST_COUNT = 'test_count'
 TEST_TYPE = 'test_type'
-MAINLINE_MODULES_EXT_RE = re.compile(r'(.apex|.apks|.apk)$')
 # Tasks that must run in the build time but unable to build by soong.
 # (e.g subprocesses that invoke host commands.)
 ACLOUD_CREATE = at.acloud_create
@@ -91,6 +90,25 @@ EXIT_CODES_BEFORE_TEST = [ExitCode.ENV_NOT_SETUP,
                           ExitCode.OUTSIDE_ROOT,
                           ExitCode.AVD_CREATE_FAILURE,
                           ExitCode.AVD_INVALID_ARGS]
+
+# TODO(b/259496712): Remove this once we no longer need to set Mainline vars.
+_DEFAULT_VARS_FOR_MAINLINE = {
+    # Only support building module using static DCLA.
+    "APEX_BUILD_FOR_PRE_S_DEVICES": "true",
+
+    # Do not build compressed apex.
+    "OVERRIDE_PRODUCT_COMPRESSED_APEX": "false",
+
+    # Build sdk from source.
+    "UNBUNDLED_BUILD_SDKS_FROM_SOURCE": "true",
+
+    # The rule to create the notice file can't be generated yet,
+    # as the final output path for the apk isn't known yet.
+    # Add the path where the notice file will be generated to the
+    # aapt rules now before calling aaptBuildActions,
+    # the rule to create the notice file will be generated later.
+    "ALWAYS_EMBED_NOTICES": "true",
+}
 
 def _get_args_from_config():
     """Get customized atest arguments in the config file.
@@ -945,6 +963,11 @@ def main(argv, results_dir, args):
         Exit code.
     """
     _begin_time = time.time()
+
+    # Sets coverage environment variables.
+    if args.coverage:
+        atest_utils.update_build_env(coverage.build_env_vars())
+
     _configure_logging(args.verbose)
     _validate_args(args)
     metrics_utils.get_start_time()
@@ -967,6 +990,7 @@ def main(argv, results_dir, args):
     smart_rebuild = need_rebuild_module_info(
         test_steps=args.steps,
         force_rebuild=args.rebuild_module_info)
+
     mod_start = time.time()
     mod_info = module_info.ModuleInfo(force_build=smart_rebuild)
     mod_stop = time.time() - mod_start
@@ -999,7 +1023,6 @@ def main(argv, results_dir, args):
         _print_testable_modules(mod_info, args.list_modules)
         return ExitCode.SUCCESS
     build_targets = set()
-    mm_build_targets = set()
     test_infos = set()
     dry_run_args = (args.update_cmd_mapping, args.verify_cmd_mapping,
                     args.dry_run, args.generate_runner_cmd)
@@ -1038,11 +1061,15 @@ def main(argv, results_dir, args):
                 extra_args = get_extra_args(args)
         else:
             _validate_tm_tests_exec_mode(args, test_infos)
-        for test_info in test_infos:
-            if test_info.mainline_modules:
-                for module in test_info.mainline_modules.split('+'):
-                    mm_build_targets.add(re.sub(
-                         MAINLINE_MODULES_EXT_RE, '', module))
+
+    # Note that we update the Mainline build env vars after we potentially rebuild
+    # module info. This ends up changing build flags which re-triggers a costly
+    # build. This is not an issue when module-info is cached however.
+    # TODO(b/259496712): Remove this once we no longer need to set Mainline vars.
+    for test_info in test_infos:
+        if test_info.mainline_modules:
+            atest_utils.update_build_env(_DEFAULT_VARS_FOR_MAINLINE)
+            break
 
     # For TEST_MAPPING, set timeout to 600000ms.
     if args.test_timeout is None:
@@ -1072,11 +1099,6 @@ def main(argv, results_dir, args):
     # args.steps will be None if none of -bit set, else list of params set.
     steps = args.steps if args.steps else constants.ALL_STEPS
     if build_targets and constants.BUILD_STEP in steps:
-        # Set coverage environment variables.
-        env_vars = {}
-        if args.coverage:
-            env_vars.update(coverage.build_env_vars())
-
         # Add module-info.json target to the list of build targets to keep the
         # file up to date.
         build_targets.add(mod_info.module_info_target)
@@ -1084,11 +1106,8 @@ def main(argv, results_dir, args):
         # host jars break the test.
         build_targets |= _get_host_framework_targets(mod_info)
         build_start = time.time()
-        success = atest_utils.build(build_targets, verbose=args.verbose,
-                                    env_vars=env_vars,
-                                    mm_build_targets=mm_build_targets)
+        success = atest_utils.build(build_targets, verbose=args.verbose)
         build_duration = time.time() - build_start
-        build_targets.update(mm_build_targets)
         metrics.BuildFinishEvent(
             duration=metrics_utils.convert_duration(build_duration),
             success=success,
@@ -1105,6 +1124,7 @@ def main(argv, results_dir, args):
             result=int(build_duration))
         if not success:
             return ExitCode.BUILD_FAILURE
+
         if proc_acloud:
             proc_acloud.join()
             status = at.probe_acloud_status(report_file)
@@ -1133,6 +1153,7 @@ def main(argv, results_dir, args):
         logging.warning('Install step without test step currently not '
                         'supported, installing AND testing instead.')
         steps.append(constants.TEST_STEP)
+
     tests_exit_code = ExitCode.SUCCESS
     test_start = time.time()
     if constants.TEST_STEP in steps:
@@ -1172,6 +1193,7 @@ def main(argv, results_dir, args):
             test=[])
     if tests_exit_code != ExitCode.SUCCESS:
         tests_exit_code = ExitCode.TEST_FAILURE
+
     return tests_exit_code
 
 if __name__ == '__main__':
