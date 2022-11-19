@@ -17,9 +17,9 @@ TestInfo class.
 """
 
 from collections import namedtuple
+from typing import Set
 
 from atest import constants
-
 
 TestFilterBase = namedtuple('TestFilter', ['class_name', 'methods'])
 
@@ -31,7 +31,7 @@ class TestInfo:
     def __init__(self, test_name, test_runner, build_targets, data=None,
                  suite=None, module_class=None, install_locations=None,
                  test_finder='', compatibility_suites=None,
-                 mainline_modules=None, robo_type=None, artifacts=None):
+                 robo_type=None, artifacts=None):
         """Init for TestInfo.
 
         Args:
@@ -48,8 +48,6 @@ class TestInfo:
             compatibility_suites: A list of compatibility_suites. It's a
                         snippet of compatibility_suites in module_info. e.g.
                         ["device-tests",  "vts10"]
-            mainline_modules: A string of mainline modules.
-                    e.g. 'some1.apk+some2.apex+some3.apks'
             robo_type: Integer of robolectric types.
                        0: Not robolectric test
                        1. Modern robolectric test(Tradefed Runner)
@@ -58,7 +56,6 @@ class TestInfo:
         """
         self.test_name = test_name
         self.test_runner = test_runner
-        self.build_targets = build_targets
         self.data = data if data else {}
         self.suite = suite
         self.module_class = module_class if module_class else []
@@ -75,8 +72,10 @@ class TestInfo:
                                      if compatibility_suites else [])
         # True if test need to generate aggregate metrics result.
         self.aggregate_metrics_result = False
-        self.mainline_modules = mainline_modules if mainline_modules else ""
         self.artifacts = artifacts if artifacts else set()
+
+        self._build_targets = set(build_targets) if build_targets else set()
+        self._mainline_modules = set()
 
     def __str__(self):
         host_info = (' - runs on host without device required.' if self.host
@@ -92,6 +91,37 @@ class TestInfo:
                 f'aggregate_metrics_result:{self.aggregate_metrics_result} - '
                 f'robo_type:{self.robo_type} - '
                 f'artifacts:{self.artifacts}')
+
+    @property
+    def build_targets(self) -> Set[str]:
+        """Gets all build targets of the test.
+
+        Gets all build targets of the test including mainline
+        modules build targets if it's a mainline test.
+        """
+        return frozenset(self._build_targets)
+
+    def add_build_target(self, target: str):
+        """Sets build targets.
+
+        Args:
+            target: a string of build target name.
+        """
+        self._build_targets.add(target)
+
+    @property
+    def mainline_modules(self) -> Set[str]:
+        """Gets mainline module build targets."""
+        return frozenset(self._mainline_modules)
+
+    def add_mainline_module(self, module: str):
+        """Sets mainline modules.
+
+        Args:
+            module: the build module name of a mainline module.
+        """
+        self._build_targets.add(module)
+        self._mainline_modules.add(module)
 
     def get_supported_exec_mode(self):
         """Get the supported execution mode of the test.
