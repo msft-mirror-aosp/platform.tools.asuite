@@ -79,7 +79,6 @@ _TF_EXIT_CODE = [
     'NO_DEVICE_ALLOCATED',
     'WRONG_JAVA_VERSION']
 
-
 class TradeFedExitError(Exception):
     """Raised when TradeFed exists before test run has finished."""
     def __init__(self, exit_code):
@@ -579,6 +578,9 @@ class AtestTradefedTestRunner(trb.TestRunnerBase):
                              % constants.DEVICE_SETUP_PREPARER)
         for info in test_infos:
             if constants.TEST_WITH_MAINLINE_MODULES_RE.match(info.test_name):
+                # TODO(b/253641058) Remove this once mainline module
+                # binaries are stored under testcase directory.
+                self._copy_mainline_module_binary(info.mainline_modules)
                 test_args.append(constants.TF_ENABLE_MAINLINE_PARAMETERIZED_MODULES)
                 break
         # For detailed logs, set TF options log-level/log-level-display as
@@ -922,6 +924,53 @@ class AtestTradefedTestRunner(trb.TestRunnerBase):
                 if module_name and device_path:
                     atest_utils.copy_native_symbols(module_name, device_path)
 
+    # TODO(b/253641058) remove copying files once mainline module
+    # binaries are stored under testcase directory.
+    def _copy_mainline_module_binary(self, mainline_modules):
+        """Copies mainline module binaries to out/dist/mainline_modules_{arch}
+
+        Copies the mainline module binaries to the location that
+        MainlineModuleHandler in TF expects since there is no way to
+        explicitly tweak the search path.
+
+        Args:
+            mainline_modules: A list of mainline modules.
+        """
+        config = atest_utils.get_android_config()
+        arch = config.get('TARGET_ARCH')
+        dest_dir = atest_utils.DIST_OUT_DIR.joinpath(f'mainline_modules_{arch}')
+        dest_dir.mkdir(parents=True, exist_ok=True)
+
+        for module in mainline_modules:
+            target_module_info = self.module_info.get_module_info(module)
+            installed_paths = target_module_info[constants.MODULE_INSTALLED]
+
+            for installed_path in installed_paths:
+                # We convert the installed file extension from capex to apex
+                # since module-info uses the former.
+                # This happens because OVERRIDE_PRODUCT_COMPRESSED_APEX was
+                # set to false only _after_ module-info was built.
+                installed_path = re.sub(
+                    re.escape('.capex') + '$', '.apex', installed_path)
+
+                if not re.search(atest_utils.MAINLINE_MODULES_EXT_RE, installed_path):
+                    atest_utils.colorful_print(
+                        '%s is not a apk or apex file' % installed_path,
+                        constants.YELLOW)
+                    continue
+                file_name = Path(installed_path).name
+                dest_path = Path(dest_dir).joinpath(file_name)
+                if dest_path.exists():
+                    atest_utils.colorful_print(
+                        'Replacing APEX in %s with %s' % (dest_path, installed_path),
+                        constants.CYAN)
+                    logging.debug(
+                        'deleting the old file: %s and copy a new binary',
+                        dest_path)
+                    dest_path.unlink()
+                shutil.copyfile(installed_path, dest_path)
+
+                break
 
 def generate_annotation_filter_args(
         arg_value: Any, mod_info: module_info.ModuleInfo,
