@@ -322,7 +322,13 @@ class ModuleInfo:
 
     def is_module(self, name):
         """Return True if name is a module, False otherwise."""
-        if self.get_module_info(name):
+        info = self.get_module_info(name)
+        # From aosp/2293302 it started merging all modules' dependency in bp
+        # even the module is not be exposed to make, and those modules could not
+        # be treated as a build target using m. Only treat input name as module
+        # if it also has the module_name attribute which means it could be a
+        # build target for m.
+        if info and info.get(constants.MODULE_NAME):
             return True
         return False
 
@@ -1003,9 +1009,7 @@ def _add_missing_variant_modules(name_to_module_info: Dict[str, Module]):
     # not be able to find. We add such entries if not already present so they
     # can be looked up using their declared module name.
     for mod_name, mod_info in name_to_module_info.items():
-        declared_module_name = mod_info.get(constants.MODULE_NAME)
-        if declared_module_name == mod_name:
-            continue
+        declared_module_name = mod_info.get(constants.MODULE_NAME, mod_name)
         if declared_module_name in name_to_module_info:
             continue
         missing_modules.setdefault(declared_module_name, mod_info)
