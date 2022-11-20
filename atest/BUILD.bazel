@@ -11,5 +11,5 @@ java_library(
     resources = [
         ":atest-tradefed-shell",
     ],
-    target_compatible_with = ["//third_party/bazel_platforms/os:linux"],
+    target_compatible_with = ["//build/bazel/platforms/os:linux"],
 )
