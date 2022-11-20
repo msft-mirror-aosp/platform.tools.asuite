@@ -36,6 +36,7 @@ from unittest import mock
 from atest import atest_configs
 from atest import atest_utils
 from atest import constants
+from atest import module_info
 from atest import unittest_constants as uc
 from atest import unittest_utils
 

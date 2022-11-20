@@ -646,7 +646,7 @@ class ModuleFinderUnittests(unittest.TestCase):
         _mock_exists.return_value = True
         test1_filter = test_info.TestFilter('test1Filter', frozenset())
         _mock_test_filter.return_value = test1_filter
-        _build_targets.return_value = ['test1_target']
+        _build_targets.return_value = {'test1_target'}
 
         t_infos = self.mod_finder.find_test_by_path('path/src1')
 
@@ -655,7 +655,7 @@ class ModuleFinderUnittests(unittest.TestCase):
             test_info.TestInfo(
                 'test1',
                 atf_tr.AtestTradefedTestRunner.NAME,
-                ['test1_target'],
+                {'test1_target'},
                 {constants.TI_FILTER: test1_filter,
                  constants.TI_REL_CONFIG: 'AndroidTest.xml'},
                 module_class=['class']),

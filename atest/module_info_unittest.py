@@ -613,9 +613,9 @@ class ModuleInfoUnittests(unittest.TestCase):
     def test_has_mainline_modules(self):
         """Test has_mainline_modules."""
         name1 = 'MainModule1'
-        mainline_module1 = 'foo2.apk+foo3.apk'
+        mainline_module1 = ['foo2.apk', 'foo3.apk']
         name2 = 'MainModule2'
-        mainline_module2 = 'foo1.apex'
+        mainline_module2 = ['foo1.apex']
         name3 = 'MainModule3'
 
         mod_info = module_info.ModuleInfo(module_file=JSON_FILE_PATH, index_dir=HOST_OUT_DIR)
@@ -707,6 +707,15 @@ class ModuleInfoUnittests(unittest.TestCase):
 
         self.assertEqual({'module_1', 'module_2'},
                          mod_info.get_modules_by_path_in_srcs('path/src2'))
+
+    def test_contains_same_mainline_modules(self):
+        mainline_modules = {'A.apex', 'B.apk'}
+        self.assertTrue(module_info.contains_same_mainline_modules(
+            mainline_modules,
+            {'B.apk+A.apex'}))
+        self.assertFalse(module_info.contains_same_mainline_modules(
+            mainline_modules,
+            {'B.apk+C.apex'}))
 
 @mock.patch.dict('os.environ', {constants.ANDROID_BUILD_TOP: '/'})
 def create_empty_module_info():
