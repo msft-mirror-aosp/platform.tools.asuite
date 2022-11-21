@@ -66,6 +66,7 @@ pushd ${ANDROID_BUILD_TOP}
 ${OUT_DIR}/host/linux-x86/bin/atest-dev \
   --bazel-mode \
   --host-unit-test-only \
+  --host \
   -c \
   -b # Builds dependencies without running tests.
 popd
