@@ -39,6 +39,8 @@ AGGREGATE_METRIC_FILTER = ('Regular expression that will be used for filtering '
 ALL_ABI = 'Set to run tests for all abis.'
 ANNOTATION_FILTER = ('Accept keyword that will be translated to fully qualified'
                      'annotation class name.')
+
+AUTO_SHARDING = 'Trigger N AVDs/shards for long duration tests. (N is 2 by default).'
 BUILD = 'Run a build.'
 BAZEL_MODE = 'Run tests using Bazel.'
 BAZEL_ARG = ('Forward a flag to Bazel for tests executed with Bazel; '
@@ -159,6 +161,9 @@ class AtestArgParser(argparse.ArgumentParser):
         self.add_argument('tests', nargs='*', help='Tests to build and/or run.')
         # Options that to do with testing.
         self.add_argument('-a', '--all-abi', action='store_true', help=ALL_ABI)
+
+        self.add_argument('--auto-sharding', action='store_true', help=AUTO_SHARDING)
+
         self.add_argument('-b', '--build', action='append_const', dest='steps',
                           const=constants.BUILD_STEP, help=BUILD)
         self.add_argument('--bazel-mode', default=True, action='store_true',
@@ -370,6 +375,7 @@ def print_epilog_text():
         AGGREGATE_METRIC_FILTER=AGGREGATE_METRIC_FILTER,
         ALL_ABI=ALL_ABI,
         ANNOTATION_FILTER=ANNOTATION_FILTER,
+        AUTO_SHARDING=AUTO_SHARDING,
         BUILD=BUILD,
         BAZEL_MODE=BAZEL_MODE,
         BAZEL_ARG=BAZEL_ARG,
@@ -460,6 +466,9 @@ OPTIONS
 
         --auto-ld-library-path
             {LD_LIB_PATH}
+
+        --auto-sharding
+            {AUTO_SHARDING}
 
         -b, --build
             {BUILD} (implicit default)
