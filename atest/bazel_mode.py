@@ -37,6 +37,7 @@ import shlex
 import shutil
 import subprocess
 import warnings
+import uuid
 
 from abc import ABC, abstractmethod
 from collections import defaultdict, deque, OrderedDict
@@ -56,6 +57,7 @@ from atest.test_runners import test_runner_base as trb
 from atest.test_runners import atest_tf_test_runner as tfr
 
 
+_TEST_ID = 'TEST_ID'
 _BAZEL_WORKSPACE_DIR = 'atest_bazel_workspace'
 _SUPPORTED_BAZEL_ARGS = MappingProxyType({
     # https://docs.bazel.build/versions/main/command-line-reference.html#flag--runs_per_test
@@ -1298,6 +1300,16 @@ class BazelTestRunner(trb.TestRunnerBase):
         for run_cmd in run_cmds:
             subproc = self.run(run_cmd, output_to_stdout=True)
             ret_code |= self.wait_for_subprocess(subproc)
+
+        exit_code_file = Path("/tmp/tf-exec-" + extra_args[_TEST_ID])
+        if exit_code_file.exists():
+            with open(exit_code_file, encoding='utf-8') as file:
+                code = int(file.read())
+                if code == ExitCode.TEST_NOT_FOUND:
+                    atest_utils.colorful_print(
+                        r'Warning:  No test to run.',
+                        constants.RED, constants.WHITE)
+
         return ret_code
 
     def _get_feature_config_or_warn(self, feature, env_var_name):
@@ -1417,6 +1429,10 @@ class BazelTestRunner(trb.TestRunnerBase):
         # Default to --test_output=errors unless specified otherwise
         if not any(arg.startswith('--test_output=') for arg in bazel_args):
             bazel_args.append('--test_output=errors')
+
+        # Passes in a TEST_ID that can be used to identify test outputs
+        extra_args[_TEST_ID] =  str(uuid.uuid4())
+        bazel_args.append('--test_env=TEST_ID=' + extra_args[_TEST_ID])
 
         # This is an alternative to shlex.join that doesn't exist in Python
         # versions < 3.8.

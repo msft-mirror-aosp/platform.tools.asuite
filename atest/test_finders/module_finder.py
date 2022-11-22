@@ -195,7 +195,7 @@ class ModuleFinder(test_finder_base.TestFinderBase):
         if test.robo_type:
             test.install_locations = {constants.DEVICELESS_TEST}
             if test.robo_type == constants.ROBOTYPE_MODERN:
-                test.add_build_targets(test.test_name)
+                test.add_build_target(test.test_name)
                 return test
             if test.robo_type == constants.ROBOTYPE_LEGACY:
                 return self._update_legacy_robolectric_test_info(test)
