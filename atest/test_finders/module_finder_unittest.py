@@ -1108,7 +1108,7 @@ class ModuleFinderUnittests(unittest.TestCase):
         self.mod_finder.module_info.get_instrumentation_target_apps.return_value = {}
         self.mod_finder.module_info.get_module_info.return_value = mod_info
         processed_info = self.mod_finder._process_test_info(
-            copy.copy(uc.MODULE_INFO))
+            copy.deepcopy(uc.MODULE_INFO))
         unittest_utils.assert_equal_testinfos(
             self,
             processed_info,
