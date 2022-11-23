@@ -54,10 +54,11 @@ class ModuleFinder(test_finder_base.TestFinderBase):
         self.root_dir = os.environ.get(constants.ANDROID_BUILD_TOP)
         self.module_info = module_info
 
-    def _determine_testable_module(self, path, file_path=None):
+    def _determine_testable_module(self, path: str,
+                                   file_path: str = None) -> List:
         """Determine which module the user is trying to test.
 
-        Returns the module to test. If there are multiple possibilities, will
+        Returns the modules to test. If there are multiple possibilities, will
         ask the user. Otherwise will return the only module found.
 
         Args:
@@ -72,12 +73,6 @@ class ModuleFinder(test_finder_base.TestFinderBase):
         testable_modules_no_srcs = []
         for mod in self.module_info.get_module_names(path):
             mod_info = self.module_info.get_module_info(mod)
-            # Robolectric tests always exist in pairs of 2, one module to build
-            # the test and another to run it. For now, we are assuming they are
-            # isolated in their own folders and will return if we find one.
-            if self.module_info.is_robolectric_test(mod):
-                # return a list with one module name if it is robolectric.
-                return [mod]
             if self.module_info.is_testable_module(mod_info):
                 # If test module defined srcs, input file_path should be defined
                 # in the src list of module.
