@@ -986,7 +986,9 @@ def main(argv, results_dir, args):
     _configure_logging(args.verbose)
     _validate_args(args)
     metrics_utils.get_start_time()
-    os_pyver = '{}:{}'.format(platform.platform(), platform.python_version())
+    os_pyver = (f'{platform.platform()}:{platform.python_version()}/'
+                f'{atest_utils.get_manifest_branch(True)}:'
+                f'{atest_utils.get_atest_version()}')
     metrics.AtestStartEvent(
         command_line=' '.join(argv),
         test_references=args.tests,
