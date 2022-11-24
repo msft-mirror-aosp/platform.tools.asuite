@@ -616,7 +616,6 @@ class ModuleFinderUnittests(unittest.TestCase):
         unittest_utils.assert_equal_testinfos(
             self, uc.CC_PATH_INFO, t_infos[0])
 
-    @mock.patch('atest.constants.MODULE_INDEX', uc.MODULE_INDEX)
     @mock.patch.object(module_finder.ModuleFinder, '_get_build_targets')
     @mock.patch.object(module_finder.ModuleFinder, '_get_test_info_filter')
     @mock.patch.object(test_finder_utils, 'find_parent_module_dir',
@@ -1302,7 +1301,8 @@ class ModuleFinderUnittests(unittest.TestCase):
             None)
 
 
-@mock.patch.dict('os.environ', {constants.ANDROID_BUILD_TOP: '/'})
+@mock.patch.dict('os.environ', {constants.ANDROID_BUILD_TOP: '/',
+                                constants.ANDROID_HOST_OUT: '/tmp'})
 def create_empty_module_info():
     with fake_filesystem_unittest.Patcher() as patcher:
         # pylint: disable=protected-access

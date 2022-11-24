@@ -41,7 +41,6 @@ class AtestToolsUnittests(unittest.TestCase):
     """"Unittest Class for atest_tools.py."""
 
     @mock.patch('atest.constants.INDEX_DIR', uc.INDEX_DIR)
-    @mock.patch('atest.constants.LOCATE_CACHE_MD5', uc.LOCATE_CACHE_MD5)
     @mock.patch('atest.constants.LOCATE_CACHE', uc.LOCATE_CACHE)
     @mock.patch('atest.tools.atest_tools.SEARCH_TOP', uc.TEST_DATA_DIR)
     def test_index_targets(self):
