@@ -28,5 +28,6 @@ TradefedTestDependencyInfo = provider(
     fields = {
         "runtime_jars": "Jars required on the runtime classpath",
         "runtime_shared_libraries": "Shared libraries that are required at runtime",
+        "transitive_test_files": "Files of test modules",
     },
 )
