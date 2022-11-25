@@ -752,7 +752,6 @@ class SoongPrebuiltTarget(Target):
     def create(gen: WorkspaceGenerator,
                info: Dict[str, Any],
                package_name: str=''):
-        target_name = info[constants.MODULE_INFO_ID]
         module_name = info['module_name']
 
         configs = [
@@ -788,8 +787,7 @@ class SoongPrebuiltTarget(Target):
         enabled_features = gen.enabled_features
 
         return SoongPrebuiltTarget(
-            target_name,
-            module_name,
+            info,
             package_name,
             config_files,
             Dependencies(
@@ -805,14 +803,14 @@ class SoongPrebuiltTarget(Target):
             ),
         )
 
-    def __init__(self, target_name: str, module_name: str, package_name: str,
-                 config_files: Dict[Config, List[Path]],
-                 deps: Dependencies):
-        self._target_name = target_name
-        self._module_name = module_name
+    def __init__(self, info: Dict[str, Any], package_name: str,
+                 config_files: Dict[Config, List[Path]], deps: Dependencies):
+        self._target_name = info[constants.MODULE_INFO_ID]
+        self._module_name = info[constants.MODULE_NAME]
         self._package_name = package_name
         self.config_files = config_files
         self.deps = deps
+        self.suites = info.get(constants.MODULE_COMPATIBILITY_SUITES, [])
 
     def name(self) -> str:
         return self._target_name
@@ -866,6 +864,8 @@ class SoongPrebuiltTarget(Target):
 
             build_file_writer.write_label_list_attribute(
                 'device_data', self.deps.device_data_dep_refs)
+            build_file_writer.write_string_list_attribute(
+                'suites', sorted(self.suites))
 
         writer.write_line(')')
 
