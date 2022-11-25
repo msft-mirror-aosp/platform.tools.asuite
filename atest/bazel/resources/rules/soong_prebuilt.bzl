@@ -28,6 +28,7 @@ SoongPrebuiltInfo = provider(
         # This field contains this target's outputs and all runtime dependency
         # outputs.
         "transitive_runtime_outputs": "Files required in the runtime environment",
+        "transitive_test_files": "Files of test modules",
     },
 )
 
@@ -91,6 +92,8 @@ def _soong_prebuilt_impl(ctx):
             files = files,
             runtime_deps = ctx.attr.runtime_deps,
             static_deps = ctx.attr.static_deps,
+            data = ctx.attr.data + ctx.attr.device_data,
+            suites = ctx.attr.suites,
         ),
         DefaultInfo(
             files = depset(files),
@@ -113,6 +116,7 @@ soong_prebuilt = rule(
         "device_data": attr.label_list(
             cfg = device_transition,
         ),
+        "suites": attr.string_list(),
         # This attribute is required to use Starlark transitions. It allows
         # allowlisting usage of this rule. For more information, see
         # https://docs.bazel.build/versions/master/skylark/config.html#user-defined-transitions
@@ -153,12 +157,16 @@ def _make_soong_prebuilt_info(
         module_name,
         files = [],
         runtime_deps = [],
-        static_deps = []):
+        static_deps = [],
+        data = [],
+        suites = []):
     """Build a SoongPrebuiltInfo based on the given information.
 
     Args:
         runtime_deps: List of runtime dependencies required by this target.
         static_deps: List of static dependencies required by this target.
+        data: List of data required by this target.
+        suites: List of test suites this target belongs to.
 
     Returns:
         An instance of SoongPrebuiltInfo.
@@ -181,10 +189,19 @@ def _make_soong_prebuilt_info(
         )
         for dep in static_deps
     ])
-
     return SoongPrebuiltInfo(
         module_name = module_name,
         transitive_runtime_outputs = depset(files, transitive = transitive_runtime_outputs),
+        transitive_test_files = depset(
+            # Note that `suites` is never empty for test files. This because
+            # test build modules that do not explicitly specify a `test_suites`
+            # Soong attribute belong to `null-suite`.
+            files if suites else [],
+            transitive = [
+                dep[SoongPrebuiltInfo].transitive_test_files
+                for dep in data + runtime_deps
+            ],
+        ),
     )
 
 def _exclude_files(all_files, files_to_exclude):

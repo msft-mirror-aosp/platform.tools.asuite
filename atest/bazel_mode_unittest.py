@@ -715,6 +715,9 @@ class ModulePrebuiltTargetGenerationTest(GenerationTestFixture):
             '        "//bazel/rules:device": glob(["libhello/device/**/*"]),\n'
             '        "//bazel/rules:host": glob(["libhello/host/**/*"]),\n'
             '    }),\n'
+            '    suites = [\n'
+            '        "host-unit-tests",\n'
+            '    ],\n'
             ')\n'
         )
 
