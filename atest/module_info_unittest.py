@@ -559,21 +559,27 @@ class ModuleInfoUnittests(unittest.TestCase):
         module_name = 'myModule'
         maininfo_with_unittest = {constants.MODULE_NAME: module_name,
                                   constants.MODULE_IS_UNIT_TEST: 'true'}
-        mod_info = module_info.ModuleInfo(module_file=JSON_FILE_PATH, index_dir=HOST_OUT_DIR)
+        mod_info = module_info.ModuleInfo(module_file=JSON_FILE_PATH,
+                                          index_dir=HOST_OUT_DIR)
         self.assertTrue(mod_info.is_unit_test(maininfo_with_unittest))
 
-
-    @mock.patch.dict('os.environ', {constants.ANDROID_BUILD_TOP:'/',
-                                    constants.ANDROID_PRODUCT_OUT:PRODUCT_OUT_DIR})
-    def test_is_host_unit_test(self):
+    @mock.patch.dict('os.environ',
+                     {constants.ANDROID_BUILD_TOP: '/',
+                      constants.ANDROID_PRODUCT_OUT: PRODUCT_OUT_DIR})
+    @mock.patch.object(module_info.ModuleInfo, 'is_testable_module')
+    def test_is_host_unit_test(self, _mock_is_testable_module):
         """Test is_host_unit_test."""
+        _mock_is_testable_module.return_value = True
         module_name = 'myModule'
         maininfo_with_host_unittest = {
             constants.MODULE_NAME: module_name,
             constants.MODULE_IS_UNIT_TEST: 'true',
             'compatibility_suites': ['host-unit-tests']
         }
-        mod_info = module_info.ModuleInfo(module_file=JSON_FILE_PATH, index_dir=HOST_OUT_DIR)
+
+        mod_info = module_info.ModuleInfo(module_file=JSON_FILE_PATH,
+                                          index_dir=HOST_OUT_DIR)
+
         self.assertTrue(mod_info.is_host_unit_test(maininfo_with_host_unittest))
 
     @mock.patch.dict('os.environ', {constants.ANDROID_BUILD_TOP:'/',
