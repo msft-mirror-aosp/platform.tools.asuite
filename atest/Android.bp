@@ -119,6 +119,7 @@ python_library_host {
     srcs: [
         "atest_enum.py",
         "metrics/*.py",
+        "coverage/*.py",
     ],
     libs: [
         "asuite_proto",
