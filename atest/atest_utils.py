@@ -52,7 +52,6 @@ from atest import atest_decorator
 from atest import atest_error
 from atest import constants
 
-from atest.coverage import coverage
 from atest.metrics import metrics
 from atest.metrics import metrics_utils
 from atest.tf_proto import test_record_pb2
