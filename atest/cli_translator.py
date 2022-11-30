@@ -89,7 +89,7 @@ class CLITranslator:
         self.msg = ''
         if print_cache_msg:
             self.msg = ('(Test info has been cached for speeding up the next '
-                        'run, if test info need to be updated, please add -c '
+                        'run, if test info needs to be updated, please add -c '
                         'to clean the old cache.)')
         self.fuzzy_search = True
 
