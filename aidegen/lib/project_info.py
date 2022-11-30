@@ -608,7 +608,8 @@ def _build_target(targets):
     build_cmd = ['-k', '-j']
     build_cmd.extend(list(targets))
     verbose = True
-    if not atest_utils.build(build_cmd, verbose, _BUILD_BP_JSON_ENV_ON):
+    atest_utils.update_build_env(_BUILD_BP_JSON_ENV_ON)
+    if not atest_utils.build(build_cmd, verbose):
         message = ('Build failed!\n{}\nAIDEGen will proceed but dependency '
                    'correctness is not guaranteed if not all targets being '
                    'built successfully.'.format('\n'.join(targets)))
