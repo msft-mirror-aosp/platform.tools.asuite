@@ -143,7 +143,8 @@ def _build_bp_info(module_info, main_project=None, verbose=False,
 
     logging.warning(
         '\nGenerate files:\n %s by atest build method.', files)
-    build_with_on_cmd = atest_utils.build([_TARGET], verbose, env_on)
+    atest_utils.update_build_env(env_on)
+    build_with_on_cmd = atest_utils.build([_TARGET], verbose)
 
     # For Android Rust projects, we need to create a symbolic link to the file
     # out/soong/rust-project.json to launch the rust projects in IDEs.
