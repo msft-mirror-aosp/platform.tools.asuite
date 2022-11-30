@@ -37,7 +37,6 @@ import sys
 import tempfile
 import time
 import platform
-import re
 
 from pathlib import Path
 
