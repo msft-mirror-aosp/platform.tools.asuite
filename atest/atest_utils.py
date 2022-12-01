@@ -262,6 +262,7 @@ def get_build_out_dir():
 
 def update_build_env(env: Dict[str, str]):
     """Method that updates build environment variables."""
+    # pylint: disable=global-statement
     global _build_env
     _build_env.update(env)
 
@@ -281,6 +282,7 @@ def build(build_targets, verbose=False):
         logging.debug('No build targets, skipping build.')
         return True
 
+    # pylint: disable=global-statement
     global _build_env
     full_env_vars = os.environ.copy()
     full_env_vars.update(_build_env)
