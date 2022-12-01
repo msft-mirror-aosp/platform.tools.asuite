@@ -36,7 +36,7 @@ class ExampleTestRunner(test_runner_base.TestRunnerBase):
         """
         run_cmds = self.generate_run_commands(test_infos, extra_args)
         for run_cmd in run_cmds:
-            super(ExampleTestRunner, self).run(run_cmd)
+            super(ExampleTestRunner).run(run_cmd)
 
     # pylint: disable=unnecessary-pass
     # Please keep above disable flag to ensure host_env_check is overriden.
