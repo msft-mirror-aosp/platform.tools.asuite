@@ -261,6 +261,7 @@ def get_build_out_dir():
     return os.path.join(build_top, "out")
 
 def update_build_env(env: Dict[str, str]):
+    """Method that updates build environment variables."""
     global _build_env
     _build_env.update(env)
 
