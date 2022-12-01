@@ -45,7 +45,7 @@ from atest.metrics import metrics
 from atest.test_finders import test_finder_utils
 from atest.test_finders import test_info
 from atest.test_runners import test_runner_base as trb
-from .event_handler import EventHandler
+from atest.test_runners.event_handler import EventHandler
 
 POLL_FREQ_SECS = 10
 SOCKET_HOST = '127.0.0.1'
