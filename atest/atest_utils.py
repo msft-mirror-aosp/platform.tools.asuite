@@ -1126,8 +1126,7 @@ def parse_mainline_modules(test):
     if not result:
         return test, ""
     test_wo_mainline_modules = result.group('test')
-    mainline_modules = [
-        module for module in result.group('mainline_modules').split('+')]
+    mainline_modules = result.group('mainline_modules').split('+')
     return test_wo_mainline_modules, mainline_modules
 
 def has_wildcard(test_name):
