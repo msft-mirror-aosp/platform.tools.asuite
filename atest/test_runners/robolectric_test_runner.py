@@ -36,7 +36,7 @@ from atest import constants
 
 from atest.atest_enum import ExitCode
 from atest.test_runners import test_runner_base
-from .event_handler import EventHandler
+from atest.test_runners.event_handler import EventHandler
 
 POLL_FREQ_SECS = 0.1
 # A pattern to match event like below
