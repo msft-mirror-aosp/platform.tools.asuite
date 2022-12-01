@@ -13,6 +13,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+"""Script of Atest Profiler."""
+
 import argparse
 import os
 import shutil
@@ -26,6 +28,7 @@ import zipfile
 # have the ability to build profiled binaries directly.
 
 def main():
+    """Main method that runs python profilers."""
     parser = argparse.ArgumentParser(
       description='Runs a soong-built python binary under a profiler.')
     parser.add_argument('profiler', choices = ["pyinstrument", "cProfile"],
