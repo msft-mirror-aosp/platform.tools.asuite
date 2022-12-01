@@ -30,7 +30,7 @@ class RegressionTestRunner(test_runner_base.TestRunnerBase):
 
     def __init__(self, results_dir):
         """Init stuff for base class."""
-        super(RegressionTestRunner, self).__init__(results_dir)
+        super(RegressionTestRunner).__init__(results_dir)
         self.run_cmd_dict = {'exe': self.EXECUTABLE,
                              'args': ''}
 
@@ -47,8 +47,8 @@ class RegressionTestRunner(test_runner_base.TestRunnerBase):
             Return code of the process for running tests.
         """
         run_cmds = self.generate_run_commands(test_infos, extra_args)
-        proc = super(RegressionTestRunner, self).run(run_cmds[0],
-                                                     output_to_stdout=True)
+        proc = super(RegressionTestRunner).run(run_cmds[0],
+                                               output_to_stdout=True)
         proc.wait()
         return proc.returncode
 
