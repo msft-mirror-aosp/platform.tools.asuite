@@ -13,6 +13,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+"""Script of Atest Profiler."""
+
 import argparse
 import os
 import shutil
@@ -21,17 +23,20 @@ import sys
 import tempfile
 import zipfile
 
-# This is mostly a copy of Soong's stub_template_host.txt, but with changes to run soong
-# python executables via a profiler tool. This is just a hack, soong should really
-# have the ability to build profiled binaries directly.
+# This is mostly a copy of Soong's stub_template_host.txt, but with changes to
+# run soong python executables via a profiler tool. This is just a hack, soong
+# should really have the ability to build profiled binaries directly.
 
 def main():
+    """Main method that runs python profilers."""
     parser = argparse.ArgumentParser(
       description='Runs a soong-built python binary under a profiler.')
     parser.add_argument('profiler', choices = ["pyinstrument", "cProfile"],
                         help='The profiler to use')
     parser.add_argument('profile_file', help="The output file of the profiler")
-    parser.add_argument('executable', help="The soong-built python binary (with embedded_launcher: false)")
+    parser.add_argument(
+        'executable',
+        help="The soong-built python binary (with embedded_launcher: false)")
     args, args_for_executable = parser.parse_known_args()
 
     if not os.path.isfile(args.executable):
@@ -48,7 +53,8 @@ def main():
                 "python3",
                 "-m", args.profiler,
                 "-o", args.profile_file,
-                os.path.join(runfiles_path, "__soong_entrypoint_redirector__.py")
+                os.path.join(runfiles_path,
+                             "__soong_entrypoint_redirector__.py")
         ] + args_for_executable, close_fds=False))
 
     finally:

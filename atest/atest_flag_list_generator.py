@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+"""Script that generates arguments for autocompletion."""
 from atest import atest_arg_parser
 
 if __name__ == "__main__":

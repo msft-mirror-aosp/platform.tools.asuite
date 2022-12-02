@@ -261,6 +261,8 @@ def get_build_out_dir():
     return os.path.join(build_top, "out")
 
 def update_build_env(env: Dict[str, str]):
+    """Method that updates build environment variables."""
+    # pylint: disable=global-statement
     global _build_env
     _build_env.update(env)
 
@@ -280,6 +282,7 @@ def build(build_targets, verbose=False):
         logging.debug('No build targets, skipping build.')
         return True
 
+    # pylint: disable=global-statement
     global _build_env
     full_env_vars = os.environ.copy()
     full_env_vars.update(_build_env)
@@ -1125,8 +1128,7 @@ def parse_mainline_modules(test):
     if not result:
         return test, ""
     test_wo_mainline_modules = result.group('test')
-    mainline_modules = [
-        module for module in result.group('mainline_modules').split('+')]
+    mainline_modules = result.group('mainline_modules').split('+')
     return test_wo_mainline_modules, mainline_modules
 
 def has_wildcard(test_name):
@@ -1889,3 +1891,18 @@ def prompt_suggestions(result_file: Path):
             # If the given is not a plain text, just ignore it.
             except Exception:
                 pass
+
+def build_files_integrity_is_ok() -> bool:
+    """Return Whether the integrity of build files is OK."""
+    # 0. Inexistence of the checksum file means a fresh repo sync.
+    if not Path(constants.BUILDFILES_MD5).is_file():
+        return False
+    # 1. Ensure no build files were added/deleted.
+    with open(constants.BUILDFILES_MD5, 'r') as cache:
+        recorded_amount = len(json.load(cache).keys())
+        cmd = (f'locate -d{constants.LOCATE_CACHE} --regex '
+               r'"/Android\.(bp|mk)$" | wc -l')
+        if int(subprocess.getoutput(cmd)) != recorded_amount:
+            return False
+    # 2. Ensure the consistency of all build files.
+    return check_md5(constants.BUILDFILES_MD5, missing_ok=False)
