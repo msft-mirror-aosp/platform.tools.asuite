@@ -30,14 +30,23 @@ from io import StringIO
 from pathlib import Path
 from unittest import mock
 
-import atest_error
-import atest_utils
-import constants
-import unittest_utils
-import unittest_constants
+from atest import atest_error
+from atest import atest_utils
+from atest import constants
+from atest import unittest_utils
+from atest import unittest_constants
 
-from test_finders import test_info
-from atest_enum import FilterType
+from atest.test_finders import test_info
+from atest.atest_enum import FilterType
+
+MAINLINE_MODULE_A_APEX = 'com.google.android.a.apex'
+MAINLINE_MODULE_B_APK = 'B.apk'
+MAINLINE_MODULE_C_APEX = 'com.google.android.c.apex'
+MAINLINE_TEST_WITH_ONE_MODULE = (
+    unittest_constants.MODULE2_NAME + '[' + MAINLINE_MODULE_A_APEX + ']')
+MAINLINE_TEST_WITH_MULTIPLE_MODULES = (
+    unittest_constants.MODULE2_NAME + '[' + MAINLINE_MODULE_A_APEX + '+' +
+    MAINLINE_MODULE_B_APK + '+' + MAINLINE_MODULE_C_APEX + ']')
 
 TEST_MODULE_NAME_A = 'ModuleNameA'
 TEST_RUNNER_A = 'FakeTestRunnerA'
@@ -146,7 +155,7 @@ class AtestUtilsUnittests(unittest.TestCase):
         self.assertTrue(atest_utils._has_colors(stream))
 
 
-    @mock.patch('atest_utils._has_colors')
+    @mock.patch('atest.atest_utils._has_colors')
     def test_colorize(self, mock_has_colors):
         """Test method colorize."""
         original_str = "test string"
@@ -172,7 +181,7 @@ class AtestUtilsUnittests(unittest.TestCase):
         self.assertEqual(green_no_highlight_string, converted_str)
 
 
-    @mock.patch('atest_utils._has_colors')
+    @mock.patch('atest.atest_utils._has_colors')
     def test_colorful_print(self, mock_has_colors):
         """Test method colorful_print."""
         testing_str = "color_print_test"
@@ -233,81 +242,6 @@ class AtestUtilsUnittests(unittest.TestCase):
         green_wrap_no_highlight_string = '\x1b[1;32m%s\x1b[0m\n' % testing_str
         self.assertEqual(capture_output.getvalue(),
                          green_wrap_no_highlight_string)
-
-    @mock.patch('socket.gethostname')
-    @mock.patch('subprocess.check_output')
-    def test_is_external_run(self, mock_output, mock_hostname):
-        """Test method is_external_run."""
-        mock_output.return_value = ''
-        mock_hostname.return_value = ''
-        self.assertTrue(atest_utils.is_external_run())
-
-        mock_output.return_value = 'test@other.com'
-        mock_hostname.return_value = 'abc.com'
-        self.assertTrue(atest_utils.is_external_run())
-
-        mock_output.return_value = 'test@other.com'
-        mock_hostname.return_value = 'abc.google.com'
-        self.assertFalse(atest_utils.is_external_run())
-
-        mock_output.return_value = 'test@other.com'
-        mock_hostname.return_value = 'abc.google.def.com'
-        self.assertTrue(atest_utils.is_external_run())
-
-        mock_output.return_value = 'test@google.com'
-        self.assertFalse(atest_utils.is_external_run())
-
-        mock_output.return_value = 'test@other.com'
-        mock_hostname.return_value = 'c.googlers.com'
-        self.assertFalse(atest_utils.is_external_run())
-
-        mock_output.return_value = 'test@other.com'
-        mock_hostname.return_value = 'a.googlers.com'
-        self.assertTrue(atest_utils.is_external_run())
-
-        mock_output.side_effect = OSError()
-        self.assertTrue(atest_utils.is_external_run())
-
-        mock_output.side_effect = subprocess.CalledProcessError(1, 'cmd')
-        self.assertTrue(atest_utils.is_external_run())
-
-    @mock.patch('metrics.metrics_base.get_user_type')
-    def test_print_data_collection_notice(self, mock_get_user_type):
-        """Test method print_data_collection_notice."""
-
-        # get_user_type return 1(external).
-        mock_get_user_type.return_value = 1
-        notice_str = ('\n==================\nNotice:\n'
-                      '  We collect anonymous usage statistics'
-                      ' in accordance with our'
-                      ' Content Licenses (https://source.android.com/setup/start/licenses),'
-                      ' Contributor License Agreement (https://opensource.google.com/docs/cla/),'
-                      ' Privacy Policy (https://policies.google.com/privacy) and'
-                      ' Terms of Service (https://policies.google.com/terms).'
-                      '\n==================\n\n')
-        capture_output = StringIO()
-        sys.stdout = capture_output
-        atest_utils.print_data_collection_notice()
-        sys.stdout = sys.__stdout__
-        uncolored_string = notice_str
-        self.assertEqual(capture_output.getvalue(), uncolored_string)
-
-        # get_user_type return 0(internal).
-        mock_get_user_type.return_value = 0
-        notice_str = ('\n==================\nNotice:\n'
-                      '  We collect usage statistics'
-                      ' in accordance with our'
-                      ' Content Licenses (https://source.android.com/setup/start/licenses),'
-                      ' Contributor License Agreement (https://cla.developers.google.com/),'
-                      ' Privacy Policy (https://policies.google.com/privacy) and'
-                      ' Terms of Service (https://policies.google.com/terms).'
-                      '\n==================\n\n')
-        capture_output = StringIO()
-        sys.stdout = capture_output
-        atest_utils.print_data_collection_notice()
-        sys.stdout = sys.__stdout__
-        uncolored_string = notice_str
-        self.assertEqual(capture_output.getvalue(), uncolored_string)
 
     @mock.patch('builtins.input')
     @mock.patch('json.load')
@@ -464,7 +398,7 @@ class AtestUtilsUnittests(unittest.TestCase):
 
     @mock.patch('os.chmod')
     @mock.patch('shutil.copy2')
-    @mock.patch('atest_utils.has_valid_cert')
+    @mock.patch('atest.atest_utils.has_valid_cert')
     @mock.patch('subprocess.check_output')
     @mock.patch('os.path.exists')
     def test_get_flakes(self, mock_path_exists, mock_output, mock_valid_cert,
@@ -493,9 +427,9 @@ class AtestUtilsUnittests(unittest.TestCase):
         # raise subprocess.CalledProcessError
         mock_call.raiseError.side_effect = subprocess.CalledProcessError
         self.assertFalse(atest_utils.has_valid_cert())
-        with mock.patch("constants.CERT_STATUS_CMD", ''):
+        with mock.patch("atest.constants.CERT_STATUS_CMD", ''):
             self.assertFalse(atest_utils.has_valid_cert())
-        with mock.patch("constants.CERT_STATUS_CMD", 'CMD'):
+        with mock.patch("atest.constants.CERT_STATUS_CMD", 'CMD'):
             # has valid cert
             mock_call.return_value = 0
             self.assertTrue(atest_utils.has_valid_cert())
@@ -506,11 +440,13 @@ class AtestUtilsUnittests(unittest.TestCase):
     # pylint: disable=no-member
     def test_read_test_record_proto(self):
         """Test method read_test_record."""
-        test_record_file_path = os.path.join(unittest_constants.TEST_DATA_DIR,
-                                             "test_record.proto.testonly")
+        test_record_file_path = os.path.join(
+            unittest_constants.TEST_DATA_DIR,
+            "test_record.proto.testonly")
         test_record = atest_utils.read_test_record(test_record_file_path)
-        self.assertEqual(test_record.children[0].inline_test_record.test_record_id,
-                         'x86 hello_world_test')
+        self.assertEqual(
+            test_record.children[0].inline_test_record.test_record_id,
+            'x86 hello_world_test')
 
     def test_load_json_safely_file_inexistent(self):
         """Test method load_json_safely if file does not exist."""
@@ -850,6 +786,24 @@ class AtestUtilsUnittests(unittest.TestCase):
             'persistent': False
         }
         self.assertEqual(expected, atest_utils.get_manifest_info(target_xml))
+
+    def test_parse_mainline_module_with_one_module(self):
+        """test parse mainlnie test that needs to install one module"""
+        test_name, mainline_modules = atest_utils.parse_mainline_modules(
+            MAINLINE_TEST_WITH_ONE_MODULE)
+        self.assertEqual(test_name, unittest_constants.MODULE2_NAME)
+        expected_module_list = [MAINLINE_MODULE_A_APEX]
+        self.assertEqual(mainline_modules, expected_module_list)
+
+    def test_parse_mainline_module_with_multiple_modules(self):
+        """test parse mainlnie test that needs to install multiple modules"""
+        test_name, mainline_modules = atest_utils.parse_mainline_modules(
+            MAINLINE_TEST_WITH_MULTIPLE_MODULES)
+        self.assertEqual(test_name, unittest_constants.MODULE2_NAME)
+        expected_module_list = [MAINLINE_MODULE_A_APEX,
+                                MAINLINE_MODULE_B_APK,
+                                MAINLINE_MODULE_C_APEX]
+        self.assertEqual(mainline_modules, expected_module_list)
 
 if __name__ == "__main__":
     unittest.main()

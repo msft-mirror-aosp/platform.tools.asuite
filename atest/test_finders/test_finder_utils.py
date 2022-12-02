@@ -22,25 +22,26 @@ Utils for finder classes.
 from __future__ import print_function
 
 import logging
-import multiprocessing
 import os
 import pickle
 import re
+import shutil
 import subprocess
 import tempfile
 import time
 import xml.etree.ElementTree as ET
 
+from contextlib import contextmanager
+from enum import unique, Enum
 from pathlib import Path
 
-import atest_decorator
-import atest_error
-import atest_utils
-import constants
+from atest import atest_decorator
+from atest import atest_error
+from atest import atest_utils
+from atest import constants
 
-from atest_enum import AtestEnum, DetectType
-from metrics import metrics, metrics_utils
-from tools import atest_tools
+from atest.atest_enum import ExitCode, DetectType
+from atest.metrics import metrics, metrics_utils
 
 # Helps find apk files listed in a test config (AndroidTest.xml) file.
 # Matches "filename.apk" in <option name="foo", value="filename.apk" />
@@ -99,54 +100,36 @@ _PARAMET_JAVA_CLASS_RE = re.compile(
 _PARENT_CLS_RE = re.compile(r'.*class\s+\w+\s+(?:extends|:)\s+'
                             r'(?P<parent>[\w\.]+)\s*(?:\{|\()')
 
-# Explanation of FIND_REFERENCE_TYPEs:
-# ----------------------------------
-# 0. CLASS: Name of a java/kotlin class, usually file is named the same
-#    (HostTest lives in HostTest.java or HostTest.kt)
-# 1. QUALIFIED_CLASS: Like CLASS but also contains the package in front like
-#                     com.android.tradefed.testtype.HostTest.
-# 2. PACKAGE: Name of a java package.
-# 3. INTEGRATION: XML file name in one of the 4 integration config directories.
-# 4. CC_CLASS: Name of a cc class.
+@unique
+class TestReferenceType(Enum):
+    """An Enum class that stores the ways of finding a reference."""
+    # Name of a java/kotlin class, usually file is named the same
+    # (HostTest lives in HostTest.java or HostTest.kt)
+    CLASS = (
+        constants.CLASS_INDEX,
+        r"find {0} {1} -type f| egrep '.*/{2}\.(kt|java)$' || true")
+    # Like CLASS but also contains the package in front like
+    # com.android.tradefed.testtype.HostTest.
+    QUALIFIED_CLASS = (
+        constants.QCLASS_INDEX,
+        r"find {0} {1} -type f | egrep '.*{2}\.(kt|java)$' || true")
+    # Name of a Java package.
+    PACKAGE = (
+        constants.PACKAGE_INDEX,
+        r"find {0} {1} -wholename '*{2}' -type d -print")
+    # XML file name in one of the 4 integration config directories.
+    INTEGRATION = (
+        constants.INT_INDEX,
+        r"find {0} {1} -wholename '*/{2}\.xml' -print")
+    # Name of a cc/cpp class.
+    CC_CLASS = (
+        constants.CC_CLASS_INDEX,
+        (r"find {0} {1} -type f -print | egrep -i '/*test.*\.(cc|cpp)$'"
+         f"| xargs -P0 egrep -sH '{constants.CC_GREP_KWRE}' || true"))
 
-FIND_REFERENCE_TYPE = AtestEnum(['CLASS',
-                                 'QUALIFIED_CLASS',
-                                 'PACKAGE',
-                                 'INTEGRATION',
-                                 'CC_CLASS'])
-# Get cpu count.
-_CPU_COUNT = 0 if os.uname()[0] == 'Linux' else multiprocessing.cpu_count()
-
-# Unix find commands for searching for test files based on test type input.
-# Note: Find (unlike grep) exits with status 0 if nothing found.
-FIND_CMDS = {
-    FIND_REFERENCE_TYPE.CLASS: r"find {0} {1} -type f"
-                               r"| egrep '.*/{2}\.(kt|java)$' || true",
-    FIND_REFERENCE_TYPE.QUALIFIED_CLASS: r"find {0} {1} -type f"
-                                         r"| egrep '.*{2}\.(kt|java)$' || true",
-    FIND_REFERENCE_TYPE.PACKAGE: r"find {0} {1} -wholename "
-                                 r"'*{2}' -type d -print",
-    FIND_REFERENCE_TYPE.INTEGRATION: r"find {0} {1} -wholename "
-                                     r"'*/{2}\.xml' -print",
-    # Searching a test among files where the absolute paths contain *test*.
-    # If users complain atest couldn't find a CC_CLASS, ask them to follow the
-    # convention that the filename or dirname must contain *test*, where *test*
-    # is case-insensitive.
-    FIND_REFERENCE_TYPE.CC_CLASS: r"find {0} {1} -type f -print"
-                                  r"| egrep -i '/*test.*\.(cc|cpp)$'"
-                                  r"| xargs -P" + str(_CPU_COUNT) + r" egrep -sH"
-                                  r" '{}' ".format(constants.CC_GREP_KWRE) +
-                                  " || true"
-}
-
-# Map ref_type with its index file.
-FIND_INDEXES = {
-    FIND_REFERENCE_TYPE.CLASS: constants.CLASS_INDEX,
-    FIND_REFERENCE_TYPE.QUALIFIED_CLASS: constants.QCLASS_INDEX,
-    FIND_REFERENCE_TYPE.PACKAGE: constants.PACKAGE_INDEX,
-    FIND_REFERENCE_TYPE.INTEGRATION: constants.INT_INDEX,
-    FIND_REFERENCE_TYPE.CC_CLASS: constants.CC_CLASS_INDEX
-}
+    def __init__(self, index_file, find_command):
+        self.index_file = index_file
+        self.find_command = find_command
 
 # XML parsing related constants.
 _COMPATIBILITY_PACKAGE_PREFIX = "com.android.compatibility"
@@ -259,9 +242,13 @@ def has_cc_class(test_path):
     Returns:
         Boolean: has cc class in test_path or not.
     """
-    with open(test_path) as class_file:
+    with open_cc(test_path) as class_file:
         content = class_file.read()
         if re.findall(_CC_CLASS_METHOD_RE, content):
+            return True
+        if re.findall(_CC_PARAM_CLASS_RE, content):
+            return True
+        if re.findall(_TYPE_CC_CLASS_RE, content):
             return True
     return False
 
@@ -323,7 +310,7 @@ def get_java_parent_paths(test_path):
     else:
         parent_fqcn = package + '.' + parent_cls
     parent_test_paths = run_find_cmd(
-        FIND_REFERENCE_TYPE.QUALIFIED_CLASS,
+        TestReferenceType.QUALIFIED_CLASS,
         os.environ.get(constants.ANDROID_BUILD_TOP),
         parent_fqcn)
     # Recursively search parent classes until the class is not found.
@@ -521,7 +508,7 @@ def run_find_cmd(ref_type, search_dir, target, methods=None):
     """Find a path to a target given a search dir and a target name.
 
     Args:
-        ref_type: An AtestEnum of the reference type.
+        ref_type: An Enum of the reference type.
         search_dir: A string of the dirpath to search in.
         target: A string of what you're trying to find.
         methods: A set of method names.
@@ -530,24 +517,22 @@ def run_find_cmd(ref_type, search_dir, target, methods=None):
         A list of the path to the target.
         If the search_dir is inexistent, None will be returned.
     """
-    # If module_info.json is outdated, finding in the search_dir can result in
-    # raising exception. Return null immediately can guild users to run
-    # --rebuild-module-info to resolve the problem.
     if not os.path.isdir(search_dir):
         logging.debug('\'%s\' does not exist!', search_dir)
         return None
-    ref_name = FIND_REFERENCE_TYPE[ref_type]
+    ref_name = ref_type.name
+    index_file = ref_type.index_file
     start = time.time()
-    if os.path.isfile(FIND_INDEXES[ref_type]):
+    if os.path.isfile(index_file):
         _dict, out = {}, None
-        with open(FIND_INDEXES[ref_type], 'rb') as index:
+        with open(index_file, 'rb') as index:
             try:
                 _dict = pickle.load(index, encoding='utf-8')
             except (TypeError, IOError, EOFError, pickle.UnpicklingError) as err:
                 logging.debug('Exception raised: %s', err)
                 metrics_utils.handle_exc_and_send_exit_event(
                     constants.ACCESS_CACHE_FAILURE)
-                os.remove(FIND_INDEXES[ref_type])
+                os.remove(index_file)
         if _dict.get(target):
             out = [path for path in _dict.get(target) if search_dir in path]
             logging.debug('Found %s in %s', target, out)
@@ -555,7 +540,7 @@ def run_find_cmd(ref_type, search_dir, target, methods=None):
         prune_cond = _get_prune_cond_of_ignored_dirs()
         if '.' in target:
             target = target.replace('.', '/')
-        find_cmd = FIND_CMDS[ref_type].format(search_dir, prune_cond, target)
+        find_cmd = ref_type.find_command.format(search_dir, prune_cond, target)
         logging.debug('Executing %s find cmd: %s', ref_name, find_cmd)
         out = subprocess.check_output(find_cmd, shell=True)
         if isinstance(out, bytes):
@@ -579,11 +564,11 @@ def find_class_file(search_dir, class_name, is_native_test=False, methods=None):
         A list of the path to the java/cc file.
     """
     if is_native_test:
-        ref_type = FIND_REFERENCE_TYPE.CC_CLASS
+        ref_type = TestReferenceType.CC_CLASS
     elif '.' in class_name:
-        ref_type = FIND_REFERENCE_TYPE.QUALIFIED_CLASS
+        ref_type = TestReferenceType.QUALIFIED_CLASS
     else:
-        ref_type = FIND_REFERENCE_TYPE.CLASS
+        ref_type = TestReferenceType.CLASS
     return run_find_cmd(ref_type, search_dir, class_name, methods)
 
 
@@ -666,6 +651,8 @@ def get_targets_from_xml(xml_file, module_info):
     Returns:
         A set of build targets based on the signals found in the xml file.
     """
+    if not os.path.isfile(xml_file):
+        return set()
     xml_root = ET.parse(xml_file).getroot()
     return get_targets_from_xml_root(xml_root, module_info)
 
@@ -1014,7 +1001,7 @@ def search_integration_dirs(name, int_dirs):
     test_files = []
     for integration_dir in int_dirs:
         abs_path = os.path.join(root_dir, integration_dir)
-        test_paths = run_find_cmd(FIND_REFERENCE_TYPE.INTEGRATION, abs_path,
+        test_paths = run_find_cmd(TestReferenceType.INTEGRATION, abs_path,
                                   name)
         if test_paths:
             test_files.extend(test_paths)
@@ -1178,6 +1165,29 @@ def get_java_methods(test_path):
     return set()
 
 
+@contextmanager
+def open_cc(filename: str):
+    """Open a cc/cpp file with comments trimmed."""
+    target_cc = filename
+    if shutil.which('gcc'):
+        tmp = tempfile.NamedTemporaryFile()
+        cmd = (f'gcc -fpreprocessed -dD -E {filename} > {tmp.name}')
+        strip_proc = subprocess.run(cmd, shell=True, check=True)
+        if strip_proc.returncode == ExitCode.SUCCESS:
+            target_cc = tmp.name
+        else:
+            logging.debug('Failed to strip comments in %s. Parsing '
+                          'class/method name may not be accurate.',
+                          target_cc)
+    else:
+        logging.debug('Cannot find "gcc" and unable to trim comments.')
+    try:
+        cc_obj = open(target_cc, 'r')
+        yield cc_obj
+    finally:
+        cc_obj.close()
+
+
 # pylint: disable=too-many-branches
 def get_cc_class_info(test_path):
     """Get the class info of the given cc input test_path.
@@ -1203,22 +1213,8 @@ def get_cc_class_info(test_path):
     Returns:
         A dict of class info.
     """
-    # Strip comments prior to parsing class and method names if possible.
-    _test_path = tempfile.NamedTemporaryFile()
-    if atest_tools.has_command('gcc'):
-        strip_comment_cmd = 'gcc -fpreprocessed -dD -E {} > {}'
-        if subprocess.getoutput(
-            strip_comment_cmd.format(test_path, _test_path.name)):
-            logging.debug('Failed to strip comments in %s. Parsing class/method'
-                          'names may not be accurate.', test_path)
-    file_to_parse = test_path
-    # If failed to strip comments, it will be empty.
-    if os.stat(_test_path.name).st_size != 0:
-        file_to_parse = _test_path.name
-
-    # TODO: b/234531695 support reading header files as well.
-    with open(file_to_parse) as class_file:
-        logging.debug('Parsing: %s', test_path)
+    logging.debug('Parsing: %s', test_path)
+    with open_cc(test_path) as class_file:
         content = class_file.read()
         # ('TYPED_TEST', 'PrimeTableTest', 'ReturnsTrueForPrimes')
         method_matches = re.findall(_CC_CLASS_METHOD_RE, content)

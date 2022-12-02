@@ -31,11 +31,11 @@ import time
 
 from pathlib import Path
 
-import atest_utils as au
-import constants
+from atest import atest_utils as au
+from atest import constants
 
-from atest_enum import ExitCode
-from metrics import metrics_utils
+from atest.atest_enum import ExitCode
+from atest.metrics import metrics_utils
 
 UPDATEDB = 'updatedb'
 LOCATE = 'locate'
@@ -72,6 +72,7 @@ PRUNENAMES = ['.abc', '.appveyor', '.azure-pipelines',
               '.travis_scripts',
               '.tx',
               '.vscode']
+PRUNEPATHS = ['out', 'prebuilts']
 
 def _delete_indexes():
     """Delete all available index files."""
@@ -123,7 +124,8 @@ def run_updatedb(search_root=SEARCH_TOP, output_cache=constants.LOCATE_CACHE,
             prunenames: A list of dirname that won't be cached(-n).
     """
     prunenames = kwargs.pop('prunenames', ' '.join(PRUNENAMES))
-    prunepaths = kwargs.pop('prunepaths', os.path.join(search_root, 'out'))
+    prunepaths = kwargs.pop('prunepaths', ' '.join(
+        [os.path.join(SEARCH_TOP, p) for p in PRUNEPATHS]))
     if kwargs:
         raise TypeError('Unexpected **kwargs: %r' % kwargs)
     updatedb_cmd = [UPDATEDB, '-l0']
@@ -368,11 +370,14 @@ def acloud_create(report_file, args="", no_metrics_notice=True):
     notice = constants.NO_METRICS_ARG if no_metrics_notice else ""
     match = constants.ACLOUD_REPORT_FILE_RE.match(args)
     report_file_arg = '--report-file={}'.format(report_file) if not match else ""
+    hostname = os.uname()[1].split('.')[0]
     # (b/161759557) Assume yes for acloud create to streamline atest flow.
     acloud_cmd = ('acloud create -y {ACLOUD_ARGS} '
+                  '--pet-name {HOSTNAME} '
                   '{REPORT_FILE_ARG} '
                   '{METRICS_NOTICE} '
                   ).format(ACLOUD_ARGS=args,
+                           HOSTNAME=hostname,
                            REPORT_FILE_ARG=report_file_arg,
                            METRICS_NOTICE=notice)
     au.colorful_print("\nCreating AVD via acloud...", constants.CYAN)

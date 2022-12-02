@@ -24,11 +24,11 @@ import json
 import os
 import sys
 
-import atest_utils as au
-import constants
+import atest.atest_utils as au
+from atest import constants
 
-from atest_enum import ExitCode
-from metrics import metrics_utils
+from atest.atest_enum import ExitCode
+from atest.metrics import metrics_utils
 
 _ARGS_KEY = 'args'
 _STATUS_PASSED_KEY = 'PASSED'
@@ -280,24 +280,26 @@ class AtestExecutionInfo:
         """
         self.args = args
         self.work_dir = work_dir
-        self.result_file = None
+        self.result_file_obj = None
         self.args_ns = args_ns
+        self.test_result = os.path.join(self.work_dir, _TEST_RESULT_NAME)
 
     def __enter__(self):
         """Create and return information file object."""
-        full_file_name = os.path.join(self.work_dir, _TEST_RESULT_NAME)
         try:
-            self.result_file = open(full_file_name, 'w')
+            self.result_file_obj = open(self.test_result, 'w')
         except IOError:
-            logging.error('Cannot open file %s', full_file_name)
-        return self.result_file
+            logging.error('Cannot open file %s', self.test_result)
+        return self.result_file_obj
 
     def __exit__(self, exit_type, value, traceback):
         """Write execution information and close information file."""
-        if self.result_file and not has_non_test_options(self.args_ns):
-            self.result_file.write(AtestExecutionInfo.
+        if self.result_file_obj and not has_non_test_options(self.args_ns):
+            self.result_file_obj.write(AtestExecutionInfo.
                                    _generate_execution_detail(self.args))
-            self.result_file.close()
+            self.result_file_obj.close()
+            au.prompt_suggestions(self.test_result)
+            au.generate_print_result_html(self.test_result)
             symlink_latest_result(self.work_dir)
         main_module = sys.modules.get(_MAIN_MODULE_KEY)
         main_exit_code = value.code if isinstance(value, SystemExit) else (

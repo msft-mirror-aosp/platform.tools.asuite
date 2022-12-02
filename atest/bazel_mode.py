@@ -45,15 +45,15 @@ from pathlib import Path
 from types import MappingProxyType
 from typing import Any, Callable, Dict, IO, List, Set
 
-import atest_utils
-import constants
-import module_info
+from atest import atest_utils
+from atest import constants
+from atest import module_info
 
-from atest_enum import ExitCode
-from test_finders import test_finder_base
-from test_finders import test_info
-from test_runners import test_runner_base as trb
-from test_runners import atest_tf_test_runner as tfr
+from atest.atest_enum import ExitCode
+from atest.test_finders import test_finder_base
+from atest.test_finders import test_info
+from atest.test_runners import test_runner_base as trb
+from atest.test_runners import atest_tf_test_runner as tfr
 
 
 _BAZEL_WORKSPACE_DIR = 'atest_bazel_workspace'
@@ -100,6 +100,9 @@ class Features(enum.Enum):
         '--experimental-remote',
         'Use Bazel remote execution and caching where supported.',
         False)
+    EXPERIMENTAL_HOST_DRIVEN_TEST = (
+        '--experimental-host-driven-test',
+        'Enables running host-driven device tests in Bazel mode.', True)
 
     def __init__(self, arg_flag, description, affects_workspace):
         self.arg_flag = arg_flag
@@ -233,15 +236,16 @@ class WorkspaceGenerator:
                     self.enabled_features and
                     self.mod_info.is_device_driven_test(info)):
                 self._resolve_dependencies(
-                    self._add_test_target(
-                        info, 'device',
-                        TestTarget.create_device_test_target), seen)
+                    self._add_device_test_target(info, False), seen)
 
             if self.is_host_unit_test(info):
                 self._resolve_dependencies(
-                    self._add_test_target(
-                        info, 'host',
-                        TestTarget.create_deviceless_test_target), seen)
+                    self._add_deviceless_test_target(info), seen)
+            elif (Features.EXPERIMENTAL_HOST_DRIVEN_TEST in
+                  self.enabled_features and
+                  self.mod_info.is_host_driven_test(info)):
+                self._resolve_dependencies(
+                    self._add_device_test_target(info, True), seen)
 
     def _resolve_dependencies(
         self, top_level_target: Target, seen: Set[Target]):
@@ -274,13 +278,28 @@ class WorkspaceGenerator:
 
             stack.append(next_top)
 
-    def _add_test_target(self, info: Dict[str, Any], name_suffix: str,
-                         create_fn: Callable) -> Target:
+    def _add_device_test_target(self, info: Dict[str, Any],
+                                is_host_driven: bool) -> Target:
         package_name = self._get_module_path(info)
-        name = f'{info["module_name"]}_{name_suffix}'
+        name_suffix = 'host' if is_host_driven else 'device'
+        name = f'{info[constants.MODULE_INFO_ID]}_{name_suffix}'
 
         def create():
-            return create_fn(
+            return TestTarget.create_device_test_target(
+                name,
+                package_name,
+                info,
+                is_host_driven,
+            )
+
+        return self._add_target(package_name, name, create)
+
+    def _add_deviceless_test_target(self, info: Dict[str, Any]) -> Target:
+        package_name = self._get_module_path(info)
+        name = f'{info[constants.MODULE_INFO_ID]}_host'
+
+        def create():
+            return TestTarget.create_deviceless_test_target(
                 name,
                 package_name,
                 info,
@@ -290,7 +309,7 @@ class WorkspaceGenerator:
 
     def _add_prebuilt_target(self, info: Dict[str, Any]) -> Target:
         package_name = self._get_module_path(info)
-        name = info['module_name']
+        name = info[constants.MODULE_INFO_ID]
 
         def create():
             return SoongPrebuiltTarget.create(
@@ -360,6 +379,8 @@ class WorkspaceGenerator:
         self._add_workspace_resource(src='rules', dst='bazel/rules')
         self._add_workspace_resource(src='configs', dst='bazel/configs')
 
+        self._add_bazel_bootstrap_files()
+
         # Symlink to package with toolchain definitions.
         self._symlink(src='prebuilts/build-tools',
                       target='prebuilts/build-tools')
@@ -387,6 +408,15 @@ class WorkspaceGenerator:
         self._add_workspace_resource(src='bazelrc', dst='.bazelrc')
 
         self.workspace_out_path.joinpath('BUILD.bazel').touch()
+
+    def _add_bazel_bootstrap_files(self):
+        self._symlink(src='tools/asuite/atest/bazel/resources/bazel.sh',
+                      target='bazel.sh')
+        # TODO(b/256924541): Consolidate JDK version with Roboleaf team.
+        self._symlink(src='prebuilts/jdk/jdk17/linux-x86',
+                      target='prebuilts/jdk/jdk17/linux-x86')
+        self._symlink(src='prebuilts/bazel/linux-x86_64/bazel',
+                      target='prebuilts/bazel/linux-x86_64/bazel')
 
     def _add_workspace_resource(self, src, dst):
         """Add resource to the given destination in workspace.
@@ -513,8 +543,8 @@ class ModuleRef:
 
     def target(self) -> Target:
         if not self._target:
-            module_name = self.info['module_name']
-            raise Exception(f'Target not set for ref `{module_name}`')
+            target_name = self.info[constants.MODULE_INFO_ID]
+            raise Exception(f'Target not set for ref `{target_name}`')
 
         return self._target
 
@@ -588,10 +618,13 @@ class TestTarget(Target):
 
     @staticmethod
     def create_device_test_target(name: str, package_name: str,
-                                  info: Dict[str, Any]):
+                                  info: Dict[str, Any], is_host_driven: bool):
+        rule = ('tradefed_host_driven_device_test' if is_host_driven
+                else 'tradefed_device_driven_test')
+
         return TestTarget(
             package_name,
-            'tradefed_device_test',
+            rule,
             {
                 'name': name,
                 'test': ModuleRef.for_info(info),
@@ -709,6 +742,7 @@ class Dependencies:
     static_dep_refs: List[ModuleRef]
     runtime_dep_refs: List[ModuleRef]
     data_dep_refs: List[ModuleRef]
+    device_data_dep_refs: List[ModuleRef]
 
 
 class SoongPrebuiltTarget(Target):
@@ -753,7 +787,7 @@ class SoongPrebuiltTarget(Target):
         enabled_features = gen.enabled_features
 
         return SoongPrebuiltTarget(
-            module_name,
+            info,
             package_name,
             config_files,
             Dependencies(
@@ -765,19 +799,21 @@ class SoongPrebuiltTarget(Target):
                     enabled_features),
                 data_dep_refs = find_data_dep_refs(
                     gen.mod_info, info, configs, gen.src_root_path),
+                device_data_dep_refs = find_device_data_dep_refs(gen, info),
             ),
         )
 
-    def __init__(self, name: str, package_name: str,
-                 config_files: Dict[Config, List[Path]],
-                 deps: Dependencies):
-        self._name = name
+    def __init__(self, info: Dict[str, Any], package_name: str,
+                 config_files: Dict[Config, List[Path]], deps: Dependencies):
+        self._target_name = info[constants.MODULE_INFO_ID]
+        self._module_name = info[constants.MODULE_NAME]
         self._package_name = package_name
         self.config_files = config_files
         self.deps = deps
+        self.suites = info.get(constants.MODULE_COMPATIBILITY_SUITES, [])
 
     def name(self) -> str:
-        return self._name
+        return self._target_name
 
     def package_name(self) -> str:
         return self._package_name
@@ -806,17 +842,19 @@ class SoongPrebuiltTarget(Target):
     def dependencies(self) -> List[ModuleRef]:
         all_deps = set(self.deps.runtime_dep_refs)
         all_deps.update(self.deps.data_dep_refs)
+        all_deps.update(self.deps.device_data_dep_refs)
         all_deps.update(self.deps.static_dep_refs)
         return list(all_deps)
 
     def write_to_build_file(self, f: IO):
         writer = IndentWriter(f)
+        build_file_writer = BuildFileWriter(writer)
 
         writer.write_line(f'{self._rule_name()}(')
 
         with writer.indent():
-            writer.write_line(f'name = "{self._name}",')
-            writer.write_line(f'module_name = "{self._name}",')
+            writer.write_line(f'name = "{self._target_name}",')
+            writer.write_line(f'module_name = "{self._module_name}",')
             self._write_files_attribute(writer)
             self._write_deps_attribute(writer, 'static_deps',
                                        self.deps.static_dep_refs)
@@ -824,10 +862,15 @@ class SoongPrebuiltTarget(Target):
                                        self.deps.runtime_dep_refs)
             self._write_deps_attribute(writer, 'data', self.deps.data_dep_refs)
 
+            build_file_writer.write_label_list_attribute(
+                'device_data', self.deps.device_data_dep_refs)
+            build_file_writer.write_string_list_attribute(
+                'suites', sorted(self.suites))
+
         writer.write_line(')')
 
     def create_filesystem_layout(self, package_dir: Path):
-        prebuilts_dir = package_dir.joinpath(self._name)
+        prebuilts_dir = package_dir.joinpath(self._target_name)
         prebuilts_dir.mkdir()
 
         for config, files in self.config_files.items():
@@ -848,13 +891,12 @@ class SoongPrebuiltTarget(Target):
         if not self.config_files:
             return
 
-        name = self._name
-
         writer.write('files = ')
         write_config_select(
             writer,
             self.config_files,
-            lambda c, _: writer.write(f'glob(["{name}/{c.name}/**/*"])'),
+            lambda c, _: writer.write(
+                f'glob(["{self._target_name}/{c.name}/**/*"])'),
         )
         writer.write_line(',')
 
@@ -1003,6 +1045,18 @@ def find_data_dep_refs(
                              info.get(constants.MODULE_DATA_DEPS, []))
 
 
+def find_device_data_dep_refs(
+        gen: WorkspaceGenerator,
+        info: module_info.Module,
+) -> List[ModuleRef]:
+    """Return module references for device data dependencies."""
+
+    return _find_module_refs(gen.mod_info,
+                             [Config('device', gen.product_out_path)],
+                             gen.src_root_path,
+                             info.get(constants.MODULE_TARGET_DEPS, []))
+
+
 def find_static_dep_refs(
         mod_info: module_info.ModuleInfo,
         info: module_info.Module,
@@ -1015,10 +1069,14 @@ def find_static_dep_refs(
     if Features.EXPERIMENTAL_JAVA_RUNTIME_DEPENDENCIES not in enabled_features:
         return []
 
+    static_libs = set()
+    static_libs.update(info.get(constants.MODULE_STATIC_LIBS, []))
+    static_libs.update(info.get(constants.MODULE_STATIC_DEPS, []))
+
     return _find_module_refs(mod_info,
                              configs,
                              src_root_path,
-                             info.get(constants.MODULE_STATIC_LIBS, []))
+                             static_libs)
 
 
 def _find_module_refs(
@@ -1136,7 +1194,9 @@ def _decorate_find_method(mod_info, finder_method_func, host, enabled_features):
                 continue
 
             if mod_info.is_suite_in_compatibility_suites(
-                'host-unit-tests', m_info):
+                'host-unit-tests', m_info) or (
+                    Features.EXPERIMENTAL_HOST_DRIVEN_TEST in enabled_features
+                    and mod_info.is_host_driven_test(m_info)):
                 tinfo.test_runner = BazelTestRunner.NAME
         return test_infos
     return use_bazel_runner
@@ -1208,9 +1268,9 @@ class BazelTestRunner(trb.TestRunnerBase):
         self.starlark_file = _get_resource_root().joinpath(
             'format_as_soong_module_name.cquery')
 
-        self.bazel_binary = self.src_top.joinpath(
-            'prebuilts/bazel/linux-x86_64/bazel')
         self.bazel_workspace = workspace_path or get_bazel_workspace_dir()
+        self.bazel_binary = self.bazel_workspace.joinpath(
+            'bazel.sh')
         self.run_command = run_command
         self._extra_args = extra_args or {}
         self.build_metadata = build_metadata or get_default_build_metadata()
@@ -1261,50 +1321,18 @@ class BazelTestRunner(trb.TestRunnerBase):
         branch = self.build_metadata.build_branch
         target = self.build_metadata.build_target
 
-        args = []
-        args.append(f'--config={bes_publish_config}')
-        args.append(f'--build_metadata=ab_branch={branch}')
-        args.append(f'--build_metadata=ab_target={target}')
-
-        auth_script = self.env.get('ATEST_BAZEL_BES_PUBLISH_AUTH_SCRIPT')
-        if auth_script:
-            args.extend(self._get_auth_args(auth_script))
-
-        return args
-
-    def _get_auth_args(self, auth_script):
-        """Get Bazel authentication arguments from running a script.
-
-        Args:
-            auth_script: path to the authentication script.
-        Returns:
-            the Bazel arguments used for authentication.
-        """
-        try:
-            result = subprocess.run(auth_script,
-                                    check=True,
-                                    text=True,
-                                    shell=True,
-                                    stdout=subprocess.PIPE)
-        except subprocess.CalledProcessError as e:
-            raise AbortRunException(
-                f'Error running authentication script `{auth_script}`: {e}'
-            ) from e
-
-        return result.stdout.splitlines()
+        return [
+            f'--config={bes_publish_config}',
+            f'--build_metadata=ab_branch={branch}',
+            f'--build_metadata=ab_target={target}'
+        ]
 
     def _get_remote_args(self, feature):
         remote_config = self._get_feature_config_or_warn(
             feature, 'ATEST_BAZEL_REMOTE_CONFIG')
         if not remote_config:
             return []
-
-        args = [f'--config={remote_config}']
-        auth_script = self.env.get('ATEST_BAZEL_REMOTE_AUTH_SCRIPT')
-        if auth_script:
-            args.extend(self._get_auth_args(auth_script))
-
-        return args
+        return [f'--config={remote_config}']
 
     def host_env_check(self):
         """Check that host env has everything we need.
@@ -1386,6 +1414,10 @@ class BazelTestRunner(trb.TestRunnerBase):
                 extra_args,
                 self._get_remote_args))
 
+        # Default to --test_output=errors unless specified otherwise
+        if not any(arg.startswith('--test_output=') for arg in bazel_args):
+            bazel_args.append('--test_output=errors')
+
         # This is an alternative to shlex.join that doesn't exist in Python
         # versions < 3.8.
         bazel_args_str = ' '.join(shlex.quote(arg) for arg in bazel_args)
@@ -1404,6 +1436,10 @@ class BazelTestRunner(trb.TestRunnerBase):
         # Make a copy of the `extra_args` dict to avoid modifying it for other
         # Atest runners.
         extra_args_copy = extra_args.copy()
+
+        # Remove the `--host` flag since we already pass that in the rule's
+        # implementation.
+        extra_args_copy.pop(constants.HOST, None)
 
         # Map args to their native Bazel counterparts.
         for arg in _SUPPORTED_BAZEL_ARGS:

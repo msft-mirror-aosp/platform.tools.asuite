@@ -31,21 +31,21 @@ from functools import partial
 from pathlib import Path
 from typing import Any, List, Tuple
 
-import atest_configs
-import atest_error
-import atest_utils
-import constants
-import module_info
-import result_reporter
+from atest import atest_configs
+from atest import atest_error
+from atest import atest_utils
+from atest import constants
+from atest import module_info
+from atest import result_reporter
 
-from atest_enum import DetectType, ExitCode
-from logstorage import atest_gcp_utils
-from logstorage import logstorage_utils
-from metrics import metrics
-from test_finders import test_finder_utils
-from test_finders import test_info
-from test_runners import test_runner_base as trb
-from .event_handler import EventHandler
+from atest.atest_enum import DetectType, ExitCode
+from atest.logstorage import atest_gcp_utils
+from atest.logstorage import logstorage_utils
+from atest.metrics import metrics
+from atest.test_finders import test_finder_utils
+from atest.test_finders import test_info
+from atest.test_runners import test_runner_base as trb
+from atest.test_runners.event_handler import EventHandler
 
 POLL_FREQ_SECS = 10
 SOCKET_HOST = '127.0.0.1'
@@ -78,7 +78,6 @@ _TF_EXIT_CODE = [
     'THROWABLE_EXCEPTION',
     'NO_DEVICE_ALLOCATED',
     'WRONG_JAVA_VERSION']
-
 
 class TradeFedExitError(Exception):
     """Raised when TradeFed exists before test run has finished."""
@@ -344,8 +343,8 @@ class AtestTradefedTestRunner(trb.TestRunnerBase):
                     inputs.pop().close()
                     if not reporter.all_test_results:
                         atest_utils.colorful_print(
-                            r'No test to run. Please check: '
-                            r'{} for detail.'.format(reporter.log_path),
+                            r'No test to run. Test Logs have saved in '
+                            f'{reporter.log_path}.',
                             constants.RED, constants.WHITE)
                     if not data_map:
                         metrics.LocalDetectEvent(
@@ -578,13 +577,10 @@ class AtestTradefedTestRunner(trb.TestRunnerBase):
             test_args.append('--template:map preparers=%s'
                              % constants.DEVICE_SETUP_PREPARER)
         for info in test_infos:
-            # Only change tradefed cmd when running local tests.
-            if hasattr(info, 'artifacts') and self.root_dir:
-                for artifact in info.artifacts:
-                    test_args.append(
-                        f'{constants.TF_MODULE_ARG} '
-                        f'{info.test_name}:test-file-name:{artifact}')
             if constants.TEST_WITH_MAINLINE_MODULES_RE.match(info.test_name):
+                # TODO(b/253641058) Remove this once mainline module
+                # binaries are stored under testcase directory.
+                self._copy_mainline_module_binary(info.mainline_modules)
                 test_args.append(constants.TF_ENABLE_MAINLINE_PARAMETERIZED_MODULES)
                 break
         # For detailed logs, set TF options log-level/log-level-display as
@@ -928,6 +924,53 @@ class AtestTradefedTestRunner(trb.TestRunnerBase):
                 if module_name and device_path:
                     atest_utils.copy_native_symbols(module_name, device_path)
 
+    # TODO(b/253641058) remove copying files once mainline module
+    # binaries are stored under testcase directory.
+    def _copy_mainline_module_binary(self, mainline_modules):
+        """Copies mainline module binaries to out/dist/mainline_modules_{arch}
+
+        Copies the mainline module binaries to the location that
+        MainlineModuleHandler in TF expects since there is no way to
+        explicitly tweak the search path.
+
+        Args:
+            mainline_modules: A list of mainline modules.
+        """
+        config = atest_utils.get_android_config()
+        arch = config.get('TARGET_ARCH')
+        dest_dir = atest_utils.DIST_OUT_DIR.joinpath(f'mainline_modules_{arch}')
+        dest_dir.mkdir(parents=True, exist_ok=True)
+
+        for module in mainline_modules:
+            target_module_info = self.module_info.get_module_info(module)
+            installed_paths = target_module_info[constants.MODULE_INSTALLED]
+
+            for installed_path in installed_paths:
+                # We convert the installed file extension from capex to apex
+                # since module-info uses the former.
+                # This happens because OVERRIDE_PRODUCT_COMPRESSED_APEX was
+                # set to false only _after_ module-info was built.
+                installed_path = re.sub(
+                    re.escape('.capex') + '$', '.apex', installed_path)
+
+                if not re.search(atest_utils.MAINLINE_MODULES_EXT_RE, installed_path):
+                    atest_utils.colorful_print(
+                        '%s is not a apk or apex file' % installed_path,
+                        constants.YELLOW)
+                    continue
+                file_name = Path(installed_path).name
+                dest_path = Path(dest_dir).joinpath(file_name)
+                if dest_path.exists():
+                    atest_utils.colorful_print(
+                        'Replacing APEX in %s with %s' % (dest_path, installed_path),
+                        constants.CYAN)
+                    logging.debug(
+                        'deleting the old file: %s and copy a new binary',
+                        dest_path)
+                    dest_path.unlink()
+                shutil.copyfile(installed_path, dest_path)
+
+                break
 
 def generate_annotation_filter_args(
         arg_value: Any, mod_info: module_info.ModuleInfo,
@@ -1091,7 +1134,8 @@ def extra_args_to_tf_args(mod_info: module_info.ModuleInfo,
                    constants.DRY_RUN,
                    constants.VERIFY_ENV_VARIABLE,
                    constants.FLAKES_INFO,
-                   constants.LD_LIBRARY_PATH):
+                   constants.LD_LIBRARY_PATH,
+                   constants.DEVICE_ONLY):
             continue
         unsupported_args.append(arg)
     return supported_args, unsupported_args

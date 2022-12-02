@@ -31,12 +31,12 @@ import time
 from functools import partial
 from pathlib import Path
 
-import atest_utils
-import constants
+from atest import atest_utils
+from atest import constants
 
-from atest_enum import ExitCode
-from test_runners import test_runner_base
-from .event_handler import EventHandler
+from atest.atest_enum import ExitCode
+from atest.test_runners import test_runner_base
+from atest.test_runners.event_handler import EventHandler
 
 POLL_FREQ_SECS = 0.1
 # A pattern to match event like below

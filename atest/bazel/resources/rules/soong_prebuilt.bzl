@@ -19,6 +19,8 @@ and a SoongPrebuiltInfo provider with the original Soong module name, artifacts,
 runtime dependencies and data dependencies.
 """
 
+load("//bazel/rules:platform_transitions.bzl", "device_transition")
+
 SoongPrebuiltInfo = provider(
     doc = "Info about a prebuilt Soong build module",
     fields = {
@@ -26,6 +28,7 @@ SoongPrebuiltInfo = provider(
         # This field contains this target's outputs and all runtime dependency
         # outputs.
         "transitive_runtime_outputs": "Files required in the runtime environment",
+        "transitive_test_files": "Files of test modules",
     },
 )
 
@@ -65,7 +68,7 @@ def _soong_prebuilt_impl(ctx):
 
     runfiles = ctx.runfiles(files = files).merge_all([
         dep[DefaultInfo].default_runfiles
-        for dep in ctx.attr.runtime_deps + ctx.attr.data
+        for dep in ctx.attr.runtime_deps + ctx.attr.data + ctx.attr.device_data
     ])
 
     # We exclude the outputs of static dependencies from the runfiles since
@@ -89,6 +92,8 @@ def _soong_prebuilt_impl(ctx):
             files = files,
             runtime_deps = ctx.attr.runtime_deps,
             static_deps = ctx.attr.static_deps,
+            data = ctx.attr.data + ctx.attr.device_data,
+            suites = ctx.attr.suites,
         ),
         DefaultInfo(
             files = depset(files),
@@ -108,6 +113,16 @@ soong_prebuilt = rule(
         # dependencies.
         "static_deps": attr.label_list(),
         "data": attr.label_list(),
+        "device_data": attr.label_list(
+            cfg = device_transition,
+        ),
+        "suites": attr.string_list(),
+        # This attribute is required to use Starlark transitions. It allows
+        # allowlisting usage of this rule. For more information, see
+        # https://docs.bazel.build/versions/master/skylark/config.html#user-defined-transitions
+        "_allowlist_function_transition": attr.label(
+            default = "@bazel_tools//tools/allowlists/function_transition_allowlist",
+        ),
     },
     implementation = _soong_prebuilt_impl,
     doc = "A rule that imports artifacts prebuilt by Soong into the Bazel workspace",
@@ -142,12 +157,16 @@ def _make_soong_prebuilt_info(
         module_name,
         files = [],
         runtime_deps = [],
-        static_deps = []):
+        static_deps = [],
+        data = [],
+        suites = []):
     """Build a SoongPrebuiltInfo based on the given information.
 
     Args:
         runtime_deps: List of runtime dependencies required by this target.
         static_deps: List of static dependencies required by this target.
+        data: List of data required by this target.
+        suites: List of test suites this target belongs to.
 
     Returns:
         An instance of SoongPrebuiltInfo.
@@ -170,10 +189,19 @@ def _make_soong_prebuilt_info(
         )
         for dep in static_deps
     ])
-
     return SoongPrebuiltInfo(
         module_name = module_name,
         transitive_runtime_outputs = depset(files, transitive = transitive_runtime_outputs),
+        transitive_test_files = depset(
+            # Note that `suites` is never empty for test files. This because
+            # test build modules that do not explicitly specify a `test_suites`
+            # Soong attribute belong to `null-suite`.
+            files if suites else [],
+            transitive = [
+                dep[SoongPrebuiltInfo].transitive_test_files
+                for dep in data + runtime_deps
+            ],
+        ),
     )
 
 def _exclude_files(all_files, files_to_exclude):

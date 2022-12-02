@@ -29,18 +29,18 @@ import time
 
 from typing import List
 
-import atest_error
-import atest_utils
-import bazel_mode
-import constants
-import test_finder_handler
-import test_mapping
+from atest import atest_error
+from atest import atest_utils
+from atest import bazel_mode
+from atest import constants
+from atest import test_finder_handler
+from atest import test_mapping
 
-from atest_enum import DetectType, ExitCode
-from metrics import metrics
-from metrics import metrics_utils
-from test_finders import module_finder
-from test_finders import test_finder_utils
+from atest.atest_enum import DetectType, ExitCode
+from atest.metrics import metrics
+from atest.metrics import metrics_utils
+from atest.test_finders import module_finder
+from atest.test_finders import test_finder_utils
 
 FUZZY_FINDER = 'FUZZY'
 CACHE_FINDER = 'CACHE'
@@ -89,7 +89,7 @@ class CLITranslator:
         self.msg = ''
         if print_cache_msg:
             self.msg = ('(Test info has been cached for speeding up the next '
-                        'run, if test info need to be updated, please add -c '
+                        'run, if test info needs to be updated, please add -c '
                         'to clean the old cache.)')
         self.fuzzy_search = True
 
@@ -113,8 +113,11 @@ class CLITranslator:
         test_finders = []
         test_info_str = ''
         find_test_err_msg = None
-        test_name, mainline_modules = atest_utils.parse_mainline_modules(test)
-        if not self._verified_mainline_modules(test_name, mainline_modules):
+        test_name, mainline_binaries = atest_utils.parse_mainline_modules(test)
+        mainline_modules = [re.sub(atest_utils.MAINLINE_MODULES_EXT_RE, '', m)
+                            for m in mainline_binaries]
+        logging.debug('mainline_modules: %s', mainline_modules)
+        if not self._verified_mainline_modules(test_name, mainline_binaries):
             return test_infos
         find_methods = test_finder_handler.get_find_methods_for_test(
             self.mod_info, test)
@@ -155,14 +158,16 @@ class CLITranslator:
                         # TODO: remove below statement when soong can also
                         # parse TestConfig and inject mainline modules information
                         # to module-info.
-                        test_info.mainline_modules = mainline_modules
+                        for m in mainline_modules:
+                            test_info.add_mainline_module(m)
+
                     # Only add dependencies to build_targets when they are in
                     # module info
                     test_deps_in_mod_info = [
                         test_dep for test_dep in test_deps
                         if self.mod_info.is_module(test_dep)]
-                    test_info.build_targets = set(test_info.build_targets)
-                    test_info.build_targets.update(test_deps_in_mod_info)
+                    for t in test_deps_in_mod_info:
+                        test_info.add_build_target(t)
                     test_infos.add(test_info)
                 test_found = True
                 print("Found '%s' as %s" % (
@@ -198,7 +203,7 @@ class CLITranslator:
                 print(self.msg)
         return test_infos
 
-    def _verified_mainline_modules(self, test, mainline_modules):
+    def _verified_mainline_modules(self, test, mainline_binaries):
         """ Verify the test with mainline modules is acceptable.
 
         The test must be a module and mainline modules are in module-info.
@@ -208,22 +213,22 @@ class CLITranslator:
 
         Args:
             test: A string representing test references
-            mainline_modules: A string of mainline_modules.
+            mainline_binaries: A list of mainline modules binary names.
 
         Returns:
             True if this test is acceptable. Otherwise, print the reason and
             return False.
         """
-        if not mainline_modules:
+        if not mainline_binaries:
             return True
         if not self.mod_info.is_module(test):
             print('Error: "%s" is not a testable module.'
                   % atest_utils.colorize(test, constants.RED))
             return False
-        if not self.mod_info.has_mainline_modules(test, mainline_modules):
+        if not self.mod_info.has_mainline_modules(test, mainline_binaries):
             print('Error: Mainline modules "%s" were not defined for %s in '
                   'neither build file nor test config.'
-                  % (atest_utils.colorize(mainline_modules, constants.RED),
+                  % (atest_utils.colorize(mainline_binaries, constants.RED),
                      atest_utils.colorize(test, constants.RED)))
             return False
         return True
@@ -256,13 +261,6 @@ class CLITranslator:
         if find_test_err_msg:
             print('%s\n' % (atest_utils.colorize(
                 find_test_err_msg, constants.MAGENTA)))
-        else:
-            # TODO: remove "self.mod_info is None" after refactoring module_info
-            if self.mod_info is None or not self.mod_info.force_build:
-                print(constants.REBUILD_MODULE_INFO_MSG.format(
-                    atest_utils.colorize(constants.REBUILD_MODULE_INFO_FLAG,
-                                         constants.RED)))
-            print('')
         return None
 
     def _get_test_infos(self, tests, test_mapping_test_details=None):

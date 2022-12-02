@@ -25,10 +25,10 @@ constant, do so with care and run all unittests to make sure nothing breaks.
 
 import os
 
-import constants
+from atest import constants
 
-from test_finders import test_info
-from test_runners import atest_tf_test_runner as atf_tr
+from atest.test_finders import test_info
+from atest.test_runners import atest_tf_test_runner as atf_tr
 
 ROOT = '/'
 MODULE_DIR = 'foo/bar/jank'
@@ -311,7 +311,6 @@ QCLASS_INDEX = os.path.join(INDEX_DIR, 'fqcn.idx')
 CC_CLASS_INDEX = os.path.join(INDEX_DIR, 'cc_classes.idx')
 PACKAGE_INDEX = os.path.join(INDEX_DIR, 'packages.idx')
 MODULE_INFO_MD5 = os.path.join(INDEX_DIR, 'module-info.md5')
-MODULE_INDEX = os.path.join(INDEX_DIR, 'modules.idx')
 
 # TF's log dir
 TEST_INFO_DIR = '/tmp/atest_run_1510085893_pi_Nbi'

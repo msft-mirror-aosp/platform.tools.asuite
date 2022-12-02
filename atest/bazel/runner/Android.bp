@@ -20,10 +20,47 @@ java_library_host {
     name: "bazel-test-runner",
     srcs: [
         "src/com/android/tradefed/testtype/bazel/BazelTest.java",
+        "src/main/protobuf/*.proto",
     ],
     libs: [
         "tradefed",
     ],
+    java_resource_dirs: [
+        "config",
+    ],
+    proto: {
+        type: "full",
+        include_dirs: [
+            "external/protobuf/src",
+        ],
+        canonical_path_from_root: false,
+    },
+}
+
+java_genrule_host {
+    name: "bazel-test-suite",
+    cmd: "BAZEL_SUITE_DIR=$(genDir)/android-bazel-suite && " +
+        "mkdir \"$${BAZEL_SUITE_DIR}\" && " +
+        "mkdir \"$${BAZEL_SUITE_DIR}\"/tools && " +
+        "mkdir \"$${BAZEL_SUITE_DIR}\"/testcases && " +
+        "cp $(location :tradefed) \"$${BAZEL_SUITE_DIR}\"/tools && " +
+        "cp $(location :compatibility-host-util) \"$${BAZEL_SUITE_DIR}\"/tools && " +
+        "cp $(location :compatibility-tradefed) \"$${BAZEL_SUITE_DIR}\"/tools && " +
+        "cp $(location :bazel-test-runner) \"$${BAZEL_SUITE_DIR}\"/testcases && " +
+        "$(location soong_zip) -o $(out) -d -C $(genDir) -D \"$${BAZEL_SUITE_DIR}\"",
+    out: ["bazel-test-suite.zip"],
+    srcs: [
+        ":tradefed",
+        ":bazel-test-runner",
+        ":compatibility-host-util",
+        ":compatibility-tradefed",
+    ],
+    tools: [
+        "soong_zip",
+    ],
+    dist: {
+        targets: ["bazel-test-suite"],
+    },
 }
 
 java_test_host {

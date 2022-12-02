@@ -39,6 +39,7 @@ def _soong_prebuilt_tradefed_aspect_impl(target, ctx):
         TradefedTestDependencyInfo(
             runtime_jars = depset(runtime_jars),
             runtime_shared_libraries = depset(runtime_shared_libraries),
+            transitive_test_files = target[SoongPrebuiltInfo].transitive_test_files,
         ),
     ]
 

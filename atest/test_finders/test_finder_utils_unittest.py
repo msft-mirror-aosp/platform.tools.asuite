@@ -26,14 +26,14 @@ import unittest
 
 from unittest import mock
 
-import atest_error
-import constants
-import module_info
-import unittest_constants as uc
-import unittest_utils
+from atest import atest_error
+from atest import constants
+from atest import module_info
+from atest import unittest_constants as uc
+from atest import unittest_utils
 
-from test_finders import test_finder_utils
-from test_finders import test_info
+from atest.test_finders import test_finder_utils
+from atest.test_finders import test_info
 
 JSON_FILE_PATH = os.path.join(uc.TEST_DATA_DIR, uc.JSON_FILE)
 CLASS_DIR = 'foo/bar/jank/src/android/jank/cts/ui'
@@ -520,7 +520,6 @@ class TestFinderUtilsUnittests(unittest.TestCase):
         del java_tmp_test_result[:]
         mock_input.return_value = '0'
         _mock_isfile = True
-        test_finder_utils.FIND_INDEXES['CLASS'] = uc.CLASS_INDEX
         java_class = os.path.join(uc.FIND_PATH, uc.FIND_PATH_TESTCASE_JAVA + '.java')
         java_tmp_test_result.extend(test_finder_utils.find_class_file(uc.FIND_PATH,
                                                                       uc.FIND_PATH_TESTCASE_JAVA))
@@ -548,7 +547,6 @@ class TestFinderUtilsUnittests(unittest.TestCase):
         del java_tmp_test_result[:]
         mock_input.return_value = '0'
         _mock_isfile = True
-        test_finder_utils.FIND_INDEXES['QUALIFIED_CLASS'] = uc.QCLASS_INDEX
         java_qualified_class = '{0}.{1}'.format(uc.FIND_PATH_FOLDER, uc.FIND_PATH_TESTCASE_JAVA)
         java_tmp_test_result.extend(test_finder_utils.find_class_file(uc.FIND_PATH,
                                                                       java_qualified_class))
@@ -578,7 +576,6 @@ class TestFinderUtilsUnittests(unittest.TestCase):
         del cc_tmp_test_result[:]
         mock_input.return_value = '0'
         _mock_isfile = True
-        test_finder_utils.FIND_INDEXES['CC_CLASS'] = uc.CC_CLASS_INDEX
         cpp_class = os.path.join(uc.FIND_PATH, uc.FIND_PATH_FILENAME_CC + '.cpp')
         cc_tmp_test_result.extend(test_finder_utils.find_class_file(uc.FIND_PATH,
                                                                     uc.FIND_PATH_TESTCASE_CC,

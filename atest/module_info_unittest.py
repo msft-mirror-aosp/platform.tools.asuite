@@ -31,10 +31,10 @@ from unittest import mock
 # pylint: disable=import-error
 from pyfakefs import fake_filesystem_unittest
 
-import constants
-import module_info
-import unittest_utils
-import unittest_constants as uc
+from atest import constants
+from atest import module_info
+from atest import unittest_utils
+from atest import unittest_constants as uc
 
 JSON_FILE_PATH = os.path.join(uc.TEST_DATA_DIR, uc.JSON_FILE)
 CC_DEP_PATH = os.path.join(uc.TEST_DATA_DIR, uc.CC_DEP_FILE)
@@ -403,6 +403,19 @@ class ModuleInfoUnittests(unittest.TestCase):
 
     @mock.patch.dict('os.environ', {constants.ANDROID_BUILD_TOP:'/',
                                     constants.ANDROID_PRODUCT_OUT:PRODUCT_OUT_DIR})
+    def test_merge_build_system_infos_missing_keys(self):
+        """Test _merge_build_system_infos for keys missing from module-info.json."""
+        mod_info = module_info.ModuleInfo(module_file=JSON_FILE_PATH, index_dir=HOST_OUT_DIR)
+        name_to_mod_info = mod_info._merge_build_system_infos(
+            {}, java_bp_info_path=self.java_dep_path)
+
+        expect_deps = ['test_dep_level_1_1']
+        self.assertEqual(
+            name_to_mod_info['not_in_module_info'].get(constants.MODULE_DEPENDENCIES),
+            expect_deps)
+
+    @mock.patch.dict('os.environ', {constants.ANDROID_BUILD_TOP:'/',
+                                    constants.ANDROID_PRODUCT_OUT:PRODUCT_OUT_DIR})
     def test_merge_dependency_with_ori_dependency(self):
         """Test _merge_dependency."""
         mod_info = module_info.ModuleInfo(module_file=JSON_FILE_PATH, index_dir=HOST_OUT_DIR)
@@ -546,21 +559,27 @@ class ModuleInfoUnittests(unittest.TestCase):
         module_name = 'myModule'
         maininfo_with_unittest = {constants.MODULE_NAME: module_name,
                                   constants.MODULE_IS_UNIT_TEST: 'true'}
-        mod_info = module_info.ModuleInfo(module_file=JSON_FILE_PATH, index_dir=HOST_OUT_DIR)
+        mod_info = module_info.ModuleInfo(module_file=JSON_FILE_PATH,
+                                          index_dir=HOST_OUT_DIR)
         self.assertTrue(mod_info.is_unit_test(maininfo_with_unittest))
 
-
-    @mock.patch.dict('os.environ', {constants.ANDROID_BUILD_TOP:'/',
-                                    constants.ANDROID_PRODUCT_OUT:PRODUCT_OUT_DIR})
-    def test_is_host_unit_test(self):
+    @mock.patch.dict('os.environ',
+                     {constants.ANDROID_BUILD_TOP: '/',
+                      constants.ANDROID_PRODUCT_OUT: PRODUCT_OUT_DIR})
+    @mock.patch.object(module_info.ModuleInfo, 'is_testable_module')
+    def test_is_host_unit_test(self, _mock_is_testable_module):
         """Test is_host_unit_test."""
+        _mock_is_testable_module.return_value = True
         module_name = 'myModule'
         maininfo_with_host_unittest = {
             constants.MODULE_NAME: module_name,
             constants.MODULE_IS_UNIT_TEST: 'true',
             'compatibility_suites': ['host-unit-tests']
         }
-        mod_info = module_info.ModuleInfo(module_file=JSON_FILE_PATH, index_dir=HOST_OUT_DIR)
+
+        mod_info = module_info.ModuleInfo(module_file=JSON_FILE_PATH,
+                                          index_dir=HOST_OUT_DIR)
+
         self.assertTrue(mod_info.is_host_unit_test(maininfo_with_host_unittest))
 
     @mock.patch.dict('os.environ', {constants.ANDROID_BUILD_TOP:'/',
@@ -578,14 +597,31 @@ class ModuleInfoUnittests(unittest.TestCase):
 
         self.assertTrue(mod_info.is_device_driven_test(maininfo_with_device_driven_test))
 
+    @mock.patch.dict('os.environ', {constants.ANDROID_BUILD_TOP:'/',
+                                    constants.ANDROID_PRODUCT_OUT:PRODUCT_OUT_DIR})
+    def test_is_host_driven_test(self):
+        """Test is_host_driven_test."""
+        module_name = 'myModule'
+        maininfo_with_host_driven_test = {
+            constants.MODULE_NAME: module_name,
+            constants.MODULE_TEST_CONFIG:[os.path.join(
+                uc.TEST_CONFIG_DATA_DIR, "a.xml.data")],
+            constants.MODULE_INSTALLED: uc.DEFAULT_INSTALL_PATH,
+            'supported_variants': ['HOST']
+        }
+
+        mod_info = module_info.ModuleInfo(module_file=JSON_FILE_PATH)
+
+        self.assertTrue(mod_info.is_host_driven_test(maininfo_with_host_driven_test))
+
     @mock.patch.dict('os.environ', {constants.ANDROID_BUILD_TOP:os.path.dirname(__file__),
                                     constants.ANDROID_PRODUCT_OUT:PRODUCT_OUT_DIR})
     def test_has_mainline_modules(self):
         """Test has_mainline_modules."""
         name1 = 'MainModule1'
-        mainline_module1 = 'foo2.apk+foo3.apk'
+        mainline_module1 = ['foo2.apk', 'foo3.apk']
         name2 = 'MainModule2'
-        mainline_module2 = 'foo1.apex'
+        mainline_module2 = ['foo1.apex']
         name3 = 'MainModule3'
 
         mod_info = module_info.ModuleInfo(module_file=JSON_FILE_PATH, index_dir=HOST_OUT_DIR)
@@ -677,6 +713,15 @@ class ModuleInfoUnittests(unittest.TestCase):
 
         self.assertEqual({'module_1', 'module_2'},
                          mod_info.get_modules_by_path_in_srcs('path/src2'))
+
+    def test_contains_same_mainline_modules(self):
+        mainline_modules = {'A.apex', 'B.apk'}
+        self.assertTrue(module_info.contains_same_mainline_modules(
+            mainline_modules,
+            {'B.apk+A.apex'}))
+        self.assertFalse(module_info.contains_same_mainline_modules(
+            mainline_modules,
+            {'B.apk+C.apex'}))
 
 @mock.patch.dict('os.environ', {constants.ANDROID_BUILD_TOP: '/'})
 def create_empty_module_info():

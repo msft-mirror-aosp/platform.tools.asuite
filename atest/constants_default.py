@@ -105,12 +105,15 @@ MODULE_SRCS = 'srcs'
 MODULE_IS_UNIT_TEST = 'is_unit_test'
 MODULE_SHARED_LIBS = 'shared_libs'
 MODULE_RUNTIME_DEPS = 'runtime_dependencies'
+MODULE_STATIC_DEPS = 'static_dependencies'
 MODULE_DATA_DEPS = 'data_dependencies'
 MODULE_SUPPORTED_VARIANTS = 'supported_variants'
 MODULE_LIBS = 'libs'
 MODULE_STATIC_LIBS = 'static_libs'
 MODULE_HOST_DEPS = 'host_dependencies'
+MODULE_TARGET_DEPS = 'target_dependencies'
 MODULE_TEST_OPTIONS_TAGS = 'test_options_tags'
+MODULE_INFO_ID = 'module_info_id'
 
 
 # Env constants
@@ -194,13 +197,6 @@ EXTERNAL = 'EXTERNAL_RUN'
 INTERNAL = 'INTERNAL_RUN'
 INTERNAL_EMAIL = '@google.com'
 INTERNAL_HOSTNAME = ['.google.com', 'c.googlers.com']
-CONTENT_LICENSES_URL = 'https://source.android.com/setup/start/licenses'
-CONTRIBUTOR_AGREEMENT_URL = {
-    'INTERNAL': 'https://cla.developers.google.com/',
-    'EXTERNAL': 'https://opensource.google.com/docs/cla/'
-}
-PRIVACY_POLICY_URL = 'https://policies.google.com/privacy'
-TERMS_SERVICE_URL = 'https://policies.google.com/terms'
 TOOL_NAME = 'atest'
 SUB_TOOL_NAME = ''
 USER_FROM_TOOL = 'USER_FROM_TOOL'
@@ -245,7 +241,6 @@ ATEST_TF_MODULE = 'atest-tradefed'
 # Atest index path and relative dirs/caches.
 INDEX_DIR = os.path.join(os.getenv(ANDROID_HOST_OUT, ''), 'indexes')
 LOCATE_CACHE = os.path.join(INDEX_DIR, 'plocate.db')
-LOCATE_CACHE_MD5 = os.path.join(INDEX_DIR, 'plocate.md5')
 BUILDFILES_MD5 = os.path.join(INDEX_DIR, 'buildfiles.md5')
 INT_INDEX = os.path.join(INDEX_DIR, 'integration.idx')
 CLASS_INDEX = os.path.join(INDEX_DIR, 'classes.idx')
@@ -282,20 +277,23 @@ ACLOUD_REPORT_FILE_RE = re.compile(r'.*--report[_-]file(=|\s+)(?P<report_file>[\
 TEST_WITH_MAINLINE_MODULES_RE = re.compile(r'(?P<test>.*)\[(?P<mainline_modules>.*'
                                            r'[.](apk|apks|apex))\]$')
 
-# Tests list which need vts_kernel_tests as test dependency
-REQUIRED_KERNEL_TEST_MODULES = [
+# Tests list which need vts_ltp_tests as test dependency
+REQUIRED_LTP_TEST_MODULES = [
     'vts_ltp_test_arm',
     'vts_ltp_test_arm_64',
-    'vts_linux_kselftest_arm_32',
-    'vts_linux_kselftest_arm_64',
-    'vts_linux_kselftest_x86_32',
-    'vts_linux_kselftest_x86_64',
     'vts_ltp_test_arm_64_lowmem',
     'vts_ltp_test_arm_64_hwasan',
     'vts_ltp_test_arm_64_lowmem_hwasan',
     'vts_ltp_test_arm_lowmem',
     'vts_ltp_test_x86_64',
     'vts_ltp_test_x86'
+]
+# Tests list which need vts_kselftest_tests as test dependency
+REQUIRED_KSELFTEST_TEST_MODULES = [
+    'vts_linux_kselftest_arm_32',
+    'vts_linux_kselftest_arm_64',
+    'vts_linux_kselftest_x86_32',
+    'vts_linux_kselftest_x86_64',
 ]
 
 # XTS suite set dependency.
@@ -338,9 +336,10 @@ UPLOAD_TEST_RESULT_MSG = 'Upload test result?'
 DISCOVERY_SERVICE = ''
 STORAGE2_TEST_URI = ''
 
-# messages that share among libraries.
-REBUILD_MODULE_INFO_MSG = ('(This can happen after a repo sync or if the test'
-                           ' is new. Running with "{}" may resolve the issue.)')
+# SSO constants.
+TOKEN_EXCHANGE_COMMAND = ''
+TOKEN_EXCHANGE_REQUEST = ''
+SCOPE = ''
 
 # Example arguments used in ~/.atest/config
 ATEST_EXAMPLE_ARGS = ('## Specify only one option per line; any test name/path will be ignored automatically.\n'
@@ -383,9 +382,6 @@ DEFAULT_EXCLUDE_NOT_PARAS = {'not_' + TF_PARA_INSTANT_APP,
                             'not_' + TF_PARA_MULTIABI}
 
 # ATest integration test related constants.
-INTEGRATION_TESTS = [os.path.join(
-    os.environ.get(ANDROID_BUILD_TOP, os.getcwd()),
-    'tools/asuite/atest/test_plans/INTEGRATION_TESTS')]
 VERIFY_DATA_PATH = os.path.join(
     os.environ.get(ANDROID_BUILD_TOP, os.getcwd()),
     'tools/asuite/atest/test_data/test_commands.json')
