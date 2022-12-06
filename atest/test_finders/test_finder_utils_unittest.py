@@ -129,6 +129,10 @@ class TestFinderUtilsUnittests(unittest.TestCase):
         self.assertRaises(
             atest_error.TooManyMethodsError, test_finder_utils.split_methods,
             'class.name#Method,class.name.2#method')
+        self.assertRaises(
+            atest_error.MoreThanOneClassError, test_finder_utils.split_methods,
+            'class.name1,class.name2,class.name3'
+        )
         # Path
         unittest_utils.assert_strict_equal(
             self,
@@ -138,6 +142,11 @@ class TestFinderUtilsUnittests(unittest.TestCase):
             self,
             test_finder_utils.split_methods('foo/bar/class.java#Method'),
             ('foo/bar/class.java', {'Method'}))
+        # Multiple parameters
+        unittest_utils.assert_strict_equal(
+            self,
+            test_finder_utils.split_methods('Class.Name#method[1],method[2,[3,4]]'),
+            ('Class.Name', {'method[1]', 'method[2,[3,4]]'}))
 
     @mock.patch.object(test_finder_utils, 'has_method_in_file',
                        return_value=False)
