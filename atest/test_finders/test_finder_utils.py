@@ -173,7 +173,6 @@ _VTS_APK = 'apk'
 _VTS_BINARY_SRC_DELIM_RE = re.compile(r'.*::(?P<target>.*)$')
 _VTS_OUT_DATA_APP_PATH = 'DATA/app'
 
-# pylint: disable=inconsistent-return-statements
 def split_methods(user_input):
     """Split user input string into test reference and list of methods.
 
@@ -196,16 +195,39 @@ def split_methods(user_input):
             class1#method,class2#method
             path1#method,path2#method
     """
+    error_msg = (
+        'Too many "{}" characters in user input:\n\t{}\n'
+        'Multiple classes should be separated by space, and methods belong to '
+        'the same class should be separated by comma. Example syntaxes are:\n'
+        '\tclass1 class2#method1 class3#method2,method3\n'
+        '\tclass1#method class2#method')
+    if not '#' in user_input:
+        if ',' in user_input:
+            raise atest_error.MoreThanOneClassError(
+                error_msg.format(',', user_input))
+        return user_input, frozenset()
     parts = user_input.split('#')
-    if len(parts) == 1:
-        return parts[0], frozenset()
-    if len(parts) == 2:
-        return parts[0], frozenset(parts[1].split(','))
-    raise atest_error.TooManyMethodsError(
-        'Too many methods specified with # character in user input: %s.'
-        '\n\nOnly one class#method combination supported per positional'
-        ' argument. Multiple classes should be separated by spaces: '
-        'class#method class#method')
+    if len(parts) > 2:
+        raise atest_error.TooManyMethodsError(
+            error_msg.format('#', user_input))
+    # (b/260183137) Support parsing multiple parameters.
+    parsed_methods = []
+    brackets = ('[', ']')
+    for part in parts[1].split(','):
+        count = {part.count(p) for p in brackets}
+        # If brackets are in pair, the length of count should be 1.
+        if len(count) == 1:
+            parsed_methods.append(part)
+        else:
+            # The front part of the pair, e.g. 'method[1'
+            if re.compile(r'^[a-zA-Z0-9]+\[').match(part):
+                parsed_methods.append(part)
+                continue
+            # The rear part of the pair, e.g. '5]]', accumulate this part to
+            # the last index of parsed_method.
+            else:
+                parsed_methods[-1] += f',{part}'
+    return parts[0], frozenset(parsed_methods)
 
 
 # pylint: disable=inconsistent-return-statements
