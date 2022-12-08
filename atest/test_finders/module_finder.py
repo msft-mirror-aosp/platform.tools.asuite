@@ -135,9 +135,9 @@ class ModuleFinder(test_finder_base.TestFinderBase):
             vts_xmls |= test_finder_utils.get_plans_from_vts_xml(xml_path)
         for config_file in vts_xmls:
             # Add in vts10 test build targets.
-            for t in test_finder_utils.get_targets_from_vts_xml(
+            for target in test_finder_utils.get_targets_from_vts_xml(
                 config_file, vts_out_dir, self.module_info):
-                test.add_build_target(t)
+                test.add_build_target(target)
         test.add_build_target('vts-test-core')
         test.add_build_target(test.test_name)
         return test
@@ -195,8 +195,8 @@ class ModuleFinder(test_finder_base.TestFinderBase):
             if test.robo_type == constants.ROBOTYPE_LEGACY:
                 return self._update_legacy_robolectric_test_info(test)
         rel_config = test.data[constants.TI_REL_CONFIG]
-        for t in self._get_build_targets(module_name, rel_config):
-            test.add_build_target(t)
+        for target in self._get_build_targets(module_name, rel_config):
+            test.add_build_target(target)
         # (b/177626045) Probe target APK for running instrumentation tests to
         # prevent RUNNER ERROR by adding target application(module) to the
         # build_targets, and install these target apks before testing.
@@ -204,8 +204,8 @@ class ModuleFinder(test_finder_base.TestFinderBase):
             module_name)
         if artifact_map:
             logging.debug('Found %s an instrumentation test.', module_name)
-            for t in artifact_map.keys():
-                test.add_build_target(t)
+            for art in artifact_map.keys():
+                test.add_build_target(art)
             logging.debug('Add %s to build targets...',
                           ', '.join(artifact_map.keys()))
             test.artifacts = [apk for p in artifact_map.values() for apk in p]
