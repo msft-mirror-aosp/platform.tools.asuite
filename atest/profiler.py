@@ -45,9 +45,9 @@ def main():
 
     runfiles_path = tempfile.mkdtemp(prefix="Soong.python_")
     try:
-        zf = zipfile.ZipFile(args.executable)
-        zf.extractall(runfiles_path)
-        zf.close()
+        _zf = zipfile.ZipFile(args.executable)
+        _zf.extractall(runfiles_path)
+        _zf.close()
 
         sys.exit(subprocess.call([
                 "python3",

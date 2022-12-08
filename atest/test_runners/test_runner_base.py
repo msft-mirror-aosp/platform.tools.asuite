@@ -66,10 +66,10 @@ class TestRunnerBase:
             raise atest_error.NoTestRunnerExecutable('Class var EXECUTABLE is '
                                                      'not defined.')
         if kwargs:
-            for k, v in kwargs.items():
-                if not 'test_infos' in k:
+            for key, value in kwargs.items():
+                if not 'test_infos' in key:
                     logging.debug('ignoring the following args: %s=%s',
-                                  k, v)
+                                  key, value)
 
     def run(self, cmd, output_to_stdout=False, env_vars=None):
         """Shell out and execute command.
