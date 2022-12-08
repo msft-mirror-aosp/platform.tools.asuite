@@ -492,6 +492,7 @@ class AtestUtilsUnittests(unittest.TestCase):
         with open(target_xml, 'w') as cache:
             cache.write(content_manifest)
         self.assertEqual("MONSTER-dev", atest_utils.get_manifest_branch())
+        self.assertEqual("aosp-MONSTER-dev", atest_utils.get_manifest_branch(True))
         os.remove(target_xml)
         os.remove(portal_xml)
 
