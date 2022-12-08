@@ -50,6 +50,7 @@ TESTNAME_CHARS = {'#', ':', '/'}
 _COMMENTS_RE = re.compile(r'(?m)[\s\t]*(#|//).*|(\".*?\")')
 _COMMENTS = frozenset(['//', '#'])
 
+_MAINLINE_RE = re.compile(r'(?P<module>.*)\.ap(?:ex|k)$')
 
 #pylint: disable=no-self-use
 class CLITranslator:
@@ -221,15 +222,33 @@ class CLITranslator:
         """
         if not mainline_binaries:
             return True
+
+        def mark_red(items):
+            return atest_utils.colorize(items, constants.RED)
         if not self.mod_info.is_module(test):
-            print('Error: "%s" is not a testable module.'
-                  % atest_utils.colorize(test, constants.RED))
+            print('Error: "{}" is not a testable module.'.format(
+                mark_red(test)))
             return False
+        # Exit earlier if the given mainline binaries are unavailable in the
+        # branch.
+        unknown_modules = set()
+        for binary in mainline_binaries:
+            match = _MAINLINE_RE.match(binary)
+            if match:
+                module = match.group('module')
+                if not self.mod_info.is_module(module):
+                    unknown_modules.add(module)
+        if unknown_modules:
+            print('Error: Cannot find {} in module info!'.format(
+                mark_red(', '.join(unknown_modules))))
+            return False
+        # Exit earlier if Atest cannot find relationship between the test and
+        # the mainline binaries.
         if not self.mod_info.has_mainline_modules(test, mainline_binaries):
-            print('Error: Mainline modules "%s" were not defined for %s in '
-                  'neither build file nor test config.'
-                  % (atest_utils.colorize(mainline_binaries, constants.RED),
-                     atest_utils.colorize(test, constants.RED)))
+            print('Error: Mainline modules "{}" were not defined for {} in '
+                  'neither build file nor test config.'.format(
+                  mark_red(', '.join(mainline_binaries)),
+                  mark_red(test)))
             return False
         return True
 
