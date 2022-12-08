@@ -1025,7 +1025,7 @@ def load_json_safely(jsonfile):
         logging.debug('%s: File not found.', jsonfile)
     return {}
 
-def get_manifest_branch():
+def get_manifest_branch(show_aosp=False):
     """Get the manifest branch.
 
          (portal xml)                            (default xml)
@@ -1038,6 +1038,10 @@ def get_manifest_branch():
                                                     +--------+
                                                     | master |
                                                     +--------+
+
+    Args:
+        show_aosp: A boolean that shows 'aosp' prefix by checking the 'remote'
+                   attribute.
 
     Returns:
         The value of 'revision' of the included xml or default.xml.
@@ -1057,9 +1061,12 @@ def get_manifest_branch():
             return ''
         default_tags = xml_root.findall('./default')
         if default_tags:
+            prefix = ''
             for tag in default_tags:
                 branch = tag.attrib.get('revision')
-                return branch
+                if show_aosp and tag.attrib.get('remote') == 'aosp':
+                    prefix = 'aosp-'
+                return f'{prefix}{branch}'
         return ''
     def _get_include(xml):
         try:
