@@ -75,6 +75,7 @@ LATEST_RESULT = 'Print latest test result.'
 LD_LIB_PATH = ('Insert $ANDROID_HOST_OUT/{lib,lib64} to LD_LIBRARY_PATH when '
                'running tests with Tradefed.')
 LIST_MODULES = 'List testable modules of the given suite.'
+NO_CHECKING_DEVICE = 'Do NOT check device availability. (even it is a device test)'
 NO_ENABLE_ROOT = ('Do NOT restart adbd with root permission even the test config '
                   'has RootTargetPreparer.')
 NO_METRICS = 'Do not send metrics.'
@@ -337,7 +338,10 @@ class AtestArgParser(argparse.ArgumentParser):
         # Option to filter the output of aggregate metrics content.
         self.add_argument('--aggregate-metric-filter', action='append',
                           help=AGGREGATE_METRIC_FILTER)
-
+        # Option that allows building and running without regarding device
+        # availability even the given test is a device/host-driven test.
+        self.add_argument('--no-checking-device', action='store_true',
+                          help=NO_CHECKING_DEVICE)
         # This arg actually doesn't consume anything, it's primarily used for
         # the help description and creating custom_args in the NameSpace object.
         self.add_argument('--', dest='custom_args', nargs='*',
@@ -398,6 +402,7 @@ def print_epilog_text():
         LIST_MODULES=LIST_MODULES,
         NO_ENABLE_ROOT=NO_ENABLE_ROOT,
         NO_METRICS=NO_METRICS,
+        NO_CHECKING_DEVICE=NO_CHECKING_DEVICE,
         FUZZY_SEARCH=FUZZY_SEARCH,
         REBUILD_MODULE_INFO=REBUILD_MODULE_INFO,
         REQUEST_UPLOAD_RESULT=REQUEST_UPLOAD_RESULT,
@@ -499,6 +504,9 @@ OPTIONS
 
         --no-enable-root
             {NO_ENABLE_ROOT}
+
+        --no-checking-device
+            {NO_CHECKING_DEVICE}
 
         -s, --serial [SERIAL]
             {SERIAL}
