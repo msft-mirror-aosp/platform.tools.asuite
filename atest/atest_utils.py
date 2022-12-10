@@ -106,7 +106,7 @@ SUGGESTIONS = {
     'Runner reported an invalid method': 'Please reflash the device(s).'
 }
 
-_build_env = {}
+_BUILD_ENV = {}
 
 def get_build_cmd(dump=False):
     """Compose build command with no-absolute path and flag "--make-mode".
@@ -263,8 +263,8 @@ def get_build_out_dir():
 def update_build_env(env: Dict[str, str]):
     """Method that updates build environment variables."""
     # pylint: disable=global-statement
-    global _build_env
-    _build_env.update(env)
+    global _BUILD_ENV
+    _BUILD_ENV.update(env)
 
 def build(build_targets, verbose=False):
     """Shell out and invoke run_build_cmd to make build_targets.
@@ -283,9 +283,9 @@ def build(build_targets, verbose=False):
         return True
 
     # pylint: disable=global-statement
-    global _build_env
+    global _BUILD_ENV
     full_env_vars = os.environ.copy()
-    full_env_vars.update(_build_env)
+    full_env_vars.update(_BUILD_ENV)
     print('\n%s\n%s' % (
         colorize("Building Dependencies...", constants.CYAN),
                  ', '.join(build_targets)))
@@ -1025,7 +1025,7 @@ def load_json_safely(jsonfile):
         logging.debug('%s: File not found.', jsonfile)
     return {}
 
-def get_manifest_branch():
+def get_manifest_branch(show_aosp=False):
     """Get the manifest branch.
 
          (portal xml)                            (default xml)
@@ -1038,6 +1038,10 @@ def get_manifest_branch():
                                                     +--------+
                                                     | master |
                                                     +--------+
+
+    Args:
+        show_aosp: A boolean that shows 'aosp' prefix by checking the 'remote'
+                   attribute.
 
     Returns:
         The value of 'revision' of the included xml or default.xml.
@@ -1057,9 +1061,12 @@ def get_manifest_branch():
             return ''
         default_tags = xml_root.findall('./default')
         if default_tags:
+            prefix = ''
             for tag in default_tags:
                 branch = tag.attrib.get('revision')
-                return branch
+                if show_aosp and tag.attrib.get('remote') == 'aosp':
+                    prefix = 'aosp-'
+                return f'{prefix}{branch}'
         return ''
     def _get_include(xml):
         try:

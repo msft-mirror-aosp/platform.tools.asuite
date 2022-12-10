@@ -362,6 +362,8 @@ def _validate_adb_devices(args, test_infos):
         args: parsed args object.
         test_info: TestInfo object.
     """
+    if args.no_checking_device:
+        return
     all_device_modes = {x.get_supported_exec_mode() for x in test_infos}
     device_tests = [x.test_name for x in test_infos
         if x.get_supported_exec_mode() != constants.DEVICELESS_TEST]
@@ -1086,8 +1088,15 @@ def main(argv, results_dir, args):
             atest_utils.update_build_env(_DEFAULT_VARS_FOR_MAINLINE)
             break
 
+    # TODO: change to another approach that put constants.CUSTOM_ARGS in the
+    # end of command to make sure that customized args can override default
+    # options.
     # For TEST_MAPPING, set timeout to 600000ms.
-    if args.test_timeout is None:
+    custom_timeout = False
+    for custom_args in args.custom_args:
+        if '-timeout' in custom_args:
+            custom_timeout = True
+    if args.test_timeout is None and not custom_timeout:
         if is_from_test_mapping(test_infos):
             extra_args.update({constants.TEST_TIMEOUT: 600000})
             logging.debug(
