@@ -236,7 +236,7 @@ def _tradefed_test_impl(
     path_additions = path_additions + py_paths
     tradefed_runfiles = tradefed_runfiles.merge(py_runfiles)
 
-    tradefed_test_dir = "tradefed_test_dir"
+    tradefed_test_dir = "%s_tradefed_test_dir" % ctx.label.name
     tradefed_test_files = []
 
     for dep in tradefed_deps + test_host_deps + test_device_deps:
