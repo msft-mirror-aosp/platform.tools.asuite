@@ -249,7 +249,6 @@ PACKAGE_INDEX = os.path.join(INDEX_DIR, 'packages.idx')
 QCLASS_INDEX = os.path.join(INDEX_DIR, 'fqcn.idx')
 MODULE_INDEX = 'modules.idx'
 MODULE_INFO_MD5 = 'module-info.md5'
-VERSION_FILE = os.path.join(os.path.dirname(__file__), 'VERSION')
 
 # Regeular Expressions
 CC_EXT_RE = re.compile(r'.*\.(cc|cpp)$')
