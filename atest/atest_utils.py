@@ -1025,6 +1025,47 @@ def load_json_safely(jsonfile):
         logging.debug('%s: File not found.', jsonfile)
     return {}
 
+def get_atest_version():
+    """Get atest version.
+
+    Returns:
+        Version string from the VERSION file, e.g. prebuilt
+            2022-11-24_9314547  (<release_date>_<build_id>)
+
+        If VERSION does not exist (src or local built):
+            2022-11-24_5d448c50 (<commit_date>_<commit_id>)
+
+        If the git command fails for unexpected reason:
+            2022-11-24_unknown  (<today_date>_unknown)
+    """
+    atest_dir = Path(__file__).resolve().parent
+    version_file = atest_dir.joinpath('VERSION')
+    if Path(version_file).is_file():
+        return open(version_file).read()
+
+    # Try fetching commit date (%ci) and commit hash (%h).
+    git_cmd = 'git log -1 --pretty=format:"%ci;%h"'
+    try:
+        # commit date/hash are only available when running from the source
+        # and the local built.
+        result = subprocess.run(
+            git_cmd, shell=True, check=False, capture_output=True,
+            cwd=Path(
+                os.getenv(constants.ANDROID_BUILD_TOP), '').joinpath(
+                    'tools/asuite/atest'))
+        if result.stderr:
+            raise subprocess.CalledProcessError(
+                returncode=0, cmd=git_cmd)
+        raw_date, commit = result.stdout.decode().split(';')
+        date = datetime.datetime.strptime(raw_date,
+                                          '%Y-%m-%d %H:%M:%S %z').date()
+    # atest_dir doesn't exist will throw FileNotFoundError.
+    except (subprocess.CalledProcessError, FileNotFoundError):
+        # Use today as the commit date for unexpected conditions.
+        date = datetime.datetime.today().date()
+        commit = 'unknown'
+    return f'{date}_{commit}'
+
 def get_manifest_branch(show_aosp=False):
     """Get the manifest branch.
 

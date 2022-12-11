@@ -712,9 +712,7 @@ def _non_action_validator(args):
                 constants.ANDROID_BUILD_TOP), constants.RED)
         sys.exit(ExitCode.OUTSIDE_ROOT)
     if args.version:
-        if os.path.isfile(constants.VERSION_FILE):
-            with open(constants.VERSION_FILE, encoding='utf8') as version_file:
-                print(version_file.read())
+        print(atest_utils.get_atest_version())
         sys.exit(ExitCode.SUCCESS)
     if args.help:
         atest_arg_parser.print_epilog_text()
@@ -988,7 +986,9 @@ def main(argv, results_dir, args):
     _configure_logging(args.verbose)
     _validate_args(args)
     metrics_utils.get_start_time()
-    os_pyver = '{}:{}'.format(platform.platform(), platform.python_version())
+    os_pyver = (f'{platform.platform()}:{platform.python_version()}/'
+                f'{atest_utils.get_manifest_branch(True)}:'
+                f'{atest_utils.get_atest_version()}')
     metrics.AtestStartEvent(
         command_line=' '.join(argv),
         test_references=args.tests,
