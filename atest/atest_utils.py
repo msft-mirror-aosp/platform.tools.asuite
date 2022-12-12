@@ -1025,6 +1025,47 @@ def load_json_safely(jsonfile):
         logging.debug('%s: File not found.', jsonfile)
     return {}
 
+def get_atest_version():
+    """Get atest version.
+
+    Returns:
+        Version string from the VERSION file, e.g. prebuilt
+            2022-11-24_9314547  (<release_date>_<build_id>)
+
+        If VERSION does not exist (src or local built):
+            2022-11-24_5d448c50 (<commit_date>_<commit_id>)
+
+        If the git command fails for unexpected reason:
+            2022-11-24_unknown  (<today_date>_unknown)
+    """
+    atest_dir = Path(__file__).resolve().parent
+    version_file = atest_dir.joinpath('VERSION')
+    if Path(version_file).is_file():
+        return open(version_file).read()
+
+    # Try fetching commit date (%ci) and commit hash (%h).
+    git_cmd = 'git log -1 --pretty=format:"%ci;%h"'
+    try:
+        # commit date/hash are only available when running from the source
+        # and the local built.
+        result = subprocess.run(
+            git_cmd, shell=True, check=False, capture_output=True,
+            cwd=Path(
+                os.getenv(constants.ANDROID_BUILD_TOP), '').joinpath(
+                    'tools/asuite/atest'))
+        if result.stderr:
+            raise subprocess.CalledProcessError(
+                returncode=0, cmd=git_cmd)
+        raw_date, commit = result.stdout.decode().split(';')
+        date = datetime.datetime.strptime(raw_date,
+                                          '%Y-%m-%d %H:%M:%S %z').date()
+    # atest_dir doesn't exist will throw FileNotFoundError.
+    except (subprocess.CalledProcessError, FileNotFoundError):
+        # Use today as the commit date for unexpected conditions.
+        date = datetime.datetime.today().date()
+        commit = 'unknown'
+    return f'{date}_{commit}'
+
 def get_manifest_branch(show_aosp=False):
     """Get the manifest branch.
 
@@ -1913,3 +1954,46 @@ def build_files_integrity_is_ok() -> bool:
             return False
     # 2. Ensure the consistency of all build files.
     return check_md5(constants.BUILDFILES_MD5, missing_ok=False)
+
+def get_local_auto_shardable_tests():
+    """Get the auto shardable test names in shardable file.
+
+    The path will be ~/.atest/auto_shard/local_auto_shardable_tests
+
+    Returns:
+        A list of auto shardable test names.
+    """
+    shardable_tests_file = Path(get_misc_dir()).joinpath(
+        '.atest/auto_shard/local_auto_shardable_tests')
+    if not shardable_tests_file.exists():
+        return []
+    return open(shardable_tests_file, 'r').read().split()
+
+def update_shardable_tests(test_name: str, run_time_in_sec: int):
+    """Update local_auto_shardable_test file.
+
+    Strategy:
+        - Determine to add the module by the run time > 10 mins.
+        - local_auto_shardable_test file path :
+            ~/.atest/auto_shard/local_auto_shardable_tests
+        - The file content template is module name per line:
+            <module1>
+            <module2>
+            ...
+    """
+    if run_time_in_sec < 600:
+        return
+    shardable_tests = get_local_auto_shardable_tests()
+    if test_name not in shardable_tests:
+        shardable_tests.append(test_name)
+        logging.info('%s takes %ss (> 600s) to finish. Adding to shardable '
+                    'test list.', test_name, run_time_in_sec)
+
+    if not shardable_tests:
+        logging.info('No shardable tests to run.')
+        return
+    shardable_dir = Path(get_misc_dir()).joinpath('.atest/auto_shard')
+    shardable_dir.mkdir(parents=True, exist_ok=True)
+    shardable_tests_file = shardable_dir.joinpath('local_auto_shardable_tests')
+    with open(shardable_tests_file, 'w') as file:
+        file.write('\n'.join(shardable_tests))
