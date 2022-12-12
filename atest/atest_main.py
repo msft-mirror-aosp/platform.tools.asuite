@@ -1035,8 +1035,9 @@ def main(argv, results_dir, args):
         func=atest_utils.generate_buildfiles_checksum,
         args=[mod_info.module_index.parent])
 
-    # Run Test Mapping by no-bazel-mode.
-    if atest_utils.is_test_mapping(args):
+    # Run Test Mapping or coverage by no-bazel-mode.
+    if atest_utils.is_test_mapping(args) or args.coverage:
+        atest_utils.colorful_print('Not running using bazel-mode.', constants.YELLOW)
         args.bazel_mode = False
     if args.bazel_mode:
         start = time.time()
@@ -1144,6 +1145,9 @@ def main(argv, results_dir, args):
     # args.steps will be None if none of -bit set, else list of params set.
     steps = args.steps if args.steps else constants.ALL_STEPS
     if build_targets and constants.BUILD_STEP in steps:
+        if args.coverage:
+            build_targets.add('jacoco_to_lcov_converter')
+
         # Add module-info.json target to the list of build targets to keep the
         # file up to date.
         build_targets.add(mod_info.module_info_target)
@@ -1217,6 +1221,8 @@ def main(argv, results_dir, args):
         else:
             tests_exit_code = _run_test_mapping_tests(
                 results_dir, test_infos, extra_args, mod_info)
+        if args.coverage:
+            coverage.generate_coverage_report(results_dir, test_infos, mod_info)
     if args.detect_regression:
         regression_args = _get_regression_detection_args(args, results_dir)
         # TODO(b/110485713): Should not call run_tests here.
