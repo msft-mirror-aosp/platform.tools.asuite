@@ -156,6 +156,11 @@ class CLITranslator:
                         test_info.test_finder = finder_info
                     if mainline_modules:
                         test_info.test_name = test
+                        # TODO(b/261607500): Replace usages of raw_test_name
+                        # with test_name once we can ensure that it doesn't
+                        # break any code that expects Mainline modules in the
+                        # string.
+                        test_info.raw_test_name = test_name
                         # TODO: remove below statement when soong can also
                         # parse TestConfig and inject mainline modules information
                         # to module-info.
