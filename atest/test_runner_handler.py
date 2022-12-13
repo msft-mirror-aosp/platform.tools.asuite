@@ -30,7 +30,6 @@ from atest import bazel_mode
 from atest import constants
 from atest import module_info
 from atest import result_reporter
-from atest import atest_utils
 
 from atest.atest_enum import ExitCode
 from atest.metrics import metrics
@@ -118,7 +117,6 @@ def get_test_runner_reqs(mod_info: module_info.ModuleInfo,
     return test_runner_build_req
 
 
-# pylint: disable=too-many-locals
 def run_all_tests(results_dir, test_infos, extra_args, mod_info,
                   delay_print_summary=False):
     """Run the given tests.
@@ -157,20 +155,13 @@ def run_all_tests(results_dir, test_infos, extra_args, mod_info,
             reporter.runner_failure(test_runner.NAME, stacktrace)
             tests_ret_code = ExitCode.TEST_FAILURE
             is_success = False
-        run_time = metrics_utils.convert_duration(time.time() - test_start)
         metrics.RunnerFinishEvent(
-            duration=run_time,
+            duration=metrics_utils.convert_duration(time.time() - test_start),
             success=is_success,
             runner_name=test_runner.NAME,
             test=[{'name': test_name,
                    'result': ret_code,
                    'stacktrace': stacktrace}])
-        # Tests that spends over 10 mins to finish will be stored in the
-        # shardable test file, and Atest will launch auto-sharding in the next
-        # runs.
-        for test in tests:
-            atest_utils.update_shardable_tests(test.test_name,
-                                               run_time.get('seconds', 0))
     if delay_print_summary:
         return tests_ret_code, reporter
     return reporter.print_summary() or tests_ret_code, reporter

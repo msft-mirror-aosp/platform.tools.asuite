@@ -164,7 +164,7 @@ def _parse_args(argv):
         argv: A list of arguments.
 
     Returns:
-        An argparse.Namespace class instance holding parsed args.
+        An argspace.Namespace class instance holding parsed args.
     """
     # Store everything after '--' in custom_args.
     pruned_argv = argv
@@ -704,7 +704,7 @@ def _non_action_validator(args):
     --latest_result, etc.
 
     Args:
-        args: An argparse.Namespace class instance holding parsed args.
+        args: An argspace.Namespace class instance holding parsed args.
     """
     if not _is_inside_android_root():
         atest_utils.colorful_print(
@@ -745,7 +745,7 @@ def _dry_run_validator(args, results_dir, extra_args, test_infos, mod_info):
     """Method which process --dry-run argument.
 
     Args:
-        args: An argparse.Namespace class instance holding parsed args.
+        args: An argspace.Namespace class instance holding parsed args.
         result_dir: A string path of the results dir.
         extra_args: A dict of extra args for test runners to utilize.
         test_infos: A list of test_info.
@@ -907,7 +907,7 @@ def perm_consistency_metrics(test_infos, mod_info, args):
     Args:
         test_infos: TestInfo obj.
         mod_info: ModuleInfo obj.
-        args: An argparse.Namespace class instance holding parsed args.
+        args: An argspace.Namespace class instance holding parsed args.
     """
     try:
         # whether device has root permission
@@ -963,23 +963,6 @@ def _get_host_framework_targets(mod_info):
         logging.debug('Found exist host framework target:%s', host_targets)
     return host_targets
 
-
-def _is_auto_shard_test(test_infos):
-    """Determine whether the given tests are in shardable test list.
-
-    Args:
-        test_infos: TestInfo objects.
-
-    Returns:
-        True if test in auto shardable list.
-    """
-    shardable_tests = atest_utils.get_local_auto_shardable_tests()
-    for test_info in test_infos:
-        if test_info.test_name in shardable_tests:
-            return True
-    return False
-
-
 # pylint: disable=too-many-statements
 # pylint: disable=too-many-branches
 # pylint: disable=too-many-return-statements
@@ -989,7 +972,7 @@ def main(argv, results_dir, args):
     Args:
         argv: A list of arguments.
         results_dir: A directory which stores the ATest execution information.
-        args: An argparse.Namespace class instance holding parsed args.
+        args: An argspace.Namespace class instance holding parsed args.
 
     Returns:
         Exit code.
@@ -1096,10 +1079,6 @@ def main(argv, results_dir, args):
                 extra_args = get_extra_args(args)
         else:
             _validate_tm_tests_exec_mode(args, test_infos)
-        # Detect auto sharding and trigger creating AVDs
-        if args.auto_sharding and _is_auto_shard_test(test_infos):
-            # TODO: Create 2 AVDs
-            extra_args.update({constants.SHARDING: 2})
 
     # Note that we update the Mainline build env vars after we potentially rebuild
     # module info. This ends up changing build flags which re-triggers a costly
