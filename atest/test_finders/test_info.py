@@ -55,6 +55,7 @@ class TestInfo:
             artifacts: A set of artifacts.
         """
         self.test_name = test_name
+        self.raw_test_name = test_name
         self.test_runner = test_runner
         self.data = data if data else {}
         self.suite = suite
