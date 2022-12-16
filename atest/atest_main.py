@@ -90,25 +90,6 @@ EXIT_CODES_BEFORE_TEST = [ExitCode.ENV_NOT_SETUP,
                           ExitCode.AVD_CREATE_FAILURE,
                           ExitCode.AVD_INVALID_ARGS]
 
-# TODO(b/259496712): Remove this once we no longer need to set Mainline vars.
-_DEFAULT_VARS_FOR_MAINLINE = {
-    # Only support building module using static DCLA.
-    "APEX_BUILD_FOR_PRE_S_DEVICES": "true",
-
-    # Do not build compressed apex.
-    "OVERRIDE_PRODUCT_COMPRESSED_APEX": "false",
-
-    # Build sdk from source.
-    "UNBUNDLED_BUILD_SDKS_FROM_SOURCE": "true",
-
-    # The rule to create the notice file can't be generated yet,
-    # as the final output path for the apk isn't known yet.
-    # Add the path where the notice file will be generated to the
-    # aapt rules now before calling aaptBuildActions,
-    # the rule to create the notice file will be generated later.
-    "ALWAYS_EMBED_NOTICES": "true",
-}
-
 def _get_args_from_config():
     """Get customized atest arguments in the config file.
 
@@ -1079,15 +1060,6 @@ def main(argv, results_dir, args):
                 extra_args = get_extra_args(args)
         else:
             _validate_tm_tests_exec_mode(args, test_infos)
-
-    # Note that we update the Mainline build env vars after we potentially rebuild
-    # module info. This ends up changing build flags which re-triggers a costly
-    # build. This is not an issue when module-info is cached however.
-    # TODO(b/259496712): Remove this once we no longer need to set Mainline vars.
-    for test_info in test_infos:
-        if test_info.mainline_modules:
-            atest_utils.update_build_env(_DEFAULT_VARS_FOR_MAINLINE)
-            break
 
     # TODO: change to another approach that put constants.CUSTOM_ARGS in the
     # end of command to make sure that customized args can override default
