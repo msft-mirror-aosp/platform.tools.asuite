@@ -131,6 +131,58 @@ tradefed_deviceless_test = rule(
     doc = "A rule used to run host-side deviceless tests using Tradefed",
 )
 
+def _tradefed_robolectric_test_impl(ctx):
+    def add_android_all_files(ctx, tradefed_test_dir):
+        # Create `android_all` test files because they are required
+        # for running Robolectric tests by Tradefed.
+        android_all_files = []
+        for target in ctx.attr._android_all:
+            for f in target.files.to_list():
+                # Tradefed expects a flat `android-all` directory structure for
+                # Robolectric tests.
+                symlink = _symlink(ctx, f, "%s/android-all/%s" % (tradefed_test_dir, f.basename))
+                android_all_files.append(symlink)
+        return android_all_files
+
+    return _tradefed_test_impl(
+        ctx,
+        tradefed_deps = ctx.attr._jdk,
+        tradefed_options = [
+            "-n",
+            "--prioritize-host-config",
+            "--skip-host-arch-check",
+        ],
+        test_host_deps = ctx.attr.test,
+        add_extra_tradefed_test_files = add_android_all_files,
+    )
+
+tradefed_robolectric_test = rule(
+    attrs = _add_dicts(
+        _TRADEFED_TEST_ATTRIBUTES,
+        {
+            "test": attr.label(
+                mandatory = True,
+                cfg = host_transition,
+                aspects = [soong_prebuilt_tradefed_test_aspect],
+            ),
+            "_android_all": attr.label(
+                default = "//android-all:android-all",
+                cfg = host_transition,
+                aspects = [soong_prebuilt_tradefed_test_aspect],
+            ),
+            "_jdk": attr.label(
+                default = "//prebuilts/jdk:jdk",
+                cfg = host_transition,
+                aspects = [soong_prebuilt_tradefed_test_aspect],
+            ),
+        },
+    ),
+    test = True,
+    implementation = _tradefed_robolectric_test_impl,
+    toolchains = _TOOLCHAINS,
+    doc = "A rule used to run Robolectric tests using Tradefed",
+)
+
 def _tradefed_device_test_impl(ctx):
     tradefed_deps = []
     tradefed_deps.extend(ctx.attr._aapt)
@@ -204,7 +256,8 @@ def _tradefed_test_impl(
         tradefed_deps = [],
         test_host_deps = [],
         test_device_deps = [],
-        path_additions = []):
+        path_additions = [],
+        add_extra_tradefed_test_files = lambda ctx, tradefed_test_dir: []):
     path_additions = path_additions + [_BAZEL_WORK_DIR + ctx.file._adb.dirname]
 
     # Files required to run the host-side test.
@@ -241,12 +294,10 @@ def _tradefed_test_impl(
 
     for dep in tradefed_deps + test_host_deps + test_device_deps:
         for f in dep[TradefedTestDependencyInfo].transitive_test_files.to_list():
-            symlink = ctx.actions.declare_file(
-                "%s/%s" % (tradefed_test_dir, f.short_path),
-            )
-            ctx.actions.symlink(output = symlink, target_file = f)
-
+            symlink = _symlink(ctx, f, "%s/%s" % (tradefed_test_dir, f.short_path))
             tradefed_test_files.append(symlink)
+
+    tradefed_test_files.extend(add_extra_tradefed_test_files(ctx, tradefed_test_dir))
 
     script = ctx.actions.declare_file("tradefed_test_%s.sh" % ctx.label.name)
     ctx.actions.expand_template(
@@ -348,6 +399,11 @@ def _configure_python_toolchain(ctx):
         _BAZEL_WORK_DIR + py3_interpreter.dirname,
     ]
     return (py_paths, py_runfiles)
+
+def _symlink(ctx, target_file, output_path):
+    symlink = ctx.actions.declare_file(output_path)
+    ctx.actions.symlink(output = symlink, target_file = target_file)
+    return symlink
 
 def _collect_runfiles(ctx, targets):
     return ctx.runfiles().merge_all([
