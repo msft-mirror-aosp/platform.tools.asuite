@@ -13,11 +13,12 @@
 # limitations under the License.
 """Code coverage instrumentation and collection functionality."""
 
+import logging
 import os
-import re
 import subprocess
 
 from pathlib import Path
+from typing import List
 
 from atest import atest_utils
 from atest import constants
@@ -45,6 +46,7 @@ def tf_args(*value):
     Returns:
         A list of the command line arguments to append.
     """
+    del value
     return ('--coverage',
             '--coverage-toolchain', 'JACOCO',
             '--coverage-toolchain', 'CLANG',
@@ -54,12 +56,12 @@ def tf_args(*value):
 
 
 def generate_coverage_report(results_dir: str,
-                             test_infos: list[test_info.TestInfo],
+                             test_infos: List[test_info.TestInfo],
                              mod_info: module_info.ModuleInfo):
     """Generates HTML code coverage reports based on the test info."""
 
-    soong_intermediates = os.path.join(atest_utils.get_build_out_dir(),
-                                       'soong/.intermediates')
+    soong_intermediates = Path(
+        atest_utils.get_build_out_dir()).joinpath('soong/.intermediates')
 
     # Collect dependency and source file information for the tests and any
     # Mainline modules.
@@ -71,10 +73,9 @@ def generate_coverage_report(results_dir: str,
     for module in dep_modules:
         # Check if this has uninstrumented Java class files to report coverage.
         for path in mod_info.get_paths(module):
-            report_jar = Path(
-                os.path.join(
-                    soong_intermediates, path, module,
-                    f'android_common_cov/jacoco-report-classes/{module}.jar'))
+            report_jar = soong_intermediates.joinpath(
+                path, module,
+                f'android_common_cov/jacoco-report-classes/{module}.jar')
             if os.path.exists(report_jar):
                 jacoco_report_jars[module] = report_jar
 
@@ -87,17 +88,17 @@ def _get_test_deps(test_infos, mod_info):
     """Gets all dependencies of the TestInfo, including Mainline modules."""
     deps = set()
 
-    for test_info in test_infos:
+    for info in test_infos:
         # TestInfo.test_name may contain the Mainline modules in brackets, so
         # strip them out.
-        deps.add(test_info.raw_test_name)
-        deps |= mod_info.get_module_dependency(test_info.raw_test_name, deps)
+        deps.add(info.raw_test_name)
+        deps |= mod_info.get_module_dependency(info.raw_test_name, deps)
 
         # Include dependencies of any Mainline modules specified as well.
-        if not test_info.mainline_modules:
+        if not info.mainline_modules:
             continue
 
-        for mainline_module in test_info.mainline_modules:
+        for mainline_module in info.mainline_modules:
             deps.add(mainline_module)
             deps |= mod_info.get_module_dependency(mainline_module, deps)
 
@@ -137,18 +138,43 @@ def _generate_java_coverage_report(report_jars, src_paths, results_dir,
             cmd.append('-sourcepath')
             cmd.append(src_path)
         cmd.extend(jacoco_files)
-        result = subprocess.check_call(cmd, stderr=subprocess.STDOUT)
-        logging.debug(result.stdout)
+        try:
+            subprocess.run(cmd, check=True,
+                           stdout=subprocess.PIPE,
+                           stderr=subprocess.STDOUT)
+        except subprocess.CalledProcessError as err:
+            atest_utils.colorful_print(
+                f'Failed to generate coverage for {name}:', constants.RED)
+            logging.exception(err.stdout)
         atest_utils.colorful_print(f'Coverage for {name} written to {dest}.',
                                    constants.GREEN)
         lcov_reports.append(dest)
 
-    # Generate the HTML report.
-    genhtml_cmd = ['genhtml', '-q', '-o', out_dir, '-p', build_top]
-    genhtml_cmd.extend(lcov_reports)
-    result = subprocess.check_call(genhtml_cmd, stderr=subprocess.STDOUT)
-    logging.debug(result.stdout)
-    atest_utils.colorful_print(
-        f'Java code coverage report written to {out_dir}.', constants.GREEN)
-    atest_utils.colorful_print(
-        f'To open, Ctrl+Click on file://{out_dir}/index.html', constants.GREEN)
+    _generate_lcov_report(out_dir, lcov_reports, build_top)
+
+
+def _generate_lcov_report(out_dir, reports, root_dir=None):
+    cmd = ['genhtml', '-q', '-o', out_dir]
+    if root_dir:
+        cmd.extend(['-p', root_dir])
+    cmd.extend(reports)
+    try:
+        subprocess.run(cmd, check=True,
+                       stdout=subprocess.PIPE,
+                       stderr=subprocess.STDOUT)
+        atest_utils.colorful_print(
+            f'Code coverage report written to {out_dir}.',
+            constants.GREEN)
+        atest_utils.colorful_print(
+            f'To open, Ctrl+Click on file://{out_dir}/index.html',
+            constants.GREEN)
+    except subprocess.CalledProcessError as err:
+        atest_utils.colorful_print('Failed to generate HTML coverage report.',
+                                   constants.RED)
+        logging.exception(err.stdout)
+    except FileNotFoundError:
+        atest_utils.colorful_print('genhtml is not on the $PATH.',
+                                   constants.RED)
+        atest_utils.colorful_print(
+            'Run `sudo apt-get install lcov -y` to install this tool.',
+            constants.RED)
