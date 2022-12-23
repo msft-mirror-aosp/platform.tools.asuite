@@ -136,8 +136,7 @@ python_test_host {
         "**/*.py",
     ],
     test_options: {
-        // TODO: set to true after fixing presubmit root cause.
-        unit_test: false,
+        unit_test: true,
     },
     data: [
         "unittest_data/**/*",
