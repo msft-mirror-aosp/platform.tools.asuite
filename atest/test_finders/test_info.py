@@ -28,11 +28,10 @@ class TestInfo:
     """Information needed to identify and run a test."""
 
     # pylint: disable=too-many-arguments
-    # TODO: remove all arguments but only test_name, test_runner, build_targets,
-    # data and compatibility_suites.
     def __init__(self, test_name, test_runner, build_targets, data=None,
                  suite=None, module_class=None, install_locations=None,
-                 test_finder='', compatibility_suites=None):
+                 test_finder='', compatibility_suites=None,
+                 robo_type=None, artifacts=None):
         """Init for TestInfo.
 
         Args:
@@ -49,6 +48,11 @@ class TestInfo:
             compatibility_suites: A list of compatibility_suites. It's a
                         snippet of compatibility_suites in module_info. e.g.
                         ["device-tests",  "vts10"]
+            robo_type: Integer of robolectric types.
+                       0: Not robolectric test
+                       1. Modern robolectric test(Tradefed Runner)
+                       2: Legacy robolectric test(Robolectric Runner)
+            artifacts: A set of artifacts.
         """
         self.test_name = test_name
         self.raw_test_name = test_name
@@ -56,11 +60,7 @@ class TestInfo:
         self.data = data if data else {}
         self.suite = suite
         self.module_class = module_class if module_class else []
-        # robolectric test types:
-        # 0: Not robolectric test
-        # 1. Modern robolectric test(Tradefed Runner)
-        # 2: Legacy robolectric test(Robolectric Runner)
-        self.robo_type = 0
+        self.robo_type = robo_type if robo_type else 0
         self.install_locations = (install_locations if install_locations
                                   else set())
         # True if the TestInfo is built from a test configured in TEST_MAPPING.
@@ -73,7 +73,7 @@ class TestInfo:
                                      if compatibility_suites else [])
         # True if test need to generate aggregate metrics result.
         self.aggregate_metrics_result = False
-        self.artifacts = set()
+        self.artifacts = artifacts if artifacts else set()
 
         self._build_targets = set(build_targets) if build_targets else set()
         self._mainline_modules = set()
@@ -82,14 +82,13 @@ class TestInfo:
         host_info = (' - runs on host without device required.' if self.host
                      else '')
         return (f'test_name:{self.test_name} - '
-                f'raw_test_name:{self.raw_test_name} - '
                 f'test_runner:{self.test_runner} - '
-                f'build_targets:{self._build_targets} - data:{self.data} - '
+                f'build_targets:{self.build_targets} - data:{self.data} - '
                 f'suite:{self.suite} - module_class:{self.module_class} - '
                 f'install_locations:{self.install_locations}{host_info} - '
                 f'test_finder:{self.test_finder} - '
                 f'compatibility_suites:{self.compatibility_suites} - '
-                f'mainline_modules:{self._mainline_modules} - '
+                f'mainline_modules:{self.mainline_modules} - '
                 f'aggregate_metrics_result:{self.aggregate_metrics_result} - '
                 f'robo_type:{self.robo_type} - '
                 f'artifacts:{self.artifacts}')
