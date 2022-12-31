@@ -128,24 +128,26 @@ class AtestToolsUnittests(unittest.TestCase):
 
     def test_probe_acloud_status(self):
         """Test method prob_acloud_status."""
+        duration = 100
         success = os.path.join(SEARCH_ROOT, 'acloud', 'create_success.json')
-        self.assertEqual(atest_tools.probe_acloud_status(success),
+        self.assertEqual(atest_tools.probe_acloud_status(success, duration),
                          ExitCode.SUCCESS)
         self.assertEqual(
             os.environ[constants.ANDROID_SERIAL], '127.0.0.1:58167')
 
         success_local_instance = os.path.join(
             SEARCH_ROOT, 'acloud', 'create_success_local_instance.json')
-        self.assertEqual(atest_tools.probe_acloud_status(success_local_instance),
+        self.assertEqual(atest_tools.probe_acloud_status(success_local_instance,
+                                                         duration),
                          ExitCode.SUCCESS)
         self.assertEqual(os.environ[constants.ANDROID_SERIAL], '0.0.0.0:6521')
 
         failure = os.path.join(SEARCH_ROOT, 'acloud', 'create_failure.json')
-        self.assertEqual(atest_tools.probe_acloud_status(failure),
+        self.assertEqual(atest_tools.probe_acloud_status(failure, duration),
                          ExitCode.AVD_CREATE_FAILURE)
 
         inexistence = os.path.join(SEARCH_ROOT, 'acloud', 'inexistence.json')
-        self.assertEqual(atest_tools.probe_acloud_status(inexistence),
+        self.assertEqual(atest_tools.probe_acloud_status(inexistence, duration),
                          ExitCode.AVD_INVALID_ARGS)
 
     def test_get_acloud_duration(self):

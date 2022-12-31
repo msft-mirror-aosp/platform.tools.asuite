@@ -23,6 +23,7 @@ import json
 import logging
 import os
 import pickle
+import re
 import shutil
 import subprocess
 import sys
@@ -34,8 +35,8 @@ from pathlib import Path
 from atest import atest_utils as au
 from atest import constants
 
-from atest.atest_enum import ExitCode
-from atest.metrics import metrics_utils
+from atest.atest_enum import DetectType, ExitCode
+from atest.metrics import metrics, metrics_utils
 
 UPDATEDB = 'updatedb'
 LOCATE = 'locate'
@@ -73,12 +74,14 @@ PRUNENAMES = ['.abc', '.appveyor', '.azure-pipelines',
               '.tx',
               '.vscode']
 PRUNEPATHS = ['prebuilts']
+ACLOUD_REPORT_FILE_RE = re.compile(r'.*--report[_-]file(=|\s+)(?P<report_file>[\w/.]+)')
 
 def _delete_indexes():
     """Delete all available index files."""
     for index in INDEXES:
         if os.path.isfile(index):
             os.remove(index)
+
 
 def get_report_file(results_dir, acloud_args):
     """Get the acloud report file path.
@@ -96,10 +99,11 @@ def get_report_file(results_dir, acloud_args):
     Returns:
         A string path of acloud report file.
     """
-    match = constants.ACLOUD_REPORT_FILE_RE.match(acloud_args)
+    match = ACLOUD_REPORT_FILE_RE.match(acloud_args)
     if match:
         return match.group('report_file')
     return os.path.join(results_dir, 'acloud_status.json')
+
 
 def has_command(cmd):
     """Detect if the command is available in PATH.
@@ -111,6 +115,7 @@ def has_command(cmd):
         True if found, False otherwise.
     """
     return bool(shutil.which(cmd))
+
 
 def run_updatedb(search_root=SEARCH_TOP, output_cache=constants.LOCATE_CACHE,
                  **kwargs):
@@ -152,6 +157,7 @@ def run_updatedb(search_root=SEARCH_TOP, output_cache=constants.LOCATE_CACHE,
     except (KeyboardInterrupt, SystemExit):
         logging.error('Process interrupted or failure.')
 
+
 def _dump_index(dump_file, output, output_re, key, value):
     """Dump indexed data with pickle.
 
@@ -186,6 +192,7 @@ def _dump_index(dump_file, output, output_re, key, value):
     shutil.copy(temp_file.name, dump_file)
     temp_file.close()
 
+
 # pylint: disable=anomalous-backslash-in-string
 def get_cc_result(locatedb=constants.LOCATE_CACHE, **kwargs):
     """Search all testable cc/cpp and grep TEST(), TEST_F() or TEST_P().
@@ -205,6 +212,7 @@ def get_cc_result(locatedb=constants.LOCATE_CACHE, **kwargs):
 
     cc_class_index = kwargs.pop('cc_class_index', constants.CC_CLASS_INDEX)
     au.run_multi_proc(func=_index_cc_classes, args=[result, cc_class_index])
+
 
 # pylint: disable=anomalous-backslash-in-string
 def get_java_result(locatedb=constants.LOCATE_CACHE, **kwargs):
@@ -234,6 +242,7 @@ def get_java_result(locatedb=constants.LOCATE_CACHE, **kwargs):
     au.run_multi_proc(func=_index_qualified_classes, args=[result, qclass_index])
     au.run_multi_proc(func=_index_packages, args=[result, package_index])
 
+
 def _index_cc_classes(output, index):
     """Index CC classes.
 
@@ -252,6 +261,7 @@ def _index_cc_classes(output, index):
                 output_re=constants.CC_OUTPUT_RE,
                 key='test_name', value='file_path')
 
+
 def _index_java_classes(output, index):
     """Index Java classes.
     The data structure is like:
@@ -269,6 +279,7 @@ def _index_java_classes(output, index):
                 output_re=constants.CLASS_OUTPUT_RE,
                 key='class', value='java_path')
 
+
 def _index_packages(output, index):
     """Index Java packages.
     The data structure is like:
@@ -285,6 +296,7 @@ def _index_packages(output, index):
     _dump_index(dump_file=index,
                 output=output, output_re=constants.PACKAGE_OUTPUT_RE,
                 key='package', value='java_dir')
+
 
 def _index_qualified_classes(output, index):
     """Index Fully Qualified Java Classes(FQCN).
@@ -317,6 +329,7 @@ def _index_qualified_classes(output, index):
             logging.error('Failed in dumping %s', index)
     shutil.copy(temp_file.name, index)
     temp_file.close()
+
 
 def index_targets(output_cache=constants.LOCATE_CACHE):
     """The entrypoint of indexing targets.
@@ -360,7 +373,8 @@ def index_targets(output_cache=constants.LOCATE_CACHE):
             logging.error(err.output)
         _delete_indexes()
 
-def acloud_create(report_file, args="", no_metrics_notice=True):
+
+def acloud_create(report_file, args, no_metrics_notice=True):
     """Method which runs acloud create with specified args in background.
 
     Args:
@@ -369,16 +383,14 @@ def acloud_create(report_file, args="", no_metrics_notice=True):
         no_metrics_notice: Boolean whether sending data to metrics or not.
     """
     notice = constants.NO_METRICS_ARG if no_metrics_notice else ""
-    match = constants.ACLOUD_REPORT_FILE_RE.match(args)
-    report_file_arg = '--report-file={}'.format(report_file) if not match else ""
-    hostname = os.uname()[1].split('.')[0]
+    match = ACLOUD_REPORT_FILE_RE.match(args)
+    report_file_arg = f'--report-file={report_file}' if not match else ""
+
     # (b/161759557) Assume yes for acloud create to streamline atest flow.
     acloud_cmd = ('acloud create -y {ACLOUD_ARGS} '
-                  '--pet-name {HOSTNAME} '
                   '{REPORT_FILE_ARG} '
                   '{METRICS_NOTICE} '
                   ).format(ACLOUD_ARGS=args,
-                           HOSTNAME=hostname,
                            REPORT_FILE_ARG=report_file_arg,
                            METRICS_NOTICE=notice)
     au.colorful_print("\nCreating AVD via acloud...", constants.CYAN)
@@ -396,9 +408,41 @@ def acloud_create(report_file, args="", no_metrics_notice=True):
             with open(report_file, 'w+') as _wfile:
                 _wfile.write(json.dumps(result))
         except OSError as e:
-            logging.error("Failed dumping duration to the report file: %s", str(e))
+            logging.error("Failed dumping duration to the report file: %s",
+                          str(e))
 
-def probe_acloud_status(report_file):
+
+def acloud_create_validator(results_dir, args):
+    """Check lunch'd target before running 'acloud create'.
+
+    Args:
+        results_dir: A string of the results directory.
+        args: An argparse.Namespace object.
+
+    Returns:
+        If the target is valid:
+            A tuple of (multiprocessing.Process,
+                        report_file path)
+        else:
+            A tuple of (None, None)
+    """
+    target = os.getenv('TARGET_PRODUCT', "")
+    if not '_cf_' in target:
+        au.colorful_print(
+            f'{target} is not in cuttlefish family; will not create any AVD.',
+            constants.RED)
+        return None, None
+    if args.start_avd:
+        args.acloud_create = []
+    acloud_args = ' '.join(args.acloud_create)
+    report_file = get_report_file(results_dir, acloud_args)
+    acloud_proc = au.run_multi_proc(
+        func=acloud_create,
+        args=[report_file, acloud_args, args.no_metrics])
+    return acloud_proc, report_file
+
+
+def probe_acloud_status(report_file, find_build_duration):
     """Method which probes the 'acloud create' result status.
 
     If the report file exists and the status is 'SUCCESS', then the creation is
@@ -406,6 +450,7 @@ def probe_acloud_status(report_file):
 
     Args:
         report_file: A path string of acloud report file.
+        find_build_duration: A float of seconds.
 
     Returns:
         0: success.
@@ -413,7 +458,7 @@ def probe_acloud_status(report_file):
         9: invalid acloud create arguments.
     """
     # 1. Created but the status is not 'SUCCESS'
-    if os.path.exists(report_file):
+    if Path(report_file).exists():
         if not au.load_json_safely(report_file):
             return ExitCode.AVD_CREATE_FAILURE
         with open(report_file, 'r') as rfile:
@@ -426,6 +471,22 @@ def probe_acloud_status(report_file):
             is_remote_instance = result.get('command') == 'create_cf'
             adb_ip = '127.0.0.1' if is_remote_instance else '0.0.0.0'
             os.environ[constants.ANDROID_SERIAL] = f'{adb_ip}:{adb_port}'
+
+            acloud_duration = get_acloud_duration(report_file)
+            if find_build_duration - acloud_duration >= 0:
+                # find+build took longer, saved acloud create time.
+                logging.debug('Saved acloud create time: %ss.',
+                              acloud_duration)
+                metrics.LocalDetectEvent(
+                    detect_type=DetectType.ACLOUD_CREATE,
+                    result=round(acloud_duration))
+            else:
+                # acloud create took longer, saved find+build time.
+                logging.debug('Saved Find and Build time: %ss.',
+                              find_build_duration)
+                metrics.LocalDetectEvent(
+                    detect_type=DetectType.FIND_BUILD,
+                    result=round(find_build_duration))
             return ExitCode.SUCCESS
         au.colorful_print(
             'acloud create failed. Please check\n{}\nfor detail'.format(
@@ -435,6 +496,7 @@ def probe_acloud_status(report_file):
     # 2. Failed to create because of invalid acloud arguments.
     logging.error('Invalid acloud arguments found!')
     return ExitCode.AVD_INVALID_ARGS
+
 
 def get_acloud_duration(report_file):
     """Method which gets the duration of 'acloud create' from a report file.
