@@ -259,8 +259,6 @@ CC_OUTPUT_RE = re.compile(
     r'(?P<test_name>\w+)\s*,\s*(?P<method_name>\w+)\)\s*\{')
 # Used by locate command.
 CC_GREP_RE = r'^\s*(TYPED_TEST(_P)*|TEST(_F|_P)*)\s*\(\w+,'
-# Used by find command.
-CC_GREP_KWRE = r'^\s*(TYPED_TEST(_P)*|TEST(_F|_P)*)\s*\({2},'
 # e.g. /path/to/Javafile.java:package com.android.settings.accessibility
 # grab the path, Javafile(class) and com.android.settings.accessibility(package)
 CLASS_OUTPUT_RE = re.compile(r'(?P<java_path>.*/(?P<class>[A-Z]\w+)\.\w+)[:].*')
