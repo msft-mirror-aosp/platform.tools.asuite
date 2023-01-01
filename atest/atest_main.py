@@ -77,10 +77,6 @@ RESULT_HEADER_FMT = '\nResults from %(test_type)s:'
 RUN_HEADER_FMT = '\nRunning %(test_count)d %(test_type)s.'
 TEST_COUNT = 'test_count'
 TEST_TYPE = 'test_type'
-# Tasks that must run in the build time but unable to build by soong.
-# (e.g subprocesses that invoke host commands.)
-ACLOUD_CREATE = at.acloud_create
-INDEX_TARGETS = at.index_targets
 END_OF_OPTION = '--'
 HAS_IGNORED_ARGS = False
 # Conditions that atest should exit without sending result to metrics.
@@ -410,7 +406,7 @@ def _will_run_tests(args):
     regression detection.
 
     Args:
-        args: parsed args object.
+        args: An argparse.Namespace object.
 
     Returns:
         True if there are tests to run, false otherwise.
@@ -704,7 +700,7 @@ def _non_action_validator(args):
     --latest_result, etc.
 
     Args:
-        args: An argparse.Namespace class instance holding parsed args.
+        args: An argparse.Namespace object.
     """
     if not _is_inside_android_root():
         atest_utils.colorful_print(
@@ -868,39 +864,6 @@ def need_run_index_targets(args, extra_args):
         return False
     return True
 
-def acloud_create_validator(results_dir, args):
-    """Check lunch'd target before running 'acloud create'.
-
-    Args:
-        results_dir: A string of the results directory.
-        args: A list of arguments.
-
-    Returns:
-        If the target is valid:
-            A tuple of (multiprocessing.Process,
-                        string of report file path)
-        else:
-            None, None
-    """
-    if not any((args.acloud_create, args.start_avd)):
-        return None, None
-    if args.start_avd:
-        args.acloud_create = []
-    acloud_args = ' '.join(args.acloud_create)
-    target = os.getenv('TARGET_PRODUCT', "")
-    if 'cf_x86' in target:
-        report_file = at.get_report_file(results_dir, acloud_args)
-        acloud_proc = atest_utils.run_multi_proc(
-            func=ACLOUD_CREATE,
-            args=[report_file],
-            kwargs={'args':acloud_args,
-                    'no_metrics_notice':args.no_metrics})
-        return acloud_proc, report_file
-    atest_utils.colorful_print(
-        '{} is not cf_x86 family; will not create any AVD.'.format(target),
-        constants.RED)
-    return None, None
-
 def perm_consistency_metrics(test_infos, mod_info, args):
     """collect inconsistency between preparer and device root permission.
 
@@ -1012,7 +975,10 @@ def main(argv, results_dir, args):
         cwd=os.getcwd(),
         os=os_pyver)
     _non_action_validator(args)
-    proc_acloud, report_file = acloud_create_validator(results_dir, args)
+
+    proc_acloud, report_file = None, None
+    if any((args.acloud_create, args.start_avd)):
+        proc_acloud, report_file = at.acloud_create_validator(results_dir, args)
     is_clean = not os.path.exists(
         os.environ.get(constants.ANDROID_PRODUCT_OUT, ''))
     extra_args = get_extra_args(args)
@@ -1020,7 +986,7 @@ def main(argv, results_dir, args):
     proc_idx = None
     # Do not index targets while the users intend to dry-run tests.
     if need_run_index_targets(args, extra_args):
-        proc_idx = atest_utils.run_multi_proc(INDEX_TARGETS)
+        proc_idx = atest_utils.run_multi_proc(at.index_targets)
     smart_rebuild = need_rebuild_module_info(
         test_steps=args.steps,
         force_rebuild=args.rebuild_module_info)
@@ -1173,28 +1139,12 @@ def main(argv, results_dir, args):
             result=int(build_duration))
         if not success:
             return ExitCode.BUILD_FAILURE
-
         if proc_acloud:
             proc_acloud.join()
-            status = at.probe_acloud_status(report_file)
+            status = at.probe_acloud_status(
+                report_file, find_duration + build_duration)
             if status != 0:
                 return status
-            acloud_duration = at.get_acloud_duration(report_file)
-            find_build_duration = find_duration + build_duration
-            if find_build_duration - acloud_duration >= 0:
-                # find+build took longer, saved acloud create time.
-                logging.debug('Saved acloud create time: %ss.',
-                              acloud_duration)
-                metrics.LocalDetectEvent(
-                    detect_type=DetectType.ACLOUD_CREATE,
-                    result=round(acloud_duration))
-            else:
-                # acloud create took longer, saved find+build time.
-                logging.debug('Saved Find and Build time: %ss.',
-                              find_build_duration)
-                metrics.LocalDetectEvent(
-                    detect_type=DetectType.FIND_BUILD,
-                    result=round(find_build_duration))
         # After build step 'adb' command will be available, and stop forward to
         # Tradefed if the tests require a device.
         _validate_adb_devices(args, test_infos)
