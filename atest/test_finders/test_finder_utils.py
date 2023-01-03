@@ -225,8 +225,7 @@ def split_methods(user_input):
                 continue
             # The rear part of the pair, e.g. '5]]', accumulate this part to
             # the last index of parsed_method.
-            else:
-                parsed_methods[-1] += f',{part}'
+            parsed_methods[-1] += f',{part}'
     return parts[0], frozenset(parsed_methods)
 
 
