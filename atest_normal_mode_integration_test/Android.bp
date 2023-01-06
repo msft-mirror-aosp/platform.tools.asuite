@@ -50,7 +50,7 @@ genrule {
     cmd:
         // Create a android-src directory and copy the source code into it.
         "mkdir $(genDir)/atest_integration_fake_src;" +
-        "cp -r tools/asuite/atest_integration_test/fake_android_src/ " +
+        "cp -r tools/asuite/atest_normal_mode_integration_test/fake_android_src/ " +
         "      $(genDir)/atest_integration_fake_src;" +
 
         // Pack the android-src directory and clean up the directory.
