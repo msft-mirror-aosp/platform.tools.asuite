@@ -404,3 +404,6 @@ LOG_SAVER_EXT_OPTION = ''
 REQUIRE_DEVICES_MSG = (
     'Please ensure there is at least one connected device via:\n'
     '    $ adb devices')
+
+# Default shard num.
+SHARD_NUM = 2

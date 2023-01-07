@@ -1064,8 +1064,12 @@ def main(argv, results_dir, args):
             _validate_tm_tests_exec_mode(args, test_infos)
         # Detect auto sharding and trigger creating AVDs
         if args.auto_sharding and _is_auto_shard_test(test_infos):
-            # TODO: Create 2 AVDs
-            extra_args.update({constants.SHARDING: 2})
+            extra_args.update({constants.SHARDING: constants.SHARD_NUM})
+            if not (any(dry_run_args) or verify_env_variables):
+                # TODO: check existing devices.
+                args.acloud_create = [f'--num-instances={constants.SHARD_NUM}']
+                proc_acloud, report_file = at.acloud_create_validator(
+                    results_dir, args)
 
     # Note that we update the Mainline build env vars after we potentially rebuild
     # module info. This ends up changing build flags which re-triggers a costly
