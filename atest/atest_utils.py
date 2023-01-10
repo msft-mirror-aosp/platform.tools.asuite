@@ -328,8 +328,8 @@ def get_mainline_build_cmd(build_targets):
     static_targets = [
         'dist',
         'apps_only',
-        'out/soong/host/linux-x86/bin/merge_zips',
-        'out/soong/host/linux-x86/bin/aapt2'
+        'merge_zips',
+        'aapt2'
     ]
     cmd = get_build_cmd()
     cmd.append(target_build_apps)
@@ -406,9 +406,6 @@ def run_build_cmd(cmd, verbose=False, env_vars=None):
         return True
     except subprocess.CalledProcessError as err:
         logging.error('Build failure when running: %s', ' '.join(cmd))
-        print(constants.REBUILD_MODULE_INFO_MSG.format(
-        colorize(constants.REBUILD_MODULE_INFO_FLAG,
-                 constants.RED)))
         if err.output:
             logging.error(err.output)
         return False
