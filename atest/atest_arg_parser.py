@@ -99,6 +99,8 @@ RETRY_ANY_FAILURE = ('Rerun failed tests until passed or the max iteration '
                      'is reached. (default: 10)')
 SERIAL = 'The device to run the test on.'
 SHARDING = 'Option to specify sharding count. (default: 2)'
+SMART_TESTING_LOCAL = ('Automatically detect untracked/unstaged files in current'
+                       ' git run associated tests.')
 START_AVD = 'Automatically create an AVD and run tests on the virtual device.'
 TEST = ('Run the tests. WARNING: Many test configs force cleanup of device '
         'after test run. In this case, "-d" must be used in previous test run '
@@ -160,6 +162,7 @@ class AtestArgParser(argparse.ArgumentParser):
     def add_atest_args(self):
         """A function that does ArgumentParser.add_argument()"""
         self.add_argument('tests', nargs='*', help='Tests to build and/or run.')
+
         # Options that to do with testing.
         self.add_argument('-a', '--all-abi', action='store_true', help=ALL_ABI)
 
@@ -213,8 +216,11 @@ class AtestArgParser(argparse.ArgumentParser):
         ugroup.add_argument('--disable-upload-result', action='store_true',
                           help=DISABLE_UPLOAD_RESULT)
 
+        mgroup = self.add_mutually_exclusive_group()
+        mgroup.add_argument('--smart-testing-local', action='store_true',
+                                help=SMART_TESTING_LOCAL)
         # Options related to Test Mapping
-        self.add_argument('-p', '--test-mapping', action='store_true',
+        mgroup.add_argument('-p', '--test-mapping', action='store_true',
                           help=TEST_MAPPING)
         self.add_argument('--include-subdirs', action='store_true',
                           help=INCLUDE_SUBDIRS)
@@ -224,7 +230,7 @@ class AtestArgParser(argparse.ArgumentParser):
                           help=ENABLE_FILE_PATTERNS)
 
         # Options related to Host Unit Test.
-        self.add_argument('--host-unit-test-only', action='store_true',
+        mgroup.add_argument('--host-unit-test-only', action='store_true',
                           help=HOST_UNIT_TEST_ONLY)
 
         # Options for information queries and dry-runs:
@@ -416,6 +422,7 @@ def print_epilog_text():
         RETRY_ANY_FAILURE=RETRY_ANY_FAILURE,
         SERIAL=SERIAL,
         SHARDING=SHARDING,
+        SMART_TESTING_LOCAL=SMART_TESTING_LOCAL,
         START_AVD=START_AVD,
         TEST=TEST,
         TEST_CONFIG_SELECTION=TEST_CONFIG_SELECTION,
@@ -522,6 +529,14 @@ OPTIONS
 
         --sharding [SHARD_NUMBER]
           {SHARDING}
+
+        --smart-testing-local
+          {SMART_TESTING_LOCAL} e.g. Have modified code in packages/apps/Settings/tests/unit/src.
+            croot packages/apps/Settings/tests/unit/src
+            atest --smart-testing-local
+
+            will be equivalent to (from <android root>):
+            atest --smart-testing-local packages/apps/Settings/tests/unit/src
 
         -t, --test [TEST1, TEST2, ...]
             {TEST} (implicit default)

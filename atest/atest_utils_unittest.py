@@ -33,6 +33,7 @@ from unittest import mock
 # pylint: disable=import-error
 from pyfakefs import fake_filesystem_unittest
 
+from atest import atest_arg_parser
 from atest import atest_error
 from atest import atest_utils
 from atest import constants
@@ -96,49 +97,59 @@ class AtestUtilsUnittests(unittest.TestCase):
         self.assertEqual(want_list,
                          atest_utils._capture_fail_section(test_list))
 
-    def test_is_test_mapping(self):
+    def test_is_test_mapping_none_test_mapping_args(self):
         """Test method is_test_mapping."""
-        tm_option_attributes = [
-            'test_mapping',
-            'include_subdirs'
-        ]
-        for attr_to_test in tm_option_attributes:
-            args = mock.Mock()
-            for attr in tm_option_attributes:
-                setattr(args, attr, attr == attr_to_test)
-            args.tests = []
-            args.host_unit_test_only = False
+        parser = atest_arg_parser.AtestArgParser()
+        parser.add_atest_args()
+        non_tm_args = ['--host-unit-test-only', '--smart-testing-local']
+
+        for argument in non_tm_args:
+            args = parser.parse_args([argument])
+            self.assertFalse(
+                atest_utils.is_test_mapping(args),
+                'Option %s indicates NOT a test_mapping!' % argument)
+
+    def test_is_test_mapping_test_mapping_args(self):
+        """Test method is_test_mapping."""
+        parser = atest_arg_parser.AtestArgParser()
+        parser.add_atest_args()
+        tm_args = ['--test-mapping', '--include-subdirs']
+
+        for argument in tm_args:
+            args = parser.parse_args([argument])
             self.assertTrue(
                 atest_utils.is_test_mapping(args),
-                'Failed to validate option %s' % attr_to_test)
+                'Option %s indicates a test_mapping!' % argument)
 
-        args = mock.Mock()
-        for attr in tm_option_attributes:
-            setattr(args, attr, False)
-        args.tests = []
-        args.host_unit_test_only = True
-        self.assertFalse(atest_utils.is_test_mapping(args))
+    def test_is_test_mapping_implicit_test_mapping(self):
+        """Test method is_test_mapping."""
+        parser = atest_arg_parser.AtestArgParser()
+        parser.add_atest_args()
 
-        args = mock.Mock()
-        for attr in tm_option_attributes:
-            setattr(args, attr, False)
-        args.tests = [':group_name']
-        args.host_unit_test_only = False
-        self.assertTrue(atest_utils.is_test_mapping(args))
+        args = parser.parse_args(['--test', '--build', ':postsubmit'])
+        self.assertTrue(
+            atest_utils.is_test_mapping(args),
+            'Option %s indicates a test_mapping!' % args)
 
-        args = mock.Mock()
-        for attr in tm_option_attributes:
-            setattr(args, attr, False)
-        args.tests = [':test1', 'test2']
-        args.host_unit_test_only = False
-        self.assertFalse(atest_utils.is_test_mapping(args))
+    def test_is_test_mapping_with_testname(self):
+        """Test method is_test_mapping."""
+        parser = atest_arg_parser.AtestArgParser()
+        parser.add_atest_args()
+        irrelevant_args = ['--test', ':postsubmit', 'testname']
 
-        args = mock.Mock()
-        for attr in tm_option_attributes:
-            setattr(args, attr, False)
-        args.tests = ['test2']
-        args.host_unit_test_only = False
-        self.assertFalse(atest_utils.is_test_mapping(args))
+        args = parser.parse_args(irrelevant_args)
+        self.assertFalse(
+            atest_utils.is_test_mapping(args),
+            'Option %s indicates a test_mapping!' % args)
+
+    def test_is_test_mapping_false(self):
+        """Test method is_test_mapping."""
+        parser = atest_arg_parser.AtestArgParser()
+        parser.add_atest_args()
+        args = parser.parse_args(['--test', '--build', 'hello_atest'])
+
+        self.assertFalse(
+            atest_utils.is_test_mapping(args))
 
     def test_has_colors(self):
         """Test method _has_colors."""
