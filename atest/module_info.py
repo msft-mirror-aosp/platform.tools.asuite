@@ -969,7 +969,7 @@ class ModuleInfo:
                     modules.append(mod_name)
         return modules
 
-    def get_modules_by_path_in_srcs(self, path: str) -> str:
+    def get_modules_by_path_in_srcs(self, path: str) -> Set:
         """Get the module name that the given path belongs to.(in 'srcs')
 
         Args:
@@ -980,7 +980,7 @@ class ModuleInfo:
         """
         modules = set()
         for _, mod_info in self.name_to_module_info.items():
-            if path in mod_info.get(constants.MODULE_SRCS, []):
+            if str(path) in mod_info.get(constants.MODULE_SRCS, []):
                 modules.add(mod_info.get(constants.MODULE_NAME))
         return modules
 

@@ -377,7 +377,7 @@ def is_test_mapping(args):
         return False
     if any((args.test_mapping, args.include_subdirs, not args.tests)):
         return True
-    # Implicitly run in test-mapping mode, e.g. "atest :postsubmit".
+    # ':postsubmit' implicitly indicates running in test-mapping mode.
     return all((len(args.tests) == 1, args.tests[0][0] == ':'))
 
 
