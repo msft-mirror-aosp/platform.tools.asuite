@@ -40,6 +40,8 @@ UPDATEDB = atest_tools.UPDATEDB
 class AtestToolsUnittests(unittest.TestCase):
     """"Unittest Class for atest_tools.py."""
 
+    # TODO: (b/265245404) Re-write test cases with AAA style.
+    # TODO: (b/242520851) constants.LOCATE_CACHE should be in literal.
     @mock.patch('atest.constants.INDEX_DIR', uc.INDEX_DIR)
     @mock.patch('atest.constants.LOCATE_CACHE', uc.LOCATE_CACHE)
     @mock.patch('atest.tools.atest_tools.SEARCH_TOP', uc.TEST_DATA_DIR)
@@ -51,10 +53,11 @@ class AtestToolsUnittests(unittest.TestCase):
                                      prunepaths=PRUNEPATH)
             # test_config/ is excluded so that a.xml won't be found.
             locate_cmd1 = [LOCATE, '-d', uc.LOCATE_CACHE, '/a.xml']
-            # locate always return 0 when not found, therefore check null
-            # return if nothing found.
-            output = subprocess.check_output(locate_cmd1).decode()
-            self.assertEqual(output, '')
+            # locate returns non-zero when target not found; therefore, use run
+            # method and assert stdout only.
+            result = subprocess.run(locate_cmd1, check=False,
+                                    capture_output=True)
+            self.assertEqual(result.stdout.decode(), '')
 
             # module-info.json can be found in the search_root.
             locate_cmd2 = [LOCATE, '-d', uc.LOCATE_CACHE, 'module-info.json']
