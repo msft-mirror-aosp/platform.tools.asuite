@@ -27,6 +27,7 @@ import re
 import sys
 import time
 
+from pathlib import Path
 from typing import List
 
 from atest import atest_error
@@ -52,7 +53,6 @@ _COMMENTS = frozenset(['//', '#'])
 
 _MAINLINE_RE = re.compile(r'(?P<module>.*)\.ap(?:ex|k)$')
 
-#pylint: disable=no-self-use
 class CLITranslator:
     """
     CLITranslator class contains public method translate() and some private
@@ -83,6 +83,7 @@ class CLITranslator:
             bazel_mode_features: List of args.bazel_mode_features.
         """
         self.mod_info = mod_info
+        self.root_dir = os.getenv(constants.ANDROID_BUILD_TOP, os.sep)
         self._bazel_mode = bazel_mode_enabled
         self._bazel_mode_features = bazel_mode_features or []
         self._host = host
@@ -490,8 +491,7 @@ class CLITranslator:
         if include_subdirs:
             test_mapping_files.update(atest_utils.find_files(path, file_name))
         # Include all possible TEST_MAPPING files in parent directories.
-        root_dir = os.environ.get(constants.ANDROID_BUILD_TOP, os.sep)
-        while path not in (root_dir, os.sep):
+        while path not in (self.root_dir, os.sep):
             path = os.path.dirname(path)
             test_mapping_file = os.path.join(path, file_name)
             if os.path.exists(test_mapping_file):
@@ -641,25 +641,41 @@ class CLITranslator:
             A tuple with set of build_target strings and list of TestInfos.
         """
         tests = args.tests
+        # Disable fuzzy searching when running with test mapping related args.
         self.fuzzy_search = args.fuzzy_search
-        # Test details from TEST_MAPPING files
-        test_details_list = None
-        # Loading Host Unit Tests.
-        host_unit_tests = []
         detect_type = DetectType.TEST_WITH_ARGS
         if not args.tests or atest_utils.is_test_mapping(args):
             self.fuzzy_search = False
             detect_type = DetectType.TEST_NULL_ARGS
         start = time.time()
-        # Not including host unit tests if user specify --test-mapping arg.
-        if not args.tests and not args.test_mapping:
+        # Not including host unit tests if user specify --test-mapping or
+        # --smart-testing-local arg.
+        host_unit_tests = []
+        if not any((
+            args.tests, args.test_mapping, args.smart_testing_local)):
             logging.debug('Finding Host Unit Tests...')
-            path = os.path.relpath(
-                os.path.realpath(''),
-                os.environ.get(constants.ANDROID_BUILD_TOP, ''))
             host_unit_tests = test_finder_utils.find_host_unit_tests(
-                self.mod_info, path)
+                self.mod_info,
+                Path(os.getcwd()).relative_to(self.root_dir))
             logging.debug('Found host_unit_tests: %s', host_unit_tests)
+        if args.smart_testing_local:
+            modified_files = set()
+            if args.tests:
+                for test_path in args.tests:
+                    if not Path(test_path).is_dir():
+                        atest_utils.colorful_print(
+                            f'Found invalid dir {test_path}'
+                            r'Please specify test paths for probing.',
+                            constants.RED)
+                        sys.exit(ExitCode.INVALID_SMART_TESTING_PATH)
+                    modified_files |= atest_utils.get_modified_files(test_path)
+            else:
+                modified_files = atest_utils.get_modified_files(os.getcwd())
+            logging.info('Found modified files: %s...',
+                         ', '.join(modified_files))
+            tests = list(modified_files)
+        # Test details from TEST_MAPPING files
+        test_details_list = None
         if atest_utils.is_test_mapping(args):
             if args.enable_file_patterns:
                 self.enable_file_patterns = True
