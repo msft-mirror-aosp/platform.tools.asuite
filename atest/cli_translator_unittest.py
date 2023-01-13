@@ -506,5 +506,51 @@ class CLITranslatorUnittests(unittest.TestCase):
             test_infos,
             {uc.MODULE_INFO, uc.CLASS_INFO})
 
+
+class ParseTestIdentifierTest(unittest.TestCase):
+    """Test parse_test_identifier with different test names."""
+
+    def test_no_mainline_modules(self):
+        """non-mainline module testing."""
+        given = 'testName'
+
+        identifier = cli_t.parse_test_identifier(given)
+
+        self.assertEqual('testName', identifier.test_name)
+        self.assertEqual([], identifier.module_names)
+        self.assertEqual([], identifier.binary_names)
+
+    def test_single_mainline_module(self):
+        """only one mainline module."""
+        given = 'testName[Module1.apk]'
+
+        identifier = cli_t.parse_test_identifier(given)
+
+        self.assertEqual('testName', identifier.test_name)
+        self.assertEqual(['Module1'], identifier.module_names)
+        self.assertEqual(['Module1.apk'], identifier.binary_names)
+
+    def test_multiple_mainline_modules(self):
+        """multiple mainline modules."""
+        given = 'testName[Module1.apk+Module2.apex]'
+
+        identifier = cli_t.parse_test_identifier(given)
+
+        self.assertEqual('testName', identifier.test_name)
+        self.assertEqual(
+            ['Module1', 'Module2'], identifier.module_names)
+        self.assertEqual(
+            ['Module1.apk', 'Module2.apex'], identifier.binary_names)
+
+    def test_missing_closing_bracket(self):
+        """test the brackets are not in pair"""
+        given = 'testName[Module1.apk+Module2.apex'
+
+        identifier = cli_t.parse_test_identifier(given)
+
+        self.assertEqual(given, identifier.test_name)
+        self.assertEqual([], identifier.module_names)
+        self.assertEqual([], identifier.binary_names)
+
 if __name__ == '__main__':
     unittest.main()
