@@ -251,10 +251,12 @@ class CLITranslatorUnittests(unittest.TestCase):
         unittest_utils.assert_strict_equal(
             self, ctr._get_test_infos('not_exist_module'), null_test_info)
 
+    @mock.patch.object(test_finder_utils, 'find_host_unit_tests',
+                       return_value=set())
     @mock.patch.object(cli_t.CLITranslator, '_has_host_unit_test')
     @mock.patch.object(cli_t.CLITranslator, '_get_test_infos',
                        side_effect=gettestinfos_side_effect)
-    def test_translate_class(self, _info, host_unit_tests):
+    def test_translate_class(self, _info, host_unit_tests, _find):
         """Test translate method for tests by class name."""
         # Check that we can find a class.
         host_unit_tests.return_value = False
@@ -265,10 +267,12 @@ class CLITranslatorUnittests(unittest.TestCase):
             self, targets, uc.CLASS_BUILD_TARGETS)
         unittest_utils.assert_strict_equal(self, test_infos, {uc.CLASS_INFO})
 
+    @mock.patch.object(test_finder_utils, 'find_host_unit_tests',
+                       return_value=set())
     @mock.patch.object(cli_t.CLITranslator, '_has_host_unit_test')
     @mock.patch.object(cli_t.CLITranslator, '_get_test_infos',
                        side_effect=gettestinfos_side_effect)
-    def test_translate_module(self, _info, host_unit_tests):
+    def test_translate_module(self, _info, host_unit_tests, _find):
         """Test translate method for tests by module or class name."""
         # Check that we get all the build targets we expect.
         host_unit_tests.return_value = []
@@ -450,6 +454,8 @@ class CLITranslatorUnittests(unittest.TestCase):
         self.assertEqual(ctr._extract_testable_modules_by_wildcard(expr3),
                          result3)
 
+    @mock.patch.object(cli_t.CLITranslator, '_has_host_unit_test',
+                       return_value=True)
     @mock.patch.object(test_finder_utils, 'find_host_unit_tests',
                        return_value=[uc.HOST_UNIT_TEST_NAME_1,
                                      uc.HOST_UNIT_TEST_NAME_2])
@@ -457,7 +463,7 @@ class CLITranslatorUnittests(unittest.TestCase):
     @mock.patch.object(cli_t.CLITranslator, '_get_test_infos',
                        side_effect=gettestinfos_side_effect)
     def test_translate_test_mapping_host_unit_test(
-        self, _info, mock_testmapping, _find_unit_tests):
+        self, _info, mock_testmapping, _find_unit_tests, _has_host_unit_test):
         """Test translate method for tests belong to host unit tests."""
         # Check that test mappings feeds into get_test_info properly.
         test_detail1 = test_mapping.TestDetail(uc.TEST_MAPPING_TEST)
