@@ -228,7 +228,7 @@ def get_extra_args(args):
                 'annotation_filter': constants.ANNOTATION_FILTER,
                 'bazel_arg': constants.BAZEL_ARG,
                 'collect_tests_only': constants.COLLECT_TESTS_ONLY,
-                'coverage': constants.COVERAGE,
+                'experimental_coverage': constants.COVERAGE,
                 'custom_args': constants.CUSTOM_ARGS,
                 'device_only': constants.DEVICE_ONLY,
                 'disable_teardown': constants.DISABLE_TEARDOWN,
@@ -941,7 +941,7 @@ def main(argv, results_dir, args):
     _begin_time = time.time()
 
     # Sets coverage environment variables.
-    if args.coverage:
+    if args.experimental_coverage:
         atest_utils.update_build_env(coverage.build_env_vars())
 
     _configure_logging(args.verbose)
@@ -983,7 +983,7 @@ def main(argv, results_dir, args):
         args=[mod_info.module_index.parent])
 
     # Run Test Mapping or coverage by no-bazel-mode.
-    if atest_utils.is_test_mapping(args) or args.coverage:
+    if atest_utils.is_test_mapping(args) or args.experimental_coverage:
         atest_utils.colorful_print('Not running using bazel-mode.', constants.YELLOW)
         args.bazel_mode = False
     if args.bazel_mode:
@@ -1087,7 +1087,7 @@ def main(argv, results_dir, args):
     # args.steps will be None if none of -bit set, else list of params set.
     steps = args.steps if args.steps else constants.ALL_STEPS
     if build_targets and constants.BUILD_STEP in steps:
-        if args.coverage:
+        if args.experimental_coverage:
             build_targets.add('jacoco_to_lcov_converter')
 
         # Add module-info.json target to the list of build targets to keep the
@@ -1147,7 +1147,7 @@ def main(argv, results_dir, args):
         else:
             tests_exit_code = _run_test_mapping_tests(
                 results_dir, test_infos, extra_args, mod_info)
-        if args.coverage:
+        if args.experimental_coverage:
             coverage.generate_coverage_report(results_dir, test_infos, mod_info)
     if args.detect_regression:
         regression_args = _get_regression_detection_args(args, results_dir)
