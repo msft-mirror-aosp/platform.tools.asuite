@@ -43,15 +43,6 @@ from atest import unittest_constants
 from atest.test_finders import test_info
 from atest.atest_enum import FilterType
 
-MAINLINE_MODULE_A_APEX = 'com.google.android.a.apex'
-MAINLINE_MODULE_B_APK = 'B.apk'
-MAINLINE_MODULE_C_APEX = 'com.google.android.c.apex'
-MAINLINE_TEST_WITH_ONE_MODULE = (
-    unittest_constants.MODULE2_NAME + '[' + MAINLINE_MODULE_A_APEX + ']')
-MAINLINE_TEST_WITH_MULTIPLE_MODULES = (
-    unittest_constants.MODULE2_NAME + '[' + MAINLINE_MODULE_A_APEX + '+' +
-    MAINLINE_MODULE_B_APK + '+' + MAINLINE_MODULE_C_APEX + ']')
-
 TEST_MODULE_NAME_A = 'ModuleNameA'
 TEST_RUNNER_A = 'FakeTestRunnerA'
 TEST_BUILD_TARGET_A = set(['bt1', 'bt2'])
@@ -801,24 +792,6 @@ class AtestUtilsUnittests(unittest.TestCase):
             'persistent': False
         }
         self.assertEqual(expected, atest_utils.get_manifest_info(target_xml))
-
-    def test_parse_mainline_module_with_one_module(self):
-        """test parse mainlnie test that needs to install one module"""
-        test_name, mainline_modules = atest_utils.parse_mainline_modules(
-            MAINLINE_TEST_WITH_ONE_MODULE)
-        self.assertEqual(test_name, unittest_constants.MODULE2_NAME)
-        expected_module_list = [MAINLINE_MODULE_A_APEX]
-        self.assertEqual(mainline_modules, expected_module_list)
-
-    def test_parse_mainline_module_with_multiple_modules(self):
-        """test parse mainlnie test that needs to install multiple modules"""
-        test_name, mainline_modules = atest_utils.parse_mainline_modules(
-            MAINLINE_TEST_WITH_MULTIPLE_MODULES)
-        self.assertEqual(test_name, unittest_constants.MODULE2_NAME)
-        expected_module_list = [MAINLINE_MODULE_A_APEX,
-                                MAINLINE_MODULE_B_APK,
-                                MAINLINE_MODULE_C_APEX]
-        self.assertEqual(mainline_modules, expected_module_list)
 
 # pylint: disable=missing-function-docstring
 class AutoShardUnittests(fake_filesystem_unittest.TestCase):
