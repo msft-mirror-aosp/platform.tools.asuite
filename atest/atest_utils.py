@@ -108,6 +108,7 @@ SUGGESTIONS = {
 
 _BUILD_ENV = {}
 
+
 def get_build_cmd(dump=False):
     """Compose build command with no-absolute path and flag "--make-mode".
 
@@ -1162,23 +1163,6 @@ def build_module_info_target(module_info_target):
     metrics.LocalDetectEvent(
         detect_type=DetectType.ONLY_BUILD_MODULE_INFO,
         result=int(build_duration))
-
-def parse_mainline_modules(test):
-    """Parse test reference into test and mainline modules.
-
-    Args:
-        test: An String of test reference.
-
-    Returns:
-        A string of test without mainline modules,
-        A list of mainline modules.
-    """
-    result = constants.TEST_WITH_MAINLINE_MODULES_RE.match(test)
-    if not result:
-        return test, ""
-    test_wo_mainline_modules = result.group('test')
-    mainline_modules = result.group('mainline_modules').split('+')
-    return test_wo_mainline_modules, mainline_modules
 
 def has_wildcard(test_name):
     """ Tell whether the test_name(either a list or string) contains wildcard

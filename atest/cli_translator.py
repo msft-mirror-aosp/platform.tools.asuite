@@ -27,8 +27,9 @@ import re
 import sys
 import time
 
+from dataclasses import dataclass
 from pathlib import Path
-from typing import List
+from typing import List, Set
 
 from atest import atest_error
 from atest import atest_utils
@@ -41,6 +42,7 @@ from atest.atest_enum import DetectType, ExitCode
 from atest.metrics import metrics
 from atest.metrics import metrics_utils
 from atest.test_finders import module_finder
+from atest.test_finders import test_info
 from atest.test_finders import test_finder_utils
 
 FUZZY_FINDER = 'FUZZY'
@@ -51,7 +53,12 @@ TESTNAME_CHARS = {'#', ':', '/'}
 _COMMENTS_RE = re.compile(r'(?m)[\s\t]*(#|//).*|(\".*?\")')
 _COMMENTS = frozenset(['//', '#'])
 
-_MAINLINE_RE = re.compile(r'(?P<module>.*)\.ap(?:ex|k)$')
+@dataclass
+class TestIdentifier:
+    """Class that stores test and the corresponding mainline modules (if any)."""
+    test_name: str
+    module_names: List[str]
+    binary_names: List[str]
 
 class CLITranslator:
     """
@@ -98,7 +105,7 @@ class CLITranslator:
     # pylint: disable=too-many-locals
     # pylint: disable=too-many-branches
     # pylint: disable=too-many-statements
-    def _find_test_infos(self, test, tm_test_detail):
+    def _find_test_infos(self, test, tm_test_detail) -> Set[test_info.TestInfo]:
         """Return set of TestInfos based on a given test.
 
         Args:
@@ -115,11 +122,9 @@ class CLITranslator:
         test_finders = []
         test_info_str = ''
         find_test_err_msg = None
-        test_name, mainline_binaries = atest_utils.parse_mainline_modules(test)
-        mainline_modules = [re.sub(atest_utils.MAINLINE_MODULES_EXT_RE, '', m)
-                            for m in mainline_binaries]
-        logging.debug('mainline_modules: %s', mainline_modules)
-        if not self._verified_mainline_modules(test_name, mainline_binaries):
+        test_identifier = parse_test_identifier(test)
+        test_name = test_identifier.test_name
+        if not self._verified_mainline_modules(test_identifier):
             return test_infos
         find_methods = test_finder_handler.get_find_methods_for_test(
             self.mod_info, test)
@@ -155,6 +160,7 @@ class CLITranslator:
                         test_info.host = tm_test_detail.host
                     if finder_info != CACHE_FINDER:
                         test_info.test_finder = finder_info
+                    mainline_modules = test_identifier.module_names
                     if mainline_modules:
                         test_info.test_name = test
                         # TODO(b/261607500): Replace usages of raw_test_name
@@ -210,7 +216,7 @@ class CLITranslator:
                 print(self.msg)
         return test_infos
 
-    def _verified_mainline_modules(self, test, mainline_binaries):
+    def _verified_mainline_modules(self, test_identifier: TestIdentifier) -> bool:
         """ Verify the test with mainline modules is acceptable.
 
         The test must be a module and mainline modules are in module-info.
@@ -219,37 +225,34 @@ class CLITranslator:
         and no duplication.
 
         Args:
-            test: A string representing test references
-            mainline_binaries: A list of mainline modules binary names.
+            test_identifier: a TestIdentifier object.
 
         Returns:
             True if this test is acceptable. Otherwise, print the reason and
             return False.
         """
+        mainline_binaries = test_identifier.binary_names
         if not mainline_binaries:
             return True
 
         def mark_red(items):
             return atest_utils.colorize(items, constants.RED)
+        test = test_identifier.test_name
         if not self.mod_info.is_module(test):
             print('Error: "{}" is not a testable module.'.format(
                 mark_red(test)))
             return False
-        # Exit earlier if the given mainline binaries are unavailable in the
+        # Exit earlier if the given mainline modules are unavailable in the
         # branch.
-        unknown_modules = set()
-        for binary in mainline_binaries:
-            match = _MAINLINE_RE.match(binary)
-            if match:
-                module = match.group('module')
-                if not self.mod_info.is_module(module):
-                    unknown_modules.add(module)
+        unknown_modules = [module for module in test_identifier.module_names
+                           if not self.mod_info.is_module(module)]
         if unknown_modules:
             print('Error: Cannot find {} in module info!'.format(
                 mark_red(', '.join(unknown_modules))))
             return False
         # Exit earlier if Atest cannot find relationship between the test and
         # the mainline binaries.
+        mainline_binaries = test_identifier.binary_names
         if not self.mod_info.has_mainline_modules(test, mainline_binaries):
             print('Error: Mainline modules "{}" were not defined for {} in '
                   'neither build file nor test config.'.format(
@@ -389,8 +392,10 @@ class CLITranslator:
                             not test_mapping.is_match_file_patterns(
                                 test_mapping_file, test)):
                         continue
+                    test_name = parse_test_identifier(
+                        test['name']).test_name
                     test_mod_info = self.mod_info.name_to_module_info.get(
-                        atest_utils.parse_mainline_modules(test['name'])[0])
+                        test_name)
                     if not test_mod_info :
                         print('WARNING: %s is not a valid build target and '
                               'may not be discoverable by TreeHugger. If you '
@@ -716,3 +721,17 @@ class CLITranslator:
                        r"--bazel-mode.")
                 atest_utils.colorful_print(msg, constants.YELLOW)
         return build_targets, test_infos
+
+
+# TODO: (b/265359291) Raise Exception when the brackets are not in pair.
+def parse_test_identifier(test: str) -> TestIdentifier:
+    """Get mainline module names and binaries information."""
+    result = constants.TEST_WITH_MAINLINE_MODULES_RE.match(test)
+    if not result:
+        return TestIdentifier(test, [], [])
+    test_name = result.group('test')
+    mainline_binaries = result.group('mainline_modules').split('+')
+    mainline_modules = [re.sub(atest_utils.MAINLINE_MODULES_EXT_RE, '', m)
+                        for m in mainline_binaries]
+    logging.debug('mainline_modules: %s', mainline_modules)
+    return TestIdentifier(test_name, mainline_modules, mainline_binaries)
