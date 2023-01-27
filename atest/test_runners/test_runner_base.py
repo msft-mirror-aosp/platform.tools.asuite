@@ -28,11 +28,12 @@ import tempfile
 import os
 
 from collections import namedtuple
-from typing import Any, Dict
+from typing import Any, Dict, List, Set
 
 from atest import atest_error
 from atest import atest_utils
 from atest import constants
+from atest.test_finders import test_info
 
 OLD_OUTPUT_ENV_VAR = 'ATEST_OLD_OUTPUT'
 
@@ -188,7 +189,7 @@ class TestRunnerBase:
         """Checks that host env has met requirements."""
         raise NotImplementedError
 
-    def get_test_runner_build_reqs(self):
+    def get_test_runner_build_reqs(self, test_infos: List[test_info.TestInfo]):
         """Returns a list of build targets required by the test runner."""
         raise NotImplementedError
 
@@ -205,3 +206,21 @@ class TestRunnerBase:
             A list of run commands to run the tests.
         """
         raise NotImplementedError
+
+
+def gather_build_targets(
+        test_infos: List[test_info.TestInfo]) -> Set[str]:
+    """Gets all build targets for the given tests.
+
+    Args:
+        test_infos: List of TestInfo.
+
+    Returns:
+        Set of build targets.
+    """
+    build_targets = set()
+
+    for t_info in test_infos:
+        build_targets |= t_info.build_targets
+
+    return build_targets
