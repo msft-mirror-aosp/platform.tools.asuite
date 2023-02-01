@@ -339,6 +339,9 @@ def _validate_adb_devices(args, test_infos):
         args: parsed args object.
         test_info: TestInfo object.
     """
+    # No need to check device available if user not acquire to run the test.
+    if args.steps and constants.TEST_STEP not in args.steps:
+        return
     if args.no_checking_device:
         return
     all_device_modes = {x.get_supported_exec_mode() for x in test_infos}
