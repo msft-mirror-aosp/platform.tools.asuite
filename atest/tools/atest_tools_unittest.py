@@ -25,12 +25,12 @@ import unittest
 
 from unittest import mock
 
-import atest_utils as au
-import unittest_constants as uc
-import constants
+from atest import atest_utils as au
+from atest import unittest_constants as uc
+from atest import constants
 
-from atest_enum import ExitCode
-from tools import atest_tools
+from atest.atest_enum import ExitCode
+from atest.tools import atest_tools
 
 SEARCH_ROOT = uc.TEST_DATA_DIR
 PRUNEPATH = uc.TEST_CONFIG_DATA_DIR
@@ -40,10 +40,11 @@ UPDATEDB = atest_tools.UPDATEDB
 class AtestToolsUnittests(unittest.TestCase):
     """"Unittest Class for atest_tools.py."""
 
-    @mock.patch('constants.INDEX_DIR', uc.INDEX_DIR)
-    @mock.patch('constants.LOCATE_CACHE_MD5', uc.LOCATE_CACHE_MD5)
-    @mock.patch('constants.LOCATE_CACHE', uc.LOCATE_CACHE)
-    @mock.patch('tools.atest_tools.SEARCH_TOP', uc.TEST_DATA_DIR)
+    # TODO: (b/265245404) Re-write test cases with AAA style.
+    # TODO: (b/242520851) constants.LOCATE_CACHE should be in literal.
+    @mock.patch('atest.constants.INDEX_DIR', uc.INDEX_DIR)
+    @mock.patch('atest.constants.LOCATE_CACHE', uc.LOCATE_CACHE)
+    @mock.patch('atest.tools.atest_tools.SEARCH_TOP', uc.TEST_DATA_DIR)
     def test_index_targets(self):
         """Test method index_targets."""
         if atest_tools.has_command(UPDATEDB) and atest_tools.has_command(LOCATE):
@@ -52,10 +53,11 @@ class AtestToolsUnittests(unittest.TestCase):
                                      prunepaths=PRUNEPATH)
             # test_config/ is excluded so that a.xml won't be found.
             locate_cmd1 = [LOCATE, '-d', uc.LOCATE_CACHE, '/a.xml']
-            # locate always return 0 when not found, therefore check null
-            # return if nothing found.
-            output = subprocess.check_output(locate_cmd1).decode()
-            self.assertEqual(output, '')
+            # locate returns non-zero when target not found; therefore, use run
+            # method and assert stdout only.
+            result = subprocess.run(locate_cmd1, check=False,
+                                    capture_output=True)
+            self.assertEqual(result.stdout.decode(), '')
 
             # module-info.json can be found in the search_root.
             locate_cmd2 = [LOCATE, '-d', uc.LOCATE_CACHE, 'module-info.json']
@@ -91,27 +93,12 @@ class AtestToolsUnittests(unittest.TestCase):
             with open(uc.CC_CLASS_INDEX, 'rb') as cache:
                 _cache = pickle.load(cache)
             self.assertIsNotNone(_cache.get('HelloWorldTest'))
-            # 4. Test get_manifest_result is functional.
-            _cache = {}
-            mproc = au.run_multi_proc(
-                    func=atest_tools.get_manifest_result, args=[uc.LOCATE_CACHE],
-                    kwargs={'manifest_index':uc.MANIFEST_INDEX}
-            )
-            mproc.join()
-            with open(uc.MANIFEST_INDEX, 'rb') as cache:
-                _cache = pickle.load(cache)
-            self.assertEqual(_cache.get('com.android.settings.tests.unit'),
-                {os.path.join(uc.TEST_DATA_DIR, 'foo/bar/AmSlam/test/AndroidManifest.xml')})
-            self.assertEqual(_cache.get('c0m.andr0id.settingS'),
-                {os.path.join(uc.TEST_DATA_DIR, 'foo/bar/AmSlam/AndroidManifest.xml')})
-            self.assertEqual(_cache.get('package.does.not.exist'), None)
-            # 5. Clean up.
+            # 4. Clean up.
             targets_to_delete = (uc.CC_CLASS_INDEX,
                                  uc.CLASS_INDEX,
                                  uc.LOCATE_CACHE,
                                  uc.PACKAGE_INDEX,
-                                 uc.QCLASS_INDEX,
-                                 uc.MANIFEST_INDEX)
+                                 uc.QCLASS_INDEX)
             for idx in targets_to_delete:
                 os.remove(idx)
         else:
@@ -144,24 +131,26 @@ class AtestToolsUnittests(unittest.TestCase):
 
     def test_probe_acloud_status(self):
         """Test method prob_acloud_status."""
+        duration = 100
         success = os.path.join(SEARCH_ROOT, 'acloud', 'create_success.json')
-        self.assertEqual(atest_tools.probe_acloud_status(success),
+        self.assertEqual(atest_tools.probe_acloud_status(success, duration),
                          ExitCode.SUCCESS)
         self.assertEqual(
             os.environ[constants.ANDROID_SERIAL], '127.0.0.1:58167')
 
         success_local_instance = os.path.join(
             SEARCH_ROOT, 'acloud', 'create_success_local_instance.json')
-        self.assertEqual(atest_tools.probe_acloud_status(success_local_instance),
+        self.assertEqual(atest_tools.probe_acloud_status(success_local_instance,
+                                                         duration),
                          ExitCode.SUCCESS)
         self.assertEqual(os.environ[constants.ANDROID_SERIAL], '0.0.0.0:6521')
 
         failure = os.path.join(SEARCH_ROOT, 'acloud', 'create_failure.json')
-        self.assertEqual(atest_tools.probe_acloud_status(failure),
+        self.assertEqual(atest_tools.probe_acloud_status(failure, duration),
                          ExitCode.AVD_CREATE_FAILURE)
 
         inexistence = os.path.join(SEARCH_ROOT, 'acloud', 'inexistence.json')
-        self.assertEqual(atest_tools.probe_acloud_status(inexistence),
+        self.assertEqual(atest_tools.probe_acloud_status(inexistence, duration),
                          ExitCode.AVD_INVALID_ARGS)
 
     def test_get_acloud_duration(self):

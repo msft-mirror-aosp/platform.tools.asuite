@@ -5,14 +5,18 @@ common --experimental_disable_external_package
 # Show the full set of flags for observability and debuggability.
 common --announce_rc
 
+# Enforce consistent action environment variables to improve remote cache hit
+# rate.
+build --incompatible_strict_action_env
+
 # Depending on how many machines are in the remote execution instance, setting
 # this higher can make builds faster by allowing more jobs to run in parallel.
 # Setting it too high can result in jobs that timeout, however, while waiting
 # for a remote machine to execute them.
 build:remote --jobs=200
 
-# Set the Java used to launch Tradefed.
-build:remote --action_env=TF_JAVA_HOME=/usr/lib/jvm/11.29.3-ca-jdk11.0.2/reduced
+# Set the Java used in remote environment.
+build:remote --action_env=REMOTE_JAVA_HOME=/usr/lib/jvm/11.29.3-ca-jdk11.0.2/reduced
 
 # Set a host platform specifying the Docker container image used by the RBE
 # instance.

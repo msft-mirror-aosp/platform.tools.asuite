@@ -27,13 +27,13 @@ import xml.etree.ElementTree as ElementTree
 
 from zipfile import ZipFile
 
-import atest_error
-import constants
+from atest import atest_error
+from atest import constants
 
-from test_finders import test_info
-from test_finders import test_finder_base
-from test_finders import test_finder_utils
-from test_runners import atest_tf_test_runner
+from atest.test_finders import test_info
+from atest.test_finders import test_finder_base
+from atest.test_finders import test_finder_utils
+from atest.test_runners import atest_tf_test_runner
 
 # Find integration name based on file path of integration config xml file.
 # Group matches "foo/bar" given "blah/res/config/foo/bar.xml from source code
@@ -157,7 +157,7 @@ class TFIntegrationFinder(test_finder_base.TestFinderBase):
         for integration_dir in self.integration_dirs:
             abs_path = os.path.join(self.root_dir, integration_dir)
             found_test_files = test_finder_utils.run_find_cmd(
-                test_finder_utils.FIND_REFERENCE_TYPE.INTEGRATION,
+                test_finder_utils.TestReferenceType.INTEGRATION,
                 abs_path, name)
             if found_test_files:
                 test_files.extend(found_test_files)

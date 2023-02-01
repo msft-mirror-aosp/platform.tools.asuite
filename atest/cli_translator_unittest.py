@@ -29,19 +29,20 @@ from importlib import reload
 from io import StringIO
 from unittest import mock
 
-import atest_utils
-import cli_translator as cli_t
-import constants
-import module_info
-import test_finder_handler
-import test_mapping
-import unittest_constants as uc
-import unittest_utils
+from atest import atest_arg_parser
+from atest import atest_utils
+from atest import cli_translator as cli_t
+from atest import constants
+from atest import module_info
+from atest import test_finder_handler
+from atest import test_mapping
+from atest import unittest_constants as uc
+from atest import unittest_utils
 
-from metrics import metrics
-from test_finders import module_finder
-from test_finders import test_finder_base
-from test_finders import test_finder_utils
+from atest.metrics import metrics
+from atest.test_finders import module_finder
+from atest.test_finders import test_finder_base
+from atest.test_finders import test_finder_utils
 
 
 # TEST_MAPPING related consts
@@ -90,7 +91,9 @@ class CLITranslatorUnittests(unittest.TestCase):
         self.ctr = cli_t.CLITranslator()
 
         # Create a mock of args.
-        self.args = mock.Mock
+        parser = atest_arg_parser.AtestArgParser()
+        parser.add_atest_args()
+        self.args = parser.parse_args()
         self.args.tests = []
         # Test mapping related args
         self.args.test_mapping = False
@@ -248,10 +251,12 @@ class CLITranslatorUnittests(unittest.TestCase):
         unittest_utils.assert_strict_equal(
             self, ctr._get_test_infos('not_exist_module'), null_test_info)
 
+    @mock.patch.object(test_finder_utils, 'find_host_unit_tests',
+                       return_value=set())
     @mock.patch.object(cli_t.CLITranslator, '_has_host_unit_test')
     @mock.patch.object(cli_t.CLITranslator, '_get_test_infos',
                        side_effect=gettestinfos_side_effect)
-    def test_translate_class(self, _info, host_unit_tests):
+    def test_translate_class(self, _info, host_unit_tests, _find):
         """Test translate method for tests by class name."""
         # Check that we can find a class.
         host_unit_tests.return_value = False
@@ -262,10 +267,12 @@ class CLITranslatorUnittests(unittest.TestCase):
             self, targets, uc.CLASS_BUILD_TARGETS)
         unittest_utils.assert_strict_equal(self, test_infos, {uc.CLASS_INFO})
 
+    @mock.patch.object(test_finder_utils, 'find_host_unit_tests',
+                       return_value=set())
     @mock.patch.object(cli_t.CLITranslator, '_has_host_unit_test')
     @mock.patch.object(cli_t.CLITranslator, '_get_test_infos',
                        side_effect=gettestinfos_side_effect)
-    def test_translate_module(self, _info, host_unit_tests):
+    def test_translate_module(self, _info, host_unit_tests, _find):
         """Test translate method for tests by module or class name."""
         # Check that we get all the build targets we expect.
         host_unit_tests.return_value = []
@@ -447,6 +454,8 @@ class CLITranslatorUnittests(unittest.TestCase):
         self.assertEqual(ctr._extract_testable_modules_by_wildcard(expr3),
                          result3)
 
+    @mock.patch.object(cli_t.CLITranslator, '_has_host_unit_test',
+                       return_value=True)
     @mock.patch.object(test_finder_utils, 'find_host_unit_tests',
                        return_value=[uc.HOST_UNIT_TEST_NAME_1,
                                      uc.HOST_UNIT_TEST_NAME_2])
@@ -454,7 +463,7 @@ class CLITranslatorUnittests(unittest.TestCase):
     @mock.patch.object(cli_t.CLITranslator, '_get_test_infos',
                        side_effect=gettestinfos_side_effect)
     def test_translate_test_mapping_host_unit_test(
-        self, _info, mock_testmapping, _find_unit_tests):
+        self, _info, mock_testmapping, _find_unit_tests, _has_host_unit_test):
         """Test translate method for tests belong to host unit tests."""
         # Check that test mappings feeds into get_test_info properly.
         test_detail1 = test_mapping.TestDetail(uc.TEST_MAPPING_TEST)
@@ -496,6 +505,52 @@ class CLITranslatorUnittests(unittest.TestCase):
             self,
             test_infos,
             {uc.MODULE_INFO, uc.CLASS_INFO})
+
+
+class ParseTestIdentifierTest(unittest.TestCase):
+    """Test parse_test_identifier with different test names."""
+
+    def test_no_mainline_modules(self):
+        """non-mainline module testing."""
+        given = 'testName'
+
+        identifier = cli_t.parse_test_identifier(given)
+
+        self.assertEqual('testName', identifier.test_name)
+        self.assertEqual([], identifier.module_names)
+        self.assertEqual([], identifier.binary_names)
+
+    def test_single_mainline_module(self):
+        """only one mainline module."""
+        given = 'testName[Module1.apk]'
+
+        identifier = cli_t.parse_test_identifier(given)
+
+        self.assertEqual('testName', identifier.test_name)
+        self.assertEqual(['Module1'], identifier.module_names)
+        self.assertEqual(['Module1.apk'], identifier.binary_names)
+
+    def test_multiple_mainline_modules(self):
+        """multiple mainline modules."""
+        given = 'testName[Module1.apk+Module2.apex]'
+
+        identifier = cli_t.parse_test_identifier(given)
+
+        self.assertEqual('testName', identifier.test_name)
+        self.assertEqual(
+            ['Module1', 'Module2'], identifier.module_names)
+        self.assertEqual(
+            ['Module1.apk', 'Module2.apex'], identifier.binary_names)
+
+    def test_missing_closing_bracket(self):
+        """test the brackets are not in pair"""
+        given = 'testName[Module1.apk+Module2.apex'
+
+        identifier = cli_t.parse_test_identifier(given)
+
+        self.assertEqual(given, identifier.test_name)
+        self.assertEqual([], identifier.module_names)
+        self.assertEqual([], identifier.binary_names)
 
 if __name__ == '__main__':
     unittest.main()

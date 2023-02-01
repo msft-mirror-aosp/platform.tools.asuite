@@ -28,8 +28,10 @@ Utility functions for atest.
 """
 from __future__ import print_function
 
-import os
+import getpass
 import logging
+import os
+import subprocess
 import uuid
 try:
     import httplib2
@@ -37,9 +39,8 @@ except ModuleNotFoundError as e:
     logging.debug('Import error due to %s', e)
 
 from pathlib import Path
-import constants
+from socket import socket
 
-from logstorage import logstorage_utils
 try:
     # pylint: disable=import-error
     from oauth2client import client as oauth2_client
@@ -48,7 +49,9 @@ try:
 except ModuleNotFoundError as e:
     logging.debug('Import error due to %s', e)
 
-import atest_utils
+from atest.logstorage import logstorage_utils
+from atest import atest_utils
+from atest import constants
 
 class RunFlowFlags():
     """Flags for oauth2client.tools.run_flow."""
@@ -117,6 +120,18 @@ class GCPHelper():
         Returns:
             An oauth2client.OAuth2Credentials instance.
         """
+        credentials = None
+        # SSO auth
+        try:
+            token = self._get_sso_access_token()
+            credentials = oauth2_client.AccessTokenCredentials(
+                token , 'atest')
+            if credentials:
+                return credentials
+        # pylint: disable=broad-except
+        except Exception as e:
+            logging.debug('Exception:%s', e)
+        # GCP auth flow
         credentials = self.get_refreshed_credential_from_file(creds_file_path)
         if not credentials:
             storage = multistore_file.get_credential_storage(
@@ -130,20 +145,52 @@ class GCPHelper():
     def _run_auth_flow(self, storage):
         """Get user oauth2 credentials.
 
+        Using the loopback IP address flow for desktop clients.
+
         Args:
             storage: GCP storage object.
         Returns:
             An oauth2client.OAuth2Credentials instance.
         """
-        flags = RunFlowFlags(browser_auth=False)
+        flags = RunFlowFlags(browser_auth=True)
+
+        # Get a free port on demand.
+        port = None
+        while not port or port < 10000:
+            with socket() as local_socket:
+                local_socket.bind(('',0))
+                _, port = local_socket.getsockname()
+        _localhost_port = port
+        _direct_uri = f'http://localhost:{_localhost_port}'
         flow = oauth2_client.OAuth2WebServerFlow(
             client_id=self.client_id,
             client_secret=self.client_secret,
             scope=self.scope,
-            user_agent=self.user_agent)
+            user_agent=self.user_agent,
+            redirect_uri=f'{_direct_uri}')
         credentials = oauth2_tools.run_flow(
             flow=flow, storage=storage, flags=flags)
         return credentials
+
+    def _get_sso_access_token(self):
+        """Use stubby command line to exchange corp sso to a scoped oauth
+        token.
+
+        Returns:
+            A token string.
+        """
+        if not constants.TOKEN_EXCHANGE_COMMAND:
+            return None
+
+        request = constants.TOKEN_EXCHANGE_REQUEST.format(
+            user=getpass.getuser(), scope=constants.SCOPE)
+        # The output format is: oauth2_token: "<TOKEN>"
+        return subprocess.run(constants.TOKEN_EXCHANGE_COMMAND,
+                              input=request,
+                              check=True,
+                              text=True,
+                              shell=True,
+                              stdout=subprocess.PIPE).stdout.split('"')[1]
 
 
 def do_upload_flow(extra_args):
@@ -167,7 +214,10 @@ def do_upload_flow(extra_args):
         if not os.path.exists(os.path.dirname(constants.TOKEN_FILE_PATH)):
             os.makedirs(os.path.dirname(constants.TOKEN_FILE_PATH))
         with open(constants.TOKEN_FILE_PATH, 'w') as token_file:
-            token_file.write(creds.token_response['access_token'])
+            if creds.token_response:
+                token_file.write(creds.token_response['access_token'])
+            else:
+                token_file.write(creds.access_token)
         return creds, inv
     return None, None
 

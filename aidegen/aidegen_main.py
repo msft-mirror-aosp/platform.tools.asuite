@@ -24,7 +24,7 @@ This CLI generates project files for using in IntelliJ, such as:
     - .idea/vcs.xml
     - .idea/.name
     - .idea/copyright/Apache_2.xml
-    - .idea/copyright/progiles_settings.xml
+    - .idea/copyright/profiles_settings.xml
 
 - Sample usage:
     - Change directory to AOSP root first.
@@ -75,8 +75,9 @@ _LAUNCH_ECLIPSE_SUCCESS_MSG = (
     'Choose the root directory -> click \'Finish\'.')
 _IDE_CACHE_REMINDER_MSG = (
     'To prevent the existed IDE cache from impacting your IDE dependency '
-    'analysis, please consider to clear IDE caches if necessary. To do that, in'
-    ' IntelliJ IDEA, go to [File > Invalidate Caches -> Invalidate and Restart].')
+    'analysis, please consider to clear IDE caches if necessary. To do that, '
+    'in IntelliJ IDEA, go to [File > Invalidate Caches -> '
+    'Invalidate and Restart].')
 
 _MAX_TIME = 1
 _SKIP_BUILD_INFO_FUTURE = ''.join([
@@ -96,6 +97,7 @@ _LANGUAGE_OPTIONS = [constant.JAVA, constant.C_CPP]
 _NO_ANY_PROJECT_EXIST = 'There is no Java, C/C++ or Rust target.'
 _NO_LANGUAGE_PROJECT_EXIST = 'There is no {} target.'
 _NO_IDE_LAUNCH_PATH = 'Can not find the IDE path : {}'
+
 
 def _parse_args(args):
     """Parse command line arguments.
@@ -229,7 +231,7 @@ def _launch_ide(ide_util_obj, project_absolute_path):
 def _launch_native_projects(ide_util_obj, args, cmakelists):
     """Launches C/C++ projects with IDE.
 
-    AIDEGen provides the IDE argument for CLion, but there's still a implicit
+    AIDEGen provides the IDE argument for CLion, but there's still an implicit
     way to launch it. The rules to launch it are:
     1. If no target IDE, we don't have to launch any IDE for C/C++ project.
     2. If the target IDE is IntelliJ or Eclipse, we should launch C/C++
@@ -292,7 +294,7 @@ def _launch_ide_by_module_contents(args, ide_util_obj, language,
             launch C/C++ projects of frameworks/base in CLion.
          c) aidegen external/rust/crates/protobuf -i v
             launch Rust project of external/rust/crates/protobuf in VS Code.
-      3. If the launguage is specific, launch relative language projects in the
+      3. If the language is specific, launch relative language projects in the
          relative IDE.
          a) aidegen frameworks/base -l j
             launch Java projects of frameworks/base in IntelliJ.
@@ -454,6 +456,7 @@ def _get_rust_project_paths(rtargets, root_dir):
         abs_paths.append(path)
     return abs_paths
 
+
 def _get_targets_from_args(targets, android_tree):
     """Gets targets for specific argument.
 
@@ -475,6 +478,7 @@ def _get_targets_from_args(targets, android_tree):
     if android_tree:
         return []
     return targets
+
 
 @common_util.time_logged(message=_TIME_EXCEED_MSG, maximum=_MAX_TIME)
 def main_with_message(args):
@@ -548,7 +552,7 @@ def main(argv):
             traceback_str = ''.join(traceback_list)
             aidegen_metrics.ends_asuite_metrics(exit_code, traceback_str,
                                                 error_message)
-            # print out the trackback message for developers to debug
+            # print out the traceback message for developers to debug
             print(traceback_str)
             raise err
     finally:

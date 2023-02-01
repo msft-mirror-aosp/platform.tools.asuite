@@ -69,6 +69,9 @@ _LINKFILE_WARNING = (
 _RUST_PROJECT_JSON = 'out/soong/rust-project.json'
 
 
+# Generators are slightly more inefficient when all the values have to be
+# traversed most of the time.
+# pylint: disable=use-a-generator
 # pylint: disable=dangerous-default-value
 @common_util.back_to_cwd
 @common_util.time_logged
@@ -140,7 +143,8 @@ def _build_bp_info(module_info, main_project=None, verbose=False,
 
     logging.warning(
         '\nGenerate files:\n %s by atest build method.', files)
-    build_with_on_cmd = atest_utils.build([_TARGET], verbose, env_on)
+    atest_utils.update_build_env(env_on)
+    build_with_on_cmd = atest_utils.build([_TARGET], verbose)
 
     # For Android Rust projects, we need to create a symbolic link to the file
     # out/soong/rust-project.json to launch the rust projects in IDEs.
@@ -281,9 +285,9 @@ def _copy_needed_items_from(mk_dict):
     Returns:
         A merged dictionary.
     """
-    merged_dict = dict()
+    merged_dict = {}
     for module in mk_dict.keys():
-        merged_dict[module] = dict()
+        merged_dict[module] = {}
         for key in mk_dict[module].keys():
             if key in _MERGE_NEEDED_ITEMS and mk_dict[module][key] != []:
                 merged_dict[module][key] = mk_dict[module][key]
@@ -305,8 +309,8 @@ def _merge_dict(mk_dict, bp_dict):
     """
     merged_dict = _copy_needed_items_from(mk_dict)
     for module in bp_dict.keys():
-        if module not in merged_dict.keys():
-            merged_dict[module] = dict()
+        if module not in merged_dict:
+            merged_dict[module] = {}
         _merge_module_keys(merged_dict[module], bp_dict[module])
     return merged_dict
 

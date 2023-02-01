@@ -27,16 +27,16 @@ import re
 import shutil
 import subprocess
 import sys
+import tempfile
 import time
-import xml.etree.ElementTree as ET
 
 from pathlib import Path
 
-import atest_utils as au
-import constants
+from atest import atest_utils as au
+from atest import constants
 
-from atest_enum import ExitCode
-from metrics import metrics_utils
+from atest.atest_enum import DetectType, ExitCode
+from atest.metrics import metrics, metrics_utils
 
 UPDATEDB = 'updatedb'
 LOCATE = 'locate'
@@ -73,12 +73,15 @@ PRUNENAMES = ['.abc', '.appveyor', '.azure-pipelines',
               '.travis_scripts',
               '.tx',
               '.vscode']
+PRUNEPATHS = ['prebuilts']
+ACLOUD_REPORT_FILE_RE = re.compile(r'.*--report[_-]file(=|\s+)(?P<report_file>[\w/.]+)')
 
 def _delete_indexes():
     """Delete all available index files."""
     for index in INDEXES:
         if os.path.isfile(index):
             os.remove(index)
+
 
 def get_report_file(results_dir, acloud_args):
     """Get the acloud report file path.
@@ -96,10 +99,11 @@ def get_report_file(results_dir, acloud_args):
     Returns:
         A string path of acloud report file.
     """
-    match = constants.ACLOUD_REPORT_FILE_RE.match(acloud_args)
+    match = ACLOUD_REPORT_FILE_RE.match(acloud_args)
     if match:
         return match.group('report_file')
     return os.path.join(results_dir, 'acloud_status.json')
+
 
 def has_command(cmd):
     """Detect if the command is available in PATH.
@@ -111,6 +115,7 @@ def has_command(cmd):
         True if found, False otherwise.
     """
     return bool(shutil.which(cmd))
+
 
 def run_updatedb(search_root=SEARCH_TOP, output_cache=constants.LOCATE_CACHE,
                  **kwargs):
@@ -124,7 +129,9 @@ def run_updatedb(search_root=SEARCH_TOP, output_cache=constants.LOCATE_CACHE,
             prunenames: A list of dirname that won't be cached(-n).
     """
     prunenames = kwargs.pop('prunenames', ' '.join(PRUNENAMES))
-    prunepaths = kwargs.pop('prunepaths', os.path.join(search_root, 'out'))
+    _prunepaths = [os.path.join(SEARCH_TOP, p) for p in PRUNEPATHS]
+    _prunepaths.append(str(au.get_build_out_dir()))
+    prunepaths = kwargs.pop('prunepaths', ' '.join(_prunepaths))
     if kwargs:
         raise TypeError('Unexpected **kwargs: %r' % kwargs)
     updatedb_cmd = [UPDATEDB, '-l0']
@@ -150,6 +157,7 @@ def run_updatedb(search_root=SEARCH_TOP, output_cache=constants.LOCATE_CACHE,
     except (KeyboardInterrupt, SystemExit):
         logging.error('Process interrupted or failure.')
 
+
 def _dump_index(dump_file, output, output_re, key, value):
     """Dump indexed data with pickle.
 
@@ -167,8 +175,9 @@ def _dump_index(dump_file, output, output_re, key, value):
       'Boo': {'/path3/to/Boo.java'}
     }
     """
+    temp_file = tempfile.NamedTemporaryFile()
     _dict = {}
-    with open(dump_file, 'wb') as cache_file:
+    with open(temp_file.name, 'wb') as cache_file:
         if isinstance(output, bytes):
             output = output.decode()
         for entry in output.splitlines():
@@ -179,25 +188,10 @@ def _dump_index(dump_file, output, output_re, key, value):
         try:
             pickle.dump(_dict, cache_file, protocol=2)
         except IOError:
-            os.remove(dump_file)
             logging.error('Failed in dumping %s', dump_file)
+    shutil.copy(temp_file.name, dump_file)
+    temp_file.close()
 
-# pylint: disable=anomalous-backslash-in-string
-def get_manifest_result(locatedb=constants.LOCATE_CACHE, **kwargs):
-    """Search all AndroidManifest.xml and grep package name.
-
-    Args:
-        locatedb: A string of the absolute path of the plocate.db
-        kwargs: (optional)
-            manifest_index: A path string of the manifest index.
-    """
-    find_manifest_cmd = (
-        f"{LOCATE} -d{locatedb} --regex '/AndroidManifest\.xml$'")
-    logging.debug('Probing AndroidManifest.xml files:\n %s', find_manifest_cmd)
-    result = subprocess.check_output(find_manifest_cmd, shell=True)
-
-    manifest_index = kwargs.pop('manifest_index', constants.MANIFEST_INDEX)
-    au.run_multi_proc(func=_index_manifests, args=[result, manifest_index])
 
 # pylint: disable=anomalous-backslash-in-string
 def get_cc_result(locatedb=constants.LOCATE_CACHE, **kwargs):
@@ -218,6 +212,7 @@ def get_cc_result(locatedb=constants.LOCATE_CACHE, **kwargs):
 
     cc_class_index = kwargs.pop('cc_class_index', constants.CC_CLASS_INDEX)
     au.run_multi_proc(func=_index_cc_classes, args=[result, cc_class_index])
+
 
 # pylint: disable=anomalous-backslash-in-string
 def get_java_result(locatedb=constants.LOCATE_CACHE, **kwargs):
@@ -247,44 +242,6 @@ def get_java_result(locatedb=constants.LOCATE_CACHE, **kwargs):
     au.run_multi_proc(func=_index_qualified_classes, args=[result, qclass_index])
     au.run_multi_proc(func=_index_packages, args=[result, package_index])
 
-def _index_manifests(output, index):
-    """Index AndroidManifest.xml files.
-
-    The data structure is like:
-    {
-      'com.android.settings': {'/path1/foo/boo/AndroidManifest.xml',
-                               '/path1/foo/AndroidManifest.xml'}
-    }
-
-    Args:
-        output: A string object generated by get_manifest_result().
-        index: A string path of the index file.
-    """
-    logging.debug('indexing package names for instrumentation tests.')
-    _dict = {}
-    manifest_package_re =  re.compile(r'[a-z][\w]+(\.[\w]+)*')
-    if isinstance(output, bytes):
-        output = output.decode()
-    manifest_files = output.splitlines()
-    with open(index, 'wb') as cache_file:
-        for xml in manifest_files:
-            try:
-                xml_root = ET.parse(xml).getroot()
-                for item in xml_root.findall('.'):
-                    if 'package' in item.attrib.keys():
-                        pkg = item.attrib.get('package')
-                        match = manifest_package_re.match(pkg)
-                        if match:
-                            _dict.setdefault(pkg, set()).add(xml)
-            except ET.ParseError:
-                logging.debug('%s: not a valid xml.', xml)
-        try:
-            pickle.dump(_dict, cache_file, protocol=2)
-        except (KeyboardInterrupt, SystemExit):
-            logging.error('Process interrupted or failure.')
-            os.remove(index)
-        except IOError:
-            logging.error('Failed in dumping %s', index)
 
 def _index_cc_classes(output, index):
     """Index CC classes.
@@ -304,6 +261,7 @@ def _index_cc_classes(output, index):
                 output_re=constants.CC_OUTPUT_RE,
                 key='test_name', value='file_path')
 
+
 def _index_java_classes(output, index):
     """Index Java classes.
     The data structure is like:
@@ -320,6 +278,7 @@ def _index_java_classes(output, index):
     _dump_index(dump_file=index, output=output,
                 output_re=constants.CLASS_OUTPUT_RE,
                 key='class', value='java_path')
+
 
 def _index_packages(output, index):
     """Index Java packages.
@@ -338,6 +297,7 @@ def _index_packages(output, index):
                 output=output, output_re=constants.PACKAGE_OUTPUT_RE,
                 key='package', value='java_dir')
 
+
 def _index_qualified_classes(output, index):
     """Index Fully Qualified Java Classes(FQCN).
     The data structure is like:
@@ -351,8 +311,9 @@ def _index_qualified_classes(output, index):
         index: A string path of the index file.
     """
     logging.debug('indexing qualified classes.')
+    temp_file = tempfile.NamedTemporaryFile()
     _dict = {}
-    with open(index, 'wb') as cache_file:
+    with open(temp_file.name, 'wb') as cache_file:
         if isinstance(output, bytes):
             output = output.decode()
         for entry in output.split('\n'):
@@ -364,9 +325,11 @@ def _index_qualified_classes(output, index):
             pickle.dump(_dict, cache_file, protocol=2)
         except (KeyboardInterrupt, SystemExit):
             logging.error('Process interrupted or failure.')
-            os.remove(index)
         except IOError:
             logging.error('Failed in dumping %s', index)
+    shutil.copy(temp_file.name, index)
+    temp_file.close()
+
 
 def index_targets(output_cache=constants.LOCATE_CACHE):
     """The entrypoint of indexing targets.
@@ -400,7 +363,6 @@ def index_targets(output_cache=constants.LOCATE_CACHE):
         logging.debug('Indexing targets... ')
         au.run_multi_proc(func=get_java_result, args=[output_cache])
         au.run_multi_proc(func=get_cc_result, args=[output_cache])
-        au.run_multi_proc(func=get_manifest_result, args=[output_cache])
     # Delete indexes when plocate.db is locked() or other CalledProcessError.
     # (b/141588997)
     except subprocess.CalledProcessError as err:
@@ -411,7 +373,8 @@ def index_targets(output_cache=constants.LOCATE_CACHE):
             logging.error(err.output)
         _delete_indexes()
 
-def acloud_create(report_file, args="", no_metrics_notice=True):
+
+def acloud_create(report_file, args, no_metrics_notice=True):
     """Method which runs acloud create with specified args in background.
 
     Args:
@@ -420,8 +383,9 @@ def acloud_create(report_file, args="", no_metrics_notice=True):
         no_metrics_notice: Boolean whether sending data to metrics or not.
     """
     notice = constants.NO_METRICS_ARG if no_metrics_notice else ""
-    match = constants.ACLOUD_REPORT_FILE_RE.match(args)
-    report_file_arg = '--report-file={}'.format(report_file) if not match else ""
+    match = ACLOUD_REPORT_FILE_RE.match(args)
+    report_file_arg = f'--report-file={report_file}' if not match else ""
+
     # (b/161759557) Assume yes for acloud create to streamline atest flow.
     acloud_cmd = ('acloud create -y {ACLOUD_ARGS} '
                   '{REPORT_FILE_ARG} '
@@ -437,17 +401,48 @@ def acloud_create(report_file, args="", no_metrics_notice=True):
     acloud_duration = time.time() - start
     logging.info('"acloud create" process has completed.')
     # Insert acloud create duration into the report file.
-    if au.is_valid_json_file(report_file):
+    result = au.load_json_safely(report_file)
+    if result:
+        result[ACLOUD_DURATION] = acloud_duration
         try:
-            with open(report_file, 'r') as _rfile:
-                result = json.load(_rfile)
-            result[ACLOUD_DURATION] = acloud_duration
             with open(report_file, 'w+') as _wfile:
                 _wfile.write(json.dumps(result))
         except OSError as e:
-            logging.error("Failed dumping duration to the report file: %s", str(e))
+            logging.error("Failed dumping duration to the report file: %s",
+                          str(e))
 
-def probe_acloud_status(report_file):
+
+def acloud_create_validator(results_dir, args):
+    """Check lunch'd target before running 'acloud create'.
+
+    Args:
+        results_dir: A string of the results directory.
+        args: An argparse.Namespace object.
+
+    Returns:
+        If the target is valid:
+            A tuple of (multiprocessing.Process,
+                        report_file path)
+        else:
+            A tuple of (None, None)
+    """
+    target = os.getenv('TARGET_PRODUCT', "")
+    if not '_cf_' in target:
+        au.colorful_print(
+            f'{target} is not in cuttlefish family; will not create any AVD.',
+            constants.RED)
+        return None, None
+    if args.start_avd:
+        args.acloud_create = []
+    acloud_args = ' '.join(args.acloud_create)
+    report_file = get_report_file(results_dir, acloud_args)
+    acloud_proc = au.run_multi_proc(
+        func=acloud_create,
+        args=[report_file, acloud_args, args.no_metrics])
+    return acloud_proc, report_file
+
+
+def probe_acloud_status(report_file, find_build_duration):
     """Method which probes the 'acloud create' result status.
 
     If the report file exists and the status is 'SUCCESS', then the creation is
@@ -455,6 +450,7 @@ def probe_acloud_status(report_file):
 
     Args:
         report_file: A path string of acloud report file.
+        find_build_duration: A float of seconds.
 
     Returns:
         0: success.
@@ -462,8 +458,8 @@ def probe_acloud_status(report_file):
         9: invalid acloud create arguments.
     """
     # 1. Created but the status is not 'SUCCESS'
-    if os.path.exists(report_file):
-        if not au.is_valid_json_file(report_file):
+    if Path(report_file).exists():
+        if not au.load_json_safely(report_file):
             return ExitCode.AVD_CREATE_FAILURE
         with open(report_file, 'r') as rfile:
             result = json.load(rfile)
@@ -475,6 +471,22 @@ def probe_acloud_status(report_file):
             is_remote_instance = result.get('command') == 'create_cf'
             adb_ip = '127.0.0.1' if is_remote_instance else '0.0.0.0'
             os.environ[constants.ANDROID_SERIAL] = f'{adb_ip}:{adb_port}'
+
+            acloud_duration = get_acloud_duration(report_file)
+            if find_build_duration - acloud_duration >= 0:
+                # find+build took longer, saved acloud create time.
+                logging.debug('Saved acloud create time: %ss.',
+                              acloud_duration)
+                metrics.LocalDetectEvent(
+                    detect_type=DetectType.ACLOUD_CREATE,
+                    result=round(acloud_duration))
+            else:
+                # acloud create took longer, saved find+build time.
+                logging.debug('Saved Find and Build time: %ss.',
+                              find_build_duration)
+                metrics.LocalDetectEvent(
+                    detect_type=DetectType.FIND_BUILD,
+                    result=round(find_build_duration))
             return ExitCode.SUCCESS
         au.colorful_print(
             'acloud create failed. Please check\n{}\nfor detail'.format(
@@ -485,6 +497,7 @@ def probe_acloud_status(report_file):
     logging.error('Invalid acloud arguments found!')
     return ExitCode.AVD_INVALID_ARGS
 
+
 def get_acloud_duration(report_file):
     """Method which gets the duration of 'acloud create' from a report file.
 
@@ -494,10 +507,10 @@ def get_acloud_duration(report_file):
     Returns:
         An float of seconds which acloud create takes.
     """
-    if not au.is_valid_json_file(report_file):
+    content = au.load_json_safely(report_file)
+    if not content:
         return 0
-    with open(report_file, 'r') as rfile:
-        return json.load(rfile).get(ACLOUD_DURATION, 0)
+    return content.get(ACLOUD_DURATION, 0)
 
 
 if __name__ == '__main__':

@@ -30,9 +30,9 @@ import os
 from collections import namedtuple
 from typing import Any, Dict
 
-import atest_error
-import atest_utils
-import constants
+from atest import atest_error
+from atest import atest_utils
+from atest import constants
 
 OLD_OUTPUT_ENV_VAR = 'ATEST_OLD_OUTPUT'
 
@@ -66,10 +66,10 @@ class TestRunnerBase:
             raise atest_error.NoTestRunnerExecutable('Class var EXECUTABLE is '
                                                      'not defined.')
         if kwargs:
-            for k, v in kwargs.items():
-                if not 'test_infos' in k:
+            for key, value in kwargs.items():
+                if not 'test_infos' in key:
                     logging.debug('ignoring the following args: %s=%s',
-                                  k, v)
+                                  key, value)
 
     def run(self, cmd, output_to_stdout=False, env_vars=None):
         """Shell out and execute command.

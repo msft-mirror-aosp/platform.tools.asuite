@@ -72,12 +72,12 @@ import zipfile
 
 from collections import OrderedDict
 
-import constants
-import atest_configs
-import atest_utils as au
+from atest import constants
+from atest import atest_configs
+from atest import atest_utils as au
 
-from atest_enum import ExitCode
-from test_runners import test_runner_base
+from atest.atest_enum import ExitCode
+from atest.test_runners import test_runner_base
 
 UNSUPPORTED_FLAG = 'UNSUPPORTED_RUNNER'
 FAILURE_FLAG = 'RUNNER_FAILURE'
@@ -393,7 +393,7 @@ class ResultReporter:
         for runner_name, groups in self.runners.items():
             if groups == UNSUPPORTED_FLAG:
                 print(f'Pretty output does not support {runner_name}. '
-                      f'See raw output above.')
+                      r'See raw output above.')
                 continue
             if groups == FAILURE_FLAG:
                 tests_ret = ExitCode.TEST_FAILURE
@@ -403,11 +403,10 @@ class ResultReporter:
             for group_name, stats in groups.items():
                 name = group_name if group_name else runner_name
                 summary = self.process_summary(name, stats)
-                if stats.failed > 0:
+                if stats.failed > 0 or stats.run_errors:
                     tests_ret = ExitCode.TEST_FAILURE
-                if stats.run_errors:
-                    tests_ret = ExitCode.TEST_FAILURE
-                    failed_sum += 1 if not stats.failed else 0
+                    if stats.run_errors:
+                        failed_sum += 1 if not stats.failed else 0
                 if not ITER_SUMMARY:
                     print(summary)
         self.run_stats.perf_info.print_perf_info()
@@ -576,7 +575,7 @@ class ResultReporter:
             error_label = au.colorize('(Completed With ERRORS)', constants.RED)
             # Only extract host_log_content if test name is tradefed
             # Import here to prevent circular-import error.
-            from test_runners import atest_tf_test_runner
+            from atest.test_runners import atest_tf_test_runner
             if name == atest_tf_test_runner.AtestTradefedTestRunner.NAME:
                 find_logs = au.find_files(self.log_path,
                                           file_name=constants.TF_HOST_LOG)
@@ -708,10 +707,10 @@ class ResultReporter:
                 print(': {} {}'.format(au.colorize(test.status, color),
                                        test.test_time))
             if test.status == test_runner_base.PASSED_STATUS:
-                for key, data in test.additional_info.items():
+                for key, data in sorted(test.additional_info.items()):
                     if key not in BENCHMARK_EVENT_KEYS:
                         print('\t%s: %s' % (au.colorize(key, constants.BLUE),
                                             data))
             if test.status == test_runner_base.FAILED_STATUS:
-                print('\nSTACKTRACE:\n%s' % test.details)
+                print(f'\nSTACKTRACE:\n{test.details}')
         self.pre_test = test
