@@ -49,9 +49,9 @@ try:
 except ModuleNotFoundError as e:
     logging.debug('Import error due to %s', e)
 
-from logstorage import logstorage_utils
-import atest_utils
-import constants
+from atest.logstorage import logstorage_utils
+from atest import atest_utils
+from atest import constants
 
 class RunFlowFlags():
     """Flags for oauth2client.tools.run_flow."""

@@ -25,15 +25,15 @@ import unittest
 
 from unittest import mock
 
-import atest_error
-import constants
-import module_info
-import test_runner_handler
-import unittest_constants as uc
+from atest import atest_error
+from atest import constants
+from atest import module_info
+from atest import test_runner_handler
+from atest import unittest_constants as uc
 
-from metrics import metrics
-from test_finders import test_info
-from test_runners import test_runner_base as tr_base
+from atest.metrics import metrics
+from atest.test_finders import test_info
+from atest.test_runners import test_runner_base as tr_base
 
 FAKE_TR_NAME_A = 'FakeTestRunnerA'
 FAKE_TR_NAME_B = 'FakeTestRunnerB'
@@ -94,7 +94,7 @@ class TestRunnerHandlerUnittests(unittest.TestCase):
     }
 
     def setUp(self):
-        mock.patch('test_runner_handler._get_test_runners',
+        mock.patch('atest.test_runner_handler._get_test_runners',
                    return_value=self._TEST_RUNNERS).start()
 
     def tearDown(self):
@@ -134,7 +134,8 @@ class TestRunnerHandlerUnittests(unittest.TestCase):
         results_dir = ""
         extra_args = {}
         mod_info = module_info.ModuleInfo(
-            module_file=os.path.join(uc.TEST_DATA_DIR, uc.JSON_FILE))
+            module_file=os.path.join(uc.TEST_DATA_DIR, uc.JSON_FILE),
+            index_dir=tempfile.NamedTemporaryFile().name)
         # Tests both run_tests return 0
         test_infos = [MODULE_INFO_A, MODULE_INFO_A_AGAIN]
         self.assertEqual(

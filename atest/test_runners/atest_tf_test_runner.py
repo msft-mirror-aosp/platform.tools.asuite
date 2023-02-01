@@ -31,21 +31,22 @@ from functools import partial
 from pathlib import Path
 from typing import Any, List, Tuple
 
-import atest_configs
-import atest_error
-import atest_utils
-import constants
-import module_info
-import result_reporter
+from atest import atest_configs
+from atest import atest_error
+from atest import atest_utils
+from atest import constants
+from atest import module_info
+from atest import result_reporter
 
-from atest_enum import DetectType, ExitCode
-from logstorage import atest_gcp_utils
-from logstorage import logstorage_utils
-from metrics import metrics
-from test_finders import test_finder_utils
-from test_finders import test_info
-from test_runners import test_runner_base as trb
-from .event_handler import EventHandler
+from atest.atest_enum import DetectType, ExitCode
+from atest.coverage import coverage
+from atest.logstorage import atest_gcp_utils
+from atest.logstorage import logstorage_utils
+from atest.metrics import metrics
+from atest.test_finders import test_finder_utils
+from atest.test_finders import test_info
+from atest.test_runners import test_runner_base as trb
+from atest.test_runners.event_handler import EventHandler
 
 POLL_FREQ_SECS = 10
 SOCKET_HOST = '127.0.0.1'
@@ -79,6 +80,7 @@ _TF_EXIT_CODE = [
     'NO_DEVICE_ALLOCATED',
     'WRONG_JAVA_VERSION']
 
+MAINLINE_LOCAL_DOC = 'go/mainline-local-build'
 
 class TradeFedExitError(Exception):
     """Raised when TradeFed exists before test run has finished."""
@@ -128,19 +130,26 @@ class AtestTradefedTestRunner(trb.TestRunnerBase):
         log_args = {'log_root_option_name': constants.LOG_ROOT_OPTION_NAME,
                     'log_ext_option': constants.LOG_SAVER_EXT_OPTION,
                     'log_path': self.log_path,
-                    'proto_path': os.path.join(self.results_dir, constants.ATEST_TEST_RECORD_PROTO)}
-        self.run_cmd_dict = {'env': self._get_ld_library_path(),
+                    'proto_path': os.path.join(
+                        self.results_dir,
+                        constants.ATEST_TEST_RECORD_PROTO)}
+        self.run_cmd_dict = {'env': '',
                              'exe': self.EXECUTABLE,
                              'template': self._TF_TEMPLATE,
                              'log_saver': constants.ATEST_TF_LOG_SAVER,
                              'tf_customize_template': '',
                              'args': '',
                              'log_args': self._LOG_ARGS.format(**log_args)}
+        if kwargs.get('extra_args', {}).get(constants.LD_LIBRARY_PATH, False):
+            self.run_cmd_dict.update({'env': self._get_ld_library_path()})
         self.is_verbose = logging.getLogger().isEnabledFor(logging.DEBUG)
         self.root_dir = os.environ.get(constants.ANDROID_BUILD_TOP)
 
-    def _get_ld_library_path(self):
-        """Get the extra environment setup string for running TF.
+    def _get_ld_library_path(self) -> str:
+        """Get the corresponding LD_LIBRARY_PATH string for running TF.
+
+        This method will insert $ANDROID_HOST_OUT/{lib,lib64} to LD_LIBRARY_PATH
+        and returns the updated LD_LIBRARY_PATH.
 
         Returns:
             Strings for the environment passed to TF. Currently only
@@ -153,11 +162,8 @@ class AtestTradefedTestRunner(trb.TestRunnerBase):
         # due to ATest by default only testing the main abi and even a 32bit
         # only target the lib64 folder is actually not exist.
         lib_dirs = ['lib64', 'lib']
-        path = ''
-        for lib in lib_dirs:
-            lib_dir = os.path.join(out_dir, lib)
-            path = path + lib_dir + ':'
-        return 'LD_LIBRARY_PATH=%s' % path
+        path = ':'.join([os.path.join(out_dir, dir) for dir in lib_dirs])
+        return f'LD_LIBRARY_PATH={path}:{os.getenv("LD_LIBRARY_PATH", "")}'
 
     def _try_set_gts_authentication_key(self):
         """Set GTS authentication key if it is available or exists.
@@ -340,9 +346,9 @@ class AtestTradefedTestRunner(trb.TestRunnerBase):
                     inputs.pop().close()
                     if not reporter.all_test_results:
                         atest_utils.colorful_print(
-                            r'No test to run. Please check: '
-                            r'{} for detail.'.format(reporter.log_path),
-                            constants.RED, highlight=True)
+                            r'No test to run. Test Logs have saved in '
+                            f'{reporter.log_path}.',
+                            constants.RED, constants.WHITE)
                     if not data_map:
                         metrics.LocalDetectEvent(
                             detect_type=DetectType.TF_EXIT_CODE,
@@ -506,7 +512,9 @@ class AtestTradefedTestRunner(trb.TestRunnerBase):
                 args_to_append.append(constants.TF_ENABLE_PARAMETERIZED_MODULES)
         # If all the test config has config with auto enable parameter, force
         # exclude those default parameters(ex: instant_app, secondary_user)
-        if self._is_all_tests_parameter_auto_enabled(test_infos):
+        # TODO: (b/228433541) Remove the limitation after the root cause fixed.
+        if (len(test_infos) <= 1 and
+                self._is_all_tests_parameter_auto_enabled(test_infos)):
             if constants.TF_ENABLE_PARAMETERIZED_MODULES not in args_to_append:
                 args_to_append.append(constants.TF_ENABLE_PARAMETERIZED_MODULES)
                 for exclude_parameter in constants.DEFAULT_EXCLUDE_PARAS:
@@ -573,6 +581,9 @@ class AtestTradefedTestRunner(trb.TestRunnerBase):
                              % constants.DEVICE_SETUP_PREPARER)
         for info in test_infos:
             if constants.TEST_WITH_MAINLINE_MODULES_RE.match(info.test_name):
+                # TODO(b/253641058) Remove this once mainline module
+                # binaries are stored under testcase directory.
+                self._copy_mainline_module_binary(info.mainline_modules)
                 test_args.append(constants.TF_ENABLE_MAINLINE_PARAMETERIZED_MODULES)
                 break
         # For detailed logs, set TF options log-level/log-level-display as
@@ -584,7 +595,8 @@ class AtestTradefedTestRunner(trb.TestRunnerBase):
         if not constants.TF_EARLY_DEVICE_RELEASE in extra_args:
             test_args.extend(['--no-early-device-release'])
 
-        args_to_add, args_not_supported = self._parse_extra_args(test_infos, extra_args)
+        args_to_add, args_not_supported = self._parse_extra_args(
+            test_infos, extra_args)
 
         # If multiple devices in test config, automatically append
         # --replicate-parent-setup and --multi-device-count
@@ -593,14 +605,16 @@ class AtestTradefedTestRunner(trb.TestRunnerBase):
             args_to_add.append('--replicate-parent-setup')
             args_to_add.append('--multi-device-count')
             args_to_add.append(str(device_count))
-
-        # TODO(b/122889707) Remove this after finding the root cause.
-        env_serial = os.environ.get(constants.ANDROID_SERIAL)
-        # Use the env variable ANDROID_SERIAL if it's set by user but only when
-        # the target tests are not deviceless tests.
-        if env_serial and '--serial' not in args_to_add and '-n' not in args_to_add:
-            args_to_add.append("--serial")
-            args_to_add.append(env_serial)
+            os.environ.pop(constants.ANDROID_SERIAL, None)
+        else:
+            # TODO(b/122889707) Remove this after finding the root cause.
+            env_serial = os.environ.get(constants.ANDROID_SERIAL)
+            # Use the env variable ANDROID_SERIAL if it's set by user but only
+            # when the target tests are not deviceless tests.
+            if (env_serial and '--serial' not in args_to_add
+                and '-n' not in args_to_add):
+                args_to_add.append("--serial")
+                args_to_add.append(env_serial)
 
         test_args.extend(args_to_add)
         if args_not_supported:
@@ -747,7 +761,12 @@ class AtestTradefedTestRunner(trb.TestRunnerBase):
         # both --module and --include-filter to TF, only test by --module will
         # be run. Make a check first, only use --module if all tests are all
         # parameter auto enabled.
-        use_module_arg = self._is_all_tests_parameter_auto_enabled(test_infos)
+        # Only auto-enable the parameter if there's only one test.
+        # TODO: (b/228433541) Remove the limitation after the root cause fixed.
+        use_module_arg = False
+        if len(test_infos) <= 1:
+            use_module_arg = self._is_all_tests_parameter_auto_enabled(
+                test_infos)
 
         for info in test_infos:
             # Integration test exists in TF's jar, so it must have the option
@@ -813,8 +832,10 @@ class AtestTradefedTestRunner(trb.TestRunnerBase):
         Returns: A string of tradefed template options.
         """
         tf_templates = extra_args.get(constants.TF_TEMPLATE, [])
+        tf_template_keys = [i.split('=')[0] for i in tf_templates]
         for info in test_infos:
-            if info.aggregate_metrics_result:
+            if (info.aggregate_metrics_result
+                    and 'metric_post_processor' not in tf_template_keys):
                 template_key = 'metric_post_processor'
                 template_value = (
                     'google/template/postprocessors/metric-file-aggregate')
@@ -906,6 +927,48 @@ class AtestTradefedTestRunner(trb.TestRunnerBase):
                 if module_name and device_path:
                     atest_utils.copy_native_symbols(module_name, device_path)
 
+    # TODO(b/253641058) remove copying files once mainline module
+    # binaries are stored under testcase directory.
+    def _copy_mainline_module_binary(self, mainline_modules):
+        """Copies mainline module binaries to out/dist/mainline_modules_{arch}
+
+        Copies the mainline module binaries to the location that
+        MainlineModuleHandler in TF expects since there is no way to
+        explicitly tweak the search path.
+
+        Args:
+            mainline_modules: A list of mainline modules.
+        """
+        config = atest_utils.get_android_config()
+        arch = config.get('TARGET_ARCH')
+        dest_dir = atest_utils.DIST_OUT_DIR.joinpath(f'mainline_modules_{arch}')
+        dest_dir.mkdir(parents=True, exist_ok=True)
+
+        for module in mainline_modules:
+            target_module_info = self.module_info.get_module_info(module)
+            installed_paths = target_module_info[constants.MODULE_INSTALLED]
+
+            for installed_path in installed_paths:
+                if not re.search(atest_utils.MAINLINE_MODULES_EXT_RE, installed_path):
+                    atest_utils.colorful_print(
+                        '%s is not a apk or apex file. Did you run mainline '
+                        'local setup script? Please refer to %s' %
+                        (installed_path, MAINLINE_LOCAL_DOC),
+                        constants.YELLOW)
+                    continue
+                file_name = Path(installed_path).name
+                dest_path = Path(dest_dir).joinpath(file_name)
+                if dest_path.exists():
+                    atest_utils.colorful_print(
+                        'Replacing APEX in %s with %s' % (dest_path, installed_path),
+                        constants.CYAN)
+                    logging.debug(
+                        'deleting the old file: %s and copy a new binary',
+                        dest_path)
+                    dest_path.unlink()
+                shutil.copyfile(installed_path, dest_path)
+
+                break
 
 def generate_annotation_filter_args(
         arg_value: Any, mod_info: module_info.ModuleInfo,
@@ -1027,6 +1090,9 @@ def extra_args_to_tf_args(mod_info: module_info.ModuleInfo,
                 f'include-filter:{arg_value}',
                 '--test-arg',
                 'com.android.tradefed.testtype.GTest:native-test-flag:'
+                f'--gtest_filter={arg_value}',
+                '--test-arg',
+                'com.android.tradefed.testtype.HostGTest:native-test-flag:'
                 f'--gtest_filter={arg_value}'
             ],
         constants.TEST_TIMEOUT:
@@ -1043,7 +1109,8 @@ def extra_args_to_tf_args(mod_info: module_info.ModuleInfo,
                 '--test-arg',
                 'com.android.tradefed.testtype.GTest:'
                 f'native-test-timeout:{arg_value}',
-            ]
+            ],
+        constants.COVERAGE: coverage.tf_args,
     })
 
     for arg in extra_args:
@@ -1059,13 +1126,15 @@ def extra_args_to_tf_args(mod_info: module_info.ModuleInfo,
                    constants.INVOCATION_ID,
                    constants.WORKUNIT_ID,
                    constants.REQUEST_UPLOAD_RESULT,
+                   constants.DISABLE_UPLOAD_RESULT,
                    constants.LOCAL_BUILD_ID,
                    constants.BUILD_TARGET,
                    constants.ENABLE_DEVICE_PREPARER,
                    constants.DRY_RUN,
                    constants.VERIFY_ENV_VARIABLE,
                    constants.FLAKES_INFO,
-                   constants.DISABLE_UPLOAD_RESULT):
+                   constants.LD_LIBRARY_PATH,
+                   constants.DEVICE_ONLY):
             continue
         unsupported_args.append(arg)
     return supported_args, unsupported_args
