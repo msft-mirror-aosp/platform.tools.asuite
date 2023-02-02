@@ -505,7 +505,8 @@ class IdeIntelliJ(IdeBase):
         tmp_versions = all_versions.copy()
         for version in tmp_versions:
             real_version = os.path.realpath(version)
-            if os.path.islink(version.split('/bin')[0]):
+            if (os.path.islink(version.split('/bin')[0]) and
+                (real_version in all_versions)):
                 all_versions.remove(real_version)
             if config.AidegenConfig.deprecated_intellij_version(real_version):
                 all_versions.remove(version)
@@ -863,16 +864,17 @@ class IdeStudio(IdeBase):
         Returns:
             The sh full path, or None if no Studio version is installed.
         """
-        versions = self._get_existent_scripts_in_system()
-        if not versions:
+        all_versions = self._get_existent_scripts_in_system()
+        if not all_versions:
             return None
-        for version in list(versions):
+        for version in list(all_versions):
             real_version = os.path.realpath(version)
-            if os.path.islink(version.split('/bin')[0]):
-                versions.remove(real_version)
+            if (os.path.islink(version.split('/bin')[0]) and
+                (real_version in all_versions)):
+                all_versions.remove(real_version)
             if config.AidegenConfig.deprecated_studio_version(real_version):
-                versions.remove(version)
-        return self._get_user_preference(versions)
+                all_versions.remove(version)
+        return self._get_user_preference(all_versions)
 
     def apply_optional_config(self):
         """Do the configuration of Android Studio.
