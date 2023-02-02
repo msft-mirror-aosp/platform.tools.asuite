@@ -502,8 +502,7 @@ class IdeIntelliJ(IdeBase):
         ce_paths = ide_common_util.get_intellij_version_path(self._ls_ce_path)
         ue_paths = ide_common_util.get_intellij_version_path(self._ls_ue_path)
         all_versions = self._get_all_versions(ce_paths, ue_paths)
-        tmp_versions = all_versions.copy()
-        for version in tmp_versions:
+        for version in list(all_versions):
             real_version = os.path.realpath(version)
             if (os.path.islink(version.split('/bin')[0]) and
                 (real_version in all_versions)):
