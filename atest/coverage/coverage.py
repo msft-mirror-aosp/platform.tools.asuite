@@ -25,6 +25,7 @@ from atest import constants
 from atest import module_info
 from atest.test_finders import test_info
 
+CLANG_VERSION='r475365b'
 
 def build_env_vars():
     """Environment variables for building with code coverage instrumentation.
@@ -47,12 +48,15 @@ def tf_args(*value):
         A list of the command line arguments to append.
     """
     del value
+    build_top = Path(os.environ.get(constants.ANDROID_BUILD_TOP))
+    llvm_profdata = build_top.joinpath(
+        f'prebuilts/clang/host/linux-x86/clang-{CLANG_VERSION}')
     return ('--coverage',
             '--coverage-toolchain', 'JACOCO',
             '--coverage-toolchain', 'CLANG',
             '--auto-collect', 'JAVA_COVERAGE',
             '--auto-collect', 'CLANG_COVERAGE',
-            '--llvm-profdata-path', 'llvm-profdata')
+            '--llvm-profdata-path', str(llvm_profdata))
 
 
 def generate_coverage_report(results_dir: str,
@@ -70,18 +74,30 @@ def generate_coverage_report(results_dir: str,
 
     # Collect JaCoCo class jars from the build for coverage report generation.
     jacoco_report_jars = {}
+    unstripped_native_binaries = set()
     for module in dep_modules:
-        # Check if this has uninstrumented Java class files to report coverage.
         for path in mod_info.get_paths(module):
+            # Check for uninstrumented Java class files to report coverage.
             report_jar = soong_intermediates.joinpath(
                 path, module,
                 f'android_common_cov/jacoco-report-classes/{module}.jar')
             if os.path.exists(report_jar):
                 jacoco_report_jars[module] = report_jar
 
+            # Check for unstripped native binaries to report coverage.
+            symbols_dir = soong_intermediates.joinpath(
+                path, module,
+                'android_x86_cov/unstripped')
+            if symbols_dir.is_dir():
+                unstripped_native_binaries.update(symbols_dir.iterdir())
+
     if jacoco_report_jars:
         _generate_java_coverage_report(jacoco_report_jars, src_paths,
                                        results_dir, mod_info)
+
+    if unstripped_native_binaries:
+        _generate_native_coverage_report(unstripped_native_binaries,
+                                         results_dir)
 
 
 def _get_test_deps(test_infos, mod_info):
@@ -89,8 +105,6 @@ def _get_test_deps(test_infos, mod_info):
     deps = set()
 
     for info in test_infos:
-        # TestInfo.test_name may contain the Mainline modules in brackets, so
-        # strip them out.
         deps.add(info.raw_test_name)
         deps |= mod_info.get_module_dependency(info.raw_test_name, deps)
 
@@ -151,6 +165,39 @@ def _generate_java_coverage_report(report_jars, src_paths, results_dir,
         lcov_reports.append(dest)
 
     _generate_lcov_report(out_dir, lcov_reports, build_top)
+
+
+def _generate_native_coverage_report(unstripped_native_binaries, results_dir):
+    build_top = os.environ.get(constants.ANDROID_BUILD_TOP)
+    out_dir = os.path.join(results_dir, 'native_coverage')
+    profdata_files = atest_utils.find_files(results_dir, '*.profdata')
+
+    os.mkdir(out_dir)
+    cmd = ['llvm-cov',
+           'show',
+           '-format=html',
+           f'-output-dir={out_dir}',
+           f'-path-equivalence=/proc/self/cwd,{build_top}']
+    for profdata in profdata_files:
+        cmd.append('--instr-profile')
+        cmd.append(profdata)
+    for binary in unstripped_native_binaries:
+        # Exclude .rsp files. These are files containing the command line used
+        # to generate the unstripped binaries, but are stored in the same
+        # directory as the actual output binary.
+        if not binary.match('*.rsp'):
+            cmd.append(str(binary))
+
+    try:
+        subprocess.run(cmd, check=True,
+                       stdout=subprocess.PIPE,
+                       stderr=subprocess.STDOUT)
+        atest_utils.colorful_print(f'Native coverage written to {out_dir}.',
+                                   constants.GREEN)
+    except subprocess.CalledProcessError as err:
+        atest_utils.colorful_print('Failed to generate native code coverage.',
+                                   constants.RED)
+        logging.exception(err.stdout)
 
 
 def _generate_lcov_report(out_dir, reports, root_dir=None):
