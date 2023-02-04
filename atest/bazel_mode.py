@@ -103,6 +103,9 @@ class Features(enum.Enum):
     EXPERIMENTAL_HOST_DRIVEN_TEST = (
         '--experimental-host-driven-test',
         'Enables running host-driven device tests in Bazel mode.', True)
+    EXPERIMENTAL_ROBOLECTRIC_TEST = (
+        '--experimental-robolectric-test',
+        'Enables running Robolectric tests in Bazel mode.', True)
 
     def __init__(self, arg_flag, description, affects_workspace):
         self.arg_flag = arg_flag
@@ -241,6 +244,11 @@ class WorkspaceGenerator:
             if self.is_host_unit_test(info):
                 self._resolve_dependencies(
                     self._add_deviceless_test_target(info), seen)
+            elif (Features.EXPERIMENTAL_ROBOLECTRIC_TEST in
+                  self.enabled_features and
+                  self.is_modern_robolectric_test(name)):
+                self._resolve_dependencies(
+                    self._add_tradefed_robolectric_test_target(info), seen)
             elif (Features.EXPERIMENTAL_HOST_DRIVEN_TEST in
                   self.enabled_features and
                   self.mod_info.is_host_driven_test(info)):
@@ -307,6 +315,18 @@ class WorkspaceGenerator:
 
         return self._add_target(package_name, name, create)
 
+    def _add_tradefed_robolectric_test_target(self,
+                                              info: Dict[str, Any]) -> Target:
+        package_name = self._get_module_path(info)
+        name = f'{info[constants.MODULE_INFO_ID]}_host'
+
+        return self._add_target(
+            package_name,
+            name,
+            lambda : TestTarget.create_tradefed_robolectric_test_target(
+                name, package_name, info)
+        )
+
     def _add_prebuilt_target(self, info: Dict[str, Any]) -> Target:
         package_name = self._get_module_path(info)
         name = info[constants.MODULE_INFO_ID]
@@ -370,6 +390,12 @@ class WorkspaceGenerator:
     def is_host_unit_test(self, info: Dict[str, Any]) -> bool:
         return self.mod_info.is_testable_module(
             info) and self.mod_info.is_host_unit_test(info)
+
+    def is_modern_robolectric_test(self, module_name: str) -> bool:
+        # Only enable modern Robolectric tests since those are the only ones
+        # TF currently supports.
+        return self.mod_info.get_robolectric_type(
+            module_name) == constants.ROBOTYPE_MODERN
 
     def _generate_artifacts(self):
         """Generate workspace files on disk."""
@@ -637,6 +663,21 @@ class TestTarget(Target):
                 'tags': info.get(constants.MODULE_TEST_OPTIONS_TAGS, []),
             },
             TestTarget.DEVICE_TEST_PREREQUISITES,
+        )
+
+    @staticmethod
+    def create_tradefed_robolectric_test_target(name: str, package_name: str,
+                                                info: Dict[str, Any]):
+        return TestTarget(
+            package_name,
+            'tradefed_robolectric_test',
+            {
+                'name': name,
+                'test': ModuleRef.for_info(info),
+                'module_name': info["module_name"],
+                'tags': info.get(constants.MODULE_TEST_OPTIONS_TAGS, []),
+            },
+            TestTarget.DEVICELESS_TEST_PREREQUISITES,
         )
 
     def __init__(self, package_name: str, rule_name: str,
@@ -1185,6 +1226,17 @@ def _decorate_find_method(mod_info, finder_method_func, host, enabled_features):
             return test_infos
         for tinfo in test_infos:
             m_info = mod_info.get_module_info(tinfo.test_name)
+
+            # TODO(b/262200630): Refactor the duplicated logic in
+            # _decorate_find_method() and _add_test_module_targets() to
+            # determine whether a test should run with Atest Bazel Mode.
+            robolectric_type = mod_info.get_robolectric_type(tinfo.test_name)
+            # Only enable modern Robolectric tests since those are the only ones
+            # TF currently supports.
+            if robolectric_type == constants.ROBOTYPE_MODERN:
+                if Features.EXPERIMENTAL_ROBOLECTRIC_TEST in enabled_features:
+                    tinfo.test_runner = BazelTestRunner.NAME
+                continue
 
             # Only run device-driven tests in Bazel mode when '--host' is not
             # specified and the feature is enabled.

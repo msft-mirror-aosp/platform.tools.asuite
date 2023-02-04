@@ -128,6 +128,11 @@ class GenerationTestFixture(fake_filesystem_unittest.TestCase):
         for m in modules:
             m[constants.MODULE_INFO_ID] = m['module_name']
             mod_info.name_to_module_info[m['module_name']] = m
+            for path in m['path']:
+                if path in mod_info.path_to_module_info:
+                    mod_info.path_to_module_info[path].append(m)
+                else:
+                    mod_info.path_to_module_info[path] = [m]
 
         return mod_info
 
@@ -686,6 +691,66 @@ class HostUnitTestModuleTestTargetGenerationTest(GenerationTestFixture):
 
         self.assertIn('adb', str(context.warnings[0].message))
 
+
+class RobolectricTestModuleTestTargetGenerationTest(GenerationTestFixture):
+    """Tests for robolectric test module test target generation."""
+
+    def create_module_info(self, modules=None):
+        mod_info = super().create_module_info(modules)
+        mod_info.root_dir = self.src_root_path
+        return mod_info
+
+    def test_generate_robolectric_test_target(self):
+        module_name = 'hello_world_test'
+        module_path = 'example/tests'
+        android_bp_path = self.src_root_path.joinpath(
+            f'{module_path}/Android.bp')
+        self.fs.create_file(android_bp_path, contents='')
+        mod_info = self.create_module_info(modules=[
+            robolectric_test_module(
+                name=f'{module_name}', path=module_path),
+        ])
+
+        self.run_generator(mod_info, enabled_features=set([
+            bazel_mode.Features.EXPERIMENTAL_ROBOLECTRIC_TEST]))
+
+        self.assertInBuildFile(
+            'load("//bazel/rules:tradefed_test.bzl",'
+            ' "tradefed_robolectric_test")\n',
+            package=f'{module_path}',
+        )
+        self.assertTargetInWorkspace(f'{module_name}_host',
+                                     package=f'{module_path}')
+
+    def test_not_generate_when_feature_disabled(self):
+        module_name = 'hello_world_test'
+        module_path = 'example/tests'
+        android_bp_path = self.src_root_path.joinpath(
+            f'{module_path}/Android.bp')
+        self.fs.create_file(android_bp_path, contents='')
+        mod_info = self.create_module_info(modules=[
+            robolectric_test_module(
+                name=f'{module_name}', path=module_path),
+        ])
+
+        self.run_generator(mod_info)
+
+        self.assertFileNotInWorkspace('BUILD.bazel', package=f'{module_path}')
+
+    def test_not_generate_for_legacy_robolectric_test_type(self):
+        module_name = 'hello_world_test'
+        module_path = 'example/tests'
+        mod_info = self.create_module_info(modules=[
+            robolectric_test_module(
+                name=f'{module_name}', path=module_path),
+        ])
+
+        self.run_generator(mod_info, enabled_features=set([
+            bazel_mode.Features.EXPERIMENTAL_ROBOLECTRIC_TEST]))
+
+        self.assertFileNotInWorkspace('BUILD.bazel', package=f'{module_path}')
+
+
 class ModulePrebuiltTargetGenerationTest(GenerationTestFixture):
     """Tests for module prebuilt target generation."""
 
@@ -1210,6 +1275,11 @@ def device_test_module(**kwargs):
     return device_only_config(test_module(**kwargs))
 
 
+def robolectric_test_module(**kwargs):
+    kwargs.setdefault('name', 'hello_world_test')
+    return host_only_config(robolectric(test_module(**kwargs)))
+
+
 def host_module(**kwargs):
     m = module(**kwargs)
 
@@ -1264,7 +1334,7 @@ def module(
     m = {}
 
     m['module_name'] = name
-    m['class'] = classes
+    m['class'] = classes or ['']
     m['path'] = [path or '']
     m['installed'] = installed or []
     m['is_unit_test'] = 'false'
@@ -1299,6 +1369,11 @@ def rlib(info):
 
 def dylib(info):
     info['class'] = ['DYLIB_LIBRARIES']
+    return info
+
+
+def robolectric(info):
+    info['class'] = ['ROBOLECTRIC']
     return info
 
 
@@ -1450,9 +1525,6 @@ class PackageTest(fake_filesystem_unittest.TestCase):
 
 class DecorateFinderMethodTest(GenerationTestFixture):
     """Tests for _decorate_find_method()."""
-
-    def setUp(self):
-        self.setUpPyfakefs()
 
     def test_host_unit_test_with_host_arg_runner_is_overridden(self):
         original_find_method = lambda obj, test_id:(
