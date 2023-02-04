@@ -382,6 +382,53 @@ class BasicWorkspaceGenerationTest(GenerationTestFixture):
         self.assertFileInWorkspace('BUILD.bazel')
         self.assertFileInWorkspace('constants.bzl')
 
+    def test_generate_jdk_target(self):
+        gen = self.create_workspace_generator()
+
+        gen.generate()
+
+        self.assertInBuildFile(
+            'filegroup(\n'
+            f'    name = "{bazel_mode.JDK_NAME}",\n'
+            '    srcs = glob([\n'
+            f'        "{bazel_mode.JDK_NAME}_files/**",\n',
+            package=f'{bazel_mode.JDK_PACKAGE_NAME}'
+        )
+
+    def test_create_symlinks_to_jdk(self):
+        gen = self.create_workspace_generator()
+
+        gen.generate()
+
+        self.assertSymlinkTo(
+            self.workspace_out_path.joinpath(
+                f'{bazel_mode.JDK_PACKAGE_NAME}/{bazel_mode.JDK_NAME}_files'),
+            self.src_root_path.joinpath(f'{bazel_mode.JDK_SRC_ROOT}'))
+
+    def test_generate_android_all_target(self):
+        gen = self.create_workspace_generator()
+
+        gen.generate()
+
+        self.assertInBuildFile(
+            'filegroup(\n'
+            '    name = "android-all",\n'
+            '    srcs = glob([\n'
+            '        "android-all_files/**",\n',
+            package='android-all'
+        )
+
+    def test_create_symlinks_to_android_all(self):
+        module_name = 'android-all'
+        gen = self.create_workspace_generator()
+
+        gen.generate()
+
+        self.assertSymlinkTo(
+            self.workspace_out_path.joinpath(
+                f'{module_name}/{module_name}_files'),
+            self.host_out_path.joinpath(f'testcases/{module_name}'))
+
 
 class MultiConfigUnitTestModuleTestTargetGenerationTest(GenerationTestFixture):
     """Tests for test target generation of test modules with multi-configs."""
