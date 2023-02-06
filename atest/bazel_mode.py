@@ -953,16 +953,25 @@ class SoongPrebuiltTarget(Target):
                     gen.mod_info, info, configs, gen.src_root_path),
                 device_data_dep_refs = find_device_data_dep_refs(gen, info),
             ),
+            [
+                c for c in configs if c.name in map(
+                str.lower, info.get(constants.MODULE_SUPPORTED_VARIANTS, []))
+            ],
         )
 
-    def __init__(self, info: Dict[str, Any], package_name: str,
-                 config_files: Dict[Config, List[Path]], deps: Dependencies):
+    def __init__(self,
+                 info: Dict[str, Any],
+                 package_name: str,
+                 config_files: Dict[Config, List[Path]],
+                 deps: Dependencies,
+                 supported_configs: List[Config]):
         self._target_name = info[constants.MODULE_INFO_ID]
         self._module_name = info[constants.MODULE_NAME]
         self._package_name = package_name
         self.config_files = config_files
         self.deps = deps
         self.suites = info.get(constants.MODULE_COMPATIBILITY_SUITES, [])
+        self._supported_configs = supported_configs
 
     def name(self) -> str:
         return self._target_name
@@ -977,19 +986,17 @@ class SoongPrebuiltTarget(Target):
 
     @functools.lru_cache(maxsize=128)
     def supported_configs(self) -> Set[Config]:
+        # We deduce the supported configs from the installed paths since the
+        # build exports incorrect metadata for some module types such as
+        # Robolectric. The information exported from the build is only used if
+        # the module does not have any installed paths.
+        # TODO(b/232929584): Remove this once all modules correctly export the
+        #  supported variants.
         supported_configs = set(self.config_files.keys())
-
         if supported_configs:
             return supported_configs
 
-        # If a target has no installed files, then it supports the same
-        # configurations as its dependencies. This is required because some
-        # build modules are just intermediate targets that don't produce any
-        # output but that still have transitive dependencies.
-        for ref in self.deps.runtime_dep_refs:
-            supported_configs.update(ref.target().supported_configs())
-
-        return supported_configs
+        return self._supported_configs
 
     def dependencies(self) -> List[ModuleRef]:
         all_deps = set(self.deps.runtime_dep_refs)

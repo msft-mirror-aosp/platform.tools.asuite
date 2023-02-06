@@ -1125,17 +1125,36 @@ class ModuleSharedLibGenerationTest(GenerationTestFixture):
 
     def test_generate_target_for_rlib_dependency(self):
         mod_info = self.create_module_info(modules=[
-            supported_test_module(dependencies=['libhello']),
-            rlib(module(name='libhello'))
+            multi_config(host_unit_suite(module(
+                name='hello_world_test',
+                dependencies=['libhost', 'libdevice']))),
+            rlib(module(name='libhost', supported_variants=['HOST'])),
+            rlib(module(name='libdevice', supported_variants=['DEVICE'])),
         ])
 
         self.run_generator(mod_info)
 
         self.assertInBuildFile(
             'soong_uninstalled_prebuilt(\n'
-            '    name = "libhello",\n'
-            '    module_name = "libhello",\n'
+            '    name = "libhost",\n'
+            '    module_name = "libhost",\n'
             ')\n'
+        )
+        self.assertInBuildFile(
+            'soong_uninstalled_prebuilt(\n'
+            '    name = "libdevice",\n'
+            '    module_name = "libdevice",\n'
+            ')\n'
+        )
+        self.assertInBuildFile(
+            '    runtime_deps = select({\n'
+            '        "//bazel/rules:device": [\n'
+            '            "//:libdevice",\n'
+            '        ],\n'
+            '        "//bazel/rules:host": [\n'
+            '            "//:libhost",\n'
+            '        ],\n'
+            '    }),\n'
         )
 
     def test_generate_target_for_rlib_dylib_dependency(self):
@@ -1403,7 +1422,10 @@ def test_module(**kwargs):
     return test(module(**kwargs))
 
 
+# TODO(b/274822450): Using a builder pattern to reduce the number of parameters
+#  instead of disabling the warning.
 # pylint: disable=too-many-arguments
+# pylint: disable=too-many-locals
 def module(
     name=None,
     path=None,
@@ -1419,6 +1441,7 @@ def module(
     host_dependencies=None,
     target_dependencies=None,
     test_options_tags=None,
+    supported_variants=None,
 ):
     name = name or 'libhello'
 
@@ -1439,6 +1462,7 @@ def module(
     m['host_dependencies'] = host_dependencies or []
     m['target_dependencies'] = target_dependencies or []
     m['test_options_tags'] = test_options_tags or []
+    m['supported_variants'] = supported_variants or []
     return m
 
 
