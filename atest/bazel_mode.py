@@ -56,6 +56,12 @@ from atest.test_runners import test_runner_base as trb
 from atest.test_runners import atest_tf_test_runner as tfr
 
 
+# TODO(nelsonli): Deduce the JDK from the TF Robolectric test configuration
+#                 template so that it doesn't diverge when updated.
+JDK_PACKAGE_NAME = 'prebuilts/robolectric_jdk'
+JDK_NAME = 'jdk'
+JDK_SRC_ROOT = 'prebuilts/jdk/jdk17/linux-x86'
+
 _BAZEL_WORKSPACE_DIR = 'atest_bazel_workspace'
 _SUPPORTED_BAZEL_ARGS = MappingProxyType({
     # https://docs.bazel.build/versions/main/command-line-reference.html#flag--runs_per_test
@@ -103,6 +109,9 @@ class Features(enum.Enum):
     EXPERIMENTAL_HOST_DRIVEN_TEST = (
         '--experimental-host-driven-test',
         'Enables running host-driven device tests in Bazel mode.', True)
+    EXPERIMENTAL_ROBOLECTRIC_TEST = (
+        '--experimental-robolectric-test',
+        'Enables running Robolectric tests in Bazel mode.', True)
 
     def __init__(self, arg_flag, description, affects_workspace):
         self.arg_flag = arg_flag
@@ -241,6 +250,11 @@ class WorkspaceGenerator:
             if self.is_host_unit_test(info):
                 self._resolve_dependencies(
                     self._add_deviceless_test_target(info), seen)
+            elif (Features.EXPERIMENTAL_ROBOLECTRIC_TEST in
+                  self.enabled_features and
+                  self.is_modern_robolectric_test(name)):
+                self._resolve_dependencies(
+                    self._add_tradefed_robolectric_test_target(info), seen)
             elif (Features.EXPERIMENTAL_HOST_DRIVEN_TEST in
                   self.enabled_features and
                   self.mod_info.is_host_driven_test(info)):
@@ -307,6 +321,18 @@ class WorkspaceGenerator:
 
         return self._add_target(package_name, name, create)
 
+    def _add_tradefed_robolectric_test_target(
+        self, info: Dict[str, Any]) -> Target:
+        package_name = self._get_module_path(info)
+        name = f'{info[constants.MODULE_INFO_ID]}_host'
+
+        return self._add_target(
+            package_name,
+            name,
+            lambda : TestTarget.create_tradefed_robolectric_test_target(
+                name, package_name, info, f'//{JDK_PACKAGE_NAME}:{JDK_NAME}')
+        )
+
     def _add_prebuilt_target(self, info: Dict[str, Any]) -> Target:
         package_name = self._get_module_path(info)
         name = info[constants.MODULE_INFO_ID]
@@ -371,6 +397,12 @@ class WorkspaceGenerator:
         return self.mod_info.is_testable_module(
             info) and self.mod_info.is_host_unit_test(info)
 
+    def is_modern_robolectric_test(self, module_name: str) -> bool:
+        # Only enable modern Robolectric tests since those are the only ones
+        # TF currently supports.
+        return self.mod_info.get_robolectric_type(
+            module_name) == constants.ROBOTYPE_MODERN
+
     def _generate_artifacts(self):
         """Generate workspace files on disk."""
 
@@ -386,8 +418,37 @@ class WorkspaceGenerator:
                       target='prebuilts/build-tools')
         self._create_constants_file()
 
+        self._generate_robolectric_resources()
+
         for package in self.path_to_package.values():
             package.generate(self.workspace_out_path)
+
+    def _generate_robolectric_resources(self):
+        self._generate_jdk_resources()
+        self._generate_android_all_resources()
+
+    def _generate_jdk_resources(self):
+        # TODO(b/265596946): Create the JDK toolchain instead of using
+        # a filegroup.
+        return self._add_target(
+            JDK_PACKAGE_NAME,
+            JDK_NAME,
+            lambda : FilegroupTarget(
+                JDK_PACKAGE_NAME, JDK_NAME,
+                self.src_root_path.joinpath(JDK_SRC_ROOT))
+        )
+
+    def _generate_android_all_resources(self):
+        package_name = 'android-all'
+        name = 'android-all'
+
+        return self._add_target(
+            package_name,
+            name,
+            lambda : FilegroupTarget(
+                package_name, name,
+                self.host_out_path.joinpath(f'testcases/{name}'))
+        )
 
     def _symlink(self, *, src, target):
         """Create a symbolic link in workspace pointing to source file/dir.
@@ -581,6 +642,42 @@ class Target(ABC):
         pass
 
 
+class FilegroupTarget(Target):
+
+    def __init__(
+        self,
+        package_name: str,
+        target_name: str,
+        srcs_root: Path
+    ):
+        self._package_name = package_name
+        self._target_name = target_name
+        self._srcs_root = srcs_root
+
+    def name(self) -> str:
+        return self._target_name
+
+    def package_name(self) -> str:
+        return self._package_name
+
+    def write_to_build_file(self, f: IO):
+        writer = IndentWriter(f)
+        build_file_writer = BuildFileWriter(writer)
+
+        writer.write_line('filegroup(')
+
+        with writer.indent():
+            build_file_writer.write_string_attribute('name', self._target_name)
+            build_file_writer.write_glob_attribute(
+                'srcs', [f'{self._target_name}_files/**'])
+
+        writer.write_line(')')
+
+    def create_filesystem_layout(self, package_dir: Path):
+        symlink = package_dir.joinpath(f'{self._target_name}_files')
+        symlink.symlink_to(self._srcs_root)
+
+
 class TestTarget(Target):
     """Class for generating a test target."""
 
@@ -639,6 +736,26 @@ class TestTarget(Target):
             TestTarget.DEVICE_TEST_PREREQUISITES,
         )
 
+    @staticmethod
+    def create_tradefed_robolectric_test_target(
+        name: str,
+        package_name: str,
+        info: Dict[str, Any],
+        jdk_label: str
+    ):
+        return TestTarget(
+            package_name,
+            'tradefed_robolectric_test',
+            {
+                'name': name,
+                'test': ModuleRef.for_info(info),
+                'module_name': info["module_name"],
+                'tags': info.get(constants.MODULE_TEST_OPTIONS_TAGS, []),
+                'jdk' : jdk_label,
+            },
+            TestTarget.DEVICELESS_TEST_PREREQUISITES,
+        )
+
     def __init__(self, package_name: str, rule_name: str,
                  attributes: Dict[str, Any], prerequisites=frozenset()):
         self._attributes = attributes
@@ -695,6 +812,9 @@ class TestTarget(Target):
             build_file_writer.write_string_list_attribute(
                 'tags', sorted(self._attributes.get('tags', [])))
 
+            build_file_writer.write_label_attribute(
+                'jdk', self._attributes.get('jdk', None))
+
         writer.write_line(')')
 
 
@@ -709,6 +829,12 @@ class BuildFileWriter:
             return
 
         self._underlying.write_line(f'{attribute_name} = "{value}",')
+
+    def write_label_attribute(self, attribute_name: str, label_name: str):
+        if label_name is None:
+            return
+
+        self._underlying.write_line(f'{attribute_name} = "{label_name}",')
 
     def write_string_list_attribute(self, attribute_name, values):
         if not values:
@@ -735,6 +861,15 @@ class BuildFileWriter:
                 self._underlying.write_line(f'"{label}",')
 
         self._underlying.write_line('],')
+
+    def write_glob_attribute(self, attribute_name: str, patterns: List[str]):
+        self._underlying.write_line(f'{attribute_name} = glob([')
+
+        with self._underlying.indent():
+            for pattern in patterns:
+                self._underlying.write_line(f'"{pattern}",')
+
+        self._underlying.write_line(']),')
 
 
 @dataclasses.dataclass(frozen=True)
@@ -1185,6 +1320,17 @@ def _decorate_find_method(mod_info, finder_method_func, host, enabled_features):
             return test_infos
         for tinfo in test_infos:
             m_info = mod_info.get_module_info(tinfo.test_name)
+
+            # TODO(b/262200630): Refactor the duplicated logic in
+            # _decorate_find_method() and _add_test_module_targets() to
+            # determine whether a test should run with Atest Bazel Mode.
+            robolectric_type = mod_info.get_robolectric_type(tinfo.test_name)
+            # Only enable modern Robolectric tests since those are the only ones
+            # TF currently supports.
+            if robolectric_type == constants.ROBOTYPE_MODERN:
+                if Features.EXPERIMENTAL_ROBOLECTRIC_TEST in enabled_features:
+                    tinfo.test_runner = BazelTestRunner.NAME
+                continue
 
             # Only run device-driven tests in Bazel mode when '--host' is not
             # specified and the feature is enabled.

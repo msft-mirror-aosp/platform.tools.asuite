@@ -89,6 +89,11 @@ class ModuleInfo:
             module_file: String of path to file to load up. Used for testing.
             index_dir: String of path to store testable module index and md5.
         """
+        # TODO(b/263199608): Refactor the ModuleInfo constructor.
+        # The module-info constructor does too much. We should never be doing
+        # real work in a constructor and should only use it to inject
+        # dependencies.
+
         # force_build could be from "-m" or smart_build(build files change).
         self.force_build = force_build
         # update_merge_info flag will merge dep files only when any of them have
@@ -917,6 +922,19 @@ class ModuleInfo:
                 self.is_suite_in_compatibility_suites('host-unit-tests',
                                                       mod_info))
 
+    def is_robolectric_test_suite(self, mod_info) -> bool:
+        """Return True if 'robolectric-tests' in the compatibility_suites.
+
+        Args:
+            mod_info: ModuleInfo to check.
+
+        Returns:
+            True if the 'robolectric-tests' is in the compatibility_suites,
+            False otherwise.
+        """
+        return self.is_suite_in_compatibility_suites('robolectric-tests',
+                                                      mod_info)
+
     def is_device_driven_test(self, mod_info):
         """Return True if input module is device driven test, False otherwise.
 
@@ -926,6 +944,9 @@ class ModuleInfo:
         Returns:
             True if input module is device driven test, False otherwise.
         """
+        if self.is_robolectric_test_suite(mod_info):
+            return False
+
         return self.is_testable_module(mod_info) and 'DEVICE' in mod_info.get(
             constants.MODULE_SUPPORTED_VARIANTS, [])
 

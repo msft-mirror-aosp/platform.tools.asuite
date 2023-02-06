@@ -133,8 +133,6 @@ tradefed_deviceless_test = rule(
 
 def _tradefed_robolectric_test_impl(ctx):
     def add_android_all_files(ctx, tradefed_test_dir):
-        # Create `android_all` test files because they are required
-        # for running Robolectric tests by Tradefed.
         android_all_files = []
         for target in ctx.attr._android_all:
             for f in target.files.to_list():
@@ -146,11 +144,13 @@ def _tradefed_robolectric_test_impl(ctx):
 
     return _tradefed_test_impl(
         ctx,
-        tradefed_deps = ctx.attr._jdk,
+        data = [ctx.attr.jdk],
         tradefed_options = [
             "-n",
             "--prioritize-host-config",
             "--skip-host-arch-check",
+            "--test-arg",
+            "com.android.tradefed.testtype.IsolatedHostTest:java-folder:%s" % ctx.attr.jdk.label.package,
         ],
         test_host_deps = ctx.attr.test,
         add_extra_tradefed_test_files = add_android_all_files,
@@ -165,15 +165,11 @@ tradefed_robolectric_test = rule(
                 cfg = host_transition,
                 aspects = [soong_prebuilt_tradefed_test_aspect],
             ),
-            "_android_all": attr.label(
-                default = "//android-all:android-all",
-                cfg = host_transition,
-                aspects = [soong_prebuilt_tradefed_test_aspect],
+            "jdk": attr.label(
+                mandatory = True,
             ),
-            "_jdk": attr.label(
-                default = "//prebuilts/jdk:jdk",
-                cfg = host_transition,
-                aspects = [soong_prebuilt_tradefed_test_aspect],
+            "_android_all": attr.label_list(
+                default = ["//android-all:android-all"],
             ),
         },
     ),
@@ -257,7 +253,8 @@ def _tradefed_test_impl(
         test_host_deps = [],
         test_device_deps = [],
         path_additions = [],
-        add_extra_tradefed_test_files = lambda ctx, tradefed_test_dir: []):
+        add_extra_tradefed_test_files = lambda ctx, tradefed_test_dir: [],
+        data = []):
     path_additions = path_additions + [_BAZEL_WORK_DIR + ctx.file._adb.dirname]
 
     # Files required to run the host-side test.
@@ -326,7 +323,7 @@ def _tradefed_test_impl(
             test_host_runfiles,
             test_device_runfiles,
             ctx.runfiles(tradefed_test_files),
-        ]),
+        ] + [ctx.runfiles(d.files.to_list()) for d in data]),
     )]
 
 def _get_tradefed_deps(suites, tradefed_deps = []):
