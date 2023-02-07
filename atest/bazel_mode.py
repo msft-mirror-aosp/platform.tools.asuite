@@ -82,6 +82,12 @@ _SUPPORTED_BAZEL_ARGS = MappingProxyType({
         lambda arg_value: [item for sublist in arg_value for item in sublist]
 })
 
+# Maps Bazel configuration names to Soong variant names.
+_CONFIG_TO_VARIANT = {
+    'host': 'host',
+    'device': 'target',
+}
+
 
 class AbortRunException(Exception):
     pass
@@ -1513,7 +1519,29 @@ class BazelTestRunner(trb.TestRunnerBase):
 
         output = self.run_command(query_args, self.bazel_workspace)
 
-        return set(filter(bool, map(str.strip, output.splitlines())))
+        targets = set()
+        robolectric_tests = set(filter(
+            self._is_robolectric_test_suite,
+            [test.test_name for test in test_infos]))
+
+        modules_to_variant = _parse_cquery_output(output)
+
+        for module, variants in modules_to_variant.items():
+
+            # Skip specifying the build variant for Robolectric test modules
+            # since they are special. Soong builds them with the `target`
+            # variant although are installed as 'host' modules.
+            if module in robolectric_tests:
+                targets.add(module)
+                continue
+
+            targets.add(_soong_target_for_variants(module, variants))
+
+        return targets
+
+    def _is_robolectric_test_suite(self, module_name: str) -> bool:
+        return self.mod_info.is_robolectric_test_suite(
+            self.mod_info.get_module_info(module_name))
 
     def test_info_target_label(self, test: test_info.TestInfo) -> str:
         module_name = test.test_name
@@ -1633,3 +1661,27 @@ def parse_args(
 def _map_to_bazel_args(arg: str, arg_value: Any) -> List[str]:
     return _SUPPORTED_BAZEL_ARGS[arg](
         arg_value) if arg in _SUPPORTED_BAZEL_ARGS else []
+
+
+def _parse_cquery_output(output: str) -> Dict[str, Set[str]]:
+    module_to_build_variants = defaultdict(set)
+
+    for line in filter(bool, map(str.strip, output.splitlines())):
+        module_name, build_variant = line.split(':')
+        module_to_build_variants[module_name].add(build_variant)
+
+    return module_to_build_variants
+
+
+def _soong_target_for_variants(
+    module_name: str,
+    build_variants: Set[str]) -> str:
+
+    if not build_variants:
+        raise Exception(f'Missing the build variants for module {module_name} '
+                        f'in cquery output!')
+
+    if len(build_variants) > 1:
+        return module_name
+
+    return f'{module_name}-{_CONFIG_TO_VARIANT[list(build_variants)[0]]}'

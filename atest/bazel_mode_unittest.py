@@ -1914,7 +1914,7 @@ class BazelTestRunnerTest(unittest.TestCase):
 
     def test_trim_whitespace_in_bazel_query_output(self):
         run_command = self.mock_run_command(
-            return_value='\n'.join(['  test1  ', 'test2  ', '  ']))
+            return_value='\n'.join(['  test1:host  ', 'test2:device  ', '  ']))
         runner = self.create_bazel_test_runner(
             modules=[
                 supported_test_module(name='test1', path='path1'),
@@ -1924,7 +1924,35 @@ class BazelTestRunnerTest(unittest.TestCase):
 
         reqs = runner.get_test_runner_build_reqs([test_info_of('test1')])
 
-        self.assertSetEqual({'test1', 'test2'}, reqs)
+        self.assertSetEqual({'test1-host', 'test2-target'}, reqs)
+
+    def test_build_variants_in_bazel_query_output(self):
+        run_command = self.mock_run_command(
+            return_value='\n'.join([
+                'test1:host',
+                'test2:host', 'test2:device',
+                'test3:device',
+                'test4:host', 'test4:host',
+            ]))
+        runner = self.create_bazel_test_runner(
+            modules=[
+                supported_test_module(name='test1', path='path1'),
+                supported_test_module(name='test2', path='path2'),
+                supported_test_module(name='test3', path='path3'),
+                supported_test_module(name='test4', path='path4'),
+            ],
+            run_command = run_command,
+        )
+
+        reqs = runner.get_test_runner_build_reqs([
+            test_info_of('test1'),
+            test_info_of('test2'),
+            test_info_of('test3'),
+            test_info_of('test4')])
+
+        self.assertSetEqual(
+            {'test1-host', 'test2', 'test3-target', 'test4-host'},
+            reqs)
 
     def test_generate_single_run_command(self):
         test_infos = [test_info_of('test1')]
