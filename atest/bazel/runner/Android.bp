@@ -20,6 +20,7 @@ java_library_host {
     name: "bazel-test-runner",
     srcs: [
         "src/com/android/tradefed/testtype/bazel/BazelTest.java",
+        "src/com/android/tradefed/testtype/bazel/BepFileTailer.java",
         "src/main/protobuf/*.proto",
     ],
     libs: [
