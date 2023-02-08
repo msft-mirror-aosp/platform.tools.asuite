@@ -827,13 +827,11 @@ def _exclude_modules_in_targets(build_targets):
     return shrank_build_targets
 
 # pylint: disable=protected-access
-def need_rebuild_module_info(test_steps: None,
-                             force_rebuild: bool = False) -> bool:
+def need_rebuild_module_info(args: atest_arg_parser.AtestArgParser) -> bool:
     """Method that tells whether we need to rebuild module-info.json or not.
 
     Args:
-        test_steps: a list of steps, e.g. ['build','test']
-        force_rebuild: a boolean given from args.rebuild_module_info.
+        args: an AtestArgParser object.
 
         +-----------------+
         | Explicitly pass |  yes
@@ -858,10 +856,10 @@ def need_rebuild_module_info(test_steps: None,
     Returns:
         True for forcely/smartly rebuild, otherwise False without rebuilding.
     """
-    if test_steps and constants.BUILD_STEP not in test_steps:
+    if not parse_steps(args).has_build():
         logging.debug('\"--test\" mode detected, will not rebuild module-info.')
         return False
-    if force_rebuild:
+    if args.rebuild_module_info:
         msg = (f'`{constants.REBUILD_MODULE_INFO_FLAG}` is no longer needed '
                f'since Atest can smartly rebuild {module_info._MODULE_INFO} '
                r'only when needed.')
@@ -1021,9 +1019,7 @@ def main(argv, results_dir, args):
     # Do not index targets while the users intend to dry-run tests.
     if need_run_index_targets(args, extra_args):
         proc_idx = atest_utils.run_multi_proc(at.index_targets)
-    smart_rebuild = need_rebuild_module_info(
-        test_steps=args.steps,
-        force_rebuild=args.rebuild_module_info)
+    smart_rebuild = need_rebuild_module_info(args)
 
     mod_start = time.time()
     mod_info = module_info.ModuleInfo(force_build=smart_rebuild)
