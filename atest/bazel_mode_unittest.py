@@ -749,13 +749,10 @@ class RobolectricTestModuleTestTargetGenerationTest(GenerationTestFixture):
 
     def test_generate_robolectric_test_target(self):
         module_name = 'hello_world_test'
-        module_path = 'example/tests'
-        android_bp_path = self.src_root_path.joinpath(
-            f'{module_path}/Android.bp')
-        self.fs.create_file(android_bp_path, contents='')
         mod_info = self.create_module_info(modules=[
             robolectric_test_module(
-                name=f'{module_name}', path=module_path),
+                name=f'{module_name}',
+                compatibility_suites='robolectric-tests'),
         ])
 
         self.run_generator(mod_info, enabled_features=set([
@@ -764,25 +761,20 @@ class RobolectricTestModuleTestTargetGenerationTest(GenerationTestFixture):
         self.assertInBuildFile(
             'load("//bazel/rules:tradefed_test.bzl",'
             ' "tradefed_robolectric_test")\n',
-            package=f'{module_path}',
         )
-        self.assertTargetInWorkspace(f'{module_name}_host',
-                                     package=f'{module_path}')
+        self.assertTargetInWorkspace(f'{module_name}_host')
 
     def test_not_generate_when_feature_disabled(self):
         module_name = 'hello_world_test'
-        module_path = 'example/tests'
-        android_bp_path = self.src_root_path.joinpath(
-            f'{module_path}/Android.bp')
-        self.fs.create_file(android_bp_path, contents='')
         mod_info = self.create_module_info(modules=[
             robolectric_test_module(
-                name=f'{module_name}', path=module_path),
+                name=f'{module_name}',
+                compatibility_suites='robolectric-tests'),
         ])
 
         self.run_generator(mod_info)
 
-        self.assertFileNotInWorkspace('BUILD.bazel', package=f'{module_path}')
+        self.assertTargetNotInWorkspace(f'{module_name}_host')
 
     def test_not_generate_for_legacy_robolectric_test_type(self):
         module_name = 'hello_world_test'
