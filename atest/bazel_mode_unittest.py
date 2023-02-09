@@ -1574,9 +1574,10 @@ class DecorateFinderMethodTest(GenerationTestFixture):
     """Tests for _decorate_find_method()."""
 
     def test_host_unit_test_with_host_arg_runner_is_overridden(self):
-        original_find_method = lambda obj, test_id:(
-            self.create_single_test_infos(obj, test_id, test_name=MODULE_NAME,
-                                          runner=ATEST_TF_RUNNER))
+        def original_find_method(obj, test_id):
+            return self.create_single_test_infos(
+                obj, test_id, test_name=MODULE_NAME,
+                runner=ATEST_TF_RUNNER)
         mod_info = self.create_module_info(modules=[
             host_unit_test_module(name=MODULE_NAME)
         ])
@@ -1591,9 +1592,10 @@ class DecorateFinderMethodTest(GenerationTestFixture):
         self.assertEqual(test_infos[0].test_runner, BAZEL_RUNNER)
 
     def test_host_unit_test_without_host_arg_runner_is_overridden(self):
-        original_find_method = lambda obj, test_id:(
-            self.create_single_test_infos(obj, test_id, test_name=MODULE_NAME,
-                                          runner=ATEST_TF_RUNNER))
+        def original_find_method(obj, test_id):
+            return self.create_single_test_infos(
+                obj, test_id, test_name=MODULE_NAME,
+                runner=ATEST_TF_RUNNER)
         mod_info = self.create_module_info(modules=[
             host_unit_test_module(name=MODULE_NAME)
         ])
@@ -1608,9 +1610,10 @@ class DecorateFinderMethodTest(GenerationTestFixture):
         self.assertEqual(test_infos[0].test_runner, BAZEL_RUNNER)
 
     def test_device_test_with_host_arg_runner_is_preserved(self):
-        original_find_method = lambda obj, test_id:(
-            self.create_single_test_infos(obj, test_id, test_name=MODULE_NAME,
-                                          runner=ATEST_TF_RUNNER))
+        def original_find_method(obj, test_id):
+            return self.create_single_test_infos(
+                obj, test_id, test_name=MODULE_NAME,
+                runner=ATEST_TF_RUNNER)
         mod_info = self.create_module_info(modules=[
             device_test_module(name=MODULE_NAME)
         ])
@@ -1631,9 +1634,10 @@ class DecorateFinderMethodTest(GenerationTestFixture):
         self.assertEqual(test_infos[0].test_runner, ATEST_TF_RUNNER)
 
     def test_device_test_without_host_arg_runner_is_overridden(self):
-        original_find_method = lambda obj, test_id:(
-            self.create_single_test_infos(obj, test_id, test_name=MODULE_NAME,
-                                          runner=ATEST_TF_RUNNER))
+        def original_find_method(obj, test_id):
+            return self.create_single_test_infos(
+                obj, test_id, test_name=MODULE_NAME,
+                runner=ATEST_TF_RUNNER)
         mod_info = self.create_module_info(modules=[
             device_test_module(name=MODULE_NAME)
         ])
@@ -1654,9 +1658,10 @@ class DecorateFinderMethodTest(GenerationTestFixture):
         self.assertEqual(test_infos[0].test_runner, BAZEL_RUNNER)
 
     def test_multi_config_test_with_host_arg_runner_is_overridden(self):
-        original_find_method = lambda obj, test_id:(
-            self.create_single_test_infos(obj, test_id, test_name=MODULE_NAME,
-                                          runner=ATEST_TF_RUNNER))
+        def original_find_method(obj, test_id):
+            return self.create_single_test_infos(
+                obj, test_id, test_name=MODULE_NAME,
+                runner=ATEST_TF_RUNNER)
         mod_info = self.create_module_info(modules=[
             multi_config(supported_test_module(name=MODULE_NAME))
         ])
@@ -1677,9 +1682,10 @@ class DecorateFinderMethodTest(GenerationTestFixture):
         self.assertEqual(test_infos[0].test_runner, BAZEL_RUNNER)
 
     def test_multi_config_test_without_host_arg_runner_is_overridden(self):
-        original_find_method = lambda obj, test_id:(
-            self.create_single_test_infos(obj, test_id, test_name=MODULE_NAME,
-                                          runner=ATEST_TF_RUNNER))
+        def original_find_method(obj, test_id):
+            return self.create_single_test_infos(
+                obj, test_id, test_name=MODULE_NAME,
+                runner=ATEST_TF_RUNNER)
         mod_info = self.create_module_info(modules=[
             multi_config(supported_test_module(name=MODULE_NAME))
         ])
@@ -1700,9 +1706,10 @@ class DecorateFinderMethodTest(GenerationTestFixture):
         self.assertEqual(test_infos[0].test_runner, BAZEL_RUNNER)
 
     def test_host_non_unit_test_with_host_arg_runner_is_overridden(self):
-        original_find_method = lambda obj, test_id:(
-            self.create_single_test_infos(obj, test_id, test_name=MODULE_NAME,
-                                          runner=ATEST_TF_RUNNER))
+        def original_find_method(obj, test_id):
+            return self.create_single_test_infos(
+                obj, test_id, test_name=MODULE_NAME,
+                runner=ATEST_TF_RUNNER)
         mod_info = self.create_module_info(modules=[
             host_test_module(name=MODULE_NAME)
         ])
@@ -1723,9 +1730,10 @@ class DecorateFinderMethodTest(GenerationTestFixture):
         self.assertEqual(test_infos[0].test_runner, BAZEL_RUNNER)
 
     def test_disable_device_driven_test_feature_runner_is_preserved(self):
-        original_find_method = lambda obj, test_id:(
-            self.create_single_test_infos(obj, test_id, test_name=MODULE_NAME,
-                                          runner=ATEST_TF_RUNNER))
+        def original_find_method(obj, test_id):
+            return self.create_single_test_infos(
+                obj, test_id, test_name=MODULE_NAME,
+                runner=ATEST_TF_RUNNER)
         mod_info = self.create_module_info(modules=[
             device_test_module(name=MODULE_NAME)
         ])
@@ -1740,9 +1748,10 @@ class DecorateFinderMethodTest(GenerationTestFixture):
         self.assertEqual(test_infos[0].test_runner, ATEST_TF_RUNNER)
 
     def test_disable_host_driven_test_feature_runner_is_preserved(self):
-        original_find_method = lambda obj, test_id:(
-            self.create_single_test_infos(obj, test_id, test_name=MODULE_NAME,
-                                          runner=ATEST_TF_RUNNER))
+        def original_find_method(obj, test_id):
+            return self.create_single_test_infos(
+                obj, test_id, test_name=MODULE_NAME,
+                runner=ATEST_TF_RUNNER)
         mod_info = self.create_module_info(modules=[
             host_test_module(name=MODULE_NAME)
         ])

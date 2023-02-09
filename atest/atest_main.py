@@ -38,6 +38,7 @@ import tempfile
 import time
 import platform
 
+from dataclasses import dataclass
 from pathlib import Path
 
 from atest import atest_arg_parser
@@ -85,6 +86,56 @@ EXIT_CODES_BEFORE_TEST = [ExitCode.ENV_NOT_SETUP,
                           ExitCode.OUTSIDE_ROOT,
                           ExitCode.AVD_CREATE_FAILURE,
                           ExitCode.AVD_INVALID_ARGS]
+
+@dataclass
+class Steps:
+    """A Dataclass that stores steps and shows step assignments."""
+    _build: bool
+    _install: bool
+    _test: bool
+
+    def has_build(self):
+        """Return whether build is in steps."""
+        return self._build
+
+    def is_build_only(self):
+        """Return whether build is the only one in steps."""
+        return self._build and not any((self._test, self._install))
+
+    def has_install(self):
+        """Return whether install is in steps."""
+        return self._install
+
+    def has_test(self):
+        """Return whether install is the only one in steps."""
+        return self._test
+
+    def is_test_only(self):
+        """Return whether build is not in steps but test."""
+        return self._test and not any((self._build, self._install))
+
+
+def parse_steps(args: atest_arg_parser.AtestArgParser) -> Steps:
+    """Return Steps object.
+
+    Args:
+        args: an AtestArgParser object.
+
+    Returns:
+        Step object that stores the boolean of build, install and test.
+    """
+    # Implicitly running 'build', 'install' and 'test' when args.steps is None.
+    if not args.steps:
+        return Steps(True, True, True)
+    build =  constants.BUILD_STEP in args.steps
+    test = constants.TEST_STEP in args.steps
+    install = constants.INSTALL_STEP in args.steps
+    if install and not test:
+        logging.warning('Installing without test step is currently not '
+                        'supported; Atest will proceed testing!')
+        test = True
+    return Steps(build, install, test)
+
 
 def _get_args_from_config():
     """Get customized atest arguments in the config file.
@@ -218,8 +269,7 @@ def get_extra_args(args):
     extra_args = {}
     if args.wait_for_debugger:
         extra_args[constants.WAIT_FOR_DEBUGGER] = None
-    steps = args.steps or constants.ALL_STEPS
-    if constants.INSTALL_STEP not in steps:
+    if not parse_steps(args).has_install():
         extra_args[constants.DISABLE_INSTALL] = None
     # The key and its value of the dict can be called via:
     # if args.aaaa:
@@ -339,8 +389,8 @@ def _validate_adb_devices(args, test_infos):
         args: parsed args object.
         test_info: TestInfo object.
     """
-    # No need to check device available if user not acquire to run the test.
-    if args.steps and constants.TEST_STEP not in args.steps:
+    # No need to check device availability if the user does not acquire to test.
+    if not parse_steps(args).has_test():
         return
     if args.no_checking_device:
         return
@@ -777,13 +827,11 @@ def _exclude_modules_in_targets(build_targets):
     return shrank_build_targets
 
 # pylint: disable=protected-access
-def need_rebuild_module_info(test_steps: None,
-                             force_rebuild: bool = False) -> bool:
+def need_rebuild_module_info(args: atest_arg_parser.AtestArgParser) -> bool:
     """Method that tells whether we need to rebuild module-info.json or not.
 
     Args:
-        test_steps: a list of steps, e.g. ['build','test']
-        force_rebuild: a boolean given from args.rebuild_module_info.
+        args: an AtestArgParser object.
 
         +-----------------+
         | Explicitly pass |  yes
@@ -808,10 +856,10 @@ def need_rebuild_module_info(test_steps: None,
     Returns:
         True for forcely/smartly rebuild, otherwise False without rebuilding.
     """
-    if test_steps and constants.BUILD_STEP not in test_steps:
+    if not parse_steps(args).has_build():
         logging.debug('\"--test\" mode detected, will not rebuild module-info.')
         return False
-    if force_rebuild:
+    if args.rebuild_module_info:
         msg = (f'`{constants.REBUILD_MODULE_INFO_FLAG}` is no longer needed '
                f'since Atest can smartly rebuild {module_info._MODULE_INFO} '
                r'only when needed.')
@@ -844,7 +892,7 @@ def need_run_index_targets(args, extra_args):
         return False
     if extra_args.get(constants.VERIFY_ENV_VARIABLE, False):
         return False
-    if args.steps and 'test' in args.steps:
+    if not parse_steps(args).has_build():
         return False
     return True
 
@@ -971,9 +1019,7 @@ def main(argv, results_dir, args):
     # Do not index targets while the users intend to dry-run tests.
     if need_run_index_targets(args, extra_args):
         proc_idx = atest_utils.run_multi_proc(at.index_targets)
-    smart_rebuild = need_rebuild_module_info(
-        test_steps=args.steps,
-        force_rebuild=args.rebuild_module_info)
+    smart_rebuild = need_rebuild_module_info(args)
 
     mod_start = time.time()
     mod_info = module_info.ModuleInfo(force_build=smart_rebuild)
@@ -1087,9 +1133,9 @@ def main(argv, results_dir, args):
     if args.detect_regression:
         build_targets |= (regression_test_runner.RegressionTestRunner('')
                           .get_test_runner_build_reqs())
-    # args.steps will be None if none of -bit set, else list of params set.
-    steps = args.steps if args.steps else constants.ALL_STEPS
-    if build_targets and constants.BUILD_STEP in steps:
+
+    steps = parse_steps(args)
+    if build_targets and steps.has_build():
         if args.experimental_coverage:
             build_targets.add('jacoco_to_lcov_converter')
 
@@ -1127,16 +1173,12 @@ def main(argv, results_dir, args):
         # After build step 'adb' command will be available, and stop forward to
         # Tradefed if the tests require a device.
         _validate_adb_devices(args, test_infos)
-    elif constants.TEST_STEP not in steps:
-        logging.warning('Install step without test step currently not '
-                        'supported, installing AND testing instead.')
-        steps.append(constants.TEST_STEP)
 
     tests_exit_code = ExitCode.SUCCESS
     test_start = time.time()
-    if constants.TEST_STEP in steps:
-        # Only send duration to metrics when passing --test and not --build.
-        if constants.BUILD_STEP not in steps:
+    if steps.has_test():
+        # Only send duration to metrics when no --build.
+        if not steps.has_build():
             _init_and_find = time.time() - _begin_time
             logging.debug('Initiation and finding tests took %ss', _init_and_find)
             metrics.LocalDetectEvent(
