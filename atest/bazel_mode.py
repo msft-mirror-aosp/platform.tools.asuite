@@ -252,7 +252,7 @@ class WorkspaceGenerator:
                     self._add_deviceless_test_target(info), seen)
             elif (Features.EXPERIMENTAL_ROBOLECTRIC_TEST in
                   self.enabled_features and
-                  self.mod_info.is_modern_robolectirc_test(info)):
+                  self.mod_info.is_modern_robolectric_test(info)):
                 self._resolve_dependencies(
                     self._add_tradefed_robolectric_test_target(info), seen)
             elif (Features.EXPERIMENTAL_HOST_DRIVEN_TEST in
@@ -1321,7 +1321,7 @@ def _decorate_find_method(mod_info, finder_method_func, host, enabled_features):
 
             # Only enable modern Robolectric tests since those are the only ones
             # TF currently supports.
-            if mod_info.is_modern_robolectirc_test(m_info):
+            if mod_info.is_modern_robolectric_test(m_info):
                 if Features.EXPERIMENTAL_ROBOLECTRIC_TEST in enabled_features:
                     tinfo.test_runner = BazelTestRunner.NAME
                 continue
