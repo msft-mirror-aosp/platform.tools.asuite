@@ -252,7 +252,7 @@ class WorkspaceGenerator:
                     self._add_deviceless_test_target(info), seen)
             elif (Features.EXPERIMENTAL_ROBOLECTRIC_TEST in
                   self.enabled_features and
-                  self.is_modern_robolectric_test(name)):
+                  self.mod_info.is_modern_robolectirc_test(info)):
                 self._resolve_dependencies(
                     self._add_tradefed_robolectric_test_target(info), seen)
             elif (Features.EXPERIMENTAL_HOST_DRIVEN_TEST in
@@ -396,12 +396,6 @@ class WorkspaceGenerator:
     def is_host_unit_test(self, info: Dict[str, Any]) -> bool:
         return self.mod_info.is_testable_module(
             info) and self.mod_info.is_host_unit_test(info)
-
-    def is_modern_robolectric_test(self, module_name: str) -> bool:
-        # Only enable modern Robolectric tests since those are the only ones
-        # TF currently supports.
-        return self.mod_info.get_robolectric_type(
-            module_name) == constants.ROBOTYPE_MODERN
 
     def _generate_artifacts(self):
         """Generate workspace files on disk."""
@@ -1324,10 +1318,10 @@ def _decorate_find_method(mod_info, finder_method_func, host, enabled_features):
             # TODO(b/262200630): Refactor the duplicated logic in
             # _decorate_find_method() and _add_test_module_targets() to
             # determine whether a test should run with Atest Bazel Mode.
-            robolectric_type = mod_info.get_robolectric_type(tinfo.test_name)
+
             # Only enable modern Robolectric tests since those are the only ones
             # TF currently supports.
-            if robolectric_type == constants.ROBOTYPE_MODERN:
+            if mod_info.is_modern_robolectirc_test(m_info):
                 if Features.EXPERIMENTAL_ROBOLECTRIC_TEST in enabled_features:
                     tinfo.test_runner = BazelTestRunner.NAME
                 continue
