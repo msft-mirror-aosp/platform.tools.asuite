@@ -560,7 +560,7 @@ class ModuleInfo:
                 return not_a_robo_test
             # Check 2: The `robolectric-test` in the compatibility_suites, call
             #          it a modern test.
-            if self.is_modern_robolectirc_test(module_name_info):
+            if self.is_modern_robolectric_test(module_name_info):
                 return constants.ROBOTYPE_MODERN
             return constants.ROBOTYPE_LEGACY
         return not_a_robo_test
@@ -924,7 +924,7 @@ class ModuleInfo:
                 self.is_suite_in_compatibility_suites('host-unit-tests',
                                                       mod_info))
 
-    def is_modern_robolectirc_test(self, info: Dict[str, Any]) -> bool:
+    def is_modern_robolectric_test(self, info: Dict[str, Any]) -> bool:
         return self.is_robolectric_test_suite(info)
 
     def is_robolectric_test_suite(self, mod_info) -> bool:
