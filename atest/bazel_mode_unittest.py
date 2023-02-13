@@ -1240,7 +1240,6 @@ class SharedLibPrebuiltTargetGenerationTest(GenerationTestFixture):
             host_module(
                 name='libhello',
                 installed=[str(host_file)],
-                auto_test_config=['true']
             )
         ])
         package_path = self.workspace_out_path
