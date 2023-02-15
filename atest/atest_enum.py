@@ -57,6 +57,7 @@ class DetectType(IntEnum):
     FOUND_INSTRUMENTATION_TEST = 26
     FOUND_TARGET_ARTIFACTS = 27
     FIND_TEST_IN_DEPS=28
+    FULL_GENERATE_BAZEL_WORKSPACE_TIME = 29
 
 @unique
 class ExitCode(IntEnum):
