@@ -89,8 +89,8 @@ public final class BazelTestTest {
     private TestInformation mTestInfo;
     private Path mBazelTempPath;
     private Map<String, String> mEnvironment;
+    private Path mWorkspaceArchive;
 
-    private static final String ARCHIVE_NAME = "atest_bazel_workspace.tar.gz";
     private static final String BAZEL_TEST_TARGETS_OPTION = "bazel-test-target-patterns";
     private static final String BAZEL_WORKSPACE_ARCHIVE_OPTION = "bazel-workspace-archive";
     private static final String BEP_FILE_OPTION_NAME = "--build_event_binary_file";
@@ -107,6 +107,10 @@ public final class BazelTestTest {
         mBazelTempPath =
                 Files.createDirectory(tempDir.getRoot().toPath().resolve("bazel_temp_dir"));
         mEnvironment = ImmutableMap.of("PATH", "/phony/path");
+        Path bazelArchive =
+                Files.createDirectory(tempDir.getRoot().toPath().resolve("atest_bazel_workspace"));
+        mWorkspaceArchive = tempDir.getRoot().toPath().resolve("atest_bazel_workspace.zip");
+        ZipUtil.createZip(bazelArchive.toFile(), mWorkspaceArchive.toFile());
     }
 
     @Test
@@ -134,9 +138,6 @@ public final class BazelTestTest {
 
         bazelTest.run(mTestInfo, mMockListener);
 
-        verify(mMockListener)
-                .testLog(
-                        contains(String.format("%s-log", BazelTest.EXTRACT_ARCHIVE)), any(), any());
         verify(mMockListener)
                 .testLog(contains(String.format("%s-log", BazelTest.QUERY_TARGETS)), any(), any());
         verify(mMockListener)
@@ -246,9 +247,11 @@ public final class BazelTestTest {
 
     @Test
     public void archiveExtractionFails_runAborted() throws Exception {
-        FakeProcessStarter processStarter = newFakeProcessStarter();
-        processStarter.put(BazelTest.EXTRACT_ARCHIVE, newFailingProcess());
-        BazelTest bazelTest = newBazelTestWithProcessStarter(processStarter);
+        BazelTest bazelTest = new BazelTest(newFakeProcessStarter(), mBazelTempPath);
+        OptionSetter setter = new OptionSetter(bazelTest);
+        setter.setOptionValue(
+                BAZEL_WORKSPACE_ARCHIVE_OPTION,
+                new File("non_existent_workspace.zip").getAbsolutePath());
 
         bazelTest.run(mTestInfo, mMockListener);
 
@@ -410,7 +413,8 @@ public final class BazelTestTest {
 
         BazelTest bazelTest = new BazelTest(starter, mBazelTempPath);
         OptionSetter setter = new OptionSetter(bazelTest);
-        setter.setOptionValue(BAZEL_WORKSPACE_ARCHIVE_OPTION, ARCHIVE_NAME);
+        setter.setOptionValue(
+                BAZEL_WORKSPACE_ARCHIVE_OPTION, mWorkspaceArchive.toAbsolutePath().toString());
         return bazelTest;
     }
 
@@ -440,7 +444,6 @@ public final class BazelTestTest {
 
     private FakeProcessStarter newFakeProcessStarter() throws IOException {
         FakeProcessStarter processStarter = new FakeProcessStarter();
-        processStarter.put(BazelTest.EXTRACT_ARCHIVE, newPassingProcess());
         processStarter.put(BazelTest.QUERY_TARGETS, newPassingProcessWithStdout("default_target"));
         processStarter.put(
                 BazelTest.RUN_TESTS,
