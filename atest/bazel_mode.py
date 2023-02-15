@@ -36,6 +36,7 @@ import re
 import shlex
 import shutil
 import subprocess
+import time
 import warnings
 
 from abc import ABC, abstractmethod
@@ -44,23 +45,23 @@ from collections.abc import Iterable
 from pathlib import Path
 from types import MappingProxyType
 from typing import Any, Callable, Dict, IO, List, Set
+from xml.etree import ElementTree as ET
 
 from atest import atest_utils
 from atest import constants
 from atest import module_info
 
-from atest.atest_enum import ExitCode
+from atest.atest_enum import DetectType, ExitCode
+from atest.metrics import metrics
 from atest.test_finders import test_finder_base
 from atest.test_finders import test_info
 from atest.test_runners import test_runner_base as trb
 from atest.test_runners import atest_tf_test_runner as tfr
 
 
-# TODO(nelsonli): Deduce the JDK from the TF Robolectric test configuration
-#                 template so that it doesn't diverge when updated.
 JDK_PACKAGE_NAME = 'prebuilts/robolectric_jdk'
 JDK_NAME = 'jdk'
-JDK_SRC_ROOT = 'prebuilts/jdk/jdk17/linux-x86'
+ROBOLECTRIC_CONFIG = 'build/make/core/robolectric_test_config_template.xml'
 
 _BAZEL_WORKSPACE_DIR = 'atest_bazel_workspace'
 _SUPPORTED_BAZEL_ARGS = MappingProxyType({
@@ -145,6 +146,7 @@ def generate_bazel_workspace(mod_info: module_info.ModuleInfo,
         Path(os.environ.get(constants.ANDROID_HOST_OUT)),
         Path(atest_utils.get_build_out_dir()),
         mod_info,
+        _read_robolectric_jdk_path(src_root_path.joinpath(ROBOLECTRIC_CONFIG)),
         enabled_features,
     )
     workspace_generator.generate()
@@ -159,10 +161,17 @@ class WorkspaceGenerator:
     """Class for generating a Bazel workspace."""
 
     # pylint: disable=too-many-arguments
-    def __init__(self, src_root_path: Path, workspace_out_path: Path,
-                 product_out_path: Path, host_out_path: Path,
-                 build_out_dir: Path, mod_info: module_info.ModuleInfo,
-                 enabled_features: Set[Features] = None, resource_root = None):
+    def __init__(self,
+                 src_root_path: Path,
+                 workspace_out_path: Path,
+                 product_out_path: Path,
+                 host_out_path: Path,
+                 build_out_dir: Path,
+                 mod_info: module_info.ModuleInfo,
+                 jdk_path: Path,
+                 enabled_features: Set[Features] = None,
+                 resource_root = None,
+                 ):
         """Initializes the generator.
 
         Args:
@@ -183,6 +192,7 @@ class WorkspaceGenerator:
         self.build_out_dir = build_out_dir
         self.mod_info = mod_info
         self.path_to_package = {}
+        self.jdk_path = jdk_path
 
     def generate(self):
         """Generate a Bazel workspace.
@@ -191,6 +201,7 @@ class WorkspaceGenerator:
         workspace will be generated. Otherwise, the existing workspace will be
         reused.
         """
+        start = time.time()
         workspace_md5_checksum_file = self.workspace_out_path.joinpath(
             'workspace_md5_checksum')
         enabled_features_file = self.workspace_out_path.joinpath(
@@ -224,9 +235,15 @@ class WorkspaceGenerator:
             [
                 self.mod_info.mod_info_file_path,
                 enabled_features_file,
+                # TODO(b/265320036): Re-generate the Bazel workspace when JDK
+                # change.
+                self.src_root_path.joinpath(ROBOLECTRIC_CONFIG)
             ],
             workspace_md5_checksum_file
         )
+        metrics.LocalDetectEvent(
+            detect_type=DetectType.FULL_GENERATE_BAZEL_WORKSPACE_TIME,
+            result=int(time.time() - start))
 
     def _add_test_module_targets(self):
         seen = set()
@@ -252,7 +269,7 @@ class WorkspaceGenerator:
                     self._add_deviceless_test_target(info), seen)
             elif (Features.EXPERIMENTAL_ROBOLECTRIC_TEST in
                   self.enabled_features and
-                  self.is_modern_robolectric_test(name)):
+                  self.mod_info.is_modern_robolectric_test(info)):
                 self._resolve_dependencies(
                     self._add_tradefed_robolectric_test_target(info), seen)
             elif (Features.EXPERIMENTAL_HOST_DRIVEN_TEST in
@@ -397,12 +414,6 @@ class WorkspaceGenerator:
         return self.mod_info.is_testable_module(
             info) and self.mod_info.is_host_unit_test(info)
 
-    def is_modern_robolectric_test(self, module_name: str) -> bool:
-        # Only enable modern Robolectric tests since those are the only ones
-        # TF currently supports.
-        return self.mod_info.get_robolectric_type(
-            module_name) == constants.ROBOTYPE_MODERN
-
     def _generate_artifacts(self):
         """Generate workspace files on disk."""
 
@@ -424,6 +435,9 @@ class WorkspaceGenerator:
             package.generate(self.workspace_out_path)
 
     def _generate_robolectric_resources(self):
+        if not self.jdk_path:
+            return
+
         self._generate_jdk_resources()
         self._generate_android_all_resources()
 
@@ -435,7 +449,7 @@ class WorkspaceGenerator:
             JDK_NAME,
             lambda : FilegroupTarget(
                 JDK_PACKAGE_NAME, JDK_NAME,
-                self.src_root_path.joinpath(JDK_SRC_ROOT))
+                self.src_root_path.joinpath(self.jdk_path))
         )
 
     def _generate_android_all_resources(self):
@@ -816,6 +830,21 @@ class TestTarget(Target):
                 'jdk', self._attributes.get('jdk', None))
 
         writer.write_line(')')
+
+
+def _read_robolectric_jdk_path(test_xml_config_template: Path) -> Path:
+    if not test_xml_config_template.is_file():
+        return None
+
+    xml_root = ET.parse(test_xml_config_template).getroot()
+    option = xml_root.find(".//option[@name='java-folder']")
+    jdk_path = Path(option.get('value', ''))
+
+    if not jdk_path.is_relative_to('prebuilts/jdk'):
+        raise Exception(f'Failed to get "java-folder" from '
+                        f'`{test_xml_config_template}`')
+
+    return jdk_path
 
 
 class BuildFileWriter:
@@ -1324,10 +1353,10 @@ def _decorate_find_method(mod_info, finder_method_func, host, enabled_features):
             # TODO(b/262200630): Refactor the duplicated logic in
             # _decorate_find_method() and _add_test_module_targets() to
             # determine whether a test should run with Atest Bazel Mode.
-            robolectric_type = mod_info.get_robolectric_type(tinfo.test_name)
+
             # Only enable modern Robolectric tests since those are the only ones
             # TF currently supports.
-            if robolectric_type == constants.ROBOTYPE_MODERN:
+            if mod_info.is_modern_robolectric_test(m_info):
                 if Features.EXPERIMENTAL_ROBOLECTRIC_TEST in enabled_features:
                     tinfo.test_runner = BazelTestRunner.NAME
                 continue

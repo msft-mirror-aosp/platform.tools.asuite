@@ -529,8 +529,10 @@ class ModuleInfo:
         To determine whether the test is a modern/legacy robolectric test:
             1. Traverse all modules share the module path. If one of the
                modules has a ROBOLECTRIC class, it is a robolectric test.
-            2. If found an Android.bp in that path, it's a modern one, otherwise
-               it's a legacy test and will go to the build route.
+            2. If the 'robolectric-test` in the compatibility_suites, it's a
+               modern one, otherwise it's a legacy test. This is accurate since
+               aosp/2308586 already set the test suite of `robolectric-test`
+               for all `modern` Robolectric tests in Soong.
 
         Args:
             module_name: String of module to check.
@@ -556,9 +558,9 @@ class ModuleInfo:
                     break
             if not is_a_robotest:
                 return not_a_robo_test
-            # Check 2: If found Android.bp in path, call it a modern test.
-            bpfile = os.path.join(self.root_dir, mod_path[0], 'Android.bp')
-            if os.path.isfile(bpfile):
+            # Check 2: The `robolectric-test` in the compatibility_suites, call
+            #          it a modern test.
+            if self.is_modern_robolectric_test(module_name_info):
                 return constants.ROBOTYPE_MODERN
             return constants.ROBOTYPE_LEGACY
         return not_a_robo_test
@@ -921,6 +923,9 @@ class ModuleInfo:
         return (self.is_testable_module(mod_info) and
                 self.is_suite_in_compatibility_suites('host-unit-tests',
                                                       mod_info))
+
+    def is_modern_robolectric_test(self, info: Dict[str, Any]) -> bool:
+        return self.is_robolectric_test_suite(info)
 
     def is_robolectric_test_suite(self, mod_info) -> bool:
         """Return True if 'robolectric-tests' in the compatibility_suites.

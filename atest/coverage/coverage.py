@@ -77,19 +77,14 @@ def generate_coverage_report(results_dir: str,
     unstripped_native_binaries = set()
     for module in dep_modules:
         for path in mod_info.get_paths(module):
+            module_dir = soong_intermediates.joinpath(path, module)
             # Check for uninstrumented Java class files to report coverage.
-            report_jar = soong_intermediates.joinpath(
-                path, module,
-                f'android_common_cov/jacoco-report-classes/{module}.jar')
-            if os.path.exists(report_jar):
-                jacoco_report_jars[module] = report_jar
+            jacoco_report_jars[module] = module_dir.glob(
+                '*cov*/jacoco-report-classes/*.jar')
 
             # Check for unstripped native binaries to report coverage.
-            symbols_dir = soong_intermediates.joinpath(
-                path, module,
-                'android_x86_cov/unstripped')
-            if symbols_dir.is_dir():
-                unstripped_native_binaries.update(symbols_dir.iterdir())
+            unstripped_native_binaries.update(
+                module_dir.glob('*cov*/unstripped/*'))
 
     if jacoco_report_jars:
         _generate_java_coverage_report(jacoco_report_jars, src_paths,

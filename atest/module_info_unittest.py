@@ -308,12 +308,13 @@ class ModuleInfoUnittests(unittest.TestCase):
 
     @mock.patch.dict('os.environ', {constants.ANDROID_BUILD_TOP:'/',
                                     constants.ANDROID_PRODUCT_OUT:PRODUCT_OUT_DIR})
+    @mock.patch.object(module_info.ModuleInfo, 'is_modern_robolectric_test')
     @mock.patch.object(module_info.ModuleInfo, 'is_robolectric_module')
     @mock.patch('os.path.isfile', return_value=False)
     @mock.patch.object(module_info.ModuleInfo, 'get_module_info')
     @mock.patch.object(module_info.ModuleInfo, 'get_module_names')
     def test_get_robolectric_type(self, mock_get_module_names, mock_get_module_info,
-        mock_isfile, mock_is_robo_mod):
+        mock_isfile, mock_is_robo_mod, mock_is_modern_robolectric_test):
         """Test get_robolectric_type."""
         # Happy path testing, make sure we get the run robo target.
         mod_info = module_info.ModuleInfo(module_file=JSON_FILE_PATH, index_dir=HOST_OUT_DIR)
@@ -322,6 +323,7 @@ class ModuleInfoUnittests(unittest.TestCase):
         mock_isfile.return_value = False
         mock_get_module_names.return_value = [ASSOCIATED_ROBO_MODULE, ROBO_MODULE]
         mock_get_module_info.return_value = ASSOCIATED_ROBO_MODULE_INFO
+        mock_is_modern_robolectric_test.return_value = False
         # Test on an legacy associated robo module.
         self.assertEqual(
             mod_info.get_robolectric_type(ASSOCIATED_ROBO_MODULE), constants.ROBOTYPE_LEGACY)
@@ -329,7 +331,7 @@ class ModuleInfoUnittests(unittest.TestCase):
         self.assertEqual(
             mod_info.get_robolectric_type(ROBO_MODULE), constants.ROBOTYPE_LEGACY)
         # Test on a modern robo module.
-        mock_isfile.return_value = True
+        mock_is_modern_robolectric_test.return_value = True
         self.assertEqual(
             mod_info.get_robolectric_type(ROBO_MODULE), constants.ROBOTYPE_MODERN)
         # Two situations that are not a robolectric test:
