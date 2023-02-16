@@ -371,10 +371,10 @@ class ModuleInfo:
         Returns:
             True if it exists in mod_info, False otherwise.
         """
-        if mod_info:
-            return suite in mod_info.get(
-                constants.MODULE_COMPATIBILITY_SUITES, [])
-        return []
+        if not isinstance(mod_info, dict):
+            return False
+        return suite in mod_info.get(
+            constants.MODULE_COMPATIBILITY_SUITES, [])
 
     def get_testable_modules(self, suite=None):
         """Return the testable modules of the given suite name.

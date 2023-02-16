@@ -741,6 +741,70 @@ class ModuleInfoUnittests(unittest.TestCase):
             mainline_modules,
             {'B.apk+C.apex'}))
 
+
+class ModuleInfoTestFixture(fake_filesystem_unittest.TestCase):
+    """Fixture for ModuleInfo tests."""
+
+    def setUp(self):
+        self.setUpPyfakefs()
+
+    # pylint: disable=protected-access
+    @mock.patch.dict('os.environ', {constants.ANDROID_BUILD_TOP: '/'})
+    def create_empty_module_info(self):
+        fake_temp_file_name = next(tempfile._get_candidate_names())
+        self.fs.create_file(fake_temp_file_name, contents='{}')
+        return module_info.ModuleInfo(module_file=fake_temp_file_name)
+
+    def create_module_info(self, modules=None):
+        mod_info = self.create_empty_module_info()
+        modules = modules or []
+
+        for m in modules:
+            mod_info.name_to_module_info[m['module_name']] = m
+
+        return mod_info
+
+
+class ModuleInfoCompatibilitySuiteTest(ModuleInfoTestFixture):
+    """Tests the compatibility suite in the module info."""
+
+    def test_return_true_if_suite_in_test(self):
+        test_module = module(compatibility_suites=['test_suite'])
+        mod_info = self.create_module_info()
+
+        return_value = mod_info.is_suite_in_compatibility_suites(
+            'test_suite', test_module)
+
+        self.assertTrue(return_value)
+
+    def test_return_false_if_suite_not_in_test(self):
+        test_module = module(compatibility_suites=['no_suite'])
+        mod_info = self.create_module_info()
+
+        return_value = mod_info.is_suite_in_compatibility_suites(
+            'test_suite', test_module)
+
+        self.assertFalse(return_value)
+
+    def test_return_false_when_mod_info_is_empty(self):
+        test_module = None
+        mod_info = self.create_module_info()
+
+        return_value = mod_info.is_suite_in_compatibility_suites(
+            'test_suite', test_module)
+
+        self.assertFalse(return_value)
+
+    def test_return_false_when_mod_info_is_not_a_dict(self):
+        test_module = ['no_a_dict']
+        mod_info = self.create_module_info()
+
+        return_value = mod_info.is_suite_in_compatibility_suites(
+            'test_suite', test_module)
+
+        self.assertFalse(return_value)
+
+
 @mock.patch.dict('os.environ', {constants.ANDROID_BUILD_TOP: '/'})
 def create_empty_module_info():
     with fake_filesystem_unittest.Patcher() as patcher:
