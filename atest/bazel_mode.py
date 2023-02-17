@@ -115,9 +115,17 @@ class Features(enum.Enum):
         'Enables running Robolectric tests in Bazel mode.', True)
 
     def __init__(self, arg_flag, description, affects_workspace):
-        self.arg_flag = arg_flag
-        self.description = description
+        self._arg_flag = arg_flag
+        self._description = description
         self.affects_workspace = affects_workspace
+
+    @property
+    def arg_flag(self):
+        return self._arg_flag
+
+    @property
+    def description(self):
+        return self._description
 
 
 def add_parser_arguments(parser: argparse.ArgumentParser, dest: str):
