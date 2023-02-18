@@ -323,21 +323,6 @@ def _run_build_cmd(cmd, verbose=False, env_vars=None):
         return False
 
 
-def _can_upload_to_result_server():
-    """Return True if we can talk to result server."""
-    # TODO: Also check if we have a slow connection to result server.
-    if constants.RESULT_SERVER:
-        try:
-            from urllib.request import urlopen
-            urlopen(constants.RESULT_SERVER,
-                    timeout=constants.RESULT_SERVER_TIMEOUT).close()
-            return True
-        # pylint: disable=broad-except
-        except Exception as err:
-            logging.debug('Talking to result server raised exception: %s', err)
-    return False
-
-
 # pylint: disable=unused-argument
 def get_result_server_args(for_test_mapping=False):
     """Return list of args for communication with result server.
