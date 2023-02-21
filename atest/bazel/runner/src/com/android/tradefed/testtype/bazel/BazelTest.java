@@ -35,6 +35,7 @@ import com.android.tradefed.result.proto.TestRecordProto.FailureStatus;
 import com.android.tradefed.result.proto.TestRecordProto.TestRecord;
 import com.android.tradefed.testtype.IRemoteTest;
 import com.android.tradefed.util.ZipUtil;
+import com.android.tradefed.util.ZipUtil2;
 import com.android.tradefed.util.proto.TestRecordProtoUtil;
 
 import com.google.common.base.Throwables;
@@ -72,11 +73,9 @@ import java.util.zip.ZipFile;
 @OptionClass(alias = "bazel-test")
 public final class BazelTest implements IRemoteTest {
 
-    public static final String EXTRACT_ARCHIVE = "extract_archive";
     public static final String QUERY_TARGETS = "query_targets";
     public static final String RUN_TESTS = "run_tests";
 
-    private static final Duration ARCHIVE_EXTRACTION_TIMEOUT = Duration.ofHours(1L);
     private static final Duration BAZEL_QUERY_TIMEOUT = Duration.ofMinutes(5);
     private static final String TEST_NAME = BazelTest.class.getName();
     // Bazel internally calls the test output archive file "test.outputs__outputs.zip", the double
@@ -176,7 +175,7 @@ public final class BazelTest implements IRemoteTest {
             List<FailureDescription> runFailures)
             throws IOException, InterruptedException {
 
-        Path workspaceDirectory = extractWorkspace(mBazelWorkspaceArchive.toPath());
+        Path workspaceDirectory = extractWorkspace();
 
         List<String> testTargets = listTestTargets(workspaceDirectory);
         if (testTargets.isEmpty()) {
@@ -251,22 +250,19 @@ public final class BazelTest implements IRemoteTest {
                 TestErrorIdentifier.OUTPUT_PARSER_ERROR);
     }
 
-    private Path extractWorkspace(Path workspaceArchive) throws IOException, InterruptedException {
-        Path outputDirectory = createTemporaryDirectory("atest-bazel-workspace-");
-        Path logFile = createLogFile(String.format("%s-log", EXTRACT_ARCHIVE));
-
-        ProcessBuilder builder =
-                new ProcessBuilder(
-                        "tar",
-                        "zxf",
-                        workspaceArchive.toAbsolutePath().toString(),
-                        "-C",
-                        outputDirectory.toAbsolutePath().toString());
-
-        builder.redirectErrorStream(true);
-        builder.redirectOutput(Redirect.appendTo(logFile.toFile()));
-
-        startAndWaitForProcess(EXTRACT_ARCHIVE, builder, ARCHIVE_EXTRACTION_TIMEOUT);
+    private Path extractWorkspace() throws IOException {
+        Path outputDirectory = createTemporaryDirectory("atest-bazel-workspace");
+        try {
+            ZipUtil2.extractZip(mBazelWorkspaceArchive, outputDirectory.toFile());
+        } catch (IOException e) {
+            AbortRunException extractException =
+                    new AbortRunException(
+                            String.format("Archive extraction failed: %s", e.getMessage()),
+                            FailureStatus.DEPENDENCY_ISSUE,
+                            TestErrorIdentifier.TEST_ABORTED);
+            extractException.initCause(e);
+            throw extractException;
+        }
 
         // TODO(b/233885171): Remove resolve once workspace archive is updated.
         Path workspaceDirectory = outputDirectory.resolve("out/atest_bazel_workspace");
