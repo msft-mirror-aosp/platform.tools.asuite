@@ -25,6 +25,7 @@ from __future__ import print_function
 import datetime
 import fnmatch
 import hashlib
+import html
 import importlib
 import itertools
 import json
@@ -37,6 +38,7 @@ import shutil
 import subprocess
 import sys
 import time
+import urllib
 import zipfile
 
 from multiprocessing import Process
@@ -321,21 +323,6 @@ def _run_build_cmd(cmd, verbose=False, env_vars=None):
         if err.output:
             logging.error(err.output)
         return False
-
-
-def _can_upload_to_result_server():
-    """Return True if we can talk to result server."""
-    # TODO: Also check if we have a slow connection to result server.
-    if constants.RESULT_SERVER:
-        try:
-            from urllib.request import urlopen
-            urlopen(constants.RESULT_SERVER,
-                    timeout=constants.RESULT_SERVER_TIMEOUT).close()
-            return True
-        # pylint: disable=broad-except
-        except Exception as err:
-            logging.debug('Talking to result server raised exception: %s', err)
-    return False
 
 
 # pylint: disable=unused-argument
@@ -843,7 +830,7 @@ def find_files(path, file_name=constants.TEST_MAPPING):
                 duration=metrics_utils.convert_duration(0),
                 exit_code=ExitCode.COLLECT_ONLY_FILE_NOT_FOUND,
                 stacktrace=msg,
-                logs=e)
+                logs=str(e))
     return match_files
 
 def extract_zip_text(zip_path):
@@ -1899,7 +1886,8 @@ def generate_print_result_html(result_file: Path):
                     result_file.stat().st_ctime)
                 cache.write(f'<h2>{timestamp}</h2>')
             for log in logs:
-                cache.write(f'<p><a href="{log}">{Path(log).name}</a></p>')
+                cache.write(f'<p><a href="{urllib.parse.quote(log)}">'
+                            f'{html.escape(Path(log).name)}</a></p>')
             cache.write('</body></html>')
         print(f'\nTo access logs, press "ctrl" and click on\n'
               f'file://{result_html}\n')
