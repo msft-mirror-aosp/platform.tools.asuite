@@ -105,7 +105,7 @@ def send_exit_event(exit_code, stacktrace='', logs=''):
         duration=convert_duration(time.time()-get_start_time()),
         exit_code=exit_code,
         stacktrace=stacktrace,
-        logs=logs)
+        logs=str(logs))
     # pylint: disable=no-member
     if clearcut:
         clearcut.flush_events()
