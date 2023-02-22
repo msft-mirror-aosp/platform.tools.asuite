@@ -25,6 +25,7 @@ from __future__ import print_function
 import datetime
 import fnmatch
 import hashlib
+import html
 import importlib
 import itertools
 import json
@@ -37,6 +38,7 @@ import shutil
 import subprocess
 import sys
 import time
+import urllib
 import zipfile
 
 from multiprocessing import Process
@@ -828,7 +830,7 @@ def find_files(path, file_name=constants.TEST_MAPPING):
                 duration=metrics_utils.convert_duration(0),
                 exit_code=ExitCode.COLLECT_ONLY_FILE_NOT_FOUND,
                 stacktrace=msg,
-                logs=e)
+                logs=str(e))
     return match_files
 
 def extract_zip_text(zip_path):
@@ -1884,7 +1886,8 @@ def generate_print_result_html(result_file: Path):
                     result_file.stat().st_ctime)
                 cache.write(f'<h2>{timestamp}</h2>')
             for log in logs:
-                cache.write(f'<p><a href="{log}">{Path(log).name}</a></p>')
+                cache.write(f'<p><a href="{urllib.parse.quote(log)}">'
+                            f'{html.escape(Path(log).name)}</a></p>')
             cache.write('</body></html>')
         print(f'\nTo access logs, press "ctrl" and click on\n'
               f'file://{result_html}\n')
