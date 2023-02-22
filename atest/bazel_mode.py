@@ -36,6 +36,7 @@ import re
 import shlex
 import shutil
 import subprocess
+import time
 import warnings
 
 from abc import ABC, abstractmethod
@@ -50,7 +51,8 @@ from atest import atest_utils
 from atest import constants
 from atest import module_info
 
-from atest.atest_enum import ExitCode
+from atest.atest_enum import DetectType, ExitCode
+from atest.metrics import metrics
 from atest.test_finders import test_finder_base
 from atest.test_finders import test_info
 from atest.test_runners import test_runner_base as trb
@@ -113,9 +115,17 @@ class Features(enum.Enum):
         'Enables running Robolectric tests in Bazel mode.', True)
 
     def __init__(self, arg_flag, description, affects_workspace):
-        self.arg_flag = arg_flag
-        self.description = description
+        self._arg_flag = arg_flag
+        self._description = description
         self.affects_workspace = affects_workspace
+
+    @property
+    def arg_flag(self):
+        return self._arg_flag
+
+    @property
+    def description(self):
+        return self._description
 
 
 def add_parser_arguments(parser: argparse.ArgumentParser, dest: str):
@@ -199,6 +209,7 @@ class WorkspaceGenerator:
         workspace will be generated. Otherwise, the existing workspace will be
         reused.
         """
+        start = time.time()
         workspace_md5_checksum_file = self.workspace_out_path.joinpath(
             'workspace_md5_checksum')
         enabled_features_file = self.workspace_out_path.joinpath(
@@ -238,6 +249,9 @@ class WorkspaceGenerator:
             ],
             workspace_md5_checksum_file
         )
+        metrics.LocalDetectEvent(
+            detect_type=DetectType.FULL_GENERATE_BAZEL_WORKSPACE_TIME,
+            result=int(time.time() - start))
 
     def _add_test_module_targets(self):
         seen = set()
