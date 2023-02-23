@@ -32,7 +32,6 @@ from atest.test_finders import test_finder_base
 _EXAMPLE_FINDER_A = 'EXAMPLE_A'
 
 
-#pylint: disable=no-self-use
 @test_finder_base.find_method_register
 class ExampleFinderA(test_finder_base.TestFinderBase):
     """Example finder class A."""
