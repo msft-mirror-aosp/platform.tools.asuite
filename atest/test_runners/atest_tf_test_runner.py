@@ -39,6 +39,7 @@ from atest import module_info
 from atest import result_reporter
 
 from atest.atest_enum import DetectType, ExitCode
+from atest.coverage import coverage
 from atest.logstorage import atest_gcp_utils
 from atest.logstorage import logstorage_utils
 from atest.metrics import metrics
@@ -78,6 +79,8 @@ _TF_EXIT_CODE = [
     'THROWABLE_EXCEPTION',
     'NO_DEVICE_ALLOCATED',
     'WRONG_JAVA_VERSION']
+
+MAINLINE_LOCAL_DOC = 'go/mainline-local-build'
 
 class TradeFedExitError(Exception):
     """Raised when TradeFed exists before test run has finished."""
@@ -946,16 +949,11 @@ class AtestTradefedTestRunner(trb.TestRunnerBase):
             installed_paths = target_module_info[constants.MODULE_INSTALLED]
 
             for installed_path in installed_paths:
-                # We convert the installed file extension from capex to apex
-                # since module-info uses the former.
-                # This happens because OVERRIDE_PRODUCT_COMPRESSED_APEX was
-                # set to false only _after_ module-info was built.
-                installed_path = re.sub(
-                    re.escape('.capex') + '$', '.apex', installed_path)
-
                 if not re.search(atest_utils.MAINLINE_MODULES_EXT_RE, installed_path):
                     atest_utils.colorful_print(
-                        '%s is not a apk or apex file' % installed_path,
+                        '%s is not a apk or apex file. Did you run mainline '
+                        'local setup script? Please refer to %s' %
+                        (installed_path, MAINLINE_LOCAL_DOC),
                         constants.YELLOW)
                     continue
                 file_name = Path(installed_path).name
@@ -1111,7 +1109,8 @@ def extra_args_to_tf_args(mod_info: module_info.ModuleInfo,
                 '--test-arg',
                 'com.android.tradefed.testtype.GTest:'
                 f'native-test-timeout:{arg_value}',
-            ]
+            ],
+        constants.COVERAGE: coverage.tf_args,
     })
 
     for arg in extra_args:

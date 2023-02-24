@@ -30,6 +30,10 @@ from io import StringIO
 from pathlib import Path
 from unittest import mock
 
+# pylint: disable=import-error
+from pyfakefs import fake_filesystem_unittest
+
+from atest import atest_arg_parser
 from atest import atest_error
 from atest import atest_utils
 from atest import constants
@@ -38,15 +42,6 @@ from atest import unittest_constants
 
 from atest.test_finders import test_info
 from atest.atest_enum import FilterType
-
-MAINLINE_MODULE_A_APEX = 'com.google.android.a.apex'
-MAINLINE_MODULE_B_APK = 'B.apk'
-MAINLINE_MODULE_C_APEX = 'com.google.android.c.apex'
-MAINLINE_TEST_WITH_ONE_MODULE = (
-    unittest_constants.MODULE2_NAME + '[' + MAINLINE_MODULE_A_APEX + ']')
-MAINLINE_TEST_WITH_MULTIPLE_MODULES = (
-    unittest_constants.MODULE2_NAME + '[' + MAINLINE_MODULE_A_APEX + '+' +
-    MAINLINE_MODULE_B_APK + '+' + MAINLINE_MODULE_C_APEX + ']')
 
 TEST_MODULE_NAME_A = 'ModuleNameA'
 TEST_RUNNER_A = 'FakeTestRunnerA'
@@ -93,49 +88,59 @@ class AtestUtilsUnittests(unittest.TestCase):
         self.assertEqual(want_list,
                          atest_utils._capture_fail_section(test_list))
 
-    def test_is_test_mapping(self):
+    def test_is_test_mapping_none_test_mapping_args(self):
         """Test method is_test_mapping."""
-        tm_option_attributes = [
-            'test_mapping',
-            'include_subdirs'
-        ]
-        for attr_to_test in tm_option_attributes:
-            args = mock.Mock()
-            for attr in tm_option_attributes:
-                setattr(args, attr, attr == attr_to_test)
-            args.tests = []
-            args.host_unit_test_only = False
+        parser = atest_arg_parser.AtestArgParser()
+        parser.add_atest_args()
+        non_tm_args = ['--host-unit-test-only', '--smart-testing-local']
+
+        for argument in non_tm_args:
+            args = parser.parse_args([argument])
+            self.assertFalse(
+                atest_utils.is_test_mapping(args),
+                'Option %s indicates NOT a test_mapping!' % argument)
+
+    def test_is_test_mapping_test_mapping_args(self):
+        """Test method is_test_mapping."""
+        parser = atest_arg_parser.AtestArgParser()
+        parser.add_atest_args()
+        tm_args = ['--test-mapping', '--include-subdirs']
+
+        for argument in tm_args:
+            args = parser.parse_args([argument])
             self.assertTrue(
                 atest_utils.is_test_mapping(args),
-                'Failed to validate option %s' % attr_to_test)
+                'Option %s indicates a test_mapping!' % argument)
 
-        args = mock.Mock()
-        for attr in tm_option_attributes:
-            setattr(args, attr, False)
-        args.tests = []
-        args.host_unit_test_only = True
-        self.assertFalse(atest_utils.is_test_mapping(args))
+    def test_is_test_mapping_implicit_test_mapping(self):
+        """Test method is_test_mapping."""
+        parser = atest_arg_parser.AtestArgParser()
+        parser.add_atest_args()
 
-        args = mock.Mock()
-        for attr in tm_option_attributes:
-            setattr(args, attr, False)
-        args.tests = [':group_name']
-        args.host_unit_test_only = False
-        self.assertTrue(atest_utils.is_test_mapping(args))
+        args = parser.parse_args(['--test', '--build', ':postsubmit'])
+        self.assertTrue(
+            atest_utils.is_test_mapping(args),
+            'Option %s indicates a test_mapping!' % args)
 
-        args = mock.Mock()
-        for attr in tm_option_attributes:
-            setattr(args, attr, False)
-        args.tests = [':test1', 'test2']
-        args.host_unit_test_only = False
-        self.assertFalse(atest_utils.is_test_mapping(args))
+    def test_is_test_mapping_with_testname(self):
+        """Test method is_test_mapping."""
+        parser = atest_arg_parser.AtestArgParser()
+        parser.add_atest_args()
+        irrelevant_args = ['--test', ':postsubmit', 'testname']
 
-        args = mock.Mock()
-        for attr in tm_option_attributes:
-            setattr(args, attr, False)
-        args.tests = ['test2']
-        args.host_unit_test_only = False
-        self.assertFalse(atest_utils.is_test_mapping(args))
+        args = parser.parse_args(irrelevant_args)
+        self.assertFalse(
+            atest_utils.is_test_mapping(args),
+            'Option %s indicates a test_mapping!' % args)
+
+    def test_is_test_mapping_false(self):
+        """Test method is_test_mapping."""
+        parser = atest_arg_parser.AtestArgParser()
+        parser.add_atest_args()
+        args = parser.parse_args(['--test', '--build', 'hello_atest'])
+
+        self.assertFalse(
+            atest_utils.is_test_mapping(args))
 
     def test_has_colors(self):
         """Test method _has_colors."""
@@ -492,6 +497,7 @@ class AtestUtilsUnittests(unittest.TestCase):
         with open(target_xml, 'w') as cache:
             cache.write(content_manifest)
         self.assertEqual("MONSTER-dev", atest_utils.get_manifest_branch())
+        self.assertEqual("aosp-MONSTER-dev", atest_utils.get_manifest_branch(True))
         os.remove(target_xml)
         os.remove(portal_xml)
 
@@ -787,23 +793,61 @@ class AtestUtilsUnittests(unittest.TestCase):
         }
         self.assertEqual(expected, atest_utils.get_manifest_info(target_xml))
 
-    def test_parse_mainline_module_with_one_module(self):
-        """test parse mainlnie test that needs to install one module"""
-        test_name, mainline_modules = atest_utils.parse_mainline_modules(
-            MAINLINE_TEST_WITH_ONE_MODULE)
-        self.assertEqual(test_name, unittest_constants.MODULE2_NAME)
-        expected_module_list = [MAINLINE_MODULE_A_APEX]
-        self.assertEqual(mainline_modules, expected_module_list)
+# pylint: disable=missing-function-docstring
+class AutoShardUnittests(fake_filesystem_unittest.TestCase):
+    """Tests for auto shard functions"""
+    def setUp(self):
+        self.setUpPyfakefs()
 
-    def test_parse_mainline_module_with_multiple_modules(self):
-        """test parse mainlnie test that needs to install multiple modules"""
-        test_name, mainline_modules = atest_utils.parse_mainline_modules(
-            MAINLINE_TEST_WITH_MULTIPLE_MODULES)
-        self.assertEqual(test_name, unittest_constants.MODULE2_NAME)
-        expected_module_list = [MAINLINE_MODULE_A_APEX,
-                                MAINLINE_MODULE_B_APK,
-                                MAINLINE_MODULE_C_APEX]
-        self.assertEqual(mainline_modules, expected_module_list)
+    def test_get_local_auto_shardable_tests(self):
+        """test get local auto shardable list"""
+        shardable_tests_file = Path(atest_utils.get_misc_dir()).joinpath(
+        '.atest/auto_shard/local_auto_shardable_tests')
+
+        self.fs.create_file(shardable_tests_file, contents='abc\ndef')
+
+        long_duration_tests = atest_utils.get_local_auto_shardable_tests()
+
+        expected_list = ['abc', 'def']
+        self.assertEqual(long_duration_tests , expected_list)
+
+    def test_update_shardable_tests_with_time_less_than_600(self):
+        """test update local auto shardable list"""
+        shardable_tests_file = Path(atest_utils.get_misc_dir()).joinpath(
+        '.atest/auto_shard/local_auto_shardable_tests')
+
+        self.fs.create_file(shardable_tests_file, contents='')
+
+        atest_utils.update_shardable_tests('test1', 10)
+
+        with open(shardable_tests_file) as f:
+            self.assertEqual('', f.read())
+
+    def test_update_shardable_tests_with_time_larger_than_600(self):
+        """test update local auto shardable list"""
+        shardable_tests_file = Path(atest_utils.get_misc_dir()).joinpath(
+        '.atest/auto_shard/local_auto_shardable_tests')
+
+        self.fs.create_file(shardable_tests_file, contents='')
+
+        atest_utils.update_shardable_tests('test2', 1000)
+
+        with open(shardable_tests_file) as f:
+            self.assertEqual('test2', f.read())
+
+    def test_update_shardable_tests_with_time_larger_than_600_twice(self):
+        """test update local auto shardable list"""
+        shardable_tests_file = Path(atest_utils.get_misc_dir()).joinpath(
+        '.atest/auto_shard/local_auto_shardable_tests')
+        # access the fake_filesystem object via fake_fs
+        self.fs.create_file(shardable_tests_file, contents='')
+
+        atest_utils.update_shardable_tests('test3', 1000)
+        atest_utils.update_shardable_tests('test3', 601)
+
+        with open(shardable_tests_file) as f:
+            self.assertEqual('test3', f.read())
+
 
 if __name__ == "__main__":
     unittest.main()

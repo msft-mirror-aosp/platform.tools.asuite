@@ -40,6 +40,8 @@ UPDATEDB = atest_tools.UPDATEDB
 class AtestToolsUnittests(unittest.TestCase):
     """"Unittest Class for atest_tools.py."""
 
+    # TODO: (b/265245404) Re-write test cases with AAA style.
+    # TODO: (b/242520851) constants.LOCATE_CACHE should be in literal.
     @mock.patch('atest.constants.INDEX_DIR', uc.INDEX_DIR)
     @mock.patch('atest.constants.LOCATE_CACHE', uc.LOCATE_CACHE)
     @mock.patch('atest.tools.atest_tools.SEARCH_TOP', uc.TEST_DATA_DIR)
@@ -51,10 +53,11 @@ class AtestToolsUnittests(unittest.TestCase):
                                      prunepaths=PRUNEPATH)
             # test_config/ is excluded so that a.xml won't be found.
             locate_cmd1 = [LOCATE, '-d', uc.LOCATE_CACHE, '/a.xml']
-            # locate always return 0 when not found, therefore check null
-            # return if nothing found.
-            output = subprocess.check_output(locate_cmd1).decode()
-            self.assertEqual(output, '')
+            # locate returns non-zero when target not found; therefore, use run
+            # method and assert stdout only.
+            result = subprocess.run(locate_cmd1, check=False,
+                                    capture_output=True)
+            self.assertEqual(result.stdout.decode(), '')
 
             # module-info.json can be found in the search_root.
             locate_cmd2 = [LOCATE, '-d', uc.LOCATE_CACHE, 'module-info.json']
@@ -128,24 +131,26 @@ class AtestToolsUnittests(unittest.TestCase):
 
     def test_probe_acloud_status(self):
         """Test method prob_acloud_status."""
+        duration = 100
         success = os.path.join(SEARCH_ROOT, 'acloud', 'create_success.json')
-        self.assertEqual(atest_tools.probe_acloud_status(success),
+        self.assertEqual(atest_tools.probe_acloud_status(success, duration),
                          ExitCode.SUCCESS)
         self.assertEqual(
             os.environ[constants.ANDROID_SERIAL], '127.0.0.1:58167')
 
         success_local_instance = os.path.join(
             SEARCH_ROOT, 'acloud', 'create_success_local_instance.json')
-        self.assertEqual(atest_tools.probe_acloud_status(success_local_instance),
+        self.assertEqual(atest_tools.probe_acloud_status(success_local_instance,
+                                                         duration),
                          ExitCode.SUCCESS)
         self.assertEqual(os.environ[constants.ANDROID_SERIAL], '0.0.0.0:6521')
 
         failure = os.path.join(SEARCH_ROOT, 'acloud', 'create_failure.json')
-        self.assertEqual(atest_tools.probe_acloud_status(failure),
+        self.assertEqual(atest_tools.probe_acloud_status(failure, duration),
                          ExitCode.AVD_CREATE_FAILURE)
 
         inexistence = os.path.join(SEARCH_ROOT, 'acloud', 'inexistence.json')
-        self.assertEqual(atest_tools.probe_acloud_status(inexistence),
+        self.assertEqual(atest_tools.probe_acloud_status(inexistence, duration),
                          ExitCode.AVD_INVALID_ARGS)
 
     def test_get_acloud_duration(self):

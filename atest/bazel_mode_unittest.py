@@ -75,7 +75,12 @@ class GenerationTestFixture(fake_filesystem_unittest.TestCase):
         self.resource_root.joinpath('WORKSPACE').touch()
         self.resource_root.joinpath('bazelrc').touch()
 
-    def create_workspace_generator(self, modules=None, enabled_features=None):
+    def create_workspace_generator(
+        self,
+        modules=None,
+        enabled_features=None,
+        jdk_path=None,
+    ):
         mod_info = self.create_module_info(modules)
 
         generator = bazel_mode.WorkspaceGenerator(
@@ -87,11 +92,12 @@ class GenerationTestFixture(fake_filesystem_unittest.TestCase):
             mod_info,
             enabled_features=enabled_features,
             resource_root=self.resource_root,
+            jdk_path=jdk_path,
         )
 
         return generator
 
-    def run_generator(self, mod_info, enabled_features=None):
+    def run_generator(self, mod_info, enabled_features=None, jdk_path=None):
         generator = bazel_mode.WorkspaceGenerator(
             self.src_root_path,
             self.workspace_out_path,
@@ -101,6 +107,7 @@ class GenerationTestFixture(fake_filesystem_unittest.TestCase):
             mod_info,
             enabled_features=enabled_features,
             resource_root=self.resource_root,
+            jdk_path=jdk_path,
         )
 
         generator.generate()
@@ -128,6 +135,11 @@ class GenerationTestFixture(fake_filesystem_unittest.TestCase):
         for m in modules:
             m[constants.MODULE_INFO_ID] = m['module_name']
             mod_info.name_to_module_info[m['module_name']] = m
+            for path in m['path']:
+                if path in mod_info.path_to_module_info:
+                    mod_info.path_to_module_info[path].append(m)
+                else:
+                    mod_info.path_to_module_info[path] = [m]
 
         return mod_info
 
@@ -686,6 +698,153 @@ class HostUnitTestModuleTestTargetGenerationTest(GenerationTestFixture):
 
         self.assertIn('adb', str(context.warnings[0].message))
 
+
+class RobolectricTestModuleTestTargetGenerationTest(GenerationTestFixture):
+    """Tests for robolectric test module test target generation."""
+
+    def setUp(self):
+        super().setUp()
+        self.robolectric_template_path = self.src_root_path.joinpath(
+            bazel_mode.ROBOLECTRIC_CONFIG)
+        self.fs.create_file(self.robolectric_template_path, contents='')
+
+    def create_module_info(self, modules=None):
+        mod_info = super().create_module_info(modules)
+        mod_info.root_dir = self.src_root_path
+        return mod_info
+
+    def test_generate_robolectric_test_target(self):
+        module_name = 'hello_world_test'
+        mod_info = self.create_module_info(modules=[
+            robolectric_test_module(
+                name=f'{module_name}',
+                compatibility_suites='robolectric-tests'),
+        ])
+
+        self.run_generator(mod_info, enabled_features=set([
+            bazel_mode.Features.EXPERIMENTAL_ROBOLECTRIC_TEST]))
+
+        self.assertInBuildFile(
+            'load("//bazel/rules:tradefed_test.bzl",'
+            ' "tradefed_robolectric_test")\n',
+        )
+        self.assertTargetInWorkspace(f'{module_name}_host')
+
+    def test_not_generate_when_feature_disabled(self):
+        module_name = 'hello_world_test'
+        mod_info = self.create_module_info(modules=[
+            robolectric_test_module(
+                name=f'{module_name}',
+                compatibility_suites='robolectric-tests'),
+        ])
+
+        self.run_generator(mod_info)
+
+        self.assertTargetNotInWorkspace(f'{module_name}_host')
+
+    def test_not_generate_for_legacy_robolectric_test_type(self):
+        module_name = 'hello_world_test'
+        module_path = 'example/tests'
+        mod_info = self.create_module_info(modules=[
+            robolectric_test_module(
+                name=f'{module_name}', path=module_path),
+        ])
+
+        self.run_generator(mod_info, enabled_features=set([
+            bazel_mode.Features.EXPERIMENTAL_ROBOLECTRIC_TEST]))
+
+        self.assertFileNotInWorkspace('BUILD.bazel', package=f'{module_path}')
+
+    def test_generate_jdk_target(self):
+        gen = self.create_workspace_generator(jdk_path=Path('jdk_src_root'))
+
+        gen.generate()
+
+        self.assertInBuildFile(
+            'filegroup(\n'
+            f'    name = "{bazel_mode.JDK_NAME}",\n'
+            '    srcs = glob([\n'
+            f'        "{bazel_mode.JDK_NAME}_files/**",\n',
+            package=f'{bazel_mode.JDK_PACKAGE_NAME}'
+        )
+
+    def test_not_generate_jdk_target_when_no_jdk_path(self):
+        gen = self.create_workspace_generator(jdk_path=None)
+
+        gen.generate()
+
+        self.assertFileNotInWorkspace(
+            'BUILD.bazel', package=f'{bazel_mode.JDK_PACKAGE_NAME}')
+
+    def test_create_symlinks_to_jdk(self):
+        jdk_path = Path('jdk_path')
+        gen = self.create_workspace_generator(jdk_path=jdk_path)
+
+        gen.generate()
+
+        self.assertSymlinkTo(
+            self.workspace_out_path.joinpath(
+                f'{bazel_mode.JDK_PACKAGE_NAME}/{bazel_mode.JDK_NAME}_files'),
+            self.src_root_path.joinpath(f'{jdk_path}'))
+
+    def test_generate_android_all_target(self):
+        gen = self.create_workspace_generator(jdk_path=Path('jdk_src_root'))
+
+        gen.generate()
+
+        self.assertInBuildFile(
+            'filegroup(\n'
+            '    name = "android-all",\n'
+            '    srcs = glob([\n'
+            '        "android-all_files/**",\n',
+            package='android-all'
+        )
+
+    def test_not_generate_android_all_target_when_no_jdk_path(self):
+        gen = self.create_workspace_generator(jdk_path=None)
+
+        gen.generate()
+
+        self.assertFileNotInWorkspace(
+            'BUILD.bazel', package='android-all')
+
+    def test_create_symlinks_to_android_all(self):
+        module_name = 'android-all'
+        gen = self.create_workspace_generator(jdk_path=Path('jdk_src_root'))
+
+        gen.generate()
+
+        self.assertSymlinkTo(
+            self.workspace_out_path.joinpath(
+                f'{module_name}/{module_name}_files'),
+            self.host_out_path.joinpath(f'testcases/{module_name}'))
+
+    def test_regenerate_workspace_when_robolectric_template_changed(self):
+        workspace_generator = self.create_workspace_generator()
+        workspace_generator.generate()
+        workspace_stat = workspace_generator.workspace_out_path.stat()
+
+        with open(self.robolectric_template_path, 'a', encoding='utf8') as f:
+            f.write(' ')
+        workspace_generator = self.create_workspace_generator()
+        workspace_generator.generate()
+
+        new_workspace_stat = workspace_generator.workspace_out_path.stat()
+        self.assertNotEqual(workspace_stat, new_workspace_stat)
+
+    def test_not_regenerate_workspace_when_robolectric_template_touched(self):
+        workspace_generator = self.create_workspace_generator()
+        workspace_generator.generate()
+        workspace_stat = workspace_generator.workspace_out_path.stat()
+
+        self.robolectric_template_path.touch()
+        workspace_generator = self.create_workspace_generator()
+        workspace_generator.generate()
+
+        new_workspace_stat = workspace_generator.workspace_out_path.stat()
+        self.assertEqual(workspace_stat, new_workspace_stat)
+
+
 class ModulePrebuiltTargetGenerationTest(GenerationTestFixture):
     """Tests for module prebuilt target generation."""
 
@@ -1081,7 +1240,6 @@ class SharedLibPrebuiltTargetGenerationTest(GenerationTestFixture):
             host_module(
                 name='libhello',
                 installed=[str(host_file)],
-                auto_test_config=['true']
             )
         ])
         package_path = self.workspace_out_path
@@ -1210,6 +1368,11 @@ def device_test_module(**kwargs):
     return device_only_config(test_module(**kwargs))
 
 
+def robolectric_test_module(**kwargs):
+    kwargs.setdefault('name', 'hello_world_test')
+    return host_only_config(robolectric(test_module(**kwargs)))
+
+
 def host_module(**kwargs):
     m = module(**kwargs)
 
@@ -1264,7 +1427,7 @@ def module(
     m = {}
 
     m['module_name'] = name
-    m['class'] = classes
+    m['class'] = classes or ['']
     m['path'] = [path or '']
     m['installed'] = installed or []
     m['is_unit_test'] = 'false'
@@ -1299,6 +1462,11 @@ def rlib(info):
 
 def dylib(info):
     info['class'] = ['DYLIB_LIBRARIES']
+    return info
+
+
+def robolectric(info):
+    info['class'] = ['ROBOLECTRIC']
     return info
 
 
@@ -1451,13 +1619,11 @@ class PackageTest(fake_filesystem_unittest.TestCase):
 class DecorateFinderMethodTest(GenerationTestFixture):
     """Tests for _decorate_find_method()."""
 
-    def setUp(self):
-        self.setUpPyfakefs()
-
     def test_host_unit_test_with_host_arg_runner_is_overridden(self):
-        original_find_method = lambda obj, test_id:(
-            self.create_single_test_infos(obj, test_id, test_name=MODULE_NAME,
-                                          runner=ATEST_TF_RUNNER))
+        def original_find_method(obj, test_id):
+            return self.create_single_test_infos(
+                obj, test_id, test_name=MODULE_NAME,
+                runner=ATEST_TF_RUNNER)
         mod_info = self.create_module_info(modules=[
             host_unit_test_module(name=MODULE_NAME)
         ])
@@ -1472,9 +1638,10 @@ class DecorateFinderMethodTest(GenerationTestFixture):
         self.assertEqual(test_infos[0].test_runner, BAZEL_RUNNER)
 
     def test_host_unit_test_without_host_arg_runner_is_overridden(self):
-        original_find_method = lambda obj, test_id:(
-            self.create_single_test_infos(obj, test_id, test_name=MODULE_NAME,
-                                          runner=ATEST_TF_RUNNER))
+        def original_find_method(obj, test_id):
+            return self.create_single_test_infos(
+                obj, test_id, test_name=MODULE_NAME,
+                runner=ATEST_TF_RUNNER)
         mod_info = self.create_module_info(modules=[
             host_unit_test_module(name=MODULE_NAME)
         ])
@@ -1489,9 +1656,10 @@ class DecorateFinderMethodTest(GenerationTestFixture):
         self.assertEqual(test_infos[0].test_runner, BAZEL_RUNNER)
 
     def test_device_test_with_host_arg_runner_is_preserved(self):
-        original_find_method = lambda obj, test_id:(
-            self.create_single_test_infos(obj, test_id, test_name=MODULE_NAME,
-                                          runner=ATEST_TF_RUNNER))
+        def original_find_method(obj, test_id):
+            return self.create_single_test_infos(
+                obj, test_id, test_name=MODULE_NAME,
+                runner=ATEST_TF_RUNNER)
         mod_info = self.create_module_info(modules=[
             device_test_module(name=MODULE_NAME)
         ])
@@ -1512,9 +1680,10 @@ class DecorateFinderMethodTest(GenerationTestFixture):
         self.assertEqual(test_infos[0].test_runner, ATEST_TF_RUNNER)
 
     def test_device_test_without_host_arg_runner_is_overridden(self):
-        original_find_method = lambda obj, test_id:(
-            self.create_single_test_infos(obj, test_id, test_name=MODULE_NAME,
-                                          runner=ATEST_TF_RUNNER))
+        def original_find_method(obj, test_id):
+            return self.create_single_test_infos(
+                obj, test_id, test_name=MODULE_NAME,
+                runner=ATEST_TF_RUNNER)
         mod_info = self.create_module_info(modules=[
             device_test_module(name=MODULE_NAME)
         ])
@@ -1535,9 +1704,10 @@ class DecorateFinderMethodTest(GenerationTestFixture):
         self.assertEqual(test_infos[0].test_runner, BAZEL_RUNNER)
 
     def test_multi_config_test_with_host_arg_runner_is_overridden(self):
-        original_find_method = lambda obj, test_id:(
-            self.create_single_test_infos(obj, test_id, test_name=MODULE_NAME,
-                                          runner=ATEST_TF_RUNNER))
+        def original_find_method(obj, test_id):
+            return self.create_single_test_infos(
+                obj, test_id, test_name=MODULE_NAME,
+                runner=ATEST_TF_RUNNER)
         mod_info = self.create_module_info(modules=[
             multi_config(supported_test_module(name=MODULE_NAME))
         ])
@@ -1558,9 +1728,10 @@ class DecorateFinderMethodTest(GenerationTestFixture):
         self.assertEqual(test_infos[0].test_runner, BAZEL_RUNNER)
 
     def test_multi_config_test_without_host_arg_runner_is_overridden(self):
-        original_find_method = lambda obj, test_id:(
-            self.create_single_test_infos(obj, test_id, test_name=MODULE_NAME,
-                                          runner=ATEST_TF_RUNNER))
+        def original_find_method(obj, test_id):
+            return self.create_single_test_infos(
+                obj, test_id, test_name=MODULE_NAME,
+                runner=ATEST_TF_RUNNER)
         mod_info = self.create_module_info(modules=[
             multi_config(supported_test_module(name=MODULE_NAME))
         ])
@@ -1581,9 +1752,10 @@ class DecorateFinderMethodTest(GenerationTestFixture):
         self.assertEqual(test_infos[0].test_runner, BAZEL_RUNNER)
 
     def test_host_non_unit_test_with_host_arg_runner_is_overridden(self):
-        original_find_method = lambda obj, test_id:(
-            self.create_single_test_infos(obj, test_id, test_name=MODULE_NAME,
-                                          runner=ATEST_TF_RUNNER))
+        def original_find_method(obj, test_id):
+            return self.create_single_test_infos(
+                obj, test_id, test_name=MODULE_NAME,
+                runner=ATEST_TF_RUNNER)
         mod_info = self.create_module_info(modules=[
             host_test_module(name=MODULE_NAME)
         ])
@@ -1604,9 +1776,10 @@ class DecorateFinderMethodTest(GenerationTestFixture):
         self.assertEqual(test_infos[0].test_runner, BAZEL_RUNNER)
 
     def test_disable_device_driven_test_feature_runner_is_preserved(self):
-        original_find_method = lambda obj, test_id:(
-            self.create_single_test_infos(obj, test_id, test_name=MODULE_NAME,
-                                          runner=ATEST_TF_RUNNER))
+        def original_find_method(obj, test_id):
+            return self.create_single_test_infos(
+                obj, test_id, test_name=MODULE_NAME,
+                runner=ATEST_TF_RUNNER)
         mod_info = self.create_module_info(modules=[
             device_test_module(name=MODULE_NAME)
         ])
@@ -1621,9 +1794,10 @@ class DecorateFinderMethodTest(GenerationTestFixture):
         self.assertEqual(test_infos[0].test_runner, ATEST_TF_RUNNER)
 
     def test_disable_host_driven_test_feature_runner_is_preserved(self):
-        original_find_method = lambda obj, test_id:(
-            self.create_single_test_infos(obj, test_id, test_name=MODULE_NAME,
-                                          runner=ATEST_TF_RUNNER))
+        def original_find_method(obj, test_id):
+            return self.create_single_test_infos(
+                obj, test_id, test_name=MODULE_NAME,
+                runner=ATEST_TF_RUNNER)
         mod_info = self.create_module_info(modules=[
             host_test_module(name=MODULE_NAME)
         ])

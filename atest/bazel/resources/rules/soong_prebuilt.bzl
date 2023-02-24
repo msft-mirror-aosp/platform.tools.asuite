@@ -92,7 +92,8 @@ def _soong_prebuilt_impl(ctx):
             files = files,
             runtime_deps = ctx.attr.runtime_deps,
             static_deps = ctx.attr.static_deps,
-            data = ctx.attr.data + ctx.attr.device_data,
+            data = ctx.attr.data,
+            device_data = ctx.attr.device_data,
             suites = ctx.attr.suites,
         ),
         DefaultInfo(
@@ -159,6 +160,7 @@ def _make_soong_prebuilt_info(
         runtime_deps = [],
         static_deps = [],
         data = [],
+        device_data = [],
         suites = []):
     """Build a SoongPrebuiltInfo based on the given information.
 
@@ -166,6 +168,7 @@ def _make_soong_prebuilt_info(
         runtime_deps: List of runtime dependencies required by this target.
         static_deps: List of static dependencies required by this target.
         data: List of data required by this target.
+        device_data: List of data on device variant required by this target.
         suites: List of test suites this target belongs to.
 
     Returns:
@@ -176,18 +179,20 @@ def _make_soong_prebuilt_info(
         for dep in runtime_deps
     ]
 
-    # We exclude the outputs of static dependencies from the transitive runtime
-    # outputs since they're already embedded in this target's output. Note that
-    # this is done recursively such that only transitive runtime dependency
-    # outputs are included. For example, in a chain A -> B -> C -> D where B and
-    # C are statically linked, only A's and D's outputs would remain in the
-    # transitive runtime outputs.
+    # We exclude the outputs of static dependencies and data dependencies from
+    # the transitive runtime outputs since static dependencies are already
+    # embedded in this target's output and the data dependencies shouldn't be
+    # present in the runtime paths. Note that this is done recursively such that
+    # only transitive runtime dependency outputs are included. For example, in a
+    # chain A -> B -> C -> D where B and C are statically linked or data
+    # dependencies, only A's and D's outputs would remain in the transitive
+    # runtime outputs.
     transitive_runtime_outputs.extend([
         _exclude_files(
             dep[SoongPrebuiltInfo].transitive_runtime_outputs,
             dep[DefaultInfo].files,
         )
-        for dep in static_deps
+        for dep in static_deps + data
     ])
     return SoongPrebuiltInfo(
         module_name = module_name,
@@ -199,7 +204,7 @@ def _make_soong_prebuilt_info(
             files if suites else [],
             transitive = [
                 dep[SoongPrebuiltInfo].transitive_test_files
-                for dep in data + runtime_deps
+                for dep in data + device_data + runtime_deps
             ],
         ),
     )

@@ -249,7 +249,6 @@ PACKAGE_INDEX = os.path.join(INDEX_DIR, 'packages.idx')
 QCLASS_INDEX = os.path.join(INDEX_DIR, 'fqcn.idx')
 MODULE_INDEX = 'modules.idx'
 MODULE_INFO_MD5 = 'module-info.md5'
-VERSION_FILE = os.path.join(os.path.dirname(__file__), 'VERSION')
 
 # Regeular Expressions
 CC_EXT_RE = re.compile(r'.*\.(cc|cpp)$')
@@ -260,8 +259,6 @@ CC_OUTPUT_RE = re.compile(
     r'(?P<test_name>\w+)\s*,\s*(?P<method_name>\w+)\)\s*\{')
 # Used by locate command.
 CC_GREP_RE = r'^\s*(TYPED_TEST(_P)*|TEST(_F|_P)*)\s*\(\w+,'
-# Used by find command.
-CC_GREP_KWRE = r'^\s*(TYPED_TEST(_P)*|TEST(_F|_P)*)\s*\({2},'
 # e.g. /path/to/Javafile.java:package com.android.settings.accessibility
 # grab the path, Javafile(class) and com.android.settings.accessibility(package)
 CLASS_OUTPUT_RE = re.compile(r'(?P<java_path>.*/(?P<class>[A-Z]\w+)\.\w+)[:].*')
@@ -273,7 +270,6 @@ PACKAGE_OUTPUT_RE = re.compile(r'(?P<java_dir>/.*/).*[.](java|kt)[:]\s*package\s
 ATEST_RESULT_ROOT = '/tmp/atest_result'
 ATEST_TEST_RECORD_PROTO = 'test_record.proto'
 LATEST_RESULT_FILE = os.path.join(ATEST_RESULT_ROOT, 'LATEST', 'test_result')
-ACLOUD_REPORT_FILE_RE = re.compile(r'.*--report[_-]file(=|\s+)(?P<report_file>[\w/.]+)')
 TEST_WITH_MAINLINE_MODULES_RE = re.compile(r'(?P<test>.*)\[(?P<mainline_modules>.*'
                                            r'[.](apk|apks|apex))\]$')
 
@@ -408,3 +404,6 @@ LOG_SAVER_EXT_OPTION = ''
 REQUIRE_DEVICES_MSG = (
     'Please ensure there is at least one connected device via:\n'
     '    $ adb devices')
+
+# Default shard num.
+SHARD_NUM = 2

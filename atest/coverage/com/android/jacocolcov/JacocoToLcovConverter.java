@@ -156,7 +156,7 @@ final class JacocoToLcovConverter {
     void indexSourcePath(final Path path) throws IOException {
         try (Stream<Path> stream = Files.walk(path)) {
             stream.filter(Files::isRegularFile)
-                    .filter(p -> p.endsWith(".java") || p.endsWith(".kt"))
+                    .filter(p -> p.toString().endsWith(".java") || p.toString().endsWith(".kt"))
                     .forEach(p -> sourceFiles.put(p.getFileName().toString(), p.toAbsolutePath()));
         }
     }

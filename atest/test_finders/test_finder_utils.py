@@ -35,7 +35,6 @@ from contextlib import contextmanager
 from enum import unique, Enum
 from pathlib import Path
 
-from atest import atest_decorator
 from atest import atest_error
 from atest import atest_utils
 from atest import constants
@@ -99,6 +98,7 @@ _PARAMET_JAVA_CLASS_RE = re.compile(
 # Kotlin: class A : B (...)
 _PARENT_CLS_RE = re.compile(r'.*class\s+\w+\s+(?:extends|:)\s+'
                             r'(?P<parent>[\w\.]+)\s*(?:\{|\()')
+_CC_GREP_RE = r'^\s*(TYPED_TEST(_P)*|TEST(_F|_P)*)\s*\({1},'
 
 @unique
 class TestReferenceType(Enum):
@@ -107,25 +107,25 @@ class TestReferenceType(Enum):
     # (HostTest lives in HostTest.java or HostTest.kt)
     CLASS = (
         constants.CLASS_INDEX,
-        r"find {0} {1} -type f| egrep '.*/{2}\.(kt|java)$' || true")
+        r"find {0} -type f| egrep '.*/{1}\.(kt|java)$' || true")
     # Like CLASS but also contains the package in front like
     # com.android.tradefed.testtype.HostTest.
     QUALIFIED_CLASS = (
         constants.QCLASS_INDEX,
-        r"find {0} {1} -type f | egrep '.*{2}\.(kt|java)$' || true")
+        r"find {0} -type f | egrep '.*{1}\.(kt|java)$' || true")
     # Name of a Java package.
     PACKAGE = (
         constants.PACKAGE_INDEX,
-        r"find {0} {1} -wholename '*{2}' -type d -print")
+        r"find {0} -wholename '*{1}' -type d -print")
     # XML file name in one of the 4 integration config directories.
     INTEGRATION = (
         constants.INT_INDEX,
-        r"find {0} {1} -wholename '*/{2}\.xml' -print")
+        r"find {0} -wholename '*/{1}\.xml' -print")
     # Name of a cc/cpp class.
     CC_CLASS = (
         constants.CC_CLASS_INDEX,
-        (r"find {0} {1} -type f -print | egrep -i '/*test.*\.(cc|cpp)$'"
-         f"| xargs -P0 egrep -sH '{constants.CC_GREP_KWRE}' || true"))
+        (r"find {0} -type f -print | egrep -i '/*test.*\.(cc|cpp)$'"
+         f"| xargs -P0 egrep -sH '{_CC_GREP_RE}' || true"))
 
     def __init__(self, index_file, find_command):
         self.index_file = index_file
@@ -173,7 +173,6 @@ _VTS_APK = 'apk'
 _VTS_BINARY_SRC_DELIM_RE = re.compile(r'.*::(?P<target>.*)$')
 _VTS_OUT_DATA_APP_PATH = 'DATA/app'
 
-# pylint: disable=inconsistent-return-statements
 def split_methods(user_input):
     """Split user input string into test reference and list of methods.
 
@@ -196,16 +195,38 @@ def split_methods(user_input):
             class1#method,class2#method
             path1#method,path2#method
     """
+    error_msg = (
+        'Too many "{}" characters in user input:\n\t{}\n'
+        'Multiple classes should be separated by space, and methods belong to '
+        'the same class should be separated by comma. Example syntaxes are:\n'
+        '\tclass1 class2#method1 class3#method2,method3\n'
+        '\tclass1#method class2#method')
+    if not '#' in user_input:
+        if ',' in user_input:
+            raise atest_error.MoreThanOneClassError(
+                error_msg.format(',', user_input))
+        return user_input, frozenset()
     parts = user_input.split('#')
-    if len(parts) == 1:
-        return parts[0], frozenset()
-    if len(parts) == 2:
-        return parts[0], frozenset(parts[1].split(','))
-    raise atest_error.TooManyMethodsError(
-        'Too many methods specified with # character in user input: %s.'
-        '\n\nOnly one class#method combination supported per positional'
-        ' argument. Multiple classes should be separated by spaces: '
-        'class#method class#method')
+    if len(parts) > 2:
+        raise atest_error.TooManyMethodsError(
+            error_msg.format('#', user_input))
+    # (b/260183137) Support parsing multiple parameters.
+    parsed_methods = []
+    brackets = ('[', ']')
+    for part in parts[1].split(','):
+        count = {part.count(p) for p in brackets}
+        # If brackets are in pair, the length of count should be 1.
+        if len(count) == 1:
+            parsed_methods.append(part)
+        else:
+            # The front part of the pair, e.g. 'method[1'
+            if re.compile(r'^[a-zA-Z0-9]+\[').match(part):
+                parsed_methods.append(part)
+                continue
+            # The rear part of the pair, e.g. '5]]', accumulate this part to
+            # the last index of parsed_method.
+            parsed_methods[-1] += f',{part}'
+    return parts[0], frozenset(parsed_methods)
 
 
 # pylint: disable=inconsistent-return-statements
@@ -443,67 +464,6 @@ def extract_test_from_tests(tests, default_all=False):
     return list(mtests)
 
 
-@atest_decorator.static_var("cached_ignore_dirs", [])
-def _get_ignored_dirs():
-    """Get ignore dirs in find command.
-
-    Since we can't construct a single find cmd to find the target and
-    filter-out the dir with .out-dir, .find-ignore and $OUT-DIR. We have
-    to run the 1st find cmd to find these dirs. Then, we can use these
-    results to generate the real find cmd.
-
-    Return:
-        A list of the ignore dirs.
-    """
-    out_dirs = _get_ignored_dirs.cached_ignore_dirs
-    if not out_dirs:
-        build_top = os.environ.get(constants.ANDROID_BUILD_TOP)
-        find_out_dir_cmd = (r'find %s -maxdepth 2 '
-                            r'-type f \( -name ".out-dir" -o -name '
-                            r'".find-ignore" \)') % build_top
-        out_files = subprocess.check_output(find_out_dir_cmd, shell=True)
-        if isinstance(out_files, bytes):
-            out_files = out_files.decode()
-        # Get all dirs with .out-dir or .find-ignore
-        if out_files:
-            out_files = out_files.splitlines()
-            for out_file in out_files:
-                if out_file:
-                    out_dirs.append(os.path.dirname(out_file.strip()))
-        # Get the out folder if user specified $OUT_DIR
-        custom_out_dir = os.environ.get(constants.ANDROID_OUT_DIR)
-        if custom_out_dir:
-            user_out_dir = None
-            if os.path.isabs(custom_out_dir):
-                user_out_dir = custom_out_dir
-            else:
-                user_out_dir = os.path.join(build_top, custom_out_dir)
-            # only ignore the out_dir when it under $ANDROID_BUILD_TOP
-            if build_top in user_out_dir:
-                if user_out_dir not in out_dirs:
-                    out_dirs.append(user_out_dir)
-        _get_ignored_dirs.cached_ignore_dirs = out_dirs
-    return out_dirs
-
-
-def _get_prune_cond_of_ignored_dirs():
-    """Get the prune condition of ignore dirs.
-
-    Generation a string of the prune condition in the find command.
-    It will filter-out the dir with .out-dir, .find-ignore and $OUT-DIR.
-    Because they are the out dirs, we don't have to find them.
-
-    Return:
-        A string of the prune condition of the ignore dirs.
-    """
-    out_dirs = _get_ignored_dirs()
-    prune_cond = r'-type d \( -name ".*"'
-    for out_dir in out_dirs:
-        prune_cond += r' -o -path %s' % out_dir
-    prune_cond += r' \) -prune -o'
-    return prune_cond
-
-
 def run_find_cmd(ref_type, search_dir, target, methods=None):
     """Find a path to a target given a search dir and a target name.
 
@@ -537,10 +497,9 @@ def run_find_cmd(ref_type, search_dir, target, methods=None):
             out = [path for path in _dict.get(target) if search_dir in path]
             logging.debug('Found %s in %s', target, out)
     else:
-        prune_cond = _get_prune_cond_of_ignored_dirs()
         if '.' in target:
             target = target.replace('.', '/')
-        find_cmd = ref_type.find_command.format(search_dir, prune_cond, target)
+        find_cmd = ref_type.find_command.format(search_dir, target)
         logging.debug('Executing %s find cmd: %s', ref_name, find_cmd)
         out = subprocess.check_output(find_cmd, shell=True)
         if isinstance(out, bytes):

@@ -28,7 +28,7 @@ import tempfile
 import time
 
 from pathlib import Path
-from typing import Any, Dict, Set
+from typing import Any, Dict, List, Set
 
 from atest import atest_utils
 from atest import constants
@@ -89,17 +89,21 @@ class ModuleInfo:
             module_file: String of path to file to load up. Used for testing.
             index_dir: String of path to store testable module index and md5.
         """
+        # TODO(b/263199608): Refactor the ModuleInfo constructor.
+        # The module-info constructor does too much. We should never be doing
+        # real work in a constructor and should only use it to inject
+        # dependencies.
+
         # force_build could be from "-m" or smart_build(build files change).
         self.force_build = force_build
         # update_merge_info flag will merge dep files only when any of them have
         # changed even force_build == True.
         self.update_merge_info = False
         # Index and checksum files that will be used.
-        if not index_dir:
-            index_dir = Path(
-                os.getenv(constants.ANDROID_HOST_OUT,
-                          tempfile.TemporaryDirectory().name)).joinpath('indexes')
-        index_dir = Path(index_dir)
+        with tempfile.TemporaryDirectory() as temp_dir:
+            index_dir = (Path(index_dir)
+                         if index_dir else
+                         Path(temp_dir).joinpath('indexes'))
         if not index_dir.is_dir():
             index_dir.mkdir(parents=True)
         self.module_index = index_dir.joinpath(constants.MODULE_INDEX)
@@ -227,7 +231,7 @@ class ModuleInfo:
                 detect_type=DetectType.MODULE_MERGE_MS, result=int(duration*1000))
         else:
             # Load $ANDROID_PRODUCT_OUT/atest_merged_dep.json directly.
-            with open(self.merged_dep_path) as merged_info_json:
+            with open(self.merged_dep_path, encoding='utf-8') as merged_info_json:
                 mod_info = json.load(merged_info_json)
             duration = time.time() - start
             logging.debug('Loading module info took %ss', duration)
@@ -366,10 +370,10 @@ class ModuleInfo:
         Returns:
             True if it exists in mod_info, False otherwise.
         """
-        if mod_info:
-            return suite in mod_info.get(
-                constants.MODULE_COMPATIBILITY_SUITES, [])
-        return []
+        if not isinstance(mod_info, dict):
+            return False
+        return suite in mod_info.get(
+            constants.MODULE_COMPATIBILITY_SUITES, [])
 
     def get_testable_modules(self, suite=None):
         """Return the testable modules of the given suite name.
@@ -415,6 +419,16 @@ class ModuleInfo:
             result=int(duration))
         return modules
 
+    def is_tradefed_testable_module(self, info: Dict[str, Any]) -> bool:
+        """Check whether the module is a Tradefed executable test."""
+        if not info.get(constants.MODULE_INSTALLED, []):
+            return False
+        return bool(info.get(constants.MODULE_TEST_CONFIG, []) or
+                    info.get('auto_test_config', []))
+
+    # TODO(b/270106441): Refactor is_testable_module since it's unreliable and
+    # takes too much time for searching test config files under the module
+    # path.
     def is_testable_module(self, mod_info):
         """Check if module is something we can test.
 
@@ -524,8 +538,10 @@ class ModuleInfo:
         To determine whether the test is a modern/legacy robolectric test:
             1. Traverse all modules share the module path. If one of the
                modules has a ROBOLECTRIC class, it is a robolectric test.
-            2. If found an Android.bp in that path, it's a modern one, otherwise
-               it's a legacy test and will go to the build route.
+            2. If the 'robolectric-test` in the compatibility_suites, it's a
+               modern one, otherwise it's a legacy test. This is accurate since
+               aosp/2308586 already set the test suite of `robolectric-test`
+               for all `modern` Robolectric tests in Soong.
 
         Args:
             module_name: String of module to check.
@@ -551,9 +567,9 @@ class ModuleInfo:
                     break
             if not is_a_robotest:
                 return not_a_robo_test
-            # Check 2: If found Android.bp in path, call it a modern test.
-            bpfile = os.path.join(self.root_dir, mod_path[0], 'Android.bp')
-            if os.path.isfile(bpfile):
+            # Check 2: The `robolectric-test` in the compatibility_suites, call
+            #          it a modern test.
+            if self.is_modern_robolectric_test(module_name_info):
                 return constants.ROBOTYPE_MODERN
             return constants.ROBOTYPE_LEGACY
         return not_a_robo_test
@@ -697,20 +713,21 @@ class ModuleInfo:
         return constants.MODULE_CLASS_NATIVE_TESTS in mod_info.get(
             constants.MODULE_CLASS, [])
 
-    def has_mainline_modules(self, module_name, mainline_modules):
+    def has_mainline_modules(self,
+            module_name: str, mainline_binaries: List[str]) -> bool:
         """Check if the mainline modules are in module-info.
 
         Args:
             module_name: A string of the module name.
-            mainline_modules: A list of mainline modules.
+            mainline_binaries: A list of mainline module binaries.
 
         Returns:
-            True if mainline_modules is in module-info, False otherwise.
+            True if mainline_binaries is in module-info, False otherwise.
         """
         mod_info = self.get_module_info(module_name)
         # Check 'test_mainline_modules' attribute of the module-info.json.
         mm_in_mf = mod_info.get(constants.MODULE_MAINLINE_MODULES, [])
-        ml_modules_set = set(mainline_modules)
+        ml_modules_set = set(mainline_binaries)
         if mm_in_mf:
             return contains_same_mainline_modules(
                 ml_modules_set, set(mm_in_mf))
@@ -784,11 +801,10 @@ class ModuleInfo:
         # b/178559543 saving merged module info in a temp file and copying it to
         # atest_merged_dep.json can eliminate the possibility of accessing it
         # concurrently and resulting in invalid JSON format.
-        temp_file = tempfile.NamedTemporaryFile()
-        with open(temp_file.name, 'w') as _temp:
-            json.dump(name_to_module_info, _temp, indent=0)
-        shutil.copy(temp_file.name, self.merged_dep_path)
-        temp_file.close()
+        with tempfile.NamedTemporaryFile() as temp_file:
+            with open(temp_file.name, 'w', encoding='utf-8') as _temp:
+                json.dump(name_to_module_info, _temp, indent=0)
+            shutil.copy(temp_file.name, self.merged_dep_path)
         return name_to_module_info
 
     def _merge_soong_info(self, name_to_module_info, mod_bp_infos):
@@ -903,18 +919,35 @@ class ModuleInfo:
         """
         return mod_info.get(constants.MODULE_IS_UNIT_TEST, '') == 'true'
 
-    def is_host_unit_test(self, mod_info):
+    def is_host_unit_test(self, info: Dict[str, Any]) -> bool:
         """Return True if input module is host unit test, False otherwise.
+
+        Args:
+            info: ModuleInfo to check.
+
+        Returns:
+            True if input module is host unit test, False otherwise.
+        """
+        return self.is_tradefed_testable_module(info) and \
+            self.is_suite_in_compatibility_suites('host-unit-tests', info)
+
+    def is_modern_robolectric_test(self, info: Dict[str, Any]) -> bool:
+        """Return whether 'robolectric-tests' is in 'compatibility_suites'."""
+        return self.is_tradefed_testable_module(info) and \
+            self.is_robolectric_test_suite(info)
+
+    def is_robolectric_test_suite(self, mod_info) -> bool:
+        """Return True if 'robolectric-tests' in the compatibility_suites.
 
         Args:
             mod_info: ModuleInfo to check.
 
         Returns:
-            True if input module is host unit test, False otherwise.
+            True if the 'robolectric-tests' is in the compatibility_suites,
+            False otherwise.
         """
-        return (self.is_testable_module(mod_info) and
-                self.is_suite_in_compatibility_suites('host-unit-tests',
-                                                      mod_info))
+        return self.is_suite_in_compatibility_suites('robolectric-tests',
+                                                      mod_info)
 
     def is_device_driven_test(self, mod_info):
         """Return True if input module is device driven test, False otherwise.
@@ -925,8 +958,11 @@ class ModuleInfo:
         Returns:
             True if input module is device driven test, False otherwise.
         """
-        return self.is_testable_module(mod_info) and 'DEVICE' in mod_info.get(
-            constants.MODULE_SUPPORTED_VARIANTS, [])
+        if self.is_robolectric_test_suite(mod_info):
+            return False
+
+        return self.is_tradefed_testable_module(mod_info) and \
+            'DEVICE' in mod_info.get(constants.MODULE_SUPPORTED_VARIANTS, [])
 
     def is_host_driven_test(self, mod_info):
         """Return True if input module is host driven test, False otherwise.
@@ -937,8 +973,8 @@ class ModuleInfo:
         Returns:
             True if input module is host driven test, False otherwise.
         """
-        return self.is_testable_module(mod_info) and 'HOST' in mod_info.get(
-            constants.MODULE_SUPPORTED_VARIANTS, [])
+        return self.is_tradefed_testable_module(mod_info) and \
+            'HOST' in mod_info.get(constants.MODULE_SUPPORTED_VARIANTS, [])
 
     def _any_module(self, _: Module) -> bool:
         return True
@@ -969,7 +1005,7 @@ class ModuleInfo:
                     modules.append(mod_name)
         return modules
 
-    def get_modules_by_path_in_srcs(self, path: str) -> str:
+    def get_modules_by_path_in_srcs(self, path: str) -> Set:
         """Get the module name that the given path belongs to.(in 'srcs')
 
         Args:
@@ -980,7 +1016,7 @@ class ModuleInfo:
         """
         modules = set()
         for _, mod_info in self.name_to_module_info.items():
-            if path in mod_info.get(constants.MODULE_SRCS, []):
+            if str(path) in mod_info.get(constants.MODULE_SRCS, []):
                 modules.add(mod_info.get(constants.MODULE_NAME))
         return modules
 
@@ -1008,7 +1044,7 @@ class ModuleInfo:
 
 
 def _add_missing_variant_modules(name_to_module_info: Dict[str, Module]):
-    missing_modules = dict()
+    missing_modules = {}
 
     # Android's build system automatically adds a suffix for some build module
     # variants. For example, a module-info entry for a module originally named

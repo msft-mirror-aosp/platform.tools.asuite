@@ -38,6 +38,7 @@ import tempfile
 import time
 import platform
 
+from dataclasses import dataclass
 from pathlib import Path
 
 from atest import atest_arg_parser
@@ -77,10 +78,6 @@ RESULT_HEADER_FMT = '\nResults from %(test_type)s:'
 RUN_HEADER_FMT = '\nRunning %(test_count)d %(test_type)s.'
 TEST_COUNT = 'test_count'
 TEST_TYPE = 'test_type'
-# Tasks that must run in the build time but unable to build by soong.
-# (e.g subprocesses that invoke host commands.)
-ACLOUD_CREATE = at.acloud_create
-INDEX_TARGETS = at.index_targets
 END_OF_OPTION = '--'
 HAS_IGNORED_ARGS = False
 # Conditions that atest should exit without sending result to metrics.
@@ -90,24 +87,55 @@ EXIT_CODES_BEFORE_TEST = [ExitCode.ENV_NOT_SETUP,
                           ExitCode.AVD_CREATE_FAILURE,
                           ExitCode.AVD_INVALID_ARGS]
 
-# TODO(b/259496712): Remove this once we no longer need to set Mainline vars.
-_DEFAULT_VARS_FOR_MAINLINE = {
-    # Only support building module using static DCLA.
-    "APEX_BUILD_FOR_PRE_S_DEVICES": "true",
+@dataclass
+class Steps:
+    """A Dataclass that stores steps and shows step assignments."""
+    _build: bool
+    _install: bool
+    _test: bool
 
-    # Do not build compressed apex.
-    "OVERRIDE_PRODUCT_COMPRESSED_APEX": "false",
+    def has_build(self):
+        """Return whether build is in steps."""
+        return self._build
 
-    # Build sdk from source.
-    "UNBUNDLED_BUILD_SDKS_FROM_SOURCE": "true",
+    def is_build_only(self):
+        """Return whether build is the only one in steps."""
+        return self._build and not any((self._test, self._install))
 
-    # The rule to create the notice file can't be generated yet,
-    # as the final output path for the apk isn't known yet.
-    # Add the path where the notice file will be generated to the
-    # aapt rules now before calling aaptBuildActions,
-    # the rule to create the notice file will be generated later.
-    "ALWAYS_EMBED_NOTICES": "true",
-}
+    def has_install(self):
+        """Return whether install is in steps."""
+        return self._install
+
+    def has_test(self):
+        """Return whether install is the only one in steps."""
+        return self._test
+
+    def is_test_only(self):
+        """Return whether build is not in steps but test."""
+        return self._test and not any((self._build, self._install))
+
+
+def parse_steps(args: atest_arg_parser.AtestArgParser) -> Steps:
+    """Return Steps object.
+
+    Args:
+        args: an AtestArgParser object.
+
+    Returns:
+        Step object that stores the boolean of build, install and test.
+    """
+    # Implicitly running 'build', 'install' and 'test' when args.steps is None.
+    if not args.steps:
+        return Steps(True, True, True)
+    build =  constants.BUILD_STEP in args.steps
+    test = constants.TEST_STEP in args.steps
+    install = constants.INSTALL_STEP in args.steps
+    if install and not test:
+        logging.warning('Installing without test step is currently not '
+                        'supported; Atest will proceed testing!')
+        test = True
+    return Steps(build, install, test)
+
 
 def _get_args_from_config():
     """Get customized atest arguments in the config file.
@@ -164,7 +192,7 @@ def _parse_args(argv):
         argv: A list of arguments.
 
     Returns:
-        An argspace.Namespace class instance holding parsed args.
+        An argparse.Namespace class instance holding parsed args.
     """
     # Store everything after '--' in custom_args.
     pruned_argv = argv
@@ -241,8 +269,7 @@ def get_extra_args(args):
     extra_args = {}
     if args.wait_for_debugger:
         extra_args[constants.WAIT_FOR_DEBUGGER] = None
-    steps = args.steps or constants.ALL_STEPS
-    if constants.INSTALL_STEP not in steps:
+    if not parse_steps(args).has_install():
         extra_args[constants.DISABLE_INSTALL] = None
     # The key and its value of the dict can be called via:
     # if args.aaaa:
@@ -251,7 +278,7 @@ def get_extra_args(args):
                 'annotation_filter': constants.ANNOTATION_FILTER,
                 'bazel_arg': constants.BAZEL_ARG,
                 'collect_tests_only': constants.COLLECT_TESTS_ONLY,
-                'coverage': constants.COVERAGE,
+                'experimental_coverage': constants.COVERAGE,
                 'custom_args': constants.CUSTOM_ARGS,
                 'device_only': constants.DEVICE_ONLY,
                 'disable_teardown': constants.DISABLE_TEARDOWN,
@@ -362,6 +389,11 @@ def _validate_adb_devices(args, test_infos):
         args: parsed args object.
         test_info: TestInfo object.
     """
+    # No need to check device availability if the user does not acquire to test.
+    if not parse_steps(args).has_test():
+        return
+    if args.no_checking_device:
+        return
     all_device_modes = {x.get_supported_exec_mode() for x in test_infos}
     device_tests = [x.test_name for x in test_infos
         if x.get_supported_exec_mode() != constants.DEVICELESS_TEST]
@@ -408,7 +440,7 @@ def _will_run_tests(args):
     regression detection.
 
     Args:
-        args: parsed args object.
+        args: An argparse.Namespace object.
 
     Returns:
         True if there are tests to run, false otherwise.
@@ -702,7 +734,7 @@ def _non_action_validator(args):
     --latest_result, etc.
 
     Args:
-        args: An argspace.Namespace class instance holding parsed args.
+        args: An argparse.Namespace object.
     """
     if not _is_inside_android_root():
         atest_utils.colorful_print(
@@ -710,9 +742,7 @@ def _non_action_validator(args):
                 constants.ANDROID_BUILD_TOP), constants.RED)
         sys.exit(ExitCode.OUTSIDE_ROOT)
     if args.version:
-        if os.path.isfile(constants.VERSION_FILE):
-            with open(constants.VERSION_FILE, encoding='utf8') as version_file:
-                print(version_file.read())
+        print(atest_utils.get_atest_version())
         sys.exit(ExitCode.SUCCESS)
     if args.help:
         atest_arg_parser.print_epilog_text()
@@ -745,7 +775,7 @@ def _dry_run_validator(args, results_dir, extra_args, test_infos, mod_info):
     """Method which process --dry-run argument.
 
     Args:
-        args: An argspace.Namespace class instance holding parsed args.
+        args: An argparse.Namespace class instance holding parsed args.
         result_dir: A string path of the results dir.
         extra_args: A dict of extra args for test runners to utilize.
         test_infos: A list of test_info.
@@ -797,13 +827,11 @@ def _exclude_modules_in_targets(build_targets):
     return shrank_build_targets
 
 # pylint: disable=protected-access
-def need_rebuild_module_info(test_steps: None,
-                             force_rebuild: bool = False) -> bool:
+def need_rebuild_module_info(args: atest_arg_parser.AtestArgParser) -> bool:
     """Method that tells whether we need to rebuild module-info.json or not.
 
     Args:
-        test_steps: a list of steps, e.g. ['build','test']
-        force_rebuild: a boolean given from args.rebuild_module_info.
+        args: an AtestArgParser object.
 
         +-----------------+
         | Explicitly pass |  yes
@@ -828,10 +856,10 @@ def need_rebuild_module_info(test_steps: None,
     Returns:
         True for forcely/smartly rebuild, otherwise False without rebuilding.
     """
-    if test_steps and constants.BUILD_STEP not in test_steps:
+    if not parse_steps(args).has_build():
         logging.debug('\"--test\" mode detected, will not rebuild module-info.')
         return False
-    if force_rebuild:
+    if args.rebuild_module_info:
         msg = (f'`{constants.REBUILD_MODULE_INFO_FLAG}` is no longer needed '
                f'since Atest can smartly rebuild {module_info._MODULE_INFO} '
                r'only when needed.')
@@ -864,42 +892,9 @@ def need_run_index_targets(args, extra_args):
         return False
     if extra_args.get(constants.VERIFY_ENV_VARIABLE, False):
         return False
-    if args.steps and 'test' in args.steps:
+    if not parse_steps(args).has_build():
         return False
     return True
-
-def acloud_create_validator(results_dir, args):
-    """Check lunch'd target before running 'acloud create'.
-
-    Args:
-        results_dir: A string of the results directory.
-        args: A list of arguments.
-
-    Returns:
-        If the target is valid:
-            A tuple of (multiprocessing.Process,
-                        string of report file path)
-        else:
-            None, None
-    """
-    if not any((args.acloud_create, args.start_avd)):
-        return None, None
-    if args.start_avd:
-        args.acloud_create = []
-    acloud_args = ' '.join(args.acloud_create)
-    target = os.getenv('TARGET_PRODUCT', "")
-    if 'cf_x86' in target:
-        report_file = at.get_report_file(results_dir, acloud_args)
-        acloud_proc = atest_utils.run_multi_proc(
-            func=ACLOUD_CREATE,
-            args=[report_file],
-            kwargs={'args':acloud_args,
-                    'no_metrics_notice':args.no_metrics})
-        return acloud_proc, report_file
-    atest_utils.colorful_print(
-        '{} is not cf_x86 family; will not create any AVD.'.format(target),
-        constants.RED)
-    return None, None
 
 def perm_consistency_metrics(test_infos, mod_info, args):
     """collect inconsistency between preparer and device root permission.
@@ -907,7 +902,7 @@ def perm_consistency_metrics(test_infos, mod_info, args):
     Args:
         test_infos: TestInfo obj.
         mod_info: ModuleInfo obj.
-        args: An argspace.Namespace class instance holding parsed args.
+        args: An argparse.Namespace class instance holding parsed args.
     """
     try:
         # whether device has root permission
@@ -963,6 +958,23 @@ def _get_host_framework_targets(mod_info):
         logging.debug('Found exist host framework target:%s', host_targets)
     return host_targets
 
+
+def _is_auto_shard_test(test_infos):
+    """Determine whether the given tests are in shardable test list.
+
+    Args:
+        test_infos: TestInfo objects.
+
+    Returns:
+        True if test in auto shardable list.
+    """
+    shardable_tests = atest_utils.get_local_auto_shardable_tests()
+    for test_info in test_infos:
+        if test_info.test_name in shardable_tests:
+            return True
+    return False
+
+
 # pylint: disable=too-many-statements
 # pylint: disable=too-many-branches
 # pylint: disable=too-many-return-statements
@@ -972,7 +984,7 @@ def main(argv, results_dir, args):
     Args:
         argv: A list of arguments.
         results_dir: A directory which stores the ATest execution information.
-        args: An argspace.Namespace class instance holding parsed args.
+        args: An argparse.Namespace class instance holding parsed args.
 
     Returns:
         Exit code.
@@ -980,20 +992,25 @@ def main(argv, results_dir, args):
     _begin_time = time.time()
 
     # Sets coverage environment variables.
-    if args.coverage:
+    if args.experimental_coverage:
         atest_utils.update_build_env(coverage.build_env_vars())
 
     _configure_logging(args.verbose)
     _validate_args(args)
     metrics_utils.get_start_time()
-    os_pyver = '{}:{}'.format(platform.platform(), platform.python_version())
+    os_pyver = (f'{platform.platform()}:{platform.python_version()}/'
+                f'{atest_utils.get_manifest_branch(True)}:'
+                f'{atest_utils.get_atest_version()}')
     metrics.AtestStartEvent(
         command_line=' '.join(argv),
         test_references=args.tests,
         cwd=os.getcwd(),
         os=os_pyver)
     _non_action_validator(args)
-    proc_acloud, report_file = acloud_create_validator(results_dir, args)
+
+    proc_acloud, report_file = None, None
+    if any((args.acloud_create, args.start_avd)):
+        proc_acloud, report_file = at.acloud_create_validator(results_dir, args)
     is_clean = not os.path.exists(
         os.environ.get(constants.ANDROID_PRODUCT_OUT, ''))
     extra_args = get_extra_args(args)
@@ -1001,10 +1018,8 @@ def main(argv, results_dir, args):
     proc_idx = None
     # Do not index targets while the users intend to dry-run tests.
     if need_run_index_targets(args, extra_args):
-        proc_idx = atest_utils.run_multi_proc(INDEX_TARGETS)
-    smart_rebuild = need_rebuild_module_info(
-        test_steps=args.steps,
-        force_rebuild=args.rebuild_module_info)
+        proc_idx = atest_utils.run_multi_proc(at.index_targets)
+    smart_rebuild = need_rebuild_module_info(args)
 
     mod_start = time.time()
     mod_info = module_info.ModuleInfo(force_build=smart_rebuild)
@@ -1016,8 +1031,9 @@ def main(argv, results_dir, args):
         func=atest_utils.generate_buildfiles_checksum,
         args=[mod_info.module_index.parent])
 
-    # Run Test Mapping by no-bazel-mode.
-    if atest_utils.is_test_mapping(args):
+    # Run Test Mapping or coverage by no-bazel-mode.
+    if atest_utils.is_test_mapping(args) or args.experimental_coverage:
+        atest_utils.colorful_print('Not running using bazel-mode.', constants.YELLOW)
         args.bazel_mode = False
     if args.bazel_mode:
         start = time.time()
@@ -1076,18 +1092,24 @@ def main(argv, results_dir, args):
                 extra_args = get_extra_args(args)
         else:
             _validate_tm_tests_exec_mode(args, test_infos)
+        # Detect auto sharding and trigger creating AVDs
+        if args.auto_sharding and _is_auto_shard_test(test_infos):
+            extra_args.update({constants.SHARDING: constants.SHARD_NUM})
+            if not (any(dry_run_args) or verify_env_variables):
+                # TODO: check existing devices.
+                args.acloud_create = [f'--num-instances={constants.SHARD_NUM}']
+                proc_acloud, report_file = at.acloud_create_validator(
+                    results_dir, args)
 
-    # Note that we update the Mainline build env vars after we potentially rebuild
-    # module info. This ends up changing build flags which re-triggers a costly
-    # build. This is not an issue when module-info is cached however.
-    # TODO(b/259496712): Remove this once we no longer need to set Mainline vars.
-    for test_info in test_infos:
-        if test_info.mainline_modules:
-            atest_utils.update_build_env(_DEFAULT_VARS_FOR_MAINLINE)
-            break
-
+    # TODO: change to another approach that put constants.CUSTOM_ARGS in the
+    # end of command to make sure that customized args can override default
+    # options.
     # For TEST_MAPPING, set timeout to 600000ms.
-    if args.test_timeout is None:
+    custom_timeout = False
+    for custom_args in args.custom_args:
+        if '-timeout' in custom_args:
+            custom_timeout = True
+    if args.test_timeout is None and not custom_timeout:
         if is_from_test_mapping(test_infos):
             extra_args.update({constants.TEST_TIMEOUT: 600000})
             logging.debug(
@@ -1111,9 +1133,12 @@ def main(argv, results_dir, args):
     if args.detect_regression:
         build_targets |= (regression_test_runner.RegressionTestRunner('')
                           .get_test_runner_build_reqs())
-    # args.steps will be None if none of -bit set, else list of params set.
-    steps = args.steps if args.steps else constants.ALL_STEPS
-    if build_targets and constants.BUILD_STEP in steps:
+
+    steps = parse_steps(args)
+    if build_targets and steps.has_build():
+        if args.experimental_coverage:
+            build_targets.add('jacoco_to_lcov_converter')
+
         # Add module-info.json target to the list of build targets to keep the
         # file up to date.
         build_targets.add(mod_info.module_info_target)
@@ -1139,41 +1164,21 @@ def main(argv, results_dir, args):
             result=int(build_duration))
         if not success:
             return ExitCode.BUILD_FAILURE
-
         if proc_acloud:
             proc_acloud.join()
-            status = at.probe_acloud_status(report_file)
+            status = at.probe_acloud_status(
+                report_file, find_duration + build_duration)
             if status != 0:
                 return status
-            acloud_duration = at.get_acloud_duration(report_file)
-            find_build_duration = find_duration + build_duration
-            if find_build_duration - acloud_duration >= 0:
-                # find+build took longer, saved acloud create time.
-                logging.debug('Saved acloud create time: %ss.',
-                              acloud_duration)
-                metrics.LocalDetectEvent(
-                    detect_type=DetectType.ACLOUD_CREATE,
-                    result=round(acloud_duration))
-            else:
-                # acloud create took longer, saved find+build time.
-                logging.debug('Saved Find and Build time: %ss.',
-                              find_build_duration)
-                metrics.LocalDetectEvent(
-                    detect_type=DetectType.FIND_BUILD,
-                    result=round(find_build_duration))
         # After build step 'adb' command will be available, and stop forward to
         # Tradefed if the tests require a device.
         _validate_adb_devices(args, test_infos)
-    elif constants.TEST_STEP not in steps:
-        logging.warning('Install step without test step currently not '
-                        'supported, installing AND testing instead.')
-        steps.append(constants.TEST_STEP)
 
     tests_exit_code = ExitCode.SUCCESS
     test_start = time.time()
-    if constants.TEST_STEP in steps:
-        # Only send duration to metrics when passing --test and not --build.
-        if constants.BUILD_STEP not in steps:
+    if steps.has_test():
+        # Only send duration to metrics when no --build.
+        if not steps.has_build():
             _init_and_find = time.time() - _begin_time
             logging.debug('Initiation and finding tests took %ss', _init_and_find)
             metrics.LocalDetectEvent(
@@ -1187,6 +1192,8 @@ def main(argv, results_dir, args):
         else:
             tests_exit_code = _run_test_mapping_tests(
                 results_dir, test_infos, extra_args, mod_info)
+        if args.experimental_coverage:
+            coverage.generate_coverage_report(results_dir, test_infos, mod_info)
     if args.detect_regression:
         regression_args = _get_regression_detection_args(args, results_dir)
         # TODO(b/110485713): Should not call run_tests here.

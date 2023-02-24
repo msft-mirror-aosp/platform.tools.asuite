@@ -28,6 +28,7 @@ import tempfile
 import unittest
 import os
 
+from pathlib import Path
 from unittest import mock
 
 # pylint: disable=import-error
@@ -102,6 +103,108 @@ def classoutside_side_effect(find_cmd, shell=False):
         return uc.FIND_ONE
     return None
 
+class ModuleFinderFindTestByModuleName(fake_filesystem_unittest.TestCase):
+    """Unit tests for module_finder.py"""
+
+    def setUp(self):
+        self.setUpPyfakefs()
+        self.build_top = Path('/top')
+        self.out_dir = self.build_top.joinpath('out')
+        self.out_dir.mkdir(parents=True)
+        self.product_out = self.out_dir.joinpath('product')
+        self.host_out = self.out_dir.joinpath('host')
+        self.module_info_file = self.product_out.joinpath('atest_merged_dep.json')
+        self.fs.create_file(
+            self.module_info_file,
+            contents=('''
+                { "CtsJankDeviceTestCases": {
+                    "class":["APPS"],
+                    "path":["foo/bar/jank"],
+                    "tags": ["optional"],
+                    "installed": ["path/to/install/CtsJankDeviceTestCases.apk"],
+                    "test_config": ["foo/bar/jank/AndroidTest.xml",
+                                    "foo/bar/jank/CtsJankDeviceTestCases2.xml"],
+                    "module_name": "CtsJankDeviceTestCases" }
+                }''')
+            )
+
+    @mock.patch.dict('os.environ', {constants.ANDROID_BUILD_TOP: '/top',
+                                    constants.ANDROID_HOST_OUT: '/top/hout'})
+    @mock.patch('builtins.input', return_value='1')
+    def test_find_test_by_module_name_w_multiple_config(self, _get_arg):
+        """Test find_test_by_module_name (test_config_select)"""
+        atest_configs.GLOBAL_ARGS = mock.Mock()
+        atest_configs.GLOBAL_ARGS.test_config_select = True
+        # The original test name will be updated to the config name when multiple
+        # configs were found.
+        expected_test_info = create_test_info(
+            test_name='CtsJankDeviceTestCases2',
+            raw_test_name='CtsJankDeviceTestCases',
+            test_runner='AtestTradefedTestRunner',
+            module_class=['APPS'],
+            build_targets={'MODULES-IN-foo-bar-jank', 'CtsJankDeviceTestCases'},
+            data={'rel_config': 'foo/bar/jank/CtsJankDeviceTestCases2.xml',
+                  'filter': frozenset()}
+            )
+        self.fs.create_file(
+            self.build_top.joinpath('foo/bar/jank/CtsJankDeviceTestCases2.xml'),
+            contents=('''
+                <target_preparer class="com.android.tradefed.targetprep.suite.SuiteApkInstaller">
+                    <option name="test-file-name" value="CtsUiDeviceTestCases.apk" />
+                </target_preparer>
+            ''')
+            )
+
+        mod_info = module_info.ModuleInfo(module_file=self.module_info_file)
+        mod_finder = module_finder.ModuleFinder(module_info=mod_info)
+        t_infos = mod_finder.find_test_by_module_name('CtsJankDeviceTestCases')
+
+        self.assertEqual(len(t_infos), 1)
+        unittest_utils.assert_equal_testinfos(self,
+            t_infos[0], expected_test_info)
+
+    @mock.patch.dict('os.environ', {constants.ANDROID_BUILD_TOP: '/top',
+                                    constants.ANDROID_HOST_OUT: '/top/hout'})
+    def test_find_test_by_module_name_w_multiple_config_all(self):
+        """Test find_test_by_module_name."""
+        atest_configs.GLOBAL_ARGS = mock.Mock()
+        atest_configs.GLOBAL_ARGS.test_config_select = False
+        expected_test_info = [
+            create_test_info(
+                test_name='CtsJankDeviceTestCases',
+                test_runner='AtestTradefedTestRunner',
+                module_class=['APPS'],
+                build_targets={'MODULES-IN-foo-bar-jank', 'CtsJankDeviceTestCases'},
+                data={'rel_config': 'foo/bar/jank/AndroidTest.xml',
+                      'filter': frozenset()}
+        ),
+            create_test_info(
+                test_name='CtsJankDeviceTestCases2',
+                raw_test_name='CtsJankDeviceTestCases',
+                test_runner='AtestTradefedTestRunner',
+                module_class=['APPS'],
+                build_targets={'MODULES-IN-foo-bar-jank', 'CtsJankDeviceTestCases'},
+                data={'rel_config': 'foo/bar/jank/CtsJankDeviceTestCases2.xml',
+                      'filter': frozenset()}
+            )]
+        self.fs.create_file(
+            self.build_top.joinpath('foo/bar/jank/AndroidTest.xml'),
+            contents=('''
+                <target_preparer class="com.android.tradefed.targetprep.suite.SuiteApkInstaller">
+                    <option name="test-file-name" value="CtsUiDeviceTestCases.apk" />
+                </target_preparer>
+            ''')
+            )
+
+        mod_info = module_info.ModuleInfo(module_file=self.module_info_file)
+        mod_finder = module_finder.ModuleFinder(module_info=mod_info)
+        t_infos = mod_finder.find_test_by_module_name('CtsJankDeviceTestCases')
+
+        self.assertEqual(len(t_infos), 2)
+        unittest_utils.assert_equal_testinfos(self,
+            t_infos[0], expected_test_info[0])
+        unittest_utils.assert_equal_testinfos(self,
+            t_infos[1], expected_test_info[1])
 
 #pylint: disable=protected-access
 class ModuleFinderUnittests(unittest.TestCase):
@@ -147,57 +250,6 @@ class ModuleFinderUnittests(unittest.TestCase):
         self.mod_finder.module_info.get_module_info.return_value = None
         self.mod_finder.module_info.is_testable_module.return_value = False
         self.assertIsNone(self.mod_finder.find_test_by_module_name('Not_Module'))
-
-    @mock.patch('builtins.input', return_value='1')
-    @mock.patch.object(module_finder.ModuleFinder, '_get_build_targets',
-                       return_value=copy.deepcopy(uc.MODULE_BUILD_TARGETS))
-    def test_find_test_by_module_name_w_multiple_config(
-            self, _get_targ, _mock_input):
-        """Test find_test_by_module_name."""
-        atest_configs.GLOBAL_ARGS = mock.Mock()
-        atest_configs.GLOBAL_ARGS.test_config_select = True
-        self.mod_finder.module_info.is_robolectric_test.return_value = False
-        self.mod_finder.module_info.get_instrumentation_target_apps.return_value = {}
-        self.mod_finder.module_info.has_test_config.return_value = True
-        mod_info = {'installed': ['/path/to/install'],
-                    'path': [uc.MODULE_DIR],
-                    constants.MODULE_CLASS: [],
-                    constants.MODULE_COMPATIBILITY_SUITES: [],
-                    constants.MODULE_TEST_CONFIG: [
-                        uc.CONFIG_FILE,
-                        uc.EXTRA_CONFIG_FILE]}
-        self.mod_finder.module_info.get_module_info.return_value = mod_info
-        self.mod_finder.module_info.get_robolectric_type.return_value = 0
-        t_infos = self.mod_finder.find_test_by_module_name(uc.MODULE_NAME)
-        # Only select one test
-        self.assertEqual(len(t_infos), 1)
-        # The t_info should be the EXTRA_CONFIG_FILE one.
-        unittest_utils.assert_equal_testinfos(
-            self, t_infos[0], uc.MODULE_INFO_W_CONFIG)
-
-    @mock.patch.object(module_finder.ModuleFinder, '_get_build_targets',
-                       return_value=copy.deepcopy(uc.MODULE_BUILD_TARGETS))
-    def test_find_test_by_module_name_w_multiple_config_all(
-            self, _get_targ,):
-        """Test find_test_by_module_name."""
-        atest_configs.GLOBAL_ARGS = mock.Mock()
-        atest_configs.GLOBAL_ARGS.test_config_select = False
-        self.mod_finder.module_info.is_robolectric_test.return_value = False
-        self.mod_finder.module_info.get_instrumentation_target_apps.return_value = {}
-        self.mod_finder.module_info.has_test_config.return_value = True
-        mod_info = {'installed': ['/path/to/install'],
-                    'path': [uc.MODULE_DIR],
-                    constants.MODULE_CLASS: [],
-                    constants.MODULE_COMPATIBILITY_SUITES: [],
-                    constants.MODULE_TEST_CONFIG: [
-                        uc.CONFIG_FILE,
-                        uc.EXTRA_CONFIG_FILE]}
-        self.mod_finder.module_info.get_module_info.return_value = mod_info
-        self.mod_finder.module_info.get_robolectric_type.return_value = 0
-        t_infos = self.mod_finder.find_test_by_module_name(uc.MODULE_NAME)
-        unittest_utils.assert_equal_testinfos(self, t_infos[0], uc.MODULE_INFO)
-        unittest_utils.assert_equal_testinfos(
-            self, t_infos[1], uc.MODULE_INFO_W_CONFIG)
 
     @mock.patch.object(test_finder_utils, 'find_host_unit_tests',
                        return_value=[])
@@ -1356,6 +1408,52 @@ def module(
     m['host_dependencies'] = host_dependencies or []
     m['srcs'] = srcs or []
     return m
+
+# pylint: disable=too-many-locals
+def create_test_info(**kwargs):
+    test_name = kwargs.pop('test_name')
+    test_runner = kwargs.pop('test_runner')
+    build_targets = kwargs.pop('build_targets')
+    data = kwargs.pop('data', None)
+    suite = kwargs.pop('suite', None)
+    module_class = kwargs.pop('module_class', None)
+    install_locations = kwargs.pop('install_locations', None)
+    test_finder = kwargs.pop('test_finder', '')
+    compatibility_suites = kwargs.pop('compatibility_suites', None)
+
+    t_info = test_info.TestInfo(
+        test_name=test_name,
+        test_runner=test_runner,
+        build_targets=build_targets,
+        data=data,
+        suite=suite,
+        module_class=module_class,
+        install_locations=install_locations,
+        test_finder=test_finder,
+        compatibility_suites=compatibility_suites
+    )
+    raw_test_name = kwargs.pop('raw_test_name', None)
+    if raw_test_name:
+        t_info.raw_test_name = raw_test_name
+    artifacts = kwargs.pop('artifacts', set())
+    if artifacts:
+        t_info.artifacts = artifacts
+    robo_type = kwargs.pop('robo_type', None)
+    if robo_type:
+        t_info.robo_type = robo_type
+    mainline_modules = kwargs.pop('mainline_modules', set())
+    if mainline_modules:
+        t_info._mainline_modules = mainline_modules
+    for keyword in ['from_test_mapping',
+                    'host',
+                    'aggregate_metrics_result']:
+        value = kwargs.pop(keyword, 'None')
+        if isinstance(value, bool):
+            setattr(t_info, keyword, value)
+    if kwargs:
+        assert f'Unknown keyword(s) for test_info: {kwargs.keys()}'
+    return t_info
+
 
 if __name__ == '__main__':
     unittest.main()

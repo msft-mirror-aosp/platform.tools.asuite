@@ -25,6 +25,7 @@ from __future__ import print_function
 import datetime
 import fnmatch
 import hashlib
+import html
 import importlib
 import itertools
 import json
@@ -37,6 +38,7 @@ import shutil
 import subprocess
 import sys
 import time
+import urllib
 import zipfile
 
 from multiprocessing import Process
@@ -106,7 +108,8 @@ SUGGESTIONS = {
     'Runner reported an invalid method': 'Please reflash the device(s).'
 }
 
-_build_env = {}
+_BUILD_ENV = {}
+
 
 def get_build_cmd(dump=False):
     """Compose build command with no-absolute path and flag "--make-mode".
@@ -263,8 +266,8 @@ def get_build_out_dir():
 def update_build_env(env: Dict[str, str]):
     """Method that updates build environment variables."""
     # pylint: disable=global-statement
-    global _build_env
-    _build_env.update(env)
+    global _BUILD_ENV
+    _BUILD_ENV.update(env)
 
 def build(build_targets, verbose=False):
     """Shell out and invoke run_build_cmd to make build_targets.
@@ -283,9 +286,9 @@ def build(build_targets, verbose=False):
         return True
 
     # pylint: disable=global-statement
-    global _build_env
+    global _BUILD_ENV
     full_env_vars = os.environ.copy()
-    full_env_vars.update(_build_env)
+    full_env_vars.update(_BUILD_ENV)
     print('\n%s\n%s' % (
         colorize("Building Dependencies...", constants.CYAN),
                  ', '.join(build_targets)))
@@ -322,21 +325,6 @@ def _run_build_cmd(cmd, verbose=False, env_vars=None):
         return False
 
 
-def _can_upload_to_result_server():
-    """Return True if we can talk to result server."""
-    # TODO: Also check if we have a slow connection to result server.
-    if constants.RESULT_SERVER:
-        try:
-            from urllib.request import urlopen
-            urlopen(constants.RESULT_SERVER,
-                    timeout=constants.RESULT_SERVER_TIMEOUT).close()
-            return True
-        # pylint: disable=broad-except
-        except Exception as err:
-            logging.debug('Talking to result server raised exception: %s', err)
-    return False
-
-
 # pylint: disable=unused-argument
 def get_result_server_args(for_test_mapping=False):
     """Return list of args for communication with result server.
@@ -361,7 +349,8 @@ def is_test_mapping(args):
     which means the test value is a test group name in TEST_MAPPING file, e.g.,
     `:postsubmit`.
 
-    If --host-unit-test-only be applied, it's not test mapping.
+    If --host-unit-test-only or --smart-testing-local was applied, it doesn't
+    intend to be a test_mapping test.
     If any test mapping options is specified, the atest command must also be
     set to run tests in test mapping files.
 
@@ -372,12 +361,12 @@ def is_test_mapping(args):
         True if the args indicates atest shall run tests in test mapping. False
         otherwise.
     """
-    return (
-        not args.host_unit_test_only and
-        (args.test_mapping or
-        args.include_subdirs or
-        not args.tests or
-        (len(args.tests) == 1 and args.tests[0][0] == ':')))
+    if any((args.host_unit_test_only, args.smart_testing_local)):
+        return False
+    if any((args.test_mapping, args.include_subdirs, not args.tests)):
+        return True
+    # ':postsubmit' implicitly indicates running in test-mapping mode.
+    return all((len(args.tests) == 1, args.tests[0][0] == ':'))
 
 
 @atest_decorator.static_var("cached_has_colors", {})
@@ -841,7 +830,7 @@ def find_files(path, file_name=constants.TEST_MAPPING):
                 duration=metrics_utils.convert_duration(0),
                 exit_code=ExitCode.COLLECT_ONLY_FILE_NOT_FOUND,
                 stacktrace=msg,
-                logs=e)
+                logs=str(e))
     return match_files
 
 def extract_zip_text(zip_path):
@@ -1025,7 +1014,48 @@ def load_json_safely(jsonfile):
         logging.debug('%s: File not found.', jsonfile)
     return {}
 
-def get_manifest_branch():
+def get_atest_version():
+    """Get atest version.
+
+    Returns:
+        Version string from the VERSION file, e.g. prebuilt
+            2022-11-24_9314547  (<release_date>_<build_id>)
+
+        If VERSION does not exist (src or local built):
+            2022-11-24_5d448c50 (<commit_date>_<commit_id>)
+
+        If the git command fails for unexpected reason:
+            2022-11-24_unknown  (<today_date>_unknown)
+    """
+    atest_dir = Path(__file__).resolve().parent
+    version_file = atest_dir.joinpath('VERSION')
+    if Path(version_file).is_file():
+        return open(version_file).read()
+
+    # Try fetching commit date (%ci) and commit hash (%h).
+    git_cmd = 'git log -1 --pretty=format:"%ci;%h"'
+    try:
+        # commit date/hash are only available when running from the source
+        # and the local built.
+        result = subprocess.run(
+            git_cmd, shell=True, check=False, capture_output=True,
+            cwd=Path(
+                os.getenv(constants.ANDROID_BUILD_TOP), '').joinpath(
+                    'tools/asuite/atest'))
+        if result.stderr:
+            raise subprocess.CalledProcessError(
+                returncode=0, cmd=git_cmd)
+        raw_date, commit = result.stdout.decode().split(';')
+        date = datetime.datetime.strptime(raw_date,
+                                          '%Y-%m-%d %H:%M:%S %z').date()
+    # atest_dir doesn't exist will throw FileNotFoundError.
+    except (subprocess.CalledProcessError, FileNotFoundError):
+        # Use today as the commit date for unexpected conditions.
+        date = datetime.datetime.today().date()
+        commit = 'unknown'
+    return f'{date}_{commit}'
+
+def get_manifest_branch(show_aosp=False):
     """Get the manifest branch.
 
          (portal xml)                            (default xml)
@@ -1038,6 +1068,10 @@ def get_manifest_branch():
                                                     +--------+
                                                     | master |
                                                     +--------+
+
+    Args:
+        show_aosp: A boolean that shows 'aosp' prefix by checking the 'remote'
+                   attribute.
 
     Returns:
         The value of 'revision' of the included xml or default.xml.
@@ -1057,9 +1091,12 @@ def get_manifest_branch():
             return ''
         default_tags = xml_root.findall('./default')
         if default_tags:
+            prefix = ''
             for tag in default_tags:
                 branch = tag.attrib.get('revision')
-                return branch
+                if show_aosp and tag.attrib.get('remote') == 'aosp':
+                    prefix = 'aosp-'
+                return f'{prefix}{branch}'
         return ''
     def _get_include(xml):
         try:
@@ -1113,23 +1150,6 @@ def build_module_info_target(module_info_target):
     metrics.LocalDetectEvent(
         detect_type=DetectType.ONLY_BUILD_MODULE_INFO,
         result=int(build_duration))
-
-def parse_mainline_modules(test):
-    """Parse test reference into test and mainline modules.
-
-    Args:
-        test: An String of test reference.
-
-    Returns:
-        A string of test without mainline modules,
-        A list of mainline modules.
-    """
-    result = constants.TEST_WITH_MAINLINE_MODULES_RE.match(test)
-    if not result:
-        return test, ""
-    test_wo_mainline_modules = result.group('test')
-    mainline_modules = result.group('mainline_modules').split('+')
-    return test_wo_mainline_modules, mainline_modules
 
 def has_wildcard(test_name):
     """ Tell whether the test_name(either a list or string) contains wildcard
@@ -1866,7 +1886,8 @@ def generate_print_result_html(result_file: Path):
                     result_file.stat().st_ctime)
                 cache.write(f'<h2>{timestamp}</h2>')
             for log in logs:
-                cache.write(f'<p><a href="{log}">{Path(log).name}</a></p>')
+                cache.write(f'<p><a href="{urllib.parse.quote(log)}">'
+                            f'{html.escape(Path(log).name)}</a></p>')
             cache.write('</body></html>')
         print(f'\nTo access logs, press "ctrl" and click on\n'
               f'file://{result_html}\n')
@@ -1906,3 +1927,46 @@ def build_files_integrity_is_ok() -> bool:
             return False
     # 2. Ensure the consistency of all build files.
     return check_md5(constants.BUILDFILES_MD5, missing_ok=False)
+
+def get_local_auto_shardable_tests():
+    """Get the auto shardable test names in shardable file.
+
+    The path will be ~/.atest/auto_shard/local_auto_shardable_tests
+
+    Returns:
+        A list of auto shardable test names.
+    """
+    shardable_tests_file = Path(get_misc_dir()).joinpath(
+        '.atest/auto_shard/local_auto_shardable_tests')
+    if not shardable_tests_file.exists():
+        return []
+    return open(shardable_tests_file, 'r').read().split()
+
+def update_shardable_tests(test_name: str, run_time_in_sec: int):
+    """Update local_auto_shardable_test file.
+
+    Strategy:
+        - Determine to add the module by the run time > 10 mins.
+        - local_auto_shardable_test file path :
+            ~/.atest/auto_shard/local_auto_shardable_tests
+        - The file content template is module name per line:
+            <module1>
+            <module2>
+            ...
+    """
+    if run_time_in_sec < 600:
+        return
+    shardable_tests = get_local_auto_shardable_tests()
+    if test_name not in shardable_tests:
+        shardable_tests.append(test_name)
+        logging.info('%s takes %ss (> 600s) to finish. Adding to shardable '
+                    'test list.', test_name, run_time_in_sec)
+
+    if not shardable_tests:
+        logging.info('No shardable tests to run.')
+        return
+    shardable_dir = Path(get_misc_dir()).joinpath('.atest/auto_shard')
+    shardable_dir.mkdir(parents=True, exist_ok=True)
+    shardable_tests_file = shardable_dir.joinpath('local_auto_shardable_tests')
+    with open(shardable_tests_file, 'w') as file:
+        file.write('\n'.join(shardable_tests))

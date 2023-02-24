@@ -39,6 +39,8 @@ AGGREGATE_METRIC_FILTER = ('Regular expression that will be used for filtering '
 ALL_ABI = 'Set to run tests for all abis.'
 ANNOTATION_FILTER = ('Accept keyword that will be translated to fully qualified'
                      'annotation class name.')
+AUTO_SHARDING = ('Trigger N AVDs/shards for long duration tests. (N is 2 by '
+                 'default).')
 BUILD = 'Run a build.'
 BAZEL_MODE = 'Run tests using Bazel.'
 BAZEL_ARG = ('Forward a flag to Bazel for tests executed with Bazel; '
@@ -75,6 +77,7 @@ LATEST_RESULT = 'Print latest test result.'
 LD_LIB_PATH = ('Insert $ANDROID_HOST_OUT/{lib,lib64} to LD_LIBRARY_PATH when '
                'running tests with Tradefed.')
 LIST_MODULES = 'List testable modules of the given suite.'
+NO_CHECKING_DEVICE = 'Do NOT check device availability. (even it is a device test)'
 NO_ENABLE_ROOT = ('Do NOT restart adbd with root permission even the test config '
                   'has RootTargetPreparer.')
 NO_METRICS = 'Do not send metrics.'
@@ -96,6 +99,8 @@ RETRY_ANY_FAILURE = ('Rerun failed tests until passed or the max iteration '
                      'is reached. (default: 10)')
 SERIAL = 'The device to run the test on.'
 SHARDING = 'Option to specify sharding count. (default: 2)'
+SMART_TESTING_LOCAL = ('Automatically detect untracked/unstaged files in current'
+                       ' git run associated tests.')
 START_AVD = 'Automatically create an AVD and run tests on the virtual device.'
 TEST = ('Run the tests. WARNING: Many test configs force cleanup of device '
         'after test run. In this case, "-d" must be used in previous test run '
@@ -157,8 +162,12 @@ class AtestArgParser(argparse.ArgumentParser):
     def add_atest_args(self):
         """A function that does ArgumentParser.add_argument()"""
         self.add_argument('tests', nargs='*', help='Tests to build and/or run.')
+
         # Options that to do with testing.
         self.add_argument('-a', '--all-abi', action='store_true', help=ALL_ABI)
+
+        self.add_argument('--auto-sharding', action='store_true', help=AUTO_SHARDING)
+
         self.add_argument('-b', '--build', action='append_const', dest='steps',
                           const=constants.BUILD_STEP, help=BUILD)
         self.add_argument('--bazel-mode', default=True, action='store_true',
@@ -168,11 +177,11 @@ class AtestArgParser(argparse.ArgumentParser):
         self.add_argument('--bazel-arg', nargs='*', action='append', help=BAZEL_ARG)
         bazel_mode.add_parser_arguments(self, dest='bazel_mode_features')
 
-        self.add_argument('--coverage', action='store_true', help=COVERAGE)
         self.add_argument('-d', '--disable-teardown', action='store_true',
                           help=DISABLE_TEARDOWN)
         self.add_argument('--enable-device-preparer', action='store_true',
                           help=ENABLE_DEVICE_PREPARER)
+        self.add_argument('--experimental-coverage', action='store_true', help=COVERAGE)
         # Options for host and device-only:
         # A group of options for testing mapping tests. They are mutually
         # exclusive in a command line.
@@ -207,8 +216,11 @@ class AtestArgParser(argparse.ArgumentParser):
         ugroup.add_argument('--disable-upload-result', action='store_true',
                           help=DISABLE_UPLOAD_RESULT)
 
+        mgroup = self.add_mutually_exclusive_group()
+        mgroup.add_argument('--smart-testing-local', action='store_true',
+                                help=SMART_TESTING_LOCAL)
         # Options related to Test Mapping
-        self.add_argument('-p', '--test-mapping', action='store_true',
+        mgroup.add_argument('-p', '--test-mapping', action='store_true',
                           help=TEST_MAPPING)
         self.add_argument('--include-subdirs', action='store_true',
                           help=INCLUDE_SUBDIRS)
@@ -218,7 +230,7 @@ class AtestArgParser(argparse.ArgumentParser):
                           help=ENABLE_FILE_PATTERNS)
 
         # Options related to Host Unit Test.
-        self.add_argument('--host-unit-test-only', action='store_true',
+        mgroup.add_argument('--host-unit-test-only', action='store_true',
                           help=HOST_UNIT_TEST_ONLY)
 
         # Options for information queries and dry-runs:
@@ -337,7 +349,10 @@ class AtestArgParser(argparse.ArgumentParser):
         # Option to filter the output of aggregate metrics content.
         self.add_argument('--aggregate-metric-filter', action='append',
                           help=AGGREGATE_METRIC_FILTER)
-
+        # Option that allows building and running without regarding device
+        # availability even the given test is a device/host-driven test.
+        self.add_argument('--no-checking-device', action='store_true',
+                          help=NO_CHECKING_DEVICE)
         # This arg actually doesn't consume anything, it's primarily used for
         # the help description and creating custom_args in the NameSpace object.
         self.add_argument('--', dest='custom_args', nargs='*',
@@ -370,6 +385,7 @@ def print_epilog_text():
         AGGREGATE_METRIC_FILTER=AGGREGATE_METRIC_FILTER,
         ALL_ABI=ALL_ABI,
         ANNOTATION_FILTER=ANNOTATION_FILTER,
+        AUTO_SHARDING=AUTO_SHARDING,
         BUILD=BUILD,
         BAZEL_MODE=BAZEL_MODE,
         BAZEL_ARG=BAZEL_ARG,
@@ -398,6 +414,7 @@ def print_epilog_text():
         LIST_MODULES=LIST_MODULES,
         NO_ENABLE_ROOT=NO_ENABLE_ROOT,
         NO_METRICS=NO_METRICS,
+        NO_CHECKING_DEVICE=NO_CHECKING_DEVICE,
         FUZZY_SEARCH=FUZZY_SEARCH,
         REBUILD_MODULE_INFO=REBUILD_MODULE_INFO,
         REQUEST_UPLOAD_RESULT=REQUEST_UPLOAD_RESULT,
@@ -405,6 +422,7 @@ def print_epilog_text():
         RETRY_ANY_FAILURE=RETRY_ANY_FAILURE,
         SERIAL=SERIAL,
         SHARDING=SHARDING,
+        SMART_TESTING_LOCAL=SMART_TESTING_LOCAL,
         START_AVD=START_AVD,
         TEST=TEST,
         TEST_CONFIG_SELECTION=TEST_CONFIG_SELECTION,
@@ -461,6 +479,9 @@ OPTIONS
         --auto-ld-library-path
             {LD_LIB_PATH}
 
+        --auto-sharding
+            {AUTO_SHARDING}
+
         -b, --build
             {BUILD} (implicit default)
 
@@ -469,9 +490,6 @@ OPTIONS
 
         --bazel-arg
             {BAZEL_ARG}
-
-        --coverage
-            {COVERAGE}
 
         --device-only
             {DEVICE_ONLY}
@@ -484,6 +502,9 @@ OPTIONS
 
         --enable-device-preparer
             {ENABLE_DEVICE_PREPARER}
+
+        --experimental-coverage
+            {COVERAGE}
 
         --host
             {HOST}
@@ -500,11 +521,22 @@ OPTIONS
         --no-enable-root
             {NO_ENABLE_ROOT}
 
+        --no-checking-device
+            {NO_CHECKING_DEVICE}
+
         -s, --serial [SERIAL]
             {SERIAL}
 
         --sharding [SHARD_NUMBER]
           {SHARDING}
+
+        --smart-testing-local
+          {SMART_TESTING_LOCAL} e.g. Have modified code in packages/apps/Settings/tests/unit/src.
+            croot packages/apps/Settings/tests/unit/src
+            atest --smart-testing-local
+
+            will be equivalent to (from <android root>):
+            atest --smart-testing-local packages/apps/Settings/tests/unit/src
 
         -t, --test [TEST1, TEST2, ...]
             {TEST} (implicit default)
