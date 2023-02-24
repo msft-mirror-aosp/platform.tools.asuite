@@ -272,7 +272,7 @@ class WorkspaceGenerator:
                 self._resolve_dependencies(
                     self._add_device_test_target(info, False), seen)
 
-            if self.is_host_unit_test(info):
+            if self.mod_info.is_host_unit_test(info):
                 self._resolve_dependencies(
                     self._add_deviceless_test_target(info), seen)
             elif (Features.EXPERIMENTAL_ROBOLECTRIC_TEST in
@@ -417,10 +417,6 @@ class WorkspaceGenerator:
                 f'Module `{module_name}` has more than one path: `{mod_path}`')
 
         return mod_path[0]
-
-    def is_host_unit_test(self, info: Dict[str, Any]) -> bool:
-        return self.mod_info.is_testable_module(
-            info) and self.mod_info.is_host_unit_test(info)
 
     def _generate_artifacts(self):
         """Generate workspace files on disk."""
@@ -936,23 +932,7 @@ class SoongPrebuiltTarget(Target):
 
         # For test modules, we only create symbolic link to the 'testcases'
         # directory since the information in module-info is not accurate.
-        #
-        # Note that we use is_tf_testable_module here instead of ModuleInfo
-        # class's is_testable_module method to avoid misadding a shared library
-        # as a test module.
-        # e.g.
-        # 1. test_module A has a shared_lib (or RLIB, DYLIB) of B
-        # 2. We create target B as a result of method _resolve_dependencies for
-        #    target A
-        # 3. B matches the conditions of is_testable_module:
-        #     a. B has installed path.
-        #     b. has_config return True
-        #     Note that has_config method also looks for AndroidTest.xml in the
-        #     dir of B. If there is a test module in the same dir, B could be
-        #     added as a test module.
-        # 4. We create symbolic link to the 'testcases' for non test target B
-        #    and cause errors.
-        if is_tf_testable_module(gen.mod_info, info):
+        if gen.mod_info.is_tradefed_testable_module(info):
             config_files = {c: [c.out_path.joinpath(f'testcases/{module_name}')]
                             for c in config_files.keys()}
 
@@ -1331,21 +1311,6 @@ def write_target_list(writer: IndentWriter, targets: List[Target]):
             writer.write_line(f'"{label}",')
 
     writer.write(']')
-
-
-def is_tf_testable_module(mod_info: module_info.ModuleInfo,
-                          info: Dict[str, Any]):
-    """Check if the module is a Tradefed runnable test module.
-
-    ModuleInfo.is_testable_module() is from ATest's point of view. It only
-    checks if a module has installed path and has local config files. This
-    way is not reliable since some libraries might match these two conditions
-    and be included mistakenly. Robolectric_utils is an example that matched
-    these two conditions but not testable. This function make sure the module
-    is a TF runnable test module.
-    """
-    return (mod_info.is_testable_module(info)
-            and info.get(constants.MODULE_COMPATIBILITY_SUITES))
 
 
 def _decorate_find_method(mod_info, finder_method_func, host, enabled_features):
