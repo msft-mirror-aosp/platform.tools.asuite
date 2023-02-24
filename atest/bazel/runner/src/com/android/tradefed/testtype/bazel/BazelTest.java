@@ -35,7 +35,6 @@ import com.android.tradefed.result.proto.TestRecordProto.FailureStatus;
 import com.android.tradefed.result.proto.TestRecordProto.TestRecord;
 import com.android.tradefed.testtype.IRemoteTest;
 import com.android.tradefed.util.ZipUtil;
-import com.android.tradefed.util.ZipUtil2;
 import com.android.tradefed.util.proto.TestRecordProtoUtil;
 
 import com.google.common.base.Throwables;
@@ -54,7 +53,6 @@ import java.net.URISyntaxException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.nio.file.StandardCopyOption;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -62,10 +60,10 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
-import java.util.concurrent.Future;
 import java.util.concurrent.ExecutionException;
-import java.util.concurrent.Executors;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.zip.ZipFile;
 
@@ -85,6 +83,7 @@ public final class BazelTest implements IRemoteTest {
 
     private final List<Path> mTemporaryPaths = new ArrayList<>();
     private final List<Path> mLogFiles = new ArrayList<>();
+    private final Map<String, String> mEnvMap;
     private final ProcessStarter mProcessStarter;
     private final Path mTemporaryDirectory;
     private final ExecutorService mExecutor;
@@ -97,9 +96,11 @@ public final class BazelTest implements IRemoteTest {
     private Duration mBazelCommandTimeout = Duration.ofHours(1L);
 
     @Option(
-            name = "bazel-workspace-archive",
-            description = "Location of the Bazel workspace archive.")
-    private File mBazelWorkspaceArchive;
+            name = "bazel-test-suite-root-dir",
+            description =
+                    "Name of the environment variable set by CtsTestLauncher indicating the"
+                            + " location of the root bazel-test-suite dir.")
+    private String mSuiteRootDirEnvVar = "BAZEL_SUITE_ROOT";
 
     @Option(
             name = "bazel-startup-options",
@@ -124,14 +125,15 @@ public final class BazelTest implements IRemoteTest {
     private Duration mBazelMaxIdleTimeout = Duration.ofSeconds(5L);
 
     public BazelTest() {
-        this(new DefaultProcessStarter(), Paths.get(System.getProperty("java.io.tmpdir")));
+        this(new DefaultProcessStarter(), System.getenv());
     }
 
     @VisibleForTesting
-    BazelTest(ProcessStarter processStarter, Path tmpDir) {
+    BazelTest(ProcessStarter processStarter, Map<String, String> env) {
         mProcessStarter = processStarter;
-        mTemporaryDirectory = tmpDir;
         mExecutor = Executors.newFixedThreadPool(1);
+        mEnvMap = env;
+        mTemporaryDirectory = Paths.get(env.get("java.io.tmpdir"));
     }
 
     @Override
@@ -170,7 +172,7 @@ public final class BazelTest implements IRemoteTest {
             List<FailureDescription> runFailures)
             throws IOException, InterruptedException {
 
-        Path workspaceDirectory = extractWorkspace();
+        Path workspaceDirectory = resolveWorkspacePath();
 
         List<String> testTargets = listTestTargets(workspaceDirectory);
         if (testTargets.isEmpty()) {
@@ -243,26 +245,6 @@ public final class BazelTest implements IRemoteTest {
                 "Unexpectedly hit end of BEP file without receiving last message",
                 FailureStatus.INFRA_FAILURE,
                 TestErrorIdentifier.OUTPUT_PARSER_ERROR);
-    }
-
-    private Path extractWorkspace() throws IOException {
-        Path outputDirectory = createTemporaryDirectory("atest-bazel-workspace");
-        try {
-            ZipUtil2.extractZip(mBazelWorkspaceArchive, outputDirectory.toFile());
-        } catch (IOException e) {
-            AbortRunException extractException =
-                    new AbortRunException(
-                            String.format("Archive extraction failed: %s", e.getMessage()),
-                            FailureStatus.DEPENDENCY_ISSUE,
-                            TestErrorIdentifier.TEST_ABORTED);
-            extractException.initCause(e);
-            throw extractException;
-        }
-
-        // TODO(b/233885171): Remove resolve once workspace archive is updated.
-        Path workspaceDirectory = outputDirectory.resolve("out/atest_bazel_workspace");
-
-        return workspaceDirectory;
     }
 
     private ProcessBuilder createBazelCommand(Path workspaceDirectory, String tmpDirPrefix)
@@ -488,6 +470,19 @@ public final class BazelTest implements IRemoteTest {
                                         runFailures.size(), reportedFailure.getErrorMessage()),
                                 reportedFailure.getFailureStatus())
                         .setErrorIdentifier(reportedFailure.getErrorIdentifier()));
+    }
+
+    private Path resolveWorkspacePath() {
+        String suiteRootPath = mEnvMap.get(mSuiteRootDirEnvVar);
+        if (suiteRootPath == null || suiteRootPath.isEmpty()) {
+            throw new AbortRunException(
+                    "Bazel Test Suite root directory not set, aborting",
+                    FailureStatus.DEPENDENCY_ISSUE,
+                    TestErrorIdentifier.TEST_ABORTED);
+        }
+
+        // TODO(b/233885171): Remove resolve once workspace archive is updated.
+        return Paths.get(suiteRootPath).resolve("android-bazel-suite/out/atest_bazel_workspace");
     }
 
     private void addTestLogs(ITestLogger logger) {

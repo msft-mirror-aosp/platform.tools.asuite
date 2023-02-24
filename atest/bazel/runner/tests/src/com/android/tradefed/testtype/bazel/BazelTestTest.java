@@ -33,29 +33,28 @@ import com.android.tradefed.config.OptionSetter;
 import com.android.tradefed.invoker.InvocationContext;
 import com.android.tradefed.invoker.TestInformation;
 import com.android.tradefed.log.LogUtil.CLog;
-import com.android.tradefed.result.error.ErrorIdentifier;
-import com.android.tradefed.result.error.TestErrorIdentifier;
 import com.android.tradefed.result.FailureDescription;
 import com.android.tradefed.result.ILogSaverListener;
 import com.android.tradefed.result.LogDataType;
 import com.android.tradefed.result.LogFile;
+import com.android.tradefed.result.TestDescription;
+import com.android.tradefed.result.error.ErrorIdentifier;
+import com.android.tradefed.result.error.TestErrorIdentifier;
 import com.android.tradefed.result.proto.FileProtoResultReporter;
 import com.android.tradefed.result.proto.TestRecordProto.FailureStatus;
-import com.android.tradefed.result.TestDescription;
 import com.android.tradefed.util.ZipUtil;
 
 import com.google.common.base.Splitter;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.io.MoreFiles;
 import com.google.common.util.concurrent.Uninterruptibles;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos;
 
 import org.junit.Before;
 import org.junit.Rule;
+import org.junit.Test;
 import org.junit.rules.TemporaryFolder;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
-import org.junit.Test;
 import org.mockito.ArgumentMatcher;
 import org.mockito.InOrder;
 
@@ -72,13 +71,13 @@ import java.nio.file.Paths;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collections;
-import java.util.concurrent.atomic.AtomicLong;
-import java.util.concurrent.TimeUnit;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.function.Function;
 import java.util.Random;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicLong;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -88,11 +87,8 @@ public final class BazelTestTest {
     private ILogSaverListener mMockListener;
     private TestInformation mTestInfo;
     private Path mBazelTempPath;
-    private Map<String, String> mEnvironment;
-    private Path mWorkspaceArchive;
 
     private static final String BAZEL_TEST_TARGETS_OPTION = "bazel-test-target-patterns";
-    private static final String BAZEL_WORKSPACE_ARCHIVE_OPTION = "bazel-workspace-archive";
     private static final String BEP_FILE_OPTION_NAME = "--build_event_binary_file";
     private static final long RANDOM_SEED = 1234567890L;
 
@@ -106,11 +102,6 @@ public final class BazelTestTest {
         mTestInfo = TestInformation.newBuilder().setInvocationContext(context).build();
         mBazelTempPath =
                 Files.createDirectory(tempDir.getRoot().toPath().resolve("bazel_temp_dir"));
-        mEnvironment = ImmutableMap.of("PATH", "/phony/path");
-        Path bazelArchive =
-                Files.createDirectory(tempDir.getRoot().toPath().resolve("atest_bazel_workspace"));
-        mWorkspaceArchive = tempDir.getRoot().toPath().resolve("atest_bazel_workspace.zip");
-        ZipUtil.createZip(bazelArchive.toFile(), mWorkspaceArchive.toFile());
     }
 
     @Test
@@ -246,16 +237,25 @@ public final class BazelTestTest {
     }
 
     @Test
-    public void archiveExtractionFails_runAborted() throws Exception {
-        BazelTest bazelTest = new BazelTest(newFakeProcessStarter(), mBazelTempPath);
-        OptionSetter setter = new OptionSetter(bazelTest);
-        setter.setOptionValue(
-                BAZEL_WORKSPACE_ARCHIVE_OPTION,
-                new File("non_existent_workspace.zip").getAbsolutePath());
+    public void archiveRootPathNotSet_runAborted() throws Exception {
+        Map<String, String> env = bazelTestEnv();
+        env.remove("BAZEL_SUITE_ROOT");
+        BazelTest bazelTest = newBazelTestWithEnvironment(env);
 
         bazelTest.run(mTestInfo, mMockListener);
 
-        verify(mMockListener).testRunFailed(hasErrorIdentifier(TestErrorIdentifier.TEST_ABORTED));
+        verify(mMockListener).testRunFailed(hasFailureStatus(FailureStatus.DEPENDENCY_ISSUE));
+    }
+
+    @Test
+    public void archiveRootPathEmptyString_runAborted() throws Exception {
+        Map<String, String> env = bazelTestEnv();
+        env.put("BAZEL_SUITE_ROOT", "");
+        BazelTest bazelTest = newBazelTestWithEnvironment(env);
+
+        bazelTest.run(mTestInfo, mMockListener);
+
+        verify(mMockListener).testRunFailed(hasFailureStatus(FailureStatus.DEPENDENCY_ISSUE));
     }
 
     @Test
@@ -408,18 +408,26 @@ public final class BazelTestTest {
         };
     }
 
+    private BazelTest newBazelTestWithEnvironment(Map<String, String> env) throws Exception {
+        return new BazelTest(newFakeProcessStarter(), env);
+    }
+
     private BazelTest newBazelTestWithProcessStarter(BazelTest.ProcessStarter starter)
             throws Exception {
 
-        BazelTest bazelTest = new BazelTest(starter, mBazelTempPath);
-        OptionSetter setter = new OptionSetter(bazelTest);
-        setter.setOptionValue(
-                BAZEL_WORKSPACE_ARCHIVE_OPTION, mWorkspaceArchive.toAbsolutePath().toString());
-        return bazelTest;
+        return new BazelTest(starter, bazelTestEnv());
     }
 
     private BazelTest newBazelTest() throws Exception {
         return newBazelTestWithProcessStarter(newFakeProcessStarter());
+    }
+
+    private Map<String, String> bazelTestEnv() {
+        return new HashMap<>(
+                Map.of(
+                        "PATH", "/phony/path",
+                        "BAZEL_SUITE_ROOT", "/phony/path/to/bazel/test/suite",
+                        "java.io.tmpdir", mBazelTempPath.toAbsolutePath().toString()));
     }
 
     private static FailureDescription hasErrorIdentifier(ErrorIdentifier error) {
