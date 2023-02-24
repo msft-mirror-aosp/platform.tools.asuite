@@ -419,6 +419,16 @@ class ModuleInfo:
             result=int(duration))
         return modules
 
+    def is_tradefed_testable_module(self, info: Dict[str, Any]) -> bool:
+        """Check whether the module is a Tradefed executable test."""
+        if not info.get(constants.MODULE_INSTALLED, []):
+            return False
+        return bool(info.get(constants.MODULE_TEST_CONFIG, []) or
+                    info.get('auto_test_config', []))
+
+    # TODO(b/270106441): Refactor is_testable_module since it's unreliable and
+    # takes too much time for searching test config files under the module
+    # path.
     def is_testable_module(self, mod_info):
         """Check if module is something we can test.
 
@@ -909,22 +919,22 @@ class ModuleInfo:
         """
         return mod_info.get(constants.MODULE_IS_UNIT_TEST, '') == 'true'
 
-    def is_host_unit_test(self, mod_info):
+    def is_host_unit_test(self, info: Dict[str, Any]) -> bool:
         """Return True if input module is host unit test, False otherwise.
 
         Args:
-            mod_info: ModuleInfo to check.
+            info: ModuleInfo to check.
 
         Returns:
             True if input module is host unit test, False otherwise.
         """
-        return (self.is_testable_module(mod_info) and
-                self.is_suite_in_compatibility_suites('host-unit-tests',
-                                                      mod_info))
+        return self.is_tradefed_testable_module(info) and \
+            self.is_suite_in_compatibility_suites('host-unit-tests', info)
 
     def is_modern_robolectric_test(self, info: Dict[str, Any]) -> bool:
         """Return whether 'robolectric-tests' is in 'compatibility_suites'."""
-        return self.is_robolectric_test_suite(info)
+        return self.is_tradefed_testable_module(info) and \
+            self.is_robolectric_test_suite(info)
 
     def is_robolectric_test_suite(self, mod_info) -> bool:
         """Return True if 'robolectric-tests' in the compatibility_suites.
@@ -951,8 +961,8 @@ class ModuleInfo:
         if self.is_robolectric_test_suite(mod_info):
             return False
 
-        return self.is_testable_module(mod_info) and 'DEVICE' in mod_info.get(
-            constants.MODULE_SUPPORTED_VARIANTS, [])
+        return self.is_tradefed_testable_module(mod_info) and \
+            'DEVICE' in mod_info.get(constants.MODULE_SUPPORTED_VARIANTS, [])
 
     def is_host_driven_test(self, mod_info):
         """Return True if input module is host driven test, False otherwise.
@@ -963,8 +973,8 @@ class ModuleInfo:
         Returns:
             True if input module is host driven test, False otherwise.
         """
-        return self.is_testable_module(mod_info) and 'HOST' in mod_info.get(
-            constants.MODULE_SUPPORTED_VARIANTS, [])
+        return self.is_tradefed_testable_module(mod_info) and \
+            'HOST' in mod_info.get(constants.MODULE_SUPPORTED_VARIANTS, [])
 
     def _any_module(self, _: Module) -> bool:
         return True
