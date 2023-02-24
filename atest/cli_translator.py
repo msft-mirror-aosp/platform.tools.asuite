@@ -406,8 +406,9 @@ class CLITranslator:
                               'if the test module is not built for your '
                               'current lunch target.\n' %
                               atest_utils.colorize(test['name'], constants.RED))
-                    elif not any(x in test_mod_info['compatibility_suites'] for
-                                 x in constants.TEST_MAPPING_SUITES):
+                    elif not any(
+                        x in test_mod_info.get('compatibility_suites', []) for
+                        x in constants.TEST_MAPPING_SUITES):
                         print('WARNING: Please add %s to either suite: %s for '
                               'this TEST_MAPPING file to work with TreeHugger.' %
                               (atest_utils.colorize(test['name'],
