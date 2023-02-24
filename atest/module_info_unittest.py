@@ -568,15 +568,15 @@ class ModuleInfoUnittests(unittest.TestCase):
     @mock.patch.dict('os.environ',
                      {constants.ANDROID_BUILD_TOP: '/',
                       constants.ANDROID_PRODUCT_OUT: PRODUCT_OUT_DIR})
-    @mock.patch.object(module_info.ModuleInfo, 'is_testable_module')
-    def test_is_host_unit_test(self, _mock_is_testable_module):
+    def test_is_host_unit_test(self):
         """Test is_host_unit_test."""
-        _mock_is_testable_module.return_value = True
         module_name = 'myModule'
         maininfo_with_host_unittest = {
             constants.MODULE_NAME: module_name,
             constants.MODULE_IS_UNIT_TEST: 'true',
-            'compatibility_suites': ['host-unit-tests']
+            'compatibility_suites': ['host-unit-tests'],
+            constants.MODULE_INSTALLED: uc.DEFAULT_INSTALL_PATH,
+            'auto_test_config': ['true']
         }
 
         mod_info = module_info.ModuleInfo(module_file=JSON_FILE_PATH,
