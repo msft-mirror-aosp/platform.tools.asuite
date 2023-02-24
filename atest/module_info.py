@@ -100,11 +100,10 @@ class ModuleInfo:
         # changed even force_build == True.
         self.update_merge_info = False
         # Index and checksum files that will be used.
-        if not index_dir:
-            index_dir = Path(
-                os.getenv(constants.ANDROID_HOST_OUT,
-                          tempfile.TemporaryDirectory().name)).joinpath('indexes')
-        index_dir = Path(index_dir)
+        with tempfile.TemporaryDirectory() as temp_dir:
+            index_dir = (Path(index_dir)
+                         if index_dir else
+                         Path(temp_dir).joinpath('indexes'))
         if not index_dir.is_dir():
             index_dir.mkdir(parents=True)
         self.module_index = index_dir.joinpath(constants.MODULE_INDEX)
@@ -232,7 +231,7 @@ class ModuleInfo:
                 detect_type=DetectType.MODULE_MERGE_MS, result=int(duration*1000))
         else:
             # Load $ANDROID_PRODUCT_OUT/atest_merged_dep.json directly.
-            with open(self.merged_dep_path) as merged_info_json:
+            with open(self.merged_dep_path, encoding='utf-8') as merged_info_json:
                 mod_info = json.load(merged_info_json)
             duration = time.time() - start
             logging.debug('Loading module info took %ss', duration)
@@ -420,6 +419,16 @@ class ModuleInfo:
             result=int(duration))
         return modules
 
+    def is_tradefed_testable_module(self, info: Dict[str, Any]) -> bool:
+        """Check whether the module is a Tradefed executable test."""
+        if not info.get(constants.MODULE_INSTALLED, []):
+            return False
+        return bool(info.get(constants.MODULE_TEST_CONFIG, []) or
+                    info.get('auto_test_config', []))
+
+    # TODO(b/270106441): Refactor is_testable_module since it's unreliable and
+    # takes too much time for searching test config files under the module
+    # path.
     def is_testable_module(self, mod_info):
         """Check if module is something we can test.
 
@@ -792,11 +801,10 @@ class ModuleInfo:
         # b/178559543 saving merged module info in a temp file and copying it to
         # atest_merged_dep.json can eliminate the possibility of accessing it
         # concurrently and resulting in invalid JSON format.
-        temp_file = tempfile.NamedTemporaryFile()
-        with open(temp_file.name, 'w') as _temp:
-            json.dump(name_to_module_info, _temp, indent=0)
-        shutil.copy(temp_file.name, self.merged_dep_path)
-        temp_file.close()
+        with tempfile.NamedTemporaryFile() as temp_file:
+            with open(temp_file.name, 'w', encoding='utf-8') as _temp:
+                json.dump(name_to_module_info, _temp, indent=0)
+            shutil.copy(temp_file.name, self.merged_dep_path)
         return name_to_module_info
 
     def _merge_soong_info(self, name_to_module_info, mod_bp_infos):
@@ -911,21 +919,22 @@ class ModuleInfo:
         """
         return mod_info.get(constants.MODULE_IS_UNIT_TEST, '') == 'true'
 
-    def is_host_unit_test(self, mod_info):
+    def is_host_unit_test(self, info: Dict[str, Any]) -> bool:
         """Return True if input module is host unit test, False otherwise.
 
         Args:
-            mod_info: ModuleInfo to check.
+            info: ModuleInfo to check.
 
         Returns:
             True if input module is host unit test, False otherwise.
         """
-        return (self.is_testable_module(mod_info) and
-                self.is_suite_in_compatibility_suites('host-unit-tests',
-                                                      mod_info))
+        return self.is_tradefed_testable_module(info) and \
+            self.is_suite_in_compatibility_suites('host-unit-tests', info)
 
     def is_modern_robolectric_test(self, info: Dict[str, Any]) -> bool:
-        return self.is_robolectric_test_suite(info)
+        """Return whether 'robolectric-tests' is in 'compatibility_suites'."""
+        return self.is_tradefed_testable_module(info) and \
+            self.is_robolectric_test_suite(info)
 
     def is_robolectric_test_suite(self, mod_info) -> bool:
         """Return True if 'robolectric-tests' in the compatibility_suites.
@@ -952,8 +961,8 @@ class ModuleInfo:
         if self.is_robolectric_test_suite(mod_info):
             return False
 
-        return self.is_testable_module(mod_info) and 'DEVICE' in mod_info.get(
-            constants.MODULE_SUPPORTED_VARIANTS, [])
+        return self.is_tradefed_testable_module(mod_info) and \
+            'DEVICE' in mod_info.get(constants.MODULE_SUPPORTED_VARIANTS, [])
 
     def is_host_driven_test(self, mod_info):
         """Return True if input module is host driven test, False otherwise.
@@ -964,8 +973,8 @@ class ModuleInfo:
         Returns:
             True if input module is host driven test, False otherwise.
         """
-        return self.is_testable_module(mod_info) and 'HOST' in mod_info.get(
-            constants.MODULE_SUPPORTED_VARIANTS, [])
+        return self.is_tradefed_testable_module(mod_info) and \
+            'HOST' in mod_info.get(constants.MODULE_SUPPORTED_VARIANTS, [])
 
     def _any_module(self, _: Module) -> bool:
         return True
@@ -1035,7 +1044,7 @@ class ModuleInfo:
 
 
 def _add_missing_variant_modules(name_to_module_info: Dict[str, Module]):
-    missing_modules = dict()
+    missing_modules = {}
 
     # Android's build system automatically adds a suffix for some build module
     # variants. For example, a module-info entry for a module originally named
