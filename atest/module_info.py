@@ -100,11 +100,10 @@ class ModuleInfo:
         # changed even force_build == True.
         self.update_merge_info = False
         # Index and checksum files that will be used.
-        if not index_dir:
-            index_dir = Path(
-                os.getenv(constants.ANDROID_HOST_OUT,
-                          tempfile.TemporaryDirectory().name)).joinpath('indexes')
-        index_dir = Path(index_dir)
+        with tempfile.TemporaryDirectory() as temp_dir:
+            index_dir = (Path(index_dir)
+                         if index_dir else
+                         Path(temp_dir).joinpath('indexes'))
         if not index_dir.is_dir():
             index_dir.mkdir(parents=True)
         self.module_index = index_dir.joinpath(constants.MODULE_INDEX)
@@ -232,7 +231,7 @@ class ModuleInfo:
                 detect_type=DetectType.MODULE_MERGE_MS, result=int(duration*1000))
         else:
             # Load $ANDROID_PRODUCT_OUT/atest_merged_dep.json directly.
-            with open(self.merged_dep_path) as merged_info_json:
+            with open(self.merged_dep_path, encoding='utf-8') as merged_info_json:
                 mod_info = json.load(merged_info_json)
             duration = time.time() - start
             logging.debug('Loading module info took %ss', duration)
@@ -792,11 +791,10 @@ class ModuleInfo:
         # b/178559543 saving merged module info in a temp file and copying it to
         # atest_merged_dep.json can eliminate the possibility of accessing it
         # concurrently and resulting in invalid JSON format.
-        temp_file = tempfile.NamedTemporaryFile()
-        with open(temp_file.name, 'w') as _temp:
-            json.dump(name_to_module_info, _temp, indent=0)
-        shutil.copy(temp_file.name, self.merged_dep_path)
-        temp_file.close()
+        with tempfile.NamedTemporaryFile() as temp_file:
+            with open(temp_file.name, 'w', encoding='utf-8') as _temp:
+                json.dump(name_to_module_info, _temp, indent=0)
+            shutil.copy(temp_file.name, self.merged_dep_path)
         return name_to_module_info
 
     def _merge_soong_info(self, name_to_module_info, mod_bp_infos):
@@ -925,6 +923,7 @@ class ModuleInfo:
                                                       mod_info))
 
     def is_modern_robolectric_test(self, info: Dict[str, Any]) -> bool:
+        """Return whether 'robolectric-tests' is in 'compatibility_suites'."""
         return self.is_robolectric_test_suite(info)
 
     def is_robolectric_test_suite(self, mod_info) -> bool:
@@ -1035,7 +1034,7 @@ class ModuleInfo:
 
 
 def _add_missing_variant_modules(name_to_module_info: Dict[str, Module]):
-    missing_modules = dict()
+    missing_modules = {}
 
     # Android's build system automatically adds a suffix for some build module
     # variants. For example, a module-info entry for a module originally named
