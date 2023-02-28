@@ -43,6 +43,7 @@ exit_code_file="$(mktemp /tmp/tf-exec-XXXXXXXXXX)"
     --bazel-xml-result-reporter:file=${XML_OUTPUT_FILE} \
     --proto-output-file="${TEST_UNDECLARED_OUTPUTS_DIR}/proto-results" \
     --log-file-path="${TEST_UNDECLARED_OUTPUTS_DIR}" \
+    --compress-files=false \
     "$@"
 
 # Use the TF exit code if it terminates abnormally.
