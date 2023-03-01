@@ -421,6 +421,8 @@ class ModuleInfo:
 
     def is_tradefed_testable_module(self, info: Dict[str, Any]) -> bool:
         """Check whether the module is a Tradefed executable test."""
+        if not info:
+            return False
         if not info.get(constants.MODULE_INSTALLED, []):
             return False
         return bool(info.get(constants.MODULE_TEST_CONFIG, []) or
