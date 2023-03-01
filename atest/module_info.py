@@ -693,8 +693,9 @@ class ModuleInfo:
             True if module is a robolectric module, False otherwise.
         """
         if mod_info:
-            return (mod_info.get(constants.MODULE_CLASS, [None])[0] ==
-                    constants.MODULE_CLASS_ROBOLECTRIC)
+            module_classes = mod_info.get(constants.MODULE_CLASS, [])
+            return (module_classes and
+                    module_classes[0] == constants.MODULE_CLASS_ROBOLECTRIC)
         return False
 
     def is_native_test(self, module_name):
