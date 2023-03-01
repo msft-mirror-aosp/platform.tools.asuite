@@ -917,15 +917,6 @@ def perm_consistency_metrics(test_infos, mod_info, args):
         logging.debug('perm_consistency_metrics raised exception: %s', err)
         return
 
-
-def set_build_output_mode(mode: atest_utils.BuildOutputMode):
-    """Update environment variable dict accordingly to args.build_output."""
-    # Changing this variable does not retrigger builds.
-    atest_utils.update_build_env(
-        {'ANDROID_QUIET_BUILD': 'true',
-         'BUILD_OUTPUT_MODE': mode.value})
-
-
 def get_device_count_config(test_infos, mod_info):
     """Get the amount of desired devices from the test config.
 
@@ -1003,7 +994,6 @@ def main(argv, results_dir, args):
     # Sets coverage environment variables.
     if args.experimental_coverage:
         atest_utils.update_build_env(coverage.build_env_vars())
-    set_build_output_mode(args.build_output)
 
     _configure_logging(args.verbose)
     _validate_args(args)
@@ -1156,7 +1146,7 @@ def main(argv, results_dir, args):
         # host jars break the test.
         build_targets |= _get_host_framework_targets(mod_info)
         build_start = time.time()
-        success = atest_utils.build(build_targets)
+        success = atest_utils.build(build_targets, verbose=args.verbose)
         build_duration = time.time() - build_start
         metrics.BuildFinishEvent(
             duration=metrics_utils.convert_duration(build_duration),
