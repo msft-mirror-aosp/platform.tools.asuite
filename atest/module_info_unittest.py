@@ -871,6 +871,35 @@ class RobolectricTestTypeTest(ModuleInfoTestFixture):
 
         self.assertEqual(return_value, 0)
 
+
+class IsRobolectricModuleTest(ModuleInfoTestFixture):
+    """Tests is_robolectric_modules in various conditions."""
+
+    def test_return_true_if_module_class_is_robolectric(self):
+        test_module_info = module(classes=[constants.MODULE_CLASS_ROBOLECTRIC])
+        mod_info = self.create_module_info()
+
+        return_value = mod_info.is_robolectric_module(test_module_info)
+
+        self.assertTrue(return_value)
+
+    def test_return_false_if_module_class_is_not_robolectric(self):
+        test_module_info = module(classes=['not_robolectric'])
+        mod_info = self.create_module_info()
+
+        return_value = mod_info.is_robolectric_module(test_module_info)
+
+        self.assertFalse(return_value)
+
+    def test_return_false_if_module_class_is_empty(self):
+        test_module_info = module(classes=[])
+        mod_info = self.create_module_info()
+
+        return_value = mod_info.is_robolectric_module(test_module_info)
+
+        self.assertFalse(return_value)
+
+
 @mock.patch.dict('os.environ', {constants.ANDROID_BUILD_TOP: '/'})
 def create_empty_module_info():
     with fake_filesystem_unittest.Patcher() as patcher:
