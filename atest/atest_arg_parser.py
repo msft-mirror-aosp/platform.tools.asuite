@@ -18,32 +18,13 @@
 Atest Argument Parser class for atest.
 """
 
-# TODO: (@jimtang) Unsuppress too-many-lines Pylint warning.
-# pylint: disable=line-too-long, too-many-lines
+# pylint: disable=line-too-long
 
 import argparse
 import pydoc
 
 from atest import bazel_mode
 from atest import constants
-
-from atest.atest_utils import BuildOutputMode
-
-def output_mode_msg() -> str:
-    """Generate helper strings for BuildOutputMode."""
-    msg = []
-    for _, value in BuildOutputMode.__members__.items():
-        match value:
-            case BuildOutputMode.STREAMED:
-                msg.append(f'\t\t{BuildOutputMode.STREAMED.value}: '
-                           'full output like what "m" does. (default)')
-            case BuildOutputMode.LOGGED:
-                msg.append(f'\t\t{BuildOutputMode.LOGGED.value}: '
-                           'print build output to a log file.')
-            case _:
-                raise RuntimeError('Found unknown attribute!')
-    return '\n'.join(msg)
-
 
 # Constants used for AtestArgParser and EPILOG_TEMPLATE
 HELP_DESC = ('A command line tool that allows users to build, install, and run '
@@ -64,8 +45,6 @@ BUILD = 'Run a build.'
 BAZEL_MODE = 'Run tests using Bazel.'
 BAZEL_ARG = ('Forward a flag to Bazel for tests executed with Bazel; '
              'see --bazel-mode.')
-BUILD_OUTPUT = (r'Specifies the desired build output mode. '
-                f'Valid values are:\n{output_mode_msg()}')
 CLEAR_CACHE = 'Wipe out the test_infos cache of the test and start a new search.'
 COLLECT_TESTS_ONLY = ('Collect a list test cases of the instrumentation tests '
                       'without testing them in real.')
@@ -267,11 +246,6 @@ class AtestArgParser(argparse.ArgumentParser):
         self.add_argument('-L', '--list-modules', help=LIST_MODULES)
         self.add_argument('-v', '--verbose', action='store_true', help=VERBOSE)
         self.add_argument('-V', '--version', action='store_true', help=VERSION)
-        self.add_argument('--build-output',
-                          default=BuildOutputMode.STREAMED,
-                          choices=BuildOutputMode,
-                          type=BuildOutputMode,
-                          help=BUILD_OUTPUT)
 
         # Options that switch on/off fuzzy searching.
         fgroup = self.add_mutually_exclusive_group()
@@ -448,7 +422,6 @@ def print_epilog_text():
         RETRY_ANY_FAILURE=RETRY_ANY_FAILURE,
         SERIAL=SERIAL,
         SHARDING=SHARDING,
-        BUILD_OUTPUT=BUILD_OUTPUT,
         SMART_TESTING_LOCAL=SMART_TESTING_LOCAL,
         START_AVD=START_AVD,
         TEST=TEST,
@@ -634,8 +607,6 @@ OPTIONS
         -V, --version
             {VERSION}
 
-        --build-output
-            {BUILD_OUTPUT}
 
         [ Dry-Run and Caching ]
         --dry-run

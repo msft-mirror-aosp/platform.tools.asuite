@@ -22,7 +22,6 @@ Utility functions for atest.
 
 from __future__ import print_function
 
-import enum
 import datetime
 import fnmatch
 import hashlib
@@ -44,7 +43,7 @@ import zipfile
 
 from multiprocessing import Process
 from pathlib import Path
-from typing import Any, Dict, List, Set
+from typing import Any, Dict
 
 import xml.etree.ElementTree as ET
 
@@ -110,20 +109,6 @@ SUGGESTIONS = {
 }
 
 _BUILD_ENV = {}
-
-
-@enum.unique
-class BuildOutputMode(enum.Enum):
-    "Represents the different ways to display build output."
-    STREAMED = 'streamed'
-    LOGGED = 'logged'
-
-    def __init__(self, arg_name: str):
-        self._description = arg_name
-
-    # pylint: disable=missing-function-docstring
-    def description(self):
-        return self._description
 
 
 def get_build_cmd(dump=False):
@@ -239,7 +224,7 @@ def _run_limited_output(cmd, env_vars=None):
         raise subprocess.CalledProcessError(proc.returncode, cmd, output)
 
 
-def get_build_out_dir() -> str:
+def get_build_out_dir():
     """Get android build out directory.
 
     The order of the rules are:
@@ -284,12 +269,13 @@ def update_build_env(env: Dict[str, str]):
     global _BUILD_ENV
     _BUILD_ENV.update(env)
 
-
-def build(build_targets: Set[str]):
+def build(build_targets, verbose=False):
     """Shell out and invoke run_build_cmd to make build_targets.
 
     Args:
         build_targets: A set of strings of build targets to make.
+        verbose: Optional arg. If True output is streamed to the console.
+                 If False, only the last line of the build output is outputted.
 
     Returns:
         Boolean of whether build command was successful, True if nothing to
@@ -302,40 +288,33 @@ def build(build_targets: Set[str]):
     # pylint: disable=global-statement
     global _BUILD_ENV
     full_env_vars = os.environ.copy()
-    update_build_env(full_env_vars)
+    full_env_vars.update(_BUILD_ENV)
     print('\n%s\n%s' % (
         colorize("Building Dependencies...", constants.CYAN),
                  ', '.join(build_targets)))
     logging.debug('Building Dependencies: %s', ' '.join(build_targets))
     cmd = get_build_cmd() + list(build_targets)
-    return _run_build_cmd(cmd, _BUILD_ENV)
+    return _run_build_cmd(cmd, verbose, full_env_vars)
 
-
-def _run_build_cmd(cmd: List[str], env_vars: Dict[str, str]):
+def _run_build_cmd(cmd, verbose=False, env_vars=None):
     """The main process of building targets.
 
     Args:
         cmd: A list of soong command.
-        env_vars: Dict of environment variables used for build.
+        verbose: Optional arg. If True output is streamed to the console.
+                 If False, only the last line of the build output is outputted.
+        env_vars: Optional arg. Dict of env vars to set during build.
+
     Returns:
         Boolean of whether build command was successful, True if nothing to
         build.
     """
     logging.debug('Executing command: %s', cmd)
     try:
-        if env_vars.get('BUILD_OUTPUT_MODE') == BuildOutputMode.STREAMED.value:
-            print()
+        if verbose:
             subprocess.check_call(cmd, stderr=subprocess.STDOUT, env=env_vars)
         else:
-            # Note that piping stdout forces Soong to switch to 'dumb terminal
-            # mode' which only prints completed actions. This gives users the
-            # impression that actions are taking longer than they really are.
-            # See b/233044822 for more details.
-            log_path = Path(get_build_out_dir()).joinpath('verbose.log.gz')
-            print('\n(Build log may not reflect actual status in simple output'
-                  'mode; check {} for detail after build finishes.)'.format(
-                    colorize(f'{log_path}', constants.CYAN)
-                  ), end='')
+            # TODO: Save output to a log file.
             _run_limited_output(cmd, env_vars=env_vars)
         logging.info('Build successful')
         return True
@@ -1164,7 +1143,8 @@ def build_module_info_target(module_info_target):
     module_info_path = Path(product_out).joinpath('module-info.json')
     if module_info_path.is_file():
         os.remove(module_info_path)
-    if not build([module_info_target]):
+    if not build([module_info_target],
+                  verbose=logging.getLogger().isEnabledFor(logging.DEBUG)):
         sys.exit(ExitCode.BUILD_FAILURE)
     build_duration = time.time() - build_start
     metrics.LocalDetectEvent(
