@@ -505,7 +505,7 @@ class ModuleInfo:
         info = self.get_module_info(module_name) or {}
         module_paths = info.get(constants.MODULE_PATH, [])
         if not module_paths:
-            return ""
+            return ''
         filtered_module_names = [
             name
             for name in self.get_module_names(module_paths[0])
@@ -517,7 +517,7 @@ class ModuleInfo:
                 for name in filtered_module_names
                 if self.is_robolectric_module(self.get_module_info(name))
             ),
-            "",
+            '',
         )
 
     def is_robolectric_test(self, module_name):
