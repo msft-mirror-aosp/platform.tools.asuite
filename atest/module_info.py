@@ -421,6 +421,8 @@ class ModuleInfo:
 
     def is_tradefed_testable_module(self, info: Dict[str, Any]) -> bool:
         """Check whether the module is a Tradefed executable test."""
+        if not info:
+            return False
         if not info.get(constants.MODULE_INSTALLED, []):
             return False
         return bool(info.get(constants.MODULE_TEST_CONFIG, []) or
@@ -478,7 +480,11 @@ class ModuleInfo:
         # Check if the module has an auto-generated config.
         return self.is_auto_gen_test_config(mod_info.get(constants.MODULE_NAME))
 
-    def get_robolectric_test_name(self, module_name):
+    def is_legacy_robolectric_test(self, module_name: str) -> bool:
+        """Return whether the module_name is a legacy Robolectric test"""
+        return bool(self.get_robolectric_test_name(module_name))
+
+    def get_robolectric_test_name(self, module_name: str) -> str:
         """Returns runnable robolectric module name.
 
         This method is for legacy robolectric tests and returns one of associated
@@ -496,16 +502,23 @@ class ModuleInfo:
             String of the first-matched associated module that belongs to the
             actual robolectric module, None if nothing has been found.
         """
-        module_name_info = self.get_module_info(module_name)
-        if not module_name_info:
-            return None
-        module_paths = module_name_info.get(constants.MODULE_PATH, [])
-        if module_paths:
-            for mod in self.get_module_names(module_paths[0]):
-                mod_info = self.get_module_info(mod)
-                if self.is_robolectric_module(mod_info):
-                    return mod
-        return None
+        info = self.get_module_info(module_name) or {}
+        module_paths = info.get(constants.MODULE_PATH, [])
+        if not module_paths:
+            return ""
+        filtered_module_names = [
+            name
+            for name in self.get_module_names(module_paths[0])
+            if name.startswith("Run")
+        ]
+        return next(
+            (
+                name
+                for name in filtered_module_names
+                if self.is_robolectric_module(self.get_module_info(name))
+            ),
+            "",
+        )
 
     def is_robolectric_test(self, module_name):
         """Check if the given module is a robolectric test.
@@ -551,28 +564,14 @@ class ModuleInfo:
             1: a modern robolectric test(defined in Android.bp)
             2: a legacy robolectric test(defined in Android.mk)
         """
-        not_a_robo_test = 0
-        module_name_info = self.get_module_info(module_name)
-        if not module_name_info:
-            return not_a_robo_test
-        mod_path = module_name_info.get(constants.MODULE_PATH, [])
-        if mod_path:
-            # Check1: If the associated modules are "ROBOLECTRIC".
-            is_a_robotest = False
-            modules_in_path = self.get_module_names(mod_path[0])
-            for mod in modules_in_path:
-                mod_info = self.get_module_info(mod)
-                if self.is_robolectric_module(mod_info):
-                    is_a_robotest = True
-                    break
-            if not is_a_robotest:
-                return not_a_robo_test
-            # Check 2: The `robolectric-test` in the compatibility_suites, call
-            #          it a modern test.
-            if self.is_modern_robolectric_test(module_name_info):
-                return constants.ROBOTYPE_MODERN
+        info = self.get_module_info(module_name)
+        if not info:
+            return 0
+        if self.is_legacy_robolectric_test(module_name):
             return constants.ROBOTYPE_LEGACY
-        return not_a_robo_test
+        if self.is_modern_robolectric_test(info):
+            return constants.ROBOTYPE_MODERN
+        return 0
 
     def get_instrumentation_target_apps(self, module_name: str) -> Dict:
         """Return target APKs of an instrumentation test.
@@ -696,8 +695,9 @@ class ModuleInfo:
             True if module is a robolectric module, False otherwise.
         """
         if mod_info:
-            return (mod_info.get(constants.MODULE_CLASS, [None])[0] ==
-                    constants.MODULE_CLASS_ROBOLECTRIC)
+            module_classes = mod_info.get(constants.MODULE_CLASS, [])
+            return (module_classes and
+                    module_classes[0] == constants.MODULE_CLASS_ROBOLECTRIC)
         return False
 
     def is_native_test(self, module_name):
