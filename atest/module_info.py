@@ -567,10 +567,13 @@ class ModuleInfo:
         info = self.get_module_info(module_name)
         if not info:
             return 0
-        if self.is_legacy_robolectric_test(module_name):
-            return constants.ROBOTYPE_LEGACY
+        # Some Modern mode Robolectric test has related module which compliant
+        # with the Legacy Robolectric test. In this case, the Modern mode
+        # Robolectric tests should prior to Legacy mode.
         if self.is_modern_robolectric_test(info):
             return constants.ROBOTYPE_MODERN
+        if self.is_legacy_robolectric_test(module_name):
+            return constants.ROBOTYPE_LEGACY
         return 0
 
     def get_instrumentation_target_apps(self, module_name: str) -> Dict:
