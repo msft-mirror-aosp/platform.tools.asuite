@@ -82,7 +82,6 @@ def gettestinfos_side_effect(test_names, test_mapping_test_details=None,
 
 
 #pylint: disable=protected-access
-#pylint: disable=no-self-use
 class CLITranslatorUnittests(unittest.TestCase):
     """Unit tests for cli_t.py"""
 

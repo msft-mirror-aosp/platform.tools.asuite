@@ -22,9 +22,11 @@ Utility functions for atest.
 
 from __future__ import print_function
 
+import enum
 import datetime
 import fnmatch
 import hashlib
+import html
 import importlib
 import itertools
 import json
@@ -37,11 +39,12 @@ import shutil
 import subprocess
 import sys
 import time
+import urllib
 import zipfile
 
 from multiprocessing import Process
 from pathlib import Path
-from typing import Any, Dict
+from typing import Any, Dict, List, Set
 
 import xml.etree.ElementTree as ET
 
@@ -107,6 +110,20 @@ SUGGESTIONS = {
 }
 
 _BUILD_ENV = {}
+
+
+@enum.unique
+class BuildOutputMode(enum.Enum):
+    "Represents the different ways to display build output."
+    STREAMED = 'streamed'
+    LOGGED = 'logged'
+
+    def __init__(self, arg_name: str):
+        self._description = arg_name
+
+    # pylint: disable=missing-function-docstring
+    def description(self):
+        return self._description
 
 
 def get_build_cmd(dump=False):
@@ -222,7 +239,7 @@ def _run_limited_output(cmd, env_vars=None):
         raise subprocess.CalledProcessError(proc.returncode, cmd, output)
 
 
-def get_build_out_dir():
+def get_build_out_dir() -> str:
     """Get android build out directory.
 
     The order of the rules are:
@@ -267,13 +284,12 @@ def update_build_env(env: Dict[str, str]):
     global _BUILD_ENV
     _BUILD_ENV.update(env)
 
-def build(build_targets, verbose=False):
+
+def build(build_targets: Set[str]):
     """Shell out and invoke run_build_cmd to make build_targets.
 
     Args:
         build_targets: A set of strings of build targets to make.
-        verbose: Optional arg. If True output is streamed to the console.
-                 If False, only the last line of the build output is outputted.
 
     Returns:
         Boolean of whether build command was successful, True if nothing to
@@ -286,33 +302,40 @@ def build(build_targets, verbose=False):
     # pylint: disable=global-statement
     global _BUILD_ENV
     full_env_vars = os.environ.copy()
-    full_env_vars.update(_BUILD_ENV)
+    update_build_env(full_env_vars)
     print('\n%s\n%s' % (
         colorize("Building Dependencies...", constants.CYAN),
                  ', '.join(build_targets)))
     logging.debug('Building Dependencies: %s', ' '.join(build_targets))
     cmd = get_build_cmd() + list(build_targets)
-    return _run_build_cmd(cmd, verbose, full_env_vars)
+    return _run_build_cmd(cmd, _BUILD_ENV)
 
-def _run_build_cmd(cmd, verbose=False, env_vars=None):
+
+def _run_build_cmd(cmd: List[str], env_vars: Dict[str, str]):
     """The main process of building targets.
 
     Args:
         cmd: A list of soong command.
-        verbose: Optional arg. If True output is streamed to the console.
-                 If False, only the last line of the build output is outputted.
-        env_vars: Optional arg. Dict of env vars to set during build.
-
+        env_vars: Dict of environment variables used for build.
     Returns:
         Boolean of whether build command was successful, True if nothing to
         build.
     """
     logging.debug('Executing command: %s', cmd)
     try:
-        if verbose:
+        if env_vars.get('BUILD_OUTPUT_MODE') == BuildOutputMode.STREAMED.value:
+            print()
             subprocess.check_call(cmd, stderr=subprocess.STDOUT, env=env_vars)
         else:
-            # TODO: Save output to a log file.
+            # Note that piping stdout forces Soong to switch to 'dumb terminal
+            # mode' which only prints completed actions. This gives users the
+            # impression that actions are taking longer than they really are.
+            # See b/233044822 for more details.
+            log_path = Path(get_build_out_dir()).joinpath('verbose.log.gz')
+            print('\n(Build log may not reflect actual status in simple output'
+                  'mode; check {} for detail after build finishes.)'.format(
+                    colorize(f'{log_path}', constants.CYAN)
+                  ), end='')
             _run_limited_output(cmd, env_vars=env_vars)
         logging.info('Build successful')
         return True
@@ -321,21 +344,6 @@ def _run_build_cmd(cmd, verbose=False, env_vars=None):
         if err.output:
             logging.error(err.output)
         return False
-
-
-def _can_upload_to_result_server():
-    """Return True if we can talk to result server."""
-    # TODO: Also check if we have a slow connection to result server.
-    if constants.RESULT_SERVER:
-        try:
-            from urllib.request import urlopen
-            urlopen(constants.RESULT_SERVER,
-                    timeout=constants.RESULT_SERVER_TIMEOUT).close()
-            return True
-        # pylint: disable=broad-except
-        except Exception as err:
-            logging.debug('Talking to result server raised exception: %s', err)
-    return False
 
 
 # pylint: disable=unused-argument
@@ -843,7 +851,7 @@ def find_files(path, file_name=constants.TEST_MAPPING):
                 duration=metrics_utils.convert_duration(0),
                 exit_code=ExitCode.COLLECT_ONLY_FILE_NOT_FOUND,
                 stacktrace=msg,
-                logs=e)
+                logs=str(e))
     return match_files
 
 def extract_zip_text(zip_path):
@@ -1156,8 +1164,7 @@ def build_module_info_target(module_info_target):
     module_info_path = Path(product_out).joinpath('module-info.json')
     if module_info_path.is_file():
         os.remove(module_info_path)
-    if not build([module_info_target],
-                  verbose=logging.getLogger().isEnabledFor(logging.DEBUG)):
+    if not build([module_info_target]):
         sys.exit(ExitCode.BUILD_FAILURE)
     build_duration = time.time() - build_start
     metrics.LocalDetectEvent(
@@ -1899,7 +1906,8 @@ def generate_print_result_html(result_file: Path):
                     result_file.stat().st_ctime)
                 cache.write(f'<h2>{timestamp}</h2>')
             for log in logs:
-                cache.write(f'<p><a href="{log}">{Path(log).name}</a></p>')
+                cache.write(f'<p><a href="{urllib.parse.quote(log)}">'
+                            f'{html.escape(Path(log).name)}</a></p>')
             cache.write('</body></html>')
         print(f'\nTo access logs, press "ctrl" and click on\n'
               f'file://{result_html}\n')

@@ -90,4 +90,12 @@ EOF
 popd
 
 # Create the workspace archive which will be downloaded by the Tradefed hosts.
-tar zcfh ${DIST_DIR}/atest_bazel_workspace.tar.gz out/atest_bazel_workspace/
+${ANDROID_BUILD_TOP}/prebuilts/build-tools/linux-x86/bin/soong_zip \
+  -o ${DIST_DIR}/atest_bazel_workspace.zip \
+  -D out/atest_bazel_workspace/ \
+  -f "out/atest_bazel_workspace/**/.*" \
+  -symlinks=false  `# Follow symlinks and store the referenced files.` \
+  -sha256  `# Store SHA256 checksum for each file to enable CAS.` \
+  `# Avoid failing for dangling symlinks since these are expected` \
+  `# because we don't build all targets.` \
+  -ignore_missing_files
