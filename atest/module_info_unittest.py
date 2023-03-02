@@ -787,6 +787,21 @@ class RobolectricTestTypeTest(ModuleInfoTestFixture):
 
         self.assertEqual(return_value, constants.ROBOTYPE_MODERN)
 
+    def test_return_modern_if_compliant_with_modern_and_legacy(self):
+        module_name = 'hello_world_test'
+        module_path = 'robolectric_path'
+        run_module_name = f'Run{module_name}'
+        mod_info = self.create_module_info(modules=[
+            modern_robolectric_test_module(name=f'{module_name}',
+                        path=module_path),
+            robolectric_class_test_module(name=f'{run_module_name}',
+                                          path=module_path),
+        ])
+
+        return_value = mod_info.get_robolectric_type(module_name)
+
+        self.assertEqual(return_value, constants.ROBOTYPE_MODERN)
+
     def test_not_modern_robolectric_test_if_suite_is_not_robolectric(self):
         module_name = 'hello_world_test'
         mod_info = self.create_module_info(modules=[
