@@ -975,7 +975,7 @@ class SoongPrebuiltTarget(Target):
             Import('//bazel/rules:soong_prebuilt.bzl', self._rule_name()),
         }
 
-    @functools.lru_cache(maxsize=None)
+    @functools.lru_cache(maxsize=128)
     def supported_configs(self) -> Set[Config]:
         supported_configs = set(self.config_files.keys())
 
