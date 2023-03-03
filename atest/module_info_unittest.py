@@ -19,6 +19,7 @@
 # pylint: disable=invalid-name
 # pylint: disable=line-too-long
 # pylint: disable=missing-function-docstring
+# pylint: disable=too-many-lines
 
 import os
 import shutil
@@ -287,24 +288,6 @@ class ModuleInfoUnittests(unittest.TestCase):
                  constants.MODULE_TEST_CONFIG:[os.path.join(
                      uc.TEST_CONFIG_DATA_DIR, "a.xml.data")]}
         self.assertTrue(mod_info.has_test_config(info2))
-
-    @mock.patch.dict('os.environ', {constants.ANDROID_BUILD_TOP:'/',
-                                    constants.ANDROID_PRODUCT_OUT:PRODUCT_OUT_DIR})
-    @mock.patch.object(module_info.ModuleInfo, 'get_module_names')
-    def test_get_robolectric_test_name(self, mock_get_module_names):
-        """Test get_robolectric_test_name."""
-        # Happy path testing, make sure we get the run robo target.
-        mod_info = module_info.ModuleInfo(module_file=JSON_FILE_PATH, index_dir=HOST_OUT_DIR)
-        mod_info.name_to_module_info = MOD_NAME_INFO_DICT
-        mod_info.path_to_module_info = MOD_PATH_INFO_DICT
-        mock_get_module_names.return_value = [ASSOCIATED_ROBO_MODULE, ROBO_MODULE]
-        self.assertEqual(mod_info.get_robolectric_test_name(
-            ROBO_MODULE), ASSOCIATED_ROBO_MODULE)
-        # Let's also make sure we don't return anything when we're not supposed
-        # to.
-        mock_get_module_names.return_value = [ROBO_MODULE]
-        self.assertEqual(mod_info.get_robolectric_test_name(
-            ROBO_MODULE), "")
 
     @mock.patch.dict('os.environ', {constants.ANDROID_BUILD_TOP:'/',
                                     constants.ANDROID_PRODUCT_OUT:PRODUCT_OUT_DIR})
@@ -774,6 +757,93 @@ class ModuleInfoCompatibilitySuiteTest(ModuleInfoTestFixture):
         self.assertFalse(return_value)
 
 
+class RobolectricTestNameTest(ModuleInfoTestFixture):
+    """Tests the Robolectric test name in the module info."""
+
+    def test_return_empty_for_a_modern_robolectric_test(self):
+        module_name = 'hello_world_test'
+        mod_info = self.create_module_info(modules=[
+            modern_robolectric_test_module(name=f'{module_name}'),
+        ])
+
+        return_module = mod_info.get_robolectric_test_name(module_name)
+
+        self.assertEqual('', return_module)
+
+    def test_return_related_robolectric_run_module_name(self):
+        module_name = 'hello_world_test'
+        run_module_name = f'Run{module_name}'
+        module_path = 'robolectric_path'
+        mod_info = self.create_module_info(modules=[
+            test_module(name=f'{module_name}',
+                        path=module_path),
+            robolectric_class_test_module(name=f'{run_module_name}',
+                                          path=module_path),
+        ])
+
+        return_module = mod_info.get_robolectric_test_name(module_name)
+
+        self.assertEqual(run_module_name, return_module)
+
+    def test_return_empty_when_no_related_robolectic_class_module(self):
+        module_name = 'hello_world_test'
+        run_module_name = f'Run{module_name}'
+        module_path = 'robolectric_path'
+        mod_info = self.create_module_info(modules=[
+            test_module(name=f'{module_name}',
+                        path=module_path),
+            test_module(name=f'{run_module_name}',
+                        path=module_path),
+        ])
+
+        return_module = mod_info.get_robolectric_test_name(module_name)
+
+        self.assertEqual('', return_module)
+
+    def test_return_empty_if_related_module_name_not_start_with_Run(self):
+        module_name = 'hello_world_test'
+        run_module_name = f'Not_Run{module_name}'
+        module_path = 'robolectric_path'
+        mod_info = self.create_module_info(modules=[
+            test_module(name=f'{module_name}',
+                        path=module_path),
+            robolectric_class_test_module(name=f'{run_module_name}',
+                                          path=module_path),
+        ])
+
+        return_module = mod_info.get_robolectric_test_name(module_name)
+
+        self.assertEqual('', return_module)
+
+    def test_return_itself_for_a_robolectric_class_test_module(self):
+        module_name = 'Run_hello_world_test'
+        mod_info = self.create_module_info(modules=[
+            robolectric_class_test_module(name=f'{module_name}'),
+        ])
+
+        return_module = mod_info.get_robolectric_test_name(module_name)
+
+        self.assertEqual(module_name, return_module)
+
+    def test_return_empty_if_robolectric_class_module_not_start_with_Run(self):
+        module_name = 'hello_world_test'
+        mod_info = self.create_module_info(modules=[
+            robolectric_class_test_module(name=f'{module_name}'),
+        ])
+
+        return_module = mod_info.get_robolectric_test_name(module_name)
+
+        self.assertEqual('', return_module)
+
+    def test_return_0_when_no_mod_info(self):
+        module_name = 'hello_world_test'
+        mod_info = self.create_module_info()
+
+        return_module = mod_info.get_robolectric_test_name(module_name)
+
+        self.assertEqual('', return_module)
+
+
 class RobolectricTestTypeTest(ModuleInfoTestFixture):
     """Tests the Robolectric test type in the module info."""
 
@@ -781,6 +851,21 @@ class RobolectricTestTypeTest(ModuleInfoTestFixture):
         module_name = 'hello_world_test'
         mod_info = self.create_module_info(modules=[
             modern_robolectric_test_module(name=f'{module_name}'),
+        ])
+
+        return_value = mod_info.get_robolectric_type(module_name)
+
+        self.assertEqual(return_value, constants.ROBOTYPE_MODERN)
+
+    def test_return_modern_if_compliant_with_modern_and_legacy(self):
+        module_name = 'hello_world_test'
+        module_path = 'robolectric_path'
+        run_module_name = f'Run{module_name}'
+        mod_info = self.create_module_info(modules=[
+            modern_robolectric_test_module(name=f'{module_name}',
+                        path=module_path),
+            robolectric_class_test_module(name=f'{run_module_name}',
+                                          path=module_path),
         ])
 
         return_value = mod_info.get_robolectric_type(module_name)
