@@ -984,6 +984,13 @@ def _is_auto_shard_test(test_infos):
     return False
 
 
+def _gather_build_targets(test_infos):
+    targets = set()
+    for t_info in test_infos:
+        targets |= t_info.build_targets
+    return targets
+
+
 # pylint: disable=too-many-statements
 # pylint: disable=too-many-branches
 # pylint: disable=too-many-return-statements
@@ -1074,7 +1081,8 @@ def main(argv, results_dir, args):
         if proc_idx and not atest_utils.has_index_files():
             proc_idx.join()
         find_start = time.time()
-        build_targets, test_infos = translator.translate(args)
+        test_infos = translator.translate(args)
+        build_targets = _gather_build_targets(test_infos)
         given_amount  = len(args.serial) if args.serial else 0
         required_amount = get_device_count_config(test_infos, mod_info)
         args.device_count_config = required_amount
