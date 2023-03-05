@@ -25,34 +25,37 @@ import static org.mockito.Mockito.argThat;
 import static org.mockito.Mockito.contains;
 import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 
 import com.android.tradefed.config.ConfigurationException;
 import com.android.tradefed.config.OptionSetter;
 import com.android.tradefed.invoker.InvocationContext;
 import com.android.tradefed.invoker.TestInformation;
+import com.android.tradefed.log.LogUtil.CLog;
+import com.android.tradefed.result.error.ErrorIdentifier;
+import com.android.tradefed.result.error.TestErrorIdentifier;
 import com.android.tradefed.result.FailureDescription;
 import com.android.tradefed.result.ILogSaverListener;
 import com.android.tradefed.result.LogDataType;
 import com.android.tradefed.result.LogFile;
-import com.android.tradefed.result.TestDescription;
-import com.android.tradefed.result.error.ErrorIdentifier;
-import com.android.tradefed.result.error.TestErrorIdentifier;
 import com.android.tradefed.result.proto.FileProtoResultReporter;
 import com.android.tradefed.result.proto.TestRecordProto.FailureStatus;
+import com.android.tradefed.result.TestDescription;
 import com.android.tradefed.util.ZipUtil;
 
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.io.MoreFiles;
+import com.google.common.util.concurrent.Uninterruptibles;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos;
 
 import org.junit.Before;
 import org.junit.Rule;
-import org.junit.Test;
 import org.junit.rules.TemporaryFolder;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
+import org.junit.Test;
 import org.mockito.ArgumentMatcher;
 import org.mockito.InOrder;
 
@@ -66,15 +69,16 @@ import java.io.OutputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.util.Collections;
-import java.util.concurrent.TimeUnit;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.TimeUnit;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
+import java.util.Random;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -85,11 +89,12 @@ public final class BazelTestTest {
     private TestInformation mTestInfo;
     private Path mBazelTempPath;
     private Map<String, String> mEnvironment;
+    private Path mWorkspaceArchive;
 
-    private static final String ARCHIVE_NAME = "atest_bazel_workspace.tar.gz";
     private static final String BAZEL_TEST_TARGETS_OPTION = "bazel-test-target-patterns";
     private static final String BAZEL_WORKSPACE_ARCHIVE_OPTION = "bazel-workspace-archive";
     private static final String BEP_FILE_OPTION_NAME = "--build_event_binary_file";
+    private static final long RANDOM_SEED = 1234567890L;
 
     @Rule public final TemporaryFolder tempDir = new TemporaryFolder();
 
@@ -102,6 +107,10 @@ public final class BazelTestTest {
         mBazelTempPath =
                 Files.createDirectory(tempDir.getRoot().toPath().resolve("bazel_temp_dir"));
         mEnvironment = ImmutableMap.of("PATH", "/phony/path");
+        Path bazelArchive =
+                Files.createDirectory(tempDir.getRoot().toPath().resolve("atest_bazel_workspace"));
+        mWorkspaceArchive = tempDir.getRoot().toPath().resolve("atest_bazel_workspace.zip");
+        ZipUtil.createZip(bazelArchive.toFile(), mWorkspaceArchive.toFile());
     }
 
     @Test
@@ -129,9 +138,6 @@ public final class BazelTestTest {
 
         bazelTest.run(mTestInfo, mMockListener);
 
-        verify(mMockListener)
-                .testLog(
-                        contains(String.format("%s-log", BazelTest.EXTRACT_ARCHIVE)), any(), any());
         verify(mMockListener)
                 .testLog(contains(String.format("%s-log", BazelTest.QUERY_TARGETS)), any(), any());
         verify(mMockListener)
@@ -161,10 +167,10 @@ public final class BazelTestTest {
                 builder -> {
                     return new FakeBazelTestProcess(builder, mBazelTempPath) {
                         @Override
-                        public void writeSingleTestOutputs(Path outputsDir)
+                        public void writeSingleTestOutputs(Path outputsDir, String testName)
                                 throws IOException, ConfigurationException {
 
-                            super.writeSingleTestOutputs(outputsDir);
+                            super.writeSingleTestOutputs(outputsDir, testName);
 
                             Path outputFile = outputsDir.resolve("proto-results");
                             Files.write(outputFile, "Malformed Proto File".getBytes());
@@ -241,9 +247,11 @@ public final class BazelTestTest {
 
     @Test
     public void archiveExtractionFails_runAborted() throws Exception {
-        FakeProcessStarter processStarter = newFakeProcessStarter();
-        processStarter.put(BazelTest.EXTRACT_ARCHIVE, newFailingProcess());
-        BazelTest bazelTest = newBazelTestWithProcessStarter(processStarter);
+        BazelTest bazelTest = new BazelTest(newFakeProcessStarter(), mBazelTempPath);
+        OptionSetter setter = new OptionSetter(bazelTest);
+        setter.setOptionValue(
+                BAZEL_WORKSPACE_ARCHIVE_OPTION,
+                new File("non_existent_workspace.zip").getAbsolutePath());
 
         bazelTest.run(mTestInfo, mMockListener);
 
@@ -312,6 +320,62 @@ public final class BazelTestTest {
         verify(mMockListener).testRunFailed(hasErrorIdentifier(TestErrorIdentifier.TEST_ABORTED));
     }
 
+    @Test
+    public void multipleTestsRun_reportsAllResults() throws Exception {
+        int testCount = 3;
+        Duration testDelay = Duration.ofMillis(10);
+        final AtomicLong testTime = new AtomicLong();
+        FakeProcessStarter processStarter = newFakeProcessStarter();
+        byte[] bytes = logFileContents();
+
+        processStarter.put(
+                BazelTest.RUN_TESTS,
+                builder -> {
+                    return new FakeBazelTestProcess(builder, mBazelTempPath) {
+                        @Override
+                        public Path createLogFile(String testName, Path logDir) throws IOException {
+                            Path logFile = logDir.resolve(testName);
+                            Files.write(logFile, bytes);
+                            return logFile;
+                        }
+
+                        @Override
+                        public void runTests() throws IOException, ConfigurationException {
+                            long start = System.nanoTime();
+                            for (int i = 0; i < testCount; i++) {
+                                runSingleTest("test-" + i);
+                            }
+                            testTime.set((System.nanoTime() - start) / 1000000);
+                        }
+
+                        @Override
+                        void singleTestBody() {
+                            Uninterruptibles.sleepUninterruptibly(
+                                    testDelay.toMillis(), TimeUnit.MILLISECONDS);
+                        }
+                    };
+                });
+        BazelTest bazelTest = newBazelTestWithProcessStarter(processStarter);
+
+        long start = System.nanoTime();
+        bazelTest.run(mTestInfo, mMockListener);
+        long totalTime = ((System.nanoTime() - start) / 1000000);
+
+        // TODO(b/267378279): Consider converting this test to a proper benchmark instead of using
+        // logging.
+        CLog.i("Total runtime: " + totalTime + "ms, test time: " + testTime.get() + "ms.");
+
+        verify(mMockListener, times(testCount)).testStarted(any(), anyLong());
+    }
+
+    private static byte[] logFileContents() {
+        // Seed Random to always get the same sequence of values.
+        Random rand = new Random(RANDOM_SEED);
+        byte[] bytes = new byte[1024 * 1024];
+        rand.nextBytes(bytes);
+        return bytes;
+    }
+
     private static FakeProcess newPassingProcess() {
         return new FakeProcess() {
             @Override
@@ -349,7 +413,8 @@ public final class BazelTestTest {
 
         BazelTest bazelTest = new BazelTest(starter, mBazelTempPath);
         OptionSetter setter = new OptionSetter(bazelTest);
-        setter.setOptionValue(BAZEL_WORKSPACE_ARCHIVE_OPTION, ARCHIVE_NAME);
+        setter.setOptionValue(
+                BAZEL_WORKSPACE_ARCHIVE_OPTION, mWorkspaceArchive.toAbsolutePath().toString());
         return bazelTest;
     }
 
@@ -379,7 +444,6 @@ public final class BazelTestTest {
 
     private FakeProcessStarter newFakeProcessStarter() throws IOException {
         FakeProcessStarter processStarter = new FakeProcessStarter();
-        processStarter.put(BazelTest.EXTRACT_ARCHIVE, newPassingProcess());
         processStarter.put(BazelTest.QUERY_TARGETS, newPassingProcessWithStdout("default_target"));
         processStarter.put(
                 BazelTest.RUN_TESTS,
@@ -475,25 +539,34 @@ public final class BazelTestTest {
         @Override
         public void start() throws IOException {
             try {
-                runSingleTest();
+                runTests();
                 writeLastEvent();
             } catch (ConfigurationException e) {
                 throw new RuntimeException(e);
             }
         }
 
-        void runSingleTest() throws IOException, ConfigurationException {
-            Path outputsDir = Files.createTempDirectory(mBazelTempDirectory, "test1");
+        void runTests() throws IOException, ConfigurationException {
+            runSingleTest("test-1");
+        }
+
+        void runSingleTest(String testName) throws IOException, ConfigurationException {
+            Path outputDir = Files.createTempDirectory(mBazelTempDirectory, testName);
             try {
-                writeSingleTestOutputs(outputsDir);
-                File outputsZipFile = zipSingleTestOutputsDirectory(outputsDir);
+                singleTestBody();
+                writeSingleTestOutputs(outputDir, testName);
+                File outputsZipFile = zipSingleTestOutputsDirectory(outputDir);
                 writeSingleTestResultEvent(outputsZipFile, mBepFile);
             } finally {
-                MoreFiles.deleteRecursively(outputsDir);
+                MoreFiles.deleteRecursively(outputDir);
             }
         }
 
-        public void writeSingleTestOutputs(Path outputsDir)
+        void singleTestBody() {
+            // Do nothing.
+        }
+
+        void writeSingleTestOutputs(Path outputsDir, String testName)
                 throws IOException, ConfigurationException {
 
             FileProtoResultReporter reporter = new FileProtoResultReporter();
@@ -511,7 +584,7 @@ public final class BazelTestTest {
             reporter.invocationStarted(context);
             reporter.testModuleStarted(context);
             reporter.testRunStarted("test-run", 1);
-            TestDescription testD = new TestDescription("class-name", "test-name");
+            TestDescription testD = new TestDescription("class-name", testName);
             reporter.testStarted(testD);
             reporter.testEnded(testD, Collections.emptyMap());
             reporter.testRunEnded(0, Collections.emptyMap());
@@ -526,9 +599,9 @@ public final class BazelTestTest {
             reporter.invocationEnded(0);
         }
 
-        Path createLogFile(String name, Path logDir) throws IOException {
-            Path logFile = logDir.resolve(name);
-            Files.write(logFile, name.getBytes());
+        Path createLogFile(String testName, Path logDir) throws IOException {
+            Path logFile = logDir.resolve(testName);
+            Files.write(logFile, testName.getBytes());
             return logFile;
         }
 
@@ -562,7 +635,7 @@ public final class BazelTestTest {
             }
         }
 
-        public void writeLastEvent() throws IOException {
+        void writeLastEvent() throws IOException {
             try (FileOutputStream bepOutputStream = new FileOutputStream(mBepFile.toFile(), true)) {
                 BuildEventStreamProtos.BuildEvent.newBuilder()
                         .setId(BuildEventStreamProtos.BuildEventId.getDefaultInstance())
