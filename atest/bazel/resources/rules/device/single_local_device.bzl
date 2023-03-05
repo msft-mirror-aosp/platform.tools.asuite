@@ -15,7 +15,7 @@ def _local_device_impl(ctx):
 local_device = rule(
     attrs = {
         "_source_script": attr.label(
-            default = "//bazel/rules/device-provider:single_local_device.sh",
+            default = "//bazel/rules/device:single_local_device.sh",
             allow_single_file = True,
         ),
         "out": attr.output(mandatory = True),
