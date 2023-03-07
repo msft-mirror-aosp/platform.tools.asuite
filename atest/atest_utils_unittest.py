@@ -343,6 +343,7 @@ class AtestUtilsUnittests(unittest.TestCase):
         build_top = '/home/a/b/c'
         rel_path = 'd/e'
         mock_cwd.return_value = os.path.join(build_top, rel_path)
+        # TODO: (b/264015241) Stop mocking build variables.
         os_environ_mock = {constants.ANDROID_BUILD_TOP: build_top}
         with mock.patch.dict('os.environ', os_environ_mock, clear=True):
             expected_cmd = ['../../build/soong/soong_ui.bash', '--make-mode']

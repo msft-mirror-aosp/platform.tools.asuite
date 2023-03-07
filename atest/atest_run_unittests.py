@@ -22,10 +22,20 @@ import sys
 import unittest
 
 from importlib import import_module
-
+from unittest import mock
 
 # Setup logging to be silent so unittests can pass through TF.
 logging.disable(logging.ERROR)
+
+ENV = {
+    'ANDROID_BUILD_TOP': '/',
+    'ANDROID_PRODUCT_OUT': '/out/prod',
+    'ANDROID_TARGET_OUT_TESTCASES': '/out/prod/tcases',
+    'ANDROID_HOST_OUT': '/out/host',
+    'ANDROID_HOST_OUT_TESTCASES': '/out/host/tcases',
+    'TARGET_PRODUCT': 'aosp_cf_x86_64',
+    'TARGET_BUILD_VARIANT': 'userdebug',
+}
 
 def get_test_modules():
     """Returns a list of testable modules.
@@ -73,7 +83,8 @@ def run_test_modules(test_modules):
 
 if __name__ == '__main__':
     print(sys.version_info)
-    result = run_test_modules(get_test_modules())
-    if not result.wasSuccessful():
-        sys.exit(not result.wasSuccessful())
-    sys.exit(0)
+    with mock.patch.dict('os.environ', ENV):
+        result = run_test_modules(get_test_modules())
+        if not result.wasSuccessful():
+            sys.exit(not result.wasSuccessful())
+        sys.exit(0)
