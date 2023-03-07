@@ -99,7 +99,6 @@ class TFIntegrationFinderUnittests(unittest.TestCase):
         self.assertEqual(
             self.tf_finder.find_test_by_integration_name('NotIntName'), [])
 
-    @mock.patch.dict('os.environ', {constants.ANDROID_BUILD_TOP:'/'})
     @mock.patch.object(tf_integration_finder.TFIntegrationFinder,
                        '_get_build_targets', return_value=set())
     @mock.patch('os.path.realpath',
