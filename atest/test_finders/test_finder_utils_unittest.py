@@ -185,6 +185,7 @@ class TestFinderUtilsUnittests(unittest.TestCase):
         self.assertFalse(test_finder_utils.has_method_in_file(
             test_path, frozenset(['testMethod'])))
 
+    # TODO: (b/263330492) Stop mocking build environment variables.
     def test_has_method_in_kt_file(self):
         """Test has_method_in_file method with kt class path."""
         test_path = os.path.join(uc.TEST_DATA_DIR, 'class_file_path_testing',
@@ -430,7 +431,6 @@ class TestFinderUtilsUnittests(unittest.TestCase):
                                                        mock_module_info),
             VTS_XML_TARGETS)
 
-    @mock.patch.dict('os.environ', {constants.ANDROID_BUILD_TOP:'/'})
     @mock.patch('builtins.input', return_value='0')
     def test_search_integration_dirs(self, mock_input):
         """Test search_integration_dirs."""
@@ -534,7 +534,6 @@ class TestFinderUtilsUnittests(unittest.TestCase):
         self.assertTrue(cpp_class in cc_tmp_test_result)
         self.assertTrue(cc_class in cc_tmp_test_result)
 
-    @mock.patch.dict('os.environ', {constants.ANDROID_BUILD_TOP:'/'})
     @mock.patch('builtins.input', return_value='0')
     @mock.patch.object(test_finder_utils, 'get_dir_path_and_filename')
     @mock.patch('os.path.exists', return_value=True)
@@ -709,8 +708,6 @@ class TestFinderUtilsUnittests(unittest.TestCase):
             return [UNIT_TEST_NOT_MATCHED_1_PATH]
         return []
 
-    @mock.patch.dict('os.environ', {constants.ANDROID_BUILD_TOP:'/',
-                                    constants.ANDROID_PRODUCT_OUT:PRODUCT_OUT_DIR})
     @mock.patch.object(module_info.ModuleInfo, 'get_all_host_unit_tests',
                        return_value=[UNIT_TEST_MODULE_1,
                                      UNIT_TEST_MODULE_2,
@@ -737,8 +734,6 @@ class TestFinderUtilsUnittests(unittest.TestCase):
         expect_methods.sort()
         self.assertEqual(expect_methods, real_methods)
 
-    @mock.patch.dict('os.environ', {constants.ANDROID_BUILD_TOP:'/',
-                                    constants.ANDROID_PRODUCT_OUT:PRODUCT_OUT_DIR})
     @mock.patch('os.path.isfile', side_effect=unittest_utils.isfile_side_effect)
     def test_get_test_config_use_androidtestxml(self, _isfile):
         """Test get_test_config_and_srcs using default AndroidTest.xml"""
@@ -751,8 +746,6 @@ class TestFinderUtilsUnittests(unittest.TestCase):
         result, _ = test_finder_utils.get_test_config_and_srcs(t_info, mod_info)
         self.assertEqual(expect_config, result)
 
-    @mock.patch.dict('os.environ', {constants.ANDROID_BUILD_TOP:'/',
-                                    constants.ANDROID_PRODUCT_OUT:PRODUCT_OUT_DIR})
     @mock.patch('os.path.isfile', side_effect=unittest_utils.isfile_side_effect)
     def test_get_test_config_single_config(self, _isfile):
         """Test get_test_config_and_srcs manualy set it's config"""
@@ -765,8 +758,6 @@ class TestFinderUtilsUnittests(unittest.TestCase):
         result, _ = test_finder_utils.get_test_config_and_srcs(t_info, mod_info)
         self.assertEqual(expect_config, result)
 
-    @mock.patch.dict('os.environ', {constants.ANDROID_BUILD_TOP:'/',
-                                    constants.ANDROID_PRODUCT_OUT:PRODUCT_OUT_DIR})
     @mock.patch('os.path.isfile', side_effect=unittest_utils.isfile_side_effect)
     def test_get_test_config_main_multiple_config(self, _isfile):
         """Test get_test_config_and_srcs which is the main module of multiple config"""
@@ -779,8 +770,6 @@ class TestFinderUtilsUnittests(unittest.TestCase):
         result, _ = test_finder_utils.get_test_config_and_srcs(t_info, mod_info)
         self.assertEqual(expect_config, result)
 
-    @mock.patch.dict('os.environ', {constants.ANDROID_BUILD_TOP:'/',
-                                    constants.ANDROID_PRODUCT_OUT:PRODUCT_OUT_DIR})
     @mock.patch('os.path.isfile', side_effect=unittest_utils.isfile_side_effect)
     def test_get_test_config_subtest_in_multiple_config(self, _isfile):
         """Test get_test_config_and_srcs not the main module of multiple config"""

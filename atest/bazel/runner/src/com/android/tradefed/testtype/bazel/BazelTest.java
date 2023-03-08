@@ -119,11 +119,6 @@ public final class BazelTest implements IRemoteTest {
     private final List<String> mBazelTestExtraArgs = new ArrayList<>();
 
     @Option(
-            name = "extra-tradefed-jars",
-            description = "List of jars to add to Tradefed's classpath.")
-    private final List<File> mExtraTradefedJars = new ArrayList<>();
-
-    @Option(
             name = "bazel-max-idle-timout",
             description = "Max idle timeout in seconds for bazel commands.")
     private Duration mBazelMaxIdleTimeout = Duration.ofSeconds(5L);
@@ -266,11 +261,6 @@ public final class BazelTest implements IRemoteTest {
 
         // TODO(b/233885171): Remove resolve once workspace archive is updated.
         Path workspaceDirectory = outputDirectory.resolve("out/atest_bazel_workspace");
-
-        // TODO(b/230764993): Switch to using this flag once implemented.
-        if (!mExtraTradefedJars.isEmpty()) {
-            copyExtraTradefedJars(workspaceDirectory);
-        }
 
         return workspaceDirectory;
     }
@@ -513,17 +503,6 @@ public final class BazelTest implements IRemoteTest {
             MoreFiles.deleteRecursively(mRunTemporaryDirectory);
         } catch (IOException e) {
             CLog.e(e);
-        }
-    }
-
-    private void copyExtraTradefedJars(Path workspaceDirectory) throws IOException {
-        for (File jar : mExtraTradefedJars) {
-            Files.copy(
-                    jar.toPath(),
-                    workspaceDirectory
-                            .resolve("tools/tradefederation/core/tradefed/host/framework")
-                            .resolve(jar.getName()),
-                    StandardCopyOption.REPLACE_EXISTING);
         }
     }
 

@@ -19,6 +19,7 @@
 # pylint: disable=invalid-name
 # pylint: disable=line-too-long
 # pylint: disable=missing-function-docstring
+# pylint: disable=too-many-lines
 
 import os
 import shutil
@@ -78,7 +79,8 @@ SOONG_OUT_DIR = os.path.join(BUILD_TOP_DIR, 'out/soong')
 PRODUCT_OUT_DIR = os.path.join(BUILD_TOP_DIR, 'out/target/product/vsoc_x86_64')
 HOST_OUT_DIR = os.path.join(BUILD_TOP_DIR, 'out/host/linux-x86')
 
-#pylint: disable=protected-access
+# TODO: (b/263199608) Suppress too-many-public-methods after refactoring.
+#pylint: disable=protected-access, too-many-public-methods
 class ModuleInfoUnittests(unittest.TestCase):
     """Unit tests for module_info.py"""
 
@@ -98,6 +100,8 @@ class ModuleInfoUnittests(unittest.TestCase):
         if self.merged_dep_path.is_file():
             os.remove(self.merged_dep_path)
 
+    # TODO: (b/264015241) Stop mocking build variables.
+    # TODO: (b/263199608) Re-write the test after refactoring module-info.py
     @mock.patch.object(module_info.ModuleInfo, 'need_update_merged_file')
     @mock.patch('json.load', return_value={})
     @mock.patch('builtins.open', new_callable=mock.mock_open)
@@ -140,8 +144,6 @@ class ModuleInfoUnittests(unittest.TestCase):
             self.assertEqual(custom_abs_out_dir_mod_targ,
                              mod_info.module_info_target)
 
-    @mock.patch.dict('os.environ', {constants.ANDROID_BUILD_TOP:'/',
-                                    constants.ANDROID_PRODUCT_OUT:PRODUCT_OUT_DIR})
     @mock.patch.object(module_info.ModuleInfo, '_load_module_info_file')
     def test_get_path_to_module_info(self, mock_load_module):
         """Test that we correctly create the path to module info dict."""
@@ -163,8 +165,6 @@ class ModuleInfoUnittests(unittest.TestCase):
         self.assertDictEqual(path_to_mod_info,
                              mod_info._get_path_to_module_info(mod_info_dict))
 
-    @mock.patch.dict('os.environ', {constants.ANDROID_BUILD_TOP:'/',
-                                    constants.ANDROID_PRODUCT_OUT:PRODUCT_OUT_DIR})
     def test_is_module(self):
         """Test that we get the module when it's properly loaded."""
         # Load up the test json file and check that module is in it
@@ -172,8 +172,6 @@ class ModuleInfoUnittests(unittest.TestCase):
         self.assertTrue(mod_info.is_module(EXPECTED_MOD_TARGET))
         self.assertFalse(mod_info.is_module(UNEXPECTED_MOD_TARGET))
 
-    @mock.patch.dict('os.environ', {constants.ANDROID_BUILD_TOP:'/',
-                                    constants.ANDROID_PRODUCT_OUT:PRODUCT_OUT_DIR})
     def test_get_path(self):
         """Test that we get the module path when it's properly loaded."""
         # Load up the test json file and check that module is in it
@@ -182,8 +180,6 @@ class ModuleInfoUnittests(unittest.TestCase):
                          EXPECTED_MOD_TARGET_PATH)
         self.assertEqual(mod_info.get_paths(MOD_NO_PATH), [])
 
-    @mock.patch.dict('os.environ', {constants.ANDROID_BUILD_TOP:'/',
-                                    constants.ANDROID_PRODUCT_OUT:PRODUCT_OUT_DIR})
     def test_get_module_names(self):
         """test that we get the module name properly."""
         mod_info = module_info.ModuleInfo(module_file=JSON_FILE_PATH, index_dir=HOST_OUT_DIR)
@@ -193,8 +189,6 @@ class ModuleInfoUnittests(unittest.TestCase):
             self, mod_info.get_module_names(PATH_TO_MULT_MODULES),
             MULT_MOODULES_WITH_SHARED_PATH)
 
-    @mock.patch.dict('os.environ', {constants.ANDROID_BUILD_TOP:'/',
-                                    constants.ANDROID_PRODUCT_OUT:PRODUCT_OUT_DIR})
     def test_path_to_mod_info(self):
         """test that we get the module name properly."""
         mod_info = module_info.ModuleInfo(module_file=JSON_FILE_PATH, index_dir=HOST_OUT_DIR)
@@ -205,8 +199,6 @@ class ModuleInfoUnittests(unittest.TestCase):
         TESTABLE_MODULES_WITH_SHARED_PATH.sort()
         self.assertEqual(module_list, TESTABLE_MODULES_WITH_SHARED_PATH)
 
-    @mock.patch.dict('os.environ', {constants.ANDROID_BUILD_TOP:'/',
-                                    constants.ANDROID_PRODUCT_OUT:PRODUCT_OUT_DIR})
     def test_is_suite_in_compatibility_suites(self):
         """Test is_suite_in_compatibility_suites."""
         mod_info = module_info.ModuleInfo(module_file=JSON_FILE_PATH, index_dir=HOST_OUT_DIR)
@@ -220,6 +212,8 @@ class ModuleInfoUnittests(unittest.TestCase):
         self.assertTrue(mod_info.is_suite_in_compatibility_suites("vts10", info3))
         self.assertFalse(mod_info.is_suite_in_compatibility_suites("ats", info3))
 
+    # TODO: (b/264015241) Stop mocking build variables.
+    # TODO: (b/263199608) Re-write the test after refactoring module-info.py
     @mock.patch.dict('os.environ', {constants.ANDROID_BUILD_TOP:'/',
                                     constants.ANDROID_PRODUCT_OUT:PRODUCT_OUT_DIR,
                                     constants.ANDROID_HOST_OUT:HOST_OUT_DIR})
@@ -244,8 +238,6 @@ class ModuleInfoUnittests(unittest.TestCase):
         self.assertEqual(0, len(mod_info.get_testable_modules('test_suite')))
         self.assertEqual(1, len(mod_info.get_testable_modules()))
 
-    @mock.patch.dict('os.environ', {constants.ANDROID_BUILD_TOP:'/',
-                                    constants.ANDROID_PRODUCT_OUT:PRODUCT_OUT_DIR})
     @mock.patch.object(module_info.ModuleInfo, 'has_test_config')
     @mock.patch.object(module_info.ModuleInfo, 'is_robolectric_test')
     def test_is_testable_module(self, mock_is_robo_test, mock_has_test_config):
@@ -266,8 +258,6 @@ class ModuleInfoUnittests(unittest.TestCase):
         mock_is_robo_test.return_value = True
         self.assertTrue(mod_info.is_testable_module(non_installed_module_info))
 
-    @mock.patch.dict('os.environ', {constants.ANDROID_BUILD_TOP:'/',
-                                    constants.ANDROID_PRODUCT_OUT:PRODUCT_OUT_DIR})
     @mock.patch.object(module_info.ModuleInfo, 'is_auto_gen_test_config')
     def test_has_test_config(self, mock_is_auto_gen):
         """Test has_test_config."""
@@ -290,60 +280,6 @@ class ModuleInfoUnittests(unittest.TestCase):
 
     @mock.patch.dict('os.environ', {constants.ANDROID_BUILD_TOP:'/',
                                     constants.ANDROID_PRODUCT_OUT:PRODUCT_OUT_DIR})
-    @mock.patch.object(module_info.ModuleInfo, 'get_module_names')
-    def test_get_robolectric_test_name(self, mock_get_module_names):
-        """Test get_robolectric_test_name."""
-        # Happy path testing, make sure we get the run robo target.
-        mod_info = module_info.ModuleInfo(module_file=JSON_FILE_PATH, index_dir=HOST_OUT_DIR)
-        mod_info.name_to_module_info = MOD_NAME_INFO_DICT
-        mod_info.path_to_module_info = MOD_PATH_INFO_DICT
-        mock_get_module_names.return_value = [ASSOCIATED_ROBO_MODULE, ROBO_MODULE]
-        self.assertEqual(mod_info.get_robolectric_test_name(
-            ROBO_MODULE), ASSOCIATED_ROBO_MODULE)
-        # Let's also make sure we don't return anything when we're not supposed
-        # to.
-        mock_get_module_names.return_value = [ROBO_MODULE]
-        self.assertEqual(mod_info.get_robolectric_test_name(
-            ROBO_MODULE), None)
-
-    @mock.patch.dict('os.environ', {constants.ANDROID_BUILD_TOP:'/',
-                                    constants.ANDROID_PRODUCT_OUT:PRODUCT_OUT_DIR})
-    @mock.patch.object(module_info.ModuleInfo, 'is_modern_robolectric_test')
-    @mock.patch.object(module_info.ModuleInfo, 'is_robolectric_module')
-    @mock.patch('os.path.isfile', return_value=False)
-    @mock.patch.object(module_info.ModuleInfo, 'get_module_info')
-    @mock.patch.object(module_info.ModuleInfo, 'get_module_names')
-    def test_get_robolectric_type(self, mock_get_module_names, mock_get_module_info,
-        mock_isfile, mock_is_robo_mod, mock_is_modern_robolectric_test):
-        """Test get_robolectric_type."""
-        # Happy path testing, make sure we get the run robo target.
-        mod_info = module_info.ModuleInfo(module_file=JSON_FILE_PATH, index_dir=HOST_OUT_DIR)
-        mod_info.name_to_module_info = MOD_NAME_INFO_DICT
-        mod_info.path_to_module_info = MOD_PATH_INFO_DICT
-        mock_isfile.return_value = False
-        mock_get_module_names.return_value = [ASSOCIATED_ROBO_MODULE, ROBO_MODULE]
-        mock_get_module_info.return_value = ASSOCIATED_ROBO_MODULE_INFO
-        mock_is_modern_robolectric_test.return_value = False
-        # Test on an legacy associated robo module.
-        self.assertEqual(
-            mod_info.get_robolectric_type(ASSOCIATED_ROBO_MODULE), constants.ROBOTYPE_LEGACY)
-        # Test on a legacy robo module.
-        self.assertEqual(
-            mod_info.get_robolectric_type(ROBO_MODULE), constants.ROBOTYPE_LEGACY)
-        # Test on a modern robo module.
-        mock_is_modern_robolectric_test.return_value = True
-        self.assertEqual(
-            mod_info.get_robolectric_type(ROBO_MODULE), constants.ROBOTYPE_MODERN)
-        # Two situations that are not a robolectric test:
-        # 1. Not is_robolectric_module:
-        mock_is_robo_mod.return_value = False
-        self.assertEqual(mod_info.get_robolectric_type(ROBO_MODULE), 0)
-        # 2. The path in the mod_info is inexistent.
-        mod_info.path_to_module_info = {'/inexist': ['Foo', 'RunFoo']}
-        self.assertEqual(mod_info.get_robolectric_type(ROBO_MODULE), 0)
-
-    @mock.patch.dict('os.environ', {constants.ANDROID_BUILD_TOP:'/',
-                                    constants.ANDROID_PRODUCT_OUT:PRODUCT_OUT_DIR})
     @mock.patch.object(module_info.ModuleInfo, 'get_robolectric_type')
     def test_is_robolectric_test(self, mock_type):
         """Test is_robolectric_test."""
@@ -355,8 +291,6 @@ class ModuleInfoUnittests(unittest.TestCase):
         mock_type.return_value = 0
         self.assertFalse(mod_info.is_robolectric_test(ROBO_MODULE))
 
-    @mock.patch.dict('os.environ', {constants.ANDROID_BUILD_TOP:'/',
-                                    constants.ANDROID_PRODUCT_OUT:PRODUCT_OUT_DIR})
     @mock.patch.object(module_info.ModuleInfo, 'is_module')
     def test_is_auto_gen_test_config(self, mock_is_module):
         """Test is_auto_gen_test_config correctly detects the module."""
@@ -375,8 +309,6 @@ class ModuleInfoUnittests(unittest.TestCase):
         self.assertFalse(mod_info.is_auto_gen_test_config(MOD_NAME3))
         self.assertFalse(mod_info.is_auto_gen_test_config(MOD_NAME4))
 
-    @mock.patch.dict('os.environ', {constants.ANDROID_BUILD_TOP:'/',
-                                    constants.ANDROID_PRODUCT_OUT:PRODUCT_OUT_DIR})
     def test_is_robolectric_module(self):
         """Test is_robolectric_module correctly detects the module."""
         mod_info = module_info.ModuleInfo(module_file=JSON_FILE_PATH, index_dir=HOST_OUT_DIR)
@@ -388,8 +320,6 @@ class ModuleInfoUnittests(unittest.TestCase):
         self.assertTrue(mod_info.is_robolectric_module(MOD_INFO_DICT[MOD_NAME1]))
         self.assertFalse(mod_info.is_robolectric_module(MOD_INFO_DICT[MOD_NAME2]))
 
-    @mock.patch.dict('os.environ', {constants.ANDROID_BUILD_TOP:'/',
-                                    constants.ANDROID_PRODUCT_OUT:PRODUCT_OUT_DIR})
     def test_merge_build_system_infos(self):
         """Test _merge_build_system_infos."""
         mod_info = module_info.ModuleInfo(module_file=JSON_FILE_PATH, index_dir=HOST_OUT_DIR)
@@ -403,8 +333,6 @@ class ModuleInfoUnittests(unittest.TestCase):
             name_to_mod_info['module_1'].get(constants.MODULE_DEPENDENCIES),
             expect_deps)
 
-    @mock.patch.dict('os.environ', {constants.ANDROID_BUILD_TOP:'/',
-                                    constants.ANDROID_PRODUCT_OUT:PRODUCT_OUT_DIR})
     def test_merge_build_system_infos_missing_keys(self):
         """Test _merge_build_system_infos for keys missing from module-info.json."""
         mod_info = module_info.ModuleInfo(module_file=JSON_FILE_PATH, index_dir=HOST_OUT_DIR)
@@ -416,8 +344,6 @@ class ModuleInfoUnittests(unittest.TestCase):
             name_to_mod_info['not_in_module_info'].get(constants.MODULE_DEPENDENCIES),
             expect_deps)
 
-    @mock.patch.dict('os.environ', {constants.ANDROID_BUILD_TOP:'/',
-                                    constants.ANDROID_PRODUCT_OUT:PRODUCT_OUT_DIR})
     def test_merge_dependency_with_ori_dependency(self):
         """Test _merge_dependency."""
         mod_info = module_info.ModuleInfo(module_file=JSON_FILE_PATH, index_dir=HOST_OUT_DIR)
@@ -498,8 +424,6 @@ class ModuleInfoUnittests(unittest.TestCase):
             mod_info.get_filepath_from_module('AmSlamTests', 'AndroidManifest.xml'),
             expected_filepath)
 
-    @mock.patch.dict('os.environ', {constants.ANDROID_BUILD_TOP:'/',
-                                    constants.ANDROID_PRODUCT_OUT:PRODUCT_OUT_DIR})
     def test_get_module_dependency(self):
         """Test get_module_dependency."""
         mod_info = module_info.ModuleInfo(module_file=JSON_FILE_PATH, index_dir=HOST_OUT_DIR)
@@ -511,8 +435,6 @@ class ModuleInfoUnittests(unittest.TestCase):
             mod_info.get_module_dependency('dep_test_module'),
             expect_deps)
 
-    @mock.patch.dict('os.environ', {constants.ANDROID_BUILD_TOP:'/',
-                                    constants.ANDROID_PRODUCT_OUT:PRODUCT_OUT_DIR})
     def test_get_module_dependency_w_loop(self):
         """Test get_module_dependency with problem dep file."""
         mod_info = module_info.ModuleInfo(module_file=JSON_FILE_PATH, index_dir=HOST_OUT_DIR)
@@ -527,8 +449,6 @@ class ModuleInfoUnittests(unittest.TestCase):
             mod_info.get_module_dependency('dep_test_module'),
             expect_deps)
 
-    @mock.patch.dict('os.environ', {constants.ANDROID_BUILD_TOP:'/',
-                                    constants.ANDROID_PRODUCT_OUT:PRODUCT_OUT_DIR})
     def test_get_install_module_dependency(self):
         """Test get_install_module_dependency."""
         mod_info = module_info.ModuleInfo(module_file=JSON_FILE_PATH, index_dir=HOST_OUT_DIR)
@@ -539,8 +459,6 @@ class ModuleInfoUnittests(unittest.TestCase):
             mod_info.get_install_module_dependency('dep_test_module'),
             expect_deps)
 
-    @mock.patch.dict('os.environ', {constants.ANDROID_BUILD_TOP:'/',
-                                    constants.ANDROID_PRODUCT_OUT:PRODUCT_OUT_DIR})
     def test_cc_merge_build_system_infos(self):
         """Test _merge_build_system_infos for cc."""
         mod_info = module_info.ModuleInfo(module_file=JSON_FILE_PATH, index_dir=HOST_OUT_DIR)
@@ -554,8 +472,6 @@ class ModuleInfoUnittests(unittest.TestCase):
             name_to_mod_info['module_cc_1'].get(constants.MODULE_DEPENDENCIES),
             expect_deps)
 
-    @mock.patch.dict('os.environ', {constants.ANDROID_BUILD_TOP:'/',
-                                    constants.ANDROID_PRODUCT_OUT:PRODUCT_OUT_DIR})
     def test_is_unit_test(self):
         """Test is_unit_test."""
         module_name = 'myModule'
@@ -565,9 +481,6 @@ class ModuleInfoUnittests(unittest.TestCase):
                                           index_dir=HOST_OUT_DIR)
         self.assertTrue(mod_info.is_unit_test(maininfo_with_unittest))
 
-    @mock.patch.dict('os.environ',
-                     {constants.ANDROID_BUILD_TOP: '/',
-                      constants.ANDROID_PRODUCT_OUT: PRODUCT_OUT_DIR})
     def test_is_host_unit_test(self):
         """Test is_host_unit_test."""
         module_name = 'myModule'
@@ -584,8 +497,6 @@ class ModuleInfoUnittests(unittest.TestCase):
 
         self.assertTrue(mod_info.is_host_unit_test(maininfo_with_host_unittest))
 
-    @mock.patch.dict('os.environ', {constants.ANDROID_BUILD_TOP:'/',
-                                    constants.ANDROID_PRODUCT_OUT:PRODUCT_OUT_DIR})
     def test_is_device_driven_test(self):
         module_name = 'myModule'
         maininfo_with_device_driven_test = {
@@ -599,8 +510,6 @@ class ModuleInfoUnittests(unittest.TestCase):
 
         self.assertTrue(mod_info.is_device_driven_test(maininfo_with_device_driven_test))
 
-    @mock.patch.dict('os.environ', {constants.ANDROID_BUILD_TOP:'/',
-                                    constants.ANDROID_PRODUCT_OUT:PRODUCT_OUT_DIR})
     def test_not_device_driven_test_when_suite_is_robolectric_test(self):
         module_name = 'myModule'
         maininfo_with_device_driven_test = {
@@ -615,23 +524,32 @@ class ModuleInfoUnittests(unittest.TestCase):
 
         self.assertFalse(mod_info.is_device_driven_test(maininfo_with_device_driven_test))
 
-    @mock.patch.dict('os.environ', {constants.ANDROID_BUILD_TOP:'/',
-                                    constants.ANDROID_PRODUCT_OUT:PRODUCT_OUT_DIR})
     def test_is_host_driven_test(self):
         """Test is_host_driven_test."""
-        module_name = 'myModule'
-        maininfo_with_host_driven_test = {
-            constants.MODULE_NAME: module_name,
+        test_name = 'myModule'
+        expected_host_driven_info  = {
+            constants.MODULE_NAME: test_name,
             constants.MODULE_TEST_CONFIG:[os.path.join(
                 uc.TEST_CONFIG_DATA_DIR, "a.xml.data")],
             constants.MODULE_INSTALLED: uc.DEFAULT_INSTALL_PATH,
             'supported_variants': ['HOST']
         }
+        mod_info = create_module_info([
+            module(
+                name=test_name,
+                test_config=[os.path.join(uc.TEST_CONFIG_DATA_DIR,
+                             "a.xml.data")],
+                installed=uc.DEFAULT_INSTALL_PATH,
+                supported_variants=['HOST']
+            )
+        ])
 
-        mod_info = module_info.ModuleInfo(module_file=JSON_FILE_PATH)
+        return_value = mod_info.is_host_driven_test(expected_host_driven_info)
 
-        self.assertTrue(mod_info.is_host_driven_test(maininfo_with_host_driven_test))
+        self.assertTrue(return_value)
 
+    # TODO: (b/264015241) Stop mocking build variables.
+    # TODO: (b/263199608) Re-write the test after refactoring module-info.py
     @mock.patch.dict('os.environ', {constants.ANDROID_BUILD_TOP:os.path.dirname(__file__),
                                     constants.ANDROID_PRODUCT_OUT:PRODUCT_OUT_DIR})
     def test_has_mainline_modules(self):
@@ -650,6 +568,8 @@ class ModuleInfoUnittests(unittest.TestCase):
         # cannot be found in both 'test_mainline_modules' and 'test_config'.
         self.assertFalse(mod_info.has_mainline_modules(name3, mainline_module2))
 
+    # TODO: (b/264015241) Stop mocking build variables.
+    # TODO: (b/263199608) Re-write the test after refactoring module-info.py
     @mock.patch.dict('os.environ',
                      {constants.ANDROID_BUILD_TOP:os.path.dirname(__file__),
                       constants.ANDROID_PRODUCT_OUT:PRODUCT_OUT_DIR})
@@ -749,7 +669,6 @@ class ModuleInfoTestFixture(fake_filesystem_unittest.TestCase):
         self.setUpPyfakefs()
 
     # pylint: disable=protected-access
-    @mock.patch.dict('os.environ', {constants.ANDROID_BUILD_TOP: '/'})
     def create_empty_module_info(self):
         fake_temp_file_name = next(tempfile._get_candidate_names())
         self.fs.create_file(fake_temp_file_name, contents='{}')
@@ -761,6 +680,11 @@ class ModuleInfoTestFixture(fake_filesystem_unittest.TestCase):
 
         for m in modules:
             mod_info.name_to_module_info[m['module_name']] = m
+            for path in m['path']:
+                if path in mod_info.path_to_module_info:
+                    mod_info.path_to_module_info[path].append(m)
+                else:
+                    mod_info.path_to_module_info[path] = [m]
 
         return mod_info
 
@@ -769,38 +693,266 @@ class ModuleInfoCompatibilitySuiteTest(ModuleInfoTestFixture):
     """Tests the compatibility suite in the module info."""
 
     def test_return_true_if_suite_in_test(self):
-        test_module = module(compatibility_suites=['test_suite'])
+        test_module_info = module(compatibility_suites=['test_suite'])
         mod_info = self.create_module_info()
 
         return_value = mod_info.is_suite_in_compatibility_suites(
-            'test_suite', test_module)
+            'test_suite', test_module_info)
 
         self.assertTrue(return_value)
 
     def test_return_false_if_suite_not_in_test(self):
-        test_module = module(compatibility_suites=['no_suite'])
+        test_module_info = module(compatibility_suites=['no_suite'])
         mod_info = self.create_module_info()
 
         return_value = mod_info.is_suite_in_compatibility_suites(
-            'test_suite', test_module)
+            'test_suite', test_module_info)
 
         self.assertFalse(return_value)
 
     def test_return_false_when_mod_info_is_empty(self):
-        test_module = None
+        test_module_info = None
         mod_info = self.create_module_info()
 
         return_value = mod_info.is_suite_in_compatibility_suites(
-            'test_suite', test_module)
+            'test_suite', test_module_info)
 
         self.assertFalse(return_value)
 
     def test_return_false_when_mod_info_is_not_a_dict(self):
-        test_module = ['no_a_dict']
+        test_module_info = ['no_a_dict']
         mod_info = self.create_module_info()
 
         return_value = mod_info.is_suite_in_compatibility_suites(
-            'test_suite', test_module)
+            'test_suite', test_module_info)
+
+        self.assertFalse(return_value)
+
+
+class RobolectricTestNameTest(ModuleInfoTestFixture):
+    """Tests the Robolectric test name in the module info."""
+
+    def test_return_empty_for_a_modern_robolectric_test(self):
+        module_name = 'hello_world_test'
+        mod_info = self.create_module_info(modules=[
+            modern_robolectric_test_module(name=f'{module_name}'),
+        ])
+
+        return_module = mod_info.get_robolectric_test_name(module_name)
+
+        self.assertEqual('', return_module)
+
+    def test_return_related_robolectric_run_module_name(self):
+        module_name = 'hello_world_test'
+        run_module_name = f'Run{module_name}'
+        module_path = 'robolectric_path'
+        mod_info = self.create_module_info(modules=[
+            test_module(name=f'{module_name}',
+                        path=module_path),
+            robolectric_class_test_module(name=f'{run_module_name}',
+                                          path=module_path),
+        ])
+
+        return_module = mod_info.get_robolectric_test_name(module_name)
+
+        self.assertEqual(run_module_name, return_module)
+
+    def test_return_empty_when_no_related_robolectic_class_module(self):
+        module_name = 'hello_world_test'
+        run_module_name = f'Run{module_name}'
+        module_path = 'robolectric_path'
+        mod_info = self.create_module_info(modules=[
+            test_module(name=f'{module_name}',
+                        path=module_path),
+            test_module(name=f'{run_module_name}',
+                        path=module_path),
+        ])
+
+        return_module = mod_info.get_robolectric_test_name(module_name)
+
+        self.assertEqual('', return_module)
+
+    def test_return_empty_if_related_module_name_not_start_with_Run(self):
+        module_name = 'hello_world_test'
+        run_module_name = f'Not_Run{module_name}'
+        module_path = 'robolectric_path'
+        mod_info = self.create_module_info(modules=[
+            test_module(name=f'{module_name}',
+                        path=module_path),
+            robolectric_class_test_module(name=f'{run_module_name}',
+                                          path=module_path),
+        ])
+
+        return_module = mod_info.get_robolectric_test_name(module_name)
+
+        self.assertEqual('', return_module)
+
+    def test_return_itself_for_a_robolectric_class_test_module(self):
+        module_name = 'Run_hello_world_test'
+        mod_info = self.create_module_info(modules=[
+            robolectric_class_test_module(name=f'{module_name}'),
+        ])
+
+        return_module = mod_info.get_robolectric_test_name(module_name)
+
+        self.assertEqual(module_name, return_module)
+
+    def test_return_empty_if_robolectric_class_module_not_start_with_Run(self):
+        module_name = 'hello_world_test'
+        mod_info = self.create_module_info(modules=[
+            robolectric_class_test_module(name=f'{module_name}'),
+        ])
+
+        return_module = mod_info.get_robolectric_test_name(module_name)
+
+        self.assertEqual('', return_module)
+
+    def test_return_0_when_no_mod_info(self):
+        module_name = 'hello_world_test'
+        mod_info = self.create_module_info()
+
+        return_module = mod_info.get_robolectric_test_name(module_name)
+
+        self.assertEqual('', return_module)
+
+
+class RobolectricTestTypeTest(ModuleInfoTestFixture):
+    """Tests the Robolectric test type in the module info."""
+
+    def test_modern_robolectric_test_type(self):
+        module_name = 'hello_world_test'
+        mod_info = self.create_module_info(modules=[
+            modern_robolectric_test_module(name=f'{module_name}'),
+        ])
+
+        return_value = mod_info.get_robolectric_type(module_name)
+
+        self.assertEqual(return_value, constants.ROBOTYPE_MODERN)
+
+    def test_return_modern_if_compliant_with_modern_and_legacy(self):
+        module_name = 'hello_world_test'
+        module_path = 'robolectric_path'
+        run_module_name = f'Run{module_name}'
+        mod_info = self.create_module_info(modules=[
+            modern_robolectric_test_module(name=f'{module_name}',
+                        path=module_path),
+            robolectric_class_test_module(name=f'{run_module_name}',
+                                          path=module_path),
+        ])
+
+        return_value = mod_info.get_robolectric_type(module_name)
+
+        self.assertEqual(return_value, constants.ROBOTYPE_MODERN)
+
+    def test_not_modern_robolectric_test_if_suite_is_not_robolectric(self):
+        module_name = 'hello_world_test'
+        mod_info = self.create_module_info(modules=[
+            test_module(name=f'{module_name}',
+                        compatibility_suites='not_robolectric_tests'),
+        ])
+
+        return_value = mod_info.get_robolectric_type(module_name)
+
+        self.assertEqual(return_value, 0)
+
+    def test_legacy_robolectric_test_type(self):
+        module_name = 'hello_world_test'
+        run_module_name = f'Run{module_name}'
+        module_path = 'robolectric_path'
+        mod_info = self.create_module_info(modules=[
+            test_module(name=f'{module_name}',
+                        path=module_path),
+            robolectric_class_test_module(name=f'{run_module_name}',
+                                          path=module_path),
+        ])
+
+        return_value = mod_info.get_robolectric_type(module_name)
+
+        self.assertEqual(return_value, constants.ROBOTYPE_LEGACY)
+
+    def test_robolectric_class_test_module(self):
+        module_name = 'Run_hello_world_test'
+        mod_info = self.create_module_info(modules=[
+            robolectric_class_test_module(name=f'{module_name}'),
+        ])
+
+        return_value = mod_info.get_robolectric_type(module_name)
+
+        self.assertEqual(return_value, constants.ROBOTYPE_LEGACY)
+
+    def test_not_robolectric_test_if_module_name_not_start_with_Run(self):
+        module_name = 'hello_world_test'
+        mod_info = self.create_module_info(modules=[
+            robolectric_class_test_module(name=f'{module_name}'),
+        ])
+
+        return_value = mod_info.get_robolectric_type(module_name)
+
+        self.assertEqual(return_value, 0)
+
+    def test_return_0_when_no_related_robolectic_class_module(self):
+        module_name = 'hello_world_test'
+        run_module_name = f'Run{module_name}'
+        module_path = 'robolectric_path'
+        mod_info = self.create_module_info(modules=[
+            test_module(name=f'{module_name}',
+                        path=module_path),
+            test_module(name=f'{run_module_name}',
+                        path=module_path),
+        ])
+
+        return_value = mod_info.get_robolectric_type(module_name)
+
+        self.assertEqual(return_value, 0)
+
+    def test_return_0_when_no_related_module_name_start_with_Run(self):
+        module_name = 'hello_world_test'
+        run_module_name = f'Not_Run{module_name}'
+        module_path = 'robolectric_path'
+        mod_info = self.create_module_info(modules=[
+            test_module(name=f'{module_name}',
+                        path=module_path),
+            robolectric_class_test_module(name=f'{run_module_name}',
+                                          path=module_path),
+        ])
+
+        return_value = mod_info.get_robolectric_type(module_name)
+
+        self.assertEqual(return_value, 0)
+
+    def test_return_0_when_no_mod_info(self):
+        module_name = 'hello_world_test'
+        mod_info = self.create_module_info()
+
+        return_value = mod_info.get_robolectric_type(module_name)
+
+        self.assertEqual(return_value, 0)
+
+
+class IsRobolectricModuleTest(ModuleInfoTestFixture):
+    """Tests is_robolectric_modules in various conditions."""
+
+    def test_return_true_if_module_class_is_robolectric(self):
+        test_module_info = module(classes=[constants.MODULE_CLASS_ROBOLECTRIC])
+        mod_info = self.create_module_info()
+
+        return_value = mod_info.is_robolectric_module(test_module_info)
+
+        self.assertTrue(return_value)
+
+    def test_return_false_if_module_class_is_not_robolectric(self):
+        test_module_info = module(classes=['not_robolectric'])
+        mod_info = self.create_module_info()
+
+        return_value = mod_info.is_robolectric_module(test_module_info)
+
+        self.assertFalse(return_value)
+
+    def test_return_false_if_module_class_is_empty(self):
+        test_module_info = module(classes=[])
+        mod_info = self.create_module_info()
+
+        return_value = mod_info.is_robolectric_module(test_module_info)
 
         self.assertFalse(return_value)
 
@@ -824,13 +976,29 @@ def create_module_info(modules=None):
     return mod_info
 
 
-# pylint: disable=too-many-arguments
+def test_module(**kwargs):
+    kwargs.setdefault('name', 'hello_world_test')
+    return test(module(**kwargs))
+
+
+def modern_robolectric_test_module(**kwargs):
+    kwargs.setdefault('name', 'hello_world_test')
+    return test(robolectric_tests_suite(module(**kwargs)))
+
+
+def robolectric_class_test_module(**kwargs):
+    kwargs.setdefault('name', 'hello_world_test')
+    return test(robolectric_class(module(**kwargs)))
+
+
+# pylint: disable=too-many-arguments, too-many-locals
 def module(
     name=None,
     path=None,
     installed=None,
     classes=None,
     auto_test_config=None,
+    test_config=None,
     shared_libs=None,
     dependencies=None,
     runtime_dependencies=None,
@@ -839,17 +1007,19 @@ def module(
     compatibility_suites=None,
     host_dependencies=None,
     srcs=None,
+    supported_variants=None
 ):
     name = name or 'libhello'
 
     m = {}
 
     m['module_name'] = name
-    m['class'] = classes
+    m['class'] = classes or ['ETC']
     m['path'] = [path or '']
     m['installed'] = installed or []
     m['is_unit_test'] = 'false'
     m['auto_test_config'] = auto_test_config or []
+    m['test_config'] = test_config or []
     m['shared_libs'] = shared_libs or []
     m['runtime_dependencies'] = runtime_dependencies or []
     m['dependencies'] = dependencies or []
@@ -858,7 +1028,26 @@ def module(
     m['compatibility_suites'] = compatibility_suites or []
     m['host_dependencies'] = host_dependencies or []
     m['srcs'] = srcs or []
+    m['supported_variants'] = supported_variants or []
     return m
+
+
+def test(info):
+    info['auto_test_config'] = ['true']
+    info['installed'] = ['installed_path']
+    return info
+
+
+def robolectric_class(info):
+    info['class'] = ['ROBOLECTRIC']
+    return info
+
+
+def robolectric_tests_suite(info):
+    info = test(info)
+    info.setdefault('compatibility_suites', []).append('robolectric-tests')
+    return info
+
 
 if __name__ == '__main__':
     unittest.main()
