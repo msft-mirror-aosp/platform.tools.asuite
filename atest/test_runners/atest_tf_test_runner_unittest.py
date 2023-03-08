@@ -193,7 +193,6 @@ class AtestTradefedTestRunnerUnittests(unittest.TestCase):
 
     #pylint: disable=arguments-differ
     @mock.patch.object(atf_tr.AtestTradefedTestRunner, '_get_ld_library_path')
-    @mock.patch.dict('os.environ', {constants.ANDROID_BUILD_TOP:'/'})
     def setUp(self, mock_get_ld_library_path):
         mock_get_ld_library_path.return_value = RUN_ENV_STR
         self.tr = atf_tr.AtestTradefedTestRunner(results_dir=uc.TEST_INFO_DIR)

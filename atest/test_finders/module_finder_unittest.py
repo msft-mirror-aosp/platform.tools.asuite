@@ -108,11 +108,9 @@ class ModuleFinderFindTestByModuleName(fake_filesystem_unittest.TestCase):
 
     def setUp(self):
         self.setUpPyfakefs()
-        self.build_top = Path('/top')
-        self.out_dir = self.build_top.joinpath('out')
-        self.out_dir.mkdir(parents=True)
-        self.product_out = self.out_dir.joinpath('product')
-        self.host_out = self.out_dir.joinpath('host')
+        self.build_top = Path('/')
+        self.product_out = self.build_top.joinpath('out/product')
+        self.product_out.mkdir(parents=True, exist_ok=True)
         self.module_info_file = self.product_out.joinpath('atest_merged_dep.json')
         self.fs.create_file(
             self.module_info_file,
@@ -128,10 +126,8 @@ class ModuleFinderFindTestByModuleName(fake_filesystem_unittest.TestCase):
                 }''')
             )
 
-    @mock.patch.dict('os.environ', {constants.ANDROID_BUILD_TOP: '/top',
-                                    constants.ANDROID_HOST_OUT: '/top/hout'})
     @mock.patch('builtins.input', return_value='1')
-    def test_find_test_by_module_name_w_multiple_config(self, _get_arg):
+    def test_find_test_by_module_name_w_multiple_config(self, _):
         """Test find_test_by_module_name (test_config_select)"""
         atest_configs.GLOBAL_ARGS = mock.Mock()
         atest_configs.GLOBAL_ARGS.test_config_select = True
@@ -163,8 +159,6 @@ class ModuleFinderFindTestByModuleName(fake_filesystem_unittest.TestCase):
         unittest_utils.assert_equal_testinfos(self,
             t_infos[0], expected_test_info)
 
-    @mock.patch.dict('os.environ', {constants.ANDROID_BUILD_TOP: '/top',
-                                    constants.ANDROID_HOST_OUT: '/top/hout'})
     def test_find_test_by_module_name_w_multiple_config_all(self):
         """Test find_test_by_module_name."""
         atest_configs.GLOBAL_ARGS = mock.Mock()
@@ -1353,8 +1347,6 @@ class ModuleFinderUnittests(unittest.TestCase):
             None)
 
 
-@mock.patch.dict('os.environ', {constants.ANDROID_BUILD_TOP: '/',
-                                constants.ANDROID_HOST_OUT: '/tmp'})
 def create_empty_module_info():
     with fake_filesystem_unittest.Patcher() as patcher:
         # pylint: disable=protected-access
