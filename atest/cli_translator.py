@@ -146,33 +146,33 @@ class CLITranslator:
                 find_test_err_msg = e
             if found_test_infos:
                 finder_info = finder.finder_info
-                for test_info in found_test_infos:
+                for t_info in found_test_infos:
                     test_deps = set()
                     if self.mod_info:
                         test_deps = self.mod_info.get_install_module_dependency(
-                            test_info.test_name)
+                            t_info.test_name)
                         logging.debug('(%s) Test dependencies: %s',
-                                      test_info.test_name, test_deps)
+                                      t_info.test_name, test_deps)
                     if tm_test_detail:
-                        test_info.data[constants.TI_MODULE_ARG] = (
+                        t_info.data[constants.TI_MODULE_ARG] = (
                             tm_test_detail.options)
-                        test_info.from_test_mapping = True
-                        test_info.host = tm_test_detail.host
+                        t_info.from_test_mapping = True
+                        t_info.host = tm_test_detail.host
                     if finder_info != CACHE_FINDER:
-                        test_info.test_finder = finder_info
+                        t_info.test_finder = finder_info
                     mainline_modules = test_identifier.module_names
                     if mainline_modules:
-                        test_info.test_name = test
+                        t_info.test_name = test
                         # TODO(b/261607500): Replace usages of raw_test_name
                         # with test_name once we can ensure that it doesn't
                         # break any code that expects Mainline modules in the
                         # string.
-                        test_info.raw_test_name = test_name
+                        t_info.raw_test_name = test_name
                         # TODO: remove below statement when soong can also
                         # parse TestConfig and inject mainline modules information
                         # to module-info.
                         for mod in mainline_modules:
-                            test_info.add_mainline_module(mod)
+                            t_info.add_mainline_module(mod)
 
                     # Only add dependencies to build_targets when they are in
                     # module info
@@ -180,8 +180,8 @@ class CLITranslator:
                         test_dep for test_dep in test_deps
                         if self.mod_info.is_module(test_dep)]
                     for dep in test_deps_in_mod_info:
-                        test_info.add_build_target(dep)
-                    test_infos.add(test_info)
+                        t_info.add_build_target(dep)
+                    test_infos.add(t_info)
                 test_found = True
                 print("Found '%s' as %s" % (
                     atest_utils.colorize(test, constants.GREEN),
@@ -406,8 +406,9 @@ class CLITranslator:
                               'if the test module is not built for your '
                               'current lunch target.\n' %
                               atest_utils.colorize(test['name'], constants.RED))
-                    elif not any(x in test_mod_info['compatibility_suites'] for
-                                 x in constants.TEST_MAPPING_SUITES):
+                    elif not any(
+                        x in test_mod_info.get('compatibility_suites', []) for
+                        x in constants.TEST_MAPPING_SUITES):
                         print('WARNING: Please add %s to either suite: %s for '
                               'this TEST_MAPPING file to work with TreeHugger.' %
                               (atest_utils.colorize(test['name'],
@@ -536,8 +537,8 @@ class CLITranslator:
 
     def _gather_build_targets(self, test_infos):
         targets = set()
-        for test_info in test_infos:
-            targets |= test_info.build_targets
+        for t_info in test_infos:
+            targets |= t_info.build_targets
         return targets
 
     def _get_test_mapping_tests(self, args, exit_if_no_test_found=True):
@@ -712,8 +713,8 @@ class CLITranslator:
         metrics.LocalDetectEvent(
             detect_type=detect_type,
             result=int(finished_time))
-        for test_info in test_infos:
-            logging.debug('%s\n', test_info)
+        for t_info in test_infos:
+            logging.debug('%s\n', t_info)
         build_targets = self._gather_build_targets(test_infos)
         if not self._bazel_mode:
             if host_unit_tests or self._has_host_unit_test(tests):

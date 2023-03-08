@@ -35,17 +35,17 @@ import com.android.tradefed.result.proto.TestRecordProto.FailureStatus;
 import com.android.tradefed.result.proto.TestRecordProto.TestRecord;
 import com.android.tradefed.testtype.IRemoteTest;
 import com.android.tradefed.util.ZipUtil;
+import com.android.tradefed.util.ZipUtil2;
 import com.android.tradefed.util.proto.TestRecordProtoUtil;
 
+import com.google.common.base.Throwables;
 import com.google.common.io.CharStreams;
 import com.google.common.io.MoreFiles;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos;
 import com.google.protobuf.Any;
 import com.google.protobuf.InvalidProtocolBufferException;
 
-import java.io.BufferedInputStream;
 import java.io.File;
-import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.lang.ProcessBuilder.Redirect;
@@ -62,6 +62,10 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.concurrent.Future;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.zip.ZipFile;
 
@@ -69,11 +73,9 @@ import java.util.zip.ZipFile;
 @OptionClass(alias = "bazel-test")
 public final class BazelTest implements IRemoteTest {
 
-    public static final String EXTRACT_ARCHIVE = "extract_archive";
     public static final String QUERY_TARGETS = "query_targets";
     public static final String RUN_TESTS = "run_tests";
 
-    private static final Duration ARCHIVE_EXTRACTION_TIMEOUT = Duration.ofHours(1L);
     private static final Duration BAZEL_QUERY_TIMEOUT = Duration.ofMinutes(5);
     private static final String TEST_NAME = BazelTest.class.getName();
     // Bazel internally calls the test output archive file "test.outputs__outputs.zip", the double
@@ -85,6 +87,7 @@ public final class BazelTest implements IRemoteTest {
     private final List<Path> mLogFiles = new ArrayList<>();
     private final ProcessStarter mProcessStarter;
     private final Path mTemporaryDirectory;
+    private final ExecutorService mExecutor;
 
     private Path mRunTemporaryDirectory;
 
@@ -116,24 +119,19 @@ public final class BazelTest implements IRemoteTest {
     private final List<String> mBazelTestExtraArgs = new ArrayList<>();
 
     @Option(
-            name = "extra-tradefed-jars",
-            description = "List of jars to add to Tradefed's classpath.")
-    private final List<File> mExtraTradefedJars = new ArrayList<>();
-
-    @Option(
             name = "bazel-max-idle-timout",
             description = "Max idle timeout in seconds for bazel commands.")
     private Duration mBazelMaxIdleTimeout = Duration.ofSeconds(5L);
 
     public BazelTest() {
-        mProcessStarter = new DefaultProcessStarter();
-        mTemporaryDirectory = Paths.get(System.getProperty("java.io.tmpdir"));
+        this(new DefaultProcessStarter(), Paths.get(System.getProperty("java.io.tmpdir")));
     }
 
     @VisibleForTesting
     BazelTest(ProcessStarter processStarter, Path tmpDir) {
         mProcessStarter = processStarter;
         mTemporaryDirectory = tmpDir;
+        mExecutor = Executors.newFixedThreadPool(1);
     }
 
     @Override
@@ -172,7 +170,7 @@ public final class BazelTest implements IRemoteTest {
             List<FailureDescription> runFailures)
             throws IOException, InterruptedException {
 
-        Path workspaceDirectory = extractWorkspace(mBazelWorkspaceArchive.toPath());
+        Path workspaceDirectory = extractWorkspace();
 
         List<String> testTargets = listTestTargets(workspaceDirectory);
         if (testTargets.isEmpty()) {
@@ -184,41 +182,85 @@ public final class BazelTest implements IRemoteTest {
 
         Path bepFile = createTemporaryFile("BEP_output");
 
-        try {
-            runTests(testInfo, listener, testTargets, workspaceDirectory, bepFile);
-        } catch (AbortRunException e) {
-            runFailures.add(e.getFailureDescription());
-        } catch (IOException | InterruptedException e) {
-            runFailures.add(throwableToTestFailureDescription(e));
+        Process bazelTestProcess =
+                startTests(testInfo, listener, testTargets, workspaceDirectory, bepFile);
+        Future<?> testResult;
+        try (BepFileTailer tailer = BepFileTailer.create(bepFile)) {
+            testResult =
+                    mExecutor.submit(
+                            () -> {
+                                try {
+                                    waitForProcess(
+                                            bazelTestProcess, RUN_TESTS, mBazelCommandTimeout);
+                                } catch (InterruptedException e) {
+                                    Thread.currentThread().interrupt();
+                                    throw new AbortRunException(
+                                            "Bazel Test process interrupted",
+                                            FailureStatus.TEST_FAILURE,
+                                            TestErrorIdentifier.TEST_ABORTED);
+                                } finally {
+                                    tailer.stop();
+                                }
+                            });
+
+            reportTestResults(listener, testInfo, runFailures, tailer);
         }
 
-        parseTestResultsFromBepFile(testInfo, listener, bepFile, runFailures);
+        try {
+            testResult.get();
+        } catch (ExecutionException e) {
+            Throwables.throwIfUnchecked(e.getCause());
+        }
     }
 
-    private Path extractWorkspace(Path workspaceArchive) throws IOException, InterruptedException {
-        Path outputDirectory = createTemporaryDirectory("atest-bazel-workspace-");
-        Path logFile = createLogFile(String.format("%s-log", EXTRACT_ARCHIVE));
+    void reportTestResults(
+            ITestInvocationListener listener,
+            TestInformation testInfo,
+            List<FailureDescription> runFailures,
+            BepFileTailer tailer)
+            throws InterruptedException, IOException {
 
-        ProcessBuilder builder =
-                new ProcessBuilder(
-                        "tar",
-                        "zxf",
-                        workspaceArchive.toAbsolutePath().toString(),
-                        "-C",
-                        outputDirectory.toAbsolutePath().toString());
+        ProtoResultParser resultParser =
+                new ProtoResultParser(listener, testInfo.getContext(), false, "tf-test-process-");
+        resultParser.setQuiet(false);
 
-        builder.redirectErrorStream(true);
-        builder.redirectOutput(Redirect.appendTo(logFile.toFile()));
+        BuildEventStreamProtos.BuildEvent event;
+        while ((event = tailer.nextEvent()) != null) {
+            if (event.getLastMessage()) {
+                return;
+            }
 
-        startAndWaitForProcess(EXTRACT_ARCHIVE, builder, ARCHIVE_EXTRACTION_TIMEOUT);
+            try {
+                reportEventsInTestOutputsArchive(event.getTestResult(), resultParser);
+            } catch (IOException | InterruptedException | URISyntaxException e) {
+                runFailures.add(
+                        throwableToInfraFailureDescription(e)
+                                .setErrorIdentifier(TestErrorIdentifier.OUTPUT_PARSER_ERROR));
+            }
+        }
+
+        throw new AbortRunException(
+                "Unexpectedly hit end of BEP file without receiving last message",
+                FailureStatus.INFRA_FAILURE,
+                TestErrorIdentifier.OUTPUT_PARSER_ERROR);
+    }
+
+    private Path extractWorkspace() throws IOException {
+        Path outputDirectory = createTemporaryDirectory("atest-bazel-workspace");
+        try {
+            ZipUtil2.extractZip(mBazelWorkspaceArchive, outputDirectory.toFile());
+        } catch (IOException e) {
+            AbortRunException extractException =
+                    new AbortRunException(
+                            String.format("Archive extraction failed: %s", e.getMessage()),
+                            FailureStatus.DEPENDENCY_ISSUE,
+                            TestErrorIdentifier.TEST_ABORTED);
+            extractException.initCause(e);
+            throw extractException;
+        }
 
         // TODO(b/233885171): Remove resolve once workspace archive is updated.
         Path workspaceDirectory = outputDirectory.resolve("out/atest_bazel_workspace");
-
-        // TODO(b/230764993): Switch to using this flag once implemented.
-        if (!mExtraTradefedJars.isEmpty()) {
-            copyExtraTradefedJars(workspaceDirectory);
-        }
 
         return workspaceDirectory;
     }
@@ -268,13 +310,13 @@ public final class BazelTest implements IRemoteTest {
         return CharStreams.readLines(new InputStreamReader(process.getInputStream()));
     }
 
-    private void runTests(
+    private Process startTests(
             TestInformation testInfo,
             ITestInvocationListener listener,
             List<String> testTargets,
             Path workspaceDirectory,
             Path bepFile)
-            throws IOException, InterruptedException {
+            throws IOException {
 
         Path logFile = createLogFile(String.format("%s-log", RUN_TESTS));
 
@@ -291,16 +333,29 @@ public final class BazelTest implements IRemoteTest {
         builder.redirectErrorStream(true);
         builder.redirectOutput(Redirect.appendTo(logFile.toFile()));
 
-        startAndWaitForProcess(RUN_TESTS, builder, mBazelCommandTimeout);
+        return startProcess(RUN_TESTS, builder);
     }
 
     private Process startAndWaitForProcess(
             String processTag, ProcessBuilder builder, Duration processTimeout)
             throws InterruptedException, IOException {
 
+        Process process = startProcess(processTag, builder);
+
+        waitForProcess(process, processTag, processTimeout);
+
+        return process;
+    }
+
+    private Process startProcess(String processTag, ProcessBuilder builder) throws IOException {
+
         CLog.i("Running command for %s: %s", processTag, new ProcessDebugString(builder));
 
-        Process process = mProcessStarter.start(processTag, builder);
+        return mProcessStarter.start(processTag, builder);
+    }
+
+    private void waitForProcess(Process process, String processTag, Duration processTimeout)
+            throws InterruptedException {
         if (!process.waitFor(processTimeout.toMillis(), TimeUnit.MILLISECONDS)) {
             process.destroy();
             throw new AbortRunException(
@@ -316,55 +371,8 @@ public final class BazelTest implements IRemoteTest {
                     FailureStatus.DEPENDENCY_ISSUE,
                     TestErrorIdentifier.TEST_ABORTED);
         }
-
-        return process;
     }
 
-    public void parseTestResultsFromBepFile(
-            TestInformation testInfo,
-            ITestInvocationListener listener,
-            Path bepFile,
-            List<FailureDescription> runFailures)
-            throws IOException {
-
-        ProtoResultParser resultParser =
-                new ProtoResultParser(listener, testInfo.getContext(), false, "tf-test-process-");
-        resultParser.setQuiet(false);
-
-        boolean gotLastMessage = false;
-
-        try (BufferedInputStream in =
-                new BufferedInputStream(new FileInputStream(bepFile.toFile()))) {
-
-            while (in.available() > 0 && !gotLastMessage) {
-                BuildEventStreamProtos.BuildEvent event =
-                        BuildEventStreamProtos.BuildEvent.parseDelimitedFrom(in);
-
-                gotLastMessage = event.getLastMessage();
-
-                if (!event.hasTestResult()) {
-                    continue;
-                }
-
-                try {
-                    reportEventsInTestOutputsArchive(event.getTestResult(), resultParser);
-                } catch (Exception e) {
-                    runFailures.add(
-                            throwableToInfraFailureDescription(e)
-                                    .setErrorIdentifier(TestErrorIdentifier.OUTPUT_PARSER_ERROR));
-                }
-            }
-        }
-
-        if (gotLastMessage) {
-            return;
-        }
-
-        throw new AbortRunException(
-                "Unexpectedly hit end of BEP file without receiving last message",
-                FailureStatus.INFRA_FAILURE,
-                TestErrorIdentifier.OUTPUT_PARSER_ERROR);
-    }
 
     private void reportEventsInTestOutputsArchive(
             BuildEventStreamProtos.TestResult result, ProtoResultParser resultParser)
@@ -498,17 +506,6 @@ public final class BazelTest implements IRemoteTest {
         }
     }
 
-    private void copyExtraTradefedJars(Path workspaceDirectory) throws IOException {
-        for (File jar : mExtraTradefedJars) {
-            Files.copy(
-                    jar.toPath(),
-                    workspaceDirectory
-                            .resolve("tools/tradefederation/core/tradefed/host/framework")
-                            .resolve(jar.getName()),
-                    StandardCopyOption.REPLACE_EXISTING);
-        }
-    }
-
     interface ProcessStarter {
         Process start(String processTag, ProcessBuilder builder) throws IOException;
     }
@@ -536,9 +533,9 @@ public final class BazelTest implements IRemoteTest {
         return logFile;
     }
 
-    private static FailureDescription throwableToTestFailureDescription(Exception e) {
-        return FailureDescription.create(e.getMessage())
-                .setCause(e)
+    private static FailureDescription throwableToTestFailureDescription(Throwable t) {
+        return FailureDescription.create(t.getMessage())
+                .setCause(t)
                 .setFailureStatus(FailureStatus.TEST_FAILURE);
     }
 
