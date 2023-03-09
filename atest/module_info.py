@@ -100,10 +100,10 @@ class ModuleInfo:
         # changed even force_build == True.
         self.update_merge_info = False
         # Index and checksum files that will be used.
-        with tempfile.TemporaryDirectory() as temp_dir:
-            index_dir = (Path(index_dir)
-                         if index_dir else
-                         Path(temp_dir).joinpath('indexes'))
+        index_dir = (
+            Path(index_dir) if index_dir else
+            Path(os.getenv(constants.ANDROID_HOST_OUT)).joinpath('indexes')
+        )
         if not index_dir.is_dir():
             index_dir.mkdir(parents=True)
         self.module_index = index_dir.joinpath(constants.MODULE_INDEX)
