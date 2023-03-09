@@ -309,17 +309,6 @@ class ModuleInfoUnittests(unittest.TestCase):
         self.assertFalse(mod_info.is_auto_gen_test_config(MOD_NAME3))
         self.assertFalse(mod_info.is_auto_gen_test_config(MOD_NAME4))
 
-    def test_is_robolectric_module(self):
-        """Test is_robolectric_module correctly detects the module."""
-        mod_info = module_info.ModuleInfo(module_file=JSON_FILE_PATH, index_dir=HOST_OUT_DIR)
-        is_robolectric_module = {'class': ['ROBOLECTRIC']}
-        is_not_robolectric_module = {'class': ['OTHERS']}
-        MOD_INFO_DICT[MOD_NAME1] = is_robolectric_module
-        MOD_INFO_DICT[MOD_NAME2] = is_not_robolectric_module
-        mod_info.name_to_module_info = MOD_INFO_DICT
-        self.assertTrue(mod_info.is_robolectric_module(MOD_INFO_DICT[MOD_NAME1]))
-        self.assertFalse(mod_info.is_robolectric_module(MOD_INFO_DICT[MOD_NAME2]))
-
     def test_merge_build_system_infos(self):
         """Test _merge_build_system_infos."""
         mod_info = module_info.ModuleInfo(module_file=JSON_FILE_PATH, index_dir=HOST_OUT_DIR)
@@ -929,14 +918,14 @@ class RobolectricTestTypeTest(ModuleInfoTestFixture):
         self.assertEqual(return_value, 0)
 
 
-class IsRobolectricModuleTest(ModuleInfoTestFixture):
-    """Tests is_robolectric_modules in various conditions."""
+class IsLegacyRobolectricClassTest(ModuleInfoTestFixture):
+    """Tests is_legacy_robolectric_class in various conditions."""
 
     def test_return_true_if_module_class_is_robolectric(self):
         test_module_info = module(classes=[constants.MODULE_CLASS_ROBOLECTRIC])
         mod_info = self.create_module_info()
 
-        return_value = mod_info.is_robolectric_module(test_module_info)
+        return_value = mod_info.is_legacy_robolectric_class(test_module_info)
 
         self.assertTrue(return_value)
 
@@ -944,7 +933,7 @@ class IsRobolectricModuleTest(ModuleInfoTestFixture):
         test_module_info = module(classes=['not_robolectric'])
         mod_info = self.create_module_info()
 
-        return_value = mod_info.is_robolectric_module(test_module_info)
+        return_value = mod_info.is_legacy_robolectric_class(test_module_info)
 
         self.assertFalse(return_value)
 
@@ -952,7 +941,7 @@ class IsRobolectricModuleTest(ModuleInfoTestFixture):
         test_module_info = module(classes=[])
         mod_info = self.create_module_info()
 
-        return_value = mod_info.is_robolectric_module(test_module_info)
+        return_value = mod_info.is_legacy_robolectric_class(test_module_info)
 
         self.assertFalse(return_value)
 
