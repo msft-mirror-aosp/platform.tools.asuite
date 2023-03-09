@@ -427,28 +427,24 @@ class ModuleInfo:
             return False
         return self.has_test_config(info)
 
-    # TODO(b/270106441): Refactor is_testable_module since it's unreliable and
-    # takes too much time for searching test config files under the module
-    # path.
-    def is_testable_module(self, mod_info):
+    def is_testable_module(self, info: Dict[str, Any]) -> bool:
         """Check if module is something we can test.
 
         A module is testable if:
-          - it's installed, or
+          - it's a tradefed testable module, or
           - it's a robolectric module (or shares path with one).
 
         Args:
-            mod_info: Dict of module info to check.
+            info: Dict of module info to check.
 
         Returns:
             True if we can test this module, False otherwise.
         """
-        if not mod_info:
+        if not info:
             return False
-        if all((mod_info.get(constants.MODULE_INSTALLED, []),
-                self.has_test_config(mod_info))):
+        if self.is_tradefed_testable_module(info):
             return True
-        if self.is_robolectric_test(mod_info.get(constants.MODULE_NAME)):
+        if self.is_legacy_robolectric_test(info.get(constants.MODULE_NAME)):
             return True
         return False
 
