@@ -581,7 +581,7 @@ def find_parent_module_dir(root_dir, start_dir, module_info):
             return rel_dir
         # Check module_info if auto_gen config or robo (non-config) here
         for mod in module_info.path_to_module_info.get(rel_dir, []):
-            if module_info.is_robolectric_module(mod):
+            if module_info.is_legacy_robolectric_class(mod):
                 return rel_dir
             for test_config in mod.get(constants.MODULE_TEST_CONFIG, []):
                 # If the test config doesn's exist until it was auto-generated
