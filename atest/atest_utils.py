@@ -139,6 +139,53 @@ class BuildOutputMode(enum.Enum):
         return self._description
 
 
+class SingletonFixture(type):
+    """A SingletonFixture class."""
+    _instances = {}
+
+    def __call__(cls, *args, **kwargs):
+        if cls not in cls._instances:
+            instance = super().__call__(*args, **kwargs)
+            cls._instances[cls] = instance
+        return cls._instances[cls]
+
+
+@dataclass
+class AndroidVariables(metaclass=SingletonFixture):
+    """Class that stores the value of environment variables."""
+    build_top: str
+    product_out: str
+    target_out_cases: str
+    host_out: str
+    host_out_cases: str
+    target_product: str
+    build_variant: str
+
+    def __init__(self):
+        self.build_top = os.getenv('ANDROID_BUILD_TOP')
+        self.product_out = os.getenv('ANDROID_PRODUCT_OUT')
+        self.target_out_cases = os.getenv('ANDROID_TARGET_OUT_TESTCASES')
+        self.host_out = os.getenv('ANDROID_HOST_OUT')
+        self.host_out_cases = os.getenv('ANDROID_HOST_OUT_TESTCASES')
+        self.target_product = os.getenv('TARGET_PRODUCT')
+        self.build_variant = os.getenv('TARGET_BUILD_VARIANT')
+
+
+def get_build_top(*joinpaths: Any) -> Path:
+    """Get the absolute path from the given repo path."""
+    return Path(AndroidVariables().build_top, *joinpaths)
+
+
+def get_host_out(*joinpaths: Any) -> Path:
+    """Get the absolute host out path from the given path."""
+    return Path(AndroidVariables().host_out, *joinpaths)
+
+
+def get_product_out(*joinpaths: Any) -> Path:
+    """Get the absolute product out path from the given path."""
+    return Path(AndroidVariables().product_out, *joinpaths)
+
+
 def get_build_cmd(dump=False):
     """Compose build command with no-absolute path and flag "--make-mode".
 
