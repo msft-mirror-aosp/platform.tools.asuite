@@ -425,8 +425,7 @@ class ModuleInfo:
             return False
         if not info.get(constants.MODULE_INSTALLED, []):
             return False
-        return bool(info.get(constants.MODULE_TEST_CONFIG, []) or
-                    info.get('auto_test_config', []))
+        return self.has_test_config(info)
 
     # TODO(b/270106441): Refactor is_testable_module since it's unreliable and
     # takes too much time for searching test config files under the module
@@ -453,32 +452,22 @@ class ModuleInfo:
             return True
         return False
 
-    def has_test_config(self, mod_info):
+    def has_test_config(self, info: Dict[str, Any]) -> bool:
         """Validate if this module has a test config.
 
         A module can have a test config in the following manner:
-          - AndroidTest.xml at the module path.
           - test_config be set in module-info.json.
           - Auto-generated config via the auto_test_config key
             in module-info.json.
 
         Args:
-            mod_info: Dict of module info to check.
+            info: Dict of module info to check.
 
         Returns:
             True if this module has a test config, False otherwise.
         """
-        # Check if test_config in module-info is set.
-        for test_config in mod_info.get(constants.MODULE_TEST_CONFIG, []):
-            if os.path.isfile(os.path.join(self.root_dir, test_config)):
-                return True
-        # Check for AndroidTest.xml at the module path.
-        for path in mod_info.get(constants.MODULE_PATH, []):
-            if os.path.isfile(os.path.join(self.root_dir, path,
-                                           constants.MODULE_CONFIG)):
-                return True
-        # Check if the module has an auto-generated config.
-        return self.is_auto_gen_test_config(mod_info.get(constants.MODULE_NAME))
+        return bool(info.get(constants.MODULE_TEST_CONFIG, []) or
+                    info.get('auto_test_config', []))
 
     def is_legacy_robolectric_test(self, module_name: str) -> bool:
         """Return whether the module_name is a legacy Robolectric test"""
