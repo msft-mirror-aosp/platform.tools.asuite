@@ -363,7 +363,7 @@ class TestFinderUtilsUnittests(unittest.TestCase):
         """
         abs_class_dir = '/%s' % CLASS_DIR
         mock_module_info = mock.Mock(spec=module_info.ModuleInfo)
-        mock_module_info.is_robolectric_module.return_value = True
+        mock_module_info.is_legacy_robolectric_class.return_value = True
         rel_class_dir_path = os.path.relpath(abs_class_dir, uc.ROOT)
         mock_module_info.path_to_module_info = {rel_class_dir_path: [{}]}
         unittest_utils.assert_strict_equal(

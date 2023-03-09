@@ -515,7 +515,7 @@ class ModuleInfo:
             (
                 name
                 for name in filtered_module_names
-                if self.is_robolectric_module(self.get_module_info(name))
+                if self.is_legacy_robolectric_class(self.get_module_info(name))
             ),
             '',
         )
@@ -684,21 +684,22 @@ class ModuleInfo:
             return auto_test_config and auto_test_config[0]
         return False
 
-    def is_robolectric_module(self, mod_info):
-        """Check if a module is a robolectric module.
+    def is_legacy_robolectric_class(self, info: Dict[str, Any]) -> bool:
+        """Check if the class is `ROBOLECTRIC`
 
         This method is for legacy robolectric tests that the associated modules
         contain:
             'class': ['ROBOLECTRIC']
 
         Args:
-            mod_info: ModuleInfo to check.
+            info: ModuleInfo to check.
 
         Returns:
-            True if module is a robolectric module, False otherwise.
+            True if the attribute class in mod_info is ROBOLECTRIC, False
+            otherwise.
         """
-        if mod_info:
-            module_classes = mod_info.get(constants.MODULE_CLASS, [])
+        if info:
+            module_classes = info.get(constants.MODULE_CLASS, [])
             return (module_classes and
                     module_classes[0] == constants.MODULE_CLASS_ROBOLECTRIC)
         return False
