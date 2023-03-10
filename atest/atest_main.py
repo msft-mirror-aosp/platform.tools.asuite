@@ -1162,6 +1162,10 @@ def main(argv, results_dir, args):
             duration=metrics_utils.convert_duration(build_duration),
             success=success,
             targets=build_targets)
+        metrics.LocalDetectEvent(
+            detect_type=DetectType.BUILD_TIME_PER_TARGET,
+            result=int(build_duration/len(build_targets))
+        )
         rebuild_module_info = DetectType.NOT_REBUILD_MODULE_INFO
         if is_clean:
             rebuild_module_info = DetectType.CLEAN_BUILD
