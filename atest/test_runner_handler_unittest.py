@@ -64,7 +64,7 @@ class FakeTestRunnerA(tr_base.TestRunnerBase):
     def host_env_check(self):
         pass
 
-    def get_test_runner_build_reqs(self):
+    def get_test_runner_build_reqs(self, test_infos):
         return FAKE_TR_A_REQS
 
     def generate_run_commands(self, test_infos, extra_args, port=None):
@@ -79,7 +79,7 @@ class FakeTestRunnerB(FakeTestRunnerA):
     def run_tests(self, test_infos, extra_args, reporter):
         return 1
 
-    def get_test_runner_build_reqs(self):
+    def get_test_runner_build_reqs(self, test_infos):
         return FAKE_TR_B_REQS
 
 
