@@ -42,6 +42,7 @@ import time
 import urllib
 import zipfile
 
+from dataclasses import dataclass
 from multiprocessing import Process
 from pathlib import Path
 from typing import Any, Dict, List, Set
@@ -110,6 +111,17 @@ SUGGESTIONS = {
 }
 
 _BUILD_ENV = {}
+
+
+@dataclass
+class BuildEnvProfiler:
+    """Represents the condition before and after trigging build."""
+    ninja_file: Path
+    ninja_file_mtime: float
+    variable_file: Path
+    variable_file_md5: str
+    clean_out: bool
+    build_files_integrity: bool
 
 
 @enum.unique
@@ -322,6 +334,7 @@ def _run_build_cmd(cmd: List[str], env_vars: Dict[str, str]):
         build.
     """
     logging.debug('Executing command: %s', cmd)
+    build_profiler = _build_env_profiling()
     try:
         if env_vars.get('BUILD_OUTPUT_MODE') == BuildOutputMode.STREAMED.value:
             print()
@@ -337,6 +350,7 @@ def _run_build_cmd(cmd: List[str], env_vars: Dict[str, str]):
                     colorize(f'{log_path}', constants.CYAN)
                   ), end='')
             _run_limited_output(cmd, env_vars=env_vars)
+        _send_build_condition_metrics(build_profiler, cmd)
         logging.info('Build successful')
         return True
     except subprocess.CalledProcessError as err:
@@ -1947,6 +1961,90 @@ def build_files_integrity_is_ok() -> bool:
             return False
     # 2. Ensure the consistency of all build files.
     return check_md5(constants.BUILDFILES_MD5, missing_ok=False)
+
+
+def _build_env_profiling() -> BuildEnvProfiler:
+    """Determine the status profile before build.
+
+    The BuildEnvProfiler object can help use determine whether a build is:
+        1. clean build. (empty out/ dir)
+        2. Build files Integrity (Android.bp/Android.mk changes).
+        3. Environment variables consistency.
+        4. New Ninja file generated. (mtime of soong/build.ninja)
+
+    Returns:
+        the BuildProfile object.
+    """
+    out_dir = Path(get_build_out_dir())
+    ninja_file = out_dir.joinpath('soong/build.ninja')
+    mtime = ninja_file.stat().st_mtime if ninja_file.is_file() else 0
+    variables_file = out_dir.joinpath('soong/soong.environment.used.build')
+
+    return BuildEnvProfiler(
+        ninja_file=ninja_file,
+        ninja_file_mtime=mtime,
+        variable_file=variables_file,
+        variable_file_md5=md5sum(variables_file),
+        clean_out=not ninja_file.exists(),
+        build_files_integrity=build_files_integrity_is_ok()
+    )
+
+
+def _send_build_condition_metrics(
+        build_profile: BuildEnvProfiler, cmd: List[str]):
+    """Send build conditions by comparing build env profilers."""
+
+    # when build module-info.json only, 'module-info.json' will be
+    # the last element.
+    m_mod_info_only = 'module-info.json' in cmd.pop()
+
+    def ninja_file_is_changed(env_profiler: BuildEnvProfiler) -> bool:
+        """Determine whether the ninja file had been renewal."""
+        return (env_profiler.ninja_file.stat().st_mtime !=
+                env_profiler.ninja_file_mtime)
+
+    def env_var_is_changed(env_profiler: BuildEnvProfiler) -> bool:
+        """Determine whether soong-related variables had changed."""
+        return (md5sum(env_profiler.variable_file) !=
+                env_profiler.variable_file_md5)
+
+    def send_data(detect_type):
+        """A simple wrapper of metrics.LocalDetectEvent."""
+        metrics.LocalDetectEvent(detect_type=detect_type, result=1)
+
+    # Determine the correct detect type before profiling.
+    # (build module-info.json or build dependencies.)
+    clean_out = (DetectType.MODULE_INFO_CLEAN_OUT
+                 if m_mod_info_only else DetectType.BUILD_CLEAN_OUT)
+    bpmk_change = (DetectType.MODULE_INFO_BPMK_CHANGE
+                   if m_mod_info_only else DetectType.BUILD_BPMK_CHANGE)
+    env_change = (DetectType.MODULE_INFO_ENV_CHANGE
+                  if m_mod_info_only else DetectType.BUILD_ENV_CHANGE)
+    src_change = (DetectType.MODULE_INFO_SRC_CHANGE
+                  if m_mod_info_only else DetectType.BUILD_SRC_CHANGE)
+    other = (DetectType.MODULE_INFO_OTHER
+             if m_mod_info_only else DetectType.BUILD_OTHER)
+    incremental =(DetectType.MODULE_INFO_INCREMENTAL
+                  if m_mod_info_only else DetectType.BUILD_INCREMENTAL)
+
+    if build_profile.clean_out:
+        send_data(clean_out)
+    else:
+        send_data(incremental)
+
+    other_condition = True
+    if not build_profile.build_files_integrity:
+        send_data(bpmk_change)
+        other_condition = False
+    if env_var_is_changed(build_profile):
+        send_data(env_change)
+        other_condition = False
+    if bool(get_modified_files(os.getcwd())):
+        send_data(src_change)
+        other_condition = False
+    if ninja_file_is_changed(build_profile) and other_condition:
+        send_data(other)
+
 
 def get_local_auto_shardable_tests():
     """Get the auto shardable test names in shardable file.

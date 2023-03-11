@@ -535,12 +535,6 @@ class CLITranslator:
 
         return tests, all_tests
 
-    def _gather_build_targets(self, test_infos):
-        targets = set()
-        for t_info in test_infos:
-            targets |= t_info.build_targets
-        return targets
-
     def _get_test_mapping_tests(self, args, exit_if_no_test_found=True):
         """Find the tests in TEST_MAPPING files.
 
@@ -715,13 +709,12 @@ class CLITranslator:
             result=int(finished_time))
         for t_info in test_infos:
             logging.debug('%s\n', t_info)
-        build_targets = self._gather_build_targets(test_infos)
         if not self._bazel_mode:
             if host_unit_tests or self._has_host_unit_test(tests):
                 msg = (r"It is recommended to run host unit tests with "
                        r"--bazel-mode.")
                 atest_utils.colorful_print(msg, constants.YELLOW)
-        return build_targets, test_infos
+        return test_infos
 
 
 # TODO: (b/265359291) Raise Exception when the brackets are not in pair.
