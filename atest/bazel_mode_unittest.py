@@ -1829,11 +1829,10 @@ class BazelTestRunnerTest(unittest.TestCase):
             modules=[
                 supported_test_module(name='test1', path='path1'),
             ],
-            test_infos=[],
             run_command=run_command,
         )
 
-        reqs = runner.get_test_runner_build_reqs()
+        reqs = runner.get_test_runner_build_reqs([])
 
         self.assertFalse(reqs)
 
@@ -1845,16 +1844,15 @@ class BazelTestRunnerTest(unittest.TestCase):
                 multi_config(host_unit_test_module(name='test2', path='path2')),
                 multi_config(test_module(name='test3', path='path3')),
             ],
-            test_infos = [
-                test_info_of('test2'),
-                test_info_of('test1'),  # Intentionally out of order.
-                test_info_of('test3'),
-            ],
             run_command=run_command,
             host=True,
         )
 
-        runner.get_test_runner_build_reqs()
+        runner.get_test_runner_build_reqs([
+            test_info_of('test2'),
+            test_info_of('test1'),  # Intentionally out of order.
+            test_info_of('test3'),
+        ])
 
         call_args = run_command.call_args[0][0]
         self.assertIn(
@@ -1872,15 +1870,14 @@ class BazelTestRunnerTest(unittest.TestCase):
                 host_unit_test_module(name='test2', path='path2'),
                 multi_config(test_module(name='test3', path='path3')),
             ],
-            test_infos = [
-                test_info_of('test2'),
-                test_info_of('test1'),
-                test_info_of('test3'),
-            ],
             run_command=run_command,
         )
 
-        runner.get_test_runner_build_reqs()
+        runner.get_test_runner_build_reqs([
+            test_info_of('test2'),
+            test_info_of('test1'),
+            test_info_of('test3'),
+        ])
 
         call_args = run_command.call_args[0][0]
         call_args = run_command.call_args[0][0]
@@ -1898,11 +1895,10 @@ class BazelTestRunnerTest(unittest.TestCase):
             modules=[
                 supported_test_module(name='test1', path='path1'),
             ],
-            test_infos = [test_info_of('test1')],
             run_command=run_command,
         )
 
-        reqs = runner.get_test_runner_build_reqs()
+        reqs = runner.get_test_runner_build_reqs([test_info_of('test1')])
 
         self.assertSetEqual({'test1', 'test2'}, reqs)
 
@@ -1924,7 +1920,6 @@ class BazelTestRunnerTest(unittest.TestCase):
                 multi_config(host_unit_test_module(name='test2', path='path')),
                 multi_config(test_module(name='test3', path='path')),
             ],
-            test_infos,
             host=True
         )
 
@@ -1941,7 +1936,6 @@ class BazelTestRunnerTest(unittest.TestCase):
                 multi_config(host_unit_test_module(name='test1', path='path')),
                 host_unit_test_module(name='test2', path='path'),
             ],
-            test_infos,
         )
 
         cmd = runner.generate_run_commands(test_infos, {})
@@ -2072,7 +2066,6 @@ class BazelTestRunnerTest(unittest.TestCase):
 
     def create_bazel_test_runner(self,
                                  modules,
-                                 test_infos,
                                  run_command=None,
                                  host=False,
                                  build_metadata=None,
@@ -2080,7 +2073,6 @@ class BazelTestRunnerTest(unittest.TestCase):
         return bazel_mode.BazelTestRunner(
             'result_dir',
             mod_info=create_module_info(modules),
-            test_infos=test_infos,
             src_top=Path('/src'),
             workspace_path=Path('/src/workspace'),
             run_command=run_command or self.mock_run_command(),
@@ -2096,7 +2088,6 @@ class BazelTestRunnerTest(unittest.TestCase):
         return self.create_bazel_test_runner(
             modules=[supported_test_module(name=t.test_name, path='path')
                      for t in test_infos],
-            test_infos=test_infos,
             build_metadata=build_metadata,
             env=env
         )
