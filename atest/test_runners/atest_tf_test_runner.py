@@ -29,7 +29,7 @@ import socket
 
 from functools import partial
 from pathlib import Path
-from typing import Any, List, Tuple
+from typing import Any, List, Set, Tuple
 
 from atest import atest_configs
 from atest import atest_error
@@ -465,13 +465,16 @@ class AtestTradefedTestRunner(trb.TestRunnerBase):
         root_dir = os.environ.get(constants.ANDROID_BUILD_TOP, '')
         return os.path.commonprefix([output, root_dir]) != root_dir
 
-    def get_test_runner_build_reqs(self):
+    def get_test_runner_build_reqs(self, test_infos: List[test_info.TestInfo]):
         """Return the build requirements.
+
+        Args:
+            test_infos: List of TestInfo.
 
         Returns:
             Set of build targets.
         """
-        build_req = self._BUILD_REQ
+        build_req = self._BUILD_REQ.copy()
         # Use different base build requirements if google-tf is around.
         if self.module_info.is_module(constants.GTF_MODULE):
             build_req = {constants.GTF_TARGET}
@@ -482,7 +485,33 @@ class AtestTradefedTestRunner(trb.TestRunnerBase):
             if self._is_missing_exec(executable):
                 if self.module_info.is_module(executable):
                     build_req.add(executable)
+
+        # Force rebuilt all jars under $ANDROID_HOST_OUT to prevent old version
+        # host jars break the test.
+        build_req |= self._get_host_framework_targets()
+
+        build_req |= trb.gather_build_targets(test_infos)
         return build_req
+
+    def _get_host_framework_targets(self) -> Set[str]:
+        """Get the build targets for all the existing jars under host framework.
+
+        Returns:
+            A set of build target name under $(ANDROID_HOST_OUT)/framework.
+        """
+        host_targets = set()
+        if not self.module_info:
+            return host_targets
+
+        framework_host_dir = Path(
+            os.environ.get(constants.ANDROID_HOST_OUT)).joinpath('framework')
+        if framework_host_dir.is_dir():
+            jars = framework_host_dir.glob('*.jar')
+            for jar in jars:
+                if self.module_info.is_module(jar.stem):
+                    host_targets.add(jar.stem)
+            logging.debug('Found exist host framework target:%s', host_targets)
+        return host_targets
 
     def _parse_extra_args(self, test_infos, extra_args):
         """Convert the extra args into something tf can understand.

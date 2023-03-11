@@ -112,9 +112,8 @@ def get_test_runner_reqs(mod_info: module_info.ModuleInfo,
         test_runner_build_req |= test_runner(
             unused_result_dir,
             mod_info=mod_info,
-            test_infos=tests,
             extra_args=extra_args or {},
-        ).get_test_runner_build_reqs()
+        ).get_test_runner_build_reqs(tests)
     return test_runner_build_req
 
 
