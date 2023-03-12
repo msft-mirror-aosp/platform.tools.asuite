@@ -259,9 +259,11 @@ class CLITranslatorUnittests(unittest.TestCase):
         host_unit_tests.return_value = False
         self.args.tests = [uc.CLASS_NAME]
         self.args.host_unit_test_only = False
-        targets, test_infos = self.ctr.translate(self.args)
+        test_infos = self.ctr.translate(self.args)
         unittest_utils.assert_strict_equal(
-            self, targets, uc.CLASS_BUILD_TARGETS)
+            self,
+            _gather_build_targets(test_infos),
+            uc.CLASS_BUILD_TARGETS)
         unittest_utils.assert_strict_equal(self, test_infos, {uc.CLASS_INFO})
 
     @mock.patch.object(test_finder_utils, 'find_host_unit_tests',
@@ -275,9 +277,11 @@ class CLITranslatorUnittests(unittest.TestCase):
         host_unit_tests.return_value = []
         self.args.tests = [uc.MODULE_NAME, uc.CLASS_NAME]
         self.args.host_unit_test_only = False
-        targets, test_infos = self.ctr.translate(self.args)
+        test_infos = self.ctr.translate(self.args)
         unittest_utils.assert_strict_equal(
-            self, targets, uc.MODULE_CLASS_COMBINED_BUILD_TARGETS)
+            self,
+            _gather_build_targets(test_infos),
+            uc.MODULE_CLASS_COMBINED_BUILD_TARGETS)
         unittest_utils.assert_strict_equal(self, test_infos, {uc.MODULE_INFO,
                                                               uc.CLASS_INFO})
 
@@ -297,9 +301,11 @@ class CLITranslatorUnittests(unittest.TestCase):
         self.args.host = False
         self.args.host_unit_test_only = False
         host_unit_tests.return_value = False
-        targets, test_infos = self.ctr.translate(self.args)
+        test_infos = self.ctr.translate(self.args)
         unittest_utils.assert_strict_equal(
-            self, targets, uc.MODULE_CLASS_COMBINED_BUILD_TARGETS)
+            self,
+            _gather_build_targets(test_infos),
+            uc.MODULE_CLASS_COMBINED_BUILD_TARGETS)
         unittest_utils.assert_strict_equal(self, test_infos, {uc.MODULE_INFO,
                                                               uc.CLASS_INFO})
 
@@ -317,9 +323,11 @@ class CLITranslatorUnittests(unittest.TestCase):
         self.args.test_mapping = True
         self.args.host = False
         host_unit_tests.return_value = False
-        targets, test_infos = self.ctr.translate(self.args)
+        test_infos = self.ctr.translate(self.args)
         unittest_utils.assert_strict_equal(
-            self, targets, uc.MODULE_CLASS_COMBINED_BUILD_TARGETS)
+            self,
+            _gather_build_targets(test_infos),
+            uc.MODULE_CLASS_COMBINED_BUILD_TARGETS)
         unittest_utils.assert_strict_equal(self, test_infos, {uc.MODULE_INFO,
                                                               uc.CLASS_INFO})
 
@@ -471,7 +479,7 @@ class CLITranslatorUnittests(unittest.TestCase):
         self.args.tests = []
         self.args.host = False
         self.args.host_unit_test_only = False
-        _, test_infos = self.ctr.translate(self.args)
+        test_infos = self.ctr.translate(self.args)
         unittest_utils.assert_strict_equal(self,
                                            test_infos,
                                            {uc.MODULE_INFO,
@@ -499,7 +507,7 @@ class CLITranslatorUnittests(unittest.TestCase):
         self.args.host = False
         self.args.test_mapping = True
         self.args.host_unit_test_only = False
-        _, test_infos = self.ctr.translate(self.args)
+        test_infos = self.ctr.translate(self.args)
         unittest_utils.assert_strict_equal(
             self,
             test_infos,
@@ -553,3 +561,10 @@ class ParseTestIdentifierTest(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
+
+def _gather_build_targets(test_infos):
+    targets = set()
+    for t_info in test_infos:
+        targets |= t_info.build_targets
+    return targets
