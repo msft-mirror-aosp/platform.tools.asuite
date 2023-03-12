@@ -30,11 +30,13 @@ import time
 
 from functools import partial
 from pathlib import Path
+from typing import List
 
 from atest import atest_utils
 from atest import constants
 
 from atest.atest_enum import ExitCode
+from atest.test_finders import test_info
 from atest.test_runners import test_runner_base
 from atest.test_runners.event_handler import EventHandler
 
@@ -244,13 +246,18 @@ class RobolectricTestRunner(test_runner_base.TestRunnerBase):
         """
         pass
 
-    def get_test_runner_build_reqs(self):
+    def get_test_runner_build_reqs(self, test_infos: List[test_info.TestInfo]):
         """Return the build requirements.
+
+        Args:
+            test_infos: List of TestInfo.
 
         Returns:
             Set of build targets.
         """
-        return set()
+        build_targets = set()
+        build_targets |= test_runner_base.gather_build_targets(test_infos)
+        return build_targets
 
     # pylint: disable=unused-argument
     def generate_run_commands(self, test_infos, extra_args, port=None):

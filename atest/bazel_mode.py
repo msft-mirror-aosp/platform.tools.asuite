@@ -1401,7 +1401,6 @@ class BazelTestRunner(trb.TestRunnerBase):
                  results_dir,
                  mod_info: module_info.ModuleInfo,
                  extra_args: Dict[str, Any]=None,
-                 test_infos: List[test_info.TestInfo]=None,
                  src_top: Path=None,
                  workspace_path: Path=None,
                  run_command: Callable=default_run_command,
@@ -1410,7 +1409,6 @@ class BazelTestRunner(trb.TestRunnerBase):
                  **kwargs):
         super().__init__(results_dir, **kwargs)
         self.mod_info = mod_info
-        self.test_infos = test_infos
         self.src_top = src_top or Path(os.environ.get(
             constants.ANDROID_BUILD_TOP))
         self.starlark_file = _get_resource_root().joinpath(
@@ -1490,12 +1488,12 @@ class BazelTestRunner(trb.TestRunnerBase):
         if that changes.
         """
 
-    def get_test_runner_build_reqs(self) -> Set[str]:
-        if not self.test_infos:
+    def get_test_runner_build_reqs(self, test_infos) -> Set[str]:
+        if not test_infos:
             return set()
 
         deps_expression = ' + '.join(
-            sorted(self.test_info_target_label(i) for i in self.test_infos)
+            sorted(self.test_info_target_label(i) for i in test_infos)
         )
 
         query_args = [
