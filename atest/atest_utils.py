@@ -2000,6 +2000,8 @@ def _send_build_condition_metrics(
 
     def ninja_file_is_changed(env_profiler: BuildEnvProfiler) -> bool:
         """Determine whether the ninja file had been renewal."""
+        if not env_profiler.ninja_file.is_file():
+            return True
         return (env_profiler.ninja_file.stat().st_mtime !=
                 env_profiler.ninja_file_mtime)
 
