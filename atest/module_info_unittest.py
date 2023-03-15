@@ -258,26 +258,6 @@ class ModuleInfoUnittests(unittest.TestCase):
         mock_is_robo_test.return_value = True
         self.assertTrue(mod_info.is_testable_module(non_installed_module_info))
 
-    @mock.patch.object(module_info.ModuleInfo, 'is_auto_gen_test_config')
-    def test_has_test_config(self, mock_is_auto_gen):
-        """Test has_test_config."""
-        mod_info = module_info.ModuleInfo(module_file=JSON_FILE_PATH, index_dir=HOST_OUT_DIR)
-        info = {constants.MODULE_PATH:[uc.TEST_DATA_DIR]}
-        mock_is_auto_gen.return_value = True
-        # Validate we see the config when it's auto-generated.
-        self.assertTrue(mod_info.has_test_config(info))
-        self.assertTrue(mod_info.has_test_config({}))
-        # Validate when actual config exists and there's no auto-generated config.
-        mock_is_auto_gen.return_value = False
-        info = {constants.MODULE_PATH:[uc.TEST_DATA_DIR]}
-        self.assertTrue(mod_info.has_test_config(info))
-        self.assertFalse(mod_info.has_test_config({}))
-        # Validate the case mod_info MODULE_TEST_CONFIG be set
-        info2 = {constants.MODULE_PATH:[uc.TEST_CONFIG_DATA_DIR],
-                 constants.MODULE_TEST_CONFIG:[os.path.join(
-                     uc.TEST_CONFIG_DATA_DIR, "a.xml.data")]}
-        self.assertTrue(mod_info.has_test_config(info2))
-
     @mock.patch.dict('os.environ', {constants.ANDROID_BUILD_TOP:'/',
                                     constants.ANDROID_PRODUCT_OUT:PRODUCT_OUT_DIR})
     @mock.patch.object(module_info.ModuleInfo, 'get_robolectric_type')
@@ -308,17 +288,6 @@ class ModuleInfoUnittests(unittest.TestCase):
         self.assertFalse(mod_info.is_auto_gen_test_config(MOD_NAME2))
         self.assertFalse(mod_info.is_auto_gen_test_config(MOD_NAME3))
         self.assertFalse(mod_info.is_auto_gen_test_config(MOD_NAME4))
-
-    def test_is_robolectric_module(self):
-        """Test is_robolectric_module correctly detects the module."""
-        mod_info = module_info.ModuleInfo(module_file=JSON_FILE_PATH, index_dir=HOST_OUT_DIR)
-        is_robolectric_module = {'class': ['ROBOLECTRIC']}
-        is_not_robolectric_module = {'class': ['OTHERS']}
-        MOD_INFO_DICT[MOD_NAME1] = is_robolectric_module
-        MOD_INFO_DICT[MOD_NAME2] = is_not_robolectric_module
-        mod_info.name_to_module_info = MOD_INFO_DICT
-        self.assertTrue(mod_info.is_robolectric_module(MOD_INFO_DICT[MOD_NAME1]))
-        self.assertFalse(mod_info.is_robolectric_module(MOD_INFO_DICT[MOD_NAME2]))
 
     def test_merge_build_system_infos(self):
         """Test _merge_build_system_infos."""
@@ -689,6 +658,35 @@ class ModuleInfoTestFixture(fake_filesystem_unittest.TestCase):
         return mod_info
 
 
+class HasTestConfonfigTest(ModuleInfoTestFixture):
+    """Tests has_test_config in various conditions."""
+
+    def test_return_true_if_test_config_is_not_empty(self):
+        test_module_info = module(test_config=['config_file'])
+        mod_info = self.create_module_info()
+
+        return_value = mod_info.has_test_config(test_module_info)
+
+        self.assertTrue(return_value)
+
+    def test_return_true_if_auto_test_config_is_not_empty(self):
+        test_module_info = module(auto_test_config=['no_empty'])
+        mod_info = self.create_module_info()
+
+        return_value = mod_info.has_test_config(test_module_info)
+
+        self.assertTrue(return_value)
+
+    def test_return_false_if_auto_test_config_and_test_config_empty(self):
+        test_module_info = module(test_config=[],
+                                  auto_test_config=[])
+        mod_info = self.create_module_info()
+
+        return_value = mod_info.has_test_config(test_module_info)
+
+        self.assertFalse(return_value)
+
+
 class ModuleInfoCompatibilitySuiteTest(ModuleInfoTestFixture):
     """Tests the compatibility suite in the module info."""
 
@@ -929,14 +927,14 @@ class RobolectricTestTypeTest(ModuleInfoTestFixture):
         self.assertEqual(return_value, 0)
 
 
-class IsRobolectricModuleTest(ModuleInfoTestFixture):
-    """Tests is_robolectric_modules in various conditions."""
+class IsLegacyRobolectricClassTest(ModuleInfoTestFixture):
+    """Tests is_legacy_robolectric_class in various conditions."""
 
     def test_return_true_if_module_class_is_robolectric(self):
         test_module_info = module(classes=[constants.MODULE_CLASS_ROBOLECTRIC])
         mod_info = self.create_module_info()
 
-        return_value = mod_info.is_robolectric_module(test_module_info)
+        return_value = mod_info.is_legacy_robolectric_class(test_module_info)
 
         self.assertTrue(return_value)
 
@@ -944,7 +942,7 @@ class IsRobolectricModuleTest(ModuleInfoTestFixture):
         test_module_info = module(classes=['not_robolectric'])
         mod_info = self.create_module_info()
 
-        return_value = mod_info.is_robolectric_module(test_module_info)
+        return_value = mod_info.is_legacy_robolectric_class(test_module_info)
 
         self.assertFalse(return_value)
 
@@ -952,7 +950,7 @@ class IsRobolectricModuleTest(ModuleInfoTestFixture):
         test_module_info = module(classes=[])
         mod_info = self.create_module_info()
 
-        return_value = mod_info.is_robolectric_module(test_module_info)
+        return_value = mod_info.is_legacy_robolectric_class(test_module_info)
 
         self.assertFalse(return_value)
 

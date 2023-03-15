@@ -947,27 +947,6 @@ def get_device_count_config(test_infos, mod_info):
     return max_count
 
 
-def _get_host_framework_targets(mod_info):
-    """Get the build target name for all the existing jars under host framework.
-
-    Args:
-        mod_info: ModuleInfo object.
-
-    Returns:
-        A set of build target name under $(ANDROID_HOST_OUT)/framework.
-    """
-    host_targets = set()
-    framework_host_dir = Path(
-        os.environ.get(constants.ANDROID_HOST_OUT)).joinpath('framework')
-    if framework_host_dir.is_dir():
-        jars = framework_host_dir.glob('*.jar')
-        for jar in jars:
-            if mod_info.is_module(jar.stem):
-                host_targets.add(jar.stem)
-        logging.debug('Found exist host framework target:%s', host_targets)
-    return host_targets
-
-
 def _is_auto_shard_test(test_infos):
     """Determine whether the given tests are in shardable test list.
 
@@ -1063,7 +1042,6 @@ def main(argv, results_dir, args):
     if args.list_modules:
         _print_testable_modules(mod_info, args.list_modules)
         return ExitCode.SUCCESS
-    build_targets = set()
     test_infos = set()
     dry_run_args = (args.update_cmd_mapping, args.verify_cmd_mapping,
                     args.dry_run, args.generate_runner_cmd)
@@ -1074,7 +1052,7 @@ def main(argv, results_dir, args):
         if proc_idx and not atest_utils.has_index_files():
             proc_idx.join()
         find_start = time.time()
-        build_targets, test_infos = translator.translate(args)
+        test_infos = translator.translate(args)
         given_amount  = len(args.serial) if args.serial else 0
         required_amount = get_device_count_config(test_infos, mod_info)
         args.device_count_config = required_amount
@@ -1088,9 +1066,7 @@ def main(argv, results_dir, args):
                     f'but {given_amount} were given.',
                     constants.RED)
                 return 0
-        # Remove MODULE-IN-* from build targets by default.
-        if not args.use_modules_in:
-            build_targets = _exclude_modules_in_targets(build_targets)
+
         find_duration = time.time() - find_start
         if not test_infos:
             return ExitCode.TEST_NOT_FOUND
@@ -1128,8 +1104,13 @@ def main(argv, results_dir, args):
 
     if args.info:
         return _print_test_info(mod_info, test_infos)
-    build_targets |= test_runner_handler.get_test_runner_reqs(
+
+    build_targets = test_runner_handler.get_test_runner_reqs(
         mod_info, test_infos, extra_args=extra_args)
+    # Remove MODULE-IN-* from build targets by default.
+    if not args.use_modules_in:
+        build_targets = _exclude_modules_in_targets(build_targets)
+
     if any(dry_run_args):
         if not verify_env_variables:
             return _dry_run_validator(args, results_dir, extra_args, test_infos,
@@ -1142,7 +1123,7 @@ def main(argv, results_dir, args):
             return 0
     if args.detect_regression:
         build_targets |= (regression_test_runner.RegressionTestRunner('')
-                          .get_test_runner_build_reqs())
+                          .get_test_runner_build_reqs([]))
 
     steps = parse_steps(args)
     if build_targets and steps.has_build():
@@ -1152,9 +1133,7 @@ def main(argv, results_dir, args):
         # Add module-info.json target to the list of build targets to keep the
         # file up to date.
         build_targets.add(mod_info.module_info_target)
-        # Force rebuilt all jars under $ANDROID_HOST_OUT to prevent old version
-        # host jars break the test.
-        build_targets |= _get_host_framework_targets(mod_info)
+
         build_start = time.time()
         success = atest_utils.build(build_targets)
         build_duration = time.time() - build_start
@@ -1162,6 +1141,10 @@ def main(argv, results_dir, args):
             duration=metrics_utils.convert_duration(build_duration),
             success=success,
             targets=build_targets)
+        metrics.LocalDetectEvent(
+            detect_type=DetectType.BUILD_TIME_PER_TARGET,
+            result=int(build_duration/len(build_targets))
+        )
         rebuild_module_info = DetectType.NOT_REBUILD_MODULE_INFO
         if is_clean:
             rebuild_module_info = DetectType.CLEAN_BUILD
@@ -1275,4 +1258,25 @@ if __name__ == '__main__':
                 result=DETECTOR.caught_result)
             if result_file:
                 print("Run 'atest --history' to review test result history.")
+
+    # Will only asking internal google user to do this survey.
+    if metrics_base.get_user_type() == metrics_base.INTERNAL_USER:
+        # The bazel_mode value will only be false if user apply --no-bazel-mode.
+        if not atest_configs.GLOBAL_ARGS.bazel_mode:
+            SURVEY_LINK = 'http://go/atest-no-bazel-survey'
+            MESSAGE = ('Dear `--no-bazel-mode` users,\n\n'
+                       'We are conducting a survey to understand why you are '
+                       'still using `--no-bazel-mode`. The survey should take '
+                       'less than 3 minutes and your responses will be kept '
+                       'confidential and will only be used to improve our '
+                       'understanding of the situation.\n\n'
+                       'Please click on the link below to begin the survey:\n\n'
+                       '{}\n\n'
+                       'Thanks for your time and feedback.\n\n'
+                       'Sincerely,\n'
+                       'The ATest Team')
+
+            print(MESSAGE.format(
+                atest_utils.colorize(SURVEY_LINK, constants.BLUE)))
+
     sys.exit(EXIT_CODE)
