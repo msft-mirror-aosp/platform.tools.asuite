@@ -50,7 +50,6 @@ python_defaults {
         "tradefed-protos-py",
         "py-google-api-python-client",
         "py-oauth2client",
-        "py-six",
     ],
     data: [
         "bazel/resources/**/*",
