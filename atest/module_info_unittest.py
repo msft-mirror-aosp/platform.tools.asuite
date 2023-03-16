@@ -238,26 +238,6 @@ class ModuleInfoUnittests(unittest.TestCase):
         self.assertEqual(0, len(mod_info.get_testable_modules('test_suite')))
         self.assertEqual(1, len(mod_info.get_testable_modules()))
 
-    @mock.patch.object(module_info.ModuleInfo, 'has_test_config')
-    @mock.patch.object(module_info.ModuleInfo, 'is_robolectric_test')
-    def test_is_testable_module(self, mock_is_robo_test, mock_has_test_config):
-        """Test is_testable_module."""
-        mod_info = module_info.ModuleInfo(module_file=JSON_FILE_PATH, index_dir=HOST_OUT_DIR)
-        mock_is_robo_test.return_value = False
-        mock_has_test_config.return_value = True
-        installed_module_info = {constants.MODULE_INSTALLED:
-                                 uc.DEFAULT_INSTALL_PATH}
-        non_installed_module_info = {constants.MODULE_NAME: 'rand_name'}
-        # Empty mod_info or a non-installed module.
-        self.assertFalse(mod_info.is_testable_module(non_installed_module_info))
-        self.assertFalse(mod_info.is_testable_module({}))
-        # Testable Module or is a robo module for non-installed module.
-        self.assertTrue(mod_info.is_testable_module(installed_module_info))
-        mock_has_test_config.return_value = False
-        self.assertFalse(mod_info.is_testable_module(installed_module_info))
-        mock_is_robo_test.return_value = True
-        self.assertTrue(mod_info.is_testable_module(non_installed_module_info))
-
     @mock.patch.dict('os.environ', {constants.ANDROID_BUILD_TOP:'/',
                                     constants.ANDROID_PRODUCT_OUT:PRODUCT_OUT_DIR})
     @mock.patch.object(module_info.ModuleInfo, 'get_robolectric_type')
@@ -955,6 +935,59 @@ class IsLegacyRobolectricClassTest(ModuleInfoTestFixture):
         self.assertFalse(return_value)
 
 
+class IsTestableModuleTest(ModuleInfoTestFixture):
+    """Tests is_testable_module in various conditions."""
+
+    def test_return_true_for_tradefed_testable_module(self):
+        info = test_module()
+        mod_info = self.create_module_info()
+
+        return_value = mod_info.is_testable_module(info)
+
+        self.assertTrue(return_value)
+
+    def test_return_true_for_modern_robolectric_test_module(self):
+        info = modern_robolectric_test_module()
+        mod_info = self.create_module_info()
+
+        return_value = mod_info.is_testable_module(info)
+
+        self.assertTrue(return_value)
+
+    def test_return_true_for_legacy_robolectric_test_module(self):
+        info = legacy_robolectric_test_module()
+        mod_info = self.create_module_info()
+
+        return_value = mod_info.is_testable_module(info)
+
+        self.assertTrue(return_value)
+
+    def test_return_false_for_non_tradefed_testable_module(self):
+        info = module(auto_test_config=[], test_config=[],
+                      installed=['installed_path'])
+        mod_info = self.create_module_info()
+
+        return_value = mod_info.is_testable_module(info)
+
+        self.assertFalse(return_value)
+
+    def test_return_false_for_no_installed_path_module(self):
+        info = module(auto_test_config=['true'], installed=[])
+        mod_info = self.create_module_info()
+
+        return_value = mod_info.is_testable_module(info)
+
+        self.assertFalse(return_value)
+
+    def test_return_false_if_module_info_is_empty(self):
+        info = {}
+        mod_info = self.create_module_info()
+
+        return_value = mod_info.is_testable_module(info)
+
+        self.assertFalse(return_value)
+
+
 @mock.patch.dict('os.environ', {constants.ANDROID_BUILD_TOP: '/'})
 def create_empty_module_info():
     with fake_filesystem_unittest.Patcher() as patcher:
@@ -981,6 +1014,11 @@ def test_module(**kwargs):
 
 def modern_robolectric_test_module(**kwargs):
     kwargs.setdefault('name', 'hello_world_test')
+    return test(robolectric_tests_suite(module(**kwargs)))
+
+
+def legacy_robolectric_test_module(**kwargs):
+    kwargs.setdefault('name', 'Run_hello_world_test')
     return test(robolectric_tests_suite(module(**kwargs)))
 
 
