@@ -23,6 +23,7 @@ Device properties such as the image used can be configured via an attribute.
 
 load("//bazel/rules:platform_transitions.bzl", "host_transition")
 load("//bazel/rules:device_test.bzl", "DeviceEnvironment")
+load("@device_infra//remote_device:download_cvd_artifact.bzl", "ImageProvider")
 load(
     "//:constants.bzl",
     "adb_label",
@@ -31,16 +32,16 @@ load(
 _BAZEL_WORK_DIR = "${TEST_SRCDIR}/${TEST_WORKSPACE}/"
 
 def _cuttlefish_device_impl(ctx):
-    img_dir = ctx.file.image.dirname
     path_additions = [_BAZEL_WORK_DIR + ctx.file._adb.dirname]
-
+    image_file = ctx.attr.build_files[ImageProvider].image
+    cvd_host_file = ctx.attr.build_files[ImageProvider].cvd_host_package
     ctx.actions.expand_template(
         template = ctx.file._create_script_template,
         output = ctx.outputs.out,
         is_executable = True,
         substitutions = {
-            "{img_path}": _BAZEL_WORK_DIR + ctx.file.image.short_path,
-            "{cvd_host_package_path}": _BAZEL_WORK_DIR + ctx.file.cvd_host_package.short_path,
+            "{img_path}": _BAZEL_WORK_DIR + image_file.short_path,
+            "{cvd_host_package_path}": _BAZEL_WORK_DIR + cvd_host_file.short_path,
             "{path_additions}": ":".join(path_additions),
         },
     )
@@ -48,21 +49,19 @@ def _cuttlefish_device_impl(ctx):
     return DeviceEnvironment(
         runner = depset([ctx.outputs.out]),
         data = ctx.runfiles(files = [
-            ctx.file.cvd_host_package,
+            cvd_host_file,
             ctx.outputs.out,
-            ctx.file.image,
+            image_file,
         ]),
     )
 
 cuttlefish_device = rule(
     attrs = {
-        "image": attr.label(
-            allow_single_file = True,
+        "build_files": attr.label(
+            providers = [ImageProvider],
+            mandatory = True,
         ),
         "out": attr.output(mandatory = True),
-        "cvd_host_package": attr.label(
-            allow_single_file = True,
-        ),
         "_create_script_template": attr.label(
             default = "//bazel/rules/device:create_cuttlefish.sh.template",
             allow_single_file = True,
