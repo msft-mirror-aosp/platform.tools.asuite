@@ -16,7 +16,6 @@
 // also include asuite_metrics and other needed python files, in order to make sure asuite_metrics
 // tests result is accurate, separate them to two different test modules.
 
-// For testing asuite_metrics python2 libs
 package {
     default_applicable_licenses: ["Android-Apache-2.0"],
 }
