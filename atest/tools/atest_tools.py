@@ -426,8 +426,8 @@ def acloud_create_validator(results_dir, args):
         else:
             A tuple of (None, None)
     """
-    target = os.getenv('TARGET_PRODUCT', "")
-    if not '_cf_' in target:
+    target = os.getenv('TARGET_PRODUCT')
+    if not re.match(r'^(aosp_|)cf_.*', target):
         au.colorful_print(
             f'{target} is not in cuttlefish family; will not create any AVD.',
             constants.RED)
