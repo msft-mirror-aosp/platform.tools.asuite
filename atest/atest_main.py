@@ -1259,24 +1259,22 @@ if __name__ == '__main__':
             if result_file:
                 print("Run 'atest --history' to review test result history.")
 
-    # Will only asking internal google user to do this survey.
+    # Only asking internal google user to do this survey.
     if metrics_base.get_user_type() == metrics_base.INTERNAL_USER:
         # The bazel_mode value will only be false if user apply --no-bazel-mode.
         if not atest_configs.GLOBAL_ARGS.bazel_mode:
-            SURVEY_LINK = 'http://go/atest-no-bazel-survey'
-            MESSAGE = ('Dear `--no-bazel-mode` users,\n\n'
-                       'We are conducting a survey to understand why you are '
-                       'still using `--no-bazel-mode`. The survey should take '
-                       'less than 3 minutes and your responses will be kept '
-                       'confidential and will only be used to improve our '
-                       'understanding of the situation.\n\n'
-                       'Please click on the link below to begin the survey:\n\n'
-                       '{}\n\n'
-                       'Thanks for your time and feedback.\n\n'
-                       'Sincerely,\n'
-                       'The ATest Team')
+            MESSAGE = ('\nDear `--no-bazel-mode` users,\n'
+                         'We are conducting a survey to understand why you are '
+                         'still using `--no-bazel-mode`. The survey should '
+                         'take less than 3 minutes and your responses will be '
+                         'kept confidential and will only be used to improve '
+                         'our understanding of the situation. Please click on '
+                         'the link below to begin the survey:\n\n'
+                         'http://go/atest-no-bazel-survey\n\n'
+                         'Thanks for your time and feedback.\n\n'
+                         'Sincerely,\n'
+                         'The ATest Team')
 
-            print(MESSAGE.format(
-                atest_utils.colorize(SURVEY_LINK, constants.BLUE)))
+            print(atest_utils.colorize(MESSAGE, constants.BLACK, bp_color=constants.CYAN))
 
     sys.exit(EXIT_CODE)
