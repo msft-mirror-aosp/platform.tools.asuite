@@ -492,8 +492,8 @@ class WorkspaceGenerator:
         self._symlink(src='tools/asuite/atest/bazel/resources/bazel.sh',
                       target='bazel.sh')
         # TODO(b/256924541): Consolidate JDK version with Roboleaf team.
-        self._symlink(src='prebuilts/jdk/jdk17/linux-x86',
-                      target='prebuilts/jdk/jdk17/linux-x86')
+        self._symlink(src='prebuilts/jdk/jdk17/linux-x86/bin',
+                      target='prebuilts/jdk/jdk17/linux-x86/bin')
         self._symlink(src='prebuilts/bazel/linux-x86_64/bazel',
                       target='prebuilts/bazel/linux-x86_64/bazel')
 
