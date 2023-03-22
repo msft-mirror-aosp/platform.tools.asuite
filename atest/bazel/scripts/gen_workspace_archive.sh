@@ -64,6 +64,7 @@ ${ANDROID_BUILD_TOP}/build/soong/soong_ui.bash --make-mode dist bazel-test-suite
 # Generate the initial workspace via Atest Bazel mode.
 pushd ${ANDROID_BUILD_TOP}
 ${OUT_DIR}/host/linux-x86/bin/atest-dev \
+  --no-metrics \
   --bazel-mode \
   --host-unit-test-only \
   --host \
