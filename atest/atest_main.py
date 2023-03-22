@@ -38,6 +38,8 @@ import tempfile
 import time
 import platform
 
+from typing import Dict, List
+
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -61,6 +63,8 @@ from atest.metrics import metrics_base
 from atest.metrics import metrics_utils
 from atest.test_finders import test_finder_utils
 from atest.test_runners import regression_test_runner
+from atest.test_runners import roboleaf_test_runner
+from atest.test_finders.test_info import TestInfo
 from atest.tools import atest_tools as at
 
 EXPECTED_VARS = frozenset([
@@ -896,6 +900,26 @@ def need_run_index_targets(args, extra_args):
         return False
     return True
 
+def _should_build_module_info(
+    roboleaf_tests: Dict[str, TestInfo],
+    tests: List[str]) -> bool:
+    """Method that determines wherether we need to index and build mod_info
+    to run the tests.
+
+    There is 1 condition that Atest does not need mod-info.json to be generated.
+
+    1.  If all tests are roboleaf, then indexing and generating mod-info
+    can be skipped since dependencies are found using bazel.
+
+    Args:
+        roboleaf_tests: A dictionary keyed by testname of roboleaf tests.
+        tests: A list of testnames.
+
+    Returns:
+        True when none of the above conditions were found.
+    """
+    return not roboleaf_tests or set(tests) != set(roboleaf_tests)
+
 def perm_consistency_metrics(test_infos, mod_info, args):
     """collect inconsistency between preparer and device root permission.
 
@@ -1004,21 +1028,29 @@ def main(argv, results_dir, args):
         os.environ.get(constants.ANDROID_PRODUCT_OUT, ''))
     extra_args = get_extra_args(args)
     verify_env_variables = extra_args.get(constants.VERIFY_ENV_VARIABLE, False)
-    proc_idx = None
-    # Do not index targets while the users intend to dry-run tests.
-    if need_run_index_targets(args, extra_args):
-        proc_idx = atest_utils.run_multi_proc(at.index_targets)
-    smart_rebuild = need_rebuild_module_info(args)
 
-    mod_start = time.time()
-    mod_info = module_info.ModuleInfo(force_build=smart_rebuild)
-    mod_stop = time.time() - mod_start
-    metrics.LocalDetectEvent(detect_type=DetectType.MODULE_INFO_INIT_MS,
-                             result=int(mod_stop * 1000))
-    atest_utils.run_multi_proc(func=mod_info._save_module_info_checksum)
-    atest_utils.run_multi_proc(
-        func=atest_utils.generate_buildfiles_checksum,
-        args=[mod_info.module_index.parent])
+    # Gather roboleaf tests now to see if we can skip mod info generation.
+    mod_info = module_info.ModuleInfo(no_generate=True)
+    if args.roboleaf_mode:
+        mod_info.roboleaf_tests = roboleaf_test_runner.RoboleafTestRunner(
+            results_dir).roboleaf_eligible_tests(args.tests)
+
+    proc_idx = None
+    if _should_build_module_info(mod_info.roboleaf_tests, args.tests):
+        # Do not index targets while the users intend to dry-run tests.
+        if need_run_index_targets(args, extra_args):
+            proc_idx = atest_utils.run_multi_proc(at.index_targets)
+        smart_rebuild = need_rebuild_module_info(args)
+
+        mod_start = time.time()
+        mod_info = module_info.ModuleInfo(force_build=smart_rebuild)
+        mod_stop = time.time() - mod_start
+        metrics.LocalDetectEvent(detect_type=DetectType.MODULE_INFO_INIT_MS,
+                                 result=int(mod_stop * 1000))
+        atest_utils.run_multi_proc(func=mod_info._save_module_info_checksum)
+        atest_utils.run_multi_proc(
+            func=atest_utils.generate_buildfiles_checksum,
+            args=[mod_info.module_index.parent])
 
     # Run Test Mapping or coverage by no-bazel-mode.
     if atest_utils.is_test_mapping(args) or args.experimental_coverage:
