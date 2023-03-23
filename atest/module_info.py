@@ -54,7 +54,12 @@ Module = Dict[str, Any]
 class ModuleInfo:
     """Class that offers fast/easy lookup for Module related details."""
 
-    def __init__(self, force_build=False, module_file=None, index_dir=None):
+    def __init__(
+        self,
+        force_build=False,
+        module_file=None,
+        index_dir=None,
+        no_generate=False):
         """Initialize the ModuleInfo object.
 
         Load up the module-info.json file and initialize the helper vars.
@@ -88,6 +93,9 @@ class ModuleInfo:
                          module_info file regardless if it's created or not.
             module_file: String of path to file to load up. Used for testing.
             index_dir: String of path to store testable module index and md5.
+            no_generate: Boolean to indicate if we should populate module info
+                         from the soong artifacts; setting to true will
+                         leave module info empty.
         """
         # TODO(b/263199608): Refactor the ModuleInfo constructor.
         # The module-info constructor does too much. We should never be doing
@@ -99,6 +107,8 @@ class ModuleInfo:
         # update_merge_info flag will merge dep files only when any of them have
         # changed even force_build == True.
         self.update_merge_info = False
+        self.roboleaf_tests = {}
+
         # Index and checksum files that will be used.
         index_dir = (
             Path(index_dir) if index_dir else
@@ -118,6 +128,11 @@ class ModuleInfo:
             os.getenv(constants.ANDROID_PRODUCT_OUT, '')).joinpath(_MERGED_INFO)
 
         self.mod_info_file_path = Path(module_file) if module_file else None
+
+        if no_generate:
+            self.name_to_module_info = {}
+            return
+
         module_info_target, name_to_module_info = self._load_module_info_file(
             module_file)
         self.name_to_module_info = name_to_module_info
