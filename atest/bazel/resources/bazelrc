@@ -15,15 +15,6 @@ build --incompatible_strict_action_env
 # for a remote machine to execute them.
 build:remote --jobs=200
 
-# Set the Java used in remote environment.
-build:remote --action_env=REMOTE_JAVA_HOME=/usr/lib/jvm/11.29.3-ca-jdk11.0.2/reduced
-
-# Set a host platform specifying the Docker container image used by the RBE
-# instance.
-# See https://docs.bazel.build/versions/master/platforms.html for more about
-# platforms.
-build:remote --host_platform=//bazel/configs/rbe/config:platform
-
 # Enable the remote cache so that action results can be shared across machines,
 # developers, and workspaces.
 build:remote --remote_cache=grpcs://remotebuildexecution.googleapis.com
