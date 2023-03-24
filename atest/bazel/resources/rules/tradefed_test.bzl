@@ -31,6 +31,7 @@ load(
     "tradefed_test_framework_label",
     "vts_core_tradefed_harness_label",
 )
+load("//bazel/rules:device_test.bzl", "device_test")
 
 _BAZEL_WORK_DIR = "${TEST_SRCDIR}/${TEST_WORKSPACE}/"
 _PY_TOOLCHAIN = "@bazel_tools//tools/python:toolchain_type"
@@ -232,11 +233,22 @@ _tradefed_device_test = rule(
     doc = "A rule used to run device tests using Tradefed",
 )
 
-def tradefed_device_driven_test(test, tradefed_deps = [], suites = [], **attrs):
+def tradefed_device_driven_test(
+        name,
+        test,
+        tradefed_deps = [],
+        suites = [],
+        **attrs):
+    tradefed_test_name = "tradefed_test_%s" % name
     _tradefed_device_test(
+        name = tradefed_test_name,
         device_test = test,
         tradefed_deps = _get_tradefed_deps(suites, tradefed_deps),
         **attrs
+    )
+    device_test(
+        name = name,
+        test = tradefed_test_name,
     )
 
 def tradefed_host_driven_device_test(test, tradefed_deps = [], suites = [], **attrs):
