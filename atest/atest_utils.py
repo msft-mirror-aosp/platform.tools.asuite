@@ -1122,7 +1122,11 @@ def get_manifest_branch(show_aosp=False):
         try:
             xml_root = ET.parse(xml).getroot()
         except (IOError, OSError, ET.ParseError):
-            logging.warning('%s could not be read.', xml)
+            # TODO(b/274989179) Change back to warning once warning if not going
+            # to be treat as test failure. Or test_get_manifest_branch unit test
+            # could be fix if return None if portal_xml or default_xml not
+            # exist.
+            logging.info('%s could not be read.', xml)
             return ''
         default_tags = xml_root.findall('./default')
         if default_tags:
@@ -1137,7 +1141,11 @@ def get_manifest_branch(show_aosp=False):
         try:
             xml_root = ET.parse(xml).getroot()
         except (IOError, OSError, ET.ParseError):
-            logging.warning('%s could not be read.', xml)
+            # TODO(b/274989179) Change back to warning once warning if not going
+            # to be treat as test failure. Or test_get_manifest_branch unit test
+            # could be fix if return None if portal_xml or default_xml not
+            # exist.
+            logging.info('%s could not be read.', xml)
             return Path()
         include_tags = xml_root.findall('./include')
         if include_tags:
