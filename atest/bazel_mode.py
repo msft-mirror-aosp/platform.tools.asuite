@@ -1547,7 +1547,7 @@ class BazelTestRunner(trb.TestRunnerBase):
         target_patterns = ' '.join(
             self.test_info_target_label(i) for i in test_infos)
 
-        bazel_args = self._parse_extra_args(test_infos, extra_args)
+        bazel_args = parse_args(test_infos, extra_args, self.mod_info)
 
         bazel_args.extend(
             self._get_bazel_feature_args(
@@ -1559,10 +1559,6 @@ class BazelTestRunner(trb.TestRunnerBase):
                 Features.EXPERIMENTAL_REMOTE,
                 extra_args,
                 self._get_remote_args))
-
-        # Default to --test_output=errors unless specified otherwise
-        if not any(arg.startswith('--test_output=') for arg in bazel_args):
-            bazel_args.append('--test_output=errors')
 
         # This is an alternative to shlex.join that doesn't exist in Python
         # versions < 3.8.
@@ -1576,40 +1572,57 @@ class BazelTestRunner(trb.TestRunnerBase):
             f'test {target_patterns} {bazel_args_str}'
         ]
 
-    def _parse_extra_args(self, test_infos: List[test_info.TestInfo],
-                          extra_args: trb.ARGS) -> trb.ARGS:
-        args_to_append = []
-        # Make a copy of the `extra_args` dict to avoid modifying it for other
-        # Atest runners.
-        extra_args_copy = extra_args.copy()
 
-        # Remove the `--host` flag since we already pass that in the rule's
-        # implementation.
-        extra_args_copy.pop(constants.HOST, None)
+def parse_args(
+    test_infos: List[test_info.TestInfo],
+    extra_args: trb.ARGS,
+    mod_info: module_info.ModuleInfo) -> trb.ARGS:
+    """Parse commandline args and passes supported args to bazel.
 
-        # Map args to their native Bazel counterparts.
-        for arg in _SUPPORTED_BAZEL_ARGS:
-            if arg not in extra_args_copy:
-                continue
-            args_to_append.extend(
-                self.map_to_bazel_args(arg, extra_args_copy[arg]))
-            # Remove the argument since we already mapped it to a Bazel option
-            # and no longer need it mapped to a Tradefed argument below.
-            del extra_args_copy[arg]
+    Args:
+        test_infos: A set of TestInfo instances.
+        extra_args: A Dict of extra args to append.
+        mod_info: A ModuleInfo object.
 
-        # TODO(b/215461642): Store the extra_args in the top-level object so
-        # that we don't have to re-parse the extra args to get BAZEL_ARG again.
-        tf_args, _ = tfr.extra_args_to_tf_args(
-            self.mod_info, test_infos, extra_args_copy)
+    Returns:
+        A list of args to append to the run command.
+    """
 
-        # Add ATest include filter argument to allow testcase filtering.
-        tf_args.extend(tfr.get_include_filter(test_infos))
+    args_to_append = []
+    # Make a copy of the `extra_args` dict to avoid modifying it for other
+    # Atest runners.
+    extra_args_copy = extra_args.copy()
 
-        args_to_append.extend([f'--test_arg={i}' for i in tf_args])
+    # Remove the `--host` flag since we already pass that in the rule's
+    # implementation.
+    extra_args_copy.pop(constants.HOST, None)
 
-        return args_to_append
+    # Map args to their native Bazel counterparts.
+    for arg in _SUPPORTED_BAZEL_ARGS:
+        if arg not in extra_args_copy:
+            continue
+        args_to_append.extend(
+            _map_to_bazel_args(arg, extra_args_copy[arg]))
+        # Remove the argument since we already mapped it to a Bazel option
+        # and no longer need it mapped to a Tradefed argument below.
+        del extra_args_copy[arg]
 
-    @staticmethod
-    def map_to_bazel_args(arg: str, arg_value: Any) -> List[str]:
-        return _SUPPORTED_BAZEL_ARGS[arg](
-            arg_value) if arg in _SUPPORTED_BAZEL_ARGS else []
+    # TODO(b/215461642): Store the extra_args in the top-level object so
+    # that we don't have to re-parse the extra args to get BAZEL_ARG again.
+    tf_args, _ = tfr.extra_args_to_tf_args(
+        mod_info, test_infos, extra_args_copy)
+
+    # Add ATest include filter argument to allow testcase filtering.
+    tf_args.extend(tfr.get_include_filter(test_infos))
+
+    args_to_append.extend([f'--test_arg={i}' for i in tf_args])
+
+    # Default to --test_output=errors unless specified otherwise
+    if not any(arg.startswith('--test_output=') for arg in args_to_append):
+        args_to_append.append('--test_output=errors')
+
+    return args_to_append
+
+def _map_to_bazel_args(arg: str, arg_value: Any) -> List[str]:
+    return _SUPPORTED_BAZEL_ARGS[arg](
+        arg_value) if arg in _SUPPORTED_BAZEL_ARGS else []
