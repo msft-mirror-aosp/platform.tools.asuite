@@ -658,9 +658,15 @@ class ModuleFinder(test_finder_base.TestFinderBase):
         Returns:
             A list of populated TestInfo namedtuple if found, else None.
         """
-        if ':' not in module_class:
+        parse_result = test_finder_utils.parse_test_reference(module_class)
+        if not parse_result:
             return None
-        module_name, class_name = module_class.split(':')
+        module_name =  parse_result['module_name']
+        class_name = parse_result['pkg_class_name']
+        method_name = parse_result.get('method_name', '')
+        if method_name:
+            class_name = class_name + '#' + method_name
+
         # module_infos is a list with at most 1 element.
         module_infos = self.find_test_by_module_name(module_name)
         module_info = module_infos[0] if module_infos else None
@@ -736,7 +742,15 @@ class ModuleFinder(test_finder_base.TestFinderBase):
         Returns:
             A list of populated TestInfo namedtuple if found, else None.
         """
-        module_name, package = module_package.split(':')
+        parse_result = test_finder_utils.parse_test_reference(module_package)
+        if not parse_result:
+            return None
+        module_name =  parse_result['module_name']
+        package = parse_result['pkg_class_name']
+        method = parse_result.get('method_name', '')
+        if method:
+            package = package + '#' + method
+
         # module_infos is a list with at most 1 element.
         module_infos = self.find_test_by_module_name(module_name)
         module_info = module_infos[0] if module_infos else None
