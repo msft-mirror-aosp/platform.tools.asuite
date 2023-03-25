@@ -873,5 +873,18 @@ class TestFinderUtilsUnittests(unittest.TestCase):
         self.assertEqual(test_class, result['pkg_class_name'])
         self.assertEqual('', result.get('method_name', ''))
 
+    def test_parse_test_reference_input_module_parameter_class_and_method_match(
+        self):
+        test_module = 'myModule'
+        test_class = 'myClass/abc0'
+        test_method = 'myTest0/Method[0]'
+        test_ref = f'{test_module}:{test_class}#{test_method}'
+
+        result = test_finder_utils.parse_test_reference(test_ref)
+
+        self.assertEqual(test_module, result['module_name'])
+        self.assertEqual(test_class, result['pkg_class_name'])
+        self.assertEqual(test_method, result['method_name'])
+
 if __name__ == '__main__':
     unittest.main()
