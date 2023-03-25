@@ -1407,8 +1407,8 @@ def parse_test_reference(test_ref: str) -> Dict[str, str]:
     Returns:
         Dict includes module_name, pkg_class_name and method_name.
     """
-    m = re.match(
-        r'(?P<module_name>[\w\/.]+)[:](?P<pkg_class_name>[\w.]+)'
+    ref_match = re.match(
+        r'(?P<module_name>[\w\/.]+)[:](?P<pkg_class_name>[\w\/.]+)'
         r'[#]*(?P<method_name>.*)', test_ref)
 
-    return m.groupdict(default=dict()) if m else dict()
+    return ref_match.groupdict(default=dict()) if ref_match else dict()
