@@ -54,7 +54,6 @@ import java.net.URISyntaxException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.nio.file.StandardCopyOption;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -62,10 +61,10 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
-import java.util.concurrent.Future;
 import java.util.concurrent.ExecutionException;
-import java.util.concurrent.Executors;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.zip.ZipFile;
 
@@ -228,6 +227,10 @@ public final class BazelTest implements IRemoteTest {
         while ((event = tailer.nextEvent()) != null) {
             if (event.getLastMessage()) {
                 return;
+            }
+
+            if (!event.hasTestResult()) {
+                continue;
             }
 
             try {
