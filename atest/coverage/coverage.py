@@ -123,10 +123,20 @@ def _get_all_src_paths(modules, mod_info):
         info = mod_info.get_module_info(module)
         if not info:
             continue
+
+        # Do not report coverage for test modules.
+        if mod_info.is_testable_module(info):
+            continue
+
         src_paths.update(
             os.path.dirname(f) for f in info.get(constants.MODULE_SRCS, []))
 
+    src_paths = {p for p in src_paths if not _is_generated_code(p)}
     return src_paths
+
+
+def _is_generated_code(path):
+    return 'soong/.intermediates' in path
 
 
 def _generate_java_coverage_report(report_jars, src_paths, results_dir,
