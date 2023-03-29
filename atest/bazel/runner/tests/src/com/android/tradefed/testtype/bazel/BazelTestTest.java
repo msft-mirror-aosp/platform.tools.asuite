@@ -33,15 +33,15 @@ import com.android.tradefed.config.OptionSetter;
 import com.android.tradefed.invoker.InvocationContext;
 import com.android.tradefed.invoker.TestInformation;
 import com.android.tradefed.log.LogUtil.CLog;
-import com.android.tradefed.result.error.ErrorIdentifier;
-import com.android.tradefed.result.error.TestErrorIdentifier;
 import com.android.tradefed.result.FailureDescription;
 import com.android.tradefed.result.ILogSaverListener;
 import com.android.tradefed.result.LogDataType;
 import com.android.tradefed.result.LogFile;
+import com.android.tradefed.result.TestDescription;
+import com.android.tradefed.result.error.ErrorIdentifier;
+import com.android.tradefed.result.error.TestErrorIdentifier;
 import com.android.tradefed.result.proto.FileProtoResultReporter;
 import com.android.tradefed.result.proto.TestRecordProto.FailureStatus;
-import com.android.tradefed.result.TestDescription;
 import com.android.tradefed.util.ZipUtil;
 
 import com.google.common.base.Splitter;
@@ -52,10 +52,10 @@ import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos;
 
 import org.junit.Before;
 import org.junit.Rule;
+import org.junit.Test;
 import org.junit.rules.TemporaryFolder;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
-import org.junit.Test;
 import org.mockito.ArgumentMatcher;
 import org.mockito.InOrder;
 
@@ -72,13 +72,13 @@ import java.nio.file.Paths;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collections;
-import java.util.concurrent.atomic.AtomicLong;
-import java.util.concurrent.TimeUnit;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.function.Function;
 import java.util.Random;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicLong;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -307,6 +307,71 @@ public final class BazelTestTest {
         bazelTest.run(mTestInfo, mMockListener);
 
         assertThat(command).contains(targetName);
+    }
+
+    @Test
+    public void excludeTestModule_generatesExcludeQuery() throws Exception {
+        String moduleExclude = "custom_module";
+        List<String> command = new ArrayList<>();
+        FakeProcessStarter processStarter = newFakeProcessStarter();
+        processStarter.put(
+                BazelTest.QUERY_TARGETS,
+                builder -> {
+                    command.addAll(builder.command());
+                    return newPassingProcessWithStdout("default_target");
+                });
+        BazelTest bazelTest = newBazelTestWithProcessStarter(processStarter);
+        OptionSetter setter = new OptionSetter(bazelTest);
+        setter.setOptionValue("exclude-filter", moduleExclude);
+
+        bazelTest.run(mTestInfo, mMockListener);
+
+        assertThat(command)
+                .contains("tests(...) - attr(module_name, \"(?:custom_module)\", tests(...))");
+    }
+
+    @Test
+    public void excludeTestFunction_generatesExcludeFilter() throws Exception {
+        String functionExclude = "custom_module custom_module.customClass#customFunction";
+        List<String> command = new ArrayList<>();
+        FakeProcessStarter processStarter = newFakeProcessStarter();
+        processStarter.put(
+                BazelTest.RUN_TESTS,
+                builder -> {
+                    command.addAll(builder.command());
+                    return new FakeBazelTestProcess(builder, mBazelTempPath);
+                });
+        BazelTest bazelTest = newBazelTestWithProcessStarter(processStarter);
+        OptionSetter setter = new OptionSetter(bazelTest);
+        setter.setOptionValue("exclude-filter", functionExclude);
+
+        bazelTest.run(mTestInfo, mMockListener);
+
+        assertThat(command)
+                .contains(
+                        "--test_arg=--global-filters:exclude-filter=custom_module"
+                                + " custom_module.customClass#customFunction");
+    }
+
+    @Test
+    public void excludeTestTarget_doesNotExcludeSelectedTests() throws Exception {
+        String moduleExclude = "custom_module";
+        List<String> command = new ArrayList<>();
+        FakeProcessStarter processStarter = newFakeProcessStarter();
+        processStarter.put(
+                BazelTest.RUN_TESTS,
+                builder -> {
+                    command.addAll(builder.command());
+                    return new FakeBazelTestProcess(builder, mBazelTempPath);
+                });
+        BazelTest bazelTest = newBazelTestWithProcessStarter(processStarter);
+        OptionSetter setter = new OptionSetter(bazelTest);
+        setter.setOptionValue("exclude-filter", moduleExclude);
+        setter.setOptionValue("bazel-test-target-patterns", moduleExclude);
+
+        bazelTest.run(mTestInfo, mMockListener);
+
+        assertThat(command).contains(moduleExclude);
     }
 
     @Test

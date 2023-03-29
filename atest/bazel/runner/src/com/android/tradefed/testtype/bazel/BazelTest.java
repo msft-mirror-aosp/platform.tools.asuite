@@ -39,6 +39,8 @@ import com.android.tradefed.util.ZipUtil2;
 import com.android.tradefed.util.proto.TestRecordProtoUtil;
 
 import com.google.common.base.Throwables;
+import com.google.common.collect.SetMultimap;
+import com.google.common.collect.HashMultimap;
 import com.google.common.io.CharStreams;
 import com.google.common.io.MoreFiles;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos;
@@ -54,19 +56,20 @@ import java.net.URISyntaxException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.nio.file.StandardCopyOption;
 import java.time.Duration;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
-import java.util.concurrent.Future;
 import java.util.concurrent.ExecutionException;
-import java.util.concurrent.Executors;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
 import java.util.zip.ZipFile;
 
 /** Test runner for executing Bazel tests. */
@@ -75,6 +78,16 @@ public final class BazelTest implements IRemoteTest {
 
     public static final String QUERY_TARGETS = "query_targets";
     public static final String RUN_TESTS = "run_tests";
+    // TODO(b/275407694): Use the module_name parameter to filter tests instead of the query
+    // command.
+    public static final String TEST_QUERY_TEMPLATE =
+            "tests(...) - attr(module_name, \"(?:%s)\", tests(...))";
+
+    // Add method excludes to TF's global filters since Bazel doesn't support target-specific
+    // arguments. See https://github.com/bazelbuild/rules_go/issues/2784.
+    // TODO(b/274787592): Integrate with Bazel's test filtering to filter specific test cases.
+    public static final String GLOBAL_EXCLUDE_FILTER_TEMPLATE =
+            "--test_arg=--global-filters:exclude-filter=%s";
 
     private static final Duration BAZEL_QUERY_TIMEOUT = Duration.ofMinutes(5);
     private static final String TEST_NAME = BazelTest.class.getName();
@@ -90,6 +103,11 @@ public final class BazelTest implements IRemoteTest {
     private final ExecutorService mExecutor;
 
     private Path mRunTemporaryDirectory;
+
+    private enum ExcludeType {
+        MODULE,
+        TEST_CASE
+    };
 
     @Option(
             name = "bazel-test-command-timeout",
@@ -122,6 +140,9 @@ public final class BazelTest implements IRemoteTest {
             name = "bazel-max-idle-timout",
             description = "Max idle timeout in seconds for bazel commands.")
     private Duration mBazelMaxIdleTimeout = Duration.ofSeconds(5L);
+
+    @Option(name = "exclude-filter", description = "Test modules to exclude when running tests.")
+    private final List<String> mExcludeTargets = new ArrayList<>();
 
     public BazelTest() {
         this(new DefaultProcessStarter(), Paths.get(System.getProperty("java.io.tmpdir")));
@@ -301,8 +322,15 @@ public final class BazelTest implements IRemoteTest {
 
         ProcessBuilder builder = createBazelCommand(workspaceDirectory, QUERY_TARGETS);
 
+        Collection<String> moduleExcludes = groupExcludesByType().get(ExcludeType.MODULE);
+
         builder.command().add("query");
-        builder.command().add("tests(...)");
+        builder.command()
+                .add(
+                        moduleExcludes.isEmpty()
+                                ? "tests(...)"
+                                : String.format(
+                                        TEST_QUERY_TEMPLATE, String.join("|", moduleExcludes)));
         builder.redirectError(Redirect.appendTo(logFile.toFile()));
 
         Process process = startAndWaitForProcess(QUERY_TARGETS, builder, BAZEL_QUERY_TIMEOUT);
@@ -330,10 +358,33 @@ public final class BazelTest implements IRemoteTest {
                 .add(String.format("--build_event_binary_file=%s", bepFile.toAbsolutePath()));
 
         builder.command().addAll(mBazelTestExtraArgs);
+
+        Collection<String> testFilters = groupExcludesByType().get(ExcludeType.TEST_CASE);
+        for (String test : testFilters) {
+            builder.command().add(String.format(GLOBAL_EXCLUDE_FILTER_TEMPLATE, test));
+        }
         builder.redirectErrorStream(true);
         builder.redirectOutput(Redirect.appendTo(logFile.toFile()));
 
         return startProcess(RUN_TESTS, builder);
+    }
+
+    private SetMultimap<ExcludeType, String> groupExcludesByType() {
+        Map<ExcludeType, List<String>> groupedMap =
+                mExcludeTargets.stream()
+                        .collect(
+                                Collectors.groupingBy(
+                                        s ->
+                                                s.contains(" ")
+                                                        ? ExcludeType.TEST_CASE
+                                                        : ExcludeType.MODULE));
+
+        SetMultimap<ExcludeType, String> groupedMultiMap = HashMultimap.create();
+        for (Entry<ExcludeType, List<String>> entry : groupedMap.entrySet()) {
+            groupedMultiMap.putAll(entry.getKey(), entry.getValue());
+        }
+
+        return groupedMultiMap;
     }
 
     private Process startAndWaitForProcess(
