@@ -900,16 +900,15 @@ def need_run_index_targets(args, extra_args):
         return False
     return True
 
-def _should_build_module_info(
+def _all_tests_are_bazel_buildable(
     roboleaf_tests: Dict[str, TestInfo],
     tests: List[str]) -> bool:
-    """Method that determines wherether we need to index and build mod_info
-    to run the tests.
+    """Method that determines whether all tests have been fully converted to
+    bazel mode (roboleaf).
 
-    There is 1 condition that Atest does not need mod-info.json to be generated.
-
-    1.  If all tests are roboleaf, then indexing and generating mod-info
-    can be skipped since dependencies are found using bazel.
+    If all tests are fully converted, then indexing, generating mod-info, and
+    generating atest bazel workspace can be skipped since dependencies are
+    mapped already with `b`.
 
     Args:
         roboleaf_tests: A dictionary keyed by testname of roboleaf tests.
@@ -918,7 +917,7 @@ def _should_build_module_info(
     Returns:
         True when none of the above conditions were found.
     """
-    return not roboleaf_tests or set(tests) != set(roboleaf_tests)
+    return roboleaf_tests and set(tests) == set(roboleaf_tests)
 
 def perm_consistency_metrics(test_infos, mod_info, args):
     """collect inconsistency between preparer and device root permission.
@@ -1034,9 +1033,17 @@ def main(argv, results_dir, args):
     if args.roboleaf_mode:
         mod_info.roboleaf_tests = roboleaf_test_runner.RoboleafTestRunner(
             results_dir).roboleaf_eligible_tests(args.tests)
+    all_tests_are_bazel_buildable = _all_tests_are_bazel_buildable(
+                                mod_info.roboleaf_tests,
+                                args.tests)
+
+    # Run Test Mapping or coverage by no-bazel-mode.
+    if atest_utils.is_test_mapping(args) or args.experimental_coverage:
+        atest_utils.colorful_print('Not running using bazel-mode.', constants.YELLOW)
+        args.bazel_mode = False
 
     proc_idx = None
-    if _should_build_module_info(mod_info.roboleaf_tests, args.tests):
+    if not all_tests_are_bazel_buildable:
         # Do not index targets while the users intend to dry-run tests.
         if need_run_index_targets(args, extra_args):
             proc_idx = atest_utils.run_multi_proc(at.index_targets)
@@ -1052,18 +1059,14 @@ def main(argv, results_dir, args):
             func=atest_utils.generate_buildfiles_checksum,
             args=[mod_info.module_index.parent])
 
-    # Run Test Mapping or coverage by no-bazel-mode.
-    if atest_utils.is_test_mapping(args) or args.experimental_coverage:
-        atest_utils.colorful_print('Not running using bazel-mode.', constants.YELLOW)
-        args.bazel_mode = False
-    if args.bazel_mode:
-        start = time.time()
-        bazel_mode.generate_bazel_workspace(
-            mod_info,
-            enabled_features=set(args.bazel_mode_features or []))
-        metrics.LocalDetectEvent(
-            detect_type=DetectType.BAZEL_WORKSPACE_GENERATE_TIME,
-            result=int(time.time() - start))
+        if args.bazel_mode:
+            start = time.time()
+            bazel_mode.generate_bazel_workspace(
+                mod_info,
+                enabled_features=set(args.bazel_mode_features or []))
+            metrics.LocalDetectEvent(
+                detect_type=DetectType.BAZEL_WORKSPACE_GENERATE_TIME,
+                result=int(time.time() - start))
 
     translator = cli_translator.CLITranslator(
         mod_info=mod_info,
