@@ -1125,17 +1125,36 @@ class ModuleSharedLibGenerationTest(GenerationTestFixture):
 
     def test_generate_target_for_rlib_dependency(self):
         mod_info = self.create_module_info(modules=[
-            supported_test_module(dependencies=['libhello']),
-            rlib(module(name='libhello'))
+            multi_config(host_unit_suite(module(
+                name='hello_world_test',
+                dependencies=['libhost', 'libdevice']))),
+            rlib(module(name='libhost', supported_variants=['HOST'])),
+            rlib(module(name='libdevice', supported_variants=['DEVICE'])),
         ])
 
         self.run_generator(mod_info)
 
         self.assertInBuildFile(
             'soong_uninstalled_prebuilt(\n'
-            '    name = "libhello",\n'
-            '    module_name = "libhello",\n'
+            '    name = "libhost",\n'
+            '    module_name = "libhost",\n'
             ')\n'
+        )
+        self.assertInBuildFile(
+            'soong_uninstalled_prebuilt(\n'
+            '    name = "libdevice",\n'
+            '    module_name = "libdevice",\n'
+            ')\n'
+        )
+        self.assertInBuildFile(
+            '    runtime_deps = select({\n'
+            '        "//bazel/rules:device": [\n'
+            '            "//:libdevice",\n'
+            '        ],\n'
+            '        "//bazel/rules:host": [\n'
+            '            "//:libhost",\n'
+            '        ],\n'
+            '    }),\n'
         )
 
     def test_generate_target_for_rlib_dylib_dependency(self):
@@ -1403,7 +1422,10 @@ def test_module(**kwargs):
     return test(module(**kwargs))
 
 
+# TODO(b/274822450): Using a builder pattern to reduce the number of parameters
+#  instead of disabling the warning.
 # pylint: disable=too-many-arguments
+# pylint: disable=too-many-locals
 def module(
     name=None,
     path=None,
@@ -1419,6 +1441,7 @@ def module(
     host_dependencies=None,
     target_dependencies=None,
     test_options_tags=None,
+    supported_variants=None,
 ):
     name = name or 'libhello'
 
@@ -1439,6 +1462,7 @@ def module(
     m['host_dependencies'] = host_dependencies or []
     m['target_dependencies'] = target_dependencies or []
     m['test_options_tags'] = test_options_tags or []
+    m['supported_variants'] = supported_variants or []
     return m
 
 
@@ -1890,7 +1914,7 @@ class BazelTestRunnerTest(unittest.TestCase):
 
     def test_trim_whitespace_in_bazel_query_output(self):
         run_command = self.mock_run_command(
-            return_value='\n'.join(['  test1  ', 'test2  ', '  ']))
+            return_value='\n'.join(['  test1:host  ', 'test2:device  ', '  ']))
         runner = self.create_bazel_test_runner(
             modules=[
                 supported_test_module(name='test1', path='path1'),
@@ -1900,7 +1924,35 @@ class BazelTestRunnerTest(unittest.TestCase):
 
         reqs = runner.get_test_runner_build_reqs([test_info_of('test1')])
 
-        self.assertSetEqual({'test1', 'test2'}, reqs)
+        self.assertSetEqual({'test1-host', 'test2-target'}, reqs)
+
+    def test_build_variants_in_bazel_query_output(self):
+        run_command = self.mock_run_command(
+            return_value='\n'.join([
+                'test1:host',
+                'test2:host', 'test2:device',
+                'test3:device',
+                'test4:host', 'test4:host',
+            ]))
+        runner = self.create_bazel_test_runner(
+            modules=[
+                supported_test_module(name='test1', path='path1'),
+                supported_test_module(name='test2', path='path2'),
+                supported_test_module(name='test3', path='path3'),
+                supported_test_module(name='test4', path='path4'),
+            ],
+            run_command = run_command,
+        )
+
+        reqs = runner.get_test_runner_build_reqs([
+            test_info_of('test1'),
+            test_info_of('test2'),
+            test_info_of('test3'),
+            test_info_of('test4')])
+
+        self.assertSetEqual(
+            {'test1-host', 'test2', 'test3-target', 'test4-host'},
+            reqs)
 
     def test_generate_single_run_command(self):
         test_infos = [test_info_of('test1')]

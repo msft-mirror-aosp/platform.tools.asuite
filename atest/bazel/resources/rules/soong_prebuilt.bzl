@@ -20,6 +20,7 @@ runtime dependencies and data dependencies.
 """
 
 load("//bazel/rules:platform_transitions.bzl", "device_transition")
+load("//bazel/rules:common_settings.bzl", "BuildSettingInfo")
 
 SoongPrebuiltInfo = provider(
     doc = "Info about a prebuilt Soong build module",
@@ -29,6 +30,7 @@ SoongPrebuiltInfo = provider(
         # outputs.
         "transitive_runtime_outputs": "Files required in the runtime environment",
         "transitive_test_files": "Files of test modules",
+        "platform_flavor": "The platform flavor that this target will be built on",
     },
 )
 
@@ -89,6 +91,7 @@ def _soong_prebuilt_impl(ctx):
     return [
         _make_soong_prebuilt_info(
             ctx.attr.module_name,
+            ctx.attr._platform_flavor[BuildSettingInfo].value,
             files = files,
             runtime_deps = ctx.attr.runtime_deps,
             static_deps = ctx.attr.static_deps,
@@ -118,6 +121,7 @@ soong_prebuilt = rule(
             cfg = device_transition,
         ),
         "suites": attr.string_list(),
+        "_platform_flavor": attr.label(default = "//bazel/rules:platform_flavor"),
         # This attribute is required to use Starlark transitions. It allows
         # allowlisting usage of this rule. For more information, see
         # https://docs.bazel.build/versions/master/skylark/config.html#user-defined-transitions
@@ -138,6 +142,7 @@ def _soong_uninstalled_prebuilt_impl(ctx):
     return [
         _make_soong_prebuilt_info(
             ctx.attr.module_name,
+            ctx.attr._platform_flavor[BuildSettingInfo].value,
             runtime_deps = ctx.attr.runtime_deps,
         ),
         DefaultInfo(
@@ -149,6 +154,7 @@ soong_uninstalled_prebuilt = rule(
     attrs = {
         "module_name": attr.string(),
         "runtime_deps": attr.label_list(),
+        "_platform_flavor": attr.label(default = "//bazel/rules:platform_flavor"),
     },
     implementation = _soong_uninstalled_prebuilt_impl,
     doc = "A rule for targets with no runtime outputs",
@@ -156,6 +162,7 @@ soong_uninstalled_prebuilt = rule(
 
 def _make_soong_prebuilt_info(
         module_name,
+        platform_flavor,
         files = [],
         runtime_deps = [],
         static_deps = [],
@@ -196,6 +203,7 @@ def _make_soong_prebuilt_info(
     ])
     return SoongPrebuiltInfo(
         module_name = module_name,
+        platform_flavor = platform_flavor,
         transitive_runtime_outputs = depset(files, transitive = transitive_runtime_outputs),
         transitive_test_files = depset(
             # Note that `suites` is never empty for test files. This because
