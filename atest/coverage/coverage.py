@@ -79,8 +79,10 @@ def generate_coverage_report(results_dir: str,
         for path in mod_info.get_paths(module):
             module_dir = soong_intermediates.joinpath(path, module)
             # Check for uninstrumented Java class files to report coverage.
-            jacoco_report_jars[module] = module_dir.glob(
-                '*cov*/jacoco-report-classes/*.jar')
+            classfiles = list(
+                module_dir.glob('*cov*/jacoco-report-classes/*.jar'))
+            if classfiles:
+                jacoco_report_jars[module] = classfiles
 
             # Check for unstripped native binaries to report coverage.
             unstripped_native_binaries.update(
@@ -123,10 +125,20 @@ def _get_all_src_paths(modules, mod_info):
         info = mod_info.get_module_info(module)
         if not info:
             continue
+
+        # Do not report coverage for test modules.
+        if mod_info.is_testable_module(info):
+            continue
+
         src_paths.update(
             os.path.dirname(f) for f in info.get(constants.MODULE_SRCS, []))
 
+    src_paths = {p for p in src_paths if not _is_generated_code(p)}
     return src_paths
+
+
+def _is_generated_code(path):
+    return 'soong/.intermediates' in path
 
 
 def _generate_java_coverage_report(report_jars, src_paths, results_dir,
@@ -140,9 +152,12 @@ def _generate_java_coverage_report(report_jars, src_paths, results_dir,
     jacoco_lcov = os.path.join(build_top, jacoco_lcov['installed'][0])
     lcov_reports = []
 
-    for name, report_jar in report_jars.items():
+    for name, classfiles in report_jars.items():
         dest = f'{out_dir}/{name}.info'
-        cmd = [jacoco_lcov, '-o', dest, '-classfiles', str(report_jar)]
+        cmd = [jacoco_lcov, '-o', dest]
+        for classfile in classfiles:
+            cmd.append('-classfiles')
+            cmd.append(str(classfile))
         for src_path in src_paths:
             cmd.append('-sourcepath')
             cmd.append(src_path)
