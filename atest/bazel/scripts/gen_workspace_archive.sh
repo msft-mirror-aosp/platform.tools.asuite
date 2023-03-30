@@ -58,8 +58,8 @@ fi
 # Build Atest from source to pick up the latest changes.
 ${ANDROID_BUILD_TOP}/build/soong/soong_ui.bash --make-mode atest
 
-# Build the Bazel test suite needed by BazelTest
-${ANDROID_BUILD_TOP}/build/soong/soong_ui.bash --make-mode dist bazel-test-suite
+# Build the empty Bazel test suite that we will insert the workspace into later.
+${ANDROID_BUILD_TOP}/build/soong/soong_ui.bash --make-mode dist empty-bazel-test-suite
 
 # Generate the initial workspace via Atest Bazel mode.
 pushd ${ANDROID_BUILD_TOP}
@@ -89,9 +89,10 @@ EOF
 
 popd
 
-# Create the workspace archive which will be downloaded by the Tradefed hosts.
+# Create the workspace archive.
 ${ANDROID_BUILD_TOP}/prebuilts/build-tools/linux-x86/bin/soong_zip \
   -o ${DIST_DIR}/atest_bazel_workspace.zip \
+  -P android-bazel-suite/ \
   -D out/atest_bazel_workspace/ \
   -f "out/atest_bazel_workspace/**/.*" \
   -symlinks=false  `# Follow symlinks and store the referenced files.` \
@@ -99,3 +100,13 @@ ${ANDROID_BUILD_TOP}/prebuilts/build-tools/linux-x86/bin/soong_zip \
   `# Avoid failing for dangling symlinks since these are expected` \
   `# because we don't build all targets.` \
   -ignore_missing_files
+
+# Merge the workspace into bazel-test-suite.
+${ANDROID_BUILD_TOP}/prebuilts/build-tools/linux-x86/bin/merge_zips \
+  ${DIST_DIR}/bazel-test-suite.zip \
+  ${DIST_DIR}/empty-bazel-test-suite.zip \
+  ${DIST_DIR}/atest_bazel_workspace.zip
+
+# Remove the old archives we no longer need
+rm ${DIST_DIR}/atest_bazel_workspace.zip
+rm ${DIST_DIR}/empty-bazel-test-suite.zip
