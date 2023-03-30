@@ -251,6 +251,10 @@ public final class BazelTest implements IRemoteTest {
                 return;
             }
 
+            if (!event.hasTestResult()) {
+                continue;
+            }
+
             try {
                 reportEventsInTestOutputsArchive(event.getTestResult(), resultParser);
             } catch (IOException | InterruptedException | URISyntaxException e) {
