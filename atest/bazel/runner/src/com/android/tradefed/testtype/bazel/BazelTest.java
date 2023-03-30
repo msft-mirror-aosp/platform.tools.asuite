@@ -63,6 +63,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.Properties;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -97,7 +98,7 @@ public final class BazelTest implements IRemoteTest {
 
     private final List<Path> mTemporaryPaths = new ArrayList<>();
     private final List<Path> mLogFiles = new ArrayList<>();
-    private final Map<String, String> mEnvMap;
+    private final Properties mProperties;
     private final ProcessStarter mProcessStarter;
     private final Path mTemporaryDirectory;
     private final ExecutorService mExecutor;
@@ -152,15 +153,15 @@ public final class BazelTest implements IRemoteTest {
     private boolean mReportCachedTestResults = true;
 
     public BazelTest() {
-        this(new DefaultProcessStarter(), System.getenv());
+        this(new DefaultProcessStarter(), System.getProperties());
     }
 
     @VisibleForTesting
-    BazelTest(ProcessStarter processStarter, Map<String, String> env) {
+    BazelTest(ProcessStarter processStarter, Properties properties) {
         mProcessStarter = processStarter;
         mExecutor = Executors.newFixedThreadPool(1);
-        mEnvMap = env;
-        mTemporaryDirectory = Paths.get(env.get("java.io.tmpdir"));
+        mProperties = properties;
+        mTemporaryDirectory = Paths.get(properties.getProperty("java.io.tmpdir"));
     }
 
     @Override
@@ -542,7 +543,7 @@ public final class BazelTest implements IRemoteTest {
     }
 
     private Path resolveWorkspacePath() {
-        String suiteRootPath = mEnvMap.get(mSuiteRootDirEnvVar);
+        String suiteRootPath = mProperties.getProperty(mSuiteRootDirEnvVar);
         if (suiteRootPath == null || suiteRootPath.isEmpty()) {
             throw new AbortRunException(
                     "Bazel Test Suite root directory not set, aborting",
