@@ -1122,11 +1122,7 @@ def get_manifest_branch(show_aosp=False):
         try:
             xml_root = ET.parse(xml).getroot()
         except (IOError, OSError, ET.ParseError):
-            # TODO(b/274989179) Change back to warning once warning if not going
-            # to be treat as test failure. Or test_get_manifest_branch unit test
-            # could be fix if return None if portal_xml or default_xml not
-            # exist.
-            logging.info('%s could not be read.', xml)
+            logging.warning('%s could not be read.', xml)
             return ''
         default_tags = xml_root.findall('./default')
         if default_tags:
@@ -1141,11 +1137,7 @@ def get_manifest_branch(show_aosp=False):
         try:
             xml_root = ET.parse(xml).getroot()
         except (IOError, OSError, ET.ParseError):
-            # TODO(b/274989179) Change back to warning once warning if not going
-            # to be treat as test failure. Or test_get_manifest_branch unit test
-            # could be fix if return None if portal_xml or default_xml not
-            # exist.
-            logging.info('%s could not be read.', xml)
+            logging.warning('%s could not be read.', xml)
             return Path()
         include_tags = xml_root.findall('./include')
         if include_tags:
@@ -2026,8 +2018,6 @@ def _send_build_condition_metrics(
     # (build module-info.json or build dependencies.)
     clean_out = (DetectType.MODULE_INFO_CLEAN_OUT
                  if m_mod_info_only else DetectType.BUILD_CLEAN_OUT)
-    ninja_generation = (DetectType.MODULE_INFO_GEN_NINJA
-                        if m_mod_info_only else DetectType.BUILD_GEN_NINJA)
     bpmk_change = (DetectType.MODULE_INFO_BPMK_CHANGE
                    if m_mod_info_only else DetectType.BUILD_BPMK_CHANGE)
     env_change = (DetectType.MODULE_INFO_ENV_CHANGE
@@ -2044,9 +2034,6 @@ def _send_build_condition_metrics(
     else:
         send_data(incremental)
 
-    if ninja_file_is_changed(build_profile):
-        send_data(ninja_generation)
-
     other_condition = True
     if not build_profile.build_files_integrity:
         send_data(bpmk_change)
@@ -2057,7 +2044,7 @@ def _send_build_condition_metrics(
     if bool(get_modified_files(os.getcwd())):
         send_data(src_change)
         other_condition = False
-    if other_condition:
+    if ninja_file_is_changed(build_profile) and other_condition:
         send_data(other)
 
 

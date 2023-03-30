@@ -22,14 +22,15 @@ Test Finder Handler module.
 
 import inspect
 import logging
+import sys
 
 from enum import unique, Enum
 
+from atest import atest_enum
 from atest import constants
 
 from atest.test_finders import cache_finder
 from atest.test_finders import test_finder_base
-from atest.test_finders import test_finder_utils
 from atest.test_finders import suite_plan_finder
 from atest.test_finders import tf_integration_finder
 from atest.test_finders import module_finder
@@ -195,9 +196,11 @@ def _get_test_reference_types(ref):
     if '.' in ref:
         ref_end = ref.rsplit('.', 1)[-1]
         ref_end_is_upper = ref_end[0].isupper()
-    # parse_test_reference() will return none empty dictionary if input test
-    # reference match $module:$package_class.
-    if test_finder_utils.parse_test_reference(ref):
+    if ':' in ref:
+        if ref.count(':') > 1:
+            logging.error('More than 1 colon (:) in the test reference(%s). '
+                          'Please correct it and try again.', ref)
+            sys.exit(atest_enum.ExitCode.INPUT_TEST_REFERENCE_ERROR)
         if '.' in ref:
             if ref_end_is_upper:
                 # Module:fully.qualified.Class or Integration:fully.q.Class

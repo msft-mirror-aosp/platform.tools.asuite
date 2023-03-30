@@ -78,8 +78,6 @@ class DetectType(IntEnum):
     BUILD_OTHER = 40
     BUILD_INCREMENTAL = 41
     BUILD_TIME_PER_TARGET = 42
-    MODULE_INFO_GEN_NINJA = 43
-    BUILD_GEN_NINJA = 44
 
 @unique
 class ExitCode(IntEnum):
