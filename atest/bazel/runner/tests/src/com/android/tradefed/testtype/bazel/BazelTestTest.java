@@ -25,6 +25,7 @@ import static org.mockito.Mockito.argThat;
 import static org.mockito.Mockito.contains;
 import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 
@@ -90,6 +91,7 @@ public final class BazelTestTest {
 
     private static final String BAZEL_TEST_TARGETS_OPTION = "bazel-test-target-patterns";
     private static final String BEP_FILE_OPTION_NAME = "--build_event_binary_file";
+    private static final String REPORT_CACHED_TEST_RESULTS_OPTION = "report-cached-test-results";
     private static final long RANDOM_SEED = 1234567890L;
 
     @Rule public final TemporaryFolder tempDir = new TemporaryFolder();
@@ -433,6 +435,30 @@ public final class BazelTestTest {
         verify(mMockListener, times(testCount)).testStarted(any(), anyLong());
     }
 
+    @Test
+    public void reportCachedTestResultsDisabled_cachedTestResultNotReported() throws Exception {
+        FakeProcessStarter processStarter = newFakeProcessStarter();
+        processStarter.put(
+                BazelTest.RUN_TESTS,
+                builder -> {
+                    return new FakeBazelTestProcess(builder, mBazelTempPath) {
+                        @Override
+                        public void writeSingleTestResultEvent(File outputsZipFile, Path bepFile)
+                                throws IOException {
+
+                            writeSingleTestResultEvent(outputsZipFile, bepFile, /* cached */ true);
+                        }
+                    };
+                });
+        BazelTest bazelTest = newBazelTestWithProcessStarter(processStarter);
+        OptionSetter setter = new OptionSetter(bazelTest);
+        setter.setOptionValue(REPORT_CACHED_TEST_RESULTS_OPTION, "false");
+
+        bazelTest.run(mTestInfo, mMockListener);
+
+        verify(mMockListener, never()).testStarted(any(), anyLong());
+    }
+
     private static byte[] logFileContents() {
         // Seed Random to always get the same sequence of values.
         Random rand = new Random(RANDOM_SEED);
@@ -687,6 +713,11 @@ public final class BazelTestTest {
         }
 
         void writeSingleTestResultEvent(File outputsZipFile, Path bepFile) throws IOException {
+            writeSingleTestResultEvent(outputsZipFile, bepFile, false);
+        }
+
+        void writeSingleTestResultEvent(File outputsZipFile, Path bepFile, boolean cached)
+                throws IOException {
             try (FileOutputStream bepOutputStream = new FileOutputStream(bepFile.toFile(), true)) {
                 BuildEventStreamProtos.BuildEvent.newBuilder()
                         .setId(
@@ -701,6 +732,11 @@ public final class BazelTestTest {
                                                 BuildEventStreamProtos.File.newBuilder()
                                                         .setName("test.outputs__outputs.zip")
                                                         .setUri(outputsZipFile.getAbsolutePath())
+                                                        .build())
+                                        .setExecutionInfo(
+                                                BuildEventStreamProtos.TestResult.ExecutionInfo
+                                                        .newBuilder()
+                                                        .setCachedRemotely(cached)
                                                         .build())
                                         .build())
                         .build()
