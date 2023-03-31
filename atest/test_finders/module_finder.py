@@ -968,7 +968,8 @@ class ModuleFinder(test_finder_base.TestFinderBase):
                         return [tinfo]
         return None
 
-    def _is_comparted_src(self, path):
+    @staticmethod
+    def _is_comparted_src(path):
         """Check if the input path need to match srcs information in module.
 
         If path is a folder or android build file, we don't need to compart
