@@ -54,26 +54,34 @@ class GenerationTestFixture(fake_filesystem_unittest.TestCase):
     def setUp(self):
         self.setUpPyfakefs()
 
-        self.src_root_path = Path('/src')
-        self.out_dir_path = self.src_root_path.joinpath('out')
+        self._src_root_path = Path('/src')
+        self.out_dir_path = self._src_root_path.joinpath('out')
         self.out_dir_path.mkdir(parents=True)
         self.product_out_path = self.out_dir_path.joinpath('product')
         self.host_out_path = self.out_dir_path.joinpath('host')
         self.workspace_out_path = self.out_dir_path.joinpath('workspace')
 
-        self.resource_root = self.src_root_path.joinpath(
+        self._resource_root = self._src_root_path.joinpath(
             'tools/asuite/atest/bazel')
 
-        bazel_rules = self.resource_root.joinpath('rules')
-        bazel_rules.mkdir(parents=True)
-        bazel_rules.joinpath('rules.bzl').touch()
+        self.resource_manager = bazel_mode.ResourceManager(
+            src_root_path=self._src_root_path,
+            resource_root_path=self._resource_root,
+            md5_checksum_file_path = self.workspace_out_path.joinpath(
+                'workspace_md5_checksum')
+        )
 
-        bazel_configs = self.resource_root.joinpath('configs')
+        bazel_rules = self.resource_manager.get_resource_file_path('rules')
+        bazel_rules.mkdir(parents=True)
+        self.rules_bzl_file = bazel_rules.joinpath('rules.bzl')
+        self.rules_bzl_file.touch()
+
+        bazel_configs = self.resource_manager.get_resource_file_path('configs')
         bazel_configs.mkdir(parents=True)
         bazel_configs.joinpath('configs.bzl').touch()
 
-        self.resource_root.joinpath('WORKSPACE').touch()
-        self.resource_root.joinpath('bazelrc').touch()
+        self.resource_manager.get_resource_file_path('WORKSPACE').touch()
+        self.resource_manager.get_resource_file_path('bazelrc').touch()
 
     def create_workspace_generator(
         self,
@@ -84,30 +92,28 @@ class GenerationTestFixture(fake_filesystem_unittest.TestCase):
         mod_info = self.create_module_info(modules)
 
         generator = bazel_mode.WorkspaceGenerator(
-            self.src_root_path,
-            self.workspace_out_path,
-            self.product_out_path,
-            self.host_out_path,
-            self.out_dir_path,
-            mod_info,
-            enabled_features=enabled_features,
-            resource_root=self.resource_root,
+            resource_manager=self.resource_manager,
+            workspace_out_path=self.workspace_out_path,
+            product_out_path=self.product_out_path,
+            host_out_path=self.host_out_path,
+            build_out_dir=self.out_dir_path,
+            mod_info=mod_info,
             jdk_path=jdk_path,
+            enabled_features=enabled_features,
         )
 
         return generator
 
     def run_generator(self, mod_info, enabled_features=None, jdk_path=None):
         generator = bazel_mode.WorkspaceGenerator(
-            self.src_root_path,
-            self.workspace_out_path,
-            self.product_out_path,
-            self.host_out_path,
-            self.out_dir_path,
-            mod_info,
-            enabled_features=enabled_features,
-            resource_root=self.resource_root,
+            resource_manager=self.resource_manager,
+            workspace_out_path=self.workspace_out_path,
+            product_out_path=self.product_out_path,
+            host_out_path=self.host_out_path,
+            build_out_dir=self.out_dir_path,
+            mod_info=mod_info,
             jdk_path=jdk_path,
+            enabled_features=enabled_features,
         )
 
         generator.generate()
@@ -329,6 +335,31 @@ class BasicWorkspaceGenerationTest(GenerationTestFixture):
         workspace_generator.generate()
 
         self.assertFalse(some_file.is_file())
+
+    def test_regenerate_workspace_when_resource_file_changed(self):
+        workspace_generator = self.create_workspace_generator()
+        workspace_generator.generate()
+        workspace_stat = workspace_generator.workspace_out_path.stat()
+
+        with open(self.rules_bzl_file, 'a', encoding='utf8') as f:
+            f.write(' ')
+        workspace_generator = self.create_workspace_generator()
+        workspace_generator.generate()
+
+        new_workspace_stat = workspace_generator.workspace_out_path.stat()
+        self.assertNotEqual(workspace_stat, new_workspace_stat)
+
+    def test_not_regenerate_workspace_when_resource_file_only_touched(self):
+        workspace_generator = self.create_workspace_generator()
+        workspace_generator.generate()
+        workspace_stat = workspace_generator.workspace_out_path.stat()
+
+        self.rules_bzl_file.touch()
+        workspace_generator = self.create_workspace_generator()
+        workspace_generator.generate()
+
+        new_workspace_stat = workspace_generator.workspace_out_path.stat()
+        self.assertEqual(workspace_stat, new_workspace_stat)
 
     def test_copy_workspace_resources(self):
         gen = self.create_workspace_generator()
@@ -703,14 +734,13 @@ class RobolectricTestModuleTestTargetGenerationTest(GenerationTestFixture):
 
     def setUp(self):
         super().setUp()
-        self.robolectric_template_path = self.src_root_path.joinpath(
-            bazel_mode.ROBOLECTRIC_CONFIG)
+        self.robolectric_template_path = self.resource_manager.\
+            get_resource_file_path(bazel_mode.ROBOLECTRIC_CONFIG, True)
         self.fs.create_file(self.robolectric_template_path, contents='')
-
-    def create_module_info(self, modules=None):
-        mod_info = super().create_module_info(modules)
-        mod_info.root_dir = self.src_root_path
-        return mod_info
+        # ResourceManager only calculates md5 when registering files. So, it is
+        # necessary to call get_resource_file_path() again after writing files.
+        self.resource_manager.get_resource_file_path(
+            bazel_mode.ROBOLECTRIC_CONFIG, True)
 
     def test_generate_robolectric_test_target(self):
         module_name = 'hello_world_test'
@@ -784,7 +814,7 @@ class RobolectricTestModuleTestTargetGenerationTest(GenerationTestFixture):
         self.assertSymlinkTo(
             self.workspace_out_path.joinpath(
                 f'{bazel_mode.JDK_PACKAGE_NAME}/{bazel_mode.JDK_NAME}_files'),
-            self.src_root_path.joinpath(f'{jdk_path}'))
+            self.resource_manager.get_src_file_path(f'{jdk_path}'))
 
     def test_generate_android_all_target(self):
         gen = self.create_workspace_generator(jdk_path=Path('jdk_src_root'))
