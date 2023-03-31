@@ -9,6 +9,9 @@ common --announce_rc
 # rate.
 build --incompatible_strict_action_env
 
+# Use the JDK defined by local_java_runtime in //prebuilts/jdk/jdk<VERSION>
+build --java_runtime_version=jdk17
+
 # Depending on how many machines are in the remote execution instance, setting
 # this higher can make builds faster by allowing more jobs to run in parallel.
 # Setting it too high can result in jobs that timeout, however, while waiting
