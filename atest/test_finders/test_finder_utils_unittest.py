@@ -99,6 +99,7 @@ PRODUCT_OUT_DIR = os.path.join(BUILD_TOP_DIR, 'out/target/product/vsoc_x86_64')
 HOST_OUT_DIR = tempfile.NamedTemporaryFile().name
 
 #pylint: disable=protected-access
+#pylint: disable=too-many-public-methods
 #pylint: disable=unnecessary-comprehension
 class TestFinderUtilsUnittests(unittest.TestCase):
     """Unit tests for test_finder_utils.py"""
@@ -595,8 +596,9 @@ class TestFinderUtilsUnittests(unittest.TestCase):
         self.assertEqual(test_finder_utils.get_levenshtein_distance(uc.MOD3, uc.FUZZY_MOD3,
                                                                     dir_costs=(1, 2, 1)), 8)
 
-    def test_is_parameterized_java_class(self):
-        """Test is_parameterized_java_class method."""
+    @staticmethod
+    def test_is_parameterized_java_class():
+        """Test is_parameterized_java_class method. """
         matched_contents = (['@RunWith(Parameterized.class)'],
                             [' @RunWith( Parameterized.class ) '],
                             ['@RunWith(TestParameterInjector.class)'],
@@ -698,7 +700,8 @@ class TestFinderUtilsUnittests(unittest.TestCase):
         self.assertEqual(package_name,
                          test_finder_utils.get_package_name(target_kt))
 
-    def get_paths_side_effect(self, module_name):
+    @staticmethod
+    def _get_paths_side_effect(module_name):
         """Mock return values for module_info.get_paths."""
         if module_name == UNIT_TEST_MODULE_1:
             return [IT_TEST_MATCHED_1_PATH]
@@ -716,7 +719,7 @@ class TestFinderUtilsUnittests(unittest.TestCase):
     def test_find_host_unit_tests(self, _get_paths, _mock_get_unit_tests):
         """Test find_host_unit_tests"""
         mod_info = module_info.ModuleInfo(module_file=JSON_FILE_PATH, index_dir=HOST_OUT_DIR)
-        _get_paths.side_effect = self.get_paths_side_effect
+        _get_paths.side_effect = self._get_paths_side_effect
         expect_unit_tests = [UNIT_TEST_MODULE_1, UNIT_TEST_MODULE_2]
         self.assertEqual(
             sorted(expect_unit_tests),
