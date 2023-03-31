@@ -146,6 +146,11 @@ public final class BazelTest implements IRemoteTest {
     @Option(name = "exclude-filter", description = "Test modules to exclude when running tests.")
     private final List<String> mExcludeTargets = new ArrayList<>();
 
+    @Option(
+            name = "report-cached-test-results",
+            description = "Whether or not to report cached test results.")
+    private boolean mReportCachedTestResults = true;
+
     public BazelTest() {
         this(new DefaultProcessStarter(), System.getenv());
     }
@@ -258,6 +263,10 @@ public final class BazelTest implements IRemoteTest {
                 continue;
             }
 
+            if (!mReportCachedTestResults && isTestResultCached(event.getTestResult())) {
+                continue;
+            }
+
             try {
                 reportEventsInTestOutputsArchive(event.getTestResult(), resultParser);
             } catch (IOException | InterruptedException | URISyntaxException e) {
@@ -271,6 +280,10 @@ public final class BazelTest implements IRemoteTest {
                 "Unexpectedly hit end of BEP file without receiving last message",
                 FailureStatus.INFRA_FAILURE,
                 TestErrorIdentifier.OUTPUT_PARSER_ERROR);
+    }
+
+    private static boolean isTestResultCached(BuildEventStreamProtos.TestResult result) {
+        return result.getCachedLocally() || result.getExecutionInfo().getCachedRemotely();
     }
 
     private ProcessBuilder createBazelCommand(Path workspaceDirectory, String tmpDirPrefix)
