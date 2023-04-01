@@ -75,6 +75,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Properties;
 import java.util.Random;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
@@ -240,9 +241,9 @@ public final class BazelTestTest {
 
     @Test
     public void archiveRootPathNotSet_runAborted() throws Exception {
-        Map<String, String> env = bazelTestEnv();
-        env.remove("BAZEL_SUITE_ROOT");
-        BazelTest bazelTest = newBazelTestWithEnvironment(env);
+        Properties properties = bazelTestProperties();
+        properties.remove("BAZEL_SUITE_ROOT");
+        BazelTest bazelTest = newBazelTestWithProperties(properties);
 
         bazelTest.run(mTestInfo, mMockListener);
 
@@ -251,9 +252,9 @@ public final class BazelTestTest {
 
     @Test
     public void archiveRootPathEmptyString_runAborted() throws Exception {
-        Map<String, String> env = bazelTestEnv();
-        env.put("BAZEL_SUITE_ROOT", "");
-        BazelTest bazelTest = newBazelTestWithEnvironment(env);
+        Properties properties = bazelTestProperties();
+        properties.put("BAZEL_SUITE_ROOT", "");
+        BazelTest bazelTest = newBazelTestWithProperties(properties);
 
         bazelTest.run(mTestInfo, mMockListener);
 
@@ -491,26 +492,26 @@ public final class BazelTestTest {
         };
     }
 
-    private BazelTest newBazelTestWithEnvironment(Map<String, String> env) throws Exception {
-        return new BazelTest(newFakeProcessStarter(), env);
+    private BazelTest newBazelTestWithProperties(Properties properties) throws Exception {
+        return new BazelTest(newFakeProcessStarter(), properties);
     }
 
     private BazelTest newBazelTestWithProcessStarter(BazelTest.ProcessStarter starter)
             throws Exception {
 
-        return new BazelTest(starter, bazelTestEnv());
+        return new BazelTest(starter, bazelTestProperties());
     }
 
     private BazelTest newBazelTest() throws Exception {
         return newBazelTestWithProcessStarter(newFakeProcessStarter());
     }
 
-    private Map<String, String> bazelTestEnv() {
-        return new HashMap<>(
-                Map.of(
-                        "PATH", "/phony/path",
-                        "BAZEL_SUITE_ROOT", "/phony/path/to/bazel/test/suite",
-                        "java.io.tmpdir", mBazelTempPath.toAbsolutePath().toString()));
+    private Properties bazelTestProperties() {
+        Properties properties = new Properties();
+        properties.put("BAZEL_SUITE_ROOT", "/phony/path/to/bazel/test/suite");
+        properties.put("java.io.tmpdir", mBazelTempPath.toAbsolutePath().toString());
+
+        return properties;
     }
 
     private static FailureDescription hasErrorIdentifier(ErrorIdentifier error) {
