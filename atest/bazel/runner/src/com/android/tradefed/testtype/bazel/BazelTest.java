@@ -79,8 +79,7 @@ public final class BazelTest implements IRemoteTest {
     public static final String RUN_TESTS = "run_tests";
     // TODO(b/275407694): Use the module_name parameter to filter tests instead of the query
     // command.
-    public static final String TEST_QUERY_TEMPLATE =
-            "tests(...) - attr(module_name, \"(?:%s)\", tests(...))";
+    public static final String TEST_QUERY_TEMPLATE = "attr(module_name, \"(?:%s)\", %s)";
 
     // Add method excludes to TF's global filters since Bazel doesn't support target-specific
     // arguments. See https://github.com/bazelbuild/rules_go/issues/2784.
@@ -104,7 +103,7 @@ public final class BazelTest implements IRemoteTest {
 
     private Path mRunTemporaryDirectory;
 
-    private enum ExcludeType {
+    private enum FilterType {
         MODULE,
         TEST_CASE
     };
@@ -127,13 +126,6 @@ public final class BazelTest implements IRemoteTest {
     private final List<String> mBazelStartupOptions = new ArrayList<>();
 
     @Option(
-            name = "bazel-test-target-patterns",
-            description =
-                    "Target labels for test targets to run, default is to query workspace archive"
-                            + " for all tests and run those.")
-    private final List<String> mTestTargetPatterns = new ArrayList<>();
-
-    @Option(
             name = "bazel-test-extra-args",
             description = "List of extra arguments to be passed to Bazel")
     private final List<String> mBazelTestExtraArgs = new ArrayList<>();
@@ -145,6 +137,9 @@ public final class BazelTest implements IRemoteTest {
 
     @Option(name = "exclude-filter", description = "Test modules to exclude when running tests.")
     private final List<String> mExcludeTargets = new ArrayList<>();
+
+    @Option(name = "include-filter", description = "Test modules to include when running tests.")
+    private final List<String> mIncludeTargets = new ArrayList<>();
 
     @Option(
             name = "report-cached-test-results",
@@ -314,28 +309,53 @@ public final class BazelTest implements IRemoteTest {
     private List<String> listTestTargets(Path workspaceDirectory)
             throws IOException, InterruptedException {
 
-        if (!mTestTargetPatterns.isEmpty()) {
-            return mTestTargetPatterns;
-        }
-
         Path logFile = createLogFile(String.format("%s-log", QUERY_TARGETS));
 
         ProcessBuilder builder = createBazelCommand(workspaceDirectory, QUERY_TARGETS);
 
-        Collection<String> moduleExcludes = groupExcludesByType().get(ExcludeType.MODULE);
-
         builder.command().add("query");
-        builder.command()
-                .add(
-                        moduleExcludes.isEmpty()
-                                ? "tests(...)"
-                                : String.format(
-                                        TEST_QUERY_TEMPLATE, String.join("|", moduleExcludes)));
+        builder.command().add(buildQueryString());
         builder.redirectError(Redirect.appendTo(logFile.toFile()));
 
         Process process = startAndWaitForProcess(QUERY_TARGETS, builder, BAZEL_QUERY_TIMEOUT);
 
         return CharStreams.readLines(new InputStreamReader(process.getInputStream()));
+    }
+
+    private String buildQueryString() {
+        String allTestsSelector = "tests(...)";
+        StringBuilder query = new StringBuilder();
+        Collection<String> moduleExcludes =
+                groupTargetsByType(mExcludeTargets).get(FilterType.MODULE);
+        Collection<String> moduleIncludes =
+                groupTargetsByType(mIncludeTargets).get(FilterType.MODULE);
+
+        if (!moduleIncludes.isEmpty() && !moduleExcludes.isEmpty()) {
+            throw new AbortRunException(
+                    "Invalid options: cannot set both module-level include filters and module-level"
+                            + " exclude filters.",
+                    FailureStatus.DEPENDENCY_ISSUE,
+                    TestErrorIdentifier.TEST_ABORTED);
+        }
+
+        if (!moduleIncludes.isEmpty()) {
+            query.append(
+                    String.format(
+                            TEST_QUERY_TEMPLATE,
+                            String.join("|", moduleIncludes),
+                            allTestsSelector));
+        } else if (!moduleExcludes.isEmpty()) {
+            query.append(allTestsSelector + " - ");
+            query.append(
+                    String.format(
+                            TEST_QUERY_TEMPLATE,
+                            String.join("|", moduleExcludes),
+                            allTestsSelector));
+        } else {
+            query.append(allTestsSelector);
+        }
+
+        return query.toString();
     }
 
     private Process startTests(
@@ -359,7 +379,8 @@ public final class BazelTest implements IRemoteTest {
 
         builder.command().addAll(mBazelTestExtraArgs);
 
-        Collection<String> testFilters = groupExcludesByType().get(ExcludeType.TEST_CASE);
+        Collection<String> testFilters =
+                groupTargetsByType(mExcludeTargets).get(FilterType.TEST_CASE);
         for (String test : testFilters) {
             builder.command().add(String.format(GLOBAL_EXCLUDE_FILTER_TEMPLATE, test));
         }
@@ -369,18 +390,18 @@ public final class BazelTest implements IRemoteTest {
         return startProcess(RUN_TESTS, builder);
     }
 
-    private SetMultimap<ExcludeType, String> groupExcludesByType() {
-        Map<ExcludeType, List<String>> groupedMap =
-                mExcludeTargets.stream()
+    private static SetMultimap<FilterType, String> groupTargetsByType(List<String> targets) {
+        Map<FilterType, List<String>> groupedMap =
+                targets.stream()
                         .collect(
                                 Collectors.groupingBy(
                                         s ->
                                                 s.contains(" ")
-                                                        ? ExcludeType.TEST_CASE
-                                                        : ExcludeType.MODULE));
+                                                        ? FilterType.TEST_CASE
+                                                        : FilterType.MODULE));
 
-        SetMultimap<ExcludeType, String> groupedMultiMap = HashMultimap.create();
-        for (Entry<ExcludeType, List<String>> entry : groupedMap.entrySet()) {
+        SetMultimap<FilterType, String> groupedMultiMap = HashMultimap.create();
+        for (Entry<FilterType, List<String>> entry : groupedMap.entrySet()) {
             groupedMultiMap.putAll(entry.getKey(), entry.getValue());
         }
 
