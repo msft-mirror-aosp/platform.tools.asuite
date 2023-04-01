@@ -292,23 +292,23 @@ public final class BazelTestTest {
     }
 
     @Test
-    public void customTargetOption_testsCustomTargets() throws Exception {
-        String targetName = "//my/custom:test";
+    public void includeTestModule_generatesIncludeQuery() throws Exception {
+        String moduleExclude = "custom_module";
         List<String> command = new ArrayList<>();
         FakeProcessStarter processStarter = newFakeProcessStarter();
         processStarter.put(
-                BazelTest.RUN_TESTS,
+                BazelTest.QUERY_TARGETS,
                 builder -> {
                     command.addAll(builder.command());
-                    return new FakeBazelTestProcess(builder, mBazelTempPath);
+                    return newPassingProcessWithStdout("default_target");
                 });
         BazelTest bazelTest = newBazelTestWithProcessStarter(processStarter);
         OptionSetter setter = new OptionSetter(bazelTest);
-        setter.setOptionValue(BAZEL_TEST_TARGETS_OPTION, targetName);
+        setter.setOptionValue("include-filter", moduleExclude);
 
         bazelTest.run(mTestInfo, mMockListener);
 
-        assertThat(command).contains(targetName);
+        assertThat(command).contains("attr(module_name, \"(?:custom_module)\", tests(...))");
     }
 
     @Test
@@ -356,24 +356,16 @@ public final class BazelTestTest {
     }
 
     @Test
-    public void excludeTestTarget_doesNotExcludeSelectedTests() throws Exception {
+    public void excludeAndIncludeFiltersSet_testRunAborted() throws Exception {
         String moduleExclude = "custom_module";
-        List<String> command = new ArrayList<>();
-        FakeProcessStarter processStarter = newFakeProcessStarter();
-        processStarter.put(
-                BazelTest.RUN_TESTS,
-                builder -> {
-                    command.addAll(builder.command());
-                    return new FakeBazelTestProcess(builder, mBazelTempPath);
-                });
-        BazelTest bazelTest = newBazelTestWithProcessStarter(processStarter);
+        BazelTest bazelTest = newBazelTest();
         OptionSetter setter = new OptionSetter(bazelTest);
         setter.setOptionValue("exclude-filter", moduleExclude);
-        setter.setOptionValue("bazel-test-target-patterns", moduleExclude);
+        setter.setOptionValue("include-filter", moduleExclude);
 
         bazelTest.run(mTestInfo, mMockListener);
 
-        assertThat(command).contains(moduleExclude);
+        verify(mMockListener).testRunFailed(hasErrorIdentifier(TestErrorIdentifier.TEST_ABORTED));
     }
 
     @Test
