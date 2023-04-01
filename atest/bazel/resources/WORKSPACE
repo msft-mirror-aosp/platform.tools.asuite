@@ -1,3 +1,4 @@
 register_toolchains(
-  "//prebuilts/build-tools:py_toolchain"
+    "//prebuilts/build-tools:py_toolchain",
+    "//prebuilts/jdk/jdk17:runtime_toolchain_definition",
 )
