@@ -27,6 +27,7 @@ import subprocess
 import tempfile
 import unittest
 
+from io import StringIO
 from pathlib import Path
 from typing import List
 from unittest import mock
@@ -1915,14 +1916,18 @@ class BazelTestRunnerTest(unittest.TestCase):
         self.assertFalse(reqs)
 
     def test_query_bazel_test_targets_deps_with_host_arg(self):
-        run_command = self.mock_run_command()
+        query_file_contents = StringIO()
+        def get_query_file_content(args: List[str], _) -> str:
+            query_file_contents.write(_get_query_file_content(args))
+            return ''
+
         runner = self.create_bazel_test_runner(
             modules=[
                 multi_config(host_unit_test_module(name='test1', path='path1')),
                 multi_config(host_unit_test_module(name='test2', path='path2')),
                 multi_config(test_module(name='test3', path='path3')),
             ],
-            run_command=run_command,
+            run_command=get_query_file_content,
             host=True,
         )
 
@@ -1932,23 +1937,25 @@ class BazelTestRunnerTest(unittest.TestCase):
             test_info_of('test3'),
         ])
 
-        call_args = run_command.call_args[0][0]
-        self.assertIn(
+        self.assertEqual(
             'deps(tests(//path1:test1_host + '
             '//path2:test2_host + '
             '//path3:test3_host))',
-            call_args,
-        )
+            query_file_contents.getvalue())
 
     def test_query_bazel_test_targets_deps_without_host_arg(self):
-        run_command = self.mock_run_command()
+        query_file_contents = StringIO()
+        def get_query_file_content(args: List[str], _) -> str:
+            query_file_contents.write(_get_query_file_content(args))
+            return ''
+
         runner = self.create_bazel_test_runner(
             modules=[
                 multi_config(host_unit_test_module(name='test1', path='path1')),
                 host_unit_test_module(name='test2', path='path2'),
                 multi_config(test_module(name='test3', path='path3')),
             ],
-            run_command=run_command,
+            run_command=get_query_file_content,
         )
 
         runner.get_test_runner_build_reqs([
@@ -1957,14 +1964,11 @@ class BazelTestRunnerTest(unittest.TestCase):
             test_info_of('test3'),
         ])
 
-        call_args = run_command.call_args[0][0]
-        call_args = run_command.call_args[0][0]
-        self.assertIn(
+        self.assertEqual(
             'deps(tests(//path1:test1_device + '
             '//path2:test2_host + '
             '//path3:test3_device))',
-            call_args,
-        )
+            query_file_contents.getvalue())
 
     def test_trim_whitespace_in_bazel_query_output(self):
         run_command = self.mock_run_command(
@@ -2244,6 +2248,14 @@ def test_info_of(module_name, test_filters=None):
 def test_filter_of(class_name, methods=None):
     return test_info.TestFilter(
         class_name, frozenset(methods) if methods else frozenset())
+
+
+def _get_query_file_content(args: List[str]) -> str:
+    for arg in args:
+        if arg.startswith('--query_file='):
+            return Path(arg.split('=')[1]).read_text()
+
+    raise Exception('Query file not found!')
 
 
 if __name__ == '__main__':
