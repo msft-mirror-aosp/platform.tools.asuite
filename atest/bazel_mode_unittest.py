@@ -64,11 +64,12 @@ class GenerationTestFixture(fake_filesystem_unittest.TestCase):
         self._resource_root = self._src_root_path.joinpath(
             'tools/asuite/atest/bazel')
 
+        self.workspace_md5_checksum = self.workspace_out_path.joinpath(
+            'workspace_md5_checksum')
         self.resource_manager = bazel_mode.ResourceManager(
             src_root_path=self._src_root_path,
             resource_root_path=self._resource_root,
-            md5_checksum_file_path = self.workspace_out_path.joinpath(
-                'workspace_md5_checksum')
+            md5_checksum_file_path = self.workspace_md5_checksum
         )
 
         bazel_rules = self.resource_manager.get_resource_file_path('rules')
@@ -315,12 +316,35 @@ class BasicWorkspaceGenerationTest(GenerationTestFixture):
         workspace_generator.generate()
         workspace_stat = workspace_generator.workspace_out_path.stat()
 
-        workspace_generator.mod_info.mod_info_file_path.unlink()
+        self.workspace_md5_checksum.unlink()
         workspace_generator = self.create_workspace_generator()
         workspace_generator.generate()
-
         new_workspace_stat = workspace_generator.workspace_out_path.stat()
+
         self.assertNotEqual(workspace_stat, new_workspace_stat)
+
+    def test_regenerate_workspace_when_md5_file_is_broken(self):
+        workspace_generator = self.create_workspace_generator()
+        workspace_generator.generate()
+        workspace_stat = workspace_generator.workspace_out_path.stat()
+
+        self.workspace_md5_checksum.write_text('broken checksum file')
+        workspace_generator = self.create_workspace_generator()
+        workspace_generator.generate()
+        new_workspace_stat = workspace_generator.workspace_out_path.stat()
+
+        self.assertNotEqual(workspace_stat, new_workspace_stat)
+
+    def test_not_regenerate_workspace_when_workspace_files_unaffected(self):
+        workspace_generator = self.create_workspace_generator()
+        workspace_generator.generate()
+        workspace_stat = workspace_generator.workspace_out_path.stat()
+
+        workspace_generator = self.create_workspace_generator()
+        workspace_generator.generate()
+        new_workspace_stat = workspace_generator.workspace_out_path.stat()
+
+        self.assertEqual(workspace_stat, new_workspace_stat)
 
     def test_scrub_old_workspace_when_regenerating(self):
         workspace_generator = self.create_workspace_generator()
@@ -329,7 +353,7 @@ class BasicWorkspaceGenerationTest(GenerationTestFixture):
         some_file.touch()
         self.assertTrue(some_file.is_file())
 
-        # Remove the md5 file to regenerate the workspace.
+        # Remove the module_info file to regenerate the workspace.
         workspace_generator.mod_info.mod_info_file_path.unlink()
         workspace_generator = self.create_workspace_generator()
         workspace_generator.generate()
