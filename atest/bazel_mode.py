@@ -36,6 +36,7 @@ import re
 import shlex
 import shutil
 import subprocess
+import tempfile
 import time
 import warnings
 
@@ -1659,15 +1660,19 @@ class BazelTestRunner(trb.TestRunnerBase):
             sorted(self.test_info_target_label(i) for i in test_infos)
         )
 
-        query_args = [
-            self.bazel_binary,
-            'cquery',
-            f'deps(tests({deps_expression}))',
-            '--output=starlark',
-            f'--starlark:file={self.starlark_file}',
-        ]
+        with tempfile.NamedTemporaryFile() as query_file:
+            with open(query_file.name, 'w', encoding='utf-8') as _query_file:
+                _query_file.write(f'deps(tests({deps_expression}))')
 
-        output = self.run_command(query_args, self.bazel_workspace)
+            query_args = [
+                str(self.bazel_binary),
+                'cquery',
+                f'--query_file={query_file.name}',
+                '--output=starlark',
+                f'--starlark:file={self.starlark_file}',
+            ]
+
+            output = self.run_command(query_args, self.bazel_workspace)
 
         targets = set()
         robolectric_tests = set(filter(
