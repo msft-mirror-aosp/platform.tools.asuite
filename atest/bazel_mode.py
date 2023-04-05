@@ -1526,13 +1526,24 @@ def create_new_finder(mod_info: module_info.ModuleInfo,
                                    finder.finder_info)
 
 
+class RunCommandError(subprocess.CalledProcessError):
+    """CalledProcessError but including debug information when it fails."""
+    def __str__(self):
+        return f'{super().__str__()}\nstdout={self.stdout}\n\nstderr={self.stderr}'
+
+
 def default_run_command(args: List[str], cwd: Path) -> str:
-    return subprocess.check_output(
+    result = subprocess.run(
         args=args,
         cwd=cwd,
         text=True,
-        stderr=subprocess.DEVNULL,
+        capture_output=True,
     )
+    if result.returncode:
+        # Provide a more detailed log message including stdout and stderr.
+        raise RunCommandError(result.returncode, result.args, result.stdout,
+                              result.stderr)
+    return result.stdout
 
 
 @dataclasses.dataclass
