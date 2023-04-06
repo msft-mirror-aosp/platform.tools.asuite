@@ -856,6 +856,7 @@ class TestTarget(Target):
     DEVICE_TEST_PREREQUISITES = frozenset(DEVICELESS_TEST_PREREQUISITES.union(
         frozenset({
             'aapt',
+            'aapt2',
             'compatibility-tradefed',
             'vts-core-tradefed-harness',
         })))
