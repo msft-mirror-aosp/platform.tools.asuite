@@ -20,6 +20,7 @@ load("//bazel/rules:tradefed_test_dependency_info.bzl", "TradefedTestDependencyI
 load("//bazel/rules:common_settings.bzl", "BuildSettingInfo")
 load(
     "//:constants.bzl",
+    "aapt2_label",
     "aapt_label",
     "adb_label",
     "atest_script_help_sh_label",
@@ -184,6 +185,7 @@ tradefed_robolectric_test = rule(
 def _tradefed_device_test_impl(ctx):
     tradefed_deps = []
     tradefed_deps.extend(ctx.attr._aapt)
+    tradefed_deps.extend(ctx.attr._aapt2)
     tradefed_deps.extend(ctx.attr.tradefed_deps)
 
     test_device_deps = []
@@ -201,6 +203,7 @@ def _tradefed_device_test_impl(ctx):
         test_host_deps = test_host_deps,
         path_additions = [
             _BAZEL_WORK_DIR + ctx.file._aapt.dirname,
+            _BAZEL_WORK_DIR + ctx.file._aapt2.dirname,
         ],
     )
 
@@ -222,6 +225,12 @@ _tradefed_device_test = rule(
             ),
             "_aapt": attr.label(
                 default = aapt_label,
+                allow_single_file = True,
+                cfg = host_transition,
+                aspects = [soong_prebuilt_tradefed_test_aspect],
+            ),
+            "_aapt2": attr.label(
+                default = aapt2_label,
                 allow_single_file = True,
                 cfg = host_transition,
                 aspects = [soong_prebuilt_tradefed_test_aspect],
