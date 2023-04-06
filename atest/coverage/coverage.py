@@ -18,7 +18,7 @@ import os
 import subprocess
 
 from pathlib import Path
-from typing import List
+from typing import List, Set
 
 from atest import atest_utils
 from atest import constants
@@ -80,7 +80,7 @@ def generate_coverage_report(results_dir: str,
             module_dir = soong_intermediates.joinpath(path, module)
             # Check for uninstrumented Java class files to report coverage.
             classfiles = list(
-                module_dir.glob('*cov*/jacoco-report-classes/*.jar'))
+                module_dir.rglob('jacoco-report-classes/*.jar'))
             if classfiles:
                 jacoco_report_jars[module] = classfiles
 
@@ -103,7 +103,8 @@ def _get_test_deps(test_infos, mod_info):
 
     for info in test_infos:
         deps.add(info.raw_test_name)
-        deps |= mod_info.get_module_dependency(info.raw_test_name, deps)
+        deps |= _get_transitive_module_deps(
+            mod_info.get_module_info(info.raw_test_name), mod_info, deps)
 
         # Include dependencies of any Mainline modules specified as well.
         if not info.mainline_modules:
@@ -111,7 +112,41 @@ def _get_test_deps(test_infos, mod_info):
 
         for mainline_module in info.mainline_modules:
             deps.add(mainline_module)
-            deps |= mod_info.get_module_dependency(mainline_module, deps)
+            deps |= _get_transitive_module_deps(
+                mod_info.get_module_info(mainline_module), mod_info, deps)
+
+    return deps
+
+
+def _get_transitive_module_deps(info,
+                                mod_info: module_info.ModuleInfo,
+                                seen: Set[str]) -> Set[str]:
+    """Gets all dependencies of the module, including .impl versions."""
+    deps = set()
+
+    for dep in info.get(constants.MODULE_DEPENDENCIES, []):
+        if dep in seen:
+            continue
+
+        seen.add(dep)
+
+        dep_info = mod_info.get_module_info(dep)
+
+        # Mainline modules sometimes depend on `java_sdk_library` modules that
+        # generate synthetic build modules ending in `.impl` which do not appear
+        # in the ModuleInfo. Strip this suffix to prevent incomplete dependency
+        # information when generating coverage reports.
+        # TODO(olivernguyen): Reconcile this with
+        # ModuleInfo.get_module_dependency(...).
+        if not dep_info:
+            dep = dep.removesuffix('.impl')
+            dep_info = mod_info.get_module_info(dep)
+
+        if not dep_info:
+            continue
+
+        deps.add(dep)
+        deps |= _get_transitive_module_deps(dep_info, mod_info, seen)
 
     return deps
 
@@ -196,7 +231,7 @@ def _generate_native_coverage_report(unstripped_native_binaries, results_dir):
         # to generate the unstripped binaries, but are stored in the same
         # directory as the actual output binary.
         if not binary.match('*.rsp'):
-            cmd.append(str(binary))
+            cmd.append(f'--object={str(binary)}')
 
     try:
         subprocess.run(cmd, check=True,
