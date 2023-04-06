@@ -853,6 +853,16 @@ class TestFinderUtilsUnittests(unittest.TestCase):
 
         self.assertEqual(result, dict())
 
+    def test_parse_test_reference_input_module_dashed_match(self):
+        test_module = 'my-module'
+        test_class = 'BR/EI/ZH'
+        test_ref = f'{test_module}:{test_class}'
+
+        result = test_finder_utils.parse_test_reference(test_ref)
+
+        self.assertEqual(test_module, result['module_name'])
+        self.assertEqual(test_class, result['pkg_class_name'])
+
     def test_parse_test_reference_input_module_pkg_method_match(self):
         test_module = 'myModule'
         test_package = 'my.package'
