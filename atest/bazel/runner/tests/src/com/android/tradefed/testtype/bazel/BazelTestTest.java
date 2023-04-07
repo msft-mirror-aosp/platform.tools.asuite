@@ -133,7 +133,15 @@ public final class BazelTestTest {
         bazelTest.run(mTestInfo, mMockListener);
 
         verify(mMockListener)
-                .testLog(contains(String.format("%s-log", BazelTest.QUERY_TARGETS)), any(), any());
+                .testLog(
+                        contains(String.format("%s-log", BazelTest.QUERY_ALL_TARGETS)),
+                        any(),
+                        any());
+        verify(mMockListener)
+                .testLog(
+                        contains(String.format("%s-log", BazelTest.QUERY_MAP_MODULES_TO_TARGETS)),
+                        any(),
+                        any());
         verify(mMockListener)
                 .testLog(contains(String.format("%s-log", BazelTest.RUN_TESTS)), any(), any());
     }
@@ -222,10 +230,14 @@ public final class BazelTestTest {
 
     @Test
     public void targetsNotSet_testsAllTargets() throws Exception {
-        String targetName = "customTestTarget";
         List<String> command = new ArrayList<>();
         FakeProcessStarter processStarter = newFakeProcessStarter();
-        processStarter.put(BazelTest.QUERY_TARGETS, newPassingProcessWithStdout(targetName));
+        processStarter.put(
+                BazelTest.QUERY_ALL_TARGETS,
+                newPassingProcessWithStdout("//bazel/target:default_target_host"));
+        processStarter.put(
+                BazelTest.QUERY_MAP_MODULES_TO_TARGETS,
+                newPassingProcessWithStdout("default_target //bazel/target:default_target_host"));
         processStarter.put(
                 BazelTest.RUN_TESTS,
                 builder -> {
@@ -236,7 +248,7 @@ public final class BazelTestTest {
 
         bazelTest.run(mTestInfo, mMockListener);
 
-        assertThat(command).contains(targetName);
+        assertThat(command).contains("//bazel/target:default_target_host");
     }
 
     @Test
@@ -262,9 +274,20 @@ public final class BazelTestTest {
     }
 
     @Test
-    public void bazelQueryFails_runAborted() throws Exception {
+    public void bazelQueryAllTargetsFails_runAborted() throws Exception {
         FakeProcessStarter processStarter = newFakeProcessStarter();
-        processStarter.put(BazelTest.QUERY_TARGETS, newFailingProcess());
+        processStarter.put(BazelTest.QUERY_ALL_TARGETS, newFailingProcess());
+        BazelTest bazelTest = newBazelTestWithProcessStarter(processStarter);
+
+        bazelTest.run(mTestInfo, mMockListener);
+
+        verify(mMockListener).testRunFailed(hasErrorIdentifier(TestErrorIdentifier.TEST_ABORTED));
+    }
+
+    @Test
+    public void bazelQueryMapModuleToTargetsFails_runAborted() throws Exception {
+        FakeProcessStarter processStarter = newFakeProcessStarter();
+        processStarter.put(BazelTest.QUERY_MAP_MODULES_TO_TARGETS, newFailingProcess());
         BazelTest bazelTest = newBazelTestWithProcessStarter(processStarter);
 
         bazelTest.run(mTestInfo, mMockListener);
@@ -293,35 +316,54 @@ public final class BazelTestTest {
     }
 
     @Test
-    public void includeTestModule_generatesIncludeQuery() throws Exception {
-        String moduleExclude = "custom_module";
+    public void includeTestModule_runsOnlyThatModule() throws Exception {
+        String moduleInclude = "custom_module";
         List<String> command = new ArrayList<>();
         FakeProcessStarter processStarter = newFakeProcessStarter();
         processStarter.put(
-                BazelTest.QUERY_TARGETS,
+                BazelTest.QUERY_ALL_TARGETS,
+                newPassingProcessWithStdout(
+                        "//bazel/target:default_target_host\n//bazel/target:custom_module_host"));
+        processStarter.put(
+                BazelTest.QUERY_MAP_MODULES_TO_TARGETS,
+                newPassingProcessWithStdout(
+                        "default_target //bazel/target:default_target_host\n"
+                                + "custom_module //bazel/target:custom_module_host"));
+        processStarter.put(
+                BazelTest.RUN_TESTS,
                 builder -> {
                     command.addAll(builder.command());
-                    return newPassingProcessWithStdout("default_target");
+                    return new FakeBazelTestProcess(builder, mBazelTempPath);
                 });
         BazelTest bazelTest = newBazelTestWithProcessStarter(processStarter);
         OptionSetter setter = new OptionSetter(bazelTest);
-        setter.setOptionValue("include-filter", moduleExclude);
+        setter.setOptionValue("include-filter", moduleInclude);
 
         bazelTest.run(mTestInfo, mMockListener);
 
-        assertThat(command).contains("attr(module_name, \"(?:custom_module)\", tests(...))");
+        assertThat(command).contains("//bazel/target:custom_module_host");
+        assertThat(command).doesNotContain("//bazel/target:default_target_host");
     }
 
     @Test
-    public void excludeTestModule_generatesExcludeQuery() throws Exception {
+    public void excludeTestModule_doesNotRunTestModule() throws Exception {
         String moduleExclude = "custom_module";
         List<String> command = new ArrayList<>();
         FakeProcessStarter processStarter = newFakeProcessStarter();
         processStarter.put(
-                BazelTest.QUERY_TARGETS,
+                BazelTest.QUERY_ALL_TARGETS,
+                newPassingProcessWithStdout(
+                        "//bazel/target:default_target_host\n//bazel/target:custom_module_host"));
+        processStarter.put(
+                BazelTest.QUERY_MAP_MODULES_TO_TARGETS,
+                newPassingProcessWithStdout(
+                        "default_target //bazel/target:default_target_host\n"
+                                + "custom_module //bazel/target:custom_module_host"));
+        processStarter.put(
+                BazelTest.RUN_TESTS,
                 builder -> {
                     command.addAll(builder.command());
-                    return newPassingProcessWithStdout("default_target");
+                    return new FakeBazelTestProcess(builder, mBazelTempPath);
                 });
         BazelTest bazelTest = newBazelTestWithProcessStarter(processStarter);
         OptionSetter setter = new OptionSetter(bazelTest);
@@ -329,8 +371,8 @@ public final class BazelTestTest {
 
         bazelTest.run(mTestInfo, mMockListener);
 
-        assertThat(command)
-                .contains("tests(...) - attr(module_name, \"(?:custom_module)\", tests(...))");
+        assertThat(command).doesNotContain("//bazel/target:custom_module_host");
+        assertThat(command).contains("//bazel/target:default_target_host");
     }
 
     @Test
@@ -370,9 +412,38 @@ public final class BazelTestTest {
     }
 
     @Test
-    public void queryStdoutEmpty_abortsRun() throws Exception {
+    public void queryMapModulesToTargetsEmpty_abortsRun() throws Exception {
         FakeProcessStarter processStarter = newFakeProcessStarter();
-        processStarter.put(BazelTest.QUERY_TARGETS, newPassingProcessWithStdout(""));
+        processStarter.put(BazelTest.QUERY_MAP_MODULES_TO_TARGETS, newPassingProcessWithStdout(""));
+        BazelTest bazelTest = newBazelTestWithProcessStarter(processStarter);
+
+        bazelTest.run(mTestInfo, mMockListener);
+
+        verify(mMockListener).testRunFailed(hasErrorIdentifier(TestErrorIdentifier.TEST_ABORTED));
+    }
+
+    @Test
+    public void multipleTargetsMappedToSingleModule_abortsRun() throws Exception {
+        FakeProcessStarter processStarter = newFakeProcessStarter();
+        processStarter.put(
+                BazelTest.QUERY_MAP_MODULES_TO_TARGETS,
+                newPassingProcessWithStdout(
+                        "default_target //bazel/target:default_target_1\n"
+                                + "default_target //bazel/target:default_target_2"));
+        BazelTest bazelTest = newBazelTestWithProcessStarter(processStarter);
+
+        bazelTest.run(mTestInfo, mMockListener);
+
+        verify(mMockListener).testRunFailed(hasErrorIdentifier(TestErrorIdentifier.TEST_ABORTED));
+    }
+
+    @Test
+    public void queryMapModulesToTargetsBadOutput_abortsRun() throws Exception {
+        FakeProcessStarter processStarter = newFakeProcessStarter();
+        processStarter.put(
+                BazelTest.QUERY_MAP_MODULES_TO_TARGETS,
+                newPassingProcessWithStdout(
+                        "default_target //bazel/target:default_target incorrect_field"));
         BazelTest bazelTest = newBazelTestWithProcessStarter(processStarter);
 
         bazelTest.run(mTestInfo, mMockListener);
@@ -535,8 +606,12 @@ public final class BazelTestTest {
     }
 
     private FakeProcessStarter newFakeProcessStarter() throws IOException {
+        String targetName = "//bazel/target:default_target_host";
         FakeProcessStarter processStarter = new FakeProcessStarter();
-        processStarter.put(BazelTest.QUERY_TARGETS, newPassingProcessWithStdout("default_target"));
+        processStarter.put(BazelTest.QUERY_ALL_TARGETS, newPassingProcessWithStdout(targetName));
+        processStarter.put(
+                BazelTest.QUERY_MAP_MODULES_TO_TARGETS,
+                newPassingProcessWithStdout("default_target " + targetName));
         processStarter.put(
                 BazelTest.RUN_TESTS,
                 builder -> {
