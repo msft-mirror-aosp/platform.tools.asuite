@@ -38,10 +38,13 @@ import com.android.tradefed.util.ZipUtil;
 import com.android.tradefed.util.proto.TestRecordProtoUtil;
 
 import com.google.common.base.Throwables;
-import com.google.common.collect.SetMultimap;
 import com.google.common.collect.HashMultimap;
+import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Maps;
+import com.google.common.collect.SetMultimap;
 import com.google.common.io.CharStreams;
 import com.google.common.io.MoreFiles;
+import com.google.common.io.Resources;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos;
 import com.google.protobuf.Any;
 import com.google.protobuf.InvalidProtocolBufferException;
@@ -49,6 +52,7 @@ import com.google.protobuf.InvalidProtocolBufferException;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStreamReader;
+import java.io.FileOutputStream;
 import java.lang.ProcessBuilder.Redirect;
 import java.net.URI;
 import java.net.URISyntaxException;
@@ -64,6 +68,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Properties;
+import java.util.Set;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -76,11 +81,9 @@ import java.util.zip.ZipFile;
 @OptionClass(alias = "bazel-test")
 public final class BazelTest implements IRemoteTest {
 
-    public static final String QUERY_TARGETS = "query_targets";
+    public static final String QUERY_ALL_TARGETS = "query_all_targets";
+    public static final String QUERY_MAP_MODULES_TO_TARGETS = "query_map_modules_to_targets";
     public static final String RUN_TESTS = "run_tests";
-    // TODO(b/275407694): Use the module_name parameter to filter tests instead of the query
-    // command.
-    public static final String TEST_QUERY_TEMPLATE = "attr(module_name, \"(?:%s)\", %s)";
 
     // Add method excludes to TF's global filters since Bazel doesn't support target-specific
     // arguments. See https://github.com/bazelbuild/rules_go/issues/2784.
@@ -197,7 +200,7 @@ public final class BazelTest implements IRemoteTest {
 
         Path workspaceDirectory = resolveWorkspacePath();
 
-        List<String> testTargets = listTestTargets(workspaceDirectory);
+        Collection<String> testTargets = listTestTargets(workspaceDirectory);
         if (testTargets.isEmpty()) {
             throw new AbortRunException(
                     "No targets found, aborting",
@@ -285,20 +288,17 @@ public final class BazelTest implements IRemoteTest {
     private ProcessBuilder createBazelCommand(Path workspaceDirectory, String tmpDirPrefix)
             throws IOException {
 
-        Path javaTmpDir = createTemporaryDirectory(String.format("%s-java-tmp-out", tmpDirPrefix));
-        Path bazelTmpDir =
-                createTemporaryDirectory(String.format("%s-bazel-tmp-out", tmpDirPrefix));
+        Path javaTmpDir = createTemporaryDirectory("%s-java-tmp-out".formatted(tmpDirPrefix));
+        Path bazelTmpDir = createTemporaryDirectory("%s-bazel-tmp-out".formatted(tmpDirPrefix));
 
         List<String> command = new ArrayList<>();
 
         command.add(workspaceDirectory.resolve("bazel.sh").toAbsolutePath().toString());
         command.add(
-                String.format(
-                        "--host_jvm_args=-Djava.io.tmpdir=%s",
-                        javaTmpDir.toAbsolutePath().toString()));
-        command.add(
-                String.format("--output_user_root=%s", bazelTmpDir.toAbsolutePath().toString()));
-        command.add(String.format("--max_idle_secs=%d", mBazelMaxIdleTimeout.toSeconds()));
+                "--host_jvm_args=-Djava.io.tmpdir=%s"
+                        .formatted(javaTmpDir.toAbsolutePath().toString()));
+        command.add("--output_user_root=%s".formatted(bazelTmpDir.toAbsolutePath().toString()));
+        command.add("--max_idle_secs=%d".formatted(mBazelMaxIdleTimeout.toSeconds()));
 
         ProcessBuilder builder = new ProcessBuilder(command);
 
@@ -307,29 +307,17 @@ public final class BazelTest implements IRemoteTest {
         return builder;
     }
 
-    private List<String> listTestTargets(Path workspaceDirectory)
+    private Collection<String> listTestTargets(Path workspaceDirectory)
             throws IOException, InterruptedException {
 
-        Path logFile = createLogFile(String.format("%s-log", QUERY_TARGETS));
+        // We need to query all tests targets first in a separate Bazel query call since 'cquery
+        // tests(...)' doesn't work in the Atest Bazel workspace.
+        List<String> allTestTargets = queryAllTestTargets(workspaceDirectory);
+        Map<String, String> moduleToTarget =
+                queryModulesToTestTargets(workspaceDirectory, allTestTargets);
 
-        ProcessBuilder builder = createBazelCommand(workspaceDirectory, QUERY_TARGETS);
-
-        builder.command().add("query");
-        builder.command().add(buildQueryString());
-        builder.redirectError(Redirect.appendTo(logFile.toFile()));
-
-        Process process = startAndWaitForProcess(QUERY_TARGETS, builder, BAZEL_QUERY_TIMEOUT);
-
-        return CharStreams.readLines(new InputStreamReader(process.getInputStream()));
-    }
-
-    private String buildQueryString() {
-        String allTestsSelector = "tests(...)";
-        StringBuilder query = new StringBuilder();
-        Collection<String> moduleExcludes =
-                groupTargetsByType(mExcludeTargets).get(FilterType.MODULE);
-        Collection<String> moduleIncludes =
-                groupTargetsByType(mIncludeTargets).get(FilterType.MODULE);
+        Set<String> moduleExcludes = groupTargetsByType(mExcludeTargets).get(FilterType.MODULE);
+        Set<String> moduleIncludes = groupTargetsByType(mIncludeTargets).get(FilterType.MODULE);
 
         if (!moduleIncludes.isEmpty() && !moduleExcludes.isEmpty()) {
             throw new AbortRunException(
@@ -340,34 +328,123 @@ public final class BazelTest implements IRemoteTest {
         }
 
         if (!moduleIncludes.isEmpty()) {
-            query.append(
-                    String.format(
-                            TEST_QUERY_TEMPLATE,
-                            String.join("|", moduleIncludes),
-                            allTestsSelector));
-        } else if (!moduleExcludes.isEmpty()) {
-            query.append(allTestsSelector + " - ");
-            query.append(
-                    String.format(
-                            TEST_QUERY_TEMPLATE,
-                            String.join("|", moduleExcludes),
-                            allTestsSelector));
-        } else {
-            query.append(allTestsSelector);
+            return Maps.filterKeys(moduleToTarget, s -> moduleIncludes.contains(s)).values();
         }
 
-        return query.toString();
+        if (!moduleExcludes.isEmpty()) {
+            return Maps.filterKeys(moduleToTarget, s -> !moduleExcludes.contains(s)).values();
+        }
+
+        return moduleToTarget.values();
+    }
+
+    private List<String> queryAllTestTargets(Path workspaceDirectory)
+            throws IOException, InterruptedException {
+
+        Path logFile = createLogFile("%s-log".formatted(QUERY_ALL_TARGETS));
+
+        ProcessBuilder builder = createBazelCommand(workspaceDirectory, QUERY_ALL_TARGETS);
+
+        builder.command().add("query");
+        builder.command().add("tests(...)");
+        builder.redirectError(Redirect.appendTo(logFile.toFile()));
+
+        Process queryProcess = startProcess(QUERY_ALL_TARGETS, builder);
+        List<String> queryLines = readProcessLines(queryProcess);
+
+        waitForProcess(queryProcess, QUERY_ALL_TARGETS, BAZEL_QUERY_TIMEOUT);
+
+        return queryLines;
+    }
+
+    private Map<String, String> queryModulesToTestTargets(
+            Path workspaceDirectory, List<String> allTestTargets)
+            throws IOException, InterruptedException {
+
+        Path cqueryTestTargetsFile = createTemporaryFile("test_targets");
+        Files.write(cqueryTestTargetsFile, String.join("+", allTestTargets).getBytes());
+
+        Path cqueryFormatFile = createTemporaryFile("format_module_name_to_test_target");
+        try (FileOutputStream os = new FileOutputStream(cqueryFormatFile.toFile())) {
+            Resources.copy(
+                    Resources.getResource("config/format_module_name_to_test_target.cquery"), os);
+        }
+
+        Path logFile = createLogFile("%s-log".formatted(QUERY_MAP_MODULES_TO_TARGETS));
+        ProcessBuilder builder =
+                createBazelCommand(workspaceDirectory, QUERY_MAP_MODULES_TO_TARGETS);
+
+        builder.command().add("cquery");
+        builder.command().add("--query_file=%s".formatted(cqueryTestTargetsFile.toAbsolutePath()));
+        builder.command().add("--output=starlark");
+        builder.command().add("--starlark:file=%s".formatted(cqueryFormatFile.toAbsolutePath()));
+        builder.redirectError(Redirect.appendTo(logFile.toFile()));
+
+        Process process = startProcess(QUERY_MAP_MODULES_TO_TARGETS, builder);
+
+        List<String> queryLines = readProcessLines(process);
+
+        waitForProcess(process, QUERY_MAP_MODULES_TO_TARGETS, BAZEL_QUERY_TIMEOUT);
+
+        return parseModulesToTargets(queryLines);
+    }
+
+    private List<String> readProcessLines(Process process) throws IOException {
+        return CharStreams.readLines(new InputStreamReader(process.getInputStream()));
+    }
+
+    private Map<String, String> parseModulesToTargets(Collection<String> lines) {
+        Map<String, String> moduleToTarget = new HashMap<>();
+        StringBuilder errorMessage = new StringBuilder();
+        for (String line : lines) {
+            // Query output format is: "module_name //bazel/test:target" if a test target is a
+            // TF test, "" otherwise, so only count proper targets.
+            if (line.isEmpty()) {
+                continue;
+            }
+
+            String[] splitLine = line.split(" ");
+
+            if (splitLine.length != 2) {
+                throw new AbortRunException(
+                        String.format(
+                                "Unrecognized output from %s command: %s",
+                                QUERY_MAP_MODULES_TO_TARGETS, line),
+                        FailureStatus.DEPENDENCY_ISSUE,
+                        TestErrorIdentifier.TEST_ABORTED);
+            }
+
+            String moduleName = splitLine[0];
+            String targetName = splitLine[1];
+
+            String duplicateEntry;
+            if ((duplicateEntry = moduleToTarget.get(moduleName)) != null) {
+                errorMessage.append(
+                        "Multiple test targets found for module %s: %s, %s\n"
+                                .formatted(moduleName, duplicateEntry, targetName));
+            }
+
+            moduleToTarget.put(moduleName, targetName);
+        }
+
+        if (errorMessage.length() != 0) {
+            throw new AbortRunException(
+                    errorMessage.toString(),
+                    FailureStatus.DEPENDENCY_ISSUE,
+                    TestErrorIdentifier.TEST_ABORTED);
+        }
+        return ImmutableMap.copyOf(moduleToTarget);
     }
 
     private Process startTests(
             TestInformation testInfo,
             ITestInvocationListener listener,
-            List<String> testTargets,
+            Collection<String> testTargets,
             Path workspaceDirectory,
             Path bepFile)
             throws IOException {
 
-        Path logFile = createLogFile(String.format("%s-log", RUN_TESTS));
+        Path logFile = createLogFile("%s-log".formatted(RUN_TESTS));
 
         ProcessBuilder builder = createBazelCommand(workspaceDirectory, RUN_TESTS);
 
@@ -375,15 +452,13 @@ public final class BazelTest implements IRemoteTest {
         builder.command().add("test");
         builder.command().addAll(testTargets);
 
-        builder.command()
-                .add(String.format("--build_event_binary_file=%s", bepFile.toAbsolutePath()));
+        builder.command().add("--build_event_binary_file=%s".formatted(bepFile.toAbsolutePath()));
 
         builder.command().addAll(mBazelTestExtraArgs);
 
-        Collection<String> testFilters =
-                groupTargetsByType(mExcludeTargets).get(FilterType.TEST_CASE);
+        Set<String> testFilters = groupTargetsByType(mExcludeTargets).get(FilterType.TEST_CASE);
         for (String test : testFilters) {
-            builder.command().add(String.format(GLOBAL_EXCLUDE_FILTER_TEMPLATE, test));
+            builder.command().add(GLOBAL_EXCLUDE_FILTER_TEMPLATE.formatted(test));
         }
         builder.redirectErrorStream(true);
         builder.redirectOutput(Redirect.appendTo(logFile.toFile()));
@@ -432,15 +507,14 @@ public final class BazelTest implements IRemoteTest {
         if (!process.waitFor(processTimeout.toMillis(), TimeUnit.MILLISECONDS)) {
             process.destroy();
             throw new AbortRunException(
-                    String.format("%s command timed out", processTag),
+                    "%s command timed out".formatted(processTag),
                     FailureStatus.TIMED_OUT,
                     TestErrorIdentifier.TEST_ABORTED);
         }
 
         if (process.exitValue() != 0) {
             throw new AbortRunException(
-                    String.format(
-                            "%s command failed. Exit code: %d", processTag, process.exitValue()),
+                    "%s command failed. Exit code: %d".formatted(processTag, process.exitValue()),
                     FailureStatus.DEPENDENCY_ISSUE,
                     TestErrorIdentifier.TEST_ABORTED);
         }
