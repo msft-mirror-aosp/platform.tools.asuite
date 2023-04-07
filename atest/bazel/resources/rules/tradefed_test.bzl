@@ -34,6 +34,13 @@ load(
 )
 load("//bazel/rules:device_test.bzl", "device_test")
 
+TradefedTestInfo = provider(
+    doc = "Info about a Tradefed test module",
+    fields = {
+        "module_name": "Name of the original Tradefed test module",
+    },
+)
+
 _BAZEL_WORK_DIR = "${TEST_SRCDIR}/${TEST_WORKSPACE}/"
 _PY_TOOLCHAIN = "@bazel_tools//tools/python:toolchain_type"
 _JAVA_TOOLCHAIN = "@bazel_tools//tools/jdk:runtime_toolchain_type"
@@ -341,14 +348,19 @@ def _tradefed_test_impl(
         },
     )
 
-    return [DefaultInfo(
-        executable = script,
-        runfiles = tradefed_runfiles.merge_all([
-            test_host_runfiles,
-            test_device_runfiles,
-            ctx.runfiles(tradefed_test_files),
-        ] + [ctx.runfiles(d.files.to_list()) for d in data]),
-    )]
+    return [
+        DefaultInfo(
+            executable = script,
+            runfiles = tradefed_runfiles.merge_all([
+                test_host_runfiles,
+                test_device_runfiles,
+                ctx.runfiles(tradefed_test_files),
+            ] + [ctx.runfiles(d.files.to_list()) for d in data]),
+        ),
+        TradefedTestInfo(
+            module_name = ctx.attr.module_name,
+        ),
+    ]
 
 def _get_tradefed_deps(suites, tradefed_deps = []):
     suite_to_deps = {
