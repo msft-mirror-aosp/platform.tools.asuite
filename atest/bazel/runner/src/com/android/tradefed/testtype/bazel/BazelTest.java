@@ -250,7 +250,6 @@ public final class BazelTest implements IRemoteTest {
 
         ProtoResultParser resultParser =
                 new ProtoResultParser(listener, testInfo.getContext(), false, "tf-test-process-");
-        resultParser.setQuiet(false);
 
         BuildEventStreamProtos.BuildEvent event;
         while ((event = tailer.nextEvent()) != null) {
