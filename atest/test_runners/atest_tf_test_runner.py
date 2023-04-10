@@ -125,8 +125,10 @@ class AtestTradefedTestRunner(trb.TestRunnerBase):
         super().__init__(results_dir, **kwargs)
         self.module_info = mod_info
         self.log_path = os.path.join(results_dir, LOG_FOLDER_NAME)
-        if not os.path.exists(self.log_path):
-            os.makedirs(self.log_path)
+        # (b/275537997) results_dir could be '' in test_runner_handler; only
+        # mkdir when it is invoked by run_tests.
+        if results_dir:
+            Path(self.log_path).mkdir(parents=True, exist_ok=True)
         log_args = {'log_root_option_name': constants.LOG_ROOT_OPTION_NAME,
                     'log_ext_option': constants.LOG_SAVER_EXT_OPTION,
                     'log_path': self.log_path,
