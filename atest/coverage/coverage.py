@@ -18,13 +18,14 @@ import os
 import subprocess
 
 from pathlib import Path
-from typing import List
+from typing import List, Set
 
 from atest import atest_utils
 from atest import constants
 from atest import module_info
 from atest.test_finders import test_info
 
+CLANG_VERSION='r475365b'
 
 def build_env_vars():
     """Environment variables for building with code coverage instrumentation.
@@ -47,12 +48,15 @@ def tf_args(*value):
         A list of the command line arguments to append.
     """
     del value
+    build_top = Path(os.environ.get(constants.ANDROID_BUILD_TOP))
+    llvm_profdata = build_top.joinpath(
+        f'prebuilts/clang/host/linux-x86/clang-{CLANG_VERSION}')
     return ('--coverage',
             '--coverage-toolchain', 'JACOCO',
             '--coverage-toolchain', 'CLANG',
             '--auto-collect', 'JAVA_COVERAGE',
             '--auto-collect', 'CLANG_COVERAGE',
-            '--llvm-profdata-path', 'llvm-profdata')
+            '--llvm-profdata-path', str(llvm_profdata))
 
 
 def generate_coverage_report(results_dir: str,
@@ -70,18 +74,27 @@ def generate_coverage_report(results_dir: str,
 
     # Collect JaCoCo class jars from the build for coverage report generation.
     jacoco_report_jars = {}
+    unstripped_native_binaries = set()
     for module in dep_modules:
-        # Check if this has uninstrumented Java class files to report coverage.
         for path in mod_info.get_paths(module):
-            report_jar = soong_intermediates.joinpath(
-                path, module,
-                f'android_common_cov/jacoco-report-classes/{module}.jar')
-            if os.path.exists(report_jar):
-                jacoco_report_jars[module] = report_jar
+            module_dir = soong_intermediates.joinpath(path, module)
+            # Check for uninstrumented Java class files to report coverage.
+            classfiles = list(
+                module_dir.rglob('jacoco-report-classes/*.jar'))
+            if classfiles:
+                jacoco_report_jars[module] = classfiles
+
+            # Check for unstripped native binaries to report coverage.
+            unstripped_native_binaries.update(
+                module_dir.glob('*cov*/unstripped/*'))
 
     if jacoco_report_jars:
         _generate_java_coverage_report(jacoco_report_jars, src_paths,
                                        results_dir, mod_info)
+
+    if unstripped_native_binaries:
+        _generate_native_coverage_report(unstripped_native_binaries,
+                                         results_dir)
 
 
 def _get_test_deps(test_infos, mod_info):
@@ -89,10 +102,9 @@ def _get_test_deps(test_infos, mod_info):
     deps = set()
 
     for info in test_infos:
-        # TestInfo.test_name may contain the Mainline modules in brackets, so
-        # strip them out.
         deps.add(info.raw_test_name)
-        deps |= mod_info.get_module_dependency(info.raw_test_name, deps)
+        deps |= _get_transitive_module_deps(
+            mod_info.get_module_info(info.raw_test_name), mod_info, deps)
 
         # Include dependencies of any Mainline modules specified as well.
         if not info.mainline_modules:
@@ -100,7 +112,41 @@ def _get_test_deps(test_infos, mod_info):
 
         for mainline_module in info.mainline_modules:
             deps.add(mainline_module)
-            deps |= mod_info.get_module_dependency(mainline_module, deps)
+            deps |= _get_transitive_module_deps(
+                mod_info.get_module_info(mainline_module), mod_info, deps)
+
+    return deps
+
+
+def _get_transitive_module_deps(info,
+                                mod_info: module_info.ModuleInfo,
+                                seen: Set[str]) -> Set[str]:
+    """Gets all dependencies of the module, including .impl versions."""
+    deps = set()
+
+    for dep in info.get(constants.MODULE_DEPENDENCIES, []):
+        if dep in seen:
+            continue
+
+        seen.add(dep)
+
+        dep_info = mod_info.get_module_info(dep)
+
+        # Mainline modules sometimes depend on `java_sdk_library` modules that
+        # generate synthetic build modules ending in `.impl` which do not appear
+        # in the ModuleInfo. Strip this suffix to prevent incomplete dependency
+        # information when generating coverage reports.
+        # TODO(olivernguyen): Reconcile this with
+        # ModuleInfo.get_module_dependency(...).
+        if not dep_info:
+            dep = dep.removesuffix('.impl')
+            dep_info = mod_info.get_module_info(dep)
+
+        if not dep_info:
+            continue
+
+        deps.add(dep)
+        deps |= _get_transitive_module_deps(dep_info, mod_info, seen)
 
     return deps
 
@@ -114,10 +160,20 @@ def _get_all_src_paths(modules, mod_info):
         info = mod_info.get_module_info(module)
         if not info:
             continue
+
+        # Do not report coverage for test modules.
+        if mod_info.is_testable_module(info):
+            continue
+
         src_paths.update(
             os.path.dirname(f) for f in info.get(constants.MODULE_SRCS, []))
 
+    src_paths = {p for p in src_paths if not _is_generated_code(p)}
     return src_paths
+
+
+def _is_generated_code(path):
+    return 'soong/.intermediates' in path
 
 
 def _generate_java_coverage_report(report_jars, src_paths, results_dir,
@@ -131,9 +187,12 @@ def _generate_java_coverage_report(report_jars, src_paths, results_dir,
     jacoco_lcov = os.path.join(build_top, jacoco_lcov['installed'][0])
     lcov_reports = []
 
-    for name, report_jar in report_jars.items():
+    for name, classfiles in report_jars.items():
         dest = f'{out_dir}/{name}.info'
-        cmd = [jacoco_lcov, '-o', dest, '-classfiles', str(report_jar)]
+        cmd = [jacoco_lcov, '-o', dest]
+        for classfile in classfiles:
+            cmd.append('-classfiles')
+            cmd.append(str(classfile))
         for src_path in src_paths:
             cmd.append('-sourcepath')
             cmd.append(src_path)
@@ -151,6 +210,39 @@ def _generate_java_coverage_report(report_jars, src_paths, results_dir,
         lcov_reports.append(dest)
 
     _generate_lcov_report(out_dir, lcov_reports, build_top)
+
+
+def _generate_native_coverage_report(unstripped_native_binaries, results_dir):
+    build_top = os.environ.get(constants.ANDROID_BUILD_TOP)
+    out_dir = os.path.join(results_dir, 'native_coverage')
+    profdata_files = atest_utils.find_files(results_dir, '*.profdata')
+
+    os.mkdir(out_dir)
+    cmd = ['llvm-cov',
+           'show',
+           '-format=html',
+           f'-output-dir={out_dir}',
+           f'-path-equivalence=/proc/self/cwd,{build_top}']
+    for profdata in profdata_files:
+        cmd.append('--instr-profile')
+        cmd.append(profdata)
+    for binary in unstripped_native_binaries:
+        # Exclude .rsp files. These are files containing the command line used
+        # to generate the unstripped binaries, but are stored in the same
+        # directory as the actual output binary.
+        if not binary.match('*.rsp'):
+            cmd.append(f'--object={str(binary)}')
+
+    try:
+        subprocess.run(cmd, check=True,
+                       stdout=subprocess.PIPE,
+                       stderr=subprocess.STDOUT)
+        atest_utils.colorful_print(f'Native coverage written to {out_dir}.',
+                                   constants.GREEN)
+    except subprocess.CalledProcessError as err:
+        atest_utils.colorful_print('Failed to generate native code coverage.',
+                                   constants.RED)
+        logging.exception(err.stdout)
 
 
 def _generate_lcov_report(out_dir, reports, root_dir=None):

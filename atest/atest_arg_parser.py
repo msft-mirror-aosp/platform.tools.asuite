@@ -18,13 +18,31 @@
 Atest Argument Parser class for atest.
 """
 
-# pylint: disable=line-too-long
+# TODO: (@jimtang) Unsuppress too-many-lines Pylint warning.
+# pylint: disable=line-too-long, too-many-lines
 
 import argparse
 import pydoc
 
 from atest import bazel_mode
 from atest import constants
+
+from atest.atest_utils import BuildOutputMode
+
+def output_mode_msg() -> str:
+    """Generate helper strings for BuildOutputMode."""
+    msg = []
+    for _, value in BuildOutputMode.__members__.items():
+        if value == BuildOutputMode.STREAMED:
+            msg.append(f'\t\t{BuildOutputMode.STREAMED.value}: '
+                       'full output like what "m" does. (default)')
+        elif value == BuildOutputMode.LOGGED:
+            msg.append(f'\t\t{BuildOutputMode.LOGGED.value}: '
+                       'print build output to a log file.')
+        else:
+            raise RuntimeError('Found unknown attribute!')
+    return '\n'.join(msg)
+
 
 # Constants used for AtestArgParser and EPILOG_TEMPLATE
 HELP_DESC = ('A command line tool that allows users to build, install, and run '
@@ -45,6 +63,8 @@ BUILD = 'Run a build.'
 BAZEL_MODE = 'Run tests using Bazel.'
 BAZEL_ARG = ('Forward a flag to Bazel for tests executed with Bazel; '
              'see --bazel-mode.')
+BUILD_OUTPUT = (r'Specifies the desired build output mode. '
+                f'Valid values are:\n{output_mode_msg()}')
 CLEAR_CACHE = 'Wipe out the test_infos cache of the test and start a new search.'
 COLLECT_TESTS_ONLY = ('Collect a list test cases of the instrumentation tests '
                       'without testing them in real.')
@@ -81,6 +101,8 @@ NO_CHECKING_DEVICE = 'Do NOT check device availability. (even it is a device tes
 NO_ENABLE_ROOT = ('Do NOT restart adbd with root permission even the test config '
                   'has RootTargetPreparer.')
 NO_METRICS = 'Do not send metrics.'
+ROBOLEAF_MODE = ('Check if module has been fully converted and invoke with b '
+                 'test.')
 REBUILD_MODULE_INFO = ('Forces a rebuild of the module-info.json file. '
                        'This may be necessary following a repo sync or '
                        'when writing a new test.')
@@ -196,6 +218,7 @@ class AtestArgParser(argparse.ArgumentParser):
                           action='store_true', help=REBUILD_MODULE_INFO)
         self.add_argument('--no-enable-root', help=NO_ENABLE_ROOT,
                           action='store_true')
+        self.add_argument('--roboleaf-mode', action='store_true', help=ROBOLEAF_MODE)
         self.add_argument('--sharding', nargs='?', const=2,
                           type=_positive_int, default=0,
                           help=SHARDING)
@@ -246,6 +269,11 @@ class AtestArgParser(argparse.ArgumentParser):
         self.add_argument('-L', '--list-modules', help=LIST_MODULES)
         self.add_argument('-v', '--verbose', action='store_true', help=VERBOSE)
         self.add_argument('-V', '--version', action='store_true', help=VERSION)
+        self.add_argument('--build-output',
+                          default=BuildOutputMode.STREAMED,
+                          choices=BuildOutputMode,
+                          type=BuildOutputMode,
+                          help=BUILD_OUTPUT)
 
         # Options that switch on/off fuzzy searching.
         fgroup = self.add_mutually_exclusive_group()
@@ -417,11 +445,13 @@ def print_epilog_text():
         NO_CHECKING_DEVICE=NO_CHECKING_DEVICE,
         FUZZY_SEARCH=FUZZY_SEARCH,
         REBUILD_MODULE_INFO=REBUILD_MODULE_INFO,
+        ROBOLEAF_MODE=ROBOLEAF_MODE,
         REQUEST_UPLOAD_RESULT=REQUEST_UPLOAD_RESULT,
         RERUN_UNTIL_FAILURE=RERUN_UNTIL_FAILURE,
         RETRY_ANY_FAILURE=RETRY_ANY_FAILURE,
         SERIAL=SERIAL,
         SHARDING=SHARDING,
+        BUILD_OUTPUT=BUILD_OUTPUT,
         SMART_TESTING_LOCAL=SMART_TESTING_LOCAL,
         START_AVD=START_AVD,
         TEST=TEST,
@@ -518,6 +548,9 @@ OPTIONS
         -m, --rebuild-module-info
             {REBUILD_MODULE_INFO}
 
+        --roboleaf-mode
+            {ROBOLEAF_MODE}
+
         --no-enable-root
             {NO_ENABLE_ROOT}
 
@@ -607,6 +640,8 @@ OPTIONS
         -V, --version
             {VERSION}
 
+        --build-output
+            {BUILD_OUTPUT}
 
         [ Dry-Run and Caching ]
         --dry-run

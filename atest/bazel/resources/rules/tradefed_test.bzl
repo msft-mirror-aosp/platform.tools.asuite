@@ -20,6 +20,7 @@ load("//bazel/rules:tradefed_test_dependency_info.bzl", "TradefedTestDependencyI
 load("//bazel/rules:common_settings.bzl", "BuildSettingInfo")
 load(
     "//:constants.bzl",
+    "aapt2_label",
     "aapt_label",
     "adb_label",
     "atest_script_help_sh_label",
@@ -31,10 +32,12 @@ load(
     "tradefed_test_framework_label",
     "vts_core_tradefed_harness_label",
 )
+load("//bazel/rules:device_test.bzl", "device_test")
 
 _BAZEL_WORK_DIR = "${TEST_SRCDIR}/${TEST_WORKSPACE}/"
 _PY_TOOLCHAIN = "@bazel_tools//tools/python:toolchain_type"
-_TOOLCHAINS = [_PY_TOOLCHAIN]
+_JAVA_TOOLCHAIN = "@bazel_tools//tools/jdk:runtime_toolchain_type"
+_TOOLCHAINS = [_PY_TOOLCHAIN, _JAVA_TOOLCHAIN]
 
 _TRADEFED_TEST_ATTRIBUTES = {
     "module_name": attr.string(),
@@ -133,8 +136,6 @@ tradefed_deviceless_test = rule(
 
 def _tradefed_robolectric_test_impl(ctx):
     def add_android_all_files(ctx, tradefed_test_dir):
-        # Create `android_all` test files because they are required
-        # for running Robolectric tests by Tradefed.
         android_all_files = []
         for target in ctx.attr._android_all:
             for f in target.files.to_list():
@@ -146,11 +147,13 @@ def _tradefed_robolectric_test_impl(ctx):
 
     return _tradefed_test_impl(
         ctx,
-        tradefed_deps = ctx.attr._jdk,
+        data = [ctx.attr.jdk],
         tradefed_options = [
             "-n",
             "--prioritize-host-config",
             "--skip-host-arch-check",
+            "--test-arg",
+            "com.android.tradefed.testtype.IsolatedHostTest:java-folder:%s" % ctx.attr.jdk.label.package,
         ],
         test_host_deps = ctx.attr.test,
         add_extra_tradefed_test_files = add_android_all_files,
@@ -165,15 +168,11 @@ tradefed_robolectric_test = rule(
                 cfg = host_transition,
                 aspects = [soong_prebuilt_tradefed_test_aspect],
             ),
-            "_android_all": attr.label(
-                default = "//android-all:android-all",
-                cfg = host_transition,
-                aspects = [soong_prebuilt_tradefed_test_aspect],
+            "jdk": attr.label(
+                mandatory = True,
             ),
-            "_jdk": attr.label(
-                default = "//prebuilts/jdk:jdk",
-                cfg = host_transition,
-                aspects = [soong_prebuilt_tradefed_test_aspect],
+            "_android_all": attr.label_list(
+                default = ["//android-all:android-all"],
             ),
         },
     ),
@@ -186,6 +185,7 @@ tradefed_robolectric_test = rule(
 def _tradefed_device_test_impl(ctx):
     tradefed_deps = []
     tradefed_deps.extend(ctx.attr._aapt)
+    tradefed_deps.extend(ctx.attr._aapt2)
     tradefed_deps.extend(ctx.attr.tradefed_deps)
 
     test_device_deps = []
@@ -203,6 +203,7 @@ def _tradefed_device_test_impl(ctx):
         test_host_deps = test_host_deps,
         path_additions = [
             _BAZEL_WORK_DIR + ctx.file._aapt.dirname,
+            _BAZEL_WORK_DIR + ctx.file._aapt2.dirname,
         ],
     )
 
@@ -228,6 +229,12 @@ _tradefed_device_test = rule(
                 cfg = host_transition,
                 aspects = [soong_prebuilt_tradefed_test_aspect],
             ),
+            "_aapt2": attr.label(
+                default = aapt2_label,
+                allow_single_file = True,
+                cfg = host_transition,
+                aspects = [soong_prebuilt_tradefed_test_aspect],
+            ),
         },
     ),
     test = True,
@@ -236,11 +243,22 @@ _tradefed_device_test = rule(
     doc = "A rule used to run device tests using Tradefed",
 )
 
-def tradefed_device_driven_test(test, tradefed_deps = [], suites = [], **attrs):
+def tradefed_device_driven_test(
+        name,
+        test,
+        tradefed_deps = [],
+        suites = [],
+        **attrs):
+    tradefed_test_name = "tradefed_test_%s" % name
     _tradefed_device_test(
+        name = tradefed_test_name,
         device_test = test,
         tradefed_deps = _get_tradefed_deps(suites, tradefed_deps),
         **attrs
+    )
+    device_test(
+        name = name,
+        test = tradefed_test_name,
     )
 
 def tradefed_host_driven_device_test(test, tradefed_deps = [], suites = [], **attrs):
@@ -257,7 +275,8 @@ def _tradefed_test_impl(
         test_host_deps = [],
         test_device_deps = [],
         path_additions = [],
-        add_extra_tradefed_test_files = lambda ctx, tradefed_test_dir: []):
+        add_extra_tradefed_test_files = lambda ctx, tradefed_test_dir: [],
+        data = []):
     path_additions = path_additions + [_BAZEL_WORK_DIR + ctx.file._adb.dirname]
 
     # Files required to run the host-side test.
@@ -286,8 +305,9 @@ def _tradefed_test_impl(
     )
 
     py_paths, py_runfiles = _configure_python_toolchain(ctx)
-    path_additions = path_additions + py_paths
-    tradefed_runfiles = tradefed_runfiles.merge(py_runfiles)
+    java_paths, java_runfiles, java_home = _configure_java_toolchain(ctx)
+    path_additions = path_additions + java_paths + py_paths
+    tradefed_runfiles = tradefed_runfiles.merge_all([py_runfiles, java_runfiles])
 
     tradefed_test_dir = "%s_tradefed_test_dir" % ctx.label.name
     tradefed_test_files = []
@@ -317,6 +337,7 @@ def _tradefed_test_impl(
             "{path_additions}": ":".join(path_additions),
             "{additional_tradefed_options}": " ".join(tradefed_options),
             "{result_reporters_config_file}": _abspath(result_reporters_config_file),
+            "{java_home}": java_home,
         },
     )
 
@@ -326,7 +347,7 @@ def _tradefed_test_impl(
             test_host_runfiles,
             test_device_runfiles,
             ctx.runfiles(tradefed_test_files),
-        ]),
+        ] + [ctx.runfiles(d.files.to_list()) for d in data]),
     )]
 
 def _get_tradefed_deps(suites, tradefed_deps = []):
@@ -381,6 +402,12 @@ def _write_reporters_config_file(ctx, config_file, result_reporters):
     config_lines.append("</configuration>")
 
     ctx.actions.write(config_file, "\n".join(config_lines))
+
+def _configure_java_toolchain(ctx):
+    java_runtime = ctx.toolchains[_JAVA_TOOLCHAIN].java_runtime
+    java_home_path = _BAZEL_WORK_DIR + java_runtime.java_home
+    java_runfiles = ctx.runfiles(transitive_files = java_runtime.files)
+    return ([java_home_path + "/bin"], java_runfiles, java_home_path)
 
 def _configure_python_toolchain(ctx):
     py_toolchain_info = ctx.toolchains[_PY_TOOLCHAIN]

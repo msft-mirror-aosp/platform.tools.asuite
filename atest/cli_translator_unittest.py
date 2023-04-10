@@ -82,7 +82,6 @@ def gettestinfos_side_effect(test_names, test_mapping_test_details=None,
 
 
 #pylint: disable=protected-access
-#pylint: disable=no-self-use
 class CLITranslatorUnittests(unittest.TestCase):
     """Unit tests for cli_t.py"""
 
@@ -233,8 +232,6 @@ class CLITranslatorUnittests(unittest.TestCase):
                     test_detail2.options,
                     test_info.data[constants.TI_MODULE_ARG])
 
-    @mock.patch.dict('os.environ', {constants.ANDROID_BUILD_TOP:'/',
-                                    constants.ANDROID_PRODUCT_OUT:PRODUCT_OUT_DIR})
     @mock.patch.object(module_finder.ModuleFinder, 'get_fuzzy_searching_results')
     @mock.patch.object(metrics, 'FindTestFinishEvent')
     @mock.patch.object(test_finder_handler, 'get_find_methods_for_test')
@@ -262,9 +259,11 @@ class CLITranslatorUnittests(unittest.TestCase):
         host_unit_tests.return_value = False
         self.args.tests = [uc.CLASS_NAME]
         self.args.host_unit_test_only = False
-        targets, test_infos = self.ctr.translate(self.args)
+        test_infos = self.ctr.translate(self.args)
         unittest_utils.assert_strict_equal(
-            self, targets, uc.CLASS_BUILD_TARGETS)
+            self,
+            _gather_build_targets(test_infos),
+            uc.CLASS_BUILD_TARGETS)
         unittest_utils.assert_strict_equal(self, test_infos, {uc.CLASS_INFO})
 
     @mock.patch.object(test_finder_utils, 'find_host_unit_tests',
@@ -278,9 +277,11 @@ class CLITranslatorUnittests(unittest.TestCase):
         host_unit_tests.return_value = []
         self.args.tests = [uc.MODULE_NAME, uc.CLASS_NAME]
         self.args.host_unit_test_only = False
-        targets, test_infos = self.ctr.translate(self.args)
+        test_infos = self.ctr.translate(self.args)
         unittest_utils.assert_strict_equal(
-            self, targets, uc.MODULE_CLASS_COMBINED_BUILD_TARGETS)
+            self,
+            _gather_build_targets(test_infos),
+            uc.MODULE_CLASS_COMBINED_BUILD_TARGETS)
         unittest_utils.assert_strict_equal(self, test_infos, {uc.MODULE_INFO,
                                                               uc.CLASS_INFO})
 
@@ -300,9 +301,11 @@ class CLITranslatorUnittests(unittest.TestCase):
         self.args.host = False
         self.args.host_unit_test_only = False
         host_unit_tests.return_value = False
-        targets, test_infos = self.ctr.translate(self.args)
+        test_infos = self.ctr.translate(self.args)
         unittest_utils.assert_strict_equal(
-            self, targets, uc.MODULE_CLASS_COMBINED_BUILD_TARGETS)
+            self,
+            _gather_build_targets(test_infos),
+            uc.MODULE_CLASS_COMBINED_BUILD_TARGETS)
         unittest_utils.assert_strict_equal(self, test_infos, {uc.MODULE_INFO,
                                                               uc.CLASS_INFO})
 
@@ -320,14 +323,17 @@ class CLITranslatorUnittests(unittest.TestCase):
         self.args.test_mapping = True
         self.args.host = False
         host_unit_tests.return_value = False
-        targets, test_infos = self.ctr.translate(self.args)
+        test_infos = self.ctr.translate(self.args)
         unittest_utils.assert_strict_equal(
-            self, targets, uc.MODULE_CLASS_COMBINED_BUILD_TARGETS)
+            self,
+            _gather_build_targets(test_infos),
+            uc.MODULE_CLASS_COMBINED_BUILD_TARGETS)
         unittest_utils.assert_strict_equal(self, test_infos, {uc.MODULE_INFO,
                                                               uc.CLASS_INFO})
 
     def test_find_tests_by_test_mapping_presubmit(self):
         """Test _find_tests_by_test_mapping method to locate presubmit tests."""
+        # TODO: (b/264015241) Stop mocking build variables.
         os_environ_mock = {constants.ANDROID_BUILD_TOP: uc.TEST_DATA_DIR}
         with mock.patch.dict('os.environ', os_environ_mock, clear=True):
             tests, all_tests = self.ctr._find_tests_by_test_mapping(
@@ -344,6 +350,7 @@ class CLITranslatorUnittests(unittest.TestCase):
     def test_find_tests_by_test_mapping_postsubmit(self):
         """Test _find_tests_by_test_mapping method to locate postsubmit tests.
         """
+        # TODO: (b/264015241) Stop mocking build variables.
         os_environ_mock = {constants.ANDROID_BUILD_TOP: uc.TEST_DATA_DIR}
         with mock.patch.dict('os.environ', os_environ_mock, clear=True):
             tests, all_tests = self.ctr._find_tests_by_test_mapping(
@@ -362,6 +369,7 @@ class CLITranslatorUnittests(unittest.TestCase):
     def test_find_tests_by_test_mapping_all_group(self):
         """Test _find_tests_by_test_mapping method to locate postsubmit tests.
         """
+        # TODO: (b/264015241) Stop mocking build variables.
         os_environ_mock = {constants.ANDROID_BUILD_TOP: uc.TEST_DATA_DIR}
         with mock.patch.dict('os.environ', os_environ_mock, clear=True):
             tests, all_tests = self.ctr._find_tests_by_test_mapping(
@@ -380,6 +388,7 @@ class CLITranslatorUnittests(unittest.TestCase):
 
     def test_find_tests_by_test_mapping_include_subdir(self):
         """Test _find_tests_by_test_mapping method to include sub directory."""
+        # TODO: (b/264015241) Stop mocking build variables.
         os_environ_mock = {constants.ANDROID_BUILD_TOP: uc.TEST_DATA_DIR}
         with mock.patch.dict('os.environ', os_environ_mock, clear=True):
             tests, all_tests = self.ctr._find_tests_by_test_mapping(
@@ -427,8 +436,6 @@ class CLITranslatorUnittests(unittest.TestCase):
 
         self.assertEqual(test_mapping_dict, test_mapping_dict_gloden)
 
-    @mock.patch.dict('os.environ', {constants.ANDROID_BUILD_TOP:'/',
-                                    constants.ANDROID_PRODUCT_OUT:PRODUCT_OUT_DIR})
     @mock.patch.object(module_info.ModuleInfo, 'get_testable_modules')
     def test_extract_testable_modules_by_wildcard(self, mock_mods):
         """Test _extract_testable_modules_by_wildcard method."""
@@ -472,7 +479,7 @@ class CLITranslatorUnittests(unittest.TestCase):
         self.args.tests = []
         self.args.host = False
         self.args.host_unit_test_only = False
-        _, test_infos = self.ctr.translate(self.args)
+        test_infos = self.ctr.translate(self.args)
         unittest_utils.assert_strict_equal(self,
                                            test_infos,
                                            {uc.MODULE_INFO,
@@ -500,7 +507,7 @@ class CLITranslatorUnittests(unittest.TestCase):
         self.args.host = False
         self.args.test_mapping = True
         self.args.host_unit_test_only = False
-        _, test_infos = self.ctr.translate(self.args)
+        test_infos = self.ctr.translate(self.args)
         unittest_utils.assert_strict_equal(
             self,
             test_infos,
@@ -554,3 +561,10 @@ class ParseTestIdentifierTest(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
+
+def _gather_build_targets(test_infos):
+    targets = set()
+    for t_info in test_infos:
+        targets |= t_info.build_targets
+    return targets

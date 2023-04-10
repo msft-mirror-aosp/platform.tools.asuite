@@ -22,9 +22,11 @@ Utility functions for atest.
 
 from __future__ import print_function
 
+import enum
 import datetime
 import fnmatch
 import hashlib
+import html
 import importlib
 import itertools
 import json
@@ -37,11 +39,13 @@ import shutil
 import subprocess
 import sys
 import time
+import urllib
 import zipfile
 
+from dataclasses import dataclass
 from multiprocessing import Process
 from pathlib import Path
-from typing import Any, Dict
+from typing import Any, Dict, List, Set
 
 import xml.etree.ElementTree as ET
 
@@ -107,6 +111,31 @@ SUGGESTIONS = {
 }
 
 _BUILD_ENV = {}
+
+
+@dataclass
+class BuildEnvProfiler:
+    """Represents the condition before and after trigging build."""
+    ninja_file: Path
+    ninja_file_mtime: float
+    variable_file: Path
+    variable_file_md5: str
+    clean_out: bool
+    build_files_integrity: bool
+
+
+@enum.unique
+class BuildOutputMode(enum.Enum):
+    "Represents the different ways to display build output."
+    STREAMED = 'streamed'
+    LOGGED = 'logged'
+
+    def __init__(self, arg_name: str):
+        self._description = arg_name
+
+    # pylint: disable=missing-function-docstring
+    def description(self):
+        return self._description
 
 
 def get_build_cmd(dump=False):
@@ -222,7 +251,7 @@ def _run_limited_output(cmd, env_vars=None):
         raise subprocess.CalledProcessError(proc.returncode, cmd, output)
 
 
-def get_build_out_dir():
+def get_build_out_dir() -> str:
     """Get android build out directory.
 
     The order of the rules are:
@@ -267,13 +296,12 @@ def update_build_env(env: Dict[str, str]):
     global _BUILD_ENV
     _BUILD_ENV.update(env)
 
-def build(build_targets, verbose=False):
+
+def build(build_targets: Set[str]):
     """Shell out and invoke run_build_cmd to make build_targets.
 
     Args:
         build_targets: A set of strings of build targets to make.
-        verbose: Optional arg. If True output is streamed to the console.
-                 If False, only the last line of the build output is outputted.
 
     Returns:
         Boolean of whether build command was successful, True if nothing to
@@ -286,34 +314,43 @@ def build(build_targets, verbose=False):
     # pylint: disable=global-statement
     global _BUILD_ENV
     full_env_vars = os.environ.copy()
-    full_env_vars.update(_BUILD_ENV)
+    update_build_env(full_env_vars)
     print('\n%s\n%s' % (
         colorize("Building Dependencies...", constants.CYAN),
                  ', '.join(build_targets)))
     logging.debug('Building Dependencies: %s', ' '.join(build_targets))
     cmd = get_build_cmd() + list(build_targets)
-    return _run_build_cmd(cmd, verbose, full_env_vars)
+    return _run_build_cmd(cmd, _BUILD_ENV)
 
-def _run_build_cmd(cmd, verbose=False, env_vars=None):
+
+def _run_build_cmd(cmd: List[str], env_vars: Dict[str, str]):
     """The main process of building targets.
 
     Args:
         cmd: A list of soong command.
-        verbose: Optional arg. If True output is streamed to the console.
-                 If False, only the last line of the build output is outputted.
-        env_vars: Optional arg. Dict of env vars to set during build.
-
+        env_vars: Dict of environment variables used for build.
     Returns:
         Boolean of whether build command was successful, True if nothing to
         build.
     """
     logging.debug('Executing command: %s', cmd)
+    build_profiler = _build_env_profiling()
     try:
-        if verbose:
+        if env_vars.get('BUILD_OUTPUT_MODE') == BuildOutputMode.STREAMED.value:
+            print()
             subprocess.check_call(cmd, stderr=subprocess.STDOUT, env=env_vars)
         else:
-            # TODO: Save output to a log file.
+            # Note that piping stdout forces Soong to switch to 'dumb terminal
+            # mode' which only prints completed actions. This gives users the
+            # impression that actions are taking longer than they really are.
+            # See b/233044822 for more details.
+            log_path = Path(get_build_out_dir()).joinpath('verbose.log.gz')
+            print('\n(Build log may not reflect actual status in simple output'
+                  'mode; check {} for detail after build finishes.)'.format(
+                    colorize(f'{log_path}', constants.CYAN)
+                  ), end='')
             _run_limited_output(cmd, env_vars=env_vars)
+        _send_build_condition_metrics(build_profiler, cmd)
         logging.info('Build successful')
         return True
     except subprocess.CalledProcessError as err:
@@ -321,21 +358,6 @@ def _run_build_cmd(cmd, verbose=False, env_vars=None):
         if err.output:
             logging.error(err.output)
         return False
-
-
-def _can_upload_to_result_server():
-    """Return True if we can talk to result server."""
-    # TODO: Also check if we have a slow connection to result server.
-    if constants.RESULT_SERVER:
-        try:
-            from urllib.request import urlopen
-            urlopen(constants.RESULT_SERVER,
-                    timeout=constants.RESULT_SERVER_TIMEOUT).close()
-            return True
-        # pylint: disable=broad-except
-        except Exception as err:
-            logging.debug('Talking to result server raised exception: %s', err)
-    return False
 
 
 # pylint: disable=unused-argument
@@ -843,7 +865,7 @@ def find_files(path, file_name=constants.TEST_MAPPING):
                 duration=metrics_utils.convert_duration(0),
                 exit_code=ExitCode.COLLECT_ONLY_FILE_NOT_FOUND,
                 stacktrace=msg,
-                logs=e)
+                logs=str(e))
     return match_files
 
 def extract_zip_text(zip_path):
@@ -1100,7 +1122,11 @@ def get_manifest_branch(show_aosp=False):
         try:
             xml_root = ET.parse(xml).getroot()
         except (IOError, OSError, ET.ParseError):
-            logging.warning('%s could not be read.', xml)
+            # TODO(b/274989179) Change back to warning once warning if not going
+            # to be treat as test failure. Or test_get_manifest_branch unit test
+            # could be fix if return None if portal_xml or default_xml not
+            # exist.
+            logging.info('%s could not be read.', xml)
             return ''
         default_tags = xml_root.findall('./default')
         if default_tags:
@@ -1115,7 +1141,11 @@ def get_manifest_branch(show_aosp=False):
         try:
             xml_root = ET.parse(xml).getroot()
         except (IOError, OSError, ET.ParseError):
-            logging.warning('%s could not be read.', xml)
+            # TODO(b/274989179) Change back to warning once warning if not going
+            # to be treat as test failure. Or test_get_manifest_branch unit test
+            # could be fix if return None if portal_xml or default_xml not
+            # exist.
+            logging.info('%s could not be read.', xml)
             return Path()
         include_tags = xml_root.findall('./include')
         if include_tags:
@@ -1156,8 +1186,7 @@ def build_module_info_target(module_info_target):
     module_info_path = Path(product_out).joinpath('module-info.json')
     if module_info_path.is_file():
         os.remove(module_info_path)
-    if not build([module_info_target],
-                  verbose=logging.getLogger().isEnabledFor(logging.DEBUG)):
+    if not build([module_info_target]):
         sys.exit(ExitCode.BUILD_FAILURE)
     build_duration = time.time() - build_start
     metrics.LocalDetectEvent(
@@ -1899,7 +1928,8 @@ def generate_print_result_html(result_file: Path):
                     result_file.stat().st_ctime)
                 cache.write(f'<h2>{timestamp}</h2>')
             for log in logs:
-                cache.write(f'<p><a href="{log}">{Path(log).name}</a></p>')
+                cache.write(f'<p><a href="{urllib.parse.quote(log)}">'
+                            f'{html.escape(Path(log).name)}</a></p>')
             cache.write('</body></html>')
         print(f'\nTo access logs, press "ctrl" and click on\n'
               f'file://{result_html}\n')
@@ -1939,6 +1969,97 @@ def build_files_integrity_is_ok() -> bool:
             return False
     # 2. Ensure the consistency of all build files.
     return check_md5(constants.BUILDFILES_MD5, missing_ok=False)
+
+
+def _build_env_profiling() -> BuildEnvProfiler:
+    """Determine the status profile before build.
+
+    The BuildEnvProfiler object can help use determine whether a build is:
+        1. clean build. (empty out/ dir)
+        2. Build files Integrity (Android.bp/Android.mk changes).
+        3. Environment variables consistency.
+        4. New Ninja file generated. (mtime of soong/build.ninja)
+
+    Returns:
+        the BuildProfile object.
+    """
+    out_dir = Path(get_build_out_dir())
+    ninja_file = out_dir.joinpath('soong/build.ninja')
+    mtime = ninja_file.stat().st_mtime if ninja_file.is_file() else 0
+    variables_file = out_dir.joinpath('soong/soong.environment.used.build')
+
+    return BuildEnvProfiler(
+        ninja_file=ninja_file,
+        ninja_file_mtime=mtime,
+        variable_file=variables_file,
+        variable_file_md5=md5sum(variables_file),
+        clean_out=not ninja_file.exists(),
+        build_files_integrity=build_files_integrity_is_ok()
+    )
+
+
+def _send_build_condition_metrics(
+        build_profile: BuildEnvProfiler, cmd: List[str]):
+    """Send build conditions by comparing build env profilers."""
+
+    # when build module-info.json only, 'module-info.json' will be
+    # the last element.
+    m_mod_info_only = 'module-info.json' in cmd.pop()
+
+    def ninja_file_is_changed(env_profiler: BuildEnvProfiler) -> bool:
+        """Determine whether the ninja file had been renewal."""
+        if not env_profiler.ninja_file.is_file():
+            return True
+        return (env_profiler.ninja_file.stat().st_mtime !=
+                env_profiler.ninja_file_mtime)
+
+    def env_var_is_changed(env_profiler: BuildEnvProfiler) -> bool:
+        """Determine whether soong-related variables had changed."""
+        return (md5sum(env_profiler.variable_file) !=
+                env_profiler.variable_file_md5)
+
+    def send_data(detect_type):
+        """A simple wrapper of metrics.LocalDetectEvent."""
+        metrics.LocalDetectEvent(detect_type=detect_type, result=1)
+
+    # Determine the correct detect type before profiling.
+    # (build module-info.json or build dependencies.)
+    clean_out = (DetectType.MODULE_INFO_CLEAN_OUT
+                 if m_mod_info_only else DetectType.BUILD_CLEAN_OUT)
+    ninja_generation = (DetectType.MODULE_INFO_GEN_NINJA
+                        if m_mod_info_only else DetectType.BUILD_GEN_NINJA)
+    bpmk_change = (DetectType.MODULE_INFO_BPMK_CHANGE
+                   if m_mod_info_only else DetectType.BUILD_BPMK_CHANGE)
+    env_change = (DetectType.MODULE_INFO_ENV_CHANGE
+                  if m_mod_info_only else DetectType.BUILD_ENV_CHANGE)
+    src_change = (DetectType.MODULE_INFO_SRC_CHANGE
+                  if m_mod_info_only else DetectType.BUILD_SRC_CHANGE)
+    other = (DetectType.MODULE_INFO_OTHER
+             if m_mod_info_only else DetectType.BUILD_OTHER)
+    incremental =(DetectType.MODULE_INFO_INCREMENTAL
+                  if m_mod_info_only else DetectType.BUILD_INCREMENTAL)
+
+    if build_profile.clean_out:
+        send_data(clean_out)
+    else:
+        send_data(incremental)
+
+    if ninja_file_is_changed(build_profile):
+        send_data(ninja_generation)
+
+    other_condition = True
+    if not build_profile.build_files_integrity:
+        send_data(bpmk_change)
+        other_condition = False
+    if env_var_is_changed(build_profile):
+        send_data(env_change)
+        other_condition = False
+    if bool(get_modified_files(os.getcwd())):
+        send_data(src_change)
+        other_condition = False
+    if other_condition:
+        send_data(other)
+
 
 def get_local_auto_shardable_tests():
     """Get the auto shardable test names in shardable file.

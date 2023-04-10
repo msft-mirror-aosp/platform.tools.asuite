@@ -37,6 +37,8 @@ java_library_host {
         canonical_path_from_root: false,
         include_dirs: ["external/protobuf/src"],
     },
+    // b/267831518: Pin tradefed and dependencies to Java 11.
+    java_version: "11",
 }
 
 python_library_host {

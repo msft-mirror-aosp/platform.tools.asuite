@@ -145,17 +145,24 @@ def run_updatedb(search_root=SEARCH_TOP, output_cache=constants.LOCATE_CACHE,
     # Support scanning bind mounts as well.
     updatedb_cmd.extend(['--prune-bind-mounts', 'no'])
 
-    if not has_command(UPDATEDB):
-        return
     logging.debug('Running updatedb... ')
     try:
         full_env_vars = os.environ.copy()
         logging.debug('Executing: %s', updatedb_cmd)
         if not os.path.isdir(constants.INDEX_DIR):
             os.makedirs(constants.INDEX_DIR)
-        subprocess.call(updatedb_cmd, env=full_env_vars)
+        subprocess.run(updatedb_cmd, env=full_env_vars, check=True)
     except (KeyboardInterrupt, SystemExit):
         logging.error('Process interrupted or failure.')
+    # Delete indexes when plocate.db is locked() or other CalledProcessError.
+    # (b/141588997)
+    except subprocess.CalledProcessError as err:
+        logging.error('Executing %s error.', UPDATEDB)
+        metrics_utils.handle_exc_and_send_exit_event(
+            constants.PLOCATEDB_LOCKED)
+        if err.output:
+            logging.error(err.output)
+        os.remove(output_cache)
 
 
 def _dump_index(dump_file, output, output_re, key, value):
@@ -335,43 +342,47 @@ def index_targets(output_cache=constants.LOCATE_CACHE):
     """The entrypoint of indexing targets.
 
     Utilise plocate database to index reference types of CLASS, CC_CLASS,
-    PACKAGE and QUALIFIED_CLASS. Testable module for tab completion is also
-    generated in this method.
+    PACKAGE and QUALIFIED_CLASS.
+
+    (b/206886222) The checksum and file size of plocate.db may differ even the
+    src is not changed at all; therefore, it will skip indexing when both
+    conditions are fulfilled:
+      - not undergo `repo sync` before running atest.
+      - file numbers recorded in current and previous plocate.db are the same.
 
     Args:
         output_cache: A file path of the updatedb cache
                       (e.g. /path/to/plocate.db).
     """
-    if not has_command(LOCATE):
-        logging.debug('command %s is unavailable; skip indexing.', LOCATE)
+    unavailable_cmds = [
+        cmd for cmd in [UPDATEDB, LOCATE] if not has_command(cmd)]
+    if unavailable_cmds:
+        logging.debug('command %s is unavailable; skip indexing...',
+                      ' '.join(unavailable_cmds))
         return
-    pre_md5sum = au.md5sum(constants.LOCATE_CACHE)
-    pre_size = sys.maxsize
-    if Path(constants.LOCATE_CACHE).is_file():
-        pre_size = Path(constants.LOCATE_CACHE).stat().st_size
-    try:
-        # Step 0: generate plocate database prior to indexing targets.
-        run_updatedb(SEARCH_TOP, output_cache)
-        # (b/206886222) checksum may be different even the src is not changed.
-        # check filesize as well to tell whether there are src changes or just
-        # metadata changes.
-        if any((pre_md5sum == au.md5sum(constants.LOCATE_CACHE),
-                pre_size == Path(constants.LOCATE_CACHE).stat().st_size)):
-            logging.debug('%s remains the same. Ignore indexing', output_cache)
-            return
-        # Step 1: generate output string for indexing targets when needed.
-        logging.debug('Indexing targets... ')
-        au.run_multi_proc(func=get_java_result, args=[output_cache])
-        au.run_multi_proc(func=get_cc_result, args=[output_cache])
-    # Delete indexes when plocate.db is locked() or other CalledProcessError.
-    # (b/141588997)
-    except subprocess.CalledProcessError as err:
-        logging.error('Executing %s error.', UPDATEDB)
-        metrics_utils.handle_exc_and_send_exit_event(
-            constants.PLOCATEDB_LOCKED)
-        if err.output:
-            logging.error(err.output)
-        _delete_indexes()
+
+    # Get the amount of indexed files.
+    get_num_cmd = f'{LOCATE} -d{output_cache} --count /'
+    ret, pre_number = subprocess.getstatusoutput(get_num_cmd)
+    if ret != 0:
+        logging.debug('Failed to run %s', get_num_cmd)
+        pre_number = sys.maxsize
+
+    run_updatedb(SEARCH_TOP, output_cache)
+    checksum_file = os.path.join(constants.INDEX_DIR, 'repo_sync.md5')
+    repo_syncd = not au.check_md5(checksum_file, missing_ok=False)
+    if repo_syncd:
+        repo_file = Path(SEARCH_TOP).joinpath(
+            '.repo/.repo_fetchtimes.json')
+        au.run_multi_proc(
+            func=au.save_md5,
+            args=[[repo_file], checksum_file])
+    if not repo_syncd and pre_number == subprocess.getoutput(get_num_cmd):
+        logging.debug('%s remains the same. Ignore indexing', output_cache)
+        return
+    logging.debug('Indexing targets... ')
+    au.run_multi_proc(func=get_java_result, args=[output_cache])
+    au.run_multi_proc(func=get_cc_result, args=[output_cache])
 
 
 def acloud_create(report_file, args, no_metrics_notice=True):
@@ -426,8 +437,8 @@ def acloud_create_validator(results_dir, args):
         else:
             A tuple of (None, None)
     """
-    target = os.getenv('TARGET_PRODUCT', "")
-    if not '_cf_' in target:
+    target = os.getenv('TARGET_PRODUCT')
+    if not re.match(r'^(aosp_|)cf_.*', target):
         au.colorful_print(
             f'{target} is not in cuttlefish family; will not create any AVD.',
             constants.RED)

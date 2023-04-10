@@ -38,6 +38,9 @@ import tempfile
 import time
 import platform
 
+from typing import Dict, List
+
+from dataclasses import dataclass
 from pathlib import Path
 
 from atest import atest_arg_parser
@@ -60,6 +63,8 @@ from atest.metrics import metrics_base
 from atest.metrics import metrics_utils
 from atest.test_finders import test_finder_utils
 from atest.test_runners import regression_test_runner
+from atest.test_runners import roboleaf_test_runner
+from atest.test_finders.test_info import TestInfo
 from atest.tools import atest_tools as at
 
 EXPECTED_VARS = frozenset([
@@ -85,6 +90,56 @@ EXIT_CODES_BEFORE_TEST = [ExitCode.ENV_NOT_SETUP,
                           ExitCode.OUTSIDE_ROOT,
                           ExitCode.AVD_CREATE_FAILURE,
                           ExitCode.AVD_INVALID_ARGS]
+
+@dataclass
+class Steps:
+    """A Dataclass that stores steps and shows step assignments."""
+    _build: bool
+    _install: bool
+    _test: bool
+
+    def has_build(self):
+        """Return whether build is in steps."""
+        return self._build
+
+    def is_build_only(self):
+        """Return whether build is the only one in steps."""
+        return self._build and not any((self._test, self._install))
+
+    def has_install(self):
+        """Return whether install is in steps."""
+        return self._install
+
+    def has_test(self):
+        """Return whether install is the only one in steps."""
+        return self._test
+
+    def is_test_only(self):
+        """Return whether build is not in steps but test."""
+        return self._test and not any((self._build, self._install))
+
+
+def parse_steps(args: atest_arg_parser.AtestArgParser) -> Steps:
+    """Return Steps object.
+
+    Args:
+        args: an AtestArgParser object.
+
+    Returns:
+        Step object that stores the boolean of build, install and test.
+    """
+    # Implicitly running 'build', 'install' and 'test' when args.steps is None.
+    if not args.steps:
+        return Steps(True, True, True)
+    build =  constants.BUILD_STEP in args.steps
+    test = constants.TEST_STEP in args.steps
+    install = constants.INSTALL_STEP in args.steps
+    if install and not test:
+        logging.warning('Installing without test step is currently not '
+                        'supported; Atest will proceed testing!')
+        test = True
+    return Steps(build, install, test)
+
 
 def _get_args_from_config():
     """Get customized atest arguments in the config file.
@@ -218,8 +273,7 @@ def get_extra_args(args):
     extra_args = {}
     if args.wait_for_debugger:
         extra_args[constants.WAIT_FOR_DEBUGGER] = None
-    steps = args.steps or constants.ALL_STEPS
-    if constants.INSTALL_STEP not in steps:
+    if not parse_steps(args).has_install():
         extra_args[constants.DISABLE_INSTALL] = None
     # The key and its value of the dict can be called via:
     # if args.aaaa:
@@ -339,6 +393,9 @@ def _validate_adb_devices(args, test_infos):
         args: parsed args object.
         test_info: TestInfo object.
     """
+    # No need to check device availability if the user does not acquire to test.
+    if not parse_steps(args).has_test():
+        return
     if args.no_checking_device:
         return
     all_device_modes = {x.get_supported_exec_mode() for x in test_infos}
@@ -774,13 +831,11 @@ def _exclude_modules_in_targets(build_targets):
     return shrank_build_targets
 
 # pylint: disable=protected-access
-def need_rebuild_module_info(test_steps: None,
-                             force_rebuild: bool = False) -> bool:
+def need_rebuild_module_info(args: atest_arg_parser.AtestArgParser) -> bool:
     """Method that tells whether we need to rebuild module-info.json or not.
 
     Args:
-        test_steps: a list of steps, e.g. ['build','test']
-        force_rebuild: a boolean given from args.rebuild_module_info.
+        args: an AtestArgParser object.
 
         +-----------------+
         | Explicitly pass |  yes
@@ -805,10 +860,10 @@ def need_rebuild_module_info(test_steps: None,
     Returns:
         True for forcely/smartly rebuild, otherwise False without rebuilding.
     """
-    if test_steps and constants.BUILD_STEP not in test_steps:
+    if not parse_steps(args).has_build():
         logging.debug('\"--test\" mode detected, will not rebuild module-info.')
         return False
-    if force_rebuild:
+    if args.rebuild_module_info:
         msg = (f'`{constants.REBUILD_MODULE_INFO_FLAG}` is no longer needed '
                f'since Atest can smartly rebuild {module_info._MODULE_INFO} '
                r'only when needed.')
@@ -841,9 +896,28 @@ def need_run_index_targets(args, extra_args):
         return False
     if extra_args.get(constants.VERIFY_ENV_VARIABLE, False):
         return False
-    if args.steps and 'test' in args.steps:
+    if not parse_steps(args).has_build():
         return False
     return True
+
+def _all_tests_are_bazel_buildable(
+    roboleaf_tests: Dict[str, TestInfo],
+    tests: List[str]) -> bool:
+    """Method that determines whether all tests have been fully converted to
+    bazel mode (roboleaf).
+
+    If all tests are fully converted, then indexing, generating mod-info, and
+    generating atest bazel workspace can be skipped since dependencies are
+    mapped already with `b`.
+
+    Args:
+        roboleaf_tests: A dictionary keyed by testname of roboleaf tests.
+        tests: A list of testnames.
+
+    Returns:
+        True when none of the above conditions were found.
+    """
+    return roboleaf_tests and set(tests) == set(roboleaf_tests)
 
 def perm_consistency_metrics(test_infos, mod_info, args):
     """collect inconsistency between preparer and device root permission.
@@ -866,6 +940,15 @@ def perm_consistency_metrics(test_infos, mod_info, args):
         logging.debug('perm_consistency_metrics raised exception: %s', err)
         return
 
+
+def set_build_output_mode(mode: atest_utils.BuildOutputMode):
+    """Update environment variable dict accordingly to args.build_output."""
+    # Changing this variable does not retrigger builds.
+    atest_utils.update_build_env(
+        {'ANDROID_QUIET_BUILD': 'true',
+         'BUILD_OUTPUT_MODE': mode.value})
+
+
 def get_device_count_config(test_infos, mod_info):
     """Get the amount of desired devices from the test config.
 
@@ -885,27 +968,6 @@ def get_device_count_config(test_infos, mod_info):
             if devices:
                 max_count = max(len(devices), max_count)
     return max_count
-
-
-def _get_host_framework_targets(mod_info):
-    """Get the build target name for all the existing jars under host framework.
-
-    Args:
-        mod_info: ModuleInfo object.
-
-    Returns:
-        A set of build target name under $(ANDROID_HOST_OUT)/framework.
-    """
-    host_targets = set()
-    framework_host_dir = Path(
-        os.environ.get(constants.ANDROID_HOST_OUT)).joinpath('framework')
-    if framework_host_dir.is_dir():
-        jars = framework_host_dir.glob('*.jar')
-        for jar in jars:
-            if mod_info.is_module(jar.stem):
-                host_targets.add(jar.stem)
-        logging.debug('Found exist host framework target:%s', host_targets)
-    return host_targets
 
 
 def _is_auto_shard_test(test_infos):
@@ -943,6 +1005,7 @@ def main(argv, results_dir, args):
     # Sets coverage environment variables.
     if args.experimental_coverage:
         atest_utils.update_build_env(coverage.build_env_vars())
+    set_build_output_mode(args.build_output)
 
     _configure_logging(args.verbose)
     _validate_args(args)
@@ -964,36 +1027,46 @@ def main(argv, results_dir, args):
         os.environ.get(constants.ANDROID_PRODUCT_OUT, ''))
     extra_args = get_extra_args(args)
     verify_env_variables = extra_args.get(constants.VERIFY_ENV_VARIABLE, False)
-    proc_idx = None
-    # Do not index targets while the users intend to dry-run tests.
-    if need_run_index_targets(args, extra_args):
-        proc_idx = atest_utils.run_multi_proc(at.index_targets)
-    smart_rebuild = need_rebuild_module_info(
-        test_steps=args.steps,
-        force_rebuild=args.rebuild_module_info)
 
-    mod_start = time.time()
-    mod_info = module_info.ModuleInfo(force_build=smart_rebuild)
-    mod_stop = time.time() - mod_start
-    metrics.LocalDetectEvent(detect_type=DetectType.MODULE_INFO_INIT_MS,
-                             result=int(mod_stop * 1000))
-    atest_utils.run_multi_proc(func=mod_info._save_module_info_checksum)
-    atest_utils.run_multi_proc(
-        func=atest_utils.generate_buildfiles_checksum,
-        args=[mod_info.module_index.parent])
+    # Gather roboleaf tests now to see if we can skip mod info generation.
+    mod_info = module_info.ModuleInfo(no_generate=True)
+    if args.roboleaf_mode:
+        mod_info.roboleaf_tests = roboleaf_test_runner.RoboleafTestRunner(
+            results_dir).roboleaf_eligible_tests(args.tests)
+    all_tests_are_bazel_buildable = _all_tests_are_bazel_buildable(
+                                mod_info.roboleaf_tests,
+                                args.tests)
 
     # Run Test Mapping or coverage by no-bazel-mode.
     if atest_utils.is_test_mapping(args) or args.experimental_coverage:
         atest_utils.colorful_print('Not running using bazel-mode.', constants.YELLOW)
         args.bazel_mode = False
-    if args.bazel_mode:
-        start = time.time()
-        bazel_mode.generate_bazel_workspace(
-            mod_info,
-            enabled_features=set(args.bazel_mode_features or []))
-        metrics.LocalDetectEvent(
-            detect_type=DetectType.BAZEL_WORKSPACE_GENERATE_TIME,
-            result=int(time.time() - start))
+
+    proc_idx = None
+    if not all_tests_are_bazel_buildable:
+        # Do not index targets while the users intend to dry-run tests.
+        if need_run_index_targets(args, extra_args):
+            proc_idx = atest_utils.run_multi_proc(at.index_targets)
+        smart_rebuild = need_rebuild_module_info(args)
+
+        mod_start = time.time()
+        mod_info = module_info.ModuleInfo(force_build=smart_rebuild)
+        mod_stop = time.time() - mod_start
+        metrics.LocalDetectEvent(detect_type=DetectType.MODULE_INFO_INIT_MS,
+                                 result=int(mod_stop * 1000))
+        atest_utils.run_multi_proc(func=mod_info._save_module_info_checksum)
+        atest_utils.run_multi_proc(
+            func=atest_utils.generate_buildfiles_checksum,
+            args=[mod_info.module_index.parent])
+
+        if args.bazel_mode:
+            start = time.time()
+            bazel_mode.generate_bazel_workspace(
+                mod_info,
+                enabled_features=set(args.bazel_mode_features or []))
+            metrics.LocalDetectEvent(
+                detect_type=DetectType.BAZEL_WORKSPACE_GENERATE_TIME,
+                result=int(time.time() - start))
 
     translator = cli_translator.CLITranslator(
         mod_info=mod_info,
@@ -1004,7 +1077,6 @@ def main(argv, results_dir, args):
     if args.list_modules:
         _print_testable_modules(mod_info, args.list_modules)
         return ExitCode.SUCCESS
-    build_targets = set()
     test_infos = set()
     dry_run_args = (args.update_cmd_mapping, args.verify_cmd_mapping,
                     args.dry_run, args.generate_runner_cmd)
@@ -1015,7 +1087,7 @@ def main(argv, results_dir, args):
         if proc_idx and not atest_utils.has_index_files():
             proc_idx.join()
         find_start = time.time()
-        build_targets, test_infos = translator.translate(args)
+        test_infos = translator.translate(args)
         given_amount  = len(args.serial) if args.serial else 0
         required_amount = get_device_count_config(test_infos, mod_info)
         args.device_count_config = required_amount
@@ -1029,9 +1101,7 @@ def main(argv, results_dir, args):
                     f'but {given_amount} were given.',
                     constants.RED)
                 return 0
-        # Remove MODULE-IN-* from build targets by default.
-        if not args.use_modules_in:
-            build_targets = _exclude_modules_in_targets(build_targets)
+
         find_duration = time.time() - find_start
         if not test_infos:
             return ExitCode.TEST_NOT_FOUND
@@ -1069,8 +1139,13 @@ def main(argv, results_dir, args):
 
     if args.info:
         return _print_test_info(mod_info, test_infos)
-    build_targets |= test_runner_handler.get_test_runner_reqs(
+
+    build_targets = test_runner_handler.get_test_runner_reqs(
         mod_info, test_infos, extra_args=extra_args)
+    # Remove MODULE-IN-* from build targets by default.
+    if not args.use_modules_in:
+        build_targets = _exclude_modules_in_targets(build_targets)
+
     if any(dry_run_args):
         if not verify_env_variables:
             return _dry_run_validator(args, results_dir, extra_args, test_infos,
@@ -1083,26 +1158,28 @@ def main(argv, results_dir, args):
             return 0
     if args.detect_regression:
         build_targets |= (regression_test_runner.RegressionTestRunner('')
-                          .get_test_runner_build_reqs())
-    # args.steps will be None if none of -bit set, else list of params set.
-    steps = args.steps if args.steps else constants.ALL_STEPS
-    if build_targets and constants.BUILD_STEP in steps:
+                          .get_test_runner_build_reqs([]))
+
+    steps = parse_steps(args)
+    if build_targets and steps.has_build():
         if args.experimental_coverage:
             build_targets.add('jacoco_to_lcov_converter')
 
         # Add module-info.json target to the list of build targets to keep the
         # file up to date.
         build_targets.add(mod_info.module_info_target)
-        # Force rebuilt all jars under $ANDROID_HOST_OUT to prevent old version
-        # host jars break the test.
-        build_targets |= _get_host_framework_targets(mod_info)
+
         build_start = time.time()
-        success = atest_utils.build(build_targets, verbose=args.verbose)
+        success = atest_utils.build(build_targets)
         build_duration = time.time() - build_start
         metrics.BuildFinishEvent(
             duration=metrics_utils.convert_duration(build_duration),
             success=success,
             targets=build_targets)
+        metrics.LocalDetectEvent(
+            detect_type=DetectType.BUILD_TIME_PER_TARGET,
+            result=int(build_duration/len(build_targets))
+        )
         rebuild_module_info = DetectType.NOT_REBUILD_MODULE_INFO
         if is_clean:
             rebuild_module_info = DetectType.CLEAN_BUILD
@@ -1124,16 +1201,12 @@ def main(argv, results_dir, args):
         # After build step 'adb' command will be available, and stop forward to
         # Tradefed if the tests require a device.
         _validate_adb_devices(args, test_infos)
-    elif constants.TEST_STEP not in steps:
-        logging.warning('Install step without test step currently not '
-                        'supported, installing AND testing instead.')
-        steps.append(constants.TEST_STEP)
 
     tests_exit_code = ExitCode.SUCCESS
     test_start = time.time()
-    if constants.TEST_STEP in steps:
-        # Only send duration to metrics when passing --test and not --build.
-        if constants.BUILD_STEP not in steps:
+    if steps.has_test():
+        # Only send duration to metrics when no --build.
+        if not steps.has_build():
             _init_and_find = time.time() - _begin_time
             logging.debug('Initiation and finding tests took %ss', _init_and_find)
             metrics.LocalDetectEvent(
@@ -1220,4 +1293,23 @@ if __name__ == '__main__':
                 result=DETECTOR.caught_result)
             if result_file:
                 print("Run 'atest --history' to review test result history.")
+
+    # Only asking internal google user to do this survey.
+    if metrics_base.get_user_type() == metrics_base.INTERNAL_USER:
+        # The bazel_mode value will only be false if user apply --no-bazel-mode.
+        if not atest_configs.GLOBAL_ARGS.bazel_mode:
+            MESSAGE = ('\nDear `--no-bazel-mode` users,\n'
+                         'We are conducting a survey to understand why you are '
+                         'still using `--no-bazel-mode`. The survey should '
+                         'take less than 3 minutes and your responses will be '
+                         'kept confidential and will only be used to improve '
+                         'our understanding of the situation. Please click on '
+                         'the link below to begin the survey:\n\n'
+                         'http://go/atest-no-bazel-survey\n\n'
+                         'Thanks for your time and feedback.\n\n'
+                         'Sincerely,\n'
+                         'The ATest Team')
+
+            print(atest_utils.colorize(MESSAGE, constants.BLACK, bp_color=constants.CYAN))
+
     sys.exit(EXIT_CODE)
