@@ -823,7 +823,7 @@ class ModuleInfo:
         """
         merge_items = [constants.MODULE_DEPENDENCIES, constants.MODULE_SRCS,
                        constants.MODULE_LIBS, constants.MODULE_STATIC_LIBS,
-                       constants.MODULE_STATIC_DEPS]
+                       constants.MODULE_STATIC_DEPS, constants.MODULE_PATH]
         for module_name, dep_info in mod_bp_infos.items():
             mod_info = name_to_module_info.setdefault(module_name, {})
             for merge_item in merge_items:

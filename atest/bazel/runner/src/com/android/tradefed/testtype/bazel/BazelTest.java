@@ -35,10 +35,11 @@ import com.android.tradefed.result.proto.TestRecordProto.FailureStatus;
 import com.android.tradefed.result.proto.TestRecordProto.TestRecord;
 import com.android.tradefed.testtype.IRemoteTest;
 import com.android.tradefed.util.ZipUtil;
-import com.android.tradefed.util.ZipUtil2;
 import com.android.tradefed.util.proto.TestRecordProtoUtil;
 
 import com.google.common.base.Throwables;
+import com.google.common.collect.SetMultimap;
+import com.google.common.collect.HashMultimap;
 import com.google.common.io.CharStreams;
 import com.google.common.io.MoreFiles;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos;
@@ -54,19 +55,21 @@ import java.net.URISyntaxException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.nio.file.StandardCopyOption;
 import java.time.Duration;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
-import java.util.concurrent.Future;
+import java.util.Properties;
 import java.util.concurrent.ExecutionException;
-import java.util.concurrent.Executors;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
 import java.util.zip.ZipFile;
 
 /** Test runner for executing Bazel tests. */
@@ -75,6 +78,15 @@ public final class BazelTest implements IRemoteTest {
 
     public static final String QUERY_TARGETS = "query_targets";
     public static final String RUN_TESTS = "run_tests";
+    // TODO(b/275407694): Use the module_name parameter to filter tests instead of the query
+    // command.
+    public static final String TEST_QUERY_TEMPLATE = "attr(module_name, \"(?:%s)\", %s)";
+
+    // Add method excludes to TF's global filters since Bazel doesn't support target-specific
+    // arguments. See https://github.com/bazelbuild/rules_go/issues/2784.
+    // TODO(b/274787592): Integrate with Bazel's test filtering to filter specific test cases.
+    public static final String GLOBAL_EXCLUDE_FILTER_TEMPLATE =
+            "--test_arg=--global-filters:exclude-filter=%s";
 
     private static final Duration BAZEL_QUERY_TIMEOUT = Duration.ofMinutes(5);
     private static final String TEST_NAME = BazelTest.class.getName();
@@ -85,11 +97,17 @@ public final class BazelTest implements IRemoteTest {
 
     private final List<Path> mTemporaryPaths = new ArrayList<>();
     private final List<Path> mLogFiles = new ArrayList<>();
+    private final Properties mProperties;
     private final ProcessStarter mProcessStarter;
     private final Path mTemporaryDirectory;
     private final ExecutorService mExecutor;
 
     private Path mRunTemporaryDirectory;
+
+    private enum FilterType {
+        MODULE,
+        TEST_CASE
+    };
 
     @Option(
             name = "bazel-test-command-timeout",
@@ -97,21 +115,16 @@ public final class BazelTest implements IRemoteTest {
     private Duration mBazelCommandTimeout = Duration.ofHours(1L);
 
     @Option(
-            name = "bazel-workspace-archive",
-            description = "Location of the Bazel workspace archive.")
-    private File mBazelWorkspaceArchive;
+            name = "bazel-test-suite-root-dir",
+            description =
+                    "Name of the environment variable set by CtsTestLauncher indicating the"
+                            + " location of the root bazel-test-suite dir.")
+    private String mSuiteRootDirEnvVar = "BAZEL_SUITE_ROOT";
 
     @Option(
             name = "bazel-startup-options",
             description = "List of startup options to be passed to Bazel.")
     private final List<String> mBazelStartupOptions = new ArrayList<>();
-
-    @Option(
-            name = "bazel-test-target-patterns",
-            description =
-                    "Target labels for test targets to run, default is to query workspace archive"
-                            + " for all tests and run those.")
-    private final List<String> mTestTargetPatterns = new ArrayList<>();
 
     @Option(
             name = "bazel-test-extra-args",
@@ -123,15 +136,27 @@ public final class BazelTest implements IRemoteTest {
             description = "Max idle timeout in seconds for bazel commands.")
     private Duration mBazelMaxIdleTimeout = Duration.ofSeconds(5L);
 
+    @Option(name = "exclude-filter", description = "Test modules to exclude when running tests.")
+    private final List<String> mExcludeTargets = new ArrayList<>();
+
+    @Option(name = "include-filter", description = "Test modules to include when running tests.")
+    private final List<String> mIncludeTargets = new ArrayList<>();
+
+    @Option(
+            name = "report-cached-test-results",
+            description = "Whether or not to report cached test results.")
+    private boolean mReportCachedTestResults = true;
+
     public BazelTest() {
-        this(new DefaultProcessStarter(), Paths.get(System.getProperty("java.io.tmpdir")));
+        this(new DefaultProcessStarter(), System.getProperties());
     }
 
     @VisibleForTesting
-    BazelTest(ProcessStarter processStarter, Path tmpDir) {
+    BazelTest(ProcessStarter processStarter, Properties properties) {
         mProcessStarter = processStarter;
-        mTemporaryDirectory = tmpDir;
         mExecutor = Executors.newFixedThreadPool(1);
+        mProperties = properties;
+        mTemporaryDirectory = Paths.get(properties.getProperty("java.io.tmpdir"));
     }
 
     @Override
@@ -170,7 +195,7 @@ public final class BazelTest implements IRemoteTest {
             List<FailureDescription> runFailures)
             throws IOException, InterruptedException {
 
-        Path workspaceDirectory = extractWorkspace();
+        Path workspaceDirectory = resolveWorkspacePath();
 
         List<String> testTargets = listTestTargets(workspaceDirectory);
         if (testTargets.isEmpty()) {
@@ -230,6 +255,14 @@ public final class BazelTest implements IRemoteTest {
                 return;
             }
 
+            if (!event.hasTestResult()) {
+                continue;
+            }
+
+            if (!mReportCachedTestResults && isTestResultCached(event.getTestResult())) {
+                continue;
+            }
+
             try {
                 reportEventsInTestOutputsArchive(event.getTestResult(), resultParser);
             } catch (IOException | InterruptedException | URISyntaxException e) {
@@ -245,24 +278,8 @@ public final class BazelTest implements IRemoteTest {
                 TestErrorIdentifier.OUTPUT_PARSER_ERROR);
     }
 
-    private Path extractWorkspace() throws IOException {
-        Path outputDirectory = createTemporaryDirectory("atest-bazel-workspace");
-        try {
-            ZipUtil2.extractZip(mBazelWorkspaceArchive, outputDirectory.toFile());
-        } catch (IOException e) {
-            AbortRunException extractException =
-                    new AbortRunException(
-                            String.format("Archive extraction failed: %s", e.getMessage()),
-                            FailureStatus.DEPENDENCY_ISSUE,
-                            TestErrorIdentifier.TEST_ABORTED);
-            extractException.initCause(e);
-            throw extractException;
-        }
-
-        // TODO(b/233885171): Remove resolve once workspace archive is updated.
-        Path workspaceDirectory = outputDirectory.resolve("out/atest_bazel_workspace");
-
-        return workspaceDirectory;
+    private static boolean isTestResultCached(BuildEventStreamProtos.TestResult result) {
+        return result.getCachedLocally() || result.getExecutionInfo().getCachedRemotely();
     }
 
     private ProcessBuilder createBazelCommand(Path workspaceDirectory, String tmpDirPrefix)
@@ -293,21 +310,53 @@ public final class BazelTest implements IRemoteTest {
     private List<String> listTestTargets(Path workspaceDirectory)
             throws IOException, InterruptedException {
 
-        if (!mTestTargetPatterns.isEmpty()) {
-            return mTestTargetPatterns;
-        }
-
         Path logFile = createLogFile(String.format("%s-log", QUERY_TARGETS));
 
         ProcessBuilder builder = createBazelCommand(workspaceDirectory, QUERY_TARGETS);
 
         builder.command().add("query");
-        builder.command().add("tests(...)");
+        builder.command().add(buildQueryString());
         builder.redirectError(Redirect.appendTo(logFile.toFile()));
 
         Process process = startAndWaitForProcess(QUERY_TARGETS, builder, BAZEL_QUERY_TIMEOUT);
 
         return CharStreams.readLines(new InputStreamReader(process.getInputStream()));
+    }
+
+    private String buildQueryString() {
+        String allTestsSelector = "tests(...)";
+        StringBuilder query = new StringBuilder();
+        Collection<String> moduleExcludes =
+                groupTargetsByType(mExcludeTargets).get(FilterType.MODULE);
+        Collection<String> moduleIncludes =
+                groupTargetsByType(mIncludeTargets).get(FilterType.MODULE);
+
+        if (!moduleIncludes.isEmpty() && !moduleExcludes.isEmpty()) {
+            throw new AbortRunException(
+                    "Invalid options: cannot set both module-level include filters and module-level"
+                            + " exclude filters.",
+                    FailureStatus.DEPENDENCY_ISSUE,
+                    TestErrorIdentifier.TEST_ABORTED);
+        }
+
+        if (!moduleIncludes.isEmpty()) {
+            query.append(
+                    String.format(
+                            TEST_QUERY_TEMPLATE,
+                            String.join("|", moduleIncludes),
+                            allTestsSelector));
+        } else if (!moduleExcludes.isEmpty()) {
+            query.append(allTestsSelector + " - ");
+            query.append(
+                    String.format(
+                            TEST_QUERY_TEMPLATE,
+                            String.join("|", moduleExcludes),
+                            allTestsSelector));
+        } else {
+            query.append(allTestsSelector);
+        }
+
+        return query.toString();
     }
 
     private Process startTests(
@@ -330,10 +379,34 @@ public final class BazelTest implements IRemoteTest {
                 .add(String.format("--build_event_binary_file=%s", bepFile.toAbsolutePath()));
 
         builder.command().addAll(mBazelTestExtraArgs);
+
+        Collection<String> testFilters =
+                groupTargetsByType(mExcludeTargets).get(FilterType.TEST_CASE);
+        for (String test : testFilters) {
+            builder.command().add(String.format(GLOBAL_EXCLUDE_FILTER_TEMPLATE, test));
+        }
         builder.redirectErrorStream(true);
         builder.redirectOutput(Redirect.appendTo(logFile.toFile()));
 
         return startProcess(RUN_TESTS, builder);
+    }
+
+    private static SetMultimap<FilterType, String> groupTargetsByType(List<String> targets) {
+        Map<FilterType, List<String>> groupedMap =
+                targets.stream()
+                        .collect(
+                                Collectors.groupingBy(
+                                        s ->
+                                                s.contains(" ")
+                                                        ? FilterType.TEST_CASE
+                                                        : FilterType.MODULE));
+
+        SetMultimap<FilterType, String> groupedMultiMap = HashMultimap.create();
+        for (Entry<FilterType, List<String>> entry : groupedMap.entrySet()) {
+            groupedMultiMap.putAll(entry.getKey(), entry.getValue());
+        }
+
+        return groupedMultiMap;
     }
 
     private Process startAndWaitForProcess(
@@ -488,6 +561,19 @@ public final class BazelTest implements IRemoteTest {
                                         runFailures.size(), reportedFailure.getErrorMessage()),
                                 reportedFailure.getFailureStatus())
                         .setErrorIdentifier(reportedFailure.getErrorIdentifier()));
+    }
+
+    private Path resolveWorkspacePath() {
+        String suiteRootPath = mProperties.getProperty(mSuiteRootDirEnvVar);
+        if (suiteRootPath == null || suiteRootPath.isEmpty()) {
+            throw new AbortRunException(
+                    "Bazel Test Suite root directory not set, aborting",
+                    FailureStatus.DEPENDENCY_ISSUE,
+                    TestErrorIdentifier.TEST_ABORTED);
+        }
+
+        // TODO(b/233885171): Remove resolve once workspace archive is updated.
+        return Paths.get(suiteRootPath).resolve("android-bazel-suite/out/atest_bazel_workspace");
     }
 
     private void addTestLogs(ITestLogger logger) {
