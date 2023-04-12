@@ -70,6 +70,7 @@ class GenerationTestFixture(fake_filesystem_unittest.TestCase):
         self.resource_manager = bazel_mode.ResourceManager(
             src_root_path=self._src_root_path,
             resource_root_path=self._resource_root,
+            product_out_path=self.product_out_path,
             md5_checksum_file_path = self.workspace_md5_checksum
         )
 
@@ -96,7 +97,6 @@ class GenerationTestFixture(fake_filesystem_unittest.TestCase):
         generator = bazel_mode.WorkspaceGenerator(
             resource_manager=self.resource_manager,
             workspace_out_path=self.workspace_out_path,
-            product_out_path=self.product_out_path,
             host_out_path=self.host_out_path,
             build_out_dir=self.out_dir_path,
             mod_info=mod_info,
@@ -110,7 +110,6 @@ class GenerationTestFixture(fake_filesystem_unittest.TestCase):
         generator = bazel_mode.WorkspaceGenerator(
             resource_manager=self.resource_manager,
             workspace_out_path=self.workspace_out_path,
-            product_out_path=self.product_out_path,
             host_out_path=self.host_out_path,
             build_out_dir=self.out_dir_path,
             mod_info=mod_info,
@@ -122,9 +121,10 @@ class GenerationTestFixture(fake_filesystem_unittest.TestCase):
 
     # pylint: disable=protected-access
     def create_empty_module_info(self):
-        fake_temp_file_name = next(tempfile._get_candidate_names())
-        self.fs.create_file(fake_temp_file_name, contents='{}')
-        return module_info.ModuleInfo(module_file=fake_temp_file_name)
+        fake_temp_file = self.product_out_path.joinpath(
+            next(tempfile._get_candidate_names()))
+        self.fs.create_file(fake_temp_file, contents='{}')
+        return module_info.ModuleInfo(module_file=fake_temp_file)
 
     def create_module_info(self, modules=None):
         mod_info = self.create_empty_module_info()
