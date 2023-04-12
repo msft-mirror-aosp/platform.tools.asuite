@@ -4,6 +4,7 @@ enum RootType {
   SRC_ROOT = 0;
   RESOURCE_ROOT = 1;
   ABS_PATH = 2;
+  PRODUCT_OUT = 3;
 }
 
 message FileChecksum {
