@@ -160,6 +160,8 @@ def generate_bazel_workspace(mod_info: module_info.ModuleInfo,
     resource_manager = ResourceManager(
             src_root_path=src_root_path,
             resource_root_path=_get_resource_root(),
+            product_out_path=Path(
+                os.environ.get(constants.ANDROID_PRODUCT_OUT)),
             md5_checksum_file_path=workspace_path.joinpath(
                 'workspace_md5_checksum'),
         )
@@ -169,7 +171,6 @@ def generate_bazel_workspace(mod_info: module_info.ModuleInfo,
     workspace_generator = WorkspaceGenerator(
         resource_manager=resource_manager,
         workspace_out_path=workspace_path,
-        product_out_path=Path(os.environ.get(constants.ANDROID_PRODUCT_OUT)),
         host_out_path=Path(os.environ.get(constants.ANDROID_HOST_OUT)),
         build_out_dir=Path(atest_utils.get_build_out_dir()),
         mod_info=mod_info,
@@ -190,11 +191,13 @@ class ResourceManager:
     def __init__(self,
                  src_root_path: Path,
                  resource_root_path: Path,
+                 product_out_path: Path,
                  md5_checksum_file_path: Path):
         self._root_type_to_path = {
             file_md5_pb2.RootType.SRC_ROOT: src_root_path,
             file_md5_pb2.RootType.RESOURCE_ROOT: resource_root_path,
             file_md5_pb2.RootType.ABS_PATH: Path(),
+            file_md5_pb2.RootType.PRODUCT_OUT: product_out_path,
         }
         self._md5_checksum_file = md5_checksum_file_path
         self._file_checksum_list = file_md5_pb2.FileChecksumList()
@@ -234,6 +237,24 @@ class ResourceManager:
         """
         return self._get_file_path(
             file_md5_pb2.RootType.RESOURCE_ROOT, rel_path, affects_workspace)
+
+    def get_product_out_file_path(
+        self,
+        rel_path: Path=None,
+        affects_workspace: bool=False
+    ) -> Path:
+        """Get the abs file path from the relative path of product out.
+
+        Args:
+            rel_path: A relative path to the product out.
+            affects_workspace: A boolean of whether the file affects the
+            workspace.
+
+        Returns:
+            An abs path of the file.
+        """
+        return self._get_file_path(
+            file_md5_pb2.RootType.PRODUCT_OUT, rel_path, affects_workspace)
 
     def _get_file_path(
         self,
@@ -319,7 +340,6 @@ class WorkspaceGenerator:
     def __init__(self,
                  resource_manager: ResourceManager,
                  workspace_out_path: Path,
-                 product_out_path: Path,
                  host_out_path: Path,
                  build_out_dir: Path,
                  mod_info: module_info.ModuleInfo,
@@ -330,7 +350,6 @@ class WorkspaceGenerator:
 
         Args:
             workspace_out_path: Path where the workspace will be output.
-            product_out_path: Path of the ANDROID_PRODUCT_OUT.
             host_out_path: Path of the ANDROID_HOST_OUT.
             build_out_dir: Path of OUT_DIR
             mod_info: ModuleInfo object.
@@ -339,7 +358,6 @@ class WorkspaceGenerator:
         self.enabled_features = enabled_features or set()
         self.resource_manager = resource_manager
         self.workspace_out_path = workspace_out_path
-        self.product_out_path = product_out_path
         self.host_out_path = host_out_path
         self.build_out_dir = build_out_dir
         self.mod_info = mod_info
@@ -382,11 +400,9 @@ class WorkspaceGenerator:
         # it above since the workspace no longer exists at this point.
         enabled_features_file.write_text(enabled_features_file_contents)
 
-        # TODO(b/274999420): The 'module-info.json' file path is different for
-        # different targets. Recording the 'lunch target', and regenerate the
-        # workspace when the target changes.
-        self.resource_manager.register_file_with_abs_path(
-            self.mod_info.mod_info_file_path)
+        self.resource_manager.get_product_out_file_path(
+            self.mod_info.mod_info_file_path.relative_to(
+                self.resource_manager.get_product_out_file_path()), True)
         self.resource_manager.register_file_with_abs_path(
             enabled_features_file)
         self.resource_manager.save_affects_files_md5()
@@ -1069,7 +1085,7 @@ class SoongPrebuiltTarget(Target):
 
         configs = [
             Config('host', gen.host_out_path),
-            Config('device', gen.product_out_path),
+            Config('device', gen.resource_manager.get_product_out_file_path()),
         ]
 
         installed_paths = get_module_installed_paths(
@@ -1357,10 +1373,11 @@ def find_device_data_dep_refs(
 ) -> List[ModuleRef]:
     """Return module references for device data dependencies."""
 
-    return _find_module_refs(gen.mod_info,
-                             [Config('device', gen.product_out_path)],
-                             gen.resource_manager.get_src_file_path(),
-                             info.get(constants.MODULE_TARGET_DEPS, []))
+    return _find_module_refs(
+        gen.mod_info,
+        [Config('device', gen.resource_manager.get_product_out_file_path())],
+        gen.resource_manager.get_src_file_path(),
+        info.get(constants.MODULE_TARGET_DEPS, []))
 
 
 def find_static_dep_refs(
