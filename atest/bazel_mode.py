@@ -1766,8 +1766,8 @@ class BazelTestRunner(trb.TestRunnerBase):
 
 def parse_args(
     test_infos: List[test_info.TestInfo],
-    extra_args: trb.ARGS,
-    mod_info: module_info.ModuleInfo) -> trb.ARGS:
+    extra_args: Dict[str, Any],
+    mod_info: module_info.ModuleInfo) -> Dict[str, Any]:
     """Parse commandline args and passes supported args to bazel.
 
     Args:
