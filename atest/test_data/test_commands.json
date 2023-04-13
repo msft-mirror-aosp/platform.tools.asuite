@@ -662,5 +662,25 @@
 "log_saver=template/log/atest_log_saver",
 "template/atest_local_min",
 "test=atest"
+],
+"pts-bot:PAN/GN/MISC/UUID/BV-01-C": [
+"--atest-include-filter",
+"--include-filter",
+"--log-level",
+"--log-level-display",
+"--logcat-on-failure",
+"--no-early-device-release",
+"--no-enable-granular-attempts",
+"--skip-loading-config-jar",
+"--template:map",
+"--template:map",
+"VERBOSE",
+"VERBOSE",
+"atest_tradefed.sh",
+"log_saver=template/log/atest_log_saver",
+"pts-bot",
+"pts-bot:PAN/GN/MISC/UUID/BV-01-C",
+"template/atest_local_min",
+"test=atest"
 ]
 }
