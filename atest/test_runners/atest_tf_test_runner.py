@@ -29,7 +29,7 @@ import socket
 
 from functools import partial
 from pathlib import Path
-from typing import Any, List, Set, Tuple
+from typing import Any, Dict, List, Set, Tuple
 
 from atest import atest_configs
 from atest import atest_error
@@ -1033,9 +1033,11 @@ def generate_annotation_filter_args(
     return annotation_filter_args
 
 
-def extra_args_to_tf_args(mod_info: module_info.ModuleInfo,
-                          test_infos: List[test_info.TestInfo],
-                          extra_args: trb.ARGS) -> Tuple[trb.ARGS, trb.ARGS]:
+def extra_args_to_tf_args(
+    mod_info: module_info.ModuleInfo,
+    test_infos: List[test_info.TestInfo],
+    extra_args: Dict[str, Any],
+) -> Tuple[Dict[str, Any], Dict[str, Any]]:
     """Convert the extra args into atest_tf_test_runner supported args.
 
     Args:
