@@ -49,8 +49,6 @@ PASSED_STATUS = 'PASSED'
 IGNORED_STATUS = 'IGNORED'
 ERROR_STATUS = 'ERROR'
 
-ARGS = Dict[str, Any]
-
 
 class TestRunnerBase:
     """Base Test Runner class."""
