@@ -72,6 +72,10 @@ fi
 targets="atest dist empty-bazel-test-suite ${EXTRA_TARGETS:-}"
 build/soong/soong_ui.bash --make-mode $targets
 
+# TODO(b/277656887): Fix the underlying atest issue that causes the workspace to not be
+# regenerated.
+rm -rf ${OUT_DIR}/atest_bazel_workspace
+
 # Generate the initial workspace via Atest Bazel mode.
 ${OUT_DIR}/host/linux-x86/bin/atest-dev \
   --bazel-mode \
