@@ -1834,6 +1834,13 @@ def parse_args(
 
     args_to_append.extend([f'--test_arg={i}' for i in tf_args])
 
+    # Disable test result caching when wait-for-debugger flag is set.
+    if '--wait-for-debugger' in tf_args:
+        # Remove the --cache_test_results flag if it's already set.
+        args_to_append = [arg for arg in args_to_append
+                          if not arg.startswith('--cache_test_results')]
+        args_to_append.append('--cache_test_results=no')
+
     # Default to --test_output=errors unless specified otherwise
     if not any(arg.startswith('--test_output=') for arg in args_to_append):
         args_to_append.append('--test_output=errors')
