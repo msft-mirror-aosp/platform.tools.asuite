@@ -588,6 +588,12 @@ class WorkspaceGenerator:
         # Symlink to package with toolchain definitions.
         self._symlink(src='prebuilts/build-tools',
                       target='prebuilts/build-tools')
+
+        device_infra_path = 'vendor/google/tools/atest/device_infra'
+        if self.resource_manager.get_src_file_path(device_infra_path).exists():
+            self._symlink(src=device_infra_path,
+                          target=device_infra_path)
+
         self._create_constants_file()
 
         self._generate_robolectric_resources()
