@@ -244,10 +244,11 @@ def fetch_credential(config_folder, extra_args):
         if os.path.exists(not_upload_file):
             os.remove(not_upload_file)
     else:
-        if extra_args.get(constants.DISABLE_UPLOAD_RESULT):
-            if os.path.exists(creds_f):
-                os.remove(creds_f)
-            Path(not_upload_file).touch()
+        # TODO(b/275113186): Change back to default upload after AnTS upload
+        #  extremely slow problem be solved.
+        if os.path.exists(creds_f):
+            os.remove(creds_f)
+        Path(not_upload_file).touch()
 
     # If DO_NOT_UPLOAD not exist, ATest will try to get the credential
     # from the file.
@@ -257,11 +258,12 @@ def fetch_credential(config_folder, extra_args):
             client_secret=constants.CLIENT_SECRET,
             user_agent='atest').get_credential_with_auth_flow(creds_f)
 
+    # TODO(b/275113186): Change back the warning message after the bug solved.
     atest_utils.colorful_print(
-        'WARNING: In order to allow uploading local test results to AnTS, it '
-        'is recommended you add the option --request-upload-result. This option'
-        ' only needs to set once and takes effect until --disable-upload-result'
-        ' is set.', constants.YELLOW)
+        'WARNING: AnTS upload disabled by default due to upload slowly'
+        '(b/275113186). If you still want to upload test result to AnTS, '
+        'please add the option --request-upload-result manually.',
+        constants.YELLOW)
     return None
 
 def _prepare_data(creds):
