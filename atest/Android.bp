@@ -105,24 +105,16 @@ python_library_host {
 }
 
 python_library_host {
-    name: "asuite_metrics",
-    pkg_path: "atest",
-    srcs: [
-        "asuite_metrics.py",
-    ],
-}
-
-python_library_host {
     name: "asuite_cc_client",
     pkg_path: "atest",
     srcs: [
         "atest_enum.py",
+        "asuite_metrics.py",
         "metrics/*.py",
         "coverage/*.py",
     ],
     libs: [
         "asuite_proto",
-        "asuite_metrics",
         "atest_module_info",
     ],
 }
