@@ -20,6 +20,8 @@ import com.android.tradefed.config.Option;
 import com.android.tradefed.config.OptionClass;
 import com.android.tradefed.device.DeviceNotAvailableException;
 import com.android.tradefed.invoker.TestInformation;
+import com.android.tradefed.invoker.tracing.CloseableTraceScope;
+import com.android.tradefed.invoker.tracing.TracePropagatingExecutorService;
 import com.android.tradefed.log.ITestLogger;
 import com.android.tradefed.log.LogUtil.CLog;
 import com.android.tradefed.result.FailureDescription;
@@ -37,7 +39,6 @@ import com.android.tradefed.testtype.IRemoteTest;
 import com.android.tradefed.util.ZipUtil;
 import com.android.tradefed.util.proto.TestRecordProtoUtil;
 
-import com.google.common.base.Throwables;
 import com.google.common.collect.HashMultimap;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
@@ -51,7 +52,6 @@ import com.google.protobuf.InvalidProtocolBufferException;
 
 import java.io.File;
 import java.io.IOException;
-import java.io.InputStreamReader;
 import java.io.FileOutputStream;
 import java.lang.ProcessBuilder.Redirect;
 import java.net.URI;
@@ -65,14 +65,12 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.Map.Entry;
+import java.util.Map;
 import java.util.Properties;
 import java.util.Set;
-import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import java.util.zip.ZipFile;
@@ -157,7 +155,7 @@ public final class BazelTest implements IRemoteTest {
     @VisibleForTesting
     BazelTest(ProcessStarter processStarter, Properties properties) {
         mProcessStarter = processStarter;
-        mExecutor = Executors.newFixedThreadPool(1);
+        mExecutor = TracePropagatingExecutorService.create(Executors.newCachedThreadPool());
         mProperties = properties;
         mTemporaryDirectory = Paths.get(properties.getProperty("java.io.tmpdir"));
     }
@@ -212,36 +210,30 @@ public final class BazelTest implements IRemoteTest {
 
         Process bazelTestProcess =
                 startTests(testInfo, listener, testTargets, workspaceDirectory, bepFile);
-        Future<?> testResult;
-        try (BepFileTailer tailer = BepFileTailer.create(bepFile)) {
-            testResult =
-                    mExecutor.submit(
-                            () -> {
-                                try {
-                                    waitForProcess(
-                                            bazelTestProcess, RUN_TESTS, mBazelCommandTimeout);
-                                } catch (InterruptedException e) {
-                                    Thread.currentThread().interrupt();
-                                    throw new AbortRunException(
-                                            "Bazel Test process interrupted",
-                                            FailureStatus.TEST_FAILURE,
-                                            TestErrorIdentifier.TEST_ABORTED);
-                                } finally {
-                                    tailer.stop();
-                                }
-                            });
 
+        try (BepFileTailer tailer = BepFileTailer.create(bepFile)) {
+            bazelTestProcess.onExit().thenRun(() -> tailer.stop());
             reportTestResults(listener, testInfo, runFailures, tailer);
         }
 
-        try {
-            testResult.get();
-        } catch (ExecutionException e) {
-            Throwables.throwIfUnchecked(e.getCause());
-        }
+        // Note that if Bazel exits without writing the 'last' BEP message marker we won't get to
+        // here since the above reporting code throws.
+        waitForProcess(bazelTestProcess, RUN_TESTS);
     }
 
     void reportTestResults(
+            ITestInvocationListener listener,
+            TestInformation testInfo,
+            List<FailureDescription> runFailures,
+            BepFileTailer tailer)
+            throws InterruptedException, IOException {
+
+        try (CloseableTraceScope ignored = new CloseableTraceScope("reportTestResults")) {
+            reportTestResultsNoTrace(listener, testInfo, runFailures, tailer);
+        }
+    }
+
+    void reportTestResultsNoTrace(
             ITestInvocationListener listener,
             TestInformation testInfo,
             List<FailureDescription> runFailures,
@@ -309,9 +301,19 @@ public final class BazelTest implements IRemoteTest {
     private Collection<String> listTestTargets(Path workspaceDirectory)
             throws IOException, InterruptedException {
 
+        try (CloseableTraceScope ignored = new CloseableTraceScope("listTestTargets")) {
+            return listTestTargetsNoTrace(workspaceDirectory);
+        }
+    }
+
+    private Collection<String> listTestTargetsNoTrace(Path workspaceDirectory)
+            throws IOException, InterruptedException {
+
         // We need to query all tests targets first in a separate Bazel query call since 'cquery
         // tests(...)' doesn't work in the Atest Bazel workspace.
         List<String> allTestTargets = queryAllTestTargets(workspaceDirectory);
+        CLog.i("Found %d test targets in workspace", allTestTargets.size());
+
         Map<String, String> moduleToTarget =
                 queryModulesToTestTargets(workspaceDirectory, allTestTargets);
 
@@ -348,10 +350,10 @@ public final class BazelTest implements IRemoteTest {
         builder.command().add("tests(...)");
         builder.redirectError(Redirect.appendTo(logFile.toFile()));
 
-        Process queryProcess = startProcess(QUERY_ALL_TARGETS, builder);
+        Process queryProcess = startProcess(QUERY_ALL_TARGETS, builder, BAZEL_QUERY_TIMEOUT);
         List<String> queryLines = readProcessLines(queryProcess);
 
-        waitForProcess(queryProcess, QUERY_ALL_TARGETS, BAZEL_QUERY_TIMEOUT);
+        waitForProcess(queryProcess, QUERY_ALL_TARGETS);
 
         return queryLines;
     }
@@ -379,17 +381,17 @@ public final class BazelTest implements IRemoteTest {
         builder.command().add("--starlark:file=%s".formatted(cqueryFormatFile.toAbsolutePath()));
         builder.redirectError(Redirect.appendTo(logFile.toFile()));
 
-        Process process = startProcess(QUERY_MAP_MODULES_TO_TARGETS, builder);
+        Process process = startProcess(QUERY_MAP_MODULES_TO_TARGETS, builder, BAZEL_QUERY_TIMEOUT);
 
         List<String> queryLines = readProcessLines(process);
 
-        waitForProcess(process, QUERY_MAP_MODULES_TO_TARGETS, BAZEL_QUERY_TIMEOUT);
+        waitForProcess(process, QUERY_MAP_MODULES_TO_TARGETS);
 
         return parseModulesToTargets(queryLines);
     }
 
     private List<String> readProcessLines(Process process) throws IOException {
-        return CharStreams.readLines(new InputStreamReader(process.getInputStream()));
+        return CharStreams.readLines(process.inputReader());
     }
 
     private Map<String, String> parseModulesToTargets(Collection<String> lines) {
@@ -462,7 +464,7 @@ public final class BazelTest implements IRemoteTest {
         builder.redirectErrorStream(true);
         builder.redirectOutput(Redirect.appendTo(logFile.toFile()));
 
-        return startProcess(RUN_TESTS, builder);
+        return startProcess(RUN_TESTS, builder, mBazelCommandTimeout);
     }
 
     private static SetMultimap<FilterType, String> groupTargetsByType(List<String> targets) {
@@ -487,40 +489,76 @@ public final class BazelTest implements IRemoteTest {
             String processTag, ProcessBuilder builder, Duration processTimeout)
             throws InterruptedException, IOException {
 
-        Process process = startProcess(processTag, builder);
+        Process process = startProcess(processTag, builder, processTimeout);
+        waitForProcess(process, processTag);
+        return process;
+    }
 
-        waitForProcess(process, processTag, processTimeout);
+    private Process startProcess(String processTag, ProcessBuilder builder, Duration timeout)
+            throws IOException {
+
+        CLog.i("Running command for %s: %s", processTag, new ProcessDebugString(builder));
+        String traceTag = "Process:" + processTag;
+        Process process = mProcessStarter.start(processTag, builder);
+
+        // We wait for the process in a separate thread so that we can trace its execution time.
+        // Another alternative could be to start/stop tracing with explicit calls but these would
+        // have to be done on the same thread as required by the tracing facility.
+        mExecutor.submit(
+                () -> {
+                    try (CloseableTraceScope unused = new CloseableTraceScope(traceTag)) {
+                        if (waitForProcessUninterruptibly(process, timeout)) {
+                            return;
+                        }
+
+                        CLog.e("%s command timed out and is being destroyed", processTag);
+                        process.destroy();
+
+                        // Give the process a grace period to properly shut down before forcibly
+                        // terminating it. We _could_ deduct this time from the total timeout but
+                        // it's overkill.
+                        if (!waitForProcessUninterruptibly(process, Duration.ofSeconds(5))) {
+                            CLog.w(
+                                    "%s command did not terminate normally after the grace period"
+                                            + " and is being forcibly destroyed",
+                                    processTag);
+                            process.destroyForcibly();
+                        }
+
+                        // We wait for the process as it may take it some time to terminate and
+                        // otherwise skew the trace results.
+                        waitForProcessUninterruptibly(process);
+                        CLog.i("%s command timed out and was destroyed", processTag);
+                    }
+                });
 
         return process;
     }
 
-    private Process startProcess(String processTag, ProcessBuilder builder) throws IOException {
+    private void waitForProcess(Process process, String processTag) throws InterruptedException {
 
-        CLog.i("Running command for %s: %s", processTag, new ProcessDebugString(builder));
-
-        return mProcessStarter.start(processTag, builder);
-    }
-
-    private void waitForProcess(Process process, String processTag, Duration processTimeout)
-            throws InterruptedException {
-        if (!process.waitFor(processTimeout.toMillis(), TimeUnit.MILLISECONDS)) {
-            process.destroy();
-            throw new AbortRunException(
-                    "%s command timed out".formatted(processTag),
-                    FailureStatus.TIMED_OUT,
-                    TestErrorIdentifier.TEST_ABORTED);
+        if (process.waitFor() == 0) {
+            return;
         }
 
-        if (process.exitValue() != 0) {
-            throw new AbortRunException(
-                    "%s command failed. Exit code: %d".formatted(processTag, process.exitValue()),
-                    FailureStatus.DEPENDENCY_ISSUE,
-                    TestErrorIdentifier.TEST_ABORTED);
-        }
+        throw new AbortRunException(
+                String.format("%s command failed. Exit code: %d", processTag, process.exitValue()),
+                FailureStatus.DEPENDENCY_ISSUE,
+                TestErrorIdentifier.TEST_ABORTED);
     }
-
 
     private void reportEventsInTestOutputsArchive(
+            BuildEventStreamProtos.TestResult result, ProtoResultParser resultParser)
+            throws IOException, InvalidProtocolBufferException, InterruptedException,
+                    URISyntaxException {
+
+        try (CloseableTraceScope ignored =
+                new CloseableTraceScope("reportEventsInTestOutputsArchive")) {
+            reportEventsInTestOutputsArchiveNoTrace(result, resultParser);
+        }
+    }
+
+    private void reportEventsInTestOutputsArchiveNoTrace(
             BuildEventStreamProtos.TestResult result, ProtoResultParser resultParser)
             throws IOException, InvalidProtocolBufferException, InterruptedException,
                     URISyntaxException {
@@ -702,6 +740,45 @@ public final class BazelTest implements IRemoteTest {
         return FailureDescription.create(e.getMessage())
                 .setCause(e)
                 .setFailureStatus(FailureStatus.INFRA_FAILURE);
+    }
+
+    private static boolean waitForProcessUninterruptibly(Process process, Duration timeout) {
+        long remainingNanos = timeout.toNanos();
+        long end = System.nanoTime() + remainingNanos;
+        boolean interrupted = false;
+
+        try {
+            while (true) {
+                try {
+                    return process.waitFor(remainingNanos, TimeUnit.NANOSECONDS);
+                } catch (InterruptedException e) {
+                    interrupted = true;
+                    remainingNanos = end - System.nanoTime();
+                }
+            }
+        } finally {
+            if (interrupted) {
+                Thread.currentThread().interrupt();
+            }
+        }
+    }
+
+    private static int waitForProcessUninterruptibly(Process process) {
+        boolean interrupted = false;
+
+        try {
+            while (true) {
+                try {
+                    return process.waitFor();
+                } catch (InterruptedException e) {
+                    interrupted = true;
+                }
+            }
+        } finally {
+            if (interrupted) {
+                Thread.currentThread().interrupt();
+            }
+        }
     }
 
     private static final class AbortRunException extends RuntimeException {
