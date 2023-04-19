@@ -312,7 +312,7 @@ public final class BazelTestTest {
 
         bazelTest.run(mTestInfo, mMockListener);
 
-        verify(mMockListener).testRunFailed(hasFailureStatus(FailureStatus.TIMED_OUT));
+        verify(mMockListener).testRunFailed(hasFailureStatus(FailureStatus.DEPENDENCY_ISSUE));
     }
 
     @Test
@@ -592,6 +592,11 @@ public final class BazelTestTest {
                     public boolean matches(FailureDescription right) {
                         return right.getErrorIdentifier().equals(error);
                     }
+
+                    @Override
+                    public String toString() {
+                        return "hasErrorIdentifier(" + error.toString() + ")";
+                    }
                 });
     }
 
@@ -601,6 +606,11 @@ public final class BazelTestTest {
                     @Override
                     public boolean matches(FailureDescription right) {
                         return right.getFailureStatus().equals(status);
+                    }
+
+                    @Override
+                    public String toString() {
+                        return "hasFailureStatus(" + status.toString() + ")";
                     }
                 });
     }
@@ -652,14 +662,16 @@ public final class BazelTestTest {
 
     private abstract static class FakeProcess extends Process {
 
+        private volatile boolean destroyed;
+
         @Override
         public void destroy() {
-            return;
+            destroyed = true;
         }
 
         @Override
         public int exitValue() {
-            return 0;
+            return destroyed ? 42 : 0;
         }
 
         @Override
@@ -679,7 +691,7 @@ public final class BazelTestTest {
 
         @Override
         public int waitFor() {
-            return 0;
+            return exitValue();
         }
 
         public void start() throws IOException {
