@@ -172,7 +172,8 @@ class GCPHelper():
             flow=flow, storage=storage, flags=flags)
         return credentials
 
-    def _get_sso_access_token(self):
+    @staticmethod
+    def _get_sso_access_token():
         """Use stubby command line to exchange corp sso to a scoped oauth
         token.
 
