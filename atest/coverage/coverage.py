@@ -18,7 +18,7 @@ import os
 import subprocess
 
 from pathlib import Path
-from typing import List
+from typing import List, Set
 
 from atest import atest_utils
 from atest import constants
@@ -79,8 +79,10 @@ def generate_coverage_report(results_dir: str,
         for path in mod_info.get_paths(module):
             module_dir = soong_intermediates.joinpath(path, module)
             # Check for uninstrumented Java class files to report coverage.
-            jacoco_report_jars[module] = module_dir.glob(
-                '*cov*/jacoco-report-classes/*.jar')
+            classfiles = list(
+                module_dir.rglob('jacoco-report-classes/*.jar'))
+            if classfiles:
+                jacoco_report_jars[module] = classfiles
 
             # Check for unstripped native binaries to report coverage.
             unstripped_native_binaries.update(
@@ -101,7 +103,8 @@ def _get_test_deps(test_infos, mod_info):
 
     for info in test_infos:
         deps.add(info.raw_test_name)
-        deps |= mod_info.get_module_dependency(info.raw_test_name, deps)
+        deps |= _get_transitive_module_deps(
+            mod_info.get_module_info(info.raw_test_name), mod_info, deps)
 
         # Include dependencies of any Mainline modules specified as well.
         if not info.mainline_modules:
@@ -109,7 +112,41 @@ def _get_test_deps(test_infos, mod_info):
 
         for mainline_module in info.mainline_modules:
             deps.add(mainline_module)
-            deps |= mod_info.get_module_dependency(mainline_module, deps)
+            deps |= _get_transitive_module_deps(
+                mod_info.get_module_info(mainline_module), mod_info, deps)
+
+    return deps
+
+
+def _get_transitive_module_deps(info,
+                                mod_info: module_info.ModuleInfo,
+                                seen: Set[str]) -> Set[str]:
+    """Gets all dependencies of the module, including .impl versions."""
+    deps = set()
+
+    for dep in info.get(constants.MODULE_DEPENDENCIES, []):
+        if dep in seen:
+            continue
+
+        seen.add(dep)
+
+        dep_info = mod_info.get_module_info(dep)
+
+        # Mainline modules sometimes depend on `java_sdk_library` modules that
+        # generate synthetic build modules ending in `.impl` which do not appear
+        # in the ModuleInfo. Strip this suffix to prevent incomplete dependency
+        # information when generating coverage reports.
+        # TODO(olivernguyen): Reconcile this with
+        # ModuleInfo.get_module_dependency(...).
+        if not dep_info:
+            dep = dep.removesuffix('.impl')
+            dep_info = mod_info.get_module_info(dep)
+
+        if not dep_info:
+            continue
+
+        deps.add(dep)
+        deps |= _get_transitive_module_deps(dep_info, mod_info, seen)
 
     return deps
 
@@ -123,10 +160,20 @@ def _get_all_src_paths(modules, mod_info):
         info = mod_info.get_module_info(module)
         if not info:
             continue
+
+        # Do not report coverage for test modules.
+        if mod_info.is_testable_module(info):
+            continue
+
         src_paths.update(
             os.path.dirname(f) for f in info.get(constants.MODULE_SRCS, []))
 
+    src_paths = {p for p in src_paths if not _is_generated_code(p)}
     return src_paths
+
+
+def _is_generated_code(path):
+    return 'soong/.intermediates' in path
 
 
 def _generate_java_coverage_report(report_jars, src_paths, results_dir,
@@ -140,9 +187,12 @@ def _generate_java_coverage_report(report_jars, src_paths, results_dir,
     jacoco_lcov = os.path.join(build_top, jacoco_lcov['installed'][0])
     lcov_reports = []
 
-    for name, report_jar in report_jars.items():
+    for name, classfiles in report_jars.items():
         dest = f'{out_dir}/{name}.info'
-        cmd = [jacoco_lcov, '-o', dest, '-classfiles', str(report_jar)]
+        cmd = [jacoco_lcov, '-o', dest]
+        for classfile in classfiles:
+            cmd.append('-classfiles')
+            cmd.append(str(classfile))
         for src_path in src_paths:
             cmd.append('-sourcepath')
             cmd.append(src_path)
@@ -181,7 +231,7 @@ def _generate_native_coverage_report(unstripped_native_binaries, results_dir):
         # to generate the unstripped binaries, but are stored in the same
         # directory as the actual output binary.
         if not binary.match('*.rsp'):
-            cmd.append(str(binary))
+            cmd.append(f'--object={str(binary)}')
 
     try:
         subprocess.run(cmd, check=True,
