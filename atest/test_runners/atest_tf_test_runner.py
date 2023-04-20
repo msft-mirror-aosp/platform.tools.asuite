@@ -29,7 +29,7 @@ import socket
 
 from functools import partial
 from pathlib import Path
-from typing import Any, List, Set, Tuple
+from typing import Any, Dict, List, Set, Tuple
 
 from atest import atest_configs
 from atest import atest_error
@@ -125,8 +125,10 @@ class AtestTradefedTestRunner(trb.TestRunnerBase):
         super().__init__(results_dir, **kwargs)
         self.module_info = mod_info
         self.log_path = os.path.join(results_dir, LOG_FOLDER_NAME)
-        if not os.path.exists(self.log_path):
-            os.makedirs(self.log_path)
+        # (b/275537997) results_dir could be '' in test_runner_handler; only
+        # mkdir when it is invoked by run_tests.
+        if results_dir:
+            Path(self.log_path).mkdir(parents=True, exist_ok=True)
         log_args = {'log_root_option_name': constants.LOG_ROOT_OPTION_NAME,
                     'log_ext_option': constants.LOG_SAVER_EXT_OPTION,
                     'log_path': self.log_path,
@@ -1031,9 +1033,11 @@ def generate_annotation_filter_args(
     return annotation_filter_args
 
 
-def extra_args_to_tf_args(mod_info: module_info.ModuleInfo,
-                          test_infos: List[test_info.TestInfo],
-                          extra_args: trb.ARGS) -> Tuple[trb.ARGS, trb.ARGS]:
+def extra_args_to_tf_args(
+    mod_info: module_info.ModuleInfo,
+    test_infos: List[test_info.TestInfo],
+    extra_args: Dict[str, Any],
+) -> Tuple[Dict[str, Any], Dict[str, Any]]:
     """Convert the extra args into atest_tf_test_runner supported args.
 
     Args:

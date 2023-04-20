@@ -74,7 +74,8 @@ MODULE_INFO = {constants.MODULE_NAME: 'random_name',
                constants.MODULE_CLASS: ['random_class']}
 NAME_TO_MODULE_INFO = {'random_name' : MODULE_INFO}
 # Mocking path allows str only, use os.path instead of Path.
-BUILD_TOP_DIR = tempfile.TemporaryDirectory().name
+with tempfile.TemporaryDirectory() as temp_dir:
+    BUILD_TOP_DIR = temp_dir
 SOONG_OUT_DIR = os.path.join(BUILD_TOP_DIR, 'out/soong')
 PRODUCT_OUT_DIR = os.path.join(BUILD_TOP_DIR, 'out/target/product/vsoc_x86_64')
 HOST_OUT_DIR = os.path.join(BUILD_TOP_DIR, 'out/host/linux-x86')
@@ -323,7 +324,7 @@ class ModuleInfoUnittests(unittest.TestCase):
             instrumentation_for: "AmSlam"
         }"""
         bp_file = os.path.join(uc.TEST_DATA_DIR, 'foo/bar/AmSlam/test/Android.bp')
-        with open(bp_file, 'w') as cache:
+        with open(bp_file, 'w', encoding='utf-8') as cache:
             cache.write(bp_context)
         self.assertEqual(
             mod_info.get_instrumentation_target_apps('AmSlamTests'), artifacts)
