@@ -25,6 +25,7 @@ from pathlib import Path
 from unittest import mock
 from pyfakefs import fake_filesystem_unittest
 
+from atest import atest_utils
 from atest import unittest_constants
 from atest.test_finders.test_info import TestInfo
 from atest.test_runners import roboleaf_test_runner
@@ -38,30 +39,91 @@ class RoboleafTestRunnerUnittests(fake_filesystem_unittest.TestCase):
     def setUp(self):
         self.test_runner = RoboleafTestRunner(results_dir='')
         self.setUpPyfakefs()
+        out_dir = atest_utils.get_build_out_dir()
+        self.fs.create_file(
+            out_dir+roboleaf_test_runner._ROBOLEAF_MODULE_MAP_PATH,
+            contents="{}")
+        self.fs.create_file(
+            out_dir+roboleaf_test_runner._ALLOW_LIST_PROD_PATH,
+            contents="")
+        self.fs.create_file(
+            out_dir+roboleaf_test_runner._ALLOW_LIST_STAGING_PATH,
+            contents="")
 
     def tearDown(self):
         RoboleafModuleMap()._module_map = {}
         mock.patch.stopall()
 
-    def test_roboleaf_eligible_tests(self):
+    def test_read_allow_list(self):
+        """Test _read_allow_list method"""
+        self.fs.create_file(
+            atest_utils.get_build_out_dir()+"allow_list",
+            contents="""test1\ntest2\n#comment1\n//comment2""")
+
+        self.assertEqual(
+            roboleaf_test_runner._read_allow_list("allow_list"),
+            ['test1','test2'])
+
+    def test_roboleaf_eligible_tests_filtering(self):
         """Test roboleaf_eligible_tests method when _module_map has entries"""
+        RoboleafModuleMap._instances = {}
+
+        self.setUpPyfakefs()
+        out_dir = atest_utils.get_build_out_dir()
+        self.fs.create_file(
+            out_dir+roboleaf_test_runner._ROBOLEAF_MODULE_MAP_PATH,
+            contents=json.dumps({
+            'test1': "//a",
+            'test2': "//a/b",
+            'test3': "//a/b",
+        }))
+        self.fs.create_file(
+            out_dir+roboleaf_test_runner._ALLOW_LIST_STAGING_PATH,
+            contents="test1\ntest2")
+        self.fs.create_file(
+            out_dir+roboleaf_test_runner._ALLOW_LIST_PROD_PATH,
+            contents="test1")
         module_names = [
             'test1',
             'test2',
             'test3',
+            'test4',
         ]
-        RoboleafModuleMap()._module_map = {
-            'test1': "//a",
-            'test2': "//a/b",
-        }
 
-        eligible_tests = self.test_runner.roboleaf_eligible_tests(module_names)
+        eligible_tests = self.test_runner.roboleaf_eligible_tests(
+            roboleaf_test_runner.BazelBuildMode.DEV,
+            module_names)
 
+        self.assertEqual(len(eligible_tests), 3)
         self.assertEqual(eligible_tests["test1"].test_name, 'test1')
         self.assertEqual(eligible_tests["test1"].test_runner,
                          RoboleafTestRunner.NAME)
         self.assertEqual(eligible_tests["test2"].test_name, 'test2')
         self.assertEqual(eligible_tests["test2"].test_runner,
+                         RoboleafTestRunner.NAME)
+        self.assertEqual(eligible_tests["test3"].test_name, 'test3')
+        self.assertEqual(eligible_tests["test3"].test_runner,
+                         RoboleafTestRunner.NAME)
+
+        eligible_tests = self.test_runner.roboleaf_eligible_tests(
+            roboleaf_test_runner.BazelBuildMode.STAGING,
+            module_names)
+
+        self.assertEqual(len(eligible_tests), 2)
+        self.assertEqual(eligible_tests["test1"].test_name, 'test1')
+        self.assertEqual(eligible_tests["test1"].test_runner,
+                         RoboleafTestRunner.NAME)
+        self.assertEqual(eligible_tests["test2"].test_name, 'test2')
+        self.assertEqual(eligible_tests["test2"].test_runner,
+                         RoboleafTestRunner.NAME)
+
+        eligible_tests = self.test_runner.roboleaf_eligible_tests(
+            roboleaf_test_runner.BazelBuildMode.PROD,
+            module_names)
+
+        self.assertEqual(len(eligible_tests), 1)
+        self.assertEqual(eligible_tests["test1"].test_name, 'test1')
+        self.assertEqual(eligible_tests["test1"].test_runner,
                          RoboleafTestRunner.NAME)
 
     def test_roboleaf_eligible_tests_empty_map(self):
@@ -72,8 +134,9 @@ class RoboleafTestRunnerUnittests(fake_filesystem_unittest.TestCase):
         ]
         RoboleafModuleMap()._module_map = {}
 
-        eligible_tests = self.test_runner.roboleaf_eligible_tests(module_names)
-
+        eligible_tests = self.test_runner.roboleaf_eligible_tests(
+            roboleaf_test_runner.BazelBuildMode.DEV,
+            module_names)
         self.assertEqual(eligible_tests, {})
 
     def test_generate_bp2build_command(self):
