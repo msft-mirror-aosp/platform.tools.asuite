@@ -34,6 +34,7 @@ import xml.etree.ElementTree as ET
 from contextlib import contextmanager
 from enum import unique, Enum
 from pathlib import Path
+from typing import Any, Dict
 
 from atest import atest_error
 from atest import atest_utils
@@ -581,7 +582,7 @@ def find_parent_module_dir(root_dir, start_dir, module_info):
             return rel_dir
         # Check module_info if auto_gen config or robo (non-config) here
         for mod in module_info.path_to_module_info.get(rel_dir, []):
-            if module_info.is_robolectric_module(mod):
+            if module_info.is_legacy_robolectric_class(mod):
                 return rel_dir
             for test_config in mod.get(constants.MODULE_TEST_CONFIG, []):
                 # If the test config doesn's exist until it was auto-generated
@@ -1392,3 +1393,22 @@ def get_git_path(file_path: str) -> str:
             return parent.absolute()
         parent = parent.parent
     return build_top
+
+
+def parse_test_reference(test_ref: str) -> Dict[str, str]:
+    """Parse module, class/pkg, and method name from the given test reference.
+
+    The result will be a none empty dictionary only if input test reference
+    match $module:$pkg_class or $module:$pkg_class:$method.
+
+    Args:
+        test_ref: A string of the input test reference from command line.
+
+    Returns:
+        Dict includes module_name, pkg_class_name and method_name.
+    """
+    ref_match = re.match(
+        r'^(?P<module_name>[^:#]+):(?P<pkg_class_name>[^#]+)'
+        r'#?(?P<method_name>.*)$', test_ref)
+
+    return ref_match.groupdict(default=dict()) if ref_match else dict()
