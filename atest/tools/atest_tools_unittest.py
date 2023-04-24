@@ -53,13 +53,11 @@ class AtestToolsUnittests(unittest.TestCase):
                                      prunepaths=PRUNEPATH)
             # test_config/ is excluded so that a.xml won't be found.
             locate_cmd1 = [LOCATE, '-d', uc.LOCATE_CACHE, '/a.xml']
-            # locate always return 0 when not found in Darwin, therefore,
-            # check null return in Darwin and return value in Linux.
-            if platform.system() == 'Darwin':
-                output = subprocess.check_output(locate_cmd1).decode()
-                self.assertEqual(output, "")
-            else:
-                self.assertEqual(subprocess.call(locate_cmd1), 1)
+            # locate always return 0 when not found, therefore check null
+            # return if nothing found.
+            output = subprocess.check_output(locate_cmd1).decode()
+            self.assertEqual(output, '')
+
             # module-info.json can be found in the search_root.
             locate_cmd2 = [LOCATE, '-d', uc.LOCATE_CACHE, 'module-info.json']
             self.assertEqual(subprocess.call(locate_cmd2), 0)
