@@ -22,6 +22,7 @@ Utility functions for atest.
 
 from __future__ import print_function
 
+import argparse
 import enum
 import datetime
 import fnmatch
@@ -1513,11 +1514,11 @@ def get_config_preparer_options(test_config, class_name):
         options[name] = value
     return options
 
-def is_adb_root(args):
+def is_adb_root(args: argparse.ArgumentParser):
     """Check whether device has root permission.
 
     Args:
-        args: An argspace.Namespace class instance holding parsed args.
+        args: An argparse.ArgumentParser class instance holding parsed args.
     Returns:
         True if adb has root permission.
     """
