@@ -30,6 +30,7 @@ atest is designed to support any test types that can be ran by TradeFederation.
 
 from __future__ import print_function
 
+import argparse
 import collections
 import logging
 import os
@@ -38,7 +39,7 @@ import tempfile
 import time
 import platform
 
-from typing import Dict, List
+from typing import Any, Dict, List, Set
 
 from dataclasses import dataclass
 from pathlib import Path
@@ -189,14 +190,14 @@ def _get_args_from_config():
                     args.append(arg_in_line)
     return args
 
-def _parse_args(argv):
+def _parse_args(argv: List[Any]) -> argparse.ArgumentParser:
     """Parse command line arguments.
 
     Args:
         argv: A list of arguments.
 
     Returns:
-        An argparse.Namespace class instance holding parsed args.
+        An argparse.ArgumentParser class instance holding parsed args.
     """
     # Store everything after '--' in custom_args.
     pruned_argv = argv
@@ -437,14 +438,14 @@ def _validate_tm_tests_exec_mode(args, test_infos):
         _validate_exec_mode(args, host_test_infos, host_tests=True)
 
 
-def _will_run_tests(args):
+def _will_run_tests(args: argparse.ArgumentParser) -> bool:
     """Determine if there are tests to run.
 
     Currently only used by detect_regression to skip the test if just running
     regression detection.
 
     Args:
-        args: An argparse.Namespace object.
+        args: An argparse.ArgumentParser object.
 
     Returns:
         True if there are tests to run, false otherwise.
@@ -733,12 +734,12 @@ def _is_inside_android_root():
     build_top = os.getenv(constants.ANDROID_BUILD_TOP, ' ')
     return build_top in os.getcwd()
 
-def _non_action_validator(args):
+def _non_action_validator(args: argparse.ArgumentParser):
     """Method for non-action arguments such as --version, --help, --history,
     --latest_result, etc.
 
     Args:
-        args: An argparse.Namespace object.
+        args: An argparse.ArgumentParser object.
     """
     if not _is_inside_android_root():
         atest_utils.colorful_print(
@@ -775,11 +776,16 @@ def _non_action_validator(args):
         atest_utils.colorful_print(stop_msg, constants.RED)
         atest_utils.colorful_print(msg, constants.CYAN)
 
-def _dry_run_validator(args, results_dir, extra_args, test_infos, mod_info):
+def _dry_run_validator(
+        args: argparse.ArgumentParser,
+        results_dir: str,
+        extra_args: Dict[str, Any],
+        test_infos: Set[TestInfo],
+        mod_info: module_info.ModuleInfo) -> ExitCode:
     """Method which process --dry-run argument.
 
     Args:
-        args: An argparse.Namespace class instance holding parsed args.
+        args: An argparse.ArgumentParser class instance holding parsed args.
         result_dir: A string path of the results dir.
         extra_args: A dict of extra args for test runners to utilize.
         test_infos: A list of test_info.
@@ -875,7 +881,9 @@ def need_rebuild_module_info(args: atest_arg_parser.AtestArgParser) -> bool:
         return True
     return False
 
-def need_run_index_targets(args, extra_args):
+def need_run_index_targets(
+        args: argparse.ArgumentParser,
+        extra_args: Dict[str, Any]):
     """Method that determines whether Atest need to run index_targets or not.
 
 
@@ -885,8 +893,8 @@ def need_run_index_targets(args, extra_args):
     3. --test flag was found.
 
     Args:
-        args: A list of argument.
-        extra_args: A list of extra argument.
+        args: An argparse.ArgumentParser object.
+        extra_args: A Dict of extra argument.
 
     Returns:
         True when none of the above conditions were found.
@@ -919,13 +927,16 @@ def _all_tests_are_bazel_buildable(
     """
     return roboleaf_tests and set(tests) == set(roboleaf_tests)
 
-def perm_consistency_metrics(test_infos, mod_info, args):
+def perm_consistency_metrics(
+        test_infos: Set[TestInfo],
+        mod_info: module_info.ModuleInfo,
+        args: argparse.ArgumentParser):
     """collect inconsistency between preparer and device root permission.
 
     Args:
         test_infos: TestInfo obj.
         mod_info: ModuleInfo obj.
-        args: An argparse.Namespace class instance holding parsed args.
+        args: An argparse.ArgumentParser class instance holding parsed args.
     """
     try:
         # whether device has root permission

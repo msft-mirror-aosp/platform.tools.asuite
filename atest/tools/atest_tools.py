@@ -19,6 +19,7 @@
 
 from __future__ import print_function
 
+import argparse
 import json
 import logging
 import os
@@ -423,7 +424,7 @@ def acloud_create(report_file, args, no_metrics_notice=True):
                           str(e))
 
 
-def acloud_create_validator(results_dir, args):
+def acloud_create_validator(results_dir: str, args: argparse.ArgumentParser):
     """Check lunch'd target before running 'acloud create'.
 
     Args:

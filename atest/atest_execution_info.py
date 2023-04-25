@@ -18,11 +18,14 @@
 
 from __future__ import print_function
 
+import argparse
 import glob
 import logging
 import json
 import os
 import sys
+
+from typing import List
 
 import atest.atest_utils as au
 from atest import constants
@@ -189,12 +192,12 @@ def print_test_result_by_path(path):
                                 fail.get(_TEST_DETAILS_KEY)))
 
 
-def has_non_test_options(args):
+def has_non_test_options(args: argparse.ArgumentParser):
     """
     check whether non-test option in the args.
 
     Args:
-        args: An argspace.Namespace class instance holding parsed args.
+        args: An argparse.ArgumentParser class instance holding parsed args.
 
     Returns:
         True, if args has at least one non-test option.
@@ -267,13 +270,17 @@ class AtestExecutionInfo:
 
     result_reporters = []
 
-    def __init__(self, args, work_dir, args_ns):
+    def __init__(self,
+                 args: List[str],
+                 work_dir: str,
+                 args_ns: argparse.ArgumentParser):
         """Initialise an AtestExecutionInfo instance.
 
         Args:
             args: Command line parameters.
             work_dir: The directory for saving information.
-            args_ns: An argspace.Namespace class instance holding parsed args.
+            args_ns: An argparse.ArgumentParser class instance holding
+                     parsed args.
 
         Returns:
                A json format string.
