@@ -507,6 +507,12 @@ def _has_valid_test_mapping_args(args):
         True if args are valid
     """
     is_test_mapping = atest_utils.is_test_mapping(args)
+    if is_test_mapping:
+        metrics.LocalDetectEvent(detect_type=DetectType.IS_TEST_MAPPING,
+                                 result=1)
+    else:
+        metrics.LocalDetectEvent(detect_type=DetectType.IS_TEST_MAPPING,
+                                 result=0)
     if not is_test_mapping:
         return True
     options_to_validate = [
