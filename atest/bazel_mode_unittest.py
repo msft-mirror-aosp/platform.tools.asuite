@@ -2174,6 +2174,26 @@ class BazelTestRunnerTest(unittest.TestCase):
 
         self.assertTokensIn(['--test_output=all'], cmd[0])
 
+    def test_disable_test_result_caching_with_wait_for_debug_args(self):
+        test_infos = [test_info_of('test1')]
+        runner = self.create_bazel_test_runner_for_tests(test_infos)
+        extra_args = {constants.WAIT_FOR_DEBUGGER: True}
+
+        cmd = runner.generate_run_commands(test_infos, extra_args)
+
+        self.assertTokensIn(['--test_arg=--wait-for-debugger',
+                             '--cache_test_results=no'], cmd[0])
+
+    def test_cache_test_results_arg_not_used_with_wait_for_debug_args(self):
+        test_infos = [test_info_of('test1')]
+        runner = self.create_bazel_test_runner_for_tests(test_infos)
+        extra_args = {constants.WAIT_FOR_DEBUGGER: True,
+                      constants.BAZEL_ARG: [['--cache_test_resultsfoo']]}
+
+        cmd = runner.generate_run_commands(test_infos, extra_args)
+
+        self.assertTokensNotIn(['--cache_test_resultsfoo'], cmd[0])
+
     def create_bazel_test_runner(self,
                                  modules,
                                  run_command=None,
@@ -2212,6 +2232,11 @@ class BazelTestRunnerTest(unittest.TestCase):
         tokens = shlex.split(s)
         for token in expected_tokens:
             self.assertIn(token, tokens)
+
+    def assertTokensNotIn(self, unexpected_tokens, s):
+        tokens = shlex.split(s)
+        for token in unexpected_tokens:
+            self.assertNotIn(token, tokens)
 
 
 class FeatureParserTest(unittest.TestCase):
