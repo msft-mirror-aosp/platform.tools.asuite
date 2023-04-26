@@ -216,22 +216,31 @@ def _parse_args(argv: List[Any]) -> argparse.ArgumentParser:
     return args
 
 
-def _configure_logging(verbose):
+def _configure_logging(verbose: bool, results_dir: str):
     """Configure the logger.
 
     Args:
-        verbose: A boolean. If true display DEBUG level logs.
+        verbose: If true display DEBUG level logs on console.
+        results_dir: A directory which stores the ATest execution information.
     """
+    log_fmat = '%(asctime)s %(filename)s:%(lineno)s:%(levelname)s: %(message)s'
+    date_fmt = '%Y-%m-%d %H:%M:%S'
+    log_path = os.path.join(results_dir, 'atest.log')
+
     # Clear the handlers to prevent logging.basicConfig from being called twice.
     logging.getLogger('').handlers = []
-    log_format = '%(asctime)s %(filename)s:%(lineno)s:%(levelname)s: %(message)s'
-    datefmt = '%Y-%m-%d %H:%M:%S'
+    logging.basicConfig(filename=log_path,
+                        level=logging.DEBUG,
+                        format=log_fmat, datefmt=date_fmt)
+    # Handler for print the log on console that sets INFO (by default) or DEBUG
+    # (verbose mode).
+    console = logging.StreamHandler()
+    console.setLevel(logging.INFO)
     if verbose:
-        logging.basicConfig(level=logging.DEBUG,
-                            format=log_format, datefmt=datefmt)
-    else:
-        logging.basicConfig(level=logging.INFO,
-                            format=log_format, datefmt=datefmt)
+        console.setLevel(logging.DEBUG)
+    console.setFormatter(logging.Formatter(log_fmat))
+    # Attach console handler to logger, so what we see is what we logged.
+    logging.getLogger('').addHandler(console)
 
 
 def _missing_environment_variables():
@@ -1008,7 +1017,7 @@ def _is_auto_shard_test(test_infos):
 # pylint: disable=too-many-statements
 # pylint: disable=too-many-branches
 # pylint: disable=too-many-return-statements
-def main(argv, results_dir, args):
+def main(argv: List[Any], results_dir: str, args: argparse.ArgumentParser):
     """Entry point of atest script.
 
     Args:
@@ -1026,7 +1035,7 @@ def main(argv, results_dir, args):
         atest_utils.update_build_env(coverage.build_env_vars())
     set_build_output_mode(args.build_output)
 
-    _configure_logging(args.verbose)
+    _configure_logging(args.verbose, results_dir)
     _validate_args(args)
     metrics_utils.get_start_time()
     os_pyver = (f'{platform.platform()}:{platform.python_version()}/'
