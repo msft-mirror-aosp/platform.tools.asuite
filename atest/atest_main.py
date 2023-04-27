@@ -946,8 +946,6 @@ def set_build_output_mode(mode: atest_utils.BuildOutputMode):
     # Changing this variable does not retrigger builds.
     atest_utils.update_build_env(
         {'ANDROID_QUIET_BUILD': 'true',
-         #(b/271654778) Showing the reasons for the ninja file was regenerated.
-         'SOONG_UI_NINJA_ARGS': '-d explain',
          'BUILD_OUTPUT_MODE': mode.value})
 
 
