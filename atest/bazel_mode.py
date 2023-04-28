@@ -103,6 +103,9 @@ class Features(enum.Enum):
     EXPERIMENTAL_DEVICE_DRIVEN_TEST = (
         '--experimental-device-driven-test',
         'Enables running device-driven tests in Bazel mode.', True)
+    EXPERIMENTAL_REMOTE_AVD = (
+        '--experimental-remote-avd',
+        'Enables running device-driven tests in remote AVD.', False)
     EXPERIMENTAL_BES_PUBLISH = ('--experimental-bes-publish',
                                 'Upload test results via BES in Bazel mode.',
                                 False)
@@ -355,6 +358,12 @@ class WorkspaceGenerator:
             mod_info: ModuleInfo object.
             enabled_features: Set of enabled features.
         """
+        if (enabled_features and
+            Features.EXPERIMENTAL_REMOTE_AVD in enabled_features and
+            Features.EXPERIMENTAL_DEVICE_DRIVEN_TEST not in enabled_features):
+            raise Exception('Cannot run remote device test because '
+                            '"--experimental-device-driven-test" flag is'
+                            ' not set.')
         self.enabled_features = enabled_features or set()
         self.resource_manager = resource_manager
         self.workspace_out_path = workspace_out_path
@@ -582,6 +591,9 @@ class WorkspaceGenerator:
 
         self._add_workspace_resource(src='rules', dst='bazel/rules')
         self._add_workspace_resource(src='configs', dst='bazel/configs')
+
+        if Features.EXPERIMENTAL_DEVICE_DRIVEN_TEST in self.enabled_features:
+            self._add_workspace_resource(src='device_def', dst='device_def')
 
         self._add_bazel_bootstrap_files()
 
@@ -1671,6 +1683,16 @@ class BazelTestRunner(trb.TestRunnerBase):
             return []
         return [f'--config={remote_config}']
 
+    def _get_remote_avd_args(self, feature):
+        remote_avd_config = self._get_feature_config_or_warn(
+            feature, 'ATEST_BAZEL_REMOTE_AVD_CONFIG')
+        if not remote_avd_config:
+            raise Exception('Cannot run remote device test because '
+                            'ATEST_BAZEL_REMOTE_AVD_CONFIG '
+                            'environment variable is not set.')
+        return [f'--config={remote_avd_config}']
+
+
     def host_env_check(self):
         """Check that host env has everything we need.
 
@@ -1776,6 +1798,11 @@ class BazelTestRunner(trb.TestRunnerBase):
                 Features.EXPERIMENTAL_REMOTE,
                 extra_args,
                 self._get_remote_args))
+        bazel_args.extend(
+            self._get_bazel_feature_args(
+                Features.EXPERIMENTAL_REMOTE_AVD,
+                extra_args,
+                self._get_remote_avd_args))
 
         # This is an alternative to shlex.join that doesn't exist in Python
         # versions < 3.8.
