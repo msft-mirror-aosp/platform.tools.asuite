@@ -588,6 +588,12 @@ class WorkspaceGenerator:
         # Symlink to package with toolchain definitions.
         self._symlink(src='prebuilts/build-tools',
                       target='prebuilts/build-tools')
+
+        device_infra_path = 'vendor/google/tools/atest/device_infra'
+        if self.resource_manager.get_src_file_path(device_infra_path).exists():
+            self._symlink(src=device_infra_path,
+                          target=device_infra_path)
+
         self._create_constants_file()
 
         self._generate_robolectric_resources()
@@ -1548,7 +1554,9 @@ def create_new_finder(mod_info: module_info.ModuleInfo,
 class RunCommandError(subprocess.CalledProcessError):
     """CalledProcessError but including debug information when it fails."""
     def __str__(self):
-        return f'{super().__str__()}\nstdout={self.stdout}\n\nstderr={self.stderr}'
+        return f'{super().__str__()}\n' \
+               f'stdout={self.stdout}\n\n' \
+               f'stderr={self.stderr}'
 
 
 def default_run_command(args: List[str], cwd: Path) -> str:
@@ -1557,6 +1565,7 @@ def default_run_command(args: List[str], cwd: Path) -> str:
         cwd=cwd,
         text=True,
         capture_output=True,
+        check=False,
     )
     if result.returncode:
         # Provide a more detailed log message including stdout and stderr.

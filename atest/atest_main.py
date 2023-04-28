@@ -946,6 +946,8 @@ def set_build_output_mode(mode: atest_utils.BuildOutputMode):
     # Changing this variable does not retrigger builds.
     atest_utils.update_build_env(
         {'ANDROID_QUIET_BUILD': 'true',
+         #(b/271654778) Showing the reasons for the ninja file was regenerated.
+         'SOONG_UI_NINJA_ARGS': '-d explain',
          'BUILD_OUTPUT_MODE': mode.value})
 
 
@@ -1030,9 +1032,11 @@ def main(argv, results_dir, args):
 
     # Gather roboleaf tests now to see if we can skip mod info generation.
     mod_info = module_info.ModuleInfo(no_generate=True)
-    if args.roboleaf_mode:
+    if args.roboleaf_mode != roboleaf_test_runner.BazelBuildMode.OFF:
         mod_info.roboleaf_tests = roboleaf_test_runner.RoboleafTestRunner(
-            results_dir).roboleaf_eligible_tests(args.tests)
+            results_dir).roboleaf_eligible_tests(
+                args.roboleaf_mode,
+                args.tests)
     all_tests_are_bazel_buildable = _all_tests_are_bazel_buildable(
                                 mod_info.roboleaf_tests,
                                 args.tests)
