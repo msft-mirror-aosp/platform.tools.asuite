@@ -144,6 +144,11 @@ public final class BazelTest implements IRemoteTest {
     private final List<String> mIncludeTargets = new ArrayList<>();
 
     @Option(
+            name = "bazel-query",
+            description = "Bazel query to return list of tests, defaults to all deviceless tests")
+    private String mBazelQuery = "kind(tradefed_deviceless_test, tests(//...))";
+
+    @Option(
             name = "report-cached-test-results",
             description = "Whether or not to report cached test results.")
     private boolean mReportCachedTestResults = true;
@@ -347,7 +352,8 @@ public final class BazelTest implements IRemoteTest {
         ProcessBuilder builder = createBazelCommand(workspaceDirectory, QUERY_ALL_TARGETS);
 
         builder.command().add("query");
-        builder.command().add("tests(...)");
+        builder.command().add(mBazelQuery);
+
         builder.redirectError(Redirect.appendTo(logFile.toFile()));
 
         Process queryProcess = startProcess(QUERY_ALL_TARGETS, builder, BAZEL_QUERY_TIMEOUT);
