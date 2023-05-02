@@ -89,6 +89,7 @@ public final class BazelTestTest {
     private ILogSaverListener mMockListener;
     private TestInformation mTestInfo;
     private Path mBazelTempPath;
+    private Path mWorkspaceArchivePath;
 
     private static final String BAZEL_TEST_TARGETS_OPTION = "bazel-test-target-patterns";
     private static final String BEP_FILE_OPTION_NAME = "--build_event_binary_file";
@@ -105,6 +106,11 @@ public final class BazelTestTest {
         mTestInfo = TestInformation.newBuilder().setInvocationContext(context).build();
         mBazelTempPath =
                 Files.createDirectory(tempDir.getRoot().toPath().resolve("bazel_temp_dir"));
+        Files.createDirectories(
+                tempDir.getRoot()
+                        .toPath()
+                        .resolve("bazel_suite_root/android-bazel-suite/out/atest_bazel_workspace"));
+        mWorkspaceArchivePath = tempDir.getRoot().toPath().resolve("bazel_suite_root");
     }
 
     @Test
@@ -579,7 +585,7 @@ public final class BazelTestTest {
 
     private Properties bazelTestProperties() {
         Properties properties = new Properties();
-        properties.put("BAZEL_SUITE_ROOT", "/phony/path/to/bazel/test/suite");
+        properties.put("BAZEL_SUITE_ROOT", mWorkspaceArchivePath.toAbsolutePath().toString());
         properties.put("java.io.tmpdir", mBazelTempPath.toAbsolutePath().toString());
 
         return properties;
