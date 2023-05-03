@@ -1962,12 +1962,12 @@ def build_files_integrity_is_ok() -> bool:
     if not Path(constants.BUILDFILES_MD5).is_file():
         return False
     # 1. Ensure no build files were added/deleted.
-    with open(constants.BUILDFILES_MD5, 'r') as cache:
-        recorded_amount = len(json.load(cache).keys())
-        cmd = (f'locate -d{constants.LOCATE_CACHE} --regex '
-               r'"/Android\.(bp|mk)$" | wc -l')
-        if int(subprocess.getoutput(cmd)) != recorded_amount:
-            return False
+    recorded_amount = len(load_json_safely(constants.BUILDFILES_MD5).keys())
+    cmd = (f'locate -d{constants.LOCATE_CACHE} --regex '
+            r'"/Android\.(bp|mk)$" | wc -l')
+    if int(subprocess.getoutput(cmd)) != recorded_amount:
+        return False
+
     # 2. Ensure the consistency of all build files.
     return check_md5(constants.BUILDFILES_MD5, missing_ok=False)
 
