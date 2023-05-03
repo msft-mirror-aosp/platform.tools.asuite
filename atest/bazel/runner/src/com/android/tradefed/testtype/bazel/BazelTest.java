@@ -51,6 +51,7 @@ import com.google.protobuf.Any;
 import com.google.protobuf.InvalidProtocolBufferException;
 
 import java.io.File;
+import java.io.FileWriter;
 import java.io.IOException;
 import java.io.FileOutputStream;
 import java.lang.ProcessBuilder.Redirect;
@@ -73,6 +74,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 import java.util.zip.ZipFile;
 
 /** Test runner for executing Bazel tests. */
@@ -169,6 +171,7 @@ public final class BazelTest implements IRemoteTest {
 
         try {
             initialize();
+            logWorkspaceContents();
             runTestsAndParseResults(testInfo, listener, runFailures);
         } catch (AbortRunException e) {
             runFailures.add(e.getFailureDescription());
@@ -188,6 +191,24 @@ public final class BazelTest implements IRemoteTest {
 
     private void initialize() throws IOException {
         mRunTemporaryDirectory = Files.createTempDirectory(mTemporaryDirectory, "bazel-test-");
+    }
+
+    private void logWorkspaceContents() throws IOException {
+        Path workspaceDirectory = resolveWorkspacePath();
+
+        try (Stream<String> files =
+                Files.walk(workspaceDirectory)
+                        .filter(Files::isRegularFile)
+                        .map(x -> workspaceDirectory.relativize(x).toString())) {
+
+            Path outputFile = createLogFile("workspace-contents");
+            try (FileWriter writer = new FileWriter(outputFile.toAbsolutePath().toString())) {
+                for (String file : (Iterable<String>) () -> files.iterator()) {
+                    writer.write(file);
+                    writer.write(System.lineSeparator());
+                }
+            }
+        }
     }
 
     private void runTestsAndParseResults(
