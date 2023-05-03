@@ -353,7 +353,7 @@ def _get_regression_detection_args(args, results_dir):
 def _validate_exec_mode(args, test_infos, host_tests=None):
     """Validate all test execution modes are not in conflict.
 
-    Exit the program with error code if have device-only and host-only.
+    Exit the program with INVALID_EXEC_MODE code if have device-only and host-only.
     If no conflict and host side, add args.host=True.
 
     Args:
@@ -381,8 +381,8 @@ def _validate_exec_mode(args, test_infos, host_tests=None):
         err_msg = 'There are host-only tests in command.'
     if err_msg:
         logging.error(err_msg)
-        metrics_utils.send_exit_event(ExitCode.ERROR, logs=err_msg)
-        sys.exit(ExitCode.ERROR)
+        metrics_utils.send_exit_event(ExitCode.INVALID_EXEC_MODE, logs=err_msg)
+        sys.exit(ExitCode.INVALID_EXEC_MODE)
     # The 'adb' may not be available for the first repo sync or a clean build; run
     # `adb devices` in the build step again.
     if at.has_command('adb'):
