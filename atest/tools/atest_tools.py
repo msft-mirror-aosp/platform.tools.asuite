@@ -506,7 +506,9 @@ def probe_acloud_status(report_file, find_build_duration):
         return ExitCode.AVD_CREATE_FAILURE
 
     # 2. Failed to create because of invalid acloud arguments.
-    logging.error('Invalid acloud arguments found!')
+    msg = 'Invalid acloud arguments found!'
+    au.colorful_print(msg, constants.RED)
+    logging.debug(msg)
     return ExitCode.AVD_INVALID_ARGS
 
 
