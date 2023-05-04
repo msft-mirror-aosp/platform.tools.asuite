@@ -1956,6 +1956,41 @@ def prompt_suggestions(result_file: Path):
             except Exception:
                 pass
 
+
+def get_rbe_and_customized_out_state() -> int:
+    """Return decimal state of RBE and customized out.
+
+    Customizing out dir (OUT_DIR/OUT_DIR_COMMON_BASE) dramatically slows down
+    the RBE performance; by collecting the combined state of the two states,
+    we can profile the performance relationship between RBE and the build time.
+
+       RBE  | out_dir |  decimal
+    --------+---------+---------
+        0   |    0    |    0
+        0   |    1    |    1
+        1   |    0    |    2
+        1   |    1    |    3    --> Caution for poor performance.
+
+    Returns:
+        An integer that describes the combined state.
+    """
+    ON = '1'
+    OFF = '0'
+    # 1. ensure RBE is enabled during the build.
+    actual_out_dir = Path(get_build_out_dir())
+    log_path = actual_out_dir.joinpath('soong.log')
+    rbe_enabled = not bool(
+        subprocess.call(f'grep -q USE_RBE=true {log_path}'.split())
+        )
+    rbe_state = ON if rbe_enabled else OFF
+
+    # 2. The customized out path will be different from the regular one.
+    regular_out_dir = Path(os.getenv(constants.ANDROID_BUILD_TOP), 'out')
+    customized_out = OFF if actual_out_dir == regular_out_dir else ON
+
+    return int(rbe_state + customized_out, 2)
+
+
 def build_files_integrity_is_ok() -> bool:
     """Return Whether the integrity of build files is OK."""
     # 0. Inexistence of the checksum file means a fresh repo sync.
@@ -2019,9 +2054,11 @@ def _send_build_condition_metrics(
         return (md5sum(env_profiler.variable_file) !=
                 env_profiler.variable_file_md5)
 
-    def send_data(detect_type):
+    def send_data(detect_type, value=1):
         """A simple wrapper of metrics.LocalDetectEvent."""
-        metrics.LocalDetectEvent(detect_type=detect_type, result=1)
+        metrics.LocalDetectEvent(detect_type=detect_type, result=value)
+
+    send_data(DetectType.RBE_STATE, get_rbe_and_customized_out_state())
 
     # Determine the correct detect type before profiling.
     # (build module-info.json or build dependencies.)
