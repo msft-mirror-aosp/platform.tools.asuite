@@ -103,6 +103,7 @@ class ExitCode(IntEnum):
     INPUT_TEST_REFERENCE_ERROR = 13
     CONFIG_INVALID_FORMAT = 14
     INVALID_SMART_TESTING_PATH = 15
+    INVALID_EXEC_MODE = 16
     # The code > 100 are reserved for collecting data only, actually the run
     # doesn't finish at the point.
     COLLECT_ONLY_FILE_NOT_FOUND = 101
