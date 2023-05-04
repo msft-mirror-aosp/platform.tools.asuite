@@ -555,6 +555,9 @@ def _normalize(cmd_list):
     """
     _cmd = ' '.join(cmd_list).split()
     for cmd in _cmd:
+        if cmd.startswith('--skip-all-system-status-check'):
+            _cmd.remove(cmd)
+            continue
         if cmd.startswith('--atest-log-file-path'):
             _cmd.remove(cmd)
             continue
