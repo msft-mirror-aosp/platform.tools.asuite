@@ -144,7 +144,11 @@ class AtestTradefedTestRunner(trb.TestRunnerBase):
                              'log_args': self._LOG_ARGS.format(**log_args)}
         if kwargs.get('extra_args', {}).get(constants.LD_LIBRARY_PATH, False):
             self.run_cmd_dict.update({'env': self._get_ld_library_path()})
-        self.is_verbose = logging.getLogger().isEnabledFor(logging.DEBUG)
+        # Only set to verbose mode if the console handler is DEBUG level.
+        self.is_verbose = False
+        for handler in logging.getLogger('').handlers:
+            if handler.name == 'console' and handler.level == logging.DEBUG:
+                self.is_verbose = True
         self.root_dir = os.environ.get(constants.ANDROID_BUILD_TOP)
 
     def _get_ld_library_path(self) -> str:
