@@ -599,7 +599,9 @@ class TestFinderUtilsUnittests(unittest.TestCase):
     @staticmethod
     def test_is_parameterized_java_class():
         """Test is_parameterized_java_class method. """
-        matched_contents = (['@RunWith(Parameterized.class)'],
+        matched_contents = (['@ParameterizedTest'],
+                            ['@RunWith(Parameterized.class)'],
+                            ['@RunWith(Parameterized::class)'],
                             [' @RunWith( Parameterized.class ) '],
                             ['@RunWith(TestParameterInjector.class)'],
                             ['@RunWith(JUnitParamsRunner.class)'],
@@ -608,7 +610,8 @@ class TestFinderUtilsUnittests(unittest.TestCase):
                             ['@RunWith(Theories.class)'],
                             ['@RunWith(BedsteadJUnit4.class)'])
         not_matched_contents = (['// @RunWith(Parameterized.class)'],
-                                ['*RunWith(Parameterized.class)'])
+                                ['*RunWith(Parameterized.class)'],
+                                ['// @ParameterizedTest'])
         # Test matched patterns
         for matched_content in matched_contents:
             try:
