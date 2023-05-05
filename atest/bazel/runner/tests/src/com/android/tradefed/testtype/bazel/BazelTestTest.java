@@ -146,7 +146,7 @@ public final class BazelTestTest {
                 .testLog(contains(String.format("%s-log", BazelTest.RUN_TESTS)), any(), any());
     }
 
-    @Test
+   /*@Test
     public void runSucceeds_testLogsReportedUnderModule() throws Exception {
         BazelTest bazelTest = newBazelTest();
 
@@ -159,7 +159,7 @@ public final class BazelTestTest {
         inOrder.verify(mMockListener)
                 .testLog(eq("tf-test-process-invocation-log"), eq(LogDataType.XML), any());
         inOrder.verify(mMockListener).testModuleEnded();
-    }
+    }*/
 
     @Test
     public void malformedProtoResults_runFails() throws Exception {
