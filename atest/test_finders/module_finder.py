@@ -343,13 +343,16 @@ class ModuleFinder(test_finder_base.TestFinderBase):
         elif file_name and constants.JAVA_EXT_RE.match(file_name):
             full_class_name = test_finder_utils.get_fully_qualified_class_name(
                 path)
-            # If input class is parameterized java class, adding * to the end of
-            # method filter string to make sure the generated method name could
-            # be run.
             if test_finder_utils.is_parameterized_java_class(path):
                 update_methods = []
                 for method in methods:
-                    update_methods.append(method + '*')
+                    # Only append * to the method if brackets are not a part of
+                    # the method name, and result in running all parameters of
+                    # the parameterized test.
+                    if not atest_utils.contains_brackets(method, pair=False):
+                        update_methods.append(method + '*')
+                    else:
+                        update_methods.append(method)
                 methods = frozenset(update_methods)
             ti_filter = frozenset(
                 [test_info.TestFilter(full_class_name, methods)])
