@@ -99,7 +99,7 @@ public final class BazelTest implements IRemoteTest {
     private static final String PROTO_RESULTS_FILE_NAME = "proto-results";
 
     private final List<Path> mTemporaryPaths = new ArrayList<>();
-    private final List<Path> mLogFiles = new ArrayList<>();
+    private final List<LogFileWithType> mLogFiles = new ArrayList<>();
     private final Properties mProperties;
     private final ProcessStarter mProcessStarter;
     private final Path mTemporaryDirectory;
@@ -467,6 +467,7 @@ public final class BazelTest implements IRemoteTest {
             throws IOException {
 
         Path logFile = createLogFile("%s-log".formatted(RUN_TESTS));
+        Path bazelTraceFile = createLogFile("bazel-trace", ".perfetto-trace", LogDataType.PERFETTO);
 
         ProcessBuilder builder = createBazelCommand(workspaceDirectory, RUN_TESTS);
 
@@ -475,6 +476,9 @@ public final class BazelTest implements IRemoteTest {
         builder.command().addAll(testTargets);
 
         builder.command().add("--build_event_binary_file=%s".formatted(bepFile.toAbsolutePath()));
+
+        builder.command().add("--generate_json_trace_profile");
+        builder.command().add(String.format("--profile=%s", bazelTraceFile.toAbsolutePath()));
 
         builder.command().addAll(mBazelTestExtraArgs);
 
@@ -709,9 +713,10 @@ public final class BazelTest implements IRemoteTest {
     }
 
     private void addTestLogs(ITestLogger logger) {
-        for (Path logFile : mLogFiles) {
-            try (FileInputStreamSource source = new FileInputStreamSource(logFile.toFile(), true)) {
-                logger.testLog(logFile.toFile().getName(), LogDataType.TEXT, source);
+        for (LogFileWithType logFile : mLogFiles) {
+            try (FileInputStreamSource source =
+                    new FileInputStreamSource(logFile.getPath().toFile(), true)) {
+                logger.testLog(logFile.getPath().toFile().getName(), logFile.getType(), source);
             }
         }
     }
@@ -744,11 +749,15 @@ public final class BazelTest implements IRemoteTest {
     }
 
     private Path createLogFile(String name) throws IOException {
-        Path logFile = Files.createTempFile(mRunTemporaryDirectory, name, ".txt");
+        return createLogFile(name, ".txt", LogDataType.TEXT);
+    }
 
-        mLogFiles.add(logFile);
+    private Path createLogFile(String name, String extension, LogDataType type) throws IOException {
+        Path logPath = Files.createTempFile(mRunTemporaryDirectory, name, extension);
 
-        return logFile;
+        mLogFiles.add(new LogFileWithType(logPath, type));
+
+        return logPath;
     }
 
     private static FailureDescription throwableToTestFailureDescription(Throwable t) {
@@ -832,6 +841,24 @@ public final class BazelTest implements IRemoteTest {
 
         public String toString() {
             return String.join(" ", mBuilder.command());
+        }
+    }
+
+    private static final class LogFileWithType {
+        private final Path mPath;
+        private final LogDataType mType;
+
+        public LogFileWithType(Path path, LogDataType type) {
+            mPath = path;
+            mType = type;
+        }
+
+        public Path getPath() {
+            return mPath;
+        }
+
+        public LogDataType getType() {
+            return mType;
         }
     }
 }
