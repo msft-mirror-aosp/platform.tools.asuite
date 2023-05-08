@@ -1183,16 +1183,42 @@ def extra_args_to_tf_args(
 def get_include_filter(test_infos: List[test_info.TestInfo]) -> List[str]:
     """Generate a list of tradefed filter argument from TestInfos.
 
-    The tradefed argument format should be:
-    atest-include-filter <module-name>:<include-filter-value>
+    Args:
+        test_infos: a List of TestInfo object.
+
+    The include filter pattern looks like:
+        --atest-include-filter <module-name>:<include-filter-value>
+
+    Returns:
+        List of Tradefed command args.
     """
+    instrumentation_filters = []
     tf_args = []
     for info in test_infos:
         filters = set()
         for test_info_filter in info.data.get(constants.TI_FILTER, []):
             filters.update(test_info_filter.to_set_of_tf_strings())
         for test_filter in filters:
+            if re.compile(r'.*#.*\[.*\]').match(test_filter):
+                instrumentation_filters.append(test_filter)
+                # Only pass test_name to --atest-include-filter if the given is
+                # a Java parameterized test.
+                test_filter, _ = test_finder_utils.split_methods(test_filter)
             filter_arg = constants.TF_ATEST_INCLUDE_FILTER_VALUE_FMT.format(
-                test_name=info.test_name, test_filter=test_filter)
+                test_name=info.test_name,
+                test_filter=test_filter
+            )
             tf_args.extend([constants.TF_ATEST_INCLUDE_FILTER, filter_arg])
+    # Customize --test-arg for running Java parameterized tests.
+    if instrumentation_filters:
+        test_filter = ','.join(instrumentation_filters)
+        logging.debug('test_filter=%s', test_filter)
+        tf_args.append(constants.TF_TEST_ARG)
+        tf_args.append(
+            '{tf_class}:{option_name}:{option_value}'.format(
+                tf_class=constants.TF_AND_JUNIT_CLASS,
+                option_name='instrumentation-arg',
+                option_value=f'filter-tests:="{test_filter}"'
+            )
+        )
     return tf_args
