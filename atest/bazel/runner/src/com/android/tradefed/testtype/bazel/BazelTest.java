@@ -606,15 +606,15 @@ public final class BazelTest implements IRemoteTest {
             TestRecord record = TestRecordProtoUtil.readFromFile(protoResult);
 
             TestRecord.Builder recordBuilder = record.toBuilder();
-            recursivelyUpdateArtifactsRootPath(recordBuilder, outputFilesDir);
-            moveRootRecordArtifactsToFirstChild(recordBuilder);
+            //recursivelyUpdateArtifactsRootPath(recordBuilder, outputFilesDir);
+            //moveRootRecordArtifactsToFirstChild(recordBuilder);
             resultParser.processFinalizedProto(recordBuilder.build());
         } finally {
             MoreFiles.deleteRecursively(outputFilesDir);
         }
     }
 
-    private void recursivelyUpdateArtifactsRootPath(TestRecord.Builder recordBuilder, Path newRoot)
+    /*private void recursivelyUpdateArtifactsRootPath(TestRecord.Builder recordBuilder, Path newRoot)
             throws InvalidProtocolBufferException {
 
         Map<String, Any> updatedMap = new HashMap<>();
@@ -635,7 +635,7 @@ public final class BazelTest implements IRemoteTest {
         for (ChildReference.Builder childBuilder : recordBuilder.getChildrenBuilderList()) {
             recursivelyUpdateArtifactsRootPath(childBuilder.getInlineTestRecordBuilder(), newRoot);
         }
-    }
+    }*/
 
     private Path findRelativeArtifactPath(Path originalPath) {
         // The log files are stored under
@@ -663,7 +663,7 @@ public final class BazelTest implements IRemoteTest {
         return relativePath;
     }
 
-    private void moveRootRecordArtifactsToFirstChild(TestRecord.Builder recordBuilder) {
+    /*private void moveRootRecordArtifactsToFirstChild(TestRecord.Builder recordBuilder) {
         if (recordBuilder.getChildrenCount() == 0) {
             return;
         }
@@ -675,7 +675,7 @@ public final class BazelTest implements IRemoteTest {
         }
 
         recordBuilder.clearArtifacts();
-    }
+    }*/
 
     private void reportRunFailures(
             List<FailureDescription> runFailures, ITestInvocationListener listener) {
