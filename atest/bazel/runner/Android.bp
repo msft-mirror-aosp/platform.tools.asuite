@@ -38,10 +38,12 @@ java_library_host {
         ],
         canonical_path_from_root: false,
     },
+    // shade guava to avoid conflicts with guava embedded in Error Prone.
+    jarjar_rules: "jarjar-rules.txt",
 }
 
 java_genrule_host {
-    name: "bazel-test-suite",
+    name: "empty-bazel-test-suite",
     cmd: "BAZEL_SUITE_DIR=$(genDir)/android-bazel-suite && " +
         "mkdir \"$${BAZEL_SUITE_DIR}\" && " +
         "mkdir \"$${BAZEL_SUITE_DIR}\"/tools && " +
@@ -50,8 +52,8 @@ java_genrule_host {
         "cp $(location :compatibility-host-util) \"$${BAZEL_SUITE_DIR}\"/tools && " +
         "cp $(location :compatibility-tradefed) \"$${BAZEL_SUITE_DIR}\"/tools && " +
         "cp $(location :bazel-test-runner) \"$${BAZEL_SUITE_DIR}\"/testcases && " +
-        "$(location soong_zip) -o $(out) -d -C $(genDir) -D \"$${BAZEL_SUITE_DIR}\"",
-    out: ["bazel-test-suite.zip"],
+        "$(location soong_zip) -o $(out) -d -C $(genDir) -D \"$${BAZEL_SUITE_DIR}\" -sha256",
+    out: ["empty-bazel-test-suite.zip"],
     srcs: [
         ":tradefed",
         ":bazel-test-runner",
@@ -62,7 +64,7 @@ java_genrule_host {
         "soong_zip",
     ],
     dist: {
-        targets: ["bazel-test-suite"],
+        targets: ["empty-bazel-test-suite"],
     },
 }
 

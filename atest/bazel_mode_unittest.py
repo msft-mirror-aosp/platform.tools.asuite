@@ -27,6 +27,7 @@ import subprocess
 import tempfile
 import unittest
 
+from io import StringIO
 from pathlib import Path
 from typing import List
 from unittest import mock
@@ -54,26 +55,36 @@ class GenerationTestFixture(fake_filesystem_unittest.TestCase):
     def setUp(self):
         self.setUpPyfakefs()
 
-        self.src_root_path = Path('/src')
-        self.out_dir_path = self.src_root_path.joinpath('out')
+        self._src_root_path = Path('/src')
+        self.out_dir_path = self._src_root_path.joinpath('out')
         self.out_dir_path.mkdir(parents=True)
         self.product_out_path = self.out_dir_path.joinpath('product')
         self.host_out_path = self.out_dir_path.joinpath('host')
         self.workspace_out_path = self.out_dir_path.joinpath('workspace')
 
-        self.resource_root = self.src_root_path.joinpath(
+        self._resource_root = self._src_root_path.joinpath(
             'tools/asuite/atest/bazel')
 
-        bazel_rules = self.resource_root.joinpath('rules')
-        bazel_rules.mkdir(parents=True)
-        bazel_rules.joinpath('rules.bzl').touch()
+        self.workspace_md5_checksum = self.workspace_out_path.joinpath(
+            'workspace_md5_checksum')
+        self.resource_manager = bazel_mode.ResourceManager(
+            src_root_path=self._src_root_path,
+            resource_root_path=self._resource_root,
+            product_out_path=self.product_out_path,
+            md5_checksum_file_path = self.workspace_md5_checksum
+        )
 
-        bazel_configs = self.resource_root.joinpath('configs')
+        bazel_rules = self.resource_manager.get_resource_file_path('rules')
+        bazel_rules.mkdir(parents=True)
+        self.rules_bzl_file = bazel_rules.joinpath('rules.bzl')
+        self.rules_bzl_file.touch()
+
+        bazel_configs = self.resource_manager.get_resource_file_path('configs')
         bazel_configs.mkdir(parents=True)
         bazel_configs.joinpath('configs.bzl').touch()
 
-        self.resource_root.joinpath('WORKSPACE').touch()
-        self.resource_root.joinpath('bazelrc').touch()
+        self.resource_manager.get_resource_file_path('WORKSPACE').touch()
+        self.resource_manager.get_resource_file_path('bazelrc').touch()
 
     def create_workspace_generator(
         self,
@@ -84,39 +95,36 @@ class GenerationTestFixture(fake_filesystem_unittest.TestCase):
         mod_info = self.create_module_info(modules)
 
         generator = bazel_mode.WorkspaceGenerator(
-            self.src_root_path,
-            self.workspace_out_path,
-            self.product_out_path,
-            self.host_out_path,
-            self.out_dir_path,
-            mod_info,
-            enabled_features=enabled_features,
-            resource_root=self.resource_root,
+            resource_manager=self.resource_manager,
+            workspace_out_path=self.workspace_out_path,
+            host_out_path=self.host_out_path,
+            build_out_dir=self.out_dir_path,
+            mod_info=mod_info,
             jdk_path=jdk_path,
+            enabled_features=enabled_features,
         )
 
         return generator
 
     def run_generator(self, mod_info, enabled_features=None, jdk_path=None):
         generator = bazel_mode.WorkspaceGenerator(
-            self.src_root_path,
-            self.workspace_out_path,
-            self.product_out_path,
-            self.host_out_path,
-            self.out_dir_path,
-            mod_info,
-            enabled_features=enabled_features,
-            resource_root=self.resource_root,
+            resource_manager=self.resource_manager,
+            workspace_out_path=self.workspace_out_path,
+            host_out_path=self.host_out_path,
+            build_out_dir=self.out_dir_path,
+            mod_info=mod_info,
             jdk_path=jdk_path,
+            enabled_features=enabled_features,
         )
 
         generator.generate()
 
     # pylint: disable=protected-access
     def create_empty_module_info(self):
-        fake_temp_file_name = next(tempfile._get_candidate_names())
-        self.fs.create_file(fake_temp_file_name, contents='{}')
-        return module_info.ModuleInfo(module_file=fake_temp_file_name)
+        fake_temp_file = self.product_out_path.joinpath(
+            next(tempfile._get_candidate_names()))
+        self.fs.create_file(fake_temp_file, contents='{}')
+        return module_info.ModuleInfo(module_file=fake_temp_file)
 
     def create_module_info(self, modules=None):
         mod_info = self.create_empty_module_info()
@@ -309,12 +317,35 @@ class BasicWorkspaceGenerationTest(GenerationTestFixture):
         workspace_generator.generate()
         workspace_stat = workspace_generator.workspace_out_path.stat()
 
-        workspace_generator.mod_info.mod_info_file_path.unlink()
+        self.workspace_md5_checksum.unlink()
         workspace_generator = self.create_workspace_generator()
         workspace_generator.generate()
-
         new_workspace_stat = workspace_generator.workspace_out_path.stat()
+
         self.assertNotEqual(workspace_stat, new_workspace_stat)
+
+    def test_regenerate_workspace_when_md5_file_is_broken(self):
+        workspace_generator = self.create_workspace_generator()
+        workspace_generator.generate()
+        workspace_stat = workspace_generator.workspace_out_path.stat()
+
+        self.workspace_md5_checksum.write_text('broken checksum file')
+        workspace_generator = self.create_workspace_generator()
+        workspace_generator.generate()
+        new_workspace_stat = workspace_generator.workspace_out_path.stat()
+
+        self.assertNotEqual(workspace_stat, new_workspace_stat)
+
+    def test_not_regenerate_workspace_when_workspace_files_unaffected(self):
+        workspace_generator = self.create_workspace_generator()
+        workspace_generator.generate()
+        workspace_stat = workspace_generator.workspace_out_path.stat()
+
+        workspace_generator = self.create_workspace_generator()
+        workspace_generator.generate()
+        new_workspace_stat = workspace_generator.workspace_out_path.stat()
+
+        self.assertEqual(workspace_stat, new_workspace_stat)
 
     def test_scrub_old_workspace_when_regenerating(self):
         workspace_generator = self.create_workspace_generator()
@@ -323,12 +354,37 @@ class BasicWorkspaceGenerationTest(GenerationTestFixture):
         some_file.touch()
         self.assertTrue(some_file.is_file())
 
-        # Remove the md5 file to regenerate the workspace.
+        # Remove the module_info file to regenerate the workspace.
         workspace_generator.mod_info.mod_info_file_path.unlink()
         workspace_generator = self.create_workspace_generator()
         workspace_generator.generate()
 
         self.assertFalse(some_file.is_file())
+
+    def test_regenerate_workspace_when_resource_file_changed(self):
+        workspace_generator = self.create_workspace_generator()
+        workspace_generator.generate()
+        workspace_stat = workspace_generator.workspace_out_path.stat()
+
+        with open(self.rules_bzl_file, 'a', encoding='utf8') as f:
+            f.write(' ')
+        workspace_generator = self.create_workspace_generator()
+        workspace_generator.generate()
+
+        new_workspace_stat = workspace_generator.workspace_out_path.stat()
+        self.assertNotEqual(workspace_stat, new_workspace_stat)
+
+    def test_not_regenerate_workspace_when_resource_file_only_touched(self):
+        workspace_generator = self.create_workspace_generator()
+        workspace_generator.generate()
+        workspace_stat = workspace_generator.workspace_out_path.stat()
+
+        self.rules_bzl_file.touch()
+        workspace_generator = self.create_workspace_generator()
+        workspace_generator.generate()
+
+        new_workspace_stat = workspace_generator.workspace_out_path.stat()
+        self.assertEqual(workspace_stat, new_workspace_stat)
 
     def test_copy_workspace_resources(self):
         gen = self.create_workspace_generator()
@@ -703,14 +759,13 @@ class RobolectricTestModuleTestTargetGenerationTest(GenerationTestFixture):
 
     def setUp(self):
         super().setUp()
-        self.robolectric_template_path = self.src_root_path.joinpath(
-            bazel_mode.ROBOLECTRIC_CONFIG)
+        self.robolectric_template_path = self.resource_manager.\
+            get_resource_file_path(bazel_mode.ROBOLECTRIC_CONFIG, True)
         self.fs.create_file(self.robolectric_template_path, contents='')
-
-    def create_module_info(self, modules=None):
-        mod_info = super().create_module_info(modules)
-        mod_info.root_dir = self.src_root_path
-        return mod_info
+        # ResourceManager only calculates md5 when registering files. So, it is
+        # necessary to call get_resource_file_path() again after writing files.
+        self.resource_manager.get_resource_file_path(
+            bazel_mode.ROBOLECTRIC_CONFIG, True)
 
     def test_generate_robolectric_test_target(self):
         module_name = 'hello_world_test'
@@ -784,7 +839,7 @@ class RobolectricTestModuleTestTargetGenerationTest(GenerationTestFixture):
         self.assertSymlinkTo(
             self.workspace_out_path.joinpath(
                 f'{bazel_mode.JDK_PACKAGE_NAME}/{bazel_mode.JDK_NAME}_files'),
-            self.src_root_path.joinpath(f'{jdk_path}'))
+            self.resource_manager.get_src_file_path(f'{jdk_path}'))
 
     def test_generate_android_all_target(self):
         gen = self.create_workspace_generator(jdk_path=Path('jdk_src_root'))
@@ -1125,17 +1180,36 @@ class ModuleSharedLibGenerationTest(GenerationTestFixture):
 
     def test_generate_target_for_rlib_dependency(self):
         mod_info = self.create_module_info(modules=[
-            supported_test_module(dependencies=['libhello']),
-            rlib(module(name='libhello'))
+            multi_config(host_unit_suite(module(
+                name='hello_world_test',
+                dependencies=['libhost', 'libdevice']))),
+            rlib(module(name='libhost', supported_variants=['HOST'])),
+            rlib(module(name='libdevice', supported_variants=['DEVICE'])),
         ])
 
         self.run_generator(mod_info)
 
         self.assertInBuildFile(
             'soong_uninstalled_prebuilt(\n'
-            '    name = "libhello",\n'
-            '    module_name = "libhello",\n'
+            '    name = "libhost",\n'
+            '    module_name = "libhost",\n'
             ')\n'
+        )
+        self.assertInBuildFile(
+            'soong_uninstalled_prebuilt(\n'
+            '    name = "libdevice",\n'
+            '    module_name = "libdevice",\n'
+            ')\n'
+        )
+        self.assertInBuildFile(
+            '    runtime_deps = select({\n'
+            '        "//bazel/rules:device": [\n'
+            '            "//:libdevice",\n'
+            '        ],\n'
+            '        "//bazel/rules:host": [\n'
+            '            "//:libhost",\n'
+            '        ],\n'
+            '    }),\n'
         )
 
     def test_generate_target_for_rlib_dylib_dependency(self):
@@ -1403,7 +1477,10 @@ def test_module(**kwargs):
     return test(module(**kwargs))
 
 
+# TODO(b/274822450): Using a builder pattern to reduce the number of parameters
+#  instead of disabling the warning.
 # pylint: disable=too-many-arguments
+# pylint: disable=too-many-locals
 def module(
     name=None,
     path=None,
@@ -1419,6 +1496,7 @@ def module(
     host_dependencies=None,
     target_dependencies=None,
     test_options_tags=None,
+    supported_variants=None,
 ):
     name = name or 'libhello'
 
@@ -1439,6 +1517,7 @@ def module(
     m['host_dependencies'] = host_dependencies or []
     m['target_dependencies'] = target_dependencies or []
     m['test_options_tags'] = test_options_tags or []
+    m['supported_variants'] = supported_variants or []
     return m
 
 
@@ -1829,82 +1908,109 @@ class BazelTestRunnerTest(unittest.TestCase):
             modules=[
                 supported_test_module(name='test1', path='path1'),
             ],
-            test_infos=[],
             run_command=run_command,
         )
 
-        reqs = runner.get_test_runner_build_reqs()
+        reqs = runner.get_test_runner_build_reqs([])
 
         self.assertFalse(reqs)
 
     def test_query_bazel_test_targets_deps_with_host_arg(self):
-        run_command = self.mock_run_command()
+        query_file_contents = StringIO()
+        def get_query_file_content(args: List[str], _) -> str:
+            query_file_contents.write(_get_query_file_content(args))
+            return ''
+
         runner = self.create_bazel_test_runner(
             modules=[
                 multi_config(host_unit_test_module(name='test1', path='path1')),
                 multi_config(host_unit_test_module(name='test2', path='path2')),
                 multi_config(test_module(name='test3', path='path3')),
             ],
-            test_infos = [
-                test_info_of('test2'),
-                test_info_of('test1'),  # Intentionally out of order.
-                test_info_of('test3'),
-            ],
-            run_command=run_command,
+            run_command=get_query_file_content,
             host=True,
         )
 
-        runner.get_test_runner_build_reqs()
+        runner.get_test_runner_build_reqs([
+            test_info_of('test2'),
+            test_info_of('test1'),  # Intentionally out of order.
+            test_info_of('test3'),
+        ])
 
-        call_args = run_command.call_args[0][0]
-        self.assertIn(
+        self.assertEqual(
             'deps(tests(//path1:test1_host + '
             '//path2:test2_host + '
             '//path3:test3_host))',
-            call_args,
-        )
+            query_file_contents.getvalue())
 
     def test_query_bazel_test_targets_deps_without_host_arg(self):
-        run_command = self.mock_run_command()
+        query_file_contents = StringIO()
+        def get_query_file_content(args: List[str], _) -> str:
+            query_file_contents.write(_get_query_file_content(args))
+            return ''
+
         runner = self.create_bazel_test_runner(
             modules=[
                 multi_config(host_unit_test_module(name='test1', path='path1')),
                 host_unit_test_module(name='test2', path='path2'),
                 multi_config(test_module(name='test3', path='path3')),
             ],
-            test_infos = [
-                test_info_of('test2'),
-                test_info_of('test1'),
-                test_info_of('test3'),
-            ],
-            run_command=run_command,
+            run_command=get_query_file_content,
         )
 
-        runner.get_test_runner_build_reqs()
+        runner.get_test_runner_build_reqs([
+            test_info_of('test2'),
+            test_info_of('test1'),
+            test_info_of('test3'),
+        ])
 
-        call_args = run_command.call_args[0][0]
-        call_args = run_command.call_args[0][0]
-        self.assertIn(
+        self.assertEqual(
             'deps(tests(//path1:test1_device + '
             '//path2:test2_host + '
             '//path3:test3_device))',
-            call_args,
-        )
+            query_file_contents.getvalue())
 
     def test_trim_whitespace_in_bazel_query_output(self):
         run_command = self.mock_run_command(
-            return_value='\n'.join(['  test1  ', 'test2  ', '  ']))
+            return_value='\n'.join(['  test1:host  ', 'test2:device  ', '  ']))
         runner = self.create_bazel_test_runner(
             modules=[
                 supported_test_module(name='test1', path='path1'),
             ],
-            test_infos = [test_info_of('test1')],
             run_command=run_command,
         )
 
-        reqs = runner.get_test_runner_build_reqs()
+        reqs = runner.get_test_runner_build_reqs([test_info_of('test1')])
 
-        self.assertSetEqual({'test1', 'test2'}, reqs)
+        self.assertSetEqual({'test1-host', 'test2-target'}, reqs)
+
+    def test_build_variants_in_bazel_query_output(self):
+        run_command = self.mock_run_command(
+            return_value='\n'.join([
+                'test1:host',
+                'test2:host', 'test2:device',
+                'test3:device',
+                'test4:host', 'test4:host',
+            ]))
+        runner = self.create_bazel_test_runner(
+            modules=[
+                supported_test_module(name='test1', path='path1'),
+                supported_test_module(name='test2', path='path2'),
+                supported_test_module(name='test3', path='path3'),
+                supported_test_module(name='test4', path='path4'),
+            ],
+            run_command = run_command,
+        )
+
+        reqs = runner.get_test_runner_build_reqs([
+            test_info_of('test1'),
+            test_info_of('test2'),
+            test_info_of('test3'),
+            test_info_of('test4')])
+
+        self.assertSetEqual(
+            {'test1-host', 'test2', 'test3-target', 'test4-host'},
+            reqs)
 
     def test_generate_single_run_command(self):
         test_infos = [test_info_of('test1')]
@@ -1924,7 +2030,6 @@ class BazelTestRunnerTest(unittest.TestCase):
                 multi_config(host_unit_test_module(name='test2', path='path')),
                 multi_config(test_module(name='test3', path='path')),
             ],
-            test_infos,
             host=True
         )
 
@@ -1941,7 +2046,6 @@ class BazelTestRunnerTest(unittest.TestCase):
                 multi_config(host_unit_test_module(name='test1', path='path')),
                 host_unit_test_module(name='test2', path='path'),
             ],
-            test_infos,
         )
 
         cmd = runner.generate_run_commands(test_infos, {})
@@ -2072,7 +2176,6 @@ class BazelTestRunnerTest(unittest.TestCase):
 
     def create_bazel_test_runner(self,
                                  modules,
-                                 test_infos,
                                  run_command=None,
                                  host=False,
                                  build_metadata=None,
@@ -2080,7 +2183,6 @@ class BazelTestRunnerTest(unittest.TestCase):
         return bazel_mode.BazelTestRunner(
             'result_dir',
             mod_info=create_module_info(modules),
-            test_infos=test_infos,
             src_top=Path('/src'),
             workspace_path=Path('/src/workspace'),
             run_command=run_command or self.mock_run_command(),
@@ -2096,7 +2198,6 @@ class BazelTestRunnerTest(unittest.TestCase):
         return self.create_bazel_test_runner(
             modules=[supported_test_module(name=t.test_name, path='path')
                      for t in test_infos],
-            test_infos=test_infos,
             build_metadata=build_metadata,
             env=env
         )
@@ -2147,6 +2248,14 @@ def test_info_of(module_name, test_filters=None):
 def test_filter_of(class_name, methods=None):
     return test_info.TestFilter(
         class_name, frozenset(methods) if methods else frozenset())
+
+
+def _get_query_file_content(args: List[str]) -> str:
+    for arg in args:
+        if arg.startswith('--query_file='):
+            return Path(arg.split('=')[1]).read_text()
+
+    raise Exception('Query file not found!')
 
 
 if __name__ == '__main__':

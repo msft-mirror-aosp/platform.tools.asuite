@@ -126,6 +126,12 @@ class CLITranslator:
         test_name = test_identifier.test_name
         if not self._verified_mainline_modules(test_identifier):
             return test_infos
+        if self.mod_info and test in self.mod_info.roboleaf_tests:
+            # Roboleaf bazel will discover and build dependencies so we can
+            # skip finding dependencies.
+            print(f'Found \'{atest_utils.colorize(test, constants.GREEN)}\''
+                  ' as ROBOLEAF_CONVERTED_MODULE')
+            return [self.mod_info.roboleaf_tests[test]]
         find_methods = test_finder_handler.get_find_methods_for_test(
             self.mod_info, test)
         if self._bazel_mode:
@@ -535,12 +541,6 @@ class CLITranslator:
 
         return tests, all_tests
 
-    def _gather_build_targets(self, test_infos):
-        targets = set()
-        for t_info in test_infos:
-            targets |= t_info.build_targets
-        return targets
-
     def _get_test_mapping_tests(self, args, exit_if_no_test_found=True):
         """Find the tests in TEST_MAPPING files.
 
@@ -715,13 +715,12 @@ class CLITranslator:
             result=int(finished_time))
         for t_info in test_infos:
             logging.debug('%s\n', t_info)
-        build_targets = self._gather_build_targets(test_infos)
         if not self._bazel_mode:
             if host_unit_tests or self._has_host_unit_test(tests):
                 msg = (r"It is recommended to run host unit tests with "
                        r"--bazel-mode.")
                 atest_utils.colorful_print(msg, constants.YELLOW)
-        return build_targets, test_infos
+        return test_infos
 
 
 # TODO: (b/265359291) Raise Exception when the brackets are not in pair.

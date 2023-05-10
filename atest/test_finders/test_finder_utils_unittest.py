@@ -99,6 +99,7 @@ PRODUCT_OUT_DIR = os.path.join(BUILD_TOP_DIR, 'out/target/product/vsoc_x86_64')
 HOST_OUT_DIR = tempfile.NamedTemporaryFile().name
 
 #pylint: disable=protected-access
+#pylint: disable=too-many-public-methods
 #pylint: disable=unnecessary-comprehension
 class TestFinderUtilsUnittests(unittest.TestCase):
     """Unit tests for test_finder_utils.py"""
@@ -363,7 +364,7 @@ class TestFinderUtilsUnittests(unittest.TestCase):
         """
         abs_class_dir = '/%s' % CLASS_DIR
         mock_module_info = mock.Mock(spec=module_info.ModuleInfo)
-        mock_module_info.is_robolectric_module.return_value = True
+        mock_module_info.is_legacy_robolectric_class.return_value = True
         rel_class_dir_path = os.path.relpath(abs_class_dir, uc.ROOT)
         mock_module_info.path_to_module_info = {rel_class_dir_path: [{}]}
         unittest_utils.assert_strict_equal(
@@ -595,8 +596,9 @@ class TestFinderUtilsUnittests(unittest.TestCase):
         self.assertEqual(test_finder_utils.get_levenshtein_distance(uc.MOD3, uc.FUZZY_MOD3,
                                                                     dir_costs=(1, 2, 1)), 8)
 
-    def test_is_parameterized_java_class(self):
-        """Test is_parameterized_java_class method."""
+    @staticmethod
+    def test_is_parameterized_java_class():
+        """Test is_parameterized_java_class method. """
         matched_contents = (['@RunWith(Parameterized.class)'],
                             [' @RunWith( Parameterized.class ) '],
                             ['@RunWith(TestParameterInjector.class)'],
@@ -698,7 +700,8 @@ class TestFinderUtilsUnittests(unittest.TestCase):
         self.assertEqual(package_name,
                          test_finder_utils.get_package_name(target_kt))
 
-    def get_paths_side_effect(self, module_name):
+    @staticmethod
+    def _get_paths_side_effect(module_name):
         """Mock return values for module_info.get_paths."""
         if module_name == UNIT_TEST_MODULE_1:
             return [IT_TEST_MATCHED_1_PATH]
@@ -716,7 +719,7 @@ class TestFinderUtilsUnittests(unittest.TestCase):
     def test_find_host_unit_tests(self, _get_paths, _mock_get_unit_tests):
         """Test find_host_unit_tests"""
         mod_info = module_info.ModuleInfo(module_file=JSON_FILE_PATH, index_dir=HOST_OUT_DIR)
-        _get_paths.side_effect = self.get_paths_side_effect
+        _get_paths.side_effect = self._get_paths_side_effect
         expect_unit_tests = [UNIT_TEST_MODULE_1, UNIT_TEST_MODULE_2]
         self.assertEqual(
             sorted(expect_unit_tests),
@@ -790,6 +793,111 @@ class TestFinderUtilsUnittests(unittest.TestCase):
             not_exist_xml, test_name)
 
         self.assertEqual(exist, False)
+
+    def test_parse_test_reference_input_module_class_method_match(self):
+        test_module = 'myModule'
+        test_class = 'myClass'
+        test_method = 'myTest::Method'
+        test_ref = f'{test_module}:{test_class}#{test_method}'
+
+        result = test_finder_utils.parse_test_reference(test_ref)
+
+        self.assertEqual(test_module, result['module_name'])
+        self.assertEqual(test_class, result['pkg_class_name'])
+        self.assertEqual(test_method, result['method_name'])
+
+    def test_parse_test_reference_input_module_class_match(self):
+        test_module = 'myModule'
+        test_class = 'myClass'
+        test_ref = f'{test_module}:{test_class}'
+
+        result = test_finder_utils.parse_test_reference(test_ref)
+
+        self.assertEqual(test_module, result['module_name'])
+        self.assertEqual(test_class, result['pkg_class_name'])
+        self.assertEqual('', result.get('method_name', ''))
+
+    def test_parse_test_reference_input_module_class_parameter_method_match(
+            self):
+        test_module = 'myModule'
+        test_class = 'myClass'
+        test_method = 'myTest::Method[0]'
+        test_ref = f'{test_module}:{test_class}#{test_method}'
+
+        result = test_finder_utils.parse_test_reference(test_ref)
+
+        self.assertEqual(test_module, result['module_name'])
+        self.assertEqual(test_class, result['pkg_class_name'])
+        self.assertEqual(test_method, result['method_name'])
+
+    def test_parse_test_reference_input_module_class_multiple_methods_match(
+            self):
+        test_module = 'myModule'
+        test_class = 'myClass'
+        test_method = 'myTest::Method[0],myTest::Method[1]'
+        test_ref = f'{test_module}:{test_class}#{test_method}'
+
+        result = test_finder_utils.parse_test_reference(test_ref)
+
+        self.assertEqual(test_module, result['module_name'])
+        self.assertEqual(test_class, result['pkg_class_name'])
+        self.assertEqual(test_method, result['method_name'])
+
+    def test_parse_test_reference_input_class_method_not_match(
+        self):
+        test_class = 'myClass'
+        test_method = 'myTest::Method'
+        test_ref = f'{test_class}#{test_method}'
+
+        result = test_finder_utils.parse_test_reference(test_ref)
+
+        self.assertEqual(result, dict())
+
+    def test_parse_test_reference_input_module_dashed_match(self):
+        test_module = 'my-module'
+        test_class = 'BR/EI/ZH'
+        test_ref = f'{test_module}:{test_class}'
+
+        result = test_finder_utils.parse_test_reference(test_ref)
+
+        self.assertEqual(test_module, result['module_name'])
+        self.assertEqual(test_class, result['pkg_class_name'])
+
+    def test_parse_test_reference_input_module_pkg_method_match(self):
+        test_module = 'myModule'
+        test_package = 'my.package'
+        test_method = 'myTest::Method'
+        test_ref = f'{test_module}:{test_package}#{test_method}'
+
+        result = test_finder_utils.parse_test_reference(test_ref)
+
+        self.assertEqual(test_module, result['module_name'])
+        self.assertEqual(test_package, result['pkg_class_name'])
+        self.assertEqual(test_method, result['method_name'])
+
+    def test_parse_test_reference_input_plan_class_match(self):
+        test_module = 'my/Module'
+        test_class = 'class'
+        test_ref = f'{test_module}:{test_class}'
+
+        result = test_finder_utils.parse_test_reference(test_ref)
+
+        self.assertEqual(test_module, result['module_name'])
+        self.assertEqual(test_class, result['pkg_class_name'])
+        self.assertEqual('', result.get('method_name', ''))
+
+    def test_parse_test_reference_input_module_parameter_class_and_method_match(
+        self):
+        test_module = 'myModule'
+        test_class = 'myClass/abc0'
+        test_method = 'myTest0/Method[0]'
+        test_ref = f'{test_module}:{test_class}#{test_method}'
+
+        result = test_finder_utils.parse_test_reference(test_ref)
+
+        self.assertEqual(test_module, result['module_name'])
+        self.assertEqual(test_class, result['pkg_class_name'])
+        self.assertEqual(test_method, result['method_name'])
 
 if __name__ == '__main__':
     unittest.main()

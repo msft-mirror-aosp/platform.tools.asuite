@@ -21,7 +21,7 @@ from enum import IntEnum, unique, Enum
 @unique
 class DetectType(IntEnum):
     """An Enum class for local_detect_event."""
-    # Detect type for local_detect_event; next expansion: 29
+    # Detect type for local_detect_event; next expansion: 43
     BUG_DETECTED = 0
     ACLOUD_CREATE = 1
     FIND_BUILD = 2
@@ -58,6 +58,28 @@ class DetectType(IntEnum):
     FOUND_TARGET_ARTIFACTS = 27
     FIND_TEST_IN_DEPS=28
     FULL_GENERATE_BAZEL_WORKSPACE_TIME = 29
+    # Below detect types are used for determine build conditions:
+    # 1. *_CLEAN_OUT: when out/ dir is empty or does not exist.
+    # 2. *_BPMK_CHANGE: when any Android.bp/Android.mk has changed.
+    # 3. *_ENV_CHANGE: when build-related variable has changed.
+    # 4. *_SRC_CHANGE: when source code has changed.
+    # 5. *_OTHER: none of above reasons that triggers renewal of ninja file.
+    # 6. *_INCREMENTAL: the build doesn't need to renew ninja file.
+    MODULE_INFO_CLEAN_OUT = 30
+    MODULE_INFO_BPMK_CHANGE = 31
+    MODULE_INFO_ENV_CHANGE = 32
+    MODULE_INFO_SRC_CHANGE = 33
+    MODULE_INFO_OTHER = 34
+    MODULE_INFO_INCREMENTAL = 35
+    BUILD_CLEAN_OUT = 36
+    BUILD_BPMK_CHANGE = 37
+    BUILD_ENV_CHANGE = 38
+    BUILD_SRC_CHANGE = 39
+    BUILD_OTHER = 40
+    BUILD_INCREMENTAL = 41
+    BUILD_TIME_PER_TARGET = 42
+    MODULE_INFO_GEN_NINJA = 43
+    BUILD_GEN_NINJA = 44
 
 @unique
 class ExitCode(IntEnum):

@@ -29,7 +29,7 @@ import socket
 
 from functools import partial
 from pathlib import Path
-from typing import Any, List, Tuple
+from typing import Any, Dict, List, Set, Tuple
 
 from atest import atest_configs
 from atest import atest_error
@@ -125,8 +125,10 @@ class AtestTradefedTestRunner(trb.TestRunnerBase):
         super().__init__(results_dir, **kwargs)
         self.module_info = mod_info
         self.log_path = os.path.join(results_dir, LOG_FOLDER_NAME)
-        if not os.path.exists(self.log_path):
-            os.makedirs(self.log_path)
+        # (b/275537997) results_dir could be '' in test_runner_handler; only
+        # mkdir when it is invoked by run_tests.
+        if results_dir:
+            Path(self.log_path).mkdir(parents=True, exist_ok=True)
         log_args = {'log_root_option_name': constants.LOG_ROOT_OPTION_NAME,
                     'log_ext_option': constants.LOG_SAVER_EXT_OPTION,
                     'log_path': self.log_path,
@@ -465,13 +467,16 @@ class AtestTradefedTestRunner(trb.TestRunnerBase):
         root_dir = os.environ.get(constants.ANDROID_BUILD_TOP, '')
         return os.path.commonprefix([output, root_dir]) != root_dir
 
-    def get_test_runner_build_reqs(self):
+    def get_test_runner_build_reqs(self, test_infos: List[test_info.TestInfo]):
         """Return the build requirements.
+
+        Args:
+            test_infos: List of TestInfo.
 
         Returns:
             Set of build targets.
         """
-        build_req = self._BUILD_REQ
+        build_req = self._BUILD_REQ.copy()
         # Use different base build requirements if google-tf is around.
         if self.module_info.is_module(constants.GTF_MODULE):
             build_req = {constants.GTF_TARGET}
@@ -482,7 +487,33 @@ class AtestTradefedTestRunner(trb.TestRunnerBase):
             if self._is_missing_exec(executable):
                 if self.module_info.is_module(executable):
                     build_req.add(executable)
+
+        # Force rebuilt all jars under $ANDROID_HOST_OUT to prevent old version
+        # host jars break the test.
+        build_req |= self._get_host_framework_targets()
+
+        build_req |= trb.gather_build_targets(test_infos)
         return build_req
+
+    def _get_host_framework_targets(self) -> Set[str]:
+        """Get the build targets for all the existing jars under host framework.
+
+        Returns:
+            A set of build target name under $(ANDROID_HOST_OUT)/framework.
+        """
+        host_targets = set()
+        if not self.module_info:
+            return host_targets
+
+        framework_host_dir = Path(
+            os.environ.get(constants.ANDROID_HOST_OUT)).joinpath('framework')
+        if framework_host_dir.is_dir():
+            jars = framework_host_dir.glob('*.jar')
+            for jar in jars:
+                if self.module_info.is_module(jar.stem):
+                    host_targets.add(jar.stem)
+            logging.debug('Found exist host framework target:%s', host_targets)
+        return host_targets
 
     def _parse_extra_args(self, test_infos, extra_args):
         """Convert the extra args into something tf can understand.
@@ -591,6 +622,10 @@ class AtestTradefedTestRunner(trb.TestRunnerBase):
         log_level = 'VERBOSE'
         test_args.extend(['--log-level-display', log_level])
         test_args.extend(['--log-level', log_level])
+
+        # TODO(b/275110259) Remove this once TF not going to get bugreport.
+        test_args.extend(['--skip-all-system-status-check=true'])
+
         # Set no-early-device-release by default to speed up TF teardown time.
         if not constants.TF_EARLY_DEVICE_RELEASE in extra_args:
             test_args.extend(['--no-early-device-release'])
@@ -1002,9 +1037,11 @@ def generate_annotation_filter_args(
     return annotation_filter_args
 
 
-def extra_args_to_tf_args(mod_info: module_info.ModuleInfo,
-                          test_infos: List[test_info.TestInfo],
-                          extra_args: trb.ARGS) -> Tuple[trb.ARGS, trb.ARGS]:
+def extra_args_to_tf_args(
+    mod_info: module_info.ModuleInfo,
+    test_infos: List[test_info.TestInfo],
+    extra_args: Dict[str, Any],
+) -> Tuple[Dict[str, Any], Dict[str, Any]]:
     """Convert the extra args into atest_tf_test_runner supported args.
 
     Args:

@@ -28,6 +28,7 @@ from atest import bazel_mode
 from atest import constants
 
 from atest.atest_utils import BuildOutputMode
+from atest.test_runners.roboleaf_test_runner import BazelBuildMode
 
 def output_mode_msg() -> str:
     """Generate helper strings for BuildOutputMode."""
@@ -101,6 +102,8 @@ NO_CHECKING_DEVICE = 'Do NOT check device availability. (even it is a device tes
 NO_ENABLE_ROOT = ('Do NOT restart adbd with root permission even the test config '
                   'has RootTargetPreparer.')
 NO_METRICS = 'Do not send metrics.'
+ROBOLEAF_MODE = ('Check if module has been listed in the ["prod", "staging", or'
+                 ' "dev"] roboleaf allowlists and invoke with b test.')
 REBUILD_MODULE_INFO = ('Forces a rebuild of the module-info.json file. '
                        'This may be necessary following a repo sync or '
                        'when writing a new test.')
@@ -216,6 +219,13 @@ class AtestArgParser(argparse.ArgumentParser):
                           action='store_true', help=REBUILD_MODULE_INFO)
         self.add_argument('--no-enable-root', help=NO_ENABLE_ROOT,
                           action='store_true')
+        self.add_argument('--roboleaf-mode',
+                          nargs='?',
+                          default=BazelBuildMode.OFF,
+                          const=BazelBuildMode.PROD,
+                          choices=BazelBuildMode,
+                          type=BazelBuildMode,
+                          help=ROBOLEAF_MODE)
         self.add_argument('--sharding', nargs='?', const=2,
                           type=_positive_int, default=0,
                           help=SHARDING)
@@ -442,6 +452,7 @@ def print_epilog_text():
         NO_CHECKING_DEVICE=NO_CHECKING_DEVICE,
         FUZZY_SEARCH=FUZZY_SEARCH,
         REBUILD_MODULE_INFO=REBUILD_MODULE_INFO,
+        ROBOLEAF_MODE=ROBOLEAF_MODE,
         REQUEST_UPLOAD_RESULT=REQUEST_UPLOAD_RESULT,
         RERUN_UNTIL_FAILURE=RERUN_UNTIL_FAILURE,
         RETRY_ANY_FAILURE=RETRY_ANY_FAILURE,
@@ -543,6 +554,9 @@ OPTIONS
 
         -m, --rebuild-module-info
             {REBUILD_MODULE_INFO}
+
+        --roboleaf-mode
+            {ROBOLEAF_MODE}
 
         --no-enable-root
             {NO_ENABLE_ROOT}
