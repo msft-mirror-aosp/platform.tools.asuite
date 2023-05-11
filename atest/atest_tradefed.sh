@@ -72,7 +72,7 @@ if [ "$(uname)" == "Darwin" ]; then
 fi
 
 # Note: must leave $RDBG_FLAG and $TRADEFED_OPTS unquoted so that they go away when unset
-START_FEATURE_SERVER=1 ${TF_JAVA} $RDBG_FLAG \
+LOCAL_MODE=1 START_FEATURE_SERVER=1 ${TF_JAVA} $RDBG_FLAG \
     -XX:+HeapDumpOnOutOfMemoryError \
     -XX:-OmitStackTraceInFastThrow \
     $TRADEFED_OPTS \
