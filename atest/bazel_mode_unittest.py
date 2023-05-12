@@ -206,7 +206,8 @@ class GenerationTestFixture(fake_filesystem_unittest.TestCase):
         return re.findall(rf'\bname\s*=\s*"{name}"', contents)
 
     def add_device_def_to_filesystem(self):
-        bazel_device_def = self.resource_manager.get_resource_file_path('device_def')
+        bazel_device_def = self.resource_manager\
+                       .get_resource_file_path('device_def')
         bazel_device_def.mkdir(parents=True)
         bazel_device_def.joinpath('device_def.bzl').touch()
 
@@ -767,6 +768,8 @@ class HostUnitTestModuleTestTargetGenerationTest(GenerationTestFixture):
         self.assertIn('adb', str(context.warnings[0].message))
 
 class RemoteAvdTestTargetGenerationTest(GenerationTestFixture):
+    """Unit tests for generating Bazel targets on remote AVD."""
+
     def setUp(self):
         super().setUp()
         super().add_device_def_to_filesystem()
@@ -2374,7 +2377,7 @@ def test_filter_of(class_name, methods=None):
 def _get_query_file_content(args: List[str]) -> str:
     for arg in args:
         if arg.startswith('--query_file='):
-            return Path(arg.split('=')[1]).read_text()
+            return Path(arg.split('=')[1]).read_text(encoding='utf-8')
 
     raise Exception('Query file not found!')
 
