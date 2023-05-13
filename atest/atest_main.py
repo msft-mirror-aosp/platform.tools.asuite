@@ -558,11 +558,11 @@ def _validate_args(args):
     if args.generate_baseline and args.generate_new_metrics:
         logging.error(
             'Cannot collect both baseline and new metrics at the same time.')
-        sys.exit(ExitCode.ERROR)
+        sys.exit(ExitCode.INVALID_OBSOLETE_BASELINE_ARGS)
     if not _has_valid_regression_detection_args(args):
-        sys.exit(ExitCode.ERROR)
+        sys.exit(ExitCode.INVALID_REGRESSION_ARGS)
     if not _has_valid_test_mapping_args(args):
-        sys.exit(ExitCode.ERROR)
+        sys.exit(ExitCode.INVALID_TM_ARGS)
 
 
 def _print_module_info_from_module_name(mod_info, module_name):
