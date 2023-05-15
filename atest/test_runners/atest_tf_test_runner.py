@@ -622,6 +622,10 @@ class AtestTradefedTestRunner(trb.TestRunnerBase):
         log_level = 'VERBOSE'
         test_args.extend(['--log-level-display', log_level])
         test_args.extend(['--log-level', log_level])
+
+        # TODO(b/275110259) Remove this once TF not going to get bugreport.
+        test_args.extend(['--skip-all-system-status-check=true'])
+
         # Set no-early-device-release by default to speed up TF teardown time.
         if not constants.TF_EARLY_DEVICE_RELEASE in extra_args:
             test_args.extend(['--no-early-device-release'])
