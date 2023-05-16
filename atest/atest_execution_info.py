@@ -51,7 +51,7 @@ _UUID_LEN = 30
 _RESULT_LEN = 20
 _RESULT_URL_LEN = 35
 _COMMAND_LEN = 50
-_LOGCAT_FMT = '{}/log/invocation_*/{}*logcat-on-failure*'
+_LOGCAT_FMT = '{}/log/invocation_*/{}*device_logcat_test*'
 
 _SUMMARY_MAP_TEMPLATE = {_STATUS_PASSED_KEY: 0,
                          _STATUS_FAILED_KEY: 0,
