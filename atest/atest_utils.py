@@ -511,10 +511,7 @@ def handle_test_runner_cmd(input_test, test_cmds, do_verification=False,
                                 with user if they want to update or not.
         result_path: The file path for saving result.
     """
-    full_result_content = {}
-    if os.path.isfile(result_path):
-        with open(result_path) as json_file:
-            full_result_content = json.load(json_file)
+    full_result_content = load_json_safely(result_path)
     former_test_cmds = full_result_content.get(input_test, [])
     test_cmds = _normalize(test_cmds)
     former_test_cmds = _normalize(former_test_cmds)
@@ -1599,14 +1596,9 @@ def gen_runner_cmd_to_file(tests, dry_run_cmd,
     if root_path in dry_run_cmd:
         normalized_cmd = dry_run_cmd.replace(root_path,
                                              f"${constants.ANDROID_BUILD_TOP}")
-    results = {}
-    if not os.path.isfile(result_path):
+    results = load_json_safely(result_path)
+    if results.get(tests) != normalized_cmd:
         results[tests] = normalized_cmd
-    else:
-        with open(result_path) as json_file:
-            results = json.load(json_file)
-            if results.get(tests) != normalized_cmd:
-                results[tests] = normalized_cmd
     with open(result_path, 'w+') as _file:
         json.dump(results, _file, indent=0)
     return results.get(tests, '')
@@ -1623,10 +1615,7 @@ def handle_test_env_var(input_test, result_path=constants.VERIFY_ENV_PATH,
     Returns:
         0 is no variable needs to verify, 1 has some variables to next verify.
     """
-    full_result_content = {}
-    if os.path.isfile(result_path):
-        with open(result_path) as json_file:
-            full_result_content = json.load(json_file)
+    full_result_content = load_json_safely(result_path)
     demand_env_vars = []
     demand_env_vars = full_result_content.get(input_test)
     if demand_env_vars is None:
@@ -1959,7 +1948,7 @@ def prompt_suggestions(result_file: Path):
             except Exception:
                 pass
 
-
+# pylint: disable=invalid-name
 def get_rbe_and_customized_out_state() -> int:
     """Return decimal state of RBE and customized out.
 

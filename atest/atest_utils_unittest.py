@@ -249,7 +249,7 @@ class AtestUtilsUnittests(unittest.TestCase):
                          green_wrap_no_highlight_string)
 
     @mock.patch('builtins.input')
-    @mock.patch('json.load')
+    @mock.patch('atest.atest_utils.load_json_safely')
     def test_update_test_runner_cmd(self, mock_json_load_data, mock_input):
         """Test method handle_test_runner_cmd without enable do_verification."""
         former_cmd_str = 'Former cmds ='
@@ -294,7 +294,7 @@ class AtestUtilsUnittests(unittest.TestCase):
         sys.stdout = sys.__stdout__
         self.assertEqual(capture_output.getvalue().find(write_result_str), -1)
 
-    @mock.patch('json.load')
+    @mock.patch('atest.atest_utils.load_json_safely')
     def test_verify_test_runner_cmd(self, mock_json_load_data):
         """Test method handle_test_runner_cmd without enable update_result."""
         tmp_file = tempfile.NamedTemporaryFile()
