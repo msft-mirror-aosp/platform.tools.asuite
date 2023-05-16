@@ -246,8 +246,7 @@ class ModuleInfo:
                 detect_type=DetectType.MODULE_MERGE_MS, result=int(duration*1000))
         else:
             # Load $ANDROID_PRODUCT_OUT/atest_merged_dep.json directly.
-            with open(self.merged_dep_path, encoding='utf-8') as merged_info_json:
-                mod_info = json.load(merged_info_json)
+            mod_info = atest_utils.load_json_safely(self.merged_dep_path)
             duration = time.time() - start
             logging.debug('Loading module info took %ss', duration)
             metrics.LocalDetectEvent(
