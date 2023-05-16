@@ -106,7 +106,7 @@ class AtestTradefedTestRunner(trb.TestRunnerBase):
     # Use --no-enable-granular-attempts to control reporter replay behavior.
     # TODO(b/142630648): Enable option enable-granular-attempts
     # in sharding mode.
-    _LOG_ARGS = ('--logcat-on-failure --{log_root_option_name}={log_path} '
+    _LOG_ARGS = ('--{log_root_option_name}={log_path} '
                  '{log_ext_option} '
                  '--no-enable-granular-attempts '
                  '--proto-output-file={proto_path}')
