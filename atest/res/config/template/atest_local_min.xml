@@ -15,7 +15,9 @@
 -->
 <!-- Common configuration for atest's local runs with minimum overhead. -->
 <configuration description="Common configuration for atest's local runs with minimum overhead">
-    <build_provider class="com.android.tradefed.build.BootstrapBuildProvider" />
+    <build_provider class="com.android.tradefed.build.BootstrapBuildProvider">
+        <option name="collect-build-attribute" value="false"/>
+    </build_provider>
 
     <template-include name="testbed-preparers" default="empty" />
 
