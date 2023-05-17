@@ -158,26 +158,21 @@ class ModuleInfo:
                          module_info file regardless of the existence of it.
 
         Returns:
-            Tuple of module_info_target and path to module file.
+            Tuple of module_info_target and path to the module-info.json.
         """
         logging.debug('Probing and validating module info...')
-        module_info_target = None
-        root_dir = os.environ.get(constants.ANDROID_BUILD_TOP, '/')
-        out_dir = os.environ.get(constants.ANDROID_PRODUCT_OUT, root_dir)
-        module_file_path = os.path.join(out_dir, _MODULE_INFO)
+        root_dir = Path(os.getenv(constants.ANDROID_BUILD_TOP))
+        out_dir = Path(os.getenv(constants.ANDROID_PRODUCT_OUT))
+        module_file_path = out_dir.joinpath(_MODULE_INFO)
 
-        # Check if the user set a custom out directory by comparing the out_dir
-        # to the root_dir.
-        if out_dir.find(root_dir) == 0:
-            # Make target is simply file path no-absolute to root
-            module_info_target = os.path.relpath(module_file_path, root_dir)
+        # If OUT_DIR/OUT_DIR_COMMON_BASE was set outside of the root_dir, use
+        # absolute path; otherwise use relative path as the target name.
+        if out_dir.is_relative_to(root_dir):
+            module_info_target = str(module_file_path.relative_to(root_dir))
         else:
-            # If the user has set a custom out directory, generate an absolute
-            # path for module info targets.
             logging.debug('User customized out dir!')
-            module_file_path = os.path.join(
-                os.environ.get(constants.ANDROID_PRODUCT_OUT), _MODULE_INFO)
-            module_info_target = module_file_path
+            module_file_path = out_dir.joinpath(_MODULE_INFO)
+            module_info_target = str(module_file_path)
         if force_build:
             atest_utils.build_module_info_target(module_info_target)
         return module_info_target, module_file_path
