@@ -138,6 +138,9 @@ TI_MODULE_ARG = 'module-arg'
 # Google TF
 GTF_MODULE = 'google-tradefed'
 GTF_TARGET = 'google-tradefed-core'
+# Defines the TF build targets which only exist in internal branches.
+# TODO(b/283364305) Have a flag and use the setup in vendor to define the flag.
+GTF_TARGETS = set()
 
 # TEST_MAPPING filename
 TEST_MAPPING = 'TEST_MAPPING'
