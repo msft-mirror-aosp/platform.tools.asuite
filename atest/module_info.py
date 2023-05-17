@@ -453,7 +453,7 @@ class ModuleInfo:
             return False
         if self.is_tradefed_testable_module(info):
             return True
-        if self.is_legacy_robolectric_test(info.get(constants.MODULE_NAME)):
+        if self.is_legacy_robolectric_test(info):
             return True
         return False
 
@@ -474,11 +474,13 @@ class ModuleInfo:
         return bool(info.get(constants.MODULE_TEST_CONFIG, []) or
                     info.get('auto_test_config', []))
 
-    def is_legacy_robolectric_test(self, module_name: str) -> bool:
+    def is_legacy_robolectric_test(self, info: Dict[str, Any]) -> bool:
         """Return whether the module_name is a legacy Robolectric test"""
-        return bool(self.get_robolectric_test_name(module_name))
+        if self.is_tradefed_testable_module(info):
+            return False
+        return bool(self.get_robolectric_test_name(info))
 
-    def get_robolectric_test_name(self, module_name: str) -> str:
+    def get_robolectric_test_name(self, info: Dict[str, Any]) -> str:
         """Returns runnable robolectric module name.
 
         This method is for legacy robolectric tests and returns one of associated
@@ -490,13 +492,14 @@ class ModuleInfo:
             FooTests -> RunFooTests
 
         Arg:
-            module_name: String of module.
+            info: Dict of module info to check.
 
         Returns:
             String of the first-matched associated module that belongs to the
             actual robolectric module, None if nothing has been found.
         """
-        info = self.get_module_info(module_name) or {}
+        if not info:
+            return ''
         module_paths = info.get(constants.MODULE_PATH, [])
         if not module_paths:
             return ''
@@ -527,7 +530,7 @@ class ModuleInfo:
             return True
         return False
 
-    def get_robolectric_type(self, module_name):
+    def get_robolectric_type(self, module_name: str) -> int:
         """Check if the given module is a robolectric test and return type of it.
 
         Robolectric declaration is converting from Android.mk to Android.bp, and
@@ -543,12 +546,12 @@ class ModuleInfo:
             SettingsRoboTests -> make RunSettingsRoboTests0
 
         To determine whether the test is a modern/legacy robolectric test:
-            1. Traverse all modules share the module path. If one of the
-               modules has a ROBOLECTRIC class, it is a robolectric test.
-            2. If the 'robolectric-test` in the compatibility_suites, it's a
+            1. If the 'robolectric-test` in the compatibility_suites, it's a
                modern one, otherwise it's a legacy test. This is accurate since
                aosp/2308586 already set the test suite of `robolectric-test`
                for all `modern` Robolectric tests in Soong.
+            2. Traverse all modules share the module path. If one of the
+               modules has a ROBOLECTRIC class, it's a legacy robolectric test.
 
         Args:
             module_name: String of module to check.
@@ -563,10 +566,10 @@ class ModuleInfo:
             return 0
         # Some Modern mode Robolectric test has related module which compliant
         # with the Legacy Robolectric test. In this case, the Modern mode
-        # Robolectric tests should prior to Legacy mode.
+        # Robolectric tests should be prior to the Legacy mode.
         if self.is_modern_robolectric_test(info):
             return constants.ROBOTYPE_MODERN
-        if self.is_legacy_robolectric_test(module_name):
+        if self.is_legacy_robolectric_test(info):
             return constants.ROBOTYPE_LEGACY
         return 0
 
