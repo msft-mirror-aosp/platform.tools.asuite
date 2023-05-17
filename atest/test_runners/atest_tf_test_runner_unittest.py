@@ -32,10 +32,12 @@ from argparse import Namespace
 from io import StringIO
 from pathlib import Path
 from unittest import mock
+from pyfakefs import fake_filesystem_unittest
 
 from atest import atest_configs
 from atest import atest_utils
 from atest import constants
+from atest import module_info
 from atest import unittest_constants as uc
 from atest import unittest_utils
 
@@ -240,16 +242,18 @@ class AtestTradefedTestRunnerUnittests(unittest.TestCase):
         self.tr.run_tests_pretty([MODULE2_INFO], {}, mock_reporter)
 
         # Test early TF exit
-        tmp_file = tempfile.NamedTemporaryFile()
-        with open(tmp_file.name, 'w') as f:
-            f.write("tf msg")
-        self.tr.test_log_file = tmp_file
-        mock_select.side_effect = [([], None, None)]
-        mock_subproc.poll.side_effect = None
-        capture_output = StringIO()
-        sys.stdout = capture_output
-        self.assertRaises(atf_tr.TradeFedExitError, self.tr.run_tests_pretty,
-                          [MODULE2_INFO], {}, mock_reporter)
+        with tempfile.NamedTemporaryFile() as tmp_file:
+            with open(tmp_file.name, 'w', encoding="utf-8") as f:
+                f.write("tf msg")
+            self.tr.test_log_file = tmp_file
+            mock_select.side_effect = [([], None, None)]
+            mock_subproc.poll.side_effect = None
+            capture_output = StringIO()
+            sys.stdout = capture_output
+            self.assertRaises(atf_tr.TradeFedExitError,
+                              self.tr.run_tests_pretty, [MODULE2_INFO], {},
+                              mock_reporter)
+
         sys.stdout = sys.__stdout__
         self.assertTrue('tf msg' in capture_output.getvalue())
 
@@ -1173,6 +1177,92 @@ class ExtraArgsTest(AtestTradefedTestRunnerUnittests):
              'com.android.tradefed.testtype.GTest:'
              'native-test-timeout:10000'],
             cmd[0])
+
+
+class ModuleInfoTestFixture(fake_filesystem_unittest.TestCase):
+    """Fixture for tests that require module-info."""
+
+    def setUp(self):
+        self.setUpPyfakefs()
+
+        self.product_out_path = Path('/src/out/product')
+        self.product_out_path.mkdir(parents=True)
+
+    def create_empty_module_info(self):
+        fake_temp_file = self.product_out_path.joinpath(
+            next(tempfile._get_candidate_names()))
+        self.fs.create_file(fake_temp_file, contents='{}')
+        return module_info.ModuleInfo(module_file=fake_temp_file)
+
+    def create_module_info(self, modules=None):
+        mod_info = self.create_empty_module_info()
+        modules = modules or []
+
+        for m in modules:
+            mod_info.name_to_module_info[m[constants.MODULE_INFO_ID]] = m
+
+        return mod_info
+
+
+def test_info_of(module_name):
+    return test_info.TestInfo(
+        module_name, atf_tr.AtestTradefedTestRunner.NAME, [])
+
+
+class DeviceDrivenTestTest(ModuleInfoTestFixture):
+    """Tests for device driven test."""
+
+    def test_device_driven_test(self):
+        mod_info = self.create_module_info(modules=[
+            device_driven_test_module(name='hello_world_test')
+        ])
+        test_infos = [test_info_of('hello_world_test')]
+        runner = atf_tr.AtestTradefedTestRunner(
+            'result_dir', mod_info, host=False, minimal_build=True)
+
+        deps = runner.get_test_runner_build_reqs(test_infos)
+
+        self.assertSetEqual(
+            deps,
+            {
+                'aapt2-host',
+                'hello_world_test-target',
+                'compatibility-tradefed-host',
+                'adb-host',
+                'atest-tradefed-host',
+                'aapt-host',
+                'atest_tradefed.sh-host',
+                'tradefed-host',
+                'atest_script_help.sh-host',
+            })
+
+
+def device_driven_test_module(name):
+    name = name or 'hello_world_test'
+    return test_module(
+        name=name,
+        supported_variants=['DEVICE'],
+        installed=[f'out/product/vsoc_x86/{name}/{name}.jar'])
+
+
+def test_module(name, supported_variants, installed):
+    return module(
+        name=name,
+        supported_variants=supported_variants,
+        installed=installed,
+        auto_test_config=[True])
+
+
+def module(name, supported_variants, installed, auto_test_config):
+    m = {}
+
+    m[constants.MODULE_INFO_ID] = name
+    m[constants.MODULE_SUPPORTED_VARIANTS] = supported_variants
+    m[constants.MODULE_INSTALLED] = installed
+    m['auto_test_config'] = auto_test_config
+
+    return m
+
 
 if __name__ == '__main__':
     unittest.main()
