@@ -713,11 +713,10 @@ class RobolectricTestNameTest(ModuleInfoTestFixture):
 
     def test_return_empty_for_a_modern_robolectric_test(self):
         module_name = 'hello_world_test'
-        mod_info = self.create_module_info(modules=[
-            modern_robolectric_test_module(name=f'{module_name}'),
-        ])
+        info = modern_robolectric_test_module(name=f'{module_name}')
+        mod_info = self.create_module_info(modules=[info])
 
-        return_module = mod_info.get_robolectric_test_name(module_name)
+        return_module = mod_info.get_robolectric_test_name(info)
 
         self.assertEqual('', return_module)
 
@@ -725,14 +724,15 @@ class RobolectricTestNameTest(ModuleInfoTestFixture):
         module_name = 'hello_world_test'
         run_module_name = f'Run{module_name}'
         module_path = 'robolectric_path'
+        info = non_test_module(name=f'{module_name}',
+                              path=module_path)
         mod_info = self.create_module_info(modules=[
-            test_module(name=f'{module_name}',
-                        path=module_path),
-            robolectric_class_test_module(name=f'{run_module_name}',
-                                          path=module_path),
+            info,
+            robolectric_class_non_test_module(name=f'{run_module_name}',
+                                              path=module_path),
         ])
 
-        return_module = mod_info.get_robolectric_test_name(module_name)
+        return_module = mod_info.get_robolectric_test_name(info)
 
         self.assertEqual(run_module_name, return_module)
 
@@ -740,14 +740,15 @@ class RobolectricTestNameTest(ModuleInfoTestFixture):
         module_name = 'hello_world_test'
         run_module_name = f'Run{module_name}'
         module_path = 'robolectric_path'
+        info = non_test_module(name=f'{module_name}',
+                               path=module_path)
         mod_info = self.create_module_info(modules=[
-            test_module(name=f'{module_name}',
-                        path=module_path),
-            test_module(name=f'{run_module_name}',
-                        path=module_path),
+            info,
+            non_test_module(name=f'{run_module_name}',
+                            path=module_path),
         ])
 
-        return_module = mod_info.get_robolectric_test_name(module_name)
+        return_module = mod_info.get_robolectric_test_name(info)
 
         self.assertEqual('', return_module)
 
@@ -755,42 +756,42 @@ class RobolectricTestNameTest(ModuleInfoTestFixture):
         module_name = 'hello_world_test'
         run_module_name = f'Not_Run{module_name}'
         module_path = 'robolectric_path'
+        info = robolectric_class_non_test_module(name=f'{run_module_name}',
+                                                 path=module_path)
         mod_info = self.create_module_info(modules=[
-            test_module(name=f'{module_name}',
-                        path=module_path),
-            robolectric_class_test_module(name=f'{run_module_name}',
-                                          path=module_path),
+            non_test_module(name=f'{module_name}',
+                            path=module_path),
+            info,
         ])
 
-        return_module = mod_info.get_robolectric_test_name(module_name)
+        return_module = mod_info.get_robolectric_test_name(info)
 
         self.assertEqual('', return_module)
 
     def test_return_itself_for_a_robolectric_class_test_module(self):
         module_name = 'Run_hello_world_test'
-        mod_info = self.create_module_info(modules=[
-            robolectric_class_test_module(name=f'{module_name}'),
-        ])
+        info = robolectric_class_non_test_module(name=f'{module_name}')
+        mod_info = self.create_module_info(modules=[info])
 
-        return_module = mod_info.get_robolectric_test_name(module_name)
+        return_module = mod_info.get_robolectric_test_name(info)
 
         self.assertEqual(module_name, return_module)
 
     def test_return_empty_if_robolectric_class_module_not_start_with_Run(self):
         module_name = 'hello_world_test'
-        mod_info = self.create_module_info(modules=[
-            robolectric_class_test_module(name=f'{module_name}'),
-        ])
+        info = robolectric_class_non_test_module(name=f'{module_name}')
+        mod_info = self.create_module_info(modules=[info])
 
-        return_module = mod_info.get_robolectric_test_name(module_name)
+        return_module = mod_info.get_robolectric_test_name(info)
 
         self.assertEqual('', return_module)
 
     def test_return_0_when_no_mod_info(self):
         module_name = 'hello_world_test'
-        mod_info = self.create_module_info()
+        info = non_test_module(name=module_name)
+        mod_info = self.create_module_info(modules=[info])
 
-        return_module = mod_info.get_robolectric_test_name(module_name)
+        return_module = mod_info.get_robolectric_test_name(info)
 
         self.assertEqual('', return_module)
 
@@ -815,8 +816,8 @@ class RobolectricTestTypeTest(ModuleInfoTestFixture):
         mod_info = self.create_module_info(modules=[
             modern_robolectric_test_module(name=f'{module_name}',
                         path=module_path),
-            robolectric_class_test_module(name=f'{run_module_name}',
-                                          path=module_path),
+            robolectric_class_non_test_module(name=f'{run_module_name}',
+                                              path=module_path),
         ])
 
         return_value = mod_info.get_robolectric_type(module_name)
@@ -826,15 +827,30 @@ class RobolectricTestTypeTest(ModuleInfoTestFixture):
     def test_not_modern_robolectric_test_if_suite_is_not_robolectric(self):
         module_name = 'hello_world_test'
         mod_info = self.create_module_info(modules=[
-            test_module(name=f'{module_name}',
-                        compatibility_suites='not_robolectric_tests'),
+            non_test_module(name=f'{module_name}',
+                            compatibility_suites='not_robolectric_tests'),
         ])
 
         return_value = mod_info.get_robolectric_type(module_name)
 
         self.assertEqual(return_value, 0)
 
-    def test_legacy_robolectric_test_type(self):
+    def test_legacy_robolectric_test_type_if_has_related_run_robolectric_class_module(self):
+        module_name = 'hello_world_test'
+        run_module_name = f'Run{module_name}'
+        module_path = 'robolectric_path'
+        mod_info = self.create_module_info(modules=[
+            non_test_module(name=f'{module_name}',
+                            path=module_path),
+            robolectric_class_non_test_module(name=f'{run_module_name}',
+                                              path=module_path),
+        ])
+
+        return_value = mod_info.get_robolectric_type(module_name)
+
+        self.assertEqual(return_value, constants.ROBOTYPE_LEGACY)
+
+    def test_not_legacy_robolectric_test_type_if_module_is_tradefed_testable(self):
         module_name = 'hello_world_test'
         run_module_name = f'Run{module_name}'
         module_path = 'robolectric_path'
@@ -847,12 +863,12 @@ class RobolectricTestTypeTest(ModuleInfoTestFixture):
 
         return_value = mod_info.get_robolectric_type(module_name)
 
-        self.assertEqual(return_value, constants.ROBOTYPE_LEGACY)
+        self.assertEqual(return_value, 0)
 
     def test_robolectric_class_test_module(self):
         module_name = 'Run_hello_world_test'
         mod_info = self.create_module_info(modules=[
-            robolectric_class_test_module(name=f'{module_name}'),
+            robolectric_class_non_test_module(name=f'{module_name}'),
         ])
 
         return_value = mod_info.get_robolectric_type(module_name)
@@ -862,7 +878,7 @@ class RobolectricTestTypeTest(ModuleInfoTestFixture):
     def test_not_robolectric_test_if_module_name_not_start_with_Run(self):
         module_name = 'hello_world_test'
         mod_info = self.create_module_info(modules=[
-            robolectric_class_test_module(name=f'{module_name}'),
+            robolectric_class_non_test_module(name=f'{module_name}'),
         ])
 
         return_value = mod_info.get_robolectric_type(module_name)
@@ -874,10 +890,10 @@ class RobolectricTestTypeTest(ModuleInfoTestFixture):
         run_module_name = f'Run{module_name}'
         module_path = 'robolectric_path'
         mod_info = self.create_module_info(modules=[
-            test_module(name=f'{module_name}',
-                        path=module_path),
-            test_module(name=f'{run_module_name}',
-                        path=module_path),
+            non_test_module(name=f'{module_name}',
+                            path=module_path),
+            non_test_module(name=f'{run_module_name}',
+                            path=module_path),
         ])
 
         return_value = mod_info.get_robolectric_type(module_name)
@@ -889,10 +905,10 @@ class RobolectricTestTypeTest(ModuleInfoTestFixture):
         run_module_name = f'Not_Run{module_name}'
         module_path = 'robolectric_path'
         mod_info = self.create_module_info(modules=[
-            test_module(name=f'{module_name}',
-                        path=module_path),
-            robolectric_class_test_module(name=f'{run_module_name}',
-                                          path=module_path),
+            non_test_module(name=f'{module_name}',
+                            path=module_path),
+            robolectric_class_non_test_module(name=f'{run_module_name}',
+                                              path=module_path),
         ])
 
         return_value = mod_info.get_robolectric_type(module_name)
@@ -957,7 +973,7 @@ class IsTestableModuleTest(ModuleInfoTestFixture):
 
     def test_return_true_for_legacy_robolectric_test_module(self):
         info = legacy_robolectric_test_module()
-        mod_info = self.create_module_info()
+        mod_info = self.create_module_info(modules=[info])
 
         return_value = mod_info.is_testable_module(info)
 
@@ -1013,6 +1029,11 @@ def test_module(**kwargs):
     return test(module(**kwargs))
 
 
+def non_test_module(**kwargs):
+    kwargs.setdefault('name', 'not_a_test')
+    return non_test(module(**kwargs))
+
+
 def modern_robolectric_test_module(**kwargs):
     kwargs.setdefault('name', 'hello_world_test')
     return test(robolectric_tests_suite(module(**kwargs)))
@@ -1020,12 +1041,17 @@ def modern_robolectric_test_module(**kwargs):
 
 def legacy_robolectric_test_module(**kwargs):
     kwargs.setdefault('name', 'Run_hello_world_test')
-    return test(robolectric_tests_suite(module(**kwargs)))
+    return robolectric_class_non_test_module(**kwargs)
 
 
 def robolectric_class_test_module(**kwargs):
     kwargs.setdefault('name', 'hello_world_test')
     return test(robolectric_class(module(**kwargs)))
+
+
+def robolectric_class_non_test_module(**kwargs):
+    kwargs.setdefault('name', 'hello_world_test')
+    return non_test(robolectric_class(module(**kwargs)))
 
 
 # pylint: disable=too-many-arguments, too-many-locals
@@ -1072,6 +1098,12 @@ def module(
 def test(info):
     info['auto_test_config'] = ['true']
     info['installed'] = ['installed_path']
+    return info
+
+
+def non_test(info):
+    info['auto_test_config'] = []
+    info['installed'] = []
     return info
 
 
