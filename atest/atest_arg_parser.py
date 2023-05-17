@@ -66,6 +66,7 @@ BAZEL_ARG = ('Forward a flag to Bazel for tests executed with Bazel; '
              'see --bazel-mode.')
 BUILD_OUTPUT = (r'Specifies the desired build output mode. '
                 f'Valid values are:\n{output_mode_msg()}')
+MINIMAL_BUILD = 'Build required dependencies only.'
 CLEAR_CACHE = 'Wipe out the test_infos cache of the test and start a new search.'
 COLLECT_TESTS_ONLY = ('Collect a list test cases of the instrumentation tests '
                       'without testing them in real.')
@@ -185,6 +186,9 @@ class AtestArgParser(argparse.ArgumentParser):
     def add_atest_args(self):
         """A function that does ArgumentParser.add_argument()"""
         self.add_argument('tests', nargs='*', help='Tests to build and/or run.')
+
+        self.add_argument('--minimal-build', action='store_true',
+                          help=MINIMAL_BUILD)
 
         # Options that to do with testing.
         self.add_argument('-a', '--all-abi', action='store_true', help=ALL_ABI)
@@ -422,6 +426,7 @@ def print_epilog_text():
         ANNOTATION_FILTER=ANNOTATION_FILTER,
         AUTO_SHARDING=AUTO_SHARDING,
         BUILD=BUILD,
+        MINIMAL_BUILD=MINIMAL_BUILD,
         BAZEL_MODE=BAZEL_MODE,
         BAZEL_ARG=BAZEL_ARG,
         CLEAR_CACHE=CLEAR_CACHE,
@@ -527,6 +532,9 @@ OPTIONS
 
         --bazel-arg
             {BAZEL_ARG}
+
+        --minimal-build
+            {MINIMAL_BUILD}
 
         --device-only
             {DEVICE_ONLY}
