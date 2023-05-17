@@ -1043,6 +1043,18 @@ class ModuleInfo:
                 modules.add(mod_info.get(constants.MODULE_NAME))
         return modules
 
+    def get_installed_paths(self, module_name: str) -> [Path]:
+        mod_info = self.get_module_info(module_name)
+        if not mod_info:
+            return []
+
+        def _to_abs_path(p):
+            if os.path.isabs(p):
+                return Path(p)
+            return Path(os.getenv(constants.ANDROID_BUILD_TOP), p)
+
+        return [_to_abs_path(p) for p in mod_info.get('installed', [])]
+
 
 def _add_missing_variant_modules(name_to_module_info: Dict[str, Module]):
     missing_modules = {}
