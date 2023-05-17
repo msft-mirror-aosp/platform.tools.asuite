@@ -471,11 +471,9 @@ def probe_acloud_status(report_file, find_build_duration):
     """
     # 1. Created but the status is not 'SUCCESS'
     if Path(report_file).exists():
-        if not au.load_json_safely(report_file):
+        result = au.load_json_safely(report_file)
+        if not result:
             return ExitCode.AVD_CREATE_FAILURE
-        with open(report_file, 'r') as rfile:
-            result = json.load(rfile)
-
         if result.get('status') == 'SUCCESS':
             logging.info('acloud create successfully!')
             # Always fetch the adb of the first created AVD.
