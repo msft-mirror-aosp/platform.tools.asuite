@@ -17,8 +17,11 @@
 # pylint: disable=line-too-long
 # pylint: disable=too-many-lines
 
+from __future__ import annotations
 from __future__ import print_function
 
+import dataclasses
+import enum
 import json
 import logging
 import os
@@ -27,6 +30,7 @@ import select
 import shutil
 import socket
 
+from abc import ABC, abstractmethod
 from functools import partial
 from pathlib import Path
 from typing import Any, Dict, List, Set, Tuple
@@ -82,7 +86,12 @@ _TF_EXIT_CODE = [
 
 MAINLINE_LOCAL_DOC = 'go/mainline-local-build'
 
-class TradeFedExitError(Exception):
+
+class Error(Exception):
+    """Module-level error."""
+
+
+class TradeFedExitError(Error):
     """Raised when TradeFed exists before test run has finished."""
     def __init__(self, exit_code):
         super().__init__()
@@ -119,8 +128,13 @@ class AtestTradefedTestRunner(trb.TestRunnerBase):
                            constants.RERUN_UNTIL_FAILURE,
                            constants.RETRY_ANY_FAILURE]
 
-    def __init__(self, results_dir: str,
-                 mod_info: module_info.ModuleInfo=None, **kwargs):
+    def __init__(
+        self,
+        results_dir: str,
+        mod_info: module_info.ModuleInfo=None,
+        host: bool=None,
+        minimal_build: bool=None,
+        **kwargs):
         """Init stuff for base class."""
         super().__init__(results_dir, **kwargs)
         self.module_info = mod_info
@@ -150,6 +164,11 @@ class AtestTradefedTestRunner(trb.TestRunnerBase):
             if handler.name == 'console' and handler.level == logging.DEBUG:
                 self.is_verbose = True
         self.root_dir = os.environ.get(constants.ANDROID_BUILD_TOP)
+        self._is_host_enabled = (
+            lambda: atest_configs.GLOBAL_ARGS.host) if host is None else lambda: host
+        self._minimal_build = (
+            (lambda: atest_configs.GLOBAL_ARGS.minimal_build) if minimal_build is None
+            else lambda: minimal_build)
 
     def _get_ld_library_path(self) -> str:
         """Get the corresponding LD_LIBRARY_PATH string for running TF.
@@ -471,7 +490,8 @@ class AtestTradefedTestRunner(trb.TestRunnerBase):
         root_dir = os.environ.get(constants.ANDROID_BUILD_TOP, '')
         return os.path.commonprefix([output, root_dir]) != root_dir
 
-    def get_test_runner_build_reqs(self, test_infos: List[test_info.TestInfo]):
+    def get_test_runner_build_reqs(
+        self, test_infos: List[test_info.TestInfo]) -> Set[str]:
         """Return the build requirements.
 
         Args:
@@ -480,6 +500,13 @@ class AtestTradefedTestRunner(trb.TestRunnerBase):
         Returns:
             Set of build targets.
         """
+        if self._minimal_build():
+            return self._get_test_runner_reqs_minimal(test_infos)
+
+        return self._get_test_runner_build_reqs_maximal(test_infos)
+
+    def _get_test_runner_build_reqs_maximal(
+        self, test_infos: List[test_info.TestInfo]) -> Set[str]:
         build_req = self._BUILD_REQ.copy()
         # Use different base build requirements if google-tf is around.
         if self.module_info.is_module(constants.GTF_MODULE):
@@ -498,6 +525,40 @@ class AtestTradefedTestRunner(trb.TestRunnerBase):
 
         build_req |= trb.gather_build_targets(test_infos)
         return build_req
+
+    def _get_test_runner_reqs_minimal(
+        self,
+        test_infos: List[test_info.TestInfo]) -> Set[str]:
+
+        build_targets = set()
+
+        for info in test_infos:
+            test = self._create_test(info)
+            build_targets.update(test.query_build_targets())
+
+        build_targets = {t.name() for t in build_targets}
+
+        if self.module_info.is_module(constants.GTF_MODULE):
+            build_targets |= {constants.GTF_TARGET}
+
+        return build_targets
+
+    def _create_test(self, t_info: test_info.TestInfo) -> Test:
+
+        info = self.module_info.get_module_info(t_info.raw_test_name)
+
+        if not info:
+            raise Error(
+                f'Could not find module information for {t_info.raw_test_name}')
+
+        if self._is_host_enabled():
+            raise Error('--minimal-build is unsupported for deviceless tests')
+
+        if self.module_info.is_device_driven_test(info):
+            return DeviceTest(info, Variant.DEVICE)
+
+        raise Error(
+            f'--minimal-build is unsupported for {t_info.raw_test_name}')
 
     def _get_host_framework_targets(self) -> Set[str]:
         """Get the build targets for all the existing jars under host framework.
@@ -694,8 +755,9 @@ class AtestTradefedTestRunner(trb.TestRunnerBase):
             A set of TestInfos flattened.
         """
         results = set()
-        key = lambda x: x.test_name
-        for module, group in atest_utils.sort_and_group(test_infos, key):
+        for module, group in atest_utils.sort_and_group(
+            test_infos, lambda x: x.test_name):
+
             # module is a string, group is a generator of grouped TestInfos.
             # Module Test, so flatten test_infos:
             no_filters = False
@@ -754,8 +816,9 @@ class AtestTradefedTestRunner(trb.TestRunnerBase):
             A frozenset of test_filters flattened.
         """
         results = set()
-        key = lambda x: x.class_name
-        for class_name, group in atest_utils.sort_and_group(filters, key):
+        for class_name, group in atest_utils.sort_and_group(
+            filters, lambda x: x.class_name):
+
             # class_name is a string, group is a generator of TestFilters
             assert class_name is not None
             methods = set()
@@ -1009,6 +1072,7 @@ class AtestTradefedTestRunner(trb.TestRunnerBase):
 
                 break
 
+
 def generate_annotation_filter_args(
         arg_value: Any, mod_info: module_info.ModuleInfo,
         test_infos: List[test_info.TestInfo]) -> List[str]:
@@ -1222,3 +1286,69 @@ def get_include_filter(test_infos: List[test_info.TestInfo]) -> List[str]:
             )
         )
     return tf_args
+
+
+@enum.unique
+class Variant(enum.Enum):
+    """The variant of a build module."""
+
+    HOST = 'host'
+    DEVICE = 'target'
+
+    def __init__(self, suffix):
+        self._suffix = suffix
+
+    @property
+    def suffix(self) -> str:
+        """The suffix without the 'dash' used to qualify build targets."""
+        return self._suffix
+
+
+@dataclasses.dataclass(frozen=True)
+class Target:
+    """A build target."""
+
+    module_name: str
+    variant: Variant
+
+    def name(self) -> str:
+        """The name to use on the command-line to build this target."""
+        return f'{self.module_name}-{self.variant.suffix}'
+
+
+class Test(ABC):
+    """A test that can be run."""
+
+    @abstractmethod
+    def query_build_targets(self) -> Set[Target]:
+        """Returns the list of build targets required to run this test."""
+
+
+class DeviceTest(Test):
+    """A device test that can be run."""
+
+    def __init__(self, info: Dict[str, Any], variant: Variant):
+        self._info = info
+        self._variant = variant
+
+    def query_build_targets(self) -> Set[Target]:
+        build_targets = set()
+        build_targets.update(self._get_harness_build_targets())
+        build_targets.update(self._get_test_build_targets())
+        return build_targets
+
+    def _get_harness_build_targets(self) -> Set[Target]:
+        return set([
+          Target('aapt', Variant.HOST),
+          Target('aapt2', Variant.HOST),
+          Target('adb', Variant.HOST),
+          Target('atest-tradefed', Variant.HOST),
+          Target('atest_script_help.sh', Variant.HOST),
+          Target('atest_tradefed.sh', Variant.HOST),
+          Target('compatibility-tradefed', Variant.HOST),
+          Target('tradefed', Variant.HOST),
+        ])
+
+    def _get_test_build_targets(self) -> Set[Target]:
+        module_name = self._info[constants.MODULE_INFO_ID]
+        return set([Target(module_name, self._variant)])
