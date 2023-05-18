@@ -1212,9 +1212,9 @@ def test_info_of(module_name):
 class DeviceDrivenTestTest(ModuleInfoTestFixture):
     """Tests for device driven test."""
 
-    def test_device_driven_test(self):
+    def test_multi_config_unit_test_without_host_arg(self):
         mod_info = self.create_module_info(modules=[
-            device_driven_test_module(name='hello_world_test')
+            multi_config_unit_test_module(name='hello_world_test')
         ])
         test_infos = [test_info_of('hello_world_test')]
         runner = atf_tr.AtestTradefedTestRunner(
@@ -1237,29 +1237,70 @@ class DeviceDrivenTestTest(ModuleInfoTestFixture):
             })
 
 
-def device_driven_test_module(name):
+class DevicelessTestTest(ModuleInfoTestFixture):
+    """Tests for deviceless test."""
+
+    def test_multi_config_unit_test_with_host_arg(self):
+        mod_info = self.create_module_info(modules=[
+            multi_config_unit_test_module(name='hello_world_test')
+        ])
+        test_infos = [test_info_of('hello_world_test')]
+        runner = atf_tr.AtestTradefedTestRunner(
+            'result_dir', mod_info, host=True, minimal_build=True)
+
+        deps = runner.get_test_runner_build_reqs(test_infos)
+
+        self.assertSetEqual(
+            deps,
+            {
+                'hello_world_test-host',
+                'adb-host',
+                'atest-tradefed-host',
+                'atest_tradefed.sh-host',
+                'tradefed-host',
+                'atest_script_help.sh-host',
+            })
+
+
+def multi_config_unit_test_module(name):
+
     name = name or 'hello_world_test'
+
     return test_module(
         name=name,
-        supported_variants=['DEVICE'],
-        installed=[f'out/product/vsoc_x86/{name}/{name}.jar'])
+        supported_variants=['HOST', 'DEVICE'],
+        installed=[
+            f'out/host/linux-x86/{name}/{name}.cc',
+            f'out/product/vsoc_x86/{name}/{name}.cc'
+        ],
+        compatibility_suites=['host-unit-tests'])
 
 
-def test_module(name, supported_variants, installed):
+def test_module(
+    name, supported_variants, installed, compatibility_suites=['null-suite']):
+
     return module(
         name=name,
         supported_variants=supported_variants,
         installed=installed,
-        auto_test_config=[True])
+        auto_test_config=[True],
+        compatibility_suites=compatibility_suites)
 
 
-def module(name, supported_variants, installed, auto_test_config):
+def module(
+    name,
+    supported_variants,
+    installed,
+    auto_test_config,
+    compatibility_suites):
+
     m = {}
 
     m[constants.MODULE_INFO_ID] = name
     m[constants.MODULE_SUPPORTED_VARIANTS] = supported_variants
     m[constants.MODULE_INSTALLED] = installed
     m['auto_test_config'] = auto_test_config
+    m[constants.MODULE_COMPATIBILITY_SUITES] = compatibility_suites
 
     return m
 
