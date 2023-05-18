@@ -117,35 +117,30 @@ def print_test_result(root, history_arg):
                       command_len=_COMMAND_LEN))
     for path in paths[0: int(history_arg)+1]:
         result_path = os.path.join(path, 'test_result')
-        if os.path.isfile(result_path):
-            try:
-                with open(result_path) as json_file:
-                    result = json.load(json_file)
-                    total_summary = result.get(_TOTAL_SUMMARY_KEY, {})
-                    summary_str = ', '.join([k[:1]+':'+str(v)
-                                             for k, v in total_summary.items()])
-                    test_result_url = result.get(_TEST_RESULT_LINK, '')
-                    if has_url_results():
-                        print('{:<{uuid_len}} {:<{result_len}} '
-                              '{:<{result_url_len}} atest {:<{command_len}}'
-                              .format(os.path.basename(path),
-                                      summary_str,
-                                      test_result_url,
-                                      result.get(_ARGS_KEY, ''),
-                                      uuid_len=_UUID_LEN,
-                                      result_len=_RESULT_LEN,
-                                      result_url_len=_RESULT_URL_LEN,
-                                      command_len=_COMMAND_LEN))
-                    else:
-                        print('{:<{uuid_len}} {:<{result_len}} atest {:<{command_len}}'
-                              .format(os.path.basename(path),
-                                      summary_str,
-                                      result.get(_ARGS_KEY, ''),
-                                      uuid_len=_UUID_LEN,
-                                      result_len=_RESULT_LEN,
-                                      command_len=_COMMAND_LEN))
-            except ValueError:
-                pass
+        result = au.load_json_safely(result_path)
+        total_summary = result.get(_TOTAL_SUMMARY_KEY, {})
+        summary_str = ', '.join([k[:1]+':'+str(v)
+                                    for k, v in total_summary.items()])
+        test_result_url = result.get(_TEST_RESULT_LINK, '')
+        if has_url_results():
+            print('{:<{uuid_len}} {:<{result_len}} '
+                    '{:<{result_url_len}} atest {:<{command_len}}'
+                    .format(os.path.basename(path),
+                            summary_str,
+                            test_result_url,
+                            result.get(_ARGS_KEY, ''),
+                            uuid_len=_UUID_LEN,
+                            result_len=_RESULT_LEN,
+                            result_url_len=_RESULT_URL_LEN,
+                            command_len=_COMMAND_LEN))
+        else:
+            print('{:<{uuid_len}} {:<{result_len}} atest {:<{command_len}}'
+                    .format(os.path.basename(path),
+                            summary_str,
+                            result.get(_ARGS_KEY, ''),
+                            uuid_len=_UUID_LEN,
+                            result_len=_RESULT_LEN,
+                            command_len=_COMMAND_LEN))
 
 
 def print_test_result_by_path(path):
@@ -154,42 +149,42 @@ def print_test_result_by_path(path):
     Args:
         path: A string of test result path.
     """
-    if os.path.isfile(path):
-        with open(path) as json_file:
-            result = json.load(json_file)
-            print("\natest {}".format(result.get(_ARGS_KEY, '')))
-            test_result_url = result.get(_TEST_RESULT_LINK, '')
-            if test_result_url:
-                print('\nTest Result Link: {}'.format(test_result_url))
-            print('\nTotal Summary:\n{}'.format(au.delimiter('-')))
-            total_summary = result.get(_TOTAL_SUMMARY_KEY, {})
-            print(', '.join([(k+':'+str(v))
-                             for k, v in total_summary.items()]))
-            fail_num = total_summary.get(_STATUS_FAILED_KEY)
-            if fail_num > 0:
-                message = '%d test failed' % fail_num
-                print('\n')
-                print(au.colorize(message, constants.RED))
-                print('-' * len(message))
-                test_runner = result.get(_TEST_RUNNER_KEY, {})
-                for runner_name in test_runner.keys():
-                    test_dict = test_runner.get(runner_name, {})
-                    for test_name in test_dict:
-                        test_details = test_dict.get(test_name, {})
-                        for fail in test_details.get(_STATUS_FAILED_KEY):
-                            print(au.colorize('{}'.format(
-                                fail.get(_TEST_NAME_KEY)), constants.RED))
-                            failure_files = glob.glob(_LOGCAT_FMT.format(
-                                os.path.dirname(path), fail.get(_TEST_NAME_KEY)
-                                ))
-                            if failure_files:
-                                print('{} {}'.format(
-                                    au.colorize('LOGCAT-ON-FAILURES:',
-                                                constants.CYAN),
-                                    failure_files[0]))
-                            print('{} {}'.format(
-                                au.colorize('STACKTRACE:\n', constants.CYAN),
-                                fail.get(_TEST_DETAILS_KEY)))
+    result = au.load_json_safely(path)
+    if not result:
+        return
+    print("\natest {}".format(result.get(_ARGS_KEY, '')))
+    test_result_url = result.get(_TEST_RESULT_LINK, '')
+    if test_result_url:
+        print('\nTest Result Link: {}'.format(test_result_url))
+    print('\nTotal Summary:\n{}'.format(au.delimiter('-')))
+    total_summary = result.get(_TOTAL_SUMMARY_KEY, {})
+    print(', '.join([(k+':'+str(v))
+                        for k, v in total_summary.items()]))
+    fail_num = total_summary.get(_STATUS_FAILED_KEY)
+    if fail_num > 0:
+        message = '%d test failed' % fail_num
+        print('\n')
+        print(au.colorize(message, constants.RED))
+        print('-' * len(message))
+        test_runner = result.get(_TEST_RUNNER_KEY, {})
+        for runner_name in test_runner.keys():
+            test_dict = test_runner.get(runner_name, {})
+            for test_name in test_dict:
+                test_details = test_dict.get(test_name, {})
+                for fail in test_details.get(_STATUS_FAILED_KEY):
+                    print(au.colorize('{}'.format(
+                        fail.get(_TEST_NAME_KEY)), constants.RED))
+                    failure_files = glob.glob(_LOGCAT_FMT.format(
+                        os.path.dirname(path), fail.get(_TEST_NAME_KEY)
+                        ))
+                    if failure_files:
+                        print('{} {}'.format(
+                            au.colorize('LOGCAT-ON-FAILURES:',
+                                        constants.CYAN),
+                            failure_files[0]))
+                    print('{} {}'.format(
+                        au.colorize('STACKTRACE:\n', constants.CYAN),
+                        fail.get(_TEST_DETAILS_KEY)))
 
 
 def has_non_test_options(args: argparse.ArgumentParser):
@@ -220,14 +215,10 @@ def has_url_results():
             if file != 'test_result':
                 continue
             json_file = os.path.join(root, 'test_result')
-            with open(json_file) as result:
-                try:
-                    result = json.load(result)
-                    url_link = result.get(_TEST_RESULT_LINK, '')
-                    if url_link:
-                        return True
-                except ValueError:
-                    pass
+            result = au.load_json_safely(json_file)
+            url_link = result.get(_TEST_RESULT_LINK, '')
+            if url_link:
+                return True
     return False
 
 
