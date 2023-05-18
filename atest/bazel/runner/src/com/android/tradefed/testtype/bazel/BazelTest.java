@@ -106,6 +106,8 @@ public final class BazelTest implements IRemoteTest {
     private final ExecutorService mExecutor;
 
     private Path mRunTemporaryDirectory;
+    private Path mBazelOutputRoot;
+    private Path mJavaTempOutput;
 
     private enum FilterType {
         MODULE,
@@ -137,7 +139,7 @@ public final class BazelTest implements IRemoteTest {
     @Option(
             name = "bazel-max-idle-timout",
             description = "Max idle timeout in seconds for bazel commands.")
-    private Duration mBazelMaxIdleTimeout = Duration.ofSeconds(5L);
+    private Duration mBazelMaxIdleTimeout = Duration.ofSeconds(30L);
 
     @Option(name = "exclude-filter", description = "Test modules to exclude when running tests.")
     private final List<String> mExcludeTargets = new ArrayList<>();
@@ -196,6 +198,8 @@ public final class BazelTest implements IRemoteTest {
 
     private void initialize() throws IOException {
         mRunTemporaryDirectory = Files.createTempDirectory(mTemporaryDirectory, "bazel-test-");
+        mBazelOutputRoot = createTemporaryDirectory("java-tmp-out");
+        mJavaTempOutput = createTemporaryDirectory("bazel-tmp-out");
     }
 
     private void logWorkspaceContents() throws IOException {
@@ -305,16 +309,14 @@ public final class BazelTest implements IRemoteTest {
     private ProcessBuilder createBazelCommand(Path workspaceDirectory, String tmpDirPrefix)
             throws IOException {
 
-        Path javaTmpDir = createTemporaryDirectory("%s-java-tmp-out".formatted(tmpDirPrefix));
-        Path bazelTmpDir = createTemporaryDirectory("%s-bazel-tmp-out".formatted(tmpDirPrefix));
-
         List<String> command = new ArrayList<>();
 
         command.add(workspaceDirectory.resolve("bazel.sh").toAbsolutePath().toString());
         command.add(
                 "--host_jvm_args=-Djava.io.tmpdir=%s"
-                        .formatted(javaTmpDir.toAbsolutePath().toString()));
-        command.add("--output_user_root=%s".formatted(bazelTmpDir.toAbsolutePath().toString()));
+                        .formatted(mJavaTempOutput.toAbsolutePath().toString()));
+        command.add(
+                "--output_user_root=%s".formatted(mBazelOutputRoot.toAbsolutePath().toString()));
         command.add("--max_idle_secs=%d".formatted(mBazelMaxIdleTimeout.toSeconds()));
 
         ProcessBuilder builder = new ProcessBuilder(command);
