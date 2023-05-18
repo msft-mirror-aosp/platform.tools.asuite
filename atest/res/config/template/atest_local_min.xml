@@ -15,8 +15,11 @@
 -->
 <!-- Common configuration for atest's local runs with minimum overhead. -->
 <configuration description="Common configuration for atest's local runs with minimum overhead">
+    <option name="test-tag" value="local_atest" />
     <build_provider class="com.android.tradefed.build.BootstrapBuildProvider">
         <option name="collect-build-attribute" value="false"/>
+        <option name="build-id" value="local"/>
+        <option name="branch" value="local"/>
     </build_provider>
 
     <template-include name="testbed-preparers" default="empty" />
