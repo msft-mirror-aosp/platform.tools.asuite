@@ -554,8 +554,11 @@ class AtestTradefedTestRunner(trb.TestRunnerBase):
         if not self._is_host_enabled() and self.module_info.is_device_driven_test(info):
             return DeviceTest(info, Variant.DEVICE)
 
+        if self.module_info.is_modern_robolectric_test(info):
+            return DevicelessTest(info, Variant.DEVICE)
+
         if self.module_info.is_host_unit_test(info):
-            return DevicelessTest(info)
+            return DevicelessTest(info, Variant.HOST)
 
         raise Error(
             f'--minimal-build is unsupported for {t_info.raw_test_name}')
@@ -1365,12 +1368,13 @@ class DeviceTest(Test):
 
 
 class DevicelessTest(Test):
-    def __init__(self, info: Dict[str, Any]):
+    def __init__(self, info: Dict[str, Any], variant: Variant):
         self._info = info
+        self._variant = variant
 
     def _get_test_build_targets(self) -> Set[Target]:
         module_name = self._info[constants.MODULE_INFO_ID]
-        return set([Target(module_name, Variant.HOST)])
+        return set([Target(module_name, self._variant)])
 
     def _get_harness_build_targets(self):
         build_targets = set(Test._DEFAULT_HARNESS_TARGETS)
