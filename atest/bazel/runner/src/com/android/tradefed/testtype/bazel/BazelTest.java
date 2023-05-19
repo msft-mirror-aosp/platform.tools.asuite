@@ -84,6 +84,8 @@ public final class BazelTest implements IRemoteTest {
     public static final String QUERY_ALL_TARGETS = "query_all_targets";
     public static final String QUERY_MAP_MODULES_TO_TARGETS = "query_map_modules_to_targets";
     public static final String RUN_TESTS = "run_tests";
+    public static final String BUILD_TEST_ARG = "bazel-build";
+    public static final String TEST_TAG_TEST_ARG = "bazel-test";
 
     // Add method excludes to TF's global filters since Bazel doesn't support target-specific
     // arguments. See https://github.com/bazelbuild/rules_go/issues/2784.
@@ -480,7 +482,10 @@ public final class BazelTest implements IRemoteTest {
         builder.command().add("--build_event_binary_file=%s".formatted(bepFile.toAbsolutePath()));
 
         builder.command().add("--generate_json_trace_profile");
-        builder.command().add(String.format("--profile=%s", bazelTraceFile.toAbsolutePath()));
+        builder.command().add("--profile=%s".formatted(bazelTraceFile.toAbsolutePath().toString()));
+
+        builder.command().add("--test_arg=--test-tag=%s".formatted(TEST_TAG_TEST_ARG));
+        builder.command().add("--test_arg=--build-id=%s".formatted(BUILD_TEST_ARG));
 
         builder.command().addAll(mBazelTestExtraArgs);
 
@@ -646,7 +651,7 @@ public final class BazelTest implements IRemoteTest {
         // appending that to our extracted directory.
         // TODO(b/251279690) Create a directory within undeclared outputs which we can more
         // reliably look for to calculate this relative path.
-        Path delimiter = Paths.get("stub/-1/stub");
+        Path delimiter = Paths.get(BUILD_TEST_ARG, TEST_TAG_TEST_ARG);
 
         Path relativePath = originalPath;
         while (!relativePath.startsWith(delimiter)
