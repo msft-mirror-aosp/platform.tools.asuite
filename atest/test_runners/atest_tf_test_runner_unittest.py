@@ -1219,22 +1219,26 @@ class DeviceDrivenTestTest(ModuleInfoTestFixture):
         test_infos = [test_info_of('hello_world_test')]
         runner = atf_tr.AtestTradefedTestRunner(
             'result_dir', mod_info, host=False, minimal_build=True)
+        expect_deps = {
+            'aapt2-host',
+            'hello_world_test-target',
+            'compatibility-tradefed-host',
+            'adb-host',
+            'atest-tradefed-host',
+            'aapt-host',
+            'atest_tradefed.sh-host',
+            'tradefed-host',
+            'atest_script_help.sh-host',
+        }
+        # The expect_deps may be different between aosp and internal branches.
+        for gtf_target in constants.GTF_TARGETS:
+            expect_deps.add(gtf_target + '-host')
 
         deps = runner.get_test_runner_build_reqs(test_infos)
 
         self.assertSetEqual(
             deps,
-            {
-                'aapt2-host',
-                'hello_world_test-target',
-                'compatibility-tradefed-host',
-                'adb-host',
-                'atest-tradefed-host',
-                'aapt-host',
-                'atest_tradefed.sh-host',
-                'tradefed-host',
-                'atest_script_help.sh-host',
-            })
+            expect_deps)
 
 
 class DevicelessTestTest(ModuleInfoTestFixture):

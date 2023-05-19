@@ -538,9 +538,6 @@ class AtestTradefedTestRunner(trb.TestRunnerBase):
 
         build_targets = {t.name() for t in build_targets}
 
-        if self.module_info.is_module(constants.GTF_MODULE):
-            build_targets |= {constants.GTF_TARGET}
-
         return build_targets
 
     def _create_test(self, t_info: test_info.TestInfo) -> Test:
@@ -1364,6 +1361,10 @@ class DeviceTest(Test):
             Target('aapt2', Variant.HOST),
             Target('compatibility-tradefed', Variant.HOST),
         ]))
+
+        for target in constants.GTF_TARGETS:
+            build_targets.add(Target(target, Variant.HOST))
+
         return build_targets
 
 
