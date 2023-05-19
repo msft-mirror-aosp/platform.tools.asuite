@@ -797,7 +797,11 @@ public final class BazelTestTest {
             Path outputFile = outputsDir.resolve("proto-results");
             setter.setOptionValue("proto-output-file", outputFile.toAbsolutePath().toString());
 
-            Path logDir = Files.createDirectories(outputsDir.resolve("stub/-1/stub"));
+            Path logDir =
+                    Files.createDirectories(
+                            outputsDir
+                                    .resolve(BazelTest.BUILD_TEST_ARG)
+                                    .resolve(BazelTest.TEST_TAG_TEST_ARG));
             Path isolatedJavaLog = createLogFile("isolated-java-logs.tar.gz", logDir);
             Path tfConfig = createLogFile("tradefed-expanded-config.xml", logDir);
 
