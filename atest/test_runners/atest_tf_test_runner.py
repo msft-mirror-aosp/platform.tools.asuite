@@ -370,6 +370,12 @@ class AtestTradefedTestRunner(trb.TestRunnerBase):
                 if tf_subproc.poll() is not None and len(inputs) == 1:
                     inputs.pop().close()
                     if not reporter.all_test_results:
+                        if atest_configs.GLOBAL_ARGS.user_type:
+                            atest_utils.colorful_print(
+                                "The test module doesn't support "
+                                f"'{atest_configs.GLOBAL_ARGS.user_type}' "
+                                "user type, please check test config.",
+                                constants.RED)
                         atest_utils.colorful_print(
                             r'No test to run. Test Logs have saved in '
                             f'{reporter.log_path}.',
