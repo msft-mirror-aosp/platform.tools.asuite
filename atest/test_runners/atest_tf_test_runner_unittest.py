@@ -1261,6 +1261,36 @@ class DevicelessTestTest(ModuleInfoTestFixture):
                 'atest_script_help.sh-host',
             })
 
+    def test_robolectric_test(self):
+        mod_info = self.create_module_info(modules=[
+            robolectric_test_module(name='hello_world_test')
+        ])
+        test_infos = [test_info_of('hello_world_test')]
+        runner = atf_tr.AtestTradefedTestRunner(
+            'result_dir', mod_info, minimal_build=True)
+
+        deps = runner.get_test_runner_build_reqs(test_infos)
+
+        self.assertSetEqual(
+            deps,
+            {
+                'hello_world_test-target',
+                'adb-host',
+                'atest-tradefed-host',
+                'atest_tradefed.sh-host',
+                'tradefed-host',
+                'atest_script_help.sh-host',
+            })
+
+
+def robolectric_test_module(name):
+    name = name or 'hello_world_test'
+    return test_module(
+        name=name,
+        supported_variants=['DEVICE'],
+        installed=[f'out/host/linux-x86/{name}/{name}.jar'],
+        compatibility_suites=['robolectric-tests'])
+
 
 def multi_config_unit_test_module(name):
 
