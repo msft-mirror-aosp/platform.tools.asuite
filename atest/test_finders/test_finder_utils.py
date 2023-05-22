@@ -34,7 +34,7 @@ import xml.etree.ElementTree as ET
 from contextlib import contextmanager
 from enum import unique, Enum
 from pathlib import Path
-from typing import Any, Dict
+from typing import Dict
 
 from atest import atest_error
 from atest import atest_utils
@@ -443,6 +443,7 @@ def extract_test_from_tests(tests, default_all=False):
     try:
         numbered_list = ['%s: %s' % (i, t) for i, t in enumerate(tests)]
         numbered_list.append('%s: All' % count)
+        start_prompt = time.time()
         print('Multiple tests found:\n{0}'.format('\n'.join(numbered_list)))
         test_indices = input("Please enter numbers of test to use. If none of "
                              "above option matched, keep searching for other "
@@ -456,8 +457,14 @@ def extract_test_from_tests(tests, default_all=False):
                 end_index = max(int(indices[0]), int(indices[len_indices-1]))
                 # One of input is 'All', return all options.
                 if count in (start_index, end_index):
+                    metrics.LocalDetectEvent(
+                        detect_type=DetectType.INTERACTIVE_SELECTION,
+                        result=int(time.time() - start_prompt))
                     return tests
                 mtests.update(tests[start_index:(end_index+1)])
+        metrics.LocalDetectEvent(
+            detect_type=DetectType.INTERACTIVE_SELECTION,
+            result=int(time.time() - start_prompt))
     except (ValueError, IndexError, AttributeError, TypeError) as err:
         logging.debug('%s', err)
         print('None of above option matched, keep searching for other'
