@@ -21,7 +21,7 @@ from enum import IntEnum, unique, Enum
 @unique
 class DetectType(IntEnum):
     """An Enum class for local_detect_event."""
-    # Detect type for local_detect_event; next expansion: 47
+    # Detect type for local_detect_event; next expansion: 48
     BUG_DETECTED = 0
     ACLOUD_CREATE = 1
     FIND_BUILD = 2
@@ -85,6 +85,8 @@ class DetectType(IntEnum):
     IS_TEST_MAPPING = 45
     # The RBE_STATE indicates the combined state of the RBE and customized out.
     RBE_STATE = 46
+    # Prompt the user to select multiple tests.
+    INTERACTIVE_SELECTION = 47
 
 @unique
 class ExitCode(IntEnum):
