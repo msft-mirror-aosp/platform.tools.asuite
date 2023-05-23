@@ -73,6 +73,10 @@ MODULE_INFO = {constants.MODULE_NAME: 'random_name',
                constants.MODULE_PATH: 'a/b/c/path',
                constants.MODULE_CLASS: ['random_class']}
 NAME_TO_MODULE_INFO = {'random_name' : MODULE_INFO}
+
+MOBLY_MODULE = 'mobly-test'
+MOBLY_MODULE_NO_TAG = 'mobly-test-no-tag'
+
 # Mocking path allows str only, use os.path instead of Path.
 with tempfile.TemporaryDirectory() as temp_dir:
     BUILD_TOP_DIR = temp_dir
@@ -224,7 +228,7 @@ class ModuleInfoUnittests(unittest.TestCase):
         """Test get_testable_modules."""
         # 1. No modules.idx yet, will run _get_testable_modules()
         mod_info = module_info.ModuleInfo(module_file=JSON_FILE_PATH)
-        self.assertEqual(len(mod_info.get_testable_modules()), 29)
+        self.assertEqual(len(mod_info.get_testable_modules()), 30)
 
         # 2. read modules.idx.
         expected_modules = {'dep_test_module', 'MainModule2', 'test_dep_level_1_1'}
@@ -238,6 +242,19 @@ class ModuleInfoUnittests(unittest.TestCase):
         mock_is_suite_exist.return_value = False
         self.assertEqual(0, len(mod_info.get_testable_modules('test_suite')))
         self.assertEqual(1, len(mod_info.get_testable_modules()))
+
+    @mock.patch.dict(
+        'os.environ',
+        {constants.ANDROID_BUILD_TOP: '/',
+         constants.ANDROID_PRODUCT_OUT: PRODUCT_OUT_DIR})
+    def test_is_mobly_test(self):
+        """Test is_mobly_test."""
+        mod_info = module_info.ModuleInfo(module_file=JSON_FILE_PATH)
+        self.assertTrue(
+            mod_info.is_mobly_module(mod_info.get_module_info(MOBLY_MODULE)))
+        self.assertFalse(
+            mod_info.is_mobly_module(
+                mod_info.get_module_info(MOBLY_MODULE_NO_TAG)))
 
     @mock.patch.dict('os.environ', {constants.ANDROID_BUILD_TOP:'/',
                                     constants.ANDROID_PRODUCT_OUT:PRODUCT_OUT_DIR})
