@@ -21,7 +21,7 @@ from enum import IntEnum, unique, Enum
 @unique
 class DetectType(IntEnum):
     """An Enum class for local_detect_event."""
-    # Detect type for local_detect_event; next expansion: 48
+    # Detect type for local_detect_event; next expansion: 51
     BUG_DETECTED = 0
     ACLOUD_CREATE = 1
     FIND_BUILD = 2
@@ -87,6 +87,13 @@ class DetectType(IntEnum):
     RBE_STATE = 46
     # Prompt the user to select multiple tests.
     INTERACTIVE_SELECTION = 47
+    # Upload results to storage.
+    # - UPLOAD_FLOW_MS is the total of upload preparation time, includes:
+    # -- FETCH_CRED_MS: fetch credential.
+    # -- UPLOAD_PREPARE_MS: insert a new record to server.
+    UPLOAD_FLOW_MS = 48
+    FETCH_CRED_MS = 49
+    UPLOAD_PREPARE_MS = 50
 
 @unique
 class ExitCode(IntEnum):
