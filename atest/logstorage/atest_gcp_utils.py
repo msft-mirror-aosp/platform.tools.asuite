@@ -32,6 +32,7 @@ import getpass
 import logging
 import os
 import subprocess
+import time
 import uuid
 try:
     import httplib2
@@ -49,7 +50,9 @@ try:
 except ModuleNotFoundError as e:
     logging.debug('Import error due to %s', e)
 
+from atest.atest_enum import DetectType
 from atest.logstorage import logstorage_utils
+from atest.metrics import metrics
 from atest import atest_utils
 from atest import constants
 
@@ -205,9 +208,17 @@ def do_upload_flow(extra_args):
         tuple(invocation, workunit)
     """
     config_folder = os.path.join(atest_utils.get_misc_dir(), '.atest')
+    fetch_cred_start = time.time()
     creds = fetch_credential(config_folder, extra_args)
+    metrics.LocalDetectEvent(
+        detect_type=DetectType.FETCH_CRED_MS,
+        result=int((time.time() - fetch_cred_start) * 1000))
     if creds:
+        prepare_upload_start = time.time()
         inv, workunit, local_build_id, build_target = _prepare_data(creds)
+        metrics.LocalDetectEvent(
+            detect_type=DetectType.UPLOAD_PREPARE_MS,
+            result=int((time.time() - prepare_upload_start) * 1000))
         extra_args[constants.INVOCATION_ID] = inv['invocationId']
         extra_args[constants.WORKUNIT_ID] = workunit['id']
         extra_args[constants.LOCAL_BUILD_ID] = local_build_id

@@ -29,6 +29,7 @@ import re
 import select
 import shutil
 import socket
+import time
 
 from abc import ABC, abstractmethod
 from functools import partial
@@ -230,7 +231,11 @@ class AtestTradefedTestRunner(trb.TestRunnerBase):
         # running tests.
         self._try_set_gts_authentication_key()
         result = 0
+        upload_start = time.time()
         creds, inv = atest_gcp_utils.do_upload_flow(extra_args)
+        metrics.LocalDetectEvent(
+            detect_type=DetectType.UPLOAD_FLOW_MS,
+            result=int((time.time() - upload_start) * 1000))
         try:
             verify_key = atest_utils.get_verify_key([test_infos[0].test_name],
                                                     extra_args)
