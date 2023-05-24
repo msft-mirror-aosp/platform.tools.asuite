@@ -190,6 +190,8 @@ EVENTS_NORMAL = [
     ('TEST_MODULE_ENDED', {'foo': 'bar'}),
 ]
 
+ANDROID_HOST_OUT = '/my/android/out/host/abc'
+
 #pylint: disable=too-many-public-methods
 class AtestTradefedTestRunnerUnittests(unittest.TestCase):
     """Unit tests for atest_tf_test_runner.py"""
@@ -1251,6 +1253,32 @@ class DeviceDrivenTestTest(ModuleInfoTestFixture):
             deps,
             expect_deps)
 
+    @mock.patch.dict('os.environ', {'ANDROID_HOST_OUT': ANDROID_HOST_OUT})
+    def test_host_jar_env_multi_config_unit_test_without_host_arg(self):
+        tf_host_jar_path = os.path.join(
+            ANDROID_HOST_OUT, 'tradefed.jar')
+        atest_host_jar_path = os.path.join(
+            ANDROID_HOST_OUT, 'atest-tradefed.jar')
+        mod_info = self.create_module_info(modules=[
+            multi_config_unit_test_module(name='hello_world_test'),
+            host_jar_module(name='tradefed',
+                            installed=[tf_host_jar_path]),
+            host_jar_module(name='atest-tradefed',
+                            installed=[atest_host_jar_path]),
+        ])
+        test_infos = [test_info_of('hello_world_test')]
+        runner = atf_tr.AtestTradefedTestRunner(
+            'result_dir', mod_info, host=False, minimal_build=True)
+        expect_path = {tf_host_jar_path,
+                       atest_host_jar_path}
+
+        runner.get_test_runner_build_reqs(test_infos)
+        env = runner.generate_env_vars(dict())
+
+        self.assertSetEqual(
+            set(env['ATEST_HOST_JARS'].split(':')),
+            expect_path)
+
     def test_host_driven_device_test(self):
         mod_info = self.create_module_info(modules=[
             host_driven_device_test_module(
@@ -1315,6 +1343,16 @@ class DevicelessTestTest(ModuleInfoTestFixture):
                 'tradefed-host',
                 'atest_script_help.sh-host',
             })
+
+
+def host_jar_module(name, installed):
+
+    return module(
+        name=name,
+        supported_variants=['HOST'],
+        installed=installed,
+        auto_test_config=[],
+        compatibility_suites=[])
 
 
 def robolectric_test_module(name):
