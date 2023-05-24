@@ -1298,6 +1298,25 @@ class DeviceDrivenTestTest(ModuleInfoTestFixture):
         self.assertContainsSubset(
             {'hello_world_test-host', 'lib-host'}, deps)
 
+    def test_device_driven_test_with_mainline_modules(self):
+        mod_info = self.create_module_info(modules=[
+            device_driven_test_module(name='hello_world_test')])
+        t_info = test_info_of('hello_world_test')
+        t_info.add_mainline_module('mainline_module_1')
+        t_info.add_mainline_module('mainline_module_2')
+        runner = atf_tr.AtestTradefedTestRunner(
+            'result_dir', mod_info, host=False, minimal_build=True)
+
+        deps = runner.get_test_runner_build_reqs([t_info])
+
+        self.assertContainsSubset(
+            {
+                'hello_world_test-target',
+                'mainline_module_1',
+                'mainline_module_2'},
+            deps,
+        )
+
 
 class DevicelessTestTest(ModuleInfoTestFixture):
     """Tests for deviceless test."""
@@ -1353,6 +1372,16 @@ def host_jar_module(name, installed):
         installed=installed,
         auto_test_config=[],
         compatibility_suites=[])
+
+
+def device_driven_test_module(name):
+
+    name = name or 'hello_world_test'
+
+    return test_module(
+        name=name,
+        supported_variants=['DEVICE'],
+        installed=[f'out/product/vsoc_x86/{name}/{name}.apk'])
 
 
 def robolectric_test_module(name):
