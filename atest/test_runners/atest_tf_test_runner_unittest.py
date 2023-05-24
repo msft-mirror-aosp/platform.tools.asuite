@@ -1203,6 +1203,17 @@ class ModuleInfoTestFixture(fake_filesystem_unittest.TestCase):
 
         return mod_info
 
+    def assertContainsSubset(self, expected_subset, actual_set):
+        """Checks whether actual iterable is a superset of expected iterable."""
+        missing = set(expected_subset) - set(actual_set)
+        if not missing:
+            return
+
+        self.fail(
+            f'Missing elements {missing}\n'
+            f'Expected: {expected_subset}\n'
+            f'Actual: {actual_set}')
+
 
 def test_info_of(module_name):
     return test_info.TestInfo(
@@ -1239,6 +1250,25 @@ class DeviceDrivenTestTest(ModuleInfoTestFixture):
         self.assertSetEqual(
             deps,
             expect_deps)
+
+    def test_host_driven_device_test(self):
+        mod_info = self.create_module_info(modules=[
+            host_driven_device_test_module(
+                name='hello_world_test',
+                libs=['lib']),
+            module(
+                name='lib',
+                supported_variants=['HOST'],
+                installed=[f'out/host/linux-x86/lib/lib.jar']),
+        ])
+        test_infos = [test_info_of('hello_world_test')]
+        runner = atf_tr.AtestTradefedTestRunner(
+            'result_dir', mod_info, host=False, minimal_build=True)
+
+        deps = runner.get_test_runner_build_reqs(test_infos)
+
+        self.assertContainsSubset(
+            {'hello_world_test-host', 'lib-host'}, deps)
 
 
 class DevicelessTestTest(ModuleInfoTestFixture):
@@ -1296,6 +1326,16 @@ def robolectric_test_module(name):
         compatibility_suites=['robolectric-tests'])
 
 
+def host_driven_device_test_module(name, libs=None):
+    name = name or 'hello_world_test'
+    return test_module(
+        name=name,
+        supported_variants=['HOST'],
+        installed=[f'out/host/linux-x86/{name}/{name}.jar'],
+        compatibility_suites=['null-suite'],
+        libs=libs)
+
+
 def multi_config_unit_test_module(name):
 
     name = name or 'hello_world_test'
@@ -1311,30 +1351,37 @@ def multi_config_unit_test_module(name):
 
 
 def test_module(
-    name, supported_variants, installed, compatibility_suites=['null-suite']):
+    name,
+    supported_variants,
+    installed,
+    compatibility_suites=['null-suite'],
+    libs=None):
 
     return module(
         name=name,
         supported_variants=supported_variants,
         installed=installed,
         auto_test_config=[True],
-        compatibility_suites=compatibility_suites)
+        compatibility_suites=compatibility_suites,
+        libs=libs)
 
 
 def module(
     name,
     supported_variants,
     installed,
-    auto_test_config,
-    compatibility_suites):
+    auto_test_config=None,
+    compatibility_suites=None,
+    libs=None):
 
     m = {}
 
     m[constants.MODULE_INFO_ID] = name
     m[constants.MODULE_SUPPORTED_VARIANTS] = supported_variants
     m[constants.MODULE_INSTALLED] = installed
-    m['auto_test_config'] = auto_test_config
-    m[constants.MODULE_COMPATIBILITY_SUITES] = compatibility_suites
+    m['auto_test_config'] = auto_test_config or []
+    m[constants.MODULE_COMPATIBILITY_SUITES] = compatibility_suites or []
+    m[constants.MODULE_LIBS] = libs or []
 
     return m
 

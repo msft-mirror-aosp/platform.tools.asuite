@@ -562,6 +562,9 @@ class AtestTradefedTestRunner(trb.TestRunnerBase):
         if self.module_info.is_host_unit_test(info):
             return DevicelessTest(info, Variant.HOST)
 
+        if self.module_info.is_host_driven_test(info):
+            return DeviceTest(info, Variant.HOST)
+
         raise Error(
             f'--minimal-build is unsupported for {t_info.raw_test_name}')
 
@@ -1356,7 +1359,9 @@ class DeviceTest(Test):
 
     def _get_test_build_targets(self) -> Set[Target]:
         module_name = self._info[constants.MODULE_INFO_ID]
-        return set([Target(module_name, self._variant)])
+        build_targets = set([Target(module_name, self._variant)])
+        build_targets.update(_get_libs_deps(self._info, self._variant))
+        return build_targets
 
     def _get_harness_build_targets(self):
         build_targets = set(Test._DEFAULT_HARNESS_TARGETS)
@@ -1389,3 +1394,18 @@ class DevicelessTest(Test):
             Target('adb', Variant.HOST),
         ]))
         return build_targets
+
+
+def _get_libs_deps(info: Dict[str, Any], variant: Variant) -> Set[Target]:
+
+    # We only need the runtime dependencies with host variant since TradeFed
+    # won't push any runtime dependencies to the test device and the runtime
+    # dependencies with device variant should already exist on the test device.
+    if variant != Variant.HOST:
+        return set()
+
+    deps = set()
+    deps.update(
+        [Target(m, variant) for m in info.get(constants.MODULE_LIBS, [])])
+
+    return deps
