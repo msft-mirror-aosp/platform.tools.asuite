@@ -1118,8 +1118,12 @@ def main(argv: List[Any], results_dir: str, args: argparse.ArgumentParser):
         # (b/242567487) index_targets may finish after cli_translator; to
         # mitigate the overhead, the main waits until it finished when no index
         # files are available (e.g. fresh repo sync)
+        join_start = time.time()
         if proc_idx and not atest_utils.has_index_files():
             proc_idx.join()
+            metrics.LocalDetectEvent(
+                detect_type=DetectType.IDX_JOIN_MS,
+                result=int((time.time() - join_start) * 1000))
         find_start = time.time()
         test_infos = translator.translate(args)
         given_amount  = len(args.serial) if args.serial else 0
