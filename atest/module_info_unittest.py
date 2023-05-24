@@ -611,6 +611,22 @@ class ModuleInfoUnittests(unittest.TestCase):
             mainline_modules,
             {'B.apk+C.apex'}))
 
+    def test_get_installed_paths_have_abs_path(self):
+        mod_info = create_module_info(
+            [module(name='my_module',
+                    installed=[Path('/a/b/c/d')])])
+
+        self.assertEqual(mod_info.get_installed_paths('my_module'),
+                         [Path('/a/b/c/d')])
+
+    def test_get_installed_paths_have_relative_path(self):
+        mod_info = create_module_info(
+            [module(name='my_module',
+                    installed=['a/b/c/d'])])
+
+        self.assertEqual(mod_info.get_installed_paths('my_module'),
+                         [Path('/a/b/c/d')])
+
 
 class ModuleInfoTestFixture(fake_filesystem_unittest.TestCase):
     """Fixture for ModuleInfo tests."""
