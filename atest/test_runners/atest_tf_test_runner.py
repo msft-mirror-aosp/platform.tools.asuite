@@ -129,6 +129,11 @@ class AtestTradefedTestRunner(trb.TestRunnerBase):
                            constants.RERUN_UNTIL_FAILURE,
                            constants.RETRY_ANY_FAILURE]
 
+    # We're using a class attribute because we're recreating runner instances
+    # for different purposes throughout an invocation.
+    # TODO(b/283352341): Remove this once we refactor to have runner instances.
+    _MINIMAL_BUILD_TARGETS = set()
+
     def __init__(
         self,
         results_dir: str,
@@ -168,8 +173,8 @@ class AtestTradefedTestRunner(trb.TestRunnerBase):
         self._is_host_enabled = (
             lambda: atest_configs.GLOBAL_ARGS.host) if host is None else lambda: host
         self._minimal_build = (
-            (lambda: atest_configs.GLOBAL_ARGS.minimal_build) if minimal_build is None
-            else lambda: minimal_build)
+            (lambda: atest_configs.GLOBAL_ARGS.minimal_build==True)
+            if minimal_build is None else lambda: minimal_build)
 
     def _get_ld_library_path(self) -> str:
         """Get the corresponding LD_LIBRARY_PATH string for running TF.
@@ -438,7 +443,15 @@ class AtestTradefedTestRunner(trb.TestRunnerBase):
         return server
 
     def generate_env_vars(self, extra_args):
-        """Convert extra args into env vars."""
+        """Convert extra args and test_infos into env vars.
+
+        Args:
+            extra_args: Dict of extra args to add to test run.
+            test_infos: A list of TestInfos.
+
+        Returns:
+            A dict modified from os.getenv.copy().
+        """
         env_vars = os.environ.copy()
         if constants.TF_GLOBAL_CONFIG:
             env_vars["TF_GLOBAL_CONFIG"] = constants.TF_GLOBAL_CONFIG
@@ -464,7 +477,35 @@ class AtestTradefedTestRunner(trb.TestRunnerBase):
             if os.path.exists(prebuilt_aapt):
                 env_vars['PATH'] = (str(prebuilt_aapt.parent) + ':'
                                     + env_vars['PATH'])
+
+        # Add an env variable for the classpath that only contains the host jars
+        # required for the tests we'll be running.
+        if self._minimal_build():
+            self._generate_host_jars_env_var(env_vars)
+
         return env_vars
+
+    def _generate_host_jars_env_var(self, env_vars):
+
+        def is_host_jar(p):
+            return p.suffix == '.jar' and \
+                p.is_relative_to(Path(os.getenv(constants.ANDROID_HOST_OUT)))
+
+        all_host_jars = []
+
+        for target in AtestTradefedTestRunner._MINIMAL_BUILD_TARGETS:
+            if target.variant != Variant.HOST:
+                continue
+            # Only use the first host jar because the same jar may be installed
+            # to multiple places.
+            module_host_jars = [p for p in self.module_info.get_installed_paths(
+                target.module_name) if is_host_jar(p)]
+            all_host_jars.extend(
+                [str(module_host_jars[0])] if module_host_jars else [])
+
+        env_vars['ATEST_HOST_JARS'] = ':'.join(set(all_host_jars))
+        logging.debug('Set env ATEST_HOST_JARS: %s.',
+                      env_vars.get('ATEST_HOST_JARS'))
 
     # pylint: disable=unnecessary-pass
     # Please keep above disable flag to ensure host_env_check is overriden.
@@ -540,6 +581,8 @@ class AtestTradefedTestRunner(trb.TestRunnerBase):
         for info in test_infos:
             test = self._create_test(info)
             build_targets.update(test.query_build_targets())
+
+        AtestTradefedTestRunner._MINIMAL_BUILD_TARGETS = build_targets
 
         build_targets = {t.name() for t in build_targets}
 
