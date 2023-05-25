@@ -118,8 +118,7 @@ class AtestTradefedTestRunner(trb.TestRunnerBase):
     # in sharding mode.
     _LOG_ARGS = ('--{log_root_option_name}={log_path} '
                  '{log_ext_option} '
-                 '--no-enable-granular-attempts '
-                 '--proto-output-file={proto_path}')
+                 '--no-enable-granular-attempts')
     _RUN_CMD = ('{env} {exe} {template} '
                 '--template:map test=atest '
                 '--template:map log_saver={log_saver} '
