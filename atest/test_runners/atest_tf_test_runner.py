@@ -603,7 +603,7 @@ class AtestTradefedTestRunner(trb.TestRunnerBase):
                 f'Could not find module information for {t_info.raw_test_name}')
 
         if not self._is_host_enabled() and self.module_info.is_device_driven_test(info):
-            return DeviceTest(info, Variant.DEVICE)
+            return DeviceTest(info, Variant.DEVICE, t_info.mainline_modules)
 
         if self.module_info.is_modern_robolectric_test(info):
             return DevicelessTest(info, Variant.DEVICE)
@@ -612,7 +612,7 @@ class AtestTradefedTestRunner(trb.TestRunnerBase):
             return DevicelessTest(info, Variant.HOST)
 
         if self.module_info.is_host_driven_test(info):
-            return DeviceTest(info, Variant.HOST)
+            return DeviceTest(info, Variant.HOST, t_info.mainline_modules)
 
         raise Error(
             f'--minimal-build is unsupported for {t_info.raw_test_name}')
@@ -1349,6 +1349,7 @@ def get_include_filter(test_infos: List[test_info.TestInfo]) -> List[str]:
 class Variant(enum.Enum):
     """The variant of a build module."""
 
+    NONE = ''
     HOST = 'host'
     DEVICE = 'target'
 
@@ -1370,6 +1371,8 @@ class Target:
 
     def name(self) -> str:
         """The name to use on the command-line to build this target."""
+        if not self.variant.suffix:
+            return self.module_name
         return f'{self.module_name}-{self.variant.suffix}'
 
 
@@ -1402,14 +1405,21 @@ class Test(ABC):
 class DeviceTest(Test):
     """A device test that can be run."""
 
-    def __init__(self, info: Dict[str, Any], variant: Variant):
+    def __init__(
+        self, info: Dict[str, Any],
+        variant: Variant,
+        mainline_modules: Set[str]):
+
         self._info = info
         self._variant = variant
+        self._mainline_modules = mainline_modules
 
     def _get_test_build_targets(self) -> Set[Target]:
         module_name = self._info[constants.MODULE_INFO_ID]
         build_targets = set([Target(module_name, self._variant)])
         build_targets.update(_get_libs_deps(self._info, self._variant))
+        build_targets.update(
+            Target(m, Variant.NONE) for m in self._mainline_modules)
         return build_targets
 
     def _get_harness_build_targets(self):
