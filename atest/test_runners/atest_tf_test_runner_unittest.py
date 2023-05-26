@@ -1317,6 +1317,21 @@ class DeviceDrivenTestTest(ModuleInfoTestFixture):
             deps,
         )
 
+    def test_device_driven_test_with_vts_suite(self):
+        mod_info = self.create_module_info(modules=[
+            device_driven_test_module(
+                name='hello_world_test',
+                compatibility_suites=['vts']),
+        ])
+        test_infos = [test_info_of('hello_world_test')]
+        runner = atf_tr.AtestTradefedTestRunner(
+            'result_dir', mod_info, host=False, minimal_build=True)
+
+        deps = runner.get_test_runner_build_reqs(test_infos)
+
+        self.assertIn('vts-core-tradefed-harness-host', deps)
+        self.assertNotIn('compatibility-tradefed-host', deps)
+
 
 class DevicelessTestTest(ModuleInfoTestFixture):
     """Tests for deviceless test."""
@@ -1374,13 +1389,14 @@ def host_jar_module(name, installed):
         compatibility_suites=[])
 
 
-def device_driven_test_module(name):
+def device_driven_test_module(name, compatibility_suites=None):
 
     name = name or 'hello_world_test'
 
     return test_module(
         name=name,
         supported_variants=['DEVICE'],
+        compatibility_suites=compatibility_suites,
         installed=[f'out/product/vsoc_x86/{name}/{name}.apk'])
 
 
@@ -1421,7 +1437,7 @@ def test_module(
     name,
     supported_variants,
     installed,
-    compatibility_suites=['null-suite'],
+    compatibility_suites=None,
     libs=None):
 
     return module(
@@ -1429,7 +1445,7 @@ def test_module(
         supported_variants=supported_variants,
         installed=installed,
         auto_test_config=[True],
-        compatibility_suites=compatibility_suites,
+        compatibility_suites=compatibility_suites or ['null-suite'],
         libs=libs)
 
 
