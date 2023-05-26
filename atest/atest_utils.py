@@ -213,43 +213,44 @@ def _run_limited_output(cmd, env_vars=None):
             exitcode.
     """
     # Send stderr to stdout so we only have to deal with a single pipe.
-    proc = subprocess.Popen(cmd, stdout=subprocess.PIPE,
-                            stderr=subprocess.STDOUT, env=env_vars)
-    sys.stdout.write('\n')
-    term_width, _ = get_terminal_size()
-    white_space = " " * int(term_width)
-    full_output = []
-    while proc.poll() is None:
-        line = proc.stdout.readline().decode('utf-8')
-        # Readline will often return empty strings.
-        if not line:
-            continue
-        full_output.append(line)
-        # Trim the line to the width of the terminal.
-        # Note: Does not handle terminal resizing, which is probably not worth
-        #       checking the width every loop.
-        if len(line) >= term_width:
-            line = line[:term_width - 1]
-        # Clear the last line we outputted.
-        sys.stdout.write('\r%s\r' % white_space)
-        sys.stdout.write('%s' % line.strip())
+    with subprocess.Popen(cmd, stdout=subprocess.PIPE,
+                          stderr=subprocess.STDOUT, env=env_vars) as proc:
+        sys.stdout.write('\n')
+        term_width, _ = get_terminal_size()
+        white_space = " " * int(term_width)
+        full_output = []
+        while proc.poll() is None:
+            line = proc.stdout.readline().decode('utf-8')
+            # Readline will often return empty strings.
+            if not line:
+                continue
+            full_output.append(line)
+            # Trim the line to the width of the terminal.
+            # Note: Does not handle terminal resizing, which is probably not
+            #       worth checking the width every loop.
+            if len(line) >= term_width:
+                line = line[:term_width - 1]
+            # Clear the last line we outputted.
+            sys.stdout.write('\r%s\r' % white_space)
+            sys.stdout.write('%s' % line.strip())
+            sys.stdout.flush()
+        # Reset stdout (on bash) to remove any custom formatting and newline.
+        sys.stdout.write(_BASH_RESET_CODE)
         sys.stdout.flush()
-    # Reset stdout (on bash) to remove any custom formatting and newline.
-    sys.stdout.write(_BASH_RESET_CODE)
-    sys.stdout.flush()
-    # Wait for the Popen to finish completely before checking the returncode.
-    proc.wait()
-    if proc.returncode != 0:
-        # get error log from "OUT_DIR/error.log"
-        error_log_file = os.path.join(get_build_out_dir(), "error.log")
-        output = []
-        if os.path.isfile(error_log_file):
-            if os.stat(error_log_file).st_size > 0:
-                with open(error_log_file) as f:
-                    output = f.read()
-        if not output:
-            output = _capture_limited_output(full_output)
-        raise subprocess.CalledProcessError(proc.returncode, cmd, output)
+        # Wait for the Popen to finish completely before checking the
+        # returncode.
+        proc.wait()
+        if proc.returncode != 0:
+            # get error log from "OUT_DIR/error.log"
+            error_log_file = os.path.join(get_build_out_dir(), "error.log")
+            output = []
+            if os.path.isfile(error_log_file):
+                if os.stat(error_log_file).st_size > 0:
+                    with open(error_log_file, encoding='utf-8') as f:
+                        output = f.read()
+            if not output:
+                output = _capture_limited_output(full_output)
+            raise subprocess.CalledProcessError(proc.returncode, cmd, output)
 
 
 def get_build_out_dir() -> str:
@@ -293,7 +294,7 @@ def get_build_out_dir() -> str:
 
 def update_build_env(env: Dict[str, str]):
     """Method that updates build environment variables."""
-    # pylint: disable=global-statement
+    # pylint: disable=global-statement, global-variable-not-assigned
     global _BUILD_ENV
     _BUILD_ENV.update(env)
 
@@ -312,7 +313,7 @@ def build(build_targets: Set[str]):
         logging.debug('No build targets, skipping build.')
         return True
 
-    # pylint: disable=global-statement
+    # pylint: disable=global-statement, global-variable-not-assigned
     global _BUILD_ENV
     full_env_vars = os.environ.copy()
     update_build_env(full_env_vars)
@@ -534,7 +535,7 @@ def handle_test_runner_cmd(input_test, test_cmds, do_verification=False,
         # result.
         return
     full_result_content[input_test] = test_cmds
-    with open(result_path, 'w') as outfile:
+    with open(result_path, 'w', encoding='utf-8') as outfile:
         json.dump(full_result_content, outfile, indent=0)
         print('Save result mapping to %s' % result_path)
 
@@ -669,7 +670,7 @@ def save_md5(filenames, save_file):
         if not name.is_file():
             logging.warning(' ignore %s: not a file.', name)
         data.update({str(name): md5sum(name)})
-    with open(save_file, 'w+') as _file:
+    with open(save_file, 'w+', encoding='utf-8') as _file:
         json.dump(data, _file)
 
 def get_cache_root():
@@ -1042,7 +1043,7 @@ def load_json_safely(jsonfile):
         jsonfile = jsonfile.decode('utf-8')
     if Path(jsonfile).is_file():
         try:
-            with open(jsonfile, 'r') as cache:
+            with open(jsonfile, 'r', encoding='utf-8') as cache:
                 return json.load(cache)
         except json.JSONDecodeError:
             logging.debug('Exception happened while loading %s.', jsonfile)
@@ -1066,7 +1067,7 @@ def get_atest_version():
     atest_dir = Path(__file__).resolve().parent
     version_file = atest_dir.joinpath('VERSION')
     if Path(version_file).is_file():
-        return open(version_file).read()
+        return open(version_file, encoding='utf-8').read()
 
     # Try fetching commit date (%ci) and commit hash (%h).
     git_cmd = 'git log -1 --pretty=format:"%ci;%h"'
@@ -1599,7 +1600,7 @@ def gen_runner_cmd_to_file(tests, dry_run_cmd,
     results = load_json_safely(result_path)
     if results.get(tests) != normalized_cmd:
         results[tests] = normalized_cmd
-    with open(result_path, 'w+') as _file:
+    with open(result_path, 'w+', encoding='utf-8') as _file:
         json.dump(results, _file, indent=0)
     return results.get(tests, '')
 
@@ -1725,7 +1726,7 @@ def get_full_annotation_class_name(module_info, class_name):
     build_top = Path(os.environ.get(constants.ANDROID_BUILD_TOP, ''))
     for f in module_info.get(constants.MODULE_SRCS, []):
         full_path = build_top.joinpath(f)
-        with open(full_path, 'r') as cache:
+        with open(full_path, 'r', encoding='utf-8') as cache:
             for line in cache.readlines():
                 # Accept full class name.
                 match = fullname_re.match(line)
@@ -1754,7 +1755,7 @@ def has_mixed_type_filters(test_infos):
     Returns:
         True if more than one filter type in a test module, False otherwise.
     """
-    test_to_types = dict()
+    test_to_types = {}
     for test_info in test_infos:
         filters = test_info.data.get(constants.TI_FILTER, [])
         filter_types = set()
@@ -1828,7 +1829,7 @@ def get_bp_content(filename: Path, module_type: str) -> Dict:
     context_re = re.compile(
         r'\s*(?P<key>(name|manifest|instrumentation_for))\s*:'
         r'\s*\"(?P<value>.*)\"\s*,', re.M)
-    with open(build_file, 'r') as cache:
+    with open(build_file, 'r', encoding='utf-8') as cache:
         data = cache.readlines()
     content_dict = {}
     start_recording = False
@@ -1912,7 +1913,7 @@ def generate_print_result_html(result_file: Path):
     result_html = Path(search_dir, 'test_logs.html')
     try:
         logs = sorted(find_files(str(search_dir), file_name='*'))
-        with open(result_html, 'w') as cache:
+        with open(result_html, 'w', encoding='utf-8') as cache:
             cache.write('<!DOCTYPE html><html><body>')
             result = load_json_safely(result_file)
             if result:
@@ -1938,7 +1939,7 @@ def prompt_suggestions(result_file: Path):
     for log in logs:
         for keyword, suggestion in SUGGESTIONS.items():
             try:
-                with open(log, 'r') as cache:
+                with open(log, 'r', encoding='utf-8') as cache:
                     content = cache.read()
                     if keyword in content:
                         colorful_print(
@@ -2103,7 +2104,7 @@ def get_local_auto_shardable_tests():
         '.atest/auto_shard/local_auto_shardable_tests')
     if not shardable_tests_file.exists():
         return []
-    return open(shardable_tests_file, 'r').read().split()
+    return open(shardable_tests_file, 'r', encoding='utf-8').read().split()
 
 def update_shardable_tests(test_name: str, run_time_in_sec: int):
     """Update local_auto_shardable_test file.
@@ -2131,7 +2132,7 @@ def update_shardable_tests(test_name: str, run_time_in_sec: int):
     shardable_dir = Path(get_misc_dir()).joinpath('.atest/auto_shard')
     shardable_dir.mkdir(parents=True, exist_ok=True)
     shardable_tests_file = shardable_dir.joinpath('local_auto_shardable_tests')
-    with open(shardable_tests_file, 'w') as file:
+    with open(shardable_tests_file, 'w', encoding='utf-8') as file:
         file.write('\n'.join(shardable_tests))
 
 
@@ -2152,7 +2153,7 @@ def contains_brackets(string: str, pair: bool=True) -> bool:
     stack = []
     brackets = {"(": ")", "[": "]", "{": "}"}
     for char in string:
-        if char in brackets.keys():
+        if char in brackets:
             stack.append(char)
         elif char in brackets.values():
             if not stack or brackets[stack.pop()] != char:
