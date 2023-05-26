@@ -1254,23 +1254,31 @@ class DeviceDrivenTestTest(ModuleInfoTestFixture):
             expect_deps)
 
     @mock.patch.dict('os.environ', {'ANDROID_HOST_OUT': ANDROID_HOST_OUT})
-    def test_host_jar_env_multi_config_unit_test_without_host_arg(self):
+    def test_host_jar_env_device_driven_test_without_host_arg(self):
         tf_host_jar_path = os.path.join(
             ANDROID_HOST_OUT, 'tradefed.jar')
         atest_host_jar_path = os.path.join(
             ANDROID_HOST_OUT, 'atest-tradefed.jar')
+        host_required_jar_path = os.path.join(
+            ANDROID_HOST_OUT, 'host-required.jar')
         mod_info = self.create_module_info(modules=[
-            multi_config_unit_test_module(name='hello_world_test'),
+            device_driven_test_module(
+                name='hello_world_test', host_deps=['host-required']),
             host_jar_module(name='tradefed',
                             installed=[tf_host_jar_path]),
             host_jar_module(name='atest-tradefed',
                             installed=[atest_host_jar_path]),
+            host_jar_module(name='host-required',
+                            installed=[host_required_jar_path]),
         ])
         test_infos = [test_info_of('hello_world_test')]
         runner = atf_tr.AtestTradefedTestRunner(
             'result_dir', mod_info, host=False, minimal_build=True)
-        expect_path = {tf_host_jar_path,
-                       atest_host_jar_path}
+        expect_path = {
+            tf_host_jar_path,
+            atest_host_jar_path,
+            host_required_jar_path,
+        }
 
         runner.get_test_runner_build_reqs(test_infos)
         env = runner.generate_env_vars(dict())
@@ -1389,7 +1397,7 @@ def host_jar_module(name, installed):
         compatibility_suites=[])
 
 
-def device_driven_test_module(name, compatibility_suites=None):
+def device_driven_test_module(name, compatibility_suites=None, host_deps=None):
 
     name = name or 'hello_world_test'
 
@@ -1397,7 +1405,8 @@ def device_driven_test_module(name, compatibility_suites=None):
         name=name,
         supported_variants=['DEVICE'],
         compatibility_suites=compatibility_suites,
-        installed=[f'out/product/vsoc_x86/{name}/{name}.apk'])
+        installed=[f'out/product/vsoc_x86/{name}/{name}.apk'],
+        host_deps=host_deps)
 
 
 def robolectric_test_module(name):
@@ -1438,7 +1447,8 @@ def test_module(
     supported_variants,
     installed,
     compatibility_suites=None,
-    libs=None):
+    libs=None,
+    host_deps=None):
 
     return module(
         name=name,
@@ -1446,7 +1456,8 @@ def test_module(
         installed=installed,
         auto_test_config=[True],
         compatibility_suites=compatibility_suites or ['null-suite'],
-        libs=libs)
+        libs=libs,
+        host_deps=host_deps)
 
 
 def module(
@@ -1455,7 +1466,8 @@ def module(
     installed,
     auto_test_config=None,
     compatibility_suites=None,
-    libs=None):
+    libs=None,
+    host_deps=None):
 
     m = {}
 
@@ -1465,6 +1477,7 @@ def module(
     m['auto_test_config'] = auto_test_config or []
     m[constants.MODULE_COMPATIBILITY_SUITES] = compatibility_suites or []
     m[constants.MODULE_LIBS] = libs or []
+    m[constants.MODULE_HOST_DEPS] = host_deps or []
 
     return m
 

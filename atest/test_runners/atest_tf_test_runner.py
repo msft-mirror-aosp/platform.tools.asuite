@@ -583,12 +583,14 @@ class AtestTradefedTestRunner(trb.TestRunnerBase):
         test_infos: List[test_info.TestInfo]) -> Set[str]:
 
         build_targets = set()
+        runtime_targets = set()
 
         for info in test_infos:
             test = self._create_test(info)
             build_targets.update(test.query_build_targets())
+            runtime_targets.update(test.query_runtime_targets())
 
-        AtestTradefedTestRunner._MINIMAL_BUILD_TARGETS = build_targets
+        AtestTradefedTestRunner._MINIMAL_BUILD_TARGETS = runtime_targets
 
         build_targets = {t.name() for t in build_targets}
 
@@ -1394,6 +1396,10 @@ class Test(ABC):
         return build_targets
 
     @abstractmethod
+    def query_runtime_targets(self) -> Set[Target]:
+        """Returns the list of targets required during runtime."""
+
+    @abstractmethod
     def _get_test_build_targets(self) -> Set[Target]:
         """Returns the list of build targets of test and its dependencies."""
 
@@ -1413,6 +1419,9 @@ class DeviceTest(Test):
         self._info = info
         self._variant = variant
         self._mainline_modules = mainline_modules
+
+    def query_runtime_targets(self) -> Set[Target]:
+        return self.query_build_targets() | _get_host_required_deps(self._info)
 
     def _get_test_build_targets(self) -> Set[Target]:
         module_name = self._info[constants.MODULE_INFO_ID]
@@ -1460,6 +1469,9 @@ class DevicelessTest(Test):
         ]))
         return build_targets
 
+    def query_runtime_targets(self) -> Set[Target]:
+        return self.query_build_targets()
+
 
 def _get_libs_deps(info: Dict[str, Any], variant: Variant) -> Set[Target]:
 
@@ -1472,5 +1484,14 @@ def _get_libs_deps(info: Dict[str, Any], variant: Variant) -> Set[Target]:
     deps = set()
     deps.update(
         [Target(m, variant) for m in info.get(constants.MODULE_LIBS, [])])
+
+    return deps
+
+
+def _get_host_required_deps(info: Dict[str, Any]) -> Set[Target]:
+
+    deps = set()
+    deps.update(
+        Target(m, Variant.HOST) for m in info.get(constants.MODULE_HOST_DEPS, []))
 
     return deps
