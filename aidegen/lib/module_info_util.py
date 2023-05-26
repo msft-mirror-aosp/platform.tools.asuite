@@ -79,7 +79,7 @@ def generate_merged_module_info(env_on=_BUILD_BP_JSON_ENV_ON):
     """Generate a merged dictionary.
 
     Linked functions:
-        _build_bp_info(module_info, project, verbose, skip_build)
+        _build_bp_info(module_info, project, skip_build)
         _get_soong_build_json_dict()
         _merge_dict(mk_dict, bp_dict)
 
@@ -97,14 +97,14 @@ def generate_merged_module_info(env_on=_BUILD_BP_JSON_ENV_ON):
     skip_build = config.is_skip_build
     main_project = projects[0] if projects else None
     _build_bp_info(
-        module_info, main_project, verbose, skip_build, env_on)
+        module_info, main_project, skip_build, env_on)
     json_path = common_util.get_blueprint_json_path(
         constant.BLUEPRINT_JAVA_JSONFILE_NAME)
     bp_dict = common_util.get_json_dict(json_path)
     return _merge_dict(module_info.name_to_module_info, bp_dict)
 
 
-def _build_bp_info(module_info, main_project=None, verbose=False,
+def _build_bp_info(module_info, main_project=None,
                    skip_build=False, env_on=_BUILD_BP_JSON_ENV_ON):
     """Make nothing to create module_bp_java_deps.json, module_bp_cc_deps.json.
 
@@ -115,7 +115,6 @@ def _build_bp_info(module_info, main_project=None, verbose=False,
     Args:
         module_info: A ModuleInfo instance contains data of module-info.json.
         main_project: A string of the main project name.
-        verbose: A boolean, if true displays full build output.
         skip_build: A boolean, if true, skip building if
                     get_blueprint_json_path(file_name) file exists, otherwise
                     build it.
@@ -144,7 +143,7 @@ def _build_bp_info(module_info, main_project=None, verbose=False,
     logging.warning(
         '\nGenerate files:\n %s by atest build method.', files)
     atest_utils.update_build_env(env_on)
-    build_with_on_cmd = atest_utils.build([_TARGET], verbose)
+    build_with_on_cmd = atest_utils.build([_TARGET])
 
     # For Android Rust projects, we need to create a symbolic link to the file
     # out/soong/rust-project.json to launch the rust projects in IDEs.
