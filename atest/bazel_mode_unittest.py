@@ -1749,7 +1749,9 @@ class PackageTest(fake_filesystem_unittest.TestCase):
 class DecorateFinderMethodTest(GenerationTestFixture):
     """Tests for _decorate_find_method()."""
 
-    def test_host_unit_test_with_host_arg_runner_is_overridden(self):
+    # TODO: (b/263199608) Remove the mock after refactoring module-info.py
+    @mock.patch.object(bazel_mode, 'generate_bazel_workspace')
+    def test_host_unit_test_with_host_arg_runner_is_overridden(self, gws):
         def original_find_method(obj, test_id):
             return self.create_single_test_infos(
                 obj, test_id, test_name=MODULE_NAME,
@@ -1766,8 +1768,11 @@ class DecorateFinderMethodTest(GenerationTestFixture):
 
         self.assertEqual(len(test_infos), 1)
         self.assertEqual(test_infos[0].test_runner, BAZEL_RUNNER)
+        gws.assert_called_once()
 
-    def test_host_unit_test_without_host_arg_runner_is_overridden(self):
+    # TODO: (b/263199608) Remove the mock after refactoring module-info.py
+    @mock.patch.object(bazel_mode, 'generate_bazel_workspace')
+    def test_host_unit_test_without_host_arg_runner_is_overridden(self, gws):
         def original_find_method(obj, test_id):
             return self.create_single_test_infos(
                 obj, test_id, test_name=MODULE_NAME,
@@ -1784,6 +1789,45 @@ class DecorateFinderMethodTest(GenerationTestFixture):
 
         self.assertEqual(len(test_infos), 1)
         self.assertEqual(test_infos[0].test_runner, BAZEL_RUNNER)
+        gws.assert_called_once()
+
+    @mock.patch.object(bazel_mode, 'generate_bazel_workspace')
+    def test_call_generate_bazel_workspace_when_at_least_one_bazel_mode_supported_test(self, gws):
+        def original_find_method(obj, test_id):
+            return self.create_single_test_infos(
+                obj, test_id, test_name=MODULE_NAME,
+                runner=ATEST_TF_RUNNER)
+        mod_info = self.create_module_info(modules=[
+            host_module(name=MODULE_NAME),
+            host_unit_test_module(name=MODULE_NAME)
+        ])
+        original_finder = self.create_finder(mod_info, original_find_method)
+        new_finder = bazel_mode.create_new_finder(
+            mod_info, original_finder, host=True)
+
+        new_finder.find_method(
+            new_finder.test_finder_instance, MODULE_NAME)
+
+        gws.assert_called_once()
+
+    @mock.patch.object(bazel_mode, 'generate_bazel_workspace')
+    def test_not_call_generate_bazel_workspace_when_no_bazel_mode_supported_test(self, gws):
+        def original_find_method(obj, test_id):
+            return self.create_single_test_infos(
+                obj, test_id, test_name=MODULE_NAME,
+                runner=ATEST_TF_RUNNER)
+        mod_info = self.create_module_info(modules=[
+            host_module(name=MODULE_NAME),
+            module(name=MODULE_NAME)
+        ])
+        original_finder = self.create_finder(mod_info, original_find_method)
+        new_finder = bazel_mode.create_new_finder(
+            mod_info, original_finder, host=True)
+
+        new_finder.find_method(
+            new_finder.test_finder_instance, MODULE_NAME)
+
+        gws.assert_not_called()
 
     def test_device_test_with_host_arg_runner_is_preserved(self):
         def original_find_method(obj, test_id):
@@ -1809,11 +1853,14 @@ class DecorateFinderMethodTest(GenerationTestFixture):
         self.assertEqual(len(test_infos), 1)
         self.assertEqual(test_infos[0].test_runner, ATEST_TF_RUNNER)
 
-    def test_device_test_without_host_arg_runner_is_overridden(self):
+    # TODO: (b/263199608) Remove the mock after refactoring module-info.py
+    @mock.patch.object(bazel_mode, 'generate_bazel_workspace')
+    def test_device_test_without_host_arg_runner_is_overridden(self, gws):
         def original_find_method(obj, test_id):
             return self.create_single_test_infos(
                 obj, test_id, test_name=MODULE_NAME,
                 runner=ATEST_TF_RUNNER)
+        gws.return_value = None
         mod_info = self.create_module_info(modules=[
             device_test_module(name=MODULE_NAME)
         ])
@@ -1833,7 +1880,9 @@ class DecorateFinderMethodTest(GenerationTestFixture):
         self.assertEqual(len(test_infos), 1)
         self.assertEqual(test_infos[0].test_runner, BAZEL_RUNNER)
 
-    def test_multi_config_test_with_host_arg_runner_is_overridden(self):
+    # TODO: (b/263199608) Remove the mock after refactoring module-info.py
+    @mock.patch.object(bazel_mode, 'generate_bazel_workspace')
+    def test_multi_config_test_with_host_arg_runner_is_overridden(self, gws):
         def original_find_method(obj, test_id):
             return self.create_single_test_infos(
                 obj, test_id, test_name=MODULE_NAME,
@@ -1841,6 +1890,7 @@ class DecorateFinderMethodTest(GenerationTestFixture):
         mod_info = self.create_module_info(modules=[
             multi_config(supported_test_module(name=MODULE_NAME))
         ])
+        gws.return_value = None
         original_finder = self.create_finder(mod_info, original_find_method)
         new_finder = bazel_mode.create_new_finder(
             mod_info,
@@ -1857,7 +1907,9 @@ class DecorateFinderMethodTest(GenerationTestFixture):
         self.assertEqual(len(test_infos), 1)
         self.assertEqual(test_infos[0].test_runner, BAZEL_RUNNER)
 
-    def test_multi_config_test_without_host_arg_runner_is_overridden(self):
+    # TODO: (b/263199608) Remove the mock after refactoring module-info.py
+    @mock.patch.object(bazel_mode, 'generate_bazel_workspace')
+    def test_multi_config_test_without_host_arg_runner_is_overridden(self, gws):
         def original_find_method(obj, test_id):
             return self.create_single_test_infos(
                 obj, test_id, test_name=MODULE_NAME,
@@ -1865,6 +1917,7 @@ class DecorateFinderMethodTest(GenerationTestFixture):
         mod_info = self.create_module_info(modules=[
             multi_config(supported_test_module(name=MODULE_NAME))
         ])
+        gws.return_value = None
         original_finder = self.create_finder(mod_info, original_find_method)
         new_finder = bazel_mode.create_new_finder(
             mod_info,
@@ -1881,7 +1934,9 @@ class DecorateFinderMethodTest(GenerationTestFixture):
         self.assertEqual(len(test_infos), 1)
         self.assertEqual(test_infos[0].test_runner, BAZEL_RUNNER)
 
-    def test_host_non_unit_test_with_host_arg_runner_is_overridden(self):
+    # TODO: (b/263199608) Remove the mock after refactoring module-info.py
+    @mock.patch.object(bazel_mode, 'generate_bazel_workspace')
+    def test_host_non_unit_test_with_host_arg_runner_is_overridden(self, gws):
         def original_find_method(obj, test_id):
             return self.create_single_test_infos(
                 obj, test_id, test_name=MODULE_NAME,
@@ -1889,6 +1944,7 @@ class DecorateFinderMethodTest(GenerationTestFixture):
         mod_info = self.create_module_info(modules=[
             host_test_module(name=MODULE_NAME)
         ])
+        gws.return_value = None
         original_finder = self.create_finder(mod_info, original_find_method)
         new_finder = bazel_mode.create_new_finder(
             mod_info,
