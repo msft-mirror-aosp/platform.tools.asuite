@@ -27,6 +27,8 @@ from unittest import mock
 # Setup logging to be silent so unittests can pass through TF.
 logging.disable(logging.ERROR)
 
+# TODO: (b/275449248) remove these mock variables and create these mock on
+# demand in class-wide.
 ENV = {
     'ANDROID_BUILD_TOP': '/',
     'ANDROID_PRODUCT_OUT': '/out/prod',
