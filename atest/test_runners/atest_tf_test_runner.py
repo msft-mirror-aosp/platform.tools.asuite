@@ -1428,8 +1428,14 @@ class DeviceTest(Test):
             Target('adb', Variant.HOST),
             Target('aapt', Variant.HOST),
             Target('aapt2', Variant.HOST),
-            Target('compatibility-tradefed', Variant.HOST),
         ]))
+
+        if 'vts' in self._info.get(constants.MODULE_COMPATIBILITY_SUITES, []):
+            # Note that we do not include `compatibility-tradefed` which is
+            # already included in the VTS harness.
+            build_targets.add(Target('vts-core-tradefed-harness', Variant.HOST))
+        else:
+            build_targets.add(Target('compatibility-tradefed', Variant.HOST))
 
         for target in constants.GTF_TARGETS:
             build_targets.add(Target(target, Variant.HOST))
