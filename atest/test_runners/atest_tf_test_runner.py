@@ -1439,6 +1439,16 @@ class DeviceTest(Test):
             Target('aapt2', Variant.HOST),
         ]))
 
+        # Auto-generated Java tests use a module template that uses the Dalvik
+        # test runner and requires the implementation jars. See
+        # https://source.corp.google.com/android-internal/build/make/core/java_test_config_template.xml.
+        # These dependencies should ideally be automatically added by the build
+        # rule since Atest can fall out of sync otherwise.
+        # TODO(b/284987354): Remove these targets once the build rule adds the required deps.
+        if _is_dalvik_test_module(self._info):
+            build_targets.add(Target('cts-dalvik-host-test-runner', Variant.HOST))
+            build_targets.add(Target('cts-dalvik-device-test-runner', Variant.DEVICE))
+
         if 'vts' in self._info.get(constants.MODULE_COMPATIBILITY_SUITES, []):
             # Note that we do not include `compatibility-tradefed` which is
             # already included in the VTS harness.
@@ -1492,3 +1502,9 @@ def _get_host_required_deps(info: Dict[str, Any]) -> Set[Target]:
         Target(m, Variant.HOST) for m in info.get(constants.MODULE_HOST_DEPS, []))
 
     return deps
+
+
+def _is_dalvik_test_module(info: Dict[str, Any]) -> bool:
+    return (
+        'JAVA_LIBRARIES' in info.get(constants.MODULE_CLASS, []) and
+        True in info.get(constants.MODULE_AUTO_TEST_CONFIG, []))
