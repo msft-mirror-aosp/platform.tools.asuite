@@ -1535,6 +1535,17 @@ def _decorate_find_method(mod_info, finder_method_func, host, enabled_features):
                     Features.EXPERIMENTAL_HOST_DRIVEN_TEST in enabled_features
                     and mod_info.is_host_driven_test(m_info)):
                 tinfo.test_runner = BazelTestRunner.NAME
+
+        has_bazel_supported_test = any(tinfo.test_runner == BazelTestRunner.NAME
+                                       for tinfo in test_infos)
+        if has_bazel_supported_test:
+            start = time.time()
+            generate_bazel_workspace(mod_info,
+                                     enabled_features)
+            metrics.LocalDetectEvent(
+                detect_type=DetectType.BAZEL_WORKSPACE_GENERATE_TIME,
+                result=int(time.time() - start))
+
         return test_infos
     return use_bazel_runner
 
