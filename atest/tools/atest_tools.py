@@ -19,6 +19,7 @@
 
 from __future__ import print_function
 
+import argparse
 import json
 import logging
 import os
@@ -423,7 +424,7 @@ def acloud_create(report_file, args, no_metrics_notice=True):
                           str(e))
 
 
-def acloud_create_validator(results_dir, args):
+def acloud_create_validator(results_dir: str, args: argparse.ArgumentParser):
     """Check lunch'd target before running 'acloud create'.
 
     Args:
@@ -470,11 +471,9 @@ def probe_acloud_status(report_file, find_build_duration):
     """
     # 1. Created but the status is not 'SUCCESS'
     if Path(report_file).exists():
-        if not au.load_json_safely(report_file):
+        result = au.load_json_safely(report_file)
+        if not result:
             return ExitCode.AVD_CREATE_FAILURE
-        with open(report_file, 'r') as rfile:
-            result = json.load(rfile)
-
         if result.get('status') == 'SUCCESS':
             logging.info('acloud create successfully!')
             # Always fetch the adb of the first created AVD.
@@ -505,7 +504,9 @@ def probe_acloud_status(report_file, find_build_duration):
         return ExitCode.AVD_CREATE_FAILURE
 
     # 2. Failed to create because of invalid acloud arguments.
-    logging.error('Invalid acloud arguments found!')
+    msg = 'Invalid acloud arguments found!'
+    au.colorful_print(msg, constants.RED)
+    logging.debug(msg)
     return ExitCode.AVD_INVALID_ARGS
 
 

@@ -67,6 +67,81 @@ Manifest groups: all,-notdefault
 ----------------------------
 '''
 
+class ConcatenatePathTest(unittest.TestCase):
+    """Class that tests path concatenation."""
+
+    @classmethod
+    def setUpClass(cls):
+        """Mock the environment variables for the entire test class"""
+        cls.build_top = '/src/build_top'
+        cls.prod_out = '/src/build_top/product_out'
+        cls.host_out = '/src/build_top/host_out'
+        cls.target_out_cases = '/src/build_top/product_out/testcases'
+        cls.host_out_cases = '/src/build_top/host_out/testcases'
+        cls.target_product = 'test_target_product'
+        cls.build_variant = 'test_build_variant'
+        cls.mock_getenv = mock.patch.dict(
+            os.environ, {
+                'ANDROID_BUILD_TOP': cls.build_top,
+                'ANDROID_PRODUCT_OUT': cls.prod_out,
+                'ANDROID_TARGET_OUT_TESTCASES': cls.target_out_cases,
+                'ANDROID_HOST_OUT': cls.host_out,
+                'ANDROID_HOST_OUT_TESTCASES': cls.host_out_cases,
+                'TARGET_PRODUCT': cls.target_product,
+                'TARGET_BUILD_VARIANT': cls.build_variant,
+            }
+        )
+        cls.mock_getenv.start()
+
+    @classmethod
+    def tearDownClass(cls):
+        """Clean up the mocks after the test class finishes"""
+        cls.mock_getenv.stop()
+
+    def test_singleton_instance(self):
+        """Ensure that multiple AndroidVariables instances are equivalent."""
+        instance1 = atest_utils.AndroidVariables()
+        instance2 = atest_utils.AndroidVariables()
+
+        self.assertIs(instance1, instance2)
+
+    def test_get_vars(self):
+        """Test the values of AndroidVariables are expected"""
+        variables = atest_utils.AndroidVariables()
+
+        self.assertEqual(variables.build_top, self.build_top)
+        self.assertEqual(variables.product_out, self.prod_out)
+        self.assertEqual(variables.target_out_cases, self.target_out_cases)
+        self.assertEqual(variables.host_out, self.host_out)
+        self.assertEqual(variables.host_out_cases, self.host_out_cases)
+        self.assertEqual(variables.target_product, self.target_product)
+        self.assertEqual(variables.build_variant, self.build_variant)
+
+
+    def test_atest_utils_get_build_top(self):
+        """Test concatenating strings with get_build_top()."""
+        expected_path = Path(self.build_top, 'path/to/project')
+
+        return_path = atest_utils.get_build_top('path/to/project')
+
+        self.assertEqual(expected_path, return_path)
+
+    def test_atest_utils_get_product_out(self):
+        """Test concatenating strings with get_product_out()."""
+        expected_path = Path(self.prod_out, 'module-info.json')
+
+        return_path = atest_utils.get_product_out('module-info.json')
+
+        self.assertEqual(expected_path, return_path)
+
+    def test_atest_utils_get_host_out(self):
+        """Test concatenating strings with get_host_out()."""
+        expected_path = Path(self.host_out, 'bin/adb')
+
+        return_path = atest_utils.get_host_out('bin', 'adb')
+
+        self.assertEqual(expected_path, return_path)
+
 # pylint: disable=protected-access
 # pylint: disable=too-many-public-methods
 class AtestUtilsUnittests(unittest.TestCase):
@@ -249,7 +324,7 @@ class AtestUtilsUnittests(unittest.TestCase):
                          green_wrap_no_highlight_string)
 
     @mock.patch('builtins.input')
-    @mock.patch('json.load')
+    @mock.patch('atest.atest_utils.load_json_safely')
     def test_update_test_runner_cmd(self, mock_json_load_data, mock_input):
         """Test method handle_test_runner_cmd without enable do_verification."""
         former_cmd_str = 'Former cmds ='
@@ -294,7 +369,7 @@ class AtestUtilsUnittests(unittest.TestCase):
         sys.stdout = sys.__stdout__
         self.assertEqual(capture_output.getvalue().find(write_result_str), -1)
 
-    @mock.patch('json.load')
+    @mock.patch('atest.atest_utils.load_json_safely')
     def test_verify_test_runner_cmd(self, mock_json_load_data):
         """Test method handle_test_runner_cmd without enable update_result."""
         tmp_file = tempfile.NamedTemporaryFile()

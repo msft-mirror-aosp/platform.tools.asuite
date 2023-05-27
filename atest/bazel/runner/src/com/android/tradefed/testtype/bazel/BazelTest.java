@@ -51,6 +51,7 @@ import com.google.protobuf.Any;
 import com.google.protobuf.InvalidProtocolBufferException;
 
 import java.io.File;
+import java.io.FileWriter;
 import java.io.IOException;
 import java.io.FileOutputStream;
 import java.lang.ProcessBuilder.Redirect;
@@ -73,6 +74,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 import java.util.zip.ZipFile;
 
 /** Test runner for executing Bazel tests. */
@@ -82,6 +84,8 @@ public final class BazelTest implements IRemoteTest {
     public static final String QUERY_ALL_TARGETS = "query_all_targets";
     public static final String QUERY_MAP_MODULES_TO_TARGETS = "query_map_modules_to_targets";
     public static final String RUN_TESTS = "run_tests";
+    public static final String BUILD_TEST_ARG = "bazel-build";
+    public static final String TEST_TAG_TEST_ARG = "bazel-test";
 
     // Add method excludes to TF's global filters since Bazel doesn't support target-specific
     // arguments. See https://github.com/bazelbuild/rules_go/issues/2784.
@@ -97,13 +101,15 @@ public final class BazelTest implements IRemoteTest {
     private static final String PROTO_RESULTS_FILE_NAME = "proto-results";
 
     private final List<Path> mTemporaryPaths = new ArrayList<>();
-    private final List<Path> mLogFiles = new ArrayList<>();
+    private final List<LogFileWithType> mLogFiles = new ArrayList<>();
     private final Properties mProperties;
     private final ProcessStarter mProcessStarter;
     private final Path mTemporaryDirectory;
     private final ExecutorService mExecutor;
 
     private Path mRunTemporaryDirectory;
+    private Path mBazelOutputRoot;
+    private Path mJavaTempOutput;
 
     private enum FilterType {
         MODULE,
@@ -135,7 +141,7 @@ public final class BazelTest implements IRemoteTest {
     @Option(
             name = "bazel-max-idle-timout",
             description = "Max idle timeout in seconds for bazel commands.")
-    private Duration mBazelMaxIdleTimeout = Duration.ofSeconds(5L);
+    private Duration mBazelMaxIdleTimeout = Duration.ofSeconds(30L);
 
     @Option(name = "exclude-filter", description = "Test modules to exclude when running tests.")
     private final List<String> mExcludeTargets = new ArrayList<>();
@@ -169,6 +175,7 @@ public final class BazelTest implements IRemoteTest {
 
         try {
             initialize();
+            logWorkspaceContents();
             runTestsAndParseResults(testInfo, listener, runFailures);
         } catch (AbortRunException e) {
             runFailures.add(e.getFailureDescription());
@@ -188,6 +195,26 @@ public final class BazelTest implements IRemoteTest {
 
     private void initialize() throws IOException {
         mRunTemporaryDirectory = Files.createTempDirectory(mTemporaryDirectory, "bazel-test-");
+        mBazelOutputRoot = createTemporaryDirectory("java-tmp-out");
+        mJavaTempOutput = createTemporaryDirectory("bazel-tmp-out");
+    }
+
+    private void logWorkspaceContents() throws IOException {
+        Path workspaceDirectory = resolveWorkspacePath();
+
+        try (Stream<String> files =
+                Files.walk(workspaceDirectory)
+                        .filter(Files::isRegularFile)
+                        .map(x -> workspaceDirectory.relativize(x).toString())) {
+
+            Path outputFile = createLogFile("workspace-contents");
+            try (FileWriter writer = new FileWriter(outputFile.toAbsolutePath().toString())) {
+                for (String file : (Iterable<String>) () -> files.iterator()) {
+                    writer.write(file);
+                    writer.write(System.lineSeparator());
+                }
+            }
+        }
     }
 
     private void runTestsAndParseResults(
@@ -279,16 +306,14 @@ public final class BazelTest implements IRemoteTest {
     private ProcessBuilder createBazelCommand(Path workspaceDirectory, String tmpDirPrefix)
             throws IOException {
 
-        Path javaTmpDir = createTemporaryDirectory("%s-java-tmp-out".formatted(tmpDirPrefix));
-        Path bazelTmpDir = createTemporaryDirectory("%s-bazel-tmp-out".formatted(tmpDirPrefix));
-
         List<String> command = new ArrayList<>();
 
         command.add(workspaceDirectory.resolve("bazel.sh").toAbsolutePath().toString());
         command.add(
                 "--host_jvm_args=-Djava.io.tmpdir=%s"
-                        .formatted(javaTmpDir.toAbsolutePath().toString()));
-        command.add("--output_user_root=%s".formatted(bazelTmpDir.toAbsolutePath().toString()));
+                        .formatted(mJavaTempOutput.toAbsolutePath().toString()));
+        command.add(
+                "--output_user_root=%s".formatted(mBazelOutputRoot.toAbsolutePath().toString()));
         command.add("--max_idle_secs=%d".formatted(mBazelMaxIdleTimeout.toSeconds()));
 
         ProcessBuilder builder = new ProcessBuilder(command);
@@ -446,6 +471,7 @@ public final class BazelTest implements IRemoteTest {
             throws IOException {
 
         Path logFile = createLogFile("%s-log".formatted(RUN_TESTS));
+        Path bazelTraceFile = createLogFile("bazel-trace", ".perfetto-trace", LogDataType.PERFETTO);
 
         ProcessBuilder builder = createBazelCommand(workspaceDirectory, RUN_TESTS);
 
@@ -454,6 +480,12 @@ public final class BazelTest implements IRemoteTest {
         builder.command().addAll(testTargets);
 
         builder.command().add("--build_event_binary_file=%s".formatted(bepFile.toAbsolutePath()));
+
+        builder.command().add("--generate_json_trace_profile");
+        builder.command().add("--profile=%s".formatted(bazelTraceFile.toAbsolutePath().toString()));
+
+        builder.command().add("--test_arg=--test-tag=%s".formatted(TEST_TAG_TEST_ARG));
+        builder.command().add("--test_arg=--build-id=%s".formatted(BUILD_TEST_ARG));
 
         builder.command().addAll(mBazelTestExtraArgs);
 
@@ -619,7 +651,7 @@ public final class BazelTest implements IRemoteTest {
         // appending that to our extracted directory.
         // TODO(b/251279690) Create a directory within undeclared outputs which we can more
         // reliably look for to calculate this relative path.
-        Path delimiter = Paths.get("stub/-1/stub");
+        Path delimiter = Paths.get(BUILD_TEST_ARG, TEST_TAG_TEST_ARG);
 
         Path relativePath = originalPath;
         while (!relativePath.startsWith(delimiter)
@@ -688,9 +720,10 @@ public final class BazelTest implements IRemoteTest {
     }
 
     private void addTestLogs(ITestLogger logger) {
-        for (Path logFile : mLogFiles) {
-            try (FileInputStreamSource source = new FileInputStreamSource(logFile.toFile(), true)) {
-                logger.testLog(logFile.toFile().getName(), LogDataType.TEXT, source);
+        for (LogFileWithType logFile : mLogFiles) {
+            try (FileInputStreamSource source =
+                    new FileInputStreamSource(logFile.getPath().toFile(), true)) {
+                logger.testLog(logFile.getPath().toFile().getName(), logFile.getType(), source);
             }
         }
     }
@@ -723,11 +756,15 @@ public final class BazelTest implements IRemoteTest {
     }
 
     private Path createLogFile(String name) throws IOException {
-        Path logFile = Files.createTempFile(mRunTemporaryDirectory, name, ".txt");
+        return createLogFile(name, ".txt", LogDataType.TEXT);
+    }
 
-        mLogFiles.add(logFile);
+    private Path createLogFile(String name, String extension, LogDataType type) throws IOException {
+        Path logPath = Files.createTempFile(mRunTemporaryDirectory, name, extension);
 
-        return logFile;
+        mLogFiles.add(new LogFileWithType(logPath, type));
+
+        return logPath;
     }
 
     private static FailureDescription throwableToTestFailureDescription(Throwable t) {
@@ -811,6 +848,24 @@ public final class BazelTest implements IRemoteTest {
 
         public String toString() {
             return String.join(" ", mBuilder.command());
+        }
+    }
+
+    private static final class LogFileWithType {
+        private final Path mPath;
+        private final LogDataType mType;
+
+        public LogFileWithType(Path path, LogDataType type) {
+            mPath = path;
+            mType = type;
+        }
+
+        public Path getPath() {
+            return mPath;
+        }
+
+        public LogDataType getType() {
+            return mType;
         }
     }
 }
