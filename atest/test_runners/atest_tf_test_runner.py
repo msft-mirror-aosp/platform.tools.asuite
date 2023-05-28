@@ -1381,12 +1381,13 @@ class Target:
 class Test(ABC):
     """A test that can be run."""
 
-    _DEFAULT_HARNESS_TARGETS = frozenset([
-        Target('atest-tradefed', Variant.HOST),
-        Target('atest_script_help.sh', Variant.HOST),
-        Target('atest_tradefed.sh', Variant.HOST),
-        Target('tradefed', Variant.HOST),
-    ])
+    _DEFAULT_HARNESS_TARGETS = frozenset(
+        [Target('atest-tradefed', Variant.HOST),
+         Target('atest_script_help.sh', Variant.HOST),
+         Target('atest_tradefed.sh', Variant.HOST),
+         Target('tradefed', Variant.HOST),] +
+        [Target(t, Variant.HOST) for t in constants.GTF_TARGETS]
+    )
 
     def query_build_targets(self) -> Set[Target]:
         """Returns the list of build targets required to run this test."""
@@ -1445,9 +1446,6 @@ class DeviceTest(Test):
             build_targets.add(Target('vts-core-tradefed-harness', Variant.HOST))
         else:
             build_targets.add(Target('compatibility-tradefed', Variant.HOST))
-
-        for target in constants.GTF_TARGETS:
-            build_targets.add(Target(target, Variant.HOST))
 
         return build_targets
 
