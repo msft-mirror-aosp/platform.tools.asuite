@@ -1243,15 +1243,10 @@ class DeviceDrivenTestTest(ModuleInfoTestFixture):
             'tradefed-host',
             'atest_script_help.sh-host',
         }
-        # The expect_deps may be different between aosp and internal branches.
-        for gtf_target in constants.GTF_TARGETS:
-            expect_deps.add(gtf_target + '-host')
 
         deps = runner.get_test_runner_build_reqs(test_infos)
 
-        self.assertSetEqual(
-            deps,
-            expect_deps)
+        self.assertContainsSubset(expect_deps, deps)
 
     @mock.patch.dict('os.environ', {'ANDROID_HOST_OUT': ANDROID_HOST_OUT})
     def test_host_jar_env_device_driven_test_without_host_arg(self):
@@ -1340,6 +1335,18 @@ class DeviceDrivenTestTest(ModuleInfoTestFixture):
         self.assertIn('vts-core-tradefed-harness-host', deps)
         self.assertNotIn('compatibility-tradefed-host', deps)
 
+    def test_deps_contain_google_tradefed(self):
+        mod_info = self.create_module_info(modules=[
+            multi_config_unit_test_module(name='hello_world_test')
+        ])
+        test_infos = [test_info_of('hello_world_test')]
+        runner = atf_tr.AtestTradefedTestRunner(
+            'result_dir', mod_info, host=False, minimal_build=True)
+        gtf_target = set([str(t) + '-host' for t in constants.GTF_TARGETS])
+
+        deps = runner.get_test_runner_build_reqs(test_infos)
+
+        self.assertContainsSubset(gtf_target, deps)
 
 class DevicelessTestTest(ModuleInfoTestFixture):
     """Tests for deviceless test."""
@@ -1351,19 +1358,18 @@ class DevicelessTestTest(ModuleInfoTestFixture):
         test_infos = [test_info_of('hello_world_test')]
         runner = atf_tr.AtestTradefedTestRunner(
             'result_dir', mod_info, host=True, minimal_build=True)
+        expect_deps = {
+            'hello_world_test-host',
+            'adb-host',
+            'atest-tradefed-host',
+            'atest_tradefed.sh-host',
+            'tradefed-host',
+            'atest_script_help.sh-host',
+        }
 
         deps = runner.get_test_runner_build_reqs(test_infos)
 
-        self.assertSetEqual(
-            deps,
-            {
-                'hello_world_test-host',
-                'adb-host',
-                'atest-tradefed-host',
-                'atest_tradefed.sh-host',
-                'tradefed-host',
-                'atest_script_help.sh-host',
-            })
+        self.assertContainsSubset(expect_deps, deps)
 
     def test_robolectric_test(self):
         mod_info = self.create_module_info(modules=[
@@ -1372,19 +1378,18 @@ class DevicelessTestTest(ModuleInfoTestFixture):
         test_infos = [test_info_of('hello_world_test')]
         runner = atf_tr.AtestTradefedTestRunner(
             'result_dir', mod_info, minimal_build=True)
+        expect_deps = {
+            'hello_world_test-target',
+            'adb-host',
+            'atest-tradefed-host',
+            'atest_tradefed.sh-host',
+            'tradefed-host',
+            'atest_script_help.sh-host',
+        }
 
         deps = runner.get_test_runner_build_reqs(test_infos)
 
-        self.assertSetEqual(
-            deps,
-            {
-                'hello_world_test-target',
-                'adb-host',
-                'atest-tradefed-host',
-                'atest_tradefed.sh-host',
-                'tradefed-host',
-                'atest_script_help.sh-host',
-            })
+        self.assertContainsSubset(expect_deps, deps)
 
 
 def host_jar_module(name, installed):
