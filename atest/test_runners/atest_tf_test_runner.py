@@ -173,7 +173,7 @@ class AtestTradefedTestRunner(trb.TestRunnerBase):
         self._is_host_enabled = (
             lambda: atest_configs.GLOBAL_ARGS.host) if host is None else lambda: host
         self._minimal_build = (
-            (lambda: atest_configs.GLOBAL_ARGS.minimal_build==True)
+            (lambda: atest_configs.GLOBAL_ARGS.minimal_build is True)
             if minimal_build is None else lambda: minimal_build)
 
     def _get_ld_library_path(self) -> str:
