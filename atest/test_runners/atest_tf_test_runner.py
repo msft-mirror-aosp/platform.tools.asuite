@@ -148,7 +148,7 @@ class AtestTradefedTestRunner(trb.TestRunnerBase):
         # mkdir when it is invoked by run_tests.
         if results_dir:
             Path(self.log_path).mkdir(parents=True, exist_ok=True)
-        log_args = {'log_root_option_name': constants.LOG_ROOT_OPTION_NAME,
+        self.log_args = {'log_root_option_name': constants.LOG_ROOT_OPTION_NAME,
                     'log_ext_option': constants.LOG_SAVER_EXT_OPTION,
                     'log_path': self.log_path,
                     'proto_path': os.path.join(
@@ -160,7 +160,7 @@ class AtestTradefedTestRunner(trb.TestRunnerBase):
                              'log_saver': constants.ATEST_TF_LOG_SAVER,
                              'tf_customize_template': '',
                              'args': '',
-                             'log_args': self._LOG_ARGS.format(**log_args)}
+                             'log_args': self._LOG_ARGS.format(**self.log_args)}
         if kwargs.get('extra_args', {}).get(constants.LD_LIBRARY_PATH, False):
             self.run_cmd_dict.update({'env': self._get_ld_library_path()})
         # Only set to verbose mode if the console handler is DEBUG level.
@@ -288,6 +288,7 @@ class AtestTradefedTestRunner(trb.TestRunnerBase):
         ret_code = ExitCode.SUCCESS
         for _ in range(iterations):
             run_cmds = self.generate_run_commands(test_infos, extra_args)
+            logging.debug('Running test: %s', run_cmds[0])
             subproc = self.run(run_cmds[0], output_to_stdout=True,
                                env_vars=self.generate_env_vars(extra_args))
             ret_code |= self.wait_for_subprocess(subproc)
@@ -310,6 +311,7 @@ class AtestTradefedTestRunner(trb.TestRunnerBase):
             server = self._start_socket_server()
             run_cmds = self.generate_run_commands(test_infos, extra_args,
                                                   server.getsockname()[1])
+            logging.debug('Running test: %s', run_cmds[0])
             subproc = self.run(run_cmds[0], output_to_stdout=self.is_verbose,
                                env_vars=self.generate_env_vars(extra_args))
             self.handle_subprocess(subproc, partial(self._start_monitor,
@@ -787,6 +789,13 @@ class AtestTradefedTestRunner(trb.TestRunnerBase):
         self.run_cmd_dict['tf_customize_template'] = (
             self._extract_customize_tf_templates(extra_args, test_infos))
 
+        # By default using ATestFileSystemLogSaver no matter what running under
+        # aosp or internal branches. Only switch using google log saver if user
+        # tend to upload test result to AnTS which could be detected by the
+        # invocation_id in extra args.
+        if is_log_upload_enabled(extra_args):
+            self.use_google_log_saver()
+
         # Copy symbols if there are tests belong to native test.
         self._handle_native_tests(test_infos)
         return [self._RUN_CMD.format(**self.run_cmd_dict)]
@@ -1129,6 +1138,27 @@ class AtestTradefedTestRunner(trb.TestRunnerBase):
                 shutil.copyfile(installed_path, dest_path)
 
                 break
+
+    def use_google_log_saver(self):
+        """Replace the original log saver to google log saver."""
+        self.log_args.update(
+            {'log_root_option_name':
+                 constants.GOOGLE_LOG_SAVER_LOG_ROOT_OPTION_NAME,
+             'log_ext_option':
+                 constants.GOOGLE_LOG_SAVER_EXT_OPTION,
+             })
+        self.run_cmd_dict.update(
+            {'log_saver': constants.GOOGLE_LOG_SAVER,
+            'log_args': self._LOG_ARGS.format(**self.log_args),
+             })
+
+def is_log_upload_enabled(extra_args: Dict[str, Any]) -> bool:
+    """Check if input extra_args include google log saver related args.
+
+    Args:
+        extra_args: Dict of args.
+    """
+    return bool(extra_args.get(constants.INVOCATION_ID, None))
 
 
 def generate_annotation_filter_args(
