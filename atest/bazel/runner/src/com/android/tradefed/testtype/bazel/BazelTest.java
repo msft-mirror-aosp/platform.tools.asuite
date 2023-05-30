@@ -19,6 +19,7 @@ import com.android.annotations.VisibleForTesting;
 import com.android.tradefed.config.Option;
 import com.android.tradefed.config.OptionClass;
 import com.android.tradefed.device.DeviceNotAvailableException;
+import com.android.tradefed.invoker.IInvocationContext;
 import com.android.tradefed.invoker.TestInformation;
 import com.android.tradefed.invoker.tracing.CloseableTraceScope;
 import com.android.tradefed.invoker.tracing.TracePropagatingExecutorService;
@@ -177,11 +178,12 @@ public final class BazelTest implements IRemoteTest {
 
         List<FailureDescription> runFailures = new ArrayList<>();
         long startTime = System.currentTimeMillis();
+        RunStats stats = new RunStats();
 
         try {
             initialize();
             logWorkspaceContents();
-            runTestsAndParseResults(testInfo, listener, runFailures);
+            runTestsAndParseResults(testInfo, listener, runFailures, stats);
         } catch (AbortRunException e) {
             runFailures.add(e.getFailureDescription());
         } catch (IOException | InterruptedException e) {
@@ -195,6 +197,7 @@ public final class BazelTest implements IRemoteTest {
         listener.testModuleEnded();
 
         addTestLogs(listener);
+        stats.addInvocationAttributes(testInfo.getContext());
         cleanup();
     }
 
@@ -225,7 +228,8 @@ public final class BazelTest implements IRemoteTest {
     private void runTestsAndParseResults(
             TestInformation testInfo,
             ITestInvocationListener listener,
-            List<FailureDescription> runFailures)
+            List<FailureDescription> runFailures,
+            RunStats stats)
             throws IOException, InterruptedException {
 
         Path workspaceDirectory = resolveWorkspacePath();
@@ -245,7 +249,7 @@ public final class BazelTest implements IRemoteTest {
 
         try (BepFileTailer tailer = BepFileTailer.create(bepFile)) {
             bazelTestProcess.onExit().thenRun(() -> tailer.stop());
-            reportTestResults(listener, testInfo, runFailures, tailer);
+            reportTestResults(listener, testInfo, runFailures, tailer, stats);
         }
 
         // Note that if Bazel exits without writing the 'last' BEP message marker we won't get to
@@ -257,11 +261,12 @@ public final class BazelTest implements IRemoteTest {
             ITestInvocationListener listener,
             TestInformation testInfo,
             List<FailureDescription> runFailures,
-            BepFileTailer tailer)
+            BepFileTailer tailer,
+            RunStats stats)
             throws InterruptedException, IOException {
 
         try (CloseableTraceScope ignored = new CloseableTraceScope("reportTestResults")) {
-            reportTestResultsNoTrace(listener, testInfo, runFailures, tailer);
+            reportTestResultsNoTrace(listener, testInfo, runFailures, tailer, stats);
         }
     }
 
@@ -269,7 +274,8 @@ public final class BazelTest implements IRemoteTest {
             ITestInvocationListener listener,
             TestInformation testInfo,
             List<FailureDescription> runFailures,
-            BepFileTailer tailer)
+            BepFileTailer tailer,
+            RunStats stats)
             throws InterruptedException, IOException {
 
         ProtoResultParser resultParser =
@@ -284,6 +290,8 @@ public final class BazelTest implements IRemoteTest {
             if (!event.hasTestResult()) {
                 continue;
             }
+
+            stats.addTestResult(event.getTestResult());
 
             if (!mReportCachedTestResults && isTestResultCached(event.getTestResult())) {
                 continue;
@@ -872,6 +880,26 @@ public final class BazelTest implements IRemoteTest {
 
         public LogDataType getType() {
             return mType;
+        }
+    }
+
+    private static final class RunStats {
+
+        private int mTotalTestResults;
+        private int mCachedTestResults;
+
+        void addTestResult(BuildEventStreamProtos.TestResult e) {
+            mTotalTestResults++;
+            if (isTestResultCached(e)) {
+                mCachedTestResults++;
+            }
+        }
+
+        void addInvocationAttributes(IInvocationContext context) {
+            context.addInvocationAttribute(
+                    "bazel_cached_test_results", "%d".formatted(mCachedTestResults));
+            context.addInvocationAttribute(
+                    "bazel_total_test_results", "%d".formatted(mTotalTestResults));
         }
     }
 }
