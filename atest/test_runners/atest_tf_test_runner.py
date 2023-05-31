@@ -460,7 +460,7 @@ class AtestTradefedTestRunner(trb.TestRunnerBase):
             A dict modified from os.getenv.copy().
         """
         env_vars = os.environ.copy()
-        if constants.TF_GLOBAL_CONFIG:
+        if constants.TF_GLOBAL_CONFIG and is_log_upload_enabled(extra_args):
             env_vars["TF_GLOBAL_CONFIG"] = constants.TF_GLOBAL_CONFIG
         debug_port = extra_args.get(constants.TF_DEBUG, '')
         if debug_port:
