@@ -404,6 +404,11 @@ DEVICE_SETUP_PREPARER = 'template/preparers/device-preparer'
 LOG_ROOT_OPTION_NAME = 'atest-log-file-path'
 LOG_SAVER_EXT_OPTION = ''
 
+# Tradefed log saver template for uploading logs to cloud storage.
+GOOGLE_LOG_SAVER = ''
+GOOGLE_LOG_SAVER_LOG_ROOT_OPTION_NAME = ''
+GOOGLE_LOG_SAVER_EXT_OPTION = ''
+
 # Log messages here.
 REQUIRE_DEVICES_MSG = (
     'Please ensure there is at least one connected device via:\n'
