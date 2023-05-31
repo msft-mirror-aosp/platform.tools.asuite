@@ -149,6 +149,8 @@ class SingletonFixture(type):
             cls._instances[cls] = instance
         return cls._instances[cls]
 
+    def delete(cls):
+        cls._instances.pop(cls, None)
 
 @dataclass
 class AndroidVariables(metaclass=SingletonFixture):
