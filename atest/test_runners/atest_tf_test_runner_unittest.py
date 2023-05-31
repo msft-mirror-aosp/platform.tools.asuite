@@ -1348,6 +1348,29 @@ class DeviceDrivenTestTest(ModuleInfoTestFixture):
 
         self.assertContainsSubset(gtf_target, deps)
 
+    def test_java_device_test(self):
+        mod_info = self.create_module_info(modules=[
+            device_driven_test_module(
+                name='HelloWorldTest',
+                installed=['out/product/vsoc_x86/testcases/HelloWorldTest.jar'],
+                class_type=['JAVA_LIBRARIES']
+            )
+        ])
+        t_info = test_info_of('HelloWorldTest')
+        runner = atf_tr.AtestTradefedTestRunner(
+            'result_dir', mod_info, host=False, minimal_build=True)
+
+        deps = runner.get_test_runner_build_reqs([t_info])
+
+        self.assertContainsSubset(
+            {
+                'cts-dalvik-device-test-runner-target',
+                'cts-dalvik-host-test-runner-host',
+            },
+            deps,
+        )
+
+
 class DevicelessTestTest(ModuleInfoTestFixture):
     """Tests for deviceless test."""
 
@@ -1402,7 +1425,12 @@ def host_jar_module(name, installed):
         compatibility_suites=[])
 
 
-def device_driven_test_module(name, compatibility_suites=None, host_deps=None):
+def device_driven_test_module(
+    name,
+    installed=None,
+    compatibility_suites=None,
+    host_deps=None,
+    class_type=None):
 
     name = name or 'hello_world_test'
 
@@ -1410,8 +1438,10 @@ def device_driven_test_module(name, compatibility_suites=None, host_deps=None):
         name=name,
         supported_variants=['DEVICE'],
         compatibility_suites=compatibility_suites,
-        installed=[f'out/product/vsoc_x86/{name}/{name}.apk'],
-        host_deps=host_deps)
+        installed=installed or [f'out/product/vsoc_x86/{name}/{name}.apk'],
+        host_deps=host_deps,
+        class_type=class_type or ['APP'],
+    )
 
 
 def robolectric_test_module(name):
@@ -1453,7 +1483,8 @@ def test_module(
     installed,
     compatibility_suites=None,
     libs=None,
-    host_deps=None):
+    host_deps=None,
+    class_type=None):
 
     return module(
         name=name,
@@ -1462,7 +1493,8 @@ def test_module(
         auto_test_config=[True],
         compatibility_suites=compatibility_suites or ['null-suite'],
         libs=libs,
-        host_deps=host_deps)
+        host_deps=host_deps,
+        class_type=class_type)
 
 
 def module(
@@ -1472,17 +1504,19 @@ def module(
     auto_test_config=None,
     compatibility_suites=None,
     libs=None,
-    host_deps=None):
+    host_deps=None,
+    class_type=None):
 
     m = {}
 
     m[constants.MODULE_INFO_ID] = name
     m[constants.MODULE_SUPPORTED_VARIANTS] = supported_variants
     m[constants.MODULE_INSTALLED] = installed
-    m['auto_test_config'] = auto_test_config or []
+    m[constants.MODULE_AUTO_TEST_CONFIG] = auto_test_config or []
     m[constants.MODULE_COMPATIBILITY_SUITES] = compatibility_suites or []
     m[constants.MODULE_LIBS] = libs or []
     m[constants.MODULE_HOST_DEPS] = host_deps or []
+    m[constants.MODULE_CLASS] = class_type or []
 
     return m
 
