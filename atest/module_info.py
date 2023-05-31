@@ -110,12 +110,7 @@ class ModuleInfo:
         self.roboleaf_tests = {}
 
         # Index and checksum files that will be used.
-        index_dir = (
-            Path(index_dir) if index_dir else
-            Path(os.getenv(constants.ANDROID_HOST_OUT)).joinpath('indexes')
-        )
-        if not index_dir.is_dir():
-            index_dir.mkdir(parents=True)
+        index_dir = Path(os.getenv(constants.ANDROID_HOST_OUT, '')).joinpath('indexes')
         self.module_index = index_dir.joinpath(constants.MODULE_INDEX)
         self.module_info_checksum = index_dir.joinpath(constants.MODULE_INFO_MD5)
 
