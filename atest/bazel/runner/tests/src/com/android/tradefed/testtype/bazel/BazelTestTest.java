@@ -175,10 +175,10 @@ public final class BazelTestTest {
                 builder -> {
                     return new FakeBazelTestProcess(builder, mBazelTempPath) {
                         @Override
-                        public void writeSingleTestOutputs(Path outputsDir, String testName)
+                        public void defaultWriteSingleTestOutputs(Path outputsDir, String testName)
                                 throws IOException, ConfigurationException {
 
-                            super.writeSingleTestOutputs(outputsDir, testName);
+                            writeSingleTestOutputs(outputsDir, testName);
 
                             Path outputFile = outputsDir.resolve("proto-results");
                             Files.write(outputFile, "Malformed Proto File".getBytes());
@@ -529,6 +529,30 @@ public final class BazelTestTest {
         verify(mMockListener, never()).testStarted(any(), anyLong());
     }
 
+    @Test
+    public void badLogFilePaths_failureReported() throws Exception {
+        FakeProcessStarter processStarter = newFakeProcessStarter();
+        processStarter.put(
+                BazelTest.RUN_TESTS,
+                builder -> {
+                    return new FakeBazelTestProcess(builder, mBazelTempPath) {
+                        @Override
+                        public void defaultWriteSingleTestOutputs(Path outputsDir, String testName)
+                                throws IOException, ConfigurationException {
+
+                            writeSingleTestOutputs(
+                                    outputsDir.resolve(Paths.get("bad-dir")), testName);
+                        }
+                    };
+                });
+        BazelTest bazelTest = newBazelTestWithProcessStarter(processStarter);
+
+        bazelTest.run(mTestInfo, mMockListener);
+
+        verify(mMockListener)
+                .testRunFailed(hasErrorIdentifier(TestErrorIdentifier.OUTPUT_PARSER_ERROR));
+    }
+
     private static byte[] logFileContents() {
         // Seed Random to always get the same sequence of values.
         Random rand = new Random(RANDOM_SEED);
@@ -739,7 +763,7 @@ public final class BazelTestTest {
             Path outputDir = Files.createTempDirectory(mBazelTempDirectory, testName);
             try {
                 singleTestBody();
-                writeSingleTestOutputs(outputDir, testName);
+                defaultWriteSingleTestOutputs(outputDir, testName);
                 File outputsZipFile = zipSingleTestOutputsDirectory(outputDir);
                 writeSingleTestResultEvent(outputsZipFile, mBepFile);
             } finally {
@@ -751,7 +775,13 @@ public final class BazelTestTest {
             // Do nothing.
         }
 
-        void writeSingleTestOutputs(Path outputsDir, String testName)
+        void defaultWriteSingleTestOutputs(Path outputsDir, String testName)
+                throws IOException, ConfigurationException {
+
+            writeSingleTestOutputs(outputsDir, testName);
+        }
+
+        final void writeSingleTestOutputs(Path outputsDir, String testName)
                 throws IOException, ConfigurationException {
 
             FileProtoResultReporter reporter = new FileProtoResultReporter();
@@ -762,6 +792,7 @@ public final class BazelTestTest {
             Path logDir =
                     Files.createDirectories(
                             outputsDir
+                                    .resolve(BazelTest.BRANCH_TEST_ARG)
                                     .resolve(BazelTest.BUILD_TEST_ARG)
                                     .resolve(BazelTest.TEST_TAG_TEST_ARG));
             Path isolatedJavaLog = createLogFile("isolated-java-logs.tar.gz", logDir);
