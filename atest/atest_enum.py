@@ -120,6 +120,7 @@ class ExitCode(IntEnum):
     INVALID_OBSOLETE_BASELINE_ARGS = 17
     INVALID_REGRESSION_ARGS = 18
     INVALID_TM_ARGS = 19
+    INVALID_TM_FORMAT = 20
     # The code > 100 are reserved for collecting data only, actually the run
     # doesn't finish at the point.
     COLLECT_ONLY_FILE_NOT_FOUND = 101
