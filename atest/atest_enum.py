@@ -21,7 +21,7 @@ from enum import IntEnum, unique, Enum
 @unique
 class DetectType(IntEnum):
     """An Enum class for local_detect_event."""
-    # Detect type for local_detect_event; next expansion: 43
+    # Detect type for local_detect_event; next expansion: 52
     BUG_DETECTED = 0
     ACLOUD_CREATE = 1
     FIND_BUILD = 2
@@ -80,6 +80,22 @@ class DetectType(IntEnum):
     BUILD_TIME_PER_TARGET = 42
     MODULE_INFO_GEN_NINJA = 43
     BUILD_GEN_NINJA = 44
+    # To indicate if the invocation is using test-mapping, send non-zero value
+    # if the invocation is test-mapping mode.
+    IS_TEST_MAPPING = 45
+    # The RBE_STATE indicates the combined state of the RBE and customized out.
+    RBE_STATE = 46
+    # Prompt the user to select multiple tests.
+    INTERACTIVE_SELECTION = 47
+    # Upload results to storage.
+    # - UPLOAD_FLOW_MS is the total of upload preparation time, includes:
+    # -- FETCH_CRED_MS: fetch credential.
+    # -- UPLOAD_PREPARE_MS: insert a new record to server.
+    UPLOAD_FLOW_MS = 48
+    FETCH_CRED_MS = 49
+    UPLOAD_PREPARE_MS = 50
+    # Time of join the index.
+    IDX_JOIN_MS = 51
 
 @unique
 class ExitCode(IntEnum):
@@ -100,6 +116,10 @@ class ExitCode(IntEnum):
     INPUT_TEST_REFERENCE_ERROR = 13
     CONFIG_INVALID_FORMAT = 14
     INVALID_SMART_TESTING_PATH = 15
+    INVALID_EXEC_MODE = 16
+    INVALID_OBSOLETE_BASELINE_ARGS = 17
+    INVALID_REGRESSION_ARGS = 18
+    INVALID_TM_ARGS = 19
     # The code > 100 are reserved for collecting data only, actually the run
     # doesn't finish at the point.
     COLLECT_ONLY_FILE_NOT_FOUND = 101

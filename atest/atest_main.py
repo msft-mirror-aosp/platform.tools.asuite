@@ -30,6 +30,7 @@ atest is designed to support any test types that can be ran by TradeFederation.
 
 from __future__ import print_function
 
+import argparse
 import collections
 import logging
 import os
@@ -38,7 +39,7 @@ import tempfile
 import time
 import platform
 
-from typing import Dict, List
+from typing import Any, Dict, List, Set
 
 from dataclasses import dataclass
 from pathlib import Path
@@ -189,14 +190,14 @@ def _get_args_from_config():
                     args.append(arg_in_line)
     return args
 
-def _parse_args(argv):
+def _parse_args(argv: List[Any]) -> argparse.ArgumentParser:
     """Parse command line arguments.
 
     Args:
         argv: A list of arguments.
 
     Returns:
-        An argparse.Namespace class instance holding parsed args.
+        An argparse.ArgumentParser class instance holding parsed args.
     """
     # Store everything after '--' in custom_args.
     pruned_argv = argv
@@ -215,22 +216,32 @@ def _parse_args(argv):
     return args
 
 
-def _configure_logging(verbose):
+def _configure_logging(verbose: bool, results_dir: str):
     """Configure the logger.
 
     Args:
-        verbose: A boolean. If true display DEBUG level logs.
+        verbose: If true display DEBUG level logs on console.
+        results_dir: A directory which stores the ATest execution information.
     """
+    log_fmat = '%(asctime)s %(filename)s:%(lineno)s:%(levelname)s: %(message)s'
+    date_fmt = '%Y-%m-%d %H:%M:%S'
+    log_path = os.path.join(results_dir, 'atest.log')
+
     # Clear the handlers to prevent logging.basicConfig from being called twice.
     logging.getLogger('').handlers = []
-    log_format = '%(asctime)s %(filename)s:%(lineno)s:%(levelname)s: %(message)s'
-    datefmt = '%Y-%m-%d %H:%M:%S'
+    logging.basicConfig(filename=log_path,
+                        level=logging.DEBUG,
+                        format=log_fmat, datefmt=date_fmt)
+    # Handler for print the log on console that sets INFO (by default) or DEBUG
+    # (verbose mode).
+    console = logging.StreamHandler()
+    console.name = 'console'
+    console.setLevel(logging.INFO)
     if verbose:
-        logging.basicConfig(level=logging.DEBUG,
-                            format=log_format, datefmt=datefmt)
-    else:
-        logging.basicConfig(level=logging.INFO,
-                            format=log_format, datefmt=datefmt)
+        console.setLevel(logging.DEBUG)
+    console.setFormatter(logging.Formatter(log_fmat))
+    # Attach console handler to logger, so what we see is what we logged.
+    logging.getLogger('').addHandler(console)
 
 
 def _missing_environment_variables():
@@ -343,7 +354,7 @@ def _get_regression_detection_args(args, results_dir):
 def _validate_exec_mode(args, test_infos, host_tests=None):
     """Validate all test execution modes are not in conflict.
 
-    Exit the program with error code if have device-only and host-only.
+    Exit the program with INVALID_EXEC_MODE code if have device-only and host-only.
     If no conflict and host side, add args.host=True.
 
     Args:
@@ -371,8 +382,8 @@ def _validate_exec_mode(args, test_infos, host_tests=None):
         err_msg = 'There are host-only tests in command.'
     if err_msg:
         logging.error(err_msg)
-        metrics_utils.send_exit_event(ExitCode.ERROR, logs=err_msg)
-        sys.exit(ExitCode.ERROR)
+        metrics_utils.send_exit_event(ExitCode.INVALID_EXEC_MODE, logs=err_msg)
+        sys.exit(ExitCode.INVALID_EXEC_MODE)
     # The 'adb' may not be available for the first repo sync or a clean build; run
     # `adb devices` in the build step again.
     if at.has_command('adb'):
@@ -397,6 +408,11 @@ def _validate_adb_devices(args, test_infos):
     if not parse_steps(args).has_test():
         return
     if args.no_checking_device:
+        return
+    # No need to check local device availability if the device test is running
+    # remotely.
+    if (args.bazel_mode_features and bazel_mode.Features.EXPERIMENTAL_REMOTE_AVD
+            in args.bazel_mode_features):
         return
     all_device_modes = {x.get_supported_exec_mode() for x in test_infos}
     device_tests = [x.test_name for x in test_infos
@@ -437,14 +453,14 @@ def _validate_tm_tests_exec_mode(args, test_infos):
         _validate_exec_mode(args, host_test_infos, host_tests=True)
 
 
-def _will_run_tests(args):
+def _will_run_tests(args: argparse.ArgumentParser) -> bool:
     """Determine if there are tests to run.
 
     Currently only used by detect_regression to skip the test if just running
     regression detection.
 
     Args:
-        args: An argparse.Namespace object.
+        args: An argparse.ArgumentParser object.
 
     Returns:
         True if there are tests to run, false otherwise.
@@ -507,6 +523,12 @@ def _has_valid_test_mapping_args(args):
         True if args are valid
     """
     is_test_mapping = atest_utils.is_test_mapping(args)
+    if is_test_mapping:
+        metrics.LocalDetectEvent(detect_type=DetectType.IS_TEST_MAPPING,
+                                 result=1)
+    else:
+        metrics.LocalDetectEvent(detect_type=DetectType.IS_TEST_MAPPING,
+                                 result=0)
     if not is_test_mapping:
         return True
     options_to_validate = [
@@ -536,11 +558,11 @@ def _validate_args(args):
     if args.generate_baseline and args.generate_new_metrics:
         logging.error(
             'Cannot collect both baseline and new metrics at the same time.')
-        sys.exit(ExitCode.ERROR)
+        sys.exit(ExitCode.INVALID_OBSOLETE_BASELINE_ARGS)
     if not _has_valid_regression_detection_args(args):
-        sys.exit(ExitCode.ERROR)
+        sys.exit(ExitCode.INVALID_REGRESSION_ARGS)
     if not _has_valid_test_mapping_args(args):
-        sys.exit(ExitCode.ERROR)
+        sys.exit(ExitCode.INVALID_TM_ARGS)
 
 
 def _print_module_info_from_module_name(mod_info, module_name):
@@ -733,12 +755,12 @@ def _is_inside_android_root():
     build_top = os.getenv(constants.ANDROID_BUILD_TOP, ' ')
     return build_top in os.getcwd()
 
-def _non_action_validator(args):
+def _non_action_validator(args: argparse.ArgumentParser):
     """Method for non-action arguments such as --version, --help, --history,
     --latest_result, etc.
 
     Args:
-        args: An argparse.Namespace object.
+        args: An argparse.ArgumentParser object.
     """
     if not _is_inside_android_root():
         atest_utils.colorful_print(
@@ -775,11 +797,16 @@ def _non_action_validator(args):
         atest_utils.colorful_print(stop_msg, constants.RED)
         atest_utils.colorful_print(msg, constants.CYAN)
 
-def _dry_run_validator(args, results_dir, extra_args, test_infos, mod_info):
+def _dry_run_validator(
+        args: argparse.ArgumentParser,
+        results_dir: str,
+        extra_args: Dict[str, Any],
+        test_infos: Set[TestInfo],
+        mod_info: module_info.ModuleInfo) -> ExitCode:
     """Method which process --dry-run argument.
 
     Args:
-        args: An argparse.Namespace class instance holding parsed args.
+        args: An argparse.ArgumentParser class instance holding parsed args.
         result_dir: A string path of the results dir.
         extra_args: A dict of extra args for test runners to utilize.
         test_infos: A list of test_info.
@@ -875,7 +902,9 @@ def need_rebuild_module_info(args: atest_arg_parser.AtestArgParser) -> bool:
         return True
     return False
 
-def need_run_index_targets(args, extra_args):
+def need_run_index_targets(
+        args: argparse.ArgumentParser,
+        extra_args: Dict[str, Any]):
     """Method that determines whether Atest need to run index_targets or not.
 
 
@@ -885,8 +914,8 @@ def need_run_index_targets(args, extra_args):
     3. --test flag was found.
 
     Args:
-        args: A list of argument.
-        extra_args: A list of extra argument.
+        args: An argparse.ArgumentParser object.
+        extra_args: A Dict of extra argument.
 
     Returns:
         True when none of the above conditions were found.
@@ -919,13 +948,16 @@ def _all_tests_are_bazel_buildable(
     """
     return roboleaf_tests and set(tests) == set(roboleaf_tests)
 
-def perm_consistency_metrics(test_infos, mod_info, args):
+def perm_consistency_metrics(
+        test_infos: Set[TestInfo],
+        mod_info: module_info.ModuleInfo,
+        args: argparse.ArgumentParser):
     """collect inconsistency between preparer and device root permission.
 
     Args:
         test_infos: TestInfo obj.
         mod_info: ModuleInfo obj.
-        args: An argparse.Namespace class instance holding parsed args.
+        args: An argparse.ArgumentParser class instance holding parsed args.
     """
     try:
         # whether device has root permission
@@ -946,8 +978,6 @@ def set_build_output_mode(mode: atest_utils.BuildOutputMode):
     # Changing this variable does not retrigger builds.
     atest_utils.update_build_env(
         {'ANDROID_QUIET_BUILD': 'true',
-         #(b/271654778) Showing the reasons for the ninja file was regenerated.
-         'SOONG_UI_NINJA_ARGS': '-d explain',
          'BUILD_OUTPUT_MODE': mode.value})
 
 
@@ -991,7 +1021,7 @@ def _is_auto_shard_test(test_infos):
 # pylint: disable=too-many-statements
 # pylint: disable=too-many-branches
 # pylint: disable=too-many-return-statements
-def main(argv, results_dir, args):
+def main(argv: List[Any], results_dir: str, args: argparse.ArgumentParser):
     """Entry point of atest script.
 
     Args:
@@ -1009,7 +1039,7 @@ def main(argv, results_dir, args):
         atest_utils.update_build_env(coverage.build_env_vars())
     set_build_output_mode(args.build_output)
 
-    _configure_logging(args.verbose)
+    _configure_logging(args.verbose, results_dir)
     _validate_args(args)
     metrics_utils.get_start_time()
     os_pyver = (f'{platform.platform()}:{platform.python_version()}/'
@@ -1088,8 +1118,12 @@ def main(argv, results_dir, args):
         # (b/242567487) index_targets may finish after cli_translator; to
         # mitigate the overhead, the main waits until it finished when no index
         # files are available (e.g. fresh repo sync)
+        join_start = time.time()
         if proc_idx and not atest_utils.has_index_files():
             proc_idx.join()
+            metrics.LocalDetectEvent(
+                detect_type=DetectType.IDX_JOIN_MS,
+                result=int((time.time() - join_start) * 1000))
         find_start = time.time()
         test_infos = translator.translate(args)
         given_amount  = len(args.serial) if args.serial else 0
@@ -1297,23 +1331,4 @@ if __name__ == '__main__':
                 result=DETECTOR.caught_result)
             if result_file:
                 print("Run 'atest --history' to review test result history.")
-
-    # Only asking internal google user to do this survey.
-    if metrics_base.get_user_type() == metrics_base.INTERNAL_USER:
-        # The bazel_mode value will only be false if user apply --no-bazel-mode.
-        if not atest_configs.GLOBAL_ARGS.bazel_mode:
-            MESSAGE = ('\nDear `--no-bazel-mode` users,\n'
-                         'We are conducting a survey to understand why you are '
-                         'still using `--no-bazel-mode`. The survey should '
-                         'take less than 3 minutes and your responses will be '
-                         'kept confidential and will only be used to improve '
-                         'our understanding of the situation. Please click on '
-                         'the link below to begin the survey:\n\n'
-                         'http://go/atest-no-bazel-survey\n\n'
-                         'Thanks for your time and feedback.\n\n'
-                         'Sincerely,\n'
-                         'The ATest Team')
-
-            print(atest_utils.colorize(MESSAGE, constants.BLACK, bp_color=constants.CYAN))
-
     sys.exit(EXIT_CODE)

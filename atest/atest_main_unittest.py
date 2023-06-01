@@ -16,6 +16,7 @@
 
 """Unittests for atest."""
 
+# pylint: disable=invalid-name
 # pylint: disable=line-too-long
 
 import datetime
@@ -29,11 +30,14 @@ from io import StringIO
 from unittest import mock
 from pyfakefs import fake_filesystem_unittest
 
+from atest import atest_arg_parser
 from atest import atest_main
 from atest import atest_utils
 from atest import constants
 from atest import module_info
 
+from atest.atest_enum import DetectType
+from atest.metrics import metrics
 from atest.metrics import metrics_utils
 from atest.test_finders import test_info
 
@@ -306,6 +310,40 @@ class PrintModuleInfoTest(AtestUnittestFixture):
         atest_main._print_test_info(mod_info, test_infos)
 
         self.assertEqual(correct_output, capture_output.getvalue())
+
+    def test_has_valid_test_mapping_args_is_test_mapping_detect_event_send_1(
+        self):
+        # Arrange
+        expected_detect_type = DetectType.IS_TEST_MAPPING
+        expected_result = 1
+        metrics.LocalDetectEvent = mock.MagicMock()
+        parser = atest_arg_parser.AtestArgParser()
+        parser.add_atest_args()
+        args = parser.parse_args([])
+
+        # Act
+        atest_main._has_valid_test_mapping_args(args)
+
+        # Assert
+        metrics.LocalDetectEvent.assert_called_once_with(
+            detect_type=expected_detect_type, result=expected_result)
+
+    def test_has_valid_test_mapping_args_mpt_test_mapping_detect_event_send_0(
+        self):
+        # Arrange
+        expected_detect_type = DetectType.IS_TEST_MAPPING
+        expected_result = 0
+        metrics.LocalDetectEvent = mock.MagicMock()
+        parser = atest_arg_parser.AtestArgParser()
+        parser.add_atest_args()
+        args = parser.parse_args(['test1'])
+
+        # Act
+        atest_main._has_valid_test_mapping_args(args)
+
+        # Assert
+        metrics.LocalDetectEvent.assert_called_once_with(
+            detect_type=expected_detect_type, result=expected_result)
 
 
 # pylint: disable=too-many-arguments

@@ -150,7 +150,7 @@ def _build_bp_info(module_info, main_project=None,
     _generate_rust_project_link()
 
     if build_with_on_cmd:
-        logging.info('\nGenerate blueprint json successfully.')
+        logging.info('Generate blueprint json successfully.')
     else:
         if not all([_is_new_json_file_generated(
                 f, original_file_mtimes[f]) for f in file_paths]):

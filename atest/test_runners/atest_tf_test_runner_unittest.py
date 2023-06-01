@@ -32,10 +32,12 @@ from argparse import Namespace
 from io import StringIO
 from pathlib import Path
 from unittest import mock
+from pyfakefs import fake_filesystem_unittest
 
 from atest import atest_configs
 from atest import atest_utils
 from atest import constants
+from atest import module_info
 from atest import unittest_constants as uc
 from atest import unittest_utils
 
@@ -50,7 +52,8 @@ METRICS_DIR = '%s/baseline-metrics' % uc.TEST_INFO_DIR
 METRICS_DIR_ARG = '--metrics-folder %s ' % METRICS_DIR
 # TODO(147567606): Replace {serial} with {extra_args} for general extra
 # arguments testing.
-RUN_CMD_ARGS = ('{metrics}--log-level-display VERBOSE --log-level VERBOSE'
+RUN_CMD_ARGS = ('{metrics}--log-level-display VERBOSE --log-level VERBOSE '
+                '--skip-all-system-status-check=true'
                 '{device_early_release}{serial}')
 LOG_ARGS = atf_tr.AtestTradefedTestRunner._LOG_ARGS.format(
     log_root_option_name=constants.LOG_ROOT_OPTION_NAME,
@@ -187,6 +190,8 @@ EVENTS_NORMAL = [
     ('TEST_MODULE_ENDED', {'foo': 'bar'}),
 ]
 
+ANDROID_HOST_OUT = '/my/android/out/host/abc'
+
 #pylint: disable=too-many-public-methods
 class AtestTradefedTestRunnerUnittests(unittest.TestCase):
     """Unit tests for atest_tf_test_runner.py"""
@@ -239,16 +244,18 @@ class AtestTradefedTestRunnerUnittests(unittest.TestCase):
         self.tr.run_tests_pretty([MODULE2_INFO], {}, mock_reporter)
 
         # Test early TF exit
-        tmp_file = tempfile.NamedTemporaryFile()
-        with open(tmp_file.name, 'w') as f:
-            f.write("tf msg")
-        self.tr.test_log_file = tmp_file
-        mock_select.side_effect = [([], None, None)]
-        mock_subproc.poll.side_effect = None
-        capture_output = StringIO()
-        sys.stdout = capture_output
-        self.assertRaises(atf_tr.TradeFedExitError, self.tr.run_tests_pretty,
-                          [MODULE2_INFO], {}, mock_reporter)
+        with tempfile.NamedTemporaryFile() as tmp_file:
+            with open(tmp_file.name, 'w', encoding="utf-8") as f:
+                f.write("tf msg")
+            self.tr.test_log_file = tmp_file
+            mock_select.side_effect = [([], None, None)]
+            mock_subproc.poll.side_effect = None
+            capture_output = StringIO()
+            sys.stdout = capture_output
+            self.assertRaises(atf_tr.TradeFedExitError,
+                              self.tr.run_tests_pretty, [MODULE2_INFO], {},
+                              mock_reporter)
+
         sys.stdout = sys.__stdout__
         self.assertTrue('tf msg' in capture_output.getvalue())
 
@@ -1172,6 +1179,347 @@ class ExtraArgsTest(AtestTradefedTestRunnerUnittests):
              'com.android.tradefed.testtype.GTest:'
              'native-test-timeout:10000'],
             cmd[0])
+
+
+class ModuleInfoTestFixture(fake_filesystem_unittest.TestCase):
+    """Fixture for tests that require module-info."""
+
+    def setUp(self):
+        self.setUpPyfakefs()
+
+        self.product_out_path = Path('/src/out/product')
+        self.product_out_path.mkdir(parents=True)
+
+    def create_empty_module_info(self):
+        fake_temp_file = self.product_out_path.joinpath(
+            next(tempfile._get_candidate_names()))
+        self.fs.create_file(fake_temp_file, contents='{}')
+        return module_info.ModuleInfo(module_file=fake_temp_file)
+
+    def create_module_info(self, modules=None):
+        mod_info = self.create_empty_module_info()
+        modules = modules or []
+
+        for m in modules:
+            mod_info.name_to_module_info[m[constants.MODULE_INFO_ID]] = m
+
+        return mod_info
+
+    def assertContainsSubset(self, expected_subset, actual_set):
+        """Checks whether actual iterable is a superset of expected iterable."""
+        missing = set(expected_subset) - set(actual_set)
+        if not missing:
+            return
+
+        self.fail(
+            f'Missing elements {missing}\n'
+            f'Expected: {expected_subset}\n'
+            f'Actual: {actual_set}')
+
+
+def test_info_of(module_name):
+    return test_info.TestInfo(
+        module_name, atf_tr.AtestTradefedTestRunner.NAME, [])
+
+
+class DeviceDrivenTestTest(ModuleInfoTestFixture):
+    """Tests for device driven test."""
+
+    def test_multi_config_unit_test_without_host_arg(self):
+        mod_info = self.create_module_info(modules=[
+            multi_config_unit_test_module(name='hello_world_test')
+        ])
+        test_infos = [test_info_of('hello_world_test')]
+        runner = atf_tr.AtestTradefedTestRunner(
+            'result_dir', mod_info, host=False, minimal_build=True)
+        expect_deps = {
+            'aapt2-host',
+            'hello_world_test-target',
+            'compatibility-tradefed-host',
+            'adb-host',
+            'atest-tradefed-host',
+            'aapt-host',
+            'atest_tradefed.sh-host',
+            'tradefed-host',
+            'atest_script_help.sh-host',
+        }
+
+        deps = runner.get_test_runner_build_reqs(test_infos)
+
+        self.assertContainsSubset(expect_deps, deps)
+
+    @mock.patch.dict('os.environ', {'ANDROID_HOST_OUT': ANDROID_HOST_OUT})
+    def test_host_jar_env_device_driven_test_without_host_arg(self):
+        tf_host_jar_path = os.path.join(
+            ANDROID_HOST_OUT, 'tradefed.jar')
+        atest_host_jar_path = os.path.join(
+            ANDROID_HOST_OUT, 'atest-tradefed.jar')
+        host_required_jar_path = os.path.join(
+            ANDROID_HOST_OUT, 'host-required.jar')
+        mod_info = self.create_module_info(modules=[
+            device_driven_test_module(
+                name='hello_world_test', host_deps=['host-required']),
+            host_jar_module(name='tradefed',
+                            installed=[tf_host_jar_path]),
+            host_jar_module(name='atest-tradefed',
+                            installed=[atest_host_jar_path]),
+            host_jar_module(name='host-required',
+                            installed=[host_required_jar_path]),
+        ])
+        test_infos = [test_info_of('hello_world_test')]
+        runner = atf_tr.AtestTradefedTestRunner(
+            'result_dir', mod_info, host=False, minimal_build=True)
+        expect_path = {
+            tf_host_jar_path,
+            atest_host_jar_path,
+            host_required_jar_path,
+        }
+
+        runner.get_test_runner_build_reqs(test_infos)
+        env = runner.generate_env_vars(dict())
+
+        self.assertSetEqual(
+            set(env['ATEST_HOST_JARS'].split(':')),
+            expect_path)
+
+    def test_host_driven_device_test(self):
+        mod_info = self.create_module_info(modules=[
+            host_driven_device_test_module(
+                name='hello_world_test',
+                libs=['lib']),
+            module(
+                name='lib',
+                supported_variants=['HOST'],
+                installed=[f'out/host/linux-x86/lib/lib.jar']),
+        ])
+        test_infos = [test_info_of('hello_world_test')]
+        runner = atf_tr.AtestTradefedTestRunner(
+            'result_dir', mod_info, host=False, minimal_build=True)
+
+        deps = runner.get_test_runner_build_reqs(test_infos)
+
+        self.assertContainsSubset(
+            {'hello_world_test-host', 'lib-host'}, deps)
+
+    def test_device_driven_test_with_mainline_modules(self):
+        mod_info = self.create_module_info(modules=[
+            device_driven_test_module(name='hello_world_test')])
+        t_info = test_info_of('hello_world_test')
+        t_info.add_mainline_module('mainline_module_1')
+        t_info.add_mainline_module('mainline_module_2')
+        runner = atf_tr.AtestTradefedTestRunner(
+            'result_dir', mod_info, host=False, minimal_build=True)
+
+        deps = runner.get_test_runner_build_reqs([t_info])
+
+        self.assertContainsSubset(
+            {
+                'hello_world_test-target',
+                'mainline_module_1',
+                'mainline_module_2'},
+            deps,
+        )
+
+    def test_device_driven_test_with_vts_suite(self):
+        mod_info = self.create_module_info(modules=[
+            device_driven_test_module(
+                name='hello_world_test',
+                compatibility_suites=['vts']),
+        ])
+        test_infos = [test_info_of('hello_world_test')]
+        runner = atf_tr.AtestTradefedTestRunner(
+            'result_dir', mod_info, host=False, minimal_build=True)
+
+        deps = runner.get_test_runner_build_reqs(test_infos)
+
+        self.assertIn('vts-core-tradefed-harness-host', deps)
+        self.assertNotIn('compatibility-tradefed-host', deps)
+
+    def test_deps_contain_google_tradefed(self):
+        mod_info = self.create_module_info(modules=[
+            multi_config_unit_test_module(name='hello_world_test')
+        ])
+        test_infos = [test_info_of('hello_world_test')]
+        runner = atf_tr.AtestTradefedTestRunner(
+            'result_dir', mod_info, host=False, minimal_build=True)
+        gtf_target = set([str(t) + '-host' for t in constants.GTF_TARGETS])
+
+        deps = runner.get_test_runner_build_reqs(test_infos)
+
+        self.assertContainsSubset(gtf_target, deps)
+
+    def test_java_device_test(self):
+        mod_info = self.create_module_info(modules=[
+            device_driven_test_module(
+                name='HelloWorldTest',
+                installed=['out/product/vsoc_x86/testcases/HelloWorldTest.jar'],
+                class_type=['JAVA_LIBRARIES']
+            )
+        ])
+        t_info = test_info_of('HelloWorldTest')
+        runner = atf_tr.AtestTradefedTestRunner(
+            'result_dir', mod_info, host=False, minimal_build=True)
+
+        deps = runner.get_test_runner_build_reqs([t_info])
+
+        self.assertContainsSubset(
+            {
+                'cts-dalvik-device-test-runner-target',
+                'cts-dalvik-host-test-runner-host',
+            },
+            deps,
+        )
+
+
+class DevicelessTestTest(ModuleInfoTestFixture):
+    """Tests for deviceless test."""
+
+    def test_multi_config_unit_test_with_host_arg(self):
+        mod_info = self.create_module_info(modules=[
+            multi_config_unit_test_module(name='hello_world_test')
+        ])
+        test_infos = [test_info_of('hello_world_test')]
+        runner = atf_tr.AtestTradefedTestRunner(
+            'result_dir', mod_info, host=True, minimal_build=True)
+        expect_deps = {
+            'hello_world_test-host',
+            'adb-host',
+            'atest-tradefed-host',
+            'atest_tradefed.sh-host',
+            'tradefed-host',
+            'atest_script_help.sh-host',
+        }
+
+        deps = runner.get_test_runner_build_reqs(test_infos)
+
+        self.assertContainsSubset(expect_deps, deps)
+
+    def test_robolectric_test(self):
+        mod_info = self.create_module_info(modules=[
+            robolectric_test_module(name='hello_world_test')
+        ])
+        test_infos = [test_info_of('hello_world_test')]
+        runner = atf_tr.AtestTradefedTestRunner(
+            'result_dir', mod_info, minimal_build=True)
+        expect_deps = {
+            'hello_world_test-target',
+            'adb-host',
+            'atest-tradefed-host',
+            'atest_tradefed.sh-host',
+            'tradefed-host',
+            'atest_script_help.sh-host',
+        }
+
+        deps = runner.get_test_runner_build_reqs(test_infos)
+
+        self.assertContainsSubset(expect_deps, deps)
+
+
+def host_jar_module(name, installed):
+
+    return module(
+        name=name,
+        supported_variants=['HOST'],
+        installed=installed,
+        auto_test_config=[],
+        compatibility_suites=[])
+
+
+def device_driven_test_module(
+    name,
+    installed=None,
+    compatibility_suites=None,
+    host_deps=None,
+    class_type=None):
+
+    name = name or 'hello_world_test'
+
+    return test_module(
+        name=name,
+        supported_variants=['DEVICE'],
+        compatibility_suites=compatibility_suites,
+        installed=installed or [f'out/product/vsoc_x86/{name}/{name}.apk'],
+        host_deps=host_deps,
+        class_type=class_type or ['APP'],
+    )
+
+
+def robolectric_test_module(name):
+    name = name or 'hello_world_test'
+    return test_module(
+        name=name,
+        supported_variants=['DEVICE'],
+        installed=[f'out/host/linux-x86/{name}/{name}.jar'],
+        compatibility_suites=['robolectric-tests'])
+
+
+def host_driven_device_test_module(name, libs=None):
+    name = name or 'hello_world_test'
+    return test_module(
+        name=name,
+        supported_variants=['HOST'],
+        installed=[f'out/host/linux-x86/{name}/{name}.jar'],
+        compatibility_suites=['null-suite'],
+        libs=libs)
+
+
+def multi_config_unit_test_module(name):
+
+    name = name or 'hello_world_test'
+
+    return test_module(
+        name=name,
+        supported_variants=['HOST', 'DEVICE'],
+        installed=[
+            f'out/host/linux-x86/{name}/{name}.cc',
+            f'out/product/vsoc_x86/{name}/{name}.cc'
+        ],
+        compatibility_suites=['host-unit-tests'])
+
+
+def test_module(
+    name,
+    supported_variants,
+    installed,
+    compatibility_suites=None,
+    libs=None,
+    host_deps=None,
+    class_type=None):
+
+    return module(
+        name=name,
+        supported_variants=supported_variants,
+        installed=installed,
+        auto_test_config=[True],
+        compatibility_suites=compatibility_suites or ['null-suite'],
+        libs=libs,
+        host_deps=host_deps,
+        class_type=class_type)
+
+
+def module(
+    name,
+    supported_variants,
+    installed,
+    auto_test_config=None,
+    compatibility_suites=None,
+    libs=None,
+    host_deps=None,
+    class_type=None):
+
+    m = {}
+
+    m[constants.MODULE_INFO_ID] = name
+    m[constants.MODULE_SUPPORTED_VARIANTS] = supported_variants
+    m[constants.MODULE_INSTALLED] = installed
+    m[constants.MODULE_AUTO_TEST_CONFIG] = auto_test_config or []
+    m[constants.MODULE_COMPATIBILITY_SUITES] = compatibility_suites or []
+    m[constants.MODULE_LIBS] = libs or []
+    m[constants.MODULE_HOST_DEPS] = host_deps or []
+    m[constants.MODULE_CLASS] = class_type or []
+
+    return m
+
 
 if __name__ == '__main__':
     unittest.main()

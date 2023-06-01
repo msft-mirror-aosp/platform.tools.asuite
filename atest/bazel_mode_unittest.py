@@ -205,6 +205,12 @@ class GenerationTestFixture(fake_filesystem_unittest.TestCase):
     def find_target_by_name(self, name: str, contents: str) -> List[str]:
         return re.findall(rf'\bname\s*=\s*"{name}"', contents)
 
+    def add_device_def_to_filesystem(self):
+        bazel_device_def = self.resource_manager\
+                       .get_resource_file_path('device_def')
+        bazel_device_def.mkdir(parents=True)
+        bazel_device_def.joinpath('device_def.bzl').touch()
+
 
 class BasicWorkspaceGenerationTest(GenerationTestFixture):
     """Tests for basic workspace generation and update."""
@@ -448,6 +454,10 @@ class BasicWorkspaceGenerationTest(GenerationTestFixture):
 class MultiConfigUnitTestModuleTestTargetGenerationTest(GenerationTestFixture):
     """Tests for test target generation of test modules with multi-configs."""
 
+    def setUp(self):
+        super().setUp()
+        super().add_device_def_to_filesystem()
+
     def test_generate_test_rule_imports(self):
         mod_info = self.create_module_info(modules=[
             multi_config(host_unit_suite(test_module(
@@ -507,6 +517,9 @@ class MultiConfigUnitTestModuleTestTargetGenerationTest(GenerationTestFixture):
 
 class DeviceTestModuleTestTargetGenerationTest(GenerationTestFixture):
     """Tests for device test module test target generation."""
+    def setUp(self):
+        super().setUp()
+        super().add_device_def_to_filesystem()
 
     def test_generate_device_driven_test_target(self):
         mod_info = self.create_module_info(modules=[
@@ -522,6 +535,7 @@ class DeviceTestModuleTestTargetGenerationTest(GenerationTestFixture):
             ' "tradefed_device_driven_test")\n',
             package='example/tests',
         )
+        self.assertDirInWorkspace('device_def')
         self.assertTargetInWorkspace('hello_world_test_device',
                                      package='example/tests')
 
@@ -752,6 +766,45 @@ class HostUnitTestModuleTestTargetGenerationTest(GenerationTestFixture):
             self.run_generator(mod_info)
 
         self.assertIn('adb', str(context.warnings[0].message))
+
+class RemoteAvdTestTargetGenerationTest(GenerationTestFixture):
+    """Unit tests for generating Bazel targets on remote AVD."""
+
+    def setUp(self):
+        super().setUp()
+        super().add_device_def_to_filesystem()
+
+    def test_generate_remote_avd_test_target(self):
+        mod_info = self.create_module_info(modules=[
+            device_test_module(
+                name='hello_world_test', path='example/tests'),
+        ])
+
+        self.run_generator(mod_info, enabled_features=set([
+            bazel_mode.Features.EXPERIMENTAL_REMOTE_AVD,
+            bazel_mode.Features.EXPERIMENTAL_DEVICE_DRIVEN_TEST]))
+
+        self.assertInBuildFile(
+            'load("//bazel/rules:tradefed_test.bzl",'
+            ' "tradefed_device_driven_test")\n',
+            package='example/tests',
+        )
+        self.assertDirInWorkspace('device_def')
+        self.assertTargetInWorkspace('hello_world_test_device',
+                                     package='example/tests')
+
+    def test_generate_remote_avd_test_target_no_device_test_flag(self):
+        mod_info = self.create_module_info(modules=[
+            device_test_module(
+                name='hello_world_test', path='example/tests'),
+        ])
+
+        with self.assertRaises(Exception) as context:
+            self.run_generator(mod_info, enabled_features=set([
+                bazel_mode.Features.EXPERIMENTAL_REMOTE_AVD]))
+
+        self.assertIn('--experimental-device-driven-test" flag is'
+                      ' not set', str(context.exception))
 
 
 class RobolectricTestModuleTestTargetGenerationTest(GenerationTestFixture):
@@ -2151,7 +2204,7 @@ class BazelTestRunnerTest(unittest.TestCase):
         }
         env = {
             'ATEST_BAZELRC': '/dir/atest.bazelrc',
-            'ATEST_BAZEL_REMOTE_CONFIG': 'remote'
+            'ATEST_BAZEL_REMOTE_CONFIG': 'remote_deviceless'
         }
         runner = self.create_bazel_test_runner_for_tests(
             test_infos, env=env)
@@ -2162,8 +2215,54 @@ class BazelTestRunnerTest(unittest.TestCase):
         )
 
         self.assertTokensIn([
-            '--config=remote',
+            '--config=remote_deviceless',
         ], cmd[0])
+
+    def test_generate_run_command_with_remote_avd_enabled(self):
+        test_infos = [test_info_of('test1')]
+        extra_args = {
+            constants.BAZEL_MODE_FEATURES: [
+                bazel_mode.Features.EXPERIMENTAL_REMOTE_AVD
+            ]
+        }
+        env = {
+            'ATEST_BAZELRC': '/dir/atest.bazelrc',
+            'ATEST_BAZEL_REMOTE_AVD_CONFIG': 'remote_avd'
+        }
+        runner = self.create_bazel_test_runner_for_tests(
+            test_infos, env=env)
+
+        cmd = runner.generate_run_commands(
+            test_infos,
+            extra_args,
+        )
+
+        self.assertTokensIn([
+            '--config=remote_avd',
+        ], cmd[0])
+
+    def test_generate_run_command_with_remote_avd_config_not_found(self):
+        test_infos = [test_info_of('test1')]
+        extra_args = {
+            constants.BAZEL_MODE_FEATURES: [
+                bazel_mode.Features.EXPERIMENTAL_REMOTE_AVD
+            ]
+        }
+        env = {
+            'ATEST_BAZELRC': '/dir/atest.bazelrc',
+        }
+        runner = self.create_bazel_test_runner_for_tests(
+            test_infos, env=env)
+
+        with self.assertRaises(Exception) as context:
+            runner.generate_run_commands(
+                test_infos,
+                extra_args,
+            )
+
+        self.assertIn('ATEST_BAZEL_REMOTE_AVD_CONFIG '
+                      'environment variable is not set.',
+                      str(context.exception))
 
     def test_generate_run_command_with_verbose_args(self):
         test_infos = [test_info_of('test1')]
@@ -2173,6 +2272,26 @@ class BazelTestRunnerTest(unittest.TestCase):
         cmd = runner.generate_run_commands(test_infos, extra_args)
 
         self.assertTokensIn(['--test_output=all'], cmd[0])
+
+    def test_disable_test_result_caching_with_wait_for_debug_args(self):
+        test_infos = [test_info_of('test1')]
+        runner = self.create_bazel_test_runner_for_tests(test_infos)
+        extra_args = {constants.WAIT_FOR_DEBUGGER: True}
+
+        cmd = runner.generate_run_commands(test_infos, extra_args)
+
+        self.assertTokensIn(['--test_arg=--wait-for-debugger',
+                             '--cache_test_results=no'], cmd[0])
+
+    def test_cache_test_results_arg_not_used_with_wait_for_debug_args(self):
+        test_infos = [test_info_of('test1')]
+        runner = self.create_bazel_test_runner_for_tests(test_infos)
+        extra_args = {constants.WAIT_FOR_DEBUGGER: True,
+                      constants.BAZEL_ARG: [['--cache_test_resultsfoo']]}
+
+        cmd = runner.generate_run_commands(test_infos, extra_args)
+
+        self.assertTokensNotIn(['--cache_test_resultsfoo'], cmd[0])
 
     def create_bazel_test_runner(self,
                                  modules,
@@ -2212,6 +2331,11 @@ class BazelTestRunnerTest(unittest.TestCase):
         tokens = shlex.split(s)
         for token in expected_tokens:
             self.assertIn(token, tokens)
+
+    def assertTokensNotIn(self, unexpected_tokens, s):
+        tokens = shlex.split(s)
+        for token in unexpected_tokens:
+            self.assertNotIn(token, tokens)
 
 
 class FeatureParserTest(unittest.TestCase):
@@ -2253,7 +2377,7 @@ def test_filter_of(class_name, methods=None):
 def _get_query_file_content(args: List[str]) -> str:
     for arg in args:
         if arg.startswith('--query_file='):
-            return Path(arg.split('=')[1]).read_text()
+            return Path(arg.split('=')[1]).read_text(encoding='utf-8')
 
     raise Exception('Query file not found!')
 

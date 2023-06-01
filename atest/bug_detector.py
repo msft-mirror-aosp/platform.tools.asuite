@@ -83,15 +83,7 @@ class BugDetector:
         Returns:
             An object of loading from a history.
         """
-        history = {}
-        if os.path.exists(self.file):
-            with open(self.file) as json_file:
-                try:
-                    history = json.load(json_file)
-                except ValueError as e:
-                    logging.debug(e)
-                    metrics_utils.handle_exc_and_send_exit_event(
-                        constants.ACCESS_HISTORY_FAILURE)
+        history = atest_utils.load_json_safely(self.file)
         return history
 
     def detect_bug_caught(self):

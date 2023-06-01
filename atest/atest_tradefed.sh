@@ -71,8 +71,18 @@ if [ "$(uname)" == "Darwin" ]; then
     java_tmp_dir_opt="-Djava.io.tmpdir=$local_tmp_dir"
 fi
 
+# Override the TF classpath with the minimal set of jars that correspond to the
+# tests being run. This only happens when the Atest `--minimal-build` flag is
+# enabled.
+# TODO(b/283352284): Remove unnecessary entries once --minimal-build is the
+# default.
+if [ -n "${ATEST_HOST_JARS}" ]; then
+    echo "Replaced TF_PATH from ${TF_PATH} to ${ATEST_HOST_JARS}"
+    TF_PATH=${ATEST_HOST_JARS}
+fi
+
 # Note: must leave $RDBG_FLAG and $TRADEFED_OPTS unquoted so that they go away when unset
-START_FEATURE_SERVER=1 ${TF_JAVA} $RDBG_FLAG \
+LOCAL_MODE=1 START_FEATURE_SERVER=1 ${TF_JAVA} $RDBG_FLAG \
     -XX:+HeapDumpOnOutOfMemoryError \
     -XX:-OmitStackTraceInFastThrow \
     $TRADEFED_OPTS \
