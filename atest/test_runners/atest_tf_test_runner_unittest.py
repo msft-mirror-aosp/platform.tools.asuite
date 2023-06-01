@@ -435,18 +435,44 @@ class AtestTradefedTestRunnerUnittests(unittest.TestCase):
                             serial='',
                             tf_customize_template='',
                             device_early_release=' --no-early-device-release')])
-        # Run cmd with result server args.
+
+    @mock.patch('atest.test_runners.atest_tf_test_runner.is_log_upload_enabled',
+                return_value=True)
+    @mock.patch.object(atf_tr.AtestTradefedTestRunner,
+                       '_is_all_tests_parameter_auto_enabled',
+                       return_value=False)
+    @mock.patch('os.environ.get', return_value=None)
+    @mock.patch.object(atf_tr.AtestTradefedTestRunner,
+                       '_generate_metrics_folder')
+    @mock.patch('atest.atest_utils.get_result_server_args')
+    def test_generate_run_commands_with_upload_enabled(
+        self, mock_resultargs, mock_mertrics, _, _mock_all, _upload_enabled):
         result_arg = '--result_arg'
         mock_resultargs.return_value = [result_arg]
         mock_mertrics.return_value = ''
-        unittest_utils.assert_strict_equal(
-            self,
-            self.tr.generate_run_commands(
-                [], {}),
-            [RUN_CMD.format(metrics='',
-                            serial='',
-                            tf_customize_template='',
-                            device_early_release=' --no-early-device-release') + ' ' + result_arg])
+
+        run_command = self.tr.generate_run_commands([], {})
+
+        self.assertIn('--result_arg', run_command[0].split())
+
+    @mock.patch('atest.test_runners.atest_tf_test_runner.is_log_upload_enabled',
+                return_value=False)
+    @mock.patch.object(atf_tr.AtestTradefedTestRunner,
+                       '_is_all_tests_parameter_auto_enabled',
+                       return_value=False)
+    @mock.patch('os.environ.get', return_value=None)
+    @mock.patch.object(atf_tr.AtestTradefedTestRunner,
+                       '_generate_metrics_folder')
+    @mock.patch('atest.atest_utils.get_result_server_args')
+    def test_generate_run_commands_without_upload_enabled(
+        self, mock_resultargs, mock_mertrics, _, _mock_all, _upload_enabled):
+        result_arg = '--result_arg'
+        mock_resultargs.return_value = [result_arg]
+        mock_mertrics.return_value = ''
+
+        run_command = self.tr.generate_run_commands([], {})
+
+        self.assertNotIn('--result_arg', run_command[0].split())
 
     @mock.patch.object(atf_tr.AtestTradefedTestRunner,
                        '_is_all_tests_parameter_auto_enabled',
