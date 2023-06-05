@@ -58,7 +58,6 @@ class ModuleInfo:
         self,
         force_build=False,
         module_file=None,
-        index_dir=None,
         no_generate=False):
         """Initialize the ModuleInfo object.
 
