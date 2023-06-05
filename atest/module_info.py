@@ -168,7 +168,7 @@ class ModuleInfo:
             logging.debug('User customized out dir!')
             module_file_path = out_dir.joinpath(_MODULE_INFO)
             module_info_target = str(module_file_path)
-        if force_build:
+        if force_build or not module_file_path.is_file():
             atest_utils.build_module_info_target(module_info_target)
         return module_info_target, module_file_path
 
@@ -220,13 +220,6 @@ class ModuleInfo:
         if self.update_merge_info:
             # Load the $ANDROID_PRODUCT_OUT/module-info.json for merging.
             module_info_json = atest_utils.load_json_safely(file_path)
-            if Path(file_path).name == _MODULE_INFO and not module_info_json:
-                # Rebuild module-info.json when it has invalid format. However,
-                # if the file_path doesn't end with module-info.json, it could
-                # be from unit tests and won't trigger rebuild.
-                atest_utils.build_module_info_target(module_info_target)
-                start = time.time()
-                module_info_json = atest_utils.load_json_safely(file_path)
             mod_info = self._merge_build_system_infos(module_info_json)
             duration = time.time() - start
             logging.debug('Merging module info took %ss', duration)
