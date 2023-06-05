@@ -721,7 +721,7 @@ class TestFinderUtilsUnittests(unittest.TestCase):
     @mock.patch.object(module_info.ModuleInfo, 'get_paths',)
     def test_find_host_unit_tests(self, _get_paths, _mock_get_unit_tests):
         """Test find_host_unit_tests"""
-        mod_info = module_info.ModuleInfo(module_file=JSON_FILE_PATH, index_dir=HOST_OUT_DIR)
+        mod_info = module_info.ModuleInfo(module_file=JSON_FILE_PATH)
         _get_paths.side_effect = self._get_paths_side_effect
         expect_unit_tests = [UNIT_TEST_MODULE_1, UNIT_TEST_MODULE_2]
         self.assertEqual(
@@ -744,7 +744,7 @@ class TestFinderUtilsUnittests(unittest.TestCase):
     def test_get_test_config_use_androidtestxml(self, _isfile):
         """Test get_test_config_and_srcs using default AndroidTest.xml"""
         android_root = '/'
-        mod_info = module_info.ModuleInfo(module_file=JSON_FILE_PATH, index_dir=HOST_OUT_DIR)
+        mod_info = module_info.ModuleInfo(module_file=JSON_FILE_PATH)
         t_info = test_info.TestInfo(
             'androidtest_config_module', 'mock_runner', build_targets=set())
         expect_config = os.path.join(android_root, uc.ANDTEST_CONFIG_PATH,
@@ -756,7 +756,7 @@ class TestFinderUtilsUnittests(unittest.TestCase):
     def test_get_test_config_single_config(self, _isfile):
         """Test get_test_config_and_srcs manualy set it's config"""
         android_root = '/'
-        mod_info = module_info.ModuleInfo(module_file=JSON_FILE_PATH, index_dir=HOST_OUT_DIR)
+        mod_info = module_info.ModuleInfo(module_file=JSON_FILE_PATH)
         t_info = test_info.TestInfo(
             'single_config_module', 'mock_runner', build_targets=set())
         expect_config = os.path.join(
@@ -768,7 +768,7 @@ class TestFinderUtilsUnittests(unittest.TestCase):
     def test_get_test_config_main_multiple_config(self, _isfile):
         """Test get_test_config_and_srcs which is the main module of multiple config"""
         android_root = '/'
-        mod_info = module_info.ModuleInfo(module_file=JSON_FILE_PATH, index_dir=HOST_OUT_DIR)
+        mod_info = module_info.ModuleInfo(module_file=JSON_FILE_PATH)
         t_info = test_info.TestInfo(
             'multiple_config_module', 'mock_runner', build_targets=set())
         expect_config = os.path.join(
@@ -780,7 +780,7 @@ class TestFinderUtilsUnittests(unittest.TestCase):
     def test_get_test_config_subtest_in_multiple_config(self, _isfile):
         """Test get_test_config_and_srcs not the main module of multiple config"""
         android_root = '/'
-        mod_info = module_info.ModuleInfo(module_file=JSON_FILE_PATH, index_dir=HOST_OUT_DIR)
+        mod_info = module_info.ModuleInfo(module_file=JSON_FILE_PATH)
         t_info = test_info.TestInfo(
             'Multiple2', 'mock_runner', build_targets=set())
         expect_config = os.path.join(
