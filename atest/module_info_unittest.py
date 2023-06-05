@@ -103,12 +103,13 @@ class ModuleInfoUnittests(unittest.TestCase):
 
     # TODO: (b/264015241) Stop mocking build variables.
     # TODO: (b/263199608) Re-write the test after refactoring module-info.py
+    @mock.patch('pathlib.Path.is_file', return_value=True)
     @mock.patch.object(module_info.ModuleInfo, 'need_update_merged_file')
     @mock.patch('json.load', return_value={})
     @mock.patch('builtins.open', new_callable=mock.mock_open)
     @mock.patch('os.path.isfile', return_value=True)
     def test_load_mode_info_file_out_dir_handling(self, _isfile, _open, _json,
-        _merge):
+        _merge, _is_file):
         """Test _load_module_info_file out dir handling."""
         _merge.return_value = False
         # Test out default out dir is used.
