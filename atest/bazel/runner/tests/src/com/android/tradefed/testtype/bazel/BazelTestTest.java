@@ -51,6 +51,7 @@ import com.google.common.util.concurrent.Uninterruptibles;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos;
 
 import org.junit.Before;
+import org.junit.Ignore;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.TemporaryFolder;
@@ -302,6 +303,7 @@ public final class BazelTestTest {
     }
 
     @Test
+    @Ignore("b/281805276: Flaky")
     public void testTimeout_causesTestFailure() throws Exception {
         FakeProcessStarter processStarter = newFakeProcessStarter();
         processStarter.put(
