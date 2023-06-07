@@ -66,7 +66,8 @@ BAZEL_ARG = ('Forward a flag to Bazel for tests executed with Bazel; '
              'see --bazel-mode.')
 BUILD_OUTPUT = (r'Specifies the desired build output mode. '
                 f'Valid values are:\n{output_mode_msg()}')
-MINIMAL_BUILD = 'Build required dependencies only.'
+MINIMAL_BUILD = ('Build required dependencies only. Use --minimal-build to '
+                'enable it.')
 CLEAR_CACHE = 'Wipe out the test_infos cache of the test and start a new search.'
 COLLECT_TESTS_ONLY = ('Collect a list test cases of the instrumentation tests '
                       'without testing them in real.')
@@ -187,7 +188,9 @@ class AtestArgParser(argparse.ArgumentParser):
         """A function that does ArgumentParser.add_argument()"""
         self.add_argument('tests', nargs='*', help='Tests to build and/or run.')
 
-        self.add_argument('--minimal-build', action='store_true',
+        self.add_argument('--minimal-build',
+                          action=argparse.BooleanOptionalAction,
+                          default=False,
                           help=MINIMAL_BUILD)
 
         # Options that to do with testing.
