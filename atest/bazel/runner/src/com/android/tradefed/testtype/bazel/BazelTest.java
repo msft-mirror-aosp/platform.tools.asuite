@@ -52,6 +52,7 @@ import com.google.protobuf.Any;
 import com.google.protobuf.InvalidProtocolBufferException;
 
 import java.io.File;
+import java.io.FileNotFoundException;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.io.FileOutputStream;
@@ -87,6 +88,7 @@ public final class BazelTest implements IRemoteTest {
     public static final String RUN_TESTS = "run_tests";
     public static final String BUILD_TEST_ARG = "bazel-build";
     public static final String TEST_TAG_TEST_ARG = "bazel-test";
+    public static final String BRANCH_TEST_ARG = "bazel-branch";
 
     // Add method excludes to TF's global filters since Bazel doesn't support target-specific
     // arguments. See https://github.com/bazelbuild/rules_go/issues/2784.
@@ -294,7 +296,10 @@ public final class BazelTest implements IRemoteTest {
 
             try {
                 reportEventsInTestOutputsArchive(event.getTestResult(), resultParser);
-            } catch (IOException | InterruptedException | URISyntaxException e) {
+            } catch (IOException
+                    | InterruptedException
+                    | URISyntaxException
+                    | IllegalArgumentException e) {
                 runFailures.add(
                         throwableToInfraFailureDescription(e)
                                 .setErrorIdentifier(TestErrorIdentifier.OUTPUT_PARSER_ERROR));
@@ -494,6 +499,7 @@ public final class BazelTest implements IRemoteTest {
 
         builder.command().add("--test_arg=--test-tag=%s".formatted(TEST_TAG_TEST_ARG));
         builder.command().add("--test_arg=--build-id=%s".formatted(BUILD_TEST_ARG));
+        builder.command().add("--test_arg=--branch=%s".formatted(BRANCH_TEST_ARG));
 
         builder.command().addAll(mBazelTestExtraArgs);
 
@@ -630,18 +636,23 @@ public final class BazelTest implements IRemoteTest {
     }
 
     private void recursivelyUpdateArtifactsRootPath(TestRecord.Builder recordBuilder, Path newRoot)
-            throws InvalidProtocolBufferException {
+            throws InvalidProtocolBufferException, IOException {
 
         Map<String, Any> updatedMap = new HashMap<>();
         for (Entry<String, Any> entry : recordBuilder.getArtifactsMap().entrySet()) {
             LogFileInfo info = entry.getValue().unpack(LogFileInfo.class);
 
-            Path relativePath = findRelativeArtifactPath(Paths.get(info.getPath()));
+            Path newPath = newRoot.resolve(findRelativeArtifactPath(Paths.get(info.getPath())));
+
+            if (!Files.exists(newPath)) {
+                throw new FileNotFoundException(
+                        String.format(
+                                "Log file not found: original path: %s, expected new path: %s",
+                                info.getPath(), newPath.toString()));
+            }
 
             LogFileInfo updatedInfo =
-                    info.toBuilder()
-                            .setPath(newRoot.resolve(relativePath).toAbsolutePath().toString())
-                            .build();
+                    info.toBuilder().setPath(newPath.toAbsolutePath().toString()).build();
             updatedMap.put(entry.getKey(), Any.pack(updatedInfo));
         }
 
@@ -659,7 +670,7 @@ public final class BazelTest implements IRemoteTest {
         // appending that to our extracted directory.
         // TODO(b/251279690) Create a directory within undeclared outputs which we can more
         // reliably look for to calculate this relative path.
-        Path delimiter = Paths.get(BUILD_TEST_ARG, TEST_TAG_TEST_ARG);
+        Path delimiter = Paths.get(BRANCH_TEST_ARG, BUILD_TEST_ARG, TEST_TAG_TEST_ARG);
 
         Path relativePath = originalPath;
         while (!relativePath.startsWith(delimiter)
