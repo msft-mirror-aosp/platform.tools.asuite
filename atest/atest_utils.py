@@ -22,7 +22,6 @@ Utility functions for atest.
 
 from __future__ import print_function
 
-import argparse
 import enum
 import datetime
 import fnmatch
@@ -149,6 +148,8 @@ class SingletonFixture(type):
             cls._instances[cls] = instance
         return cls._instances[cls]
 
+    def delete(cls):
+        cls._instances.pop(cls, None)
 
 @dataclass
 class AndroidVariables(metaclass=SingletonFixture):
@@ -1562,53 +1563,6 @@ def get_config_preparer_options(test_config, class_name):
         options[name] = value
     return options
 
-def is_adb_root(args: argparse.ArgumentParser):
-    """Check whether device has root permission.
-
-    Args:
-        args: An argparse.ArgumentParser class instance holding parsed args.
-    Returns:
-        True if adb has root permission.
-    """
-    try:
-        serial = os.environ.get(constants.ANDROID_SERIAL, '')
-        if not serial:
-            serial = args.serial
-        serial_options = ('-s ' + serial) if serial else ''
-        output = subprocess.check_output("adb %s shell id" % serial_options,
-                                         shell=True,
-                                         stderr=subprocess.STDOUT).decode()
-        return "uid=0(root)" in output
-    except subprocess.CalledProcessError as err:
-        logging.debug('Exception raised(): %s, Output: %s', err, err.output)
-        raise err
-
-def perm_metrics(config_path, adb_root):
-    """Compare adb root permission with RootTargetPreparer in config.
-
-    Args:
-        config_path: A string of AndroidTest.xml file path.
-        adb_root: A boolean of whether device is root or not.
-    """
-    # RootTargetPreparer's force-root set in config
-    options = get_config_preparer_options(config_path, _ROOT_PREPARER)
-    if not options:
-        return
-    logging.debug('preparer_options: %s', options)
-    preparer_force_root = True
-    if options.get('force-root', '').upper() == "FALSE":
-        preparer_force_root = False
-    logging.debug(' preparer_force_root: %s', preparer_force_root)
-    if preparer_force_root and not adb_root:
-        logging.debug('DETECT_TYPE_PERMISSION_INCONSISTENT:0')
-        metrics.LocalDetectEvent(
-            detect_type=DetectType.PERMISSION_INCONSISTENT,
-            result=0)
-    elif not preparer_force_root and adb_root:
-        logging.debug('DETECT_TYPE_PERMISSION_INCONSISTENT:1')
-        metrics.LocalDetectEvent(
-            detect_type=DetectType.PERMISSION_INCONSISTENT,
-            result=1)
 
 def get_verify_key(tests, extra_args):
     """Compose test command key.

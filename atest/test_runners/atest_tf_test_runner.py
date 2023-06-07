@@ -118,8 +118,7 @@ class AtestTradefedTestRunner(trb.TestRunnerBase):
     # in sharding mode.
     _LOG_ARGS = ('--{log_root_option_name}={log_path} '
                  '{log_ext_option} '
-                 '--no-enable-granular-attempts '
-                 '--proto-output-file={proto_path}')
+                 '--no-enable-granular-attempts')
     _RUN_CMD = ('{env} {exe} {template} '
                 '--template:map test=atest '
                 '--template:map log_saver={log_saver} '
@@ -149,7 +148,7 @@ class AtestTradefedTestRunner(trb.TestRunnerBase):
         # mkdir when it is invoked by run_tests.
         if results_dir:
             Path(self.log_path).mkdir(parents=True, exist_ok=True)
-        log_args = {'log_root_option_name': constants.LOG_ROOT_OPTION_NAME,
+        self.log_args = {'log_root_option_name': constants.LOG_ROOT_OPTION_NAME,
                     'log_ext_option': constants.LOG_SAVER_EXT_OPTION,
                     'log_path': self.log_path,
                     'proto_path': os.path.join(
@@ -161,7 +160,7 @@ class AtestTradefedTestRunner(trb.TestRunnerBase):
                              'log_saver': constants.ATEST_TF_LOG_SAVER,
                              'tf_customize_template': '',
                              'args': '',
-                             'log_args': self._LOG_ARGS.format(**log_args)}
+                             'log_args': self._LOG_ARGS.format(**self.log_args)}
         if kwargs.get('extra_args', {}).get(constants.LD_LIBRARY_PATH, False):
             self.run_cmd_dict.update({'env': self._get_ld_library_path()})
         # Only set to verbose mode if the console handler is DEBUG level.
@@ -173,8 +172,12 @@ class AtestTradefedTestRunner(trb.TestRunnerBase):
         self._is_host_enabled = (
             lambda: atest_configs.GLOBAL_ARGS.host) if host is None else lambda: host
         self._minimal_build = (
-            (lambda: atest_configs.GLOBAL_ARGS.minimal_build==True)
+            (lambda: atest_configs.GLOBAL_ARGS.minimal_build is True)
             if minimal_build is None else lambda: minimal_build)
+        logging.debug('Enable minimal build: %s' % self._minimal_build())
+        metrics.LocalDetectEvent(
+            detect_type=DetectType.IS_MINIMAL_BUILD,
+            result=int(self._minimal_build()))
 
     def _get_ld_library_path(self) -> str:
         """Get the corresponding LD_LIBRARY_PATH string for running TF.
@@ -289,6 +292,7 @@ class AtestTradefedTestRunner(trb.TestRunnerBase):
         ret_code = ExitCode.SUCCESS
         for _ in range(iterations):
             run_cmds = self.generate_run_commands(test_infos, extra_args)
+            logging.debug('Running test: %s', run_cmds[0])
             subproc = self.run(run_cmds[0], output_to_stdout=True,
                                env_vars=self.generate_env_vars(extra_args))
             ret_code |= self.wait_for_subprocess(subproc)
@@ -311,6 +315,7 @@ class AtestTradefedTestRunner(trb.TestRunnerBase):
             server = self._start_socket_server()
             run_cmds = self.generate_run_commands(test_infos, extra_args,
                                                   server.getsockname()[1])
+            logging.debug('Running test: %s', run_cmds[0])
             subproc = self.run(run_cmds[0], output_to_stdout=self.is_verbose,
                                env_vars=self.generate_env_vars(extra_args))
             self.handle_subprocess(subproc, partial(self._start_monitor,
@@ -459,7 +464,7 @@ class AtestTradefedTestRunner(trb.TestRunnerBase):
             A dict modified from os.getenv.copy().
         """
         env_vars = os.environ.copy()
-        if constants.TF_GLOBAL_CONFIG:
+        if constants.TF_GLOBAL_CONFIG and is_log_upload_enabled(extra_args):
             env_vars["TF_GLOBAL_CONFIG"] = constants.TF_GLOBAL_CONFIG
         debug_port = extra_args.get(constants.TF_DEBUG, '')
         if debug_port:
@@ -783,10 +788,19 @@ class AtestTradefedTestRunner(trb.TestRunnerBase):
         # Only need to check one TestInfo to determine if the tests are
         # configured in TEST_MAPPING.
         for_test_mapping = test_infos and test_infos[0].from_test_mapping
-        test_args.extend(atest_utils.get_result_server_args(for_test_mapping))
+        if is_log_upload_enabled(extra_args):
+            test_args.extend(
+                atest_utils.get_result_server_args(for_test_mapping))
         self.run_cmd_dict['args'] = ' '.join(test_args)
         self.run_cmd_dict['tf_customize_template'] = (
             self._extract_customize_tf_templates(extra_args, test_infos))
+
+        # By default using ATestFileSystemLogSaver no matter what running under
+        # aosp or internal branches. Only switch using google log saver if user
+        # tend to upload test result to AnTS which could be detected by the
+        # invocation_id in extra args.
+        if is_log_upload_enabled(extra_args):
+            self.use_google_log_saver()
 
         # Copy symbols if there are tests belong to native test.
         self._handle_native_tests(test_infos)
@@ -1131,6 +1145,27 @@ class AtestTradefedTestRunner(trb.TestRunnerBase):
 
                 break
 
+    def use_google_log_saver(self):
+        """Replace the original log saver to google log saver."""
+        self.log_args.update(
+            {'log_root_option_name':
+                 constants.GOOGLE_LOG_SAVER_LOG_ROOT_OPTION_NAME,
+             'log_ext_option':
+                 constants.GOOGLE_LOG_SAVER_EXT_OPTION,
+             })
+        self.run_cmd_dict.update(
+            {'log_saver': constants.GOOGLE_LOG_SAVER,
+            'log_args': self._LOG_ARGS.format(**self.log_args),
+             })
+
+def is_log_upload_enabled(extra_args: Dict[str, Any]) -> bool:
+    """Check if input extra_args include google log saver related args.
+
+    Args:
+        extra_args: Dict of args.
+    """
+    return bool(extra_args.get(constants.INVOCATION_ID, None))
+
 
 def generate_annotation_filter_args(
         arg_value: Any, mod_info: module_info.ModuleInfo,
@@ -1381,12 +1416,13 @@ class Target:
 class Test(ABC):
     """A test that can be run."""
 
-    _DEFAULT_HARNESS_TARGETS = frozenset([
-        Target('atest-tradefed', Variant.HOST),
-        Target('atest_script_help.sh', Variant.HOST),
-        Target('atest_tradefed.sh', Variant.HOST),
-        Target('tradefed', Variant.HOST),
-    ])
+    _DEFAULT_HARNESS_TARGETS = frozenset(
+        [Target('atest-tradefed', Variant.HOST),
+         Target('atest_script_help.sh', Variant.HOST),
+         Target('atest_tradefed.sh', Variant.HOST),
+         Target('tradefed', Variant.HOST),] +
+        [Target(t, Variant.HOST) for t in constants.GTF_TARGETS]
+    )
 
     def query_build_targets(self) -> Set[Target]:
         """Returns the list of build targets required to run this test."""
@@ -1439,15 +1475,22 @@ class DeviceTest(Test):
             Target('aapt2', Variant.HOST),
         ]))
 
+        # Auto-generated Java tests use a module template that uses the Dalvik
+        # test runner and requires the implementation jars. See
+        # https://source.corp.google.com/android-internal/build/make/core/java_test_config_template.xml.
+        # These dependencies should ideally be automatically added by the build
+        # rule since Atest can fall out of sync otherwise.
+        # TODO(b/284987354): Remove these targets once the build rule adds the required deps.
+        if _is_dalvik_test_module(self._info):
+            build_targets.add(Target('cts-dalvik-host-test-runner', Variant.HOST))
+            build_targets.add(Target('cts-dalvik-device-test-runner', Variant.DEVICE))
+
         if 'vts' in self._info.get(constants.MODULE_COMPATIBILITY_SUITES, []):
             # Note that we do not include `compatibility-tradefed` which is
             # already included in the VTS harness.
             build_targets.add(Target('vts-core-tradefed-harness', Variant.HOST))
         else:
             build_targets.add(Target('compatibility-tradefed', Variant.HOST))
-
-        for target in constants.GTF_TARGETS:
-            build_targets.add(Target(target, Variant.HOST))
 
         return build_targets
 
@@ -1495,3 +1538,9 @@ def _get_host_required_deps(info: Dict[str, Any]) -> Set[Target]:
         Target(m, Variant.HOST) for m in info.get(constants.MODULE_HOST_DEPS, []))
 
     return deps
+
+
+def _is_dalvik_test_module(info: Dict[str, Any]) -> bool:
+    return (
+        'JAVA_LIBRARIES' in info.get(constants.MODULE_CLASS, []) and
+        True in info.get(constants.MODULE_AUTO_TEST_CONFIG, []))

@@ -435,18 +435,44 @@ class AtestTradefedTestRunnerUnittests(unittest.TestCase):
                             serial='',
                             tf_customize_template='',
                             device_early_release=' --no-early-device-release')])
-        # Run cmd with result server args.
+
+    @mock.patch('atest.test_runners.atest_tf_test_runner.is_log_upload_enabled',
+                return_value=True)
+    @mock.patch.object(atf_tr.AtestTradefedTestRunner,
+                       '_is_all_tests_parameter_auto_enabled',
+                       return_value=False)
+    @mock.patch('os.environ.get', return_value=None)
+    @mock.patch.object(atf_tr.AtestTradefedTestRunner,
+                       '_generate_metrics_folder')
+    @mock.patch('atest.atest_utils.get_result_server_args')
+    def test_generate_run_commands_with_upload_enabled(
+        self, mock_resultargs, mock_mertrics, _, _mock_all, _upload_enabled):
         result_arg = '--result_arg'
         mock_resultargs.return_value = [result_arg]
         mock_mertrics.return_value = ''
-        unittest_utils.assert_strict_equal(
-            self,
-            self.tr.generate_run_commands(
-                [], {}),
-            [RUN_CMD.format(metrics='',
-                            serial='',
-                            tf_customize_template='',
-                            device_early_release=' --no-early-device-release') + ' ' + result_arg])
+
+        run_command = self.tr.generate_run_commands([], {})
+
+        self.assertIn('--result_arg', run_command[0].split())
+
+    @mock.patch('atest.test_runners.atest_tf_test_runner.is_log_upload_enabled',
+                return_value=False)
+    @mock.patch.object(atf_tr.AtestTradefedTestRunner,
+                       '_is_all_tests_parameter_auto_enabled',
+                       return_value=False)
+    @mock.patch('os.environ.get', return_value=None)
+    @mock.patch.object(atf_tr.AtestTradefedTestRunner,
+                       '_generate_metrics_folder')
+    @mock.patch('atest.atest_utils.get_result_server_args')
+    def test_generate_run_commands_without_upload_enabled(
+        self, mock_resultargs, mock_mertrics, _, _mock_all, _upload_enabled):
+        result_arg = '--result_arg'
+        mock_resultargs.return_value = [result_arg]
+        mock_mertrics.return_value = ''
+
+        run_command = self.tr.generate_run_commands([], {})
+
+        self.assertNotIn('--result_arg', run_command[0].split())
 
     @mock.patch.object(atf_tr.AtestTradefedTestRunner,
                        '_is_all_tests_parameter_auto_enabled',
@@ -1243,15 +1269,10 @@ class DeviceDrivenTestTest(ModuleInfoTestFixture):
             'tradefed-host',
             'atest_script_help.sh-host',
         }
-        # The expect_deps may be different between aosp and internal branches.
-        for gtf_target in constants.GTF_TARGETS:
-            expect_deps.add(gtf_target + '-host')
 
         deps = runner.get_test_runner_build_reqs(test_infos)
 
-        self.assertSetEqual(
-            deps,
-            expect_deps)
+        self.assertContainsSubset(expect_deps, deps)
 
     @mock.patch.dict('os.environ', {'ANDROID_HOST_OUT': ANDROID_HOST_OUT})
     def test_host_jar_env_device_driven_test_without_host_arg(self):
@@ -1340,6 +1361,41 @@ class DeviceDrivenTestTest(ModuleInfoTestFixture):
         self.assertIn('vts-core-tradefed-harness-host', deps)
         self.assertNotIn('compatibility-tradefed-host', deps)
 
+    def test_deps_contain_google_tradefed(self):
+        mod_info = self.create_module_info(modules=[
+            multi_config_unit_test_module(name='hello_world_test')
+        ])
+        test_infos = [test_info_of('hello_world_test')]
+        runner = atf_tr.AtestTradefedTestRunner(
+            'result_dir', mod_info, host=False, minimal_build=True)
+        gtf_target = set([str(t) + '-host' for t in constants.GTF_TARGETS])
+
+        deps = runner.get_test_runner_build_reqs(test_infos)
+
+        self.assertContainsSubset(gtf_target, deps)
+
+    def test_java_device_test(self):
+        mod_info = self.create_module_info(modules=[
+            device_driven_test_module(
+                name='HelloWorldTest',
+                installed=['out/product/vsoc_x86/testcases/HelloWorldTest.jar'],
+                class_type=['JAVA_LIBRARIES']
+            )
+        ])
+        t_info = test_info_of('HelloWorldTest')
+        runner = atf_tr.AtestTradefedTestRunner(
+            'result_dir', mod_info, host=False, minimal_build=True)
+
+        deps = runner.get_test_runner_build_reqs([t_info])
+
+        self.assertContainsSubset(
+            {
+                'cts-dalvik-device-test-runner-target',
+                'cts-dalvik-host-test-runner-host',
+            },
+            deps,
+        )
+
 
 class DevicelessTestTest(ModuleInfoTestFixture):
     """Tests for deviceless test."""
@@ -1351,19 +1407,18 @@ class DevicelessTestTest(ModuleInfoTestFixture):
         test_infos = [test_info_of('hello_world_test')]
         runner = atf_tr.AtestTradefedTestRunner(
             'result_dir', mod_info, host=True, minimal_build=True)
+        expect_deps = {
+            'hello_world_test-host',
+            'adb-host',
+            'atest-tradefed-host',
+            'atest_tradefed.sh-host',
+            'tradefed-host',
+            'atest_script_help.sh-host',
+        }
 
         deps = runner.get_test_runner_build_reqs(test_infos)
 
-        self.assertSetEqual(
-            deps,
-            {
-                'hello_world_test-host',
-                'adb-host',
-                'atest-tradefed-host',
-                'atest_tradefed.sh-host',
-                'tradefed-host',
-                'atest_script_help.sh-host',
-            })
+        self.assertContainsSubset(expect_deps, deps)
 
     def test_robolectric_test(self):
         mod_info = self.create_module_info(modules=[
@@ -1372,19 +1427,18 @@ class DevicelessTestTest(ModuleInfoTestFixture):
         test_infos = [test_info_of('hello_world_test')]
         runner = atf_tr.AtestTradefedTestRunner(
             'result_dir', mod_info, minimal_build=True)
+        expect_deps = {
+            'hello_world_test-target',
+            'adb-host',
+            'atest-tradefed-host',
+            'atest_tradefed.sh-host',
+            'tradefed-host',
+            'atest_script_help.sh-host',
+        }
 
         deps = runner.get_test_runner_build_reqs(test_infos)
 
-        self.assertSetEqual(
-            deps,
-            {
-                'hello_world_test-target',
-                'adb-host',
-                'atest-tradefed-host',
-                'atest_tradefed.sh-host',
-                'tradefed-host',
-                'atest_script_help.sh-host',
-            })
+        self.assertContainsSubset(expect_deps, deps)
 
 
 def host_jar_module(name, installed):
@@ -1397,7 +1451,12 @@ def host_jar_module(name, installed):
         compatibility_suites=[])
 
 
-def device_driven_test_module(name, compatibility_suites=None, host_deps=None):
+def device_driven_test_module(
+    name,
+    installed=None,
+    compatibility_suites=None,
+    host_deps=None,
+    class_type=None):
 
     name = name or 'hello_world_test'
 
@@ -1405,8 +1464,10 @@ def device_driven_test_module(name, compatibility_suites=None, host_deps=None):
         name=name,
         supported_variants=['DEVICE'],
         compatibility_suites=compatibility_suites,
-        installed=[f'out/product/vsoc_x86/{name}/{name}.apk'],
-        host_deps=host_deps)
+        installed=installed or [f'out/product/vsoc_x86/{name}/{name}.apk'],
+        host_deps=host_deps,
+        class_type=class_type or ['APP'],
+    )
 
 
 def robolectric_test_module(name):
@@ -1448,7 +1509,8 @@ def test_module(
     installed,
     compatibility_suites=None,
     libs=None,
-    host_deps=None):
+    host_deps=None,
+    class_type=None):
 
     return module(
         name=name,
@@ -1457,7 +1519,8 @@ def test_module(
         auto_test_config=[True],
         compatibility_suites=compatibility_suites or ['null-suite'],
         libs=libs,
-        host_deps=host_deps)
+        host_deps=host_deps,
+        class_type=class_type)
 
 
 def module(
@@ -1467,17 +1530,19 @@ def module(
     auto_test_config=None,
     compatibility_suites=None,
     libs=None,
-    host_deps=None):
+    host_deps=None,
+    class_type=None):
 
     m = {}
 
     m[constants.MODULE_INFO_ID] = name
     m[constants.MODULE_SUPPORTED_VARIANTS] = supported_variants
     m[constants.MODULE_INSTALLED] = installed
-    m['auto_test_config'] = auto_test_config or []
+    m[constants.MODULE_AUTO_TEST_CONFIG] = auto_test_config or []
     m[constants.MODULE_COMPATIBILITY_SUITES] = compatibility_suites or []
     m[constants.MODULE_LIBS] = libs or []
     m[constants.MODULE_HOST_DEPS] = host_deps or []
+    m[constants.MODULE_CLASS] = class_type or []
 
     return m
 

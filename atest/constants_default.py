@@ -94,6 +94,7 @@ MODULE_COMPATIBILITY_SUITES = 'compatibility_suites'
 MODULE_NAME = 'module_name'
 MODULE_PATH = 'path'
 MODULE_CLASS = 'class'
+MODULE_AUTO_TEST_CONFIG = 'auto_test_config'
 MODULE_INSTALLED = 'installed'
 MODULE_CLASS_ROBOLECTRIC = 'ROBOLECTRIC'
 MODULE_CLASS_NATIVE_TESTS = 'NATIVE_TESTS'
@@ -402,6 +403,11 @@ ATEST_TF_LOG_SAVER = 'template/log/atest_log_saver'
 DEVICE_SETUP_PREPARER = 'template/preparers/device-preparer'
 LOG_ROOT_OPTION_NAME = 'atest-log-file-path'
 LOG_SAVER_EXT_OPTION = ''
+
+# Tradefed log saver template for uploading logs to cloud storage.
+GOOGLE_LOG_SAVER = ''
+GOOGLE_LOG_SAVER_LOG_ROOT_OPTION_NAME = ''
+GOOGLE_LOG_SAVER_EXT_OPTION = ''
 
 # Log messages here.
 REQUIRE_DEVICES_MSG = (

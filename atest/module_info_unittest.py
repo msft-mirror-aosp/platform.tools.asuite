@@ -103,12 +103,13 @@ class ModuleInfoUnittests(unittest.TestCase):
 
     # TODO: (b/264015241) Stop mocking build variables.
     # TODO: (b/263199608) Re-write the test after refactoring module-info.py
+    @mock.patch('pathlib.Path.is_file', return_value=True)
     @mock.patch.object(module_info.ModuleInfo, 'need_update_merged_file')
     @mock.patch('json.load', return_value={})
     @mock.patch('builtins.open', new_callable=mock.mock_open)
     @mock.patch('os.path.isfile', return_value=True)
     def test_load_mode_info_file_out_dir_handling(self, _isfile, _open, _json,
-        _merge):
+        _merge, _is_file):
         """Test _load_module_info_file out dir handling."""
         _merge.return_value = False
         # Test out default out dir is used.
@@ -119,7 +120,7 @@ class ModuleInfoUnittests(unittest.TestCase):
         default_out_dir_mod_targ = 'out/dir/here/module-info.json'
         # Make sure module_info_target is what we think it is.
         with mock.patch.dict('os.environ', os_environ_mock, clear=True):
-            mod_info = module_info.ModuleInfo(index_dir=HOST_OUT_DIR)
+            mod_info = module_info.ModuleInfo()
             self.assertEqual(default_out_dir_mod_targ,
                              mod_info.module_info_target)
 
@@ -130,7 +131,7 @@ class ModuleInfoUnittests(unittest.TestCase):
         custom_out_dir_mod_targ = 'out2/dir/here/module-info.json'
         # Make sure module_info_target is what we think it is.
         with mock.patch.dict('os.environ', os_environ_mock, clear=True):
-            mod_info = module_info.ModuleInfo(index_dir=HOST_OUT_DIR)
+            mod_info = module_info.ModuleInfo()
             self.assertEqual(custom_out_dir_mod_targ,
                              mod_info.module_info_target)
 
@@ -141,7 +142,7 @@ class ModuleInfoUnittests(unittest.TestCase):
         custom_abs_out_dir_mod_targ = '/tmp/out/dir/module-info.json'
         # Make sure module_info_target is what we think it is.
         with mock.patch.dict('os.environ', os_environ_mock, clear=True):
-            mod_info = module_info.ModuleInfo(index_dir=HOST_OUT_DIR)
+            mod_info = module_info.ModuleInfo()
             self.assertEqual(custom_abs_out_dir_mod_targ,
                              mod_info.module_info_target)
 
@@ -161,29 +162,28 @@ class ModuleInfoUnittests(unittest.TestCase):
                                             constants.MODULE_PATH: [mod_path_one]}],
                             mod_path_two: [{constants.MODULE_NAME: mod_two,
                                             constants.MODULE_PATH: [mod_path_two]}]}
-        mod_info = module_info.ModuleInfo(module_file=JSON_FILE_PATH,
-                                          index_dir=HOST_OUT_DIR)
+        mod_info = module_info.ModuleInfo(module_file=JSON_FILE_PATH)
         self.assertDictEqual(path_to_mod_info,
                              mod_info._get_path_to_module_info(mod_info_dict))
 
     def test_is_module(self):
         """Test that we get the module when it's properly loaded."""
         # Load up the test json file and check that module is in it
-        mod_info = module_info.ModuleInfo(module_file=JSON_FILE_PATH, index_dir=HOST_OUT_DIR)
+        mod_info = module_info.ModuleInfo(module_file=JSON_FILE_PATH)
         self.assertTrue(mod_info.is_module(EXPECTED_MOD_TARGET))
         self.assertFalse(mod_info.is_module(UNEXPECTED_MOD_TARGET))
 
     def test_get_path(self):
         """Test that we get the module path when it's properly loaded."""
         # Load up the test json file and check that module is in it
-        mod_info = module_info.ModuleInfo(module_file=JSON_FILE_PATH, index_dir=HOST_OUT_DIR)
+        mod_info = module_info.ModuleInfo(module_file=JSON_FILE_PATH)
         self.assertEqual(mod_info.get_paths(EXPECTED_MOD_TARGET),
                          EXPECTED_MOD_TARGET_PATH)
         self.assertEqual(mod_info.get_paths(MOD_NO_PATH), [])
 
     def test_get_module_names(self):
         """test that we get the module name properly."""
-        mod_info = module_info.ModuleInfo(module_file=JSON_FILE_PATH, index_dir=HOST_OUT_DIR)
+        mod_info = module_info.ModuleInfo(module_file=JSON_FILE_PATH)
         self.assertEqual(mod_info.get_module_names(EXPECTED_MOD_TARGET_PATH[0]),
                          [EXPECTED_MOD_TARGET])
         unittest_utils.assert_strict_equal(
@@ -192,7 +192,7 @@ class ModuleInfoUnittests(unittest.TestCase):
 
     def test_path_to_mod_info(self):
         """test that we get the module name properly."""
-        mod_info = module_info.ModuleInfo(module_file=JSON_FILE_PATH, index_dir=HOST_OUT_DIR)
+        mod_info = module_info.ModuleInfo(module_file=JSON_FILE_PATH)
         module_list = []
         for path_to_mod_info in mod_info.path_to_module_info[PATH_TO_MULT_MODULES_WITH_MULTI_ARCH]:
             module_list.append(path_to_mod_info.get(constants.MODULE_NAME))
@@ -202,7 +202,7 @@ class ModuleInfoUnittests(unittest.TestCase):
 
     def test_is_suite_in_compatibility_suites(self):
         """Test is_suite_in_compatibility_suites."""
-        mod_info = module_info.ModuleInfo(module_file=JSON_FILE_PATH, index_dir=HOST_OUT_DIR)
+        mod_info = module_info.ModuleInfo(module_file=JSON_FILE_PATH)
         info = {'compatibility_suites': []}
         self.assertFalse(mod_info.is_suite_in_compatibility_suites("cts", info))
         info2 = {'compatibility_suites': ["cts"]}
@@ -244,7 +244,7 @@ class ModuleInfoUnittests(unittest.TestCase):
     @mock.patch.object(module_info.ModuleInfo, 'get_robolectric_type')
     def test_is_robolectric_test(self, mock_type):
         """Test is_robolectric_test."""
-        mod_info = module_info.ModuleInfo(module_file=JSON_FILE_PATH, index_dir=HOST_OUT_DIR)
+        mod_info = module_info.ModuleInfo(module_file=JSON_FILE_PATH)
         mock_type.return_value = constants.ROBOTYPE_MODERN
         self.assertTrue(mod_info.is_robolectric_test(ROBO_MODULE))
         mock_type.return_value = constants.ROBOTYPE_LEGACY
@@ -255,7 +255,7 @@ class ModuleInfoUnittests(unittest.TestCase):
     @mock.patch.object(module_info.ModuleInfo, 'is_module')
     def test_is_auto_gen_test_config(self, mock_is_module):
         """Test is_auto_gen_test_config correctly detects the module."""
-        mod_info = module_info.ModuleInfo(module_file=JSON_FILE_PATH, index_dir=HOST_OUT_DIR)
+        mod_info = module_info.ModuleInfo(module_file=JSON_FILE_PATH)
         mock_is_module.return_value = True
         is_auto_test_config = {'auto_test_config': [True]}
         is_not_auto_test_config = {'auto_test_config': [False]}
@@ -272,7 +272,7 @@ class ModuleInfoUnittests(unittest.TestCase):
 
     def test_merge_build_system_infos(self):
         """Test _merge_build_system_infos."""
-        mod_info = module_info.ModuleInfo(module_file=JSON_FILE_PATH, index_dir=HOST_OUT_DIR)
+        mod_info = module_info.ModuleInfo(module_file=JSON_FILE_PATH)
         mod_info_1 = {constants.MODULE_NAME: 'module_1',
                       constants.MODULE_DEPENDENCIES: []}
         name_to_mod_info = {'module_1' : mod_info_1}
@@ -285,7 +285,7 @@ class ModuleInfoUnittests(unittest.TestCase):
 
     def test_merge_build_system_infos_missing_keys(self):
         """Test _merge_build_system_infos for keys missing from module-info.json."""
-        mod_info = module_info.ModuleInfo(module_file=JSON_FILE_PATH, index_dir=HOST_OUT_DIR)
+        mod_info = module_info.ModuleInfo(module_file=JSON_FILE_PATH)
         name_to_mod_info = mod_info._merge_build_system_infos(
             {}, java_bp_info_path=self.java_dep_path)
 
@@ -296,7 +296,7 @@ class ModuleInfoUnittests(unittest.TestCase):
 
     def test_merge_dependency_with_ori_dependency(self):
         """Test _merge_dependency."""
-        mod_info = module_info.ModuleInfo(module_file=JSON_FILE_PATH, index_dir=HOST_OUT_DIR)
+        mod_info = module_info.ModuleInfo(module_file=JSON_FILE_PATH)
         mod_info_1 = {constants.MODULE_NAME: 'module_1',
                       constants.MODULE_DEPENDENCIES: ['ori_dep_1']}
         name_to_mod_info = {'module_1' : mod_info_1}
@@ -311,7 +311,7 @@ class ModuleInfoUnittests(unittest.TestCase):
                                     constants.ANDROID_PRODUCT_OUT:PRODUCT_OUT_DIR})
     def test_get_instrumentation_target_apps(self):
         mod_info = module_info.ModuleInfo(
-            module_file=JSON_FILE_PATH, index_dir=HOST_OUT_DIR)
+            module_file=JSON_FILE_PATH)
         artifacts = {
             'AmSlam': {os.path.join(uc.TEST_DATA_DIR,
                        "out/target/product/generic/data/app/AmSlam/AmSlam.apk")}
@@ -338,7 +338,7 @@ class ModuleInfoUnittests(unittest.TestCase):
                                     constants.ANDROID_PRODUCT_OUT:PRODUCT_OUT_DIR})
     def test_get_target_module_by_pkg(self):
         mod_info = module_info.ModuleInfo(
-            module_file=JSON_FILE_PATH, index_dir=HOST_OUT_DIR)
+            module_file=JSON_FILE_PATH)
         self.assertEqual(
             'AmSlam',
             mod_info.get_target_module_by_pkg(
@@ -349,7 +349,7 @@ class ModuleInfoUnittests(unittest.TestCase):
                                     constants.ANDROID_PRODUCT_OUT:PRODUCT_OUT_DIR})
     def test_get_artifact_map(self):
         mod_info = module_info.ModuleInfo(
-            module_file=JSON_FILE_PATH, index_dir=HOST_OUT_DIR)
+            module_file=JSON_FILE_PATH)
         artifacts = {
             'AmSlam': {os.path.join(uc.TEST_DATA_DIR,
                        'out/target/product/generic/data/app/AmSlam/AmSlam.apk')}
@@ -360,7 +360,7 @@ class ModuleInfoUnittests(unittest.TestCase):
                                     constants.ANDROID_PRODUCT_OUT:PRODUCT_OUT_DIR})
     def test_get_filepath_from_module(self):
         """Test for get_filepath_from_module."""
-        mod_info = module_info.ModuleInfo(module_file=JSON_FILE_PATH, index_dir=HOST_OUT_DIR)
+        mod_info = module_info.ModuleInfo(module_file=JSON_FILE_PATH)
 
         expected_filepath = Path(uc.TEST_DATA_DIR).joinpath(
             'foo/bar/AmSlam', 'AndroidManifest.xml')
@@ -376,7 +376,7 @@ class ModuleInfoUnittests(unittest.TestCase):
 
     def test_get_module_dependency(self):
         """Test get_module_dependency."""
-        mod_info = module_info.ModuleInfo(module_file=JSON_FILE_PATH, index_dir=HOST_OUT_DIR)
+        mod_info = module_info.ModuleInfo(module_file=JSON_FILE_PATH)
         expect_deps = {'test_dep_level_1_1', 'module_1', 'test_dep_level_1_2',
                        'test_dep_level_2_2', 'test_dep_level_2_1', 'module_2'}
         mod_info._merge_build_system_infos(mod_info.name_to_module_info,
@@ -387,7 +387,7 @@ class ModuleInfoUnittests(unittest.TestCase):
 
     def test_get_module_dependency_w_loop(self):
         """Test get_module_dependency with problem dep file."""
-        mod_info = module_info.ModuleInfo(module_file=JSON_FILE_PATH, index_dir=HOST_OUT_DIR)
+        mod_info = module_info.ModuleInfo(module_file=JSON_FILE_PATH)
         # Java dependency file with a endless loop define.
         java_dep_file = os.path.join(uc.TEST_DATA_DIR,
                                      'module_bp_java_loop_deps.json')
@@ -401,7 +401,7 @@ class ModuleInfoUnittests(unittest.TestCase):
 
     def test_get_install_module_dependency(self):
         """Test get_install_module_dependency."""
-        mod_info = module_info.ModuleInfo(module_file=JSON_FILE_PATH, index_dir=HOST_OUT_DIR)
+        mod_info = module_info.ModuleInfo(module_file=JSON_FILE_PATH)
         expect_deps = {'module_1', 'test_dep_level_2_1'}
         mod_info._merge_build_system_infos(mod_info.name_to_module_info,
                                            java_bp_info_path=self.java_dep_path)
@@ -411,7 +411,7 @@ class ModuleInfoUnittests(unittest.TestCase):
 
     def test_cc_merge_build_system_infos(self):
         """Test _merge_build_system_infos for cc."""
-        mod_info = module_info.ModuleInfo(module_file=JSON_FILE_PATH, index_dir=HOST_OUT_DIR)
+        mod_info = module_info.ModuleInfo(module_file=JSON_FILE_PATH)
         mod_info_1 = {constants.MODULE_NAME: 'module_cc_1',
                       constants.MODULE_DEPENDENCIES: []}
         name_to_mod_info = {'module_cc_1' : mod_info_1}
@@ -427,8 +427,7 @@ class ModuleInfoUnittests(unittest.TestCase):
         module_name = 'myModule'
         maininfo_with_unittest = {constants.MODULE_NAME: module_name,
                                   constants.MODULE_IS_UNIT_TEST: 'true'}
-        mod_info = module_info.ModuleInfo(module_file=JSON_FILE_PATH,
-                                          index_dir=HOST_OUT_DIR)
+        mod_info = module_info.ModuleInfo(module_file=JSON_FILE_PATH)
         self.assertTrue(mod_info.is_unit_test(maininfo_with_unittest))
 
     def test_is_host_unit_test(self):
@@ -442,8 +441,7 @@ class ModuleInfoUnittests(unittest.TestCase):
             'auto_test_config': ['true']
         }
 
-        mod_info = module_info.ModuleInfo(module_file=JSON_FILE_PATH,
-                                          index_dir=HOST_OUT_DIR)
+        mod_info = module_info.ModuleInfo(module_file=JSON_FILE_PATH)
 
         self.assertTrue(mod_info.is_host_unit_test(maininfo_with_host_unittest))
 
@@ -456,7 +454,7 @@ class ModuleInfoUnittests(unittest.TestCase):
             constants.MODULE_INSTALLED: uc.DEFAULT_INSTALL_PATH,
             'supported_variants': ['DEVICE']
         }
-        mod_info = module_info.ModuleInfo(module_file=JSON_FILE_PATH, index_dir=HOST_OUT_DIR)
+        mod_info = module_info.ModuleInfo(module_file=JSON_FILE_PATH)
 
         self.assertTrue(mod_info.is_device_driven_test(maininfo_with_device_driven_test))
 
@@ -470,7 +468,7 @@ class ModuleInfoUnittests(unittest.TestCase):
             'supported_variants': ['DEVICE'],
             'compatibility_suites': ['robolectric-tests'],
         }
-        mod_info = module_info.ModuleInfo(module_file=JSON_FILE_PATH, index_dir=HOST_OUT_DIR)
+        mod_info = module_info.ModuleInfo(module_file=JSON_FILE_PATH)
 
         self.assertFalse(mod_info.is_device_driven_test(maininfo_with_device_driven_test))
 
@@ -510,7 +508,7 @@ class ModuleInfoUnittests(unittest.TestCase):
         mainline_module2 = ['foo1.apex']
         name3 = 'MainModule3'
 
-        mod_info = module_info.ModuleInfo(module_file=JSON_FILE_PATH, index_dir=HOST_OUT_DIR)
+        mod_info = module_info.ModuleInfo(module_file=JSON_FILE_PATH)
         # found in 'test_mainlne_modules' attribute.
         self.assertTrue(mod_info.has_mainline_modules(name1, mainline_module1))
         # found in the value of 'mainline-param' in test_config.
@@ -527,7 +525,7 @@ class ModuleInfoUnittests(unittest.TestCase):
         my_module_name = 'MyMultiArchTestModule'
         multi_arch_json = os.path.join(uc.TEST_DATA_DIR,
                                        'multi_arch_module-info.json')
-        mod_info = module_info.ModuleInfo(module_file=multi_arch_json, index_dir=HOST_OUT_DIR)
+        mod_info = module_info.ModuleInfo(module_file=multi_arch_json)
 
         self.assertIsNotNone(mod_info.get_module_info(my_module_name))
 
