@@ -21,7 +21,7 @@ from enum import IntEnum, unique, Enum
 @unique
 class DetectType(IntEnum):
     """An Enum class for local_detect_event."""
-    # Detect type for local_detect_event; next expansion: 52
+    # Detect type for local_detect_event; next expansion: 53
     BUG_DETECTED = 0
     ACLOUD_CREATE = 1
     FIND_BUILD = 2
@@ -96,6 +96,7 @@ class DetectType(IntEnum):
     UPLOAD_PREPARE_MS = 50
     # Time of join the index.
     IDX_JOIN_MS = 51
+    IS_MINIMAL_BUILD = 52
 
 @unique
 class ExitCode(IntEnum):
