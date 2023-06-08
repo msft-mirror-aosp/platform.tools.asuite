@@ -634,6 +634,11 @@ public final class BazelTest implements IRemoteTest {
 
             TestRecord.Builder recordBuilder = record.toBuilder();
             recursivelyUpdateArtifactsRootPath(recordBuilder, outputFilesDir);
+
+            // Tradefed does not report the invocation trace to the proto result file so we have to
+            // explicitly re-add it here.
+            addTraceFilesToTestRecord(recordBuilder, outputFilesDir);
+
             moveRootRecordArtifactsToFirstChild(recordBuilder);
             resultParser.processFinalizedProto(recordBuilder.build());
         } finally {
@@ -693,6 +698,35 @@ public final class BazelTest implements IRemoteTest {
         }
 
         return relativePath;
+    }
+
+    private void addTraceFilesToTestRecord(TestRecord.Builder recordBuilder, Path outputFilesDir)
+            throws IOException {
+
+        try (Stream<Path> traceFiles =
+                Files.walk(outputFilesDir)
+                        .filter(x -> MoreFiles.getFileExtension(x).equals("perfetto-trace"))) {
+
+            traceFiles.forEach(
+                    traceFile -> {
+                        recordBuilder.putArtifacts(
+                                traceFile.getFileName().toString(),
+                                Any.pack(
+                                        LogFileInfo.newBuilder()
+                                                .setPath(traceFile.toAbsolutePath().toString())
+                                                .setIsCompressed(false)
+                                                .setIsText(true)
+                                                // We don't mark this file as a PERFETTO log to
+                                                // avoid having its contents automatically merged in
+                                                // the top-level invocation's trace. The merge
+                                                // process is wonky and makes the resulting trace
+                                                // difficult to read.
+                                                // TODO(b/284328869): Switch to PERFETTO log type
+                                                // once traces are properly merged.
+                                                .setLogType(LogDataType.TEXT.toString())
+                                                .build()));
+                    });
+        }
     }
 
     private void moveRootRecordArtifactsToFirstChild(TestRecord.Builder recordBuilder) {
