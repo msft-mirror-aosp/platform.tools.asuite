@@ -98,8 +98,6 @@ _ANDROID_BUILD_EXT = ('.bp', '.mk')
 _REGEX_CHARS = {'[', '(', '{', '|', '\\', '*', '?', '+', '^'}
 _WILDCARD_CHARS = {'?', '*'}
 
-_ROOT_PREPARER = "com.android.tradefed.targetprep.RootTargetPreparer"
-
 _WILDCARD_FILTER_RE = re.compile(r'.*[?|*]$')
 _REGULAR_FILTER_RE = re.compile(r'.*\w$')
 
