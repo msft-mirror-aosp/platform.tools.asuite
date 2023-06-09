@@ -37,6 +37,7 @@ from atest.metrics import metrics
 from atest.metrics import metrics_utils
 from atest.test_finders import test_info
 from atest.test_runners import atest_tf_test_runner
+from atest.test_runners import mobly_test_runner
 from atest.test_runners import roboleaf_test_runner
 from atest.test_runners import robolectric_test_runner
 from atest.test_runners import suite_plan_test_runner
@@ -44,6 +45,7 @@ from atest.test_runners import vts_tf_test_runner
 
 _TEST_RUNNERS = {
     atest_tf_test_runner.AtestTradefedTestRunner.NAME: atest_tf_test_runner.AtestTradefedTestRunner,
+    mobly_test_runner.MoblyTestRunner.NAME: mobly_test_runner.MoblyTestRunner,
     robolectric_test_runner.RobolectricTestRunner.NAME: robolectric_test_runner.RobolectricTestRunner,
     suite_plan_test_runner.SuitePlanTestRunner.NAME: suite_plan_test_runner.SuitePlanTestRunner,
     vts_tf_test_runner.VtsTradefedTestRunner.NAME: vts_tf_test_runner.VtsTradefedTestRunner,
