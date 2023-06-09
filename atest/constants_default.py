@@ -171,6 +171,9 @@ TF_ENABLE_MAINLINE_PARAMETERIZED_MODULES = '--enable-mainline-parameterized-modu
 TF_ENABLE_PARAMETERIZED_MODULES = '--enable-parameterized-modules'
 TF_MODULE_PARAMETER = '--module-parameter'
 
+# Mobly constants
+MOBLY_TEST_OPTIONS_TAG = 'mobly'
+
 # Suite Plans
 SUITE_PLANS = frozenset(['cts'])
 

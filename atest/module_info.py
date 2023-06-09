@@ -421,11 +421,27 @@ class ModuleInfo:
             return False
         return self.has_test_config(info)
 
+    def is_mobly_module(self, info: Dict[str, Any]) -> bool:
+        """Check whether the module is a Mobly test.
+
+        Note: Only python_test_host modules marked with a test_options tag of
+          "mobly" is considered a Mobly module.
+
+        Args:
+            info: Dict of module info to check.
+
+        Returns:
+            True if this is a Mobly test module, False otherwise.
+        """
+        return constants.MOBLY_TEST_OPTIONS_TAG in info.get(
+            constants.MODULE_TEST_OPTIONS_TAGS, [])
+
     def is_testable_module(self, info: Dict[str, Any]) -> bool:
         """Check if module is something we can test.
 
         A module is testable if:
           - it's a tradefed testable module, or
+          - it's a Mobly module, or
           - it's a robolectric module (or shares path with one).
 
         Args:
@@ -437,6 +453,8 @@ class ModuleInfo:
         if not info:
             return False
         if self.is_tradefed_testable_module(info):
+            return True
+        if self.is_mobly_module(info):
             return True
         if self.is_legacy_robolectric_test(info):
             return True
