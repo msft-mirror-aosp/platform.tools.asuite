@@ -78,6 +78,7 @@ rm -rf ${OUT_DIR}/atest_bazel_workspace
 
 # Generate the initial workspace via Atest Bazel mode.
 ${OUT_DIR}/host/linux-x86/bin/atest-dev \
+  --no-metrics \
   --bazel-mode \
   --host-unit-test-only \
   --host \
