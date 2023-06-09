@@ -660,7 +660,8 @@ class AtestUtilsUnittests(unittest.TestCase):
         inexist_string = os.path.join(unittest_constants.TEST_DATA_DIR,
                                       unittest_constants.CLASS_NAME)
         self.assertEqual(
-            atest_utils.md5sum(exist_string), '062160df00c20b1ee4d916b7baf71346')
+            atest_utils.md5sum(exist_string),
+            'e066445b9a6244d1998fe76e7b872b3e')
         self.assertEqual(
             atest_utils.md5sum(inexist_string), '')
 
