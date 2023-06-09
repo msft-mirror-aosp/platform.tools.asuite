@@ -35,6 +35,7 @@ from atest.test_finders import test_info
 from atest.test_finders import test_finder_base
 from atest.test_finders import test_finder_utils
 from atest.test_runners import atest_tf_test_runner
+from atest.test_runners import mobly_test_runner
 from atest.test_runners import robolectric_test_runner
 from atest.test_runners import vts_tf_test_runner
 
@@ -46,6 +47,7 @@ class ModuleFinder(test_finder_base.TestFinderBase):
     """Module finder class."""
     NAME = 'MODULE'
     _TEST_RUNNER = atest_tf_test_runner.AtestTradefedTestRunner.NAME
+    _MOBLY_RUNNER = mobly_test_runner.MoblyTestRunner.NAME
     _ROBOLECTRIC_RUNNER = robolectric_test_runner.RobolectricTestRunner.NAME
     _VTS_TEST_RUNNER = vts_tf_test_runner.VtsTradefedTestRunner.NAME
 
@@ -142,6 +144,30 @@ class ModuleFinder(test_finder_base.TestFinderBase):
         test.add_build_target(test.test_name)
         return test
 
+    def _update_to_mobly_test_info(self, test):
+        """Update the fields for a Mobly test.
+
+        The runner will be updated to the Mobly runner.
+
+        The module's build output paths will be stored in the test_info data.
+
+        Args:
+            test: TestInfo to be updated with Mobly fields.
+
+        Returns:
+            TestInfo with updated Mobly fields.
+        """
+        # Set test runner to MoblyTestRunner
+        test.test_runner = self._MOBLY_RUNNER
+        # Add test module as build target
+        module_name = test.test_name
+        test.add_build_target(module_name)
+        # Add module's installed paths to data, so the runner may access the
+        # module's build outputs.
+        installed_paths = self.module_info.get_installed_paths(module_name)
+        test.data[constants.MODULE_INSTALLED] = installed_paths
+        return test
+
     def _update_legacy_robolectric_test_info(self, test):
         """Update the fields for a legacy robolectric test.
 
@@ -186,6 +212,9 @@ class ModuleFinder(test_finder_base.TestFinderBase):
         # Check if this is only a vts10 module.
         if self._is_vts_module(test.test_name):
             return self._update_to_vts_test_info(test)
+        # Check if this is a Mobly test module.
+        if self.module_info.is_mobly_module(mod_info):
+            return self._update_to_mobly_test_info(test)
         test.robo_type = self.module_info.get_robolectric_type(test.test_name)
         if test.robo_type:
             test.install_locations = {constants.DEVICELESS_TEST}
