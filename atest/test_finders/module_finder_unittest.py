@@ -277,6 +277,7 @@ class ModuleFinderUnittests(unittest.TestCase):
         self.mod_finder = module_finder.ModuleFinder()
         self.mod_finder.module_info = mock.Mock(spec=module_info.ModuleInfo)
         self.mod_finder.module_info.path_to_module_info = {}
+        self.mod_finder.module_info.is_mobly_module.return_value = False
         self.mod_finder.root_dir = uc.ROOT
 
     def test_is_vts_module(self):
