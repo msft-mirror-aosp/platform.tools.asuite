@@ -948,31 +948,6 @@ def _all_tests_are_bazel_buildable(
     """
     return roboleaf_tests and set(tests) == set(roboleaf_tests)
 
-def perm_consistency_metrics(
-        test_infos: Set[TestInfo],
-        mod_info: module_info.ModuleInfo,
-        args: argparse.ArgumentParser):
-    """collect inconsistency between preparer and device root permission.
-
-    Args:
-        test_infos: TestInfo obj.
-        mod_info: ModuleInfo obj.
-        args: An argparse.ArgumentParser class instance holding parsed args.
-    """
-    try:
-        # whether device has root permission
-        adb_root = atest_utils.is_adb_root(args)
-        logging.debug('is_adb_root: %s', adb_root)
-        for test_info in test_infos:
-            config_path, _ = test_finder_utils.get_test_config_and_srcs(
-                test_info, mod_info)
-            atest_utils.perm_metrics(config_path, adb_root)
-    # pylint: disable=broad-except
-    except Exception as err:
-        logging.debug('perm_consistency_metrics raised exception: %s', err)
-        return
-
-
 def set_build_output_mode(mode: atest_utils.BuildOutputMode):
     """Update environment variable dict accordingly to args.build_output."""
     # Changing this variable does not retrigger builds.
@@ -1092,15 +1067,6 @@ def main(argv: List[Any], results_dir: str, args: argparse.ArgumentParser):
         atest_utils.run_multi_proc(
             func=atest_utils.generate_buildfiles_checksum,
             args=[mod_info.module_index.parent])
-
-        if args.bazel_mode:
-            start = time.time()
-            bazel_mode.generate_bazel_workspace(
-                mod_info,
-                enabled_features=set(args.bazel_mode_features or []))
-            metrics.LocalDetectEvent(
-                detect_type=DetectType.BAZEL_WORKSPACE_GENERATE_TIME,
-                result=int(time.time() - start))
 
     translator = cli_translator.CLITranslator(
         mod_info=mod_info,
@@ -1250,7 +1216,6 @@ def main(argv: List[Any], results_dir: str, args: argparse.ArgumentParser):
             metrics.LocalDetectEvent(
                 detect_type=DetectType.INIT_AND_FIND_MS,
                 result=int(_init_and_find*1000))
-        perm_consistency_metrics(test_infos, mod_info, args)
         if not is_from_test_mapping(test_infos):
             tests_exit_code, reporter = test_runner_handler.run_all_tests(
                 results_dir, test_infos, extra_args, mod_info)

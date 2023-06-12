@@ -50,6 +50,7 @@ from xml.etree import ElementTree as ET
 
 from google.protobuf.message import DecodeError
 
+from atest import atest_configs
 from atest import atest_utils
 from atest import constants
 from atest import module_info
@@ -158,6 +159,7 @@ def generate_bazel_workspace(mod_info: module_info.ModuleInfo,
                              enabled_features: Set[Features] = None):
     """Generate or update the Bazel workspace used for running tests."""
 
+    start = time.time()
     src_root_path = Path(os.environ.get(constants.ANDROID_BUILD_TOP))
     workspace_path = get_bazel_workspace_dir()
     resource_manager = ResourceManager(
@@ -182,6 +184,10 @@ def generate_bazel_workspace(mod_info: module_info.ModuleInfo,
     )
     workspace_generator.generate()
 
+    metrics.LocalDetectEvent(
+            detect_type=DetectType.BAZEL_WORKSPACE_GENERATE_TIME,
+            result=int(time.time() - start)
+        )
 
 def get_default_build_metadata():
     return BuildMetadata(atest_utils.get_manifest_branch(),
@@ -1609,6 +1615,8 @@ class BazelTestRunner(trb.TestRunnerBase):
                  run_command: Callable=default_run_command,
                  build_metadata: BuildMetadata=None,
                  env: Dict[str, str]=None,
+                 generate_workspace_fn: Callable=generate_bazel_workspace,
+                 enabled_features: Set[str]=None,
                  **kwargs):
         super().__init__(results_dir, **kwargs)
         self.mod_info = mod_info
@@ -1624,6 +1632,10 @@ class BazelTestRunner(trb.TestRunnerBase):
         self._extra_args = extra_args or {}
         self.build_metadata = build_metadata or get_default_build_metadata()
         self.env = env or os.environ
+        self._generate_workspace_fn = generate_workspace_fn
+        self._enabled_features = (enabled_features
+                                  if enabled_features is not None else
+                                  atest_configs.GLOBAL_ARGS.bazel_mode_features)
 
     # pylint: disable=unused-argument
     def run_tests(self, test_infos, extra_args, reporter):
@@ -1704,6 +1716,11 @@ class BazelTestRunner(trb.TestRunnerBase):
     def get_test_runner_build_reqs(self, test_infos) -> Set[str]:
         if not test_infos:
             return set()
+
+        self._generate_workspace_fn(
+            self.mod_info,
+            self._enabled_features,
+        )
 
         deps_expression = ' + '.join(
             sorted(self.test_info_target_label(i) for i in test_infos)

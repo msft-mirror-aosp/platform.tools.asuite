@@ -58,7 +58,6 @@ class ModuleInfo:
         self,
         force_build=False,
         module_file=None,
-        index_dir=None,
         no_generate=False):
         """Initialize the ModuleInfo object.
 
@@ -168,7 +167,7 @@ class ModuleInfo:
             logging.debug('User customized out dir!')
             module_file_path = out_dir.joinpath(_MODULE_INFO)
             module_info_target = str(module_file_path)
-        if force_build:
+        if force_build or not module_file_path.is_file():
             atest_utils.build_module_info_target(module_info_target)
         return module_info_target, module_file_path
 
@@ -220,13 +219,6 @@ class ModuleInfo:
         if self.update_merge_info:
             # Load the $ANDROID_PRODUCT_OUT/module-info.json for merging.
             module_info_json = atest_utils.load_json_safely(file_path)
-            if Path(file_path).name == _MODULE_INFO and not module_info_json:
-                # Rebuild module-info.json when it has invalid format. However,
-                # if the file_path doesn't end with module-info.json, it could
-                # be from unit tests and won't trigger rebuild.
-                atest_utils.build_module_info_target(module_info_target)
-                start = time.time()
-                module_info_json = atest_utils.load_json_safely(file_path)
             mod_info = self._merge_build_system_infos(module_info_json)
             duration = time.time() - start
             logging.debug('Merging module info took %ss', duration)
@@ -429,11 +421,27 @@ class ModuleInfo:
             return False
         return self.has_test_config(info)
 
+    def is_mobly_module(self, info: Dict[str, Any]) -> bool:
+        """Check whether the module is a Mobly test.
+
+        Note: Only python_test_host modules marked with a test_options tag of
+          "mobly" is considered a Mobly module.
+
+        Args:
+            info: Dict of module info to check.
+
+        Returns:
+            True if this is a Mobly test module, False otherwise.
+        """
+        return constants.MOBLY_TEST_OPTIONS_TAG in info.get(
+            constants.MODULE_TEST_OPTIONS_TAGS, [])
+
     def is_testable_module(self, info: Dict[str, Any]) -> bool:
         """Check if module is something we can test.
 
         A module is testable if:
           - it's a tradefed testable module, or
+          - it's a Mobly module, or
           - it's a robolectric module (or shares path with one).
 
         Args:
@@ -445,6 +453,8 @@ class ModuleInfo:
         if not info:
             return False
         if self.is_tradefed_testable_module(info):
+            return True
+        if self.is_mobly_module(info):
             return True
         if self.is_legacy_robolectric_test(info):
             return True

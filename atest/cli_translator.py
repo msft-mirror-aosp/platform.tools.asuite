@@ -384,7 +384,15 @@ class CLITranslator:
         """
         all_tests = {}
         imports = []
-        test_mapping_dict = json.loads(self.filter_comments(test_mapping_file))
+        test_mapping_dict = {}
+        try:
+            test_mapping_dict = json.loads(self.filter_comments(
+                test_mapping_file))
+        except json.JSONDecodeError as e:
+            msg = 'Test Mapping file has invalid format: %s.' % e
+            logging.debug(msg)
+            atest_utils.colorful_print(msg, constants.RED)
+            sys.exit(ExitCode.INVALID_TM_FORMAT)
         for test_group_name, test_list in test_mapping_dict.items():
             if test_group_name == constants.TEST_MAPPING_IMPORTS:
                 for import_detail in test_list:

@@ -2298,7 +2298,8 @@ class BazelTestRunnerTest(unittest.TestCase):
                                  run_command=None,
                                  host=False,
                                  build_metadata=None,
-                                 env=None):
+                                 env=None,
+                                 enable_features=None):
         return bazel_mode.BazelTestRunner(
             'result_dir',
             mod_info=create_module_info(modules),
@@ -2307,7 +2308,9 @@ class BazelTestRunnerTest(unittest.TestCase):
             run_command=run_command or self.mock_run_command(),
             extra_args={constants.HOST: host},
             build_metadata = build_metadata,
-            env = env
+            env = env,
+            generate_workspace_fn=lambda *_: None,
+            enabled_features=enable_features or [],
         )
 
     def create_bazel_test_runner_for_tests(self,
