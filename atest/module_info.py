@@ -305,7 +305,9 @@ class ModuleInfo:
         begin = time.time()
         for _, info in self.name_to_module_info.items():
             if self.is_testable_module(info):
-                modules.add(info.get(constants.MODULE_NAME))
+                testable_module = info.get(constants.MODULE_NAME)
+                if testable_module:
+                    modules.add(testable_module)
         logging.debug('Probing all testable modules took %ss',
                       time.time() - begin)
         if index:
@@ -315,7 +317,9 @@ class ModuleInfo:
             for module_name in modules:
                 info = self.get_module_info(module_name)
                 if self.is_suite_in_compatibility_suites(suite, info):
-                    _modules.add(info.get(constants.MODULE_NAME))
+                    testable_module = info.get(constants.MODULE_NAME)
+                    if testable_module:
+                        _modules.add(testable_module)
             return _modules
         return modules
 
