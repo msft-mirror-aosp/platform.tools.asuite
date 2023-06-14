@@ -91,7 +91,6 @@ class ModuleInfo:
             force_build: Boolean to indicate if we should rebuild the
                          module_info file regardless if it's created or not.
             module_file: String of path to file to load up. Used for testing.
-            index_dir: String of path to store testable module index and md5.
             no_generate: Boolean to indicate if we should populate module info
                          from the soong artifacts; setting to true will
                          leave module info empty.
@@ -111,7 +110,6 @@ class ModuleInfo:
         # Index and checksum files that will be used.
         index_dir = Path(os.getenv(constants.ANDROID_HOST_OUT, '')).joinpath('indexes')
         self.module_index = index_dir.joinpath(constants.MODULE_INDEX)
-        self.module_info_checksum = index_dir.joinpath(constants.MODULE_INFO_MD5)
 
         # Paths to java, cc and merged module info json files.
         self.java_dep_path = Path(
@@ -214,7 +212,7 @@ class ModuleInfo:
         # Even undergone a rebuild after _discover_mod_file_and_target(), merge
         # atest_merged_dep.json only when module_deps_infos actually change so
         # that Atest can decrease disk I/O and ensure data accuracy at all.
-        self.update_merge_info = self.need_update_merged_file()
+        self.update_merge_info = self.need_merge_module_info()
         start = time.time()
         if self.update_merge_info:
             # Load the $ANDROID_PRODUCT_OUT/module-info.json for merging.
@@ -235,19 +233,28 @@ class ModuleInfo:
         logging.debug('Loading %s as module-info.', self.merged_dep_path)
         return module_info_target, mod_info
 
-    def _save_module_info_checksum(self):
-        """Dump the checksum of essential module info files.
+    def _save_module_info_timestamp(self):
+        """Dump the timestamp of essential module info files.
            * module-info.json
            * module_bp_cc_deps.json
            * module_bp_java_deps.json
         """
-        dirname = Path(self.module_info_checksum).parent
+        dirname = atest_utils.get_host_out('indexes')
         if not dirname.is_dir():
             dirname.mkdir(parents=True)
-        atest_utils.save_md5([
-            self.mod_info_file_path,
-            self.java_dep_path,
-            self.cc_dep_path], self.module_info_checksum)
+
+        timestamp = {}
+        for json_file in [self.mod_info_file_path,
+                          self.java_dep_path,
+                          self.cc_dep_path]:
+            timestamp.update(
+                {str(json_file): json_file.stat().st_mtime}
+            )
+
+        timestamp_file = dirname.joinpath('modules.stp')
+        with open(timestamp_file, 'w', encoding='utf8') as _file:
+            json.dump(timestamp, _file)
+
 
     @staticmethod
     def _get_path_to_module_info(name_to_module_info):
@@ -892,8 +899,8 @@ class ModuleInfo:
                       install_deps, module_name)
         return install_deps
 
-    def need_update_merged_file(self):
-        """Check if need to update/generated atest_merged_dep.
+    def need_merge_module_info(self):
+        """Check if need to merge module info json files.
 
         There are 2 scienarios that atest_merged_dep.json will be updated.
         1. One of the checksum of module-info.json, module_bp_java_deps.json and
@@ -905,13 +912,17 @@ class ModuleInfo:
         Returns:
             True if one of the scienarios reaches, False otherwise.
         """
-        data = atest_utils.load_json_safely(self.module_info_checksum)
+        if not self.merged_dep_path.is_file():
+            return True
+
+        timestamp_file = atest_utils.get_host_out('indexes/modules.stp')
+        data = atest_utils.load_json_safely(timestamp_file)
         for f in [self.mod_info_file_path,
                   self.java_dep_path,
                   self.cc_dep_path]:
-            if atest_utils.md5sum(f) != data.get(str(f), ''):
+            if f.stat().st_mtime != data.get(str(f), ''):
                 return True
-        return not self.merged_dep_path.is_file()
+        return False
 
     def is_unit_test(self, mod_info):
         """Return True if input module is unit test, False otherwise.
