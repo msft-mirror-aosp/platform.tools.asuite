@@ -1065,8 +1065,8 @@ def main(argv: List[Any], results_dir: str, args: argparse.ArgumentParser):
                                  result=int(mod_stop * 1000))
         atest_utils.run_multi_proc(func=mod_info._save_module_info_timestamp)
         atest_utils.run_multi_proc(
-            func=atest_utils.generate_buildfiles_checksum,
-            args=[mod_info.module_index.parent])
+            func=atest_utils.save_build_files_timestamp,
+        )
 
     translator = cli_translator.CLITranslator(
         mod_info=mod_info,
