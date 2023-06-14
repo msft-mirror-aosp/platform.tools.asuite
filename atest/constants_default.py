@@ -255,7 +255,6 @@ CC_CLASS_INDEX = os.path.join(INDEX_DIR, 'cc_classes.idx')
 PACKAGE_INDEX = os.path.join(INDEX_DIR, 'packages.idx')
 QCLASS_INDEX = os.path.join(INDEX_DIR, 'fqcn.idx')
 MODULE_INDEX = 'modules.idx'
-MODULE_INFO_MD5 = 'module-info.md5'
 
 # Regeular Expressions
 CC_EXT_RE = re.compile(r'.*\.(cc|cpp)$')
