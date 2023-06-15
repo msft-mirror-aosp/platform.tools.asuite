@@ -136,21 +136,8 @@ class BuildOutputMode(enum.Enum):
         return self._description
 
 
-class SingletonFixture(type):
-    """A SingletonFixture class."""
-    _instances = {}
-
-    def __call__(cls, *args, **kwargs):
-        if cls not in cls._instances:
-            instance = super().__call__(*args, **kwargs)
-            cls._instances[cls] = instance
-        return cls._instances[cls]
-
-    def delete(cls):
-        cls._instances.pop(cls, None)
-
 @dataclass
-class AndroidVariables(metaclass=SingletonFixture):
+class AndroidVariables:
     """Class that stores the value of environment variables."""
     build_top: str
     product_out: str
