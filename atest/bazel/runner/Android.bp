@@ -21,6 +21,7 @@ java_library_host {
     srcs: [
         "src/com/android/tradefed/testtype/bazel/BazelTest.java",
         "src/com/android/tradefed/testtype/bazel/BepFileTailer.java",
+        "src/com/android/tradefed/testtype/bazel/ForwardingTestListener.java",
         "src/main/protobuf/*.proto",
     ],
     // b/267831518: Pin tradefed and dependencies to Java 11.
