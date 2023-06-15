@@ -56,6 +56,10 @@ def load_from_file(module_file):
     JSON file"""
     return ModuleInfo(module_file=module_file)
 
+def load_from_dict(name_to_module_info: Dict[str, Any]):
+    """Factory method that initializes ModuleInfo from a dictionary."""
+    return ModuleInfo(module_info_dict=name_to_module_info)
+
 
 class ModuleInfo:
     """Class that offers fast/easy lookup for Module related details."""
@@ -64,7 +68,8 @@ class ModuleInfo:
         self,
         force_build=False,
         module_file=None,
-        no_generate=False):
+        no_generate=False,
+        module_info_dict=None):
         """Initialize the ModuleInfo object.
 
         Load up the module-info.json file and initialize the helper vars.
@@ -101,11 +106,7 @@ class ModuleInfo:
                          from the soong artifacts; setting to true will
                          leave module info empty.
         """
-        # TODO(b/263199608): Refactor the ModuleInfo constructor.
-        # The module-info constructor does too much. We should never be doing
-        # real work in a constructor and should only use it to inject
-        # dependencies.
-
+        self.root_dir = os.environ.get(constants.ANDROID_BUILD_TOP)
         # force_build could be from "-m" or smart_build(build files change).
         self.force_build = force_build
         # update_merge_info flag will merge dep files only when any of them have
@@ -116,6 +117,7 @@ class ModuleInfo:
         # Index and checksum files that will be used.
         index_dir = Path(os.getenv(constants.ANDROID_HOST_OUT, '')).joinpath('indexes')
         self.module_index = index_dir.joinpath(constants.MODULE_INDEX)
+        self.module_index_proc = None
 
         # Paths to java, cc and merged module info json files.
         self.java_dep_path = Path(
@@ -130,6 +132,18 @@ class ModuleInfo:
         if no_generate:
             self.name_to_module_info = {}
             return
+        if module_file:
+            self.mod_info_file_path = Path(module_file)
+            self.name_to_module_info = atest_utils.load_json_safely(module_file)
+            _add_missing_variant_modules(self.name_to_module_info)
+            self.path_to_module_info = get_path_to_module_info(
+                self.name_to_module_info)
+            return
+        if module_info_dict:
+            _add_missing_variant_modules(module_info_dict)
+            self.name_to_module_info = module_info_dict
+            self.path_to_module_info = get_path_to_module_info(module_info_dict)
+            return
 
         module_info_target, name_to_module_info = self._load_module_info_file(
             module_file)
@@ -137,8 +151,6 @@ class ModuleInfo:
         self.module_info_target = module_info_target
         self.path_to_module_info = get_path_to_module_info(
             self.name_to_module_info)
-        self.root_dir = os.environ.get(constants.ANDROID_BUILD_TOP)
-        self.module_index_proc = None
         if self.update_merge_info or not self.module_index.is_file():
             # Assumably null module_file reflects a common run, and index testable
             # modules only when common runs.
