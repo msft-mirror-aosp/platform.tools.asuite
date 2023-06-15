@@ -284,13 +284,14 @@ class CLITranslatorUnittests(unittest.TestCase):
         unittest_utils.assert_strict_equal(self, test_infos, {uc.MODULE_INFO,
                                                               uc.CLASS_INFO})
 
+    @mock.patch.object(os, 'getcwd', return_value='/src/build_top/somewhere')
     @mock.patch.object(cli_t.CLITranslator, '_has_host_unit_test')
     @mock.patch.object(test_finder_utils, 'find_host_unit_tests', return_value=[])
     @mock.patch.object(cli_t.CLITranslator, '_find_tests_by_test_mapping')
     @mock.patch.object(cli_t.CLITranslator, '_get_test_infos',
                        side_effect=gettestinfos_side_effect)
     def test_translate_test_mapping(self, _info, mock_testmapping,
-        _find_unit_tests, host_unit_tests):
+        _find_unit_tests, host_unit_tests, _getcwd):
         """Test translate method for tests in test mapping."""
         # Check that test mappings feeds into get_test_info properly.
         test_detail1 = test_mapping.TestDetail(uc.TEST_MAPPING_TEST)
@@ -459,6 +460,7 @@ class CLITranslatorUnittests(unittest.TestCase):
         self.assertEqual(ctr._extract_testable_modules_by_wildcard(expr3),
                          result3)
 
+    @mock.patch.object(os, 'getcwd', return_value='/src/build_top/somewhere')
     @mock.patch.object(cli_t.CLITranslator, '_has_host_unit_test',
                        return_value=True)
     @mock.patch.object(test_finder_utils, 'find_host_unit_tests',
@@ -468,7 +470,8 @@ class CLITranslatorUnittests(unittest.TestCase):
     @mock.patch.object(cli_t.CLITranslator, '_get_test_infos',
                        side_effect=gettestinfos_side_effect)
     def test_translate_test_mapping_host_unit_test(
-        self, _info, mock_testmapping, _find_unit_tests, _has_host_unit_test):
+        self, _info, mock_testmapping, _find_unit_tests, _has_host_unit_test,
+        _getcwd):
         """Test translate method for tests belong to host unit tests."""
         # Check that test mappings feeds into get_test_info properly.
         test_detail1 = test_mapping.TestDetail(uc.TEST_MAPPING_TEST)
