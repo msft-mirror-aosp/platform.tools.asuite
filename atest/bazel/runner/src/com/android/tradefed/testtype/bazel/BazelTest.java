@@ -275,9 +275,6 @@ public final class BazelTest implements IRemoteTest {
             RunStats stats)
             throws InterruptedException, IOException {
 
-        ProtoResultParser resultParser =
-                new ProtoResultParser(listener, testInfo.getContext(), false, "tf-test-process-");
-
         BuildEventStreamProtos.BuildEvent event;
         while ((event = tailer.nextEvent()) != null) {
             if (event.getLastMessage()) {
@@ -295,7 +292,8 @@ public final class BazelTest implements IRemoteTest {
             }
 
             try {
-                reportEventsInTestOutputsArchive(event.getTestResult(), resultParser);
+                reportEventsInTestOutputsArchive(
+                        event.getTestResult(), listener, testInfo.getContext());
             } catch (IOException
                     | InterruptedException
                     | URISyntaxException
@@ -594,18 +592,22 @@ public final class BazelTest implements IRemoteTest {
     }
 
     private void reportEventsInTestOutputsArchive(
-            BuildEventStreamProtos.TestResult result, ProtoResultParser resultParser)
+            BuildEventStreamProtos.TestResult result,
+            ITestInvocationListener listener,
+            IInvocationContext context)
             throws IOException, InvalidProtocolBufferException, InterruptedException,
                     URISyntaxException {
 
         try (CloseableTraceScope ignored =
                 new CloseableTraceScope("reportEventsInTestOutputsArchive")) {
-            reportEventsInTestOutputsArchiveNoTrace(result, resultParser);
+            reportEventsInTestOutputsArchiveNoTrace(result, listener, context);
         }
     }
 
     private void reportEventsInTestOutputsArchiveNoTrace(
-            BuildEventStreamProtos.TestResult result, ProtoResultParser resultParser)
+            BuildEventStreamProtos.TestResult result,
+            ITestInvocationListener listener,
+            IInvocationContext context)
             throws IOException, InvalidProtocolBufferException, InterruptedException,
                     URISyntaxException {
 
@@ -624,6 +626,10 @@ public final class BazelTest implements IRemoteTest {
             ZipUtil.extractZip(new ZipFile(zipFile), outputFilesDir.toFile());
 
             File protoResult = outputFilesDir.resolve(PROTO_RESULTS_FILE_NAME).toFile();
+
+            ProtoResultParser resultParser =
+                    new ProtoResultParser(listener, context, false, "tf-test-process-");
+
             TestRecord record = TestRecordProtoUtil.readFromFile(protoResult);
 
             TestRecord.Builder recordBuilder = record.toBuilder();
