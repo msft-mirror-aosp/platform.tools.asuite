@@ -73,6 +73,7 @@ import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Consumer;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import java.util.zip.ZipFile;
@@ -239,8 +240,7 @@ public final class BazelTest implements IRemoteTest {
 
         Path bepFile = createTemporaryFile("BEP_output");
 
-        Process bazelTestProcess =
-                startTests(testInfo, listener, testTargets, workspaceDirectory, bepFile);
+        Process bazelTestProcess = startTests(testInfo, testTargets, workspaceDirectory, bepFile);
 
         try (BepFileTailer tailer = BepFileTailer.create(bepFile)) {
             bazelTestProcess.onExit().thenRun(() -> tailer.stop());
@@ -473,7 +473,6 @@ public final class BazelTest implements IRemoteTest {
 
     private Process startTests(
             TestInformation testInfo,
-            ITestInvocationListener listener,
             Collection<String> testTargets,
             Path workspaceDirectory,
             Path bepFile)
@@ -619,91 +618,55 @@ public final class BazelTest implements IRemoteTest {
 
         File zipFile = new File(uri.getPath());
         Path outputFilesDir = Files.createTempDirectory(mRunTemporaryDirectory, "output_zip-");
+        Path delimiter = Paths.get(BRANCH_TEST_ARG, BUILD_TEST_ARG, TEST_TAG_TEST_ARG);
+        listener = new LogPathUpdatingListener(listener, delimiter, outputFilesDir);
 
         try {
+            String filePrefix = "tf-test-process-";
             ZipUtil.extractZip(new ZipFile(zipFile), outputFilesDir.toFile());
 
             File protoResult = outputFilesDir.resolve(PROTO_RESULTS_FILE_NAME).toFile();
-
-            ProtoResultParser resultParser =
-                    new ProtoResultParser(listener, context, false, "tf-test-process-");
-            // Avoid merging serialized invocation attributes into the current invocation context.
-            // Not doing so adds misleading information on the top-level invocation
-            // such as bad timing data. See b/284294864.
-            resultParser.setMergeInvocationContext(false);
-
             TestRecord record = TestRecordProtoUtil.readFromFile(protoResult);
-
-            TestRecord.Builder recordBuilder = record.toBuilder();
-            // recursivelyUpdateArtifactsRootPath(recordBuilder, outputFilesDir);
 
             // Tradefed does not report the invocation trace to the proto result file so we have to
             // explicitly re-add it here.
-            // addTraceFilesToTestRecord(recordBuilder, outputFilesDir);
+            List<Consumer<ITestInvocationListener>> extraLogCalls = new ArrayList<>();
+            extraLogCalls.addAll(collectInvocationLogCalls(context, record, filePrefix));
+            extraLogCalls.addAll(collectTraceFileLogCalls(outputFilesDir, filePrefix));
 
-            // moveRootRecordArtifactsToFirstChild(recordBuilder);
-            resultParser.processFinalizedProto(recordBuilder.build());
+            BazelTestListener bazelListener = new BazelTestListener(listener, extraLogCalls);
+            parseResultsToListener(bazelListener, context, record, filePrefix);
         } finally {
             MoreFiles.deleteRecursively(outputFilesDir);
         }
     }
 
-    /*private void recursivelyUpdateArtifactsRootPath(TestRecord.Builder recordBuilder, Path newRoot)
-            throws InvalidProtocolBufferException, IOException {
+    private static List<Consumer<ITestInvocationListener>> collectInvocationLogCalls(
+            IInvocationContext context, TestRecord record, String filePrefix) {
 
-        Map<String, Any> updatedMap = new HashMap<>();
-        for (Entry<String, Any> entry : recordBuilder.getArtifactsMap().entrySet()) {
-            LogFileInfo info = entry.getValue().unpack(LogFileInfo.class);
-
-            Path newPath = newRoot.resolve(findRelativeArtifactPath(Paths.get(info.getPath())));
-
-            if (!Files.exists(newPath)) {
-                throw new FileNotFoundException(
-                        String.format(
-                                "Log file not found: original path: %s, expected new path: %s",
-                                info.getPath(), newPath.toString()));
-            }
-
-            LogFileInfo updatedInfo =
-                    info.toBuilder().setPath(newPath.toAbsolutePath().toString()).build();
-            updatedMap.put(entry.getKey(), Any.pack(updatedInfo));
-        }
-
-        recordBuilder.putAllArtifacts(updatedMap);
-
-        for (ChildReference.Builder childBuilder : recordBuilder.getChildrenBuilderList()) {
-            recursivelyUpdateArtifactsRootPath(childBuilder.getInlineTestRecordBuilder(), newRoot);
-        }
-    }*/
-
-    private Path findRelativeArtifactPath(Path originalPath) {
-        // The log files are stored under
-        // ${EXTRACTED_UNDECLARED_OUTPUTS}/stub/-1/stub/inv_xxx/inv_xxx/logfile so the new path is
-        // found by trimming down the original path until it starts with "stub/-1/stub" and
-        // appending that to our extracted directory.
-        // TODO(b/251279690) Create a directory within undeclared outputs which we can more
-        // reliably look for to calculate this relative path.
-        Path delimiter = Paths.get(BRANCH_TEST_ARG, BUILD_TEST_ARG, TEST_TAG_TEST_ARG);
-
-        Path relativePath = originalPath;
-        while (!relativePath.startsWith(delimiter)
-                && relativePath.getNameCount() > delimiter.getNameCount()) {
-            relativePath = relativePath.subpath(1, relativePath.getNameCount());
-        }
-
-        if (!relativePath.startsWith(delimiter)) {
-            throw new IllegalArgumentException(
-                    String.format(
-                            "Artifact path '%s' does not contain delimiter '%s' and therefore"
-                                    + " cannot be found",
-                            originalPath, delimiter));
-        }
-
-        return relativePath;
+        InvocationLogCollector logCollector = new InvocationLogCollector();
+        parseResultsToListener(logCollector, context, record, filePrefix);
+        return logCollector.getLogCalls();
     }
 
-    /*private void addTraceFilesToTestRecord(TestRecord.Builder recordBuilder, Path outputFilesDir)
-            throws IOException {
+    private static void parseResultsToListener(
+            ITestInvocationListener listener,
+            IInvocationContext context,
+            TestRecord record,
+            String filePrefix) {
+
+        ProtoResultParser parser = new ProtoResultParser(listener, context, false, filePrefix);
+        // Avoid merging serialized invocation attributes into the current invocation context.
+        // Not doing so adds misleading information on the top-level invocation
+        // such as bad timing data. See b/284294864.
+        parser.setMergeInvocationContext(false);
+        parser.processFinalizedProto(record);
+    }
+
+    private static List<Consumer<ITestInvocationListener>> collectTraceFileLogCalls(
+            Path outputFilesDir, String filePrefix) throws IOException {
+
+        List<Consumer<ITestInvocationListener>> logCalls = new ArrayList<>();
 
         try (Stream<Path> traceFiles =
                 Files.walk(outputFilesDir)
@@ -711,39 +674,24 @@ public final class BazelTest implements IRemoteTest {
 
             traceFiles.forEach(
                     traceFile -> {
-                        recordBuilder.putArtifacts(
-                                traceFile.getFileName().toString(),
-                                Any.pack(
-                                        LogFileInfo.newBuilder()
-                                                .setPath(traceFile.toAbsolutePath().toString())
-                                                .setIsCompressed(false)
-                                                .setIsText(true)
-                                                // We don't mark this file as a PERFETTO log to
-                                                // avoid having its contents automatically merged in
-                                                // the top-level invocation's trace. The merge
-                                                // process is wonky and makes the resulting trace
-                                                // difficult to read.
-                                                // TODO(b/284328869): Switch to PERFETTO log type
-                                                // once traces are properly merged.
-                                                .setLogType(LogDataType.TEXT.toString())
-                                                .build()));
+                        logCalls.add(
+                                (ITestInvocationListener l) -> {
+                                    l.testLog(
+                                            filePrefix + traceFile.getFileName().toString(),
+                                            // We don't mark this file as a PERFETTO log to
+                                            // avoid having its contents automatically merged in
+                                            // the top-level invocation's trace. The merge
+                                            // process is wonky and makes the resulting trace
+                                            // difficult to read.
+                                            // TODO(b/284328869): Switch to PERFETTO log type
+                                            // once traces are properly merged.
+                                            LogDataType.TEXT,
+                                            new FileInputStreamSource(traceFile.toFile()));
+                                });
                     });
         }
-    }*/
-
-    /*private void moveRootRecordArtifactsToFirstChild(TestRecord.Builder recordBuilder) {
-        if (recordBuilder.getChildrenCount() == 0) {
-            return;
-        }
-
-        TestRecord.Builder childTestRecordBuilder =
-                recordBuilder.getChildrenBuilder(0).getInlineTestRecordBuilder();
-        for (Entry<String, Any> entry : recordBuilder.getArtifactsMap().entrySet()) {
-            childTestRecordBuilder.putArtifacts(entry.getKey(), entry.getValue());
-        }
-
-        recordBuilder.clearArtifacts();
-    }*/
+        return logCalls;
+    }
 
     private void reportRunFailures(
             List<FailureDescription> runFailures, ITestInvocationListener listener) {

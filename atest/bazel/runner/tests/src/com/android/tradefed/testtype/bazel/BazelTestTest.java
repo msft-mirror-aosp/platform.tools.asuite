@@ -23,6 +23,7 @@ import static org.mockito.Mockito.anyLong;
 import static org.mockito.Mockito.anyMap;
 import static org.mockito.Mockito.argThat;
 import static org.mockito.Mockito.contains;
+import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
@@ -57,6 +58,7 @@ import org.junit.rules.TemporaryFolder;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 import org.mockito.ArgumentMatcher;
+import org.mockito.InOrder;
 
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
@@ -152,7 +154,7 @@ public final class BazelTestTest {
                 .testLog(contains(String.format("%s-log", BazelTest.RUN_TESTS)), any(), any());
     }
 
-    /*@Test
+    @Test
     public void runSucceeds_testLogsReportedUnderModule() throws Exception {
         BazelTest bazelTest = newBazelTest();
 
@@ -165,7 +167,7 @@ public final class BazelTestTest {
         inOrder.verify(mMockListener)
                 .testLog(eq("tf-test-process-invocation-log"), eq(LogDataType.XML), any());
         inOrder.verify(mMockListener).testModuleEnded();
-    }*/
+    }
 
     @Test
     public void traceFileWritten_traceFileReported() throws Exception {
