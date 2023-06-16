@@ -124,7 +124,7 @@ class GenerationTestFixture(fake_filesystem_unittest.TestCase):
         fake_temp_file = self.product_out_path.joinpath(
             next(tempfile._get_candidate_names()))
         self.fs.create_file(fake_temp_file, contents='{}')
-        return module_info.ModuleInfo(module_file=fake_temp_file)
+        return module_info.load_from_file(module_file=fake_temp_file)
 
     def create_module_info(self, modules=None):
         mod_info = self.create_empty_module_info()
@@ -1461,7 +1461,7 @@ def create_empty_module_info():
         # pylint: disable=protected-access
         fake_temp_file_name = next(tempfile._get_candidate_names())
         patcher.fs.create_file(fake_temp_file_name, contents='{}')
-        return module_info.ModuleInfo(module_file=fake_temp_file_name)
+        return module_info.load_from_file(module_file=fake_temp_file_name)
 
 
 def create_module_info(modules=None):
