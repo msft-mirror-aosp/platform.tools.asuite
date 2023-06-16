@@ -28,7 +28,7 @@ import tempfile
 import os
 
 from collections import namedtuple
-from typing import Any, Dict, List, Set
+from typing import List, Set
 
 from atest import atest_error
 from atest import atest_utils
@@ -164,9 +164,12 @@ class TestRunnerBase:
             kill all the child processes TradeFed spawns as well.
             """
             print('Process ID: %s', proc.pid)
-            logging.info('Ctrl-C received. Killing process group ID: %s',
-                         os.getpgid(proc.pid))
-            os.killpg(os.getpgid(proc.pid), signal.SIGINT)
+            try:
+                logging.info('Ctrl-C received. Killing process group ID: %s',
+                             os.getpgid(proc.pid))
+                os.killpg(os.getpgid(proc.pid), signal.SIGINT)
+            except ProcessLookupError as e:
+                logging.info(e)
         return signal_handler
 
     def run_tests(self, test_infos, extra_args, reporter):
