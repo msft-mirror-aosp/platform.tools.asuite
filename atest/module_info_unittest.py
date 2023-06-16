@@ -166,7 +166,6 @@ class ModuleInfoUnittests(unittest.TestCase):
                                             constants.MODULE_PATH: [mod_path_one]}],
                             mod_path_two: [{constants.MODULE_NAME: mod_two,
                                             constants.MODULE_PATH: [mod_path_two]}]}
-        mod_info = module_info.load_from_file(module_file=JSON_FILE_PATH)
         self.assertDictEqual(path_to_mod_info,
                              module_info.get_path_to_module_info(mod_info_dict))
 
@@ -1036,23 +1035,14 @@ class IsTestableModuleTest(ModuleInfoTestFixture):
         self.assertFalse(return_value)
 
 
-@mock.patch.dict('os.environ', {constants.ANDROID_BUILD_TOP: '/'})
-def create_empty_module_info():
-    with fake_filesystem_unittest.Patcher() as patcher:
-        # pylint: disable=protected-access
-        fake_temp_file_name = next(tempfile._get_candidate_names())
-        patcher.fs.create_file(fake_temp_file_name, contents='{}')
-        return module_info.load_from_file(module_file=fake_temp_file_name)
-
-
 def create_module_info(modules=None):
-    mod_info = create_empty_module_info()
+    name_to_module_info = {}
     modules = modules or []
 
     for m in modules:
-        mod_info.name_to_module_info[m['module_name']] = m
+        name_to_module_info[m['module_name']] = m
 
-    return mod_info
+    return module_info.load_from_dict(name_to_module_info)
 
 
 def test_module(**kwargs):
