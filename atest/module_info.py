@@ -138,6 +138,69 @@ class Loader:
                 return True
         return False
 
+    def _merge_build_system_infos(self, name_to_module_info,
+        java_bp_info_path=None, cc_bp_info_path=None):
+        """Merge the content of module-info.json and CC/Java dependency files
+        to name_to_module_info.
+
+        Args:
+            name_to_module_info: Dict of module name to module info dict.
+            java_bp_info_path: String of path to java dep file to load up.
+                               Used for testing.
+            cc_bp_info_path: String of path to cc dep file to load up.
+                             Used for testing.
+
+        Returns:
+            Dict of updated name_to_module_info.
+        """
+        # Merge _JAVA_DEP_INFO
+        if not java_bp_info_path:
+            java_bp_info_path = self.java_dep_path
+        java_bp_infos = atest_utils.load_json_safely(java_bp_info_path)
+        if java_bp_infos:
+            logging.debug('Merging Java build info: %s', java_bp_info_path)
+            name_to_module_info = merge_soong_info(
+                name_to_module_info, java_bp_infos)
+        # Merge _CC_DEP_INFO
+        if not cc_bp_info_path:
+            cc_bp_info_path = self.cc_dep_path
+        cc_bp_infos = atest_utils.load_json_safely(cc_bp_info_path)
+        if cc_bp_infos:
+            logging.debug('Merging CC build info: %s', cc_bp_info_path)
+            # CC's dep json format is different with java.
+            # Below is the example content:
+            # {
+            #   "clang": "${ANDROID_ROOT}/bin/clang",
+            #   "clang++": "${ANDROID_ROOT}/bin/clang++",
+            #   "modules": {
+            #       "ACameraNdkVendorTest": {
+            #           "path": [
+            #                   "frameworks/av/camera/ndk"
+            #           ],
+            #           "srcs": [
+            #                   "frameworks/tests/AImageVendorTest.cpp",
+            #                   "frameworks/tests/ACameraManagerTest.cpp"
+            #           ],
+            name_to_module_info = merge_soong_info(
+                name_to_module_info, cc_bp_infos.get('modules', {}))
+        # If $ANDROID_PRODUCT_OUT was not created in pyfakefs, simply return it
+        # without dumping atest_merged_dep.json in real.
+
+        # Adds the key into module info as a unique ID.
+        for key, info in name_to_module_info.items():
+            info[constants.MODULE_INFO_ID] = key
+
+        if not self.merged_dep_path.parent.is_dir():
+            return name_to_module_info
+        # b/178559543 saving merged module info in a temp file and copying it to
+        # atest_merged_dep.json can eliminate the possibility of accessing it
+        # concurrently and resulting in invalid JSON format.
+        with tempfile.NamedTemporaryFile() as temp_file:
+            with open(temp_file.name, 'w', encoding='utf-8') as _temp:
+                json.dump(name_to_module_info, _temp, indent=0)
+            shutil.copy(temp_file.name, self.merged_dep_path)
+        return name_to_module_info
+
 
 class ModuleInfo:
     """Class that offers fast/easy lookup for Module related details."""
@@ -786,66 +849,12 @@ class ModuleInfo:
 
     def _merge_build_system_infos(self, name_to_module_info,
         java_bp_info_path=None, cc_bp_info_path=None):
-        """Merge the content of module-info.json and CC/Java dependency files
-        to name_to_module_info.
-
-        Args:
-            name_to_module_info: Dict of module name to module info dict.
-            java_bp_info_path: String of path to java dep file to load up.
-                               Used for testing.
-            cc_bp_info_path: String of path to cc dep file to load up.
-                             Used for testing.
-
-        Returns:
-            Dict of updated name_to_module_info.
-        """
-        # Merge _JAVA_DEP_INFO
-        if not java_bp_info_path:
-            java_bp_info_path = self.java_dep_path
-        java_bp_infos = atest_utils.load_json_safely(java_bp_info_path)
-        if java_bp_infos:
-            logging.debug('Merging Java build info: %s', java_bp_info_path)
-            name_to_module_info = merge_soong_info(
-                name_to_module_info, java_bp_infos)
-        # Merge _CC_DEP_INFO
-        if not cc_bp_info_path:
-            cc_bp_info_path = self.cc_dep_path
-        cc_bp_infos = atest_utils.load_json_safely(cc_bp_info_path)
-        if cc_bp_infos:
-            logging.debug('Merging CC build info: %s', cc_bp_info_path)
-            # CC's dep json format is different with java.
-            # Below is the example content:
-            # {
-            #   "clang": "${ANDROID_ROOT}/bin/clang",
-            #   "clang++": "${ANDROID_ROOT}/bin/clang++",
-            #   "modules": {
-            #       "ACameraNdkVendorTest": {
-            #           "path": [
-            #                   "frameworks/av/camera/ndk"
-            #           ],
-            #           "srcs": [
-            #                   "frameworks/tests/AImageVendorTest.cpp",
-            #                   "frameworks/tests/ACameraManagerTest.cpp"
-            #           ],
-            name_to_module_info = merge_soong_info(
-                name_to_module_info, cc_bp_infos.get('modules', {}))
-        # If $ANDROID_PRODUCT_OUT was not created in pyfakefs, simply return it
-        # without dumping atest_merged_dep.json in real.
-
-        # Adds the key into module info as a unique ID.
-        for key, info in name_to_module_info.items():
-            info[constants.MODULE_INFO_ID] = key
-
-        if not self.merged_dep_path.parent.is_dir():
-            return name_to_module_info
-        # b/178559543 saving merged module info in a temp file and copying it to
-        # atest_merged_dep.json can eliminate the possibility of accessing it
-        # concurrently and resulting in invalid JSON format.
-        with tempfile.NamedTemporaryFile() as temp_file:
-            with open(temp_file.name, 'w', encoding='utf-8') as _temp:
-                json.dump(name_to_module_info, _temp, indent=0)
-            shutil.copy(temp_file.name, self.merged_dep_path)
-        return name_to_module_info
+        """Caller of the same method in Loader class."""
+        return self.loader._merge_build_system_infos(
+            name_to_module_info,
+            java_bp_info_path,
+            cc_bp_info_path,
+        )
 
     def get_filepath_from_module(self, module_name: str, filename: str) -> Path:
         """Return absolute path of the given module and filename."""
