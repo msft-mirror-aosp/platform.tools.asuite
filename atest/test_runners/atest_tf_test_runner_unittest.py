@@ -1220,7 +1220,7 @@ class ModuleInfoTestFixture(fake_filesystem_unittest.TestCase):
         fake_temp_file = self.product_out_path.joinpath(
             next(tempfile._get_candidate_names()))
         self.fs.create_file(fake_temp_file, contents='{}')
-        return module_info.ModuleInfo(module_file=fake_temp_file)
+        return module_info.load_from_file(module_file=fake_temp_file)
 
     def create_module_info(self, modules=None):
         mod_info = self.create_empty_module_info()

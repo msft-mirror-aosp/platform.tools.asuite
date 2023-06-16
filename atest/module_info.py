@@ -51,6 +51,12 @@ _MERGED_INFO = 'atest_merged_dep.json'
 Module = Dict[str, Any]
 
 
+def load_from_file(module_file):
+    """Factory method that initializes ModuleInfo from the build-generated
+    JSON file"""
+    return ModuleInfo(module_file=module_file)
+
+
 class ModuleInfo:
     """Class that offers fast/easy lookup for Module related details."""
 
@@ -129,7 +135,7 @@ class ModuleInfo:
             module_file)
         self.name_to_module_info = name_to_module_info
         self.module_info_target = module_info_target
-        self.path_to_module_info = self._get_path_to_module_info(
+        self.path_to_module_info = get_path_to_module_info(
             self.name_to_module_info)
         self.root_dir = os.environ.get(constants.ANDROID_BUILD_TOP)
         self.module_index_proc = None
@@ -254,32 +260,6 @@ class ModuleInfo:
         timestamp_file = dirname.joinpath('modules.stp')
         with open(timestamp_file, 'w', encoding='utf8') as _file:
             json.dump(timestamp, _file)
-
-
-    @staticmethod
-    def _get_path_to_module_info(name_to_module_info):
-        """Return the path_to_module_info dict.
-
-        Args:
-            name_to_module_info: Dict of module name to module info dict.
-
-        Returns:
-            Dict of module path to module info dict.
-        """
-        path_to_module_info = {}
-        for mod_name, mod_info in name_to_module_info.items():
-            # Cross-compiled and multi-arch modules actually all belong to
-            # a single target so filter out these extra modules.
-            if mod_name != mod_info.get(constants.MODULE_NAME, ''):
-                continue
-            for path in mod_info.get(constants.MODULE_PATH, []):
-                mod_info[constants.MODULE_NAME] = mod_name
-                # There could be multiple modules in a path.
-                if path in path_to_module_info:
-                    path_to_module_info[path].append(mod_info)
-                else:
-                    path_to_module_info[path] = [mod_info]
-        return path_to_module_info
 
     def _index_testable_modules(self, content):
         """Dump testable modules.
@@ -1102,3 +1082,28 @@ def contains_same_mainline_modules(mainline_modules: Set[str], module_lists: Set
         if mainline_modules == set(module_string.split('+')):
             return True
     return False
+
+
+def get_path_to_module_info(name_to_module_info):
+    """Return the path_to_module_info dict.
+
+    Args:
+        name_to_module_info: Dict of module name to module info dict.
+
+    Returns:
+        Dict of module path to module info dict.
+    """
+    path_to_module_info = {}
+    for mod_name, mod_info in name_to_module_info.items():
+        # Cross-compiled and multi-arch modules actually all belong to
+        # a single target so filter out these extra modules.
+        if mod_name != mod_info.get(constants.MODULE_NAME, ''):
+            continue
+        for path in mod_info.get(constants.MODULE_PATH, []):
+            mod_info[constants.MODULE_NAME] = mod_name
+            # There could be multiple modules in a path.
+            if path in path_to_module_info:
+                path_to_module_info[path].append(mod_info)
+            else:
+                path_to_module_info[path] = [mod_info]
+    return path_to_module_info
