@@ -772,7 +772,7 @@ class ModuleInfo:
         java_bp_infos = atest_utils.load_json_safely(java_bp_info_path)
         if java_bp_infos:
             logging.debug('Merging Java build info: %s', java_bp_info_path)
-            name_to_module_info = self._merge_soong_info(
+            name_to_module_info = merge_soong_info(
                 name_to_module_info, java_bp_infos)
         # Merge _CC_DEP_INFO
         if not cc_bp_info_path:
@@ -794,7 +794,7 @@ class ModuleInfo:
             #                   "frameworks/tests/AImageVendorTest.cpp",
             #                   "frameworks/tests/ACameraManagerTest.cpp"
             #           ],
-            name_to_module_info = self._merge_soong_info(
+            name_to_module_info = merge_soong_info(
                 name_to_module_info, cc_bp_infos.get('modules', {}))
         # If $ANDROID_PRODUCT_OUT was not created in pyfakefs, simply return it
         # without dumping atest_merged_dep.json in real.
@@ -812,32 +812,6 @@ class ModuleInfo:
             with open(temp_file.name, 'w', encoding='utf-8') as _temp:
                 json.dump(name_to_module_info, _temp, indent=0)
             shutil.copy(temp_file.name, self.merged_dep_path)
-        return name_to_module_info
-
-    def _merge_soong_info(self, name_to_module_info, mod_bp_infos):
-        """Merge the dependency and srcs in mod_bp_infos to name_to_module_info.
-
-        Args:
-            name_to_module_info: Dict of module name to module info dict.
-            mod_bp_infos: Dict of module name to bp's module info dict.
-
-        Returns:
-            Dict of updated name_to_module_info.
-        """
-        merge_items = [constants.MODULE_DEPENDENCIES, constants.MODULE_SRCS,
-                       constants.MODULE_LIBS, constants.MODULE_STATIC_LIBS,
-                       constants.MODULE_STATIC_DEPS, constants.MODULE_PATH]
-        for module_name, dep_info in mod_bp_infos.items():
-            mod_info = name_to_module_info.setdefault(module_name, {})
-            for merge_item in merge_items:
-                dep_info_values = dep_info.get(merge_item, [])
-                mod_info_values = mod_info.get(merge_item, [])
-                mod_info_values.extend(dep_info_values)
-                mod_info_values.sort()
-                # deduplicate values just in case.
-                mod_info_values = list(dict.fromkeys(mod_info_values))
-                name_to_module_info[
-                    module_name][merge_item] = mod_info_values
         return name_to_module_info
 
     def get_filepath_from_module(self, module_name: str, filename: str) -> Path:
@@ -1065,6 +1039,33 @@ class ModuleInfo:
             return Path(os.getenv(constants.ANDROID_BUILD_TOP), p)
 
         return [_to_abs_path(p) for p in mod_info.get('installed', [])]
+
+
+def merge_soong_info(name_to_module_info, mod_bp_infos):
+    """Merge the dependency and srcs in mod_bp_infos to name_to_module_info.
+
+    Args:
+        name_to_module_info: Dict of module name to module info dict.
+        mod_bp_infos: Dict of module name to bp's module info dict.
+
+    Returns:
+        Dict of updated name_to_module_info.
+    """
+    merge_items = [constants.MODULE_DEPENDENCIES, constants.MODULE_SRCS,
+                   constants.MODULE_LIBS, constants.MODULE_STATIC_LIBS,
+                   constants.MODULE_STATIC_DEPS, constants.MODULE_PATH]
+    for module_name, dep_info in mod_bp_infos.items():
+        mod_info = name_to_module_info.setdefault(module_name, {})
+        for merge_item in merge_items:
+            dep_info_values = dep_info.get(merge_item, [])
+            mod_info_values = mod_info.get(merge_item, [])
+            mod_info_values.extend(dep_info_values)
+            mod_info_values.sort()
+            # deduplicate values just in case.
+            mod_info_values = list(dict.fromkeys(mod_info_values))
+            name_to_module_info[
+                module_name][merge_item] = mod_info_values
+    return name_to_module_info
 
 
 def _add_missing_variant_modules(name_to_module_info: Dict[str, Module]):
