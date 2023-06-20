@@ -1167,7 +1167,7 @@ def main(argv: List[Any], results_dir: str, args: argparse.ArgumentParser):
 
         # Add module-info.json target to the list of build targets to keep the
         # file up to date.
-        build_targets.add(mod_info.module_info_target)
+        build_targets.add(module_info.get_module_info_target())
 
         build_start = time.time()
         success = atest_utils.build(build_targets)
