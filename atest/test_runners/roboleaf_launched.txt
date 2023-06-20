@@ -1,0 +1,22 @@
+# atest --roboleaf-mode configuration file.
+#
+# !!! BE VERY CAREFUL when you add modules into this list. Atest will read this from
+# ToT, so a change to this file may cause someone's local test workflow to
+# change immediately.
+#
+# This file contains the directory and names of Android.bp tests that should be
+# ran by Bazel.
+#
+# To verify, add entries and run `atest --roboleaf-mode <test name>`
+#
+# Use the fully qualified Bazel label format: //path/to:module
+#
+# Say, if there's a test module named "foo_test" defined in a/b/Android.bp, and
+# you want Atest to use bazel to build and test it, then add //a/b:foo_test in
+# this file.
+#
+# Example:
+#
+# //packages/modules/adb:adbd_test
+# //packages/modules/adb:adb_test
+# //system/media/audio_utils/tests:biquad_filter_tests
