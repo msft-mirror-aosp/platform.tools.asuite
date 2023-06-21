@@ -554,7 +554,9 @@ class AtestTradefedTestRunner(trb.TestRunnerBase):
 
         unsupported = set()
         for t_info in test_infos:
-            if t_info.test_finder in ['INTEGRATION', 'INTEGRATION_FILE_PATH']:
+            if t_info.test_finder in ['CONFIG',
+                                      'INTEGRATION',
+                                      'INTEGRATION_FILE_PATH']:
                 unsupported.add(t_info.test_name)
 
         if not unsupported:
