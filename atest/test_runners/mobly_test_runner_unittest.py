@@ -17,17 +17,20 @@
 # pylint: disable=protected-access
 # pylint: disable=invalid-name
 
+import os
 import pathlib
 import unittest
 from unittest import mock
 
 from atest import constants
+from atest import unittest_constants
 from atest.test_finders import test_info
 from atest.test_runners import mobly_test_runner
+from atest.test_runners import test_runner_base
 
 
-TEST_NAME = 'SampleTest'
-MOBLY_PKG = 'mobly/SampleTest'
+TEST_NAME = 'SampleMoblyTest'
+MOBLY_PKG = 'mobly/SampleMoblyTest'
 REQUIREMENTS_TXT = 'mobly/requirements.txt'
 APK_1 = 'mobly/snippet1.apk'
 APK_2 = 'mobly/snippet2.apk'
@@ -35,6 +38,8 @@ RESULTS_DIR = 'atest_results/sample_test'
 SERIAL_1 = 'serial1'
 SERIAL_2 = 'serial2'
 ADB_DEVICE = 'adb_device'
+MOBLY_SUMMARY_FILE = os.path.join(
+    unittest_constants.TEST_DATA_DIR, 'mobly', 'sample_test_summary.yaml')
 
 
 class MoblyTestRunnerUnittests(unittest.TestCase):
@@ -149,6 +154,54 @@ class MoblyTestRunnerUnittests(unittest.TestCase):
         ]
         self.assertEqual(
             [call.args[0] for call in check_call.call_args_list], expected_cmds)
+
+    def test_get_test_results_from_summary_show_correct_names(self) -> None:
+        """Tests _get_results_from_summary outputs correct test names."""
+        test_results = self.runner._get_test_results_from_summary(
+            MOBLY_SUMMARY_FILE, self.tinfo)
+
+        result = test_results[0]
+        self.assertEqual(result.runner_name, self.runner.NAME)
+        self.assertEqual(result.group_name, self.tinfo.test_name)
+        self.assertEqual(result.test_run_name, 'SampleTest')
+        self.assertEqual(result.test_name, 'SampleTest.test_should_pass')
+
+    def test_get_test_results_from_summary_show_correct_status_and_details(
+            self) -> None:
+        """
+        Tests _get_results_from_summary outputs correct test status and details.
+        """
+        test_results = self.runner._get_test_results_from_summary(
+            MOBLY_SUMMARY_FILE, self.tinfo)
+
+        # passed case
+        self.assertEqual(
+            test_results[0].status, test_runner_base.PASSED_STATUS)
+        self.assertEqual(test_results[0].details, None)
+        # failed case
+        self.assertEqual(
+            test_results[1].status, test_runner_base.FAILED_STATUS)
+        self.assertEqual(test_results[1].details, 'mobly.signals.TestFailure')
+        # errored case
+        self.assertEqual(
+            test_results[2].status, test_runner_base.FAILED_STATUS)
+        self.assertEqual(test_results[2].details, 'Exception: error')
+        # skipped case
+        self.assertEqual(
+            test_results[3].status, test_runner_base.IGNORED_STATUS)
+        self.assertEqual(test_results[3].details, 'mobly.signals.TestSkip')
+
+    def test_get_test_results_from_summary_show_correct_stats(self) -> None:
+        """Tests _get_results_from_summary outputs correct stats."""
+        test_results = self.runner._get_test_results_from_summary(
+            MOBLY_SUMMARY_FILE, self.tinfo)
+
+        self.assertEqual(test_results[0].test_count, 1)
+        self.assertEqual(test_results[0].group_total, 4)
+        self.assertEqual(test_results[0].test_time, '0:00:01')
+        self.assertEqual(test_results[1].test_count, 2)
+        self.assertEqual(test_results[1].group_total, 4)
+        self.assertEqual(test_results[1].test_time, '0:00:00')
 
 
 if __name__ == '__main__':
