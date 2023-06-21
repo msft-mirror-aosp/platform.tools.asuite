@@ -633,13 +633,15 @@ class ModuleInfoUnittests(unittest.TestCase):
         self.assertEqual(mod_info.get_installed_paths('my_module'),
                          [Path('/a/b/c/d')])
 
+    @mock.patch.dict('os.environ',
+                     {constants.ANDROID_BUILD_TOP:'/mocked/build_top'})
     def test_get_installed_paths_have_relative_path(self):
         mod_info = create_module_info(
             [module(name='my_module',
                     installed=['a/b/c/d'])])
 
         self.assertEqual(mod_info.get_installed_paths('my_module'),
-                         [Path('/a/b/c/d')])
+                         [Path('/mocked/build_top/a/b/c/d')])
 
 
 class ModuleInfoTestFixture(fake_filesystem_unittest.TestCase):
