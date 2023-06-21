@@ -408,7 +408,8 @@ class CLITranslator:
                         continue
                     test_name = parse_test_identifier(
                         test['name']).test_name
-                    test_mod_info = self.mod_info.get_module_info(test_name)
+                    test_mod_info = self.mod_info.name_to_module_info.get(
+                        test_name)
                     if not test_mod_info :
                         print('WARNING: %s is not a valid build target and '
                               'may not be discoverable by TreeHugger. If you '
