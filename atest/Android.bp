@@ -50,6 +50,7 @@ python_defaults {
         "tradefed-protos-py",
         "py-google-api-python-client",
         "py-oauth2client",
+        "pyyaml"
     ],
     data: [
         "bazel/resources/**/*",
@@ -143,6 +144,7 @@ python_test_host {
         "asuite_proto",
         "pyfakefs",
         "tradefed-protos-py",
+        "pyyaml",
     ],
     test_config: "atest_unittests.xml",
     test_suites: ["general-tests"],
