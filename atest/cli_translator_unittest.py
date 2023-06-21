@@ -334,9 +334,22 @@ class CLITranslatorUnittests(unittest.TestCase):
     def test_find_tests_by_test_mapping_presubmit(self):
         """Test _find_tests_by_test_mapping method to locate presubmit tests."""
         # TODO: (b/264015241) Stop mocking build variables.
+        mod_info = create_module_info(
+            [module(name='test1', compatibility_suites='host-unit-tests'),
+             module(name='test2'),
+             module(name='test3'),
+             module(name='test4'),
+             module(name='test5'),
+             module(name='test6'),
+             module(name='test7'),
+             module(name='test8'),
+             module(name='test9'),
+             module(name='test10'),]
+        )
+        ctr = cli_t.CLITranslator(mod_info=mod_info)
         os_environ_mock = {constants.ANDROID_BUILD_TOP: uc.TEST_DATA_DIR}
         with mock.patch.dict('os.environ', os_environ_mock, clear=True):
-            tests, all_tests = self.ctr._find_tests_by_test_mapping(
+            tests, all_tests = ctr._find_tests_by_test_mapping(
                 path=TEST_MAPPING_DIR, file_name='test_mapping_sample',
                 checked_files=set())
         expected = set([TEST_1, TEST_2, TEST_5, TEST_7, TEST_9])
@@ -351,9 +364,22 @@ class CLITranslatorUnittests(unittest.TestCase):
         """Test _find_tests_by_test_mapping method to locate postsubmit tests.
         """
         # TODO: (b/264015241) Stop mocking build variables.
+        mod_info = create_module_info(
+            [module(name='test1', compatibility_suites='host-unit-tests'),
+             module(name='test2'),
+             module(name='test3'),
+             module(name='test4'),
+             module(name='test5'),
+             module(name='test6'),
+             module(name='test7'),
+             module(name='test8'),
+             module(name='test9'),
+             module(name='test10'),]
+        )
+        ctr = cli_t.CLITranslator(mod_info=mod_info)
         os_environ_mock = {constants.ANDROID_BUILD_TOP: uc.TEST_DATA_DIR}
         with mock.patch.dict('os.environ', os_environ_mock, clear=True):
-            tests, all_tests = self.ctr._find_tests_by_test_mapping(
+            tests, all_tests = ctr._find_tests_by_test_mapping(
                 path=TEST_MAPPING_DIR,
                 test_groups=[constants.TEST_GROUP_POSTSUBMIT],
                 file_name='test_mapping_sample', checked_files=set())
@@ -370,9 +396,22 @@ class CLITranslatorUnittests(unittest.TestCase):
         """Test _find_tests_by_test_mapping method to locate postsubmit tests.
         """
         # TODO: (b/264015241) Stop mocking build variables.
+        mod_info = create_module_info(
+            [module(name='test1', compatibility_suites='host-unit-tests'),
+             module(name='test2'),
+             module(name='test3'),
+             module(name='test4'),
+             module(name='test5'),
+             module(name='test6'),
+             module(name='test7'),
+             module(name='test8'),
+             module(name='test9'),
+             module(name='test10'),]
+        )
+        ctr = cli_t.CLITranslator(mod_info=mod_info)
         os_environ_mock = {constants.ANDROID_BUILD_TOP: uc.TEST_DATA_DIR}
         with mock.patch.dict('os.environ', os_environ_mock, clear=True):
-            tests, all_tests = self.ctr._find_tests_by_test_mapping(
+            tests, all_tests = ctr._find_tests_by_test_mapping(
                 path=TEST_MAPPING_DIR, test_groups=[constants.TEST_GROUP_ALL],
                 file_name='test_mapping_sample', checked_files=set())
         expected_presubmit = set([TEST_1, TEST_2, TEST_5, TEST_7, TEST_9])
@@ -389,9 +428,22 @@ class CLITranslatorUnittests(unittest.TestCase):
     def test_find_tests_by_test_mapping_include_subdir(self):
         """Test _find_tests_by_test_mapping method to include sub directory."""
         # TODO: (b/264015241) Stop mocking build variables.
+        mod_info = create_module_info(
+            [module(name='test1', compatibility_suites='host-unit-tests'),
+             module(name='test2'),
+             module(name='test3'),
+             module(name='test4'),
+             module(name='test5'),
+             module(name='test6'),
+             module(name='test7'),
+             module(name='test8'),
+             module(name='test9'),
+             module(name='test10'),]
+        )
+        ctr = cli_t.CLITranslator(mod_info=mod_info)
         os_environ_mock = {constants.ANDROID_BUILD_TOP: uc.TEST_DATA_DIR}
         with mock.patch.dict('os.environ', os_environ_mock, clear=True):
-            tests, all_tests = self.ctr._find_tests_by_test_mapping(
+            tests, all_tests = ctr._find_tests_by_test_mapping(
                 path=TEST_MAPPING_TOP_DIR, file_name='test_mapping_sample',
                 include_subdirs=True, checked_files=set())
         expected = set([TEST_1, TEST_2, TEST_5, TEST_7, TEST_9])
@@ -560,8 +612,56 @@ class ParseTestIdentifierTest(unittest.TestCase):
         self.assertEqual([], identifier.module_names)
         self.assertEqual([], identifier.binary_names)
 
-if __name__ == '__main__':
-    unittest.main()
+
+def create_module_info(modules=None):
+    modules = modules or []
+
+    name_to_module_info = {}
+    for m in modules:
+        name_to_module_info[m['module_name']] = m
+
+    return module_info.ModuleInfo(module_info_dict=name_to_module_info)
+
+
+# pylint: disable=too-many-arguments, too-many-locals
+def module(
+    name=None,
+    path=None,
+    installed=None,
+    classes=None,
+    auto_test_config=None,
+    test_config=None,
+    shared_libs=None,
+    dependencies=None,
+    runtime_dependencies=None,
+    data=None,
+    data_dependencies=None,
+    compatibility_suites=None,
+    host_dependencies=None,
+    srcs=None,
+    supported_variants=None
+):
+    name = name or 'libhello'
+
+    m = {}
+
+    m['module_name'] = name
+    m['class'] = classes or ['ETC']
+    m['path'] = [path or '']
+    m['installed'] = installed or []
+    m['is_unit_test'] = 'false'
+    m['auto_test_config'] = auto_test_config or []
+    m['test_config'] = test_config or []
+    m['shared_libs'] = shared_libs or []
+    m['runtime_dependencies'] = runtime_dependencies or []
+    m['dependencies'] = dependencies or []
+    m['data'] = data or []
+    m['data_dependencies'] = data_dependencies or []
+    m['compatibility_suites'] = compatibility_suites or []
+    m['host_dependencies'] = host_dependencies or []
+    m['srcs'] = srcs or []
+    m['supported_variants'] = supported_variants or []
+    return m
 
 
 def _gather_build_targets(test_infos):
@@ -569,3 +669,7 @@ def _gather_build_targets(test_infos):
     for t_info in test_infos:
         targets |= t_info.build_targets
     return targets
+
+
+if __name__ == '__main__':
+    unittest.main()
