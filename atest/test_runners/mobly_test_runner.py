@@ -14,6 +14,7 @@
 
 """Mobly test runner."""
 import dataclasses
+import datetime
 import json
 import logging
 import os
@@ -23,6 +24,8 @@ import subprocess
 import sys
 import tempfile
 from typing import Any
+
+import yaml
 
 from atest import atest_configs
 from atest import atest_enum
@@ -39,6 +42,10 @@ _ERROR_TEST_FILE_NOT_FOUND = (
 _ERROR_NO_MOBLY_TEST_PKG = (
     'No Mobly test package found. Ensure that the Mobly test module is '
     'correctly configured.')
+_ERROR_NO_TEST_SUMMARY = 'No Mobly test summary found.'
+_ERROR_INVALID_TEST_SUMMARY = (
+    'Invalid Mobly test summary. Make sure that it contains a final "Summary" '
+    'section.')
 
 FILE_REQUIREMENTS_TXT = 'requirements.txt'
 FILE_SUFFIX_APK = '.apk'
@@ -52,6 +59,28 @@ CONFIG_KEY_LOG_PATH = 'LogPath'
 LOCAL_TESTBED = 'LocalTestBed'
 MOBLY_LOGS_DIR = 'mobly_logs'
 CONFIG_FILE = 'mobly_config.json'
+LATEST_DIR = 'latest'
+TEST_SUMMARY_YAML = 'test_summary.yaml'
+
+SUMMARY_KEY_TYPE = 'Type'
+SUMMARY_TYPE_RECORD = 'Record'
+SUMMARY_KEY_TEST_CLASS = 'Test Class'
+SUMMARY_KEY_TEST_NAME = 'Test Name'
+SUMMARY_KEY_BEGIN_TIME = 'Begin Time'
+SUMMARY_KEY_END_TIME = 'End Time'
+SUMMARY_KEY_RESULT = 'Result'
+SUMMARY_RESULT_PASS = 'PASS'
+SUMMARY_RESULT_FAIL = 'FAIL'
+SUMMARY_RESULT_SKIP = 'SKIP'
+SUMMARY_RESULT_ERROR = 'ERROR'
+SUMMARY_KEY_STACKTRACE = 'Stacktrace'
+
+MOBLY_RESULT_TO_STATUS = {
+    SUMMARY_RESULT_PASS: test_runner_base.PASSED_STATUS,
+    SUMMARY_RESULT_FAIL: test_runner_base.FAILED_STATUS,
+    SUMMARY_RESULT_SKIP: test_runner_base.IGNORED_STATUS,
+    SUMMARY_RESULT_ERROR: test_runner_base.FAILED_STATUS
+}
 
 
 @dataclasses.dataclass
@@ -93,7 +122,6 @@ class MoblyTestRunner(test_runner_base.TestRunnerBase):
         Returns:
             0 if tests succeed, non-zero otherwise.
         """
-        reporter.register_unsupported_runner(self.NAME)
         ret_code = atest_enum.ExitCode.SUCCESS
         for tinfo in test_infos:
             logging.debug('Running Mobly test %s.', tinfo.test_name)
@@ -111,6 +139,15 @@ class MoblyTestRunner(test_runner_base.TestRunnerBase):
                 mobly_command = self._get_mobly_command(
                     venv_executable, test_files.mobly_pkg, mobly_config)
                 ret_code |= self._run_mobly_command(mobly_command)
+
+                # Process results from generated summary file
+                summary_file = os.path.join(self.results_dir, MOBLY_LOGS_DIR,
+                                            LOCAL_TESTBED, LATEST_DIR,
+                                            TEST_SUMMARY_YAML)
+                test_results = self._get_test_results_from_summary(
+                    summary_file, tinfo)
+                for test_result in test_results:
+                    reporter.process_test_result(test_result)
             finally:
                 self._cleanup()
         return ret_code
@@ -269,6 +306,51 @@ class MoblyTestRunner(test_runner_base.TestRunnerBase):
             shlex.join(mobly_cmd),
             output_to_stdout=bool(atest_configs.GLOBAL_ARGS.verbose))
         return self.wait_for_subprocess(proc)
+
+    def _get_test_results_from_summary(
+            self,
+            summary_file: str,
+            tinfo: test_info.TestInfo) -> list[test_runner_base.TestResult]:
+        """Parse the Mobly summary file into ATest TestResults."""
+        if not os.path.isfile(summary_file):
+            raise MoblyTestRunnerError(_ERROR_NO_TEST_SUMMARY)
+
+        # Find and parse 'Summary' section
+        logging.debug('Processing results from summary file %s.', summary_file)
+        with open(summary_file, 'r', encoding='utf-8') as f:
+            summary = list(yaml.safe_load_all(f))
+
+        # Populate TestResults
+        test_results = []
+        records = [entry for entry in summary
+                   if entry[SUMMARY_KEY_TYPE] == SUMMARY_TYPE_RECORD]
+        test_count = 0
+        for record in records:
+            test_count += 1
+            time_elapsed_ms = 0
+            if (record.get(SUMMARY_KEY_END_TIME) is not None
+                    and record.get(SUMMARY_KEY_BEGIN_TIME) is not None):
+                time_elapsed_ms = (record[SUMMARY_KEY_END_TIME] -
+                                   record[SUMMARY_KEY_BEGIN_TIME])
+            result = {
+                'runner_name': self.NAME,
+                'group_name': tinfo.test_name,
+                'test_run_name': record[SUMMARY_KEY_TEST_CLASS],
+                'test_name': '%s.%s' % (record[SUMMARY_KEY_TEST_CLASS],
+                                        record[SUMMARY_KEY_TEST_NAME]),
+                'status': MOBLY_RESULT_TO_STATUS.get(
+                    record[SUMMARY_KEY_RESULT], test_runner_base.ERROR_STATUS),
+                'details': record[SUMMARY_KEY_STACKTRACE],
+                'test_count': test_count,
+                'group_total': len(records),
+                'test_time': str(
+                    datetime.timedelta(milliseconds=time_elapsed_ms)),
+                # Below values are unused
+                'runner_total': None,
+                'additional_info': {},
+            }
+            test_results.append(test_runner_base.TestResult(**result))
+        return test_results
 
     def _cleanup(self) -> None:
         """Clean up temporary host files/directories."""
