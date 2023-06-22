@@ -20,187 +20,174 @@ import com.android.tradefed.metrics.proto.MetricMeasurement.Metric;
 import com.android.tradefed.result.InputStreamSource;
 import com.android.tradefed.result.LogDataType;
 import com.android.tradefed.result.FailureDescription;
-import com.android.tradefed.result.ITestInvocationListener;
 import com.android.tradefed.result.ILogSaver;
 import com.android.tradefed.result.ILogSaverListener;
 import com.android.tradefed.result.LogDataType;
 import com.android.tradefed.result.LogFile;
 import com.android.tradefed.result.TestDescription;
 import com.android.tradefed.result.TestSummary;
-import com.android.tradefed.result.retry.ISupportGranularResults;
 
 import java.util.HashMap;
 import java.util.Map;
 
-/**
- * Abstract Forwarding Listener class which will forward all listener calls to a given delegate
- * listener.
- */
-abstract class ForwardingTestListener implements ILogSaverListener, ISupportGranularResults {
+/** Null test listener. */
+abstract class NullTestListener implements ILogSaverListener {
 
-    protected ForwardingTestListener() {}
-
-    protected abstract ITestInvocationListener delegate();
+    protected NullTestListener() {}
 
     @Override
     public void testLog(String dataName, LogDataType dataType, InputStreamSource dataStream) {
-        delegate().testLog(dataName, dataType, dataStream);
+        // Does nothing.
     }
 
     @Override
     public void testRunStarted(String runName, int testCount) {
-        delegate().testRunStarted(runName, testCount);
+        // Does nothing.
     }
 
     @Override
     public void testRunStarted(String runName, int testCount, int attemptNumber) {
-        delegate().testRunStarted(runName, testCount, attemptNumber);
+        // Does nothing.
     }
 
     @Override
     public void testRunStarted(String runName, int testCount, int attemptNumber, long startTime) {
-        delegate().testRunStarted(runName, testCount, attemptNumber, startTime);
+        // Does nothing.
     }
 
     @Override
     public void testRunFailed(String errorMessage) {
-        delegate().testRunFailed(errorMessage);
+        // Does nothing.
     }
 
     @Override
     public void testRunFailed(FailureDescription failure) {
-        delegate().testRunFailed(failure);
+        // Does nothing.
     }
 
     @Override
     public void testRunEnded(long elapsedTimeMillis, Map<String, String> runMetrics) {
-        delegate().testRunEnded(elapsedTimeMillis, runMetrics);
+        // Does nothing.
     }
 
     @Override
     public void testRunEnded(long elapsedTimeMillis, HashMap<String, Metric> runMetrics) {
-        delegate().testRunEnded(elapsedTimeMillis, runMetrics);
+        // Does nothing.
     }
 
     @Override
     public void testRunStopped(long elapsedTime) {
-        delegate().testRunStopped(elapsedTime);
+        // Does nothing.
     }
 
     @Override
     public void testStarted(TestDescription test) {
-        delegate().testStarted(test);
+        // Does nothing.
     }
 
     @Override
     public void testStarted(TestDescription test, long startTime) {
-        delegate().testStarted(test, startTime);
+        // Does nothing.
     }
 
     @Override
     public void testFailed(TestDescription test, String trace) {
-        delegate().testFailed(test, trace);
+        // Does nothing.
     }
 
     @Override
     public void testFailed(TestDescription test, FailureDescription failure) {
-        delegate().testFailed(test, failure);
+        // Does nothing.
     }
 
     @Override
     public void testAssumptionFailure(TestDescription test, String trace) {
-        delegate().testAssumptionFailure(test, trace);
+        // Does nothing.
     }
 
     @Override
     public void testAssumptionFailure(TestDescription test, FailureDescription failure) {
-        delegate().testAssumptionFailure(test, failure);
+        // Does nothing.
     }
 
     @Override
     public void testIgnored(TestDescription test) {
-        delegate().testIgnored(test);
+        // Does nothing.
     }
 
     @Override
     public void testEnded(TestDescription test, Map<String, String> testMetrics) {
-        delegate().testEnded(test, testMetrics);
+        // Does nothing.
     }
 
     @Override
     public void testEnded(TestDescription test, HashMap<String, Metric> testMetrics) {
-        delegate().testEnded(test, testMetrics);
+        // Does nothing.
     }
 
     @Override
     public void testEnded(TestDescription test, long endTime, Map<String, String> testMetrics) {
-        delegate().testEnded(test, endTime, testMetrics);
+        // Does nothing.
     }
 
     @Override
     public void testEnded(TestDescription test, long endTime, HashMap<String, Metric> testMetrics) {
-        delegate().testEnded(test, endTime, testMetrics);
+        // Does nothing.
     }
 
     @Override
     public void invocationStarted(IInvocationContext context) {
-        delegate().invocationStarted(context);
+        // Does nothing.
     }
 
     @Override
     public void invocationEnded(long elapsedTime) {
-        delegate().invocationEnded(elapsedTime);
+        // Does nothing.
     }
 
     @Override
     public void invocationFailed(Throwable cause) {
-        delegate().invocationFailed(cause);
+        // Does nothing.
     }
 
     @Override
     public void invocationFailed(FailureDescription failure) {
-        delegate().invocationFailed(failure);
+        // Does nothing.
     }
 
     @Override
     public TestSummary getSummary() {
-        return delegate().getSummary();
+        return null;
     }
 
     @Override
     public void invocationInterrupted() {
-        delegate().invocationInterrupted();
+        // Does nothing.
     }
 
     @Override
     public void testModuleStarted(IInvocationContext moduleContext) {
-        delegate().testModuleStarted(moduleContext);
+        // Does nothing.
     }
 
     @Override
     public void testModuleEnded() {
-        delegate().testModuleEnded();
+        // Does nothing.
     }
 
     @Override
     public void testLogSaved(
             String dataName, LogDataType dataType, InputStreamSource dataStream, LogFile logFile) {
-
-        TestListeners.testLogSaved(delegate(), dataName, dataType, dataStream, logFile);
+        // Does nothing.
     }
 
     @Override
     public void logAssociation(String dataName, LogFile logFile) {
-        TestListeners.logAssociation(delegate(), dataName, logFile);
+        // Does nothing.
     }
 
     @Override
     public void setLogSaver(ILogSaver logSaver) {
-        TestListeners.setLogSaver(delegate(), logSaver);
-    }
-
-    @Override
-    public boolean supportGranularResults() {
-        return TestListeners.supportGranularResults(delegate());
+        // Does nothing.
     }
 }
