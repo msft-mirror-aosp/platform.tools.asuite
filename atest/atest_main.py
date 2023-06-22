@@ -1059,7 +1059,7 @@ def main(argv: List[Any], results_dir: str, args: argparse.ArgumentParser):
         smart_rebuild = need_rebuild_module_info(args)
 
         mod_start = time.time()
-        mod_info = module_info.ModuleInfo(force_build=smart_rebuild)
+        mod_info = module_info.load_from_file(force_build=smart_rebuild)
         mod_stop = time.time() - mod_start
         metrics.LocalDetectEvent(detect_type=DetectType.MODULE_INFO_INIT_MS,
                                  result=int(mod_stop * 1000))
