@@ -21,6 +21,8 @@ import com.android.tradefed.config.OptionClass;
 import com.android.tradefed.device.DeviceNotAvailableException;
 import com.android.tradefed.invoker.IInvocationContext;
 import com.android.tradefed.invoker.TestInformation;
+import com.android.tradefed.invoker.logger.InvocationMetricLogger;
+import com.android.tradefed.invoker.logger.InvocationMetricLogger.InvocationMetricKey;
 import com.android.tradefed.invoker.tracing.CloseableTraceScope;
 import com.android.tradefed.invoker.tracing.TracePropagatingExecutorService;
 import com.android.tradefed.log.ITestLogger;
@@ -629,6 +631,10 @@ public final class BazelTest implements IRemoteTest {
 
             ProtoResultParser resultParser =
                     new ProtoResultParser(listener, context, false, "tf-test-process-");
+            // Avoid merging serialized invocation attributes into the current invocation context.
+            // Not doing so adds misleading information on the top-level invocation
+            // such as bad timing data. See b/284294864.
+            resultParser.setMergeInvocationContext(false);
 
             TestRecord record = TestRecordProtoUtil.readFromFile(protoResult);
 
@@ -930,21 +936,18 @@ public final class BazelTest implements IRemoteTest {
 
     private static final class RunStats {
 
-        private int mTotalTestResults;
         private int mCachedTestResults;
 
         void addTestResult(BuildEventStreamProtos.TestResult e) {
-            mTotalTestResults++;
             if (isTestResultCached(e)) {
                 mCachedTestResults++;
             }
         }
 
         void addInvocationAttributes(IInvocationContext context) {
-            context.addInvocationAttribute(
-                    "bazel_cached_test_results", "%d".formatted(mCachedTestResults));
-            context.addInvocationAttribute(
-                    "bazel_total_test_results", "%d".formatted(mTotalTestResults));
+            InvocationMetricLogger.addInvocationMetrics(
+                    InvocationMetricKey.CACHED_MODULE_RESULTS_COUNT,
+                    Integer.toString(mCachedTestResults));
         }
     }
 }
