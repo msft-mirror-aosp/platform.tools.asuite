@@ -102,6 +102,7 @@ public final class BazelTestTest {
         mMockListener = mock(ILogSaverListener.class);
         InvocationContext context = new InvocationContext();
         context.addInvocationAttribute("module-id", "bazel-test-module-id");
+        context.lockAttributes();
         mTestInfo = TestInformation.newBuilder().setInvocationContext(context).build();
         mBazelTempPath =
                 Files.createDirectory(tempDir.getRoot().toPath().resolve("bazel_temp_dir"));
