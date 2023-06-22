@@ -590,14 +590,24 @@ class TestFinderUtilsUnittests(unittest.TestCase):
 
     def test_get_levenshtein_distance(self):
         """Test get_levenshetine distance module correctly returns distance."""
-        self.assertEqual(test_finder_utils.get_levenshtein_distance(uc.MOD1, uc.FUZZY_MOD1), 1)
-        self.assertEqual(test_finder_utils.get_levenshtein_distance(uc.MOD2, uc.FUZZY_MOD2,
-                                                                    dir_costs=(1, 2, 3)), 3)
-        self.assertEqual(test_finder_utils.get_levenshtein_distance(uc.MOD3, uc.FUZZY_MOD3,
-                                                                    dir_costs=(1, 2, 1)), 8)
+        self.assertEqual(
+            test_finder_utils.get_levenshtein_distance(uc.MOD1, uc.FUZZY_MOD1),
+            1
+        )
 
-    @staticmethod
-    def test_is_parameterized_java_class():
+        self.assertEqual(
+            test_finder_utils.get_levenshtein_distance(
+                uc.MOD2, uc.FUZZY_MOD2, dir_costs=(1, 2, 3)),
+            3
+        )
+
+        self.assertEqual(
+            test_finder_utils.get_levenshtein_distance(
+                uc.MOD3, uc.FUZZY_MOD3, dir_costs=(1, 2, 1)),
+            8
+        )
+
+    def test_is_parameterized_java_class(self):
         """Test is_parameterized_java_class method. """
         matched_contents = (['@ParameterizedTest'],
                             ['@RunWith(Parameterized.class)'],
@@ -618,14 +628,24 @@ class TestFinderUtilsUnittests(unittest.TestCase):
                 tmp_file = tempfile.NamedTemporaryFile(mode='wt')
                 tmp_file.writelines(matched_content)
                 tmp_file.flush()
+
+                self.assertTrue(
+                    test_finder_utils.is_parameterized_java_class(
+                        tmp_file.name))
             finally:
                 tmp_file.close()
+
+
         # Test not matched patterns
         for not_matched_content in not_matched_contents:
             try:
                 tmp_file = tempfile.NamedTemporaryFile(mode='wt')
                 tmp_file.writelines(not_matched_content)
                 tmp_file.flush()
+
+                self.assertFalse(
+                    test_finder_utils.is_parameterized_java_class(
+                        tmp_file.name))
             finally:
                 tmp_file.close()
 
