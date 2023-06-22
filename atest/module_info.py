@@ -17,6 +17,7 @@ Module Info class used to hold cached module-info.json.
 """
 
 # pylint: disable=line-too-long,too-many-lines
+from __future__ import annotations
 
 import json
 import logging
@@ -51,13 +52,16 @@ _MERGED_INFO = 'atest_merged_dep.json'
 Module = Dict[str, Any]
 
 
-def load_from_file(module_file):
+def load_from_file(
+        module_file: Path = None,
+        force_build: bool = False,
+    ) -> ModuleInfo:
     """Factory method that initializes ModuleInfo from the build-generated
     JSON file"""
-    return ModuleInfo(module_file=module_file)
+    return ModuleInfo(module_file=module_file, force_build=force_build)
 
 
-def load_from_dict(name_to_module_info: Dict[str, Any]):
+def load_from_dict(name_to_module_info: Dict[str, Any]) -> ModuleInfo:
     """Factory method that initializes ModuleInfo from a dictionary."""
     with tempfile.NamedTemporaryFile(mode='w') as f:
         # TODO: Serialize the input dict to JSON.
