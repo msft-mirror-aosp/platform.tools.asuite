@@ -56,9 +56,17 @@ def load_from_file(module_file):
     JSON file"""
     return ModuleInfo(module_file=module_file)
 
+
 def load_from_dict(name_to_module_info: Dict[str, Any]):
     """Factory method that initializes ModuleInfo from a dictionary."""
-    return ModuleInfo(module_info_dict=name_to_module_info)
+    with tempfile.NamedTemporaryFile(mode='w') as f:
+        # TODO: Serialize the input dict to JSON.
+        json.dump({}, f)
+        mi = load_from_file(module_file=f.name)
+
+    mi.name_to_module_info.update(name_to_module_info)
+
+    return mi
 
 
 class ModuleInfo:
@@ -68,8 +76,7 @@ class ModuleInfo:
         self,
         force_build=False,
         module_file=None,
-        no_generate=False,
-        module_info_dict=None):
+        no_generate=False):
         """Initialize the ModuleInfo object.
 
         Load up the module-info.json file and initialize the helper vars.
@@ -131,18 +138,6 @@ class ModuleInfo:
 
         if no_generate:
             self.name_to_module_info = {}
-            return
-        if module_file:
-            self.mod_info_file_path = Path(module_file)
-            self.name_to_module_info = atest_utils.load_json_safely(module_file)
-            _add_missing_variant_modules(self.name_to_module_info)
-            self.path_to_module_info = get_path_to_module_info(
-                self.name_to_module_info)
-            return
-        if module_info_dict:
-            _add_missing_variant_modules(module_info_dict)
-            self.name_to_module_info = module_info_dict
-            self.path_to_module_info = get_path_to_module_info(module_info_dict)
             return
 
         module_info_target, name_to_module_info = self._load_module_info_file(
