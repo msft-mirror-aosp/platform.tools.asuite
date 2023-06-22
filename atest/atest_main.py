@@ -1036,7 +1036,7 @@ def main(argv: List[Any], results_dir: str, args: argparse.ArgumentParser):
     verify_env_variables = extra_args.get(constants.VERIFY_ENV_VARIABLE, False)
 
     # Gather roboleaf tests now to see if we can skip mod info generation.
-    mod_info = module_info.ModuleInfo(no_generate=True)
+    mod_info = module_info.create_empty()
     if args.roboleaf_mode != roboleaf_test_runner.BazelBuildMode.OFF:
         mod_info.roboleaf_tests = roboleaf_test_runner.RoboleafTestRunner(
             results_dir).roboleaf_eligible_tests(

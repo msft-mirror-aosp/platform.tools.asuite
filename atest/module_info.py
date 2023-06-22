@@ -73,6 +73,11 @@ def load_from_dict(name_to_module_info: Dict[str, Any]) -> ModuleInfo:
     return mi
 
 
+def create_empty() -> ModuleInfo:
+    """Factory method that initializes an empty ModuleInfo."""
+    return ModuleInfo(no_generate=True)
+
+
 class ModuleInfo:
     """Class that offers fast/easy lookup for Module related details."""
 
