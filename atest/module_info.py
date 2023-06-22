@@ -78,6 +78,20 @@ def create_empty() -> ModuleInfo:
     return ModuleInfo(no_generate=True)
 
 
+class Loader:
+    """Class that handles load and merge processes."""
+
+    def __init__(self, module_file=None):
+        self.java_dep_path = Path(
+            atest_utils.get_build_out_dir()).joinpath('soong', _JAVA_DEP_INFO)
+        self.cc_dep_path = Path(
+            atest_utils.get_build_out_dir()).joinpath('soong', _CC_DEP_INFO)
+        self.merged_dep_path = Path(
+            os.getenv(constants.ANDROID_PRODUCT_OUT, '')).joinpath(_MERGED_INFO)
+
+        self.mod_info_file_path = Path(module_file) if module_file else None
+
+
 class ModuleInfo:
     """Class that offers fast/easy lookup for Module related details."""
 
@@ -135,15 +149,9 @@ class ModuleInfo:
         self.module_index = index_dir.joinpath(constants.MODULE_INDEX)
         self.module_index_proc = None
 
-        # Paths to java, cc and merged module info json files.
-        self.java_dep_path = Path(
-            atest_utils.get_build_out_dir()).joinpath('soong', _JAVA_DEP_INFO)
-        self.cc_dep_path = Path(
-            atest_utils.get_build_out_dir()).joinpath('soong', _CC_DEP_INFO)
-        self.merged_dep_path = Path(
-            os.getenv(constants.ANDROID_PRODUCT_OUT, '')).joinpath(_MERGED_INFO)
-
-        self.mod_info_file_path = Path(module_file) if module_file else None
+        self.loader = Loader(
+            module_file=module_file,
+        )
 
         if no_generate:
             self.name_to_module_info = {}
@@ -162,6 +170,26 @@ class ModuleInfo:
                 self.module_index_proc = atest_utils.run_multi_proc(
                     func=self._get_testable_modules,
                     kwargs={'index': True})
+
+    @property
+    def mod_info_file_path(self):
+        return self.loader.mod_info_file_path
+
+    @mod_info_file_path.setter
+    def mod_info_file_path(self, value):
+        self.loader.mod_info_file_path = value
+
+    @property
+    def java_dep_path(self):
+        return self.loader.java_dep_path
+
+    @property
+    def cc_dep_path(self):
+        return self.loader.cc_dep_path
+
+    @property
+    def merged_dep_path(self):
+        return self.loader.merged_dep_path
 
     def _load_module_info_file(self, module_file):
         """Load the module file.
