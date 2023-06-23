@@ -95,6 +95,9 @@ class Loader:
         self.update_merge_info = False
         # force_build could be from "-m" or smart_build(build files change).
         self.force_build = force_build
+        # If module_file is specified, we're gonna test it so we don't care if
+        # module_info_target stays None.
+        self.module_info_target = None
 
     def load_module_info_file(self, module_file):
         """Load the module file.
@@ -126,14 +129,11 @@ class Loader:
                          Note: if set, ModuleInfo will skip build process.
 
         Returns:
-            Tuple of module_info_target and dict of json.
+            Dict of json.
         """
-        # If module_file is specified, we're gonna test it so we don't care if
-        # module_info_target stays None.
-        module_info_target = None
         file_path = module_file
         if not file_path:
-            module_info_target, file_path = _discover_mod_file_and_target(
+            self.module_info_target, file_path = _discover_mod_file_and_target(
                 self.force_build)
             self.mod_info_file_path = Path(file_path)
         # Even undergone a rebuild after _discover_mod_file_and_target(), merge
@@ -158,7 +158,7 @@ class Loader:
                 detect_type=DetectType.MODULE_LOAD_MS, result=int(duration*1000))
         _add_missing_variant_modules(mod_info)
         logging.debug('Loading %s as module-info.', self.merged_dep_path)
-        return module_info_target, mod_info
+        return mod_info
 
     def _save_module_info_timestamp(self):
         """Dump the timestamp of essential module info files.
@@ -332,10 +332,7 @@ class ModuleInfo:
             self.name_to_module_info = {}
             return
 
-        module_info_target, name_to_module_info = self.loader.load_module_info_file(
-            module_file)
-        self.name_to_module_info = name_to_module_info
-        self.module_info_target = module_info_target
+        self.name_to_module_info = self.loader.load_module_info_file(module_file)
         self.path_to_module_info = get_path_to_module_info(
             self.name_to_module_info)
         if self.loader.update_merge_info or not self.module_index.is_file():
@@ -345,6 +342,10 @@ class ModuleInfo:
                 self.module_index_proc = atest_utils.run_multi_proc(
                     func=self._get_testable_modules,
                     kwargs={'index': True})
+
+    @property
+    def module_info_target(self):
+        return self.loader.module_info_target
 
     @property
     def mod_info_file_path(self):
