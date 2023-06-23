@@ -108,7 +108,7 @@ class ModuleInfoUnittests(unittest.TestCase):
     # TODO: (b/264015241) Stop mocking build variables.
     # TODO: (b/263199608) Re-write the test after refactoring module-info.py
     @mock.patch('pathlib.Path.is_file', return_value=True)
-    @mock.patch.object(module_info.ModuleInfo, 'need_merge_module_info')
+    @mock.patch.object(module_info.Loader, 'need_merge_module_info')
     @mock.patch('json.load', return_value={})
     @mock.patch('builtins.open', new_callable=mock.mock_open)
     @mock.patch('os.path.isfile', return_value=True)
@@ -150,7 +150,7 @@ class ModuleInfoUnittests(unittest.TestCase):
             self.assertEqual(custom_abs_out_dir_mod_targ,
                              mod_info.module_info_target)
 
-    @mock.patch.object(module_info.ModuleInfo, '_load_module_info_file')
+    @mock.patch.object(module_info.Loader, 'load_module_info_file')
     def test_get_path_to_module_info(self, mock_load_module):
         """Test that we correctly create the path to module info dict."""
         mod_one = 'mod1'
