@@ -91,6 +91,53 @@ class Loader:
 
         self.mod_info_file_path = Path(module_file) if module_file else None
 
+    def _save_module_info_timestamp(self):
+        """Dump the timestamp of essential module info files.
+           * module-info.json
+           * module_bp_cc_deps.json
+           * module_bp_java_deps.json
+        """
+        dirname = atest_utils.get_host_out('indexes')
+        if not dirname.is_dir():
+            dirname.mkdir(parents=True)
+
+        timestamp = {}
+        for json_file in [self.mod_info_file_path,
+                          self.java_dep_path,
+                          self.cc_dep_path]:
+            timestamp.update(
+                {str(json_file): json_file.stat().st_mtime}
+            )
+
+        timestamp_file = dirname.joinpath('modules.stp')
+        with open(timestamp_file, 'w', encoding='utf8') as _file:
+            json.dump(timestamp, _file)
+
+    def need_merge_module_info(self):
+        """Check if need to merge module info json files.
+
+        There are 2 scienarios that atest_merged_dep.json will be updated.
+        1. One of the checksum of module-info.json, module_bp_java_deps.json and
+           module_cc_java_deps.json have changed.
+        2. atest_merged_deps.json does not exist.
+
+        If fits one of above scienarios, it is recognized to update.
+
+        Returns:
+            True if one of the scienarios reaches, False otherwise.
+        """
+        if not self.merged_dep_path.is_file():
+            return True
+
+        timestamp_file = atest_utils.get_host_out('indexes/modules.stp')
+        data = atest_utils.load_json_safely(timestamp_file)
+        for f in [self.mod_info_file_path,
+                  self.java_dep_path,
+                  self.cc_dep_path]:
+            if f.stat().st_mtime != data.get(str(f), ''):
+                return True
+        return False
+
 
 class ModuleInfo:
     """Class that offers fast/easy lookup for Module related details."""
@@ -256,26 +303,8 @@ class ModuleInfo:
         return module_info_target, mod_info
 
     def _save_module_info_timestamp(self):
-        """Dump the timestamp of essential module info files.
-           * module-info.json
-           * module_bp_cc_deps.json
-           * module_bp_java_deps.json
-        """
-        dirname = atest_utils.get_host_out('indexes')
-        if not dirname.is_dir():
-            dirname.mkdir(parents=True)
-
-        timestamp = {}
-        for json_file in [self.mod_info_file_path,
-                          self.java_dep_path,
-                          self.cc_dep_path]:
-            timestamp.update(
-                {str(json_file): json_file.stat().st_mtime}
-            )
-
-        timestamp_file = dirname.joinpath('modules.stp')
-        with open(timestamp_file, 'w', encoding='utf8') as _file:
-            json.dump(timestamp, _file)
+        """Caller of the same method in Loader class."""
+        return self.loader._save_module_info_timestamp()
 
     def _index_testable_modules(self, content):
         """Dump testable modules.
@@ -874,29 +903,8 @@ class ModuleInfo:
         return install_deps
 
     def need_merge_module_info(self):
-        """Check if need to merge module info json files.
-
-        There are 2 scienarios that atest_merged_dep.json will be updated.
-        1. One of the checksum of module-info.json, module_bp_java_deps.json and
-           module_cc_java_deps.json have changed.
-        2. atest_merged_deps.json does not exist.
-
-        If fits one of above scienarios, it is recognized to update.
-
-        Returns:
-            True if one of the scienarios reaches, False otherwise.
-        """
-        if not self.merged_dep_path.is_file():
-            return True
-
-        timestamp_file = atest_utils.get_host_out('indexes/modules.stp')
-        data = atest_utils.load_json_safely(timestamp_file)
-        for f in [self.mod_info_file_path,
-                  self.java_dep_path,
-                  self.cc_dep_path]:
-            if f.stat().st_mtime != data.get(str(f), ''):
-                return True
-        return False
+        """Caller of the same method in Loader class."""
+        return self.loader.need_merge_module_info()
 
     def is_unit_test(self, mod_info):
         """Return True if input module is unit test, False otherwise.
