@@ -1113,7 +1113,8 @@ def is_parameterized_java_class(test_path):
             # Return when Parameterized.class is invoked in @RunWith annotation.
             # @RunWith(Parameterized.class) -> Java.
             # @RunWith(Parameterized::class) -> kotlin.
-            if re.compile(r'^\s*@RunWith\s*\(Parameterized.*(\.|::)class'):
+            if re.compile(
+                r'^\s*@RunWith\s*\(\s*Parameterized.*(\.|::)class').match(line):
                 return True
             if _SUSPECTED_PARAM_CLASS_RE.match(line):
                 return True
