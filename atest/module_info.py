@@ -81,7 +81,7 @@ def create_empty() -> ModuleInfo:
 class Loader:
     """Class that handles load and merge processes."""
 
-    def __init__(self, module_file=None):
+    def __init__(self, module_file=None, force_build: bool = False):
         self.java_dep_path = Path(
             atest_utils.get_build_out_dir()).joinpath('soong', _JAVA_DEP_INFO)
         self.cc_dep_path = Path(
@@ -90,6 +90,75 @@ class Loader:
             os.getenv(constants.ANDROID_PRODUCT_OUT, '')).joinpath(_MERGED_INFO)
 
         self.mod_info_file_path = Path(module_file) if module_file else None
+        # update_merge_info flag will merge dep files only when any of them have
+        # changed even force_build == True.
+        self.update_merge_info = False
+        # force_build could be from "-m" or smart_build(build files change).
+        self.force_build = force_build
+
+    def load_module_info_file(self, module_file):
+        """Load the module file.
+
+        No matter whether passing module_file or not, ModuleInfo will load
+        atest_merged_dep.json as module info eventually.
+
+        +--------------+                  +----------------------------------+
+        | ModuleInfo() |                  | ModuleInfo(module_file=foo.json) |
+        +-------+------+                  +----------------+-----------------+
+                | _discover_mod_file_and_target()          |
+                | atest_utils.build()                      | load
+                v                                          V
+        +--------------------------+         +--------------------------+
+        | module-info.json         |         | foo.json                 |
+        | module_bp_cc_deps.json   |         | module_bp_cc_deps.json   |
+        | module_bp_java_deps.json |         | module_bp_java_deps.json |
+        +--------------------------+         +--------------------------+
+                |                                          |
+                | _merge_soong_info() <--------------------+
+                v
+        +============================+
+        |  $ANDROID_PRODUCT_OUT      |
+        |    /atest_merged_dep.json  |--> load as module info.
+        +============================+
+
+        Args:
+            module_file: String of path to file to load up. Used for testing.
+                         Note: if set, ModuleInfo will skip build process.
+
+        Returns:
+            Tuple of module_info_target and dict of json.
+        """
+        # If module_file is specified, we're gonna test it so we don't care if
+        # module_info_target stays None.
+        module_info_target = None
+        file_path = module_file
+        if not file_path:
+            module_info_target, file_path = _discover_mod_file_and_target(
+                self.force_build)
+            self.mod_info_file_path = Path(file_path)
+        # Even undergone a rebuild after _discover_mod_file_and_target(), merge
+        # atest_merged_dep.json only when module_deps_infos actually change so
+        # that Atest can decrease disk I/O and ensure data accuracy at all.
+        self.update_merge_info = self.need_merge_module_info()
+        start = time.time()
+        if self.update_merge_info:
+            # Load the $ANDROID_PRODUCT_OUT/module-info.json for merging.
+            module_info_json = atest_utils.load_json_safely(self.mod_info_file_path)
+            mod_info = self._merge_build_system_infos(module_info_json)
+            duration = time.time() - start
+            logging.debug('Merging module info took %ss', duration)
+            metrics.LocalDetectEvent(
+                detect_type=DetectType.MODULE_MERGE_MS, result=int(duration*1000))
+        else:
+            # Load $ANDROID_PRODUCT_OUT/atest_merged_dep.json directly.
+            mod_info = atest_utils.load_json_safely(self.merged_dep_path)
+            duration = time.time() - start
+            logging.debug('Loading module info took %ss', duration)
+            metrics.LocalDetectEvent(
+                detect_type=DetectType.MODULE_LOAD_MS, result=int(duration*1000))
+        _add_missing_variant_modules(mod_info)
+        logging.debug('Loading %s as module-info.', self.merged_dep_path)
+        return module_info_target, mod_info
 
     def _save_module_info_timestamp(self):
         """Dump the timestamp of essential module info files.
@@ -247,11 +316,6 @@ class ModuleInfo:
                          leave module info empty.
         """
         self.root_dir = os.environ.get(constants.ANDROID_BUILD_TOP)
-        # force_build could be from "-m" or smart_build(build files change).
-        self.force_build = force_build
-        # update_merge_info flag will merge dep files only when any of them have
-        # changed even force_build == True.
-        self.update_merge_info = False
         self.roboleaf_tests = {}
 
         # Index and checksum files that will be used.
@@ -261,19 +325,20 @@ class ModuleInfo:
 
         self.loader = Loader(
             module_file=module_file,
+            force_build=force_build,
         )
 
         if no_generate:
             self.name_to_module_info = {}
             return
 
-        module_info_target, name_to_module_info = self._load_module_info_file(
+        module_info_target, name_to_module_info = self.loader.load_module_info_file(
             module_file)
         self.name_to_module_info = name_to_module_info
         self.module_info_target = module_info_target
         self.path_to_module_info = get_path_to_module_info(
             self.name_to_module_info)
-        if self.update_merge_info or not self.module_index.is_file():
+        if self.loader.update_merge_info or not self.module_index.is_file():
             # Assumably null module_file reflects a common run, and index testable
             # modules only when common runs.
             if not module_file:
@@ -300,70 +365,6 @@ class ModuleInfo:
     @property
     def merged_dep_path(self):
         return self.loader.merged_dep_path
-
-    def _load_module_info_file(self, module_file):
-        """Load the module file.
-
-        No matter whether passing module_file or not, ModuleInfo will load
-        atest_merged_dep.json as module info eventually.
-
-        +--------------+                  +----------------------------------+
-        | ModuleInfo() |                  | ModuleInfo(module_file=foo.json) |
-        +-------+------+                  +----------------+-----------------+
-                | _discover_mod_file_and_target()          |
-                | atest_utils.build()                      | load
-                v                                          V
-        +--------------------------+         +--------------------------+
-        | module-info.json         |         | foo.json                 |
-        | module_bp_cc_deps.json   |         | module_bp_cc_deps.json   |
-        | module_bp_java_deps.json |         | module_bp_java_deps.json |
-        +--------------------------+         +--------------------------+
-                |                                          |
-                | _merge_soong_info() <--------------------+
-                v
-        +============================+
-        |  $ANDROID_PRODUCT_OUT      |
-        |    /atest_merged_dep.json  |--> load as module info.
-        +============================+
-
-        Args:
-            module_file: String of path to file to load up. Used for testing.
-                         Note: if set, ModuleInfo will skip build process.
-
-        Returns:
-            Tuple of module_info_target and dict of json.
-        """
-        # If module_file is specified, we're gonna test it so we don't care if
-        # module_info_target stays None.
-        module_info_target = None
-        file_path = module_file
-        if not file_path:
-            module_info_target, file_path = _discover_mod_file_and_target(
-                self.force_build)
-            self.mod_info_file_path = Path(file_path)
-        # Even undergone a rebuild after _discover_mod_file_and_target(), merge
-        # atest_merged_dep.json only when module_deps_infos actually change so
-        # that Atest can decrease disk I/O and ensure data accuracy at all.
-        self.update_merge_info = self.need_merge_module_info()
-        start = time.time()
-        if self.update_merge_info:
-            # Load the $ANDROID_PRODUCT_OUT/module-info.json for merging.
-            module_info_json = atest_utils.load_json_safely(file_path)
-            mod_info = self._merge_build_system_infos(module_info_json)
-            duration = time.time() - start
-            logging.debug('Merging module info took %ss', duration)
-            metrics.LocalDetectEvent(
-                detect_type=DetectType.MODULE_MERGE_MS, result=int(duration*1000))
-        else:
-            # Load $ANDROID_PRODUCT_OUT/atest_merged_dep.json directly.
-            mod_info = atest_utils.load_json_safely(self.merged_dep_path)
-            duration = time.time() - start
-            logging.debug('Loading module info took %ss', duration)
-            metrics.LocalDetectEvent(
-                detect_type=DetectType.MODULE_LOAD_MS, result=int(duration*1000))
-        _add_missing_variant_modules(mod_info)
-        logging.debug('Loading %s as module-info.', self.merged_dep_path)
-        return module_info_target, mod_info
 
     def _save_module_info_timestamp(self):
         """Caller of the same method in Loader class."""
@@ -910,10 +911,6 @@ class ModuleInfo:
         logging.debug('modules %s required by %s were not installed',
                       install_deps, module_name)
         return install_deps
-
-    def need_merge_module_info(self):
-        """Caller of the same method in Loader class."""
-        return self.loader.need_merge_module_info()
 
     def is_unit_test(self, mod_info):
         """Return True if input module is unit test, False otherwise.
