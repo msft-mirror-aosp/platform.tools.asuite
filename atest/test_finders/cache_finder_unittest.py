@@ -40,70 +40,76 @@ class CacheFinderUnittests(unittest.TestCase):
         self.cache_finder = cache_finder.CacheFinder()
         self.cache_finder.module_info = mock.Mock(spec=module_info.ModuleInfo)
 
-    @mock.patch.object(cache_finder.CacheFinder, '_is_test_filter_valid',
+    @mock.patch.object(atest_utils, 'get_cache_root')
+    def test_find_test_by_cache_cache_not_exist(self, mock_get_cache_root):
+        """Test find_test_by_cache input not cached test."""
+        not_cached_test = 'mytest1'
+        mock_get_cache_root.return_value = os.path.join(
+            uc.TEST_DATA_DIR, 'cache_root')
+
+        self.assertIsNone(self.cache_finder.find_test_by_cache(not_cached_test))
+
+    @mock.patch.object(cache_finder.CacheFinder, '_is_test_infos_valid',
                        return_value=True)
+    @mock.patch.object(atest_utils, 'get_cache_root')
+    def test_find_test_by_cache_cache_exist_and_valid(
+        self, mock_get_cache_root, _mock_is_info_valid):
+        """Test find_test_by_cache input valid cached test."""
+        cached_test = 'hello_world_test'
+        mock_get_cache_root.return_value = os.path.join(
+            uc.TEST_DATA_DIR, 'cache_root')
+
+        self.assertIsNotNone(self.cache_finder.find_test_by_cache(cached_test))
+
+    @mock.patch.object(cache_finder.CacheFinder, '_is_test_filter_valid',
+                           return_value=True)
     @mock.patch.object(cache_finder.CacheFinder, '_is_test_build_target_valid',
                        return_value=True)
-    @mock.patch.object(atest_utils, 'get_test_info_cache_path')
-    def test_find_test_by_cache(self, mock_get_cache_path,
-            _mock_build_target_valid, _mock_filter_valid):
-        """Test find_test_by_cache method."""
-        uncached_test = 'mytest1'
+    @mock.patch.object(cache_finder.CacheFinder, '_is_test_path_valid',
+                       return_value=True)
+    @mock.patch.object(atest_utils, 'load_test_info_cache')
+    def test_find_test_by_cache_wo_latest_info(
+        self, mock_load_cache, _mock_path_valid, _mock_build_target_valid,
+        _mock_filer_valid):
+        """Test find_test_by_cache cached not valid path."""
         cached_test = 'hello_world_test'
-        uncached_test2 = 'mytest2'
-        test_cache_root = os.path.join(uc.TEST_DATA_DIR, 'cache_root')
-        # Hit matched cache file but no original_finder in it,
-        # should return None.
-        mock_get_cache_path.return_value = os.path.join(
-            test_cache_root,
-            'cd66f9f5ad63b42d0d77a9334de6bb73.cache')
-        self.assertIsNone(self.cache_finder.find_test_by_cache(uncached_test))
-        # Hit matched cache file and original_finder is in it,
-        # should return cached test infos.
-        self.cache_finder.module_info.get_paths.return_value = [
-            'platform_testing/tests/example/native']
-        mock_get_cache_path.return_value = os.path.join(
-            test_cache_root,
-            '78ea54ef315f5613f7c11dd1a87f10c7.cache')
-        self.assertIsNotNone(self.cache_finder.find_test_by_cache(cached_test))
-        # Does not hit matched cache file, should return cached test infos.
-        mock_get_cache_path.return_value = os.path.join(
-            test_cache_root,
-            '39488b7ac83c56d5a7d285519fe3e3fd.cache')
-        self.assertIsNone(self.cache_finder.find_test_by_cache(uncached_test2))
+        latest_test_info = test_info.TestInfo(None, None, None)
+        # Add a new attribute to make it different with current one.
+        latest_test_info.__setattr__('new_key', 1)
+        mock_load_cache.return_value = {latest_test_info}
+
+        self.assertIsNone(self.cache_finder.find_test_by_cache(cached_test))
 
     @mock.patch.object(cache_finder.CacheFinder, '_is_test_build_target_valid',
                        return_value=True)
-    @mock.patch.object(atest_utils, 'get_test_info_cache_path')
-    def test_find_test_by_cache_wo_valid_path(self, mock_get_cache_path,
+    @mock.patch.object(atest_utils, 'get_cache_root')
+    def test_find_test_by_cache_wo_valid_path(self, mock_get_cache_root,
             _mock_build_target_valid):
-        """Test find_test_by_cache method."""
+        """Test find_test_by_cache cached not valid path."""
         cached_test = 'hello_world_test'
-        test_cache_root = os.path.join(uc.TEST_DATA_DIR, 'cache_root')
-        # Return None when the actual test_path is not identical to that in the
-        # existing cache.
+        mock_get_cache_root.return_value = os.path.join(
+            uc.TEST_DATA_DIR, 'cache_root')
+        # Mock the path to make it not the same as the sample cache.
         self.cache_finder.module_info.get_paths.return_value = [
             'not/matched/test/path']
-        mock_get_cache_path.return_value = os.path.join(
-            test_cache_root,
-            '78ea54ef315f5613f7c11dd1a87f10c7.cache')
+
         self.assertIsNone(self.cache_finder.find_test_by_cache(cached_test))
 
-    @mock.patch.object(cache_finder.CacheFinder, '_is_test_build_target_valid',
-                       return_value=False)
     @mock.patch.object(cache_finder.CacheFinder, '_is_test_path_valid',
                        return_value=True)
-    @mock.patch.object(atest_utils, 'get_test_info_cache_path')
-    def test_find_test_by_cache_wo_valid_build_target(self, mock_get_cache_path,
-            _mock_path_valid, _mock_build_target_valid):
-        """Test find_test_by_cache method."""
+    @mock.patch.object(atest_utils, 'get_cache_root')
+    def test_find_test_by_cache_wo_valid_build_target(
+        self, mock_get_cache_root, _mock_path_valid):
+        """Test find_test_by_cache method cached not valid build targets."""
         cached_test = 'hello_world_test'
-        test_cache_root = os.path.join(uc.TEST_DATA_DIR, 'cache_root')
-        # Return None when the build target is not exist in module-info.
-        mock_get_cache_path.return_value = os.path.join(
-            test_cache_root,
-            '78ea54ef315f5613f7c11dd1a87f10c7.cache')
+        mock_get_cache_root.return_value = os.path.join(
+            uc.TEST_DATA_DIR, 'cache_root')
+        # Always return None for is_module function to simulate checking valid
+        # build target.
+        self.cache_finder.module_info.is_module.return_value = None
+
         self.assertIsNone(self.cache_finder.find_test_by_cache(cached_test))
+
 
     @mock.patch.object(cache_finder.CacheFinder, '_is_test_filter_valid',
                        return_value=False)
@@ -111,16 +117,15 @@ class CacheFinderUnittests(unittest.TestCase):
                        return_value=True)
     @mock.patch.object(cache_finder.CacheFinder, '_is_test_path_valid',
                        return_value=True)
-    @mock.patch.object(atest_utils, 'get_test_info_cache_path')
-    def test_find_test_by_cache_wo_valid_java_filter(self, mock_get_cache_path,
-        _mock_path_valid, _mock_build_target_valid, _mock_filter_valid):
-        """Test _is_test_filter_valid method."""
+    @mock.patch.object(atest_utils, 'get_cache_root')
+    def test_find_test_by_cache_wo_valid_java_filter(
+        self, mock_get_cache_root, _mock_path_valid, _mock_build_target_valid,
+        _mock_filer_valid):
+        """Test _is_test_filter_valid method cached not valid java filter."""
         cached_test = 'hello_world_test'
-        test_cache_root = os.path.join(uc.TEST_DATA_DIR, 'cache_root')
-        # Return None if the cached test filter is not valid.
-        mock_get_cache_path.return_value = os.path.join(
-            test_cache_root,
-            '78ea54ef315f5613f7c11dd1a87f10c7.cache')
+        mock_get_cache_root.return_value = os.path.join(
+            uc.TEST_DATA_DIR, 'cache_root')
+
         self.assertIsNone(self.cache_finder.find_test_by_cache(cached_test))
 
     def test_is_java_filter_in_module_for_java_class(self):
