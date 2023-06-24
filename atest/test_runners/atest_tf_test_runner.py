@@ -1493,6 +1493,7 @@ class DeviceTest(Test):
             Target('adb', Variant.HOST),
             Target('aapt', Variant.HOST),
             Target('aapt2', Variant.HOST),
+            Target('compatibility-host-util', Variant.HOST),
         ]))
 
         # Auto-generated Java tests use a module template that uses the Dalvik
