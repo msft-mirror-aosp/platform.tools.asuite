@@ -129,7 +129,7 @@ class Loader:
                          Note: if set, ModuleInfo will skip build process.
 
         Returns:
-            Dict of json.
+            Dict of module name to module info and dict of module path to module info.
         """
         file_path = module_file
         if not file_path:
@@ -144,21 +144,21 @@ class Loader:
         if self.update_merge_info:
             # Load the $ANDROID_PRODUCT_OUT/module-info.json for merging.
             module_info_json = atest_utils.load_json_safely(self.mod_info_file_path)
-            mod_info = self._merge_build_system_infos(module_info_json)
+            name_to_module_info = self._merge_build_system_infos(module_info_json)
             duration = time.time() - start
             logging.debug('Merging module info took %ss', duration)
             metrics.LocalDetectEvent(
                 detect_type=DetectType.MODULE_MERGE_MS, result=int(duration*1000))
         else:
             # Load $ANDROID_PRODUCT_OUT/atest_merged_dep.json directly.
-            mod_info = atest_utils.load_json_safely(self.merged_dep_path)
+            name_to_module_info = atest_utils.load_json_safely(self.merged_dep_path)
             duration = time.time() - start
             logging.debug('Loading module info took %ss', duration)
             metrics.LocalDetectEvent(
                 detect_type=DetectType.MODULE_LOAD_MS, result=int(duration*1000))
-        _add_missing_variant_modules(mod_info)
+        _add_missing_variant_modules(name_to_module_info)
         logging.debug('Loading %s as module-info.', self.merged_dep_path)
-        return mod_info
+        return name_to_module_info, get_path_to_module_info(name_to_module_info)
 
     def _save_module_info_timestamp(self):
         """Dump the timestamp of essential module info files.
@@ -332,9 +332,8 @@ class ModuleInfo:
             self.name_to_module_info = {}
             return
 
-        self.name_to_module_info = self.loader.load_module_info_file(module_file)
-        self.path_to_module_info = get_path_to_module_info(
-            self.name_to_module_info)
+        self.name_to_module_info, self.path_to_module_info = self.loader.load_module_info_file(
+            module_file)
         if self.loader.update_merge_info or not self.module_index.is_file():
             # Assumably null module_file reflects a common run, and index testable
             # modules only when common runs.
