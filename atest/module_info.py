@@ -68,7 +68,7 @@ def load_from_dict(name_to_module_info: Dict[str, Any]) -> ModuleInfo:
         json.dump({}, f)
         mi = load_from_file(module_file=f.name)
 
-    mi.name_to_module_info.update(name_to_module_info)
+    mi.loader.name_to_module_info.update(name_to_module_info)
 
     return mi
 
@@ -81,7 +81,7 @@ def create_empty() -> ModuleInfo:
 class Loader:
     """Class that handles load and merge processes."""
 
-    def __init__(self, module_file=None, force_build: bool = False):
+    def __init__(self, module_file=None, force_build: bool=False, no_generate: bool=False):
         self.java_dep_path = Path(
             atest_utils.get_build_out_dir()).joinpath('soong', _JAVA_DEP_INFO)
         self.cc_dep_path = Path(
@@ -99,7 +99,27 @@ class Loader:
         # module_info_target stays None.
         self.module_info_target = None
 
-    def load_module_info_file(self, module_file):
+        if no_generate:
+            self.name_to_module_info = {}
+            return
+
+        self.name_to_module_info, self.path_to_module_info = self.load(
+            module_file)
+
+        # Index and checksum files that will be used.
+        index_dir = Path(os.getenv(constants.ANDROID_HOST_OUT, '')).joinpath('indexes')
+        self.module_index = index_dir.joinpath(constants.MODULE_INDEX)
+        self.module_index_proc = None
+
+        if self.update_merge_info or not self.module_index.is_file():
+            # Assumably null module_file reflects a common run, and index testable
+            # modules only when common runs.
+            if not module_file:
+                self.module_index_proc = atest_utils.run_multi_proc(
+                    func=self._get_testable_modules,
+                    kwargs={'index': True})
+
+    def load(self, module_file):
         """Load the module file.
 
         No matter whether passing module_file or not, ModuleInfo will load
@@ -270,6 +290,102 @@ class Loader:
             shutil.copy(temp_file.name, self.merged_dep_path)
         return name_to_module_info
 
+    def get_testable_modules(self, suite=None):
+        """Return the testable modules of the given suite name.
+
+        Atest does not index testable modules against compatibility_suites. When
+        suite was given, or the index file was interrupted, always run
+        _get_testable_modules() and re-index.
+
+        Args:
+            suite: A string of suite name.
+
+        Returns:
+            If suite is not given, return all the testable modules in module
+            info, otherwise return only modules that belong to the suite.
+        """
+        modules = set()
+        start = time.time()
+        if self.module_index_proc:
+            self.module_index_proc.join()
+
+        if self.module_index.is_file():
+            if not suite:
+                with open(self.module_index, 'rb') as cache:
+                    try:
+                        modules = pickle.load(cache, encoding="utf-8")
+                    except UnicodeDecodeError:
+                        modules = pickle.load(cache)
+                    # when module indexing was interrupted.
+                    except EOFError:
+                        pass
+            else:
+                modules = self._get_testable_modules(suite=suite)
+        # If the modules.idx does not exist or invalid for any reason, generate
+        # a new one arbitrarily.
+        if not modules:
+            if not suite:
+                modules = self._get_testable_modules(index=True)
+            else:
+                modules = self._get_testable_modules(index=True, suite=suite)
+        duration = time.time() - start
+        metrics.LocalDetectEvent(
+            detect_type=DetectType.TESTABLE_MODULES,
+            result=int(duration))
+        return modules
+
+    def _get_testable_modules(self, index=False, suite=None):
+        """Return all available testable modules and index them.
+
+        Args:
+            index: boolean that determines running _index_testable_modules().
+            suite: string for the suite name.
+
+        Returns:
+            Set of all testable modules.
+        """
+        modules = set()
+        begin = time.time()
+        for _, info in self.name_to_module_info.items():
+            if _is_testable_module(
+                self.name_to_module_info, self.path_to_module_info, info):
+
+                testable_module = info.get(constants.MODULE_NAME)
+                if testable_module:
+                    modules.add(testable_module)
+
+        logging.debug('Probing all testable modules took %ss',
+                      time.time() - begin)
+        if index:
+            self._index_testable_modules(modules)
+        if suite:
+            _modules = set()
+            for module_name in modules:
+                info = self.name_to_module_info.get(module_name)
+                if ModuleInfo.is_suite_in_compatibility_suites(suite, info):
+                    testable_module = info.get(constants.MODULE_NAME)
+                    if testable_module:
+                        _modules.add(testable_module)
+            return _modules
+        return modules
+
+    def _index_testable_modules(self, content):
+        """Dump testable modules.
+
+        Args:
+            content: An object that will be written to the index file.
+        """
+        logging.debug(r'Indexing testable modules... '
+                      r'(This is required whenever module-info.json '
+                      r'was rebuilt.)')
+        Path(self.module_index).parent.mkdir(parents=True, exist_ok=True)
+        with open(self.module_index, 'wb') as cache:
+            try:
+                pickle.dump(content, cache, protocol=2)
+            except IOError:
+                logging.error('Failed in dumping %s', cache)
+                os.remove(cache)
+
 
 class ModuleInfo:
     """Class that offers fast/easy lookup for Module related details."""
@@ -318,29 +434,19 @@ class ModuleInfo:
         self.root_dir = os.environ.get(constants.ANDROID_BUILD_TOP)
         self.roboleaf_tests = {}
 
-        # Index and checksum files that will be used.
-        index_dir = Path(os.getenv(constants.ANDROID_HOST_OUT, '')).joinpath('indexes')
-        self.module_index = index_dir.joinpath(constants.MODULE_INDEX)
-        self.module_index_proc = None
-
         self.loader = Loader(
             module_file=module_file,
             force_build=force_build,
+            no_generate=no_generate,
         )
 
-        if no_generate:
-            self.name_to_module_info = {}
-            return
+    @property
+    def name_to_module_info(self):
+        return self.loader.name_to_module_info
 
-        self.name_to_module_info, self.path_to_module_info = self.loader.load_module_info_file(
-            module_file)
-        if self.loader.update_merge_info or not self.module_index.is_file():
-            # Assumably null module_file reflects a common run, and index testable
-            # modules only when common runs.
-            if not module_file:
-                self.module_index_proc = atest_utils.run_multi_proc(
-                    func=self._get_testable_modules,
-                    kwargs={'index': True})
+    @property
+    def path_to_module_info(self):
+        return self.loader.path_to_module_info
 
     @property
     def module_info_target(self):
@@ -370,55 +476,6 @@ class ModuleInfo:
         """Caller of the same method in Loader class."""
         return self.loader._save_module_info_timestamp()
 
-    def _index_testable_modules(self, content):
-        """Dump testable modules.
-
-        Args:
-            content: An object that will be written to the index file.
-        """
-        logging.debug(r'Indexing testable modules... '
-                      r'(This is required whenever module-info.json '
-                      r'was rebuilt.)')
-        Path(self.module_index).parent.mkdir(parents=True, exist_ok=True)
-        with open(self.module_index, 'wb') as cache:
-            try:
-                pickle.dump(content, cache, protocol=2)
-            except IOError:
-                logging.error('Failed in dumping %s', cache)
-                os.remove(cache)
-
-    def _get_testable_modules(self, index=False, suite=None):
-        """Return all available testable modules and index them.
-
-        Args:
-            index: boolean that determines running _index_testable_modules().
-            suite: string for the suite name.
-
-        Returns:
-            Set of all testable modules.
-        """
-        modules = set()
-        begin = time.time()
-        for _, info in self.name_to_module_info.items():
-            if self.is_testable_module(info):
-                testable_module = info.get(constants.MODULE_NAME)
-                if testable_module:
-                    modules.add(testable_module)
-        logging.debug('Probing all testable modules took %ss',
-                      time.time() - begin)
-        if index:
-            self._index_testable_modules(modules)
-        if suite:
-            _modules = set()
-            for module_name in modules:
-                info = self.get_module_info(module_name)
-                if self.is_suite_in_compatibility_suites(suite, info):
-                    testable_module = info.get(constants.MODULE_NAME)
-                    if testable_module:
-                        _modules.add(testable_module)
-            return _modules
-        return modules
-
     def is_module(self, name):
         """Return True if name is a module, False otherwise."""
         info = self.get_module_info(name)
@@ -447,14 +504,14 @@ class ModuleInfo:
         Returns:
             List of module names.
         """
-        return [m.get(constants.MODULE_NAME)
-                for m in self.path_to_module_info.get(rel_module_path, [])]
+        return _get_module_names(self.path_to_module_info, rel_module_path)
 
     def get_module_info(self, mod_name):
         """Return dict of info for given module name, None if non-existence."""
         return self.name_to_module_info.get(mod_name)
 
-    def is_suite_in_compatibility_suites(self, suite, mod_info):
+    @staticmethod
+    def is_suite_in_compatibility_suites(suite, mod_info):
         """Check if suite exists in the compatibility_suites of module-info.
 
         Args:
@@ -470,58 +527,19 @@ class ModuleInfo:
             constants.MODULE_COMPATIBILITY_SUITES, [])
 
     def get_testable_modules(self, suite=None):
-        """Return the testable modules of the given suite name.
+        return self.loader.get_testable_modules(suite)
 
-        Atest does not index testable modules against compatibility_suites. When
-        suite was given, or the index file was interrupted, always run
-        _get_testable_modules() and re-index.
-
-        Args:
-            suite: A string of suite name.
-
-        Returns:
-            If suite is not given, return all the testable modules in module
-            info, otherwise return only modules that belong to the suite.
-        """
-        modules = set()
-        start = time.time()
-        if self.module_index_proc:
-            self.module_index_proc.join()
-
-        if self.module_index.is_file():
-            if not suite:
-                with open(self.module_index, 'rb') as cache:
-                    try:
-                        modules = pickle.load(cache, encoding="utf-8")
-                    except UnicodeDecodeError:
-                        modules = pickle.load(cache)
-                    # when module indexing was interrupted.
-                    except EOFError:
-                        pass
-            else:
-                modules = self._get_testable_modules(suite=suite)
-        # If the modules.idx does not exist or invalid for any reason, generate
-        # a new one arbitrarily.
-        if not modules:
-            if not suite:
-                modules = self._get_testable_modules(index=True)
-            else:
-                modules = self._get_testable_modules(index=True, suite=suite)
-        duration = time.time() - start
-        metrics.LocalDetectEvent(
-            detect_type=DetectType.TESTABLE_MODULES,
-            result=int(duration))
-        return modules
-
-    def is_tradefed_testable_module(self, info: Dict[str, Any]) -> bool:
+    @staticmethod
+    def is_tradefed_testable_module(info: Dict[str, Any]) -> bool:
         """Check whether the module is a Tradefed executable test."""
         if not info:
             return False
         if not info.get(constants.MODULE_INSTALLED, []):
             return False
-        return self.has_test_config(info)
+        return ModuleInfo.has_test_config(info)
 
-    def is_mobly_module(self, info: Dict[str, Any]) -> bool:
+    @staticmethod
+    def is_mobly_module(info: Dict[str, Any]) -> bool:
         """Check whether the module is a Mobly test.
 
         Note: Only python_test_host modules marked with a test_options tag of
@@ -550,17 +568,11 @@ class ModuleInfo:
         Returns:
             True if we can test this module, False otherwise.
         """
-        if not info:
-            return False
-        if self.is_tradefed_testable_module(info):
-            return True
-        if self.is_mobly_module(info):
-            return True
-        if self.is_legacy_robolectric_test(info):
-            return True
-        return False
+        return _is_testable_module(
+            self.name_to_module_info, self.path_to_module_info, info)
 
-    def has_test_config(self, info: Dict[str, Any]) -> bool:
+    @staticmethod
+    def has_test_config(info: Dict[str, Any]) -> bool:
         """Validate if this module has a test config.
 
         A module can have a test config in the following manner:
@@ -579,9 +591,8 @@ class ModuleInfo:
 
     def is_legacy_robolectric_test(self, info: Dict[str, Any]) -> bool:
         """Return whether the module_name is a legacy Robolectric test"""
-        if self.is_tradefed_testable_module(info):
-            return False
-        return bool(self.get_robolectric_test_name(info))
+        return _is_legacy_robolectric_test(
+            self.name_to_module_info, self.path_to_module_info, info)
 
     def get_robolectric_test_name(self, info: Dict[str, Any]) -> str:
         """Returns runnable robolectric module name.
@@ -601,24 +612,8 @@ class ModuleInfo:
             String of the first-matched associated module that belongs to the
             actual robolectric module, None if nothing has been found.
         """
-        if not info:
-            return ''
-        module_paths = info.get(constants.MODULE_PATH, [])
-        if not module_paths:
-            return ''
-        filtered_module_names = [
-            name
-            for name in self.get_module_names(module_paths[0])
-            if name.startswith("Run")
-        ]
-        return next(
-            (
-                name
-                for name in filtered_module_names
-                if self.is_legacy_robolectric_class(self.get_module_info(name))
-            ),
-            '',
-        )
+        return _get_robolectric_test_name(
+            self.name_to_module_info, self.path_to_module_info, info)
 
     def is_robolectric_test(self, module_name):
         """Check if the given module is a robolectric test.
@@ -784,7 +779,8 @@ class ModuleInfo:
             return auto_test_config and auto_test_config[0]
         return False
 
-    def is_legacy_robolectric_class(self, info: Dict[str, Any]) -> bool:
+    @staticmethod
+    def is_legacy_robolectric_class(info: Dict[str, Any]) -> bool:
         """Check if the class is `ROBOLECTRIC`
 
         This method is for legacy robolectric tests that the associated modules
@@ -1169,3 +1165,101 @@ def get_path_to_module_info(name_to_module_info):
             else:
                 path_to_module_info[path] = [mod_info]
     return path_to_module_info
+
+
+def _get_module_names(path_to_module_info, rel_module_path):
+    """Get the modules that all have module_path.
+
+    Args:
+        path_to_module_info: Dict of path to module info.
+        rel_module_path: path of module in module-info.json.
+
+    Returns:
+        List of module names.
+    """
+    return [m.get(constants.MODULE_NAME)
+            for m in path_to_module_info.get(rel_module_path, [])]
+
+
+def _get_robolectric_test_name(
+    name_to_module_info: Dict[str, Dict],
+    path_to_module_info: Dict[str, Dict],
+    info: Dict[str, Any]) -> str:
+    """Returns runnable robolectric module name.
+
+    This method is for legacy robolectric tests and returns one of associated
+    modules. The pattern is determined by the amount of shards:
+
+    10 shards:
+        FooTests -> RunFooTests0, RunFooTests1 ... RunFooTests9
+    No shard:
+        FooTests -> RunFooTests
+
+    Arg:
+        name_to_module_info: Dict of name to module info.
+        path_to_module_info: Dict of path to module info.
+        info: Dict of module info to check.
+
+    Returns:
+        String of the first-matched associated module that belongs to the
+        actual robolectric module, None if nothing has been found.
+    """
+    if not info:
+        return ''
+    module_paths = info.get(constants.MODULE_PATH, [])
+    if not module_paths:
+        return ''
+    filtered_module_names = [
+        name
+        for name in _get_module_names(path_to_module_info, module_paths[0])
+        if name.startswith("Run")
+    ]
+    return next(
+        (
+            name
+            for name in filtered_module_names
+            if ModuleInfo.is_legacy_robolectric_class(name_to_module_info.get(name))
+        ),
+        '',
+    )
+
+
+def _is_legacy_robolectric_test(
+    name_to_module_info: Dict[str, Dict],
+    path_to_module_info: Dict[str, Dict],
+    info: Dict[str, Any]) -> bool:
+    """Return whether the module_name is a legacy Robolectric test"""
+    if ModuleInfo.is_tradefed_testable_module(info):
+        return False
+    return bool(_get_robolectric_test_name(
+        name_to_module_info, path_to_module_info, info))
+
+
+def _is_testable_module(
+    name_to_module_info: Dict[str, Dict],
+    path_to_module_info: Dict[str, Dict],
+    info: Dict[str, Any]) -> bool:
+    """Check if module is something we can test.
+
+    A module is testable if:
+      - it's a tradefed testable module, or
+      - it's a Mobly module, or
+      - it's a robolectric module (or shares path with one).
+
+    Args:
+        name_to_module_info: Dict of name to module info.
+        path_to_module_info: Dict of path to module info.
+        info: Dict of module info to check.
+
+    Returns:
+        True if we can test this module, False otherwise.
+    """
+    if not info:
+        return False
+    if ModuleInfo.is_tradefed_testable_module(info):
+        return True
+    if ModuleInfo.is_mobly_module(info):
+        return True
+    if _is_legacy_robolectric_test(name_to_module_info, path_to_module_info, info):
+        return True
+    return False

@@ -216,7 +216,7 @@ class ModuleFinderFindTestByPath(fake_filesystem_unittest.TestCase):
         modules = modules or []
 
         for m in modules:
-            mod_info.name_to_module_info[m['module_name']] = m
+            mod_info.loader.name_to_module_info[m['module_name']] = m
             for path in m['path']:
                 if path in mod_info.path_to_module_info:
                     mod_info.path_to_module_info[path].append(m)
@@ -1387,7 +1387,7 @@ def create_module_info(modules=None):
     modules = modules or []
 
     for m in modules:
-        mod_info.name_to_module_info[m['module_name']] = m
+        mod_info.loader.name_to_module_info[m['module_name']] = m
 
     return mod_info
 
