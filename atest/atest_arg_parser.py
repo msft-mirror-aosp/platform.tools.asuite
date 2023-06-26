@@ -230,8 +230,7 @@ class AtestArgParser(argparse.ArgumentParser):
                           action='store_true')
         self.add_argument('--roboleaf-mode',
                           nargs='?',
-                          # TODO(b/288073715): Launch the default to BazelBuildMode.ON.
-                          default=BazelBuildMode.OFF,
+                          default=BazelBuildMode.ON,
                           const=BazelBuildMode.ON,
                           choices=BazelBuildMode,
                           type=BazelBuildMode,
