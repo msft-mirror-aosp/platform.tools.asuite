@@ -150,7 +150,7 @@ class ModuleInfoUnittests(unittest.TestCase):
             self.assertEqual(custom_abs_out_dir_mod_targ,
                              mod_info.module_info_target)
 
-    @mock.patch.object(module_info.Loader, 'load_module_info_file')
+    @mock.patch.object(module_info.Loader, 'load')
     def test_get_path_to_module_info(self, mock_load_module):
         """Test that we correctly create the path to module info dict."""
         mod_one = 'mod1'
@@ -221,7 +221,7 @@ class ModuleInfoUnittests(unittest.TestCase):
     @mock.patch.dict('os.environ', {constants.ANDROID_BUILD_TOP:'/',
                                     constants.ANDROID_PRODUCT_OUT:PRODUCT_OUT_DIR,
                                     constants.ANDROID_HOST_OUT:HOST_OUT_DIR})
-    @mock.patch.object(module_info.ModuleInfo, 'is_testable_module')
+    @mock.patch('atest.module_info._is_testable_module', return_value=True)
     @mock.patch.object(module_info.ModuleInfo, 'is_suite_in_compatibility_suites')
     def test_get_testable_modules(self, mock_is_suite_exist, mock_is_testable):
         """Test get_testable_modules."""
@@ -234,8 +234,7 @@ class ModuleInfoUnittests(unittest.TestCase):
         self.assertTrue(expected_modules.issubset(mod_info.get_testable_modules()))
 
         # 3. search modules by giving a suite name, run _get_testable_modules()
-        mod_info.name_to_module_info = NAME_TO_MODULE_INFO
-        mock_is_testable.return_value = True
+        mod_info = module_info.load_from_dict(name_to_module_info=NAME_TO_MODULE_INFO)
         mock_is_suite_exist.return_value = True
         self.assertEqual(1, len(mod_info.get_testable_modules('test_suite')))
         mock_is_suite_exist.return_value = False
@@ -280,7 +279,7 @@ class ModuleInfoUnittests(unittest.TestCase):
         MOD_INFO_DICT[MOD_NAME2] = is_not_auto_test_config
         MOD_INFO_DICT[MOD_NAME3] = is_not_auto_test_config_again
         MOD_INFO_DICT[MOD_NAME4] = {}
-        mod_info.name_to_module_info = MOD_INFO_DICT
+        mod_info.loader.name_to_module_info = MOD_INFO_DICT
         self.assertTrue(mod_info.is_auto_gen_test_config(MOD_NAME1))
         self.assertFalse(mod_info.is_auto_gen_test_config(MOD_NAME2))
         self.assertFalse(mod_info.is_auto_gen_test_config(MOD_NAME3))
@@ -661,7 +660,7 @@ class ModuleInfoTestFixture(fake_filesystem_unittest.TestCase):
         modules = modules or []
 
         for m in modules:
-            mod_info.name_to_module_info[m['module_name']] = m
+            mod_info.loader.name_to_module_info[m['module_name']] = m
             for path in m['path']:
                 if path in mod_info.path_to_module_info:
                     mod_info.path_to_module_info[path].append(m)
