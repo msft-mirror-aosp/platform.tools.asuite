@@ -98,8 +98,6 @@ _ANDROID_BUILD_EXT = ('.bp', '.mk')
 _REGEX_CHARS = {'[', '(', '{', '|', '\\', '*', '?', '+', '^'}
 _WILDCARD_CHARS = {'?', '*'}
 
-_ROOT_PREPARER = "com.android.tradefed.targetprep.RootTargetPreparer"
-
 _WILDCARD_FILTER_RE = re.compile(r'.*[?|*]$')
 _REGULAR_FILTER_RE = re.compile(r'.*\w$')
 
@@ -138,21 +136,8 @@ class BuildOutputMode(enum.Enum):
         return self._description
 
 
-class SingletonFixture(type):
-    """A SingletonFixture class."""
-    _instances = {}
-
-    def __call__(cls, *args, **kwargs):
-        if cls not in cls._instances:
-            instance = super().__call__(*args, **kwargs)
-            cls._instances[cls] = instance
-        return cls._instances[cls]
-
-    def delete(cls):
-        cls._instances.pop(cls, None)
-
 @dataclass
-class AndroidVariables(metaclass=SingletonFixture):
+class AndroidVariables:
     """Class that stores the value of environment variables."""
     build_top: str
     product_out: str
@@ -1643,22 +1628,28 @@ def handle_test_env_var(input_test, result_path=constants.VERIFY_ENV_PATH,
         raise atest_error.DryRunVerificationError('\n'.join(verify_error))
     return 1
 
-def generate_buildfiles_checksum(target_dir: Path):
-    """ Method that generate md5 checksum of Android.{bp,mk} files.
+def save_build_files_timestamp():
+    """ Method that generate timestamp of Android.{bp,mk} files.
 
     The checksum of build files are stores in
-        $ANDROID_HOST_OUT/indexes/buildfiles.md5
+        $ANDROID_HOST_OUT/indexes/buildfiles.stp
     """
-    plocate_db = Path(target_dir).joinpath(constants.LOCATE_CACHE)
-    checksum_file = Path(target_dir).joinpath(constants.BUILDFILES_MD5)
+    index_dir = get_host_out('indexes')
+    plocate_db = index_dir.joinpath(constants.LOCATE_CACHE)
+
     if plocate_db.is_file():
         cmd = (f'locate -d{plocate_db} --existing '
                r'--regex "/Android\.(bp|mk)$"')
-        try:
-            result = subprocess.check_output(cmd, shell=True).decode('utf-8')
-            save_md5(result.split(), checksum_file)
-        except subprocess.CalledProcessError:
-            logging.error('Failed to generate %s', checksum_file)
+        results = subprocess.getoutput(cmd)
+        if results:
+            timestamp = {}
+            for build_file in results.splitlines():
+                timestamp.update({build_file: Path(build_file).stat().st_mtime})
+
+            checksum_file = index_dir.joinpath(constants.BUILDFILES_STP)
+            with open(checksum_file, 'w', encoding='utf-8') as _file:
+                json.dump(timestamp, _file)
+
 
 def run_multi_proc(func, *args, **kwargs):
     """Start a process with multiprocessing and return Process object.
@@ -1987,18 +1978,22 @@ def get_rbe_and_customized_out_state() -> int:
 
 def build_files_integrity_is_ok() -> bool:
     """Return Whether the integrity of build files is OK."""
-    # 0. Inexistence of the checksum file means a fresh repo sync.
-    if not Path(constants.BUILDFILES_MD5).is_file():
+    # 0. Inexistence of the timestamp file means a fresh repo sync.
+    timestamp_file = get_host_out('indexes', constants.BUILDFILES_STP)
+    if not timestamp_file.is_file():
         return False
     # 1. Ensure no build files were added/deleted.
-    recorded_amount = len(load_json_safely(constants.BUILDFILES_MD5).keys())
+    recorded_amount = len(load_json_safely(timestamp_file).keys())
     cmd = (f'locate -d{constants.LOCATE_CACHE} --regex '
             r'"/Android\.(bp|mk)$" | wc -l')
     if int(subprocess.getoutput(cmd)) != recorded_amount:
         return False
 
     # 2. Ensure the consistency of all build files.
-    return check_md5(constants.BUILDFILES_MD5, missing_ok=False)
+    for file, timestamp in load_json_safely(timestamp_file).items():
+        if Path(file).stat().st_mtime != timestamp:
+            return False
+    return True
 
 
 def _build_env_profiling() -> BuildEnvProfiler:

@@ -590,14 +590,24 @@ class TestFinderUtilsUnittests(unittest.TestCase):
 
     def test_get_levenshtein_distance(self):
         """Test get_levenshetine distance module correctly returns distance."""
-        self.assertEqual(test_finder_utils.get_levenshtein_distance(uc.MOD1, uc.FUZZY_MOD1), 1)
-        self.assertEqual(test_finder_utils.get_levenshtein_distance(uc.MOD2, uc.FUZZY_MOD2,
-                                                                    dir_costs=(1, 2, 3)), 3)
-        self.assertEqual(test_finder_utils.get_levenshtein_distance(uc.MOD3, uc.FUZZY_MOD3,
-                                                                    dir_costs=(1, 2, 1)), 8)
+        self.assertEqual(
+            test_finder_utils.get_levenshtein_distance(uc.MOD1, uc.FUZZY_MOD1),
+            1
+        )
 
-    @staticmethod
-    def test_is_parameterized_java_class():
+        self.assertEqual(
+            test_finder_utils.get_levenshtein_distance(
+                uc.MOD2, uc.FUZZY_MOD2, dir_costs=(1, 2, 3)),
+            3
+        )
+
+        self.assertEqual(
+            test_finder_utils.get_levenshtein_distance(
+                uc.MOD3, uc.FUZZY_MOD3, dir_costs=(1, 2, 1)),
+            8
+        )
+
+    def test_is_parameterized_java_class(self):
         """Test is_parameterized_java_class method. """
         matched_contents = (['@ParameterizedTest'],
                             ['@RunWith(Parameterized.class)'],
@@ -618,14 +628,24 @@ class TestFinderUtilsUnittests(unittest.TestCase):
                 tmp_file = tempfile.NamedTemporaryFile(mode='wt')
                 tmp_file.writelines(matched_content)
                 tmp_file.flush()
+
+                self.assertTrue(
+                    test_finder_utils.is_parameterized_java_class(
+                        tmp_file.name))
             finally:
                 tmp_file.close()
+
+
         # Test not matched patterns
         for not_matched_content in not_matched_contents:
             try:
                 tmp_file = tempfile.NamedTemporaryFile(mode='wt')
                 tmp_file.writelines(not_matched_content)
                 tmp_file.flush()
+
+                self.assertFalse(
+                    test_finder_utils.is_parameterized_java_class(
+                        tmp_file.name))
             finally:
                 tmp_file.close()
 
@@ -721,7 +741,7 @@ class TestFinderUtilsUnittests(unittest.TestCase):
     @mock.patch.object(module_info.ModuleInfo, 'get_paths',)
     def test_find_host_unit_tests(self, _get_paths, _mock_get_unit_tests):
         """Test find_host_unit_tests"""
-        mod_info = module_info.ModuleInfo(module_file=JSON_FILE_PATH)
+        mod_info = module_info.load_from_file(module_file=JSON_FILE_PATH)
         _get_paths.side_effect = self._get_paths_side_effect
         expect_unit_tests = [UNIT_TEST_MODULE_1, UNIT_TEST_MODULE_2]
         self.assertEqual(
@@ -744,7 +764,7 @@ class TestFinderUtilsUnittests(unittest.TestCase):
     def test_get_test_config_use_androidtestxml(self, _isfile):
         """Test get_test_config_and_srcs using default AndroidTest.xml"""
         android_root = '/'
-        mod_info = module_info.ModuleInfo(module_file=JSON_FILE_PATH)
+        mod_info = module_info.load_from_file(module_file=JSON_FILE_PATH)
         t_info = test_info.TestInfo(
             'androidtest_config_module', 'mock_runner', build_targets=set())
         expect_config = os.path.join(android_root, uc.ANDTEST_CONFIG_PATH,
@@ -756,7 +776,7 @@ class TestFinderUtilsUnittests(unittest.TestCase):
     def test_get_test_config_single_config(self, _isfile):
         """Test get_test_config_and_srcs manualy set it's config"""
         android_root = '/'
-        mod_info = module_info.ModuleInfo(module_file=JSON_FILE_PATH)
+        mod_info = module_info.load_from_file(module_file=JSON_FILE_PATH)
         t_info = test_info.TestInfo(
             'single_config_module', 'mock_runner', build_targets=set())
         expect_config = os.path.join(
@@ -768,7 +788,7 @@ class TestFinderUtilsUnittests(unittest.TestCase):
     def test_get_test_config_main_multiple_config(self, _isfile):
         """Test get_test_config_and_srcs which is the main module of multiple config"""
         android_root = '/'
-        mod_info = module_info.ModuleInfo(module_file=JSON_FILE_PATH)
+        mod_info = module_info.load_from_file(module_file=JSON_FILE_PATH)
         t_info = test_info.TestInfo(
             'multiple_config_module', 'mock_runner', build_targets=set())
         expect_config = os.path.join(
@@ -780,7 +800,7 @@ class TestFinderUtilsUnittests(unittest.TestCase):
     def test_get_test_config_subtest_in_multiple_config(self, _isfile):
         """Test get_test_config_and_srcs not the main module of multiple config"""
         android_root = '/'
-        mod_info = module_info.ModuleInfo(module_file=JSON_FILE_PATH)
+        mod_info = module_info.load_from_file(module_file=JSON_FILE_PATH)
         t_info = test_info.TestInfo(
             'Multiple2', 'mock_runner', build_targets=set())
         expect_config = os.path.join(

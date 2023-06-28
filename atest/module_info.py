@@ -17,6 +17,7 @@ Module Info class used to hold cached module-info.json.
 """
 
 # pylint: disable=line-too-long,too-many-lines
+from __future__ import annotations
 
 import json
 import logging
@@ -51,69 +52,36 @@ _MERGED_INFO = 'atest_merged_dep.json'
 Module = Dict[str, Any]
 
 
-class ModuleInfo:
-    """Class that offers fast/easy lookup for Module related details."""
+def load_from_file(
+        module_file: Path = None,
+        force_build: bool = False,
+    ) -> ModuleInfo:
+    """Factory method that initializes ModuleInfo from the build-generated
+    JSON file"""
+    return ModuleInfo(module_file=module_file, force_build=force_build)
 
-    def __init__(
-        self,
-        force_build=False,
-        module_file=None,
-        no_generate=False):
-        """Initialize the ModuleInfo object.
 
-        Load up the module-info.json file and initialize the helper vars.
-        Note that module-info.json does not contain all module dependencies,
-        therefore, Atest needs to accumulate dependencies defined in bp files.
+def load_from_dict(name_to_module_info: Dict[str, Any]) -> ModuleInfo:
+    """Factory method that initializes ModuleInfo from a dictionary."""
+    with tempfile.NamedTemporaryFile(mode='w') as f:
+        # TODO: Serialize the input dict to JSON.
+        json.dump({}, f)
+        mi = load_from_file(module_file=f.name)
 
-          +----------------------+     +----------------------------+
-          | $ANDROID_PRODUCT_OUT |     |$ANDROID_BUILD_TOP/out/soong|
-          |  /module-info.json   |     |  /module_bp_java_deps.json |
-          +-----------+----------+     +-------------+--------------+
-                      |     _merge_soong_info()      |
-                      +------------------------------+
-                      |
-                      v
-        +----------------------------+  +----------------------------+
-        |tempfile.NamedTemporaryFile |  |$ANDROID_BUILD_TOP/out/soong|
-        +-------------+--------------+  |  /module_bp_cc_deps.json   |
-                      |                 +-------------+--------------+
-                      |     _merge_soong_info()       |
-                      +-------------------------------+
-                                     |
-                             +-------|
-                             v
-                +============================+
-                |  $ANDROID_PRODUCT_OUT      |
-                |    /atest_merged_dep.json  |--> load as module info.
-                +============================+
+    mi.loader.name_to_module_info.update(name_to_module_info)
 
-        Args:
-            force_build: Boolean to indicate if we should rebuild the
-                         module_info file regardless if it's created or not.
-            module_file: String of path to file to load up. Used for testing.
-            index_dir: String of path to store testable module index and md5.
-            no_generate: Boolean to indicate if we should populate module info
-                         from the soong artifacts; setting to true will
-                         leave module info empty.
-        """
-        # TODO(b/263199608): Refactor the ModuleInfo constructor.
-        # The module-info constructor does too much. We should never be doing
-        # real work in a constructor and should only use it to inject
-        # dependencies.
+    return mi
 
-        # force_build could be from "-m" or smart_build(build files change).
-        self.force_build = force_build
-        # update_merge_info flag will merge dep files only when any of them have
-        # changed even force_build == True.
-        self.update_merge_info = False
-        self.roboleaf_tests = {}
 
-        # Index and checksum files that will be used.
-        index_dir = Path(os.getenv(constants.ANDROID_HOST_OUT, '')).joinpath('indexes')
-        self.module_index = index_dir.joinpath(constants.MODULE_INDEX)
-        self.module_info_checksum = index_dir.joinpath(constants.MODULE_INFO_MD5)
+def create_empty() -> ModuleInfo:
+    """Factory method that initializes an empty ModuleInfo."""
+    return ModuleInfo(no_generate=True)
 
-        # Paths to java, cc and merged module info json files.
+
+class Loader:
+    """Class that handles load and merge processes."""
+
+    def __init__(self, module_file=None, force_build: bool=False, no_generate: bool=False):
         self.java_dep_path = Path(
             atest_utils.get_build_out_dir()).joinpath('soong', _JAVA_DEP_INFO)
         self.cc_dep_path = Path(
@@ -122,19 +90,27 @@ class ModuleInfo:
             os.getenv(constants.ANDROID_PRODUCT_OUT, '')).joinpath(_MERGED_INFO)
 
         self.mod_info_file_path = Path(module_file) if module_file else None
+        # update_merge_info flag will merge dep files only when any of them have
+        # changed even force_build == True.
+        self.update_merge_info = False
+        # force_build could be from "-m" or smart_build(build files change).
+        self.force_build = force_build
+        # If module_file is specified, we're gonna test it so we don't care if
+        # module_info_target stays None.
+        self.module_info_target = None
 
         if no_generate:
             self.name_to_module_info = {}
             return
 
-        module_info_target, name_to_module_info = self._load_module_info_file(
+        self.name_to_module_info, self.path_to_module_info = self.load(
             module_file)
-        self.name_to_module_info = name_to_module_info
-        self.module_info_target = module_info_target
-        self.path_to_module_info = self._get_path_to_module_info(
-            self.name_to_module_info)
-        self.root_dir = os.environ.get(constants.ANDROID_BUILD_TOP)
+
+        # Index and checksum files that will be used.
+        index_dir = Path(os.getenv(constants.ANDROID_HOST_OUT, '')).joinpath('indexes')
+        self.module_index = index_dir.joinpath(constants.MODULE_INDEX)
         self.module_index_proc = None
+
         if self.update_merge_info or not self.module_index.is_file():
             # Assumably null module_file reflects a common run, and index testable
             # modules only when common runs.
@@ -143,35 +119,7 @@ class ModuleInfo:
                     func=self._get_testable_modules,
                     kwargs={'index': True})
 
-    @staticmethod
-    def _discover_mod_file_and_target(force_build):
-        """Find the module file.
-
-        Args:
-            force_build: Boolean to indicate if we should rebuild the
-                         module_info file regardless of the existence of it.
-
-        Returns:
-            Tuple of module_info_target and path to the module-info.json.
-        """
-        logging.debug('Probing and validating module info...')
-        root_dir = Path(os.getenv(constants.ANDROID_BUILD_TOP))
-        out_dir = Path(os.getenv(constants.ANDROID_PRODUCT_OUT))
-        module_file_path = out_dir.joinpath(_MODULE_INFO)
-
-        # If OUT_DIR/OUT_DIR_COMMON_BASE was set outside of the root_dir, use
-        # absolute path; otherwise use relative path as the target name.
-        if out_dir.is_relative_to(root_dir):
-            module_info_target = str(module_file_path.relative_to(root_dir))
-        else:
-            logging.debug('User customized out dir!')
-            module_file_path = out_dir.joinpath(_MODULE_INFO)
-            module_info_target = str(module_file_path)
-        if force_build or not module_file_path.is_file():
-            atest_utils.build_module_info_target(module_info_target)
-        return module_info_target, module_file_path
-
-    def _load_module_info_file(self, module_file):
+    def load(self, module_file):
         """Load the module file.
 
         No matter whether passing module_file or not, ModuleInfo will load
@@ -201,173 +149,146 @@ class ModuleInfo:
                          Note: if set, ModuleInfo will skip build process.
 
         Returns:
-            Tuple of module_info_target and dict of json.
+            Dict of module name to module info and dict of module path to module info.
         """
-        # If module_file is specified, we're gonna test it so we don't care if
-        # module_info_target stays None.
-        module_info_target = None
         file_path = module_file
         if not file_path:
-            module_info_target, file_path = self._discover_mod_file_and_target(
+            self.module_info_target, file_path = _discover_mod_file_and_target(
                 self.force_build)
             self.mod_info_file_path = Path(file_path)
         # Even undergone a rebuild after _discover_mod_file_and_target(), merge
         # atest_merged_dep.json only when module_deps_infos actually change so
         # that Atest can decrease disk I/O and ensure data accuracy at all.
-        self.update_merge_info = self.need_update_merged_file()
+        self.update_merge_info = self.need_merge_module_info()
         start = time.time()
         if self.update_merge_info:
             # Load the $ANDROID_PRODUCT_OUT/module-info.json for merging.
-            module_info_json = atest_utils.load_json_safely(file_path)
-            mod_info = self._merge_build_system_infos(module_info_json)
+            module_info_json = atest_utils.load_json_safely(self.mod_info_file_path)
+            name_to_module_info = self._merge_build_system_infos(module_info_json)
             duration = time.time() - start
             logging.debug('Merging module info took %ss', duration)
             metrics.LocalDetectEvent(
                 detect_type=DetectType.MODULE_MERGE_MS, result=int(duration*1000))
         else:
             # Load $ANDROID_PRODUCT_OUT/atest_merged_dep.json directly.
-            mod_info = atest_utils.load_json_safely(self.merged_dep_path)
+            name_to_module_info = atest_utils.load_json_safely(self.merged_dep_path)
             duration = time.time() - start
             logging.debug('Loading module info took %ss', duration)
             metrics.LocalDetectEvent(
                 detect_type=DetectType.MODULE_LOAD_MS, result=int(duration*1000))
-        _add_missing_variant_modules(mod_info)
+        _add_missing_variant_modules(name_to_module_info)
         logging.debug('Loading %s as module-info.', self.merged_dep_path)
-        return module_info_target, mod_info
+        return name_to_module_info, get_path_to_module_info(name_to_module_info)
 
-    def _save_module_info_checksum(self):
-        """Dump the checksum of essential module info files.
+    def _save_module_info_timestamp(self):
+        """Dump the timestamp of essential module info files.
            * module-info.json
            * module_bp_cc_deps.json
            * module_bp_java_deps.json
         """
-        dirname = Path(self.module_info_checksum).parent
+        dirname = atest_utils.get_host_out('indexes')
         if not dirname.is_dir():
             dirname.mkdir(parents=True)
-        atest_utils.save_md5([
-            self.mod_info_file_path,
-            self.java_dep_path,
-            self.cc_dep_path], self.module_info_checksum)
 
-    @staticmethod
-    def _get_path_to_module_info(name_to_module_info):
-        """Return the path_to_module_info dict.
+        timestamp = {}
+        for json_file in [self.mod_info_file_path,
+                          self.java_dep_path,
+                          self.cc_dep_path]:
+            timestamp.update(
+                {str(json_file): json_file.stat().st_mtime}
+            )
+
+        timestamp_file = dirname.joinpath('modules.stp')
+        with open(timestamp_file, 'w', encoding='utf8') as _file:
+            json.dump(timestamp, _file)
+
+    def need_merge_module_info(self):
+        """Check if need to merge module info json files.
+
+        There are 2 scienarios that atest_merged_dep.json will be updated.
+        1. One of the checksum of module-info.json, module_bp_java_deps.json and
+           module_cc_java_deps.json have changed.
+        2. atest_merged_deps.json does not exist.
+
+        If fits one of above scienarios, it is recognized to update.
+
+        Returns:
+            True if one of the scienarios reaches, False otherwise.
+        """
+        if not self.merged_dep_path.is_file():
+            return True
+
+        timestamp_file = atest_utils.get_host_out('indexes/modules.stp')
+        data = atest_utils.load_json_safely(timestamp_file)
+        for f in [self.mod_info_file_path,
+                  self.java_dep_path,
+                  self.cc_dep_path]:
+            if f.stat().st_mtime != data.get(str(f), ''):
+                return True
+        return False
+
+    def _merge_build_system_infos(self, name_to_module_info,
+        java_bp_info_path=None, cc_bp_info_path=None):
+        """Merge the content of module-info.json and CC/Java dependency files
+        to name_to_module_info.
 
         Args:
             name_to_module_info: Dict of module name to module info dict.
+            java_bp_info_path: String of path to java dep file to load up.
+                               Used for testing.
+            cc_bp_info_path: String of path to cc dep file to load up.
+                             Used for testing.
 
         Returns:
-            Dict of module path to module info dict.
+            Dict of updated name_to_module_info.
         """
-        path_to_module_info = {}
-        for mod_name, mod_info in name_to_module_info.items():
-            # Cross-compiled and multi-arch modules actually all belong to
-            # a single target so filter out these extra modules.
-            if mod_name != mod_info.get(constants.MODULE_NAME, ''):
-                continue
-            for path in mod_info.get(constants.MODULE_PATH, []):
-                mod_info[constants.MODULE_NAME] = mod_name
-                # There could be multiple modules in a path.
-                if path in path_to_module_info:
-                    path_to_module_info[path].append(mod_info)
-                else:
-                    path_to_module_info[path] = [mod_info]
-        return path_to_module_info
+        # Merge _JAVA_DEP_INFO
+        if not java_bp_info_path:
+            java_bp_info_path = self.java_dep_path
+        java_bp_infos = atest_utils.load_json_safely(java_bp_info_path)
+        if java_bp_infos:
+            logging.debug('Merging Java build info: %s', java_bp_info_path)
+            name_to_module_info = merge_soong_info(
+                name_to_module_info, java_bp_infos)
+        # Merge _CC_DEP_INFO
+        if not cc_bp_info_path:
+            cc_bp_info_path = self.cc_dep_path
+        cc_bp_infos = atest_utils.load_json_safely(cc_bp_info_path)
+        if cc_bp_infos:
+            logging.debug('Merging CC build info: %s', cc_bp_info_path)
+            # CC's dep json format is different with java.
+            # Below is the example content:
+            # {
+            #   "clang": "${ANDROID_ROOT}/bin/clang",
+            #   "clang++": "${ANDROID_ROOT}/bin/clang++",
+            #   "modules": {
+            #       "ACameraNdkVendorTest": {
+            #           "path": [
+            #                   "frameworks/av/camera/ndk"
+            #           ],
+            #           "srcs": [
+            #                   "frameworks/tests/AImageVendorTest.cpp",
+            #                   "frameworks/tests/ACameraManagerTest.cpp"
+            #           ],
+            name_to_module_info = merge_soong_info(
+                name_to_module_info, cc_bp_infos.get('modules', {}))
+        # If $ANDROID_PRODUCT_OUT was not created in pyfakefs, simply return it
+        # without dumping atest_merged_dep.json in real.
 
-    def _index_testable_modules(self, content):
-        """Dump testable modules.
+        # Adds the key into module info as a unique ID.
+        for key, info in name_to_module_info.items():
+            info[constants.MODULE_INFO_ID] = key
 
-        Args:
-            content: An object that will be written to the index file.
-        """
-        logging.debug(r'Indexing testable modules... '
-                      r'(This is required whenever module-info.json '
-                      r'was rebuilt.)')
-        Path(self.module_index).parent.mkdir(parents=True, exist_ok=True)
-        with open(self.module_index, 'wb') as cache:
-            try:
-                pickle.dump(content, cache, protocol=2)
-            except IOError:
-                logging.error('Failed in dumping %s', cache)
-                os.remove(cache)
-
-    def _get_testable_modules(self, index=False, suite=None):
-        """Return all available testable modules and index them.
-
-        Args:
-            index: boolean that determines running _index_testable_modules().
-            suite: string for the suite name.
-
-        Returns:
-            Set of all testable modules.
-        """
-        modules = set()
-        begin = time.time()
-        for _, info in self.name_to_module_info.items():
-            if self.is_testable_module(info):
-                modules.add(info.get(constants.MODULE_NAME))
-        logging.debug('Probing all testable modules took %ss',
-                      time.time() - begin)
-        if index:
-            self._index_testable_modules(modules)
-        if suite:
-            _modules = set()
-            for module_name in modules:
-                info = self.get_module_info(module_name)
-                if self.is_suite_in_compatibility_suites(suite, info):
-                    _modules.add(info.get(constants.MODULE_NAME))
-            return _modules
-        return modules
-
-    def is_module(self, name):
-        """Return True if name is a module, False otherwise."""
-        info = self.get_module_info(name)
-        # From aosp/2293302 it started merging all modules' dependency in bp
-        # even the module is not be exposed to make, and those modules could not
-        # be treated as a build target using m. Only treat input name as module
-        # if it also has the module_name attribute which means it could be a
-        # build target for m.
-        if info and info.get(constants.MODULE_NAME):
-            return True
-        return False
-
-    def get_paths(self, name):
-        """Return paths of supplied module name, Empty list if non-existent."""
-        info = self.get_module_info(name)
-        if info:
-            return info.get(constants.MODULE_PATH, [])
-        return []
-
-    def get_module_names(self, rel_module_path):
-        """Get the modules that all have module_path.
-
-        Args:
-            rel_module_path: path of module in module-info.json
-
-        Returns:
-            List of module names.
-        """
-        return [m.get(constants.MODULE_NAME)
-                for m in self.path_to_module_info.get(rel_module_path, [])]
-
-    def get_module_info(self, mod_name):
-        """Return dict of info for given module name, None if non-existence."""
-        return self.name_to_module_info.get(mod_name)
-
-    def is_suite_in_compatibility_suites(self, suite, mod_info):
-        """Check if suite exists in the compatibility_suites of module-info.
-
-        Args:
-            suite: A string of suite name.
-            mod_info: Dict of module info to check.
-
-        Returns:
-            True if it exists in mod_info, False otherwise.
-        """
-        if not isinstance(mod_info, dict):
-            return False
-        return suite in mod_info.get(
-            constants.MODULE_COMPATIBILITY_SUITES, [])
+        if not self.merged_dep_path.parent.is_dir():
+            return name_to_module_info
+        # b/178559543 saving merged module info in a temp file and copying it to
+        # atest_merged_dep.json can eliminate the possibility of accessing it
+        # concurrently and resulting in invalid JSON format.
+        with tempfile.NamedTemporaryFile() as temp_file:
+            with open(temp_file.name, 'w', encoding='utf-8') as _temp:
+                json.dump(name_to_module_info, _temp, indent=0)
+            shutil.copy(temp_file.name, self.merged_dep_path)
+        return name_to_module_info
 
     def get_testable_modules(self, suite=None):
         """Return the testable modules of the given suite name.
@@ -413,19 +334,232 @@ class ModuleInfo:
             result=int(duration))
         return modules
 
-    def is_tradefed_testable_module(self, info: Dict[str, Any]) -> bool:
+    def _get_testable_modules(self, index=False, suite=None):
+        """Return all available testable modules and index them.
+
+        Args:
+            index: boolean that determines running _index_testable_modules().
+            suite: string for the suite name.
+
+        Returns:
+            Set of all testable modules.
+        """
+        modules = set()
+        begin = time.time()
+        for _, info in self.name_to_module_info.items():
+            if _is_testable_module(
+                self.name_to_module_info, self.path_to_module_info, info):
+
+                testable_module = info.get(constants.MODULE_NAME)
+                if testable_module:
+                    modules.add(testable_module)
+
+        logging.debug('Probing all testable modules took %ss',
+                      time.time() - begin)
+        if index:
+            self._index_testable_modules(modules)
+        if suite:
+            _modules = set()
+            for module_name in modules:
+                info = self.name_to_module_info.get(module_name)
+                if ModuleInfo.is_suite_in_compatibility_suites(suite, info):
+                    testable_module = info.get(constants.MODULE_NAME)
+                    if testable_module:
+                        _modules.add(testable_module)
+            return _modules
+        return modules
+
+    def _index_testable_modules(self, content):
+        """Dump testable modules.
+
+        Args:
+            content: An object that will be written to the index file.
+        """
+        logging.debug(r'Indexing testable modules... '
+                      r'(This is required whenever module-info.json '
+                      r'was rebuilt.)')
+        Path(self.module_index).parent.mkdir(parents=True, exist_ok=True)
+        with open(self.module_index, 'wb') as cache:
+            try:
+                pickle.dump(content, cache, protocol=2)
+            except IOError:
+                logging.error('Failed in dumping %s', cache)
+                os.remove(cache)
+
+
+class ModuleInfo:
+    """Class that offers fast/easy lookup for Module related details."""
+
+    def __init__(
+        self,
+        force_build=False,
+        module_file=None,
+        no_generate=False):
+        """Initialize the ModuleInfo object.
+
+        Load up the module-info.json file and initialize the helper vars.
+        Note that module-info.json does not contain all module dependencies,
+        therefore, Atest needs to accumulate dependencies defined in bp files.
+
+          +----------------------+     +----------------------------+
+          | $ANDROID_PRODUCT_OUT |     |$ANDROID_BUILD_TOP/out/soong|
+          |  /module-info.json   |     |  /module_bp_java_deps.json |
+          +-----------+----------+     +-------------+--------------+
+                      |     _merge_soong_info()      |
+                      +------------------------------+
+                      |
+                      v
+        +----------------------------+  +----------------------------+
+        |tempfile.NamedTemporaryFile |  |$ANDROID_BUILD_TOP/out/soong|
+        +-------------+--------------+  |  /module_bp_cc_deps.json   |
+                      |                 +-------------+--------------+
+                      |     _merge_soong_info()       |
+                      +-------------------------------+
+                                     |
+                             +-------|
+                             v
+                +============================+
+                |  $ANDROID_PRODUCT_OUT      |
+                |    /atest_merged_dep.json  |--> load as module info.
+                +============================+
+
+        Args:
+            force_build: Boolean to indicate if we should rebuild the
+                         module_info file regardless if it's created or not.
+            module_file: String of path to file to load up. Used for testing.
+            no_generate: Boolean to indicate if we should populate module info
+                         from the soong artifacts; setting to true will
+                         leave module info empty.
+        """
+        self.root_dir = os.environ.get(constants.ANDROID_BUILD_TOP)
+        self.roboleaf_tests = {}
+
+        self.loader = Loader(
+            module_file=module_file,
+            force_build=force_build,
+            no_generate=no_generate,
+        )
+
+    @property
+    def name_to_module_info(self):
+        return self.loader.name_to_module_info
+
+    @property
+    def path_to_module_info(self):
+        return self.loader.path_to_module_info
+
+    @property
+    def module_info_target(self):
+        return self.loader.module_info_target
+
+    @property
+    def mod_info_file_path(self):
+        return self.loader.mod_info_file_path
+
+    @mod_info_file_path.setter
+    def mod_info_file_path(self, value):
+        self.loader.mod_info_file_path = value
+
+    @property
+    def java_dep_path(self):
+        return self.loader.java_dep_path
+
+    @property
+    def cc_dep_path(self):
+        return self.loader.cc_dep_path
+
+    @property
+    def merged_dep_path(self):
+        return self.loader.merged_dep_path
+
+    def _save_module_info_timestamp(self):
+        """Caller of the same method in Loader class."""
+        return self.loader._save_module_info_timestamp()
+
+    def is_module(self, name):
+        """Return True if name is a module, False otherwise."""
+        info = self.get_module_info(name)
+        # From aosp/2293302 it started merging all modules' dependency in bp
+        # even the module is not be exposed to make, and those modules could not
+        # be treated as a build target using m. Only treat input name as module
+        # if it also has the module_name attribute which means it could be a
+        # build target for m.
+        if info and info.get(constants.MODULE_NAME):
+            return True
+        return False
+
+    def get_paths(self, name):
+        """Return paths of supplied module name, Empty list if non-existent."""
+        info = self.get_module_info(name)
+        if info:
+            return info.get(constants.MODULE_PATH, [])
+        return []
+
+    def get_module_names(self, rel_module_path):
+        """Get the modules that all have module_path.
+
+        Args:
+            rel_module_path: path of module in module-info.json
+
+        Returns:
+            List of module names.
+        """
+        return _get_module_names(self.path_to_module_info, rel_module_path)
+
+    def get_module_info(self, mod_name):
+        """Return dict of info for given module name, None if non-existence."""
+        return self.name_to_module_info.get(mod_name)
+
+    @staticmethod
+    def is_suite_in_compatibility_suites(suite, mod_info):
+        """Check if suite exists in the compatibility_suites of module-info.
+
+        Args:
+            suite: A string of suite name.
+            mod_info: Dict of module info to check.
+
+        Returns:
+            True if it exists in mod_info, False otherwise.
+        """
+        if not isinstance(mod_info, dict):
+            return False
+        return suite in mod_info.get(
+            constants.MODULE_COMPATIBILITY_SUITES, [])
+
+    def get_testable_modules(self, suite=None):
+        return self.loader.get_testable_modules(suite)
+
+    @staticmethod
+    def is_tradefed_testable_module(info: Dict[str, Any]) -> bool:
         """Check whether the module is a Tradefed executable test."""
         if not info:
             return False
         if not info.get(constants.MODULE_INSTALLED, []):
             return False
-        return self.has_test_config(info)
+        return ModuleInfo.has_test_config(info)
+
+    @staticmethod
+    def is_mobly_module(info: Dict[str, Any]) -> bool:
+        """Check whether the module is a Mobly test.
+
+        Note: Only python_test_host modules marked with a test_options tag of
+          "mobly" is considered a Mobly module.
+
+        Args:
+            info: Dict of module info to check.
+
+        Returns:
+            True if this is a Mobly test module, False otherwise.
+        """
+        return constants.MOBLY_TEST_OPTIONS_TAG in info.get(
+            constants.MODULE_TEST_OPTIONS_TAGS, [])
 
     def is_testable_module(self, info: Dict[str, Any]) -> bool:
         """Check if module is something we can test.
 
         A module is testable if:
           - it's a tradefed testable module, or
+          - it's a Mobly module, or
           - it's a robolectric module (or shares path with one).
 
         Args:
@@ -434,15 +568,11 @@ class ModuleInfo:
         Returns:
             True if we can test this module, False otherwise.
         """
-        if not info:
-            return False
-        if self.is_tradefed_testable_module(info):
-            return True
-        if self.is_legacy_robolectric_test(info):
-            return True
-        return False
+        return _is_testable_module(
+            self.name_to_module_info, self.path_to_module_info, info)
 
-    def has_test_config(self, info: Dict[str, Any]) -> bool:
+    @staticmethod
+    def has_test_config(info: Dict[str, Any]) -> bool:
         """Validate if this module has a test config.
 
         A module can have a test config in the following manner:
@@ -461,9 +591,8 @@ class ModuleInfo:
 
     def is_legacy_robolectric_test(self, info: Dict[str, Any]) -> bool:
         """Return whether the module_name is a legacy Robolectric test"""
-        if self.is_tradefed_testable_module(info):
-            return False
-        return bool(self.get_robolectric_test_name(info))
+        return _is_legacy_robolectric_test(
+            self.name_to_module_info, self.path_to_module_info, info)
 
     def get_robolectric_test_name(self, info: Dict[str, Any]) -> str:
         """Returns runnable robolectric module name.
@@ -483,24 +612,8 @@ class ModuleInfo:
             String of the first-matched associated module that belongs to the
             actual robolectric module, None if nothing has been found.
         """
-        if not info:
-            return ''
-        module_paths = info.get(constants.MODULE_PATH, [])
-        if not module_paths:
-            return ''
-        filtered_module_names = [
-            name
-            for name in self.get_module_names(module_paths[0])
-            if name.startswith("Run")
-        ]
-        return next(
-            (
-                name
-                for name in filtered_module_names
-                if self.is_legacy_robolectric_class(self.get_module_info(name))
-            ),
-            '',
-        )
+        return _get_robolectric_test_name(
+            self.name_to_module_info, self.path_to_module_info, info)
 
     def is_robolectric_test(self, module_name):
         """Check if the given module is a robolectric test.
@@ -666,7 +779,8 @@ class ModuleInfo:
             return auto_test_config and auto_test_config[0]
         return False
 
-    def is_legacy_robolectric_class(self, info: Dict[str, Any]) -> bool:
+    @staticmethod
+    def is_legacy_robolectric_class(info: Dict[str, Any]) -> bool:
         """Check if the class is `ROBOLECTRIC`
 
         This method is for legacy robolectric tests that the associated modules
@@ -732,92 +846,12 @@ class ModuleInfo:
 
     def _merge_build_system_infos(self, name_to_module_info,
         java_bp_info_path=None, cc_bp_info_path=None):
-        """Merge the content of module-info.json and CC/Java dependency files
-        to name_to_module_info.
-
-        Args:
-            name_to_module_info: Dict of module name to module info dict.
-            java_bp_info_path: String of path to java dep file to load up.
-                               Used for testing.
-            cc_bp_info_path: String of path to cc dep file to load up.
-                             Used for testing.
-
-        Returns:
-            Dict of updated name_to_module_info.
-        """
-        # Merge _JAVA_DEP_INFO
-        if not java_bp_info_path:
-            java_bp_info_path = self.java_dep_path
-        java_bp_infos = atest_utils.load_json_safely(java_bp_info_path)
-        if java_bp_infos:
-            logging.debug('Merging Java build info: %s', java_bp_info_path)
-            name_to_module_info = self._merge_soong_info(
-                name_to_module_info, java_bp_infos)
-        # Merge _CC_DEP_INFO
-        if not cc_bp_info_path:
-            cc_bp_info_path = self.cc_dep_path
-        cc_bp_infos = atest_utils.load_json_safely(cc_bp_info_path)
-        if cc_bp_infos:
-            logging.debug('Merging CC build info: %s', cc_bp_info_path)
-            # CC's dep json format is different with java.
-            # Below is the example content:
-            # {
-            #   "clang": "${ANDROID_ROOT}/bin/clang",
-            #   "clang++": "${ANDROID_ROOT}/bin/clang++",
-            #   "modules": {
-            #       "ACameraNdkVendorTest": {
-            #           "path": [
-            #                   "frameworks/av/camera/ndk"
-            #           ],
-            #           "srcs": [
-            #                   "frameworks/tests/AImageVendorTest.cpp",
-            #                   "frameworks/tests/ACameraManagerTest.cpp"
-            #           ],
-            name_to_module_info = self._merge_soong_info(
-                name_to_module_info, cc_bp_infos.get('modules', {}))
-        # If $ANDROID_PRODUCT_OUT was not created in pyfakefs, simply return it
-        # without dumping atest_merged_dep.json in real.
-
-        # Adds the key into module info as a unique ID.
-        for key, info in name_to_module_info.items():
-            info[constants.MODULE_INFO_ID] = key
-
-        if not self.merged_dep_path.parent.is_dir():
-            return name_to_module_info
-        # b/178559543 saving merged module info in a temp file and copying it to
-        # atest_merged_dep.json can eliminate the possibility of accessing it
-        # concurrently and resulting in invalid JSON format.
-        with tempfile.NamedTemporaryFile() as temp_file:
-            with open(temp_file.name, 'w', encoding='utf-8') as _temp:
-                json.dump(name_to_module_info, _temp, indent=0)
-            shutil.copy(temp_file.name, self.merged_dep_path)
-        return name_to_module_info
-
-    def _merge_soong_info(self, name_to_module_info, mod_bp_infos):
-        """Merge the dependency and srcs in mod_bp_infos to name_to_module_info.
-
-        Args:
-            name_to_module_info: Dict of module name to module info dict.
-            mod_bp_infos: Dict of module name to bp's module info dict.
-
-        Returns:
-            Dict of updated name_to_module_info.
-        """
-        merge_items = [constants.MODULE_DEPENDENCIES, constants.MODULE_SRCS,
-                       constants.MODULE_LIBS, constants.MODULE_STATIC_LIBS,
-                       constants.MODULE_STATIC_DEPS, constants.MODULE_PATH]
-        for module_name, dep_info in mod_bp_infos.items():
-            mod_info = name_to_module_info.setdefault(module_name, {})
-            for merge_item in merge_items:
-                dep_info_values = dep_info.get(merge_item, [])
-                mod_info_values = mod_info.get(merge_item, [])
-                mod_info_values.extend(dep_info_values)
-                mod_info_values.sort()
-                # deduplicate values just in case.
-                mod_info_values = list(dict.fromkeys(mod_info_values))
-                name_to_module_info[
-                    module_name][merge_item] = mod_info_values
-        return name_to_module_info
+        """Caller of the same method in Loader class."""
+        return self.loader._merge_build_system_infos(
+            name_to_module_info,
+            java_bp_info_path,
+            cc_bp_info_path,
+        )
 
     def get_filepath_from_module(self, module_name: str, filename: str) -> Path:
         """Return absolute path of the given module and filename."""
@@ -873,27 +907,6 @@ class ModuleInfo:
         logging.debug('modules %s required by %s were not installed',
                       install_deps, module_name)
         return install_deps
-
-    def need_update_merged_file(self):
-        """Check if need to update/generated atest_merged_dep.
-
-        There are 2 scienarios that atest_merged_dep.json will be updated.
-        1. One of the checksum of module-info.json, module_bp_java_deps.json and
-           module_cc_java_deps.json have changed.
-        2. atest_merged_deps.json does not exist.
-
-        If fits one of above scienarios, it is recognized to update.
-
-        Returns:
-            True if one of the scienarios reaches, False otherwise.
-        """
-        data = atest_utils.load_json_safely(self.module_info_checksum)
-        for f in [self.mod_info_file_path,
-                  self.java_dep_path,
-                  self.cc_dep_path]:
-            if atest_utils.md5sum(f) != data.get(str(f), ''):
-                return True
-        return not self.merged_dep_path.is_file()
 
     def is_unit_test(self, mod_info):
         """Return True if input module is unit test, False otherwise.
@@ -1042,6 +1055,60 @@ class ModuleInfo:
         return [_to_abs_path(p) for p in mod_info.get('installed', [])]
 
 
+def merge_soong_info(name_to_module_info, mod_bp_infos):
+    """Merge the dependency and srcs in mod_bp_infos to name_to_module_info.
+
+    Args:
+        name_to_module_info: Dict of module name to module info dict.
+        mod_bp_infos: Dict of module name to bp's module info dict.
+
+    Returns:
+        Dict of updated name_to_module_info.
+    """
+    merge_items = [constants.MODULE_DEPENDENCIES, constants.MODULE_SRCS,
+                   constants.MODULE_LIBS, constants.MODULE_STATIC_LIBS,
+                   constants.MODULE_STATIC_DEPS, constants.MODULE_PATH]
+    for module_name, dep_info in mod_bp_infos.items():
+        mod_info = name_to_module_info.setdefault(module_name, {})
+        for merge_item in merge_items:
+            dep_info_values = dep_info.get(merge_item, [])
+            mod_info_values = mod_info.get(merge_item, [])
+            mod_info_values.extend(dep_info_values)
+            mod_info_values.sort()
+            # deduplicate values just in case.
+            mod_info_values = list(dict.fromkeys(mod_info_values))
+            name_to_module_info[
+                module_name][merge_item] = mod_info_values
+    return name_to_module_info
+
+
+def _discover_mod_file_and_target(force_build):
+    """Find the module file.
+
+    Args:
+        force_build: Boolean to indicate if we should rebuild the
+                     module_info file regardless of the existence of it.
+
+    Returns:
+        Tuple of module_info_target and path to the module-info.json.
+    """
+    logging.debug('Probing and validating module info...')
+    root_dir = Path(os.getenv(constants.ANDROID_BUILD_TOP))
+    out_dir = Path(os.getenv(constants.ANDROID_PRODUCT_OUT))
+    module_file_path = out_dir.joinpath(_MODULE_INFO)
+    # If OUT_DIR/OUT_DIR_COMMON_BASE was set outside of the root_dir, use
+    # absolute path; otherwise use relative path as the target name.
+    if out_dir.is_relative_to(root_dir):
+        module_info_target = str(module_file_path.relative_to(root_dir))
+    else:
+        logging.debug('User customized out dir!')
+        module_file_path = out_dir.joinpath(_MODULE_INFO)
+        module_info_target = str(module_file_path)
+    if force_build or not module_file_path.is_file():
+        atest_utils.build_module_info_target(module_info_target)
+    return module_info_target, module_file_path
+
+
 def _add_missing_variant_modules(name_to_module_info: Dict[str, Module]):
     missing_modules = {}
 
@@ -1072,4 +1139,127 @@ def contains_same_mainline_modules(mainline_modules: Set[str], module_lists: Set
     for module_string in module_lists:
         if mainline_modules == set(module_string.split('+')):
             return True
+    return False
+
+
+def get_path_to_module_info(name_to_module_info):
+    """Return the path_to_module_info dict.
+
+    Args:
+        name_to_module_info: Dict of module name to module info dict.
+
+    Returns:
+        Dict of module path to module info dict.
+    """
+    path_to_module_info = {}
+    for mod_name, mod_info in name_to_module_info.items():
+        # Cross-compiled and multi-arch modules actually all belong to
+        # a single target so filter out these extra modules.
+        if mod_name != mod_info.get(constants.MODULE_NAME, ''):
+            continue
+        for path in mod_info.get(constants.MODULE_PATH, []):
+            mod_info[constants.MODULE_NAME] = mod_name
+            # There could be multiple modules in a path.
+            if path in path_to_module_info:
+                path_to_module_info[path].append(mod_info)
+            else:
+                path_to_module_info[path] = [mod_info]
+    return path_to_module_info
+
+
+def _get_module_names(path_to_module_info, rel_module_path):
+    """Get the modules that all have module_path.
+
+    Args:
+        path_to_module_info: Dict of path to module info.
+        rel_module_path: path of module in module-info.json.
+
+    Returns:
+        List of module names.
+    """
+    return [m.get(constants.MODULE_NAME)
+            for m in path_to_module_info.get(rel_module_path, [])]
+
+
+def _get_robolectric_test_name(
+    name_to_module_info: Dict[str, Dict],
+    path_to_module_info: Dict[str, Dict],
+    info: Dict[str, Any]) -> str:
+    """Returns runnable robolectric module name.
+
+    This method is for legacy robolectric tests and returns one of associated
+    modules. The pattern is determined by the amount of shards:
+
+    10 shards:
+        FooTests -> RunFooTests0, RunFooTests1 ... RunFooTests9
+    No shard:
+        FooTests -> RunFooTests
+
+    Arg:
+        name_to_module_info: Dict of name to module info.
+        path_to_module_info: Dict of path to module info.
+        info: Dict of module info to check.
+
+    Returns:
+        String of the first-matched associated module that belongs to the
+        actual robolectric module, None if nothing has been found.
+    """
+    if not info:
+        return ''
+    module_paths = info.get(constants.MODULE_PATH, [])
+    if not module_paths:
+        return ''
+    filtered_module_names = [
+        name
+        for name in _get_module_names(path_to_module_info, module_paths[0])
+        if name.startswith("Run")
+    ]
+    return next(
+        (
+            name
+            for name in filtered_module_names
+            if ModuleInfo.is_legacy_robolectric_class(name_to_module_info.get(name))
+        ),
+        '',
+    )
+
+
+def _is_legacy_robolectric_test(
+    name_to_module_info: Dict[str, Dict],
+    path_to_module_info: Dict[str, Dict],
+    info: Dict[str, Any]) -> bool:
+    """Return whether the module_name is a legacy Robolectric test"""
+    if ModuleInfo.is_tradefed_testable_module(info):
+        return False
+    return bool(_get_robolectric_test_name(
+        name_to_module_info, path_to_module_info, info))
+
+
+def _is_testable_module(
+    name_to_module_info: Dict[str, Dict],
+    path_to_module_info: Dict[str, Dict],
+    info: Dict[str, Any]) -> bool:
+    """Check if module is something we can test.
+
+    A module is testable if:
+      - it's a tradefed testable module, or
+      - it's a Mobly module, or
+      - it's a robolectric module (or shares path with one).
+
+    Args:
+        name_to_module_info: Dict of name to module info.
+        path_to_module_info: Dict of path to module info.
+        info: Dict of module info to check.
+
+    Returns:
+        True if we can test this module, False otherwise.
+    """
+    if not info:
+        return False
+    if ModuleInfo.is_tradefed_testable_module(info):
+        return True
+    if ModuleInfo.is_mobly_module(info):
+        return True
+    if _is_legacy_robolectric_test(name_to_module_info, path_to_module_info, info):
+        return True
     return False
