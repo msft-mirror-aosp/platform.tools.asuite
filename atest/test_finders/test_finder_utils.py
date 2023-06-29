@@ -1147,8 +1147,8 @@ def open_cc(filename: str):
     target_cc = filename
     if shutil.which('gcc'):
         tmp = tempfile.NamedTemporaryFile()
-        cmd = (f'gcc -fpreprocessed -dD -E {filename} > {tmp.name}')
-        strip_proc = subprocess.run(cmd, shell=True, check=True)
+        cmd = f'gcc -fpreprocessed -dD -E {filename} > {tmp.name}'
+        strip_proc = subprocess.run(cmd, shell=True, check=False)
         if strip_proc.returncode == ExitCode.SUCCESS:
             target_cc = tmp.name
         else:
