@@ -29,7 +29,7 @@ import tempfile
 import time
 
 from pathlib import Path
-from typing import Any, Dict, List, Set
+from typing import Any, Callable, Dict, List, Set
 
 from atest import atest_utils
 from atest import constants
@@ -55,33 +55,41 @@ Module = Dict[str, Any]
 def load_from_file(
         module_file: Path = None,
         force_build: bool = False,
+        save_timestamps: bool = False,
     ) -> ModuleInfo:
     """Factory method that initializes ModuleInfo from the build-generated
     JSON file"""
-    return ModuleInfo(module_file=module_file, force_build=force_build)
-
-
-def load_from_dict(name_to_module_info: Dict[str, Any]) -> ModuleInfo:
-    """Factory method that initializes ModuleInfo from a dictionary."""
-    with tempfile.NamedTemporaryFile(mode='w') as f:
-        # TODO: Serialize the input dict to JSON.
-        json.dump({}, f)
-        mi = load_from_file(module_file=f.name)
-
-    mi.loader.name_to_module_info.update(name_to_module_info)
+    mod_start = time.time()
+    loader = Loader(
+        module_file=module_file, force_build=force_build)
+    mi = loader.load(save_timestamps=save_timestamps)
+    mod_stop = time.time() - mod_start
+    metrics.LocalDetectEvent(
+        detect_type=DetectType.MODULE_INFO_INIT_MS, result=int(mod_stop * 1000))
 
     return mi
 
 
+def load_from_dict(name_to_module_info: Dict[str, Any]) -> ModuleInfo:
+    """Factory method that initializes ModuleInfo from a dictionary."""
+    path_to_module_info = get_path_to_module_info(name_to_module_info)
+    return ModuleInfo(
+        name_to_module_info=name_to_module_info,
+        path_to_module_info=path_to_module_info,
+        get_testable_modules=lambda s: _get_testable_modules(
+            name_to_module_info, path_to_module_info, s),
+    )
+
+
 def create_empty() -> ModuleInfo:
     """Factory method that initializes an empty ModuleInfo."""
-    return ModuleInfo(no_generate=True)
+    return ModuleInfo()
 
 
 class Loader:
     """Class that handles load and merge processes."""
 
-    def __init__(self, module_file=None, force_build: bool=False, no_generate: bool=False):
+    def __init__(self, module_file: Path=None, force_build: bool=False):
         self.java_dep_path = Path(
             atest_utils.get_build_out_dir()).joinpath('soong', _JAVA_DEP_INFO)
         self.cc_dep_path = Path(
@@ -99,12 +107,7 @@ class Loader:
         # module_info_target stays None.
         self.module_info_target = None
 
-        if no_generate:
-            self.name_to_module_info = {}
-            return
-
-        self.name_to_module_info, self.path_to_module_info = self.load(
-            module_file)
+        self.name_to_module_info, self.path_to_module_info = self._load_module_info_file()
 
         # Index and checksum files that will be used.
         index_dir = Path(os.getenv(constants.ANDROID_HOST_OUT, '')).joinpath('indexes')
@@ -119,11 +122,21 @@ class Loader:
                     func=self._get_testable_modules,
                     kwargs={'index': True})
 
-    def load(self, module_file):
-        """Load the module file.
+    def load(self, save_timestamps: bool=False):
+        if save_timestamps:
+            atest_utils.run_multi_proc(func=self._save_module_info_timestamp)
+            atest_utils.run_multi_proc(func=atest_utils.save_build_files_timestamp)
 
-        No matter whether passing module_file or not, ModuleInfo will load
-        atest_merged_dep.json as module info eventually.
+        return ModuleInfo(
+            name_to_module_info=self.name_to_module_info,
+            path_to_module_info=self.path_to_module_info,
+            module_info_target=self.module_info_target,
+            mod_info_file_path=self.mod_info_file_path,
+            get_testable_modules=self.get_testable_modules,
+        )
+
+    def _load_module_info_file(self):
+        """Load the module file as ModuleInfo.
 
         +--------------+                  +----------------------------------+
         | ModuleInfo() |                  | ModuleInfo(module_file=foo.json) |
@@ -144,15 +157,10 @@ class Loader:
         |    /atest_merged_dep.json  |--> load as module info.
         +============================+
 
-        Args:
-            module_file: String of path to file to load up. Used for testing.
-                         Note: if set, ModuleInfo will skip build process.
-
         Returns:
             Dict of module name to module info and dict of module path to module info.
         """
-        file_path = module_file
-        if not file_path:
+        if not self.mod_info_file_path:
             self.module_info_target, file_path = _discover_mod_file_and_target(
                 self.force_build)
             self.mod_info_file_path = Path(file_path)
@@ -344,29 +352,10 @@ class Loader:
         Returns:
             Set of all testable modules.
         """
-        modules = set()
-        begin = time.time()
-        for _, info in self.name_to_module_info.items():
-            if _is_testable_module(
-                self.name_to_module_info, self.path_to_module_info, info):
-
-                testable_module = info.get(constants.MODULE_NAME)
-                if testable_module:
-                    modules.add(testable_module)
-
-        logging.debug('Probing all testable modules took %ss',
-                      time.time() - begin)
+        modules = _get_testable_modules(
+            self.name_to_module_info, self.path_to_module_info, suite)
         if index:
             self._index_testable_modules(modules)
-        if suite:
-            _modules = set()
-            for module_name in modules:
-                info = self.name_to_module_info.get(module_name)
-                if ModuleInfo.is_suite_in_compatibility_suites(suite, info):
-                    testable_module = info.get(constants.MODULE_NAME)
-                    if testable_module:
-                        _modules.add(testable_module)
-            return _modules
         return modules
 
     def _index_testable_modules(self, content):
@@ -392,9 +381,12 @@ class ModuleInfo:
 
     def __init__(
         self,
-        force_build=False,
-        module_file=None,
-        no_generate=False):
+        name_to_module_info: Dict[str, Any]=None,
+        path_to_module_info: Dict[str, Any]=None,
+        module_info_target: str=None,
+        mod_info_file_path: Path=None,
+        get_testable_modules: Callable=None,
+        ):
         """Initialize the ModuleInfo object.
 
         Load up the module-info.json file and initialize the helper vars.
@@ -424,57 +416,20 @@ class ModuleInfo:
                 +============================+
 
         Args:
-            force_build: Boolean to indicate if we should rebuild the
-                         module_info file regardless if it's created or not.
-            module_file: String of path to file to load up. Used for testing.
-            no_generate: Boolean to indicate if we should populate module info
-                         from the soong artifacts; setting to true will
-                         leave module info empty.
+            name_to_module_info: Dict of name to module info.
+            path_to_module_info: Dict of path to module info.
+            module_info_target: Target name of module-info.json.
+            mod_info_file_path: Path of module-info.json.
+            get_testable_modules: Function to get all testable modules.
         """
         self.root_dir = os.environ.get(constants.ANDROID_BUILD_TOP)
         self.roboleaf_tests = {}
 
-        self.loader = Loader(
-            module_file=module_file,
-            force_build=force_build,
-            no_generate=no_generate,
-        )
-
-    @property
-    def name_to_module_info(self):
-        return self.loader.name_to_module_info
-
-    @property
-    def path_to_module_info(self):
-        return self.loader.path_to_module_info
-
-    @property
-    def module_info_target(self):
-        return self.loader.module_info_target
-
-    @property
-    def mod_info_file_path(self):
-        return self.loader.mod_info_file_path
-
-    @mod_info_file_path.setter
-    def mod_info_file_path(self, value):
-        self.loader.mod_info_file_path = value
-
-    @property
-    def java_dep_path(self):
-        return self.loader.java_dep_path
-
-    @property
-    def cc_dep_path(self):
-        return self.loader.cc_dep_path
-
-    @property
-    def merged_dep_path(self):
-        return self.loader.merged_dep_path
-
-    def _save_module_info_timestamp(self):
-        """Caller of the same method in Loader class."""
-        return self.loader._save_module_info_timestamp()
+        self.name_to_module_info = name_to_module_info or {}
+        self.path_to_module_info = path_to_module_info or {}
+        self.module_info_target = module_info_target
+        self.mod_info_file_path = mod_info_file_path
+        self._get_testable_modules = get_testable_modules
 
     def is_module(self, name):
         """Return True if name is a module, False otherwise."""
@@ -527,7 +482,7 @@ class ModuleInfo:
             constants.MODULE_COMPATIBILITY_SUITES, [])
 
     def get_testable_modules(self, suite=None):
-        return self.loader.get_testable_modules(suite)
+        return self._get_testable_modules(suite)
 
     @staticmethod
     def is_tradefed_testable_module(info: Dict[str, Any]) -> bool:
@@ -843,15 +798,6 @@ class ModuleInfo:
                           module_name)
             return True
         return False
-
-    def _merge_build_system_infos(self, name_to_module_info,
-        java_bp_info_path=None, cc_bp_info_path=None):
-        """Caller of the same method in Loader class."""
-        return self.loader._merge_build_system_infos(
-            name_to_module_info,
-            java_bp_info_path,
-            cc_bp_info_path,
-        )
 
     def get_filepath_from_module(self, module_name: str, filename: str) -> Path:
         """Return absolute path of the given module and filename."""
@@ -1263,3 +1209,30 @@ def _is_testable_module(
     if _is_legacy_robolectric_test(name_to_module_info, path_to_module_info, info):
         return True
     return False
+
+def _get_testable_modules(
+    name_to_module_info: Dict[str, Dict],
+    path_to_module_info: Dict[str, Dict],
+    suite: bool=None):
+
+    modules = set()
+    begin = time.time()
+    for _, info in name_to_module_info.items():
+        if _is_testable_module(name_to_module_info, path_to_module_info, info):
+            testable_module = info.get(constants.MODULE_NAME)
+            if testable_module:
+                modules.add(testable_module)
+
+    logging.debug('Probing all testable modules took %ss',
+                  time.time() - begin)
+
+    if suite:
+        _modules = set()
+        for module_name in modules:
+            info = name_to_module_info.get(module_name)
+            if ModuleInfo.is_suite_in_compatibility_suites(suite, info):
+                testable_module = info.get(constants.MODULE_NAME)
+                if testable_module:
+                    _modules.add(testable_module)
+        return _modules
+    return modules
