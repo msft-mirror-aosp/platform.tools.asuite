@@ -129,7 +129,7 @@ class TestRunnerHandlerUnittests(unittest.TestCase):
         """Test that the return value as we expected."""
         results_dir = ""
         extra_args = {}
-        mod_info = module_info.ModuleInfo(
+        mod_info = module_info.load_from_file(
             module_file=os.path.join(uc.TEST_DATA_DIR, uc.JSON_FILE))
         # Tests both run_tests return 0
         test_infos = [MODULE_INFO_A, MODULE_INFO_A_AGAIN]
