@@ -110,6 +110,8 @@ SUGGESTIONS = {
 
 _BUILD_ENV = {}
 
+CACHE_VERSION = 1
+
 
 @dataclass
 class BuildEnvProfiler:
@@ -706,27 +708,34 @@ def save_md5(filenames, save_file):
     with open(save_file, 'w+', encoding='utf-8') as _file:
         json.dump(data, _file)
 
+
 def get_cache_root():
     """Get the root path dir for cache.
 
     Use branch and target information as cache_root.
-    The path will look like ~/.atest/info_cache/$hash(branch+target)
+    The path will look like:
+       $(ANDROID_PRODUCT_OUT)/atest_cache/$CACHE_VERSION
 
     Returns:
         A string of the path of the root dir of cache.
     """
-    manifest_branch = get_manifest_branch()
-    if not manifest_branch:
-        manifest_branch = os.environ.get(
-            constants.ANDROID_BUILD_TOP, constants.ANDROID_BUILD_TOP)
-    # target
-    build_target = os.path.basename(
-        os.environ.get(constants.ANDROID_PRODUCT_OUT,
-                       constants.ANDROID_PRODUCT_OUT))
-    branch_target_hash = hashlib.md5(
-        (constants.MODE + manifest_branch + build_target).encode()).hexdigest()
-    return os.path.join(get_misc_dir(), '.atest', 'info_cache',
-                        branch_target_hash[:8])
+    # Note that the cache directory is stored in the build output directory. We
+    # do this because this directory is periodically cleaned and don't have to
+    # worry about the files growing without bound. The files are also much
+    # smaller than typical build output and less of an issue. Use build out to
+    # save caches which is next to atest_bazel_workspace which is easy for user
+    # to manually clean up if need. Use product out folder's base name as part
+    # of directory because of there may be different module-info in the same
+    # branch but different lunch target.
+    return os.path.join(
+        get_build_out_dir(),
+        'atest_cache',
+        f'ver_{CACHE_VERSION}',
+        os.path.basename(
+            os.environ.get(constants.ANDROID_PRODUCT_OUT,
+                           constants.ANDROID_PRODUCT_OUT))
+    )
+
 
 def get_test_info_cache_path(test_reference, cache_root=None):
     """Get the cache path of the desired test_infos.
@@ -782,6 +791,7 @@ def load_test_info_cache(test_reference, cache_root=None):
     """
     if not cache_root:
         cache_root = get_cache_root()
+
     cache_file = get_test_info_cache_path(test_reference, cache_root)
     if os.path.isfile(cache_file):
         logging.debug('Loading cache %s.', cache_file)
