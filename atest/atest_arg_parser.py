@@ -126,6 +126,7 @@ SERIAL = 'The device to run the test on.'
 SHARDING = 'Option to specify sharding count. (default: 2)'
 SMART_TESTING_LOCAL = ('Automatically detect untracked/unstaged files in current'
                        ' git run associated tests.')
+SQLITE_MODULE_CACHE = ('Use SQLite database as cache instead of JSON.')
 START_AVD = 'Automatically create an AVD and run tests on the virtual device.'
 TEST = ('Run the tests. WARNING: Many test configs force cleanup of device '
         'after test run. In this case, "-d" must be used in previous test run '
@@ -236,6 +237,10 @@ class AtestArgParser(argparse.ArgumentParser):
         self.add_argument('--sharding', nargs='?', const=2,
                           type=_positive_int, default=0,
                           help=SHARDING)
+        self.add_argument('--sqlite-module-cache',
+                          action=argparse.BooleanOptionalAction,
+                          default=False,
+                          help=SQLITE_MODULE_CACHE)
         self.add_argument('-t', '--test', action='append_const', dest='steps',
                           const=constants.TEST_STEP, help=TEST)
         self.add_argument('--use-modules-in', help=USE_MODULES_IN,
@@ -480,6 +485,7 @@ def print_epilog_text():
         USER_TYPE=USER_TYPE,
         UPDATE_CMD_MAPPING=UPDATE_CMD_MAPPING,
         USE_MODULES_IN=USE_MODULES_IN,
+        SQLITE_MODULE_CACHE=SQLITE_MODULE_CACHE,
         VERBOSE=VERBOSE,
         VERSION=VERSION,
         VERIFY_CMD_MAPPING=VERIFY_CMD_MAPPING,
@@ -614,6 +620,9 @@ OPTIONS
 
         --use-modules-in
             {USE_MODULES_IN}
+
+        --sqlite-module-cache
+            {SQLITE_MODULE_CACHE}
 
         [ Upload Test Result ]
         --request-upload-result
