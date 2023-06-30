@@ -1058,8 +1058,10 @@ def main(argv: List[Any], results_dir: str, args: argparse.ArgumentParser):
             proc_idx = atest_utils.run_multi_proc(at.index_targets)
         smart_rebuild = need_rebuild_module_info(args)
 
-        mod_info = module_info.load_from_file(
-            force_build=smart_rebuild, save_timestamps=True)
+        mod_info = module_info.load(
+            force_build=smart_rebuild,
+            sqlite_module_cache=args.sqlite_module_cache,
+        )
 
     translator = cli_translator.CLITranslator(
         mod_info=mod_info,
