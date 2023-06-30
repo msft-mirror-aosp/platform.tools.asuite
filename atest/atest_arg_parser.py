@@ -239,7 +239,7 @@ class AtestArgParser(argparse.ArgumentParser):
                           help=SHARDING)
         self.add_argument('--sqlite-module-cache',
                           action=argparse.BooleanOptionalAction,
-                          default=False,
+                          default=True,
                           help=SQLITE_MODULE_CACHE)
         self.add_argument('-t', '--test', action='append_const', dest='steps',
                           const=constants.TEST_STEP, help=TEST)
