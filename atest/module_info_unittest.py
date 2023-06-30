@@ -287,7 +287,8 @@ class ModuleInfoUnittests(unittest.TestCase):
 
     def test_merge_build_system_infos(self):
         """Test _merge_build_system_infos."""
-        loader = module_info.Loader(module_file=JSON_FILE_PATH)
+        loader = module_info.Loader(module_file=JSON_FILE_PATH,
+                                    need_merge_fn=lambda: True)
         mod_info_1 = {constants.MODULE_NAME: 'module_1',
                       constants.MODULE_DEPENDENCIES: []}
         name_to_mod_info = {'module_1' : mod_info_1}
@@ -300,7 +301,8 @@ class ModuleInfoUnittests(unittest.TestCase):
 
     def test_merge_build_system_infos_missing_keys(self):
         """Test _merge_build_system_infos for keys missing from module-info.json."""
-        loader = module_info.Loader(module_file=JSON_FILE_PATH)
+        loader = module_info.Loader(module_file=JSON_FILE_PATH,
+                                    need_merge_fn=lambda: True)
         name_to_mod_info = loader._merge_build_system_infos(
             {}, java_bp_info_path=self.java_dep_path)
 
@@ -311,7 +313,8 @@ class ModuleInfoUnittests(unittest.TestCase):
 
     def test_merge_dependency_with_ori_dependency(self):
         """Test _merge_dependency."""
-        loader = module_info.Loader(module_file=JSON_FILE_PATH)
+        loader = module_info.Loader(module_file=JSON_FILE_PATH,
+                                    need_merge_fn=lambda: True)
         mod_info_1 = {constants.MODULE_NAME: 'module_1',
                       constants.MODULE_DEPENDENCIES: ['ori_dep_1']}
         name_to_mod_info = {'module_1' : mod_info_1}
@@ -391,7 +394,8 @@ class ModuleInfoUnittests(unittest.TestCase):
 
     def test_get_module_dependency(self):
         """Test get_module_dependency."""
-        loader = module_info.Loader(module_file=JSON_FILE_PATH)
+        loader = module_info.Loader(module_file=JSON_FILE_PATH,
+                                    need_merge_fn=lambda: True)
         mod_info = loader.load()
         expect_deps = {'test_dep_level_1_1', 'module_1', 'test_dep_level_1_2',
                        'test_dep_level_2_2', 'test_dep_level_2_1', 'module_2'}
@@ -403,7 +407,8 @@ class ModuleInfoUnittests(unittest.TestCase):
 
     def test_get_module_dependency_w_loop(self):
         """Test get_module_dependency with problem dep file."""
-        loader = module_info.Loader(module_file=JSON_FILE_PATH)
+        loader = module_info.Loader(module_file=JSON_FILE_PATH,
+                                    need_merge_fn=lambda: True)
         mod_info = loader.load()
         # Java dependency file with a endless loop define.
         java_dep_file = os.path.join(uc.TEST_DATA_DIR,
@@ -418,7 +423,8 @@ class ModuleInfoUnittests(unittest.TestCase):
 
     def test_get_install_module_dependency(self):
         """Test get_install_module_dependency."""
-        loader = module_info.Loader(module_file=JSON_FILE_PATH)
+        loader = module_info.Loader(module_file=JSON_FILE_PATH,
+                                    need_merge_fn=lambda: True)
         mod_info = loader.load()
         expect_deps = {'module_1', 'test_dep_level_2_1'}
         loader._merge_build_system_infos(loader.name_to_module_info,
@@ -429,7 +435,8 @@ class ModuleInfoUnittests(unittest.TestCase):
 
     def test_cc_merge_build_system_infos(self):
         """Test _merge_build_system_infos for cc."""
-        loader = module_info.Loader(module_file=JSON_FILE_PATH)
+        loader = module_info.Loader(module_file=JSON_FILE_PATH,
+                                    need_merge_fn=lambda: True)
         mod_info_1 = {constants.MODULE_NAME: 'module_cc_1',
                       constants.MODULE_DEPENDENCIES: []}
         name_to_mod_info = {'module_cc_1' : mod_info_1}
