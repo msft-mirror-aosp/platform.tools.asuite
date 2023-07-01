@@ -59,7 +59,6 @@ Module = Dict[str, Any]
 def load_from_file(
         module_file: Path = None,
         force_build: bool = False,
-        save_timestamps: bool = False,
     ) -> ModuleInfo:
     """Factory method that initializes ModuleInfo from the build-generated
     JSON file"""
@@ -69,7 +68,7 @@ def load_from_file(
         need_merge_fn=lambda: False,
     )
 
-    mi = loader.load(save_timestamps=save_timestamps)
+    mi = loader.load()
 
     return mi
 
@@ -160,7 +159,6 @@ class Loader:
 
     def load(self, save_timestamps: bool=False):
         if save_timestamps:
-            atest_utils.run_multi_proc(func=self._save_module_info_timestamp)
             atest_utils.run_multi_proc(func=atest_utils.save_build_files_timestamp)
 
         return ModuleInfo(
@@ -271,52 +269,25 @@ class Loader:
 
         return name_info, get_path_to_module_info(name_info)
 
-    def _save_module_info_timestamp(self):
-        """Dump the timestamp of essential module info files.
-           * module-info.json
-           * module_bp_cc_deps.json
-           * module_bp_java_deps.json
-        """
-        dirname = atest_utils.get_host_out('indexes')
-        if not dirname.is_dir():
-            dirname.mkdir(parents=True)
-
-        timestamp = {}
-        for json_file in [self.mod_info_file_path,
-                          self.java_dep_path,
-                          self.cc_dep_path]:
-            timestamp.update(
-                {str(json_file): json_file.stat().st_mtime}
-            )
-
-        timestamp_file = dirname.joinpath('modules.stp')
-        with open(timestamp_file, 'w', encoding='utf8') as _file:
-            json.dump(timestamp, _file)
-
     def need_merge_module_info(self):
-        """Check if need to merge module info json files.
+        """Check if needed to regenerate the cache file.
 
-        There are 2 scienarios that atest_merged_dep.json will be updated.
-        1. One of the checksum of module-info.json, module_bp_java_deps.json and
-           module_cc_java_deps.json have changed.
-        2. atest_merged_deps.json does not exist.
-
-        If fits one of above scienarios, it is recognized to update.
+        If the cache file is non-existent or older than any of the JSON files
+        used to generate it, the cache file must re-generate.
 
         Returns:
-            True if one of the scienarios reaches, False otherwise.
+            True when the cache file is older or non-existent, False otherwise.
         """
         if not self.cache_file.is_file():
             return True
 
-        timestamp_file = atest_utils.get_host_out('indexes/modules.stp')
-        data = atest_utils.load_json_safely(timestamp_file)
-        for f in [self.mod_info_file_path,
-                  self.java_dep_path,
-                  self.cc_dep_path]:
-            if f.stat().st_mtime != data.get(str(f), ''):
-                return True
-        return False
+        # The dependency input files should be generated at this point.
+        return any(
+          self.cache_file.stat().st_mtime < f.stat().st_mtime
+          for f in (self.mod_info_file_path,
+                    self.java_dep_path,
+                    self.cc_dep_path)
+        )
 
     def _merge_build_system_infos(self, name_to_module_info,
         java_bp_info_path=None, cc_bp_info_path=None):
