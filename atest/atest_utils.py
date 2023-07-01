@@ -849,10 +849,9 @@ def get_modified_files(root_dir):
     """
     modified_files = set()
     try:
-        find_git_cmd = f'cd {root_dir}; git rev-parse --show-toplevel'
-        result = subprocess.run(
-            find_git_cmd, shell=True, capture_output=True)
-        git_paths = result.stdout.decode().splitlines()
+        find_git_cmd = 'cd {}; git rev-parse --show-toplevel'.format(root_dir)
+        git_paths = subprocess.check_output(
+            find_git_cmd, shell=True).decode().splitlines()
         for git_path in git_paths:
             # Find modified files from git working tree status.
             git_status_cmd = ("repo forall {} -c git status --short | "
