@@ -24,7 +24,9 @@ import os
 import logging
 import json
 import subprocess
+import sys
 
+from pathlib import Path
 from typing import Any, Dict, List, Set
 
 from atest import atest_utils
@@ -37,36 +39,35 @@ from atest.test_finders.test_info import TestInfo
 from atest.test_runners import test_runner_base
 from atest.tools.singleton import Singleton
 
-# Roboleaf maintains allow lists that identify which modules have been
-# fully converted to bazel.  Users of atest can use
-# --roboleaf-mode=[PROD/STAGING/DEV] to filter by these allow lists.
-# PROD (default) is the only mode expected to be fully converted and passing.
-_ALLOW_LIST_PROD_PATH = ('/soong/soong_injection/allowlists/'
-                    'mixed_build_prod_allowlist.txt')
-_ALLOW_LIST_STAGING_PATH = ('/soong/soong_injection/allowlists/'
-                       'mixed_build_staging_allowlist.txt')
+# Roboleaf maintains allowlists that identify which modules have been
+# fully converted to bazel. Users of atest can use
+# --roboleaf-mode=[ON/OFF/DEV] to filter by these allowlists.
+# ON (default) is the only mode expected to be fully converted and passing.
+# This list contains the test labels that should be fully handled by Bazel end to
+# end.
+_ALLOWLIST_LAUNCHED = (
+    f'{os.environ.get(constants.ANDROID_BUILD_TOP)}/'
+    'tools/asuite/atest/test_runners/roboleaf_launched.txt')
+# This list contains all of the bp2build converted Android.bp modules.
 _ROBOLEAF_MODULE_MAP_PATH = ('/soong/soong_injection/metrics/'
                              'converted_modules_path_map.json')
-_ROBOLEAF_BUILD_CMD = 'build/soong/soong_ui.bash'
-
+_SOONG_UI_CMD = 'build/soong/soong_ui.bash'
 
 @enum.unique
 class BazelBuildMode(enum.Enum):
-    "Represents different bp2build allow lists to use whening running bazel (b)"
-    OFF = 'off'
-    DEV = 'dev'
-    STAGING = 'staging'
-    PROD = 'prod'
-
+    "Represents different bp2build allowlists to use when running bazel (b)"
+    OFF = 'off' # no bazel builds at all
+    ON = 'on' # use bazel for the production ready set of converted tests.
+    DEV = 'dev' # use bazel for all converted tests. (some may still be failing)
 
 class RoboleafModuleMap(metaclass=Singleton):
     """Roboleaf Module Map Singleton class."""
 
-    def __init__(self,
-                 module_map_location: str = ''):
-        self._module_map = _generate_map(module_map_location)
-        self.modules_prod = _read_allow_list(_ALLOW_LIST_PROD_PATH)
-        self.modules_staging = _read_allow_list(_ALLOW_LIST_STAGING_PATH)
+    def __init__(self, module_map_location: str = ''):
+        module_map = _generate_map(module_map_location)
+        self._module_map = module_map
+        self.launched_modules = _read_allowlist(
+            Path(_ALLOWLIST_LAUNCHED), module_map = module_map)
 
     def get_map(self) -> Dict[str, str]:
         """Return converted module map.
@@ -112,31 +113,68 @@ def _generate_map(module_map_location: str = '') -> Dict[str, str]:
     with open(module_map_location, 'r', encoding='utf8') as robo_map:
         return json.load(robo_map)
 
-def _read_allow_list(allow_list_location: str = '') -> List[str]:
-    """Generate a list of modules based on an allow list file.
-    The expected file format is a text file that has a module name on each line.
-    Lines that start with '#' or '//' are considered comments and skipped.
+def _read_allowlist(
+    allowlist_location: Path = None,
+    module_map: Dict[str, str] = None) -> List[str]:
+    """Generate a list of modules based on a plain text allowlist file.
+
+    The expected file format is a text file that has a Bazel label on each line.
+
+    The bazel label is in the format of "//path/to:module".
+
+    Lines that start with '#' are considered comments and skipped.
 
     Args:
-        location: Path of the allow_list file to parse.
+        location: Path of the allowlist file to parse.
 
     Returns:
         A list of module names.
     """
 
-    allow_list_location = (
-            atest_utils.get_build_out_dir() + allow_list_location)
+    if not allowlist_location:
+        raise AbortRunException("No launch allowlist was specified.")
+    if not allowlist_location.exists():
+        raise AbortRunException('The allowlist %s was not found.' % allowlist_location)
 
-    if not os.path.exists(allow_list_location):
-        logging.error('The roboleaf allow list file: %s was not '
-                        'found.', allow_list_location)
-        return []
-    with open(allow_list_location,  encoding='utf-8') as f:
+    with open(allowlist_location,  encoding='utf-8') as f:
         allowed = []
-        for module_name in f.read().splitlines():
-            if module_name.startswith('#') or module_name.startswith('//'):
+
+        # .read().splitlines() handles newline stripping
+        # automatically, compared to .readlines().
+        for entry in f.read().splitlines():
+            if not entry or entry.startswith('#'):
+                # This is a comment or empty line.
                 continue
-            allowed.append(module_name)
+            if not entry.startswith("//"):
+                # Not a valid fully qualified bazel label.
+                raise AbortRunException("all entries in roboleaf_launched.txt must be valid "
+                                        "bazel labels that starts with '//', but got '%s'" % entry)
+
+            parts = entry.split(":")
+            package_name = None
+            target_name = None
+
+            if len(parts) > 2:
+                raise AbortRunException("%s is not a valid bazel label with "
+                                        "more than two colons ':' characters" % entry)
+
+            if len(parts) == 2:
+                # ["//foo/bar", "module"]
+                package_name = parts[0]
+                target_name = parts[1]
+            elif len(parts) == 1:
+                # bazel shorthand //foo/bar == //foo/bar:bar, so compute for 'bar'
+                package_name = entry
+                target_name = entry.split("/")[-1]
+
+            # Check that the module is the main converted module map. If it's
+            # not converted by bp2build, don't build it with bazel. This may
+            # change in the future with checked-in BUILD targets.
+            if target_name not in module_map and module_map.get(target_name) != package_name:
+                logging.warning("requested module %s is not in the bp2build roboleaf module map", entry)
+                continue
+
+            allowed.append(target_name)
         return allowed
 
 def _generate_bp2build_command() -> List[str]:
@@ -147,7 +185,7 @@ def _generate_bp2build_command() -> List[str]:
     """
     soong_ui = (
         f'{os.environ.get(constants.ANDROID_BUILD_TOP, os.getcwd())}/'
-        f'{_ROBOLEAF_BUILD_CMD}')
+        f'{_SOONG_UI_CMD}')
     return [soong_ui, '--make-mode', 'bp2build']
 
 
@@ -178,6 +216,8 @@ class RoboleafTestRunner(test_runner_base.TestRunnerBase):
         target_patterns = ' '.join(
             self.test_info_target_label(i) for i in test_infos)
         bazel_args = bazel_mode.parse_args(test_infos, extra_args, None)
+        # TODO(b/288069169): The following two lines hardcodes for device test.
+        # Handle deviceless testing.
         bazel_args.append('--config=android')
         bazel_args.append(
             '--//build/bazel/rules/tradefed:runmode=host_driven_test'
@@ -244,29 +284,27 @@ class RoboleafTestRunner(test_runner_base.TestRunnerBase):
         module_names: List[str]) -> Dict[str, TestInfo]:
         """Filter the given module_names to only ones that are currently
         fully converted with roboleaf (b test) and then filter further by the
-        given allow list specified in BazelBuildMode.
+        launch allowlist.
 
         Args:
-            mode: A BazelBuildMode value to filter by allow list.
+            mode: A BazelBuildMode value to switch between dev and prod lists.
             module_names: A list of module names to check for roboleaf support.
 
         Returns:
             A dictionary keyed by test name and value of Roboleaf TestInfo.
         """
-        if not module_names:
+        if not module_names or mode == BazelBuildMode.OFF:
             return {}
 
         mod_map = RoboleafModuleMap()
         supported_modules = set(filter(
             lambda m: m in mod_map.get_map(), module_names))
 
-
-        if mode == BazelBuildMode.PROD:
+        # By default, only keep modules that are in the managed list
+        # of launched modules.
+        if mode == BazelBuildMode.ON:
             supported_modules = set(filter(
-            lambda m: m in supported_modules, mod_map.modules_prod))
-        elif mode == BazelBuildMode.STAGING:
-            supported_modules = set(filter(
-            lambda m: m in supported_modules, mod_map.modules_staging))
+                lambda m: m in supported_modules, mod_map.launched_modules))
 
         return {
             module: TestInfo(module, RoboleafTestRunner.NAME, set())
