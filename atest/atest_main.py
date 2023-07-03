@@ -933,15 +933,15 @@ def _all_tests_are_bazel_buildable(
     roboleaf_tests: Dict[str, TestInfo],
     tests: List[str]) -> bool:
     """Method that determines whether all tests have been fully converted to
-    bazel mode (roboleaf).
+    build with Bazel (Roboleaf).
 
-    If all tests are fully converted, then indexing, generating mod-info, and
-    generating atest bazel workspace can be skipped since dependencies are
-    mapped already with `b`.
+    If all tests are fully converted, then indexing, generating
+    module-info.json, and generating atest bazel workspace can be skipped since
+    dependencies can be transitively built with bazel's build graph.
 
     Args:
         roboleaf_tests: A dictionary keyed by testname of roboleaf tests.
-        tests: A list of testnames.
+        tests: A list of testnames requested by the user.
 
     Returns:
         True when none of the above conditions were found.

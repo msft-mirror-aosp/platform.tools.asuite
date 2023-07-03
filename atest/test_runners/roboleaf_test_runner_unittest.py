@@ -20,6 +20,7 @@ import json
 import unittest
 import subprocess
 import logging
+from textwrap import dedent
 
 from pathlib import Path
 from unittest import mock
@@ -29,6 +30,7 @@ from atest import atest_utils
 from atest import unittest_constants
 from atest.test_finders.test_info import TestInfo
 from atest.test_runners import roboleaf_test_runner
+from atest.test_runners.roboleaf_test_runner import AbortRunException
 from atest.test_runners.roboleaf_test_runner import RoboleafTestRunner
 from atest.test_runners.roboleaf_test_runner import RoboleafModuleMap
 
@@ -43,26 +45,85 @@ class RoboleafTestRunnerUnittests(fake_filesystem_unittest.TestCase):
         self.fs.create_file(
             out_dir+roboleaf_test_runner._ROBOLEAF_MODULE_MAP_PATH,
             contents="{}")
-        self.fs.create_file(
-            out_dir+roboleaf_test_runner._ALLOW_LIST_PROD_PATH,
-            contents="")
-        self.fs.create_file(
-            out_dir+roboleaf_test_runner._ALLOW_LIST_STAGING_PATH,
-            contents="")
+        self.fs.create_file(roboleaf_test_runner._ALLOWLIST_LAUNCHED, contents="")
 
     def tearDown(self):
         RoboleafModuleMap()._module_map = {}
         mock.patch.stopall()
 
-    def test_read_allow_list(self):
-        """Test _read_allow_list method"""
-        self.fs.create_file(
-            atest_utils.get_build_out_dir()+"allow_list",
-            contents="""test1\ntest2\n#comment1\n//comment2""")
+    def test_read_allowlist_simple(self):
+        """Test _read_allowlist method with a simple configuration."""
+        allowlist_path = Path("allowlist")
+        allowlist_content = """
+        # a comment
+        //a:test1
+        # another comment
+        //a/b:test2
+        """
+        self.fs.create_file(allowlist_path, contents=dedent(allowlist_content))
 
+        module_map = {'test1': "//a", "test2": "//a/b"}
         self.assertEqual(
-            roboleaf_test_runner._read_allow_list("allow_list"),
+            roboleaf_test_runner._read_allowlist(allowlist_path, module_map),
             ['test1','test2'])
+
+    def test_read_allowlist_subset(self):
+        """Test _read_allowlist method with a proper subset of converted modules."""
+        allowlist_path = Path("allowlist")
+        allowlist_content = """
+        //a:test1
+        """
+        self.fs.create_file(allowlist_path, contents=dedent(allowlist_content))
+
+        module_map = {'test1': "//a", "test2": "//a/b", "test3": "//a/b/c"}
+        self.assertEqual(
+            roboleaf_test_runner._read_allowlist(allowlist_path, module_map),
+            ['test1'])
+
+    def test_read_allowlist_superset(self):
+        """Test _read_allowlist method with launch allowlist containing non-converted modules."""
+        allowlist_path = Path("allowlist")
+        allowlist_content = """
+        //a:test1
+        //a/b:test2
+        //a/b/c:test3
+        """
+        self.fs.create_file(allowlist_path, contents=dedent(allowlist_content))
+
+        module_map = {'test1': "//a", "test2": "//a/b"}
+        with self.assertLogs('', level='WARNING') as context:
+            self.assertEqual(
+                roboleaf_test_runner._read_allowlist(allowlist_path, module_map),
+                ['test1', 'test2'])
+
+            self.assertListEqual([
+                'WARNING:root:requested module //a/b/c:test3 '
+                'is not in the bp2build roboleaf module map'
+            ], context.output)
+
+    def test_read_allowlist_malformed_label_with_colons(self):
+        """Test _read_allowlist method with malformed bazel label."""
+        allowlist_path = Path("allowlist")
+        allowlist_content = """
+        //a:test1:bad
+        """
+        self.fs.create_file(allowlist_path, contents=dedent(allowlist_content))
+
+        module_map = {}
+        with self.assertRaises(AbortRunException):
+            roboleaf_test_runner._read_allowlist(allowlist_path, module_map)
+
+    def test_read_allowlist_need_full_bazel_labels(self):
+        """Test _read_allowlist method with non-full bazel label."""
+        allowlist_path = Path("allowlist")
+        allowlist_content = """
+        foo
+        """
+        self.fs.create_file(allowlist_path, contents=dedent(allowlist_content))
+
+        module_map = {}
+        with self.assertRaises(AbortRunException):
+            roboleaf_test_runner._read_allowlist(allowlist_path, module_map)
 
     def test_roboleaf_eligible_tests_filtering(self):
         """Test roboleaf_eligible_tests method when _module_map has entries"""
@@ -75,55 +136,41 @@ class RoboleafTestRunnerUnittests(fake_filesystem_unittest.TestCase):
             contents=json.dumps({
             'test1': "//a",
             'test2': "//a/b",
-            'test3': "//a/b",
+            'test3': "//a/b/c",
+            'test4': "//a/b/c/d",
         }))
+        allowlist_content = """
+        //a:test1
+        //a/b:test2
+        """
         self.fs.create_file(
-            out_dir+roboleaf_test_runner._ALLOW_LIST_STAGING_PATH,
-            contents="test1\ntest2")
-        self.fs.create_file(
-            out_dir+roboleaf_test_runner._ALLOW_LIST_PROD_PATH,
-            contents="test1")
-        module_names = [
-            'test1',
-            'test2',
-            'test3',
-            'test4',
-        ]
+            roboleaf_test_runner._ALLOWLIST_LAUNCHED,
+            contents=dedent(allowlist_content))
 
+        # tests requested on the atest command line
+        module_names = ['test1', 'test2', 'test3', 'test4']
+
+        # --roboleaf-mode=dev tests. Ignores launch allowlist.
         eligible_tests = self.test_runner.roboleaf_eligible_tests(
             roboleaf_test_runner.BazelBuildMode.DEV,
             module_names)
+        self.assertEqual(len(eligible_tests), 4)
+        for module_name in module_names:
+            self.assertEqual(eligible_tests[module_name].test_name, module_name)
+            self.assertEqual(eligible_tests[module_name].test_runner,
+                             RoboleafTestRunner.NAME)
 
-        self.assertEqual(len(eligible_tests), 3)
-        self.assertEqual(eligible_tests["test1"].test_name, 'test1')
-        self.assertEqual(eligible_tests["test1"].test_runner,
-                         RoboleafTestRunner.NAME)
-        self.assertEqual(eligible_tests["test2"].test_name, 'test2')
-        self.assertEqual(eligible_tests["test2"].test_runner,
-                         RoboleafTestRunner.NAME)
-        self.assertEqual(eligible_tests["test3"].test_name, 'test3')
-        self.assertEqual(eligible_tests["test3"].test_runner,
-                         RoboleafTestRunner.NAME)
 
+        # --roboleaf-mode=on tests. Takes launch allowlist into account.
         eligible_tests = self.test_runner.roboleaf_eligible_tests(
-            roboleaf_test_runner.BazelBuildMode.STAGING,
+            roboleaf_test_runner.BazelBuildMode.ON,
             module_names)
-
         self.assertEqual(len(eligible_tests), 2)
         self.assertEqual(eligible_tests["test1"].test_name, 'test1')
         self.assertEqual(eligible_tests["test1"].test_runner,
                          RoboleafTestRunner.NAME)
         self.assertEqual(eligible_tests["test2"].test_name, 'test2')
         self.assertEqual(eligible_tests["test2"].test_runner,
-                         RoboleafTestRunner.NAME)
-
-        eligible_tests = self.test_runner.roboleaf_eligible_tests(
-            roboleaf_test_runner.BazelBuildMode.PROD,
-            module_names)
-
-        self.assertEqual(len(eligible_tests), 1)
-        self.assertEqual(eligible_tests["test1"].test_name, 'test1')
-        self.assertEqual(eligible_tests["test1"].test_runner,
                          RoboleafTestRunner.NAME)
 
     def test_roboleaf_eligible_tests_empty_map(self):
