@@ -104,8 +104,9 @@ NO_CHECKING_DEVICE = 'Do NOT check device availability. (even it is a device tes
 NO_ENABLE_ROOT = ('Do NOT restart adbd with root permission even the test config '
                   'has RootTargetPreparer.')
 NO_METRICS = 'Do not send metrics.'
-ROBOLEAF_MODE = ('Check if module has been listed in the ["prod", "staging", or'
-                 ' "dev"] roboleaf allowlists and invoke with b test.')
+ROBOLEAF_MODE = ('Determines when to use Bazel for end to end builds and tests. '
+                 'Can be `on`, `off`, `dev`. Defaults to off. Use `on` to opt-in. '
+                 'Use `dev` for a wider set of tests (for development use only).')
 REBUILD_MODULE_INFO = ('Forces a rebuild of the module-info.json file. '
                        'This may be necessary following a repo sync or '
                        'when writing a new test.')
@@ -229,8 +230,9 @@ class AtestArgParser(argparse.ArgumentParser):
                           action='store_true')
         self.add_argument('--roboleaf-mode',
                           nargs='?',
+                          # TODO(b/288073715): Launch the default to BazelBuildMode.ON.
                           default=BazelBuildMode.OFF,
-                          const=BazelBuildMode.PROD,
+                          const=BazelBuildMode.ON,
                           choices=BazelBuildMode,
                           type=BazelBuildMode,
                           help=ROBOLEAF_MODE)
