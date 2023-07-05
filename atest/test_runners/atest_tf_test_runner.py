@@ -257,7 +257,8 @@ class AtestTradefedTestRunner(trb.TestRunnerBase):
             os.chdir(os.path.abspath(os.getenv(constants.ANDROID_BUILD_TOP)))
             if os.getenv(trb.OLD_OUTPUT_ENV_VAR):
                 result = self.run_tests_raw(test_infos, extra_args, reporter)
-            result = self.run_tests_pretty(test_infos, extra_args, reporter)
+            else:
+                result = self.run_tests_pretty(test_infos, extra_args, reporter)
         except atest_error.DryRunVerificationError as e:
             atest_utils.colorful_print(str(e), constants.RED)
             return ExitCode.VERIFY_FAILURE
