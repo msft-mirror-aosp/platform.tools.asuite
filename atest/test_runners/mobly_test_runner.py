@@ -21,7 +21,6 @@ import os
 import shlex
 import shutil
 import subprocess
-import sys
 import tempfile
 from typing import Any
 
@@ -46,6 +45,9 @@ _ERROR_NO_TEST_SUMMARY = 'No Mobly test summary found.'
 _ERROR_INVALID_TEST_SUMMARY = (
     'Invalid Mobly test summary. Make sure that it contains a final "Summary" '
     'section.')
+
+# TODO(b/287136126): Use host python once compatibility issue is resolved.
+PYTHON_EXECUTABLE = 'python3.10'
 
 FILE_REQUIREMENTS_TXT = 'requirements.txt'
 FILE_SUFFIX_APK = '.apk'
@@ -247,7 +249,7 @@ class MoblyTestRunner(test_runner_base.TestRunnerBase):
         """
         venv_dir = tempfile.mkdtemp(prefix='venv_')
         logging.debug('Creating virtualenv at %s.', venv_dir)
-        subprocess.check_call([sys.executable, '-m', 'venv', venv_dir])
+        subprocess.check_call([PYTHON_EXECUTABLE, '-m', 'venv', venv_dir])
         self._temppaths.append(venv_dir)
         venv_executable = os.path.join(venv_dir, 'bin', 'python')
 
