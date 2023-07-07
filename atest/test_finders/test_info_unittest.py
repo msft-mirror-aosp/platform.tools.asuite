@@ -19,7 +19,7 @@
 
 import unittest
 
-from test_finders import test_info
+from atest.test_finders import test_info
 
 
 #pylint: disable=protected-access
