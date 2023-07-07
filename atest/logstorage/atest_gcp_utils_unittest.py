@@ -23,9 +23,9 @@ import unittest
 from pathlib import Path
 from unittest import mock
 
-import constants
+from atest import constants
 
-from logstorage import atest_gcp_utils
+from atest.logstorage import atest_gcp_utils
 
 class AtestGcpUtilsUnittests(unittest.TestCase):
     """Unit tests for atest_gcp_utils.py"""
@@ -135,5 +135,7 @@ class AtestGcpUtilsUnittests(unittest.TestCase):
             os.remove(not_upload_file)
 
         atest_gcp_utils.fetch_credential(tmp_folder, dict())
-        self.assertEqual(1, mock_get_credential_with_auth_flow.call_count)
-        self.assertFalse(os.path.exists(not_upload_file))
+        # TODO(b/275113186): Change back to assertEqual 1 and assertFalse after
+        #  switch back to default not upload.
+        self.assertEqual(0, mock_get_credential_with_auth_flow.call_count)
+        self.assertTrue(os.path.exists(not_upload_file))
