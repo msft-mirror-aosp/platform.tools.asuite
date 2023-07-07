@@ -51,8 +51,8 @@ try:
 except ImportError as e:
     logging.debug('Import error due to: %s', e)
 
-import constants
-import metrics
+from atest import constants
+from atest import metrics
 
 
 class BuildClient:
