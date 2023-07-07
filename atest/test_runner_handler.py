@@ -37,6 +37,7 @@ from atest.metrics import metrics
 from atest.metrics import metrics_utils
 from atest.test_finders import test_info
 from atest.test_runners import atest_tf_test_runner
+from atest.test_runners import roboleaf_test_runner
 from atest.test_runners import robolectric_test_runner
 from atest.test_runners import suite_plan_test_runner
 from atest.test_runners import vts_tf_test_runner
@@ -47,6 +48,7 @@ _TEST_RUNNERS = {
     suite_plan_test_runner.SuitePlanTestRunner.NAME: suite_plan_test_runner.SuitePlanTestRunner,
     vts_tf_test_runner.VtsTradefedTestRunner.NAME: vts_tf_test_runner.VtsTradefedTestRunner,
     bazel_mode.BazelTestRunner.NAME: bazel_mode.BazelTestRunner,
+    roboleaf_test_runner.RoboleafTestRunner.NAME: roboleaf_test_runner.RoboleafTestRunner,
 }
 
 
@@ -112,9 +114,8 @@ def get_test_runner_reqs(mod_info: module_info.ModuleInfo,
         test_runner_build_req |= test_runner(
             unused_result_dir,
             mod_info=mod_info,
-            test_infos=tests,
             extra_args=extra_args or {},
-        ).get_test_runner_build_reqs()
+        ).get_test_runner_build_reqs(tests)
     return test_runner_build_req
 
 

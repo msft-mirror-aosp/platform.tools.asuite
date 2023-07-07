@@ -27,8 +27,8 @@ import unittest
 from importlib import reload
 from io import StringIO
 from unittest import mock
+from pyfakefs import fake_filesystem_unittest
 
-# pylint: disable=wrong-import-order
 from atest import atest_main
 from atest import atest_utils
 from atest import constants
@@ -36,6 +36,12 @@ from atest import module_info
 
 from atest.metrics import metrics_utils
 from atest.test_finders import test_info
+
+GREEN= '\x1b[1;32m'
+CYAN = '\x1b[1;36m'
+MAGENTA = '\x1b[1;35m'
+END = '\x1b[0m'
+
 
 #pylint: disable=protected-access
 class AtestUnittests(unittest.TestCase):
@@ -94,135 +100,6 @@ class AtestUnittests(unittest.TestCase):
                 self.assertFalse(
                     atest_main._has_valid_test_mapping_args(parsed_args),
                     'Failed to validate: %s' % args)
-
-    @mock.patch.object(module_info.ModuleInfo, '_merge_build_system_infos')
-    @mock.patch.dict('os.environ', {constants.ANDROID_BUILD_TOP:'/'})
-    @mock.patch('json.load', return_value={})
-    @mock.patch('builtins.open', new_callable=mock.mock_open)
-    @mock.patch('os.path.isfile', return_value=True)
-    @mock.patch('atest.atest_utils._has_colors', return_value=True)
-    @mock.patch.object(module_info.ModuleInfo, 'get_module_info',)
-    def test_print_module_info_from_module_name(self, mock_get_module_info,
-                                                _mock_has_colors, _isfile,
-                                                _open, _json, _merge):
-        """Test _print_module_info_from_module_name method."""
-        mod_one_name = 'mod1'
-        mod_one_path = ['src/path/mod1']
-        mod_one_installed = ['installed/path/mod1']
-        mod_one_suites = ['device_test_mod1', 'native_test_mod1']
-        mod_one = {constants.MODULE_NAME: mod_one_name,
-                   constants.MODULE_PATH: mod_one_path,
-                   constants.MODULE_INSTALLED: mod_one_installed,
-                   constants.MODULE_COMPATIBILITY_SUITES: mod_one_suites}
-
-        # Case 1: The testing_module('mod_one') can be found in module_info.
-        mock_get_module_info.return_value = mod_one
-        capture_output = StringIO()
-        sys.stdout = capture_output
-        mod_info = module_info.ModuleInfo(module_file='/somewhere/module-info')
-        # Check return value = True, since 'mod_one' can be found.
-        self.assertTrue(
-            atest_main._print_module_info_from_module_name(mod_info, mod_one_name))
-        # Assign sys.stdout back to default.
-        sys.stdout = sys.__stdout__
-        correct_output = ('\x1b[1;32mmod1\x1b[0m\n'
-                          '\x1b[1;36m\tCompatibility suite\x1b[0m\n'
-                          '\t\tdevice_test_mod1\n'
-                          '\t\tnative_test_mod1\n'
-                          '\x1b[1;36m\tSource code path\x1b[0m\n'
-                          '\t\tsrc/path/mod1\n'
-                          '\x1b[1;36m\tInstalled path\x1b[0m\n'
-                          '\t\tinstalled/path/mod1\n')
-        # Check the function correctly printed module_info in color to stdout
-        self.assertEqual(capture_output.getvalue(), correct_output)
-
-        # Case 2: The testing_module('mod_one') can NOT be found in module_info.
-        mock_get_module_info.return_value = None
-        capture_output = StringIO()
-        sys.stdout = capture_output
-        # Check return value = False, since 'mod_one' can NOT be found.
-        self.assertFalse(
-            atest_main._print_module_info_from_module_name(mod_info, mod_one_name))
-        # Assign sys.stdout back to default.
-        sys.stdout = sys.__stdout__
-        null_output = ''
-        # Check if no module_info, then nothing printed to screen.
-        self.assertEqual(capture_output.getvalue(), null_output)
-
-    @mock.patch.object(module_info.ModuleInfo, '_merge_build_system_infos')
-    @mock.patch.dict('os.environ', {constants.ANDROID_BUILD_TOP:'/'})
-    @mock.patch('json.load', return_value={})
-    @mock.patch('builtins.open', new_callable=mock.mock_open)
-    @mock.patch('os.path.isfile', return_value=True)
-    @mock.patch('atest.atest_utils._has_colors', return_value=True)
-    @mock.patch.object(module_info.ModuleInfo, 'get_module_info',)
-    def test_print_test_info(self, mock_get_module_info, _mock_has_colors,
-                             _isfile, _open, _json, _merge):
-        """Test _print_test_info method."""
-        mod_one_name = 'mod1'
-        mod_one = {constants.MODULE_NAME: mod_one_name,
-                   constants.MODULE_PATH: ['path/mod1'],
-                   constants.MODULE_INSTALLED: ['installed/mod1'],
-                   constants.MODULE_COMPATIBILITY_SUITES: ['suite_mod1']}
-        mod_two_name = 'mod2'
-        mod_two = {constants.MODULE_NAME: mod_two_name,
-                   constants.MODULE_PATH: ['path/mod2'],
-                   constants.MODULE_INSTALLED: ['installed/mod2'],
-                   constants.MODULE_COMPATIBILITY_SUITES: ['suite_mod2']}
-        mod_three_name = 'mod3'
-        mod_three = {constants.MODULE_NAME: mod_two_name,
-                     constants.MODULE_PATH: ['path/mod3'],
-                     constants.MODULE_INSTALLED: ['installed/mod3'],
-                     constants.MODULE_COMPATIBILITY_SUITES: ['suite_mod3']}
-        test_name = mod_one_name
-        build_targets = set([mod_one_name, mod_two_name, mod_three_name])
-        t_info = test_info.TestInfo(test_name, 'mock_runner', build_targets)
-        test_infos = set([t_info])
-
-        # The _print_test_info() will print the module_info of the test_info's
-        # test_name first. Then, print its related build targets. If the build
-        # target be printed before(e.g. build_target == test_info's test_name),
-        # it will skip it and print the next build_target.
-        # Since the build_targets of test_info are mod_one, mod_two, and
-        # mod_three, it will print mod_one first, then mod_two, and mod_three.
-        #
-        # _print_test_info() calls _print_module_info_from_module_name() to
-        # print the module_info. And _print_module_info_from_module_name()
-        # calls get_module_info() to get the module_info. So we can mock
-        # get_module_info() to achieve that.
-        mock_get_module_info.side_effect = [mod_one, mod_two, mod_three]
-
-        capture_output = StringIO()
-        sys.stdout = capture_output
-        mod_info = module_info.ModuleInfo(module_file='/somewhere/module-info')
-        atest_main._print_test_info(mod_info, test_infos)
-        # Assign sys.stdout back to default.
-        sys.stdout = sys.__stdout__
-        correct_output = ('\x1b[1;32mmod1\x1b[0m\n'
-                          '\x1b[1;36m\tCompatibility suite\x1b[0m\n'
-                          '\t\tsuite_mod1\n'
-                          '\x1b[1;36m\tSource code path\x1b[0m\n'
-                          '\t\tpath/mod1\n'
-                          '\x1b[1;36m\tInstalled path\x1b[0m\n'
-                          '\t\tinstalled/mod1\n'
-                          '\x1b[1;35m\tRelated build targets\x1b[0m\n'
-                          '\t\tmod1, mod2, mod3\n'
-                          '\x1b[1;32mmod2\x1b[0m\n'
-                          '\x1b[1;36m\tCompatibility suite\x1b[0m\n'
-                          '\t\tsuite_mod2\n'
-                          '\x1b[1;36m\tSource code path\x1b[0m\n'
-                          '\t\tpath/mod2\n'
-                          '\x1b[1;36m\tInstalled path\x1b[0m\n'
-                          '\t\tinstalled/mod2\n'
-                          '\x1b[1;32mmod3\x1b[0m\n'
-                          '\x1b[1;36m\tCompatibility suite\x1b[0m\n'
-                          '\t\tsuite_mod3\n'
-                          '\x1b[1;36m\tSource code path\x1b[0m\n'
-                          '\t\tpath/mod3\n'
-                          '\x1b[1;36m\tInstalled path\x1b[0m\n'
-                          '\t\tinstalled/mod3\n'
-                          '\x1b[1;37m\x1b[0m\n')
-        self.assertEqual(capture_output.getvalue(), correct_output)
 
     @mock.patch.object(atest_utils, 'get_adb_devices')
     @mock.patch.object(metrics_utils, 'send_exit_event')
@@ -300,6 +177,174 @@ class AtestUnittests(unittest.TestCase):
         reload(constants)
         self.assertTrue(date_time)
 
+
+# pylint: disable=missing-function-docstring
+class AtestUnittestFixture(fake_filesystem_unittest.TestCase):
+    """Fixture for ModuleInfo tests."""
+
+    def setUp(self):
+        self.setUpPyfakefs()
+
+    # pylint: disable=protected-access
+    def create_empty_module_info(self):
+        fake_temp_file_name = next(tempfile._get_candidate_names())
+        self.fs.create_file(fake_temp_file_name, contents='{}')
+        return module_info.ModuleInfo(module_file=fake_temp_file_name)
+
+    def create_module_info(self, modules=None):
+        mod_info = self.create_empty_module_info()
+        modules = modules or []
+
+        for m in modules:
+            mod_info.name_to_module_info[m['module_name']] = m
+
+        return mod_info
+
+    def create_test_info(
+            self,
+            test_name='hello_world_test',
+            test_runner='AtestTradefedRunner',
+            build_targets=None):
+        """Create a test_info.TestInfo object."""
+        if not build_targets:
+            build_targets = set()
+        return test_info.TestInfo(test_name, test_runner, build_targets)
+
+
+class PrintModuleInfoTest(AtestUnittestFixture):
+    """Test conditions for _print_module_info."""
+
+    def tearDown(self):
+        sys.stdout = sys.__stdout__
+
+    @mock.patch('atest.atest_utils._has_colors', return_value=True)
+    def test_print_module_info_from_module_name(self, _):
+        """Test _print_module_info_from_module_name method."""
+        mod_info = self.create_module_info(
+            [module(
+                name='mod1',
+                path=['src/path/mod1'],
+                installed=['installed/path/mod1'],
+                compatibility_suites=['device_test_mod1', 'native_test_mod1']
+            )]
+        )
+        correct_output = (f'{GREEN}mod1{END}\n'
+                          f'{CYAN}\tCompatibility suite{END}\n'
+                          '\t\tdevice_test_mod1\n'
+                          '\t\tnative_test_mod1\n'
+                          f'{CYAN}\tSource code path{END}\n'
+                          '\t\t[\'src/path/mod1\']\n'
+                          f'{CYAN}\tInstalled path{END}\n'
+                          '\t\tinstalled/path/mod1\n')
+        capture_output = StringIO()
+        sys.stdout = capture_output
+
+        atest_main._print_module_info_from_module_name(mod_info, 'mod1')
+
+        # Check the function correctly printed module_info in color to stdout
+        self.assertEqual(correct_output, capture_output.getvalue())
+
+    @mock.patch('atest.atest_utils._has_colors', return_value=True)
+    def test_print_test_info(self, _):
+        """Test _print_test_info method."""
+        modules = []
+        for index in {1, 2, 3}:
+            modules.append(
+                module(
+                    name=f'mod{index}',
+                    path=[f'path/mod{index}'],
+                    installed=[f'installed/mod{index}'],
+                    compatibility_suites=[f'suite_mod{index}']
+                )
+            )
+        mod_info = self.create_module_info(modules)
+        test_infos = {
+            self.create_test_info(
+                test_name='mod1',
+                test_runner='mock_runner',
+                build_targets={'mod1', 'mod2', 'mod3'},
+            ),
+        }
+        correct_output = (f'{GREEN}mod1{END}\n'
+                          f'{CYAN}\tCompatibility suite{END}\n'
+                          '\t\tsuite_mod1\n'
+                          f'{CYAN}\tSource code path{END}\n'
+                          '\t\t[\'path/mod1\']\n'
+                          f'{CYAN}\tInstalled path{END}\n'
+                          '\t\tinstalled/mod1\n'
+                          f'{MAGENTA}\tRelated build targets{END}\n'
+                          '\t\tmod1, mod2, mod3\n'
+                          f'{GREEN}mod2{END}\n'
+                          f'{CYAN}\tCompatibility suite{END}\n'
+                          '\t\tsuite_mod2\n'
+                          f'{CYAN}\tSource code path{END}\n'
+                          '\t\t[\'path/mod2\']\n'
+                          f'{CYAN}\tInstalled path{END}\n'
+                          '\t\tinstalled/mod2\n'
+                          f'{GREEN}mod3{END}\n'
+                          f'{CYAN}\tCompatibility suite{END}\n'
+                          '\t\tsuite_mod3\n'
+                          f'{CYAN}\tSource code path{END}\n'
+                          '\t\t[\'path/mod3\']\n'
+                          f'{CYAN}\tInstalled path{END}\n'
+                          '\t\tinstalled/mod3\n'
+                          f'\x1b[1;37m{END}\n')
+        capture_output = StringIO()
+        sys.stdout = capture_output
+
+        # The _print_test_info() will print the module_info of the test_info's
+        # test_name first. Then, print its related build targets. If the build
+        # target be printed before(e.g. build_target == test_info's test_name),
+        # it will skip it and print the next build_target.
+        # Since the build_targets of test_info are mod_one, mod_two, and
+        # mod_three, it will print mod_one first, then mod_two, and mod_three.
+        #
+        # _print_test_info() calls _print_module_info_from_module_name() to
+        # print the module_info. And _print_module_info_from_module_name()
+        # calls get_module_info() to get the module_info. So we can mock
+        # get_module_info() to achieve that.
+        atest_main._print_test_info(mod_info, test_infos)
+
+        self.assertEqual(correct_output, capture_output.getvalue())
+
+
+# pylint: disable=too-many-arguments
+def module(
+    name=None,
+    path=None,
+    installed=None,
+    classes=None,
+    auto_test_config=None,
+    test_config=None,
+    shared_libs=None,
+    dependencies=None,
+    runtime_dependencies=None,
+    data=None,
+    data_dependencies=None,
+    compatibility_suites=None,
+    host_dependencies=None,
+    srcs=None,
+):
+    name = name or 'libhello'
+
+    m = {}
+
+    m['module_name'] = name
+    m['class'] = classes
+    m['path'] = [path or '']
+    m['installed'] = installed or []
+    m['is_unit_test'] = 'false'
+    m['auto_test_config'] = auto_test_config or []
+    m['test_config'] = test_config or []
+    m['shared_libs'] = shared_libs or []
+    m['runtime_dependencies'] = runtime_dependencies or []
+    m['dependencies'] = dependencies or []
+    m['data'] = data or []
+    m['data_dependencies'] = data_dependencies or []
+    m['compatibility_suites'] = compatibility_suites or []
+    m['host_dependencies'] = host_dependencies or []
+    m['srcs'] = srcs or []
+    return m
 
 if __name__ == '__main__':
     unittest.main()

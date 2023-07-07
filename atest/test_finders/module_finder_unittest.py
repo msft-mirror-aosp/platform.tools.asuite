@@ -108,11 +108,9 @@ class ModuleFinderFindTestByModuleName(fake_filesystem_unittest.TestCase):
 
     def setUp(self):
         self.setUpPyfakefs()
-        self.build_top = Path('/top')
-        self.out_dir = self.build_top.joinpath('out')
-        self.out_dir.mkdir(parents=True)
-        self.product_out = self.out_dir.joinpath('product')
-        self.host_out = self.out_dir.joinpath('host')
+        self.build_top = Path('/')
+        self.product_out = self.build_top.joinpath('out/product')
+        self.product_out.mkdir(parents=True, exist_ok=True)
         self.module_info_file = self.product_out.joinpath('atest_merged_dep.json')
         self.fs.create_file(
             self.module_info_file,
@@ -128,10 +126,8 @@ class ModuleFinderFindTestByModuleName(fake_filesystem_unittest.TestCase):
                 }''')
             )
 
-    @mock.patch.dict('os.environ', {constants.ANDROID_BUILD_TOP: '/top',
-                                    constants.ANDROID_HOST_OUT: '/top/hout'})
     @mock.patch('builtins.input', return_value='1')
-    def test_find_test_by_module_name_w_multiple_config(self, _get_arg):
+    def test_find_test_by_module_name_w_multiple_config(self, _):
         """Test find_test_by_module_name (test_config_select)"""
         atest_configs.GLOBAL_ARGS = mock.Mock()
         atest_configs.GLOBAL_ARGS.test_config_select = True
@@ -163,8 +159,6 @@ class ModuleFinderFindTestByModuleName(fake_filesystem_unittest.TestCase):
         unittest_utils.assert_equal_testinfos(self,
             t_infos[0], expected_test_info)
 
-    @mock.patch.dict('os.environ', {constants.ANDROID_BUILD_TOP: '/top',
-                                    constants.ANDROID_HOST_OUT: '/top/hout'})
     def test_find_test_by_module_name_w_multiple_config_all(self):
         """Test find_test_by_module_name."""
         atest_configs.GLOBAL_ARGS = mock.Mock()
@@ -205,6 +199,74 @@ class ModuleFinderFindTestByModuleName(fake_filesystem_unittest.TestCase):
             t_infos[0], expected_test_info[0])
         unittest_utils.assert_equal_testinfos(self,
             t_infos[1], expected_test_info[1])
+
+class ModuleFinderFindTestByPath(fake_filesystem_unittest.TestCase):
+    """Test cases that invoke find_test_by_path."""
+    def setUp(self):
+        self.setUpPyfakefs()
+
+    # pylint: disable=protected-access
+    def create_empty_module_info(self):
+        fake_temp_file_name = next(tempfile._get_candidate_names())
+        self.fs.create_file(fake_temp_file_name, contents='{}')
+        return module_info.ModuleInfo(module_file=fake_temp_file_name)
+
+    def create_module_info(self, modules=None):
+        mod_info = self.create_empty_module_info()
+        modules = modules or []
+
+        for m in modules:
+            mod_info.name_to_module_info[m['module_name']] = m
+            for path in m['path']:
+                if path in mod_info.path_to_module_info:
+                    mod_info.path_to_module_info[path].append(m)
+                else:
+                    mod_info.path_to_module_info[path] = [m]
+
+        return mod_info
+
+    # TODO: remove below mocks and hide unnecessary information.
+    @mock.patch.object(module_finder.ModuleFinder, '_get_test_info_filter')
+    @mock.patch.object(test_finder_utils, 'find_parent_module_dir',
+                       return_value=None)
+    @mock.patch('os.path.exists')
+    #pylint: disable=unused-argument
+    def test_find_test_by_path_belong_to_dependencies(
+            self, _mock_exists, _mock_find_parent, _mock_test_filter):
+        """Test find_test_by_path if belong to test dependencies."""
+        test1 = module(name='test1',
+                       classes=['class'],
+                       dependencies=['lib1'],
+                       installed=['install/test1'],
+                       auto_test_config=[True])
+        test2 = module(name='test2',
+                       classes=['class'],
+                       dependencies=['lib2'],
+                       installed=['install/test2'],
+                       auto_test_config=[True])
+        lib1 = module(name='lib1',
+                      srcs=['path/src1'])
+        lib2 = module(name='lib2',
+                      srcs=['path/src2'])
+        mod_info = self.create_module_info(
+            [test1, test2, lib1, lib2])
+        mod_finder = module_finder.ModuleFinder(module_info=mod_info)
+        _mock_exists.return_value = True
+        test1_filter = test_info.TestFilter('test1Filter', frozenset())
+        _mock_test_filter.return_value = test1_filter
+
+        t_infos = mod_finder.find_test_by_path('path/src1')
+
+        unittest_utils.assert_equal_testinfos(
+            self,
+            test_info.TestInfo(
+                'test1',
+                atf_tr.AtestTradefedTestRunner.NAME,
+                {'test1', 'MODULES-IN-'},
+                {constants.TI_FILTER: test1_filter,
+                 constants.TI_REL_CONFIG: 'AndroidTest.xml'},
+                module_class=['class']),
+            t_infos[0])
 
 #pylint: disable=protected-access
 class ModuleFinderUnittests(unittest.TestCase):
@@ -530,6 +592,7 @@ class ModuleFinderUnittests(unittest.TestCase):
         self.mod_finder.module_info.get_module_info.return_value = mod_info
         self.assertIsNone(self.mod_finder.find_test_by_module_and_package(bad_pkg))
 
+    # TODO: Move and rewite it to ModuleFinderFindTestByPath.
     @mock.patch.object(test_finder_utils, 'find_host_unit_tests',
                        return_value=[])
     @mock.patch.object(test_finder_utils, 'get_cc_class_info', return_value={})
@@ -625,6 +688,7 @@ class ModuleFinderUnittests(unittest.TestCase):
         unittest_utils.assert_equal_testinfos(
             self, uc.CC_PATH_INFO2, t_infos[0])
 
+    # TODO: Move and rewite it to ModuleFinderFindTestByPath.
     @mock.patch.object(module_finder.ModuleFinder, '_get_build_targets',
                        return_value=copy.deepcopy(uc.MODULE_BUILD_TARGETS))
     @mock.patch.object(module_finder.ModuleFinder, '_is_vts_module',
@@ -667,50 +731,6 @@ class ModuleFinderUnittests(unittest.TestCase):
         t_infos = self.mod_finder.find_test_by_path(class_dir)
         unittest_utils.assert_equal_testinfos(
             self, uc.CC_PATH_INFO, t_infos[0])
-
-    @mock.patch.object(module_finder.ModuleFinder, '_get_build_targets')
-    @mock.patch.object(module_finder.ModuleFinder, '_get_test_info_filter')
-    @mock.patch.object(test_finder_utils, 'find_parent_module_dir',
-                       return_value=None)
-    @mock.patch('os.path.exists')
-    #pylint: disable=unused-argument
-    def test_find_test_by_path_belong_to_dependencies(
-            self, _mock_exists, _mock_find_parent, _mock_test_filter,
-            _build_targets):
-        """Test find_test_by_path if belong to test dependencies."""
-        test1 = module(name='test1',
-                       classes=['class'],
-                       dependencies=['lib1'],
-                       installed=['install/test1'],
-                       auto_test_config=[True])
-        test2 = module(name='test2',
-                       classes=['class'],
-                       dependencies=['lib2'],
-                       installed=['install/test2'],
-                       auto_test_config=[True])
-        lib1 = module(name='lib1',
-                      srcs=['path/src1'])
-        lib2 = module(name='lib2',
-                      srcs=['path/src2'])
-        self.mod_finder.module_info = create_module_info(
-            [test1, test2, lib1, lib2])
-        _mock_exists.return_value = True
-        test1_filter = test_info.TestFilter('test1Filter', frozenset())
-        _mock_test_filter.return_value = test1_filter
-        _build_targets.return_value = {'test1_target'}
-
-        t_infos = self.mod_finder.find_test_by_path('path/src1')
-
-        unittest_utils.assert_equal_testinfos(
-            self,
-            test_info.TestInfo(
-                'test1',
-                atf_tr.AtestTradefedTestRunner.NAME,
-                {'test1_target'},
-                {constants.TI_FILTER: test1_filter,
-                 constants.TI_REL_CONFIG: 'AndroidTest.xml'},
-                module_class=['class']),
-            t_infos[0])
 
     @mock.patch.object(module_finder.test_finder_utils, 'get_cc_class_info')
     @mock.patch.object(test_finder_utils, 'find_host_unit_tests',
@@ -1353,8 +1373,6 @@ class ModuleFinderUnittests(unittest.TestCase):
             None)
 
 
-@mock.patch.dict('os.environ', {constants.ANDROID_BUILD_TOP: '/',
-                                constants.ANDROID_HOST_OUT: '/tmp'})
 def create_empty_module_info():
     with fake_filesystem_unittest.Patcher() as patcher:
         # pylint: disable=protected-access

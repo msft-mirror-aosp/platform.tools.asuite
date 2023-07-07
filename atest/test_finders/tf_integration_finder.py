@@ -173,8 +173,13 @@ class TFIntegrationFinder(test_finder_base.TestFinderBase):
             A populated TestInfo namedtuple if test found, else None
         """
         class_name = None
-        if ':' in name:
-            name, class_name = name.split(':')
+        parse_result = test_finder_utils.parse_test_reference(name)
+        if parse_result:
+            name =  parse_result['module_name']
+            class_name = parse_result['pkg_class_name']
+            method = parse_result.get('method_name', '')
+            if method:
+                class_name = class_name + '#' + method
         test_files = self._search_integration_dirs(name)
         if not test_files:
             # Check prebuilt jars if input name is in jars.
