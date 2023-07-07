@@ -18,11 +18,11 @@ Cache Finder class.
 
 import logging
 
-import atest_utils
-import constants
+from atest import atest_utils
+from atest import constants
 
-from test_finders import test_finder_base
-from test_finders import test_info
+from atest.test_finders import test_finder_base
+from atest.test_finders import test_info
 
 class CacheFinder(test_finder_base.TestFinderBase):
     """Cache Finder class."""
