@@ -38,6 +38,8 @@ java_library_host {
         ],
         canonical_path_from_root: false,
     },
+    // shade guava to avoid conflicts with guava embedded in Error Prone.
+    jarjar_rules: "jarjar-rules.txt",
 }
 
 java_genrule_host {
