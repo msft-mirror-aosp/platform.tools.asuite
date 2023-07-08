@@ -612,6 +612,10 @@ class WorkspaceGenerator:
             self._symlink(src=device_infra_path,
                           target=device_infra_path)
 
+        self._link_required_src_file_path(
+            'build/bazel_common_rules/rules/python/stubs')
+        self._link_required_src_file_path('external/bazelbuild-rules_java')
+
         self._create_constants_file()
 
         self._generate_robolectric_resources()
@@ -723,6 +727,13 @@ class WorkspaceGenerator:
                     '%s = "%s"' %
                     (variable_name(target.name()), target.qualified_name())
                 )
+
+    def _link_required_src_file_path(self, path):
+        if not self.resource_manager.get_src_file_path(path).exists():
+            raise RuntimeError(
+                f'Path `{path}` does not exist in source tree.')
+
+        self._symlink(src=path, target=path)
 
 
 def _get_resource_root():
