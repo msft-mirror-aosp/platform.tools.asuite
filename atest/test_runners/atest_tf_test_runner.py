@@ -1329,6 +1329,9 @@ def extra_args_to_tf_args(
                 '--test-arg',
                 'com.android.tradefed.testtype.GTest:'
                 f'native-test-timeout:{arg_value}',
+                '--test-arg',
+                'com.android.compatibility.testtype.LibcoreTest:'
+                f'test-timeout:{arg_value}',
             ],
         constants.COVERAGE: coverage.tf_args,
     })
