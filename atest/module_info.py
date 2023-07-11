@@ -1065,7 +1065,7 @@ def _create_db(data_map: Dict[str, Dict[str, Any]], db_path: Path):
         _create_db_in_path(data_map, tmp_db.name)
         shutil.move(tmp_db.name, db_path)
 
-    logging.debug('%s is created successfully.', db_path)
+        logging.debug('%s is created successfully.', db_path)
 
 
 def _create_db_in_path(data_map: Dict[str, Dict[str, Any]], db_path: Path):
@@ -1108,7 +1108,7 @@ def _create_json(data_map: Dict[str, Any], json_path: Path):
             json.dump(data_map, _temp, indent=0)
         shutil.move(temp_json.name, json_path)
 
-    logging.debug('%s is created successfully.', json_path)
+        logging.debug('%s is created successfully.', json_path)
 
 
 def _save_data_async(function: Callable, contents: Any, target_path: Path):
