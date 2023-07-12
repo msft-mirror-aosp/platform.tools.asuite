@@ -104,7 +104,11 @@ function _atest_main() {
     # BASH version <= 4.3 doesn't have nosort option.
     # Note that nosort has no effect for zsh.
     local _atest_comp_options="-o default -o nosort"
-    local _atest_executables=(atest atest-dev atest-py3)
+    local _atest_executables=(atest
+                              atest-dev
+                              atest-py3
+                              _atest_pyinstrument
+                              _atest_cprofile_snakeviz)
     for exec in "${_atest_executables[*]}"; do
         complete -F _atest $_atest_comp_options $exec 2>/dev/null || \
         complete -F _atest -o default $exec
@@ -126,8 +130,12 @@ function _atest_main() {
         PATH=$PREBUILT_TOOLS_DIR:$PATH $atest_dev "$@"
     }
 
-    # pyinstrument profiler
     function _atest_profile_cli() {
+        echo "_atest_profile_cli is deprecated. Use _atest_pyinstrument instead."
+        return 1
+    }
+
+    function _atest_pyinstrument() {
         local T="$(gettop)"
         profile="$HOME/.atest/$(date +'%FT%H-%M-%S').pyisession"
         _pip_install pyinstrument
@@ -139,8 +147,12 @@ function _atest_main() {
         fi
     }
 
-    # cProfile profiler + snakeviz visualization
     function _atest_profile_web() {
+        echo _atest_profile_web is deprecated. Use _atest_cprofile_snakeviz instead.
+        return 1
+    }
+
+    function _atest_cprofile_snakeviz() {
         local T="$(gettop)"
         profile="$HOME/.atest/$(date +'%F_%H-%M-%S').pstats"
         m atest && \
