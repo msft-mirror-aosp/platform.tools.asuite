@@ -45,7 +45,7 @@ from socket import socket
 try:
     # pylint: disable=import-error
     from oauth2client import client as oauth2_client
-    from oauth2client.contrib import multistore_file
+    from oauth2client.contrib import multiprocess_file_storage
     from oauth2client import tools as oauth2_tools
 except ModuleNotFoundError as e:
     logging.debug('Import error due to %s', e)
@@ -106,7 +106,7 @@ class GCPHelper():
         Returns:
             An oauth2client.OAuth2Credentials instance.
         """
-        storage = multistore_file.get_credential_storage(
+        storage = multiprocess_file_storage.get_credential_storage(
             filename=os.path.abspath(creds_file_path),
             client_id=self.client_id,
             user_agent=self.user_agent,
@@ -137,7 +137,7 @@ class GCPHelper():
         # GCP auth flow
         credentials = self.get_refreshed_credential_from_file(creds_file_path)
         if not credentials:
-            storage = multistore_file.get_credential_storage(
+            storage = multiprocess_file_storage.get_credential_storage(
                 filename=os.path.abspath(creds_file_path),
                 client_id=self.client_id,
                 user_agent=self.user_agent,
