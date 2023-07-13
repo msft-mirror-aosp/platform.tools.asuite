@@ -33,6 +33,47 @@ function _pip_install() {
     fi
 }
 
+function _atest_profile_cli() {
+    echo "_atest_profile_cli is deprecated. Use _atest_pyinstrument instead."
+    return 1
+}
+
+function _atest_pyinstrument() {
+    local T=$ANDROID_BUILD_TOP
+    profile="$HOME/.atest/$(date +'%FT%H-%M-%S').pyisession"
+    _pip_install pyinstrument
+    if [ "$?" -eq 0 ]; then
+        m atest && \
+            python3 $T/tools/asuite/atest/profiler.py pyinstrument $profile $ANDROID_SOONG_HOST_OUT/bin/atest-dev "$@" && \
+            python3 -m pyinstrument -t --show-all --load $profile && \
+            echo "$(tput setaf 3)$profile$(tput sgr0) saved."
+    fi
+}
+
+function _atest_profile_web() {
+    echo _atest_profile_web is deprecated. Use _atest_cprofile_snakeviz instead.
+    return 1
+}
+
+function _atest_cprofile_snakeviz() {
+    local T=$ANDROID_BUILD_TOP
+    profile="$HOME/.atest/$(date +'%F_%H-%M-%S').pstats"
+    m atest && \
+        python3 $T/tools/asuite/atest/profiler.py cProfile $profile $ANDROID_SOONG_HOST_OUT/bin/atest-dev "$@" && \
+        echo "$profile saved." || return 1
+
+    _pip_install snakeviz
+    if [ "$?" -eq 0 ]; then
+        run_cmd="snakeviz -H $HOSTNAME $profile >/dev/null 2>&1"
+        echo "$(tput bold)Use Ctrl-C to stop.$(tput sgr0)"
+        eval $run_cmd
+        echo
+        echo "To permanently start a web server, please run:"
+        echo $(tput setaf 3)"nohup $run_cmd &"$(tput sgr0)
+        echo "and share $(tput setaf 3)http://$HOSTNAME:8080/snakeviz/$profile$(tput sgr0)."
+    fi
+}
+
 # The main tab completion function.
 _atest() {
     COMPREPLY=()
@@ -104,7 +145,11 @@ function _atest_main() {
     # BASH version <= 4.3 doesn't have nosort option.
     # Note that nosort has no effect for zsh.
     local _atest_comp_options="-o default -o nosort"
-    local _atest_executables=(atest atest-dev atest-py3)
+    local _atest_executables=(atest
+                              atest-dev
+                              atest-py3
+                              _atest_pyinstrument
+                              _atest_cprofile_snakeviz)
     for exec in "${_atest_executables[*]}"; do
         complete -F _atest $_atest_comp_options $exec 2>/dev/null || \
         complete -F _atest -o default $exec
@@ -124,39 +169,6 @@ function _atest_main() {
         fi
         PREBUILT_TOOLS_DIR="$ANDROID_BUILD_TOP/prebuilts/build-tools/path/linux-x86"
         PATH=$PREBUILT_TOOLS_DIR:$PATH $atest_dev "$@"
-    }
-
-    # pyinstrument profiler
-    function _atest_profile_cli() {
-        local T="$(gettop)"
-        profile="$HOME/.atest/$(date +'%FT%H-%M-%S').pyisession"
-        _pip_install pyinstrument
-        if [ "$?" -eq 0 ]; then
-            m atest && \
-                python3 $T/tools/asuite/atest/profiler.py pyinstrument $profile $ANDROID_SOONG_HOST_OUT/bin/atest-dev "$@" && \
-                python3 -m pyinstrument -t --show-all --load $profile && \
-                echo "$(tput setaf 3)$profile$(tput sgr0) saved."
-        fi
-    }
-
-    # cProfile profiler + snakeviz visualization
-    function _atest_profile_web() {
-        local T="$(gettop)"
-        profile="$HOME/.atest/$(date +'%F_%H-%M-%S').pstats"
-        m atest && \
-            python3 $T/tools/asuite/atest/profiler.py cProfile $profile $ANDROID_SOONG_HOST_OUT/bin/atest-dev "$@" && \
-            echo "$profile saved." || return 1
-
-        _pip_install snakeviz
-        if [ "$?" -eq 0 ]; then
-            run_cmd="snakeviz -H $HOSTNAME $profile >/dev/null 2>&1"
-            echo "$(tput bold)Use Ctrl-C to stop.$(tput sgr0)"
-            eval $run_cmd
-            echo
-            echo "To permanently start a web server, please run:"
-            echo $(tput setaf 3)"nohup $run_cmd &"$(tput sgr0)
-            echo "and share $(tput setaf 3)http://$HOSTNAME:8080/snakeviz/$profile$(tput sgr0)."
-        fi
     }
 }
 
