@@ -1038,7 +1038,8 @@ class ModuleInfo:
                 modules.add(mod_info.get(constants.MODULE_NAME))
         return modules
 
-    def get_installed_paths(self, module_name: str) -> [Path]:
+    def get_installed_paths(self, module_name: str) -> List[Path]:
+        """Return installed path from module info."""
         mod_info = self.get_module_info(module_name)
         if not mod_info:
             return []
