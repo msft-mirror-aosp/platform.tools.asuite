@@ -152,7 +152,7 @@ def add_parser_arguments(parser: argparse.ArgumentParser, dest: str):
 
 
 def get_bazel_workspace_dir() -> Path:
-    return Path(atest_utils.get_build_out_dir()).joinpath(_BAZEL_WORKSPACE_DIR)
+    return atest_utils.get_build_out_dir(_BAZEL_WORKSPACE_DIR)
 
 
 def generate_bazel_workspace(mod_info: module_info.ModuleInfo,
@@ -177,7 +177,7 @@ def generate_bazel_workspace(mod_info: module_info.ModuleInfo,
         resource_manager=resource_manager,
         workspace_out_path=workspace_path,
         host_out_path=Path(os.environ.get(constants.ANDROID_HOST_OUT)),
-        build_out_dir=Path(atest_utils.get_build_out_dir()),
+        build_out_dir=atest_utils.get_build_out_dir(),
         mod_info=mod_info,
         jdk_path=jdk_path,
         enabled_features=enabled_features,
