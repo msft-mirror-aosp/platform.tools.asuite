@@ -174,6 +174,30 @@ def get_product_out(*joinpaths: Any) -> Path:
     return Path(AndroidVariables().product_out, *joinpaths)
 
 
+def getenv_abs_path(env: str, suffix: str = None) -> Path:
+    """Translate the environment variable to an absolute path.
+
+    Args:
+        env: string of the given environment variable.
+        suffix: string that will be appended to.
+
+    Returns:
+        Absolute Path of the given environment variable.
+    """
+    env_value = os.getenv(env)
+    if not env_value:
+        return None
+
+    env_path = Path(env_value)
+    if env_path.is_absolute():
+        return env_path.joinpath(suffix) if suffix else env_path
+
+    return (
+        get_build_top(env_path, suffix) if suffix
+        else get_build_top(env_path)
+    )
+
+
 def get_build_cmd(dump=False):
     """Compose build command with no-absolute path and flag "--make-mode".
 
@@ -277,10 +301,10 @@ def _run_limited_output(cmd, env_vars=None):
         proc.wait()
         if proc.returncode != 0:
             # get error log from "OUT_DIR/error.log"
-            error_log_file = os.path.join(get_build_out_dir(), "error.log")
+            error_log_file = get_build_out_dir('error.log')
             output = []
-            if os.path.isfile(error_log_file):
-                if os.stat(error_log_file).st_size > 0:
+            if error_log_file.is_file():
+                if error_log_file.stat().st_size > 0:
                     with open(error_log_file, encoding='utf-8') as f:
                         output = f.read()
             if not output:
@@ -288,7 +312,7 @@ def _run_limited_output(cmd, env_vars=None):
             raise subprocess.CalledProcessError(proc.returncode, cmd, output)
 
 
-def get_build_out_dir() -> str:
+def get_build_out_dir(*joinpaths) -> Path:
     """Get android build out directory.
 
     The order of the rules are:
@@ -296,36 +320,28 @@ def get_build_out_dir() -> str:
     2. OUT_DIR_COMMON_BASE
     3. ANDROID_BUILD_TOP/out
 
+    e.g. OUT_DIR='/disk1/out' -> '/disk1/out'
+         OUT_DIR='out_dir'    -> '<build_top>/out_dir'
+
+         Assume the branch name is 'aosp-main':
+         OUT_DIR_COMMON_BASE='/disk2/out' -> '/disk1/out/aosp-main'
+         OUT_DIR_COMMON_BASE='out_dir'    -> '<build_top>/out_dir/aosp-main'
+
     Returns:
-        String of the out directory.
+        Absolute Path of the out directory.
     """
-    build_top = os.environ.get(constants.ANDROID_BUILD_TOP, '/')
-    # Get the out folder if user specified $OUT_DIR
-    custom_out_dir = os.environ.get(constants.ANDROID_OUT_DIR)
-    custom_out_dir_common_base = os.environ.get(
-        constants.ANDROID_OUT_DIR_COMMON_BASE)
-    user_out_dir = None
-    # If OUT_DIR == /output, the output dir will always be /outdir
-    # regardless of branch names. (Not recommended.)
-    if custom_out_dir:
-        if os.path.isabs(custom_out_dir):
-            user_out_dir = custom_out_dir
-        else:
-            user_out_dir = os.path.join(build_top, custom_out_dir)
+    out_dir = getenv_abs_path('OUT_DIR')
+    if out_dir:
+        return out_dir.joinpath(*joinpaths)
+
     # https://source.android.com/setup/build/initializing#using-a-separate-output-directory
-    # If OUT_DIR_COMMON_BASE is /output and the source tree is /src/master1,
-    # the output dir will be /output/master1.
-    elif custom_out_dir_common_base:
-        build_top_basename = os.path.basename(build_top)
-        if os.path.isabs(custom_out_dir_common_base):
-            user_out_dir = os.path.join(custom_out_dir_common_base,
-                                        build_top_basename)
-        else:
-            user_out_dir = os.path.join(build_top, custom_out_dir_common_base,
-                                        build_top_basename)
-    if user_out_dir:
-        return user_out_dir
-    return os.path.join(build_top, "out")
+    basename = get_build_top().name
+    out_dir_common_base = getenv_abs_path('OUT_DIR_COMMON_BASE', basename)
+    if out_dir_common_base:
+        return out_dir_common_base.joinpath(*joinpaths)
+
+    return get_build_top('out').joinpath(*joinpaths)
+
 
 def update_build_env(env: Dict[str, str]):
     """Method that updates build environment variables."""
@@ -381,7 +397,7 @@ def _run_build_cmd(cmd: List[str], env_vars: Dict[str, str]):
             # mode' which only prints completed actions. This gives users the
             # impression that actions are taking longer than they really are.
             # See b/233044822 for more details.
-            log_path = Path(get_build_out_dir()).joinpath('verbose.log.gz')
+            log_path = get_build_out_dir('verbose.log.gz')
             print('\n(Build log may not reflect actual status in simple output'
                   'mode; check {} for detail after build finishes.)'.format(
                     colorize(f'{log_path}', constants.CYAN)
@@ -1973,7 +1989,7 @@ def get_rbe_and_customized_out_state() -> int:
     ON = '1'
     OFF = '0'
     # 1. ensure RBE is enabled during the build.
-    actual_out_dir = Path(get_build_out_dir())
+    actual_out_dir = get_build_out_dir()
     log_path = actual_out_dir.joinpath('soong.log')
     rbe_enabled = not bool(
         subprocess.call(f'grep -q USE_RBE=true {log_path}'.split())
@@ -2019,7 +2035,7 @@ def _build_env_profiling() -> BuildEnvProfiler:
     Returns:
         the BuildProfile object.
     """
-    out_dir = Path(get_build_out_dir())
+    out_dir = get_build_out_dir()
     ninja_file = out_dir.joinpath('soong/build.ninja')
     mtime = ninja_file.stat().st_mtime if ninja_file.is_file() else 0
     variables_file = out_dir.joinpath('soong/soong.environment.used.build')

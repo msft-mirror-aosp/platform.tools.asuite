@@ -24,7 +24,6 @@ import os
 import logging
 import json
 import subprocess
-import sys
 
 from pathlib import Path
 from typing import Any, Dict, List, Set
@@ -49,7 +48,7 @@ _ALLOWLIST_LAUNCHED = (
     f'{os.environ.get(constants.ANDROID_BUILD_TOP)}/'
     'tools/asuite/atest/test_runners/roboleaf_launched.txt')
 # This list contains all of the bp2build converted Android.bp modules.
-_ROBOLEAF_MODULE_MAP_PATH = ('/soong/soong_injection/metrics/'
+_ROBOLEAF_MODULE_MAP_PATH = ('soong/soong_injection/metrics/'
                              'converted_modules_path_map.json')
 _SOONG_UI_CMD = 'build/soong/soong_ui.bash'
 
@@ -88,14 +87,15 @@ def _generate_map(module_map_location: str = '') -> Dict[str, str]:
         A dictionary of test names that bazel paths for eligible tests,
         for example { "test_a": "//platform/test_a" }.
     """
-    if not module_map_location:
-        module_map_location = (
-            atest_utils.get_build_out_dir() + _ROBOLEAF_MODULE_MAP_PATH)
+    if module_map_location:
+        module_map_location = Path(module_map_location)
+    else:
+        module_map_location = atest_utils.get_build_out_dir(_ROBOLEAF_MODULE_MAP_PATH)
 
     # TODO(b/274161649): It is possible it could be stale on first run.
     # Invoking m or b test will check/recreate this file.  Bug here is
     # to determine if we can check staleness without a large time penalty.
-    if not os.path.exists(module_map_location):
+    if not module_map_location.is_file():
         logging.warning('The roboleaf converted modules file: %s was not '
                         'found.', module_map_location)
         # Attempt to generate converted modules file.
