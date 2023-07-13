@@ -943,6 +943,14 @@ def _send_start_event(argv: List[Any], tests: List[str]):
     )
 
 
+def _get_acloud_proc_and_log(args: argparse.ArgumentParser,
+                    results_dir: str) -> Tuple[Any, Any]:
+    """Return tuple of acloud process ID and report file."""
+    if any((args.acloud_create, args.start_avd)):
+        return at.acloud_create_validator(results_dir, args)
+    return None, None
+
+
 # pylint: disable=too-many-statements
 # pylint: disable=too-many-branches
 # pylint: disable=too-many-return-statements
@@ -975,9 +983,7 @@ def main(
     _send_start_event(argv, args.tests)
     _non_action_validator(args)
 
-    proc_acloud, report_file = None, None
-    if any((args.acloud_create, args.start_avd)):
-        proc_acloud, report_file = at.acloud_create_validator(results_dir, args)
+    proc_acloud, report_file = _get_acloud_proc_and_log(args, results_dir)
     is_clean = not os.path.exists(
         os.environ.get(constants.ANDROID_PRODUCT_OUT, ''))
     extra_args = get_extra_args(args)
