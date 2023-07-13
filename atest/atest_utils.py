@@ -1995,14 +1995,14 @@ def build_files_integrity_is_ok() -> bool:
         return False
     # 1. Ensure no build files were added/deleted.
     recorded_amount = len(load_json_safely(timestamp_file).keys())
-    cmd = (f'locate -d{constants.LOCATE_CACHE} --regex '
+    cmd = (f'locate -e -d{constants.LOCATE_CACHE} --regex '
             r'"/Android\.(bp|mk)$" | wc -l')
     if int(subprocess.getoutput(cmd)) != recorded_amount:
         return False
 
     # 2. Ensure the consistency of all build files.
     for file, timestamp in load_json_safely(timestamp_file).items():
-        if Path(file).stat().st_mtime != timestamp:
+        if Path(file).exists() and Path(file).stat().st_mtime != timestamp:
             return False
     return True
 
