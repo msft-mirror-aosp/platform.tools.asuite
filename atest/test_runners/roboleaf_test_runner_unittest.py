@@ -43,7 +43,7 @@ class RoboleafTestRunnerUnittests(fake_filesystem_unittest.TestCase):
         self.setUpPyfakefs()
         out_dir = atest_utils.get_build_out_dir()
         self.fs.create_file(
-            out_dir+roboleaf_test_runner._ROBOLEAF_MODULE_MAP_PATH,
+            out_dir.joinpath(roboleaf_test_runner._ROBOLEAF_MODULE_MAP_PATH),
             contents="{}")
         self.fs.create_file(roboleaf_test_runner._ALLOWLIST_LAUNCHED, contents="")
 
@@ -132,7 +132,7 @@ class RoboleafTestRunnerUnittests(fake_filesystem_unittest.TestCase):
         self.setUpPyfakefs()
         out_dir = atest_utils.get_build_out_dir()
         self.fs.create_file(
-            out_dir+roboleaf_test_runner._ROBOLEAF_MODULE_MAP_PATH,
+            out_dir.joinpath(roboleaf_test_runner._ROBOLEAF_MODULE_MAP_PATH),
             contents=json.dumps({
             'test1': "//a",
             'test2': "//a/b",
