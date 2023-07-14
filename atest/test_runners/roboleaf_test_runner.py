@@ -186,7 +186,7 @@ def _generate_bp2build_command() -> List[str]:
     soong_ui = (
         f'{os.environ.get(constants.ANDROID_BUILD_TOP, os.getcwd())}/'
         f'{_SOONG_UI_CMD}')
-    return [soong_ui, '--make-mode', 'bp2build']
+    return [soong_ui, '--make-mode', 'WRAPPER_TOOL=atest', 'bp2build']
 
 
 class AbortRunException(Exception):
