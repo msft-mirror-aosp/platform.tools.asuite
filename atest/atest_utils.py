@@ -217,7 +217,7 @@ def get_build_cmd(dump=False):
                  _BUILD_CMD))
     if dump:
         return [make_cmd, '--dumpvar-mode', 'report_config']
-    return [make_cmd, '--make-mode']
+    return [make_cmd, '--make-mode', 'WRAPPER_TOOL=atest']
 
 def _capture_fail_section(full_log):
     """Return the error message from the build output.
