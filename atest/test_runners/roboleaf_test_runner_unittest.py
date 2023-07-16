@@ -186,13 +186,6 @@ class RoboleafTestRunnerUnittests(fake_filesystem_unittest.TestCase):
             module_names)
         self.assertEqual(eligible_tests, {})
 
-    def test_generate_bp2build_command(self):
-        """Test generate_bp2build method."""
-        cmd = roboleaf_test_runner._generate_bp2build_command()
-
-        self.assertTrue('build/soong/soong_ui.bash --make-mode bp2build' in
-                        ' '.join(cmd))
-
     def test_get_map(self):
         """Test get_map method."""
         data = {
