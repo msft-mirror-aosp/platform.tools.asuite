@@ -216,12 +216,6 @@ class RoboleafTestRunner(test_runner_base.TestRunnerBase):
         target_patterns = ' '.join(
             self.test_info_target_label(i) for i in test_infos)
         bazel_args = bazel_mode.parse_args(test_infos, extra_args, None)
-        # TODO(b/288069169): The following two lines hardcodes for device test.
-        # Handle deviceless testing.
-        bazel_args.append('--config=android')
-        bazel_args.append(
-            '--//build/bazel/rules/tradefed:runmode=host_driven_test'
-        )
         bazel_args_str = ' '.join(shlex.quote(arg) for arg in bazel_args)
         command = f'{self.EXECUTABLE} test {target_patterns} {bazel_args_str}'
         results = [command]
@@ -239,7 +233,7 @@ class RoboleafTestRunner(test_runner_base.TestRunnerBase):
             The bazel path of the test.
         """
         module_map = RoboleafModuleMap().get_map()
-        return f'{module_map[test.test_name]}:{test.test_name}'
+        return f'{module_map[test.test_name]}:{test.test_name}_suite'
 
     def run_tests(self,
                   test_infos: List[TestInfo],
