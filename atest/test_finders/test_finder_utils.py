@@ -684,8 +684,8 @@ def get_targets_from_xml_root(xml_root, module_info):
     option_tags = xml_root.findall('.//option')
     for tag in option_tags:
         target_to_add = None
-        name = tag.attrib[_XML_NAME].strip()
-        value = tag.attrib[_XML_VALUE].strip()
+        name = tag.attrib.get(_XML_NAME, '').strip()
+        value = tag.attrib.get(_XML_VALUE, '').strip()
         if _is_apk_target(name, value):
             target_to_add = _get_apk_target(value)
         elif _PERF_SETUP_LABEL in value:
