@@ -23,6 +23,7 @@ import shutil
 import subprocess
 import tempfile
 from typing import Any
+from typing import Optional
 
 import yaml
 
@@ -89,7 +90,7 @@ MOBLY_RESULT_TO_STATUS = {
 class MoblyTestFiles:
     """Data class representing required files for a Mobly test."""
     mobly_pkg: str
-    requirements_txt: str | None
+    requirements_txt: Optional[str]
     test_apks: list[str]
 
 
