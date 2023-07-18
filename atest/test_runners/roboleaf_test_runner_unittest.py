@@ -250,7 +250,7 @@ class RoboleafTestRunnerUnittests(fake_filesystem_unittest.TestCase):
                 set()),
         )
 
-        self.assertEqual(target_label, "//a:test1")
+        self.assertEqual(target_label, "//a:test1_suite")
 
     def test_generate_run_commands(self):
         """Test generate_run_commands method."""
@@ -272,7 +272,7 @@ class RoboleafTestRunnerUnittests(fake_filesystem_unittest.TestCase):
         cmds = self.test_runner.generate_run_commands(test_infos, extra_args={})
 
         self.assertEqual(len(cmds), 1)
-        self.assertTrue('b test //a:test1 //b:test2' in cmds[0])
+        self.assertTrue('b test //a:test1_suite //b:test2_suite' in cmds[0])
 
     @mock.patch.object(RoboleafTestRunner, 'run')
     def test_run_tests(self, mock_run):
