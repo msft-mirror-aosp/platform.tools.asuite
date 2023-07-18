@@ -2300,6 +2300,34 @@ class BazelTestRunnerTest(unittest.TestCase):
 
         self.assertTokensNotIn(['--cache_test_resultsfoo'], cmd[0])
 
+    def test_retrieve_test_output_info_for_host_test(self):
+        test_infos = [test_info_of('test1')]
+        runner = self.create_bazel_test_runner_for_tests(test_infos)
+
+        output_file_path, package_name, target_suffix = \
+            runner.retrieve_test_output_info(test_infos[0])
+
+        self.assertEqual('/src/workspace/bazel-testlogs/path/test1_host/test.outputs/outputs.zip',
+                         str(output_file_path))
+        self.assertEqual('path', package_name)
+        self.assertEqual('host', target_suffix)
+
+    def test_retrieve_test_output_info_for_device_driven_test(self):
+        runner = self.create_bazel_test_runner(
+            modules=[
+                multi_config(device_test_module(name='test1', path='path1')),
+            ],
+        )
+
+        output_file_path, package_name, target_suffix = \
+            runner.retrieve_test_output_info(test_info_of('test1'))
+
+        self.assertEqual(
+            '/src/workspace/bazel-testlogs/path1/test1_device/test.outputs/outputs.zip',
+            str(output_file_path))
+        self.assertEqual('path1', package_name)
+        self.assertEqual('device', target_suffix)
+
     def create_bazel_test_runner(self,
                                  modules,
                                  run_command=None,
