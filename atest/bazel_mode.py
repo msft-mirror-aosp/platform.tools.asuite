@@ -1670,6 +1670,19 @@ class BazelTestRunner(trb.TestRunnerBase):
         for run_cmd in run_cmds:
             subproc = self.run(run_cmd, output_to_stdout=True)
             ret_code |= self.wait_for_subprocess(subproc)
+
+        for test_info in test_infos:
+            # Extract Bazel's test logs into Atest's own logs directory.
+            test_output_file, package_name, target_suffix = \
+                self.retrieve_test_output_info(test_info)
+            # AtestExecutionInfo requires all test logs to be placed under 'results_dir/log'
+            # in order to generate an HTML file and display it to users.
+            if test_output_file.is_file():
+                atest_utils.extract_files(
+                    test_output_file,
+                    Path(self.results_dir).joinpath('log', f'{package_name}_{target_suffix}')
+                )
+
         return ret_code
 
     def _get_feature_config_or_warn(self, feature, env_var_name):
@@ -1779,14 +1792,42 @@ class BazelTestRunner(trb.TestRunnerBase):
         module_name = test.test_name
         info = self.mod_info.get_module_info(module_name)
         package_name = info.get(constants.MODULE_PATH)[0]
-        target_suffix = 'host'
-
-        if not self._extra_args.get(
-                constants.HOST,
-                False) and self.mod_info.is_device_driven_test(info):
-            target_suffix = 'device'
+        target_suffix = self.get_target_suffix(info)
 
         return f'//{package_name}:{module_name}_{target_suffix}'
+
+    def retrieve_test_output_info(self, test_info: test_info.TestInfo) -> Tuple[Path, str, str]:
+        """Return absolute path of the archived output.
+
+        Args:
+            test_info (test_info.TestInfo): Information about the test.
+
+        Returns:
+            Tuple[Path, str, str]: A tuple containing the following elements:
+                - output_file_path (Path): Absolute path of the archived output.
+                - package_name (str): Name of the package.
+                - target_suffix (str): Target suffix.
+
+        """
+        module_name = test_info.test_name
+        info = self.mod_info.get_module_info(module_name)
+        package_name = info.get(constants.MODULE_PATH)[0]
+        target_suffix = self.get_target_suffix(info)
+
+        output_file_path = Path(self.bazel_workspace,
+                                'bazel-testlogs',
+                                package_name,
+                                f'{module_name}_{target_suffix}',
+                                'test.outputs/outputs.zip')
+
+        return output_file_path, package_name, target_suffix
+
+    def get_target_suffix(self, info: Dict[str, Any]) -> str:
+        """Return 'host' or 'device' accordingly to the variant of the test."""
+        if not self._extra_args.get(constants.HOST, False) \
+                and self.mod_info.is_device_driven_test(info):
+            return 'device'
+        return 'host'
 
     def _get_bazel_feature_args(self, feature, extra_args, generator):
         if feature not in extra_args.get('BAZEL_MODE_FEATURES', []):
