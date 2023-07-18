@@ -956,6 +956,21 @@ def extract_zip_text(zip_path):
         logging.debug('Exception raised: %s', err)
     return content
 
+def extract_files(file_path: Path, destination_path: Path) -> None:
+    """
+    Unzips the specified file to the destination folder, removing the original directory structure.
+
+    Args:
+        file_path (Path): The path to the ZIP file to be extracted.
+        destination_path (Path): The destination folder where the extracted files will be placed.
+
+    Returns:
+        None
+    """
+    destination_path.mkdir(parents=True, exist_ok=True)
+    with zipfile.ZipFile(file_path, 'r') as zip_ref:
+        zip_ref.extractall(destination_path)
+
 def matched_tf_error_log(content):
     """Check if the input content matched tradefed log pattern.
     The format will look like this.
