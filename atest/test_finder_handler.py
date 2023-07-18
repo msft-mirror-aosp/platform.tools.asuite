@@ -22,11 +22,14 @@ Test Finder Handler module.
 
 import inspect
 import logging
+import re
+import sys
 
 from enum import unique, Enum
 
-from atest import constants
+from atest import atest_utils, constants
 
+from atest.atest_enum import ExitCode
 from atest.test_finders import cache_finder
 from atest.test_finders import test_finder_base
 from atest.test_finders import test_finder_utils
@@ -145,6 +148,17 @@ def _get_test_finders():
         pass
     return test_finders_list
 
+
+def _validate_ref(ref: str):
+    # Filter out trailing dot but keeping `.` and `..` in ref.
+    if '..' not in ref:
+        if re.match(r'(?:[\w\.\d-]+)\.$', ref):
+            atest_utils.colorful_print(f'Found trailing dot({ref}). Please '
+                                       'correct it and try again.',
+                                       constants.RED)
+            sys.exit(ExitCode.INPUT_TEST_REFERENCE_ERROR)
+
+
 # pylint: disable=too-many-branches
 # pylint: disable=too-many-return-statements
 def _get_test_reference_types(ref):
@@ -163,6 +177,7 @@ def _get_test_reference_types(ref):
     Returns:
         A list of possible REFERENCE_TYPEs (ints) for reference string.
     """
+    _validate_ref(ref)
     if ref.startswith('.') or '..' in ref:
         return [FinderMethod.CACHE,
                 FinderMethod.MODULE_FILE_PATH,
