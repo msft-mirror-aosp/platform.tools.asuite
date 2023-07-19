@@ -133,7 +133,7 @@ class MoblyTestRunner(test_runner_base.TestRunnerBase):
                 test_files = self._get_test_files(tinfo)
                 venv_executable = self._setup_python_virtualenv(
                     test_files.requirements_txt)
-                serials = atest_configs.GLOBAL_ARGS.serial
+                serials = atest_configs.GLOBAL_ARGS.serial or []
                 if constants.DISABLE_INSTALL not in extra_args:
                     self._install_apks(test_files.test_apks, serials)
                 mobly_config = self._generate_mobly_config(serials)
@@ -168,7 +168,8 @@ class MoblyTestRunner(test_runner_base.TestRunnerBase):
     # pylint: disable=unused-argument
     def generate_run_commands(
             self, test_infos: list[test_info.TestInfo],
-            extra_args: dict[str, Any], _port: int | None = None) -> list[str]:
+            extra_args: dict[str, Any],
+            _port: Optional[int] = None) -> list[str]:
         """Generate a list of run commands from TestInfos.
 
         Args:
@@ -206,7 +207,7 @@ class MoblyTestRunner(test_runner_base.TestRunnerBase):
             raise MoblyTestRunnerError(_ERROR_NO_MOBLY_TEST_PKG)
         return MoblyTestFiles(mobly_pkg, requirements_txt, test_apks)
 
-    def _generate_mobly_config(self, serials: list[str] | None) -> str:
+    def _generate_mobly_config(self, serials: list[str]) -> str:
         """Create a Mobly YAML config given the test parameters.
 
         If --serial is specified, the test will use those specific devices,
@@ -215,7 +216,7 @@ class MoblyTestRunner(test_runner_base.TestRunnerBase):
         Also set the Mobly results dir to <atest_results>/mobly_logs.
 
         Args:
-            serials: List of device serials, or None.
+            serials: List of device serials.
 
         Returns:
             Path to the generated config.
@@ -238,7 +239,7 @@ class MoblyTestRunner(test_runner_base.TestRunnerBase):
             json.dump(config, f)
         return config_path
 
-    def _setup_python_virtualenv(self, requirements_txt: str | None) -> str:
+    def _setup_python_virtualenv(self, requirements_txt: Optional[str]) -> str:
         """Create a Python virtual environment and set up dependencies.
 
         Args:
@@ -263,7 +264,7 @@ class MoblyTestRunner(test_runner_base.TestRunnerBase):
 
         return venv_executable
 
-    def _install_apks(self, apks: list[str], serials: list[str] | None) -> None:
+    def _install_apks(self, apks: list[str], serials: list[str]) -> None:
         """Install test APKs to devices.
 
         This can be toggled off by omitting the --install option.
@@ -273,7 +274,7 @@ class MoblyTestRunner(test_runner_base.TestRunnerBase):
 
         Args:
             apks: List of APK paths.
-            serials: List of device serials, or None.
+            serials: List of device serials.
         """
         serials = serials or atest_utils.get_adb_devices()
         for apk in apks:
