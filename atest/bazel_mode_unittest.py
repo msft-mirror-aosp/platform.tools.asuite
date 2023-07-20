@@ -2202,6 +2202,45 @@ class BazelTestRunnerTest(unittest.TestCase):
             '--build_metadata=ab_target=aosp_cf_x86_64_phone-userdebug'
         ], cmd[0])
 
+    def test_not_zip_test_output_files_when_bes_publish_not_enabled(self):
+        test_infos = [test_info_of('test1')]
+        extra_args = {}
+        runner = self.create_bazel_test_runner_for_tests(test_infos)
+
+        cmd = runner.generate_run_commands(
+            test_infos,
+            extra_args,
+        )
+
+        self.assertTokensIn([
+            '--nozip_undeclared_test_outputs',
+        ], cmd[0])
+
+    def test_zip_test_output_files_when_bes_publish_enabled(self):
+        test_infos = [test_info_of('test1')]
+        extra_args = {
+            constants.BAZEL_MODE_FEATURES: [
+                bazel_mode.Features.EXPERIMENTAL_BES_PUBLISH
+            ]
+        }
+        build_metadata = bazel_mode.BuildMetadata(
+            'master', 'aosp_cf_x86_64_phone-userdebug')
+        env = {
+            'ATEST_BAZELRC': '/dir/atest.bazelrc',
+            'ATEST_BAZEL_BES_PUBLISH_CONFIG': 'bes_publish'
+        }
+        runner = self.create_bazel_test_runner_for_tests(
+            test_infos, build_metadata=build_metadata, env=env)
+
+        cmd = runner.generate_run_commands(
+            test_infos,
+            extra_args,
+        )
+
+        self.assertTokensNotIn([
+            '--nozip_undeclared_test_outputs',
+        ], cmd[0])
+
     def test_generate_run_command_with_remote_enabled(self):
         test_infos = [test_info_of('test1')]
         extra_args = {
