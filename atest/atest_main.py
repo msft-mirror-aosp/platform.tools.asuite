@@ -1104,14 +1104,15 @@ def main(argv: List[Any], results_dir: str, args: argparse.ArgumentParser):
         find_duration = time.time() - find_start
         if not test_infos:
             return ExitCode.TEST_NOT_FOUND
-        if not is_from_test_mapping(test_infos):
-            if not (any(dry_run_args) or verify_env_variables):
-                _validate_exec_mode(args, test_infos)
-                # _validate_exec_mode appends --host automatically when pure
-                # host-side tests, so re-parsing extra_args is a must.
-                extra_args = get_extra_args(args)
-        else:
-            _validate_tm_tests_exec_mode(args, test_infos)
+        if args.roboleaf_mode == roboleaf_test_runner.BazelBuildMode.OFF:
+            if not is_from_test_mapping(test_infos):
+                if not (any(dry_run_args) or verify_env_variables):
+                    _validate_exec_mode(args, test_infos)
+                    # _validate_exec_mode appends --host automatically when pure
+                    # host-side tests, so re-parsing extra_args is a must.
+                    extra_args = get_extra_args(args)
+            else:
+                _validate_tm_tests_exec_mode(args, test_infos)
         # Detect auto sharding and trigger creating AVDs
         if args.auto_sharding and _is_auto_shard_test(test_infos):
             extra_args.update({constants.SHARDING: constants.SHARD_NUM})
