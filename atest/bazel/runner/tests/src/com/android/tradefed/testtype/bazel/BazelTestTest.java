@@ -104,6 +104,7 @@ public final class BazelTestTest {
         mMockListener = mock(ILogSaverListener.class);
         InvocationContext context = new InvocationContext();
         context.addInvocationAttribute("module-id", "bazel-test-module-id");
+        context.lockAttributes();
         mTestInfo = TestInformation.newBuilder().setInvocationContext(context).build();
         mBazelTempPath =
                 Files.createDirectory(tempDir.getRoot().toPath().resolve("bazel_temp_dir"));
@@ -169,6 +170,32 @@ public final class BazelTestTest {
     }
 
     @Test
+    public void traceFileWritten_traceFileReported() throws Exception {
+        FakeProcessStarter processStarter = newFakeProcessStarter();
+        processStarter.put(
+                BazelTest.RUN_TESTS,
+                builder -> {
+                    return new FakeBazelTestProcess(builder, mBazelTempPath) {
+                        @Override
+                        public void writeSingleTestOutputs(Path outputsDir, String testName)
+                                throws IOException, ConfigurationException {
+
+                            defaultWriteSingleTestOutputs(outputsDir, testName, true);
+                        }
+                    };
+                });
+        BazelTest bazelTest = newBazelTestWithProcessStarter(processStarter);
+
+        bazelTest.run(mTestInfo, mMockListener);
+
+        verify(mMockListener)
+                .testLog(
+                        eq("tf-test-process-fake-invocation-trace.perfetto-trace"),
+                        eq(LogDataType.TEXT),
+                        any());
+    }
+
+    @Test
     public void malformedProtoResults_runFails() throws Exception {
         FakeProcessStarter processStarter = newFakeProcessStarter();
         processStarter.put(
@@ -176,10 +203,10 @@ public final class BazelTestTest {
                 builder -> {
                     return new FakeBazelTestProcess(builder, mBazelTempPath) {
                         @Override
-                        public void defaultWriteSingleTestOutputs(Path outputsDir, String testName)
+                        public void writeSingleTestOutputs(Path outputsDir, String testName)
                                 throws IOException, ConfigurationException {
 
-                            writeSingleTestOutputs(outputsDir, testName);
+                            defaultWriteSingleTestOutputs(outputsDir, testName, false);
 
                             Path outputFile = outputsDir.resolve("proto-results");
                             Files.write(outputFile, "Malformed Proto File".getBytes());
@@ -539,11 +566,11 @@ public final class BazelTestTest {
                 builder -> {
                     return new FakeBazelTestProcess(builder, mBazelTempPath) {
                         @Override
-                        public void defaultWriteSingleTestOutputs(Path outputsDir, String testName)
+                        public void writeSingleTestOutputs(Path outputsDir, String testName)
                                 throws IOException, ConfigurationException {
 
-                            writeSingleTestOutputs(
-                                    outputsDir.resolve(Paths.get("bad-dir")), testName);
+                            defaultWriteSingleTestOutputs(
+                                    outputsDir.resolve(Paths.get("bad-dir")), testName, false);
                         }
                     };
                 });
@@ -765,7 +792,7 @@ public final class BazelTestTest {
             Path outputDir = Files.createTempDirectory(mBazelTempDirectory, testName);
             try {
                 singleTestBody();
-                defaultWriteSingleTestOutputs(outputDir, testName);
+                writeSingleTestOutputs(outputDir, testName);
                 File outputsZipFile = zipSingleTestOutputsDirectory(outputDir);
                 writeSingleTestResultEvent(outputsZipFile, mBepFile);
             } finally {
@@ -777,13 +804,14 @@ public final class BazelTestTest {
             // Do nothing.
         }
 
-        void defaultWriteSingleTestOutputs(Path outputsDir, String testName)
+        void writeSingleTestOutputs(Path outputsDir, String testName)
                 throws IOException, ConfigurationException {
 
-            writeSingleTestOutputs(outputsDir, testName);
+            defaultWriteSingleTestOutputs(outputsDir, testName, false);
         }
 
-        final void writeSingleTestOutputs(Path outputsDir, String testName)
+        final void defaultWriteSingleTestOutputs(
+                Path outputsDir, String testName, boolean writeTraceFile)
                 throws IOException, ConfigurationException {
 
             FileProtoResultReporter reporter = new FileProtoResultReporter();
@@ -799,6 +827,9 @@ public final class BazelTestTest {
                                     .resolve(BazelTest.TEST_TAG_TEST_ARG));
             Path isolatedJavaLog = createLogFile("isolated-java-logs.tar.gz", logDir);
             Path tfConfig = createLogFile("tradefed-expanded-config.xml", logDir);
+            if (writeTraceFile) {
+                createLogFile("fake-invocation-trace.perfetto-trace", logDir);
+            }
 
             InvocationContext context = new InvocationContext();
             context.addInvocationAttribute("module-id", "single-tradefed-test-module-id");

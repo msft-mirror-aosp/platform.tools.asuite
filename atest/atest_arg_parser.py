@@ -66,8 +66,8 @@ BAZEL_ARG = ('Forward a flag to Bazel for tests executed with Bazel; '
              'see --bazel-mode.')
 BUILD_OUTPUT = (r'Specifies the desired build output mode. '
                 f'Valid values are:\n{output_mode_msg()}')
-MINIMAL_BUILD = ('Build required dependencies only. Use --minimal-build to '
-                'enable it.')
+MINIMAL_BUILD = ('Build required dependencies only. Use --no-minimal-build to '
+                'disable it.')
 CLEAR_CACHE = 'Wipe out the test_infos cache of the test and start a new search.'
 COLLECT_TESTS_ONLY = ('Collect a list test cases of the instrumentation tests '
                       'without testing them in real.')
@@ -104,8 +104,9 @@ NO_CHECKING_DEVICE = 'Do NOT check device availability. (even it is a device tes
 NO_ENABLE_ROOT = ('Do NOT restart adbd with root permission even the test config '
                   'has RootTargetPreparer.')
 NO_METRICS = 'Do not send metrics.'
-ROBOLEAF_MODE = ('Check if module has been listed in the ["prod", "staging", or'
-                 ' "dev"] roboleaf allowlists and invoke with b test.')
+ROBOLEAF_MODE = ('Determines when to use Bazel for end to end builds and tests. '
+                 'Can be `on`, `off`, `dev`. Defaults to off. Use `on` to opt-in. '
+                 'Use `dev` for a wider set of tests (for development use only).')
 REBUILD_MODULE_INFO = ('Forces a rebuild of the module-info.json file. '
                        'This may be necessary following a repo sync or '
                        'when writing a new test.')
@@ -126,6 +127,7 @@ SERIAL = 'The device to run the test on.'
 SHARDING = 'Option to specify sharding count. (default: 2)'
 SMART_TESTING_LOCAL = ('Automatically detect untracked/unstaged files in current'
                        ' git run associated tests.')
+SQLITE_MODULE_CACHE = ('Use SQLite database as cache instead of JSON.')
 START_AVD = 'Automatically create an AVD and run tests on the virtual device.'
 TEST = ('Run the tests. WARNING: Many test configs force cleanup of device '
         'after test run. In this case, "-d" must be used in previous test run '
@@ -190,7 +192,7 @@ class AtestArgParser(argparse.ArgumentParser):
 
         self.add_argument('--minimal-build',
                           action=argparse.BooleanOptionalAction,
-                          default=False,
+                          default=True,
                           help=MINIMAL_BUILD)
 
         # Options that to do with testing.
@@ -228,14 +230,19 @@ class AtestArgParser(argparse.ArgumentParser):
                           action='store_true')
         self.add_argument('--roboleaf-mode',
                           nargs='?',
+                          # TODO(b/288073715): Launch the default to BazelBuildMode.ON.
                           default=BazelBuildMode.OFF,
-                          const=BazelBuildMode.PROD,
+                          const=BazelBuildMode.ON,
                           choices=BazelBuildMode,
                           type=BazelBuildMode,
                           help=ROBOLEAF_MODE)
         self.add_argument('--sharding', nargs='?', const=2,
                           type=_positive_int, default=0,
                           help=SHARDING)
+        self.add_argument('--sqlite-module-cache',
+                          action=argparse.BooleanOptionalAction,
+                          default=True,
+                          help=SQLITE_MODULE_CACHE)
         self.add_argument('-t', '--test', action='append_const', dest='steps',
                           const=constants.TEST_STEP, help=TEST)
         self.add_argument('--use-modules-in', help=USE_MODULES_IN,
@@ -480,6 +487,7 @@ def print_epilog_text():
         USER_TYPE=USER_TYPE,
         UPDATE_CMD_MAPPING=UPDATE_CMD_MAPPING,
         USE_MODULES_IN=USE_MODULES_IN,
+        SQLITE_MODULE_CACHE=SQLITE_MODULE_CACHE,
         VERBOSE=VERBOSE,
         VERSION=VERSION,
         VERIFY_CMD_MAPPING=VERIFY_CMD_MAPPING,
@@ -614,6 +622,9 @@ OPTIONS
 
         --use-modules-in
             {USE_MODULES_IN}
+
+        --sqlite-module-cache
+            {SQLITE_MODULE_CACHE}
 
         [ Upload Test Result ]
         --request-upload-result

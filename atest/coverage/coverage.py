@@ -85,8 +85,7 @@ def generate_coverage_report(results_dir: str,
                 jacoco_report_jars[module] = classfiles
 
             # Check for unstripped native binaries to report coverage.
-            unstripped_native_binaries.update(
-                module_dir.glob('*cov*/unstripped/*'))
+            unstripped_native_binaries.update(_find_native_binaries(module_dir))
 
     if jacoco_report_jars:
         _generate_java_coverage_report(jacoco_report_jars, src_paths,
@@ -149,6 +148,18 @@ def _get_transitive_module_deps(info,
         deps |= _get_transitive_module_deps(dep_info, mod_info, seen)
 
     return deps
+
+
+def _find_native_binaries(module_dir):
+    files = module_dir.glob('*cov*/unstripped/*')
+
+    # Exclude .rsp files. These are files containing the command line used to
+    # generate the unstripped binaries, but are stored in the same directory as
+    # the actual output binary.
+    # Exclude .d and .d.raw files. These are Rust dependency files and are also
+    # stored in the unstripped directory.
+    return [file for file in files
+            if '.rsp' not in file.suffixes and '.d' not in file.suffixes]
 
 
 def _get_all_src_paths(modules, mod_info):
@@ -227,11 +238,7 @@ def _generate_native_coverage_report(unstripped_native_binaries, results_dir):
         cmd.append('--instr-profile')
         cmd.append(profdata)
     for binary in unstripped_native_binaries:
-        # Exclude .rsp files. These are files containing the command line used
-        # to generate the unstripped binaries, but are stored in the same
-        # directory as the actual output binary.
-        if not binary.match('*.rsp'):
-            cmd.append(f'--object={str(binary)}')
+        cmd.append(f'--object={str(binary)}')
 
     try:
         subprocess.run(cmd, check=True,

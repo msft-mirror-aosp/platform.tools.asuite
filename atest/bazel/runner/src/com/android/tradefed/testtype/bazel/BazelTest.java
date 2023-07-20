@@ -21,6 +21,8 @@ import com.android.tradefed.config.OptionClass;
 import com.android.tradefed.device.DeviceNotAvailableException;
 import com.android.tradefed.invoker.IInvocationContext;
 import com.android.tradefed.invoker.TestInformation;
+import com.android.tradefed.invoker.logger.InvocationMetricLogger;
+import com.android.tradefed.invoker.logger.InvocationMetricLogger.InvocationMetricKey;
 import com.android.tradefed.invoker.tracing.CloseableTraceScope;
 import com.android.tradefed.invoker.tracing.TracePropagatingExecutorService;
 import com.android.tradefed.log.ITestLogger;
@@ -31,9 +33,7 @@ import com.android.tradefed.result.ITestInvocationListener;
 import com.android.tradefed.result.LogDataType;
 import com.android.tradefed.result.error.ErrorIdentifier;
 import com.android.tradefed.result.error.TestErrorIdentifier;
-import com.android.tradefed.result.proto.LogFileProto.LogFileInfo;
 import com.android.tradefed.result.proto.ProtoResultParser;
-import com.android.tradefed.result.proto.TestRecordProto.ChildReference;
 import com.android.tradefed.result.proto.TestRecordProto.FailureStatus;
 import com.android.tradefed.result.proto.TestRecordProto.TestRecord;
 import com.android.tradefed.testtype.IRemoteTest;
@@ -48,11 +48,9 @@ import com.google.common.io.CharStreams;
 import com.google.common.io.MoreFiles;
 import com.google.common.io.Resources;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos;
-import com.google.protobuf.Any;
 import com.google.protobuf.InvalidProtocolBufferException;
 
 import java.io.File;
-import java.io.FileNotFoundException;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.io.FileOutputStream;
@@ -75,6 +73,7 @@ import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Consumer;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import java.util.zip.ZipFile;
@@ -241,8 +240,7 @@ public final class BazelTest implements IRemoteTest {
 
         Path bepFile = createTemporaryFile("BEP_output");
 
-        Process bazelTestProcess =
-                startTests(testInfo, listener, testTargets, workspaceDirectory, bepFile);
+        Process bazelTestProcess = startTests(testInfo, testTargets, workspaceDirectory, bepFile);
 
         try (BepFileTailer tailer = BepFileTailer.create(bepFile)) {
             bazelTestProcess.onExit().thenRun(() -> tailer.stop());
@@ -275,9 +273,6 @@ public final class BazelTest implements IRemoteTest {
             RunStats stats)
             throws InterruptedException, IOException {
 
-        ProtoResultParser resultParser =
-                new ProtoResultParser(listener, testInfo.getContext(), false, "tf-test-process-");
-
         BuildEventStreamProtos.BuildEvent event;
         while ((event = tailer.nextEvent()) != null) {
             if (event.getLastMessage()) {
@@ -295,7 +290,8 @@ public final class BazelTest implements IRemoteTest {
             }
 
             try {
-                reportEventsInTestOutputsArchive(event.getTestResult(), resultParser);
+                reportEventsInTestOutputsArchive(
+                        event.getTestResult(), listener, testInfo.getContext());
             } catch (IOException
                     | InterruptedException
                     | URISyntaxException
@@ -477,7 +473,6 @@ public final class BazelTest implements IRemoteTest {
 
     private Process startTests(
             TestInformation testInfo,
-            ITestInvocationListener listener,
             Collection<String> testTargets,
             Path workspaceDirectory,
             Path bepFile)
@@ -594,18 +589,22 @@ public final class BazelTest implements IRemoteTest {
     }
 
     private void reportEventsInTestOutputsArchive(
-            BuildEventStreamProtos.TestResult result, ProtoResultParser resultParser)
+            BuildEventStreamProtos.TestResult result,
+            ITestInvocationListener listener,
+            IInvocationContext context)
             throws IOException, InvalidProtocolBufferException, InterruptedException,
                     URISyntaxException {
 
         try (CloseableTraceScope ignored =
                 new CloseableTraceScope("reportEventsInTestOutputsArchive")) {
-            reportEventsInTestOutputsArchiveNoTrace(result, resultParser);
+            reportEventsInTestOutputsArchiveNoTrace(result, listener, context);
         }
     }
 
     private void reportEventsInTestOutputsArchiveNoTrace(
-            BuildEventStreamProtos.TestResult result, ProtoResultParser resultParser)
+            BuildEventStreamProtos.TestResult result,
+            ITestInvocationListener listener,
+            IInvocationContext context)
             throws IOException, InvalidProtocolBufferException, InterruptedException,
                     URISyntaxException {
 
@@ -619,88 +618,79 @@ public final class BazelTest implements IRemoteTest {
 
         File zipFile = new File(uri.getPath());
         Path outputFilesDir = Files.createTempDirectory(mRunTemporaryDirectory, "output_zip-");
+        Path delimiter = Paths.get(BRANCH_TEST_ARG, BUILD_TEST_ARG, TEST_TAG_TEST_ARG);
+        listener = new LogPathUpdatingListener(listener, delimiter, outputFilesDir);
 
         try {
+            String filePrefix = "tf-test-process-";
             ZipUtil.extractZip(new ZipFile(zipFile), outputFilesDir.toFile());
 
             File protoResult = outputFilesDir.resolve(PROTO_RESULTS_FILE_NAME).toFile();
             TestRecord record = TestRecordProtoUtil.readFromFile(protoResult);
 
-            TestRecord.Builder recordBuilder = record.toBuilder();
-            recursivelyUpdateArtifactsRootPath(recordBuilder, outputFilesDir);
-            moveRootRecordArtifactsToFirstChild(recordBuilder);
-            resultParser.processFinalizedProto(recordBuilder.build());
+            // Tradefed does not report the invocation trace to the proto result file so we have to
+            // explicitly re-add it here.
+            List<Consumer<ITestInvocationListener>> extraLogCalls = new ArrayList<>();
+            extraLogCalls.addAll(collectInvocationLogCalls(context, record, filePrefix));
+            extraLogCalls.addAll(collectTraceFileLogCalls(outputFilesDir, filePrefix));
+
+            BazelTestListener bazelListener = new BazelTestListener(listener, extraLogCalls);
+            parseResultsToListener(bazelListener, context, record, filePrefix);
         } finally {
             MoreFiles.deleteRecursively(outputFilesDir);
         }
     }
 
-    private void recursivelyUpdateArtifactsRootPath(TestRecord.Builder recordBuilder, Path newRoot)
-            throws InvalidProtocolBufferException, IOException {
+    private static List<Consumer<ITestInvocationListener>> collectInvocationLogCalls(
+            IInvocationContext context, TestRecord record, String filePrefix) {
 
-        Map<String, Any> updatedMap = new HashMap<>();
-        for (Entry<String, Any> entry : recordBuilder.getArtifactsMap().entrySet()) {
-            LogFileInfo info = entry.getValue().unpack(LogFileInfo.class);
-
-            Path newPath = newRoot.resolve(findRelativeArtifactPath(Paths.get(info.getPath())));
-
-            if (!Files.exists(newPath)) {
-                throw new FileNotFoundException(
-                        String.format(
-                                "Log file not found: original path: %s, expected new path: %s",
-                                info.getPath(), newPath.toString()));
-            }
-
-            LogFileInfo updatedInfo =
-                    info.toBuilder().setPath(newPath.toAbsolutePath().toString()).build();
-            updatedMap.put(entry.getKey(), Any.pack(updatedInfo));
-        }
-
-        recordBuilder.putAllArtifacts(updatedMap);
-
-        for (ChildReference.Builder childBuilder : recordBuilder.getChildrenBuilderList()) {
-            recursivelyUpdateArtifactsRootPath(childBuilder.getInlineTestRecordBuilder(), newRoot);
-        }
+        InvocationLogCollector logCollector = new InvocationLogCollector();
+        parseResultsToListener(logCollector, context, record, filePrefix);
+        return logCollector.getLogCalls();
     }
 
-    private Path findRelativeArtifactPath(Path originalPath) {
-        // The log files are stored under
-        // ${EXTRACTED_UNDECLARED_OUTPUTS}/stub/-1/stub/inv_xxx/inv_xxx/logfile so the new path is
-        // found by trimming down the original path until it starts with "stub/-1/stub" and
-        // appending that to our extracted directory.
-        // TODO(b/251279690) Create a directory within undeclared outputs which we can more
-        // reliably look for to calculate this relative path.
-        Path delimiter = Paths.get(BRANCH_TEST_ARG, BUILD_TEST_ARG, TEST_TAG_TEST_ARG);
+    private static void parseResultsToListener(
+            ITestInvocationListener listener,
+            IInvocationContext context,
+            TestRecord record,
+            String filePrefix) {
 
-        Path relativePath = originalPath;
-        while (!relativePath.startsWith(delimiter)
-                && relativePath.getNameCount() > delimiter.getNameCount()) {
-            relativePath = relativePath.subpath(1, relativePath.getNameCount());
-        }
-
-        if (!relativePath.startsWith(delimiter)) {
-            throw new IllegalArgumentException(
-                    String.format(
-                            "Artifact path '%s' does not contain delimiter '%s' and therefore"
-                                    + " cannot be found",
-                            originalPath, delimiter));
-        }
-
-        return relativePath;
+        ProtoResultParser parser = new ProtoResultParser(listener, context, false, filePrefix);
+        // Avoid merging serialized invocation attributes into the current invocation context.
+        // Not doing so adds misleading information on the top-level invocation
+        // such as bad timing data. See b/284294864.
+        parser.setMergeInvocationContext(false);
+        parser.processFinalizedProto(record);
     }
 
-    private void moveRootRecordArtifactsToFirstChild(TestRecord.Builder recordBuilder) {
-        if (recordBuilder.getChildrenCount() == 0) {
-            return;
-        }
+    private static List<Consumer<ITestInvocationListener>> collectTraceFileLogCalls(
+            Path outputFilesDir, String filePrefix) throws IOException {
 
-        TestRecord.Builder childTestRecordBuilder =
-                recordBuilder.getChildrenBuilder(0).getInlineTestRecordBuilder();
-        for (Entry<String, Any> entry : recordBuilder.getArtifactsMap().entrySet()) {
-            childTestRecordBuilder.putArtifacts(entry.getKey(), entry.getValue());
-        }
+        List<Consumer<ITestInvocationListener>> logCalls = new ArrayList<>();
 
-        recordBuilder.clearArtifacts();
+        try (Stream<Path> traceFiles =
+                Files.walk(outputFilesDir)
+                        .filter(x -> MoreFiles.getFileExtension(x).equals("perfetto-trace"))) {
+
+            traceFiles.forEach(
+                    traceFile -> {
+                        logCalls.add(
+                                (ITestInvocationListener l) -> {
+                                    l.testLog(
+                                            filePrefix + traceFile.getFileName().toString(),
+                                            // We don't mark this file as a PERFETTO log to
+                                            // avoid having its contents automatically merged in
+                                            // the top-level invocation's trace. The merge
+                                            // process is wonky and makes the resulting trace
+                                            // difficult to read.
+                                            // TODO(b/284328869): Switch to PERFETTO log type
+                                            // once traces are properly merged.
+                                            LogDataType.TEXT,
+                                            new FileInputStreamSource(traceFile.toFile()));
+                                });
+                    });
+        }
+        return logCalls;
     }
 
     private void reportRunFailures(
@@ -890,21 +880,18 @@ public final class BazelTest implements IRemoteTest {
 
     private static final class RunStats {
 
-        private int mTotalTestResults;
         private int mCachedTestResults;
 
         void addTestResult(BuildEventStreamProtos.TestResult e) {
-            mTotalTestResults++;
             if (isTestResultCached(e)) {
                 mCachedTestResults++;
             }
         }
 
         void addInvocationAttributes(IInvocationContext context) {
-            context.addInvocationAttribute(
-                    "bazel_cached_test_results", "%d".formatted(mCachedTestResults));
-            context.addInvocationAttribute(
-                    "bazel_total_test_results", "%d".formatted(mTotalTestResults));
+            InvocationMetricLogger.addInvocationMetrics(
+                    InvocationMetricKey.CACHED_MODULE_RESULTS_COUNT,
+                    Integer.toString(mCachedTestResults));
         }
     }
 }

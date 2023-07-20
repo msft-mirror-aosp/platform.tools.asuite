@@ -257,7 +257,8 @@ class AtestTradefedTestRunner(trb.TestRunnerBase):
             os.chdir(os.path.abspath(os.getenv(constants.ANDROID_BUILD_TOP)))
             if os.getenv(trb.OLD_OUTPUT_ENV_VAR):
                 result = self.run_tests_raw(test_infos, extra_args, reporter)
-            result = self.run_tests_pretty(test_infos, extra_args, reporter)
+            else:
+                result = self.run_tests_pretty(test_infos, extra_args, reporter)
         except atest_error.DryRunVerificationError as e:
             atest_utils.colorful_print(str(e), constants.RED)
             return ExitCode.VERIFY_FAILURE
@@ -547,6 +548,26 @@ class AtestTradefedTestRunner(trb.TestRunnerBase):
         root_dir = os.environ.get(constants.ANDROID_BUILD_TOP, '')
         return os.path.commonprefix([output, root_dir]) != root_dir
 
+    def _use_minimal_build(self, test_infos: List[test_info.TestInfo]) -> bool:
+
+        if not self._minimal_build():
+            return False
+
+        unsupported = set()
+        for t_info in test_infos:
+            if t_info.test_finder in ['CONFIG',
+                                      'INTEGRATION',
+                                      'INTEGRATION_FILE_PATH']:
+                unsupported.add(t_info.test_name)
+
+        if not unsupported:
+            return True
+
+        logging.warn(
+            'Minimal build was disabled because the following tests do not support it: %s',
+            unsupported)
+        return False
+
     def get_test_runner_build_reqs(
         self, test_infos: List[test_info.TestInfo]) -> Set[str]:
         """Return the build requirements.
@@ -557,7 +578,7 @@ class AtestTradefedTestRunner(trb.TestRunnerBase):
         Returns:
             Set of build targets.
         """
-        if self._minimal_build():
+        if self._use_minimal_build(test_infos):
             return self._get_test_runner_reqs_minimal(test_infos)
 
         return self._get_test_runner_build_reqs_maximal(test_infos)
@@ -1473,6 +1494,7 @@ class DeviceTest(Test):
             Target('adb', Variant.HOST),
             Target('aapt', Variant.HOST),
             Target('aapt2', Variant.HOST),
+            Target('compatibility-host-util', Variant.HOST),
         ]))
 
         # Auto-generated Java tests use a module template that uses the Dalvik

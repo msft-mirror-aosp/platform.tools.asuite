@@ -933,15 +933,15 @@ def _all_tests_are_bazel_buildable(
     roboleaf_tests: Dict[str, TestInfo],
     tests: List[str]) -> bool:
     """Method that determines whether all tests have been fully converted to
-    bazel mode (roboleaf).
+    build with Bazel (Roboleaf).
 
-    If all tests are fully converted, then indexing, generating mod-info, and
-    generating atest bazel workspace can be skipped since dependencies are
-    mapped already with `b`.
+    If all tests are fully converted, then indexing, generating
+    module-info.json, and generating atest bazel workspace can be skipped since
+    dependencies can be transitively built with bazel's build graph.
 
     Args:
         roboleaf_tests: A dictionary keyed by testname of roboleaf tests.
-        tests: A list of testnames.
+        tests: A list of testnames requested by the user.
 
     Returns:
         True when none of the above conditions were found.
@@ -1036,7 +1036,7 @@ def main(argv: List[Any], results_dir: str, args: argparse.ArgumentParser):
     verify_env_variables = extra_args.get(constants.VERIFY_ENV_VARIABLE, False)
 
     # Gather roboleaf tests now to see if we can skip mod info generation.
-    mod_info = module_info.ModuleInfo(no_generate=True)
+    mod_info = module_info.create_empty()
     if args.roboleaf_mode != roboleaf_test_runner.BazelBuildMode.OFF:
         mod_info.roboleaf_tests = roboleaf_test_runner.RoboleafTestRunner(
             results_dir).roboleaf_eligible_tests(
@@ -1058,15 +1058,10 @@ def main(argv: List[Any], results_dir: str, args: argparse.ArgumentParser):
             proc_idx = atest_utils.run_multi_proc(at.index_targets)
         smart_rebuild = need_rebuild_module_info(args)
 
-        mod_start = time.time()
-        mod_info = module_info.ModuleInfo(force_build=smart_rebuild)
-        mod_stop = time.time() - mod_start
-        metrics.LocalDetectEvent(detect_type=DetectType.MODULE_INFO_INIT_MS,
-                                 result=int(mod_stop * 1000))
-        atest_utils.run_multi_proc(func=mod_info._save_module_info_checksum)
-        atest_utils.run_multi_proc(
-            func=atest_utils.generate_buildfiles_checksum,
-            args=[mod_info.module_index.parent])
+        mod_info = module_info.load(
+            force_build=smart_rebuild,
+            sqlite_module_cache=args.sqlite_module_cache,
+        )
 
     translator = cli_translator.CLITranslator(
         mod_info=mod_info,

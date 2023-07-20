@@ -151,7 +151,7 @@ class ModuleFinderFindTestByModuleName(fake_filesystem_unittest.TestCase):
             ''')
             )
 
-        mod_info = module_info.ModuleInfo(module_file=self.module_info_file)
+        mod_info = module_info.load_from_file(module_file=self.module_info_file)
         mod_finder = module_finder.ModuleFinder(module_info=mod_info)
         t_infos = mod_finder.find_test_by_module_name('CtsJankDeviceTestCases')
 
@@ -190,7 +190,7 @@ class ModuleFinderFindTestByModuleName(fake_filesystem_unittest.TestCase):
             ''')
             )
 
-        mod_info = module_info.ModuleInfo(module_file=self.module_info_file)
+        mod_info = module_info.load_from_file(module_file=self.module_info_file)
         mod_finder = module_finder.ModuleFinder(module_info=mod_info)
         t_infos = mod_finder.find_test_by_module_name('CtsJankDeviceTestCases')
 
@@ -209,21 +209,16 @@ class ModuleFinderFindTestByPath(fake_filesystem_unittest.TestCase):
     def create_empty_module_info(self):
         fake_temp_file_name = next(tempfile._get_candidate_names())
         self.fs.create_file(fake_temp_file_name, contents='{}')
-        return module_info.ModuleInfo(module_file=fake_temp_file_name)
+        return module_info.load_from_file(module_file=fake_temp_file_name)
 
     def create_module_info(self, modules=None):
-        mod_info = self.create_empty_module_info()
         modules = modules or []
+        name_to_module_info = {}
 
         for m in modules:
-            mod_info.name_to_module_info[m['module_name']] = m
-            for path in m['path']:
-                if path in mod_info.path_to_module_info:
-                    mod_info.path_to_module_info[path].append(m)
-                else:
-                    mod_info.path_to_module_info[path] = [m]
+            name_to_module_info[m['module_name']] = m
 
-        return mod_info
+        return module_info.load_from_dict(name_to_module_info=name_to_module_info)
 
     # TODO: remove below mocks and hide unnecessary information.
     @mock.patch.object(module_finder.ModuleFinder, '_get_test_info_filter')
@@ -1379,17 +1374,17 @@ def create_empty_module_info():
         # pylint: disable=protected-access
         fake_temp_file_name = next(tempfile._get_candidate_names())
         patcher.fs.create_file(fake_temp_file_name, contents='{}')
-        return module_info.ModuleInfo(module_file=fake_temp_file_name)
+        return module_info.load_from_file(module_file=fake_temp_file_name)
 
 
 def create_module_info(modules=None):
-    mod_info = create_empty_module_info()
+    name_to_module_info = {}
     modules = modules or []
 
     for m in modules:
-        mod_info.name_to_module_info[m['module_name']] = m
+        name_to_module_info[m['module_name']] = m
 
-    return mod_info
+    return module_info.load_from_dict(name_to_module_info)
 
 
 # pylint: disable=too-many-arguments
@@ -1414,7 +1409,7 @@ def module(
 
     m['module_name'] = name
     m['class'] = classes
-    m['path'] = [path or '']
+    m['path'] = path or ['']
     m['installed'] = installed or []
     m['is_unit_test'] = 'false'
     m['auto_test_config'] = auto_test_config or []

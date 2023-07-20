@@ -110,6 +110,8 @@ SUGGESTIONS = {
 
 _BUILD_ENV = {}
 
+CACHE_VERSION = 1
+
 
 @dataclass
 class BuildEnvProfiler:
@@ -136,21 +138,8 @@ class BuildOutputMode(enum.Enum):
         return self._description
 
 
-class SingletonFixture(type):
-    """A SingletonFixture class."""
-    _instances = {}
-
-    def __call__(cls, *args, **kwargs):
-        if cls not in cls._instances:
-            instance = super().__call__(*args, **kwargs)
-            cls._instances[cls] = instance
-        return cls._instances[cls]
-
-    def delete(cls):
-        cls._instances.pop(cls, None)
-
 @dataclass
-class AndroidVariables(metaclass=SingletonFixture):
+class AndroidVariables:
     """Class that stores the value of environment variables."""
     build_top: str
     product_out: str
@@ -719,27 +708,34 @@ def save_md5(filenames, save_file):
     with open(save_file, 'w+', encoding='utf-8') as _file:
         json.dump(data, _file)
 
+
 def get_cache_root():
     """Get the root path dir for cache.
 
     Use branch and target information as cache_root.
-    The path will look like ~/.atest/info_cache/$hash(branch+target)
+    The path will look like:
+       $(ANDROID_PRODUCT_OUT)/atest_cache/$CACHE_VERSION
 
     Returns:
         A string of the path of the root dir of cache.
     """
-    manifest_branch = get_manifest_branch()
-    if not manifest_branch:
-        manifest_branch = os.environ.get(
-            constants.ANDROID_BUILD_TOP, constants.ANDROID_BUILD_TOP)
-    # target
-    build_target = os.path.basename(
-        os.environ.get(constants.ANDROID_PRODUCT_OUT,
-                       constants.ANDROID_PRODUCT_OUT))
-    branch_target_hash = hashlib.md5(
-        (constants.MODE + manifest_branch + build_target).encode()).hexdigest()
-    return os.path.join(get_misc_dir(), '.atest', 'info_cache',
-                        branch_target_hash[:8])
+    # Note that the cache directory is stored in the build output directory. We
+    # do this because this directory is periodically cleaned and don't have to
+    # worry about the files growing without bound. The files are also much
+    # smaller than typical build output and less of an issue. Use build out to
+    # save caches which is next to atest_bazel_workspace which is easy for user
+    # to manually clean up if need. Use product out folder's base name as part
+    # of directory because of there may be different module-info in the same
+    # branch but different lunch target.
+    return os.path.join(
+        get_build_out_dir(),
+        'atest_cache',
+        f'ver_{CACHE_VERSION}',
+        os.path.basename(
+            os.environ.get(constants.ANDROID_PRODUCT_OUT,
+                           constants.ANDROID_PRODUCT_OUT))
+    )
+
 
 def get_test_info_cache_path(test_reference, cache_root=None):
     """Get the cache path of the desired test_infos.
@@ -795,6 +791,7 @@ def load_test_info_cache(test_reference, cache_root=None):
     """
     if not cache_root:
         cache_root = get_cache_root()
+
     cache_file = get_test_info_cache_path(test_reference, cache_root)
     if os.path.isfile(cache_file):
         logging.debug('Loading cache %s.', cache_file)
@@ -852,7 +849,8 @@ def get_modified_files(root_dir):
     """
     modified_files = set()
     try:
-        find_git_cmd = 'cd {}; git rev-parse --show-toplevel'.format(root_dir)
+        # TODO: (@jimtang) abandon using git command within Atest.
+        find_git_cmd = f'cd {root_dir}; git rev-parse --show-toplevel 2>/dev/null'
         git_paths = subprocess.check_output(
             find_git_cmd, shell=True).decode().splitlines()
         for git_path in git_paths:
@@ -1641,22 +1639,28 @@ def handle_test_env_var(input_test, result_path=constants.VERIFY_ENV_PATH,
         raise atest_error.DryRunVerificationError('\n'.join(verify_error))
     return 1
 
-def generate_buildfiles_checksum(target_dir: Path):
-    """ Method that generate md5 checksum of Android.{bp,mk} files.
+def save_build_files_timestamp():
+    """ Method that generate timestamp of Android.{bp,mk} files.
 
     The checksum of build files are stores in
-        $ANDROID_HOST_OUT/indexes/buildfiles.md5
+        $ANDROID_HOST_OUT/indexes/buildfiles.stp
     """
-    plocate_db = Path(target_dir).joinpath(constants.LOCATE_CACHE)
-    checksum_file = Path(target_dir).joinpath(constants.BUILDFILES_MD5)
+    index_dir = get_host_out('indexes')
+    plocate_db = index_dir.joinpath(constants.LOCATE_CACHE)
+
     if plocate_db.is_file():
         cmd = (f'locate -d{plocate_db} --existing '
                r'--regex "/Android\.(bp|mk)$"')
-        try:
-            result = subprocess.check_output(cmd, shell=True).decode('utf-8')
-            save_md5(result.split(), checksum_file)
-        except subprocess.CalledProcessError:
-            logging.error('Failed to generate %s', checksum_file)
+        results = subprocess.getoutput(cmd)
+        if results:
+            timestamp = {}
+            for build_file in results.splitlines():
+                timestamp.update({build_file: Path(build_file).stat().st_mtime})
+
+            checksum_file = index_dir.joinpath(constants.BUILDFILES_STP)
+            with open(checksum_file, 'w', encoding='utf-8') as _file:
+                json.dump(timestamp, _file)
+
 
 def run_multi_proc(func, *args, **kwargs):
     """Start a process with multiprocessing and return Process object.
@@ -1985,18 +1989,22 @@ def get_rbe_and_customized_out_state() -> int:
 
 def build_files_integrity_is_ok() -> bool:
     """Return Whether the integrity of build files is OK."""
-    # 0. Inexistence of the checksum file means a fresh repo sync.
-    if not Path(constants.BUILDFILES_MD5).is_file():
+    # 0. Inexistence of the timestamp file means a fresh repo sync.
+    timestamp_file = get_host_out('indexes', constants.BUILDFILES_STP)
+    if not timestamp_file.is_file():
         return False
     # 1. Ensure no build files were added/deleted.
-    recorded_amount = len(load_json_safely(constants.BUILDFILES_MD5).keys())
+    recorded_amount = len(load_json_safely(timestamp_file).keys())
     cmd = (f'locate -d{constants.LOCATE_CACHE} --regex '
             r'"/Android\.(bp|mk)$" | wc -l')
     if int(subprocess.getoutput(cmd)) != recorded_amount:
         return False
 
     # 2. Ensure the consistency of all build files.
-    return check_md5(constants.BUILDFILES_MD5, missing_ok=False)
+    for file, timestamp in load_json_safely(timestamp_file).items():
+        if Path(file).stat().st_mtime != timestamp:
+            return False
+    return True
 
 
 def _build_env_profiling() -> BuildEnvProfiler:

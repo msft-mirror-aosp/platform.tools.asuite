@@ -93,19 +93,6 @@ class ConcatenatePathTest(unittest.TestCase):
         )
         cls.mock_getenv.start()
 
-    @classmethod
-    def tearDownClass(cls):
-        """Clean up the mocks after the test class finishes"""
-        cls.mock_getenv.stop()
-        atest_utils.AndroidVariables.delete()
-
-    def test_singleton_instance(self):
-        """Ensure that multiple AndroidVariables instances are equivalent."""
-        instance1 = atest_utils.AndroidVariables()
-        instance2 = atest_utils.AndroidVariables()
-
-        self.assertIs(instance1, instance2)
-
     def test_get_vars(self):
         """Test the values of AndroidVariables are expected"""
         variables = atest_utils.AndroidVariables()
