@@ -1,0 +1,10 @@
+{
+  "presubmit": [
+    {
+      "name": "adevice_test"
+    },
+    {
+      "name": "adevice_integration_test"
+    }
+  ]
+}
