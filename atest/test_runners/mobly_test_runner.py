@@ -48,7 +48,7 @@ _ERROR_INVALID_TEST_SUMMARY = (
     'section.')
 
 # TODO(b/287136126): Use host python once compatibility issue is resolved.
-PYTHON_EXECUTABLE = 'python3.10'
+PYTHON_3_10 = 'python3.10'
 
 FILE_REQUIREMENTS_TXT = 'requirements.txt'
 FILE_SUFFIX_APK = '.apk'
@@ -131,7 +131,7 @@ class MoblyTestRunner(test_runner_base.TestRunnerBase):
             try:
                 # Pre-test setup
                 test_files = self._get_test_files(tinfo)
-                venv_executable = self._setup_python_virtualenv(
+                py_executable = self._setup_python_env(
                     test_files.requirements_txt)
                 serials = atest_configs.GLOBAL_ARGS.serial or []
                 if constants.DISABLE_INSTALL not in extra_args:
@@ -140,7 +140,7 @@ class MoblyTestRunner(test_runner_base.TestRunnerBase):
 
                 # Generate command and run
                 mobly_command = self._get_mobly_command(
-                    venv_executable, test_files.mobly_pkg, mobly_config)
+                    py_executable, test_files.mobly_pkg, mobly_config)
                 ret_code |= self._run_mobly_command(mobly_command)
 
                 # Process results from generated summary file
@@ -239,29 +239,34 @@ class MoblyTestRunner(test_runner_base.TestRunnerBase):
             json.dump(config, f)
         return config_path
 
-    def _setup_python_virtualenv(self, requirements_txt: Optional[str]) -> str:
-        """Create a Python virtual environment and set up dependencies.
+    def _setup_python_env(self, requirements_txt: Optional[str]) -> str | None:
+        """Sets up the local Python environment.
+
+        If a requirements_txt file exists, creates a Python virtualenv and
+        install dependencies. Otherwise, run the Mobly test binary directly.
 
         Args:
             requirements_txt: Path to the requirements.txt file, where the PyPI
                 dependencies are declared. None if no such file exists.
 
         Returns:
-            Path to the virtualenv's Python executable.
+            The virtualenv executable, or None.
         """
+        if requirements_txt is None:
+            logging.debug('No requirements.txt file found. Running Mobly test '
+                          'package directly.')
+            return None
         venv_dir = tempfile.mkdtemp(prefix='venv_')
         logging.debug('Creating virtualenv at %s.', venv_dir)
-        subprocess.check_call([PYTHON_EXECUTABLE, '-m', 'venv', venv_dir])
+        subprocess.check_call([PYTHON_3_10, '-m', 'venv', venv_dir])
         self._temppaths.append(venv_dir)
         venv_executable = os.path.join(venv_dir, 'bin', 'python')
 
         # Install requirements
-        if requirements_txt:
-            logging.debug('Installing dependencies from %s.', requirements_txt)
-            cmd = [venv_executable, '-m', 'pip', 'install', '-r',
-                   requirements_txt]
-            subprocess.check_call(cmd)
-
+        logging.debug('Installing dependencies from %s.', requirements_txt)
+        cmd = [venv_executable, '-m', 'pip', 'install', '-r',
+               requirements_txt]
+        subprocess.check_call(cmd)
         return venv_executable
 
     def _install_apks(self, apks: list[str], serials: list[str]) -> None:
@@ -295,7 +300,8 @@ class MoblyTestRunner(test_runner_base.TestRunnerBase):
         Returns:
             The full Mobly test command.
         """
-        return [py_executable, mobly_pkg, '-c', config_path]
+        command = [py_executable] if py_executable is not None else []
+        return command + [mobly_pkg, '-c', config_path]
 
     def _run_mobly_command(self, mobly_cmd: list[str]) -> int:
         """Run the Mobly test command.
