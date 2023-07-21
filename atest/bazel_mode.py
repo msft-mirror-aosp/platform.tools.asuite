@@ -45,7 +45,7 @@ from collections import defaultdict, deque, OrderedDict
 from collections.abc import Iterable
 from pathlib import Path
 from types import MappingProxyType
-from typing import Any, Callable, Dict, IO, List, Set
+from typing import Any, Callable, Dict, IO, List, Set, Tuple
 from xml.etree import ElementTree as ET
 
 from google.protobuf.message import DecodeError
@@ -67,6 +67,10 @@ from atest.test_runners import atest_tf_test_runner as tfr
 JDK_PACKAGE_NAME = 'prebuilts/robolectric_jdk'
 JDK_NAME = 'jdk'
 ROBOLECTRIC_CONFIG = 'build/make/core/robolectric_test_config_template.xml'
+
+BAZEL_TEST_LOGS_DIR_NAME = 'bazel-testlogs'
+TEST_OUTPUT_DIR_NAME = 'test.outputs'
+TEST_OUTPUT_ZIP_NAME = 'outputs.zip'
 
 _BAZEL_WORKSPACE_DIR = 'atest_bazel_workspace'
 _SUPPORTED_BAZEL_ARGS = MappingProxyType({
@@ -1671,19 +1675,27 @@ class BazelTestRunner(trb.TestRunnerBase):
             subproc = self.run(run_cmd, output_to_stdout=True)
             ret_code |= self.wait_for_subprocess(subproc)
 
-        for test_info in test_infos:
-            # Extract Bazel's test logs into Atest's own logs directory.
-            test_output_file, package_name, target_suffix = \
-                self.retrieve_test_output_info(test_info)
-            # AtestExecutionInfo requires all test logs to be placed under 'results_dir/log'
-            # in order to generate an HTML file and display it to users.
-            if test_output_file.is_file():
-                atest_utils.extract_files(
-                    test_output_file,
-                    Path(self.results_dir).joinpath('log', f'{package_name}_{target_suffix}')
-                )
+        self.organize_test_logs(test_infos)
 
         return ret_code
+
+    def organize_test_logs(self, test_infos: List[test_info.TestInfo]):
+        for t_info in test_infos:
+            test_output_dir, package_name, target_suffix = \
+                self.retrieve_test_output_info(t_info)
+            if test_output_dir.joinpath(TEST_OUTPUT_ZIP_NAME).exists():
+                # TEST_OUTPUT_ZIP file exist when BES uploading is enabled.
+                # Showing the BES link to users instead of the local log.
+                continue
+
+            # AtestExecutionInfo will find all log files in 'results_dir/log'
+            # directory and generate an HTML file to display to users when
+            # 'results_dir/log' directory exist.
+            log_path = Path(self.results_dir).joinpath(
+                'log', f'{package_name}',
+                f'{t_info.test_name}_{target_suffix}')
+            log_path.parent.mkdir(parents=True, exist_ok=True)
+            log_path.symlink_to(test_output_dir)
 
     def _get_feature_config_or_warn(self, feature, env_var_name):
         feature_config = self.env.get(env_var_name)
@@ -1796,15 +1808,19 @@ class BazelTestRunner(trb.TestRunnerBase):
 
         return f'//{package_name}:{module_name}_{target_suffix}'
 
-    def retrieve_test_output_info(self, test_info: test_info.TestInfo) -> Tuple[Path, str, str]:
-        """Return absolute path of the archived output.
+    def retrieve_test_output_info(
+            self,
+            test_info: test_info.TestInfo
+    ) -> Tuple[Path, str, str]:
+        """Return test output information.
 
         Args:
             test_info (test_info.TestInfo): Information about the test.
 
         Returns:
             Tuple[Path, str, str]: A tuple containing the following elements:
-                - output_file_path (Path): Absolute path of the archived output.
+                - test_output_dir (Path): Absolute path of the test output
+                    folder.
                 - package_name (str): Name of the package.
                 - target_suffix (str): Target suffix.
 
@@ -1814,13 +1830,13 @@ class BazelTestRunner(trb.TestRunnerBase):
         package_name = info.get(constants.MODULE_PATH)[0]
         target_suffix = self.get_target_suffix(info)
 
-        output_file_path = Path(self.bazel_workspace,
-                                'bazel-testlogs',
-                                package_name,
-                                f'{module_name}_{target_suffix}',
-                                'test.outputs/outputs.zip')
+        test_output_dir = Path(self.bazel_workspace,
+                               BAZEL_TEST_LOGS_DIR_NAME,
+                               package_name,
+                               f'{module_name}_{target_suffix}',
+                               TEST_OUTPUT_DIR_NAME)
 
-        return output_file_path, package_name, target_suffix
+        return test_output_dir, package_name, target_suffix
 
     def get_target_suffix(self, info: Dict[str, Any]) -> str:
         """Return 'host' or 'device' accordingly to the variant of the test."""

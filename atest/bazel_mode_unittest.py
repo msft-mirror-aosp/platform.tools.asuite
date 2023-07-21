@@ -1464,11 +1464,7 @@ class DataDependenciesGenerationTest(GenerationTestFixture):
 
 
 def create_empty_module_info():
-    with fake_filesystem_unittest.Patcher() as patcher:
-        # pylint: disable=protected-access
-        fake_temp_file_name = next(tempfile._get_candidate_names())
-        patcher.fs.create_file(fake_temp_file_name, contents='{}')
-        return module_info.load_from_file(module_file=fake_temp_file_name)
+    return module_info.load_from_dict({})
 
 
 def create_module_info(modules=None):
@@ -1959,7 +1955,7 @@ class DecorateFinderMethodTest(GenerationTestFixture):
             example_finder.ExampleFinder(mod_info),
             find_method, 'FINDER_NAME')
 
-class BazelTestRunnerTest(unittest.TestCase):
+class BazelTestRunnerTest(fake_filesystem_unittest.TestCase):
     """Tests for BazelTestRunner."""
 
     def test_return_empty_build_reqs_when_no_test_infos(self):
@@ -2307,8 +2303,10 @@ class BazelTestRunnerTest(unittest.TestCase):
         output_file_path, package_name, target_suffix = \
             runner.retrieve_test_output_info(test_infos[0])
 
-        self.assertEqual('/src/workspace/bazel-testlogs/path/test1_host/test.outputs/outputs.zip',
-                         str(output_file_path))
+        self.assertEqual(
+            f'/src/workspace/{bazel_mode.BAZEL_TEST_LOGS_DIR_NAME}'
+            f'/path/test1_host/{bazel_mode.TEST_OUTPUT_DIR_NAME}',
+            str(output_file_path))
         self.assertEqual('path', package_name)
         self.assertEqual('host', target_suffix)
 
@@ -2323,10 +2321,39 @@ class BazelTestRunnerTest(unittest.TestCase):
             runner.retrieve_test_output_info(test_info_of('test1'))
 
         self.assertEqual(
-            '/src/workspace/bazel-testlogs/path1/test1_device/test.outputs/outputs.zip',
+            f'/src/workspace/{bazel_mode.BAZEL_TEST_LOGS_DIR_NAME}'
+            f'/path1/test1_device/{bazel_mode.TEST_OUTPUT_DIR_NAME}',
             str(output_file_path))
         self.assertEqual('path1', package_name)
         self.assertEqual('device', target_suffix)
+
+    def test_result_dir_symlink_to_test_output_dir(self):
+        self.setUpPyfakefs()
+        test_infos = [test_info_of('test1')]
+        runner = self.create_bazel_test_runner_for_tests(test_infos)
+
+        runner.organize_test_logs(test_infos)
+
+        self.assertSymlinkTo(
+            Path('result_dir/log/path/test1_host'),
+            Path(f'/src/workspace/{bazel_mode.BAZEL_TEST_LOGS_DIR_NAME}'
+                 f'/path/test1_host/{bazel_mode.TEST_OUTPUT_DIR_NAME}')
+        )
+
+    def test_not_create_result_log_dir_when_test_output_zip_exist(self):
+        self.setUpPyfakefs()
+        test_infos = [test_info_of('test1')]
+        runner = self.create_bazel_test_runner_for_tests(test_infos)
+        test_output_zip = Path(
+            f'/src/workspace/{bazel_mode.BAZEL_TEST_LOGS_DIR_NAME}'
+            f'/path/test1_host/{bazel_mode.TEST_OUTPUT_DIR_NAME}'
+            f'/{bazel_mode.TEST_OUTPUT_ZIP_NAME}'
+        )
+        self.fs.create_file(test_output_zip, contents='')
+
+        runner.organize_test_logs(test_infos)
+
+        self.assertFalse(Path('result_dir/log/').exists())
 
     def create_bazel_test_runner(self,
                                  modules,
@@ -2374,6 +2401,9 @@ class BazelTestRunnerTest(unittest.TestCase):
         tokens = shlex.split(s)
         for token in unexpected_tokens:
             self.assertNotIn(token, tokens)
+
+    def assertSymlinkTo(self, symlink_path, target_path):
+        self.assertEqual(symlink_path.resolve(strict=False), target_path)
 
 
 class FeatureParserTest(unittest.TestCase):
