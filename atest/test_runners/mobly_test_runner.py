@@ -22,8 +22,7 @@ import shlex
 import shutil
 import subprocess
 import tempfile
-from typing import Any
-from typing import Optional
+from typing import Any, List, Optional
 
 import yaml
 
@@ -91,7 +90,7 @@ class MoblyTestFiles:
     """Data class representing required files for a Mobly test."""
     mobly_pkg: str
     requirements_txt: Optional[str]
-    test_apks: list[str]
+    test_apks: List[str]
 
 
 @dataclasses.dataclass(frozen=True)
@@ -113,10 +112,10 @@ class MoblyTestRunner(test_runner_base.TestRunnerBase):
     EXECUTABLE: str = '.'
 
     # Temporary files and directories used by the runner.
-    _temppaths: list[str] = []
+    _temppaths: List[str] = []
 
     def run_tests(
-            self, test_infos: list[test_info.TestInfo],
+            self, test_infos: List[test_info.TestInfo],
             extra_args: dict[str, Any],
             reporter: result_reporter.ResultReporter) -> int:
         """Runs the list of test_infos.
@@ -164,7 +163,7 @@ class MoblyTestRunner(test_runner_base.TestRunnerBase):
         """Checks that host env has met requirements."""
 
     def get_test_runner_build_reqs(
-            self, test_infos: list[test_info.TestInfo]) -> set[str]:
+            self, test_infos: List[test_info.TestInfo]) -> set[str]:
         """Returns a set of build targets required by the test runner."""
         build_targets = set()
         build_targets.update(test_runner_base.gather_build_targets(test_infos))
@@ -172,7 +171,7 @@ class MoblyTestRunner(test_runner_base.TestRunnerBase):
 
     # pylint: disable=unused-argument
     def generate_run_commands(
-            self, test_infos: list[test_info.TestInfo],
+            self, test_infos: List[test_info.TestInfo],
             extra_args: dict[str, Any],
             _port: Optional[int] = None) -> list[str]:
         """Generates a list of run commands from TestInfos.
@@ -212,7 +211,7 @@ class MoblyTestRunner(test_runner_base.TestRunnerBase):
             raise MoblyTestRunnerError(_ERROR_NO_MOBLY_TEST_PKG)
         return MoblyTestFiles(mobly_pkg, requirements_txt, test_apks)
 
-    def _generate_mobly_config(self, serials: list[str]) -> str:
+    def _generate_mobly_config(self, serials: List[str]) -> str:
         """Creates a Mobly YAML config given the test parameters.
 
         If --serial is specified, the test will use those specific devices,
@@ -274,7 +273,7 @@ class MoblyTestRunner(test_runner_base.TestRunnerBase):
         subprocess.check_call(cmd)
         return venv_executable
 
-    def _install_apks(self, apks: list[str], serials: list[str]) -> None:
+    def _install_apks(self, apks: List[str], serials: List[str]) -> None:
         """Installs test APKs to devices.
 
         This can be toggled off by omitting the --install option.
@@ -310,7 +309,7 @@ class MoblyTestRunner(test_runner_base.TestRunnerBase):
 
     def _run_and_handle_results(
             self,
-            mobly_command: list[str],
+            mobly_command: List[str],
             tinfo: test_info.TestInfo,
             reporter: result_reporter.ResultReporter,
             rerun_options: RerunOptions) -> int:
@@ -352,7 +351,7 @@ class MoblyTestRunner(test_runner_base.TestRunnerBase):
                 break
         return ret_code
 
-    def _run_mobly_command(self, mobly_cmd: list[str]) -> int:
+    def _run_mobly_command(self, mobly_cmd: List[str]) -> int:
         """Runs the Mobly test command.
 
         Args:
