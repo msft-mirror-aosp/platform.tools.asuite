@@ -236,7 +236,7 @@ class RoboleafTestRunner(test_runner_base.TestRunnerBase):
             The bazel path of the test.
         """
         module_map = RoboleafModuleMap().get_map()
-        return f'{module_map[test.test_name]}:{test.test_name}_suite'
+        return f'{module_map[test.test_name]}:{test.test_name}'
 
     def run_tests(self,
                   test_infos: List[TestInfo],
