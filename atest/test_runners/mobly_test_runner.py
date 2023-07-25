@@ -22,7 +22,7 @@ import shlex
 import shutil
 import subprocess
 import tempfile
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Set
 
 import yaml
 
@@ -163,7 +163,7 @@ class MoblyTestRunner(test_runner_base.TestRunnerBase):
         """Checks that host env has met requirements."""
 
     def get_test_runner_build_reqs(
-            self, test_infos: List[test_info.TestInfo]) -> set[str]:
+            self, test_infos: List[test_info.TestInfo]) -> Set[str]:
         """Returns a set of build targets required by the test runner."""
         build_targets = set()
         build_targets.update(test_runner_base.gather_build_targets(test_infos))
