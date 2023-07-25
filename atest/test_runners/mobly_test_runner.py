@@ -22,7 +22,7 @@ import shlex
 import shutil
 import subprocess
 import tempfile
-from typing import Any, List, Optional
+from typing import Any, Dict, List, Optional
 
 import yaml
 
@@ -116,7 +116,7 @@ class MoblyTestRunner(test_runner_base.TestRunnerBase):
 
     def run_tests(
             self, test_infos: List[test_info.TestInfo],
-            extra_args: dict[str, Any],
+            extra_args: Dict[str, Any],
             reporter: result_reporter.ResultReporter) -> int:
         """Runs the list of test_infos.
 
@@ -172,7 +172,7 @@ class MoblyTestRunner(test_runner_base.TestRunnerBase):
     # pylint: disable=unused-argument
     def generate_run_commands(
             self, test_infos: List[test_info.TestInfo],
-            extra_args: dict[str, Any],
+            extra_args: Dict[str, Any],
             _port: Optional[int] = None) -> list[str]:
         """Generates a list of run commands from TestInfos.
 
