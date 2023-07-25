@@ -173,7 +173,7 @@ class MoblyTestRunner(test_runner_base.TestRunnerBase):
     def generate_run_commands(
             self, test_infos: List[test_info.TestInfo],
             extra_args: Dict[str, Any],
-            _port: Optional[int] = None) -> list[str]:
+            _port: Optional[int] = None) -> List[str]:
         """Generates a list of run commands from TestInfos.
 
         Args:
@@ -293,7 +293,7 @@ class MoblyTestRunner(test_runner_base.TestRunnerBase):
                     ['adb', '-s', serial, 'install', '-r', '-g', apk])
 
     def _get_mobly_command(self, py_executable: str, mobly_pkg: str,
-                           config_path: str) -> list[str]:
+                           config_path: str) -> List[str]:
         """Generates a single Mobly test command.
 
         Args:
@@ -371,7 +371,7 @@ class MoblyTestRunner(test_runner_base.TestRunnerBase):
             tinfo: test_info.TestInfo,
             iteration_num: int,
             total_iterations: int
-    ) -> list[test_runner_base.TestResult]:
+    ) -> List[test_runner_base.TestResult]:
         """Parses the Mobly summary file into ATest TestResults.
 
         Args:
