@@ -18,6 +18,7 @@ rust_test_host {
     srcs: [
     	  "src/adevice.rs"
     ],
+    data: ["testdata/*"],
     defaults: ["adevice_deps_defaults"],
     test_options: {
         unit_test: true,
@@ -37,13 +38,14 @@ rust_defaults {
     name: "adevice_deps_defaults",
     // TODO(rbraunstein): Consider extracting a lib that is shared by the binary and tests.
     rustlibs: [
+        "libatty",
+        "libclap",
+        "libhex",
         "librayon",
         "libring",
         "libserde",
         "libserde_json",
         "libwalkdir",
-        "libatty",
-        "libclap",
     ],
 }
 
