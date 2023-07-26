@@ -903,19 +903,20 @@ def delimiter(char, length=_DEFAULT_TERMINAL_WIDTH, prenl=0, postnl=0):
     """
     return prenl * '\n' + char * length + postnl * '\n'
 
-def find_files(path, file_name=constants.TEST_MAPPING):
+def find_files(path, file_name=constants.TEST_MAPPING, followlinks=False):
     """Find all files with given name under the given path.
 
     Args:
         path: A string of path in source.
         file_name: The file name pattern for finding matched files.
+        followlinks: A boolean to indicate whether to follow symbolic links.
 
     Returns:
         A list of paths of the files with the matching name under the given
         path.
     """
     match_files = []
-    for root, _, filenames in os.walk(path):
+    for root, _, filenames in os.walk(path, followlinks=followlinks):
         try:
             for filename in fnmatch.filter(filenames, file_name):
                 match_files.append(os.path.join(root, filename))
@@ -955,21 +956,6 @@ def extract_zip_text(zip_path):
     except zipfile.BadZipfile as err:
         logging.debug('Exception raised: %s', err)
     return content
-
-def extract_files(file_path: Path, destination_path: Path) -> None:
-    """
-    Unzips the specified file to the destination folder, removing the original directory structure.
-
-    Args:
-        file_path (Path): The path to the ZIP file to be extracted.
-        destination_path (Path): The destination folder where the extracted files will be placed.
-
-    Returns:
-        None
-    """
-    destination_path.mkdir(parents=True, exist_ok=True)
-    with zipfile.ZipFile(file_path, 'r') as zip_ref:
-        zip_ref.extractall(destination_path)
 
 def matched_tf_error_log(content):
     """Check if the input content matched tradefed log pattern.
@@ -1946,7 +1932,9 @@ def generate_print_result_html(result_file: Path):
     search_dir = Path(result_file).parent.joinpath('log')
     result_html = Path(search_dir, 'test_logs.html')
     try:
-        logs = sorted(find_files(str(search_dir), file_name='*'))
+        logs = sorted(
+            find_files(str(search_dir), file_name='*', followlinks=True)
+        )
         with open(result_html, 'w', encoding='utf-8') as cache:
             cache.write('<!DOCTYPE html><html><body>')
             result = load_json_safely(result_file)
