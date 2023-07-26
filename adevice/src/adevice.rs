@@ -56,7 +56,7 @@ fn get_product_out_from_env() -> Option<PathBuf> {
 fn fingerprint_host_product_out(
     dirs: &[String],
     product_out: &Path,
-) -> Result<Vec<fingerprint::Entry>, String> {
+) -> Result<Vec<fingerprint::Fingerprint>, String> {
     Err("use fingerprint command in upcoming PR".to_string())
 }
 
@@ -65,7 +65,7 @@ fn fingerprint_host_product_out(
 /// checksum of the file and other stat-like data.
 /// Typically, dirs = ["system"]
 #[allow(unused)]
-fn fingerprint_device(dirs: &[String], adb: &Adb) -> Result<Vec<fingerprint::Entry>, String> {
+fn fingerprint_device(dirs: &[String], adb: &Adb) -> Result<Vec<fingerprint::Fingerprint>, String> {
     // Call our helper binary running on device, return errors if we can't contact it.
     Err("use adb hashdevice command in upcoming PR".to_string())
 }
