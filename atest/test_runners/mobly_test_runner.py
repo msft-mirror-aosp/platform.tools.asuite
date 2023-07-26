@@ -243,7 +243,8 @@ class MoblyTestRunner(test_runner_base.TestRunnerBase):
             json.dump(config, f)
         return config_path
 
-    def _setup_python_env(self, requirements_txt: Optional[str]) -> str | None:
+    def _setup_python_env(
+        self, requirements_txt: Optional[str]) -> Optional[str]:
         """Sets up the local Python environment.
 
         If a requirements_txt file exists, creates a Python virtualenv and
