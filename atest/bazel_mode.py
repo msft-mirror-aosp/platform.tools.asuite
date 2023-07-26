@@ -1696,7 +1696,7 @@ class BazelTestRunner(trb.TestRunnerBase):
             )
         return feature_config
 
-    def _get_bes_publish_args(self, feature):
+    def _get_bes_publish_args(self, feature: Features) -> List[str]:
         bes_publish_config = self._get_feature_config_or_warn(
             feature, 'ATEST_BAZEL_BES_PUBLISH_CONFIG')
 
@@ -1829,7 +1829,12 @@ class BazelTestRunner(trb.TestRunnerBase):
             return 'device'
         return 'host'
 
-    def _get_bazel_feature_args(self, feature, extra_args, generator):
+    @staticmethod
+    def _get_bazel_feature_args(
+            feature: Features,
+            extra_args: Dict[str, Any],
+            generator: Callable
+    ) -> List[str]:
         if feature not in extra_args.get('BAZEL_MODE_FEATURES', []):
             return []
         return generator(feature)
@@ -1857,11 +1862,16 @@ class BazelTestRunner(trb.TestRunnerBase):
 
         bazel_args = parse_args(test_infos, extra_args, self.mod_info)
 
+        # If BES is not enabled, use the option of
+        # '--nozip_undeclared_test_outputs' to not compress the test outputs.
+        # And the URL of test outputs will be printed in terminal.
         bazel_args.extend(
             self._get_bazel_feature_args(
                 Features.EXPERIMENTAL_BES_PUBLISH,
                 extra_args,
-                self._get_bes_publish_args))
+                self._get_bes_publish_args
+            ) or ['--nozip_undeclared_test_outputs']
+        )
         bazel_args.extend(
             self._get_bazel_feature_args(
                 Features.EXPERIMENTAL_REMOTE,
