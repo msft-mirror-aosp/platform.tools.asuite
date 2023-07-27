@@ -24,6 +24,8 @@ import unittest
 from importlib import import_module
 from unittest import mock
 
+from atest import unittest_constants
+
 # Setup logging to be silent so unittests can pass through TF.
 logging.disable(logging.ERROR)
 
@@ -50,12 +52,12 @@ def get_test_modules():
         List of strings (the testable module import path).
     """
     testable_modules = []
-    package = os.path.dirname(os.path.realpath(__file__))
+    package = unittest_constants.ATEST_PKG_DIR
     base_path = os.path.dirname(package)
 
     for dirpath, _, files in os.walk(package):
         for f in files:
-            if f.endswith("_unittest.py"):
+            if f.endswith("_unittest.py") or f.endswith("_unittest.pyc"):
                 # Now transform it into a no-absolute import path.
                 full_file_path = os.path.join(dirpath, f)
                 rel_file_path = os.path.relpath(full_file_path, base_path)
