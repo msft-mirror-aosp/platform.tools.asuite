@@ -148,6 +148,12 @@ python_test_host {
     ],
     test_config: "atest_unittests.xml",
     test_suites: ["general-tests"],
+    version: {
+        py3: {
+            embedded_launcher: true,
+            enabled: true,
+        },
+    },
 }
 
 python_test_host {
