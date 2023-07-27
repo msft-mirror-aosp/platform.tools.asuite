@@ -5,6 +5,7 @@ mod fingerprint;
 use clap::Parser;
 use cli::Commands;
 
+use std::collections::HashMap;
 use std::io::{self, Write};
 use std::path::{Path, PathBuf};
 
@@ -48,24 +49,27 @@ fn get_product_out_from_env() -> Option<PathBuf> {
     }
 }
 
-/// Given all the "dirs" in the top level of the product out directory,
-/// return an entry for each file under the dir.  The entry contains the relative filename,
-/// checksum of the file and other stat-like data.
+/// Given partitions in the top level of the product out directory,
+/// return an entry for each file in the partition.  The entry contains the
+/// digest of the file contents and stat-like data about the file.
 /// Typically, dirs = ["system"]
 #[allow(unused)]
 fn fingerprint_host_product_out(
-    dirs: &[String],
+    partitions: &[String],
     product_out: &Path,
-) -> Result<Vec<fingerprint::Fingerprint>, String> {
+) -> Result<HashMap<String, fingerprint::FileMetadata>, String> {
     Err("use fingerprint command in upcoming PR".to_string())
 }
 
-/// Given all the "dirs" at the root of the device,
-/// return an entry for each file under the dir.  The entry contains the relative filename,
-/// checksum of the file and other stat-like data.
+/// Given "partitions" at the root of the device,
+/// return an entry for each file found.  The entry contains the
+/// digest of the file contents and stat-like data about the file.
 /// Typically, dirs = ["system"]
 #[allow(unused)]
-fn fingerprint_device(dirs: &[String], adb: &Adb) -> Result<Vec<fingerprint::Fingerprint>, String> {
+fn fingerprint_device(
+    partitions: &[String],
+    adb: &Adb,
+) -> Result<HashMap<String, fingerprint::FileMetadata>, String> {
     // Call our helper binary running on device, return errors if we can't contact it.
     Err("use adb hashdevice command in upcoming PR".to_string())
 }

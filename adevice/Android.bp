@@ -45,6 +45,7 @@ rust_defaults {
         "libring",
         "libserde",
         "libserde_json",
+        "libtempfile",
         "libwalkdir",
     ],
 }
