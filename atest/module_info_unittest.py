@@ -523,8 +523,9 @@ class ModuleInfoUnittests(unittest.TestCase):
 
     # TODO: (b/264015241) Stop mocking build variables.
     # TODO: (b/263199608) Re-write the test after refactoring module-info.py
-    @mock.patch.dict('os.environ', {constants.ANDROID_BUILD_TOP:os.path.dirname(__file__),
-                                    constants.ANDROID_PRODUCT_OUT:PRODUCT_OUT_DIR})
+    @mock.patch.dict('os.environ',
+                     {constants.ANDROID_BUILD_TOP:uc.ATEST_PKG_DIR,
+                      constants.ANDROID_PRODUCT_OUT:PRODUCT_OUT_DIR})
     def test_has_mainline_modules(self):
         """Test has_mainline_modules."""
         name1 = 'MainModule1'
