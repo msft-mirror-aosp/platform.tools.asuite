@@ -7,7 +7,7 @@ use cli::Commands;
 
 use std::collections::HashMap;
 use std::io::{self, Write};
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 
 // TODO(rbraunstein): Remove all allow(unused) when implementing functions.
 #[allow(unused)]
@@ -22,9 +22,11 @@ fn main() {
             .unwrap(),
     };
 
-    let device_tree = fingerprint_device(&cli.global_options.partitions, &adb).unwrap();
-    let build_tree =
-        fingerprint_host_product_out(&cli.global_options.partitions, &product_out).unwrap();
+    let partitions: Vec<PathBuf> =
+        cli.global_options.partitions.iter().map(PathBuf::from).collect();
+    let device_tree = fingerprint_device(&partitions, &adb).unwrap();
+    let build_tree = fingerprint::fingerprint_partitions(&product_out, &partitions).unwrap();
+
     match &cli.command {
         Commands::Status => {
             let changes = fingerprint::diff(&build_tree, &device_tree);
@@ -49,27 +51,15 @@ fn get_product_out_from_env() -> Option<PathBuf> {
     }
 }
 
-/// Given partitions in the top level of the product out directory,
-/// return an entry for each file in the partition.  The entry contains the
-/// digest of the file contents and stat-like data about the file.
-/// Typically, dirs = ["system"]
-#[allow(unused)]
-fn fingerprint_host_product_out(
-    partitions: &[String],
-    product_out: &Path,
-) -> Result<HashMap<String, fingerprint::FileMetadata>, String> {
-    Err("use fingerprint command in upcoming PR".to_string())
-}
-
 /// Given "partitions" at the root of the device,
 /// return an entry for each file found.  The entry contains the
 /// digest of the file contents and stat-like data about the file.
 /// Typically, dirs = ["system"]
 #[allow(unused)]
 fn fingerprint_device(
-    partitions: &[String],
+    partitions: &[PathBuf],
     adb: &Adb,
-) -> Result<HashMap<String, fingerprint::FileMetadata>, String> {
+) -> Result<HashMap<PathBuf, fingerprint::FileMetadata>, String> {
     // Call our helper binary running on device, return errors if we can't contact it.
     Err("use adb hashdevice command in upcoming PR".to_string())
 }
