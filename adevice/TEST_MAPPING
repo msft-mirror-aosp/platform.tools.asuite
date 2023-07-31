@@ -1,10 +1,13 @@
 {
   "presubmit": [
     {
-      "name": "adevice_test"
+      "name": "adevice_fingerprint_test"
     },
     {
       "name": "adevice_integration_test"
+    },
+    {
+      "name": "adevice_test"
     }
   ]
 }
