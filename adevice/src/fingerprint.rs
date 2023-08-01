@@ -54,7 +54,7 @@ pub struct Diffs {
 /// Each file should land in of the three categories (i.e. updated, not
 /// removed and added);
 /// TODO(rbraunstein): Fix allow(unused) by breaking out methods not
-/// needed by adevice_helper.
+/// needed by adevice_fingerprint.
 #[allow(unused)]
 pub fn diff(
     host_files: &HashMap<PathBuf, FileMetadata>,
@@ -69,15 +69,13 @@ pub fn diff(
     // Files on the host, but not on the device or
     // file on the host that are different on the device.
     for (file_name, metadata) in host_files {
-        // TODO(rbraunstein): Can I make the logic clearer without nesting?
-        if let Some(device_metadata) = device_files.get(file_name) {
-            if device_metadata != metadata {
-                diffs.device_diffs.insert(file_name.clone(), metadata.clone());
-            } else {
-                // NO diff, nothing to do.
-            };
-        } else {
-            diffs.device_needs.insert(file_name.clone(), metadata.clone());
+        match device_files.get(file_name) {
+            Some(device_metadata) if device_metadata != metadata => {
+                diffs.device_diffs.insert(file_name.clone(), metadata.clone())
+            }
+            // If the device metadata == host metadata there is nothing to do.
+            Some(_) => None,
+            None => diffs.device_needs.insert(file_name.clone(), metadata.clone()),
         };
     }
 

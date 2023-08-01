@@ -1,8 +1,9 @@
 //! Tool to fingerprint the files on the device's filesystem.
 // Run with:
-//   m adevice_helper
-//   adb push $ANDROID_PRODUCT_OUT/system/bin/adevice_helper /data/bin/adevice_helper
-//   adb shell /data/bin/adevice_helper --partitions system
+//   adb root
+//   m adevice_fingerprint
+//   adb push $ANDROID_PRODUCT_OUT/system/bin/adevice_fingerprint /system/bin/adevice_fingerprint
+//   adb shell /system/bin/adevice_fingerprint --partitions system
 
 use clap::Parser;
 use std::io;
