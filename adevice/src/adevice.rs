@@ -90,7 +90,7 @@ fn fingerprint_device(
                 // probably also just printed a line.
                 bail!("Device didn't return any data.");
             }
-            Err(err) => bail!("Error reading json {}", err),
+            Err(err) => return Err(err).context("Error reading json"),
             Ok(file_map) => file_map,
         };
     adb.wait()?;
