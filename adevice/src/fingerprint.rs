@@ -7,9 +7,11 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fs;
 use std::io::{self, Read};
+use std::os::unix::fs::FileTypeExt;
 use std::path::{Path, PathBuf};
 use walkdir::WalkDir;
 
+#[allow(missing_docs)]
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum FileType {
     File,
@@ -23,30 +25,37 @@ pub enum FileType {
 ///   2) A symlink's target file path changes.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct FileMetadata {
+    /// Is this a file, dir or symlink?
     pub file_type: FileType,
 
-    // Path that this symlinks to or ""
+    /// Path that this symlinks to or ""
     #[serde(skip_serializing_if = "String::is_empty", default)]
     pub symlink: String,
 
-    // Sha256 of contents for regular files.
+    /// Sha256 of contents for regular files.
     #[serde(skip_serializing_if = "String::is_empty", default)]
     pub digest: String,
 }
 
+/// A description of the differences on the filesystems between the host
+/// and device. Each file that is different will be a key in one of
+/// three maps with the value indicating the difference.
 #[derive(Debug, Default, PartialEq)]
 pub struct Diffs {
-    // Files on host, but not on device
+    /// Files on host, but not on device
     pub device_needs: HashMap<PathBuf, FileMetadata>,
-    // Files on device, but not host.
+    /// Files on device, but not host.
     pub device_extra: HashMap<PathBuf, FileMetadata>,
-    // Files that are different between host and device.
+    /// Files that are different between host and device.
     pub device_diffs: HashMap<PathBuf, FileMetadata>,
 }
 
 /// Compute the files that need to be added, removed or updated on the device.
 /// Each file should land in of the three categories (i.e. updated, not
 /// removed and added);
+/// TODO(rbraunstein): Fix allow(unused) by breaking out methods not
+/// needed by adevice_helper.
+#[allow(unused)]
 pub fn diff(
     host_files: &HashMap<PathBuf, FileMetadata>,
     device_files: &HashMap<PathBuf, FileMetadata>,
@@ -108,6 +117,8 @@ pub fn fingerprint_partitions(
     // TODO(rbraunstein): Convert `unwrap` to something that propagates the errors.
     Ok(filenames
         .into_par_iter()
+        // Walking the /data partition quickly leads to sockets, filter those out.
+        .filter(|file_path| !is_special_file(file_path))
         .map(|file_path| {
             (
                 file_path.strip_prefix(partition_root).unwrap().to_owned(),
@@ -144,6 +155,19 @@ fn fingerprint_file(file_path: &Path) -> Result<FileMetadata, io::Error> {
             digest: compute_digest(file_path)?,
         })
     }
+}
+
+/// Return true for special files like sockets that would be incorrect
+/// to digest and we that we can skip when comparing the device
+/// to the build tree.
+fn is_special_file(file_path: &Path) -> bool {
+    // `symlink_metadata` doesn't follow links. We don't want to follow symlinks here.
+    // The stat costs much less than the digest operations we are about to perform.
+    let file_metadata = fs::symlink_metadata(file_path).expect("no metadata");
+    file_metadata.file_type().is_block_device()
+        || file_metadata.file_type().is_char_device()
+        || file_metadata.file_type().is_fifo()
+        || file_metadata.file_type().is_socket()
 }
 
 /// Compute the sha256 and return it as a lowercase hex string.
