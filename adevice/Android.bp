@@ -12,7 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-
 rust_test_host {
     name: "adevice_test",
     srcs: [
@@ -33,9 +32,31 @@ rust_binary_host {
     defaults: ["adevice_deps_defaults"],
 }
 
+rust_binary {
+    name: "adevice_fingerprint",
+    srcs: [
+        "src/adevice_fingerprint.rs",
+    ],
+    defaults: ["adevice_deps_defaults"],
+    static_executable: true,
+}
+
+rust_test {
+    name: "adevice_fingerprint_test",
+    auto_gen_config: true,
+    defaults: ["adevice_deps_defaults"],
+    srcs: [
+        "src/adevice_fingerprint.rs",
+    ],
+    static_executable: true,
+    test_suites: ["general-tests"],
+    test_options: {
+        unit_test: true,
+    },
+}
+
 rust_defaults {
     name: "adevice_deps_defaults",
-    // TODO(rbraunstein): Consider extracting a lib that is shared by the binary and tests.
     rustlibs: [
         "libatty",
         "libclap",
