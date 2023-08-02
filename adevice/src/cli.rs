@@ -17,7 +17,17 @@ pub enum Commands {
     /// Show the actions that would be run.
     ShowActions,
     /// Update the device
-    UpdateDevice { verbose: Option<bool>, reboot: Option<bool> },
+    Sync {
+        /// Do not run any commands, just print them
+        #[clap(long = "dry-run", short = 'n', default_value_t = false)]
+        dryrun: bool,
+        /// Print commands while executing them.
+        #[clap(long = "verbose", short = 'v', default_value_t = true)]
+        verbose: bool,
+        /// Do not make any modification if more than this many are needed
+        #[clap(long, short, default_value_t = 20)]
+        max_allowed_changes: usize,
+    },
 }
 
 #[derive(Debug, Args)]
