@@ -58,6 +58,7 @@ rust_test {
 rust_defaults {
     name: "adevice_deps_defaults",
     rustlibs: [
+        "libanyhow",
         "libatty",
         "libclap",
         "libhex",
