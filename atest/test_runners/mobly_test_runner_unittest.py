@@ -13,10 +13,10 @@
 # limitations under the License.
 
 """Unittests for mobly_test_runner."""
-
 # pylint: disable=protected-access
 # pylint: disable=invalid-name
 
+import argparse
 import os
 import pathlib
 import unittest
@@ -54,6 +54,7 @@ class MoblyTestRunnerUnittests(unittest.TestCase):
             build_targets=[],
         )
         self.reporter = result_reporter.ResultReporter()
+        self.mobly_args = argparse.Namespace(testparam=[])
 
     @mock.patch.object(pathlib.Path, 'is_file')
     def test_get_test_files_all_files_present(self, is_file) -> None:
@@ -98,7 +99,7 @@ class MoblyTestRunnerUnittests(unittest.TestCase):
     @mock.patch('json.dump')
     def test_generate_mobly_config_no_serials(self, json_dump, _) -> None:
         """Tests _generate_mobly_config with no serials provided."""
-        self.runner._generate_mobly_config(None)
+        self.runner._generate_mobly_config(self.mobly_args, None)
 
         expected_config = {
             'TestBeds': [{
@@ -117,7 +118,8 @@ class MoblyTestRunnerUnittests(unittest.TestCase):
     @mock.patch('json.dump')
     def test_generate_mobly_config_with_serials(self, json_dump, _) -> None:
         """Tests _generate_mobly_config with serials provided."""
-        self.runner._generate_mobly_config([SERIAL_1, SERIAL_2])
+        self.runner._generate_mobly_config(
+            self.mobly_args, [SERIAL_1, SERIAL_2])
 
         expected_config = {
             'TestBeds': [{
@@ -131,6 +133,36 @@ class MoblyTestRunnerUnittests(unittest.TestCase):
             },
         }
         self.assertEqual(json_dump.call_args.args[0], expected_config)
+
+    @mock.patch('builtins.open')
+    @mock.patch('json.dump')
+    def test_generate_mobly_config_with_testparams(self, json_dump, _) -> None:
+        """Tests _generate_mobly_config with custom testparams."""
+        self.mobly_args.testparam = ['foo=bar']
+        self.runner._generate_mobly_config(self.mobly_args, None)
+
+        expected_config = {
+            'TestBeds': [{
+                'Name': 'LocalTestBed',
+                'Controllers': {
+                    'AndroidDevice': '*',
+                },
+                'TestParams': {
+                    'foo': 'bar',
+                }
+            }],
+            'MoblyParams': {
+                'LogPath': 'atest_results/sample_test/mobly_logs',
+            },
+        }
+        self.assertEqual(json_dump.call_args.args[0], expected_config)
+
+    def test_generate_mobly_config_with_invalid_testparams(self) -> None:
+        """Tests _generate_mobly_config with invalid testparams."""
+        self.mobly_args.testparam = ['foobar']
+        with self.assertRaisesRegex(mobly_test_runner.MoblyTestRunnerError,
+                                    'Invalid testparam values'):
+            self.runner._generate_mobly_config(self.mobly_args, None)
 
     @mock.patch('atest.atest_utils.get_adb_devices', return_value=[ADB_DEVICE])
     @mock.patch('subprocess.check_call')
