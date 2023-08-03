@@ -13,6 +13,7 @@
 # limitations under the License.
 
 """Mobly test runner."""
+import argparse
 import dataclasses
 import datetime
 import json
@@ -45,6 +46,9 @@ _ERROR_NO_TEST_SUMMARY = 'No Mobly test summary found.'
 _ERROR_INVALID_TEST_SUMMARY = (
     'Invalid Mobly test summary. Make sure that it contains a final "Summary" '
     'section.')
+_ERROR_INVALID_TESTPARAMS = (
+    'Invalid testparam values. Make sure that they follow the PARAM=VALUE '
+    'format.')
 
 # TODO(b/287136126): Use host python once compatibility issue is resolved.
 PYTHON_3_10 = 'python3.10'
@@ -55,6 +59,7 @@ FILE_SUFFIX_APK = '.apk'
 CONFIG_KEY_TESTBEDS = 'TestBeds'
 CONFIG_KEY_NAME = 'Name'
 CONFIG_KEY_CONTROLLERS = 'Controllers'
+CONFIG_KEY_TEST_PARAMS = 'TestParams'
 CONFIG_KEY_ANDROID_DEVICE = 'AndroidDevice'
 CONFIG_KEY_MOBLY_PARAMS = 'MoblyParams'
 CONFIG_KEY_LOG_PATH = 'LogPath'
@@ -132,12 +137,11 @@ class MoblyTestRunner(test_runner_base.TestRunnerBase):
         Returns:
             0 if tests succeed, non-zero otherwise.
         """
+        mobly_args = self._parse_custom_args(
+            extra_args.get(constants.CUSTOM_ARGS, []))
+
         ret_code = atest_enum.ExitCode.SUCCESS
-        iters = extra_args.get(constants.ITERATIONS, 1)
-        reruns = extra_args.get(constants.RERUN_UNTIL_FAILURE, 0)
-        retries = extra_args.get(constants.RETRY_ANY_FAILURE, 0)
-        rerun_options = RerunOptions(
-            max(iters, reruns, retries), bool(reruns), bool(retries))
+        rerun_options = self._get_rerun_options(extra_args)
 
         for tinfo in test_infos:
             try:
@@ -148,7 +152,7 @@ class MoblyTestRunner(test_runner_base.TestRunnerBase):
                 serials = atest_configs.GLOBAL_ARGS.serial or []
                 if constants.DISABLE_INSTALL not in extra_args:
                     self._install_apks(test_files.test_apks, serials)
-                mobly_config = self._generate_mobly_config(serials)
+                mobly_config = self._generate_mobly_config(mobly_args, serials)
 
                 # Generate command and run
                 mobly_command = self._get_mobly_command(
@@ -187,6 +191,27 @@ class MoblyTestRunner(test_runner_base.TestRunnerBase):
         # TODO: to be implemented
         return []
 
+    def _parse_custom_args(self, argv: list[str]) -> argparse.Namespace:
+        """Parse custom CLI args into Mobly runner options."""
+        parser = argparse.ArgumentParser(prog='atest ... --')
+        parser.add_argument(
+            '--testparam',
+            metavar='PARAM=VALUE',
+            help='A test param for Mobly, specified in the format '
+                 '"param=value". These values can then be accessed as '
+                 'TestClass.user_params in the test. This option is '
+                 'repeatable.',
+            action='append')
+        return parser.parse_args(argv)
+
+    def _get_rerun_options(self, extra_args: dict[str, Any]) -> RerunOptions:
+        """Get rerun options from extra_args."""
+        iters = extra_args.get(constants.ITERATIONS, 1)
+        reruns = extra_args.get(constants.RERUN_UNTIL_FAILURE, 0)
+        retries = extra_args.get(constants.RETRY_ANY_FAILURE, 0)
+        return RerunOptions(
+            max(iters, reruns, retries), bool(reruns), bool(retries))
+
     def _get_test_files(self, tinfo: test_info.TestInfo) -> MoblyTestFiles:
         """Gets test resource files from a given TestInfo."""
         mobly_pkg = None
@@ -211,27 +236,41 @@ class MoblyTestRunner(test_runner_base.TestRunnerBase):
             raise MoblyTestRunnerError(_ERROR_NO_MOBLY_TEST_PKG)
         return MoblyTestFiles(mobly_pkg, requirements_txt, test_apks)
 
-    def _generate_mobly_config(self, serials: List[str]) -> str:
+    def _generate_mobly_config(
+            self, mobly_args: argparse.Namespace,
+            serials: List[str]) -> str:
         """Creates a Mobly YAML config given the test parameters.
 
         If --serial is specified, the test will use those specific devices,
         otherwise it will use all ADB-connected devices.
 
+        For each --testparam specified in custom args, the test will add the
+        param as a key-value pair under the testbed config's 'TestParams'.
+        Values are limited to strings.
+
         Also set the Mobly results dir to <atest_results>/mobly_logs.
 
         Args:
+            mobly_args: Custom args for the Mobly runner.
             serials: List of device serials.
 
         Returns:
             Path to the generated config.
         """
+        local_testbed = {
+            CONFIG_KEY_NAME: LOCAL_TESTBED,
+            CONFIG_KEY_CONTROLLERS: {
+                CONFIG_KEY_ANDROID_DEVICE: serials if serials else '*',
+            },
+        }
+        if mobly_args.testparam:
+            try:
+                local_testbed[CONFIG_KEY_TEST_PARAMS] = dict(
+                    [param.split('=', 1) for param in mobly_args.testparam])
+            except ValueError as e:
+                raise MoblyTestRunnerError(_ERROR_INVALID_TESTPARAMS) from e
         config = {
-            CONFIG_KEY_TESTBEDS: [{
-                CONFIG_KEY_NAME: LOCAL_TESTBED,
-                CONFIG_KEY_CONTROLLERS: {
-                    CONFIG_KEY_ANDROID_DEVICE: serials if serials else '*',
-                },
-            }],
+            CONFIG_KEY_TESTBEDS: [local_testbed],
             CONFIG_KEY_MOBLY_PARAMS: {
                 CONFIG_KEY_LOG_PATH: os.path.join(
                     self.results_dir, MOBLY_LOGS_DIR),
