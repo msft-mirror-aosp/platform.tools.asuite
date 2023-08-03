@@ -52,8 +52,7 @@ METRICS_DIR = '%s/baseline-metrics' % uc.TEST_INFO_DIR
 METRICS_DIR_ARG = '--metrics-folder %s ' % METRICS_DIR
 # TODO(147567606): Replace {serial} with {extra_args} for general extra
 # arguments testing.
-RUN_CMD_ARGS = ('{metrics}--log-level-display VERBOSE --log-level VERBOSE '
-                '--skip-all-system-status-check=true'
+RUN_CMD_ARGS = ('{metrics}--log-level-display VERBOSE --log-level VERBOSE'
                 '{device_early_release}{serial}')
 LOG_ARGS = atf_tr.AtestTradefedTestRunner._LOG_ARGS.format(
     log_root_option_name=constants.LOG_ROOT_OPTION_NAME,
