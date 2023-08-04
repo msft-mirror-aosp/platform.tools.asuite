@@ -24,7 +24,6 @@ import os
 import logging
 import json
 import subprocess
-import sys
 
 from pathlib import Path
 from typing import Any, Dict, List, Set
@@ -49,7 +48,7 @@ _ALLOWLIST_LAUNCHED = (
     f'{os.environ.get(constants.ANDROID_BUILD_TOP)}/'
     'tools/asuite/atest/test_runners/roboleaf_launched.txt')
 # This list contains all of the bp2build converted Android.bp modules.
-_ROBOLEAF_MODULE_MAP_PATH = ('/soong/soong_injection/metrics/'
+_ROBOLEAF_MODULE_MAP_PATH = ('soong/soong_injection/metrics/'
                              'converted_modules_path_map.json')
 _SOONG_UI_CMD = 'build/soong/soong_ui.bash'
 
@@ -88,14 +87,15 @@ def _generate_map(module_map_location: str = '') -> Dict[str, str]:
         A dictionary of test names that bazel paths for eligible tests,
         for example { "test_a": "//platform/test_a" }.
     """
-    if not module_map_location:
-        module_map_location = (
-            atest_utils.get_build_out_dir() + _ROBOLEAF_MODULE_MAP_PATH)
+    if module_map_location:
+        module_map_location = Path(module_map_location)
+    else:
+        module_map_location = atest_utils.get_build_out_dir(_ROBOLEAF_MODULE_MAP_PATH)
 
     # TODO(b/274161649): It is possible it could be stale on first run.
     # Invoking m or b test will check/recreate this file.  Bug here is
     # to determine if we can check staleness without a large time penalty.
-    if not os.path.exists(module_map_location):
+    if not module_map_location.is_file():
         logging.warning('The roboleaf converted modules file: %s was not '
                         'found.', module_map_location)
         # Attempt to generate converted modules file.
@@ -186,7 +186,7 @@ def _generate_bp2build_command() -> List[str]:
     soong_ui = (
         f'{os.environ.get(constants.ANDROID_BUILD_TOP, os.getcwd())}/'
         f'{_SOONG_UI_CMD}')
-    return [soong_ui, '--make-mode', 'bp2build']
+    return [soong_ui, '--make-mode', 'WRAPPER_TOOL=atest', 'bp2build']
 
 
 class AbortRunException(Exception):
@@ -216,12 +216,9 @@ class RoboleafTestRunner(test_runner_base.TestRunnerBase):
         target_patterns = ' '.join(
             self.test_info_target_label(i) for i in test_infos)
         bazel_args = bazel_mode.parse_args(test_infos, extra_args, None)
-        # TODO(b/288069169): The following two lines hardcodes for device test.
-        # Handle deviceless testing.
-        bazel_args.append('--config=android')
-        bazel_args.append(
-            '--//build/bazel/rules/tradefed:runmode=host_driven_test'
-        )
+        # The tool tag attributes this bazel invocation to atest. This
+        # is uploaded in BEP when bes publishing is enabled.
+        bazel_args.append("--tool_tag=atest")
         bazel_args_str = ' '.join(shlex.quote(arg) for arg in bazel_args)
         command = f'{self.EXECUTABLE} test {target_patterns} {bazel_args_str}'
         results = [command]

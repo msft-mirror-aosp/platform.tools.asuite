@@ -497,8 +497,8 @@ def run_find_cmd(ref_type, search_dir, target, methods=None):
             try:
                 _dict = pickle.load(index, encoding='utf-8')
             except (UnicodeDecodeError, TypeError, IOError, EOFError,
-                    pickle.UnpicklingError) as err:
-                logging.debug('Exception raised: %s', err)
+                    AttributeError, pickle.UnpicklingError) as err:
+                logging.debug('Error occurs while loading %s: %s', index_file, err)
                 metrics_utils.handle_exc_and_send_exit_event(
                     constants.ACCESS_CACHE_FAILURE)
                 os.remove(index_file)
@@ -684,8 +684,8 @@ def get_targets_from_xml_root(xml_root, module_info):
     option_tags = xml_root.findall('.//option')
     for tag in option_tags:
         target_to_add = None
-        name = tag.attrib[_XML_NAME].strip()
-        value = tag.attrib[_XML_VALUE].strip()
+        name = tag.attrib.get(_XML_NAME, '').strip()
+        value = tag.attrib.get(_XML_VALUE, '').strip()
         if _is_apk_target(name, value):
             target_to_add = _get_apk_target(value)
         elif _PERF_SETUP_LABEL in value:

@@ -12,8 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-ATEST_REL_DIR="tools/asuite/atest"
-
 # This function returns devices recognised by adb.
 _fetch_adb_devices() {
     while read dev; do echo $dev | awk '{print $1}'; done < <(adb devices | egrep -v "^List|^$"||true)
@@ -26,11 +24,100 @@ _fetch_test_mapping_files() {
 }
 
 function _pip_install() {
-    if ! which $1 >/dev/null; then
-        install_cmd="pip3 install --user $1"
-        echo "${FUNCNAME[1]} requires $1 but not found. Installing..."
-        eval $install_cmd >/dev/null
+    _deb_installer python3-venv python3-pip || return 1
+    _activate_venv || return 1
+    requirements=(venv pyinstrument snakeviz)
+    for mod in "${requirements[@]}"; do
+        if ! _has_py_module $mod; then
+            echo "Installing $mod..."
+            pip3 install $mod >/dev/null
+            if [ "$?" -ne 0 ]; then
+                echo "pip3 install $mod failure."
+                return 1
+            fi
+        fi
+    done
+}
+
+function _has_py_module() {
+    [[ -z "$1" ]] && { echo "requires a module name."; return 1; }
+
+    cmd="python3 -c '
+import importlib.util as ut
+print(0 if ut.find_spec(\"$1\") else 1)
+'"
+    return $(eval "$cmd")
+}
+
+function _deb_installer() {
+    [[ -z "$@" ]] && { echo "requires a package name."; return 1; }
+
+    declare -a missing_pkgs
+    for pkg in "$@"; do
+        if ! $(dpkg -l $pkg | egrep -q '^ii'); then
+            missing_pkgs+=($pkg)
+        fi
+    done
+
+    if [ ${#missing_pkgs[@]} -gt 0 ]; then
+        echo -n "$(tput setaf 3)${missing_pkgs[@]}$(tput sgr0) are required. "
+        read -p "Do you want to procees? [N/y] " answer
+        case "$answer" in
+            [yY])
+                sudo apt install "${missing_pkgs[@]}" -y
+                ;;
+            *)
+                echo "No action taken. Exiting."; return 1
+                ;;
+        esac
     fi
+}
+
+function _activate_venv() {
+    local VENV="$ANDROID_HOST_OUT/.atest_venv"
+    [[ ! -d "$VENV" ]] && python3 -m venv "$VENV"
+    source "$VENV/bin/activate" || {
+        echo unable to activate venv.
+        deactivate
+        return 1
+    }
+}
+
+function _atest_profile_cli() {
+    echo "_atest_profile_cli is deprecated. Use _atest_pyinstrument instead."
+    return 1
+}
+
+function _atest_pyinstrument() {
+    local T="$ANDROID_BUILD_TOP"
+    profile="$HOME/.atest/$(date +'%FT%H-%M-%S').pyisession"
+
+    _pip_install || return 1
+    m atest && python3 $T/tools/asuite/atest/profiler.py pyinstrument $profile\
+        $ANDROID_SOONG_HOST_OUT/bin/atest-dev --no-metrics "$@"
+    if [ "$?" -eq 0 ]; then
+        pyinstrument -t --load $profile || deactivate
+    fi
+    deactivate
+}
+
+function _atest_profile_web() {
+    echo _atest_profile_web is deprecated. Use _atest_cprofile_snakeviz instead.
+    return 1
+}
+
+function _atest_cprofile_snakeviz() {
+    local T="$ANDROID_BUILD_TOP"
+    profile="$HOME/.atest/$(date +'%F_%H-%M-%S').pstats"
+
+    _pip_install || return 1
+    m atest && python3 $T/tools/asuite/atest/profiler.py cProfile $profile \
+        $ANDROID_SOONG_HOST_OUT/bin/atest-dev --no-metrics "$@"
+    if [ "$?" -eq 0 ]; then
+        echo "$(tput bold)Use Ctrl-C to stop.$(tput sgr0)"
+        snakeviz $profile >/dev/null || deactivate
+    fi
+    deactivate
 }
 
 # The main tab completion function.
@@ -98,13 +185,15 @@ function _atest_main() {
     # adapts both conditions.
     [[ ! $- =~ 'i' ]] && return 0
 
-    local T="$(gettop)"
-
     # Complete file/dir name first by using option "nosort".
     # BASH version <= 4.3 doesn't have nosort option.
     # Note that nosort has no effect for zsh.
     local _atest_comp_options="-o default -o nosort"
-    local _atest_executables=(atest atest-dev atest-py3)
+    local _atest_executables=(atest
+                              atest-dev
+                              atest-py3
+                              _atest_pyinstrument
+                              _atest_cprofile_snakeviz)
     for exec in "${_atest_executables[*]}"; do
         complete -F _atest $_atest_comp_options $exec 2>/dev/null || \
         complete -F _atest -o default $exec
@@ -124,39 +213,6 @@ function _atest_main() {
         fi
         PREBUILT_TOOLS_DIR="$ANDROID_BUILD_TOP/prebuilts/build-tools/path/linux-x86"
         PATH=$PREBUILT_TOOLS_DIR:$PATH $atest_dev "$@"
-    }
-
-    # pyinstrument profiler
-    function _atest_profile_cli() {
-        local T="$(gettop)"
-        profile="$HOME/.atest/$(date +'%FT%H-%M-%S').pyisession"
-        _pip_install pyinstrument
-        if [ "$?" -eq 0 ]; then
-            m atest && \
-                python3 $T/tools/asuite/atest/profiler.py pyinstrument $profile $ANDROID_SOONG_HOST_OUT/bin/atest-dev "$@" && \
-                python3 -m pyinstrument -t --show-all --load $profile && \
-                echo "$(tput setaf 3)$profile$(tput sgr0) saved."
-        fi
-    }
-
-    # cProfile profiler + snakeviz visualization
-    function _atest_profile_web() {
-        local T="$(gettop)"
-        profile="$HOME/.atest/$(date +'%F_%H-%M-%S').pstats"
-        m atest && \
-            python3 $T/tools/asuite/atest/profiler.py cProfile $profile $ANDROID_SOONG_HOST_OUT/bin/atest-dev "$@" && \
-            echo "$profile saved." || return 1
-
-        _pip_install snakeviz
-        if [ "$?" -eq 0 ]; then
-            run_cmd="snakeviz -H $HOSTNAME $profile >/dev/null 2>&1"
-            echo "$(tput bold)Use Ctrl-C to stop.$(tput sgr0)"
-            eval $run_cmd
-            echo
-            echo "To permanently start a web server, please run:"
-            echo $(tput setaf 3)"nohup $run_cmd &"$(tput sgr0)
-            echo "and share $(tput setaf 3)http://$HOSTNAME:8080/snakeviz/$profile$(tput sgr0)."
-        fi
     }
 }
 

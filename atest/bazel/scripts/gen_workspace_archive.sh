@@ -70,7 +70,7 @@ fi
 #  - Bazel test suite needed by BazelTest
 #  - EXTRA_TARGETS requested on the commandline (used by git_master.gcl)
 targets="atest dist empty-bazel-test-suite ${EXTRA_TARGETS:-}"
-build/soong/soong_ui.bash --make-mode $targets
+build/soong/soong_ui.bash --make-mode WRAPPER_TOOL=atest $targets
 
 # TODO(b/277656887): Fix the underlying atest issue that causes the workspace to not be
 # regenerated.

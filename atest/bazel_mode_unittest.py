@@ -86,6 +86,13 @@ class GenerationTestFixture(fake_filesystem_unittest.TestCase):
         self.resource_manager.get_resource_file_path('WORKSPACE').touch()
         self.resource_manager.get_resource_file_path('bazelrc').touch()
 
+        rules_python = self.resource_manager.get_src_file_path(
+            'build/bazel_common_rules/rules/python/stubs')
+        rules_python.mkdir(parents=True)
+        rules_java = self.resource_manager.get_src_file_path(
+            'external/bazelbuild-rules_java')
+        rules_java.mkdir(parents=True)
+
     def create_workspace_generator(
         self,
         modules=None,
@@ -1457,11 +1464,7 @@ class DataDependenciesGenerationTest(GenerationTestFixture):
 
 
 def create_empty_module_info():
-    with fake_filesystem_unittest.Patcher() as patcher:
-        # pylint: disable=protected-access
-        fake_temp_file_name = next(tempfile._get_candidate_names())
-        patcher.fs.create_file(fake_temp_file_name, contents='{}')
-        return module_info.load_from_file(module_file=fake_temp_file_name)
+    return module_info.load_from_dict({})
 
 
 def create_module_info(modules=None):
@@ -1952,7 +1955,7 @@ class DecorateFinderMethodTest(GenerationTestFixture):
             example_finder.ExampleFinder(mod_info),
             find_method, 'FINDER_NAME')
 
-class BazelTestRunnerTest(unittest.TestCase):
+class BazelTestRunnerTest(fake_filesystem_unittest.TestCase):
     """Tests for BazelTestRunner."""
 
     def test_return_empty_build_reqs_when_no_test_infos(self):
@@ -2195,6 +2198,45 @@ class BazelTestRunnerTest(unittest.TestCase):
             '--build_metadata=ab_target=aosp_cf_x86_64_phone-userdebug'
         ], cmd[0])
 
+    def test_not_zip_test_output_files_when_bes_publish_not_enabled(self):
+        test_infos = [test_info_of('test1')]
+        extra_args = {}
+        runner = self.create_bazel_test_runner_for_tests(test_infos)
+
+        cmd = runner.generate_run_commands(
+            test_infos,
+            extra_args,
+        )
+
+        self.assertTokensIn([
+            '--nozip_undeclared_test_outputs',
+        ], cmd[0])
+
+    def test_zip_test_output_files_when_bes_publish_enabled(self):
+        test_infos = [test_info_of('test1')]
+        extra_args = {
+            constants.BAZEL_MODE_FEATURES: [
+                bazel_mode.Features.EXPERIMENTAL_BES_PUBLISH
+            ]
+        }
+        build_metadata = bazel_mode.BuildMetadata(
+            'master', 'aosp_cf_x86_64_phone-userdebug')
+        env = {
+            'ATEST_BAZELRC': '/dir/atest.bazelrc',
+            'ATEST_BAZEL_BES_PUBLISH_CONFIG': 'bes_publish'
+        }
+        runner = self.create_bazel_test_runner_for_tests(
+            test_infos, build_metadata=build_metadata, env=env)
+
+        cmd = runner.generate_run_commands(
+            test_infos,
+            extra_args,
+        )
+
+        self.assertTokensNotIn([
+            '--nozip_undeclared_test_outputs',
+        ], cmd[0])
+
     def test_generate_run_command_with_remote_enabled(self):
         test_infos = [test_info_of('test1')]
         extra_args = {
@@ -2293,6 +2335,65 @@ class BazelTestRunnerTest(unittest.TestCase):
 
         self.assertTokensNotIn(['--cache_test_resultsfoo'], cmd[0])
 
+    def test_retrieve_test_output_info_for_host_test(self):
+        test_infos = [test_info_of('test1')]
+        runner = self.create_bazel_test_runner_for_tests(test_infos)
+
+        output_file_path, package_name, target_suffix = \
+            runner.retrieve_test_output_info(test_infos[0])
+
+        self.assertEqual(
+            f'/src/workspace/{bazel_mode.BAZEL_TEST_LOGS_DIR_NAME}'
+            f'/path/test1_host/{bazel_mode.TEST_OUTPUT_DIR_NAME}',
+            str(output_file_path))
+        self.assertEqual('path', package_name)
+        self.assertEqual('host', target_suffix)
+
+    def test_retrieve_test_output_info_for_device_driven_test(self):
+        runner = self.create_bazel_test_runner(
+            modules=[
+                multi_config(device_test_module(name='test1', path='path1')),
+            ],
+        )
+
+        output_file_path, package_name, target_suffix = \
+            runner.retrieve_test_output_info(test_info_of('test1'))
+
+        self.assertEqual(
+            f'/src/workspace/{bazel_mode.BAZEL_TEST_LOGS_DIR_NAME}'
+            f'/path1/test1_device/{bazel_mode.TEST_OUTPUT_DIR_NAME}',
+            str(output_file_path))
+        self.assertEqual('path1', package_name)
+        self.assertEqual('device', target_suffix)
+
+    def test_result_dir_symlink_to_test_output_dir(self):
+        self.setUpPyfakefs()
+        test_infos = [test_info_of('test1')]
+        runner = self.create_bazel_test_runner_for_tests(test_infos)
+
+        runner.organize_test_logs(test_infos)
+
+        self.assertSymlinkTo(
+            Path('result_dir/log/path/test1_host'),
+            Path(f'/src/workspace/{bazel_mode.BAZEL_TEST_LOGS_DIR_NAME}'
+                 f'/path/test1_host/{bazel_mode.TEST_OUTPUT_DIR_NAME}')
+        )
+
+    def test_not_create_result_log_dir_when_test_output_zip_exist(self):
+        self.setUpPyfakefs()
+        test_infos = [test_info_of('test1')]
+        runner = self.create_bazel_test_runner_for_tests(test_infos)
+        test_output_zip = Path(
+            f'/src/workspace/{bazel_mode.BAZEL_TEST_LOGS_DIR_NAME}'
+            f'/path/test1_host/{bazel_mode.TEST_OUTPUT_DIR_NAME}'
+            f'/{bazel_mode.TEST_OUTPUT_ZIP_NAME}'
+        )
+        self.fs.create_file(test_output_zip, contents='')
+
+        runner.organize_test_logs(test_infos)
+
+        self.assertFalse(Path('result_dir/log/').exists())
+
     def create_bazel_test_runner(self,
                                  modules,
                                  run_command=None,
@@ -2339,6 +2440,9 @@ class BazelTestRunnerTest(unittest.TestCase):
         tokens = shlex.split(s)
         for token in unexpected_tokens:
             self.assertNotIn(token, tokens)
+
+    def assertSymlinkTo(self, symlink_path, target_path):
+        self.assertEqual(symlink_path.resolve(strict=False), target_path)
 
 
 class FeatureParserTest(unittest.TestCase):

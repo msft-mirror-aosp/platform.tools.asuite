@@ -471,14 +471,16 @@ class AtestTradefedTestRunner(trb.TestRunnerBase):
         if debug_port:
             env_vars['TF_DEBUG'] = 'true'
             env_vars['TF_DEBUG_PORT'] = str(debug_port)
+
         filtered_paths = []
-        for path in str(env_vars['PYTHONPATH']).split(':'):
+        for path in str(env_vars.get('PYTHONPATH', '')).split(':'):
             # TODO (b/166216843) Remove the hacky PYTHON path workaround.
             if (str(path).startswith('/tmp/Soong.python_') and
                     str(path).find('googleapiclient') > 0):
                 continue
             filtered_paths.append(path)
-        env_vars['PYTHONPATH'] = ':'.join(filtered_paths)
+        if filtered_paths:
+            env_vars['PYTHONPATH'] = ':'.join(filtered_paths)
 
         # Use prebuilt aapt if there's no aapt under android system path which
         # is aligned with build system.
@@ -772,9 +774,6 @@ class AtestTradefedTestRunner(trb.TestRunnerBase):
         log_level = 'VERBOSE'
         test_args.extend(['--log-level-display', log_level])
         test_args.extend(['--log-level', log_level])
-
-        # TODO(b/275110259) Remove this once TF not going to get bugreport.
-        test_args.extend(['--skip-all-system-status-check=true'])
 
         # Set no-early-device-release by default to speed up TF teardown time.
         if not constants.TF_EARLY_DEVICE_RELEASE in extra_args:
@@ -1329,6 +1328,9 @@ def extra_args_to_tf_args(
                 '--test-arg',
                 'com.android.tradefed.testtype.GTest:'
                 f'native-test-timeout:{arg_value}',
+                '--test-arg',
+                'com.android.compatibility.testtype.LibcoreTest:'
+                f'test-timeout:{arg_value}',
             ],
         constants.COVERAGE: coverage.tf_args,
     })

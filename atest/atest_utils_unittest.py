@@ -130,6 +130,77 @@ class ConcatenatePathTest(unittest.TestCase):
 
         self.assertEqual(expected_path, return_path)
 
+
+class GetBuildOutDirTests(unittest.TestCase):
+    """Test get_build_out_dir() for various conditions."""
+
+    def setUp(self) -> None:
+        self.abs_OUT_DIR = '/somewhere/out'
+        self.rel_OUT_DIR = 'somewhere/out'
+        self.abs_OUT_DIR_COMMON_BASE = '/somewhere/common_out'
+        self.rel_OUT_DIR_COMMON_BASE = 'somewhere/common_out'
+
+    def test_get_build_abs_out_dir(self):
+        """Test when OUT_DIR is an absolute path."""
+        with mock.patch.dict(
+            'os.environ', {constants.ANDROID_BUILD_TOP: '/src/build/top',
+                           'OUT_DIR': self.abs_OUT_DIR}):
+            expected_out_dir = Path(self.abs_OUT_DIR)
+
+            returned_out_dir = atest_utils.get_build_out_dir()
+
+            self.assertEqual(expected_out_dir, returned_out_dir)
+
+    def test_get_build_rel_out_dir(self):
+        """Test when OUT_DIR is a relative path."""
+        with mock.patch.dict(
+            'os.environ', {constants.ANDROID_BUILD_TOP: '/src/build/top',
+                           'OUT_DIR': self.rel_OUT_DIR}):
+            expected_out_dir = atest_utils.get_build_top(self.rel_OUT_DIR)
+
+            returned_out_dir = atest_utils.get_build_out_dir()
+
+            self.assertEqual(expected_out_dir, returned_out_dir)
+
+    def test_get_build_abs_out_dir_common_base(self):
+        """Test whe OUT_DIR_COMMON_BASE is an absolute path."""
+        build_top_path = '/src/build/top'
+        branch_name = Path(build_top_path).name
+        with mock.patch.dict(
+            'os.environ', {constants.ANDROID_BUILD_TOP: build_top_path,
+                           'OUT_DIR_COMMON_BASE': self.abs_OUT_DIR_COMMON_BASE}):
+            expected_out_dir = Path(self.abs_OUT_DIR_COMMON_BASE,
+                                    branch_name)
+
+            returned_out_dir = atest_utils.get_build_out_dir()
+
+            self.assertEqual(expected_out_dir, returned_out_dir)
+
+    def test_get_build_rel_out_dir_common_base(self):
+        """Test whe OUT_DIR_COMMON_BASE is a relative path."""
+        build_top_path = '/src/build/top'
+        branch_name = Path(build_top_path).name
+        with mock.patch.dict(
+            'os.environ', {constants.ANDROID_BUILD_TOP: build_top_path,
+                           'OUT_DIR_COMMON_BASE': self.rel_OUT_DIR_COMMON_BASE}):
+            expected_out_dir = Path(build_top_path,
+                                    self.rel_OUT_DIR_COMMON_BASE,
+                                    branch_name)
+
+            returned_out_dir = atest_utils.get_build_out_dir()
+
+            self.assertEqual(expected_out_dir, returned_out_dir)
+
+    def test_get_build_out_dir(self):
+        """Test when OUT_DIR and OUT_DIR_COMMON_BASE are null."""
+        with mock.patch.dict(
+            'os.environ', {constants.ANDROID_BUILD_TOP: '/src/build/top'}):
+            expected_out_dir = atest_utils.get_build_top('out')
+
+            returned_out_dir = atest_utils.get_build_out_dir()
+
+            self.assertEqual(expected_out_dir, returned_out_dir)
+
 # pylint: disable=protected-access
 # pylint: disable=too-many-public-methods
 class AtestUtilsUnittests(unittest.TestCase):
@@ -399,18 +470,6 @@ class AtestUtilsUnittests(unittest.TestCase):
         unittest_utils.assert_equal_testinfo_sets(
             self, set([TEST_INFO_A]),
             atest_utils.load_test_info_cache(test_reference, test_cache_dir))
-
-    @mock.patch('os.getcwd')
-    def test_get_build_cmd(self, mock_cwd):
-        """Test method get_build_cmd."""
-        build_top = '/home/a/b/c'
-        rel_path = 'd/e'
-        mock_cwd.return_value = os.path.join(build_top, rel_path)
-        # TODO: (b/264015241) Stop mocking build variables.
-        os_environ_mock = {constants.ANDROID_BUILD_TOP: build_top}
-        with mock.patch.dict('os.environ', os_environ_mock, clear=True):
-            expected_cmd = ['../../build/soong/soong_ui.bash', '--make-mode']
-            self.assertEqual(expected_cmd, atest_utils.get_build_cmd())
 
     @mock.patch('subprocess.check_output')
     def test_get_modified_files(self, mock_co):

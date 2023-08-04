@@ -13,16 +13,17 @@
 # limitations under the License.
 
 """Unittests for mobly_test_runner."""
-
 # pylint: disable=protected-access
 # pylint: disable=invalid-name
 
+import argparse
 import os
 import pathlib
 import unittest
 from unittest import mock
 
 from atest import constants
+from atest import result_reporter
 from atest import unittest_constants
 from atest.test_finders import test_info
 from atest.test_runners import mobly_test_runner
@@ -52,6 +53,8 @@ class MoblyTestRunnerUnittests(unittest.TestCase):
             test_runner=mobly_test_runner.MoblyTestRunner.EXECUTABLE,
             build_targets=[],
         )
+        self.reporter = result_reporter.ResultReporter()
+        self.mobly_args = argparse.Namespace(testparam=[])
 
     @mock.patch.object(pathlib.Path, 'is_file')
     def test_get_test_files_all_files_present(self, is_file) -> None:
@@ -96,7 +99,7 @@ class MoblyTestRunnerUnittests(unittest.TestCase):
     @mock.patch('json.dump')
     def test_generate_mobly_config_no_serials(self, json_dump, _) -> None:
         """Tests _generate_mobly_config with no serials provided."""
-        self.runner._generate_mobly_config(None)
+        self.runner._generate_mobly_config(self.mobly_args, None)
 
         expected_config = {
             'TestBeds': [{
@@ -115,7 +118,8 @@ class MoblyTestRunnerUnittests(unittest.TestCase):
     @mock.patch('json.dump')
     def test_generate_mobly_config_with_serials(self, json_dump, _) -> None:
         """Tests _generate_mobly_config with serials provided."""
-        self.runner._generate_mobly_config([SERIAL_1, SERIAL_2])
+        self.runner._generate_mobly_config(
+            self.mobly_args, [SERIAL_1, SERIAL_2])
 
         expected_config = {
             'TestBeds': [{
@@ -129,6 +133,36 @@ class MoblyTestRunnerUnittests(unittest.TestCase):
             },
         }
         self.assertEqual(json_dump.call_args.args[0], expected_config)
+
+    @mock.patch('builtins.open')
+    @mock.patch('json.dump')
+    def test_generate_mobly_config_with_testparams(self, json_dump, _) -> None:
+        """Tests _generate_mobly_config with custom testparams."""
+        self.mobly_args.testparam = ['foo=bar']
+        self.runner._generate_mobly_config(self.mobly_args, None)
+
+        expected_config = {
+            'TestBeds': [{
+                'Name': 'LocalTestBed',
+                'Controllers': {
+                    'AndroidDevice': '*',
+                },
+                'TestParams': {
+                    'foo': 'bar',
+                }
+            }],
+            'MoblyParams': {
+                'LogPath': 'atest_results/sample_test/mobly_logs',
+            },
+        }
+        self.assertEqual(json_dump.call_args.args[0], expected_config)
+
+    def test_generate_mobly_config_with_invalid_testparams(self) -> None:
+        """Tests _generate_mobly_config with invalid testparams."""
+        self.mobly_args.testparam = ['foobar']
+        with self.assertRaisesRegex(mobly_test_runner.MoblyTestRunnerError,
+                                    'Invalid testparam values'):
+            self.runner._generate_mobly_config(self.mobly_args, None)
 
     @mock.patch('atest.atest_utils.get_adb_devices', return_value=[ADB_DEVICE])
     @mock.patch('subprocess.check_call')
@@ -155,10 +189,52 @@ class MoblyTestRunnerUnittests(unittest.TestCase):
         self.assertEqual(
             [call.args[0] for call in check_call.call_args_list], expected_cmds)
 
+    @mock.patch.object(
+        mobly_test_runner.MoblyTestRunner, '_get_test_results_from_summary',
+        return_value=())
+    def test_run_and_handle_results_with_iterations(self, _) -> None:
+        """Tests _run_and_handle_results with multiple iterations."""
+        with mock.patch.object(
+                mobly_test_runner.MoblyTestRunner, '_run_mobly_command',
+                side_effect=(1, 1, 0, 0, 1)) as run_mobly_command:
+            runner = mobly_test_runner.MoblyTestRunner(RESULTS_DIR)
+            runner._run_and_handle_results(
+                [], self.tinfo, self.reporter,
+                mobly_test_runner.RerunOptions(5, False, False))
+            self.assertEqual(run_mobly_command.call_count, 5)
+
+    @mock.patch.object(
+        mobly_test_runner.MoblyTestRunner, '_get_test_results_from_summary',
+        return_value=())
+    def test_run_and_handle_results_with_rerun_until_failure(self, _) -> None:
+        """Tests _run_and_handle_results with rerun_until_failure."""
+        with mock.patch.object(
+                mobly_test_runner.MoblyTestRunner, '_run_mobly_command',
+                side_effect=(0, 0, 1, 0, 1)) as run_mobly_command:
+            runner = mobly_test_runner.MoblyTestRunner(RESULTS_DIR)
+            runner._run_and_handle_results(
+                [], self.tinfo, self.reporter,
+                mobly_test_runner.RerunOptions(5, True, False))
+            self.assertEqual(run_mobly_command.call_count, 3)
+
+    @mock.patch.object(
+        mobly_test_runner.MoblyTestRunner, '_get_test_results_from_summary',
+        return_value=())
+    def test_run_and_handle_results_with_retry_any_failure(self, _) -> None:
+        """Tests _run_and_handle_results with retry_any_failure."""
+        with mock.patch.object(
+                mobly_test_runner.MoblyTestRunner, '_run_mobly_command',
+                side_effect=(1, 1, 1, 0, 0)) as run_mobly_command:
+            runner = mobly_test_runner.MoblyTestRunner(RESULTS_DIR)
+            runner._run_and_handle_results(
+                [], self.tinfo, self.reporter,
+                mobly_test_runner.RerunOptions(5, False, True))
+            self.assertEqual(run_mobly_command.call_count, 4)
+
     def test_get_test_results_from_summary_show_correct_names(self) -> None:
         """Tests _get_results_from_summary outputs correct test names."""
         test_results = self.runner._get_test_results_from_summary(
-            MOBLY_SUMMARY_FILE, self.tinfo)
+            MOBLY_SUMMARY_FILE, self.tinfo, 0, 1)
 
         result = test_results[0]
         self.assertEqual(result.runner_name, self.runner.NAME)
@@ -166,13 +242,19 @@ class MoblyTestRunnerUnittests(unittest.TestCase):
         self.assertEqual(result.test_run_name, 'SampleTest')
         self.assertEqual(result.test_name, 'SampleTest.test_should_pass')
 
+        test_results = self.runner._get_test_results_from_summary(
+            MOBLY_SUMMARY_FILE, self.tinfo, 2, 3)
+
+        result = test_results[0]
+        self.assertEqual(result.test_name, 'SampleTest.test_should_pass (#3)')
+
     def test_get_test_results_from_summary_show_correct_status_and_details(
             self) -> None:
         """
         Tests _get_results_from_summary outputs correct test status and details.
         """
         test_results = self.runner._get_test_results_from_summary(
-            MOBLY_SUMMARY_FILE, self.tinfo)
+            MOBLY_SUMMARY_FILE, self.tinfo, 0, 1)
 
         # passed case
         self.assertEqual(
@@ -194,7 +276,7 @@ class MoblyTestRunnerUnittests(unittest.TestCase):
     def test_get_test_results_from_summary_show_correct_stats(self) -> None:
         """Tests _get_results_from_summary outputs correct stats."""
         test_results = self.runner._get_test_results_from_summary(
-            MOBLY_SUMMARY_FILE, self.tinfo)
+            MOBLY_SUMMARY_FILE, self.tinfo, 0, 1)
 
         self.assertEqual(test_results[0].test_count, 1)
         self.assertEqual(test_results[0].group_total, 4)

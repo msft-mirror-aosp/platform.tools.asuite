@@ -45,7 +45,7 @@ from collections import defaultdict, deque, OrderedDict
 from collections.abc import Iterable
 from pathlib import Path
 from types import MappingProxyType
-from typing import Any, Callable, Dict, IO, List, Set
+from typing import Any, Callable, Dict, IO, List, Set, Tuple
 from xml.etree import ElementTree as ET
 
 from google.protobuf.message import DecodeError
@@ -67,6 +67,10 @@ from atest.test_runners import atest_tf_test_runner as tfr
 JDK_PACKAGE_NAME = 'prebuilts/robolectric_jdk'
 JDK_NAME = 'jdk'
 ROBOLECTRIC_CONFIG = 'build/make/core/robolectric_test_config_template.xml'
+
+BAZEL_TEST_LOGS_DIR_NAME = 'bazel-testlogs'
+TEST_OUTPUT_DIR_NAME = 'test.outputs'
+TEST_OUTPUT_ZIP_NAME = 'outputs.zip'
 
 _BAZEL_WORKSPACE_DIR = 'atest_bazel_workspace'
 _SUPPORTED_BAZEL_ARGS = MappingProxyType({
@@ -152,7 +156,7 @@ def add_parser_arguments(parser: argparse.ArgumentParser, dest: str):
 
 
 def get_bazel_workspace_dir() -> Path:
-    return Path(atest_utils.get_build_out_dir()).joinpath(_BAZEL_WORKSPACE_DIR)
+    return atest_utils.get_build_out_dir(_BAZEL_WORKSPACE_DIR)
 
 
 def generate_bazel_workspace(mod_info: module_info.ModuleInfo,
@@ -177,7 +181,7 @@ def generate_bazel_workspace(mod_info: module_info.ModuleInfo,
         resource_manager=resource_manager,
         workspace_out_path=workspace_path,
         host_out_path=Path(os.environ.get(constants.ANDROID_HOST_OUT)),
-        build_out_dir=Path(atest_utils.get_build_out_dir()),
+        build_out_dir=atest_utils.get_build_out_dir(),
         mod_info=mod_info,
         jdk_path=jdk_path,
         enabled_features=enabled_features,
@@ -612,6 +616,10 @@ class WorkspaceGenerator:
             self._symlink(src=device_infra_path,
                           target=device_infra_path)
 
+        self._link_required_src_file_path(
+            'build/bazel_common_rules/rules/python/stubs')
+        self._link_required_src_file_path('external/bazelbuild-rules_java')
+
         self._create_constants_file()
 
         self._generate_robolectric_resources()
@@ -723,6 +731,13 @@ class WorkspaceGenerator:
                     '%s = "%s"' %
                     (variable_name(target.name()), target.qualified_name())
                 )
+
+    def _link_required_src_file_path(self, path):
+        if not self.resource_manager.get_src_file_path(path).exists():
+            raise RuntimeError(
+                f'Path `{path}` does not exist in source tree.')
+
+        self._symlink(src=path, target=path)
 
 
 def _get_resource_root():
@@ -1659,7 +1674,28 @@ class BazelTestRunner(trb.TestRunnerBase):
         for run_cmd in run_cmds:
             subproc = self.run(run_cmd, output_to_stdout=True)
             ret_code |= self.wait_for_subprocess(subproc)
+
+        self.organize_test_logs(test_infos)
+
         return ret_code
+
+    def organize_test_logs(self, test_infos: List[test_info.TestInfo]):
+        for t_info in test_infos:
+            test_output_dir, package_name, target_suffix = \
+                self.retrieve_test_output_info(t_info)
+            if test_output_dir.joinpath(TEST_OUTPUT_ZIP_NAME).exists():
+                # TEST_OUTPUT_ZIP file exist when BES uploading is enabled.
+                # Showing the BES link to users instead of the local log.
+                continue
+
+            # AtestExecutionInfo will find all log files in 'results_dir/log'
+            # directory and generate an HTML file to display to users when
+            # 'results_dir/log' directory exist.
+            log_path = Path(self.results_dir).joinpath(
+                'log', f'{package_name}',
+                f'{t_info.test_name}_{target_suffix}')
+            log_path.parent.mkdir(parents=True, exist_ok=True)
+            log_path.symlink_to(test_output_dir)
 
     def _get_feature_config_or_warn(self, feature, env_var_name):
         feature_config = self.env.get(env_var_name)
@@ -1672,7 +1708,7 @@ class BazelTestRunner(trb.TestRunnerBase):
             )
         return feature_config
 
-    def _get_bes_publish_args(self, feature):
+    def _get_bes_publish_args(self, feature: Features) -> List[str]:
         bes_publish_config = self._get_feature_config_or_warn(
             feature, 'ATEST_BAZEL_BES_PUBLISH_CONFIG')
 
@@ -1768,16 +1804,53 @@ class BazelTestRunner(trb.TestRunnerBase):
         module_name = test.test_name
         info = self.mod_info.get_module_info(module_name)
         package_name = info.get(constants.MODULE_PATH)[0]
-        target_suffix = 'host'
-
-        if not self._extra_args.get(
-                constants.HOST,
-                False) and self.mod_info.is_device_driven_test(info):
-            target_suffix = 'device'
+        target_suffix = self.get_target_suffix(info)
 
         return f'//{package_name}:{module_name}_{target_suffix}'
 
-    def _get_bazel_feature_args(self, feature, extra_args, generator):
+    def retrieve_test_output_info(
+            self,
+            test_info: test_info.TestInfo
+    ) -> Tuple[Path, str, str]:
+        """Return test output information.
+
+        Args:
+            test_info (test_info.TestInfo): Information about the test.
+
+        Returns:
+            Tuple[Path, str, str]: A tuple containing the following elements:
+                - test_output_dir (Path): Absolute path of the test output
+                    folder.
+                - package_name (str): Name of the package.
+                - target_suffix (str): Target suffix.
+
+        """
+        module_name = test_info.test_name
+        info = self.mod_info.get_module_info(module_name)
+        package_name = info.get(constants.MODULE_PATH)[0]
+        target_suffix = self.get_target_suffix(info)
+
+        test_output_dir = Path(self.bazel_workspace,
+                               BAZEL_TEST_LOGS_DIR_NAME,
+                               package_name,
+                               f'{module_name}_{target_suffix}',
+                               TEST_OUTPUT_DIR_NAME)
+
+        return test_output_dir, package_name, target_suffix
+
+    def get_target_suffix(self, info: Dict[str, Any]) -> str:
+        """Return 'host' or 'device' accordingly to the variant of the test."""
+        if not self._extra_args.get(constants.HOST, False) \
+                and self.mod_info.is_device_driven_test(info):
+            return 'device'
+        return 'host'
+
+    @staticmethod
+    def _get_bazel_feature_args(
+            feature: Features,
+            extra_args: Dict[str, Any],
+            generator: Callable
+    ) -> List[str]:
         if feature not in extra_args.get('BAZEL_MODE_FEATURES', []):
             return []
         return generator(feature)
@@ -1805,11 +1878,16 @@ class BazelTestRunner(trb.TestRunnerBase):
 
         bazel_args = parse_args(test_infos, extra_args, self.mod_info)
 
+        # If BES is not enabled, use the option of
+        # '--nozip_undeclared_test_outputs' to not compress the test outputs.
+        # And the URL of test outputs will be printed in terminal.
         bazel_args.extend(
             self._get_bazel_feature_args(
                 Features.EXPERIMENTAL_BES_PUBLISH,
                 extra_args,
-                self._get_bes_publish_args))
+                self._get_bes_publish_args
+            ) or ['--nozip_undeclared_test_outputs']
+        )
         bazel_args.extend(
             self._get_bazel_feature_args(
                 Features.EXPERIMENTAL_REMOTE,
