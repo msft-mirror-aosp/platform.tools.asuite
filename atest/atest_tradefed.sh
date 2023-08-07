@@ -81,6 +81,12 @@ if [ -n "${ATEST_HOST_JARS}" ]; then
     TF_PATH=${ATEST_HOST_JARS}
 fi
 
+# Customize TF related settings for ATest local run to align with test runs on
+# CI.
+extra_settings="
+  --test-arg com.android.tradefed.testtype.python.PythonBinaryHostTest:python-options:-vv"
+
+
 # Note: must leave $RDBG_FLAG and $TRADEFED_OPTS unquoted so that they go away when unset
 LOCAL_MODE=1 START_FEATURE_SERVER=1 ${TF_JAVA} $RDBG_FLAG \
     -XX:+HeapDumpOnOutOfMemoryError \
@@ -88,4 +94,4 @@ LOCAL_MODE=1 START_FEATURE_SERVER=1 ${TF_JAVA} $RDBG_FLAG \
     $TRADEFED_OPTS \
     -cp "${TF_PATH}" \
     -DTF_JAR_DIR=${TF_JAR_DIR} ${java_tmp_dir_opt} \
-    com.android.tradefed.command.CommandRunner "$@"
+    com.android.tradefed.command.CommandRunner "$@" $extra_settings
