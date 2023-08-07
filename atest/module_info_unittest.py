@@ -120,7 +120,8 @@ class ModuleInfoUnittests(unittest.TestCase):
         build_top = '/path/to/top'
         default_out_dir = os.path.join(build_top, 'out/dir/here')
         os_environ_mock = {'ANDROID_PRODUCT_OUT': default_out_dir,
-                           constants.ANDROID_BUILD_TOP: build_top}
+                           constants.ANDROID_BUILD_TOP: build_top,
+                           'ANDROID_HOST_OUT': HOST_OUT_DIR}
         default_out_dir_mod_targ = 'out/dir/here/module-info.json'
         # Make sure module_info_target is what we think it is.
         with mock.patch.dict('os.environ', os_environ_mock, clear=True):
@@ -131,7 +132,8 @@ class ModuleInfoUnittests(unittest.TestCase):
         # Test out custom out dir is used (OUT_DIR=dir2).
         custom_out_dir = os.path.join(build_top, 'out2/dir/here')
         os_environ_mock = {'ANDROID_PRODUCT_OUT': custom_out_dir,
-                           constants.ANDROID_BUILD_TOP: build_top}
+                           constants.ANDROID_BUILD_TOP: build_top,
+                           'ANDROID_HOST_OUT': HOST_OUT_DIR}
         custom_out_dir_mod_targ = 'out2/dir/here/module-info.json'
         # Make sure module_info_target is what we think it is.
         with mock.patch.dict('os.environ', os_environ_mock, clear=True):
@@ -142,7 +144,8 @@ class ModuleInfoUnittests(unittest.TestCase):
         # Test out custom abs out dir is used (OUT_DIR=/tmp/out/dir2).
         abs_custom_out_dir = '/tmp/out/dir'
         os_environ_mock = {'ANDROID_PRODUCT_OUT': abs_custom_out_dir,
-                           constants.ANDROID_BUILD_TOP: build_top}
+                           constants.ANDROID_BUILD_TOP: build_top,
+                           'ANDROID_HOST_OUT': HOST_OUT_DIR}
         custom_abs_out_dir_mod_targ = '/tmp/out/dir/module-info.json'
         # Make sure module_info_target is what we think it is.
         with mock.patch.dict('os.environ', os_environ_mock, clear=True):
