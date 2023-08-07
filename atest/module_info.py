@@ -147,7 +147,7 @@ class Loader:
         self.name_to_module_info, self.path_to_module_info = self._load_module_info_file()
 
         # Index and checksum files that will be used.
-        index_dir = Path(os.getenv(constants.ANDROID_HOST_OUT, '')).joinpath('indexes')
+        index_dir = Path(os.getenv(constants.ANDROID_HOST_OUT, '')).joinpath('indices')
         self.module_index = index_dir.joinpath(constants.MODULE_INDEX)
         self.module_index_proc = None
 
