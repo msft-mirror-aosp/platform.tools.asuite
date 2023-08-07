@@ -77,7 +77,7 @@ PRUNENAMES = ['.abc', '.appveyor', '.azure-pipelines',
 PRUNEPATHS = ['prebuilts']
 ACLOUD_REPORT_FILE_RE = re.compile(r'.*--report[_-]file(=|\s+)(?P<report_file>[\w/.]+)')
 
-def _delete_indexes():
+def _delete_indices():
     """Delete all available index files."""
     for index in INDEXES:
         if os.path.isfile(index):
@@ -120,7 +120,7 @@ def has_command(cmd):
 
 def run_updatedb(search_root=SEARCH_TOP, output_cache=constants.LOCATE_CACHE,
                  **kwargs):
-    """Run updatedb and generate cache in $ANDROID_HOST_OUT/indexes/plocate.db
+    """Run updatedb and generate cache in $ANDROID_HOST_OUT/indices/plocate.db
 
     Args:
         search_root: The path of the search root(-U).
@@ -155,7 +155,7 @@ def run_updatedb(search_root=SEARCH_TOP, output_cache=constants.LOCATE_CACHE,
         subprocess.run(updatedb_cmd, env=full_env_vars, check=True)
     except (KeyboardInterrupt, SystemExit):
         logging.error('Process interrupted or failure.')
-    # Delete indexes when plocate.db is locked() or other CalledProcessError.
+    # Delete indices when plocate.db is locked() or other CalledProcessError.
     # (b/141588997)
     except subprocess.CalledProcessError as err:
         logging.error('Executing %s error.', UPDATEDB)

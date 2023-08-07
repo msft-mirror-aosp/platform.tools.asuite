@@ -1660,9 +1660,9 @@ def save_build_files_timestamp():
     """ Method that generate timestamp of Android.{bp,mk} files.
 
     The checksum of build files are stores in
-        $ANDROID_HOST_OUT/indexes/buildfiles.stp
+        $ANDROID_HOST_OUT/indices/buildfiles.stp
     """
-    index_dir = get_host_out('indexes')
+    index_dir = get_host_out('indices')
     plocate_db = index_dir.joinpath(constants.LOCATE_CACHE)
 
     if plocate_db.is_file():
@@ -2009,7 +2009,7 @@ def get_rbe_and_customized_out_state() -> int:
 def build_files_integrity_is_ok() -> bool:
     """Return Whether the integrity of build files is OK."""
     # 0. Inexistence of the timestamp file means a fresh repo sync.
-    timestamp_file = get_host_out('indexes', constants.BUILDFILES_STP)
+    timestamp_file = get_host_out('indices', constants.BUILDFILES_STP)
     if not timestamp_file.is_file():
         return False
     # 1. Ensure no build files were added/deleted.
