@@ -1322,7 +1322,7 @@ def _is_testable_module(
     Returns:
         True if we can test this module, False otherwise.
     """
-    if not info:
+    if not info or not info.get(constants.MODULE_NAME):
         return False
     if ModuleInfo.is_tradefed_testable_module(info):
         return True
@@ -1341,9 +1341,7 @@ def _get_testable_modules(
     begin = time.time()
     for _, info in name_to_module_info.items():
         if _is_testable_module(name_to_module_info, path_to_module_info, info):
-            testable_module = info.get(constants.MODULE_NAME)
-            if testable_module:
-                modules.add(testable_module)
+            modules.add(info.get(constants.MODULE_NAME))
 
     logging.debug('Probing all testable modules took %ss',
                   time.time() - begin)
@@ -1353,9 +1351,7 @@ def _get_testable_modules(
         for module_name in modules:
             info = name_to_module_info.get(module_name)
             if ModuleInfo.is_suite_in_compatibility_suites(suite, info):
-                testable_module = info.get(constants.MODULE_NAME)
-                if testable_module:
-                    _modules.add(testable_module)
+                _modules.add(info.get(constants.MODULE_NAME))
         return _modules
     return modules
 
