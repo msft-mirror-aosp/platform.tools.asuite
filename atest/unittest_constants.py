@@ -329,7 +329,7 @@ FUZZY_MOD1 = 'Mod1'
 FUZZY_MOD2 = 'nod2'
 FUZZY_MOD3 = 'mod3mod3'
 
-INDEX_DIR = os.path.join('/tmp', 'indexes')
+INDEX_DIR = os.path.join('/tmp', 'indices')
 LOCATE_CACHE = os.path.join(INDEX_DIR, 'plocate.db')
 LOCATE_CACHE_MD5 = os.path.join(INDEX_DIR, 'plocate.md5')
 CLASS_INDEX = os.path.join(INDEX_DIR, 'classes.idx')
