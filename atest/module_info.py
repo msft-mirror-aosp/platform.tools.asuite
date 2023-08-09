@@ -367,18 +367,8 @@ class Loader:
         if self.module_index_proc:
             self.module_index_proc.join()
 
-        if self.module_index.is_file():
-            if not suite:
-                with open(self.module_index, 'rb') as cache:
-                    try:
-                        modules = pickle.load(cache, encoding="utf-8")
-                    except UnicodeDecodeError:
-                        modules = pickle.load(cache)
-                    # when module indexing was interrupted.
-                    except EOFError:
-                        pass
-            else:
-                modules = self._get_testable_modules(suite=suite)
+        if self.module_index.is_file() and not suite:
+            modules = self.get_testable_modules_from_index()
         # If the modules.idx does not exist or invalid for any reason, generate
         # a new one arbitrarily.
         if not modules:
@@ -390,6 +380,20 @@ class Loader:
         metrics.LocalDetectEvent(
             detect_type=DetectType.TESTABLE_MODULES,
             result=int(duration))
+        return modules
+
+    def get_testable_modules_from_index(self) -> Set[str]:
+        """Return the testable modules of the given suite name."""
+        modules = set()
+        with open(self.module_index, 'rb') as cache:
+            try:
+                return pickle.load(cache, encoding="utf-8")
+            except UnicodeDecodeError:
+                return pickle.load(cache)
+            # when module indexing was interrupted.
+            except EOFError:
+                pass
+
         return modules
 
     def _get_testable_modules(self, index=False, suite=None):
