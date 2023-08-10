@@ -147,8 +147,8 @@ class Loader:
         self.name_to_module_info, self.path_to_module_info = self._load_module_info_file()
 
         # Index and checksum files that will be used.
-        index_dir = Path(os.getenv(constants.ANDROID_HOST_OUT, '')).joinpath('indexes')
-        self.module_index = index_dir.joinpath(constants.MODULE_INDEX)
+        self.module_index = atest_utils.get_host_out('indices',
+                                                     constants.MODULE_INDEX)
         self.module_index_proc = None
 
         if self.update_merge_info or not self.module_index.is_file():
@@ -367,18 +367,8 @@ class Loader:
         if self.module_index_proc:
             self.module_index_proc.join()
 
-        if self.module_index.is_file():
-            if not suite:
-                with open(self.module_index, 'rb') as cache:
-                    try:
-                        modules = pickle.load(cache, encoding="utf-8")
-                    except UnicodeDecodeError:
-                        modules = pickle.load(cache)
-                    # when module indexing was interrupted.
-                    except EOFError:
-                        pass
-            else:
-                modules = self._get_testable_modules(suite=suite)
+        if self.module_index.is_file() and not suite:
+            modules = self.get_testable_modules_from_index()
         # If the modules.idx does not exist or invalid for any reason, generate
         # a new one arbitrarily.
         if not modules:
@@ -390,6 +380,20 @@ class Loader:
         metrics.LocalDetectEvent(
             detect_type=DetectType.TESTABLE_MODULES,
             result=int(duration))
+        return modules
+
+    def get_testable_modules_from_index(self) -> Set[str]:
+        """Return the testable modules of the given suite name."""
+        modules = set()
+        with open(self.module_index, 'rb') as cache:
+            try:
+                return pickle.load(cache, encoding="utf-8")
+            except UnicodeDecodeError:
+                return pickle.load(cache)
+            # when module indexing was interrupted.
+            except EOFError:
+                pass
+
         return modules
 
     def _get_testable_modules(self, index=False, suite=None):
@@ -1322,7 +1326,7 @@ def _is_testable_module(
     Returns:
         True if we can test this module, False otherwise.
     """
-    if not info:
+    if not info or not info.get(constants.MODULE_NAME):
         return False
     if ModuleInfo.is_tradefed_testable_module(info):
         return True
@@ -1341,9 +1345,7 @@ def _get_testable_modules(
     begin = time.time()
     for _, info in name_to_module_info.items():
         if _is_testable_module(name_to_module_info, path_to_module_info, info):
-            testable_module = info.get(constants.MODULE_NAME)
-            if testable_module:
-                modules.add(testable_module)
+            modules.add(info.get(constants.MODULE_NAME))
 
     logging.debug('Probing all testable modules took %ss',
                   time.time() - begin)
@@ -1353,9 +1355,7 @@ def _get_testable_modules(
         for module_name in modules:
             info = name_to_module_info.get(module_name)
             if ModuleInfo.is_suite_in_compatibility_suites(suite, info):
-                testable_module = info.get(constants.MODULE_NAME)
-                if testable_module:
-                    _modules.add(testable_module)
+                _modules.add(info.get(constants.MODULE_NAME))
         return _modules
     return modules
 
