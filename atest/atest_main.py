@@ -1271,7 +1271,8 @@ if __name__ == '__main__':
     with atest_execution_info.AtestExecutionInfo(
             final_args, RESULTS_DIR,
             atest_configs.GLOBAL_ARGS) as result_file:
-        if not atest_configs.GLOBAL_ARGS.no_metrics:
+        if (not atest_configs.GLOBAL_ARGS.no_metrics and
+        metrics_base.MetricsBase.user_type == metrics_base.INTERNAL_USER):
             metrics_utils.print_data_collection_notice()
             USER_FROM_TOOL = os.getenv(constants.USER_FROM_TOOL, '')
             if USER_FROM_TOOL == '':
