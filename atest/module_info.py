@@ -377,12 +377,8 @@ class Loader:
         # If the modules.idx does not exist or invalid for any reason, generate
         # a new one arbitrarily.
         if not modules:
-            modules = _get_testable_modules(
-                name_to_module_info=self.name_to_module_info,
-                path_to_module_info=self.path_to_module_info,
-                index_path=self.module_index,
-                suite=suite,
-            )
+            modules = self.get_testable_module_from_memory(suite)
+
         duration = time.time() - start
         metrics.LocalDetectEvent(
             detect_type=DetectType.TESTABLE_MODULES,
@@ -402,6 +398,15 @@ class Loader:
                 pass
 
         return modules
+
+    def get_testable_module_from_memory(self, suite: str=None) -> Set[str]:
+        """Return the testable modules of the given suite name."""
+        return _get_testable_modules(
+            name_to_module_info=self.name_to_module_info,
+            path_to_module_info=self.path_to_module_info,
+            index_path=self.module_index,
+            suite=suite,
+        )
 
 
 class ModuleInfo:
