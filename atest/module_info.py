@@ -152,19 +152,6 @@ class Loader:
 
         self.name_to_module_info, self.path_to_module_info = self.load_module_info()
 
-        if self.update_merge_info or not self.module_index.is_file():
-            # Assumably null module_file reflects a common run, and index testable
-            # modules only when common runs.
-            if not module_file:
-                self.module_index_proc = atest_utils.run_multi_proc(
-                    func=_get_testable_modules,
-                    kwargs={
-                        'name_to_module_info': self.name_to_module_info,
-                        'path_to_module_info': self.path_to_module_info,
-                        'index_path': self.module_index,
-                        },
-                    )
-
     def load(self, save_timestamps: bool=False):
         if save_timestamps:
             atest_utils.run_multi_proc(func=atest_utils.save_build_files_timestamp)
@@ -206,6 +193,7 @@ class Loader:
 
         name_modules, path_modules = self._load_from_json(merge=True)
         self.save_cache_async(name_modules, path_modules)
+        self._save_testable_modules_async(name_modules, path_modules)
 
         return name_modules, path_modules
 
@@ -275,16 +263,35 @@ class Loader:
 
         return name_info, get_path_to_module_info(name_info)
 
+    def _save_testable_modules_async(
+            self,
+            name_to_module_info: Dict[str, Any],
+            path_to_module_info: Dict[str, Any],
+    ):
+        """Save testable modules in parallel."""
+        return atest_utils.run_multi_proc(
+            func=_get_testable_modules,
+            kwargs={
+                'name_to_module_info': name_to_module_info,
+                'path_to_module_info': path_to_module_info,
+                'index_path': self.module_index,
+                },
+            )
+
     def need_merge_module_info(self):
         """Check if needed to regenerate the cache file.
 
-        If the cache file is non-existent or older than any of the JSON files
-        used to generate it, the cache file must re-generate.
+        If the cache file is non-existent or testable module index is inexistent
+        or older than any of the JSON files used to generate it, the cache file
+        must re-generate.
 
         Returns:
             True when the cache file is older or non-existent, False otherwise.
         """
         if not self.cache_file.is_file():
+            return True
+
+        if not self.module_index.is_file():
             return True
 
         # The dependency input files should be generated at this point.
