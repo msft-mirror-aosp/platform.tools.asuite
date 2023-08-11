@@ -27,6 +27,7 @@ import pickle
 import re
 import shutil
 import sqlite3
+import sys
 import tempfile
 import time
 
@@ -36,7 +37,7 @@ from typing import Any, Callable, Dict, List, Set, Tuple
 from atest import atest_utils
 from atest import constants
 
-from atest.atest_enum import DetectType
+from atest.atest_enum import DetectType, ExitCode
 from atest.metrics import metrics
 
 
@@ -134,15 +135,16 @@ class Loader:
         if need_merge_fn:
             self.save_cache_async = lambda _, __: None
 
-        self.mod_info_file_path = Path(module_file) if module_file else None
+        if module_file:
+            self.mod_info_file_path = Path(module_file)
+        else:
+            self.mod_info_file_path = atest_utils.get_product_out(_MODULE_INFO)
+            if force_build or not self.mod_info_file_path.is_file():
+                build()
+
         # update_merge_info flag will merge dep files only when any of them have
         # changed even force_build == True.
         self.update_merge_info = False
-        # force_build could be from "-m" or smart_build(build files change).
-        self.force_build = force_build
-        # If module_file is specified, we're gonna test it so we don't care if
-        # module_info_target stays None.
-        self.module_info_target = None
 
         self.name_to_module_info, self.path_to_module_info = self._load_module_info_file()
 
@@ -171,7 +173,6 @@ class Loader:
         return ModuleInfo(
             name_to_module_info=self.name_to_module_info,
             path_to_module_info=self.path_to_module_info,
-            module_info_target=self.module_info_target,
             mod_info_file_path=self.mod_info_file_path,
             get_testable_modules=self.get_testable_modules,
         )
@@ -182,8 +183,7 @@ class Loader:
         +--------------+                  +----------------------------------+
         | ModuleInfo() |                  | ModuleInfo(module_file=foo.json) |
         +-------+------+                  +----------------+-----------------+
-                | _discover_mod_file_and_target()          |
-                | atest_utils.build()                      | load
+                | module_info.build()                      | load
                 v                                          V
         +--------------------------+         +--------------------------+
         | module-info.json         |         | foo.json                 |
@@ -201,10 +201,6 @@ class Loader:
         Returns:
             Dict of module name to module info and dict of module path to module info.
         """
-        if not self.mod_info_file_path:
-            self.module_info_target, file_path = _discover_mod_file_and_target(
-                self.force_build)
-            self.mod_info_file_path = Path(file_path)
         # Even undergone a rebuild after _discover_mod_file_and_target(), merge
         # atest_merged_dep.json only when module_deps_infos actually change so
         # that Atest can decrease disk I/O and ensure data accuracy at all.
@@ -416,7 +412,6 @@ class ModuleInfo:
         self,
         name_to_module_info: Dict[str, Any]=None,
         path_to_module_info: Dict[str, Any]=None,
-        module_info_target: str=None,
         mod_info_file_path: Path=None,
         get_testable_modules: Callable=None,
         ):
@@ -451,7 +446,6 @@ class ModuleInfo:
         Args:
             name_to_module_info: Dict of name to module info.
             path_to_module_info: Dict of path to module info.
-            module_info_target: Target name of module-info.json.
             mod_info_file_path: Path of module-info.json.
             get_testable_modules: Function to get all testable modules.
         """
@@ -460,7 +454,6 @@ class ModuleInfo:
 
         self.name_to_module_info = name_to_module_info or {}
         self.path_to_module_info = path_to_module_info or {}
-        self.module_info_target = module_info_target
         self.mod_info_file_path = mod_info_file_path
         self._get_testable_modules = get_testable_modules
 
@@ -1133,33 +1126,6 @@ def merge_soong_info(name_to_module_info, mod_bp_infos):
     return name_to_module_info
 
 
-def _discover_mod_file_and_target(force_build):
-    """Find the module file.
-
-    Args:
-        force_build: Boolean to indicate if we should rebuild the
-                     module_info file regardless of the existence of it.
-
-    Returns:
-        Tuple of module_info_target and path to the module-info.json.
-    """
-    logging.debug('Probing and validating module info...')
-    root_dir = Path(os.getenv(constants.ANDROID_BUILD_TOP))
-    out_dir = Path(os.getenv(constants.ANDROID_PRODUCT_OUT))
-    module_file_path = out_dir.joinpath(_MODULE_INFO)
-    # If OUT_DIR/OUT_DIR_COMMON_BASE was set outside of the root_dir, use
-    # absolute path; otherwise use relative path as the target name.
-    if out_dir.is_relative_to(root_dir):
-        module_info_target = str(module_file_path.relative_to(root_dir))
-    else:
-        logging.debug('User customized out dir!')
-        module_file_path = out_dir.joinpath(_MODULE_INFO)
-        module_info_target = str(module_file_path)
-    if force_build or not module_file_path.is_file():
-        atest_utils.build_module_info_target(module_info_target)
-    return module_info_target, module_file_path
-
-
 def _add_missing_variant_modules(name_to_module_info: Dict[str, Module]):
     missing_modules = {}
 
@@ -1284,6 +1250,30 @@ def _is_legacy_robolectric_test(
         return False
     return bool(_get_robolectric_test_name(
         name_to_module_info, path_to_module_info, info))
+
+
+def get_module_info_target() -> str:
+    """Get module info target name for soong_ui.bash"""
+    build_top = atest_utils.get_build_top()
+    module_info_path = atest_utils.get_product_out(_MODULE_INFO)
+    if module_info_path.is_relative_to(build_top):
+        return str(module_info_path.relative_to(build_top))
+
+    logging.debug('Found customized OUT_DIR!')
+    return str(module_info_path)
+
+
+def build():
+    """Build module-info.json"""
+    logging.debug('Generating %s - this is required for '
+                  'initial runs or forced rebuilds.', _MODULE_INFO)
+    build_start = time.time()
+    if not atest_utils.build([get_module_info_target()]):
+        sys.exit(ExitCode.BUILD_FAILURE)
+
+    metrics.LocalDetectEvent(
+        detect_type=DetectType.ONLY_BUILD_MODULE_INFO,
+        result=int(time.time() - build_start))
 
 
 def _is_testable_module(
