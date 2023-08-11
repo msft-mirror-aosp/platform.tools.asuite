@@ -1235,26 +1235,6 @@ def get_build_target():
         os.getenv(constants.TARGET_BUILD_VARIANT, None))
     return build_target
 
-def build_module_info_target(module_info_target):
-    """Build module-info.json after deleting the original one.
-
-    Args:
-        module_info_target: the target name that soong is going to build.
-    """
-    module_file = 'module-info.json'
-    logging.debug('Generating %s - this is required for '
-                  'initial runs or forced rebuilds.', module_file)
-    build_start = time.time()
-    product_out = os.getenv(constants.ANDROID_PRODUCT_OUT, None)
-    module_info_path = Path(product_out).joinpath('module-info.json')
-    if module_info_path.is_file():
-        os.remove(module_info_path)
-    if not build([module_info_target]):
-        sys.exit(ExitCode.BUILD_FAILURE)
-    build_duration = time.time() - build_start
-    metrics.LocalDetectEvent(
-        detect_type=DetectType.ONLY_BUILD_MODULE_INFO,
-        result=int(build_duration))
 
 def has_wildcard(test_name):
     """ Tell whether the test_name(either a list or string) contains wildcard

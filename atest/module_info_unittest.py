@@ -105,53 +105,31 @@ class ModuleInfoUnittests(unittest.TestCase):
         if self.merged_dep_path.is_file():
             os.remove(self.merged_dep_path)
 
-    # TODO: (b/264015241) Stop mocking build variables.
-    # TODO: (b/263199608) Re-write the test after refactoring module-info.py
-    @mock.patch('pathlib.Path.is_file', return_value=True)
-    @mock.patch.object(module_info.Loader, 'need_merge_module_info')
-    @mock.patch('json.load', return_value={})
-    @mock.patch('builtins.open', new_callable=mock.mock_open)
-    @mock.patch('os.path.isfile', return_value=True)
-    def test_load_mode_info_file_out_dir_handling(self, _isfile, _open, _json,
-        _merge, _is_file):
-        """Test _load_module_info_file out dir handling."""
-        _merge.return_value = False
-        # Test out default out dir is used.
-        build_top = '/path/to/top'
-        default_out_dir = os.path.join(build_top, 'out/dir/here')
-        os_environ_mock = {'ANDROID_PRODUCT_OUT': default_out_dir,
-                           constants.ANDROID_BUILD_TOP: build_top,
-                           'ANDROID_HOST_OUT': HOST_OUT_DIR}
-        default_out_dir_mod_targ = 'out/dir/here/module-info.json'
-        # Make sure module_info_target is what we think it is.
-        with mock.patch.dict('os.environ', os_environ_mock, clear=True):
-            mod_info = module_info.load_from_file()
-            self.assertEqual(default_out_dir_mod_targ,
-                             mod_info.module_info_target)
+    def test_target_name_is_relative_to_build_top(self):
+        build_top = '/src/build_top'
+        product_out = '/src/build_top/pout'
+        env_mock = {constants.ANDROID_BUILD_TOP: build_top,
+                    constants.ANDROID_PRODUCT_OUT: product_out}
+        expected_target = os.path.relpath(
+            os.path.join(product_out, 'module-info.json'),
+            build_top)
 
-        # Test out custom out dir is used (OUT_DIR=dir2).
-        custom_out_dir = os.path.join(build_top, 'out2/dir/here')
-        os_environ_mock = {'ANDROID_PRODUCT_OUT': custom_out_dir,
-                           constants.ANDROID_BUILD_TOP: build_top,
-                           'ANDROID_HOST_OUT': HOST_OUT_DIR}
-        custom_out_dir_mod_targ = 'out2/dir/here/module-info.json'
-        # Make sure module_info_target is what we think it is.
-        with mock.patch.dict('os.environ', os_environ_mock, clear=True):
-            mod_info = module_info.load_from_file()
-            self.assertEqual(custom_out_dir_mod_targ,
-                             mod_info.module_info_target)
+        with mock.patch.dict('os.environ', env_mock, clear=True):
+            actual_target = module_info.get_module_info_target()
 
-        # Test out custom abs out dir is used (OUT_DIR=/tmp/out/dir2).
-        abs_custom_out_dir = '/tmp/out/dir'
-        os_environ_mock = {'ANDROID_PRODUCT_OUT': abs_custom_out_dir,
-                           constants.ANDROID_BUILD_TOP: build_top,
-                           'ANDROID_HOST_OUT': HOST_OUT_DIR}
-        custom_abs_out_dir_mod_targ = '/tmp/out/dir/module-info.json'
-        # Make sure module_info_target is what we think it is.
-        with mock.patch.dict('os.environ', os_environ_mock, clear=True):
-            mod_info = module_info.load_from_file()
-            self.assertEqual(custom_abs_out_dir_mod_targ,
-                             mod_info.module_info_target)
+            self.assertEqual(actual_target, expected_target)
+
+    def test_target_name_is_in_absolute_path(self):
+        build_top = '/src/build_top'
+        product_out = '/somewhere/pout'
+        env_mock = {constants.ANDROID_BUILD_TOP: build_top,
+                    constants.ANDROID_PRODUCT_OUT: product_out}
+        expected_target = os.path.join(product_out, 'module-info.json')
+
+        with mock.patch.dict('os.environ', env_mock, clear=True):
+            actual_target = module_info.get_module_info_target()
+
+            self.assertEqual(actual_target, expected_target)
 
     @mock.patch.object(module_info.Loader, 'load')
     def test_get_path_to_module_info(self, mock_load_module):
@@ -164,7 +142,7 @@ class ModuleInfoUnittests(unittest.TestCase):
                                    constants.MODULE_NAME: mod_one},
                          mod_two: {constants.MODULE_PATH: [mod_path_two],
                                    constants.MODULE_NAME: mod_two}}
-        mock_load_module.return_value = ('mod_target', mod_info_dict)
+        mock_load_module.return_value = mod_info_dict
         path_to_mod_info = {mod_path_one: [{constants.MODULE_NAME: mod_one,
                                             constants.MODULE_PATH: [mod_path_one]}],
                             mod_path_two: [{constants.MODULE_NAME: mod_two,
