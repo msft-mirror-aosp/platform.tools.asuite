@@ -156,8 +156,13 @@ class Loader:
             # modules only when common runs.
             if not module_file:
                 self.module_index_proc = atest_utils.run_multi_proc(
-                    func=self._get_testable_modules,
-                    kwargs={'index': True})
+                    func=_get_testable_modules,
+                    kwargs={
+                        'name_to_module_info': self.name_to_module_info,
+                        'path_to_module_info': self.path_to_module_info,
+                        'index_path': self.module_index,
+                        },
+                    )
 
     def load(self, save_timestamps: bool=False):
         if save_timestamps:
@@ -372,10 +377,12 @@ class Loader:
         # If the modules.idx does not exist or invalid for any reason, generate
         # a new one arbitrarily.
         if not modules:
-            if not suite:
-                modules = self._get_testable_modules(index=True)
-            else:
-                modules = self._get_testable_modules(index=True, suite=suite)
+            modules = _get_testable_modules(
+                name_to_module_info=self.name_to_module_info,
+                path_to_module_info=self.path_to_module_info,
+                index_path=self.module_index,
+                suite=suite,
+            )
         duration = time.time() - start
         metrics.LocalDetectEvent(
             detect_type=DetectType.TESTABLE_MODULES,
@@ -395,39 +402,6 @@ class Loader:
                 pass
 
         return modules
-
-    def _get_testable_modules(self, index=False, suite=None):
-        """Return all available testable modules and index them.
-
-        Args:
-            index: boolean that determines running _index_testable_modules().
-            suite: string for the suite name.
-
-        Returns:
-            Set of all testable modules.
-        """
-        modules = _get_testable_modules(
-            self.name_to_module_info, self.path_to_module_info, suite)
-        if index:
-            self._index_testable_modules(modules)
-        return modules
-
-    def _index_testable_modules(self, content):
-        """Dump testable modules.
-
-        Args:
-            content: An object that will be written to the index file.
-        """
-        logging.debug(r'Indexing testable modules... '
-                      r'(This is required whenever module-info.json '
-                      r'was rebuilt.)')
-        Path(self.module_index).parent.mkdir(parents=True, exist_ok=True)
-        with open(self.module_index, 'wb') as cache:
-            try:
-                pickle.dump(content, cache, protocol=2)
-            except IOError:
-                logging.error('Failed in dumping %s', cache)
-                os.remove(cache)
 
 
 class ModuleInfo:
@@ -1336,10 +1310,12 @@ def _is_testable_module(
         return True
     return False
 
+
 def _get_testable_modules(
     name_to_module_info: Dict[str, Dict],
     path_to_module_info: Dict[str, Dict],
-    suite: bool=None):
+    suite: str=None,
+    index_path: Path=None):
 
     modules = set()
     begin = time.time()
@@ -1347,6 +1323,8 @@ def _get_testable_modules(
         if _is_testable_module(name_to_module_info, path_to_module_info, info):
             modules.add(info.get(constants.MODULE_NAME))
 
+    if index_path:
+        _index_testable_modules(contents=modules, index_path=index_path)
     logging.debug('Probing all testable modules took %ss',
                   time.time() - begin)
 
@@ -1358,6 +1336,27 @@ def _get_testable_modules(
                 _modules.add(info.get(constants.MODULE_NAME))
         return _modules
     return modules
+
+
+def _index_testable_modules(contents: Any, index_path: Path):
+    """Dump testable modules.
+
+    Args:
+        content: An object that will be written to the index file.
+        index_path: Path to the saved index file.
+    """
+    logging.debug(r'Indexing testable modules... '
+                  r'(This is required whenever module-info.json '
+                  r'was rebuilt.)')
+    index_path.parent.mkdir(parents=True, exist_ok=True)
+    with tempfile.NamedTemporaryFile(delete=False) as cache:
+        try:
+            pickle.dump(contents, cache, protocol=2)
+            shutil.move(cache.name, index_path)
+            logging.debug('%s is created successfully.', index_path)
+        except IOError:
+            logging.error('Failed in dumping %s', cache)
+            os.remove(cache.name)
 
 
 class SqliteDict(collections.abc.Mapping):
