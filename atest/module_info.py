@@ -135,23 +135,22 @@ class Loader:
         if need_merge_fn:
             self.save_cache_async = lambda _, __: None
 
+        self.update_merge_info = False
+        self.module_index = atest_utils.get_host_out('indices',
+                                                     constants.MODULE_INDEX)
+        self.module_index_proc = None
+
         if module_file:
             self.mod_info_file_path = Path(module_file)
+            self.load_module_info = self._load_module_info_from_file_wo_merging
         else:
             self.mod_info_file_path = atest_utils.get_product_out(_MODULE_INFO)
             if force_build or not self.mod_info_file_path.is_file():
                 build()
+            self.update_merge_info = self.need_merge_module_info()
+            self.load_module_info = self._load_module_info_file
 
-        # update_merge_info flag will merge dep files only when any of them have
-        # changed even force_build == True.
-        self.update_merge_info = False
-
-        self.name_to_module_info, self.path_to_module_info = self._load_module_info_file()
-
-        # Index and checksum files that will be used.
-        self.module_index = atest_utils.get_host_out('indices',
-                                                     constants.MODULE_INDEX)
-        self.module_index_proc = None
+        self.name_to_module_info, self.path_to_module_info = self.load_module_info()
 
         if self.update_merge_info or not self.module_index.is_file():
             # Assumably null module_file reflects a common run, and index testable
@@ -178,7 +177,8 @@ class Loader:
         )
 
     def _load_module_info_file(self):
-        """Load the module file as ModuleInfo.
+        """Load module-info.json file as ModuleInfo and merge related JSON files
+        whenever required.
 
         +--------------+                  +----------------------------------+
         | ModuleInfo() |                  | ModuleInfo(module_file=foo.json) |
@@ -201,11 +201,6 @@ class Loader:
         Returns:
             Dict of module name to module info and dict of module path to module info.
         """
-        # Even undergone a rebuild after _discover_mod_file_and_target(), merge
-        # atest_merged_dep.json only when module_deps_infos actually change so
-        # that Atest can decrease disk I/O and ensure data accuracy at all.
-        self.update_merge_info = self.need_merge_module_info()
-
         if not self.update_merge_info:
             return self.load_from_cache()
 
@@ -213,6 +208,13 @@ class Loader:
         self.save_cache_async(name_modules, path_modules)
 
         return name_modules, path_modules
+
+    def _load_module_info_from_file_wo_merging(self):
+        """Load module-info.json as ModuleInfo without merging."""
+        name_modules = atest_utils.load_json_safely(self.mod_info_file_path)
+        _add_missing_variant_modules(name_modules)
+
+        return name_modules, get_path_to_module_info(name_modules)
 
     def _save_db_async(
             self,
