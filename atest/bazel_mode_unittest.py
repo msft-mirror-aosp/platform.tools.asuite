@@ -2486,7 +2486,7 @@ def _get_query_file_content(args: List[str]) -> str:
         if arg.startswith('--query_file='):
             return Path(arg.split('=')[1]).read_text(encoding='utf-8')
 
-    raise Exception('Query file not found!')
+    raise FileNotFoundError('Query file not found!')
 
 
 if __name__ == '__main__':
