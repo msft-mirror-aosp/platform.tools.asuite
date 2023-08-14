@@ -1928,7 +1928,7 @@ def generate_print_result_html(result_file: Path):
                             f'{html.escape(Path(log).name)}</a></p>')
             cache.write('</body></html>')
         print(f'\nTo access logs, press "ctrl" and click on\n'
-              f'file://{result_html}\n')
+              f'{colorize(f"file://{result_html}", constants.MAGENTA)}\n')
     except Exception as e:
         logging.debug('Did not generate log html for reason: %s', e)
 
