@@ -197,30 +197,27 @@ class ModuleInfoUnittests(unittest.TestCase):
         self.assertTrue(mod_info.is_suite_in_compatibility_suites("vts10", info3))
         self.assertFalse(mod_info.is_suite_in_compatibility_suites("ats", info3))
 
-    # TODO: (b/264015241) Stop mocking build variables.
-    # TODO: (b/263199608) Re-write the test after refactoring module-info.py
-    @mock.patch.dict('os.environ', {constants.ANDROID_BUILD_TOP:'/',
-                                    constants.ANDROID_PRODUCT_OUT:PRODUCT_OUT_DIR,
-                                    constants.ANDROID_HOST_OUT:HOST_OUT_DIR})
-    @mock.patch('atest.module_info._is_testable_module', return_value=True)
-    @mock.patch.object(module_info.ModuleInfo, 'is_suite_in_compatibility_suites')
-    def test_get_testable_modules(self, mock_is_suite_exist, mock_is_testable):
+    def test_get_testable_modules(self):
         """Test get_testable_modules."""
-        # 1. No modules.idx yet, will run _get_testable_modules()
-        mod_info = module_info.load_from_file(module_file=JSON_FILE_PATH)
-        self.assertEqual(len(mod_info.get_testable_modules()), 30)
+        expected_testable_modules = {'Module1', 'Module2', 'Module3'}
+        expected_test_suite_modules = {'Module1', 'Module2'}
+        expected_null_suite_modules = {'Module3'}
+        mod_info = create_module_info(
+            modules=[
+                test_module(name='Module1', compatibility_suites=['test-suite']),
+                test_module(name='Module2', compatibility_suites=['test-suite']),
+                test_module(name='Module3'),
+                non_test_module(name='Dep1'),
+            ]
+        )
 
-        # 2. read modules.idx.
-        expected_modules = {'dep_test_module', 'MainModule2', 'test_dep_level_1_1'}
-        self.assertTrue(expected_modules.issubset(mod_info.get_testable_modules()))
+        actual_all_testable_modules = mod_info.get_testable_modules()
+        actual_test_suite_modules = mod_info.get_testable_modules('test-suite')
+        actual_null_suite_modules = mod_info.get_testable_modules('null-suite')
 
-        # 3. search modules by giving a suite name, run _get_testable_modules()
-        mod_info = module_info.load_from_dict(name_to_module_info=NAME_TO_MODULE_INFO)
-        mock_is_suite_exist.return_value = True
-        self.assertEqual(1, len(mod_info.get_testable_modules('test_suite')))
-        mock_is_suite_exist.return_value = False
-        self.assertEqual(0, len(mod_info.get_testable_modules('test_suite')))
-        self.assertEqual(1, len(mod_info.get_testable_modules()))
+        self.assertEqual(actual_all_testable_modules, expected_testable_modules)
+        self.assertEqual(actual_test_suite_modules, expected_test_suite_modules)
+        self.assertEqual(actual_null_suite_modules, expected_null_suite_modules)
 
     @mock.patch.dict(
         'os.environ',

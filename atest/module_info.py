@@ -136,8 +136,8 @@ class Loader:
             self.save_cache_async = lambda _, __: None
 
         self.update_merge_info = False
-        self.module_index = atest_utils.get_host_out('indices',
-                                                     constants.MODULE_INDEX)
+        self.module_index = atest_utils.get_host_out(
+            'indices', f'suite-modules.{_DB_VERSION}.idx')
         self.module_index_proc = None
 
         if module_file:
@@ -374,11 +374,9 @@ class Loader:
         """
         modules = set()
         start = time.time()
-        if self.module_index_proc:
-            self.module_index_proc.join()
 
-        if self.module_index.is_file() and not suite:
-            modules = self.get_testable_modules_from_index()
+        if self.module_index.is_file():
+            modules = self.get_testable_modules_from_index(suite)
         # If the modules.idx does not exist or invalid for any reason, generate
         # a new one arbitrarily.
         if not modules:
@@ -390,19 +388,19 @@ class Loader:
             result=int(duration))
         return modules
 
-    def get_testable_modules_from_index(self) -> Set[str]:
+    def get_testable_modules_from_index(self, suite: str=None) -> Set[str]:
         """Return the testable modules of the given suite name."""
-        modules = set()
+        suite_to_modules = {}
         with open(self.module_index, 'rb') as cache:
             try:
-                return pickle.load(cache, encoding="utf-8")
+                suite_to_modules = pickle.load(cache, encoding="utf-8")
             except UnicodeDecodeError:
-                return pickle.load(cache)
+                suite_to_modules = pickle.load(cache)
             # when module indexing was interrupted.
             except EOFError:
                 pass
 
-        return modules
+        return _filter_modules_by_suite(suite_to_modules, suite)
 
     def get_testable_module_from_memory(self, suite: str=None) -> Set[str]:
         """Return the testable modules of the given suite name."""
@@ -1316,30 +1314,59 @@ def _is_testable_module(
 
 
 def _get_testable_modules(
-    name_to_module_info: Dict[str, Dict],
-    path_to_module_info: Dict[str, Dict],
-    suite: str=None,
-    index_path: Path=None):
+        name_to_module_info: Dict[str, Dict],
+        path_to_module_info: Dict[str, Dict],
+        suite: str=None,
+        index_path: Path=None):
+    """Return testable modules of the given suite name."""
+    suite_to_modules = _get_suite_to_modules(name_to_module_info,
+                                             path_to_module_info,
+                                             index_path)
 
-    modules = set()
-    begin = time.time()
+    return _filter_modules_by_suite(suite_to_modules, suite)
+
+
+def _get_suite_to_modules(
+        name_to_module_info: Dict[str, Dict],
+        path_to_module_info: Dict[str, Dict],
+        index_path: Path=None,
+    ) -> Dict[str, Set[str]]:
+    """Map suite and its modules.
+
+    Args:
+        name_to_module_info: Dict of name to module info.
+        path_to_module_info: Dict of path to module info.
+        index_path: Path of the stored content.
+
+    Returns:
+        Dict of suite and testable modules mapping.
+    """
+    suite_to_modules = {}
+
     for _, info in name_to_module_info.items():
         if _is_testable_module(name_to_module_info, path_to_module_info, info):
-            modules.add(info.get(constants.MODULE_NAME))
+            testable_module = info.get(constants.MODULE_NAME)
+            suites = (info.get('compatibility_suites')
+                      if info.get('compatibility_suites') else ['null-suite'])
+
+            for suite in suites:
+                suite_to_modules.setdefault(suite, set()).add(testable_module)
 
     if index_path:
-        _index_testable_modules(contents=modules, index_path=index_path)
-    logging.debug('Probing all testable modules took %ss',
-                  time.time() - begin)
+        _index_testable_modules(suite_to_modules, index_path)
 
+    return suite_to_modules
+
+
+def _filter_modules_by_suite(
+        suite_to_modules: Dict[str, Set[str]],
+        suite: str=None,
+    ) -> Set[str]:
+    """Return modules of the given suite name."""
     if suite:
-        _modules = set()
-        for module_name in modules:
-            info = name_to_module_info.get(module_name)
-            if ModuleInfo.is_suite_in_compatibility_suites(suite, info):
-                _modules.add(info.get(constants.MODULE_NAME))
-        return _modules
-    return modules
+        return suite_to_modules.get(suite)
+
+    return {mod for mod_set in suite_to_modules.values() for mod in mod_set}
 
 
 def _index_testable_modules(contents: Any, index_path: Path):
