@@ -20,3 +20,7 @@
 # //packages/modules/adb:adbd_test
 # //packages/modules/adb:adb_test
 # //system/media/audio_utils/tests:biquad_filter_tests
+
+//frameworks/base/api:merge_annotation_zips_test
+//platform_testing/tests/example/jarhosttest:HelloWorldHostTest
+//system/tools/sysprop:sysprop_test
