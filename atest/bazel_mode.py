@@ -131,6 +131,9 @@ class Features(enum.Enum):
     EXPERIMENTAL_ROBOLECTRIC_TEST = (
         '--experimental-robolectric-test',
         'Enables running Robolectric tests in Bazel mode.', True)
+    NO_BAZEL_DETAILED_SUMMARY = (
+        '--no-bazel-detailed-summary',
+        'Disables printing detailed summary of Bazel test results.', False)
 
     def __init__(self, arg_flag, description, affects_workspace):
         self._arg_flag = arg_flag
@@ -1898,6 +1901,10 @@ class BazelTestRunner(trb.TestRunnerBase):
                 Features.EXPERIMENTAL_REMOTE_AVD,
                 extra_args,
                 self._get_remote_avd_args))
+
+        if Features.NO_BAZEL_DETAILED_SUMMARY not in extra_args.get(
+                'BAZEL_MODE_FEATURES', []):
+            bazel_args.append('--test_summary=detailed')
 
         # This is an alternative to shlex.join that doesn't exist in Python
         # versions < 3.8.
