@@ -866,7 +866,10 @@ def get_modified_files(root_dir):
     modified_files = set()
     try:
         # TODO: (@jimtang) abandon using git command within Atest.
-        find_git_cmd = f'cd {root_dir}; git rev-parse --show-toplevel 2>/dev/null'
+        find_git_cmd = (
+            f'cd {root_dir}; '
+            'git rev-parse --show-toplevel 2>/dev/null'
+        )
         git_paths = subprocess.check_output(
             find_git_cmd, shell=True).decode().splitlines()
         for git_path in git_paths:
