@@ -104,6 +104,10 @@ def are_all_tests_supported(roboleaf_mode, tests) -> Dict[str, TestInfo]:
         # mode.
         return eligible_tests
 
+    logging.debug(
+        "roboleaf-mode: [%s] are not eligible for b test.",
+        ", ".join(set(tests).difference(eligible_tests.keys())))
+
     # Gracefully fall back to standard atest if not every test is b testable.
     return {}
 
