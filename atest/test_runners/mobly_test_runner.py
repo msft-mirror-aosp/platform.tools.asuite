@@ -16,9 +16,9 @@
 import argparse
 import dataclasses
 import datetime
-import json
 import logging
 import os
+from pathlib import Path
 import shlex
 import shutil
 import subprocess
@@ -60,12 +60,13 @@ CONFIG_KEY_TESTBEDS = 'TestBeds'
 CONFIG_KEY_NAME = 'Name'
 CONFIG_KEY_CONTROLLERS = 'Controllers'
 CONFIG_KEY_TEST_PARAMS = 'TestParams'
+CONFIG_KEY_FILES = 'files'
 CONFIG_KEY_ANDROID_DEVICE = 'AndroidDevice'
 CONFIG_KEY_MOBLY_PARAMS = 'MoblyParams'
 CONFIG_KEY_LOG_PATH = 'LogPath'
 LOCAL_TESTBED = 'LocalTestBed'
 MOBLY_LOGS_DIR = 'mobly_logs'
-CONFIG_FILE = 'mobly_config.json'
+CONFIG_FILE = 'mobly_config.yaml'
 LATEST_DIR = 'latest'
 TEST_SUMMARY_YAML = 'test_summary.yaml'
 
@@ -152,7 +153,8 @@ class MoblyTestRunner(test_runner_base.TestRunnerBase):
                 serials = atest_configs.GLOBAL_ARGS.serial or []
                 if constants.DISABLE_INSTALL not in extra_args:
                     self._install_apks(test_files.test_apks, serials)
-                mobly_config = self._generate_mobly_config(mobly_args, serials)
+                mobly_config = self._generate_mobly_config(
+                    mobly_args, serials, test_files.test_apks)
 
                 # Generate command and run
                 mobly_command = self._get_mobly_command(
@@ -238,7 +240,7 @@ class MoblyTestRunner(test_runner_base.TestRunnerBase):
 
     def _generate_mobly_config(
             self, mobly_args: argparse.Namespace,
-            serials: List[str]) -> str:
+            serials: List[str], test_apks: List[str]) -> str:
         """Creates a Mobly YAML config given the test parameters.
 
         If --serial is specified, the test will use those specific devices,
@@ -248,11 +250,15 @@ class MoblyTestRunner(test_runner_base.TestRunnerBase):
         param as a key-value pair under the testbed config's 'TestParams'.
         Values are limited to strings.
 
+        Test APK paths will be added to 'files' under 'TestParams' so they could
+        be accessed from the test script.
+
         Also set the Mobly results dir to <atest_results>/mobly_logs.
 
         Args:
             mobly_args: Custom args for the Mobly runner.
             serials: List of device serials.
+            test_apks: List of paths to test APKs.
 
         Returns:
             Path to the generated config.
@@ -262,13 +268,18 @@ class MoblyTestRunner(test_runner_base.TestRunnerBase):
             CONFIG_KEY_CONTROLLERS: {
                 CONFIG_KEY_ANDROID_DEVICE: serials if serials else '*',
             },
+            CONFIG_KEY_TEST_PARAMS: {},
         }
         if mobly_args.testparam:
             try:
-                local_testbed[CONFIG_KEY_TEST_PARAMS] = dict(
-                    [param.split('=', 1) for param in mobly_args.testparam])
+                local_testbed[CONFIG_KEY_TEST_PARAMS].update(dict(
+                    [param.split('=', 1) for param in mobly_args.testparam]))
             except ValueError as e:
                 raise MoblyTestRunnerError(_ERROR_INVALID_TESTPARAMS) from e
+        if test_apks:
+            local_testbed[CONFIG_KEY_TEST_PARAMS][CONFIG_KEY_FILES] = {
+                Path(test_apk).stem: [test_apk] for test_apk in test_apks
+            }
         config = {
             CONFIG_KEY_TESTBEDS: [local_testbed],
             CONFIG_KEY_MOBLY_PARAMS: {
@@ -279,7 +290,7 @@ class MoblyTestRunner(test_runner_base.TestRunnerBase):
         config_path = os.path.join(self.results_dir, CONFIG_FILE)
         logging.debug('Generating Mobly config at %s', config_path)
         with open(config_path, 'w', encoding='utf-8') as f:
-            json.dump(config, f)
+            yaml.safe_dump(config, f, indent=4)
         return config_path
 
     def _setup_python_env(

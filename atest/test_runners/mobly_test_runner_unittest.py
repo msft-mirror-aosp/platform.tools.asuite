@@ -96,10 +96,10 @@ class MoblyTestRunnerUnittests(unittest.TestCase):
             self.runner._get_test_files(self.tinfo)
 
     @mock.patch('builtins.open')
-    @mock.patch('json.dump')
-    def test_generate_mobly_config_no_serials(self, json_dump, _) -> None:
+    @mock.patch('yaml.safe_dump')
+    def test_generate_mobly_config_no_serials(self, yaml_dump, _) -> None:
         """Tests _generate_mobly_config with no serials provided."""
-        self.runner._generate_mobly_config(self.mobly_args, None)
+        self.runner._generate_mobly_config(self.mobly_args, None, [])
 
         expected_config = {
             'TestBeds': [{
@@ -107,19 +107,20 @@ class MoblyTestRunnerUnittests(unittest.TestCase):
                 'Controllers': {
                     'AndroidDevice': '*',
                 },
+                'TestParams': {},
             }],
             'MoblyParams': {
                 'LogPath': 'atest_results/sample_test/mobly_logs',
             },
         }
-        self.assertEqual(json_dump.call_args.args[0], expected_config)
+        self.assertEqual(yaml_dump.call_args.args[0], expected_config)
 
     @mock.patch('builtins.open')
-    @mock.patch('json.dump')
-    def test_generate_mobly_config_with_serials(self, json_dump, _) -> None:
+    @mock.patch('yaml.safe_dump')
+    def test_generate_mobly_config_with_serials(self, yaml_dump, _) -> None:
         """Tests _generate_mobly_config with serials provided."""
         self.runner._generate_mobly_config(
-            self.mobly_args, [SERIAL_1, SERIAL_2])
+            self.mobly_args, [SERIAL_1, SERIAL_2], [])
 
         expected_config = {
             'TestBeds': [{
@@ -127,19 +128,20 @@ class MoblyTestRunnerUnittests(unittest.TestCase):
                 'Controllers': {
                     'AndroidDevice': [SERIAL_1, SERIAL_2],
                 },
+                'TestParams': {},
             }],
             'MoblyParams': {
                 'LogPath': 'atest_results/sample_test/mobly_logs',
             },
         }
-        self.assertEqual(json_dump.call_args.args[0], expected_config)
+        self.assertEqual(yaml_dump.call_args.args[0], expected_config)
 
     @mock.patch('builtins.open')
-    @mock.patch('json.dump')
-    def test_generate_mobly_config_with_testparams(self, json_dump, _) -> None:
+    @mock.patch('yaml.safe_dump')
+    def test_generate_mobly_config_with_testparams(self, yaml_dump, _) -> None:
         """Tests _generate_mobly_config with custom testparams."""
         self.mobly_args.testparam = ['foo=bar']
-        self.runner._generate_mobly_config(self.mobly_args, None)
+        self.runner._generate_mobly_config(self.mobly_args, None, [])
 
         expected_config = {
             'TestBeds': [{
@@ -155,14 +157,40 @@ class MoblyTestRunnerUnittests(unittest.TestCase):
                 'LogPath': 'atest_results/sample_test/mobly_logs',
             },
         }
-        self.assertEqual(json_dump.call_args.args[0], expected_config)
+        self.assertEqual(yaml_dump.call_args.args[0], expected_config)
 
     def test_generate_mobly_config_with_invalid_testparams(self) -> None:
         """Tests _generate_mobly_config with invalid testparams."""
         self.mobly_args.testparam = ['foobar']
         with self.assertRaisesRegex(mobly_test_runner.MoblyTestRunnerError,
                                     'Invalid testparam values'):
-            self.runner._generate_mobly_config(self.mobly_args, None)
+            self.runner._generate_mobly_config(self.mobly_args, None, [])
+
+    @mock.patch('builtins.open')
+    @mock.patch('yaml.safe_dump')
+    def test_generate_mobly_config_with_test_apks(self, yaml_dump, _) -> None:
+        """Tests _generate_mobly_config with test APKs."""
+        test_apks = ['files/my_app1.apk', 'files/my_app2.apk']
+        self.runner._generate_mobly_config(self.mobly_args, None, test_apks)
+
+        expected_config = {
+            'TestBeds': [{
+                'Name': 'LocalTestBed',
+                'Controllers': {
+                    'AndroidDevice': '*',
+                },
+                'TestParams': {
+                    'files': {
+                        'my_app1': ['files/my_app1.apk'],
+                        'my_app2': ['files/my_app2.apk'],
+                    },
+                }
+            }],
+            'MoblyParams': {
+                'LogPath': 'atest_results/sample_test/mobly_logs',
+            },
+        }
+        self.assertEqual(yaml_dump.call_args.args[0], expected_config)
 
     @mock.patch('atest.atest_utils.get_adb_devices', return_value=[ADB_DEVICE])
     @mock.patch('subprocess.check_call')
