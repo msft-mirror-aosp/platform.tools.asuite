@@ -1167,7 +1167,7 @@ def main(argv: List[Any], results_dir: str, args: argparse.ArgumentParser):
 
         # Add module-info.json target to the list of build targets to keep the
         # file up to date.
-        build_targets.add(mod_info.module_info_target)
+        build_targets.add(module_info.get_module_info_target())
 
         build_start = time.time()
         success = atest_utils.build(build_targets)
@@ -1271,7 +1271,8 @@ if __name__ == '__main__':
     with atest_execution_info.AtestExecutionInfo(
             final_args, RESULTS_DIR,
             atest_configs.GLOBAL_ARGS) as result_file:
-        if not atest_configs.GLOBAL_ARGS.no_metrics:
+        if (not atest_configs.GLOBAL_ARGS.no_metrics and
+        metrics_base.MetricsBase.user_type == metrics_base.INTERNAL_USER):
             metrics_utils.print_data_collection_notice()
             USER_FROM_TOOL = os.getenv(constants.USER_FROM_TOOL, '')
             if USER_FROM_TOOL == '':

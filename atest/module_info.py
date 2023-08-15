@@ -27,6 +27,7 @@ import pickle
 import re
 import shutil
 import sqlite3
+import sys
 import tempfile
 import time
 
@@ -36,7 +37,7 @@ from typing import Any, Callable, Dict, List, Set, Tuple
 from atest import atest_utils
 from atest import constants
 
-from atest.atest_enum import DetectType
+from atest.atest_enum import DetectType, ExitCode
 from atest.metrics import metrics
 
 
@@ -134,30 +135,22 @@ class Loader:
         if need_merge_fn:
             self.save_cache_async = lambda _, __: None
 
-        self.mod_info_file_path = Path(module_file) if module_file else None
-        # update_merge_info flag will merge dep files only when any of them have
-        # changed even force_build == True.
         self.update_merge_info = False
-        # force_build could be from "-m" or smart_build(build files change).
-        self.force_build = force_build
-        # If module_file is specified, we're gonna test it so we don't care if
-        # module_info_target stays None.
-        self.module_info_target = None
-
-        self.name_to_module_info, self.path_to_module_info = self._load_module_info_file()
-
-        # Index and checksum files that will be used.
-        self.module_index = atest_utils.get_host_out('indices',
-                                                     constants.MODULE_INDEX)
+        self.module_index = atest_utils.get_host_out(
+            'indices', f'suite-modules.{_DB_VERSION}.idx')
         self.module_index_proc = None
 
-        if self.update_merge_info or not self.module_index.is_file():
-            # Assumably null module_file reflects a common run, and index testable
-            # modules only when common runs.
-            if not module_file:
-                self.module_index_proc = atest_utils.run_multi_proc(
-                    func=self._get_testable_modules,
-                    kwargs={'index': True})
+        if module_file:
+            self.mod_info_file_path = Path(module_file)
+            self.load_module_info = self._load_module_info_from_file_wo_merging
+        else:
+            self.mod_info_file_path = atest_utils.get_product_out(_MODULE_INFO)
+            if force_build or not self.mod_info_file_path.is_file():
+                build()
+            self.update_merge_info = self.need_merge_module_info()
+            self.load_module_info = self._load_module_info_file
+
+        self.name_to_module_info, self.path_to_module_info = self.load_module_info()
 
     def load(self, save_timestamps: bool=False):
         if save_timestamps:
@@ -166,19 +159,18 @@ class Loader:
         return ModuleInfo(
             name_to_module_info=self.name_to_module_info,
             path_to_module_info=self.path_to_module_info,
-            module_info_target=self.module_info_target,
             mod_info_file_path=self.mod_info_file_path,
             get_testable_modules=self.get_testable_modules,
         )
 
     def _load_module_info_file(self):
-        """Load the module file as ModuleInfo.
+        """Load module-info.json file as ModuleInfo and merge related JSON files
+        whenever required.
 
         +--------------+                  +----------------------------------+
         | ModuleInfo() |                  | ModuleInfo(module_file=foo.json) |
         +-------+------+                  +----------------+-----------------+
-                | _discover_mod_file_and_target()          |
-                | atest_utils.build()                      | load
+                | module_info.build()                      | load
                 v                                          V
         +--------------------------+         +--------------------------+
         | module-info.json         |         | foo.json                 |
@@ -196,22 +188,21 @@ class Loader:
         Returns:
             Dict of module name to module info and dict of module path to module info.
         """
-        if not self.mod_info_file_path:
-            self.module_info_target, file_path = _discover_mod_file_and_target(
-                self.force_build)
-            self.mod_info_file_path = Path(file_path)
-        # Even undergone a rebuild after _discover_mod_file_and_target(), merge
-        # atest_merged_dep.json only when module_deps_infos actually change so
-        # that Atest can decrease disk I/O and ensure data accuracy at all.
-        self.update_merge_info = self.need_merge_module_info()
-
         if not self.update_merge_info:
             return self.load_from_cache()
 
         name_modules, path_modules = self._load_from_json(merge=True)
         self.save_cache_async(name_modules, path_modules)
+        self._save_testable_modules_async(name_modules, path_modules)
 
         return name_modules, path_modules
+
+    def _load_module_info_from_file_wo_merging(self):
+        """Load module-info.json as ModuleInfo without merging."""
+        name_modules = atest_utils.load_json_safely(self.mod_info_file_path)
+        _add_missing_variant_modules(name_modules)
+
+        return name_modules, get_path_to_module_info(name_modules)
 
     def _save_db_async(
             self,
@@ -272,16 +263,35 @@ class Loader:
 
         return name_info, get_path_to_module_info(name_info)
 
+    def _save_testable_modules_async(
+            self,
+            name_to_module_info: Dict[str, Any],
+            path_to_module_info: Dict[str, Any],
+    ):
+        """Save testable modules in parallel."""
+        return atest_utils.run_multi_proc(
+            func=_get_testable_modules,
+            kwargs={
+                'name_to_module_info': name_to_module_info,
+                'path_to_module_info': path_to_module_info,
+                'index_path': self.module_index,
+                },
+            )
+
     def need_merge_module_info(self):
         """Check if needed to regenerate the cache file.
 
-        If the cache file is non-existent or older than any of the JSON files
-        used to generate it, the cache file must re-generate.
+        If the cache file is non-existent or testable module index is inexistent
+        or older than any of the JSON files used to generate it, the cache file
+        must re-generate.
 
         Returns:
             True when the cache file is older or non-existent, False otherwise.
         """
         if not self.cache_file.is_file():
+            return True
+
+        if not self.module_index.is_file():
             return True
 
         # The dependency input files should be generated at this point.
@@ -364,70 +374,42 @@ class Loader:
         """
         modules = set()
         start = time.time()
-        if self.module_index_proc:
-            self.module_index_proc.join()
 
-        if self.module_index.is_file() and not suite:
-            modules = self.get_testable_modules_from_index()
+        if self.module_index.is_file():
+            modules = self.get_testable_modules_from_index(suite)
         # If the modules.idx does not exist or invalid for any reason, generate
         # a new one arbitrarily.
         if not modules:
-            if not suite:
-                modules = self._get_testable_modules(index=True)
-            else:
-                modules = self._get_testable_modules(index=True, suite=suite)
+            modules = self.get_testable_module_from_memory(suite)
+
         duration = time.time() - start
         metrics.LocalDetectEvent(
             detect_type=DetectType.TESTABLE_MODULES,
             result=int(duration))
         return modules
 
-    def get_testable_modules_from_index(self) -> Set[str]:
+    def get_testable_modules_from_index(self, suite: str=None) -> Set[str]:
         """Return the testable modules of the given suite name."""
-        modules = set()
+        suite_to_modules = {}
         with open(self.module_index, 'rb') as cache:
             try:
-                return pickle.load(cache, encoding="utf-8")
+                suite_to_modules = pickle.load(cache, encoding="utf-8")
             except UnicodeDecodeError:
-                return pickle.load(cache)
+                suite_to_modules = pickle.load(cache)
             # when module indexing was interrupted.
             except EOFError:
                 pass
 
-        return modules
+        return _filter_modules_by_suite(suite_to_modules, suite)
 
-    def _get_testable_modules(self, index=False, suite=None):
-        """Return all available testable modules and index them.
-
-        Args:
-            index: boolean that determines running _index_testable_modules().
-            suite: string for the suite name.
-
-        Returns:
-            Set of all testable modules.
-        """
-        modules = _get_testable_modules(
-            self.name_to_module_info, self.path_to_module_info, suite)
-        if index:
-            self._index_testable_modules(modules)
-        return modules
-
-    def _index_testable_modules(self, content):
-        """Dump testable modules.
-
-        Args:
-            content: An object that will be written to the index file.
-        """
-        logging.debug(r'Indexing testable modules... '
-                      r'(This is required whenever module-info.json '
-                      r'was rebuilt.)')
-        Path(self.module_index).parent.mkdir(parents=True, exist_ok=True)
-        with open(self.module_index, 'wb') as cache:
-            try:
-                pickle.dump(content, cache, protocol=2)
-            except IOError:
-                logging.error('Failed in dumping %s', cache)
-                os.remove(cache)
+    def get_testable_module_from_memory(self, suite: str=None) -> Set[str]:
+        """Return the testable modules of the given suite name."""
+        return _get_testable_modules(
+            name_to_module_info=self.name_to_module_info,
+            path_to_module_info=self.path_to_module_info,
+            index_path=self.module_index,
+            suite=suite,
+        )
 
 
 class ModuleInfo:
@@ -437,7 +419,6 @@ class ModuleInfo:
         self,
         name_to_module_info: Dict[str, Any]=None,
         path_to_module_info: Dict[str, Any]=None,
-        module_info_target: str=None,
         mod_info_file_path: Path=None,
         get_testable_modules: Callable=None,
         ):
@@ -472,7 +453,6 @@ class ModuleInfo:
         Args:
             name_to_module_info: Dict of name to module info.
             path_to_module_info: Dict of path to module info.
-            module_info_target: Target name of module-info.json.
             mod_info_file_path: Path of module-info.json.
             get_testable_modules: Function to get all testable modules.
         """
@@ -481,7 +461,6 @@ class ModuleInfo:
 
         self.name_to_module_info = name_to_module_info or {}
         self.path_to_module_info = path_to_module_info or {}
-        self.module_info_target = module_info_target
         self.mod_info_file_path = mod_info_file_path
         self._get_testable_modules = get_testable_modules
 
@@ -1154,33 +1133,6 @@ def merge_soong_info(name_to_module_info, mod_bp_infos):
     return name_to_module_info
 
 
-def _discover_mod_file_and_target(force_build):
-    """Find the module file.
-
-    Args:
-        force_build: Boolean to indicate if we should rebuild the
-                     module_info file regardless of the existence of it.
-
-    Returns:
-        Tuple of module_info_target and path to the module-info.json.
-    """
-    logging.debug('Probing and validating module info...')
-    root_dir = Path(os.getenv(constants.ANDROID_BUILD_TOP))
-    out_dir = Path(os.getenv(constants.ANDROID_PRODUCT_OUT))
-    module_file_path = out_dir.joinpath(_MODULE_INFO)
-    # If OUT_DIR/OUT_DIR_COMMON_BASE was set outside of the root_dir, use
-    # absolute path; otherwise use relative path as the target name.
-    if out_dir.is_relative_to(root_dir):
-        module_info_target = str(module_file_path.relative_to(root_dir))
-    else:
-        logging.debug('User customized out dir!')
-        module_file_path = out_dir.joinpath(_MODULE_INFO)
-        module_info_target = str(module_file_path)
-    if force_build or not module_file_path.is_file():
-        atest_utils.build_module_info_target(module_info_target)
-    return module_info_target, module_file_path
-
-
 def _add_missing_variant_modules(name_to_module_info: Dict[str, Module]):
     missing_modules = {}
 
@@ -1307,6 +1259,30 @@ def _is_legacy_robolectric_test(
         name_to_module_info, path_to_module_info, info))
 
 
+def get_module_info_target() -> str:
+    """Get module info target name for soong_ui.bash"""
+    build_top = atest_utils.get_build_top()
+    module_info_path = atest_utils.get_product_out(_MODULE_INFO)
+    if module_info_path.is_relative_to(build_top):
+        return str(module_info_path.relative_to(build_top))
+
+    logging.debug('Found customized OUT_DIR!')
+    return str(module_info_path)
+
+
+def build():
+    """Build module-info.json"""
+    logging.debug('Generating %s - this is required for '
+                  'initial runs or forced rebuilds.', _MODULE_INFO)
+    build_start = time.time()
+    if not atest_utils.build([get_module_info_target()]):
+        sys.exit(ExitCode.BUILD_FAILURE)
+
+    metrics.LocalDetectEvent(
+        detect_type=DetectType.ONLY_BUILD_MODULE_INFO,
+        result=int(time.time() - build_start))
+
+
 def _is_testable_module(
     name_to_module_info: Dict[str, Dict],
     path_to_module_info: Dict[str, Dict],
@@ -1336,28 +1312,82 @@ def _is_testable_module(
         return True
     return False
 
-def _get_testable_modules(
-    name_to_module_info: Dict[str, Dict],
-    path_to_module_info: Dict[str, Dict],
-    suite: bool=None):
 
-    modules = set()
-    begin = time.time()
+def _get_testable_modules(
+        name_to_module_info: Dict[str, Dict],
+        path_to_module_info: Dict[str, Dict],
+        suite: str=None,
+        index_path: Path=None):
+    """Return testable modules of the given suite name."""
+    suite_to_modules = _get_suite_to_modules(name_to_module_info,
+                                             path_to_module_info,
+                                             index_path)
+
+    return _filter_modules_by_suite(suite_to_modules, suite)
+
+
+def _get_suite_to_modules(
+        name_to_module_info: Dict[str, Dict],
+        path_to_module_info: Dict[str, Dict],
+        index_path: Path=None,
+    ) -> Dict[str, Set[str]]:
+    """Map suite and its modules.
+
+    Args:
+        name_to_module_info: Dict of name to module info.
+        path_to_module_info: Dict of path to module info.
+        index_path: Path of the stored content.
+
+    Returns:
+        Dict of suite and testable modules mapping.
+    """
+    suite_to_modules = {}
+
     for _, info in name_to_module_info.items():
         if _is_testable_module(name_to_module_info, path_to_module_info, info):
-            modules.add(info.get(constants.MODULE_NAME))
+            testable_module = info.get(constants.MODULE_NAME)
+            suites = (info.get('compatibility_suites')
+                      if info.get('compatibility_suites') else ['null-suite'])
 
-    logging.debug('Probing all testable modules took %ss',
-                  time.time() - begin)
+            for suite in suites:
+                suite_to_modules.setdefault(suite, set()).add(testable_module)
 
+    if index_path:
+        _index_testable_modules(suite_to_modules, index_path)
+
+    return suite_to_modules
+
+
+def _filter_modules_by_suite(
+        suite_to_modules: Dict[str, Set[str]],
+        suite: str=None,
+    ) -> Set[str]:
+    """Return modules of the given suite name."""
     if suite:
-        _modules = set()
-        for module_name in modules:
-            info = name_to_module_info.get(module_name)
-            if ModuleInfo.is_suite_in_compatibility_suites(suite, info):
-                _modules.add(info.get(constants.MODULE_NAME))
-        return _modules
-    return modules
+        return suite_to_modules.get(suite)
+
+    return {mod for mod_set in suite_to_modules.values() for mod in mod_set}
+
+
+def _index_testable_modules(contents: Any, index_path: Path):
+    """Dump testable modules.
+
+    Args:
+        content: An object that will be written to the index file.
+        index_path: Path to the saved index file.
+    """
+    logging.debug(r'Indexing testable modules... '
+                  r'(This is required whenever module-info.json '
+                  r'was rebuilt.)')
+    index_path.parent.mkdir(parents=True, exist_ok=True)
+    with tempfile.NamedTemporaryFile(delete=False) as cache:
+        try:
+            pickle.dump(contents, cache, protocol=2)
+            shutil.move(cache.name, index_path)
+            logging.debug('%s is created successfully.', index_path)
+        except IOError:
+            logging.error('Failed in dumping %s', cache)
+            os.remove(cache.name)
 
 
 class SqliteDict(collections.abc.Mapping):

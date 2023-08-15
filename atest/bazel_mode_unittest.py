@@ -2198,6 +2198,32 @@ class BazelTestRunnerTest(fake_filesystem_unittest.TestCase):
             '--build_metadata=ab_target=aosp_cf_x86_64_phone-userdebug'
         ], cmd[0])
 
+    def test_generate_run_command_with_no_bazel_detailed_summary(self):
+        test_infos = [test_info_of('test1')]
+        extra_args = {
+            constants.BAZEL_MODE_FEATURES: [
+                bazel_mode.Features.NO_BAZEL_DETAILED_SUMMARY
+            ]
+        }
+        runner = self.create_bazel_test_runner_for_tests(test_infos)
+
+        cmd = runner.generate_run_commands(test_infos, extra_args)
+
+        self.assertTokensNotIn([
+            '--test_summary=detailed',
+        ], cmd[0])
+
+    def test_generate_run_command_without_no_bazel_detailed_summary(self):
+        test_infos = [test_info_of('test1')]
+        extra_args = {}
+        runner = self.create_bazel_test_runner_for_tests(test_infos)
+
+        cmd = runner.generate_run_commands(test_infos, extra_args)
+
+        self.assertTokensIn([
+            '--test_summary=detailed',
+        ], cmd[0])
+
     def test_not_zip_test_output_files_when_bes_publish_not_enabled(self):
         test_infos = [test_info_of('test1')]
         extra_args = {}
@@ -2486,7 +2512,7 @@ def _get_query_file_content(args: List[str]) -> str:
         if arg.startswith('--query_file='):
             return Path(arg.split('=')[1]).read_text(encoding='utf-8')
 
-    raise Exception('Query file not found!')
+    raise FileNotFoundError('Query file not found!')
 
 
 if __name__ == '__main__':
