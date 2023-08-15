@@ -88,6 +88,7 @@ public final class BazelTest implements IRemoteTest {
     public static final String BUILD_TEST_ARG = "bazel-build";
     public static final String TEST_TAG_TEST_ARG = "bazel-test";
     public static final String BRANCH_TEST_ARG = "bazel-branch";
+    public static final int BAZEL_TESTS_FAILED_RETURN_CODE = 3;
 
     // Add method excludes to TF's global filters since Bazel doesn't support target-specific
     // arguments. See https://github.com/bazelbuild/rules_go/issues/2784.
@@ -249,7 +250,23 @@ public final class BazelTest implements IRemoteTest {
 
         // Note that if Bazel exits without writing the 'last' BEP message marker we won't get to
         // here since the above reporting code throws.
-        waitForProcess(bazelTestProcess, RUN_TESTS);
+        int bazelTestExitCode = bazelTestProcess.waitFor();
+
+        // TODO(b/296923373): If there is any parsing issue for a specific module consider reporting
+        // a generic module failure for that module.
+        if (bazelTestExitCode == BAZEL_TESTS_FAILED_RETURN_CODE) {
+            CLog.w("Bazel exited with exit code: %d, some tests failed.", bazelTestExitCode);
+            return;
+        }
+
+        if (bazelTestExitCode == 0) {
+            return;
+        }
+
+        throw new AbortRunException(
+                String.format("%s command failed. Exit code: %d", RUN_TESTS, bazelTestExitCode),
+                FailureStatus.DEPENDENCY_ISSUE,
+                TestErrorIdentifier.TEST_ABORTED);
     }
 
     void reportTestResults(
@@ -387,7 +404,7 @@ public final class BazelTest implements IRemoteTest {
         Process queryProcess = startProcess(QUERY_ALL_TARGETS, builder, BAZEL_QUERY_TIMEOUT);
         List<String> queryLines = readProcessLines(queryProcess);
 
-        waitForProcess(queryProcess, QUERY_ALL_TARGETS);
+        waitForSuccessfulProcess(queryProcess, QUERY_ALL_TARGETS);
 
         return queryLines;
     }
@@ -419,7 +436,7 @@ public final class BazelTest implements IRemoteTest {
 
         List<String> queryLines = readProcessLines(process);
 
-        waitForProcess(process, QUERY_MAP_MODULES_TO_TARGETS);
+        waitForSuccessfulProcess(process, QUERY_MAP_MODULES_TO_TARGETS);
 
         return parseModulesToTargets(queryLines);
     }
@@ -526,12 +543,12 @@ public final class BazelTest implements IRemoteTest {
         return groupedMultiMap;
     }
 
-    private Process startAndWaitForProcess(
+    private Process startAndWaitForSuccessfulProcess(
             String processTag, ProcessBuilder builder, Duration processTimeout)
             throws InterruptedException, IOException {
 
         Process process = startProcess(processTag, builder, processTimeout);
-        waitForProcess(process, processTag);
+        waitForSuccessfulProcess(process, processTag);
         return process;
     }
 
@@ -576,7 +593,8 @@ public final class BazelTest implements IRemoteTest {
         return process;
     }
 
-    private void waitForProcess(Process process, String processTag) throws InterruptedException {
+    private void waitForSuccessfulProcess(Process process, String processTag)
+            throws InterruptedException {
 
         if (process.waitFor() == 0) {
             return;
