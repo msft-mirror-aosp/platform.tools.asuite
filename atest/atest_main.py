@@ -929,24 +929,38 @@ def need_run_index_targets(
         return False
     return True
 
-def _all_tests_are_bazel_buildable(
-    roboleaf_tests: Dict[str, TestInfo],
-    tests: List[str]) -> bool:
-    """Method that determines whether all tests have been fully converted to
-    build with Bazel (Roboleaf).
 
-    If all tests are fully converted, then indexing, generating
-    module-info.json, and generating atest bazel workspace can be skipped since
-    dependencies can be transitively built with bazel's build graph.
+def _b_test(test_infos, extra_args, results_dir):
+    """Entry point of b test in atest.
 
     Args:
-        roboleaf_tests: A dictionary keyed by testname of roboleaf tests.
-        tests: A list of testnames requested by the user.
+        tests: List of tests to pass to `b test`
+        args: An argparse.Namespace class instance holding parsed args.
+        results_dir: A directory which stores the ATest execution information.
 
     Returns:
-        True when none of the above conditions were found.
+        Exit code.
     """
-    return roboleaf_tests and set(tests) == set(roboleaf_tests)
+    mod_info = module_info.create_empty()
+    test_start = time.time()
+
+    # Run the bazel test command. This is where the heavy lifting is.
+    tests_exit_code, reporter = test_runner_handler.run_all_tests(
+        results_dir, test_infos, extra_args, mod_info)
+
+    atest_execution_info.AtestExecutionInfo.result_reporters.append(reporter)
+
+    # TODO(b/296174403): Break down build and test time.
+    #
+    # Bazel handles build and test in the same invocation. So RoboleafTestRunner
+    # "test" time (not full invocation time) might be significantly higher when
+    # comparing with other test runners, since it also includes the time Bazel
+    # takes to build the test(s).
+    metrics.RunTestsFinishEvent(
+        duration=metrics_utils.convert_duration(time.time() - test_start))
+
+    return tests_exit_code
+
 
 def set_build_output_mode(mode: atest_utils.BuildOutputMode):
     """Update environment variable dict accordingly to args.build_output."""
@@ -1035,16 +1049,24 @@ def main(argv: List[Any], results_dir: str, args: argparse.ArgumentParser):
     extra_args = get_extra_args(args)
     verify_env_variables = extra_args.get(constants.VERIFY_ENV_VARIABLE, False)
 
-    # Gather roboleaf tests now to see if we can skip mod info generation.
-    mod_info = module_info.create_empty()
-    if args.roboleaf_mode != roboleaf_test_runner.BazelBuildMode.OFF:
-        mod_info.roboleaf_tests = roboleaf_test_runner.RoboleafTestRunner(
-            results_dir).roboleaf_eligible_tests(
-                args.roboleaf_mode,
-                args.tests)
-    all_tests_are_bazel_buildable = _all_tests_are_bazel_buildable(
-                                mod_info.roboleaf_tests,
-                                args.tests)
+    # Check if we can run all tests with bazel early in the atest runtime and
+    # skip all of the standard atest logic.
+    #
+    # Bazel handles a lot of the heavy lifting that atest standard mode does, like
+    # building the build modules and running tradefed. That said. Bazel does not
+    # fully support every atest flag -- not every one of them will make sense
+    # when Bazel is handling both build and test.
+    b_supported_tests = roboleaf_test_runner.are_all_tests_supported(args.roboleaf_mode, args.tests)
+    if b_supported_tests:
+        # Give users a heads up that something has changed.
+        print(f'All requested modules [{atest_utils.colorize(", ".join(b_supported_tests.keys()), constants.GREEN)}] '
+              'can be fully built and tested by Bazel, so atest will now delegate to Bazel. '
+              'If there are any issues, please file a bug on the issue tracker. '
+              'You can also opt-out with the "--roboleaf-mode=off" flag.')
+        # Use Bazel for both building and testing and return early.
+        return _b_test(b_supported_tests.values(), extra_args, results_dir)
+
+    # This is where standard atest begins.
 
     # Run Test Mapping or coverage by no-bazel-mode.
     if atest_utils.is_test_mapping(args) or args.experimental_coverage:
@@ -1052,16 +1074,15 @@ def main(argv: List[Any], results_dir: str, args: argparse.ArgumentParser):
         args.bazel_mode = False
 
     proc_idx = None
-    if not all_tests_are_bazel_buildable:
-        # Do not index targets while the users intend to dry-run tests.
-        if need_run_index_targets(args, extra_args):
-            proc_idx = atest_utils.run_multi_proc(at.index_targets)
-        smart_rebuild = need_rebuild_module_info(args)
+    # Do not index targets while the users intend to dry-run tests.
+    if need_run_index_targets(args, extra_args):
+        proc_idx = atest_utils.run_multi_proc(at.index_targets)
+    smart_rebuild = need_rebuild_module_info(args)
 
-        mod_info = module_info.load(
-            force_build=smart_rebuild,
-            sqlite_module_cache=args.sqlite_module_cache,
-        )
+    mod_info = module_info.load(
+        force_build=smart_rebuild,
+        sqlite_module_cache=args.sqlite_module_cache,
+    )
 
     translator = cli_translator.CLITranslator(
         mod_info=mod_info,
@@ -1104,15 +1125,14 @@ def main(argv: List[Any], results_dir: str, args: argparse.ArgumentParser):
         find_duration = time.time() - find_start
         if not test_infos:
             return ExitCode.TEST_NOT_FOUND
-        if args.roboleaf_mode == roboleaf_test_runner.BazelBuildMode.OFF:
-            if not is_from_test_mapping(test_infos):
-                if not (any(dry_run_args) or verify_env_variables):
-                    _validate_exec_mode(args, test_infos)
-                    # _validate_exec_mode appends --host automatically when pure
-                    # host-side tests, so re-parsing extra_args is a must.
-                    extra_args = get_extra_args(args)
-            else:
-                _validate_tm_tests_exec_mode(args, test_infos)
+        if not is_from_test_mapping(test_infos):
+            if not (any(dry_run_args) or verify_env_variables):
+                _validate_exec_mode(args, test_infos)
+                # _validate_exec_mode appends --host automatically when pure
+                # host-side tests, so re-parsing extra_args is a must.
+                extra_args = get_extra_args(args)
+        else:
+            _validate_tm_tests_exec_mode(args, test_infos)
         # Detect auto sharding and trigger creating AVDs
         if args.auto_sharding and _is_auto_shard_test(test_infos):
             extra_args.update({constants.SHARDING: constants.SHARD_NUM})
