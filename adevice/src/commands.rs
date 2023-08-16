@@ -173,7 +173,7 @@ pub fn restart_type(
 
     for installed_file in installed_file_paths {
         let restart_type = build_system.restart_type(installed_file);
-        info!("{:?} for {}", restart_type, installed_file);
+        info!(" -- Restart is {:?} for {}", restart_type, installed_file);
         match restart_type {
             Some(RestartType::Reboot) => reboot_needed = true,
             Some(RestartType::SoftRestart) => soft_restart_needed = true,
