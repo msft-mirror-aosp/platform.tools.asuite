@@ -126,12 +126,6 @@ class CLITranslator:
         test_name = test_identifier.test_name
         if not self._verified_mainline_modules(test_identifier):
             return test_infos
-        if self.mod_info and test in self.mod_info.roboleaf_tests:
-            # Roboleaf bazel will discover and build dependencies so we can
-            # skip finding dependencies.
-            print(f'Found \'{atest_utils.colorize(test, constants.GREEN)}\''
-                  ' as ROBOLEAF_CONVERTED_MODULE')
-            return [self.mod_info.roboleaf_tests[test]]
         find_methods = test_finder_handler.get_find_methods_for_test(
             self.mod_info, test)
         if self._bazel_mode:

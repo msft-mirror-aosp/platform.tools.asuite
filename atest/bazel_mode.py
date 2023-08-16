@@ -1902,10 +1902,6 @@ class BazelTestRunner(trb.TestRunnerBase):
                 extra_args,
                 self._get_remote_avd_args))
 
-        if Features.NO_BAZEL_DETAILED_SUMMARY not in extra_args.get(
-                'BAZEL_MODE_FEATURES', []):
-            bazel_args.append('--test_summary=detailed')
-
         # This is an alternative to shlex.join that doesn't exist in Python
         # versions < 3.8.
         bazel_args_str = ' '.join(shlex.quote(arg) for arg in bazel_args)
@@ -1924,6 +1920,8 @@ def parse_args(
     extra_args: Dict[str, Any],
     mod_info: module_info.ModuleInfo) -> Dict[str, Any]:
     """Parse commandline args and passes supported args to bazel.
+
+    This is shared between both --bazel-mode and --roboleaf-mode.
 
     Args:
         test_infos: A set of TestInfo instances.
@@ -1973,6 +1971,11 @@ def parse_args(
     # Default to --test_output=errors unless specified otherwise
     if not any(arg.startswith('--test_output=') for arg in args_to_append):
         args_to_append.append('--test_output=errors')
+
+    # Default to --test_summary=detailed unless specified otherwise, or if the feature is disabled
+    if not any(arg.startswith('--test_summary=') for arg in args_to_append) and \
+        Features.NO_BAZEL_DETAILED_SUMMARY not in extra_args.get('BAZEL_MODE_FEATURES', []):
+        args_to_append.append('--test_summary=detailed')
 
     return args_to_append
 
