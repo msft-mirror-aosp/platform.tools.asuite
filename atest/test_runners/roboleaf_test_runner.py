@@ -19,18 +19,18 @@ This runner is used to run the tests that have been fully converted to Bazel.
 """
 
 import enum
-import shlex
-import os
-import logging
 import json
+import logging
+import os
+import shlex
 import subprocess
 
 from pathlib import Path
 from typing import Any, Dict, List, Set
 
 from atest import atest_utils
-from atest import constants
 from atest import bazel_mode
+from atest import constants
 from atest import result_reporter
 
 from atest.atest_enum import ExitCode
@@ -76,6 +76,68 @@ class RoboleafModuleMap(metaclass=Singleton):
             for example { "test_a": "//platform/test_a" }.
         """
         return self._module_map
+
+def are_all_tests_supported(roboleaf_mode, tests) -> Dict[str, TestInfo]:
+    """Determine if the list of tests are all supported by bazel based on the mode.
+
+    If all requested tests are eligible, then indexing, generating
+    module-info.json, and generating atest bazel workspace can be skipped since
+    dependencies can be transitively built with bazel's build graph.
+
+    Args:
+        roboleaf_mode: The value of --roboleaf-mode.
+        tests: A list of test names requested by the user.
+
+    Returns:
+        The list of 'b test'-able module names. If --roboleaf-mode is 'off' or
+        if at least 1 requested test is not b testable, return an empty list.
+
+    """
+    if roboleaf_mode == BazelBuildMode.OFF:
+        # Gracefully fall back to standard atest if roboleaf mode is disabled.
+        return {}
+
+    eligible_tests = _roboleaf_eligible_tests(roboleaf_mode, tests)
+
+    if set(eligible_tests.keys()) == set(tests):
+        # only enable b test when every requested test is eligible for roboleaf
+        # mode.
+        return eligible_tests
+
+    # Gracefully fall back to standard atest if not every test is b testable.
+    return {}
+
+def _roboleaf_eligible_tests(
+    mode: BazelBuildMode,
+    module_names: List[str]) -> Dict[str, TestInfo]:
+    """Filter the given module_names to only ones that are currently
+    fully converted with roboleaf (b test) and then filter further by the
+    launch allowlist.
+
+    Args:
+        mode: A BazelBuildMode value to switch between dev and prod lists.
+        module_names: A list of module names to check for roboleaf support.
+
+    Returns:
+        A dictionary keyed by test name and value of Roboleaf TestInfo.
+    """
+    if not module_names or mode == BazelBuildMode.OFF:
+        return {}
+
+    mod_map = RoboleafModuleMap()
+    supported_modules = set(filter(
+        lambda m: m in mod_map.get_map(), module_names))
+
+    # By default, only keep modules that are in the managed list
+    # of launched modules.
+    if mode == BazelBuildMode.ON:
+        supported_modules = set(filter(
+            lambda m: m in supported_modules, mod_map.launched_modules))
+
+    return {
+        module: TestInfo(module, RoboleafTestRunner.NAME, set())
+        for module in supported_modules
+    }
 
 def _generate_map(module_map_location: str = '') -> Dict[str, str]:
     """Generate converted module map.
@@ -274,36 +336,3 @@ class RoboleafTestRunner(test_runner_base.TestRunnerBase):
         requirements that atest has. Update this to check for android env vars
         if that changes.
         """
-
-    def roboleaf_eligible_tests(
-        self,
-        mode: BazelBuildMode,
-        module_names: List[str]) -> Dict[str, TestInfo]:
-        """Filter the given module_names to only ones that are currently
-        fully converted with roboleaf (b test) and then filter further by the
-        launch allowlist.
-
-        Args:
-            mode: A BazelBuildMode value to switch between dev and prod lists.
-            module_names: A list of module names to check for roboleaf support.
-
-        Returns:
-            A dictionary keyed by test name and value of Roboleaf TestInfo.
-        """
-        if not module_names or mode == BazelBuildMode.OFF:
-            return {}
-
-        mod_map = RoboleafModuleMap()
-        supported_modules = set(filter(
-            lambda m: m in mod_map.get_map(), module_names))
-
-        # By default, only keep modules that are in the managed list
-        # of launched modules.
-        if mode == BazelBuildMode.ON:
-            supported_modules = set(filter(
-                lambda m: m in supported_modules, mod_map.launched_modules))
-
-        return {
-            module: TestInfo(module, RoboleafTestRunner.NAME, set())
-            for module in supported_modules
-        }
