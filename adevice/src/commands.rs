@@ -1,7 +1,9 @@
 //! Generate and execute adb commands from the host.
 use crate::fingerprint::*;
+use crate::restart_chooser::{RestartChooser, RestartType};
 
 use anyhow::{anyhow, Context, Result};
+use log::{debug, info};
 use serde::__private::ToString;
 use std::collections::HashMap;
 use std::fmt::Debug;
@@ -23,7 +25,7 @@ pub enum AdbAction {
     // TODO: Also need commands to set user, group and permissions.
 }
 
-fn split_string(s: &str) -> Vec<String> {
+pub fn split_string(s: &str) -> AdbCommand {
     Vec::from_iter(s.split(' ').map(String::from))
 }
 
@@ -115,25 +117,84 @@ pub fn compose(diffs: &Diffs, product_out: &Path) -> Commands {
 /// Runs `adb` with the given args.
 /// If there is a non-zero exit code or non-empty stderr, then
 /// creates a Result Err string with the details.
-pub fn run_adb_command(args: &Vec<String>) -> Result<String> {
+pub fn run_adb_command(args: &AdbCommand) -> Result<String> {
+    debug!("Running: ADB {args:?}");
     let output =
         process::Command::new("adb").args(args).output().context("Error running adb commands")?;
 
     if output.status.success() && output.stderr.is_empty() {
-        return Ok(String::from_utf8(output.stdout)?);
+        let stdout = String::from_utf8(output.stdout)?;
+        // debug!("{}", stdout);
+        return Ok(stdout);
     }
 
+    // Adb remount returns status 0, but writes the mounts to stderr.
+    // Just swallow the useless output and return ok.
+    if let Some(cmd) = args.get(0) {
+        if output.status.success() && cmd == "remount" {
+            return Ok("".to_string());
+        }
+    }
+
+    // It is some error.
     let status = match output.status.code() {
         Some(code) => format!("Exited with status code: {code}"),
         None => "Process terminated by signal".to_string(),
     };
 
+    // Adb writes bad commands to stderr.  (adb badverb) with status 1
+    // Adb writes remount output to stderr (adb remount) but gives status 0
     let stderr = match String::from_utf8(output.stderr) {
         Ok(str) => str,
         Err(e) => return Err(anyhow!("Error translating stderr {}", e)),
     };
-    Err(anyhow!("adb error, {status} {stderr}"))
+
+    // Adb writes push errors to stdout.
+    let stdout = match String::from_utf8(output.stdout) {
+        Ok(str) => str,
+        Err(e) => return Err(anyhow!("Error translating stdout {}", e)),
+    };
+
+    Err(anyhow!("adb error, {status} {stdout} {stderr}"))
 }
+
+/// Given a set of files, determine the combined set of commands we need
+/// to execute on the device to make the device aware of the new files.
+/// In the most conservative case we will return a single "reboot" command.
+/// Short of that, there should be zero or one commands per installed file.
+/// If multiple installed files are part of the same module, we will reduce
+/// to one command for those files.  If multiple services are sync'd, there
+/// may be multiple restart commands.
+pub fn restart_type(
+    build_system: &RestartChooser,
+    installed_file_paths: &Vec<String>,
+) -> RestartType {
+    let mut soft_restart_needed = false;
+    let mut reboot_needed = false;
+
+    for installed_file in installed_file_paths {
+        let restart_type = build_system.restart_type(installed_file);
+        info!("{:?} for {}", restart_type, installed_file);
+        match restart_type {
+            Some(RestartType::Reboot) => reboot_needed = true,
+            Some(RestartType::SoftRestart) => soft_restart_needed = true,
+            Some(RestartType::None) => (),
+            None => (),
+            // TODO(rbraunstein): Deal with determining the command needed.
+            // RestartType::RestartBinary => (),
+        }
+    }
+    // Note, we don't do early return so we log restart_type for each file.
+    if reboot_needed {
+        return RestartType::Reboot;
+    }
+    if soft_restart_needed {
+        return RestartType::SoftRestart;
+    }
+    RestartType::None
+}
+
+pub type AdbCommand = Vec<String>;
 
 #[cfg(test)]
 mod tests {
@@ -221,7 +282,7 @@ mod tests {
         }
 
         let expected_str =
-            "adb error, Exited with status code: 1 adb: unknown command improper_cmd\n";
+            "adb error, Exited with status code: 1  adb: unknown command improper_cmd\n";
         assert_eq!(expected_str, format!("{:?}", result.unwrap_err()));
     }
 
