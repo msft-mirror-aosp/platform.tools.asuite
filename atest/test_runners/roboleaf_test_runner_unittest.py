@@ -125,8 +125,8 @@ class RoboleafTestRunnerUnittests(fake_filesystem_unittest.TestCase):
         with self.assertRaises(AbortRunException):
             roboleaf_test_runner._read_allowlist(allowlist_path, module_map)
 
-    def test_roboleaf_eligible_tests_filtering(self):
-        """Test roboleaf_eligible_tests method when _module_map has entries"""
+    def test_are_all_tests_supported_filtering(self):
+        """Test are_all_tests_supported method when _module_map has entries"""
         RoboleafModuleMap._instances = {}
 
         self.setUpPyfakefs()
@@ -147,41 +147,41 @@ class RoboleafTestRunnerUnittests(fake_filesystem_unittest.TestCase):
             roboleaf_test_runner._ALLOWLIST_LAUNCHED,
             contents=dedent(allowlist_content))
 
-        # tests requested on the atest command line
-        module_names = ['test1', 'test2', 'test3', 'test4']
+        # (mode, module names of requested tests, expected number of eligible tests)
+        test_cases = [
+            (roboleaf_test_runner.BazelBuildMode.OFF, ['test1', 'test2', 'test3'], 0),
+            (roboleaf_test_runner.BazelBuildMode.OFF, [], 0),
+            # --roboleaf-mode=dev tests. Ignores launch allowlist.
+            (roboleaf_test_runner.BazelBuildMode.DEV, ['test1', 'test2', 'test3'], 3),
+            (roboleaf_test_runner.BazelBuildMode.DEV, ['test1', 'test2'], 2),
+            (roboleaf_test_runner.BazelBuildMode.DEV, ['test1'], 1),
+            (roboleaf_test_runner.BazelBuildMode.DEV, [], 0),
+            # --roboleaf-mode=on tests. Takes launch allowlist into account.
+            (roboleaf_test_runner.BazelBuildMode.ON, ['test1', 'test2', 'test3'], 0),
+            (roboleaf_test_runner.BazelBuildMode.ON, ['test1', 'test2'], 2),
+            (roboleaf_test_runner.BazelBuildMode.ON, ['test1'], 1),
+            (roboleaf_test_runner.BazelBuildMode.ON, [], 0),
+        ]
 
-        # --roboleaf-mode=dev tests. Ignores launch allowlist.
-        eligible_tests = self.test_runner.roboleaf_eligible_tests(
-            roboleaf_test_runner.BazelBuildMode.DEV,
-            module_names)
-        self.assertEqual(len(eligible_tests), 4)
-        for module_name in module_names:
-            self.assertEqual(eligible_tests[module_name].test_name, module_name)
-            self.assertEqual(eligible_tests[module_name].test_runner,
-                             RoboleafTestRunner.NAME)
+        for test_case in test_cases:
+            (mode, module_names, expected_len) = test_case
+            eligible_tests = roboleaf_test_runner.are_all_tests_supported(mode, module_names)
+            self.assertEqual(len(eligible_tests), expected_len)
+            if expected_len:
+                for module_name in module_names:
+                    self.assertEqual(eligible_tests[module_name].test_name, module_name)
+                    self.assertEqual(eligible_tests[module_name].test_runner,
+                                    RoboleafTestRunner.NAME)
 
-
-        # --roboleaf-mode=on tests. Takes launch allowlist into account.
-        eligible_tests = self.test_runner.roboleaf_eligible_tests(
-            roboleaf_test_runner.BazelBuildMode.ON,
-            module_names)
-        self.assertEqual(len(eligible_tests), 2)
-        self.assertEqual(eligible_tests["test1"].test_name, 'test1')
-        self.assertEqual(eligible_tests["test1"].test_runner,
-                         RoboleafTestRunner.NAME)
-        self.assertEqual(eligible_tests["test2"].test_name, 'test2')
-        self.assertEqual(eligible_tests["test2"].test_runner,
-                         RoboleafTestRunner.NAME)
-
-    def test_roboleaf_eligible_tests_empty_map(self):
-        """Test roboleaf_eligible_tests method when _module_map is empty"""
+    def test_are_all_tests_supported_empty_map(self):
+        """Test are_all_tests_supported method when _module_map is empty"""
         module_names = [
             'test1',
             'test2',
         ]
         RoboleafModuleMap()._module_map = {}
 
-        eligible_tests = self.test_runner.roboleaf_eligible_tests(
+        eligible_tests = roboleaf_test_runner.are_all_tests_supported(
             roboleaf_test_runner.BazelBuildMode.DEV,
             module_names)
         self.assertEqual(eligible_tests, {})
