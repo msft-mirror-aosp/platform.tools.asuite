@@ -35,16 +35,14 @@ impl Config {
             let mut config: Config = serde_json::from_reader(BufReader::new(file))
                 .context(format!("Parsing config {:?}", Self::path(&home_dir)?))?;
             config.home_dir = home_dir;
-            Ok(config)
-        } else {
-            // Lets not create a default config file until they actually track a module.
-            Ok(Config { base: "droid".to_string(), modules: Vec::new(), home_dir })
+            return Ok(config);
         }
+        // Lets not create a default config file until they actually track a module.
+        Ok(Config { base: "droid".to_string(), modules: Vec::new(), home_dir })
     }
 
-    pub fn print(&self) -> Config {
+    pub fn print(&self) {
         info!("Tracking base: `{}` and modules {:?}", self.base, self.modules);
-        self.clone()
     }
 
     /// Returns the full path to the serialized config file.
