@@ -4,6 +4,7 @@ mod commands;
 mod device;
 mod fingerprint;
 mod restart_chooser;
+mod tracking;
 
 use crate::restart_chooser::RestartChooser;
 use anyhow::{anyhow, bail, Context, Result};
@@ -18,6 +19,7 @@ use std::collections::{BTreeSet, HashMap};
 use std::path::PathBuf;
 
 fn main() -> Result<()> {
+    let total_time = std::time::Instant::now();
     let cli = cli::Cli::parse();
     init_logger(&cli.global_options);
 
@@ -28,11 +30,28 @@ fn main() -> Result<()> {
         ))?,
     };
 
+    let track_time = std::time::Instant::now();
+    let home = std::env::var("HOME").context("HOME env variable must be set.")?;
+    let mut config = tracking::Config::load_or_default(home)?;
+
+    // Early return for track/untrack commands.
+    match cli.command {
+        Commands::Track(names) => return config.track(&names.modules),
+        Commands::Untrack(names) => return config.untrack(&names.modules),
+        _ => (),
+    }
+    config.print();
+
+    let droid_installed_files = config.tracked_files()?;
+
+    debug!("IF: {:?}", droid_installed_files.len());
+    info!("Stale file tracking took {} millis", track_time.elapsed().as_millis());
+
     let partitions: Vec<PathBuf> =
         cli.global_options.partitions.iter().map(PathBuf::from).collect();
     let now = std::time::Instant::now();
     let device_tree = fingerprint_device(&cli.global_options.partitions)?;
-    debug!("fingerprinting device took {} millis", now.elapsed().as_millis());
+    info!("Fingerprinting device took {} millis", now.elapsed().as_millis());
 
     let build_tree = fingerprint::fingerprint_partitions(&product_out, &partitions)?;
     let changes = fingerprint::diff(&build_tree, &device_tree);
@@ -52,13 +71,11 @@ fn main() -> Result<()> {
 
     match &cli.command {
         Commands::Status => {
+            diff_base_with_build_tree(&droid_installed_files, &build_tree);
             report_diffs("Device Needs", &changes.device_needs);
             report_diffs("Device Diffs", &changes.device_diffs);
             report_diffs("Device Extra", &changes.device_extra);
         }
-        // TODO(rbraunstein): Show reboot/wait commands too.
-        Commands::ShowActions => report_actions(commands),
-
         Commands::Update => {
             // TODO(rbraunstein): Add some notification for the deletes we are skipping.
             info!("Actions: {} files.", commands.len());
@@ -67,8 +84,43 @@ fn main() -> Result<()> {
                 commands,
             )?;
         }
+        _ => (),
     }
+    info!("Total update time {} secs", total_time.elapsed().as_secs());
     Ok(())
+}
+
+/// Given the set of installed files derived from modules we track
+/// and the set of files found in the Product Out tree on the host,
+/// Print the files on the host that are not in the installed set.
+/// Also print the files in the installed set that are not on the host.
+fn diff_base_with_build_tree(
+    droid_installed_files: &[String],
+    build_tree: &HashMap<PathBuf, FileMetadata>,
+) {
+    let build_sorted_names: BTreeSet<PathBuf> = BTreeSet::from_iter(
+        build_tree
+            .iter()
+            .filter_map(|(key, metadata)| {
+                if metadata.file_type != fingerprint::FileType::Directory {
+                    Some(PathBuf::from(key))
+                } else {
+                    None
+                }
+            })
+            .collect::<BTreeSet<PathBuf>>(),
+    );
+    let droid_sorted_names: BTreeSet<PathBuf> = BTreeSet::from_iter(
+        droid_installed_files.iter().map(PathBuf::from).collect::<BTreeSet<PathBuf>>(),
+    );
+
+    let build_extra: Vec<PathBuf> =
+        build_sorted_names.difference(&droid_sorted_names).cloned().collect();
+    println!("BUILD (build out tree #files: {}) HAS: {build_extra:?}", build_sorted_names.len());
+
+    let droid_extra: Vec<PathBuf> =
+        droid_sorted_names.difference(&build_sorted_names).cloned().collect();
+    println!("DROID (sync-set #files: {}) HAS: {droid_extra:?}", droid_sorted_names.len());
 }
 
 fn report_diffs(category: &str, file_names: &HashMap<PathBuf, FileMetadata>) {
@@ -80,26 +132,10 @@ fn report_diffs(category: &str, file_names: &HashMap<PathBuf, FileMetadata>) {
     }
 }
 
-fn report_actions(actions: &HashMap<PathBuf, Vec<String>>) {
-    let action_files = BTreeSet::from_iter(actions.keys());
-    println!("Actions: {} files.", action_files.len());
-
-    for value in action_files.iter().take(10) {
-        println!("\tadb {}", actions.get(value.to_owned()).expect("missing lookup").join(" "));
-    }
-}
-
 fn get_product_out_from_env() -> Option<PathBuf> {
     match std::env::var("ANDROID_PRODUCT_OUT") {
-        Ok(x) => {
-            if x.is_empty() {
-                None
-            } else {
-                // TODO(rbraunstein); remove trailing slash?
-                Some(PathBuf::from(x))
-            }
-        }
-        Err(_) => None,
+        Ok(x) if !x.is_empty() => Some(PathBuf::from(x)),
+        _ => None,
     }
 }
 
@@ -133,13 +169,11 @@ fn init_logger(global_options: &cli::GlobalOptions) {
         .format_level(false)
         .format_module_path(false)
         .format_target(false)
-        // TODO(rbraunstein): Change to single verbose option.
-        .filter_level(match &global_options.debug {
-            true => log::LevelFilter::Debug,
-            false => match &global_options.verbose {
-                true => log::LevelFilter::Info,
-                false => log::LevelFilter::Warn,
-            },
+        // I actually want different logging channels for timing vs adb commands.
+        .filter_level(match &global_options.verbose {
+            cli::Verbosity::Debugging => log::LevelFilter::Debug,
+            cli::Verbosity::None => log::LevelFilter::Warn,
+            cli::Verbosity::Details => log::LevelFilter::Info,
         })
         .write_style(env_logger::WriteStyle::Auto)
         .init();
