@@ -65,12 +65,7 @@ fn main() -> Result<()> {
 
     if matches!(cli.command, Commands::Update) {
         info!("Actions: {} files to update.", commands.len());
-        if !commands.is_empty() {
-            device::update(
-                &RestartChooser::from(&product_out.join("module-info.json"))?,
-                &commands,
-            )?;
-        }
+        device::update(&RestartChooser::from(&product_out.join("module-info.json"))?, &commands)?;
     }
     info!("Total update time {} secs", total_time.elapsed().as_secs());
     Ok(())

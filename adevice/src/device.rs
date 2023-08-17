@@ -50,7 +50,11 @@ fn wait() -> Result<String> {
 pub fn update(
     restart_chooser: &RestartChooser,
     adb_commands: &HashMap<PathBuf, AdbCommand>,
-) -> Result<String> {
+) -> Result<()> {
+    if adb_commands.is_empty() {
+        return Ok(());
+    }
+
     let installed_files =
         adb_commands.keys().map(|p| p.clone().into_os_string().into_string().unwrap()).collect();
 
@@ -65,7 +69,8 @@ pub fn update(
         RestartType::None => anyhow::bail!("There should be a restart command"),
     }?;
     // TODO(rbraunstein): Add timeout with reasonable error message on wait.
-    wait()
+    wait()?;
+    Ok(())
 }
 
 // Ensure mkdir comes before other commands.
