@@ -27,6 +27,7 @@ from unittest import mock
 from pyfakefs import fake_filesystem_unittest
 
 from atest import atest_utils
+from atest import constants
 from atest import unittest_constants
 from atest.test_finders.test_info import TestInfo
 from atest.test_runners import roboleaf_test_runner
@@ -273,6 +274,21 @@ class RoboleafTestRunnerUnittests(fake_filesystem_unittest.TestCase):
 
         self.assertEqual(len(cmds), 1)
         self.assertTrue('b test //a:test1 //b:test2' in cmds[0])
+
+    def test_atest_host_flag(self):
+        """Test that generate_run_commands converts --host correctly."""
+        RoboleafModuleMap()._module_map = {"test1": "//a"}
+        test_infos = (
+            TestInfo("test1", RoboleafTestRunner.NAME, set()),
+        )
+
+        cmds = self.test_runner.generate_run_commands(
+            test_infos,
+            extra_args={ constants.HOST : True },
+        )
+
+        self.assertEqual(len(cmds), 1)
+        self.assertTrue('--config=deviceless' in cmds[0])
 
     @mock.patch.object(RoboleafTestRunner, 'run')
     def test_run_tests(self, mock_run):
