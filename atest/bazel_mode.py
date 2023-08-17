@@ -1664,7 +1664,6 @@ class BazelTestRunner(trb.TestRunnerBase):
             extra_args: Dict of extra args to add to test run.
             reporter: An instance of result_report.ResultReporter.
         """
-        reporter.register_unsupported_runner(self.NAME)
         ret_code = ExitCode.SUCCESS
 
         try:

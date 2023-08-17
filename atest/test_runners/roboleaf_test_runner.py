@@ -311,7 +311,6 @@ class RoboleafTestRunner(test_runner_base.TestRunnerBase):
             extra_args: Dict of extra args to add to test run.
             reporter: An instance of result_reporter.ResultReporter.
         """
-        reporter.register_unsupported_runner(self.NAME)
         ret_code = ExitCode.SUCCESS
         try:
             run_cmds = self.generate_run_commands(test_infos, extra_args)
