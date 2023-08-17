@@ -699,17 +699,25 @@ class AtestUtilsUnittests(unittest.TestCase):
             ['exclude1', 'exclude2'],
             exclude_annotation)
 
-    def test_md5sum(self):
-        """Test method of md5sum"""
-        exist_string = os.path.join(unittest_constants.TEST_DATA_DIR,
-                                    unittest_constants.JSON_FILE)
-        inexist_string = os.path.join(unittest_constants.TEST_DATA_DIR,
-                                      unittest_constants.CLASS_NAME)
-        self.assertEqual(
-            atest_utils.md5sum(exist_string),
-            'e066445b9a6244d1998fe76e7b872b3e')
-        self.assertEqual(
-            atest_utils.md5sum(inexist_string), '')
+    def test_md5sum_file_existent(self):
+        """Test method of md5sum for an existent file."""
+        with tempfile.NamedTemporaryFile() as tmp_file:
+            with open(tmp_file.name, 'w', encoding="utf-8") as f:
+                f.write("some context")
+            expected_md5 = '6d583707b0149c07cc19a05f5fdc320c'
+
+            actual_md5 = atest_utils.md5sum(tmp_file.name)
+
+            self.assertEqual(actual_md5, expected_md5)
+
+    def test_md5sum_file_inexistent(self):
+        """Test method of md5sum for an inexistent file."""
+        inexistent_file = os.path.join('/somewhere/does/not/exist')
+        expected_md5 = ""
+
+        actual_md5 = atest_utils.md5sum(inexistent_file)
+
+        self.assertEqual(actual_md5, expected_md5)
 
     def test_check_md5(self):
         """Test method of check_md5"""
