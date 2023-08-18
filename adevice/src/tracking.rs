@@ -11,6 +11,7 @@ use regex::Regex;
 use serde::{Deserialize, Serialize};
 use std::fs;
 use std::io::BufReader;
+use std::path::PathBuf;
 use std::process;
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -34,16 +35,14 @@ impl Config {
             let mut config: Config = serde_json::from_reader(BufReader::new(file))
                 .context(format!("Parsing config {:?}", Self::path(&home_dir)?))?;
             config.home_dir = home_dir;
-            Ok(config)
-        } else {
-            // Lets not create a default config file until they actually track a module.
-            Ok(Config { base: "droid".to_string(), modules: Vec::new(), home_dir })
+            return Ok(config);
         }
+        // Lets not create a default config file until they actually track a module.
+        Ok(Config { base: "droid".to_string(), modules: Vec::new(), home_dir })
     }
 
-    pub fn print(&self) -> Config {
+    pub fn print(&self) {
         info!("Tracking base: `{}` and modules {:?}", self.base, self.modules);
-        self.clone()
     }
 
     /// Returns the full path to the serialized config file.
@@ -99,9 +98,13 @@ impl Config {
         let target_product = std::env::var("TARGET_PRODUCT")
             .context("TARGET_PRODUCT must be set. Be sure to run lunch.")?;
         let out_dir = std::env::var("OUT_DIR").unwrap_or("out".to_string());
-        let ninja_output =
-            self.ninja_output(&src_root, &self.ninja_args(&target_product, &out_dir))?;
-        tracked_files(&ninja_output)
+        if let Ok(cache) = Self::read_cache(&src_root, &target_product, &out_dir) {
+            Ok(cache)
+        } else {
+            let ninja_output =
+                self.ninja_output(&src_root, &self.ninja_args(&target_product, &out_dir))?;
+            Self::write_cache(&src_root, &target_product, &out_dir, tracked_files(&ninja_output)?)
+        }
     }
 
     // Prepare the ninja command line args, creating the right ninja file name and
@@ -134,6 +137,56 @@ impl Config {
             .args(args)
             .output()
             .context("Running ninja to get base files")
+    }
+
+    // If our cache (in the out_dir) is newer than the ninja file, then use it rather
+    // than rerun ninja.  Saves about 2 secs.
+    // Returns Err if cache not found or if cache is stale.
+    // Otherwise returns the stdout from the ninja command.
+    fn read_cache(
+        src_root: &str,
+        target_product: &str,
+        // Relative to src_root
+        out_dir: &str,
+    ) -> Result<Vec<String>> {
+        let cache_path = Self::cache_path(src_root, target_product, out_dir);
+        let ninja_file_path =
+            PathBuf::from(src_root).join(out_dir).join(format!("combined-{target_product}.ninja"));
+        // cache file is too old.
+        debug!("Reading cache {cache_path}");
+        let cache_time = fs::metadata(&cache_path)?.modified()?;
+        debug!("Reading ninja  {ninja_file_path:?}");
+        let ninja_file_time = fs::metadata(ninja_file_path)?.modified()?;
+        if cache_time.lt(&ninja_file_time) {
+            debug!("Cache is too old: {cache_time:?}, ninja file time {ninja_file_time:?}");
+            anyhow::bail!("cache is stale");
+        }
+        debug!("Using ninja file cache");
+        Ok(fs::read_to_string(&cache_path)?.split('\n').map(|s| s.to_string()).collect())
+    }
+
+    fn cache_path(src_root: &str, target_product: &str, out_dir: &str) -> String {
+        vec![
+            src_root.to_string(),
+            out_dir.to_string(),
+            format!("adevice-ninja-deps-{target_product}.cache"),
+        ]
+        // TODO(rbraunstein): Fix OS separator.
+        .join("/")
+    }
+
+    // Unconditionally write the given byte stream to the cache file
+    // overwriting whatever is there.
+    fn write_cache(
+        src_root: &str,
+        target_product: &str,
+        out_dir: &str,
+        data: Vec<String>,
+    ) -> Result<Vec<String>> {
+        let cache_path = Self::cache_path(src_root, target_product, out_dir);
+        debug!("Wrote cache file: {cache_path:?}");
+        fs::write(cache_path, data.join("\n"))?;
+        Ok(data)
     }
 }
 
