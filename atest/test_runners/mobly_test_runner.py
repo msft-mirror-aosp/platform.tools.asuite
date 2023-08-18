@@ -29,6 +29,11 @@ from typing import Any, Dict, List, Optional, Set
 
 import yaml
 
+try:
+    from googleapiclient import errors, http
+except ModuleNotFoundError as err:
+    logging.debug('Import error due to: %s', err)
+
 from atest import atest_configs
 from atest import atest_enum
 from atest import atest_utils
@@ -101,6 +106,8 @@ TEST_STORAGE_STATUS_UNSPECIFIED = 'testStatusUnspecified'
 WORKUNIT_ATEST_MOBLY_RUNNER = 'ATEST_MOBLY_RUNNER'
 WORKUNIT_ATEST_MOBLY_TEST_RUN = 'ATEST_MOBLY_TEST_RUN'
 
+FILE_UPLOAD_RETRIES = 3
+
 _MOBLY_RESULT_TO_RESULT_REPORTER_STATUS = {
     SUMMARY_RESULT_PASS: test_runner_base.PASSED_STATUS,
     SUMMARY_RESULT_FAIL: test_runner_base.FAILED_STATUS,
@@ -152,17 +159,24 @@ class MoblyResultUploader:
     def __init__(self, extra_args):
         """Set up the build client."""
         self._build_client = None
+        self._legacy_client = None
+        self._legacy_result_id = None
         self._test_results = {}
 
         upload_start = time.monotonic()
         creds, self._invocation = atest_gcp_utils.do_upload_flow(extra_args)
         self._root_workunit = None
         self._current_workunit = None
+
         if creds:
             metrics.LocalDetectEvent(
                 detect_type=atest_enum.DetectType.UPLOAD_FLOW_MS,
                 result=int((time.monotonic() - upload_start) * 1000))
             self._build_client = logstorage_utils.BuildClient(creds)
+            self._legacy_client = logstorage_utils.BuildClient(
+                creds,
+                api_version=constants.STORAGE_API_VERSION_LEGACY,
+                url=constants.DISCOVERY_SERVICE_LEGACY)
             self._setup_root_workunit()
         else:
             logging.debug('Result upload is disabled.')
@@ -230,6 +244,7 @@ class MoblyResultUploader:
         """Finalize the workunit for the current iteration."""
         if not self.enabled:
             return
+        self._test_results.clear()
         self._finalize_workunit(self._current_workunit)
         self._current_workunit = None
 
@@ -248,7 +263,54 @@ class MoblyResultUploader:
             invocationId=self._invocation['invocationId'],
             body={'testResults': list(self._test_results.values())}).execute()
         logging.debug('Uploaded test results: %s', response)
-        self._test_results.clear()
+
+    def _upload_single_file(
+            self, path: str, base_dir: str, legacy_result_id: str):
+        """Upload a single test file to build storage."""
+        invocation_id = self._invocation['invocationId']
+        workunit_id = self._current_workunit['id']
+        name = os.path.relpath(path, base_dir)
+        metadata = {
+            'invocationId': invocation_id,
+            'workUnitId': workunit_id,
+            'name': name
+        }
+        logging.debug('Uploading test artifact file %s', name)
+        try:
+            self._build_client.client.testartifact().update(
+                resourceId=name,
+                invocationId=invocation_id,
+                workUnitId=workunit_id,
+                body=metadata,
+                legacyTestResultId=legacy_result_id,
+                media_body=http.MediaFileUpload(path),
+            ).execute(num_retries=FILE_UPLOAD_RETRIES)
+        except errors.HttpError as e:
+            logging.debug('Failed to upload file %s with error: %s', name, e)
+
+    def upload_test_artifacts(self, log_dir: str):
+        """Upload test artifacts and associate them to the workunit.
+
+        Args:
+            log_dir: The directory of logs to upload.
+        """
+        if not self.enabled:
+            return
+        # Use the legacy API to insert a test result and get a test result
+        # id, as it is required for test artifact upload.
+        res = self._legacy_client.client.testresult().insert(
+            buildId=self.invocation['primaryBuild']['buildId'],
+            target=self.invocation['primaryBuild']['buildTarget'],
+            attemptId='latest',
+            body={
+                'status': 'completePass',
+            }
+        ).execute()
+
+        for root, _, file_names in os.walk(log_dir):
+            for file_name in file_names:
+                self._upload_single_file(
+                    os.path.join(root, file_name), log_dir, res['id'])
 
     def finalize_invocation(self):
         """Set the root work unit and invocation as complete."""
@@ -490,11 +552,12 @@ class MoblyTestRunner(test_runner_base.TestRunnerBase):
                 CONFIG_KEY_TESTBEDS: [local_testbed],
             }
         # Use ATest logs directory as the Mobly log path
+        log_path = os.path.join(self.results_dir, MOBLY_LOGS_DIR)
         config[CONFIG_KEY_MOBLY_PARAMS] = {
-            CONFIG_KEY_LOG_PATH: os.path.join(
-                self.results_dir, MOBLY_LOGS_DIR),
+            CONFIG_KEY_LOG_PATH: log_path,
         }
-        config_path = os.path.join(self.results_dir, CONFIG_FILE)
+        os.makedirs(log_path)
+        config_path = os.path.join(log_path, CONFIG_FILE)
         logging.debug('Generating Mobly config at %s', config_path)
         with open(config_path, 'w', encoding='utf-8') as f:
             yaml.safe_dump(config, f, indent=4)
@@ -659,10 +722,11 @@ class MoblyTestRunner(test_runner_base.TestRunnerBase):
             ret_code |= curr_ret_code
 
             # Process results from generated summary file
-            summary_file = os.path.join(
+            latest_log_dir = os.path.join(
                 self.results_dir, MOBLY_LOGS_DIR,
                 mobly_args.testbed or LOCAL_TESTBED,
-                LATEST_DIR, TEST_SUMMARY_YAML)
+                LATEST_DIR)
+            summary_file = os.path.join(latest_log_dir, TEST_SUMMARY_YAML)
             test_results = self._process_test_results_from_summary(
                 summary_file, tinfo, iteration_num, rerun_options.iterations,
                 uploader)
@@ -671,6 +735,7 @@ class MoblyTestRunner(test_runner_base.TestRunnerBase):
             reporter.set_current_summary(iteration_num)
             try:
                 uploader.upload_test_results()
+                uploader.upload_test_artifacts(latest_log_dir)
                 uploader.set_workunit_iteration_details(
                     iteration_num, rerun_options)
                 uploader.finalize_current_workunit()
