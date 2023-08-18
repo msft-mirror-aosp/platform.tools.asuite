@@ -61,27 +61,27 @@ assert_fails_with_output \
 # test help
 assert_ok_with_output \
   "./adevice --help" \
-  "Usage: adevice [OPTIONS] [PRODUCT_OUT] <COMMAND>" \
+  "Usage: adevice [OPTIONS] <COMMAND>" \
 
 # test bare command is help
 # no subcommand is like --help, but exits non-zero
 assert_fails_with_output \
   "./adevice" \
-  "Usage: adevice [OPTIONS] [PRODUCT_OUT] <COMMAND>" \
+  "Usage: adevice [OPTIONS] <COMMAND>" \
 
 
 # test help with PRODUCT_OUTPUT
 (export ANDROID_PRODUCT_OUT=something
  assert_ok_with_output \
   "./adevice --help" \
-  "Usage: adevice [OPTIONS] [PRODUCT_OUT] <COMMAND>")
+  "Usage: adevice [OPTIONS] <COMMAND>")
 
 # Test --help without PRODUCT_OUTPUT set
 # TODO(rbraunstein): matrix test across env variables, don't replicate ugly test code.
 (export ANDROID_PRODUCT_OUT=
 assert_ok_with_output \
   "./adevice --help" \
-  "Usage: adevice [OPTIONS] [PRODUCT_OUT] <COMMAND>")
+  "Usage: adevice [OPTIONS] <COMMAND>")
 
 
 # TODO(rbraunstein): Add more tests, like passing a needed subcommand.
