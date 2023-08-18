@@ -155,8 +155,10 @@ class MoblyTestRunner(test_runner_base.TestRunnerBase):
                 mobly_config = self._generate_mobly_config(mobly_args, serials)
 
                 # Generate command and run
+                test_cases = self._get_test_cases_from_spec(tinfo)
                 mobly_command = self._get_mobly_command(
-                    py_executable, test_files.mobly_pkg, mobly_config)
+                    py_executable, test_files.mobly_pkg, mobly_config,
+                    test_cases)
                 ret_code |= self._run_and_handle_results(
                     mobly_command, tinfo, reporter, rerun_options)
             finally:
@@ -332,20 +334,59 @@ class MoblyTestRunner(test_runner_base.TestRunnerBase):
                 subprocess.check_call(
                     ['adb', '-s', serial, 'install', '-r', '-g', apk])
 
-    def _get_mobly_command(self, py_executable: str, mobly_pkg: str,
-                           config_path: str) -> List[str]:
+    def _get_test_cases_from_spec(self, tinfo: test_info.TestInfo) -> List[str]:
+        """Get the list of test cases to run from the user-specified filters.
+
+        Syntax for test_runner tests:
+          MODULE:.#TEST_CASE_1[,TEST_CASE_2,TEST_CASE_3...]
+          e.g.: `atest hello-world-test:.#test_hello,test_goodbye` ->
+            [test_hello, test_goodbye]
+
+        Syntax for suite_runner tests:
+          MODULE:TEST_CLASS#TEST_CASE_1[,TEST_CASE_2,TEST_CASE_3...]
+          e.g.: `atest hello-world-suite:HelloWorldTest#test_hello,test_goodbye`
+            -> [HelloWorldTest.test_hello, HelloWorldTest.test_goodbye]
+
+        Args:
+            tinfo: The TestInfo of the test.
+
+        Returns: List of test cases for the Mobly command.
+        """
+        if not tinfo.data['filter']:
+            return []
+        test_filter, = tinfo.data['filter']
+        if test_filter.methods:
+            # If an actual class name is specified, assume this is a
+            # suite_runner test and use 'CLASS.METHOD' for the Mobly test
+            # selector.
+            if test_filter.class_name.isalnum():
+                return ['%s.%s' % (test_filter.class_name, method)
+                        for method in test_filter.methods]
+            # If the class name is a placeholder character (like '.'), assume
+            # this is a test_runner test and use just 'METHOD' for the Mobly
+            # test selector.
+            return list(test_filter.methods)
+        return [test_filter.class_name]
+
+    def _get_mobly_command(
+            self, py_executable: str, mobly_pkg: str, config_path: str,
+            test_cases: List[str]) -> List[str]:
         """Generates a single Mobly test command.
 
         Args:
             py_executable: Path to the Python executable.
             mobly_pkg: Path to the Mobly test package.
             config_path: Path to the Mobly config.
+            test_cases: List of test cases to run.
 
         Returns:
             The full Mobly test command.
         """
         command = [py_executable] if py_executable is not None else []
-        return command + [mobly_pkg, '-c', config_path]
+        command += [mobly_pkg, '-c', config_path]
+        if test_cases:
+            command += ['--tests', *test_cases]
+        return command
 
     def _run_and_handle_results(
             self,
