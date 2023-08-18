@@ -64,5 +64,5 @@ pub enum Verbosity {
     /// Show all adb operations, and all timings.
     Details,
     /// For debugging internals of tool
-    Debugging,
+    Debug,
 }
