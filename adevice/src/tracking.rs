@@ -128,6 +128,7 @@ impl Config {
     fn ninja_output(&self, src_root: &str, args: &[String]) -> Result<process::Output> {
         // TODO(rbraunstein): Deal with non-linux-x86.
         let path = "prebuilts/build-tools/linux-x86/bin/ninja";
+        info!("Running {path} {args:?}");
         process::Command::new(path)
             .current_dir(src_root)
             .args(args)
@@ -272,5 +273,11 @@ mod tests {
     // Tired of typing to_string()
     fn s(str: &str) -> String {
         str.to_string()
+    }
+
+    impl Config {
+        pub fn fake() -> Self {
+            Config { base: "droid".to_string(), modules: vec![], home_dir: "".to_string() }
+        }
     }
 }
