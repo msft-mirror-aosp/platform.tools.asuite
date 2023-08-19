@@ -17,11 +17,13 @@ use log::info;
 
 use std::collections::{BTreeSet, HashMap, HashSet};
 use std::path::PathBuf;
+use std::time::Duration;
 
 fn main() -> Result<()> {
     let total_time = std::time::Instant::now();
     let cli = cli::Cli::parse();
     init_logger(&cli.global_options);
+    let mut profiler = Profiler::default();
 
     let product_out = match &cli.global_options.product_out {
         Some(po) => PathBuf::from(po),
@@ -42,18 +44,20 @@ fn main() -> Result<()> {
     }
     config.print();
 
-    let ninja_installed_files = config.tracked_files()?;
+    let ninja_installed_files = time!(config.tracked_files()?, profiler.ninja_deps_computer);
 
     info!("Stale file tracking took {} millis", track_time.elapsed().as_millis());
 
     let partitions: Vec<PathBuf> =
         cli.global_options.partitions.iter().map(PathBuf::from).collect();
-    let now = std::time::Instant::now();
-    let device_tree = fingerprint_device(&cli.global_options.partitions)?;
-    info!("Fingerprinting device took {} millis", now.elapsed().as_millis());
+    let device_tree =
+        time!(fingerprint_device(&cli.global_options.partitions)?, profiler.device_fingerprint);
 
     // build_tree is keys are system/blah
-    let build_tree = fingerprint::fingerprint_partitions(&product_out, &partitions)?;
+    let build_tree = time!(
+        fingerprint::fingerprint_partitions(&product_out, &partitions)?,
+        profiler.host_fingerprint
+    );
     let commands = update(
         &device_tree,
         &build_tree,
@@ -65,9 +69,14 @@ fn main() -> Result<()> {
 
     if matches!(cli.command, Commands::Update) {
         info!("Actions: {} files to update.", commands.len());
-        device::update(&RestartChooser::from(&product_out.join("module-info.json"))?, &commands)?;
+        device::update(
+            &RestartChooser::from(&product_out.join("module-info.json"))?,
+            &commands,
+            &mut profiler,
+        )?;
     }
-    info!("Total update time {} secs", total_time.elapsed().as_secs());
+    profiler.total = total_time.elapsed(); // Avoid wrapping the block in the macro.
+    info!("{}", profiler.to_string());
     Ok(())
 }
 
@@ -115,7 +124,7 @@ fn update(
         return Ok(HashMap::new());
     }
     if commands.len() > max_changes {
-        bail!("Your device needs {} changes which is more than the suggested amount of {}. Consider reflashing instead.", commands.len(), max_changes);
+        bail!("Your device needs {} changes which is more than the suggested amount of {}. Pass `--max-allowed-changes={} or consider reflashing.", commands.len(), max_changes, commands.len());
     }
 
     // Files that are in the update set but NOT in the staging directory. These need
@@ -212,6 +221,34 @@ fn parents(file_path: &str) -> Vec<PathBuf> {
     PathBuf::from(file_path).ancestors().map(PathBuf::from).collect()
 }
 
+#[allow(missing_docs)]
+#[derive(Default)]
+pub struct Profiler {
+    pub device_fingerprint: Duration,
+    pub host_fingerprint: Duration,
+    pub ninja_deps_computer: Duration,
+    pub adb_cmds: Duration,
+    pub reboot: Duration,
+    pub restart_after_boot: Duration,
+    pub total: Duration,
+}
+
+impl std::string::ToString for Profiler {
+    fn to_string(&self) -> String {
+        vec![
+            " Operation profile: (secs)".to_string(),
+            format!("Device Fingerprint - {}", self.device_fingerprint.as_secs()),
+            format!("Host fingerprint - {}", self.host_fingerprint.as_secs()),
+            format!("Ninja - {}", self.ninja_deps_computer.as_secs()),
+            format!("Adb Cmds - {}", self.adb_cmds.as_secs()),
+            format!("Reboot - {}", self.reboot.as_secs()),
+            format!("Restart - {}", self.restart_after_boot.as_secs()),
+            format!("TOTAL - {}", self.total.as_secs()),
+        ]
+        .join("\n\t")
+    }
+}
+
 fn init_logger(global_options: &cli::GlobalOptions) {
     Builder::from_default_env()
         .target(Target::Stdout)
@@ -226,6 +263,20 @@ fn init_logger(global_options: &cli::GlobalOptions) {
         })
         .write_style(env_logger::WriteStyle::Auto)
         .init();
+}
+
+/// Time how long it takes to run the function and store the
+/// result in the given profiler field.
+// TODO(rbraunstein): Ideally, use tracing or flamegraph crate or
+// use Map rather than name all the fields.
+#[macro_export]
+macro_rules! time {
+    ($fn:expr, $ident:expr) => {{
+        let start = std::time::Instant::now();
+        let result = $fn;
+        $ident = start.elapsed();
+        result
+    }};
 }
 
 #[cfg(test)]
