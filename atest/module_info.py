@@ -115,12 +115,9 @@ class Loader:
             sqlite_module_cache: bool=False,
             need_merge_fn: Callable=None,
         ):
-        self.java_dep_path = Path(
-            atest_utils.get_build_out_dir()).joinpath('soong', _JAVA_DEP_INFO)
-        self.cc_dep_path = Path(
-            atest_utils.get_build_out_dir()).joinpath('soong', _CC_DEP_INFO)
-        self.merged_dep_path = Path(
-            os.getenv(constants.ANDROID_PRODUCT_OUT, '')).joinpath(_MERGED_INFO)
+        self.java_dep_path = atest_utils.get_build_out_dir('soong', _JAVA_DEP_INFO)
+        self.cc_dep_path = atest_utils.get_build_out_dir('soong', _CC_DEP_INFO)
+        self.merged_dep_path = atest_utils.get_product_out(_MERGED_INFO)
 
         self.sqlite_module_cache = sqlite_module_cache
         if self.sqlite_module_cache:
