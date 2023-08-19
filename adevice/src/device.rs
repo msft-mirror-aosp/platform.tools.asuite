@@ -1,5 +1,6 @@
 use crate::commands::{restart_type, run_adb_command, split_string, AdbCommand};
 use crate::restart_chooser::RestartType;
+use crate::time;
 use crate::RestartChooser;
 
 use anyhow::Result;
@@ -39,8 +40,9 @@ fn setup_push() -> Result<String> {
 fn wait() -> Result<String> {
     // TODO(rbraunstein): Add a timeout here so we don't wait forever and
     // display a reasonable message to the user if wait too long.
-    log::info!("Waiting on device to reboot");
+    log::info!("Waiting for device to reattach");
     let result = run_adb_command(&vec!["wait-for-device".to_string()]);
+    log::info!("Waiting for device to finish restart sequence");
     while run_adb_command(&split_string("exec-out getprop sys.boot_completed"))?.trim() != "1" {
         std::thread::sleep(std::time::Duration::from_secs(1));
     }
@@ -50,6 +52,7 @@ fn wait() -> Result<String> {
 pub fn update(
     restart_chooser: &RestartChooser,
     adb_commands: &HashMap<PathBuf, AdbCommand>,
+    profiler: &mut crate::Profiler,
 ) -> Result<()> {
     if adb_commands.is_empty() {
         return Ok(());
@@ -59,17 +62,20 @@ pub fn update(
         adb_commands.keys().map(|p| p.clone().into_os_string().into_string().unwrap()).collect();
 
     setup_push()?;
-    for command in adb_commands.values().cloned().sorted_by(&mkdir_comes_first) {
-        run_adb_command(&command)?;
-    }
+    time!(
+        for command in adb_commands.values().cloned().sorted_by(&mkdir_comes_first) {
+            run_adb_command(&command)?;
+        },
+        profiler.adb_cmds
+    );
 
     match restart_type(restart_chooser, &installed_files) {
-        RestartType::Reboot => reboot(),
+        RestartType::Reboot => time!(reboot(), profiler.reboot),
         RestartType::SoftRestart => soft_restart(),
         RestartType::None => anyhow::bail!("There should be a restart command"),
     }?;
     // TODO(rbraunstein): Add timeout with reasonable error message on wait.
-    wait()?;
+    time!(wait()?, profiler.restart_after_boot);
     Ok(())
 }
 
@@ -78,8 +84,8 @@ pub fn update(
 // the AdbCommand along with the commands so we don't have to check the strings.
 // Too much thinking here.
 fn mkdir_comes_first(a: &AdbCommand, b: &AdbCommand) -> Ordering {
-    let a_is_mkdir = a[..2] == vec!["shell".to_string(), "mkdir".to_string()];
-    let b_is_mkdir = b[..2] == vec!["shell".to_string(), "mkdir".to_string()];
+    let a_is_mkdir = a.len() > 1 && a[..2] == vec!["shell".to_string(), "mkdir".to_string()];
+    let b_is_mkdir = b.len() > 1 && b[..2] == vec!["shell".to_string(), "mkdir".to_string()];
     if !a_is_mkdir && !b_is_mkdir {
         return Ordering::Equal;
     }
