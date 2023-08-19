@@ -49,7 +49,7 @@ pub struct GlobalOptions {
     #[clap(long = "product_out", global = true)]
     pub product_out: Option<String>,
     /// Do not make any modification if more than this many are needed
-    #[clap(long, short, default_value_t = 20)]
+    #[clap(long, short, default_value_t = 100)]
     pub max_allowed_changes: usize,
     // TODO(rbraunstein): Import clap-verbosity-flag crate so we can use -vv instead.
     // Print commands while executing them.
