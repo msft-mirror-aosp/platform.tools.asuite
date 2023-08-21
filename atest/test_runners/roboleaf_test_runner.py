@@ -104,6 +104,10 @@ def are_all_tests_supported(roboleaf_mode, tests) -> Dict[str, TestInfo]:
         # mode.
         return eligible_tests
 
+    logging.debug(
+        "roboleaf-mode: [%s] are not eligible for b test.",
+        ", ".join(set(tests).difference(eligible_tests.keys())))
+
     # Gracefully fall back to standard atest if not every test is b testable.
     return {}
 
@@ -281,6 +285,11 @@ class RoboleafTestRunner(test_runner_base.TestRunnerBase):
         # The tool tag attributes this bazel invocation to atest. This
         # is uploaded in BEP when bes publishing is enabled.
         bazel_args.append("--tool_tag=atest")
+
+        # --config=deviceless_tests filters for tradefed_deviceless_test targets.
+        if constants.HOST in extra_args:
+            bazel_args.append("--config=deviceless_tests")
+
         bazel_args_str = ' '.join(shlex.quote(arg) for arg in bazel_args)
         command = f'{self.EXECUTABLE} test {target_patterns} {bazel_args_str}'
         results = [command]

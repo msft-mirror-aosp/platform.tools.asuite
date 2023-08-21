@@ -1,8 +1,9 @@
 //! Recursively hash the contents of a directory
+use anyhow::Result;
 use hex::encode;
 use rayon::iter::IntoParallelIterator;
 use rayon::iter::ParallelIterator;
-use ring::digest::{Context, SHA256};
+use ring::digest::{self, SHA256};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fs;
@@ -99,16 +100,15 @@ pub fn diff(
 pub fn fingerprint_partitions(
     partition_root: &Path,
     partition_names: &[PathBuf],
-) -> Result<HashMap<PathBuf, FileMetadata>, io::Error> {
+) -> Result<HashMap<PathBuf, FileMetadata>> {
     // TODO(rbraunstein); time this and next block
 
     // Walk the filesystem to get the file names.
     // TODO(rbraunstein): Figure out if we can parallelize the walk, not just the digest computations.
     let filenames: Vec<PathBuf> = partition_names
         .iter()
-        // TODO(rbraunstein): return error if not exist, not unwrap().
         .flat_map(|p| WalkDir::new(partition_root.join(p)).follow_links(false))
-        .map(|result| result.unwrap().path().to_path_buf())
+        .map(|result| result.expect("Walking directory").path().to_path_buf())
         .collect();
 
     // Compute digest for each file.
@@ -126,7 +126,7 @@ pub fn fingerprint_partitions(
         .collect())
 }
 
-fn fingerprint_file(file_path: &Path) -> Result<FileMetadata, io::Error> {
+fn fingerprint_file(file_path: &Path) -> Result<FileMetadata> {
     let metadata = fs::symlink_metadata(file_path)?;
 
     if metadata.is_dir() {
@@ -169,10 +169,10 @@ fn is_special_file(file_path: &Path) -> bool {
 }
 
 /// Compute the sha256 and return it as a lowercase hex string.
-fn compute_digest(file_path: &Path) -> Result<String, io::Error> {
+fn compute_digest(file_path: &Path) -> Result<String> {
     let input = fs::File::open(file_path)?;
     let mut reader = io::BufReader::new(input);
-    let mut context = Context::new(&SHA256);
+    let mut context = digest::Context::new(&SHA256);
     let mut buffer = [0; 4096];
 
     loop {
