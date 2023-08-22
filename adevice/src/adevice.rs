@@ -10,7 +10,7 @@ use crate::restart_chooser::RestartChooser;
 use anyhow::{anyhow, bail, Context, Result};
 use clap::Parser;
 use cli::Commands;
-use commands::{run_adb_command, AdbCommand};
+use commands::{run_adb_command, split_string, AdbCommand};
 use env_logger::{Builder, Target};
 use fingerprint::FileMetadata;
 use log::info;
@@ -197,7 +197,30 @@ fn fingerprint_device(
         vec!["shell".to_string(), "/system/bin/adevice_fingerprint".to_string(), "-p".to_string()];
     // -p system,system_ext
     adb_args.push(partitions.join(","));
-    let stdout = run_adb_command(&adb_args)?;
+    let fingerprint_result = run_adb_command(&adb_args);
+    // Deal with some bootstrapping errors, like adevice_fingerprint isn't installed
+    // by printing diagnostics and exiting.
+    if let Err(problem) = fingerprint_result {
+        if problem
+            .root_cause()
+            .to_string()
+            // TODO(rbraunstein): Will this work in other locales?
+            .contains("adevice_fingerprint: inaccessible or not found")
+        {
+            // If it doesn't look they are running a eng build, let them know and exit.
+            if let Some(root_ins) = check_eng_build() {
+                bail!("\n  Thank you for testing out adevice.\n  {root_ins}");
+            }
+            // Running as root, but adevice_fingerprint not found.
+            // This should not happen after we tag it as an "eng" module.
+            bail!("\n  Thank you for testing out adevice.\n  Please bootstrap by doing the following:\n\t ` adb remount; m adevice_fingerprint adevice && adb push $ANDROID_PRODUCT_OUT/system/bin/adevice_fingerprint system/bin/adevice_fingerprint`");
+        } else {
+            bail!("Unknown problem running `adevice_fingerprint` on your device: {problem:?}");
+        }
+    }
+
+    let stdout = fingerprint_result.unwrap();
+
     let result: HashMap<String, fingerprint::FileMetadata> = match serde_json::from_str(&stdout) {
         Err(err) if err.line() == 1 && err.column() == 0 && err.is_eof() => {
             // This means there was no data. Print a different error, and adb
@@ -208,6 +231,19 @@ fn fingerprint_device(
         Ok(file_map) => file_map,
     };
     Ok(result.into_iter().map(|(path, metadata)| (PathBuf::from(path), metadata)).collect())
+}
+
+/// Check to see if the current image looks like an "eng" image and
+/// return a string to with instructions.
+/// There may be other properties to search for eng vs userdata:
+///   https://source.android.com/docs/setup/create/new-device#build-variants
+///   or just $TARGET_BUILD_VARIANT
+fn check_eng_build() -> Option<String> {
+    match run_adb_command(&split_string("exec-out whoami")) {
+	Ok(user) if user.trim() == "root" => None,
+	Ok(other_user) => Some(format!("Expected to run as user 'root', but the device is running as user '{}'.\n  Please flash an `eng` build or run commands: `adb root; adb remount; adb reboot; adb root ;adb remount`", other_user.trim())),
+	Err(e) => Some(format!("Can not determine device user {e:?}"))
+    }
 }
 
 fn parents(file_path: &str) -> Vec<PathBuf> {
