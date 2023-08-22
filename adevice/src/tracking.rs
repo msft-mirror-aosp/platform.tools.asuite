@@ -62,6 +62,15 @@ impl Config {
         Self::save(self)
     }
 
+    /// Update the base module and saves it.
+    pub fn trackbase(&mut self, base: &str) -> Result<()> {
+        // TODO(rbraunstein): Validate the module names and warn on bad names.
+        self.base = base.to_string();
+        self.print();
+        self.clear_cache();
+        Self::save(self)
+    }
+
     /// Removes the module name from the config and saves it.
     pub fn untrack(&mut self, module_names: &[String]) -> Result<()> {
         // TODO(rbraunstein): Report if not found?

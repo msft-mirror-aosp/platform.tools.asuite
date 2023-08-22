@@ -39,6 +39,7 @@ fn main() -> Result<()> {
     // Early return for track/untrack commands.
     match cli.command {
         Commands::Track(names) => return config.track(&names.modules),
+        Commands::TrackBase(base) => return config.trackbase(&base.base),
         Commands::Untrack(names) => return config.untrack(&names.modules),
         _ => (),
     }
