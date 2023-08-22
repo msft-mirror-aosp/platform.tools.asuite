@@ -53,22 +53,25 @@ fn main() -> Result<()> {
     let device_tree =
         time!(fingerprint_device(&cli.global_options.partitions)?, profiler.device_fingerprint);
 
-    // build_tree is keys are system/blah
-    let build_tree = time!(
+    let host_tree = time!(
         fingerprint::fingerprint_partitions(&product_out, &partitions)?,
         profiler.host_fingerprint
     );
-    let commands = update(
-        &device_tree,
-        &build_tree,
-        &ninja_installed_files,
-        product_out.clone(),
-        cli.global_options.max_allowed_changes,
-        &config,
-    )?;
+    let commands =
+        update(&device_tree, &host_tree, &ninja_installed_files, product_out.clone(), &config)?;
 
     if matches!(cli.command, Commands::Update) {
+        // Status
+        let max_changes = cli.global_options.max_allowed_changes;
+        if commands.is_empty() {
+            info!("Device up to date, no actions to perform.");
+            return Ok(());
+        }
+        if commands.len() > max_changes {
+            bail!("Your device needs {} changes which is more than the suggested amount of {}. Pass `--max-allowed-changes={} or consider reflashing.", commands.len(), max_changes, commands.len());
+        }
         info!("Actions: {} files to update.", commands.len());
+
         device::update(
             &RestartChooser::from(&product_out.join("module-info.json"))?,
             &commands,
@@ -80,18 +83,17 @@ fn main() -> Result<()> {
     Ok(())
 }
 
+/// Returns the commands to update the device for every file that should be updated.
+/// If there are errors, like some files in the staging set have not been built, then
+/// an error result is returned.
 fn update(
     device_tree: &HashMap<PathBuf, FileMetadata>,
-    build_tree: &HashMap<PathBuf, FileMetadata>,
+    host_tree: &HashMap<PathBuf, FileMetadata>,
     ninja_installed_files: &[String],
     product_out: PathBuf,
-    max_changes: usize,
     config: &tracking::Config,
 ) -> Result<HashMap<PathBuf, AdbCommand>> {
-    let changes = fingerprint::diff(build_tree, device_tree);
-    let all_commands = commands::compose(&changes, &product_out);
-    // NOTE: We intentionally avoid deletes for now.
-    let commands = &all_commands.upserts;
+    let changes = fingerprint::diff(host_tree, device_tree);
 
     // NOTE: The Ninja deps list can be _ahead_of_ the product tree output list.
     //      i.e. m `nothing` will update our ninja list even before someone
@@ -99,55 +101,45 @@ fn update(
     //      We don't have a way to know if we are in this case or if the user
     //      ever did a `m droid`.
 
-    // We add implicit dirs to the sync set so the set matches the staging set.
+    // We add implicit dirs to the tracked set so the set matches the staging set.
     let mut ninja_installed_dirs: HashSet<PathBuf> =
         ninja_installed_files.iter().flat_map(|p| parents(p)).collect();
     ninja_installed_dirs.remove(&PathBuf::from(""));
-    let update_set: HashSet<PathBuf> =
+    let tracked_set: HashSet<PathBuf> =
         ninja_installed_files.iter().map(PathBuf::from).chain(ninja_installed_dirs).collect();
-    let staged_set: HashSet<PathBuf> = build_tree.keys().map(PathBuf::clone).collect();
+    let host_set: HashSet<PathBuf> = host_tree.keys().map(PathBuf::clone).collect();
     let device_set: HashSet<PathBuf> = device_tree.keys().map(PathBuf::clone).collect();
 
     //  Print warnings for untracked staging and/or device files.
     print_warnings(
-        &staged_set.difference(&update_set).collect(),
+        &host_set.difference(&tracked_set).collect(),
         "\n * Files on Host but not part of a tracked target.",
     );
     print_warnings(
-        &device_set.difference(&update_set).collect(),
+        &device_set.difference(&tracked_set).collect(),
         "\n * Files on Device but not part of a tracked target",
     );
 
-    // Status
-    if commands.is_empty() {
-        info!("Device up to date, no actions to perform.");
-        return Ok(HashMap::new());
-    }
-    if commands.len() > max_changes {
-        bail!("Your device needs {} changes which is more than the suggested amount of {}. Pass `--max-allowed-changes={} or consider reflashing.", commands.len(), max_changes, commands.len());
-    }
-
-    // Files that are in the update set but NOT in the staging directory. These need
+    // Files that are in the tracked set but NOT in the build directory. These need
     // to be built.
-    let not_built: HashSet<&PathBuf> = update_set.difference(&staged_set).collect();
-    // debug_tests!("UPSET: {update_set:?}");
-    // debug_tests!("STAGED: {staged_set:?}");
-    if !not_built.is_empty() {
+    let needs_building: HashSet<&PathBuf> = tracked_set.difference(&host_set).collect();
+    #[allow(clippy::len_zero)]
+    if needs_building.len() > 0 {
         print_warnings(
-            &not_built,
+            &needs_building,
             &format!(
                 "These files need to be rebuilt. Please run:  m {} {:?}",
                 config.base, config.modules
             ),
         );
-        bail!("Please deposit a quarter and try again");
+        bail!("Please build needed modules and try again.");
     }
 
-    // Restrict the staged set down to the ones that are in the update set.
-    let filtered_staged_set: HashMap<PathBuf, FileMetadata> = build_tree
+    // Restrict the host set down to the ones that are in the update set.
+    let filtered_host_set: HashMap<PathBuf, FileMetadata> = host_tree
         .iter()
         .filter_map(|(key, value)| {
-            if update_set.contains(key) {
+            if tracked_set.contains(key) {
                 Some((key.clone(), value.clone()))
             } else {
                 None
@@ -159,7 +151,7 @@ fn update(
     report_diffs("Outdated Device files", &changes.device_diffs);
     report_diffs("Device Extra", &changes.device_extra);
     // NOTE: We intentionally avoid deletes for now.
-    let filtered_changes = fingerprint::diff(&filtered_staged_set, device_tree);
+    let filtered_changes = fingerprint::diff(&filtered_host_set, device_tree);
     let all_filtered_commands = commands::compose(&filtered_changes, &product_out);
     Ok(all_filtered_commands.upserts)
 }
@@ -298,7 +290,7 @@ mod tests {
         let product_out = PathBuf::from("");
         let config = Config::load_or_default(home.display().to_string())?;
 
-        let results = update(&device_files, &host_files, &ninja_deps, product_out, 20, &config)?;
+        let results = update(&device_files, &host_files, &ninja_deps, product_out, &config)?;
         assert_eq!(results.values().len(), 0);
         Ok(())
     }
@@ -323,7 +315,6 @@ mod tests {
             // Ninja deps
             &["system".to_string(), "system/myfile".to_string()],
             product_out,
-            20,
             &config,
         )?;
         assert_eq!(results.values().len(), 2);
@@ -331,22 +322,22 @@ mod tests {
     }
 
     #[test]
-    fn in_staging_not_in_sync_on_device() -> Result<()> {
+    fn on_host_not_in_tracked_on_device() -> Result<()> {
         let results = call_update(&FakeState {
             device_data: &["system/f1"],
             host_data: &["system/f1"],
-            sync_set: &[""],
+            tracked_set: &[],
         });
         assert_eq!(0, results?.values().len());
         Ok(())
     }
 
     #[test]
-    fn in_staging_not_in_sync_not_on_device() -> Result<()> {
+    fn in_host_not_in_tracked_not_on_device() -> Result<()> {
         let results = call_update(&FakeState {
             device_data: &[""],
             host_data: &["system/f1"],
-            sync_set: &[],
+            tracked_set: &[],
         });
         assert_eq!(0, results?.values().len());
         Ok(())
@@ -357,17 +348,16 @@ mod tests {
     struct FakeState {
         device_data: &'static [&'static str],
         host_data: &'static [&'static str],
-        sync_set: &'static [&'static str],
+        tracked_set: &'static [&'static str],
     }
 
     // Helper to call update.
     // Uses filename for the digest in the fingerprint
     // Add directories for every file on the host like walkdir would do.
-    // `update` adds the directories for the sync set so we don't do that here.
+    // `update` adds the directories for the tracked set so we don't do that here.
     fn call_update(fake_state: &FakeState) -> Result<HashMap<PathBuf, AdbCommand>> {
         let product_out = PathBuf::from("");
         let config = Config::fake();
-        let max_allowed = 20;
 
         let mut device_files: HashMap<PathBuf, FileMetadata> = HashMap::new();
         let mut host_files: HashMap<PathBuf, FileMetadata> = HashMap::new();
@@ -381,17 +371,10 @@ mod tests {
             // Add the dir too.
         }
 
-        let sync_set: Vec<String> = fake_state.sync_set.iter().map(|s| s.to_string()).collect();
+        let tracked_set: Vec<String> =
+            fake_state.tracked_set.iter().map(|s| s.to_string()).collect();
 
-        update(
-            &device_files,
-            &host_files,
-            // Ninja deps
-            &sync_set,
-            product_out,
-            max_allowed,
-            &config,
-        )
+        update(&device_files, &host_files, &tracked_set, product_out, &config)
     }
 
     fn file_metadata(digest: &str) -> FileMetadata {
