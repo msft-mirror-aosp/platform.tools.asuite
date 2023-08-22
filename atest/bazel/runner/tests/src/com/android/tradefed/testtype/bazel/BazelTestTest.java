@@ -126,6 +126,15 @@ public final class BazelTestTest {
     }
 
     @Test
+    public void runSucceeds_noFailuresReported() throws Exception {
+        BazelTest bazelTest = newBazelTest();
+
+        bazelTest.run(mTestInfo, mMockListener);
+
+        verify(mMockListener, never()).testRunFailed(any(FailureDescription.class));
+    }
+
+    @Test
     public void runSucceeds_tempDirEmptied() throws Exception {
         BazelTest bazelTest = newBazelTest();
 
@@ -327,6 +336,26 @@ public final class BazelTestTest {
         bazelTest.run(mTestInfo, mMockListener);
 
         verify(mMockListener).testRunFailed(hasErrorIdentifier(TestErrorIdentifier.TEST_ABORTED));
+    }
+
+    @Test
+    public void bazelReturnsTestFailureCode_noFailureReported() throws Exception {
+        FakeProcessStarter processStarter = newFakeProcessStarter();
+        processStarter.put(
+                BazelTest.RUN_TESTS,
+                builder -> {
+                    return new FakeBazelTestProcess(builder, mBazelTempPath) {
+                        @Override
+                        public int exitValue() {
+                            return BazelTest.BAZEL_TESTS_FAILED_RETURN_CODE;
+                        }
+                    };
+                });
+        BazelTest bazelTest = newBazelTestWithProcessStarter(processStarter);
+
+        bazelTest.run(mTestInfo, mMockListener);
+
+        verify(mMockListener, never()).testRunFailed(any(FailureDescription.class));
     }
 
     @Test
