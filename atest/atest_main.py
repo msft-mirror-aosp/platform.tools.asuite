@@ -930,7 +930,7 @@ def need_run_index_targets(
     return True
 
 
-def _b_test(test_infos, extra_args, results_dir):
+def _b_test(tests, extra_args, results_dir):
     """Entry point of b test in atest.
 
     Args:
@@ -941,12 +941,18 @@ def _b_test(test_infos, extra_args, results_dir):
     Returns:
         Exit code.
     """
+    # Give users a heads up that something has changed.
+    print(f'All requested modules [{atest_utils.colorize(", ".join(tests.keys()), constants.GREEN)}] '
+          'can be fully built and tested by Bazel, so atest will now delegate to Bazel. '
+          'If there are any issues, please file a bug on the issue tracker. '
+          'You can also opt-out with the "--roboleaf-mode=off" flag.')
+
     mod_info = module_info.create_empty()
     test_start = time.time()
 
     # Run the bazel test command. This is where the heavy lifting is.
     tests_exit_code, reporter = test_runner_handler.run_all_tests(
-        results_dir, test_infos, extra_args, mod_info)
+        results_dir, tests.values(), extra_args, mod_info)
 
     atest_execution_info.AtestExecutionInfo.result_reporters.append(reporter)
 
@@ -1058,13 +1064,8 @@ def main(argv: List[Any], results_dir: str, args: argparse.ArgumentParser):
     # when Bazel is handling both build and test.
     b_supported_tests = roboleaf_test_runner.are_all_tests_supported(args.roboleaf_mode, args.tests)
     if b_supported_tests:
-        # Give users a heads up that something has changed.
-        print(f'All requested modules [{atest_utils.colorize(", ".join(b_supported_tests.keys()), constants.GREEN)}] '
-              'can be fully built and tested by Bazel, so atest will now delegate to Bazel. '
-              'If there are any issues, please file a bug on the issue tracker. '
-              'You can also opt-out with the "--roboleaf-mode=off" flag.')
         # Use Bazel for both building and testing and return early.
-        return _b_test(b_supported_tests.values(), extra_args, results_dir)
+        return _b_test(b_supported_tests, extra_args, results_dir)
 
     # This is where standard atest begins.
 
@@ -1125,6 +1126,23 @@ def main(argv: List[Any], results_dir: str, args: argparse.ArgumentParser):
         find_duration = time.time() - find_start
         if not test_infos:
             return ExitCode.TEST_NOT_FOUND
+
+        # Reuse ATest's finders to resolve the input test identifiers and get
+        # the test module names. If all test modules are supported by Roboleaf
+        # mode, we'll delegate to Roboleaf mode.
+        # TODO(b/296940736): Use TestInfo.raw_test_name after supporting
+        #  Mainline modules.
+        b_supported_tests = roboleaf_test_runner.are_all_tests_supported(
+            args.roboleaf_mode, [t.test_name for t in test_infos])
+        if b_supported_tests:
+            print(atest_utils.colorize(
+                'Specifying the module name or bazel label in command-line is '
+                'strongly recommended, otherwise overhead will be added to '
+                'find the test.',
+                constants.YELLOW))
+            # Use Bazel for both building and testing and return early.
+            return _b_test(b_supported_tests, extra_args, results_dir)
+
         if not is_from_test_mapping(test_infos):
             if not (any(dry_run_args) or verify_env_variables):
                 _validate_exec_mode(args, test_infos)
