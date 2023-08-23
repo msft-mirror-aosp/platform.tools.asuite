@@ -7,6 +7,7 @@ use lazy_static::lazy_static;
 use regex::Regex;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+use std::ffi::OsStr;
 use std::fs;
 use std::io::{BufReader, Read};
 use std::path::Path;
@@ -47,12 +48,19 @@ impl RestartChooser {
         for (_, module) in info.iter() {
             let restart_type = restart_type_for_classes(&module.class);
             for installed_file in module.installed.iter() {
-                match Self::strip_product_prefix(installed_file) {
-                    Some(device_path) => app_classes.insert(device_path, restart_type.clone()),
+                let device_path: String =
+                    Self::strip_product_prefix(installed_file).unwrap_or("".to_string());
+                if device_path.is_empty() {
                     // TODO(rbraunstein): Revisit what to do with files outside the PRODUCT_OUT tree
                     // when we have update sets.
-                    None => None,
-                };
+                    continue;
+                }
+                if can_soft_restart_based_on_filename(&device_path) {
+                    app_classes.insert(device_path, RestartType::SoftRestart);
+                    continue;
+                }
+                // use restart_type from module classes
+                app_classes.insert(device_path, restart_type.clone());
             }
         }
         Ok(app_classes)
@@ -61,6 +69,17 @@ impl RestartChooser {
     fn strip_product_prefix(path: &str) -> Option<String> {
         PATH_MATCHER.captures(path).map(|x| x[1].to_string())
     }
+}
+
+// Some file extensions only need a SoftRestart due to being
+// reloaded when zygote restarts on `adb shell start`
+const SOFT_RESTART_FILE_EXTS: [&str; 3] = ["art", "oat", "vdex"];
+fn can_soft_restart_based_on_filename(filename: &str) -> bool {
+    let ext = Path::new(filename).extension().and_then(OsStr::to_str).unwrap_or("");
+    if SOFT_RESTART_FILE_EXTS.contains(&ext) {
+        return true;
+    }
+    false
 }
 
 // Given the class element from module in module info,
@@ -242,6 +261,49 @@ mod tests {
         }}"#;
         let build_system = RestartChooser::new(BufReader::new(json.as_bytes())).unwrap();
         assert_eq!(Some(RestartType::Reboot), build_system.restart_type("vendor/good/file/path"));
+    }
+
+    #[test]
+    fn soft_restart_for_certain_file_extensions() {
+        let json = r#"{
+        "SampleModule": {
+             "class": ["SOMETHING_NEW_DEFINED_MODULE_INFO"],
+             "installed": ["out/target/product/vsoc_x86_64/vendor/good/file/path.art",
+                           "out/target/product/vsoc_x86_64/vendor/good/file/path.oat",
+                           "out/target/product/vsoc_x86_64/vendor/good/file/path.vdex",
+                           "out/target/product/vsoc_x86_64/vendor/good/file/path.extraart",
+                           "out/target/product/vsoc_x86_64/vendor/good/file/path.artextra",
+                           "out/target/product/vsoc_x86_64/vendor/good/file/path"]
+        }}"#;
+        let build_system = RestartChooser::new(BufReader::new(json.as_bytes())).unwrap();
+
+        // Have extensions in SOFT_RESET_FILE_EXTS
+        for installed_file in &[
+            "vendor/good/file/path.art",
+            "vendor/good/file/path.oat",
+            "vendor/good/file/path.vdex",
+        ] {
+            assert_eq!(
+                Some(RestartType::SoftRestart),
+                build_system.restart_type(installed_file),
+                "Wrong class for {}",
+                installed_file
+            );
+        }
+
+        // Do NOT have extensions in SOFT_RESET_FILE_EXTS (REBOOT due to module class)
+        for installed_file in &[
+            "vendor/good/file/path.extraart",
+            "vendor/good/file/path.artextra",
+            "vendor/good/file/path",
+        ] {
+            assert_eq!(
+                Some(RestartType::Reboot),
+                build_system.restart_type(installed_file),
+                "Wrong class for {}",
+                installed_file
+            );
+        }
     }
 
     #[test]
