@@ -34,11 +34,12 @@ import xml.etree.ElementTree as ET
 from contextlib import contextmanager
 from enum import unique, Enum
 from pathlib import Path
-from typing import Dict
+from typing import Any, Dict, List, Tuple
 
 from atest import atest_error
 from atest import atest_utils
 from atest import constants
+from atest import module_info
 
 from atest.atest_enum import ExitCode, DetectType
 from atest.metrics import metrics, metrics_utils
@@ -1310,6 +1311,7 @@ def get_annotated_methods(annotation, file_path):
                     continue
     return methods
 
+
 def get_test_config_and_srcs(test_info, module_info):
     """Get the test config path for the input test_info.
 
@@ -1328,31 +1330,53 @@ def get_test_config_and_srcs(test_info, module_info):
         A string of the config path and list of srcs, None if test config not
         exist.
     """
-    android_root_dir = os.environ.get(constants.ANDROID_BUILD_TOP)
     test_name = test_info.test_name
     mod_info = module_info.get_module_info(test_name)
+
     if mod_info:
-        test_configs = mod_info.get(constants.MODULE_TEST_CONFIG, [])
-        if len(test_configs) == 0:
-            # Check for AndroidTest.xml at the module path.
-            for path in mod_info.get(constants.MODULE_PATH, []):
-                config_path = os.path.join(
-                    android_root_dir, path, constants.MODULE_CONFIG)
-                if os.path.isfile(config_path):
-                    return config_path, mod_info.get(constants.MODULE_SRCS, [])
-        if len(test_configs) >= 1:
-            test_config = test_configs[0]
-            config_path = os.path.join(android_root_dir, test_config)
+        get_config_srcs_tuple = _get_config_srcs_tuple_from_module_info
+        ref_obj = mod_info
+    else:
+        get_config_srcs_tuple = _get_config_srcs_tuple_when_no_module_info
+        ref_obj = module_info
+
+    config_src_tuple = get_config_srcs_tuple(ref_obj, test_name)
+    return config_src_tuple if config_src_tuple else (None, None)
+
+
+def _get_config_srcs_tuple_from_module_info(
+        mod_info: Dict[str, Any],
+        _=None) -> Tuple[str, List[str]]:
+    """Get test config and srcs from the given info of the module."""
+    android_root_dir = os.environ.get(constants.ANDROID_BUILD_TOP)
+    test_configs = mod_info.get(constants.MODULE_TEST_CONFIG, [])
+    if len(test_configs) == 0:
+        # Check for AndroidTest.xml at the module path.
+        for path in mod_info.get(constants.MODULE_PATH, []):
+            config_path = os.path.join(
+                android_root_dir, path, constants.MODULE_CONFIG)
             if os.path.isfile(config_path):
                 return config_path, mod_info.get(constants.MODULE_SRCS, [])
-    else:
-        for _, info in module_info.name_to_module_info.items():
-            test_configs = info.get(constants.MODULE_TEST_CONFIG, [])
-            for test_config in test_configs:
-                config_path = os.path.join(android_root_dir, test_config)
-                config_name = os.path.splitext(os.path.basename(config_path))[0]
-                if config_name == test_name and os.path.isfile(config_path):
-                    return config_path, info.get(constants.MODULE_SRCS, [])
+    if len(test_configs) >= 1:
+        test_config = test_configs[0]
+        config_path = os.path.join(android_root_dir, test_config)
+        if os.path.isfile(config_path):
+            return config_path, mod_info.get(constants.MODULE_SRCS, [])
+    return None, None
+
+
+def _get_config_srcs_tuple_when_no_module_info(
+        module_info_obj: module_info.ModuleInfo,
+        test_name: str) -> Tuple[str, List[str]]:
+    """Get test config and srcs by iterating the whole module_info."""
+    android_root_dir = os.environ.get(constants.ANDROID_BUILD_TOP)
+    for _, info in module_info_obj.name_to_module_info.items():
+        test_configs = info.get(constants.MODULE_TEST_CONFIG, [])
+        for test_config in test_configs:
+            config_path = os.path.join(android_root_dir, test_config)
+            config_name = os.path.splitext(os.path.basename(config_path))[0]
+            if config_name == test_name and os.path.isfile(config_path):
+                return config_path, info.get(constants.MODULE_SRCS, [])
     return None, None
 
 
