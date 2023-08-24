@@ -417,3 +417,73 @@ REQUIRE_DEVICES_MSG = (
 
 # Default shard num.
 SHARD_NUM = 2
+
+# Flags which roboleaf mode already supported:
+#   --iterations, --rerun-until-failure, --retry-any-failure, --verbose,
+#   --bazel-arg, --, --wait-for-debugger, --host
+#
+# Flags which roboleaf mode doesn't need to support:
+#   --minimal-build, --bazel_mode, --null-feature, --experimental-remote-avd,
+#   --experimental-device-driven-test, --experimental-java-runtime-dependencies,
+#   --experimental-remote, --experimental-host-driven-test,
+#   --experimental-robolectric-test, --no-bazel-detailed-summary,
+#   --rebuild-module-info, --sqlite-module-cache
+#
+# A dict of flags which are unsupported by roboleaf mode. The key is the
+# attribute name of flags. The value is a function used to check whether the
+# unsupported flag is specified and the roboleaf mode should be disabled. Each
+# function takes two arguments, default flag value and exact flag value.
+ROBOLEAF_UNSUPPORTED_FLAGS = {
+    'steps': lambda _, v: v is not None and ('install' in v or 'build' in v),
+    'auto_sharding': lambda d, v: d != v,
+    'all_abi': lambda d, v: d != v,
+    'disable_teardown': lambda d, v: d != v,
+    'enable_device_preparer': lambda d, v: d != v,
+    'experimental_coverage': lambda d, v: d != v,
+    'test_mapping': lambda d, v: d != v,
+    'device_only': lambda d, v: d != v,
+    'no_enable_root': lambda d, v: d != v,
+    'sharding': lambda d, v: d != v,
+    'use_modules_in': lambda d, v: d != v,
+    'auto_ld_library_path': lambda d, v: d != v,
+    'request_upload_result': lambda d, v: d != v,
+    'disable_upload_result': lambda d, v: d != v,
+    'smart_testing_local': lambda d, v: d != v,
+    'include_subdirs': lambda d, v: d != v,
+    'enable_file_patterns': lambda d, v: d != v,
+    'host_unit_test_only': lambda d, v: d != v,
+    'collect_tests_only': lambda d, v: d != v,
+    'dry_run': lambda d, v: d != v,
+    'info': lambda d, v: d != v,
+    'list_modules': lambda d, v: d != v,
+    'version': lambda d, v: d != v,
+    'help': lambda d, v: d != v,
+    'build_output': lambda d, v: d != v,
+    'fuzzy_search': lambda d, v: d != v,
+    'acloud_create': lambda d, v: d != v,
+    'start_avd': lambda d, v: d != v,
+    'serial': lambda d, v: d != v,
+    'flakes_info': lambda d, v: d != v,
+    'tf_early_device_release': lambda d, v: d != v,
+    'test_config_select': lambda d, v: d != v,
+    'generate_baseline': lambda d, v: d != v,
+    'generate_new_metrics': lambda d, v: d != v,
+    'detect_regression': lambda d, v: d != v,
+    'instant': lambda d, v: d != v,
+    'user_type': lambda d, v: d != v,
+    'annotation_filter': lambda d, v: d != v,
+    'clear_cache': lambda d, v: d != v,
+    'update_cmd_mapping': lambda d, v: d != v,
+    'verify_cmd_mapping': lambda d, v: d != v,
+    'verify_env_variable': lambda d, v: d != v,
+    'generate_runner_cmd': lambda d, v: d != v,
+    'tf_debug': lambda d, v: d != v,
+    'tf_template': lambda d, v: d != v,
+    'test_filter': lambda d, v: d != v,
+    'test_timeout': lambda d, v: d != v,
+    'latest_result': lambda d, v: d != v,
+    'history': lambda d, v: d != v,
+    'no_metrics': lambda d, v: d != v,
+    'aggregate_metric_filter': lambda d, v: d != v,
+    'no_checking_device': lambda d, v: d != v,
+}
