@@ -3,12 +3,13 @@ use crate::restart_chooser::RestartType;
 use crate::time;
 use crate::RestartChooser;
 
-use anyhow::Result;
+use anyhow::{bail, Result};
 use itertools::Itertools;
 use log::info;
 use std::cmp::Ordering;
 use std::collections::HashMap;
 use std::path::PathBuf;
+use std::time::Duration;
 
 // TODO(rbraunstein): Combine this file with commands or adb command.
 fn reboot() -> Result<String> {
@@ -42,20 +43,56 @@ fn setup_push() -> Result<String> {
     ])
 }
 
+// Rather than spawn and kill processes in rust, use the `timeout` command
+// to do it for us.
+// TODO(rbraunstein): fix for windows. Use the wait_timeout crate.
+fn run_process_with_timeout(
+    timeout: Duration,
+    cmd: &str,
+    args: &[String],
+) -> Result<std::process::Output> {
+    // Run timeout instead of `cmd` and add `cmd` to the arg list for timeout.
+    let mut timeout_args = vec![format!("{}", timeout.as_secs()), cmd.to_string()];
+    timeout_args.extend_from_slice(args);
+
+    info!("Running timeout {}", &timeout_args.join(" "));
+    Ok(std::process::Command::new("timeout").args(timeout_args).output()?)
+}
+
 /// Wait for the device to be ready to use.
-/// First ask adb to wait for the device, then poll for sys.boot_completed
-/// to be set back to 1.
-fn wait() -> Result<String> {
-    // TODO(rbraunstein): Add a timeout here so we don't wait forever and
-    // display a reasonable message to the user if wait too long.
-    info!("{}", run_adb_command(&split_string("shell getprop sys.boot_completed"))?);
-    log::info!("Waiting for device to restart");
-    run_adb_command(&vec!["wait-for-device".to_string()])?;
-    run_adb_command(&vec![
+/// First ask adb to wait for the device, then poll for sys.boot_completed on the device.
+pub fn wait() -> Result<String> {
+    info!("Waiting for device to restart");
+
+    let args = vec![
+        "wait-for-device".to_string(),
         "shell".to_string(),
         "while [[ -z $(getprop sys.boot_completed) ]]; do sleep 1; done".to_string(),
-    ])
-    //info!("{}", run_adb_command(&split_string("shell getprop sys.boot_completed"))?);
+    ];
+    let timeout = Duration::from_secs(120);
+    let output = run_process_with_timeout(timeout, "adb", &args);
+
+    match output {
+        Ok(finished) if finished.status.success() => Ok("".to_string()),
+        Ok(finished) if matches!(finished.status.code(), Some(124)) => {
+            bail!("Waited {timeout:?} seconds for device to restart, but it hasn't yet.")
+        }
+        Ok(finished) => {
+            let stderr = match String::from_utf8(finished.stderr) {
+                Ok(str) => str,
+                Err(e) => bail!("Error translating stderr {}", e),
+            };
+
+            // Adb writes push errors to stdout.
+            let stdout = match String::from_utf8(finished.stdout) {
+                Ok(str) => str,
+                Err(e) => bail!("Error translating stdout {}", e),
+            };
+
+            bail!("Waiting for device has unexpected result: {:?}\nSTDOUT {stdout}\n STDERR {stderr}.", finished.status)
+        }
+        Err(_) => bail!("Problem checking on device after reboot."),
+    }
 }
 
 pub fn update(
@@ -83,7 +120,7 @@ pub fn update(
         RestartType::SoftRestart => soft_restart(),
         RestartType::None => anyhow::bail!("There should be a restart command"),
     }?;
-    // TODO(rbraunstein): Add timeout with reasonable error message on wait.
+
     time!(wait()?, profiler.restart_after_boot);
     Ok(())
 }
@@ -110,4 +147,62 @@ fn mkdir_comes_first(a: &AdbCommand, b: &AdbCommand) -> Ordering {
         return Ordering::Greater;
     }
     Ordering::Equal
+}
+
+#[cfg(test)]
+mod tests {
+    use super::run_process_with_timeout;
+    use anyhow::{bail, Result};
+    use std::time::Duration;
+
+    // Igoring the tests so they don't cause delays in CI, but can still be run by hand.
+    #[ignore]
+    #[test]
+    fn timeout_returns_when_process_returns() -> Result<()> {
+        let timeout = Duration::from_secs(5);
+        let sleep_args = &["3".to_string()];
+        let output = run_process_with_timeout(timeout, "sleep", sleep_args);
+        match output {
+            Ok(finished) if finished.status.success() => Ok(()),
+            _ => bail!("Expected an ok status code"),
+        }
+    }
+
+    #[ignore]
+    #[test]
+    fn timeout_exits_when_timeout_hit() -> Result<()> {
+        let timeout = Duration::from_secs(5);
+        let sleep_args = &["7".to_string()];
+        let output = run_process_with_timeout(timeout, "sleep", sleep_args);
+        match output {
+            Ok(finished) if matches!(finished.status.code(), Some(124)) => {
+                // Expect this timeout case
+                Ok(())
+            }
+            _ => bail!("Expected timeout to hit."),
+        }
+    }
+
+    #[ignore]
+    #[test]
+    fn timeout_deals_with_process_errors() -> Result<()> {
+        let timeout = Duration::from_secs(5);
+        let sleep_args = &["--bad-arg".to_string(), "7".to_string()];
+        // Add a bad arg so the process we run errs out.
+        let output = run_process_with_timeout(timeout, "sleep", sleep_args);
+        match output {
+            Ok(finished) if finished.status.success() => bail!("Expected error"),
+            Ok(finished) if matches!(finished.status.code(), Some(124)) => bail!("Expected error"),
+
+            Ok(finished) => {
+                let stderr = match String::from_utf8(finished.stderr) {
+                    Ok(str) => str,
+                    Err(e) => bail!("Error translating stderr {}", e),
+                };
+                assert!(stderr.contains("unrecognized option"));
+                Ok(())
+            }
+            _ => bail!("Expected to catch err in stderr"),
+        }
+    }
 }
