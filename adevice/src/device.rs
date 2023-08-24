@@ -5,6 +5,7 @@ use crate::RestartChooser;
 
 use anyhow::Result;
 use itertools::Itertools;
+use log::info;
 use std::cmp::Ordering;
 use std::collections::HashMap;
 use std::path::PathBuf;
@@ -31,7 +32,14 @@ fn setup_push() -> Result<String> {
     run_adb_command(&split_string("exec-out stop"))?;
     // We seem to need a remount after reboots to make the system writable.
     run_adb_command(&split_string("remount"))?;
-    run_adb_command(&split_string("exec-out setprop sys.boot_completed 0"))
+    info!("{}", run_adb_command(&split_string("shell getprop sys.boot_completed"))?);
+    // Set the prop to the empty string so our "-z" check in wait works.
+    run_adb_command(&vec![
+        "exec-out".to_string(),
+        "setprop".to_string(),
+        "sys.boot_completed".to_string(),
+        "".to_string(),
+    ])
 }
 
 /// Wait for the device to be ready to use.
@@ -40,13 +48,14 @@ fn setup_push() -> Result<String> {
 fn wait() -> Result<String> {
     // TODO(rbraunstein): Add a timeout here so we don't wait forever and
     // display a reasonable message to the user if wait too long.
-    log::info!("Waiting for device to reattach");
-    let result = run_adb_command(&vec!["wait-for-device".to_string()]);
-    log::info!("Waiting for device to finish restart sequence");
-    while run_adb_command(&split_string("exec-out getprop sys.boot_completed"))?.trim() != "1" {
-        std::thread::sleep(std::time::Duration::from_secs(1));
-    }
-    result
+    info!("{}", run_adb_command(&split_string("shell getprop sys.boot_completed"))?);
+    log::info!("Waiting for device to restart");
+    run_adb_command(&vec!["wait-for-device".to_string()])?;
+    run_adb_command(&vec![
+        "shell".to_string(),
+        "while [[ -z $(getprop sys.boot_completed) ]]; do sleep 1; done".to_string(),
+    ])
+    //info!("{}", run_adb_command(&split_string("shell getprop sys.boot_completed"))?);
 }
 
 pub fn update(
