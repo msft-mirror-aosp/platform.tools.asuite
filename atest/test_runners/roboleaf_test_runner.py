@@ -77,7 +77,8 @@ class RoboleafModuleMap(metaclass=Singleton):
         """
         return self._module_map
 
-def are_all_tests_supported(roboleaf_mode, tests) -> Dict[str, TestInfo]:
+def are_all_tests_supported(
+    roboleaf_mode, tests, roboleaf_unsupported_flags) -> Dict[str, TestInfo]:
     """Determine if the list of tests are all supported by bazel based on the mode.
 
     If all requested tests are eligible, then indexing, generating
@@ -87,6 +88,7 @@ def are_all_tests_supported(roboleaf_mode, tests) -> Dict[str, TestInfo]:
     Args:
         roboleaf_mode: The value of --roboleaf-mode.
         tests: A list of test names requested by the user.
+        roboleaf_unsupported_flags: A list of flags which are unsupported by roboleaf mode.
 
     Returns:
         The list of 'b test'-able module names. If --roboleaf-mode is 'off' or
@@ -100,6 +102,16 @@ def are_all_tests_supported(roboleaf_mode, tests) -> Dict[str, TestInfo]:
     eligible_tests = _roboleaf_eligible_tests(roboleaf_mode, tests)
 
     if set(eligible_tests.keys()) == set(tests):
+        if roboleaf_unsupported_flags:
+            # TODO(b/297300818): Upload unsupported flags to metrics.
+            atest_utils.colorful_print(
+                'Following flags are not supported by roboleaf mode:\n'
+                f'{", ".join(roboleaf_unsupported_flags)}\n'
+                'Fallback to non-Bazel ATest...\n'
+                'Please file a feature request for above flags to take '
+                'advantage of Bazel\'s benefits and run tests faster!',
+                constants.YELLOW)
+            return {}
         # only enable b test when every requested test is eligible for roboleaf
         # mode.
         return eligible_tests
