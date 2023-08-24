@@ -97,6 +97,11 @@ _LANGUAGE_OPTIONS = [constant.JAVA, constant.C_CPP]
 _NO_ANY_PROJECT_EXIST = 'There is no Java, C/C++ or Rust target.'
 _NO_LANGUAGE_PROJECT_EXIST = 'There is no {} target.'
 _NO_IDE_LAUNCH_PATH = 'Can not find the IDE path : {}'
+_AIDEGEN_TRANSITION_MSG = (
+    'Please note that AIDEGen is no longer supported. '
+    'We encourage you to use Android Studio for Platform (ASfP). '
+    'Visit go/asfp or google Android Studio for Platform '
+    'for more information.')
 
 
 def _parse_args(args):
@@ -533,6 +538,8 @@ def main(argv):
             args.targets, args.android_tree)
         references = [constant.ANDROID_TREE] if is_whole_android_tree else []
         aidegen_metrics.starts_asuite_metrics(references)
+        print(constant.WARN_MSG.format(
+              common_util.COLORED_INFO('INFO:'), _AIDEGEN_TRANSITION_MSG))
         if args.skip_build:
             main_without_message(args)
         else:
