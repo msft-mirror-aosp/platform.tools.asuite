@@ -166,7 +166,7 @@ class RoboleafTestRunnerUnittests(fake_filesystem_unittest.TestCase):
 
         for test_case in test_cases:
             (mode, module_names, expected_len) = test_case
-            eligible_tests = roboleaf_test_runner.are_all_tests_supported(mode, module_names)
+            eligible_tests = roboleaf_test_runner.are_all_tests_supported(mode, module_names, [])
             self.assertEqual(len(eligible_tests), expected_len)
             if expected_len:
                 for module_name in module_names:
@@ -184,7 +184,36 @@ class RoboleafTestRunnerUnittests(fake_filesystem_unittest.TestCase):
 
         eligible_tests = roboleaf_test_runner.are_all_tests_supported(
             roboleaf_test_runner.BazelBuildMode.DEV,
-            module_names)
+            module_names,
+            [])
+        self.assertEqual(eligible_tests, {})
+
+    def test_are_all_tests_supported_unsupported_flag(self):
+        """Test are_all_tests_supported method when unsupported_flag is specified"""
+        RoboleafModuleMap._instances = {}
+
+        self.setUpPyfakefs()
+        out_dir = atest_utils.get_build_out_dir()
+        self.fs.create_file(
+            out_dir.joinpath(roboleaf_test_runner._ROBOLEAF_MODULE_MAP_PATH),
+            contents=json.dumps({
+                'test1': "//a",
+            }))
+        allowlist_content = """
+        //a:test1
+        """
+        self.fs.create_file(
+            roboleaf_test_runner._ALLOWLIST_LAUNCHED,
+            contents=dedent(allowlist_content))
+        module_names = [
+            'test1',
+        ]
+
+        eligible_tests = roboleaf_test_runner.are_all_tests_supported(
+            roboleaf_test_runner.BazelBuildMode.DEV,
+            module_names,
+            ['unsupported_flag'])
+
         self.assertEqual(eligible_tests, {})
 
     def test_get_map(self):
