@@ -21,6 +21,8 @@ pub enum Commands {
     /// part of a tracked module or the base image, then it will
     /// not be pushed to the device.
     Track(ModuleNames),
+    /// Change the base module we are tracking from `droid` to something else.
+    TrackBase(BaseModule),
     /// Removes module name from list of tracked modules.
     /// See `track` for more details.
     Untrack(ModuleNames),
@@ -28,11 +30,16 @@ pub enum Commands {
 
 #[derive(Debug, Args)]
 pub struct ModuleNames {
-    //#[clap(global = true)]
     /// List one or modules, space separated.
     /// Use the module name in Android.bp
     pub modules: Vec<String>,
-    // pub n: String,
+}
+
+#[derive(Debug, Args)]
+pub struct BaseModule {
+    /// The module name the system image is built from like 'droid' or 'sync'.
+    /// It can also be an unbundled mainline module name.
+    pub base: String,
 }
 
 #[derive(Args, Debug)]
