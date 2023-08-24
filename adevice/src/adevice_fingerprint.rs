@@ -18,7 +18,7 @@ fn main() {
     let root = PathBuf::from("/");
 
     let infos = fingerprint::fingerprint_partitions(&root, &partitions).unwrap_or_else(|err| {
-        eprintln!("Error scanning directories:   {}", err);
+        eprintln!("Error scanning directories: {}", err);
         process::exit(1);
     });
 
