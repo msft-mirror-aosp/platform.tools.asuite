@@ -205,7 +205,7 @@ impl Config {
     }
 
     fn cache_path(&self) -> Result<String> {
-        Ok(vec![
+        Ok([
             self.src_root()?.to_string(),
             self.out_dir().to_string(),
             format!("adevice-ninja-deps-{}.cache", self.target_product()?),
