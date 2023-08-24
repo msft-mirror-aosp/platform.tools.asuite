@@ -264,7 +264,7 @@ pub struct Profiler {
 
 impl std::string::ToString for Profiler {
     fn to_string(&self) -> String {
-        vec![
+        [
             " Operation profile: (secs)".to_string(),
             format!("Device Fingerprint - {}", self.device_fingerprint.as_secs()),
             format!("Host fingerprint - {}", self.host_fingerprint.as_secs()),
