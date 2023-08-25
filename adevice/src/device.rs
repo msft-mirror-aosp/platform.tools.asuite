@@ -33,7 +33,6 @@ fn setup_push() -> Result<String> {
     run_adb_command(&split_string("exec-out stop"))?;
     // We seem to need a remount after reboots to make the system writable.
     run_adb_command(&split_string("remount"))?;
-    info!("{}", run_adb_command(&split_string("shell getprop sys.boot_completed"))?);
     // Set the prop to the empty string so our "-z" check in wait works.
     run_adb_command(&vec![
         "exec-out".to_string(),
@@ -55,14 +54,14 @@ fn run_process_with_timeout(
     let mut timeout_args = vec![format!("{}", timeout.as_secs()), cmd.to_string()];
     timeout_args.extend_from_slice(args);
 
-    info!("Running timeout {}", &timeout_args.join(" "));
+    info!("    -- timeout {}", &timeout_args.join(" "));
     Ok(std::process::Command::new("timeout").args(timeout_args).output()?)
 }
 
 /// Wait for the device to be ready to use.
 /// First ask adb to wait for the device, then poll for sys.boot_completed on the device.
 pub fn wait() -> Result<String> {
-    info!("Waiting for device to restart");
+    println!(" * Waiting for device to restart");
 
     let args = vec![
         "wait-for-device".to_string(),
@@ -133,7 +132,7 @@ fn mkdir_comes_first(a: &AdbCommand, b: &AdbCommand) -> Ordering {
     let a_is_mkdir = a.len() > 1 && a[..2] == vec!["shell".to_string(), "mkdir".to_string()];
     let b_is_mkdir = b.len() > 1 && b[..2] == vec!["shell".to_string(), "mkdir".to_string()];
     if !a_is_mkdir && !b_is_mkdir {
-        return Ordering::Equal;
+        return a.join(" ").cmp(&b.join(" "));
     }
     // If both mkdir:
     //  Just compare the path.

@@ -3,6 +3,7 @@ mod cli;
 mod commands;
 mod device;
 mod fingerprint;
+mod logger;
 mod restart_chooser;
 mod tracking;
 
@@ -11,18 +12,17 @@ use anyhow::{anyhow, bail, Context, Result};
 use clap::Parser;
 use cli::Commands;
 use commands::{run_adb_command, split_string, AdbCommand};
-use env_logger::{Builder, Target};
 use fingerprint::FileMetadata;
-use log::info;
+use log::{debug, info};
 
-use std::collections::{BTreeSet, HashMap, HashSet};
+use std::collections::{HashMap, HashSet};
 use std::path::PathBuf;
 use std::time::Duration;
 
 fn main() -> Result<()> {
     let total_time = std::time::Instant::now();
     let cli = cli::Cli::parse();
-    init_logger(&cli.global_options);
+    logger::init_logger(&cli.global_options);
     let mut profiler = Profiler::default();
 
     let product_out = match &cli.global_options.product_out {
@@ -45,9 +45,10 @@ fn main() -> Result<()> {
     }
     config.print();
 
+    println!(" * Checking for files to push to device");
     let ninja_installed_files = time!(config.tracked_files()?, profiler.ninja_deps_computer);
 
-    info!("Stale file tracking took {} millis", track_time.elapsed().as_millis());
+    debug!("Stale file tracking took {} millis", track_time.elapsed().as_millis());
 
     let partitions: Vec<PathBuf> =
         cli.global_options.partitions.iter().map(PathBuf::from).collect();
@@ -65,13 +66,13 @@ fn main() -> Result<()> {
         // Status
         let max_changes = cli.global_options.max_allowed_changes;
         if commands.is_empty() {
-            info!("Device up to date, no actions to perform.");
+            println!("   Device already up to date.");
             return Ok(());
         }
         if commands.len() > max_changes {
             bail!("Your device needs {} changes which is more than the suggested amount of {}. Pass `--max-allowed-changes={} or consider reflashing.", commands.len(), max_changes, commands.len());
         }
-        info!("Actions: {} files to update.", commands.len());
+        println!(" * Updating {} files on device.", commands.len());
 
         device::update(
             &RestartChooser::from(&product_out.join("module-info.json"))?,
@@ -80,7 +81,8 @@ fn main() -> Result<()> {
         )?;
     }
     profiler.total = total_time.elapsed(); // Avoid wrapping the block in the macro.
-    info!("{}", profiler.to_string());
+    info!("Finished in {} secs", profiler.total.as_secs());
+    debug!("{}", profiler.to_string());
     Ok(())
 }
 
@@ -94,8 +96,6 @@ fn update(
     product_out: PathBuf,
     config: &tracking::Config,
 ) -> Result<HashMap<PathBuf, AdbCommand>> {
-    let changes = fingerprint::diff(host_tree, device_tree);
-
     // NOTE: The Ninja deps list can be _ahead_of_ the product tree output list.
     //      i.e. m `nothing` will update our ninja list even before someone
     //      does a build to populate product out.
@@ -148,9 +148,6 @@ fn update(
         })
         .collect();
 
-    report_diffs("Device Needs", &changes.device_needs);
-    report_diffs("Outdated Device files", &changes.device_diffs);
-    report_diffs("Device Extra", &changes.device_extra);
     // NOTE: We intentionally avoid deletes for now.
     let filtered_changes = fingerprint::diff(&filtered_host_set, device_tree);
     let all_filtered_commands = commands::compose(&filtered_changes, &product_out);
@@ -167,15 +164,6 @@ fn print_warnings(set: &HashSet<&PathBuf>, msg: &str) {
     println!("{msg}");
     for f in sorted {
         println!("\t{f:?}");
-    }
-}
-
-fn report_diffs(category: &str, file_names: &HashMap<PathBuf, FileMetadata>) {
-    let sorted_names = BTreeSet::from_iter(file_names.keys());
-    println!("{category}: {} files.", sorted_names.len());
-
-    for value in sorted_names.iter().take(10) {
-        println!("\t{}", value.display());
     }
 }
 
@@ -276,22 +264,6 @@ impl std::string::ToString for Profiler {
         ]
         .join("\n\t")
     }
-}
-
-fn init_logger(global_options: &cli::GlobalOptions) {
-    Builder::from_default_env()
-        .target(Target::Stdout)
-        .format_level(false)
-        .format_module_path(false)
-        .format_target(false)
-        // I actually want different logging channels for timing vs adb commands.
-        .filter_level(match &global_options.verbose {
-            cli::Verbosity::Debug => log::LevelFilter::Debug,
-            cli::Verbosity::None => log::LevelFilter::Warn,
-            cli::Verbosity::Details => log::LevelFilter::Info,
-        })
-        .write_style(env_logger::WriteStyle::Auto)
-        .init();
 }
 
 /// Time how long it takes to run the function and store the
