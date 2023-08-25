@@ -3,7 +3,7 @@ use crate::fingerprint::*;
 use crate::restart_chooser::{RestartChooser, RestartType};
 
 use anyhow::{anyhow, Context, Result};
-use log::info;
+use log::{debug, info};
 use serde::__private::ToString;
 use std::collections::HashMap;
 use std::fmt::Debug;
@@ -118,7 +118,7 @@ pub fn compose(diffs: &Diffs, product_out: &Path) -> Commands {
 /// If there is a non-zero exit code or non-empty stderr, then
 /// creates a Result Err string with the details.
 pub fn run_adb_command(args: &AdbCommand) -> Result<String> {
-    info!("Running: ADB {args:?}");
+    info!("       -- adb {args:?}");
     let output =
         process::Command::new("adb").args(args).output().context("Error running adb commands")?;
 
@@ -173,7 +173,7 @@ pub fn restart_type(
 
     for installed_file in installed_file_paths {
         let restart_type = build_system.restart_type(installed_file);
-        info!(
+        debug!(
             " -- Restart is {} for {installed_file}",
             match restart_type.clone() {
                 Some(r) => format!("{r:?}"),
