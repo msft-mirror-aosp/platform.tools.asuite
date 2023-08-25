@@ -55,6 +55,10 @@ impl RestartChooser {
                     // when we have update sets.
                     continue;
                 }
+                if should_force_reboot_on_filename(&device_path) {
+                    app_classes.insert(device_path, RestartType::Reboot);
+                    continue;
+                }
                 if can_soft_restart_based_on_filename(&device_path) {
                     app_classes.insert(device_path, RestartType::SoftRestart);
                     continue;
@@ -76,10 +80,13 @@ impl RestartChooser {
 const SOFT_RESTART_FILE_EXTS: [&str; 3] = ["art", "oat", "vdex"];
 fn can_soft_restart_based_on_filename(filename: &str) -> bool {
     let ext = Path::new(filename).extension().and_then(OsStr::to_str).unwrap_or("");
-    if SOFT_RESTART_FILE_EXTS.contains(&ext) {
-        return true;
-    }
-    false
+    SOFT_RESTART_FILE_EXTS.contains(&ext)
+}
+
+const REBOOTS_FILE_EXTS: [&str; 1] = ["rc"];
+fn should_force_reboot_on_filename(filename: &str) -> bool {
+    let ext = Path::new(filename).extension().and_then(OsStr::to_str).unwrap_or("");
+    REBOOTS_FILE_EXTS.contains(&ext)
 }
 
 // Given the class element from module in module info,
@@ -304,6 +311,25 @@ mod tests {
                 installed_file
             );
         }
+    }
+
+    #[test]
+    fn binary_with_rc_file_reboots_for_rc() {
+        let json = r#"{
+        "SampleModule": {
+             "class": ["EXECUTABLES"],
+             "installed": ["out/target/product/vsoc_x86_64/system/bin/surfaceflinger",
+                           "out/target/product/vsoc_x86_64/system/bin/surfaceflinger.rc"]
+        }}"#;
+        let build_system = RestartChooser::new(BufReader::new(json.as_bytes())).unwrap();
+        assert_eq!(
+            Some(RestartType::Reboot),
+            build_system.restart_type("system/bin/surfaceflinger.rc")
+        );
+        assert_eq!(
+            Some(RestartType::SoftRestart),
+            build_system.restart_type("system/bin/surfaceflinger")
+        );
     }
 
     #[test]
