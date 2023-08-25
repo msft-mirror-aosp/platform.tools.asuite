@@ -2,7 +2,7 @@ use clap::{Args, Parser, Subcommand};
 
 #[derive(Parser)]
 #[command(about = "Tool to push your rebuilt modules to your device.")]
-#[command(propagate_version = true)]
+#[command(version = "0.1")]
 pub struct Cli {
     #[command(subcommand)]
     pub command: Commands,
@@ -68,8 +68,8 @@ pub struct GlobalOptions {
 pub enum Verbosity {
     /// Only show minimal information.
     None,
-    /// Show all adb operations, and all timings.
+    /// Show all adb operations.
     Details,
-    /// For debugging internals of tool
+    /// For debugging internals of tool and timings.
     Debug,
 }
