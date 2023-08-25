@@ -6,7 +6,7 @@
 ///     this module set.
 use anyhow::{Context, Result};
 use lazy_static::lazy_static;
-use log::{debug, info, warn};
+use log::{debug, warn};
 use regex::Regex;
 use serde::{Deserialize, Serialize};
 use std::fs;
@@ -42,7 +42,7 @@ impl Config {
     }
 
     pub fn print(&self) {
-        info!("Tracking base: `{}` and modules {:?}", self.base, self.modules);
+        debug!("Tracking base: `{}` and modules {:?}", self.base, self.modules);
     }
 
     /// Returns the full path to the serialized config file.
@@ -155,7 +155,7 @@ impl Config {
     fn ninja_output(&self, src_root: &str, args: &[String]) -> Result<process::Output> {
         // TODO(rbraunstein): Deal with non-linux-x86.
         let path = "prebuilts/build-tools/linux-x86/bin/ninja";
-        info!("Running {path} {args:?}");
+        debug!("Running {path} {args:?}");
         process::Command::new(path)
             .current_dir(src_root)
             .args(args)
