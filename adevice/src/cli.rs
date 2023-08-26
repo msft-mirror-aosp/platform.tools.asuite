@@ -2,7 +2,7 @@ use clap::{Args, Parser, Subcommand};
 
 #[derive(Parser)]
 #[command(about = "Tool to push your rebuilt modules to your device.")]
-#[command(propagate_version = true)]
+#[command(version = "0.1")]
 pub struct Cli {
     #[command(subcommand)]
     pub command: Commands,
@@ -21,6 +21,8 @@ pub enum Commands {
     /// part of a tracked module or the base image, then it will
     /// not be pushed to the device.
     Track(ModuleNames),
+    /// Change the base module we are tracking from `droid` to something else.
+    TrackBase(BaseModule),
     /// Removes module name from list of tracked modules.
     /// See `track` for more details.
     Untrack(ModuleNames),
@@ -28,11 +30,16 @@ pub enum Commands {
 
 #[derive(Debug, Args)]
 pub struct ModuleNames {
-    //#[clap(global = true)]
     /// List one or modules, space separated.
     /// Use the module name in Android.bp
     pub modules: Vec<String>,
-    // pub n: String,
+}
+
+#[derive(Debug, Args)]
+pub struct BaseModule {
+    /// The module name the system image is built from like 'droid' or 'sync'.
+    /// It can also be an unbundled mainline module name.
+    pub base: String,
 }
 
 #[derive(Args, Debug)]
@@ -49,7 +56,7 @@ pub struct GlobalOptions {
     #[clap(long = "product_out", global = true)]
     pub product_out: Option<String>,
     /// Do not make any modification if more than this many are needed
-    #[clap(long, short, default_value_t = 20)]
+    #[clap(long, short, default_value_t = 100)]
     pub max_allowed_changes: usize,
     // TODO(rbraunstein): Import clap-verbosity-flag crate so we can use -vv instead.
     // Print commands while executing them.
@@ -61,8 +68,8 @@ pub struct GlobalOptions {
 pub enum Verbosity {
     /// Only show minimal information.
     None,
-    /// Show all adb operations, and all timings.
+    /// Show all adb operations.
     Details,
-    /// For debugging internals of tool
+    /// For debugging internals of tool and timings.
     Debug,
 }

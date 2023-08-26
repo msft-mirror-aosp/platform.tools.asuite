@@ -105,6 +105,18 @@ def load(force_build: bool=False, sqlite_module_cache: bool=False) -> ModuleInfo
     return loader.load(save_timestamps=True)
 
 
+def metrics_timer(func):
+    """Decorator method for sending data to metrics."""
+    def wrapper(*args, **kwargs):
+        start = time.time()
+        result = func(*args, **kwargs)
+        elapsed_time = int(time.time() - start)
+        metrics.LocalDetectEvent(detect_type=DetectType.TESTABLE_MODULES,
+                                 result=elapsed_time)
+        return result
+    return wrapper
+
+
 class Loader:
     """Class that handles load and merge processes."""
 
@@ -115,12 +127,9 @@ class Loader:
             sqlite_module_cache: bool=False,
             need_merge_fn: Callable=None,
         ):
-        self.java_dep_path = Path(
-            atest_utils.get_build_out_dir()).joinpath('soong', _JAVA_DEP_INFO)
-        self.cc_dep_path = Path(
-            atest_utils.get_build_out_dir()).joinpath('soong', _CC_DEP_INFO)
-        self.merged_dep_path = Path(
-            os.getenv(constants.ANDROID_PRODUCT_OUT, '')).joinpath(_MERGED_INFO)
+        self.java_dep_path = atest_utils.get_build_out_dir('soong', _JAVA_DEP_INFO)
+        self.cc_dep_path = atest_utils.get_build_out_dir('soong', _CC_DEP_INFO)
+        self.merged_dep_path = atest_utils.get_product_out(_MERGED_INFO)
 
         self.sqlite_module_cache = sqlite_module_cache
         if self.sqlite_module_cache:
@@ -358,6 +367,7 @@ class Loader:
 
         return name_to_module_info
 
+    @metrics_timer
     def get_testable_modules(self, suite=None):
         """Return the testable modules of the given suite name.
 
@@ -373,7 +383,6 @@ class Loader:
             info, otherwise return only modules that belong to the suite.
         """
         modules = set()
-        start = time.time()
 
         if self.module_index.is_file():
             modules = self.get_testable_modules_from_index(suite)
@@ -382,10 +391,6 @@ class Loader:
         if not modules:
             modules = self.get_testable_module_from_memory(suite)
 
-        duration = time.time() - start
-        metrics.LocalDetectEvent(
-            detect_type=DetectType.TESTABLE_MODULES,
-            result=int(duration))
         return modules
 
     def get_testable_modules_from_index(self, suite: str=None) -> Set[str]:

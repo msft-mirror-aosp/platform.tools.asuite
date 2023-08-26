@@ -189,6 +189,44 @@ class MoblyTestRunnerUnittests(unittest.TestCase):
         self.assertEqual(
             [call.args[0] for call in check_call.call_args_list], expected_cmds)
 
+    def test_get_test_cases_from_spec_with_class_and_methods(self) -> None:
+        """
+        Tests _get_test_cases_from_spec with both class and methods defined.
+        """
+        self.tinfo.data = {
+            'filter': frozenset(
+                {test_info.TestFilter(
+                    class_name='SampleClass',
+                    methods=frozenset({'test1', 'test2'}))})
+        }
+
+        self.assertCountEqual(self.runner._get_test_cases_from_spec(self.tinfo),
+                              ['SampleClass.test1', 'SampleClass.test2'])
+
+    def test_get_test_cases_from_spec_with_class_only(self) -> None:
+        """Tests _get_test_cases_from_spec with only test class defined."""
+        self.tinfo.data = {
+            'filter': frozenset(
+                {test_info.TestFilter(
+                    class_name='SampleClass',
+                    methods=frozenset())})
+        }
+
+        self.assertCountEqual(self.runner._get_test_cases_from_spec(self.tinfo),
+                              ['SampleClass'])
+
+    def test_get_test_cases_from_spec_with_method_only(self) -> None:
+        """Tests _get_test_cases_from_spec with only methods defined."""
+        self.tinfo.data = {
+            'filter': frozenset(
+                {test_info.TestFilter(
+                    class_name='.',
+                    methods=frozenset({'test1', 'test2'}))})
+        }
+
+        self.assertCountEqual(self.runner._get_test_cases_from_spec(self.tinfo),
+                              ['test1', 'test2'])
+
     @mock.patch.object(
         mobly_test_runner.MoblyTestRunner, '_get_test_results_from_summary',
         return_value=())
