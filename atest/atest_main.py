@@ -929,8 +929,13 @@ def need_run_index_targets(
     Returns:
         True when none of the above conditions were found.
     """
-    ignore_args = (args.update_cmd_mapping, args.verify_cmd_mapping, args.dry_run)
-    if any(ignore_args):
+    no_indexing_args = (
+        args.update_cmd_mapping,
+        args.verify_cmd_mapping,
+        args.dry_run,
+        args.list_modules,
+    )
+    if any(no_indexing_args):
         return False
     if extra_args.get(constants.VERIFY_ENV_VARIABLE, False):
         return False
