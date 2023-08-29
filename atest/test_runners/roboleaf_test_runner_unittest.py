@@ -17,6 +17,7 @@
 """Unittests for roboleaf_test_runner."""
 
 import json
+import os
 import unittest
 import subprocess
 import logging
@@ -130,8 +131,8 @@ class RoboleafTestRunnerUnittests(fake_filesystem_unittest.TestCase):
         """Test are_all_tests_supported method when _module_map has entries"""
         RoboleafModuleMap._instances = {}
 
-        self.setUpPyfakefs()
         out_dir = atest_utils.get_build_out_dir()
+        os.remove(out_dir.joinpath(roboleaf_test_runner._ROBOLEAF_MODULE_MAP_PATH))
         self.fs.create_file(
             out_dir.joinpath(roboleaf_test_runner._ROBOLEAF_MODULE_MAP_PATH),
             contents=json.dumps({
@@ -144,6 +145,7 @@ class RoboleafTestRunnerUnittests(fake_filesystem_unittest.TestCase):
         //a:test1
         //a/b:test2
         """
+        os.remove(roboleaf_test_runner._ALLOWLIST_LAUNCHED)
         self.fs.create_file(
             roboleaf_test_runner._ALLOWLIST_LAUNCHED,
             contents=dedent(allowlist_content))
@@ -192,8 +194,8 @@ class RoboleafTestRunnerUnittests(fake_filesystem_unittest.TestCase):
         """Test are_all_tests_supported method when unsupported_flag is specified"""
         RoboleafModuleMap._instances = {}
 
-        self.setUpPyfakefs()
         out_dir = atest_utils.get_build_out_dir()
+        os.remove(out_dir.joinpath(roboleaf_test_runner._ROBOLEAF_MODULE_MAP_PATH))
         self.fs.create_file(
             out_dir.joinpath(roboleaf_test_runner._ROBOLEAF_MODULE_MAP_PATH),
             contents=json.dumps({
@@ -202,6 +204,7 @@ class RoboleafTestRunnerUnittests(fake_filesystem_unittest.TestCase):
         allowlist_content = """
         //a:test1
         """
+        os.remove(roboleaf_test_runner._ALLOWLIST_LAUNCHED)
         self.fs.create_file(
             roboleaf_test_runner._ALLOWLIST_LAUNCHED,
             contents=dedent(allowlist_content))
