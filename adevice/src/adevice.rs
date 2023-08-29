@@ -13,6 +13,7 @@ use clap::Parser;
 use cli::Commands;
 use commands::{run_adb_command, split_string, AdbCommand};
 use fingerprint::FileMetadata;
+use itertools::Itertools;
 use log::{debug, info};
 
 use std::collections::{HashMap, HashSet};
@@ -59,8 +60,13 @@ fn main() -> Result<()> {
         fingerprint::fingerprint_partitions(&product_out, &partitions)?,
         profiler.host_fingerprint
     );
-    let commands =
-        update(&device_tree, &host_tree, &ninja_installed_files, product_out.clone(), &config)?;
+    let commands = get_update_commands(
+        &device_tree,
+        &host_tree,
+        &ninja_installed_files,
+        product_out.clone(),
+        &config,
+    )?;
 
     if matches!(cli.command, Commands::Update) {
         // Status
@@ -89,18 +95,18 @@ fn main() -> Result<()> {
 /// Returns the commands to update the device for every file that should be updated.
 /// If there are errors, like some files in the staging set have not been built, then
 /// an error result is returned.
-fn update(
+fn get_update_commands(
     device_tree: &HashMap<PathBuf, FileMetadata>,
     host_tree: &HashMap<PathBuf, FileMetadata>,
     ninja_installed_files: &[String],
     product_out: PathBuf,
-    config: &tracking::Config,
+    _config: &tracking::Config,
 ) -> Result<HashMap<PathBuf, AdbCommand>> {
     // NOTE: The Ninja deps list can be _ahead_of_ the product tree output list.
     //      i.e. m `nothing` will update our ninja list even before someone
     //      does a build to populate product out.
     //      We don't have a way to know if we are in this case or if the user
-    //      ever did a `m droid`.
+    //      ever did a `m droid`
 
     // We add implicit dirs to the tracked set so the set matches the staging set.
     let mut ninja_installed_dirs: HashSet<PathBuf> =
@@ -109,31 +115,15 @@ fn update(
     let tracked_set: HashSet<PathBuf> =
         ninja_installed_files.iter().map(PathBuf::from).chain(ninja_installed_dirs).collect();
     let host_set: HashSet<PathBuf> = host_tree.keys().map(PathBuf::clone).collect();
-    let device_set: HashSet<PathBuf> = device_tree.keys().map(PathBuf::clone).collect();
-
-    //  Print warnings for untracked staging and/or device files.
-    print_warnings(
-        &host_set.difference(&tracked_set).collect(),
-        "\n * Files on Host but not part of a tracked target.",
-    );
-    print_warnings(
-        &device_set.difference(&tracked_set).collect(),
-        "\n * Files on Device but not part of a tracked target",
-    );
 
     // Files that are in the tracked set but NOT in the build directory. These need
     // to be built.
     let needs_building: HashSet<&PathBuf> = tracked_set.difference(&host_set).collect();
+    print_status(&collect_status_per_file(&tracked_set, host_tree, device_tree));
+
     #[allow(clippy::len_zero)]
     if needs_building.len() > 0 {
-        print_warnings(
-            &needs_building,
-            &format!(
-                "These files need to be rebuilt. Please run:  m {} {:?}",
-                config.base, config.modules
-            ),
-        );
-        bail!("Please build needed modules and try again.");
+        bail!("Please build needed modules before updating.");
     }
 
     // Restrict the host set down to the ones that are in the update set.
@@ -154,17 +144,134 @@ fn update(
     Ok(all_filtered_commands.upserts)
 }
 
-fn print_warnings(set: &HashSet<&PathBuf>, msg: &str) {
-    if set.is_empty() {
+#[derive(Clone, PartialEq)]
+enum PushState {
+    Push,
+    /// File is tracked and the device and host fingerprints match.
+    UpToDate,
+    /// File is not tracked but exists on device and host.
+    TrackOrClean,
+    /// File is on the device, but not host and not tracked.
+    TrackAndBuildOrClean,
+    /// File is tracked and on host but not on device.
+    //PushNew,
+    /// File is on host, but not tracked and not on device.
+    TrackOrMakeClean,
+    /// File is tracked and on the device, but is not in the build tree.
+    /// `m` the module to build it.
+    UntrackOrBuild,
+}
+
+impl PushState {
+    /// Message to print indicating what actions the user should take based on the
+    /// state of the file.
+    pub fn get_action_msg(self) -> &'static str {
+        match self {
+	    PushState::Push => "Ready to push:\n  (These files are out of date on the device and will be pushed when you run `adevice update`)",
+	    // Note: we don't print up to date files.
+	    PushState::UpToDate => "Up to date:  (These files are up to date on the device. There is nothing to do.)",
+	    PushState::TrackOrClean => "Untracked pushed files:\n  (These files are not tracked but exist on the device and host.)\n  (Use `adevice track` for the appropriate module to have them pushed.)",
+	    PushState::TrackAndBuildOrClean => "Stale device files:\n  (These files are on the device, but not built or tracked.)\n  (You might want to run `adevice clean` to remove them.)",
+	    PushState::TrackOrMakeClean => "Untracked built files:\n  (These files are in the build tree but not tracked or on the device.)\n  (You might want to `adevice track` the module.  It is safe to do nothing.)",
+	    PushState::UntrackOrBuild => "Unbuilt files:\n  (These files should be rebuilt.)\n  (Rebuild and `adevice update`)",
+	}
+    }
+}
+
+/// Group each file by state and print the state message followed by the files in that state.
+fn print_status(files: &HashMap<PathBuf, PushState>) {
+    for state in [
+        PushState::Push,
+        // Skip UpToDat, don't print those.
+        PushState::TrackOrClean,
+        PushState::TrackAndBuildOrClean,
+        PushState::TrackOrMakeClean,
+        PushState::UntrackOrBuild,
+    ] {
+        print_files_in_state(files, state);
+    }
+}
+
+/// Go through all files that exist on the host, device, and tracking set.
+/// Ignore any file that is in all three and has the same fingerprint on the host and device.
+/// States where the user should take action:
+///   Build
+///   Clean
+///   Track
+///   Untrack
+fn collect_status_per_file(
+    tracked_set: &HashSet<PathBuf>,
+    host_tree: &HashMap<PathBuf, FileMetadata>,
+    device_tree: &HashMap<PathBuf, FileMetadata>,
+) -> HashMap<PathBuf, PushState> {
+    let all_files: Vec<&PathBuf> =
+        host_tree.keys().chain(device_tree.keys()).chain(tracked_set.iter()).collect();
+    let mut states: HashMap<PathBuf, PushState> = HashMap::new();
+    for f in all_files
+        .iter()
+        .sorted_by(|a, b| a.display().to_string().cmp(&b.display().to_string()))
+        .dedup()
+    {
+        let on_device = device_tree.contains_key(*f);
+        let on_host = host_tree.contains_key(*f);
+        let tracked = tracked_set.contains(*f);
+
+        // I think keeping tracked/untracked else is clearer than collapsing.
+        #[allow(clippy::collapsible_else_if)]
+        let push_state = if tracked {
+            if on_device && on_host {
+                if device_tree.get(*f) != host_tree.get(*f) {
+                    // PushDiff
+                    PushState::Push
+                } else {
+                    // else normal case, do nonthing
+                    PushState::UpToDate
+                }
+            } else if !on_host {
+                // We don't care if it is on the device or not, it has to built if it isn't
+                // on the host.
+                PushState::UntrackOrBuild
+            } else {
+                assert!(
+                    !on_device && on_host,
+                    "Unexpected state for file: {f:?}, tracked: {tracked} on_device: {on_device}, on_host: {on_host}"
+                );
+                // PushNew
+                PushState::Push
+            }
+        } else {
+            if on_device && on_host {
+                PushState::TrackOrClean
+            } else if on_device && !on_host {
+                PushState::TrackAndBuildOrClean
+            } else {
+                // Note: case of !tracked, !on_host, !on_device is not possible.
+                // So only one case left.
+                assert!(
+                    !on_device && on_host,
+                    "Unexpected state for file: {f:?}, tracked: {tracked} on_device: {on_device}, on_host: {on_host}"
+                );
+                PushState::TrackOrMakeClean
+            }
+        };
+
+        states.insert(PathBuf::from(f), push_state);
+    }
+    states
+}
+
+/// Find all files in a given state, and if that file list is not empty, print the
+/// state message and all the files (sorted).
+fn print_files_in_state(files: &HashMap<PathBuf, PushState>, push_state: PushState) {
+    let filtered_files: HashMap<&PathBuf, &PushState> =
+        files.iter().filter(|(_, state)| *state == &push_state).collect();
+
+    if filtered_files.is_empty() {
         return;
     }
-
-    let mut sorted: Vec<&PathBuf> = set.iter().copied().collect();
-    sorted.sort();
-    println!("{msg}");
-    for f in sorted {
-        println!("\t{f:?}");
-    }
+    println!("{}", push_state.get_action_msg());
+    filtered_files.keys().sorted().for_each(|path| println!("\t{}", path.display()));
+    println!();
 }
 
 fn get_product_out_from_env() -> Option<PathBuf> {
@@ -299,7 +406,8 @@ mod tests {
         let product_out = PathBuf::from("");
         let config = Config::load_or_default(home.display().to_string())?;
 
-        let results = update(&device_files, &host_files, &ninja_deps, product_out, &config)?;
+        let results =
+            get_update_commands(&device_files, &host_files, &ninja_deps, product_out, &config)?;
         assert_eq!(results.values().len(), 0);
         Ok(())
     }
@@ -313,7 +421,7 @@ mod tests {
         let product_out = PathBuf::from("");
         let config = Config::load_or_default(home.display().to_string())?;
 
-        let results = update(
+        let results = get_update_commands(
             // Device files
             &HashMap::new(),
             // Host files
@@ -383,7 +491,7 @@ mod tests {
         let tracked_set: Vec<String> =
             fake_state.tracked_set.iter().map(|s| s.to_string()).collect();
 
-        update(&device_files, &host_files, &tracked_set, product_out, &config)
+        get_update_commands(&device_files, &host_files, &tracked_set, product_out, &config)
     }
 
     fn file_metadata(digest: &str) -> FileMetadata {
@@ -393,6 +501,7 @@ mod tests {
             symlink: "".to_string(),
         }
     }
+
     fn dir_metadata() -> FileMetadata {
         FileMetadata {
             file_type: fingerprint::FileType::Directory,
@@ -400,4 +509,5 @@ mod tests {
             symlink: "".to_string(),
         }
     }
+    // TODO(rbraunstein): Add tests for collect_status_per_file after we decide on output.
 }
