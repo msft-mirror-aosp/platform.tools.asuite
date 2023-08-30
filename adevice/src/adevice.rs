@@ -11,12 +11,13 @@ use crate::restart_chooser::RestartChooser;
 use anyhow::{anyhow, bail, Context, Result};
 use clap::Parser;
 use cli::Commands;
-use commands::{run_adb_command, split_string, AdbCommand};
+use commands::{run_adb_command, split_string};
 use fingerprint::FileMetadata;
 use itertools::Itertools;
 use log::{debug, info};
 
 use std::collections::{HashMap, HashSet};
+use std::io::stdin;
 use std::path::PathBuf;
 use std::time::Duration;
 
@@ -68,21 +69,48 @@ fn main() -> Result<()> {
         &config,
     )?;
 
+    let max_changes = cli.global_options.max_allowed_changes;
+    if matches!(cli.command, Commands::CleanDevice { .. }) {
+        let deletes = commands.deletes;
+        if deletes.is_empty() {
+            println!("   Nothing to clean.");
+            return Ok(());
+        }
+        if deletes.len() > max_changes {
+            bail!("Your device would have {} files deleted is more than the suggested amount of {}. Pass `--max-allowed-changes={} or consider reflashing.", deletes.len(), max_changes, deletes.len());
+        }
+        if matches!(cli.command, Commands::CleanDevice { force } if !force) {
+            println!(
+                "You are about to delete {} [untracked pushed] files. Are you sure? y/N",
+                deletes.len()
+            );
+            let mut should_delete = String::new();
+            stdin().read_line(&mut should_delete)?;
+            if should_delete.trim().to_lowercase() != "y" {
+                bail!("Not deleting");
+            }
+        }
+
+        // Consider always reboot instead of soft restart after a clean.
+        let restart_chooser = &RestartChooser::from(&product_out.join("module-info.json"))?;
+        device::update(restart_chooser, &deletes, &mut profiler)?;
+    }
+
     if matches!(cli.command, Commands::Update) {
+        let upserts = commands.upserts;
         // Status
-        let max_changes = cli.global_options.max_allowed_changes;
-        if commands.is_empty() {
+        if upserts.is_empty() {
             println!("   Device already up to date.");
             return Ok(());
         }
-        if commands.len() > max_changes {
-            bail!("Your device needs {} changes which is more than the suggested amount of {}. Pass `--max-allowed-changes={} or consider reflashing.", commands.len(), max_changes, commands.len());
+        if upserts.len() > max_changes {
+            bail!("Your device needs {} changes which is more than the suggested amount of {}. Pass `--max-allowed-changes={} or consider reflashing.", upserts.len(), max_changes, upserts.len());
         }
-        println!(" * Updating {} files on device.", commands.len());
+        println!(" * Updating {} files on device.", upserts.len());
 
         device::update(
             &RestartChooser::from(&product_out.join("module-info.json"))?,
-            &commands,
+            &upserts,
             &mut profiler,
         )?;
     }
@@ -101,7 +129,7 @@ fn get_update_commands(
     ninja_installed_files: &[String],
     product_out: PathBuf,
     _config: &tracking::Config,
-) -> Result<HashMap<PathBuf, AdbCommand>> {
+) -> Result<commands::Commands> {
     // NOTE: The Ninja deps list can be _ahead_of_ the product tree output list.
     //      i.e. m `nothing` will update our ninja list even before someone
     //      does a build to populate product out.
@@ -138,10 +166,8 @@ fn get_update_commands(
         })
         .collect();
 
-    // NOTE: We intentionally avoid deletes for now.
     let filtered_changes = fingerprint::diff(&filtered_host_set, device_tree);
-    let all_filtered_commands = commands::compose(&filtered_changes, &product_out);
-    Ok(all_filtered_commands.upserts)
+    Ok(commands::compose(&filtered_changes, &product_out))
 }
 
 #[derive(Clone, PartialEq)]
@@ -408,7 +434,7 @@ mod tests {
 
         let results =
             get_update_commands(&device_files, &host_files, &ninja_deps, product_out, &config)?;
-        assert_eq!(results.values().len(), 0);
+        assert_eq!(results.upserts.values().len(), 0);
         Ok(())
     }
 
@@ -434,7 +460,7 @@ mod tests {
             product_out,
             &config,
         )?;
-        assert_eq!(results.values().len(), 2);
+        assert_eq!(results.upserts.values().len(), 2);
         Ok(())
     }
 
@@ -444,8 +470,9 @@ mod tests {
             device_data: &["system/f1"],
             host_data: &["system/f1"],
             tracked_set: &[],
-        });
-        assert_eq!(0, results?.values().len());
+        })?
+        .upserts;
+        assert_eq!(0, results.values().len());
         Ok(())
     }
 
@@ -455,8 +482,9 @@ mod tests {
             device_data: &[""],
             host_data: &["system/f1"],
             tracked_set: &[],
-        });
-        assert_eq!(0, results?.values().len());
+        })?
+        .upserts;
+        assert_eq!(0, results.values().len());
         Ok(())
     }
 
@@ -472,7 +500,7 @@ mod tests {
     // Uses filename for the digest in the fingerprint
     // Add directories for every file on the host like walkdir would do.
     // `update` adds the directories for the tracked set so we don't do that here.
-    fn call_update(fake_state: &FakeState) -> Result<HashMap<PathBuf, AdbCommand>> {
+    fn call_update(fake_state: &FakeState) -> Result<commands::Commands> {
         let product_out = PathBuf::from("");
         let config = Config::fake();
 
