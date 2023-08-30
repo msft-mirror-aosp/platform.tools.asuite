@@ -224,10 +224,9 @@ class ModuleFinderFindTestByPath(fake_filesystem_unittest.TestCase):
     @mock.patch.object(module_finder.ModuleFinder, '_get_test_info_filter')
     @mock.patch.object(test_finder_utils, 'find_parent_module_dir',
                        return_value=None)
-    @mock.patch('os.path.exists')
     #pylint: disable=unused-argument
     def test_find_test_by_path_belong_to_dependencies(
-            self, _mock_exists, _mock_find_parent, _mock_test_filter):
+            self, _mock_find_parent, _mock_test_filter):
         """Test find_test_by_path if belong to test dependencies."""
         test1 = module(name='test1',
                        classes=['class'],
@@ -246,7 +245,7 @@ class ModuleFinderFindTestByPath(fake_filesystem_unittest.TestCase):
         mod_info = self.create_module_info(
             [test1, test2, lib1, lib2])
         mod_finder = module_finder.ModuleFinder(module_info=mod_info)
-        _mock_exists.return_value = True
+        self.fs.create_file('path/src1/main.cpp', contents='')
         test1_filter = test_info.TestFilter('test1Filter', frozenset())
         _mock_test_filter.return_value = test1_filter
 
