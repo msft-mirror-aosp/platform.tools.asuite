@@ -103,8 +103,7 @@ pub fn compose(diffs: &Diffs, product_out: &Path) -> Commands {
             match metadata.file_type {
                 // [adb] rm device_path
                 FileType::File | FileType::Symlink => to_args(AdbAction::DeleteFile),
-                // TODO(rbraunstein): Deal with deleting non-empty directory, probably with
-                //  `rm -rf` or deleting all files before deleting dirs and deleting most nested first.
+                // TODO(rbraunstein): More efficient deletes, or change rm -rf back to rmdir
                 FileType::Directory => to_args(AdbAction::DeleteDir),
             },
         );
