@@ -878,7 +878,7 @@ class AtestTradefedTestRunner(trb.TestRunnerBase):
                 filters |= test_filters
             if module_args:
                 data[constants.TI_MODULE_ARG] = module_args
-            data[constants.TI_FILTER] = self._flatten_test_filters(filters)
+            data[constants.TI_FILTER] = self.flatten_test_filters(filters)
             results.add(
                 test_info.TestInfo(test_name=module,
                                    test_runner=test_runner,
@@ -888,7 +888,7 @@ class AtestTradefedTestRunner(trb.TestRunnerBase):
         return results
 
     @staticmethod
-    def _flatten_test_filters(filters):
+    def flatten_test_filters(filters):
         """Sort and group test_filters by class_name.
 
             Example of three test_filters in a frozenset:

@@ -518,27 +518,27 @@ class AtestTradefedTestRunnerUnittests(unittest.TestCase):
              ' -n --prioritize-host-config --skip-host-arch-check'])
 
     def test_flatten_test_filters(self):
-        """Test _flatten_test_filters method."""
+        """Test flatten_test_filters method."""
         # No Flattening
-        filters = self.tr._flatten_test_filters({uc.CLASS_FILTER})
+        filters = self.tr.flatten_test_filters({uc.CLASS_FILTER})
         unittest_utils.assert_strict_equal(self, frozenset([uc.CLASS_FILTER]),
                                            filters)
-        filters = self.tr._flatten_test_filters({CLASS2_FILTER})
+        filters = self.tr.flatten_test_filters({CLASS2_FILTER})
         unittest_utils.assert_strict_equal(
             self, frozenset([CLASS2_FILTER]), filters)
-        filters = self.tr._flatten_test_filters({uc.METHOD_FILTER})
+        filters = self.tr.flatten_test_filters({uc.METHOD_FILTER})
         unittest_utils.assert_strict_equal(
             self, frozenset([uc.METHOD_FILTER]), filters)
-        filters = self.tr._flatten_test_filters({uc.METHOD_FILTER,
+        filters = self.tr.flatten_test_filters({uc.METHOD_FILTER,
                                                  CLASS2_METHOD_FILTER})
         unittest_utils.assert_strict_equal(
             self, frozenset([uc.METHOD_FILTER, CLASS2_METHOD_FILTER]), filters)
         # Flattening
-        filters = self.tr._flatten_test_filters({uc.METHOD_FILTER,
+        filters = self.tr.flatten_test_filters({uc.METHOD_FILTER,
                                                  METHOD2_FILTER})
         unittest_utils.assert_strict_equal(
             self, filters, frozenset([uc.FLAT_METHOD_FILTER]))
-        filters = self.tr._flatten_test_filters({uc.METHOD_FILTER,
+        filters = self.tr.flatten_test_filters({uc.METHOD_FILTER,
                                                  METHOD2_FILTER,
                                                  CLASS2_METHOD_FILTER,})
         unittest_utils.assert_strict_equal(
