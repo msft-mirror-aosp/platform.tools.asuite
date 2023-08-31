@@ -61,6 +61,7 @@ ANNOTATION_FILTER = ('Accept keyword that will be translated to fully qualified'
 AUTO_SHARDING = ('Trigger N AVDs/shards for long duration tests. (N is 2 by '
                  'default).')
 BUILD = 'Run a build.'
+BUILD_PROCESS_NUMBER = 'Build run process number at once.'
 BAZEL_MODE = 'Run tests using Bazel.'
 BAZEL_ARG = ('Forward a flag to Bazel for tests executed with Bazel; '
              'see --bazel-mode.')
@@ -397,10 +398,16 @@ class AtestArgParser(argparse.ArgumentParser):
         # Option to filter the output of aggregate metrics content.
         self.add_argument('--aggregate-metric-filter', action='append',
                           help=AGGREGATE_METRIC_FILTER)
+
         # Option that allows building and running without regarding device
         # availability even the given test is a device/host-driven test.
         self.add_argument('--no-checking-device', action='store_true',
                           help=NO_CHECKING_DEVICE)
+
+        # Option for customize build process number.
+        self.add_argument('-j', '--build-j', nargs='?', type=int,
+                          help=BUILD_PROCESS_NUMBER)
+
         # This arg actually doesn't consume anything, it's primarily used for
         # the help description and creating custom_args in the NameSpace object.
         self.add_argument('--', dest='custom_args', nargs='*',
@@ -435,6 +442,7 @@ def print_epilog_text():
         ANNOTATION_FILTER=ANNOTATION_FILTER,
         AUTO_SHARDING=AUTO_SHARDING,
         BUILD=BUILD,
+        BUILD_PROCESS_NUMBER=BUILD_PROCESS_NUMBER,
         MINIMAL_BUILD=MINIMAL_BUILD,
         BAZEL_MODE=BAZEL_MODE,
         BAZEL_ARG=BAZEL_ARG,
@@ -536,6 +544,9 @@ OPTIONS
 
         -b, --build
             {BUILD} (implicit default)
+
+        -j, --build-j
+            {BUILD_PROCESS_NUMBER}
 
         --[no-]bazel-mode
             {BAZEL_MODE}
