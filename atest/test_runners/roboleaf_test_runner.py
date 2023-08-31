@@ -34,8 +34,9 @@ from atest import constants
 from atest import result_reporter
 
 from atest.atest_enum import ExitCode
-from atest.test_finders.test_info import TestInfo
+from atest.test_finders.test_info import TestInfo, TestFilter
 from atest.test_runners import test_runner_base
+from atest.test_runners import atest_tf_test_runner
 from atest.tools.singleton import Singleton
 
 # Roboleaf maintains allowlists that identify which modules have been
@@ -78,7 +79,10 @@ class RoboleafModuleMap(metaclass=Singleton):
         return self._module_map
 
 def are_all_tests_supported(
-    roboleaf_mode, tests, roboleaf_unsupported_flags) -> Dict[str, TestInfo]:
+    roboleaf_mode,
+    tests,
+    roboleaf_unsupported_flags,
+    test_name_to_filters = None) -> Dict[str, TestInfo]:
     """Determine if the list of tests are all supported by bazel based on the mode.
 
     If all requested tests are eligible, then indexing, generating
@@ -89,6 +93,7 @@ def are_all_tests_supported(
         roboleaf_mode: The value of --roboleaf-mode.
         tests: A list of test names requested by the user.
         roboleaf_unsupported_flags: A list of flags which are unsupported by roboleaf mode.
+        test_name_to_filters: Dict of the test name to a list of TestFilter.
 
     Returns:
         The list of 'b test'-able module names. If --roboleaf-mode is 'off' or
@@ -99,7 +104,8 @@ def are_all_tests_supported(
         # Gracefully fall back to standard atest if roboleaf mode is disabled.
         return {}
 
-    eligible_tests = _roboleaf_eligible_tests(roboleaf_mode, tests)
+    eligible_tests = _roboleaf_eligible_tests(
+        roboleaf_mode, tests, test_name_to_filters or {})
 
     if set(eligible_tests.keys()) == set(tests):
         if roboleaf_unsupported_flags:
@@ -125,7 +131,8 @@ def are_all_tests_supported(
 
 def _roboleaf_eligible_tests(
     mode: BazelBuildMode,
-    module_names: List[str]) -> Dict[str, TestInfo]:
+    module_names: List[str],
+    test_name_to_filters) -> Dict[str, TestInfo]:
     """Filter the given module_names to only ones that are currently
     fully converted with roboleaf (b test) and then filter further by the
     launch allowlist.
@@ -133,6 +140,7 @@ def _roboleaf_eligible_tests(
     Args:
         mode: A BazelBuildMode value to switch between dev and prod lists.
         module_names: A list of module names to check for roboleaf support.
+        test_name_to_filters: Dict of the test name to a list of TestFilter.
 
     Returns:
         A dictionary keyed by test name and value of Roboleaf TestInfo.
@@ -151,7 +159,11 @@ def _roboleaf_eligible_tests(
             lambda m: m in supported_modules, mod_map.launched_modules))
 
     return {
-        module: TestInfo(module, RoboleafTestRunner.NAME, set())
+        module: TestInfo(
+            module,
+            RoboleafTestRunner.NAME,
+            set(),
+            data={constants.TI_FILTER: test_name_to_filters.get(module, set())})
         for module in supported_modules
     }
 
@@ -297,6 +309,10 @@ class RoboleafTestRunner(test_runner_base.TestRunnerBase):
         # The tool tag attributes this bazel invocation to atest. This
         # is uploaded in BEP when bes publishing is enabled.
         bazel_args.append("--tool_tag=atest")
+
+        bazel_args.extend([
+            f'--test_arg={i}'
+            for i in atest_tf_test_runner.get_include_filter(test_infos)])
 
         # --config=deviceless_tests filters for tradefed_deviceless_test targets.
         if constants.HOST in extra_args:
