@@ -31,6 +31,7 @@ from atest import constants
 
 from atest.atest_enum import DetectType
 from atest.metrics import metrics
+from atest.test_finders import cc_test_filter_utils
 from atest.test_finders import test_info
 from atest.test_finders import test_finder_base
 from atest.test_finders import test_finder_utils
@@ -365,7 +366,7 @@ class ModuleFinder(test_finder_base.TestFinderBase):
         if os.path.isfile(path) and kwargs.get('is_native_test', None):
             class_info = test_finder_utils.get_cc_class_info(path)
             ti_filter = frozenset([test_info.TestFilter(
-                test_finder_utils.get_cc_filter(
+                cc_test_filter_utils.get_cc_filter(
                     class_info, kwargs.get('class_name', '*'), methods),
                 frozenset())])
         # Path to java file.
@@ -396,7 +397,7 @@ class ModuleFinder(test_finder_base.TestFinderBase):
             for classname, _ in class_info.items():
                 cc_filters.append(
                     test_info.TestFilter(
-                        test_finder_utils.get_cc_filter(class_info, classname, methods),
+                        cc_test_filter_utils.get_cc_filter(class_info, classname, methods),
                         frozenset()))
             ti_filter = frozenset(cc_filters)
         # If input path is a folder and have class_name information.

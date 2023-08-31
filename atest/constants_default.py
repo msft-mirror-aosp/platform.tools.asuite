@@ -394,12 +394,6 @@ RUNNER_COMMAND_PATH = os.path.join(
     os.environ.get(ANDROID_BUILD_TOP, os.getcwd()),
     'tools/asuite/atest/test_data/runner_commands.json')
 
-# Gtest Types
-GTEST_REGULAR = 'regular native test'
-GTEST_TYPED = 'typed test'
-GTEST_TYPED_PARAM = 'typed-parameterized test'
-GTEST_PARAM = 'value-parameterized test'
-
 # Tradefed log saver template for ATest
 ATEST_TF_LOG_SAVER = 'template/log/atest_log_saver'
 DEVICE_SETUP_PREPARER = 'template/preparers/device-preparer'
