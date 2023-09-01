@@ -1230,6 +1230,10 @@ def main(
         # file up to date.
         build_targets.add(module_info.get_module_info_target())
 
+        # Add the -jx as a build target if user specify it.
+        if args.build_j:
+            build_targets.add(f'-j{args.build_j}')
+
         build_start = time.time()
         success = atest_utils.build(build_targets)
         build_duration = time.time() - build_start

@@ -108,7 +108,7 @@ pub fn update(
 
     setup_push()?;
     time!(
-        for command in adb_commands.values().cloned().sorted_by(&mkdir_comes_first) {
+        for command in adb_commands.values().cloned().sorted_by(&mkdir_comes_first_rm_dfs) {
             run_adb_command(&command)?;
         },
         profiler.adb_cmds
@@ -128,11 +128,19 @@ pub fn update(
 // TODO(rbraunstein): This is temporary, either partition out the mkdirs or save
 // the AdbCommand along with the commands so we don't have to check the strings.
 // Too much thinking here.
-fn mkdir_comes_first(a: &AdbCommand, b: &AdbCommand) -> Ordering {
+fn mkdir_comes_first_rm_dfs(a: &AdbCommand, b: &AdbCommand) -> Ordering {
     let a_is_mkdir = a.len() > 1 && a[..2] == vec!["shell".to_string(), "mkdir".to_string()];
     let b_is_mkdir = b.len() > 1 && b[..2] == vec!["shell".to_string(), "mkdir".to_string()];
     if !a_is_mkdir && !b_is_mkdir {
-        return a.join(" ").cmp(&b.join(" "));
+        // Sort rm's with files before their parents.
+        let a_cmd = a.join(" ");
+        let b_cmd = b.join(" ");
+        // clean and push/mkdir aren't mixed so we don't check when comparing.
+        if a_cmd.contains("shell rm") && b_cmd.contains("shell rm") {
+            return b_cmd.cmp(&a_cmd);
+        }
+
+        return a_cmd.cmp(&b_cmd);
     }
     // If both mkdir:
     //  Just compare the path.
@@ -150,8 +158,9 @@ fn mkdir_comes_first(a: &AdbCommand, b: &AdbCommand) -> Ordering {
 
 #[cfg(test)]
 mod tests {
-    use super::run_process_with_timeout;
+    use super::*;
     use anyhow::{bail, Result};
+    use core::cmp::Ordering;
     use std::time::Duration;
 
     // Igoring the tests so they don't cause delays in CI, but can still be run by hand.
@@ -203,5 +212,40 @@ mod tests {
             }
             _ => bail!("Expected to catch err in stderr"),
         }
+    }
+
+    #[test]
+    fn deeper_rms_come_first() {
+        assert_eq!(
+            Ordering::Less,
+            mkdir_comes_first_rm_dfs(
+                &split_string("shell rm -rf dir1/dir2/file1"),
+                &split_string("shell rm -rf dir1/dir2"),
+            )
+        );
+        assert_eq!(
+            Ordering::Greater,
+            mkdir_comes_first_rm_dfs(
+                &split_string("shell rm -rf dir1/dir2"),
+                &split_string("shell rm -rf dir1/dir2/file1"),
+            )
+        );
+    }
+    #[test]
+    fn rm_all_files_before_dirs() {
+        assert_eq!(
+            Ordering::Less,
+            mkdir_comes_first_rm_dfs(
+                &split_string("shell rm system/app/FakeOemFeatures/FakeOemFeatures.apk"),
+                &split_string("shell rm -rf system/app/FakeOemFeatures"),
+            )
+        );
+        assert_eq!(
+            Ordering::Greater,
+            mkdir_comes_first_rm_dfs(
+                &split_string("shell rm -rf system/app/FakeOemFeatures"),
+                &split_string("shell rm system/app/FakeOemFeatures/FakeOemFeatures.apk"),
+            )
+        );
     }
 }

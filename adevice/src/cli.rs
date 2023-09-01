@@ -26,6 +26,11 @@ pub enum Commands {
     /// Removes module name from list of tracked modules.
     /// See `track` for more details.
     Untrack(ModuleNames),
+    /// Removes untracked files from the device.
+    CleanDevice {
+        #[clap(long, short)]
+        force: bool,
+    },
 }
 
 #[derive(Debug, Args)]
