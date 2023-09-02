@@ -143,8 +143,7 @@ impl Config {
             "inputs".to_string(),
             "-i".to_string(),
             self.base.clone(),
-        ]
-        .clone();
+        ];
         for module in self.modules.clone() {
             args.push(module);
         }
@@ -206,8 +205,8 @@ impl Config {
 
     fn cache_path(&self) -> Result<String> {
         Ok([
-            self.src_root()?.to_string(),
-            self.out_dir().to_string(),
+            self.src_root()?,
+            self.out_dir(),
             format!("adevice-ninja-deps-{}.cache", self.target_product()?),
         ]
         // TODO(rbraunstein): Fix OS separator.
