@@ -151,7 +151,7 @@ fn get_update_commands(
 
     #[allow(clippy::len_zero)]
     if needs_building.len() > 0 {
-        bail!("Please build needed modules before updating.");
+        println!("WARNING: Please build needed [unbuilt] modules before updating.");
     }
 
     // Restrict the host set down to the ones that are in the update set.
@@ -199,7 +199,7 @@ impl PushState {
 	    PushState::TrackOrClean => "Untracked pushed files:\n  (These files are not tracked but exist on the device and host.)\n  (Use `adevice track` for the appropriate module to have them pushed.)",
 	    PushState::TrackAndBuildOrClean => "Stale device files:\n  (These files are on the device, but not built or tracked.)\n  (You might want to run `adevice clean` to remove them.)",
 	    PushState::TrackOrMakeClean => "Untracked built files:\n  (These files are in the build tree but not tracked or on the device.)\n  (You might want to `adevice track` the module.  It is safe to do nothing.)",
-	    PushState::UntrackOrBuild => "Unbuilt files:\n  (These files should be rebuilt.)\n  (Rebuild and `adevice update`)",
+	    PushState::UntrackOrBuild => "Unbuilt files:\n  (These files should be built so the device can be updated.)\n  (Rebuild and `adevice update`)",
 	}
     }
 }
