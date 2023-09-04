@@ -24,6 +24,7 @@ import os
 import tempfile
 import unittest
 
+from pathlib import Path
 from unittest import mock
 
 from atest import atest_error
@@ -800,13 +801,19 @@ class TestFinderUtilsUnittests(unittest.TestCase):
     def test_get_test_config_subtest_in_multiple_config(self, _isfile):
         """Test get_test_config_and_srcs not the main module of multiple config"""
         android_root = '/'
-        mod_info = module_info.load_from_file(module_file=JSON_FILE_PATH)
-        t_info = test_info.TestInfo(
-            'Multiple2', 'mock_runner', build_targets=set())
-        expect_config = os.path.join(
-            android_root, uc.MULTIPLE_CONFIG_PATH, uc.SUB_CONFIG_NAME_2)
-        result, _ = test_finder_utils.get_test_config_and_srcs(t_info, mod_info)
-        self.assertEqual(expect_config, result)
+        mock_dict = {'ANDROID_BUILD_TOP': android_root,
+                     'ANDROID_PRODUCT_OUT': PRODUCT_OUT_DIR,
+                     'ANDROID_HOST_OUT': HOST_OUT_DIR}
+        with mock.patch.dict('os.environ', mock_dict, clear=True):
+            mod_info = module_info.load_from_file(module_file=JSON_FILE_PATH)
+            t_info = test_info.TestInfo(
+                'Multiple2', 'mock_runner', build_targets=set())
+            expect_config = Path(
+                android_root, uc.MULTIPLE_CONFIG_PATH, uc.SUB_CONFIG_NAME_2)
+
+            result, _ = test_finder_utils.get_test_config_and_srcs(t_info, mod_info)
+
+            self.assertEqual(expect_config, result)
 
     def test_is_test_from_kernel_xml_input_xml_not_exist_return_false(self):
         not_exist_xml = 'not/exist/xml/path'
