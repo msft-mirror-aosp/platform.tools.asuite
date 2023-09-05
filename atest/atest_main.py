@@ -957,10 +957,16 @@ def _b_test(tests, extra_args, results_dir):
         Exit code.
     """
     # Give users a heads up that something has changed.
-    print(f'All requested modules [{atest_utils.colorize(", ".join(tests.keys()), constants.GREEN)}] '
-          'can be fully built and tested by Bazel, so atest will now delegate to Bazel. '
-          'If there are any issues, please file a bug on the issue tracker. '
-          'You can also opt-out with the "--roboleaf-mode=off" flag.')
+    for t in tests.keys():
+        atest_utils.roboleaf_print(
+            f'{t} is Bazel/Roboleaf-compatible.. '
+            f'{atest_utils.colorize("YES", constants.GREEN)}')
+    atest_utils.roboleaf_print(
+        'Switching to Bazel.. '
+        f'{atest_utils.colorize("YES", constants.GREEN)}')
+    atest_utils.roboleaf_print(
+        'Encountering issues? '
+        f'Opt-out with {atest_utils.colorize("--roboleaf-mode=off", constants.YELLOW)}')
 
     mod_info = module_info.create_empty()
     test_start = time.time()
@@ -1168,11 +1174,9 @@ def main(
                 {t: AtestTradefedTestRunner.flatten_test_filters(test_name_to_filters.get(t))
                  for t in test_name_to_filters})
             if b_supported_tests:
-                atest_utils.colorful_print(
-                    'Specifying the module name or bazel label in command-line '
-                    'is strongly recommended, otherwise overhead will be added '
-                    'to find the test.',
-                    constants.YELLOW)
+                atest_utils.roboleaf_print(
+                    f'{atest_utils.colorize("TIP", constants.YELLOW)}: '
+                    "Directly specify the module name to avoid test finder overhead.")
                 # Use Bazel for both building and testing and return early.
                 return _b_test(b_supported_tests, extra_args, results_dir)
 
