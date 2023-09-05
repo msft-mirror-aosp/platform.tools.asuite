@@ -986,5 +986,91 @@ class AutoShardUnittests(fake_filesystem_unittest.TestCase):
             self.assertEqual('test3', f.read())
 
 
+class GetTradefedInvocationTimeTest(fake_filesystem_unittest.TestCase):
+    """Tests of get_tradefed_invocation_time for various conditions."""
+    def setUp(self):
+        self.setUpPyfakefs()
+        self.log_path = '/somewhere/atest/log'
+
+    def test_get_tradefed_invocation_time_second_only(self):
+        """Test the parser can handle second and millisecond properly."""
+        end_host_log_file = Path(self.log_path,
+                                 'inv_hashed_path',
+                                 'inv_hashed_subpath',
+                                 'end_host_log_test1.txt')
+        contents = '''
+=============== Consumed Time ==============
+    x86_64 HelloWorldTests: 1s
+    x86_64 hallo-welt: 768 ms
+Total aggregated tests run time: 1s
+============== Modules Preparation Times ==============
+    x86_64 HelloWorldTests => prep = 2580 ms || clean = 298 ms
+    x86_64 hallo-welt => prep = 1736 ms || clean = 243 ms
+Total preparation time: 4s  ||  Total tear down time: 541 ms
+=======================================================
+=============== Summary ===============
+Total Run time: 6s
+2/2 modules completed
+Total Tests       : 3
+PASSED            : 3
+FAILED            : 0
+============== End of Results =============='''
+        self.fs.create_file(end_host_log_file, contents=contents)
+        test = 1 * 1000 + 768
+        prep = 2580 + 1736
+        teardown = 298 + 243
+        expected_elapsed_time = (test, prep, teardown)
+
+        actual_elapsed_time = atest_utils.get_tradefed_invocation_time(self.log_path)
+
+        self.assertEqual(actual_elapsed_time, expected_elapsed_time)
+
+    def test_get_tradefed_invocation_time_from_hours_to_milliseconds(self):
+        """Test whether the parse can handle from hour to ms properly."""
+        end_host_log_file = Path(self.log_path,
+                                 'inv_hashed_path',
+                                 'inv_hashed_subpath',
+                                 'end_host_log_test2.txt')
+        contents = '''
+=============== Consumed Time ==============
+    x86_64 HelloWorldTests: 27m 19s
+    x86_64 hallo-welt: 3m 2s
+Total aggregated tests run time: 31m
+============== Modules Preparation Times ==============
+    x86_64 HelloWorldTests => prep = 2580 ms || clean = 1298 ms
+    x86_64 hallo-welt => prep = 1736 ms || clean = 1243 ms
+Total preparation time: 1h 24m 17s ||  Total tear down time: 3s
+=======================================================
+=============== Summary ===============
+Total Run time: 2h 5m 17s
+2/2 modules completed
+Total Tests       : 3
+PASSED            : 3
+FAILED            : 0
+============== End of Results =============='''
+        self.fs.create_file(end_host_log_file, contents=contents)
+        test = (27 * 60 + 19) * 1000 + (3 * 60 + 2) * 1000
+        prep = (2580 + 1736)
+        teardown = (1298 + 1243)
+        expected_elapsed_time = (test, prep, teardown)
+
+        actual_elapsed_time = atest_utils.get_tradefed_invocation_time(self.log_path)
+
+        self.assertEqual(actual_elapsed_time, expected_elapsed_time)
+
+    def test_get_tradefed_invocation_time_null_result(self):
+        """Test whether the parser returns null tuple when no keywords found."""
+        end_host_log_file = Path(self.log_path,
+                                 'inv_hashed_path',
+                                 'inv_hashed_subpath',
+                                 'end_host_log_test4.txt')
+        contents = 'some\ncontext'
+        self.fs.create_file(end_host_log_file, contents=contents)
+        expected_elapsed_time = (0, 0, 0)
+
+        actual_elapsed_time = atest_utils.get_tradefed_invocation_time(self.log_path)
+
+        self.assertEqual(actual_elapsed_time, expected_elapsed_time)
+
 if __name__ == "__main__":
     unittest.main()
