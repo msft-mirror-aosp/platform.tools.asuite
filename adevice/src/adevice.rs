@@ -4,6 +4,7 @@ mod commands;
 mod device;
 mod fingerprint;
 mod logger;
+mod metrics;
 mod restart_chooser;
 mod tracking;
 
@@ -16,6 +17,7 @@ use fingerprint::FileMetadata;
 use itertools::Itertools;
 use lazy_static::lazy_static;
 use log::{debug, info};
+use metrics::Metrics;
 use regex::Regex;
 
 use std::collections::{HashMap, HashSet};
@@ -29,6 +31,10 @@ fn main() -> Result<()> {
     let cli = cli::Cli::parse();
     logger::init_logger(&cli.global_options);
     let mut profiler = Profiler::default();
+
+    let mut metrics = Metrics::default();
+    let command_line = std::env::args().collect::<Vec<String>>().join(" ");
+    metrics.add_start_event(&command_line);
 
     let product_out = match &cli.global_options.product_out {
         Some(po) => PathBuf::from(po),
