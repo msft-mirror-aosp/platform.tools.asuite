@@ -44,6 +44,8 @@ python_defaults {
         "asuite_lib_test/*.py",
         "proto/*.py",
         "tf_proto/*.py",
+        "cc_test_filter_generator.py",
+        "cc_test_filter_generator_test.py",
     ],
     libs: [
         "asuite_proto",
@@ -139,6 +141,8 @@ python_test_host {
         "tools/atest_updatedb_unittest.py",
         "proto/*.py",
         "tf_proto/*.py",
+        "cc_test_filter_generator.py",
+        "cc_test_filter_generator_test.py",
     ],
     libs: [
         "asuite_proto",
