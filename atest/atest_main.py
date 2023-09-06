@@ -219,9 +219,12 @@ def _parse_args(argv: List[Any]) -> Tuple[argparse.ArgumentParser, List[str]]:
     roboleaf_unsupported_flags = []
     for arg in vars(args):
         if arg in constants.ROBOLEAF_UNSUPPORTED_FLAGS:
-            is_unsupported_func = constants.ROBOLEAF_UNSUPPORTED_FLAGS[arg]
-            if is_unsupported_func(parser.get_default(arg), getattr(args, arg)):
-                roboleaf_unsupported_flags.append(arg)
+            flag = constants.ROBOLEAF_UNSUPPORTED_FLAGS[arg]
+            default = parser.get_default(arg)
+            actual = getattr(args, arg)
+            if flag.is_unsupported_func(default, actual):
+                roboleaf_unsupported_flags.append(
+                    f'--{arg}={actual} (default: {default}) {flag.reason}')
 
     return args, roboleaf_unsupported_flags
 
