@@ -20,6 +20,7 @@ Various globals used by atest.
 
 import os
 import re
+from collections import namedtuple
 
 MODE = 'DEFAULT'
 
@@ -430,60 +431,74 @@ SHARD_NUM = 2
 #   --rebuild-module-info, --sqlite-module-cache
 #
 # A dict of flags which are unsupported by roboleaf mode. The key is the
-# attribute name of flags. The value is a function used to check whether the
-# unsupported flag is specified and the roboleaf mode should be disabled. Each
-# function takes two arguments, default flag value and exact flag value.
+# attribute name of flags. The value is a namedtuple of the function used to
+# check whether the unsupported flag is specified and the roboleaf mode should
+# be disabled, and the unsupported reason. The function takes two arguments,
+# default flag value and exact flag value.
+
+UnsupportedFlag = namedtuple('UnsupportedFlag', ['is_unsupported_func', 'reason'])
 ROBOLEAF_UNSUPPORTED_FLAGS = {
-    'steps': lambda _, v: v is not None and ('install' in v or 'build' in v),
-    'auto_sharding': lambda d, v: d != v,
-    'all_abi': lambda d, v: d != v,
-    'disable_teardown': lambda d, v: d != v,
-    'enable_device_preparer': lambda d, v: d != v,
-    'experimental_coverage': lambda d, v: d != v,
-    'test_mapping': lambda d, v: d != v,
-    'device_only': lambda d, v: d != v,
-    'no_enable_root': lambda d, v: d != v,
-    'sharding': lambda d, v: d != v,
-    'use_modules_in': lambda d, v: d != v,
-    'auto_ld_library_path': lambda d, v: d != v,
-    'request_upload_result': lambda d, v: d != v,
-    'disable_upload_result': lambda d, v: d != v,
-    'smart_testing_local': lambda d, v: d != v,
-    'include_subdirs': lambda d, v: d != v,
-    'enable_file_patterns': lambda d, v: d != v,
-    'host_unit_test_only': lambda d, v: d != v,
-    'collect_tests_only': lambda d, v: d != v,
-    'dry_run': lambda d, v: d != v,
-    'info': lambda d, v: d != v,
-    'list_modules': lambda d, v: d != v,
-    'version': lambda d, v: d != v,
-    'help': lambda d, v: d != v,
-    'build_output': lambda d, v: d != v,
-    'fuzzy_search': lambda d, v: d != v,
-    'acloud_create': lambda d, v: d != v,
-    'start_avd': lambda d, v: d != v,
-    'serial': lambda d, v: d != v,
-    'flakes_info': lambda d, v: d != v,
-    'tf_early_device_release': lambda d, v: d != v,
-    'test_config_select': lambda d, v: d != v,
-    'generate_baseline': lambda d, v: d != v,
-    'generate_new_metrics': lambda d, v: d != v,
-    'detect_regression': lambda d, v: d != v,
-    'instant': lambda d, v: d != v,
-    'user_type': lambda d, v: d != v,
-    'annotation_filter': lambda d, v: d != v,
-    'clear_cache': lambda d, v: d != v,
-    'update_cmd_mapping': lambda d, v: d != v,
-    'verify_cmd_mapping': lambda d, v: d != v,
-    'verify_env_variable': lambda d, v: d != v,
-    'generate_runner_cmd': lambda d, v: d != v,
-    'tf_debug': lambda d, v: d != v,
-    'tf_template': lambda d, v: d != v,
-    'test_filter': lambda d, v: d != v,
-    'test_timeout': lambda d, v: d != v,
-    'latest_result': lambda d, v: d != v,
-    'history': lambda d, v: d != v,
-    'no_metrics': lambda d, v: d != v,
-    'aggregate_metric_filter': lambda d, v: d != v,
-    'no_checking_device': lambda d, v: d != v,
+    'steps': UnsupportedFlag(
+        lambda _, v: v is not None,
+        "Bazel builds the minimum required deps, and keeps the "
+        "build up-to-date, so it is unnecessary to specify steps to avoid the build. "
+        "Remove this flag."
+    ),
+    'auto_sharding': UnsupportedFlag(lambda d, v: d != v, ""),
+    'all_abi': UnsupportedFlag(
+        lambda d, v: d != v,
+        "Bazel will run tests for the current target product's ABI. Remove this flag."),
+    'disable_teardown': UnsupportedFlag(lambda d, v: d != v, ""),
+    'enable_device_preparer': UnsupportedFlag(lambda d, v: d != v, ""),
+    'experimental_coverage': UnsupportedFlag(lambda d, v: d != v, ""),
+    'test_mapping': UnsupportedFlag(lambda d, v: d != v, ""),
+    'device_only': UnsupportedFlag(lambda d, v: d != v, ""),
+    'no_enable_root': UnsupportedFlag(lambda d, v: d != v, ""),
+    'sharding': UnsupportedFlag(lambda d, v: d != v, ""),
+    'use_modules_in': UnsupportedFlag(lambda d, v: d != v, ""),
+    'auto_ld_library_path': UnsupportedFlag(lambda d, v: d != v, ""),
+    'request_upload_result': UnsupportedFlag(lambda d, v: d != v, ""),
+    'disable_upload_result': UnsupportedFlag(lambda d, v: d != v, ""),
+    'smart_testing_local': UnsupportedFlag(lambda d, v: d != v, ""),
+    'include_subdirs': UnsupportedFlag(lambda d, v: d != v, ""),
+    'enable_file_patterns': UnsupportedFlag(lambda d, v: d != v, ""),
+    'host_unit_test_only': UnsupportedFlag(lambda d, v: d != v, ""),
+    'collect_tests_only': UnsupportedFlag(lambda d, v: d != v, ""),
+    'dry_run': UnsupportedFlag(lambda d, v: d != v, "Roboleaf mode/Bazel will not support dry-run."),
+    'info': UnsupportedFlag(lambda d, v: d != v, ""),
+    'list_modules': UnsupportedFlag(lambda d, v: d != v, ""),
+    'version': UnsupportedFlag(lambda d, v: d != v, ""),
+    'help': UnsupportedFlag(lambda d, v: d != v, ""),
+    'build_output': UnsupportedFlag(lambda d, v: d != v, ""),
+    'fuzzy_search': UnsupportedFlag(lambda d, v: d != v, ""),
+    'acloud_create': UnsupportedFlag(lambda d, v: d != v, ""),
+    'start_avd': UnsupportedFlag(lambda d, v: d != v, ""),
+    'serial': UnsupportedFlag(lambda d, v: d != v, ""),
+    'flakes_info': UnsupportedFlag(lambda d, v: d != v, ""),
+    'tf_early_device_release': UnsupportedFlag(lambda d, v: d != v, ""),
+    'test_config_select': UnsupportedFlag(lambda d, v: d != v, ""),
+    'generate_baseline': UnsupportedFlag(lambda d, v: d != v, ""),
+    'generate_new_metrics': UnsupportedFlag(lambda d, v: d != v, ""),
+    'detect_regression': UnsupportedFlag(lambda d, v: d != v, ""),
+    'instant': UnsupportedFlag(lambda d, v: d != v, ""),
+    'user_type': UnsupportedFlag(lambda d, v: d != v, ""),
+    'annotation_filter': UnsupportedFlag(lambda d, v: d != v, ""),
+    'clear_cache': UnsupportedFlag(
+        lambda d, v: d != v,
+        "Bazel will always keep the build outputs up-to-date. "
+        "To invalidate cached test results, pass --bazel-arg=--nocache_test_results instead."
+    ),
+    'update_cmd_mapping': UnsupportedFlag(lambda d, v: d != v, ""),
+    'verify_cmd_mapping': UnsupportedFlag(lambda d, v: d != v, ""),
+    'verify_env_variable': UnsupportedFlag(lambda d, v: d != v, ""),
+    'generate_runner_cmd': UnsupportedFlag(lambda d, v: d != v, ""),
+    'tf_debug': UnsupportedFlag(lambda d, v: d != v, ""),
+    'tf_template': UnsupportedFlag(lambda d, v: d != v, ""),
+    'test_filter': UnsupportedFlag(lambda d, v: d != v, ""),
+    'test_timeout': UnsupportedFlag(lambda d, v: d != v, ""),
+    'latest_result': UnsupportedFlag(lambda d, v: d != v, ""),
+    'history': UnsupportedFlag(lambda d, v: d != v, ""),
+    'no_metrics': UnsupportedFlag(lambda d, v: d != v, ""),
+    'aggregate_metric_filter': UnsupportedFlag(lambda d, v: d != v, ""),
+    'no_checking_device': UnsupportedFlag(lambda d, v: d != v, ""),
 }
