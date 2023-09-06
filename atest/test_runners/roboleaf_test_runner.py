@@ -110,13 +110,10 @@ def are_all_tests_supported(
     if set(eligible_tests.keys()) == set(tests):
         if roboleaf_unsupported_flags:
             # TODO(b/297300818): Upload unsupported flags to metrics.
-            atest_utils.roboleaf_print("Following flags are not supported by Roboleaf mode:")
-            atest_utils.roboleaf_print(
-                f'{atest_utils.colorize(", ".join(roboleaf_unsupported_flags), constants.YELLOW)}')
-            atest_utils.roboleaf_print("Fallback to standard ATest..")
-            atest_utils.roboleaf_print(
-                "File a feature request for above flags to take "
-                "advantage of Bazel's benefits and run tests faster!")
+            atest_utils.roboleaf_print("These flags are not supported in Roboleaf mode:")
+            for flag in roboleaf_unsupported_flags:
+                atest_utils.roboleaf_print(f'{atest_utils.colorize(flag, constants.YELLOW)}')
+            atest_utils.roboleaf_print("Gracefully falling back to standard ATest..")
             return {}
         # only enable b test when every requested test is eligible for roboleaf
         # mode.
