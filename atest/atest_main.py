@@ -1180,6 +1180,10 @@ def main(
                 atest_utils.roboleaf_print(
                     f'{atest_utils.colorize("TIP", constants.YELLOW)}: '
                     "Directly specify the module name to avoid test finder overhead.")
+                metrics.LocalDetectEvent(
+                    detect_type=DetectType.ROBOLEAF_NON_MODULE_FINDER,
+                    result=DetectType.ROBOLEAF_NON_MODULE_FINDER,
+                )
                 # Use Bazel for both building and testing and return early.
                 return _b_test(b_supported_tests, extra_args, results_dir)
 
