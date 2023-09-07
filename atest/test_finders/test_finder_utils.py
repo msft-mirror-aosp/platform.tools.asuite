@@ -1385,7 +1385,7 @@ def _get_config_srcs_tuple_when_no_module_info(
 
     for info in infos:
         results = get_config_srcs(info, test_name)
-        if results:
+        if any(results):
             return results
     return None, None
 

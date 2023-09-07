@@ -102,6 +102,8 @@ class DetectType(IntEnum):
     TF_TEST_MS = 54
     TF_TEARDOWN_MS = 55
     TF_TOTAL_RUN_MS = 56
+    ROBOLEAF_NON_MODULE_FINDER = 57
+    ROBOLEAF_UNSUPPORTED_FLAG = 58
 
 @unique
 class ExitCode(IntEnum):
