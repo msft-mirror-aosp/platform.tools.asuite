@@ -66,8 +66,17 @@ class RoboleafModuleMap(metaclass=Singleton):
     def __init__(self, module_map_location: str = ''):
         module_map = _generate_map(module_map_location)
         self._module_map = module_map
+
+        # AOSP allowlist
         self.launched_modules = _read_allowlist(
             Path(_ALLOWLIST_LAUNCHED), module_map = module_map)
+
+        # Vendor allowlist
+        additional_allowlist = os.environ.get("ATEST_ADDITIONAL_ROBOLEAF_LAUNCHED")
+        if additional_allowlist:
+            self.launched_modules.extend(_read_allowlist(
+                Path(additional_allowlist), module_map = module_map
+            ))
 
     def get_map(self) -> Dict[str, str]:
         """Return converted module map.
