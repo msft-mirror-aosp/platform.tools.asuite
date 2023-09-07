@@ -19,6 +19,7 @@ import datetime
 import logging
 import os
 from pathlib import Path
+import re
 import shlex
 import shutil
 import subprocess
@@ -69,6 +70,8 @@ MOBLY_LOGS_DIR = 'mobly_logs'
 CONFIG_FILE = 'mobly_config.yaml'
 LATEST_DIR = 'latest'
 TEST_SUMMARY_YAML = 'test_summary.yaml'
+
+CVD_SERIAL_PATTERN = r'.+:([0-9]+)$'
 
 SUMMARY_KEY_TYPE = 'Type'
 SUMMARY_TYPE_RECORD = 'Record'
@@ -150,7 +153,8 @@ class MoblyTestRunner(test_runner_base.TestRunnerBase):
                 test_files = self._get_test_files(tinfo)
                 py_executable = self._setup_python_env(
                     test_files.requirements_txt)
-                serials = atest_configs.GLOBAL_ARGS.serial or []
+                serials = (atest_configs.GLOBAL_ARGS.serial
+                           or self._get_cvd_serials())
                 if constants.DISABLE_INSTALL not in extra_args:
                     self._install_apks(test_files.test_apks, serials)
                 mobly_config = self._generate_mobly_config(
@@ -325,6 +329,18 @@ class MoblyTestRunner(test_runner_base.TestRunnerBase):
                requirements_txt]
         subprocess.check_call(cmd)
         return venv_executable
+
+    def _get_cvd_serials(self) -> List[str]:
+        """Gets the serials of cvd devices available for the test.
+
+        Returns:
+            A list of device serials.
+        """
+        if not atest_configs.GLOBAL_ARGS.acloud_create:
+            return []
+        devices = atest_utils.get_adb_devices()
+        return [device for device in devices
+                if re.match(CVD_SERIAL_PATTERN, device)]
 
     def _install_apks(self, apks: List[str], serials: List[str]) -> None:
         """Installs test APKs to devices.

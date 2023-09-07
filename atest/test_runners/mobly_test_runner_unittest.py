@@ -192,6 +192,19 @@ class MoblyTestRunnerUnittests(unittest.TestCase):
         }
         self.assertEqual(yaml_dump.call_args.args[0], expected_config)
 
+    @mock.patch('atest.atest_configs.GLOBAL_ARGS.acloud_create', True)
+    @mock.patch('atest.atest_utils.get_adb_devices')
+    def test_get_cvd_serials(self, get_adb_devices) -> None:
+        """Tests _get_cvd_serials returns correct serials."""
+        devices = [
+            'localhost:1234',
+            '127.0.0.1:5678',
+            'AD12345'
+        ]
+        get_adb_devices.return_value = devices
+
+        self.assertEqual(self.runner._get_cvd_serials(), devices[:2])
+
     @mock.patch('atest.atest_utils.get_adb_devices', return_value=[ADB_DEVICE])
     @mock.patch('subprocess.check_call')
     def test_install_apks_no_serials(self, check_call, _) -> None:
