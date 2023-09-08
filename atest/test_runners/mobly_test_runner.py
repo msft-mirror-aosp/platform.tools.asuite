@@ -52,7 +52,7 @@ _ERROR_INVALID_TESTPARAMS = (
     'format.')
 
 # TODO(b/287136126): Use host python once compatibility issue is resolved.
-PYTHON_3_10 = 'python3.10'
+PYTHON_3_11 = 'python3.11'
 
 FILE_REQUIREMENTS_TXT = 'requirements.txt'
 FILE_SUFFIX_APK = '.apk'
@@ -319,7 +319,7 @@ class MoblyTestRunner(test_runner_base.TestRunnerBase):
             return None
         venv_dir = tempfile.mkdtemp(prefix='venv_')
         logging.debug('Creating virtualenv at %s.', venv_dir)
-        subprocess.check_call([PYTHON_3_10, '-m', 'venv', venv_dir])
+        subprocess.check_call([PYTHON_3_11, '-m', 'venv', venv_dir])
         self._temppaths.append(venv_dir)
         venv_executable = os.path.join(venv_dir, 'bin', 'python')
 
