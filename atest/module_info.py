@@ -989,19 +989,53 @@ class ModuleInfo:
                     modules.append(mod_name)
         return modules
 
-    def get_modules_by_path_in_srcs(self, path: str) -> Set:
+    def get_modules_by_path_in_srcs(
+            self, path: str,
+            testable_modules_only: bool = False) -> Set[str]:
         """Get the module name that the given path belongs to.(in 'srcs')
 
         Args:
-            path: Relative path to ANDROID_BUILD_TOP of a file.
+            path: file path which is relative to ANDROID_BUILD_TOP.
+            testable_modules_only: boolean flag which determines whether
+                                   search testable modules only or not.
 
         Returns:
             A set of string for matched module names, empty set if nothing find.
         """
         modules = set()
-        for _, mod_info in self.name_to_module_info.items():
-            if str(path) in mod_info.get(constants.MODULE_SRCS, []):
-                modules.add(mod_info.get(constants.MODULE_NAME))
+
+        for mod_name in (self.get_testable_modules() if testable_modules_only
+                         else self.name_to_module_info.keys()):
+            m_info = self.get_module_info(mod_name)
+            if m_info:
+                for src in m_info.get(constants.MODULE_SRCS, []):
+                    if src in path:
+                        modules.add(mod_name)
+
+        return modules
+
+    def get_modules_by_path(self, path: str, testable_modules_only: bool=False):
+        """Get the module names that the give path belongs to.
+
+        Args:
+            path: dir path for searching among `path` in module information.
+            testable_modules_only: boolean flag which determines whether
+                                   search testable modules only or not.
+        """
+        modules = set()
+        is_testable_module_fn = (
+            self.is_testable_module if testable_modules_only
+            else lambda _: True
+        )
+
+        m_infos = self.path_to_module_info.get(path)
+        if m_infos:
+            modules = {
+                info.get(constants.MODULE_NAME)
+                for info in m_infos
+                if is_testable_module_fn(info)
+            }
+
         return modules
 
     def get_modules_by_include_deps(

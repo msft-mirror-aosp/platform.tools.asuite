@@ -34,7 +34,7 @@ import xml.etree.ElementTree as ET
 from contextlib import contextmanager
 from enum import unique, Enum
 from pathlib import Path
-from typing import Any, Dict, List, Tuple
+from typing import Any, Dict, Iterable, List, Tuple
 
 from atest import atest_error
 from atest import atest_utils
@@ -421,7 +421,7 @@ def extract_test_path(output, methods=None):
     return extract_test_from_tests(sorted(list(verified_tests)))
 
 
-def extract_test_from_tests(tests, default_all=False):
+def extract_test_from_tests(tests: Iterable, default_all=False) -> List[str]:
     """Extract the test path from the tests.
 
     Return the test to run from tests. If more than one option, prompt the user
@@ -437,6 +437,7 @@ def extract_test_from_tests(tests, default_all=False):
     Returns:
         A string list of paths.
     """
+    tests = list(tests)
     count = len(tests)
     if default_all or count <= 1:
         return tests if count else None
