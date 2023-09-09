@@ -11,7 +11,7 @@ use crate::restart_chooser::RestartChooser;
 use anyhow::{anyhow, bail, Context, Result};
 use clap::Parser;
 use cli::Commands;
-use commands::{run_adb_command, split_string};
+use commands::run_adb_command;
 use fingerprint::FileMetadata;
 use itertools::Itertools;
 use log::{debug, info};
@@ -108,11 +108,34 @@ fn main() -> Result<()> {
         }
         println!(" * Updating {} files on device.", upserts.len());
 
-        device::update(
-            &RestartChooser::from(&product_out.join("module-info.json"))?,
-            &upserts,
-            &mut profiler,
-        )?;
+        // Send the update commands, but retry once if we need to remount rw an extra time after a flash.
+        for retry in 0..=1 {
+            let update_result = device::update(
+                &RestartChooser::from(&product_out.join("module-info.json"))?,
+                &upserts,
+                &mut profiler,
+            );
+            if update_result.is_ok() {
+                break;
+            }
+
+            if let Err(problem) = update_result {
+                if retry == 1 {
+                    bail!(" !! Not expecting errors after a retry.|n  Error:{:?}", problem);
+                }
+                // TODO(rbraunstein): Avoid string checks. Either check mounts directly for this case
+                // or return json with the error message and code from adevice_fingerprint.
+                if problem.root_cause().to_string().contains("Read-only file system") {
+                    println!(" !! The device has a read-only file system.\n !! After a fresh image, the device needs an extra `remount` and `reboot` to adb push files.  Performing the remount and reboot now.");
+                }
+                // We already did the remount, but it doesn't hurt to do it again.
+                run_adb_command(&vec!["remount".to_string()])?;
+                run_adb_command(&vec!["reboot".to_string()])?;
+                device::wait()?;
+                run_adb_command(&vec!["root".to_string()])?;
+            }
+            println!("\n * Trying update again after remount and reboot.");
+        }
     }
     profiler.total = total_time.elapsed(); // Avoid wrapping the block in the macro.
     info!("Finished in {} secs", profiler.total.as_secs());
@@ -314,6 +337,9 @@ fn get_product_out_from_env() -> Option<PathBuf> {
 fn fingerprint_device(
     partitions: &[String],
 ) -> Result<HashMap<PathBuf, fingerprint::FileMetadata>> {
+    // Ensure we are root or we can't read some files.
+    // In userdebug builds, every reboot reverts back to the "shell" user.
+    run_adb_command(&vec!["root".to_string()])?;
     let mut adb_args =
         vec!["shell".to_string(), "/system/bin/adevice_fingerprint".to_string(), "-p".to_string()];
     // -p system,system_ext
@@ -328,10 +354,6 @@ fn fingerprint_device(
             // TODO(rbraunstein): Will this work in other locales?
             .contains("adevice_fingerprint: inaccessible or not found")
         {
-            // If it doesn't look they are running a eng build, let them know and exit.
-            if let Some(root_ins) = check_eng_build() {
-                bail!("\n  Thank you for testing out adevice.\n  {root_ins}");
-            }
             // Running as root, but adevice_fingerprint not found.
             // This should not happen after we tag it as an "eng" module.
             bail!("\n  Thank you for testing out adevice.\n  Please bootstrap by doing the following:\n\t ` adb remount; m adevice_fingerprint adevice && adb push $ANDROID_PRODUCT_OUT/system/bin/adevice_fingerprint system/bin/adevice_fingerprint`");
@@ -352,19 +374,6 @@ fn fingerprint_device(
         Ok(file_map) => file_map,
     };
     Ok(result.into_iter().map(|(path, metadata)| (PathBuf::from(path), metadata)).collect())
-}
-
-/// Check to see if the current image looks like an "eng" image and
-/// return a string to with instructions.
-/// There may be other properties to search for eng vs userdata:
-///   https://source.android.com/docs/setup/create/new-device#build-variants
-///   or just $TARGET_BUILD_VARIANT
-fn check_eng_build() -> Option<String> {
-    match run_adb_command(&split_string("exec-out whoami")) {
-	Ok(user) if user.trim() == "root" => None,
-	Ok(other_user) => Some(format!("Expected to run as user 'root', but the device is running as user '{}'.\n  Please flash an `eng` build or run commands: `adb root; adb remount; adb reboot; adb root ;adb remount`", other_user.trim())),
-	Err(e) => Some(format!("Can not determine device user {e:?}"))
-    }
 }
 
 fn parents(file_path: &str) -> Vec<PathBuf> {
