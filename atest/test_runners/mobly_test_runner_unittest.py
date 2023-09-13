@@ -54,7 +54,8 @@ class MoblyTestRunnerUnittests(unittest.TestCase):
             build_targets=[],
         )
         self.reporter = result_reporter.ResultReporter()
-        self.mobly_args = argparse.Namespace(testparam=[])
+        self.mobly_args = argparse.Namespace(
+            config='', testbed='', testparam=[])
 
     @mock.patch.object(pathlib.Path, 'is_file')
     def test_get_test_files_all_files_present(self, is_file) -> None:
@@ -279,7 +280,8 @@ class MoblyTestRunnerUnittests(unittest.TestCase):
             runner = mobly_test_runner.MoblyTestRunner(RESULTS_DIR)
             runner._run_and_handle_results(
                 [], self.tinfo, self.reporter,
-                mobly_test_runner.RerunOptions(5, False, False))
+                mobly_test_runner.RerunOptions(5, False, False),
+                self.mobly_args)
             self.assertEqual(run_mobly_command.call_count, 5)
 
     @mock.patch.object(
@@ -293,7 +295,7 @@ class MoblyTestRunnerUnittests(unittest.TestCase):
             runner = mobly_test_runner.MoblyTestRunner(RESULTS_DIR)
             runner._run_and_handle_results(
                 [], self.tinfo, self.reporter,
-                mobly_test_runner.RerunOptions(5, True, False))
+                mobly_test_runner.RerunOptions(5, True, False), self.mobly_args)
             self.assertEqual(run_mobly_command.call_count, 3)
 
     @mock.patch.object(
@@ -307,7 +309,7 @@ class MoblyTestRunnerUnittests(unittest.TestCase):
             runner = mobly_test_runner.MoblyTestRunner(RESULTS_DIR)
             runner._run_and_handle_results(
                 [], self.tinfo, self.reporter,
-                mobly_test_runner.RerunOptions(5, False, True))
+                mobly_test_runner.RerunOptions(5, False, True), self.mobly_args)
             self.assertEqual(run_mobly_command.call_count, 4)
 
     def test_get_test_results_from_summary_show_correct_names(self) -> None:
