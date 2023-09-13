@@ -360,10 +360,4 @@ mod tests {
     fn s(str: &str) -> String {
         str.to_string()
     }
-
-    impl Config {
-        pub fn fake() -> Self {
-            Config { base: "droid".to_string(), modules: vec![], home_dir: "".to_string() }
-        }
-    }
 }
