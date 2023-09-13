@@ -464,7 +464,6 @@ fn print_files_in_state(files: &HashMap<PathBuf, PushState>, push_state: PushSta
     if filtered_files.is_empty() {
         return;
     }
-    //let _ = std::io::stdout().write_all(push_state.get_action_msg().as_bytes());
     println!("{}", push_state.get_action_msg());
     filtered_files.keys().sorted().for_each(|path| println!("\t{}", path.display()));
     println!();
