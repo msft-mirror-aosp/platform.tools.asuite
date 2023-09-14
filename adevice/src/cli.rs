@@ -27,7 +27,7 @@ pub enum Commands {
     /// See `track` for more details.
     Untrack(ModuleNames),
     /// Removes untracked files from the device.
-    CleanDevice {
+    Clean {
         #[clap(long, short)]
         force: bool,
     },
@@ -61,7 +61,7 @@ pub struct GlobalOptions {
     #[clap(long = "product_out", global = true)]
     pub product_out: Option<String>,
     /// Do not make any modification if more than this many are needed
-    #[clap(long, short, default_value_t = 100)]
+    #[clap(long, short, default_value_t = 100, global = true)]
     pub max_allowed_changes: usize,
     // TODO(rbraunstein): Import clap-verbosity-flag crate so we can use -vv instead.
     // Print commands while executing them.
