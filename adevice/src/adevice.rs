@@ -14,11 +14,14 @@ use cli::Commands;
 use commands::run_adb_command;
 use fingerprint::FileMetadata;
 use itertools::Itertools;
+use lazy_static::lazy_static;
 use log::{debug, info};
+use regex::Regex;
 
 use std::collections::{HashMap, HashSet};
+use std::ffi::OsString;
 use std::io::stdin;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::time::Duration;
 
 fn main() -> Result<()> {
@@ -66,7 +69,7 @@ fn main() -> Result<()> {
         &host_tree,
         &ninja_installed_files,
         product_out.clone(),
-        &config,
+        &get_installed_apks()?,
     )?;
 
     let max_changes = cli.global_options.max_allowed_changes;
@@ -151,7 +154,7 @@ fn get_update_commands(
     host_tree: &HashMap<PathBuf, FileMetadata>,
     ninja_installed_files: &[String],
     product_out: PathBuf,
-    _config: &tracking::Config,
+    installed_packages: &HashSet<String>,
 ) -> Result<commands::Commands> {
     // NOTE: The Ninja deps list can be _ahead_of_ the product tree output list.
     //      i.e. m `nothing` will update our ninja list even before someone
@@ -170,18 +173,39 @@ fn get_update_commands(
     // Files that are in the tracked set but NOT in the build directory. These need
     // to be built.
     let needs_building: HashSet<&PathBuf> = tracked_set.difference(&host_set).collect();
-    print_status(&collect_status_per_file(&tracked_set, host_tree, device_tree));
+    let status_per_file = &collect_status_per_file(
+        &tracked_set,
+        host_tree,
+        device_tree,
+        &product_out,
+        installed_packages,
+    )?;
+    print_status(status_per_file);
+    // Shadowing apks are apks that are installed outside the system partition with `adb install`
+    // If they exist, we should not push the apk that would be shadowed.
+    let shadowing_apks: HashSet<&PathBuf> = status_per_file
+        .iter()
+        .filter_map(
+            |(path, push_state)| {
+                if *push_state == PushState::ApkInstalled {
+                    Some(path)
+                } else {
+                    None
+                }
+            },
+        )
+        .collect();
 
     #[allow(clippy::len_zero)]
     if needs_building.len() > 0 {
         println!("WARNING: Please build needed [unbuilt] modules before updating.");
     }
 
-    // Restrict the host set down to the ones that are in the update set.
+    // Restrict the host set down to the ones that are in the tracked set and not installed in the data partition.
     let filtered_host_set: HashMap<PathBuf, FileMetadata> = host_tree
         .iter()
         .filter_map(|(key, value)| {
-            if tracked_set.contains(key) {
+            if tracked_set.contains(key) && !shadowing_apks.contains(key) {
                 Some((key.clone(), value.clone()))
             } else {
                 None
@@ -209,23 +233,32 @@ enum PushState {
     /// File is tracked and on the device, but is not in the build tree.
     /// `m` the module to build it.
     UntrackOrBuild,
+    /// The apk was `installed` on top of the system image.  It will shadow any push
+    /// we make to the system partitions.  It should be explicitly installed or uninstalled, not pushed.
+    // TODO(rbraunstein): Store package name and path to file on disk so we can print a better
+    // message to the user.
+    ApkInstalled,
 }
 
 impl PushState {
     /// Message to print indicating what actions the user should take based on the
     /// state of the file.
-    pub fn get_action_msg(self) -> &'static str {
+    pub fn get_action_msg(self) -> String {
         match self {
-	    PushState::Push => "Ready to push:\n  (These files are out of date on the device and will be pushed when you run `adevice update`)",
+	    PushState::Push => "Ready to push:\n  (These files are out of date on the device and will be pushed when you run `adevice update`)".to_string(),
 	    // Note: we don't print up to date files.
-	    PushState::UpToDate => "Up to date:  (These files are up to date on the device. There is nothing to do.)",
-	    PushState::TrackOrClean => "Untracked pushed files:\n  (These files are not tracked but exist on the device and host.)\n  (Use `adevice track` for the appropriate module to have them pushed.)",
-	    PushState::TrackAndBuildOrClean => "Stale device files:\n  (These files are on the device, but not built or tracked.)\n  (You might want to run `adevice clean` to remove them.)",
-	    PushState::TrackOrMakeClean => "Untracked built files:\n  (These files are in the build tree but not tracked or on the device.)\n  (You might want to `adevice track` the module.  It is safe to do nothing.)",
-	    PushState::UntrackOrBuild => "Unbuilt files:\n  (These files should be built so the device can be updated.)\n  (Rebuild and `adevice update`)",
+	    PushState::UpToDate => "Up to date:  (These files are up to date on the device. There is nothing to do.)".to_string(),
+	    PushState::TrackOrClean => "Untracked pushed files:\n  (These files are not tracked but exist on the device and host.)\n  (Use `adevice track` for the appropriate module to have them pushed.)".to_string(),
+	    PushState::TrackAndBuildOrClean => "Stale device files:\n  (These files are on the device, but not built or tracked.)\n  (You might want to run `adevice clean` to remove them.)".to_string(),
+	    PushState::TrackOrMakeClean => "Untracked built files:\n  (These files are in the build tree but not tracked or on the device.)\n  (You might want to `adevice track` the module.  It is safe to do nothing.)".to_string(),
+	    PushState::UntrackOrBuild => "Unbuilt files:\n  (These files should be built so the device can be updated.)\n  (Rebuild and `adevice update`)".to_string(),
+	    PushState::ApkInstalled => format!("ADB Installed files:\n{RED_WARNING_LINE}  (These files were installed with `adb install` or similar.  Pushing to the system partition will not make them available.)\n  (Either `adb uninstall` the package or `adb install` by hand.`)"),
 	}
     }
 }
+
+// TODO(rbraunstein): Create a struct for each of the sections above for better formatting.
+const RED_WARNING_LINE: &str = "  \x1b[1;31m!! Warning: !!\x1b[0m\n";
 
 /// Group each file by state and print the state message followed by the files in that state.
 fn print_status(files: &HashMap<PathBuf, PushState>) {
@@ -236,8 +269,110 @@ fn print_status(files: &HashMap<PathBuf, PushState>) {
         PushState::TrackAndBuildOrClean,
         PushState::TrackOrMakeClean,
         PushState::UntrackOrBuild,
+        PushState::ApkInstalled,
     ] {
         print_files_in_state(files, state);
+    }
+}
+
+/// Determine if file is an apk and decide if we need to give a warning
+/// about pushing to a system directory because it is already installed in /data
+/// and will shadow a system apk if we push it.
+fn installed_apk_action(
+    file: &Path,
+    product_out: &Path,
+    installed_packages: &HashSet<String>,
+) -> Result<PushState> {
+    if file.extension() != Some(OsString::from("apk").as_os_str()) {
+        return Ok(PushState::Push);
+    }
+    // See if this file was installed.
+    if is_apk_installed(&product_out.join(file), installed_packages)? {
+        Ok(PushState::ApkInstalled)
+    } else {
+        Ok(PushState::Push)
+    }
+}
+
+/// Determine if the given apk has been installed via `adb install`.
+/// This will allow us to decide if pushing to /system will cause problems because the
+/// version we push would be shadowed by the `installed` version.
+/// Run PackageManager commands from the shell to check if something is installed.
+/// If this is a problem, we can build something in to adevice_fingerprint that
+/// calls PackageManager#getInstalledApplications.
+/// adb exec-out pm list packages  -s -f
+fn is_apk_installed(host_path: &Path, installed_packages: &HashSet<String>) -> Result<bool> {
+    let host_apk_path = host_path.as_os_str().to_str().unwrap();
+    let aapt_output = std::process::Command::new("aapt")
+        .args(["dump", "permissions", host_apk_path])
+        .output()
+        .context("Running appt on host to see if apk installed")?;
+
+    if !aapt_output.status.success() {
+        let stderr = String::from_utf8(aapt_output.stderr)?;
+        bail!("Unable to run aapt to get installed packages {:?}", stderr);
+    }
+
+    match package_from_aapt_dump_output(aapt_output.stdout) {
+        Ok(package) => {
+            debug!("AAPT dump found package: {package}");
+            Ok(installed_packages.contains(&package))
+        }
+        Err(e) => bail!("Unable to run aapt to get package information {e:?}"),
+    }
+}
+
+lazy_static! {
+    static ref AAPT_PACKAGE_MATCHER: Regex =
+        Regex::new(r"^package: (.+)$").expect("regex does not compile");
+
+    // Sample output, one installed, one not:
+    // % adb exec-out pm list packages  -s -f  | grep shell
+    //   package:/product/app/Browser2/Browser2.apk=org.chromium.webview_shell
+    //   package:/data/app/~~PxHDtZDEgAeYwRyl-R3bmQ==/com.android.shell--R0z7ITsapIPKnt4BT0xkg==/base.apk=com.android.shell
+    // # capture the package name (com.android.shell)
+    static ref PM_LIST_PACKAGE_MATCHER: Regex =
+        Regex::new(r"^package:/data/app/.*/base.apk=(.+)$").expect("regex does not compile");
+}
+
+/// Filter aapt dump output to parse out the package name for the apk.
+fn package_from_aapt_dump_output(stdout: Vec<u8>) -> Result<String> {
+    let package_match = String::from_utf8(stdout)?
+        .lines()
+        .filter_map(|line| AAPT_PACKAGE_MATCHER.captures(line).map(|x| x[1].to_string()))
+        .collect();
+    Ok(package_match)
+}
+
+/// Filter package manager output to figure out if the apk is installed in /data.
+fn apks_from_pm_list_output(stdout: Vec<u8>) -> Result<HashSet<String>> {
+    let package_match = String::from_utf8(stdout)?
+        .lines()
+        .filter_map(|line| PM_LIST_PACKAGE_MATCHER.captures(line).map(|x| x[1].to_string()))
+        .collect();
+    Ok(package_match)
+}
+
+/// Get the apks that are installed (i.e. with `adb install`)
+/// Count anything in the /data partition as installed.
+fn get_installed_apks() -> Result<HashSet<String>> {
+    // TODO(rbraunstein): See if there is a better way to do this that doesn't look for /data
+    let package_manager_output = std::process::Command::new("adb")
+        .args(["exec-out", "pm", "list", "packages", "-s", "-f"])
+        .output()
+        .context("Running appt on host to see if apk installed")?;
+
+    if !package_manager_output.status.success() {
+        let stderr = String::from_utf8(package_manager_output.stderr)?;
+        bail!("Unable to pm list packages get installed packages {:?}", stderr);
+    }
+
+    match apks_from_pm_list_output(package_manager_output.stdout) {
+        Ok(packages) => {
+            debug!("adb pm list packages found packages: {packages:?}");
+            Ok(packages)
+        }
+        Err(e) => bail!("Unable to run aapt to get package information {e:?}"),
     }
 }
 
@@ -252,10 +387,13 @@ fn collect_status_per_file(
     tracked_set: &HashSet<PathBuf>,
     host_tree: &HashMap<PathBuf, FileMetadata>,
     device_tree: &HashMap<PathBuf, FileMetadata>,
-) -> HashMap<PathBuf, PushState> {
+    product_out: &Path,
+    installed_packages: &HashSet<String>,
+) -> Result<HashMap<PathBuf, PushState>> {
     let all_files: Vec<&PathBuf> =
         host_tree.keys().chain(device_tree.keys()).chain(tracked_set.iter()).collect();
     let mut states: HashMap<PathBuf, PushState> = HashMap::new();
+
     for f in all_files
         .iter()
         .sorted_by(|a, b| a.display().to_string().cmp(&b.display().to_string()))
@@ -271,9 +409,15 @@ fn collect_status_per_file(
             if on_device && on_host {
                 if device_tree.get(*f) != host_tree.get(*f) {
                     // PushDiff
-                    PushState::Push
+                    installed_apk_action(f, product_out, installed_packages)?
                 } else {
-                    // else normal case, do nonthing
+                    // Else normal case, do nothing.
+                    // TODO(rbraunstein): Do we need to check for installed apk and warn.
+                    // 1) User updates apk
+                    // 2) User adb install
+                    // 3) User reverts code and builds
+                    //   (host and device match but installed apk shadows system version).
+                    // For now, don't look for extra problems.
                     PushState::UpToDate
                 }
             } else if !on_host {
@@ -285,6 +429,8 @@ fn collect_status_per_file(
                     !on_device && on_host,
                     "Unexpected state for file: {f:?}, tracked: {tracked} on_device: {on_device}, on_host: {on_host}"
                 );
+                // TODO(rbraunstein): Is it possible for an apk to be adb installed, but not in the system image?
+                // I guess so, but seems weird.  Add check InstalledApk here too.
                 // PushNew
                 PushState::Push
             }
@@ -306,7 +452,7 @@ fn collect_status_per_file(
 
         states.insert(PathBuf::from(f), push_state);
     }
-    states
+    Ok(states)
 }
 
 /// Find all files in a given state, and if that file list is not empty, print the
@@ -318,6 +464,7 @@ fn print_files_in_state(files: &HashMap<PathBuf, PushState>, push_state: PushSta
     if filtered_files.is_empty() {
         return;
     }
+    //let _ = std::io::stdout().write_all(push_state.get_action_msg().as_bytes());
     println!("{}", push_state.get_action_msg());
     filtered_files.keys().sorted().for_each(|path| println!("\t{}", path.display()));
     println!();
@@ -425,36 +572,34 @@ macro_rules! time {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::tracking::Config;
     use std::path::PathBuf;
-    use tempfile::TempDir;
 
     // TODO(rbraunstein): Capture/test stdout and logging.
     //  Test stdout: https://users.rust-lang.org/t/how-to-test-functions-that-use-println/67188/5
     #[test]
     fn empty_inputs() -> Result<()> {
-        let tmpdir = TempDir::new().unwrap();
-        let home = tmpdir.path();
         let device_files: HashMap<PathBuf, FileMetadata> = HashMap::new();
         let host_files: HashMap<PathBuf, FileMetadata> = HashMap::new();
         let ninja_deps: Vec<String> = vec![];
         let product_out = PathBuf::from("");
-        let config = Config::load_or_default(home.display().to_string())?;
+        let installed_apks = HashSet::<String>::new();
 
-        let results =
-            get_update_commands(&device_files, &host_files, &ninja_deps, product_out, &config)?;
+        let results = get_update_commands(
+            &device_files,
+            &host_files,
+            &ninja_deps,
+            product_out,
+            &installed_apks,
+        )?;
         assert_eq!(results.upserts.values().len(), 0);
         Ok(())
     }
 
     #[test]
     fn host_and_ninja_file_not_on_device() -> Result<()> {
-        let tmpdir = TempDir::new().unwrap();
-        let home = tmpdir.path();
-
         // Relative to product out?
         let product_out = PathBuf::from("");
-        let config = Config::load_or_default(home.display().to_string())?;
+        let installed_apks = HashSet::<String>::new();
 
         let results = get_update_commands(
             // Device files
@@ -467,7 +612,7 @@ mod tests {
             // Ninja deps
             &["system".to_string(), "system/myfile".to_string()],
             product_out,
-            &config,
+            &installed_apks,
         )?;
         assert_eq!(results.upserts.values().len(), 2);
         Ok(())
@@ -497,6 +642,20 @@ mod tests {
         Ok(())
     }
 
+    #[test]
+    fn package_manager_output_parsing() -> Result<()> {
+        let actual_output = r#"
+package:/product/app/Browser2/Browser2.apk=org.chromium.webview_shell
+package:/apex/com.google.aosp_cf_phone.rros/overlay/cuttlefish_overlay_frameworks_base_core.apk=android.cuttlefish.overlay
+package:/data/app/~~f_ZzeFPKma_EfXRklotqFg==/com.android.shell-hrjEOvqv3dAautKdfqeAEA==/base.apk=com.android.shell
+package:/apex/com.google.aosp_cf_phone.rros/overlay/cuttlefish_phone_overlay_frameworks_base_core.apk=android.cuttlefish.phone.overlay
+"#;
+        let mut expected: HashSet<String> = HashSet::new();
+        expected.insert("com.android.shell".to_string());
+        assert_eq!(expected, apks_from_pm_list_output(Vec::from(actual_output.as_bytes()))?);
+        Ok(())
+    }
+
     // TODO(rbraunstein): Test case where on device and up to date, but not tracked.
 
     struct FakeState {
@@ -511,7 +670,7 @@ mod tests {
     // `update` adds the directories for the tracked set so we don't do that here.
     fn call_update(fake_state: &FakeState) -> Result<commands::Commands> {
         let product_out = PathBuf::from("");
-        let config = Config::fake();
+        let installed_apks = HashSet::<String>::new();
 
         let mut device_files: HashMap<PathBuf, FileMetadata> = HashMap::new();
         let mut host_files: HashMap<PathBuf, FileMetadata> = HashMap::new();
@@ -528,7 +687,7 @@ mod tests {
         let tracked_set: Vec<String> =
             fake_state.tracked_set.iter().map(|s| s.to_string()).collect();
 
-        get_update_commands(&device_files, &host_files, &tracked_set, product_out, &config)
+        get_update_commands(&device_files, &host_files, &tracked_set, product_out, &installed_apks)
     }
 
     fn file_metadata(digest: &str) -> FileMetadata {
@@ -547,4 +706,5 @@ mod tests {
         }
     }
     // TODO(rbraunstein): Add tests for collect_status_per_file after we decide on output.
+    // TODO(rbraunstein): Add tests for shadowing apks and ensure we don't install the system version.
 }
