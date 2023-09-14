@@ -73,16 +73,16 @@ fn main() -> Result<()> {
     )?;
 
     let max_changes = cli.global_options.max_allowed_changes;
-    if matches!(cli.command, Commands::CleanDevice { .. }) {
+    if matches!(cli.command, Commands::Clean { .. }) {
         let deletes = commands.deletes;
         if deletes.is_empty() {
             println!("   Nothing to clean.");
             return Ok(());
         }
         if deletes.len() > max_changes {
-            bail!("Your device would have {} files deleted is more than the suggested amount of {}. Pass `--max-allowed-changes={} or consider reflashing.", deletes.len(), max_changes, deletes.len());
+            bail!("There are {} files to be deleted which exceeds the configured limit of {}.\n  It is recommended that you reimage your device instead.  For small increases in the limit, you can run `adevice clean --max-allowed-changes={}.", deletes.len(), max_changes, deletes.len());
         }
-        if matches!(cli.command, Commands::CleanDevice { force } if !force) {
+        if matches!(cli.command, Commands::Clean { force } if !force) {
             println!(
                 "You are about to delete {} [untracked pushed] files. Are you sure? y/N",
                 deletes.len()
@@ -107,7 +107,7 @@ fn main() -> Result<()> {
             return Ok(());
         }
         if upserts.len() > max_changes {
-            bail!("Your device needs {} changes which is more than the suggested amount of {}. Pass `--max-allowed-changes={} or consider reflashing.", upserts.len(), max_changes, upserts.len());
+            bail!("There are {} files out of date on the device, which exceeds the configured limit of {}.\n  It is recommended to reimage your device.  For small increases in the limit, you can run `adevice update --max-allowed-changes={}.", upserts.len(), max_changes, upserts.len());
         }
         println!(" * Updating {} files on device.", upserts.len());
 
@@ -502,9 +502,9 @@ fn fingerprint_device(
         {
             // Running as root, but adevice_fingerprint not found.
             // This should not happen after we tag it as an "eng" module.
-            bail!("\n  Thank you for testing out adevice.\n  Please bootstrap by doing the following:\n\t ` adb remount; m adevice_fingerprint adevice && adb push $ANDROID_PRODUCT_OUT/system/bin/adevice_fingerprint system/bin/adevice_fingerprint`");
+            bail!("\n  Thank you for testing out adevice.\n  Flashing a recent image should install the needed `adevice_fingerprint` binary.\n  Otherwise, you can bootstrap by doing the following:\n\t ` adb remount; m adevice_fingerprint adevice && adb push $ANDROID_PRODUCT_OUT/system/bin/adevice_fingerprint system/bin/adevice_fingerprint`");
         } else {
-            bail!("Unknown problem running `adevice_fingerprint` on your device: {problem:?}");
+            bail!("Unknown problem running `adevice_fingerprint` on your device: {problem:?}.\n  Your device may still be in a booting state.  Try `adb get-state` to start debugging.");
         }
     }
 
