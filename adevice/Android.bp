@@ -55,9 +55,22 @@ rust_test {
     },
 }
 
+rust_protobuf {
+    name: "libadevice_proto_rust",
+    crate_name: "adevice_proto",
+    host_supported: true,
+    source_stem: "adevice_proto",
+    use_protobuf3: true,
+    protos: [
+        "src/protos/clientanalytics.proto",
+        "src/protos/internal_user_log.proto",
+    ],
+}
+
 rust_defaults {
     name: "adevice_deps_defaults",
     rustlibs: [
+        "libadevice_proto_rust",
         "libanyhow",
         "libatty",
         "libclap",
@@ -73,6 +86,7 @@ rust_defaults {
         "libserde_json",
         "libtempfile",
         "libwalkdir",
+        "libprotobuf",
     ],
 }
 
