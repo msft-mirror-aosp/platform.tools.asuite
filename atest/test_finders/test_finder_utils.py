@@ -27,6 +27,7 @@ import pickle
 import re
 import shutil
 import subprocess
+import sys
 import tempfile
 import time
 import xml.etree.ElementTree as ET
@@ -414,12 +415,13 @@ def extract_selected_tests(tests: Iterable, default_all=False) -> List[str]:
         return tests if count else None
 
     extracted_tests = set()
-    # Establish 'All' options in the numbered test menu.
-    auxiliary_menu = ['All']
+    # Establish 'All' and 'Quit' options in the numbered test menu.
+    auxiliary_menu = ['All', 'Quit']
     _tests = tests.copy()
     _tests.extend(auxiliary_menu)
     numbered_list = ['%s: %s' % (i, t) for i, t in enumerate(_tests)]
     all_index = len(numbered_list) - auxiliary_menu[::-1].index('All') - 1
+    quit_index = len(numbered_list) - auxiliary_menu[::-1].index('Quit') - 1
     print('Multiple tests found:\n{0}'.format('\n'.join(numbered_list)))
 
     start_prompt = time.time()
@@ -429,6 +431,9 @@ def extract_selected_tests(tests: Iterable, default_all=False) -> List[str]:
                                           limit=len(numbered_list)-1)
         if all_index in selections:
             extracted_tests = tests
+        elif quit_index in selections:
+            atest_utils.colorful_print('Abort selection.', constants.RED)
+            sys.exit(0)
         else:
             extracted_tests = {tests[s] for s in selections}
         metrics.LocalDetectEvent(
