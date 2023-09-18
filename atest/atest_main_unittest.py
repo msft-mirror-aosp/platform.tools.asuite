@@ -86,9 +86,8 @@ class AtestUnittests(unittest.TestCase):
         """Test _has_valid_test_mapping_args method."""
         # Test test mapping related args are not mixed with incompatible args.
         options_no_tm_support = [
-            ('--generate-baseline', '5'),
-            ('--detect-regression', 'path'),
-            ('--generate-new-metrics', '5')
+            ('--annotation-filter',
+             'android.test.suitebuilder.annotation.SmallTest'),
         ]
         tm_options = [
             '--test-mapping',
