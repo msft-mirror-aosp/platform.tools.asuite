@@ -324,21 +324,6 @@ class AtestArgParser(argparse.ArgumentParser):
         self.add_argument('--test-config-select', action='store_true',
                           help=TEST_CONFIG_SELECTION)
 
-        # Obsolete options that will be removed without warning.
-        self.add_argument('--generate-baseline', nargs='?',
-                          type=int, const=5, default=0,
-                          help='Generate baseline metrics, run 5 iterations by'
-                               'default. Provide an int argument to specify '
-                               '# iterations.')
-        self.add_argument('--generate-new-metrics', nargs='?',
-                          type=int, const=5, default=0,
-                          help='Generate new metrics, run 5 iterations by '
-                               'default. Provide an int argument to specify '
-                               '# iterations.')
-        self.add_argument('--detect-regression', nargs='*',
-                          help='Run regression detection algorithm. Supply '
-                               'path to baseline and/or new metrics folders.')
-
         # Options related to module parameterization
         self.add_argument('--instant', action='store_true', help=INSTANT)
         self.add_argument('--user-type', help=USER_TYPE)
@@ -963,43 +948,6 @@ EXAMPLES
     [WARNING]
     * --acloud-create must be the LAST optional argument: the remainder args will be consumed as its positional args.
     * --acloud-create/--start-avd do not delete newly created AVDs. The users will be deleting them manually.
-
-
-    - - - - - - - - - - - - - - - -
-    REGRESSION DETECTION (obsolete)
-    - - - - - - - - - - - - - - - -
-
-    ********************** Warning **********************
-    Please STOP using arguments below -- they are obsolete and will be removed in a near future:
-        --detect-regression
-        --generate-baseline
-        --generate-new-metrics
-
-    Please check RUNNING TESTS IN ITERATION out for alternatives.
-    ******************************************************
-
-    Generate pre-patch or post-patch metrics without running regression detection:
-
-    Example:
-        atest <test> --generate-baseline <optional iter>
-        atest <test> --generate-new-metrics <optional iter>
-
-    Local regression detection can be run in three options:
-
-    1) Provide a folder containing baseline (pre-patch) metrics (generated previously). Atest will run the tests n (default 5) iterations, generate a new set of post-patch metrics, and compare those against existing metrics.
-
-    Example:
-        atest <test> --detect-regression </path/to/baseline> --generate-new-metrics <optional iter>
-
-    2) Provide a folder containing post-patch metrics (generated previously). Atest will run the tests n (default 5) iterations, generate a new set of pre-patch metrics, and compare those against those provided. Note: the developer needs to revert the device/tests to pre-patch state to generate baseline metrics.
-
-    Example:
-        atest <test> --detect-regression </path/to/new> --generate-baseline <optional iter>
-
-    3) Provide 2 folders containing both pre-patch and post-patch metrics. Atest will run no tests but the regression detection algorithm.
-
-    Example:
-        atest --detect-regression </path/to/baseline> </path/to/new>
 
 
     - - - - - - - - - - - -
