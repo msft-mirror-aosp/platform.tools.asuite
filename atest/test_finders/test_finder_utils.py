@@ -34,7 +34,7 @@ import xml.etree.ElementTree as ET
 from contextlib import contextmanager
 from enum import unique, Enum
 from pathlib import Path
-from typing import Any, Dict, Iterable, List, Tuple
+from typing import Any, Dict, Iterable, List, Set, Tuple
 
 from atest import atest_error
 from atest import atest_utils
@@ -415,36 +415,25 @@ def extract_selected_tests(tests: Iterable, default_all=False) -> List[str]:
 
     extracted_tests = set()
     # Establish 'All' options in the numbered test menu.
-    numbered_list = ['%s: %s' % (i, t) for i, t in enumerate(tests)]
-    numbered_list.append('%s: All' % count)
+    auxiliary_menu = ['All']
+    _tests = tests.copy()
+    _tests.extend(auxiliary_menu)
+    numbered_list = ['%s: %s' % (i, t) for i, t in enumerate(_tests)]
+    all_index = len(numbered_list) - auxiliary_menu[::-1].index('All') - 1
     print('Multiple tests found:\n{0}'.format('\n'.join(numbered_list)))
 
     start_prompt = time.time()
     test_indices = get_multiple_selection_answer()
-    if test_indices is None:
-        return []
-
-    try:
-        for idx in re.sub(r'(\s)', '', test_indices).split(','):
-            indices = idx.split('-')
-            len_indices = len(indices)
-            if len_indices > 0:
-                start_index = min(int(indices[0]), int(indices[len_indices-1]))
-                end_index = max(int(indices[0]), int(indices[len_indices-1]))
-                # One of input is 'All', return all options.
-                if count in (start_index, end_index):
-                    metrics.LocalDetectEvent(
-                        detect_type=DetectType.INTERACTIVE_SELECTION,
-                        result=int(time.time() - start_prompt))
-                    return tests
-                extracted_tests.update(tests[start_index:(end_index+1)])
+    if test_indices:
+        selections = get_selected_indices(test_indices,
+                                          limit=len(numbered_list)-1)
+        if all_index in selections:
+            extracted_tests = tests
+        else:
+            extracted_tests = {tests[s] for s in selections}
         metrics.LocalDetectEvent(
             detect_type=DetectType.INTERACTIVE_SELECTION,
             result=int(time.time() - start_prompt))
-    except (ValueError, IndexError, AttributeError, TypeError) as err:
-        logging.debug('%s', err)
-        print('None of above option matched, keep searching for other'
-              ' possible tests...')
 
     return list(extracted_tests)
 
@@ -459,6 +448,42 @@ def get_multiple_selection_answer() -> str:
     except KeyboardInterrupt:
         atest_utils.colorful_print('Abort selection.', constants.RED)
         return None
+
+
+def get_selected_indices(string: str, limit: int = None) -> Set[int]:
+    """Method which flattens and dedups the given string to a set of integer.
+
+    This method is also capable to convert '5-2' to {2,3,4,5}. e.g.
+    '0, 2-5, 5-3' -> {0, 2, 3, 4, 5}
+
+    If the given string contains non-numerical string, returns an empty set.
+
+    Args:
+        string: a given string, e.g. '0, 2-5'
+        limit: an integer that every parsed number cannot exceed.
+
+    Returns:
+        A set of integer. If one of the parsed number exceeds the limit, or
+        invalid string such as '2-5-7', returns an empty set instead.
+    """
+    selections = set()
+    try:
+        for num_str in re.sub(r'\s', '', string).split(','):
+            ranged_num_str = num_str.split('-')
+            if len(ranged_num_str) == 2:
+                start = min([int(n) for n in ranged_num_str])
+                end = max([int(n) for n in ranged_num_str])
+                selections |= {n for n in range(start, end+1)}
+            elif len(ranged_num_str) == 1:
+                selections.add(int(num_str))
+        if limit and any(n for n in selections if n > limit):
+            raise ValueError
+    except (ValueError, IndexError, AttributeError, TypeError) as err:
+        logging.debug('%s', err)
+        atest_utils.colorful_print('Invalid input detected.', constants.RED)
+        return set()
+
+    return selections
 
 
 def run_find_cmd(ref_type, search_dir, target, methods=None):
