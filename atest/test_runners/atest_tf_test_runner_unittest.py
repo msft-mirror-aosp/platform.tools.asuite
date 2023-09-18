@@ -48,11 +48,9 @@ from atest.test_runners import atest_tf_test_runner as atf_tr
 
 #pylint: disable=protected-access
 #pylint: disable=invalid-name
-METRICS_DIR = '%s/baseline-metrics' % uc.TEST_INFO_DIR
-METRICS_DIR_ARG = '--metrics-folder %s ' % METRICS_DIR
 # TODO(147567606): Replace {serial} with {extra_args} for general extra
 # arguments testing.
-RUN_CMD_ARGS = ('{metrics}--log-level-display VERBOSE --log-level VERBOSE'
+RUN_CMD_ARGS = ('--log-level-display VERBOSE --log-level VERBOSE'
                 '{device_early_release}{serial}')
 LOG_ARGS = atf_tr.AtestTradefedTestRunner._LOG_ARGS.format(
     log_root_option_name=constants.LOG_ROOT_OPTION_NAME,
@@ -409,29 +407,23 @@ class AtestTradefedTestRunnerUnittests(unittest.TestCase):
                        '_is_all_tests_parameter_auto_enabled',
                        return_value=False)
     @mock.patch('os.environ.get', return_value=None)
-    @mock.patch.object(atf_tr.AtestTradefedTestRunner,
-                       '_generate_metrics_folder')
     @mock.patch('atest.atest_utils.get_result_server_args')
     def test_generate_run_commands_without_serial_env(
-        self, mock_resultargs, mock_mertrics, _, _mock_all):
+        self, mock_resultargs, _, _mock_all):
         """Test generate_run_command method."""
         # Basic Run Cmd
         mock_resultargs.return_value = []
-        mock_mertrics.return_value = ''
         unittest_utils.assert_strict_equal(
             self,
             self.tr.generate_run_commands([], {}),
             [RUN_CMD.format(env=RUN_ENV_STR,
-                            metrics='',
                             serial='',
                             tf_customize_template='',
                             device_early_release=' --no-early-device-release')])
-        mock_mertrics.return_value = METRICS_DIR
         unittest_utils.assert_strict_equal(
             self,
             self.tr.generate_run_commands([], {}),
-            [RUN_CMD.format(metrics=METRICS_DIR_ARG,
-                            serial='',
+            [RUN_CMD.format(serial='',
                             tf_customize_template='',
                             device_early_release=' --no-early-device-release')])
 
@@ -441,14 +433,11 @@ class AtestTradefedTestRunnerUnittests(unittest.TestCase):
                        '_is_all_tests_parameter_auto_enabled',
                        return_value=False)
     @mock.patch('os.environ.get', return_value=None)
-    @mock.patch.object(atf_tr.AtestTradefedTestRunner,
-                       '_generate_metrics_folder')
     @mock.patch('atest.atest_utils.get_result_server_args')
     def test_generate_run_commands_with_upload_enabled(
-        self, mock_resultargs, mock_mertrics, _, _mock_all, _upload_enabled):
+        self, mock_resultargs, _, _mock_all, _upload_enabled):
         result_arg = '--result_arg'
         mock_resultargs.return_value = [result_arg]
-        mock_mertrics.return_value = ''
 
         run_command = self.tr.generate_run_commands([], {})
 
@@ -460,14 +449,11 @@ class AtestTradefedTestRunnerUnittests(unittest.TestCase):
                        '_is_all_tests_parameter_auto_enabled',
                        return_value=False)
     @mock.patch('os.environ.get', return_value=None)
-    @mock.patch.object(atf_tr.AtestTradefedTestRunner,
-                       '_generate_metrics_folder')
     @mock.patch('atest.atest_utils.get_result_server_args')
     def test_generate_run_commands_without_upload_enabled(
-        self, mock_resultargs, mock_mertrics, _, _mock_all, _upload_enabled):
+        self, mock_resultargs, _, _mock_all, _upload_enabled):
         result_arg = '--result_arg'
         mock_resultargs.return_value = [result_arg]
-        mock_mertrics.return_value = ''
 
         run_command = self.tr.generate_run_commands([], {})
 
@@ -477,23 +463,20 @@ class AtestTradefedTestRunnerUnittests(unittest.TestCase):
                        '_is_all_tests_parameter_auto_enabled',
                        return_value=False)
     @mock.patch('os.environ.get')
-    @mock.patch.object(atf_tr.AtestTradefedTestRunner, '_generate_metrics_folder')
     @mock.patch('atest.atest_utils.get_result_server_args')
     def test_generate_run_commands_with_serial_env(
-        self, mock_resultargs, mock_mertrics, mock_env, _mock_all):
+        self, mock_resultargs, mock_env, _mock_all):
         """Test generate_run_command method."""
         # Basic Run Cmd
         env_device_serial = 'env-device-0'
         mock_resultargs.return_value = []
-        mock_mertrics.return_value = ''
         mock_env.return_value = env_device_serial
         env_serial_arg = ' --serial %s' % env_device_serial
         # Serial env be set and without --serial arg.
         unittest_utils.assert_strict_equal(
             self,
             self.tr.generate_run_commands([], {}),
-            [RUN_CMD.format(metrics='',
-                            serial=env_serial_arg,
+            [RUN_CMD.format(serial=env_serial_arg,
                             tf_customize_template='',
                             device_early_release=' --no-early-device-release')])
         # Serial env be set but with --serial arg.
@@ -503,16 +486,14 @@ class AtestTradefedTestRunnerUnittests(unittest.TestCase):
             self,
             self.tr.generate_run_commands(
                 [], {constants.SERIAL: [arg_device_serial]}),
-            [RUN_CMD.format(metrics='',
-                            serial=arg_serial_arg,
+            [RUN_CMD.format(serial=arg_serial_arg,
                             tf_customize_template='',
                             device_early_release=' --no-early-device-release')])
         # Serial env be set but with -n arg
         unittest_utils.assert_strict_equal(
             self,
             self.tr.generate_run_commands([], {constants.HOST: True}),
-            [RUN_CMD.format(metrics='',
-                            serial='',
+            [RUN_CMD.format(serial='',
                             tf_customize_template='',
                             device_early_release=' --no-early-device-release') +
              ' -n --prioritize-host-config --skip-host-arch-check'])
@@ -641,33 +622,27 @@ class AtestTradefedTestRunnerUnittests(unittest.TestCase):
                        '_is_all_tests_parameter_auto_enabled',
                        return_value=False)
     @mock.patch('os.environ.get', return_value=None)
-    @mock.patch.object(atf_tr.AtestTradefedTestRunner,
-                       '_generate_metrics_folder')
     @mock.patch('atest.atest_utils.get_result_server_args')
     def test_generate_run_commands_collect_tests_only(
-        self, mock_resultargs, mock_mertrics, _, _mock_is_all):
+        self, mock_resultargs, _, _mock_is_all):
         """Test generate_run_command method."""
         # Testing  without collect-tests-only
         mock_resultargs.return_value = []
-        mock_mertrics.return_value = ''
         extra_args = {}
         unittest_utils.assert_strict_equal(
             self,
             self.tr.generate_run_commands([], extra_args),
             [RUN_CMD.format(
-                metrics='',
                 serial='',
                 tf_customize_template='',
                 device_early_release=' --no-early-device-release')])
         # Testing  with collect-tests-only
         mock_resultargs.return_value = []
-        mock_mertrics.return_value = ''
         extra_args = {constants.COLLECT_TESTS_ONLY: True}
         unittest_utils.assert_strict_equal(
             self,
             self.tr.generate_run_commands([], extra_args),
             [RUN_CMD.format(
-                metrics='',
                 serial=' --collect-tests-only',
                 tf_customize_template='',
                 device_early_release=' --no-early-device-release')])
@@ -677,10 +652,9 @@ class AtestTradefedTestRunnerUnittests(unittest.TestCase):
                        '_is_all_tests_parameter_auto_enabled',
                        return_value=False)
     @mock.patch('os.environ.get', return_value=None)
-    @mock.patch.object(atf_tr.AtestTradefedTestRunner, '_generate_metrics_folder')
     @mock.patch('atest.atest_utils.get_result_server_args')
     def test_generate_run_commands_with_tf_template(
-        self, mock_resultargs, mock_mertrics, _, _mock_all):
+        self, mock_resultargs, _, _mock_all):
         """Test generate_run_command method."""
         tf_tmplate_key1 = 'tf_tmplate_key1'
         tf_tmplate_val1 = 'tf_tmplate_val1'
@@ -688,7 +662,6 @@ class AtestTradefedTestRunnerUnittests(unittest.TestCase):
         tf_tmplate_val2 = 'tf_tmplate_val2'
         # Testing with only one tradefed template command
         mock_resultargs.return_value = []
-        mock_mertrics.return_value = ''
         extra_args = {constants.TF_TEMPLATE:
                           ['{}={}'.format(tf_tmplate_key1,
                                           tf_tmplate_val1)]}
@@ -696,7 +669,6 @@ class AtestTradefedTestRunnerUnittests(unittest.TestCase):
             self,
             self.tr.generate_run_commands([], extra_args),
             [RUN_CMD.format(
-                metrics='',
                 serial='',
                 device_early_release=' --no-early-device-release',
                 tf_customize_template=
@@ -712,7 +684,6 @@ class AtestTradefedTestRunnerUnittests(unittest.TestCase):
             self,
             self.tr.generate_run_commands([], extra_args),
             [RUN_CMD.format(
-                metrics='',
                 serial='',
                 device_early_release=' --no-early-device-release',
                 tf_customize_template=
@@ -726,20 +697,17 @@ class AtestTradefedTestRunnerUnittests(unittest.TestCase):
                        '_is_all_tests_parameter_auto_enabled',
                        return_value=False)
     @mock.patch('os.environ.get', return_value=None)
-    @mock.patch.object(atf_tr.AtestTradefedTestRunner, '_generate_metrics_folder')
     @mock.patch('atest.atest_utils.get_result_server_args')
     def test_generate_run_commands_with_tf_early_device_release(
-            self, mock_resultargs, mock_mertrics, _, _mock_all):
+            self, mock_resultargs, _, _mock_all):
         """Test generate_run_command method."""
         # Testing  without collect-tests-only
         mock_resultargs.return_value = []
-        mock_mertrics.return_value = ''
         extra_args = {constants.TF_EARLY_DEVICE_RELEASE: True}
         unittest_utils.assert_strict_equal(
             self,
             self.tr.generate_run_commands([], extra_args),
             [RUN_CMD.format(
-                metrics='',
                 serial='',
                 tf_customize_template='',
                 device_early_release='')])
@@ -768,16 +736,13 @@ class AtestTradefedTestRunnerUnittests(unittest.TestCase):
     @mock.patch.object(atf_tr.AtestTradefedTestRunner,
                        '_has_instant_app_config', return_value=True)
     @mock.patch('os.environ.get', return_value=None)
-    @mock.patch.object(atf_tr.AtestTradefedTestRunner,
-                       '_generate_metrics_folder')
     @mock.patch('atest.atest_utils.get_result_server_args')
     def test_generate_run_commands_has_instant_app_config(
-        self, mock_resultargs, mock_mertrics, _, _mock_has_config,
+        self, mock_resultargs, _, _mock_has_config,
         _mock_is_all):
         """Test generate_run_command method which has instant app config."""
         # Basic Run Cmd
         mock_resultargs.return_value = []
-        mock_mertrics.return_value = ''
         extra_tf_arg = (
             '{tf_test_arg} {tf_class}:{option_name}:{option_value}'.format(
             tf_test_arg = constants.TF_TEST_ARG,
@@ -788,7 +753,6 @@ class AtestTradefedTestRunnerUnittests(unittest.TestCase):
             self,
             self.tr.generate_run_commands([], {}),
             [RUN_CMD.format(env=RUN_ENV_STR,
-                            metrics='',
                             serial='',
                             tf_customize_template='',
                             device_early_release=' --no-early-device-release '
@@ -905,14 +869,11 @@ class AtestTradefedTestRunnerUnittests(unittest.TestCase):
     @mock.patch.object(atf_tr.AtestTradefedTestRunner, '_parse_extra_args')
     @mock.patch.object(atf_tr.AtestTradefedTestRunner, '_create_test_args')
     @mock.patch('os.environ.get', return_value=None)
-    @mock.patch.object(
-        atf_tr.AtestTradefedTestRunner, '_generate_metrics_folder')
     @mock.patch('atest.atest_utils.get_result_server_args')
     def test_generate_run_commands_for_aggregate_metric_result(
-        self, mock_resultargs, mock_mertrics, _mock_env, _mock_create, _mock_parse, _mock_handle_native):
+        self, mock_resultargs, _mock_env, _mock_create, _mock_parse, _mock_handle_native):
         """Test generate_run_command method for test need aggregate metric."""
         mock_resultargs.return_value = []
-        mock_mertrics.return_value = ''
         _mock_create.return_value = []
         _mock_parse.return_value = [], []
         test_info_with_aggregate_metrics = test_info.TestInfo(
@@ -932,15 +893,12 @@ class AtestTradefedTestRunnerUnittests(unittest.TestCase):
     @mock.patch.object(atf_tr.AtestTradefedTestRunner, '_parse_extra_args')
     @mock.patch.object(atf_tr.AtestTradefedTestRunner, '_create_test_args')
     @mock.patch('os.environ.get', return_value=None)
-    @mock.patch.object(
-        atf_tr.AtestTradefedTestRunner, '_generate_metrics_folder')
     @mock.patch('atest.atest_utils.get_result_server_args')
     def test_run_commands_for_aggregate_metric_result_with_manually_input(
-        self, mock_resultargs, mock_mertrics, _mock_env, _mock_create,
+        self, mock_resultargs, _mock_env, _mock_create,
             _mock_parse, _mock_handle_native):
         """Test generate_run_command method for test need aggregate metric."""
         mock_resultargs.return_value = []
-        mock_mertrics.return_value = ''
         _mock_create.return_value = []
         _mock_parse.return_value = [], []
         test_info_with_aggregate_metrics = test_info.TestInfo(

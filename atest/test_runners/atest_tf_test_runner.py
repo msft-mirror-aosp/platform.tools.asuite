@@ -287,16 +287,14 @@ class AtestTradefedTestRunner(trb.TestRunnerBase):
         Returns:
             0 if tests succeed, non-zero otherwise.
         """
-        iterations = self._generate_iterations(extra_args)
         reporter.register_unsupported_runner(self.NAME)
 
         ret_code = ExitCode.SUCCESS
-        for _ in range(iterations):
-            run_cmds = self.generate_run_commands(test_infos, extra_args)
-            logging.debug('Running test: %s', run_cmds[0])
-            subproc = self.run(run_cmds[0], output_to_stdout=True,
-                               env_vars=self.generate_env_vars(extra_args))
-            ret_code |= self.wait_for_subprocess(subproc)
+        run_cmds = self.generate_run_commands(test_infos, extra_args)
+        logging.debug('Running test: %s', run_cmds[0])
+        subproc = self.run(run_cmds[0], output_to_stdout=True,
+                            env_vars=self.generate_env_vars(extra_args))
+        ret_code |= self.wait_for_subprocess(subproc)
         return ret_code
 
     def run_tests_pretty(self, test_infos, extra_args, reporter):
@@ -310,22 +308,20 @@ class AtestTradefedTestRunner(trb.TestRunnerBase):
         Returns:
             0 if tests succeed, non-zero otherwise.
         """
-        iterations = self._generate_iterations(extra_args)
         ret_code = ExitCode.SUCCESS
-        for _ in range(iterations):
-            server = self._start_socket_server()
-            run_cmds = self.generate_run_commands(test_infos, extra_args,
-                                                  server.getsockname()[1])
-            logging.debug('Running test: %s', run_cmds[0])
-            subproc = self.run(run_cmds[0], output_to_stdout=self.is_verbose,
-                               env_vars=self.generate_env_vars(extra_args))
-            self.handle_subprocess(subproc, partial(self._start_monitor,
-                                                    server,
-                                                    subproc,
-                                                    reporter,
-                                                    extra_args))
-            server.close()
-            ret_code |= self.wait_for_subprocess(subproc)
+        server = self._start_socket_server()
+        run_cmds = self.generate_run_commands(test_infos, extra_args,
+                                              server.getsockname()[1])
+        logging.debug('Running test: %s', run_cmds[0])
+        subproc = self.run(run_cmds[0], output_to_stdout=self.is_verbose,
+                            env_vars=self.generate_env_vars(extra_args))
+        self.handle_subprocess(subproc, partial(self._start_monitor,
+                                                server,
+                                                subproc,
+                                                reporter,
+                                                extra_args))
+        server.close()
+        ret_code |= self.wait_for_subprocess(subproc)
         return ret_code
 
     # pylint: disable=too-many-branches
@@ -705,24 +701,6 @@ class AtestTradefedTestRunner(trb.TestRunnerBase):
                     args_to_append.append(exclude_parameter)
         return args_to_append, args_not_supported
 
-    def _generate_metrics_folder(self, extra_args):
-        """Generate metrics folder."""
-        metrics_folder = ''
-        if extra_args.get(constants.PRE_PATCH_ITERATIONS):
-            metrics_folder = os.path.join(self.results_dir, 'baseline-metrics')
-        elif extra_args.get(constants.POST_PATCH_ITERATIONS):
-            metrics_folder = os.path.join(self.results_dir, 'new-metrics')
-        return metrics_folder
-
-    def _generate_iterations(self, extra_args):
-        """Generate iterations."""
-        iterations = 1
-        if extra_args.get(constants.PRE_PATCH_ITERATIONS):
-            iterations = extra_args.pop(constants.PRE_PATCH_ITERATIONS)
-        elif extra_args.get(constants.POST_PATCH_ITERATIONS):
-            iterations = extra_args.pop(constants.POST_PATCH_ITERATIONS)
-        return iterations
-
     def generate_run_commands(self, test_infos, extra_args, port=None):
         """Generate a single run command from TestInfos.
 
@@ -737,15 +715,11 @@ class AtestTradefedTestRunner(trb.TestRunnerBase):
             Only one command is returned.
         """
         args = self._create_test_args(test_infos)
-        metrics_folder = self._generate_metrics_folder(extra_args)
 
         # Create a copy of args as more args could be added to the list.
         test_args = list(args)
         if port:
             test_args.extend(['--subprocess-report-port', str(port)])
-        if metrics_folder:
-            test_args.extend(['--metrics-folder', metrics_folder])
-            logging.info('Saved metrics in: %s', metrics_folder)
         if extra_args.get(constants.INVOCATION_ID, None):
             test_args.append('--invocation-data invocation_id=%s'
                              % extra_args[constants.INVOCATION_ID])
