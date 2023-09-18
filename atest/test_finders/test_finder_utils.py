@@ -389,10 +389,10 @@ def extract_test_path(output, methods=None):
         # "locate" output path for both java/cc.
         elif not methods or has_method_in_file(test, methods):
             verified_tests.add(test)
-    return extract_test_from_tests(sorted(list(verified_tests)))
+    return extract_selected_tests(sorted(list(verified_tests)))
 
 
-def extract_test_from_tests(tests: Iterable, default_all=False) -> List[str]:
+def extract_selected_tests(tests: Iterable, default_all=False) -> List[str]:
     """Extract the test path from the tests.
 
     Return the test to run from tests. If more than one option, prompt the user
@@ -412,16 +412,19 @@ def extract_test_from_tests(tests: Iterable, default_all=False) -> List[str]:
     count = len(tests)
     if default_all or count <= 1:
         return tests if count else None
-    mtests = set()
+
+    extracted_tests = set()
+    # Establish 'All' options in the numbered test menu.
+    numbered_list = ['%s: %s' % (i, t) for i, t in enumerate(tests)]
+    numbered_list.append('%s: All' % count)
+    print('Multiple tests found:\n{0}'.format('\n'.join(numbered_list)))
+
+    start_prompt = time.time()
+    test_indices = get_multiple_selection_answer()
+    if test_indices is None:
+        return []
+
     try:
-        numbered_list = ['%s: %s' % (i, t) for i, t in enumerate(tests)]
-        numbered_list.append('%s: All' % count)
-        start_prompt = time.time()
-        print('Multiple tests found:\n{0}'.format('\n'.join(numbered_list)))
-        test_indices = input("Please enter numbers of test to use. If none of "
-                             "above option matched, keep searching for other "
-                             "possible tests.\n(multiple selection is supported, "
-                             "e.g. '1' or '0,1' or '0-2'): ")
         for idx in re.sub(r'(\s)', '', test_indices).split(','):
             indices = idx.split('-')
             len_indices = len(indices)
@@ -434,7 +437,7 @@ def extract_test_from_tests(tests: Iterable, default_all=False) -> List[str]:
                         detect_type=DetectType.INTERACTIVE_SELECTION,
                         result=int(time.time() - start_prompt))
                     return tests
-                mtests.update(tests[start_index:(end_index+1)])
+                extracted_tests.update(tests[start_index:(end_index+1)])
         metrics.LocalDetectEvent(
             detect_type=DetectType.INTERACTIVE_SELECTION,
             result=int(time.time() - start_prompt))
@@ -442,7 +445,20 @@ def extract_test_from_tests(tests: Iterable, default_all=False) -> List[str]:
         logging.debug('%s', err)
         print('None of above option matched, keep searching for other'
               ' possible tests...')
-    return list(mtests)
+
+    return list(extracted_tests)
+
+
+def get_multiple_selection_answer() -> str:
+    """Get the answer from the user input."""
+    try:
+        return input("Please enter numbers of test to use. If none of the above"
+                     "options matched, keep searching for other possible tests."
+                     "\n(multiple selection is supported, "
+                     "e.g. '1' or '0,1' or '0-2'): ")
+    except KeyboardInterrupt:
+        atest_utils.colorful_print('Abort selection.', constants.RED)
+        return None
 
 
 def run_find_cmd(ref_type, search_dir, target, methods=None):
@@ -907,7 +923,7 @@ def search_integration_dirs(name, int_dirs):
                                   name)
         if test_paths:
             test_files.extend(test_paths)
-    return extract_test_from_tests(test_files)
+    return extract_selected_tests(test_files)
 
 
 def get_int_dir_from_path(path, int_dirs):
