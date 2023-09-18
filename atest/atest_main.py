@@ -440,23 +440,6 @@ def _validate_tm_tests_exec_mode(args, test_infos):
         _validate_exec_mode(args, host_test_infos, host_tests=True)
 
 
-def _will_run_tests() -> bool:
-    """Determine if there are tests to run.
-
-    Currently only used by detect_regression to skip the test if just running
-    regression detection.
-
-    Args:
-        args: An argparse.ArgumentParser object.
-
-    Returns:
-        True if there are tests to run, false otherwise.
-    """
-    # TODO: (b/131879842) remove this method after removing all regression
-    # flags, otherwise the change will be too big to review.
-    return True
-
-
 def _has_valid_test_mapping_args(args):
     """Validate test mapping args.
 
@@ -1038,82 +1021,81 @@ def main(
     test_infos = set()
     dry_run_args = (args.update_cmd_mapping, args.verify_cmd_mapping,
                     args.dry_run, args.generate_runner_cmd)
-    if _will_run_tests():
-        # (b/242567487) index_targets may finish after cli_translator; to
-        # mitigate the overhead, the main waits until it finished when no index
-        # files are available (e.g. fresh repo sync)
-        join_start = time.time()
-        if proc_idx and not atest_utils.has_index_files():
-            proc_idx.join()
+    # (b/242567487) index_targets may finish after cli_translator; to
+    # mitigate the overhead, the main waits until it finished when no index
+    # files are available (e.g. fresh repo sync)
+    join_start = time.time()
+    if proc_idx and not atest_utils.has_index_files():
+        proc_idx.join()
+        metrics.LocalDetectEvent(
+            detect_type=DetectType.IDX_JOIN_MS,
+            result=int((time.time() - join_start) * 1000))
+    find_start = time.time()
+    test_infos = translator.translate(args)
+    given_amount  = len(args.serial) if args.serial else 0
+    required_amount = get_device_count_config(test_infos, mod_info)
+    args.device_count_config = required_amount
+    # Only check when both given_amount and required_amount are non zero.
+    if all((given_amount, required_amount)):
+        # Base on TF rules, given_amount can be greater than or equal to
+        # required_amount.
+        if required_amount > given_amount:
+            atest_utils.colorful_print(
+                f'The test requires {required_amount} devices, '
+                f'but {given_amount} were given.',
+                constants.RED)
+            return 0
+
+    find_duration = time.time() - find_start
+    if not test_infos:
+        return ExitCode.TEST_NOT_FOUND
+
+    # Reuse ATest's finders to resolve the input test identifiers and get
+    # the test module names. If all test modules are supported by Roboleaf
+    # mode, we'll delegate to Roboleaf mode.
+    # TODO(b/296940736): Use TestInfo.raw_test_name after supporting
+    #  Mainline modules.
+    test_names = [t.test_name for t in test_infos]
+    # Avoid checking twice.
+    if set(test_names) != set(args.tests):
+        test_name_to_filters = collections.defaultdict(set)
+        for t in test_infos:
+            filters = test_name_to_filters[t.test_name]
+            filters |= t.data.get(constants.TI_FILTER, set())
+
+        b_supported_tests = roboleaf_test_runner.are_all_tests_supported(
+            args.roboleaf_mode,
+            test_names,
+            roboleaf_unsupported_flags,
+            {t: AtestTradefedTestRunner.flatten_test_filters(test_name_to_filters.get(t))
+                for t in test_name_to_filters})
+        if b_supported_tests:
+            atest_utils.roboleaf_print(
+                f'{atest_utils.colorize("TIP", constants.YELLOW)}: '
+                "Directly specify the module name to avoid test finder overhead.")
             metrics.LocalDetectEvent(
-                detect_type=DetectType.IDX_JOIN_MS,
-                result=int((time.time() - join_start) * 1000))
-        find_start = time.time()
-        test_infos = translator.translate(args)
-        given_amount  = len(args.serial) if args.serial else 0
-        required_amount = get_device_count_config(test_infos, mod_info)
-        args.device_count_config = required_amount
-        # Only check when both given_amount and required_amount are non zero.
-        if all((given_amount, required_amount)):
-            # Base on TF rules, given_amount can be greater than or equal to
-            # required_amount.
-            if required_amount > given_amount:
-                atest_utils.colorful_print(
-                    f'The test requires {required_amount} devices, '
-                    f'but {given_amount} were given.',
-                    constants.RED)
-                return 0
+                detect_type=DetectType.ROBOLEAF_NON_MODULE_FINDER,
+                result=DetectType.ROBOLEAF_NON_MODULE_FINDER,
+            )
+            # Use Bazel for both building and testing and return early.
+            return _b_test(b_supported_tests, extra_args, results_dir)
 
-        find_duration = time.time() - find_start
-        if not test_infos:
-            return ExitCode.TEST_NOT_FOUND
-
-        # Reuse ATest's finders to resolve the input test identifiers and get
-        # the test module names. If all test modules are supported by Roboleaf
-        # mode, we'll delegate to Roboleaf mode.
-        # TODO(b/296940736): Use TestInfo.raw_test_name after supporting
-        #  Mainline modules.
-        test_names = [t.test_name for t in test_infos]
-        # Avoid checking twice.
-        if set(test_names) != set(args.tests):
-            test_name_to_filters = collections.defaultdict(set)
-            for t in test_infos:
-                filters = test_name_to_filters[t.test_name]
-                filters |= t.data.get(constants.TI_FILTER, set())
-
-            b_supported_tests = roboleaf_test_runner.are_all_tests_supported(
-                args.roboleaf_mode,
-                test_names,
-                roboleaf_unsupported_flags,
-                {t: AtestTradefedTestRunner.flatten_test_filters(test_name_to_filters.get(t))
-                 for t in test_name_to_filters})
-            if b_supported_tests:
-                atest_utils.roboleaf_print(
-                    f'{atest_utils.colorize("TIP", constants.YELLOW)}: '
-                    "Directly specify the module name to avoid test finder overhead.")
-                metrics.LocalDetectEvent(
-                    detect_type=DetectType.ROBOLEAF_NON_MODULE_FINDER,
-                    result=DetectType.ROBOLEAF_NON_MODULE_FINDER,
-                )
-                # Use Bazel for both building and testing and return early.
-                return _b_test(b_supported_tests, extra_args, results_dir)
-
-        if not is_from_test_mapping(test_infos):
-            if not (any(dry_run_args) or verify_env_variables):
-                _validate_exec_mode(args, test_infos)
-                # _validate_exec_mode appends --host automatically when pure
-                # host-side tests, so re-parsing extra_args is a must.
-                extra_args = get_extra_args(args)
-        else:
-            _validate_tm_tests_exec_mode(args, test_infos)
-        # Detect auto sharding and trigger creating AVDs
-        if args.auto_sharding and _is_auto_shard_test(test_infos):
-            extra_args.update({constants.SHARDING: constants.SHARD_NUM})
-            if not (any(dry_run_args) or verify_env_variables):
-                # TODO: check existing devices.
-                args.acloud_create = [f'--num-instances={constants.SHARD_NUM}']
-                proc_acloud, report_file = at.acloud_create_validator(
-                    results_dir, args)
+    if not is_from_test_mapping(test_infos):
+        if not (any(dry_run_args) or verify_env_variables):
+            _validate_exec_mode(args, test_infos)
+            # _validate_exec_mode appends --host automatically when pure
+            # host-side tests, so re-parsing extra_args is a must.
+            extra_args = get_extra_args(args)
+    else:
+        _validate_tm_tests_exec_mode(args, test_infos)
+    # Detect auto sharding and trigger creating AVDs
+    if args.auto_sharding and _is_auto_shard_test(test_infos):
+        extra_args.update({constants.SHARDING: constants.SHARD_NUM})
+        if not (any(dry_run_args) or verify_env_variables):
+            # TODO: check existing devices.
+            args.acloud_create = [f'--num-instances={constants.SHARD_NUM}']
+            proc_acloud, report_file = at.acloud_create_validator(
+                results_dir, args)
 
     # TODO: change to another approach that put constants.CUSTOM_ARGS in the
     # end of command to make sure that customized args can override default
