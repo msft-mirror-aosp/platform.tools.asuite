@@ -35,12 +35,14 @@ MOBLY_PKG = 'mobly/SampleMoblyTest'
 REQUIREMENTS_TXT = 'mobly/requirements.txt'
 APK_1 = 'mobly/snippet1.apk'
 APK_2 = 'mobly/snippet2.apk'
+MISC_FILE = 'mobly/misc_file.txt'
 RESULTS_DIR = 'atest_results/sample_test'
 SERIAL_1 = 'serial1'
 SERIAL_2 = 'serial2'
 ADB_DEVICE = 'adb_device'
 MOBLY_SUMMARY_FILE = os.path.join(
     unittest_constants.TEST_DATA_DIR, 'mobly', 'sample_test_summary.yaml')
+MOCK_TEST_FILES = mobly_test_runner.MoblyTestFiles('', None, [], [])
 
 
 class MoblyResultUploaderUnittests(unittest.TestCase):
@@ -154,7 +156,7 @@ class MoblyTestRunnerUnittests(unittest.TestCase):
     def test_get_test_files_all_files_present(self, is_file) -> None:
         """Tests _get_test_files with all files present."""
         is_file.return_value = True
-        files = [MOBLY_PKG, REQUIREMENTS_TXT, APK_1, APK_2]
+        files = [MOBLY_PKG, REQUIREMENTS_TXT, APK_1, APK_2, MISC_FILE]
         file_paths = [pathlib.Path(f) for f in files]
         self.tinfo.data[constants.MODULE_INSTALLED] = file_paths
 
@@ -164,6 +166,7 @@ class MoblyTestRunnerUnittests(unittest.TestCase):
         self.assertTrue(test_files.requirements_txt.endswith(REQUIREMENTS_TXT))
         self.assertTrue(test_files.test_apks[0].endswith(APK_1))
         self.assertTrue(test_files.test_apks[1].endswith(APK_2))
+        self.assertTrue(test_files.misc_data[0].endswith(MISC_FILE))
 
     @mock.patch.object(pathlib.Path, 'is_file')
     def test_get_test_files_no_mobly_pkg(self, is_file) -> None:
@@ -193,7 +196,8 @@ class MoblyTestRunnerUnittests(unittest.TestCase):
     @mock.patch('yaml.safe_dump')
     def test_generate_mobly_config_no_serials(self, yaml_dump, _) -> None:
         """Tests _generate_mobly_config with no serials provided."""
-        self.runner._generate_mobly_config(self.mobly_args, None, [])
+        self.runner._generate_mobly_config(
+            self.mobly_args, None, MOCK_TEST_FILES)
 
         expected_config = {
             'TestBeds': [{
@@ -214,7 +218,7 @@ class MoblyTestRunnerUnittests(unittest.TestCase):
     def test_generate_mobly_config_with_serials(self, yaml_dump, _) -> None:
         """Tests _generate_mobly_config with serials provided."""
         self.runner._generate_mobly_config(
-            self.mobly_args, [SERIAL_1, SERIAL_2], [])
+            self.mobly_args, [SERIAL_1, SERIAL_2], MOCK_TEST_FILES)
 
         expected_config = {
             'TestBeds': [{
@@ -235,7 +239,8 @@ class MoblyTestRunnerUnittests(unittest.TestCase):
     def test_generate_mobly_config_with_testparams(self, yaml_dump, _) -> None:
         """Tests _generate_mobly_config with custom testparams."""
         self.mobly_args.testparam = ['foo=bar']
-        self.runner._generate_mobly_config(self.mobly_args, None, [])
+        self.runner._generate_mobly_config(
+            self.mobly_args, None, MOCK_TEST_FILES)
 
         expected_config = {
             'TestBeds': [{
@@ -262,10 +267,13 @@ class MoblyTestRunnerUnittests(unittest.TestCase):
 
     @mock.patch('builtins.open')
     @mock.patch('yaml.safe_dump')
-    def test_generate_mobly_config_with_test_apks(self, yaml_dump, _) -> None:
-        """Tests _generate_mobly_config with test APKs."""
+    def test_generate_mobly_config_with_test_files(self, yaml_dump, _) -> None:
+        """Tests _generate_mobly_config with test files."""
         test_apks = ['files/my_app1.apk', 'files/my_app2.apk']
-        self.runner._generate_mobly_config(self.mobly_args, None, test_apks)
+        misc_data = ['files/some_file.txt']
+        test_files = mobly_test_runner.MoblyTestFiles(
+            '', '', test_apks, misc_data)
+        self.runner._generate_mobly_config(self.mobly_args, None, test_files)
 
         expected_config = {
             'TestBeds': [{
@@ -277,6 +285,7 @@ class MoblyTestRunnerUnittests(unittest.TestCase):
                     'files': {
                         'my_app1': ['files/my_app1.apk'],
                         'my_app2': ['files/my_app2.apk'],
+                        'some_file.txt': ['files/some_file.txt'],
                     },
                 }
             }],
