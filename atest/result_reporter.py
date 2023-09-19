@@ -89,6 +89,7 @@ BENCHMARK_OPTIONAL_KEYS = {'bytes_per_second', 'label'}
 BENCHMARK_EVENT_KEYS = BENCHMARK_ESSENTIAL_KEYS.union(BENCHMARK_OPTIONAL_KEYS)
 INT_KEYS = {'cpu_time', 'real_time'}
 ITER_SUMMARY = {}
+ITER_COUNTS = {}
 
 class PerfInfo():
     """Class for storing performance test of a test run."""
@@ -360,6 +361,22 @@ class ResultReporter:
             summary_list.extend(run_summary)
             ITER_SUMMARY[run_num] = summary_list
 
+    def get_iterations_summary(self):
+        """Print sum of iterations."""
+        total_summary = ''
+        for key, value in ITER_COUNTS.items():
+            total_summary += ('%s: %s: %s, %s: %s, %s: %s, %s: %s\n'
+                              % (key,
+                                 'Passed',
+                                 value.get('passed', 0),
+                                 'Failed',
+                                 value.get('failed', 0),
+                                 'Ignored',
+                                 value.get('ignored', 0),
+                                 'Assumption_failed',
+                                 value.get('assumption_failed', 0),))
+        return f"{au.delimiter('-', 7)}\nITERATIONS RESULT\n{total_summary}"
+
     # pylint: disable=too-many-branches
     def print_summary(self):
         """Print summary of all test runs.
@@ -389,6 +406,8 @@ class ResultReporter:
                                   constants.BLUE))
             for summary in summary_list:
                 print(summary)
+        if iterations > 1:
+            print(self.get_iterations_summary())
         failed_sum = len(self.failed_tests)
         for runner_name, groups in self.runners.items():
             if groups == UNSUPPORTED_FLAG:
@@ -604,6 +623,14 @@ class ResultReporter:
                             print(' ' * 2 + str(line), end='')
         elif stats.failed == 0:
             passed_label = au.colorize(passed_label, constants.GREEN)
+        temp = ITER_COUNTS.get(name, {})
+        temp['passed'] = temp.get('passed', 0) + stats.passed
+        temp['failed'] = temp.get('failed', 0) + stats.failed
+        temp['ignored'] = temp.get('ignored', 0) + stats.ignored
+        temp['assumption_failed'] = (temp.get('assumption_failed', 0)
+                                     + stats.assumption_failed)
+        ITER_COUNTS[name] = temp
+
         summary = ('%s: %s: %s, %s: %s, %s: %s, %s: %s, %s %s %s %s'
                    % (name,
                       passed_label,
