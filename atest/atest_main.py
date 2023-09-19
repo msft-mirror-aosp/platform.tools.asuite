@@ -930,6 +930,18 @@ def _is_auto_shard_test(test_infos):
             return True
     return False
 
+def _send_start_event(argv: List[Any], tests: List[str]):
+    """Send AtestStartEvent to metrics"""
+    os_pyver = (f'{platform.platform()}:{platform.python_version()}/'
+                f'{atest_utils.get_manifest_branch(True)}:'
+                f'{atest_utils.get_atest_version()}')
+    metrics.AtestStartEvent(
+        command_line=' '.join(argv),
+        test_references=tests,
+        cwd=os.getcwd(),
+        os=os_pyver,
+    )
+
 
 # pylint: disable=too-many-statements
 # pylint: disable=too-many-branches
@@ -960,14 +972,7 @@ def main(
     _configure_logging(args.verbose, results_dir)
     _validate_args(args)
     metrics_utils.get_start_time()
-    os_pyver = (f'{platform.platform()}:{platform.python_version()}/'
-                f'{atest_utils.get_manifest_branch(True)}:'
-                f'{atest_utils.get_atest_version()}')
-    metrics.AtestStartEvent(
-        command_line=' '.join(argv),
-        test_references=args.tests,
-        cwd=os.getcwd(),
-        os=os_pyver)
+    _send_start_event(argv, args.tests)
     _non_action_validator(args)
 
     proc_acloud, report_file = None, None
