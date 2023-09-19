@@ -2208,50 +2208,6 @@ def _send_build_condition_metrics(
         send_data(other)
 
 
-def get_local_auto_shardable_tests():
-    """Get the auto shardable test names in shardable file.
-
-    The path will be ~/.atest/auto_shard/local_auto_shardable_tests
-
-    Returns:
-        A list of auto shardable test names.
-    """
-    shardable_tests_file = Path(get_misc_dir()).joinpath(
-        '.atest/auto_shard/local_auto_shardable_tests')
-    if not shardable_tests_file.exists():
-        return []
-    return open(shardable_tests_file, 'r', encoding='utf-8').read().split()
-
-def update_shardable_tests(test_name: str, run_time_in_sec: int):
-    """Update local_auto_shardable_test file.
-
-    Strategy:
-        - Determine to add the module by the run time > 10 mins.
-        - local_auto_shardable_test file path :
-            ~/.atest/auto_shard/local_auto_shardable_tests
-        - The file content template is module name per line:
-            <module1>
-            <module2>
-            ...
-    """
-    if run_time_in_sec < 600:
-        return
-    shardable_tests = get_local_auto_shardable_tests()
-    if test_name not in shardable_tests:
-        shardable_tests.append(test_name)
-        logging.info('%s takes %ss (> 600s) to finish. Adding to shardable '
-                    'test list.', test_name, run_time_in_sec)
-
-    if not shardable_tests:
-        logging.info('No shardable tests to run.')
-        return
-    shardable_dir = Path(get_misc_dir()).joinpath('.atest/auto_shard')
-    shardable_dir.mkdir(parents=True, exist_ok=True)
-    shardable_tests_file = shardable_dir.joinpath('local_auto_shardable_tests')
-    with open(shardable_tests_file, 'w', encoding='utf-8') as file:
-        file.write('\n'.join(shardable_tests))
-
-
 def contains_brackets(string: str, pair: bool=True) -> bool:
     """
     Determines whether a given string contains (pairs of) brackets.

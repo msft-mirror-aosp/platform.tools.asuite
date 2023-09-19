@@ -435,7 +435,6 @@ ROBOLEAF_UNSUPPORTED_FLAGS = {
         "build up-to-date, so it is unnecessary to specify steps to avoid the build. "
         "Remove this flag."
     ),
-    'auto_sharding': UnsupportedFlag(lambda d, v: d != v, ""),
     'all_abi': UnsupportedFlag(
         lambda d, v: d != v,
         "Bazel will run tests for the current target product's ABI. Remove this flag."),
