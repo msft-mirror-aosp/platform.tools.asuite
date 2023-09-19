@@ -27,6 +27,7 @@ import pickle
 import re
 import shutil
 import subprocess
+import sys
 import tempfile
 import time
 import xml.etree.ElementTree as ET
@@ -34,7 +35,7 @@ import xml.etree.ElementTree as ET
 from contextlib import contextmanager
 from enum import unique, Enum
 from pathlib import Path
-from typing import Any, Dict, Iterable, List, Tuple
+from typing import Any, Dict, Iterable, List, Set, Tuple
 
 from atest import atest_error
 from atest import atest_utils
@@ -389,10 +390,10 @@ def extract_test_path(output, methods=None):
         # "locate" output path for both java/cc.
         elif not methods or has_method_in_file(test, methods):
             verified_tests.add(test)
-    return extract_test_from_tests(sorted(list(verified_tests)))
+    return extract_selected_tests(sorted(list(verified_tests)))
 
 
-def extract_test_from_tests(tests: Iterable, default_all=False) -> List[str]:
+def extract_selected_tests(tests: Iterable, default_all=False) -> List[str]:
     """Extract the test path from the tests.
 
     Return the test to run from tests. If more than one option, prompt the user
@@ -412,37 +413,82 @@ def extract_test_from_tests(tests: Iterable, default_all=False) -> List[str]:
     count = len(tests)
     if default_all or count <= 1:
         return tests if count else None
-    mtests = set()
-    try:
-        numbered_list = ['%s: %s' % (i, t) for i, t in enumerate(tests)]
-        numbered_list.append('%s: All' % count)
-        start_prompt = time.time()
-        print('Multiple tests found:\n{0}'.format('\n'.join(numbered_list)))
-        test_indices = input("Please enter numbers of test to use. If none of "
-                             "above option matched, keep searching for other "
-                             "possible tests.\n(multiple selection is supported, "
-                             "e.g. '1' or '0,1' or '0-2'): ")
-        for idx in re.sub(r'(\s)', '', test_indices).split(','):
-            indices = idx.split('-')
-            len_indices = len(indices)
-            if len_indices > 0:
-                start_index = min(int(indices[0]), int(indices[len_indices-1]))
-                end_index = max(int(indices[0]), int(indices[len_indices-1]))
-                # One of input is 'All', return all options.
-                if count in (start_index, end_index):
-                    metrics.LocalDetectEvent(
-                        detect_type=DetectType.INTERACTIVE_SELECTION,
-                        result=int(time.time() - start_prompt))
-                    return tests
-                mtests.update(tests[start_index:(end_index+1)])
+
+    extracted_tests = set()
+    # Establish 'All' and 'Quit' options in the numbered test menu.
+    auxiliary_menu = ['All', 'Quit']
+    _tests = tests.copy()
+    _tests.extend(auxiliary_menu)
+    numbered_list = ['%s: %s' % (i, t) for i, t in enumerate(_tests)]
+    all_index = len(numbered_list) - auxiliary_menu[::-1].index('All') - 1
+    quit_index = len(numbered_list) - auxiliary_menu[::-1].index('Quit') - 1
+    print('Multiple tests found:\n{0}'.format('\n'.join(numbered_list)))
+
+    start_prompt = time.time()
+    test_indices = get_multiple_selection_answer()
+    if test_indices:
+        selections = get_selected_indices(test_indices,
+                                          limit=len(numbered_list)-1)
+        if all_index in selections:
+            extracted_tests = tests
+        elif quit_index in selections:
+            atest_utils.colorful_print('Abort selection.', constants.RED)
+            sys.exit(0)
+        else:
+            extracted_tests = {tests[s] for s in selections}
         metrics.LocalDetectEvent(
             detect_type=DetectType.INTERACTIVE_SELECTION,
             result=int(time.time() - start_prompt))
+
+    return list(extracted_tests)
+
+
+def get_multiple_selection_answer() -> str:
+    """Get the answer from the user input."""
+    try:
+        return input("Please enter numbers of test to use. If none of the above"
+                     "options matched, keep searching for other possible tests."
+                     "\n(multiple selection is supported, "
+                     "e.g. '1' or '0,1' or '0-2'): ")
+    except KeyboardInterrupt:
+        atest_utils.colorful_print('Abort selection.', constants.RED)
+        return None
+
+
+def get_selected_indices(string: str, limit: int = None) -> Set[int]:
+    """Method which flattens and dedups the given string to a set of integer.
+
+    This method is also capable to convert '5-2' to {2,3,4,5}. e.g.
+    '0, 2-5, 5-3' -> {0, 2, 3, 4, 5}
+
+    If the given string contains non-numerical string, returns an empty set.
+
+    Args:
+        string: a given string, e.g. '0, 2-5'
+        limit: an integer that every parsed number cannot exceed.
+
+    Returns:
+        A set of integer. If one of the parsed number exceeds the limit, or
+        invalid string such as '2-5-7', returns an empty set instead.
+    """
+    selections = set()
+    try:
+        for num_str in re.sub(r'\s', '', string).split(','):
+            ranged_num_str = num_str.split('-')
+            if len(ranged_num_str) == 2:
+                start = min([int(n) for n in ranged_num_str])
+                end = max([int(n) for n in ranged_num_str])
+                selections |= {n for n in range(start, end+1)}
+            elif len(ranged_num_str) == 1:
+                selections.add(int(num_str))
+        if limit and any(n for n in selections if n > limit):
+            raise ValueError
     except (ValueError, IndexError, AttributeError, TypeError) as err:
         logging.debug('%s', err)
-        print('None of above option matched, keep searching for other'
-              ' possible tests...')
-    return list(mtests)
+        atest_utils.colorful_print('Invalid input detected.', constants.RED)
+        return set()
+
+    return selections
 
 
 def run_find_cmd(ref_type, search_dir, target, methods=None):
@@ -907,7 +953,7 @@ def search_integration_dirs(name, int_dirs):
                                   name)
         if test_paths:
             test_files.extend(test_paths)
-    return extract_test_from_tests(test_files)
+    return extract_selected_tests(test_files)
 
 
 def get_int_dir_from_path(path, int_dirs):
