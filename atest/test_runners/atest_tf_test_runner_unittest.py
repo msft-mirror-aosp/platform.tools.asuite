@@ -193,10 +193,7 @@ ANDROID_HOST_OUT = '/my/android/out/host/abc'
 class AtestTradefedTestRunnerUnittests(unittest.TestCase):
     """Unit tests for atest_tf_test_runner.py"""
 
-    #pylint: disable=arguments-differ
-    @mock.patch.object(atf_tr.AtestTradefedTestRunner, '_get_ld_library_path')
-    def setUp(self, mock_get_ld_library_path):
-        mock_get_ld_library_path.return_value = RUN_ENV_STR
+    def setUp(self):
         self.tr = atf_tr.AtestTradefedTestRunner(results_dir=uc.TEST_INFO_DIR)
         if not atest_configs.GLOBAL_ARGS:
             atest_configs.GLOBAL_ARGS = Namespace()

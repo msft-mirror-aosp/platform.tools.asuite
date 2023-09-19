@@ -446,7 +446,6 @@ ROBOLEAF_UNSUPPORTED_FLAGS = {
     'no_enable_root': UnsupportedFlag(lambda d, v: d != v, ""),
     'sharding': UnsupportedFlag(lambda d, v: d != v, ""),
     'use_modules_in': UnsupportedFlag(lambda d, v: d != v, ""),
-    'auto_ld_library_path': UnsupportedFlag(lambda d, v: d != v, ""),
     'request_upload_result': UnsupportedFlag(lambda d, v: d != v, ""),
     'disable_upload_result': UnsupportedFlag(lambda d, v: d != v, ""),
     'smart_testing_local': UnsupportedFlag(lambda d, v: d != v, ""),
