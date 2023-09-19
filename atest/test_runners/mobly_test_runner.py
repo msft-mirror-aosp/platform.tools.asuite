@@ -118,10 +118,20 @@ _MOBLY_RESULT_TO_TEST_STORAGE_STATUS = {
 
 @dataclasses.dataclass
 class MoblyTestFiles:
-    """Data class representing required files for a Mobly test."""
+    """Data class representing required files for a Mobly test.
+
+    Attributes:
+        mobly_pkg: The executable Mobly test package. Main build output of
+            python_test_host.
+        requirements_txt: Optional file with name `requirements.txt` used to
+            declare pip dependencies.
+        test_apks: Files ending with `.apk`. APKs used by the test.
+        misc_data: All other files contained in the test target's `data`.
+    """
     mobly_pkg: str
     requirements_txt: Optional[str]
     test_apks: List[str]
+    misc_data: List[str]
 
 
 @dataclasses.dataclass(frozen=True)
@@ -315,7 +325,7 @@ class MoblyTestRunner(test_runner_base.TestRunnerBase):
                 if constants.DISABLE_INSTALL not in extra_args:
                     self._install_apks(test_files.test_apks, serials)
                 mobly_config = self._generate_mobly_config(
-                    mobly_args, serials, test_files.test_apks)
+                    mobly_args, serials, test_files)
 
                 # Generate command and run
                 test_cases = self._get_test_cases_from_spec(tinfo)
@@ -396,6 +406,7 @@ class MoblyTestRunner(test_runner_base.TestRunnerBase):
         mobly_pkg = None
         requirements_txt = None
         test_apks = []
+        misc_data = []
         logging.debug('Getting test resource files for %s', tinfo.test_name)
         for path in tinfo.data.get(constants.MODULE_INSTALLED):
             path_str = str(path.expanduser().absolute())
@@ -409,15 +420,16 @@ class MoblyTestRunner(test_runner_base.TestRunnerBase):
             elif path.suffix == FILE_SUFFIX_APK:
                 test_apks.append(path_str)
             else:
-                continue
+                misc_data.append(path_str)
             logging.debug('Found test resource file %s.', path_str)
         if mobly_pkg is None:
             raise MoblyTestRunnerError(_ERROR_NO_MOBLY_TEST_PKG)
-        return MoblyTestFiles(mobly_pkg, requirements_txt, test_apks)
+        return MoblyTestFiles(
+            mobly_pkg, requirements_txt, test_apks, misc_data)
 
     def _generate_mobly_config(
             self, mobly_args: argparse.Namespace,
-            serials: List[str], test_apks: List[str]) -> str:
+            serials: List[str], test_files: MoblyTestFiles) -> str:
         """Creates a Mobly YAML config given the test parameters.
 
         If --config is specified, use that file as the testbed config.
@@ -429,15 +441,15 @@ class MoblyTestRunner(test_runner_base.TestRunnerBase):
         param as a key-value pair under the testbed config's 'TestParams'.
         Values are limited to strings.
 
-        Test APK paths will be added to 'files' under 'TestParams' so they could
-        be accessed from the test script.
+        Test resource paths (e.g. APKs) will be added to 'files' under
+        'TestParams' so they could be accessed from the test script.
 
         Also set the Mobly results dir to <atest_results>/mobly_logs.
 
         Args:
             mobly_args: Custom args for the Mobly runner.
             serials: List of device serials.
-            test_apks: List of paths to test APKs.
+            test_files: Files used by the Mobly test.
 
         Returns:
             Path to the generated config.
@@ -463,10 +475,17 @@ class MoblyTestRunner(test_runner_base.TestRunnerBase):
                               for param in mobly_args.testparam]))
                 except ValueError as e:
                     raise MoblyTestRunnerError(_ERROR_INVALID_TESTPARAMS) from e
-            if test_apks:
-                local_testbed[CONFIG_KEY_TEST_PARAMS][CONFIG_KEY_FILES] = {
-                    Path(test_apk).stem: [test_apk] for test_apk in test_apks
-                }
+            if test_files.test_apks or test_files.misc_data:
+                files = {}
+                files.update(
+                    {Path(test_apk).stem: [test_apk] for test_apk in
+                     test_files.test_apks}
+                )
+                files.update(
+                    {Path(misc_file).name: [misc_file] for misc_file in
+                     test_files.misc_data}
+                )
+                local_testbed[CONFIG_KEY_TEST_PARAMS][CONFIG_KEY_FILES] = files
             config = {
                 CONFIG_KEY_TESTBEDS: [local_testbed],
             }
