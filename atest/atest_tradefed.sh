@@ -57,7 +57,7 @@ TF_CORE_DIR=$ANDROID_BUILD_TOP/tools/tradefederation/core
 if [ ! -d $TF_CORE_DIR ]; then
     TF_DIR=$ANDROID_BUILD_TOP/tools/tradefederation/prebuilts/filegroups
     GTF_DIR=$ANDROID_BUILD_TOP/vendor/google_tradefederation/prebuilts/filegroups
-    PREBUILT_JARS=$(find $TF_DIR $GTF_DIR -type f -name *.jar 2>/dev/null)
+    PREBUILT_JARS=$(find $TF_DIR $GTF_DIR -type f -name '*.jar' 2>/dev/null)
     if [ -n "$PREBUILT_JARS" ]; then
         for jar in $PREBUILT_JARS; do
             TF_PATH+=":$jar"
