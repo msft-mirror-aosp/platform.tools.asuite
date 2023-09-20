@@ -82,7 +82,6 @@ ENABLE_DEVICE_PREPARER = ('Enable template/preparers/device-preparer as the '
                           'default preparer.')
 ENABLE_FILE_PATTERNS = 'Enable FILE_PATTERNS in TEST_MAPPING.'
 FLAKES_INFO = 'Test result with flakes info.'
-FUZZY_SEARCH = 'Running fuzzy search when test not found. (implicit True)'
 GENERATE_RUNNER_CMD = 'Generate the runner command(s) of given tests.'
 HISTORY = ('Show test results in chronological order(with specified number or '
            'all by default).')
@@ -296,13 +295,6 @@ class AtestArgParser(argparse.ArgumentParser):
                           type=BuildOutputMode,
                           help=BUILD_OUTPUT)
 
-        # Options that switch on/off fuzzy searching.
-        fgroup = self.add_mutually_exclusive_group()
-        fgroup.add_argument('--no-fuzzy-search', action='store_false',
-                            default=True, dest='fuzzy_search', help=FUZZY_SEARCH)
-        fgroup.add_argument('--fuzzy-search', action='store_true',
-                            help=FUZZY_SEARCH)
-
         # Options that to do with acloud/AVDs.
         agroup = self.add_mutually_exclusive_group()
         agroup.add_argument('--acloud-create', nargs=argparse.REMAINDER,
@@ -457,7 +449,6 @@ def print_epilog_text():
         NO_ENABLE_ROOT=NO_ENABLE_ROOT,
         NO_METRICS=NO_METRICS,
         NO_CHECKING_DEVICE=NO_CHECKING_DEVICE,
-        FUZZY_SEARCH=FUZZY_SEARCH,
         REBUILD_MODULE_INFO=REBUILD_MODULE_INFO,
         ROBOLEAF_MODE=ROBOLEAF_MODE,
         REQUEST_UPLOAD_RESULT=REQUEST_UPLOAD_RESULT,
@@ -651,9 +642,6 @@ OPTIONS
 
         -L, --list-modules
             {LIST_MODULES}
-
-        --[no-]fuzzy-search
-            {FUZZY_SEARCH}
 
         --latest-result
             {LATEST_RESULT}
