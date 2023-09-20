@@ -672,8 +672,7 @@ class AtestTradefedTestRunner(trb.TestRunnerBase):
         Returns:
             Tuple of args to append and args not supported.
         """
-        args_to_append, args_not_supported = extra_args_to_tf_args(
-            self.module_info, test_infos, extra_args)
+        args_to_append, args_not_supported = extra_args_to_tf_args(extra_args)
 
         # Set exclude instant app annotation for non-instant mode run.
         if (constants.INSTANT not in extra_args and
@@ -1194,15 +1193,11 @@ def generate_annotation_filter_args(
 
 
 def extra_args_to_tf_args(
-    mod_info: module_info.ModuleInfo,
-    test_infos: List[test_info.TestInfo],
     extra_args: Dict[str, Any],
 ) -> Tuple[Dict[str, Any], Dict[str, Any]]:
     """Convert the extra args into atest_tf_test_runner supported args.
 
     Args:
-        mod_info: ModuleInfo object.
-        test_infos: A set of TestInfo instances.
         extra_args: Dict of args
 
     Returns:
@@ -1228,10 +1223,10 @@ def extra_args_to_tf_args(
         constants.DISABLE_INSTALL:
             constant_list('--disable-target-preparers'),
         constants.SERIAL:
-            lambda arg_value, *_:
+            lambda arg_value:
             [j for d in arg_value for j in ('--serial', d)],
         constants.SHARDING:
-            lambda arg_value, *_: ['--shard-count',
+            lambda arg_value: ['--shard-count',
                                    str(arg_value)],
         constants.DISABLE_TEARDOWN:
             constant_list('--disable-teardown'),
@@ -1240,31 +1235,31 @@ def extra_args_to_tf_args(
                           '--skip-host-arch-check'),
         constants.CUSTOM_ARGS:
             # custom args value is a list.
-            lambda arg_value, *_: arg_value,
+            lambda arg_value: arg_value,
         constants.ALL_ABI:
             constant_list('--all-abi'),
         constants.INSTANT:
             constant_list(constants.TF_ENABLE_PARAMETERIZED_MODULES,
                           constants.TF_MODULE_PARAMETER, 'instant_app'),
         constants.USER_TYPE:
-            lambda arg_value, *_: [
+            lambda arg_value: [
                 constants.TF_ENABLE_PARAMETERIZED_MODULES,
                 '--enable-optional-parameterization',
                 constants.TF_MODULE_PARAMETER,
                 str(arg_value)
             ],
         constants.ITERATIONS:
-            lambda arg_value, *_: [
+            lambda arg_value: [
                 '--retry-strategy', constants.ITERATIONS,
                 '--max-testcase-run-count', str(arg_value)
             ],
         constants.RERUN_UNTIL_FAILURE:
-            lambda arg_value, *_: [
+            lambda arg_value: [
                 '--retry-strategy', constants.RERUN_UNTIL_FAILURE,
                 '--max-testcase-run-count', str(arg_value)
             ],
         constants.RETRY_ANY_FAILURE:
-            lambda arg_value, *_: [
+            lambda arg_value: [
                 '--retry-strategy', constants.RETRY_ANY_FAILURE,
                 '--max-testcase-run-count', str(arg_value)
             ],
@@ -1277,7 +1272,7 @@ def extra_args_to_tf_args(
         constants.ANNOTATION_FILTER:
             generate_annotation_filter_args,
         constants.TEST_FILTER:
-            lambda arg_value, *_: [
+            lambda arg_value: [
                 '--test-arg',
                 'com.android.tradefed.testtype.AndroidJUnitTest:'
                 f'include-filter:{arg_value}',
@@ -1289,7 +1284,7 @@ def extra_args_to_tf_args(
                 f'--gtest_filter={arg_value}'
             ],
         constants.TEST_TIMEOUT:
-            lambda arg_value, *_: [
+            lambda arg_value: [
                 '--test-arg',
                 'com.android.tradefed.testtype.AndroidJUnitTest:'
                 f'shell-timeout:{arg_value}',
@@ -1311,8 +1306,7 @@ def extra_args_to_tf_args(
 
     for arg in extra_args:
         if arg in supported_tf_args:
-            tf_args = supported_tf_args[arg](extra_args[arg], mod_info,
-                                             test_infos)
+            tf_args = supported_tf_args[arg](extra_args[arg])
             if tf_args:
                 supported_args.extend(tf_args)
             continue
