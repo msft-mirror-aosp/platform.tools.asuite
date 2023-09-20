@@ -409,6 +409,8 @@ REQUIRE_DEVICES_MSG = (
 # Default shard num.
 SHARD_NUM = 2
 
+ROBOLEAF_TEST_FILTER = 'roboleaf_test_filter'
+
 # Flags which roboleaf mode already supported:
 #   --iterations, --rerun-until-failure, --retry-any-failure, --verbose,
 #   --bazel-arg, --, --wait-for-debugger, --host
