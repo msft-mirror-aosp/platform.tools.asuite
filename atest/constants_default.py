@@ -462,7 +462,6 @@ ROBOLEAF_UNSUPPORTED_FLAGS = {
     'version': UnsupportedFlag(lambda d, v: d != v, ""),
     'help': UnsupportedFlag(lambda d, v: d != v, ""),
     'build_output': UnsupportedFlag(lambda d, v: d != v, ""),
-    'fuzzy_search': UnsupportedFlag(lambda d, v: d != v, ""),
     'acloud_create': UnsupportedFlag(lambda d, v: d != v, ""),
     'start_avd': UnsupportedFlag(lambda d, v: d != v, ""),
     'serial': UnsupportedFlag(lambda d, v: d != v, ""),
