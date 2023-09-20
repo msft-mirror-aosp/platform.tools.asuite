@@ -634,9 +634,8 @@ class CLITranslator:
             A tuple with set of build_target strings and list of TestInfos.
         """
         tests = args.tests
-        # Disable fuzzy searching when running with test mapping related args.
-        self.fuzzy_search = args.fuzzy_search
         detect_type = DetectType.TEST_WITH_ARGS
+        # Disable fuzzy searching when running with test mapping related args.
         if not args.tests or atest_utils.is_test_mapping(args):
             self.fuzzy_search = False
             detect_type = DetectType.TEST_NULL_ARGS
