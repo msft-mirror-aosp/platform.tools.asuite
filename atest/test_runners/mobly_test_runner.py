@@ -24,6 +24,7 @@ import shlex
 import shutil
 import subprocess
 import tempfile
+import time
 from typing import Any, Dict, List, Optional, Set
 
 import yaml
@@ -33,6 +34,10 @@ from atest import atest_enum
 from atest import atest_utils
 from atest import constants
 from atest import result_reporter
+
+from atest.logstorage import atest_gcp_utils
+from atest.logstorage import logstorage_utils
+from atest.metrics import metrics
 from atest.test_finders import test_info
 from atest.test_runners import test_runner_base
 
@@ -84,22 +89,49 @@ SUMMARY_RESULT_PASS = 'PASS'
 SUMMARY_RESULT_FAIL = 'FAIL'
 SUMMARY_RESULT_SKIP = 'SKIP'
 SUMMARY_RESULT_ERROR = 'ERROR'
+SUMMARY_KEY_DETAILS = 'Details'
 SUMMARY_KEY_STACKTRACE = 'Stacktrace'
 
-MOBLY_RESULT_TO_STATUS = {
+TEST_STORAGE_PASS = 'pass'
+TEST_STORAGE_FAIL = 'fail'
+TEST_STORAGE_IGNORED = 'ignored'
+TEST_STORAGE_ERROR = 'testError'
+TEST_STORAGE_STATUS_UNSPECIFIED = 'testStatusUnspecified'
+
+WORKUNIT_ATEST_MOBLY_RUNNER = 'ATEST_MOBLY_RUNNER'
+WORKUNIT_ATEST_MOBLY_TEST_RUN = 'ATEST_MOBLY_TEST_RUN'
+
+_MOBLY_RESULT_TO_RESULT_REPORTER_STATUS = {
     SUMMARY_RESULT_PASS: test_runner_base.PASSED_STATUS,
     SUMMARY_RESULT_FAIL: test_runner_base.FAILED_STATUS,
     SUMMARY_RESULT_SKIP: test_runner_base.IGNORED_STATUS,
     SUMMARY_RESULT_ERROR: test_runner_base.FAILED_STATUS
 }
 
+_MOBLY_RESULT_TO_TEST_STORAGE_STATUS = {
+    SUMMARY_RESULT_PASS: TEST_STORAGE_PASS,
+    SUMMARY_RESULT_FAIL: TEST_STORAGE_FAIL,
+    SUMMARY_RESULT_SKIP: TEST_STORAGE_IGNORED,
+    SUMMARY_RESULT_ERROR: TEST_STORAGE_ERROR
+}
+
 
 @dataclasses.dataclass
 class MoblyTestFiles:
-    """Data class representing required files for a Mobly test."""
+    """Data class representing required files for a Mobly test.
+
+    Attributes:
+        mobly_pkg: The executable Mobly test package. Main build output of
+            python_test_host.
+        requirements_txt: Optional file with name `requirements.txt` used to
+            declare pip dependencies.
+        test_apks: Files ending with `.apk`. APKs used by the test.
+        misc_data: All other files contained in the test target's `data`.
+    """
     mobly_pkg: str
     requirements_txt: Optional[str]
     test_apks: List[str]
+    misc_data: List[str]
 
 
 @dataclasses.dataclass(frozen=True)
@@ -112,6 +144,138 @@ class RerunOptions:
 
 class MoblyTestRunnerError(Exception):
     """Errors encountered by the MoblyTestRunner."""
+
+
+class MoblyResultUploader:
+    """Uploader for Android Build test storage."""
+
+    def __init__(self, extra_args):
+        """Set up the build client."""
+        self._build_client = None
+        self._test_results = {}
+
+        upload_start = time.monotonic()
+        creds, self._invocation = atest_gcp_utils.do_upload_flow(extra_args)
+        self._root_workunit = None
+        self._current_workunit = None
+        if creds:
+            metrics.LocalDetectEvent(
+                detect_type=atest_enum.DetectType.UPLOAD_FLOW_MS,
+                result=int((time.monotonic() - upload_start) * 1000))
+            self._build_client = logstorage_utils.BuildClient(creds)
+            self._setup_root_workunit()
+        else:
+            logging.debug('Result upload is disabled.')
+
+    def _setup_root_workunit(self):
+        """Create and populate fields for the root workunit."""
+        self._root_workunit = self._build_client.insert_work_unit(
+            self._invocation)
+        self._root_workunit['type'] = WORKUNIT_ATEST_MOBLY_RUNNER
+        self._root_workunit['runCount'] = 0
+
+    @property
+    def enabled(self):
+        """Returns True if the uploader is enabled."""
+        return self._build_client is not None
+
+    @property
+    def invocation(self):
+        """The invocation of the current run."""
+        return self._invocation
+
+    @property
+    def current_workunit(self):
+        """The workunit of the current iteration."""
+        return self._current_workunit
+
+    def start_new_workunit(self):
+        """Create and start a new workunit for the iteration."""
+        if not self.enabled:
+            return
+        self._current_workunit = self._build_client.insert_work_unit(
+            self._invocation)
+        self._current_workunit['type'] = WORKUNIT_ATEST_MOBLY_TEST_RUN
+        self._current_workunit['parentId'] = self._root_workunit['id']
+
+    def set_workunit_iteration_details(
+            self, iteration_num: int, rerun_options: RerunOptions):
+        """Set iteration-related fields in the current workunit.
+
+        Args:
+            iteration_num: Index of the current iteration.
+            rerun_options: Rerun options for the test.
+        """
+        if not self.enabled:
+            return
+        details = {}
+        if rerun_options.retry_any_failure:
+            details['childAttemptNumber'] = iteration_num
+        else:
+            details['childRunNumber'] = iteration_num
+        self._current_workunit.update(details)
+
+    def _finalize_workunit(self, workunit: Dict[str, Any]):
+        """Finalize the specified workunit."""
+        workunit['schedulerState'] = 'completed'
+        logging.debug('Finalizing workunit: %s', workunit)
+        self._build_client.client.workunit().update(
+            resourceId=workunit['id'],
+            body=workunit
+        )
+        if workunit is not self._root_workunit:
+            self._root_workunit['runCount'] += 1
+
+    def finalize_current_workunit(self):
+        """Finalize the workunit for the current iteration."""
+        if not self.enabled:
+            return
+        self._finalize_workunit(self._current_workunit)
+        self._current_workunit = None
+
+    def record_test_result(self, test_result):
+        """Record a test result to be uploaded."""
+        test_identifier = test_result['testIdentifier']
+        class_method = (
+            f'{test_identifier["testClass"]}.{test_identifier["method"]}')
+        self._test_results[class_method] = test_result
+
+    def upload_test_results(self):
+        """Bulk upload all recorded test results."""
+        if not (self.enabled and self._test_results):
+            return
+        response = self._build_client.client.testresult().bulkinsert(
+            invocationId=self._invocation['invocationId'],
+            body={'testResults': list(self._test_results.values())}).execute()
+        logging.debug('Uploaded test results: %s', response)
+        self._test_results.clear()
+
+    def finalize_invocation(self):
+        """Set the root work unit and invocation as complete."""
+        if not self.enabled:
+            return
+        self._finalize_workunit(self._root_workunit)
+        self.invocation['runner'] = 'mobly'
+        self.invocation['schedulerState'] = 'completed'
+        logging.debug('Finalizing invocation: %s', self.invocation)
+        self._build_client.update_invocation(self.invocation)
+        self._build_client = None
+
+    def add_result_link(self, reporter: result_reporter.ResultReporter):
+        """Add the invocation link to the result reporter.
+
+        Args:
+            reporter: The result reporter to add to.
+        """
+        new_result_link = (
+                constants.RESULT_LINK % self._invocation['invocationId'])
+        if isinstance(reporter.test_result_link, list):
+            reporter.test_result_link.append(new_result_link)
+        elif isinstance(reporter.test_result_link, str):
+            reporter.test_result_link = [
+                reporter.test_result_link, new_result_link]
+        else:
+            reporter.test_result_link = [new_result_link]
 
 
 class MoblyTestRunner(test_runner_base.TestRunnerBase):
@@ -147,6 +311,9 @@ class MoblyTestRunner(test_runner_base.TestRunnerBase):
         ret_code = atest_enum.ExitCode.SUCCESS
         rerun_options = self._get_rerun_options(extra_args)
 
+        reporter.silent = False
+        uploader = MoblyResultUploader(extra_args)
+
         for tinfo in test_infos:
             try:
                 # Pre-test setup
@@ -158,7 +325,7 @@ class MoblyTestRunner(test_runner_base.TestRunnerBase):
                 if constants.DISABLE_INSTALL not in extra_args:
                     self._install_apks(test_files.test_apks, serials)
                 mobly_config = self._generate_mobly_config(
-                    mobly_args, serials, test_files.test_apks)
+                    mobly_args, serials, test_files)
 
                 # Generate command and run
                 test_cases = self._get_test_cases_from_spec(tinfo)
@@ -166,9 +333,13 @@ class MoblyTestRunner(test_runner_base.TestRunnerBase):
                     py_executable, test_files.mobly_pkg, mobly_config,
                     test_cases, mobly_args)
                 ret_code |= self._run_and_handle_results(
-                    mobly_command, tinfo, reporter, rerun_options, mobly_args)
+                    mobly_command, tinfo, rerun_options, mobly_args, reporter,
+                    uploader)
             finally:
                 self._cleanup()
+                if uploader.enabled:
+                    uploader.finalize_invocation()
+                    uploader.add_result_link(reporter)
         return ret_code
 
     def host_env_check(self) -> None:
@@ -235,6 +406,7 @@ class MoblyTestRunner(test_runner_base.TestRunnerBase):
         mobly_pkg = None
         requirements_txt = None
         test_apks = []
+        misc_data = []
         logging.debug('Getting test resource files for %s', tinfo.test_name)
         for path in tinfo.data.get(constants.MODULE_INSTALLED):
             path_str = str(path.expanduser().absolute())
@@ -248,15 +420,16 @@ class MoblyTestRunner(test_runner_base.TestRunnerBase):
             elif path.suffix == FILE_SUFFIX_APK:
                 test_apks.append(path_str)
             else:
-                continue
+                misc_data.append(path_str)
             logging.debug('Found test resource file %s.', path_str)
         if mobly_pkg is None:
             raise MoblyTestRunnerError(_ERROR_NO_MOBLY_TEST_PKG)
-        return MoblyTestFiles(mobly_pkg, requirements_txt, test_apks)
+        return MoblyTestFiles(
+            mobly_pkg, requirements_txt, test_apks, misc_data)
 
     def _generate_mobly_config(
             self, mobly_args: argparse.Namespace,
-            serials: List[str], test_apks: List[str]) -> str:
+            serials: List[str], test_files: MoblyTestFiles) -> str:
         """Creates a Mobly YAML config given the test parameters.
 
         If --config is specified, use that file as the testbed config.
@@ -268,15 +441,15 @@ class MoblyTestRunner(test_runner_base.TestRunnerBase):
         param as a key-value pair under the testbed config's 'TestParams'.
         Values are limited to strings.
 
-        Test APK paths will be added to 'files' under 'TestParams' so they could
-        be accessed from the test script.
+        Test resource paths (e.g. APKs) will be added to 'files' under
+        'TestParams' so they could be accessed from the test script.
 
         Also set the Mobly results dir to <atest_results>/mobly_logs.
 
         Args:
             mobly_args: Custom args for the Mobly runner.
             serials: List of device serials.
-            test_apks: List of paths to test APKs.
+            test_files: Files used by the Mobly test.
 
         Returns:
             Path to the generated config.
@@ -302,10 +475,17 @@ class MoblyTestRunner(test_runner_base.TestRunnerBase):
                               for param in mobly_args.testparam]))
                 except ValueError as e:
                     raise MoblyTestRunnerError(_ERROR_INVALID_TESTPARAMS) from e
-            if test_apks:
-                local_testbed[CONFIG_KEY_TEST_PARAMS][CONFIG_KEY_FILES] = {
-                    Path(test_apk).stem: [test_apk] for test_apk in test_apks
-                }
+            if test_files.test_apks or test_files.misc_data:
+                files = {}
+                files.update(
+                    {Path(test_apk).stem: [test_apk] for test_apk in
+                     test_files.test_apks}
+                )
+                files.update(
+                    {Path(misc_file).name: [misc_file] for misc_file in
+                     test_files.misc_data}
+                )
+                local_testbed[CONFIG_KEY_TEST_PARAMS][CONFIG_KEY_FILES] = files
             config = {
                 CONFIG_KEY_TESTBEDS: [local_testbed],
             }
@@ -439,22 +619,25 @@ class MoblyTestRunner(test_runner_base.TestRunnerBase):
             command += ['--tests', *test_cases]
         return command
 
+    # pylint: disable=broad-except
+    # pylint: disable=too-many-arguments
     def _run_and_handle_results(
             self,
             mobly_command: List[str],
             tinfo: test_info.TestInfo,
-            reporter: result_reporter.ResultReporter,
             rerun_options: RerunOptions,
             mobly_args: argparse.ArgumentParser,
-    ) -> int:
+            reporter: result_reporter.ResultReporter,
+            uploader: MoblyResultUploader) -> int:
         """Runs for the specified number of iterations and handles results.
 
         Args:
             mobly_command: Mobly command to run.
             tinfo: The TestInfo of the test.
-            reporter: The ResultReporter for the test.
             rerun_options: Rerun options for the test.
             mobly_args: Custom args for the Mobly runner.
+            reporter: The ResultReporter for the test.
+            uploader: The MoblyResultUploader used to store results for upload.
 
         Returns:
             0 if tests succeed, non-zero otherwise.
@@ -466,7 +649,12 @@ class MoblyTestRunner(test_runner_base.TestRunnerBase):
             rerun_options.rerun_until_failure, rerun_options.retry_any_failure)
         ret_code = atest_enum.ExitCode.SUCCESS
         for iteration_num in range(rerun_options.iterations):
+            # Set up result reporter and uploader
             reporter.runners.clear()
+            reporter.pre_test = None
+            uploader.start_new_workunit()
+
+            # Run the Mobly test command
             curr_ret_code = self._run_mobly_command(mobly_command)
             ret_code |= curr_ret_code
 
@@ -475,11 +663,19 @@ class MoblyTestRunner(test_runner_base.TestRunnerBase):
                 self.results_dir, MOBLY_LOGS_DIR,
                 mobly_args.testbed or LOCAL_TESTBED,
                 LATEST_DIR, TEST_SUMMARY_YAML)
-            test_results = self._get_test_results_from_summary(
-                summary_file, tinfo, iteration_num, rerun_options.iterations)
+            test_results = self._process_test_results_from_summary(
+                summary_file, tinfo, iteration_num, rerun_options.iterations,
+                uploader)
             for test_result in test_results:
                 reporter.process_test_result(test_result)
             reporter.set_current_summary(iteration_num)
+            try:
+                uploader.upload_test_results()
+                uploader.set_workunit_iteration_details(
+                    iteration_num, rerun_options)
+                uploader.finalize_current_workunit()
+            except Exception as e:
+                logging.debug('Failed to upload test results. Error: %s', e)
 
             # Break if run ending conditions are met
             if ((rerun_options.rerun_until_failure and curr_ret_code != 0) or (
@@ -501,20 +697,25 @@ class MoblyTestRunner(test_runner_base.TestRunnerBase):
             output_to_stdout=bool(atest_configs.GLOBAL_ARGS.verbose))
         return self.wait_for_subprocess(proc)
 
-    def _get_test_results_from_summary(
+    # pylint: disable=too-many-locals
+    def _process_test_results_from_summary(
             self,
             summary_file: str,
             tinfo: test_info.TestInfo,
             iteration_num: int,
-            total_iterations: int
+            total_iterations: int,
+            uploader: MoblyResultUploader
     ) -> List[test_runner_base.TestResult]:
-        """Parses the Mobly summary file into ATest TestResults.
+        """
+        Parses the Mobly summary file into test results for the ResultReporter
+        as well as the MoblyResultUploader.
 
         Args:
             summary_file: Path to the Mobly summary file.
             tinfo: The TestInfo of the test.
             iteration_num: The index of the current iteration.
             total_iterations: The total number of iterations.
+            uploader: The MoblyResultUploader used to store results for upload.
         """
         if not os.path.isfile(summary_file):
             raise MoblyTestRunnerError(_ERROR_NO_TEST_SUMMARY)
@@ -524,31 +725,32 @@ class MoblyTestRunner(test_runner_base.TestRunnerBase):
         with open(summary_file, 'r', encoding='utf-8') as f:
             summary = list(yaml.safe_load_all(f))
 
-        # Populate TestResults
-        test_results = []
+        # Populate test results
+        reported_results = []
         records = [entry for entry in summary
                    if entry[SUMMARY_KEY_TYPE] == SUMMARY_TYPE_RECORD]
-        test_count = 0
-        for record in records:
-            test_count += 1
+        for test_index, record in enumerate(records):
+            # Add result for result reporter
             time_elapsed_ms = 0
             if (record.get(SUMMARY_KEY_END_TIME) is not None
                     and record.get(SUMMARY_KEY_BEGIN_TIME) is not None):
                 time_elapsed_ms = (record[SUMMARY_KEY_END_TIME] -
                                    record[SUMMARY_KEY_BEGIN_TIME])
+            test_run_name = record[SUMMARY_KEY_TEST_CLASS]
             test_name = (f'{record[SUMMARY_KEY_TEST_CLASS]}.'
                          f'{record[SUMMARY_KEY_TEST_NAME]}')
             if total_iterations > 1:
+                test_run_name = f'{test_run_name} (#{iteration_num + 1})'
                 test_name = f'{test_name} (#{iteration_num + 1})'
-            result = {
+            reported_result = {
                 'runner_name': self.NAME,
                 'group_name': tinfo.test_name,
-                'test_run_name': record[SUMMARY_KEY_TEST_CLASS],
+                'test_run_name': test_run_name,
                 'test_name': test_name,
-                'status': MOBLY_RESULT_TO_STATUS.get(
-                    record[SUMMARY_KEY_RESULT], test_runner_base.ERROR_STATUS),
+                'status': get_result_reporter_status_from_mobly_result(
+                    record[SUMMARY_KEY_RESULT]),
                 'details': record[SUMMARY_KEY_STACKTRACE],
-                'test_count': test_count,
+                'test_count': test_index + 1,
                 'group_total': len(records),
                 'test_time': str(
                     datetime.timedelta(milliseconds=time_elapsed_ms)),
@@ -556,8 +758,34 @@ class MoblyTestRunner(test_runner_base.TestRunnerBase):
                 'runner_total': None,
                 'additional_info': {},
             }
-            test_results.append(test_runner_base.TestResult(**result))
-        return test_results
+            reported_results.append(
+                test_runner_base.TestResult(**reported_result))
+
+            # Add result for upload (if enabled)
+            if uploader.enabled:
+                uploaded_result = {
+                    'invocationId': uploader.invocation['invocationId'],
+                    'workUnitId': uploader.current_workunit['id'],
+                    'testIdentifier': {
+                        'module': tinfo.test_name,
+                        'testClass': record[SUMMARY_KEY_TEST_CLASS],
+                        'method': record[SUMMARY_KEY_TEST_NAME],
+                    },
+                    'testStatus': get_test_storage_status_from_mobly_result(
+                        record[SUMMARY_KEY_RESULT]),
+                    'timing': {
+                        'creationTimestamp': record[SUMMARY_KEY_BEGIN_TIME],
+                        'completeTimestamp': record[SUMMARY_KEY_END_TIME]
+                    }
+                }
+                if record[SUMMARY_KEY_RESULT] != SUMMARY_RESULT_PASS:
+                    uploaded_result['debugInfo'] = {
+                        'errorMessage': record[SUMMARY_KEY_DETAILS],
+                        'trace': record[SUMMARY_KEY_STACKTRACE],
+                    }
+                uploader.record_test_result(uploaded_result)
+
+        return reported_results
 
     def _cleanup(self) -> None:
         """Cleans up temporary host files/directories."""
@@ -568,3 +796,15 @@ class MoblyTestRunner(test_runner_base.TestRunnerBase):
             else:
                 os.remove(temppath)
         self._temppaths.clear()
+
+
+def get_result_reporter_status_from_mobly_result(result: str):
+    """Maps Mobly result to a ResultReporter status."""
+    return _MOBLY_RESULT_TO_RESULT_REPORTER_STATUS.get(
+        result, test_runner_base.ERROR_STATUS)
+
+
+def get_test_storage_status_from_mobly_result(result: str):
+    """Maps Mobly result to a test storage status."""
+    return _MOBLY_RESULT_TO_TEST_STORAGE_STATUS.get(
+        result, TEST_STORAGE_STATUS_UNSPECIFIED)
