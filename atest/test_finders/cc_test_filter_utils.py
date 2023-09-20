@@ -14,11 +14,6 @@
 
 import logging
 import re
-import shutil
-import subprocess
-import tempfile
-
-from contextlib import contextmanager
 
 
 # Gtest Types

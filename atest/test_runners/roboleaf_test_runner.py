@@ -22,9 +22,11 @@ import enum
 import json
 import logging
 import os
+import re
 import shlex
 import subprocess
 
+from collections import defaultdict
 from pathlib import Path
 from typing import Any, Dict, List, Set
 
@@ -142,7 +144,7 @@ def are_all_tests_supported(
 
 def _roboleaf_eligible_tests(
     mode: BazelBuildMode,
-    module_names: List[str],
+    tests: List[str],
     test_name_to_filters) -> Dict[str, TestInfo]:
     """Filter the given module_names to only ones that are currently
     fully converted with roboleaf (b test) and then filter further by the
@@ -150,18 +152,33 @@ def _roboleaf_eligible_tests(
 
     Args:
         mode: A BazelBuildMode value to switch between dev and prod lists.
-        module_names: A list of module names to check for roboleaf support.
+        tests: A list of test names requested by the user.
         test_name_to_filters: Dict of the test name to a list of TestFilter.
 
     Returns:
         A dictionary keyed by test name and value of Roboleaf TestInfo.
     """
-    if not module_names or mode == BazelBuildMode.OFF:
+    if not tests or mode == BazelBuildMode.OFF:
         return {}
+
+    test_name_to_references = defaultdict(set)
+
+    for test_ref in tests:
+        ref_match = re.match(
+            r'^(?P<module_name>[^:#,]+):([^:].*)$', test_ref)
+        matched_result = ref_match.groupdict(default=dict()) if ref_match else dict()
+
+        if not matched_result:
+            if test_ref not in test_name_to_references:
+                test_name_to_references[test_ref] = set()
+            continue
+
+        module_name =  matched_result['module_name']
+        test_name_to_references[module_name].add(test_ref)
 
     mod_map = RoboleafModuleMap()
     supported_modules = set(filter(
-        lambda m: m in mod_map.get_map(), module_names))
+        lambda m: m in mod_map.get_map(), test_name_to_references.keys()))
 
     # By default, only keep modules that are in the managed list
     # of launched modules.
@@ -174,7 +191,10 @@ def _roboleaf_eligible_tests(
             module,
             RoboleafTestRunner.NAME,
             set(),
-            data={constants.TI_FILTER: test_name_to_filters.get(module, set())})
+            data={
+                constants.TI_FILTER: test_name_to_filters.get(module, set()),
+                constants.ROBOLEAF_TEST_FILTER: test_name_to_references.get(module, set()),
+            })
         for module in supported_modules
     }
 
@@ -324,6 +344,11 @@ class RoboleafTestRunner(test_runner_base.TestRunnerBase):
         bazel_args.extend([
             f'--test_arg={i}'
             for i in atest_tf_test_runner.get_include_filter(test_infos)])
+
+        bazel_args.extend([
+            f'--//build/bazel/rules/tradefed:test_reference={r}'
+            for info in test_infos
+            for r in info.data.get(constants.ROBOLEAF_TEST_FILTER, [])])
 
         # --config=deviceless_tests filters for tradefed_deviceless_test targets.
         if constants.HOST in extra_args:
