@@ -640,32 +640,14 @@ class CLITranslator:
             self.fuzzy_search = False
             detect_type = DetectType.TEST_NULL_ARGS
         start = time.time()
-        # Not including host unit tests if user specify --test-mapping or
-        # --smart-testing-local arg.
+        # Not including host unit tests if user specify --test-mapping.
         host_unit_tests = []
-        if not any((
-            args.tests, args.test_mapping, args.smart_testing_local)):
+        if not any((args.tests, args.test_mapping)):
             logging.debug('Finding Host Unit Tests...')
             host_unit_tests = test_finder_utils.find_host_unit_tests(
                 self.mod_info,
                 str(Path(os.getcwd()).relative_to(self.root_dir)))
             logging.debug('Found host_unit_tests: %s', host_unit_tests)
-        if args.smart_testing_local:
-            modified_files = set()
-            if args.tests:
-                for test_path in args.tests:
-                    if not Path(test_path).is_dir():
-                        atest_utils.colorful_print(
-                            f'Found invalid dir {test_path}'
-                            r'Please specify test paths for probing.',
-                            constants.RED)
-                        sys.exit(ExitCode.INVALID_SMART_TESTING_PATH)
-                    modified_files |= atest_utils.get_modified_files(test_path)
-            else:
-                modified_files = atest_utils.get_modified_files(os.getcwd())
-            logging.info('Found modified files: %s...',
-                         ', '.join(modified_files))
-            tests = list(modified_files)
         # Test details from TEST_MAPPING files
         test_details_list = None
         if atest_utils.is_test_mapping(args):

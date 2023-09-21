@@ -449,7 +449,7 @@ def is_test_mapping(args):
         True if the args indicates atest shall run tests in test mapping. False
         otherwise.
     """
-    if any((args.host_unit_test_only, args.smart_testing_local)):
+    if args.host_unit_test_only:
         return False
     if any((args.test_mapping, args.include_subdirs, not args.tests)):
         return True
