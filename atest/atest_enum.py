@@ -129,6 +129,7 @@ class ExitCode(IntEnum):
     INVALID_REGRESSION_ARGS = 18        # deprecated.
     INVALID_TM_ARGS = 19
     INVALID_TM_FORMAT = 20
+    INSUFFICIENT_DEVICES = 21
     # The code > 100 are reserved for collecting data only, actually the run
     # doesn't finish at the point.
     COLLECT_ONLY_FILE_NOT_FOUND = 101
