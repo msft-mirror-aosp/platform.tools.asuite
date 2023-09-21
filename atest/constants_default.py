@@ -449,7 +449,6 @@ ROBOLEAF_UNSUPPORTED_FLAGS = {
     'auto_ld_library_path': UnsupportedFlag(lambda d, v: d != v, ""),
     'request_upload_result': UnsupportedFlag(lambda d, v: d != v, ""),
     'disable_upload_result': UnsupportedFlag(lambda d, v: d != v, ""),
-    'smart_testing_local': UnsupportedFlag(lambda d, v: d != v, ""),
     'include_subdirs': UnsupportedFlag(lambda d, v: d != v, ""),
     'enable_file_patterns': UnsupportedFlag(lambda d, v: d != v, ""),
     'host_unit_test_only': UnsupportedFlag(lambda d, v: d != v, ""),
