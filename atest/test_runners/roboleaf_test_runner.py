@@ -336,7 +336,7 @@ class RoboleafTestRunner(test_runner_base.TestRunnerBase):
         """
         target_patterns = ' '.join(
             self.test_info_target_label(i) for i in test_infos)
-        bazel_args = bazel_mode.parse_args(test_infos, extra_args, None)
+        bazel_args = bazel_mode.parse_args(test_infos, extra_args)
         # The tool tag attributes this bazel invocation to atest. This
         # is uploaded in BEP when bes publishing is enabled.
         bazel_args.append("--tool_tag=atest")
