@@ -967,6 +967,24 @@ def has_sufficient_devices(
     return given_amount >= required_amount
 
 
+def setup_metrics_tool_name(no_metrics: bool = False):
+    """Setup tool_name and sub_tool_name for MetricsBase."""
+    if (not no_metrics and
+        metrics_base.MetricsBase.user_type == metrics_base.INTERNAL_USER):
+        metrics_utils.print_data_collection_notice()
+
+        USER_FROM_TOOL = os.getenv(constants.USER_FROM_TOOL)
+        metrics_base.MetricsBase.tool_name = (
+            USER_FROM_TOOL if USER_FROM_TOOL else constants.TOOL_NAME
+        )
+
+        USER_FROM_SUB_TOOL = os.getenv(constants.USER_FROM_SUB_TOOL)
+        metrics_base.MetricsBase.sub_tool_name = (
+            USER_FROM_SUB_TOOL if USER_FROM_SUB_TOOL
+            else constants.SUB_TOOL_NAME
+        )
+
+
 # pylint: disable=too-many-statements
 # pylint: disable=too-many-branches
 # pylint: disable=too-many-return-statements
@@ -1254,19 +1272,7 @@ if __name__ == '__main__':
     with atest_execution_info.AtestExecutionInfo(
             final_args, RESULTS_DIR,
             atest_configs.GLOBAL_ARGS) as result_file:
-        if (not atest_configs.GLOBAL_ARGS.no_metrics and
-        metrics_base.MetricsBase.user_type == metrics_base.INTERNAL_USER):
-            metrics_utils.print_data_collection_notice()
-            USER_FROM_TOOL = os.getenv(constants.USER_FROM_TOOL, '')
-            if USER_FROM_TOOL == '':
-                metrics_base.MetricsBase.tool_name = constants.TOOL_NAME
-            else:
-                metrics_base.MetricsBase.tool_name = USER_FROM_TOOL
-            USER_FROM_SUB_TOOL = os.getenv(constants.USER_FROM_SUB_TOOL, '')
-            if USER_FROM_SUB_TOOL == '':
-                metrics_base.MetricsBase.sub_tool_name = constants.SUB_TOOL_NAME
-            else:
-                metrics_base.MetricsBase.sub_tool_name = USER_FROM_SUB_TOOL
+        setup_metrics_tool_name(atest_configs.GLOBAL_ARGS.no_metrics)
 
         EXIT_CODE = main(
             final_args, RESULTS_DIR, atest_configs.GLOBAL_ARGS, roboleaf_unsupported_flags)
