@@ -943,6 +943,31 @@ def _send_start_event(argv: List[Any], tests: List[str]):
     )
 
 
+def _get_acloud_proc_and_log(args: argparse.ArgumentParser,
+                    results_dir: str) -> Tuple[Any, Any]:
+    """Return tuple of acloud process ID and report file."""
+    if any((args.acloud_create, args.start_avd)):
+        return at.acloud_create_validator(results_dir, args)
+    return None, None
+
+
+def has_sufficient_devices(
+        required_amount: int,
+        serial: List[str] = None) -> bool:
+    """Detect whether attaching sufficient devices for tests."""
+    given_amount  = len(serial) if serial else 0
+    # Only check when both given_amount and required_amount are non zero.
+    if all((given_amount, required_amount)):
+        # Base on TF rules, given_amount can be greater than or equal to
+        # required_amount.
+        if required_amount > given_amount:
+            atest_utils.colorful_print(
+                f'The test requires {required_amount} devices, '
+                f'but {given_amount} were given.',
+                constants.RED)
+    return given_amount >= required_amount
+
+
 # pylint: disable=too-many-statements
 # pylint: disable=too-many-branches
 # pylint: disable=too-many-return-statements
@@ -975,9 +1000,7 @@ def main(
     _send_start_event(argv, args.tests)
     _non_action_validator(args)
 
-    proc_acloud, report_file = None, None
-    if any((args.acloud_create, args.start_avd)):
-        proc_acloud, report_file = at.acloud_create_validator(results_dir, args)
+    proc_acloud, report_file = _get_acloud_proc_and_log(args, results_dir)
     is_clean = not os.path.exists(
         os.environ.get(constants.ANDROID_PRODUCT_OUT, ''))
     extra_args = get_extra_args(args)
@@ -1037,20 +1060,9 @@ def main(
             result=int((time.time() - join_start) * 1000))
     find_start = time.time()
     test_infos = translator.translate(args)
-    given_amount  = len(args.serial) if args.serial else 0
-    required_amount = get_device_count_config(test_infos, mod_info)
-    args.device_count_config = required_amount
-    # Only check when both given_amount and required_amount are non zero.
-    if all((given_amount, required_amount)):
-        # Base on TF rules, given_amount can be greater than or equal to
-        # required_amount.
-        if required_amount > given_amount:
-            atest_utils.colorful_print(
-                f'The test requires {required_amount} devices, '
-                f'but {given_amount} were given.',
-                constants.RED)
-            return 0
-
+    args.device_count_config = get_device_count_config(test_infos, mod_info)
+    if not has_sufficient_devices(args.device_count_config, args.serial):
+        return ExitCode.INSUFFICIENT_DEVICES
     find_duration = time.time() - find_start
     if not test_infos:
         return ExitCode.TEST_NOT_FOUND
