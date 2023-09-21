@@ -32,6 +32,7 @@ import static org.mockito.Mockito.verify;
 import com.android.tradefed.config.ConfigurationException;
 import com.android.tradefed.config.OptionSetter;
 import com.android.tradefed.invoker.InvocationContext;
+import com.android.tradefed.invoker.IInvocationContext;
 import com.android.tradefed.invoker.TestInformation;
 import com.android.tradefed.log.LogUtil.CLog;
 import com.android.tradefed.result.FailureDescription;
@@ -611,6 +612,28 @@ public final class BazelTestTest {
                 .testRunFailed(hasErrorIdentifier(TestErrorIdentifier.OUTPUT_PARSER_ERROR));
     }
 
+    @Test
+    public void testModuleCached_cachedPropertyReported() throws Exception {
+        FakeProcessStarter processStarter = newFakeProcessStarter();
+        processStarter.put(
+                BazelTest.RUN_TESTS,
+                builder -> {
+                    return new FakeBazelTestProcess(builder, mBazelTempPath) {
+                        @Override
+                        public void writeSingleTestResultEvent(File outputsZipFile, Path bepFile)
+                                throws IOException {
+
+                            writeSingleTestResultEvent(outputsZipFile, bepFile, /* cached */ true);
+                        }
+                    };
+                });
+        BazelTest bazelTest = newBazelTestWithProcessStarter(processStarter);
+
+        bazelTest.run(mTestInfo, mMockListener);
+
+        verify(mMockListener).testModuleStarted(hasInvocationAttribute("module-cached", "true"));
+    }
+
     private static byte[] logFileContents() {
         // Seed Random to always get the same sequence of values.
         Random rand = new Random(RANDOM_SEED);
@@ -673,6 +696,21 @@ public final class BazelTestTest {
         return properties;
     }
 
+    private FakeProcessStarter newFakeProcessStarter() throws IOException {
+        String targetName = "//bazel/target:default_target_host";
+        FakeProcessStarter processStarter = new FakeProcessStarter();
+        processStarter.put(BazelTest.QUERY_ALL_TARGETS, newPassingProcessWithStdout(targetName));
+        processStarter.put(
+                BazelTest.QUERY_MAP_MODULES_TO_TARGETS,
+                newPassingProcessWithStdout("default_target " + targetName));
+        processStarter.put(
+                BazelTest.RUN_TESTS,
+                builder -> {
+                    return new FakeBazelTestProcess(builder, mBazelTempPath);
+                });
+        return processStarter;
+    }
+
     private static FailureDescription hasErrorIdentifier(ErrorIdentifier error) {
         return argThat(
                 new ArgumentMatcher<FailureDescription>() {
@@ -703,19 +741,19 @@ public final class BazelTestTest {
                 });
     }
 
-    private FakeProcessStarter newFakeProcessStarter() throws IOException {
-        String targetName = "//bazel/target:default_target_host";
-        FakeProcessStarter processStarter = new FakeProcessStarter();
-        processStarter.put(BazelTest.QUERY_ALL_TARGETS, newPassingProcessWithStdout(targetName));
-        processStarter.put(
-                BazelTest.QUERY_MAP_MODULES_TO_TARGETS,
-                newPassingProcessWithStdout("default_target " + targetName));
-        processStarter.put(
-                BazelTest.RUN_TESTS,
-                builder -> {
-                    return new FakeBazelTestProcess(builder, mBazelTempPath);
+    private static IInvocationContext hasInvocationAttribute(String key, String value) {
+        return argThat(
+                new ArgumentMatcher<IInvocationContext>() {
+                    @Override
+                    public boolean matches(IInvocationContext right) {
+                        return right.getAttribute(key).equals(value);
+                    }
+
+                    @Override
+                    public String toString() {
+                        return "hasInvocationAttribute(" + key + ", " + value + ")";
+                    }
                 });
-        return processStarter;
     }
 
     private static List<Path> listDirContents(Path dir) throws IOException {

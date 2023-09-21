@@ -36,13 +36,16 @@ final class BazelTestListener extends ForwardingTestListener {
     private final ITestInvocationListener mDelegate;
     private final ImmutableList<Consumer<ITestInvocationListener>> mExtraModuleLogCalls;
     private boolean mInModule;
+    private boolean mModuleCached;
 
     public BazelTestListener(
             ITestInvocationListener delegate,
-            List<Consumer<ITestInvocationListener>> extraModuleLogCalls) {
+            List<Consumer<ITestInvocationListener>> extraModuleLogCalls,
+            boolean moduleCached) {
 
         mDelegate = delegate;
         mExtraModuleLogCalls = ImmutableList.copyOf(extraModuleLogCalls);
+        mModuleCached = moduleCached;
     }
 
     @Override
@@ -79,6 +82,9 @@ final class BazelTestListener extends ForwardingTestListener {
     @Override
     public void testModuleStarted(IInvocationContext moduleContext) {
         mInModule = true;
+        if (mModuleCached) {
+            moduleContext.addInvocationAttribute("module-cached", "true");
+        }
         delegate().testModuleStarted(moduleContext);
     }
 
