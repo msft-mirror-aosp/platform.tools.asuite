@@ -658,7 +658,8 @@ public final class BazelTest implements IRemoteTest {
             extraLogCalls.addAll(collectInvocationLogCalls(context, record, filePrefix));
             extraLogCalls.addAll(collectTraceFileLogCalls(outputFilesDir, filePrefix));
 
-            BazelTestListener bazelListener = new BazelTestListener(listener, extraLogCalls);
+            BazelTestListener bazelListener =
+                    new BazelTestListener(listener, extraLogCalls, isTestResultCached(result));
             parseResultsToListener(bazelListener, context, record, filePrefix);
         } finally {
             MoreFiles.deleteRecursively(outputFilesDir);
