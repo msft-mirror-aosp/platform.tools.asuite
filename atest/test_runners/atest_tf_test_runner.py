@@ -161,8 +161,6 @@ class AtestTradefedTestRunner(trb.TestRunnerBase):
                              'tf_customize_template': '',
                              'args': '',
                              'log_args': self._LOG_ARGS.format(**self.log_args)}
-        if kwargs.get('extra_args', {}).get(constants.LD_LIBRARY_PATH, False):
-            self.run_cmd_dict.update({'env': self._get_ld_library_path()})
         # Only set to verbose mode if the console handler is DEBUG level.
         self.is_verbose = False
         for handler in logging.getLogger('').handlers:
@@ -178,26 +176,6 @@ class AtestTradefedTestRunner(trb.TestRunnerBase):
         metrics.LocalDetectEvent(
             detect_type=DetectType.IS_MINIMAL_BUILD,
             result=int(self._minimal_build()))
-
-    def _get_ld_library_path(self) -> str:
-        """Get the corresponding LD_LIBRARY_PATH string for running TF.
-
-        This method will insert $ANDROID_HOST_OUT/{lib,lib64} to LD_LIBRARY_PATH
-        and returns the updated LD_LIBRARY_PATH.
-
-        Returns:
-            Strings for the environment passed to TF. Currently only
-            LD_LIBRARY_PATH for TF to load the correct local shared libraries.
-        """
-        out_dir = os.environ.get(constants.ANDROID_HOST_OUT, '')
-        # From b/188179058, if a 64bit tests, it will break the tests due to the
-        # elf format is not 64bit for the lib path. But for b/160741384, it is
-        # ok to load lib path first. Change the lib_dirs sequence to lib64 first
-        # due to ATest by default only testing the main abi and even a 32bit
-        # only target the lib64 folder is actually not exist.
-        lib_dirs = ['lib64', 'lib']
-        path = ':'.join([os.path.join(out_dir, dir) for dir in lib_dirs])
-        return f'LD_LIBRARY_PATH={path}:{os.getenv("LD_LIBRARY_PATH", "")}'
 
     def _try_set_gts_authentication_key(self):
         """Set GTS authentication key if it is available or exists.
@@ -1321,7 +1299,6 @@ def extra_args_to_tf_args(
                    constants.DRY_RUN,
                    constants.VERIFY_ENV_VARIABLE,
                    constants.FLAKES_INFO,
-                   constants.LD_LIBRARY_PATH,
                    constants.DEVICE_ONLY):
             continue
         unsupported_args.append(arg)
