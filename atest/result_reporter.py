@@ -473,7 +473,7 @@ class ResultReporter:
         test_name = matches[0] if matches else ''
         if test_name:
             print('{}:'.format(au.colorize(test_name, constants.CYAN)))
-            with open(metric_file, 'r') as f:
+            with open(metric_file, 'r', encoding='utf-8') as f:
                 matched = False
                 filter_res = atest_configs.GLOBAL_ARGS.aggregate_metric_filter
                 logging.debug('Aggregate metric filters: %s', filter_res)
@@ -606,7 +606,7 @@ class ResultReporter:
                         host_log_content = (host_log_content +
                                             au.extract_zip_text(tf_log))
                     else:
-                        with open(tf_log, 'r') as f:
+                        with open(tf_log, 'r', encoding='utf-8') as f:
                             for line in f.readlines():
                                 host_log_content = host_log_content + line
 
@@ -618,7 +618,7 @@ class ResultReporter:
                     print(' ' * 2  + au.colorize(
                         f'Logs in {os.path.basename(log_file)}:',
                         constants.MAGENTA))
-                    with open(log_file, 'r') as f:
+                    with open(log_file, 'r', encoding='utf-8') as f:
                         for line in f.readlines():
                             print(' ' * 2 + str(line), end='')
         elif stats.failed == 0:
