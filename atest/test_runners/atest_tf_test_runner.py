@@ -48,6 +48,7 @@ from atest.coverage import coverage
 from atest.logstorage import atest_gcp_utils
 from atest.logstorage import logstorage_utils
 from atest.metrics import metrics
+from atest.test_finders import test_filter_utils
 from atest.test_finders import test_finder_utils
 from atest.test_finders import test_info
 from atest.test_runners import test_runner_base as trb
@@ -1331,7 +1332,7 @@ def get_include_filter(test_infos: List[test_info.TestInfo]) -> List[str]:
                 instrumentation_filters.append(test_filter)
                 # Only pass test_name to --atest-include-filter if the given is
                 # a Java parameterized test.
-                test_filter, _ = test_finder_utils.split_methods(test_filter)
+                test_filter, _ = test_filter_utils.split_methods(test_filter)
             filter_arg = constants.TF_ATEST_INCLUDE_FILTER_VALUE_FMT.format(
                 test_name=info.test_name,
                 test_filter=test_filter

@@ -22,6 +22,7 @@ import re
 
 from atest import constants
 
+from atest.test_finders import test_filter_utils
 from atest.test_finders import test_finder_base
 from atest.test_finders import test_finder_utils
 from atest.test_finders import test_info
@@ -109,7 +110,7 @@ class SuitePlanFinder(test_finder_base.TestFinderBase):
             A list of populated TestInfo namedtuple if test found, else None.
             This is a list with at most 1 element.
         """
-        path, _ = test_finder_utils.split_methods(suite_path)
+        path, _ = test_filter_utils.split_methods(suite_path)
         # Make sure we're looking for a config.
         if not path.endswith('.xml'):
             return None

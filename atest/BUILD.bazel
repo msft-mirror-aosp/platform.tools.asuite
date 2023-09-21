@@ -20,7 +20,7 @@ py_library(
     name = "atest_lib",
     srcs = [
         "constants_default.py",
-        "test_finders/cc_test_filter_utils.py",
+        "test_finders/test_filter_utils.py",
     ],
 )
 

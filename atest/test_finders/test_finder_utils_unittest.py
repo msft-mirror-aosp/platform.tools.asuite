@@ -27,7 +27,6 @@ import unittest
 from pathlib import Path
 from unittest import mock
 
-from atest import atest_error
 from atest import constants
 from atest import module_info
 from atest import unittest_constants as uc
@@ -104,51 +103,6 @@ HOST_OUT_DIR = tempfile.NamedTemporaryFile().name
 #pylint: disable=unnecessary-comprehension
 class TestFinderUtilsUnittests(unittest.TestCase):
     """Unit tests for test_finder_utils.py"""
-
-    def test_split_methods(self):
-        """Test _split_methods method."""
-        # Class
-        unittest_utils.assert_strict_equal(
-            self,
-            test_finder_utils.split_methods('Class.Name'),
-            ('Class.Name', set()))
-        unittest_utils.assert_strict_equal(
-            self,
-            test_finder_utils.split_methods('Class.Name#Method'),
-            ('Class.Name', {'Method'}))
-        unittest_utils.assert_strict_equal(
-            self,
-            test_finder_utils.split_methods('Class.Name#Method,Method2'),
-            ('Class.Name', {'Method', 'Method2'}))
-        unittest_utils.assert_strict_equal(
-            self,
-            test_finder_utils.split_methods('Class.Name#Method,Method2'),
-            ('Class.Name', {'Method', 'Method2'}))
-        unittest_utils.assert_strict_equal(
-            self,
-            test_finder_utils.split_methods('Class.Name#Method,Method2'),
-            ('Class.Name', {'Method', 'Method2'}))
-        self.assertRaises(
-            atest_error.TooManyMethodsError, test_finder_utils.split_methods,
-            'class.name#Method,class.name.2#method')
-        self.assertRaises(
-            atest_error.MoreThanOneClassError, test_finder_utils.split_methods,
-            'class.name1,class.name2,class.name3'
-        )
-        # Path
-        unittest_utils.assert_strict_equal(
-            self,
-            test_finder_utils.split_methods('foo/bar/class.java'),
-            ('foo/bar/class.java', set()))
-        unittest_utils.assert_strict_equal(
-            self,
-            test_finder_utils.split_methods('foo/bar/class.java#Method'),
-            ('foo/bar/class.java', {'Method'}))
-        # Multiple parameters
-        unittest_utils.assert_strict_equal(
-            self,
-            test_finder_utils.split_methods('Class.Name#method[1],method[2,[3,4]]'),
-            ('Class.Name', {'method[1]', 'method[2,[3,4]]'}))
 
     @mock.patch.object(test_finder_utils, 'has_method_in_file',
                        return_value=False)
@@ -608,48 +562,6 @@ class TestFinderUtilsUnittests(unittest.TestCase):
             8
         )
 
-    def test_is_parameterized_java_class(self):
-        """Test is_parameterized_java_class method. """
-        matched_contents = (['@ParameterizedTest'],
-                            ['@RunWith(Parameterized.class)'],
-                            ['@RunWith(Parameterized::class)'],
-                            [' @RunWith( Parameterized.class ) '],
-                            ['@RunWith(TestParameterInjector.class)'],
-                            ['@RunWith(JUnitParamsRunner.class)'],
-                            ['@RunWith(DataProviderRunner.class)'],
-                            ['@RunWith(JukitoRunner.class)'],
-                            ['@RunWith(Theories.class)'],
-                            ['@RunWith(BedsteadJUnit4.class)'])
-        not_matched_contents = (['// @RunWith(Parameterized.class)'],
-                                ['*RunWith(Parameterized.class)'],
-                                ['// @ParameterizedTest'])
-        # Test matched patterns
-        for matched_content in matched_contents:
-            try:
-                tmp_file = tempfile.NamedTemporaryFile(mode='wt')
-                tmp_file.writelines(matched_content)
-                tmp_file.flush()
-
-                self.assertTrue(
-                    test_finder_utils.is_parameterized_java_class(
-                        tmp_file.name))
-            finally:
-                tmp_file.close()
-
-
-        # Test not matched patterns
-        for not_matched_content in not_matched_contents:
-            try:
-                tmp_file = tempfile.NamedTemporaryFile(mode='wt')
-                tmp_file.writelines(not_matched_content)
-                tmp_file.flush()
-
-                self.assertFalse(
-                    test_finder_utils.is_parameterized_java_class(
-                        tmp_file.name))
-            finally:
-                tmp_file.close()
-
     # pylint: disable=consider-iterating-dictionary
     def test_get_cc_class_info(self):
         """Test get_cc_class_info method."""
@@ -709,20 +621,6 @@ class TestFinderUtilsUnittests(unittest.TestCase):
                                    'PathTesting.kt')
         self.assertEqual(parent_cls,
                          test_finder_utils.get_parent_cls_name(target_java))
-
-    def test_get_package_name(self):
-        """Test get_package_name"""
-        package_name = 'com.test.hello_world_test'
-        target_java = os.path.join(uc.TEST_DATA_DIR,
-                                   'class_file_path_testing',
-                                   'hello_world_test.java')
-        self.assertEqual(package_name,
-                         test_finder_utils.get_package_name(target_java))
-        target_kt = os.path.join(uc.TEST_DATA_DIR,
-                                 'class_file_path_testing',
-                                 'hello_world_test.kt')
-        self.assertEqual(package_name,
-                         test_finder_utils.get_package_name(target_kt))
 
     @staticmethod
     def _get_paths_side_effect(module_name):

@@ -44,7 +44,7 @@ from atest import module_info
 
 from atest.atest_enum import ExitCode, DetectType
 from atest.metrics import metrics, metrics_utils
-from atest.test_finders import cc_test_filter_utils
+from atest.test_finders import test_filter_utils
 
 # Helps find apk files listed in a test config (AndroidTest.xml) file.
 # Matches "filename.apk" in <option name="foo", value="filename.apk" />
@@ -55,18 +55,9 @@ _APK_RE = re.compile(r'^[^/]+\.apk$', re.I)
 
 # Group that matches java/kt method.
 _JAVA_METHODS_RE = r'.*\s+(fun|void)\s+(?P<method>\w+)\('
-# Parse package name from the package declaration line of a java or
-# a kotlin file.
-# Group matches "foo.bar" of line "package foo.bar;" or "package foo.bar"
-_PACKAGE_RE = re.compile(r'\s*package\s+(?P<package>[^(;|\s)]+)\s*', re.I)
 # Matches install paths in module_info to install location(host or device).
 _HOST_PATH_RE = re.compile(r'.*\/host\/.*', re.I)
 _DEVICE_PATH_RE = re.compile(r'.*\/target\/.*', re.I)
-# RE for suspected parameterized java/kt class.
-_SUSPECTED_PARAM_CLASS_RE = re.compile(
-    r'^\s*@RunWith\s*\(\s*(TestParameterInjector|'
-    r'JUnitParamsRunner|DataProviderRunner|JukitoRunner|Theories|BedsteadJUnit4'
-    r')(\.|::)class\s*\)', re.I)
 # RE for Java/Kt parent classes:
 # Java:   class A extends B {...}
 # Kotlin: class A : B (...)
@@ -147,86 +138,6 @@ _VTS_APK = 'apk'
 _VTS_BINARY_SRC_DELIM_RE = re.compile(r'.*::(?P<target>.*)$')
 _VTS_OUT_DATA_APP_PATH = 'DATA/app'
 
-def split_methods(user_input):
-    """Split user input string into test reference and list of methods.
-
-    Args:
-        user_input: A string of the user's input.
-                    Examples:
-                        class_name
-                        class_name#method1,method2
-                        path
-                        path#method1,method2
-    Returns:
-        A tuple. First element is String of test ref and second element is
-        a set of method name strings or empty list if no methods included.
-    Exception:
-        atest_error.TooManyMethodsError raised when input string is trying to
-        specify too many methods in a single positional argument.
-
-        Examples of unsupported input strings:
-            module:class#method,class#method
-            class1#method,class2#method
-            path1#method,path2#method
-    """
-    error_msg = (
-        'Too many "{}" characters in user input:\n\t{}\n'
-        'Multiple classes should be separated by space, and methods belong to '
-        'the same class should be separated by comma. Example syntaxes are:\n'
-        '\tclass1 class2#method1 class3#method2,method3\n'
-        '\tclass1#method class2#method')
-    if not '#' in user_input:
-        if ',' in user_input:
-            raise atest_error.MoreThanOneClassError(
-                error_msg.format(',', user_input))
-        return user_input, frozenset()
-    parts = user_input.split('#')
-    if len(parts) > 2:
-        raise atest_error.TooManyMethodsError(
-            error_msg.format('#', user_input))
-    # (b/260183137) Support parsing multiple parameters.
-    parsed_methods = []
-    brackets = ('[', ']')
-    for part in parts[1].split(','):
-        count = {part.count(p) for p in brackets}
-        # If brackets are in pair, the length of count should be 1.
-        if len(count) == 1:
-            parsed_methods.append(part)
-        else:
-            # The front part of the pair, e.g. 'method[1'
-            if re.compile(r'^[a-zA-Z0-9]+\[').match(part):
-                parsed_methods.append(part)
-                continue
-            # The rear part of the pair, e.g. '5]]', accumulate this part to
-            # the last index of parsed_method.
-            parsed_methods[-1] += f',{part}'
-    return parts[0], frozenset(parsed_methods)
-
-
-# pylint: disable=inconsistent-return-statements
-def get_fully_qualified_class_name(test_path):
-    """Parse the fully qualified name from the class java file.
-
-    Args:
-        test_path: A string of absolute path to the java class file.
-
-    Returns:
-        A string of the fully qualified class name.
-
-    Raises:
-        atest_error.MissingPackageName if no class name can be found.
-    """
-    with open(test_path) as class_file:
-        for line in class_file:
-            match = _PACKAGE_RE.match(line)
-            if match:
-                package = match.group('package')
-                cls = os.path.splitext(os.path.split(test_path)[1])[0]
-                return '%s.%s' % (package, cls)
-    raise atest_error.MissingPackageNameError('%s: Test class java file'
-                                              'does not contain a package'
-                                              'name.'% test_path)
-
 
 def has_cc_class(test_path):
     """Find out if there is any test case in the cc file.
@@ -239,29 +150,13 @@ def has_cc_class(test_path):
     """
     with open_cc(test_path) as class_file:
         content = class_file.read()
-        if re.findall(cc_test_filter_utils.CC_CLASS_METHOD_RE, content):
+        if re.findall(test_filter_utils.CC_CLASS_METHOD_RE, content):
             return True
-        if re.findall(cc_test_filter_utils.CC_PARAM_CLASS_RE, content):
+        if re.findall(test_filter_utils.CC_PARAM_CLASS_RE, content):
             return True
-        if re.findall(cc_test_filter_utils.TYPE_CC_CLASS_RE, content):
+        if re.findall(test_filter_utils.TYPE_CC_CLASS_RE, content):
             return True
     return False
-
-
-def get_package_name(file_name):
-    """Parse the package name from a java file.
-
-    Args:
-        file_name: A string of the absolute path to the java file.
-
-    Returns:
-        A string of the package name or None
-    """
-    with open(file_name) as data:
-        for line in data:
-            match = _PACKAGE_RE.match(line)
-            if match:
-                return match.group('package')
 
 
 def get_parent_cls_name(file_name):
@@ -295,7 +190,7 @@ def get_java_parent_paths(test_path):
         return all_parent_test_paths
     # Remove <Generics> if any.
     parent_cls = re.sub(r'\<\w+\>', '', parent)
-    package = get_package_name(test_path)
+    package = test_filter_utils.get_package_name(test_path)
     # Use Fully Qualified Class Name for searching precisely.
     # package org.gnome;
     # public class Foo extends com.android.Boo -> com.android.Boo
@@ -1074,31 +969,6 @@ def is_test_from_kernel_xml(xml_file, test_name):
     return False
 
 
-def is_parameterized_java_class(test_path):
-    """Find out if input test path is a parameterized java class.
-
-    Args:
-        test_path: A string of absolute path to the java file.
-
-    Returns:
-        Boolean: Is parameterized class or not.
-    """
-    with open(test_path) as class_file:
-        for line in class_file:
-            # Return immediately if the @ParameterizedTest annotation is found.
-            if re.compile(r'\s*@ParameterizedTest').match(line):
-                return True
-            # Return when Parameterized.class is invoked in @RunWith annotation.
-            # @RunWith(Parameterized.class) -> Java.
-            # @RunWith(Parameterized::class) -> kotlin.
-            if re.compile(
-                r'^\s*@RunWith\s*\(\s*Parameterized.*(\.|::)class').match(line):
-                return True
-            if _SUSPECTED_PARAM_CLASS_RE.match(line):
-                return True
-    return False
-
-
 def get_java_methods(test_path):
     """Find out the java test class of input test_path.
 
@@ -1170,7 +1040,7 @@ def get_cc_class_info(test_path):
     with open_cc(test_path) as class_file:
         content = class_file.read()
         logging.debug('Parsing: %s', test_path)
-        class_info, no_test_classes = cc_test_filter_utils.get_cc_class_info(
+        class_info, no_test_classes = test_filter_utils.get_cc_class_info(
             content)
 
     if no_test_classes:

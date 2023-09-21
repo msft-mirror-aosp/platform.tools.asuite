@@ -2119,28 +2119,3 @@ def _send_build_condition_metrics(
         other_condition = False
     if other_condition:
         send_data(other)
-
-
-def contains_brackets(string: str, pair: bool=True) -> bool:
-    """
-    Determines whether a given string contains (pairs of) brackets.
-
-    Args:
-        string: The string to check for brackets.
-        pair: Whether to check for brackets in pairs.
-
-    Returns:
-        bool: True if the given contains full pair of brackets; False otherwise.
-    """
-    if not pair:
-        return re.search(r"\(|\)|\[|\]|\{|\}", string)
-
-    stack = []
-    brackets = {"(": ")", "[": "]", "{": "}"}
-    for char in string:
-        if char in brackets:
-            stack.append(char)
-        elif char in brackets.values():
-            if not stack or brackets[stack.pop()] != char:
-                return False
-    return len(stack) == 0
