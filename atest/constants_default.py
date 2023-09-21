@@ -411,7 +411,7 @@ SHARD_NUM = 2
 
 # Flags which roboleaf mode already supported:
 #   --iterations, --rerun-until-failure, --retry-any-failure, --verbose,
-#   --bazel-arg, --, --wait-for-debugger, --host
+#   --bazel-arg, --, --wait-for-debugger, --host, --serial
 #
 # Flags which roboleaf mode doesn't need to support:
 #   --minimal-build, --bazel_mode, --null-feature, --experimental-remote-avd,
@@ -463,7 +463,6 @@ ROBOLEAF_UNSUPPORTED_FLAGS = {
     'fuzzy_search': UnsupportedFlag(lambda d, v: d != v, ""),
     'acloud_create': UnsupportedFlag(lambda d, v: d != v, ""),
     'start_avd': UnsupportedFlag(lambda d, v: d != v, ""),
-    'serial': UnsupportedFlag(lambda d, v: d != v, ""),
     'flakes_info': UnsupportedFlag(lambda d, v: d != v, ""),
     'tf_early_device_release': UnsupportedFlag(lambda d, v: d != v, ""),
     'test_config_select': UnsupportedFlag(lambda d, v: d != v, ""),
