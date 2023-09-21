@@ -1398,6 +1398,53 @@ class DevicelessTestTest(ModuleInfoTestFixture):
         self.assertContainsSubset(expect_deps, deps)
 
 
+class TestExtraArgsToTfArgs(unittest.TestCase):
+    """Tests for extra_args_to_tf_args function."""
+
+    def test_supported_args(self):
+        extra_args = {
+            constants.WAIT_FOR_DEBUGGER: True,
+            constants.SHARDING: 5,
+            constants.SERIAL: ['device1', 'device2'],
+            constants.CUSTOM_ARGS: ['arg1', 'arg2'],
+            constants.ITERATIONS: 3,
+        }
+        expected_supported_args = [
+            '--wait-for-debugger',
+            '--shard-count', '5',
+            '--serial', 'device1', '--serial', 'device2',
+            'arg1', 'arg2',
+            '--retry-strategy', constants.ITERATIONS,
+            '--max-testcase-run-count', '3'
+        ]
+
+        supported_args, _ = atf_tr.extra_args_to_tf_args(extra_args)
+
+        self.assertEqual(expected_supported_args, supported_args)
+
+    def test_unsupported_args(self):
+        extra_args = {
+            'invalid_arg': 'value',
+            'tf_template': 'template',
+            'tf_early_device_release': True,
+        }
+        expected_unsupported_args = ['invalid_arg', 'tf_template',
+                                     'tf_early_device_release']
+
+        _, unsupported_args = atf_tr.extra_args_to_tf_args(extra_args)
+
+        self.assertEqual(expected_unsupported_args, unsupported_args)
+
+    def test_empty_extra_args(self):
+        extra_args = {}
+
+        supported_args, unsupported_args = atf_tr.extra_args_to_tf_args(
+            extra_args)
+
+        self.assertEqual([], supported_args)
+        self.assertEqual([], unsupported_args)
+
+
 def host_jar_module(name, installed):
 
     return module(
