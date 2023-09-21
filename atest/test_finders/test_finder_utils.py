@@ -27,6 +27,7 @@ import pickle
 import re
 import shutil
 import subprocess
+import sys
 import tempfile
 import time
 import xml.etree.ElementTree as ET
@@ -34,14 +35,16 @@ import xml.etree.ElementTree as ET
 from contextlib import contextmanager
 from enum import unique, Enum
 from pathlib import Path
-from typing import Dict
+from typing import Any, Dict, Iterable, List, Set, Tuple
 
 from atest import atest_error
 from atest import atest_utils
 from atest import constants
+from atest import module_info
 
 from atest.atest_enum import ExitCode, DetectType
 from atest.metrics import metrics, metrics_utils
+from atest.test_finders import cc_test_filter_utils
 
 # Helps find apk files listed in a test config (AndroidTest.xml) file.
 # Matches "filename.apk" in <option name="foo", value="filename.apk" />
@@ -49,36 +52,6 @@ from atest.metrics import metrics, metrics_utils
 # assume the apk name is the build target.
 _APK_RE = re.compile(r'^[^/]+\.apk$', re.I)
 
-# Macros that used in GTest. Detailed explanation can be found in
-# $ANDROID_BUILD_TOP/external/googletest/googletest/samples/sample*_unittest.cc
-# 1. Traditional Tests:
-#   TEST(class, method)
-#   TEST_F(class, method)
-# 2. Type Tests:
-#   TYPED_TEST_SUITE(class, types)
-#     TYPED_TEST(class, method)
-# 3. Value-parameterized Tests:
-#   TEST_P(class, method)
-#     INSTANTIATE_TEST_SUITE_P(Prefix, class, param_generator, name_generator)
-# 4. Type-parameterized Tests:
-#   TYPED_TEST_SUITE_P(class)
-#     TYPED_TEST_P(class, method)
-#       REGISTER_TYPED_TEST_SUITE_P(class, method)
-#         INSTANTIATE_TYPED_TEST_SUITE_P(Prefix, class, Types)
-# Macros with (class, method) pattern.
-_CC_CLASS_METHOD_RE = re.compile(
-    r'^\s*(TYPED_TEST(?:|_P)|TEST(?:|_F|_P))\s*\(\s*'
-    r'(?P<class_name>\w+),\s*(?P<method_name>\w+)\)\s*\{', re.M)
-# Macros with (prefix, class, ...) pattern.
-# Note: Since v1.08, the INSTANTIATE_TEST_CASE_P was replaced with
-#   INSTANTIATE_TEST_SUITE_P. However, Atest does not intend to change the
-#   behavior of a test, so we still search *_CASE_* macros.
-_CC_PARAM_CLASS_RE = re.compile(
-    r'^\s*INSTANTIATE_(?:|TYPED_)TEST_(?:SUITE|CASE)_P\s*\(\s*'
-    r'(?P<instantiate>\w+),\s*(?P<class>\w+)\s*,', re.M)
-# Type/Type-parameterized Test macros:
-_TYPE_CC_CLASS_RE = re.compile(
-    r'^\s*TYPED_TEST_SUITE(?:|_P)\(\s*(?P<class_name>\w+)', re.M)
 
 # Group that matches java/kt method.
 _JAVA_METHODS_RE = r'.*\s+(fun|void)\s+(?P<method>\w+)\('
@@ -266,11 +239,11 @@ def has_cc_class(test_path):
     """
     with open_cc(test_path) as class_file:
         content = class_file.read()
-        if re.findall(_CC_CLASS_METHOD_RE, content):
+        if re.findall(cc_test_filter_utils.CC_CLASS_METHOD_RE, content):
             return True
-        if re.findall(_CC_PARAM_CLASS_RE, content):
+        if re.findall(cc_test_filter_utils.CC_PARAM_CLASS_RE, content):
             return True
-        if re.findall(_TYPE_CC_CLASS_RE, content):
+        if re.findall(cc_test_filter_utils.TYPE_CC_CLASS_RE, content):
             return True
     return False
 
@@ -417,10 +390,10 @@ def extract_test_path(output, methods=None):
         # "locate" output path for both java/cc.
         elif not methods or has_method_in_file(test, methods):
             verified_tests.add(test)
-    return extract_test_from_tests(sorted(list(verified_tests)))
+    return extract_selected_tests(sorted(list(verified_tests)))
 
 
-def extract_test_from_tests(tests, default_all=False):
+def extract_selected_tests(tests: Iterable, default_all=False) -> List[str]:
     """Extract the test path from the tests.
 
     Return the test to run from tests. If more than one option, prompt the user
@@ -436,40 +409,86 @@ def extract_test_from_tests(tests, default_all=False):
     Returns:
         A string list of paths.
     """
+    tests = list(tests)
     count = len(tests)
     if default_all or count <= 1:
         return tests if count else None
-    mtests = set()
-    try:
-        numbered_list = ['%s: %s' % (i, t) for i, t in enumerate(tests)]
-        numbered_list.append('%s: All' % count)
-        start_prompt = time.time()
-        print('Multiple tests found:\n{0}'.format('\n'.join(numbered_list)))
-        test_indices = input("Please enter numbers of test to use. If none of "
-                             "above option matched, keep searching for other "
-                             "possible tests.\n(multiple selection is supported, "
-                             "e.g. '1' or '0,1' or '0-2'): ")
-        for idx in re.sub(r'(\s)', '', test_indices).split(','):
-            indices = idx.split('-')
-            len_indices = len(indices)
-            if len_indices > 0:
-                start_index = min(int(indices[0]), int(indices[len_indices-1]))
-                end_index = max(int(indices[0]), int(indices[len_indices-1]))
-                # One of input is 'All', return all options.
-                if count in (start_index, end_index):
-                    metrics.LocalDetectEvent(
-                        detect_type=DetectType.INTERACTIVE_SELECTION,
-                        result=int(time.time() - start_prompt))
-                    return tests
-                mtests.update(tests[start_index:(end_index+1)])
+
+    extracted_tests = set()
+    # Establish 'All' and 'Quit' options in the numbered test menu.
+    auxiliary_menu = ['All', 'Quit']
+    _tests = tests.copy()
+    _tests.extend(auxiliary_menu)
+    numbered_list = ['%s: %s' % (i, t) for i, t in enumerate(_tests)]
+    all_index = len(numbered_list) - auxiliary_menu[::-1].index('All') - 1
+    quit_index = len(numbered_list) - auxiliary_menu[::-1].index('Quit') - 1
+    print('Multiple tests found:\n{0}'.format('\n'.join(numbered_list)))
+
+    start_prompt = time.time()
+    test_indices = get_multiple_selection_answer()
+    if test_indices:
+        selections = get_selected_indices(test_indices,
+                                          limit=len(numbered_list)-1)
+        if all_index in selections:
+            extracted_tests = tests
+        elif quit_index in selections:
+            atest_utils.colorful_print('Abort selection.', constants.RED)
+            sys.exit(0)
+        else:
+            extracted_tests = {tests[s] for s in selections}
         metrics.LocalDetectEvent(
             detect_type=DetectType.INTERACTIVE_SELECTION,
             result=int(time.time() - start_prompt))
+
+    return list(extracted_tests)
+
+
+def get_multiple_selection_answer() -> str:
+    """Get the answer from the user input."""
+    try:
+        return input("Please enter numbers of test to use. If none of the above"
+                     "options matched, keep searching for other possible tests."
+                     "\n(multiple selection is supported, "
+                     "e.g. '1' or '0,1' or '0-2'): ")
+    except KeyboardInterrupt:
+        atest_utils.colorful_print('Abort selection.', constants.RED)
+        return None
+
+
+def get_selected_indices(string: str, limit: int = None) -> Set[int]:
+    """Method which flattens and dedups the given string to a set of integer.
+
+    This method is also capable to convert '5-2' to {2,3,4,5}. e.g.
+    '0, 2-5, 5-3' -> {0, 2, 3, 4, 5}
+
+    If the given string contains non-numerical string, returns an empty set.
+
+    Args:
+        string: a given string, e.g. '0, 2-5'
+        limit: an integer that every parsed number cannot exceed.
+
+    Returns:
+        A set of integer. If one of the parsed number exceeds the limit, or
+        invalid string such as '2-5-7', returns an empty set instead.
+    """
+    selections = set()
+    try:
+        for num_str in re.sub(r'\s', '', string).split(','):
+            ranged_num_str = num_str.split('-')
+            if len(ranged_num_str) == 2:
+                start = min([int(n) for n in ranged_num_str])
+                end = max([int(n) for n in ranged_num_str])
+                selections |= {n for n in range(start, end+1)}
+            elif len(ranged_num_str) == 1:
+                selections.add(int(num_str))
+        if limit and any(n for n in selections if n > limit):
+            raise ValueError
     except (ValueError, IndexError, AttributeError, TypeError) as err:
         logging.debug('%s', err)
-        print('None of above option matched, keep searching for other'
-              ' possible tests...')
-    return list(mtests)
+        atest_utils.colorful_print('Invalid input detected.', constants.RED)
+        return set()
+
+    return selections
 
 
 def run_find_cmd(ref_type, search_dir, target, methods=None):
@@ -914,45 +933,6 @@ def get_dir_path_and_filename(path):
     return dir_path, file_path
 
 
-def get_cc_filter(class_info, class_name, methods):
-    """Get the cc filter.
-
-    Args:
-        class_info: a dict of class info.
-        class_name: class name of the cc test.
-        methods: a list of method names.
-
-    Returns:
-        A formatted string for cc filter.
-        For a Type/Typed-parameterized test, it will be:
-          "class1/*.method1:class1/*.method2" or "class1/*.*"
-        For a parameterized test, it will be:
-          "*/class1.*" or "prefix/class1.*"
-        For the rest the pattern will be:
-          "class1.method1:class1.method2" or "class1.*"
-    """
-    #Strip prefix from class_name.
-    _class_name = class_name
-    if '/' in class_name:
-        _class_name = str(class_name).split('/')[-1]
-    type_str = get_cc_class_type(class_info, _class_name)
-    logging.debug('%s is a "%s".', _class_name, type_str)
-    # When found parameterized tests, recompose the class name
-    # in */$(ClassName) if the prefix is not given.
-    if type_str in (constants.GTEST_TYPED_PARAM, constants.GTEST_PARAM):
-        if not '/' in class_name:
-            class_name = '*/%s' % class_name
-    if type_str in (constants.GTEST_TYPED, constants.GTEST_TYPED_PARAM):
-        if methods:
-            sorted_methods = sorted(list(methods))
-            return ":".join(["%s/*.%s" % (class_name, x) for x in sorted_methods])
-        return "%s/*.*" % class_name
-    if methods:
-        sorted_methods = sorted(list(methods))
-        return ":".join(["%s.%s" % (class_name, x) for x in sorted_methods])
-    return "%s.*" % class_name
-
-
 def search_integration_dirs(name, int_dirs):
     """Search integration dirs for name and return full path.
 
@@ -973,7 +953,7 @@ def search_integration_dirs(name, int_dirs):
                                   name)
         if test_paths:
             test_files.extend(test_paths)
-    return extract_test_from_tests(test_files)
+    return extract_selected_tests(test_files)
 
 
 def get_int_dir_from_path(path, int_dirs):
@@ -1189,73 +1169,19 @@ def get_cc_class_info(test_path):
     Returns:
         A dict of class info.
     """
-    logging.debug('Parsing: %s', test_path)
     with open_cc(test_path) as class_file:
         content = class_file.read()
-        # ('TYPED_TEST', 'PrimeTableTest', 'ReturnsTrueForPrimes')
-        method_matches = re.findall(_CC_CLASS_METHOD_RE, content)
-        # ('OnTheFlyAndPreCalculated', 'PrimeTableTest2')
-        prefix_matches = re.findall(_CC_PARAM_CLASS_RE, content)
-        # 'PrimeTableTest'
-        typed_matches = re.findall(_TYPE_CC_CLASS_RE, content)
+        logging.debug('Parsing: %s', test_path)
+        class_info, no_test_classes = cc_test_filter_utils.get_cc_class_info(
+            content)
 
-    classes = {cls[1] for cls in method_matches}
-    class_info = {}
-    test_not_found = False
-    for cls in classes:
-        class_info.setdefault(cls, {'methods': set(),
-                                    'prefixes': set(),
-                                    'typed': False})
-    logging.debug('Probing TestCase.TestName pattern:')
-    for match in method_matches:
-        if class_info.get(match[1]):
-            logging.debug('  Found %s.%s', match[1], match[2])
-            class_info[match[1]]['methods'].add(match[2])
-        else:
-            test_not_found = True
-    # Parameterized test.
-    logging.debug('Probing InstantiationName/TestCase pattern:')
-    for match in prefix_matches:
-        if class_info.get(match[1]):
-            logging.debug('  Found %s/%s', match[0], match[1])
-            class_info[match[1]]['prefixes'].add(match[0])
-        else:
-            test_not_found = True
-    # Typed test
-    logging.debug('Probing typed test names:')
-    for match in typed_matches:
-        if class_info.get(match):
-            logging.debug('  Found %s', match)
-            class_info[match]['typed'] = True
-        else:
-            test_not_found = True
-    if test_not_found:
+    if no_test_classes:
         metrics.LocalDetectEvent(
             detect_type=DetectType.NATIVE_TEST_NOT_FOUND,
             result=DetectType.NATIVE_TEST_NOT_FOUND)
+
     return class_info
 
-def get_cc_class_type(class_info, classname):
-    """Tell the type of the given class.
-
-    Args:
-        class_info: A dict of class info.
-        classname: A string of class name.
-
-    Returns:
-        String of the gtest type to prompt. The output will be one of:
-        1. 'regular test'             (GTEST_REGULAR)
-        2. 'typed test'               (GTEST_TYPED)
-        3. 'value-parameterized test' (GTEST_PARAM)
-        4. 'typed-parameterized test' (GTEST_TYPED_PARAM)
-    """
-    if class_info.get(classname).get('prefixes'):
-        if class_info.get(classname).get('typed'):
-            return constants.GTEST_TYPED_PARAM
-        return constants.GTEST_PARAM
-    if class_info.get(classname).get('typed'):
-        return constants.GTEST_TYPED
-    return constants.GTEST_REGULAR
 
 def find_host_unit_tests(module_info, path):
     """Find host unit tests for the input path.
@@ -1310,6 +1236,7 @@ def get_annotated_methods(annotation, file_path):
                     continue
     return methods
 
+
 def get_test_config_and_srcs(test_info, module_info):
     """Get the test config path for the input test_info.
 
@@ -1328,31 +1255,63 @@ def get_test_config_and_srcs(test_info, module_info):
         A string of the config path and list of srcs, None if test config not
         exist.
     """
-    android_root_dir = os.environ.get(constants.ANDROID_BUILD_TOP)
     test_name = test_info.test_name
     mod_info = module_info.get_module_info(test_name)
+
     if mod_info:
-        test_configs = mod_info.get(constants.MODULE_TEST_CONFIG, [])
-        if len(test_configs) == 0:
-            # Check for AndroidTest.xml at the module path.
-            for path in mod_info.get(constants.MODULE_PATH, []):
-                config_path = os.path.join(
-                    android_root_dir, path, constants.MODULE_CONFIG)
-                if os.path.isfile(config_path):
-                    return config_path, mod_info.get(constants.MODULE_SRCS, [])
-        if len(test_configs) >= 1:
-            test_config = test_configs[0]
-            config_path = os.path.join(android_root_dir, test_config)
+        get_config_srcs_tuple = _get_config_srcs_tuple_from_module_info
+        ref_obj = mod_info
+    else:
+        # For tests that the configs were generated by soong and the test_name
+        # cannot be found in module_info.
+        get_config_srcs_tuple = _get_config_srcs_tuple_when_no_module_info
+        ref_obj = module_info
+
+    config_src_tuple = get_config_srcs_tuple(ref_obj, test_name)
+    return config_src_tuple if config_src_tuple else (None, None)
+
+
+def _get_config_srcs_tuple_from_module_info(
+        mod_info: Dict[str, Any],
+        _=None) -> Tuple[str, List[str]]:
+    """Get test config and srcs from the given info of the module."""
+    android_root_dir = os.environ.get(constants.ANDROID_BUILD_TOP)
+    test_configs = mod_info.get(constants.MODULE_TEST_CONFIG, [])
+    if len(test_configs) == 0:
+        # Check for AndroidTest.xml at the module path.
+        for path in mod_info.get(constants.MODULE_PATH, []):
+            config_path = os.path.join(
+                android_root_dir, path, constants.MODULE_CONFIG)
             if os.path.isfile(config_path):
                 return config_path, mod_info.get(constants.MODULE_SRCS, [])
-    else:
-        for _, info in module_info.name_to_module_info.items():
-            test_configs = info.get(constants.MODULE_TEST_CONFIG, [])
-            for test_config in test_configs:
-                config_path = os.path.join(android_root_dir, test_config)
-                config_name = os.path.splitext(os.path.basename(config_path))[0]
-                if config_name == test_name and os.path.isfile(config_path):
-                    return config_path, info.get(constants.MODULE_SRCS, [])
+    if len(test_configs) >= 1:
+        test_config = test_configs[0]
+        config_path = os.path.join(android_root_dir, test_config)
+        if os.path.isfile(config_path):
+            return config_path, mod_info.get(constants.MODULE_SRCS, [])
+    return None, None
+
+
+def _get_config_srcs_tuple_when_no_module_info(
+        module_info_obj: module_info.ModuleInfo,
+        test_name: str) -> Tuple[Path, List[str]]:
+    """Get test config and srcs by iterating the whole module_info."""
+    def get_config_srcs(info: Dict[str, Any], test_name: str):
+        test_configs = info.get(constants.MODULE_TEST_CONFIG, [])
+        for test_config in test_configs:
+            config_path = atest_utils.get_build_top(test_config)
+            config_name = config_path.stem
+            if config_name == test_name and os.path.isfile(config_path):
+                return config_path, info.get(constants.MODULE_SRCS, [])
+        return None, None
+
+    infos = (module_info_obj.get_module_info(mod)
+             for mod in module_info_obj.get_testable_modules())
+
+    for info in infos:
+        results = get_config_srcs(info, test_name)
+        if any(results):
+            return results
     return None, None
 
 

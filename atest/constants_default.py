@@ -20,6 +20,7 @@ Various globals used by atest.
 
 import os
 import re
+from collections import namedtuple
 
 MODE = 'DEFAULT'
 
@@ -37,10 +38,6 @@ GTS_GOOGLE_SERVICE_ACCOUNT = ''
 WAIT_FOR_DEBUGGER = 'WAIT_FOR_DEBUGGER'
 DISABLE_INSTALL = 'DISABLE_INSTALL'
 DISABLE_TEARDOWN = 'DISABLE_TEARDOWN'
-PRE_PATCH_ITERATIONS = 'PRE_PATCH_ITERATIONS'
-POST_PATCH_ITERATIONS = 'POST_PATCH_ITERATIONS'
-PRE_PATCH_FOLDER = 'PRE_PATCH_FOLDER'
-POST_PATCH_FOLDER = 'POST_PATCH_FOLDER'
 SERIAL = 'SERIAL'
 SHARDING = 'SHARDING'
 ALL_ABI = 'ALL_ABI'
@@ -64,7 +61,6 @@ BAZEL_MODE_FEATURES = 'BAZEL_MODE_FEATURES'
 REQUEST_UPLOAD_RESULT = 'REQUEST_UPLOAD_RESULT'
 DISABLE_UPLOAD_RESULT = 'DISABLE_UPLOAD_RESULT'
 MODULES_IN = 'MODULES-IN-'
-NO_ENABLE_ROOT = 'NO_ENABLE_ROOT'
 VERIFY_ENV_VARIABLE = 'VERIFY_ENV_VARIABLE'
 SKIP_VARS = [VERIFY_ENV_VARIABLE]
 AGGREGATE_METRIC_FILTER_ARG = 'AGGREGATE_METRIC_FILTER'
@@ -393,12 +389,6 @@ RUNNER_COMMAND_PATH = os.path.join(
     os.environ.get(ANDROID_BUILD_TOP, os.getcwd()),
     'tools/asuite/atest/test_data/runner_commands.json')
 
-# Gtest Types
-GTEST_REGULAR = 'regular native test'
-GTEST_TYPED = 'typed test'
-GTEST_TYPED_PARAM = 'typed-parameterized test'
-GTEST_PARAM = 'value-parameterized test'
-
 # Tradefed log saver template for ATest
 ATEST_TF_LOG_SAVER = 'template/log/atest_log_saver'
 DEVICE_SETUP_PREPARER = 'template/preparers/device-preparer'
@@ -417,3 +407,85 @@ REQUIRE_DEVICES_MSG = (
 
 # Default shard num.
 SHARD_NUM = 2
+
+ROBOLEAF_TEST_FILTER = 'roboleaf_test_filter'
+
+# Flags which roboleaf mode already supported:
+#   --iterations, --rerun-until-failure, --retry-any-failure, --verbose,
+#   --bazel-arg, --, --wait-for-debugger, --host
+#
+# Flags which roboleaf mode doesn't need to support:
+#   --minimal-build, --bazel_mode, --null-feature, --experimental-remote-avd,
+#   --experimental-device-driven-test, --experimental-java-runtime-dependencies,
+#   --experimental-remote, --experimental-host-driven-test,
+#   --experimental-robolectric-test, --no-bazel-detailed-summary,
+#   --rebuild-module-info, --sqlite-module-cache
+#
+# A dict of flags which are unsupported by roboleaf mode. The key is the
+# attribute name of flags. The value is a namedtuple of the function used to
+# check whether the unsupported flag is specified and the roboleaf mode should
+# be disabled, and the unsupported reason. The function takes two arguments,
+# default flag value and exact flag value.
+
+UnsupportedFlag = namedtuple('UnsupportedFlag', ['is_unsupported_func', 'reason'])
+ROBOLEAF_UNSUPPORTED_FLAGS = {
+    'steps': UnsupportedFlag(
+        lambda _, v: v is not None,
+        "Bazel builds the minimum required deps, and keeps the "
+        "build up-to-date, so it is unnecessary to specify steps to avoid the build. "
+        "Remove this flag."
+    ),
+    'auto_sharding': UnsupportedFlag(lambda d, v: d != v, ""),
+    'all_abi': UnsupportedFlag(
+        lambda d, v: d != v,
+        "Bazel will run tests for the current target product's ABI. Remove this flag."),
+    'disable_teardown': UnsupportedFlag(lambda d, v: d != v, ""),
+    'enable_device_preparer': UnsupportedFlag(lambda d, v: d != v, ""),
+    'experimental_coverage': UnsupportedFlag(lambda d, v: d != v, ""),
+    'test_mapping': UnsupportedFlag(lambda d, v: d != v, ""),
+    'device_only': UnsupportedFlag(lambda d, v: d != v, ""),
+    'sharding': UnsupportedFlag(lambda d, v: d != v, ""),
+    'use_modules_in': UnsupportedFlag(lambda d, v: d != v, ""),
+    'request_upload_result': UnsupportedFlag(lambda d, v: d != v, ""),
+    'disable_upload_result': UnsupportedFlag(lambda d, v: d != v, ""),
+    'include_subdirs': UnsupportedFlag(lambda d, v: d != v, ""),
+    'enable_file_patterns': UnsupportedFlag(lambda d, v: d != v, ""),
+    'host_unit_test_only': UnsupportedFlag(lambda d, v: d != v, ""),
+    'collect_tests_only': UnsupportedFlag(lambda d, v: d != v, ""),
+    'dry_run': UnsupportedFlag(lambda d, v: d != v, "Roboleaf mode/Bazel will not support dry-run."),
+    'info': UnsupportedFlag(lambda d, v: d != v, ""),
+    'list_modules': UnsupportedFlag(lambda d, v: d != v, ""),
+    'version': UnsupportedFlag(lambda d, v: d != v, ""),
+    'help': UnsupportedFlag(lambda d, v: d != v, ""),
+    'build_output': UnsupportedFlag(lambda d, v: d != v, ""),
+    'acloud_create': UnsupportedFlag(lambda d, v: d != v, ""),
+    'start_avd': UnsupportedFlag(lambda d, v: d != v, ""),
+    'serial': UnsupportedFlag(lambda d, v: d != v, ""),
+    'flakes_info': UnsupportedFlag(lambda d, v: d != v, ""),
+    'tf_early_device_release': UnsupportedFlag(lambda d, v: d != v, ""),
+    'test_config_select': UnsupportedFlag(lambda d, v: d != v, ""),
+    'generate_baseline': UnsupportedFlag(lambda d, v: d != v, ""),
+    'generate_new_metrics': UnsupportedFlag(lambda d, v: d != v, ""),
+    'detect_regression': UnsupportedFlag(lambda d, v: d != v, ""),
+    'instant': UnsupportedFlag(lambda d, v: d != v, ""),
+    'user_type': UnsupportedFlag(lambda d, v: d != v, ""),
+    'annotation_filter': UnsupportedFlag(lambda d, v: d != v, ""),
+    'clear_cache': UnsupportedFlag(
+        lambda d, v: d != v,
+        "Bazel will always keep the build outputs up-to-date. "
+        "To invalidate cached test results, pass --bazel-arg=--nocache_test_results instead."
+    ),
+    'update_cmd_mapping': UnsupportedFlag(lambda d, v: d != v, ""),
+    'verify_cmd_mapping': UnsupportedFlag(lambda d, v: d != v, ""),
+    'verify_env_variable': UnsupportedFlag(lambda d, v: d != v, ""),
+    'generate_runner_cmd': UnsupportedFlag(lambda d, v: d != v, ""),
+    'tf_debug': UnsupportedFlag(lambda d, v: d != v, ""),
+    'tf_template': UnsupportedFlag(lambda d, v: d != v, ""),
+    'test_filter': UnsupportedFlag(lambda d, v: d != v, ""),
+    'test_timeout': UnsupportedFlag(lambda d, v: d != v, ""),
+    'latest_result': UnsupportedFlag(lambda d, v: d != v, ""),
+    'history': UnsupportedFlag(lambda d, v: d != v, ""),
+    'no_metrics': UnsupportedFlag(lambda d, v: d != v, ""),
+    'aggregate_metric_filter': UnsupportedFlag(lambda d, v: d != v, ""),
+    'no_checking_device': UnsupportedFlag(lambda d, v: d != v, ""),
+}

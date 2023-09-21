@@ -45,7 +45,7 @@ import zipfile
 from dataclasses import dataclass
 from multiprocessing import Process
 from pathlib import Path
-from typing import Any, Dict, List, Set
+from typing import Any, Dict, List, Set, Tuple
 
 import xml.etree.ElementTree as ET
 
@@ -449,7 +449,7 @@ def is_test_mapping(args):
         True if the args indicates atest shall run tests in test mapping. False
         otherwise.
     """
-    if any((args.host_unit_test_only, args.smart_testing_local)):
+    if args.host_unit_test_only:
         return False
     if any((args.test_mapping, args.include_subdirs, not args.tests)):
         return True
@@ -533,6 +533,8 @@ def colorful_print(text, color, bp_color=None, auto_wrap=True):
     else:
         print(output, end="")
 
+def roboleaf_print(text):
+    print("[🌿] " + text)
 
 def get_terminal_size():
     """Get terminal size and return a tuple.
@@ -1932,8 +1934,113 @@ def generate_print_result_html(result_file: Path):
             cache.write('</body></html>')
         print(f'\nTo access logs, press "ctrl" and click on\n'
               f'{colorize(f"file://{result_html}", constants.MAGENTA)}\n')
+        send_tradeded_elapsed_time_metric(search_dir)
     except Exception as e:
         logging.debug('Did not generate log html for reason: %s', e)
+
+
+def send_tradeded_elapsed_time_metric(search_dir: Path):
+    """Method which sends Tradefed elapsed time to the metrics."""
+    test, prep, teardown = get_tradefed_invocation_time(search_dir)
+    metrics.LocalDetectEvent(
+        detect_type=DetectType.TF_TOTAL_RUN_MS, result=test + prep + teardown)
+    metrics.LocalDetectEvent(
+        detect_type=DetectType.TF_PREPARATION_MS, result=prep)
+    metrics.LocalDetectEvent(
+        detect_type=DetectType.TF_TEST_MS, result=test)
+    metrics.LocalDetectEvent(
+        detect_type=DetectType.TF_TEARDOWN_MS, result=teardown)
+
+
+def get_tradefed_invocation_time(search_dir: Path) -> Tuple[int, int, int]:
+    """Return a tuple of testing, preparation and teardown time."""
+    test, prep, teardown = 0, 0, 0
+    end_host_log_files = find_files(path=search_dir,
+                                    file_name="end_host_log_*.txt",
+                                    followlinks=True)
+    for log in end_host_log_files:
+        with open(log, 'r', encoding='utf-8') as cache:
+            contents = cache.read().splitlines()
+
+        parse_test_time, parse_prep_time = False, False
+        # ============================================
+        # ================= Results ==================
+        # =============== Consumed Time ==============
+        #     x86_64 HelloWorldTests: 1s
+        #     x86_64 hallo-welt: 866 ms
+        # Total aggregated tests run time: 1s
+        # ============== Modules Preparation Times ==============
+        #     x86_64 HelloWorldTests => prep = 2483 ms || clean = 294 ms
+        #     x86_64 hallo-welt => prep = 1845 ms || clean = 292 ms
+        # Total preparation time: 4s  ||  Total tear down time: 586 ms
+        # =======================================================
+        # =============== Summary ===============
+        # Total Run time: 6s
+        # 2/2 modules completed
+        # Total Tests       : 3
+        # PASSED            : 3
+        # FAILED            : 0
+        # ============== End of Results ==============
+        # ============================================
+        for line in contents:
+            if re.match(r'[=]+.*consumed.*time.*[=]+', line, re.I):
+                parse_test_time, parse_prep_time = True, False
+                continue
+            if re.match(r'[=]+.*preparation.*time.*[=]+', line, re.I):
+                parse_test_time, parse_prep_time = False, True
+                continue
+            # Close parsing when `Total` keyword starts at the beginning.
+            if re.match(r'^(Total.*)', line, re.I):
+                parse_test_time, parse_prep_time = False, False
+                continue
+            if parse_test_time:
+                match = re.search(r'^[\s]+\w.*:\s+(?P<timestr>.*)$', line, re.I)
+                if match:
+                    test += convert_timestr_to_ms(match.group('timestr'))
+                continue
+            if parse_prep_time:
+                # SuiteResultReporter.java defines elapsed prep time only in ms.
+                match = re.search(
+                    r'prep = (?P<prep>\d+ ms) \|\| clean = (?P<clean>\d+ ms)$',
+                    line, re.I)
+                if match:
+                    prep += convert_timestr_to_ms(match.group('prep'))
+                    teardown += convert_timestr_to_ms(match.group('clean'))
+                continue
+
+    return test, prep, teardown
+
+
+def convert_timestr_to_ms(time_string: str=None) -> int:
+    """Convert time string to an integer in millisecond.
+
+    Possible time strings are:
+        1h 21m 15s
+        1m 5s
+        25s
+    If elapsed time is less than 1 sec, the time will be in millisecond.
+        233 ms
+    """
+    if not time_string:
+        return 0
+
+    hours, minutes, seconds = 0, 0, 0
+    # Extract hour(<h>), minute(<m>), second(<s>), or millisecond(<ms>).
+    match = re.match(
+        r'(((?P<h>\d+)h\s+)?(?P<m>\d+)m\s+)?(?P<s>\d+)s|(?P<ms>\d+)\s*ms',
+        time_string
+    )
+    if match:
+        hours = int(match.group('h')) if match.group('h') else 0
+        minutes = int(match.group('m')) if match.group('m') else 0
+        seconds = int(match.group('s')) if match.group('s') else 0
+        milliseconds = int(match.group('ms')) if match.group('ms') else 0
+
+    return (hours * 3600 * 1000 +
+            minutes * 60 * 1000 +
+            seconds * 1000 +
+            milliseconds)
+
 
 # pylint: disable=broad-except
 def prompt_suggestions(result_file: Path):

@@ -24,9 +24,7 @@ atest is designed to support any test types that can be ran by TradeFederation.
 """
 
 # pylint: disable=line-too-long
-# pylint: disable=no-member
 # pylint: disable=too-many-lines
-# pylint: disable=wrong-import-position
 
 from __future__ import print_function
 
@@ -39,7 +37,7 @@ import tempfile
 import time
 import platform
 
-from typing import Any, Dict, List, Set
+from typing import Any, Dict, List, Set, Tuple
 
 from dataclasses import dataclass
 from pathlib import Path
@@ -54,7 +52,6 @@ from atest import bug_detector
 from atest import cli_translator
 from atest import constants
 from atest import module_info
-from atest import result_reporter
 from atest import test_runner_handler
 
 from atest.atest_enum import DetectType, ExitCode
@@ -63,8 +60,8 @@ from atest.metrics import metrics
 from atest.metrics import metrics_base
 from atest.metrics import metrics_utils
 from atest.test_finders import test_finder_utils
-from atest.test_runners import regression_test_runner
 from atest.test_runners import roboleaf_test_runner
+from atest.test_runners.atest_tf_test_runner import AtestTradefedTestRunner
 from atest.test_finders.test_info import TestInfo
 from atest.tools import atest_tools as at
 
@@ -190,14 +187,15 @@ def _get_args_from_config():
                     args.append(arg_in_line)
     return args
 
-def _parse_args(argv: List[Any]) -> argparse.ArgumentParser:
+def _parse_args(argv: List[Any]) -> Tuple[argparse.ArgumentParser, List[str]]:
     """Parse command line arguments.
 
     Args:
         argv: A list of arguments.
 
     Returns:
-        An argparse.ArgumentParser class instance holding parsed args.
+        A tuple of an argparse.ArgumentParser class instance holding parsed args
+        and a list of flags which are unsupported by roboleaf mode.
     """
     # Store everything after '--' in custom_args.
     pruned_argv = argv
@@ -213,7 +211,18 @@ def _parse_args(argv: List[Any]) -> argparse.ArgumentParser:
         for arg in argv[custom_args_index+1:]:
             logging.debug('Quoting regex argument %s', arg)
             args.custom_args.append(atest_utils.quote(arg))
-    return args
+
+    roboleaf_unsupported_flags = []
+    for arg in vars(args):
+        if arg in constants.ROBOLEAF_UNSUPPORTED_FLAGS:
+            flag = constants.ROBOLEAF_UNSUPPORTED_FLAGS[arg]
+            default = parser.get_default(arg)
+            actual = getattr(args, arg)
+            if flag.is_unsupported_func(default, actual):
+                roboleaf_unsupported_flags.append(
+                    f'--{arg}={actual} (default: {default}) {flag.reason}')
+
+    return args, roboleaf_unsupported_flags
 
 
 def _configure_logging(verbose: bool, results_dir: str):
@@ -301,18 +310,14 @@ def get_extra_args(args):
                 'dry_run': constants.DRY_RUN,
                 'enable_device_preparer': constants.ENABLE_DEVICE_PREPARER,
                 'flakes_info': constants.FLAKES_INFO,
-                'generate_baseline': constants.PRE_PATCH_ITERATIONS,
-                'generate_new_metrics': constants.POST_PATCH_ITERATIONS,
                 'host': constants.HOST,
                 'instant': constants.INSTANT,
                 'iterations': constants.ITERATIONS,
-                'no_enable_root': constants.NO_ENABLE_ROOT,
                 'request_upload_result': constants.REQUEST_UPLOAD_RESULT,
                 'bazel_mode_features': constants.BAZEL_MODE_FEATURES,
                 'rerun_until_failure': constants.RERUN_UNTIL_FAILURE,
                 'retry_any_failure': constants.RETRY_ANY_FAILURE,
                 'serial': constants.SERIAL,
-                'auto_ld_library_path': constants.LD_LIBRARY_PATH,
                 'sharding': constants.SHARDING,
                 'test_filter': constants.TEST_FILTER,
                 'test_timeout': constants.TEST_TIMEOUT,
@@ -329,26 +334,6 @@ def get_extra_args(args):
     extra_args.update({arg_maps.get(k): v for k, v in vars(args).items()
                        if arg_maps.get(k) and v})
     return extra_args
-
-
-def _get_regression_detection_args(args, results_dir):
-    """Get args for regression detection test runners.
-
-    Args:
-        args: parsed args object.
-        results_dir: string directory to store atest results.
-
-    Returns:
-        Dict of args for regression detection test runner to utilize.
-    """
-    regression_args = {}
-    pre_patch_folder = (os.path.join(results_dir, 'baseline-metrics') if args.generate_baseline
-                        else args.detect_regression.pop(0))
-    post_patch_folder = (os.path.join(results_dir, 'new-metrics') if args.generate_new_metrics
-                         else args.detect_regression.pop(0))
-    regression_args[constants.PRE_PATCH_FOLDER] = pre_patch_folder
-    regression_args[constants.POST_PATCH_FOLDER] = post_patch_folder
-    return regression_args
 
 
 def _validate_exec_mode(args, test_infos, host_tests=None):
@@ -453,63 +438,6 @@ def _validate_tm_tests_exec_mode(args, test_infos):
         _validate_exec_mode(args, host_test_infos, host_tests=True)
 
 
-def _will_run_tests(args: argparse.ArgumentParser) -> bool:
-    """Determine if there are tests to run.
-
-    Currently only used by detect_regression to skip the test if just running
-    regression detection.
-
-    Args:
-        args: An argparse.ArgumentParser object.
-
-    Returns:
-        True if there are tests to run, false otherwise.
-    """
-    return not (args.detect_regression and len(args.detect_regression) == 2)
-
-
-# pylint: disable=no-else-return
-# This method is going to dispose, let's ignore pylint for now.
-def _has_valid_regression_detection_args(args):
-    """Validate regression detection args.
-
-    Args:
-        args: parsed args object.
-
-    Returns:
-        True if args are valid
-    """
-    if args.generate_baseline and args.generate_new_metrics:
-        logging.error('Cannot collect both baseline and new metrics'
-                      'at the same time.')
-        return False
-    if args.detect_regression is not None:
-        if not args.detect_regression:
-            logging.error('Need to specify at least 1 arg for'
-                          ' regression detection.')
-            return False
-        elif len(args.detect_regression) == 1:
-            if args.generate_baseline or args.generate_new_metrics:
-                return True
-            logging.error('Need to specify --generate-baseline or'
-                          ' --generate-new-metrics.')
-            return False
-        elif len(args.detect_regression) == 2:
-            if args.generate_baseline:
-                logging.error('Specified 2 metric paths and --generate-baseline'
-                              ', either drop --generate-baseline or drop a path')
-                return False
-            if args.generate_new_metrics:
-                logging.error('Specified 2 metric paths and --generate-new-metrics, '
-                              'either drop --generate-new-metrics or drop a path')
-                return False
-            return True
-        else:
-            logging.error('Specified more than 2 metric paths.')
-            return False
-    return True
-
-
 def _has_valid_test_mapping_args(args):
     """Validate test mapping args.
 
@@ -533,9 +461,6 @@ def _has_valid_test_mapping_args(args):
         return True
     options_to_validate = [
         (args.annotation_filter, '--annotation-filter'),
-        (args.generate_baseline, '--generate-baseline'),
-        (args.detect_regression, '--detect-regression'),
-        (args.generate_new_metrics, '--generate-new-metrics'),
     ]
     for arg_value, arg in options_to_validate:
         if arg_value:
@@ -555,12 +480,6 @@ def _validate_args(args):
     """
     if _missing_environment_variables():
         sys.exit(ExitCode.ENV_NOT_SETUP)
-    if args.generate_baseline and args.generate_new_metrics:
-        logging.error(
-            'Cannot collect both baseline and new metrics at the same time.')
-        sys.exit(ExitCode.INVALID_OBSOLETE_BASELINE_ARGS)
-    if not _has_valid_regression_detection_args(args):
-        sys.exit(ExitCode.INVALID_REGRESSION_ARGS)
     if not _has_valid_test_mapping_args(args):
         sys.exit(ExitCode.INVALID_TM_ARGS)
 
@@ -781,21 +700,7 @@ def _non_action_validator(args: argparse.ArgumentParser):
         atest_execution_info.print_test_result_by_path(
             constants.LATEST_RESULT_FILE)
         sys.exit(ExitCode.SUCCESS)
-    # TODO(b/131879842): remove below statement after they are fully removed.
-    if any((args.detect_regression,
-            args.generate_baseline,
-            args.generate_new_metrics)):
-        stop_msg = ('Please STOP using arguments below -- they are obsolete and '
-                    'will be removed in a very near future:\n'
-                    '\t--detect-regression\n'
-                    '\t--generate-baseline\n'
-                    '\t--generate-new-metrics\n')
-        msg = ('Please use below arguments instead:\n'
-               '\t--iterations\n'
-               '\t--rerun-until-failure\n'
-               '\t--retry-any-failure\n')
-        atest_utils.colorful_print(stop_msg, constants.RED)
-        atest_utils.colorful_print(msg, constants.CYAN)
+
 
 def _dry_run_validator(
         args: argparse.ArgumentParser,
@@ -920,8 +825,13 @@ def need_run_index_targets(
     Returns:
         True when none of the above conditions were found.
     """
-    ignore_args = (args.update_cmd_mapping, args.verify_cmd_mapping, args.dry_run)
-    if any(ignore_args):
+    no_indexing_args = (
+        args.update_cmd_mapping,
+        args.verify_cmd_mapping,
+        args.dry_run,
+        args.list_modules,
+    )
+    if any(no_indexing_args):
         return False
     if extra_args.get(constants.VERIFY_ENV_VARIABLE, False):
         return False
@@ -930,23 +840,35 @@ def need_run_index_targets(
     return True
 
 
-def _b_test(test_infos, extra_args, results_dir):
+def _b_test(tests, extra_args, results_dir):
     """Entry point of b test in atest.
 
     Args:
         tests: List of tests to pass to `b test`
-        args: An argparse.Namespace class instance holding parsed args.
+        extra_args: An argparse.Namespace class instance holding parsed args.
         results_dir: A directory which stores the ATest execution information.
 
     Returns:
         Exit code.
     """
+    # Give users a heads up that something has changed.
+    for t in tests.keys():
+        atest_utils.roboleaf_print(
+            f'{t} is Bazel/Roboleaf-compatible.. '
+            f'{atest_utils.colorize("YES", constants.GREEN)}')
+    atest_utils.roboleaf_print(
+        'Switching to Bazel.. '
+        f'{atest_utils.colorize("YES", constants.GREEN)}')
+    atest_utils.roboleaf_print(
+        'Encountering issues? '
+        f'Opt-out with {atest_utils.colorize("--roboleaf-mode=off", constants.YELLOW)}')
+
     mod_info = module_info.create_empty()
     test_start = time.time()
 
     # Run the bazel test command. This is where the heavy lifting is.
     tests_exit_code, reporter = test_runner_handler.run_all_tests(
-        results_dir, test_infos, extra_args, mod_info)
+        results_dir, tests.values(), extra_args, mod_info)
 
     atest_execution_info.AtestExecutionInfo.result_reporters.append(reporter)
 
@@ -1006,17 +928,77 @@ def _is_auto_shard_test(test_infos):
             return True
     return False
 
+def _send_start_event(argv: List[Any], tests: List[str]):
+    """Send AtestStartEvent to metrics"""
+    os_pyver = (f'{platform.platform()}:{platform.python_version()}/'
+                f'{atest_utils.get_manifest_branch(True)}:'
+                f'{atest_utils.get_atest_version()}')
+    metrics.AtestStartEvent(
+        command_line=' '.join(argv),
+        test_references=tests,
+        cwd=os.getcwd(),
+        os=os_pyver,
+    )
+
+
+def _get_acloud_proc_and_log(args: argparse.ArgumentParser,
+                    results_dir: str) -> Tuple[Any, Any]:
+    """Return tuple of acloud process ID and report file."""
+    if any((args.acloud_create, args.start_avd)):
+        return at.acloud_create_validator(results_dir, args)
+    return None, None
+
+
+def has_sufficient_devices(
+        required_amount: int,
+        serial: List[str] = None) -> bool:
+    """Detect whether attaching sufficient devices for tests."""
+    given_amount  = len(serial) if serial else 0
+    # Only check when both given_amount and required_amount are non zero.
+    if all((given_amount, required_amount)):
+        # Base on TF rules, given_amount can be greater than or equal to
+        # required_amount.
+        if required_amount > given_amount:
+            atest_utils.colorful_print(
+                f'The test requires {required_amount} devices, '
+                f'but {given_amount} were given.',
+                constants.RED)
+    return given_amount >= required_amount
+
+
+def setup_metrics_tool_name(no_metrics: bool = False):
+    """Setup tool_name and sub_tool_name for MetricsBase."""
+    if (not no_metrics and
+        metrics_base.MetricsBase.user_type == metrics_base.INTERNAL_USER):
+        metrics_utils.print_data_collection_notice()
+
+        USER_FROM_TOOL = os.getenv(constants.USER_FROM_TOOL)
+        metrics_base.MetricsBase.tool_name = (
+            USER_FROM_TOOL if USER_FROM_TOOL else constants.TOOL_NAME
+        )
+
+        USER_FROM_SUB_TOOL = os.getenv(constants.USER_FROM_SUB_TOOL)
+        metrics_base.MetricsBase.sub_tool_name = (
+            USER_FROM_SUB_TOOL if USER_FROM_SUB_TOOL
+            else constants.SUB_TOOL_NAME
+        )
+
 
 # pylint: disable=too-many-statements
 # pylint: disable=too-many-branches
 # pylint: disable=too-many-return-statements
-def main(argv: List[Any], results_dir: str, args: argparse.ArgumentParser):
+def main(
+    argv: List[Any],
+    results_dir: str,
+    args: argparse.Namespace,
+    roboleaf_unsupported_flags: List[str]):
     """Entry point of atest script.
 
     Args:
         argv: A list of arguments.
         results_dir: A directory which stores the ATest execution information.
         args: An argparse.Namespace class instance holding parsed args.
+        roboleaf_unsupported_flags: A list of flags which are unsupported by roboleaf mode.
 
     Returns:
         Exit code.
@@ -1031,19 +1013,10 @@ def main(argv: List[Any], results_dir: str, args: argparse.ArgumentParser):
     _configure_logging(args.verbose, results_dir)
     _validate_args(args)
     metrics_utils.get_start_time()
-    os_pyver = (f'{platform.platform()}:{platform.python_version()}/'
-                f'{atest_utils.get_manifest_branch(True)}:'
-                f'{atest_utils.get_atest_version()}')
-    metrics.AtestStartEvent(
-        command_line=' '.join(argv),
-        test_references=args.tests,
-        cwd=os.getcwd(),
-        os=os_pyver)
+    _send_start_event(argv, args.tests)
     _non_action_validator(args)
 
-    proc_acloud, report_file = None, None
-    if any((args.acloud_create, args.start_avd)):
-        proc_acloud, report_file = at.acloud_create_validator(results_dir, args)
+    proc_acloud, report_file = _get_acloud_proc_and_log(args, results_dir)
     is_clean = not os.path.exists(
         os.environ.get(constants.ANDROID_PRODUCT_OUT, ''))
     extra_args = get_extra_args(args)
@@ -1056,15 +1029,11 @@ def main(argv: List[Any], results_dir: str, args: argparse.ArgumentParser):
     # building the build modules and running tradefed. That said. Bazel does not
     # fully support every atest flag -- not every one of them will make sense
     # when Bazel is handling both build and test.
-    b_supported_tests = roboleaf_test_runner.are_all_tests_supported(args.roboleaf_mode, args.tests)
+    b_supported_tests = roboleaf_test_runner.are_all_tests_supported(
+        args.roboleaf_mode, args.tests, roboleaf_unsupported_flags)
     if b_supported_tests:
-        # Give users a heads up that something has changed.
-        print(f'All requested modules [{atest_utils.colorize(", ".join(b_supported_tests.keys()), constants.GREEN)}] '
-              'can be fully built and tested by Bazel, so atest will now delegate to Bazel. '
-              'If there are any issues, please file a bug on the issue tracker. '
-              'You can also opt-out with the "--roboleaf-mode=off" flag.')
         # Use Bazel for both building and testing and return early.
-        return _b_test(b_supported_tests.values(), extra_args, results_dir)
+        return _b_test(b_supported_tests, extra_args, results_dir)
 
     # This is where standard atest begins.
 
@@ -1096,51 +1065,70 @@ def main(argv: List[Any], results_dir: str, args: argparse.ArgumentParser):
     test_infos = set()
     dry_run_args = (args.update_cmd_mapping, args.verify_cmd_mapping,
                     args.dry_run, args.generate_runner_cmd)
-    if _will_run_tests(args):
-        # (b/242567487) index_targets may finish after cli_translator; to
-        # mitigate the overhead, the main waits until it finished when no index
-        # files are available (e.g. fresh repo sync)
-        join_start = time.time()
-        if proc_idx and not atest_utils.has_index_files():
-            proc_idx.join()
-            metrics.LocalDetectEvent(
-                detect_type=DetectType.IDX_JOIN_MS,
-                result=int((time.time() - join_start) * 1000))
-        find_start = time.time()
-        test_infos = translator.translate(args)
-        given_amount  = len(args.serial) if args.serial else 0
-        required_amount = get_device_count_config(test_infos, mod_info)
-        args.device_count_config = required_amount
-        # Only check when both given_amount and required_amount are non zero.
-        if all((given_amount, required_amount)):
-            # Base on TF rules, given_amount can be greater than or equal to
-            # required_amount.
-            if required_amount > given_amount:
-                atest_utils.colorful_print(
-                    f'The test requires {required_amount} devices, '
-                    f'but {given_amount} were given.',
-                    constants.RED)
-                return 0
+    # (b/242567487) index_targets may finish after cli_translator; to
+    # mitigate the overhead, the main waits until it finished when no index
+    # files are available (e.g. fresh repo sync)
+    join_start = time.time()
+    if proc_idx and not atest_utils.has_index_files():
+        proc_idx.join()
+        metrics.LocalDetectEvent(
+            detect_type=DetectType.IDX_JOIN_MS,
+            result=int((time.time() - join_start) * 1000))
+    find_start = time.time()
+    test_infos = translator.translate(args)
+    args.device_count_config = get_device_count_config(test_infos, mod_info)
+    if not has_sufficient_devices(args.device_count_config, args.serial):
+        return ExitCode.INSUFFICIENT_DEVICES
+    find_duration = time.time() - find_start
+    if not test_infos:
+        return ExitCode.TEST_NOT_FOUND
 
-        find_duration = time.time() - find_start
-        if not test_infos:
-            return ExitCode.TEST_NOT_FOUND
-        if not is_from_test_mapping(test_infos):
-            if not (any(dry_run_args) or verify_env_variables):
-                _validate_exec_mode(args, test_infos)
-                # _validate_exec_mode appends --host automatically when pure
-                # host-side tests, so re-parsing extra_args is a must.
-                extra_args = get_extra_args(args)
-        else:
-            _validate_tm_tests_exec_mode(args, test_infos)
-        # Detect auto sharding and trigger creating AVDs
-        if args.auto_sharding and _is_auto_shard_test(test_infos):
-            extra_args.update({constants.SHARDING: constants.SHARD_NUM})
-            if not (any(dry_run_args) or verify_env_variables):
-                # TODO: check existing devices.
-                args.acloud_create = [f'--num-instances={constants.SHARD_NUM}']
-                proc_acloud, report_file = at.acloud_create_validator(
-                    results_dir, args)
+    # Reuse ATest's finders to resolve the input test identifiers and get
+    # the test module names. If all test modules are supported by Roboleaf
+    # mode, we'll delegate to Roboleaf mode.
+    # TODO(b/296940736): Use TestInfo.raw_test_name after supporting
+    #  Mainline modules.
+    test_names = [t.test_name for t in test_infos]
+    # Avoid checking twice.
+    if set(test_names) != set(args.tests):
+        test_name_to_filters = collections.defaultdict(set)
+        for t in test_infos:
+            filters = test_name_to_filters[t.test_name]
+            filters |= t.data.get(constants.TI_FILTER, set())
+
+        b_supported_tests = roboleaf_test_runner.are_all_tests_supported(
+            args.roboleaf_mode,
+            test_names,
+            roboleaf_unsupported_flags,
+            {t: AtestTradefedTestRunner.flatten_test_filters(test_name_to_filters.get(t))
+                for t in test_name_to_filters})
+        if b_supported_tests:
+            atest_utils.roboleaf_print(
+                f'{atest_utils.colorize("TIP", constants.YELLOW)}: '
+                "Directly specify the module name to avoid test finder overhead.")
+            metrics.LocalDetectEvent(
+                detect_type=DetectType.ROBOLEAF_NON_MODULE_FINDER,
+                result=DetectType.ROBOLEAF_NON_MODULE_FINDER,
+            )
+            # Use Bazel for both building and testing and return early.
+            return _b_test(b_supported_tests, extra_args, results_dir)
+
+    if not is_from_test_mapping(test_infos):
+        if not (any(dry_run_args) or verify_env_variables):
+            _validate_exec_mode(args, test_infos)
+            # _validate_exec_mode appends --host automatically when pure
+            # host-side tests, so re-parsing extra_args is a must.
+            extra_args = get_extra_args(args)
+    else:
+        _validate_tm_tests_exec_mode(args, test_infos)
+    # Detect auto sharding and trigger creating AVDs
+    if args.auto_sharding and _is_auto_shard_test(test_infos):
+        extra_args.update({constants.SHARDING: constants.SHARD_NUM})
+        if not (any(dry_run_args) or verify_env_variables):
+            # TODO: check existing devices.
+            args.acloud_create = [f'--num-instances={constants.SHARD_NUM}']
+            proc_acloud, report_file = at.acloud_create_validator(
+                results_dir, args)
 
     # TODO: change to another approach that put constants.CUSTOM_ARGS in the
     # end of command to make sure that customized args can override default
@@ -1176,9 +1164,6 @@ def main(argv: List[Any], results_dir: str, args: argparse.ArgumentParser):
         if not atest_utils.handle_test_env_var(verify_key, pre_verify=True):
             print('No environment variables need to verify.')
             return 0
-    if args.detect_regression:
-        build_targets |= (regression_test_runner.RegressionTestRunner('')
-                          .get_test_runner_build_reqs([]))
 
     steps = parse_steps(args)
     if build_targets and steps.has_build():
@@ -1188,6 +1173,10 @@ def main(argv: List[Any], results_dir: str, args: argparse.ArgumentParser):
         # Add module-info.json target to the list of build targets to keep the
         # file up to date.
         build_targets.add(module_info.get_module_info_target())
+
+        # Add the -jx as a build target if user specify it.
+        if args.build_j:
+            build_targets.add(f'-j{args.build_j}')
 
         build_start = time.time()
         success = atest_utils.build(build_targets)
@@ -1241,15 +1230,6 @@ def main(argv: List[Any], results_dir: str, args: argparse.ArgumentParser):
                 results_dir, test_infos, extra_args, mod_info)
         if args.experimental_coverage:
             coverage.generate_coverage_report(results_dir, test_infos, mod_info)
-    if args.detect_regression:
-        regression_args = _get_regression_detection_args(args, results_dir)
-        # TODO(b/110485713): Should not call run_tests here.
-        reporter = result_reporter.ResultReporter(
-            collect_only=extra_args.get(constants.COLLECT_TESTS_ONLY))
-        atest_execution_info.AtestExecutionInfo.result_reporters.append(reporter)
-        tests_exit_code |= regression_test_runner.RegressionTestRunner(
-            '').run_tests(
-                None, regression_args, reporter)
     metrics.RunTestsFinishEvent(
         duration=metrics_utils.convert_duration(time.time() - test_start))
     preparation_time = atest_execution_info.preparation_time(test_start)
@@ -1287,25 +1267,14 @@ if __name__ == '__main__':
     else:
         metrics.LocalDetectEvent(
             detect_type=DetectType.ATEST_CONFIG, result=0)
-    atest_configs.GLOBAL_ARGS = _parse_args(final_args)
+    atest_configs.GLOBAL_ARGS, roboleaf_unsupported_flags = _parse_args(final_args)
     with atest_execution_info.AtestExecutionInfo(
             final_args, RESULTS_DIR,
             atest_configs.GLOBAL_ARGS) as result_file:
-        if (not atest_configs.GLOBAL_ARGS.no_metrics and
-        metrics_base.MetricsBase.user_type == metrics_base.INTERNAL_USER):
-            metrics_utils.print_data_collection_notice()
-            USER_FROM_TOOL = os.getenv(constants.USER_FROM_TOOL, '')
-            if USER_FROM_TOOL == '':
-                metrics_base.MetricsBase.tool_name = constants.TOOL_NAME
-            else:
-                metrics_base.MetricsBase.tool_name = USER_FROM_TOOL
-            USER_FROM_SUB_TOOL = os.getenv(constants.USER_FROM_SUB_TOOL, '')
-            if USER_FROM_SUB_TOOL == '':
-                metrics_base.MetricsBase.sub_tool_name = constants.SUB_TOOL_NAME
-            else:
-                metrics_base.MetricsBase.sub_tool_name = USER_FROM_SUB_TOOL
+        setup_metrics_tool_name(atest_configs.GLOBAL_ARGS.no_metrics)
 
-        EXIT_CODE = main(final_args, RESULTS_DIR, atest_configs.GLOBAL_ARGS)
+        EXIT_CODE = main(
+            final_args, RESULTS_DIR, atest_configs.GLOBAL_ARGS, roboleaf_unsupported_flags)
         DETECTOR = bug_detector.BugDetector(final_args, EXIT_CODE)
         if EXIT_CODE not in EXIT_CODES_BEFORE_TEST:
             metrics.LocalDetectEvent(

@@ -31,6 +31,7 @@ from atest import constants
 
 from atest.atest_enum import DetectType
 from atest.metrics import metrics
+from atest.test_finders import cc_test_filter_utils
 from atest.test_finders import test_info
 from atest.test_finders import test_finder_base
 from atest.test_finders import test_finder_utils
@@ -56,7 +57,7 @@ class ModuleFinder(test_finder_base.TestFinderBase):
         self.root_dir = os.environ.get(constants.ANDROID_BUILD_TOP)
         self.module_info = module_info
 
-    def _determine_testable_module(self, path: str,
+    def _determine_modules_to_test(self, path: str,
                                    file_path: str = None) -> List:
         """Determine which module the user is trying to test.
 
@@ -70,29 +71,21 @@ class ModuleFinder(test_finder_base.TestFinderBase):
         Returns:
             A list of the module names.
         """
-        testable_modules = []
-        # A list to save those testable modules but srcs information is empty.
-        testable_modules_no_srcs = []
-        for mod in self.module_info.get_module_names(path):
-            mod_info = self.module_info.get_module_info(mod)
-            if self.module_info.is_testable_module(mod_info):
-                # If test module defined srcs, input file_path should be defined
-                # in the src list of module.
-                module_srcs = mod_info.get(constants.MODULE_SRCS, [])
-                if file_path and os.path.relpath(
-                    file_path, self.root_dir) not in module_srcs:
-                    logging.debug('Skip module: %s for %s', mod, file_path)
-                    # Collect those modules if they don't have srcs information
-                    # in module-info, use this list if there's no other matched
-                    # module with src information.
-                    if not module_srcs:
-                        testable_modules_no_srcs.append(
-                            mod_info.get(constants.MODULE_NAME))
-                    continue
-                testable_modules.append(mod_info.get(constants.MODULE_NAME))
-        if not testable_modules:
-            testable_modules.extend(testable_modules_no_srcs)
-        return test_finder_utils.extract_test_from_tests(testable_modules)
+        modules_to_test = set()
+
+        if file_path:
+            modules_to_test = self.module_info.get_modules_by_path_in_srcs(
+                path=file_path,
+                testable_modules_only=True,
+            )
+
+        if not modules_to_test:
+            modules_to_test = self.module_info.get_modules_by_path(
+                path=path,
+                testable_modules_only=True,
+            )
+
+        return test_finder_utils.extract_selected_tests(modules_to_test)
 
     def _is_vts_module(self, module_name):
         """Returns True if the module is a vts10 module, else False."""
@@ -185,7 +178,8 @@ class ModuleFinder(test_finder_base.TestFinderBase):
             TestInfo with updated robolectric fields.
         """
         test.test_runner = self._ROBOLECTRIC_RUNNER
-        test.test_name = self.module_info.get_robolectric_test_name(test.test_name)
+        test.test_name = self.module_info.get_robolectric_test_name(
+            self.module_info.get_module_info(test.test_name))
         return test
 
     # pylint: disable=too-many-branches
@@ -331,7 +325,7 @@ class ModuleFinder(test_finder_base.TestFinderBase):
             if test_config_list:
                 # multiple test configs
                 if len(test_config_list) > 1:
-                    test_configs = test_finder_utils.extract_test_from_tests(
+                    test_configs = test_finder_utils.extract_selected_tests(
                         test_config_list, default_all=default_all_config)
                 else:
                     test_configs = test_config_list
@@ -365,7 +359,7 @@ class ModuleFinder(test_finder_base.TestFinderBase):
         if os.path.isfile(path) and kwargs.get('is_native_test', None):
             class_info = test_finder_utils.get_cc_class_info(path)
             ti_filter = frozenset([test_info.TestFilter(
-                test_finder_utils.get_cc_filter(
+                cc_test_filter_utils.get_cc_filter(
                     class_info, kwargs.get('class_name', '*'), methods),
                 frozenset())])
         # Path to java file.
@@ -396,7 +390,7 @@ class ModuleFinder(test_finder_base.TestFinderBase):
             for classname, _ in class_info.items():
                 cc_filters.append(
                     test_info.TestFilter(
-                        test_finder_utils.get_cc_filter(class_info, classname, methods),
+                        cc_test_filter_utils.get_cc_filter(class_info, classname, methods),
                         frozenset()))
             ti_filter = frozenset(cc_filters)
         # If input path is a folder and have class_name information.
@@ -458,7 +452,7 @@ class ModuleFinder(test_finder_base.TestFinderBase):
         if module_name:
             module_names = [module_name]
         else:
-            module_names = self._determine_testable_module(
+            module_names = self._determine_modules_to_test(
                 os.path.dirname(rel_config),
                 test_path if self._is_comparted_src(test_path) else None)
         test_infos = []

@@ -21,7 +21,7 @@ from enum import IntEnum, unique, Enum
 @unique
 class DetectType(IntEnum):
     """An Enum class for local_detect_event."""
-    # Detect type for local_detect_event; next expansion: 53
+    # Detect type for local_detect_event; next expansion: 57
     BUG_DETECTED = 0
     ACLOUD_CREATE = 1
     FIND_BUILD = 2
@@ -97,6 +97,13 @@ class DetectType(IntEnum):
     # Time of join the index.
     IDX_JOIN_MS = 51
     IS_MINIMAL_BUILD = 52
+    # Elapsed time of the Tradefed runner.
+    TF_PREPARATION_MS = 53
+    TF_TEST_MS = 54
+    TF_TEARDOWN_MS = 55
+    TF_TOTAL_RUN_MS = 56
+    ROBOLEAF_NON_MODULE_FINDER = 57
+    ROBOLEAF_UNSUPPORTED_FLAG = 58
 
 @unique
 class ExitCode(IntEnum):
@@ -116,12 +123,13 @@ class ExitCode(IntEnum):
     MIXED_TYPE_FILTER = 12
     INPUT_TEST_REFERENCE_ERROR = 13
     CONFIG_INVALID_FORMAT = 14
-    INVALID_SMART_TESTING_PATH = 15
+    INVALID_SMART_TESTING_PATH = 15     # deprecated.
     INVALID_EXEC_MODE = 16
-    INVALID_OBSOLETE_BASELINE_ARGS = 17
-    INVALID_REGRESSION_ARGS = 18
+    INVALID_OBSOLETE_BASELINE_ARGS = 17 # deprecated.
+    INVALID_REGRESSION_ARGS = 18        # deprecated.
     INVALID_TM_ARGS = 19
     INVALID_TM_FORMAT = 20
+    INSUFFICIENT_DEVICES = 21
     # The code > 100 are reserved for collecting data only, actually the run
     # doesn't finish at the point.
     COLLECT_ONLY_FILE_NOT_FOUND = 101

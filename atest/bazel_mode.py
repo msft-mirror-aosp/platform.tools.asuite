@@ -1664,7 +1664,6 @@ class BazelTestRunner(trb.TestRunnerBase):
             extra_args: Dict of extra args to add to test run.
             reporter: An instance of result_report.ResultReporter.
         """
-        reporter.register_unsupported_runner(self.NAME)
         ret_code = ExitCode.SUCCESS
 
         try:
@@ -1879,7 +1878,7 @@ class BazelTestRunner(trb.TestRunnerBase):
         target_patterns = ' '.join(
             self.test_info_target_label(i) for i in test_infos)
 
-        bazel_args = parse_args(test_infos, extra_args, self.mod_info)
+        bazel_args = parse_args(test_infos, extra_args)
 
         # If BES is not enabled, use the option of
         # '--nozip_undeclared_test_outputs' to not compress the test outputs.
@@ -1917,8 +1916,7 @@ class BazelTestRunner(trb.TestRunnerBase):
 
 def parse_args(
     test_infos: List[test_info.TestInfo],
-    extra_args: Dict[str, Any],
-    mod_info: module_info.ModuleInfo) -> Dict[str, Any]:
+    extra_args: Dict[str, Any]) -> Dict[str, Any]:
     """Parse commandline args and passes supported args to bazel.
 
     This is shared between both --bazel-mode and --roboleaf-mode.
@@ -1926,7 +1924,6 @@ def parse_args(
     Args:
         test_infos: A set of TestInfo instances.
         extra_args: A Dict of extra args to append.
-        mod_info: A ModuleInfo object.
 
     Returns:
         A list of args to append to the run command.
@@ -1953,8 +1950,7 @@ def parse_args(
 
     # TODO(b/215461642): Store the extra_args in the top-level object so
     # that we don't have to re-parse the extra args to get BAZEL_ARG again.
-    tf_args, _ = tfr.extra_args_to_tf_args(
-        mod_info, test_infos, extra_args_copy)
+    tf_args, _ = tfr.extra_args_to_tf_args(extra_args_copy)
 
     # Add ATest include filter argument to allow testcase filtering.
     tf_args.extend(tfr.get_include_filter(test_infos))

@@ -24,6 +24,7 @@ import os
 import tempfile
 import unittest
 
+from pathlib import Path
 from unittest import mock
 
 from atest import atest_error
@@ -203,10 +204,10 @@ class TestFinderUtilsUnittests(unittest.TestCase):
                 test_path, frozenset(['testMethod', 'testMethod2'])))
 
     @mock.patch('builtins.input', return_value='1')
-    def test_extract_test_from_tests(self, mock_input):
-        """Test method extract_test_from_tests method."""
+    def test_extract_selected_tests(self, mock_input):
+        """Test method extract_selected_tests method."""
         tests = []
-        self.assertEqual(test_finder_utils.extract_test_from_tests(tests), None)
+        self.assertEqual(test_finder_utils.extract_selected_tests(tests), None)
         paths = [os.path.join(uc.ROOT, CLASS_DIR, uc.CLASS_NAME + '.java')]
         unittest_utils.assert_strict_equal(
             self, test_finder_utils.extract_test_path(uc.FIND_ONE), paths)
@@ -216,37 +217,37 @@ class TestFinderUtilsUnittests(unittest.TestCase):
             self, test_finder_utils.extract_test_path(FIND_TWO), paths)
         # Test inputing out-of-range integer or a string
         mock_input.return_value = '100'
-        self.assertEqual(test_finder_utils.extract_test_from_tests(
+        self.assertEqual(test_finder_utils.extract_selected_tests(
             uc.CLASS_NAME), [])
         mock_input.return_value = 'lOO'
-        self.assertEqual(test_finder_utils.extract_test_from_tests(
+        self.assertEqual(test_finder_utils.extract_selected_tests(
             uc.CLASS_NAME), [])
 
     @mock.patch('builtins.input', return_value='1')
     def test_extract_test_from_multiselect(self, mock_input):
-        """Test method extract_test_from_tests method."""
+        """Test method extract_selected_tests method."""
         # selecting 'All'
         paths = ['/a/b/c.java', '/d/e/f.java', '/g/h/i.java']
         mock_input.return_value = '3'
         unittest_utils.assert_strict_equal(
-            self, sorted(test_finder_utils.extract_test_from_tests(
+            self, sorted(test_finder_utils.extract_selected_tests(
                 FIND_THREE_LIST)), sorted(paths))
         # multi-select
         paths = ['/a/b/c.java', '/g/h/i.java']
         mock_input.return_value = '0,2'
         unittest_utils.assert_strict_equal(
-            self, sorted(test_finder_utils.extract_test_from_tests(
+            self, sorted(test_finder_utils.extract_selected_tests(
                 FIND_THREE_LIST)), sorted(paths))
         # selecting a range
         paths = ['/d/e/f.java', '/g/h/i.java']
         mock_input.return_value = '1-2'
         unittest_utils.assert_strict_equal(
-            self, test_finder_utils.extract_test_from_tests(FIND_THREE_LIST), paths)
+            self, test_finder_utils.extract_selected_tests(FIND_THREE_LIST), paths)
         # mixed formats
         paths = ['/a/b/c.java', '/d/e/f.java', '/g/h/i.java']
         mock_input.return_value = '0,1-2'
         unittest_utils.assert_strict_equal(
-            self, sorted(test_finder_utils.extract_test_from_tests(
+            self, sorted(test_finder_utils.extract_selected_tests(
                 FIND_THREE_LIST)), sorted(paths))
         # input unsupported formats, return empty
         paths = []
@@ -800,13 +801,19 @@ class TestFinderUtilsUnittests(unittest.TestCase):
     def test_get_test_config_subtest_in_multiple_config(self, _isfile):
         """Test get_test_config_and_srcs not the main module of multiple config"""
         android_root = '/'
-        mod_info = module_info.load_from_file(module_file=JSON_FILE_PATH)
-        t_info = test_info.TestInfo(
-            'Multiple2', 'mock_runner', build_targets=set())
-        expect_config = os.path.join(
-            android_root, uc.MULTIPLE_CONFIG_PATH, uc.SUB_CONFIG_NAME_2)
-        result, _ = test_finder_utils.get_test_config_and_srcs(t_info, mod_info)
-        self.assertEqual(expect_config, result)
+        mock_dict = {'ANDROID_BUILD_TOP': android_root,
+                     'ANDROID_PRODUCT_OUT': PRODUCT_OUT_DIR,
+                     'ANDROID_HOST_OUT': HOST_OUT_DIR}
+        with mock.patch.dict('os.environ', mock_dict, clear=True):
+            mod_info = module_info.load_from_file(module_file=JSON_FILE_PATH)
+            t_info = test_info.TestInfo(
+                'Multiple2', 'mock_runner', build_targets=set())
+            expect_config = Path(
+                android_root, uc.MULTIPLE_CONFIG_PATH, uc.SUB_CONFIG_NAME_2)
+
+            result, _ = test_finder_utils.get_test_config_and_srcs(t_info, mod_info)
+
+            self.assertEqual(expect_config, result)
 
     def test_is_test_from_kernel_xml_input_xml_not_exist_return_false(self):
         not_exist_xml = 'not/exist/xml/path'

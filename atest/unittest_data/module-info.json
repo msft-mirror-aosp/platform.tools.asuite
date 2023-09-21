@@ -29,7 +29,7 @@
   "test_dep_level_2_2": { "module_name": "test_dep_level_2_2", "dependencies": [] },
   "single_config_module": {"module_name": "single_config_module", "test_config":  ["my/single/config/path/test_config.xml"],  "path": ["my/single/config/path"]},
   "androidtest_config_module": {"module_name": "androidtest_config_module", "test_config":  [],  "path": ["my/android/config/path"]},
-  "multiple_config_module": {"module_name": "multiple_config_module", "test_config":  ["my/multiple/config/path/main_test_config.xml", "my/multiple/config/path/Multiple1.xml", "my/multiple/config/path/Multiple2.xml"], "path": ["my/multiple/config/path"]},
+  "multiple_config_module": {"module_name": "multiple_config_module", "test_config":  ["my/multiple/config/path/main_test_config.xml", "my/multiple/config/path/Multiple1.xml", "my/multiple/config/path/Multiple2.xml"], "path": ["my/multiple/config/path"], "installed": ["somewhere"]},
   "MainModule1": {"module_name": "MainModule1", "test_config": [], "test_mainline_modules": ["foo2.apk+foo3.apk"]},
   "MainModule2": {"module_name": "MainModule2", "test_config": ["unittest_data/parameter_config/mainline_param.cfg"], "test_mainline_modules": []},
   "MainModule3": {"module_name": "MainModule3", "test_config": ["unittest_data/parameter_config/parameter.cfg"], "test_mainline_modules": []}

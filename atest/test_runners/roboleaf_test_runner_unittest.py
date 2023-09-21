@@ -17,6 +17,7 @@
 """Unittests for roboleaf_test_runner."""
 
 import json
+import os
 import unittest
 import subprocess
 import logging
@@ -27,6 +28,7 @@ from unittest import mock
 from pyfakefs import fake_filesystem_unittest
 
 from atest import atest_utils
+from atest import constants
 from atest import unittest_constants
 from atest.test_finders.test_info import TestInfo
 from atest.test_runners import roboleaf_test_runner
@@ -129,8 +131,8 @@ class RoboleafTestRunnerUnittests(fake_filesystem_unittest.TestCase):
         """Test are_all_tests_supported method when _module_map has entries"""
         RoboleafModuleMap._instances = {}
 
-        self.setUpPyfakefs()
         out_dir = atest_utils.get_build_out_dir()
+        os.remove(out_dir.joinpath(roboleaf_test_runner._ROBOLEAF_MODULE_MAP_PATH))
         self.fs.create_file(
             out_dir.joinpath(roboleaf_test_runner._ROBOLEAF_MODULE_MAP_PATH),
             contents=json.dumps({
@@ -143,6 +145,7 @@ class RoboleafTestRunnerUnittests(fake_filesystem_unittest.TestCase):
         //a:test1
         //a/b:test2
         """
+        os.remove(roboleaf_test_runner._ALLOWLIST_LAUNCHED)
         self.fs.create_file(
             roboleaf_test_runner._ALLOWLIST_LAUNCHED,
             contents=dedent(allowlist_content))
@@ -165,7 +168,7 @@ class RoboleafTestRunnerUnittests(fake_filesystem_unittest.TestCase):
 
         for test_case in test_cases:
             (mode, module_names, expected_len) = test_case
-            eligible_tests = roboleaf_test_runner.are_all_tests_supported(mode, module_names)
+            eligible_tests = roboleaf_test_runner.are_all_tests_supported(mode, module_names, [])
             self.assertEqual(len(eligible_tests), expected_len)
             if expected_len:
                 for module_name in module_names:
@@ -183,7 +186,37 @@ class RoboleafTestRunnerUnittests(fake_filesystem_unittest.TestCase):
 
         eligible_tests = roboleaf_test_runner.are_all_tests_supported(
             roboleaf_test_runner.BazelBuildMode.DEV,
-            module_names)
+            module_names,
+            [])
+        self.assertEqual(eligible_tests, {})
+
+    def test_are_all_tests_supported_unsupported_flag(self):
+        """Test are_all_tests_supported method when unsupported_flag is specified"""
+        RoboleafModuleMap._instances = {}
+
+        out_dir = atest_utils.get_build_out_dir()
+        os.remove(out_dir.joinpath(roboleaf_test_runner._ROBOLEAF_MODULE_MAP_PATH))
+        self.fs.create_file(
+            out_dir.joinpath(roboleaf_test_runner._ROBOLEAF_MODULE_MAP_PATH),
+            contents=json.dumps({
+                'test1': "//a",
+            }))
+        allowlist_content = """
+        //a:test1
+        """
+        os.remove(roboleaf_test_runner._ALLOWLIST_LAUNCHED)
+        self.fs.create_file(
+            roboleaf_test_runner._ALLOWLIST_LAUNCHED,
+            contents=dedent(allowlist_content))
+        module_names = [
+            'test1',
+        ]
+
+        eligible_tests = roboleaf_test_runner.are_all_tests_supported(
+            roboleaf_test_runner.BazelBuildMode.DEV,
+            module_names,
+            ['unsupported_flag'])
+
         self.assertEqual(eligible_tests, {})
 
     def test_get_map(self):
@@ -273,6 +306,21 @@ class RoboleafTestRunnerUnittests(fake_filesystem_unittest.TestCase):
 
         self.assertEqual(len(cmds), 1)
         self.assertTrue('b test //a:test1 //b:test2' in cmds[0])
+
+    def test_atest_host_flag(self):
+        """Test that generate_run_commands converts --host correctly."""
+        RoboleafModuleMap()._module_map = {"test1": "//a"}
+        test_infos = (
+            TestInfo("test1", RoboleafTestRunner.NAME, set()),
+        )
+
+        cmds = self.test_runner.generate_run_commands(
+            test_infos,
+            extra_args={ constants.HOST : True },
+        )
+
+        self.assertEqual(len(cmds), 1)
+        self.assertTrue('--config=deviceless' in cmds[0])
 
     @mock.patch.object(RoboleafTestRunner, 'run')
     def test_run_tests(self, mock_run):

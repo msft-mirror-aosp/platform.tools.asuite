@@ -105,6 +105,18 @@ def load(force_build: bool=False, sqlite_module_cache: bool=False) -> ModuleInfo
     return loader.load(save_timestamps=True)
 
 
+def metrics_timer(func):
+    """Decorator method for sending data to metrics."""
+    def wrapper(*args, **kwargs):
+        start = time.time()
+        result = func(*args, **kwargs)
+        elapsed_time = int(time.time() - start)
+        metrics.LocalDetectEvent(detect_type=DetectType.TESTABLE_MODULES,
+                                 result=elapsed_time)
+        return result
+    return wrapper
+
+
 class Loader:
     """Class that handles load and merge processes."""
 
@@ -115,12 +127,9 @@ class Loader:
             sqlite_module_cache: bool=False,
             need_merge_fn: Callable=None,
         ):
-        self.java_dep_path = Path(
-            atest_utils.get_build_out_dir()).joinpath('soong', _JAVA_DEP_INFO)
-        self.cc_dep_path = Path(
-            atest_utils.get_build_out_dir()).joinpath('soong', _CC_DEP_INFO)
-        self.merged_dep_path = Path(
-            os.getenv(constants.ANDROID_PRODUCT_OUT, '')).joinpath(_MERGED_INFO)
+        self.java_dep_path = atest_utils.get_build_out_dir('soong', _JAVA_DEP_INFO)
+        self.cc_dep_path = atest_utils.get_build_out_dir('soong', _CC_DEP_INFO)
+        self.merged_dep_path = atest_utils.get_product_out(_MERGED_INFO)
 
         self.sqlite_module_cache = sqlite_module_cache
         if self.sqlite_module_cache:
@@ -358,6 +367,7 @@ class Loader:
 
         return name_to_module_info
 
+    @metrics_timer
     def get_testable_modules(self, suite=None):
         """Return the testable modules of the given suite name.
 
@@ -373,7 +383,6 @@ class Loader:
             info, otherwise return only modules that belong to the suite.
         """
         modules = set()
-        start = time.time()
 
         if self.module_index.is_file():
             modules = self.get_testable_modules_from_index(suite)
@@ -382,10 +391,6 @@ class Loader:
         if not modules:
             modules = self.get_testable_module_from_memory(suite)
 
-        duration = time.time() - start
-        metrics.LocalDetectEvent(
-            detect_type=DetectType.TESTABLE_MODULES,
-            result=int(duration))
         return modules
 
     def get_testable_modules_from_index(self, suite: str=None) -> Set[str]:
@@ -984,19 +989,53 @@ class ModuleInfo:
                     modules.append(mod_name)
         return modules
 
-    def get_modules_by_path_in_srcs(self, path: str) -> Set:
+    def get_modules_by_path_in_srcs(
+            self, path: str,
+            testable_modules_only: bool = False) -> Set[str]:
         """Get the module name that the given path belongs to.(in 'srcs')
 
         Args:
-            path: Relative path to ANDROID_BUILD_TOP of a file.
+            path: file path which is relative to ANDROID_BUILD_TOP.
+            testable_modules_only: boolean flag which determines whether
+                                   search testable modules only or not.
 
         Returns:
             A set of string for matched module names, empty set if nothing find.
         """
         modules = set()
-        for _, mod_info in self.name_to_module_info.items():
-            if str(path) in mod_info.get(constants.MODULE_SRCS, []):
-                modules.add(mod_info.get(constants.MODULE_NAME))
+
+        for mod_name in (self.get_testable_modules() if testable_modules_only
+                         else self.name_to_module_info.keys()):
+            m_info = self.get_module_info(mod_name)
+            if m_info:
+                for src in m_info.get(constants.MODULE_SRCS, []):
+                    if src in path:
+                        modules.add(mod_name)
+
+        return modules
+
+    def get_modules_by_path(self, path: str, testable_modules_only: bool=False):
+        """Get the module names that the give path belongs to.
+
+        Args:
+            path: dir path for searching among `path` in module information.
+            testable_modules_only: boolean flag which determines whether
+                                   search testable modules only or not.
+        """
+        modules = set()
+        is_testable_module_fn = (
+            self.is_testable_module if testable_modules_only
+            else lambda _: True
+        )
+
+        m_infos = self.path_to_module_info.get(path)
+        if m_infos:
+            modules = {
+                info.get(constants.MODULE_NAME)
+                for info in m_infos
+                if is_testable_module_fn(info)
+            }
+
         return modules
 
     def get_modules_by_include_deps(

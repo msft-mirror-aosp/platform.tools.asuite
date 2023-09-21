@@ -61,6 +61,7 @@ ANNOTATION_FILTER = ('Accept keyword that will be translated to fully qualified'
 AUTO_SHARDING = ('Trigger N AVDs/shards for long duration tests. (N is 2 by '
                  'default).')
 BUILD = 'Run a build.'
+BUILD_PROCESS_NUMBER = 'Build run process number at once.'
 BAZEL_MODE = 'Run tests using Bazel.'
 BAZEL_ARG = ('Forward a flag to Bazel for tests executed with Bazel; '
              'see --bazel-mode.')
@@ -81,7 +82,6 @@ ENABLE_DEVICE_PREPARER = ('Enable template/preparers/device-preparer as the '
                           'default preparer.')
 ENABLE_FILE_PATTERNS = 'Enable FILE_PATTERNS in TEST_MAPPING.'
 FLAKES_INFO = 'Test result with flakes info.'
-FUZZY_SEARCH = 'Running fuzzy search when test not found. (implicit True)'
 GENERATE_RUNNER_CMD = 'Generate the runner command(s) of given tests.'
 HISTORY = ('Show test results in chronological order(with specified number or '
            'all by default).')
@@ -97,12 +97,8 @@ INSTANT = ('Run the instant_app version of the module if the module supports it.
            '"--instant" is passed.')
 ITERATION = 'Loop-run tests until the max iteration is reached. (default: 10)'
 LATEST_RESULT = 'Print latest test result.'
-LD_LIB_PATH = ('Insert $ANDROID_HOST_OUT/{lib,lib64} to LD_LIBRARY_PATH when '
-               'running tests with Tradefed.')
 LIST_MODULES = 'List testable modules of the given suite.'
 NO_CHECKING_DEVICE = 'Do NOT check device availability. (even it is a device test)'
-NO_ENABLE_ROOT = ('Do NOT restart adbd with root permission even the test config '
-                  'has RootTargetPreparer.')
 NO_METRICS = 'Do not send metrics.'
 ROBOLEAF_MODE = ('Determines when to use Bazel for end to end builds and tests. '
                  'Can be `on`, `off`, `dev`. Defaults to off. Use `on` to opt-in. '
@@ -125,8 +121,6 @@ RETRY_ANY_FAILURE = ('Rerun failed tests until passed or the max iteration '
                      'is reached. (default: 10)')
 SERIAL = 'The device to run the test on.'
 SHARDING = 'Option to specify sharding count. (default: 2)'
-SMART_TESTING_LOCAL = ('Automatically detect untracked/unstaged files in current'
-                       ' git run associated tests.')
 SQLITE_MODULE_CACHE = ('Use SQLite database as cache instead of JSON.')
 START_AVD = 'Automatically create an AVD and run tests on the virtual device.'
 TEST = ('Run the tests. WARNING: Many test configs force cleanup of device '
@@ -226,8 +220,6 @@ class AtestArgParser(argparse.ArgumentParser):
                           help=INSTALL)
         self.add_argument('-m', constants.REBUILD_MODULE_INFO_FLAG,
                           action='store_true', help=REBUILD_MODULE_INFO)
-        self.add_argument('--no-enable-root', help=NO_ENABLE_ROOT,
-                          action='store_true')
         self.add_argument('--roboleaf-mode',
                           nargs='?',
                           default=BazelBuildMode.ON,
@@ -248,8 +240,6 @@ class AtestArgParser(argparse.ArgumentParser):
                           action='store_true')
         self.add_argument('-w', '--wait-for-debugger', action='store_true',
                           help=WAIT_FOR_DEBUGGER)
-        self.add_argument('--auto-ld-library-path', action='store_true',
-                          help=LD_LIB_PATH)
 
         # Options for request/disable upload results. They are mutually
         # exclusive in a command line.
@@ -260,8 +250,6 @@ class AtestArgParser(argparse.ArgumentParser):
                           help=DISABLE_UPLOAD_RESULT)
 
         mgroup = self.add_mutually_exclusive_group()
-        mgroup.add_argument('--smart-testing-local', action='store_true',
-                                help=SMART_TESTING_LOCAL)
         # Options related to Test Mapping
         mgroup.add_argument('-p', '--test-mapping', action='store_true',
                           help=TEST_MAPPING)
@@ -295,13 +283,6 @@ class AtestArgParser(argparse.ArgumentParser):
                           type=BuildOutputMode,
                           help=BUILD_OUTPUT)
 
-        # Options that switch on/off fuzzy searching.
-        fgroup = self.add_mutually_exclusive_group()
-        fgroup.add_argument('--no-fuzzy-search', action='store_false',
-                            default=True, dest='fuzzy_search', help=FUZZY_SEARCH)
-        fgroup.add_argument('--fuzzy-search', action='store_true',
-                            help=FUZZY_SEARCH)
-
         # Options that to do with acloud/AVDs.
         agroup = self.add_mutually_exclusive_group()
         agroup.add_argument('--acloud-create', nargs=argparse.REMAINDER,
@@ -322,21 +303,6 @@ class AtestArgParser(argparse.ArgumentParser):
         # same test module.
         self.add_argument('--test-config-select', action='store_true',
                           help=TEST_CONFIG_SELECTION)
-
-        # Obsolete options that will be removed without warning.
-        self.add_argument('--generate-baseline', nargs='?',
-                          type=int, const=5, default=0,
-                          help='Generate baseline metrics, run 5 iterations by'
-                               'default. Provide an int argument to specify '
-                               '# iterations.')
-        self.add_argument('--generate-new-metrics', nargs='?',
-                          type=int, const=5, default=0,
-                          help='Generate new metrics, run 5 iterations by '
-                               'default. Provide an int argument to specify '
-                               '# iterations.')
-        self.add_argument('--detect-regression', nargs='*',
-                          help='Run regression detection algorithm. Supply '
-                               'path to baseline and/or new metrics folders.')
 
         # Options related to module parameterization
         self.add_argument('--instant', action='store_true', help=INSTANT)
@@ -397,10 +363,16 @@ class AtestArgParser(argparse.ArgumentParser):
         # Option to filter the output of aggregate metrics content.
         self.add_argument('--aggregate-metric-filter', action='append',
                           help=AGGREGATE_METRIC_FILTER)
+
         # Option that allows building and running without regarding device
         # availability even the given test is a device/host-driven test.
         self.add_argument('--no-checking-device', action='store_true',
                           help=NO_CHECKING_DEVICE)
+
+        # Option for customize build process number.
+        self.add_argument('-j', '--build-j', nargs='?', type=int,
+                          help=BUILD_PROCESS_NUMBER)
+
         # This arg actually doesn't consume anything, it's primarily used for
         # the help description and creating custom_args in the NameSpace object.
         self.add_argument('--', dest='custom_args', nargs='*',
@@ -435,6 +407,7 @@ def print_epilog_text():
         ANNOTATION_FILTER=ANNOTATION_FILTER,
         AUTO_SHARDING=AUTO_SHARDING,
         BUILD=BUILD,
+        BUILD_PROCESS_NUMBER=BUILD_PROCESS_NUMBER,
         MINIMAL_BUILD=MINIMAL_BUILD,
         BAZEL_MODE=BAZEL_MODE,
         BAZEL_ARG=BAZEL_ARG,
@@ -459,12 +432,9 @@ def print_epilog_text():
         INSTANT=INSTANT,
         ITERATION=ITERATION,
         LATEST_RESULT=LATEST_RESULT,
-        LD_LIB_PATH=LD_LIB_PATH,
         LIST_MODULES=LIST_MODULES,
-        NO_ENABLE_ROOT=NO_ENABLE_ROOT,
         NO_METRICS=NO_METRICS,
         NO_CHECKING_DEVICE=NO_CHECKING_DEVICE,
-        FUZZY_SEARCH=FUZZY_SEARCH,
         REBUILD_MODULE_INFO=REBUILD_MODULE_INFO,
         ROBOLEAF_MODE=ROBOLEAF_MODE,
         REQUEST_UPLOAD_RESULT=REQUEST_UPLOAD_RESULT,
@@ -473,7 +443,6 @@ def print_epilog_text():
         SERIAL=SERIAL,
         SHARDING=SHARDING,
         BUILD_OUTPUT=BUILD_OUTPUT,
-        SMART_TESTING_LOCAL=SMART_TESTING_LOCAL,
         START_AVD=START_AVD,
         TEST=TEST,
         TEST_CONFIG_SELECTION=TEST_CONFIG_SELECTION,
@@ -528,14 +497,14 @@ OPTIONS
                 atest <test> -- --abi arm64-v8a   # ARM 64-bit
                 atest <test> -- --abi armeabi-v7a # ARM 32-bit
 
-        --auto-ld-library-path
-            {LD_LIB_PATH}
-
         --auto-sharding
             {AUTO_SHARDING}
 
         -b, --build
             {BUILD} (implicit default)
+
+        -j, --build-j
+            {BUILD_PROCESS_NUMBER}
 
         --[no-]bazel-mode
             {BAZEL_MODE}
@@ -576,9 +545,6 @@ OPTIONS
         --roboleaf-mode
             {ROBOLEAF_MODE}
 
-        --no-enable-root
-            {NO_ENABLE_ROOT}
-
         --no-checking-device
             {NO_CHECKING_DEVICE}
 
@@ -587,14 +553,6 @@ OPTIONS
 
         --sharding [SHARD_NUMBER]
           {SHARDING}
-
-        --smart-testing-local
-          {SMART_TESTING_LOCAL} e.g. Have modified code in packages/apps/Settings/tests/unit/src.
-            croot packages/apps/Settings/tests/unit/src
-            atest --smart-testing-local
-
-            will be equivalent to (from <android root>):
-            atest --smart-testing-local packages/apps/Settings/tests/unit/src
 
         -t, --test [TEST1, TEST2, ...]
             {TEST} (implicit default)
@@ -655,9 +613,6 @@ OPTIONS
 
         -L, --list-modules
             {LIST_MODULES}
-
-        --[no-]fuzzy-search
-            {FUZZY_SEARCH}
 
         --latest-result
             {LATEST_RESULT}
@@ -952,43 +907,6 @@ EXAMPLES
     [WARNING]
     * --acloud-create must be the LAST optional argument: the remainder args will be consumed as its positional args.
     * --acloud-create/--start-avd do not delete newly created AVDs. The users will be deleting them manually.
-
-
-    - - - - - - - - - - - - - - - -
-    REGRESSION DETECTION (obsolete)
-    - - - - - - - - - - - - - - - -
-
-    ********************** Warning **********************
-    Please STOP using arguments below -- they are obsolete and will be removed in a near future:
-        --detect-regression
-        --generate-baseline
-        --generate-new-metrics
-
-    Please check RUNNING TESTS IN ITERATION out for alternatives.
-    ******************************************************
-
-    Generate pre-patch or post-patch metrics without running regression detection:
-
-    Example:
-        atest <test> --generate-baseline <optional iter>
-        atest <test> --generate-new-metrics <optional iter>
-
-    Local regression detection can be run in three options:
-
-    1) Provide a folder containing baseline (pre-patch) metrics (generated previously). Atest will run the tests n (default 5) iterations, generate a new set of post-patch metrics, and compare those against existing metrics.
-
-    Example:
-        atest <test> --detect-regression </path/to/baseline> --generate-new-metrics <optional iter>
-
-    2) Provide a folder containing post-patch metrics (generated previously). Atest will run the tests n (default 5) iterations, generate a new set of pre-patch metrics, and compare those against those provided. Note: the developer needs to revert the device/tests to pre-patch state to generate baseline metrics.
-
-    Example:
-        atest <test> --detect-regression </path/to/new> --generate-baseline <optional iter>
-
-    3) Provide 2 folders containing both pre-patch and post-patch metrics. Atest will run no tests but the regression detection algorithm.
-
-    Example:
-        atest --detect-regression </path/to/baseline> </path/to/new>
 
 
     - - - - - - - - - - - -

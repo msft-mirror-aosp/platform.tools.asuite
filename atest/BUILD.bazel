@@ -1,3 +1,5 @@
+load("//build/bazel/rules/python:py_test.bzl", "py_test")
+
 package(default_visibility = ["//visibility:public"])
 
 filegroup(
@@ -12,4 +14,33 @@ java_library(
         ":atest-tradefed-shell",
     ],
     target_compatible_with = ["//build/bazel/platforms/os:linux"],
+)
+
+py_library(
+    name = "atest_lib",
+    srcs = [
+        "constants_default.py",
+        "test_finders/cc_test_filter_utils.py",
+    ],
+)
+
+py_binary(
+    name = "cc-test-filter-generator",
+    srcs = ["cc_test_filter_generator.py"],
+    main = "cc_test_filter_generator.py",
+    deps = [":atest_lib"],
+)
+
+py_test(
+    name = "cc-test-filter-generator-test",
+    srcs = [
+        "cc_test_filter_generator.py",
+        "cc_test_filter_generator_test.py",
+    ],
+    main = "cc_test_filter_generator_test.py",
+    target_compatible_with = select({
+        "//build/bazel/platforms/os:android": ["@platforms//:incompatible"],
+        "//conditions:default": [],
+    }),
+    deps = [":atest_lib"],
 )
