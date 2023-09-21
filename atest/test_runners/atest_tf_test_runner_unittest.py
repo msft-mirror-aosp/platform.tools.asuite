@@ -1122,13 +1122,6 @@ class ExtraArgsTest(AtestTradefedTestRunnerUnittests):
 
         self.assertTokensIn(['--collect-tests-only'], cmd[0])
 
-    def test_args_with_no_enable_root_and_generate_in_run_cmd(self):
-        extra_args = {constants.NO_ENABLE_ROOT: True}
-
-        cmd = self.tr.generate_run_commands([], extra_args)
-
-        self.assertTokensIn(['--no-enable-root'], cmd[0])
-
     def test_args_with_tf_template_but_not_generate_in_run_cmd(self):
         extra_args = {constants.TF_TEMPLATE: ['hello']}
 

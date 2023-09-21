@@ -101,8 +101,6 @@ LD_LIB_PATH = ('Insert $ANDROID_HOST_OUT/{lib,lib64} to LD_LIBRARY_PATH when '
                'running tests with Tradefed.')
 LIST_MODULES = 'List testable modules of the given suite.'
 NO_CHECKING_DEVICE = 'Do NOT check device availability. (even it is a device test)'
-NO_ENABLE_ROOT = ('Do NOT restart adbd with root permission even the test config '
-                  'has RootTargetPreparer.')
 NO_METRICS = 'Do not send metrics.'
 ROBOLEAF_MODE = ('Determines when to use Bazel for end to end builds and tests. '
                  'Can be `on`, `off`, `dev`. Defaults to off. Use `on` to opt-in. '
@@ -226,8 +224,6 @@ class AtestArgParser(argparse.ArgumentParser):
                           help=INSTALL)
         self.add_argument('-m', constants.REBUILD_MODULE_INFO_FLAG,
                           action='store_true', help=REBUILD_MODULE_INFO)
-        self.add_argument('--no-enable-root', help=NO_ENABLE_ROOT,
-                          action='store_true')
         self.add_argument('--roboleaf-mode',
                           nargs='?',
                           default=BazelBuildMode.ON,
@@ -446,7 +442,6 @@ def print_epilog_text():
         LATEST_RESULT=LATEST_RESULT,
         LD_LIB_PATH=LD_LIB_PATH,
         LIST_MODULES=LIST_MODULES,
-        NO_ENABLE_ROOT=NO_ENABLE_ROOT,
         NO_METRICS=NO_METRICS,
         NO_CHECKING_DEVICE=NO_CHECKING_DEVICE,
         REBUILD_MODULE_INFO=REBUILD_MODULE_INFO,
@@ -562,9 +557,6 @@ OPTIONS
 
         --roboleaf-mode
             {ROBOLEAF_MODE}
-
-        --no-enable-root
-            {NO_ENABLE_ROOT}
 
         --no-checking-device
             {NO_CHECKING_DEVICE}
