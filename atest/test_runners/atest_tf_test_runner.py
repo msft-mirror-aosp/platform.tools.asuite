@@ -1265,8 +1265,6 @@ def extra_args_to_tf_args(
             ],
         constants.COLLECT_TESTS_ONLY:
             constant_list('--collect-tests-only'),
-        constants.NO_ENABLE_ROOT:
-            constant_list('--no-enable-root'),
         constants.TF_DEBUG:
             print_message("Please attach process to your IDE..."),
         constants.ANNOTATION_FILTER:
