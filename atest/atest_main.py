@@ -318,7 +318,6 @@ def get_extra_args(args):
                 'rerun_until_failure': constants.RERUN_UNTIL_FAILURE,
                 'retry_any_failure': constants.RETRY_ANY_FAILURE,
                 'serial': constants.SERIAL,
-                'auto_ld_library_path': constants.LD_LIBRARY_PATH,
                 'sharding': constants.SHARDING,
                 'test_filter': constants.TEST_FILTER,
                 'test_timeout': constants.TEST_TIMEOUT,

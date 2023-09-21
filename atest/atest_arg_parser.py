@@ -97,8 +97,6 @@ INSTANT = ('Run the instant_app version of the module if the module supports it.
            '"--instant" is passed.')
 ITERATION = 'Loop-run tests until the max iteration is reached. (default: 10)'
 LATEST_RESULT = 'Print latest test result.'
-LD_LIB_PATH = ('Insert $ANDROID_HOST_OUT/{lib,lib64} to LD_LIBRARY_PATH when '
-               'running tests with Tradefed.')
 LIST_MODULES = 'List testable modules of the given suite.'
 NO_CHECKING_DEVICE = 'Do NOT check device availability. (even it is a device test)'
 NO_METRICS = 'Do not send metrics.'
@@ -242,8 +240,6 @@ class AtestArgParser(argparse.ArgumentParser):
                           action='store_true')
         self.add_argument('-w', '--wait-for-debugger', action='store_true',
                           help=WAIT_FOR_DEBUGGER)
-        self.add_argument('--auto-ld-library-path', action='store_true',
-                          help=LD_LIB_PATH)
 
         # Options for request/disable upload results. They are mutually
         # exclusive in a command line.
@@ -436,7 +432,6 @@ def print_epilog_text():
         INSTANT=INSTANT,
         ITERATION=ITERATION,
         LATEST_RESULT=LATEST_RESULT,
-        LD_LIB_PATH=LD_LIB_PATH,
         LIST_MODULES=LIST_MODULES,
         NO_METRICS=NO_METRICS,
         NO_CHECKING_DEVICE=NO_CHECKING_DEVICE,
@@ -501,9 +496,6 @@ OPTIONS
             If only need to run tests for a specific abi, please use:
                 atest <test> -- --abi arm64-v8a   # ARM 64-bit
                 atest <test> -- --abi armeabi-v7a # ARM 32-bit
-
-        --auto-ld-library-path
-            {LD_LIB_PATH}
 
         --auto-sharding
             {AUTO_SHARDING}
