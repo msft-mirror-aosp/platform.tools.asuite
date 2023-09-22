@@ -117,7 +117,10 @@ pub fn update(
     match restart_type(restart_chooser, &installed_files) {
         RestartType::Reboot => time!(reboot(), profiler.reboot),
         RestartType::SoftRestart => soft_restart(),
-        RestartType::None => anyhow::bail!("There should be a restart command"),
+        RestartType::None => {
+            log::debug!("No restart command");
+            return Ok(());
+        }
     }?;
 
     time!(wait()?, profiler.restart_after_boot);
