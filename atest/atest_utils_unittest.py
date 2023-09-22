@@ -231,7 +231,7 @@ class AtestUtilsUnittests(unittest.TestCase):
         """Test method is_test_mapping."""
         parser = atest_arg_parser.AtestArgParser()
         parser.add_atest_args()
-        non_tm_args = ['--host-unit-test-only', '--smart-testing-local']
+        non_tm_args = ['--host-unit-test-only']
 
         for argument in non_tm_args:
             args = parser.parse_args([argument])

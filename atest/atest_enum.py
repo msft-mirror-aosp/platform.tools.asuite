@@ -123,12 +123,13 @@ class ExitCode(IntEnum):
     MIXED_TYPE_FILTER = 12
     INPUT_TEST_REFERENCE_ERROR = 13
     CONFIG_INVALID_FORMAT = 14
-    INVALID_SMART_TESTING_PATH = 15
+    INVALID_SMART_TESTING_PATH = 15     # deprecated.
     INVALID_EXEC_MODE = 16
     INVALID_OBSOLETE_BASELINE_ARGS = 17 # deprecated.
     INVALID_REGRESSION_ARGS = 18        # deprecated.
     INVALID_TM_ARGS = 19
     INVALID_TM_FORMAT = 20
+    INSUFFICIENT_DEVICES = 21
     # The code > 100 are reserved for collecting data only, actually the run
     # doesn't finish at the point.
     COLLECT_ONLY_FILE_NOT_FOUND = 101

@@ -193,10 +193,7 @@ ANDROID_HOST_OUT = '/my/android/out/host/abc'
 class AtestTradefedTestRunnerUnittests(unittest.TestCase):
     """Unit tests for atest_tf_test_runner.py"""
 
-    #pylint: disable=arguments-differ
-    @mock.patch.object(atf_tr.AtestTradefedTestRunner, '_get_ld_library_path')
-    def setUp(self, mock_get_ld_library_path):
-        mock_get_ld_library_path.return_value = RUN_ENV_STR
+    def setUp(self):
         self.tr = atf_tr.AtestTradefedTestRunner(results_dir=uc.TEST_INFO_DIR)
         if not atest_configs.GLOBAL_ARGS:
             atest_configs.GLOBAL_ARGS = Namespace()
@@ -1122,13 +1119,6 @@ class ExtraArgsTest(AtestTradefedTestRunnerUnittests):
 
         self.assertTokensIn(['--collect-tests-only'], cmd[0])
 
-    def test_args_with_no_enable_root_and_generate_in_run_cmd(self):
-        extra_args = {constants.NO_ENABLE_ROOT: True}
-
-        cmd = self.tr.generate_run_commands([], extra_args)
-
-        self.assertTokensIn(['--no-enable-root'], cmd[0])
-
     def test_args_with_tf_template_but_not_generate_in_run_cmd(self):
         extra_args = {constants.TF_TEMPLATE: ['hello']}
 
@@ -1396,6 +1386,53 @@ class DevicelessTestTest(ModuleInfoTestFixture):
         deps = runner.get_test_runner_build_reqs(test_infos)
 
         self.assertContainsSubset(expect_deps, deps)
+
+
+class TestExtraArgsToTfArgs(unittest.TestCase):
+    """Tests for extra_args_to_tf_args function."""
+
+    def test_supported_args(self):
+        extra_args = {
+            constants.WAIT_FOR_DEBUGGER: True,
+            constants.SHARDING: 5,
+            constants.SERIAL: ['device1', 'device2'],
+            constants.CUSTOM_ARGS: ['arg1', 'arg2'],
+            constants.ITERATIONS: 3,
+        }
+        expected_supported_args = [
+            '--wait-for-debugger',
+            '--shard-count', '5',
+            '--serial', 'device1', '--serial', 'device2',
+            'arg1', 'arg2',
+            '--retry-strategy', constants.ITERATIONS,
+            '--max-testcase-run-count', '3'
+        ]
+
+        supported_args, _ = atf_tr.extra_args_to_tf_args(extra_args)
+
+        self.assertEqual(expected_supported_args, supported_args)
+
+    def test_unsupported_args(self):
+        extra_args = {
+            'invalid_arg': 'value',
+            'tf_template': 'template',
+            'tf_early_device_release': True,
+        }
+        expected_unsupported_args = ['invalid_arg', 'tf_template',
+                                     'tf_early_device_release']
+
+        _, unsupported_args = atf_tr.extra_args_to_tf_args(extra_args)
+
+        self.assertEqual(expected_unsupported_args, unsupported_args)
+
+    def test_empty_extra_args(self):
+        extra_args = {}
+
+        supported_args, unsupported_args = atf_tr.extra_args_to_tf_args(
+            extra_args)
+
+        self.assertEqual([], supported_args)
+        self.assertEqual([], unsupported_args)
 
 
 def host_jar_module(name, installed):

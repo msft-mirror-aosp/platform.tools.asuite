@@ -313,13 +313,11 @@ def get_extra_args(args):
                 'host': constants.HOST,
                 'instant': constants.INSTANT,
                 'iterations': constants.ITERATIONS,
-                'no_enable_root': constants.NO_ENABLE_ROOT,
                 'request_upload_result': constants.REQUEST_UPLOAD_RESULT,
                 'bazel_mode_features': constants.BAZEL_MODE_FEATURES,
                 'rerun_until_failure': constants.RERUN_UNTIL_FAILURE,
                 'retry_any_failure': constants.RETRY_ANY_FAILURE,
                 'serial': constants.SERIAL,
-                'auto_ld_library_path': constants.LD_LIBRARY_PATH,
                 'sharding': constants.SHARDING,
                 'test_filter': constants.TEST_FILTER,
                 'test_timeout': constants.TEST_TIMEOUT,
@@ -943,6 +941,49 @@ def _send_start_event(argv: List[Any], tests: List[str]):
     )
 
 
+def _get_acloud_proc_and_log(args: argparse.ArgumentParser,
+                    results_dir: str) -> Tuple[Any, Any]:
+    """Return tuple of acloud process ID and report file."""
+    if any((args.acloud_create, args.start_avd)):
+        return at.acloud_create_validator(results_dir, args)
+    return None, None
+
+
+def has_sufficient_devices(
+        required_amount: int,
+        serial: List[str] = None) -> bool:
+    """Detect whether attaching sufficient devices for tests."""
+    given_amount  = len(serial) if serial else 0
+    # Only check when both given_amount and required_amount are non zero.
+    if all((given_amount, required_amount)):
+        # Base on TF rules, given_amount can be greater than or equal to
+        # required_amount.
+        if required_amount > given_amount:
+            atest_utils.colorful_print(
+                f'The test requires {required_amount} devices, '
+                f'but {given_amount} were given.',
+                constants.RED)
+    return given_amount >= required_amount
+
+
+def setup_metrics_tool_name(no_metrics: bool = False):
+    """Setup tool_name and sub_tool_name for MetricsBase."""
+    if (not no_metrics and
+        metrics_base.MetricsBase.user_type == metrics_base.INTERNAL_USER):
+        metrics_utils.print_data_collection_notice()
+
+        USER_FROM_TOOL = os.getenv(constants.USER_FROM_TOOL)
+        metrics_base.MetricsBase.tool_name = (
+            USER_FROM_TOOL if USER_FROM_TOOL else constants.TOOL_NAME
+        )
+
+        USER_FROM_SUB_TOOL = os.getenv(constants.USER_FROM_SUB_TOOL)
+        metrics_base.MetricsBase.sub_tool_name = (
+            USER_FROM_SUB_TOOL if USER_FROM_SUB_TOOL
+            else constants.SUB_TOOL_NAME
+        )
+
+
 # pylint: disable=too-many-statements
 # pylint: disable=too-many-branches
 # pylint: disable=too-many-return-statements
@@ -975,9 +1016,7 @@ def main(
     _send_start_event(argv, args.tests)
     _non_action_validator(args)
 
-    proc_acloud, report_file = None, None
-    if any((args.acloud_create, args.start_avd)):
-        proc_acloud, report_file = at.acloud_create_validator(results_dir, args)
+    proc_acloud, report_file = _get_acloud_proc_and_log(args, results_dir)
     is_clean = not os.path.exists(
         os.environ.get(constants.ANDROID_PRODUCT_OUT, ''))
     extra_args = get_extra_args(args)
@@ -1037,20 +1076,9 @@ def main(
             result=int((time.time() - join_start) * 1000))
     find_start = time.time()
     test_infos = translator.translate(args)
-    given_amount  = len(args.serial) if args.serial else 0
-    required_amount = get_device_count_config(test_infos, mod_info)
-    args.device_count_config = required_amount
-    # Only check when both given_amount and required_amount are non zero.
-    if all((given_amount, required_amount)):
-        # Base on TF rules, given_amount can be greater than or equal to
-        # required_amount.
-        if required_amount > given_amount:
-            atest_utils.colorful_print(
-                f'The test requires {required_amount} devices, '
-                f'but {given_amount} were given.',
-                constants.RED)
-            return 0
-
+    args.device_count_config = get_device_count_config(test_infos, mod_info)
+    if not has_sufficient_devices(args.device_count_config, args.serial):
+        return ExitCode.INSUFFICIENT_DEVICES
     find_duration = time.time() - find_start
     if not test_infos:
         return ExitCode.TEST_NOT_FOUND
@@ -1243,19 +1271,7 @@ if __name__ == '__main__':
     with atest_execution_info.AtestExecutionInfo(
             final_args, RESULTS_DIR,
             atest_configs.GLOBAL_ARGS) as result_file:
-        if (not atest_configs.GLOBAL_ARGS.no_metrics and
-        metrics_base.MetricsBase.user_type == metrics_base.INTERNAL_USER):
-            metrics_utils.print_data_collection_notice()
-            USER_FROM_TOOL = os.getenv(constants.USER_FROM_TOOL, '')
-            if USER_FROM_TOOL == '':
-                metrics_base.MetricsBase.tool_name = constants.TOOL_NAME
-            else:
-                metrics_base.MetricsBase.tool_name = USER_FROM_TOOL
-            USER_FROM_SUB_TOOL = os.getenv(constants.USER_FROM_SUB_TOOL, '')
-            if USER_FROM_SUB_TOOL == '':
-                metrics_base.MetricsBase.sub_tool_name = constants.SUB_TOOL_NAME
-            else:
-                metrics_base.MetricsBase.sub_tool_name = USER_FROM_SUB_TOOL
+        setup_metrics_tool_name(atest_configs.GLOBAL_ARGS.no_metrics)
 
         EXIT_CODE = main(
             final_args, RESULTS_DIR, atest_configs.GLOBAL_ARGS, roboleaf_unsupported_flags)

@@ -97,12 +97,8 @@ INSTANT = ('Run the instant_app version of the module if the module supports it.
            '"--instant" is passed.')
 ITERATION = 'Loop-run tests until the max iteration is reached. (default: 10)'
 LATEST_RESULT = 'Print latest test result.'
-LD_LIB_PATH = ('Insert $ANDROID_HOST_OUT/{lib,lib64} to LD_LIBRARY_PATH when '
-               'running tests with Tradefed.')
 LIST_MODULES = 'List testable modules of the given suite.'
 NO_CHECKING_DEVICE = 'Do NOT check device availability. (even it is a device test)'
-NO_ENABLE_ROOT = ('Do NOT restart adbd with root permission even the test config '
-                  'has RootTargetPreparer.')
 NO_METRICS = 'Do not send metrics.'
 ROBOLEAF_MODE = ('Determines when to use Bazel for end to end builds and tests. '
                  'Can be `on`, `off`, `dev`. Defaults to off. Use `on` to opt-in. '
@@ -125,8 +121,6 @@ RETRY_ANY_FAILURE = ('Rerun failed tests until passed or the max iteration '
                      'is reached. (default: 10)')
 SERIAL = 'The device to run the test on.'
 SHARDING = 'Option to specify sharding count. (default: 2)'
-SMART_TESTING_LOCAL = ('Automatically detect untracked/unstaged files in current'
-                       ' git run associated tests.')
 SQLITE_MODULE_CACHE = ('Use SQLite database as cache instead of JSON.')
 START_AVD = 'Automatically create an AVD and run tests on the virtual device.'
 TEST = ('Run the tests. WARNING: Many test configs force cleanup of device '
@@ -226,8 +220,6 @@ class AtestArgParser(argparse.ArgumentParser):
                           help=INSTALL)
         self.add_argument('-m', constants.REBUILD_MODULE_INFO_FLAG,
                           action='store_true', help=REBUILD_MODULE_INFO)
-        self.add_argument('--no-enable-root', help=NO_ENABLE_ROOT,
-                          action='store_true')
         self.add_argument('--roboleaf-mode',
                           nargs='?',
                           default=BazelBuildMode.ON,
@@ -248,8 +240,6 @@ class AtestArgParser(argparse.ArgumentParser):
                           action='store_true')
         self.add_argument('-w', '--wait-for-debugger', action='store_true',
                           help=WAIT_FOR_DEBUGGER)
-        self.add_argument('--auto-ld-library-path', action='store_true',
-                          help=LD_LIB_PATH)
 
         # Options for request/disable upload results. They are mutually
         # exclusive in a command line.
@@ -260,8 +250,6 @@ class AtestArgParser(argparse.ArgumentParser):
                           help=DISABLE_UPLOAD_RESULT)
 
         mgroup = self.add_mutually_exclusive_group()
-        mgroup.add_argument('--smart-testing-local', action='store_true',
-                                help=SMART_TESTING_LOCAL)
         # Options related to Test Mapping
         mgroup.add_argument('-p', '--test-mapping', action='store_true',
                           help=TEST_MAPPING)
@@ -444,9 +432,7 @@ def print_epilog_text():
         INSTANT=INSTANT,
         ITERATION=ITERATION,
         LATEST_RESULT=LATEST_RESULT,
-        LD_LIB_PATH=LD_LIB_PATH,
         LIST_MODULES=LIST_MODULES,
-        NO_ENABLE_ROOT=NO_ENABLE_ROOT,
         NO_METRICS=NO_METRICS,
         NO_CHECKING_DEVICE=NO_CHECKING_DEVICE,
         REBUILD_MODULE_INFO=REBUILD_MODULE_INFO,
@@ -457,7 +443,6 @@ def print_epilog_text():
         SERIAL=SERIAL,
         SHARDING=SHARDING,
         BUILD_OUTPUT=BUILD_OUTPUT,
-        SMART_TESTING_LOCAL=SMART_TESTING_LOCAL,
         START_AVD=START_AVD,
         TEST=TEST,
         TEST_CONFIG_SELECTION=TEST_CONFIG_SELECTION,
@@ -512,9 +497,6 @@ OPTIONS
                 atest <test> -- --abi arm64-v8a   # ARM 64-bit
                 atest <test> -- --abi armeabi-v7a # ARM 32-bit
 
-        --auto-ld-library-path
-            {LD_LIB_PATH}
-
         --auto-sharding
             {AUTO_SHARDING}
 
@@ -563,9 +545,6 @@ OPTIONS
         --roboleaf-mode
             {ROBOLEAF_MODE}
 
-        --no-enable-root
-            {NO_ENABLE_ROOT}
-
         --no-checking-device
             {NO_CHECKING_DEVICE}
 
@@ -574,14 +553,6 @@ OPTIONS
 
         --sharding [SHARD_NUMBER]
           {SHARDING}
-
-        --smart-testing-local
-          {SMART_TESTING_LOCAL} e.g. Have modified code in packages/apps/Settings/tests/unit/src.
-            croot packages/apps/Settings/tests/unit/src
-            atest --smart-testing-local
-
-            will be equivalent to (from <android root>):
-            atest --smart-testing-local packages/apps/Settings/tests/unit/src
 
         -t, --test [TEST1, TEST2, ...]
             {TEST} (implicit default)
