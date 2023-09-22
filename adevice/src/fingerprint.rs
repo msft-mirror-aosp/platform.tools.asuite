@@ -9,22 +9,31 @@ use std::collections::HashMap;
 use std::fs;
 use std::io::{self, Read};
 use std::os::unix::fs::FileTypeExt;
+use std::os::unix::fs::PermissionsExt;
 use std::path::{Path, PathBuf};
 use walkdir::WalkDir;
 
 #[allow(missing_docs)]
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 pub enum FileType {
+    #[default]
     File,
     Symlink,
     Directory,
+}
+
+#[derive(Clone, Copy, PartialEq)]
+#[allow(dead_code)]
+pub enum DiffMode {
+    IgnorePermissions,
+    UsePermissions,
 }
 
 /// Represents a file, directory, or symlink.
 /// We need enough information to be able to tell if:
 ///   1) A regular file changes to a directory or symlink.
 ///   2) A symlink's target file path changes.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Default, Clone, Serialize, Deserialize, PartialEq)]
 pub struct FileMetadata {
     /// Is this a file, dir or symlink?
     pub file_type: FileType,
@@ -36,6 +45,62 @@ pub struct FileMetadata {
     /// Sha256 of contents for regular files.
     #[serde(skip_serializing_if = "String::is_empty", default)]
     pub digest: String,
+
+    /// Permission bits.
+    #[serde(default, skip_serializing_if = "is_default")]
+    pub permission_bits: u32,
+}
+
+fn is_default<T: Default + PartialEq>(t: &T) -> bool {
+    t == &T::default()
+}
+
+impl FileMetadata {
+    pub fn from_path(file_path: &Path) -> Result<Self> {
+        let metadata = fs::symlink_metadata(file_path)?;
+
+        if metadata.is_dir() {
+            Ok(FileMetadata::from_dir())
+        } else if metadata.is_symlink() {
+            FileMetadata::from_symlink(file_path, &metadata)
+        } else {
+            FileMetadata::from_file(file_path, &metadata)
+        }
+    }
+
+    pub fn from_dir() -> Self {
+        FileMetadata { file_type: FileType::Directory, ..Default::default() }
+    }
+    pub fn from_symlink(file_path: &Path, metadata: &fs::Metadata) -> Result<Self> {
+        let link = fs::read_link(file_path)?;
+        let target_path_string =
+            link.into_os_string().into_string().expect("Expected valid file name");
+        let mut perms = 0;
+
+        // Getting the permissions doesn't work on windows, so don't try and don't compare them.
+        if !cfg!(windows) {
+            perms = metadata.permissions().mode();
+        }
+        Ok(FileMetadata {
+            file_type: FileType::Symlink,
+            symlink: target_path_string,
+            digest: String::from(""),
+            permission_bits: perms,
+        })
+    }
+    pub fn from_file(file_path: &Path, metadata: &fs::Metadata) -> Result<Self> {
+        // Getting the permissions doesn't work on windows, so don't try and don't compare them.
+        let mut perms = 0;
+        if !cfg!(windows) {
+            perms = metadata.permissions().mode();
+        }
+        Ok(FileMetadata {
+            file_type: FileType::File,
+            symlink: String::from(""),
+            digest: compute_digest(file_path)?,
+            permission_bits: perms,
+        })
+    }
 }
 
 /// A description of the differences on the filesystems between the host
@@ -60,6 +125,7 @@ pub struct Diffs {
 pub fn diff(
     host_files: &HashMap<PathBuf, FileMetadata>,
     device_files: &HashMap<PathBuf, FileMetadata>,
+    diff_mode: DiffMode,
 ) -> Diffs {
     let mut diffs = Diffs {
         device_needs: HashMap::new(),
@@ -67,16 +133,20 @@ pub fn diff(
         device_diffs: HashMap::new(),
     };
 
-    // Files on the host, but not on the device or
+    // Insert diffs files that are on the host, but not on the device or
     // file on the host that are different on the device.
-    for (file_name, metadata) in host_files {
+    for (file_name, host_metadata) in host_files {
         match device_files.get(file_name) {
-            Some(device_metadata) if device_metadata != metadata => {
-                diffs.device_diffs.insert(file_name.clone(), metadata.clone())
+            // File on host and device, but the metadata is different.
+            Some(device_metadata)
+                if is_metadata_diff(device_metadata, host_metadata, diff_mode) =>
+            {
+                diffs.device_diffs.insert(file_name.clone(), host_metadata.clone())
             }
             // If the device metadata == host metadata there is nothing to do.
             Some(_) => None,
-            None => diffs.device_needs.insert(file_name.clone(), metadata.clone()),
+            // Not on the device yet, insert it
+            None => diffs.device_needs.insert(file_name.clone(), host_metadata.clone()),
         };
     }
 
@@ -87,6 +157,19 @@ pub fn diff(
         }
     }
     diffs
+}
+
+/// Return true if left != right.
+/// When useing DiffMode::IgnorePermissions, clear the permission bits before doing the comparison
+pub fn is_metadata_diff(left: &FileMetadata, right: &FileMetadata, diff_mode: DiffMode) -> bool {
+    if diff_mode == DiffMode::UsePermissions {
+        return left != right;
+    }
+    let mut cleared_left = left.clone();
+    cleared_left.permission_bits = 0;
+    let mut cleared_right = right.clone();
+    cleared_right.permission_bits = 0;
+    cleared_left != cleared_right
 }
 
 /// Given a `partition_root`, traverse all files under the named |partitions|
@@ -101,10 +184,7 @@ pub fn fingerprint_partitions(
     partition_root: &Path,
     partition_names: &[PathBuf],
 ) -> Result<HashMap<PathBuf, FileMetadata>> {
-    // TODO(rbraunstein); time this and next block
-
     // Walk the filesystem to get the file names.
-    // TODO(rbraunstein): Figure out if we can parallelize the walk, not just the digest computations.
     let filenames: Vec<PathBuf> = partition_names
         .iter()
         .flat_map(|p| WalkDir::new(partition_root.join(p)).follow_links(false))
@@ -112,7 +192,6 @@ pub fn fingerprint_partitions(
         .collect();
 
     // Compute digest for each file.
-    // TODO(rbraunstein): Convert `unwrap` to something that propagates the errors.
     Ok(filenames
         .into_par_iter()
         // Walking the /data partition quickly leads to sockets, filter those out.
@@ -120,39 +199,10 @@ pub fn fingerprint_partitions(
         .map(|file_path| {
             (
                 file_path.strip_prefix(partition_root).unwrap().to_owned(),
-                fingerprint_file(&file_path).unwrap(),
+                FileMetadata::from_path(&file_path).unwrap(),
             )
         })
         .collect())
-}
-
-fn fingerprint_file(file_path: &Path) -> Result<FileMetadata> {
-    let metadata = fs::symlink_metadata(file_path)?;
-
-    if metadata.is_dir() {
-        Ok(FileMetadata {
-            file_type: FileType::Directory,
-            symlink: String::from(""),
-            digest: String::from(""),
-        })
-    } else if metadata.is_symlink() {
-        let link = fs::read_link(file_path)?;
-        // TODO(rbraunstein): Deal with multiple error types rather than use
-        // unwrap and panic (on bizzare symlink target names)
-        // https://doc.rust-lang.org/rust-by-example/error/multiple_error_types.html
-        let target_path_string = link.into_os_string().into_string().unwrap();
-        Ok(FileMetadata {
-            file_type: FileType::Symlink,
-            symlink: target_path_string,
-            digest: String::from(""),
-        })
-    } else {
-        Ok(FileMetadata {
-            file_type: FileType::File,
-            symlink: String::from(""),
-            digest: compute_digest(file_path)?,
-        })
-    }
 }
 
 /// Return true for special files like sockets that would be incorrect
@@ -189,13 +239,14 @@ fn compute_digest(file_path: &Path) -> Result<String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::fingerprint::DiffMode::UsePermissions;
     use std::collections::BTreeSet;
     use std::path::PathBuf;
     use tempfile::TempDir;
 
     #[test]
     fn empty_inputs() {
-        assert_eq!(diff(&HashMap::new(), &HashMap::new()), Diffs::default());
+        assert_eq!(diff(&HashMap::new(), &HashMap::new(), UsePermissions), Diffs::default());
     }
 
     #[test]
@@ -205,10 +256,60 @@ mod tests {
             FileMetadata {
                 file_type: FileType::File,
                 digest: "deadbeef".to_string(),
-                symlink: "".to_string(),
+                ..Default::default()
             },
         )]);
-        assert_eq!(diff(&file_entry, &file_entry.clone()), Diffs::default());
+        assert_eq!(diff(&file_entry, &file_entry.clone(), UsePermissions), Diffs::default());
+    }
+
+    #[test]
+    fn same_inputs_with_permissions() {
+        let file_entry = HashMap::from([(
+            PathBuf::from("a/b/foo.so"),
+            FileMetadata {
+                file_type: FileType::File,
+                digest: "deadbeef".to_string(),
+                permission_bits: 0o644,
+                ..Default::default()
+            },
+        )]);
+        assert_eq!(diff(&file_entry, &file_entry.clone(), UsePermissions), Diffs::default());
+    }
+
+    #[test]
+    fn same_inputs_with_different_permissions_are_not_equal() {
+        let orig = HashMap::from([(
+            PathBuf::from("a/b/foo.so"),
+            FileMetadata {
+                file_type: FileType::File,
+                digest: "deadbeef".to_string(),
+                permission_bits: 0o644,
+                ..Default::default()
+            },
+        )]);
+        let mut copy = orig.clone();
+        copy.entry(PathBuf::from("a/b/foo.so")).and_modify(|v| v.permission_bits = 0);
+
+        // Not equal
+        assert_ne!(diff(&orig, &copy, UsePermissions), Diffs::default());
+    }
+
+    #[test]
+    fn same_inputs_ignoring_permissions() {
+        let orig = HashMap::from([(
+            PathBuf::from("a/b/foo.so"),
+            FileMetadata {
+                file_type: FileType::File,
+                digest: "deadbeef".to_string(),
+                permission_bits: 0o644,
+                ..Default::default()
+            },
+        )]);
+        let mut copy = orig.clone();
+        copy.entry(PathBuf::from("a/b/foo.so")).and_modify(|v| v.permission_bits = 0);
+
+        // Equal when we ignore the different permission bits.
+        assert_eq!(diff(&orig, &copy, DiffMode::IgnorePermissions), Diffs::default());
     }
 
     #[test]
@@ -218,20 +319,17 @@ mod tests {
             FileMetadata {
                 file_type: FileType::File,
                 digest: "deadbeef".to_string(),
-                symlink: "".to_string(),
+                ..Default::default()
             },
         )]);
 
         let device_map_with_filename_as_dir = HashMap::from([(
             PathBuf::from("a/b/foo.so"),
-            FileMetadata {
-                file_type: FileType::Directory,
-                digest: "".to_string(),
-                symlink: "".to_string(),
-            },
+            FileMetadata { file_type: FileType::Directory, ..Default::default() },
         )]);
 
-        let diffs = diff(&host_map_with_filename_as_file, &device_map_with_filename_as_dir);
+        let diffs =
+            diff(&host_map_with_filename_as_file, &device_map_with_filename_as_dir, UsePermissions);
         assert_eq!(
             diffs.device_diffs.get(&PathBuf::from("a/b/foo.so")).expect("Missing file"),
             // `diff` returns FileMetadata for host, but we really only care that the
@@ -239,7 +337,7 @@ mod tests {
             &FileMetadata {
                 file_type: FileType::File,
                 digest: "deadbeef".to_string(),
-                symlink: "".to_string(),
+                ..Default::default()
             },
         );
     }
@@ -268,7 +366,7 @@ mod tests {
             (PathBuf::from("deleted_dir"), dir_metadata()),
         ]);
 
-        let diffs = diff(&host_map, &device_map);
+        let diffs = diff(&host_map, &device_map, UsePermissions);
         // TODO(rbraunstein): Be terser with a helper func or asserts on containers/bags.
         assert_eq!(
             BTreeSet::from_iter(diffs.device_diffs.keys()),
@@ -349,14 +447,21 @@ mod tests {
         let file_path = partition_root.path().join("small_file");
         fs::write(&file_path, "This is a test\nof a small file.\n").unwrap();
 
-        let entry = fingerprint_file(&file_path).unwrap();
+        // NOTE: files are 0x644 on the host tests and 0x655 on device tests
+        // for me and CI so changing the file to always be 655 during the test.
+        let mut perms = fs::metadata(&file_path).expect("Getting permissions").permissions();
+        perms.set_mode(0o100655);
+        assert!(fs::set_permissions(&file_path, perms).is_ok());
+
+        let entry = FileMetadata::from_path(&file_path).unwrap();
 
         assert_eq!(
             FileMetadata {
                 file_type: FileType::File,
                 digest: "a519d054afdf2abfbdd90a738d248f606685d6c187e96390bde22e958240449e"
                     .to_string(),
-                symlink: "".to_string(),
+                permission_bits: 0o100655,
+                ..Default::default()
             },
             entry
         )
@@ -374,12 +479,13 @@ mod tests {
             partition_root.path(),
         );
 
-        let entry = fingerprint_file(&link).unwrap();
+        let entry = FileMetadata::from_path(&link).unwrap();
         assert_eq!(
             FileMetadata {
                 file_type: FileType::Symlink,
-                digest: "".to_string(),
                 symlink: "small_file".to_string(),
+                permission_bits: 0o120777,
+                ..Default::default()
             },
             entry
         )
@@ -390,12 +496,13 @@ mod tests {
         let partition_root = TempDir::new().unwrap();
         let link = create_symlink(&PathBuf::from("/tmp"), "link_to_tmp", partition_root.path());
 
-        let entry = fingerprint_file(&link).unwrap();
+        let entry = FileMetadata::from_path(&link).unwrap();
         assert_eq!(
             FileMetadata {
                 file_type: FileType::Symlink,
-                digest: "".to_string(),
                 symlink: "/tmp".to_string(),
+                permission_bits: 0o120777,
+                ..Default::default()
             },
             entry
         )
@@ -407,20 +514,13 @@ mod tests {
         let newdir_path = partition_root.path().join("some_dir");
         fs::create_dir(&newdir_path).expect("Should have create 'some_dir' in temp dir");
 
-        let entry = fingerprint_file(&newdir_path).unwrap();
-        assert_eq!(
-            FileMetadata {
-                file_type: FileType::Directory,
-                digest: "".to_string(),
-                symlink: "".to_string(),
-            },
-            entry
-        )
+        let entry = FileMetadata::from_path(&newdir_path).unwrap();
+        assert_eq!(FileMetadata { file_type: FileType::Directory, ..Default::default() }, entry)
     }
 
     #[test]
     fn fingerprint_file_on_bad_path_reports_err() {
-        if fingerprint_file(Path::new("testdata/not_exist")).is_ok() {
+        if FileMetadata::from_path(Path::new("testdata/not_exist")).is_ok() {
             panic!("Should have failed on invalid path")
         }
     }
@@ -707,27 +807,19 @@ mod tests {
     }
 
     fn file_metadata(digest: &str) -> FileMetadata {
-        FileMetadata {
-            file_type: FileType::File,
-            digest: digest.to_string(),
-            symlink: "".to_string(),
-        }
+        FileMetadata { file_type: FileType::File, digest: digest.to_string(), ..Default::default() }
     }
 
     fn link_metadata(target: &str) -> FileMetadata {
         FileMetadata {
             file_type: FileType::Symlink,
             digest: target.to_string(),
-            symlink: "".to_string(),
+            ..Default::default()
         }
     }
 
     fn dir_metadata() -> FileMetadata {
-        FileMetadata {
-            file_type: FileType::Directory,
-            digest: "".to_string(),
-            symlink: "".to_string(),
-        }
+        FileMetadata { file_type: FileType::Directory, ..Default::default() }
     }
 
     // TODO(rbraunstein): assertables crates for bags/containers.
