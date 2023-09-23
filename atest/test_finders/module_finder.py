@@ -79,11 +79,10 @@ class ModuleFinder(test_finder_base.TestFinderBase):
                 testable_modules_only=True,
             )
 
-        if not modules_to_test:
-            modules_to_test = self.module_info.get_modules_by_path(
-                path=path,
-                testable_modules_only=True,
-            )
+        modules_to_test |= self.module_info.get_modules_by_path(
+            path=path,
+            testable_modules_only=True,
+        )
 
         return test_finder_utils.extract_selected_tests(modules_to_test)
 
