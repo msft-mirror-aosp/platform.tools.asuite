@@ -2,7 +2,7 @@ use clap::{Args, Parser, Subcommand};
 
 #[derive(Parser)]
 #[command(about = "Tool to push your rebuilt modules to your device.")]
-#[command(version = "0.1")]
+#[command(version = "0.2")]
 pub struct Cli {
     #[command(subcommand)]
     pub command: Commands,
