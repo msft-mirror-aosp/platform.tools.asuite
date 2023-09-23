@@ -285,7 +285,8 @@ fn print_status(files: &HashMap<PathBuf, PushState>) {
         // Skip UpToDat, don't print those.
         PushState::TrackOrClean,
         PushState::TrackAndBuildOrClean,
-        PushState::TrackOrMakeClean,
+        // Removing reporting on random files in build tree.
+        // PushState::TrackOrMakeClean,
         PushState::UntrackOrBuild,
         PushState::ApkInstalled,
     ] {
