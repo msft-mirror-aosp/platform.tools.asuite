@@ -412,7 +412,7 @@ ROBOLEAF_TEST_FILTER = 'roboleaf_test_filter'
 
 # Flags which roboleaf mode already supported:
 #   --iterations, --rerun-until-failure, --retry-any-failure, --verbose,
-#   --bazel-arg, --, --wait-for-debugger, --host, --serial
+#   --bazel-arg, --, --wait-for-debugger, --host, --serial, --no-metrics
 #
 # Flags which roboleaf mode doesn't need to support:
 #   --minimal-build, --bazel_mode, --null-feature, --experimental-remote-avd,
@@ -484,7 +484,6 @@ ROBOLEAF_UNSUPPORTED_FLAGS = {
     'test_timeout': UnsupportedFlag(lambda d, v: d != v, ""),
     'latest_result': UnsupportedFlag(lambda d, v: d != v, ""),
     'history': UnsupportedFlag(lambda d, v: d != v, ""),
-    'no_metrics': UnsupportedFlag(lambda d, v: d != v, ""),
     'aggregate_metric_filter': UnsupportedFlag(lambda d, v: d != v, ""),
     'no_checking_device': UnsupportedFlag(lambda d, v: d != v, ""),
 }
