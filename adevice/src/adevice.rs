@@ -282,11 +282,9 @@ const RED_WARNING_LINE: &str = "  \x1b[1;31m!! Warning: !!\x1b[0m\n";
 fn print_status(files: &HashMap<PathBuf, PushState>) {
     for state in [
         PushState::Push,
-        // Skip UpToDat, don't print those.
+        // Skip UpToDate and TrackOrMakeClean, don't print those.
         PushState::TrackOrClean,
         PushState::TrackAndBuildOrClean,
-        // Removing reporting on random files in build tree.
-        // PushState::TrackOrMakeClean,
         PushState::UntrackOrBuild,
         PushState::ApkInstalled,
     ] {
