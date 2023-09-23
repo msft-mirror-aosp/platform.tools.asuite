@@ -13,7 +13,7 @@ use anyhow::{anyhow, bail, Context, Result};
 use clap::Parser;
 use cli::Commands;
 use commands::run_adb_command;
-use fingerprint::FileMetadata;
+use fingerprint::{DiffMode, FileMetadata};
 use itertools::Itertools;
 use lazy_static::lazy_static;
 use log::{debug, info};
@@ -70,12 +70,22 @@ fn main() -> Result<()> {
         fingerprint::fingerprint_partitions(&product_out, &partitions)?,
         profiler.host_fingerprint
     );
+
+    // For now ignore diffs in permissions.  This will allow us to have a new adevice host tool
+    // still working with an older adevice_fingerprint device tool.
+    // [It also works on windows hosts]
+    // Version 0.2 of the device tool will support permission mode.
+    // We can check for that version of the tool or check to see if the metadata
+    // on a well-known file (like system/bin/adevice_fingerprint) contains permission
+    // bits before we change this to UsePermissions.
+    let diff_mode = fingerprint::DiffMode::IgnorePermissions;
     let commands = get_update_commands(
         &device_tree,
         &host_tree,
         &ninja_installed_files,
         product_out.clone(),
         &get_installed_apks()?,
+        diff_mode,
     )?;
 
     let max_changes = cli.global_options.max_allowed_changes;
@@ -161,6 +171,7 @@ fn get_update_commands(
     ninja_installed_files: &[String],
     product_out: PathBuf,
     installed_packages: &HashSet<String>,
+    diff_mode: DiffMode,
 ) -> Result<commands::Commands> {
     // NOTE: The Ninja deps list can be _ahead_of_ the product tree output list.
     //      i.e. m `nothing` will update our ninja list even before someone
@@ -185,6 +196,7 @@ fn get_update_commands(
         device_tree,
         &product_out,
         installed_packages,
+        diff_mode,
     )?;
     print_status(status_per_file);
     // Shadowing apks are apks that are installed outside the system partition with `adb install`
@@ -219,7 +231,7 @@ fn get_update_commands(
         })
         .collect();
 
-    let filtered_changes = fingerprint::diff(&filtered_host_set, device_tree);
+    let filtered_changes = fingerprint::diff(&filtered_host_set, device_tree, diff_mode);
     Ok(commands::compose(&filtered_changes, &product_out))
 }
 
@@ -395,6 +407,7 @@ fn collect_status_per_file(
     device_tree: &HashMap<PathBuf, FileMetadata>,
     product_out: &Path,
     installed_packages: &HashSet<String>,
+    diff_mode: DiffMode,
 ) -> Result<HashMap<PathBuf, PushState>> {
     let all_files: Vec<&PathBuf> =
         host_tree.keys().chain(device_tree.keys()).chain(tracked_set.iter()).collect();
@@ -413,7 +426,11 @@ fn collect_status_per_file(
         #[allow(clippy::collapsible_else_if)]
         let push_state = if tracked {
             if on_device && on_host {
-                if device_tree.get(*f) != host_tree.get(*f) {
+                if fingerprint::is_metadata_diff(
+                    device_tree.get(*f).unwrap(),
+                    host_tree.get(*f).unwrap(),
+                    diff_mode,
+                ) {
                     // PushDiff
                     installed_apk_action(f, product_out, installed_packages)?
                 } else {
@@ -577,6 +594,7 @@ macro_rules! time {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::fingerprint::DiffMode;
     use std::path::PathBuf;
 
     // TODO(rbraunstein): Capture/test stdout and logging.
@@ -595,6 +613,7 @@ mod tests {
             &ninja_deps,
             product_out,
             &installed_apks,
+            DiffMode::UsePermissions,
         )?;
         assert_eq!(results.upserts.values().len(), 0);
         Ok(())
@@ -618,6 +637,7 @@ mod tests {
             &["system".to_string(), "system/myfile".to_string()],
             product_out,
             &installed_apks,
+            DiffMode::UsePermissions,
         )?;
         assert_eq!(results.upserts.values().len(), 2);
         Ok(())
@@ -692,23 +712,26 @@ package:/apex/com.google.aosp_cf_phone.rros/overlay/cuttlefish_phone_overlay_fra
         let tracked_set: Vec<String> =
             fake_state.tracked_set.iter().map(|s| s.to_string()).collect();
 
-        get_update_commands(&device_files, &host_files, &tracked_set, product_out, &installed_apks)
+        get_update_commands(
+            &device_files,
+            &host_files,
+            &tracked_set,
+            product_out,
+            &installed_apks,
+            DiffMode::UsePermissions,
+        )
     }
 
     fn file_metadata(digest: &str) -> FileMetadata {
         FileMetadata {
             file_type: fingerprint::FileType::File,
             digest: digest.to_string(),
-            symlink: "".to_string(),
+            ..Default::default()
         }
     }
 
     fn dir_metadata() -> FileMetadata {
-        FileMetadata {
-            file_type: fingerprint::FileType::Directory,
-            digest: "".to_string(),
-            symlink: "".to_string(),
-        }
+        FileMetadata { file_type: fingerprint::FileType::Directory, ..Default::default() }
     }
     // TODO(rbraunstein): Add tests for collect_status_per_file after we decide on output.
     // TODO(rbraunstein): Add tests for shadowing apks and ensure we don't install the system version.
