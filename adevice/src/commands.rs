@@ -22,7 +22,6 @@ pub enum AdbAction {
     DeleteFile,
     /// e.g. adb rm -rf <device_filename>
     DeleteDir,
-    // TODO: Also need commands to set user, group and permissions.
 }
 
 pub fn split_string(s: &str) -> AdbCommand {
@@ -109,7 +108,6 @@ pub fn compose(diffs: &Diffs, product_out: &Path) -> Commands {
         );
     }
 
-    // TODO(rbraunstein): Put rw bits in fingerprint and set on device.
     commands
 }
 
