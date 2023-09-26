@@ -106,15 +106,19 @@ impl Config {
     ///   Tracked files inside that file are relative to $OUT_DIR/target/product/*/
     ///   The final element of the path can be derived from the final element of ANDROID_PRODUCT_OUT,
     ///   but matching against */target/product/* is enough.
-    pub fn tracked_files(&self) -> Result<Vec<String>> {
+    /// Store all ninja deps in the cache and filter out partitions per run.
+    pub fn tracked_files(&self, partitions: &Vec<PathBuf>) -> Result<Vec<String>> {
         if let Ok(cache) = self.read_cache() {
-            Ok(cache)
+            Ok(filter_partitions(&cache, partitions))
         } else {
             let ninja_output = self.ninja_output(
                 &self.src_root()?,
                 &self.ninja_args(&self.target_product()?, &self.out_dir()),
             )?;
-            self.write_cache(tracked_files(&ninja_output)?)
+            let unfiltered_tracked_files = tracked_files(&ninja_output)?;
+            self.write_cache(&unfiltered_tracked_files)
+                .unwrap_or_else(|e| warn!("Error writing tracked file cache: {e}"));
+            Ok(filter_partitions(&unfiltered_tracked_files, partitions))
         }
     }
 
@@ -215,11 +219,11 @@ impl Config {
 
     // Unconditionally write the given byte stream to the cache file
     // overwriting whatever is there.
-    fn write_cache(&self, data: Vec<String>) -> Result<Vec<String>> {
+    fn write_cache(&self, data: &[String]) -> Result<()> {
         let cache_path = self.cache_path()?;
         debug!("Wrote cache file: {cache_path:?}");
         fs::write(cache_path, data.join("\n"))?;
-        Ok(data)
+        Ok(())
     }
 }
 
@@ -236,15 +240,27 @@ fn tracked_files(output: &process::Output) -> Result<Vec<String>> {
         .lines()
         .filter_map(|line| {
             if let Some(device_path) = strip_product_prefix(line) {
-                // TODO(rbraunstein): use partitions.
-                if device_path.starts_with("system/") || device_path.starts_with("system_ext/") {
-                    return Some(device_path);
-                }
-                return None;
+                return Some(device_path);
             }
             None
         })
         .collect())
+}
+
+/// Iterate through all ninja deps which are already filtered to and relative to ANDROID_PRODUCT_OUT
+/// Return only those whose path starts with a partition.
+fn filter_partitions(ninja_deps: &[String], partitions: &Vec<PathBuf>) -> Vec<String> {
+    ninja_deps
+        .iter()
+        .filter_map(|dep| {
+            for p in partitions {
+                if PathBuf::from(dep).starts_with(p) {
+                    return Some(dep.clone());
+                }
+            }
+            None
+        })
+        .collect()
 }
 
 // The ninja output for the files we are interested in will look like this:
@@ -322,7 +338,8 @@ mod tests {
     }
 
     #[test]
-    fn ninja_output_filtered_to_partitions() -> Result<()> {
+    fn ninja_output_filtered_to_android_product_out() -> Result<()> {
+        // Ensure only paths matching */target/product/ remain
         let fake_out = vec![
             // 2 good ones
             "innie/target/product/vsoc_x86_64/system/app/BasicDreams/BasicDreams.apk\n",
@@ -330,7 +347,7 @@ mod tests {
             // Target/product not at right position
             "innie/nested/target/product/vsoc_x86_64/system/NOT_FOUND\n",
             // Different partition
-            "innie/target/product/vsoc_x86_64/BAD_PARTITION/app/BasicDreams/BasicDreams2.apk\n",
+            "innie/target/product/vsoc_x86_64/OTHER_PARTITION/app/BasicDreams/BasicDreams2.apk\n",
             // Good again.
             "innie/target/product/vsoc_x86_64/system_ext/ok_file\n",
         ];
@@ -344,11 +361,49 @@ mod tests {
             vec![
                 "system/app/BasicDreams/BasicDreams.apk",
                 "system/app/BookmarkProvider/BookmarkProvider.apk",
+                "OTHER_PARTITION/app/BasicDreams/BasicDreams2.apk",
                 "system_ext/ok_file",
             ],
             tracked_files(&output)?
         );
         Ok(())
+    }
+
+    #[test]
+    fn test_partition_filtering() {
+        let ninja_deps = vec![
+            "system/file1".to_string(),
+            "system_ext/file2".to_string(),
+            "file3".to_string(),
+            "system/dir2/file1".to_string(),
+            "data/sys/file4".to_string(),
+        ];
+        assert_eq!(
+            vec![
+                "system/file1".to_string(),
+                "system/dir2/file1".to_string(),
+                "data/sys/file4".to_string(),
+            ],
+            crate::tracking::filter_partitions(
+                &ninja_deps,
+                &vec![PathBuf::from("system"), PathBuf::from("data")]
+            )
+        );
+    }
+
+    // Ensure we match the whole path component, i.e. "sys" should not match system.
+    #[test]
+    fn test_partition_filtering_partition_name_matches_path_component() {
+        let ninja_deps = vec![
+            "system/file1".to_string(),
+            "system_ext/file2".to_string(),
+            "file3".to_string(),
+            "data/sys/file4".to_string(),
+        ];
+        assert_eq!(
+            Vec::<String>::new(),
+            crate::tracking::filter_partitions(&ninja_deps, &vec![PathBuf::from("sys")])
+        );
     }
 
     // Convert TempDir to string we can use for fs::write/read.
