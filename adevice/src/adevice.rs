@@ -55,14 +55,15 @@ fn main() -> Result<()> {
         _ => (),
     }
     config.print();
+    let partitions: Vec<PathBuf> =
+        cli.global_options.partitions.iter().map(PathBuf::from).collect();
 
     println!(" * Checking for files to push to device");
-    let ninja_installed_files = time!(config.tracked_files()?, profiler.ninja_deps_computer);
+    let ninja_installed_files =
+        time!(config.tracked_files(&partitions)?, profiler.ninja_deps_computer);
 
     debug!("Stale file tracking took {} millis", track_time.elapsed().as_millis());
 
-    let partitions: Vec<PathBuf> =
-        cli.global_options.partitions.iter().map(PathBuf::from).collect();
     let device_tree =
         time!(fingerprint_device(&cli.global_options.partitions)?, profiler.device_fingerprint);
 
@@ -79,6 +80,7 @@ fn main() -> Result<()> {
     // on a well-known file (like system/bin/adevice_fingerprint) contains permission
     // bits before we change this to UsePermissions.
     let diff_mode = fingerprint::DiffMode::IgnorePermissions;
+
     let commands = get_update_commands(
         &device_tree,
         &host_tree,
@@ -86,6 +88,7 @@ fn main() -> Result<()> {
         product_out.clone(),
         &get_installed_apks()?,
         diff_mode,
+        &partitions,
     )?;
 
     let max_changes = cli.global_options.max_allowed_changes;
@@ -172,6 +175,7 @@ fn get_update_commands(
     product_out: PathBuf,
     installed_packages: &HashSet<String>,
     diff_mode: DiffMode,
+    partitions: &[PathBuf],
 ) -> Result<commands::Commands> {
     // NOTE: The Ninja deps list can be _ahead_of_ the product tree output list.
     //      i.e. m `nothing` will update our ninja list even before someone
@@ -179,10 +183,13 @@ fn get_update_commands(
     //      We don't have a way to know if we are in this case or if the user
     //      ever did a `m droid`
 
-    // We add implicit dirs to the tracked set so the set matches the staging set.
+    // We add implicit dirs up to the partition name to the tracked set so the set matches the staging set.
     let mut ninja_installed_dirs: HashSet<PathBuf> =
-        ninja_installed_files.iter().flat_map(|p| parents(p)).collect();
-    ninja_installed_dirs.remove(&PathBuf::from(""));
+        ninja_installed_files.iter().flat_map(|p| parents(p, partitions)).collect();
+    for p in partitions {
+        ninja_installed_dirs.insert(PathBuf::from(p));
+    }
+
     let tracked_set: HashSet<PathBuf> =
         ninja_installed_files.iter().map(PathBuf::from).chain(ninja_installed_dirs).collect();
     let host_set: HashSet<PathBuf> = host_tree.keys().map(PathBuf::clone).collect();
@@ -544,8 +551,16 @@ fn fingerprint_device(
     Ok(result.into_iter().map(|(path, metadata)| (PathBuf::from(path), metadata)).collect())
 }
 
-fn parents(file_path: &str) -> Vec<PathBuf> {
-    PathBuf::from(file_path).ancestors().map(PathBuf::from).collect()
+/// Return all path components of file_path up to a passed partition.
+/// Given system/bin/logd and partition "system",
+/// return ["system/bin/logd", "system/bin"], not "system" or ""
+
+fn parents(file_path: &str, partitions: &[PathBuf]) -> Vec<PathBuf> {
+    PathBuf::from(file_path)
+        .ancestors()
+        .map(|p| p.to_path_buf())
+        .take_while(|p| !partitions.contains(p))
+        .collect()
 }
 
 #[allow(missing_docs)]
@@ -605,6 +620,7 @@ mod tests {
         let ninja_deps: Vec<String> = vec![];
         let product_out = PathBuf::from("");
         let installed_apks = HashSet::<String>::new();
+        let partitions = Vec::new();
 
         let results = get_update_commands(
             &device_files,
@@ -613,6 +629,7 @@ mod tests {
             product_out,
             &installed_apks,
             DiffMode::UsePermissions,
+            &partitions,
         )?;
         assert_eq!(results.upserts.values().len(), 0);
         Ok(())
@@ -623,6 +640,7 @@ mod tests {
         // Relative to product out?
         let product_out = PathBuf::from("");
         let installed_apks = HashSet::<String>::new();
+        let partitions = Vec::new();
 
         let results = get_update_commands(
             // Device files
@@ -637,6 +655,7 @@ mod tests {
             product_out,
             &installed_apks,
             DiffMode::UsePermissions,
+            &partitions,
         )?;
         assert_eq!(results.upserts.values().len(), 2);
         Ok(())
@@ -680,6 +699,18 @@ package:/apex/com.google.aosp_cf_phone.rros/overlay/cuttlefish_phone_overlay_fra
         Ok(())
     }
 
+    #[test]
+    fn test_parents_stops_at_partition() {
+        assert_eq!(
+            vec![
+                PathBuf::from("some/long/path/file"),
+                PathBuf::from("some/long/path"),
+                PathBuf::from("some/long"),
+            ],
+            parents("some/long/path/file", &[PathBuf::from("some")]),
+        );
+    }
+
     // TODO(rbraunstein): Test case where on device and up to date, but not tracked.
 
     struct FakeState {
@@ -695,6 +726,7 @@ package:/apex/com.google.aosp_cf_phone.rros/overlay/cuttlefish_phone_overlay_fra
     fn call_update(fake_state: &FakeState) -> Result<commands::Commands> {
         let product_out = PathBuf::from("");
         let installed_apks = HashSet::<String>::new();
+        let partitions = Vec::new();
 
         let mut device_files: HashMap<PathBuf, FileMetadata> = HashMap::new();
         let mut host_files: HashMap<PathBuf, FileMetadata> = HashMap::new();
@@ -718,6 +750,7 @@ package:/apex/com.google.aosp_cf_phone.rros/overlay/cuttlefish_phone_overlay_fra
             product_out,
             &installed_apks,
             DiffMode::UsePermissions,
+            &partitions,
         )
     }
 
