@@ -176,6 +176,42 @@ class RoboleafTestRunnerUnittests(fake_filesystem_unittest.TestCase):
                     self.assertEqual(eligible_tests[module_name].test_runner,
                                     RoboleafTestRunner.NAME)
 
+    def test_are_all_tests_supported_with_test_filter(self):
+        """Test are_all_tests_supported method when specifying test filters"""
+        RoboleafModuleMap._instances = {}
+
+        out_dir = atest_utils.get_build_out_dir()
+        os.remove(out_dir.joinpath(roboleaf_test_runner._ROBOLEAF_MODULE_MAP_PATH))
+        self.fs.create_file(
+            out_dir.joinpath(roboleaf_test_runner._ROBOLEAF_MODULE_MAP_PATH),
+            contents=json.dumps({
+                'test1': "//a",
+                'test2': "//a/b",
+                'test3': "//a/b/c",
+            }))
+
+        eligible_tests = roboleaf_test_runner.are_all_tests_supported(
+            roboleaf_test_runner.BazelBuildMode.DEV,
+            [
+                'test1',
+                'test2:class2#method2a',
+                'test2:class2#method2b',
+                'test3:class3#method3a,method3b',
+            ],
+            [])
+
+        self.assertEqual(len(eligible_tests), 3)
+        self.assertEqual(
+            len(eligible_tests['test1'].data.get(constants.ROBOLEAF_TEST_FILTER, [])), 0)
+        self.assertSetEqual(
+            set(eligible_tests['test2'].data.get(constants.ROBOLEAF_TEST_FILTER, [])),
+            {'test2:class2#method2a', 'test2:class2#method2b'})
+        self.assertEqual(eligible_tests['test2'].test_runner, RoboleafTestRunner.NAME)
+        self.assertSetEqual(
+            set(eligible_tests['test3'].data.get(constants.ROBOLEAF_TEST_FILTER, [])),
+            {'test3:class3#method3a,method3b'})
+        self.assertEqual(eligible_tests['test3'].test_runner, RoboleafTestRunner.NAME)
+
     def test_are_all_tests_supported_empty_map(self):
         """Test are_all_tests_supported method when _module_map is empty"""
         module_names = [
