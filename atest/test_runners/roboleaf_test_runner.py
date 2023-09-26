@@ -116,10 +116,25 @@ def are_all_tests_supported(
         # Gracefully fall back to standard atest if roboleaf mode is disabled.
         return {}
 
-    eligible_tests = _roboleaf_eligible_tests(
-        roboleaf_mode, tests, test_name_to_filters or {})
+    test_name_to_roboleaf_filters = defaultdict(set)
+    for test_ref in tests:
+        ref_match = re.match(
+            r'^(?P<module_name>[^:#,]+):([^:].*)$', test_ref)
+        matched_result = ref_match.groupdict(default=dict()) if ref_match else dict()
 
-    if set(eligible_tests.keys()) == set(tests):
+        # The test reference doesn't include test filter.
+        if not matched_result:
+            if test_ref not in test_name_to_roboleaf_filters:
+                test_name_to_roboleaf_filters[test_ref] = set()
+            continue
+
+        module_name =  matched_result['module_name']
+        test_name_to_roboleaf_filters[module_name].add(test_ref)
+
+    eligible_tests = _roboleaf_eligible_tests(
+        roboleaf_mode, test_name_to_roboleaf_filters, test_name_to_filters or {})
+
+    if set(eligible_tests.keys()) == set(test_name_to_roboleaf_filters.keys()):
         if roboleaf_unsupported_flags:
             # TODO(b/297300818): Upload unsupported flags to metrics.
             atest_utils.roboleaf_print("These flags are not supported in Roboleaf mode:")
@@ -144,7 +159,7 @@ def are_all_tests_supported(
 
 def _roboleaf_eligible_tests(
     mode: BazelBuildMode,
-    tests: List[str],
+    test_name_to_roboleaf_filters: Dict[str, Set[str]],
     test_name_to_filters) -> Dict[str, TestInfo]:
     """Filter the given module_names to only ones that are currently
     fully converted with roboleaf (b test) and then filter further by the
@@ -158,27 +173,12 @@ def _roboleaf_eligible_tests(
     Returns:
         A dictionary keyed by test name and value of Roboleaf TestInfo.
     """
-    if not tests or mode == BazelBuildMode.OFF:
+    if not test_name_to_roboleaf_filters or mode == BazelBuildMode.OFF:
         return {}
-
-    test_name_to_references = defaultdict(set)
-
-    for test_ref in tests:
-        ref_match = re.match(
-            r'^(?P<module_name>[^:#,]+):([^:].*)$', test_ref)
-        matched_result = ref_match.groupdict(default=dict()) if ref_match else dict()
-
-        if not matched_result:
-            if test_ref not in test_name_to_references:
-                test_name_to_references[test_ref] = set()
-            continue
-
-        module_name =  matched_result['module_name']
-        test_name_to_references[module_name].add(test_ref)
 
     mod_map = RoboleafModuleMap()
     supported_modules = set(filter(
-        lambda m: m in mod_map.get_map(), test_name_to_references.keys()))
+        lambda m: m in mod_map.get_map(), test_name_to_roboleaf_filters.keys()))
 
     # By default, only keep modules that are in the managed list
     # of launched modules.
@@ -193,7 +193,7 @@ def _roboleaf_eligible_tests(
             set(),
             data={
                 constants.TI_FILTER: test_name_to_filters.get(module, set()),
-                constants.ROBOLEAF_TEST_FILTER: test_name_to_references.get(module, set()),
+                constants.ROBOLEAF_TEST_FILTER: test_name_to_roboleaf_filters.get(module, set()),
             })
         for module in supported_modules
     }
