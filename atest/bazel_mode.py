@@ -77,10 +77,6 @@ _SUPPORTED_BAZEL_ARGS = MappingProxyType({
     # https://docs.bazel.build/versions/main/command-line-reference.html#flag--runs_per_test
     constants.ITERATIONS:
         lambda arg_value: [f'--runs_per_test={str(arg_value)}'],
-    # https://docs.bazel.build/versions/main/command-line-reference.html#flag--test_keep_going
-    constants.RERUN_UNTIL_FAILURE:
-        lambda arg_value:
-        ['--notest_keep_going', f'--runs_per_test={str(arg_value)}'],
     # https://docs.bazel.build/versions/main/command-line-reference.html#flag--flaky_test_attempts
     constants.RETRY_ANY_FAILURE:
         lambda arg_value: [f'--flaky_test_attempts={str(arg_value)}'],
