@@ -425,25 +425,24 @@ def extract_selected_tests(tests: Iterable, default_all=False) -> List[str]:
     print('Multiple tests found:\n{0}'.format('\n'.join(numbered_list)))
 
     start_prompt = time.time()
-    test_indices = get_multiple_selection_answer()
-    if test_indices:
-        selections = get_selected_indices(test_indices,
-                                          limit=len(numbered_list)-1)
-        if all_index in selections:
-            extracted_tests = tests
-        elif quit_index in selections:
-            atest_utils.colorful_print('Abort selection.', constants.RED)
-            sys.exit(0)
-        else:
-            extracted_tests = {tests[s] for s in selections}
-        metrics.LocalDetectEvent(
-            detect_type=DetectType.INTERACTIVE_SELECTION,
-            result=int(time.time() - start_prompt))
+    test_indices = get_multiple_selection_answer(quit_index)
+    selections = get_selected_indices(test_indices,
+                                      limit=len(numbered_list)-1)
+    if all_index in selections:
+        extracted_tests = tests
+    elif quit_index in selections:
+        atest_utils.colorful_print('Abort selection.', constants.RED)
+        sys.exit(0)
+    else:
+        extracted_tests = {tests[s] for s in selections}
+    metrics.LocalDetectEvent(
+        detect_type=DetectType.INTERACTIVE_SELECTION,
+        result=int(time.time() - start_prompt))
 
     return list(extracted_tests)
 
 
-def get_multiple_selection_answer() -> str:
+def get_multiple_selection_answer(quit_index) -> str:
     """Get the answer from the user input."""
     try:
         return input("Please enter numbers of test to use. If none of the above"
@@ -451,8 +450,7 @@ def get_multiple_selection_answer() -> str:
                      "\n(multiple selection is supported, "
                      "e.g. '1' or '0,1' or '0-2'): ")
     except KeyboardInterrupt:
-        atest_utils.colorful_print('Abort selection.', constants.RED)
-        return None
+        return str(quit_index)
 
 
 def get_selected_indices(string: str, limit: int = None) -> Set[int]:
@@ -483,7 +481,7 @@ def get_selected_indices(string: str, limit: int = None) -> Set[int]:
                 selections.add(int(num_str))
         if limit and any(n for n in selections if n > limit):
             raise ValueError
-    except (ValueError, IndexError, AttributeError, TypeError) as err:
+    except (ValueError, IndexError, AttributeError, TypeError, KeyboardInterrupt) as err:
         logging.debug('%s', err)
         atest_utils.colorful_print('Invalid input detected.', constants.RED)
         return set()
