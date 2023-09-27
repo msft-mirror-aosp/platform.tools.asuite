@@ -2224,6 +2224,23 @@ class BazelTestRunnerTest(fake_filesystem_unittest.TestCase):
             '--test_summary=detailed',
         ], cmd[0])
 
+    def test_generate_run_command_with_return_until_failure(self):
+        test_infos = [test_info_of('test1')]
+        extra_args = {
+            constants.RERUN_UNTIL_FAILURE: 5
+        }
+        runner = self.create_bazel_test_runner_for_tests(test_infos)
+
+        cmd = runner.generate_run_commands(test_infos, extra_args)
+
+        self.assertTokensIn([
+            '--test_arg=--retry-strategy',
+            '--test_arg=RERUN_UNTIL_FAILURE',
+            '--test_arg=--max-testcase-run-count',
+            '--test_arg=5'
+        ], cmd[0])
+
+
     def test_not_zip_test_output_files_when_bes_publish_not_enabled(self):
         test_infos = [test_info_of('test1')]
         extra_args = {}
