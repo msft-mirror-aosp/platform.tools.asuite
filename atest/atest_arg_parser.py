@@ -81,7 +81,6 @@ DRY_RUN = 'Dry run atest without building, installing and running tests in real.
 ENABLE_DEVICE_PREPARER = ('Enable template/preparers/device-preparer as the '
                           'default preparer.')
 ENABLE_FILE_PATTERNS = 'Enable FILE_PATTERNS in TEST_MAPPING.'
-FLAKES_INFO = 'Test result with flakes info.'
 GENERATE_RUNNER_CMD = 'Generate the runner command(s) of given tests.'
 HISTORY = ('Show test results in chronological order(with specified number or '
            'all by default).')
@@ -291,10 +290,6 @@ class AtestArgParser(argparse.ArgumentParser):
                             help=START_AVD)
         agroup.add_argument('-s', '--serial', action='append', help=SERIAL)
 
-        # Options that to query flakes info in test result
-        self.add_argument('--flakes-info', action='store_true',
-                          help=FLAKES_INFO)
-
         # Options for tradefed to release test device earlier.
         self.add_argument('--tf-early-device-release', action='store_true',
                           help=TF_EARLY_DEVICE_RELEASE)
@@ -420,7 +415,6 @@ def print_epilog_text():
         DRY_RUN=DRY_RUN,
         ENABLE_DEVICE_PREPARER=ENABLE_DEVICE_PREPARER,
         ENABLE_FILE_PATTERNS=ENABLE_FILE_PATTERNS,
-        FLAKES_INFO=FLAKES_INFO,
         GENERATE_RUNNER_CMD=GENERATE_RUNNER_CMD,
         HELP_DESC=HELP_DESC,
         HISTORY=HISTORY,
@@ -666,11 +660,6 @@ OPTIONS
 
         --acloud-create
             {ACLOUD_CREATE}
-
-
-        [ Testing With Flakes Info ]
-        --flakes-info
-            {FLAKES_INFO}
 
 
         [ Metrics ]
