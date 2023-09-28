@@ -20,7 +20,6 @@
 # pylint: disable=line-too-long
 
 import os
-import tempfile
 import unittest
 
 from unittest import mock

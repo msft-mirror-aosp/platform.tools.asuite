@@ -912,21 +912,6 @@ def get_device_count_config(test_infos, mod_info):
     return max_count
 
 
-def _is_auto_shard_test(test_infos):
-    """Determine whether the given tests are in shardable test list.
-
-    Args:
-        test_infos: TestInfo objects.
-
-    Returns:
-        True if test in auto shardable list.
-    """
-    shardable_tests = atest_utils.get_local_auto_shardable_tests()
-    for test_info in test_infos:
-        if test_info.test_name in shardable_tests:
-            return True
-    return False
-
 def _send_start_event(argv: List[Any], tests: List[str]):
     """Send AtestStartEvent to metrics"""
     os_pyver = (f'{platform.platform()}:{platform.python_version()}/'
@@ -1120,14 +1105,6 @@ def main(
             extra_args = get_extra_args(args)
     else:
         _validate_tm_tests_exec_mode(args, test_infos)
-    # Detect auto sharding and trigger creating AVDs
-    if args.auto_sharding and _is_auto_shard_test(test_infos):
-        extra_args.update({constants.SHARDING: constants.SHARD_NUM})
-        if not (any(dry_run_args) or verify_env_variables):
-            # TODO: check existing devices.
-            args.acloud_create = [f'--num-instances={constants.SHARD_NUM}']
-            proc_acloud, report_file = at.acloud_create_validator(
-                results_dir, args)
 
     # TODO: change to another approach that put constants.CUSTOM_ARGS in the
     # end of command to make sure that customized args can override default
