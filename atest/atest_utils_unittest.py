@@ -889,62 +889,6 @@ class AtestUtilsUnittests(unittest.TestCase):
         }
         self.assertEqual(expected, atest_utils.get_manifest_info(target_xml))
 
-# pylint: disable=missing-function-docstring
-class AutoShardUnittests(fake_filesystem_unittest.TestCase):
-    """Tests for auto shard functions"""
-    def setUp(self):
-        self.setUpPyfakefs()
-
-    def test_get_local_auto_shardable_tests(self):
-        """test get local auto shardable list"""
-        shardable_tests_file = Path(atest_utils.get_misc_dir()).joinpath(
-        '.atest/auto_shard/local_auto_shardable_tests')
-
-        self.fs.create_file(shardable_tests_file, contents='abc\ndef')
-
-        long_duration_tests = atest_utils.get_local_auto_shardable_tests()
-
-        expected_list = ['abc', 'def']
-        self.assertEqual(long_duration_tests , expected_list)
-
-    def test_update_shardable_tests_with_time_less_than_600(self):
-        """test update local auto shardable list"""
-        shardable_tests_file = Path(atest_utils.get_misc_dir()).joinpath(
-        '.atest/auto_shard/local_auto_shardable_tests')
-
-        self.fs.create_file(shardable_tests_file, contents='')
-
-        atest_utils.update_shardable_tests('test1', 10)
-
-        with open(shardable_tests_file) as f:
-            self.assertEqual('', f.read())
-
-    def test_update_shardable_tests_with_time_larger_than_600(self):
-        """test update local auto shardable list"""
-        shardable_tests_file = Path(atest_utils.get_misc_dir()).joinpath(
-        '.atest/auto_shard/local_auto_shardable_tests')
-
-        self.fs.create_file(shardable_tests_file, contents='')
-
-        atest_utils.update_shardable_tests('test2', 1000)
-
-        with open(shardable_tests_file) as f:
-            self.assertEqual('test2', f.read())
-
-    def test_update_shardable_tests_with_time_larger_than_600_twice(self):
-        """test update local auto shardable list"""
-        shardable_tests_file = Path(atest_utils.get_misc_dir()).joinpath(
-        '.atest/auto_shard/local_auto_shardable_tests')
-        # access the fake_filesystem object via fake_fs
-        self.fs.create_file(shardable_tests_file, contents='')
-
-        atest_utils.update_shardable_tests('test3', 1000)
-        atest_utils.update_shardable_tests('test3', 601)
-
-        with open(shardable_tests_file) as f:
-            self.assertEqual('test3', f.read())
-
-
 class GetTradefedInvocationTimeTest(fake_filesystem_unittest.TestCase):
     """Tests of get_tradefed_invocation_time for various conditions."""
     def setUp(self):
