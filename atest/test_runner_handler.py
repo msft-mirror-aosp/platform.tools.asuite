@@ -30,7 +30,6 @@ from atest import bazel_mode
 from atest import constants
 from atest import module_info
 from atest import result_reporter
-from atest import atest_utils
 
 from atest.atest_enum import ExitCode
 from atest.metrics import metrics
@@ -168,12 +167,6 @@ def run_all_tests(results_dir, test_infos, extra_args, mod_info,
             test=[{'name': test_name,
                    'result': ret_code,
                    'stacktrace': stacktrace}])
-        # Tests that spends over 10 mins to finish will be stored in the
-        # shardable test file, and Atest will launch auto-sharding in the next
-        # runs.
-        for test in tests:
-            atest_utils.update_shardable_tests(test.test_name,
-                                               run_time.get('seconds', 0))
     if delay_print_summary:
         return tests_ret_code, reporter
     return reporter.print_summary() or tests_ret_code, reporter
