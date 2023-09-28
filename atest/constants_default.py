@@ -55,7 +55,6 @@ TF_DEBUG = 'TF_DEBUG'
 DEFAULT_DEBUG_PORT = '10888'
 COLLECT_TESTS_ONLY = 'COLLECT_TESTS_ONLY'
 TF_TEMPLATE = 'TF_TEMPLATE'
-FLAKES_INFO = 'FLAKES_INFO'
 TF_EARLY_DEVICE_RELEASE = 'TF_EARLY_DEVICE_RELEASE'
 BAZEL_MODE_FEATURES = 'BAZEL_MODE_FEATURES'
 REQUEST_UPLOAD_RESULT = 'REQUEST_UPLOAD_RESULT'
@@ -299,19 +298,6 @@ SUITE_DEPS = {}
 # Tradefed log file name term.
 TF_HOST_LOG = 'host_log_*'
 
-# Flake service par path
-FLAKE_SERVICE_PATH = '/foo'
-FLAKE_TMP_PATH = '/tmp'
-FLAKE_FILE = 'flakes_info.par'
-FLAKE_TARGET = 'aosp_cf_x86_phone-userdebug'
-FLAKE_BRANCH = 'aosp-master'
-FLAKE_TEST_NAME = 'suite/test-mapping-presubmit-retry_cloud-tf'
-FLAKE_PERCENT = 'flake_percent'
-FLAKE_POSTSUBMIT = 'postsubmit_flakes_per_week'
-
-# cert status command
-CERT_STATUS_CMD = ''
-
 ASUITE_REPO_PROJECT_NAME = 'platform/tools/asuite'
 
 # logstorage api scope.
@@ -460,7 +446,6 @@ ROBOLEAF_UNSUPPORTED_FLAGS = {
     'build_output': UnsupportedFlag(lambda d, v: d != v, ""),
     'acloud_create': UnsupportedFlag(lambda d, v: d != v, ""),
     'start_avd': UnsupportedFlag(lambda d, v: d != v, ""),
-    'flakes_info': UnsupportedFlag(lambda d, v: d != v, ""),
     'tf_early_device_release': UnsupportedFlag(lambda d, v: d != v, ""),
     'test_config_select': UnsupportedFlag(lambda d, v: d != v, ""),
     'generate_baseline': UnsupportedFlag(lambda d, v: d != v, ""),

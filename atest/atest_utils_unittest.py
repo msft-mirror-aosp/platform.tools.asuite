@@ -529,47 +529,6 @@ class AtestUtilsUnittests(unittest.TestCase):
         self.assertEqual(False,
                          atest_utils.matched_tf_error_log(not_matched_content))
 
-    @mock.patch('os.chmod')
-    @mock.patch('shutil.copy2')
-    @mock.patch('atest.atest_utils.has_valid_cert')
-    @mock.patch('subprocess.check_output')
-    @mock.patch('os.path.exists')
-    def test_get_flakes(self, mock_path_exists, mock_output, mock_valid_cert,
-                        _cpc, _cm):
-        """Test method get_flakes."""
-        # Test par file does not exist.
-        mock_path_exists.return_value = False
-        self.assertEqual(None, atest_utils.get_flakes())
-        # Test par file exists.
-        mock_path_exists.return_value = True
-        mock_output.return_value = (b'flake_percent:0.10001\n'
-                                    b'postsubmit_flakes_per_week:12.0')
-        mock_valid_cert.return_value = True
-        expected_flake_info = {'flake_percent':'0.10001',
-                               'postsubmit_flakes_per_week':'12.0'}
-        self.assertEqual(expected_flake_info,
-                         atest_utils.get_flakes())
-        # Test no valid cert
-        mock_valid_cert.return_value = False
-        self.assertEqual(None,
-                         atest_utils.get_flakes())
-
-    @mock.patch('subprocess.check_call')
-    def test_has_valid_cert(self, mock_call):
-        """Test method has_valid_cert."""
-        # raise subprocess.CalledProcessError
-        mock_call.raiseError.side_effect = subprocess.CalledProcessError
-        self.assertFalse(atest_utils.has_valid_cert())
-        with mock.patch("atest.constants.CERT_STATUS_CMD", ''):
-            self.assertFalse(atest_utils.has_valid_cert())
-        with mock.patch("atest.constants.CERT_STATUS_CMD", 'CMD'):
-            # has valid cert
-            mock_call.return_value = 0
-            self.assertTrue(atest_utils.has_valid_cert())
-            # no valid cert
-            mock_call.return_value = 4
-            self.assertFalse(atest_utils.has_valid_cert())
-
     # pylint: disable=no-member
     def test_read_test_record_proto(self):
         """Test method read_test_record."""

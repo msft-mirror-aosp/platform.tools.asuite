@@ -1064,13 +1064,6 @@ class ExtraArgsTest(AtestTradefedTestRunnerUnittests):
 
         self.assertTokensNotIn(['--verify-env-variable'], cmd[0])
 
-    def test_args_with_fakes_info_but_not_generate_in_run_cmd(self):
-        extra_args = {constants.FLAKES_INFO: True}
-
-        cmd = self.tr.generate_run_commands([], extra_args)
-
-        self.assertTokensNotIn(['--flakes-info'], cmd[0])
-
     def test_args_with_instant_and_generate_in_run_cmd(self):
         extra_args = {constants.INSTANT: True}
 
