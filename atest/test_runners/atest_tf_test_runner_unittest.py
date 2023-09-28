@@ -690,25 +690,6 @@ class AtestTradefedTestRunnerUnittests(unittest.TestCase):
                     tf_tmplate_key2,
                     tf_tmplate_val2)])
 
-    @mock.patch.object(atf_tr.AtestTradefedTestRunner,
-                       '_is_all_tests_parameter_auto_enabled',
-                       return_value=False)
-    @mock.patch('os.environ.get', return_value=None)
-    @mock.patch('atest.atest_utils.get_result_server_args')
-    def test_generate_run_commands_with_tf_early_device_release(
-            self, mock_resultargs, _, _mock_all):
-        """Test generate_run_command method."""
-        # Testing  without collect-tests-only
-        mock_resultargs.return_value = []
-        extra_args = {constants.TF_EARLY_DEVICE_RELEASE: True}
-        unittest_utils.assert_strict_equal(
-            self,
-            self.tr.generate_run_commands([], extra_args),
-            [RUN_CMD.format(
-                serial='',
-                tf_customize_template='',
-                device_early_release='')])
-
     @mock.patch.object(test_finder_utils, 'get_test_config_and_srcs')
     def test_has_instant_app_config(self, mock_config):
         """test _has_instant_app_config method."""
@@ -1119,13 +1100,6 @@ class ExtraArgsTest(AtestTradefedTestRunnerUnittests):
 
         self.assertTokensNotIn(['--tf-template'], cmd[0])
 
-    def test_args_with_tf_early_device_release_but_not_generate_in_cmd(self):
-        extra_args = {constants.TF_EARLY_DEVICE_RELEASE: True}
-
-        cmd = self.tr.generate_run_commands([], extra_args)
-
-        self.assertTokensNotIn(['--tf-early-device-release'], cmd[0])
-
     def test_args_with_timeout_and_generate_in_run_cmd(self):
         extra_args = {constants.TEST_TIMEOUT: 10000}
 
@@ -1409,10 +1383,8 @@ class TestExtraArgsToTfArgs(unittest.TestCase):
         extra_args = {
             'invalid_arg': 'value',
             'tf_template': 'template',
-            'tf_early_device_release': True,
         }
-        expected_unsupported_args = ['invalid_arg', 'tf_template',
-                                     'tf_early_device_release']
+        expected_unsupported_args = ['invalid_arg', 'tf_template']
 
         _, unsupported_args = atf_tr.extra_args_to_tf_args(extra_args)
 
