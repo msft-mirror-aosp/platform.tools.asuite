@@ -425,7 +425,6 @@ ROBOLEAF_UNSUPPORTED_FLAGS = {
         lambda d, v: d != v,
         "Bazel will run tests for the current target product's ABI. Remove this flag."),
     'disable_teardown': UnsupportedFlag(lambda d, v: d != v, ""),
-    'enable_device_preparer': UnsupportedFlag(lambda d, v: d != v, ""),
     'experimental_coverage': UnsupportedFlag(lambda d, v: d != v, ""),
     'test_mapping': UnsupportedFlag(lambda d, v: d != v, ""),
     'device_only': UnsupportedFlag(lambda d, v: d != v, ""),
