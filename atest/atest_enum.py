@@ -25,8 +25,8 @@ class DetectType(IntEnum):
     BUG_DETECTED = 0
     ACLOUD_CREATE = 1
     FIND_BUILD = 2
-    NO_FLAKE = 3
-    HAS_FLAKE = 4
+    NO_FLAKE = 3               # Deprecated.
+    HAS_FLAKE = 4              # Deprecated.
     TF_TEARDOWN_LOGCAT = 5
     REBUILD_MODULE_INFO = 6
     NOT_REBUILD_MODULE_INFO = 7
