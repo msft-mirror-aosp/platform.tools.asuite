@@ -58,8 +58,6 @@ AGGREGATE_METRIC_FILTER = ('Regular expression that will be used for filtering '
 ALL_ABI = 'Set to run tests for all abis.'
 ANNOTATION_FILTER = ('Accept keyword that will be translated to fully qualified'
                      'annotation class name.')
-AUTO_SHARDING = ('Trigger N AVDs/shards for long duration tests. (N is 2 by '
-                 'default).')
 BUILD = 'Run a build.'
 BUILD_PROCESS_NUMBER = 'Build run process number at once.'
 BAZEL_MODE = 'Run tests using Bazel.'
@@ -81,7 +79,6 @@ DRY_RUN = 'Dry run atest without building, installing and running tests in real.
 ENABLE_DEVICE_PREPARER = ('Enable template/preparers/device-preparer as the '
                           'default preparer.')
 ENABLE_FILE_PATTERNS = 'Enable FILE_PATTERNS in TEST_MAPPING.'
-FLAKES_INFO = 'Test result with flakes info.'
 GENERATE_RUNNER_CMD = 'Generate the runner command(s) of given tests.'
 HISTORY = ('Show test results in chronological order(with specified number or '
            'all by default).')
@@ -191,9 +188,6 @@ class AtestArgParser(argparse.ArgumentParser):
 
         # Options that to do with testing.
         self.add_argument('-a', '--all-abi', action='store_true', help=ALL_ABI)
-
-        self.add_argument('--auto-sharding', action='store_true', help=AUTO_SHARDING)
-
         self.add_argument('-b', '--build', action='append_const', dest='steps',
                           const=constants.BUILD_STEP, help=BUILD)
         self.add_argument('--bazel-mode', default=True, action='store_true',
@@ -290,10 +284,6 @@ class AtestArgParser(argparse.ArgumentParser):
         agroup.add_argument('--start-avd', action='store_true',
                             help=START_AVD)
         agroup.add_argument('-s', '--serial', action='append', help=SERIAL)
-
-        # Options that to query flakes info in test result
-        self.add_argument('--flakes-info', action='store_true',
-                          help=FLAKES_INFO)
 
         # Options for tradefed to release test device earlier.
         self.add_argument('--tf-early-device-release', action='store_true',
@@ -405,7 +395,6 @@ def print_epilog_text():
         AGGREGATE_METRIC_FILTER=AGGREGATE_METRIC_FILTER,
         ALL_ABI=ALL_ABI,
         ANNOTATION_FILTER=ANNOTATION_FILTER,
-        AUTO_SHARDING=AUTO_SHARDING,
         BUILD=BUILD,
         BUILD_PROCESS_NUMBER=BUILD_PROCESS_NUMBER,
         MINIMAL_BUILD=MINIMAL_BUILD,
@@ -420,7 +409,6 @@ def print_epilog_text():
         DRY_RUN=DRY_RUN,
         ENABLE_DEVICE_PREPARER=ENABLE_DEVICE_PREPARER,
         ENABLE_FILE_PATTERNS=ENABLE_FILE_PATTERNS,
-        FLAKES_INFO=FLAKES_INFO,
         GENERATE_RUNNER_CMD=GENERATE_RUNNER_CMD,
         HELP_DESC=HELP_DESC,
         HISTORY=HISTORY,
@@ -496,9 +484,6 @@ OPTIONS
             If only need to run tests for a specific abi, please use:
                 atest <test> -- --abi arm64-v8a   # ARM 64-bit
                 atest <test> -- --abi armeabi-v7a # ARM 32-bit
-
-        --auto-sharding
-            {AUTO_SHARDING}
 
         -b, --build
             {BUILD} (implicit default)
@@ -666,11 +651,6 @@ OPTIONS
 
         --acloud-create
             {ACLOUD_CREATE}
-
-
-        [ Testing With Flakes Info ]
-        --flakes-info
-            {FLAKES_INFO}
 
 
         [ Metrics ]
