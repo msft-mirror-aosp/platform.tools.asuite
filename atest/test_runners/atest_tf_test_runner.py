@@ -345,10 +345,10 @@ class AtestTradefedTestRunner(trb.TestRunnerBase):
                                     result_reporter.ResultReporter(
                                         collect_only=extra_args.get(
                                             constants.COLLECT_TESTS_ONLY),
-                                        flakes_info=extra_args.get(
-                                            constants.FLAKES_INFO)),
-
-                                    self.NAME))
+                                    ),
+                                    self.NAME,
+                                )
+                            )
                         recv_data = self._process_connection(data_map,
                                                              socket_object,
                                                              event_handler)
@@ -1303,7 +1303,6 @@ def extra_args_to_tf_args(
                    constants.ENABLE_DEVICE_PREPARER,
                    constants.DRY_RUN,
                    constants.VERIFY_ENV_VARIABLE,
-                   constants.FLAKES_INFO,
                    constants.DEVICE_ONLY):
             continue
         unsupported_args.append(arg)
