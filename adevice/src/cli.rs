@@ -1,7 +1,9 @@
 use clap::{Args, Parser, Subcommand};
 
 #[derive(Parser)]
-#[command(about = "Tool to push your rebuilt modules to your device.")]
+#[command(
+    about = "Tool to push your rebuilt modules to your device.\nSet ANDROID_SERIAL to choose your device if there is more than one."
+)]
 #[command(version = "0.3")]
 pub struct Cli {
     #[command(subcommand)]
@@ -13,8 +15,12 @@ pub struct Cli {
 #[derive(Subcommand)]
 pub enum Commands {
     /// Shows the file differences between build tree and host.
-    Status,
     /// Show the actions that would be run.
+    Status,
+    /// Updates the device (via adb push) with files from $ANDROID_PRODUCT_OUT.
+    /// Only pushes files listed on --partitions.
+    /// This does not work well when $ANDROID_PRODUCT_OUT and the device image
+    /// are vastly different.  You should reimage the device in that case.
     Update,
     /// Adds module name to the list of tracked modules.
     /// If an installed file under $ANDROID_PRODUCT_OUT is not
