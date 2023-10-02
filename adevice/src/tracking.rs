@@ -115,6 +115,9 @@ impl Config {
                 &self.src_root()?,
                 &self.ninja_args(&self.target_product()?, &self.out_dir()),
             )?;
+            if !ninja_output.status.success() {
+                anyhow::bail!("{}", String::from_utf8(ninja_output.stderr).unwrap());
+            }
             let unfiltered_tracked_files = tracked_files(&ninja_output)?;
             self.write_cache(&unfiltered_tracked_files)
                 .unwrap_or_else(|e| warn!("Error writing tracked file cache: {e}"));
