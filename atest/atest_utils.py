@@ -38,7 +38,6 @@ import re
 import shutil
 import subprocess
 import sys
-import time
 import urllib
 import zipfile
 
@@ -534,6 +533,7 @@ def colorful_print(text, color, bp_color=None, auto_wrap=True):
         print(output, end="")
 
 def roboleaf_print(text):
+    """Print roboleaf emoji with text."""
     print("[🌿] " + text)
 
 def get_terminal_size():
