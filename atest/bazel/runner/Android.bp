@@ -27,6 +27,7 @@ java_library_host {
         "src/com/android/tradefed/testtype/bazel/InvocationLogCollector.java",
         "src/com/android/tradefed/testtype/bazel/LogPathUpdatingListener.java",
         "src/com/android/tradefed/testtype/bazel/TestListeners.java",
+        "src/com/android/tradefed/testtype/bazel/SparseTestListener.java",
         "src/main/protobuf/*.proto",
     ],
     // b/267831518: Pin tradefed and dependencies to Java 11.
