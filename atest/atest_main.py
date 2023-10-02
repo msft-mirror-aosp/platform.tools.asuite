@@ -158,8 +158,8 @@ def _get_args_from_config():
         return args
     warning = 'Line {} contains {} and will be ignored.'
     print('\n{} {}'.format(
-        atest_utils.colorize('Reading config:', constants.CYAN),
-        atest_utils.colorize(_config, constants.YELLOW)))
+        atest_utils.mark_cyan('Reading config:'),
+        atest_utils.mark_yellow(_config)))
     # pylint: disable=global-statement:
     global HAS_IGNORED_ARGS
     with open(_config, 'r', encoding='utf8') as cache:
@@ -175,14 +175,14 @@ def _get_args_from_config():
                     if END_OF_OPTION in arg_in_line.split():
                         HAS_IGNORED_ARGS = True
                         print(warning.format(
-                            atest_utils.colorize(arg_in_line, constants.YELLOW),
+                            atest_utils.mark_yellow(arg_in_line),
                             END_OF_OPTION))
                     args.extend(arg_in_line.split())
                 else:
                     if END_OF_OPTION == arg_in_line:
                         HAS_IGNORED_ARGS = True
                         print(warning.format(
-                            atest_utils.colorize(arg_in_line, constants.YELLOW),
+                            atest_utils.mark_yellow(arg_in_line),
                             END_OF_OPTION))
                     args.append(arg_in_line)
     return args
@@ -408,8 +408,8 @@ def _validate_adb_devices(args, test_infos):
             err_msg = (f'Stop running test(s): '
                        f'{", ".join(device_tests)} require a device.')
             atest_utils.colorful_print(err_msg, constants.RED)
-            logging.debug(atest_utils.colorize(
-                constants.REQUIRE_DEVICES_MSG, constants.RED))
+            logging.debug(atest_utils.mark_red(
+                constants.REQUIRE_DEVICES_MSG))
             metrics_utils.send_exit_event(ExitCode.DEVICE_NOT_FOUND,
                                           logs=err_msg)
             sys.exit(ExitCode.DEVICE_NOT_FOUND)
@@ -463,8 +463,8 @@ def _has_valid_test_mapping_args(args):
     ]
     for arg_value, arg in options_to_validate:
         if arg_value:
-            logging.error(atest_utils.colorize(
-                OPTION_NOT_FOR_TEST_MAPPING.format(arg), constants.RED))
+            logging.error(atest_utils.mark_red(
+                OPTION_NOT_FOR_TEST_MAPPING.format(arg)))
             return False
     return True
 
@@ -647,7 +647,7 @@ def _dry_run(results_dir, extra_args, test_infos, mod_info):
         for run_cmd in run_cmds:
             all_run_cmds.append(run_cmd)
             print('Would run test via command: %s'
-                  % (atest_utils.colorize(run_cmd, constants.GREEN)))
+                  % (atest_utils.mark_green(run_cmd)))
     return all_run_cmds
 
 def _print_testable_modules(mod_info, suite):
@@ -658,8 +658,8 @@ def _print_testable_modules(mod_info, suite):
         suite: A string of suite name.
     """
     testable_modules = mod_info.get_testable_modules(suite)
-    print('\n%s' % atest_utils.colorize('%s Testable %s modules' % (
-        len(testable_modules), suite), constants.CYAN))
+    print('\n%s' % atest_utils.mark_cyan('%s Testable %s modules' % (
+        len(testable_modules), suite)))
     print(atest_utils.delimiter('-'))
     for module in sorted(testable_modules):
         print('\t%s' % module)
@@ -725,9 +725,8 @@ def _dry_run_validator(
         test_commands = atest_utils.gen_runner_cmd_to_file(tests_str,
                                                            dry_run_cmd_str)
         print("add command %s to file %s" % (
-            atest_utils.colorize(test_commands, constants.GREEN),
-            atest_utils.colorize(constants.RUNNER_COMMAND_PATH,
-                                 constants.GREEN)))
+            atest_utils.mark_green(test_commands),
+            atest_utils.mark_green(constants.RUNNER_COMMAND_PATH)))
     else:
         test_commands = atest_utils.get_verify_key(args.tests, extra_args)
     if args.verify_cmd_mapping:
@@ -854,13 +853,13 @@ def _b_test(tests, extra_args, results_dir):
     for t in tests.keys():
         atest_utils.roboleaf_print(
             f'{t} is Bazel/Roboleaf-compatible.. '
-            f'{atest_utils.colorize("YES", constants.GREEN)}')
+            f'{atest_utils.mark_green("YES")}')
     atest_utils.roboleaf_print(
         'Switching to Bazel.. '
-        f'{atest_utils.colorize("YES", constants.GREEN)}')
+        f'{atest_utils.mark_green("YES")}')
     atest_utils.roboleaf_print(
-        'Encountering issues? '
-        f'Opt-out with {atest_utils.colorize("--roboleaf-mode=off", constants.YELLOW)}')
+        'Encountering issues? Opt-out with '
+        f'{atest_utils.mark_yellow("--roboleaf-mode=off")}')
 
     mod_info = module_info.create_empty()
     test_start = time.time()
@@ -1088,7 +1087,7 @@ def main(
                 for t in test_name_to_filters})
         if b_supported_tests:
             atest_utils.roboleaf_print(
-                f'{atest_utils.colorize("TIP", constants.YELLOW)}: '
+                f'{atest_utils.mark_yellow("TIP")}: '
                 "Directly specify the module name to avoid test finder overhead.")
             metrics.LocalDetectEvent(
                 detect_type=DetectType.ROBOLEAF_NON_MODULE_FINDER,
@@ -1232,8 +1231,7 @@ if __name__ == '__main__':
         final_args = [*sys.argv[1:], *_get_args_from_config()]
     if final_args != sys.argv[1:]:
         print('The actual cmd will be: \n\t{}\n'.format(
-            atest_utils.colorize("atest " + " ".join(final_args),
-                                 constants.CYAN)))
+            atest_utils.mark_cyan("atest " + " ".join(final_args))))
         metrics.LocalDetectEvent(
             detect_type=DetectType.ATEST_CONFIG, result=1)
         if HAS_IGNORED_ARGS:

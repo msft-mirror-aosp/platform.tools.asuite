@@ -32,7 +32,6 @@ from typing import List, Set
 
 from atest import atest_error
 from atest import atest_utils
-from atest import constants
 from atest.test_finders import test_info
 
 OLD_OUTPUT_ENV_VAR = 'ATEST_OLD_OUTPUT'
@@ -119,7 +118,7 @@ class TestRunnerBase:
                 if self.test_log_file:
                     with open(self.test_log_file.name, 'r') as f:
                         intro_msg = "Unexpected Issue. Raw Output:"
-                        print(atest_utils.colorize(intro_msg, constants.RED))
+                        print(atest_utils.mark_red(intro_msg))
                         print(f.read())
                 # Ignore socket.recv() raising due to ctrl-c
                 if not error.args or error.args[0] != errno.EINTR:

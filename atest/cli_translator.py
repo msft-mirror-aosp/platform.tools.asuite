@@ -184,7 +184,7 @@ class CLITranslator:
                     test_infos.add(t_info)
                 test_found = True
                 print("Found '%s' as %s" % (
-                    atest_utils.colorize(test, constants.GREEN),
+                    atest_utils.mark_green(test),
                     finder_info))
                 if finder_info == CACHE_FINDER and test_infos:
                     test_finders.append(list(test_infos)[0].test_finder)
@@ -193,7 +193,7 @@ class CLITranslator:
                 break
         if not test_found:
             print('No test found for: {}'.format(
-                atest_utils.colorize(test, constants.RED)))
+                atest_utils.mark_red(test)))
             if self.fuzzy_search:
                 f_results = self._fuzzy_search_and_msg(test, find_test_err_msg)
                 if f_results:
@@ -235,12 +235,10 @@ class CLITranslator:
         if not mainline_binaries:
             return True
 
-        def mark_red(items):
-            return atest_utils.colorize(items, constants.RED)
         test = test_identifier.test_name
         if not self.mod_info.is_module(test):
             print('Error: "{}" is not a testable module.'.format(
-                mark_red(test)))
+                atest_utils.mark_red(test)))
             return False
         # Exit earlier if the given mainline modules are unavailable in the
         # branch.
@@ -248,7 +246,7 @@ class CLITranslator:
                            if not self.mod_info.is_module(module)]
         if unknown_modules:
             print('Error: Cannot find {} in module info!'.format(
-                mark_red(', '.join(unknown_modules))))
+                atest_utils.mark_red(', '.join(unknown_modules))))
             return False
         # Exit earlier if Atest cannot find relationship between the test and
         # the mainline binaries.
@@ -256,8 +254,8 @@ class CLITranslator:
         if not self.mod_info.has_mainline_modules(test, mainline_binaries):
             print('Error: Mainline modules "{}" were not defined for {} in '
                   'neither build file nor test config.'.format(
-                  mark_red(', '.join(mainline_binaries)),
-                  mark_red(test)))
+                  atest_utils.mark_red(', '.join(mainline_binaries)),
+                  atest_utils.mark_red(test)))
             return False
         return True
 
@@ -287,8 +285,7 @@ class CLITranslator:
         else:
             print('No matching result for {0}.'.format(test))
         if find_test_err_msg:
-            print('%s\n' % (atest_utils.colorize(
-                find_test_err_msg, constants.MAGENTA)))
+            print(f'{atest_utils.mark_magenta(find_test_err_msg)}\n')
         return None
 
     def _get_test_infos(self, tests, test_mapping_test_details=None):
@@ -321,7 +318,7 @@ class CLITranslator:
         """
         return atest_utils.prompt_with_yn_result(
             'Did you mean {0}?'.format(
-                atest_utils.colorize(results[0], constants.GREEN)), True)
+                atest_utils.mark_green(results[0])), True)
 
     def _print_fuzzy_searching_results(self, results):
         """Print modules when fuzzy searching gives multiple results.
@@ -413,16 +410,14 @@ class CLITranslator:
                               '\'include-filter\'.\nNote: this can also occur '
                               'if the test module is not built for your '
                               'current lunch target.\n' %
-                              atest_utils.colorize(test['name'], constants.RED))
+                              atest_utils.mark_red(test['name']))
                     elif not any(
                         x in test_mod_info.get('compatibility_suites', []) for
                         x in constants.TEST_MAPPING_SUITES):
                         print('WARNING: Please add %s to either suite: %s for '
                               'this TEST_MAPPING file to work with TreeHugger.' %
-                              (atest_utils.colorize(test['name'],
-                                                    constants.RED),
-                               atest_utils.colorize(constants.TEST_MAPPING_SUITES,
-                                                    constants.GREEN)))
+                              (atest_utils.mark_red(test['name']),
+                               atest_utils.mark_green(constants.TEST_MAPPING_SUITES)))
                     tests.append(test_mapping.TestDetail(test))
                 grouped_tests.update(tests)
         return all_tests, imports
