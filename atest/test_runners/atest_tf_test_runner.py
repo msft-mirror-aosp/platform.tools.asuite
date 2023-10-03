@@ -715,9 +715,6 @@ class AtestTradefedTestRunner(trb.TestRunnerBase):
                              % extra_args[constants.LOCAL_BUILD_ID])
             test_args.append('--stub-build-target %s'
                              % extra_args[constants.BUILD_TARGET])
-        if extra_args.get(constants.ENABLE_DEVICE_PREPARER, False):
-            test_args.append('--template:map preparers=%s'
-                             % constants.DEVICE_SETUP_PREPARER)
         for info in test_infos:
             if constants.TEST_WITH_MAINLINE_MODULES_RE.match(info.test_name):
                 # TODO(b/253641058) Remove this once mainline module
@@ -1200,6 +1197,8 @@ def extra_args_to_tf_args(
 
     # Mapping supported TF arguments to the processing function.
     supported_tf_args = dict({
+        constants.ENABLE_DEVICE_PREPARER:
+            constant_list('--enable-device-preparer'),
         constants.WAIT_FOR_DEBUGGER:
             constant_list('--wait-for-debugger'),
         constants.DISABLE_INSTALL:
