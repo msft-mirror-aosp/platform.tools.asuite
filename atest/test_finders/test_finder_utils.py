@@ -357,7 +357,7 @@ def has_method_in_file(test_path, methods):
             return True
     missing_methods = _methods - all_methods
     logging.debug('Cannot find methods %s in %s',
-        atest_utils.colorize(','.join(missing_methods), constants.RED),
+        atest_utils.mark_red(','.join(missing_methods)),
         test_path)
     return False
 

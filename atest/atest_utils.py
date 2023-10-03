@@ -368,8 +368,8 @@ def build(build_targets: Set[str]):
     full_env_vars = os.environ.copy()
     update_build_env(full_env_vars)
     print('\n%s\n%s' % (
-        colorize("Building Dependencies...", constants.CYAN),
-                 ', '.join(build_targets)))
+        mark_cyan("Building Dependencies..."),
+        ', '.join(build_targets)))
     logging.debug('Building Dependencies: %s', ' '.join(build_targets))
     cmd = get_build_cmd() + list(build_targets)
     return _run_build_cmd(cmd, _BUILD_ENV)
@@ -399,7 +399,7 @@ def _run_build_cmd(cmd: List[str], env_vars: Dict[str, str]):
             log_path = get_build_out_dir('verbose.log.gz')
             print('\n(Build log may not reflect actual status in simple output'
                   'mode; check {} for detail after build finishes.)'.format(
-                    colorize(f'{log_path}', constants.CYAN)
+                    mark_cyan(f'{log_path}')
                   ), end='')
             _run_limited_output(cmd, env_vars=env_vars)
         _send_build_condition_metrics(build_profiler, cmd)
@@ -513,6 +513,36 @@ def colorize(text, color, bp_color=None):
     else:
         clr_str = text
     return clr_str
+
+
+def mark_red(text):
+    """Wrap colorized function and print in red."""
+    return colorize(text, constants.RED)
+
+
+def mark_yellow(text):
+    """Wrap colorized function and print in yellow."""
+    return colorize(text, constants.YELLOW)
+
+
+def mark_green(text):
+    """Wrap colorized function and print in green."""
+    return colorize(text, constants.GREEN)
+
+
+def mark_magenta(text):
+    """Wrap colorized function and print in magenta."""
+    return colorize(text, constants.MAGENTA)
+
+
+def mark_cyan(text):
+    """Wrap colorized function and print in cyan."""
+    return colorize(text, constants.CYAN)
+
+
+def mark_blue(text):
+    """Wrap colorized function and print in blue."""
+    return colorize(text, constants.BLUE)
 
 
 def colorful_print(text, color, bp_color=None, auto_wrap=True):
@@ -1846,7 +1876,7 @@ def generate_print_result_html(result_file: Path):
                             f'{html.escape(Path(log).name)}</a></p>')
             cache.write('</body></html>')
         print(f'\nTo access logs, press "ctrl" and click on\n'
-              f'{colorize(f"file://{result_html}", constants.MAGENTA)}\n')
+              f'{mark_magenta(f"file://{result_html}")}\n')
         send_tradeded_elapsed_time_metric(search_dir)
     except Exception as e:
         logging.debug('Did not generate log html for reason: %s', e)
