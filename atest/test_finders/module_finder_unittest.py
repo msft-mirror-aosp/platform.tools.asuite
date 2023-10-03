@@ -43,6 +43,7 @@ from atest import unittest_constants as uc
 from atest import unittest_utils
 
 from atest.test_finders import module_finder
+from atest.test_finders import test_filter_utils
 from atest.test_finders import test_finder_utils
 from atest.test_finders import test_info
 from atest.test_runners import atest_tf_test_runner as atf_tr
@@ -313,7 +314,7 @@ class ModuleFinderUnittests(unittest.TestCase):
     @mock.patch.object(test_finder_utils, 'find_host_unit_tests',
                        return_value=[])
     @mock.patch.object(atest_utils, 'is_build_file', return_value=True)
-    @mock.patch.object(test_finder_utils, 'is_parameterized_java_class',
+    @mock.patch.object(test_filter_utils, 'is_parameterized_java_class',
                        return_value=False)
     @mock.patch.object(test_finder_utils, 'has_method_in_file',
                        return_value=True)
@@ -321,7 +322,7 @@ class ModuleFinderUnittests(unittest.TestCase):
                        return_value=False)
     @mock.patch.object(module_finder.ModuleFinder, '_get_build_targets')
     @mock.patch('subprocess.check_output', return_value=uc.FIND_ONE)
-    @mock.patch.object(test_finder_utils, 'get_fully_qualified_class_name',
+    @mock.patch.object(test_filter_utils, 'get_fully_qualified_class_name',
                        return_value=uc.FULL_CLASS_NAME)
     @mock.patch('os.path.isfile', side_effect=unittest_utils.isfile_side_effect)
     @mock.patch('os.path.isdir', return_value=True)
@@ -379,7 +380,7 @@ class ModuleFinderUnittests(unittest.TestCase):
             self, t_infos[0],
             CLASS_INFO_MODULE_2)
 
-    @mock.patch.object(test_finder_utils, 'is_parameterized_java_class',
+    @mock.patch.object(test_filter_utils, 'is_parameterized_java_class',
                        return_value=False)
     @mock.patch.object(test_finder_utils, 'has_method_in_file',
                        return_value=True)
@@ -387,7 +388,7 @@ class ModuleFinderUnittests(unittest.TestCase):
                        return_value=False)
     @mock.patch.object(module_finder.ModuleFinder, '_get_build_targets')
     @mock.patch('subprocess.check_output', return_value=uc.FIND_ONE)
-    @mock.patch.object(test_finder_utils, 'get_fully_qualified_class_name',
+    @mock.patch.object(test_filter_utils, 'get_fully_qualified_class_name',
                        return_value=uc.FULL_CLASS_NAME)
     @mock.patch('os.path.isfile', side_effect=unittest_utils.isfile_side_effect)
     #pylint: disable=unused-argument
@@ -601,7 +602,7 @@ class ModuleFinderUnittests(unittest.TestCase):
                        return_value=[])
     @mock.patch.object(test_finder_utils, 'get_cc_class_info', return_value={})
     @mock.patch.object(atest_utils, 'is_build_file', return_value=True)
-    @mock.patch.object(test_finder_utils, 'is_parameterized_java_class',
+    @mock.patch.object(test_filter_utils, 'is_parameterized_java_class',
                        return_value=False)
     @mock.patch.object(test_finder_utils, 'has_method_in_file',
                        return_value=True)
@@ -610,7 +611,7 @@ class ModuleFinderUnittests(unittest.TestCase):
     @mock.patch.object(module_finder.ModuleFinder, '_get_build_targets')
     @mock.patch.object(module_finder.ModuleFinder, '_is_vts_module',
                        return_value=False)
-    @mock.patch.object(test_finder_utils, 'get_fully_qualified_class_name',
+    @mock.patch.object(test_filter_utils, 'get_fully_qualified_class_name',
                        return_value=uc.FULL_CLASS_NAME)
     @mock.patch('os.path.realpath',
                 side_effect=unittest_utils.realpath_side_effect)
@@ -853,13 +854,13 @@ class ModuleFinderUnittests(unittest.TestCase):
 
     @mock.patch.object(module_finder.ModuleFinder,
                        '_determine_modules_to_test')
-    @mock.patch.object(test_finder_utils, 'is_parameterized_java_class',
+    @mock.patch.object(test_filter_utils, 'is_parameterized_java_class',
                        return_value=False)
     @mock.patch.object(module_finder.ModuleFinder, '_is_vts_module',
                        return_value=False)
     @mock.patch.object(module_finder.ModuleFinder, '_get_build_targets')
     @mock.patch('subprocess.check_output', return_value='')
-    @mock.patch.object(test_finder_utils, 'get_fully_qualified_class_name',
+    @mock.patch.object(test_filter_utils, 'get_fully_qualified_class_name',
                        return_value=uc.FULL_CLASS_NAME)
     @mock.patch('os.path.isfile', side_effect=unittest_utils.isfile_side_effect)
     @mock.patch('os.path.isdir', return_value=True)
@@ -922,7 +923,7 @@ class ModuleFinderUnittests(unittest.TestCase):
     @mock.patch.object(module_finder.ModuleFinder,
                        '_determine_modules_to_test')
     @mock.patch.object(atest_utils, 'is_build_file', return_value=True)
-    @mock.patch.object(test_finder_utils, 'is_parameterized_java_class',
+    @mock.patch.object(test_filter_utils, 'is_parameterized_java_class',
                        return_value=True)
     @mock.patch.object(test_finder_utils, 'has_method_in_file',
                        return_value=True)
@@ -931,7 +932,7 @@ class ModuleFinderUnittests(unittest.TestCase):
     @mock.patch.object(module_finder.ModuleFinder, '_get_build_targets')
     @mock.patch.object(module_finder.ModuleFinder, '_is_vts_module',
                        return_value=False)
-    @mock.patch.object(test_finder_utils, 'get_fully_qualified_class_name',
+    @mock.patch.object(test_filter_utils, 'get_fully_qualified_class_name',
                        return_value=uc.FULL_CLASS_NAME)
     @mock.patch('os.path.realpath',
                 side_effect=unittest_utils.realpath_side_effect)
@@ -977,7 +978,7 @@ class ModuleFinderUnittests(unittest.TestCase):
     @mock.patch.object(test_finder_utils, 'find_host_unit_tests',
                            return_value=[])
     @mock.patch.object(atest_utils, 'is_build_file', return_value=True)
-    @mock.patch.object(test_finder_utils, 'is_parameterized_java_class',
+    @mock.patch.object(test_filter_utils, 'is_parameterized_java_class',
                        return_value=True)
     @mock.patch.object(test_finder_utils, 'has_method_in_file',
                        return_value=True)
@@ -985,7 +986,7 @@ class ModuleFinderUnittests(unittest.TestCase):
                        return_value=False)
     @mock.patch.object(module_finder.ModuleFinder, '_get_build_targets')
     @mock.patch('subprocess.check_output', return_value=uc.FIND_ONE)
-    @mock.patch.object(test_finder_utils, 'get_fully_qualified_class_name',
+    @mock.patch.object(test_filter_utils, 'get_fully_qualified_class_name',
                        return_value=uc.FULL_CLASS_NAME)
     @mock.patch('os.path.isfile', side_effect=unittest_utils.isfile_side_effect)
     @mock.patch('os.path.isdir', return_value=True)
@@ -1044,7 +1045,7 @@ class ModuleFinderUnittests(unittest.TestCase):
 
     @mock.patch.object(module_finder.ModuleFinder,
                        '_determine_modules_to_test')
-    @mock.patch.object(test_finder_utils, 'is_parameterized_java_class',
+    @mock.patch.object(test_filter_utils, 'is_parameterized_java_class',
                        return_value=False)
     @mock.patch.object(test_finder_utils, 'has_method_in_file',
                        return_value=True)
@@ -1053,7 +1054,7 @@ class ModuleFinderUnittests(unittest.TestCase):
     @mock.patch.object(module_finder.ModuleFinder, '_get_build_targets')
     @mock.patch.object(module_finder.ModuleFinder, '_is_vts_module',
                        return_value=False)
-    @mock.patch.object(test_finder_utils, 'get_fully_qualified_class_name',
+    @mock.patch.object(test_filter_utils, 'get_fully_qualified_class_name',
                        return_value=uc.FULL_CLASS_NAME)
     @mock.patch('os.path.realpath',
                 side_effect=unittest_utils.realpath_side_effect)
@@ -1104,7 +1105,7 @@ class ModuleFinderUnittests(unittest.TestCase):
                        '_determine_modules_to_test')
     @mock.patch.object(test_finder_utils, 'get_cc_class_info')
     @mock.patch.object(atest_utils, 'is_build_file', return_value=True)
-    @mock.patch.object(test_finder_utils, 'is_parameterized_java_class',
+    @mock.patch.object(test_filter_utils, 'is_parameterized_java_class',
                        return_value=False)
     @mock.patch.object(test_finder_utils, 'has_method_in_file',
                        return_value=True)
@@ -1113,7 +1114,7 @@ class ModuleFinderUnittests(unittest.TestCase):
     @mock.patch.object(module_finder.ModuleFinder, '_get_build_targets')
     @mock.patch.object(module_finder.ModuleFinder, '_is_vts_module',
                        return_value=False)
-    @mock.patch.object(test_finder_utils, 'get_fully_qualified_class_name',
+    @mock.patch.object(test_filter_utils, 'get_fully_qualified_class_name',
                        return_value=uc.FULL_CLASS_NAME)
     @mock.patch('os.path.realpath',
                 side_effect=unittest_utils.realpath_side_effect)
