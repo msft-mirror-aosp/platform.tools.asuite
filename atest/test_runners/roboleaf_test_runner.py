@@ -139,7 +139,7 @@ def are_all_tests_supported(
             # TODO(b/297300818): Upload unsupported flags to metrics.
             atest_utils.roboleaf_print("These flags are not supported in Roboleaf mode:")
             for flag in roboleaf_unsupported_flags:
-                atest_utils.roboleaf_print(f'{atest_utils.colorize(flag, constants.YELLOW)}')
+                atest_utils.roboleaf_print(f'{atest_utils.mark_yellow(flag)}')
             atest_utils.roboleaf_print("Gracefully falling back to standard ATest..")
             metrics.LocalDetectEvent(
                 detect_type=DetectType.ROBOLEAF_UNSUPPORTED_FLAG,
