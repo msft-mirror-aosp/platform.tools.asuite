@@ -54,8 +54,8 @@ AnimatorTest
 
 ###[Test Finder: CC_CLASS, Test Runner:AtestTradefedTestRunner]###
 ###Purpose: Test with finder: CC_CLASS and runner: AtestTradefedTestRunner###
-RpcWire
-RpcWire#CurrentVersion,ReleaseBranchHasFrozenRpcWireProtocol,IfNotExperimentalCodeHasNoExperimentalFeatures
+TeeUIUtilsTest
+TeeUIUtilsTest#intersectTest,ConvexObjectConstruction,ConvexObjectLineIntersection
 
 ###[Test Finder: INTEGRATION, Test Runner:AtestTradefedTestRunner]###
 ###Purpose: Test with finder: INTEGRATION and runner: AtestTradefedTestRunner###
@@ -72,7 +72,8 @@ native-benchmark
 ###Purpose: Test with finder: MODULE and runner: RobolectricTestRunner###
 QuickAccessWalletRoboTests
 ###Purpose: Test with input path for RobolectricTest###
-packages/apps/QuickAccessWallet/tests/robolectric/src/com/android/systemui/plugin/globalactions/wallet/WalletPluginServiceTest.java
+# TODO (b/302998963): Mark this test first due to there's multiple choice to run this class.
+# packages/apps/QuickAccessWallet/tests/robolectric/src/com/android/systemui/plugin/globalactions/wallet/WalletPluginServiceTest.java
 
 ###[Test Finder: SUITE_PLAN, Test Runner: SuitePlanTestRunner]###
 ###Purpose: Test with finder: SUITE_PLAN and runner: SuitePlanTestRunner###
