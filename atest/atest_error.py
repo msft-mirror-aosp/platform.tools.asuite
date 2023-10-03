@@ -29,15 +29,6 @@ class NoTestFoundError(TestDiscoveryException):
 class TestWithNoModuleError(TestDiscoveryException):
     """Raised when test files have no parent module directory."""
 
-class MissingPackageNameError(TestDiscoveryException):
-    """Raised when the test class java file does not contain a package name."""
-
-class TooManyMethodsError(TestDiscoveryException):
-    """Raised when input string contains more than one # character."""
-
-class MoreThanOneClassError(TestDiscoveryException):
-    """Raised when multiple classes given in 'classA,classB' pattern."""
-
 class MethodWithoutClassError(TestDiscoveryException):
     """Raised when method is appended via # but no class file specified."""
 
