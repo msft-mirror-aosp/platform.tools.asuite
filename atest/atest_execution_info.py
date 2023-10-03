@@ -163,27 +163,23 @@ def print_test_result_by_path(path):
     fail_num = total_summary.get(_STATUS_FAILED_KEY)
     if fail_num > 0:
         message = '%d test failed' % fail_num
-        print('\n')
-        print(au.colorize(message, constants.RED))
-        print('-' * len(message))
+        print(f'\n{au.mark_red(message)}\n{"-" * len(message)}')
         test_runner = result.get(_TEST_RUNNER_KEY, {})
         for runner_name in test_runner.keys():
             test_dict = test_runner.get(runner_name, {})
             for test_name in test_dict:
                 test_details = test_dict.get(test_name, {})
                 for fail in test_details.get(_STATUS_FAILED_KEY):
-                    print(au.colorize('{}'.format(
-                        fail.get(_TEST_NAME_KEY)), constants.RED))
+                    print(au.mark_red(f'{fail.get(_TEST_NAME_KEY)}'))
                     failure_files = glob.glob(_LOGCAT_FMT.format(
                         os.path.dirname(path), fail.get(_TEST_NAME_KEY)
                         ))
                     if failure_files:
                         print('{} {}'.format(
-                            au.colorize('LOGCAT-ON-FAILURES:',
-                                        constants.CYAN),
+                            au.mark_cyan('LOGCAT-ON-FAILURES:'),
                             failure_files[0]))
                     print('{} {}'.format(
-                        au.colorize('STACKTRACE:\n', constants.CYAN),
+                        au.mark_cyan('STACKTRACE:\n'),
                         fail.get(_TEST_DETAILS_KEY)))
 
 
