@@ -732,8 +732,7 @@ class AtestTradefedTestRunner(trb.TestRunnerBase):
         test_args.extend(['--log-level', log_level])
 
         # Set no-early-device-release by default to speed up TF teardown time.
-        if not constants.TF_EARLY_DEVICE_RELEASE in extra_args:
-            test_args.extend(['--no-early-device-release'])
+        test_args.extend(['--no-early-device-release'])
 
         args_to_add, args_not_supported = self._parse_extra_args(
             test_infos, extra_args)
@@ -1293,7 +1292,6 @@ def extra_args_to_tf_args(
             continue
 
         if arg in (constants.TF_TEMPLATE,
-                   constants.TF_EARLY_DEVICE_RELEASE,
                    constants.INVOCATION_ID,
                    constants.WORKUNIT_ID,
                    constants.REQUEST_UPLOAD_RESULT,
