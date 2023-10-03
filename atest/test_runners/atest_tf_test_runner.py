@@ -105,7 +105,7 @@ class TradeFedExitError(Error):
 
     def _get_exit_reason(self, exit_code):
         if 0 < exit_code < len(_TF_EXIT_CODE):
-            return atest_utils.colorize(_TF_EXIT_CODE[exit_code], constants.RED)
+            return atest_utils.mark_red(_TF_EXIT_CODE[exit_code])
         return 'Unknown exit status'
 
 class AtestTradefedTestRunner(trb.TestRunnerBase):
@@ -1169,9 +1169,8 @@ def generate_annotation_filter_args(
                     option_value=annotation))
                 annotation_filter_args.extend([constants.TF_MODULE_ARG, module_arg])
             logging.error(
-                atest_utils.colorize(
-                    f'Cannot find similar annotation: {keyword}',
-                    constants.RED))
+                atest_utils.mark_red(
+                    f'Cannot find similar annotation: {keyword}'))
     return annotation_filter_args
 
 
