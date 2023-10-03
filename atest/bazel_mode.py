@@ -1964,15 +1964,9 @@ def parse_args(
     if not any(arg.startswith('--test_output=') for arg in args_to_append):
         args_to_append.append('--test_output=errors')
 
-    # Default to --test_summary=detailed unless specified otherwise, or if the
-    # feature is disabled
-    if not any(
-        arg.startswith('--test_summary=')
-        for arg in args_to_append
-    ) and (
-        Features.NO_BAZEL_DETAILED_SUMMARY not in extra_args.get(
-        'BAZEL_MODE_FEATURES', [])
-    ):
+    # Default to --test_summary=detailed unless specified otherwise, or if the feature is disabled
+    if not any(arg.startswith('--test_summary=') for arg in args_to_append) and \
+        Features.NO_BAZEL_DETAILED_SUMMARY not in extra_args.get('BAZEL_MODE_FEATURES', []):
         args_to_append.append('--test_summary=detailed')
 
     return args_to_append
