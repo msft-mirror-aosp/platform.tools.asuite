@@ -320,7 +320,6 @@ def get_extra_args(args):
                 'sharding': constants.SHARDING,
                 'test_filter': constants.TEST_FILTER,
                 'test_timeout': constants.TEST_TIMEOUT,
-                'tf_early_device_release': constants.TF_EARLY_DEVICE_RELEASE,
                 'tf_debug': constants.TF_DEBUG,
                 'tf_template': constants.TF_TEMPLATE,
                 'user_type': constants.USER_TYPE,
