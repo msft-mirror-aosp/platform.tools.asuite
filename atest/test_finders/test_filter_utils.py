@@ -13,6 +13,7 @@
 # limitations under the License.
 
 import logging
+import os
 import re
 
 
@@ -53,6 +54,26 @@ CC_PARAM_CLASS_RE = re.compile(
 # Type/Type-parameterized Test macros:
 TYPE_CC_CLASS_RE = re.compile(
     r'^\s*TYPED_TEST_SUITE(?:|_P)\(\s*(?P<class_name>\w+)', re.M)
+
+# RE for suspected parameterized java/kt class.
+_SUSPECTED_PARAM_CLASS_RE = re.compile(
+    r'^\s*@RunWith\s*\(\s*(TestParameterInjector|'
+    r'JUnitParamsRunner|DataProviderRunner|JukitoRunner|Theories|BedsteadJUnit4'
+    r')(\.|::)class\s*\)', re.I)
+# Parse package name from the package declaration line of a java or
+# a kotlin file.
+# Group matches "foo.bar" of line "package foo.bar;" or "package foo.bar"
+_PACKAGE_RE = re.compile(r'\s*package\s+(?P<package>[^(;|\s)]+)\s*', re.I)
+
+
+class TooManyMethodsError(Exception):
+    """Raised when input string contains more than one # character."""
+
+class MoreThanOneClassError(Exception):
+    """Raised when multiple classes given in 'classA,classB' pattern."""
+
+class MissingPackageNameError(Exception):
+    """Raised when the test class java file does not contain a package name."""
 
 
 def get_cc_class_info(class_file_content):
@@ -184,3 +205,171 @@ def get_cc_filter(class_info, class_name, methods):
         sorted_methods = sorted(list(methods))
         return ":".join(["%s.%s" % (class_name, x) for x in sorted_methods])
     return "%s.*" % class_name
+
+
+def is_parameterized_java_class(test_path):
+    """Find out if input test path is a parameterized java class.
+
+    Args:
+        test_path: A string of absolute path to the java file.
+
+    Returns:
+        Boolean: Is parameterized class or not.
+    """
+    with open(test_path) as class_file:
+        for line in class_file:
+            # Return immediately if the @ParameterizedTest annotation is found.
+            if re.compile(r'\s*@ParameterizedTest').match(line):
+                return True
+            # Return when Parameterized.class is invoked in @RunWith annotation.
+            # @RunWith(Parameterized.class) -> Java.
+            # @RunWith(Parameterized::class) -> kotlin.
+            if re.compile(
+                r'^\s*@RunWith\s*\(\s*Parameterized.*(\.|::)class').match(line):
+                return True
+            if _SUSPECTED_PARAM_CLASS_RE.match(line):
+                return True
+    return False
+
+
+def get_java_method_filters(class_file, methods):
+    """Get a frozenset of method filter when the given is a Java class.
+
+        class_file: The Java/kt file path.
+        methods: a set of method string.
+
+        Returns:
+            Frozenset of methods.
+    """
+    method_filters = methods
+    if is_parameterized_java_class(class_file):
+        update_methods = []
+        for method in methods:
+            # Only append * to the method if brackets are not a part of
+            # the method name, and result in running all parameters of
+            # the parameterized test.
+            if not _contains_brackets(method, pair=False):
+                update_methods.append(method + '*')
+            else:
+                update_methods.append(method)
+        method_filters = frozenset(update_methods)
+
+    return method_filters
+
+
+def split_methods(user_input):
+    """Split user input string into test reference and list of methods.
+
+    Args:
+        user_input: A string of the user's input.
+                    Examples:
+                        class_name
+                        class_name#method1,method2
+                        path
+                        path#method1,method2
+    Returns:
+        A tuple. First element is String of test ref and second element is
+        a set of method name strings or empty list if no methods included.
+    Exception:
+        atest_error.TooManyMethodsError raised when input string is trying to
+        specify too many methods in a single positional argument.
+
+        Examples of unsupported input strings:
+            module:class#method,class#method
+            class1#method,class2#method
+            path1#method,path2#method
+    """
+    error_msg = (
+        'Too many "{}" characters in user input:\n\t{}\n'
+        'Multiple classes should be separated by space, and methods belong to '
+        'the same class should be separated by comma. Example syntaxes are:\n'
+        '\tclass1 class2#method1 class3#method2,method3\n'
+        '\tclass1#method class2#method')
+    if not '#' in user_input:
+        if ',' in user_input:
+            raise MoreThanOneClassError(
+                error_msg.format(',', user_input))
+        return user_input, frozenset()
+    parts = user_input.split('#')
+    if len(parts) > 2:
+        raise TooManyMethodsError(
+            error_msg.format('#', user_input))
+    # (b/260183137) Support parsing multiple parameters.
+    parsed_methods = []
+    brackets = ('[', ']')
+    for part in parts[1].split(','):
+        count = {part.count(p) for p in brackets}
+        # If brackets are in pair, the length of count should be 1.
+        if len(count) == 1:
+            parsed_methods.append(part)
+        else:
+            # The front part of the pair, e.g. 'method[1'
+            if re.compile(r'^[a-zA-Z0-9]+\[').match(part):
+                parsed_methods.append(part)
+                continue
+            # The rear part of the pair, e.g. '5]]', accumulate this part to
+            # the last index of parsed_method.
+            parsed_methods[-1] += f',{part}'
+    return parts[0], frozenset(parsed_methods)
+
+
+def _contains_brackets(string: str, pair: bool=True) -> bool:
+    """
+    Determines whether a given string contains (pairs of) brackets.
+
+    Args:
+        string: The string to check for brackets.
+        pair: Whether to check for brackets in pairs.
+
+    Returns:
+        bool: True if the given contains full pair of brackets; False otherwise.
+    """
+    if not pair:
+        return re.search(r"\(|\)|\[|\]|\{|\}", string)
+
+    stack = []
+    brackets = {"(": ")", "[": "]", "{": "}"}
+    for char in string:
+        if char in brackets:
+            stack.append(char)
+        elif char in brackets.values():
+            if not stack or brackets[stack.pop()] != char:
+                return False
+    return len(stack) == 0
+
+
+def get_package_name(file_path):
+    """Parse the package name from a java file.
+
+    Args:
+        file_path: A string of the absolute path to the java file.
+
+    Returns:
+        A string of the package name or None
+    """
+    with open(file_path) as data:
+        for line in data:
+            match = _PACKAGE_RE.match(line)
+            if match:
+                return match.group('package')
+
+
+# pylint: disable=inconsistent-return-statements
+def get_fully_qualified_class_name(test_path):
+    """Parse the fully qualified name from the class java file.
+
+    Args:
+        test_path: A string of absolute path to the java class file.
+
+    Returns:
+        A string of the fully qualified class name.
+
+    Raises:
+        atest_error.MissingPackageName if no class name can be found.
+    """
+    package = get_package_name(test_path)
+    if package:
+        cls = os.path.splitext(os.path.split(test_path)[1])[0]
+        return '%s.%s' % (package, cls)
+    raise MissingPackageNameError(f'{test_path}: Test class java file does not '
+                                  'contain a package name.')
