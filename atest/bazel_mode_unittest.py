@@ -2240,6 +2240,18 @@ class BazelTestRunnerTest(fake_filesystem_unittest.TestCase):
             '--test_arg=5'
         ], cmd[0])
 
+    def test_generate_run_command_with_enable_device_preparer(self):
+        test_infos = [test_info_of('test1')]
+        extra_args = {
+            constants.ENABLE_DEVICE_PREPARER: True
+        }
+        runner = self.create_bazel_test_runner_for_tests(test_infos)
+
+        cmd = runner.generate_run_commands(test_infos, extra_args)
+
+        self.assertTokensIn([
+            '--test_arg=--enable-device-preparer',
+        ], cmd[0])
 
     def test_not_zip_test_output_files_when_bes_publish_not_enabled(self):
         test_infos = [test_info_of('test1')]
