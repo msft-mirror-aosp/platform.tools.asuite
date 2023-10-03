@@ -33,7 +33,7 @@ import os
 
 from collections import deque
 
-from tools.asuite.atest.test_finders import cc_test_filter_utils
+from tools.asuite.atest.test_finders import test_filter_utils
 from tools.asuite.atest import constants_default
 
 
@@ -167,7 +167,7 @@ def _get_test_filters(args):
             continue
 
         with open(class_file, 'r') as f:
-            info, _ = cc_test_filter_utils.get_cc_class_info(
+            info, _ = test_filter_utils.get_cc_class_info(
                 trim_comments(f.read()))
 
         class_info.update(info)
@@ -177,7 +177,7 @@ def _get_test_filters(args):
         if cls not in class_info:
             raise ValueError(f'Class, {cls}, not found in the source files!')
 
-        test_filters.append(cc_test_filter_utils.get_cc_filter(
+        test_filters.append(test_filter_utils.get_cc_filter(
             class_info, cls, class_to_methods[cls]))
 
     return test_filters

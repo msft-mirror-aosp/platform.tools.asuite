@@ -31,7 +31,7 @@ from atest import constants
 
 from atest.atest_enum import DetectType
 from atest.metrics import metrics
-from atest.test_finders import cc_test_filter_utils
+from atest.test_finders import test_filter_utils
 from atest.test_finders import test_info
 from atest.test_finders import test_finder_base
 from atest.test_finders import test_finder_utils
@@ -358,24 +358,15 @@ class ModuleFinder(test_finder_base.TestFinderBase):
         if os.path.isfile(path) and kwargs.get('is_native_test', None):
             class_info = test_finder_utils.get_cc_class_info(path)
             ti_filter = frozenset([test_info.TestFilter(
-                cc_test_filter_utils.get_cc_filter(
+                test_filter_utils.get_cc_filter(
                     class_info, kwargs.get('class_name', '*'), methods),
                 frozenset())])
         # Path to java file.
         elif file_name and constants.JAVA_EXT_RE.match(file_name):
-            full_class_name = test_finder_utils.get_fully_qualified_class_name(
+            full_class_name = test_filter_utils.get_fully_qualified_class_name(
                 path)
-            if test_finder_utils.is_parameterized_java_class(path):
-                update_methods = []
-                for method in methods:
-                    # Only append * to the method if brackets are not a part of
-                    # the method name, and result in running all parameters of
-                    # the parameterized test.
-                    if not atest_utils.contains_brackets(method, pair=False):
-                        update_methods.append(method + '*')
-                    else:
-                        update_methods.append(method)
-                methods = frozenset(update_methods)
+            methods = frozenset(
+                test_filter_utils.get_java_method_filters(path, methods))
             ti_filter = frozenset(
                 [test_info.TestFilter(full_class_name, methods)])
         # Path to cc file.
@@ -389,7 +380,7 @@ class ModuleFinder(test_finder_base.TestFinderBase):
             for classname, _ in class_info.items():
                 cc_filters.append(
                     test_info.TestFilter(
-                        cc_test_filter_utils.get_cc_filter(class_info, classname, methods),
+                        test_filter_utils.get_cc_filter(class_info, classname, methods),
                         frozenset()))
             ti_filter = frozenset(cc_filters)
         # If input path is a folder and have class_name information.
@@ -403,7 +394,7 @@ class ModuleFinder(test_finder_base.TestFinderBase):
             dir_items = [os.path.join(path, f) for f in os.listdir(path)]
             for dir_item in dir_items:
                 if constants.JAVA_EXT_RE.match(dir_item):
-                    package_name = test_finder_utils.get_package_name(dir_item)
+                    package_name = test_filter_utils.get_package_name(dir_item)
                     if package_name:
                         # methods should be empty frozenset for package.
                         if methods:
@@ -518,7 +509,7 @@ class ModuleFinder(test_finder_base.TestFinderBase):
             A list of populated TestInfo namedtuple if test found, else None.
         """
 
-        class_name, methods = test_finder_utils.split_methods(class_name)
+        class_name, methods = test_filter_utils.split_methods(class_name)
         test_configs = self._get_module_test_config(module_name)
         if not test_configs:
             return None
@@ -560,7 +551,7 @@ class ModuleFinder(test_finder_base.TestFinderBase):
         Returns:
             A list of populated TestInfo namedtuple if test found, else None.
         """
-        class_name, methods = test_finder_utils.split_methods(class_name)
+        class_name, methods = test_filter_utils.split_methods(class_name)
         search_class_name = class_name
         # For parameterized gtest, test class will be automerged to
         # $(class_prefix)/$(base_class) name. Using $(base_class) for searching
@@ -728,7 +719,7 @@ class ModuleFinder(test_finder_base.TestFinderBase):
         Returns:
             A list of populated TestInfo namedtuple if found, else None.
         """
-        _, methods = test_finder_utils.split_methods(package)
+        _, methods = test_filter_utils.split_methods(package)
         if methods:
             raise atest_error.MethodWithoutClassError('%s: Method filtering '
                                                       'requires class' % (
@@ -803,7 +794,7 @@ class ModuleFinder(test_finder_base.TestFinderBase):
             A list of populated TestInfo namedtuple if test found, else None
         """
         logging.debug('Finding test by path: %s', rel_path)
-        path, methods = test_finder_utils.split_methods(rel_path)
+        path, methods = test_filter_utils.split_methods(rel_path)
         # TODO: See if this can be generalized and shared with methods above
         # create absolute path from cwd and remove symbolic links
         path = os.path.realpath(path)
