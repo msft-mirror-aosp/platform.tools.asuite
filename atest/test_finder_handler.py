@@ -215,9 +215,13 @@ def _get_test_reference_types(ref):
     if test_finder_utils.parse_test_reference(ref):
         if '.' in ref:
             if ref_end_is_upper:
-                # Module:fully.qualified.Class or Integration:fully.q.Class
+                # Possible types:
+                # Module:fully.qualified.Class
+                # Module:filly.qualifiled.(P|p)ackage (b/289515000)
+                # Integration:fully.q.Class
                 return [FinderMethod.CACHE,
                         FinderMethod.MODULE_CLASS,
+                        FinderMethod.MODULE_PACKAGE,
                         FinderMethod.INTEGRATION]
             # Module:some.package
             return [FinderMethod.CACHE, FinderMethod.MODULE_PACKAGE,
