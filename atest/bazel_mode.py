@@ -45,7 +45,7 @@ from collections import defaultdict, deque, OrderedDict
 from collections.abc import Iterable
 from pathlib import Path
 from types import MappingProxyType
-from typing import Any, Callable, Dict, IO, List, Set
+from typing import Any, Callable, Dict, IO, List, Set, Tuple
 from xml.etree import ElementTree as ET
 
 from google.protobuf.message import DecodeError
@@ -68,15 +68,15 @@ JDK_PACKAGE_NAME = 'prebuilts/robolectric_jdk'
 JDK_NAME = 'jdk'
 ROBOLECTRIC_CONFIG = 'build/make/core/robolectric_test_config_template.xml'
 
+BAZEL_TEST_LOGS_DIR_NAME = 'bazel-testlogs'
+TEST_OUTPUT_DIR_NAME = 'test.outputs'
+TEST_OUTPUT_ZIP_NAME = 'outputs.zip'
+
 _BAZEL_WORKSPACE_DIR = 'atest_bazel_workspace'
 _SUPPORTED_BAZEL_ARGS = MappingProxyType({
     # https://docs.bazel.build/versions/main/command-line-reference.html#flag--runs_per_test
     constants.ITERATIONS:
         lambda arg_value: [f'--runs_per_test={str(arg_value)}'],
-    # https://docs.bazel.build/versions/main/command-line-reference.html#flag--test_keep_going
-    constants.RERUN_UNTIL_FAILURE:
-        lambda arg_value:
-        ['--notest_keep_going', f'--runs_per_test={str(arg_value)}'],
     # https://docs.bazel.build/versions/main/command-line-reference.html#flag--flaky_test_attempts
     constants.RETRY_ANY_FAILURE:
         lambda arg_value: [f'--flaky_test_attempts={str(arg_value)}'],
@@ -127,6 +127,9 @@ class Features(enum.Enum):
     EXPERIMENTAL_ROBOLECTRIC_TEST = (
         '--experimental-robolectric-test',
         'Enables running Robolectric tests in Bazel mode.', True)
+    NO_BAZEL_DETAILED_SUMMARY = (
+        '--no-bazel-detailed-summary',
+        'Disables printing detailed summary of Bazel test results.', False)
 
     def __init__(self, arg_flag, description, affects_workspace):
         self._arg_flag = arg_flag
@@ -152,7 +155,7 @@ def add_parser_arguments(parser: argparse.ArgumentParser, dest: str):
 
 
 def get_bazel_workspace_dir() -> Path:
-    return Path(atest_utils.get_build_out_dir()).joinpath(_BAZEL_WORKSPACE_DIR)
+    return atest_utils.get_build_out_dir(_BAZEL_WORKSPACE_DIR)
 
 
 def generate_bazel_workspace(mod_info: module_info.ModuleInfo,
@@ -177,7 +180,7 @@ def generate_bazel_workspace(mod_info: module_info.ModuleInfo,
         resource_manager=resource_manager,
         workspace_out_path=workspace_path,
         host_out_path=Path(os.environ.get(constants.ANDROID_HOST_OUT)),
-        build_out_dir=Path(atest_utils.get_build_out_dir()),
+        build_out_dir=atest_utils.get_build_out_dir(),
         mod_info=mod_info,
         jdk_path=jdk_path,
         enabled_features=enabled_features,
@@ -367,9 +370,9 @@ class WorkspaceGenerator:
         if (enabled_features and
             Features.EXPERIMENTAL_REMOTE_AVD in enabled_features and
             Features.EXPERIMENTAL_DEVICE_DRIVEN_TEST not in enabled_features):
-            raise Exception('Cannot run remote device test because '
-                            '"--experimental-device-driven-test" flag is'
-                            ' not set.')
+            raise ValueError('Cannot run remote device test because '
+                             '"--experimental-device-driven-test" flag is'
+                             ' not set.')
         self.enabled_features = enabled_features or set()
         self.resource_manager = resource_manager
         self.workspace_out_path = workspace_out_path
@@ -566,8 +569,8 @@ class WorkspaceGenerator:
         info = self.mod_info.get_module_info(module_name)
 
         if not info:
-            raise Exception(f'Could not find module `{module_name}` in'
-                            f' module_info file')
+            raise LookupError(f'Could not find module `{module_name}` in'
+                              f' module_info file')
 
         return info
 
@@ -576,7 +579,7 @@ class WorkspaceGenerator:
 
         if len(mod_path) < 1:
             module_name = info['module_name']
-            raise Exception(f'Module `{module_name}` does not have any path')
+            raise ValueError(f'Module `{module_name}` does not have any path')
 
         if len(mod_path) > 1:
             module_name = info['module_name']
@@ -611,6 +614,10 @@ class WorkspaceGenerator:
         if self.resource_manager.get_src_file_path(device_infra_path).exists():
             self._symlink(src=device_infra_path,
                           target=device_infra_path)
+
+        self._link_required_src_file_path(
+            'build/bazel_common_rules/rules/python/stubs')
+        self._link_required_src_file_path('external/bazelbuild-rules_java')
 
         self._create_constants_file()
 
@@ -724,6 +731,13 @@ class WorkspaceGenerator:
                     (variable_name(target.name()), target.qualified_name())
                 )
 
+    def _link_required_src_file_path(self, path):
+        if not self.resource_manager.get_src_file_path(path).exists():
+            raise RuntimeError(
+                f'Path `{path}` does not exist in source tree.')
+
+        self._symlink(src=path, target=path)
+
 
 def _get_resource_root():
     return Path(os.path.dirname(__file__)).joinpath('bazel/resources')
@@ -741,8 +755,8 @@ class Package:
         target_name = target.name()
 
         if target_name in self.name_to_target:
-            raise Exception(f'Cannot add target `{target_name}` which already'
-                            f' exists in package `{self.path}`')
+            raise ValueError(f'Cannot add target `{target_name}` which already'
+                             f' exists in package `{self.path}`')
 
         self.name_to_target[target_name] = target
 
@@ -807,7 +821,7 @@ class ModuleRef:
     def target(self) -> Target:
         if not self._target:
             target_name = self.info[constants.MODULE_INFO_ID]
-            raise Exception(f'Target not set for ref `{target_name}`')
+            raise ValueError(f'Target not set for ref `{target_name}`')
 
         return self._target
 
@@ -1030,8 +1044,8 @@ def _read_robolectric_jdk_path(test_xml_config_template: Path) -> Path:
     jdk_path = Path(option.get('value', ''))
 
     if not jdk_path.is_relative_to('prebuilts/jdk'):
-        raise Exception(f'Failed to get "java-folder" from '
-                        f'`{test_xml_config_template}`')
+        raise ValueError(f'Failed to get "java-folder" from '
+                         f'`{test_xml_config_template}`')
 
     return jdk_path
 
@@ -1282,8 +1296,8 @@ def group_paths_by_config(
         # The path can only appear in ANDROID_HOST_OUT for host target or
         # ANDROID_PRODUCT_OUT, but cannot appear in both.
         if len(matching_configs) > 1:
-            raise Exception(f'Installed path `{f}` is not in'
-                            f' ANDROID_HOST_OUT or ANDROID_PRODUCT_OUT')
+            raise ValueError(f'Installed path `{f}` is not in'
+                             f' ANDROID_HOST_OUT or ANDROID_PRODUCT_OUT')
 
         config_files[matching_configs[0]].append(f)
 
@@ -1646,7 +1660,6 @@ class BazelTestRunner(trb.TestRunnerBase):
             extra_args: Dict of extra args to add to test run.
             reporter: An instance of result_report.ResultReporter.
         """
-        reporter.register_unsupported_runner(self.NAME)
         ret_code = ExitCode.SUCCESS
 
         try:
@@ -1659,7 +1672,28 @@ class BazelTestRunner(trb.TestRunnerBase):
         for run_cmd in run_cmds:
             subproc = self.run(run_cmd, output_to_stdout=True)
             ret_code |= self.wait_for_subprocess(subproc)
+
+        self.organize_test_logs(test_infos)
+
         return ret_code
+
+    def organize_test_logs(self, test_infos: List[test_info.TestInfo]):
+        for t_info in test_infos:
+            test_output_dir, package_name, target_suffix = \
+                self.retrieve_test_output_info(t_info)
+            if test_output_dir.joinpath(TEST_OUTPUT_ZIP_NAME).exists():
+                # TEST_OUTPUT_ZIP file exist when BES uploading is enabled.
+                # Showing the BES link to users instead of the local log.
+                continue
+
+            # AtestExecutionInfo will find all log files in 'results_dir/log'
+            # directory and generate an HTML file to display to users when
+            # 'results_dir/log' directory exist.
+            log_path = Path(self.results_dir).joinpath(
+                'log', f'{package_name}',
+                f'{t_info.test_name}_{target_suffix}')
+            log_path.parent.mkdir(parents=True, exist_ok=True)
+            log_path.symlink_to(test_output_dir)
 
     def _get_feature_config_or_warn(self, feature, env_var_name):
         feature_config = self.env.get(env_var_name)
@@ -1672,7 +1706,7 @@ class BazelTestRunner(trb.TestRunnerBase):
             )
         return feature_config
 
-    def _get_bes_publish_args(self, feature):
+    def _get_bes_publish_args(self, feature: Features) -> List[str]:
         bes_publish_config = self._get_feature_config_or_warn(
             feature, 'ATEST_BAZEL_BES_PUBLISH_CONFIG')
 
@@ -1699,9 +1733,9 @@ class BazelTestRunner(trb.TestRunnerBase):
         remote_avd_config = self._get_feature_config_or_warn(
             feature, 'ATEST_BAZEL_REMOTE_AVD_CONFIG')
         if not remote_avd_config:
-            raise Exception('Cannot run remote device test because '
-                            'ATEST_BAZEL_REMOTE_AVD_CONFIG '
-                            'environment variable is not set.')
+            raise ValueError('Cannot run remote device test because '
+                             'ATEST_BAZEL_REMOTE_AVD_CONFIG '
+                             'environment variable is not set.')
         return [f'--config={remote_avd_config}']
 
 
@@ -1768,16 +1802,53 @@ class BazelTestRunner(trb.TestRunnerBase):
         module_name = test.test_name
         info = self.mod_info.get_module_info(module_name)
         package_name = info.get(constants.MODULE_PATH)[0]
-        target_suffix = 'host'
-
-        if not self._extra_args.get(
-                constants.HOST,
-                False) and self.mod_info.is_device_driven_test(info):
-            target_suffix = 'device'
+        target_suffix = self.get_target_suffix(info)
 
         return f'//{package_name}:{module_name}_{target_suffix}'
 
-    def _get_bazel_feature_args(self, feature, extra_args, generator):
+    def retrieve_test_output_info(
+            self,
+            test_info: test_info.TestInfo
+    ) -> Tuple[Path, str, str]:
+        """Return test output information.
+
+        Args:
+            test_info (test_info.TestInfo): Information about the test.
+
+        Returns:
+            Tuple[Path, str, str]: A tuple containing the following elements:
+                - test_output_dir (Path): Absolute path of the test output
+                    folder.
+                - package_name (str): Name of the package.
+                - target_suffix (str): Target suffix.
+
+        """
+        module_name = test_info.test_name
+        info = self.mod_info.get_module_info(module_name)
+        package_name = info.get(constants.MODULE_PATH)[0]
+        target_suffix = self.get_target_suffix(info)
+
+        test_output_dir = Path(self.bazel_workspace,
+                               BAZEL_TEST_LOGS_DIR_NAME,
+                               package_name,
+                               f'{module_name}_{target_suffix}',
+                               TEST_OUTPUT_DIR_NAME)
+
+        return test_output_dir, package_name, target_suffix
+
+    def get_target_suffix(self, info: Dict[str, Any]) -> str:
+        """Return 'host' or 'device' accordingly to the variant of the test."""
+        if not self._extra_args.get(constants.HOST, False) \
+                and self.mod_info.is_device_driven_test(info):
+            return 'device'
+        return 'host'
+
+    @staticmethod
+    def _get_bazel_feature_args(
+            feature: Features,
+            extra_args: Dict[str, Any],
+            generator: Callable
+    ) -> List[str]:
         if feature not in extra_args.get('BAZEL_MODE_FEATURES', []):
             return []
         return generator(feature)
@@ -1803,13 +1874,18 @@ class BazelTestRunner(trb.TestRunnerBase):
         target_patterns = ' '.join(
             self.test_info_target_label(i) for i in test_infos)
 
-        bazel_args = parse_args(test_infos, extra_args, self.mod_info)
+        bazel_args = parse_args(test_infos, extra_args)
 
+        # If BES is not enabled, use the option of
+        # '--nozip_undeclared_test_outputs' to not compress the test outputs.
+        # And the URL of test outputs will be printed in terminal.
         bazel_args.extend(
             self._get_bazel_feature_args(
                 Features.EXPERIMENTAL_BES_PUBLISH,
                 extra_args,
-                self._get_bes_publish_args))
+                self._get_bes_publish_args
+            ) or ['--nozip_undeclared_test_outputs']
+        )
         bazel_args.extend(
             self._get_bazel_feature_args(
                 Features.EXPERIMENTAL_REMOTE,
@@ -1836,14 +1912,14 @@ class BazelTestRunner(trb.TestRunnerBase):
 
 def parse_args(
     test_infos: List[test_info.TestInfo],
-    extra_args: Dict[str, Any],
-    mod_info: module_info.ModuleInfo) -> Dict[str, Any]:
+    extra_args: Dict[str, Any]) -> Dict[str, Any]:
     """Parse commandline args and passes supported args to bazel.
+
+    This is shared between both --bazel-mode and --roboleaf-mode.
 
     Args:
         test_infos: A set of TestInfo instances.
         extra_args: A Dict of extra args to append.
-        mod_info: A ModuleInfo object.
 
     Returns:
         A list of args to append to the run command.
@@ -1870,8 +1946,7 @@ def parse_args(
 
     # TODO(b/215461642): Store the extra_args in the top-level object so
     # that we don't have to re-parse the extra args to get BAZEL_ARG again.
-    tf_args, _ = tfr.extra_args_to_tf_args(
-        mod_info, test_infos, extra_args_copy)
+    tf_args, _ = tfr.extra_args_to_tf_args(extra_args_copy)
 
     # Add ATest include filter argument to allow testcase filtering.
     tf_args.extend(tfr.get_include_filter(test_infos))
@@ -1888,6 +1963,17 @@ def parse_args(
     # Default to --test_output=errors unless specified otherwise
     if not any(arg.startswith('--test_output=') for arg in args_to_append):
         args_to_append.append('--test_output=errors')
+
+    # Default to --test_summary=detailed unless specified otherwise, or if the
+    # feature is disabled
+    if not any(
+            arg.startswith('--test_summary=')
+            for arg in args_to_append
+    ) and (
+            Features.NO_BAZEL_DETAILED_SUMMARY not in extra_args.get(
+        'BAZEL_MODE_FEATURES', [])
+    ):
+        args_to_append.append('--test_summary=detailed')
 
     return args_to_append
 
@@ -1911,8 +1997,8 @@ def _soong_target_for_variants(
     build_variants: Set[str]) -> str:
 
     if not build_variants:
-        raise Exception(f'Missing the build variants for module {module_name} '
-                        f'in cquery output!')
+        raise ValueError(f'Missing the build variants for module {module_name} '
+                         f'in cquery output!')
 
     if len(build_variants) > 1:
         return module_name

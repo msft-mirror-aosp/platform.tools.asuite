@@ -30,10 +30,10 @@ class AtestArgParserUnittests(unittest.TestCase):
         parser = atest_arg_parser.AtestArgParser()
         parser.add_argument('-t', '--test', help='Run the tests.')
         parser.add_argument('-b', '--build', help='Run a build.')
-        parser.add_argument('--generate-baseline', help='Generate a baseline.')
+        parser.add_argument('-i', '--install', help='Install an APK.')
         test_args = ['-t', '--test',
                      '-b', '--build',
-                     '--generate-baseline',
+                     '-i', '--install',
                      '-h', '--help'].sort()
         self.assertEqual(test_args, parser.get_args().sort())
 

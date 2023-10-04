@@ -19,24 +19,27 @@ This runner is used to run the tests that have been fully converted to Bazel.
 """
 
 import enum
-import shlex
-import os
-import logging
 import json
+import logging
+import os
+import re
+import shlex
 import subprocess
-import sys
 
+from collections import defaultdict
 from pathlib import Path
 from typing import Any, Dict, List, Set
 
 from atest import atest_utils
-from atest import constants
 from atest import bazel_mode
+from atest import constants
 from atest import result_reporter
 
-from atest.atest_enum import ExitCode
-from atest.test_finders.test_info import TestInfo
+from atest.atest_enum import DetectType, ExitCode
+from atest.metrics import metrics
+from atest.test_finders.test_info import TestInfo, TestFilter
 from atest.test_runners import test_runner_base
+from atest.test_runners import atest_tf_test_runner
 from atest.tools.singleton import Singleton
 
 # Roboleaf maintains allowlists that identify which modules have been
@@ -49,7 +52,7 @@ _ALLOWLIST_LAUNCHED = (
     f'{os.environ.get(constants.ANDROID_BUILD_TOP)}/'
     'tools/asuite/atest/test_runners/roboleaf_launched.txt')
 # This list contains all of the bp2build converted Android.bp modules.
-_ROBOLEAF_MODULE_MAP_PATH = ('/soong/soong_injection/metrics/'
+_ROBOLEAF_MODULE_MAP_PATH = ('soong/soong_injection/metrics/'
                              'converted_modules_path_map.json')
 _SOONG_UI_CMD = 'build/soong/soong_ui.bash'
 
@@ -66,8 +69,17 @@ class RoboleafModuleMap(metaclass=Singleton):
     def __init__(self, module_map_location: str = ''):
         module_map = _generate_map(module_map_location)
         self._module_map = module_map
+
+        # AOSP allowlist
         self.launched_modules = _read_allowlist(
             Path(_ALLOWLIST_LAUNCHED), module_map = module_map)
+
+        # Vendor allowlist
+        additional_allowlist = os.environ.get("ATEST_ADDITIONAL_ROBOLEAF_LAUNCHED")
+        if additional_allowlist:
+            self.launched_modules.extend(_read_allowlist(
+                Path(additional_allowlist), module_map = module_map
+            ))
 
     def get_map(self) -> Dict[str, str]:
         """Return converted module map.
@@ -77,6 +89,114 @@ class RoboleafModuleMap(metaclass=Singleton):
             for example { "test_a": "//platform/test_a" }.
         """
         return self._module_map
+
+def are_all_tests_supported(
+    roboleaf_mode,
+    tests,
+    roboleaf_unsupported_flags,
+    test_name_to_filters = None) -> Dict[str, TestInfo]:
+    """Determine if the list of tests are all supported by bazel based on the mode.
+
+    If all requested tests are eligible, then indexing, generating
+    module-info.json, and generating atest bazel workspace can be skipped since
+    dependencies can be transitively built with bazel's build graph.
+
+    Args:
+        roboleaf_mode: The value of --roboleaf-mode.
+        tests: A list of test names requested by the user.
+        roboleaf_unsupported_flags: A list of flags which are unsupported by roboleaf mode.
+        test_name_to_filters: Dict of the test name to a list of TestFilter.
+
+    Returns:
+        The list of 'b test'-able module names. If --roboleaf-mode is 'off' or
+        if at least 1 requested test is not b testable, return an empty list.
+
+    """
+    if roboleaf_mode == BazelBuildMode.OFF:
+        # Gracefully fall back to standard atest if roboleaf mode is disabled.
+        return {}
+
+    test_name_to_roboleaf_filters = defaultdict(set)
+    for test_ref in tests:
+        ref_match = re.match(
+            r'^(?P<module_name>[^:#,]+):([^:].*)$', test_ref)
+        matched_result = ref_match.groupdict(default=dict()) if ref_match else dict()
+
+        # The test reference doesn't include test filter.
+        if not matched_result:
+            if test_ref not in test_name_to_roboleaf_filters:
+                test_name_to_roboleaf_filters[test_ref] = set()
+            continue
+
+        module_name =  matched_result['module_name']
+        test_name_to_roboleaf_filters[module_name].add(test_ref)
+
+    eligible_tests = _roboleaf_eligible_tests(
+        roboleaf_mode, test_name_to_roboleaf_filters, test_name_to_filters or {})
+
+    if set(eligible_tests.keys()) == set(test_name_to_roboleaf_filters.keys()):
+        if roboleaf_unsupported_flags:
+            # TODO(b/297300818): Upload unsupported flags to metrics.
+            atest_utils.roboleaf_print("These flags are not supported in Roboleaf mode:")
+            for flag in roboleaf_unsupported_flags:
+                atest_utils.roboleaf_print(f'{atest_utils.mark_yellow(flag)}')
+            atest_utils.roboleaf_print("Gracefully falling back to standard ATest..")
+            metrics.LocalDetectEvent(
+                detect_type=DetectType.ROBOLEAF_UNSUPPORTED_FLAG,
+                result=DetectType.ROBOLEAF_UNSUPPORTED_FLAG,
+            )
+            return {}
+        # only enable b test when every requested test is eligible for roboleaf
+        # mode.
+        return eligible_tests
+
+    logging.debug(
+        "roboleaf-mode: [%s] are not eligible for b test.",
+        ", ".join(set(tests).difference(eligible_tests.keys())))
+
+    # Gracefully fall back to standard atest if not every test is b testable.
+    return {}
+
+def _roboleaf_eligible_tests(
+    mode: BazelBuildMode,
+    test_name_to_roboleaf_filters: Dict[str, Set[str]],
+    test_name_to_filters) -> Dict[str, TestInfo]:
+    """Filter the given module_names to only ones that are currently
+    fully converted with roboleaf (b test) and then filter further by the
+    launch allowlist.
+
+    Args:
+        mode: A BazelBuildMode value to switch between dev and prod lists.
+        tests: A list of test names requested by the user.
+        test_name_to_filters: Dict of the test name to a list of TestFilter.
+
+    Returns:
+        A dictionary keyed by test name and value of Roboleaf TestInfo.
+    """
+    if not test_name_to_roboleaf_filters or mode == BazelBuildMode.OFF:
+        return {}
+
+    mod_map = RoboleafModuleMap()
+    supported_modules = set(filter(
+        lambda m: m in mod_map.get_map(), test_name_to_roboleaf_filters.keys()))
+
+    # By default, only keep modules that are in the managed list
+    # of launched modules.
+    if mode == BazelBuildMode.ON:
+        supported_modules = set(filter(
+            lambda m: m in supported_modules, mod_map.launched_modules))
+
+    return {
+        module: TestInfo(
+            module,
+            RoboleafTestRunner.NAME,
+            set(),
+            data={
+                constants.TI_FILTER: test_name_to_filters.get(module, set()),
+                constants.ROBOLEAF_TEST_FILTER: test_name_to_roboleaf_filters.get(module, set()),
+            })
+        for module in supported_modules
+    }
 
 def _generate_map(module_map_location: str = '') -> Dict[str, str]:
     """Generate converted module map.
@@ -88,14 +208,15 @@ def _generate_map(module_map_location: str = '') -> Dict[str, str]:
         A dictionary of test names that bazel paths for eligible tests,
         for example { "test_a": "//platform/test_a" }.
     """
-    if not module_map_location:
-        module_map_location = (
-            atest_utils.get_build_out_dir() + _ROBOLEAF_MODULE_MAP_PATH)
+    if module_map_location:
+        module_map_location = Path(module_map_location)
+    else:
+        module_map_location = atest_utils.get_build_out_dir(_ROBOLEAF_MODULE_MAP_PATH)
 
     # TODO(b/274161649): It is possible it could be stale on first run.
     # Invoking m or b test will check/recreate this file.  Bug here is
     # to determine if we can check staleness without a large time penalty.
-    if not os.path.exists(module_map_location):
+    if not module_map_location.is_file():
         logging.warning('The roboleaf converted modules file: %s was not '
                         'found.', module_map_location)
         # Attempt to generate converted modules file.
@@ -186,7 +307,7 @@ def _generate_bp2build_command() -> List[str]:
     soong_ui = (
         f'{os.environ.get(constants.ANDROID_BUILD_TOP, os.getcwd())}/'
         f'{_SOONG_UI_CMD}')
-    return [soong_ui, '--make-mode', 'bp2build']
+    return [soong_ui, '--make-mode', 'WRAPPER_TOOL=atest', 'bp2build']
 
 
 class AbortRunException(Exception):
@@ -215,13 +336,24 @@ class RoboleafTestRunner(test_runner_base.TestRunnerBase):
         """
         target_patterns = ' '.join(
             self.test_info_target_label(i) for i in test_infos)
-        bazel_args = bazel_mode.parse_args(test_infos, extra_args, None)
-        # TODO(b/288069169): The following two lines hardcodes for device test.
-        # Handle deviceless testing.
-        bazel_args.append('--config=android')
-        bazel_args.append(
-            '--//build/bazel/rules/tradefed:runmode=host_driven_test'
-        )
+        bazel_args = bazel_mode.parse_args(test_infos, extra_args)
+        # The tool tag attributes this bazel invocation to atest. This
+        # is uploaded in BEP when bes publishing is enabled.
+        bazel_args.append("--tool_tag=atest")
+
+        bazel_args.extend([
+            f'--test_arg={i}'
+            for i in atest_tf_test_runner.get_include_filter(test_infos)])
+
+        bazel_args.extend([
+            f'--//build/bazel/rules/tradefed:test_reference={r}'
+            for info in test_infos
+            for r in info.data.get(constants.ROBOLEAF_TEST_FILTER, [])])
+
+        # --config=deviceless_tests filters for tradefed_deviceless_test targets.
+        if constants.HOST in extra_args:
+            bazel_args.append("--config=deviceless_tests")
+
         bazel_args_str = ' '.join(shlex.quote(arg) for arg in bazel_args)
         command = f'{self.EXECUTABLE} test {target_patterns} {bazel_args_str}'
         results = [command]
@@ -252,7 +384,6 @@ class RoboleafTestRunner(test_runner_base.TestRunnerBase):
             extra_args: Dict of extra args to add to test run.
             reporter: An instance of result_reporter.ResultReporter.
         """
-        reporter.register_unsupported_runner(self.NAME)
         ret_code = ExitCode.SUCCESS
         try:
             run_cmds = self.generate_run_commands(test_infos, extra_args)
@@ -277,36 +408,3 @@ class RoboleafTestRunner(test_runner_base.TestRunnerBase):
         requirements that atest has. Update this to check for android env vars
         if that changes.
         """
-
-    def roboleaf_eligible_tests(
-        self,
-        mode: BazelBuildMode,
-        module_names: List[str]) -> Dict[str, TestInfo]:
-        """Filter the given module_names to only ones that are currently
-        fully converted with roboleaf (b test) and then filter further by the
-        launch allowlist.
-
-        Args:
-            mode: A BazelBuildMode value to switch between dev and prod lists.
-            module_names: A list of module names to check for roboleaf support.
-
-        Returns:
-            A dictionary keyed by test name and value of Roboleaf TestInfo.
-        """
-        if not module_names or mode == BazelBuildMode.OFF:
-            return {}
-
-        mod_map = RoboleafModuleMap()
-        supported_modules = set(filter(
-            lambda m: m in mod_map.get_map(), module_names))
-
-        # By default, only keep modules that are in the managed list
-        # of launched modules.
-        if mode == BazelBuildMode.ON:
-            supported_modules = set(filter(
-                lambda m: m in supported_modules, mod_map.launched_modules))
-
-        return {
-            module: TestInfo(module, RoboleafTestRunner.NAME, set())
-            for module in supported_modules
-        }

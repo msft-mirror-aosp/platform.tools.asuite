@@ -126,12 +126,6 @@ class CLITranslator:
         test_name = test_identifier.test_name
         if not self._verified_mainline_modules(test_identifier):
             return test_infos
-        if self.mod_info and test in self.mod_info.roboleaf_tests:
-            # Roboleaf bazel will discover and build dependencies so we can
-            # skip finding dependencies.
-            print(f'Found \'{atest_utils.colorize(test, constants.GREEN)}\''
-                  ' as ROBOLEAF_CONVERTED_MODULE')
-            return [self.mod_info.roboleaf_tests[test]]
         find_methods = test_finder_handler.get_find_methods_for_test(
             self.mod_info, test)
         if self._bazel_mode:
@@ -190,7 +184,7 @@ class CLITranslator:
                     test_infos.add(t_info)
                 test_found = True
                 print("Found '%s' as %s" % (
-                    atest_utils.colorize(test, constants.GREEN),
+                    atest_utils.mark_green(test),
                     finder_info))
                 if finder_info == CACHE_FINDER and test_infos:
                     test_finders.append(list(test_infos)[0].test_finder)
@@ -199,7 +193,7 @@ class CLITranslator:
                 break
         if not test_found:
             print('No test found for: {}'.format(
-                atest_utils.colorize(test, constants.RED)))
+                atest_utils.mark_red(test)))
             if self.fuzzy_search:
                 f_results = self._fuzzy_search_and_msg(test, find_test_err_msg)
                 if f_results:
@@ -241,12 +235,10 @@ class CLITranslator:
         if not mainline_binaries:
             return True
 
-        def mark_red(items):
-            return atest_utils.colorize(items, constants.RED)
         test = test_identifier.test_name
         if not self.mod_info.is_module(test):
             print('Error: "{}" is not a testable module.'.format(
-                mark_red(test)))
+                atest_utils.mark_red(test)))
             return False
         # Exit earlier if the given mainline modules are unavailable in the
         # branch.
@@ -254,7 +246,7 @@ class CLITranslator:
                            if not self.mod_info.is_module(module)]
         if unknown_modules:
             print('Error: Cannot find {} in module info!'.format(
-                mark_red(', '.join(unknown_modules))))
+                atest_utils.mark_red(', '.join(unknown_modules))))
             return False
         # Exit earlier if Atest cannot find relationship between the test and
         # the mainline binaries.
@@ -262,8 +254,8 @@ class CLITranslator:
         if not self.mod_info.has_mainline_modules(test, mainline_binaries):
             print('Error: Mainline modules "{}" were not defined for {} in '
                   'neither build file nor test config.'.format(
-                  mark_red(', '.join(mainline_binaries)),
-                  mark_red(test)))
+                  atest_utils.mark_red(', '.join(mainline_binaries)),
+                  atest_utils.mark_red(test)))
             return False
         return True
 
@@ -293,8 +285,7 @@ class CLITranslator:
         else:
             print('No matching result for {0}.'.format(test))
         if find_test_err_msg:
-            print('%s\n' % (atest_utils.colorize(
-                find_test_err_msg, constants.MAGENTA)))
+            print(f'{atest_utils.mark_magenta(find_test_err_msg)}\n')
         return None
 
     def _get_test_infos(self, tests, test_mapping_test_details=None):
@@ -327,7 +318,7 @@ class CLITranslator:
         """
         return atest_utils.prompt_with_yn_result(
             'Did you mean {0}?'.format(
-                atest_utils.colorize(results[0], constants.GREEN)), True)
+                atest_utils.mark_green(results[0])), True)
 
     def _print_fuzzy_searching_results(self, results):
         """Print modules when fuzzy searching gives multiple results.
@@ -366,7 +357,7 @@ class CLITranslator:
             """
             line = match.group(0).strip()
             return "" if any(map(line.startswith, _COMMENTS)) else line
-        with open(test_mapping_file) as json_file:
+        with open(test_mapping_file, encoding='utf-8') as json_file:
             return re.sub(_COMMENTS_RE, _replace, json_file.read())
 
     def _read_tests_in_test_mapping(self, test_mapping_file):
@@ -419,16 +410,14 @@ class CLITranslator:
                               '\'include-filter\'.\nNote: this can also occur '
                               'if the test module is not built for your '
                               'current lunch target.\n' %
-                              atest_utils.colorize(test['name'], constants.RED))
+                              atest_utils.mark_red(test['name']))
                     elif not any(
                         x in test_mod_info.get('compatibility_suites', []) for
                         x in constants.TEST_MAPPING_SUITES):
                         print('WARNING: Please add %s to either suite: %s for '
                               'this TEST_MAPPING file to work with TreeHugger.' %
-                              (atest_utils.colorize(test['name'],
-                                                    constants.RED),
-                               atest_utils.colorize(constants.TEST_MAPPING_SUITES,
-                                                    constants.GREEN)))
+                              (atest_utils.mark_red(test['name']),
+                               atest_utils.mark_green(constants.TEST_MAPPING_SUITES)))
                     tests.append(test_mapping.TestDetail(test))
                 grouped_tests.update(tests)
         return all_tests, imports
@@ -640,39 +629,20 @@ class CLITranslator:
             A tuple with set of build_target strings and list of TestInfos.
         """
         tests = args.tests
-        # Disable fuzzy searching when running with test mapping related args.
-        self.fuzzy_search = args.fuzzy_search
         detect_type = DetectType.TEST_WITH_ARGS
+        # Disable fuzzy searching when running with test mapping related args.
         if not args.tests or atest_utils.is_test_mapping(args):
             self.fuzzy_search = False
             detect_type = DetectType.TEST_NULL_ARGS
         start = time.time()
-        # Not including host unit tests if user specify --test-mapping or
-        # --smart-testing-local arg.
+        # Not including host unit tests if user specify --test-mapping.
         host_unit_tests = []
-        if not any((
-            args.tests, args.test_mapping, args.smart_testing_local)):
+        if not any((args.tests, args.test_mapping)):
             logging.debug('Finding Host Unit Tests...')
             host_unit_tests = test_finder_utils.find_host_unit_tests(
                 self.mod_info,
                 str(Path(os.getcwd()).relative_to(self.root_dir)))
             logging.debug('Found host_unit_tests: %s', host_unit_tests)
-        if args.smart_testing_local:
-            modified_files = set()
-            if args.tests:
-                for test_path in args.tests:
-                    if not Path(test_path).is_dir():
-                        atest_utils.colorful_print(
-                            f'Found invalid dir {test_path}'
-                            r'Please specify test paths for probing.',
-                            constants.RED)
-                        sys.exit(ExitCode.INVALID_SMART_TESTING_PATH)
-                    modified_files |= atest_utils.get_modified_files(test_path)
-            else:
-                modified_files = atest_utils.get_modified_files(os.getcwd())
-            logging.info('Found modified files: %s...',
-                         ', '.join(modified_files))
-            tests = list(modified_files)
         # Test details from TEST_MAPPING files
         test_details_list = None
         if atest_utils.is_test_mapping(args):

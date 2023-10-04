@@ -89,6 +89,7 @@ BENCHMARK_OPTIONAL_KEYS = {'bytes_per_second', 'label'}
 BENCHMARK_EVENT_KEYS = BENCHMARK_ESSENTIAL_KEYS.union(BENCHMARK_OPTIONAL_KEYS)
 INT_KEYS = {'cpu_time', 'real_time'}
 ITER_SUMMARY = {}
+ITER_COUNTS = {}
 
 class PerfInfo():
     """Class for storing performance test of a test run."""
@@ -269,7 +270,7 @@ class ResultReporter:
               'VtsTradefedTestRunner': {'Module1': RunStat(passed:4, failed:0)}}
     """
 
-    def __init__(self, silent=False, collect_only=False, flakes_info=False):
+    def __init__(self, silent=False, collect_only=False):
         """Init ResultReporter.
 
         Args:
@@ -284,7 +285,6 @@ class ResultReporter:
         self.silent = silent
         self.rerun_options = ''
         self.collect_only = collect_only
-        self.flakes_info = flakes_info
         self.test_result_link = None
         self.device_count = 0
 
@@ -344,7 +344,7 @@ class ResultReporter:
 
     def print_starting_text(self):
         """Print starting text for running tests."""
-        print(au.colorize('\nRunning Tests...', constants.CYAN))
+        print(au.mark_cyan('\nRunning Tests...'))
 
     def set_current_summary(self, run_num):
         """Set current test summary to ITER_SUMMARY."""
@@ -359,6 +359,22 @@ class ResultReporter:
         if not set(run_summary).issubset(set(summary_list)):
             summary_list.extend(run_summary)
             ITER_SUMMARY[run_num] = summary_list
+
+    def get_iterations_summary(self):
+        """Print sum of iterations."""
+        total_summary = ''
+        for key, value in ITER_COUNTS.items():
+            total_summary += ('%s: %s: %s, %s: %s, %s: %s, %s: %s\n'
+                              % (key,
+                                 'Passed',
+                                 value.get('passed', 0),
+                                 'Failed',
+                                 value.get('failed', 0),
+                                 'Ignored',
+                                 value.get('ignored', 0),
+                                 'Assumption_failed',
+                                 value.get('assumption_failed', 0),))
+        return f"{au.delimiter('-', 7)}\nITERATIONS RESULT\n{total_summary}"
 
     # pylint: disable=too-many-branches
     def print_summary(self):
@@ -379,16 +395,16 @@ class ResultReporter:
             device_detail = '(Test executed with 1 device.)'
         else:
             device_detail = f'(Test executed with {self.device_count} devices.)'
-        print('\n{}'.format(au.colorize(f'Summary {device_detail}',
-                                        constants.CYAN)))
+        print('\n{}'.format(au.mark_cyan(f'Summary {device_detail}')))
         print(au.delimiter('-', 7))
         iterations = len(ITER_SUMMARY)
         for iter_num, summary_list in ITER_SUMMARY.items():
             if iterations > 1:
-                print(au.colorize("ITERATION %s" % (int(iter_num) + 1),
-                                  constants.BLUE))
+                print(au.mark_blue("ITERATION %s" % (int(iter_num) + 1)))
             for summary in summary_list:
                 print(summary)
+        if iterations > 1:
+            print(self.get_iterations_summary())
         failed_sum = len(self.failed_tests)
         for runner_name, groups in self.runners.items():
             if groups == UNSUPPORTED_FLAG:
@@ -413,11 +429,11 @@ class ResultReporter:
         print()
         if not UNSUPPORTED_FLAG in self.runners.values():
             if tests_ret == ExitCode.SUCCESS:
-                print(au.colorize('All tests passed!', constants.GREEN))
+                print(au.mark_green('All tests passed!'))
             else:
                 message = '%d %s failed' % (failed_sum,
                                             'tests' if failed_sum > 1 else 'test')
-                print(au.colorize(message, constants.RED))
+                print(au.mark_red(message))
                 print('-'*len(message))
                 self.print_failed_tests()
         if self.log_path:
@@ -429,7 +445,7 @@ class ResultReporter:
         # TODO (b/174627499) Saving this information in atest history.
         if self.test_result_link:
             print('Test Result uploaded to %s'
-                  % au.colorize(self.test_result_link, constants.GREEN))
+                  % au.mark_green(self.test_result_link))
         return tests_ret
 
     def _print_aggregate_test_metrics(self):
@@ -438,8 +454,7 @@ class ResultReporter:
             self.log_path, file_name='*_aggregate_test_metrics_*.txt')
 
         if metric_files:
-            print('\n{}'.format(au.colorize(
-                'Aggregate test metrics', constants.CYAN)))
+            print('\n{}'.format(au.mark_cyan('Aggregate test metrics')))
             print(au.delimiter('-', 7))
             for metric_file in metric_files:
                 self._print_test_metric(metric_file)
@@ -453,8 +468,8 @@ class ResultReporter:
         matches = re.findall(test_metrics_re, metric_file)
         test_name = matches[0] if matches else ''
         if test_name:
-            print('{}:'.format(au.colorize(test_name, constants.CYAN)))
-            with open(metric_file, 'r') as f:
+            print('{}:'.format(au.mark_cyan(test_name)))
+            with open(metric_file, 'r', encoding='utf-8') as f:
                 matched = False
                 filter_res = atest_configs.GLOBAL_ARGS.aggregate_metric_filter
                 logging.debug('Aggregate metric filters: %s', filter_res)
@@ -499,8 +514,7 @@ class ResultReporter:
         tests_ret = ExitCode.SUCCESS
         if not self.runners:
             return tests_ret
-        print('\n{}'.format(au.colorize('Summary:' + constants.COLLECT_TESTS_ONLY,
-                                        constants.CYAN)))
+        print(f'\n{au.mark_cyan("Summary: "+ constants.COLLECT_TESTS_ONLY)}')
         print(au.delimiter('-', 26))
         for runner_name, groups in self.runners.items():
             for group_name, _ in groups.items():
@@ -515,21 +529,8 @@ class ResultReporter:
         """Print the failed tests if existed."""
         if self.failed_tests:
             for test_name in self.failed_tests:
-                failed_details = test_name
-                if self.flakes_info:
-                    flakes_method = test_name.replace('#', '.')
-                    flakes_info = au.get_flakes(test_method=flakes_method)
-                    if (flakes_info and
-                            flakes_info.get(constants.FLAKE_PERCENT, None)):
-                        failed_details += (
-                            ': flakes percent: {}%, flakes postsubmit per week:'
-                            ' {}'.format(float(flakes_info.get(
-                                constants.FLAKE_PERCENT)),
-                                         flakes_info.get(
-                                             constants.FLAKE_POSTSUBMIT, '0')))
-                print(failed_details)
+                print(test_name)
 
-    # pylint: disable=too-many-locals
     def process_summary(self, name, stats):
         """Process the summary line.
 
@@ -551,28 +552,14 @@ class ResultReporter:
         """
         passed_label = 'Passed'
         failed_label = 'Failed'
-        flakes_label = ''
         ignored_label = 'Ignored'
         assumption_failed_label = 'Assumption Failed'
         error_label = ''
         host_log_content = ''
-        flakes_percent = ''
         if stats.failed > 0:
-            failed_label = au.colorize(failed_label, constants.RED)
-            mod_list = name.split()
-            module = ''
-            if len(mod_list) > 1:
-                module = mod_list[1]
-            if module and self.flakes_info:
-                flakes_info = au.get_flakes(test_module=module)
-                if (flakes_info and
-                        flakes_info.get(constants.FLAKE_PERCENT, None)):
-                    flakes_label = au.colorize('Flakes Percent:',
-                                               constants.RED)
-                    flakes_percent = '{:.2f}%'.format(float(flakes_info.get(
-                        constants.FLAKE_PERCENT)))
+            failed_label = au.mark_red(failed_label)
         if stats.run_errors:
-            error_label = au.colorize('(Completed With ERRORS)', constants.RED)
+            error_label = au.mark_red('(Completed With ERRORS)')
             # Only extract host_log_content if test name is tradefed
             # Import here to prevent circular-import error.
             from atest.test_runners import atest_tf_test_runner
@@ -580,14 +567,14 @@ class ResultReporter:
                 find_logs = au.find_files(self.log_path,
                                           file_name=constants.TF_HOST_LOG)
                 if find_logs:
-                    host_log_content = au.colorize(
-                        '\n\nTradefederation host log:\n', constants.RED)
+                    host_log_content = au.mark_red(
+                        '\n\nTradefederation host log:\n')
                 for tf_log in find_logs:
                     if zipfile.is_zipfile(tf_log):
                         host_log_content = (host_log_content +
                                             au.extract_zip_text(tf_log))
                     else:
-                        with open(tf_log, 'r') as f:
+                        with open(tf_log, 'r', encoding='utf-8') as f:
                             for line in f.readlines():
                                 host_log_content = host_log_content + line
 
@@ -596,15 +583,22 @@ class ResultReporter:
                 log_name = str(name).split()[1] + '-stderr_*.txt'
                 module_logs = au.find_files(self.log_path, file_name=log_name)
                 for log_file in module_logs:
-                    print(' ' * 2  + au.colorize(
-                        f'Logs in {os.path.basename(log_file)}:',
-                        constants.MAGENTA))
-                    with open(log_file, 'r') as f:
+                    print(' ' * 2  + au.mark_magenta(
+                        f'Logs in {os.path.basename(log_file)}:'))
+                    with open(log_file, 'r', encoding='utf-8') as f:
                         for line in f.readlines():
                             print(' ' * 2 + str(line), end='')
         elif stats.failed == 0:
-            passed_label = au.colorize(passed_label, constants.GREEN)
-        summary = ('%s: %s: %s, %s: %s, %s: %s, %s: %s, %s %s %s %s'
+            passed_label = au.mark_green(passed_label)
+        temp = ITER_COUNTS.get(name, {})
+        temp['passed'] = temp.get('passed', 0) + stats.passed
+        temp['failed'] = temp.get('failed', 0) + stats.failed
+        temp['ignored'] = temp.get('ignored', 0) + stats.ignored
+        temp['assumption_failed'] = (temp.get('assumption_failed', 0)
+                                     + stats.assumption_failed)
+        ITER_COUNTS[name] = temp
+
+        summary = ('%s: %s: %s, %s: %s, %s: %s, %s: %s %s %s'
                    % (name,
                       passed_label,
                       stats.passed,
@@ -614,8 +608,6 @@ class ResultReporter:
                       stats.ignored,
                       assumption_failed_label,
                       stats.assumption_failed,
-                      flakes_label,
-                      flakes_percent,
                       error_label,
                       host_log_content))
         return summary
@@ -676,8 +668,7 @@ class ResultReporter:
             return
         if not self.pre_test or (test.test_run_name !=
                                  self.pre_test.test_run_name):
-            print('%s (%s %s)' % (au.colorize(test.test_run_name,
-                                              constants.BLUE),
+            print('%s (%s %s)' % (au.mark_blue(test.test_run_name),
                                   test.group_total,
                                   'Test' if test.group_total == 1 else 'Tests'))
         if test.status == test_runner_base.ERROR_STATUS:
@@ -709,8 +700,7 @@ class ResultReporter:
             if test.status == test_runner_base.PASSED_STATUS:
                 for key, data in sorted(test.additional_info.items()):
                     if key not in BENCHMARK_EVENT_KEYS:
-                        print('\t%s: %s' % (au.colorize(key, constants.BLUE),
-                                            data))
+                        print(f'\t{au.mark_blue(key)}: {data}')
             if test.status == test_runner_base.FAILED_STATUS:
                 print(f'\nSTACKTRACE:\n{test.details}')
         self.pre_test = test

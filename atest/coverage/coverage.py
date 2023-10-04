@@ -64,8 +64,7 @@ def generate_coverage_report(results_dir: str,
                              mod_info: module_info.ModuleInfo):
     """Generates HTML code coverage reports based on the test info."""
 
-    soong_intermediates = Path(
-        atest_utils.get_build_out_dir()).joinpath('soong/.intermediates')
+    soong_intermediates = atest_utils.get_build_out_dir('soong/.intermediates')
 
     # Collect dependency and source file information for the tests and any
     # Mainline modules.

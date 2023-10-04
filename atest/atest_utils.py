@@ -38,14 +38,13 @@ import re
 import shutil
 import subprocess
 import sys
-import time
 import urllib
 import zipfile
 
 from dataclasses import dataclass
 from multiprocessing import Process
 from pathlib import Path
-from typing import Any, Dict, List, Set
+from typing import Any, Dict, List, Set, Tuple
 
 import xml.etree.ElementTree as ET
 
@@ -174,6 +173,30 @@ def get_product_out(*joinpaths: Any) -> Path:
     return Path(AndroidVariables().product_out, *joinpaths)
 
 
+def getenv_abs_path(env: str, suffix: str = None) -> Path:
+    """Translate the environment variable to an absolute path.
+
+    Args:
+        env: string of the given environment variable.
+        suffix: string that will be appended to.
+
+    Returns:
+        Absolute Path of the given environment variable.
+    """
+    env_value = os.getenv(env)
+    if not env_value:
+        return None
+
+    env_path = Path(env_value)
+    if env_path.is_absolute():
+        return env_path.joinpath(suffix) if suffix else env_path
+
+    return (
+        get_build_top(env_path, suffix) if suffix
+        else get_build_top(env_path)
+    )
+
+
 def get_build_cmd(dump=False):
     """Compose build command with no-absolute path and flag "--make-mode".
 
@@ -193,7 +216,7 @@ def get_build_cmd(dump=False):
                  _BUILD_CMD))
     if dump:
         return [make_cmd, '--dumpvar-mode', 'report_config']
-    return [make_cmd, '--make-mode']
+    return [make_cmd, '--make-mode', 'WRAPPER_TOOL=atest']
 
 def _capture_fail_section(full_log):
     """Return the error message from the build output.
@@ -277,10 +300,10 @@ def _run_limited_output(cmd, env_vars=None):
         proc.wait()
         if proc.returncode != 0:
             # get error log from "OUT_DIR/error.log"
-            error_log_file = os.path.join(get_build_out_dir(), "error.log")
+            error_log_file = get_build_out_dir('error.log')
             output = []
-            if os.path.isfile(error_log_file):
-                if os.stat(error_log_file).st_size > 0:
+            if error_log_file.is_file():
+                if error_log_file.stat().st_size > 0:
                     with open(error_log_file, encoding='utf-8') as f:
                         output = f.read()
             if not output:
@@ -288,7 +311,7 @@ def _run_limited_output(cmd, env_vars=None):
             raise subprocess.CalledProcessError(proc.returncode, cmd, output)
 
 
-def get_build_out_dir() -> str:
+def get_build_out_dir(*joinpaths) -> Path:
     """Get android build out directory.
 
     The order of the rules are:
@@ -296,36 +319,28 @@ def get_build_out_dir() -> str:
     2. OUT_DIR_COMMON_BASE
     3. ANDROID_BUILD_TOP/out
 
+    e.g. OUT_DIR='/disk1/out' -> '/disk1/out'
+         OUT_DIR='out_dir'    -> '<build_top>/out_dir'
+
+         Assume the branch name is 'aosp-main':
+         OUT_DIR_COMMON_BASE='/disk2/out' -> '/disk1/out/aosp-main'
+         OUT_DIR_COMMON_BASE='out_dir'    -> '<build_top>/out_dir/aosp-main'
+
     Returns:
-        String of the out directory.
+        Absolute Path of the out directory.
     """
-    build_top = os.environ.get(constants.ANDROID_BUILD_TOP, '/')
-    # Get the out folder if user specified $OUT_DIR
-    custom_out_dir = os.environ.get(constants.ANDROID_OUT_DIR)
-    custom_out_dir_common_base = os.environ.get(
-        constants.ANDROID_OUT_DIR_COMMON_BASE)
-    user_out_dir = None
-    # If OUT_DIR == /output, the output dir will always be /outdir
-    # regardless of branch names. (Not recommended.)
-    if custom_out_dir:
-        if os.path.isabs(custom_out_dir):
-            user_out_dir = custom_out_dir
-        else:
-            user_out_dir = os.path.join(build_top, custom_out_dir)
+    out_dir = getenv_abs_path('OUT_DIR')
+    if out_dir:
+        return out_dir.joinpath(*joinpaths)
+
     # https://source.android.com/setup/build/initializing#using-a-separate-output-directory
-    # If OUT_DIR_COMMON_BASE is /output and the source tree is /src/master1,
-    # the output dir will be /output/master1.
-    elif custom_out_dir_common_base:
-        build_top_basename = os.path.basename(build_top)
-        if os.path.isabs(custom_out_dir_common_base):
-            user_out_dir = os.path.join(custom_out_dir_common_base,
-                                        build_top_basename)
-        else:
-            user_out_dir = os.path.join(build_top, custom_out_dir_common_base,
-                                        build_top_basename)
-    if user_out_dir:
-        return user_out_dir
-    return os.path.join(build_top, "out")
+    basename = get_build_top().name
+    out_dir_common_base = getenv_abs_path('OUT_DIR_COMMON_BASE', basename)
+    if out_dir_common_base:
+        return out_dir_common_base.joinpath(*joinpaths)
+
+    return get_build_top('out').joinpath(*joinpaths)
+
 
 def update_build_env(env: Dict[str, str]):
     """Method that updates build environment variables."""
@@ -353,8 +368,8 @@ def build(build_targets: Set[str]):
     full_env_vars = os.environ.copy()
     update_build_env(full_env_vars)
     print('\n%s\n%s' % (
-        colorize("Building Dependencies...", constants.CYAN),
-                 ', '.join(build_targets)))
+        mark_cyan("Building Dependencies..."),
+        ', '.join(build_targets)))
     logging.debug('Building Dependencies: %s', ' '.join(build_targets))
     cmd = get_build_cmd() + list(build_targets)
     return _run_build_cmd(cmd, _BUILD_ENV)
@@ -381,10 +396,10 @@ def _run_build_cmd(cmd: List[str], env_vars: Dict[str, str]):
             # mode' which only prints completed actions. This gives users the
             # impression that actions are taking longer than they really are.
             # See b/233044822 for more details.
-            log_path = Path(get_build_out_dir()).joinpath('verbose.log.gz')
+            log_path = get_build_out_dir('verbose.log.gz')
             print('\n(Build log may not reflect actual status in simple output'
                   'mode; check {} for detail after build finishes.)'.format(
-                    colorize(f'{log_path}', constants.CYAN)
+                    mark_cyan(f'{log_path}')
                   ), end='')
             _run_limited_output(cmd, env_vars=env_vars)
         _send_build_condition_metrics(build_profiler, cmd)
@@ -433,7 +448,7 @@ def is_test_mapping(args):
         True if the args indicates atest shall run tests in test mapping. False
         otherwise.
     """
-    if any((args.host_unit_test_only, args.smart_testing_local)):
+    if args.host_unit_test_only:
         return False
     if any((args.test_mapping, args.include_subdirs, not args.tests)):
         return True
@@ -500,6 +515,36 @@ def colorize(text, color, bp_color=None):
     return clr_str
 
 
+def mark_red(text):
+    """Wrap colorized function and print in red."""
+    return colorize(text, constants.RED)
+
+
+def mark_yellow(text):
+    """Wrap colorized function and print in yellow."""
+    return colorize(text, constants.YELLOW)
+
+
+def mark_green(text):
+    """Wrap colorized function and print in green."""
+    return colorize(text, constants.GREEN)
+
+
+def mark_magenta(text):
+    """Wrap colorized function and print in magenta."""
+    return colorize(text, constants.MAGENTA)
+
+
+def mark_cyan(text):
+    """Wrap colorized function and print in cyan."""
+    return colorize(text, constants.CYAN)
+
+
+def mark_blue(text):
+    """Wrap colorized function and print in blue."""
+    return colorize(text, constants.BLUE)
+
+
 def colorful_print(text, color, bp_color=None, auto_wrap=True):
     """Print out the text with color.
 
@@ -517,6 +562,9 @@ def colorful_print(text, color, bp_color=None, auto_wrap=True):
     else:
         print(output, end="")
 
+def roboleaf_print(text):
+    """Print roboleaf emoji with text."""
+    print("[🌿] " + text)
 
 def get_terminal_size():
     """Get terminal size and return a tuple.
@@ -850,7 +898,10 @@ def get_modified_files(root_dir):
     modified_files = set()
     try:
         # TODO: (@jimtang) abandon using git command within Atest.
-        find_git_cmd = f'cd {root_dir}; git rev-parse --show-toplevel 2>/dev/null'
+        find_git_cmd = (
+            f'cd {root_dir}; '
+            'git rev-parse --show-toplevel 2>/dev/null'
+        )
         git_paths = subprocess.check_output(
             find_git_cmd, shell=True).decode().splitlines()
         for git_path in git_paths:
@@ -887,19 +938,20 @@ def delimiter(char, length=_DEFAULT_TERMINAL_WIDTH, prenl=0, postnl=0):
     """
     return prenl * '\n' + char * length + postnl * '\n'
 
-def find_files(path, file_name=constants.TEST_MAPPING):
+def find_files(path, file_name=constants.TEST_MAPPING, followlinks=False):
     """Find all files with given name under the given path.
 
     Args:
         path: A string of path in source.
         file_name: The file name pattern for finding matched files.
+        followlinks: A boolean to indicate whether to follow symbolic links.
 
     Returns:
         A list of paths of the files with the matching name under the given
         path.
     """
     match_files = []
-    for root, _, filenames in os.walk(path):
+    for root, _, filenames in os.walk(path, followlinks=followlinks):
         try:
             for filename in fnmatch.filter(filenames, file_name):
                 match_files.append(os.path.join(root, filename))
@@ -959,93 +1011,6 @@ def matched_tf_error_log(content):
         return True
     return False
 
-def has_valid_cert():
-    """Check whether the certificate is valid.
-
-    Returns: True if the cert is valid.
-    """
-    if not constants.CERT_STATUS_CMD:
-        return False
-    try:
-        return (not subprocess.check_call(constants.CERT_STATUS_CMD,
-                                          stdout=subprocess.DEVNULL,
-                                          stderr=subprocess.DEVNULL))
-    except subprocess.CalledProcessError:
-        return False
-
-# pylint: disable=too-many-locals
-def get_flakes(branch='',
-               target='',
-               test_name='',
-               test_module='',
-               test_method=''):
-    """Get flake information.
-
-    Args:
-        branch: A string of branch name.
-        target: A string of target.
-        test_name: A string of test suite name.
-        test_module: A string of test module.
-        test_method: A string of test method.
-
-    Returns:
-        A dictionary of flake info. None if no flakes service exists.
-    """
-    if not branch:
-        branch = constants.FLAKE_BRANCH
-    if not target:
-        target = constants.FLAKE_TARGET
-    if not test_name:
-        test_name = constants.FLAKE_TEST_NAME
-    # Currently lock the flake information from test-mapping test
-    # which only runs on cuttlefish(x86) devices.
-    # TODO: extend supporting other devices
-    if test_module:
-        test_module = 'x86 {}'.format(test_module)
-    flake_service = os.path.join(constants.FLAKE_SERVICE_PATH,
-                                 constants.FLAKE_FILE)
-    if not os.path.exists(flake_service):
-        logging.debug('Get flakes: Flake service path not exist.')
-        # Send (3, 0) to present no flakes info because service does not exist.
-        metrics.LocalDetectEvent(
-            detect_type=DetectType.NO_FLAKE, result=0)
-        return None
-    if not has_valid_cert():
-        logging.debug('Get flakes: No valid cert.')
-        # Send (3, 1) to present no flakes info because no valid cert.
-        metrics.LocalDetectEvent(
-            detect_type=DetectType.NO_FLAKE, result=1)
-        return None
-    flake_info = {}
-    start = time.time()
-    try:
-        shutil.copy2(flake_service, constants.FLAKE_TMP_PATH)
-        tmp_service = os.path.join(constants.FLAKE_TMP_PATH,
-                                   constants.FLAKE_FILE)
-        os.chmod(tmp_service, 0o0755)
-        cmd = [tmp_service, branch, target, test_name, test_module, test_method]
-        logging.debug('Executing: %s', ' '.join(cmd))
-        output = subprocess.check_output(cmd).decode()
-        percent_template = "{}:".format(constants.FLAKE_PERCENT)
-        postsubmit_template = "{}:".format(constants.FLAKE_POSTSUBMIT)
-        for line in output.splitlines():
-            if line.startswith(percent_template):
-                flake_info[constants.FLAKE_PERCENT] = line.replace(
-                    percent_template, '')
-            if line.startswith(postsubmit_template):
-                flake_info[constants.FLAKE_POSTSUBMIT] = line.replace(
-                    postsubmit_template, '')
-    # pylint: disable=broad-except
-    except Exception as e:
-        logging.debug('Exception:%s', e)
-        return None
-    # Send (4, time) to present having flakes info and it spent time.
-    duration = round(time.time()-start)
-    logging.debug('Took %ss to get flakes info', duration)
-    metrics.LocalDetectEvent(
-        detect_type=DetectType.HAS_FLAKE,
-        result=duration)
-    return flake_info
 
 def read_test_record(path):
     """A Helper to read test record proto.
@@ -1218,26 +1183,6 @@ def get_build_target():
         os.getenv(constants.TARGET_BUILD_VARIANT, None))
     return build_target
 
-def build_module_info_target(module_info_target):
-    """Build module-info.json after deleting the original one.
-
-    Args:
-        module_info_target: the target name that soong is going to build.
-    """
-    module_file = 'module-info.json'
-    logging.debug('Generating %s - this is required for '
-                  'initial runs or forced rebuilds.', module_file)
-    build_start = time.time()
-    product_out = os.getenv(constants.ANDROID_PRODUCT_OUT, None)
-    module_info_path = Path(product_out).joinpath('module-info.json')
-    if module_info_path.is_file():
-        os.remove(module_info_path)
-    if not build([module_info_target]):
-        sys.exit(ExitCode.BUILD_FAILURE)
-    build_duration = time.time() - build_start
-    metrics.LocalDetectEvent(
-        detect_type=DetectType.ONLY_BUILD_MODULE_INFO,
-        result=int(build_duration))
 
 def has_wildcard(test_name):
     """ Tell whether the test_name(either a list or string) contains wildcard
@@ -1643,9 +1588,9 @@ def save_build_files_timestamp():
     """ Method that generate timestamp of Android.{bp,mk} files.
 
     The checksum of build files are stores in
-        $ANDROID_HOST_OUT/indexes/buildfiles.stp
+        $ANDROID_HOST_OUT/indices/buildfiles.stp
     """
-    index_dir = get_host_out('indexes')
+    index_dir = get_host_out('indices')
     plocate_db = index_dir.joinpath(constants.LOCATE_CACHE)
 
     if plocate_db.is_file():
@@ -1915,7 +1860,9 @@ def generate_print_result_html(result_file: Path):
     search_dir = Path(result_file).parent.joinpath('log')
     result_html = Path(search_dir, 'test_logs.html')
     try:
-        logs = sorted(find_files(str(search_dir), file_name='*'))
+        logs = sorted(
+            find_files(str(search_dir), file_name='*', followlinks=True)
+        )
         with open(result_html, 'w', encoding='utf-8') as cache:
             cache.write('<!DOCTYPE html><html><body>')
             result = load_json_safely(result_file)
@@ -1929,9 +1876,114 @@ def generate_print_result_html(result_file: Path):
                             f'{html.escape(Path(log).name)}</a></p>')
             cache.write('</body></html>')
         print(f'\nTo access logs, press "ctrl" and click on\n'
-              f'file://{result_html}\n')
+              f'{mark_magenta(f"file://{result_html}")}\n')
+        send_tradeded_elapsed_time_metric(search_dir)
     except Exception as e:
         logging.debug('Did not generate log html for reason: %s', e)
+
+
+def send_tradeded_elapsed_time_metric(search_dir: Path):
+    """Method which sends Tradefed elapsed time to the metrics."""
+    test, prep, teardown = get_tradefed_invocation_time(search_dir)
+    metrics.LocalDetectEvent(
+        detect_type=DetectType.TF_TOTAL_RUN_MS, result=test + prep + teardown)
+    metrics.LocalDetectEvent(
+        detect_type=DetectType.TF_PREPARATION_MS, result=prep)
+    metrics.LocalDetectEvent(
+        detect_type=DetectType.TF_TEST_MS, result=test)
+    metrics.LocalDetectEvent(
+        detect_type=DetectType.TF_TEARDOWN_MS, result=teardown)
+
+
+def get_tradefed_invocation_time(search_dir: Path) -> Tuple[int, int, int]:
+    """Return a tuple of testing, preparation and teardown time."""
+    test, prep, teardown = 0, 0, 0
+    end_host_log_files = find_files(path=search_dir,
+                                    file_name="end_host_log_*.txt",
+                                    followlinks=True)
+    for log in end_host_log_files:
+        with open(log, 'r', encoding='utf-8') as cache:
+            contents = cache.read().splitlines()
+
+        parse_test_time, parse_prep_time = False, False
+        # ============================================
+        # ================= Results ==================
+        # =============== Consumed Time ==============
+        #     x86_64 HelloWorldTests: 1s
+        #     x86_64 hallo-welt: 866 ms
+        # Total aggregated tests run time: 1s
+        # ============== Modules Preparation Times ==============
+        #     x86_64 HelloWorldTests => prep = 2483 ms || clean = 294 ms
+        #     x86_64 hallo-welt => prep = 1845 ms || clean = 292 ms
+        # Total preparation time: 4s  ||  Total tear down time: 586 ms
+        # =======================================================
+        # =============== Summary ===============
+        # Total Run time: 6s
+        # 2/2 modules completed
+        # Total Tests       : 3
+        # PASSED            : 3
+        # FAILED            : 0
+        # ============== End of Results ==============
+        # ============================================
+        for line in contents:
+            if re.match(r'[=]+.*consumed.*time.*[=]+', line, re.I):
+                parse_test_time, parse_prep_time = True, False
+                continue
+            if re.match(r'[=]+.*preparation.*time.*[=]+', line, re.I):
+                parse_test_time, parse_prep_time = False, True
+                continue
+            # Close parsing when `Total` keyword starts at the beginning.
+            if re.match(r'^(Total.*)', line, re.I):
+                parse_test_time, parse_prep_time = False, False
+                continue
+            if parse_test_time:
+                match = re.search(r'^[\s]+\w.*:\s+(?P<timestr>.*)$', line, re.I)
+                if match:
+                    test += convert_timestr_to_ms(match.group('timestr'))
+                continue
+            if parse_prep_time:
+                # SuiteResultReporter.java defines elapsed prep time only in ms.
+                match = re.search(
+                    r'prep = (?P<prep>\d+ ms) \|\| clean = (?P<clean>\d+ ms)$',
+                    line, re.I)
+                if match:
+                    prep += convert_timestr_to_ms(match.group('prep'))
+                    teardown += convert_timestr_to_ms(match.group('clean'))
+                continue
+
+    return test, prep, teardown
+
+
+def convert_timestr_to_ms(time_string: str=None) -> int:
+    """Convert time string to an integer in millisecond.
+
+    Possible time strings are:
+        1h 21m 15s
+        1m 5s
+        25s
+    If elapsed time is less than 1 sec, the time will be in millisecond.
+        233 ms
+    """
+    if not time_string:
+        return 0
+
+    hours, minutes, seconds = 0, 0, 0
+    # Extract hour(<h>), minute(<m>), second(<s>), or millisecond(<ms>).
+    match = re.match(
+        r'(((?P<h>\d+)h\s+)?(?P<m>\d+)m\s+)?(?P<s>\d+)s|(?P<ms>\d+)\s*ms',
+        time_string
+    )
+    if match:
+        hours = int(match.group('h')) if match.group('h') else 0
+        minutes = int(match.group('m')) if match.group('m') else 0
+        seconds = int(match.group('s')) if match.group('s') else 0
+        milliseconds = int(match.group('ms')) if match.group('ms') else 0
+
+    return (hours * 3600 * 1000 +
+            minutes * 60 * 1000 +
+            seconds * 1000 +
+            milliseconds)
+
 
 # pylint: disable=broad-except
 def prompt_suggestions(result_file: Path):
@@ -1973,7 +2025,7 @@ def get_rbe_and_customized_out_state() -> int:
     ON = '1'
     OFF = '0'
     # 1. ensure RBE is enabled during the build.
-    actual_out_dir = Path(get_build_out_dir())
+    actual_out_dir = get_build_out_dir()
     log_path = actual_out_dir.joinpath('soong.log')
     rbe_enabled = not bool(
         subprocess.call(f'grep -q USE_RBE=true {log_path}'.split())
@@ -1990,19 +2042,19 @@ def get_rbe_and_customized_out_state() -> int:
 def build_files_integrity_is_ok() -> bool:
     """Return Whether the integrity of build files is OK."""
     # 0. Inexistence of the timestamp file means a fresh repo sync.
-    timestamp_file = get_host_out('indexes', constants.BUILDFILES_STP)
+    timestamp_file = get_host_out('indices', constants.BUILDFILES_STP)
     if not timestamp_file.is_file():
         return False
     # 1. Ensure no build files were added/deleted.
     recorded_amount = len(load_json_safely(timestamp_file).keys())
-    cmd = (f'locate -d{constants.LOCATE_CACHE} --regex '
+    cmd = (f'locate -e -d{constants.LOCATE_CACHE} --regex '
             r'"/Android\.(bp|mk)$" | wc -l')
     if int(subprocess.getoutput(cmd)) != recorded_amount:
         return False
 
     # 2. Ensure the consistency of all build files.
     for file, timestamp in load_json_safely(timestamp_file).items():
-        if Path(file).stat().st_mtime != timestamp:
+        if Path(file).exists() and Path(file).stat().st_mtime != timestamp:
             return False
     return True
 
@@ -2019,7 +2071,7 @@ def _build_env_profiling() -> BuildEnvProfiler:
     Returns:
         the BuildProfile object.
     """
-    out_dir = Path(get_build_out_dir())
+    out_dir = get_build_out_dir()
     ninja_file = out_dir.joinpath('soong/build.ninja')
     mtime = ninja_file.stat().st_mtime if ninja_file.is_file() else 0
     variables_file = out_dir.joinpath('soong/soong.environment.used.build')
@@ -2097,72 +2149,3 @@ def _send_build_condition_metrics(
         other_condition = False
     if other_condition:
         send_data(other)
-
-
-def get_local_auto_shardable_tests():
-    """Get the auto shardable test names in shardable file.
-
-    The path will be ~/.atest/auto_shard/local_auto_shardable_tests
-
-    Returns:
-        A list of auto shardable test names.
-    """
-    shardable_tests_file = Path(get_misc_dir()).joinpath(
-        '.atest/auto_shard/local_auto_shardable_tests')
-    if not shardable_tests_file.exists():
-        return []
-    return open(shardable_tests_file, 'r', encoding='utf-8').read().split()
-
-def update_shardable_tests(test_name: str, run_time_in_sec: int):
-    """Update local_auto_shardable_test file.
-
-    Strategy:
-        - Determine to add the module by the run time > 10 mins.
-        - local_auto_shardable_test file path :
-            ~/.atest/auto_shard/local_auto_shardable_tests
-        - The file content template is module name per line:
-            <module1>
-            <module2>
-            ...
-    """
-    if run_time_in_sec < 600:
-        return
-    shardable_tests = get_local_auto_shardable_tests()
-    if test_name not in shardable_tests:
-        shardable_tests.append(test_name)
-        logging.info('%s takes %ss (> 600s) to finish. Adding to shardable '
-                    'test list.', test_name, run_time_in_sec)
-
-    if not shardable_tests:
-        logging.info('No shardable tests to run.')
-        return
-    shardable_dir = Path(get_misc_dir()).joinpath('.atest/auto_shard')
-    shardable_dir.mkdir(parents=True, exist_ok=True)
-    shardable_tests_file = shardable_dir.joinpath('local_auto_shardable_tests')
-    with open(shardable_tests_file, 'w', encoding='utf-8') as file:
-        file.write('\n'.join(shardable_tests))
-
-
-def contains_brackets(string: str, pair: bool=True) -> bool:
-    """
-    Determines whether a given string contains (pairs of) brackets.
-
-    Args:
-        string: The string to check for brackets.
-        pair: Whether to check for brackets in pairs.
-
-    Returns:
-        bool: True if the given contains full pair of brackets; False otherwise.
-    """
-    if not pair:
-        return re.search(r"\(|\)|\[|\]|\{|\}", string)
-
-    stack = []
-    brackets = {"(": ")", "[": "]", "{": "}"}
-    for char in string:
-        if char in brackets:
-            stack.append(char)
-        elif char in brackets.values():
-            if not stack or brackets[stack.pop()] != char:
-                return False
-    return len(stack) == 0

@@ -653,16 +653,16 @@ def _make_clean():
 
     Raises:
         Call subprocess.check_call to execute
-        'build/soong/soong_ui.bash --make-mode clean' and cause
+        'build/soong/soong_ui.bash --make-mode WRAPPER_TOOL=aidegen clean' and cause
         subprocess.CalledProcessError.
     """
     try:
         os.chdir(common_util.get_android_root_dir())
         subprocess.check_call(
-            ['build/soong/soong_ui.bash --make-mode clean', '-j'],
+            ['build/soong/soong_ui.bash --make-mode WRAPPER_TOOL=aidegen clean', '-j'],
             shell=True)
     except subprocess.CalledProcessError:
-        print('"build/soong/soong_ui.bash --make-mode clean" command failed.')
+        print('"build/soong/soong_ui.bash --make-mode WRAPPER_TOOL=aidegen clean" command failed.')
         raise
 
 

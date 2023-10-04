@@ -93,6 +93,11 @@ class ConcatenatePathTest(unittest.TestCase):
         )
         cls.mock_getenv.start()
 
+    @classmethod
+    def tearDownClass(cls):
+        """Clean up the mocks after the test class finishes"""
+        cls.mock_getenv.stop()
+
     def test_get_vars(self):
         """Test the values of AndroidVariables are expected"""
         variables = atest_utils.AndroidVariables()
@@ -130,6 +135,77 @@ class ConcatenatePathTest(unittest.TestCase):
 
         self.assertEqual(expected_path, return_path)
 
+
+class GetBuildOutDirTests(unittest.TestCase):
+    """Test get_build_out_dir() for various conditions."""
+
+    def setUp(self) -> None:
+        self.abs_OUT_DIR = '/somewhere/out'
+        self.rel_OUT_DIR = 'somewhere/out'
+        self.abs_OUT_DIR_COMMON_BASE = '/somewhere/common_out'
+        self.rel_OUT_DIR_COMMON_BASE = 'somewhere/common_out'
+
+    def test_get_build_abs_out_dir(self):
+        """Test when OUT_DIR is an absolute path."""
+        with mock.patch.dict(
+            'os.environ', {constants.ANDROID_BUILD_TOP: '/src/build/top',
+                           'OUT_DIR': self.abs_OUT_DIR}):
+            expected_out_dir = Path(self.abs_OUT_DIR)
+
+            returned_out_dir = atest_utils.get_build_out_dir()
+
+            self.assertEqual(expected_out_dir, returned_out_dir)
+
+    def test_get_build_rel_out_dir(self):
+        """Test when OUT_DIR is a relative path."""
+        with mock.patch.dict(
+            'os.environ', {constants.ANDROID_BUILD_TOP: '/src/build/top',
+                           'OUT_DIR': self.rel_OUT_DIR}):
+            expected_out_dir = atest_utils.get_build_top(self.rel_OUT_DIR)
+
+            returned_out_dir = atest_utils.get_build_out_dir()
+
+            self.assertEqual(expected_out_dir, returned_out_dir)
+
+    def test_get_build_abs_out_dir_common_base(self):
+        """Test whe OUT_DIR_COMMON_BASE is an absolute path."""
+        build_top_path = '/src/build/top'
+        branch_name = Path(build_top_path).name
+        with mock.patch.dict(
+            'os.environ', {constants.ANDROID_BUILD_TOP: build_top_path,
+                           'OUT_DIR_COMMON_BASE': self.abs_OUT_DIR_COMMON_BASE}):
+            expected_out_dir = Path(self.abs_OUT_DIR_COMMON_BASE,
+                                    branch_name)
+
+            returned_out_dir = atest_utils.get_build_out_dir()
+
+            self.assertEqual(expected_out_dir, returned_out_dir)
+
+    def test_get_build_rel_out_dir_common_base(self):
+        """Test whe OUT_DIR_COMMON_BASE is a relative path."""
+        build_top_path = '/src/build/top'
+        branch_name = Path(build_top_path).name
+        with mock.patch.dict(
+            'os.environ', {constants.ANDROID_BUILD_TOP: build_top_path,
+                           'OUT_DIR_COMMON_BASE': self.rel_OUT_DIR_COMMON_BASE}):
+            expected_out_dir = Path(build_top_path,
+                                    self.rel_OUT_DIR_COMMON_BASE,
+                                    branch_name)
+
+            returned_out_dir = atest_utils.get_build_out_dir()
+
+            self.assertEqual(expected_out_dir, returned_out_dir)
+
+    def test_get_build_out_dir(self):
+        """Test when OUT_DIR and OUT_DIR_COMMON_BASE are null."""
+        with mock.patch.dict(
+            'os.environ', {constants.ANDROID_BUILD_TOP: '/src/build/top'}):
+            expected_out_dir = atest_utils.get_build_top('out')
+
+            returned_out_dir = atest_utils.get_build_out_dir()
+
+            self.assertEqual(expected_out_dir, returned_out_dir)
+
 # pylint: disable=protected-access
 # pylint: disable=too-many-public-methods
 class AtestUtilsUnittests(unittest.TestCase):
@@ -155,7 +231,7 @@ class AtestUtilsUnittests(unittest.TestCase):
         """Test method is_test_mapping."""
         parser = atest_arg_parser.AtestArgParser()
         parser.add_atest_args()
-        non_tm_args = ['--host-unit-test-only', '--smart-testing-local']
+        non_tm_args = ['--host-unit-test-only']
 
         for argument in non_tm_args:
             args = parser.parse_args([argument])
@@ -400,18 +476,6 @@ class AtestUtilsUnittests(unittest.TestCase):
             self, set([TEST_INFO_A]),
             atest_utils.load_test_info_cache(test_reference, test_cache_dir))
 
-    @mock.patch('os.getcwd')
-    def test_get_build_cmd(self, mock_cwd):
-        """Test method get_build_cmd."""
-        build_top = '/home/a/b/c'
-        rel_path = 'd/e'
-        mock_cwd.return_value = os.path.join(build_top, rel_path)
-        # TODO: (b/264015241) Stop mocking build variables.
-        os_environ_mock = {constants.ANDROID_BUILD_TOP: build_top}
-        with mock.patch.dict('os.environ', os_environ_mock, clear=True):
-            expected_cmd = ['../../build/soong/soong_ui.bash', '--make-mode']
-            self.assertEqual(expected_cmd, atest_utils.get_build_cmd())
-
     @mock.patch('subprocess.check_output')
     def test_get_modified_files(self, mock_co):
         """Test method get_modified_files"""
@@ -464,47 +528,6 @@ class AtestUtilsUnittests(unittest.TestCase):
         # Test not matched content
         self.assertEqual(False,
                          atest_utils.matched_tf_error_log(not_matched_content))
-
-    @mock.patch('os.chmod')
-    @mock.patch('shutil.copy2')
-    @mock.patch('atest.atest_utils.has_valid_cert')
-    @mock.patch('subprocess.check_output')
-    @mock.patch('os.path.exists')
-    def test_get_flakes(self, mock_path_exists, mock_output, mock_valid_cert,
-                        _cpc, _cm):
-        """Test method get_flakes."""
-        # Test par file does not exist.
-        mock_path_exists.return_value = False
-        self.assertEqual(None, atest_utils.get_flakes())
-        # Test par file exists.
-        mock_path_exists.return_value = True
-        mock_output.return_value = (b'flake_percent:0.10001\n'
-                                    b'postsubmit_flakes_per_week:12.0')
-        mock_valid_cert.return_value = True
-        expected_flake_info = {'flake_percent':'0.10001',
-                               'postsubmit_flakes_per_week':'12.0'}
-        self.assertEqual(expected_flake_info,
-                         atest_utils.get_flakes())
-        # Test no valid cert
-        mock_valid_cert.return_value = False
-        self.assertEqual(None,
-                         atest_utils.get_flakes())
-
-    @mock.patch('subprocess.check_call')
-    def test_has_valid_cert(self, mock_call):
-        """Test method has_valid_cert."""
-        # raise subprocess.CalledProcessError
-        mock_call.raiseError.side_effect = subprocess.CalledProcessError
-        self.assertFalse(atest_utils.has_valid_cert())
-        with mock.patch("atest.constants.CERT_STATUS_CMD", ''):
-            self.assertFalse(atest_utils.has_valid_cert())
-        with mock.patch("atest.constants.CERT_STATUS_CMD", 'CMD'):
-            # has valid cert
-            mock_call.return_value = 0
-            self.assertTrue(atest_utils.has_valid_cert())
-            # no valid cert
-            mock_call.return_value = 4
-            self.assertFalse(atest_utils.has_valid_cert())
 
     # pylint: disable=no-member
     def test_read_test_record_proto(self):
@@ -640,17 +663,25 @@ class AtestUtilsUnittests(unittest.TestCase):
             ['exclude1', 'exclude2'],
             exclude_annotation)
 
-    def test_md5sum(self):
-        """Test method of md5sum"""
-        exist_string = os.path.join(unittest_constants.TEST_DATA_DIR,
-                                    unittest_constants.JSON_FILE)
-        inexist_string = os.path.join(unittest_constants.TEST_DATA_DIR,
-                                      unittest_constants.CLASS_NAME)
-        self.assertEqual(
-            atest_utils.md5sum(exist_string),
-            'e066445b9a6244d1998fe76e7b872b3e')
-        self.assertEqual(
-            atest_utils.md5sum(inexist_string), '')
+    def test_md5sum_file_existent(self):
+        """Test method of md5sum for an existent file."""
+        with tempfile.NamedTemporaryFile() as tmp_file:
+            with open(tmp_file.name, 'w', encoding="utf-8") as f:
+                f.write("some context")
+            expected_md5 = '6d583707b0149c07cc19a05f5fdc320c'
+
+            actual_md5 = atest_utils.md5sum(tmp_file.name)
+
+            self.assertEqual(actual_md5, expected_md5)
+
+    def test_md5sum_file_inexistent(self):
+        """Test method of md5sum for an inexistent file."""
+        inexistent_file = os.path.join('/somewhere/does/not/exist')
+        expected_md5 = ""
+
+        actual_md5 = atest_utils.md5sum(inexistent_file)
+
+        self.assertEqual(actual_md5, expected_md5)
 
     def test_check_md5(self):
         """Test method of check_md5"""
@@ -858,61 +889,91 @@ class AtestUtilsUnittests(unittest.TestCase):
         }
         self.assertEqual(expected, atest_utils.get_manifest_info(target_xml))
 
-# pylint: disable=missing-function-docstring
-class AutoShardUnittests(fake_filesystem_unittest.TestCase):
-    """Tests for auto shard functions"""
+class GetTradefedInvocationTimeTest(fake_filesystem_unittest.TestCase):
+    """Tests of get_tradefed_invocation_time for various conditions."""
     def setUp(self):
         self.setUpPyfakefs()
+        self.log_path = '/somewhere/atest/log'
 
-    def test_get_local_auto_shardable_tests(self):
-        """test get local auto shardable list"""
-        shardable_tests_file = Path(atest_utils.get_misc_dir()).joinpath(
-        '.atest/auto_shard/local_auto_shardable_tests')
+    def test_get_tradefed_invocation_time_second_only(self):
+        """Test the parser can handle second and millisecond properly."""
+        end_host_log_file = Path(self.log_path,
+                                 'inv_hashed_path',
+                                 'inv_hashed_subpath',
+                                 'end_host_log_test1.txt')
+        contents = '''
+=============== Consumed Time ==============
+    x86_64 HelloWorldTests: 1s
+    x86_64 hallo-welt: 768 ms
+Total aggregated tests run time: 1s
+============== Modules Preparation Times ==============
+    x86_64 HelloWorldTests => prep = 2580 ms || clean = 298 ms
+    x86_64 hallo-welt => prep = 1736 ms || clean = 243 ms
+Total preparation time: 4s  ||  Total tear down time: 541 ms
+=======================================================
+=============== Summary ===============
+Total Run time: 6s
+2/2 modules completed
+Total Tests       : 3
+PASSED            : 3
+FAILED            : 0
+============== End of Results =============='''
+        self.fs.create_file(end_host_log_file, contents=contents)
+        test = 1 * 1000 + 768
+        prep = 2580 + 1736
+        teardown = 298 + 243
+        expected_elapsed_time = (test, prep, teardown)
 
-        self.fs.create_file(shardable_tests_file, contents='abc\ndef')
+        actual_elapsed_time = atest_utils.get_tradefed_invocation_time(self.log_path)
 
-        long_duration_tests = atest_utils.get_local_auto_shardable_tests()
+        self.assertEqual(actual_elapsed_time, expected_elapsed_time)
 
-        expected_list = ['abc', 'def']
-        self.assertEqual(long_duration_tests , expected_list)
+    def test_get_tradefed_invocation_time_from_hours_to_milliseconds(self):
+        """Test whether the parse can handle from hour to ms properly."""
+        end_host_log_file = Path(self.log_path,
+                                 'inv_hashed_path',
+                                 'inv_hashed_subpath',
+                                 'end_host_log_test2.txt')
+        contents = '''
+=============== Consumed Time ==============
+    x86_64 HelloWorldTests: 27m 19s
+    x86_64 hallo-welt: 3m 2s
+Total aggregated tests run time: 31m
+============== Modules Preparation Times ==============
+    x86_64 HelloWorldTests => prep = 2580 ms || clean = 1298 ms
+    x86_64 hallo-welt => prep = 1736 ms || clean = 1243 ms
+Total preparation time: 1h 24m 17s ||  Total tear down time: 3s
+=======================================================
+=============== Summary ===============
+Total Run time: 2h 5m 17s
+2/2 modules completed
+Total Tests       : 3
+PASSED            : 3
+FAILED            : 0
+============== End of Results =============='''
+        self.fs.create_file(end_host_log_file, contents=contents)
+        test = (27 * 60 + 19) * 1000 + (3 * 60 + 2) * 1000
+        prep = (2580 + 1736)
+        teardown = (1298 + 1243)
+        expected_elapsed_time = (test, prep, teardown)
 
-    def test_update_shardable_tests_with_time_less_than_600(self):
-        """test update local auto shardable list"""
-        shardable_tests_file = Path(atest_utils.get_misc_dir()).joinpath(
-        '.atest/auto_shard/local_auto_shardable_tests')
+        actual_elapsed_time = atest_utils.get_tradefed_invocation_time(self.log_path)
 
-        self.fs.create_file(shardable_tests_file, contents='')
+        self.assertEqual(actual_elapsed_time, expected_elapsed_time)
 
-        atest_utils.update_shardable_tests('test1', 10)
+    def test_get_tradefed_invocation_time_null_result(self):
+        """Test whether the parser returns null tuple when no keywords found."""
+        end_host_log_file = Path(self.log_path,
+                                 'inv_hashed_path',
+                                 'inv_hashed_subpath',
+                                 'end_host_log_test4.txt')
+        contents = 'some\ncontext'
+        self.fs.create_file(end_host_log_file, contents=contents)
+        expected_elapsed_time = (0, 0, 0)
 
-        with open(shardable_tests_file) as f:
-            self.assertEqual('', f.read())
+        actual_elapsed_time = atest_utils.get_tradefed_invocation_time(self.log_path)
 
-    def test_update_shardable_tests_with_time_larger_than_600(self):
-        """test update local auto shardable list"""
-        shardable_tests_file = Path(atest_utils.get_misc_dir()).joinpath(
-        '.atest/auto_shard/local_auto_shardable_tests')
-
-        self.fs.create_file(shardable_tests_file, contents='')
-
-        atest_utils.update_shardable_tests('test2', 1000)
-
-        with open(shardable_tests_file) as f:
-            self.assertEqual('test2', f.read())
-
-    def test_update_shardable_tests_with_time_larger_than_600_twice(self):
-        """test update local auto shardable list"""
-        shardable_tests_file = Path(atest_utils.get_misc_dir()).joinpath(
-        '.atest/auto_shard/local_auto_shardable_tests')
-        # access the fake_filesystem object via fake_fs
-        self.fs.create_file(shardable_tests_file, contents='')
-
-        atest_utils.update_shardable_tests('test3', 1000)
-        atest_utils.update_shardable_tests('test3', 601)
-
-        with open(shardable_tests_file) as f:
-            self.assertEqual('test3', f.read())
-
+        self.assertEqual(actual_elapsed_time, expected_elapsed_time)
 
 if __name__ == "__main__":
     unittest.main()

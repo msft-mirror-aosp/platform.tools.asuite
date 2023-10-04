@@ -57,7 +57,7 @@ TF_CORE_DIR=$ANDROID_BUILD_TOP/tools/tradefederation/core
 if [ ! -d $TF_CORE_DIR ]; then
     TF_DIR=$ANDROID_BUILD_TOP/tools/tradefederation/prebuilts/filegroups
     GTF_DIR=$ANDROID_BUILD_TOP/vendor/google_tradefederation/prebuilts/filegroups
-    PREBUILT_JARS=$(find $TF_DIR $GTF_DIR -type f -name *.jar 2>/dev/null)
+    PREBUILT_JARS=$(find $TF_DIR $GTF_DIR -type f -name '*.jar' 2>/dev/null)
     if [ -n "$PREBUILT_JARS" ]; then
         for jar in $PREBUILT_JARS; do
             TF_PATH+=":$jar"
@@ -81,6 +81,12 @@ if [ -n "${ATEST_HOST_JARS}" ]; then
     TF_PATH=${ATEST_HOST_JARS}
 fi
 
+# Customize TF related settings for ATest local run to align with test runs on
+# CI.
+extra_settings="
+  --test-arg com.android.tradefed.testtype.python.PythonBinaryHostTest:python-options:-vv"
+
+
 # Note: must leave $RDBG_FLAG and $TRADEFED_OPTS unquoted so that they go away when unset
 LOCAL_MODE=1 START_FEATURE_SERVER=1 ${TF_JAVA} $RDBG_FLAG \
     -XX:+HeapDumpOnOutOfMemoryError \
@@ -88,4 +94,4 @@ LOCAL_MODE=1 START_FEATURE_SERVER=1 ${TF_JAVA} $RDBG_FLAG \
     $TRADEFED_OPTS \
     -cp "${TF_PATH}" \
     -DTF_JAR_DIR=${TF_JAR_DIR} ${java_tmp_dir_opt} \
-    com.android.tradefed.command.CommandRunner "$@"
+    com.android.tradefed.command.CommandRunner "$@" $extra_settings

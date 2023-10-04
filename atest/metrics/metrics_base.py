@@ -103,8 +103,8 @@ class MetricsBase:
     #pylint: disable=broad-except
     except Exception:
         _user_key = asuite_metrics.UNUSED_UUID
-    _user_type = get_user_type()
-    _log_source = ATEST_LOG_SOURCE[_user_type]
+    user_type = get_user_type()
+    _log_source = ATEST_LOG_SOURCE[user_type]
     cc = clearcut_client.Clearcut(_log_source)
     tool_name = None
     sub_tool_name = ''
@@ -123,7 +123,7 @@ class MetricsBase:
         if not cls.tool_name:
             logging.debug('There is no tool_name, and metrics stops sending.')
             return None
-        allowed = ({constants.EXTERNAL} if cls._user_type == EXTERNAL_USER
+        allowed = ({constants.EXTERNAL} if cls.user_type == EXTERNAL_USER
                    else {constants.EXTERNAL, constants.INTERNAL})
         fields = [k for k, v in vars(cls).items()
                   if not k.startswith('_') and v in allowed]
@@ -133,12 +133,12 @@ class MetricsBase:
                 fields_and_values[field] = kwargs.pop(field)
         params = {'user_key': cls._user_key,
                   'run_id': cls._run_id,
-                  'user_type': cls._user_type,
+                  'user_type': cls.user_type,
                   'tool_name': cls.tool_name,
                   'sub_tool_name': cls.sub_tool_name,
                   cls._EVENT_NAME: fields_and_values}
         log_event = cls._build_full_event(
-            ATEST_EVENTS[cls._user_type](**params))
+            ATEST_EVENTS[cls.user_type](**params))
         cls.cc.log(log_event)
         return cls.cc
 
