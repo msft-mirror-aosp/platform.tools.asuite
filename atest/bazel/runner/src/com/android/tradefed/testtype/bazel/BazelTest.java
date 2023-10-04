@@ -162,6 +162,11 @@ public final class BazelTest implements IRemoteTest {
             description = "Whether or not to report cached test results.")
     private boolean mReportCachedTestResults = true;
 
+    @Option(
+            name = "report-cached-modules-sparsely",
+            description = "Whether to only report module level events for cached test modules.")
+    private boolean mReportCachedModulesSparsely = false;
+
     public BazelTest() {
         this(new DefaultProcessStarter(), System.getProperties());
     }
@@ -651,6 +656,10 @@ public final class BazelTest implements IRemoteTest {
 
             File protoResult = outputFilesDir.resolve(PROTO_RESULTS_FILE_NAME).toFile();
             TestRecord record = TestRecordProtoUtil.readFromFile(protoResult);
+
+            if (mReportCachedModulesSparsely && isTestResultCached(result)) {
+                listener = new SparseTestListener(listener);
+            }
 
             // Tradefed does not report the invocation trace to the proto result file so we have to
             // explicitly re-add it here.

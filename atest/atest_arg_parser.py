@@ -131,8 +131,6 @@ TEST_FILTER = 'Run tests which are specified using this option.'
 TEST_TIMEOUT = ('Customize test timeout. E.g. 60000(in milliseconds) '
                 'represents 1 minute timeout. For no timeout, set to 0.')
 TF_DEBUG = 'Enable tradefed debug mode with a specified port. (default: 10888)'
-TF_EARLY_DEVICE_RELEASE = ('Inform Tradefed to release the device as soon as '
-                           'when done with it.')
 TF_TEMPLATE = ('Add extra tradefed template for ATest suite, '
                'e.g. atest <test> --tf-template <template_key>=<template_path>')
 UPDATE_CMD_MAPPING = ('Update the test command of input tests. Warning: result '
@@ -285,10 +283,6 @@ class AtestArgParser(argparse.ArgumentParser):
                             help=START_AVD)
         agroup.add_argument('-s', '--serial', action='append', help=SERIAL)
 
-        # Options for tradefed to release test device earlier.
-        self.add_argument('--tf-early-device-release', action='store_true',
-                          help=TF_EARLY_DEVICE_RELEASE)
-
         # Options to enable selection menu when multiple test configs belong to
         # same test module.
         self.add_argument('--test-config-select', action='store_true',
@@ -437,7 +431,6 @@ def print_epilog_text():
         TEST_MAPPING=TEST_MAPPING,
         TEST_TIMEOUT=TEST_TIMEOUT,
         TF_DEBUG=TF_DEBUG,
-        TF_EARLY_DEVICE_RELEASE=TF_EARLY_DEVICE_RELEASE,
         TEST_FILTER=TEST_FILTER,
         TF_TEMPLATE=TF_TEMPLATE,
         USER_TYPE=USER_TYPE,
@@ -549,9 +542,6 @@ OPTIONS
             {TEST_FILTER} e.g.
                 atest perfetto_integrationtests --test-filter *ConsoleInterceptorVerify*
                 atest HelloWorldTests --test-filter testHalloWelt*
-
-        --tf-early-device-release
-            {TF_EARLY_DEVICE_RELEASE}
 
         --tf-template
             {TF_TEMPLATE}

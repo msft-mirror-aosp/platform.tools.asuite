@@ -31,6 +31,7 @@ from atest import atest_error
 from atest import constants
 
 from atest.test_finders import test_info
+from atest.test_finders import test_filter_utils
 from atest.test_finders import test_finder_base
 from atest.test_finders import test_finder_utils
 from atest.test_runners import atest_tf_test_runner
@@ -270,7 +271,7 @@ class TFIntegrationFinder(test_finder_base.TestFinderBase):
         rel_config = os.path.relpath(test_file, self.root_dir)
         filters = frozenset()
         if class_name:
-            class_name, methods = test_finder_utils.split_methods(class_name)
+            class_name, methods = test_filter_utils.split_methods(class_name)
             test_filters = []
             if '.' in class_name:
                 test_filters.append(test_info.TestFilter(class_name, methods))
@@ -284,7 +285,7 @@ class TFIntegrationFinder(test_finder_base.TestFinderBase):
                     return None
                 for path in paths:
                     class_name = (
-                        test_finder_utils.get_fully_qualified_class_name(
+                        test_filter_utils.get_fully_qualified_class_name(
                             path))
                     test_filters.append(test_info.TestFilter(
                         class_name, methods))
@@ -310,7 +311,7 @@ class TFIntegrationFinder(test_finder_base.TestFinderBase):
         Returns:
             A list of populated TestInfo namedtuple if test found, else None
         """
-        path, _ = test_finder_utils.split_methods(path)
+        path, _ = test_filter_utils.split_methods(path)
 
         # Make sure we're looking for a config.
         if not path.endswith('.xml'):
