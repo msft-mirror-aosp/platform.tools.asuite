@@ -23,7 +23,6 @@ code base and executing the tests via the TradeFederation test harness.
 atest is designed to support any test types that can be ran by TradeFederation.
 """
 
-# pylint: disable=line-too-long
 # pylint: disable=too-many-lines
 
 from __future__ import print_function
@@ -259,7 +258,9 @@ def _missing_environment_variables():
     Returns:
         List of strings of any missing environment variables.
     """
-    missing = list(filter(None, [x for x in EXPECTED_VARS if not os.environ.get(x)]))
+    missing = list(
+        filter(None, [x for x in EXPECTED_VARS if not os.environ.get(x)])
+    )
     if missing:
         logging.error('Local environment doesn\'t appear to have been '
                       'initialized. Did you remember to run lunch? Expected '
@@ -334,11 +335,14 @@ def get_extra_args(args):
     return extra_args
 
 
-def _validate_exec_mode(args, test_infos, host_tests=None):
+def _validate_exec_mode(args, test_infos: TestInfo, host_tests=None):
     """Validate all test execution modes are not in conflict.
 
-    Exit the program with INVALID_EXEC_MODE code if have device-only and host-only.
-    If no conflict and host side, add args.host=True.
+    Exit the program with INVALID_EXEC_MODE code if the desired is a host-side
+    test but the given is a device-side test.
+
+    If the given is a host-side test and not specified `args.host`, forcibly
+    set `args.host` to True.
 
     Args:
         args: parsed args object.
@@ -351,11 +355,13 @@ def _validate_exec_mode(args, test_infos, host_tests=None):
     err_msg = None
     # In the case of '$atest <device-only> --host', exit.
     if (host_tests or args.host) and constants.DEVICE_TEST in all_device_modes:
-        device_only_tests = [x.test_name for x in test_infos
-                             if x.get_supported_exec_mode() == constants.DEVICE_TEST]
-        err_msg = ('Specified --host, but the following tests are device-only:\n  ' +
-                   '\n  '.join(sorted(device_only_tests)) + '\nPlease remove the option '
-                   'when running device-only tests.')
+        device_only_tests = [
+            x.test_name for x in test_infos
+            if x.get_supported_exec_mode() == constants.DEVICE_TEST]
+        err_msg = (
+            'Specified --host, but the following tests are device-only:\n  ' +
+            '\n  '.join(sorted(device_only_tests)) + '\nPlease remove the '
+            ' option when running device-only tests.')
     # In the case of '$atest <host-only> <device-only> --host' or
     # '$atest <host-only> <device-only>', exit.
     if (constants.DEVICELESS_TEST in all_device_modes and
@@ -367,8 +373,8 @@ def _validate_exec_mode(args, test_infos, host_tests=None):
         logging.error(err_msg)
         metrics_utils.send_exit_event(ExitCode.INVALID_EXEC_MODE, logs=err_msg)
         sys.exit(ExitCode.INVALID_EXEC_MODE)
-    # The 'adb' may not be available for the first repo sync or a clean build; run
-    # `adb devices` in the build step again.
+    # The 'adb' may not be available for the first repo sync or a clean build;
+    # run `adb devices` in the build step again.
     if at.has_command('adb'):
         _validate_adb_devices(args, test_infos)
     # In the case of '$atest <host-only>', we add --host to run on host-side.
@@ -394,8 +400,9 @@ def _validate_adb_devices(args, test_infos):
         return
     # No need to check local device availability if the device test is running
     # remotely.
-    if (args.bazel_mode_features and bazel_mode.Features.EXPERIMENTAL_REMOTE_AVD
-            in args.bazel_mode_features):
+    if (args.bazel_mode_features and
+        (bazel_mode.Features.EXPERIMENTAL_REMOTE_AVD
+             in args.bazel_mode_features)):
         return
     all_device_modes = {x.get_supported_exec_mode() for x in test_infos}
     device_tests = [x.test_name for x in test_infos
@@ -600,7 +607,8 @@ def _run_test_mapping_tests(results_dir, test_infos, extra_args, mod_info):
         logging.debug('\n'.join([str(info) for info in tests]))
         tests_exit_code, reporter = test_runner_handler.run_all_tests(
             results_dir, tests, args, mod_info, delay_print_summary=True)
-        atest_execution_info.AtestExecutionInfo.result_reporters.append(reporter)
+        (atest_execution_info.AtestExecutionInfo.
+         result_reporters.append(reporter))
         test_results.append((tests_exit_code, reporter, test_type))
 
     all_tests_exit_code = ExitCode.SUCCESS
@@ -626,7 +634,8 @@ def _run_test_mapping_tests(results_dir, test_infos, extra_args, mod_info):
 
 
 def _dry_run(results_dir, extra_args, test_infos, mod_info):
-    """Only print the commands of the target tests rather than running them in actual.
+    """Only print the commands of the target tests rather than running them in
+    actual.
 
     Args:
         results_dir: Path for saving atest logs.
@@ -980,7 +989,8 @@ def main(
         argv: A list of arguments.
         results_dir: A directory which stores the ATest execution information.
         args: An argparse.Namespace class instance holding parsed args.
-        roboleaf_unsupported_flags: A list of flags which are unsupported by roboleaf mode.
+        roboleaf_unsupported_flags: A list of flags which are unsupported by
+                                    roboleaf mode.
 
     Returns:
         Exit code.
@@ -1007,10 +1017,10 @@ def main(
     # Check if we can run all tests with bazel early in the atest runtime and
     # skip all of the standard atest logic.
     #
-    # Bazel handles a lot of the heavy lifting that atest standard mode does, like
-    # building the build modules and running tradefed. That said. Bazel does not
-    # fully support every atest flag -- not every one of them will make sense
-    # when Bazel is handling both build and test.
+    # Bazel handles a lot of the heavy lifting that atest standard mode does,
+    # like building the build modules and running tradefed. That said. Bazel
+    # does not fully support every atest flag -- not every one of them will
+    # make sense when Bazel is handling both build and test.
     b_supported_tests = roboleaf_test_runner.are_all_tests_supported(
         args.roboleaf_mode, args.tests, roboleaf_unsupported_flags)
     if b_supported_tests:
@@ -1021,7 +1031,8 @@ def main(
 
     # Run Test Mapping or coverage by no-bazel-mode.
     if atest_utils.is_test_mapping(args) or args.experimental_coverage:
-        atest_utils.colorful_print('Not running using bazel-mode.', constants.YELLOW)
+        atest_utils.colorful_print('Not running using bazel-mode.',
+                                   constants.YELLOW)
         args.bazel_mode = False
 
     proc_idx = None
@@ -1082,12 +1093,13 @@ def main(
             args.roboleaf_mode,
             test_names,
             roboleaf_unsupported_flags,
-            {t: AtestTradefedTestRunner.flatten_test_filters(test_name_to_filters.get(t))
-                for t in test_name_to_filters})
+            {t: AtestTradefedTestRunner.flatten_test_filters(
+                test_name_to_filters.get(t)) for t in test_name_to_filters}
+        )
         if b_supported_tests:
             atest_utils.roboleaf_print(
-                f'{atest_utils.mark_yellow("TIP")}: '
-                "Directly specify the module name to avoid test finder overhead.")
+                f'{atest_utils.mark_yellow("TIP")}: Directly '
+                "specify the module name to avoid test finder overhead.")
             metrics.LocalDetectEvent(
                 detect_type=DetectType.ROBOLEAF_NON_MODULE_FINDER,
                 result=DetectType.ROBOLEAF_NON_MODULE_FINDER,
@@ -1191,14 +1203,16 @@ def main(
         # Only send duration to metrics when no --build.
         if not steps.has_build():
             _init_and_find = time.time() - _begin_time
-            logging.debug('Initiation and finding tests took %ss', _init_and_find)
+            logging.debug('Initiation and finding tests took %ss',
+                          _init_and_find)
             metrics.LocalDetectEvent(
                 detect_type=DetectType.INIT_AND_FIND_MS,
                 result=int(_init_and_find*1000))
         if not is_from_test_mapping(test_infos):
             tests_exit_code, reporter = test_runner_handler.run_all_tests(
                 results_dir, test_infos, extra_args, mod_info)
-            atest_execution_info.AtestExecutionInfo.result_reporters.append(reporter)
+            (atest_execution_info.AtestExecutionInfo
+             .result_reporters.append(reporter))
         else:
             tests_exit_code = _run_test_mapping_tests(
                 results_dir, test_infos, extra_args, mod_info)
@@ -1240,14 +1254,19 @@ if __name__ == '__main__':
     else:
         metrics.LocalDetectEvent(
             detect_type=DetectType.ATEST_CONFIG, result=0)
-    atest_configs.GLOBAL_ARGS, roboleaf_unsupported_flags = _parse_args(final_args)
+    (atest_configs.GLOBAL_ARGS,
+     roboleaf_unsupported_flags) = _parse_args(final_args)
     with atest_execution_info.AtestExecutionInfo(
             final_args, RESULTS_DIR,
             atest_configs.GLOBAL_ARGS) as result_file:
         setup_metrics_tool_name(atest_configs.GLOBAL_ARGS.no_metrics)
 
         EXIT_CODE = main(
-            final_args, RESULTS_DIR, atest_configs.GLOBAL_ARGS, roboleaf_unsupported_flags)
+            final_args,
+            RESULTS_DIR,
+            atest_configs.GLOBAL_ARGS,
+            roboleaf_unsupported_flags
+        )
         DETECTOR = bug_detector.BugDetector(final_args, EXIT_CODE)
         if EXIT_CODE not in EXIT_CODES_BEFORE_TEST:
             metrics.LocalDetectEvent(
