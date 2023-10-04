@@ -48,6 +48,7 @@ from atest.coverage import coverage
 from atest.logstorage import atest_gcp_utils
 from atest.logstorage import logstorage_utils
 from atest.metrics import metrics
+from atest.test_finders import test_filter_utils
 from atest.test_finders import test_finder_utils
 from atest.test_finders import test_info
 from atest.test_runners import test_runner_base as trb
@@ -105,7 +106,7 @@ class TradeFedExitError(Error):
 
     def _get_exit_reason(self, exit_code):
         if 0 < exit_code < len(_TF_EXIT_CODE):
-            return atest_utils.colorize(_TF_EXIT_CODE[exit_code], constants.RED)
+            return atest_utils.mark_red(_TF_EXIT_CODE[exit_code])
         return 'Unknown exit status'
 
 class AtestTradefedTestRunner(trb.TestRunnerBase):
@@ -715,9 +716,6 @@ class AtestTradefedTestRunner(trb.TestRunnerBase):
                              % extra_args[constants.LOCAL_BUILD_ID])
             test_args.append('--stub-build-target %s'
                              % extra_args[constants.BUILD_TARGET])
-        if extra_args.get(constants.ENABLE_DEVICE_PREPARER, False):
-            test_args.append('--template:map preparers=%s'
-                             % constants.DEVICE_SETUP_PREPARER)
         for info in test_infos:
             if constants.TEST_WITH_MAINLINE_MODULES_RE.match(info.test_name):
                 # TODO(b/253641058) Remove this once mainline module
@@ -732,8 +730,8 @@ class AtestTradefedTestRunner(trb.TestRunnerBase):
         test_args.extend(['--log-level', log_level])
 
         # Set no-early-device-release by default to speed up TF teardown time.
-        if not constants.TF_EARLY_DEVICE_RELEASE in extra_args:
-            test_args.extend(['--no-early-device-release'])
+        # TODO(b/300882567) remove this forever when it's the default behavor.
+        test_args.extend(['--no-early-device-release'])
 
         args_to_add, args_not_supported = self._parse_extra_args(
             test_infos, extra_args)
@@ -1169,9 +1167,8 @@ def generate_annotation_filter_args(
                     option_value=annotation))
                 annotation_filter_args.extend([constants.TF_MODULE_ARG, module_arg])
             logging.error(
-                atest_utils.colorize(
-                    f'Cannot find similar annotation: {keyword}',
-                    constants.RED))
+                atest_utils.mark_red(
+                    f'Cannot find similar annotation: {keyword}'))
     return annotation_filter_args
 
 
@@ -1201,6 +1198,8 @@ def extra_args_to_tf_args(
 
     # Mapping supported TF arguments to the processing function.
     supported_tf_args = dict({
+        constants.ENABLE_DEVICE_PREPARER:
+            constant_list('--enable-device-preparer'),
         constants.WAIT_FOR_DEBUGGER:
             constant_list('--wait-for-debugger'),
         constants.DISABLE_INSTALL:
@@ -1293,7 +1292,6 @@ def extra_args_to_tf_args(
             continue
 
         if arg in (constants.TF_TEMPLATE,
-                   constants.TF_EARLY_DEVICE_RELEASE,
                    constants.INVOCATION_ID,
                    constants.WORKUNIT_ID,
                    constants.REQUEST_UPLOAD_RESULT,
@@ -1331,7 +1329,7 @@ def get_include_filter(test_infos: List[test_info.TestInfo]) -> List[str]:
                 instrumentation_filters.append(test_filter)
                 # Only pass test_name to --atest-include-filter if the given is
                 # a Java parameterized test.
-                test_filter, _ = test_finder_utils.split_methods(test_filter)
+                test_filter, _ = test_filter_utils.split_methods(test_filter)
             filter_arg = constants.TF_ATEST_INCLUDE_FILTER_VALUE_FMT.format(
                 test_name=info.test_name,
                 test_filter=test_filter
