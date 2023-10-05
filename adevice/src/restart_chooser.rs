@@ -30,10 +30,13 @@ impl RestartChooser {
         Ok(RestartChooser { restart_types: Self::restart_type_for_all_installed_files(reader)? })
     }
 
-    // TODO(rbraunstein): Create a trait for this to indicate we can replace with an alternative
-    // implementation.
-    pub fn restart_type(&self, installed_file: &str) -> Option<RestartType> {
-        self.restart_types.get(installed_file).cloned()
+    // Given a file in ANDROID_PRODUCT_OUT tree, return the restart type for it
+    // or default to Reboot if the file is not mentioned module_info.json
+    pub fn restart_type(&self, installed_file: &str) -> RestartType {
+        match self.restart_types.get(installed_file).cloned() {
+            Some(val) => val,
+            None => RestartType::Reboot, // If we don't know, then it's full reboot.
+        }
     }
 
     // Parse all of module-info.json and for all the installed files for a module,
@@ -220,7 +223,7 @@ mod tests {
         ] {
             // Those all one module with APPS, which are SoftRestart
             assert_eq!(
-                Some(RestartType::SoftRestart),
+                RestartType::SoftRestart,
                 sample_build_system().restart_type(installed_file),
                 "Wrong class for {}",
                 installed_file
@@ -229,14 +232,9 @@ mod tests {
     }
 
     #[test]
-    fn host_files_should_not_be_found() {
-        assert_eq!(None, sample_build_system().restart_type("out/host/linux-x86/bin/adevice"));
-    }
-
-    #[test]
     fn reboot_for_module_with_shared_and_static_lib() {
         assert_eq!(
-            Some(RestartType::Reboot),
+            RestartType::Reboot,
             sample_build_system().restart_type("vendor/lib64/DefaultVehicleHal.so")
         );
     }
@@ -252,11 +250,11 @@ mod tests {
         }}"#;
         let build_system = RestartChooser::new(BufReader::new(json.as_bytes())).unwrap();
         // Work on absolute out paths, as long as they still have target/product in them.
-        assert_eq!(Some(RestartType::Reboot), build_system.restart_type("vendor/lib64/Weird.so"));
+        assert_eq!(RestartType::Reboot, build_system.restart_type("vendor/lib64/Weird.so"));
         // One installed file should not interfere with another if that installed file is not
         // on the device.
-        assert_eq!(None, build_system.restart_type("bad/file/path"));
-        assert_eq!(Some(RestartType::Reboot), build_system.restart_type("vendor/good/file/path"));
+        assert_eq!(RestartType::Reboot, build_system.restart_type("bad/file/path"));
+        assert_eq!(RestartType::Reboot, build_system.restart_type("vendor/good/file/path"));
     }
 
     #[test]
@@ -267,7 +265,7 @@ mod tests {
              "installed": ["out/target/product/vsoc_x86_64/vendor/good/file/path"]
         }}"#;
         let build_system = RestartChooser::new(BufReader::new(json.as_bytes())).unwrap();
-        assert_eq!(Some(RestartType::Reboot), build_system.restart_type("vendor/good/file/path"));
+        assert_eq!(RestartType::Reboot, build_system.restart_type("vendor/good/file/path"));
     }
 
     #[test]
@@ -291,7 +289,7 @@ mod tests {
             "vendor/good/file/path.vdex",
         ] {
             assert_eq!(
-                Some(RestartType::SoftRestart),
+                RestartType::SoftRestart,
                 build_system.restart_type(installed_file),
                 "Wrong class for {}",
                 installed_file
@@ -305,7 +303,7 @@ mod tests {
             "vendor/good/file/path",
         ] {
             assert_eq!(
-                Some(RestartType::Reboot),
+                RestartType::Reboot,
                 build_system.restart_type(installed_file),
                 "Wrong class for {}",
                 installed_file
@@ -322,18 +320,15 @@ mod tests {
                            "out/target/product/vsoc_x86_64/system/bin/surfaceflinger.rc"]
         }}"#;
         let build_system = RestartChooser::new(BufReader::new(json.as_bytes())).unwrap();
+        assert_eq!(RestartType::Reboot, build_system.restart_type("system/bin/surfaceflinger.rc"));
         assert_eq!(
-            Some(RestartType::Reboot),
-            build_system.restart_type("system/bin/surfaceflinger.rc")
-        );
-        assert_eq!(
-            Some(RestartType::SoftRestart),
+            RestartType::SoftRestart,
             build_system.restart_type("system/bin/surfaceflinger")
         );
     }
 
     #[test]
-    fn missing_installed_returns_none() {
-        assert_eq!(None, sample_build_system().restart_type("bogus_file"));
+    fn missing_installed_returns_reboot() {
+        assert_eq!(RestartType::Reboot, sample_build_system().restart_type("bogus_file"));
     }
 }

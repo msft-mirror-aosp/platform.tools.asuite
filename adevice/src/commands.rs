@@ -170,20 +170,13 @@ pub fn restart_type(
 
     for installed_file in installed_file_paths {
         let restart_type = build_system.restart_type(installed_file);
-        debug!(
-            " -- Restart is {} for {installed_file}",
-            match restart_type.clone() {
-                Some(r) => format!("{r:?}"),
-                None => "Unknown".to_string(),
-            }
-        );
+        debug!(" -- Restart is {:?} for {}", restart_type.clone(), installed_file);
         match restart_type {
-            Some(RestartType::Reboot) => reboot_needed = true,
-            Some(RestartType::SoftRestart) => soft_restart_needed = true,
-            Some(RestartType::None) => (),
-            None => (),
-            // TODO(rbraunstein): Deal with determining the command needed.
-            // RestartType::RestartBinary => (),
+            RestartType::Reboot => reboot_needed = true,
+            RestartType::SoftRestart => soft_restart_needed = true,
+            RestartType::None => (),
+            // TODO(rbraunstein): Deal with determining the command needed. Full reboot for now.
+            //RestartType::RestartBinary => (),
         }
     }
     // Note, we don't do early return so we log restart_type for each file.
