@@ -327,14 +327,14 @@ fn installed_apk_action(
 /// adb exec-out pm list packages  -s -f
 fn is_apk_installed(host_path: &Path, installed_packages: &HashSet<String>) -> Result<bool> {
     let host_apk_path = host_path.as_os_str().to_str().unwrap();
-    let aapt_output = std::process::Command::new("aapt")
+    let aapt_output = std::process::Command::new("aapt2")
         .args(["dump", "permissions", host_apk_path])
         .output()
-        .context("Running appt on host to see if apk installed")?;
+        .context(format!("Running aapt2 on host to see if apk installed: {}", host_apk_path))?;
 
     if !aapt_output.status.success() {
         let stderr = String::from_utf8(aapt_output.stderr)?;
-        bail!("Unable to run aapt to get installed packages {:?}", stderr);
+        bail!("Unable to run aapt2 to get installed packages {:?}", stderr);
     }
 
     match package_from_aapt_dump_output(aapt_output.stdout) {
@@ -342,7 +342,7 @@ fn is_apk_installed(host_path: &Path, installed_packages: &HashSet<String>) -> R
             debug!("AAPT dump found package: {package}");
             Ok(installed_packages.contains(&package))
         }
-        Err(e) => bail!("Unable to run aapt to get package information {e:?}"),
+        Err(e) => bail!("Unable to run aapt2 to get package information {e:?}"),
     }
 }
 
@@ -359,7 +359,7 @@ lazy_static! {
         Regex::new(r"^package:/data/app/.*/base.apk=(.+)$").expect("regex does not compile");
 }
 
-/// Filter aapt dump output to parse out the package name for the apk.
+/// Filter aapt2 dump output to parse out the package name for the apk.
 fn package_from_aapt_dump_output(stdout: Vec<u8>) -> Result<String> {
     let package_match = String::from_utf8(stdout)?
         .lines()
@@ -384,7 +384,7 @@ fn get_installed_apks() -> Result<HashSet<String>> {
     let package_manager_output = std::process::Command::new("adb")
         .args(["exec-out", "pm", "list", "packages", "-s", "-f"])
         .output()
-        .context("Running appt on host to see if apk installed")?;
+        .context("Running pm list packages")?;
 
     if !package_manager_output.status.success() {
         let stderr = String::from_utf8(package_manager_output.stderr)?;
@@ -396,7 +396,7 @@ fn get_installed_apks() -> Result<HashSet<String>> {
             debug!("adb pm list packages found packages: {packages:?}");
             Ok(packages)
         }
-        Err(e) => bail!("Unable to run aapt to get package information {e:?}"),
+        Err(e) => bail!("Unable to run aapt2 to get package information {e:?}"),
     }
 }
 
