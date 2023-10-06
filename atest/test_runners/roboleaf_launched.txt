@@ -61,6 +61,7 @@
 
 # These tests require a connected device.
 
+//cts/flags/cc_tests:FlagMacrosTests
 # //cts/tests/tests/gesture:CtsGestureTestCases # b/303786272
 # //external/bsdiff:bsdiff_unittest
 # //external/minijail:config_parser_unittest_gtest
