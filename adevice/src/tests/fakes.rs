@@ -1,14 +1,11 @@
 use super::fingerprint;
-use crate::cli::Cli;
 use crate::commands::AdbCommand;
 use crate::tests::{dir_metadata, file_metadata};
 use crate::Device;
 use crate::Host;
 #[cfg(test)]
 use anyhow::Result;
-use clap::Parser;
 use std::collections::{HashMap, HashSet};
-use std::ffi::OsString;
 use std::path::{Path, PathBuf};
 
 pub struct FakeHost {}
@@ -39,14 +36,6 @@ impl Host for FakeHost {
             (PathBuf::from("system/fakefs_new_file"), file_metadata("digest1")),
             (PathBuf::from("system"), dir_metadata()),
         ]))
-    }
-
-    fn parse_argv<I, T>(&self, argv: I) -> Cli
-    where
-        I: IntoIterator<Item = T>,
-        T: Into<OsString> + Clone,
-    {
-        Cli::parse_from(argv)
     }
 
     fn tracked_files(
@@ -88,5 +77,9 @@ impl Device for FakeDevice {
 
     fn get_installed_apks(&self) -> Result<HashSet<String>> {
         Ok(self.installed_apks.clone())
+    }
+
+    fn wait(&self) -> Result<String> {
+        Ok(String::new())
     }
 }
