@@ -3,7 +3,7 @@ use env_logger::{Builder, Target};
 use std::io::Write;
 
 pub fn init_logger(global_options: &cli::GlobalOptions) {
-    Builder::from_default_env()
+    let _ = Builder::from_default_env()
         .target(Target::Stdout)
         .format_module_path(false)
         .format_target(false)
@@ -15,5 +15,5 @@ pub fn init_logger(global_options: &cli::GlobalOptions) {
         })
         .write_style(env_logger::WriteStyle::Auto)
         .format(move |buf, record| writeln!(buf, "{:?}", record.args()))
-        .init();
+        .try_init();
 }
