@@ -1,7 +1,8 @@
 use crate::commands::{restart_type, run_adb_command, split_string, AdbCommand};
 use crate::restart_chooser::RestartType;
-use crate::time;
+use crate::Device;
 use crate::RestartChooser;
+use crate::{fingerprint, time};
 
 use anyhow::{bail, Result};
 use itertools::Itertools;
@@ -11,13 +12,40 @@ use std::collections::HashMap;
 use std::path::PathBuf;
 use std::time::Duration;
 
-// TODO(rbraunstein): Combine this file with commands or adb command.
-fn reboot() -> Result<String> {
-    run_adb_command(&vec!["reboot".to_string()])
+pub struct RealDevice {}
+
+impl Device for RealDevice {
+    /// Runs `adb` with the given args.
+    /// If there is a non-zero exit code or non-empty stderr, then
+    /// creates a Result Err string with the details.
+    fn run_adb_command(&self, args: &AdbCommand) -> Result<String> {
+        run_adb_command(args)
+    }
+
+    fn reboot(&self) -> Result<String> {
+        self.run_adb_command(&vec!["reboot".to_string()])
+    }
+
+    fn soft_restart(&self) -> Result<String> {
+        self.run_adb_command(&split_string("exec-out start"))
+    }
+
+    fn fingerprint(
+        &self,
+        partitions: &[String],
+    ) -> Result<HashMap<PathBuf, fingerprint::FileMetadata>> {
+        crate::fingerprint_device(self, partitions)
+    }
+
+    fn get_installed_apks(&self) -> Result<std::collections::HashSet<String>> {
+        crate::get_installed_apks()
+    }
 }
 
-fn soft_restart() -> Result<String> {
-    run_adb_command(&split_string("exec-out start"))
+impl RealDevice {
+    pub fn new() -> RealDevice {
+        RealDevice {}
+    }
 }
 
 /// Common command to prepare a device to receive new files.
@@ -29,12 +57,12 @@ fn soft_restart() -> Result<String> {
 ///  # We poll for that property to be set back to 1.
 ///  # Both reboot and exec-out start will set it back to 1 when the
 ///  # system has booted and is ready to receive commands and run tests.
-fn setup_push() -> Result<String> {
-    run_adb_command(&split_string("exec-out stop"))?;
+fn setup_push(device: &impl Device) -> Result<String> {
+    device.run_adb_command(&split_string("exec-out stop"))?;
     // We seem to need a remount after reboots to make the system writable.
-    run_adb_command(&split_string("remount"))?;
+    device.run_adb_command(&split_string("remount"))?;
     // Set the prop to the empty string so our "-z" check in wait works.
-    run_adb_command(&vec![
+    device.run_adb_command(&vec![
         "exec-out".to_string(),
         "setprop".to_string(),
         "sys.boot_completed".to_string(),
@@ -98,6 +126,7 @@ pub fn update(
     restart_chooser: &RestartChooser,
     adb_commands: &HashMap<PathBuf, AdbCommand>,
     profiler: &mut crate::Profiler,
+    device: &impl Device,
 ) -> Result<()> {
     if adb_commands.is_empty() {
         return Ok(());
@@ -106,17 +135,17 @@ pub fn update(
     let installed_files =
         adb_commands.keys().map(|p| p.clone().into_os_string().into_string().unwrap()).collect();
 
-    setup_push()?;
+    setup_push(device)?;
     time!(
         for command in adb_commands.values().cloned().sorted_by(&mkdir_comes_first_rm_dfs) {
-            run_adb_command(&command)?;
+            device.run_adb_command(&command)?;
         },
         profiler.adb_cmds
     );
 
     match restart_type(restart_chooser, &installed_files) {
-        RestartType::Reboot => time!(reboot(), profiler.reboot),
-        RestartType::SoftRestart => soft_restart(),
+        RestartType::Reboot => time!(device.reboot(), profiler.reboot),
+        RestartType::SoftRestart => device.soft_restart(),
         RestartType::None => {
             log::debug!("No restart command");
             return Ok(());
@@ -250,5 +279,30 @@ mod tests {
                 &split_string("shell rm system/app/FakeOemFeatures/FakeOemFeatures.apk"),
             )
         );
+    }
+
+    #[test]
+    // NOTE: This test assumes we have adb in our path.
+    fn adb_command_success() {
+        // Use real device for device tests.
+        let result = RealDevice::new()
+            .run_adb_command(&vec!["version".to_string()])
+            .expect("Error running command");
+        assert!(
+            result.contains("Android Debug Bridge version"),
+            "Expected a version string, but received:\n {result}"
+        );
+    }
+
+    #[test]
+    fn adb_command_failure() {
+        let result = RealDevice::new().run_adb_command(&vec!["improper_cmd".to_string()]);
+        if result.is_ok() {
+            panic!("Did not expect to succeed");
+        }
+
+        let expected_str =
+            "adb error, Exited with status code: 1  adb: unknown command improper_cmd\n";
+        assert_eq!(expected_str, format!("{:?}", result.unwrap_err()));
     }
 }
