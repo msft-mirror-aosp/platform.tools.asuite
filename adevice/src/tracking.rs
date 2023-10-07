@@ -41,6 +41,10 @@ impl Config {
         Ok(Config { base: "droid".to_string(), modules: Vec::new(), home_dir })
     }
 
+    pub fn default() -> Self {
+        Config { base: "droid".to_string(), modules: Vec::new(), home_dir: String::new() }
+    }
+
     pub fn print(&self) {
         debug!("Tracking base: `{}` and modules {:?}", self.base, self.modules);
     }
@@ -107,7 +111,7 @@ impl Config {
     ///   The final element of the path can be derived from the final element of ANDROID_PRODUCT_OUT,
     ///   but matching against */target/product/* is enough.
     /// Store all ninja deps in the cache and filter out partitions per run.
-    pub fn tracked_files(&self, partitions: &Vec<PathBuf>) -> Result<Vec<String>> {
+    pub fn tracked_files(&self, partitions: &[PathBuf]) -> Result<Vec<String>> {
         if let Ok(cache) = self.read_cache() {
             Ok(filter_partitions(&cache, partitions))
         } else {
@@ -252,7 +256,7 @@ fn tracked_files(output: &process::Output) -> Result<Vec<String>> {
 
 /// Iterate through all ninja deps which are already filtered to and relative to ANDROID_PRODUCT_OUT
 /// Return only those whose path starts with a partition.
-fn filter_partitions(ninja_deps: &[String], partitions: &Vec<PathBuf>) -> Vec<String> {
+fn filter_partitions(ninja_deps: &[String], partitions: &[PathBuf]) -> Vec<String> {
     ninja_deps
         .iter()
         .filter_map(|dep| {
@@ -389,7 +393,7 @@ mod tests {
             ],
             crate::tracking::filter_partitions(
                 &ninja_deps,
-                &vec![PathBuf::from("system"), PathBuf::from("data")]
+                &[PathBuf::from("system"), PathBuf::from("data")]
             )
         );
     }
@@ -405,7 +409,7 @@ mod tests {
         ];
         assert_eq!(
             Vec::<String>::new(),
-            crate::tracking::filter_partitions(&ninja_deps, &vec![PathBuf::from("sys")])
+            crate::tracking::filter_partitions(&ninja_deps, &[PathBuf::from("sys")])
         );
     }
 
