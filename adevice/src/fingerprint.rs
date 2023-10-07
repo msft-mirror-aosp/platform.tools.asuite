@@ -367,7 +367,6 @@ mod tests {
         ]);
 
         let diffs = diff(&host_map, &device_map, UsePermissions);
-        // TODO(rbraunstein): Be terser with a helper func or asserts on containers/bags.
         assert_eq!(
             BTreeSet::from_iter(diffs.device_diffs.keys()),
             BTreeSet::from([&PathBuf::from("diff_link"), &PathBuf::from("path/to/diff_file")])
@@ -822,6 +821,5 @@ mod tests {
         FileMetadata { file_type: FileType::Directory, ..Default::default() }
     }
 
-    // TODO(rbraunstein): assertables crates for bags/containers.
     // TODO(rbraunstein): a bunch more tests:
 }

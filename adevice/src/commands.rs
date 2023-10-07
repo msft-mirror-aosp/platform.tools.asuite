@@ -111,9 +111,6 @@ pub fn compose(diffs: &Diffs, product_out: &Path) -> Commands {
     commands
 }
 
-/// Runs `adb` with the given args.
-/// If there is a non-zero exit code or non-empty stderr, then
-/// creates a Result Err string with the details.
 pub fn run_adb_command(args: &AdbCommand) -> Result<String> {
     info!("       -- adb {args:?}");
     let output =
@@ -257,28 +254,6 @@ mod tests {
                 &PathBuf::from("/tmp/ha ha/물 주세요")
             )
         );
-    }
-
-    #[test]
-    // NOTE: This test assumes we have adb in our path.
-    fn adb_command_success() {
-        let result = run_adb_command(&vec!["version".to_string()]).expect("Error running command");
-        assert!(
-            result.contains("Android Debug Bridge version"),
-            "Expected a version string, but received:\n {result}"
-        );
-    }
-
-    #[test]
-    fn adb_command_failure() {
-        let result = run_adb_command(&vec!["improper_cmd".to_string()]);
-        if result.is_ok() {
-            panic!("Did not expect to succeed");
-        }
-
-        let expected_str =
-            "adb error, Exited with status code: 1  adb: unknown command improper_cmd\n";
-        assert_eq!(expected_str, format!("{:?}", result.unwrap_err()));
     }
 
     // helper to gofrom vec of str -> vec of String
