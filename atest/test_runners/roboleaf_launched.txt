@@ -43,6 +43,7 @@
 //external/selinux/libselinux:libselinux_test
 //frameworks/av/media/liberror:libexpectedutils_test
 //frameworks/base/api:merge_annotation_zips_test
+//frameworks/base/tools/aapt2:aapt2_tests
 //frameworks/native/cmds/installd:run_dex2oat_test
 //frameworks/native/libs/binder/tests:binderUtilsHostTest
 //frameworks/native/libs/fakeservicemanager:fakeservicemanager_test
@@ -57,5 +58,10 @@
 
 # These tests require a connected device.
 
+# //packages/modules/adb/crypto/tests:adb_crypto_test
+# //packages/modules/adb/pairing_auth/tests:adb_pairing_auth_test
+# //packages/modules/adb/pairing_connection/tests:adb_pairing_connection_test
+# //packages/modules/adb/tls/tests:adb_tls_connection_test
 # //packages/modules/adb:adbd_test
+# //platform_testing/tests/example/native:hello_world_test
 # //system/media/audio_utils/tests:biquad_filter_tests
