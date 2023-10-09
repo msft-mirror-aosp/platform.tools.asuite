@@ -94,11 +94,11 @@
 # //packages/modules/NeuralNetworks/common:NeuralNetworksTest_operations
 # //packages/modules/NeuralNetworks/common:NeuralNetworksTest_utils
 # //packages/modules/NeuralNetworks/driver/cache/BlobCache:BlobCache_test
-# //packages/modules/adb/crypto/tests:adb_crypto_test
-# //packages/modules/adb/pairing_auth/tests:adb_pairing_auth_test
-# //packages/modules/adb/pairing_connection/tests:adb_pairing_connection_test
-# //packages/modules/adb/tls/tests:adb_tls_connection_test
-# //packages/modules/adb:adbd_test
+//packages/modules/adb/crypto/tests:adb_crypto_test
+//packages/modules/adb/pairing_auth/tests:adb_pairing_auth_test
+//packages/modules/adb/pairing_connection/tests:adb_pairing_connection_test
+//packages/modules/adb/tls/tests:adb_tls_connection_test
+//packages/modules/adb:adbd_test
 //platform_testing/tests/example/native:hello_world_test
 //platform_testing/tests/example/instrumentation:HelloWorldTests
 # //system/core/fs_mgr/liblp:liblp_test
