@@ -25,6 +25,7 @@
 # These tests do not require a connected device.
 
 //build/make/tools:auto_gen_test_config_test
+//build/make/tools/zipalign:zipalign_tests
 //build/soong/cc/ndkstubgen:test_ndkstubgen
 //build/soong/cc/symbolfile:test_symbolfile
 //build/soong/scripts:construct_context_test
