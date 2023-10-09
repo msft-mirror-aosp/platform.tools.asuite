@@ -16,7 +16,7 @@ use fingerprint::{DiffMode, FileMetadata};
 use itertools::Itertools;
 use lazy_static::lazy_static;
 use log::{debug, info};
-use metrics::Metrics;
+use metrics::{MetricSender, Metrics};
 use regex::Regex;
 use restart_chooser::RestartChooser;
 use tracking::Config;
@@ -96,8 +96,9 @@ fn main() -> Result<()> {
     let host = RealHost::new();
     let cli = cli::Cli::parse();
     let device = RealDevice::new(cli.global_options.serial.clone());
+    let mut metrics = Metrics::default();
 
-    adevice(&host, &device, &cli, &mut std::io::stdout())
+    adevice(&host, &device, &cli, &mut std::io::stdout(), &mut metrics)
 }
 
 fn adevice(
@@ -105,12 +106,12 @@ fn adevice(
     device: &impl Device,
     cli: &cli::Cli,
     stdout: &mut impl Write,
+    metrics: &mut impl MetricSender,
 ) -> Result<()> {
     let total_time = std::time::Instant::now();
     logger::init_logger(&cli.global_options);
     let mut profiler = Profiler::default();
 
-    let mut metrics = Metrics::default();
     let command_line = std::env::args().collect::<Vec<String>>().join(" ");
     metrics.add_start_event(&command_line);
     let restart_choice = cli.global_options.restart_choice.clone();
@@ -143,8 +144,16 @@ fn adevice(
 
     debug!("Stale file tracking took {} millis", track_time.elapsed().as_millis());
 
-    let device_tree =
+    let mut device_tree: HashMap<PathBuf, FileMetadata> =
         time!(device.fingerprint(&cli.global_options.partitions)?, profiler.device_fingerprint);
+
+    // We expect the device to create lost+found dirs when mounting
+    // new partitions.  Filter them out as if they don't exist.
+    // However, if there are file inside of them, don't filter the
+    // inner files.
+    for p in &cli.global_options.partitions {
+        device_tree.remove(&PathBuf::from(p).join("lost+found"));
+    }
 
     let host_tree = time!(host.fingerprint(&product_out, &partitions)?, profiler.host_fingerprint);
 
@@ -660,6 +669,7 @@ mod tests {
     mod fakes;
     use super::*;
     use crate::fingerprint::DiffMode;
+    use crate::tests::fakes::FakeMetricSender;
     use fakes::FakeDevice;
     use fakes::FakeHost;
     use std::path::PathBuf;
@@ -758,13 +768,27 @@ mod tests {
     #[test]
     fn adevice_status() -> Result<()> {
         // Fakes start with a few files in them ... for now.
-        let fake_host = FakeHost::new();
-        let fake_device = FakeDevice::new();
+        let device_fs = HashMap::from([
+            (PathBuf::from("system/fakefs_default_file"), file_metadata("digest1")),
+            (PathBuf::from("system"), dir_metadata()),
+        ]);
+
+        let host_fs = HashMap::from([
+            (PathBuf::from("system/fakefs_default_file"), file_metadata("digest1")),
+            // NOTE: extra file on host
+            (PathBuf::from("system/fakefs_new_file_file"), file_metadata("digest1")),
+            (PathBuf::from("system"), dir_metadata()),
+        ]);
+        let host_tracked_files =
+            vec!["system/fakefs_default_file".to_string(), "system/fakefs_new_file".to_string()];
+
+        let fake_host = FakeHost::new(&host_fs, &host_tracked_files);
+        let fake_device = FakeDevice::new(&device_fs);
         let mut stdout = Vec::new();
+        // TODO(rbraunstein): Fix argv[0]
         let cli = cli::Cli::parse_from(["", "--product_out", "unused", "status"]);
 
-        // TODO(rbraunstein): Fix argv[0]
-        adevice(&fake_host, &fake_device, &cli, &mut stdout)?;
+        adevice(&fake_host, &fake_device, &cli, &mut stdout, &mut FakeMetricSender::new())?;
         let stdout_str = String::from_utf8(stdout).unwrap();
 
         // TODO(rbraunstein): Check the status group it is in: (Ready to push)
@@ -773,6 +797,44 @@ mod tests {
             "\n\nACTUAL:\n {}",
             stdout_str
         );
+        Ok(())
+    }
+
+    #[test]
+    fn lost_and_found_should_not_be_cleaned() -> Result<()> {
+        // Fakes start with a few files in them ... for now.
+        let device_files = HashMap::from([
+            (PathBuf::from("system_ext/lost+found"), dir_metadata()),
+            (PathBuf::from("system/some_file"), file_metadata("m1")),
+            (PathBuf::from("system/lost+found"), dir_metadata()),
+        ]);
+
+        let fake_host = FakeHost::new(&HashMap::new(), &[]);
+        let fake_device = FakeDevice::new(&device_files);
+        // TODO(rbraunstein): Fix argv[0]
+        let cli = cli::Cli::parse_from([
+            "",
+            "--product_out",
+            "unused",
+            "clean",
+            "--force",
+            "--restart",
+            "none",
+        ]);
+
+        // TODO(rbraunstein): Check adb commands, not just stdout.
+
+        // Expect some_file, but not lost+found for TrackAndBuildOrClean
+        {
+            let mut stdout = Vec::new();
+            let mut metrics = FakeMetricSender::new();
+            adevice(&fake_host, &fake_device, &cli, &mut stdout, &mut metrics)
+                .context("Running adevice clean")?;
+            let stdout_str = String::from_utf8(stdout).unwrap();
+            assert!(stdout_str.contains("system/some_file"), "\n\nACTUAL:\n {}", stdout_str);
+            assert!(!stdout_str.contains("lost+found"), "\n\nACTUAL:\n {}", stdout_str);
+        }
+
         Ok(())
     }
 
