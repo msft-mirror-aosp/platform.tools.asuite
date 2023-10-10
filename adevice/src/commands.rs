@@ -2,13 +2,10 @@
 use crate::fingerprint::*;
 use crate::restart_chooser::{RestartChooser, RestartType};
 
-use anyhow::{anyhow, Context, Result};
-use log::{debug, info};
-use serde::__private::ToString;
+use log::debug;
 use std::collections::HashMap;
 use std::fmt::Debug;
 use std::path::{Path, PathBuf};
-use std::process;
 
 #[derive(Debug, PartialEq)]
 pub enum AdbAction {
@@ -111,49 +108,6 @@ pub fn compose(diffs: &Diffs, product_out: &Path) -> Commands {
     commands
 }
 
-/// Runs `adb` with the given args.
-/// If there is a non-zero exit code or non-empty stderr, then
-/// creates a Result Err string with the details.
-pub fn run_adb_command(args: &AdbCommand) -> Result<String> {
-    info!("       -- adb {args:?}");
-    let output =
-        process::Command::new("adb").args(args).output().context("Error running adb commands")?;
-
-    if output.status.success() && output.stderr.is_empty() {
-        let stdout = String::from_utf8(output.stdout)?;
-        return Ok(stdout);
-    }
-
-    // Adb remount returns status 0, but writes the mounts to stderr.
-    // Just swallow the useless output and return ok.
-    if let Some(cmd) = args.get(0) {
-        if output.status.success() && cmd == "remount" {
-            return Ok("".to_string());
-        }
-    }
-
-    // It is some error.
-    let status = match output.status.code() {
-        Some(code) => format!("Exited with status code: {code}"),
-        None => "Process terminated by signal".to_string(),
-    };
-
-    // Adb writes bad commands to stderr.  (adb badverb) with status 1
-    // Adb writes remount output to stderr (adb remount) but gives status 0
-    let stderr = match String::from_utf8(output.stderr) {
-        Ok(str) => str,
-        Err(e) => return Err(anyhow!("Error translating stderr {}", e)),
-    };
-
-    // Adb writes push errors to stdout.
-    let stdout = match String::from_utf8(output.stdout) {
-        Ok(str) => str,
-        Err(e) => return Err(anyhow!("Error translating stdout {}", e)),
-    };
-
-    Err(anyhow!("adb error, {status} {stdout} {stderr}"))
-}
-
 /// Given a set of files, determine the combined set of commands we need
 /// to execute on the device to make the device aware of the new files.
 /// In the most conservative case we will return a single "reboot" command.
@@ -170,20 +124,13 @@ pub fn restart_type(
 
     for installed_file in installed_file_paths {
         let restart_type = build_system.restart_type(installed_file);
-        debug!(
-            " -- Restart is {} for {installed_file}",
-            match restart_type.clone() {
-                Some(r) => format!("{r:?}"),
-                None => "Unknown".to_string(),
-            }
-        );
+        debug!(" -- Restart is {:?} for {}", restart_type.clone(), installed_file);
         match restart_type {
-            Some(RestartType::Reboot) => reboot_needed = true,
-            Some(RestartType::SoftRestart) => soft_restart_needed = true,
-            Some(RestartType::None) => (),
-            None => (),
-            // TODO(rbraunstein): Deal with determining the command needed.
-            // RestartType::RestartBinary => (),
+            RestartType::Reboot => reboot_needed = true,
+            RestartType::SoftRestart => soft_restart_needed = true,
+            RestartType::None => (),
+            // TODO(rbraunstein): Deal with determining the command needed. Full reboot for now.
+            //RestartType::RestartBinary => (),
         }
     }
     // Note, we don't do early return so we log restart_type for each file.
@@ -264,28 +211,6 @@ mod tests {
                 &PathBuf::from("/tmp/ha ha/물 주세요")
             )
         );
-    }
-
-    #[test]
-    // NOTE: This test assumes we have adb in our path.
-    fn adb_command_success() {
-        let result = run_adb_command(&vec!["version".to_string()]).expect("Error running command");
-        assert!(
-            result.contains("Android Debug Bridge version"),
-            "Expected a version string, but received:\n {result}"
-        );
-    }
-
-    #[test]
-    fn adb_command_failure() {
-        let result = run_adb_command(&vec!["improper_cmd".to_string()]);
-        if result.is_ok() {
-            panic!("Did not expect to succeed");
-        }
-
-        let expected_str =
-            "adb error, Exited with status code: 1  adb: unknown command improper_cmd\n";
-        assert_eq!(expected_str, format!("{:?}", result.unwrap_err()));
     }
 
     // helper to gofrom vec of str -> vec of String

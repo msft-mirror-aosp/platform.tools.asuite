@@ -12,28 +12,51 @@ use std::fs;
 use std::io::{BufReader, Read};
 use std::path::Path;
 
+use crate::cli::RestartChoice;
+
 pub struct RestartChooser {
-    // Installed file path -> AppClass.
+    // Installed file path -> AppClass.  Only used when restart_choice is auto.
     restart_types: HashMap<String, RestartType>,
+    // Users override for restarting.
+    restart_choice: RestartChoice,
 }
 
 impl RestartChooser {
     // Construct the RestartChooser from a path to module-info.json.
-    pub fn from(json_path: &Path) -> Result<Self> {
-        let file = fs::File::open(json_path)
-            .with_context(|| format!("Error opening module-info.json {}", json_path.display()))?;
-        Self::new(BufReader::new(file))
+    pub fn from(restart_choice: &RestartChoice, json_path: &Path) -> Result<Self> {
+        if matches!(restart_choice, RestartChoice::Auto) {
+            let file = fs::File::open(json_path).with_context(|| {
+                format!("Error opening module-info.json {}", json_path.display())
+            })?;
+            Self::new(BufReader::new(file))
+        } else {
+            Ok(RestartChooser {
+                restart_types: HashMap::new(),
+                restart_choice: restart_choice.clone(),
+            })
+        }
     }
 
     // Construct the RestartChooser from json reader.
-    pub fn new<R: Read>(reader: BufReader<R>) -> Result<Self> {
-        Ok(RestartChooser { restart_types: Self::restart_type_for_all_installed_files(reader)? })
+    fn new<R: Read>(reader: BufReader<R>) -> Result<Self> {
+        Ok(RestartChooser {
+            restart_types: Self::restart_type_for_all_installed_files(reader)?,
+            restart_choice: RestartChoice::Auto,
+        })
     }
 
-    // TODO(rbraunstein): Create a trait for this to indicate we can replace with an alternative
-    // implementation.
-    pub fn restart_type(&self, installed_file: &str) -> Option<RestartType> {
-        self.restart_types.get(installed_file).cloned()
+    // Given a file in ANDROID_PRODUCT_OUT tree, return the restart type for it
+    // or default to Reboot if the file is not mentioned module_info.json
+    pub fn restart_type(&self, installed_file: &str) -> RestartType {
+        match self.restart_choice {
+            RestartChoice::Auto => match self.restart_types.get(installed_file).cloned() {
+                Some(val) => val,
+                None => RestartType::Reboot, // If we don't know, then it's full reboot.
+            },
+            RestartChoice::None => RestartType::None,
+            RestartChoice::Reboot => RestartType::Reboot,
+            RestartChoice::Restart => RestartType::SoftRestart,
+        }
     }
 
     // Parse all of module-info.json and for all the installed files for a module,
@@ -151,6 +174,8 @@ pub enum RestartType {
 
 #[cfg(test)]
 mod tests {
+    use tempfile::TempDir;
+
     use super::*;
     // use std::collections::BTreeSet;
     use std::path::PathBuf;
@@ -188,7 +213,7 @@ mod tests {
 
     #[test]
     fn missing_module_info_file() {
-        match RestartChooser::from(&PathBuf::from("bogus_path.json")) {
+        match RestartChooser::from(&RestartChoice::Auto, &PathBuf::from("bogus_path.json")) {
             Ok(_) => panic!("Should have failed"),
             Err(e) => assert!(
                 e.to_string().starts_with("Error opening module-info.json bogus_path.json"),
@@ -220,7 +245,7 @@ mod tests {
         ] {
             // Those all one module with APPS, which are SoftRestart
             assert_eq!(
-                Some(RestartType::SoftRestart),
+                RestartType::SoftRestart,
                 sample_build_system().restart_type(installed_file),
                 "Wrong class for {}",
                 installed_file
@@ -229,14 +254,9 @@ mod tests {
     }
 
     #[test]
-    fn host_files_should_not_be_found() {
-        assert_eq!(None, sample_build_system().restart_type("out/host/linux-x86/bin/adevice"));
-    }
-
-    #[test]
     fn reboot_for_module_with_shared_and_static_lib() {
         assert_eq!(
-            Some(RestartType::Reboot),
+            RestartType::Reboot,
             sample_build_system().restart_type("vendor/lib64/DefaultVehicleHal.so")
         );
     }
@@ -252,11 +272,11 @@ mod tests {
         }}"#;
         let build_system = RestartChooser::new(BufReader::new(json.as_bytes())).unwrap();
         // Work on absolute out paths, as long as they still have target/product in them.
-        assert_eq!(Some(RestartType::Reboot), build_system.restart_type("vendor/lib64/Weird.so"));
+        assert_eq!(RestartType::Reboot, build_system.restart_type("vendor/lib64/Weird.so"));
         // One installed file should not interfere with another if that installed file is not
         // on the device.
-        assert_eq!(None, build_system.restart_type("bad/file/path"));
-        assert_eq!(Some(RestartType::Reboot), build_system.restart_type("vendor/good/file/path"));
+        assert_eq!(RestartType::Reboot, build_system.restart_type("bad/file/path"));
+        assert_eq!(RestartType::Reboot, build_system.restart_type("vendor/good/file/path"));
     }
 
     #[test]
@@ -267,7 +287,7 @@ mod tests {
              "installed": ["out/target/product/vsoc_x86_64/vendor/good/file/path"]
         }}"#;
         let build_system = RestartChooser::new(BufReader::new(json.as_bytes())).unwrap();
-        assert_eq!(Some(RestartType::Reboot), build_system.restart_type("vendor/good/file/path"));
+        assert_eq!(RestartType::Reboot, build_system.restart_type("vendor/good/file/path"));
     }
 
     #[test]
@@ -291,7 +311,7 @@ mod tests {
             "vendor/good/file/path.vdex",
         ] {
             assert_eq!(
-                Some(RestartType::SoftRestart),
+                RestartType::SoftRestart,
                 build_system.restart_type(installed_file),
                 "Wrong class for {}",
                 installed_file
@@ -305,7 +325,7 @@ mod tests {
             "vendor/good/file/path",
         ] {
             assert_eq!(
-                Some(RestartType::Reboot),
+                RestartType::Reboot,
                 build_system.restart_type(installed_file),
                 "Wrong class for {}",
                 installed_file
@@ -322,18 +342,42 @@ mod tests {
                            "out/target/product/vsoc_x86_64/system/bin/surfaceflinger.rc"]
         }}"#;
         let build_system = RestartChooser::new(BufReader::new(json.as_bytes())).unwrap();
+        assert_eq!(RestartType::Reboot, build_system.restart_type("system/bin/surfaceflinger.rc"));
         assert_eq!(
-            Some(RestartType::Reboot),
-            build_system.restart_type("system/bin/surfaceflinger.rc")
-        );
-        assert_eq!(
-            Some(RestartType::SoftRestart),
+            RestartType::SoftRestart,
             build_system.restart_type("system/bin/surfaceflinger")
         );
     }
 
     #[test]
-    fn missing_installed_returns_none() {
-        assert_eq!(None, sample_build_system().restart_type("bogus_file"));
+    fn missing_installed_returns_reboot() {
+        assert_eq!(RestartType::Reboot, sample_build_system().restart_type("bogus_file"));
+    }
+
+    #[test]
+    fn restart_choice_is_used() -> Result<()> {
+        let restart_chooser = RestartChooser::from(&RestartChoice::None, &PathBuf::from(""))?;
+        assert_eq!(RestartType::None, restart_chooser.restart_type("system/bin/surfaceflinger.rc"));
+        Ok(())
+    }
+
+    #[test]
+    fn restart_auto_works() -> Result<()> {
+        let json = r#"{
+        "SampleModule": {
+             "class": ["EXECUTABLES"],
+             "installed": ["out/target/product/vsoc_x86_64/system/bin/surfaceflinger",
+                           "out/target/product/vsoc_x86_64/system/bin/surfaceflinger.rc"]
+        }}"#;
+        let tmpdir = TempDir::new()?;
+        let module_info = tmpdir.path().join("module_info.json");
+        fs::write(&module_info, json).unwrap();
+
+        let restart_chooser = RestartChooser::from(&RestartChoice::Auto, &module_info)?;
+        assert_eq!(
+            RestartType::Reboot,
+            restart_chooser.restart_type("system/bin/surfaceflinger.rc")
+        );
+        Ok(())
     }
 }
