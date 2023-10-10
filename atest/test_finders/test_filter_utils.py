@@ -44,6 +44,12 @@ GTEST_PARAM = 'value-parameterized test'
 CC_CLASS_METHOD_RE = re.compile(
     r'^\s*(TYPED_TEST(?:|_P)|TEST(?:|_F|_P))\s*\(\s*'
     r'(?P<class_name>\w+),\s*(?P<method_name>\w+)\)\s*\{', re.M)
+# Macros that used in GTest with flags. Detailed example can be found in
+# $ANDROID_BUILD_TOP/cts/flags/cc_tests/src/FlagMacrosTests.cpp
+# Macros with (prefix, class, ...) pattern.
+CC_FLAG_CLASS_METHOD_RE = re.compile(
+    r'^\s*(TEST(?:|_F))_WITH_FLAGS\s*\(\s*'
+    r'(?P<class_name>\w+),\s*(?P<method_name>\w+),', re.M)
 # Macros with (prefix, class, ...) pattern.
 # Note: Since v1.08, the INSTANTIATE_TEST_CASE_P was replaced with
 #   INSTANTIATE_TEST_SUITE_P. However, Atest does not intend to change the
@@ -100,6 +106,7 @@ def get_cc_class_info(class_file_content):
     Returns:
         A tuple of a dict of class info and a list of classes that have no test.
     """
+    flag_method_matches = re.findall(CC_FLAG_CLASS_METHOD_RE, class_file_content)
     # ('TYPED_TEST', 'PrimeTableTest', 'ReturnsTrueForPrimes')
     method_matches = re.findall(CC_CLASS_METHOD_RE, class_file_content)
     # ('OnTheFlyAndPreCalculated', 'PrimeTableTest2')
@@ -107,7 +114,7 @@ def get_cc_class_info(class_file_content):
     # 'PrimeTableTest'
     typed_matches = re.findall(TYPE_CC_CLASS_RE, class_file_content)
 
-    classes = {cls[1] for cls in method_matches}
+    classes = {cls[1] for cls in method_matches + flag_method_matches}
     class_info = {}
     for cls in classes:
         class_info.setdefault(cls, {'methods': set(),
@@ -117,7 +124,7 @@ def get_cc_class_info(class_file_content):
     no_test_classes = []
 
     logging.debug('Probing TestCase.TestName pattern:')
-    for match in method_matches:
+    for match in method_matches + flag_method_matches:
         if class_info.get(match[1]):
             logging.debug('  Found %s.%s', match[1], match[2])
             class_info[match[1]]['methods'].add(match[2])
