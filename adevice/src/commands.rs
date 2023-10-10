@@ -2,13 +2,10 @@
 use crate::fingerprint::*;
 use crate::restart_chooser::{RestartChooser, RestartType};
 
-use anyhow::{anyhow, Context, Result};
-use log::{debug, info};
-use serde::__private::ToString;
+use log::debug;
 use std::collections::HashMap;
 use std::fmt::Debug;
 use std::path::{Path, PathBuf};
-use std::process;
 
 #[derive(Debug, PartialEq)]
 pub enum AdbAction {
@@ -109,46 +106,6 @@ pub fn compose(diffs: &Diffs, product_out: &Path) -> Commands {
     }
 
     commands
-}
-
-pub fn run_adb_command(args: &AdbCommand) -> Result<String> {
-    info!("       -- adb {args:?}");
-    let output =
-        process::Command::new("adb").args(args).output().context("Error running adb commands")?;
-
-    if output.status.success() && output.stderr.is_empty() {
-        let stdout = String::from_utf8(output.stdout)?;
-        return Ok(stdout);
-    }
-
-    // Adb remount returns status 0, but writes the mounts to stderr.
-    // Just swallow the useless output and return ok.
-    if let Some(cmd) = args.get(0) {
-        if output.status.success() && cmd == "remount" {
-            return Ok("".to_string());
-        }
-    }
-
-    // It is some error.
-    let status = match output.status.code() {
-        Some(code) => format!("Exited with status code: {code}"),
-        None => "Process terminated by signal".to_string(),
-    };
-
-    // Adb writes bad commands to stderr.  (adb badverb) with status 1
-    // Adb writes remount output to stderr (adb remount) but gives status 0
-    let stderr = match String::from_utf8(output.stderr) {
-        Ok(str) => str,
-        Err(e) => return Err(anyhow!("Error translating stderr {}", e)),
-    };
-
-    // Adb writes push errors to stdout.
-    let stdout = match String::from_utf8(output.stdout) {
-        Ok(str) => str,
-        Err(e) => return Err(anyhow!("Error translating stdout {}", e)),
-    };
-
-    Err(anyhow!("adb error, {status} {stdout} {stderr}"))
 }
 
 /// Given a set of files, determine the combined set of commands we need
