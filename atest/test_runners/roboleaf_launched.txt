@@ -58,6 +58,7 @@
 //system/tools/sysprop:sysprop_test
 //tools/external_updater:external_updater_reviewers_test
 //tools/external_updater:external_updater_test
+//packages/modules/SdkExtensions/gen_sdk:gen_sdk_test
 
 # These tests require a connected device.
 
