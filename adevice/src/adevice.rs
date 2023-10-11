@@ -8,7 +8,6 @@ mod metrics;
 mod restart_chooser;
 mod tracking;
 
-use crate::restart_chooser::RestartChooser;
 use anyhow::{anyhow, bail, Context, Result};
 use clap::Parser;
 use cli::Commands;
@@ -19,6 +18,7 @@ use lazy_static::lazy_static;
 use log::{debug, info};
 use metrics::Metrics;
 use regex::Regex;
+use restart_chooser::RestartChooser;
 use tracking::Config;
 
 use std::collections::{HashMap, HashSet};
@@ -113,6 +113,7 @@ fn adevice(
     let mut metrics = Metrics::default();
     let command_line = std::env::args().collect::<Vec<String>>().join(" ");
     metrics.add_start_event(&command_line);
+    let restart_choice = cli.global_options.restart_choice.clone();
 
     let product_out = match &cli.global_options.product_out {
         Some(po) => PathBuf::from(po),
@@ -196,7 +197,8 @@ fn adevice(
         }
 
         // Consider always reboot instead of soft restart after a clean.
-        let restart_chooser = &RestartChooser::from(&product_out.join("module-info.json"))?;
+        let restart_chooser =
+            &RestartChooser::from(&restart_choice, &product_out.join("module-info.json"))?;
         device::update(restart_chooser, &deletes, &mut profiler, device)?;
     }
 
@@ -215,7 +217,7 @@ fn adevice(
         // Send the update commands, but retry once if we need to remount rw an extra time after a flash.
         for retry in 0..=1 {
             let update_result = device::update(
-                &RestartChooser::from(&product_out.join("module-info.json"))?,
+                &RestartChooser::from(&restart_choice, &product_out.join("module-info.json"))?,
                 &upserts,
                 &mut profiler,
                 device,

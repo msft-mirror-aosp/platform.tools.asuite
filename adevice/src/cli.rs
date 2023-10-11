@@ -70,6 +70,8 @@ pub struct GlobalOptions {
     /// If passed, use the device, otherwise use the only connected device or ANDROID_SERIAL env value.
     #[clap(long, short, global = true)]
     pub serial: Option<String>,
+    #[clap(long = "restart", short, global = true, value_enum, default_value_t=RestartChoice::Auto)]
+    pub restart_choice: RestartChoice,
 }
 
 #[derive(clap::ValueEnum, Clone, Debug)]
@@ -80,4 +82,17 @@ pub enum Verbosity {
     Details,
     /// For debugging internals of tool and timings.
     Debug,
+}
+
+/// Allows you to choose how to reboot or to not reboot.
+#[derive(clap::ValueEnum, Clone, Debug)]
+pub enum RestartChoice {
+    /// Let the system choose the restart based on the files changed.
+    Auto,
+    /// Don't restart.
+    None,
+    /// Always do a full system reboot after updates.
+    Reboot,
+    /// Always do a framework restart restart after updates.
+    Restart,
 }
