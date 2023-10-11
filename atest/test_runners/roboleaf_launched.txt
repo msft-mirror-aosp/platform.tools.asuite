@@ -102,6 +102,7 @@
 //packages/modules/adb:adbd_test
 //platform_testing/tests/example/native:hello_world_test
 //platform_testing/tests/example/instrumentation:HelloWorldTests
+//platform_testing/tests/example/parameterized_test:ParameterizedHelloWorldTests
 # //system/core/fs_mgr/liblp:liblp_test
 # //system/core/libcutils:libcutils_test
 # //system/core/libprocessgroup:task_profiles_test
