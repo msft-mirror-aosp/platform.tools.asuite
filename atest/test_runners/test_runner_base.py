@@ -66,7 +66,7 @@ class TestRunnerBase:
         if kwargs:
             for key, value in kwargs.items():
                 if not 'test_infos' in key:
-                    logging.debug('ignoring the following args: %s=%s',
+                    logging.debug('Found auxiliary args: %s=%s',
                                   key, value)
 
     def run(self, cmd, output_to_stdout=False, env_vars=None):
