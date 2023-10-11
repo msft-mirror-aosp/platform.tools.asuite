@@ -61,6 +61,7 @@
 
 # These tests require a connected device.
 
+//cts/flags/cc_tests:FlagMacrosTests
 # //cts/tests/tests/gesture:CtsGestureTestCases # b/303786272
 # //external/bsdiff:bsdiff_unittest
 # //external/minijail:config_parser_unittest_gtest
@@ -98,7 +99,7 @@
 # //packages/modules/adb/pairing_connection/tests:adb_pairing_connection_test
 # //packages/modules/adb/tls/tests:adb_tls_connection_test
 # //packages/modules/adb:adbd_test
-# //platform_testing/tests/example/native:hello_world_test
+//platform_testing/tests/example/native:hello_world_test
 //platform_testing/tests/example/instrumentation:HelloWorldTests
 # //system/core/fs_mgr/liblp:liblp_test
 # //system/core/libcutils:libcutils_test

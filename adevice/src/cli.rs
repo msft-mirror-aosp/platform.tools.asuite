@@ -67,6 +67,9 @@ pub struct GlobalOptions {
     // Print commands while executing them.
     #[clap(long = "verbose", short, global = true, value_enum, default_value_t=Verbosity::Details)]
     pub verbose: Verbosity,
+    /// If passed, use the device, otherwise use the only connected device or ANDROID_SERIAL env value.
+    #[clap(long, short, global = true)]
+    pub serial: Option<String>,
 }
 
 #[derive(clap::ValueEnum, Clone, Debug)]
