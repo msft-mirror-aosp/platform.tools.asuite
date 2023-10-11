@@ -37,12 +37,6 @@ pub trait Host {
         partitions: &[PathBuf],
     ) -> Result<HashMap<PathBuf, fingerprint::FileMetadata>>;
 
-    /// Return a `Cli` for program args.  `argv`[0] is ignored.
-    fn parse_argv<I, T>(&self, argv: I) -> cli::Cli
-    where
-        I: IntoIterator<Item = T>,
-        T: Into<OsString> + Clone;
-
     /// Return a list of all files that compose `droid` or whatever base and tracked
     /// modules are listed in `config`.  Filter to those only listed in `partitions`.
     /// Result strings are device relative. (i.e. start with system)
@@ -70,6 +64,10 @@ pub trait Device {
     /// which live on the /data partition.
     /// Returns the package name, i.e. "com.android.shell".
     fn get_installed_apks(&self) -> Result<HashSet<String>>;
+
+    /// Wait for the device to be ready after reboots/restarts.
+    /// Returns any relevant output from waiting.
+    fn wait(&self) -> Result<String>;
 }
 
 struct RealHost {}
@@ -89,31 +87,26 @@ impl Host for RealHost {
         fingerprint::fingerprint_partitions(partition_root, partitions)
     }
 
-    fn parse_argv<I, T>(&self, _argv: I) -> cli::Cli {
-        cli::Cli::parse()
-    }
-
     fn tracked_files(&self, partitions: &[PathBuf], config: &Config) -> Result<Vec<String>> {
         config.tracked_files(partitions)
     }
 }
 
 fn main() -> Result<()> {
-    adevice(&RealHost::new(), &RealDevice::new(), std::env::args_os(), &mut std::io::stdout())
+    let host = RealHost::new();
+    let cli = cli::Cli::parse();
+    let device = RealDevice::new(cli.global_options.serial.clone());
+
+    adevice(&host, &device, &cli, &mut std::io::stdout())
 }
 
-fn adevice<I, T>(
+fn adevice(
     host: &impl Host,
     device: &impl Device,
-    argv: I,
+    cli: &cli::Cli,
     stdout: &mut impl Write,
-) -> Result<()>
-where
-    I: IntoIterator<Item = T>,
-    T: Into<OsString> + Clone,
-{
+) -> Result<()> {
     let total_time = std::time::Instant::now();
-    let cli = host.parse_argv(argv);
     logger::init_logger(&cli.global_options);
     let mut profiler = Profiler::default();
 
@@ -139,7 +132,7 @@ where
     };
 
     // Early return for track/untrack commands.
-    match cli.command {
+    match &cli.command {
         Commands::Track(names) => return config.track(&names.modules),
         Commands::TrackBase(base) => return config.trackbase(&base.base),
         Commands::Untrack(names) => return config.untrack(&names.modules),
@@ -243,7 +236,7 @@ where
                 // We already did the remount, but it doesn't hurt to do it again.
                 device.run_adb_command(&vec!["remount".to_string()])?;
                 device.run_adb_command(&vec!["reboot".to_string()])?;
-                device::wait()?;
+                device.wait()?;
                 device.run_adb_command(&vec!["root".to_string()])?;
             }
             println!("\n * Trying update again after remount and reboot.");
@@ -442,14 +435,6 @@ fn is_apk_installed(host_path: &Path, installed_packages: &HashSet<String>) -> R
 lazy_static! {
     static ref AAPT_PACKAGE_MATCHER: Regex =
         Regex::new(r"^package: (.+)$").expect("regex does not compile");
-
-    // Sample output, one installed, one not:
-    // % adb exec-out pm list packages  -s -f  | grep shell
-    //   package:/product/app/Browser2/Browser2.apk=org.chromium.webview_shell
-    //   package:/data/app/~~PxHDtZDEgAeYwRyl-R3bmQ==/com.android.shell--R0z7ITsapIPKnt4BT0xkg==/base.apk=com.android.shell
-    // # capture the package name (com.android.shell)
-    static ref PM_LIST_PACKAGE_MATCHER: Regex =
-        Regex::new(r"^package:/data/app/.*/base.apk=(.+)$").expect("regex does not compile");
 }
 
 /// Filter aapt2 dump output to parse out the package name for the apk.
@@ -459,38 +444,6 @@ fn package_from_aapt_dump_output(stdout: Vec<u8>) -> Result<String> {
         .filter_map(|line| AAPT_PACKAGE_MATCHER.captures(line).map(|x| x[1].to_string()))
         .collect();
     Ok(package_match)
-}
-
-/// Filter package manager output to figure out if the apk is installed in /data.
-fn apks_from_pm_list_output(stdout: Vec<u8>) -> Result<HashSet<String>> {
-    let package_match = String::from_utf8(stdout)?
-        .lines()
-        .filter_map(|line| PM_LIST_PACKAGE_MATCHER.captures(line).map(|x| x[1].to_string()))
-        .collect();
-    Ok(package_match)
-}
-
-/// Get the apks that are installed (i.e. with `adb install`)
-/// Count anything in the /data partition as installed.
-fn get_installed_apks() -> Result<HashSet<String>> {
-    // TODO(rbraunstein): See if there is a better way to do this that doesn't look for /data
-    let package_manager_output = std::process::Command::new("adb")
-        .args(["exec-out", "pm", "list", "packages", "-s", "-f"])
-        .output()
-        .context("Running pm list packages")?;
-
-    if !package_manager_output.status.success() {
-        let stderr = String::from_utf8(package_manager_output.stderr)?;
-        bail!("Unable to pm list packages get installed packages {:?}", stderr);
-    }
-
-    match apks_from_pm_list_output(package_manager_output.stdout) {
-        Ok(packages) => {
-            debug!("adb pm list packages found packages: {packages:?}");
-            Ok(packages)
-        }
-        Err(e) => bail!("Unable to run aapt2 to get package information {e:?}"),
-    }
 }
 
 /// Go through all files that exist on the host, device, and tracking set.
@@ -794,20 +747,6 @@ mod tests {
     }
 
     #[test]
-    fn package_manager_output_parsing() -> Result<()> {
-        let actual_output = r#"
-package:/product/app/Browser2/Browser2.apk=org.chromium.webview_shell
-package:/apex/com.google.aosp_cf_phone.rros/overlay/cuttlefish_overlay_frameworks_base_core.apk=android.cuttlefish.overlay
-package:/data/app/~~f_ZzeFPKma_EfXRklotqFg==/com.android.shell-hrjEOvqv3dAautKdfqeAEA==/base.apk=com.android.shell
-package:/apex/com.google.aosp_cf_phone.rros/overlay/cuttlefish_phone_overlay_frameworks_base_core.apk=android.cuttlefish.phone.overlay
-"#;
-        let mut expected: HashSet<String> = HashSet::new();
-        expected.insert("com.android.shell".to_string());
-        assert_eq!(expected, apks_from_pm_list_output(Vec::from(actual_output.as_bytes()))?);
-        Ok(())
-    }
-
-    #[test]
     fn test_parents_stops_at_partition() {
         assert_eq!(
             vec![
@@ -826,9 +765,10 @@ package:/apex/com.google.aosp_cf_phone.rros/overlay/cuttlefish_phone_overlay_fra
         let fake_host = FakeHost::new();
         let fake_device = FakeDevice::new();
         let mut stdout = Vec::new();
+        let cli = cli::Cli::parse_from(["", "--product_out", "unused", "status"]);
 
         // TODO(rbraunstein): Fix argv[0]
-        adevice(&fake_host, &fake_device, ["", "--product_out", "unused", "status"], &mut stdout)?;
+        adevice(&fake_host, &fake_device, &cli, &mut stdout)?;
         let stdout_str = String::from_utf8(stdout).unwrap();
 
         // TODO(rbraunstein): Check the status group it is in: (Ready to push)

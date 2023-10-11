@@ -44,3 +44,10 @@ py_test(
     }),
     deps = [":atest_lib"],
 )
+
+py_binary(
+    name = "java-test-filter-generator",
+    srcs = ["java_test_filter_generator.py"],
+    main = "java_test_filter_generator.py",
+    deps = [":atest_lib"],
+)

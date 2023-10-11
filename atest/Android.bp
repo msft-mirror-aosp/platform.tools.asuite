@@ -46,6 +46,7 @@ python_defaults {
         "tf_proto/*.py",
         "cc_test_filter_generator.py",
         "cc_test_filter_generator_test.py",
+        "java_test_filter_generator.py",
     ],
     libs: [
         "asuite_proto",
@@ -143,6 +144,7 @@ python_test_host {
         "tf_proto/*.py",
         "cc_test_filter_generator.py",
         "cc_test_filter_generator_test.py",
+        "java_test_filter_generator.py",
     ],
     libs: [
         "asuite_proto",
