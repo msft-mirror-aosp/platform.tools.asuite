@@ -124,13 +124,7 @@ fn adevice(
 
     let track_time = std::time::Instant::now();
 
-    let mut config = match std::env::var("HOME") {
-        Ok(home) if !home.is_empty() => tracking::Config::load_or_default(home)?,
-        _ => {
-            info!("HOME not set, using /tmp");
-            tracking::Config::default()
-        }
-    };
+    let mut config = tracking::Config::load(&cli.global_options.config_path)?;
 
     // Early return for track/untrack commands.
     match &cli.command {
