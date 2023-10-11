@@ -4,7 +4,7 @@
 ///     augment a base image (droid).
 ///  2) Integration with ninja to derive "installed" files from
 ///     this module set.
-use anyhow::{Context, Result};
+use anyhow::{bail, Context, Result};
 use lazy_static::lazy_static;
 use log::{debug, warn};
 use regex::Regex;
@@ -19,7 +19,7 @@ pub struct Config {
     pub base: String,
     pub modules: Vec<String>,
     #[serde(default, skip_serializing, skip_deserializing)]
-    home_dir: String,
+    config_path: String,
 }
 
 /// Object representing the files that are _tracked_. These are files that the
@@ -30,19 +30,32 @@ pub struct Config {
 /// TODO(rbraunstein): Rewrite above clearer.
 impl Config {
     /// Load set of tracked modules from User's homedir or return a default one.
-    pub fn load_or_default(home_dir: String) -> Result<Self> {
-        if let Ok(file) = fs::File::open(Self::path(&home_dir)?) {
+    /// If the user passes a config path, use it. Otherwise use the
+    /// default path in their home dir.
+    pub fn load(config_path: &Option<String>) -> Result<Self> {
+        match &config_path {
+            Some(path) => Self::from_json_file(path),
+            None => match std::env::var("HOME") {
+                Ok(home) if !home.is_empty() => Self::load(&Some(Self::default_path(&home)?)),
+                _ => Ok(Self::default()),
+            },
+        }
+    }
+
+    /// Load set of tracked modules from the given path or return a default one.
+    fn from_json_file(path: &String) -> Result<Self> {
+        if let Ok(file) = fs::File::open(path) {
             let mut config: Config = serde_json::from_reader(BufReader::new(file))
-                .context(format!("Parsing config {:?}", Self::path(&home_dir)?))?;
-            config.home_dir = home_dir;
+                .context(format!("Parsing config {path:?}"))?;
+            config.config_path = path.clone();
             return Ok(config);
         }
         // Lets not create a default config file until they actually track a module.
-        Ok(Config { base: "droid".to_string(), modules: Vec::new(), home_dir })
+        Ok(Config { base: "droid".to_string(), modules: Vec::new(), config_path: path.clone() })
     }
 
-    pub fn default() -> Self {
-        Config { base: "droid".to_string(), modules: Vec::new(), home_dir: String::new() }
+    fn default() -> Self {
+        Config { base: "droid".to_string(), modules: Vec::new(), config_path: String::new() }
     }
 
     pub fn print(&self) {
@@ -50,7 +63,7 @@ impl Config {
     }
 
     /// Returns the full path to the serialized config file.
-    pub fn path(home: &str) -> Result<String> {
+    fn default_path(home: &str) -> Result<String> {
         fs::create_dir_all(format!("{home}/.config/asuite"))?;
         Ok(format!("{home}/.config/asuite/adevice-tracking.json"))
     }
@@ -84,15 +97,15 @@ impl Config {
         Self::save(self)
     }
 
-    // Store the config as json in the HOME/.config/asuite/adevice-tracking.json
+    // Store the config as json at the config_path.
     fn save(&self) -> Result<()> {
-        let mut file = fs::File::create(Self::path(&self.home_dir)?)
-            .context(format!("Creating file {:?}", Self::path(&self.home_dir)?))?;
+        if self.config_path.is_empty() {
+            bail!("Can not save config file when HOME is not set and --config not set.")
+        }
+        let mut file = fs::File::create(&self.config_path)
+            .context(format!("Creating config file {:?}", self.config_path))?;
         serde_json::to_writer_pretty(&mut file, &self).context("Writing config file")?;
-        debug!("Wrote config file {:?}", Self::path(&self.home_dir)?);
-        // Remove the dep cache because we will be changing the arguments to ninja
-        // when we track or untrack new modules.
-
+        debug!("Wrote config file {:?}", &self.config_path);
         Ok(())
     }
 
@@ -296,7 +309,8 @@ mod tests {
     #[test]
     fn load_creates_new_config_with_droid() -> Result<()> {
         let home_dir = TempDir::new()?;
-        let config = Config::load_or_default(path(&home_dir));
+        let config_path = home_dir.path().join("config.json").display().to_string();
+        let config = Config::load(&Some(config_path));
         assert_eq!("droid", config?.base);
         Ok(())
     }
@@ -304,14 +318,15 @@ mod tests {
     #[test]
     fn track_updates_config_file() -> Result<()> {
         let home_dir = TempDir::new()?;
-        let mut config = Config::load_or_default(path(&home_dir))?;
+        let config_path = home_dir.path().join("config.json").display().to_string();
+        let mut config = Config::load(&Some(config_path.clone()))?;
         config.track(&["supermod".to_string()])?;
         config.track(&["another".to_string()])?;
         // Updates in-memory version, which gets sorted and deduped.
         assert_eq!(vec!["another".to_string(), "supermod".to_string()], config.modules);
 
         // Check the disk version too.
-        let config2 = Config::load_or_default(path(&home_dir))?;
+        let config2 = Config::load(&Some(config_path))?;
         assert_eq!(config, config2);
         Ok(())
     }
@@ -319,11 +334,12 @@ mod tests {
     #[test]
     fn untrack_updates_config() -> Result<()> {
         let home_dir = TempDir::new()?;
+        let config_path = Config::default_path(&path(&home_dir)).context("Writing config")?;
         std::fs::write(
-            Config::path(&path(&home_dir)).context("Writing config")?,
+            config_path.clone(),
             r#"{"base": "droid",  "modules": [ "mod_one", "mod_two" ]}"#,
         )?;
-        let mut config = Config::load_or_default(path(&home_dir)).context("LOAD")?;
+        let mut config = Config::load(&Some(config_path.clone())).context("LOAD")?;
         assert_eq!(2, config.modules.len());
         // Updates in-memory version.
         config.untrack(&["mod_two".to_string()]).context("UNTRACK")?;
@@ -334,7 +350,8 @@ mod tests {
 
     #[test]
     fn ninja_args_updated_based_on_config() {
-        let config = Config { base: s("DROID"), modules: vec![s("ADEVICE_FP")], home_dir: s("") };
+        let config =
+            Config { base: s("DROID"), modules: vec![s("ADEVICE_FP")], config_path: s("") };
         assert_eq!(
             crate::commands::split_string(
                 "-f outdir/combined-lynx.ninja -t inputs -i DROID ADEVICE_FP"
