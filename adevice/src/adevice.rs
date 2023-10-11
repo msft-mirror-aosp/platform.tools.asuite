@@ -68,6 +68,13 @@ pub trait Device {
     /// Wait for the device to be ready after reboots/restarts.
     /// Returns any relevant output from waiting.
     fn wait(&self) -> Result<String>;
+
+    /// Send commands to the device that are needed before we run adb push commands
+    /// like "adb root; adb remount" and clearing sys.boot_completed.
+    fn prep_for_push(&self) -> Result<String>;
+
+    /// Run the commands needed to prep a userdebug device after a flash.
+    fn prep_after_flash(&self) -> Result<()>;
 }
 
 struct RealHost {}
@@ -238,11 +245,7 @@ fn adevice(
                 if problem.root_cause().to_string().contains("Read-only file system") {
                     println!(" !! The device has a read-only file system.\n !! After a fresh image, the device needs an extra `remount` and `reboot` to adb push files.  Performing the remount and reboot now.");
                 }
-                // We already did the remount, but it doesn't hurt to do it again.
-                device.run_adb_command(&vec!["remount".to_string()])?;
-                device.run_adb_command(&vec!["reboot".to_string()])?;
-                device.wait()?;
-                device.run_adb_command(&vec!["root".to_string()])?;
+                device.prep_after_flash()?;
             }
             println!("\n * Trying update again after remount and reboot.");
         }
@@ -563,53 +566,6 @@ fn get_product_out_from_env() -> Option<PathBuf> {
     }
 }
 
-/// Given "partitions" at the root of the device,
-/// return an entry for each file found.  The entry contains the
-/// digest of the file contents and stat-like data about the file.
-/// Typically, dirs = ["system"]
-fn fingerprint_device(
-    device: &impl Device,
-    partitions: &[String],
-) -> Result<HashMap<PathBuf, fingerprint::FileMetadata>> {
-    // Ensure we are root or we can't read some files.
-    // In userdebug builds, every reboot reverts back to the "shell" user.
-    device.run_adb_command(&vec!["root".to_string()])?;
-    let mut adb_args =
-        vec!["shell".to_string(), "/system/bin/adevice_fingerprint".to_string(), "-p".to_string()];
-    // -p system,system_ext
-    adb_args.push(partitions.join(","));
-    let fingerprint_result = device.run_adb_command(&adb_args);
-    // Deal with some bootstrapping errors, like adevice_fingerprint isn't installed
-    // by printing diagnostics and exiting.
-    if let Err(problem) = fingerprint_result {
-        if problem
-            .root_cause()
-            .to_string()
-            // TODO(rbraunstein): Will this work in other locales?
-            .contains("adevice_fingerprint: inaccessible or not found")
-        {
-            // Running as root, but adevice_fingerprint not found.
-            // This should not happen after we tag it as an "eng" module.
-            bail!("\n  Thank you for testing out adevice.\n  Flashing a recent image should install the needed `adevice_fingerprint` binary.\n  Otherwise, you can bootstrap by doing the following:\n\t ` adb remount; m adevice_fingerprint adevice && adb push $ANDROID_PRODUCT_OUT/system/bin/adevice_fingerprint system/bin/adevice_fingerprint`");
-        } else {
-            bail!("Unknown problem running `adevice_fingerprint` on your device: {problem:?}.\n  Your device may still be in a booting state.  Try `adb get-state` to start debugging.");
-        }
-    }
-
-    let stdout = fingerprint_result.unwrap();
-
-    let result: HashMap<String, fingerprint::FileMetadata> = match serde_json::from_str(&stdout) {
-        Err(err) if err.line() == 1 && err.column() == 0 && err.is_eof() => {
-            // This means there was no data. Print a different error, and adb
-            // probably also just printed a line.
-            bail!("Device didn't return any data.");
-        }
-        Err(err) => return Err(err).context("Error reading json"),
-        Ok(file_map) => file_map,
-    };
-    Ok(result.into_iter().map(|(path, metadata)| (PathBuf::from(path), metadata)).collect())
-}
-
 /// Return all path components of file_path up to a passed partition.
 /// Given system/bin/logd and partition "system",
 /// return ["system/bin/logd", "system/bin"], not "system" or ""
@@ -822,8 +778,6 @@ mod tests {
             "none",
         ]);
 
-        // TODO(rbraunstein): Check adb commands, not just stdout.
-
         // Expect some_file, but not lost+found for TrackAndBuildOrClean
         {
             let mut stdout = Vec::new();
@@ -833,6 +787,9 @@ mod tests {
             let stdout_str = String::from_utf8(stdout).unwrap();
             assert!(stdout_str.contains("system/some_file"), "\n\nACTUAL:\n {}", stdout_str);
             assert!(!stdout_str.contains("lost+found"), "\n\nACTUAL:\n {}", stdout_str);
+
+            assert!(fake_device.removes().contains(&PathBuf::from("system/some_file")));
+            assert!(!fake_device.removes().contains(&PathBuf::from("system/lost+found")));
         }
 
         Ok(())
