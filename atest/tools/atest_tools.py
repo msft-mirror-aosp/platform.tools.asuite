@@ -381,11 +381,10 @@ def index_targets(output_cache=constants.LOCATE_CACHE):
         pre_number = sys.maxsize
 
     run_updatedb(SEARCH_TOP, output_cache)
-    checksum_file = os.path.join(constants.INDEX_DIR, 'repo_sync.md5')
+    checksum_file = au.get_index_path('repo_sync.md5')
     repo_syncd = not au.check_md5(checksum_file, missing_ok=False)
     if repo_syncd:
-        repo_file = Path(SEARCH_TOP).joinpath(
-            '.repo/.repo_fetchtimes.json')
+        repo_file = au.get_build_top('.repo/.repo_fetchtimes.json')
         au.run_multi_proc(
             func=au.save_md5,
             args=[[repo_file], checksum_file])

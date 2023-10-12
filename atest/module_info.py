@@ -145,8 +145,8 @@ class Loader:
             self.save_cache_async = lambda _, __: None
 
         self.update_merge_info = False
-        self.module_index = atest_utils.get_host_out(
-            'indices', f'suite-modules.{_DB_VERSION}.idx')
+        self.module_index = atest_utils.get_index_path(
+            f'suite-modules.{_DB_VERSION}.idx')
         self.module_index_proc = None
 
         if module_file:
