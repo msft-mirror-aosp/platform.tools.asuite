@@ -117,18 +117,6 @@ def get_report_file(results_dir, acloud_args):
     return os.path.join(results_dir, 'acloud_status.json')
 
 
-def has_command(cmd):
-    """Detect if the command is available in PATH.
-
-    Args:
-        cmd: A string of the tested command.
-
-    Returns:
-        True if found, False otherwise.
-    """
-    return bool(shutil.which(cmd))
-
-
 def run_updatedb(search_root=SEARCH_TOP, output_cache=constants.LOCATE_CACHE,
                  **kwargs):
     """Run updatedb and generate cache in $ANDROID_HOST_OUT/indices/plocate.db
@@ -367,7 +355,7 @@ def index_targets(output_cache=constants.LOCATE_CACHE):
                       (e.g. /path/to/plocate.db).
     """
     unavailable_cmds = [
-        cmd for cmd in [UPDATEDB, LOCATE] if not has_command(cmd)]
+        cmd for cmd in [UPDATEDB, LOCATE] if not au.has_command(cmd)]
     if unavailable_cmds:
         logging.debug('command %s is unavailable; skip indexing...',
                       ' '.join(unavailable_cmds))
