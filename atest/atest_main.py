@@ -375,7 +375,7 @@ def _validate_exec_mode(args, test_infos: TestInfo, host_tests=None):
         sys.exit(ExitCode.INVALID_EXEC_MODE)
     # The 'adb' may not be available for the first repo sync or a clean build;
     # run `adb devices` in the build step again.
-    if at.has_command('adb'):
+    if atest_utils.has_command('adb'):
         _validate_adb_devices(args, test_infos)
     # In the case of '$atest <host-only>', we add --host to run on host-side.
     # The option should only be overridden if `host_tests` is not set.
