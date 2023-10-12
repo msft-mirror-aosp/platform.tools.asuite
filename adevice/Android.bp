@@ -65,7 +65,7 @@ rust_protobuf {
     use_protobuf3: true,
     protos: [
         "src/protos/clientanalytics.proto",
-        "src/protos/internal_user_log.proto",
+        "src/protos/user_log.proto",
     ],
 }
 
