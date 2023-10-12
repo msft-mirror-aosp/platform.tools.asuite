@@ -1070,10 +1070,9 @@ def main(
     find_start = time.time()
     test_infos = translator.translate(args)
 
-    args.device_count_config = sys.maxsize
     # Only check device sufficiency if not dry run or verification mode.
+    args.device_count_config = get_device_count_config(test_infos, mod_info)
     if not (any(dry_run_args) or verify_env_variables):
-        args.device_count_config = get_device_count_config(test_infos, mod_info)
         if not has_sufficient_devices(args.device_count_config, args.serial):
             return ExitCode.INSUFFICIENT_DEVICES
 
