@@ -2,7 +2,7 @@ use clap::{Args, Parser, Subcommand};
 
 #[derive(Parser)]
 #[command(about = "Tool to push your rebuilt modules to your device.")]
-#[command(version = "0.2")]
+#[command(version = "0.3")]
 pub struct Cli {
     #[command(subcommand)]
     pub command: Commands,
@@ -70,8 +70,12 @@ pub struct GlobalOptions {
     /// If passed, use the device, otherwise use the only connected device or ANDROID_SERIAL env value.
     #[clap(long, short, global = true)]
     pub serial: Option<String>,
+    /// Override the type of restart that happens after an update.
     #[clap(long = "restart", short, global = true, value_enum, default_value_t=RestartChoice::Auto)]
     pub restart_choice: RestartChoice,
+    /// Path to config file.  Uses $HOME/.config/asuite/adevice-tracking.json if unset.
+    #[clap(long = "config", global = true)]
+    pub config_path: Option<String>,
 }
 
 #[derive(clap::ValueEnum, Clone, Debug)]
