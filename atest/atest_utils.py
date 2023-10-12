@@ -1756,6 +1756,19 @@ def has_index_files():
         constants.QCLASS_INDEX,
         constants.PACKAGE_INDEX])
 
+
+def has_command(cmd: str) -> bool:
+    """Detect if the command is available in PATH.
+
+    Args:
+        cmd: A string of the tested command.
+
+    Returns:
+        True if found, False otherwise.
+    """
+    return bool(shutil.which(cmd))
+
+
 # pylint: disable=anomalous-backslash-in-string,too-many-branches
 def get_bp_content(filename: Path, module_type: str) -> Dict:
     """Get essential content info from an Android.bp.
