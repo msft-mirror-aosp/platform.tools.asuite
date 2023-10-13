@@ -117,18 +117,6 @@ def get_report_file(results_dir, acloud_args):
     return os.path.join(results_dir, 'acloud_status.json')
 
 
-def has_command(cmd):
-    """Detect if the command is available in PATH.
-
-    Args:
-        cmd: A string of the tested command.
-
-    Returns:
-        True if found, False otherwise.
-    """
-    return bool(shutil.which(cmd))
-
-
 def run_updatedb(search_root=SEARCH_TOP, output_cache=constants.LOCATE_CACHE,
                  **kwargs):
     """Run updatedb and generate cache in $ANDROID_HOST_OUT/indices/plocate.db
@@ -367,7 +355,7 @@ def index_targets(output_cache=constants.LOCATE_CACHE):
                       (e.g. /path/to/plocate.db).
     """
     unavailable_cmds = [
-        cmd for cmd in [UPDATEDB, LOCATE] if not has_command(cmd)]
+        cmd for cmd in [UPDATEDB, LOCATE] if not au.has_command(cmd)]
     if unavailable_cmds:
         logging.debug('command %s is unavailable; skip indexing...',
                       ' '.join(unavailable_cmds))
@@ -381,11 +369,10 @@ def index_targets(output_cache=constants.LOCATE_CACHE):
         pre_number = sys.maxsize
 
     run_updatedb(SEARCH_TOP, output_cache)
-    checksum_file = os.path.join(constants.INDEX_DIR, 'repo_sync.md5')
+    checksum_file = au.get_index_path('repo_sync.md5')
     repo_syncd = not au.check_md5(checksum_file, missing_ok=False)
     if repo_syncd:
-        repo_file = Path(SEARCH_TOP).joinpath(
-            '.repo/.repo_fetchtimes.json')
+        repo_file = au.get_build_top('.repo/.repo_fetchtimes.json')
         au.run_multi_proc(
             func=au.save_md5,
             args=[[repo_file], checksum_file])
