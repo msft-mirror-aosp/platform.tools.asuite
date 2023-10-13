@@ -17,11 +17,26 @@ const CLEARCUT_PROD_URL: &str = "https://play.googleapis.com/log";
 const ASUITE_LOG_SOURCE: i32 = 971;
 const TOOL_NAME: &str = "adevice";
 
+pub trait MetricSender {
+    fn add_start_event(&mut self, command_line: &str);
+}
+
 #[derive(Debug, Clone)]
 pub struct Metrics {
     events: Vec<AtestLogEventInternal>,
     user: String,
     url: String,
+}
+
+impl MetricSender for Metrics {
+    fn add_start_event(&mut self, command_line: &str) {
+        let mut start_event = AtestStartEvent::default();
+        start_event.set_command_line(command_line.to_string());
+
+        let mut event = self.default_log_event();
+        event.set_atest_start_event(start_event);
+        self.events.push(event);
+    }
 }
 
 impl Metrics {
@@ -31,15 +46,6 @@ impl Metrics {
             user: env::var(INTERNAL_USER_ENV).unwrap_or("".to_string()),
             url: String::from(CLEARCUT_PROD_URL),
         }
-    }
-
-    pub fn add_start_event(&mut self, command_line: &str) {
-        let mut start_event = AtestStartEvent::default();
-        start_event.set_command_line(command_line.to_string());
-
-        let mut event = self.default_log_event();
-        event.set_atest_start_event(start_event);
-        self.events.push(event);
     }
 
     fn send(&self) -> Result<()> {
@@ -88,7 +94,7 @@ impl Metrics {
             .arg(self.url.clone())
             .output()
             .expect("Failed to send metrics");
-        fs::remove_file(temp_file_path).expect("Failed to remove metrics file");
+        fs::remove_file(temp_file_path)?;
 
         // TODO implement next_request_wait_millis that comes back in response
         debug!("Metrics upload response: {:?}", output);
