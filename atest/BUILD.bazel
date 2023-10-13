@@ -51,3 +51,20 @@ py_binary(
     main = "java_test_filter_generator.py",
     deps = [":atest_lib"],
 )
+
+py_test(
+    name = "java-test-filter-generator-test",
+    srcs = [
+        "java_test_filter_generator.py",
+        "java_test_filter_generator_test.py",
+    ],
+    main = "java_test_filter_generator_test.py",
+    target_compatible_with = select({
+        "//build/bazel_common_rules/platforms/os:android": ["@platforms//:incompatible"],
+        "//conditions:default": [],
+    }),
+    deps = [
+        ":atest_lib",
+        "//external/python/pyfakefs/pyfakefs",
+    ],
+)
