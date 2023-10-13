@@ -62,7 +62,8 @@ from atest.test_finders import test_finder_utils
 from atest.test_runners import roboleaf_test_runner
 from atest.test_runners.atest_tf_test_runner import AtestTradefedTestRunner
 from atest.test_finders.test_info import TestInfo
-from atest.tools import atest_tools as at
+from atest.tools import indexing
+from atest.tools import start_avd as avd
 
 EXPECTED_VARS = frozenset([
     constants.ANDROID_BUILD_TOP,
@@ -936,7 +937,7 @@ def _get_acloud_proc_and_log(args: argparse.ArgumentParser,
                     results_dir: str) -> Tuple[Any, Any]:
     """Return tuple of acloud process ID and report file."""
     if any((args.acloud_create, args.start_avd)):
-        return at.acloud_create_validator(results_dir, args)
+        return avd.acloud_create_validator(results_dir, args)
     return None, None
 
 
@@ -1038,7 +1039,7 @@ def main(
     proc_idx = None
     # Do not index targets while the users intend to dry-run tests.
     if need_run_index_targets(args, extra_args):
-        proc_idx = atest_utils.run_multi_proc(at.index_targets)
+        proc_idx = atest_utils.run_multi_proc(indexing.index_targets)
     smart_rebuild = need_rebuild_module_info(args)
 
     mod_info = module_info.load(
@@ -1193,7 +1194,7 @@ def main(
             return ExitCode.BUILD_FAILURE
         if proc_acloud:
             proc_acloud.join()
-            status = at.probe_acloud_status(
+            status = avd.probe_acloud_status(
                 report_file, find_duration + build_duration)
             if status != 0:
                 return status
