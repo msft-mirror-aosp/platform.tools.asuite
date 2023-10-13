@@ -56,6 +56,10 @@
 //system/chre:hal_unit_tests
 //system/core/libcrypto_utils/tests:libcrypto_utils_test
 //system/tools/sysprop:sysprop_test
+//system/linkerconfig:linkerconfig_backward_compatibility_test
+//system/linkerconfig:linkerconfig_contents_fulltest
+//system/linkerconfig:linkerconfig_generator_unittest
+//system/linkerconfig:linkerconfig_modules_unittest
 //tools/external_updater:external_updater_reviewers_test
 //tools/external_updater:external_updater_test
 //packages/modules/SdkExtensions/gen_sdk:gen_sdk_test
