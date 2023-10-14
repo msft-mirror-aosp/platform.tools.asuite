@@ -33,8 +33,8 @@ pts-bot:PAN/GN/MISC/UUID/BV-01-C
 android.sample.cts.SampleDeviceReportLogTest
 android.sample.cts.SampleDeviceTest#testSharedPreferences
 # .kt class
-android.os.cts.CompanionDeviceManagerTest
-android.os.cts.CompanionDeviceManagerTest#testIsDeviceAssociatedWithCompanionApproveWifiConnectionsPermission
+android.security.cts.PermissionMemoryFootprintTest
+android.security.cts.PermissionMemoryFootprintTest#checkAppsCantIncreasePermissionSizeAfterCreating
 
 
 ###[Test Finder: MODULE_PACKAGE, Test Runner:AtestTradefedTestRunner]###
@@ -99,9 +99,9 @@ PerInstance/CameraHidlTest#configureInjectionStreamsAvailableOutputs/0_internal_
 
 ###[Paramatize Java Test + AtestTradefedTestRunner]###
 ###Purpose: Test with Paramatize Java testcases###
-CtsWindowManagerDeviceTestCases:android.server.wm.DisplayCutoutTests#testDisplayCutout_default
-cts/tests/framework/base/windowmanager/src/android/server/wm/DisplayCutoutTests.java#testDisplayCutout_default
-cts/tests/tests/os/src/android/os/cts/CompanionDeviceManagerTest.kt#testIsDeviceAssociated
+CtsSecurityTestCases:android.security.cts.ActivityManagerTest#testActivityManager_registerUidChangeObserver_allPermission
+cts/tests/tests/security/src/android/security/cts/ActivityManagerTest.java#testActivityManager_registerUidChangeObserver_allPermission
+cts/tests/tests/security/src/android/security/cts/PermissionMemoryFootprintTest.kt#checkAppsCantIncreasePermissionSizeAfterCreating
 
 ### Java Test ###
 ####Purpose: Find the test method by traversing parent classes###
