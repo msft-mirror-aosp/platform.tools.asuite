@@ -536,10 +536,8 @@ class AtestTradefedTestRunner(trb.TestRunnerBase):
                                       'INTEGRATION',
                                       'INTEGRATION_FILE_PATH']:
                 unsupported.add(t_info.test_name)
-            # For ltp and kselftest, keep it as no-minimal-build.
-            elif t_info.test_name in (
-                constants.REQUIRED_LTP_TEST_MODULES +
-                constants.REQUIRED_KSELFTEST_TEST_MODULES):
+            # For ltp, keep it as no-minimal-build.
+            elif t_info.test_name in constants.REQUIRED_LTP_TEST_MODULES:
                 unsupported.add(t_info.test_name)
 
         if not unsupported:

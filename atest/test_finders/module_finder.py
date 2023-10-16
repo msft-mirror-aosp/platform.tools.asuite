@@ -284,11 +284,9 @@ class ModuleFinder(test_finder_base.TestFinderBase):
             targets.add(constants.MODULES_IN + mod_dir)
         # (b/156457698) Force add vts_kernel_ltp_tests as build target if our
         # test belongs to REQUIRED_LTP_TEST_MODULES due to required_module
-        # option not working for sh_test in soong. Ditto for kselftest.
+        # option not working for sh_test in soong.
         if module_name in constants.REQUIRED_LTP_TEST_MODULES:
             targets.add('vts_kernel_ltp_tests')
-        if module_name in constants.REQUIRED_KSELFTEST_TEST_MODULES:
-            targets.add('vts_kernel_kselftest_tests')
         # (b/184567849) Force adding module_name as a build_target. This will
         # allow excluding MODULES-IN-* and prevent from missing build targets.
         if module_name and self.module_info.is_module(module_name):
