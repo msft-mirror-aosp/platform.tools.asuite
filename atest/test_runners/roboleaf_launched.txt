@@ -61,6 +61,7 @@
 //system/linkerconfig:linkerconfig_contents_fulltest
 //system/linkerconfig:linkerconfig_generator_unittest
 //system/linkerconfig:linkerconfig_modules_unittest
+//system/memory/libmemunreachable:memunreachable_unit_test
 //tools/external_updater:external_updater_reviewers_test
 //tools/external_updater:external_updater_test
 //packages/modules/SdkExtensions/gen_sdk:gen_sdk_test
