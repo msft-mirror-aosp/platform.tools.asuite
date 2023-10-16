@@ -569,7 +569,8 @@ class TestFinderUtilsUnittests(unittest.TestCase):
         class_info = test_finder_utils.get_cc_class_info(file_path)
 
         #1. Ensure all classes are in the class info dict.
-        expect_classes = {'Class1', 'FClass', 'ValueParamClass1', 'ValueParamClass2',
+        expect_classes = {'Class1', 'FClass', 'FlagClass1', 'FFlagClass',
+                          'ValueParamClass1', 'ValueParamClass2',
                           'TypedTestClass', 'TypedParamTestClass'}
         self.assertEqual({key for key in class_info.keys()}, expect_classes)
 
@@ -580,6 +581,8 @@ class TestFinderUtilsUnittests(unittest.TestCase):
         self.assertEqual(class_info['TypedParamTestClass']['methods'], {'TypedParamTestName'})
         self.assertEqual(class_info['Class1']['methods'], {'Method1','Method2'})
         self.assertEqual(class_info['FClass']['methods'], {'FMethod1','FMethod2'})
+        self.assertEqual(class_info['FlagClass1']['methods'], {'Method1','Method2'})
+        self.assertEqual(class_info['FFlagClass']['methods'], {'FMethod1','FMethod2'})
 
         #3. Ensure prefixes are correctly mapping to the right class.
         self.assertEqual(class_info['TypedParamTestClass']['prefixes'], {'Instantiation3','Instantiation4'})
@@ -592,6 +595,8 @@ class TestFinderUtilsUnittests(unittest.TestCase):
         self.assertFalse(class_info['ValueParamClass1']['typed'])
         self.assertFalse(class_info['FClass']['typed'])
         self.assertFalse(class_info['Class1']['typed'])
+        self.assertFalse(class_info['FFlagClass']['typed'])
+        self.assertFalse(class_info['FlagClass1']['typed'])
 
     def test_get_java_method(self):
         """Test get_java_method"""
