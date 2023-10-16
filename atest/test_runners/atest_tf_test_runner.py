@@ -48,6 +48,7 @@ from atest.coverage import coverage
 from atest.logstorage import atest_gcp_utils
 from atest.logstorage import logstorage_utils
 from atest.metrics import metrics
+from atest.test_finders import test_filter_utils
 from atest.test_finders import test_finder_utils
 from atest.test_finders import test_info
 from atest.test_runners import test_runner_base as trb
@@ -105,7 +106,7 @@ class TradeFedExitError(Error):
 
     def _get_exit_reason(self, exit_code):
         if 0 < exit_code < len(_TF_EXIT_CODE):
-            return atest_utils.colorize(_TF_EXIT_CODE[exit_code], constants.RED)
+            return atest_utils.mark_red(_TF_EXIT_CODE[exit_code])
         return 'Unknown exit status'
 
 class AtestTradefedTestRunner(trb.TestRunnerBase):
@@ -161,8 +162,6 @@ class AtestTradefedTestRunner(trb.TestRunnerBase):
                              'tf_customize_template': '',
                              'args': '',
                              'log_args': self._LOG_ARGS.format(**self.log_args)}
-        if kwargs.get('extra_args', {}).get(constants.LD_LIBRARY_PATH, False):
-            self.run_cmd_dict.update({'env': self._get_ld_library_path()})
         # Only set to verbose mode if the console handler is DEBUG level.
         self.is_verbose = False
         for handler in logging.getLogger('').handlers:
@@ -178,26 +177,6 @@ class AtestTradefedTestRunner(trb.TestRunnerBase):
         metrics.LocalDetectEvent(
             detect_type=DetectType.IS_MINIMAL_BUILD,
             result=int(self._minimal_build()))
-
-    def _get_ld_library_path(self) -> str:
-        """Get the corresponding LD_LIBRARY_PATH string for running TF.
-
-        This method will insert $ANDROID_HOST_OUT/{lib,lib64} to LD_LIBRARY_PATH
-        and returns the updated LD_LIBRARY_PATH.
-
-        Returns:
-            Strings for the environment passed to TF. Currently only
-            LD_LIBRARY_PATH for TF to load the correct local shared libraries.
-        """
-        out_dir = os.environ.get(constants.ANDROID_HOST_OUT, '')
-        # From b/188179058, if a 64bit tests, it will break the tests due to the
-        # elf format is not 64bit for the lib path. But for b/160741384, it is
-        # ok to load lib path first. Change the lib_dirs sequence to lib64 first
-        # due to ATest by default only testing the main abi and even a 32bit
-        # only target the lib64 folder is actually not exist.
-        lib_dirs = ['lib64', 'lib']
-        path = ':'.join([os.path.join(out_dir, dir) for dir in lib_dirs])
-        return f'LD_LIBRARY_PATH={path}:{os.getenv("LD_LIBRARY_PATH", "")}'
 
     def _try_set_gts_authentication_key(self):
         """Set GTS authentication key if it is available or exists.
@@ -287,16 +266,14 @@ class AtestTradefedTestRunner(trb.TestRunnerBase):
         Returns:
             0 if tests succeed, non-zero otherwise.
         """
-        iterations = self._generate_iterations(extra_args)
         reporter.register_unsupported_runner(self.NAME)
 
         ret_code = ExitCode.SUCCESS
-        for _ in range(iterations):
-            run_cmds = self.generate_run_commands(test_infos, extra_args)
-            logging.debug('Running test: %s', run_cmds[0])
-            subproc = self.run(run_cmds[0], output_to_stdout=True,
-                               env_vars=self.generate_env_vars(extra_args))
-            ret_code |= self.wait_for_subprocess(subproc)
+        run_cmds = self.generate_run_commands(test_infos, extra_args)
+        logging.debug('Running test: %s', run_cmds[0])
+        subproc = self.run(run_cmds[0], output_to_stdout=True,
+                            env_vars=self.generate_env_vars(extra_args))
+        ret_code |= self.wait_for_subprocess(subproc)
         return ret_code
 
     def run_tests_pretty(self, test_infos, extra_args, reporter):
@@ -310,22 +287,20 @@ class AtestTradefedTestRunner(trb.TestRunnerBase):
         Returns:
             0 if tests succeed, non-zero otherwise.
         """
-        iterations = self._generate_iterations(extra_args)
         ret_code = ExitCode.SUCCESS
-        for _ in range(iterations):
-            server = self._start_socket_server()
-            run_cmds = self.generate_run_commands(test_infos, extra_args,
-                                                  server.getsockname()[1])
-            logging.debug('Running test: %s', run_cmds[0])
-            subproc = self.run(run_cmds[0], output_to_stdout=self.is_verbose,
-                               env_vars=self.generate_env_vars(extra_args))
-            self.handle_subprocess(subproc, partial(self._start_monitor,
-                                                    server,
-                                                    subproc,
-                                                    reporter,
-                                                    extra_args))
-            server.close()
-            ret_code |= self.wait_for_subprocess(subproc)
+        server = self._start_socket_server()
+        run_cmds = self.generate_run_commands(test_infos, extra_args,
+                                              server.getsockname()[1])
+        logging.debug('Running test: %s', run_cmds[0])
+        subproc = self.run(run_cmds[0], output_to_stdout=self.is_verbose,
+                            env_vars=self.generate_env_vars(extra_args))
+        self.handle_subprocess(subproc, partial(self._start_monitor,
+                                                server,
+                                                subproc,
+                                                reporter,
+                                                extra_args))
+        server.close()
+        ret_code |= self.wait_for_subprocess(subproc)
         return ret_code
 
     # pylint: disable=too-many-branches
@@ -371,10 +346,10 @@ class AtestTradefedTestRunner(trb.TestRunnerBase):
                                     result_reporter.ResultReporter(
                                         collect_only=extra_args.get(
                                             constants.COLLECT_TESTS_ONLY),
-                                        flakes_info=extra_args.get(
-                                            constants.FLAKES_INFO)),
-
-                                    self.NAME))
+                                    ),
+                                    self.NAME,
+                                )
+                            )
                         recv_data = self._process_connection(data_map,
                                                              socket_object,
                                                              event_handler)
@@ -561,6 +536,11 @@ class AtestTradefedTestRunner(trb.TestRunnerBase):
                                       'INTEGRATION',
                                       'INTEGRATION_FILE_PATH']:
                 unsupported.add(t_info.test_name)
+            # For ltp and kselftest, keep it as no-minimal-build.
+            elif t_info.test_name in (
+                constants.REQUIRED_LTP_TEST_MODULES +
+                constants.REQUIRED_KSELFTEST_TEST_MODULES):
+                unsupported.add(t_info.test_name)
 
         if not unsupported:
             return True
@@ -632,7 +612,8 @@ class AtestTradefedTestRunner(trb.TestRunnerBase):
             raise Error(
                 f'Could not find module information for {t_info.raw_test_name}')
 
-        if not self._is_host_enabled() and self.module_info.is_device_driven_test(info):
+        if self.module_info.is_device_driven_test(info) and (
+            not self._is_host_enabled() or not self.module_info.is_host_driven_test(info)):
             return DeviceTest(info, Variant.DEVICE, t_info.mainline_modules)
 
         if self.module_info.is_modern_robolectric_test(info):
@@ -676,8 +657,7 @@ class AtestTradefedTestRunner(trb.TestRunnerBase):
         Returns:
             Tuple of args to append and args not supported.
         """
-        args_to_append, args_not_supported = extra_args_to_tf_args(
-            self.module_info, test_infos, extra_args)
+        args_to_append, args_not_supported = extra_args_to_tf_args(extra_args)
 
         # Set exclude instant app annotation for non-instant mode run.
         if (constants.INSTANT not in extra_args and
@@ -705,24 +685,6 @@ class AtestTradefedTestRunner(trb.TestRunnerBase):
                     args_to_append.append(exclude_parameter)
         return args_to_append, args_not_supported
 
-    def _generate_metrics_folder(self, extra_args):
-        """Generate metrics folder."""
-        metrics_folder = ''
-        if extra_args.get(constants.PRE_PATCH_ITERATIONS):
-            metrics_folder = os.path.join(self.results_dir, 'baseline-metrics')
-        elif extra_args.get(constants.POST_PATCH_ITERATIONS):
-            metrics_folder = os.path.join(self.results_dir, 'new-metrics')
-        return metrics_folder
-
-    def _generate_iterations(self, extra_args):
-        """Generate iterations."""
-        iterations = 1
-        if extra_args.get(constants.PRE_PATCH_ITERATIONS):
-            iterations = extra_args.pop(constants.PRE_PATCH_ITERATIONS)
-        elif extra_args.get(constants.POST_PATCH_ITERATIONS):
-            iterations = extra_args.pop(constants.POST_PATCH_ITERATIONS)
-        return iterations
-
     def generate_run_commands(self, test_infos, extra_args, port=None):
         """Generate a single run command from TestInfos.
 
@@ -737,15 +699,11 @@ class AtestTradefedTestRunner(trb.TestRunnerBase):
             Only one command is returned.
         """
         args = self._create_test_args(test_infos)
-        metrics_folder = self._generate_metrics_folder(extra_args)
 
         # Create a copy of args as more args could be added to the list.
         test_args = list(args)
         if port:
             test_args.extend(['--subprocess-report-port', str(port)])
-        if metrics_folder:
-            test_args.extend(['--metrics-folder', metrics_folder])
-            logging.info('Saved metrics in: %s', metrics_folder)
         if extra_args.get(constants.INVOCATION_ID, None):
             test_args.append('--invocation-data invocation_id=%s'
                              % extra_args[constants.INVOCATION_ID])
@@ -759,9 +717,6 @@ class AtestTradefedTestRunner(trb.TestRunnerBase):
                              % extra_args[constants.LOCAL_BUILD_ID])
             test_args.append('--stub-build-target %s'
                              % extra_args[constants.BUILD_TARGET])
-        if extra_args.get(constants.ENABLE_DEVICE_PREPARER, False):
-            test_args.append('--template:map preparers=%s'
-                             % constants.DEVICE_SETUP_PREPARER)
         for info in test_infos:
             if constants.TEST_WITH_MAINLINE_MODULES_RE.match(info.test_name):
                 # TODO(b/253641058) Remove this once mainline module
@@ -776,8 +731,8 @@ class AtestTradefedTestRunner(trb.TestRunnerBase):
         test_args.extend(['--log-level', log_level])
 
         # Set no-early-device-release by default to speed up TF teardown time.
-        if not constants.TF_EARLY_DEVICE_RELEASE in extra_args:
-            test_args.extend(['--no-early-device-release'])
+        # TODO(b/300882567) remove this forever when it's the default behavor.
+        test_args.extend(['--no-early-device-release'])
 
         args_to_add, args_not_supported = self._parse_extra_args(
             test_infos, extra_args)
@@ -878,7 +833,7 @@ class AtestTradefedTestRunner(trb.TestRunnerBase):
                 filters |= test_filters
             if module_args:
                 data[constants.TI_MODULE_ARG] = module_args
-            data[constants.TI_FILTER] = self._flatten_test_filters(filters)
+            data[constants.TI_FILTER] = self.flatten_test_filters(filters)
             results.add(
                 test_info.TestInfo(test_name=module,
                                    test_runner=test_runner,
@@ -888,7 +843,7 @@ class AtestTradefedTestRunner(trb.TestRunnerBase):
         return results
 
     @staticmethod
-    def _flatten_test_filters(filters):
+    def flatten_test_filters(filters):
         """Sort and group test_filters by class_name.
 
             Example of three test_filters in a frozenset:
@@ -1213,22 +1168,17 @@ def generate_annotation_filter_args(
                     option_value=annotation))
                 annotation_filter_args.extend([constants.TF_MODULE_ARG, module_arg])
             logging.error(
-                atest_utils.colorize(
-                    f'Cannot find similar annotation: {keyword}',
-                    constants.RED))
+                atest_utils.mark_red(
+                    f'Cannot find similar annotation: {keyword}'))
     return annotation_filter_args
 
 
 def extra_args_to_tf_args(
-    mod_info: module_info.ModuleInfo,
-    test_infos: List[test_info.TestInfo],
     extra_args: Dict[str, Any],
 ) -> Tuple[Dict[str, Any], Dict[str, Any]]:
     """Convert the extra args into atest_tf_test_runner supported args.
 
     Args:
-        mod_info: ModuleInfo object.
-        test_infos: A set of TestInfo instances.
         extra_args: Dict of args
 
     Returns:
@@ -1249,15 +1199,17 @@ def extra_args_to_tf_args(
 
     # Mapping supported TF arguments to the processing function.
     supported_tf_args = dict({
+        constants.ENABLE_DEVICE_PREPARER:
+            constant_list('--enable-device-preparer'),
         constants.WAIT_FOR_DEBUGGER:
             constant_list('--wait-for-debugger'),
         constants.DISABLE_INSTALL:
             constant_list('--disable-target-preparers'),
         constants.SERIAL:
-            lambda arg_value, *_:
+            lambda arg_value:
             [j for d in arg_value for j in ('--serial', d)],
         constants.SHARDING:
-            lambda arg_value, *_: ['--shard-count',
+            lambda arg_value: ['--shard-count',
                                    str(arg_value)],
         constants.DISABLE_TEARDOWN:
             constant_list('--disable-teardown'),
@@ -1266,44 +1218,42 @@ def extra_args_to_tf_args(
                           '--skip-host-arch-check'),
         constants.CUSTOM_ARGS:
             # custom args value is a list.
-            lambda arg_value, *_: arg_value,
+            lambda arg_value: arg_value,
         constants.ALL_ABI:
             constant_list('--all-abi'),
         constants.INSTANT:
             constant_list(constants.TF_ENABLE_PARAMETERIZED_MODULES,
                           constants.TF_MODULE_PARAMETER, 'instant_app'),
         constants.USER_TYPE:
-            lambda arg_value, *_: [
+            lambda arg_value: [
                 constants.TF_ENABLE_PARAMETERIZED_MODULES,
                 '--enable-optional-parameterization',
                 constants.TF_MODULE_PARAMETER,
                 str(arg_value)
             ],
         constants.ITERATIONS:
-            lambda arg_value, *_: [
+            lambda arg_value: [
                 '--retry-strategy', constants.ITERATIONS,
                 '--max-testcase-run-count', str(arg_value)
             ],
         constants.RERUN_UNTIL_FAILURE:
-            lambda arg_value, *_: [
+            lambda arg_value: [
                 '--retry-strategy', constants.RERUN_UNTIL_FAILURE,
                 '--max-testcase-run-count', str(arg_value)
             ],
         constants.RETRY_ANY_FAILURE:
-            lambda arg_value, *_: [
+            lambda arg_value: [
                 '--retry-strategy', constants.RETRY_ANY_FAILURE,
                 '--max-testcase-run-count', str(arg_value)
             ],
         constants.COLLECT_TESTS_ONLY:
             constant_list('--collect-tests-only'),
-        constants.NO_ENABLE_ROOT:
-            constant_list('--no-enable-root'),
         constants.TF_DEBUG:
             print_message("Please attach process to your IDE..."),
         constants.ANNOTATION_FILTER:
             generate_annotation_filter_args,
         constants.TEST_FILTER:
-            lambda arg_value, *_: [
+            lambda arg_value: [
                 '--test-arg',
                 'com.android.tradefed.testtype.AndroidJUnitTest:'
                 f'include-filter:{arg_value}',
@@ -1315,7 +1265,7 @@ def extra_args_to_tf_args(
                 f'--gtest_filter={arg_value}'
             ],
         constants.TEST_TIMEOUT:
-            lambda arg_value, *_: [
+            lambda arg_value: [
                 '--test-arg',
                 'com.android.tradefed.testtype.AndroidJUnitTest:'
                 f'shell-timeout:{arg_value}',
@@ -1337,14 +1287,12 @@ def extra_args_to_tf_args(
 
     for arg in extra_args:
         if arg in supported_tf_args:
-            tf_args = supported_tf_args[arg](extra_args[arg], mod_info,
-                                             test_infos)
+            tf_args = supported_tf_args[arg](extra_args[arg])
             if tf_args:
                 supported_args.extend(tf_args)
             continue
 
         if arg in (constants.TF_TEMPLATE,
-                   constants.TF_EARLY_DEVICE_RELEASE,
                    constants.INVOCATION_ID,
                    constants.WORKUNIT_ID,
                    constants.REQUEST_UPLOAD_RESULT,
@@ -1354,8 +1302,6 @@ def extra_args_to_tf_args(
                    constants.ENABLE_DEVICE_PREPARER,
                    constants.DRY_RUN,
                    constants.VERIFY_ENV_VARIABLE,
-                   constants.FLAKES_INFO,
-                   constants.LD_LIBRARY_PATH,
                    constants.DEVICE_ONLY):
             continue
         unsupported_args.append(arg)
@@ -1384,7 +1330,7 @@ def get_include_filter(test_infos: List[test_info.TestInfo]) -> List[str]:
                 instrumentation_filters.append(test_filter)
                 # Only pass test_name to --atest-include-filter if the given is
                 # a Java parameterized test.
-                test_filter, _ = test_finder_utils.split_methods(test_filter)
+                test_filter, _ = test_filter_utils.split_methods(test_filter)
             filter_arg = constants.TF_ATEST_INCLUDE_FILTER_VALUE_FMT.format(
                 test_name=info.test_name,
                 test_filter=test_filter

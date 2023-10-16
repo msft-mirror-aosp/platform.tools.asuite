@@ -23,9 +23,7 @@ constant, do so with care and run all unittests to make sure nothing breaks.
 
 # pylint: disable=line-too-long
 
-import functools
 import os
-import tempfile
 import zipfile
 
 from pathlib import Path
@@ -54,20 +52,21 @@ INT_NAME = 'example/reboot'
 GTF_INT_NAME = 'some/gtf_int_test'
 
 def get_atest_package():
+    """Get Atest directory."""
     package = os.path.dirname(os.path.realpath(__file__))
     if not os.path.isdir(package):
         par_file_path = os.path.dirname(package)
 
-    if os.path.isfile(par_file_path):
-        destination_path = os.path.join('/tmp/atest_extract/',
-                                        str(os.path.getmtime(par_file_path)))
+        if os.path.isfile(par_file_path):
+            destination_path = os.path.join(
+                '/tmp/atest_extract/', str(os.path.getmtime(par_file_path)))
 
-        if not os.path.isdir(destination_path):
-          Path(destination_path).mkdir(parents=True, exist_ok=True)
+            if not os.path.isdir(destination_path):
+                Path(destination_path).mkdir(parents=True, exist_ok=True)
 
-        with zipfile.ZipFile(par_file_path, 'r') as zip_ref:
-            zip_ref.extractall(destination_path)
-        package = os.path.join(destination_path, 'atest')
+            with zipfile.ZipFile(par_file_path, 'r') as zip_ref:
+                zip_ref.extractall(destination_path)
+            package = os.path.join(destination_path, 'atest')
 
     return package
 

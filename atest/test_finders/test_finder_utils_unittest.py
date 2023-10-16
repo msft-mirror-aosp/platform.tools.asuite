@@ -24,9 +24,9 @@ import os
 import tempfile
 import unittest
 
+from pathlib import Path
 from unittest import mock
 
-from atest import atest_error
 from atest import constants
 from atest import module_info
 from atest import unittest_constants as uc
@@ -104,51 +104,6 @@ HOST_OUT_DIR = tempfile.NamedTemporaryFile().name
 class TestFinderUtilsUnittests(unittest.TestCase):
     """Unit tests for test_finder_utils.py"""
 
-    def test_split_methods(self):
-        """Test _split_methods method."""
-        # Class
-        unittest_utils.assert_strict_equal(
-            self,
-            test_finder_utils.split_methods('Class.Name'),
-            ('Class.Name', set()))
-        unittest_utils.assert_strict_equal(
-            self,
-            test_finder_utils.split_methods('Class.Name#Method'),
-            ('Class.Name', {'Method'}))
-        unittest_utils.assert_strict_equal(
-            self,
-            test_finder_utils.split_methods('Class.Name#Method,Method2'),
-            ('Class.Name', {'Method', 'Method2'}))
-        unittest_utils.assert_strict_equal(
-            self,
-            test_finder_utils.split_methods('Class.Name#Method,Method2'),
-            ('Class.Name', {'Method', 'Method2'}))
-        unittest_utils.assert_strict_equal(
-            self,
-            test_finder_utils.split_methods('Class.Name#Method,Method2'),
-            ('Class.Name', {'Method', 'Method2'}))
-        self.assertRaises(
-            atest_error.TooManyMethodsError, test_finder_utils.split_methods,
-            'class.name#Method,class.name.2#method')
-        self.assertRaises(
-            atest_error.MoreThanOneClassError, test_finder_utils.split_methods,
-            'class.name1,class.name2,class.name3'
-        )
-        # Path
-        unittest_utils.assert_strict_equal(
-            self,
-            test_finder_utils.split_methods('foo/bar/class.java'),
-            ('foo/bar/class.java', set()))
-        unittest_utils.assert_strict_equal(
-            self,
-            test_finder_utils.split_methods('foo/bar/class.java#Method'),
-            ('foo/bar/class.java', {'Method'}))
-        # Multiple parameters
-        unittest_utils.assert_strict_equal(
-            self,
-            test_finder_utils.split_methods('Class.Name#method[1],method[2,[3,4]]'),
-            ('Class.Name', {'method[1]', 'method[2,[3,4]]'}))
-
     @mock.patch.object(test_finder_utils, 'has_method_in_file',
                        return_value=False)
     @mock.patch('builtins.input', return_value='0')
@@ -203,10 +158,10 @@ class TestFinderUtilsUnittests(unittest.TestCase):
                 test_path, frozenset(['testMethod', 'testMethod2'])))
 
     @mock.patch('builtins.input', return_value='1')
-    def test_extract_test_from_tests(self, mock_input):
-        """Test method extract_test_from_tests method."""
+    def test_extract_selected_tests(self, mock_input):
+        """Test method extract_selected_tests method."""
         tests = []
-        self.assertEqual(test_finder_utils.extract_test_from_tests(tests), None)
+        self.assertEqual(test_finder_utils.extract_selected_tests(tests), None)
         paths = [os.path.join(uc.ROOT, CLASS_DIR, uc.CLASS_NAME + '.java')]
         unittest_utils.assert_strict_equal(
             self, test_finder_utils.extract_test_path(uc.FIND_ONE), paths)
@@ -216,37 +171,37 @@ class TestFinderUtilsUnittests(unittest.TestCase):
             self, test_finder_utils.extract_test_path(FIND_TWO), paths)
         # Test inputing out-of-range integer or a string
         mock_input.return_value = '100'
-        self.assertEqual(test_finder_utils.extract_test_from_tests(
+        self.assertEqual(test_finder_utils.extract_selected_tests(
             uc.CLASS_NAME), [])
         mock_input.return_value = 'lOO'
-        self.assertEqual(test_finder_utils.extract_test_from_tests(
+        self.assertEqual(test_finder_utils.extract_selected_tests(
             uc.CLASS_NAME), [])
 
     @mock.patch('builtins.input', return_value='1')
     def test_extract_test_from_multiselect(self, mock_input):
-        """Test method extract_test_from_tests method."""
+        """Test method extract_selected_tests method."""
         # selecting 'All'
         paths = ['/a/b/c.java', '/d/e/f.java', '/g/h/i.java']
         mock_input.return_value = '3'
         unittest_utils.assert_strict_equal(
-            self, sorted(test_finder_utils.extract_test_from_tests(
+            self, sorted(test_finder_utils.extract_selected_tests(
                 FIND_THREE_LIST)), sorted(paths))
         # multi-select
         paths = ['/a/b/c.java', '/g/h/i.java']
         mock_input.return_value = '0,2'
         unittest_utils.assert_strict_equal(
-            self, sorted(test_finder_utils.extract_test_from_tests(
+            self, sorted(test_finder_utils.extract_selected_tests(
                 FIND_THREE_LIST)), sorted(paths))
         # selecting a range
         paths = ['/d/e/f.java', '/g/h/i.java']
         mock_input.return_value = '1-2'
         unittest_utils.assert_strict_equal(
-            self, test_finder_utils.extract_test_from_tests(FIND_THREE_LIST), paths)
+            self, test_finder_utils.extract_selected_tests(FIND_THREE_LIST), paths)
         # mixed formats
         paths = ['/a/b/c.java', '/d/e/f.java', '/g/h/i.java']
         mock_input.return_value = '0,1-2'
         unittest_utils.assert_strict_equal(
-            self, sorted(test_finder_utils.extract_test_from_tests(
+            self, sorted(test_finder_utils.extract_selected_tests(
                 FIND_THREE_LIST)), sorted(paths))
         # input unsupported formats, return empty
         paths = []
@@ -607,48 +562,6 @@ class TestFinderUtilsUnittests(unittest.TestCase):
             8
         )
 
-    def test_is_parameterized_java_class(self):
-        """Test is_parameterized_java_class method. """
-        matched_contents = (['@ParameterizedTest'],
-                            ['@RunWith(Parameterized.class)'],
-                            ['@RunWith(Parameterized::class)'],
-                            [' @RunWith( Parameterized.class ) '],
-                            ['@RunWith(TestParameterInjector.class)'],
-                            ['@RunWith(JUnitParamsRunner.class)'],
-                            ['@RunWith(DataProviderRunner.class)'],
-                            ['@RunWith(JukitoRunner.class)'],
-                            ['@RunWith(Theories.class)'],
-                            ['@RunWith(BedsteadJUnit4.class)'])
-        not_matched_contents = (['// @RunWith(Parameterized.class)'],
-                                ['*RunWith(Parameterized.class)'],
-                                ['// @ParameterizedTest'])
-        # Test matched patterns
-        for matched_content in matched_contents:
-            try:
-                tmp_file = tempfile.NamedTemporaryFile(mode='wt')
-                tmp_file.writelines(matched_content)
-                tmp_file.flush()
-
-                self.assertTrue(
-                    test_finder_utils.is_parameterized_java_class(
-                        tmp_file.name))
-            finally:
-                tmp_file.close()
-
-
-        # Test not matched patterns
-        for not_matched_content in not_matched_contents:
-            try:
-                tmp_file = tempfile.NamedTemporaryFile(mode='wt')
-                tmp_file.writelines(not_matched_content)
-                tmp_file.flush()
-
-                self.assertFalse(
-                    test_finder_utils.is_parameterized_java_class(
-                        tmp_file.name))
-            finally:
-                tmp_file.close()
-
     # pylint: disable=consider-iterating-dictionary
     def test_get_cc_class_info(self):
         """Test get_cc_class_info method."""
@@ -656,7 +569,8 @@ class TestFinderUtilsUnittests(unittest.TestCase):
         class_info = test_finder_utils.get_cc_class_info(file_path)
 
         #1. Ensure all classes are in the class info dict.
-        expect_classes = {'Class1', 'FClass', 'ValueParamClass1', 'ValueParamClass2',
+        expect_classes = {'Class1', 'FClass', 'FlagClass1', 'FFlagClass',
+                          'ValueParamClass1', 'ValueParamClass2',
                           'TypedTestClass', 'TypedParamTestClass'}
         self.assertEqual({key for key in class_info.keys()}, expect_classes)
 
@@ -667,6 +581,8 @@ class TestFinderUtilsUnittests(unittest.TestCase):
         self.assertEqual(class_info['TypedParamTestClass']['methods'], {'TypedParamTestName'})
         self.assertEqual(class_info['Class1']['methods'], {'Method1','Method2'})
         self.assertEqual(class_info['FClass']['methods'], {'FMethod1','FMethod2'})
+        self.assertEqual(class_info['FlagClass1']['methods'], {'Method1','Method2'})
+        self.assertEqual(class_info['FFlagClass']['methods'], {'FMethod1','FMethod2'})
 
         #3. Ensure prefixes are correctly mapping to the right class.
         self.assertEqual(class_info['TypedParamTestClass']['prefixes'], {'Instantiation3','Instantiation4'})
@@ -679,6 +595,8 @@ class TestFinderUtilsUnittests(unittest.TestCase):
         self.assertFalse(class_info['ValueParamClass1']['typed'])
         self.assertFalse(class_info['FClass']['typed'])
         self.assertFalse(class_info['Class1']['typed'])
+        self.assertFalse(class_info['FFlagClass']['typed'])
+        self.assertFalse(class_info['FlagClass1']['typed'])
 
     def test_get_java_method(self):
         """Test get_java_method"""
@@ -708,20 +626,6 @@ class TestFinderUtilsUnittests(unittest.TestCase):
                                    'PathTesting.kt')
         self.assertEqual(parent_cls,
                          test_finder_utils.get_parent_cls_name(target_java))
-
-    def test_get_package_name(self):
-        """Test get_package_name"""
-        package_name = 'com.test.hello_world_test'
-        target_java = os.path.join(uc.TEST_DATA_DIR,
-                                   'class_file_path_testing',
-                                   'hello_world_test.java')
-        self.assertEqual(package_name,
-                         test_finder_utils.get_package_name(target_java))
-        target_kt = os.path.join(uc.TEST_DATA_DIR,
-                                 'class_file_path_testing',
-                                 'hello_world_test.kt')
-        self.assertEqual(package_name,
-                         test_finder_utils.get_package_name(target_kt))
 
     @staticmethod
     def _get_paths_side_effect(module_name):
@@ -800,13 +704,19 @@ class TestFinderUtilsUnittests(unittest.TestCase):
     def test_get_test_config_subtest_in_multiple_config(self, _isfile):
         """Test get_test_config_and_srcs not the main module of multiple config"""
         android_root = '/'
-        mod_info = module_info.load_from_file(module_file=JSON_FILE_PATH)
-        t_info = test_info.TestInfo(
-            'Multiple2', 'mock_runner', build_targets=set())
-        expect_config = os.path.join(
-            android_root, uc.MULTIPLE_CONFIG_PATH, uc.SUB_CONFIG_NAME_2)
-        result, _ = test_finder_utils.get_test_config_and_srcs(t_info, mod_info)
-        self.assertEqual(expect_config, result)
+        mock_dict = {'ANDROID_BUILD_TOP': android_root,
+                     'ANDROID_PRODUCT_OUT': PRODUCT_OUT_DIR,
+                     'ANDROID_HOST_OUT': HOST_OUT_DIR}
+        with mock.patch.dict('os.environ', mock_dict, clear=True):
+            mod_info = module_info.load_from_file(module_file=JSON_FILE_PATH)
+            t_info = test_info.TestInfo(
+                'Multiple2', 'mock_runner', build_targets=set())
+            expect_config = Path(
+                android_root, uc.MULTIPLE_CONFIG_PATH, uc.SUB_CONFIG_NAME_2)
+
+            result, _ = test_finder_utils.get_test_config_and_srcs(t_info, mod_info)
+
+            self.assertEqual(expect_config, result)
 
     def test_is_test_from_kernel_xml_input_xml_not_exist_return_false(self):
         not_exist_xml = 'not/exist/xml/path'

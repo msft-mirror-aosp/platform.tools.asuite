@@ -18,6 +18,7 @@ rust_test_host {
     	  "src/adevice.rs"
     ],
     defaults: ["adevice_deps_defaults"],
+    rustlibs: ["libgoogletest_rust"],
     test_options: {
         unit_test: true,
     },
@@ -48,6 +49,7 @@ rust_test {
     srcs: [
         "src/adevice_fingerprint.rs",
     ],
+    rustlibs: ["libgoogletest_rust"],
     static_executable: true,
     test_suites: ["general-tests"],
     test_options: {
@@ -55,19 +57,38 @@ rust_test {
     },
 }
 
+rust_protobuf {
+    name: "libadevice_proto_rust",
+    crate_name: "adevice_proto",
+    host_supported: true,
+    source_stem: "adevice_proto",
+    use_protobuf3: true,
+    protos: [
+        "src/protos/clientanalytics.proto",
+        "src/protos/user_log.proto",
+    ],
+}
+
 rust_defaults {
     name: "adevice_deps_defaults",
     rustlibs: [
+        "libadevice_proto_rust",
         "libanyhow",
         "libatty",
         "libclap",
+        "libenv_logger",
         "libhex",
+	"libitertools",
+        "liblazy_static",
+	"liblog_rust",
         "librayon",
+        "libregex",
         "libring",
         "libserde",
         "libserde_json",
         "libtempfile",
         "libwalkdir",
+        "libprotobuf",
     ],
 }
 

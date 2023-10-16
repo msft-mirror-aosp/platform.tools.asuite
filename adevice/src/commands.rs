@@ -1,14 +1,13 @@
 //! Generate and execute adb commands from the host.
 use crate::fingerprint::*;
+use crate::restart_chooser::{RestartChooser, RestartType};
 
-use anyhow::{anyhow, Context, Result};
-use serde::__private::ToString;
+use log::debug;
 use std::collections::HashMap;
 use std::fmt::Debug;
 use std::path::{Path, PathBuf};
-use std::process;
 
-#[derive(Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum AdbAction {
     /// e.g. adb shell mkdir <device_filename>
     Mkdir,
@@ -20,10 +19,11 @@ pub enum AdbAction {
     DeleteFile,
     /// e.g. adb rm -rf <device_filename>
     DeleteDir,
-    // TODO: Also need commands to set user, group and permissions.
+    /// Not file based, like reboot
+    Other,
 }
 
-fn split_string(s: &str) -> Vec<String> {
+pub fn split_string(s: &str) -> Vec<String> {
     Vec::from_iter(s.split(' ').map(String::from))
 }
 
@@ -34,7 +34,7 @@ fn split_string(s: &str) -> Vec<String> {
 /// It is expected that the arguments returned arguments will not be
 /// evaluated by a shell, but instead passed directly on to `exec`.
 /// i.e. If a filename has spaces in it, there should be no quotes.
-pub fn command_args(action: AdbAction, file_path: &Path) -> Vec<String> {
+pub fn command_args(action: &AdbAction, file_path: &Path) -> Vec<String> {
     let path_str = file_path.to_path_buf().into_os_string().into_string().expect("already tested");
     let add_cmd_and_path = |s| {
         let mut args = split_string(s);
@@ -52,20 +52,22 @@ pub fn command_args(action: AdbAction, file_path: &Path) -> Vec<String> {
         AdbAction::Mkdir => add_cmd_and_path("shell mkdir -p"),
         // TODO(rbraunstein): Add compression flag.
         // [adb] push host_path device_path
-        AdbAction::Push { host_path } => add_cmd_and_paths("push", &host_path),
+        AdbAction::Push { host_path } => add_cmd_and_paths("push", host_path),
         // [adb] ln -s -f target device_path
-        AdbAction::Symlink { target } => add_cmd_and_paths("shell ln -sf", &target),
+        AdbAction::Symlink { target } => add_cmd_and_paths("shell ln -sf", target),
         // [adb] shell rm device_path
         AdbAction::DeleteFile => add_cmd_and_path("shell rm"),
         // [adb] shell rm -rf device_path
         AdbAction::DeleteDir => add_cmd_and_path("shell rm -rf"),
+        // Non file based actions, shouldn't happen here.
+        AdbAction::Other => vec![],
     }
 }
 
 /// Return type for `compute_actions` so we can segregate out deletes.
 pub struct Commands {
-    pub upserts: HashMap<PathBuf, Vec<String>>,
-    pub deletes: HashMap<PathBuf, Vec<String>>,
+    pub upserts: HashMap<PathBuf, AdbCommand>,
+    pub deletes: HashMap<PathBuf, AdbCommand>,
 }
 
 /// Compose an adb command, i.e. an argv array, for each action listed in the diffs.
@@ -81,58 +83,108 @@ pub fn compose(diffs: &Diffs, product_out: &Path) -> Commands {
     for (file_path, metadata) in diffs.device_needs.iter().chain(diffs.device_diffs.iter()) {
         let host_path =
             product_out.join(file_path).into_os_string().into_string().expect("already visited");
-        let to_args = |action| command_args(action, file_path);
+        let adb_cmd = |action| AdbCommand::from_action(action, file_path);
         commands.upserts.insert(
             file_path.to_path_buf(),
             match metadata.file_type {
-                FileType::File => to_args(AdbAction::Push { host_path }),
+                FileType::File => adb_cmd(AdbAction::Push { host_path }),
                 FileType::Symlink => {
-                    to_args(AdbAction::Symlink { target: metadata.symlink.clone() })
+                    adb_cmd(AdbAction::Symlink { target: metadata.symlink.clone() })
                 }
-                FileType::Directory => to_args(AdbAction::Mkdir),
+                FileType::Directory => adb_cmd(AdbAction::Mkdir),
             },
         );
     }
 
     for (file_path, metadata) in diffs.device_extra.iter() {
-        let to_args = |action| command_args(action, file_path);
+        let adb_cmd = |action| AdbCommand::from_action(action, file_path);
         commands.deletes.insert(
             file_path.to_path_buf(),
             match metadata.file_type {
                 // [adb] rm device_path
-                FileType::File | FileType::Symlink => to_args(AdbAction::DeleteFile),
-                // TODO(rbraunstein): Deal with deleting non-empty directory, probably with
-                //  `rm -rf` or deleting all files before deleting dirs and deleting most nested first.
-                FileType::Directory => to_args(AdbAction::DeleteDir),
+                FileType::File | FileType::Symlink => adb_cmd(AdbAction::DeleteFile),
+                // TODO(rbraunstein): More efficient deletes, or change rm -rf back to rmdir
+                FileType::Directory => adb_cmd(AdbAction::DeleteDir),
             },
         );
     }
 
-    // TODO(rbraunstein): Put rw bits in fingerprint and set on device.
     commands
 }
 
-/// Runs `adb` with the given args.
-/// If there is a non-zero exit code or non-empty stderr, then
-/// creates a Result Err string with the details.
-pub fn run_adb_command(args: &Vec<String>) -> Result<String> {
-    let output =
-        process::Command::new("adb").args(args).output().context("Error running adb commands")?;
+/// Given a set of files, determine the combined set of commands we need
+/// to execute on the device to make the device aware of the new files.
+/// In the most conservative case we will return a single "reboot" command.
+/// Short of that, there should be zero or one commands per installed file.
+/// If multiple installed files are part of the same module, we will reduce
+/// to one command for those files.  If multiple services are sync'd, there
+/// may be multiple restart commands.
+pub fn restart_type(
+    build_system: &RestartChooser,
+    installed_file_paths: &Vec<String>,
+) -> RestartType {
+    let mut soft_restart_needed = false;
+    let mut reboot_needed = false;
 
-    if output.status.success() && output.stderr.is_empty() {
-        return Ok(String::from_utf8(output.stdout)?);
+    for installed_file in installed_file_paths {
+        let restart_type = build_system.restart_type(installed_file);
+        debug!(" -- Restart is {:?} for {}", restart_type.clone(), installed_file);
+        match restart_type {
+            RestartType::Reboot => reboot_needed = true,
+            RestartType::SoftRestart => soft_restart_needed = true,
+            RestartType::None => (),
+            // TODO(rbraunstein): Deal with determining the command needed. Full reboot for now.
+            //RestartType::RestartBinary => (),
+        }
+    }
+    // Note, we don't do early return so we log restart_type for each file.
+    if reboot_needed {
+        return RestartType::Reboot;
+    }
+    if soft_restart_needed {
+        return RestartType::SoftRestart;
+    }
+    RestartType::None
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct AdbCommand {
+    /// Args to pass to adb to do the action.
+    args: Vec<String>,
+    /// Action we are going to perform, like Push, create symlink, delete file.
+    pub action: AdbAction,
+    /// Device path for file we are operating on.
+    pub file: PathBuf,
+}
+
+impl AdbCommand {
+    /// Pass the command line with spaces between args.
+    pub fn from_str(args: &str) -> Self {
+        AdbCommand { args: split_string(args), action: AdbAction::Other, file: PathBuf::new() }
+    }
+    pub fn from_action(adb_action: AdbAction, device_path: &Path) -> Self {
+        AdbCommand {
+            args: command_args(&adb_action, device_path),
+            action: adb_action,
+            file: device_path.to_path_buf(),
+        }
+    }
+    pub fn args(&self) -> Vec<String> {
+        self.args.clone()
     }
 
-    let status = match output.status.code() {
-        Some(code) => format!("Exited with status code: {code}"),
-        None => "Process terminated by signal".to_string(),
-    };
+    pub fn is_mkdir(&self) -> bool {
+        matches!(self.action, AdbAction::Mkdir { .. })
+    }
 
-    let stderr = match String::from_utf8(output.stderr) {
-        Ok(str) => str,
-        Err(e) => return Err(anyhow!("Error translating stderr {}", e)),
-    };
-    Err(anyhow!("adb error, {status} {stderr}"))
+    pub fn is_rm(&self) -> bool {
+        matches!(self.action, AdbAction::DeleteDir { .. })
+            || matches!(self.action, AdbAction::DeleteFile { .. })
+    }
+
+    pub fn device_path(&self) -> &Path {
+        &self.file
+    }
 }
 
 #[cfg(test)]
@@ -144,7 +196,7 @@ mod tests {
         assert_eq!(
             string_vec(&["push", "local/host/path", "device/path",]),
             command_args(
-                AdbAction::Push { host_path: "local/host/path".to_string() },
+                &AdbAction::Push { host_path: "local/host/path".to_string() },
                 &PathBuf::from("device/path")
             )
         );
@@ -154,7 +206,7 @@ mod tests {
     fn mkdir_cmd_args() {
         assert_eq!(
             string_vec(&["shell", "mkdir", "-p", "device/new/dir",]),
-            command_args(AdbAction::Mkdir, &PathBuf::from("device/new/dir"))
+            command_args(&AdbAction::Mkdir, &PathBuf::from("device/new/dir"))
         );
     }
 
@@ -163,7 +215,7 @@ mod tests {
         assert_eq!(
             string_vec(&["shell", "ln", "-sf", "the_target", "system/tmp/p",]),
             command_args(
-                AdbAction::Symlink { target: "the_target".to_string() },
+                &AdbAction::Symlink { target: "the_target".to_string() },
                 &PathBuf::from("system/tmp/p")
             )
         );
@@ -172,14 +224,14 @@ mod tests {
     fn delete_file_cmd_args() {
         assert_eq!(
             string_vec(&["shell", "rm", "system/file.so",]),
-            command_args(AdbAction::DeleteFile, &PathBuf::from("system/file.so"))
+            command_args(&AdbAction::DeleteFile, &PathBuf::from("system/file.so"))
         );
     }
     #[test]
     fn delete_dir_cmd_args() {
         assert_eq!(
             string_vec(&["shell", "rm", "-rf", "some/dir"]),
-            command_args(AdbAction::DeleteDir, &PathBuf::from("some/dir"))
+            command_args(&AdbAction::DeleteDir, &PathBuf::from("some/dir"))
         );
     }
 
@@ -189,7 +241,7 @@ mod tests {
         assert_eq!(
             string_vec(&["push", "local/host/path with space", "device/path with space",]),
             command_args(
-                AdbAction::Push { host_path: "local/host/path with space".to_string() },
+                &AdbAction::Push { host_path: "local/host/path with space".to_string() },
                 &PathBuf::from("device/path with space")
             )
         );
@@ -197,32 +249,10 @@ mod tests {
         assert_eq!(
             string_vec(&["shell", "ln", "-sf", "cup of water", "/tmp/ha ha/물 주세요",]),
             command_args(
-                AdbAction::Symlink { target: "cup of water".to_string() },
+                &AdbAction::Symlink { target: "cup of water".to_string() },
                 &PathBuf::from("/tmp/ha ha/물 주세요")
             )
         );
-    }
-
-    #[test]
-    // NOTE: This test assumes we have adb in our path.
-    fn adb_command_success() {
-        let result = run_adb_command(&vec!["version".to_string()]).expect("Error running command");
-        assert!(
-            result.contains("Android Debug Bridge version"),
-            "Expected a version string, but received:\n {result}"
-        );
-    }
-
-    #[test]
-    fn adb_command_failure() {
-        let result = run_adb_command(&vec!["improper_cmd".to_string()]);
-        if result.is_ok() {
-            panic!("Did not expect to succeed");
-        }
-
-        let expected_str =
-            "adb error, Exited with status code: 1 adb: unknown command improper_cmd\n";
-        assert_eq!(expected_str, format!("{:?}", result.unwrap_err()));
     }
 
     // helper to gofrom vec of str -> vec of String

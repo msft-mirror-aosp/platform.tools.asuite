@@ -27,6 +27,7 @@ from atest import constants
 from atest import unittest_constants as uc
 from atest import unittest_utils
 
+from atest.test_finders import test_filter_utils
 from atest.test_finders import test_finder_utils
 from atest.test_finders import test_info
 from atest.test_finders import tf_integration_finder
@@ -62,7 +63,7 @@ class TFIntegrationFinderUnittests(unittest.TestCase):
 
     @mock.patch.object(tf_integration_finder.TFIntegrationFinder,
                        '_get_build_targets', return_value=set())
-    @mock.patch.object(test_finder_utils, 'get_fully_qualified_class_name',
+    @mock.patch.object(test_filter_utils, 'get_fully_qualified_class_name',
                        return_value=uc.FULL_CLASS_NAME)
     @mock.patch('subprocess.check_output')
     @mock.patch('os.path.exists', return_value=True)
