@@ -612,7 +612,8 @@ class AtestTradefedTestRunner(trb.TestRunnerBase):
             raise Error(
                 f'Could not find module information for {t_info.raw_test_name}')
 
-        if not self._is_host_enabled() and self.module_info.is_device_driven_test(info):
+        if self.module_info.is_device_driven_test(info) and (
+            not self._is_host_enabled() or not self.module_info.is_host_driven_test(info)):
             return DeviceTest(info, Variant.DEVICE, t_info.mainline_modules)
 
         if self.module_info.is_modern_robolectric_test(info):
