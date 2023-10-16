@@ -152,6 +152,8 @@ def has_cc_class(test_path):
         content = class_file.read()
         if re.findall(test_filter_utils.CC_CLASS_METHOD_RE, content):
             return True
+        if re.findall(test_filter_utils.CC_FLAG_CLASS_METHOD_RE, content):
+            return True
         if re.findall(test_filter_utils.CC_PARAM_CLASS_RE, content):
             return True
         if re.findall(test_filter_utils.TYPE_CC_CLASS_RE, content):
