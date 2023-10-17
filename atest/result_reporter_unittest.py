@@ -221,7 +221,7 @@ RESULT_PERF02_TEST01 = test_runner_base.TestResult(
                      u'label': u'2123', u'threads': u'1',
                      u'time_unit': u'ns', u'iterations': u'2001',
                      u'run_name': u'perfName11',
-                     u'real_time': u'210001.21001'},
+                     u'real_time': u'21001.21001'},
     test_run_name='com.android.UnitTests'
 )
 
@@ -465,40 +465,39 @@ class ResultReporterUnittests(unittest.TestCase):
         # _update_stats() will call _update_perf_info()
         self.rr._update_stats(RESULT_PERF01_TEST01, group)
         correct_perf_info = []
-        # trim the time form 10001.10001 to 10001
-        trim_perf01_test01 = {u'repetition_index': u'0', u'cpu_time': u'10001',
+        trim_perf01_test01 = {u'repetition_index': u'0', u'cpu_time': u'10001.10001',
                               u'name': u'perfName01',
                               u'repetitions': u'0', u'run_type': u'iteration',
                               u'label': u'2123', u'threads': u'1',
                               u'time_unit': u'ns', u'iterations': u'1001',
                               u'run_name': u'perfName01',
-                              u'real_time': u'11001',
+                              u'real_time': u'11001.11001',
                               'test_name': 'somePerfClass01#perfName01'}
         correct_perf_info.append(trim_perf01_test01)
         self.assertEqual(self.rr.run_stats.perf_info.perf_info,
                          correct_perf_info)
         # 2. Test PerfInfo after RESULT_PERF01_TEST01
         self.rr._update_stats(RESULT_PERF01_TEST02, group)
-        trim_perf01_test02 = {u'repetition_index': u'0', u'cpu_time': u'10002',
+        trim_perf01_test02 = {u'repetition_index': u'0', u'cpu_time': u'10002.10002',
                               u'name': u'perfName02',
                               u'repetitions': u'0', u'run_type': u'iteration',
                               u'label': u'2123', u'threads': u'1',
                               u'time_unit': u'ns', u'iterations': u'1002',
                               u'run_name': u'perfName02',
-                              u'real_time': u'11002',
+                              u'real_time': u'11002.11002',
                               'test_name': 'somePerfClass01#perfName02'}
         correct_perf_info.append(trim_perf01_test02)
         self.assertEqual(self.rr.run_stats.perf_info.perf_info,
                          correct_perf_info)
         # 3. Test PerfInfo after RESULT_PERF02_TEST01
         self.rr._update_stats(RESULT_PERF02_TEST01, group)
-        trim_perf02_test01 = {u'repetition_index': u'0', u'cpu_time': u'20001',
+        trim_perf02_test01 = {u'repetition_index': u'0', u'cpu_time': u'20001.20001',
                               u'name': u'perfName11',
                               u'repetitions': u'0', u'run_type': u'iteration',
                               u'label': u'2123', u'threads': u'1',
                               u'time_unit': u'ns', u'iterations': u'2001',
                               u'run_name': u'perfName11',
-                              u'real_time': u'210001',
+                              u'real_time': u'21001.21001',
                               'test_name': 'somePerfClass02#perfName11'}
         correct_perf_info.append(trim_perf02_test01)
         self.assertEqual(self.rr.run_stats.perf_info.perf_info,
@@ -516,35 +515,35 @@ class ResultReporterUnittests(unittest.TestCase):
         self.rr._update_stats(RESULT_PERF01_TEST02, group)
         self.rr._update_stats(RESULT_PERF02_TEST01, group)
         # trim the time form 10001.10001 to 10001
-        trim_perf01_test01 = {u'repetition_index': u'0', u'cpu_time': u'10001',
+        trim_perf01_test01 = {u'repetition_index': u'0', u'cpu_time': u'10001.10001',
                               u'name': u'perfName01',
                               u'repetitions': u'0', u'run_type': u'iteration',
                               u'label': u'2123', u'threads': u'1',
                               u'time_unit': u'ns', u'iterations': u'1001',
                               u'run_name': u'perfName01',
-                              u'real_time': u'11001',
+                              u'real_time': u'11001.11001',
                               'test_name': 'somePerfClass01#perfName01'}
-        trim_perf01_test02 = {u'repetition_index': u'0', u'cpu_time': u'10002',
+        trim_perf01_test02 = {u'repetition_index': u'0', u'cpu_time': u'10002.10002',
                               u'name': u'perfName02',
                               u'repetitions': u'0', u'run_type': u'iteration',
                               u'label': u'2123', u'threads': u'1',
                               u'time_unit': u'ns', u'iterations': u'1002',
                               u'run_name': u'perfName02',
-                              u'real_time': u'11002',
+                              u'real_time': u'11002.11002',
                               'test_name': 'somePerfClass01#perfName02'}
-        trim_perf02_test01 = {u'repetition_index': u'0', u'cpu_time': u'20001',
+        trim_perf02_test01 = {u'repetition_index': u'0', u'cpu_time': u'20001.20001',
                               u'name': u'perfName11',
                               u'repetitions': u'0', u'run_type': u'iteration',
                               u'label': u'2123', u'threads': u'1',
                               u'time_unit': u'ns', u'iterations': u'2001',
                               u'run_name': u'perfName11',
-                              u'real_time': u'210001',
+                              u'real_time': u'21001.21001',
                               'test_name': 'somePerfClass02#perfName11'}
         correct_classify_perf_info = {"somePerfClass01":[trim_perf01_test01,
                                                          trim_perf01_test02],
                                       "somePerfClass02":[trim_perf02_test01]}
         classify_perf_info, max_len = self.rr.run_stats.perf_info._classify_perf_info()
-        correct_max_len = {'real_time': 6, 'cpu_time': 5, 'name': 10,
+        correct_max_len = {'real_time': 11, 'cpu_time': 11, 'name': 10,
                            'iterations': 9, 'time_unit': 2}
         self.assertEqual(max_len, correct_max_len)
         self.assertEqual(classify_perf_info, correct_classify_perf_info)
