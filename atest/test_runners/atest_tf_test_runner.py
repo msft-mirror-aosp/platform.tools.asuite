@@ -536,10 +536,8 @@ class AtestTradefedTestRunner(trb.TestRunnerBase):
                                       'INTEGRATION',
                                       'INTEGRATION_FILE_PATH']:
                 unsupported.add(t_info.test_name)
-            # For ltp and kselftest, keep it as no-minimal-build.
-            elif t_info.test_name in (
-                constants.REQUIRED_LTP_TEST_MODULES +
-                constants.REQUIRED_KSELFTEST_TEST_MODULES):
+            # For ltp, keep it as no-minimal-build.
+            elif t_info.test_name in constants.REQUIRED_LTP_TEST_MODULES:
                 unsupported.add(t_info.test_name)
 
         if not unsupported:
@@ -612,7 +610,8 @@ class AtestTradefedTestRunner(trb.TestRunnerBase):
             raise Error(
                 f'Could not find module information for {t_info.raw_test_name}')
 
-        if not self._is_host_enabled() and self.module_info.is_device_driven_test(info):
+        if self.module_info.is_device_driven_test(info) and (
+            not self._is_host_enabled() or not self.module_info.is_host_driven_test(info)):
             return DeviceTest(info, Variant.DEVICE, t_info.mainline_modules)
 
         if self.module_info.is_modern_robolectric_test(info):
