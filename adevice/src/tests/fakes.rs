@@ -75,14 +75,8 @@ impl Host for FakeHost {
         Ok(files)
     }
 
-    fn tracked_files(
-        &self,
-        partitions: &[PathBuf],
-        _config: &crate::tracking::Config,
-    ) -> Result<Vec<String>> {
-        let mut files = self.tracked_files.clone();
-        files.retain(|path| Self::on_a_partition(&PathBuf::from(path), partitions));
-        Ok(files)
+    fn tracked_files(&self, _config: &crate::tracking::Config) -> Result<Vec<String>> {
+        Ok(self.tracked_files.clone())
     }
 }
 
