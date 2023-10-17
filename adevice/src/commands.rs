@@ -19,8 +19,6 @@ pub enum AdbAction {
     DeleteFile,
     /// e.g. adb rm -rf <device_filename>
     DeleteDir,
-    /// Not file based, like reboot
-    Other,
 }
 
 pub fn split_string(s: &str) -> Vec<String> {
@@ -59,8 +57,6 @@ pub fn command_args(action: &AdbAction, file_path: &Path) -> Vec<String> {
         AdbAction::DeleteFile => add_cmd_and_path("shell rm"),
         // [adb] shell rm -rf device_path
         AdbAction::DeleteDir => add_cmd_and_path("shell rm -rf"),
-        // Non file based actions, shouldn't happen here.
-        AdbAction::Other => vec![],
     }
 }
 
@@ -159,9 +155,6 @@ pub struct AdbCommand {
 
 impl AdbCommand {
     /// Pass the command line with spaces between args.
-    pub fn from_str(args: &str) -> Self {
-        AdbCommand { args: split_string(args), action: AdbAction::Other, file: PathBuf::new() }
-    }
     pub fn from_action(adb_action: AdbAction, device_path: &Path) -> Self {
         AdbCommand {
             args: command_args(&adb_action, device_path),
