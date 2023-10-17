@@ -87,7 +87,7 @@ BENCHMARK_ESSENTIAL_KEYS = {'repetition_index', 'cpu_time', 'name', 'repetitions
 # TODO(b/146875480): handle the optional benchmark events
 BENCHMARK_OPTIONAL_KEYS = {'bytes_per_second', 'label'}
 BENCHMARK_EVENT_KEYS = BENCHMARK_ESSENTIAL_KEYS.union(BENCHMARK_OPTIONAL_KEYS)
-INT_KEYS = {'cpu_time', 'real_time'}
+INT_KEYS = {}
 ITER_SUMMARY = {}
 ITER_COUNTS = {}
 
