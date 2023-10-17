@@ -48,6 +48,13 @@ PASSED_STATUS = 'PASSED'
 IGNORED_STATUS = 'IGNORED'
 ERROR_STATUS = 'ERROR'
 
+# Code for RunnerFinishEvent.
+RESULT_CODE = {PASSED_STATUS: 0,
+               FAILED_STATUS: 1,
+               IGNORED_STATUS: 2,
+               ASSUMPTION_FAILED: 3,
+               ERROR_STATUS: 4}
+
 
 class TestRunnerBase:
     """Base Test Runner class."""
