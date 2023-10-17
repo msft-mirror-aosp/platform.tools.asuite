@@ -30,33 +30,35 @@ Usage:
 import argparse
 import os
 
+from collections import defaultdict
+
 from tools.asuite.atest.test_finders import test_filter_utils
 from tools.asuite.atest import constants_default
 
 
-def _get_test_filters(args):
-    class_to_methods = {}
-    for class_method_reference in args.class_method_reference:
+def _get_test_filters(class_method_references, class_files):
+    class_to_methods = defaultdict(set)
+    for class_method_reference in class_method_references:
         class_name, methods = test_filter_utils.split_methods(class_method_reference)
-        if class_name in class_to_methods:
-            class_to_methods[class_name] |= set(methods)
-        else:
-            class_to_methods[class_name] = set(methods)
+        class_to_methods[class_name] |= set(methods)
 
     filters = []
-    for class_file in args.class_file:
+    for class_file in class_files:
         if not constants_default.JAVA_EXT_RE.match(class_file):
             continue
 
         if not os.path.isfile(class_file):
             continue
 
-        class_name, _ = os.path.splitext(os.path.basename(class_file))
-        if class_name not in class_to_methods:
-            continue
-
         full_class_name = test_filter_utils.get_fully_qualified_class_name(
             class_file)
+        class_name, _ = os.path.splitext(os.path.basename(class_file))
+        if class_name not in class_to_methods:
+            # Check whether a full class name including packagename is specified.
+            if full_class_name not in class_to_methods:
+                continue
+            class_name = full_class_name
+
         methods = test_filter_utils.get_java_method_filters(
             class_file, class_to_methods[class_name])
         if methods:
@@ -88,7 +90,8 @@ if __name__ == '__main__':
 
     test_filters = []
     if args.class_method_reference and args.class_file:
-        test_filters = _get_test_filters(args)
+        test_filters = _get_test_filters(
+            args.class_method_reference, args.class_file)
 
     with open(args.out, 'w') as f:
         f.write(' '.join(test_filters))

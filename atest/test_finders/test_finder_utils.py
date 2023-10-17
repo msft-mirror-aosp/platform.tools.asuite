@@ -152,6 +152,8 @@ def has_cc_class(test_path):
         content = class_file.read()
         if re.findall(test_filter_utils.CC_CLASS_METHOD_RE, content):
             return True
+        if re.findall(test_filter_utils.CC_FLAG_CLASS_METHOD_RE, content):
+            return True
         if re.findall(test_filter_utils.CC_PARAM_CLASS_RE, content):
             return True
         if re.findall(test_filter_utils.TYPE_CC_CLASS_RE, content):
@@ -304,7 +306,7 @@ def extract_selected_tests(tests: Iterable, default_all=False) -> List[str]:
     Returns:
         A string list of paths.
     """
-    tests = list(tests)
+    tests = sorted(list(tests))
     count = len(tests)
     if default_all or count <= 1:
         return tests if count else None
@@ -312,7 +314,7 @@ def extract_selected_tests(tests: Iterable, default_all=False) -> List[str]:
     extracted_tests = set()
     # Establish 'All' and 'Quit' options in the numbered test menu.
     auxiliary_menu = ['All', 'Quit']
-    _tests = sorted(tests.copy())
+    _tests = tests.copy()
     _tests.extend(auxiliary_menu)
     numbered_list = ['%s: %s' % (i, t) for i, t in enumerate(_tests)]
     all_index = len(numbered_list) - auxiliary_menu[::-1].index('All') - 1

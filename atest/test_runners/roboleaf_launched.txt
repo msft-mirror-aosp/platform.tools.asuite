@@ -51,11 +51,17 @@
 //hardware/interfaces/bluetooth/1.0/default:bluetooth-address-unit-tests
 //hardware/libhardware/modules/sensors/dynamic_sensor/HidUtils:tristate_test
 # //packages/modules/adb:adb_test # fails with atest_integration_test b/304180665
+//packages/modules/common/build:mainline_modules_sdks_test
 //platform_testing/tests/example/jarhosttest:HelloWorldHostTest
 //system/chre/apps/test/chqts/src:nanoapp_chqts_shared_tests
 //system/chre:hal_unit_tests
 //system/core/libcrypto_utils/tests:libcrypto_utils_test
 //system/tools/sysprop:sysprop_test
+//system/linkerconfig:linkerconfig_backward_compatibility_test
+//system/linkerconfig:linkerconfig_contents_fulltest
+//system/linkerconfig:linkerconfig_generator_unittest
+//system/linkerconfig:linkerconfig_modules_unittest
+//system/memory/libmemunreachable:memunreachable_unit_test
 //tools/external_updater:external_updater_reviewers_test
 //tools/external_updater:external_updater_test
 //packages/modules/SdkExtensions/gen_sdk:gen_sdk_test

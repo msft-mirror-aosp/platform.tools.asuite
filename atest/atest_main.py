@@ -375,7 +375,7 @@ def _validate_exec_mode(args, test_infos: TestInfo, host_tests=None):
         sys.exit(ExitCode.INVALID_EXEC_MODE)
     # The 'adb' may not be available for the first repo sync or a clean build;
     # run `adb devices` in the build step again.
-    if at.has_command('adb'):
+    if atest_utils.has_command('adb'):
         _validate_adb_devices(args, test_infos)
     # In the case of '$atest <host-only>', we add --host to run on host-side.
     # The option should only be overridden if `host_tests` is not set.
@@ -1071,8 +1071,8 @@ def main(
     test_infos = translator.translate(args)
 
     # Only check device sufficiency if not dry run or verification mode.
+    args.device_count_config = get_device_count_config(test_infos, mod_info)
     if not (any(dry_run_args) or verify_env_variables):
-        args.device_count_config = get_device_count_config(test_infos, mod_info)
         if not has_sufficient_devices(args.device_count_config, args.serial):
             return ExitCode.INSUFFICIENT_DEVICES
 

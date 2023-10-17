@@ -47,7 +47,7 @@ class AtestToolsUnittests(unittest.TestCase):
     @mock.patch('atest.tools.atest_tools.SEARCH_TOP', uc.TEST_DATA_DIR)
     def test_index_targets(self):
         """Test method index_targets."""
-        if atest_tools.has_command(UPDATEDB) and atest_tools.has_command(LOCATE):
+        if au.has_command(UPDATEDB) and au.has_command(LOCATE):
             # 1. Test run_updatedb() is functional.
             atest_tools.run_updatedb(SEARCH_ROOT, uc.LOCATE_CACHE,
                                      prunepaths=PRUNEPATH)
@@ -102,8 +102,8 @@ class AtestToolsUnittests(unittest.TestCase):
             for idx in targets_to_delete:
                 os.remove(idx)
         else:
-            self.assertEqual(atest_tools.has_command(UPDATEDB), False)
-            self.assertEqual(atest_tools.has_command(LOCATE), False)
+            self.assertEqual(au.has_command(UPDATEDB), False)
+            self.assertEqual(au.has_command(LOCATE), False)
 
     def test_get_report_file(self):
         """Test method get_report_file."""

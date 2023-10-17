@@ -173,6 +173,11 @@ def get_product_out(*joinpaths: Any) -> Path:
     return Path(AndroidVariables().product_out, *joinpaths)
 
 
+def get_index_path(*filename: Any) -> Path:
+    """Get absolute path of the desired index file."""
+    return get_host_out('indices', *filename)
+
+
 def getenv_abs_path(env: str, suffix: str = None) -> Path:
     """Translate the environment variable to an absolute path.
 
@@ -1590,8 +1595,7 @@ def save_build_files_timestamp():
     The checksum of build files are stores in
         $ANDROID_HOST_OUT/indices/buildfiles.stp
     """
-    index_dir = get_host_out('indices')
-    plocate_db = index_dir.joinpath(constants.LOCATE_CACHE)
+    plocate_db = get_index_path(constants.LOCATE_CACHE)
 
     if plocate_db.is_file():
         cmd = (f'locate -d{plocate_db} --existing '
@@ -1602,7 +1606,7 @@ def save_build_files_timestamp():
             for build_file in results.splitlines():
                 timestamp.update({build_file: Path(build_file).stat().st_mtime})
 
-            checksum_file = index_dir.joinpath(constants.BUILDFILES_STP)
+            checksum_file = get_index_path(constants.BUILDFILES_STP)
             with open(checksum_file, 'w', encoding='utf-8') as _file:
                 json.dump(timestamp, _file)
 
@@ -1751,6 +1755,19 @@ def has_index_files():
         constants.CC_CLASS_INDEX,
         constants.QCLASS_INDEX,
         constants.PACKAGE_INDEX])
+
+
+def has_command(cmd: str) -> bool:
+    """Detect if the command is available in PATH.
+
+    Args:
+        cmd: A string of the tested command.
+
+    Returns:
+        True if found, False otherwise.
+    """
+    return bool(shutil.which(cmd))
+
 
 # pylint: disable=anomalous-backslash-in-string,too-many-branches
 def get_bp_content(filename: Path, module_type: str) -> Dict:
@@ -2042,12 +2059,13 @@ def get_rbe_and_customized_out_state() -> int:
 def build_files_integrity_is_ok() -> bool:
     """Return Whether the integrity of build files is OK."""
     # 0. Inexistence of the timestamp file means a fresh repo sync.
-    timestamp_file = get_host_out('indices', constants.BUILDFILES_STP)
+    timestamp_file = get_index_path(constants.BUILDFILES_STP)
     if not timestamp_file.is_file():
         return False
     # 1. Ensure no build files were added/deleted.
     recorded_amount = len(load_json_safely(timestamp_file).keys())
-    cmd = (f'locate -e -d{constants.LOCATE_CACHE} --regex '
+    locate_cache = get_index_path(constants.LOCATE_CACHE)
+    cmd = (f'locate -e -d{locate_cache} --regex '
             r'"/Android\.(bp|mk)$" | wc -l')
     if int(subprocess.getoutput(cmd)) != recorded_amount:
         return False
