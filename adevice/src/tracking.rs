@@ -123,10 +123,10 @@ impl Config {
     ///   Tracked files inside that file are relative to $OUT_DIR/target/product/*/
     ///   The final element of the path can be derived from the final element of ANDROID_PRODUCT_OUT,
     ///   but matching against */target/product/* is enough.
-    /// Store all ninja deps in the cache and filter out partitions per run.
-    pub fn tracked_files(&self, partitions: &[PathBuf]) -> Result<Vec<String>> {
+    /// Store all ninja deps in the cache.
+    pub fn tracked_files(&self) -> Result<Vec<String>> {
         if let Ok(cache) = self.read_cache() {
-            Ok(filter_partitions(&cache, partitions))
+            Ok(cache)
         } else {
             let ninja_output = self.ninja_output(
                 &self.src_root()?,
@@ -138,7 +138,7 @@ impl Config {
             let unfiltered_tracked_files = tracked_files(&ninja_output)?;
             self.write_cache(&unfiltered_tracked_files)
                 .unwrap_or_else(|e| warn!("Error writing tracked file cache: {e}"));
-            Ok(filter_partitions(&unfiltered_tracked_files, partitions))
+            Ok(unfiltered_tracked_files)
         }
     }
 
@@ -267,22 +267,6 @@ fn tracked_files(output: &process::Output) -> Result<Vec<String>> {
         .collect())
 }
 
-/// Iterate through all ninja deps which are already filtered to and relative to ANDROID_PRODUCT_OUT
-/// Return only those whose path starts with a partition.
-fn filter_partitions(ninja_deps: &[String], partitions: &[PathBuf]) -> Vec<String> {
-    ninja_deps
-        .iter()
-        .filter_map(|dep| {
-            for p in partitions {
-                if PathBuf::from(dep).starts_with(p) {
-                    return Some(dep.clone());
-                }
-            }
-            None
-        })
-        .collect()
-}
-
 // The ninja output for the files we are interested in will look like this:
 //     % OUT_DIR=innie m nothing
 //     % (cd $ANDROID_BUILD_TOP;prebuilts/build-tools/linux-x86/bin/ninja -f innie/combined-aosp_cf_x86_64_phone.ninja -t inputs -i droid | grep innie/target/product/vsoc_x86_64/system) | grep apk | head
@@ -393,28 +377,7 @@ mod tests {
         Ok(())
     }
 
-    #[test]
-    fn test_partition_filtering() {
-        let ninja_deps = vec![
-            "system/file1".to_string(),
-            "system_ext/file2".to_string(),
-            "file3".to_string(),
-            "system/dir2/file1".to_string(),
-            "data/sys/file4".to_string(),
-        ];
-        assert_eq!(
-            vec![
-                "system/file1".to_string(),
-                "system/dir2/file1".to_string(),
-                "data/sys/file4".to_string(),
-            ],
-            crate::tracking::filter_partitions(
-                &ninja_deps,
-                &[PathBuf::from("system"), PathBuf::from("data")]
-            )
-        );
-    }
-
+    /*
     // Ensure we match the whole path component, i.e. "sys" should not match system.
     #[test]
     fn test_partition_filtering_partition_name_matches_path_component() {
@@ -428,7 +391,7 @@ mod tests {
             Vec::<String>::new(),
             crate::tracking::filter_partitions(&ninja_deps, &[PathBuf::from("sys")])
         );
-    }
+    }*/
 
     // Convert TempDir to string we can use for fs::write/read.
     fn path(dir: &TempDir) -> String {

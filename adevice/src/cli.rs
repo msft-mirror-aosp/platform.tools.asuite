@@ -59,9 +59,8 @@ pub struct GlobalOptions {
     // TODO(rbraunstein): Add system_other to the default list, but deal gracefully
     // with it not being on the device.
     /// Partitions in the product tree to sync. Repeat arg or comma-separate.
-    #[clap(long, short, global = true,
-    default_values_t = [String::from("system"), String::from("system_ext")], value_delimiter = ',')]
-    pub partitions: Vec<String>,
+    #[clap(long, short, global = true, value_delimiter = ',')]
+    pub partitions: Option<Vec<String>>,
     // TODO(rbraunstein): Validate relative, not absolute paths.
     /// If unset defaults to ANDROID_PRODUCT_OUT env variable.
     #[clap(long = "product_out", global = true)]
