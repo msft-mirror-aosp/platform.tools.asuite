@@ -77,7 +77,7 @@
 # //external/minijail:mj_util_unittest_gtest
 # //external/minijail:syscall_filter_unittest_gtest
 # //external/protobuf:libprotobuf-stubs-test
-# //external/sqlite/android:libsqlite3_phone_number_utils_test
+//external/sqlite/android:libsqlite3_phone_number_utils_test
 # //external/zlib:zlib_tests
 # //frameworks/native/libs/binder/tests:binderRpcWireProtocolTest
 # //frameworks/native/libs/binder/tests:binderUnitTest
