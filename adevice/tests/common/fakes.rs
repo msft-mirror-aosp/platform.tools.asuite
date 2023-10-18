@@ -1,9 +1,8 @@
-use super::fingerprint::FileMetadata;
-use crate::commands::{AdbAction, AdbCommand};
-use crate::metrics::MetricSender;
-use crate::Device;
-use crate::Host;
-#[cfg(test)]
+use adevice::adevice::{Device, Host};
+use adevice::commands::{AdbAction, AdbCommand};
+use adevice::fingerprint::FileMetadata;
+use adevice::metrics::MetricSender;
+use adevice::tracking::Config;
 use anyhow::Result;
 use std::cell::RefCell;
 use std::collections::{HashMap, HashSet};
@@ -75,7 +74,7 @@ impl Host for FakeHost {
         Ok(files)
     }
 
-    fn tracked_files(&self, _config: &crate::tracking::Config) -> Result<Vec<String>> {
+    fn tracked_files(&self, _config: &Config) -> Result<Vec<String>> {
         Ok(self.tracked_files.clone())
     }
 }
