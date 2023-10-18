@@ -1,7 +1,6 @@
+use crate::adevice::{Device, Profiler};
 use crate::commands::{restart_type, split_string, AdbCommand};
-use crate::restart_chooser::RestartType;
-use crate::Device;
-use crate::RestartChooser;
+use crate::restart_chooser::{RestartChooser, RestartType};
 use crate::{fingerprint, time};
 
 use anyhow::{anyhow, bail, Context, Result};
@@ -287,7 +286,7 @@ fn run_process_with_timeout(
 pub fn update(
     restart_chooser: &RestartChooser,
     adb_commands: &HashMap<PathBuf, AdbCommand>,
-    profiler: &mut crate::Profiler,
+    profiler: &mut Profiler,
     device: &impl Device,
 ) -> Result<()> {
     if adb_commands.is_empty() {
