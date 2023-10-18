@@ -38,9 +38,9 @@ pub trait Host {
     ) -> Result<HashMap<PathBuf, fingerprint::FileMetadata>>;
 
     /// Return a list of all files that compose `droid` or whatever base and tracked
-    /// modules are listed in `config`.  Filter to those only listed in `partitions`.
+    /// modules are listed in `config`.
     /// Result strings are device relative. (i.e. start with system)
-    fn tracked_files(&self, partitions: &[PathBuf], config: &Config) -> Result<Vec<String>>;
+    fn tracked_files(&self, config: &Config) -> Result<Vec<String>>;
 }
 
 /// Methods to interact with the device, like adb, rebooting, and fingerprinting.
@@ -94,8 +94,8 @@ impl Host for RealHost {
         fingerprint::fingerprint_partitions(partition_root, partitions)
     }
 
-    fn tracked_files(&self, partitions: &[PathBuf], config: &Config) -> Result<Vec<String>> {
-        config.tracked_files(partitions)
+    fn tracked_files(&self, config: &Config) -> Result<Vec<String>> {
+        config.tracked_files()
     }
 }
 
@@ -142,27 +142,31 @@ fn adevice(
         _ => (),
     }
     config.print();
-    let partitions: Vec<PathBuf> =
-        cli.global_options.partitions.iter().map(PathBuf::from).collect();
 
     writeln!(stdout, " * Checking for files to push to device")?;
-    let ninja_installed_files =
-        time!(host.tracked_files(&partitions, &config)?, profiler.ninja_deps_computer);
+    let mut ninja_installed_files =
+        time!(host.tracked_files(&config)?, profiler.ninja_deps_computer);
+    let partitions = &validate_partitions(&ninja_installed_files, &cli.global_options.partitions)?;
+    // Filter to paths on any partitions.
+    ninja_installed_files
+        .retain(|nif| partitions.iter().any(|p| PathBuf::from(nif).starts_with(p)));
 
     debug!("Stale file tracking took {} millis", track_time.elapsed().as_millis());
 
     let mut device_tree: HashMap<PathBuf, FileMetadata> =
-        time!(device.fingerprint(&cli.global_options.partitions)?, profiler.device_fingerprint);
+        time!(device.fingerprint(partitions)?, profiler.device_fingerprint);
 
     // We expect the device to create lost+found dirs when mounting
     // new partitions.  Filter them out as if they don't exist.
     // However, if there are file inside of them, don't filter the
     // inner files.
-    for p in &cli.global_options.partitions {
+    for p in partitions {
         device_tree.remove(&PathBuf::from(p).join("lost+found"));
     }
 
-    let host_tree = time!(host.fingerprint(&product_out, &partitions)?, profiler.host_fingerprint);
+    let partition_paths: Vec<PathBuf> = partitions.iter().map(PathBuf::from).collect();
+    let host_tree =
+        time!(host.fingerprint(&product_out, &partition_paths)?, profiler.host_fingerprint);
 
     // For now ignore diffs in permissions.  This will allow us to have a new adevice host tool
     // still working with an older adevice_fingerprint device tool.
@@ -180,7 +184,7 @@ fn adevice(
         product_out.clone(),
         &device.get_installed_apks()?,
         diff_mode,
-        &partitions,
+        &partition_paths,
         stdout,
     )?;
 
@@ -333,6 +337,31 @@ fn get_update_commands(
 
     let filtered_changes = fingerprint::diff(&filtered_host_set, device_tree, diff_mode);
     Ok(commands::compose(&filtered_changes, &product_out))
+}
+
+/// If a user explicitly passes a partition, but that doesn't exist in the tracked files,
+/// then bail.
+/// Otherwise, if one of the default partitions does not exist (like system_ext), then
+/// just remove it from the default.
+fn validate_partitions(
+    tracked_files: &[String],
+    cli_partitions: &Option<Vec<String>>,
+) -> Result<Vec<String>> {
+    // NOTE: We use PathBuf instead of String so starts_with matches path components.
+    // Use the partitions the user passed in or default to system and system_ext
+    if let Some(partitions) = cli_partitions {
+        for partition in partitions {
+            if !tracked_files.iter().any(|t| PathBuf::from(t).starts_with(partition)) {
+                bail!("{partition:?} is not a valid partition for current lunch target.");
+            }
+        }
+        return Ok(partitions.clone());
+    }
+    let mut default_partitions = vec![String::from("system"), String::from("system_ext")];
+    default_partitions
+        .retain(|part| tracked_files.iter().any(|t| PathBuf::from(t).starts_with(part)));
+
+    Ok(default_partitions)
 }
 
 #[derive(Clone, PartialEq)]
@@ -720,6 +749,41 @@ mod tests {
         );
     }
 
+    #[test]
+    fn validate_partition_removes_unused_default_partition() -> Result<()> {
+        // No system_ext here, so remove from default partitions
+        let ninja_deps = vec![
+            "system/file1".to_string(),
+            "file3".to_string(),
+            "system/dir2/file1".to_string(),
+            "data/sys/file4".to_string(),
+        ];
+        assert_eq!(vec!["system".to_string(),], validate_partitions(&ninja_deps, &None)?);
+        Ok(())
+    }
+
+    #[test]
+    fn validate_partition_bails_on_bad_partition_name() {
+        let ninja_deps = vec![
+            "system/file1".to_string(),
+            "file3".to_string(),
+            "system/dir2/file1".to_string(),
+            "data/sys/file4".to_string(),
+        ];
+        // "sys" isn't a valid partition name, but it matches a prefix of "system".
+        // Should bail.
+        match validate_partitions(&ninja_deps, &Some(vec!["sys".to_string()])) {
+            Ok(_) => panic!("Expected error"),
+            Err(e) => {
+                assert!(
+                    e.to_string().contains("\"sys\" is not a valid partition"),
+                    "{}",
+                    e.to_string()
+                )
+            }
+        }
+    }
+
     // Just placeholder for now to show we can call adevice.
     #[test]
     fn adevice_status() -> Result<()> {
@@ -765,7 +829,9 @@ mod tests {
             (PathBuf::from("system/lost+found"), dir_metadata()),
         ]);
 
-        let fake_host = FakeHost::new(&HashMap::new(), &[]);
+        // Ensure the partitions exist.
+        let ninja_deps = crate::commands::split_string("system/file1 system_ext/file2");
+        let fake_host = FakeHost::new(&HashMap::new(), &ninja_deps);
         let fake_device = FakeDevice::new(&device_files);
         // TODO(rbraunstein): Fix argv[0]
         let cli = cli::Cli::parse_from([
@@ -778,7 +844,7 @@ mod tests {
             "none",
         ]);
 
-        // Expect some_file, but not lost+found for TrackAndBuildOrClean
+        // Expect some_file, but not lost+found.
         {
             let mut stdout = Vec::new();
             let mut metrics = FakeMetricSender::new();
