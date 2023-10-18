@@ -196,6 +196,13 @@ pub fn adevice(
         stdout,
     )?;
 
+    #[allow(clippy::collapsible_if)]
+    if matches!(cli.command, cli::Commands::Status) {
+        if commands.is_empty() {
+            println!("   Device already up to date.");
+        }
+    }
+
     let max_changes = cli.global_options.max_allowed_changes;
     if matches!(cli.command, cli::Commands::Clean { .. }) {
         let deletes = commands.deletes;
