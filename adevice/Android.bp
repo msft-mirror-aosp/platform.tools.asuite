@@ -15,7 +15,7 @@
 rust_test_host {
     name: "adevice_test",
     srcs: [
-    	  "src/adevice.rs"
+	  "src/lib.rs",
     ],
     defaults: ["adevice_deps_defaults"],
     rustlibs: ["libgoogletest_rust"],
@@ -28,7 +28,7 @@ rust_test_host {
 rust_binary_host {
     name: "adevice",
     srcs: [
-        "src/adevice.rs",
+        "src/main.rs",
     ],
     defaults: ["adevice_deps_defaults"],
 }
