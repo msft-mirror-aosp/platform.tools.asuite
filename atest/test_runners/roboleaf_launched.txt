@@ -96,7 +96,7 @@
 //libnativehelper/tests:libnativehelper_internal_tests
 //libnativehelper/tests:libnativehelper_lazy_tests
 //libnativehelper/tests:libnativehelper_tests
-# //packages/modules/Gki/libkver:libkver_test
+//packages/modules/Gki/libkver:libkver_test
 # //packages/modules/NeuralNetworks/common:NeuralNetworksTest_logtag
 # //packages/modules/NeuralNetworks/common:NeuralNetworksTest_operations
 # //packages/modules/NeuralNetworks/common:NeuralNetworksTest_utils
