@@ -81,6 +81,9 @@ pub struct GlobalOptions {
     /// Path to config file.  Uses $HOME/.config/asuite/adevice-tracking.json if unset.
     #[clap(long = "config", global = true)]
     pub config_path: Option<String>,
+    // Don't wait for device to become available after restarting it.
+    #[clap(long = "nowait", global = true, alias = "no_wait", alias = "no-wait")]
+    pub nowait: bool,
 }
 
 #[derive(clap::ValueEnum, Clone, Debug)]
@@ -104,4 +107,72 @@ pub enum RestartChoice {
     Reboot,
     /// Always do a framework restart restart after updates.
     Restart,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub enum Wait {
+    Yes,
+    No,
+}
+
+impl From<Wait> for bool {
+    fn from(w: Wait) -> bool {
+        match w {
+            Wait::Yes => true,
+            Wait::No => false,
+        }
+    }
+}
+
+impl Cli {
+    /// Decide if the options indicate that we should wait for the device.
+    /// Exists in case the cli options get more complicated like --wait=false
+    pub fn should_wait(&self) -> Wait {
+        match self.global_options.nowait {
+            true => Wait::No,
+            false => Wait::Yes,
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::cli::Wait;
+
+    use super::Cli;
+    use clap::Parser;
+
+    #[test]
+    fn nowait_works() {
+        let cli = Cli::parse_from(["fake_prog", "update", "--nowait"]);
+        assert!(cli.global_options.nowait);
+    }
+
+    #[test]
+    fn no_wait_alias_works() {
+        let cli = Cli::parse_from(["fake_prog", "update", "--no_wait"]);
+        assert!(cli.global_options.nowait);
+    }
+
+    #[test]
+    fn unset_nowait_is_none() {
+        let cli = Cli::parse_from(["fake_prog", "update"]);
+        assert!(!cli.global_options.nowait);
+    }
+
+    #[test]
+    fn it_should_wait() {
+        let cli = Cli::parse_from(["fake_prog", "update"]);
+        assert_eq!(Wait::Yes, cli.should_wait());
+        let should_wait: bool = cli.should_wait().into();
+        assert!(should_wait);
+    }
+
+    #[test]
+    fn it_should_not_wait() {
+        let cli = Cli::parse_from(["fake_prog", "update", "--nowait"]);
+        assert_eq!(Wait::No, cli.should_wait());
+        let should_wait: bool = cli.should_wait().into();
+        assert!(!should_wait);
+    }
 }

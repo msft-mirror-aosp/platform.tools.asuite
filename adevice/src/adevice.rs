@@ -43,6 +43,8 @@ pub trait Device {
     /// or output on stderr, then the result is an Err.
     fn run_adb_command(&self, args: &commands::AdbCommand) -> Result<String>;
 
+    fn run_raw_adb_command(&self, args: &[String], echo: Echo) -> Result<String>;
+
     /// Send commands to reboot device.
     fn reboot(&self) -> Result<String>;
     /// Send commands to do a soft restart.
@@ -59,10 +61,6 @@ pub trait Device {
     /// Wait for the device to be ready after reboots/restarts.
     /// Returns any relevant output from waiting.
     fn wait(&self) -> Result<String>;
-
-    /// Send commands to the device that are needed before we run adb push commands
-    /// like "adb root; adb remount" and clearing sys.boot_completed.
-    fn prep_for_push(&self) -> Result<String>;
 
     /// Run the commands needed to prep a userdebug device after a flash.
     fn prep_after_flash(&self) -> Result<()>;
@@ -94,6 +92,14 @@ impl Host for RealHost {
     fn tracked_files(&self, config: &Config) -> Result<Vec<String>> {
         config.tracked_files()
     }
+}
+
+#[derive(PartialEq)]
+pub enum Echo {
+    /// Show commands if --verbose <= info
+    On,
+    /// Don't show commands
+    Off,
 }
 
 /// Time how long it takes to run the function and store the
@@ -215,7 +221,7 @@ pub fn adevice(
         // Consider always reboot instead of soft restart after a clean.
         let restart_chooser =
             &RestartChooser::from(&restart_choice, &product_out.join("module-info.json"))?;
-        device::update(restart_chooser, &deletes, &mut profiler, device)?;
+        device::update(restart_chooser, &deletes, &mut profiler, device, cli.should_wait())?;
     }
 
     if matches!(cli.command, cli::Commands::Update) {
@@ -237,6 +243,7 @@ pub fn adevice(
                 &upserts,
                 &mut profiler,
                 device,
+                cli.should_wait(),
             );
             if update_result.is_ok() {
                 break;

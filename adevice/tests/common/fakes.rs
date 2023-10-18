@@ -1,4 +1,4 @@
-use adevice::adevice::{Device, Host};
+use adevice::adevice::{Device, Echo, Host};
 use adevice::commands::{AdbAction, AdbCommand};
 use adevice::fingerprint::FileMetadata;
 use adevice::metrics::MetricSender;
@@ -45,6 +45,12 @@ pub struct FakeDevice {
     pushes: RefCell<Vec<PathBuf>>,
     // Files and directories removed from the device via `adb_command`
     removes: RefCell<Vec<PathBuf>>,
+
+    // Cmds that are issued with run_raw_adb_command;
+    raw_cmds: RefCell<Vec<String>>,
+
+    // How many times has wait() beeng called on the fake.
+    wait_called: RefCell<u32>,
 }
 impl FakeDevice {
     pub fn new(files: &HashMap<PathBuf, FileMetadata>) -> FakeDevice {
@@ -60,6 +66,15 @@ impl FakeDevice {
     #[allow(dead_code)]
     pub fn pushes(&self) -> Vec<PathBuf> {
         self.pushes.borrow().clone()
+    }
+
+    /// Returns orderd list of all raw adb commands.
+    #[allow(dead_code)]
+    pub fn raw_cmds(&self) -> Vec<String> {
+        self.raw_cmds.borrow().clone()
+    }
+    pub fn wait_calls(&self) -> u32 {
+        *self.wait_called.borrow()
     }
 }
 
@@ -91,6 +106,10 @@ impl Device for FakeDevice {
         }
         Ok(String::new())
     }
+    fn run_raw_adb_command(&self, cmds: &[String], _echo: Echo) -> Result<String> {
+        self.raw_cmds.borrow_mut().push(cmds.join(" "));
+        Ok(String::new())
+    }
 
     // No need to do anything.
     fn reboot(&self) -> Result<String> {
@@ -112,15 +131,12 @@ impl Device for FakeDevice {
     }
 
     fn wait(&self) -> Result<String> {
+        let mut counter = self.wait_called.borrow_mut();
+        *counter = *counter + 1;
         Ok(String::new())
     }
-
     fn prep_after_flash(&self) -> Result<()> {
         Ok(())
-    }
-
-    fn prep_for_push(&self) -> Result<String> {
-        Ok(String::new())
     }
 }
 
