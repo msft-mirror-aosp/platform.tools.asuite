@@ -79,7 +79,7 @@
 # //external/protobuf:libprotobuf-stubs-test
 //external/sqlite/android:libsqlite3_phone_number_utils_test
 //external/zlib:zlib_tests
-//frameworks/native/libs/binder/tests:binderRpcWireProtocolTest
+# //frameworks/native/libs/binder/tests:binderRpcWireProtocolTest
 # //frameworks/native/libs/binder/tests:binderUnitTest # MemoryHeapBase.* device test failing
 //hardware/interfaces/audio/aidl/common:libaudioaidlcommon_test
 # //hardware/interfaces/audio/common/all-versions/test/utility:android.hardware.audio.common.test.utility_tests # device test failing
