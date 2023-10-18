@@ -45,15 +45,17 @@ impl MetricSender for Metrics {
     }
 }
 
-impl Metrics {
-    pub fn default() -> Self {
+impl Default for Metrics {
+    fn default() -> Self {
         Metrics {
             events: Vec::new(),
             user: env::var(INTERNAL_USER_ENV).unwrap_or("".to_string()),
             url: String::from(CLEARCUT_PROD_URL),
         }
     }
+}
 
+impl Metrics {
     fn send(&self) -> Result<()> {
         if self.url.is_empty() {
             return Err(anyhow!("Metrics not sent since url is empty"));
