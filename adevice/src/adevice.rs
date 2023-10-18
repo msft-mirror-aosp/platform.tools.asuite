@@ -1,25 +1,19 @@
-//! Update an Android device with local build changes.
-mod cli;
-mod commands;
-mod device;
-mod fingerprint;
-mod logger;
-mod metrics;
-mod restart_chooser;
-mod tracking;
-
+use crate::cli;
+use crate::commands;
+use crate::device;
+use crate::fingerprint;
+use crate::logger;
+use crate::metrics;
+use crate::restart_chooser;
+use crate::tracking::Config;
 use anyhow::{anyhow, bail, Context, Result};
-use clap::Parser;
-use cli::Commands;
-use device::RealDevice;
 use fingerprint::{DiffMode, FileMetadata};
 use itertools::Itertools;
 use lazy_static::lazy_static;
 use log::{debug, info};
-use metrics::{MetricSender, Metrics};
+use metrics::MetricSender;
 use regex::Regex;
 use restart_chooser::RestartChooser;
-use tracking::Config;
 
 use std::collections::{HashMap, HashSet};
 use std::ffi::OsString;
@@ -35,7 +29,7 @@ pub trait Host {
         &self,
         partition_root: &Path,
         partitions: &[PathBuf],
-    ) -> Result<HashMap<PathBuf, fingerprint::FileMetadata>>;
+    ) -> Result<HashMap<PathBuf, FileMetadata>>;
 
     /// Return a list of all files that compose `droid` or whatever base and tracked
     /// modules are listed in `config`.
@@ -55,10 +49,7 @@ pub trait Device {
     fn soft_restart(&self) -> Result<String>;
 
     /// Call the fingerprint program on the device.
-    fn fingerprint(
-        &self,
-        partitions: &[String],
-    ) -> Result<HashMap<PathBuf, fingerprint::FileMetadata>>;
+    fn fingerprint(&self, partitions: &[String]) -> Result<HashMap<PathBuf, FileMetadata>>;
 
     /// Return the list apks that are currently installed, i.e. `adb install`
     /// which live on the /data partition.
@@ -77,7 +68,13 @@ pub trait Device {
     fn prep_after_flash(&self) -> Result<()>;
 }
 
-struct RealHost {}
+pub struct RealHost {}
+
+impl Default for RealHost {
+    fn default() -> Self {
+        Self::new()
+    }
+}
 
 impl RealHost {
     pub fn new() -> RealHost {
@@ -90,7 +87,7 @@ impl Host for RealHost {
         &self,
         partition_root: &Path,
         partitions: &[PathBuf],
-    ) -> Result<HashMap<PathBuf, fingerprint::FileMetadata>> {
+    ) -> Result<HashMap<PathBuf, FileMetadata>> {
         fingerprint::fingerprint_partitions(partition_root, partitions)
     }
 
@@ -99,16 +96,21 @@ impl Host for RealHost {
     }
 }
 
-fn main() -> Result<()> {
-    let host = RealHost::new();
-    let cli = cli::Cli::parse();
-    let device = RealDevice::new(cli.global_options.serial.clone());
-    let mut metrics = Metrics::default();
-
-    adevice(&host, &device, &cli, &mut std::io::stdout(), &mut metrics)
+/// Time how long it takes to run the function and store the
+/// result in the given profiler field.
+// TODO(rbraunstein): Ideally, use tracing or flamegraph crate or
+// use Map rather than name all the fields.
+#[macro_export]
+macro_rules! time {
+    ($fn:expr, $ident:expr) => {{
+        let start = std::time::Instant::now();
+        let result = $fn;
+        $ident = start.elapsed();
+        result
+    }};
 }
 
-fn adevice(
+pub fn adevice(
     host: &impl Host,
     device: &impl Device,
     cli: &cli::Cli,
@@ -132,13 +134,13 @@ fn adevice(
 
     let track_time = std::time::Instant::now();
 
-    let mut config = tracking::Config::load(&cli.global_options.config_path)?;
+    let mut config = Config::load(&cli.global_options.config_path)?;
 
     // Early return for track/untrack commands.
     match &cli.command {
-        Commands::Track(names) => return config.track(&names.modules),
-        Commands::TrackBase(base) => return config.trackbase(&base.base),
-        Commands::Untrack(names) => return config.untrack(&names.modules),
+        cli::Commands::Track(names) => return config.track(&names.modules),
+        cli::Commands::TrackBase(base) => return config.trackbase(&base.base),
+        cli::Commands::Untrack(names) => return config.untrack(&names.modules),
         _ => (),
     }
     config.print();
@@ -189,7 +191,7 @@ fn adevice(
     )?;
 
     let max_changes = cli.global_options.max_allowed_changes;
-    if matches!(cli.command, Commands::Clean { .. }) {
+    if matches!(cli.command, cli::Commands::Clean { .. }) {
         let deletes = commands.deletes;
         if deletes.is_empty() {
             println!("   Nothing to clean.");
@@ -198,7 +200,7 @@ fn adevice(
         if deletes.len() > max_changes {
             bail!("There are {} files to be deleted which exceeds the configured limit of {}.\n  It is recommended that you reimage your device instead.  For small increases in the limit, you can run `adevice clean --max-allowed-changes={}.", deletes.len(), max_changes, deletes.len());
         }
-        if matches!(cli.command, Commands::Clean { force } if !force) {
+        if matches!(cli.command, cli::Commands::Clean { force } if !force) {
             println!(
                 "You are about to delete {} [untracked pushed] files. Are you sure? y/N",
                 deletes.len()
@@ -216,7 +218,7 @@ fn adevice(
         device::update(restart_chooser, &deletes, &mut profiler, device)?;
     }
 
-    if matches!(cli.command, Commands::Update) {
+    if matches!(cli.command, cli::Commands::Update) {
         let upserts = commands.upserts;
         // Status
         if upserts.is_empty() {
@@ -635,28 +637,10 @@ impl std::string::ToString for Profiler {
     }
 }
 
-/// Time how long it takes to run the function and store the
-/// result in the given profiler field.
-// TODO(rbraunstein): Ideally, use tracing or flamegraph crate or
-// use Map rather than name all the fields.
-#[macro_export]
-macro_rules! time {
-    ($fn:expr, $ident:expr) => {{
-        let start = std::time::Instant::now();
-        let result = $fn;
-        $ident = start.elapsed();
-        result
-    }};
-}
-
 #[cfg(test)]
 mod tests {
-    mod fakes;
     use super::*;
-    use crate::fingerprint::DiffMode;
-    use crate::tests::fakes::FakeMetricSender;
-    use fakes::FakeDevice;
-    use fakes::FakeHost;
+    use crate::fingerprint::{self, DiffMode};
     use std::path::PathBuf;
 
     // TODO(rbraunstein): Capture/test stdout and logging.
@@ -782,83 +766,6 @@ mod tests {
                 )
             }
         }
-    }
-
-    // Just placeholder for now to show we can call adevice.
-    #[test]
-    fn adevice_status() -> Result<()> {
-        // Fakes start with a few files in them ... for now.
-        let device_fs = HashMap::from([
-            (PathBuf::from("system/fakefs_default_file"), file_metadata("digest1")),
-            (PathBuf::from("system"), dir_metadata()),
-        ]);
-
-        let host_fs = HashMap::from([
-            (PathBuf::from("system/fakefs_default_file"), file_metadata("digest1")),
-            // NOTE: extra file on host
-            (PathBuf::from("system/fakefs_new_file_file"), file_metadata("digest1")),
-            (PathBuf::from("system"), dir_metadata()),
-        ]);
-        let host_tracked_files =
-            vec!["system/fakefs_default_file".to_string(), "system/fakefs_new_file".to_string()];
-
-        let fake_host = FakeHost::new(&host_fs, &host_tracked_files);
-        let fake_device = FakeDevice::new(&device_fs);
-        let mut stdout = Vec::new();
-        // TODO(rbraunstein): Fix argv[0]
-        let cli = cli::Cli::parse_from(["", "--product_out", "unused", "status"]);
-
-        adevice(&fake_host, &fake_device, &cli, &mut stdout, &mut FakeMetricSender::new())?;
-        let stdout_str = String::from_utf8(stdout).unwrap();
-
-        // TODO(rbraunstein): Check the status group it is in: (Ready to push)
-        assert!(
-            stdout_str.contains(&"system/fakefs_new_file".to_string()),
-            "\n\nACTUAL:\n {}",
-            stdout_str
-        );
-        Ok(())
-    }
-
-    #[test]
-    fn lost_and_found_should_not_be_cleaned() -> Result<()> {
-        // Fakes start with a few files in them ... for now.
-        let device_files = HashMap::from([
-            (PathBuf::from("system_ext/lost+found"), dir_metadata()),
-            (PathBuf::from("system/some_file"), file_metadata("m1")),
-            (PathBuf::from("system/lost+found"), dir_metadata()),
-        ]);
-
-        // Ensure the partitions exist.
-        let ninja_deps = crate::commands::split_string("system/file1 system_ext/file2");
-        let fake_host = FakeHost::new(&HashMap::new(), &ninja_deps);
-        let fake_device = FakeDevice::new(&device_files);
-        // TODO(rbraunstein): Fix argv[0]
-        let cli = cli::Cli::parse_from([
-            "",
-            "--product_out",
-            "unused",
-            "clean",
-            "--force",
-            "--restart",
-            "none",
-        ]);
-
-        // Expect some_file, but not lost+found.
-        {
-            let mut stdout = Vec::new();
-            let mut metrics = FakeMetricSender::new();
-            adevice(&fake_host, &fake_device, &cli, &mut stdout, &mut metrics)
-                .context("Running adevice clean")?;
-            let stdout_str = String::from_utf8(stdout).unwrap();
-            assert!(stdout_str.contains("system/some_file"), "\n\nACTUAL:\n {}", stdout_str);
-            assert!(!stdout_str.contains("lost+found"), "\n\nACTUAL:\n {}", stdout_str);
-
-            assert!(fake_device.removes().contains(&PathBuf::from("system/some_file")));
-            assert!(!fake_device.removes().contains(&PathBuf::from("system/lost+found")));
-        }
-
-        Ok(())
     }
 
     // TODO(rbraunstein): Test case where on device and up to date, but not tracked.
