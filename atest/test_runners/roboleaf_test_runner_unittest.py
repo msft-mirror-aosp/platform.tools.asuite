@@ -360,21 +360,6 @@ class RoboleafTestRunnerUnittests(fake_filesystem_unittest.TestCase):
         self.assertEqual(len(cmds), 1)
         self.assertTrue('--config=deviceless' in cmds[0])
 
-    def test_atest_enable_device_preparer_flag(self):
-        """Test that generate_run_commands converts --enable-device-preparer correctly."""
-        RoboleafModuleMap()._module_map = {"test1": "//a"}
-        test_infos = (
-            TestInfo("test1", RoboleafTestRunner.NAME, set()),
-        )
-
-        cmds = self.test_runner.generate_run_commands(
-            test_infos,
-            extra_args={ constants.ENABLE_DEVICE_PREPARER: True },
-        )
-
-        self.assertEqual(len(cmds), 1)
-        self.assertTrue('--test_arg=--enable-device-preparer' in cmds[0])
-
     @mock.patch.object(RoboleafTestRunner, 'run')
     def test_run_tests(self, mock_run):
         """Test run_tests_raw method."""
