@@ -38,7 +38,7 @@ impl RestartChooser {
     }
 
     // Construct the RestartChooser from json reader.
-    fn new<R: Read>(reader: BufReader<R>) -> Result<Self> {
+    pub fn new<R: Read>(reader: BufReader<R>) -> Result<Self> {
         Ok(RestartChooser {
             restart_types: Self::restart_type_for_all_installed_files(reader)?,
             restart_choice: RestartChoice::Auto,

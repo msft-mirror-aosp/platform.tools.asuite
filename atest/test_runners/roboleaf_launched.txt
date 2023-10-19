@@ -77,26 +77,26 @@
 # //external/minijail:mj_util_unittest_gtest
 # //external/minijail:syscall_filter_unittest_gtest
 # //external/protobuf:libprotobuf-stubs-test
-# //external/sqlite/android:libsqlite3_phone_number_utils_test
-# //external/zlib:zlib_tests
+//external/sqlite/android:libsqlite3_phone_number_utils_test
+//external/zlib:zlib_tests
 # //frameworks/native/libs/binder/tests:binderRpcWireProtocolTest
-# //frameworks/native/libs/binder/tests:binderUnitTest
-# //hardware/interfaces/audio/aidl/common:libaudioaidlcommon_test
-# //hardware/interfaces/audio/common/all-versions/test/utility:android.hardware.audio.common.test.utility_tests
-# //hardware/interfaces/audio/core/all-versions/vts/functional:HalAudioStreamWorkerTest
-# //hardware/interfaces/common/support:libaidlcommonsupport_test
-# //hardware/interfaces/health/utils/libhealthshim:libhealthshim_test
-# //hardware/interfaces/neuralnetworks/1.0/utils:neuralnetworks_utils_hal_1_0_test
-# //hardware/interfaces/neuralnetworks/1.1/utils:neuralnetworks_utils_hal_1_1_test
-# //hardware/interfaces/neuralnetworks/1.2/utils:neuralnetworks_utils_hal_1_2_test
-# //hardware/interfaces/neuralnetworks/1.3/utils:neuralnetworks_utils_hal_1_3_test
-# //hardware/interfaces/neuralnetworks/aidl/utils:neuralnetworks_utils_hal_aidl_test
-# //hardware/interfaces/neuralnetworks/utils/common:neuralnetworks_utils_hal_common_test
+# //frameworks/native/libs/binder/tests:binderUnitTest # MemoryHeapBase.* device test failing
+//hardware/interfaces/audio/aidl/common:libaudioaidlcommon_test
+# //hardware/interfaces/audio/common/all-versions/test/utility:android.hardware.audio.common.test.utility_tests # device test failing
+//hardware/interfaces/audio/core/all-versions/vts/functional:HalAudioStreamWorkerTest
+//hardware/interfaces/common/support:libaidlcommonsupport_test
+//hardware/interfaces/health/utils/libhealthshim:libhealthshim_test
+//hardware/interfaces/neuralnetworks/1.0/utils:neuralnetworks_utils_hal_1_0_test
+//hardware/interfaces/neuralnetworks/1.1/utils:neuralnetworks_utils_hal_1_1_test
+//hardware/interfaces/neuralnetworks/1.2/utils:neuralnetworks_utils_hal_1_2_test
+//hardware/interfaces/neuralnetworks/1.3/utils:neuralnetworks_utils_hal_1_3_test
+//hardware/interfaces/neuralnetworks/aidl/utils:neuralnetworks_utils_hal_aidl_test
+//hardware/interfaces/neuralnetworks/utils/common:neuralnetworks_utils_hal_common_test
 # //libcore:libjavacore-unit-tests
 //libnativehelper/tests:libnativehelper_internal_tests
 //libnativehelper/tests:libnativehelper_lazy_tests
 //libnativehelper/tests:libnativehelper_tests
-# //packages/modules/Gki/libkver:libkver_test
+//packages/modules/Gki/libkver:libkver_test
 # //packages/modules/NeuralNetworks/common:NeuralNetworksTest_logtag
 # //packages/modules/NeuralNetworks/common:NeuralNetworksTest_operations
 # //packages/modules/NeuralNetworks/common:NeuralNetworksTest_utils
