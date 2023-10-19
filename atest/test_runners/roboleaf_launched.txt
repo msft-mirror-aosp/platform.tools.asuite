@@ -50,7 +50,8 @@
 //frameworks/native/libs/fakeservicemanager:fakeservicemanager_test
 //hardware/interfaces/bluetooth/1.0/default:bluetooth-address-unit-tests
 //hardware/libhardware/modules/sensors/dynamic_sensor/HidUtils:tristate_test
-# //packages/modules/adb:adb_test # fails with atest_integration_test b/304180665
+# //libcore:libjavacore-unit-tests
+//packages/modules/adb:adb_test
 //packages/modules/common/build:mainline_modules_sdks_test
 //platform_testing/tests/example/jarhosttest:HelloWorldHostTest
 //system/chre/apps/test/chqts/src:nanoapp_chqts_shared_tests
