@@ -14,7 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Unittest for atest_tools."""
+"""Unittest for indexing.py"""
 
 # pylint: disable=line-too-long
 
@@ -27,29 +27,27 @@ from unittest import mock
 
 from atest import atest_utils as au
 from atest import unittest_constants as uc
-from atest import constants
 
-from atest.atest_enum import ExitCode
-from atest.tools import atest_tools
+from atest.tools import indexing
 
 SEARCH_ROOT = uc.TEST_DATA_DIR
 PRUNEPATH = uc.TEST_CONFIG_DATA_DIR
-LOCATE = atest_tools.LOCATE
-UPDATEDB = atest_tools.UPDATEDB
+LOCATE = indexing.LOCATE
+UPDATEDB = indexing.UPDATEDB
 
-class AtestToolsUnittests(unittest.TestCase):
-    """"Unittest Class for atest_tools.py."""
+class IndexTargetUnittests(unittest.TestCase):
+    """"Unittest Class for indexing.py."""
 
     # TODO: (b/265245404) Re-write test cases with AAA style.
     # TODO: (b/242520851) constants.LOCATE_CACHE should be in literal.
     @mock.patch('atest.constants.INDEX_DIR', uc.INDEX_DIR)
     @mock.patch('atest.constants.LOCATE_CACHE', uc.LOCATE_CACHE)
-    @mock.patch('atest.tools.atest_tools.SEARCH_TOP', uc.TEST_DATA_DIR)
+    @mock.patch('atest.tools.indexing.SEARCH_TOP', uc.TEST_DATA_DIR)
     def test_index_targets(self):
         """Test method index_targets."""
         if au.has_command(UPDATEDB) and au.has_command(LOCATE):
             # 1. Test run_updatedb() is functional.
-            atest_tools.run_updatedb(SEARCH_ROOT, uc.LOCATE_CACHE,
+            indexing.run_updatedb(SEARCH_ROOT, uc.LOCATE_CACHE,
                                      prunepaths=PRUNEPATH)
             # test_config/ is excluded so that a.xml won't be found.
             locate_cmd1 = [LOCATE, '-d', uc.LOCATE_CACHE, '/a.xml']
@@ -66,7 +64,7 @@ class AtestToolsUnittests(unittest.TestCase):
             # 2. Test get_java_result is functional.
             _cache = {}
             jproc = au.run_multi_proc(
-                    func=atest_tools.get_java_result, args=[uc.LOCATE_CACHE],
+                    func=indexing.get_java_result, args=[uc.LOCATE_CACHE],
                     kwargs={'class_index':uc.CLASS_INDEX,
                             'package_index':uc.PACKAGE_INDEX,
                             'qclass_index':uc.QCLASS_INDEX})
@@ -86,7 +84,7 @@ class AtestToolsUnittests(unittest.TestCase):
 
             # 3. Test get_cc_result is functional.
             cproc = au.run_multi_proc(
-                    func=atest_tools.get_cc_result, args=[uc.LOCATE_CACHE],
+                    func=indexing.get_cc_result, args=[uc.LOCATE_CACHE],
                     kwargs={'cc_class_index':uc.CC_CLASS_INDEX})
             cproc.join()
             # 3.1 Test finding a CC class.
@@ -104,66 +102,6 @@ class AtestToolsUnittests(unittest.TestCase):
         else:
             self.assertEqual(au.has_command(UPDATEDB), False)
             self.assertEqual(au.has_command(LOCATE), False)
-
-    def test_get_report_file(self):
-        """Test method get_report_file."""
-        report_file = '/tmp/acloud_status.json'
-
-        arg_with_equal = '-a --report-file={} --all'.format(report_file)
-        self.assertEqual(atest_tools.get_report_file('/abc', arg_with_equal),
-                         report_file)
-
-        arg_with_equal = '-b --report_file={} --ball'.format(report_file)
-        self.assertEqual(atest_tools.get_report_file('/abc', arg_with_equal),
-                         report_file)
-
-        arg_without_equal = '-c --report-file {} --call'.format(report_file)
-        self.assertEqual(atest_tools.get_report_file('/abc', arg_without_equal),
-                         report_file)
-
-        arg_without_equal = '-d --report_file {} --dall'.format(report_file)
-        self.assertEqual(atest_tools.get_report_file('/abc', arg_without_equal),
-                         report_file)
-
-        arg_without_report = '-e --build-id 1234567'
-        self.assertEqual(atest_tools.get_report_file('/tmp', arg_without_report),
-                         report_file)
-
-    def test_probe_acloud_status(self):
-        """Test method prob_acloud_status."""
-        duration = 100
-        success = os.path.join(SEARCH_ROOT, 'acloud', 'create_success.json')
-        self.assertEqual(atest_tools.probe_acloud_status(success, duration),
-                         ExitCode.SUCCESS)
-        self.assertEqual(
-            os.environ[constants.ANDROID_SERIAL], '127.0.0.1:58167')
-
-        success_local_instance = os.path.join(
-            SEARCH_ROOT, 'acloud', 'create_success_local_instance.json')
-        self.assertEqual(atest_tools.probe_acloud_status(success_local_instance,
-                                                         duration),
-                         ExitCode.SUCCESS)
-        self.assertEqual(os.environ[constants.ANDROID_SERIAL], '0.0.0.0:6521')
-
-        failure = os.path.join(SEARCH_ROOT, 'acloud', 'create_failure.json')
-        self.assertEqual(atest_tools.probe_acloud_status(failure, duration),
-                         ExitCode.AVD_CREATE_FAILURE)
-
-        inexistence = os.path.join(SEARCH_ROOT, 'acloud', 'inexistence.json')
-        self.assertEqual(atest_tools.probe_acloud_status(inexistence, duration),
-                         ExitCode.AVD_INVALID_ARGS)
-
-    def test_get_acloud_duration(self):
-        """Test method get_acloud_duration."""
-        success = os.path.join(SEARCH_ROOT, 'acloud', 'create_success.json')
-        success_duration = 152.659824
-        self.assertEqual(atest_tools.get_acloud_duration(success),
-                         success_duration)
-
-        failure = os.path.join(SEARCH_ROOT, 'acloud', 'create_failure.json')
-        failure_duration = 178.621254
-        self.assertEqual(atest_tools.get_acloud_duration(failure),
-                         failure_duration)
 
 if __name__ == "__main__":
     unittest.main()
