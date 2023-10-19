@@ -27,11 +27,13 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import time
 
 from atest import atest_utils as au
 from atest import constants
 
-from atest.metrics import metrics_utils
+from atest.atest_enum import DetectType
+from atest.metrics import metrics, metrics_utils
 
 UPDATEDB = 'updatedb'
 LOCATE = 'locate'
@@ -310,6 +312,7 @@ def index_targets(output_cache=constants.LOCATE_CACHE):
         output_cache: A file path of the updatedb cache
                       (e.g. /path/to/plocate.db).
     """
+    start = time.time()
     unavailable_cmds = [
         cmd for cmd in [UPDATEDB, LOCATE] if not au.has_command(cmd)]
     if unavailable_cmds:
@@ -336,8 +339,15 @@ def index_targets(output_cache=constants.LOCATE_CACHE):
         logging.debug('%s remains the same. Ignore indexing', output_cache)
         return
     logging.debug('Indexing targets... ')
-    au.run_multi_proc(func=get_java_result, args=[output_cache])
-    au.run_multi_proc(func=get_cc_result, args=[output_cache])
+    proc_java = au.run_multi_proc(func=get_java_result, args=[output_cache])
+    proc_cc = au.run_multi_proc(func=get_cc_result, args=[output_cache])
+    proc_java.join()
+    proc_cc.join()
+    elapsed_time = time.time() - start
+    logging.debug('Indexing targets took %ss', elapsed_time)
+    metrics.LocalDetectEvent(
+            detect_type=DetectType.INDEX_TARGETS_MS,
+            result=int(elapsed_time * 1000))
 
 if __name__ == '__main__':
     if not os.getenv(constants.ANDROID_HOST_OUT, ''):
