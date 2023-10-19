@@ -315,20 +315,27 @@ fn prep_for_push(device: &impl Device, should_wait: crate::cli::Wait) -> Result<
     Ok(())
 }
 
-// Ensure mkdir comes before other commands.
-// TODO(rbraunstein): This is temporary, either partition out the mkdirs or save
-// the AdbCommand along with the commands so we don't have to check the strings.
-// Too much thinking here.
-
+// 1) Ensure mkdir comes before other commands.
+// 2) Do removes as a depth-first-search so we clean children before parents.
+// 3) Sort rm before other commands, but it shouldn't matter.
+// 4) Remove files before dirs.
+//    We would never remove a file or directory we are pushing to.
 fn mkdir_comes_first_rm_dfs(a: &AdbCommand, b: &AdbCommand) -> Ordering {
     // Neither is mkdir
     if !a.is_mkdir() && !b.is_mkdir() {
         // Sort rm's with files before their parents.
         let a_cmd = a.args().join(" ");
         let b_cmd = b.args().join(" ");
-        // clean and push/mkdir aren't mixed so we don't check when comparing.
+
         if a.is_rm() && b.is_rm() {
+            // This also sorts files before dirs because of the "-rf" added to dirs.
             return b_cmd.cmp(&a_cmd);
+        }
+        if a.is_rm() {
+            return Ordering::Less;
+        }
+        if b.is_rm() {
+            return Ordering::Greater;
         }
 
         // Sort everything by the args.
@@ -461,6 +468,31 @@ mod tests {
                 &delete_dir_cmd("system/app/FakeOemFeatures"),
                 &delete_file_cmd("system/app/FakeOemFeatures/FakeOemFeatures.apk"),
             )
+        );
+    }
+
+    #[test]
+    fn sort_many() {
+        let dir = |d| AdbCommand::from_action(AdbAction::DeleteDir, &PathBuf::from(d));
+        let file = |d| AdbCommand::from_action(AdbAction::DeleteFile, &PathBuf::from(d));
+        let mut adb_commands: Vec<AdbCommand> = vec![
+            file("system/STALE_FILE"),
+            dir("system/bin/dir1/STALE_DIR"),
+            file("system/bin/dir1/STALE_DIR/stalefile1"),
+            file("system/bin/dir1/STALE_DIR/stalefile2"),
+        ];
+
+        adb_commands.sort_by(&mkdir_comes_first_rm_dfs);
+        assert_eq!(
+            // Expected sorted order, deepest first.
+            // files before dirs.
+            vec![
+                file("system/bin/dir1/STALE_DIR/stalefile2"),
+                file("system/bin/dir1/STALE_DIR/stalefile1"),
+                file("system/STALE_FILE"),
+                dir("system/bin/dir1/STALE_DIR"),
+            ],
+            adb_commands
         );
     }
 

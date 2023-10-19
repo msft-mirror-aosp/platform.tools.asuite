@@ -185,7 +185,7 @@ pub fn adevice(
     // bits before we change this to UsePermissions.
     let diff_mode = fingerprint::DiffMode::IgnorePermissions;
 
-    let commands = get_update_commands(
+    let commands = &get_update_commands(
         &device_tree,
         &host_tree,
         &ninja_installed_files,
@@ -205,7 +205,7 @@ pub fn adevice(
 
     let max_changes = cli.global_options.max_allowed_changes;
     if matches!(cli.command, cli::Commands::Clean { .. }) {
-        let deletes = commands.deletes;
+        let deletes = &commands.deletes;
         if deletes.is_empty() {
             println!("   Nothing to clean.");
             return Ok(());
@@ -228,26 +228,28 @@ pub fn adevice(
         // Consider always reboot instead of soft restart after a clean.
         let restart_chooser =
             &RestartChooser::from(&restart_choice, &product_out.join("module-info.json"))?;
-        device::update(restart_chooser, &deletes, &mut profiler, device, cli.should_wait())?;
+        device::update(restart_chooser, deletes, &mut profiler, device, cli.should_wait())?;
     }
 
     if matches!(cli.command, cli::Commands::Update) {
-        let upserts = commands.upserts;
         // Status
-        if upserts.is_empty() {
+        if commands.is_empty() {
             println!("   Device already up to date.");
             return Ok(());
         }
-        if upserts.len() > max_changes {
-            bail!("There are {} files out of date on the device, which exceeds the configured limit of {}.\n  It is recommended to reimage your device.  For small increases in the limit, you can run `adevice update --max-allowed-changes={}.", upserts.len(), max_changes, upserts.len());
+        let all_cmds: HashMap<PathBuf, commands::AdbCommand> =
+            commands.upserts.clone().into_iter().chain(commands.deletes.clone()).collect();
+
+        if all_cmds.len() > max_changes {
+            bail!("There are {} files out of date on the device, which exceeds the configured limit of {}.\n  It is recommended to reimage your device.  For small increases in the limit, you can run `adevice update --max-allowed-changes={}.", all_cmds.len(), max_changes, all_cmds.len());
         }
-        writeln!(stdout, " * Updating {} files on device.", upserts.len())?;
+        writeln!(stdout, " * Updating {} files on device.", all_cmds.len())?;
 
         // Send the update commands, but retry once if we need to remount rw an extra time after a flash.
         for retry in 0..=1 {
             let update_result = device::update(
                 &RestartChooser::from(&restart_choice, &product_out.join("module-info.json"))?,
-                &upserts,
+                &all_cmds,
                 &mut profiler,
                 device,
                 cli.should_wait(),
@@ -355,6 +357,13 @@ fn get_update_commands(
     Ok(commands::compose(&filtered_changes, &product_out))
 }
 
+// These are the partitions we will try to install to.
+// ADB sync also has data, oem and vendor.
+// There are some partition images (like boot.img) that we don't have a good way of determining
+// the changed status of. (i.e. did they touch files that forces a flash/reimage).
+// By default we will clean all the default partitions of stale files.
+const DEFAULT_PARTITIONS: &[&str] = &["system", "system_ext", "odm", "product"];
+
 /// If a user explicitly passes a partition, but that doesn't exist in the tracked files,
 /// then bail.
 /// Otherwise, if one of the default partitions does not exist (like system_ext), then
@@ -373,11 +382,14 @@ fn validate_partitions(
         }
         return Ok(partitions.clone());
     }
-    let mut default_partitions = vec![String::from("system"), String::from("system_ext")];
-    default_partitions
-        .retain(|part| tracked_files.iter().any(|t| PathBuf::from(t).starts_with(part)));
-
-    Ok(default_partitions)
+    let found_partitions: Vec<String> = DEFAULT_PARTITIONS
+        .iter()
+        .filter_map(|part| match tracked_files.iter().any(|t| PathBuf::from(t).starts_with(part)) {
+            true => Some(part.to_string()),
+            false => None,
+        })
+        .collect();
+    Ok(found_partitions)
 }
 
 #[derive(Clone, PartialEq)]
@@ -412,7 +424,7 @@ impl PushState {
 	    // Note: we don't print up to date files.
 	    PushState::UpToDate => "Up to date:  (These files are up to date on the device. There is nothing to do.)".to_string(),
 	    PushState::TrackOrClean => "Untracked pushed files:\n  (These files are not tracked but exist on the device and host.)\n  (Use `adevice track` for the appropriate module to have them pushed.)".to_string(),
-	    PushState::TrackAndBuildOrClean => "Stale device files:\n  (These files are on the device, but not built or tracked.)\n  (You might want to run `adevice clean` to remove them.)".to_string(),
+	    PushState::TrackAndBuildOrClean => "Stale device files:\n  (These files are on the device, but not built or tracked.)\n  (They will be cleaned with `adevice update` or `adevice clean`.)".to_string(),
 	    PushState::TrackOrMakeClean => "Untracked built files:\n  (These files are in the build tree but not tracked or on the device.)\n  (You might want to `adevice track` the module.  It is safe to do nothing.)".to_string(),
 	    PushState::UntrackOrBuild => "Unbuilt files:\n  (These files should be built so the device can be updated.)\n  (Rebuild and `adevice update`)".to_string(),
 	    PushState::ApkInstalled => format!("ADB Installed files:\n{RED_WARNING_LINE}  (These files were installed with `adb install` or similar.  Pushing to the system partition will not make them available.)\n  (Either `adb uninstall` the package or `adb install` by hand.`)"),
