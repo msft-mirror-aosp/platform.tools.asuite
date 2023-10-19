@@ -112,7 +112,7 @@
 # //system/core/fs_mgr/liblp:liblp_test
 # //system/core/libcutils:libcutils_test
 # //system/core/libprocessgroup:task_profiles_test
-# //system/core/property_service/libpropertyinfoserializer:propertyinfoserializer_tests
+//system/core/property_service/libpropertyinfoserializer:propertyinfoserializer_tests
 # //system/extras/verity:build_verity_tree_test
 # //system/libbase:libbase_result_constraint_test
 # //system/libbase:libbase_test
