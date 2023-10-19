@@ -2449,6 +2449,19 @@ class BazelTestRunnerTest(fake_filesystem_unittest.TestCase):
 
         self.assertFalse(Path('result_dir/log/').exists())
 
+    def test_avoid_result_dir_symlink_duplication(self):
+        self.setUpPyfakefs()
+        test_infos = [test_info_of('test1')]
+        old_symlink_to_dir = Path(tempfile.mkdtemp())
+        log_path = Path('result_dir/log/path/test1_host')
+        log_path.parent.mkdir(parents=True, exist_ok=True)
+        log_path.symlink_to(old_symlink_to_dir)
+        runner = self.create_bazel_test_runner_for_tests(test_infos)
+
+        runner.organize_test_logs(test_infos)
+
+        self.assertSymlinkTo(log_path, old_symlink_to_dir)
+
     def create_bazel_test_runner(self,
                                  modules,
                                  run_command=None,
