@@ -309,7 +309,6 @@ def get_extra_args(args):
                 'disable_teardown': constants.DISABLE_TEARDOWN,
                 'disable_upload_result': constants.DISABLE_UPLOAD_RESULT,
                 'dry_run': constants.DRY_RUN,
-                'enable_device_preparer': constants.ENABLE_DEVICE_PREPARER,
                 'host': constants.HOST,
                 'instant': constants.INSTANT,
                 'iterations': constants.ITERATIONS,
