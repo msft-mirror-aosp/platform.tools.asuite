@@ -530,10 +530,10 @@ OPTIONS
         --test-config-select
             {TEST_CONFIG_SELECTION}
 
-        --test-filter [FILTER]
+        --test-filter [REGEX_FILTER]
             {TEST_FILTER} e.g.
-                atest perfetto_integrationtests --test-filter *ConsoleInterceptorVerify*
-                atest HelloWorldTests --test-filter testHalloWelt*
+                atest perfetto_integrationtests --test-filter '.*ConsoleInterceptorVerify.*'
+                atest HelloWorldTests --test-filter 'testHalloWelt.*'
 
         --tf-template
             {TF_TEMPLATE}
