@@ -21,7 +21,7 @@ from enum import IntEnum, unique, Enum
 @unique
 class DetectType(IntEnum):
     """An Enum class for local_detect_event."""
-    # Detect type for local_detect_event; next expansion: 57
+    # Detect type for local_detect_event; next expansion: 60
     BUG_DETECTED = 0
     ACLOUD_CREATE = 1
     FIND_BUILD = 2
@@ -95,7 +95,7 @@ class DetectType(IntEnum):
     FETCH_CRED_MS = 49
     UPLOAD_PREPARE_MS = 50
     # Time of join the index.
-    IDX_JOIN_MS = 51
+    IDX_JOIN_MS = 51    # Deprecated. Use INDEX_TARGETS_MS instead.
     IS_MINIMAL_BUILD = 52
     # Elapsed time of the Tradefed runner.
     TF_PREPARATION_MS = 53
@@ -104,6 +104,7 @@ class DetectType(IntEnum):
     TF_TOTAL_RUN_MS = 56
     ROBOLEAF_NON_MODULE_FINDER = 57
     ROBOLEAF_UNSUPPORTED_FLAG = 58
+    INDEX_TARGETS_MS = 59
 
 @unique
 class ExitCode(IntEnum):

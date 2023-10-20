@@ -1199,8 +1199,6 @@ def extra_args_to_tf_args(
 
     # Mapping supported TF arguments to the processing function.
     supported_tf_args = dict({
-        constants.ENABLE_DEVICE_PREPARER:
-            constant_list('--enable-device-preparer'),
         constants.WAIT_FOR_DEBUGGER:
             constant_list('--wait-for-debugger'),
         constants.DISABLE_INSTALL:
@@ -1299,7 +1297,6 @@ def extra_args_to_tf_args(
                    constants.DISABLE_UPLOAD_RESULT,
                    constants.LOCAL_BUILD_ID,
                    constants.BUILD_TARGET,
-                   constants.ENABLE_DEVICE_PREPARER,
                    constants.DRY_RUN,
                    constants.VERIFY_ENV_VARIABLE,
                    constants.DEVICE_ONLY):

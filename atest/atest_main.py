@@ -62,7 +62,8 @@ from atest.test_finders import test_finder_utils
 from atest.test_runners import roboleaf_test_runner
 from atest.test_runners.atest_tf_test_runner import AtestTradefedTestRunner
 from atest.test_finders.test_info import TestInfo
-from atest.tools import atest_tools as at
+from atest.tools import indexing
+from atest.tools import start_avd as avd
 
 EXPECTED_VARS = frozenset([
     constants.ANDROID_BUILD_TOP,
@@ -309,7 +310,6 @@ def get_extra_args(args):
                 'disable_teardown': constants.DISABLE_TEARDOWN,
                 'disable_upload_result': constants.DISABLE_UPLOAD_RESULT,
                 'dry_run': constants.DRY_RUN,
-                'enable_device_preparer': constants.ENABLE_DEVICE_PREPARER,
                 'host': constants.HOST,
                 'instant': constants.INSTANT,
                 'iterations': constants.ITERATIONS,
@@ -936,7 +936,7 @@ def _get_acloud_proc_and_log(args: argparse.ArgumentParser,
                     results_dir: str) -> Tuple[Any, Any]:
     """Return tuple of acloud process ID and report file."""
     if any((args.acloud_create, args.start_avd)):
-        return at.acloud_create_validator(results_dir, args)
+        return avd.acloud_create_validator(results_dir, args)
     return None, None
 
 
@@ -1038,7 +1038,7 @@ def main(
     proc_idx = None
     # Do not index targets while the users intend to dry-run tests.
     if need_run_index_targets(args, extra_args):
-        proc_idx = atest_utils.run_multi_proc(at.index_targets)
+        proc_idx = atest_utils.run_multi_proc(indexing.index_targets)
     smart_rebuild = need_rebuild_module_info(args)
 
     mod_info = module_info.load(
@@ -1061,12 +1061,8 @@ def main(
     # (b/242567487) index_targets may finish after cli_translator; to
     # mitigate the overhead, the main waits until it finished when no index
     # files are available (e.g. fresh repo sync)
-    join_start = time.time()
     if proc_idx and not atest_utils.has_index_files():
         proc_idx.join()
-        metrics.LocalDetectEvent(
-            detect_type=DetectType.IDX_JOIN_MS,
-            result=int((time.time() - join_start) * 1000))
     find_start = time.time()
     test_infos = translator.translate(args)
 
@@ -1193,7 +1189,7 @@ def main(
             return ExitCode.BUILD_FAILURE
         if proc_acloud:
             proc_acloud.join()
-            status = at.probe_acloud_status(
+            status = avd.probe_acloud_status(
                 report_file, find_duration + build_duration)
             if status != 0:
                 return status
