@@ -97,10 +97,10 @@
 //libnativehelper/tests:libnativehelper_lazy_tests
 //libnativehelper/tests:libnativehelper_tests
 //packages/modules/Gki/libkver:libkver_test
-# //packages/modules/NeuralNetworks/common:NeuralNetworksTest_logtag
-# //packages/modules/NeuralNetworks/common:NeuralNetworksTest_operations
-# //packages/modules/NeuralNetworks/common:NeuralNetworksTest_utils
-# //packages/modules/NeuralNetworks/driver/cache/BlobCache:BlobCache_test
+//packages/modules/NeuralNetworks/common:NeuralNetworksTest_logtag
+//packages/modules/NeuralNetworks/common:NeuralNetworksTest_operations
+//packages/modules/NeuralNetworks/common:NeuralNetworksTest_utils
+//packages/modules/NeuralNetworks/driver/cache/BlobCache:BlobCache_test
 //packages/modules/adb/crypto/tests:adb_crypto_test
 //packages/modules/adb/pairing_auth/tests:adb_pairing_auth_test
 //packages/modules/adb/pairing_connection/tests:adb_pairing_connection_test
@@ -112,8 +112,8 @@
 # //system/core/fs_mgr/liblp:liblp_test
 # //system/core/libcutils:libcutils_test
 # //system/core/libprocessgroup:task_profiles_test
-# //system/core/property_service/libpropertyinfoserializer:propertyinfoserializer_tests
-# //system/extras/verity:build_verity_tree_test
+//system/core/property_service/libpropertyinfoserializer:propertyinfoserializer_tests
+//system/extras/verity:build_verity_tree_test
 # //system/libbase:libbase_result_constraint_test
 # //system/libbase:libbase_test
 # //system/libbase:libbase_tidy_test
