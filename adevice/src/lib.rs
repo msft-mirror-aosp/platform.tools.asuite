@@ -4,9 +4,9 @@
 pub mod adevice;
 pub mod cli;
 pub mod commands;
-mod device;
+pub mod device;
 pub mod fingerprint;
-mod logger;
+pub mod logger;
 pub mod metrics;
 pub mod restart_chooser;
 pub mod tracking;
