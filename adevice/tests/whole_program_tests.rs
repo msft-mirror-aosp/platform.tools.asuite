@@ -10,7 +10,6 @@ use std::path::PathBuf;
 // Just placeholder for now to show we can call adevice.
 #[test]
 fn adevice_status() -> Result<()> {
-    // Fakes start with a few files in them ... for now.
     let device_fs = HashMap::from([
         (PathBuf::from("system/fakefs_default_file"), file_metadata("digest1")),
         (PathBuf::from("system"), dir_metadata()),
@@ -51,7 +50,6 @@ fn adevice_status() -> Result<()> {
 
 #[test]
 fn lost_and_found_should_not_be_cleaned() -> Result<()> {
-    // Fakes start with a few files in them ... for now.
     let device_files = HashMap::from([
         (PathBuf::from("system_ext/lost+found"), dir_metadata()),
         (PathBuf::from("system/some_file"), file_metadata("m1")),
@@ -85,6 +83,81 @@ fn lost_and_found_should_not_be_cleaned() -> Result<()> {
 
         assert!(fake_device.removes().contains(&PathBuf::from("system/some_file")));
         assert!(!fake_device.removes().contains(&PathBuf::from("system/lost+found")));
+    }
+
+    Ok(())
+}
+
+#[test]
+fn update_should_clean_stale_files() -> Result<()> {
+    let device_files = HashMap::from([(PathBuf::from("system/STALE_FILE"), file_metadata("m1"))]);
+
+    // Ensure the partitions exist.
+    let ninja_deps = commands::split_string("system/other_file");
+    let fake_host = FakeHost::new(&HashMap::new(), &ninja_deps);
+    let fake_device = FakeDevice::new(&device_files);
+    let cli = cli::Cli::parse_from(["", "--product_out", "unused", "update", "--restart", "none"]);
+
+    // Expect some_file
+    {
+        let mut stdout = Vec::new();
+        let mut metrics = FakeMetricSender::new();
+        adevice::adevice::adevice(&fake_host, &fake_device, &cli, &mut stdout, &mut metrics)
+            .context("Running adevice update")?;
+
+        assert!(fake_device.removes().contains(&PathBuf::from("system/STALE_FILE")));
+    }
+
+    Ok(())
+}
+
+#[test]
+fn update_big_fs_change() -> Result<()> {
+    let device_files = HashMap::from([
+        // <-- STALE_FILE not on host
+        (PathBuf::from("system/STALE_FILE"), file_metadata("m1")),
+        (PathBuf::from("system/bin"), dir_metadata()),
+        (PathBuf::from("system/bin/f1"), file_metadata("m1")),
+        (PathBuf::from("system/bin/f2"), file_metadata("m1")),
+        (PathBuf::from("system/bin/dir1"), dir_metadata()),
+        // <-- STALE_DIR not on host
+        (PathBuf::from("system/bin/dir1/STALE_DIR"), dir_metadata()),
+        (PathBuf::from("system/bin/dir1/STALE_DIR/stalefile1"), file_metadata("m1")),
+        (PathBuf::from("system/bin/dir1/STALE_DIR/stalefile2"), file_metadata("m1")),
+        (PathBuf::from("system/bin/dir1/f1"), file_metadata("m1")),
+    ]);
+
+    let host_files = HashMap::from([
+        (PathBuf::from("system/bin"), dir_metadata()),
+        (PathBuf::from("system/bin/f1"), file_metadata("m1")),
+        (PathBuf::from("system/bin/f2"), file_metadata("m1")),
+        (PathBuf::from("system/bin/dir1"), dir_metadata()),
+        (PathBuf::from("system/bin/dir1/f1"), file_metadata("m1")),
+    ]);
+
+    // Ensure the partitions exist.
+    let ninja_deps = commands::split_string("system/bin/f1 system/bin/f2 system/bin/dir1/f1");
+    let fake_host = FakeHost::new(&host_files, &ninja_deps);
+    let fake_device = FakeDevice::new(&device_files);
+    let cli = cli::Cli::parse_from(["", "--product_out", "unused", "update", "--restart", "none"]);
+
+    // Expect some_file
+    {
+        let mut stdout = Vec::new();
+        let mut metrics = FakeMetricSender::new();
+        adevice::adevice::adevice(&fake_host, &fake_device, &cli, &mut stdout, &mut metrics)
+            .context("Running adevice update")?;
+
+        assert_eq!(
+            vec![
+                // expected to be ordered dfs
+                PathBuf::from("system/bin/dir1/STALE_DIR/stalefile2"),
+                PathBuf::from("system/bin/dir1/STALE_DIR/stalefile1"),
+                PathBuf::from("system/STALE_FILE"),
+                PathBuf::from("system/bin/dir1/STALE_DIR"),
+            ],
+            fake_device.removes(),
+        );
     }
 
     Ok(())
