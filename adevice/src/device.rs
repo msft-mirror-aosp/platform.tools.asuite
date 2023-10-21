@@ -1,4 +1,4 @@
-use crate::adevice::{Device, Profiler};
+use crate::adevice::{Device, Echo, Profiler};
 use crate::commands::{restart_type, split_string, AdbCommand};
 use crate::restart_chooser::{RestartChooser, RestartType};
 use crate::{fingerprint, time};
@@ -93,78 +93,12 @@ impl Device for RealDevice {
         }
     }
 
-    /// Common command to prepare a device to receive new files.
-    /// Always: `exec-out stop`
-    /// Always: `remount`
-    ///  # A remount may not be needed but doesn't slow things down.
-    /// Always: Set the system property sys.boot_completed to 0.
-    ///  # A reboot would do this anyway, but it doesn't hurt if we do it too.
-    ///  # We poll for that property to be set back to 1.
-    ///  # Both reboot and exec-out start will set it back to 1 when the
-    ///  # system has booted and is ready to receive commands and run tests.
-    fn prep_for_push(&self) -> Result<String> {
-        self.run_raw_adb_command(&split_string("exec-out stop"), Echo::On)?;
-        // We seem to need a remount after reboots to make the system writable.
-        self.run_raw_adb_command(&split_string("remount"), Echo::On)?;
-        // Set the prop to the empty string so our "-z" check in wait works.
-        self.run_raw_adb_command(
-            &[
-                "exec-out".to_string(),
-                "setprop".to_string(),
-                "sys.boot_completed".to_string(),
-                "".to_string(),
-            ],
-            Echo::On,
-        )
-    }
-
     fn prep_after_flash(&self) -> Result<()> {
         self.run_raw_adb_command(&["remount".to_string()], Echo::On)?;
         self.run_raw_adb_command(&["reboot".to_string()], Echo::On)?;
         self.wait()?;
         self.run_raw_adb_command(&["root".to_string()], Echo::On)?;
         Ok(())
-    }
-}
-
-lazy_static! {
-    // Sample output, one installed, one not:
-    // % adb exec-out pm list packages  -s -f  | grep shell
-    //   package:/product/app/Browser2/Browser2.apk=org.chromium.webview_shell
-    //   package:/data/app/~~PxHDtZDEgAeYwRyl-R3bmQ==/com.android.shell--R0z7ITsapIPKnt4BT0xkg==/base.apk=com.android.shell
-    // # capture the package name (com.android.shell)
-    static ref PM_LIST_PACKAGE_MATCHER: Regex =
-        Regex::new(r"^package:/data/app/.*/base.apk=(.+)$").expect("regex does not compile");
-}
-
-/// Filter package manager output to figure out if the apk is installed in /data.
-fn apks_from_pm_list_output(stdout: &str) -> HashSet<String> {
-    let package_match = stdout
-        .lines()
-        .filter_map(|line| PM_LIST_PACKAGE_MATCHER.captures(line).map(|x| x[1].to_string()))
-        .collect();
-    package_match
-}
-
-#[derive(PartialEq)]
-enum Echo {
-    /// Show commands if --verbose <= info
-    On,
-    /// Don't show commands
-    Off,
-}
-
-impl RealDevice {
-    pub fn new(android_serial: Option<String>) -> RealDevice {
-        RealDevice { android_serial }
-    }
-
-    /// Add -s DEVICE to the adb args based on global options.
-    fn adjust_adb_args(&self, args: &[String]) -> Vec<String> {
-        match &self.android_serial {
-            Some(serial) => [vec!["-s".to_string(), serial.clone()], args.to_vec()].concat(),
-            None => args.to_vec(),
-        }
     }
 
     /// Runs `adb` with the given args.
@@ -213,6 +147,39 @@ impl RealDevice {
         };
 
         Err(anyhow!("adb error, {status} {stdout} {stderr}"))
+    }
+}
+
+lazy_static! {
+    // Sample output, one installed, one not:
+    // % adb exec-out pm list packages  -s -f  | grep shell
+    //   package:/product/app/Browser2/Browser2.apk=org.chromium.webview_shell
+    //   package:/data/app/~~PxHDtZDEgAeYwRyl-R3bmQ==/com.android.shell--R0z7ITsapIPKnt4BT0xkg==/base.apk=com.android.shell
+    // # capture the package name (com.android.shell)
+    static ref PM_LIST_PACKAGE_MATCHER: Regex =
+        Regex::new(r"^package:/data/app/.*/base.apk=(.+)$").expect("regex does not compile");
+}
+
+/// Filter package manager output to figure out if the apk is installed in /data.
+fn apks_from_pm_list_output(stdout: &str) -> HashSet<String> {
+    let package_match = stdout
+        .lines()
+        .filter_map(|line| PM_LIST_PACKAGE_MATCHER.captures(line).map(|x| x[1].to_string()))
+        .collect();
+    package_match
+}
+
+impl RealDevice {
+    pub fn new(android_serial: Option<String>) -> RealDevice {
+        RealDevice { android_serial }
+    }
+
+    /// Add -s DEVICE to the adb args based on global options.
+    fn adjust_adb_args(&self, args: &[String]) -> Vec<String> {
+        match &self.android_serial {
+            Some(serial) => [vec!["-s".to_string(), serial.clone()], args.to_vec()].concat(),
+            None => args.to_vec(),
+        }
     }
 
     /// Given "partitions" at the root of the device,
@@ -288,6 +255,7 @@ pub fn update(
     adb_commands: &HashMap<PathBuf, AdbCommand>,
     profiler: &mut Profiler,
     device: &impl Device,
+    should_wait: crate::cli::Wait,
 ) -> Result<()> {
     if adb_commands.is_empty() {
         return Ok(());
@@ -296,7 +264,7 @@ pub fn update(
     let installed_files =
         adb_commands.keys().map(|p| p.clone().into_os_string().into_string().unwrap()).collect();
 
-    device.prep_for_push()?;
+    prep_for_push(device, should_wait.clone())?;
     time!(
         for command in adb_commands.values().cloned().sorted_by(&mkdir_comes_first_rm_dfs) {
             device.run_adb_command(&command)?;
@@ -313,24 +281,61 @@ pub fn update(
         }
     }?;
 
-    time!(device.wait()?, profiler.restart_after_boot);
+    if should_wait.into() {
+        time!(device.wait()?, profiler.restart_after_boot);
+    }
     Ok(())
 }
 
-// Ensure mkdir comes before other commands.
-// TODO(rbraunstein): This is temporary, either partition out the mkdirs or save
-// the AdbCommand along with the commands so we don't have to check the strings.
-// Too much thinking here.
+/// Common command to prepare a device to receive new files.
+/// Always: `exec-out stop`
+/// Always: `remount`
+///  # A remount may not be needed but doesn't slow things down.
+/// If `should_wait`: Set the system property sys.boot_completed to 0.
+///  # A reboot would do this anyway, but it doesn't hurt if we do it too.
+///  # We poll for that property to be set back to 1.
+///  # Both reboot and exec-out start will set it back to 1 when the
+///  # system has booted and is ready to receive commands and run tests.
+fn prep_for_push(device: &impl Device, should_wait: crate::cli::Wait) -> Result<()> {
+    device.run_raw_adb_command(&split_string("exec-out stop"), Echo::On)?;
+    // We seem to need a remount after reboots to make the system writable.
+    device.run_raw_adb_command(&split_string("remount"), Echo::On)?;
+    // Set the prop to the empty string so our "-z" check in wait works.
+    if should_wait.into() {
+        device.run_raw_adb_command(
+            &[
+                "exec-out".to_string(),
+                "setprop".to_string(),
+                "sys.boot_completed".to_string(),
+                "".to_string(),
+            ],
+            Echo::On,
+        )?;
+    }
+    Ok(())
+}
 
+// 1) Ensure mkdir comes before other commands.
+// 2) Do removes as a depth-first-search so we clean children before parents.
+// 3) Sort rm before other commands, but it shouldn't matter.
+// 4) Remove files before dirs.
+//    We would never remove a file or directory we are pushing to.
 fn mkdir_comes_first_rm_dfs(a: &AdbCommand, b: &AdbCommand) -> Ordering {
     // Neither is mkdir
     if !a.is_mkdir() && !b.is_mkdir() {
         // Sort rm's with files before their parents.
         let a_cmd = a.args().join(" ");
         let b_cmd = b.args().join(" ");
-        // clean and push/mkdir aren't mixed so we don't check when comparing.
+
         if a.is_rm() && b.is_rm() {
+            // This also sorts files before dirs because of the "-rf" added to dirs.
             return b_cmd.cmp(&a_cmd);
+        }
+        if a.is_rm() {
+            return Ordering::Less;
+        }
+        if b.is_rm() {
+            return Ordering::Greater;
         }
 
         // Sort everything by the args.
@@ -463,6 +468,31 @@ mod tests {
                 &delete_dir_cmd("system/app/FakeOemFeatures"),
                 &delete_file_cmd("system/app/FakeOemFeatures/FakeOemFeatures.apk"),
             )
+        );
+    }
+
+    #[test]
+    fn sort_many() {
+        let dir = |d| AdbCommand::from_action(AdbAction::DeleteDir, &PathBuf::from(d));
+        let file = |d| AdbCommand::from_action(AdbAction::DeleteFile, &PathBuf::from(d));
+        let mut adb_commands: Vec<AdbCommand> = vec![
+            file("system/STALE_FILE"),
+            dir("system/bin/dir1/STALE_DIR"),
+            file("system/bin/dir1/STALE_DIR/stalefile1"),
+            file("system/bin/dir1/STALE_DIR/stalefile2"),
+        ];
+
+        adb_commands.sort_by(&mkdir_comes_first_rm_dfs);
+        assert_eq!(
+            // Expected sorted order, deepest first.
+            // files before dirs.
+            vec![
+                file("system/bin/dir1/STALE_DIR/stalefile2"),
+                file("system/bin/dir1/STALE_DIR/stalefile1"),
+                file("system/STALE_FILE"),
+                dir("system/bin/dir1/STALE_DIR"),
+            ],
+            adb_commands
         );
     }
 
