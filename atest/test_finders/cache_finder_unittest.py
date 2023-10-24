@@ -22,6 +22,7 @@ import unittest
 import os
 
 from unittest import mock
+from pyfakefs import fake_filesystem_unittest
 
 from atest import atest_utils
 from atest import constants
@@ -128,34 +129,6 @@ class CacheFinderUnittests(unittest.TestCase):
 
         self.assertIsNone(self.cache_finder.find_test_by_cache(cached_test))
 
-    def test_is_java_filter_in_module_for_java_class(self):
-        """Test _is_java_filter_in_module method if input is java class."""
-        mock_mod = {constants.MODULE_SRCS:
-                             ['src/a/b/c/MyTestClass1.java']}
-        self.cache_finder.module_info.get_module_info.return_value = mock_mod
-        # Should not match if class name does not exist.
-        self.assertFalse(
-            self.cache_finder._is_java_filter_in_module(
-                'MyModule', 'a.b.c.MyTestClass'))
-        # Should match if class name exist.
-        self.assertTrue(
-            self.cache_finder._is_java_filter_in_module(
-                'MyModule', 'a.b.c.MyTestClass1'))
-
-    def test_is_java_filter_in_module_for_java_package(self):
-        """Test _is_java_filter_in_module method if input is java package."""
-        mock_mod = {constants.MODULE_SRCS:
-                        ['src/a/b/c/MyTestClass1.java']}
-        self.cache_finder.module_info.get_module_info.return_value = mock_mod
-        # Should not match if package name does not match the src.
-        self.assertFalse(
-            self.cache_finder._is_java_filter_in_module(
-                'MyModule', 'a.b.c.d'))
-        # Should match if package name matches the src.
-        self.assertTrue(
-            self.cache_finder._is_java_filter_in_module(
-                'MyModule', 'a.b.c'))
-
     def test_is_test_build_target_valid_module_in(self):
         """Test _is_test_build_target_valid method if target has MODULES-IN."""
         t_info = test_info.TestInfo('mock_name', 'mock_runner',
@@ -169,6 +142,54 @@ class CacheFinderUnittests(unittest.TestCase):
                                     {'my-test-target'})
         self.cache_finder.module_info.is_module.return_value = False
         self.assertFalse(self.cache_finder._is_test_build_target_valid(t_info))
+
+
+class CacheFinderTestFilterUnittests(fake_filesystem_unittest.TestCase):
+    """Unit tests for cache_finder.py"""
+    def setUp(self):
+        """Set up stuff for testing."""
+        self.setUpPyfakefs()
+        self.cache_finder = cache_finder.CacheFinder()
+        self.cache_finder.module_info = mock.Mock(spec=module_info.ModuleInfo)
+
+    def test_is_class_in_module_for_java_class(self):
+        """Test _is_class_in_module method if input is java class."""
+        self.fs.create_file(
+            "src/a/b/c/MyTestClass.java",
+            contents="package android.test;\n"
+                     "public class MyTestClass {\n")
+        mock_mod = {constants.MODULE_SRCS:
+                        ['src/a/b/c/MyTestClass.java']}
+        self.cache_finder.module_info.get_module_info.return_value = mock_mod
+
+        # Should not match if class name does not exist.
+        self.assertFalse(
+            self.cache_finder._is_class_in_module(
+                'MyModule', 'a.b.c.MyTestClass'))
+        # Should match if class name exist.
+        self.assertTrue(
+            self.cache_finder._is_class_in_module(
+                'MyModule', 'android.test.MyTestClass'))
+
+    def test_is_class_in_module_for_java_package(self):
+        """Test _is_class_in_module method if input is java package."""
+        self.fs.create_file(
+            "src/a/b/c/MyTestClass.java",
+            contents="package android.test;\n"
+                     "public class MyTestClass {\n")
+        mock_mod = {constants.MODULE_SRCS:
+                        ['src/a/b/c/MyTestClass.java']}
+        self.cache_finder.module_info.get_module_info.return_value = mock_mod
+
+        # Should not match if package name does not match the src.
+        self.assertFalse(
+            self.cache_finder._is_class_in_module(
+                'MyModule', 'a.b.c'))
+        # Should match if package name matches the src.
+        self.assertTrue(
+            self.cache_finder._is_class_in_module(
+                'MyModule', 'android.test'))
+
 
 if __name__ == '__main__':
     unittest.main()
