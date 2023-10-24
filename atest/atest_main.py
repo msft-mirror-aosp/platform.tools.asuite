@@ -88,7 +88,7 @@ EXIT_CODES_BEFORE_TEST = [ExitCode.ENV_NOT_SETUP,
                           ExitCode.OUTSIDE_ROOT,
                           ExitCode.AVD_CREATE_FAILURE,
                           ExitCode.AVD_INVALID_ARGS]
-
+BANNER = '/google/bin/releases/adevice-dev/adevice_banner'
 @dataclass
 class Steps:
     """A Dataclass that stores steps and shows step assignments."""
@@ -1274,4 +1274,6 @@ if __name__ == '__main__':
                 result=DETECTOR.caught_result)
             if result_file:
                 print("Run 'atest --history' to review test result history.")
+    if os.path.isfile(BANNER):
+        os.system(BANNER)
     sys.exit(EXIT_CODE)
