@@ -76,8 +76,6 @@ DEVICE_ONLY = ('Only run tests that require a device. (Note: only workable with'
                ' --test-mapping.)')
 DISABLE_TEARDOWN = 'Disable test teardown and cleanup.'
 DRY_RUN = 'Dry run atest without building, installing and running tests in real.'
-ENABLE_DEVICE_PREPARER = ('Enable template/preparers/device-preparer as the '
-                          'default preparer.')
 ENABLE_FILE_PATTERNS = 'Enable FILE_PATTERNS in TEST_MAPPING.'
 GENERATE_RUNNER_CMD = 'Generate the runner command(s) of given tests.'
 HISTORY = ('Show test results in chronological order(with specified number or '
@@ -197,8 +195,6 @@ class AtestArgParser(argparse.ArgumentParser):
 
         self.add_argument('-d', '--disable-teardown', action='store_true',
                           help=DISABLE_TEARDOWN)
-        self.add_argument('--enable-device-preparer', action='store_true',
-                          help=ENABLE_DEVICE_PREPARER)
         self.add_argument('--experimental-coverage', action='store_true', help=COVERAGE)
         # Options for host and device-only:
         # A group of options for testing mapping tests. They are mutually
@@ -401,7 +397,6 @@ def print_epilog_text():
         DISABLE_TEARDOWN=DISABLE_TEARDOWN,
         DISABLE_UPLOAD_RESULT=DISABLE_UPLOAD_RESULT,
         DRY_RUN=DRY_RUN,
-        ENABLE_DEVICE_PREPARER=ENABLE_DEVICE_PREPARER,
         ENABLE_FILE_PATTERNS=ENABLE_FILE_PATTERNS,
         GENERATE_RUNNER_CMD=GENERATE_RUNNER_CMD,
         HELP_DESC=HELP_DESC,
@@ -502,9 +497,6 @@ OPTIONS
         -D, --tf-debug [PORT]
             {TF_DEBUG}
 
-        --enable-device-preparer
-            {ENABLE_DEVICE_PREPARER}
-
         --experimental-coverage
             {COVERAGE}
 
@@ -538,10 +530,10 @@ OPTIONS
         --test-config-select
             {TEST_CONFIG_SELECTION}
 
-        --test-filter [FILTER]
+        --test-filter [REGEX_FILTER]
             {TEST_FILTER} e.g.
-                atest perfetto_integrationtests --test-filter *ConsoleInterceptorVerify*
-                atest HelloWorldTests --test-filter testHalloWelt*
+                atest perfetto_integrationtests --test-filter '.*ConsoleInterceptorVerify.*'
+                atest HelloWorldTests --test-filter 'testHalloWelt.*'
 
         --tf-template
             {TF_TEMPLATE}

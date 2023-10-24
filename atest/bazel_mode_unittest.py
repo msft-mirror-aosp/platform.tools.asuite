@@ -2240,19 +2240,6 @@ class BazelTestRunnerTest(fake_filesystem_unittest.TestCase):
             '--test_arg=5'
         ], cmd[0])
 
-    def test_generate_run_command_with_enable_device_preparer(self):
-        test_infos = [test_info_of('test1')]
-        extra_args = {
-            constants.ENABLE_DEVICE_PREPARER: True
-        }
-        runner = self.create_bazel_test_runner_for_tests(test_infos)
-
-        cmd = runner.generate_run_commands(test_infos, extra_args)
-
-        self.assertTokensIn([
-            '--test_arg=--enable-device-preparer',
-        ], cmd[0])
-
     def test_not_zip_test_output_files_when_bes_publish_not_enabled(self):
         test_infos = [test_info_of('test1')]
         extra_args = {}
@@ -2448,6 +2435,19 @@ class BazelTestRunnerTest(fake_filesystem_unittest.TestCase):
         runner.organize_test_logs(test_infos)
 
         self.assertFalse(Path('result_dir/log/').exists())
+
+    def test_avoid_result_dir_symlink_duplication(self):
+        self.setUpPyfakefs()
+        test_infos = [test_info_of('test1')]
+        old_symlink_to_dir = Path(tempfile.mkdtemp())
+        log_path = Path('result_dir/log/path/test1_host')
+        log_path.parent.mkdir(parents=True, exist_ok=True)
+        log_path.symlink_to(old_symlink_to_dir)
+        runner = self.create_bazel_test_runner_for_tests(test_infos)
+
+        runner.organize_test_logs(test_infos)
+
+        self.assertSymlinkTo(log_path, old_symlink_to_dir)
 
     def create_bazel_test_runner(self,
                                  modules,

@@ -66,6 +66,12 @@ pub struct Commands {
     pub deletes: HashMap<PathBuf, AdbCommand>,
 }
 
+impl Commands {
+    pub fn is_empty(&self) -> bool {
+        self.upserts.is_empty() && self.deletes.is_empty()
+    }
+}
+
 /// Compose an adb command, i.e. an argv array, for each action listed in the diffs.
 /// e.g. `adb push host_file device_file` or `adb mkdir /path/to/device_dir`
 pub fn compose(diffs: &Diffs, product_out: &Path) -> Commands {

@@ -1693,7 +1693,8 @@ class BazelTestRunner(trb.TestRunnerBase):
                 'log', f'{package_name}',
                 f'{t_info.test_name}_{target_suffix}')
             log_path.parent.mkdir(parents=True, exist_ok=True)
-            log_path.symlink_to(test_output_dir)
+            if not log_path.is_symlink():
+                log_path.symlink_to(test_output_dir)
 
     def _get_feature_config_or_warn(self, feature, env_var_name):
         feature_config = self.env.get(env_var_name)
