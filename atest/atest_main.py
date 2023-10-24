@@ -1035,7 +1035,7 @@ def main(
                                    constants.YELLOW)
         args.bazel_mode = False
 
-    proc_idx = None
+    proc_idx = atest_utils.run_multi_proc(lambda: print)
     # Do not index targets while the users intend to dry-run tests.
     if need_run_index_targets(args, extra_args):
         proc_idx = atest_utils.run_multi_proc(indexing.index_targets)
@@ -1061,7 +1061,7 @@ def main(
     # (b/242567487) index_targets may finish after cli_translator; to
     # mitigate the overhead, the main waits until it finished when no index
     # files are available (e.g. fresh repo sync)
-    if proc_idx and not atest_utils.has_index_files():
+    if proc_idx.is_alive():
         proc_idx.join()
     find_start = time.time()
     test_infos = translator.translate(args)
