@@ -21,6 +21,7 @@ import logging
 from atest import atest_utils
 from atest import constants
 
+from atest.test_finders import test_filter_utils
 from atest.test_finders import test_finder_base
 from atest.test_finders import test_info
 
@@ -146,14 +147,13 @@ class CacheFinder(test_finder_base.TestFinderBase):
             # Check if the class filter is under current module.
             # TODO: (b/172260100) The test_name may not be inevitably equal to
             #  the module_name.
-            if self._is_java_filter_in_module(t_info.test_name ,
-                                              test_filter.class_name):
-                return True
-            # TODO: (b/172260100) Also check for CC.
-        logging.debug('Not a valid test filter.')
-        return False
+            if not self._is_class_in_module(
+                t_info.test_name, test_filter.class_name):
+                logging.debug('Not a valid test filter.')
+                return False
+        return True
 
-    def _is_java_filter_in_module(self, module_name, filter_class):
+    def _is_class_in_module(self, module_name, filter_class):
         """Check if input class is part of input module.
 
         Args:
@@ -171,14 +171,16 @@ class CacheFinder(test_finder_base.TestFinderBase):
         # valid. Remove this after all java srcs could be found in module-info.
         if not module_srcs:
             return True
-        ref_end = filter_class.rsplit('.', 1)[-1]
-        if '.' in filter_class:
-            file_path = str(filter_class).replace('.', '/')
-            # A Java class file always starts with a capital letter.
-            if ref_end[0].isupper():
-                file_path = file_path + '.'
-            for src_path in module_srcs:
-                # If java class, check if class file in module's src.
-                if src_path.find(file_path) >= 0:
+
+        for src_path in module_srcs:
+            abs_src_path = atest_utils.get_build_top(src_path)
+            if constants.CC_EXT_RE.match(src_path):
+                # TODO: (b/172260100) Also check for CC.
+                return True
+            else:
+                full_class_name = test_filter_utils.get_fully_qualified_class_name(
+                    abs_src_path)
+                package_name = test_filter_utils.get_package_name(abs_src_path)
+                if filter_class == full_class_name or filter_class == package_name:
                     return True
         return False
