@@ -48,7 +48,6 @@ from atest.coverage import coverage
 from atest.logstorage import atest_gcp_utils
 from atest.logstorage import logstorage_utils
 from atest.metrics import metrics
-from atest.test_finders import test_filter_utils
 from atest.test_finders import test_finder_utils
 from atest.test_finders import test_info
 from atest.test_runners import test_runner_base as trb
