@@ -38,6 +38,7 @@ import re
 import shutil
 import subprocess
 import sys
+from threading import Thread
 import urllib
 import zipfile
 
@@ -1625,6 +1626,23 @@ def run_multi_proc(func, *args, **kwargs):
     proc = Process(target=func, *args, **kwargs)
     proc.start()
     return proc
+
+
+def start_threading(target, *args, **kwargs):
+    """Start a Thread-based parallelism.
+
+    Args:
+        func: A string of function name which will be the target name.
+        args/kwargs: check doc page:
+        https://docs.python.org/3/library/threading.html#threading.Thread
+
+    Returns:
+        threading.Thread object.
+    """
+    proc = Thread(target=target, *args, **kwargs)
+    proc.start()
+    return proc
+
 
 def get_prebuilt_sdk_tools_dir():
     """Get the path for the prebuilt sdk tools root dir.

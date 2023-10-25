@@ -1035,10 +1035,10 @@ def main(
                                    constants.YELLOW)
         args.bazel_mode = False
 
-    proc_idx = atest_utils.run_multi_proc(lambda: print)
+    proc_idx = atest_utils.start_threading(lambda: print)
     # Do not index targets while the users intend to dry-run tests.
     if need_run_index_targets(args, extra_args):
-        proc_idx = atest_utils.run_multi_proc(indexing.index_targets)
+        proc_idx = atest_utils.start_threading(indexing.index_targets)
     smart_rebuild = need_rebuild_module_info(args)
 
     mod_info = module_info.load(
