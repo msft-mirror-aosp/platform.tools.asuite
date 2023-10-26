@@ -96,7 +96,7 @@ impl Device for RealDevice {
     fn prep_after_flash(&self) -> Result<()> {
         self.run_raw_adb_command(&["remount".to_string()], Echo::On)?;
         self.run_raw_adb_command(&["reboot".to_string()], Echo::On)?;
-        self.wait()?;
+        self.run_raw_adb_command(&["wait-for-device".to_string()], Echo::On)?;
         self.run_raw_adb_command(&["root".to_string()], Echo::On)?;
         Ok(())
     }
