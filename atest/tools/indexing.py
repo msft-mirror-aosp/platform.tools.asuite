@@ -170,8 +170,8 @@ def get_cc_result(indices: Indices):
     logging.debug('Probing CC classes:\n %s', find_cc_cmd)
     result = subprocess.getoutput(find_cc_cmd)
 
-    au.run_multi_proc(func=_index_cc_classes,
-                      args=[result, indices.cc_classes_idx])
+    au.start_threading(target=_index_cc_classes,
+                       args=[result, indices.cc_classes_idx])
 
 
 # pylint: disable=anomalous-backslash-in-string
@@ -191,12 +191,12 @@ def get_java_result(indices: Indices):
     logging.debug('Probing Java classes:\n %s', find_java_cmd)
     result = subprocess.getoutput(find_java_cmd)
 
-    au.run_multi_proc(func=_index_java_classes,
-                      args=[result, indices.classes_idx])
-    au.run_multi_proc(func=_index_qualified_classes,
-                      args=[result, indices.fqcn_idx])
-    au.run_multi_proc(func=_index_packages,
-                      args=[result, indices.packages_idx])
+    au.start_threading(target=_index_java_classes,
+                       args=[result, indices.classes_idx])
+    au.start_threading(target=_index_qualified_classes,
+                       args=[result, indices.fqcn_idx])
+    au.start_threading(target=_index_packages,
+                       args=[result, indices.packages_idx])
 
 
 @debug_log
@@ -330,8 +330,8 @@ def index_targets():
         if repo_syncd:
             logging.debug('Found repo syncd; will re-index targets.')
             repo_file = au.get_build_top('.repo/.repo_fetchtimes.json')
-            au.run_multi_proc(
-                func=au.save_md5,
+            au.start_threading(
+                target=au.save_md5,
                 args=[[repo_file], checksum_file])
             return _index_targets(indices, start)
         logging.debug('Indices remains the same. Ignore indexing...')
@@ -344,8 +344,8 @@ def index_targets():
 def _index_targets(indices: Indices, start_from: float):
     """The actual index_targets function."""
     logging.debug('Indexing targets... ')
-    proc_java = au.run_multi_proc(func=get_java_result, args=[indices])
-    proc_cc = au.run_multi_proc(func=get_cc_result, args=[indices])
+    proc_java = au.start_threading(target=get_java_result, args=[indices])
+    proc_cc = au.start_threading(target=get_cc_result, args=[indices])
     proc_java.join()
     proc_cc.join()
     elapsed_time = time.time() - start_from
