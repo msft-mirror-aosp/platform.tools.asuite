@@ -17,7 +17,7 @@ fn call_update_with_reboot(wait: Wait) -> Result<FakeDevice> {
     let device = FakeDevice::new(&HashMap::new());
     let mut profiler = Profiler::default();
     // Capture adb command?
-    let restart_chooser = RestartChooser::from(&RestartChoice::Reboot, &PathBuf::from(""))?;
+    let restart_chooser = RestartChooser::new(&RestartChoice::Reboot);
     let initial_adb_cmds = HashMap::from([(
         PathBuf::from("ignore_me"),
         AdbCommand::from_action(AdbAction::Mkdir, &PathBuf::from("ignore_me")),
