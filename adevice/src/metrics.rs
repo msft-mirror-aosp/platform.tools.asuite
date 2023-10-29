@@ -1,9 +1,12 @@
 //! Metrics client
 
+use crate::adevice::Profiler;
 use adevice_proto::clientanalytics::LogEvent;
 use adevice_proto::clientanalytics::LogRequest;
+use adevice_proto::user_log::adevice_log_event::AdeviceActionEvent;
 use adevice_proto::user_log::adevice_log_event::AdeviceStartEvent;
 use adevice_proto::user_log::AdeviceLogEvent;
+use adevice_proto::user_log::Duration;
 
 use anyhow::{anyhow, Result};
 use log::debug;
@@ -12,58 +15,83 @@ use std::fs;
 use std::process::Command;
 use std::time::UNIX_EPOCH;
 
-const OUT_ENV: &str = "OUT";
-const INTERNAL_USER_GOB_CURL_PATH: &str = "/usr/bin/gob-curl";
-const INTERNAL_USER_ENV: &str = "USER";
-const CLEARCUT_PROD_URL: &str = "https://play.googleapis.com/log";
+const ENV_OUT: &str = "OUT";
+const ENV_USER: &str = "USER";
+const ENV_TARGET: &str = "TARGET_PRODUCT";
+const METRICS_UPLOADER: &str = "/google/bin/releases/adevice-dev/metrics_uploader";
 const ADEVICE_LOG_SOURCE: i32 = 2265;
 
 pub trait MetricSender {
     fn add_start_event(&mut self, command_line: &str);
+    fn add_action_event(&mut self, action: &str, duration: std::time::Duration);
+    fn add_profiler_events(&mut self, profiler: &Profiler);
 }
 
 #[derive(Debug, Clone)]
 pub struct Metrics {
     events: Vec<LogEvent>,
     user: String,
-    url: String,
 }
 
 impl MetricSender for Metrics {
     fn add_start_event(&mut self, command_line: &str) {
         let mut start_event = AdeviceStartEvent::default();
         start_event.set_command_line(command_line.to_string());
+        start_event.set_target(env::var(ENV_TARGET).unwrap_or("".to_string()));
 
         let mut event = self.default_log_event();
         event.set_adevice_start_event(start_event);
-
         self.events.push(LogEvent {
             event_time_ms: Some(UNIX_EPOCH.elapsed().unwrap().as_millis() as i64),
             source_extension: Some(protobuf::Message::write_to_bytes(&event).unwrap()),
             special_fields: protobuf::SpecialFields::new(),
         });
     }
+
+    fn add_action_event(&mut self, action: &str, duration: std::time::Duration) {
+        let action_event = AdeviceActionEvent {
+            action: Some(action.to_string()),
+            outcome: ::std::option::Option::None,
+            file_changed: ::std::vec::Vec::new(),
+            duration: protobuf::MessageField::some(Duration {
+                seconds: Some(duration.as_secs() as i64),
+                nanos: Some(duration.as_nanos() as i32),
+                special_fields: ::protobuf::SpecialFields::new(),
+            }),
+            special_fields: ::protobuf::SpecialFields::new(),
+        };
+
+        let mut event: AdeviceLogEvent = self.default_log_event();
+        event.set_adevice_action_event(action_event);
+        self.events.push(LogEvent {
+            event_time_ms: Some(UNIX_EPOCH.elapsed().unwrap().as_millis() as i64),
+            source_extension: Some(protobuf::Message::write_to_bytes(&event).unwrap()),
+            special_fields: protobuf::SpecialFields::new(),
+        });
+    }
+
+    fn add_profiler_events(&mut self, profiler: &Profiler) {
+        self.add_action_event("device_fingerprint", profiler.device_fingerprint);
+        self.add_action_event("host_fingerprint", profiler.host_fingerprint);
+        self.add_action_event("ninja_deps_computer", profiler.ninja_deps_computer);
+        self.add_action_event("adb_cmds", profiler.adb_cmds);
+        self.add_action_event("reboot", profiler.reboot);
+        self.add_action_event("restart_after_boot", profiler.restart_after_boot);
+        self.add_action_event("total", profiler.total);
+    }
 }
 
 impl Default for Metrics {
     fn default() -> Self {
-        Metrics {
-            events: Vec::new(),
-            user: env::var(INTERNAL_USER_ENV).unwrap_or("".to_string()),
-            url: String::from(CLEARCUT_PROD_URL),
-        }
+        Metrics { events: Vec::new(), user: env::var(ENV_USER).unwrap_or("".to_string()) }
     }
 }
 
 impl Metrics {
     fn send(&self) -> Result<()> {
-        if self.url.is_empty() {
-            return Err(anyhow!("Metrics not sent since url is empty"));
-        }
-
-        // Only send for internal users, check for gob-curl binary
-        if fs::metadata(INTERNAL_USER_GOB_CURL_PATH).is_err() {
-            return Err(anyhow!("Not internal user: Metrics not sent since gob-curl not found"));
+        // Only send for internal users, check for metrics_uploader
+        if fs::metadata(METRICS_UPLOADER).is_err() {
+            return Err(anyhow!("Not internal user: Metrics not sent since uploader not found"));
         }
 
         // Serialize
@@ -78,30 +106,21 @@ impl Metrics {
             res
         };
 
-        // Send to metrics service; sending binary with curl requires making a temp file.
-
-        let out = env::var(OUT_ENV).unwrap_or("/tmp".to_string());
+        let out = env::var(ENV_OUT).unwrap_or("/tmp".to_string());
         let temp_dir = format!("{}/adevice", out);
         let temp_file_path = format!("{}/adevice/adevice.bin", out);
         fs::create_dir_all(temp_dir).expect("Failed to create folder for metrics");
         fs::write(temp_file_path.clone(), body).expect("Failed to write to metrics file");
-        let output = Command::new("curl")
-            .arg("-s")
-            .arg("-o")
-            .arg("/dev/null")
-            .arg("-w")
-            .arg("\"%{http_code}\"")
-            .arg("-X")
-            .arg("POST")
-            .arg("--data-binary")
-            .arg(format!("@{}", temp_file_path))
-            .arg(self.url.clone())
+        let output = Command::new(METRICS_UPLOADER)
+            .arg(&temp_file_path)
             .output()
             .expect("Failed to send metrics");
         fs::remove_file(temp_file_path)?;
+        let output_text = String::from_utf8(output.stdout).unwrap();
+        debug!("Metrics uploader: {}", output_text);
 
         // TODO implement next_request_wait_millis that comes back in response
-        debug!("Metrics upload response: {:?}", output);
+
         Ok(())
     }
 
@@ -115,7 +134,7 @@ impl Metrics {
 impl Drop for Metrics {
     fn drop(&mut self) {
         match self.send() {
-            Ok(_) => debug!("Metrics sent successfully"),
+            Ok(_) => (),
             Err(e) => debug!("Failed to send metrics: {}", e),
         };
     }
@@ -130,7 +149,6 @@ mod tests {
     fn test_print_events() {
         let mut metrics = Metrics::default();
         metrics.user = "test_user".to_string();
-        metrics.url = "".to_string();
         metrics.add_start_event("adevice status");
         metrics.add_start_event("adevice status --verbose debug");
 

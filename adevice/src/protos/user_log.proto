@@ -16,6 +16,7 @@ message AdeviceLogEvent {
     repeated string test_references = 2;
     optional string cwd = 3;
     optional string os = 4;
+    optional string target = 5;
   }
   // Occurs when adevice exits for any reason
   message AdeviceExitEvent {
@@ -39,6 +40,6 @@ message AdeviceLogEvent {
   oneof event {
     AdeviceStartEvent adevice_start_event = 3;
     AdeviceExitEvent adevice_exit_event = 4;
-    AdeviceActionEvent find_test_finish_event = 5;
+    AdeviceActionEvent adevice_action_event = 5;
   }
 }
