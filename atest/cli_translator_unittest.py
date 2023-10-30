@@ -28,6 +28,7 @@ import tempfile
 from importlib import reload
 from io import StringIO
 from unittest import mock
+from pyfakefs import fake_filesystem_unittest
 
 from atest import atest_arg_parser
 from atest import atest_utils
@@ -547,8 +548,228 @@ class ParseTestIdentifierTest(unittest.TestCase):
         self.assertEqual([], identifier.module_names)
         self.assertEqual([], identifier.binary_names)
 
-if __name__ == '__main__':
-    unittest.main()
+
+class VerifyMainlineModuleTest(fake_filesystem_unittest.TestCase):
+    """test verify_mainline_modules sub-methods."""
+
+    def setUp(self):
+        """Setup func."""
+        self.setUpPyfakefs()
+
+    def test_verified_mainline_modules_no_brackets(self):
+        """True for it's not in mainline module pattern. (no brackets)"""
+        test_name = 'module0'
+        mod_info=create_module_info(
+            [module(name=test_name),]
+        )
+
+        test_identifier = cli_t.parse_test_identifier(test_name)
+        translator = cli_t.CLITranslator(mod_info)
+
+        self.assertTrue(
+            translator._verified_mainline_modules(test_identifier))
+
+    def test_verified_mainline_modules_not_valid_test_module(self):
+        """False for test_name is not a module."""
+        test_name = 'module1[foo.apk+goo.apk]'
+        mod_info=create_module_info(
+            [module(name='module_1'),
+             module(name='foo'),
+             module(name='goo'),]
+        )
+
+        test_identifier = cli_t.parse_test_identifier(test_name)
+        translator = cli_t.CLITranslator(mod_info)
+
+        self.assertFalse(
+            translator._verified_mainline_modules(test_identifier))
+
+    def test_verified_mainline_modules_not_valid_mainline_module(self):
+        """False for mainline_modules are not modules."""
+        test_name = 'module2[foo.apk+goo.apk]'
+        mod_info=create_module_info(
+            [module(name='module2')]
+        )
+
+        test_identifier = cli_t.parse_test_identifier(test_name)
+        translator = cli_t.CLITranslator(mod_info)
+
+        self.assertFalse(
+            translator._verified_mainline_modules(test_identifier))
+
+    def test_verified_mainline_modules_no_test_mainline_modules(self):
+        """False for no definition in `test_mainline_modules` attribute."""
+        test_name = "module3[foo.apk+goo.apex]"
+        mod_info = create_module_info(
+            [module(name='module3',
+                    test_mainline_modules=[]),
+             module(name='foo',
+                    installed=['out/path/foo.apk']),
+             module(name='goo',
+                     installed=['out/path/goo.apex'])]
+        )
+
+        test_identifier = cli_t.parse_test_identifier(test_name)
+        translator = cli_t.CLITranslator(mod_info)
+
+        self.assertFalse(
+            translator._verified_mainline_modules(test_identifier))
+
+    def test_verified_mainline_modules_test_mainline_modules(self):
+        """True for definition in `test_mainline_modules` attribute."""
+        test_name = "module4[foo.apk+goo.apex]"
+        mod_info = create_module_info(
+            [module(name='module4',
+                    test_mainline_modules=['foo.apk+goo.apex']),
+             module(name='foo',
+                    installed=['out/path/foo.apk']),
+             module(name='goo',
+                     installed=['out/path/goo.apex'])]
+        )
+
+        test_identifier = cli_t.parse_test_identifier(test_name)
+        translator = cli_t.CLITranslator(mod_info)
+
+        self.assertTrue(
+            translator._verified_mainline_modules(test_identifier))
+
+    def test_verified_mainline_modules_were_in_test_config(self):
+        """True for mainline modules were defined in the test_config."""
+        test_name = "module5[foo.apk+goo.apex]"
+        mainline_config = 'out/module3/AndroidTest.xml'
+        self.fs.create_file(
+            mainline_config,
+            contents="""
+            <configuration description="Mainline Module tests">
+                <option name="config"
+                        key="parameter" value="value_1" />
+                <option name="config-descriptor:metadata"
+                        key="mainline-param" value="foo.apk+goo.apex" />
+            </configuration>
+            """)
+        mod_info = create_module_info(
+            [module(name='module5',
+                    test_config=[mainline_config],
+                    test_mainline_modules=[],
+                    auto_test_config=[]),
+             module(name='foo',
+                    installed=['out/path/foo.apk']),
+             module(name='goo',
+                    installed=['out/path/goo.apex'])]
+        )
+
+        test_identifier = cli_t.parse_test_identifier(test_name)
+        translator = cli_t.CLITranslator(mod_info)
+
+        self.assertTrue(
+            translator._verified_mainline_modules(test_identifier))
+
+    def test_verified_mainline_modules_were_in_auto_config(self):
+        """True for 'auto_test_config'=[True]"""
+        test_name = "module6[foo.apk+goo.apex]"
+        mod_info = create_module_info(
+            [module(
+                 name='module6',
+                 test_config=['somewhere/AndroidTest.xml'],
+                 auto_test_config=[True]),
+             module(
+                 name='foo',
+                 installed=['out/path/foo.apk']),
+             module(
+                 name='goo',
+                 installed=['out/path/goo.apex'])]
+        )
+
+        test_identifier = cli_t.parse_test_identifier(test_name)
+        translator = cli_t.CLITranslator(mod_info)
+
+        self.assertTrue(
+            translator._verified_mainline_modules(test_identifier))
+
+    def test_verified_mainline_modules_have_no_association(self):
+        """False for null auto_test_config and null `mainline-param` in the test_config."""
+        test_name = "module7[foo.apk+goo.apex]"
+        config = 'out/module7/AndroidTest.xml'
+        self.fs.create_file(
+            config,
+            contents="""
+            <configuration description="Mainline Module tests">
+                <option name="config"
+                        key="parameter" value="value_1" />
+            </configuration>
+            """)
+        mod_info = create_module_info(
+            [module(
+                 name='module7',
+                 test_config=[config],
+                 auto_test_config=[]),
+             module(
+                 name='foo',
+                 installed=['out/path/foo.apk']),
+             module(
+                 name='goo',
+                 installed=['out/path/goo.apex'])]
+        )
+
+        test_identifier = cli_t.parse_test_identifier(test_name)
+        translator = cli_t.CLITranslator(mod_info)
+
+        self.assertFalse(
+            translator._verified_mainline_modules(test_identifier))
+
+
+def create_module_info(modules=None):
+    """wrapper func for creating module_info.ModuleInfo"""
+    name_to_module_info = {}
+    modules = modules or []
+
+    for m in modules:
+        name_to_module_info[m['module_name']] = m
+
+    return module_info.load_from_dict(name_to_module_info)
+
+
+def module(
+    name=None,
+    path=None,
+    installed=None,
+    classes=None,
+    auto_test_config=None,
+    test_config=None,
+    shared_libs=None,
+    dependencies=None,
+    runtime_dependencies=None,
+    data=None,
+    data_dependencies=None,
+    compatibility_suites=None,
+    host_dependencies=None,
+    srcs=None,
+    supported_variants=None,
+    test_mainline_modules=None,
+):
+    """return a module info dict."""
+    name = name or 'libhello'
+
+    m = {}
+
+    m['module_name'] = name
+    m['class'] = classes or ['ETC']
+    m['path'] = [path or '']
+    m['installed'] = installed or []
+    m['is_unit_test'] = 'false'
+    m['auto_test_config'] = auto_test_config or []
+    m['test_config'] = test_config or []
+    m['shared_libs'] = shared_libs or []
+    m['runtime_dependencies'] = runtime_dependencies or []
+    m['dependencies'] = dependencies or []
+    m['data'] = data or []
+    m['data_dependencies'] = data_dependencies or []
+    m['compatibility_suites'] = compatibility_suites or []
+    m['host_dependencies'] = host_dependencies or []
+    m['srcs'] = srcs or []
+    m['supported_variants'] = supported_variants or []
+    m['test_mainline_modules'] = test_mainline_modules or []
+    return m
 
 
 def _gather_build_targets(test_infos):
@@ -556,3 +777,6 @@ def _gather_build_targets(test_infos):
     for t_info in test_infos:
         targets |= t_info.build_targets
     return targets
+
+if __name__ == '__main__':
+    unittest.main()
