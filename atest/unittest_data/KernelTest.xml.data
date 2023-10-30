@@ -12,7 +12,7 @@
 -->
 <configuration description="Runs kernel_test.">
     <test class="com.android.tradefed.testtype.binary.KernelTargetTest" >
-        <option name="ignore-binary-check" value="true" />
+        <option name="skip-binary-check" value="true" />
         <option name="per-binary-timeout" value="360000" />
         <option name="test-command-line" key="test_class_1" value="command 1" />
         <option name="test-command-line" key="test_class_2" value="command 2" />
