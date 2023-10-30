@@ -4,7 +4,7 @@ use clap::{Args, Parser, Subcommand};
 #[command(
     about = "Tool to push your rebuilt modules to your device.\nSet ANDROID_SERIAL to choose your device if there is more than one."
 )]
-#[command(version = "0.3")]
+#[command(version = "0.4")]
 pub struct Cli {
     #[command(subcommand)]
     pub command: Commands,

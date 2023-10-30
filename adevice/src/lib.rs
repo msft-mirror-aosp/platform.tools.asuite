@@ -6,7 +6,6 @@ pub mod cli;
 pub mod commands;
 pub mod device;
 pub mod fingerprint;
-pub mod logger;
 pub mod metrics;
 pub mod restart_chooser;
 pub mod tracking;

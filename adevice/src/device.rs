@@ -6,14 +6,15 @@ use crate::{fingerprint, time};
 use anyhow::{anyhow, bail, Context, Result};
 use itertools::Itertools;
 use lazy_static::lazy_static;
-use log::{debug, info};
 use regex::Regex;
 use serde::__private::ToString;
 use std::cmp::Ordering;
 use std::collections::{HashMap, HashSet};
+use std::io::Write;
 use std::path::PathBuf;
 use std::process;
 use std::time::Duration;
+use tracing::{debug, info};
 
 pub struct RealDevice {
     // If set, pass to all adb commands with --serial,
@@ -267,16 +268,19 @@ pub fn update(
     prep_for_push(device, should_wait.clone())?;
     time!(
         for command in adb_commands.values().cloned().sorted_by(&mkdir_comes_first_rm_dfs) {
+            print!(".");
+            let _ = std::io::stdout().flush();
             device.run_adb_command(&command)?;
         },
         profiler.adb_cmds
     );
+    println!();
 
     match restart_type(restart_chooser, &installed_files) {
         RestartType::Reboot => time!(device.reboot(), profiler.reboot),
         RestartType::SoftRestart => device.soft_restart(),
         RestartType::None => {
-            log::debug!("No restart command");
+            tracing::debug!("No restart command");
             return Ok(());
         }
     }?;

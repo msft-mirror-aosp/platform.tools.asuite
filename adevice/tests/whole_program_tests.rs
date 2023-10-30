@@ -7,6 +7,8 @@ use common::fakes::{FakeDevice, FakeHost, FakeMetricSender};
 use std::collections::HashMap;
 use std::path::PathBuf;
 
+const NO_LOG_FILE: Option<std::fs::File> = None;
+
 // Just placeholder for now to show we can call adevice.
 #[test]
 fn adevice_status() -> Result<()> {
@@ -36,6 +38,7 @@ fn adevice_status() -> Result<()> {
         &cli,
         &mut stdout,
         &mut FakeMetricSender::new(),
+        NO_LOG_FILE,
     )?;
     let stdout_str = String::from_utf8(stdout).unwrap();
 
@@ -75,8 +78,15 @@ fn lost_and_found_should_not_be_cleaned() -> Result<()> {
     {
         let mut stdout = Vec::new();
         let mut metrics = FakeMetricSender::new();
-        adevice::adevice::adevice(&fake_host, &fake_device, &cli, &mut stdout, &mut metrics)
-            .context("Running adevice clean")?;
+        adevice::adevice::adevice(
+            &fake_host,
+            &fake_device,
+            &cli,
+            &mut stdout,
+            &mut metrics,
+            NO_LOG_FILE,
+        )
+        .context("Running adevice clean")?;
         let stdout_str = String::from_utf8(stdout).unwrap();
         assert!(stdout_str.contains("system/some_file"), "\n\nACTUAL:\n {}", stdout_str);
         assert!(!stdout_str.contains("lost+found"), "\n\nACTUAL:\n {}", stdout_str);
@@ -102,8 +112,15 @@ fn update_should_clean_stale_files() -> Result<()> {
     {
         let mut stdout = Vec::new();
         let mut metrics = FakeMetricSender::new();
-        adevice::adevice::adevice(&fake_host, &fake_device, &cli, &mut stdout, &mut metrics)
-            .context("Running adevice update")?;
+        adevice::adevice::adevice(
+            &fake_host,
+            &fake_device,
+            &cli,
+            &mut stdout,
+            &mut metrics,
+            NO_LOG_FILE,
+        )
+        .context("Running adevice update")?;
 
         assert!(fake_device.removes().contains(&PathBuf::from("system/STALE_FILE")));
     }
@@ -145,8 +162,15 @@ fn update_big_fs_change() -> Result<()> {
     {
         let mut stdout = Vec::new();
         let mut metrics = FakeMetricSender::new();
-        adevice::adevice::adevice(&fake_host, &fake_device, &cli, &mut stdout, &mut metrics)
-            .context("Running adevice update")?;
+        adevice::adevice::adevice(
+            &fake_host,
+            &fake_device,
+            &cli,
+            &mut stdout,
+            &mut metrics,
+            NO_LOG_FILE,
+        )
+        .context("Running adevice update")?;
 
         assert_eq!(
             vec![

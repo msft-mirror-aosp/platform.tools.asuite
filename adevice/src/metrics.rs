@@ -9,11 +9,11 @@ use adevice_proto::user_log::AdeviceLogEvent;
 use adevice_proto::user_log::Duration;
 
 use anyhow::{anyhow, Result};
-use log::debug;
 use std::env;
 use std::fs;
 use std::process::Command;
 use std::time::UNIX_EPOCH;
+use tracing::debug;
 
 const ENV_OUT: &str = "OUT";
 const ENV_USER: &str = "USER";
