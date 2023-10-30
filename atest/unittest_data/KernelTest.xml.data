@@ -15,7 +15,9 @@
         <option name="skip-binary-check" value="true" />
         <option name="per-binary-timeout" value="360000" />
         <option name="test-command-line" key="test_class_1" value="command 1" />
+        <option name="min-kernel-version" key="test_class_1" value="4.19" />
         <option name="test-command-line" key="test_class_2" value="command 2" />
+        <option name="min-kernel-version" key="test_class_1" value="5.4.0" />
         <option name="test-command-line" key="test_class_3" value="command 3" />
     </test>
 </configuration>
