@@ -210,7 +210,7 @@ class AtestArgParser(argparse.ArgumentParser):
                           action='store_true', help=REBUILD_MODULE_INFO)
         self.add_argument('--roboleaf-mode',
                           nargs='?',
-                          default=BazelBuildMode.ON,
+                          default=BazelBuildMode.OFF,
                           const=BazelBuildMode.ON,
                           choices=BazelBuildMode,
                           type=BazelBuildMode,
