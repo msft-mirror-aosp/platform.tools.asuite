@@ -235,28 +235,44 @@ class CLITranslator:
         if not mainline_binaries:
             return True
 
-        test = test_identifier.test_name
-        if not self.mod_info.is_module(test):
-            print('Error: "{}" is not a testable module.'.format(
-                atest_utils.mark_red(test)))
+        # Exit earlier when any test name or mainline modules are not valid.
+        if not self._valid_modules(test_identifier):
             return False
+
+        # Exit earlier if Atest cannot find relationship between the test and
+        # the mainline binaries.
+        return self._declared_mainline_modules(test_identifier)
+
+
+    def _valid_modules(self, identifier: TestIdentifier) -> bool:
+        """Determine the test_name and mainline modules are modules."""
+        if not self.mod_info.is_module(identifier.test_name):
+            print('Error: "{}" is not a testable module.'.format(
+                atest_utils.mark_red(identifier.test_name)))
+            return False
+
         # Exit earlier if the given mainline modules are unavailable in the
         # branch.
-        unknown_modules = [module for module in test_identifier.module_names
+        unknown_modules = [module for module in identifier.module_names
                            if not self.mod_info.is_module(module)]
         if unknown_modules:
             print('Error: Cannot find {} in module info!'.format(
                 atest_utils.mark_red(', '.join(unknown_modules))))
             return False
-        # Exit earlier if Atest cannot find relationship between the test and
-        # the mainline binaries.
-        mainline_binaries = test_identifier.binary_names
+
+        return True
+
+    def _declared_mainline_modules(self, identifier: TestIdentifier) -> bool:
+        """Determine if all mainline modules were associated to the test."""
+        test = identifier.test_name
+        mainline_binaries = identifier.binary_names
         if not self.mod_info.has_mainline_modules(test, mainline_binaries):
             print('Error: Mainline modules "{}" were not defined for {} in '
                   'neither build file nor test config.'.format(
                   atest_utils.mark_red(', '.join(mainline_binaries)),
                   atest_utils.mark_red(test)))
             return False
+
         return True
 
     def _fuzzy_search_and_msg(self, test, find_test_err_msg):
