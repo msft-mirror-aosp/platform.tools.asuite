@@ -1,25 +1,19 @@
-//! Update an Android device with local build changes.
-mod cli;
-mod commands;
-mod device;
-mod fingerprint;
-mod logger;
-mod metrics;
-mod restart_chooser;
-mod tracking;
-
+use crate::cli;
+use crate::commands;
+use crate::device;
+use crate::fingerprint;
+use crate::logger;
+use crate::metrics;
+use crate::restart_chooser;
+use crate::tracking::Config;
 use anyhow::{anyhow, bail, Context, Result};
-use clap::Parser;
-use cli::Commands;
-use device::RealDevice;
 use fingerprint::{DiffMode, FileMetadata};
 use itertools::Itertools;
 use lazy_static::lazy_static;
 use log::{debug, info};
-use metrics::{MetricSender, Metrics};
+use metrics::MetricSender;
 use regex::Regex;
 use restart_chooser::RestartChooser;
-use tracking::Config;
 
 use std::collections::{HashMap, HashSet};
 use std::ffi::OsString;
@@ -35,12 +29,12 @@ pub trait Host {
         &self,
         partition_root: &Path,
         partitions: &[PathBuf],
-    ) -> Result<HashMap<PathBuf, fingerprint::FileMetadata>>;
+    ) -> Result<HashMap<PathBuf, FileMetadata>>;
 
     /// Return a list of all files that compose `droid` or whatever base and tracked
-    /// modules are listed in `config`.  Filter to those only listed in `partitions`.
+    /// modules are listed in `config`.
     /// Result strings are device relative. (i.e. start with system)
-    fn tracked_files(&self, partitions: &[PathBuf], config: &Config) -> Result<Vec<String>>;
+    fn tracked_files(&self, config: &Config) -> Result<Vec<String>>;
 }
 
 /// Methods to interact with the device, like adb, rebooting, and fingerprinting.
@@ -49,16 +43,15 @@ pub trait Device {
     /// or output on stderr, then the result is an Err.
     fn run_adb_command(&self, args: &commands::AdbCommand) -> Result<String>;
 
+    fn run_raw_adb_command(&self, args: &[String], echo: Echo) -> Result<String>;
+
     /// Send commands to reboot device.
     fn reboot(&self) -> Result<String>;
     /// Send commands to do a soft restart.
     fn soft_restart(&self) -> Result<String>;
 
     /// Call the fingerprint program on the device.
-    fn fingerprint(
-        &self,
-        partitions: &[String],
-    ) -> Result<HashMap<PathBuf, fingerprint::FileMetadata>>;
+    fn fingerprint(&self, partitions: &[String]) -> Result<HashMap<PathBuf, FileMetadata>>;
 
     /// Return the list apks that are currently installed, i.e. `adb install`
     /// which live on the /data partition.
@@ -69,15 +62,17 @@ pub trait Device {
     /// Returns any relevant output from waiting.
     fn wait(&self) -> Result<String>;
 
-    /// Send commands to the device that are needed before we run adb push commands
-    /// like "adb root; adb remount" and clearing sys.boot_completed.
-    fn prep_for_push(&self) -> Result<String>;
-
     /// Run the commands needed to prep a userdebug device after a flash.
     fn prep_after_flash(&self) -> Result<()>;
 }
 
-struct RealHost {}
+pub struct RealHost {}
+
+impl Default for RealHost {
+    fn default() -> Self {
+        Self::new()
+    }
+}
 
 impl RealHost {
     pub fn new() -> RealHost {
@@ -90,25 +85,38 @@ impl Host for RealHost {
         &self,
         partition_root: &Path,
         partitions: &[PathBuf],
-    ) -> Result<HashMap<PathBuf, fingerprint::FileMetadata>> {
+    ) -> Result<HashMap<PathBuf, FileMetadata>> {
         fingerprint::fingerprint_partitions(partition_root, partitions)
     }
 
-    fn tracked_files(&self, partitions: &[PathBuf], config: &Config) -> Result<Vec<String>> {
-        config.tracked_files(partitions)
+    fn tracked_files(&self, config: &Config) -> Result<Vec<String>> {
+        config.tracked_files()
     }
 }
 
-fn main() -> Result<()> {
-    let host = RealHost::new();
-    let cli = cli::Cli::parse();
-    let device = RealDevice::new(cli.global_options.serial.clone());
-    let mut metrics = Metrics::default();
-
-    adevice(&host, &device, &cli, &mut std::io::stdout(), &mut metrics)
+#[derive(PartialEq)]
+pub enum Echo {
+    /// Show commands if --verbose <= info
+    On,
+    /// Don't show commands
+    Off,
 }
 
-fn adevice(
+/// Time how long it takes to run the function and store the
+/// result in the given profiler field.
+// TODO(rbraunstein): Ideally, use tracing or flamegraph crate or
+// use Map rather than name all the fields.
+#[macro_export]
+macro_rules! time {
+    ($fn:expr, $ident:expr) => {{
+        let start = std::time::Instant::now();
+        let result = $fn;
+        $ident = start.elapsed();
+        result
+    }};
+}
+
+pub fn adevice(
     host: &impl Host,
     device: &impl Device,
     cli: &cli::Cli,
@@ -132,37 +140,41 @@ fn adevice(
 
     let track_time = std::time::Instant::now();
 
-    let mut config = tracking::Config::load(&cli.global_options.config_path)?;
+    let mut config = Config::load(&cli.global_options.config_path)?;
 
     // Early return for track/untrack commands.
     match &cli.command {
-        Commands::Track(names) => return config.track(&names.modules),
-        Commands::TrackBase(base) => return config.trackbase(&base.base),
-        Commands::Untrack(names) => return config.untrack(&names.modules),
+        cli::Commands::Track(names) => return config.track(&names.modules),
+        cli::Commands::TrackBase(base) => return config.trackbase(&base.base),
+        cli::Commands::Untrack(names) => return config.untrack(&names.modules),
         _ => (),
     }
     config.print();
-    let partitions: Vec<PathBuf> =
-        cli.global_options.partitions.iter().map(PathBuf::from).collect();
 
     writeln!(stdout, " * Checking for files to push to device")?;
-    let ninja_installed_files =
-        time!(host.tracked_files(&partitions, &config)?, profiler.ninja_deps_computer);
+    let mut ninja_installed_files =
+        time!(host.tracked_files(&config)?, profiler.ninja_deps_computer);
+    let partitions = &validate_partitions(&ninja_installed_files, &cli.global_options.partitions)?;
+    // Filter to paths on any partitions.
+    ninja_installed_files
+        .retain(|nif| partitions.iter().any(|p| PathBuf::from(nif).starts_with(p)));
 
     debug!("Stale file tracking took {} millis", track_time.elapsed().as_millis());
 
     let mut device_tree: HashMap<PathBuf, FileMetadata> =
-        time!(device.fingerprint(&cli.global_options.partitions)?, profiler.device_fingerprint);
+        time!(device.fingerprint(partitions)?, profiler.device_fingerprint);
 
     // We expect the device to create lost+found dirs when mounting
     // new partitions.  Filter them out as if they don't exist.
     // However, if there are file inside of them, don't filter the
     // inner files.
-    for p in &cli.global_options.partitions {
+    for p in partitions {
         device_tree.remove(&PathBuf::from(p).join("lost+found"));
     }
 
-    let host_tree = time!(host.fingerprint(&product_out, &partitions)?, profiler.host_fingerprint);
+    let partition_paths: Vec<PathBuf> = partitions.iter().map(PathBuf::from).collect();
+    let host_tree =
+        time!(host.fingerprint(&product_out, &partition_paths)?, profiler.host_fingerprint);
 
     // For now ignore diffs in permissions.  This will allow us to have a new adevice host tool
     // still working with an older adevice_fingerprint device tool.
@@ -173,20 +185,27 @@ fn adevice(
     // bits before we change this to UsePermissions.
     let diff_mode = fingerprint::DiffMode::IgnorePermissions;
 
-    let commands = get_update_commands(
+    let commands = &get_update_commands(
         &device_tree,
         &host_tree,
         &ninja_installed_files,
         product_out.clone(),
         &device.get_installed_apks()?,
         diff_mode,
-        &partitions,
+        &partition_paths,
         stdout,
     )?;
 
+    #[allow(clippy::collapsible_if)]
+    if matches!(cli.command, cli::Commands::Status) {
+        if commands.is_empty() {
+            println!("   Device already up to date.");
+        }
+    }
+
     let max_changes = cli.global_options.max_allowed_changes;
-    if matches!(cli.command, Commands::Clean { .. }) {
-        let deletes = commands.deletes;
+    if matches!(cli.command, cli::Commands::Clean { .. }) {
+        let deletes = &commands.deletes;
         if deletes.is_empty() {
             println!("   Nothing to clean.");
             return Ok(());
@@ -194,7 +213,7 @@ fn adevice(
         if deletes.len() > max_changes {
             bail!("There are {} files to be deleted which exceeds the configured limit of {}.\n  It is recommended that you reimage your device instead.  For small increases in the limit, you can run `adevice clean --max-allowed-changes={}.", deletes.len(), max_changes, deletes.len());
         }
-        if matches!(cli.command, Commands::Clean { force } if !force) {
+        if matches!(cli.command, cli::Commands::Clean { force } if !force) {
             println!(
                 "You are about to delete {} [untracked pushed] files. Are you sure? y/N",
                 deletes.len()
@@ -207,30 +226,32 @@ fn adevice(
         }
 
         // Consider always reboot instead of soft restart after a clean.
-        let restart_chooser =
-            &RestartChooser::from(&restart_choice, &product_out.join("module-info.json"))?;
-        device::update(restart_chooser, &deletes, &mut profiler, device)?;
+        let restart_chooser = &RestartChooser::new(&restart_choice);
+        device::update(restart_chooser, deletes, &mut profiler, device, cli.should_wait())?;
     }
 
-    if matches!(cli.command, Commands::Update) {
-        let upserts = commands.upserts;
+    if matches!(cli.command, cli::Commands::Update) {
         // Status
-        if upserts.is_empty() {
+        if commands.is_empty() {
             println!("   Device already up to date.");
             return Ok(());
         }
-        if upserts.len() > max_changes {
-            bail!("There are {} files out of date on the device, which exceeds the configured limit of {}.\n  It is recommended to reimage your device.  For small increases in the limit, you can run `adevice update --max-allowed-changes={}.", upserts.len(), max_changes, upserts.len());
+        let all_cmds: HashMap<PathBuf, commands::AdbCommand> =
+            commands.upserts.clone().into_iter().chain(commands.deletes.clone()).collect();
+
+        if all_cmds.len() > max_changes {
+            bail!("There are {} files out of date on the device, which exceeds the configured limit of {}.\n  It is recommended to reimage your device.  For small increases in the limit, you can run `adevice update --max-allowed-changes={}.", all_cmds.len(), max_changes, all_cmds.len());
         }
-        writeln!(stdout, " * Updating {} files on device.", upserts.len())?;
+        writeln!(stdout, " * Updating {} files on device.", all_cmds.len())?;
 
         // Send the update commands, but retry once if we need to remount rw an extra time after a flash.
         for retry in 0..=1 {
             let update_result = device::update(
-                &RestartChooser::from(&restart_choice, &product_out.join("module-info.json"))?,
-                &upserts,
+                &RestartChooser::new(&restart_choice),
+                &all_cmds,
                 &mut profiler,
                 device,
+                cli.should_wait(),
             );
             if update_result.is_ok() {
                 break;
@@ -251,6 +272,7 @@ fn adevice(
         }
     }
     profiler.total = total_time.elapsed(); // Avoid wrapping the block in the macro.
+    metrics.add_profiler_events(&profiler);
     info!("Finished in {} secs", profiler.total.as_secs());
     debug!("{}", profiler.to_string());
     Ok(())
@@ -335,6 +357,41 @@ fn get_update_commands(
     Ok(commands::compose(&filtered_changes, &product_out))
 }
 
+// These are the partitions we will try to install to.
+// ADB sync also has data, oem and vendor.
+// There are some partition images (like boot.img) that we don't have a good way of determining
+// the changed status of. (i.e. did they touch files that forces a flash/reimage).
+// By default we will clean all the default partitions of stale files.
+const DEFAULT_PARTITIONS: &[&str] = &["system", "system_ext", "odm", "product"];
+
+/// If a user explicitly passes a partition, but that doesn't exist in the tracked files,
+/// then bail.
+/// Otherwise, if one of the default partitions does not exist (like system_ext), then
+/// just remove it from the default.
+fn validate_partitions(
+    tracked_files: &[String],
+    cli_partitions: &Option<Vec<String>>,
+) -> Result<Vec<String>> {
+    // NOTE: We use PathBuf instead of String so starts_with matches path components.
+    // Use the partitions the user passed in or default to system and system_ext
+    if let Some(partitions) = cli_partitions {
+        for partition in partitions {
+            if !tracked_files.iter().any(|t| PathBuf::from(t).starts_with(partition)) {
+                bail!("{partition:?} is not a valid partition for current lunch target.");
+            }
+        }
+        return Ok(partitions.clone());
+    }
+    let found_partitions: Vec<String> = DEFAULT_PARTITIONS
+        .iter()
+        .filter_map(|part| match tracked_files.iter().any(|t| PathBuf::from(t).starts_with(part)) {
+            true => Some(part.to_string()),
+            false => None,
+        })
+        .collect();
+    Ok(found_partitions)
+}
+
 #[derive(Clone, PartialEq)]
 enum PushState {
     Push,
@@ -367,7 +424,7 @@ impl PushState {
 	    // Note: we don't print up to date files.
 	    PushState::UpToDate => "Up to date:  (These files are up to date on the device. There is nothing to do.)".to_string(),
 	    PushState::TrackOrClean => "Untracked pushed files:\n  (These files are not tracked but exist on the device and host.)\n  (Use `adevice track` for the appropriate module to have them pushed.)".to_string(),
-	    PushState::TrackAndBuildOrClean => "Stale device files:\n  (These files are on the device, but not built or tracked.)\n  (You might want to run `adevice clean` to remove them.)".to_string(),
+	    PushState::TrackAndBuildOrClean => "Stale device files:\n  (These files are on the device, but not built or tracked.)\n  (They will be cleaned with `adevice update` or `adevice clean`.)".to_string(),
 	    PushState::TrackOrMakeClean => "Untracked built files:\n  (These files are in the build tree but not tracked or on the device.)\n  (You might want to `adevice track` the module.  It is safe to do nothing.)".to_string(),
 	    PushState::UntrackOrBuild => "Unbuilt files:\n  (These files should be built so the device can be updated.)\n  (Rebuild and `adevice update`)".to_string(),
 	    PushState::ApkInstalled => format!("ADB Installed files:\n{RED_WARNING_LINE}  (These files were installed with `adb install` or similar.  Pushing to the system partition will not make them available.)\n  (Either `adb uninstall` the package or `adb install` by hand.`)"),
@@ -606,28 +663,10 @@ impl std::string::ToString for Profiler {
     }
 }
 
-/// Time how long it takes to run the function and store the
-/// result in the given profiler field.
-// TODO(rbraunstein): Ideally, use tracing or flamegraph crate or
-// use Map rather than name all the fields.
-#[macro_export]
-macro_rules! time {
-    ($fn:expr, $ident:expr) => {{
-        let start = std::time::Instant::now();
-        let result = $fn;
-        $ident = start.elapsed();
-        result
-    }};
-}
-
 #[cfg(test)]
 mod tests {
-    mod fakes;
     use super::*;
-    use crate::fingerprint::DiffMode;
-    use crate::tests::fakes::FakeMetricSender;
-    use fakes::FakeDevice;
-    use fakes::FakeHost;
+    use crate::fingerprint::{self, DiffMode};
     use std::path::PathBuf;
 
     // TODO(rbraunstein): Capture/test stdout and logging.
@@ -720,79 +759,39 @@ mod tests {
         );
     }
 
-    // Just placeholder for now to show we can call adevice.
     #[test]
-    fn adevice_status() -> Result<()> {
-        // Fakes start with a few files in them ... for now.
-        let device_fs = HashMap::from([
-            (PathBuf::from("system/fakefs_default_file"), file_metadata("digest1")),
-            (PathBuf::from("system"), dir_metadata()),
-        ]);
-
-        let host_fs = HashMap::from([
-            (PathBuf::from("system/fakefs_default_file"), file_metadata("digest1")),
-            // NOTE: extra file on host
-            (PathBuf::from("system/fakefs_new_file_file"), file_metadata("digest1")),
-            (PathBuf::from("system"), dir_metadata()),
-        ]);
-        let host_tracked_files =
-            vec!["system/fakefs_default_file".to_string(), "system/fakefs_new_file".to_string()];
-
-        let fake_host = FakeHost::new(&host_fs, &host_tracked_files);
-        let fake_device = FakeDevice::new(&device_fs);
-        let mut stdout = Vec::new();
-        // TODO(rbraunstein): Fix argv[0]
-        let cli = cli::Cli::parse_from(["", "--product_out", "unused", "status"]);
-
-        adevice(&fake_host, &fake_device, &cli, &mut stdout, &mut FakeMetricSender::new())?;
-        let stdout_str = String::from_utf8(stdout).unwrap();
-
-        // TODO(rbraunstein): Check the status group it is in: (Ready to push)
-        assert!(
-            stdout_str.contains(&"system/fakefs_new_file".to_string()),
-            "\n\nACTUAL:\n {}",
-            stdout_str
-        );
+    fn validate_partition_removes_unused_default_partition() -> Result<()> {
+        // No system_ext here, so remove from default partitions
+        let ninja_deps = vec![
+            "system/file1".to_string(),
+            "file3".to_string(),
+            "system/dir2/file1".to_string(),
+            "data/sys/file4".to_string(),
+        ];
+        assert_eq!(vec!["system".to_string(),], validate_partitions(&ninja_deps, &None)?);
         Ok(())
     }
 
     #[test]
-    fn lost_and_found_should_not_be_cleaned() -> Result<()> {
-        // Fakes start with a few files in them ... for now.
-        let device_files = HashMap::from([
-            (PathBuf::from("system_ext/lost+found"), dir_metadata()),
-            (PathBuf::from("system/some_file"), file_metadata("m1")),
-            (PathBuf::from("system/lost+found"), dir_metadata()),
-        ]);
-
-        let fake_host = FakeHost::new(&HashMap::new(), &[]);
-        let fake_device = FakeDevice::new(&device_files);
-        // TODO(rbraunstein): Fix argv[0]
-        let cli = cli::Cli::parse_from([
-            "",
-            "--product_out",
-            "unused",
-            "clean",
-            "--force",
-            "--restart",
-            "none",
-        ]);
-
-        // Expect some_file, but not lost+found for TrackAndBuildOrClean
-        {
-            let mut stdout = Vec::new();
-            let mut metrics = FakeMetricSender::new();
-            adevice(&fake_host, &fake_device, &cli, &mut stdout, &mut metrics)
-                .context("Running adevice clean")?;
-            let stdout_str = String::from_utf8(stdout).unwrap();
-            assert!(stdout_str.contains("system/some_file"), "\n\nACTUAL:\n {}", stdout_str);
-            assert!(!stdout_str.contains("lost+found"), "\n\nACTUAL:\n {}", stdout_str);
-
-            assert!(fake_device.removes().contains(&PathBuf::from("system/some_file")));
-            assert!(!fake_device.removes().contains(&PathBuf::from("system/lost+found")));
+    fn validate_partition_bails_on_bad_partition_name() {
+        let ninja_deps = vec![
+            "system/file1".to_string(),
+            "file3".to_string(),
+            "system/dir2/file1".to_string(),
+            "data/sys/file4".to_string(),
+        ];
+        // "sys" isn't a valid partition name, but it matches a prefix of "system".
+        // Should bail.
+        match validate_partitions(&ninja_deps, &Some(vec!["sys".to_string()])) {
+            Ok(_) => panic!("Expected error"),
+            Err(e) => {
+                assert!(
+                    e.to_string().contains("\"sys\" is not a valid partition"),
+                    "{}",
+                    e.to_string()
+                )
+            }
         }
-
-        Ok(())
     }
 
     // TODO(rbraunstein): Test case where on device and up to date, but not tracked.

@@ -38,6 +38,7 @@ import re
 import shutil
 import subprocess
 import sys
+from threading import Thread
 import urllib
 import zipfile
 
@@ -1626,6 +1627,23 @@ def run_multi_proc(func, *args, **kwargs):
     proc.start()
     return proc
 
+
+def start_threading(target, *args, **kwargs):
+    """Start a Thread-based parallelism.
+
+    Args:
+        func: A string of function name which will be the target name.
+        args/kwargs: check doc page:
+        https://docs.python.org/3/library/threading.html#threading.Thread
+
+    Returns:
+        threading.Thread object.
+    """
+    proc = Thread(target=target, *args, **kwargs)
+    proc.start()
+    return proc
+
+
 def get_prebuilt_sdk_tools_dir():
     """Get the path for the prebuilt sdk tools root dir.
 
@@ -1740,21 +1758,6 @@ def get_filter_types(tf_filter_set):
                          tf_filter, FilterType.REGULAR_FILTER.value)
             type_set.add(FilterType.REGULAR_FILTER.value)
     return type_set
-
-def has_index_files():
-    """Determine whether the essential index files are done.
-
-    (b/206886222) checksum may be different even the src is not changed; so
-    the main process needs to wait when the essential index files do not exist.
-
-    Returns:
-        False if one of the index file does not exist; True otherwise.
-    """
-    return all(Path(f).is_file() for f in [
-        constants.CLASS_INDEX,
-        constants.CC_CLASS_INDEX,
-        constants.QCLASS_INDEX,
-        constants.PACKAGE_INDEX])
 
 
 def has_command(cmd: str) -> bool:

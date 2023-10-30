@@ -1,9 +1,8 @@
-use super::fingerprint::FileMetadata;
-use crate::commands::{AdbAction, AdbCommand};
-use crate::metrics::MetricSender;
-use crate::Device;
-use crate::Host;
-#[cfg(test)]
+use adevice::adevice::{Device, Echo, Host};
+use adevice::commands::{AdbAction, AdbCommand};
+use adevice::fingerprint::FileMetadata;
+use adevice::metrics::MetricSender;
+use adevice::tracking::Config;
 use anyhow::Result;
 use std::cell::RefCell;
 use std::collections::{HashMap, HashSet};
@@ -46,6 +45,12 @@ pub struct FakeDevice {
     pushes: RefCell<Vec<PathBuf>>,
     // Files and directories removed from the device via `adb_command`
     removes: RefCell<Vec<PathBuf>>,
+
+    // Cmds that are issued with run_raw_adb_command;
+    raw_cmds: RefCell<Vec<String>>,
+
+    // How many times has wait() beeng called on the fake.
+    wait_called: RefCell<u32>,
 }
 impl FakeDevice {
     pub fn new(files: &HashMap<PathBuf, FileMetadata>) -> FakeDevice {
@@ -62,6 +67,15 @@ impl FakeDevice {
     pub fn pushes(&self) -> Vec<PathBuf> {
         self.pushes.borrow().clone()
     }
+
+    /// Returns orderd list of all raw adb commands.
+    #[allow(dead_code)]
+    pub fn raw_cmds(&self) -> Vec<String> {
+        self.raw_cmds.borrow().clone()
+    }
+    pub fn wait_calls(&self) -> u32 {
+        *self.wait_called.borrow()
+    }
 }
 
 impl Host for FakeHost {
@@ -75,14 +89,8 @@ impl Host for FakeHost {
         Ok(files)
     }
 
-    fn tracked_files(
-        &self,
-        partitions: &[PathBuf],
-        _config: &crate::tracking::Config,
-    ) -> Result<Vec<String>> {
-        let mut files = self.tracked_files.clone();
-        files.retain(|path| Self::on_a_partition(&PathBuf::from(path), partitions));
-        Ok(files)
+    fn tracked_files(&self, _config: &Config) -> Result<Vec<String>> {
+        Ok(self.tracked_files.clone())
     }
 }
 
@@ -96,6 +104,10 @@ impl Device for FakeDevice {
             }
             _ => (),
         }
+        Ok(String::new())
+    }
+    fn run_raw_adb_command(&self, cmds: &[String], _echo: Echo) -> Result<String> {
+        self.raw_cmds.borrow_mut().push(cmds.join(" "));
         Ok(String::new())
     }
 
@@ -119,15 +131,12 @@ impl Device for FakeDevice {
     }
 
     fn wait(&self) -> Result<String> {
+        let mut counter = self.wait_called.borrow_mut();
+        *counter = *counter + 1;
         Ok(String::new())
     }
-
     fn prep_after_flash(&self) -> Result<()> {
         Ok(())
-    }
-
-    fn prep_for_push(&self) -> Result<String> {
-        Ok(String::new())
     }
 }
 

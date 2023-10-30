@@ -40,6 +40,7 @@ from atest.test_runners import mobly_test_runner
 from atest.test_runners import roboleaf_test_runner
 from atest.test_runners import robolectric_test_runner
 from atest.test_runners import suite_plan_test_runner
+from atest.test_runners import test_runner_base
 from atest.test_runners import vts_tf_test_runner
 
 _TEST_RUNNERS = {
@@ -140,7 +141,6 @@ def run_all_tests(results_dir, test_infos, extra_args, mod_info,
     reporter.print_starting_text()
     tests_ret_code = ExitCode.SUCCESS
     for test_runner, tests in group_tests_by_test_runners(test_infos):
-        test_name = ' '.join([test.test_name for test in tests])
         test_start = time.time()
         is_success = True
         ret_code = ExitCode.TEST_FAILURE
@@ -160,13 +160,26 @@ def run_all_tests(results_dir, test_infos, extra_args, mod_info,
             tests_ret_code = ExitCode.TEST_FAILURE
             is_success = False
         run_time = metrics_utils.convert_duration(time.time() - test_start)
+        tests = []
+        for test in reporter.all_test_results:
+            # group_name is module name with abi(for example,
+            # 'x86_64 CtsSampleDeviceTestCases').
+            # Filtering abi in group_name.
+            test_group = test.group_name
+            # Withdraw module name only when the test result has reported.
+            module_name = test_group
+            if test_group and ' ' in test_group:
+                _, module_name = test_group.split()
+            testcase_name = '%s:%s' % (module_name, test.test_name)
+            result = test_runner_base.RESULT_CODE[test.status]
+            tests.append({'name':testcase_name,
+                          'result':result,
+                          'stacktrace':test.details})
         metrics.RunnerFinishEvent(
             duration=run_time,
             success=is_success,
             runner_name=test_runner.NAME,
-            test=[{'name': test_name,
-                   'result': ret_code,
-                   'stacktrace': stacktrace}])
+            test=tests)
     if delay_print_summary:
         return tests_ret_code, reporter
     return reporter.print_summary() or tests_ret_code, reporter
