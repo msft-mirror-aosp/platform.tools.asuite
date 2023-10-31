@@ -717,7 +717,7 @@ class AtestTradefedTestRunner(trb.TestRunnerBase):
             test_args.append('--stub-build-target %s'
                              % extra_args[constants.BUILD_TARGET])
         for info in test_infos:
-            if constants.TEST_WITH_MAINLINE_MODULES_RE.match(info.test_name):
+            if atest_utils.get_test_and_mainline_modules(info.test_name):
                 # TODO(b/253641058) Remove this once mainline module
                 # binaries are stored under testcase directory.
                 self._copy_mainline_module_binary(info.mainline_modules)
@@ -1098,7 +1098,7 @@ class AtestTradefedTestRunner(trb.TestRunnerBase):
             installed_paths = target_module_info[constants.MODULE_INSTALLED]
 
             for installed_path in installed_paths:
-                if not re.search(atest_utils.MAINLINE_MODULES_EXT_RE, installed_path):
+                if not atest_utils.is_supported_mainline_module(installed_path):
                     atest_utils.colorful_print(
                         '%s is not a apk or apex file. Did you run mainline '
                         'local setup script? Please refer to %s' %
