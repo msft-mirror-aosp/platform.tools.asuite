@@ -226,8 +226,7 @@ pub fn adevice(
         }
 
         // Consider always reboot instead of soft restart after a clean.
-        let restart_chooser =
-            &RestartChooser::from(&restart_choice, &product_out.join("module-info.json"))?;
+        let restart_chooser = &RestartChooser::new(&restart_choice);
         device::update(restart_chooser, deletes, &mut profiler, device, cli.should_wait())?;
     }
 
@@ -248,7 +247,7 @@ pub fn adevice(
         // Send the update commands, but retry once if we need to remount rw an extra time after a flash.
         for retry in 0..=1 {
             let update_result = device::update(
-                &RestartChooser::from(&restart_choice, &product_out.join("module-info.json"))?,
+                &RestartChooser::new(&restart_choice),
                 &all_cmds,
                 &mut profiler,
                 device,
@@ -273,6 +272,7 @@ pub fn adevice(
         }
     }
     profiler.total = total_time.elapsed(); // Avoid wrapping the block in the macro.
+    metrics.add_profiler_events(&profiler);
     info!("Finished in {} secs", profiler.total.as_secs());
     debug!("{}", profiler.to_string());
     Ok(())

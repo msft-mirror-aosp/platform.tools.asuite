@@ -85,8 +85,6 @@ _TF_EXIT_CODE = [
     'NO_DEVICE_ALLOCATED',
     'WRONG_JAVA_VERSION']
 
-MAINLINE_LOCAL_DOC = 'go/mainline-local-build'
-
 
 class Error(Exception):
     """Module-level error."""
@@ -717,10 +715,11 @@ class AtestTradefedTestRunner(trb.TestRunnerBase):
             test_args.append('--stub-build-target %s'
                              % extra_args[constants.BUILD_TARGET])
         for info in test_infos:
-            if constants.TEST_WITH_MAINLINE_MODULES_RE.match(info.test_name):
+            if atest_utils.get_test_and_mainline_modules(info.test_name):
                 # TODO(b/253641058) Remove this once mainline module
                 # binaries are stored under testcase directory.
-                self._copy_mainline_module_binary(info.mainline_modules)
+                if not extra_args.get(constants.DRY_RUN):
+                    self._copy_mainline_module_binary(info.mainline_modules)
                 test_args.append(constants.TF_ENABLE_MAINLINE_PARAMETERIZED_MODULES)
                 break
         # For detailed logs, set TF options log-level/log-level-display as
@@ -1098,13 +1097,6 @@ class AtestTradefedTestRunner(trb.TestRunnerBase):
             installed_paths = target_module_info[constants.MODULE_INSTALLED]
 
             for installed_path in installed_paths:
-                if not re.search(atest_utils.MAINLINE_MODULES_EXT_RE, installed_path):
-                    atest_utils.colorful_print(
-                        '%s is not a apk or apex file. Did you run mainline '
-                        'local setup script? Please refer to %s' %
-                        (installed_path, MAINLINE_LOCAL_DOC),
-                        constants.YELLOW)
-                    continue
                 file_name = Path(installed_path).name
                 dest_path = Path(dest_dir).joinpath(file_name)
                 if dest_path.exists():
@@ -1321,29 +1313,14 @@ def get_include_filter(test_infos: List[test_info.TestInfo]) -> List[str]:
         filters = set()
         for test_info_filter in info.data.get(constants.TI_FILTER, []):
             filters.update(test_info_filter.to_set_of_tf_strings())
+
         for test_filter in filters:
-            if re.compile(r'.*#.*\[.*\]').match(test_filter):
-                instrumentation_filters.append(test_filter)
-                # Only pass test_name to --atest-include-filter if the given is
-                # a Java parameterized test.
-                test_filter, _ = test_filter_utils.split_methods(test_filter)
             filter_arg = constants.TF_ATEST_INCLUDE_FILTER_VALUE_FMT.format(
                 test_name=info.test_name,
                 test_filter=test_filter
             )
             tf_args.extend([constants.TF_ATEST_INCLUDE_FILTER, filter_arg])
-    # Customize --test-arg for running Java parameterized tests.
-    if instrumentation_filters:
-        test_filter = ','.join(instrumentation_filters)
-        logging.debug('test_filter=%s', test_filter)
-        tf_args.append(constants.TF_TEST_ARG)
-        tf_args.append(
-            '{tf_class}:{option_name}:{option_value}'.format(
-                tf_class=constants.TF_AND_JUNIT_CLASS,
-                option_name='instrumentation-arg',
-                option_value=f'filter-tests:="{test_filter}"'
-            )
-        )
+
     return tf_args
 
 
