@@ -205,7 +205,7 @@ def _get_test_reference_types(ref):
                 # TODO: Uncomment in SUITE when it's supported
                 # FinderMethod.SUITE
                 ]
-    if constants.TEST_WITH_MAINLINE_MODULES_RE.match(ref):
+    if atest_utils.get_test_and_mainline_modules(ref):
         return [FinderMethod.CACHE, FinderMethod.MAINLINE_MODULE]
     if '.' in ref:
         ref_end = ref.rsplit('.', 1)[-1]

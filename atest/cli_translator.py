@@ -700,12 +700,11 @@ class CLITranslator:
 # TODO: (b/265359291) Raise Exception when the brackets are not in pair.
 def parse_test_identifier(test: str) -> TestIdentifier:
     """Get mainline module names and binaries information."""
-    result = constants.TEST_WITH_MAINLINE_MODULES_RE.match(test)
+    result = atest_utils.get_test_and_mainline_modules(test)
     if not result:
         return TestIdentifier(test, [], [])
     test_name = result.group('test')
     mainline_binaries = result.group('mainline_modules').split('+')
-    mainline_modules = [re.sub(atest_utils.MAINLINE_MODULES_EXT_RE, '', m)
-                        for m in mainline_binaries]
+    mainline_modules = [Path(m).stem for m in mainline_binaries]
     logging.debug('mainline_modules: %s', mainline_modules)
     return TestIdentifier(test_name, mainline_modules, mainline_binaries)
