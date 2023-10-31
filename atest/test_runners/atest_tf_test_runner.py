@@ -718,7 +718,8 @@ class AtestTradefedTestRunner(trb.TestRunnerBase):
             if atest_utils.get_test_and_mainline_modules(info.test_name):
                 # TODO(b/253641058) Remove this once mainline module
                 # binaries are stored under testcase directory.
-                self._copy_mainline_module_binary(info.mainline_modules)
+                if not extra_args.get(constants.DRY_RUN):
+                    self._copy_mainline_module_binary(info.mainline_modules)
                 test_args.append(constants.TF_ENABLE_MAINLINE_PARAMETERIZED_MODULES)
                 break
         # For detailed logs, set TF options log-level/log-level-display as
