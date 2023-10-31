@@ -272,6 +272,7 @@ pub fn adevice(
         }
     }
     profiler.total = total_time.elapsed(); // Avoid wrapping the block in the macro.
+    metrics.add_profiler_events(&profiler);
     info!("Finished in {} secs", profiler.total.as_secs());
     debug!("{}", profiler.to_string());
     Ok(())
