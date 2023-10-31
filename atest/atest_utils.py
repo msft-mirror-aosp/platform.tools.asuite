@@ -63,7 +63,9 @@ from atest.tf_proto import test_record_pb2
 _BASH_RESET_CODE = '\033[0m\n'
 DIST_OUT_DIR = Path(os.environ.get(constants.ANDROID_BUILD_TOP, os.getcwd())
                     + '/out/dist/')
-MAINLINE_MODULES_EXT_RE = re.compile(r'(.apex|.apks|.apk)$')
+MAINLINE_MODULES_EXT_RE = re.compile(r'\.(apex|apks|apk)$')
+TEST_WITH_MAINLINE_MODULES_RE = re.compile(r'(?P<test>.*)\[(?P<mainline_modules>.*'
+                                           r'[.](apk|apks|apex))\]$')
 
 # Arbitrary number to limit stdout for failed runs in _run_limited_output.
 # Reason for its use is that the make command itself has its own carriage
@@ -432,6 +434,16 @@ def get_result_server_args(for_test_mapping=False):
 def sort_and_group(iterable, key):
     """Sort and group helper function."""
     return itertools.groupby(sorted(iterable, key=key), key=key)
+
+
+def is_supported_mainline_module(installed_path: str) -> re.Match:
+    """Determine whether the given path is supported."""
+    return re.search(MAINLINE_MODULES_EXT_RE, installed_path)
+
+
+def get_test_and_mainline_modules(test_name: str) -> re.Match:
+    """Return test name and mainline modules from the given test."""
+    return TEST_WITH_MAINLINE_MODULES_RE.match(test_name)
 
 
 def is_test_mapping(args):
