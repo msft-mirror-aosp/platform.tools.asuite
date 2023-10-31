@@ -717,6 +717,27 @@ class VerifyMainlineModuleTest(fake_filesystem_unittest.TestCase):
         self.assertFalse(
             translator._verified_mainline_modules(test_identifier))
 
+    def test_verified_mainline_modules_were_in_auto_config(self):
+        """False for the given mainline is a capex file."""
+        test_name = "module8[foo.apk+goo.apex]"
+        mod_info = create_module_info(
+            [module(
+                 name='module8',
+                 test_mainline_modules=['foo.apk+goo.apex']),
+             module(
+                 name='foo',
+                 installed=['out/path/foo.apk']),
+             module(
+                 name='goo',
+                 installed=['out/path/goo.capex'])]
+        )
+
+        test_identifier = cli_t.parse_test_identifier(test_name)
+        translator = cli_t.CLITranslator(mod_info)
+
+        self.assertFalse(
+            translator._verified_mainline_modules(test_identifier))
+
 
 def create_module_info(modules=None):
     """wrapper func for creating module_info.ModuleInfo"""
