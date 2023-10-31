@@ -165,9 +165,11 @@ def run_all_tests(results_dir, test_infos, extra_args, mod_info,
             # group_name is module name with abi(for example,
             # 'x86_64 CtsSampleDeviceTestCases').
             # Filtering abi in group_name.
-            module_name = test.group_name
-            if ' ' in test.group_name:
-                _, module_name = test.group_name.split()
+            test_group = test.group_name
+            # Withdraw module name only when the test result has reported.
+            module_name = test_group
+            if test_group and ' ' in test_group:
+                _, module_name = test_group.split()
             testcase_name = '%s:%s' % (module_name, test.test_name)
             result = test_runner_base.RESULT_CODE[test.status]
             tests.append({'name':testcase_name,
