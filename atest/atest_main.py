@@ -813,36 +813,32 @@ def need_rebuild_module_info(args: atest_arg_parser.AtestArgParser) -> bool:
         return True
     return False
 
-def need_run_index_targets(
-        args: argparse.ArgumentParser,
-        extra_args: Dict[str, Any]):
+def need_run_index_targets(args: argparse.ArgumentParser):
     """Method that determines whether Atest need to run index_targets or not.
 
 
-    There are 3 conditions that Atest does not run index_targets():
-    1. dry-run flags were found.
-    2. VERIFY_ENV_VARIABLE was found in extra_args.
-    3. --test flag was found.
+    Atest still need to (re)index targets if these indices do not exist.
+    If all indices exist, Atest can skip re-indexing when meeting both:
+        * found no_indexing_args.
+        * --build was explicitly passed.
 
     Args:
         args: An argparse.ArgumentParser object.
-        extra_args: A Dict of extra argument.
 
     Returns:
         True when none of the above conditions were found.
     """
-    no_indexing_args = (
-        args.update_cmd_mapping,
-        args.verify_cmd_mapping,
-        args.dry_run,
-        args.list_modules,
-    )
-    if any(no_indexing_args):
-        return False
-    if extra_args.get(constants.VERIFY_ENV_VARIABLE, False):
-        return False
-    if not parse_steps(args).has_build():
-        return False
+    if indexing.Indices().has_all_indices():
+        no_indexing_args = (
+            args.update_cmd_mapping,
+            args.verify_cmd_mapping,
+            args.dry_run,
+            args.list_modules,
+            args.verify_env_variable,
+        )
+        if not any(no_indexing_args) and not parse_steps(args).has_build():
+            return False
+
     return True
 
 
@@ -1037,7 +1033,7 @@ def main(
 
     proc_idx = atest_utils.start_threading(lambda: print)
     # Do not index targets while the users intend to dry-run tests.
-    if need_run_index_targets(args, extra_args):
+    if need_run_index_targets(args):
         proc_idx = atest_utils.start_threading(indexing.index_targets)
     smart_rebuild = need_rebuild_module_info(args)
 
