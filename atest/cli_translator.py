@@ -49,6 +49,8 @@ FUZZY_FINDER = 'FUZZY'
 CACHE_FINDER = 'CACHE'
 TESTNAME_CHARS = {'#', ':', '/'}
 
+MAINLINE_LOCAL_DOC = 'go/mainline-local-build'
+
 # Pattern used to identify comments start with '//' or '#' in TEST_MAPPING.
 _COMMENTS_RE = re.compile(r'(?m)[\s\t]*(#|//).*|(\".*?\")')
 _COMMENTS = frozenset(['//', '#'])
@@ -258,6 +260,22 @@ class CLITranslator:
         if unknown_modules:
             print('Error: Cannot find {} in module info!'.format(
                 atest_utils.mark_red(', '.join(unknown_modules))))
+            return False
+
+        # Exit earlier if found unsupported `capex` files.
+        unsupported_binaries = []
+        for name in identifier.module_names:
+            info = self.mod_info.get_module_info(name)
+            if info.get('installed'):
+                for bin in info.get('installed'):
+                    if not re.search(atest_utils.MAINLINE_MODULES_EXT_RE, bin):
+                        unsupported_binaries.append(bin)
+        if unsupported_binaries:
+            print('The output format {} are not in a supported format; '
+                'did you run mainline local setup script? '
+                'Please refer to {}.'.format(
+                    atest_utils.mark_red(", ".join(unsupported_binaries)),
+                    atest_utils.mark_yellow(MAINLINE_LOCAL_DOC)))
             return False
 
         return True
@@ -700,12 +718,11 @@ class CLITranslator:
 # TODO: (b/265359291) Raise Exception when the brackets are not in pair.
 def parse_test_identifier(test: str) -> TestIdentifier:
     """Get mainline module names and binaries information."""
-    result = constants.TEST_WITH_MAINLINE_MODULES_RE.match(test)
+    result = atest_utils.get_test_and_mainline_modules(test)
     if not result:
         return TestIdentifier(test, [], [])
     test_name = result.group('test')
     mainline_binaries = result.group('mainline_modules').split('+')
-    mainline_modules = [re.sub(atest_utils.MAINLINE_MODULES_EXT_RE, '', m)
-                        for m in mainline_binaries]
+    mainline_modules = [Path(m).stem for m in mainline_binaries]
     logging.debug('mainline_modules: %s', mainline_modules)
     return TestIdentifier(test_name, mainline_modules, mainline_binaries)

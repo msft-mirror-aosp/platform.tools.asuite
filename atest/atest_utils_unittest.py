@@ -387,6 +387,23 @@ class AtestUtilsUnittests(unittest.TestCase):
         self.assertEqual(capture_output.getvalue(),
                          green_wrap_no_highlight_string)
 
+    def test_is_supported_mainline_module(self):
+        """Test the installed artifacts are supported."""
+        self.assertTrue(atest_utils.is_supported_mainline_module('out/foo.apk'))
+        self.assertTrue(atest_utils.is_supported_mainline_module('out/foo.apks'))
+        self.assertTrue(atest_utils.is_supported_mainline_module('out/foo.apex'))
+        self.assertFalse(atest_utils.is_supported_mainline_module('out/foo.capex'))
+
+    def test_get_test_and_mainline_modules(self):
+        """Test whether the given test reference is a mainline module test."""
+        # regular test.
+        self.assertIsNone(atest_utils.get_test_and_mainline_modules('test_name'))
+        # missing trailing bracket.
+        self.assertIsNone(atest_utils.get_test_and_mainline_modules('test_name[foo.apk+goo.apex'))
+        # valid mainline module syntax
+        self.assertIsNotNone(atest_utils.get_test_and_mainline_modules('test_name[foo.apk]'))
+        self.assertIsNotNone(atest_utils.get_test_and_mainline_modules('test_name[foo.apk+goo.apex]'))
+
     @mock.patch('builtins.input')
     @mock.patch('atest.atest_utils.load_json_safely')
     def test_update_test_runner_cmd(self, mock_json_load_data, mock_input):
