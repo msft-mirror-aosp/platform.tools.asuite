@@ -1057,7 +1057,7 @@ def main(
     # (b/242567487) index_targets may finish after cli_translator; to
     # mitigate the overhead, the main waits until it finished when no index
     # files are available (e.g. fresh repo sync)
-    if proc_idx.is_alive():
+    if proc_idx.is_alive() and not indexing.Indices().has_all_indices():
         proc_idx.join()
     find_start = time.time()
     test_infos = translator.translate(args)
