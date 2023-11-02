@@ -537,7 +537,8 @@ class MoblyTestRunner(test_runner_base.TestRunnerBase):
         Returns:
             A list of device serials.
         """
-        if not atest_configs.GLOBAL_ARGS.acloud_create:
+        if not (atest_configs.GLOBAL_ARGS.acloud_create or
+                atest_configs.GLOBAL_ARGS.start_avd):
             return []
         devices = atest_utils.get_adb_devices()
         return [device for device in devices
