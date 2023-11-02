@@ -76,10 +76,6 @@ _FAILED_OUTPUT_LINE_LIMIT = 100
 # ex: [ 99% 39710/39711]
 _BUILD_COMPILE_STATUS = re.compile(r'\[\s*(\d{1,3}%\s+)?\d+/\d+\]')
 _BUILD_FAILURE = 'FAILED: '
-CMD_RESULT_PATH = os.path.join(os.environ.get(constants.ANDROID_BUILD_TOP,
-                                              os.getcwd()),
-                               'tools/asuite/atest/test_data',
-                               'test_commands.json')
 BUILD_TOP_HASH = hashlib.md5(os.environ.get(constants.ANDROID_BUILD_TOP, '').
                              encode()).hexdigest()
 _DEFAULT_TERMINAL_WIDTH = 80
@@ -2073,13 +2069,14 @@ def get_rbe_and_customized_out_state() -> int:
 
 def build_files_integrity_is_ok() -> bool:
     """Return Whether the integrity of build files is OK."""
-    # 0. Inexistence of the timestamp file means a fresh repo sync.
+    # 0. Inexistence of the timestamp or plocate.db means a fresh repo sync.
     timestamp_file = get_index_path(constants.BUILDFILES_STP)
-    if not timestamp_file.is_file():
+    locate_cache = get_index_path(constants.LOCATE_CACHE)
+    if not all((timestamp_file.is_file(), locate_cache.is_file())):
         return False
+
     # 1. Ensure no build files were added/deleted.
     recorded_amount = len(load_json_safely(timestamp_file).keys())
-    locate_cache = get_index_path(constants.LOCATE_CACHE)
     cmd = (f'locate -e -d{locate_cache} --regex '
             r'"/Android\.(bp|mk)$" | wc -l')
     if int(subprocess.getoutput(cmd)) != recorded_amount:
