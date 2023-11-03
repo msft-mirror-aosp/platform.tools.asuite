@@ -149,4 +149,8 @@ impl FakeMetricSender {
 impl MetricSender for FakeMetricSender {
     // TODO: Capture and test metrics.
     fn add_start_event(&mut self, _command_line: &str) {}
+
+    fn add_action_event(&mut self, action: &str, duration: std::time::Duration) {}
+
+    fn add_profiler_events(&mut self, profiler: &adevice::adevice::Profiler) {}
 }

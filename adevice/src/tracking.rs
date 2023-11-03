@@ -6,13 +6,13 @@
 ///     this module set.
 use anyhow::{bail, Context, Result};
 use lazy_static::lazy_static;
-use log::{debug, warn};
 use regex::Regex;
 use serde::{Deserialize, Serialize};
 use std::fs;
 use std::io::BufReader;
 use std::path::PathBuf;
 use std::process;
+use tracing::{debug, warn};
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Config {
