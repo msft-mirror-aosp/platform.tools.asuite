@@ -2,10 +2,10 @@
 use crate::fingerprint::*;
 use crate::restart_chooser::{RestartChooser, RestartType};
 
-use log::debug;
 use std::collections::HashMap;
 use std::fmt::Debug;
 use std::path::{Path, PathBuf};
+use tracing::debug;
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum AdbAction {
