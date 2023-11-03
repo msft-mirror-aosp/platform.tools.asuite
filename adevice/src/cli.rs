@@ -68,10 +68,6 @@ pub struct GlobalOptions {
     /// Do not make any modification if more than this many are needed
     #[clap(long, short, default_value_t = 200, global = true)]
     pub max_allowed_changes: usize,
-    // TODO(rbraunstein): Import clap-verbosity-flag crate so we can use -vv instead.
-    // Print commands while executing them.
-    #[clap(long = "verbose", short, global = true, value_enum, default_value_t=Verbosity::Details)]
-    pub verbose: Verbosity,
     /// If passed, use the device, otherwise use the only connected device or ANDROID_SERIAL env value.
     #[clap(long, short, global = true)]
     pub serial: Option<String>,

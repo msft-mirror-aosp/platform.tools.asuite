@@ -44,7 +44,7 @@ pub trait Device {
     /// or output on stderr, then the result is an Err.
     fn run_adb_command(&self, args: &commands::AdbCommand) -> Result<String>;
 
-    fn run_raw_adb_command(&self, args: &[String], echo: Echo) -> Result<String>;
+    fn run_raw_adb_command(&self, args: &[String]) -> Result<String>;
 
     /// Send commands to reboot device.
     fn reboot(&self) -> Result<String>;
@@ -93,14 +93,6 @@ impl Host for RealHost {
     fn tracked_files(&self, config: &Config) -> Result<Vec<String>> {
         config.tracked_files()
     }
-}
-
-#[derive(PartialEq)]
-pub enum Echo {
-    /// Show commands if --verbose <= info
-    On,
-    /// Don't show commands
-    Off,
 }
 
 /// Time how long it takes to run the function and store the

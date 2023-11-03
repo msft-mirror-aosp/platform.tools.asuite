@@ -150,7 +150,7 @@ mod tests {
         let mut metrics = Metrics::default();
         metrics.user = "test_user".to_string();
         metrics.add_start_event("adevice status");
-        metrics.add_start_event("adevice status --verbose debug");
+        metrics.add_start_event("adevice track SomeModule");
 
         assert_eq!(metrics.events.len(), 2);
         metrics.send();
