@@ -58,7 +58,8 @@ from atest import metrics
 class BuildClient:
     """Build api helper class."""
 
-    def __init__(self, creds):
+    def __init__(self, creds, api_version=constants.STORAGE_API_VERSION,
+                 url=constants.DISCOVERY_SERVICE):
         """Init BuildClient class.
         Args:
             creds: An oauth2client.OAuth2Credentials instance.
@@ -66,10 +67,10 @@ class BuildClient:
         http_auth = creds.authorize(httplib2.Http())
         self.client = build(
             serviceName=constants.STORAGE_SERVICE_NAME,
-            version=constants.STORAGE_API_VERSION,
+            version=api_version,
             cache_discovery=False,
             http=http_auth,
-            discoveryServiceUrl=constants.DISCOVERY_SERVICE)
+            discoveryServiceUrl=url)
 
     def list_branch(self):
         """List all branch."""
