@@ -1,5 +1,5 @@
-// needed when importing modules in tests/
-// Can we reduce the mods?
+/// Adevice library used for whole program tests.
+/// needed when importing modules in tests
 #[allow(dead_code)]
 pub mod adevice;
 pub mod cli;
