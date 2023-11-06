@@ -193,8 +193,9 @@ class MoblyTestRunnerUnittests(unittest.TestCase):
             self.runner._get_test_files(self.tinfo)
 
     @mock.patch('builtins.open')
+    @mock.patch('os.makedirs')
     @mock.patch('yaml.safe_dump')
-    def test_generate_mobly_config_no_serials(self, yaml_dump, _) -> None:
+    def test_generate_mobly_config_no_serials(self, yaml_dump, *_) -> None:
         """Tests _generate_mobly_config with no serials provided."""
         self.runner._generate_mobly_config(
             self.mobly_args, None, MOCK_TEST_FILES)
@@ -214,8 +215,9 @@ class MoblyTestRunnerUnittests(unittest.TestCase):
         self.assertEqual(yaml_dump.call_args.args[0], expected_config)
 
     @mock.patch('builtins.open')
+    @mock.patch('os.makedirs')
     @mock.patch('yaml.safe_dump')
-    def test_generate_mobly_config_with_serials(self, yaml_dump, _) -> None:
+    def test_generate_mobly_config_with_serials(self, yaml_dump, *_) -> None:
         """Tests _generate_mobly_config with serials provided."""
         self.runner._generate_mobly_config(
             self.mobly_args, [SERIAL_1, SERIAL_2], MOCK_TEST_FILES)
@@ -235,8 +237,9 @@ class MoblyTestRunnerUnittests(unittest.TestCase):
         self.assertEqual(yaml_dump.call_args.args[0], expected_config)
 
     @mock.patch('builtins.open')
+    @mock.patch('os.makedirs')
     @mock.patch('yaml.safe_dump')
-    def test_generate_mobly_config_with_testparams(self, yaml_dump, _) -> None:
+    def test_generate_mobly_config_with_testparams(self, yaml_dump, *_) -> None:
         """Tests _generate_mobly_config with custom testparams."""
         self.mobly_args.testparam = ['foo=bar']
         self.runner._generate_mobly_config(
@@ -266,8 +269,9 @@ class MoblyTestRunnerUnittests(unittest.TestCase):
             self.runner._generate_mobly_config(self.mobly_args, None, [])
 
     @mock.patch('builtins.open')
+    @mock.patch('os.makedirs')
     @mock.patch('yaml.safe_dump')
-    def test_generate_mobly_config_with_test_files(self, yaml_dump, _) -> None:
+    def test_generate_mobly_config_with_test_files(self, yaml_dump, *_) -> None:
         """Tests _generate_mobly_config with test files."""
         test_apks = ['files/my_app1.apk', 'files/my_app2.apk']
         misc_data = ['files/some_file.txt']
