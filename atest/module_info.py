@@ -933,6 +933,24 @@ class ModuleInfo:
         return self.is_suite_in_compatibility_suites('robolectric-tests',
                                                       mod_info)
 
+    def is_ravenwood_test(self, info: Dict[str, Any]) -> bool:
+        """Return whether 'ravenwood-tests' is in 'compatibility_suites'."""
+        return self.is_tradefed_testable_module(info) and \
+            self.is_ravenwood_test_suite(info)
+
+    def is_ravenwood_test_suite(self, mod_info) -> bool:
+        """Return True if 'ravenwood-tests' in the compatibility_suites.
+
+        Args:
+            mod_info: ModuleInfo to check.
+
+        Returns:
+            True if the 'ravenwood-tests' is in the compatibility_suites,
+            False otherwise.
+        """
+        return self.is_suite_in_compatibility_suites('ravenwood-tests',
+                                                      mod_info)
+
     def is_device_driven_test(self, mod_info):
         """Return True if input module is device driven test, False otherwise.
 
@@ -943,6 +961,8 @@ class ModuleInfo:
             True if input module is device driven test, False otherwise.
         """
         if self.is_robolectric_test_suite(mod_info):
+            return False
+        if self.is_ravenwood_test_suite(mod_info):
             return False
 
         return self.is_tradefed_testable_module(mod_info) and \
