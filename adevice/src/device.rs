@@ -99,6 +99,7 @@ impl Device for RealDevice {
         self.run_raw_adb_command(&["reboot".to_string()])?;
         self.run_raw_adb_command(&["wait-for-device".to_string()])?;
         self.run_raw_adb_command(&["root".to_string()])?;
+        self.run_raw_adb_command(&["wait-for-device".to_string()])?;
         Ok(())
     }
 
@@ -192,6 +193,7 @@ impl RealDevice {
         // Ensure we are root or we can't read some files.
         // In userdebug builds, every reboot reverts back to the "shell" user.
         self.run_raw_adb_command(&["root".to_string()])?;
+        self.run_raw_adb_command(&["wait-for-device".to_string()])?;
         let mut adb_args = vec![
             "shell".to_string(),
             "/system/bin/adevice_fingerprint".to_string(),
