@@ -88,7 +88,6 @@ EXIT_CODES_BEFORE_TEST = [ExitCode.ENV_NOT_SETUP,
                           ExitCode.OUTSIDE_ROOT,
                           ExitCode.AVD_CREATE_FAILURE,
                           ExitCode.AVD_INVALID_ARGS]
-BANNER = '/google/bin/releases/adevice-dev/adevice_banner'
 @dataclass
 class Steps:
     """A Dataclass that stores steps and shows step assignments."""
@@ -936,10 +935,10 @@ def _get_acloud_proc_and_log(args: argparse.ArgumentParser,
     return None, None
 
 
-def has_sufficient_devices(
+def has_set_sufficient_devices(
         required_amount: int,
         serial: List[str] = None) -> bool:
-    """Detect whether attaching sufficient devices for tests."""
+    """Detect whether sufficient device serial is set for test."""
     given_amount  = len(serial) if serial else 0
     # Only check when both given_amount and required_amount are non zero.
     if all((given_amount, required_amount)):
@@ -950,7 +949,8 @@ def has_sufficient_devices(
                 f'The test requires {required_amount} devices, '
                 f'but {given_amount} were given.',
                 constants.RED)
-    return given_amount >= required_amount
+            return False
+    return True
 
 
 def setup_metrics_tool_name(no_metrics: bool = False):
@@ -1057,7 +1057,7 @@ def main(
     # (b/242567487) index_targets may finish after cli_translator; to
     # mitigate the overhead, the main waits until it finished when no index
     # files are available (e.g. fresh repo sync)
-    if proc_idx.is_alive():
+    if proc_idx.is_alive() and not indexing.Indices().has_all_indices():
         proc_idx.join()
     find_start = time.time()
     test_infos = translator.translate(args)
@@ -1065,7 +1065,8 @@ def main(
     # Only check device sufficiency if not dry run or verification mode.
     args.device_count_config = get_device_count_config(test_infos, mod_info)
     if not (any(dry_run_args) or verify_env_variables):
-        if not has_sufficient_devices(args.device_count_config, args.serial):
+        if not has_set_sufficient_devices(
+            args.device_count_config, args.serial):
             return ExitCode.INSUFFICIENT_DEVICES
 
     find_duration = time.time() - find_start
@@ -1270,6 +1271,8 @@ if __name__ == '__main__':
                 result=DETECTOR.caught_result)
             if result_file:
                 print("Run 'atest --history' to review test result history.")
-    if os.path.isfile(BANNER):
-        os.system(BANNER)
+    banner = os.environ.get('ANDROID_BUILD_BANNER', None)
+    skip_banner = os.environ.get('ANDROID_SKIP_BANNER', None)
+    if banner and not skip_banner:
+        print(banner)
     sys.exit(EXIT_CODE)

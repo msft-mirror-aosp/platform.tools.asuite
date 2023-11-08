@@ -1,4 +1,4 @@
-use adevice::adevice::{Device, Echo, Host};
+use adevice::adevice::{Device, Host};
 use adevice::commands::{AdbAction, AdbCommand};
 use adevice::fingerprint::FileMetadata;
 use adevice::metrics::MetricSender;
@@ -106,7 +106,7 @@ impl Device for FakeDevice {
         }
         Ok(String::new())
     }
-    fn run_raw_adb_command(&self, cmds: &[String], _echo: Echo) -> Result<String> {
+    fn run_raw_adb_command(&self, cmds: &[String]) -> Result<String> {
         self.raw_cmds.borrow_mut().push(cmds.join(" "));
         Ok(String::new())
     }
@@ -149,4 +149,8 @@ impl FakeMetricSender {
 impl MetricSender for FakeMetricSender {
     // TODO: Capture and test metrics.
     fn add_start_event(&mut self, _command_line: &str) {}
+
+    fn add_action_event(&mut self, action: &str, duration: std::time::Duration) {}
+
+    fn add_profiler_events(&mut self, profiler: &adevice::adevice::Profiler) {}
 }

@@ -1,4 +1,4 @@
-use crate::adevice::{Device, Echo, Profiler};
+use crate::adevice::{Device, Profiler};
 use crate::commands::{restart_type, split_string, AdbCommand};
 use crate::restart_chooser::{RestartChooser, RestartType};
 use crate::{fingerprint, time};
@@ -6,14 +6,15 @@ use crate::{fingerprint, time};
 use anyhow::{anyhow, bail, Context, Result};
 use itertools::Itertools;
 use lazy_static::lazy_static;
-use log::{debug, info};
 use regex::Regex;
 use serde::__private::ToString;
 use std::cmp::Ordering;
 use std::collections::{HashMap, HashSet};
+use std::io::Write;
 use std::path::PathBuf;
 use std::process;
 use std::time::Duration;
+use tracing::{debug, info};
 
 pub struct RealDevice {
     // If set, pass to all adb commands with --serial,
@@ -26,15 +27,15 @@ impl Device for RealDevice {
     /// If there is a non-zero exit code or non-empty stderr, then
     /// creates a Result Err string with the details.
     fn run_adb_command(&self, cmd: &AdbCommand) -> Result<String> {
-        self.run_raw_adb_command(&cmd.args(), Echo::On)
+        self.run_raw_adb_command(&cmd.args())
     }
 
     fn reboot(&self) -> Result<String> {
-        self.run_raw_adb_command(&["reboot".to_string()], Echo::On)
+        self.run_raw_adb_command(&["reboot".to_string()])
     }
 
     fn soft_restart(&self) -> Result<String> {
-        self.run_raw_adb_command(&split_string("exec-out start"), Echo::On)
+        self.run_raw_adb_command(&split_string("exec-out start"))
     }
 
     fn fingerprint(
@@ -49,7 +50,7 @@ impl Device for RealDevice {
     fn get_installed_apks(&self) -> Result<HashSet<String>> {
         // TODO(rbraunstein): See if there is a better way to do this that doesn't look for /data
         let package_manager_output = self
-            .run_raw_adb_command(&split_string("exec-out pm list packages -s -f"), Echo::Off)
+            .run_raw_adb_command(&split_string("exec-out pm list packages -s -f"))
             .context("Running pm list packages")?;
 
         let packages = apks_from_pm_list_output(&package_manager_output);
@@ -94,21 +95,20 @@ impl Device for RealDevice {
     }
 
     fn prep_after_flash(&self) -> Result<()> {
-        self.run_raw_adb_command(&["remount".to_string()], Echo::On)?;
-        self.run_raw_adb_command(&["reboot".to_string()], Echo::On)?;
-        self.run_raw_adb_command(&["wait-for-device".to_string()], Echo::On)?;
-        self.run_raw_adb_command(&["root".to_string()], Echo::On)?;
+        self.run_raw_adb_command(&["remount".to_string()])?;
+        self.run_raw_adb_command(&["reboot".to_string()])?;
+        self.run_raw_adb_command(&["wait-for-device".to_string()])?;
+        self.run_raw_adb_command(&["root".to_string()])?;
+        self.run_raw_adb_command(&["wait-for-device".to_string()])?;
         Ok(())
     }
 
     /// Runs `adb` with the given args.
     /// If there is a non-zero exit code or non-empty stderr, then
     /// creates a Result Err string with the details.
-    fn run_raw_adb_command(&self, cmd: &[String], echo: Echo) -> Result<String> {
+    fn run_raw_adb_command(&self, cmd: &[String]) -> Result<String> {
         let adjusted_args = self.adjust_adb_args(cmd);
-        if echo == Echo::On {
-            info!("       -- adb {adjusted_args:?}");
-        }
+        info!("       -- adb {adjusted_args:?}");
         let output = process::Command::new("adb")
             .args(adjusted_args)
             .output()
@@ -192,7 +192,8 @@ impl RealDevice {
     ) -> Result<HashMap<PathBuf, fingerprint::FileMetadata>> {
         // Ensure we are root or we can't read some files.
         // In userdebug builds, every reboot reverts back to the "shell" user.
-        self.run_raw_adb_command(&["root".to_string()], Echo::On)?;
+        self.run_raw_adb_command(&["root".to_string()])?;
+        self.run_raw_adb_command(&["wait-for-device".to_string()])?;
         let mut adb_args = vec![
             "shell".to_string(),
             "/system/bin/adevice_fingerprint".to_string(),
@@ -200,7 +201,7 @@ impl RealDevice {
         ];
         // -p system,system_ext
         adb_args.push(partitions.join(","));
-        let fingerprint_result = self.run_raw_adb_command(&adb_args, Echo::On);
+        let fingerprint_result = self.run_raw_adb_command(&adb_args);
         // Deal with some bootstrapping errors, like adevice_fingerprint isn't installed
         // by printing diagnostics and exiting.
         if let Err(problem) = fingerprint_result {
@@ -267,16 +268,19 @@ pub fn update(
     prep_for_push(device, should_wait.clone())?;
     time!(
         for command in adb_commands.values().cloned().sorted_by(&mkdir_comes_first_rm_dfs) {
+            print!(".");
+            let _ = std::io::stdout().flush();
             device.run_adb_command(&command)?;
         },
         profiler.adb_cmds
     );
+    println!();
 
     match restart_type(restart_chooser, &installed_files) {
         RestartType::Reboot => time!(device.reboot(), profiler.reboot),
         RestartType::SoftRestart => device.soft_restart(),
         RestartType::None => {
-            log::debug!("No restart command");
+            tracing::debug!("No restart command");
             return Ok(());
         }
     }?;
@@ -297,20 +301,17 @@ pub fn update(
 ///  # Both reboot and exec-out start will set it back to 1 when the
 ///  # system has booted and is ready to receive commands and run tests.
 fn prep_for_push(device: &impl Device, should_wait: crate::cli::Wait) -> Result<()> {
-    device.run_raw_adb_command(&split_string("exec-out stop"), Echo::On)?;
+    device.run_raw_adb_command(&split_string("exec-out stop"))?;
     // We seem to need a remount after reboots to make the system writable.
-    device.run_raw_adb_command(&split_string("remount"), Echo::On)?;
+    device.run_raw_adb_command(&split_string("remount"))?;
     // Set the prop to the empty string so our "-z" check in wait works.
     if should_wait.into() {
-        device.run_raw_adb_command(
-            &[
-                "exec-out".to_string(),
-                "setprop".to_string(),
-                "sys.boot_completed".to_string(),
-                "".to_string(),
-            ],
-            Echo::On,
-        )?;
+        device.run_raw_adb_command(&[
+            "exec-out".to_string(),
+            "setprop".to_string(),
+            "sys.boot_completed".to_string(),
+            "".to_string(),
+        ])?;
     }
     Ok(())
 }
@@ -501,7 +502,7 @@ mod tests {
     fn adb_command_success() {
         // Use real device for device tests.
         let result = RealDevice::new(None)
-            .run_raw_adb_command(&["version".to_string()], Echo::On)
+            .run_raw_adb_command(&["version".to_string()])
             .expect("Error running command");
         assert!(
             result.contains("Android Debug Bridge version"),
@@ -511,8 +512,7 @@ mod tests {
 
     #[test]
     fn adb_command_failure() {
-        let result =
-            RealDevice::new(None).run_raw_adb_command(&["improper_cmd".to_string()], Echo::On);
+        let result = RealDevice::new(None).run_raw_adb_command(&["improper_cmd".to_string()]);
         if result.is_ok() {
             panic!("Did not expect to succeed");
         }
