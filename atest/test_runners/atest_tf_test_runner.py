@@ -616,6 +616,9 @@ class AtestTradefedTestRunner(trb.TestRunnerBase):
         if self.module_info.is_modern_robolectric_test(info):
             return DevicelessTest(info, Variant.DEVICE)
 
+        if self.module_info.is_ravenwood_test(info):
+            return DevicelessTest(info, Variant.DEVICE)
+
         if self.module_info.is_host_unit_test(info):
             return DevicelessTest(info, Variant.HOST)
 
