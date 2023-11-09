@@ -178,11 +178,18 @@ class TestInfo:
                         constants.MODULES_IN, ''))
         return test_paths if test_paths else None
 
+
 class TestFilter(TestFilterBase):
     """Information needed to filter a test in Tradefed"""
 
-    def to_set_of_tf_strings(self):
+    def to_list_of_tf_strings(self):
         """Return TestFilter as set of strings in TradeFed filter format."""
+        tf_strings = []
         if self.methods:
-            return {'%s#%s' % (self.class_name, m) for m in self.methods}
-        return {self.class_name}
+            for method in self.methods:
+                tf_string = f'{self.class_name}#{method}'
+                if tf_string not in tf_strings:
+                    tf_strings.append(tf_string)
+        else:
+            tf_strings = [self.class_name]
+        return tf_strings

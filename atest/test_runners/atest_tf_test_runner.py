@@ -686,7 +686,7 @@ class AtestTradefedTestRunner(trb.TestRunnerBase):
         """Generate a single run command from TestInfos.
 
         Args:
-            test_infos: A set of TestInfo instances.
+            test_infos: A list of TestInfo instances.
             extra_args: A Dict of extra args to append.
             port: Optional. An int of the port number to send events to. If
                   None, then subprocess reporter in TF won't try to connect.
@@ -795,12 +795,12 @@ class AtestTradefedTestRunner(trb.TestRunnerBase):
                   () = TestFilter namedtuple
 
         Args:
-            test_infos: A set of TestInfo namedtuples.
+            test_infos: A list of TestInfo namedtuples.
 
         Returns:
-            A set of TestInfos flattened.
+            A list of TestInfos flattened.
         """
-        results = set()
+        results = []
         for module, group in atest_utils.sort_and_group(
             test_infos, lambda x: x.test_name):
 
@@ -832,7 +832,7 @@ class AtestTradefedTestRunner(trb.TestRunnerBase):
             if module_args:
                 data[constants.TI_MODULE_ARG] = module_args
             data[constants.TI_FILTER] = self.flatten_test_filters(filters)
-            results.add(
+            results.append(
                 test_info.TestInfo(test_name=module,
                                    test_runner=test_runner,
                                    test_finder=test_finder,
@@ -894,7 +894,7 @@ class AtestTradefedTestRunner(trb.TestRunnerBase):
         """Compile TF command line args based on the given test infos.
 
         Args:
-            test_infos: A set of TestInfo instances.
+            test_infos: A list of TestInfo instances.
 
         Returns: A list of TF arguments to run the tests.
         """
@@ -1310,9 +1310,9 @@ def get_include_filter(test_infos: List[test_info.TestInfo]) -> List[str]:
     instrumentation_filters = []
     tf_args = []
     for info in test_infos:
-        filters = set()
+        filters = []
         for test_info_filter in info.data.get(constants.TI_FILTER, []):
-            filters.update(test_info_filter.to_set_of_tf_strings())
+            filters.extend(test_info_filter.to_list_of_tf_strings())
 
         for test_filter in filters:
             filter_arg = constants.TF_ATEST_INCLUDE_FILTER_VALUE_FMT.format(
