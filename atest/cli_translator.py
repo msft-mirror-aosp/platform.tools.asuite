@@ -107,7 +107,7 @@ class CLITranslator:
     # pylint: disable=too-many-locals
     # pylint: disable=too-many-branches
     # pylint: disable=too-many-statements
-    def _find_test_infos(self, test, tm_test_detail) -> Set[test_info.TestInfo]:
+    def _find_test_infos(self, test, tm_test_detail) -> List[test_info.TestInfo]:
         """Return set of TestInfos based on a given test.
 
         Args:
@@ -116,9 +116,9 @@ class CLITranslator:
                 files.
 
         Returns:
-            Set of TestInfos based on the given test.
+            List of TestInfos based on the given test.
         """
-        test_infos = set()
+        test_infos = []
         test_find_starts = time.time()
         test_found = False
         test_finders = []
@@ -183,7 +183,7 @@ class CLITranslator:
                         if self.mod_info.is_module(test_dep)]
                     for dep in test_deps_in_mod_info:
                         t_info.add_build_target(dep)
-                    test_infos.add(t_info)
+                    test_infos.append(t_info)
                 test_found = True
                 print("Found '%s' as %s" % (
                     atest_utils.mark_green(test),
@@ -199,7 +199,7 @@ class CLITranslator:
             if self.fuzzy_search:
                 f_results = self._fuzzy_search_and_msg(test, find_test_err_msg)
                 if f_results:
-                    test_infos.update(f_results)
+                    test_infos.extend(f_results)
                     test_found = True
                     test_finders.append(FUZZY_FINDER)
         metrics.FindTestFinishEvent(
@@ -333,12 +333,12 @@ class CLITranslator:
         Returns:
             Set of TestInfos based on the passed in tests.
         """
-        test_infos = set()
+        test_infos = []
         if not test_mapping_test_details:
             test_mapping_test_details = [None] * len(tests)
         for test, tm_test_detail in zip(tests, test_mapping_test_details):
             found_test_infos = self._find_test_infos(test, tm_test_detail)
-            test_infos.update(found_test_infos)
+            test_infos.extend(found_test_infos)
         return test_infos
 
     def _confirm_running(self, results):
@@ -698,7 +698,7 @@ class CLITranslator:
                 {'name':test, 'host':True}) for test in host_unit_tests]
             host_unit_test_infos = self._get_test_infos(host_unit_tests,
                                                         host_unit_test_details)
-            test_infos.update(host_unit_test_infos)
+            test_infos.extend(host_unit_test_infos)
         if atest_utils.has_mixed_type_filters(test_infos):
             atest_utils.colorful_print(
                 'Mixed type filters found. '
