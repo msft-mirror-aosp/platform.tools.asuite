@@ -6,8 +6,14 @@
     {
       "name": "adevice_integration_test"
     },
+    // {
+    //   "name": "adevice_partial_program_test"
+    // },
     {
       "name": "adevice_test"
     }
+    // {
+    //   "name": "adevice_whole_program_test"
+    // }
   ]
 }
