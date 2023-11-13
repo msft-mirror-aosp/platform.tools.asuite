@@ -81,6 +81,16 @@ def assert_equal_testinfo_sets(test_class, test_info_set_a, test_info_set_b):
             raise AssertionError('No matching TestInfo (%s) in [%s]' %
                                  (test_info_a, ';'.join([str(t) for t in test_info_set_b])))
 
+def assert_equal_testinfo_lists(test_class, test_info_list_a, test_info_list_b):
+    """Check that the passed in TestInfos are equal."""
+    # Use unittest.assertEqual to do checks when None is involved.
+    if test_info_list_a is None or test_info_list_a is None:
+        test_class.assertEqual(test_info_list_a, test_info_list_a)
+        return
+
+    for i, test_info_a in enumerate(test_info_list_a):
+        assert_equal_testinfos(test_class, test_info_a, test_info_list_b[i])
+
 # pylint: disable=too-many-return-statements
 def isfile_side_effect(value):
     """Mock return values for os.path.isfile."""
