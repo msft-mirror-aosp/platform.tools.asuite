@@ -61,7 +61,7 @@ pub trait Device {
 
     /// Wait for the device to be ready after reboots/restarts.
     /// Returns any relevant output from waiting.
-    fn wait(&self) -> Result<String>;
+    fn wait(&self, profiler: &mut Profiler) -> Result<String>;
 
     /// Run the commands needed to prep a userdebug device after a flash.
     fn prep_after_flash(&self) -> Result<()>;
@@ -99,6 +99,7 @@ impl Host for RealHost {
 /// result in the given profiler field.
 // TODO(rbraunstein): Ideally, use tracing or flamegraph crate or
 // use Map rather than name all the fields.
+// See: https://docs.rs/tracing/latest/tracing/index.html#using-the-macros and span!
 #[macro_export]
 macro_rules! time {
     ($fn:expr, $ident:expr) => {{
@@ -116,6 +117,7 @@ pub fn adevice(
     stdout: &mut impl Write,
     metrics: &mut impl MetricSender,
     opt_log_file: Option<File>,
+    profiler: &mut Profiler,
 ) -> Result<()> {
     let total_time = std::time::Instant::now();
     // If we can initialize a log file, then setup the tracing/log subscriber to write there.
@@ -127,8 +129,6 @@ pub fn adevice(
             .finish();
         tracing::subscriber::set_global_default(subscriber)?;
     }
-
-    let mut profiler = Profiler::default();
 
     let command_line = std::env::args().collect::<Vec<String>>().join(" ");
     metrics.add_start_event(&command_line);
@@ -230,7 +230,7 @@ pub fn adevice(
 
         // Consider always reboot instead of soft restart after a clean.
         let restart_chooser = &RestartChooser::new(&restart_choice);
-        device::update(restart_chooser, deletes, &mut profiler, device, cli.should_wait())?;
+        device::update(restart_chooser, deletes, profiler, device, cli.should_wait())?;
     }
 
     if matches!(cli.command, cli::Commands::Update) {
@@ -252,7 +252,7 @@ pub fn adevice(
             let update_result = device::update(
                 &RestartChooser::new(&restart_choice),
                 &all_cmds,
-                &mut profiler,
+                profiler,
                 device,
                 cli.should_wait(),
             );
@@ -269,13 +269,13 @@ pub fn adevice(
                 if problem.root_cause().to_string().contains("Read-only file system") {
                     println!(" !! The device has a read-only file system.\n !! After a fresh image, the device needs an extra `remount` and `reboot` to adb push files.  Performing the remount and reboot now.");
                 }
-                device.prep_after_flash()?;
+                time!(device.prep_after_flash()?, profiler.first_remount_rw);
             }
             println!("\n * Trying update again after remount and reboot.");
         }
     }
     profiler.total = total_time.elapsed(); // Avoid wrapping the block in the macro.
-    metrics.add_profiler_events(&profiler);
+    metrics.add_profiler_events(profiler);
     println!(
         "Finished in {} secs, [Logfile at $ANDROID_BUILD_TOP/out/adevice.log]",
         profiler.total.as_secs()
@@ -647,9 +647,17 @@ pub struct Profiler {
     pub device_fingerprint: Duration,
     pub host_fingerprint: Duration,
     pub ninja_deps_computer: Duration,
+    /// Time to run all the "adb push" or "adb rm" commands.
     pub adb_cmds: Duration,
+    /// Time to run "adb reboot" or "exec-out start".
     pub reboot: Duration,
-    pub restart_after_boot: Duration,
+    /// Time for device to respond to "wait-for-device".
+    pub wait_for_device: Duration,
+    /// Time for sys.boot_completed to be 1 after wait-for-device.
+    pub wait_for_boot_completed: Duration,
+    /// The first time after a userdebug build is flashed/created, we need
+    /// to mount rw and reboot.
+    pub first_remount_rw: Duration,
     pub total: Duration,
 }
 
@@ -662,7 +670,9 @@ impl std::string::ToString for Profiler {
             format!("Ninja - {}", self.ninja_deps_computer.as_secs()),
             format!("Adb Cmds - {}", self.adb_cmds.as_secs()),
             format!("Reboot - {}", self.reboot.as_secs()),
-            format!("Restart - {}", self.restart_after_boot.as_secs()),
+            format!("Wait For device connected - {}", self.wait_for_device.as_secs()),
+            format!("Wait For boot completed - {}", self.wait_for_boot_completed.as_secs()),
+            format!("First remount RW - {}", self.first_remount_rw.as_secs()),
             format!("TOTAL - {}", self.total.as_secs()),
         ]
         .join("\n\t")
