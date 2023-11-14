@@ -1738,7 +1738,7 @@ def has_mixed_type_filters(test_infos):
         filters = test_info.data.get(constants.TI_FILTER, [])
         filter_types = set()
         for flt in filters:
-            filter_types |= get_filter_types(flt.to_set_of_tf_strings())
+            filter_types |= get_filter_types(flt.to_list_of_tf_strings())
         filter_types |= test_to_types.get(test_info.test_name, set())
         test_to_types[test_info.test_name] = filter_types
     for _, types in test_to_types.items():
@@ -1750,7 +1750,7 @@ def get_filter_types(tf_filter_set):
     """ Get filter types.
 
     Args:
-        tf_filter_set: A set of tf filter strings.
+        tf_filter_set: A list of tf filter strings.
 
     Returns:
         A set of FilterType.
