@@ -60,38 +60,33 @@ impl Device for RealDevice {
 
     /// Wait for the device to be ready to use.
     /// First ask adb to wait for the device, then poll for sys.boot_completed on the device.
-    fn wait(&self) -> Result<String> {
-        println!(" * Waiting for device to restart");
+    fn wait(&self, profiler: &mut Profiler) -> Result<String> {
+        // Typically the reboot on acloud is 25 secs
+        // And another 50 for fully booted
+        // Wait up to twice as long for either
 
-        let args = self.adjust_adb_args(&[
-            "wait-for-device".to_string(),
-            "shell".to_string(),
-            "while [[ -z $(getprop sys.boot_completed) ]]; do sleep 1; done".to_string(),
-        ]);
-        let timeout = Duration::from_secs(120);
-        let output = run_process_with_timeout(timeout, "adb", &args);
+        time!(
+            {
+                println!(" * Waiting for device to connect.");
+                let args = self.adjust_adb_args(&["wait-for-device".to_string()]);
+                self.wait_for_adb_with_timeout(&args, Duration::from_secs(50))?;
+            },
+            profiler.wait_for_device
+        );
 
-        match output {
-            Ok(finished) if finished.status.success() => Ok("".to_string()),
-            Ok(finished) if matches!(finished.status.code(), Some(124)) => {
-                bail!("Waited {timeout:?} seconds for device to restart, but it hasn't yet.")
-            }
-            Ok(finished) => {
-                let stderr = match String::from_utf8(finished.stderr) {
-                    Ok(str) => str,
-                    Err(e) => bail!("Error translating stderr {}", e),
-                };
+        time!(
+            {
+                println!(" * Waiting for property sys.boot_completed.");
 
-                // Adb writes push errors to stdout.
-                let stdout = match String::from_utf8(finished.stdout) {
-                    Ok(str) => str,
-                    Err(e) => bail!("Error translating stdout {}", e),
-                };
-
-                bail!("Waiting for device has unexpected result: {:?}\nSTDOUT {stdout}\n STDERR {stderr}.", finished.status)
-            }
-            Err(_) => bail!("Problem checking on device after reboot."),
-        }
+                let args = self.adjust_adb_args(&[
+                    "wait-for-device".to_string(),
+                    "shell".to_string(),
+                    "while [[ -z $(getprop sys.boot_completed) ]]; do sleep 1; done".to_string(),
+                ]);
+                self.wait_for_adb_with_timeout(&args, Duration::from_secs(100))
+            },
+            profiler.wait_for_boot_completed
+        )
     }
 
     fn prep_after_flash(&self) -> Result<()> {
@@ -233,6 +228,34 @@ impl RealDevice {
         };
         Ok(result.into_iter().map(|(path, metadata)| (PathBuf::from(path), metadata)).collect())
     }
+
+    /// Run "adb wait-for-device" ... but exit if adb doesn't return
+    /// in the `timeout` amount of time.
+    pub fn wait_for_adb_with_timeout(&self, args: &[String], timeout: Duration) -> Result<String> {
+        let output = run_process_with_timeout(timeout, "adb", args);
+
+        match output {
+            Ok(finished) if finished.status.success() => Ok("".to_string()),
+            Ok(finished) if matches!(finished.status.code(), Some(124)) => {
+                bail!("Waited {timeout:?} seconds for device to restart, but it hasn't yet.")
+            }
+            Ok(finished) => {
+                let stderr = match String::from_utf8(finished.stderr) {
+                    Ok(str) => str,
+                    Err(e) => bail!("Error translating stderr {}", e),
+                };
+
+                // Adb writes push errors to stdout.
+                let stdout = match String::from_utf8(finished.stdout) {
+                    Ok(str) => str,
+                    Err(e) => bail!("Error translating stdout {}", e),
+                };
+
+                bail!("Waiting for device has unexpected result: {:?}\nSTDOUT {stdout}\n STDERR {stderr}.", finished.status)
+            }
+            Err(_) => bail!("Problem checking on device after reboot."),
+        }
+    }
 }
 
 // Rather than spawn and kill processes in rust, use the `timeout` command
@@ -278,7 +301,7 @@ pub fn update(
 
     match restart_type(restart_chooser, &installed_files) {
         RestartType::Reboot => time!(device.reboot(), profiler.reboot),
-        RestartType::SoftRestart => device.soft_restart(),
+        RestartType::SoftRestart => time!(device.soft_restart(), profiler.reboot),
         RestartType::None => {
             tracing::debug!("No restart command");
             return Ok(());
@@ -286,7 +309,7 @@ pub fn update(
     }?;
 
     if should_wait.into() {
-        time!(device.wait()?, profiler.restart_after_boot);
+        device.wait(profiler)?;
     }
     Ok(())
 }

@@ -1,4 +1,5 @@
 mod common;
+use adevice::adevice::Profiler;
 use adevice::fingerprint::{self, FileMetadata};
 use adevice::{cli, commands};
 use anyhow::{Context, Result};
@@ -40,6 +41,7 @@ fn adevice_status() -> Result<()> {
         &mut stdout,
         &mut FakeMetricSender::new(),
         NO_LOG_FILE,
+        &mut Profiler::default(),
     )?;
     let stdout_str = String::from_utf8(stdout).unwrap();
 
@@ -87,6 +89,7 @@ fn lost_and_found_should_not_be_cleaned() -> Result<()> {
             &mut stdout,
             &mut metrics,
             NO_LOG_FILE,
+            &mut Profiler::default(),
         )
         .context("Running adevice clean")?;
         let stdout_str = String::from_utf8(stdout).unwrap();
@@ -122,6 +125,7 @@ fn update_should_clean_stale_files() -> Result<()> {
             &mut stdout,
             &mut metrics,
             NO_LOG_FILE,
+            &mut Profiler::default(),
         )
         .context("Running adevice clean")?;
 
@@ -173,6 +177,7 @@ fn update_big_fs_change() -> Result<()> {
             &mut stdout,
             &mut metrics,
             NO_LOG_FILE,
+            &mut Profiler::default(),
         )
         .context("Running adevice update")?;
 
