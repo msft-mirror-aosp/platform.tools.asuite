@@ -1,4 +1,4 @@
-use adevice::adevice::{Device, Host};
+use adevice::adevice::{Device, Host, Profiler};
 use adevice::commands::{AdbAction, AdbCommand};
 use adevice::fingerprint::FileMetadata;
 use adevice::metrics::MetricSender;
@@ -15,6 +15,10 @@ pub struct FakeHost {
     /// Dependencies from ninja, relative to PRODUCT_OUT
     tracked_files: Vec<String>,
 }
+
+// We allow dead code here and below as not all the tests uses all the methods,
+// and they get marked as dead in soong when compiling just one test at a time.
+#[allow(dead_code)]
 impl FakeHost {
     pub fn new(files: &HashMap<PathBuf, FileMetadata>, tracked_files: &[String]) -> FakeHost {
         FakeHost { files: files.clone(), tracked_files: tracked_files.to_owned() }
@@ -31,6 +35,7 @@ impl FakeHost {
     }
 }
 
+#[allow(dead_code)]
 #[derive(Default)]
 pub struct FakeDevice {
     /// Apks that are installed with "adb install" on the /data partition.
@@ -52,6 +57,8 @@ pub struct FakeDevice {
     // How many times has wait() beeng called on the fake.
     wait_called: RefCell<u32>,
 }
+
+#[allow(dead_code)]
 impl FakeDevice {
     pub fn new(files: &HashMap<PathBuf, FileMetadata>) -> FakeDevice {
         FakeDevice { files: files.clone(), ..Default::default() }
@@ -130,9 +137,9 @@ impl Device for FakeDevice {
         Ok(self.installed_apks.clone())
     }
 
-    fn wait(&self) -> Result<String> {
+    fn wait(&self, _profiler: &mut Profiler) -> Result<String> {
         let mut counter = self.wait_called.borrow_mut();
-        *counter = *counter + 1;
+        *counter += 1;
         Ok(String::new())
     }
     fn prep_after_flash(&self) -> Result<()> {
@@ -141,6 +148,8 @@ impl Device for FakeDevice {
 }
 
 pub struct FakeMetricSender {}
+
+#[allow(dead_code)]
 impl FakeMetricSender {
     pub fn new() -> Self {
         FakeMetricSender {}
@@ -150,7 +159,7 @@ impl MetricSender for FakeMetricSender {
     // TODO: Capture and test metrics.
     fn add_start_event(&mut self, _command_line: &str) {}
 
-    fn add_action_event(&mut self, action: &str, duration: std::time::Duration) {}
+    fn add_action_event(&mut self, _action: &str, _duration: std::time::Duration) {}
 
-    fn add_profiler_events(&mut self, profiler: &adevice::adevice::Profiler) {}
+    fn add_profiler_events(&mut self, _profiler: &adevice::adevice::Profiler) {}
 }

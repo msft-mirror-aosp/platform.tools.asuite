@@ -1,4 +1,5 @@
 mod common;
+use adevice::adevice::Profiler;
 use adevice::fingerprint::{self, FileMetadata};
 use adevice::{cli, commands};
 use anyhow::{Context, Result};
@@ -12,6 +13,7 @@ const NO_LOG_FILE: Option<std::fs::File> = None;
 // Just placeholder for now to show we can call adevice.
 #[test]
 fn adevice_status() -> Result<()> {
+    std::env::remove_var("HOME"); // Use default config, don't write one.
     let device_fs = HashMap::from([
         (PathBuf::from("system/fakefs_default_file"), file_metadata("digest1")),
         (PathBuf::from("system"), dir_metadata()),
@@ -39,6 +41,7 @@ fn adevice_status() -> Result<()> {
         &mut stdout,
         &mut FakeMetricSender::new(),
         NO_LOG_FILE,
+        &mut Profiler::default(),
     )?;
     let stdout_str = String::from_utf8(stdout).unwrap();
 
@@ -53,6 +56,7 @@ fn adevice_status() -> Result<()> {
 
 #[test]
 fn lost_and_found_should_not_be_cleaned() -> Result<()> {
+    std::env::remove_var("HOME"); // Use default config, don't write one.
     let device_files = HashMap::from([
         (PathBuf::from("system_ext/lost+found"), dir_metadata()),
         (PathBuf::from("system/some_file"), file_metadata("m1")),
@@ -85,6 +89,7 @@ fn lost_and_found_should_not_be_cleaned() -> Result<()> {
             &mut stdout,
             &mut metrics,
             NO_LOG_FILE,
+            &mut Profiler::default(),
         )
         .context("Running adevice clean")?;
         let stdout_str = String::from_utf8(stdout).unwrap();
@@ -100,6 +105,7 @@ fn lost_and_found_should_not_be_cleaned() -> Result<()> {
 
 #[test]
 fn update_should_clean_stale_files() -> Result<()> {
+    std::env::remove_var("HOME");
     let device_files = HashMap::from([(PathBuf::from("system/STALE_FILE"), file_metadata("m1"))]);
 
     // Ensure the partitions exist.
@@ -119,8 +125,9 @@ fn update_should_clean_stale_files() -> Result<()> {
             &mut stdout,
             &mut metrics,
             NO_LOG_FILE,
+            &mut Profiler::default(),
         )
-        .context("Running adevice update")?;
+        .context("Running adevice clean")?;
 
         assert!(fake_device.removes().contains(&PathBuf::from("system/STALE_FILE")));
     }
@@ -130,6 +137,7 @@ fn update_should_clean_stale_files() -> Result<()> {
 
 #[test]
 fn update_big_fs_change() -> Result<()> {
+    std::env::remove_var("HOME"); // Use default config, don't write one.
     let device_files = HashMap::from([
         // <-- STALE_FILE not on host
         (PathBuf::from("system/STALE_FILE"), file_metadata("m1")),
@@ -169,6 +177,7 @@ fn update_big_fs_change() -> Result<()> {
             &mut stdout,
             &mut metrics,
             NO_LOG_FILE,
+            &mut Profiler::default(),
         )
         .context("Running adevice update")?;
 
