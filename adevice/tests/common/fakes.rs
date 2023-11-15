@@ -1,4 +1,4 @@
-use adevice::adevice::{Device, Host};
+use adevice::adevice::{Device, Host, Profiler};
 use adevice::commands::{AdbAction, AdbCommand};
 use adevice::fingerprint::FileMetadata;
 use adevice::metrics::MetricSender;
@@ -137,7 +137,7 @@ impl Device for FakeDevice {
         Ok(self.installed_apks.clone())
     }
 
-    fn wait(&self) -> Result<String> {
+    fn wait(&self, _profiler: &mut Profiler) -> Result<String> {
         let mut counter = self.wait_called.borrow_mut();
         *counter += 1;
         Ok(String::new())

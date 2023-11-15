@@ -8,6 +8,7 @@ mod metrics;
 mod restart_chooser;
 mod tracking;
 
+use crate::adevice::Profiler;
 use crate::adevice::RealHost;
 use crate::device::RealDevice;
 use crate::metrics::Metrics;
@@ -20,10 +21,18 @@ use anyhow::Result;
 fn main() -> Result<()> {
     let host = RealHost::new();
     let cli = cli::Cli::parse();
+    let mut profiler = Profiler::default();
     let device = RealDevice::new(cli.global_options.serial.clone());
     let mut metrics = Metrics::default();
-
-    crate::adevice::adevice(&host, &device, &cli, &mut std::io::stdout(), &mut metrics, log_file())
+    crate::adevice::adevice(
+        &host,
+        &device,
+        &cli,
+        &mut std::io::stdout(),
+        &mut metrics,
+        log_file(),
+        &mut profiler,
+    )
 }
 
 /// Return a file open at $ANDROID_BUILD_TOP/out/adevice.log or None
