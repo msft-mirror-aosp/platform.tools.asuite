@@ -69,6 +69,15 @@ rust_protobuf {
     ],
 }
 
+rust_library {
+    name: "libadevice",
+    srcs: ["src/lib.rs"],
+    crate_name: "adevice",
+    defaults: ["adevice_deps_defaults"],
+    host_supported: true,
+    lints: "none",
+}
+
 rust_defaults {
     name: "adevice_deps_defaults",
     rustlibs: [
@@ -102,4 +111,34 @@ sh_test_host {
         "adevice",
     ],
     test_suites: ["general-tests"],
+}
+
+rust_test {
+    name: "adevice_whole_program_test",
+    auto_gen_config: true,
+    defaults: ["adevice_deps_defaults"],
+    srcs: [
+        "tests/whole_program_tests.rs",
+    ],
+    rustlibs: ["libgoogletest_rust", "libadevice"],
+    static_executable: true,
+    test_suites: ["general-tests"],
+    test_options: {
+        unit_test: true,
+    },
+}
+
+rust_test {
+    name: "adevice_partial_program_test",
+    auto_gen_config: true,
+    defaults: ["adevice_deps_defaults"],
+    srcs: [
+        "tests/partial_program_tests.rs",
+    ],
+    rustlibs: ["libgoogletest_rust", "libadevice"],
+    static_executable: true,
+    test_suites: ["general-tests"],
+    test_options: {
+        unit_test: true,
+    },
 }
