@@ -326,7 +326,7 @@ def get_extra_args(args):
     return extra_args
 
 
-def _validate_exec_mode(args, test_infos: TestInfo, host_tests=None):
+def _validate_exec_mode(args, test_infos: list[TestInfo], host_tests=None):
     """Validate all test execution modes are not in conflict.
 
     Exit the program with INVALID_EXEC_MODE code if the desired is a host-side
@@ -337,7 +337,7 @@ def _validate_exec_mode(args, test_infos: TestInfo, host_tests=None):
 
     Args:
         args: parsed args object.
-        test_info: TestInfo object.
+        test_infos: a list of TestInfo objects.
         host_tests: True if all tests should be deviceless, False if all tests
             should be device tests. Default is set to None, which means
             tests can be either deviceless or device tests.
