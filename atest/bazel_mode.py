@@ -1344,7 +1344,7 @@ def get_module_installed_paths(
             return src_root_path.joinpath(install_path)
         return install_path
 
-    return map(resolve, info.get(constants.MODULE_INSTALLED))
+    return map(resolve, info.get(constants.MODULE_INSTALLED, []))
 
 
 def find_runtime_dep_refs(
