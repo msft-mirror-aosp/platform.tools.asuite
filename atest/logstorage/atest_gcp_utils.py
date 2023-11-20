@@ -309,10 +309,10 @@ def _get_branch(build_client):
     Args:
         build_client: The build client object.
     Return:
-        "git_master" in internal git, "aosp-master" otherwise.
+        "git_main" in internal git, "aosp-main" otherwise.
     """
-    default_branch = ('git_master'
-                        if constants.CREDENTIAL_FILE_NAME else 'aosp-master')
+    default_branch = ('git_main'
+                        if constants.CREDENTIAL_FILE_NAME else 'aosp-main')
     local_branch = "git_%s" % atest_utils.get_manifest_branch()
     branch = build_client.get_branch(local_branch)
     return local_branch if branch else default_branch
@@ -324,9 +324,10 @@ def _get_target(branch, build_client):
         branch: The branch want to check.
         build_client: The build client object.
     Return:
-        The matched build target, "aosp_x86-userdebug" otherwise.
+        The matched build target, "aosp_x86_64-trunk_staging-userdebug"
+        otherwise.
     """
-    default_target = 'aosp_x86-userdebug'
+    default_target = 'aosp_x86_64-trunk_staging-userdebug'
     local_target = atest_utils.get_build_target()
     targets = [t['target']
                 for t in build_client.list_target(branch)['targets']]
