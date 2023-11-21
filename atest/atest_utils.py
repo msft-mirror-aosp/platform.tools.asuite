@@ -576,10 +576,6 @@ def colorful_print(text, color, bp_color=None, auto_wrap=True):
     else:
         print(output, end="")
 
-def roboleaf_print(text):
-    """Print roboleaf emoji with text."""
-    print("[🌿] " + text)
-
 def get_terminal_size():
     """Get terminal size and return a tuple.
 

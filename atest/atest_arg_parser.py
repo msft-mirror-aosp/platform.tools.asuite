@@ -28,7 +28,6 @@ from atest import bazel_mode
 from atest import constants
 
 from atest.atest_utils import BuildOutputMode
-from atest.test_runners.roboleaf_test_runner import BazelBuildMode
 
 def output_mode_msg() -> str:
     """Generate helper strings for BuildOutputMode."""
@@ -95,9 +94,6 @@ LATEST_RESULT = 'Print latest test result.'
 LIST_MODULES = 'List testable modules of the given suite.'
 NO_CHECKING_DEVICE = 'Do NOT check device availability. (even it is a device test)'
 NO_METRICS = 'Do not send metrics.'
-ROBOLEAF_MODE = ('Determines when to use Bazel for end to end builds and tests. '
-                 'Can be `on`, `off`, `dev`. Defaults to off. Use `on` to opt-in. '
-                 'Use `dev` for a wider set of tests (for development use only).')
 REBUILD_MODULE_INFO = ('Forces a rebuild of the module-info.json file. '
                        'This may be necessary following a repo sync or '
                        'when writing a new test.')
@@ -208,13 +204,6 @@ class AtestArgParser(argparse.ArgumentParser):
                           help=INSTALL)
         self.add_argument('-m', constants.REBUILD_MODULE_INFO_FLAG,
                           action='store_true', help=REBUILD_MODULE_INFO)
-        self.add_argument('--roboleaf-mode',
-                          nargs='?',
-                          default=BazelBuildMode.OFF,
-                          const=BazelBuildMode.ON,
-                          choices=BazelBuildMode,
-                          type=BazelBuildMode,
-                          help=ROBOLEAF_MODE)
         self.add_argument('--sharding', nargs='?', const=2,
                           type=_positive_int, default=0,
                           help=SHARDING)
@@ -413,7 +402,6 @@ def print_epilog_text():
         NO_METRICS=NO_METRICS,
         NO_CHECKING_DEVICE=NO_CHECKING_DEVICE,
         REBUILD_MODULE_INFO=REBUILD_MODULE_INFO,
-        ROBOLEAF_MODE=ROBOLEAF_MODE,
         REQUEST_UPLOAD_RESULT=REQUEST_UPLOAD_RESULT,
         RERUN_UNTIL_FAILURE=RERUN_UNTIL_FAILURE,
         RETRY_ANY_FAILURE=RETRY_ANY_FAILURE,
@@ -511,9 +499,6 @@ OPTIONS
 
         -m, --rebuild-module-info
             {REBUILD_MODULE_INFO}
-
-        --roboleaf-mode
-            {ROBOLEAF_MODE}
 
         --no-checking-device
             {NO_CHECKING_DEVICE}
