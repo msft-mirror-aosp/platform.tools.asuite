@@ -63,9 +63,5 @@ export PATH=${ANDROID_HOST_OUT}/bin:${PATH}
 # Setup JAVA for TF
 export TF_JAVA_HOME=${PWD}/prebuilts/jdk/jdk17/linux-x86
 
-# Normal Mode Host Only Test
-prebuilts/asuite/atest/linux-x86/atest-py3 hello_world_test --host -c
-
-# Bazel Mode Host Unit Test Test
-prebuilts/asuite/atest/linux-x86/atest-py3 merge_annotation_zips_test --host --roboleaf-mode off -c
-
+# Host Only Test
+prebuilts/asuite/atest/linux-x86/atest-py3 hello_world_test merge_annotation_zips_test --host -c
