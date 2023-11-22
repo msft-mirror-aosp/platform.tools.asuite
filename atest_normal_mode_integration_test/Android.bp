@@ -46,16 +46,9 @@ python_test_host {
 genrule {
     name: "atest_integration_fake_src",
     tools: ["soong_zip"],
+    srcs: ["fake_android_src/**/*"],
     out: ["atest_integration_fake_src.zip"],
-    cmd:
-        // Create a android-src directory and copy the source code into it.
-        "mkdir $(genDir)/atest_integration_fake_src;" +
-        "cp -r tools/asuite/atest_normal_mode_integration_test/fake_android_src/ " +
-        "      $(genDir)/atest_integration_fake_src;" +
-
-        // Pack the android-src directory and clean up the directory.
-        "$(location soong_zip) -o $(out) " +
-        "                      -C $(genDir)/atest_integration_fake_src " +
-        "                      -D $(genDir)/atest_integration_fake_src; " +
-        "rm -rf $(genDir)/atest_integration_fake_src",
+    cmd: "$(location soong_zip) -o $(out) " +
+         "                      -C tools/asuite/atest_normal_mode_integration_test/ " +
+         "                      -D tools/asuite/atest_normal_mode_integration_test/fake_android_src/"
 }
