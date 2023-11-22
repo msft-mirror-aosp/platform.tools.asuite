@@ -462,7 +462,6 @@ class ModuleInfo:
             get_testable_modules: Function to get all testable modules.
         """
         self.root_dir = os.environ.get(constants.ANDROID_BUILD_TOP)
-        self.roboleaf_tests = {}
 
         self.name_to_module_info = name_to_module_info or {}
         self.path_to_module_info = path_to_module_info or {}

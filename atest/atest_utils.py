@@ -576,10 +576,6 @@ def colorful_print(text, color, bp_color=None, auto_wrap=True):
     else:
         print(output, end="")
 
-def roboleaf_print(text):
-    """Print roboleaf emoji with text."""
-    print("[🌿] " + text)
-
 def get_terminal_size():
     """Get terminal size and return a tuple.
 
@@ -1192,9 +1188,11 @@ def get_manifest_branch(show_aosp=False):
 
 def get_build_target():
     """Get the build target form system environment TARGET_PRODUCT."""
-    build_target = '%s-%s' % (
+    build_target = '%s-%s-%s' % (
         os.getenv(constants.ANDROID_TARGET_PRODUCT, None),
-        os.getenv(constants.TARGET_BUILD_VARIANT, None))
+        os.getenv('TARGET_RELEASE', None),
+        os.getenv(constants.TARGET_BUILD_VARIANT, None),
+    )
     return build_target
 
 
