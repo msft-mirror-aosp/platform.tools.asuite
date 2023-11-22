@@ -679,8 +679,6 @@ class WorkspaceGenerator:
     def _add_bazel_bootstrap_files(self):
         self._symlink(src='tools/asuite/atest/bazel/resources/bazel.sh',
                       target='bazel.sh')
-        # TODO(b/256924541): Consolidate the JDK with the version the Roboleaf
-        # team uses.
         self._symlink(src='prebuilts/jdk/jdk17/BUILD.bazel',
                       target='prebuilts/jdk/jdk17/BUILD.bazel')
         self._symlink(src='prebuilts/jdk/jdk17/linux-x86',
@@ -1915,8 +1913,6 @@ def parse_args(
     test_infos: List[test_info.TestInfo],
     extra_args: Dict[str, Any]) -> Dict[str, Any]:
     """Parse commandline args and passes supported args to bazel.
-
-    This is shared between both --bazel-mode and --roboleaf-mode.
 
     Args:
         test_infos: A set of TestInfo instances.
