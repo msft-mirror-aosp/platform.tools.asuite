@@ -77,6 +77,8 @@ DISABLE_TEARDOWN = 'Disable test teardown and cleanup.'
 DRY_RUN = 'Dry run atest without building, installing and running tests in real.'
 ENABLE_FILE_PATTERNS = 'Enable FILE_PATTERNS in TEST_MAPPING.'
 GENERATE_RUNNER_CMD = 'Generate the runner command(s) of given tests.'
+GROUP_TEST = ('Group the tests by module name for running the test, if you want '
+              'to run the test using the same input order, use --no-group-test.')
 HISTORY = ('Show test results in chronological order(with specified number or '
            'all by default).')
 HOST = ('Run the test completely on the host without a device. '
@@ -192,6 +194,12 @@ class AtestArgParser(argparse.ArgumentParser):
         self.add_argument('-d', '--disable-teardown', action='store_true',
                           help=DISABLE_TEARDOWN)
         self.add_argument('--experimental-coverage', action='store_true', help=COVERAGE)
+
+        self.add_argument('--group-test', default=True, action='store_true',
+                          help=GROUP_TEST)
+        self.add_argument('--no-group-test', dest='group_test',
+                          action='store_false', help=GROUP_TEST)
+
         # Options for host and device-only:
         # A group of options for testing mapping tests. They are mutually
         # exclusive in a command line.
@@ -388,6 +396,7 @@ def print_epilog_text():
         DRY_RUN=DRY_RUN,
         ENABLE_FILE_PATTERNS=ENABLE_FILE_PATTERNS,
         GENERATE_RUNNER_CMD=GENERATE_RUNNER_CMD,
+        GROUP_TEST=GROUP_TEST,
         HELP_DESC=HELP_DESC,
         HISTORY=HISTORY,
         HOST=HOST,
@@ -487,6 +496,9 @@ OPTIONS
 
         --experimental-coverage
             {COVERAGE}
+
+        --[no-]group-test
+            {GROUP_TEST}
 
         --host
             {HOST}
