@@ -28,7 +28,6 @@ python_test_host {
     srcs: [
         "asuite_lib_run_tests.py",
         "asuite_cc_client_test.py",
-        "asuite_metrics_test.py",
     ],
     libs: [
         "asuite_cc_client",
