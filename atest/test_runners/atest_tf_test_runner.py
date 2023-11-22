@@ -85,8 +85,6 @@ _TF_EXIT_CODE = [
     'NO_DEVICE_ALLOCATED',
     'WRONG_JAVA_VERSION']
 
-MAINLINE_LOCAL_DOC = 'go/mainline-local-build'
-
 
 class Error(Exception):
     """Module-level error."""
@@ -618,6 +616,9 @@ class AtestTradefedTestRunner(trb.TestRunnerBase):
         if self.module_info.is_modern_robolectric_test(info):
             return DevicelessTest(info, Variant.DEVICE)
 
+        if self.module_info.is_ravenwood_test(info):
+            return DevicelessTest(info, Variant.DEVICE)
+
         if self.module_info.is_host_unit_test(info):
             return DevicelessTest(info, Variant.HOST)
 
@@ -688,7 +689,7 @@ class AtestTradefedTestRunner(trb.TestRunnerBase):
         """Generate a single run command from TestInfos.
 
         Args:
-            test_infos: A set of TestInfo instances.
+            test_infos: A list of TestInfo instances.
             extra_args: A Dict of extra args to append.
             port: Optional. An int of the port number to send events to. If
                   None, then subprocess reporter in TF won't try to connect.
@@ -717,10 +718,11 @@ class AtestTradefedTestRunner(trb.TestRunnerBase):
             test_args.append('--stub-build-target %s'
                              % extra_args[constants.BUILD_TARGET])
         for info in test_infos:
-            if constants.TEST_WITH_MAINLINE_MODULES_RE.match(info.test_name):
+            if atest_utils.get_test_and_mainline_modules(info.test_name):
                 # TODO(b/253641058) Remove this once mainline module
                 # binaries are stored under testcase directory.
-                self._copy_mainline_module_binary(info.mainline_modules)
+                if not extra_args.get(constants.DRY_RUN):
+                    self._copy_mainline_module_binary(info.mainline_modules)
                 test_args.append(constants.TF_ENABLE_MAINLINE_PARAMETERIZED_MODULES)
                 break
         # For detailed logs, set TF options log-level/log-level-display as
@@ -796,12 +798,12 @@ class AtestTradefedTestRunner(trb.TestRunnerBase):
                   () = TestFilter namedtuple
 
         Args:
-            test_infos: A set of TestInfo namedtuples.
+            test_infos: A list of TestInfo namedtuples.
 
         Returns:
-            A set of TestInfos flattened.
+            A list of TestInfos flattened.
         """
-        results = set()
+        results = []
         for module, group in atest_utils.sort_and_group(
             test_infos, lambda x: x.test_name):
 
@@ -833,7 +835,7 @@ class AtestTradefedTestRunner(trb.TestRunnerBase):
             if module_args:
                 data[constants.TI_MODULE_ARG] = module_args
             data[constants.TI_FILTER] = self.flatten_test_filters(filters)
-            results.add(
+            results.append(
                 test_info.TestInfo(test_name=module,
                                    test_runner=test_runner,
                                    test_finder=test_finder,
@@ -895,7 +897,7 @@ class AtestTradefedTestRunner(trb.TestRunnerBase):
         """Compile TF command line args based on the given test infos.
 
         Args:
-            test_infos: A set of TestInfo instances.
+            test_infos: A list of TestInfo instances.
 
         Returns: A list of TF arguments to run the tests.
         """
@@ -1098,13 +1100,6 @@ class AtestTradefedTestRunner(trb.TestRunnerBase):
             installed_paths = target_module_info[constants.MODULE_INSTALLED]
 
             for installed_path in installed_paths:
-                if not re.search(atest_utils.MAINLINE_MODULES_EXT_RE, installed_path):
-                    atest_utils.colorful_print(
-                        '%s is not a apk or apex file. Did you run mainline '
-                        'local setup script? Please refer to %s' %
-                        (installed_path, MAINLINE_LOCAL_DOC),
-                        constants.YELLOW)
-                    continue
                 file_name = Path(installed_path).name
                 dest_path = Path(dest_dir).joinpath(file_name)
                 if dest_path.exists():
@@ -1318,9 +1313,9 @@ def get_include_filter(test_infos: List[test_info.TestInfo]) -> List[str]:
     instrumentation_filters = []
     tf_args = []
     for info in test_infos:
-        filters = set()
+        filters = []
         for test_info_filter in info.data.get(constants.TI_FILTER, []):
-            filters.update(test_info_filter.to_set_of_tf_strings())
+            filters.extend(test_info_filter.to_list_of_tf_strings())
 
         for test_filter in filters:
             filter_arg = constants.TF_ATEST_INCLUDE_FILTER_VALUE_FMT.format(

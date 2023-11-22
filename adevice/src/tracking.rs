@@ -6,13 +6,13 @@
 ///     this module set.
 use anyhow::{bail, Context, Result};
 use lazy_static::lazy_static;
-use log::{debug, warn};
 use regex::Regex;
 use serde::{Deserialize, Serialize};
 use std::fs;
 use std::io::BufReader;
 use std::path::PathBuf;
 use std::process;
+use tracing::{debug, warn};
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Config {
@@ -133,7 +133,8 @@ impl Config {
                 &self.ninja_args(&self.target_product()?, &self.out_dir()),
             )?;
             if !ninja_output.status.success() {
-                anyhow::bail!("{}", String::from_utf8(ninja_output.stderr).unwrap());
+                let stderr = String::from_utf8(ninja_output.stderr.clone()).unwrap();
+                anyhow::bail!("{}", self.ninja_failure_msg(&stderr));
             }
             let unfiltered_tracked_files = tracked_files(&ninja_output)?;
             self.write_cache(&unfiltered_tracked_files)
@@ -184,6 +185,27 @@ impl Config {
             .args(args)
             .output()
             .context("Running ninja to get base files")
+    }
+
+    /// Check to see if the output from running ninja mentions a module we are tracking.
+    /// If a user tracks a module, but then removes it from the codebase, they should be notified.
+    /// Return origina ninja error and possibly a statement suggesting they `untrack` a module.
+    fn ninja_failure_msg(&self, stderr: &str) -> String {
+        // A stale tracked target will look something like this:
+        //   unknown target 'SomeStaleModule'
+        let mut msg = String::new();
+        for tracked_module in &self.modules {
+            if stderr.contains(tracked_module) {
+                msg = format!("You may need to `adevice untrack {}`", tracked_module);
+            }
+        }
+        if stderr.contains(&self.base) {
+            msg = format!(
+                "You may need to `adevice track-base` something other than `{}`",
+                &self.base
+            );
+        }
+        format!("{}{}", stderr, msg)
     }
 
     pub fn clear_cache(&self) {
@@ -375,6 +397,34 @@ mod tests {
             tracked_files(&output)?
         );
         Ok(())
+    }
+
+    #[test]
+    fn check_ninja_failure_msg_for_tracked_module() {
+        // User tracks 'fish', which isn't a real module.
+        let config = Config { base: s("DROID"), modules: vec![s("fish")], config_path: s("") };
+        let msg = config.ninja_failure_msg(" error: unknown target 'fish', did you mean 'sh'");
+
+        assert!(msg.contains("adevice untrack fish"), "Actual: {msg}")
+    }
+
+    #[test]
+    fn check_ninja_failure_msg_for_special_base() {
+        let config = Config { base: s("R2D2_DROID"), modules: Vec::new(), config_path: s("") };
+        let msg = config.ninja_failure_msg(" error: unknown target 'R2D2_DROID'");
+
+        assert!(msg.contains("adevice track-base"), "Actual: {msg}")
+    }
+
+    #[test]
+    fn check_ninja_failure_msg_unrelated() {
+        // User tracks 'bait', which is a real module, but gets some other error message.
+        let config = Config { base: s("DROID"), modules: vec![s("bait")], config_path: s("") };
+
+        // There should be no untrack command.
+        assert!(!config
+            .ninja_failure_msg(" error: unknown target 'fish', did you mean 'sh'")
+            .contains("untrack"))
     }
 
     /*

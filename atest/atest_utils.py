@@ -63,7 +63,9 @@ from atest.tf_proto import test_record_pb2
 _BASH_RESET_CODE = '\033[0m\n'
 DIST_OUT_DIR = Path(os.environ.get(constants.ANDROID_BUILD_TOP, os.getcwd())
                     + '/out/dist/')
-MAINLINE_MODULES_EXT_RE = re.compile(r'(.apex|.apks|.apk)$')
+MAINLINE_MODULES_EXT_RE = re.compile(r'\.(apex|apks|apk)$')
+TEST_WITH_MAINLINE_MODULES_RE = re.compile(r'(?P<test>.*)\[(?P<mainline_modules>.*'
+                                           r'[.](apk|apks|apex))\]$')
 
 # Arbitrary number to limit stdout for failed runs in _run_limited_output.
 # Reason for its use is that the make command itself has its own carriage
@@ -74,10 +76,6 @@ _FAILED_OUTPUT_LINE_LIMIT = 100
 # ex: [ 99% 39710/39711]
 _BUILD_COMPILE_STATUS = re.compile(r'\[\s*(\d{1,3}%\s+)?\d+/\d+\]')
 _BUILD_FAILURE = 'FAILED: '
-CMD_RESULT_PATH = os.path.join(os.environ.get(constants.ANDROID_BUILD_TOP,
-                                              os.getcwd()),
-                               'tools/asuite/atest/test_data',
-                               'test_commands.json')
 BUILD_TOP_HASH = hashlib.md5(os.environ.get(constants.ANDROID_BUILD_TOP, '').
                              encode()).hexdigest()
 _DEFAULT_TERMINAL_WIDTH = 80
@@ -434,6 +432,16 @@ def sort_and_group(iterable, key):
     return itertools.groupby(sorted(iterable, key=key), key=key)
 
 
+def is_supported_mainline_module(installed_path: str) -> re.Match:
+    """Determine whether the given path is supported."""
+    return re.search(MAINLINE_MODULES_EXT_RE, installed_path)
+
+
+def get_test_and_mainline_modules(test_name: str) -> re.Match:
+    """Return test name and mainline modules from the given test."""
+    return TEST_WITH_MAINLINE_MODULES_RE.match(test_name)
+
+
 def is_test_mapping(args):
     """Check if the atest command intends to run tests in test mapping.
 
@@ -567,10 +575,6 @@ def colorful_print(text, color, bp_color=None, auto_wrap=True):
         print(output)
     else:
         print(output, end="")
-
-def roboleaf_print(text):
-    """Print roboleaf emoji with text."""
-    print("[🌿] " + text)
 
 def get_terminal_size():
     """Get terminal size and return a tuple.
@@ -1184,9 +1188,11 @@ def get_manifest_branch(show_aosp=False):
 
 def get_build_target():
     """Get the build target form system environment TARGET_PRODUCT."""
-    build_target = '%s-%s' % (
+    build_target = '%s-%s-%s' % (
         os.getenv(constants.ANDROID_TARGET_PRODUCT, None),
-        os.getenv(constants.TARGET_BUILD_VARIANT, None))
+        os.getenv('TARGET_RELEASE', None),
+        os.getenv(constants.TARGET_BUILD_VARIANT, None),
+    )
     return build_target
 
 
@@ -1730,7 +1736,7 @@ def has_mixed_type_filters(test_infos):
         filters = test_info.data.get(constants.TI_FILTER, [])
         filter_types = set()
         for flt in filters:
-            filter_types |= get_filter_types(flt.to_set_of_tf_strings())
+            filter_types |= get_filter_types(flt.to_list_of_tf_strings())
         filter_types |= test_to_types.get(test_info.test_name, set())
         test_to_types[test_info.test_name] = filter_types
     for _, types in test_to_types.items():
@@ -1742,7 +1748,7 @@ def get_filter_types(tf_filter_set):
     """ Get filter types.
 
     Args:
-        tf_filter_set: A set of tf filter strings.
+        tf_filter_set: A list of tf filter strings.
 
     Returns:
         A set of FilterType.
@@ -2061,13 +2067,14 @@ def get_rbe_and_customized_out_state() -> int:
 
 def build_files_integrity_is_ok() -> bool:
     """Return Whether the integrity of build files is OK."""
-    # 0. Inexistence of the timestamp file means a fresh repo sync.
+    # 0. Inexistence of the timestamp or plocate.db means a fresh repo sync.
     timestamp_file = get_index_path(constants.BUILDFILES_STP)
-    if not timestamp_file.is_file():
+    locate_cache = get_index_path(constants.LOCATE_CACHE)
+    if not all((timestamp_file.is_file(), locate_cache.is_file())):
         return False
+
     # 1. Ensure no build files were added/deleted.
     recorded_amount = len(load_json_safely(timestamp_file).keys())
-    locate_cache = get_index_path(constants.LOCATE_CACHE)
     cmd = (f'locate -e -d{locate_cache} --regex '
             r'"/Android\.(bp|mk)$" | wc -l')
     if int(subprocess.getoutput(cmd)) != recorded_amount:

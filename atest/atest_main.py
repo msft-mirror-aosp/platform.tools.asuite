@@ -59,7 +59,6 @@ from atest.metrics import metrics
 from atest.metrics import metrics_base
 from atest.metrics import metrics_utils
 from atest.test_finders import test_finder_utils
-from atest.test_runners import roboleaf_test_runner
 from atest.test_runners.atest_tf_test_runner import AtestTradefedTestRunner
 from atest.test_finders.test_info import TestInfo
 from atest.tools import indexing
@@ -88,7 +87,6 @@ EXIT_CODES_BEFORE_TEST = [ExitCode.ENV_NOT_SETUP,
                           ExitCode.OUTSIDE_ROOT,
                           ExitCode.AVD_CREATE_FAILURE,
                           ExitCode.AVD_INVALID_ARGS]
-BANNER = '/google/bin/releases/adevice-dev/adevice_banner'
 @dataclass
 class Steps:
     """A Dataclass that stores steps and shows step assignments."""
@@ -195,7 +193,6 @@ def _parse_args(argv: List[Any]) -> Tuple[argparse.ArgumentParser, List[str]]:
 
     Returns:
         A tuple of an argparse.ArgumentParser class instance holding parsed args
-        and a list of flags which are unsupported by roboleaf mode.
     """
     # Store everything after '--' in custom_args.
     pruned_argv = argv
@@ -212,17 +209,7 @@ def _parse_args(argv: List[Any]) -> Tuple[argparse.ArgumentParser, List[str]]:
             logging.debug('Quoting regex argument %s', arg)
             args.custom_args.append(atest_utils.quote(arg))
 
-    roboleaf_unsupported_flags = []
-    for arg in vars(args):
-        if arg in constants.ROBOLEAF_UNSUPPORTED_FLAGS:
-            flag = constants.ROBOLEAF_UNSUPPORTED_FLAGS[arg]
-            default = parser.get_default(arg)
-            actual = getattr(args, arg)
-            if flag.is_unsupported_func(default, actual):
-                roboleaf_unsupported_flags.append(
-                    f'--{arg}={actual} (default: {default}) {flag.reason}')
-
-    return args, roboleaf_unsupported_flags
+    return args
 
 
 def _configure_logging(verbose: bool, results_dir: str):
@@ -813,82 +800,33 @@ def need_rebuild_module_info(args: atest_arg_parser.AtestArgParser) -> bool:
         return True
     return False
 
-def need_run_index_targets(
-        args: argparse.ArgumentParser,
-        extra_args: Dict[str, Any]):
+def need_run_index_targets(args: argparse.ArgumentParser):
     """Method that determines whether Atest need to run index_targets or not.
 
 
-    There are 3 conditions that Atest does not run index_targets():
-    1. dry-run flags were found.
-    2. VERIFY_ENV_VARIABLE was found in extra_args.
-    3. --test flag was found.
+    Atest still need to (re)index targets if these indices do not exist.
+    If all indices exist, Atest can skip re-indexing when meeting both:
+        * found no_indexing_args.
+        * --build was explicitly passed.
 
     Args:
         args: An argparse.ArgumentParser object.
-        extra_args: A Dict of extra argument.
 
     Returns:
         True when none of the above conditions were found.
     """
-    no_indexing_args = (
-        args.update_cmd_mapping,
-        args.verify_cmd_mapping,
-        args.dry_run,
-        args.list_modules,
-    )
-    if any(no_indexing_args):
-        return False
-    if extra_args.get(constants.VERIFY_ENV_VARIABLE, False):
-        return False
-    if not parse_steps(args).has_build():
-        return False
+    if indexing.Indices().has_all_indices():
+        no_indexing_args = (
+            args.update_cmd_mapping,
+            args.verify_cmd_mapping,
+            args.dry_run,
+            args.list_modules,
+            args.verify_env_variable,
+        )
+        if not any(no_indexing_args) and not parse_steps(args).has_build():
+            return False
+
     return True
-
-
-def _b_test(tests, extra_args, results_dir):
-    """Entry point of b test in atest.
-
-    Args:
-        tests: List of tests to pass to `b test`
-        extra_args: An argparse.Namespace class instance holding parsed args.
-        results_dir: A directory which stores the ATest execution information.
-
-    Returns:
-        Exit code.
-    """
-    # Give users a heads up that something has changed.
-    for t in tests.keys():
-        atest_utils.roboleaf_print(
-            f'{t} is Bazel/Roboleaf-compatible.. '
-            f'{atest_utils.mark_green("YES")}')
-    atest_utils.roboleaf_print(
-        'Switching to Bazel.. '
-        f'{atest_utils.mark_green("YES")}')
-    atest_utils.roboleaf_print(
-        'Encountering issues? Opt-out with '
-        f'{atest_utils.mark_yellow("--roboleaf-mode=off")}')
-
-    mod_info = module_info.create_empty()
-    test_start = time.time()
-
-    # Run the bazel test command. This is where the heavy lifting is.
-    tests_exit_code, reporter = test_runner_handler.run_all_tests(
-        results_dir, tests.values(), extra_args, mod_info)
-
-    atest_execution_info.AtestExecutionInfo.result_reporters.append(reporter)
-
-    # TODO(b/296174403): Break down build and test time.
-    #
-    # Bazel handles build and test in the same invocation. So RoboleafTestRunner
-    # "test" time (not full invocation time) might be significantly higher when
-    # comparing with other test runners, since it also includes the time Bazel
-    # takes to build the test(s).
-    metrics.RunTestsFinishEvent(
-        duration=metrics_utils.convert_duration(time.time() - test_start))
-
-    return tests_exit_code
-
 
 def set_build_output_mode(mode: atest_utils.BuildOutputMode):
     """Update environment variable dict accordingly to args.build_output."""
@@ -940,10 +878,10 @@ def _get_acloud_proc_and_log(args: argparse.ArgumentParser,
     return None, None
 
 
-def has_sufficient_devices(
+def has_set_sufficient_devices(
         required_amount: int,
         serial: List[str] = None) -> bool:
-    """Detect whether attaching sufficient devices for tests."""
+    """Detect whether sufficient device serial is set for test."""
     given_amount  = len(serial) if serial else 0
     # Only check when both given_amount and required_amount are non zero.
     if all((given_amount, required_amount)):
@@ -954,7 +892,8 @@ def has_sufficient_devices(
                 f'The test requires {required_amount} devices, '
                 f'but {given_amount} were given.',
                 constants.RED)
-    return given_amount >= required_amount
+            return False
+    return True
 
 
 def setup_metrics_tool_name(no_metrics: bool = False):
@@ -981,16 +920,13 @@ def setup_metrics_tool_name(no_metrics: bool = False):
 def main(
     argv: List[Any],
     results_dir: str,
-    args: argparse.Namespace,
-    roboleaf_unsupported_flags: List[str]):
+    args: argparse.Namespace):
     """Entry point of atest script.
 
     Args:
         argv: A list of arguments.
         results_dir: A directory which stores the ATest execution information.
         args: An argparse.Namespace class instance holding parsed args.
-        roboleaf_unsupported_flags: A list of flags which are unsupported by
-                                    roboleaf mode.
 
     Returns:
         Exit code.
@@ -1014,21 +950,6 @@ def main(
     extra_args = get_extra_args(args)
     verify_env_variables = extra_args.get(constants.VERIFY_ENV_VARIABLE, False)
 
-    # Check if we can run all tests with bazel early in the atest runtime and
-    # skip all of the standard atest logic.
-    #
-    # Bazel handles a lot of the heavy lifting that atest standard mode does,
-    # like building the build modules and running tradefed. That said. Bazel
-    # does not fully support every atest flag -- not every one of them will
-    # make sense when Bazel is handling both build and test.
-    b_supported_tests = roboleaf_test_runner.are_all_tests_supported(
-        args.roboleaf_mode, args.tests, roboleaf_unsupported_flags)
-    if b_supported_tests:
-        # Use Bazel for both building and testing and return early.
-        return _b_test(b_supported_tests, extra_args, results_dir)
-
-    # This is where standard atest begins.
-
     # Run Test Mapping or coverage by no-bazel-mode.
     if atest_utils.is_test_mapping(args) or args.experimental_coverage:
         atest_utils.colorful_print('Not running using bazel-mode.',
@@ -1037,8 +958,11 @@ def main(
 
     proc_idx = atest_utils.start_threading(lambda: print)
     # Do not index targets while the users intend to dry-run tests.
-    if need_run_index_targets(args, extra_args):
-        proc_idx = atest_utils.start_threading(indexing.index_targets)
+    if need_run_index_targets(args):
+        proc_idx = atest_utils.start_threading(
+            indexing.index_targets,
+            daemon=True,
+        )
     smart_rebuild = need_rebuild_module_info(args)
 
     mod_info = module_info.load(
@@ -1061,7 +985,7 @@ def main(
     # (b/242567487) index_targets may finish after cli_translator; to
     # mitigate the overhead, the main waits until it finished when no index
     # files are available (e.g. fresh repo sync)
-    if proc_idx.is_alive():
+    if proc_idx.is_alive() and not indexing.Indices().has_all_indices():
         proc_idx.join()
     find_start = time.time()
     test_infos = translator.translate(args)
@@ -1069,43 +993,13 @@ def main(
     # Only check device sufficiency if not dry run or verification mode.
     args.device_count_config = get_device_count_config(test_infos, mod_info)
     if not (any(dry_run_args) or verify_env_variables):
-        if not has_sufficient_devices(args.device_count_config, args.serial):
+        if not has_set_sufficient_devices(
+            args.device_count_config, args.serial):
             return ExitCode.INSUFFICIENT_DEVICES
 
     find_duration = time.time() - find_start
     if not test_infos:
         return ExitCode.TEST_NOT_FOUND
-
-    # Reuse ATest's finders to resolve the input test identifiers and get
-    # the test module names. If all test modules are supported by Roboleaf
-    # mode, we'll delegate to Roboleaf mode.
-    # TODO(b/296940736): Use TestInfo.raw_test_name after supporting
-    #  Mainline modules.
-    test_names = [t.test_name for t in test_infos]
-    # Avoid checking twice.
-    if set(test_names) != set(args.tests):
-        test_name_to_filters = collections.defaultdict(set)
-        for t in test_infos:
-            filters = test_name_to_filters[t.test_name]
-            filters |= t.data.get(constants.TI_FILTER, set())
-
-        b_supported_tests = roboleaf_test_runner.are_all_tests_supported(
-            args.roboleaf_mode,
-            test_names,
-            roboleaf_unsupported_flags,
-            {t: AtestTradefedTestRunner.flatten_test_filters(
-                test_name_to_filters.get(t)) for t in test_name_to_filters}
-        )
-        if b_supported_tests:
-            atest_utils.roboleaf_print(
-                f'{atest_utils.mark_yellow("TIP")}: Directly '
-                "specify the module name to avoid test finder overhead.")
-            metrics.LocalDetectEvent(
-                detect_type=DetectType.ROBOLEAF_NON_MODULE_FINDER,
-                result=DetectType.ROBOLEAF_NON_MODULE_FINDER,
-            )
-            # Use Bazel for both building and testing and return early.
-            return _b_test(b_supported_tests, extra_args, results_dir)
 
     if not is_from_test_mapping(test_infos):
         if not (any(dry_run_args) or verify_env_variables):
@@ -1254,8 +1148,7 @@ if __name__ == '__main__':
     else:
         metrics.LocalDetectEvent(
             detect_type=DetectType.ATEST_CONFIG, result=0)
-    (atest_configs.GLOBAL_ARGS,
-     roboleaf_unsupported_flags) = _parse_args(final_args)
+    atest_configs.GLOBAL_ARGS = _parse_args(final_args)
     with atest_execution_info.AtestExecutionInfo(
             final_args, RESULTS_DIR,
             atest_configs.GLOBAL_ARGS) as result_file:
@@ -1265,7 +1158,6 @@ if __name__ == '__main__':
             final_args,
             RESULTS_DIR,
             atest_configs.GLOBAL_ARGS,
-            roboleaf_unsupported_flags
         )
         DETECTOR = bug_detector.BugDetector(final_args, EXIT_CODE)
         if EXIT_CODE not in EXIT_CODES_BEFORE_TEST:
@@ -1274,6 +1166,8 @@ if __name__ == '__main__':
                 result=DETECTOR.caught_result)
             if result_file:
                 print("Run 'atest --history' to review test result history.")
-    if os.path.isfile(BANNER):
-        os.system(BANNER)
+    banner = os.environ.get('ANDROID_BUILD_BANNER', None)
+    skip_banner = os.environ.get('ANDROID_SKIP_BANNER', None)
+    if banner and not skip_banner:
+        print(banner)
     sys.exit(EXIT_CODE)

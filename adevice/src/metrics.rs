@@ -9,11 +9,11 @@ use adevice_proto::user_log::AdeviceLogEvent;
 use adevice_proto::user_log::Duration;
 
 use anyhow::{anyhow, Result};
-use log::debug;
 use std::env;
 use std::fs;
 use std::process::Command;
 use std::time::UNIX_EPOCH;
+use tracing::debug;
 
 const ENV_OUT: &str = "OUT";
 const ENV_USER: &str = "USER";
@@ -76,8 +76,25 @@ impl MetricSender for Metrics {
         self.add_action_event("ninja_deps_computer", profiler.ninja_deps_computer);
         self.add_action_event("adb_cmds", profiler.adb_cmds);
         self.add_action_event("reboot", profiler.reboot);
-        self.add_action_event("restart_after_boot", profiler.restart_after_boot);
+        self.add_action_event("wait_for_device", profiler.wait_for_device);
+        self.add_action_event("wait_for_boot_completed", profiler.wait_for_boot_completed);
+        self.add_action_event("first_remount_rw", profiler.first_remount_rw);
         self.add_action_event("total", profiler.total);
+        // Compute the time we aren't capturing in a category.
+        // We could graph total, but sometimes it is easier to just graph this
+        // to see if we are missing significant chunks.
+        self.add_action_event(
+            "other",
+            profiler.total
+                - profiler.device_fingerprint
+                - profiler.host_fingerprint
+                - profiler.ninja_deps_computer
+                - profiler.adb_cmds
+                - profiler.reboot
+                - profiler.wait_for_device
+                - profiler.wait_for_boot_completed
+                - profiler.first_remount_rw,
+        );
     }
 }
 
@@ -150,7 +167,7 @@ mod tests {
         let mut metrics = Metrics::default();
         metrics.user = "test_user".to_string();
         metrics.add_start_event("adevice status");
-        metrics.add_start_event("adevice status --verbose debug");
+        metrics.add_start_event("adevice track SomeModule");
 
         assert_eq!(metrics.events.len(), 2);
         metrics.send();

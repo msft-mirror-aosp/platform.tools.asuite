@@ -71,13 +71,13 @@ class AtestUnittests(unittest.TestCase):
 
         # Test out test and custom args are properly retrieved.
         args = [test_one, test_two, '--', custom_arg, custom_arg_val]
-        parsed_args, _ = atest_main._parse_args(args)
+        parsed_args = atest_main._parse_args(args)
         self.assertEqual(parsed_args.tests, [test_one, test_two])
         self.assertEqual(parsed_args.custom_args, [custom_arg, custom_arg_val])
 
         # Test out custom positional args with no test args.
         args = ['--', pos_custom_arg, custom_arg_val]
-        parsed_args, _ = atest_main._parse_args(args)
+        parsed_args = atest_main._parse_args(args)
         self.assertEqual(parsed_args.tests, [])
         self.assertEqual(parsed_args.custom_args, [pos_custom_arg,
                                                    custom_arg_val])
@@ -99,7 +99,7 @@ class AtestUnittests(unittest.TestCase):
                 args = [tm_option, no_tm_option]
                 if no_tm_option_value is not None:
                     args.append(no_tm_option_value)
-                parsed_args, _ = atest_main._parse_args(args)
+                parsed_args = atest_main._parse_args(args)
                 self.assertFalse(
                     atest_main._has_valid_test_mapping_args(parsed_args),
                     'Failed to validate: %s' % args)
@@ -124,45 +124,45 @@ class AtestUnittests(unittest.TestCase):
             install_locations=set(['host', 'device']))
 
         # $atest <Both-support>
-        parsed_args, _ = atest_main._parse_args(args)
+        parsed_args = atest_main._parse_args(args)
         test_infos = [host_test_info]
         atest_main._validate_exec_mode(parsed_args, test_infos)
         self.assertFalse(parsed_args.host)
 
         # $atest <Both-support> with host_tests set to True
-        parsed_args, _ = atest_main._parse_args([])
+        parsed_args = atest_main._parse_args([])
         test_infos = [host_test_info]
         atest_main._validate_exec_mode(parsed_args, test_infos, host_tests=True)
         # Make sure the host option is not set.
         self.assertFalse(parsed_args.host)
 
         # $atest <Both-support> with host_tests set to False
-        parsed_args, _ = atest_main._parse_args([])
+        parsed_args = atest_main._parse_args([])
         test_infos = [host_test_info]
         atest_main._validate_exec_mode(parsed_args, test_infos, host_tests=False)
         self.assertFalse(parsed_args.host)
 
         # $atest <device-only> with host_tests set to False
-        parsed_args, _ = atest_main._parse_args([])
+        parsed_args = atest_main._parse_args([])
         test_infos = [device_test_info]
         atest_main._validate_exec_mode(parsed_args, test_infos, host_tests=False)
         # Make sure the host option is not set.
         self.assertFalse(parsed_args.host)
 
         # $atest <device-only> with host_tests set to True
-        parsed_args, _ = atest_main._parse_args([])
+        parsed_args = atest_main._parse_args([])
         test_infos = [device_test_info]
         self.assertRaises(SystemExit, atest_main._validate_exec_mode,
                           parsed_args, test_infos, host_tests=True)
 
         # $atest <Both-support>
-        parsed_args, _ = atest_main._parse_args([])
+        parsed_args = atest_main._parse_args([])
         test_infos = [both_test_info]
         atest_main._validate_exec_mode(parsed_args, test_infos)
         self.assertFalse(parsed_args.host)
 
         # $atest <no_install_test_info>
-        parsed_args, _ = atest_main._parse_args([])
+        parsed_args = atest_main._parse_args([])
         test_infos = [no_install_test_info]
         atest_main._validate_exec_mode(parsed_args, test_infos)
         self.assertFalse(parsed_args.host)
@@ -180,27 +180,32 @@ class AtestUnittests(unittest.TestCase):
         reload(constants)
         self.assertTrue(date_time)
 
-    def test_has_sufficient_devices_no_device_no_require(self):
+    def test_has_set_sufficient_devices_no_device_no_require(self):
         required_num = 0
-        self.assertTrue(atest_main.has_sufficient_devices(required_num))
+        self.assertTrue(atest_main.has_set_sufficient_devices(required_num))
 
-    def test_has_sufficient_devices_equal_required_attached_devices(self):
+    def test_has_set_sufficient_devices_equal_required_attached_devices(
+        self):
         required_num = 2
         attached_devices = ['serial1', 'serial2']
 
-        self.assertTrue(atest_main.has_sufficient_devices(required_num, attached_devices))
+        self.assertTrue(atest_main.has_set_sufficient_devices(
+            required_num, attached_devices))
 
-    def test_has_sufficient_devices_attached_devices_more_than_required(self):
+    def test_has_set_sufficient_devices_attached_devices_more_than_required(
+        self):
         required_num = 2
         attached_devices = ['serial1', 'serial2', 'serial3']
 
-        self.assertTrue(atest_main.has_sufficient_devices(required_num, attached_devices))
+        self.assertTrue(atest_main.has_set_sufficient_devices(
+            required_num, attached_devices))
 
-    def test_has_sufficient_devices_not_enough_devices(self):
+    def test_has_set_sufficient_devices_not_enough_devices(self):
         required_num = 2
         attached_devices = ['serial1']
 
-        self.assertFalse(atest_main.has_sufficient_devices(required_num, attached_devices))
+        self.assertFalse(atest_main.has_set_sufficient_devices(
+            required_num, attached_devices))
 
 # pylint: disable=missing-function-docstring
 class AtestUnittestFixture(fake_filesystem_unittest.TestCase):
