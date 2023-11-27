@@ -5,6 +5,9 @@ common --experimental_disable_external_package
 # Show the full set of flags for observability and debuggability.
 common --announce_rc
 
+# Do not enable BzlMod as the migration to bzlmod has not been done yet
+common --noenable_bzlmod
+
 # Enforce consistent action environment variables to improve remote cache hit
 # rate.
 build --incompatible_strict_action_env
