@@ -280,6 +280,7 @@ pub fn adevice(
         "Finished in {} secs, [Logfile at $ANDROID_BUILD_TOP/out/adevice.log]",
         profiler.total.as_secs()
     );
+    metrics.display_survey();
     info!("TIMING: {}", profiler.to_string());
     Ok(())
 }
