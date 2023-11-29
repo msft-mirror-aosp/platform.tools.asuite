@@ -905,7 +905,9 @@ class AtestTradefedTestRunner(trb.TestRunnerBase):
         if not test_infos:
             return []
 
-        test_infos = self._flatten_test_infos(test_infos)
+        if atest_configs.GLOBAL_ARGS.group_test:
+            test_infos = self._flatten_test_infos(test_infos)
+
         has_integration_test = False
 
         # Because current --include-filter arg will not working if ATest pass
