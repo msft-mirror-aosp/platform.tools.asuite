@@ -30,6 +30,7 @@ from __future__ import print_function
 
 import argparse
 import collections
+import itertools
 import logging
 import os
 import sys
@@ -53,6 +54,7 @@ from atest import bug_detector
 from atest import cli_translator
 from atest import constants
 from atest import module_info
+from atest import result_reporter
 from atest import test_runner_handler
 
 from atest.atest_enum import DetectType, ExitCode
@@ -410,20 +412,22 @@ def _validate_adb_devices(args, test_infos):
             sys.exit(ExitCode.DEVICE_NOT_FOUND)
 
 
-def _validate_tm_tests_exec_mode(args, test_infos):
+def _validate_tm_tests_exec_mode(
+    args: argparse.Namespace,
+    device_test_infos: List[test_info.TestInfo],
+    host_test_infos: List[test_info.TestInfo]):
     """Validate all test execution modes are not in conflict.
 
-    Split the tests in Test Mapping files into two groups, device tests and
-    deviceless tests running on host. Validate the tests' host setting.
-    For device tests, exit the program if any test is found for host-only.
-    For deviceless tests, exit the program if any test is found for device-only.
+    Validate the tests' platform variant setting. For device tests, exit the
+    program if any test is found for host-only. For host tests, exit the
+    program if any test is found for device-only.
 
     Args:
         args: parsed args object.
-        test_info: TestInfo object.
+        device_test_infos: TestInfo instances for device tests.
+        host_test_infos: TestInfo instances for host tests.
     """
-    device_test_infos, host_test_infos = _split_test_mapping_tests(
-        test_infos)
+
     # No need to verify device tests if atest command is set to only run host
     # tests.
     if device_test_infos and not args.host:
@@ -558,46 +562,39 @@ def _split_test_mapping_tests(test_infos):
 
 
 # pylint: disable=too-many-locals
-def _run_test_mapping_tests(results_dir, test_infos, extra_args, mod_info):
+def _run_test_mapping_tests(
+    test_type_to_invocations: Dict[
+        str, List[test_runner_handler.TestRunnerInvocation]],
+    extra_args: Dict[str, Any]) -> ExitCode:
     """Run all tests in TEST_MAPPING files.
 
     Args:
-        results_dir: String directory to store atest results.
-        test_infos: A set of TestInfos.
-        extra_args: Dict of extra args to add to test run.
-        mod_info: ModuleInfo object.
+        test_type_to_invocations: A dict mapping test runner invocations to
+            test types.
+        extra_args: A dict of extra args for others to utilize.
 
     Returns:
         Exit code.
     """
-    device_test_infos, host_test_infos = _split_test_mapping_tests(test_infos)
-    # `host` option needs to be set to True to run host side tests.
-    host_extra_args = extra_args.copy()
-    host_extra_args[constants.HOST] = True
-    test_runs = [(host_test_infos, host_extra_args, HOST_TESTS)]
-    if extra_args.get(constants.HOST):
-        atest_utils.colorful_print(
-            'Option `--host` specified. Skip running device tests.',
-            constants.MAGENTA)
-    elif extra_args.get(constants.DEVICE_ONLY):
-        test_runs = [(device_test_infos, extra_args, DEVICE_TESTS)]
-        atest_utils.colorful_print(
-            'Option `--device-only` specified. Skip running deviceless tests.',
-            constants.MAGENTA)
-    else:
-        test_runs.append((device_test_infos, extra_args, DEVICE_TESTS))
 
     test_results = []
-    for tests, args, test_type in test_runs:
+    for test_type, invocations in test_type_to_invocations.items():
+        tests = list(itertools.chain.from_iterable(
+            i.test_infos for i in invocations))
         if not tests:
             continue
         header = RUN_HEADER_FMT % {TEST_COUNT: len(tests), TEST_TYPE: test_type}
         atest_utils.colorful_print(header, constants.MAGENTA)
         logging.debug('\n'.join([str(info) for info in tests]))
-        tests_exit_code, reporter = test_runner_handler.run_all_tests(
-            results_dir, tests, args, mod_info, delay_print_summary=True)
-        (atest_execution_info.AtestExecutionInfo.
-         result_reporters.append(reporter))
+
+        reporter = result_reporter.ResultReporter(
+            collect_only = extra_args.get(constants.COLLECT_TESTS_ONLY))
+        reporter.print_starting_text()
+
+        tests_exit_code = ExitCode.SUCCESS
+        for invocation in invocations:
+            tests_exit_code |= invocation.run_all_tests(reporter)
+
         test_results.append((tests_exit_code, reporter, test_type))
 
     all_tests_exit_code = ExitCode.SUCCESS
@@ -1008,7 +1005,7 @@ def main(
         results_dir = results_dir,
         mod_info = mod_info,
         args = args,
-        dry_run=any(dry_run_args))
+        dry_run = any(dry_run_args))
 
     extra_args = test_execution_plan.extra_args
 
@@ -1142,7 +1139,7 @@ def _create_test_execution_plan(
         results_dir = results_dir,
         mod_info = mod_info,
         args = args,
-        dry_run=dry_run)
+        dry_run = dry_run)
 
 
 class TestExecutionPlan(ABC):
@@ -1151,12 +1148,8 @@ class TestExecutionPlan(ABC):
     def __init__(
         self,
         *,
-        test_infos: List[test_info.TestInfo],
-        mod_info: module_info.ModuleInfo,
         extra_args: Dict[str, Any],
     ):
-        self._test_infos = test_infos
-        self._mod_info = mod_info
         self._extra_args = extra_args
 
     @property
@@ -1167,10 +1160,9 @@ class TestExecutionPlan(ABC):
     def execute(self) -> ExitCode:
         """Executes all test runner invocations in this plan."""
 
+    @abstractmethod
     def required_build_targets(self) -> Set[str]:
         """Returns the list of build targets required by this plan."""
-        return test_runner_handler.get_test_runner_reqs(
-            self._mod_info, self._test_infos, extra_args=self._extra_args)
 
 
 class TestMappingExecutionPlan(TestExecutionPlan):
@@ -1179,15 +1171,12 @@ class TestMappingExecutionPlan(TestExecutionPlan):
     def __init__(
         self,
         *,
-        test_infos: List[test_info.TestInfo],
-        results_dir: str,
-        mod_info: module_info.ModuleInfo,
+        test_type_to_invocations: Dict[
+            str, List[test_runner_handler.TestRunnerInvocation]],
         extra_args: Dict[str, Any],
     ):
-        super().__init__(
-            test_infos=test_infos, mod_info=mod_info, extra_args=extra_args)
-
-        self._results_dir = results_dir
+        super().__init__(extra_args=extra_args)
+        self._test_type_to_invocations = test_type_to_invocations
 
     @staticmethod
     def create(
@@ -1208,7 +1197,9 @@ class TestMappingExecutionPlan(TestExecutionPlan):
             An instance of TestMappingExecutionPlan.
         """
 
-        _validate_tm_tests_exec_mode(args, test_infos)
+        device_test_infos, host_test_infos = _split_test_mapping_tests(
+            test_infos)
+        _validate_tm_tests_exec_mode(args, device_test_infos, host_test_infos)
         extra_args = get_extra_args(args)
 
         # TODO: change to another approach that put constants.CUSTOM_ARGS in the
@@ -1226,15 +1217,48 @@ class TestMappingExecutionPlan(TestExecutionPlan):
                 'Set test timeout to %sms to align it in TEST_MAPPING.',
                 extra_args.get(constants.TEST_TIMEOUT))
 
+        def create_invocations(runner_extra_args, runner_test_infos):
+            return test_runner_handler.create_test_runner_invocations(
+                test_infos = runner_test_infos,
+                results_dir = results_dir,
+                mod_info = mod_info,
+                extra_args = runner_extra_args)
+
+        test_type_to_invocations = collections.OrderedDict()
+        if extra_args.get(constants.DEVICE_ONLY):
+            atest_utils.colorful_print(
+                'Option `--device-only` specified. Skip running deviceless tests.',
+                constants.MAGENTA)
+        else:
+            # `host` option needs to be set to True to run host side tests.
+            host_extra_args = extra_args.copy()
+            host_extra_args[constants.HOST] = True
+            test_type_to_invocations.setdefault(HOST_TESTS, []).extend(
+                create_invocations(host_extra_args, host_test_infos))
+
+        if extra_args.get(constants.HOST):
+            atest_utils.colorful_print(
+                'Option `--host` specified. Skip running device tests.',
+                constants.MAGENTA)
+        else:
+            test_type_to_invocations.setdefault(DEVICE_TESTS, []).extend(
+                create_invocations(extra_args, device_test_infos))
+
         return TestMappingExecutionPlan(
-            test_infos = test_infos,
-            results_dir = results_dir,
-            mod_info = mod_info,
+            test_type_to_invocations = test_type_to_invocations,
             extra_args = extra_args)
+
+    def required_build_targets(self) -> Set[str]:
+        build_targets = set()
+        for invocation in itertools.chain.from_iterable(
+            self._test_type_to_invocations.values()):
+            build_targets |= invocation.get_test_runner_reqs()
+
+        return build_targets
 
     def execute(self) -> ExitCode:
         return _run_test_mapping_tests(
-            self._results_dir, self._test_infos, self._extra_args, self._mod_info)
+            self._test_type_to_invocations, self.extra_args)
 
 
 class TestModuleExecutionPlan(TestExecutionPlan):
@@ -1243,15 +1267,11 @@ class TestModuleExecutionPlan(TestExecutionPlan):
     def __init__(
         self,
         *,
-        test_infos: List[test_info.TestInfo],
-        results_dir: str,
-        mod_info: module_info.ModuleInfo,
+        test_runner_invocations: List[test_runner_handler.TestRunnerInvocation],
         extra_args: Dict[str, Any],
     ):
-        super().__init__(
-            test_infos=test_infos, mod_info=mod_info, extra_args=extra_args)
-
-        self._results_dir = results_dir
+        super().__init__(extra_args=extra_args)
+        self._test_runner_invocations = test_runner_invocations
 
     @staticmethod
     def create(
@@ -1281,17 +1301,33 @@ class TestModuleExecutionPlan(TestExecutionPlan):
         # host-side tests, so re-parsing extra_args is a must.
         extra_args = get_extra_args(args)
 
-        return TestModuleExecutionPlan(
+        invocations = test_runner_handler.create_test_runner_invocations(
             test_infos = test_infos,
             results_dir = results_dir,
             mod_info = mod_info,
             extra_args = extra_args)
 
+        return TestModuleExecutionPlan(
+            test_runner_invocations = invocations, extra_args = extra_args)
+
+    def required_build_targets(self) -> Set[str]:
+        build_targets = set()
+        for test_runner_invocation in self._test_runner_invocations:
+            build_targets |= test_runner_invocation.get_test_runner_reqs()
+
+        return build_targets
+
     def execute(self) -> ExitCode:
-        tests_exit_code, reporter = test_runner_handler.run_all_tests(
-            self._results_dir, self._test_infos, self._extra_args, self._mod_info)
-        atest_execution_info.AtestExecutionInfo.result_reporters.append(reporter)
-        return tests_exit_code
+
+        reporter = result_reporter.ResultReporter(
+            collect_only = self.extra_args.get(constants.COLLECT_TESTS_ONLY))
+        reporter.print_starting_text()
+
+        exit_code = ExitCode.SUCCESS
+        for invocation in self._test_runner_invocations:
+            exit_code |= invocation.run_all_tests(reporter)
+
+        return reporter.print_summary() | exit_code
 
 
 if __name__ == '__main__':
