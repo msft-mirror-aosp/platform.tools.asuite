@@ -162,4 +162,6 @@ impl MetricSender for FakeMetricSender {
     fn add_action_event(&mut self, _action: &str, _duration: std::time::Duration) {}
 
     fn add_profiler_events(&mut self, _profiler: &adevice::adevice::Profiler) {}
+
+    fn display_survey(&mut self) {}
 }
