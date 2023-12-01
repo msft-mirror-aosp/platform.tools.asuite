@@ -134,8 +134,8 @@ class AtestTradefedTestRunner(trb.TestRunnerBase):
     def __init__(
         self,
         results_dir: str,
+        extra_args: Dict[str, Any],
         mod_info: module_info.ModuleInfo=None,
-        host: bool=None,
         minimal_build: bool=None,
         **kwargs):
         """Init stuff for base class."""
@@ -165,8 +165,7 @@ class AtestTradefedTestRunner(trb.TestRunnerBase):
             if handler.name == 'console' and handler.level == logging.DEBUG:
                 self.is_verbose = True
         self.root_dir = os.environ.get(constants.ANDROID_BUILD_TOP)
-        self._is_host_enabled = (
-            lambda: atest_configs.GLOBAL_ARGS.host) if host is None else lambda: host
+        self._is_host_enabled = extra_args.get(constants.HOST, False)
         self._minimal_build = (
             (lambda: atest_configs.GLOBAL_ARGS.minimal_build is True)
             if minimal_build is None else lambda: minimal_build)
@@ -610,7 +609,7 @@ class AtestTradefedTestRunner(trb.TestRunnerBase):
                 f'Could not find module information for {t_info.raw_test_name}')
 
         if self.module_info.is_device_driven_test(info) and (
-            not self._is_host_enabled() or not self.module_info.is_host_driven_test(info)):
+            not self._is_host_enabled or not self.module_info.is_host_driven_test(info)):
             return DeviceTest(info, Variant.DEVICE, t_info.mainline_modules)
 
         if self.module_info.is_modern_robolectric_test(info):
