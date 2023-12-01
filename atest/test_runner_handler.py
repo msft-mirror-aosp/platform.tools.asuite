@@ -159,7 +159,7 @@ def run_all_tests(results_dir, test_infos, extra_args, mod_info,
             is_success = False
         run_time = metrics_utils.convert_duration(time.time() - test_start)
         tests = []
-        for test in reporter.all_test_results:
+        for test in reporter.get_test_results_by_runner(test_runner.NAME):
             # group_name is module name with abi(for example,
             # 'x86_64 CtsSampleDeviceTestCases').
             # Filtering abi in group_name.
