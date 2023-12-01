@@ -18,6 +18,7 @@ use tracing::debug;
 const ENV_OUT: &str = "OUT";
 const ENV_USER: &str = "USER";
 const ENV_TARGET: &str = "TARGET_PRODUCT";
+const ENV_SURVEY_BANNER: &str = "ADEVICE_SURVEY_BANNER";
 const METRICS_UPLOADER: &str = "/google/bin/releases/adevice-dev/metrics_uploader";
 const ADEVICE_LOG_SOURCE: i32 = 2265;
 
@@ -25,6 +26,7 @@ pub trait MetricSender {
     fn add_start_event(&mut self, command_line: &str);
     fn add_action_event(&mut self, action: &str, duration: std::time::Duration);
     fn add_profiler_events(&mut self, profiler: &Profiler);
+    fn display_survey(&mut self);
 }
 
 #[derive(Debug, Clone)]
@@ -95,6 +97,13 @@ impl MetricSender for Metrics {
                 - profiler.wait_for_boot_completed
                 - profiler.first_remount_rw,
         );
+    }
+
+    fn display_survey(&mut self) {
+        let survey = env::var(ENV_SURVEY_BANNER).unwrap_or("".to_string());
+        if !survey.is_empty() {
+            println!("{}", survey);
+        }
     }
 }
 
