@@ -37,7 +37,7 @@ class SuitePlanTestRunnerUnittests(unittest.TestCase):
 
     def setUp(self):
         self.suite_tr = suite_plan_test_runner.SuitePlanTestRunner(
-            results_dir=uc.TEST_INFO_DIR)
+            results_dir=uc.TEST_INFO_DIR, extra_args={})
 
     def tearDown(self):
         mock.patch.stopall()
