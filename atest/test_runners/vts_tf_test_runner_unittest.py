@@ -31,7 +31,7 @@ class VtsTradefedTestRunnerUnittests(unittest.TestCase):
 
     def setUp(self):
         self.vts_tr = vts_tf_test_runner.VtsTradefedTestRunner(
-            results_dir=uc.TEST_INFO_DIR)
+            results_dir=uc.TEST_INFO_DIR, extra_args={})
 
     def tearDown(self):
         mock.patch.stopall()
