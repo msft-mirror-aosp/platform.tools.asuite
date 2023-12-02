@@ -288,6 +288,10 @@ class ResultReporter:
         self.test_result_link = None
         self.device_count = 0
 
+    def get_test_results_by_runner(self, runner_name):
+        return [
+            t for t in self.all_test_results if t.runner_name == runner_name]
+
     def process_test_result(self, test):
         """Given the results of a single test, update stats and print results.
 
