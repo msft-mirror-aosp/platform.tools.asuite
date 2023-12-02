@@ -1221,7 +1221,8 @@ class TestMappingExecutionPlan(TestExecutionPlan):
                 test_infos = runner_test_infos,
                 results_dir = results_dir,
                 mod_info = mod_info,
-                extra_args = runner_extra_args)
+                extra_args = runner_extra_args,
+                minimal_build = args.minimal_build)
 
         test_type_to_invocations = collections.OrderedDict()
         if extra_args.get(constants.DEVICE_ONLY):
@@ -1304,7 +1305,8 @@ class TestModuleExecutionPlan(TestExecutionPlan):
             test_infos = test_infos,
             results_dir = results_dir,
             mod_info = mod_info,
-            extra_args = extra_args)
+            extra_args = extra_args,
+            minimal_build = args.minimal_build)
 
         return TestModuleExecutionPlan(
             test_runner_invocations = invocations, extra_args = extra_args)
