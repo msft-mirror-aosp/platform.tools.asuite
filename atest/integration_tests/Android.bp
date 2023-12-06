@@ -54,6 +54,15 @@ python_test_host {
     },
 }
 
+java_library_host {
+    name: "atest_integration_test_harness",
+    srcs: [
+        "src/main/java/**/*.java",
+    ],
+    libs: [
+        "tradefed",
+    ],
+}
 
 python_library_host {
     name: "atest_integration_test_utils",
@@ -74,5 +83,8 @@ python_test_host {
     },
     libs: [
         "atest_integration_test_utils",
+    ],
+    java_data: [
+        "atest_integration_test_harness",
     ],
 }
