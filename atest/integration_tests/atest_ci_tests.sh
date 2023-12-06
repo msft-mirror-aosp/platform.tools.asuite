@@ -16,7 +16,7 @@
 
 # A script to test the end-to-end flow of Atest on the Android CI.
 
-set -euo pipefail
+set -eo pipefail
 set -x
 
 function get_build_var()
@@ -34,24 +34,29 @@ if [ ! -n "${TARGET_PRODUCT}" ] || [ ! -n "${TARGET_BUILD_VARIANT}" ] ; then
     TARGET_BUILD_VARIANT=userdebug
 fi
 
-out=$(get_build_var PRODUCT_OUT)
+if [ ! -n "${TARGET_RELEASE}" ] ; then
+  export TARGET_RELEASE="trunk_staging"
+fi
+
+product_out=$(get_build_var PRODUCT_OUT)
+out_dir=$(get_build_var OUT_DIR)
 
 # ANDROID_BUILD_TOP is deprecated, so don't use it throughout the script.
 # But if someone sets it, we'll respect it.
 cd ${ANDROID_BUILD_TOP:-.}
 
-# Use the versioned Python binaries in prebuilts/ for a reproducible
-# build with minimal reliance on host tools. Add build/bazel/bin to PATH since
-# atest needs 'b'
-export PATH=${PWD}/prebuilts/build-tools/path/linux-x86:${PWD}/build/bazel/bin:${PATH}
-
 export \
-  ANDROID_PRODUCT_OUT=${out} \
-  OUT=${out} \
+  ANDROID_PRODUCT_OUT=${product_out} \
+  OUT=${product_out} \
   ANDROID_HOST_OUT=$(get_build_var HOST_OUT) \
   ANDROID_TARGET_OUT_TESTCASES=$(get_build_var TARGET_OUT_TESTCASES) \
   REMOTE_AVD=true \
 
 build/soong/soong_ui.bash --make-mode atest --skip-soong-tests
+
+# Use the versioned Python binaries in prebuilts/ for a reproducible
+# build with minimal reliance on host tools. Add build/bazel/bin to PATH since
+# atest needs 'b'
+export PATH=${PWD}/prebuilts/build-tools/path/linux-x86:${PWD}/build/bazel/bin:${out_dir}/host/linux-x86/bin/:${PATH}
 
 python3 tools/asuite/atest/integration_tests/atest_ci_tests.py $@

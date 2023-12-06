@@ -14,10 +14,8 @@
      limitations under the License.
 -->
 <configuration>
-    <test class="com.android.tradefed.testtype.python.PythonBinaryHostTest" >
+    <test class="com.android.atest.AtestIntegrationPythonBinaryHostTest" >
       <option name="par-file-name" value="{MODULE}"/>
-      <option name="inject-serial-option" value="true"/>
-      <option name="use-test-output-file" value="true"/>
       <option name="test-timeout" value="360m" />
     </test>
 </configuration>
