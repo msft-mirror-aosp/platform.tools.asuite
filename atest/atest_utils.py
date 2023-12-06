@@ -67,7 +67,7 @@ MAINLINE_MODULES_EXT_RE = re.compile(r'\.(apex|apks|apk)$')
 TEST_WITH_MAINLINE_MODULES_RE = re.compile(r'(?P<test>.*)\[(?P<mainline_modules>.*'
                                            r'[.](apk|apks|apex))\]$')
 
-# Arbitrary number to limit stdout for failed runs in _run_limited_output.
+# Arbitrary number to limit stdout for failed runs in run_limited_output.
 # Reason for its use is that the make command itself has its own carriage
 # return output mechanism that when collected line by line causes the streaming
 # full_output list to be extremely large.
@@ -263,7 +263,7 @@ def _capture_limited_output(full_log):
 
 
 # TODO: b/187122993 refine subprocess with 'with-statement' in fixit week.
-def _run_limited_output(cmd, env_vars=None):
+def run_limited_output(cmd, env_vars=None):
     """Runs a given command and streams the output on a single line in stdout.
 
     Args:
@@ -384,7 +384,7 @@ def _run_build_cmd_with_limited_output(
             exitcode.
     """
     try:
-        _run_limited_output(cmd, env_vars=env_vars)
+        run_limited_output(cmd, env_vars=env_vars)
     except subprocess.CalledProcessError as e:
         # get error log from "OUT_DIR/error.log"
         error_log_file = get_build_out_dir('error.log')
