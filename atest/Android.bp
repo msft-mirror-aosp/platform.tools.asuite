@@ -114,7 +114,6 @@ python_library_host {
     pkg_path: "atest",
     srcs: [
         "atest_enum.py",
-        "asuite_metrics.py",
         "metrics/*.py",
         "coverage/*.py",
     ],
