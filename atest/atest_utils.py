@@ -303,16 +303,8 @@ def _run_limited_output(cmd, env_vars=None):
         # returncode.
         proc.wait()
         if proc.returncode != 0:
-            # get error log from "OUT_DIR/error.log"
-            error_log_file = get_build_out_dir('error.log')
-            output = []
-            if error_log_file.is_file():
-                if error_log_file.stat().st_size > 0:
-                    with open(error_log_file, encoding='utf-8') as f:
-                        output = f.read()
-            if not output:
-                output = _capture_limited_output(full_output)
-            raise subprocess.CalledProcessError(proc.returncode, cmd, output)
+            raise subprocess.CalledProcessError(
+                proc.returncode, cmd, full_output)
 
 
 def get_build_out_dir(*joinpaths) -> Path:
@@ -379,6 +371,33 @@ def build(build_targets: Set[str]):
     return _run_build_cmd(cmd, _BUILD_ENV)
 
 
+def _run_build_cmd_with_limited_output(
+    cmd: List[str], env_vars: Dict[str, str]=None) -> None:
+    """Runs the build command and streams the output on a single line in stdout.
+
+    Args:
+        cmd: A list of strings representing the command to run.
+        env_vars: Optional arg. Dict of env vars to set during build.
+
+    Raises:
+        subprocess.CalledProcessError: When the command exits with a non-0
+            exitcode.
+    """
+    try:
+        _run_limited_output(cmd, env_vars=env_vars)
+    except subprocess.CalledProcessError as e:
+        # get error log from "OUT_DIR/error.log"
+        error_log_file = get_build_out_dir('error.log')
+        output = []
+        if error_log_file.is_file():
+            if error_log_file.stat().st_size > 0:
+                with open(error_log_file, encoding='utf-8') as f:
+                    output = f.read()
+        if not output:
+            output = _capture_limited_output(e.output)
+        raise subprocess.CalledProcessError(e.returncode, e.cmd, output)
+
+
 def _run_build_cmd(cmd: List[str], env_vars: Dict[str, str]):
     """The main process of building targets.
 
@@ -405,7 +424,7 @@ def _run_build_cmd(cmd: List[str], env_vars: Dict[str, str]):
                   'mode; check {} for detail after build finishes.)'.format(
                     mark_cyan(f'{log_path}')
                   ), end='')
-            _run_limited_output(cmd, env_vars=env_vars)
+            _run_build_cmd_with_limited_output(cmd, env_vars=env_vars)
         _send_build_condition_metrics(build_profiler, cmd)
         logging.info('Build successful')
         return True
