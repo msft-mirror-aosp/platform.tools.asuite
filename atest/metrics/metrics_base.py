@@ -25,7 +25,6 @@ import subprocess
 import time
 import uuid
 
-from atest import asuite_metrics
 from atest import constants
 
 from atest.proto import clientanalytics_pb2
@@ -92,6 +91,15 @@ def get_user_type():
                       'hostname is not found.')
     return EXTERNAL_USER
 
+def get_user_key():
+    """Get user key
+
+    Returns:
+        A UUID.uuid5 keyed on the user's email
+    """
+    key = uuid.uuid5(uuid.NAMESPACE_DNS, get_user_email())
+    return key
+
 
 class MetricsBase:
     """Class for separating allowed fields and sending metric."""
@@ -99,10 +107,10 @@ class MetricsBase:
     _run_id = str(uuid.uuid4())
     try:
         #pylint: disable=protected-access
-        _user_key = str(asuite_metrics._get_grouping_key())
+        _user_key = str(get_user_key())
     #pylint: disable=broad-except
     except Exception:
-        _user_key = asuite_metrics.UNUSED_UUID
+        _user_key = str(uuid.UUID(int=0))
     user_type = get_user_type()
     _log_source = ATEST_LOG_SOURCE[user_type]
     cc = clearcut_client.Clearcut(_log_source)
