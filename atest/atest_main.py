@@ -721,18 +721,17 @@ def _dry_run_validator(
         print("add command %s to file %s" % (
             atest_utils.mark_green(test_commands),
             atest_utils.mark_green(constants.RUNNER_COMMAND_PATH)))
-    else:
-        test_commands = atest_utils.get_verify_key(args.tests, extra_args)
+    test_name = atest_utils.get_verify_key(args.tests, extra_args)
     if args.verify_cmd_mapping:
         try:
-            atest_utils.handle_test_runner_cmd(test_commands,
+            atest_utils.handle_test_runner_cmd(test_name,
                                                dry_run_cmds,
                                                do_verification=True)
         except atest_error.DryRunVerificationError as e:
             atest_utils.colorful_print(str(e), constants.RED)
             return ExitCode.VERIFY_FAILURE
     if args.update_cmd_mapping:
-        atest_utils.handle_test_runner_cmd(test_commands,
+        atest_utils.handle_test_runner_cmd(test_name,
                                            dry_run_cmds)
     return ExitCode.SUCCESS
 
