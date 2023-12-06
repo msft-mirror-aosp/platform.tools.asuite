@@ -590,13 +590,14 @@ def get_terminal_size():
     return columns, rows
 
 
-def handle_test_runner_cmd(input_test, test_cmds, do_verification=False,
+def handle_test_runner_cmd(input_test, dry_run_cmds, do_verification=False,
                            result_path=constants.VERIFY_DATA_PATH):
     """Handle the runner command of input tests.
 
     Args:
-        input_test: A string of input tests pass to atest.
-        test_cmds: A list of strings for running input tests.
+        input_test: The name of a test.
+        dry_run_cmds: A list of strings which make up the command for running
+        the input test.
         do_verification: A boolean to indicate the action of this method.
                          True: Do verification without updating result map and
                                raise DryRunVerificationError if verifying fails.
@@ -607,9 +608,9 @@ def handle_test_runner_cmd(input_test, test_cmds, do_verification=False,
     """
     full_result_content = load_json_safely(result_path)
     former_test_cmds = full_result_content.get(input_test, [])
-    test_cmds = _normalize(test_cmds)
+    dry_run_cmds = _normalize(dry_run_cmds)
     former_test_cmds = _normalize(former_test_cmds)
-    if not _are_identical_cmds(test_cmds, former_test_cmds):
+    if not _are_identical_cmds(dry_run_cmds, former_test_cmds):
         if do_verification:
             raise atest_error.DryRunVerificationError(
                 'Dry run verification failed, former commands: {}'.format(
@@ -618,7 +619,7 @@ def handle_test_runner_cmd(input_test, test_cmds, do_verification=False,
             # If former_test_cmds is different from test_cmds, ask users if they
             # are willing to update the result.
             print('Former cmds = %s' % former_test_cmds)
-            print('Current cmds = %s' % test_cmds)
+            print('Current cmds = %s' % dry_run_cmds)
             if not prompt_with_yn_result('Do you want to update former result '
                                          'to the latest one?', True):
                 print('SKIP updating result!!!')
@@ -627,7 +628,7 @@ def handle_test_runner_cmd(input_test, test_cmds, do_verification=False,
         # If current commands are the same as the formers, no need to update
         # result.
         return
-    full_result_content[input_test] = test_cmds
+    full_result_content[input_test] = dry_run_cmds
     with open(result_path, 'w', encoding='utf-8') as outfile:
         json.dump(full_result_content, outfile, indent=0)
         print('Save result mapping to %s' % result_path)
