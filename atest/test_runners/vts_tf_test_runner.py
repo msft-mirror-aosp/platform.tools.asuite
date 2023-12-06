@@ -19,7 +19,7 @@ VTS Tradefed test runner class.
 import copy
 import logging
 
-from typing import List
+from typing import Any, Dict, List
 
 from atest import atest_utils
 from atest import constants
@@ -38,9 +38,13 @@ class VtsTradefedTestRunner(atest_tf_test_runner.AtestTradefedTestRunner):
                      '--skip-preconditions',
                      '--primary-abi-only']
 
-    def __init__(self, results_dir, **kwargs):
+    def __init__(
+        self,
+        results_dir: str,
+        extra_args: Dict[str, Any],
+        **kwargs):
         """Init stuff for vts10 tradefed runner class."""
-        super().__init__(results_dir, **kwargs)
+        super().__init__(results_dir, extra_args, **kwargs)
         self.run_cmd_dict = {'exe': self.EXECUTABLE,
                              'test': '',
                              'args': ''}

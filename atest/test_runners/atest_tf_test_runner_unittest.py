@@ -194,7 +194,8 @@ class AtestTradefedTestRunnerUnittests(unittest.TestCase):
     """Unit tests for atest_tf_test_runner.py"""
 
     def setUp(self):
-        self.tr = atf_tr.AtestTradefedTestRunner(results_dir=uc.TEST_INFO_DIR)
+        self.tr = atf_tr.AtestTradefedTestRunner(
+            results_dir=uc.TEST_INFO_DIR, extra_args={constants.HOST: False})
         if not atest_configs.GLOBAL_ARGS:
             atest_configs.GLOBAL_ARGS = Namespace()
         atest_configs.GLOBAL_ARGS.device_count_config = None
@@ -1171,7 +1172,7 @@ class DeviceDrivenTestTest(ModuleInfoTestFixture):
         ])
         test_infos = [test_info_of('hello_world_test')]
         runner = atf_tr.AtestTradefedTestRunner(
-            'result_dir', mod_info, host=False, minimal_build=True)
+            'result_dir', {constants.HOST: False}, mod_info, minimal_build=True)
         expect_deps = {
             'aapt2-host',
             'hello_world_test-target',
@@ -1208,7 +1209,7 @@ class DeviceDrivenTestTest(ModuleInfoTestFixture):
         ])
         test_infos = [test_info_of('hello_world_test')]
         runner = atf_tr.AtestTradefedTestRunner(
-            'result_dir', mod_info, host=False, minimal_build=True)
+            'result_dir', {constants.HOST: False}, mod_info, minimal_build=True)
         expect_path = {
             tf_host_jar_path,
             atest_host_jar_path,
@@ -1234,7 +1235,7 @@ class DeviceDrivenTestTest(ModuleInfoTestFixture):
         ])
         test_infos = [test_info_of('hello_world_test')]
         runner = atf_tr.AtestTradefedTestRunner(
-            'result_dir', mod_info, host=False, minimal_build=True)
+            'result_dir', {constants.HOST: False}, mod_info, minimal_build=True)
 
         deps = runner.get_test_runner_build_reqs(test_infos)
 
@@ -1248,7 +1249,7 @@ class DeviceDrivenTestTest(ModuleInfoTestFixture):
         t_info.add_mainline_module('mainline_module_1')
         t_info.add_mainline_module('mainline_module_2')
         runner = atf_tr.AtestTradefedTestRunner(
-            'result_dir', mod_info, host=False, minimal_build=True)
+            'result_dir', {constants.HOST: False}, mod_info, minimal_build=True)
 
         deps = runner.get_test_runner_build_reqs([t_info])
 
@@ -1268,7 +1269,7 @@ class DeviceDrivenTestTest(ModuleInfoTestFixture):
         ])
         test_infos = [test_info_of('hello_world_test')]
         runner = atf_tr.AtestTradefedTestRunner(
-            'result_dir', mod_info, host=False, minimal_build=True)
+            'result_dir', {constants.HOST: False}, mod_info, minimal_build=True)
 
         deps = runner.get_test_runner_build_reqs(test_infos)
 
@@ -1281,7 +1282,7 @@ class DeviceDrivenTestTest(ModuleInfoTestFixture):
         ])
         test_infos = [test_info_of('hello_world_test')]
         runner = atf_tr.AtestTradefedTestRunner(
-            'result_dir', mod_info, host=False, minimal_build=True)
+            'result_dir', {constants.HOST: False}, mod_info, minimal_build=True)
         gtf_target = set([str(t) + '-host' for t in constants.GTF_TARGETS])
 
         deps = runner.get_test_runner_build_reqs(test_infos)
@@ -1298,7 +1299,7 @@ class DeviceDrivenTestTest(ModuleInfoTestFixture):
         ])
         t_info = test_info_of('HelloWorldTest')
         runner = atf_tr.AtestTradefedTestRunner(
-            'result_dir', mod_info, host=False, minimal_build=True)
+            'result_dir', {constants.HOST: False}, mod_info, minimal_build=True)
 
         deps = runner.get_test_runner_build_reqs([t_info])
 
@@ -1320,7 +1321,7 @@ class DevicelessTestTest(ModuleInfoTestFixture):
         ])
         test_infos = [test_info_of('hello_world_test')]
         runner = atf_tr.AtestTradefedTestRunner(
-            'result_dir', mod_info, host=True, minimal_build=True)
+            'result_dir', {constants.HOST: True}, mod_info, minimal_build=True)
         expect_deps = {
             'hello_world_test-host',
             'adb-host',
@@ -1340,7 +1341,7 @@ class DevicelessTestTest(ModuleInfoTestFixture):
         ])
         test_infos = [test_info_of('hello_world_test')]
         runner = atf_tr.AtestTradefedTestRunner(
-            'result_dir', mod_info, minimal_build=True)
+            'result_dir', {constants.HOST: False}, mod_info, minimal_build=True)
         expect_deps = {
             'hello_world_test-target',
             'adb-host',

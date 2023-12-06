@@ -20,7 +20,7 @@ import copy
 import logging
 import os
 
-from typing import List
+from typing import Any, Dict, List
 
 from atest import atest_utils
 from atest import constants
@@ -38,9 +38,13 @@ class SuitePlanTestRunner(atest_tf_test_runner.AtestTradefedTestRunner):
     EXECUTABLE = '%s-tradefed'
     _RUN_CMD = ('{exe} run commandAndExit {test} {args}')
 
-    def __init__(self, results_dir, **kwargs):
+    def __init__(
+        self,
+        results_dir: str,
+        extra_args: Dict[str, Any],
+        **kwargs):
         """Init stuff for suite tradefed runner class."""
-        super().__init__(results_dir, **kwargs)
+        super().__init__(results_dir, extra_args, **kwargs)
         self.run_cmd_dict = {'exe': '',
                              'test': '',
                              'args': ''}
