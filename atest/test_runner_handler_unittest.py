@@ -122,7 +122,8 @@ class TestRunnerHandlerUnittests(unittest.TestCase):
             test_infos = test_infos,
             results_dir = '',
             mod_info = empty_module_info,
-            extra_args = {})
+            extra_args = {},
+            minimal_build = True)
 
         build_targets = set()
         for invocation in invocations:
