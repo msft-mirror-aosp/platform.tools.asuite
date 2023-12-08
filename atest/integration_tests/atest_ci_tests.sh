@@ -28,16 +28,6 @@ if [ ! -n "${ANDROID_BUILD_TOP}" ] ; then
   export ANDROID_BUILD_TOP=${PWD}
 fi
 
-if [ ! -n "${TARGET_PRODUCT}" ] || [ ! -n "${TARGET_BUILD_VARIANT}" ] ; then
-  export \
-    TARGET_PRODUCT=aosp_x86_64 \
-    TARGET_BUILD_VARIANT=userdebug
-fi
-
-if [ ! -n "${TARGET_RELEASE}" ] ; then
-  export TARGET_RELEASE="trunk_staging"
-fi
-
 product_out=$(get_build_var PRODUCT_OUT)
 out_dir=$(get_build_var OUT_DIR)
 
