@@ -207,6 +207,16 @@ class AtestUnittests(unittest.TestCase):
         self.assertFalse(atest_main.has_set_sufficient_devices(
             required_num, attached_devices))
 
+    def test_ravenwood_tests_is_deviceless(self):
+        ravenwood_test_info = test_info.TestInfo(
+            'mod', '', set(), compatibility_suites=[
+                test_info.MODULE_COMPATIBILITY_SUITES_RAVENWOOD_TESTS])
+
+        self.assertEqual(constants.DEVICELESS_TEST,
+                         ravenwood_test_info.get_supported_exec_mode(),
+                         "If compatibility suites contains ravenwood-tests, "
+                         "the test should be recognized as deviceless.")
+
 # pylint: disable=missing-function-docstring
 class AtestUnittestFixture(fake_filesystem_unittest.TestCase):
     """Fixture for ModuleInfo tests."""
