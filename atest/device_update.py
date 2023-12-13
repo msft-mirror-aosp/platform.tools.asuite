@@ -31,12 +31,20 @@ class DeviceUpdateMethod(ABC):
         """Updates the device.
 
         Raises:
-            DeviceUpdateError: If the device update fails.
+            Error: If the device update fails.
         """
 
     @abstractmethod
     def dependencies(self) -> Set[str]:
         """Returns the dependencies required by this device update method."""
+
+
+class NoopUpdateMethod(DeviceUpdateMethod):
+    def update(self) -> None:
+        pass
+
+    def dependencies(self) -> Set[str]:
+        return set()
 
 
 class AdeviceUpdateMethod(DeviceUpdateMethod):
@@ -49,12 +57,12 @@ class AdeviceUpdateMethod(DeviceUpdateMethod):
         try:
             atest_utils.run_limited_output([self._adevice_path, 'update'])
         except CalledProcessError as e:
-            raise DeviceUpdateError(
+            raise Error(
                 'Failed to update the device with adevice') from e
 
     def dependencies(self) -> Set[str]:
         return {self._TOOL, 'sync'}
 
 
-class DeviceUpdateError(Exception):
+class Error(Exception):
     pass

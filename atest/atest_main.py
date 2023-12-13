@@ -53,6 +53,7 @@ from atest import bazel_mode
 from atest import bug_detector
 from atest import cli_translator
 from atest import constants
+from atest import device_update
 from atest import module_info
 from atest import result_reporter
 from atest import test_runner_handler
@@ -326,7 +327,7 @@ def get_extra_args(args):
     return extra_args
 
 
-def _validate_exec_mode(args, test_infos: TestInfo, host_tests=None):
+def _validate_exec_mode(args, test_infos: list[TestInfo], host_tests=None):
     """Validate all test execution modes are not in conflict.
 
     Exit the program with INVALID_EXEC_MODE code if the desired is a host-side
@@ -337,7 +338,7 @@ def _validate_exec_mode(args, test_infos: TestInfo, host_tests=None):
 
     Args:
         args: parsed args object.
-        test_info: TestInfo object.
+        test_infos: a list of TestInfo objects.
         host_tests: True if all tests should be deviceless, False if all tests
             should be device tests. Default is set to None, which means
             tests can be either deviceless or device tests.
@@ -1125,6 +1126,9 @@ def _create_test_execution_plan(
     Returns:
         An instance of TestExecutionPlan.
     """
+    device_update_method = (
+        device_update.AdeviceUpdateMethod() if args.update_device
+        else device_update.NoopUpdateMethod())
 
     if is_from_test_mapping(test_infos):
         return TestMappingExecutionPlan.create(
@@ -1138,7 +1142,8 @@ def _create_test_execution_plan(
         results_dir = results_dir,
         mod_info = mod_info,
         args = args,
-        dry_run = dry_run)
+        dry_run = dry_run,
+        device_update_method = device_update_method)
 
 
 class TestExecutionPlan(ABC):
@@ -1269,9 +1274,11 @@ class TestModuleExecutionPlan(TestExecutionPlan):
         *,
         test_runner_invocations: List[test_runner_handler.TestRunnerInvocation],
         extra_args: Dict[str, Any],
+        device_update_method: device_update.DeviceUpdateMethod,
     ):
         super().__init__(extra_args=extra_args)
         self._test_runner_invocations = test_runner_invocations
+        self._device_update_method = device_update_method
 
     @staticmethod
     def create(
@@ -1280,7 +1287,9 @@ class TestModuleExecutionPlan(TestExecutionPlan):
         results_dir: str,
         mod_info: module_info.ModuleInfo,
         args: argparse.Namespace,
-        dry_run: bool) -> TestModuleExecutionPlan:
+        dry_run: bool,
+        device_update_method: device_update.DeviceUpdateMethod,
+    ) -> TestModuleExecutionPlan:
         """Creates an instance of TestModuleExecutionPlan.
 
         Args:
@@ -1289,6 +1298,7 @@ class TestModuleExecutionPlan(TestExecutionPlan):
             mod_info: An instance of ModuleInfo.
             args: An argparse.Namespace instance holding parsed args.
             dry_run: A boolean of whether this invocation is a dry run.
+            device_update_method: An instance of DeviceUpdateMethod.
 
         Returns:
             An instance of TestModuleExecutionPlan.
@@ -1309,16 +1319,22 @@ class TestModuleExecutionPlan(TestExecutionPlan):
             minimal_build = args.minimal_build)
 
         return TestModuleExecutionPlan(
-            test_runner_invocations = invocations, extra_args = extra_args)
+            test_runner_invocations = invocations,
+            extra_args = extra_args,
+            device_update_method = device_update_method)
 
     def required_build_targets(self) -> Set[str]:
         build_targets = set()
         for test_runner_invocation in self._test_runner_invocations:
             build_targets |= test_runner_invocation.get_test_runner_reqs()
 
+        build_targets |= self._device_update_method.dependencies()
+
         return build_targets
 
     def execute(self) -> ExitCode:
+
+        self._device_update_method.update()
 
         reporter = result_reporter.ResultReporter(
             collect_only = self.extra_args.get(constants.COLLECT_TESTS_ONLY))
