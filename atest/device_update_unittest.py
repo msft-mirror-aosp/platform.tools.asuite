@@ -32,7 +32,7 @@ class AdeviceUpdateMethodTest(unittest.TestCase):
     def test_update_fails(self):
         adevice = device_update.AdeviceUpdateMethod(adevice_path='/bin/false')
 
-        self.assertRaises(device_update.DeviceUpdateError, adevice.update)
+        self.assertRaises(device_update.Error, adevice.update)
 
     def test_dependencies_non_empty(self):
         adevice = device_update.AdeviceUpdateMethod()

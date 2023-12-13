@@ -142,6 +142,9 @@ VERIFY_ENV_VARIABLE = 'Verify environment variables of input tests'
 VERSION = 'Display version string.'
 WAIT_FOR_DEBUGGER = ('Wait for debugger prior to execution (Instrumentation '
                      'tests only).')
+UPDATE_DEVICE = (
+    'Build and deploy your changes to the device. By default, ATest will '
+    'build `sync` and use `adevice` to update the device.')
 
 def _positive_int(value):
     """Verify value by whether or not a positive integer.
@@ -179,6 +182,8 @@ class AtestArgParser(argparse.ArgumentParser):
                           action=argparse.BooleanOptionalAction,
                           default=True,
                           help=MINIMAL_BUILD)
+        self.add_argument(
+            '--update-device', action='store_true', help=UPDATE_DEVICE)
 
         # Options that to do with testing.
         self.add_argument('-a', '--all-abi', action='store_true', help=ALL_ABI)
@@ -385,6 +390,7 @@ def print_epilog_text():
         BUILD=BUILD,
         BUILD_PROCESS_NUMBER=BUILD_PROCESS_NUMBER,
         MINIMAL_BUILD=MINIMAL_BUILD,
+        UPDATE_DEVICE=UPDATE_DEVICE,
         BAZEL_MODE=BAZEL_MODE,
         BAZEL_ARG=BAZEL_ARG,
         CLEAR_CACHE=CLEAR_CACHE,
@@ -484,6 +490,9 @@ OPTIONS
 
         --minimal-build
             {MINIMAL_BUILD}
+
+        --update-device
+            {UPDATE_DEVICE}
 
         --device-only
             {DEVICE_ONLY}
