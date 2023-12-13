@@ -22,6 +22,7 @@ from typing import Set
 from atest import constants
 
 TestFilterBase = namedtuple('TestFilter', ['class_name', 'methods'])
+MODULE_COMPATIBILITY_SUITES_RAVENWOOD_TESTS = 'ravenwood-tests'
 
 
 class TestInfo:
@@ -129,6 +130,7 @@ class TestInfo:
         """Get the supported execution mode of the test.
 
         Determine which execution mode does the test support by strategy:
+        The compatibility_suites contains 'ravenwood-tests' --> 'host'
         Modern Robolectric --> 'host'
         Legacy Robolectric --> 'both'
         JAVA_LIBRARIES --> 'both'
@@ -140,6 +142,8 @@ class TestInfo:
             String of execution mode.
         """
         install_path = self.install_locations
+        if MODULE_COMPATIBILITY_SUITES_RAVENWOOD_TESTS in self.compatibility_suites:
+            return constants.DEVICELESS_TEST
         if not self.module_class:
             return constants.DEVICE_TEST
         # Let Robolectric test support host/both accordingly.
