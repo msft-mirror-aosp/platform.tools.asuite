@@ -172,6 +172,17 @@ class AtestTradefedTestRunner(trb.TestRunnerBase):
             detect_type=DetectType.IS_MINIMAL_BUILD,
             result=int(self._minimal_build))
 
+    def requires_device_update(
+        self, test_infos: List[test_info.TestInfo]) -> bool:
+        """Checks whether this runner requires device update."""
+
+        requires_device = False
+        for info in test_infos:
+            test = self._create_test(info)
+            requires_device |= test.requires_device()
+
+        return requires_device
+
     def _try_set_gts_authentication_key(self):
         """Set GTS authentication key if it is available or exists.
 
@@ -1380,6 +1391,10 @@ class Test(ABC):
     def _get_harness_build_targets(self) -> Set[Target]:
         """Returns the list of build targets of test harness and its dependencies."""
 
+    @abstractmethod
+    def requires_device(self) -> bool:
+        """Returns true if the test requires a device, otherwise false."""
+
 
 class DeviceTest(Test):
     """A device test that can be run."""
@@ -1395,6 +1410,9 @@ class DeviceTest(Test):
 
     def query_runtime_targets(self) -> Set[Target]:
         return self.query_build_targets() | _get_host_required_deps(self._info)
+
+    def requires_device(self):
+        return True
 
     def _get_test_build_targets(self) -> Set[Target]:
         module_name = self._info[constants.MODULE_INFO_ID]
@@ -1452,6 +1470,9 @@ class DevicelessTest(Test):
 
     def query_runtime_targets(self) -> Set[Target]:
         return self.query_build_targets()
+
+    def requires_device(self):
+        return False
 
 
 def _get_libs_deps(info: Dict[str, Any], variant: Variant) -> Set[Target]:

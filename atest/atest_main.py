@@ -66,6 +66,7 @@ from atest.metrics import metrics_utils
 from atest.test_finders import test_finder_utils
 from atest.test_finders import test_info
 from atest.test_finders.test_info import TestInfo
+from atest.test_runner_invocation import TestRunnerInvocation
 from atest.tools import indexing
 from atest.tools import start_avd as avd
 
@@ -591,8 +592,7 @@ def _split_test_mapping_tests(test_infos):
 
 # pylint: disable=too-many-locals
 def _run_test_mapping_tests(
-    test_type_to_invocations: Dict[
-        str, List[test_runner_handler.TestRunnerInvocation]],
+    test_type_to_invocations: Dict[str, List[TestRunnerInvocation]],
     extra_args: Dict[str, Any]) -> ExitCode:
     """Run all tests in TEST_MAPPING files.
 
@@ -1057,7 +1057,7 @@ def main(
             return 0
 
     steps = parse_steps(args)
-    device_update_method = _create_update_method(steps)
+    device_update_method = _configure_update_method(steps, test_execution_plan)
 
     if build_targets and steps.has_build():
         if args.experimental_coverage:
@@ -1140,8 +1140,17 @@ def main(
     return tests_exit_code
 
 
-def _create_update_method(steps: Steps) -> device_update.DeviceUpdateMethod:
+def _configure_update_method(
+    steps: Steps, plan: TestExecutionPlan) -> device_update.DeviceUpdateMethod:
+
     if not steps.has_device_update():
+        return device_update.NoopUpdateMethod()
+
+    if not plan.requires_device_update():
+        atest_utils.colorful_print(
+            '\nWarning: Device update ignored because it is not required by '
+            'tests in this invocation.',
+            constants.YELLOW)
         return device_update.NoopUpdateMethod()
 
     return device_update.AdeviceUpdateMethod()
@@ -1204,6 +1213,10 @@ class TestExecutionPlan(ABC):
     def required_build_targets(self) -> Set[str]:
         """Returns the list of build targets required by this plan."""
 
+    @abstractmethod
+    def requires_device_update(self) -> bool:
+        """Checks whether this plan requires device update."""
+
 
 class TestMappingExecutionPlan(TestExecutionPlan):
     """A plan to execute Test Mapping tests."""
@@ -1211,8 +1224,7 @@ class TestMappingExecutionPlan(TestExecutionPlan):
     def __init__(
         self,
         *,
-        test_type_to_invocations: Dict[
-            str, List[test_runner_handler.TestRunnerInvocation]],
+        test_type_to_invocations: Dict[str, List[TestRunnerInvocation]],
         extra_args: Dict[str, Any],
     ):
         super().__init__(extra_args=extra_args)
@@ -1290,6 +1302,10 @@ class TestMappingExecutionPlan(TestExecutionPlan):
             extra_args = extra_args,
         )
 
+    def requires_device_update(self) -> bool:
+        return _requires_device_update(
+            [i for invs in self._test_type_to_invocations.values() for i in invs])
+
     def required_build_targets(self) -> Set[str]:
         build_targets = set()
         for invocation in itertools.chain.from_iterable(
@@ -1309,7 +1325,7 @@ class TestModuleExecutionPlan(TestExecutionPlan):
     def __init__(
         self,
         *,
-        test_runner_invocations: List[test_runner_handler.TestRunnerInvocation],
+        test_runner_invocations: List[TestRunnerInvocation],
         extra_args: Dict[str, Any],
     ):
         super().__init__(extra_args=extra_args)
@@ -1356,6 +1372,9 @@ class TestModuleExecutionPlan(TestExecutionPlan):
             extra_args = extra_args,
         )
 
+    def requires_device_update(self) -> bool:
+        return _requires_device_update(self._test_runner_invocations)
+
     def required_build_targets(self) -> Set[str]:
         build_targets = set()
         for test_runner_invocation in self._test_runner_invocations:
@@ -1374,6 +1393,11 @@ class TestModuleExecutionPlan(TestExecutionPlan):
             exit_code |= invocation.run_all_tests(reporter)
 
         return reporter.print_summary() | exit_code
+
+
+def _requires_device_update(invocations: List[TestRunnerInvocation]) -> bool:
+    """Checks if any invocation requires device update."""
+    return any(i.requires_device_update() for i in invocations)
 
 
 if __name__ == '__main__':
