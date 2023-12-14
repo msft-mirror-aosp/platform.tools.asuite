@@ -102,7 +102,7 @@ impl MetricSender for Metrics {
     fn display_survey(&mut self) {
         let survey = env::var(ENV_SURVEY_BANNER).unwrap_or("".to_string());
         if !survey.is_empty() {
-            println!("{}", survey);
+            println!("\n{}", survey);
         }
     }
 }
