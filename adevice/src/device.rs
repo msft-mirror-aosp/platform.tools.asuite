@@ -210,7 +210,18 @@ impl RealDevice {
                 // This should not happen after we tag it as an "eng" module.
                 bail!("\n  Thank you for testing out adevice.\n  Flashing a recent image should install the needed `adevice_fingerprint` binary.\n  Otherwise, you can bootstrap by doing the following:\n\t ` adb remount; m adevice_fingerprint adevice && adb push $ANDROID_PRODUCT_OUT/system/bin/adevice_fingerprint system/bin/adevice_fingerprint`");
             } else {
-                bail!("Unknown problem running `adevice_fingerprint` on your device: {problem:?}.\n  Your device may still be in a booting state.  Try `adb get-state` to start debugging.");
+                // If pontis is running, add to the error message to check pontis UI
+                let pontis_status = process::Command::new("pontis")
+                    .args(&vec!["status".to_string()])
+                    .output()
+                    .context("Error checking pontis status")?;
+
+                let error_msg = format!("Unknown problem running `adevice_fingerprint` on your device: {problem:?}.\n  Your device may still be in a booting state.  Try `adb get-state` to start debugging.");
+                if pontis_status.status.success() {
+                    let pontis_error_msg = "\n  If you are using go/pontis, make sure the device appears in the Pontis browser UI and if not re-add it there.";
+                    bail!("{}{}", error_msg, pontis_error_msg);
+                }
+                bail!("{}", error_msg);
             }
         }
 
