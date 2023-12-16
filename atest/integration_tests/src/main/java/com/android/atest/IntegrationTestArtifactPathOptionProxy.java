@@ -36,13 +36,13 @@ import java.io.File;
 public class IntegrationTestArtifactPathOptionProxy
         implements ITargetPreparer, IConfigurationReceiver {
 
-    private static final String OPTION_ARTIFACTS_PACK_PATH = "artifacts-pack-path";
+    private static final String OPTION_ARTIFACT_PACK_PATH = "artifact-pack-path";
 
     @Option(
-            name = OPTION_ARTIFACTS_PACK_PATH,
+            name = OPTION_ARTIFACT_PACK_PATH,
             description = "Path of the artifacts pack.",
             mandatory = false) // TODO: either set to true or use buildInfo.getFile() instead
-    private File mArtifactsPackPath;
+    private File mArtifactPackPath;
 
     private IConfiguration mConfig;
 
@@ -53,29 +53,21 @@ public class IntegrationTestArtifactPathOptionProxy
      * @return artifacts path in string
      * @throws TargetSetupError
      */
-    private String getArtifactsDirPath(TestInformation testInfo) throws TargetSetupError {
+    private String getArtifactPackPath(TestInformation testInfo) throws TargetSetupError {
         // TODO: either use mArtifactsPackPath or buildInfo.getFile(). Decision will be made after
         // we get a working pipeline setup.
-        String artifactsDir;
-        String artifactPackFileName = "atest-integration-test-data.tar";
-        if (mArtifactsPackPath != null) {
-            CLog.d("mArtifactsPackPath = " + mArtifactsPackPath);
-            artifactsDir =
-                    mArtifactsPackPath.isFile() // TODO: assert on the file type
-                            ? mArtifactsPackPath.getParent().toString()
-                            : mArtifactsPackPath.toString();
-        } else if (testInfo.getBuildInfo().getFile(artifactPackFileName) != null) {
-            File artifactPath = testInfo.getBuildInfo().getFile(artifactPackFileName);
-            CLog.d("BuildInfo().getFile = " + artifactPath);
-            artifactsDir =
-                    artifactPath.isFile()
-                            ? artifactPath.getParent().toString()
-                            : artifactPath.toString();
+        String artifactPackPath;
+        String artifactPackFileKey = "atest_integration_test-artifact_pack";
+        if (mArtifactPackPath != null) {
+            artifactPackPath = mArtifactPackPath.toString();
+        } else if (testInfo.getBuildInfo().getFile(artifactPackFileKey) != null) {
+            artifactPackPath = testInfo.getBuildInfo().getFile(artifactPackFileKey).getPath();
+            CLog.d("Got an artifact file from buildInfo().getFile: " + artifactPackPath);
         } else {
             throw new TargetSetupError(
                     "Artifacts dir not found", InfraErrorIdentifier.OPTION_CONFIGURATION_ERROR);
         }
-        return artifactsDir;
+        return artifactPackPath;
     }
 
     /** {@inheritDoc} */
@@ -86,8 +78,8 @@ public class IntegrationTestArtifactPathOptionProxy
             if (t instanceof PythonBinaryHostTest) {
                 try {
                     OptionSetter optionSetter = new OptionSetter((PythonBinaryHostTest) t);
-                    optionSetter.setOptionValue("python-options", "--artifacts_dir");
-                    optionSetter.setOptionValue("python-options", getArtifactsDirPath(testInfo));
+                    optionSetter.setOptionValue("python-options", "--artifact_pack_path");
+                    optionSetter.setOptionValue("python-options", getArtifactPackPath(testInfo));
                 } catch (ConfigurationException e) {
                     throw new TargetSetupError(
                             "Expected: Failed to set python option",
