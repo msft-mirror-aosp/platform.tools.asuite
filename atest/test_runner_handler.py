@@ -19,13 +19,16 @@ Aggregates test runners, groups tests by test runners and kicks off tests.
 # pylint: disable=line-too-long
 # pylint: disable=import-outside-toplevel
 
+from __future__ import annotations
+
 import itertools
 import time
 import traceback
 
-from typing import Any, Dict, List
+from typing import Any, Callable, Dict, List, Tuple
 
 from atest import atest_error
+from atest import atest_execution_info
 from atest import bazel_mode
 from atest import constants
 from atest import module_info
@@ -37,7 +40,6 @@ from atest.metrics import metrics_utils
 from atest.test_finders import test_info
 from atest.test_runners import atest_tf_test_runner
 from atest.test_runners import mobly_test_runner
-from atest.test_runners import roboleaf_test_runner
 from atest.test_runners import robolectric_test_runner
 from atest.test_runners import suite_plan_test_runner
 from atest.test_runners import test_runner_base
@@ -50,7 +52,6 @@ _TEST_RUNNERS = {
     suite_plan_test_runner.SuitePlanTestRunner.NAME: suite_plan_test_runner.SuitePlanTestRunner,
     vts_tf_test_runner.VtsTradefedTestRunner.NAME: vts_tf_test_runner.VtsTradefedTestRunner,
     bazel_mode.BazelTestRunner.NAME: bazel_mode.BazelTestRunner,
-    roboleaf_test_runner.RoboleafTestRunner.NAME: roboleaf_test_runner.RoboleafTestRunner,
 }
 
 
@@ -97,71 +98,87 @@ def group_tests_by_test_runners(test_infos):
     return tests_by_test_runner
 
 
-def get_test_runner_reqs(mod_info: module_info.ModuleInfo,
-                         test_infos: List[test_info.TestInfo],
-                         extra_args: Dict[str, Any]=None):
-    """Returns the requirements for all test runners specified in the tests.
+def create_test_runner_invocations(
+    *,
+    test_infos: List[test_info.TestInfo],
+    results_dir: str,
+    mod_info: module_info.ModuleInfo,
+    extra_args: Dict[str, Any],
+    minimal_build: bool,
+) -> List[TestRunnerInvocation]:
+    """Creates TestRunnerInvocation instances.
 
     Args:
-        mod_info: ModuleInfo object.
-        test_infos: List of TestInfo.
-        extra_args: Dict of extra args for test runners to use.
+        test_infos: A list of instances of TestInfo.
+        results_dir: A directory which stores the ATest execution information.
+        mod_info: An instance of ModuleInfo.
+        extra_args: A dict of arguments for the test runner to utilize.
+        minimal_build: A boolean setting whether or not this invocation will
+            minimize the build target set.
 
     Returns:
-        Set of build targets required by the test runners.
+        A list of TestRunnerInvocation instances.
     """
-    unused_result_dir = ''
-    test_runner_build_req = set()
-    for test_runner, tests in group_tests_by_test_runners(test_infos):
-        test_runner_build_req |= test_runner(
-            unused_result_dir,
+
+    test_runner_invocations = []
+    for test_runner_class, tests in group_tests_by_test_runners(test_infos):
+        test_runner = test_runner_class(
+            results_dir,
             mod_info=mod_info,
-            extra_args=extra_args or {},
-        ).get_test_runner_build_reqs(tests)
-    return test_runner_build_req
+            extra_args=extra_args,
+            minimal_build=minimal_build,
+        )
+
+        test_runner_invocations.append(TestRunnerInvocation(
+            test_runner=test_runner,
+            extra_args=extra_args,
+            test_infos=tests))
+
+    return test_runner_invocations
 
 
-# pylint: disable=too-many-locals
-def run_all_tests(results_dir, test_infos, extra_args, mod_info,
-                  delay_print_summary=False):
-    """Run the given tests.
+class TestRunnerInvocation:
+    """An invocation executing tests based on given arguments."""
 
-    Args:
-        results_dir: String directory to store atest results.
-        test_infos: List of TestInfo.
-        extra_args: Dict of extra args for test runners to use.
-        mod_info: ModuleInfo object.
+    def __init__(
+        self,
+        *,
+        test_runner: test_runner_base.TestRunnerBase,
+        extra_args: Dict[str, Any],
+        test_infos: List[test_info.TestInfo],
+    ):
+        self._extra_args = extra_args
+        self._test_infos = test_infos
+        self._test_runner = test_runner
 
-    Returns:
-        0 if tests succeed, non-zero otherwise.
-    """
-    reporter = result_reporter.ResultReporter(
-        collect_only=extra_args.get(constants.COLLECT_TESTS_ONLY),
-    )
-    reporter.print_starting_text()
-    tests_ret_code = ExitCode.SUCCESS
-    for test_runner, tests in group_tests_by_test_runners(test_infos):
+    @property
+    def test_infos(self):
+        return self._test_infos
+
+    def get_test_runner_reqs(self) -> Set[str]:
+        """Returns the required build targets for this test runner invocation."""
+        return self._test_runner.get_test_runner_build_reqs(self._test_infos)
+
+    # pylint: disable=too-many-locals
+    def run_all_tests(
+        self, reporter: result_reporter.ResultReporter) -> ExitCode:
+        """Runs all tests."""
+
         test_start = time.time()
         is_success = True
-        ret_code = ExitCode.TEST_FAILURE
-        stacktrace = ''
         try:
-            test_runner = test_runner(
-                results_dir,
-                mod_info=mod_info,
-                extra_args=extra_args,
-            )
-            ret_code = test_runner.run_tests(tests, extra_args, reporter)
-            tests_ret_code |= ret_code
+            tests_ret_code = self._test_runner.run_tests(
+                self._test_infos, self._extra_args, reporter)
         # pylint: disable=broad-except
         except Exception:
             stacktrace = traceback.format_exc()
-            reporter.runner_failure(test_runner.NAME, stacktrace)
+            reporter.runner_failure(self._test_runner.NAME, stacktrace)
             tests_ret_code = ExitCode.TEST_FAILURE
             is_success = False
+
         run_time = metrics_utils.convert_duration(time.time() - test_start)
         tests = []
-        for test in reporter.all_test_results:
+        for test in reporter.get_test_results_by_runner(self._test_runner.NAME):
             # group_name is module name with abi(for example,
             # 'x86_64 CtsSampleDeviceTestCases').
             # Filtering abi in group_name.
@@ -178,8 +195,7 @@ def run_all_tests(results_dir, test_infos, extra_args, mod_info,
         metrics.RunnerFinishEvent(
             duration=run_time,
             success=is_success,
-            runner_name=test_runner.NAME,
+            runner_name=self._test_runner.NAME,
             test=tests)
-    if delay_print_summary:
-        return tests_ret_code, reporter
-    return reporter.print_summary() or tests_ret_code, reporter
+
+        return tests_ret_code

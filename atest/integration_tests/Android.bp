@@ -53,3 +53,41 @@ python_test_host {
         unit_test: false,
     },
 }
+
+java_library_host {
+    name: "atest_integration_test_harness",
+    srcs: [
+        "src/main/java/**/*.java",
+    ],
+    libs: [
+        "tradefed",
+    ],
+}
+
+python_library_host {
+    name: "atest_integration_test_utils",
+    srcs: [
+        "atest_integration_test.py",
+        "snapshot.py",
+    ],
+}
+
+python_test_host {
+    name: "atest_ci_tests",
+    srcs: [
+        "atest_ci_tests.py",
+    ],
+    test_config_template: "atest_ci_tests.xml",
+    test_options: {
+        unit_test: false,
+    },
+    libs: [
+        "atest_integration_test_utils",
+    ],
+    java_data: [
+        "atest_integration_test_harness",
+    ],
+    test_suites: [
+        "general-tests",
+    ],
+}

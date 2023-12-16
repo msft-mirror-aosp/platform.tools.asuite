@@ -277,9 +277,10 @@ pub fn adevice(
     profiler.total = total_time.elapsed(); // Avoid wrapping the block in the macro.
     metrics.add_profiler_events(profiler);
     println!(
-        "Finished in {} secs, [Logfile at $ANDROID_BUILD_TOP/out/adevice.log]",
+        "Device updated in {} secs, [Logfile at $ANDROID_BUILD_TOP/out/adevice.log]",
         profiler.total.as_secs()
     );
+    metrics.display_survey();
     info!("TIMING: {}", profiler.to_string());
     Ok(())
 }

@@ -28,7 +28,6 @@ from atest import bazel_mode
 from atest import constants
 
 from atest.atest_utils import BuildOutputMode
-from atest.test_runners.roboleaf_test_runner import BazelBuildMode
 
 def output_mode_msg() -> str:
     """Generate helper strings for BuildOutputMode."""
@@ -78,6 +77,8 @@ DISABLE_TEARDOWN = 'Disable test teardown and cleanup.'
 DRY_RUN = 'Dry run atest without building, installing and running tests in real.'
 ENABLE_FILE_PATTERNS = 'Enable FILE_PATTERNS in TEST_MAPPING.'
 GENERATE_RUNNER_CMD = 'Generate the runner command(s) of given tests.'
+GROUP_TEST = ('Group the tests by module name for running the test, if you want '
+              'to run the test using the same input order, use --no-group-test.')
 HISTORY = ('Show test results in chronological order(with specified number or '
            'all by default).')
 HOST = ('Run the test completely on the host without a device. '
@@ -95,9 +96,6 @@ LATEST_RESULT = 'Print latest test result.'
 LIST_MODULES = 'List testable modules of the given suite.'
 NO_CHECKING_DEVICE = 'Do NOT check device availability. (even it is a device test)'
 NO_METRICS = 'Do not send metrics.'
-ROBOLEAF_MODE = ('Determines when to use Bazel for end to end builds and tests. '
-                 'Can be `on`, `off`, `dev`. Defaults to off. Use `on` to opt-in. '
-                 'Use `dev` for a wider set of tests (for development use only).')
 REBUILD_MODULE_INFO = ('Forces a rebuild of the module-info.json file. '
                        'This may be necessary following a repo sync or '
                        'when writing a new test.')
@@ -144,6 +142,9 @@ VERIFY_ENV_VARIABLE = 'Verify environment variables of input tests'
 VERSION = 'Display version string.'
 WAIT_FOR_DEBUGGER = ('Wait for debugger prior to execution (Instrumentation '
                      'tests only).')
+UPDATE_DEVICE = (
+    'Build and deploy your changes to the device. By default, ATest will '
+    'build `sync` and use `adevice` to update the device.')
 
 def _positive_int(value):
     """Verify value by whether or not a positive integer.
@@ -181,6 +182,8 @@ class AtestArgParser(argparse.ArgumentParser):
                           action=argparse.BooleanOptionalAction,
                           default=True,
                           help=MINIMAL_BUILD)
+        self.add_argument(
+            '--update-device', action='store_true', help=UPDATE_DEVICE)
 
         # Options that to do with testing.
         self.add_argument('-a', '--all-abi', action='store_true', help=ALL_ABI)
@@ -196,6 +199,12 @@ class AtestArgParser(argparse.ArgumentParser):
         self.add_argument('-d', '--disable-teardown', action='store_true',
                           help=DISABLE_TEARDOWN)
         self.add_argument('--experimental-coverage', action='store_true', help=COVERAGE)
+
+        self.add_argument('--group-test', default=True, action='store_true',
+                          help=GROUP_TEST)
+        self.add_argument('--no-group-test', dest='group_test',
+                          action='store_false', help=GROUP_TEST)
+
         # Options for host and device-only:
         # A group of options for testing mapping tests. They are mutually
         # exclusive in a command line.
@@ -208,13 +217,6 @@ class AtestArgParser(argparse.ArgumentParser):
                           help=INSTALL)
         self.add_argument('-m', constants.REBUILD_MODULE_INFO_FLAG,
                           action='store_true', help=REBUILD_MODULE_INFO)
-        self.add_argument('--roboleaf-mode',
-                          nargs='?',
-                          default=BazelBuildMode.OFF,
-                          const=BazelBuildMode.ON,
-                          choices=BazelBuildMode,
-                          type=BazelBuildMode,
-                          help=ROBOLEAF_MODE)
         self.add_argument('--sharding', nargs='?', const=2,
                           type=_positive_int, default=0,
                           help=SHARDING)
@@ -388,6 +390,7 @@ def print_epilog_text():
         BUILD=BUILD,
         BUILD_PROCESS_NUMBER=BUILD_PROCESS_NUMBER,
         MINIMAL_BUILD=MINIMAL_BUILD,
+        UPDATE_DEVICE=UPDATE_DEVICE,
         BAZEL_MODE=BAZEL_MODE,
         BAZEL_ARG=BAZEL_ARG,
         CLEAR_CACHE=CLEAR_CACHE,
@@ -399,6 +402,7 @@ def print_epilog_text():
         DRY_RUN=DRY_RUN,
         ENABLE_FILE_PATTERNS=ENABLE_FILE_PATTERNS,
         GENERATE_RUNNER_CMD=GENERATE_RUNNER_CMD,
+        GROUP_TEST=GROUP_TEST,
         HELP_DESC=HELP_DESC,
         HISTORY=HISTORY,
         HOST=HOST,
@@ -413,7 +417,6 @@ def print_epilog_text():
         NO_METRICS=NO_METRICS,
         NO_CHECKING_DEVICE=NO_CHECKING_DEVICE,
         REBUILD_MODULE_INFO=REBUILD_MODULE_INFO,
-        ROBOLEAF_MODE=ROBOLEAF_MODE,
         REQUEST_UPLOAD_RESULT=REQUEST_UPLOAD_RESULT,
         RERUN_UNTIL_FAILURE=RERUN_UNTIL_FAILURE,
         RETRY_ANY_FAILURE=RETRY_ANY_FAILURE,
@@ -488,6 +491,9 @@ OPTIONS
         --minimal-build
             {MINIMAL_BUILD}
 
+        --update-device
+            {UPDATE_DEVICE}
+
         --device-only
             {DEVICE_ONLY}
 
@@ -500,6 +506,9 @@ OPTIONS
         --experimental-coverage
             {COVERAGE}
 
+        --[no-]group-test
+            {GROUP_TEST}
+
         --host
             {HOST}
 
@@ -511,9 +520,6 @@ OPTIONS
 
         -m, --rebuild-module-info
             {REBUILD_MODULE_INFO}
-
-        --roboleaf-mode
-            {ROBOLEAF_MODE}
 
         --no-checking-device
             {NO_CHECKING_DEVICE}

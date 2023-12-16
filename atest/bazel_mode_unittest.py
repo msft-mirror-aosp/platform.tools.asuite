@@ -2141,6 +2141,16 @@ class BazelTestRunnerTest(fake_filesystem_unittest.TestCase):
                              '--test_arg=--world=value',
                              '--option1=value1'], cmd[0])
 
+    def test_generate_run_command_removes_serial(self):
+        test_infos = [test_info_of('test1')]
+        runner = self.create_bazel_test_runner_for_tests(test_infos)
+        extra_args = {constants.CUSTOM_ARGS: ['--serial=0.0.0.0']}
+
+        cmd = runner.generate_run_commands(test_infos, extra_args)
+
+        self.assertNotIn('--test-arg=--serial', shlex.split(cmd[0]))
+        self.assertNotIn('--test-arg=--0.0.0.0', shlex.split(cmd[0]))
+
     def test_generate_run_command_with_tf_supported_all_abi_arg(self):
         test_infos = [test_info_of('test1')]
         runner = self.create_bazel_test_runner_for_tests(test_infos)

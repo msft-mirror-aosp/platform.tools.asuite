@@ -134,9 +134,9 @@ class AtestTradefedTestRunner(trb.TestRunnerBase):
     def __init__(
         self,
         results_dir: str,
+        extra_args: Dict[str, Any],
         mod_info: module_info.ModuleInfo=None,
-        host: bool=None,
-        minimal_build: bool=None,
+        minimal_build: bool=False,
         **kwargs):
         """Init stuff for base class."""
         super().__init__(results_dir, **kwargs)
@@ -165,15 +165,12 @@ class AtestTradefedTestRunner(trb.TestRunnerBase):
             if handler.name == 'console' and handler.level == logging.DEBUG:
                 self.is_verbose = True
         self.root_dir = os.environ.get(constants.ANDROID_BUILD_TOP)
-        self._is_host_enabled = (
-            lambda: atest_configs.GLOBAL_ARGS.host) if host is None else lambda: host
-        self._minimal_build = (
-            (lambda: atest_configs.GLOBAL_ARGS.minimal_build is True)
-            if minimal_build is None else lambda: minimal_build)
-        logging.debug('Enable minimal build: %s' % self._minimal_build())
+        self._is_host_enabled = extra_args.get(constants.HOST, False)
+        self._minimal_build = minimal_build
+        logging.debug('Enable minimal build: %s' % self._minimal_build)
         metrics.LocalDetectEvent(
             detect_type=DetectType.IS_MINIMAL_BUILD,
-            result=int(self._minimal_build()))
+            result=int(self._minimal_build))
 
     def _try_set_gts_authentication_key(self):
         """Set GTS authentication key if it is available or exists.
@@ -466,7 +463,7 @@ class AtestTradefedTestRunner(trb.TestRunnerBase):
 
         # Add an env variable for the classpath that only contains the host jars
         # required for the tests we'll be running.
-        if self._minimal_build():
+        if self._minimal_build:
             self._generate_host_jars_env_var(env_vars)
 
         return env_vars
@@ -524,7 +521,7 @@ class AtestTradefedTestRunner(trb.TestRunnerBase):
 
     def _use_minimal_build(self, test_infos: List[test_info.TestInfo]) -> bool:
 
-        if not self._minimal_build():
+        if not self._minimal_build:
             return False
 
         unsupported = set()
@@ -610,7 +607,7 @@ class AtestTradefedTestRunner(trb.TestRunnerBase):
                 f'Could not find module information for {t_info.raw_test_name}')
 
         if self.module_info.is_device_driven_test(info) and (
-            not self._is_host_enabled() or not self.module_info.is_host_driven_test(info)):
+            not self._is_host_enabled or not self.module_info.is_host_driven_test(info)):
             return DeviceTest(info, Variant.DEVICE, t_info.mainline_modules)
 
         if self.module_info.is_modern_robolectric_test(info):
@@ -905,7 +902,9 @@ class AtestTradefedTestRunner(trb.TestRunnerBase):
         if not test_infos:
             return []
 
-        test_infos = self._flatten_test_infos(test_infos)
+        if atest_configs.GLOBAL_ARGS.group_test:
+            test_infos = self._flatten_test_infos(test_infos)
+
         has_integration_test = False
 
         # Because current --include-filter arg will not working if ATest pass

@@ -118,36 +118,49 @@ class TestRunnerHandlerUnittests(unittest.TestCase):
         test_infos = [MODULE_INFO_A, MODULE_INFO_B]
         want_set = FAKE_TR_A_REQS | FAKE_TR_B_REQS
         empty_module_info = None
+        invocations = test_runner_handler.create_test_runner_invocations(
+            test_infos = test_infos,
+            results_dir = '',
+            mod_info = empty_module_info,
+            extra_args = {},
+            minimal_build = True)
+
+        build_targets = set()
+        for invocation in invocations:
+            build_targets |= invocation.get_test_runner_reqs()
+
         self.assertEqual(
             want_set,
-            test_runner_handler.get_test_runner_reqs(empty_module_info,
-                                                     test_infos))
+            build_targets)
 
-    @mock.patch.object(metrics, 'RunnerFinishEvent')
-    def test_run_all_tests(self, _mock_runner_finish):
+    def test_run_all_tests_succeed(self):
         """Test that the return value as we expected."""
         results_dir = ""
         extra_args = {}
-        mod_info = module_info.load_from_file(
-            module_file=os.path.join(uc.TEST_DATA_DIR, uc.JSON_FILE))
-        # Tests both run_tests return 0
         test_infos = [MODULE_INFO_A, MODULE_INFO_A_AGAIN]
-        self.assertEqual(
-            0,
-            test_runner_handler.run_all_tests(
-                results_dir, test_infos, extra_args, mod_info)[0])
-        # Tests both run_tests return 1
+        invocation = test_runner_handler.TestRunnerInvocation(
+            test_infos=test_infos,
+            test_runner=FakeTestRunnerA(results_dir),
+            extra_args=extra_args)
+
+        exit_code = invocation.run_all_tests(mock.MagicMock())
+
+        self.assertEqual(0, exit_code)
+
+    def test_run_all_tests_failed(self):
+        """Test that the return value as we expected."""
+        results_dir = ""
+        extra_args = {}
         test_infos = [MODULE_INFO_B, MODULE_INFO_B_AGAIN]
-        self.assertEqual(
-            1,
-            test_runner_handler.run_all_tests(
-                results_dir, test_infos, extra_args, mod_info)[0])
-        # Tests with on run_tests return 0, the other return 1
-        test_infos = [MODULE_INFO_A, MODULE_INFO_B]
-        self.assertEqual(
-            1,
-            test_runner_handler.run_all_tests(
-                results_dir, test_infos, extra_args, mod_info)[0])
+        invocation = test_runner_handler.TestRunnerInvocation(
+            test_infos=test_infos,
+            test_runner=FakeTestRunnerB(results_dir),
+            extra_args=extra_args)
+
+        exit_code = invocation.run_all_tests(mock.MagicMock())
+
+        self.assertEqual(1, exit_code)
+
 
 if __name__ == '__main__':
     unittest.main()

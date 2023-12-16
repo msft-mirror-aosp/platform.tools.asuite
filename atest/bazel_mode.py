@@ -679,8 +679,6 @@ class WorkspaceGenerator:
     def _add_bazel_bootstrap_files(self):
         self._symlink(src='tools/asuite/atest/bazel/resources/bazel.sh',
                       target='bazel.sh')
-        # TODO(b/256924541): Consolidate the JDK with the version the Roboleaf
-        # team uses.
         self._symlink(src='prebuilts/jdk/jdk17/BUILD.bazel',
                       target='prebuilts/jdk/jdk17/BUILD.bazel')
         self._symlink(src='prebuilts/jdk/jdk17/linux-x86',
@@ -1916,8 +1914,6 @@ def parse_args(
     extra_args: Dict[str, Any]) -> Dict[str, Any]:
     """Parse commandline args and passes supported args to bazel.
 
-    This is shared between both --bazel-mode and --roboleaf-mode.
-
     Args:
         test_infos: A set of TestInfo instances.
         extra_args: A Dict of extra args to append.
@@ -1935,12 +1931,16 @@ def parse_args(
     # implementation.
     extra_args_copy.pop(constants.HOST, None)
 
+    # Remove the serial arg since Bazel mode does not support device tests and
+    # the serial / -s arg conflicts with the TF null device option specified in
+    # the rule implementation (-n).
+    extra_args_copy.pop(constants.SERIAL, None)
+
     # Map args to their native Bazel counterparts.
     for arg in _SUPPORTED_BAZEL_ARGS:
         if arg not in extra_args_copy:
             continue
-        args_to_append.extend(
-            _map_to_bazel_args(arg, extra_args_copy[arg]))
+        args_to_append.extend(_map_to_bazel_args(arg, extra_args_copy[arg]))
         # Remove the argument since we already mapped it to a Bazel option
         # and no longer need it mapped to a Tradefed argument below.
         del extra_args_copy[arg]
@@ -1968,10 +1968,10 @@ def parse_args(
     # Default to --test_summary=detailed unless specified otherwise, or if the
     # feature is disabled
     if not any(
-            arg.startswith('--test_summary=')
-            for arg in args_to_append
+        arg.startswith('--test_summary=')
+        for arg in args_to_append
     ) and (
-            Features.NO_BAZEL_DETAILED_SUMMARY not in extra_args.get(
+        Features.NO_BAZEL_DETAILED_SUMMARY not in extra_args.get(
         'BAZEL_MODE_FEATURES', [])
     ):
         args_to_append.append('--test_summary=detailed')

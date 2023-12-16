@@ -67,7 +67,7 @@ MAINLINE_MODULES_EXT_RE = re.compile(r'\.(apex|apks|apk)$')
 TEST_WITH_MAINLINE_MODULES_RE = re.compile(r'(?P<test>.*)\[(?P<mainline_modules>.*'
                                            r'[.](apk|apks|apex))\]$')
 
-# Arbitrary number to limit stdout for failed runs in _run_limited_output.
+# Arbitrary number to limit stdout for failed runs in run_limited_output.
 # Reason for its use is that the make command itself has its own carriage
 # return output mechanism that when collected line by line causes the streaming
 # full_output list to be extremely large.
@@ -263,7 +263,7 @@ def _capture_limited_output(full_log):
 
 
 # TODO: b/187122993 refine subprocess with 'with-statement' in fixit week.
-def _run_limited_output(cmd, env_vars=None):
+def run_limited_output(cmd, env_vars=None):
     """Runs a given command and streams the output on a single line in stdout.
 
     Args:
@@ -303,16 +303,8 @@ def _run_limited_output(cmd, env_vars=None):
         # returncode.
         proc.wait()
         if proc.returncode != 0:
-            # get error log from "OUT_DIR/error.log"
-            error_log_file = get_build_out_dir('error.log')
-            output = []
-            if error_log_file.is_file():
-                if error_log_file.stat().st_size > 0:
-                    with open(error_log_file, encoding='utf-8') as f:
-                        output = f.read()
-            if not output:
-                output = _capture_limited_output(full_output)
-            raise subprocess.CalledProcessError(proc.returncode, cmd, output)
+            raise subprocess.CalledProcessError(
+                proc.returncode, cmd, full_output)
 
 
 def get_build_out_dir(*joinpaths) -> Path:
@@ -379,6 +371,33 @@ def build(build_targets: Set[str]):
     return _run_build_cmd(cmd, _BUILD_ENV)
 
 
+def _run_build_cmd_with_limited_output(
+    cmd: List[str], env_vars: Dict[str, str]=None) -> None:
+    """Runs the build command and streams the output on a single line in stdout.
+
+    Args:
+        cmd: A list of strings representing the command to run.
+        env_vars: Optional arg. Dict of env vars to set during build.
+
+    Raises:
+        subprocess.CalledProcessError: When the command exits with a non-0
+            exitcode.
+    """
+    try:
+        run_limited_output(cmd, env_vars=env_vars)
+    except subprocess.CalledProcessError as e:
+        # get error log from "OUT_DIR/error.log"
+        error_log_file = get_build_out_dir('error.log')
+        output = []
+        if error_log_file.is_file():
+            if error_log_file.stat().st_size > 0:
+                with open(error_log_file, encoding='utf-8') as f:
+                    output = f.read()
+        if not output:
+            output = _capture_limited_output(e.output)
+        raise subprocess.CalledProcessError(e.returncode, e.cmd, output)
+
+
 def _run_build_cmd(cmd: List[str], env_vars: Dict[str, str]):
     """The main process of building targets.
 
@@ -405,7 +424,7 @@ def _run_build_cmd(cmd: List[str], env_vars: Dict[str, str]):
                   'mode; check {} for detail after build finishes.)'.format(
                     mark_cyan(f'{log_path}')
                   ), end='')
-            _run_limited_output(cmd, env_vars=env_vars)
+            _run_build_cmd_with_limited_output(cmd, env_vars=env_vars)
         _send_build_condition_metrics(build_profiler, cmd)
         logging.info('Build successful')
         return True
@@ -576,10 +595,6 @@ def colorful_print(text, color, bp_color=None, auto_wrap=True):
     else:
         print(output, end="")
 
-def roboleaf_print(text):
-    """Print roboleaf emoji with text."""
-    print("[🌿] " + text)
-
 def get_terminal_size():
     """Get terminal size and return a tuple.
 
@@ -594,13 +609,14 @@ def get_terminal_size():
     return columns, rows
 
 
-def handle_test_runner_cmd(input_test, test_cmds, do_verification=False,
+def handle_test_runner_cmd(input_test, dry_run_cmds, do_verification=False,
                            result_path=constants.VERIFY_DATA_PATH):
     """Handle the runner command of input tests.
 
     Args:
-        input_test: A string of input tests pass to atest.
-        test_cmds: A list of strings for running input tests.
+        input_test: The name of a test.
+        dry_run_cmds: A list of strings which make up the command for running
+        the input test.
         do_verification: A boolean to indicate the action of this method.
                          True: Do verification without updating result map and
                                raise DryRunVerificationError if verifying fails.
@@ -611,9 +627,9 @@ def handle_test_runner_cmd(input_test, test_cmds, do_verification=False,
     """
     full_result_content = load_json_safely(result_path)
     former_test_cmds = full_result_content.get(input_test, [])
-    test_cmds = _normalize(test_cmds)
+    dry_run_cmds = _normalize(dry_run_cmds)
     former_test_cmds = _normalize(former_test_cmds)
-    if not _are_identical_cmds(test_cmds, former_test_cmds):
+    if not _are_identical_cmds(dry_run_cmds, former_test_cmds):
         if do_verification:
             raise atest_error.DryRunVerificationError(
                 'Dry run verification failed, former commands: {}'.format(
@@ -622,7 +638,7 @@ def handle_test_runner_cmd(input_test, test_cmds, do_verification=False,
             # If former_test_cmds is different from test_cmds, ask users if they
             # are willing to update the result.
             print('Former cmds = %s' % former_test_cmds)
-            print('Current cmds = %s' % test_cmds)
+            print('Current cmds = %s' % dry_run_cmds)
             if not prompt_with_yn_result('Do you want to update former result '
                                          'to the latest one?', True):
                 print('SKIP updating result!!!')
@@ -631,7 +647,7 @@ def handle_test_runner_cmd(input_test, test_cmds, do_verification=False,
         # If current commands are the same as the formers, no need to update
         # result.
         return
-    full_result_content[input_test] = test_cmds
+    full_result_content[input_test] = dry_run_cmds
     with open(result_path, 'w', encoding='utf-8') as outfile:
         json.dump(full_result_content, outfile, indent=0)
         print('Save result mapping to %s' % result_path)
