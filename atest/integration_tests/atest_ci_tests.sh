@@ -56,6 +56,11 @@ if [ ! -n "${ANDROID_TARGET_OUT_TESTCASES}" ] ; then
   export ANDROID_TARGET_OUT_TESTCASES=$(get_build_var TARGET_OUT_TESTCASES)
 fi
 
+if [ ! -n "${ANDROID_JAVA_HOME}" ] ; then
+  export ANDROID_JAVA_HOME=$(get_build_var ANDROID_JAVA_HOME)
+  export JAVA_HOME=$(get_build_var JAVA_HOME)
+fi
+
 export REMOTE_AVD=true
 
 build/soong/soong_ui.bash --make-mode atest --skip-soong-tests
@@ -64,5 +69,9 @@ build/soong/soong_ui.bash --make-mode atest --skip-soong-tests
 # build with minimal reliance on host tools. Add build/bazel/bin to PATH since
 # atest needs 'b'
 export PATH=${PWD}/prebuilts/build-tools/path/linux-x86:${PWD}/build/bazel/bin:${PWD}/out/host/linux-x86/bin/:${PATH}
+
+# Use the versioned Java binaries in prebuilds/ for a reproducible
+# build with minimal reliance on host tools.
+export PATH=${ANDROID_JAVA_HOME}/bin:${PATH}
 
 python3 tools/asuite/atest/integration_tests/atest_ci_tests.py $@
