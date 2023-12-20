@@ -60,7 +60,7 @@ class CommandVerificationTests(AtestTestCase):
         'log_saver=template/log/atest_log_saver',
         'multi_abi',
         'secondary_user',
-        'template/atest_local_min',
+        'template/atest_device_test_base',
         'test=atest',
     ]
     self._verify_atest_internal_command(
@@ -101,7 +101,7 @@ class CommandVerificationTests(AtestTestCase):
         'log_saver=template/log/atest_log_saver',
         'multi_abi',
         'secondary_user',
-        'template/atest_local_min',
+        'template/atest_device_test_base',
         'test=atest',
     ]
     self._verify_atest_internal_command(
@@ -140,7 +140,7 @@ class CommandVerificationTests(AtestTestCase):
             '-annotation:android.platform.test.annotations.AppModeInstant'
         ),
         'log_saver=template/log/atest_log_saver',
-        'template/atest_local_min',
+        'template/atest_device_test_base',
         'test=atest',
     ]
     self._verify_atest_internal_command(
@@ -174,7 +174,7 @@ class CommandVerificationTests(AtestTestCase):
             '-annotation:android.platform.test.annotations.AppModeInstant'
         ),
         'log_saver=template/log/atest_log_saver',
-        'template/atest_local_min',
+        'template/atest_device_test_base',
         'test=atest',
     ]
     self._verify_atest_internal_command(
@@ -210,7 +210,7 @@ class CommandVerificationTests(AtestTestCase):
             '-annotation:android.platform.test.annotations.AppModeInstant'
         ),
         'log_saver=template/log/atest_log_saver',
-        'template/atest_local_min',
+        'template/atest_device_test_base',
         'test=atest',
     ]
     self._verify_atest_internal_command(
@@ -244,7 +244,7 @@ class CommandVerificationTests(AtestTestCase):
             '-annotation:android.platform.test.annotations.AppModeInstant'
         ),
         'log_saver=template/log/atest_log_saver',
-        'template/atest_local_min',
+        'template/atest_device_test_base',
         'test=atest',
     ]
     self._verify_atest_internal_command(
@@ -273,7 +273,7 @@ class CommandVerificationTests(AtestTestCase):
         'atest_tradefed.sh',
         'hallo-welt',
         'log_saver=template/log/atest_log_saver',
-        'template/atest_local_min',
+        'template/atest_device_test_base',
         'test=atest',
     ]
     self._verify_atest_internal_command(
@@ -312,7 +312,7 @@ class CommandVerificationTests(AtestTestCase):
         'log_saver=template/log/atest_log_saver',
         'multi_abi',
         'secondary_user',
-        'template/atest_local_min',
+        'template/atest_device_test_base',
         'test=atest',
     ]
     self._verify_atest_internal_command(
@@ -347,7 +347,7 @@ class CommandVerificationTests(AtestTestCase):
         ),
         'atest_tradefed.sh',
         'log_saver=template/log/atest_log_saver',
-        'template/atest_local_min',
+        'template/atest_device_test_base',
         'test=atest',
     ]
     self._verify_atest_internal_command(
@@ -374,7 +374,7 @@ class CommandVerificationTests(AtestTestCase):
         'VERBOSE',
         'atest_tradefed.sh',
         'log_saver=template/log/atest_log_saver',
-        'template/atest_local_min',
+        'template/atest_device_test_base',
         'test=atest',
     ]
     self._verify_atest_internal_command(
@@ -410,7 +410,7 @@ class CommandVerificationTests(AtestTestCase):
         ),
         'atest_tradefed.sh',
         'log_saver=template/log/atest_log_saver',
-        'template/atest_local_min',
+        'template/atest_device_test_base',
         'test=atest',
     ]
     self._verify_atest_internal_command(
@@ -451,7 +451,7 @@ class CommandVerificationTests(AtestTestCase):
         'log_saver=template/log/atest_log_saver',
         'multi_abi',
         'secondary_user',
-        'template/atest_local_min',
+        'template/atest_device_test_base',
         'test=atest',
     ]
     self._verify_atest_internal_command(
@@ -485,7 +485,7 @@ class CommandVerificationTests(AtestTestCase):
             '-annotation:android.platform.test.annotations.AppModeInstant'
         ),
         'log_saver=template/log/atest_log_saver',
-        'template/atest_local_min',
+        'template/atest_device_test_base',
         'test=atest',
     ]
     self._verify_atest_internal_command(
@@ -522,7 +522,7 @@ class CommandVerificationTests(AtestTestCase):
             '-annotation:android.platform.test.annotations.AppModeInstant'
         ),
         'log_saver=template/log/atest_log_saver',
-        'template/atest_local_min',
+        'template/atest_device_test_base',
         'test=atest',
     ]
     self._verify_atest_internal_command(
@@ -549,7 +549,7 @@ class CommandVerificationTests(AtestTestCase):
         'atest_tradefed.sh',
         'hello_world_test',
         'log_saver=template/log/atest_log_saver',
-        'template/atest_local_min',
+        'template/atest_device_test_base',
         'test=atest',
     ]
     self._verify_atest_internal_command(
@@ -575,7 +575,7 @@ class CommandVerificationTests(AtestTestCase):
         'atest_tradefed.sh',
         'log_saver=template/log/atest_log_saver',
         'native-benchmark',
-        'template/atest_local_min',
+        'template/atest_device_test_base',
         'test=atest',
     ]
     self._verify_atest_internal_command(
@@ -602,7 +602,7 @@ class CommandVerificationTests(AtestTestCase):
         'atest_tradefed.sh',
         'hello_world_test',
         'log_saver=template/log/atest_log_saver',
-        'template/atest_local_min',
+        'template/atest_device_test_base',
         'test=atest',
     ]
     self._verify_atest_internal_command(
@@ -629,7 +629,7 @@ class CommandVerificationTests(AtestTestCase):
         'atest_tradefed.sh',
         'hello_world_test',
         'log_saver=template/log/atest_log_saver',
-        'template/atest_local_min',
+        'template/atest_device_test_base',
         'test=atest',
     ]
     self._verify_atest_internal_command(
@@ -655,7 +655,7 @@ class CommandVerificationTests(AtestTestCase):
         'atest_tradefed.sh',
         'log_saver=template/log/atest_log_saver',
         'native-benchmark',
-        'template/atest_local_min',
+        'template/atest_device_test_base',
         'test=atest',
     ]
     self._verify_atest_internal_command(
@@ -686,7 +686,7 @@ class CommandVerificationTests(AtestTestCase):
         'VERBOSE',
         'atest_tradefed.sh',
         'log_saver=template/log/atest_log_saver',
-        'template/atest_local_min',
+        'template/atest_deviceless_test_base',
         'test=atest',
     ]
     self._verify_atest_internal_command(
@@ -717,7 +717,7 @@ class CommandVerificationTests(AtestTestCase):
         'VERBOSE',
         'atest_tradefed.sh',
         'log_saver=template/log/atest_log_saver',
-        'template/atest_local_min',
+        'template/atest_device_test_base',
         'test=atest',
     ]
     self._verify_atest_internal_command(
@@ -746,7 +746,7 @@ class CommandVerificationTests(AtestTestCase):
         'log_saver=template/log/atest_log_saver',
         'pts-bot',
         'pts-bot:PAN/GN/MISC/UUID/BV-01-C',
-        'template/atest_local_min',
+        'template/atest_device_test_base',
         'test=atest',
     ]
     self._verify_atest_internal_command(
@@ -775,7 +775,7 @@ class CommandVerificationTests(AtestTestCase):
         'log_saver=template/log/atest_log_saver',
         'teeui_unit_tests',
         'teeui_unit_tests:TeeUIUtilsTest.*',
-        'template/atest_local_min',
+        'template/atest_device_test_base',
         'test=atest',
     ]
     self._verify_atest_internal_command(
@@ -811,7 +811,7 @@ class CommandVerificationTests(AtestTestCase):
             ':TeeUIUtilsTest.ConvexObjectLineIntersection:TeeUIUtilsTest'
             '.intersectTest'
         ),
-        'template/atest_local_min',
+        'template/atest_device_test_base',
         'test=atest',
     ]
     self._verify_atest_internal_command(
@@ -854,7 +854,7 @@ class CommandVerificationTests(AtestTestCase):
         'log_saver=template/log/atest_log_saver',
         'multi_abi',
         'secondary_user',
-        'template/atest_local_min',
+        'template/atest_device_test_base',
         'test=atest',
     ]
     self._verify_atest_internal_command(
@@ -897,7 +897,7 @@ class CommandVerificationTests(AtestTestCase):
         'log_saver=template/log/atest_log_saver',
         'multi_abi',
         'secondary_user',
-        'template/atest_local_min',
+        'template/atest_device_test_base',
         'test=atest',
     ]
     self._verify_atest_internal_command(
@@ -941,7 +941,7 @@ class CommandVerificationTests(AtestTestCase):
         'log_saver=template/log/atest_log_saver',
         'multi_abi',
         'secondary_user',
-        'template/atest_local_min',
+        'template/atest_device_test_base',
         'test=atest',
     ]
     self._verify_atest_internal_command(
@@ -980,7 +980,7 @@ class CommandVerificationTests(AtestTestCase):
         'log_saver=template/log/atest_log_saver',
         'multi_abi',
         'secondary_user',
-        'template/atest_local_min',
+        'template/atest_device_test_base',
         'test=atest',
     ]
     self._verify_atest_internal_command(
@@ -1023,7 +1023,7 @@ class CommandVerificationTests(AtestTestCase):
         'log_saver=template/log/atest_log_saver',
         'multi_abi',
         'secondary_user',
-        'template/atest_local_min',
+        'template/atest_device_test_base',
         'test=atest',
     ]
     self._verify_atest_internal_command(

@@ -46,6 +46,9 @@ class TestRunnerInvocation:
   def test_infos(self):
     return self._test_infos
 
+  def __eq__(self, other):
+    return self.__dict__ == other.__dict__
+
   def requires_device_update(self):
     """Checks whether this invocation requires device update."""
     return self._test_runner.requires_device_update(self._test_infos)
