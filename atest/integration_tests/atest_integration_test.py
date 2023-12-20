@@ -82,6 +82,8 @@ class AtestIntegrationTest:
       'OUT',
       'PATH',
       'ANDROID_HOST_OUT_TESTCASES',
+      'ANDROID_JAVA_HOME',
+      'JAVA_HOME',
   ]
 
   def __init__(self, name: Text) -> None:
@@ -92,6 +94,15 @@ class AtestIntegrationTest:
     self._snapshot: Snapshot = Snapshot(
         name, _get_workspace_dir(), _get_artifacts_path()
     )
+    self._add_java_home_to_include_path()
+
+  def _add_java_home_to_include_path(self) -> None:
+    """Get the relative java home directory in build env."""
+    if is_in_test_env():
+      return
+    absolute_path = Path(os.environ['ANDROID_JAVA_HOME'])
+    repo_root = Path(os.environ['ANDROID_BUILD_TOP'])
+    self._include_paths.append(absolute_path.relative_to(repo_root).as_posix())
 
   def add_artifact_paths(self, *paths: str) -> None:
     """Add paths to include in snapshot artifacts."""
