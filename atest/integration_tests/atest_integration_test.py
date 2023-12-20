@@ -64,6 +64,8 @@ class AtestIntegrationTest:
       'external/bazelbuild-rules_java',
       'tools/asuite/atest/bazel/resources/bazel.sh',
       'prebuilts/bazel/linux-x86_64/bazel',
+      'prebuilts/build-tools/path/linux-x86/python3',
+      'prebuilts/build-tools/linux-x86/bin/py3-cmd',
   ]
 
   _default_exclude_paths = [
