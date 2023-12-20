@@ -46,7 +46,7 @@ import tarfile
 from typing import Dict, List
 
 
-class Snapshot():
+class Snapshot:
   """Interface for taking snapshots of repo state."""
 
   def take(
@@ -122,7 +122,8 @@ class TarEverythingSnapshot(Snapshot):
     restored_env_without_path = {
         key: value for key, value in restored_env.items() if key != 'PATH'
     }
-    result_env = os.environ.copy() | restored_env_without_path
+    result_env = os.environ.copy()
+    result_env.update(restored_env_without_path)
     result_env['PATH'] = restored_env['PATH'] + ':' + result_env['PATH']
     return result_env
 
