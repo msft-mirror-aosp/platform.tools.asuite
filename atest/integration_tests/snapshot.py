@@ -43,12 +43,13 @@ from pathlib import Path
 import shutil
 import subprocess
 import tarfile
-from typing import Dict, List
+from typing import abstractmethod, Dict, List, Protocol
 
 
-class Snapshot:
+class Snapshot(Protocol):
   """Interface for taking snapshots of repo state."""
 
+  @abstractmethod
   def take(
       self,
       include_paths: List[str],
@@ -57,6 +58,7 @@ class Snapshot:
   ) -> None:
     raise NotImplementedError
 
+  @abstractmethod
   def restore(self) -> Dict[str, str]:
     raise NotImplementedError
 
