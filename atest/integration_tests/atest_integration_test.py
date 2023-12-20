@@ -304,6 +304,8 @@ def main() -> None:
   parser = create_arg_parser(add_help=True)
   args, unittest_argv = parser.parse_known_args(sys.argv)
 
+  print(f"The os environ is: {os.environ}")
+
   if args.build and args.test:
     parser.error('running build and test env together is not supported yet')
   if not args.build and not args.test:
