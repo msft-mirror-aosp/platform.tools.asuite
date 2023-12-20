@@ -27,6 +27,8 @@ class AtestContinuousIntegrationTests(atest_integration_test.TestCase):
       subprocess.run(
           'atest-dev -b --no-bazel-mode csuite-harness-tests'.split(),
           check=True,
+          env=atest.get_env(),
+          cwd=atest.get_repo_root(),
       )
 
     if atest.in_test_env():
@@ -44,7 +46,10 @@ class AtestContinuousIntegrationTests(atest_integration_test.TestCase):
     atest = atest_integration_test.AtestIntegrationTest(self.id())
     if atest.in_build_env():
       subprocess.run(
-          'atest-dev -b --no-bazel-mode csuite_cli_test'.split(), check=True
+          'atest-dev -b --no-bazel-mode csuite_cli_test'.split(),
+          check=True,
+          env=atest.get_env(),
+          cwd=atest.get_repo_root(),
       )
 
     if atest.in_test_env():
