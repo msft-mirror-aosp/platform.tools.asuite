@@ -81,7 +81,7 @@ class AtestIntegrationTest:
       'ANDROID_TARGET_OUT_TESTCASES',
       'OUT',
       'PATH',
-      'ANDROID_HOST_OUT_TESTCASES',
+      'HOST_OUT_TESTCASES',
       'ANDROID_JAVA_HOME',
       'JAVA_HOME',
   ]
