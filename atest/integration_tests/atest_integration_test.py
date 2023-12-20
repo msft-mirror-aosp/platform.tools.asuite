@@ -30,7 +30,7 @@ from pathlib import Path
 import shutil
 import sys
 import tarfile
-from typing import Any, Sequence, Text
+from typing import Any, Dict, List, Sequence, Text
 import unittest
 
 from snapshot import Snapshot
@@ -42,13 +42,15 @@ TestCase: unittest.TestCase = unittest.TestCase
 _DEVICE_SERIAL: Text = None
 _IS_BUILD_ENV: bool = False
 _IS_TEST_ENV: bool = False
-_ARTIFACTS_DIR: Text = None
+_ARTIFACTS_DIR: Path = None
+_ARTIFACT_PACK_PATH: Path = None
+_DEFAULT_ARTIFACT_PATH_FILE_NAME = 'atest_integration_tests.tar'
 
 
 class AtestIntegrationTest:
   """Utility class for running atest integration test in build and test environment."""
 
-  _default_include_paths: list[str] = [
+  _default_include_paths = [
       'out/host/linux-x86',
       'out/target/product/*/module-info*',
       'out/target/product/*/testcases',
@@ -64,13 +66,13 @@ class AtestIntegrationTest:
       'prebuilts/bazel/linux-x86_64/bazel',
   ]
 
-  _default_exclude_paths: list[str] = [
+  _default_exclude_paths = [
       'out/host/linux-x86/bin/go',
       'out/host/linux-x86/bin/soong_build',
       'out/host/linux-x86/obj',
   ]
 
-  _default_env_keys: list[str] = [
+  _default_env_keys = [
       'ANDROID_BUILD_TOP',
       'ANDROID_HOST_OUT',
       'ANDROID_PRODUCT_OUT',
@@ -81,10 +83,10 @@ class AtestIntegrationTest:
   ]
 
   def __init__(self, name: Text) -> None:
-    self._include_paths: list[str] = self._default_include_paths
-    self._exclude_paths: list[str] = self._default_exclude_paths
-    self._env_keys: list[str] = self._default_env_keys
-    self._env: dict[Text, Text] = None
+    self._include_paths: List[str] = self._default_include_paths
+    self._exclude_paths: List[str] = self._default_exclude_paths
+    self._env_keys: List[str] = self._default_env_keys
+    self._env: Dict[Text, Text] = None
     self._snapshot: Snapshot = Snapshot(
         name, _get_workspace_dir(), _get_artifacts_path()
     )
@@ -117,11 +119,17 @@ class AtestIntegrationTest:
 
     return is_in_test_env()
 
-  def get_env(self) -> dict[Text, Text]:
+  def get_env(self) -> Dict[Text, Text]:
     """Get environment variables."""
     if is_in_build_env():
       return os.environ.copy()
     return self._env
+
+  def get_device_serial(self) -> Text:
+    """Returns the serial of the connected device."""
+    if not _DEVICE_SERIAL:
+      raise RuntimeError('device serial is not set')
+    return _DEVICE_SERIAL
 
   def get_repo_root(self) -> str:
     """Get repo root directory."""
@@ -161,11 +169,6 @@ def _get_workspace_dir() -> Path:
   return _get_artifacts_path('workspace')
 
 
-def _get_artifact_pack_path() -> Path:
-  """Get the packed artifact archive path."""
-  return _get_artifacts_path('atest_integration_tests.tar')
-
-
 def _process_artifacts() -> None:
   """Pack artifacts into a tarball and clean up."""
   artifact_paths = glob.glob(
@@ -173,7 +176,7 @@ def _process_artifacts() -> None:
   )
 
   if is_in_build_env():
-    with tarfile.open(_get_artifact_pack_path().as_posix(), 'w') as tar:
+    with tarfile.open(_ARTIFACT_PACK_PATH.as_posix(), 'w') as tar:
       for artifact_path in artifact_paths:
         tar.add(
             artifact_path,
@@ -187,17 +190,8 @@ def _process_artifacts() -> None:
 
 def _unpack_artifacts() -> None:
   """Unpack artifacts from a tarball."""
-  with tarfile.open(_get_artifact_pack_path().as_posix(), 'r') as tar:
+  with tarfile.open(_ARTIFACT_PACK_PATH.as_posix(), 'r') as tar:
     tar.extractall(_get_artifacts_path().as_posix())
-
-
-def get_device_serial() -> Text:
-  """Returns the serial of the connected device."""
-  if not _DEVICE_SERIAL:
-    raise RuntimeError(
-        'Device serial is unset, did you call main in your test?'
-    )
-  return _DEVICE_SERIAL
 
 
 def create_arg_parser(add_help: bool = False) -> argparse.ArgumentParser:
@@ -236,8 +230,10 @@ def create_arg_parser(add_help: bool = False) -> argparse.ArgumentParser:
   )
   parser.add_argument(
       '--artifacts_dir',
-      required=True,
       help='directory where test artifacts are saved',
+  )
+  parser.add_argument(
+      '--artifact_pack_path', help='path to the artifact pack file'
   )
 
   # The below flags are passed in by the TF Python test runner.
@@ -302,15 +298,31 @@ def run_tests(args: Any, unittest_argv: Sequence[Text]) -> None:
 
 def main() -> None:
   """Executes a set of Python unit tests."""
-  global _DEVICE_SERIAL, _ARTIFACTS_DIR, _IS_BUILD_ENV, _IS_TEST_ENV
+  global _DEVICE_SERIAL, _ARTIFACTS_DIR, _IS_BUILD_ENV, _IS_TEST_ENV, _ARTIFACT_PACK_PATH
   parser = create_arg_parser(add_help=True)
   args, unittest_argv = parser.parse_known_args(sys.argv)
 
   if args.build and args.test:
     parser.error('running build and test env together is not supported yet')
+  if not args.build and not args.test:
+    parser.error('must specify to run either in build or test env')
+  if args.build and not args.artifacts_dir:
+    parser.error('running in build env requires artifacts_dir be set')
+  if args.test and not args.artifact_pack_path:
+    parser.error('running in test env requires artifact_pack_path be set')
+
   _IS_BUILD_ENV = args.build
   _IS_TEST_ENV = args.test
   _DEVICE_SERIAL = args.serial
-  _ARTIFACTS_DIR = args.artifacts_dir
+  _ARTIFACTS_DIR = (
+      Path(args.artifacts_dir)
+      if args.artifacts_dir
+      else Path(args.artifact_pack_path).parent
+  )
+  _ARTIFACT_PACK_PATH = (
+      Path(args.artifact_pack_path)
+      if args.artifact_pack_path
+      else _ARTIFACTS_DIR.joinpath(_DEFAULT_ARTIFACT_PATH_FILE_NAME)
+  )
 
   run_tests(args, unittest_argv)
