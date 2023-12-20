@@ -56,6 +56,10 @@ if [ ! -n "${ANDROID_TARGET_OUT_TESTCASES}" ] ; then
   export ANDROID_TARGET_OUT_TESTCASES=$(get_build_var TARGET_OUT_TESTCASES)
 fi
 
+if [ ! -n "${HOST_OUT_TESTCASES}" ] ; then
+  export HOST_OUT_TESTCASES=$(get_build_var HOST_OUT_TESTCASES)
+fi
+
 if [ ! -n "${ANDROID_JAVA_HOME}" ] ; then
   export ANDROID_JAVA_HOME=$(get_build_var ANDROID_JAVA_HOME)
   export JAVA_HOME=$(get_build_var JAVA_HOME)
