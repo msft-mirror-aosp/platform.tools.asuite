@@ -18,45 +18,46 @@ import subprocess
 import atest_integration_test
 
 
-class AtestContinuousIntegrationTests(
-    atest_integration_test.TestCase
-):
+class AtestContinuousIntegrationTests(atest_integration_test.TestCase):
   """An integration test that split Atest execution into build and test phase."""
 
   def test_csuite_harness_tests(self):
-    atest = (
-        atest_integration_test.AtestIntegrationTest(
-            self.id()
-        )
-    )
+    atest = atest_integration_test.AtestIntegrationTest(self.id())
     if atest.in_build_env():
       subprocess.run(
           'atest-dev -b --no-bazel-mode csuite-harness-tests'.split(),
           check=True,
+          env=atest.get_env(),
+          cwd=atest.get_repo_root(),
       )
 
     if atest.in_test_env():
       subprocess.run(
-          'atest-dev -it --no-bazel-mode csuite-harness-tests'.split(),
+          (
+              'atest-dev -it --no-bazel-mode csuite-harness-tests -s '
+              + atest.get_device_serial()
+          ).split(),
           check=True,
           env=atest.get_env(),
           cwd=atest.get_repo_root(),
       )
 
   def test_csuite_cli_test(self):
-    atest = (
-        atest_integration_test.AtestIntegrationTest(
-            self.id()
-        )
-    )
+    atest = atest_integration_test.AtestIntegrationTest(self.id())
     if atest.in_build_env():
       subprocess.run(
-          'atest-dev -b --no-bazel-mode csuite_cli_test'.split(), check=True
+          'atest-dev -b --no-bazel-mode csuite_cli_test'.split(),
+          check=True,
+          env=atest.get_env(),
+          cwd=atest.get_repo_root(),
       )
 
     if atest.in_test_env():
       subprocess.run(
-          'atest-dev -it --no-bazel-mode csuite_cli_test'.split(),
+          (
+              'atest-dev -it --no-bazel-mode csuite_cli_test -s '
+              + atest.get_device_serial()
+          ).split(),
           check=True,
           env=atest.get_env(),
           cwd=atest.get_repo_root(),

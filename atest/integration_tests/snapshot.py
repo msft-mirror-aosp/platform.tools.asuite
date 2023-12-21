@@ -43,12 +43,13 @@ from pathlib import Path
 import shutil
 import subprocess
 import tarfile
-from typing import Dict, List
+from typing import abstractmethod, Dict, List, Protocol
 
 
-class Snapshot():
+class Snapshot(Protocol):
   """Interface for taking snapshots of repo state."""
 
+  @abstractmethod
   def take(
       self,
       include_paths: List[str],
@@ -57,6 +58,7 @@ class Snapshot():
   ) -> None:
     raise NotImplementedError
 
+  @abstractmethod
   def restore(self) -> Dict[str, str]:
     raise NotImplementedError
 
@@ -119,12 +121,8 @@ class TarEverythingSnapshot(Snapshot):
         )
         for key, value in loaded_env.items()
     }
-    restored_env_without_path = {
-        key: value for key, value in restored_env.items() if key != 'PATH'
-    }
-    result_env = os.environ.copy() | restored_env_without_path
-    result_env['PATH'] = restored_env['PATH'] + ':' + result_env['PATH']
-    return result_env
+    restored_env['PATH'] = restored_env['PATH'] + ':' + os.environ['PATH']
+    return restored_env
 
   def _get_env_file_path(self) -> Path:
     """Get environment file path."""
