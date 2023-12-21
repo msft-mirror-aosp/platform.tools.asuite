@@ -45,6 +45,7 @@ _IS_TEST_ENV: bool = False
 _ARTIFACTS_DIR: Path = None
 _ARTIFACT_PACK_PATH: Path = None
 _DEFAULT_ARTIFACT_PATH_FILE_NAME = 'atest_integration_tests.tar'
+_SNAPSHOT_STORAGE_DIR_NAME = 'ATEST_INTEGRATION_TESTS_SNAPSHOT_STORAGE'
 
 
 class AtestIntegrationTest:
@@ -78,7 +79,7 @@ class AtestIntegrationTest:
       'ANDROID_BUILD_TOP',
       'ANDROID_HOST_OUT',
       'ANDROID_PRODUCT_OUT',
-      "ANDROID_HOST_OUT_TESTCASES",
+      'ANDROID_HOST_OUT_TESTCASES',
       'ANDROID_TARGET_OUT_TESTCASES',
       'OUT',
       'PATH',
@@ -87,15 +88,15 @@ class AtestIntegrationTest:
       'JAVA_HOME',
   ]
 
-  def __init__(self, name: Text) -> None:
+  def __init__(self, id: Text) -> None:
     self._include_paths: List[str] = self._default_include_paths
     self._exclude_paths: List[str] = self._default_exclude_paths
     self._env_keys: List[str] = self._default_env_keys
+    self._id: Text = id
     self._env: Dict[Text, Text] = None
-    self._snapshot: Snapshot = Snapshot(
-        name, _get_workspace_dir(), _get_artifacts_path()
-    )
+    self._snapshot: Snapshot = Snapshot(_get_snapshot_storage_path())
     self._add_java_home_to_include_path()
+    self._snapshot_count = 0
 
   def _add_java_home_to_include_path(self) -> None:
     """Get the relative java home directory in build env."""
@@ -117,6 +118,20 @@ class AtestIntegrationTest:
     """Add environment variable keys for snapshot."""
     self._env_set_keys.extend(keys)
 
+  def take_snapshot(self, name: str) -> None:
+    self._snapshot.take_snapshot(
+        name,
+        self.get_repo_root(),
+        self._include_paths,
+        self._exclude_paths,
+        self._env_keys,
+    )
+
+  def restore_snapshot(self, name: str) -> None:
+    self._env = self._snapshot.restore_snapshot(
+        name, _get_workspace_dir().as_posix()
+    )
+
   def in_build_env(self) -> bool:
     """Whether to executes test codes written for build environment only."""
     return is_in_build_env()
@@ -125,12 +140,11 @@ class AtestIntegrationTest:
     """Whether to executes test codes written for test environment only."""
 
     if is_in_build_env():
-      self._snapshot.take(
-          self._include_paths, self._exclude_paths, self._env_keys
-      )
+      self.take_snapshot(self._id + '_' + str(self._snapshot_count))
+      self._snapshot_count += 1
     if is_in_test_env():
-      self._env = self._snapshot.restore()
-
+      self.restore_snapshot(self._id + '_' + str(self._snapshot_count))
+      self._snapshot_count += 1
     return is_in_test_env()
 
   def get_env(self) -> Dict[Text, Text]:
@@ -177,6 +191,10 @@ def _get_artifacts_path(*sub_paths: str) -> Path:
   return Path(_ARTIFACTS_DIR, *sub_paths)
 
 
+def _get_snapshot_storage_path() -> Path:
+  return _get_artifacts_path(_SNAPSHOT_STORAGE_DIR_NAME)
+
+
 def _get_workspace_dir() -> Path:
   """Get the directory for restoring the repo files."""
   # TODO use temp dir after the prototype is verified in pipeline
@@ -185,21 +203,15 @@ def _get_workspace_dir() -> Path:
 
 def _process_artifacts() -> None:
   """Pack artifacts into a tarball and clean up."""
-  artifact_paths = glob.glob(
-      _get_artifacts_path(Snapshot._artifact_name_prefix + '*').as_posix()
-  )
-
   if is_in_build_env():
     with tarfile.open(_ARTIFACT_PACK_PATH.as_posix(), 'w') as tar:
-      for artifact_path in artifact_paths:
-        tar.add(
-            artifact_path,
-            arcname=Path(artifact_path).relative_to(
-                _get_artifacts_path().as_posix()
-            ),
-        )
-  for artifact_path in artifact_paths:
-    os.remove(artifact_path)
+      tar.add(
+          _get_snapshot_storage_path(),
+          arcname=_get_snapshot_storage_path().relative_to(
+              _get_artifacts_path().as_posix()
+          ),
+      )
+  shutil.rmtree(_get_snapshot_storage_path())
 
 
 def _unpack_artifacts() -> None:
@@ -316,7 +328,7 @@ def main() -> None:
   parser = create_arg_parser(add_help=True)
   args, unittest_argv = parser.parse_known_args(sys.argv)
 
-  print(f"The os environ is: {os.environ}")
+  print(f'The os environ is: {os.environ}')
 
   if args.build and args.test:
     parser.error('running build and test env together is not supported yet')

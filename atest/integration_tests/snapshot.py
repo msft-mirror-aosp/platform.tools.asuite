@@ -15,87 +15,91 @@
 # limitations under the License.
 
 
-"""Provides a snapshot functionality for preserving and restoring the state of a repository.
+"""Provides a snapshot functionality for preserving and restoring the state of a directory.
 
-This module includes:
-- `ISnapshot`: An abstract class defining the interface for snapshot
-implementations.
-- `TarEverythingSnapshot`: A concrete implementation that creates tarball
-snapshots of the repository.
-
-Features:
-- Takes snapshots by including and excluding specified paths.
-- Preserves a subset of environment variables.
-- Restores the repository state from previously taken snapshots.
-
-Usage:
-```python
-snapshot = Snapshot(name, workspace_dir, artifacts_dir)
-snapshot.take(include_paths, exclude_paths, env_keys)
-snapshot.restore()
-```
+This module includes a `Snapshot` class that provides methods to:
+- Take snapshots of a directory, including or excluding specified paths.
+- Preserve environment variables.
+- Restore the directory state from previously taken snapshots, managing file and
+directory deletions and replacements.
 """
 
 import glob
+import hashlib
 import json
+import logging
 import os
 from pathlib import Path
 import shutil
 import subprocess
 import tarfile
-from typing import abstractmethod, Dict, List, Protocol
+from typing import Dict, List, Optional, Tuple
 
 
-class Snapshot(Protocol):
-  """Interface for taking snapshots of repo state."""
-
-  @abstractmethod
-  def take(
-      self,
-      include_paths: List[str],
-      exclude_paths: List[str],
-      env_keys: List[str],
-  ) -> None:
-    raise NotImplementedError
-
-  @abstractmethod
-  def restore(self) -> Dict[str, str]:
-    raise NotImplementedError
-
-
-class TarEverythingSnapshot(Snapshot):
-  """Basic implementation that tars everything."""
-
-  _repo_root_placeholder = '<repo_root_placeholder>'
-  _artifact_name_prefix = 'ATEST_INTEGRATION_TESTS_PREFIX_'
+class Snapshot:
+  """Provides functionality to take and restore snapshots of a directory."""
 
   def __init__(
       self,
-      name: str,
-      workspace_dir: Path,
-      artifacts_dir: Path,
+      storage_dir: Path,
   ):
-    self._name = name
-    self._workspace_dir = workspace_dir
-    self._artifacts_dir = artifacts_dir
-    self._current_snapshot_index = 0
+    """Initializes a Snapshot object.
 
-  def take(
+    Args:
+        storage_dir: The directory where snapshots will be stored.
+    """
+    self._dir_snapshot = DirSnapshot(storage_dir)
+    self._env_snapshot = EnvSnapshot(storage_dir)
+
+  def take_snapshot(
       self,
-      include_paths: List[str],
-      exclude_paths: List[str],
+      name: str,
+      root_path: str,
+      include_paths: List[str] = [],
+      exclude_paths: List[str] = [],
+      env_keys: List[str] = [],
+  ) -> None:
+    """Takes a snapshot of the directory at the given path.
+
+    Args:
+        name: The name of the snapshot.
+        root_path: The path to the directory to snapshot.
+        include_paths: A list of relative paths to include in the snapshot.
+        exclude_paths: A list of relative paths to exclude from the snapshot.
+        env_keys: A list of environment variable keys to save.
+    """
+    self._dir_snapshot.take_snapshot(
+        name, root_path, include_paths, exclude_paths
+    )
+    self._env_snapshot.take_snapshot(name, env_keys)
+
+  def restore_snapshot(self, name: str, root_path: str) -> Dict[str, str]:
+    """Restores the directory at the given path to the snapshot with the given name.
+
+    Args:
+        name: The name of the snapshot.
+        root_path: The path to the target directory.
+
+    Returns:
+        Restored environment variables.
+    """
+    self._dir_snapshot.restore_snapshot(name, root_path)
+    return self._env_snapshot.restore_snapshot(name, root_path)
+
+
+class EnvSnapshot:
+  """Save and restore env vars."""
+
+  _repo_root_placeholder = '<repo_root_placeholder>'
+
+  def __init__(self, storage_path: Path):
+    self._storage_path = storage_path
+
+  def take_snapshot(
+      self,
+      name: str,
       env_keys: List[str],
   ) -> None:
-    self._current_snapshot_index += 1
-    self._save_environ(env_keys)
-    self._tar(include_paths, exclude_paths)
-
-  def restore(self) -> Dict[str, str]:
-    self._current_snapshot_index += 1
-    self._untar()
-    return self._load_environ()
-
-  def _save_environ(self, env_keys: List[str]) -> None:
     """Save a subset of environment variables."""
     original_env = os.environ.copy()
     subset_env = {
@@ -107,80 +111,303 @@ class TarEverythingSnapshot(Snapshot):
         )
         for key, value in subset_env.items()
     }
-    with open(self._get_env_file_path(), 'w') as f:
+    with open(self._get_env_file_path(name), 'w') as f:
       json.dump(modified_env, f)
 
-  def _load_environ(self) -> Dict[str, str]:
+  def restore_snapshot(self, name: str, root_path: str) -> Dict[str, str]:
     """Load saved environment variables."""
-    with self._get_env_file_path().open('r') as f:
+    with self._get_env_file_path(name).open('r') as f:
       loaded_env = json.load(f)
     restored_env = {
         key: value.replace(
             self._repo_root_placeholder,
-            self._workspace_dir.as_posix(),
+            root_path,
         )
         for key, value in loaded_env.items()
     }
-    restored_env['PATH'] = restored_env['PATH'] + ':' + os.environ['PATH']
+    if 'PATH' in os.environ:
+      if 'PATH' in restored_env:
+        restored_env['PATH'] = restored_env['PATH'] + ':' + os.environ['PATH']
+      else:
+        restored_env['PATH'] = os.environ['PATH']
     return restored_env
 
-  def _get_env_file_path(self) -> Path:
+  def _get_env_file_path(self, name: str) -> Path:
     """Get environment file path."""
-    return self._artifacts_dir / (
-        self._artifact_name_prefix
-        + self._name
-        + str(self._current_snapshot_index)
-        + '.json'
-    )
+    return self._storage_path / (name + '_env.json')
 
-  def _get_tar_file_path(self) -> Path:
-    """Get tarball file path."""
-    return self._artifacts_dir / (
-        self._artifact_name_prefix
-        + self._name
-        + str(self._current_snapshot_index)
-        + '.tar'
-    )
 
-  def _untar(self) -> None:
-    """Untar artifacts."""
-    untar_dir = self._workspace_dir
-    if untar_dir.exists():
-      shutil.rmtree(untar_dir)
-    untar_dir.mkdir(parents=True, exist_ok=True)
+class FileInfo:
 
-    with tarfile.open(self._get_tar_file_path().as_posix(), 'r') as tar:
-      tar.extractall(path=untar_dir)
-
-  def _tar(
+  def __init__(
       self,
-      include_paths: List[str],
-      exclude_paths: List[str],
-  ) -> None:
-    """Tar artifacts."""
-    tar_include_paths = self._expand_wildcard_paths(include_paths)
-    tar_exclude_paths = self._expand_wildcard_paths(exclude_paths)
+      path: str,
+      timestamp: float,
+      hash: str,
+      permissions: int,
+      symlink_target: str,
+      is_directory: bool,
+  ):
+    self.path = path
+    self.timestamp = timestamp
+    self.hash = hash
+    self.permissions = permissions
+    self.symlink_target = symlink_target
+    self.is_directory = is_directory
 
-    self._artifacts_dir.mkdir(parents=True, exist_ok=True)
 
-    # Here we are not using the tarfile module because the filter argument
-    # doesn't work as good as the exclude flag in the cmd tool
-    subprocess.run(
-        ['tar']
-        + ['--exclude=' + exclude_path for exclude_path in tar_exclude_paths]
-        + ['-cpf', self._get_tar_file_path().as_posix()]
-        + tar_include_paths,
-        check=True,
-    )
+class BlobStore:
 
-  def _expand_wildcard_paths(self, paths: List[str]) -> List[str]:
+  def __init__(self, path: str):
+    self.path = Path(path)
+
+  def add(self, content: bytes) -> str:
+    hash = hashlib.sha256(content).hexdigest()
+    dst = self.path.joinpath(hash[:2], hash[2:])
+    if not dst.exists():
+      dst.parent.mkdir(parents=True, exist_ok=True)
+      dst.write_bytes(content)
+    return hash
+
+  def get(self, hash: str) -> Optional[bytes]:
+    file_path = self.path.joinpath(hash[:2], hash[2:])
+    if file_path.exists():
+      return file_path.read_bytes()
+    return None
+
+
+class DirSnapshot:
+
+  def __init__(self, storage_path: Path):
+    self._storage_path = storage_path
+    self._blob_store = BlobStore(self._storage_path.joinpath('blobs'))
+
+  def _expand_wildcard_paths(
+      self, root_path: str, paths: List[str]
+  ) -> List[str]:
     """Expand wildcard paths."""
+    absolute_paths = (
+        path if os.path.isabs(path) else os.path.join(root_path, path)
+        for path in paths
+    )
     return [
         expanded_path
-        for wildcard_path in paths
+        for wildcard_path in absolute_paths
         for expanded_path in glob.glob(wildcard_path)
     ]
 
+  def take_snapshot(
+      self,
+      name: str,
+      root_path: str,
+      include_paths: List[str] = [],
+      exclude_paths: List[str] = [],
+  ) -> Tuple[Dict[str, FileInfo], List[str]]:
+    """Creates a snapshot of the directory at the given path.
 
-# Default snapshot impl
-Snapshot = TarEverythingSnapshot
+    Args:
+        root_path: The path to the root directory.
+        name: The name of the snapshot.
+        include_paths: A list of relative paths to include in the snapshot.
+        exclude_paths: A list of relative paths to exclude from the snapshot.
+
+    Returns:
+        A tuple containing:
+            - A dictionary of FileInfo objects keyed by their relative path
+            within the directory.
+    """
+    include_paths = self._expand_wildcard_paths(root_path, include_paths)
+    exclude_paths = self._expand_wildcard_paths(root_path, exclude_paths)
+
+    file_infos = {}
+    external_symlinks = []
+
+    def is_excluded(path: Path) -> bool:
+      path_str = path.as_posix()
+      return exclude_paths and any(
+          path_str.startswith(exclude_path) for exclude_path in exclude_paths
+      )
+
+    def process_directory(path: Path) -> None:
+      if is_excluded(path):
+        return
+      if path.is_symlink():
+        process_link(path)
+        return
+      relative_path = path.relative_to(root_path).as_posix()
+      if relative_path == '.':
+          return
+      file_infos[relative_path] = FileInfo(
+          relative_path,
+          timestamp=None,
+          hash=None,
+          permissions=path.stat().st_mode,
+          symlink_target=None,
+          is_directory=True,
+      )
+
+    def process_file(path: Path) -> None:
+      if is_excluded(path):
+        return
+      if path.is_symlink():
+        process_link(path)
+        return
+      relative_path = path.relative_to(root_path).as_posix()
+      file_infos[relative_path] = FileInfo(
+          relative_path,
+          timestamp=path.stat().st_mtime,
+          hash=self._blob_store.add(path.read_bytes())
+          if path.stat().st_size
+          else None,
+          permissions=path.stat().st_mode,
+          symlink_target=None,
+          is_directory=False,
+      )
+
+    def process_link(path: Path) -> None:
+      if is_excluded(path):
+        return
+      symlink_target = path.resolve()
+      if symlink_target.is_relative_to(root_path):
+        symlink_target = symlink_target.relative_to(root_path)
+      else:
+        # We are not throwing error here as we are working on supporting
+        # external links for bazel cache. This will be removed later.
+        logging.error(
+            'Unexpected external link: '
+            + path.as_posix()
+            + ' -> '
+            + symlink_target.as_posix()
+        )
+      relative_path = path.relative_to(root_path).as_posix()
+      file_infos[relative_path] = FileInfo(
+          relative_path,
+          timestamp=None,
+          hash=None,
+          permissions=None,
+          symlink_target=symlink_target.as_posix(),
+          is_directory=False,
+      )
+
+    def process_path(path: Path) -> None:
+      if path.is_symlink():
+        process_link(path)
+      elif path.is_file():
+        process_file(path)
+      elif path.is_dir():
+        process_directory(path)
+        for root, directories, files in os.walk(path):
+          for directory in directories:
+            process_directory(Path(root).joinpath(directory))
+          for file in files:
+            process_file(Path(root).joinpath(file))
+      else:
+        # We are not throwing error here because it might be just a corner case
+        # likely doesn't affect the test process.
+        logging.error('Unexpected path type: ' + path.as_posix())
+
+    for path in (
+        [Path(root_path)]
+        if not include_paths
+        else (Path(path) for path in include_paths)
+    ):
+      process_path(path)
+
+    snapshot_path = self._storage_path.joinpath(name + '_metadata.json')
+    snapshot_path.parent.mkdir(parents=True, exist_ok=True)
+    with snapshot_path.open('w') as f:
+      json.dump(file_infos, f, default=lambda o: o.__dict__)
+
+    return file_infos
+
+  def restore_snapshot(
+      self, name: str, root_path: str
+  ) -> Tuple[List[str], List[str], List[str]]:
+    """Restores the directory at the given path to the snapshot with the given name.
+
+    Args:
+        root_path: The path to the root directory.
+        name: The name of the snapshot.
+
+    Returns:
+        A tuple containing 3 lists:
+            - Files and directories that were deleted.
+            - Files that were replaced.
+            - A list of paths to symbolic links that point to files outside the
+            source directory.
+    """
+    with self._storage_path.joinpath(name + '_metadata.json').open('r') as f:
+      file_infos_dict = {
+          key: FileInfo(**val) for key, val in json.load(f).items()
+      }
+
+    def remove_extra_files():
+      deleted = []
+      for root, directories, files in os.walk(root_path):
+        for directory in directories:
+          dir_path = Path(root).joinpath(directory)
+          # Ignore non link directories because complicated to deal with
+          # file paths in include filters and unnecessary
+          if dir_path.is_symlink():
+            dir_path.unlink()
+        for file in files:
+          file_path = Path(root).joinpath(file)
+          if file_path.is_symlink():
+            file_path.unlink()
+          elif (
+              file_path.relative_to(root_path).as_posix() not in file_infos_dict
+          ):
+            file_path.unlink()
+            deleted.append(file_path.as_posix())
+      return deleted
+
+    def restore_directories():
+      for relative_path, file_info in file_infos_dict.items():
+        if not file_info.is_directory:
+          continue
+        dir_path = Path(root_path).joinpath(relative_path)
+        dir_path.mkdir(parents=True, exist_ok=True)
+        os.chmod(dir_path, file_info.permissions)
+
+    def restore_files():
+      replaced = []
+      external_symlinks = []
+      for relative_path, file_info in file_infos_dict.items():
+        file_path = Path(root_path).joinpath(relative_path)
+        if file_info.symlink_target:
+          if os.path.isabs(file_info.symlink_target):
+            external_symlinks.append(
+                file_info.symlink_target + ' <- ' + file_path.as_posix()
+            )
+            continue
+          else:
+            target = Path(root_path).joinpath(file_info.symlink_target)
+          file_path.parent.mkdir(parents=True, exist_ok=True)
+          file_path.symlink_to(target)
+          continue
+
+        if file_info.is_directory:
+          continue
+
+        if (
+            file_path.exists()
+            and file_path.stat().st_mtime == file_info.timestamp
+        ):
+          continue
+
+        file_path.parent.mkdir(parents=True, exist_ok=True)
+        file_path.unlink(missing_ok=True)
+        if not file_info.hash:
+          file_path.touch()
+        else:
+          file_path.write_bytes(self._blob_store.get(file_info.hash))
+        os.utime(file_path, (file_info.timestamp, file_info.timestamp))
+        os.chmod(file_path, file_info.permissions)
+        replaced.append(file_path.as_posix())
+      return replaced, external_symlinks
+
+    deleted = remove_extra_files()
+    restore_directories()
+    replaced, external_symlinks = restore_files()
+
+    return deleted, replaced, external_symlinks
