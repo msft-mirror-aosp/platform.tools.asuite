@@ -770,7 +770,7 @@ mod tests {
         }
     }
 
-    // Create a temporary and create files, directories and symlinks under it.
+    // Create a temporary folder and create files, directories and symlinks under it.
     fn make_partition(
         tmp_root: &Path,
         partition_name: &str,
