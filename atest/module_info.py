@@ -1092,6 +1092,20 @@ class ModuleInfo:
 
         return [_to_abs_path(p) for p in mod_info.get('installed', [])]
 
+    def build_variants(self, info: Dict[str, Any]) -> List[str]:
+        return info.get(constants.MODULE_SUPPORTED_VARIANTS, [])
+
+    def requires_device(self, info: Dict[str, Any]) -> bool:
+
+        if self.is_modern_robolectric_test(info):
+            return False
+        if self.is_ravenwood_test(info):
+            return False
+        if self.is_host_unit_test(info) and 'DEVICE' not in self.build_variants(info):
+            return False
+
+        return True
+
 
 def _create_db(data_map: Dict[str, Dict[str, Any]], db_path: Path):
     """Create a Sqlite DB by writing to tempfile and move it to the right place.
