@@ -606,24 +606,17 @@ class AtestTradefedTestRunner(trb.TestRunnerBase):
             raise Error(
                 f'Could not find module information for {t_info.raw_test_name}')
 
-        if self.module_info.is_device_driven_test(info) and (
-            not self._is_host_enabled or not self.module_info.is_host_driven_test(info)):
-            return DeviceTest(info, Variant.DEVICE, t_info.mainline_modules)
+        def _select_variant(info):
+            variants = self.module_info.build_variants(info)
+            if len(variants) < 2:
+                return Variant.HOST if variants[0] == 'HOST' else Variant.DEVICE
+            return Variant.HOST if self._is_host_enabled else Variant.DEVICE
 
-        if self.module_info.is_modern_robolectric_test(info):
-            return DevicelessTest(info, Variant.DEVICE)
+        if not self._is_host_enabled and self.module_info.requires_device(info):
+            return DeviceTest(
+                info, _select_variant(info), t_info.mainline_modules)
 
-        if self.module_info.is_ravenwood_test(info):
-            return DevicelessTest(info, Variant.DEVICE)
-
-        if self.module_info.is_host_unit_test(info):
-            return DevicelessTest(info, Variant.HOST)
-
-        if self.module_info.is_host_driven_test(info):
-            return DeviceTest(info, Variant.HOST, t_info.mainline_modules)
-
-        raise Error(
-            f'--minimal-build is unsupported for {t_info.raw_test_name}')
+        return DevicelessTest(info, _select_variant(info))
 
     def _get_host_framework_targets(self) -> Set[str]:
         """Get the build targets for all the existing jars under host framework.
