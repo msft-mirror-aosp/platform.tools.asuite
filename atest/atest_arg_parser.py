@@ -137,7 +137,8 @@ USE_MODULES_IN = ('Force include MODULES-IN-* as build targets. '
 USER_TYPE = ('Run test with specific user type, e.g. atest <test> --user-type '
              'secondary_user')
 VERBOSE = 'Display DEBUG level logging.'
-VERIFY_CMD_MAPPING = 'Verify the test command of input tests.'
+VERIFY_CMD_MAPPING = 'Verify the test command of input tests against the ' \
+                     'expected test command.'
 VERIFY_ENV_VARIABLE = 'Verify environment variables of input tests'
 VERSION = 'Display version string.'
 WAIT_FOR_DEBUGGER = ('Wait for debugger prior to execution (Instrumentation '
