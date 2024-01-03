@@ -14,7 +14,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-
 """Provides a snapshot functionality for preserving and restoring the state of a directory.
 
 This module includes a `Snapshot` class that provides methods to:
@@ -160,13 +159,19 @@ class BlobStore:
 
   def __init__(self, path: str):
     self.path = Path(path)
+    self.cache = self._load_cache()
 
-  def add(self, content: bytes) -> str:
+  def add(self, path: Path, timestamp: float) -> str:
+    cache_key = path.as_posix() + str(timestamp)
+    if cache_key in self.cache:
+      return self.cache[cache_key]
+    content = path.read_bytes()
     hash = hashlib.sha256(content).hexdigest()
     dst = self.path.joinpath(hash[:2], hash[2:])
     if not dst.exists():
       dst.parent.mkdir(parents=True, exist_ok=True)
       dst.write_bytes(content)
+    self.cache[cache_key] = hash
     return hash
 
   def get(self, hash: str) -> Optional[bytes]:
@@ -174,6 +179,20 @@ class BlobStore:
     if file_path.exists():
       return file_path.read_bytes()
     return None
+
+  def dump_cache(self) -> None:
+    self._get_cache_path().parent.mkdir(parents=True, exist_ok=True)
+    with self._get_cache_path().open('w') as f:
+      json.dump(self.cache, f)
+
+  def _load_cache(self) -> Dict:
+    if not self._get_cache_path().exists():
+      return {}
+    with self._get_cache_path().open('r') as f:
+      return json.load(f)
+
+  def _get_cache_path(self) -> Path:
+    return self.path.joinpath('cache.json')
 
 
 class DirSnapshot:
@@ -236,7 +255,7 @@ class DirSnapshot:
         return
       relative_path = path.relative_to(root_path).as_posix()
       if relative_path == '.':
-          return
+        return
       file_infos[relative_path] = FileInfo(
           relative_path,
           timestamp=None,
@@ -253,10 +272,11 @@ class DirSnapshot:
         process_link(path)
         return
       relative_path = path.relative_to(root_path).as_posix()
+      timestamp = path.stat().st_mtime
       file_infos[relative_path] = FileInfo(
           relative_path,
-          timestamp=path.stat().st_mtime,
-          hash=self._blob_store.add(path.read_bytes())
+          timestamp=timestamp,
+          hash=self._blob_store.add(path, timestamp)
           if path.stat().st_size
           else None,
           permissions=path.stat().st_mode,
@@ -317,6 +337,8 @@ class DirSnapshot:
     snapshot_path.parent.mkdir(parents=True, exist_ok=True)
     with snapshot_path.open('w') as f:
       json.dump(file_infos, f, default=lambda o: o.__dict__)
+
+    self._blob_store.dump_cache()
 
     return file_infos
 
