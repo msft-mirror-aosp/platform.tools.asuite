@@ -57,16 +57,17 @@ class AtestIntegrationTest:
       'out/target/product/*/testcases',
       'out/target/product/*/all_modules.txt',
       'out/soong/module_bp*',
-      'out/atest_bazel_workspace',
       'tools/asuite/atest/test_runners/roboleaf_launched.txt',
       '.repo/manifest.xml',
       'build/soong/soong_ui.bash',
       'build/bazel_common_rules/rules/python/stubs',
+      'build/bazel/bin',
       'external/bazelbuild-rules_java',
       'tools/asuite/atest/bazel/resources/bazel.sh',
-      'prebuilts/bazel/linux-x86_64/bazel',
+      'prebuilts/bazel/linux-x86_64',
       'prebuilts/build-tools/path/linux-x86/python3',
       'prebuilts/build-tools/linux-x86/bin/py3-cmd',
+      'prebuilts/build-tools',
   ]
 
   _default_exclude_paths = [
@@ -95,14 +96,20 @@ class AtestIntegrationTest:
     self._id: Text = id
     self._env: Dict[Text, Text] = None
     self._snapshot: Snapshot = Snapshot(_get_snapshot_storage_path())
-    self._add_java_home_to_include_path()
+    self._add_jdk_to_include_path()
     self._snapshot_count = 0
 
-  def _add_java_home_to_include_path(self) -> None:
-    """Get the relative java home directory in build env."""
+  def _add_jdk_to_include_path(self) -> None:
+    """Get the relative jdk directory in build env."""
     if is_in_test_env():
       return
     absolute_path = Path(os.environ['ANDROID_JAVA_HOME'])
+    while not absolute_path.name.startswith('jdk'):
+      absolute_path = absolute_path.parent
+    if not absolute_path.name.startswith('jdk'):
+      raise ValueError(
+          'Unrecognized jdk directory ' + os.environ['ANDROID_JAVA_HOME']
+      )
     repo_root = Path(os.environ['ANDROID_BUILD_TOP'])
     self._include_paths.append(absolute_path.relative_to(repo_root).as_posix())
 
