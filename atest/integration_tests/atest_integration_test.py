@@ -78,6 +78,7 @@ class AtestIntegrationTest:
       'ANDROID_BUILD_TOP',
       'ANDROID_HOST_OUT',
       'ANDROID_PRODUCT_OUT',
+      "ANDROID_HOST_OUT_TESTCASES",
       'ANDROID_TARGET_OUT_TESTCASES',
       'OUT',
       'PATH',
