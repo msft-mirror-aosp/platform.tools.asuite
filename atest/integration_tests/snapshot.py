@@ -212,7 +212,7 @@ class DirSnapshot:
     return [
         expanded_path
         for wildcard_path in absolute_paths
-        for expanded_path in glob.glob(wildcard_path)
+        for expanded_path in glob.glob(wildcard_path, recursive=True)
     ]
 
   def take_snapshot(
