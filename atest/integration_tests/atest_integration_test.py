@@ -113,11 +113,11 @@ class AtestIntegrationTest:
     repo_root = Path(os.environ['ANDROID_BUILD_TOP'])
     self._include_paths.append(absolute_path.relative_to(repo_root).as_posix())
 
-  def add_artifact_paths(self, *paths: str) -> None:
+  def add_snapshot_paths(self, *paths: str) -> None:
     """Add paths to include in snapshot artifacts."""
     self._include_paths.extend(paths)
 
-  def add_artifact_exclude_paths(self, *paths: str) -> None:
+  def add_snapshot_exclude_paths(self, *paths: str) -> None:
     """Add paths to exclude from snapshot artifacts."""
     self._exclude_paths.extend(paths)
 

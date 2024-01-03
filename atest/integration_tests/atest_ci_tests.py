@@ -14,12 +14,15 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import json
+from pathlib import Path
 import subprocess
+from typing import Callable, Dict, List
 import atest_integration_test
 
 
-class AtestContinuousIntegrationTests(atest_integration_test.TestCase):
-  """An integration test that split Atest execution into build and test phase."""
+class CommandSuccessTests(atest_integration_test.TestCase):
+  """Test whether the atest commands run with success exit codes."""
 
   def test_csuite_harness_tests(self):
     atest = atest_integration_test.AtestIntegrationTest(self.id())
@@ -55,13 +58,64 @@ class AtestContinuousIntegrationTests(atest_integration_test.TestCase):
     if atest.in_test_env():
       subprocess.run(
           (
-              'atest-dev -it csuite_cli_test -s '
-              + atest.get_device_serial()
+              'atest-dev -it csuite_cli_test -s ' + atest.get_device_serial()
           ).split(),
           check=True,
           env=atest.get_env(),
           cwd=atest.get_repo_root(),
       )
+
+
+class CommandVerificationTests(atest_integration_test.TestCase):
+  """Checks atest tradefed commands."""
+
+  def test_AnimatorTest(self):
+    self.verify_command(
+        'atest-dev -g AnimatorTest'.split(),
+        lambda data: self.assertIn('AnimatorTest', data['AnimatorTest']),
+    )
+
+  def test_CtsAnimationTestCases_AnimatorTest(self):
+    self.verify_command(
+        'atest-dev -g CtsAnimationTestCases:AnimatorTest'.split(),
+        lambda data: self.assertIn(
+            'CtsAnimationTestCases:android.animation.cts.AnimatorTest',
+            data['CtsAnimationTestCases:AnimatorTest'],
+        ),
+    )
+
+  def verify_command(
+      self,
+      cmd_list: List[str],
+      verify_func: Callable[[Dict[str, List[str]]], None],
+  ) -> None:
+    """Verifies the command by executing it and checking its output.
+
+    Args:
+      cmd_list: The command to execute.
+      verify_func: A function that takes the output of the command and checks
+        it.
+    """
+    atest = atest_integration_test.AtestIntegrationTest(self.id())
+    runner_commands_json = 'tools/asuite/atest/test_data/runner_commands.json'
+    if atest.in_build_env():
+      Path(atest.get_repo_root()).joinpath(runner_commands_json).unlink(
+          missing_ok=True
+      )
+      subprocess.run(
+          cmd_list,
+          check=True,
+          env=atest.get_env(),
+          cwd=atest.get_repo_root(),
+      )
+      atest.add_snapshot_paths(runner_commands_json)
+
+    if atest.in_test_env():
+      with open(
+          Path(atest.get_repo_root()).joinpath(runner_commands_json), 'r'
+      ) as f:
+        dict_from_json = json.load(f)
+      verify_func(dict_from_json)
 
 
 if __name__ == '__main__':
