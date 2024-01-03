@@ -241,15 +241,21 @@ class DirSnapshot:
     file_infos = {}
     external_symlinks = []
 
-    def is_excluded(path: Path) -> bool:
-      path_str = path.as_posix()
+    def is_excluded(path: str) -> bool:
       return exclude_paths and any(
-          path_str.startswith(exclude_path) for exclude_path in exclude_paths
+          path.startswith(exclude_path) for exclude_path in exclude_paths
       )
 
-    def process_directory(path: Path) -> None:
-      if is_excluded(path):
+    def filter_excluded_paths(root: Path, paths: List[Path]) -> None:
+      new_paths = [
+          path for path in paths if not is_excluded(os.path.join(root, path))
+      ]
+      if len(new_paths) == len(paths):
         return
+      paths.clear()
+      paths.extend(new_paths)
+
+    def process_directory(path: Path) -> None:
       if path.is_symlink():
         process_link(path)
         return
@@ -266,8 +272,6 @@ class DirSnapshot:
       )
 
     def process_file(path: Path) -> None:
-      if is_excluded(path):
-        return
       if path.is_symlink():
         process_link(path)
         return
@@ -285,8 +289,6 @@ class DirSnapshot:
       )
 
     def process_link(path: Path) -> None:
-      if is_excluded(path):
-        return
       symlink_target = path.resolve()
       if symlink_target.is_relative_to(root_path):
         symlink_target = symlink_target.relative_to(root_path)
@@ -310,6 +312,8 @@ class DirSnapshot:
       )
 
     def process_path(path: Path) -> None:
+      if is_excluded(path.as_posix()):
+        return
       if path.is_symlink():
         process_link(path)
       elif path.is_file():
@@ -317,6 +321,8 @@ class DirSnapshot:
       elif path.is_dir():
         process_directory(path)
         for root, directories, files in os.walk(path):
+          filter_excluded_paths(root, directories)
+          filter_excluded_paths(root, files)
           for directory in directories:
             process_directory(Path(root).joinpath(directory))
           for file in files:
