@@ -12,7 +12,7 @@ use lazy_static::lazy_static;
 use metrics::MetricSender;
 use regex::Regex;
 use restart_chooser::RestartChooser;
-use tracing::{debug, info, Level};
+use tracing::{debug, Level};
 
 use std::collections::{HashMap, HashSet};
 use std::ffi::OsString;
@@ -119,7 +119,6 @@ pub fn adevice(
     opt_log_file: Option<File>,
     profiler: &mut Profiler,
 ) -> Result<()> {
-    let total_time = std::time::Instant::now();
     // If we can initialize a log file, then setup the tracing/log subscriber to write there.
     // Otherwise, logs will be dropped.
     if let Some(log_file) = opt_log_file {
@@ -247,6 +246,13 @@ pub fn adevice(
         }
         writeln!(stdout, " * Updating {} files on device.", all_cmds.len())?;
 
+        let changed_files = all_cmds.iter().map(|cmd| format!("{:?}", cmd.1.file)).collect();
+        metrics.add_action_event_with_files_changed(
+            "file_updates",
+            Duration::new(0, 0),
+            changed_files,
+        );
+
         // Send the update commands, but retry once if we need to remount rw an extra time after a flash.
         for retry in 0..=1 {
             let update_result = device::update(
@@ -274,14 +280,7 @@ pub fn adevice(
             println!("\n * Trying update again after remount and reboot.");
         }
     }
-    profiler.total = total_time.elapsed(); // Avoid wrapping the block in the macro.
-    metrics.add_profiler_events(profiler);
-    println!(
-        "Device updated in {} secs, [Logfile at $ANDROID_BUILD_TOP/out/adevice.log]",
-        profiler.total.as_secs()
-    );
     metrics.display_survey();
-    info!("TIMING: {}", profiler.to_string());
     Ok(())
 }
 
