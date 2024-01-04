@@ -14,17 +14,20 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+"""Unit test for the Snapshot module."""
+
 import json
-import os
 from pathlib import Path
 import shutil
 import tempfile
+import time
 import unittest
 
 from atest.integration_tests.snapshot import Snapshot
 
 
 class SnapshotTest(unittest.TestCase):
+    """Snapshot test class unit test."""
 
     def setUp(self):
         self.temp_dir = Path(tempfile.mkdtemp())
@@ -49,12 +52,14 @@ class SnapshotTest(unittest.TestCase):
         workspace = self.temp_dir / "workspace"
         workspace.mkdir()
         workspace.joinpath("dir1").mkdir()
-        workspace.joinpath("dir1", "file1").write_text("test")
+        workspace.joinpath("dir1", "file1").write_text("test", encoding="utf-8")
         snapshot = Snapshot(self.temp_dir / "db")
 
         snapshot.take_snapshot("test", workspace)
 
-        with open(self.temp_dir / "db" / "test_metadata.json") as f:
+        with open(
+            self.temp_dir / "db" / "test_metadata.json", encoding="utf-8"
+        ) as f:
             file_infos = json.load(f)
         self.assertEqual(len(file_infos), 2)
         self.assertIn("dir1/file1", file_infos)
@@ -65,14 +70,16 @@ class SnapshotTest(unittest.TestCase):
         workspace = self.temp_dir / "workspace"
         workspace.mkdir()
         workspace.joinpath("dir1").mkdir()
-        workspace.joinpath("dir1", "file1").write_text("test")
+        workspace.joinpath("dir1", "file1").write_text("test", encoding="utf-8")
         workspace.joinpath("dir2").mkdir()
-        workspace.joinpath("dir2", "file2").write_text("test")
+        workspace.joinpath("dir2", "file2").write_text("test", encoding="utf-8")
         snapshot = Snapshot(self.temp_dir / "db")
 
         snapshot.take_snapshot("test", workspace, include_paths=["dir2"])
 
-        with open(self.temp_dir / "db" / "test_metadata.json") as f:
+        with open(
+            self.temp_dir / "db" / "test_metadata.json", encoding="utf-8"
+        ) as f:
             file_infos = json.load(f)
         self.assertEqual(len(file_infos), 2)
         self.assertIn("dir2", file_infos)
@@ -83,14 +90,16 @@ class SnapshotTest(unittest.TestCase):
         workspace = self.temp_dir / "workspace"
         workspace.mkdir()
         workspace.joinpath("dir1").mkdir()
-        workspace.joinpath("dir1", "file1").write_text("test")
+        workspace.joinpath("dir1", "file1").write_text("test", encoding="utf-8")
         workspace.joinpath("dir2").mkdir()
-        workspace.joinpath("dir2", "file2").write_text("test")
+        workspace.joinpath("dir2", "file2").write_text("test", encoding="utf-8")
         snapshot = Snapshot(self.temp_dir / "db")
 
         snapshot.take_snapshot("test", workspace, exclude_paths=["dir1"])
 
-        with open(self.temp_dir / "db" / "test_metadata.json") as f:
+        with open(
+            self.temp_dir / "db" / "test_metadata.json", encoding="utf-8"
+        ) as f:
             file_infos = json.load(f)
         self.assertEqual(len(file_infos), 2)
         self.assertIn("dir2", file_infos)
@@ -101,9 +110,9 @@ class SnapshotTest(unittest.TestCase):
         workspace = self.temp_dir / "workspace"
         workspace.mkdir()
         workspace.joinpath("dir1").mkdir()
-        workspace.joinpath("dir1", "file1").write_text("test")
+        workspace.joinpath("dir1", "file1").write_text("test", encoding="utf-8")
         workspace.joinpath("dir2").mkdir()
-        workspace.joinpath("dir2", "file2").write_text("test")
+        workspace.joinpath("dir2", "file2").write_text("test", encoding="utf-8")
         snapshot = Snapshot(self.temp_dir / "db")
 
         snapshot.take_snapshot(
@@ -113,7 +122,9 @@ class SnapshotTest(unittest.TestCase):
             exclude_paths=["dir1/file1"],
         )
 
-        with open(self.temp_dir / "db" / "test_metadata.json") as f:
+        with open(
+            self.temp_dir / "db" / "test_metadata.json", encoding="utf-8"
+        ) as f:
             file_infos = json.load(f)
         self.assertEqual(len(file_infos), 1)
         self.assertIn("dir1", file_infos)
@@ -131,12 +142,12 @@ class SnapshotTest(unittest.TestCase):
 
         self.assertTrue(restore_dir.joinpath("dir1").exists())
 
-    def test_restore_snapshot_with_deleted_files_restore_file(self):
-        """Test restoring a snapshot of a directory to a directory where some files are missing."""
+    def test_restore_snapshot_with_deleted_files(self):
+        """Test restoring a snapshot with deleted files."""
         workspace = self.temp_dir / "workspace"
         workspace.mkdir()
         workspace.joinpath("dir1").mkdir()
-        workspace.joinpath("dir1", "file1").write_text("test")
+        workspace.joinpath("dir1", "file1").write_text("test", encoding="utf-8")
         snapshot = Snapshot(self.temp_dir / "db")
         snapshot.take_snapshot("test", workspace)
         workspace.joinpath("dir1", "file1").unlink()
@@ -145,15 +156,15 @@ class SnapshotTest(unittest.TestCase):
 
         self.assertTrue(workspace.joinpath("dir1", "file1").exists())
 
-    def test_restore_snapshot_with_extra_files_delete_extra_files(self):
-        """Test restoring a snapshot of a directory to a directory with extra files."""
+    def test_restore_snapshot_with_extra_files(self):
+        """Test restoring a snapshot with extra files."""
         workspace = self.temp_dir / "workspace"
         workspace.mkdir()
         workspace.joinpath("dir1").mkdir()
-        workspace.joinpath("dir1", "file1").write_text("test")
+        workspace.joinpath("dir1", "file1").write_text("test", encoding="utf-8")
         snapshot = Snapshot(self.temp_dir / "db")
         snapshot.take_snapshot("test", workspace)
-        workspace.joinpath("dir1", "file2").write_text("test")
+        workspace.joinpath("dir1", "file2").write_text("test", encoding="utf-8")
 
         snapshot.restore_snapshot("test", workspace)
 
@@ -161,19 +172,26 @@ class SnapshotTest(unittest.TestCase):
         self.assertFalse(workspace.joinpath("dir1", "file2").exists())
 
     def test_restore_snapshot_with_modified_files(self):
-        """Test restoring a snapshot of a directory to a directory with modified files."""
+        """Test restoring a snapshot with modified files."""
         workspace = self.temp_dir / "workspace"
         workspace.mkdir()
         workspace.joinpath("dir1").mkdir()
-        workspace.joinpath("dir1", "file1").write_text("test1")
+        workspace.joinpath("dir1", "file1").write_text(
+            "test1", encoding="utf-8"
+        )
         snapshot = Snapshot(self.temp_dir / "db")
         snapshot.take_snapshot("test", workspace)
-        workspace.joinpath("dir1", "file1").write_text("test2")
+        # Sleep 10 milliseconds because the file change check is based on
+        # the file's modified timestamp
+        time.sleep(0.01)
+        workspace.joinpath("dir1", "file1").write_text(
+            "test2", encoding="utf-8"
+        )
 
         snapshot.restore_snapshot("test", workspace)
 
         self.assertTrue(
-            workspace.joinpath("dir1", "file1").read_text(), "test1"
+            workspace.joinpath("dir1", "file1").read_text("utf-8") == "test1"
         )
 
 
