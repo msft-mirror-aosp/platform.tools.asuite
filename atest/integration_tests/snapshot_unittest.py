@@ -17,10 +17,10 @@
 """Unit test for the Snapshot module."""
 
 import json
+import os
 from pathlib import Path
 import shutil
 import tempfile
-import time
 import unittest
 
 from atest.integration_tests.snapshot import Snapshot
@@ -176,17 +176,14 @@ class SnapshotTest(unittest.TestCase):
         workspace = self.temp_dir / "workspace"
         workspace.mkdir()
         workspace.joinpath("dir1").mkdir()
-        workspace.joinpath("dir1", "file1").write_text(
-            "test1", encoding="utf-8"
-        )
+        file_path = workspace.joinpath("dir1", "file1")
+        file_path.write_text("test1", encoding="utf-8")
         snapshot = Snapshot(self.temp_dir / "db")
         snapshot.take_snapshot("test", workspace)
-        # Sleep 10 milliseconds because the file change check is based on
-        # the file's modified timestamp
-        time.sleep(0.01)
-        workspace.joinpath("dir1", "file1").write_text(
-            "test2", encoding="utf-8"
-        )
+        file_path.write_text("test2", encoding="utf-8")
+        # Increment file's modified time by 10 milliseconds
+        mtime = os.path.getmtime(file_path)
+        os.utime(file_path, (mtime, mtime + 0.01))
 
         snapshot.restore_snapshot("test", workspace)
 
