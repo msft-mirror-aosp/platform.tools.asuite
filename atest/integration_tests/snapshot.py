@@ -13,7 +13,8 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-"""Provides a snapshot functionality for preserving and restoring the state of a directory.
+
+"""Preserves and restores the state of a repository.
 
 This module includes a `Snapshot` class that provides methods to:
 - Take snapshots of a directory, including or excluding specified paths.
@@ -28,9 +29,6 @@ import json
 import logging
 import os
 from pathlib import Path
-import shutil
-import subprocess
-import tarfile
 from typing import Dict, List, Optional, Tuple
 
 
@@ -53,9 +51,9 @@ class Snapshot:
         self,
         name: str,
         root_path: str,
-        include_paths: List[str] = [],
-        exclude_paths: List[str] = [],
-        env_keys: List[str] = [],
+        include_paths: List[str] = None,
+        exclude_paths: List[str] = None,
+        env_keys: List[str] = None,
     ) -> None:
         """Takes a snapshot of the directory at the given path.
 
@@ -67,13 +65,19 @@ class Snapshot:
               snapshot.
             env_keys: A list of environment variable keys to save.
         """
+        if include_paths is None:
+            include_paths = []
+        if exclude_paths is None:
+            exclude_paths = []
+        if env_keys is None:
+            env_keys = []
         self._dir_snapshot.take_snapshot(
             name, root_path, include_paths, exclude_paths
         )
         self._env_snapshot.take_snapshot(name, env_keys)
 
     def restore_snapshot(self, name: str, root_path: str) -> Dict[str, str]:
-        """Restores the directory at the given path to the snapshot with the given name.
+        """Restores directory at given path to a snapshot with the given name.
 
         Args:
             name: The name of the snapshot.
@@ -110,7 +114,7 @@ class EnvSnapshot:
             )
             for key, value in subset_env.items()
         }
-        with open(self._get_env_file_path(name), 'w') as f:
+        with open(self._get_env_file_path(name), 'w', encoding='utf-8') as f:
             json.dump(modified_env, f)
 
     def restore_snapshot(self, name: str, root_path: str) -> Dict[str, str]:
@@ -139,58 +143,64 @@ class EnvSnapshot:
 
 
 class FileInfo:
+    """An object to save file information."""
 
+    # pylint: disable=too-many-arguments
     def __init__(
         self,
         path: str,
         timestamp: float,
-        hash: str,
+        content_hash: str,
         permissions: int,
         symlink_target: str,
         is_directory: bool,
     ):
         self.path = path
         self.timestamp = timestamp
-        self.hash = hash
+        self.content_hash = content_hash
         self.permissions = permissions
         self.symlink_target = symlink_target
         self.is_directory = is_directory
 
 
 class BlobStore:
+    """Class to save and load file content."""
 
     def __init__(self, path: str):
         self.path = Path(path)
         self.cache = self._load_cache()
 
     def add(self, path: Path, timestamp: float) -> str:
+        """Add a file path to the store."""
         cache_key = path.as_posix() + str(timestamp)
         if cache_key in self.cache:
             return self.cache[cache_key]
         content = path.read_bytes()
-        hash = hashlib.sha256(content).hexdigest()
-        dst = self.path.joinpath(hash[:2], hash[2:])
-        if not dst.exists():
-            dst.parent.mkdir(parents=True, exist_ok=True)
-            dst.write_bytes(content)
-        self.cache[cache_key] = hash
-        return hash
+        content_hash = hashlib.sha256(content).hexdigest()
+        content_path = self.path.joinpath(content_hash[:2], content_hash[2:])
+        if not content_path.exists():
+            content_path.parent.mkdir(parents=True, exist_ok=True)
+            content_path.write_bytes(content)
+        self.cache[cache_key] = content_hash
+        return content_hash
 
-    def get(self, hash: str) -> Optional[bytes]:
-        file_path = self.path.joinpath(hash[:2], hash[2:])
+    def get(self, content_hash: str) -> Optional[bytes]:
+        """Read file content from a content hash."""
+        file_path = self.path.joinpath(content_hash[:2], content_hash[2:])
         if file_path.exists():
             return file_path.read_bytes()
         return None
 
     def dump_cache(self) -> None:
+        """Dump the saved file path cache to speed up next run."""
         self._get_cache_path().parent.mkdir(parents=True, exist_ok=True)
-        with self._get_cache_path().open('w') as f:
+        with self._get_cache_path().open('w', encoding='utf-8') as f:
             json.dump(self.cache, f)
 
     def _load_cache(self) -> Dict:
         if not self._get_cache_path().exists():
             return {}
-        with self._get_cache_path().open('r') as f:
+        with self._get_cache_path().open('r', encoding='utf-8') as f:
             return json.load(f)
 
     def _get_cache_path(self) -> Path:
@@ -198,6 +208,7 @@ class BlobStore:
 
 
 class DirSnapshot:
+    """Class to take and restore snapshot for a directory path."""
 
     def __init__(self, storage_path: Path):
         self._storage_path = storage_path
@@ -221,8 +232,8 @@ class DirSnapshot:
         self,
         name: str,
         root_path: str,
-        include_paths: List[str] = [],
-        exclude_paths: List[str] = [],
+        include_paths: List[str] = None,
+        exclude_paths: List[str] = None,
     ) -> Tuple[Dict[str, FileInfo], List[str]]:
         """Creates a snapshot of the directory at the given path.
 
@@ -238,11 +249,14 @@ class DirSnapshot:
                 - A dictionary of FileInfo objects keyed by their relative path
                 within the directory.
         """
+        if include_paths is None:
+            include_paths = []
+        if exclude_paths is None:
+            exclude_paths = []
         include_paths = self._expand_wildcard_paths(root_path, include_paths)
         exclude_paths = self._expand_wildcard_paths(root_path, exclude_paths)
 
         file_infos = {}
-        external_symlinks = []
 
         def is_excluded(path: str) -> bool:
             return exclude_paths and any(
@@ -270,7 +284,7 @@ class DirSnapshot:
             file_infos[relative_path] = FileInfo(
                 relative_path,
                 timestamp=None,
-                hash=None,
+                content_hash=None,
                 permissions=path.stat().st_mode,
                 symlink_target=None,
                 is_directory=True,
@@ -285,7 +299,7 @@ class DirSnapshot:
             file_infos[relative_path] = FileInfo(
                 relative_path,
                 timestamp=timestamp,
-                hash=self._blob_store.add(path, timestamp)
+                content_hash=self._blob_store.add(path, timestamp)
                 if path.stat().st_size
                 else None,
                 permissions=path.stat().st_mode,
@@ -310,7 +324,7 @@ class DirSnapshot:
             file_infos[relative_path] = FileInfo(
                 relative_path,
                 timestamp=None,
-                hash=None,
+                content_hash=None,
                 permissions=None,
                 symlink_target=symlink_target.as_posix(),
                 is_directory=False,
@@ -333,9 +347,9 @@ class DirSnapshot:
                     for file in files:
                         process_file(Path(root).joinpath(file))
             else:
-                # We are not throwing error here because it might be just a corner case
-                # likely doesn't affect the test process.
-                logging.error('Unexpected path type: ' + path.as_posix())
+                # We are not throwing error here because it might be just a
+                # corner case which likely doesn't affect the test process.
+                logging.error('Unexpected path type: %s', path.as_posix())
 
         for path in (
             [Path(root_path)]
@@ -356,7 +370,7 @@ class DirSnapshot:
     def restore_snapshot(
         self, name: str, root_path: str
     ) -> Tuple[List[str], List[str], List[str]]:
-        """Restores the directory at the given path to the snapshot with the given name.
+        """Restores directory at given path to snapshot with given name.
 
         Args:
             root_path: The path to the root directory.
@@ -382,8 +396,8 @@ class DirSnapshot:
             for root, directories, files in os.walk(root_path):
                 for directory in directories:
                     dir_path = Path(root).joinpath(directory)
-                    # Ignore non link directories because complicated to deal with
-                    # file paths in include filters and unnecessary
+                    # Ignore non link directories because complicated to deal
+                    # with file paths in include filters and unnecessary
                     if dir_path.is_symlink():
                         dir_path.unlink()
                 for file in files:
@@ -413,16 +427,15 @@ class DirSnapshot:
                 file_path = Path(root_path).joinpath(relative_path)
                 if file_info.symlink_target:
                     if os.path.isabs(file_info.symlink_target):
-                        external_symlinks.append(
+                        msg = (
                             file_info.symlink_target
                             + ' <- '
                             + file_path.as_posix()
                         )
+                        external_symlinks.append(msg)
+                        logging.error('Unexpected external link: %s', msg)
                         continue
-                    else:
-                        target = Path(root_path).joinpath(
-                            file_info.symlink_target
-                        )
+                    target = Path(root_path).joinpath(file_info.symlink_target)
                     file_path.parent.mkdir(parents=True, exist_ok=True)
                     file_path.symlink_to(target)
                     continue
@@ -438,10 +451,12 @@ class DirSnapshot:
 
                 file_path.parent.mkdir(parents=True, exist_ok=True)
                 file_path.unlink(missing_ok=True)
-                if not file_info.hash:
+                if not file_info.content_hash:
                     file_path.touch()
                 else:
-                    file_path.write_bytes(self._blob_store.get(file_info.hash))
+                    file_path.write_bytes(
+                        self._blob_store.get(file_info.content_hash)
+                    )
                 os.utime(file_path, (file_info.timestamp, file_info.timestamp))
                 os.chmod(file_path, file_info.permissions)
                 replaced.append(file_path.as_posix())
