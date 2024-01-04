@@ -451,27 +451,76 @@ class AtestUtilsUnittests(unittest.TestCase):
         self.assertEqual(capture_output.getvalue().find(write_result_str), -1)
 
     @mock.patch('atest.atest_utils.load_json_safely')
-    def test_verify_test_runner_cmd(self, mock_json_load_data):
-        """Test method handle_test_runner_cmd without enable update_result."""
+    def test_verify_test_runner_cmd_with_same_cmds_succeed(
+        self, mock_json_load_data):
+        """ Test the method handle_test_runner_cmd with the same commands
+        without enabling update_result."""
         tmp_file = tempfile.NamedTemporaryFile()
-        input_cmd = 'atest_args'
-        runner_cmds = ['cmd1', 'cmd2']
+        input_test = 'HelloTest'
+        former_cmds = ['cmd1', 'cmd2']
         # Previous data is the same as the new input. Should not raise exception.
-        mock_json_load_data.return_value = {input_cmd:runner_cmds}
-        atest_utils.handle_test_runner_cmd(input_cmd,
-                                           runner_cmds,
+        mock_json_load_data.return_value = {input_test:former_cmds}
+
+        atest_utils.handle_test_runner_cmd(input_test,
+                                           former_cmds,
                                            do_verification=True,
                                            result_path=tmp_file.name)
+
+    @mock.patch('atest.atest_utils.load_json_safely')
+    def test_verify_test_runner_cmd_with_different_cmds_exception(
+        self, mock_json_load_data):
+        """ Test the method handle_test_runner_cmd with different commands
+        without enabling update_result."""
+        tmp_file = tempfile.NamedTemporaryFile()
+        input_test = 'HelloTest'
         # Previous data has different cmds. Should enter strtobool and hit
         # exception.
-        prev_cmds = ['cmd1']
-        mock_json_load_data.return_value = {input_cmd:prev_cmds}
+        former_cmds = ['cmd1', 'cmd2']
+        new_cmds = ['cmd1', 'cmd3']
+        mock_json_load_data.return_value = {input_test:former_cmds}
+
         self.assertRaises(atest_error.DryRunVerificationError,
                           atest_utils.handle_test_runner_cmd,
-                          input_cmd,
-                          runner_cmds,
+                          input_test,
+                          new_cmds,
                           do_verification=True,
                           result_path=tmp_file.name)
+
+    @mock.patch('atest.atest_utils.load_json_safely')
+    def test_verify_test_runner_cmd_with_serial(self, mock_json_load_data):
+        """ Test the method handle_test_runner_cmd with the equivalent commands
+        and the new command containing a serial number."""
+        tmp_file = tempfile.NamedTemporaryFile()
+        input_test = 'HelloTest'
+        former_cmds = ['cmd1', 'cmd2']
+        mock_json_load_data.return_value = {input_test:former_cmds}
+        serial_args = ['--serial', '0.0.0.0']
+        new_cmd = former_cmds + serial_args
+
+        # Previous command is equivalent to the new command after the serial is
+        # removed. Should not raise exception.
+        atest_utils.handle_test_runner_cmd(input_test,
+                                           new_cmd,
+                                           do_verification=True,
+                                           result_path=tmp_file.name)
+
+    @mock.patch('atest.atest_utils.load_json_safely')
+    def test_verify_test_runner_cmd_with_s(self, mock_json_load_data):
+        """ Test the method handle_test_runner_cmd with the equivalent commands
+        and the new command containing a serial number."""
+        tmp_file = tempfile.NamedTemporaryFile()
+        input_test = 'HelloTest'
+        former_cmds = ['cmd1', 'cmd2']
+        mock_json_load_data.return_value = {input_test:former_cmds}
+        serial_args = ['-s', '0.0.0.0']
+        new_cmd = former_cmds + serial_args
+
+        # Previous command is equivalent to the new command after the serial is
+        # removed. Should not raise exception.
+        atest_utils.handle_test_runner_cmd(input_test,
+                                           new_cmd,
+                                           do_verification=True,
+                                           result_path=tmp_file.name)
 
     def test_get_test_info_cache_path(self):
         """Test method get_test_info_cache_path."""

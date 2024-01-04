@@ -629,7 +629,7 @@ def handle_test_runner_cmd(input_test, dry_run_cmds, do_verification=False,
     former_test_cmds = full_result_content.get(input_test, [])
     dry_run_cmds = _normalize(dry_run_cmds)
     former_test_cmds = _normalize(former_test_cmds)
-    if not _are_identical_cmds(dry_run_cmds, former_test_cmds):
+    if not _are_equivalent_cmds(dry_run_cmds, former_test_cmds):
         if do_verification:
             raise atest_error.DryRunVerificationError(
                 'Dry run verification failed, former commands: {}'.format(
@@ -653,10 +653,11 @@ def handle_test_runner_cmd(input_test, dry_run_cmds, do_verification=False,
         print('Save result mapping to %s' % result_path)
 
 def _normalize(cmd_list):
-    """Method that normalize commands. Note that '--atest-log-file-path' is not
+    """Method that normalizes commands. Note that '--atest-log-file-path' is not
     considered a critical argument, therefore, it will be removed during
-    the comparison. Also, atest can be ran in any place, so verifying relative
-    path, LD_LIBRARY_PATH, and --proto-output-file is regardless as well.
+    the comparison. Also, atest can be run in any place, so verifying relative
+    path, LD_LIBRARY_PATH, and --proto-output-file is removed as well.
+    The `--serial` is also removed because it is set locally.
 
     Args:
         cmd_list: A list with one element. E.g. ['cmd arg1 arg2 True']
@@ -687,19 +688,46 @@ def _normalize(cmd_list):
             continue
     return _cmd
 
-def _are_identical_cmds(current_cmds, former_cmds):
-    """Tell two commands are identical.
+def _remove_serial_from_cmds(cmd_list):
+    """ Removes the serial number from an unsorted list of test commands.
+
+    Args:
+        cmd_list: a list of test commands.
+
+    Returns:
+        A list of test commands with the serial arg removed.
+    """
+    _cmd = ' '.join(cmd_list).split()
+    if "--serial" in _cmd:
+        index = _cmd.index("--serial")
+        # --serial is followed by the serial number, which is deleted first.
+        del _cmd[index + 1]
+        del _cmd[index]
+
+    if "-s" in _cmd:
+        index = _cmd.index("-s")
+        # --serial is followed by the serial number, which is deleted first.
+        del _cmd[index + 1]
+        del _cmd[index]
+
+    return _cmd
+
+def _are_equivalent_cmds(current_cmds, former_cmds):
+    """Return true when two commands are equivalent.
 
     Args:
         current_cmds: A list of strings for running input tests.
         former_cmds: A list of strings recorded from the previous run.
 
     Returns:
-        True if both commands are identical, False otherwise.
+        True if both commands are equivalent, False otherwise.
     """
-    # Always sort cmd list to make it comparable.
+    # Always sort cmd list and remove the serial to make it comparable.
+    current_cmds = _remove_serial_from_cmds(current_cmds)
     current_cmds.sort()
+    former_cmds = _remove_serial_from_cmds(former_cmds)
     former_cmds.sort()
+
     return current_cmds == former_cmds
 
 def _get_hashed_file_name(main_file_name):

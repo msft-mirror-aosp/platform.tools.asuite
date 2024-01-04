@@ -161,7 +161,17 @@ impl MetricSender for FakeMetricSender {
 
     fn add_action_event(&mut self, _action: &str, _duration: std::time::Duration) {}
 
+    fn add_action_event_with_files_changed(
+        &mut self,
+        _action: &str,
+        _duration: std::time::Duration,
+        _files_changed: std::vec::Vec<String>,
+    ) {
+    }
+
     fn add_profiler_events(&mut self, _profiler: &adevice::adevice::Profiler) {}
+
+    fn add_exit_event(&mut self, _output: &str, _exit_code: i32) {}
 
     fn display_survey(&mut self) {}
 }

@@ -58,6 +58,7 @@ fi
 
 if [ ! -n "${HOST_OUT_TESTCASES}" ] ; then
   export HOST_OUT_TESTCASES=$(get_build_var HOST_OUT_TESTCASES)
+  export ANDROID_HOST_OUT_TESTCASES=$HOST_OUT_TESTCASES
 fi
 
 if [ ! -n "${ANDROID_JAVA_HOME}" ] ; then

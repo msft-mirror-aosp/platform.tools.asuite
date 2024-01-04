@@ -7,10 +7,12 @@ mod fingerprint;
 mod metrics;
 mod restart_chooser;
 mod tracking;
+use tracing::info;
 
 use crate::adevice::Profiler;
 use crate::adevice::RealHost;
 use crate::device::RealDevice;
+use crate::metrics::MetricSender;
 use crate::metrics::Metrics;
 use clap::Parser;
 use std::fs::File;
@@ -19,12 +21,13 @@ use std::path::PathBuf;
 use anyhow::Result;
 
 fn main() -> Result<()> {
+    let total_time = std::time::Instant::now();
     let host = RealHost::new();
     let cli = cli::Cli::parse();
     let mut profiler = Profiler::default();
     let device = RealDevice::new(cli.global_options.serial.clone());
     let mut metrics = Metrics::default();
-    crate::adevice::adevice(
+    let result = crate::adevice::adevice(
         &host,
         &device,
         &cli,
@@ -32,7 +35,22 @@ fn main() -> Result<()> {
         &mut metrics,
         log_file(),
         &mut profiler,
-    )
+    );
+
+    // cleanup tasks (metrics, profiling)
+    match result {
+        Ok(()) => metrics.add_exit_event("", 0),
+        Err(ref error) => metrics.add_exit_event(&error.to_string(), 1),
+    }
+    profiler.total = total_time.elapsed();
+    metrics.add_profiler_events(&profiler);
+    println!(
+        "\nFinished in {} secs, [Logfile at $ANDROID_BUILD_TOP/out/adevice.log]",
+        profiler.total.as_secs()
+    );
+    info!("TIMING: {}", profiler.to_string());
+
+    result
 }
 
 /// Return a file open at $ANDROID_BUILD_TOP/out/adevice.log or None
