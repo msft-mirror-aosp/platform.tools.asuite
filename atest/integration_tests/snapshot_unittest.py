@@ -24,12 +24,16 @@ import tempfile
 import unittest
 
 from atest.integration_tests.snapshot import Snapshot
+# Disable pylint here because it conflicts with google format
+# pylint: disable=wrong-import-order
+from pyfakefs import fake_filesystem_unittest
 
 
-class SnapshotTest(unittest.TestCase):
+class SnapshotTest(fake_filesystem_unittest.TestCase):
     """Snapshot test class unit test."""
 
     def setUp(self):
+        self.setUpPyfakefs()
         self.temp_dir = Path(tempfile.mkdtemp())
 
     def tearDown(self):
@@ -38,7 +42,7 @@ class SnapshotTest(unittest.TestCase):
     def test_take_snapshot_empty_dir_snapshot_is_created(self):
         """Test taking a snapshot of an empty directory."""
         workspace = self.temp_dir / "workspace"
-        workspace.mkdir()
+        self.fs.create_dir(workspace)
         snapshot = Snapshot(self.temp_dir / "db")
 
         snapshot.take_snapshot("test", workspace)
@@ -50,9 +54,11 @@ class SnapshotTest(unittest.TestCase):
     def test_take_snapshot_with_files_files_are_recorded(self):
         """Test taking a snapshot of a directory with files."""
         workspace = self.temp_dir / "workspace"
-        workspace.mkdir()
-        workspace.joinpath("dir1").mkdir()
-        workspace.joinpath("dir1", "file1").write_text("test", encoding="utf-8")
+        self.fs.create_dir(workspace)
+        self.fs.create_dir(workspace.joinpath("dir1"))
+        self.fs.create_file(
+            workspace.joinpath("dir1", "file1"), contents="test"
+        )
         snapshot = Snapshot(self.temp_dir / "db")
 
         snapshot.take_snapshot("test", workspace)
@@ -68,11 +74,15 @@ class SnapshotTest(unittest.TestCase):
     def test_take_snapshot_with_include_paths(self):
         """Test taking a snapshot with include paths."""
         workspace = self.temp_dir / "workspace"
-        workspace.mkdir()
-        workspace.joinpath("dir1").mkdir()
-        workspace.joinpath("dir1", "file1").write_text("test", encoding="utf-8")
-        workspace.joinpath("dir2").mkdir()
-        workspace.joinpath("dir2", "file2").write_text("test", encoding="utf-8")
+        self.fs.create_dir(workspace)
+        self.fs.create_dir(workspace.joinpath("dir1"))
+        self.fs.create_file(
+            workspace.joinpath("dir1", "file1"), contents="test"
+        )
+        self.fs.create_dir(workspace.joinpath("dir2"))
+        self.fs.create_file(
+            workspace.joinpath("dir2", "file2"), contents="test"
+        )
         snapshot = Snapshot(self.temp_dir / "db")
 
         snapshot.take_snapshot("test", workspace, include_paths=["dir2"])
@@ -88,11 +98,15 @@ class SnapshotTest(unittest.TestCase):
     def test_take_snapshot_with_exclude_paths(self):
         """Test taking a snapshot with exclude paths."""
         workspace = self.temp_dir / "workspace"
-        workspace.mkdir()
-        workspace.joinpath("dir1").mkdir()
-        workspace.joinpath("dir1", "file1").write_text("test", encoding="utf-8")
-        workspace.joinpath("dir2").mkdir()
-        workspace.joinpath("dir2", "file2").write_text("test", encoding="utf-8")
+        self.fs.create_dir(workspace)
+        self.fs.create_dir(workspace.joinpath("dir1"))
+        self.fs.create_file(
+            workspace.joinpath("dir1", "file1"), contents="test"
+        )
+        self.fs.create_dir(workspace.joinpath("dir2"))
+        self.fs.create_file(
+            workspace.joinpath("dir2", "file2"), contents="test"
+        )
         snapshot = Snapshot(self.temp_dir / "db")
 
         snapshot.take_snapshot("test", workspace, exclude_paths=["dir1"])
@@ -108,11 +122,15 @@ class SnapshotTest(unittest.TestCase):
     def test_take_snapshot_with_include_and_exclude_paths(self):
         """Test taking a snapshot with include and exclude paths."""
         workspace = self.temp_dir / "workspace"
-        workspace.mkdir()
-        workspace.joinpath("dir1").mkdir()
-        workspace.joinpath("dir1", "file1").write_text("test", encoding="utf-8")
-        workspace.joinpath("dir2").mkdir()
-        workspace.joinpath("dir2", "file2").write_text("test", encoding="utf-8")
+        self.fs.create_dir(workspace)
+        self.fs.create_dir(workspace.joinpath("dir1"))
+        self.fs.create_file(
+            workspace.joinpath("dir1", "file1"), contents="test"
+        )
+        self.fs.create_dir(workspace.joinpath("dir2"))
+        self.fs.create_file(
+            workspace.joinpath("dir2", "file2"), contents="test"
+        )
         snapshot = Snapshot(self.temp_dir / "db")
 
         snapshot.take_snapshot(
@@ -132,8 +150,8 @@ class SnapshotTest(unittest.TestCase):
     def test_restore_snapshot_empty_dir(self):
         """Test restoring a snapshot of an empty directory."""
         workspace = self.temp_dir / "workspace"
-        workspace.mkdir()
-        workspace.joinpath("dir1").mkdir()
+        self.fs.create_dir(workspace)
+        self.fs.create_dir(workspace.joinpath("dir1"))
         snapshot = Snapshot(self.temp_dir / "db")
         snapshot.take_snapshot("test", workspace)
 
@@ -145,12 +163,14 @@ class SnapshotTest(unittest.TestCase):
     def test_restore_snapshot_with_deleted_files(self):
         """Test restoring a snapshot with deleted files."""
         workspace = self.temp_dir / "workspace"
-        workspace.mkdir()
-        workspace.joinpath("dir1").mkdir()
-        workspace.joinpath("dir1", "file1").write_text("test", encoding="utf-8")
+        self.fs.create_dir(workspace)
+        self.fs.create_dir(workspace.joinpath("dir1"))
+        self.fs.create_file(
+            workspace.joinpath("dir1", "file1"), contents="test"
+        )
         snapshot = Snapshot(self.temp_dir / "db")
         snapshot.take_snapshot("test", workspace)
-        workspace.joinpath("dir1", "file1").unlink()
+        self.fs.remove(workspace.joinpath("dir1", "file1"))
 
         snapshot.restore_snapshot("test", workspace)
 
@@ -159,12 +179,16 @@ class SnapshotTest(unittest.TestCase):
     def test_restore_snapshot_with_extra_files(self):
         """Test restoring a snapshot with extra files."""
         workspace = self.temp_dir / "workspace"
-        workspace.mkdir()
-        workspace.joinpath("dir1").mkdir()
-        workspace.joinpath("dir1", "file1").write_text("test", encoding="utf-8")
+        self.fs.create_dir(workspace)
+        self.fs.create_dir(workspace.joinpath("dir1"))
+        self.fs.create_file(
+            workspace.joinpath("dir1", "file1"), contents="test"
+        )
         snapshot = Snapshot(self.temp_dir / "db")
         snapshot.take_snapshot("test", workspace)
-        workspace.joinpath("dir1", "file2").write_text("test", encoding="utf-8")
+        self.fs.create_file(
+            workspace.joinpath("dir1", "file2"), contents="test"
+        )
 
         snapshot.restore_snapshot("test", workspace)
 
@@ -174,10 +198,10 @@ class SnapshotTest(unittest.TestCase):
     def test_restore_snapshot_with_modified_files(self):
         """Test restoring a snapshot with modified files."""
         workspace = self.temp_dir / "workspace"
-        workspace.mkdir()
-        workspace.joinpath("dir1").mkdir()
+        self.fs.create_dir(workspace)
+        self.fs.create_dir(workspace.joinpath("dir1"))
         file_path = workspace.joinpath("dir1", "file1")
-        file_path.write_text("test1", encoding="utf-8")
+        self.fs.create_file(file_path, contents="test1")
         snapshot = Snapshot(self.temp_dir / "db")
         snapshot.take_snapshot("test", workspace)
         file_path.write_text("test2", encoding="utf-8")
@@ -187,8 +211,8 @@ class SnapshotTest(unittest.TestCase):
 
         snapshot.restore_snapshot("test", workspace)
 
-        self.assertTrue(
-            workspace.joinpath("dir1", "file1").read_text("utf-8") == "test1"
+        self.assertEqual(
+            workspace.joinpath("dir1", "file1").read_text("utf-8"), "test1"
         )
 
 
