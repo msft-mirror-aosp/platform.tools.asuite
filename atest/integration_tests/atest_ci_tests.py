@@ -14,6 +14,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+"""A collection of integration test cases for atest."""
+
 import json
 from pathlib import Path
 import subprocess
@@ -21,13 +23,11 @@ from typing import Callable, Dict, List
 import atest_integration_test
 
 
-"""A collection of integration test cases for atest """
-
-
 class CommandSuccessTests(atest_integration_test.TestCase):
     """Test whether the atest commands run with success exit codes."""
 
     def test_csuite_harness_tests(self):
+        """Test if csuite-harness-tests command runs successfully."""
         atest = atest_integration_test.AtestIntegrationTest(self.id())
         if atest.in_build_env():
             subprocess.run(
@@ -49,6 +49,7 @@ class CommandSuccessTests(atest_integration_test.TestCase):
             )
 
     def test_csuite_cli_test(self):
+        """Test if csuite_cli_test command runs successfully."""
         atest = atest_integration_test.AtestIntegrationTest(self.id())
         if atest.in_build_env():
             subprocess.run(
@@ -73,13 +74,15 @@ class CommandSuccessTests(atest_integration_test.TestCase):
 class CommandVerificationTests(atest_integration_test.TestCase):
     """Checks atest tradefed commands."""
 
-    def test_AnimatorTest(self):
+    def test_animator_test(self):
+        """Test if AnimatorTest command runs correctly."""
         self.verify_command(
             'atest-dev -g AnimatorTest'.split(),
             lambda data: self.assertIn('AnimatorTest', data['AnimatorTest']),
         )
 
-    def test_CtsAnimationTestCases_AnimatorTest(self):
+    def test_cts_animation_test_cases_animator_test(self):
+        """Test if CtsAnimationTestCases:AnimatorTest command runs correctly."""
         self.verify_command(
             'atest-dev -g CtsAnimationTestCases:AnimatorTest'.split(),
             lambda data: self.assertIn(
@@ -113,12 +116,15 @@ class CommandVerificationTests(atest_integration_test.TestCase):
                 check=True,
                 env=atest.get_env(),
                 cwd=atest.get_repo_root(),
+                encoding='utf-8',
             )
             atest.add_snapshot_paths(runner_commands_json)
 
         if atest.in_test_env():
             with open(
-                Path(atest.get_repo_root()).joinpath(runner_commands_json), 'r'
+                Path(atest.get_repo_root()).joinpath(runner_commands_json),
+                'r',
+                encoding='utf-8',
             ) as f:
                 dict_from_json = json.load(f)
             verify_func(dict_from_json)

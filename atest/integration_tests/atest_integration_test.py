@@ -13,7 +13,8 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-"""Module to facilitate integration testing within the Android build and test environments.
+
+"""Module to facilitate integration test within the build and test environment.
 
 This module provides utilities for running tests in both build and test
 environments, managing environment variables, and snapshotting the workspace for
@@ -22,14 +23,13 @@ restoration later.
 
 import argparse
 import atexit
-import glob
 import inspect
 import os
 from pathlib import Path
 import shutil
 import sys
 import tarfile
-from typing import Any, Dict, List, Sequence, Text
+from typing import Any, Dict, List, Sequence
 import unittest
 
 from snapshot import Snapshot
@@ -37,7 +37,7 @@ from snapshot import Snapshot
 # Export the TestCase class to reduce the number of imports tests have to list.
 TestCase: unittest.TestCase = unittest.TestCase
 
-_DEVICE_SERIAL: Text = None
+_DEVICE_SERIAL: str = None
 _IS_BUILD_ENV: bool = False
 _IS_TEST_ENV: bool = False
 _ARTIFACTS_DIR: Path = None
@@ -47,7 +47,7 @@ _SNAPSHOT_STORAGE_DIR_NAME = 'ATEST_INTEGRATION_TESTS_SNAPSHOT_STORAGE'
 
 
 class AtestIntegrationTest:
-    """Utility class for running atest integration test in build and test environment."""
+    """Utility for running integration test in build and test environment."""
 
     _default_include_paths = [
         'out/host/linux-x86',
@@ -87,18 +87,18 @@ class AtestIntegrationTest:
         'JAVA_HOME',
     ]
 
-    def __init__(self, id: Text) -> None:
+    def __init__(self, name: str) -> None:
         self._include_paths: List[str] = self._default_include_paths
         self._exclude_paths: List[str] = self._default_exclude_paths
         self._env_keys: List[str] = self._default_env_keys
-        self._id: Text = id
-        self._env: Dict[Text, Text] = None
+        self._id: str = name
+        self._env: Dict[str, str] = None
         self._snapshot: Snapshot = Snapshot(_get_snapshot_storage_path())
         self._add_jdk_to_include_path()
         self._snapshot_count = 0
 
     def _add_jdk_to_include_path(self) -> None:
-        """Get the relative jdk directory in build env."""
+        """Get the relative jdk directory in build environment."""
         if is_in_test_env():
             return
         absolute_path = Path(os.environ['ANDROID_JAVA_HOME'])
@@ -123,9 +123,10 @@ class AtestIntegrationTest:
 
     def add_env_keys(self, *keys: str) -> None:
         """Add environment variable keys for snapshot."""
-        self._env_set_keys.extend(keys)
+        self._env_keys.extend(keys)
 
     def take_snapshot(self, name: str) -> None:
+        """Take a snapshot of the repository and environment."""
         self._snapshot.take_snapshot(
             name,
             self.get_repo_root(),
@@ -135,6 +136,7 @@ class AtestIntegrationTest:
         )
 
     def restore_snapshot(self, name: str) -> None:
+        """Restore the repository and environment from a snapshot."""
         self._env = self._snapshot.restore_snapshot(
             name, _get_workspace_dir().as_posix()
         )
@@ -154,13 +156,13 @@ class AtestIntegrationTest:
             self._snapshot_count += 1
         return is_in_test_env()
 
-    def get_env(self) -> Dict[Text, Text]:
+    def get_env(self) -> Dict[str, str]:
         """Get environment variables."""
         if is_in_build_env():
             return os.environ.copy()
         return self._env
 
-    def get_device_serial(self) -> Text:
+    def get_device_serial(self) -> str:
         """Returns the serial of the connected device."""
         if not _DEVICE_SERIAL:
             raise RuntimeError('device serial is not set')
@@ -184,12 +186,12 @@ class AtestIntegrationTest:
 
 
 def is_in_build_env() -> bool:
-    """Check if we are in the build env."""
+    """Check if we are in the build environment."""
     return _IS_BUILD_ENV
 
 
 def is_in_test_env() -> bool:
-    """Check if we are in the test env."""
+    """Check if we are in the test environment."""
     return _IS_TEST_ENV
 
 
@@ -281,7 +283,7 @@ def create_arg_parser(add_help: bool = False) -> argparse.ArgumentParser:
     return parser
 
 
-def run_tests(args: Any, unittest_argv: Sequence[Text]) -> None:
+def run_tests(args: Any, unittest_argv: Sequence[str]) -> None:
     """Executes atest integration test cases.
 
     This function unpacks the artifacts before running the tests if in a test
@@ -310,20 +312,22 @@ def run_tests(args: Any, unittest_argv: Sequence[Text]) -> None:
     if args.test_output_file:
         Path(args.test_output_file).parent.mkdir(exist_ok=True)
 
-        with open(args.test_output_file, 'w') as test_output_file:
-            # Note that we use a type and not an instance for 'testRunner' since
-            # TestProgram forwards its constructor arguments when creating an instance
-            # of the runner type. Not doing so would require us to make sure that the
-            # parameters passed to TestProgram are aligned with those for creating a
-            # runner instance.
+        with open(
+            args.test_output_file, 'w', encoding='utf-8'
+        ) as test_output_file:
+            # Note that we use a type and not an instance for 'testRunner'
+            # since TestProgram forwards its constructor arguments when creating
+            # an instance of the runner type. Not doing so would require us to
+            # make sure that the parameters passed to TestProgram are aligned
+            # with those for creating a runner instance.
             class TestRunner(unittest.TextTestRunner):
-                """A test runner that writes test results to the TF-provided file."""
+                """Runner that writes test results to the TF-provided file."""
 
                 def __init__(self, *args: Any, **kwargs: Any) -> None:
                     super().__init__(stream=test_output_file, *args, **kwargs)
 
-            # Setting verbosity is required to generate output that the TradeFed test
-            # runner can parse.
+            # Setting verbosity is required to generate output that the TradeFed
+            # test runner can parse.
             unittest.TestProgram(
                 verbosity=3, testRunner=TestRunner, argv=unittest_argv
             )
@@ -333,7 +337,9 @@ def run_tests(args: Any, unittest_argv: Sequence[Text]) -> None:
 
 def main() -> None:
     """Executes a set of Python unit tests."""
-    global _DEVICE_SERIAL, _ARTIFACTS_DIR, _IS_BUILD_ENV, _IS_TEST_ENV, _ARTIFACT_PACK_PATH
+    # pylint: disable=global-statement
+    global _DEVICE_SERIAL, _ARTIFACTS_DIR, _IS_BUILD_ENV, _IS_TEST_ENV
+    global _ARTIFACT_PACK_PATH
     parser = create_arg_parser(add_help=True)
     args, unittest_argv = parser.parse_known_args(sys.argv)
 
