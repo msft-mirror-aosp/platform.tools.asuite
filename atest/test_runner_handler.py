@@ -122,8 +122,7 @@ def create_test_runner_invocations(
             minimal_build=minimal_build,
         )
 
-        test_runner_invocations.append(TestRunnerInvocation(
-            test_runner=test_runner,
+        test_runner_invocations.extend(test_runner.create_invocations(
             extra_args=extra_args,
             test_infos=tests))
 
