@@ -98,6 +98,7 @@ def create_test_runner_invocations(
     mod_info: module_info.ModuleInfo,
     extra_args: Dict[str, Any],
     minimal_build: bool,
+    update_device: bool,
 ) -> List[TestRunnerInvocation]:
     """Creates TestRunnerInvocation instances.
 
@@ -108,6 +109,7 @@ def create_test_runner_invocations(
         extra_args: A dict of arguments for the test runner to utilize.
         minimal_build: A boolean setting whether or not this invocation will
             minimize the build target set.
+        update_device: Specifies whether a device update is required.
 
     Returns:
         A list of TestRunnerInvocation instances.
@@ -124,6 +126,7 @@ def create_test_runner_invocations(
 
         test_runner_invocations.extend(test_runner.create_invocations(
             extra_args=extra_args,
-            test_infos=tests))
+            test_infos=tests,
+            update_device=update_device))
 
     return test_runner_invocations
