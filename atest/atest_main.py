@@ -508,7 +508,29 @@ def _print_module_info_from_module_name(mod_info, module_name):
         is_module_found = True
     return is_module_found
 
+def _print_deprecation_warning(arg_to_deprecate: str):
+    """
+    For features that are up for deprecation in the near future, print a message
+    to alert the user about the upcoming deprecation.
 
+    Args:
+        arg_to_deprecate: the arg with which the to-be-deprecated feature is
+        called.
+    """
+    args_to_deprecation_info = {
+        # arg_to_deprecate : (deprecation timeframe, additional info for users)
+        "--info": (
+            "is deprecated.",
+            "\nUse CodeSearch or `gomod` instead.")
+    }
+
+    warning_message = (f"\nWARNING: The `{arg_to_deprecate}` feature "
+    +' '.join(args_to_deprecation_info[arg_to_deprecate])
+    +"\nPlease file a bug or feature request to the Atest team if you have any "
+    "concerns.")
+    atest_utils.colorful_print(warning_message, constants.RED)
+
+#TODO(b/318574179): delete this code after the buffer period is up.
 def _print_test_info(mod_info, test_infos):
     """Print the module information from TestInfos.
 
@@ -1009,7 +1031,7 @@ def main(
     extra_args = test_execution_plan.extra_args
 
     if args.info:
-        return _print_test_info(mod_info, test_infos)
+        return _print_deprecation_warning("--info")
 
     build_targets = test_execution_plan.required_build_targets()
 
