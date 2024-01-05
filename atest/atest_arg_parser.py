@@ -86,7 +86,7 @@ HOST = ('Run the test completely on the host without a device. '
         '--host will fail.)')
 HOST_UNIT_TEST_ONLY = ('Run all host unit tests under the current directory.')
 INCLUDE_SUBDIRS = 'Search TEST_MAPPING files in subdirs as well.'
-INFO = 'Show module information.'
+INFO = 'Deprecated'
 INSTALL = 'Install an APK.'
 INSTANT = ('Run the instant_app version of the module if the module supports it. '
            'Note: Nothing\'s going to run if it\'s not an Instant App test and '
@@ -370,8 +370,8 @@ class AtestArgParser(argparse.ArgumentParser):
             A list of optional arguments.
         """
         argument_list = []
-        # The output of _get_optional_actions(): [['-t', '--test'], [--info]]
-        # return an argument list: ['-t', '--test', '--info']
+        # The output of _get_optional_actions(): [['-t', '--test']]
+        # return an argument list: ['-t', '--test']
         for arg in self._get_optional_actions():
             argument_list.extend(arg.option_strings)
         return argument_list
