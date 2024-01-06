@@ -53,7 +53,6 @@ from atest import bazel_mode
 from atest import bug_detector
 from atest import cli_translator
 from atest import constants
-from atest import device_update
 from atest import module_info
 from atest import result_reporter
 from atest import test_runner_handler
@@ -509,7 +508,29 @@ def _print_module_info_from_module_name(mod_info, module_name):
         is_module_found = True
     return is_module_found
 
+def _print_deprecation_warning(arg_to_deprecate: str):
+    """
+    For features that are up for deprecation in the near future, print a message
+    to alert the user about the upcoming deprecation.
 
+    Args:
+        arg_to_deprecate: the arg with which the to-be-deprecated feature is
+        called.
+    """
+    args_to_deprecation_info = {
+        # arg_to_deprecate : (deprecation timeframe, additional info for users)
+        "--info": (
+            "is deprecated.",
+            "\nUse CodeSearch or `gomod` instead.")
+    }
+
+    warning_message = (f"\nWARNING: The `{arg_to_deprecate}` feature "
+    +' '.join(args_to_deprecation_info[arg_to_deprecate])
+    +"\nPlease file a bug or feature request to the Atest team if you have any "
+    "concerns.")
+    atest_utils.colorful_print(warning_message, constants.RED)
+
+#TODO(b/318574179): delete this code after the buffer period is up.
 def _print_test_info(mod_info, test_infos):
     """Print the module information from TestInfos.
 
@@ -1010,7 +1031,7 @@ def main(
     extra_args = test_execution_plan.extra_args
 
     if args.info:
-        return _print_test_info(mod_info, test_infos)
+        return _print_deprecation_warning("--info")
 
     build_targets = test_execution_plan.required_build_targets()
 
@@ -1126,9 +1147,6 @@ def _create_test_execution_plan(
     Returns:
         An instance of TestExecutionPlan.
     """
-    device_update_method = (
-        device_update.AdeviceUpdateMethod() if args.update_device
-        else device_update.NoopUpdateMethod())
 
     if is_from_test_mapping(test_infos):
         return TestMappingExecutionPlan.create(
@@ -1142,8 +1160,7 @@ def _create_test_execution_plan(
         results_dir = results_dir,
         mod_info = mod_info,
         args = args,
-        dry_run = dry_run,
-        device_update_method = device_update_method)
+        dry_run = dry_run)
 
 
 class TestExecutionPlan(ABC):
@@ -1227,7 +1244,8 @@ class TestMappingExecutionPlan(TestExecutionPlan):
                 results_dir = results_dir,
                 mod_info = mod_info,
                 extra_args = runner_extra_args,
-                minimal_build = args.minimal_build)
+                minimal_build = args.minimal_build,
+                update_device = args.update_device)
 
         test_type_to_invocations = collections.OrderedDict()
         if extra_args.get(constants.DEVICE_ONLY):
@@ -1274,11 +1292,9 @@ class TestModuleExecutionPlan(TestExecutionPlan):
         *,
         test_runner_invocations: List[test_runner_handler.TestRunnerInvocation],
         extra_args: Dict[str, Any],
-        device_update_method: device_update.DeviceUpdateMethod,
     ):
         super().__init__(extra_args=extra_args)
         self._test_runner_invocations = test_runner_invocations
-        self._device_update_method = device_update_method
 
     @staticmethod
     def create(
@@ -1288,7 +1304,6 @@ class TestModuleExecutionPlan(TestExecutionPlan):
         mod_info: module_info.ModuleInfo,
         args: argparse.Namespace,
         dry_run: bool,
-        device_update_method: device_update.DeviceUpdateMethod,
     ) -> TestModuleExecutionPlan:
         """Creates an instance of TestModuleExecutionPlan.
 
@@ -1298,7 +1313,6 @@ class TestModuleExecutionPlan(TestExecutionPlan):
             mod_info: An instance of ModuleInfo.
             args: An argparse.Namespace instance holding parsed args.
             dry_run: A boolean of whether this invocation is a dry run.
-            device_update_method: An instance of DeviceUpdateMethod.
 
         Returns:
             An instance of TestModuleExecutionPlan.
@@ -1316,25 +1330,21 @@ class TestModuleExecutionPlan(TestExecutionPlan):
             results_dir = results_dir,
             mod_info = mod_info,
             extra_args = extra_args,
-            minimal_build = args.minimal_build)
+            minimal_build = args.minimal_build,
+            update_device = args.update_device)
 
         return TestModuleExecutionPlan(
             test_runner_invocations = invocations,
-            extra_args = extra_args,
-            device_update_method = device_update_method)
+            extra_args = extra_args)
 
     def required_build_targets(self) -> Set[str]:
         build_targets = set()
         for test_runner_invocation in self._test_runner_invocations:
             build_targets |= test_runner_invocation.get_test_runner_reqs()
 
-        build_targets |= self._device_update_method.dependencies()
-
         return build_targets
 
     def execute(self) -> ExitCode:
-
-        self._device_update_method.update()
 
         reporter = result_reporter.ResultReporter(
             collect_only = self.extra_args.get(constants.COLLECT_TESTS_ONLY))
