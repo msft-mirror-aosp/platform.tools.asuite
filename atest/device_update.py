@@ -55,7 +55,15 @@ class AdeviceUpdateMethod(DeviceUpdateMethod):
 
     def update(self) -> None:
         try:
+            print(atest_utils.mark_cyan("\nUpdating device..."))
+            update_start = time.time()
+
             atest_utils.run_limited_output([self._adevice_path, 'update'])
+
+            print(atest_utils.mark_cyan(
+                '\nDevice update finished in '
+                f'{str(round(time.time() - update_start, 2))}s.'))
+
         except CalledProcessError as e:
             raise Error(
                 'Failed to update the device with adevice') from e
