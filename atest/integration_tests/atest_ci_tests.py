@@ -20,15 +20,16 @@ import json
 from pathlib import Path
 import subprocess
 from typing import Callable
-from atest_integration_test import AtestIntegrationTest, TestCase, main
+from atest_integration_test import AtestIntegrationTest, AtestTestCase
+from atest_integration_test import run_tests
 
 
-class CommandSuccessTests(TestCase):
+class CommandSuccessTests(AtestTestCase):
     """Test whether the atest commands run with success exit codes."""
 
     def test_csuite_harness_tests(self):
         """Test if csuite-harness-tests command runs successfully."""
-        atest = AtestIntegrationTest(self.id())
+        atest = self.create_atest_integration_test()
         if atest.in_build_env():
             subprocess.run(
                 'atest-dev -b csuite-harness-tests'.split(),
@@ -50,7 +51,7 @@ class CommandSuccessTests(TestCase):
 
     def test_csuite_cli_test(self):
         """Test if csuite_cli_test command runs successfully."""
-        atest = AtestIntegrationTest(self.id())
+        atest = self.create_atest_integration_test()
         if atest.in_build_env():
             subprocess.run(
                 'atest-dev -b csuite_cli_test'.split(),
@@ -71,7 +72,7 @@ class CommandSuccessTests(TestCase):
             )
 
 
-class CommandVerificationTests(TestCase):
+class CommandVerificationTests(AtestTestCase):
     """Checks atest tradefed commands."""
 
     def test_animator_test(self):
@@ -107,7 +108,7 @@ class CommandVerificationTests(TestCase):
           verify_func: A function that takes the atest internal command string
             and checks it.
         """
-        atest = AtestIntegrationTest(self.id())
+        atest = self.create_atest_integration_test()
         cmd_split = cmd.split()
         cmd_list = ['atest-dev', '-g']
         cmd_list.extend(cmd_split)
@@ -139,4 +140,4 @@ class CommandVerificationTests(TestCase):
 
 
 if __name__ == '__main__':
-    main()
+    run_tests()
