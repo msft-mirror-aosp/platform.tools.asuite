@@ -19,16 +19,16 @@
 import json
 from pathlib import Path
 import subprocess
-from typing import Callable, Dict, List
-import atest_integration_test
+from typing import Callable
+from atest_integration_test import AtestIntegrationTest, TestCase, main
 
 
-class CommandSuccessTests(atest_integration_test.TestCase):
+class CommandSuccessTests(TestCase):
     """Test whether the atest commands run with success exit codes."""
 
     def test_csuite_harness_tests(self):
         """Test if csuite-harness-tests command runs successfully."""
-        atest = atest_integration_test.AtestIntegrationTest(self.id())
+        atest = AtestIntegrationTest(self.id())
         if atest.in_build_env():
             subprocess.run(
                 'atest-dev -b csuite-harness-tests'.split(),
@@ -50,7 +50,7 @@ class CommandSuccessTests(atest_integration_test.TestCase):
 
     def test_csuite_cli_test(self):
         """Test if csuite_cli_test command runs successfully."""
-        atest = atest_integration_test.AtestIntegrationTest(self.id())
+        atest = AtestIntegrationTest(self.id())
         if atest.in_build_env():
             subprocess.run(
                 'atest-dev -b csuite_cli_test'.split(),
@@ -71,39 +71,47 @@ class CommandSuccessTests(atest_integration_test.TestCase):
             )
 
 
-class CommandVerificationTests(atest_integration_test.TestCase):
+class CommandVerificationTests(TestCase):
     """Checks atest tradefed commands."""
 
     def test_animator_test(self):
         """Test if AnimatorTest command runs correctly."""
-        self.verify_command(
-            'atest-dev -g AnimatorTest'.split(),
-            lambda data: self.assertIn('AnimatorTest', data['AnimatorTest']),
+        cmd = 'AnimatorTest'
+        self._verify_atest_internal_command(
+            cmd,
+            lambda atest_internal_command, atest: self.assertIn(
+                cmd, atest_internal_command
+            ),
         )
 
     def test_cts_animation_test_cases_animator_test(self):
         """Test if CtsAnimationTestCases:AnimatorTest command runs correctly."""
-        self.verify_command(
-            'atest-dev -g CtsAnimationTestCases:AnimatorTest'.split(),
-            lambda data: self.assertIn(
+        cmd = 'CtsAnimationTestCases:AnimatorTest'
+        self._verify_atest_internal_command(
+            cmd,
+            lambda atest_internal_command, atest: self.assertIn(
                 'CtsAnimationTestCases:android.animation.cts.AnimatorTest',
-                data['CtsAnimationTestCases:AnimatorTest'],
+                atest_internal_command,
             ),
         )
 
-    def verify_command(
+    def _verify_atest_internal_command(
         self,
-        cmd_list: List[str],
-        verify_func: Callable[[Dict[str, List[str]]], None],
+        cmd: str,
+        verify_func: Callable[[str, AtestIntegrationTest], None],
     ) -> None:
         """Verifies the command by executing it and checking its output.
 
         Args:
-          cmd_list: The command to execute.
-          verify_func: A function that takes the output of the command and
-            checks it.
+          cmd_list: The atest command to execute.
+          verify_func: A function that takes the atest internal command string
+            and checks it.
         """
-        atest = atest_integration_test.AtestIntegrationTest(self.id())
+        atest = AtestIntegrationTest(self.id())
+        cmd_split = cmd.split()
+        cmd_list = ['atest-dev', '-g']
+        cmd_list.extend(cmd_split)
+        runner_commands_key = cmd_split[0]
         runner_commands_json = (
             'tools/asuite/atest/test_data/runner_commands.json'
         )
@@ -127,8 +135,8 @@ class CommandVerificationTests(atest_integration_test.TestCase):
                 encoding='utf-8',
             ) as f:
                 dict_from_json = json.load(f)
-            verify_func(dict_from_json)
+            verify_func(dict_from_json[runner_commands_key], atest)
 
 
 if __name__ == '__main__':
-    atest_integration_test.main()
+    main()
