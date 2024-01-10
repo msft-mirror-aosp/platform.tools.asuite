@@ -99,6 +99,7 @@ class AtestIntegrationTest:
         'JAVA_HOME',
     ]
 
+
     def __init__(self, name: str, params: _TestParams) -> None:
         self._params = params
         self._include_paths: List[str] = self._default_include_paths
