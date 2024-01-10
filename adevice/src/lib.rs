@@ -7,5 +7,6 @@ pub mod commands;
 pub mod device;
 pub mod fingerprint;
 pub mod metrics;
+pub mod progress;
 pub mod restart_chooser;
 pub mod tracking;
