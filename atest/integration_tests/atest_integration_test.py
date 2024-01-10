@@ -40,11 +40,11 @@ _SNAPSHOT_STORAGE_DIR_NAME = 'ATEST_INTEGRATION_TESTS_SNAPSHOT_STORAGE'
 class AtestTestCase(unittest.TestCase):
     """Base test case for build-test environment split integration tests."""
 
-    cmd_injected_params = None
+    injected_params = None
 
     def create_atest_integration_test(self):
         """Create an instance of atest integration test utility."""
-        return AtestIntegrationTest(self.id(), self.cmd_injected_params)
+        return AtestIntegrationTest(self.id(), self.injected_params)
 
 
 class _TestParams:
@@ -98,7 +98,6 @@ class AtestIntegrationTest:
         'ANDROID_JAVA_HOME',
         'JAVA_HOME',
     ]
-
 
     def __init__(self, name: str, params: _TestParams) -> None:
         self._params = params
@@ -350,7 +349,7 @@ def run_tests() -> None:
     atexit.register(execute_after_tests)
 
     def inject_func(test_case):
-        test_case.cmd_injected_params = params
+        test_case.injected_params = params
 
     if args.test_output_file:
         Path(args.test_output_file).parent.mkdir(exist_ok=True)
