@@ -17,6 +17,7 @@ use tracing::{debug, Level};
 
 use std::collections::{HashMap, HashSet};
 use std::ffi::OsString;
+use std::fs;
 use std::fs::File;
 use std::io::{stdin, Write};
 use std::path::{Path, PathBuf};
@@ -159,7 +160,8 @@ pub fn adevice(
     progress::start("Checking files on host");
     let mut ninja_installed_files =
         time!(host.tracked_files(&config)?, profiler.ninja_deps_computer);
-    let partitions = &validate_partitions(&ninja_installed_files, &cli.global_options.partitions)?;
+    let partitions =
+        &validate_partitions(&product_out, &ninja_installed_files, &cli.global_options.partitions)?;
     // Filter to paths on any partitions.
     ninja_installed_files
         .retain(|nif| partitions.iter().any(|p| PathBuf::from(nif).starts_with(p)));
@@ -377,6 +379,7 @@ const DEFAULT_PARTITIONS: &[&str] = &["system", "system_ext", "odm", "product"];
 /// Otherwise, if one of the default partitions does not exist (like system_ext), then
 /// just remove it from the default.
 fn validate_partitions(
+    partition_root: &Path,
     tracked_files: &[String],
     cli_partitions: &Option<Vec<String>>,
 ) -> Result<Vec<String>> {
@@ -388,6 +391,11 @@ fn validate_partitions(
                 bail!("{partition:?} is not a valid partition for current lunch target.");
             }
         }
+        for partition in partitions {
+            if fs::read_dir(partition_root.join(partition)).is_err() {
+                bail!("{partition:?} partition does not exist on host. Try rebuilding with m");
+            }
+        }
         return Ok(partitions.clone());
     }
     let found_partitions: Vec<String> = DEFAULT_PARTITIONS
@@ -397,6 +405,12 @@ fn validate_partitions(
             false => None,
         })
         .collect();
+    for partition in &found_partitions {
+        if fs::read_dir(partition_root.join(partition)).is_err() {
+            bail!("{partition:?} partition does not exist on host. Try rebuilding with m");
+        }
+    }
+
     Ok(found_partitions)
 }
 
@@ -686,6 +700,7 @@ mod tests {
     use super::*;
     use crate::fingerprint::{self, DiffMode};
     use std::path::PathBuf;
+    use tempfile::TempDir;
 
     // TODO(rbraunstein): Capture/test stdout and logging.
     //  Test stdout: https://users.rust-lang.org/t/how-to-test-functions-that-use-println/67188/5
@@ -779,6 +794,9 @@ mod tests {
 
     #[test]
     fn validate_partition_removes_unused_default_partition() -> Result<()> {
+        let tmp_root = TempDir::new().unwrap();
+        fs::create_dir_all(tmp_root.path().join("system")).unwrap();
+
         // No system_ext here, so remove from default partitions
         let ninja_deps = vec![
             "system/file1".to_string(),
@@ -786,12 +804,19 @@ mod tests {
             "system/dir2/file1".to_string(),
             "data/sys/file4".to_string(),
         ];
-        assert_eq!(vec!["system".to_string(),], validate_partitions(&ninja_deps, &None)?);
+        assert_eq!(
+            vec!["system".to_string(),],
+            validate_partitions(tmp_root.path(), &ninja_deps, &None)?
+        );
         Ok(())
     }
 
     #[test]
     fn validate_partition_bails_on_bad_partition_name() {
+        let tmp_root = TempDir::new().unwrap();
+        fs::create_dir_all(tmp_root.path().join("system")).unwrap();
+        fs::create_dir_all(tmp_root.path().join("sys")).unwrap();
+
         let ninja_deps = vec![
             "system/file1".to_string(),
             "file3".to_string(),
@@ -800,11 +825,28 @@ mod tests {
         ];
         // "sys" isn't a valid partition name, but it matches a prefix of "system".
         // Should bail.
-        match validate_partitions(&ninja_deps, &Some(vec!["sys".to_string()])) {
+        match validate_partitions(tmp_root.path(), &ninja_deps, &Some(vec!["sys".to_string()])) {
             Ok(_) => panic!("Expected error"),
             Err(e) => {
                 assert!(
                     e.to_string().contains("\"sys\" is not a valid partition"),
+                    "{}",
+                    e.to_string()
+                )
+            }
+        }
+    }
+
+    #[test]
+    fn validate_partition_bails_on_no_partition_on_host() {
+        let tmp_root = TempDir::new().unwrap();
+
+        let ninja_deps = vec!["system/file1".to_string()];
+        match validate_partitions(tmp_root.path(), &ninja_deps, &Some(vec!["system".to_string()])) {
+            Ok(_) => panic!("Expected error"),
+            Err(e) => {
+                assert!(
+                    e.to_string().contains("\"system\" partition does not exist on host"),
                     "{}",
                     e.to_string()
                 )
