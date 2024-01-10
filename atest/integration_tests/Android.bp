@@ -54,16 +54,6 @@ python_test_host {
     },
 }
 
-java_library_host {
-    name: "atest_integration_test_harness",
-    srcs: [
-        "src/main/java/**/*.java",
-    ],
-    libs: [
-        "tradefed",
-    ],
-}
-
 python_library_host {
     name: "atest_integration_test_utils",
     srcs: [
@@ -84,15 +74,12 @@ python_test_host {
     libs: [
         "atest_integration_test_utils",
     ],
-    java_data: [
-        "atest_integration_test_harness",
-    ],
     test_suites: [
         "general-tests",
     ],
     version: {
-      py3: {
-        embedded_launcher: true,
-      },
+        py3: {
+            embedded_launcher: true,
+        },
     },
 }
