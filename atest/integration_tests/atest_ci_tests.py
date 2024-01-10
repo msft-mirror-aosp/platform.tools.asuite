@@ -87,7 +87,7 @@ class CommandVerificationTests(AtestTestCase):
     )
 
     def test_animator_test(self):
-        """Test if AnimatorTest command runs correctly."""
+        """Verify that the test's command runs correctly."""
         test_name = 'AnimatorTest'
         self._verify_atest_internal_command(
             test_name,
@@ -103,7 +103,7 @@ class CommandVerificationTests(AtestTestCase):
         )
 
     def test_cts_animation_test_cases_animator_test(self):
-        """Test if CtsAnimationTestCases:AnimatorTest command runs correctly."""
+        """Verify that the test's command runs correctly."""
         test_name = 'CtsAnimationTestCases:AnimatorTest'
         self._verify_atest_internal_command(
             test_name,
@@ -118,10 +118,480 @@ class CommandVerificationTests(AtestTestCase):
             ),
         )
 
+    def test_cts_sample_device_cases_shared_prefs_test(self):
+        """Verify that the test's command runs correctly."""
+        test_name = ('CtsSampleDeviceTestCases:SampleDeviceTest#'
+                     'testSharedPreferences')
+        self._verify_atest_internal_command(
+            test_name,
+            # atest_internal_command : a set of strings that represent a
+            # test runner command.
+            lambda atest_internal_command, atest:
+            self.assertTrue(
+                self._get_expected_cmds_from_file(
+                    atest, test_name, self._test_commands_json
+                )
+                .issubset(atest_internal_command)
+            ),
+        )
+
+    def test_cts_sample_device_cases_android_sample_test(self):
+        """Verify that the test's command runs correctly."""
+        test_name = 'CtsSampleDeviceTestCases:android.sample.cts'
+        self._verify_atest_internal_command(
+            test_name,
+            # atest_internal_command : a set of strings that represent a
+            # test runner command.
+            lambda atest_internal_command, atest:
+            self.assertTrue(
+                self._get_expected_cmds_from_file(
+                    atest, test_name, self._test_commands_json
+                )
+                .issubset(atest_internal_command)
+            ),
+        )
+
+    def test_cts_sample_device_cases_device_report_log_test(self):
+        """Verify that the test's command runs correctly."""
+        test_name = ('CtsSampleDeviceTestCases:android.sample.cts'
+                     '.SampleDeviceReportLogTest')
+        self._verify_atest_internal_command(
+            test_name,
+            # atest_internal_command : a set of strings that represent a
+            # test runner command.
+            lambda atest_internal_command, atest:
+            self.assertTrue(
+                self._get_expected_cmds_from_file(
+                    atest, test_name, self._test_commands_json
+                )
+                .issubset(atest_internal_command)
+            ),
+        )
+
     def test_cts_animation_cases_sample_device_cases_test(self):
-        """Test if 'CtsAnimationTestCases CtsSampleDeviceTestCases' command
-        runs correctly."""
+        """Verify that the test's command runs correctly."""
         test_name = 'CtsAnimationTestCases CtsSampleDeviceTestCases'
+        self._verify_atest_internal_command(
+            test_name,
+            # atest_internal_command : a set of strings that represent a
+            # test runner command.
+            lambda atest_internal_command, atest:
+            self.assertTrue(
+                self._get_expected_cmds_from_file(
+                    atest, test_name, self._test_commands_json
+                )
+                .issubset(atest_internal_command)
+            ),
+        )
+
+    def test_hello_world_tests_test(self):
+        """Verify that the test's command runs correctly."""
+        test_name = 'HelloWorldTests'
+        self._verify_atest_internal_command(
+            test_name,
+            # atest_internal_command : a set of strings that represent a
+            # test runner command.
+            lambda atest_internal_command, atest:
+            self.assertTrue(
+                self._get_expected_cmds_from_file(
+                    atest, test_name, self._test_commands_json
+                )
+                .issubset(atest_internal_command)
+            ),
+        )
+
+    def test_mixed_managed_profile_ownr_pw_sufficient_test(self):
+        """Verify that the test's command runs correctly."""
+        test_name = ('MixedManagedProfileOwnerTest#'
+                     'testPasswordSufficientInitially')
+        self._verify_atest_internal_command(
+            test_name,
+            # atest_internal_command : a set of strings that represent a
+            # test runner command.
+            lambda atest_internal_command, atest:
+            self.assertTrue(
+                self._get_expected_cmds_from_file(
+                    atest, test_name, self._test_commands_json
+                )
+                .issubset(atest_internal_command)
+            ),
+        )
+
+    def test_perinstance_camerahidl_config_injection_test(self):
+        """Verify that the test's command runs correctly."""
+        test_name = ('PerInstance/CameraHidlTest#'
+                     'configureInjectionStreamsAvailableOutputs/0_internal_0')
+        self._verify_atest_internal_command(
+            test_name,
+            # atest_internal_command : a set of strings that represent a
+            # test runner command.
+            lambda atest_internal_command, atest:
+            self.assertTrue(
+                self._get_expected_cmds_from_file(
+                    atest, test_name, self._test_commands_json
+                )
+                .issubset(atest_internal_command)
+            ),
+        )
+
+    def test_quick_access_wallet_robo_test(self):
+        """Verify that the test's command runs correctly."""
+        test_name = 'QuickAccessWalletRoboTests'
+        self._verify_atest_internal_command(
+            test_name,
+            # atest_internal_command : a set of strings that represent a
+            # test runner command.
+            lambda atest_internal_command, atest:
+            self.assertTrue(
+                self._get_expected_cmds_from_file(
+                    atest, test_name, self._test_commands_json
+                )
+                .issubset(atest_internal_command)
+            ),
+        )
+
+    def test_vts_hal_camera_provider_config_injection_test(self):
+        """Verify that the test's command runs correctly."""
+        test_name = ('VtsHalCameraProviderV2_4TargetTest:PerInstance/'
+                     'CameraHidlTest#configureInjectionStreamsAvailableOutputs/'
+                     '0_internal_0')
+        self._verify_atest_internal_command(
+            test_name,
+            # atest_internal_command : a set of strings that represent a
+            # test runner command.
+            lambda atest_internal_command, atest:
+            self.assertTrue(
+                self._get_expected_cmds_from_file(
+                    atest, test_name, self._test_commands_json
+                )
+                .issubset(atest_internal_command)
+            ),
+        )
+
+    def test_android_animation_cts_test(self):
+        """Verify that the test's command runs correctly."""
+        test_name = 'android.animation.cts'
+        self._verify_atest_internal_command(
+            test_name,
+            # atest_internal_command : a set of strings that represent a
+            # test runner command.
+            lambda atest_internal_command, atest:
+            self.assertTrue(
+                self._get_expected_cmds_from_file(
+                    atest, test_name, self._test_commands_json
+                )
+                .issubset(atest_internal_command)
+            ),
+        )
+
+    def test_android_sample_cts_device_report_log_test(self):
+        """Verify that the test's command runs correctly."""
+        test_name = 'android.sample.cts.SampleDeviceReportLogTest'
+        self._verify_atest_internal_command(
+            test_name,
+            # atest_internal_command : a set of strings that represent a
+            # test runner command.
+            lambda atest_internal_command, atest:
+            self.assertTrue(
+                self._get_expected_cmds_from_file(
+                    atest, test_name, self._test_commands_json
+                )
+                .issubset(atest_internal_command)
+            ),
+        )
+
+    def test_android_sample_cts_shared_prefs_test(self):
+        """Verify that the test's command runs correctly."""
+        test_name = 'android.sample.cts.SampleDeviceTest#testSharedPreferences'
+        self._verify_atest_internal_command(
+            test_name,
+            # atest_internal_command : a set of strings that represent a
+            # test runner command.
+            lambda atest_internal_command, atest:
+            self.assertTrue(
+                self._get_expected_cmds_from_file(
+                    atest, test_name, self._test_commands_json
+                )
+                .issubset(atest_internal_command)
+            ),
+        )
+
+    def test_hello_world_test(self):
+        """Verify that the test's command runs correctly."""
+        test_name = 'hello_world_test'
+        self._verify_atest_internal_command(
+            test_name,
+            # atest_internal_command : a set of strings that represent a
+            # test runner command.
+            lambda atest_internal_command, atest:
+            self.assertTrue(
+                self._get_expected_cmds_from_file(
+                    atest, test_name, self._test_commands_json
+                )
+                .issubset(atest_internal_command)
+            ),
+        )
+
+    def test_native_benchmark_test(self):
+        """Verify that the test's command runs correctly."""
+        test_name = 'native-benchmark'
+        self._verify_atest_internal_command(
+            test_name,
+            # atest_internal_command : a set of strings that represent a
+            # test runner command.
+            lambda atest_internal_command, atest:
+            self.assertTrue(
+                self._get_expected_cmds_from_file(
+                    atest, test_name, self._test_commands_json
+                )
+                .issubset(atest_internal_command)
+            ),
+        )
+
+    # TODO(319324510): enable this test.
+    # def test_quick_access_wallet_plugin_service_test(self):
+    #     """Verify that the test's command runs correctly."""
+    #     test_name = 'packages/apps/QuickAccessWallet/tests/robolectric/
+    #     src/com/android/systemui/plugin/globalactions/wallet/
+    #     WalletPluginServiceTest.java'
+    #     self._verify_atest_internal_command(
+    #         test_name,
+    #         # atest_internal_command : a set of strings that represent a
+    #         # test runner command.
+    #         lambda atest_internal_command, atest:
+    #         self.assertTrue(
+    #             self._get_expected_cmds_from_file(
+    #                 atest, test_name, self._test_commands_json
+    #             )
+    #             .issubset(atest_internal_command)
+    #         ),
+    #     )
+
+    def test_platform_native_example_test(self):
+        """Verify that the test's command runs correctly."""
+        test_name = 'platform_testing/tests/example/native'
+        self._verify_atest_internal_command(
+            test_name,
+            # atest_internal_command : a set of strings that represent a
+            # test runner command.
+            lambda atest_internal_command, atest:
+            self.assertTrue(
+                self._get_expected_cmds_from_file(
+                    atest, test_name, self._test_commands_json
+                )
+                .issubset(atest_internal_command)
+            ),
+        )
+
+    def test_platform_android_example_test(self):
+        """Verify that the test's command runs correctly."""
+        test_name = 'platform_testing/tests/example/native/Android.bp'
+        self._verify_atest_internal_command(
+            test_name,
+            # atest_internal_command : a set of strings that represent a
+            # test runner command.
+            lambda atest_internal_command, atest:
+            self.assertTrue(
+                self._get_expected_cmds_from_file(
+                    atest, test_name, self._test_commands_json
+                )
+                .issubset(atest_internal_command)
+            ),
+        )
+
+    def test_tf_core_config_native_benchmark_test(self):
+        """Verify that the test's command runs correctly."""
+        test_name = 'tools/tradefederation/core/res/config/native-benchmark.xml'
+        self._verify_atest_internal_command(
+            test_name,
+            # atest_internal_command : a set of strings that represent a
+            # test runner command.
+            lambda atest_internal_command, atest:
+            self.assertTrue(
+                self._get_expected_cmds_from_file(
+                    atest, test_name, self._test_commands_json
+                )
+                .issubset(atest_internal_command)
+            ),
+        )
+
+    # TODO(319324510): enable this test.
+    # def test_quick_access_wallet_robo_host_test(self):
+    #     """Verify that the test's command runs correctly."""
+    #     test_name = 'HOST=True QuickAccessWalletRoboTests'
+    #     self._verify_atest_internal_command(
+    #         test_name,
+    #         # atest_internal_command : a set of strings that represent a
+    #         # test runner command.
+    #         lambda atest_internal_command, atest:
+    #         self.assertTrue(
+    #             self._get_expected_cmds_from_file(
+    #                 atest, test_name, self._test_commands_json
+    #             )
+    #             .issubset(atest_internal_command)
+    #         ),
+    #     )
+
+    # TODO(319324510): enable this test.
+    # def test_quick_access_wallet_plugin_service_host_test(self):
+    #     """Verify that the test's command runs correctly."""
+    #     test_name = 'HOST=True packages/apps/QuickAccessWallet/tests/
+    #     robolectric/src/com/android/systemui/plugin/globalactions/wallet/
+    #     WalletPluginServiceTest.java'
+    #     self._verify_atest_internal_command(
+    #         test_name,
+    #         # atest_internal_command : a set of strings that represent a
+    #         # test runner command.
+    #         lambda atest_internal_command, atest:
+    #         self.assertTrue(
+    #             self._get_expected_cmds_from_file(
+    #                 atest, test_name, self._test_commands_json
+    #             )
+    #             .issubset(atest_internal_command)
+    #         ),
+    #     )
+
+    def test_cts_wifi_aware_cases_test(self):
+        """Verify that the test's command runs correctly."""
+        test_name = 'CtsWifiAwareTestCases'
+        self._verify_atest_internal_command(
+            test_name,
+            # atest_internal_command : a set of strings that represent a
+            # test runner command.
+            lambda atest_internal_command, atest:
+            self.assertTrue(
+                self._get_expected_cmds_from_file(
+                    atest, test_name, self._test_commands_json
+                )
+                .issubset(atest_internal_command)
+            ),
+        )
+
+    def test_pts_bot_test(self):
+        """Verify that the test's command runs correctly."""
+        test_name = 'pts-bot:PAN/GN/MISC/UUID/BV-01-C'
+        self._verify_atest_internal_command(
+            test_name,
+            # atest_internal_command : a set of strings that represent a
+            # test runner command.
+            lambda atest_internal_command, atest:
+            self.assertTrue(
+                self._get_expected_cmds_from_file(
+                    atest, test_name, self._test_commands_json
+                )
+                .issubset(atest_internal_command)
+            ),
+        )
+
+    def test_tee_ui_utils_test(self):
+        """Verify that the test's command runs correctly."""
+        test_name = 'TeeUIUtilsTest'
+        self._verify_atest_internal_command(
+            test_name,
+            # atest_internal_command : a set of strings that represent a
+            # test runner command.
+            lambda atest_internal_command, atest:
+            self.assertTrue(
+                self._get_expected_cmds_from_file(
+                    atest, test_name, self._test_commands_json
+                )
+                .issubset(atest_internal_command)
+            ),
+        )
+
+    def test_tee_ui_utils_intersect_convext_obj_test(
+        self):
+        """Verify that the test's command runs correctly."""
+        test_name = ('TeeUIUtilsTest#intersectTest,ConvexObjectConstruction,'
+                     'ConvexObjectLineIntersection')
+        self._verify_atest_internal_command(
+            test_name,
+            # atest_internal_command : a set of strings that represent a
+            # test runner command.
+            lambda atest_internal_command, atest:
+            self.assertTrue(
+                self._get_expected_cmds_from_file(
+                    atest, test_name, self._test_commands_json
+                )
+                .issubset(atest_internal_command)
+            ),
+        )
+
+    def test_cts_activity_mgr_register_ui_change_test(
+        self):
+        """Verify that the test's command runs correctly."""
+        test_name = ('CtsSecurityTestCases:android.security.cts.'
+                     'ActivityManagerTest#testActivityManager_'
+                     'registerUidChangeObserver_allPermission')
+        self._verify_atest_internal_command(
+            test_name,
+            # atest_internal_command : a set of strings that represent a
+            # test runner command.
+            lambda atest_internal_command, atest:
+            self.assertTrue(
+                self._get_expected_cmds_from_file(
+                    atest, test_name, self._test_commands_json
+                )
+                .issubset(atest_internal_command)
+            ),
+        )
+
+    def test_cts_activity_mgr_register_ui_change_java_test(self):
+        """Verify that the test's command runs correctly."""
+        test_name = ('cts/tests/tests/security/src/android/security/cts/'
+                     'ActivityManagerTest.java#testActivityManager_'
+                     'registerUidChangeObserver_allPermission')
+        self._verify_atest_internal_command(
+            test_name,
+            # atest_internal_command : a set of strings that represent a
+            # test runner command.
+            lambda atest_internal_command, atest:
+            self.assertTrue(
+                self._get_expected_cmds_from_file(
+                    atest, test_name, self._test_commands_json
+                )
+                .issubset(atest_internal_command)
+            ),
+        )
+
+    def test_permission_memory_footprint_apps_size_kt_test(self):
+        """Verify that the test's command runs correctly."""
+        test_name = ('cts/tests/tests/security/src/android/security/cts/'
+                     'PermissionMemoryFootprintTest.kt#'
+                     'checkAppsCantIncreasePermissionSizeAfterCreating')
+        self._verify_atest_internal_command(
+            test_name,
+            # atest_internal_command : a set of strings that represent a
+            # test runner command.
+            lambda atest_internal_command, atest:
+            self.assertTrue(
+                self._get_expected_cmds_from_file(
+                    atest, test_name, self._test_commands_json
+                )
+                .issubset(atest_internal_command)
+            ),
+        )
+
+    def test_permission_memory_footprint_test(self):
+        """Verify that the test's command runs correctly."""
+        test_name = 'android.security.cts.PermissionMemoryFootprintTest'
+        self._verify_atest_internal_command(
+            test_name,
+            # atest_internal_command : a set of strings that represent a
+            # test runner command.
+            lambda atest_internal_command, atest:
+            self.assertTrue(
+                self._get_expected_cmds_from_file(
+                    atest, test_name, self._test_commands_json
+                )
+                .issubset(atest_internal_command)
+            ),
+        )
+
+    def test_permission_memory_footprint_apps_size_test(self):
+        """Verify that the test's command runs correctly."""
+        test_name = ('android.security.cts.PermissionMemoryFootprintTest#'
+                     'checkAppsCantIncreasePermissionSizeAfterCreating')
         self._verify_atest_internal_command(
             test_name,
             # atest_internal_command : a set of strings that represent a
