@@ -28,11 +28,13 @@ import tempfile
 import os
 
 from collections import namedtuple
-from typing import List, Set
+from typing import Any, Dict, List, Set
 
 from atest import atest_error
 from atest import atest_utils
+from atest import device_update
 from atest.test_finders import test_info
+from atest.test_runner_invocation import TestRunnerInvocation
 
 OLD_OUTPUT_ENV_VAR = 'ATEST_OLD_OUTPUT'
 
@@ -75,6 +77,31 @@ class TestRunnerBase:
                 if not 'test_infos' in key:
                     logging.debug('Found auxiliary args: %s=%s',
                                   key, value)
+
+    def create_invocations(
+        self,
+        extra_args: Dict[str, Any],
+        test_infos: List[test_info.TestInfo],
+        update_device: bool,
+    ) -> List[TestRunnerInvocation]:
+        """Creates test runner invocations.
+
+        Args:
+            extra_args: A dict of arguments.
+            test_infos: A list of instances of TestInfo.
+            update_device: Specifies whether a device update is required.
+
+        Returns:
+            A list of TestRunnerInvocation instances.
+        """
+        update_method = (device_update.AdeviceUpdateMethod() if update_device
+                         else device_update.NoopUpdateMethod())
+
+        return [TestRunnerInvocation(
+            test_runner=self,
+            extra_args=extra_args,
+            test_infos=test_infos,
+            update_method=update_method)]
 
     def run(self, cmd, output_to_stdout=False, env_vars=None):
         """Shell out and execute command.

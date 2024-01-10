@@ -14,7 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Module to facilitate integration testing within the Android build and test environments.
+"""Module to facilitate integration test within the build and test environment.
 
 This module provides utilities for running tests in both build and test
 environments, managing environment variables, and snapshotting the workspace for
@@ -23,322 +23,363 @@ restoration later.
 
 import argparse
 import atexit
-import glob
-import inspect
 import os
 from pathlib import Path
 import shutil
 import sys
 import tarfile
-from typing import Any, Dict, List, Sequence, Text
+from typing import Any, Callable, Dict, List
 import unittest
 
 from snapshot import Snapshot
 
-
-# Export the TestCase class to reduce the number of imports tests have to list.
-TestCase: unittest.TestCase = unittest.TestCase
-
-_DEVICE_SERIAL: Text = None
-_IS_BUILD_ENV: bool = False
-_IS_TEST_ENV: bool = False
-_ARTIFACTS_DIR: Path = None
-_ARTIFACT_PACK_PATH: Path = None
 _DEFAULT_ARTIFACT_PATH_FILE_NAME = 'atest_integration_tests.tar'
+_SNAPSHOT_STORAGE_DIR_NAME = 'ATEST_INTEGRATION_TESTS_SNAPSHOT_STORAGE'
+
+
+class AtestTestCase(unittest.TestCase):
+    """Base test case for build-test environment split integration tests."""
+
+    cmd_injected_params = None
+
+    def create_atest_integration_test(self):
+        """Create an instance of atest integration test utility."""
+        return AtestIntegrationTest(self.id(), self.cmd_injected_params)
+
+
+class _TestParams:
+    """Internal class to save parameters for the test."""
+
+    device_serial: str = None
+    is_build_env: bool = False
+    is_test_env: bool = False
+    artifacts_dir: Path = None
+    snapshot_storage_path: Path = None
+    workspace_path: Path = None
 
 
 class AtestIntegrationTest:
-  """Utility class for running atest integration test in build and test environment."""
+    """Utility for running integration test in build and test environment."""
 
-  _default_include_paths = [
-      'out/host/linux-x86',
-      'out/target/product/*/module-info*',
-      'out/target/product/*/testcases',
-      'out/target/product/*/all_modules.txt',
-      'out/soong/module_bp*',
-      'out/atest_bazel_workspace',
-      'tools/asuite/atest/test_runners/roboleaf_launched.txt',
-      '.repo/manifest.xml',
-      'build/soong/soong_ui.bash',
-      'build/bazel_common_rules/rules/python/stubs',
-      'external/bazelbuild-rules_java',
-      'tools/asuite/atest/bazel/resources/bazel.sh',
-      'prebuilts/bazel/linux-x86_64/bazel',
-      'prebuilts/build-tools/path/linux-x86/python3',
-      'prebuilts/build-tools/linux-x86/bin/py3-cmd',
-  ]
+    _default_include_paths = [
+        'out/host/linux-x86',
+        'out/target/product/*/module-info*',
+        'out/target/product/*/testcases',
+        'out/target/product/*/all_modules.txt',
+        'out/soong/module_bp*',
+        'tools/asuite/atest/test_runners/roboleaf_launched.txt',
+        '.repo/manifest.xml',
+        'build/soong/soong_ui.bash',
+        'build/bazel_common_rules/rules/python/stubs',
+        'build/bazel/bin',
+        'external/bazelbuild-rules_java',
+        'tools/asuite/atest/bazel/resources/bazel.sh',
+        'prebuilts/bazel/linux-x86_64',
+        'prebuilts/build-tools/path/linux-x86/python3',
+        'prebuilts/build-tools/linux-x86/bin/py3-cmd',
+        'prebuilts/build-tools',
+    ]
 
-  _default_exclude_paths = [
-      'out/host/linux-x86/bin/go',
-      'out/host/linux-x86/bin/soong_build',
-      'out/host/linux-x86/obj',
-  ]
+    _default_exclude_paths = [
+        'out/host/linux-x86/bin/go',
+        'out/host/linux-x86/bin/soong_build',
+        'out/host/linux-x86/obj',
+    ]
 
-  _default_env_keys = [
-      'ANDROID_BUILD_TOP',
-      'ANDROID_HOST_OUT',
-      'ANDROID_PRODUCT_OUT',
-      "ANDROID_HOST_OUT_TESTCASES",
-      'ANDROID_TARGET_OUT_TESTCASES',
-      'OUT',
-      'PATH',
-      'HOST_OUT_TESTCASES',
-      'ANDROID_JAVA_HOME',
-      'JAVA_HOME',
-  ]
-
-  def __init__(self, name: Text) -> None:
-    self._include_paths: List[str] = self._default_include_paths
-    self._exclude_paths: List[str] = self._default_exclude_paths
-    self._env_keys: List[str] = self._default_env_keys
-    self._env: Dict[Text, Text] = None
-    self._snapshot: Snapshot = Snapshot(
-        name, _get_workspace_dir(), _get_artifacts_path()
-    )
-    self._add_java_home_to_include_path()
-
-  def _add_java_home_to_include_path(self) -> None:
-    """Get the relative java home directory in build env."""
-    if is_in_test_env():
-      return
-    absolute_path = Path(os.environ['ANDROID_JAVA_HOME'])
-    repo_root = Path(os.environ['ANDROID_BUILD_TOP'])
-    self._include_paths.append(absolute_path.relative_to(repo_root).as_posix())
-
-  def add_artifact_paths(self, *paths: str) -> None:
-    """Add paths to include in snapshot artifacts."""
-    self._include_paths.extend(paths)
-
-  def add_artifact_exclude_paths(self, *paths: str) -> None:
-    """Add paths to exclude from snapshot artifacts."""
-    self._exclude_paths.extend(paths)
-
-  def add_env_keys(self, *keys: str) -> None:
-    """Add environment variable keys for snapshot."""
-    self._env_set_keys.extend(keys)
-
-  def in_build_env(self) -> bool:
-    """Whether to executes test codes written for build environment only."""
-    return is_in_build_env()
-
-  def in_test_env(self) -> bool:
-    """Whether to executes test codes written for test environment only."""
-
-    if is_in_build_env():
-      self._snapshot.take(
-          self._include_paths, self._exclude_paths, self._env_keys
-      )
-    if is_in_test_env():
-      self._env = self._snapshot.restore()
-
-    return is_in_test_env()
-
-  def get_env(self) -> Dict[Text, Text]:
-    """Get environment variables."""
-    if is_in_build_env():
-      return os.environ.copy()
-    return self._env
-
-  def get_device_serial(self) -> Text:
-    """Returns the serial of the connected device."""
-    if not _DEVICE_SERIAL:
-      raise RuntimeError('device serial is not set')
-    return _DEVICE_SERIAL
-
-  def get_repo_root(self) -> str:
-    """Get repo root directory."""
-    if is_in_build_env():
-      return os.environ['ANDROID_BUILD_TOP']
-    return self._env['ANDROID_BUILD_TOP']
-
-  def _get_caller_name(self) -> str:
-    """Get name of calling function."""
-    current_stack_frame = inspect.stack()[2]
-    calling_class = current_stack_frame.frame.f_locals['self'].__class__
-    return (
-        calling_class.__name__
-        + '_'
-        + inspect.currentframe().f_back.f_back.f_code.co_name
-    )
+    _default_env_keys = [
+        'ANDROID_BUILD_TOP',
+        'ANDROID_HOST_OUT',
+        'ANDROID_PRODUCT_OUT',
+        'ANDROID_HOST_OUT_TESTCASES',
+        'ANDROID_TARGET_OUT_TESTCASES',
+        'OUT',
+        'PATH',
+        'HOST_OUT_TESTCASES',
+        'ANDROID_JAVA_HOME',
+        'JAVA_HOME',
+    ]
 
 
-def is_in_build_env() -> bool:
-  """Check if we are in the build env."""
-  return _IS_BUILD_ENV
+    def __init__(self, name: str, params: _TestParams) -> None:
+        self._params = params
+        self._include_paths: List[str] = self._default_include_paths
+        self._exclude_paths: List[str] = self._default_exclude_paths
+        self._env_keys: List[str] = self._default_env_keys
+        self._id: str = name
+        self._env: Dict[str, str] = None
+        self._snapshot: Snapshot = Snapshot(self._params.snapshot_storage_path)
+        self._add_jdk_to_include_path()
+        self._snapshot_count = 0
 
-
-def is_in_test_env() -> bool:
-  """Check if we are in the test env."""
-  return _IS_TEST_ENV
-
-
-def _get_artifacts_path(*sub_paths: str) -> Path:
-  """Get the output directory."""
-  return Path(_ARTIFACTS_DIR, *sub_paths)
-
-
-def _get_workspace_dir() -> Path:
-  """Get the directory for restoring the repo files."""
-  # TODO use temp dir after the prototype is verified in pipeline
-  return _get_artifacts_path('workspace')
-
-
-def _process_artifacts() -> None:
-  """Pack artifacts into a tarball and clean up."""
-  artifact_paths = glob.glob(
-      _get_artifacts_path(Snapshot._artifact_name_prefix + '*').as_posix()
-  )
-
-  if is_in_build_env():
-    with tarfile.open(_ARTIFACT_PACK_PATH.as_posix(), 'w') as tar:
-      for artifact_path in artifact_paths:
-        tar.add(
-            artifact_path,
-            arcname=Path(artifact_path).relative_to(
-                _get_artifacts_path().as_posix()
-            ),
+    def _add_jdk_to_include_path(self) -> None:
+        """Get the relative jdk directory in build environment."""
+        if self._params.is_test_env:
+            return
+        absolute_path = Path(os.environ['ANDROID_JAVA_HOME'])
+        while not absolute_path.name.startswith('jdk'):
+            absolute_path = absolute_path.parent
+        if not absolute_path.name.startswith('jdk'):
+            raise ValueError(
+                'Unrecognized jdk directory ' + os.environ['ANDROID_JAVA_HOME']
+            )
+        repo_root = Path(os.environ['ANDROID_BUILD_TOP'])
+        self._include_paths.append(
+            absolute_path.relative_to(repo_root).as_posix()
         )
-  for artifact_path in artifact_paths:
-    os.remove(artifact_path)
 
+    def add_snapshot_paths(self, *paths: str) -> None:
+        """Add paths to include in snapshot artifacts."""
+        self._include_paths.extend(paths)
 
-def _unpack_artifacts() -> None:
-  """Unpack artifacts from a tarball."""
-  with tarfile.open(_ARTIFACT_PACK_PATH.as_posix(), 'r') as tar:
-    tar.extractall(_get_artifacts_path().as_posix())
+    def add_snapshot_exclude_paths(self, *paths: str) -> None:
+        """Add paths to exclude from snapshot artifacts."""
+        self._exclude_paths.extend(paths)
+
+    def add_env_keys(self, *keys: str) -> None:
+        """Add environment variable keys for snapshot."""
+        self._env_keys.extend(keys)
+
+    def take_snapshot(self, name: str) -> None:
+        """Take a snapshot of the repository and environment."""
+        self._snapshot.take_snapshot(
+            name,
+            self.get_repo_root(),
+            self._include_paths,
+            self._exclude_paths,
+            self._env_keys,
+        )
+
+    def restore_snapshot(self, name: str) -> None:
+        """Restore the repository and environment from a snapshot."""
+        self._env = self._snapshot.restore_snapshot(
+            name, self._params.workspace_path.as_posix()
+        )
+
+    def in_build_env(self) -> bool:
+        """Whether to executes test codes written for build environment only."""
+        return self._params.is_build_env
+
+    def in_test_env(self) -> bool:
+        """Whether to executes test codes written for test environment only."""
+
+        if self._params.is_build_env:
+            self.take_snapshot(self._id + '_' + str(self._snapshot_count))
+            self._snapshot_count += 1
+        if self._params.is_test_env:
+            self.restore_snapshot(self._id + '_' + str(self._snapshot_count))
+            self._snapshot_count += 1
+        return self._params.is_test_env
+
+    def get_env(self) -> Dict[str, str]:
+        """Get environment variables."""
+        if self._params.is_build_env:
+            return os.environ.copy()
+        return self._env
+
+    def get_device_serial(self) -> str:
+        """Returns the serial of the connected device."""
+        if not self._params.device_serial:
+            raise RuntimeError('device serial is not set')
+        return self._params.device_serial
+
+    def get_repo_root(self) -> str:
+        """Get repo root directory."""
+        if self._params.is_build_env:
+            return os.environ['ANDROID_BUILD_TOP']
+        return self._env['ANDROID_BUILD_TOP']
 
 
 def create_arg_parser(add_help: bool = False) -> argparse.ArgumentParser:
-  """Creates a new parser that can handle the default command-line flags.
+    """Creates a new parser that can handle the default command-line flags.
 
-  The object returned by this function can be used by other modules that want to
-  add their own command-line flags. The returned parser is intended to be passed
-  to the 'parents' argument of ArgumentParser and extend the set of default
-  flags with additional ones.
+    The object returned by this function can be used by other modules that want
+    to
+    add their own command-line flags. The returned parser is intended to be
+    passed
+    to the 'parents' argument of ArgumentParser and extend the set of default
+    flags with additional ones.
 
-  Args:
-      add_help: whether to add an option which simply displays the parser’s help
-        message; this is typically false when used from other modules that want
-        to use the returned parser as a parent argument parser.
+    Args:
+        add_help: whether to add an option which simply displays the parser’s
+          help message; this is typically false when used from other modules
+          that want to use the returned parser as a parent argument parser.
 
-  Returns:
-      A new arg parser that can handle the default flags expected by this
-      module.
-  """
+    Returns:
+        A new arg parser that can handle the default flags expected by this
+        module.
+    """
 
-  parser = argparse.ArgumentParser(add_help=add_help)
+    parser = argparse.ArgumentParser(add_help=add_help)
 
-  parser.add_argument(
-      '-b',
-      '--build',
-      action='store_true',
-      default=False,
-      help='Run in a build environment.',
-  )
-  parser.add_argument(
-      '-t',
-      '--test',
-      action='store_true',
-      default=False,
-      help='Run in a test environment.',
-  )
-  parser.add_argument(
-      '--artifacts_dir',
-      help='directory where test artifacts are saved',
-  )
-  parser.add_argument(
-      '--artifact_pack_path', help='path to the artifact pack file'
-  )
+    parser.add_argument(
+        '-b',
+        '--build',
+        action='store_true',
+        default=False,
+        help='Run in a build environment.',
+    )
+    parser.add_argument(
+        '-t',
+        '--test',
+        action='store_true',
+        default=False,
+        help='Run in a test environment.',
+    )
+    parser.add_argument(
+        '--artifacts_dir',
+        help='directory where test artifacts are saved',
+    )
+    parser.add_argument(
+        '--artifact_pack_path', help='path to the artifact pack file'
+    )
 
-  # The below flags are passed in by the TF Python test runner.
-  parser.add_argument('-s', '--serial', help='the device serial')
-  parser.add_argument(
-      '--test-output-file',
-      help='the file in which to store the test results',
-  )
+    # The below flags are passed in by the TF Python test runner.
+    parser.add_argument('-s', '--serial', help='the device serial')
+    parser.add_argument(
+        '--test-output-file',
+        help='the file in which to store the test results',
+    )
 
-  return parser
-
-
-def run_tests(args: Any, unittest_argv: Sequence[Text]) -> None:
-  """Executes atest integration test cases.
-
-  This function unpacks the artifacts before running the tests if in a test
-  environment, and packs the artifacts after running the tests if in a build
-  environment.
-
-  Args:
-    args: an object that contains at least the set of attributes defined in
-      objects returned when using the default argument parser.
-    unittest_argv: the list of command-line arguments to forward to
-      unittest.main.
-  """
-  Path(_ARTIFACTS_DIR).mkdir(parents=True, exist_ok=True)
-
-  if is_in_test_env():
-    _unpack_artifacts()
-
-  def execute_after_tests() -> None:
-    # Code to execute after unittest.main()
-    if _get_workspace_dir().exists():
-      shutil.rmtree(_get_workspace_dir())
-    _process_artifacts()
-
-  atexit.register(execute_after_tests)
-
-  if args.test_output_file:
-    Path(args.test_output_file).parent.mkdir(exist_ok=True)
-
-    with open(args.test_output_file, 'w') as test_output_file:
-      # Note that we use a type and not an instance for 'testRunner' since
-      # TestProgram forwards its constructor arguments when creating an instance
-      # of the runner type. Not doing so would require us to make sure that the
-      # parameters passed to TestProgram are aligned with those for creating a
-      # runner instance.
-      class TestRunner(unittest.TextTestRunner):
-        """A test runner that writes test results to the TF-provided file."""
-
-        def __init__(self, *args: Any, **kwargs: Any) -> None:
-          super().__init__(stream=test_output_file, *args, **kwargs)
-
-      # Setting verbosity is required to generate output that the TradeFed test
-      # runner can parse.
-      unittest.TestProgram(
-          verbosity=3, testRunner=TestRunner, argv=unittest_argv
-      )
-  else:
-    unittest.main(argv=unittest_argv, verbosity=2)
+    return parser
 
 
-def main() -> None:
-  """Executes a set of Python unit tests."""
-  global _DEVICE_SERIAL, _ARTIFACTS_DIR, _IS_BUILD_ENV, _IS_TEST_ENV, _ARTIFACT_PACK_PATH
-  parser = create_arg_parser(add_help=True)
-  args, unittest_argv = parser.parse_known_args(sys.argv)
+class _TestLoaderWithFieldInjection(unittest.TestLoader):
+    """Test loader that injects the test params to the test classes."""
 
-  print(f"The os environ is: {os.environ}")
+    def __init__(self, injection_func: Callable[[unittest.TestCase], None]):
+        super().__init__()
+        self._injection_func = injection_func
 
-  if args.build and args.test:
-    parser.error('running build and test env together is not supported yet')
-  if not args.build and not args.test:
-    parser.error('must specify to run either in build or test env')
-  if args.build and not args.artifacts_dir:
-    parser.error('running in build env requires artifacts_dir be set')
-  if args.test and not args.artifact_pack_path:
-    parser.error('running in test env requires artifact_pack_path be set')
+    def _inject_fields_to_tests(self, tests):
+        # pylint: disable=protected-access
+        for test in tests._tests:
+            # The test returned from one of the load functions can be
+            # either TestSuites or TestCases.
+            if not isinstance(test, unittest.TestSuite):
+                self._injection_func(test)
+                continue
+            # pylint: disable=protected-access
+            for test_case in test._tests:
+                self._injection_func(test_case)
+        return tests
 
-  _IS_BUILD_ENV = args.build
-  _IS_TEST_ENV = args.test
-  _DEVICE_SERIAL = args.serial
-  _ARTIFACTS_DIR = (
-      Path(args.artifacts_dir)
-      if args.artifacts_dir
-      else Path(args.artifact_pack_path).parent
-  )
-  _ARTIFACT_PACK_PATH = (
-      Path(args.artifact_pack_path)
-      if args.artifact_pack_path
-      else _ARTIFACTS_DIR.joinpath(_DEFAULT_ARTIFACT_PATH_FILE_NAME)
-  )
+    def loadTestsFromModule(self, *args, **kwargs):
+        return self._inject_fields_to_tests(
+            super().loadTestsFromModule(*args, **kwargs)
+        )
 
-  run_tests(args, unittest_argv)
+    def loadTestsFromTestCase(self, *args, **kwargs):
+        return self._inject_fields_to_tests(
+            super().loadTestsFromTestCase(*args, **kwargs)
+        )
+
+    def loadTestsFromName(self, *args, **kwargs):
+        return self._inject_fields_to_tests(
+            super().loadTestsFromName(*args, **kwargs)
+        )
+
+    def loadTestsFromNames(self, *args, **kwargs):
+        return self._inject_fields_to_tests(
+            super().loadTestsFromNames(*args, **kwargs)
+        )
+
+
+def run_tests() -> None:
+    """Executes atest integration test cases.
+
+    This function unpacks the artifacts before running the tests if in a test
+    environment, and packs the artifacts after running the tests if in a build
+    environment.
+    """
+
+    parser = create_arg_parser(add_help=True)
+    args, unittest_argv = parser.parse_known_args(sys.argv)
+
+    print(f'The os environ is: {os.environ}')
+
+    if args.build and args.test:
+        parser.error('running build and test env together is not supported yet')
+    if not args.build and not args.test:
+        parser.error('must specify to run either in build or test env')
+    if args.build and not args.artifacts_dir:
+        parser.error('running in build env requires artifacts_dir be set')
+    if args.test and not args.artifact_pack_path:
+        parser.error('running in test env requires artifact_pack_path be set')
+
+    artifacts_dir = (
+        Path(args.artifacts_dir)
+        if args.artifacts_dir
+        else Path(args.artifact_pack_path).parent
+    )
+    artifact_pack_path = (
+        Path(args.artifact_pack_path)
+        if args.artifact_pack_path
+        else artifacts_dir.joinpath(_DEFAULT_ARTIFACT_PATH_FILE_NAME)
+    )
+
+    params = _TestParams()
+    params.is_build_env = args.build
+    params.is_test_env = args.test
+    params.device_serial = args.serial
+    params.snapshot_storage_path = artifacts_dir.joinpath(
+        _SNAPSHOT_STORAGE_DIR_NAME
+    )
+    params.workspace_path = artifacts_dir.joinpath('workspace')
+
+    artifacts_dir.mkdir(parents=True, exist_ok=True)
+
+    if params.is_test_env:
+        with tarfile.open(artifact_pack_path, 'r') as tar:
+            tar.extractall(artifacts_dir.as_posix())
+
+    def execute_after_tests() -> None:
+        # Code to execute after unittest.main()
+        if params.workspace_path.exists():
+            shutil.rmtree(params.workspace_path)
+
+        if params.is_build_env:
+            with tarfile.open(artifact_pack_path, 'w') as tar:
+                tar.add(
+                    params.snapshot_storage_path,
+                    arcname=params.snapshot_storage_path.relative_to(
+                        artifacts_dir.as_posix()
+                    ),
+                )
+        shutil.rmtree(params.snapshot_storage_path)
+
+    atexit.register(execute_after_tests)
+
+    def inject_func(test_case):
+        test_case.cmd_injected_params = params
+
+    if args.test_output_file:
+        Path(args.test_output_file).parent.mkdir(exist_ok=True)
+
+        with open(
+            args.test_output_file, 'w', encoding='utf-8'
+        ) as test_output_file:
+            # Note that we use a type and not an instance for 'testRunner'
+            # since TestProgram forwards its constructor arguments when creating
+            # an instance of the runner type. Not doing so would require us to
+            # make sure that the parameters passed to TestProgram are aligned
+            # with those for creating a runner instance.
+            class TestRunner(unittest.TextTestRunner):
+                """Runner that writes test results to the TF-provided file."""
+
+                def __init__(self, *args: Any, **kwargs: Any) -> None:
+                    super().__init__(stream=test_output_file, *args, **kwargs)
+
+            # Setting verbosity is required to generate output that the TradeFed
+            # test runner can parse.
+            unittest.TestProgram(
+                verbosity=3,
+                testRunner=TestRunner,
+                argv=unittest_argv,
+                testLoader=_TestLoaderWithFieldInjection(inject_func),
+            )
+    else:
+        unittest.main(
+            argv=unittest_argv,
+            verbosity=2,
+            testLoader=_TestLoaderWithFieldInjection(inject_func),
+        )
