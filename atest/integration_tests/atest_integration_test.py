@@ -237,7 +237,7 @@ class _TestLoaderWithFieldInjection(unittest.TestLoader):
         )
 
 
-def parse_known_args() -> tuple[argparse.Namespace, List[str]]:
+def parse_known_args(argv: list[str]) -> tuple[argparse.Namespace, List[str]]:
     """Parse command line args and check required args being provided."""
 
     parser = argparse.ArgumentParser(add_help=True)
@@ -266,7 +266,7 @@ def parse_known_args() -> tuple[argparse.Namespace, List[str]]:
         help='The file in which to store the test results. Optional',
     )
 
-    args, unittest_argv = parser.parse_known_args(sys.argv)
+    args, unittest_argv = parser.parse_known_args(argv)
 
     if args.build and args.test:
         parser.error('running build and test env together is not supported yet')
@@ -276,15 +276,53 @@ def parse_known_args() -> tuple[argparse.Namespace, List[str]]:
     return args, unittest_argv
 
 
-def run_tests() -> None:
-    """Executes atest integration test cases.
+def run_test(
+    config: _IntegrationTestConfiguration,
+    argv: list[str],
+    test_output_file_path: str = None,
+) -> None:
+    """Execute integration tests with given test configuration."""
 
-    This function unpacks the artifacts before running the tests if in a test
-    environment, and packs the artifacts after running the tests if in a build
-    environment.
-    """
+    def inject_func(test_case):
+        test_case.injected_config = config
 
-    args, unittest_argv = parse_known_args()
+    if test_output_file_path:
+        Path(test_output_file_path).parent.mkdir(exist_ok=True)
+
+        with open(
+            test_output_file_path, 'w', encoding='utf-8'
+        ) as test_output_file:
+            # Note that we use a type and not an instance for 'testRunner'
+            # since TestProgram forwards its constructor arguments when creating
+            # an instance of the runner type. Not doing so would require us to
+            # make sure that the parameters passed to TestProgram are aligned
+            # with those for creating a runner instance.
+            class TestRunner(unittest.TextTestRunner):
+                """Runner that writes test results to the TF-provided file."""
+
+                def __init__(self, *args: Any, **kwargs: Any) -> None:
+                    super().__init__(stream=test_output_file, *args, **kwargs)
+
+            # Setting verbosity is required to generate output that the TradeFed
+            # test runner can parse.
+            unittest.main(
+                testRunner=TestRunner,
+                verbosity=3,
+                argv=argv,
+                testLoader=_TestLoaderWithFieldInjection(inject_func),
+            )
+    else:
+        unittest.main(
+            verbosity=2,
+            argv=argv,
+            testLoader=_TestLoaderWithFieldInjection(inject_func),
+        )
+
+
+def main() -> None:
+    """Main method to start the integration tests."""
+
+    args, unittest_argv = parse_known_args(sys.argv)
 
     print(f'The os environ is: {os.environ}')
 
@@ -346,37 +384,4 @@ def run_tests() -> None:
 
     atexit.register(execute_after_tests)
 
-    def inject_func(test_case):
-        test_case.injected_config = config
-
-    if args.test_output_file:
-        Path(args.test_output_file).parent.mkdir(exist_ok=True)
-
-        with open(
-            args.test_output_file, 'w', encoding='utf-8'
-        ) as test_output_file:
-            # Note that we use a type and not an instance for 'testRunner'
-            # since TestProgram forwards its constructor arguments when creating
-            # an instance of the runner type. Not doing so would require us to
-            # make sure that the parameters passed to TestProgram are aligned
-            # with those for creating a runner instance.
-            class TestRunner(unittest.TextTestRunner):
-                """Runner that writes test results to the TF-provided file."""
-
-                def __init__(self, *args: Any, **kwargs: Any) -> None:
-                    super().__init__(stream=test_output_file, *args, **kwargs)
-
-            # Setting verbosity is required to generate output that the TradeFed
-            # test runner can parse.
-            unittest.TestProgram(
-                verbosity=3,
-                testRunner=TestRunner,
-                argv=unittest_argv,
-                testLoader=_TestLoaderWithFieldInjection(inject_func),
-            )
-    else:
-        unittest.main(
-            argv=unittest_argv,
-            verbosity=2,
-            testLoader=_TestLoaderWithFieldInjection(inject_func),
-        )
+    run_test(config, unittest_argv, args.test_output_file)
