@@ -3,6 +3,7 @@ use crate::commands;
 use crate::device;
 use crate::fingerprint;
 use crate::metrics;
+use crate::progress;
 use crate::restart_chooser;
 use crate::tracking::Config;
 use anyhow::{anyhow, bail, Context, Result};
@@ -154,18 +155,19 @@ pub fn adevice(
     config.print();
 
     writeln!(stdout, " * Checking for files to push to device")?;
+
+    progress::start("Checking files on host");
     let mut ninja_installed_files =
         time!(host.tracked_files(&config)?, profiler.ninja_deps_computer);
     let partitions = &validate_partitions(&ninja_installed_files, &cli.global_options.partitions)?;
     // Filter to paths on any partitions.
     ninja_installed_files
         .retain(|nif| partitions.iter().any(|p| PathBuf::from(nif).starts_with(p)));
-
+    progress::stop();
     debug!("Stale file tracking took {} millis", track_time.elapsed().as_millis());
-
+    progress::start("Checking files on device");
     let mut device_tree: HashMap<PathBuf, FileMetadata> =
         time!(device.fingerprint(partitions)?, profiler.device_fingerprint);
-
     // We expect the device to create lost+found dirs when mounting
     // new partitions.  Filter them out as if they don't exist.
     // However, if there are file inside of them, don't filter the
@@ -197,7 +199,7 @@ pub fn adevice(
         &partition_paths,
         stdout,
     )?;
-
+    progress::stop();
     #[allow(clippy::collapsible_if)]
     if matches!(cli.command, cli::Commands::Status) {
         if commands.is_empty() {
