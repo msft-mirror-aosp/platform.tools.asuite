@@ -24,7 +24,7 @@ impl FakeHost {
         FakeHost { files: files.clone(), tracked_files: tracked_files.to_owned() }
     }
 
-    /// Returns true iff `path` starts with one of the `partitions`
+    /// Returns true if `path` starts with one of the `partitions`
     fn on_a_partition(path: &Path, partitions: &[PathBuf]) -> bool {
         for p in partitions {
             if path.starts_with(p) {

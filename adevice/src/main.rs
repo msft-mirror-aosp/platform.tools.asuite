@@ -5,6 +5,7 @@ mod commands;
 mod device;
 mod fingerprint;
 mod metrics;
+mod progress;
 mod restart_chooser;
 mod tracking;
 use tracing::info;
@@ -14,6 +15,7 @@ use crate::adevice::RealHost;
 use crate::device::RealDevice;
 use crate::metrics::MetricSender;
 use crate::metrics::Metrics;
+
 use clap::Parser;
 use std::fs::File;
 use std::path::PathBuf;
@@ -42,6 +44,7 @@ fn main() -> Result<()> {
         Ok(()) => metrics.add_exit_event("", 0),
         Err(ref error) => metrics.add_exit_event(&error.to_string(), 1),
     }
+    progress::stop();
     profiler.total = total_time.elapsed();
     metrics.add_profiler_events(&profiler);
     println!(
