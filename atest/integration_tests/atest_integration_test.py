@@ -28,15 +28,16 @@ from pathlib import Path
 import shutil
 import sys
 import tarfile
+import tempfile
 from typing import Any, Callable, Dict, List
 import unittest
 
 from snapshot import Snapshot
 
 # Env key for the storage tar path.
-SNAPSHOT_STORAGE_TAR_KEY = 'snapshot_storage_tar_path'
+SNAPSHOT_STORAGE_TAR_KEY = 'SNAPSHOT_STORAGE_TAR_PATH'
 
-_DEFAULT_ARTIFACT_PATH_FILE_NAME = 'atest_integration_tests.tar'
+# Local snapshot storage directory name used for temporary storing the snapshots
 _SNAPSHOT_STORAGE_DIR_NAME = 'ATEST_INTEGRATION_TESTS_SNAPSHOT_STORAGE'
 
 
@@ -56,7 +57,6 @@ class _TestParams:
     device_serial: str = None
     is_build_env: bool = False
     is_test_env: bool = False
-    artifacts_dir: Path = None
     snapshot_storage_path: Path = None
     workspace_path: Path = None
 
@@ -251,13 +251,6 @@ def parse_known_args() -> tuple[argparse.Namespace, List[str]]:
         default=False,
         help='Run in a test environment.',
     )
-    parser.add_argument(
-        '--artifacts_dir',
-        help='Directory where test artifacts are saved',
-    )
-    parser.add_argument(
-        '--artifact_pack_path', help='Path to the artifact pack file'
-    )
 
     # The below flags are passed in by the TF Python test runner.
     parser.add_argument(
@@ -274,14 +267,8 @@ def parse_known_args() -> tuple[argparse.Namespace, List[str]]:
         parser.error('running build and test env together is not supported yet')
     if not args.build and not args.test:
         parser.error('must specify to run either in build or test env')
-    if args.build and not args.artifacts_dir:
-        parser.error('running in build env requires artifacts_dir be set')
-    if (
-        args.test
-        and not args.artifact_pack_path
-        and not SNAPSHOT_STORAGE_TAR_KEY in os.environ
-    ):
-        parser.error('running in test env requires artifact_pack_path be set')
+    if not SNAPSHOT_STORAGE_TAR_KEY in os.environ:
+        parser.error(f'{SNAPSHOT_STORAGE_TAR_KEY} is not set')
 
     return args, unittest_argv
 
@@ -298,36 +285,20 @@ def run_tests() -> None:
 
     print(f'The os environ is: {os.environ}')
 
-    if SNAPSHOT_STORAGE_TAR_KEY in os.environ:
-        artifact_pack_path = Path(os.environ[SNAPSHOT_STORAGE_TAR_KEY])
-    else:
-        artifact_pack_path = (
-            Path(args.artifact_pack_path)
-            if args.artifact_pack_path
-            else os.path.join(
-                args.artifacts_dir, _DEFAULT_ARTIFACT_PATH_FILE_NAME
-            )
-        )
-    artifacts_dir = (
-        Path(args.artifacts_dir)
-        if args.artifacts_dir
-        else artifact_pack_path.parent
-    )
+    snapshot_storage_tar_path = Path(os.environ[SNAPSHOT_STORAGE_TAR_KEY])
+    snapshot_storage_tar_path.parent.mkdir(parents=True, exist_ok=True)
+    tmp_dir = Path(tempfile.TemporaryDirectory().name)
 
     params = _TestParams()
     params.is_build_env = args.build
     params.is_test_env = args.test
     params.device_serial = args.serial
-    params.snapshot_storage_path = artifacts_dir.joinpath(
-        _SNAPSHOT_STORAGE_DIR_NAME
-    )
-    params.workspace_path = artifacts_dir.joinpath('workspace')
-
-    artifacts_dir.mkdir(parents=True, exist_ok=True)
+    params.snapshot_storage_path = tmp_dir.joinpath(_SNAPSHOT_STORAGE_DIR_NAME)
+    params.workspace_path = tmp_dir.joinpath('workspace')
 
     if params.is_test_env:
-        with tarfile.open(artifact_pack_path, 'r') as tar:
-            tar.extractall(artifacts_dir.as_posix())
+        with tarfile.open(snapshot_storage_tar_path, 'r') as tar:
+            tar.extractall(params.snapshot_storage_path.parent.as_posix())
 
     def execute_after_tests() -> None:
         # Code to execute after unittest.main()
@@ -335,12 +306,10 @@ def run_tests() -> None:
             shutil.rmtree(params.workspace_path)
 
         if params.is_build_env:
-            with tarfile.open(artifact_pack_path, 'w') as tar:
+            with tarfile.open(snapshot_storage_tar_path, 'w') as tar:
                 tar.add(
                     params.snapshot_storage_path,
-                    arcname=params.snapshot_storage_path.relative_to(
-                        artifacts_dir.as_posix()
-                    ),
+                    arcname=_SNAPSHOT_STORAGE_DIR_NAME,
                 )
         shutil.rmtree(params.snapshot_storage_path)
 

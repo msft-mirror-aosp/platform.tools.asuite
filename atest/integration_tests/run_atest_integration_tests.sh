@@ -19,6 +19,20 @@
 set -eo pipefail
 set -x
 
+# Legacy support for the deprecated argument --artifacts_dir and directory name
+for ((i=1; i<=$#; i++)); do
+  arg="${@:$i:1}"
+  case "$arg" in
+    --artifacts_dir)
+      export SNAPSHOT_STORAGE_TAR_PATH="${@:$i+1:1}"/atest_integration_tests.tar
+      i=$((i+1))
+      ;;
+    *)
+      filtered_args+=("$arg")
+      ;;
+  esac
+done
+
 function get_build_var()
 {
   (${PWD}/build/soong/soong_ui.bash --dumpvar-mode --abs $1)
