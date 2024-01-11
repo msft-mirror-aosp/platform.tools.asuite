@@ -61,6 +61,7 @@ class _IntegrationTestConfiguration:
     device_serial: str = None
     is_build_env: bool = False
     is_test_env: bool = False
+    is_device_serial_required = True
     snapshot_storage_path: Path = None
     snapshot_storage_tar_path: Path = None
     workspace_path: Path = None
@@ -186,10 +187,18 @@ class AtestIntegrationTest:
         return self._env
 
     def get_device_serial(self) -> str:
-        """Returns the serial of the connected device."""
+        """Returns the serial of the connected device. Throws if not set."""
         if not self._config.device_serial:
-            raise RuntimeError('device serial is not set')
+            raise RuntimeError('Device serial is not set')
         return self._config.device_serial
+
+    def get_device_serial_args_or_empty(self) -> str:
+        """Gets atest arguments for device serial. May return empty string."""
+        if self._config.device_serial:
+            return ' -s ' + self._config.device_serial
+        if self._config.is_device_serial_required:
+            raise RuntimeError('Device serial is required but not set')
+        return ''
 
     def get_repo_root(self) -> str:
         """Get repo root directory."""
@@ -384,6 +393,9 @@ def main() -> None:
     )
     config.snapshot_storage_tar_path = snapshot_storage_tar_path
     config.workspace_path = integration_test_out_path.joinpath('workspace')
+    # Device serial is not required during local run, and
+    # _ANDROID_BUILD_TOP_KEY env being available implies it's local run.
+    config.is_device_serial_required = not _ANDROID_BUILD_TOP_KEY in os.environ
 
     if config.is_build_env ^ config.is_test_env:
         run_test(config, unittest_argv, args.test_output_file)
