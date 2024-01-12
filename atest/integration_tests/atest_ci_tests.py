@@ -98,7 +98,9 @@ class CommandVerificationTests(AtestTestCase):
                 self._get_expected_cmds_from_file(
                     atest, test_name, self._test_commands_json
                 )
-                .issubset(atest_internal_command)
+                .issubset(atest_internal_command),
+                "The expected commands are not a subset of the runner "
+                "commands:\n" + str(atest_internal_command)
             ),
         )
 
@@ -114,7 +116,9 @@ class CommandVerificationTests(AtestTestCase):
                 self._get_expected_cmds_from_file(
                     atest, test_name, self._test_commands_json
                 )
-                .issubset(atest_internal_command)
+                .issubset(atest_internal_command),
+                "The expected commands are not a subset of the runner "
+                "commands:\n" + str(atest_internal_command)
             ),
         )
 
@@ -131,7 +135,9 @@ class CommandVerificationTests(AtestTestCase):
                 self._get_expected_cmds_from_file(
                     atest, test_name, self._test_commands_json
                 )
-                .issubset(atest_internal_command)
+                .issubset(atest_internal_command),
+                "The expected commands are not a subset of the runner "
+                "commands:\n" + str(atest_internal_command)
             ),
         )
 
@@ -147,7 +153,9 @@ class CommandVerificationTests(AtestTestCase):
                 self._get_expected_cmds_from_file(
                     atest, test_name, self._test_commands_json
                 )
-                .issubset(atest_internal_command)
+                .issubset(atest_internal_command),
+                "The expected commands are not a subset of the runner "
+                "commands:\n" + str(atest_internal_command)
             ),
         )
 
@@ -164,7 +172,9 @@ class CommandVerificationTests(AtestTestCase):
                 self._get_expected_cmds_from_file(
                     atest, test_name, self._test_commands_json
                 )
-                .issubset(atest_internal_command)
+                .issubset(atest_internal_command),
+                "The expected commands are not a subset of the runner "
+                "commands:\n" + str(atest_internal_command)
             ),
         )
 
@@ -180,7 +190,9 @@ class CommandVerificationTests(AtestTestCase):
                 self._get_expected_cmds_from_file(
                     atest, test_name, self._test_commands_json
                 )
-                .issubset(atest_internal_command)
+                .issubset(atest_internal_command),
+                "The expected commands are not a subset of the runner "
+                "commands:\n" + str(atest_internal_command)
             ),
         )
 
@@ -196,7 +208,9 @@ class CommandVerificationTests(AtestTestCase):
                 self._get_expected_cmds_from_file(
                     atest, test_name, self._test_commands_json
                 )
-                .issubset(atest_internal_command)
+                .issubset(atest_internal_command),
+                "The expected commands are not a subset of the runner "
+                "commands:\n" + str(atest_internal_command)
             ),
         )
 
@@ -213,7 +227,9 @@ class CommandVerificationTests(AtestTestCase):
                 self._get_expected_cmds_from_file(
                     atest, test_name, self._test_commands_json
                 )
-                .issubset(atest_internal_command)
+                .issubset(atest_internal_command),
+                "The expected commands are not a subset of the runner "
+                "commands:\n" + str(atest_internal_command)
             ),
         )
 
@@ -230,7 +246,9 @@ class CommandVerificationTests(AtestTestCase):
                 self._get_expected_cmds_from_file(
                     atest, test_name, self._test_commands_json
                 )
-                .issubset(atest_internal_command)
+                .issubset(atest_internal_command),
+                "The expected commands are not a subset of the runner "
+                "commands:\n" + str(atest_internal_command)
             ),
         )
 
@@ -246,7 +264,9 @@ class CommandVerificationTests(AtestTestCase):
                 self._get_expected_cmds_from_file(
                     atest, test_name, self._test_commands_json
                 )
-                .issubset(atest_internal_command)
+                .issubset(atest_internal_command),
+                "The expected commands are not a subset of the runner "
+                "commands:\n" + str(atest_internal_command)
             ),
         )
 
@@ -264,7 +284,9 @@ class CommandVerificationTests(AtestTestCase):
                 self._get_expected_cmds_from_file(
                     atest, test_name, self._test_commands_json
                 )
-                .issubset(atest_internal_command)
+                .issubset(atest_internal_command),
+                "The expected commands are not a subset of the runner "
+                "commands:\n" + str(atest_internal_command)
             ),
         )
 
@@ -280,7 +302,9 @@ class CommandVerificationTests(AtestTestCase):
                 self._get_expected_cmds_from_file(
                     atest, test_name, self._test_commands_json
                 )
-                .issubset(atest_internal_command)
+                .issubset(atest_internal_command),
+                "The expected commands are not a subset of the runner "
+                "commands:\n" + str(atest_internal_command)
             ),
         )
 
@@ -296,7 +320,9 @@ class CommandVerificationTests(AtestTestCase):
                 self._get_expected_cmds_from_file(
                     atest, test_name, self._test_commands_json
                 )
-                .issubset(atest_internal_command)
+                .issubset(atest_internal_command),
+                "The expected commands are not a subset of the runner "
+                "commands:\n" + str(atest_internal_command)
             ),
         )
 
@@ -312,7 +338,9 @@ class CommandVerificationTests(AtestTestCase):
                 self._get_expected_cmds_from_file(
                     atest, test_name, self._test_commands_json
                 )
-                .issubset(atest_internal_command)
+                .issubset(atest_internal_command),
+                "The expected commands are not a subset of the runner "
+                "commands:\n" + str(atest_internal_command)
             ),
         )
 
@@ -328,7 +356,9 @@ class CommandVerificationTests(AtestTestCase):
                 self._get_expected_cmds_from_file(
                     atest, test_name, self._test_commands_json
                 )
-                .issubset(atest_internal_command)
+                .issubset(atest_internal_command),
+                "The expected commands are not a subset of the runner "
+                "commands:\n" + str(atest_internal_command)
             ),
         )
 
@@ -344,11 +374,13 @@ class CommandVerificationTests(AtestTestCase):
                 self._get_expected_cmds_from_file(
                     atest, test_name, self._test_commands_json
                 )
-                .issubset(atest_internal_command)
+                .issubset(atest_internal_command),
+                "The expected commands are not a subset of the runner "
+                "commands:\n" + str(atest_internal_command)
             ),
         )
 
-    # TODO(319324510): enable this test.
+    # TODO(b/319324510): enable this test.
     # def test_quick_access_wallet_plugin_service_test(self):
     #     """Verify that the test's command runs correctly."""
     #     test_name = 'packages/apps/QuickAccessWallet/tests/robolectric/
@@ -363,7 +395,9 @@ class CommandVerificationTests(AtestTestCase):
     #             self._get_expected_cmds_from_file(
     #                 atest, test_name, self._test_commands_json
     #             )
-    #             .issubset(atest_internal_command)
+    #             .issubset(atest_internal_command),
+    #             "The expected commands are not a subset of the runner
+    #             commands:\n" + str(atest_internal_command)
     #         ),
     #     )
 
@@ -379,7 +413,9 @@ class CommandVerificationTests(AtestTestCase):
                 self._get_expected_cmds_from_file(
                     atest, test_name, self._test_commands_json
                 )
-                .issubset(atest_internal_command)
+                .issubset(atest_internal_command),
+                "The expected commands are not a subset of the runner "
+                "commands:\n" + str(atest_internal_command)
             ),
         )
 
@@ -395,7 +431,9 @@ class CommandVerificationTests(AtestTestCase):
                 self._get_expected_cmds_from_file(
                     atest, test_name, self._test_commands_json
                 )
-                .issubset(atest_internal_command)
+                .issubset(atest_internal_command),
+                "The expected commands are not a subset of the runner "
+                "commands:\n" + str(atest_internal_command)
             ),
         )
 
@@ -411,26 +449,49 @@ class CommandVerificationTests(AtestTestCase):
                 self._get_expected_cmds_from_file(
                     atest, test_name, self._test_commands_json
                 )
-                .issubset(atest_internal_command)
+                .issubset(atest_internal_command),
+                "The expected commands are not a subset of the runner "
+                "commands:\n" + str(atest_internal_command)
             ),
         )
 
-    # TODO(319324510): enable this test.
-    # def test_quick_access_wallet_robo_host_test(self):
-    #     """Verify that the test's command runs correctly."""
-    #     test_name = 'HOST=True QuickAccessWalletRoboTests'
-    #     self._verify_atest_internal_command(
-    #         test_name,
-    #         # atest_internal_command : a set of strings that represent a
-    #         # test runner command.
-    #         lambda atest_internal_command, atest:
-    #         self.assertTrue(
-    #             self._get_expected_cmds_from_file(
-    #                 atest, test_name, self._test_commands_json
-    #             )
-    #             .issubset(atest_internal_command)
-    #         ),
-    #     )
+    def test_quick_access_wallet_robo_host_test(self):
+        """Verify that the test's command runs correctly."""
+        test_name = 'QuickAccessWalletRoboTests'
+        test_args = ["--host"]
+        expected_cmd = [
+            "--include-filter",
+            "--log-level",
+            "--log-level-display",
+            "--no-early-device-release",
+            "--no-enable-granular-attempts",
+            "--prioritize-host-config",
+            "--skip-host-arch-check",
+            "--skip-loading-config-jar",
+            "--template:map",
+            "--template:map",
+            "-n",
+            "QuickAccessWalletRoboTests",
+            "VERBOSE",
+            "VERBOSE",
+            "atest_tradefed.sh",
+            "log_saver=template/log/atest_log_saver",
+            "template/atest_local_min",
+            "test=atest"
+        ]
+        self._verify_atest_internal_command(
+            test_name,
+            # atest_internal_command : a set of strings that represent a
+            # test runner command.
+            lambda atest_internal_command, atest:
+            self.assertTrue(
+                set(expected_cmd)
+                .issubset(atest_internal_command),
+                "The expected commands are not a subset of the runner "
+                "commands:\n" + str(atest_internal_command)
+            ),
+            test_args
+        )
 
     # TODO(319324510): enable this test.
     # def test_quick_access_wallet_plugin_service_host_test(self):
@@ -447,7 +508,9 @@ class CommandVerificationTests(AtestTestCase):
     #             self._get_expected_cmds_from_file(
     #                 atest, test_name, self._test_commands_json
     #             )
-    #             .issubset(atest_internal_command)
+    #             .issubset(atest_internal_command),
+    #             "The expected commands are not a subset of the runner
+    #             commands:\n" + str(atest_internal_command)
     #         ),
     #     )
 
@@ -463,7 +526,9 @@ class CommandVerificationTests(AtestTestCase):
                 self._get_expected_cmds_from_file(
                     atest, test_name, self._test_commands_json
                 )
-                .issubset(atest_internal_command)
+                .issubset(atest_internal_command),
+                "The expected commands are not a subset of the runner "
+                "commands:\n" + str(atest_internal_command)
             ),
         )
 
@@ -479,7 +544,9 @@ class CommandVerificationTests(AtestTestCase):
                 self._get_expected_cmds_from_file(
                     atest, test_name, self._test_commands_json
                 )
-                .issubset(atest_internal_command)
+                .issubset(atest_internal_command),
+                "The expected commands are not a subset of the runner "
+                "commands:\n" + str(atest_internal_command)
             ),
         )
 
@@ -495,12 +562,15 @@ class CommandVerificationTests(AtestTestCase):
                 self._get_expected_cmds_from_file(
                     atest, test_name, self._test_commands_json
                 )
-                .issubset(atest_internal_command)
+                .issubset(atest_internal_command),
+                "The expected commands are not a subset of the runner "
+                "commands:\n" + str(atest_internal_command)
             ),
         )
 
     def test_tee_ui_utils_intersect_convext_obj_test(
-        self):
+        self
+    ):
         """Verify that the test's command runs correctly."""
         test_name = ('TeeUIUtilsTest#intersectTest,ConvexObjectConstruction,'
                      'ConvexObjectLineIntersection')
@@ -513,12 +583,15 @@ class CommandVerificationTests(AtestTestCase):
                 self._get_expected_cmds_from_file(
                     atest, test_name, self._test_commands_json
                 )
-                .issubset(atest_internal_command)
+                .issubset(atest_internal_command),
+                "The expected commands are not a subset of the runner "
+                "commands:\n" + str(atest_internal_command)
             ),
         )
 
     def test_cts_activity_mgr_register_ui_change_test(
-        self):
+        self
+    ):
         """Verify that the test's command runs correctly."""
         test_name = ('CtsSecurityTestCases:android.security.cts.'
                      'ActivityManagerTest#testActivityManager_'
@@ -532,7 +605,9 @@ class CommandVerificationTests(AtestTestCase):
                 self._get_expected_cmds_from_file(
                     atest, test_name, self._test_commands_json
                 )
-                .issubset(atest_internal_command)
+                .issubset(atest_internal_command),
+                "The expected commands are not a subset of the runner "
+                "commands:\n" + str(atest_internal_command)
             ),
         )
 
@@ -550,7 +625,9 @@ class CommandVerificationTests(AtestTestCase):
                 self._get_expected_cmds_from_file(
                     atest, test_name, self._test_commands_json
                 )
-                .issubset(atest_internal_command)
+                .issubset(atest_internal_command),
+                "The expected commands are not a subset of the runner "
+                "commands:\n" + str(atest_internal_command)
             ),
         )
 
@@ -568,7 +645,9 @@ class CommandVerificationTests(AtestTestCase):
                 self._get_expected_cmds_from_file(
                     atest, test_name, self._test_commands_json
                 )
-                .issubset(atest_internal_command)
+                .issubset(atest_internal_command),
+                "The expected commands are not a subset of the runner "
+                "commands:\n" + str(atest_internal_command)
             ),
         )
 
@@ -584,7 +663,9 @@ class CommandVerificationTests(AtestTestCase):
                 self._get_expected_cmds_from_file(
                     atest, test_name, self._test_commands_json
                 )
-                .issubset(atest_internal_command)
+                .issubset(atest_internal_command),
+                "The expected commands are not a subset of the runner "
+                "commands:\n" + str(atest_internal_command)
             ),
         )
 
@@ -601,7 +682,9 @@ class CommandVerificationTests(AtestTestCase):
                 self._get_expected_cmds_from_file(
                     atest, test_name, self._test_commands_json
                 )
-                .issubset(atest_internal_command)
+                .issubset(atest_internal_command),
+                "The expected commands are not a subset of the runner "
+                "commands:\n" + str(atest_internal_command)
             ),
         )
 
@@ -636,6 +719,7 @@ class CommandVerificationTests(AtestTestCase):
         self,
         test_name: str,
         assertion_func: Callable[[str, AtestIntegrationTest], None],
+        test_args : list[str] = None
     ) -> None:
         """Verifies the command by executing it and checking its output.
 
@@ -643,10 +727,14 @@ class CommandVerificationTests(AtestTestCase):
           cmd_list: The atest command to execute.
           assertion_func: A function that takes the atest internal command
             as a set of strings and runs assertions on it.
+          test_args: A list of additional args to add to the test command for
+          the given test.
         """
         atest = self.create_atest_integration_test()
         cmd_split = test_name.split()
         cmd_list = ['atest-dev', '-g']
+        if test_args:
+            cmd_list.extend(test_args)
         cmd_list.extend(cmd_split)
 
         if atest.in_build_env():
@@ -672,9 +760,9 @@ class CommandVerificationTests(AtestTestCase):
                     'r',
                     encoding='utf-8',
             ) as f:
-                dict_from_json = json.load(f)
+                runner_cmds_dict = json.load(f)
             assertion_func(
-                set(dict_from_json[test_name].split()),
+                set(runner_cmds_dict[test_name].split()),
                 atest
             )
 
