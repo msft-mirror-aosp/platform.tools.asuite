@@ -63,11 +63,11 @@ python_library_host {
 }
 
 python_test_host {
-    name: "atest_ci_tests",
+    name: "atest_integration_tests",
     srcs: [
-        "atest_ci_tests.py",
+        "atest_integration_tests.py",
     ],
-    test_config_template: "atest_ci_tests.xml",
+    test_config_template: "atest_integration_tests.xml",
     test_options: {
         unit_test: false,
     },
