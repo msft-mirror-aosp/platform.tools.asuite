@@ -21,7 +21,6 @@ import traceback
 
 from typing import Any, Dict, List, Set
 
-from atest import device_update
 from atest import result_reporter
 
 from atest.atest_enum import ExitCode
@@ -40,12 +39,10 @@ class TestRunnerInvocation:
         test_runner: test_runner_base.TestRunnerBase,
         extra_args: Dict[str, Any],
         test_infos: List[test_info.TestInfo],
-        update_method: device_update.DeviceUpdateMethod,
     ):
         self._extra_args = extra_args
         self._test_infos = test_infos
         self._test_runner = test_runner
-        self._update_method = update_method
 
     @property
     def test_infos(self):
@@ -53,15 +50,12 @@ class TestRunnerInvocation:
 
     def get_test_runner_reqs(self) -> Set[str]:
         """Returns the required build targets for this test runner invocation."""
-        return self._test_runner.get_test_runner_build_reqs(
-            self._test_infos) | self._update_method.dependencies()
+        return self._test_runner.get_test_runner_build_reqs(self._test_infos)
 
     # pylint: disable=too-many-locals
     def run_all_tests(
         self, reporter: result_reporter.ResultReporter) -> ExitCode:
         """Runs all tests."""
-
-        self._update_method.update()
 
         test_start = time.time()
         is_success = True
