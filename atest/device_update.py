@@ -14,8 +14,10 @@
 
 """Device update methods used to prepare the device under test."""
 
+import time
+
 from pathlib import Path
-from  subprocess import CalledProcessError
+from subprocess import CalledProcessError
 
 from abc import ABC, abstractmethod
 from typing import Set

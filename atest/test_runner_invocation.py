@@ -48,6 +48,10 @@ class TestRunnerInvocation:
     def test_infos(self):
         return self._test_infos
 
+    def requires_device_update(self):
+        """Checks whether this invocation requires device update."""
+        return self._test_runner.requires_device_update(self._test_infos)
+
     def get_test_runner_reqs(self) -> Set[str]:
         """Returns the required build targets for this test runner invocation."""
         return self._test_runner.get_test_runner_build_reqs(self._test_infos)
