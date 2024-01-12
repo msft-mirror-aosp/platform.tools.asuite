@@ -345,39 +345,37 @@ def run_test(
     def inject_func(test_case):
         test_case.injected_config = config
 
+    def unittest_main(stream=None):
+        # Note that we use a type and not an instance for 'testRunner'
+        # since TestProgram forwards its constructor arguments when creating
+        # an instance of the runner type. Not doing so would require us to
+        # make sure that the parameters passed to TestProgram are aligned
+        # with those for creating a runner instance.
+        class TestRunner(unittest.TextTestRunner):
+            """Runner that writes test results to the TF-provided file."""
+
+            def __init__(self, *args: Any, **kwargs: Any) -> None:
+                super().__init__(stream=stream, *args, **kwargs)
+
+        # Setting verbosity is required to generate output that the TradeFed
+        # test runner can parse.
+        unittest.main(
+            testRunner=TestRunner,
+            verbosity=3,
+            argv=argv,
+            testLoader=_TestLoaderWithFieldInjection(inject_func),
+            exit=config.is_test_env,
+        )
+
     if test_output_file_path:
         Path(test_output_file_path).parent.mkdir(exist_ok=True)
 
         with open(
             test_output_file_path, 'w', encoding='utf-8'
         ) as test_output_file:
-            # Note that we use a type and not an instance for 'testRunner'
-            # since TestProgram forwards its constructor arguments when creating
-            # an instance of the runner type. Not doing so would require us to
-            # make sure that the parameters passed to TestProgram are aligned
-            # with those for creating a runner instance.
-            class TestRunner(unittest.TextTestRunner):
-                """Runner that writes test results to the TF-provided file."""
-
-                def __init__(self, *args: Any, **kwargs: Any) -> None:
-                    super().__init__(stream=test_output_file, *args, **kwargs)
-
-            # Setting verbosity is required to generate output that the TradeFed
-            # test runner can parse.
-            unittest.main(
-                testRunner=TestRunner,
-                verbosity=3,
-                argv=argv,
-                testLoader=_TestLoaderWithFieldInjection(inject_func),
-                exit=config.is_test_env,
-            )
+            unittest_main(stream=test_output_file)
     else:
-        unittest.main(
-            verbosity=2,
-            argv=argv,
-            testLoader=_TestLoaderWithFieldInjection(inject_func),
-            exit=config.is_test_env,
-        )
+        unittest_main(stream=None)
 
     if config.is_build_env and not config.is_fast_mode:
         with tarfile.open(config.snapshot_storage_tar_path, 'w') as tar:
