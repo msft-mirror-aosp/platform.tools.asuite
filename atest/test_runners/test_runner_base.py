@@ -32,6 +32,7 @@ from typing import Any, Dict, List, Set
 
 from atest import atest_error
 from atest import atest_utils
+from atest import device_update
 from atest.test_finders import test_info
 from atest.test_runner_invocation import TestRunnerInvocation
 
@@ -95,6 +96,11 @@ class TestRunnerBase:
             test_runner=self,
             extra_args=extra_args,
             test_infos=test_infos)]
+
+    def requires_device_update(
+        self, test_infos: List[test_info.TestInfo]) -> bool:
+        """Checks whether this runner requires device update."""
+        return False
 
     def run(self, cmd, output_to_stdout=False, env_vars=None):
         """Shell out and execute command.
