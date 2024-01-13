@@ -373,7 +373,11 @@ class AtestTradefedTestRunner(trb.TestRunnerBase):
                                 "user type, please check test config.",
                                 constants.RED)
                         atest_utils.colorful_print(
-                            r'No test to run. Test Logs have saved in '
+                            r'No test results available. TradeFed did not find'
+                            r' any test cases to run. This is possibly due to'
+                            r' the no tests matching the current test filters'
+                            r' or misconfigured AndroidTest.xml. Test Logs'
+                            r' are saved in '
                             f'{reporter.log_path}.',
                             constants.RED, constants.WHITE)
                     if not data_map:
