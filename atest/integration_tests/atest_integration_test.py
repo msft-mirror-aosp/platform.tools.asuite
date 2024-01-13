@@ -33,6 +33,9 @@ import unittest
 
 from snapshot import Snapshot
 
+# Env key for the storage tar path.
+SNAPSHOT_STORAGE_TAR_KEY = 'snapshot_storage_tar_path'
+
 _DEFAULT_ARTIFACT_PATH_FILE_NAME = 'atest_integration_tests.tar'
 _SNAPSHOT_STORAGE_DIR_NAME = 'ATEST_INTEGRATION_TESTS_SNAPSHOT_STORAGE'
 
@@ -273,7 +276,11 @@ def parse_known_args() -> tuple[argparse.Namespace, List[str]]:
         parser.error('must specify to run either in build or test env')
     if args.build and not args.artifacts_dir:
         parser.error('running in build env requires artifacts_dir be set')
-    if args.test and not args.artifact_pack_path:
+    if (
+        args.test
+        and not args.artifact_pack_path
+        and not SNAPSHOT_STORAGE_TAR_KEY in os.environ
+    ):
         parser.error('running in test env requires artifact_pack_path be set')
 
     return args, unittest_argv
@@ -291,15 +298,20 @@ def run_tests() -> None:
 
     print(f'The os environ is: {os.environ}')
 
+    if SNAPSHOT_STORAGE_TAR_KEY in os.environ:
+        artifact_pack_path = Path(os.environ[SNAPSHOT_STORAGE_TAR_KEY])
+    else:
+        artifact_pack_path = (
+            Path(args.artifact_pack_path)
+            if args.artifact_pack_path
+            else os.path.join(
+                args.artifacts_dir, _DEFAULT_ARTIFACT_PATH_FILE_NAME
+            )
+        )
     artifacts_dir = (
         Path(args.artifacts_dir)
         if args.artifacts_dir
-        else Path(args.artifact_pack_path).parent
-    )
-    artifact_pack_path = (
-        Path(args.artifact_pack_path)
-        if args.artifact_pack_path
-        else artifacts_dir.joinpath(_DEFAULT_ARTIFACT_PATH_FILE_NAME)
+        else artifact_pack_path.parent
     )
 
     params = _TestParams()
