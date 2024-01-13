@@ -14,6 +14,7 @@
 
 """Device update methods used to prepare the device under test."""
 
+import subprocess
 import time
 
 from pathlib import Path
@@ -76,7 +77,7 @@ class AdeviceUpdateMethod(DeviceUpdateMethod):
 
                 update_cmd.extend(['--serial', serials[0]])
 
-            atest_utils.run_limited_output(update_cmd)
+            subprocess.check_call(update_cmd)
 
             print(atest_utils.mark_cyan(
                 '\nDevice update finished in '
