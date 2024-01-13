@@ -14,7 +14,14 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# A script to test the end-to-end flow of Atest on the Android CI.
+# A script to build and/or run the Atest integration tests.
+# Usage examples:
+#   run_atest_integration_tests.sh: Runs both the build and test steps.
+#   run_atest_integration_tests.sh -b -t: Runs both the build and test steps.
+#   run_atest_integration_tests.sh --fast: Runs both build and test steps in
+#       fast mode. Some steps including clean ups will be skipped.
+#   run_atest_integration_tests.sh -b: Runs only the build steps.
+#   run_atest_integration_tests.sh -t: Runs only the test steps.
 
 set -eo pipefail
 set -x
