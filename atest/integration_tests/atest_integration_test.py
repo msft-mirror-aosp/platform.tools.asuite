@@ -30,7 +30,7 @@ import shutil
 import sys
 import tarfile
 import tempfile
-from typing import Any, Callable, Dict, List
+from typing import Any, Dict, List
 import unittest
 
 from snapshot import Snapshot
@@ -221,47 +221,6 @@ class AtestIntegrationTest:
         return self._env[_ANDROID_BUILD_TOP_KEY]
 
 
-class _TestLoaderWithFieldInjection(unittest.TestLoader):
-    """Test loader that injects the test configuration to the test classes."""
-
-    def __init__(self, config: _IntegrationTestConfiguration):
-        super().__init__()
-        self._config = config
-
-    def _inject_fields_to_tests(self, tests):
-        # pylint: disable=protected-access
-        for test in tests._tests:
-            # The test returned from one of the load functions can be
-            # either TestSuites or TestCases.
-            if not isinstance(test, unittest.TestSuite):
-                test.injected_config = self._config
-                continue
-            # pylint: disable=protected-access
-            for test_case in test._tests:
-                test.injected_config = self._config
-        return tests
-
-    def loadTestsFromModule(self, *args, **kwargs):
-        return self._inject_fields_to_tests(
-            super().loadTestsFromModule(*args, **kwargs)
-        )
-
-    def loadTestsFromTestCase(self, *args, **kwargs):
-        return self._inject_fields_to_tests(
-            super().loadTestsFromTestCase(*args, **kwargs)
-        )
-
-    def loadTestsFromName(self, *args, **kwargs):
-        return self._inject_fields_to_tests(
-            super().loadTestsFromName(*args, **kwargs)
-        )
-
-    def loadTestsFromNames(self, *args, **kwargs):
-        return self._inject_fields_to_tests(
-            super().loadTestsFromNames(*args, **kwargs)
-        )
-
-
 def parse_known_args(argv: list[str]) -> tuple[argparse.Namespace, List[str]]:
     """Parse command line args and check required args being provided."""
 
@@ -349,10 +308,24 @@ def run_test(
         # make sure that the parameters passed to TestProgram are aligned
         # with those for creating a runner instance.
         class TestRunner(unittest.TextTestRunner):
-            """Runner that writes test results to the TF-provided file."""
+            """Writes test results to the TF-provided file."""
 
             def __init__(self, *args: Any, **kwargs: Any) -> None:
                 super().__init__(stream=stream, *args, **kwargs)
+
+        class TestLoader(unittest.TestLoader):
+            """Injects the test configuration to the test classes."""
+
+            def __init__(self, config: _IntegrationTestConfiguration):
+                super().__init__()
+                self._config = config
+
+            def loadTestsFromTestCase(self, *args, **kwargs):
+                tests = super().loadTestsFromTestCase(*args, **kwargs)
+                # pylint: disable=protected-access
+                for test in tests._tests:
+                    test.injected_config = self._config
+                return tests
 
         # Setting verbosity is required to generate output that the TradeFed
         # test runner can parse.
@@ -360,7 +333,7 @@ def run_test(
             testRunner=TestRunner,
             verbosity=3,
             argv=argv,
-            testLoader=_TestLoaderWithFieldInjection(config),
+            testLoader=TestLoader(config),
             exit=config.is_test_env,
         )
 
