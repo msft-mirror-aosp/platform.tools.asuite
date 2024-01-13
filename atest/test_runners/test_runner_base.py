@@ -82,26 +82,25 @@ class TestRunnerBase:
         self,
         extra_args: Dict[str, Any],
         test_infos: List[test_info.TestInfo],
-        update_device: bool,
     ) -> List[TestRunnerInvocation]:
         """Creates test runner invocations.
 
         Args:
             extra_args: A dict of arguments.
             test_infos: A list of instances of TestInfo.
-            update_device: Specifies whether a device update is required.
 
         Returns:
             A list of TestRunnerInvocation instances.
         """
-        update_method = (device_update.AdeviceUpdateMethod() if update_device
-                         else device_update.NoopUpdateMethod())
-
         return [TestRunnerInvocation(
             test_runner=self,
             extra_args=extra_args,
-            test_infos=test_infos,
-            update_method=update_method)]
+            test_infos=test_infos)]
+
+    def requires_device_update(
+        self, test_infos: List[test_info.TestInfo]) -> bool:
+        """Checks whether this runner requires device update."""
+        return False
 
     def run(self, cmd, output_to_stdout=False, env_vars=None):
         """Shell out and execute command.

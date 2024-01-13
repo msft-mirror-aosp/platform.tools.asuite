@@ -14,8 +14,10 @@
 
 """Device update methods used to prepare the device under test."""
 
+import time
+
 from pathlib import Path
-from  subprocess import CalledProcessError
+from subprocess import CalledProcessError
 
 from abc import ABC, abstractmethod
 from typing import Set
@@ -55,7 +57,15 @@ class AdeviceUpdateMethod(DeviceUpdateMethod):
 
     def update(self) -> None:
         try:
+            print(atest_utils.mark_cyan("\nUpdating device..."))
+            update_start = time.time()
+
             atest_utils.run_limited_output([self._adevice_path, 'update'])
+
+            print(atest_utils.mark_cyan(
+                '\nDevice update finished in '
+                f'{str(round(time.time() - update_start, 2))}s.'))
+
         except CalledProcessError as e:
             raise Error(
                 'Failed to update the device with adevice') from e
