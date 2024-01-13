@@ -96,6 +96,8 @@ class AtestIntegrationTest:
         'out/host/linux-x86/obj',
     ]
 
+    _default_restore_exclude_paths = ['out/atest_bazel_workspace']
+
     _default_env_keys = [
         _ANDROID_BUILD_TOP_KEY,
         'ANDROID_HOST_OUT',
@@ -172,7 +174,9 @@ class AtestIntegrationTest:
     def restore_snapshot(self, name: str) -> None:
         """Restore the repository and environment from a snapshot."""
         self._env = self._snapshot.restore_snapshot(
-            name, self._config.workspace_path.as_posix()
+            name,
+            self._config.workspace_path.as_posix(),
+            exclude_paths=self._default_restore_exclude_paths,
         )
 
     def in_build_env(self) -> bool:
