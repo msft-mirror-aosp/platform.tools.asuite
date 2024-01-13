@@ -272,14 +272,20 @@ def parse_known_args(argv: list[str]) -> tuple[argparse.Namespace, List[str]]:
         '--build',
         action='store_true',
         default=False,
-        help='Run in a build environment.',
+        help=(
+            'Run build steps. Can be set to true together with the test option.'
+            ' If both build and test are unset, will run both steps.'
+        ),
     )
     parser.add_argument(
         '-t',
         '--test',
         action='store_true',
         default=False,
-        help='Run in a test environment.',
+        help=(
+            'Run test steps. Can be set to true together with the build option.'
+            ' If both build and test are unset, will run both steps.'
+        ),
     )
     parser.add_argument(
         '--fast',
@@ -287,17 +293,27 @@ def parse_known_args(argv: list[str]) -> tuple[argparse.Namespace, List[str]]:
         default=False,
         help=(
             'Skip some steps to enable faster local development. Test result'
-            ' may be different from a full run.'
+            ' may be different from a full run and some clean up steps may be'
+            ' skipped.'
         ),
     )
 
     # The below flags are passed in by the TF Python test runner.
     parser.add_argument(
-        '-s', '--serial', help='The device serial. Required in test mode.'
+        '-s',
+        '--serial',
+        help=(
+            'The device serial. Required in test mode when ANDROID_BUILD_TOP is'
+            ' not set.'
+        ),
     )
     parser.add_argument(
         '--test-output-file',
-        help='The file in which to store the test results. Optional',
+        help=(
+            'The file in which to store the unit test results. This option is'
+            ' usually set by TradeFed when running the script with python and'
+            ' is optional during manual script execution.'
+        ),
     )
 
     return parser.parse_known_args(argv)
