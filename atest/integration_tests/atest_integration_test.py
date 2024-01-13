@@ -47,15 +47,15 @@ _ANDROID_BUILD_TOP_KEY = 'ANDROID_BUILD_TOP'
 class AtestTestCase(unittest.TestCase):
     """Base test case for build-test environment split integration tests."""
 
-    injected_params = None
+    injected_config = None
 
     def create_atest_integration_test(self):
         """Create an instance of atest integration test utility."""
-        return AtestIntegrationTest(self.id(), self.injected_params)
+        return AtestIntegrationTest(self.id(), self.injected_config)
 
 
-class _TestParams:
-    """Internal class to save parameters for the test."""
+class _IntegrationTestConfiguration:
+    """Internal class to store integration test configuration."""
 
     device_serial: str = None
     is_build_env: bool = False
@@ -105,20 +105,22 @@ class AtestIntegrationTest:
         'JAVA_HOME',
     ]
 
-    def __init__(self, name: str, params: _TestParams) -> None:
-        self._params = params
+    def __init__(
+        self, name: str, config: _IntegrationTestConfiguration
+    ) -> None:
+        self._config = config
         self._include_paths: List[str] = self._default_include_paths
         self._exclude_paths: List[str] = self._default_exclude_paths
         self._env_keys: List[str] = self._default_env_keys
         self._id: str = name
         self._env: Dict[str, str] = None
-        self._snapshot: Snapshot = Snapshot(self._params.snapshot_storage_path)
+        self._snapshot: Snapshot = Snapshot(self._config.snapshot_storage_path)
         self._add_jdk_to_include_path()
         self._snapshot_count = 0
 
     def _add_jdk_to_include_path(self) -> None:
         """Get the relative jdk directory in build environment."""
-        if self._params.is_test_env:
+        if self._config.is_test_env:
             return
         absolute_path = Path(os.environ['ANDROID_JAVA_HOME'])
         while not absolute_path.name.startswith('jdk'):
@@ -157,45 +159,45 @@ class AtestIntegrationTest:
     def restore_snapshot(self, name: str) -> None:
         """Restore the repository and environment from a snapshot."""
         self._env = self._snapshot.restore_snapshot(
-            name, self._params.workspace_path.as_posix()
+            name, self._config.workspace_path.as_posix()
         )
 
     def in_build_env(self) -> bool:
         """Whether to executes test codes written for build environment only."""
-        return self._params.is_build_env
+        return self._config.is_build_env
 
     def in_test_env(self) -> bool:
         """Whether to executes test codes written for test environment only."""
 
-        if self._params.is_build_env:
+        if self._config.is_build_env:
             self.take_snapshot(self._id + '_' + str(self._snapshot_count))
             self._snapshot_count += 1
-        if self._params.is_test_env:
+        if self._config.is_test_env:
             self.restore_snapshot(self._id + '_' + str(self._snapshot_count))
             self._snapshot_count += 1
-        return self._params.is_test_env
+        return self._config.is_test_env
 
     def get_env(self) -> Dict[str, str]:
         """Get environment variables."""
-        if self._params.is_build_env:
+        if self._config.is_build_env:
             return os.environ.copy()
         return self._env
 
     def get_device_serial(self) -> str:
         """Returns the serial of the connected device."""
-        if not self._params.device_serial:
+        if not self._config.device_serial:
             raise RuntimeError('device serial is not set')
-        return self._params.device_serial
+        return self._config.device_serial
 
     def get_repo_root(self) -> str:
         """Get repo root directory."""
-        if self._params.is_build_env:
+        if self._config.is_build_env:
             return os.environ[_ANDROID_BUILD_TOP_KEY]
         return self._env[_ANDROID_BUILD_TOP_KEY]
 
 
 class _TestLoaderWithFieldInjection(unittest.TestLoader):
-    """Test loader that injects the test params to the test classes."""
+    """Test loader that injects the test configuration to the test classes."""
 
     def __init__(self, injection_func: Callable[[unittest.TestCase], None]):
         super().__init__()
@@ -316,36 +318,36 @@ def run_tests() -> None:
             f'Snapshot tar {snapshot_storage_tar_path} does not exist.'
         )
 
-    params = _TestParams()
-    params.is_build_env = args.build
-    params.is_test_env = args.test
-    params.device_serial = args.serial
-    params.snapshot_storage_path = integration_test_out_path.joinpath(
+    config = _IntegrationTestConfiguration()
+    config.is_build_env = args.build
+    config.is_test_env = args.test
+    config.device_serial = args.serial
+    config.snapshot_storage_path = integration_test_out_path.joinpath(
         snapshot_storage_dir_name
     )
-    params.workspace_path = integration_test_out_path.joinpath('workspace')
+    config.workspace_path = integration_test_out_path.joinpath('workspace')
 
-    if params.is_test_env:
+    if config.is_test_env:
         with tarfile.open(snapshot_storage_tar_path, 'r') as tar:
-            tar.extractall(params.snapshot_storage_path.parent.as_posix())
+            tar.extractall(config.snapshot_storage_path.parent.as_posix())
 
     def execute_after_tests() -> None:
         # Code to execute after unittest.main()
-        if params.workspace_path.exists():
-            shutil.rmtree(params.workspace_path)
+        if config.workspace_path.exists():
+            shutil.rmtree(config.workspace_path)
 
-        if params.is_build_env:
+        if config.is_build_env:
             with tarfile.open(snapshot_storage_tar_path, 'w') as tar:
                 tar.add(
-                    params.snapshot_storage_path,
+                    config.snapshot_storage_path,
                     arcname=snapshot_storage_dir_name,
                 )
-        shutil.rmtree(params.snapshot_storage_path)
+        shutil.rmtree(config.snapshot_storage_path)
 
     atexit.register(execute_after_tests)
 
     def inject_func(test_case):
-        test_case.injected_params = params
+        test_case.injected_config = config
 
     if args.test_output_file:
         Path(args.test_output_file).parent.mkdir(exist_ok=True)
