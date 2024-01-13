@@ -23,6 +23,7 @@ restoration later.
 
 import argparse
 import atexit
+import copy
 import os
 from pathlib import Path
 import shutil
@@ -61,6 +62,7 @@ class _IntegrationTestConfiguration:
     is_build_env: bool = False
     is_test_env: bool = False
     snapshot_storage_path: Path = None
+    snapshot_storage_tar_path: Path = None
     workspace_path: Path = None
 
 
@@ -266,14 +268,7 @@ def parse_known_args(argv: list[str]) -> tuple[argparse.Namespace, List[str]]:
         help='The file in which to store the test results. Optional',
     )
 
-    args, unittest_argv = parser.parse_known_args(argv)
-
-    if args.build and args.test:
-        parser.error('running build and test env together is not supported yet')
-    if not args.build and not args.test:
-        parser.error('must specify to run either in build or test env')
-
-    return args, unittest_argv
+    return parser.parse_known_args(argv)
 
 
 def run_test(
@@ -282,6 +277,22 @@ def run_test(
     test_output_file_path: str = None,
 ) -> None:
     """Execute integration tests with given test configuration."""
+
+    if config.is_test_env and not config.snapshot_storage_tar_path.exists():
+        raise EnvironmentError(
+            f'Snapshot tar {config.snapshot_storage_tar_path} does not exist.'
+        )
+
+    def cleanup() -> None:
+        if config.workspace_path.exists():
+            shutil.rmtree(config.workspace_path)
+        if config.snapshot_storage_path.exists():
+            shutil.rmtree(config.snapshot_storage_path)
+
+    if config.is_test_env:
+        with tarfile.open(config.snapshot_storage_tar_path, 'r') as tar:
+            tar.extractall(config.snapshot_storage_path.parent.as_posix())
+        atexit.register(cleanup)
 
     def inject_func(test_case):
         test_case.injected_config = config
@@ -310,13 +321,23 @@ def run_test(
                 verbosity=3,
                 argv=argv,
                 testLoader=_TestLoaderWithFieldInjection(inject_func),
+                exit=config.is_test_env,
             )
     else:
         unittest.main(
             verbosity=2,
             argv=argv,
             testLoader=_TestLoaderWithFieldInjection(inject_func),
+            exit=config.is_test_env,
         )
+
+    if config.is_build_env:
+        with tarfile.open(config.snapshot_storage_tar_path, 'w') as tar:
+            tar.add(
+                config.snapshot_storage_path,
+                arcname=config.snapshot_storage_path.name,
+            )
+        cleanup()
 
 
 def main() -> None:
@@ -351,37 +372,28 @@ def main() -> None:
             f' {SNAPSHOT_STORAGE_TAR_KEY} environment value.'
         )
 
-    if args.test and not snapshot_storage_tar_path.exists():
-        raise EnvironmentError(
-            f'Snapshot tar {snapshot_storage_tar_path} does not exist.'
-        )
-
+    # When the build or test is unset, assume it's a local run for both build
+    # and test steps.
+    is_build_test_unset = not args.build and not args.test
     config = _IntegrationTestConfiguration()
-    config.is_build_env = args.build
-    config.is_test_env = args.test
+    config.is_build_env = args.build or is_build_test_unset
+    config.is_test_env = args.test or is_build_test_unset
     config.device_serial = args.serial
     config.snapshot_storage_path = integration_test_out_path.joinpath(
         snapshot_storage_dir_name
     )
+    config.snapshot_storage_tar_path = snapshot_storage_tar_path
     config.workspace_path = integration_test_out_path.joinpath('workspace')
 
-    if config.is_test_env:
-        with tarfile.open(snapshot_storage_tar_path, 'r') as tar:
-            tar.extractall(config.snapshot_storage_path.parent.as_posix())
+    if config.is_build_env ^ config.is_test_env:
+        run_test(config, unittest_argv, args.test_output_file)
+        return
 
-    def execute_after_tests() -> None:
-        # Code to execute after unittest.main()
-        if config.workspace_path.exists():
-            shutil.rmtree(config.workspace_path)
+    build_config = copy.deepcopy(config)
+    build_config.is_test_env = False
 
-        if config.is_build_env:
-            with tarfile.open(snapshot_storage_tar_path, 'w') as tar:
-                tar.add(
-                    config.snapshot_storage_path,
-                    arcname=snapshot_storage_dir_name,
-                )
-        shutil.rmtree(config.snapshot_storage_path)
+    test_config = copy.deepcopy(config)
+    test_config.is_build_env = False
 
-    atexit.register(execute_after_tests)
-
-    run_test(config, unittest_argv, args.test_output_file)
+    run_test(build_config, unittest_argv, args.test_output_file)
+    run_test(test_config, unittest_argv, args.test_output_file)
