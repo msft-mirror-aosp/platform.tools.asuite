@@ -137,8 +137,17 @@ class AtestIntegrationTest:
             absolute_path.relative_to(repo_root).as_posix()
         )
 
-    def add_snapshot_paths(self, *paths: str) -> None:
+    def add_snapshot_include_paths(self, *paths: str) -> None:
         """Add paths to include in snapshot artifacts."""
+        self._include_paths.extend(paths)
+
+    def set_snapshot_include_paths(self, *paths: str) -> None:
+        """Set the snapshot include paths.
+
+        Note that the default include paths will be removed.
+        Use add_snapshot_include_paths if that's not intended.
+        """
+        self._include_paths.clear()
         self._include_paths.extend(paths)
 
     def add_snapshot_exclude_paths(self, *paths: str) -> None:
