@@ -36,6 +36,10 @@ for ((i=1; i<=$#; i++)); do
   esac
 done
 
+if [ -n "${DIST_DIR}" ] ; then
+  export SNAPSHOT_STORAGE_TAR_PATH=${DIST_DIR}/atest_integration_tests.tar
+fi
+
 function get_build_var()
 {
   (${PWD}/build/soong/soong_ui.bash --dumpvar-mode --abs $1)
