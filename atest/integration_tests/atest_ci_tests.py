@@ -41,8 +41,8 @@ class CommandSuccessTests(AtestTestCase):
         if atest.in_test_env():
             subprocess.run(
                 (
-                    'atest-dev -it csuite-harness-tests -s '
-                    + atest.get_device_serial()
+                    'atest-dev -it csuite-harness-tests'
+                    + atest.get_device_serial_args_or_empty()
                 ).split(),
                 check=True,
                 env=atest.get_env(),
@@ -63,8 +63,8 @@ class CommandSuccessTests(AtestTestCase):
         if atest.in_test_env():
             subprocess.run(
                 (
-                    'atest-dev -it csuite_cli_test -s '
-                    + atest.get_device_serial()
+                    'atest-dev -it csuite_cli_test'
+                    + atest.get_device_serial_args_or_empty()
                 ).split(),
                 check=True,
                 env=atest.get_env(),
