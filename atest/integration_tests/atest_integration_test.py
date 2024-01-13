@@ -274,7 +274,20 @@ class _FileCompressor:
 def parse_known_args(argv: list[str]) -> tuple[argparse.Namespace, List[str]]:
     """Parse command line args and check required args being provided."""
 
-    parser = argparse.ArgumentParser(add_help=True)
+    description = """A script to build and/or run the Atest integration tests.
+Usage examples:
+   python <script_path>: Runs both the build and test steps.
+   python <script_path> -b -t: Runs both the build and test steps.
+   python <script_path> --fast: Runs both build and test steps in fast mode. Some steps including clean ups will be skipped.
+   python <script_path> -b: Runs only the build steps.
+   python <script_path> -t: Runs only the test steps.
+"""
+
+    parser = argparse.ArgumentParser(
+        add_help=True,
+        description=description,
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
 
     parser.add_argument(
         '-b',
