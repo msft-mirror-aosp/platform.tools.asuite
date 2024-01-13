@@ -37,8 +37,11 @@ from snapshot import Snapshot
 # Env key for the storage tar path.
 SNAPSHOT_STORAGE_TAR_KEY = 'SNAPSHOT_STORAGE_TAR_PATH'
 
-# Local snapshot storage directory name used for temporary storing the snapshots
-_SNAPSHOT_STORAGE_DIR_NAME = 'ATEST_INTEGRATION_TESTS_SNAPSHOT_STORAGE'
+# Relative path to the repo root for storing the snapshots and workspace
+_INTEGRATION_TEST_OUT_DIR_REL_PATH = 'out/atest_integration_tests'
+
+# Env key for the repo root
+_ANDROID_BUILD_TOP_KEY = 'ANDROID_BUILD_TOP'
 
 
 class AtestTestCase(unittest.TestCase):
@@ -90,7 +93,7 @@ class AtestIntegrationTest:
     ]
 
     _default_env_keys = [
-        'ANDROID_BUILD_TOP',
+        _ANDROID_BUILD_TOP_KEY,
         'ANDROID_HOST_OUT',
         'ANDROID_PRODUCT_OUT',
         'ANDROID_HOST_OUT_TESTCASES',
@@ -124,7 +127,7 @@ class AtestIntegrationTest:
             raise ValueError(
                 'Unrecognized jdk directory ' + os.environ['ANDROID_JAVA_HOME']
             )
-        repo_root = Path(os.environ['ANDROID_BUILD_TOP'])
+        repo_root = Path(os.environ[_ANDROID_BUILD_TOP_KEY])
         self._include_paths.append(
             absolute_path.relative_to(repo_root).as_posix()
         )
@@ -187,8 +190,8 @@ class AtestIntegrationTest:
     def get_repo_root(self) -> str:
         """Get repo root directory."""
         if self._params.is_build_env:
-            return os.environ['ANDROID_BUILD_TOP']
-        return self._env['ANDROID_BUILD_TOP']
+            return os.environ[_ANDROID_BUILD_TOP_KEY]
+        return self._env[_ANDROID_BUILD_TOP_KEY]
 
 
 class _TestLoaderWithFieldInjection(unittest.TestLoader):
@@ -267,8 +270,6 @@ def parse_known_args() -> tuple[argparse.Namespace, List[str]]:
         parser.error('running build and test env together is not supported yet')
     if not args.build and not args.test:
         parser.error('must specify to run either in build or test env')
-    if not SNAPSHOT_STORAGE_TAR_KEY in os.environ:
-        parser.error(f'{SNAPSHOT_STORAGE_TAR_KEY} is not set')
 
     return args, unittest_argv
 
@@ -285,16 +286,44 @@ def run_tests() -> None:
 
     print(f'The os environ is: {os.environ}')
 
-    snapshot_storage_tar_path = Path(os.environ[SNAPSHOT_STORAGE_TAR_KEY])
-    snapshot_storage_tar_path.parent.mkdir(parents=True, exist_ok=True)
-    tmp_dir = Path(tempfile.TemporaryDirectory().name)
+    snapshot_storage_dir_name = 'snapshot_storage'
+    snapshot_storage_tar_name = 'snapshot.tar'
+
+    if _ANDROID_BUILD_TOP_KEY in os.environ:
+        integration_test_out_path = Path(
+            os.environ[_ANDROID_BUILD_TOP_KEY]
+        ).joinpath(_INTEGRATION_TEST_OUT_DIR_REL_PATH)
+        integration_test_out_path.parent.mkdir(parents=True, exist_ok=True)
+    else:
+        # pylint: disable=consider-using-with
+        integration_test_out_path = Path(tempfile.TemporaryDirectory().name)
+
+    if SNAPSHOT_STORAGE_TAR_KEY in os.environ:
+        snapshot_storage_tar_path = Path(os.environ[SNAPSHOT_STORAGE_TAR_KEY])
+        snapshot_storage_tar_path.parent.mkdir(parents=True, exist_ok=True)
+    elif _ANDROID_BUILD_TOP_KEY in os.environ:
+        snapshot_storage_tar_path = integration_test_out_path.joinpath(
+            snapshot_storage_tar_name
+        )
+    else:
+        raise EnvironmentError(
+            'Cannot determine snapshot storage tar path. Try set the'
+            f' {SNAPSHOT_STORAGE_TAR_KEY} environment value.'
+        )
+
+    if args.test and not snapshot_storage_tar_path.exists():
+        raise EnvironmentError(
+            f'Snapshot tar {snapshot_storage_tar_path} does not exist.'
+        )
 
     params = _TestParams()
     params.is_build_env = args.build
     params.is_test_env = args.test
     params.device_serial = args.serial
-    params.snapshot_storage_path = tmp_dir.joinpath(_SNAPSHOT_STORAGE_DIR_NAME)
-    params.workspace_path = tmp_dir.joinpath('workspace')
+    params.snapshot_storage_path = integration_test_out_path.joinpath(
+        snapshot_storage_dir_name
+    )
+    params.workspace_path = integration_test_out_path.joinpath('workspace')
 
     if params.is_test_env:
         with tarfile.open(snapshot_storage_tar_path, 'r') as tar:
@@ -309,7 +338,7 @@ def run_tests() -> None:
             with tarfile.open(snapshot_storage_tar_path, 'w') as tar:
                 tar.add(
                     params.snapshot_storage_path,
-                    arcname=_SNAPSHOT_STORAGE_DIR_NAME,
+                    arcname=snapshot_storage_dir_name,
                 )
         shutil.rmtree(params.snapshot_storage_path)
 
