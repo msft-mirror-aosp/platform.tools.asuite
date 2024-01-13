@@ -224,9 +224,9 @@ class AtestIntegrationTest:
 class _TestLoaderWithFieldInjection(unittest.TestLoader):
     """Test loader that injects the test configuration to the test classes."""
 
-    def __init__(self, injection_func: Callable[[unittest.TestCase], None]):
+    def __init__(self, config: _IntegrationTestConfiguration):
         super().__init__()
-        self._injection_func = injection_func
+        self._config = config
 
     def _inject_fields_to_tests(self, tests):
         # pylint: disable=protected-access
@@ -234,11 +234,11 @@ class _TestLoaderWithFieldInjection(unittest.TestLoader):
             # The test returned from one of the load functions can be
             # either TestSuites or TestCases.
             if not isinstance(test, unittest.TestSuite):
-                self._injection_func(test)
+                test.injected_config = self._config
                 continue
             # pylint: disable=protected-access
             for test_case in test._tests:
-                self._injection_func(test_case)
+                test.injected_config = self._config
         return tests
 
     def loadTestsFromModule(self, *args, **kwargs):
@@ -342,9 +342,6 @@ def run_test(
             tar.extractall(config.snapshot_storage_path.parent.as_posix())
         atexit.register(cleanup)
 
-    def inject_func(test_case):
-        test_case.injected_config = config
-
     def unittest_main(stream=None):
         # Note that we use a type and not an instance for 'testRunner'
         # since TestProgram forwards its constructor arguments when creating
@@ -363,7 +360,7 @@ def run_test(
             testRunner=TestRunner,
             verbosity=3,
             argv=argv,
-            testLoader=_TestLoaderWithFieldInjection(inject_func),
+            testLoader=_TestLoaderWithFieldInjection(config),
             exit=config.is_test_env,
         )
 
