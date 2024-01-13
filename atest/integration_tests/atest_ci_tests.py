@@ -21,7 +21,7 @@ from pathlib import Path
 import subprocess
 from typing import Callable
 from atest_integration_test import AtestIntegrationTest, AtestTestCase
-from atest_integration_test import run_tests
+from atest_integration_test import main
 
 
 class CommandSuccessTests(AtestTestCase):
@@ -768,4 +768,4 @@ class CommandVerificationTests(AtestTestCase):
 
 
 if __name__ == '__main__':
-    run_tests()
+    main()
