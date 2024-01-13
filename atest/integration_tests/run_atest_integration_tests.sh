@@ -89,8 +89,6 @@ fi
 
 export REMOTE_AVD=true
 
-build/soong/soong_ui.bash --make-mode atest --skip-soong-tests
-
 # Use the versioned Python binaries in prebuilts/ for a reproducible
 # build with minimal reliance on host tools. Add build/bazel/bin to PATH since
 # atest needs 'b'

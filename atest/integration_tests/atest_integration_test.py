@@ -29,6 +29,7 @@ import multiprocessing
 import os
 from pathlib import Path
 import shutil
+import subprocess
 import sys
 import tarfile
 import tempfile
@@ -459,6 +460,18 @@ def main() -> None:
     # _ANDROID_BUILD_TOP_KEY env being available implies it's local run.
     config.is_device_serial_required = not _ANDROID_BUILD_TOP_KEY in os.environ
     config.is_fast_mode = args.fast
+
+    if config.is_build_env:
+        if _ANDROID_BUILD_TOP_KEY not in os.environ:
+            raise EnvironmentError(
+                f'Environment variable {_ANDROID_BUILD_TOP_KEY} is required to'
+                ' build the integration test.'
+            )
+
+        subprocess.check_call(
+            'build/soong/soong_ui.bash --make-mode atest'.split(),
+            cwd=os.environ[_ANDROID_BUILD_TOP_KEY],
+        )
 
     if config.is_build_env ^ config.is_test_env:
         run_test(config, unittest_argv, args.test_output_file)
