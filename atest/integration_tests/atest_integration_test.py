@@ -62,6 +62,7 @@ class _IntegrationTestConfiguration:
     is_build_env: bool = False
     is_test_env: bool = False
     is_device_serial_required = True
+    is_fast_mode = False
     snapshot_storage_path: Path = None
     snapshot_storage_tar_path: Path = None
     workspace_path: Path = None
@@ -276,6 +277,15 @@ def parse_known_args(argv: list[str]) -> tuple[argparse.Namespace, List[str]]:
         default=False,
         help='Run in a test environment.',
     )
+    parser.add_argument(
+        '--fast',
+        action='store_true',
+        default=False,
+        help=(
+            'Skip some steps to enable faster local development. Test result'
+            ' may be different from a full run.'
+        ),
+    )
 
     # The below flags are passed in by the TF Python test runner.
     parser.add_argument(
@@ -307,7 +317,7 @@ def run_test(
         if config.snapshot_storage_path.exists():
             shutil.rmtree(config.snapshot_storage_path)
 
-    if config.is_test_env:
+    if config.is_test_env and not config.is_fast_mode:
         with tarfile.open(config.snapshot_storage_tar_path, 'r') as tar:
             tar.extractall(config.snapshot_storage_path.parent.as_posix())
         atexit.register(cleanup)
@@ -349,7 +359,7 @@ def run_test(
             exit=config.is_test_env,
         )
 
-    if config.is_build_env:
+    if config.is_build_env and not config.is_fast_mode:
         with tarfile.open(config.snapshot_storage_tar_path, 'w') as tar:
             tar.add(
                 config.snapshot_storage_path,
@@ -405,6 +415,7 @@ def main() -> None:
     # Device serial is not required during local run, and
     # _ANDROID_BUILD_TOP_KEY env being available implies it's local run.
     config.is_device_serial_required = not _ANDROID_BUILD_TOP_KEY in os.environ
+    config.is_fast_mode = args.fast
 
     if config.is_build_env ^ config.is_test_env:
         run_test(config, unittest_argv, args.test_output_file)
