@@ -188,60 +188,6 @@ class AtestIntegrationTest:
         return self._env['ANDROID_BUILD_TOP']
 
 
-def create_arg_parser(add_help: bool = False) -> argparse.ArgumentParser:
-    """Creates a new parser that can handle the default command-line flags.
-
-    The object returned by this function can be used by other modules that want
-    to
-    add their own command-line flags. The returned parser is intended to be
-    passed
-    to the 'parents' argument of ArgumentParser and extend the set of default
-    flags with additional ones.
-
-    Args:
-        add_help: whether to add an option which simply displays the parser’s
-          help message; this is typically false when used from other modules
-          that want to use the returned parser as a parent argument parser.
-
-    Returns:
-        A new arg parser that can handle the default flags expected by this
-        module.
-    """
-
-    parser = argparse.ArgumentParser(add_help=add_help)
-
-    parser.add_argument(
-        '-b',
-        '--build',
-        action='store_true',
-        default=False,
-        help='Run in a build environment.',
-    )
-    parser.add_argument(
-        '-t',
-        '--test',
-        action='store_true',
-        default=False,
-        help='Run in a test environment.',
-    )
-    parser.add_argument(
-        '--artifacts_dir',
-        help='directory where test artifacts are saved',
-    )
-    parser.add_argument(
-        '--artifact_pack_path', help='path to the artifact pack file'
-    )
-
-    # The below flags are passed in by the TF Python test runner.
-    parser.add_argument('-s', '--serial', help='the device serial')
-    parser.add_argument(
-        '--test-output-file',
-        help='the file in which to store the test results',
-    )
-
-    return parser
-
-
 class _TestLoaderWithFieldInjection(unittest.TestLoader):
     """Test loader that injects the test params to the test classes."""
 
@@ -283,18 +229,43 @@ class _TestLoaderWithFieldInjection(unittest.TestLoader):
         )
 
 
-def run_tests() -> None:
-    """Executes atest integration test cases.
+def parse_known_args() -> tuple[argparse.Namespace, List[str]]:
+    """Parse command line args and check required args being provided."""
 
-    This function unpacks the artifacts before running the tests if in a test
-    environment, and packs the artifacts after running the tests if in a build
-    environment.
-    """
+    parser = argparse.ArgumentParser(add_help=True)
 
-    parser = create_arg_parser(add_help=True)
+    parser.add_argument(
+        '-b',
+        '--build',
+        action='store_true',
+        default=False,
+        help='Run in a build environment.',
+    )
+    parser.add_argument(
+        '-t',
+        '--test',
+        action='store_true',
+        default=False,
+        help='Run in a test environment.',
+    )
+    parser.add_argument(
+        '--artifacts_dir',
+        help='Directory where test artifacts are saved',
+    )
+    parser.add_argument(
+        '--artifact_pack_path', help='Path to the artifact pack file'
+    )
+
+    # The below flags are passed in by the TF Python test runner.
+    parser.add_argument(
+        '-s', '--serial', help='The device serial. Required in test mode.'
+    )
+    parser.add_argument(
+        '--test-output-file',
+        help='The file in which to store the test results. Optional',
+    )
+
     args, unittest_argv = parser.parse_known_args(sys.argv)
-
-    print(f'The os environ is: {os.environ}')
 
     if args.build and args.test:
         parser.error('running build and test env together is not supported yet')
@@ -304,6 +275,21 @@ def run_tests() -> None:
         parser.error('running in build env requires artifacts_dir be set')
     if args.test and not args.artifact_pack_path:
         parser.error('running in test env requires artifact_pack_path be set')
+
+    return args, unittest_argv
+
+
+def run_tests() -> None:
+    """Executes atest integration test cases.
+
+    This function unpacks the artifacts before running the tests if in a test
+    environment, and packs the artifacts after running the tests if in a build
+    environment.
+    """
+
+    args, unittest_argv = parse_known_args()
+
+    print(f'The os environ is: {os.environ}')
 
     artifacts_dir = (
         Path(args.artifacts_dir)
