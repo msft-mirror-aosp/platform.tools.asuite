@@ -380,27 +380,6 @@ class CommandVerificationTests(AtestTestCase):
             ),
         )
 
-    # TODO(b/319324510): enable this test.
-    # def test_quick_access_wallet_plugin_service_test(self):
-    #     """Verify that the test's command runs correctly."""
-    #     test_name = 'packages/apps/QuickAccessWallet/tests/robolectric/
-    #     src/com/android/systemui/plugin/globalactions/wallet/
-    #     WalletPluginServiceTest.java'
-    #     self._verify_atest_internal_command(
-    #         test_name,
-    #         # atest_internal_command : a set of strings that represent a
-    #         # test runner command.
-    #         lambda atest_internal_command, atest:
-    #         self.assertTrue(
-    #             self._get_expected_cmds_from_file(
-    #                 atest, test_name, self._test_commands_json
-    #             )
-    #             .issubset(atest_internal_command),
-    #             "The expected commands are not a subset of the runner
-    #             commands:\n" + str(atest_internal_command)
-    #         ),
-    #     )
-
     def test_platform_native_example_test(self):
         """Verify that the test's command runs correctly."""
         test_name = 'platform_testing/tests/example/native'
@@ -492,27 +471,6 @@ class CommandVerificationTests(AtestTestCase):
             ),
             test_args
         )
-
-    # TODO(319324510): enable this test.
-    # def test_quick_access_wallet_plugin_service_host_test(self):
-    #     """Verify that the test's command runs correctly."""
-    #     test_name = 'HOST=True packages/apps/QuickAccessWallet/tests/
-    #     robolectric/src/com/android/systemui/plugin/globalactions/wallet/
-    #     WalletPluginServiceTest.java'
-    #     self._verify_atest_internal_command(
-    #         test_name,
-    #         # atest_internal_command : a set of strings that represent a
-    #         # test runner command.
-    #         lambda atest_internal_command, atest:
-    #         self.assertTrue(
-    #             self._get_expected_cmds_from_file(
-    #                 atest, test_name, self._test_commands_json
-    #             )
-    #             .issubset(atest_internal_command),
-    #             "The expected commands are not a subset of the runner
-    #             commands:\n" + str(atest_internal_command)
-    #         ),
-    #     )
 
     def test_cts_wifi_aware_cases_test(self):
         """Verify that the test's command runs correctly."""
