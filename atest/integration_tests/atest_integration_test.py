@@ -23,7 +23,9 @@ restoration later.
 
 import argparse
 import atexit
+from concurrent.futures import ThreadPoolExecutor
 import copy
+import multiprocessing
 import os
 from pathlib import Path
 import shutil
@@ -221,6 +223,53 @@ class AtestIntegrationTest:
         return self._env[_ANDROID_BUILD_TOP_KEY]
 
 
+class _FileCompressor:
+    """Class for compressing and decompressing files."""
+
+    def compress_all_sub_files(self, root_path: Path) -> None:
+        """Compresses all files in the given directory and subdirectories.
+
+        Args:
+            root_path: Path to the root directory.
+        """
+        cpu_count = multiprocessing.cpu_count()
+        with ThreadPoolExecutor(max_workers=cpu_count) as executor:
+            for file_path in root_path.rglob('*'):
+                if file_path.is_file():
+                    executor.submit(self.compress_file, file_path)
+
+    def compress_file(self, file_path: Path) -> None:
+        """Compresses a single file using tarfile.
+
+        Args:
+            file_path: Path to the file to compress.
+        """
+        with tarfile.open(file_path.with_suffix('.bz2'), 'w:bz2') as tar:
+            tar.add(file_path, arcname=file_path.name)
+        file_path.unlink()
+
+    def decompress_all_sub_files(self, root_path: Path) -> None:
+        """Decompresses all compressed sub files in the given directory.
+
+        Args:
+            root_path: Path to the root directory.
+        """
+        cpu_count = multiprocessing.cpu_count()
+        with ThreadPoolExecutor(max_workers=cpu_count) as executor:
+            for file_path in root_path.rglob('*.bz2'):
+                executor.submit(self.decompress_file, file_path)
+
+    def decompress_file(self, file_path: Path) -> None:
+        """Decompresses a single file using tarfile.
+
+        Args:
+            file_path: Path to the compressed file.
+        """
+        with tarfile.open(file_path, 'r:bz2') as tar:
+            tar.extractall(file_path.parent)
+        file_path.unlink()
+
+
 def parse_known_args(argv: list[str]) -> tuple[argparse.Namespace, List[str]]:
     """Parse command line args and check required args being provided."""
 
@@ -290,6 +339,8 @@ def run_test(
             f'Snapshot tar {config.snapshot_storage_tar_path} does not exist.'
         )
 
+    compressor = _FileCompressor()
+
     def cleanup() -> None:
         if config.workspace_path.exists():
             shutil.rmtree(config.workspace_path)
@@ -299,6 +350,8 @@ def run_test(
     if config.is_test_env and not config.is_fast_mode:
         with tarfile.open(config.snapshot_storage_tar_path, 'r') as tar:
             tar.extractall(config.snapshot_storage_path.parent.as_posix())
+        print('Decompressing the snapshot storage...')
+        compressor.decompress_all_sub_files(config.snapshot_storage_path)
         atexit.register(cleanup)
 
     def unittest_main(stream=None):
@@ -348,6 +401,8 @@ def run_test(
         unittest_main(stream=None)
 
     if config.is_build_env and not config.is_fast_mode:
+        print('Compressing the snapshot storage...')
+        compressor.compress_all_sub_files(config.snapshot_storage_path)
         with tarfile.open(config.snapshot_storage_tar_path, 'w') as tar:
             tar.add(
                 config.snapshot_storage_path,
