@@ -393,15 +393,11 @@ def run_test(
         class TestLoader(unittest.TestLoader):
             """Injects the test configuration to the test classes."""
 
-            def __init__(self, config: _IntegrationTestConfiguration):
-                super().__init__()
-                self._config = config
-
             def loadTestsFromTestCase(self, *args, **kwargs):
                 tests = super().loadTestsFromTestCase(*args, **kwargs)
                 # pylint: disable=protected-access
                 for test in tests._tests:
-                    test.injected_config = self._config
+                    test.injected_config = config
                 return tests
 
         # Setting verbosity is required to generate output that the TradeFed
@@ -410,7 +406,7 @@ def run_test(
             testRunner=TestRunner,
             verbosity=3,
             argv=argv,
-            testLoader=TestLoader(config),
+            testLoader=TestLoader(),
             exit=config.is_test_env,
         )
 
