@@ -65,7 +65,6 @@ class _IntegrationTestConfiguration:
     is_build_env: bool = False
     is_test_env: bool = False
     is_device_serial_required = True
-    is_fast_mode = False
     snapshot_storage_path: Path = None
     snapshot_storage_tar_path: Path = None
     workspace_path: Path = None
@@ -278,7 +277,6 @@ def parse_known_args(argv: list[str]) -> tuple[argparse.Namespace, List[str]]:
 Usage examples:
    python <script_path>: Runs both the build and test steps.
    python <script_path> -b -t: Runs both the build and test steps.
-   python <script_path> --fast: Runs both build and test steps in fast mode. Some steps including clean ups will be skipped.
    python <script_path> -b: Runs only the build steps.
    python <script_path> -t: Runs only the test steps.
 """
@@ -307,16 +305,6 @@ Usage examples:
         help=(
             'Run test steps. Can be set to true together with the build option.'
             ' If both build and test are unset, will run both steps.'
-        ),
-    )
-    parser.add_argument(
-        '--fast',
-        action='store_true',
-        default=False,
-        help=(
-            'Skip some steps to enable faster local development. Test result'
-            ' may be different from a full run and some clean up steps may be'
-            ' skipped.'
         ),
     )
 
@@ -361,7 +349,7 @@ def run_test(
         if config.snapshot_storage_path.exists():
             shutil.rmtree(config.snapshot_storage_path)
 
-    if config.is_test_env and not config.is_fast_mode:
+    if config.is_test_env:
         with tarfile.open(config.snapshot_storage_tar_path, 'r') as tar:
             tar.extractall(config.snapshot_storage_path.parent.as_posix())
         print('Decompressing the snapshot storage...')
@@ -414,7 +402,7 @@ def run_test(
     else:
         unittest_main(stream=None)
 
-    if config.is_build_env and not config.is_fast_mode:
+    if config.is_build_env:
         print('Compressing the snapshot storage...')
         compressor.compress_all_sub_files(config.snapshot_storage_path)
         with tarfile.open(config.snapshot_storage_tar_path, 'w') as tar:
@@ -472,7 +460,6 @@ def main() -> None:
     # Device serial is not required during local run, and
     # _ANDROID_BUILD_TOP_KEY env being available implies it's local run.
     config.is_device_serial_required = not _ANDROID_BUILD_TOP_KEY in os.environ
-    config.is_fast_mode = args.fast
 
     if config.is_build_env:
         if _ANDROID_BUILD_TOP_KEY not in os.environ:
