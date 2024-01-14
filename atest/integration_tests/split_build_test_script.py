@@ -62,7 +62,7 @@ class _IntegrationTestConfiguration:
     is_compress_snapshot: bool = False
 
 
-class AtestIntegrationTest:
+class SplitBuildTestScript:
     """Utility for running integration test in build and test environment."""
 
     def __init__(
@@ -180,6 +180,23 @@ class AtestIntegrationTest:
         return self._env[ANDROID_BUILD_TOP_KEY]
 
 
+class SplitBuildTestTestCase(unittest.TestCase):
+    """Base test case class for split build-test scripting tests."""
+
+    # Internal config to be injected to the test case from main.
+    injected_config: _IntegrationTestConfiguration = None
+
+    def create_split_build_test_script(self, name: str) -> SplitBuildTestScript:
+        """Return an instance of SplitBuildTestScript with the given name.
+
+        Args:
+            name: The name of the script. The name will be used to store
+              snapshots and tt's recommended to set the name to self.id()in most
+              cases.
+        """
+        return SplitBuildTestScript(name, self.injected_config)
+
+
 class _FileCompressor:
     """Class for compressing and decompressing files."""
 
@@ -227,7 +244,7 @@ class _FileCompressor:
         file_path.unlink()
 
 
-def parse_known_args(argv: list[str]) -> tuple[argparse.Namespace, List[str]]:
+def _parse_known_args(argv: list[str]) -> tuple[argparse.Namespace, List[str]]:
     """Parse command line args and check required args being provided."""
 
     description = """A script to build and/or run the Asuite integration tests.
@@ -304,7 +321,7 @@ Usage examples:
     return parser.parse_known_args(argv)
 
 
-def run_test(
+def _run_test(
     config: _IntegrationTestConfiguration,
     argv: list[str],
     test_output_file_path: str = None,
@@ -398,7 +415,7 @@ def main(make_before_build: list[str] = None) -> None:
     if make_before_build is None:
         make_before_build = []
 
-    args, unittest_argv = parse_known_args(sys.argv)
+    args, unittest_argv = _parse_known_args(sys.argv)
 
     print(f'The os environ is: {os.environ}')
 
@@ -459,7 +476,7 @@ def main(make_before_build: list[str] = None) -> None:
             )
 
     if config.is_build_env ^ config.is_test_env:
-        run_test(config, unittest_argv, args.test_output_file)
+        _run_test(config, unittest_argv, args.test_output_file)
         return
 
     build_config = copy.deepcopy(config)
@@ -468,5 +485,5 @@ def main(make_before_build: list[str] = None) -> None:
     test_config = copy.deepcopy(config)
     test_config.is_build_env = False
 
-    run_test(build_config, unittest_argv, args.test_output_file)
-    run_test(test_config, unittest_argv, args.test_output_file)
+    _run_test(build_config, unittest_argv, args.test_output_file)
+    _run_test(test_config, unittest_argv, args.test_output_file)

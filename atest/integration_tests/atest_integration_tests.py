@@ -22,8 +22,7 @@ import json
 from pathlib import Path
 import subprocess
 from typing import Callable
-from atest_integration_test import AtestIntegrationTest, AtestTestCase
-from atest_integration_test import main
+from atest_integration_test import AtestTestCase, main, SplitBuildTestScript
 
 
 class CommandSuccessTests(AtestTestCase):
@@ -31,7 +30,7 @@ class CommandSuccessTests(AtestTestCase):
 
     def test_csuite_harness_tests(self):
         """Test if csuite-harness-tests command runs successfully."""
-        atest = self.create_atest_integration_test()
+        atest = self.create_atest_script()
         if atest.in_build_env():
             subprocess.run(
                 'atest-dev -b csuite-harness-tests'.split(),
@@ -53,7 +52,7 @@ class CommandSuccessTests(AtestTestCase):
 
     def test_csuite_cli_test(self):
         """Test if csuite_cli_test command runs successfully."""
-        atest = self.create_atest_integration_test()
+        atest = self.create_atest_script()
         if atest.in_build_env():
             subprocess.run(
                 'atest-dev -b csuite_cli_test'.split(),
@@ -1214,7 +1213,7 @@ class CommandVerificationTests(AtestTestCase):
 
     def _get_expected_cmds_from_file(
         self,
-        atest: AtestIntegrationTest,
+        atest: SplitBuildTestScript,
         test_name: str,
         file: str
     ) -> set[str]:
@@ -1222,7 +1221,7 @@ class CommandVerificationTests(AtestTestCase):
         returns the corresponding command as a set of strings.
 
         Args:
-            atest: an instance of AtestIntegrationTest.
+            atest: an instance of SplitBuildTestScript.
             test_name: the name of the test to look up in the expected commands
             dictionary.
             file: a file containing a dictionary of expected tests commands.
@@ -1242,7 +1241,7 @@ class CommandVerificationTests(AtestTestCase):
     def _verify_atest_internal_command(
         self,
         test_name: str,
-        assertion_func: Callable[[str, AtestIntegrationTest], None],
+        assertion_func: Callable[[str, SplitBuildTestScript], None],
         test_args: list[str] = None
     ) -> None:
         """Verifies the command by executing it and checking its output.
@@ -1254,7 +1253,7 @@ class CommandVerificationTests(AtestTestCase):
           test_args: A list of additional args to add to the test command for
           the given test.
         """
-        atest = self.create_atest_integration_test()
+        atest = self.create_atest_script()
         cmd_split = test_name.split()
         cmd_list = ['atest-dev', '-g']
         if test_args:

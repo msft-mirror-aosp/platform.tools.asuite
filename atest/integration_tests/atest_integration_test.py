@@ -16,18 +16,14 @@
 
 """Base test module for Atest integration tests."""
 
-import unittest
-
 import split_build_test_script
 
-# Exporting for test modules' reference
-AtestIntegrationTest = split_build_test_script.AtestIntegrationTest
+# Exporting for test modules' typing reference
+SplitBuildTestScript = split_build_test_script.SplitBuildTestScript
 
 
-class AtestTestCase(unittest.TestCase):
+class AtestTestCase(split_build_test_script.SplitBuildTestTestCase):
     """Base test case for build-test environment split integration tests."""
-
-    injected_config = None
 
     # Default include list of repo paths for taking snapshot
     _default_snapshot_take_include_paths = [
@@ -73,20 +69,20 @@ class AtestTestCase(unittest.TestCase):
         'JAVA_HOME',
     ]
 
-    def create_atest_integration_test(self):
+    def create_atest_script(self) -> SplitBuildTestScript:
         """Create an instance of atest integration test utility."""
-        atest = AtestIntegrationTest(self.id(), self.injected_config)
-        atest.add_snapshot_include_paths(
+        script = self.create_split_build_test_script(self.id())
+        script.add_snapshot_include_paths(
             self._default_snapshot_take_include_paths
         )
-        atest.add_snapshot_exclude_paths(
+        script.add_snapshot_exclude_paths(
             self._default_snapshot_take_exclude_paths
         )
-        atest.add_snapshot_restore_exclude_paths(
+        script.add_snapshot_restore_exclude_paths(
             self._default_snapshot_restore_exclude_paths
         )
-        atest.add_snapshot_env_keys(self._default_snapshot_env_keys)
-        return atest
+        script.add_snapshot_env_keys(self._default_snapshot_env_keys)
+        return script
 
 
 def main():
