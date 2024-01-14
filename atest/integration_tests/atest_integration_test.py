@@ -30,7 +30,7 @@ class AtestTestCase(unittest.TestCase):
     injected_config = None
 
     # Default include list of repo paths for taking snapshot
-    _default_include_paths = [
+    _default_snapshot_take_include_paths = [
         'out/host/linux-x86',
         'out/target/product/*/module-info*',
         'out/target/product/*/testcases',
@@ -50,17 +50,17 @@ class AtestTestCase(unittest.TestCase):
     ]
 
     # Default exclude list of repo paths for taking snapshot
-    _default_exclude_paths = [
+    _default_snapshot_take_exclude_paths = [
         'out/host/linux-x86/bin/go',
         'out/host/linux-x86/bin/soong_build',
         'out/host/linux-x86/obj',
     ]
 
     # Default exclude list of repo paths for restoring snapshot
-    _default_restore_exclude_paths = ['out/atest_bazel_workspace']
+    _default_snapshot_restore_exclude_paths = ['out/atest_bazel_workspace']
 
     # Default list of environment variables to take and restore in snapshots
-    _default_env_keys = [
+    _default_snapshot_env_keys = [
         split_build_test_script.ANDROID_BUILD_TOP_KEY,
         'ANDROID_HOST_OUT',
         'ANDROID_PRODUCT_OUT',
@@ -76,12 +76,16 @@ class AtestTestCase(unittest.TestCase):
     def create_atest_integration_test(self):
         """Create an instance of atest integration test utility."""
         atest = AtestIntegrationTest(self.id(), self.injected_config)
-        atest.add_snapshot_include_paths(*self._default_include_paths)
-        atest.add_snapshot_exclude_paths(*self._default_exclude_paths)
-        atest.add_snapshot_restore_exclude_paths(
-            *self._default_restore_exclude_paths
+        atest.add_snapshot_include_paths(
+            *self._default_snapshot_take_include_paths
         )
-        atest.add_env_keys(*self._default_env_keys)
+        atest.add_snapshot_exclude_paths(
+            *self._default_snapshot_take_exclude_paths
+        )
+        atest.add_snapshot_restore_exclude_paths(
+            *self._default_snapshot_restore_exclude_paths
+        )
+        atest.add_snapshot_env_keys(*self._default_snapshot_env_keys)
         return atest
 
 

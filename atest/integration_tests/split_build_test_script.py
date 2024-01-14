@@ -69,10 +69,10 @@ class AtestIntegrationTest:
         self, name: str, config: _IntegrationTestConfiguration
     ) -> None:
         self._config = config
-        self._include_paths: List[str] = []
-        self._exclude_paths: List[str] = []
-        self._restore_exclude_paths: List[str] = []
-        self._env_keys: List[str] = []
+        self._snapshot_take_include_paths: List[str] = []
+        self._snapshot_take_exclude_paths: List[str] = []
+        self._snapshot_restore_exclude_paths: List[str] = []
+        self._snapshot_env_keys: List[str] = []
         self._id: str = name
         self._env: Dict[str, str] = None
         self._snapshot: Snapshot = Snapshot(self._config.snapshot_storage_path)
@@ -91,13 +91,13 @@ class AtestIntegrationTest:
                 'Unrecognized jdk directory ' + os.environ['ANDROID_JAVA_HOME']
             )
         repo_root = Path(os.environ[ANDROID_BUILD_TOP_KEY])
-        self._include_paths.append(
+        self._snapshot_take_include_paths.append(
             absolute_path.relative_to(repo_root).as_posix()
         )
 
     def add_snapshot_include_paths(self, *paths: str) -> None:
         """Add paths to include in snapshot artifacts."""
-        self._include_paths.extend(paths)
+        self._snapshot_take_include_paths.extend(paths)
 
     def set_snapshot_include_paths(self, *paths: str) -> None:
         """Set the snapshot include paths.
@@ -105,29 +105,29 @@ class AtestIntegrationTest:
         Note that the default include paths will be removed.
         Use add_snapshot_include_paths if that's not intended.
         """
-        self._include_paths.clear()
-        self._include_paths.extend(paths)
+        self._snapshot_take_include_paths.clear()
+        self._snapshot_take_include_paths.extend(paths)
 
     def add_snapshot_exclude_paths(self, *paths: str) -> None:
         """Add paths to exclude from snapshot artifacts."""
-        self._exclude_paths.extend(paths)
+        self._snapshot_take_exclude_paths.extend(paths)
 
     def add_snapshot_restore_exclude_paths(self, *paths: str) -> None:
         """Add paths to exclude from snapshot artifacts."""
-        self._restore_exclude_paths.extend(paths)
+        self._snapshot_restore_exclude_paths.extend(paths)
 
-    def add_env_keys(self, *keys: str) -> None:
+    def add_snapshot_env_keys(self, *keys: str) -> None:
         """Add environment variable keys for snapshot."""
-        self._env_keys.extend(keys)
+        self._snapshot_env_keys.extend(keys)
 
     def take_snapshot(self, name: str) -> None:
         """Take a snapshot of the repository and environment."""
         self._snapshot.take_snapshot(
             name,
             self.get_repo_root(),
-            self._include_paths,
-            self._exclude_paths,
-            self._env_keys,
+            self._snapshot_take_include_paths,
+            self._snapshot_take_exclude_paths,
+            self._snapshot_env_keys,
         )
 
     def restore_snapshot(self, name: str) -> None:
@@ -135,7 +135,7 @@ class AtestIntegrationTest:
         self._env = self._snapshot.restore_snapshot(
             name,
             self._config.workspace_path.as_posix(),
-            exclude_paths=self._restore_exclude_paths,
+            exclude_paths=self._snapshot_restore_exclude_paths,
         )
 
     def in_build_env(self) -> bool:
