@@ -77,15 +77,15 @@ class AtestTestCase(unittest.TestCase):
         """Create an instance of atest integration test utility."""
         atest = AtestIntegrationTest(self.id(), self.injected_config)
         atest.add_snapshot_include_paths(
-            *self._default_snapshot_take_include_paths
+            self._default_snapshot_take_include_paths
         )
         atest.add_snapshot_exclude_paths(
-            *self._default_snapshot_take_exclude_paths
+            self._default_snapshot_take_exclude_paths
         )
         atest.add_snapshot_restore_exclude_paths(
-            *self._default_snapshot_restore_exclude_paths
+            self._default_snapshot_restore_exclude_paths
         )
-        atest.add_snapshot_env_keys(*self._default_snapshot_env_keys)
+        atest.add_snapshot_env_keys(self._default_snapshot_env_keys)
         return atest
 
 

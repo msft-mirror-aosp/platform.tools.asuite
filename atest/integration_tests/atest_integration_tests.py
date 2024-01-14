@@ -1274,9 +1274,7 @@ class CommandVerificationTests(AtestTestCase):
                 cwd=atest.get_repo_root(),
                 encoding='utf-8',
             )
-            atest.set_snapshot_include_paths(
-                self._runner_commands_json
-            )
+            atest.set_snapshot_include_paths([self._runner_commands_json])
 
         if atest.in_test_env():
             with open(

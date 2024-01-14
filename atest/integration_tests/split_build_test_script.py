@@ -95,11 +95,11 @@ class AtestIntegrationTest:
             absolute_path.relative_to(repo_root).as_posix()
         )
 
-    def add_snapshot_include_paths(self, *paths: str) -> None:
+    def add_snapshot_include_paths(self, paths: list[str]) -> None:
         """Add paths to include in snapshot artifacts."""
         self._snapshot_take_include_paths.extend(paths)
 
-    def set_snapshot_include_paths(self, *paths: str) -> None:
+    def set_snapshot_include_paths(self, paths: list[str]) -> None:
         """Set the snapshot include paths.
 
         Note that the default include paths will be removed.
@@ -108,15 +108,15 @@ class AtestIntegrationTest:
         self._snapshot_take_include_paths.clear()
         self._snapshot_take_include_paths.extend(paths)
 
-    def add_snapshot_exclude_paths(self, *paths: str) -> None:
+    def add_snapshot_exclude_paths(self, paths: list[str]) -> None:
         """Add paths to exclude from snapshot artifacts."""
         self._snapshot_take_exclude_paths.extend(paths)
 
-    def add_snapshot_restore_exclude_paths(self, *paths: str) -> None:
+    def add_snapshot_restore_exclude_paths(self, paths: list[str]) -> None:
         """Add paths to exclude from snapshot artifacts."""
         self._snapshot_restore_exclude_paths.extend(paths)
 
-    def add_snapshot_env_keys(self, *keys: str) -> None:
+    def add_snapshot_env_keys(self, keys: list[str]) -> None:
         """Add environment variable keys for snapshot."""
         self._snapshot_env_keys.extend(keys)
 
