@@ -41,11 +41,11 @@ from snapshot import Snapshot
 # Env key for the storage tar path.
 SNAPSHOT_STORAGE_TAR_KEY = 'SNAPSHOT_STORAGE_TAR_PATH'
 
-# Relative path to the repo root for storing the snapshots and workspace
-_INTEGRATION_TEST_OUT_DIR_REL_PATH = 'out/atest_integration_tests'
-
 # Env key for the repo root
-_ANDROID_BUILD_TOP_KEY = 'ANDROID_BUILD_TOP'
+ANDROID_BUILD_TOP_KEY = 'ANDROID_BUILD_TOP'
+
+# Relative path to the repo root for storing the snapshots and workspace
+_INTEGRATION_TEST_OUT_DIR_REL_PATH = 'out/asuite_integration_tests'
 
 
 class _IntegrationTestConfiguration:
@@ -65,53 +65,14 @@ class _IntegrationTestConfiguration:
 class AtestIntegrationTest:
     """Utility for running integration test in build and test environment."""
 
-    _default_include_paths = [
-        'out/host/linux-x86',
-        'out/target/product/*/module-info*',
-        'out/target/product/*/testcases',
-        'out/target/product/*/all_modules.txt',
-        'out/soong/module_bp*',
-        'tools/asuite/atest/test_runners/roboleaf_launched.txt',
-        '.repo/manifest.xml',
-        'build/soong/soong_ui.bash',
-        'build/bazel_common_rules/rules/python/stubs',
-        'build/bazel/bin',
-        'external/bazelbuild-rules_java',
-        'tools/asuite/atest/bazel/resources/bazel.sh',
-        'prebuilts/bazel/linux-x86_64',
-        'prebuilts/build-tools/path/linux-x86/python3',
-        'prebuilts/build-tools/linux-x86/bin/py3-cmd',
-        'prebuilts/build-tools',
-    ]
-
-    _default_exclude_paths = [
-        'out/host/linux-x86/bin/go',
-        'out/host/linux-x86/bin/soong_build',
-        'out/host/linux-x86/obj',
-    ]
-
-    _default_restore_exclude_paths = ['out/atest_bazel_workspace']
-
-    _default_env_keys = [
-        _ANDROID_BUILD_TOP_KEY,
-        'ANDROID_HOST_OUT',
-        'ANDROID_PRODUCT_OUT',
-        'ANDROID_HOST_OUT_TESTCASES',
-        'ANDROID_TARGET_OUT_TESTCASES',
-        'OUT',
-        'PATH',
-        'HOST_OUT_TESTCASES',
-        'ANDROID_JAVA_HOME',
-        'JAVA_HOME',
-    ]
-
     def __init__(
         self, name: str, config: _IntegrationTestConfiguration
     ) -> None:
         self._config = config
-        self._include_paths: List[str] = self._default_include_paths
-        self._exclude_paths: List[str] = self._default_exclude_paths
-        self._env_keys: List[str] = self._default_env_keys
+        self._include_paths: List[str] = []
+        self._exclude_paths: List[str] = []
+        self._restore_exclude_paths: List[str] = []
+        self._env_keys: List[str] = []
         self._id: str = name
         self._env: Dict[str, str] = None
         self._snapshot: Snapshot = Snapshot(self._config.snapshot_storage_path)
@@ -129,7 +90,7 @@ class AtestIntegrationTest:
             raise ValueError(
                 'Unrecognized jdk directory ' + os.environ['ANDROID_JAVA_HOME']
             )
-        repo_root = Path(os.environ[_ANDROID_BUILD_TOP_KEY])
+        repo_root = Path(os.environ[ANDROID_BUILD_TOP_KEY])
         self._include_paths.append(
             absolute_path.relative_to(repo_root).as_posix()
         )
@@ -151,6 +112,10 @@ class AtestIntegrationTest:
         """Add paths to exclude from snapshot artifacts."""
         self._exclude_paths.extend(paths)
 
+    def add_snapshot_restore_exclude_paths(self, *paths: str) -> None:
+        """Add paths to exclude from snapshot artifacts."""
+        self._restore_exclude_paths.extend(paths)
+
     def add_env_keys(self, *keys: str) -> None:
         """Add environment variable keys for snapshot."""
         self._env_keys.extend(keys)
@@ -170,7 +135,7 @@ class AtestIntegrationTest:
         self._env = self._snapshot.restore_snapshot(
             name,
             self._config.workspace_path.as_posix(),
-            exclude_paths=self._default_restore_exclude_paths,
+            exclude_paths=self._restore_exclude_paths,
         )
 
     def in_build_env(self) -> bool:
@@ -201,7 +166,7 @@ class AtestIntegrationTest:
         return self._config.device_serial
 
     def get_device_serial_args_or_empty(self) -> str:
-        """Gets atest arguments for device serial. May return empty string."""
+        """Gets command arguments for device serial. May return empty string."""
         if self._config.device_serial:
             return ' -s ' + self._config.device_serial
         if self._config.is_device_serial_required:
@@ -211,8 +176,8 @@ class AtestIntegrationTest:
     def get_repo_root(self) -> str:
         """Get repo root directory."""
         if self._config.is_build_env:
-            return os.environ[_ANDROID_BUILD_TOP_KEY]
-        return self._env[_ANDROID_BUILD_TOP_KEY]
+            return os.environ[ANDROID_BUILD_TOP_KEY]
+        return self._env[ANDROID_BUILD_TOP_KEY]
 
 
 class _FileCompressor:
@@ -265,7 +230,7 @@ class _FileCompressor:
 def parse_known_args(argv: list[str]) -> tuple[argparse.Namespace, List[str]]:
     """Parse command line args and check required args being provided."""
 
-    description = """A script to build and/or run the Atest integration tests.
+    description = """A script to build and/or run the Asuite integration tests.
 Usage examples:
    python <script_path>: Runs both the build and test steps.
    python <script_path> -b -t: Runs both the build and test steps.
@@ -423,8 +388,14 @@ def run_test(
         cleanup()
 
 
-def main() -> None:
-    """Main method to start the integration tests."""
+def main(make_before_build: list[str] = None) -> None:
+    """Main method to start the integration tests.
+
+    Args:
+        make_before_build: A list of targets to make before running build steps.
+    """
+    if make_before_build is None:
+        make_before_build = []
 
     args, unittest_argv = parse_known_args(sys.argv)
 
@@ -433,9 +404,9 @@ def main() -> None:
     snapshot_storage_dir_name = 'snapshot_storage'
     snapshot_storage_tar_name = 'snapshot.tar'
 
-    if _ANDROID_BUILD_TOP_KEY in os.environ:
+    if ANDROID_BUILD_TOP_KEY in os.environ:
         integration_test_out_path = Path(
-            os.environ[_ANDROID_BUILD_TOP_KEY]
+            os.environ[ANDROID_BUILD_TOP_KEY]
         ).joinpath(_INTEGRATION_TEST_OUT_DIR_REL_PATH)
         integration_test_out_path.parent.mkdir(parents=True, exist_ok=True)
     else:
@@ -445,7 +416,7 @@ def main() -> None:
     if SNAPSHOT_STORAGE_TAR_KEY in os.environ:
         snapshot_storage_tar_path = Path(os.environ[SNAPSHOT_STORAGE_TAR_KEY])
         snapshot_storage_tar_path.parent.mkdir(parents=True, exist_ok=True)
-    elif _ANDROID_BUILD_TOP_KEY in os.environ:
+    elif ANDROID_BUILD_TOP_KEY in os.environ:
         snapshot_storage_tar_path = integration_test_out_path.joinpath(
             snapshot_storage_tar_name
         )
@@ -468,22 +439,23 @@ def main() -> None:
     config.snapshot_storage_tar_path = snapshot_storage_tar_path
     config.workspace_path = integration_test_out_path.joinpath('workspace')
     # Device serial is not required during local run, and
-    # _ANDROID_BUILD_TOP_KEY env being available implies it's local run.
-    config.is_device_serial_required = not _ANDROID_BUILD_TOP_KEY in os.environ
+    # ANDROID_BUILD_TOP_KEY env being available implies it's local run.
+    config.is_device_serial_required = not ANDROID_BUILD_TOP_KEY in os.environ
     config.is_tar_snapshot = args.tar_snapshot
     config.is_compress_snapshot = args.compress_snapshot
 
     if config.is_build_env:
-        if _ANDROID_BUILD_TOP_KEY not in os.environ:
+        if ANDROID_BUILD_TOP_KEY not in os.environ:
             raise EnvironmentError(
-                f'Environment variable {_ANDROID_BUILD_TOP_KEY} is required to'
+                f'Environment variable {ANDROID_BUILD_TOP_KEY} is required to'
                 ' build the integration test.'
             )
 
-        subprocess.check_call(
-            'build/soong/soong_ui.bash --make-mode atest'.split(),
-            cwd=os.environ[_ANDROID_BUILD_TOP_KEY],
-        )
+        for target in make_before_build:
+            subprocess.check_call(
+                f'build/soong/soong_ui.bash --make-mode {target}'.split(),
+                cwd=os.environ[ANDROID_BUILD_TOP_KEY],
+            )
 
     if config.is_build_env ^ config.is_test_env:
         run_test(config, unittest_argv, args.test_output_file)
