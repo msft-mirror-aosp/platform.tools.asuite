@@ -311,11 +311,6 @@ def run_test(
 ) -> None:
     """Execute integration tests with given test configuration."""
 
-    if config.is_test_env and not config.snapshot_storage_tar_path.exists():
-        raise EnvironmentError(
-            f'Snapshot tar {config.snapshot_storage_tar_path} does not exist.'
-        )
-
     compressor = _FileCompressor()
 
     def cleanup() -> None:
@@ -325,6 +320,12 @@ def run_test(
             shutil.rmtree(config.snapshot_storage_path)
 
     if config.is_test_env and config.is_tar_snapshot:
+        if not config.snapshot_storage_tar_path.exists():
+            raise EnvironmentError(
+                f'Snapshot tar {config.snapshot_storage_tar_path} does not'
+                ' exist. Have you run the build mode with --tar_snapshot'
+                ' option enabled?'
+            )
         with tarfile.open(config.snapshot_storage_tar_path, 'r') as tar:
             tar.extractall(config.snapshot_storage_path.parent.as_posix())
         atexit.register(cleanup)
