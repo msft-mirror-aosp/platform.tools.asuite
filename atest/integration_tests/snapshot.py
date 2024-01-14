@@ -65,10 +65,6 @@ class Snapshot:
               snapshot.
             env_keys: A list of environment variable keys to save.
         """
-        if include_paths is None:
-            include_paths = []
-        if exclude_paths is None:
-            exclude_paths = []
         if env_keys is None:
             env_keys = []
         self._dir_snapshot.take_snapshot(
@@ -76,7 +72,9 @@ class Snapshot:
         )
         self._env_snapshot.take_snapshot(name, env_keys)
 
-    def restore_snapshot(self, name: str, root_path: str) -> Dict[str, str]:
+    def restore_snapshot(
+        self, name: str, root_path: str, exclude_paths: List[str] = None
+    ) -> Dict[str, str]:
         """Restores directory at given path to a snapshot with the given name.
 
         Args:
@@ -86,7 +84,7 @@ class Snapshot:
         Returns:
             Restored environment variables.
         """
-        self._dir_snapshot.restore_snapshot(name, root_path)
+        self._dir_snapshot.restore_snapshot(name, root_path, exclude_paths)
         return self._env_snapshot.restore_snapshot(name, root_path)
 
 
@@ -228,6 +226,26 @@ class DirSnapshot:
             for expanded_path in glob.glob(wildcard_path, recursive=True)
         ]
 
+    def _is_excluded(self, path: str, exclude_paths: List[Path]) -> bool:
+        """Check whether a path should be excluded."""
+        return exclude_paths and any(
+            path.startswith(exclude_path) for exclude_path in exclude_paths
+        )
+
+    def _filter_excluded_paths(
+        self, root: Path, paths: List[Path], exclude_paths: List[Path]
+    ) -> None:
+        """Filter a list of paths with a list of exclude paths."""
+        new_paths = [
+            path
+            for path in paths
+            if not self._is_excluded(os.path.join(root, path), exclude_paths)
+        ]
+        if len(new_paths) == len(paths):
+            return
+        paths.clear()
+        paths.extend(new_paths)
+
     def take_snapshot(
         self,
         name: str,
@@ -249,30 +267,18 @@ class DirSnapshot:
                 - A dictionary of FileInfo objects keyed by their relative path
                 within the directory.
         """
-        if include_paths is None:
-            include_paths = []
-        if exclude_paths is None:
-            exclude_paths = []
-        include_paths = self._expand_wildcard_paths(root_path, include_paths)
-        exclude_paths = self._expand_wildcard_paths(root_path, exclude_paths)
+        include_paths = (
+            self._expand_wildcard_paths(root_path, include_paths)
+            if include_paths
+            else []
+        )
+        exclude_paths = (
+            self._expand_wildcard_paths(root_path, exclude_paths)
+            if exclude_paths
+            else []
+        )
 
         file_infos = {}
-
-        def is_excluded(path: str) -> bool:
-            return exclude_paths and any(
-                path.startswith(exclude_path) for exclude_path in exclude_paths
-            )
-
-        def filter_excluded_paths(root: Path, paths: List[Path]) -> None:
-            new_paths = [
-                path
-                for path in paths
-                if not is_excluded(os.path.join(root, path))
-            ]
-            if len(new_paths) == len(paths):
-                return
-            paths.clear()
-            paths.extend(new_paths)
 
         def process_directory(path: Path) -> None:
             if path.is_symlink():
@@ -331,7 +337,7 @@ class DirSnapshot:
             )
 
         def process_path(path: Path) -> None:
-            if is_excluded(path.as_posix()):
+            if self._is_excluded(path.as_posix(), exclude_paths):
                 return
             if path.is_symlink():
                 process_link(path)
@@ -340,8 +346,10 @@ class DirSnapshot:
             elif path.is_dir():
                 process_directory(path)
                 for root, directories, files in os.walk(path):
-                    filter_excluded_paths(root, directories)
-                    filter_excluded_paths(root, files)
+                    self._filter_excluded_paths(
+                        root, directories, exclude_paths
+                    )
+                    self._filter_excluded_paths(root, files, exclude_paths)
                     for directory in directories:
                         process_directory(Path(root).joinpath(directory))
                     for file in files:
@@ -368,13 +376,17 @@ class DirSnapshot:
         return file_infos
 
     def restore_snapshot(
-        self, name: str, root_path: str
+        self,
+        name: str,
+        root_path: str,
+        exclude_paths: List[str] = None,
     ) -> Tuple[List[str], List[str], List[str]]:
         """Restores directory at given path to snapshot with given name.
 
         Args:
             root_path: The path to the root directory.
             name: The name of the snapshot.
+            exclude_paths: A list of relative paths to ignore during restoring.
 
         Returns:
             A tuple containing 3 lists:
@@ -391,79 +403,111 @@ class DirSnapshot:
                 key: FileInfo(**val) for key, val in json.load(f).items()
             }
 
-        def remove_extra_files():
-            deleted = []
-            for root, directories, files in os.walk(root_path):
-                for directory in directories:
-                    dir_path = Path(root).joinpath(directory)
-                    # Ignore non link directories because complicated to deal
-                    # with file paths in include filters and unnecessary
-                    if dir_path.is_symlink():
-                        dir_path.unlink()
-                for file in files:
-                    file_path = Path(root).joinpath(file)
-                    if file_path.is_symlink():
-                        file_path.unlink()
-                    elif (
-                        file_path.relative_to(root_path).as_posix()
-                        not in file_infos_dict
-                    ):
-                        file_path.unlink()
-                        deleted.append(file_path.as_posix())
-            return deleted
+        exclude_paths = (
+            self._expand_wildcard_paths(root_path, exclude_paths)
+            if exclude_paths
+            else []
+        )
 
-        def restore_directories():
-            for relative_path, file_info in file_infos_dict.items():
-                if not file_info.is_directory:
-                    continue
-                dir_path = Path(root_path).joinpath(relative_path)
-                dir_path.mkdir(parents=True, exist_ok=True)
-                os.chmod(dir_path, file_info.permissions)
-
-        def restore_files():
-            replaced = []
-            external_symlinks = []
-            for relative_path, file_info in file_infos_dict.items():
-                file_path = Path(root_path).joinpath(relative_path)
-                if file_info.symlink_target:
-                    if os.path.isabs(file_info.symlink_target):
-                        msg = (
-                            file_info.symlink_target
-                            + ' <- '
-                            + file_path.as_posix()
-                        )
-                        external_symlinks.append(msg)
-                        logging.error('Unexpected external link: %s', msg)
-                        continue
-                    target = Path(root_path).joinpath(file_info.symlink_target)
-                    file_path.parent.mkdir(parents=True, exist_ok=True)
-                    file_path.symlink_to(target)
-                    continue
-
-                if file_info.is_directory:
-                    continue
-
-                if (
-                    file_path.exists()
-                    and file_path.stat().st_mtime == file_info.timestamp
-                ):
-                    continue
-
-                file_path.parent.mkdir(parents=True, exist_ok=True)
-                file_path.unlink(missing_ok=True)
-                if not file_info.content_hash:
-                    file_path.touch()
-                else:
-                    file_path.write_bytes(
-                        self._blob_store.get(file_info.content_hash)
-                    )
-                os.utime(file_path, (file_info.timestamp, file_info.timestamp))
-                os.chmod(file_path, file_info.permissions)
-                replaced.append(file_path.as_posix())
-            return replaced, external_symlinks
-
-        deleted = remove_extra_files()
-        restore_directories()
-        replaced, external_symlinks = restore_files()
+        deleted = self._remove_extra_files(
+            file_infos_dict, root_path, exclude_paths
+        )
+        self._restore_directories(file_infos_dict, root_path, exclude_paths)
+        replaced, external_symlinks = self._restore_files(
+            file_infos_dict, root_path, exclude_paths
+        )
 
         return deleted, replaced, external_symlinks
+
+    def _remove_extra_files(
+        self,
+        file_infos_dict: dict[str, FileInfo],
+        root_path: str,
+        exclude_paths: List[str],
+    ):
+        """Internal method to remove extra files during snapshot restore."""
+        deleted = []
+        for root, directories, files in os.walk(root_path):
+            self._filter_excluded_paths(root, directories, exclude_paths)
+            self._filter_excluded_paths(root, files, exclude_paths)
+            for directory in directories:
+                dir_path = Path(root).joinpath(directory)
+                # Ignore non link directories because complicated to deal
+                # with file paths in include filters and unnecessary
+                if dir_path.is_symlink():
+                    dir_path.unlink()
+            for file in files:
+                file_path = Path(root).joinpath(file)
+                if file_path.is_symlink():
+                    file_path.unlink()
+                elif (
+                    file_path.relative_to(root_path).as_posix()
+                    not in file_infos_dict
+                ):
+                    file_path.unlink()
+                    deleted.append(file_path.as_posix())
+        return deleted
+
+    def _restore_directories(
+        self,
+        file_infos_dict: dict[str, FileInfo],
+        root_path: str,
+        exclude_paths: List[str],
+    ):
+        """Internal method to restore directories during snapshot restore."""
+        for relative_path, file_info in file_infos_dict.items():
+            if not file_info.is_directory:
+                continue
+            dir_path = Path(root_path).joinpath(relative_path)
+            if self._is_excluded(dir_path.as_posix(), exclude_paths):
+                continue
+            dir_path.mkdir(parents=True, exist_ok=True)
+            os.chmod(dir_path, file_info.permissions)
+
+    def _restore_files(
+        self,
+        file_infos_dict: dict[str, FileInfo],
+        root_path: str,
+        exclude_paths: List[str],
+    ):
+        """Internal method to restore files during snapshot restore."""
+        replaced = []
+        external_symlinks = []
+        for relative_path, file_info in file_infos_dict.items():
+            file_path = Path(root_path).joinpath(relative_path)
+            if self._is_excluded(file_path.as_posix(), exclude_paths):
+                continue
+            if file_info.symlink_target:
+                if os.path.isabs(file_info.symlink_target):
+                    msg = (
+                        file_info.symlink_target + ' <- ' + file_path.as_posix()
+                    )
+                    external_symlinks.append(msg)
+                    logging.error('Unexpected external link: %s', msg)
+                    continue
+                target = Path(root_path).joinpath(file_info.symlink_target)
+                file_path.parent.mkdir(parents=True, exist_ok=True)
+                file_path.symlink_to(target)
+                continue
+
+            if file_info.is_directory:
+                continue
+
+            if (
+                file_path.exists()
+                and file_path.stat().st_mtime == file_info.timestamp
+            ):
+                continue
+
+            file_path.parent.mkdir(parents=True, exist_ok=True)
+            file_path.unlink(missing_ok=True)
+            if not file_info.content_hash:
+                file_path.touch()
+            else:
+                file_path.write_bytes(
+                    self._blob_store.get(file_info.content_hash)
+                )
+            os.utime(file_path, (file_info.timestamp, file_info.timestamp))
+            os.chmod(file_path, file_info.permissions)
+            replaced.append(file_path.as_posix())
+        return replaced, external_symlinks

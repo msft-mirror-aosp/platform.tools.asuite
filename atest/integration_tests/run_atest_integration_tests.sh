@@ -14,10 +14,31 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# A script to test the end-to-end flow of Atest on the Android CI.
+# A script to build and/or run the Atest integration tests.
+# Usage examples:
+#   run_atest_integration_tests.sh: Runs both the build and test steps.
+#   run_atest_integration_tests.sh -b -t: Runs both the build and test steps.
+#   run_atest_integration_tests.sh --fast: Runs both build and test steps in
+#       fast mode. Some steps including clean ups will be skipped.
+#   run_atest_integration_tests.sh -b: Runs only the build steps.
+#   run_atest_integration_tests.sh -t: Runs only the test steps.
 
 set -eo pipefail
 set -x
+
+# Legacy support for the deprecated argument --artifacts_dir and directory name
+for ((i=1; i<=$#; i++)); do
+  arg="${@:$i:1}"
+  case "$arg" in
+    --artifacts_dir)
+      export SNAPSHOT_STORAGE_TAR_PATH="${@:$i+1:1}"/atest_integration_tests.tar
+      i=$((i+1))
+      ;;
+    *)
+      filtered_args+=("$arg")
+      ;;
+  esac
+done
 
 function get_build_var()
 {
@@ -79,4 +100,4 @@ export PATH=${PWD}/prebuilts/build-tools/path/linux-x86:${PWD}/build/bazel/bin:$
 # build with minimal reliance on host tools.
 export PATH=${ANDROID_JAVA_HOME}/bin:${PATH}
 
-python3 tools/asuite/atest/integration_tests/atest_ci_tests.py $@
+python3 tools/asuite/atest/integration_tests/atest_integration_tests.py $@
