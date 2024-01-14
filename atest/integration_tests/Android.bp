@@ -55,10 +55,20 @@ python_test_host {
 }
 
 python_library_host {
-    name: "atest_integration_test_utils",
+    name: "asuite_integration_test_lib",
+    srcs: [
+        "snapshot.py",
+        "split_build_test_script.py",
+    ],
+}
+
+python_library_host {
+    name: "atest_integration_test_lib",
     srcs: [
         "atest_integration_test.py",
-        "snapshot.py",
+    ],
+    libs: [
+        "asuite_integration_test_lib",
     ],
 }
 
@@ -67,12 +77,12 @@ python_test_host {
     srcs: [
         "atest_integration_tests.py",
     ],
-    test_config_template: "atest_integration_tests.xml",
+    test_config_template: "split_build_test_script_config.xml",
     test_options: {
         unit_test: false,
     },
     libs: [
-        "atest_integration_test_utils",
+        "atest_integration_test_lib",
     ],
     test_suites: [
         "general-tests",
