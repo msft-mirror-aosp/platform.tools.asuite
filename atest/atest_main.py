@@ -1106,7 +1106,7 @@ def main(
         # Tradefed if the tests require a device.
         _validate_adb_devices(args, test_infos)
 
-    device_update_method.update()
+    device_update_method.update(extra_args.get(constants.SERIAL, []))
 
     tests_exit_code = ExitCode.SUCCESS
     test_start = time.time()
