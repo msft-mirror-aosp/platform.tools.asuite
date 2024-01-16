@@ -25,8 +25,8 @@ SplitBuildTestScript = split_build_test_script.SplitBuildTestScript
 class AtestTestCase(split_build_test_script.SplitBuildTestTestCase):
     """Base test case for build-test environment split integration tests."""
 
-    # Default include list of repo paths for taking snapshot
-    _default_snapshot_take_include_paths = [
+    # Default include list of repo paths for snapshot
+    _default_snapshot_include_paths = [
         'out/host/linux-x86',
         'out/target/product/*/module-info*',
         'out/target/product/*/testcases',
@@ -45,15 +45,13 @@ class AtestTestCase(split_build_test_script.SplitBuildTestTestCase):
         'prebuilts/build-tools',
     ]
 
-    # Default exclude list of repo paths for taking snapshot
-    _default_snapshot_take_exclude_paths = [
+    # Default exclude list of repo paths for snapshot
+    _default_snapshot_exclude_paths = [
         'out/host/linux-x86/bin/go',
         'out/host/linux-x86/bin/soong_build',
         'out/host/linux-x86/obj',
+        'out/atest_bazel_workspace',
     ]
-
-    # Default exclude list of repo paths for restoring snapshot
-    _default_snapshot_restore_exclude_paths = ['out/atest_bazel_workspace']
 
     # Default list of environment variables to take and restore in snapshots
     _default_snapshot_env_keys = [
@@ -72,15 +70,8 @@ class AtestTestCase(split_build_test_script.SplitBuildTestTestCase):
     def create_atest_script(self) -> SplitBuildTestScript:
         """Create an instance of atest integration test utility."""
         script = self.create_split_build_test_script(self.id())
-        script.add_snapshot_include_paths(
-            self._default_snapshot_take_include_paths
-        )
-        script.add_snapshot_exclude_paths(
-            self._default_snapshot_take_exclude_paths
-        )
-        script.add_snapshot_restore_exclude_paths(
-            self._default_snapshot_restore_exclude_paths
-        )
+        script.add_snapshot_include_paths(self._default_snapshot_include_paths)
+        script.add_snapshot_exclude_paths(self._default_snapshot_exclude_paths)
         script.add_snapshot_env_keys(self._default_snapshot_env_keys)
         return script
 
