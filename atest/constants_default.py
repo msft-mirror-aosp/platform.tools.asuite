@@ -175,6 +175,7 @@ SUITE_PLANS = frozenset(['cts'])
 # Constants of Steps
 REBUILD_MODULE_INFO_FLAG = '--rebuild-module-info'
 BUILD_STEP = 'build'
+DEVICE_UPDATE_STEP = 'update_device'
 INSTALL_STEP = 'install'
 TEST_STEP = 'test'
 ALL_STEPS = [BUILD_STEP, INSTALL_STEP, TEST_STEP]

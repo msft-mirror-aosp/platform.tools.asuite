@@ -54,16 +54,6 @@ python_test_host {
     },
 }
 
-java_library_host {
-    name: "atest_integration_test_harness",
-    srcs: [
-        "src/main/java/**/*.java",
-    ],
-    libs: [
-        "tradefed",
-    ],
-}
-
 python_library_host {
     name: "atest_integration_test_utils",
     srcs: [
@@ -73,26 +63,23 @@ python_library_host {
 }
 
 python_test_host {
-    name: "atest_ci_tests",
+    name: "atest_integration_tests",
     srcs: [
-        "atest_ci_tests.py",
+        "atest_integration_tests.py",
     ],
-    test_config_template: "atest_ci_tests.xml",
+    test_config_template: "atest_integration_tests.xml",
     test_options: {
         unit_test: false,
     },
     libs: [
         "atest_integration_test_utils",
     ],
-    java_data: [
-        "atest_integration_test_harness",
-    ],
     test_suites: [
         "general-tests",
     ],
     version: {
-      py3: {
-        embedded_launcher: true,
-      },
+        py3: {
+            embedded_launcher: true,
+        },
     },
 }

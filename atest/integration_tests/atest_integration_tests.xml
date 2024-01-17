@@ -14,12 +14,11 @@
      limitations under the License.
 -->
 <configuration>
-    <target_preparer class="com.android.atest.IntegrationTestArtifactPathOptionProxy"/>
     <test class="com.android.tradefed.testtype.python.PythonBinaryHostTest" >
       <option name="par-file-name" value="{MODULE}"/>
       <option name="test-timeout" value="360m" />
       <option name="inject-serial-option" value="true" />
       <option name="use-test-output-file" value="true" />
-      <option name="python-options" value="-t" />
+      <option name="inject-build-key" value="snapshot_storage_tar_path" />
     </test>
 </configuration>
