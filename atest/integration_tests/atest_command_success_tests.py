@@ -18,7 +18,7 @@
 
 import subprocess
 
-from atest_integration_test import AtestTestCase, main
+from atest_integration_test import AtestTestCase, StepInput, StepOutput, main
 
 
 class CommandSuccessTests(AtestTestCase):
@@ -26,47 +26,59 @@ class CommandSuccessTests(AtestTestCase):
 
     def test_csuite_harness_tests(self):
         """Test if csuite-harness-tests command runs successfully."""
-        atest = self.create_atest_script()
-        if atest.in_build_env():
+        script = self.create_atest_script()
+
+        def build_step(step_in: StepInput) -> StepOutput:
             subprocess.run(
                 'atest-dev -b csuite-harness-tests'.split(),
                 check=True,
-                env=atest.get_env(),
-                cwd=atest.get_repo_root(),
+                env=step_in.get_env(),
+                cwd=step_in.get_repo_root(),
             )
+            return self.create_step_output()
 
-        if atest.in_test_env():
+        def test_step(step_in: StepInput) -> None:
             subprocess.run(
                 (
                     'atest-dev -it csuite-harness-tests'
-                    + atest.get_device_serial_args_or_empty()
+                    + step_in.get_device_serial_args_or_empty()
                 ).split(),
                 check=True,
-                env=atest.get_env(),
-                cwd=atest.get_repo_root(),
+                env=step_in.get_env(),
+                cwd=step_in.get_repo_root(),
             )
+
+        script.add_build_step(build_step)
+        script.add_test_step(test_step)
+        script.run()
 
     def test_csuite_cli_test(self):
         """Test if csuite_cli_test command runs successfully."""
-        atest = self.create_atest_script()
-        if atest.in_build_env():
+        script = self.create_atest_script()
+
+        def build_step(step_in: StepInput) -> StepOutput:
             subprocess.run(
                 'atest-dev -b csuite_cli_test'.split(),
                 check=True,
-                env=atest.get_env(),
-                cwd=atest.get_repo_root(),
+                env=step_in.get_env(),
+                cwd=step_in.get_repo_root(),
             )
+            return self.create_step_output()
 
-        if atest.in_test_env():
+        def test_step(step_in: StepInput) -> None:
             subprocess.run(
                 (
                     'atest-dev -it csuite_cli_test'
-                    + atest.get_device_serial_args_or_empty()
+                    + step_in.get_device_serial_args_or_empty()
                 ).split(),
                 check=True,
-                env=atest.get_env(),
-                cwd=atest.get_repo_root(),
+                env=step_in.get_env(),
+                cwd=step_in.get_repo_root(),
             )
+
+        script.add_build_step(build_step)
+        script.add_test_step(test_step)
+        script.run()
 
 
 if __name__ == '__main__':

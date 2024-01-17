@@ -15,11 +15,15 @@
 # limitations under the License.
 
 """Base test module for Atest integration tests."""
+import os
+from pathlib import Path
 
 import split_build_test_script
 
 # Exporting for test modules' typing reference
 SplitBuildTestScript = split_build_test_script.SplitBuildTestScript
+StepInput = split_build_test_script.StepInput
+StepOutput = split_build_test_script.StepOutput
 
 
 class AtestTestCase(split_build_test_script.SplitBuildTestTestCase):
@@ -50,7 +54,6 @@ class AtestTestCase(split_build_test_script.SplitBuildTestTestCase):
         'out/host/linux-x86/bin/go',
         'out/host/linux-x86/bin/soong_build',
         'out/host/linux-x86/obj',
-        'out/atest_bazel_workspace',
     ]
 
     # Default list of environment variables to take and restore in snapshots
@@ -70,10 +73,33 @@ class AtestTestCase(split_build_test_script.SplitBuildTestTestCase):
     def create_atest_script(self) -> SplitBuildTestScript:
         """Create an instance of atest integration test utility."""
         script = self.create_split_build_test_script(self.id())
-        script.add_snapshot_include_paths(self._default_snapshot_include_paths)
-        script.add_snapshot_exclude_paths(self._default_snapshot_exclude_paths)
-        script.add_snapshot_env_keys(self._default_snapshot_env_keys)
+        script.add_snapshot_restore_exclude_paths(['out/atest_bazel_workspace'])
         return script
+
+    def create_step_output(self) -> StepOutput:
+        """Create a step output object with default values."""
+        out = StepOutput()
+        out.add_snapshot_include_paths(self._default_snapshot_include_paths)
+        out.add_snapshot_exclude_paths(self._default_snapshot_exclude_paths)
+        out.add_snapshot_env_keys(self._default_snapshot_env_keys)
+        out.add_snapshot_include_paths(self._get_jdk_path_list())
+        return out
+
+    def _get_jdk_path_list(self) -> str:
+        """Get the relative jdk directory in build environment."""
+        if split_build_test_script.ANDROID_BUILD_TOP_KEY not in os.environ:
+            return []
+        absolute_path = Path(os.environ['ANDROID_JAVA_HOME'])
+        while not absolute_path.name.startswith('jdk'):
+            absolute_path = absolute_path.parent
+        if not absolute_path.name.startswith('jdk'):
+            raise ValueError(
+                'Unrecognized jdk directory ' + os.environ['ANDROID_JAVA_HOME']
+            )
+        repo_root = Path(
+            os.environ[split_build_test_script.ANDROID_BUILD_TOP_KEY]
+        )
+        return [absolute_path.relative_to(repo_root).as_posix()]
 
 
 def main():
