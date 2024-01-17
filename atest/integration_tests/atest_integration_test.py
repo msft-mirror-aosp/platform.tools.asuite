@@ -23,10 +23,13 @@ restoration later.
 
 import argparse
 import atexit
+from concurrent.futures import ThreadPoolExecutor
 import copy
+import multiprocessing
 import os
 from pathlib import Path
 import shutil
+import subprocess
 import sys
 import tarfile
 import tempfile
@@ -62,7 +65,6 @@ class _IntegrationTestConfiguration:
     is_build_env: bool = False
     is_test_env: bool = False
     is_device_serial_required = True
-    is_fast_mode = False
     snapshot_storage_path: Path = None
     snapshot_storage_tar_path: Path = None
     workspace_path: Path = None
@@ -221,10 +223,69 @@ class AtestIntegrationTest:
         return self._env[_ANDROID_BUILD_TOP_KEY]
 
 
+class _FileCompressor:
+    """Class for compressing and decompressing files."""
+
+    def compress_all_sub_files(self, root_path: Path) -> None:
+        """Compresses all files in the given directory and subdirectories.
+
+        Args:
+            root_path: Path to the root directory.
+        """
+        cpu_count = multiprocessing.cpu_count()
+        with ThreadPoolExecutor(max_workers=cpu_count) as executor:
+            for file_path in root_path.rglob('*'):
+                if file_path.is_file():
+                    executor.submit(self.compress_file, file_path)
+
+    def compress_file(self, file_path: Path) -> None:
+        """Compresses a single file using tarfile.
+
+        Args:
+            file_path: Path to the file to compress.
+        """
+        with tarfile.open(file_path.with_suffix('.bz2'), 'w:bz2') as tar:
+            tar.add(file_path, arcname=file_path.name)
+        file_path.unlink()
+
+    def decompress_all_sub_files(self, root_path: Path) -> None:
+        """Decompresses all compressed sub files in the given directory.
+
+        Args:
+            root_path: Path to the root directory.
+        """
+        cpu_count = multiprocessing.cpu_count()
+        with ThreadPoolExecutor(max_workers=cpu_count) as executor:
+            for file_path in root_path.rglob('*.bz2'):
+                executor.submit(self.decompress_file, file_path)
+
+    def decompress_file(self, file_path: Path) -> None:
+        """Decompresses a single file using tarfile.
+
+        Args:
+            file_path: Path to the compressed file.
+        """
+        with tarfile.open(file_path, 'r:bz2') as tar:
+            tar.extractall(file_path.parent)
+        file_path.unlink()
+
+
 def parse_known_args(argv: list[str]) -> tuple[argparse.Namespace, List[str]]:
     """Parse command line args and check required args being provided."""
 
-    parser = argparse.ArgumentParser(add_help=True)
+    description = """A script to build and/or run the Atest integration tests.
+Usage examples:
+   python <script_path>: Runs both the build and test steps.
+   python <script_path> -b -t: Runs both the build and test steps.
+   python <script_path> -b: Runs only the build steps.
+   python <script_path> -t: Runs only the test steps.
+"""
+
+    parser = argparse.ArgumentParser(
+        add_help=True,
+        description=description,
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
 
     parser.add_argument(
         '-b',
@@ -244,16 +305,6 @@ def parse_known_args(argv: list[str]) -> tuple[argparse.Namespace, List[str]]:
         help=(
             'Run test steps. Can be set to true together with the build option.'
             ' If both build and test are unset, will run both steps.'
-        ),
-    )
-    parser.add_argument(
-        '--fast',
-        action='store_true',
-        default=False,
-        help=(
-            'Skip some steps to enable faster local development. Test result'
-            ' may be different from a full run and some clean up steps may be'
-            ' skipped.'
         ),
     )
 
@@ -290,15 +341,19 @@ def run_test(
             f'Snapshot tar {config.snapshot_storage_tar_path} does not exist.'
         )
 
+    compressor = _FileCompressor()
+
     def cleanup() -> None:
         if config.workspace_path.exists():
             shutil.rmtree(config.workspace_path)
         if config.snapshot_storage_path.exists():
             shutil.rmtree(config.snapshot_storage_path)
 
-    if config.is_test_env and not config.is_fast_mode:
+    if config.is_test_env:
         with tarfile.open(config.snapshot_storage_tar_path, 'r') as tar:
             tar.extractall(config.snapshot_storage_path.parent.as_posix())
+        print('Decompressing the snapshot storage...')
+        compressor.decompress_all_sub_files(config.snapshot_storage_path)
         atexit.register(cleanup)
 
     def unittest_main(stream=None):
@@ -347,7 +402,9 @@ def run_test(
     else:
         unittest_main(stream=None)
 
-    if config.is_build_env and not config.is_fast_mode:
+    if config.is_build_env:
+        print('Compressing the snapshot storage...')
+        compressor.compress_all_sub_files(config.snapshot_storage_path)
         with tarfile.open(config.snapshot_storage_tar_path, 'w') as tar:
             tar.add(
                 config.snapshot_storage_path,
@@ -403,7 +460,18 @@ def main() -> None:
     # Device serial is not required during local run, and
     # _ANDROID_BUILD_TOP_KEY env being available implies it's local run.
     config.is_device_serial_required = not _ANDROID_BUILD_TOP_KEY in os.environ
-    config.is_fast_mode = args.fast
+
+    if config.is_build_env:
+        if _ANDROID_BUILD_TOP_KEY not in os.environ:
+            raise EnvironmentError(
+                f'Environment variable {_ANDROID_BUILD_TOP_KEY} is required to'
+                ' build the integration test.'
+            )
+
+        subprocess.check_call(
+            'build/soong/soong_ui.bash --make-mode atest'.split(),
+            cwd=os.environ[_ANDROID_BUILD_TOP_KEY],
+        )
 
     if config.is_build_env ^ config.is_test_env:
         run_test(config, unittest_argv, args.test_output_file)
