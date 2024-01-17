@@ -59,7 +59,6 @@ class _IntegrationTestConfiguration:
     snapshot_storage_tar_path: Path = None
     workspace_path: Path = None
     is_tar_snapshot: bool = False
-    is_compress_snapshot: bool = False
 
 
 class SplitBuildTestScript:
@@ -285,15 +284,6 @@ Usage examples:
             ' file.'
         ),
     )
-    parser.add_argument(
-        '--compress_snapshot',
-        action='store_true',
-        default=False,
-        help=(
-            'Whether to compress/decompress the snapshot storage to save disk'
-            ' space.'
-        ),
-    )
 
     # The below flags are passed in by the TF Python test runner.
     parser.add_argument(
@@ -340,11 +330,11 @@ def _run_test(
             )
         with tarfile.open(config.snapshot_storage_tar_path, 'r') as tar:
             tar.extractall(config.snapshot_storage_path.parent.as_posix())
-        atexit.register(cleanup)
 
-    if config.is_test_env and config.is_compress_snapshot:
         print('Decompressing the snapshot storage...')
         compressor.decompress_all_sub_files(config.snapshot_storage_path)
+
+        atexit.register(cleanup)
 
     def unittest_main(stream=None):
         # Note that we use a type and not an instance for 'testRunner'
@@ -388,11 +378,10 @@ def _run_test(
     else:
         unittest_main(stream=None)
 
-    if config.is_build_env and config.is_compress_snapshot:
+    if config.is_build_env and config.is_tar_snapshot:
         print('Compressing the snapshot storage...')
         compressor.compress_all_sub_files(config.snapshot_storage_path)
 
-    if config.is_build_env and config.is_tar_snapshot:
         with tarfile.open(config.snapshot_storage_tar_path, 'w') as tar:
             tar.add(
                 config.snapshot_storage_path,
@@ -455,7 +444,6 @@ def main(make_before_build: list[str] = None) -> None:
     # ANDROID_BUILD_TOP_KEY env being available implies it's local run.
     config.is_device_serial_required = not ANDROID_BUILD_TOP_KEY in os.environ
     config.is_tar_snapshot = args.tar_snapshot
-    config.is_compress_snapshot = args.compress_snapshot
 
     if config.is_build_env:
         if ANDROID_BUILD_TOP_KEY not in os.environ:
