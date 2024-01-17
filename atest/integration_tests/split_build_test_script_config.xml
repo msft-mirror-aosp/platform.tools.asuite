@@ -19,6 +19,6 @@
       <option name="test-timeout" value="360m" />
       <option name="inject-serial-option" value="true" />
       <option name="use-test-output-file" value="true" />
-      <option name="inject-build-key" value="snapshot_storage_tar_path" />
+      <option name="inject-build-key" value="SNAPSHOT_STORAGE_TAR_PATH" />
     </test>
 </configuration>
