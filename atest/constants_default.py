@@ -267,7 +267,9 @@ QCLASS_OUTPUT_RE = re.compile(r'(?P<java_path>.*/(?P<class>[A-Z]\w+)\.\w+)'
 PACKAGE_OUTPUT_RE = re.compile(r'(?P<java_dir>/.*/).*[.](java|kt)[:]\s*package\s+'
                                r'(?P<package>[^(;|\s)]+)\s*')
 
-ATEST_RESULT_ROOT = Path(tempfile.gettempdir(), 'atest_result')
+ATEST_RESULT_ROOT = Path(
+    tempfile.gettempdir(), 'atest_result_%s' % Path('~').expanduser().name
+)
 ATEST_TEST_RECORD_PROTO = 'test_record.proto'
 LATEST_RESULT_FILE = os.path.join(ATEST_RESULT_ROOT, 'LATEST', 'test_result')
 
