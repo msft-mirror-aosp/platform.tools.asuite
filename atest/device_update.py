@@ -56,8 +56,9 @@ class NoopUpdateMethod(DeviceUpdateMethod):
 class AdeviceUpdateMethod(DeviceUpdateMethod):
   _TOOL = 'adevice'
 
-  def __init__(self, adevice_path: Path = _TOOL):
+  def __init__(self, adevice_path: Path=_TOOL, targets: Set[str]=None):
     self._adevice_path = adevice_path
+    self._targets = targets or set()
 
   def update(self, serials: List[str] = None) -> None:
     try:
@@ -90,7 +91,7 @@ class AdeviceUpdateMethod(DeviceUpdateMethod):
       raise Error('Failed to update the device with adevice') from e
 
   def dependencies(self) -> Set[str]:
-    return {self._TOOL, 'sync'}
+    return self._targets.union({self._TOOL})
 
 
 class Error(Exception):
