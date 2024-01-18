@@ -49,31 +49,41 @@ ANDROID_BUILD_TOP_KEY = 'ANDROID_BUILD_TOP'
 _INTEGRATION_TEST_OUT_DIR_REL_PATH = 'out/asuite_integration_tests'
 
 
+class IntegrationTestConfiguration:
+    """Internal class to store integration test configuration."""
+
+    device_serial: str = None
+    is_build_env: bool = False
+    is_test_env: bool = False
+    is_device_serial_required = True
+    snapshot_storage_path: Path = None
+    snapshot_storage_tar_path: Path = None
+    workspace_path: Path = None
+    is_tar_snapshot: bool = False
+
+
 class StepInput:
     """Input information for a build/test step."""
 
-    def __init__(
-        self, env, repo_root, device_serial, is_device_serial_required, objs
-    ):
+    def __init__(self, env, repo_root, config, objs):
         self._env = env
         self._repo_root = repo_root
-        self._device_serial = device_serial
-        self._is_device_serial_required = is_device_serial_required
+        self._config = config
         self._objs = objs
 
     def get_device_serial_args_or_empty(self) -> str:
         """Gets command arguments for device serial. May return empty string."""
-        if self._device_serial:
-            return ' -s ' + self._device_serial
-        if self._is_device_serial_required:
+        if self._config.device_serial:
+            return ' -s ' + self._config.device_serial
+        if self._config.is_device_serial_required:
             raise RuntimeError('Device serial is required but not set')
         return ''
 
     def get_device_serial(self) -> str:
         """Returns the serial of the connected device. Throws if not set."""
-        if not self._device_serial:
+        if not self._config.device_serial:
             raise RuntimeError('Device serial is not set')
-        return self._device_serial
+        return self._config.device_serial
 
     def get_env(self):
         """Get environment variables."""
@@ -86,6 +96,10 @@ class StepInput:
     def get_obj(self, name: str) -> Any:
         """Get an object saved in previous snapshot."""
         return self._objs.get(name, None)
+
+    def get_config(self) -> IntegrationTestConfiguration:
+        """Get the integration test configuration."""
+        return self._config
 
 
 class StepOutput:
@@ -137,19 +151,6 @@ class StepOutput:
     def get_snapshot_objs(self):
         """Returns the stored snapshot object dictionary."""
         return self._snapshot_objs
-
-
-class IntegrationTestConfiguration:
-    """Internal class to store integration test configuration."""
-
-    device_serial: str = None
-    is_build_env: bool = False
-    is_test_env: bool = False
-    is_device_serial_required = True
-    snapshot_storage_path: Path = None
-    snapshot_storage_tar_path: Path = None
-    workspace_path: Path = None
-    is_tar_snapshot: bool = False
 
 
 class SplitBuildTestScript:
@@ -224,8 +225,7 @@ class SplitBuildTestScript:
                 step_in = StepInput(
                     os.environ,
                     self._get_repo_root(os.environ),
-                    self._config.device_serial,
-                    self._config.is_device_serial_required,
+                    self._config,
                     {},
                 )
                 last_exception = None
@@ -261,8 +261,7 @@ class SplitBuildTestScript:
                 step_in = StepInput(
                     env,
                     self._get_repo_root(env),
-                    self._config.device_serial,
-                    self._config.is_device_serial_required,
+                    self._config,
                     objs,
                 )
                 step.get_step_func()(step_in)

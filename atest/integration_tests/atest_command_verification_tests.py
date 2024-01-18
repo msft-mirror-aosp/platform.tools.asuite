@@ -20,7 +20,6 @@
 
 import json
 from pathlib import Path
-import subprocess
 from typing import Callable
 
 from atest_integration_test import AtestTestCase, SplitBuildTestScript
@@ -1228,12 +1227,6 @@ class CommandVerificationTests(AtestTestCase):
           test_args: A list of additional args to add to the test command for
             the given test.
         """
-        cmd_split = test_name.split()
-        cmd_list = ['atest-dev', '-g']
-        if test_args:
-            cmd_list.extend(test_args)
-        cmd_list.extend(cmd_split)
-
         script = self.create_atest_script()
 
         def build_step(step_in: StepInput) -> StepOutput:
@@ -1242,18 +1235,13 @@ class CommandVerificationTests(AtestTestCase):
                 'tools/asuite/atest/test_data/runner_commands.json'
             )
             runner_commands_json_path.unlink(missing_ok=True)
-            subprocess.run(
-                cmd_list,
-                check=True,
-                env=step_in.get_env(),
-                cwd=step_in.get_repo_root(),
-                encoding='utf-8',
+
+            cmd_combined = (
+                test_name + ' -g ' + ' '.join(test_args if test_args else [])
             )
-            with open(
-                runner_commands_json_path,
-                'r',
-                encoding='utf-8',
-            ) as f:
+            self.run_atest_dev(cmd_combined, step_in).check_returncode()
+
+            with open(runner_commands_json_path, 'r', encoding='utf-8') as f:
                 runner_cmds_dict = json.load(f)
 
             step_out = self.create_step_output()
