@@ -733,7 +733,7 @@ class MoblyTestRunner(test_runner_base.TestRunnerBase):
                 uploader)
             for test_result in test_results:
                 reporter.process_test_result(test_result)
-            reporter.set_current_summary(iteration_num)
+            reporter.set_current_iteration_summary(iteration_num)
             try:
                 uploader.upload_test_results()
                 uploader.upload_test_artifacts(latest_log_dir)
