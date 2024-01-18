@@ -48,11 +48,12 @@ class Snapshot:
         self._env_snapshot = _EnvSnapshot(storage_dir)
         self._obj_snapshot = _ObjectSnapshot(storage_dir)
 
+    # pylint: disable=too-many-arguments
     def take_snapshot(
         self,
         name: str,
         root_path: str,
-        include_paths: Optional[list[str]] = None,
+        include_paths: list[str],
         exclude_paths: Optional[list[str]] = None,
         env_keys: Optional[list[str]] = None,
         objs: Optional[dict[str, Any]] = None,
@@ -296,7 +297,7 @@ class _DirSnapshot:
         self,
         name: str,
         root_path: str,
-        include_paths: Optional[list[str]] = None,
+        include_paths: list[str],
         exclude_paths: Optional[list[str]] = None,
     ) -> tuple[dict[str, _FileInfo], list[str]]:
         """Creates a snapshot of the directory at the given path.
@@ -405,12 +406,8 @@ class _DirSnapshot:
                 # corner case which likely doesn't affect the test process.
                 logging.error('Unexpected path type: %s', path.as_posix())
 
-        for path in (
-            [Path(root_path)]
-            if not include_paths
-            else (Path(path) for path in include_paths)
-        ):
-            process_path(path)
+        for path in include_paths:
+            process_path(Path(path))
 
         snapshot_path = self._storage_path.joinpath(name + '_metadata.json')
         snapshot_path.parent.mkdir(parents=True, exist_ok=True)

@@ -39,16 +39,52 @@ class SnapshotTest(fake_filesystem_unittest.TestCase):
     def tearDown(self):
         shutil.rmtree(self.temp_dir)
 
+    def test_restore_dir_and_env_and_obj_from_snapshot(self):
+        """Test take and restore directory, environ, and objects together."""
+        workspace = self.temp_dir / 'workspace'
+        restore_dst_workspace = self.temp_dir / 'workspace2'
+        self.fs.create_dir(workspace)
+        self.fs.create_dir(workspace.joinpath('dir1'))
+        self.fs.create_file(
+            workspace.joinpath('dir1', 'file1'), contents='test'
+        )
+        env_key = 'env_name'
+        env_val = 'value'
+        obj_key = 'obj_name'
+        obj_val = 123
+        os.environ[env_key] = env_val
+        snapshot = Snapshot(self.temp_dir / 'db')
+        snapshot_name = 'a_snapshot_name'
+        snapshot.take_snapshot(
+            snapshot_name,
+            workspace,
+            ['*'],
+            env_keys=[env_key],
+            objs={obj_key: obj_val},
+        )
+
+        environ, objs = snapshot.restore_snapshot(
+            snapshot_name, restore_dst_workspace.as_posix()
+        )
+
+        self.assertTrue(
+            restore_dst_workspace.joinpath('dir1', 'file1').exists()
+        )
+        self.assertEqual(environ[env_key], env_val)
+        self.assertEqual(objs[obj_key], obj_val)
+
     def test_restore_objects_from_snapshot(self):
         """Test objects is restored from a snapshot."""
         workspace = self.temp_dir / 'workspace'
         self.fs.create_dir(workspace)
         snapshot = Snapshot(self.temp_dir / 'db')
         snapshot_name = 'a_snapshot_name'
-        objs = {'aa': {'b': False}}
-        snapshot.take_snapshot(snapshot_name, workspace, objs=objs)
+        objs = {'a': {'b': False}}
+        snapshot.take_snapshot('a_snapshot_name', workspace, ['*'], objs=objs)
 
-        env, actual_objs = snapshot.restore_snapshot(snapshot_name, workspace)
+        _env, actual_objs = snapshot.restore_snapshot(
+            snapshot_name, workspace.as_posix()
+        )
 
         self.assertEqual(objs, actual_objs)
 
@@ -59,7 +95,7 @@ class SnapshotTest(fake_filesystem_unittest.TestCase):
         snapshot = Snapshot(self.temp_dir / 'db')
         snapshot_name = 'a_snapshot_name'
 
-        snapshot.take_snapshot(snapshot_name, workspace)
+        snapshot.take_snapshot(snapshot_name, workspace, ['*'])
 
         self.assertTrue(
             self.temp_dir.joinpath(f'db/{snapshot_name}_metadata.json').exists()
@@ -76,7 +112,7 @@ class SnapshotTest(fake_filesystem_unittest.TestCase):
         snapshot = Snapshot(self.temp_dir / 'db')
         snapshot_name = 'a_snapshot_name'
 
-        snapshot.take_snapshot('a_snapshot_name', workspace)
+        snapshot.take_snapshot('a_snapshot_name', workspace, ['*'])
 
         with open(
             self.temp_dir / 'db' / f'{snapshot_name}_metadata.json',
@@ -131,7 +167,7 @@ class SnapshotTest(fake_filesystem_unittest.TestCase):
         snapshot_name = 'a_snapshot_name'
 
         snapshot.take_snapshot(
-            'a_snapshot_name', workspace, exclude_paths=['dir1']
+            'a_snapshot_name', workspace, ['*'], exclude_paths=['dir1']
         )
 
         with open(
@@ -180,7 +216,7 @@ class SnapshotTest(fake_filesystem_unittest.TestCase):
         self.fs.create_dir(workspace.joinpath('dir1'))
         snapshot = Snapshot(self.temp_dir / 'db')
         snapshot_name = 'a_snapshot_name'
-        snapshot.take_snapshot(snapshot_name, workspace)
+        snapshot.take_snapshot(snapshot_name, workspace, ['*'])
 
         restore_dir = self.temp_dir / 'restore'
         snapshot.restore_snapshot(snapshot_name, restore_dir)
@@ -197,10 +233,10 @@ class SnapshotTest(fake_filesystem_unittest.TestCase):
         )
         snapshot = Snapshot(self.temp_dir / 'db')
         snapshot_name = 'a_snapshot_name'
-        snapshot.take_snapshot(snapshot_name, workspace)
+        snapshot.take_snapshot(snapshot_name, workspace, ['*'])
         self.fs.remove(workspace.joinpath('dir1', 'file1'))
 
-        snapshot.restore_snapshot(snapshot_name, workspace)
+        snapshot.restore_snapshot(snapshot_name, workspace.as_posix())
 
         self.assertTrue(workspace.joinpath('dir1', 'file1').exists())
 
@@ -214,12 +250,12 @@ class SnapshotTest(fake_filesystem_unittest.TestCase):
         )
         snapshot = Snapshot(self.temp_dir / 'db')
         snapshot_name = 'a_snapshot_name'
-        snapshot.take_snapshot(snapshot_name, workspace)
+        snapshot.take_snapshot('a_snapshot_name', workspace, ['*'])
         self.fs.create_file(
             workspace.joinpath('dir1', 'file2'), contents='test'
         )
 
-        snapshot.restore_snapshot(snapshot_name, workspace)
+        snapshot.restore_snapshot(snapshot_name, workspace.as_posix())
 
         self.assertTrue(workspace.joinpath('dir1', 'file1').exists())
         self.assertFalse(workspace.joinpath('dir1', 'file2').exists())
@@ -233,13 +269,13 @@ class SnapshotTest(fake_filesystem_unittest.TestCase):
         self.fs.create_file(file_path, contents='test1')
         snapshot = Snapshot(self.temp_dir / 'db')
         snapshot_name = 'a_snapshot_name'
-        snapshot.take_snapshot(snapshot_name, workspace)
+        snapshot.take_snapshot(snapshot_name, workspace, ['*'])
         file_path.write_text('test2', encoding='utf-8')
         # Increment file's modified time by 10 milliseconds
         mtime = os.path.getmtime(file_path)
         os.utime(file_path, (mtime, mtime + 0.01))
 
-        snapshot.restore_snapshot(snapshot_name, workspace)
+        snapshot.restore_snapshot(snapshot_name, workspace.as_posix())
 
         self.assertEqual(
             workspace.joinpath('dir1', 'file1').read_text('utf-8'), 'test1'

@@ -33,6 +33,7 @@ import subprocess
 import sys
 import tarfile
 import tempfile
+import traceback
 from typing import Any, Callable
 import unittest
 
@@ -119,7 +120,7 @@ class StepOutput:
 
     def add_snapshot_obj(self, name: str, obj: Any):
         """Add objects to save in snapshot."""
-        self._snapshot_objs[str] = obj
+        self._snapshot_objs[name] = obj
 
     def get_snapshot_include_paths(self):
         """Returns the stored snapshot include path list."""
@@ -185,6 +186,28 @@ class SplitBuildTestScript:
             raise RuntimeError('A build step is required before a test step.')
         self._steps.append(self._TestStep(step_func))
 
+    def _exception_to_dict(self, exception: Exception):
+        """Converts an exception object to a dictionary to be saved by json."""
+        return {
+            'type': exception.__class__.__name__,
+            'message': str(exception),
+            'traceback': ''.join(traceback.format_tb(exception.__traceback__)),
+        }
+
+    def _dict_to_exception(self, exception_dict: dict[str, str]):
+        """Converts a dictionary to an exception object."""
+        return RuntimeError(
+            'The last build step raised an exception:\n'
+            '%s: %s\n'
+            'Traceback (from saved snapshot):\n'
+            '%s'
+            % (
+                exception_dict['type'],
+                exception_dict['message'],
+                exception_dict['traceback'],
+            )
+        )
+
     def run(self):
         """Run the steps added previously.
 
@@ -192,6 +215,9 @@ class SplitBuildTestScript:
         """
         if self._has_already_run:
             raise RuntimeError(f'Script {self.name} has already run.')
+        self._has_already_run = True
+
+        build_step_exception_key = '_internal_build_step_exception'
 
         for index, step in enumerate(self._steps):
             if isinstance(step, self._BuildStep) and self._config.is_build_env:
@@ -202,17 +228,36 @@ class SplitBuildTestScript:
                     self._config.is_device_serial_required,
                     {},
                 )
-                step_out = step.get_step_func()(step_in)
+                last_exception = None
+                try:
+                    step_out = step.get_step_func()(step_in)
+                # pylint: disable=broad-exception-caught
+                except Exception as e:
+                    last_exception = e
+                    step_out = StepOutput()
+                    step_out.add_snapshot_obj(
+                        build_step_exception_key, self._exception_to_dict(e)
+                    )
+
                 self._take_snapshot(
                     self._get_repo_root(os.environ),
                     self._id + '_' + str(index // 2),
                     step_out,
                 )
 
+                if last_exception:
+                    raise last_exception
+
             if isinstance(step, self._TestStep) and self._config.is_test_env:
                 env, objs = self._restore_snapshot(
                     self._id + '_' + str(index // 2)
                 )
+
+                if build_step_exception_key in objs:
+                    raise self._dict_to_exception(
+                        objs[build_step_exception_key]
+                    )
+
                 step_in = StepInput(
                     env,
                     self._get_repo_root(env),
@@ -221,8 +266,6 @@ class SplitBuildTestScript:
                     objs,
                 )
                 step.get_step_func()(step_in)
-
-        self._has_already_run = True
 
     def add_snapshot_restore_exclude_paths(self, paths: list[str]) -> None:
         """Add paths to ignore during snapshot directory restore."""
