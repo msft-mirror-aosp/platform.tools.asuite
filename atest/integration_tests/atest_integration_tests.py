@@ -16,6 +16,8 @@
 
 """A collection of integration test cases for atest."""
 
+# pylint: disable=too-many-lines
+
 import json
 from pathlib import Path
 import subprocess
@@ -80,24 +82,46 @@ class CommandVerificationTests(AtestTestCase):
     _runner_commands_json = (
         'tools/asuite/atest/test_data/runner_commands.json'
     )
-    # A file containing the test commands expected to be generate for specific
-    # tests.
-    _test_commands_json = (
-        'tools/asuite/atest/test_data/test_commands.json'
-    )
 
     def test_animator_test(self):
         """Verify that the test's command runs correctly."""
         test_name = 'AnimatorTest'
+        expected_cmd = [
+            "--atest-include-filter",
+            "--enable-parameterized-modules",
+            "--exclude-module-parameters",
+            "--exclude-module-parameters",
+            "--exclude-module-parameters",
+            "--log-level",
+            "--log-level-display",
+            "--module",
+            "--no-early-device-release",
+            "--no-enable-granular-attempts",
+            "--skip-loading-config-jar",
+            "--template:map",
+            "--template:map",
+            "--test-arg",
+            "CtsAnimationTestCases",
+            "CtsAnimationTestCases:android.animation.cts.AnimatorTest",
+            "VERBOSE",
+            "VERBOSE",
+            "atest_tradefed.sh",
+            "com.android.tradefed.testtype.AndroidJUnitTest:exclude"
+            "-annotation:android.platform.test.annotations.AppModeInstant",
+            "instant_app",
+            "log_saver=template/log/atest_log_saver",
+            "multi_abi",
+            "secondary_user",
+            "template/atest_local_min",
+            "test=atest"
+        ]
         self._verify_atest_internal_command(
             test_name,
             # atest_internal_command : a set of strings that represent a
             # test runner command.
             lambda atest_internal_command, atest:
             self.assertTrue(
-                self._get_expected_cmds_from_file(
-                    atest, test_name, self._test_commands_json
-                )
+                set(expected_cmd)
                 .issubset(atest_internal_command),
                 "The expected commands are not a subset of the runner "
                 "commands:\n" + str(atest_internal_command)
@@ -107,15 +131,42 @@ class CommandVerificationTests(AtestTestCase):
     def test_cts_animation_test_cases_animator_test(self):
         """Verify that the test's command runs correctly."""
         test_name = 'CtsAnimationTestCases:AnimatorTest'
+        expected_cmd = [
+            "--atest-include-filter",
+            "--enable-parameterized-modules",
+            "--exclude-module-parameters",
+            "--exclude-module-parameters",
+            "--exclude-module-parameters",
+            "--log-level",
+            "--log-level-display",
+            "--module",
+            "--no-early-device-release",
+            "--no-enable-granular-attempts",
+            "--skip-loading-config-jar",
+            "--template:map",
+            "--template:map",
+            "--test-arg",
+            "CtsAnimationTestCases",
+            "CtsAnimationTestCases:android.animation.cts.AnimatorTest",
+            "VERBOSE",
+            "VERBOSE",
+            "atest_tradefed.sh",
+            "com.android.tradefed.testtype.AndroidJUnitTest:exclude"
+            "-annotation:android.platform.test.annotations.AppModeInstant",
+            "instant_app",
+            "log_saver=template/log/atest_log_saver",
+            "multi_abi",
+            "secondary_user",
+            "template/atest_local_min",
+            "test=atest"
+        ]
         self._verify_atest_internal_command(
             test_name,
             # atest_internal_command : a set of strings that represent a
             # test runner command.
             lambda atest_internal_command, atest:
             self.assertTrue(
-                self._get_expected_cmds_from_file(
-                    atest, test_name, self._test_commands_json
-                )
+                set(expected_cmd)
                 .issubset(atest_internal_command),
                 "The expected commands are not a subset of the runner "
                 "commands:\n" + str(atest_internal_command)
@@ -126,15 +177,36 @@ class CommandVerificationTests(AtestTestCase):
         """Verify that the test's command runs correctly."""
         test_name = ('CtsSampleDeviceTestCases:SampleDeviceTest#'
                      'testSharedPreferences')
+        expected_cmd = [
+            "--atest-include-filter",
+            "--include-filter",
+            "--log-level",
+            "--log-level-display",
+            "--no-early-device-release",
+            "--no-enable-granular-attempts",
+            "--skip-loading-config-jar",
+            "--template:map",
+            "--template:map",
+            "--test-arg",
+            "CtsSampleDeviceTestCases",
+            "CtsSampleDeviceTestCases:android.sample.cts.SampleDeviceTest"
+            "#testSharedPreferences",
+            "VERBOSE",
+            "VERBOSE",
+            "atest_tradefed.sh",
+            "com.android.tradefed.testtype.AndroidJUnitTest:exclude"
+            "-annotation:android.platform.test.annotations.AppModeInstant",
+            "log_saver=template/log/atest_log_saver",
+            "template/atest_local_min",
+            "test=atest"
+        ]
         self._verify_atest_internal_command(
             test_name,
             # atest_internal_command : a set of strings that represent a
             # test runner command.
             lambda atest_internal_command, atest:
             self.assertTrue(
-                self._get_expected_cmds_from_file(
-                    atest, test_name, self._test_commands_json
-                )
+                set(expected_cmd)
                 .issubset(atest_internal_command),
                 "The expected commands are not a subset of the runner "
                 "commands:\n" + str(atest_internal_command)
@@ -144,15 +216,35 @@ class CommandVerificationTests(AtestTestCase):
     def test_cts_sample_device_cases_android_sample_test(self):
         """Verify that the test's command runs correctly."""
         test_name = 'CtsSampleDeviceTestCases:android.sample.cts'
+        expected_cmd = [
+            "--atest-include-filter",
+            "--include-filter",
+            "--log-level",
+            "--log-level-display",
+            "--no-early-device-release",
+            "--no-enable-granular-attempts",
+            "--skip-loading-config-jar",
+            "--template:map",
+            "--template:map",
+            "--test-arg",
+            "CtsSampleDeviceTestCases",
+            "CtsSampleDeviceTestCases:android.sample.cts",
+            "VERBOSE",
+            "VERBOSE",
+            "atest_tradefed.sh",
+            "com.android.tradefed.testtype.AndroidJUnitTest:exclude"
+            "-annotation:android.platform.test.annotations.AppModeInstant",
+            "log_saver=template/log/atest_log_saver",
+            "template/atest_local_min",
+            "test=atest"
+        ]
         self._verify_atest_internal_command(
             test_name,
             # atest_internal_command : a set of strings that represent a
             # test runner command.
             lambda atest_internal_command, atest:
             self.assertTrue(
-                self._get_expected_cmds_from_file(
-                    atest, test_name, self._test_commands_json
-                )
+                set(expected_cmd)
                 .issubset(atest_internal_command),
                 "The expected commands are not a subset of the runner "
                 "commands:\n" + str(atest_internal_command)
@@ -163,15 +255,36 @@ class CommandVerificationTests(AtestTestCase):
         """Verify that the test's command runs correctly."""
         test_name = ('CtsSampleDeviceTestCases:android.sample.cts'
                      '.SampleDeviceReportLogTest')
+        expected_cmd = [
+            "--atest-include-filter",
+            "--include-filter",
+            "--log-level",
+            "--log-level-display",
+            "--no-early-device-release",
+            "--no-enable-granular-attempts",
+            "--skip-loading-config-jar",
+            "--template:map",
+            "--template:map",
+            "--test-arg",
+            "CtsSampleDeviceTestCases",
+            "CtsSampleDeviceTestCases:android.sample.cts"
+            ".SampleDeviceReportLogTest",
+            "VERBOSE",
+            "VERBOSE",
+            "atest_tradefed.sh",
+            "com.android.tradefed.testtype.AndroidJUnitTest:exclude"
+            "-annotation:android.platform.test.annotations.AppModeInstant",
+            "log_saver=template/log/atest_log_saver",
+            "template/atest_local_min",
+            "test=atest"
+        ]
         self._verify_atest_internal_command(
             test_name,
             # atest_internal_command : a set of strings that represent a
             # test runner command.
             lambda atest_internal_command, atest:
             self.assertTrue(
-                self._get_expected_cmds_from_file(
-                    atest, test_name, self._test_commands_json
-                )
+                set(expected_cmd)
                 .issubset(atest_internal_command),
                 "The expected commands are not a subset of the runner "
                 "commands:\n" + str(atest_internal_command)
@@ -181,15 +294,35 @@ class CommandVerificationTests(AtestTestCase):
     def test_cts_animation_cases_sample_device_cases_test(self):
         """Verify that the test's command runs correctly."""
         test_name = 'CtsAnimationTestCases CtsSampleDeviceTestCases'
+        expected_cmd = [
+            "--include-filter",
+            "--include-filter",
+            "--log-level",
+            "--log-level-display",
+            "--no-early-device-release",
+            "--no-enable-granular-attempts",
+            "--skip-loading-config-jar",
+            "--template:map",
+            "--template:map",
+            "--test-arg",
+            "CtsAnimationTestCases",
+            "CtsSampleDeviceTestCases",
+            "VERBOSE",
+            "VERBOSE",
+            "atest_tradefed.sh",
+            "com.android.tradefed.testtype.AndroidJUnitTest:exclude"
+            "-annotation:android.platform.test.annotations.AppModeInstant",
+            "log_saver=template/log/atest_log_saver",
+            "template/atest_local_min",
+            "test=atest"
+        ]
         self._verify_atest_internal_command(
             test_name,
             # atest_internal_command : a set of strings that represent a
             # test runner command.
             lambda atest_internal_command, atest:
             self.assertTrue(
-                self._get_expected_cmds_from_file(
-                    atest, test_name, self._test_commands_json
-                )
+                set(expected_cmd)
                 .issubset(atest_internal_command),
                 "The expected commands are not a subset of the runner "
                 "commands:\n" + str(atest_internal_command)
@@ -199,15 +332,32 @@ class CommandVerificationTests(AtestTestCase):
     def test_hello_world_tests_test(self):
         """Verify that the test's command runs correctly."""
         test_name = 'HelloWorldTests'
+        expected_cmd = [
+            "--include-filter",
+            "--include-filter",
+            "--log-level",
+            "--log-level-display",
+            "--no-early-device-release",
+            "--no-enable-granular-attempts",
+            "--skip-loading-config-jar",
+            "--template:map",
+            "--template:map",
+            "HelloWorldTests",
+            "VERBOSE",
+            "VERBOSE",
+            "atest_tradefed.sh",
+            "hallo-welt",
+            "log_saver=template/log/atest_log_saver",
+            "template/atest_local_min",
+            "test=atest"
+        ]
         self._verify_atest_internal_command(
             test_name,
             # atest_internal_command : a set of strings that represent a
             # test runner command.
             lambda atest_internal_command, atest:
             self.assertTrue(
-                self._get_expected_cmds_from_file(
-                    atest, test_name, self._test_commands_json
-                )
+                set(expected_cmd)
                 .issubset(atest_internal_command),
                 "The expected commands are not a subset of the runner "
                 "commands:\n" + str(atest_internal_command)
@@ -218,15 +368,40 @@ class CommandVerificationTests(AtestTestCase):
         """Verify that the test's command runs correctly."""
         test_name = ('MixedManagedProfileOwnerTest#'
                      'testPasswordSufficientInitially')
+        expected_cmd = [
+            "--atest-include-filter",
+            "--enable-parameterized-modules",
+            "--exclude-module-parameters",
+            "--exclude-module-parameters",
+            "--exclude-module-parameters",
+            "--log-level",
+            "--log-level-display",
+            "--module",
+            "--no-early-device-release",
+            "--no-enable-granular-attempts",
+            "--skip-loading-config-jar",
+            "--template:map",
+            "--template:map",
+            "CtsDevicePolicyManagerTestCases",
+            "CtsDevicePolicyManagerTestCases:com.android.cts.devicepolicy"
+            ".MixedManagedProfileOwnerTest#testPasswordSufficientInitially",
+            "VERBOSE",
+            "VERBOSE",
+            "atest_tradefed.sh",
+            "instant_app",
+            "log_saver=template/log/atest_log_saver",
+            "multi_abi",
+            "secondary_user",
+            "template/atest_local_min",
+            "test=atest"
+        ]
         self._verify_atest_internal_command(
             test_name,
             # atest_internal_command : a set of strings that represent a
             # test runner command.
             lambda atest_internal_command, atest:
             self.assertTrue(
-                self._get_expected_cmds_from_file(
-                    atest, test_name, self._test_commands_json
-                )
+                set(expected_cmd)
                 .issubset(atest_internal_command),
                 "The expected commands are not a subset of the runner "
                 "commands:\n" + str(atest_internal_command)
@@ -237,15 +412,33 @@ class CommandVerificationTests(AtestTestCase):
         """Verify that the test's command runs correctly."""
         test_name = ('PerInstance/CameraHidlTest#'
                      'configureInjectionStreamsAvailableOutputs/0_internal_0')
+        expected_cmd = [
+            "--atest-include-filter",
+            "--include-filter",
+            "--log-level",
+            "--log-level-display",
+            "--no-early-device-release",
+            "--no-enable-granular-attempts",
+            "--skip-loading-config-jar",
+            "--template:map",
+            "--template:map",
+            "VERBOSE",
+            "VERBOSE",
+            "VtsHalCameraProviderV2_4TargetTest",
+            "VtsHalCameraProviderV2_4TargetTest:PerInstance/CameraHidlTest"
+            ".configureInjectionStreamsAvailableOutputs/0_internal_0",
+            "atest_tradefed.sh",
+            "log_saver=template/log/atest_log_saver",
+            "template/atest_local_min",
+            "test=atest"
+        ]
         self._verify_atest_internal_command(
             test_name,
             # atest_internal_command : a set of strings that represent a
             # test runner command.
             lambda atest_internal_command, atest:
             self.assertTrue(
-                self._get_expected_cmds_from_file(
-                    atest, test_name, self._test_commands_json
-                )
+                set(expected_cmd)
                 .issubset(atest_internal_command),
                 "The expected commands are not a subset of the runner "
                 "commands:\n" + str(atest_internal_command)
@@ -255,15 +448,30 @@ class CommandVerificationTests(AtestTestCase):
     def test_quick_access_wallet_robo_test(self):
         """Verify that the test's command runs correctly."""
         test_name = 'QuickAccessWalletRoboTests'
+        expected_cmd = [
+            "--include-filter",
+            "--log-level",
+            "--log-level-display",
+            "--no-early-device-release",
+            "--no-enable-granular-attempts",
+            "--skip-loading-config-jar",
+            "--template:map",
+            "--template:map",
+            "QuickAccessWalletRoboTests",
+            "VERBOSE",
+            "VERBOSE",
+            "atest_tradefed.sh",
+            "log_saver=template/log/atest_log_saver",
+            "template/atest_local_min",
+            "test=atest"
+        ]
         self._verify_atest_internal_command(
             test_name,
             # atest_internal_command : a set of strings that represent a
             # test runner command.
             lambda atest_internal_command, atest:
             self.assertTrue(
-                self._get_expected_cmds_from_file(
-                    atest, test_name, self._test_commands_json
-                )
+                set(expected_cmd)
                 .issubset(atest_internal_command),
                 "The expected commands are not a subset of the runner "
                 "commands:\n" + str(atest_internal_command)
@@ -275,15 +483,33 @@ class CommandVerificationTests(AtestTestCase):
         test_name = ('VtsHalCameraProviderV2_4TargetTest:PerInstance/'
                      'CameraHidlTest#configureInjectionStreamsAvailableOutputs/'
                      '0_internal_0')
+        expected_cmd = [
+            "--atest-include-filter",
+            "--include-filter",
+            "--log-level",
+            "--log-level-display",
+            "--no-early-device-release",
+            "--no-enable-granular-attempts",
+            "--skip-loading-config-jar",
+            "--template:map",
+            "--template:map",
+            "VERBOSE",
+            "VERBOSE",
+            "VtsHalCameraProviderV2_4TargetTest",
+            "VtsHalCameraProviderV2_4TargetTest:PerInstance/CameraHidlTest"
+            ".configureInjectionStreamsAvailableOutputs/0_internal_0",
+            "atest_tradefed.sh",
+            "log_saver=template/log/atest_log_saver",
+            "template/atest_local_min",
+            "test=atest"
+        ]
         self._verify_atest_internal_command(
             test_name,
             # atest_internal_command : a set of strings that represent a
             # test runner command.
             lambda atest_internal_command, atest:
             self.assertTrue(
-                self._get_expected_cmds_from_file(
-                    atest, test_name, self._test_commands_json
-                )
+                set(expected_cmd)
                 .issubset(atest_internal_command),
                 "The expected commands are not a subset of the runner "
                 "commands:\n" + str(atest_internal_command)
@@ -293,15 +519,42 @@ class CommandVerificationTests(AtestTestCase):
     def test_android_animation_cts_test(self):
         """Verify that the test's command runs correctly."""
         test_name = 'android.animation.cts'
+        expected_cmd = [
+            "--atest-include-filter",
+            "--enable-parameterized-modules",
+            "--exclude-module-parameters",
+            "--exclude-module-parameters",
+            "--exclude-module-parameters",
+            "--log-level",
+            "--log-level-display",
+            "--module",
+            "--no-early-device-release",
+            "--no-enable-granular-attempts",
+            "--skip-loading-config-jar",
+            "--template:map",
+            "--template:map",
+            "--test-arg",
+            "CtsAnimationTestCases",
+            "CtsAnimationTestCases:android.animation.cts",
+            "VERBOSE",
+            "VERBOSE",
+            "atest_tradefed.sh",
+            "com.android.tradefed.testtype.AndroidJUnitTest:exclude"
+            "-annotation:android.platform.test.annotations.AppModeInstant",
+            "instant_app",
+            "log_saver=template/log/atest_log_saver",
+            "multi_abi",
+            "secondary_user",
+            "template/atest_local_min",
+            "test=atest"
+        ]
         self._verify_atest_internal_command(
             test_name,
             # atest_internal_command : a set of strings that represent a
             # test runner command.
             lambda atest_internal_command, atest:
             self.assertTrue(
-                self._get_expected_cmds_from_file(
-                    atest, test_name, self._test_commands_json
-                )
+                set(expected_cmd)
                 .issubset(atest_internal_command),
                 "The expected commands are not a subset of the runner "
                 "commands:\n" + str(atest_internal_command)
@@ -311,15 +564,36 @@ class CommandVerificationTests(AtestTestCase):
     def test_android_sample_cts_device_report_log_test(self):
         """Verify that the test's command runs correctly."""
         test_name = 'android.sample.cts.SampleDeviceReportLogTest'
+        expected_cmd = [
+            "--atest-include-filter",
+            "--include-filter",
+            "--log-level",
+            "--log-level-display",
+            "--no-early-device-release",
+            "--no-enable-granular-attempts",
+            "--skip-loading-config-jar",
+            "--template:map",
+            "--template:map",
+            "--test-arg",
+            "CtsSampleDeviceTestCases",
+            "CtsSampleDeviceTestCases:android.sample.cts"
+            ".SampleDeviceReportLogTest",
+            "VERBOSE",
+            "VERBOSE",
+            "atest_tradefed.sh",
+            "com.android.tradefed.testtype.AndroidJUnitTest:exclude"
+            "-annotation:android.platform.test.annotations.AppModeInstant",
+            "log_saver=template/log/atest_log_saver",
+            "template/atest_local_min",
+            "test=atest"
+        ]
         self._verify_atest_internal_command(
             test_name,
             # atest_internal_command : a set of strings that represent a
             # test runner command.
             lambda atest_internal_command, atest:
             self.assertTrue(
-                self._get_expected_cmds_from_file(
-                    atest, test_name, self._test_commands_json
-                )
+                set(expected_cmd)
                 .issubset(atest_internal_command),
                 "The expected commands are not a subset of the runner "
                 "commands:\n" + str(atest_internal_command)
@@ -329,15 +603,36 @@ class CommandVerificationTests(AtestTestCase):
     def test_android_sample_cts_shared_prefs_test(self):
         """Verify that the test's command runs correctly."""
         test_name = 'android.sample.cts.SampleDeviceTest#testSharedPreferences'
+        expected_cmd = [
+            "--atest-include-filter",
+            "--include-filter",
+            "--log-level",
+            "--log-level-display",
+            "--no-early-device-release",
+            "--no-enable-granular-attempts",
+            "--skip-loading-config-jar",
+            "--template:map",
+            "--template:map",
+            "--test-arg",
+            "CtsSampleDeviceTestCases",
+            "CtsSampleDeviceTestCases:android.sample.cts.SampleDeviceTest"
+            "#testSharedPreferences",
+            "VERBOSE",
+            "VERBOSE",
+            "atest_tradefed.sh",
+            "com.android.tradefed.testtype.AndroidJUnitTest:exclude"
+            "-annotation:android.platform.test.annotations.AppModeInstant",
+            "log_saver=template/log/atest_log_saver",
+            "template/atest_local_min",
+            "test=atest"
+        ]
         self._verify_atest_internal_command(
             test_name,
             # atest_internal_command : a set of strings that represent a
             # test runner command.
             lambda atest_internal_command, atest:
             self.assertTrue(
-                self._get_expected_cmds_from_file(
-                    atest, test_name, self._test_commands_json
-                )
+                set(expected_cmd)
                 .issubset(atest_internal_command),
                 "The expected commands are not a subset of the runner "
                 "commands:\n" + str(atest_internal_command)
@@ -347,15 +642,30 @@ class CommandVerificationTests(AtestTestCase):
     def test_hello_world_test(self):
         """Verify that the test's command runs correctly."""
         test_name = 'hello_world_test'
+        expected_cmd = [
+            "--include-filter",
+            "--log-level",
+            "--log-level-display",
+            "--no-early-device-release",
+            "--no-enable-granular-attempts",
+            "--skip-loading-config-jar",
+            "--template:map",
+            "--template:map",
+            "VERBOSE",
+            "VERBOSE",
+            "atest_tradefed.sh",
+            "hello_world_test",
+            "log_saver=template/log/atest_log_saver",
+            "template/atest_local_min",
+            "test=atest"
+        ]
         self._verify_atest_internal_command(
             test_name,
             # atest_internal_command : a set of strings that represent a
             # test runner command.
             lambda atest_internal_command, atest:
             self.assertTrue(
-                self._get_expected_cmds_from_file(
-                    atest, test_name, self._test_commands_json
-                )
+                set(expected_cmd)
                 .issubset(atest_internal_command),
                 "The expected commands are not a subset of the runner "
                 "commands:\n" + str(atest_internal_command)
@@ -365,15 +675,29 @@ class CommandVerificationTests(AtestTestCase):
     def test_native_benchmark_test(self):
         """Verify that the test's command runs correctly."""
         test_name = 'native-benchmark'
+        expected_cmd = [
+            "--include-filter",
+            "--log-level",
+            "--log-level-display",
+            "--no-early-device-release",
+            "--no-enable-granular-attempts",
+            "--template:map",
+            "--template:map",
+            "VERBOSE",
+            "VERBOSE",
+            "atest_tradefed.sh",
+            "log_saver=template/log/atest_log_saver",
+            "native-benchmark",
+            "template/atest_local_min",
+            "test=atest"
+        ]
         self._verify_atest_internal_command(
             test_name,
             # atest_internal_command : a set of strings that represent a
             # test runner command.
             lambda atest_internal_command, atest:
             self.assertTrue(
-                self._get_expected_cmds_from_file(
-                    atest, test_name, self._test_commands_json
-                )
+                set(expected_cmd)
                 .issubset(atest_internal_command),
                 "The expected commands are not a subset of the runner "
                 "commands:\n" + str(atest_internal_command)
@@ -383,15 +707,30 @@ class CommandVerificationTests(AtestTestCase):
     def test_platform_native_example_test(self):
         """Verify that the test's command runs correctly."""
         test_name = 'platform_testing/tests/example/native'
+        expected_cmd = [
+            "--include-filter",
+            "--log-level",
+            "--log-level-display",
+            "--no-early-device-release",
+            "--no-enable-granular-attempts",
+            "--skip-loading-config-jar",
+            "--template:map",
+            "--template:map",
+            "VERBOSE",
+            "VERBOSE",
+            "atest_tradefed.sh",
+            "hello_world_test",
+            "log_saver=template/log/atest_log_saver",
+            "template/atest_local_min",
+            "test=atest"
+        ]
         self._verify_atest_internal_command(
             test_name,
             # atest_internal_command : a set of strings that represent a
             # test runner command.
             lambda atest_internal_command, atest:
             self.assertTrue(
-                self._get_expected_cmds_from_file(
-                    atest, test_name, self._test_commands_json
-                )
+                set(expected_cmd)
                 .issubset(atest_internal_command),
                 "The expected commands are not a subset of the runner "
                 "commands:\n" + str(atest_internal_command)
@@ -401,15 +740,30 @@ class CommandVerificationTests(AtestTestCase):
     def test_platform_android_example_test(self):
         """Verify that the test's command runs correctly."""
         test_name = 'platform_testing/tests/example/native/Android.bp'
+        expected_cmd = [
+            "--include-filter",
+            "--log-level",
+            "--log-level-display",
+            "--no-early-device-release",
+            "--no-enable-granular-attempts",
+            "--skip-loading-config-jar",
+            "--template:map",
+            "--template:map",
+            "VERBOSE",
+            "VERBOSE",
+            "atest_tradefed.sh",
+            "hello_world_test",
+            "log_saver=template/log/atest_log_saver",
+            "template/atest_local_min",
+            "test=atest"
+        ]
         self._verify_atest_internal_command(
             test_name,
             # atest_internal_command : a set of strings that represent a
             # test runner command.
             lambda atest_internal_command, atest:
             self.assertTrue(
-                self._get_expected_cmds_from_file(
-                    atest, test_name, self._test_commands_json
-                )
+                set(expected_cmd)
                 .issubset(atest_internal_command),
                 "The expected commands are not a subset of the runner "
                 "commands:\n" + str(atest_internal_command)
@@ -419,15 +773,29 @@ class CommandVerificationTests(AtestTestCase):
     def test_tf_core_config_native_benchmark_test(self):
         """Verify that the test's command runs correctly."""
         test_name = 'tools/tradefederation/core/res/config/native-benchmark.xml'
+        expected_cmd = [
+            "--include-filter",
+            "--log-level",
+            "--log-level-display",
+            "--no-early-device-release",
+            "--no-enable-granular-attempts",
+            "--template:map",
+            "--template:map",
+            "VERBOSE",
+            "VERBOSE",
+            "atest_tradefed.sh",
+            "log_saver=template/log/atest_log_saver",
+            "native-benchmark",
+            "template/atest_local_min",
+            "test=atest"
+        ]
         self._verify_atest_internal_command(
             test_name,
             # atest_internal_command : a set of strings that represent a
             # test runner command.
             lambda atest_internal_command, atest:
             self.assertTrue(
-                self._get_expected_cmds_from_file(
-                    atest, test_name, self._test_commands_json
-                )
+                set(expected_cmd)
                 .issubset(atest_internal_command),
                 "The expected commands are not a subset of the runner "
                 "commands:\n" + str(atest_internal_command)
@@ -475,15 +843,33 @@ class CommandVerificationTests(AtestTestCase):
     def test_cts_wifi_aware_cases_test(self):
         """Verify that the test's command runs correctly."""
         test_name = 'CtsWifiAwareTestCases'
+        expected_cmd = [
+            "--include-filter",
+            "--log-level",
+            "--log-level-display",
+            "--multi-device-count",
+            "--no-early-device-release",
+            "--no-enable-granular-attempts",
+            "--replicate-parent-setup",
+            "--skip-loading-config-jar",
+            "--template:map",
+            "--template:map",
+            "2",
+            "CtsWifiAwareTestCases",
+            "VERBOSE",
+            "VERBOSE",
+            "atest_tradefed.sh",
+            "log_saver=template/log/atest_log_saver",
+            "template/atest_local_min",
+            "test=atest"
+        ]
         self._verify_atest_internal_command(
             test_name,
             # atest_internal_command : a set of strings that represent a
             # test runner command.
             lambda atest_internal_command, atest:
             self.assertTrue(
-                self._get_expected_cmds_from_file(
-                    atest, test_name, self._test_commands_json
-                )
+                set(expected_cmd)
                 .issubset(atest_internal_command),
                 "The expected commands are not a subset of the runner "
                 "commands:\n" + str(atest_internal_command)
@@ -493,15 +879,32 @@ class CommandVerificationTests(AtestTestCase):
     def test_pts_bot_test(self):
         """Verify that the test's command runs correctly."""
         test_name = 'pts-bot:PAN/GN/MISC/UUID/BV-01-C'
+        expected_cmd = [
+            "--atest-include-filter",
+            "--include-filter",
+            "--log-level",
+            "--log-level-display",
+            "--no-early-device-release",
+            "--no-enable-granular-attempts",
+            "--skip-loading-config-jar",
+            "--template:map",
+            "--template:map",
+            "VERBOSE",
+            "VERBOSE",
+            "atest_tradefed.sh",
+            "log_saver=template/log/atest_log_saver",
+            "pts-bot",
+            "pts-bot:PAN/GN/MISC/UUID/BV-01-C",
+            "template/atest_local_min",
+            "test=atest"
+        ]
         self._verify_atest_internal_command(
             test_name,
             # atest_internal_command : a set of strings that represent a
             # test runner command.
             lambda atest_internal_command, atest:
             self.assertTrue(
-                self._get_expected_cmds_from_file(
-                    atest, test_name, self._test_commands_json
-                )
+                set(expected_cmd)
                 .issubset(atest_internal_command),
                 "The expected commands are not a subset of the runner "
                 "commands:\n" + str(atest_internal_command)
@@ -511,15 +914,32 @@ class CommandVerificationTests(AtestTestCase):
     def test_tee_ui_utils_test(self):
         """Verify that the test's command runs correctly."""
         test_name = 'TeeUIUtilsTest'
+        expected_cmd = [
+            "--atest-include-filter",
+            "--include-filter",
+            "--log-level",
+            "--log-level-display",
+            "--no-early-device-release",
+            "--no-enable-granular-attempts",
+            "--skip-loading-config-jar",
+            "--template:map",
+            "--template:map",
+            "VERBOSE",
+            "VERBOSE",
+            "atest_tradefed.sh",
+            "log_saver=template/log/atest_log_saver",
+            "teeui_unit_tests",
+            "teeui_unit_tests:TeeUIUtilsTest.*",
+            "template/atest_local_min",
+            "test=atest"
+        ]
         self._verify_atest_internal_command(
             test_name,
             # atest_internal_command : a set of strings that represent a
             # test runner command.
             lambda atest_internal_command, atest:
             self.assertTrue(
-                self._get_expected_cmds_from_file(
-                    atest, test_name, self._test_commands_json
-                )
+                set(expected_cmd)
                 .issubset(atest_internal_command),
                 "The expected commands are not a subset of the runner "
                 "commands:\n" + str(atest_internal_command)
@@ -532,15 +952,34 @@ class CommandVerificationTests(AtestTestCase):
         """Verify that the test's command runs correctly."""
         test_name = ('TeeUIUtilsTest#intersectTest,ConvexObjectConstruction,'
                      'ConvexObjectLineIntersection')
+        expected_cmd = [
+            "--atest-include-filter",
+            "--include-filter",
+            "--log-level",
+            "--log-level-display",
+            "--no-early-device-release",
+            "--no-enable-granular-attempts",
+            "--skip-loading-config-jar",
+            "--template:map",
+            "--template:map",
+            "VERBOSE",
+            "VERBOSE",
+            "atest_tradefed.sh",
+            "log_saver=template/log/atest_log_saver",
+            "teeui_unit_tests",
+            "teeui_unit_tests:TeeUIUtilsTest.ConvexObjectConstruction"
+            ":TeeUIUtilsTest.ConvexObjectLineIntersection:TeeUIUtilsTest"
+            ".intersectTest",
+            "template/atest_local_min",
+            "test=atest"
+        ]
         self._verify_atest_internal_command(
             test_name,
             # atest_internal_command : a set of strings that represent a
             # test runner command.
             lambda atest_internal_command, atest:
             self.assertTrue(
-                self._get_expected_cmds_from_file(
-                    atest, test_name, self._test_commands_json
-                )
+                set(expected_cmd)
                 .issubset(atest_internal_command),
                 "The expected commands are not a subset of the runner "
                 "commands:\n" + str(atest_internal_command)
@@ -554,15 +993,40 @@ class CommandVerificationTests(AtestTestCase):
         test_name = ('CtsSecurityTestCases:android.security.cts.'
                      'ActivityManagerTest#testActivityManager_'
                      'registerUidChangeObserver_allPermission')
+        expected_cmd = [
+            "--atest-include-filter",
+            "--enable-parameterized-modules",
+            "--exclude-module-parameters",
+            "--exclude-module-parameters",
+            "--exclude-module-parameters",
+            "--log-level",
+            "--log-level-display",
+            "--module",
+            "--no-early-device-release",
+            "--no-enable-granular-attempts",
+            "--skip-loading-config-jar",
+            "--template:map",
+            "--template:map",
+            "CtsSecurityTestCases",
+            "CtsSecurityTestCases:android.security.cts.ActivityManagerTest"
+            "#testActivityManager_registerUidChangeObserver_allPermission",
+            "VERBOSE",
+            "VERBOSE",
+            "atest_tradefed.sh",
+            "instant_app",
+            "log_saver=template/log/atest_log_saver",
+            "multi_abi",
+            "secondary_user",
+            "template/atest_local_min",
+            "test=atest"
+        ]
         self._verify_atest_internal_command(
             test_name,
             # atest_internal_command : a set of strings that represent a
             # test runner command.
             lambda atest_internal_command, atest:
             self.assertTrue(
-                self._get_expected_cmds_from_file(
-                    atest, test_name, self._test_commands_json
-                )
+                set(expected_cmd)
                 .issubset(atest_internal_command),
                 "The expected commands are not a subset of the runner "
                 "commands:\n" + str(atest_internal_command)
@@ -574,15 +1038,40 @@ class CommandVerificationTests(AtestTestCase):
         test_name = ('cts/tests/tests/security/src/android/security/cts/'
                      'ActivityManagerTest.java#testActivityManager_'
                      'registerUidChangeObserver_allPermission')
+        expected_cmd = [
+            "--atest-include-filter",
+            "--enable-parameterized-modules",
+            "--exclude-module-parameters",
+            "--exclude-module-parameters",
+            "--exclude-module-parameters",
+            "--log-level",
+            "--log-level-display",
+            "--module",
+            "--no-early-device-release",
+            "--no-enable-granular-attempts",
+            "--skip-loading-config-jar",
+            "--template:map",
+            "--template:map",
+            "CtsSecurityTestCases",
+            "CtsSecurityTestCases:android.security.cts.ActivityManagerTest"
+            "#testActivityManager_registerUidChangeObserver_allPermission",
+            "VERBOSE",
+            "VERBOSE",
+            "atest_tradefed.sh",
+            "instant_app",
+            "log_saver=template/log/atest_log_saver",
+            "multi_abi",
+            "secondary_user",
+            "template/atest_local_min",
+            "test=atest"
+        ]
         self._verify_atest_internal_command(
             test_name,
             # atest_internal_command : a set of strings that represent a
             # test runner command.
             lambda atest_internal_command, atest:
             self.assertTrue(
-                self._get_expected_cmds_from_file(
-                    atest, test_name, self._test_commands_json
-                )
+                set(expected_cmd)
                 .issubset(atest_internal_command),
                 "The expected commands are not a subset of the runner "
                 "commands:\n" + str(atest_internal_command)
@@ -594,15 +1083,41 @@ class CommandVerificationTests(AtestTestCase):
         test_name = ('cts/tests/tests/security/src/android/security/cts/'
                      'PermissionMemoryFootprintTest.kt#'
                      'checkAppsCantIncreasePermissionSizeAfterCreating')
+        expected_cmd = [
+            "--atest-include-filter",
+            "--enable-parameterized-modules",
+            "--exclude-module-parameters",
+            "--exclude-module-parameters",
+            "--exclude-module-parameters",
+            "--log-level",
+            "--log-level-display",
+            "--module",
+            "--no-early-device-release",
+            "--no-enable-granular-attempts",
+            "--skip-loading-config-jar",
+            "--template:map",
+            "--template:map",
+            "CtsSecurityTestCases",
+            "CtsSecurityTestCases:android.security.cts"
+            ".PermissionMemoryFootprintTest"
+            "#checkAppsCantIncreasePermissionSizeAfterCreating",
+            "VERBOSE",
+            "VERBOSE",
+            "atest_tradefed.sh",
+            "instant_app",
+            "log_saver=template/log/atest_log_saver",
+            "multi_abi",
+            "secondary_user",
+            "template/atest_local_min",
+            "test=atest"
+        ]
         self._verify_atest_internal_command(
             test_name,
             # atest_internal_command : a set of strings that represent a
             # test runner command.
             lambda atest_internal_command, atest:
             self.assertTrue(
-                self._get_expected_cmds_from_file(
-                    atest, test_name, self._test_commands_json
-                )
+                set(expected_cmd)
                 .issubset(atest_internal_command),
                 "The expected commands are not a subset of the runner "
                 "commands:\n" + str(atest_internal_command)
@@ -612,15 +1127,40 @@ class CommandVerificationTests(AtestTestCase):
     def test_permission_memory_footprint_test(self):
         """Verify that the test's command runs correctly."""
         test_name = 'android.security.cts.PermissionMemoryFootprintTest'
+        expected_cmd = [
+            "--atest-include-filter",
+            "--enable-parameterized-modules",
+            "--exclude-module-parameters",
+            "--exclude-module-parameters",
+            "--exclude-module-parameters",
+            "--log-level",
+            "--log-level-display",
+            "--module",
+            "--no-early-device-release",
+            "--no-enable-granular-attempts",
+            "--skip-loading-config-jar",
+            "--template:map",
+            "--template:map",
+            "CtsSecurityTestCases",
+            "CtsSecurityTestCases:android.security.cts"
+            ".PermissionMemoryFootprintTest",
+            "VERBOSE",
+            "VERBOSE",
+            "atest_tradefed.sh",
+            "instant_app",
+            "log_saver=template/log/atest_log_saver",
+            "multi_abi",
+            "secondary_user",
+            "template/atest_local_min",
+            "test=atest"
+        ]
         self._verify_atest_internal_command(
             test_name,
             # atest_internal_command : a set of strings that represent a
             # test runner command.
             lambda atest_internal_command, atest:
             self.assertTrue(
-                self._get_expected_cmds_from_file(
-                    atest, test_name, self._test_commands_json
-                )
+                set(expected_cmd)
                 .issubset(atest_internal_command),
                 "The expected commands are not a subset of the runner "
                 "commands:\n" + str(atest_internal_command)
@@ -631,15 +1171,41 @@ class CommandVerificationTests(AtestTestCase):
         """Verify that the test's command runs correctly."""
         test_name = ('android.security.cts.PermissionMemoryFootprintTest#'
                      'checkAppsCantIncreasePermissionSizeAfterCreating')
+        expected_cmd = [
+            "--atest-include-filter",
+            "--enable-parameterized-modules",
+            "--exclude-module-parameters",
+            "--exclude-module-parameters",
+            "--exclude-module-parameters",
+            "--log-level",
+            "--log-level-display",
+            "--module",
+            "--no-early-device-release",
+            "--no-enable-granular-attempts",
+            "--skip-loading-config-jar",
+            "--template:map",
+            "--template:map",
+            "CtsSecurityTestCases",
+            "CtsSecurityTestCases:android.security.cts"
+            ".PermissionMemoryFootprintTest"
+            "#checkAppsCantIncreasePermissionSizeAfterCreating",
+            "VERBOSE",
+            "VERBOSE",
+            "atest_tradefed.sh",
+            "instant_app",
+            "log_saver=template/log/atest_log_saver",
+            "multi_abi",
+            "secondary_user",
+            "template/atest_local_min",
+            "test=atest"
+        ]
         self._verify_atest_internal_command(
             test_name,
             # atest_internal_command : a set of strings that represent a
             # test runner command.
             lambda atest_internal_command, atest:
             self.assertTrue(
-                self._get_expected_cmds_from_file(
-                    atest, test_name, self._test_commands_json
-                )
+                set(expected_cmd)
                 .issubset(atest_internal_command),
                 "The expected commands are not a subset of the runner "
                 "commands:\n" + str(atest_internal_command)
@@ -647,10 +1213,10 @@ class CommandVerificationTests(AtestTestCase):
         )
 
     def _get_expected_cmds_from_file(
-            self,
-            atest: AtestIntegrationTest,
-            test_name: str,
-            file: str
+        self,
+        atest: AtestIntegrationTest,
+        test_name: str,
+        file: str
     ) -> set[str]:
         """Looks up the given test in the dictionary of expected commands and
         returns the corresponding command as a set of strings.
@@ -666,9 +1232,9 @@ class CommandVerificationTests(AtestTestCase):
             given test.
         """
         with open(
-                Path(atest.get_repo_root()).joinpath(file),
-                'r',
-                encoding='utf-8',
+            Path(atest.get_repo_root()).joinpath(file),
+            'r',
+            encoding='utf-8',
         ) as f:
             dict_from_json = json.load(f)
         return set(dict_from_json[test_name])
@@ -677,7 +1243,7 @@ class CommandVerificationTests(AtestTestCase):
         self,
         test_name: str,
         assertion_func: Callable[[str, AtestIntegrationTest], None],
-        test_args : list[str] = None
+        test_args: list[str] = None
     ) -> None:
         """Verifies the command by executing it and checking its output.
 
@@ -697,7 +1263,8 @@ class CommandVerificationTests(AtestTestCase):
 
         if atest.in_build_env():
             Path(atest.get_repo_root()).joinpath(
-                self._runner_commands_json).unlink(
+                self._runner_commands_json
+            ).unlink(
                 missing_ok=True
             )
             subprocess.run(
@@ -708,15 +1275,16 @@ class CommandVerificationTests(AtestTestCase):
                 encoding='utf-8',
             )
             atest.set_snapshot_include_paths(
-                self._runner_commands_json, self._test_commands_json
+                self._runner_commands_json
             )
 
         if atest.in_test_env():
             with open(
-                    Path(atest.get_repo_root()).joinpath(
-                        self._runner_commands_json),
-                    'r',
-                    encoding='utf-8',
+                Path(atest.get_repo_root()).joinpath(
+                    self._runner_commands_json
+                ),
+                'r',
+                encoding='utf-8',
             ) as f:
                 runner_cmds_dict = json.load(f)
             assertion_func(
