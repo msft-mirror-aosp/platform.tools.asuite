@@ -33,7 +33,7 @@ import subprocess
 import sys
 import tarfile
 import tempfile
-from typing import Any, Callable, Dict, List
+from typing import Any, Callable
 import unittest
 
 from snapshot import Snapshot
@@ -52,12 +52,13 @@ class StepInput:
     """Input information for a build/test step."""
 
     def __init__(
-        self, env, repo_root, device_serial, is_device_serial_required
+        self, env, repo_root, device_serial, is_device_serial_required, objs
     ):
         self._env = env
         self._repo_root = repo_root
         self._device_serial = device_serial
         self._is_device_serial_required = is_device_serial_required
+        self._objs = objs
 
     def get_device_serial_args_or_empty(self) -> str:
         """Gets command arguments for device serial. May return empty string."""
@@ -81,14 +82,19 @@ class StepInput:
         """Get repo root directory."""
         return self._repo_root
 
+    def get_obj(self, name: str) -> Any:
+        """Get an object saved in previous snapshot."""
+        return self._objs.get(name, None)
+
 
 class StepOutput:
     """Output information generated from a build step."""
 
     def __init__(self):
-        self._snapshot_include_paths: List[str] = []
-        self._snapshot_exclude_paths: List[str] = []
-        self._snapshot_env_keys: List[str] = []
+        self._snapshot_include_paths: list[str] = []
+        self._snapshot_exclude_paths: list[str] = []
+        self._snapshot_env_keys: list[str] = []
+        self._snapshot_objs: dict[str, Any] = {}
 
     def add_snapshot_include_paths(self, paths: list[str]) -> None:
         """Add paths to include in snapshot artifacts."""
@@ -111,6 +117,10 @@ class StepOutput:
         """Add environment variable keys for snapshot."""
         self._snapshot_env_keys.extend(keys)
 
+    def add_snapshot_obj(self, name: str, obj: Any):
+        """Add objects to save in snapshot."""
+        self._snapshot_objs[str] = obj
+
     def get_snapshot_include_paths(self):
         """Returns the stored snapshot include path list."""
         return self._snapshot_include_paths
@@ -122,6 +132,10 @@ class StepOutput:
     def get_snapshot_env_keys(self):
         """Returns the stored snapshot env key list."""
         return self._snapshot_env_keys
+
+    def get_snapshot_objs(self):
+        """Returns the stored snapshot object dictionary."""
+        return self._snapshot_objs
 
 
 class IntegrationTestConfiguration:
@@ -143,7 +157,6 @@ class SplitBuildTestScript:
     def __init__(self, name: str, config: IntegrationTestConfiguration) -> None:
         self._config = config
         self._id: str = name
-        self._env: Dict[str, str] = None
         self._snapshot: Snapshot = Snapshot(self._config.snapshot_storage_path)
         self._has_already_run: bool = False
         self._steps: list[self._Step] = []
@@ -183,21 +196,29 @@ class SplitBuildTestScript:
         for index, step in enumerate(self._steps):
             if isinstance(step, self._BuildStep) and self._config.is_build_env:
                 step_in = StepInput(
-                    self._get_env(),
-                    self._get_repo_root(),
+                    os.environ,
+                    self._get_repo_root(os.environ),
                     self._config.device_serial,
                     self._config.is_device_serial_required,
+                    {},
                 )
                 step_out = step.get_step_func()(step_in)
-                self._take_snapshot(self._id + '_' + str(index // 2), step_out)
+                self._take_snapshot(
+                    self._get_repo_root(os.environ),
+                    self._id + '_' + str(index // 2),
+                    step_out,
+                )
 
             if isinstance(step, self._TestStep) and self._config.is_test_env:
-                self._restore_snapshot(self._id + '_' + str(index // 2))
+                env, objs = self._restore_snapshot(
+                    self._id + '_' + str(index // 2)
+                )
                 step_in = StepInput(
-                    self._get_env(),
-                    self._get_repo_root(),
+                    env,
+                    self._get_repo_root(env),
                     self._config.device_serial,
                     self._config.is_device_serial_required,
+                    objs,
                 )
                 step.get_step_func()(step_in)
 
@@ -207,35 +228,32 @@ class SplitBuildTestScript:
         """Add paths to ignore during snapshot directory restore."""
         self._snapshot_restore_exclude_paths.extend(paths)
 
-    def _take_snapshot(self, name: str, step_out: StepOutput) -> None:
+    def _take_snapshot(
+        self, repo_root: str, name: str, step_out: StepOutput
+    ) -> None:
         """Take a snapshot of the repository and environment."""
         self._snapshot.take_snapshot(
             name,
-            self._get_repo_root(),
+            repo_root,
             step_out.get_snapshot_include_paths(),
             step_out.get_snapshot_exclude_paths(),
             step_out.get_snapshot_env_keys(),
+            step_out.get_snapshot_objs(),
         )
 
     def _restore_snapshot(self, name: str) -> None:
         """Restore the repository and environment from a snapshot."""
-        self._env = self._snapshot.restore_snapshot(
+        return self._snapshot.restore_snapshot(
             name,
             self._config.workspace_path.as_posix(),
             exclude_paths=self._snapshot_restore_exclude_paths,
         )
 
-    def _get_env(self) -> Dict[str, str]:
-        """Get environment variables."""
-        if self._config.is_build_env:
-            return os.environ.copy()
-        return self._env
-
-    def _get_repo_root(self) -> str:
+    def _get_repo_root(self, env) -> str:
         """Get repo root directory."""
         if self._config.is_build_env:
             return os.environ[ANDROID_BUILD_TOP_KEY]
-        return self._env[ANDROID_BUILD_TOP_KEY]
+        return env[ANDROID_BUILD_TOP_KEY]
 
     class _Step:
         """Parent class to build step and test step for typing declaration."""
@@ -323,7 +341,7 @@ class _FileCompressor:
         file_path.unlink()
 
 
-def _parse_known_args(argv: list[str]) -> tuple[argparse.Namespace, List[str]]:
+def _parse_known_args(argv: list[str]) -> tuple[argparse.Namespace, list[str]]:
     """Parse command line args and check required args being provided."""
 
     description = """A script to build and/or run the Asuite integration tests.
