@@ -162,7 +162,7 @@ class EventHandler:
     def _run_ended(self, event_data):
         # Renew ResultReport if is module level(reporter.silent=False)
         if not self.reporter.silent:
-            self.reporter.set_current_summary(self.run_num)
+            self.reporter.set_current_iteration_summary(self.run_num)
             self.reporter = result_reporter.ResultReporter(silent=False)
 
     def _module_ended(self, event_data):
