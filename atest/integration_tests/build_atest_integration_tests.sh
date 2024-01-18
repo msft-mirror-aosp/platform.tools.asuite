@@ -98,4 +98,4 @@ export PATH=${PWD}/prebuilts/build-tools/path/linux-x86:${PWD}/build/bazel/bin:$
 # build with minimal reliance on host tools.
 export PATH=${ANDROID_JAVA_HOME}/bin:${PATH}
 
-python3 tools/asuite/atest/integration_tests/atest_integration_tests.py "${filtered_args[@]}" --build
+python3 tools/asuite/atest/integration_tests/atest_integration_tests.py "${filtered_args[@]}" --build --tar_snapshot
