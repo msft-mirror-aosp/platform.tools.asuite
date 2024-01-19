@@ -150,7 +150,7 @@ def _get_transitive_module_deps(info,
 
 
 def _find_native_binaries(module_dir):
-    files = module_dir.glob('*cov*/unstripped/*')
+    files = module_dir.glob('*cov*/**/unstripped/*')
 
     # Exclude .rsp files. These are files containing the command line used to
     # generate the unstripped binaries, but are stored in the same directory as
