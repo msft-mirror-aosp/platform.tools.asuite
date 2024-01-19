@@ -45,9 +45,6 @@ SNAPSHOT_STORAGE_TAR_KEY = 'SNAPSHOT_STORAGE_TAR_PATH'
 # Env key for the repo root
 ANDROID_BUILD_TOP_KEY = 'ANDROID_BUILD_TOP'
 
-# Relative path to the repo root for storing the snapshots and workspace
-_INTEGRATION_TEST_OUT_DIR_REL_PATH = 'out/asuite_integration_tests'
-
 
 class IntegrationTestConfiguration:
     """Internal class to store integration test configuration."""
@@ -551,14 +548,11 @@ def main(make_before_build: list[str] = None) -> None:
     snapshot_storage_dir_name = 'snapshot_storage'
     snapshot_storage_tar_name = 'snapshot.tar'
 
-    if ANDROID_BUILD_TOP_KEY in os.environ:
-        integration_test_out_path = Path(
-            os.environ[ANDROID_BUILD_TOP_KEY]
-        ).joinpath(_INTEGRATION_TEST_OUT_DIR_REL_PATH)
-        integration_test_out_path.mkdir(parents=True, exist_ok=True)
-    else:
-        # pylint: disable=consider-using-with
-        integration_test_out_path = Path(tempfile.TemporaryDirectory().name)
+    integration_test_out_path = Path(
+        tempfile.gettempdir(),
+        'asuite_integration_tests_%s'
+        % Path('~').expanduser().name.replace(' ', '_'),
+    )
 
     if SNAPSHOT_STORAGE_TAR_KEY in os.environ:
         snapshot_storage_tar_path = Path(os.environ[SNAPSHOT_STORAGE_TAR_KEY])
