@@ -29,7 +29,7 @@ import json
 import logging
 import os
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple
+from typing import Any, Optional
 
 
 class Snapshot:
@@ -44,16 +44,19 @@ class Snapshot:
         Args:
             storage_dir: The directory where snapshots will be stored.
         """
-        self._dir_snapshot = DirSnapshot(storage_dir)
-        self._env_snapshot = EnvSnapshot(storage_dir)
+        self._dir_snapshot = _DirSnapshot(storage_dir)
+        self._env_snapshot = _EnvSnapshot(storage_dir)
+        self._obj_snapshot = _ObjectSnapshot(storage_dir)
 
+    # pylint: disable=too-many-arguments
     def take_snapshot(
         self,
         name: str,
         root_path: str,
-        include_paths: List[str] = None,
-        exclude_paths: List[str] = None,
-        env_keys: List[str] = None,
+        include_paths: list[str],
+        exclude_paths: Optional[list[str]] = None,
+        env_keys: Optional[list[str]] = None,
+        objs: Optional[dict[str, Any]] = None,
     ) -> None:
         """Takes a snapshot of the directory at the given path.
 
@@ -64,17 +67,22 @@ class Snapshot:
             exclude_paths: A list of relative paths to exclude from the
               snapshot.
             env_keys: A list of environment variable keys to save.
+            objs: A dictionary of objects to save. The current implementation
+              limits the type of objects to the types that can be serialized by
+              the json module.
         """
-        if env_keys is None:
-            env_keys = []
         self._dir_snapshot.take_snapshot(
             name, root_path, include_paths, exclude_paths
         )
         self._env_snapshot.take_snapshot(name, env_keys)
+        self._obj_snapshot.take_snapshot(name, objs)
 
     def restore_snapshot(
-        self, name: str, root_path: str, exclude_paths: List[str] = None
-    ) -> Dict[str, str]:
+        self,
+        name: str,
+        root_path: str,
+        exclude_paths: Optional[list[str]] = None,
+    ) -> tuple[dict[str, str], dict[str, Any]]:
         """Restores directory at given path to a snapshot with the given name.
 
         Args:
@@ -82,14 +90,51 @@ class Snapshot:
             root_path: The path to the target directory.
 
         Returns:
-            Restored environment variables.
+            A tuple of restored environment variables and object dictionary.
         """
         self._dir_snapshot.restore_snapshot(name, root_path, exclude_paths)
-        return self._env_snapshot.restore_snapshot(name, root_path)
+        environ = self._env_snapshot.restore_snapshot(name, root_path)
+        objs = self._obj_snapshot.restore_snapshot(name)
+        return environ, objs
 
 
-class EnvSnapshot:
-    """Save and restore env vars."""
+class _ObjectSnapshot:
+    """Save and restore a dictionary of objects through json."""
+
+    def __init__(self, storage_path: Path):
+        self._storage_path = storage_path
+
+    def take_snapshot(
+        self,
+        name: str,
+        objs: Optional[dict[str, Any]] = None,
+    ) -> None:
+        """Save a dictionary of objects in snapshot.
+
+        The current implementation limits the type of objects to the types that
+        can be serialized by the json module.
+        """
+        if objs is None:
+            objs = {}
+        with open(
+            self._storage_path.joinpath('%s.objs.json' % name),
+            'w',
+            encoding='utf-8',
+        ) as f:
+            json.dump(objs, f)
+
+    def restore_snapshot(self, name: str) -> dict[str, Any]:
+        """Restore saved objects from snapshot."""
+        with open(
+            self._storage_path.joinpath('%s.objs.json' % name),
+            'r',
+            encoding='utf-8',
+        ) as f:
+            return json.load(f)
+
+
+class _EnvSnapshot:
+    """Save and restore environment variables."""
 
     _repo_root_placeholder = '<repo_root_placeholder>'
 
@@ -99,9 +144,11 @@ class EnvSnapshot:
     def take_snapshot(
         self,
         name: str,
-        env_keys: List[str],
+        env_keys: Optional[list[str]] = None,
     ) -> None:
         """Save a subset of environment variables."""
+        if env_keys is None:
+            env_keys = []
         original_env = os.environ.copy()
         subset_env = {
             key: os.environ[key] for key in env_keys if key in original_env
@@ -115,7 +162,7 @@ class EnvSnapshot:
         with open(self._get_env_file_path(name), 'w', encoding='utf-8') as f:
             json.dump(modified_env, f)
 
-    def restore_snapshot(self, name: str, root_path: str) -> Dict[str, str]:
+    def restore_snapshot(self, name: str, root_path: str) -> dict[str, str]:
         """Load saved environment variables."""
         with self._get_env_file_path(name).open('r') as f:
             loaded_env = json.load(f)
@@ -140,7 +187,7 @@ class EnvSnapshot:
         return self._storage_path / (name + '_env.json')
 
 
-class FileInfo:
+class _FileInfo:
     """An object to save file information."""
 
     # pylint: disable=too-many-arguments
@@ -161,7 +208,7 @@ class FileInfo:
         self.is_directory = is_directory
 
 
-class BlobStore:
+class _BlobStore:
     """Class to save and load file content."""
 
     def __init__(self, path: str):
@@ -182,7 +229,7 @@ class BlobStore:
         self.cache[cache_key] = content_hash
         return content_hash
 
-    def get(self, content_hash: str) -> Optional[bytes]:
+    def get(self, content_hash: str) -> bytes:
         """Read file content from a content hash."""
         file_path = self.path.joinpath(content_hash[:2], content_hash[2:])
         if file_path.exists():
@@ -195,7 +242,7 @@ class BlobStore:
         with self._get_cache_path().open('w', encoding='utf-8') as f:
             json.dump(self.cache, f)
 
-    def _load_cache(self) -> Dict:
+    def _load_cache(self) -> dict:
         if not self._get_cache_path().exists():
             return {}
         with self._get_cache_path().open('r', encoding='utf-8') as f:
@@ -205,16 +252,16 @@ class BlobStore:
         return self.path.joinpath('cache.json')
 
 
-class DirSnapshot:
+class _DirSnapshot:
     """Class to take and restore snapshot for a directory path."""
 
     def __init__(self, storage_path: Path):
         self._storage_path = storage_path
-        self._blob_store = BlobStore(self._storage_path.joinpath('blobs'))
+        self._blob_store = _BlobStore(self._storage_path.joinpath('blobs'))
 
     def _expand_wildcard_paths(
-        self, root_path: str, paths: List[str]
-    ) -> List[str]:
+        self, root_path: str, paths: list[str]
+    ) -> list[str]:
         """Expand wildcard paths."""
         absolute_paths = (
             path if os.path.isabs(path) else os.path.join(root_path, path)
@@ -226,14 +273,14 @@ class DirSnapshot:
             for expanded_path in glob.glob(wildcard_path, recursive=True)
         ]
 
-    def _is_excluded(self, path: str, exclude_paths: List[Path]) -> bool:
+    def _is_excluded(self, path: str, exclude_paths: list[Path]) -> bool:
         """Check whether a path should be excluded."""
         return exclude_paths and any(
             path.startswith(exclude_path) for exclude_path in exclude_paths
         )
 
     def _filter_excluded_paths(
-        self, root: Path, paths: List[Path], exclude_paths: List[Path]
+        self, root: Path, paths: list[Path], exclude_paths: list[Path]
     ) -> None:
         """Filter a list of paths with a list of exclude paths."""
         new_paths = [
@@ -250,9 +297,9 @@ class DirSnapshot:
         self,
         name: str,
         root_path: str,
-        include_paths: List[str] = None,
-        exclude_paths: List[str] = None,
-    ) -> Tuple[Dict[str, FileInfo], List[str]]:
+        include_paths: list[str],
+        exclude_paths: Optional[list[str]] = None,
+    ) -> tuple[dict[str, _FileInfo], list[str]]:
         """Creates a snapshot of the directory at the given path.
 
         Args:
@@ -264,7 +311,7 @@ class DirSnapshot:
 
         Returns:
             A tuple containing:
-                - A dictionary of FileInfo objects keyed by their relative path
+                - A dictionary of _FileInfo objects keyed by their relative path
                 within the directory.
         """
         include_paths = (
@@ -287,7 +334,7 @@ class DirSnapshot:
             relative_path = path.relative_to(root_path).as_posix()
             if relative_path == '.':
                 return
-            file_infos[relative_path] = FileInfo(
+            file_infos[relative_path] = _FileInfo(
                 relative_path,
                 timestamp=None,
                 content_hash=None,
@@ -302,7 +349,7 @@ class DirSnapshot:
                 return
             relative_path = path.relative_to(root_path).as_posix()
             timestamp = path.stat().st_mtime
-            file_infos[relative_path] = FileInfo(
+            file_infos[relative_path] = _FileInfo(
                 relative_path,
                 timestamp=timestamp,
                 content_hash=self._blob_store.add(path, timestamp)
@@ -327,7 +374,7 @@ class DirSnapshot:
                     + symlink_target.as_posix()
                 )
             relative_path = path.relative_to(root_path).as_posix()
-            file_infos[relative_path] = FileInfo(
+            file_infos[relative_path] = _FileInfo(
                 relative_path,
                 timestamp=None,
                 content_hash=None,
@@ -359,12 +406,8 @@ class DirSnapshot:
                 # corner case which likely doesn't affect the test process.
                 logging.error('Unexpected path type: %s', path.as_posix())
 
-        for path in (
-            [Path(root_path)]
-            if not include_paths
-            else (Path(path) for path in include_paths)
-        ):
-            process_path(path)
+        for path in include_paths:
+            process_path(Path(path))
 
         snapshot_path = self._storage_path.joinpath(name + '_metadata.json')
         snapshot_path.parent.mkdir(parents=True, exist_ok=True)
@@ -379,8 +422,8 @@ class DirSnapshot:
         self,
         name: str,
         root_path: str,
-        exclude_paths: List[str] = None,
-    ) -> Tuple[List[str], List[str], List[str]]:
+        exclude_paths: Optional[list[str]] = None,
+    ) -> tuple[list[str], list[str], list[str]]:
         """Restores directory at given path to snapshot with given name.
 
         Args:
@@ -400,7 +443,7 @@ class DirSnapshot:
             'r'
         ) as f:
             file_infos_dict = {
-                key: FileInfo(**val) for key, val in json.load(f).items()
+                key: _FileInfo(**val) for key, val in json.load(f).items()
             }
 
         exclude_paths = (
@@ -421,9 +464,9 @@ class DirSnapshot:
 
     def _remove_extra_files(
         self,
-        file_infos_dict: dict[str, FileInfo],
+        file_infos_dict: dict[str, _FileInfo],
         root_path: str,
-        exclude_paths: List[str],
+        exclude_paths: list[str],
     ):
         """Internal method to remove extra files during snapshot restore."""
         deleted = []
@@ -450,9 +493,9 @@ class DirSnapshot:
 
     def _restore_directories(
         self,
-        file_infos_dict: dict[str, FileInfo],
+        file_infos_dict: dict[str, _FileInfo],
         root_path: str,
-        exclude_paths: List[str],
+        exclude_paths: list[str],
     ):
         """Internal method to restore directories during snapshot restore."""
         for relative_path, file_info in file_infos_dict.items():
@@ -466,9 +509,9 @@ class DirSnapshot:
 
     def _restore_files(
         self,
-        file_infos_dict: dict[str, FileInfo],
+        file_infos_dict: dict[str, _FileInfo],
         root_path: str,
-        exclude_paths: List[str],
+        exclude_paths: list[str],
     ):
         """Internal method to restore files during snapshot restore."""
         replaced = []
