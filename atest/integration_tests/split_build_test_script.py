@@ -33,7 +33,8 @@ import subprocess
 import sys
 import tarfile
 import tempfile
-from typing import Any, Callable, Dict, List
+import traceback
+from typing import Any, Callable
 import unittest
 
 from snapshot import Snapshot
@@ -44,34 +45,42 @@ SNAPSHOT_STORAGE_TAR_KEY = 'SNAPSHOT_STORAGE_TAR_PATH'
 # Env key for the repo root
 ANDROID_BUILD_TOP_KEY = 'ANDROID_BUILD_TOP'
 
-# Relative path to the repo root for storing the snapshots and workspace
-_INTEGRATION_TEST_OUT_DIR_REL_PATH = 'out/asuite_integration_tests'
+
+class IntegrationTestConfiguration:
+    """Internal class to store integration test configuration."""
+
+    device_serial: str = None
+    is_build_env: bool = False
+    is_test_env: bool = False
+    is_device_serial_required = True
+    snapshot_storage_path: Path = None
+    snapshot_storage_tar_path: Path = None
+    workspace_path: Path = None
+    is_tar_snapshot: bool = False
 
 
 class StepInput:
     """Input information for a build/test step."""
 
-    def __init__(
-        self, env, repo_root, device_serial, is_device_serial_required
-    ):
+    def __init__(self, env, repo_root, config, objs):
         self._env = env
         self._repo_root = repo_root
-        self._device_serial = device_serial
-        self._is_device_serial_required = is_device_serial_required
+        self._config = config
+        self._objs = objs
 
     def get_device_serial_args_or_empty(self) -> str:
         """Gets command arguments for device serial. May return empty string."""
-        if self._device_serial:
-            return ' -s ' + self._device_serial
-        if self._is_device_serial_required:
+        if self._config.device_serial:
+            return ' -s ' + self._config.device_serial
+        if self._config.is_device_serial_required:
             raise RuntimeError('Device serial is required but not set')
         return ''
 
     def get_device_serial(self) -> str:
         """Returns the serial of the connected device. Throws if not set."""
-        if not self._device_serial:
+        if not self._config.device_serial:
             raise RuntimeError('Device serial is not set')
-        return self._device_serial
+        return self._config.device_serial
 
     def get_env(self):
         """Get environment variables."""
@@ -81,14 +90,23 @@ class StepInput:
         """Get repo root directory."""
         return self._repo_root
 
+    def get_obj(self, name: str) -> Any:
+        """Get an object saved in previous snapshot."""
+        return self._objs.get(name, None)
+
+    def get_config(self) -> IntegrationTestConfiguration:
+        """Get the integration test configuration."""
+        return self._config
+
 
 class StepOutput:
     """Output information generated from a build step."""
 
     def __init__(self):
-        self._snapshot_include_paths: List[str] = []
-        self._snapshot_exclude_paths: List[str] = []
-        self._snapshot_env_keys: List[str] = []
+        self._snapshot_include_paths: list[str] = []
+        self._snapshot_exclude_paths: list[str] = []
+        self._snapshot_env_keys: list[str] = []
+        self._snapshot_objs: dict[str, Any] = {}
 
     def add_snapshot_include_paths(self, paths: list[str]) -> None:
         """Add paths to include in snapshot artifacts."""
@@ -111,6 +129,10 @@ class StepOutput:
         """Add environment variable keys for snapshot."""
         self._snapshot_env_keys.extend(keys)
 
+    def add_snapshot_obj(self, name: str, obj: Any):
+        """Add objects to save in snapshot."""
+        self._snapshot_objs[name] = obj
+
     def get_snapshot_include_paths(self):
         """Returns the stored snapshot include path list."""
         return self._snapshot_include_paths
@@ -123,18 +145,9 @@ class StepOutput:
         """Returns the stored snapshot env key list."""
         return self._snapshot_env_keys
 
-
-class IntegrationTestConfiguration:
-    """Internal class to store integration test configuration."""
-
-    device_serial: str = None
-    is_build_env: bool = False
-    is_test_env: bool = False
-    is_device_serial_required = True
-    snapshot_storage_path: Path = None
-    snapshot_storage_tar_path: Path = None
-    workspace_path: Path = None
-    is_tar_snapshot: bool = False
+    def get_snapshot_objs(self):
+        """Returns the stored snapshot object dictionary."""
+        return self._snapshot_objs
 
 
 class SplitBuildTestScript:
@@ -143,7 +156,6 @@ class SplitBuildTestScript:
     def __init__(self, name: str, config: IntegrationTestConfiguration) -> None:
         self._config = config
         self._id: str = name
-        self._env: Dict[str, str] = None
         self._snapshot: Snapshot = Snapshot(self._config.snapshot_storage_path)
         self._has_already_run: bool = False
         self._steps: list[self._Step] = []
@@ -172,6 +184,28 @@ class SplitBuildTestScript:
             raise RuntimeError('A build step is required before a test step.')
         self._steps.append(self._TestStep(step_func))
 
+    def _exception_to_dict(self, exception: Exception):
+        """Converts an exception object to a dictionary to be saved by json."""
+        return {
+            'type': exception.__class__.__name__,
+            'message': str(exception),
+            'traceback': ''.join(traceback.format_tb(exception.__traceback__)),
+        }
+
+    def _dict_to_exception(self, exception_dict: dict[str, str]):
+        """Converts a dictionary to an exception object."""
+        return RuntimeError(
+            'The last build step raised an exception:\n'
+            '%s: %s\n'
+            'Traceback (from saved snapshot):\n'
+            '%s'
+            % (
+                exception_dict['type'],
+                exception_dict['message'],
+                exception_dict['traceback'],
+            )
+        )
+
     def run(self):
         """Run the steps added previously.
 
@@ -179,63 +213,86 @@ class SplitBuildTestScript:
         """
         if self._has_already_run:
             raise RuntimeError(f'Script {self.name} has already run.')
+        self._has_already_run = True
+
+        build_step_exception_key = '_internal_build_step_exception'
 
         for index, step in enumerate(self._steps):
             if isinstance(step, self._BuildStep) and self._config.is_build_env:
                 step_in = StepInput(
-                    self._get_env(),
-                    self._get_repo_root(),
-                    self._config.device_serial,
-                    self._config.is_device_serial_required,
+                    os.environ,
+                    self._get_repo_root(os.environ),
+                    self._config,
+                    {},
                 )
-                step_out = step.get_step_func()(step_in)
-                self._take_snapshot(self._id + '_' + str(index // 2), step_out)
+                last_exception = None
+                try:
+                    step_out = step.get_step_func()(step_in)
+                # pylint: disable=broad-exception-caught
+                except Exception as e:
+                    last_exception = e
+                    step_out = StepOutput()
+                    step_out.add_snapshot_obj(
+                        build_step_exception_key, self._exception_to_dict(e)
+                    )
+
+                self._take_snapshot(
+                    self._get_repo_root(os.environ),
+                    self._id + '_' + str(index // 2),
+                    step_out,
+                )
+
+                if last_exception:
+                    raise last_exception
 
             if isinstance(step, self._TestStep) and self._config.is_test_env:
-                self._restore_snapshot(self._id + '_' + str(index // 2))
+                env, objs = self._restore_snapshot(
+                    self._id + '_' + str(index // 2)
+                )
+
+                if build_step_exception_key in objs:
+                    raise self._dict_to_exception(
+                        objs[build_step_exception_key]
+                    )
+
                 step_in = StepInput(
-                    self._get_env(),
-                    self._get_repo_root(),
-                    self._config.device_serial,
-                    self._config.is_device_serial_required,
+                    env,
+                    self._get_repo_root(env),
+                    self._config,
+                    objs,
                 )
                 step.get_step_func()(step_in)
-
-        self._has_already_run = True
 
     def add_snapshot_restore_exclude_paths(self, paths: list[str]) -> None:
         """Add paths to ignore during snapshot directory restore."""
         self._snapshot_restore_exclude_paths.extend(paths)
 
-    def _take_snapshot(self, name: str, step_out: StepOutput) -> None:
+    def _take_snapshot(
+        self, repo_root: str, name: str, step_out: StepOutput
+    ) -> None:
         """Take a snapshot of the repository and environment."""
         self._snapshot.take_snapshot(
             name,
-            self._get_repo_root(),
+            repo_root,
             step_out.get_snapshot_include_paths(),
             step_out.get_snapshot_exclude_paths(),
             step_out.get_snapshot_env_keys(),
+            step_out.get_snapshot_objs(),
         )
 
     def _restore_snapshot(self, name: str) -> None:
         """Restore the repository and environment from a snapshot."""
-        self._env = self._snapshot.restore_snapshot(
+        return self._snapshot.restore_snapshot(
             name,
             self._config.workspace_path.as_posix(),
             exclude_paths=self._snapshot_restore_exclude_paths,
         )
 
-    def _get_env(self) -> Dict[str, str]:
-        """Get environment variables."""
-        if self._config.is_build_env:
-            return os.environ.copy()
-        return self._env
-
-    def _get_repo_root(self) -> str:
+    def _get_repo_root(self, env) -> str:
         """Get repo root directory."""
         if self._config.is_build_env:
             return os.environ[ANDROID_BUILD_TOP_KEY]
-        return self._env[ANDROID_BUILD_TOP_KEY]
+        return env[ANDROID_BUILD_TOP_KEY]
 
     class _Step:
         """Parent class to build step and test step for typing declaration."""
@@ -323,7 +380,7 @@ class _FileCompressor:
         file_path.unlink()
 
 
-def _parse_known_args(argv: list[str]) -> tuple[argparse.Namespace, List[str]]:
+def _parse_known_args(argv: list[str]) -> tuple[argparse.Namespace, list[str]]:
     """Parse command line args and check required args being provided."""
 
     description = """A script to build and/or run the Asuite integration tests.
@@ -491,14 +548,11 @@ def main(make_before_build: list[str] = None) -> None:
     snapshot_storage_dir_name = 'snapshot_storage'
     snapshot_storage_tar_name = 'snapshot.tar'
 
-    if ANDROID_BUILD_TOP_KEY in os.environ:
-        integration_test_out_path = Path(
-            os.environ[ANDROID_BUILD_TOP_KEY]
-        ).joinpath(_INTEGRATION_TEST_OUT_DIR_REL_PATH)
-        integration_test_out_path.mkdir(parents=True, exist_ok=True)
-    else:
-        # pylint: disable=consider-using-with
-        integration_test_out_path = Path(tempfile.TemporaryDirectory().name)
+    integration_test_out_path = Path(
+        tempfile.gettempdir(),
+        'asuite_integration_tests_%s'
+        % Path('~').expanduser().name.replace(' ', '_'),
+    )
 
     if SNAPSHOT_STORAGE_TAR_KEY in os.environ:
         snapshot_storage_tar_path = Path(os.environ[SNAPSHOT_STORAGE_TAR_KEY])

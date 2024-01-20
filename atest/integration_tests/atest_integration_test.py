@@ -15,8 +15,11 @@
 # limitations under the License.
 
 """Base test module for Atest integration tests."""
+import multiprocessing
 import os
 from pathlib import Path
+import subprocess
+import sys
 
 import split_build_test_script
 
@@ -24,6 +27,55 @@ import split_build_test_script
 SplitBuildTestScript = split_build_test_script.SplitBuildTestScript
 StepInput = split_build_test_script.StepInput
 StepOutput = split_build_test_script.StepOutput
+
+
+class AtestRunResult:
+    """A class to store Atest run result and get detailed run information."""
+
+    def __init__(
+        self,
+        completed_process: subprocess.CompletedProcess,
+        env: dict[str, str],
+        repo_root: str,
+        config: split_build_test_script.IntegrationTestConfiguration,
+    ):
+        self._completed_process = completed_process
+        self._env = env
+        self._repo_root = repo_root
+        self._config = config
+
+    def get_returncode(self) -> int:
+        """Returns the return code of the completed process."""
+        return self._completed_process.returncode
+
+    def get_stdout(self) -> str:
+        """Returns the standard output of the completed process."""
+        return self._completed_process.stdout
+
+    def get_stderr(self) -> str:
+        """Returns the standard error of the completed process."""
+        return self._completed_process.stderr
+
+    def get_cmd_list(self) -> list[str]:
+        """Returns the command list used in the process run."""
+        return self._completed_process.args
+
+    def check_returncode(self) -> None:
+        """Checks the return code and raises an exception if non-zero."""
+        self._completed_process.check_returncode()
+
+    def get_local_reproduce_debug_cmd(self) -> str:
+        """Returns a full reproduce command for local debugging purpose.
+
+        Returns:
+            A command that can be executed directly in command line to
+            reproduce the atest command.
+        """
+        return '(cd {dir} && {env} {cmd})'.format(
+            dir=self._repo_root,
+            env=' '.join((k + '=' + v for k, v in self._env.items())),
+            cmd=' '.join(self.get_cmd_list()),
+        )
 
 
 class AtestTestCase(split_build_test_script.SplitBuildTestTestCase):
@@ -84,6 +136,73 @@ class AtestTestCase(split_build_test_script.SplitBuildTestTestCase):
         out.add_snapshot_env_keys(self._default_snapshot_env_keys)
         out.add_snapshot_include_paths(self._get_jdk_path_list())
         return out
+
+    def run_atest_dev(
+        self,
+        cmd: str,
+        step_in: split_build_test_script.StepInput,
+        print_output: bool = True,
+    ) -> AtestRunResult:
+        """Run an atest-dev command through subprocess.
+
+        Args:
+            cmd: command string for Atest. Do not add 'atest-dev' or 'atest' in
+              the beginning of the command.
+            step_in: The step input object from build or test step.
+            print_output: Whether to print the stdout and stderr while the
+              command is running.
+
+        Returns:
+            An AtestRunResult object containing the run information.
+        """
+        complete_cmd = (
+            'atest-dev ' + cmd + step_in.get_device_serial_args_or_empty()
+        )
+
+        return AtestRunResult(
+            self._run_shell_command(
+                complete_cmd.split(), print_output=print_output
+            ),
+            step_in.get_env(),
+            step_in.get_repo_root(),
+            step_in.get_config(),
+        )
+
+    def _run_shell_command(
+        self, cmd: list[str], print_output: bool = True
+    ) -> subprocess.CompletedProcess:
+        """Execute shell command with real time output printing and capture."""
+
+        def read_stdout(process, stdout):
+            while output := process.stdout.readline() or process.poll() is None:
+                if print_output:
+                    print(output, end='', file=sys.stdout)
+                stdout.append(output)
+
+        def read_stderr(process, stderr):
+            while output := process.stderr.readline() or process.poll() is None:
+                if print_output:
+                    print(output, end='', file=sys.stdout)
+                stderr.append(output)
+
+        with subprocess.Popen(
+            cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True
+        ) as process:
+            stdout = []
+            stderr = []
+            stdout_reading_process = multiprocessing.Process(
+                target=read_stdout, args=(process, stdout)
+            )
+            stderr_reading_process = multiprocessing.Process(
+                target=read_stderr, args=(process, stderr)
+            )
+            stdout_reading_process.start()
+            stderr_reading_process.start()
+            stdout_reading_process.join()
+            stderr_reading_process.join()
+            return subprocess.CompletedProcess(
+                cmd, process.poll(), ''.join(stdout), ''.join(stderr)
+            )
 
     def _get_jdk_path_list(self) -> str:
         """Get the relative jdk directory in build environment."""
