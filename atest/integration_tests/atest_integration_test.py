@@ -161,7 +161,10 @@ class AtestTestCase(split_build_test_script.SplitBuildTestTestCase):
 
         return AtestRunResult(
             self._run_shell_command(
-                complete_cmd.split(), print_output=print_output
+                complete_cmd.split(),
+                env=step_in.get_env(),
+                cwd=step_in.get_repo_root(),
+                print_output=print_output,
             ),
             step_in.get_env(),
             step_in.get_repo_root(),
@@ -169,7 +172,11 @@ class AtestTestCase(split_build_test_script.SplitBuildTestTestCase):
         )
 
     def _run_shell_command(
-        self, cmd: list[str], print_output: bool = True
+        self,
+        cmd: list[str],
+        env: dict[str, str],
+        cwd: str,
+        print_output: bool = True,
     ) -> subprocess.CompletedProcess:
         """Execute shell command with real time output printing and capture."""
 
@@ -186,7 +193,12 @@ class AtestTestCase(split_build_test_script.SplitBuildTestTestCase):
                 stderr.append(output)
 
         with subprocess.Popen(
-            cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True
+            cmd,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+            env=env,
+            cwd=cwd,
         ) as process:
             stdout = []
             stderr = []
