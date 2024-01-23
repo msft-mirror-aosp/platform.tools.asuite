@@ -1903,7 +1903,7 @@ class BazelTestRunner(trb.TestRunnerBase):
         # Use 'cd' instead of setting the working directory in the subprocess
         # call for a working --dry-run command that users can run.
         return [
-            f'cd {self.bazel_workspace} &&'
+            f'cd {self.bazel_workspace} && '
             f'{self.bazel_binary} {startup_options} '
             f'test {target_patterns} {bazel_args_str}'
         ]
