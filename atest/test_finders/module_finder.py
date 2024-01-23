@@ -200,8 +200,9 @@ class ModuleFinder(test_finder_base.TestFinderBase):
         if not mod_info:
             return None
         test.module_class = mod_info['class']
-        test.install_locations = test_finder_utils.get_install_locations(
-            mod_info['installed'])
+        if constants.MODULE_INSTALLED in mod_info:
+            test.install_locations = test_finder_utils.get_install_locations(
+                mod_info[constants.MODULE_INSTALLED])
         # Check if this is only a vts10 module.
         if self._is_vts_module(test.test_name):
             return self._update_to_vts_test_info(test)
