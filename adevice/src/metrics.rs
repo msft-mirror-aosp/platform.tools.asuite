@@ -169,7 +169,7 @@ impl Metrics {
         fs::create_dir_all(temp_dir).expect("Failed to create folder for metrics");
         fs::write(temp_file_path.clone(), body).expect("Failed to write to metrics file");
         Command::new(METRICS_UPLOADER)
-            .args([&temp_file_path, "&"])
+            .args([&temp_file_path])
             .stdin(Stdio::null())
             .stdout(Stdio::null())
             .stderr(Stdio::null())
