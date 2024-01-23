@@ -180,7 +180,28 @@ class AtestRunResult:
 
     def check_returncode(self) -> None:
         """Checks the return code and raises an exception if non-zero."""
-        self._completed_process.check_returncode()
+
+        def add_line_prefix(msg: str):
+            return (
+                ''.join(
+                    ('> %s' % line for line in msg.splitlines(keepends=True))
+                )
+                if msg
+                else msg
+            )
+
+        stderr = (
+            f'stderr:\n{add_line_prefix(self.get_stderr())}\n'
+            if self.get_stderr() and self.get_stderr().strip()
+            else ''
+        )
+
+        if self.get_returncode() != 0:
+            raise RuntimeError(
+                f'Atest command {self.get_cmd_list()} finished with exit code'
+                f' {self.get_returncode()}.\n'
+                f'stdout:\n{add_line_prefix(self.get_stdout())}\n{stderr}'
+            )
 
     def get_local_reproduce_debug_cmd(self) -> str:
         """Returns a full reproduce command for local debugging purpose.
