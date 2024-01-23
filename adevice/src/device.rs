@@ -245,7 +245,7 @@ impl RealDevice {
     /// in the `timeout` amount of time.
     pub fn wait_for_adb_with_timeout(&self, args: &[String], timeout: Duration) -> Result<String> {
         let output = run_process_with_timeout(timeout, "adb", args);
-
+        progress::stop();
         match output {
             Ok(finished) if finished.status.success() => Ok("".to_string()),
             Ok(finished) if matches!(finished.status.code(), Some(124)) => {
