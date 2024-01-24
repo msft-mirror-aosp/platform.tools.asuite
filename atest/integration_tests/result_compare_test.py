@@ -91,9 +91,9 @@ class ResultCompareTest(unittest.TestCase):
 
         result_file_path = None
         for line in completed_process.stdout.decode().splitlines():
-            if line.startswith('Test Logs have saved in'):
+            if line.startswith('Test Logs have been saved in '):
                 result_file_path = Path(
-                    re.sub('Test Logs have saved in ', "", line).replace(
+                    re.sub('Test Logs have been saved in ', "", line).replace(
                         'log',result_file_name))
                 break
 

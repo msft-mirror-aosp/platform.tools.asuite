@@ -91,6 +91,9 @@ INT_KEYS = {}
 ITER_SUMMARY = {}
 ITER_COUNTS = {}
 
+_TEST_LOG_PATH_PRINT_PREFIX = "Test Logs have been saved in "
+
+
 class PerfInfo():
     """Class for storing performance test of a test run."""
 
@@ -350,22 +353,20 @@ class ResultReporter:
         """Print starting text for running tests."""
         print(au.mark_cyan('\nRunning Tests...'))
 
-    def set_current_summary(self, run_num):
-        """Set current test summary to ITER_SUMMARY."""
+    def set_current_iteration_summary(self, iteration_num: int) -> None:
+        """Add the given iteration's current summary to the list of its existing summaries."""
         run_summary = []
         for runner_name, groups in self.runners.items():
             for group_name, stats in groups.items():
                 name = group_name if group_name else runner_name
                 summary = self.process_summary(name, stats)
                 run_summary.append(summary)
-        summary_list = ITER_SUMMARY.get(run_num, [])
-        # Not contain redundant item
-        if not set(run_summary).issubset(set(summary_list)):
-            summary_list.extend(run_summary)
-            ITER_SUMMARY[run_num] = summary_list
+        summary_list = ITER_SUMMARY.get(iteration_num, [])
+        summary_list.extend(run_summary)
+        ITER_SUMMARY[iteration_num] = summary_list
 
-    def get_iterations_summary(self):
-        """Print sum of iterations."""
+    def get_iterations_summary(self) -> None:
+        """Print the combined summary of all the iterations."""
         total_summary = ''
         for key, value in ITER_COUNTS.items():
             total_summary += ('%s: %s: %s, %s: %s, %s: %s, %s: %s\n'
@@ -401,14 +402,16 @@ class ResultReporter:
             device_detail = f'(Test executed with {self.device_count} devices.)'
         print('\n{}'.format(au.mark_cyan(f'Summary {device_detail}')))
         print(au.delimiter('-', 7))
-        iterations = len(ITER_SUMMARY)
+
+        multi_iterations = len(ITER_SUMMARY) > 1
         for iter_num, summary_list in ITER_SUMMARY.items():
-            if iterations > 1:
+            if multi_iterations:
                 print(au.mark_blue("ITERATION %s" % (int(iter_num) + 1)))
             for summary in summary_list:
                 print(summary)
-        if iterations > 1:
+        if multi_iterations:
             print(self.get_iterations_summary())
+
         failed_sum = len(self.failed_tests)
         for runner_name, groups in self.runners.items():
             if groups == UNSUPPORTED_FLAG:
@@ -429,6 +432,7 @@ class ResultReporter:
                         failed_sum += 1 if not stats.failed else 0
                 if not ITER_SUMMARY:
                     print(summary)
+
         self.run_stats.perf_info.print_perf_info()
         print()
         if not UNSUPPORTED_FLAG in self.runners.values():
@@ -443,7 +447,7 @@ class ResultReporter:
         if self.log_path:
             # Print aggregate result if any.
             self._print_aggregate_test_metrics()
-            print('Test Logs have saved in %s' % self.log_path)
+            print(f'{_TEST_LOG_PATH_PRINT_PREFIX}{self.log_path}')
         # TODO(b/174535786) Error handling while uploading test results has
         # unexpected exceptions.
         # TODO (b/174627499) Saving this information in atest history.
@@ -526,7 +530,7 @@ class ResultReporter:
                 print(name)
         print()
         if self.log_path:
-            print('Test Logs have saved in %s' % self.log_path)
+            print(f'{_TEST_LOG_PATH_PRINT_PREFIX}{self.log_path}')
         return ExitCode.SUCCESS
 
     def print_failed_tests(self):
