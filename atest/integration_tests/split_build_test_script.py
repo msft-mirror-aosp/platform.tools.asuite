@@ -375,7 +375,10 @@ class _FileCompressor:
         file_path.unlink()
 
 
-def _parse_known_args(argv: list[str]) -> tuple[argparse.Namespace, list[str]]:
+def _parse_known_args(
+    argv: list[str],
+    argparser_update_func: Callable[argparse.ArgumentParser, None] = None,
+) -> tuple[argparse.Namespace, list[str]]:
     """Parse command line args and check required args being provided."""
 
     description = """A script to build and/or run the Asuite integration tests.
@@ -439,6 +442,9 @@ Usage examples:
             ' is optional during manual script execution.'
         ),
     )
+
+    if argparser_update_func:
+        argparser_update_func(parser)
 
     return parser.parse_known_args(argv)
 
@@ -527,16 +533,31 @@ def _run_test(
         cleanup()
 
 
-def main(make_before_build: list[str] = None) -> None:
+def main(
+    argv: list[str] = None,
+    make_before_build: list[str] = None,
+    argparser_update_func: Callable[argparse.ArgumentParser, None] = None,
+    config_update_function: Callable[
+        [IntegrationTestConfiguration, argparse.Namespace], None
+    ] = None,
+) -> None:
     """Main method to start the integration tests.
 
     Args:
+        argv: A list of arguments to parse.
         make_before_build: A list of targets to make before running build steps.
+        argparser_update_func: A function that takes an ArgumentParser object
+          and updates it.
+        config_update_function: A function that takes a
+          IntegrationTestConfiguration config and the parsed args to updates the
+          config.
     """
+    if not argv:
+        argv = sys.argv
     if make_before_build is None:
         make_before_build = []
 
-    args, unittest_argv = _parse_known_args(sys.argv)
+    args, unittest_argv = _parse_known_args(argv, argparser_update_func)
 
     print(f'The os environ is: {os.environ}')
 
@@ -578,6 +599,9 @@ def main(make_before_build: list[str] = None) -> None:
     # ANDROID_BUILD_TOP_KEY env being available implies it's local run.
     config.is_device_serial_required = not ANDROID_BUILD_TOP_KEY in os.environ
     config.is_tar_snapshot = args.tar_snapshot
+
+    if config_update_function:
+        config_update_function(config, args)
 
     if config.is_build_env:
         if ANDROID_BUILD_TOP_KEY not in os.environ:
