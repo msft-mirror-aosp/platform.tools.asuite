@@ -98,6 +98,8 @@ _WILDCARD_CHARS = {'?', '*'}
 
 _WILDCARD_FILTER_RE = re.compile(r'.*[?|*]$')
 _REGULAR_FILTER_RE = re.compile(r'.*\w$')
+# Printed before the html log line. May be used in tests to parse the html path.
+_HTML_LOG_PRINT_PREFIX = 'To access logs, press "ctrl" and click on'
 
 SUGGESTIONS = {
     # (b/198581508) Do not run "adb sync" for the users.
@@ -1949,7 +1951,7 @@ def generate_print_result_html(result_file: Path):
                 cache.write(f'<p><a href="{urllib.parse.quote(log)}">'
                             f'{html.escape(Path(log).name)}</a></p>')
             cache.write('</body></html>')
-        print(f'\nTo access logs, press "ctrl" and click on\n'
+        print(f'\n{_HTML_LOG_PRINT_PREFIX}\n'
               f'{mark_magenta(f"file://{result_html}")}\n')
         send_tradeded_elapsed_time_metric(search_dir)
     except Exception as e:
