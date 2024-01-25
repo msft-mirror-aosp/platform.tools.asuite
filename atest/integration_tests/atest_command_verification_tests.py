@@ -1239,7 +1239,7 @@ class CommandVerificationTests(AtestTestCase):
             cmd_combined = (
                 test_name + ' -g ' + ' '.join(test_args if test_args else [])
             )
-            self.run_atest_dev(cmd_combined, step_in).check_returncode()
+            self.run_atest_command(cmd_combined, step_in).check_returncode()
 
             with open(runner_commands_json_path, 'r', encoding='utf-8') as f:
                 runner_cmds_dict = json.load(f)

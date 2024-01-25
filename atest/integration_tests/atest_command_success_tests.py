@@ -39,11 +39,11 @@ class CommandSuccessTests(AtestTestCase):
         script = self.create_atest_script()
 
         def build_step(step_in: StepInput) -> StepOutput:
-            self.run_atest_dev(cmd + ' -b', step_in).check_returncode()
+            self.run_atest_command(cmd + ' -b', step_in).check_returncode()
             return self.create_step_output()
 
         def test_step(step_in: StepInput) -> None:
-            self.run_atest_dev(cmd + ' -it', step_in).check_returncode()
+            self.run_atest_command(cmd + ' -it', step_in).check_returncode()
 
         script.add_build_step(build_step)
         script.add_test_step(test_step)
