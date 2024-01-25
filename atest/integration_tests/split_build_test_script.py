@@ -196,14 +196,9 @@ class SplitBuildTestScript:
         """Converts a dictionary to an exception object."""
         return RuntimeError(
             'The last build step raised an exception:\n'
-            '%s: %s\n'
+            f'{exception_dict["type"]}: {exception_dict["message"]}\n'
             'Traceback (from saved snapshot):\n'
-            '%s'
-            % (
-                exception_dict['type'],
-                exception_dict['message'],
-                exception_dict['traceback'],
-            )
+            f'{exception_dict["traceback"]}'
         )
 
     def run(self):

@@ -15,11 +15,16 @@
 # limitations under the License.
 
 """Base test module for Atest integration tests."""
-import multiprocessing
+import concurrent.futures
+import json
 import os
 from pathlib import Path
+import re
+import shutil
 import subprocess
 import sys
+import time
+from typing import Any
 
 import split_build_test_script
 
@@ -27,6 +32,63 @@ import split_build_test_script
 SplitBuildTestScript = split_build_test_script.SplitBuildTestScript
 StepInput = split_build_test_script.StepInput
 StepOutput = split_build_test_script.StepOutput
+
+# Printed before the html log line. Defined in atest/atest_utils.py.
+_HTML_LOG_PRINT_PREFIX = 'To access logs, press "ctrl" and click on'
+
+
+class LogEntry:
+    """Represents a single log entry."""
+
+    def __init__(self, log_line: str):
+        """Initializes a LogEntry object from a logging line.
+
+        Args:
+            log_line: The logging line to parse.
+        """
+        self._log_line = log_line
+        self._regex = (
+            r'(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}) (.+?):(\d+):(\w+): (.*)'
+        )
+        match = re.match(self._regex, log_line)
+        if match:
+            self._timestamp_string = match.group(1)
+            self._source_file_name = match.group(2)
+            self._source_file_line_number = int(match.group(3))
+            self._log_level = match.group(4)
+            self._content = match.group(5)
+        else:
+            raise ValueError('Invalid log line format.')
+
+    def get_log_line(self) -> str:
+        """Returns the raw log line used to parse the log entry."""
+        return self._log_line
+
+    def get_timestamp(self) -> float:
+        """Returns the timestamp of the log entry as an epoch time."""
+        return time.mktime(
+            time.strptime(self._timestamp_string, '%Y-%m-%d %H:%M:%S')
+        )
+
+    def get_timestamp_string(self) -> str:
+        """Returns the timestamp of the log entry as a string."""
+        return self._timestamp_string
+
+    def get_source_file_name(self) -> str:
+        """Returns the source file name of the log entry."""
+        return self._source_file_name
+
+    def get_source_file_line_number(self) -> int:
+        """Returns the source file line number of the log entry."""
+        return self._source_file_line_number
+
+    def get_log_level(self) -> str:
+        """Returns the log level of the log entry."""
+        return self._log_level
+
+    def get_content(self) -> str:
+        """Returns the content of the log entry."""
+        return self._content
 
 
 class AtestRunResult:
@@ -60,9 +122,86 @@ class AtestRunResult:
         """Returns the command list used in the process run."""
         return self._completed_process.args
 
+    def get_result_root_path(self, snapshot_ready=False) -> Path:
+        """Returns the atest result root path.
+
+        Args:
+            snapshot_ready: Whether to make the result root directory snapshot
+              ready. When set to True and called in build environment, this
+              method will copy the path into <repo_root>/out with dereferencing
+              so that the directory can be safely added to snapshot.
+        """
+        stdout_lines = self.get_stdout().splitlines(keepends=False)
+        html_line_index = None
+        for index, line in enumerate(stdout_lines):
+            if line.startswith(_HTML_LOG_PRINT_PREFIX):
+                html_line_index = index + 1
+                break
+        if not html_line_index or html_line_index >= len(stdout_lines):
+            if 'bazel-result-reporter-host' in self.get_stdout():
+                raise RuntimeError(
+                    'Getting result root path in bazel build only mode is not'
+                    ' supported yet.'
+                )
+            raise RuntimeError('Result root path not found in stdout.')
+        html_path_search = re.search(
+            r'file://(.*)/log/test_logs.html', stdout_lines[html_line_index]
+        )
+        if not html_path_search:
+            raise RuntimeError(
+                'Failed to parse the result root path from stdout.'
+            )
+        result_root_path = Path(html_path_search.group(1))
+
+        if self._config.is_test_env or not snapshot_ready:
+            return result_root_path
+
+        result_root_copy_path = Path(self._repo_root).joinpath(
+            'out/atest_integration_tests', result_root_path.name
+        )
+        if not result_root_copy_path.exists():
+            shutil.copytree(
+                result_root_path, result_root_copy_path, symlinks=False
+            )
+
+        return result_root_copy_path
+
+    def get_test_result_dict(self) -> dict[str, Any]:
+        """Gets the atest result dictionary loaded from the output json."""
+        json_path = self.get_result_root_path() / 'test_result'
+        with open(json_path, 'r', encoding='utf-8') as f:
+            return json.load(f)
+
+    def get_atest_log_entries(self) -> list[LogEntry]:
+        """Gets the parsed atest log entries list from atest log file."""
+        log_path = self.get_result_root_path() / 'atest.log'
+        lines = log_path.read_text(encoding='utf-8').splitlines()
+        return [LogEntry(line) for line in lines if line]
+
     def check_returncode(self) -> None:
         """Checks the return code and raises an exception if non-zero."""
-        self._completed_process.check_returncode()
+
+        def add_line_prefix(msg: str):
+            return (
+                ''.join(
+                    ('> %s' % line for line in msg.splitlines(keepends=True))
+                )
+                if msg
+                else msg
+            )
+
+        stderr = (
+            f'stderr:\n{add_line_prefix(self.get_stderr())}\n'
+            if self.get_stderr() and self.get_stderr().strip()
+            else ''
+        )
+
+        if self.get_returncode() != 0:
+            raise RuntimeError(
+                f'Atest command {self.get_cmd_list()} finished with exit code'
+                f' {self.get_returncode()}.\n'
+                f'stdout:\n{add_line_prefix(self.get_stdout())}\n{stderr}'
+            )
 
     def get_local_reproduce_debug_cmd(self) -> str:
         """Returns a full reproduce command for local debugging purpose.
@@ -180,17 +319,12 @@ class AtestTestCase(split_build_test_script.SplitBuildTestTestCase):
     ) -> subprocess.CompletedProcess:
         """Execute shell command with real time output printing and capture."""
 
-        def read_stdout(process, stdout):
-            while output := process.stdout.readline() or process.poll() is None:
-                if print_output:
-                    print(output, end='', file=sys.stdout)
-                stdout.append(output)
-
-        def read_stderr(process, stderr):
-            while output := process.stderr.readline() or process.poll() is None:
-                if print_output:
-                    print(output, end='', file=sys.stdout)
-                stderr.append(output)
+        def read_output(read_src, print_dst, capture_dst):
+            while (output := read_src.readline()) or process.poll() is None:
+                if output:
+                    if print_output:
+                        print(output, end='', file=print_dst)
+                    capture_dst.append(output)
 
         with subprocess.Popen(
             cmd,
@@ -202,16 +336,16 @@ class AtestTestCase(split_build_test_script.SplitBuildTestTestCase):
         ) as process:
             stdout = []
             stderr = []
-            stdout_reading_process = multiprocessing.Process(
-                target=read_stdout, args=(process, stdout)
-            )
-            stderr_reading_process = multiprocessing.Process(
-                target=read_stderr, args=(process, stderr)
-            )
-            stdout_reading_process.start()
-            stderr_reading_process.start()
-            stdout_reading_process.join()
-            stderr_reading_process.join()
+            with concurrent.futures.ThreadPoolExecutor() as executor:
+                stdout_future = executor.submit(
+                    read_output, process.stdout, sys.stdout, stdout
+                )
+                stderr_future = executor.submit(
+                    read_output, process.stderr, sys.stderr, stderr
+                )
+            stdout_future.result()
+            stderr_future.result()
+
             return subprocess.CompletedProcess(
                 cmd, process.poll(), ''.join(stdout), ''.join(stderr)
             )
