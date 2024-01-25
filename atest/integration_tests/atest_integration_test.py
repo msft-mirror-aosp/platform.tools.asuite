@@ -238,6 +238,7 @@ class AtestTestCase(split_build_test_script.SplitBuildTestTestCase):
         'prebuilts/build-tools/path/linux-x86/python3',
         'prebuilts/build-tools/linux-x86/bin/py3-cmd',
         'prebuilts/build-tools',
+        'prebuilts/asuite/atest/linux-x86/atest-py3',
     ]
 
     # Default exclude list of repo paths for snapshot
@@ -276,13 +277,14 @@ class AtestTestCase(split_build_test_script.SplitBuildTestTestCase):
         out.add_snapshot_include_paths(self._get_jdk_path_list())
         return out
 
-    def run_atest_dev(
+    def run_atest_command(
         self,
         cmd: str,
         step_in: split_build_test_script.StepInput,
         print_output: bool = True,
+        use_prebuilt_atest_binary=None,
     ) -> AtestRunResult:
-        """Run an atest-dev command through subprocess.
+        """Run either `atest-dev` or `atest` command through subprocess.
 
         Args:
             cmd: command string for Atest. Do not add 'atest-dev' or 'atest' in
@@ -290,12 +292,19 @@ class AtestTestCase(split_build_test_script.SplitBuildTestTestCase):
             step_in: The step input object from build or test step.
             print_output: Whether to print the stdout and stderr while the
               command is running.
+            use_prebuilt_atest_binary: Whether to run the command using the
+              prebuilt atest binary instead of the atest-dev binary.
 
         Returns:
             An AtestRunResult object containing the run information.
         """
+        if use_prebuilt_atest_binary is None:
+            use_prebuilt_atest_binary = (
+                step_in.get_config().use_prebuilt_atest_binary
+            )
         complete_cmd = (
-            'atest-dev ' + cmd + step_in.get_device_serial_args_or_empty()
+            f'{"atest" if use_prebuilt_atest_binary else "atest-dev"}'
+            f' {cmd}{step_in.get_device_serial_args_or_empty()}'
         )
 
         return AtestRunResult(
@@ -369,4 +378,24 @@ class AtestTestCase(split_build_test_script.SplitBuildTestTestCase):
 
 def main():
     """Main method to run the integration tests."""
-    split_build_test_script.main(make_before_build=['atest'])
+
+    def argparser_update_func(parser):
+        parser.add_argument(
+            '--use-prebuilt-atest-binary',
+            action='store_true',
+            default=False,
+            help=(
+                'Set the default atest binary to the prebuilt `atest` instead'
+                ' of `atest-dev`.'
+            ),
+        )
+
+    def config_update_function(config, args):
+        config.use_prebuilt_atest_binary = args.use_prebuilt_atest_binary
+
+    split_build_test_script.main(
+        argv=sys.argv,
+        make_before_build=['atest'],
+        argparser_update_func=argparser_update_func,
+        config_update_function=config_update_function,
+    )
