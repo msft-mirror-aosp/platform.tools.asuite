@@ -505,11 +505,10 @@ def _run_test(
             """Injects the test configuration to the test classes."""
 
             def loadTestsFromTestCase(self, *args, **kwargs):
-                tests = super().loadTestsFromTestCase(*args, **kwargs)
-                # pylint: disable=protected-access
-                for test in tests._tests:
+                test_suite = super().loadTestsFromTestCase(*args, **kwargs)
+                for test in test_suite:
                     test.injected_config = config
-                return tests
+                return test_suite
 
         # Setting verbosity is required to generate output that the TradeFed
         # test runner can parse.
