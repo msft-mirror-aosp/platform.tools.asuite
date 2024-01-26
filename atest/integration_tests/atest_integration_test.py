@@ -225,6 +225,7 @@ class AtestTestCase(split_build_test_script.SplitBuildTestTestCase):
         'out/host/linux-x86',
         'out/target/product/*/module-info*',
         'out/target/product/*/testcases',
+        'out/target/product/*/data',
         'out/target/product/*/all_modules.txt',
         'out/soong/module_bp*',
         'tools/asuite/atest/test_runners/roboleaf_launched.txt',
