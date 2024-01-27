@@ -33,9 +33,11 @@ import subprocess
 import sys
 import tarfile
 import tempfile
+import time
 import traceback
 from typing import Any, Callable
 import unittest
+import zipfile
 
 from snapshot import Snapshot
 
@@ -344,13 +346,15 @@ class _FileCompressor:
                     executor.submit(self.compress_file, file_path)
 
     def compress_file(self, file_path: Path) -> None:
-        """Compresses a single file using tarfile.
+        """Compresses a single file to zip.
 
         Args:
             file_path: Path to the file to compress.
         """
-        with tarfile.open(file_path.with_suffix('.bz2'), 'w:bz2') as tar:
-            tar.add(file_path, arcname=file_path.name)
+        with zipfile.ZipFile(
+            file_path.with_suffix('.zip'), 'w', zipfile.ZIP_DEFLATED
+        ) as zip_file:
+            zip_file.write(file_path, arcname=file_path.name)
         file_path.unlink()
 
     def decompress_all_sub_files(self, root_path: Path) -> None:
@@ -361,17 +365,17 @@ class _FileCompressor:
         """
         cpu_count = multiprocessing.cpu_count()
         with ThreadPoolExecutor(max_workers=cpu_count) as executor:
-            for file_path in root_path.rglob('*.bz2'):
+            for file_path in root_path.rglob('*.zip'):
                 executor.submit(self.decompress_file, file_path)
 
     def decompress_file(self, file_path: Path) -> None:
-        """Decompresses a single file using tarfile.
+        """Decompresses a single zip file.
 
         Args:
             file_path: Path to the compressed file.
         """
-        with tarfile.open(file_path, 'r:bz2') as tar:
-            tar.extractall(file_path.parent)
+        with zipfile.ZipFile(file_path, 'r') as zip_file:
+            zip_file.extractall(file_path.parent)
         file_path.unlink()
 
 
@@ -474,8 +478,14 @@ def _run_test(
         with tarfile.open(config.snapshot_storage_tar_path, 'r') as tar:
             tar.extractall(config.snapshot_storage_path.parent.as_posix())
 
-        print('Decompressing the snapshot storage...')
+        print(
+            'Decompressing the snapshot storage with'
+            f' {multiprocessing.cpu_count()} threads...'
+        )
+        start_time = time.time()
         compressor.decompress_all_sub_files(config.snapshot_storage_path)
+        elapsed_time = time.time() - start_time
+        print(f'Decompression finished in {elapsed_time:.2f} seconds')
 
         atexit.register(cleanup)
 
@@ -495,11 +505,10 @@ def _run_test(
             """Injects the test configuration to the test classes."""
 
             def loadTestsFromTestCase(self, *args, **kwargs):
-                tests = super().loadTestsFromTestCase(*args, **kwargs)
-                # pylint: disable=protected-access
-                for test in tests._tests:
+                test_suite = super().loadTestsFromTestCase(*args, **kwargs)
+                for test in test_suite:
                     test.injected_config = config
-                return tests
+                return test_suite
 
         # Setting verbosity is required to generate output that the TradeFed
         # test runner can parse.
@@ -522,8 +531,14 @@ def _run_test(
         unittest_main(stream=None)
 
     if config.is_build_env and config.is_tar_snapshot:
-        print('Compressing the snapshot storage...')
+        print(
+            'Compressing the snapshot storage with'
+            f' {multiprocessing.cpu_count()} threads...'
+        )
+        start_time = time.time()
         compressor.compress_all_sub_files(config.snapshot_storage_path)
+        elapsed_time = time.time() - start_time
+        print(f'Compression finished in {elapsed_time:.2f} seconds')
 
         with tarfile.open(config.snapshot_storage_tar_path, 'w') as tar:
             tar.add(
