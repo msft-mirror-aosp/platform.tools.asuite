@@ -25,6 +25,8 @@ import argparse
 import atexit
 from concurrent.futures import ThreadPoolExecutor
 import copy
+import datetime
+import logging
 import multiprocessing
 import os
 from pathlib import Path
@@ -33,9 +35,11 @@ import subprocess
 import sys
 import tarfile
 import tempfile
+import time
 import traceback
 from typing import Any, Callable
 import unittest
+import zipfile
 
 from snapshot import Snapshot
 
@@ -344,13 +348,15 @@ class _FileCompressor:
                     executor.submit(self.compress_file, file_path)
 
     def compress_file(self, file_path: Path) -> None:
-        """Compresses a single file using tarfile.
+        """Compresses a single file to zip.
 
         Args:
             file_path: Path to the file to compress.
         """
-        with tarfile.open(file_path.with_suffix('.bz2'), 'w:bz2') as tar:
-            tar.add(file_path, arcname=file_path.name)
+        with zipfile.ZipFile(
+            file_path.with_suffix('.zip'), 'w', zipfile.ZIP_DEFLATED
+        ) as zip_file:
+            zip_file.write(file_path, arcname=file_path.name)
         file_path.unlink()
 
     def decompress_all_sub_files(self, root_path: Path) -> None:
@@ -361,18 +367,51 @@ class _FileCompressor:
         """
         cpu_count = multiprocessing.cpu_count()
         with ThreadPoolExecutor(max_workers=cpu_count) as executor:
-            for file_path in root_path.rglob('*.bz2'):
+            for file_path in root_path.rglob('*.zip'):
                 executor.submit(self.decompress_file, file_path)
 
     def decompress_file(self, file_path: Path) -> None:
-        """Decompresses a single file using tarfile.
+        """Decompresses a single zip file.
 
         Args:
             file_path: Path to the compressed file.
         """
-        with tarfile.open(file_path, 'r:bz2') as tar:
-            tar.extractall(file_path.parent)
+        with zipfile.ZipFile(file_path, 'r') as zip_file:
+            zip_file.extractall(file_path.parent)
         file_path.unlink()
+
+
+def _configure_logging(verbose: bool, log_file_dir_path: Path):
+    """Configure the logger.
+
+    Args:
+        verbose: If true display DEBUG level logs on console.
+        log_file_dir_path: A directory which stores the log file.
+    """
+    log_file = log_file_dir_path.joinpath('asuite_integration_tests.log')
+    if log_file.exists():
+        timestamp = datetime.datetime.now().strftime('%Y-%m-%d_%H:%M:%S')
+        log_file = log_file_dir_path.joinpath(
+            f'asuite_integration_tests_{timestamp}.log'
+        )
+
+    log_format = (
+        '%(asctime)s %(filename)s:%(lineno)s:%(levelname)s: %(message)s'
+    )
+    date_format = '%Y-%m-%d %H:%M:%S'
+    logging.basicConfig(
+        filename=log_file.as_posix(),
+        level=logging.DEBUG,
+        format=log_format,
+        datefmt=date_format,
+    )
+    console = logging.StreamHandler()
+    console.name = 'console'
+    console.setLevel(logging.INFO)
+    if verbose:
+        console.setLevel(logging.DEBUG)
+    console.setFormatter(logging.Formatter(log_format))
+    logging.getLogger('').addHandler(console)
 
 
 def _parse_known_args(
@@ -424,6 +463,13 @@ Usage examples:
             ' file.'
         ),
     )
+    parser.add_argument(
+        '-v',
+        '--verbose',
+        action='store_true',
+        default=False,
+        help='Whether to set log level to verbose.',
+    )
 
     # The below flags are passed in by the TF Python test runner.
     parser.add_argument(
@@ -474,8 +520,17 @@ def _run_test(
         with tarfile.open(config.snapshot_storage_tar_path, 'r') as tar:
             tar.extractall(config.snapshot_storage_path.parent.as_posix())
 
-        print('Decompressing the snapshot storage...')
+        logging.info(
+            'Decompressing the snapshot storage with %s threads...',
+            multiprocessing.cpu_count(),
+        )
+        start_time = time.time()
         compressor.decompress_all_sub_files(config.snapshot_storage_path)
+        logging.info(
+            'Decompression finished in {:.2f} seconds'.format(
+                time.time() - start_time
+            )
+        )
 
         atexit.register(cleanup)
 
@@ -495,11 +550,10 @@ def _run_test(
             """Injects the test configuration to the test classes."""
 
             def loadTestsFromTestCase(self, *args, **kwargs):
-                tests = super().loadTestsFromTestCase(*args, **kwargs)
-                # pylint: disable=protected-access
-                for test in tests._tests:
+                test_suite = super().loadTestsFromTestCase(*args, **kwargs)
+                for test in test_suite:
                     test.injected_config = config
-                return tests
+                return test_suite
 
         # Setting verbosity is required to generate output that the TradeFed
         # test runner can parse.
@@ -522,8 +576,17 @@ def _run_test(
         unittest_main(stream=None)
 
     if config.is_build_env and config.is_tar_snapshot:
-        print('Compressing the snapshot storage...')
+        logging.info(
+            'Compressing the snapshot storage with %s threads...',
+            multiprocessing.cpu_count(),
+        )
+        start_time = time.time()
         compressor.compress_all_sub_files(config.snapshot_storage_path)
+        logging.info(
+            'Compression finished in {:.2f} seconds'.format(
+                time.time() - start_time
+            )
+        )
 
         with tarfile.open(config.snapshot_storage_tar_path, 'w') as tar:
             tar.add(
@@ -559,8 +622,6 @@ def main(
 
     args, unittest_argv = _parse_known_args(argv, argparser_update_func)
 
-    print(f'The os environ is: {os.environ}')
-
     snapshot_storage_dir_name = 'snapshot_storage'
     snapshot_storage_tar_name = 'snapshot.tar'
 
@@ -580,8 +641,13 @@ def main(
     else:
         raise EnvironmentError(
             'Cannot determine snapshot storage tar path. Try set the'
-            f' {SNAPSHOT_STORAGE_TAR_KEY} environment value.'
+            f' {SNAPSHOT_STORAGE_TAR_KEY} environment value. Current'
+            f' environment variables: {os.environ}'
         )
+
+    _configure_logging(args.verbose, snapshot_storage_tar_path.parent)
+
+    logging.debug('The os environ is: %s', os.environ)
 
     # When the build or test is unset, assume it's a local run for both build
     # and test steps.
