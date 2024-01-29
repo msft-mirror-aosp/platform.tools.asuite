@@ -11,6 +11,7 @@ use fingerprint::{DiffMode, FileMetadata};
 use itertools::Itertools;
 use lazy_static::lazy_static;
 use metrics::MetricSender;
+use rayon::prelude::*;
 use regex::Regex;
 use restart_chooser::RestartChooser;
 use tracing::{debug, Level};
@@ -548,15 +549,13 @@ fn collect_status_per_file(
     installed_packages: &HashSet<String>,
     diff_mode: DiffMode,
 ) -> Result<HashMap<PathBuf, PushState>> {
-    let all_files: Vec<&PathBuf> =
+    let mut all_files: Vec<&PathBuf> =
         host_tree.keys().chain(device_tree.keys()).chain(tracked_set.iter()).collect();
-    let mut states: HashMap<PathBuf, PushState> = HashMap::new();
+    all_files.dedup();
 
-    for f in all_files
-        .iter()
-        .sorted_by(|a, b| a.display().to_string().cmp(&b.display().to_string()))
-        .dedup()
-    {
+    let states: HashMap<PathBuf, PushState> = all_files
+    .par_iter()
+    .map(|f| {
         let on_device = device_tree.contains_key(*f);
         let on_host = host_tree.contains_key(*f);
         let tracked = tracked_set.contains(*f);
@@ -571,7 +570,7 @@ fn collect_status_per_file(
                     diff_mode,
                 ) {
                     // PushDiff
-                    installed_apk_action(f, product_out, installed_packages)?
+                    installed_apk_action(f, product_out, installed_packages).expect("checking if apk installed")
                 } else {
                     // Else normal case, do nothing.
                     // TODO(rbraunstein): Do we need to check for installed apk and warn.
@@ -611,9 +610,9 @@ fn collect_status_per_file(
                 PushState::TrackOrMakeClean
             }
         };
-
-        states.insert(PathBuf::from(f), push_state);
-    }
+        (PathBuf::from(f), push_state)
+    })
+    .collect();
     Ok(states)
 }
 
