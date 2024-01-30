@@ -134,7 +134,6 @@ USE_MODULES_IN = ('Force include MODULES-IN-* as build targets. '
 USER_TYPE = ('Run test with specific user type, e.g. atest <test> --user-type '
              'secondary_user')
 VERBOSE = 'Display DEBUG level logging.'
-VERIFY_ENV_VARIABLE = 'Verify environment variables of input tests'
 VERSION = 'Display version string.'
 WAIT_FOR_DEBUGGER = ('Wait for debugger prior to execution (Instrumentation '
                      'tests only).')
@@ -290,8 +289,6 @@ class AtestArgParser(argparse.ArgumentParser):
         # Option for dry-run command mapping result and cleaning cache.
         self.add_argument('-c', '--clear-cache', action='store_true',
                           help=CLEAR_CACHE)
-        self.add_argument('-e', '--verify-env-variable', action='store_true',
-                          help=VERIFY_ENV_VARIABLE)
         self.add_argument('-g', '--generate-runner-cmd', action='store_true',
                           help=GENERATE_RUNNER_CMD)
         # Options for Tradefed debug mode.
@@ -428,7 +425,6 @@ def print_epilog_text():
         SQLITE_MODULE_CACHE=SQLITE_MODULE_CACHE,
         VERBOSE=VERBOSE,
         VERSION=VERSION,
-        VERIFY_ENV_VARIABLE=VERIFY_ENV_VARIABLE,
         WAIT_FOR_DEBUGGER=WAIT_FOR_DEBUGGER)
     return pydoc.pager(epilog_text)
 
