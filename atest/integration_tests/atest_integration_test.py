@@ -265,7 +265,7 @@ class AtestTestCase(split_build_test_script.SplitBuildTestTestCase):
 
     def create_atest_script(self) -> SplitBuildTestScript:
         """Create an instance of atest integration test utility."""
-        script = self.create_split_build_test_script(self.id())
+        script = self.create_split_build_test_script()
         script.add_snapshot_restore_exclude_paths(['out/atest_bazel_workspace'])
         return script
 

@@ -321,14 +321,22 @@ class SplitBuildTestTestCase(unittest.TestCase):
     # Internal config to be injected to the test case from main.
     injected_config: IntegrationTestConfiguration = None
 
-    def create_split_build_test_script(self, name: str) -> SplitBuildTestScript:
+    def create_split_build_test_script(
+        self, name: str = None
+    ) -> SplitBuildTestScript:
         """Return an instance of SplitBuildTestScript with the given name.
 
         Args:
             name: The name of the script. The name will be used to store
-              snapshots and tt's recommended to set the name to self.id()in most
-              cases.
+              snapshots and it's recommended to set the name to test id such as
+              self.id(). Defaults to the test id if not set.
         """
+        if not name:
+            name = self.id()
+            main_module_name = '__main__'
+            if name.startswith(main_module_name):
+                script_name = Path(sys.modules[main_module_name].__file__).stem
+                name = name.replace(main_module_name, script_name)
         return SplitBuildTestScript(name, self.injected_config)
 
 
