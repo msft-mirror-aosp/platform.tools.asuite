@@ -43,6 +43,7 @@ def run_unittests(files):
     Returns:
         True if subprocess.check_call() returns 0.
     """
+    print(files)
     cmd_dict = {}
     for f in files:
         if 'asuite_plugin' in f:
