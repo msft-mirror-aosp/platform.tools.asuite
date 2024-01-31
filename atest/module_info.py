@@ -176,27 +176,26 @@ class Loader:
         """Load module-info.json file as ModuleInfo and merge related JSON files
         whenever required.
 
-        +--------------+                  +----------------------------------+
-        | ModuleInfo() |                  | ModuleInfo(module_file=foo.json) |
-        +-------+------+                  +----------------+-----------------+
-                | module_info.build()                      | load
-                v                                          V
-        +--------------------------+         +--------------------------+
-        | module-info.json         |         | foo.json                 |
-        | module_bp_cc_deps.json   |         | module_bp_cc_deps.json   |
-        | module_bp_java_deps.json |         | module_bp_java_deps.json |
-        +--------------------------+         +--------------------------+
-                |                                          |
-                | _merge_soong_info() <--------------------+
-                v
-        +============================+
-        |  $ANDROID_PRODUCT_OUT      |
-        |    /atest_merged_dep.json  |--> load as module info.
-        +============================+
-
         Returns:
             Dict of module name to module info and dict of module path to module info.
         """
+        # +--------------+                  +----------------------------------+
+        # | ModuleInfo() |                  | ModuleInfo(module_file=foo.json) |
+        # +-------+------+                  +----------------+-----------------+
+        #         | module_info.build()                      | load
+        #         v                                          V
+        # +--------------------------+         +--------------------------+
+        # | module-info.json         |         | foo.json                 |
+        # | module_bp_cc_deps.json   |         | module_bp_cc_deps.json   |
+        # | module_bp_java_deps.json |         | module_bp_java_deps.json |
+        # +--------------------------+         +--------------------------+
+        #         |                                          |
+        #         | _merge_soong_info() <--------------------+
+        #         v
+        # +============================+
+        # |  $ANDROID_PRODUCT_OUT      |
+        # |    /atest_merged_dep.json  |--> load as module info.
+        # +============================+
         if not self.update_merge_info:
             return self.load_from_cache()
 
@@ -433,34 +432,33 @@ class ModuleInfo:
         Note that module-info.json does not contain all module dependencies,
         therefore, Atest needs to accumulate dependencies defined in bp files.
 
-          +----------------------+     +----------------------------+
-          | $ANDROID_PRODUCT_OUT |     |$ANDROID_BUILD_TOP/out/soong|
-          |  /module-info.json   |     |  /module_bp_java_deps.json |
-          +-----------+----------+     +-------------+--------------+
-                      |     _merge_soong_info()      |
-                      +------------------------------+
-                      |
-                      v
-        +----------------------------+  +----------------------------+
-        |tempfile.NamedTemporaryFile |  |$ANDROID_BUILD_TOP/out/soong|
-        +-------------+--------------+  |  /module_bp_cc_deps.json   |
-                      |                 +-------------+--------------+
-                      |     _merge_soong_info()       |
-                      +-------------------------------+
-                                     |
-                             +-------|
-                             v
-                +============================+
-                |  $ANDROID_PRODUCT_OUT      |
-                |    /atest_merged_dep.json  |--> load as module info.
-                +============================+
-
         Args:
             name_to_module_info: Dict of name to module info.
             path_to_module_info: Dict of path to module info.
             mod_info_file_path: Path of module-info.json.
             get_testable_modules: Function to get all testable modules.
         """
+        #   +----------------------+     +----------------------------+
+        #   | $ANDROID_PRODUCT_OUT |     |$ANDROID_BUILD_TOP/out/soong|
+        #   |  /module-info.json   |     |  /module_bp_java_deps.json |
+        #   +-----------+----------+     +-------------+--------------+
+        #               |     _merge_soong_info()      |
+        #               +------------------------------+
+        #               |
+        #               v
+        # +----------------------------+  +----------------------------+
+        # |tempfile.NamedTemporaryFile |  |$ANDROID_BUILD_TOP/out/soong|
+        # +-------------+--------------+  |  /module_bp_cc_deps.json   |
+        #               |                 +-------------+--------------+
+        #               |     _merge_soong_info()       |
+        #               +-------------------------------+
+        #                              |
+        #                      +-------|
+        #                      v
+        #         +============================+
+        #         |  $ANDROID_PRODUCT_OUT      |
+        #         |    /atest_merged_dep.json  |--> load as module info.
+        #         +============================+
         self.root_dir = os.environ.get(constants.ANDROID_BUILD_TOP)
 
         self.name_to_module_info = name_to_module_info or {}
