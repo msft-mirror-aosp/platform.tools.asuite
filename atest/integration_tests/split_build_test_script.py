@@ -218,8 +218,9 @@ class SplitBuildTestScript:
 
         for index, step in enumerate(self._steps):
             if isinstance(step, self._BuildStep) and self._config.is_build_env:
+                env = os.environ
                 step_in = StepInput(
-                    os.environ,
+                    env,
                     self._get_repo_root(os.environ),
                     self._config,
                     {},
@@ -239,6 +240,7 @@ class SplitBuildTestScript:
                     self._get_repo_root(os.environ),
                     self._id + '_' + str(index // 2),
                     step_out,
+                    env,
                 )
 
                 if last_exception:
@@ -267,16 +269,21 @@ class SplitBuildTestScript:
         self._snapshot_restore_exclude_paths.extend(paths)
 
     def _take_snapshot(
-        self, repo_root: str, name: str, step_out: StepOutput
+        self,
+        repo_root: str,
+        name: str,
+        step_out: StepOutput,
+        env: dict[str, str],
     ) -> None:
         """Take a snapshot of the repository and environment."""
         self._snapshot.take_snapshot(
             name,
             repo_root,
-            step_out.get_snapshot_include_paths(),
-            step_out.get_snapshot_exclude_paths(),
-            step_out.get_snapshot_env_keys(),
-            step_out.get_snapshot_objs(),
+            include_paths=step_out.get_snapshot_include_paths(),
+            exclude_paths=step_out.get_snapshot_exclude_paths(),
+            env_keys=step_out.get_snapshot_env_keys(),
+            env=env,
+            objs=step_out.get_snapshot_objs(),
         )
 
     def _restore_snapshot(self, name: str) -> None:
@@ -643,15 +650,9 @@ def main(
     if SNAPSHOT_STORAGE_TAR_KEY in os.environ:
         snapshot_storage_tar_path = Path(os.environ[SNAPSHOT_STORAGE_TAR_KEY])
         snapshot_storage_tar_path.parent.mkdir(parents=True, exist_ok=True)
-    elif ANDROID_BUILD_TOP_KEY in os.environ:
+    else:
         snapshot_storage_tar_path = integration_test_out_path.joinpath(
             snapshot_storage_tar_name
-        )
-    else:
-        raise EnvironmentError(
-            'Cannot determine snapshot storage tar path. Try set the'
-            f' {SNAPSHOT_STORAGE_TAR_KEY} environment value. Current'
-            f' environment variables: {os.environ}'
         )
 
     _configure_logging(args.verbose, snapshot_storage_tar_path.parent)
@@ -685,10 +686,29 @@ def main(
                 ' build the integration test.'
             )
 
+        repo_root = os.environ[ANDROID_BUILD_TOP_KEY]
+
+        if 'OUT_DIR' in os.environ:
+            out_dir = os.environ['OUT_DIR']
+            if os.path.isabs(out_dir) and not Path(out_dir).is_relative_to(
+                repo_root
+            ):
+                raise RuntimeError(
+                    f'$OUT_DIR {out_dir} not relative to the repo root'
+                    f' {repo_root} is not supported yet.'
+                )
+        elif 'HOST_OUT' in os.environ:
+            out_dir = (
+                Path(os.environ['HOST_OUT']).relative_to(repo_root).parts[0]
+            )
+        else:
+            out_dir = 'out'
+        os.environ['OUT_DIR'] = out_dir
+
         for target in make_before_build:
             subprocess.check_call(
                 f'build/soong/soong_ui.bash --make-mode {target}'.split(),
-                cwd=os.environ[ANDROID_BUILD_TOP_KEY],
+                cwd=repo_root,
             )
 
     if config.is_build_env ^ config.is_test_env:
