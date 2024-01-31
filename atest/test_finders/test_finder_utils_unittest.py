@@ -831,7 +831,7 @@ class TestFinderUtilsUnittests(unittest.TestCase):
 
   @mock.patch('os.path.isfile', side_effect=unittest_utils.isfile_side_effect)
   def test_get_test_config_single_config(self, _isfile):
-    """Test get_test_config_and_srcs manualy set it's config"""
+    """Test get_test_config_and_srcs manually set it's config"""
     android_root = '/'
     mod_info = module_info.load_from_file(module_file=JSON_FILE_PATH)
     t_info = test_info.TestInfo(

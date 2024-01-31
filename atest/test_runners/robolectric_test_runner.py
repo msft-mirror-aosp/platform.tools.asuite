@@ -237,7 +237,7 @@ class RobolectricTestRunner(test_runner_base.TestRunnerBase):
     return env_var
 
   # pylint: disable=unnecessary-pass
-  # Please keep above disable flag to ensure host_env_check is overriden.
+  # Please keep above disable flag to ensure host_env_check is overridden.
   def host_env_check(self):
     """Check that host env has everything we need.
 

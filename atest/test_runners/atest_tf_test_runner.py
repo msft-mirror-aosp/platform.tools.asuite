@@ -417,7 +417,7 @@ class AtestTradefedTestRunner(trb.TestRunnerBase):
           self._handle_log_associations(event_handlers)
 
   def _process_connection(self, data_map, conn, event_handler):
-    """Process a socket connection betwen TF and ATest.
+    """Process a socket connection between TF and ATest.
 
     Expect data of form EVENT_NAME {JSON_DATA}.  Multiple events will be
     \n deliminated.  Need to buffer data in case data exceeds socket
@@ -541,7 +541,7 @@ class AtestTradefedTestRunner(trb.TestRunnerBase):
     )
 
   # pylint: disable=unnecessary-pass
-  # Please keep above disable flag to ensure host_env_check is overriden.
+  # Please keep above disable flag to ensure host_env_check is overridden.
   def host_env_check(self):
     """Check that host env has everything we need.
 
@@ -995,8 +995,8 @@ class AtestTradefedTestRunner(trb.TestRunnerBase):
       # if it's integration finder.
       if info.test_finder in _INTEGRATION_FINDERS:
         has_integration_test = True
-      # For non-paramertize test module, use --include-filter, but for
-      # tests which have auto enable paramertize config use --module
+      # For non-parameterize test module, use --include-filter, but for
+      # tests which have auto enable parameterize config use --module
       # instead.
       if use_module_arg and self._is_parameter_auto_enabled_cfg(
           info, self.module_info

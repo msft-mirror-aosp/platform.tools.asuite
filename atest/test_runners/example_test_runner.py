@@ -43,7 +43,7 @@ class ExampleTestRunner(test_runner_base.TestRunnerBase):
       super(ExampleTestRunner).run(run_cmd)
 
   # pylint: disable=unnecessary-pass
-  # Please keep above disable flag to ensure host_env_check is overriden.
+  # Please keep above disable flag to ensure host_env_check is overridden.
   def host_env_check(self):
     """Check that host env has everything we need.
 
