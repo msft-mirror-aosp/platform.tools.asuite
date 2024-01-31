@@ -72,7 +72,7 @@ def get_files_to_upload():
         # When running by users directly, only consider:
         # added(A), renamed(R) and modified(M) files
         # and store them in files_to_upload.
-        cmd = "git status --short | egrep ^[ARM] | awk '{print $NF}'"
+        cmd = "git status --short | egrep [ARM] | awk '{print $NF}'"
         preupload_files = subprocess.check_output(cmd, shell=True,
                                                   encoding='utf-8').splitlines()
         if preupload_files:
