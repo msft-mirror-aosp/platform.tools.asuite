@@ -22,7 +22,7 @@ import json
 from pathlib import Path
 from typing import Callable
 
-from atest_integration_test import AtestTestCase, SplitBuildTestScript
+from atest_integration_test import AtestTestCase
 from atest_integration_test import StepInput, StepOutput, main
 
 
@@ -65,13 +65,8 @@ class CommandVerificationTests(AtestTestCase):
         ]
         self._verify_atest_internal_command(
             test_name,
-            # atest_internal_command : a set of strings that represent a
-            # test runner command.
-            lambda atest_internal_command: self.assertTrue(
-                set(expected_cmd).issubset(atest_internal_command),
-                'The expected commands are not a subset of the runner '
-                'commands:\n'
-                + str(atest_internal_command),
+            lambda internal_atest_runner_commands: self._assert_equivalent_cmds(
+                expected_cmd, internal_atest_runner_commands
             ),
         )
 
@@ -111,13 +106,8 @@ class CommandVerificationTests(AtestTestCase):
         ]
         self._verify_atest_internal_command(
             test_name,
-            # atest_internal_command : a set of strings that represent a
-            # test runner command.
-            lambda atest_internal_command: self.assertTrue(
-                set(expected_cmd).issubset(atest_internal_command),
-                'The expected commands are not a subset of the runner '
-                'commands:\n'
-                + str(atest_internal_command),
+            lambda internal_atest_runner_commands: self._assert_equivalent_cmds(
+                expected_cmd, internal_atest_runner_commands
             ),
         )
 
@@ -155,13 +145,8 @@ class CommandVerificationTests(AtestTestCase):
         ]
         self._verify_atest_internal_command(
             test_name,
-            # atest_internal_command : a set of strings that represent a
-            # test runner command.
-            lambda atest_internal_command: self.assertTrue(
-                set(expected_cmd).issubset(atest_internal_command),
-                'The expected commands are not a subset of the runner '
-                'commands:\n'
-                + str(atest_internal_command),
+            lambda internal_atest_runner_commands: self._assert_equivalent_cmds(
+                expected_cmd, internal_atest_runner_commands
             ),
         )
 
@@ -194,13 +179,8 @@ class CommandVerificationTests(AtestTestCase):
         ]
         self._verify_atest_internal_command(
             test_name,
-            # atest_internal_command : a set of strings that represent a
-            # test runner command.
-            lambda atest_internal_command: self.assertTrue(
-                set(expected_cmd).issubset(atest_internal_command),
-                'The expected commands are not a subset of the runner '
-                'commands:\n'
-                + str(atest_internal_command),
+            lambda internal_atest_runner_commands: self._assert_equivalent_cmds(
+                expected_cmd, internal_atest_runner_commands
             ),
         )
 
@@ -239,13 +219,8 @@ class CommandVerificationTests(AtestTestCase):
         ]
         self._verify_atest_internal_command(
             test_name,
-            # atest_internal_command : a set of strings that represent a
-            # test runner command.
-            lambda atest_internal_command: self.assertTrue(
-                set(expected_cmd).issubset(atest_internal_command),
-                'The expected commands are not a subset of the runner '
-                'commands:\n'
-                + str(atest_internal_command),
+            lambda internal_atest_runner_commands: self._assert_equivalent_cmds(
+                expected_cmd, internal_atest_runner_commands
             ),
         )
 
@@ -278,13 +253,8 @@ class CommandVerificationTests(AtestTestCase):
         ]
         self._verify_atest_internal_command(
             test_name,
-            # atest_internal_command : a set of strings that represent a
-            # test runner command.
-            lambda atest_internal_command: self.assertTrue(
-                set(expected_cmd).issubset(atest_internal_command),
-                'The expected commands are not a subset of the runner '
-                'commands:\n'
-                + str(atest_internal_command),
+            lambda internal_atest_runner_commands: self._assert_equivalent_cmds(
+                expected_cmd, internal_atest_runner_commands
             ),
         )
 
@@ -312,13 +282,8 @@ class CommandVerificationTests(AtestTestCase):
         ]
         self._verify_atest_internal_command(
             test_name,
-            # atest_internal_command : a set of strings that represent a
-            # test runner command.
-            lambda atest_internal_command: self.assertTrue(
-                set(expected_cmd).issubset(atest_internal_command),
-                'The expected commands are not a subset of the runner '
-                'commands:\n'
-                + str(atest_internal_command),
+            lambda internal_atest_runner_commands: self._assert_equivalent_cmds(
+                expected_cmd, internal_atest_runner_commands
             ),
         )
 
@@ -358,13 +323,8 @@ class CommandVerificationTests(AtestTestCase):
         ]
         self._verify_atest_internal_command(
             test_name,
-            # atest_internal_command : a set of strings that represent a
-            # test runner command.
-            lambda atest_internal_command: self.assertTrue(
-                set(expected_cmd).issubset(atest_internal_command),
-                'The expected commands are not a subset of the runner '
-                'commands:\n'
-                + str(atest_internal_command),
+            lambda internal_atest_runner_commands: self._assert_equivalent_cmds(
+                expected_cmd, internal_atest_runner_commands
             ),
         )
 
@@ -398,13 +358,8 @@ class CommandVerificationTests(AtestTestCase):
         ]
         self._verify_atest_internal_command(
             test_name,
-            # atest_internal_command : a set of strings that represent a
-            # test runner command.
-            lambda atest_internal_command: self.assertTrue(
-                set(expected_cmd).issubset(atest_internal_command),
-                'The expected commands are not a subset of the runner '
-                'commands:\n'
-                + str(atest_internal_command),
+            lambda internal_atest_runner_commands: self._assert_equivalent_cmds(
+                expected_cmd, internal_atest_runner_commands
             ),
         )
 
@@ -430,13 +385,8 @@ class CommandVerificationTests(AtestTestCase):
         ]
         self._verify_atest_internal_command(
             test_name,
-            # atest_internal_command : a set of strings that represent a
-            # test runner command.
-            lambda atest_internal_command: self.assertTrue(
-                set(expected_cmd).issubset(atest_internal_command),
-                'The expected commands are not a subset of the runner '
-                'commands:\n'
-                + str(atest_internal_command),
+            lambda internal_atest_runner_commands: self._assert_equivalent_cmds(
+                expected_cmd, internal_atest_runner_commands
             ),
         )
 
@@ -471,13 +421,8 @@ class CommandVerificationTests(AtestTestCase):
         ]
         self._verify_atest_internal_command(
             test_name,
-            # atest_internal_command : a set of strings that represent a
-            # test runner command.
-            lambda atest_internal_command: self.assertTrue(
-                set(expected_cmd).issubset(atest_internal_command),
-                'The expected commands are not a subset of the runner '
-                'commands:\n'
-                + str(atest_internal_command),
+            lambda internal_atest_runner_commands: self._assert_equivalent_cmds(
+                expected_cmd, internal_atest_runner_commands
             ),
         )
 
@@ -517,13 +462,8 @@ class CommandVerificationTests(AtestTestCase):
         ]
         self._verify_atest_internal_command(
             test_name,
-            # atest_internal_command : a set of strings that represent a
-            # test runner command.
-            lambda atest_internal_command: self.assertTrue(
-                set(expected_cmd).issubset(atest_internal_command),
-                'The expected commands are not a subset of the runner '
-                'commands:\n'
-                + str(atest_internal_command),
+            lambda internal_atest_runner_commands: self._assert_equivalent_cmds(
+                expected_cmd, internal_atest_runner_commands
             ),
         )
 
@@ -559,13 +499,8 @@ class CommandVerificationTests(AtestTestCase):
         ]
         self._verify_atest_internal_command(
             test_name,
-            # atest_internal_command : a set of strings that represent a
-            # test runner command.
-            lambda atest_internal_command: self.assertTrue(
-                set(expected_cmd).issubset(atest_internal_command),
-                'The expected commands are not a subset of the runner '
-                'commands:\n'
-                + str(atest_internal_command),
+            lambda internal_atest_runner_commands: self._assert_equivalent_cmds(
+                expected_cmd, internal_atest_runner_commands
             ),
         )
 
@@ -601,13 +536,8 @@ class CommandVerificationTests(AtestTestCase):
         ]
         self._verify_atest_internal_command(
             test_name,
-            # atest_internal_command : a set of strings that represent a
-            # test runner command.
-            lambda atest_internal_command: self.assertTrue(
-                set(expected_cmd).issubset(atest_internal_command),
-                'The expected commands are not a subset of the runner '
-                'commands:\n'
-                + str(atest_internal_command),
+            lambda internal_atest_runner_commands: self._assert_equivalent_cmds(
+                expected_cmd, internal_atest_runner_commands
             ),
         )
 
@@ -633,13 +563,8 @@ class CommandVerificationTests(AtestTestCase):
         ]
         self._verify_atest_internal_command(
             test_name,
-            # atest_internal_command : a set of strings that represent a
-            # test runner command.
-            lambda atest_internal_command: self.assertTrue(
-                set(expected_cmd).issubset(atest_internal_command),
-                'The expected commands are not a subset of the runner '
-                'commands:\n'
-                + str(atest_internal_command),
+            lambda internal_atest_runner_commands: self._assert_equivalent_cmds(
+                expected_cmd, internal_atest_runner_commands
             ),
         )
 
@@ -664,13 +589,8 @@ class CommandVerificationTests(AtestTestCase):
         ]
         self._verify_atest_internal_command(
             test_name,
-            # atest_internal_command : a set of strings that represent a
-            # test runner command.
-            lambda atest_internal_command: self.assertTrue(
-                set(expected_cmd).issubset(atest_internal_command),
-                'The expected commands are not a subset of the runner '
-                'commands:\n'
-                + str(atest_internal_command),
+            lambda internal_atest_runner_commands: self._assert_equivalent_cmds(
+                expected_cmd, internal_atest_runner_commands
             ),
         )
 
@@ -696,13 +616,8 @@ class CommandVerificationTests(AtestTestCase):
         ]
         self._verify_atest_internal_command(
             test_name,
-            # atest_internal_command : a set of strings that represent a
-            # test runner command.
-            lambda atest_internal_command: self.assertTrue(
-                set(expected_cmd).issubset(atest_internal_command),
-                'The expected commands are not a subset of the runner '
-                'commands:\n'
-                + str(atest_internal_command),
+            lambda internal_atest_runner_commands: self._assert_equivalent_cmds(
+                expected_cmd, internal_atest_runner_commands
             ),
         )
 
@@ -728,13 +643,8 @@ class CommandVerificationTests(AtestTestCase):
         ]
         self._verify_atest_internal_command(
             test_name,
-            # atest_internal_command : a set of strings that represent a
-            # test runner command.
-            lambda atest_internal_command: self.assertTrue(
-                set(expected_cmd).issubset(atest_internal_command),
-                'The expected commands are not a subset of the runner '
-                'commands:\n'
-                + str(atest_internal_command),
+            lambda internal_atest_runner_commands: self._assert_equivalent_cmds(
+                expected_cmd, internal_atest_runner_commands
             ),
         )
 
@@ -759,13 +669,8 @@ class CommandVerificationTests(AtestTestCase):
         ]
         self._verify_atest_internal_command(
             test_name,
-            # atest_internal_command : a set of strings that represent a
-            # test runner command.
-            lambda atest_internal_command: self.assertTrue(
-                set(expected_cmd).issubset(atest_internal_command),
-                'The expected commands are not a subset of the runner '
-                'commands:\n'
-                + str(atest_internal_command),
+            lambda internal_atest_runner_commands: self._assert_equivalent_cmds(
+                expected_cmd, internal_atest_runner_commands
             ),
         )
 
@@ -795,13 +700,8 @@ class CommandVerificationTests(AtestTestCase):
         ]
         self._verify_atest_internal_command(
             test_name,
-            # atest_internal_command : a set of strings that represent a
-            # test runner command.
-            lambda atest_internal_command: self.assertTrue(
-                set(expected_cmd).issubset(atest_internal_command),
-                'The expected commands are not a subset of the runner '
-                'commands:\n'
-                + str(atest_internal_command),
+            lambda internal_atest_runner_commands: self._assert_equivalent_cmds(
+                expected_cmd, internal_atest_runner_commands
             ),
             test_args,
         )
@@ -831,13 +731,8 @@ class CommandVerificationTests(AtestTestCase):
         ]
         self._verify_atest_internal_command(
             test_name,
-            # atest_internal_command : a set of strings that represent a
-            # test runner command.
-            lambda atest_internal_command: self.assertTrue(
-                set(expected_cmd).issubset(atest_internal_command),
-                'The expected commands are not a subset of the runner '
-                'commands:\n'
-                + str(atest_internal_command),
+            lambda internal_atest_runner_commands: self._assert_equivalent_cmds(
+                expected_cmd, internal_atest_runner_commands
             ),
         )
 
@@ -865,13 +760,8 @@ class CommandVerificationTests(AtestTestCase):
         ]
         self._verify_atest_internal_command(
             test_name,
-            # atest_internal_command : a set of strings that represent a
-            # test runner command.
-            lambda atest_internal_command: self.assertTrue(
-                set(expected_cmd).issubset(atest_internal_command),
-                'The expected commands are not a subset of the runner '
-                'commands:\n'
-                + str(atest_internal_command),
+            lambda internal_atest_runner_commands: self._assert_equivalent_cmds(
+                expected_cmd, internal_atest_runner_commands
             ),
         )
 
@@ -899,13 +789,8 @@ class CommandVerificationTests(AtestTestCase):
         ]
         self._verify_atest_internal_command(
             test_name,
-            # atest_internal_command : a set of strings that represent a
-            # test runner command.
-            lambda atest_internal_command: self.assertTrue(
-                set(expected_cmd).issubset(atest_internal_command),
-                'The expected commands are not a subset of the runner '
-                'commands:\n'
-                + str(atest_internal_command),
+            lambda internal_atest_runner_commands: self._assert_equivalent_cmds(
+                expected_cmd, internal_atest_runner_commands
             ),
         )
 
@@ -940,13 +825,8 @@ class CommandVerificationTests(AtestTestCase):
         ]
         self._verify_atest_internal_command(
             test_name,
-            # atest_internal_command : a set of strings that represent a
-            # test runner command.
-            lambda atest_internal_command: self.assertTrue(
-                set(expected_cmd).issubset(atest_internal_command),
-                'The expected commands are not a subset of the runner '
-                'commands:\n'
-                + str(atest_internal_command),
+            lambda internal_atest_runner_commands: self._assert_equivalent_cmds(
+                expected_cmd, internal_atest_runner_commands
             ),
         )
 
@@ -988,13 +868,8 @@ class CommandVerificationTests(AtestTestCase):
         ]
         self._verify_atest_internal_command(
             test_name,
-            # atest_internal_command : a set of strings that represent a
-            # test runner command.
-            lambda atest_internal_command: self.assertTrue(
-                set(expected_cmd).issubset(atest_internal_command),
-                'The expected commands are not a subset of the runner '
-                'commands:\n'
-                + str(atest_internal_command),
+            lambda internal_atest_runner_commands: self._assert_equivalent_cmds(
+                expected_cmd, internal_atest_runner_commands
             ),
         )
 
@@ -1036,13 +911,8 @@ class CommandVerificationTests(AtestTestCase):
         ]
         self._verify_atest_internal_command(
             test_name,
-            # atest_internal_command : a set of strings that represent a
-            # test runner command.
-            lambda atest_internal_command: self.assertTrue(
-                set(expected_cmd).issubset(atest_internal_command),
-                'The expected commands are not a subset of the runner '
-                'commands:\n'
-                + str(atest_internal_command),
+            lambda internal_atest_runner_commands: self._assert_equivalent_cmds(
+                expected_cmd, internal_atest_runner_commands
             ),
         )
 
@@ -1085,13 +955,8 @@ class CommandVerificationTests(AtestTestCase):
         ]
         self._verify_atest_internal_command(
             test_name,
-            # atest_internal_command : a set of strings that represent a
-            # test runner command.
-            lambda atest_internal_command: self.assertTrue(
-                set(expected_cmd).issubset(atest_internal_command),
-                'The expected commands are not a subset of the runner '
-                'commands:\n'
-                + str(atest_internal_command),
+            lambda internal_atest_runner_commands: self._assert_equivalent_cmds(
+                expected_cmd, internal_atest_runner_commands
             ),
         )
 
@@ -1129,13 +994,8 @@ class CommandVerificationTests(AtestTestCase):
         ]
         self._verify_atest_internal_command(
             test_name,
-            # atest_internal_command : a set of strings that represent a
-            # test runner command.
-            lambda atest_internal_command: self.assertTrue(
-                set(expected_cmd).issubset(atest_internal_command),
-                'The expected commands are not a subset of the runner '
-                'commands:\n'
-                + str(atest_internal_command),
+            lambda internal_atest_runner_commands: self._assert_equivalent_cmds(
+                expected_cmd, internal_atest_runner_commands
             ),
         )
 
@@ -1177,40 +1037,32 @@ class CommandVerificationTests(AtestTestCase):
         ]
         self._verify_atest_internal_command(
             test_name,
-            # atest_internal_command : a set of strings that represent a
-            # test runner command.
-            lambda atest_internal_command: self.assertTrue(
-                set(expected_cmd).issubset(atest_internal_command),
-                'The expected commands are not a subset of the runner '
-                'commands:\n'
-                + str(atest_internal_command),
+            lambda internal_atest_runner_commands: self._assert_equivalent_cmds(
+                expected_cmd, internal_atest_runner_commands
             ),
         )
 
-    def _get_expected_cmds_from_file(
-        self, atest: SplitBuildTestScript, test_name: str, file: str
-    ) -> set[str]:
-        """Looks up the given test in the dictionary of expected commands and
+    def _assert_equivalent_cmds(
+        self, expected_cmd: list[str], actual_cmd: list[str]
+    ) -> None:
+        """Assert that the expected command is equivalent to the actual
 
-        returns the corresponding command as a set of strings.
+        command.
 
         Args:
-            atest: an instance of SplitBuildTestScript.
-            test_name: the name of the test to look up in the expected commands
-              dictionary.
-            file: a file containing a dictionary of expected tests commands.
+            expected_cmd: a list of commands expected to be found in the actual
+              command.
+            actual_cmd: a list of commands produced by atest.
 
         Returns:
-            A set of strings representing the expected commands to run for the
-            given test.
         """
-        with open(
-            Path(atest.get_repo_root()).joinpath(file),
-            'r',
-            encoding='utf-8',
-        ) as f:
-            dict_from_json = json.load(f)
-        return set(dict_from_json[test_name])
+        missing_cmds = set(expected_cmd).difference(set(actual_cmd))
+        self.assertTrue(
+            len(missing_cmds) == 0,
+            'The expected commands below were not found in the runner'
+            ' commands:\n'
+            + str(missing_cmds),
+        )
 
     def _verify_atest_internal_command(
         self,

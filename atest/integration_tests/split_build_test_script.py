@@ -394,6 +394,7 @@ def _configure_logging(verbose: bool, log_file_dir_path: Path):
         log_file = log_file_dir_path.joinpath(
             f'asuite_integration_tests_{timestamp}.log'
         )
+    log_file.parent.mkdir(parents=True, exist_ok=True)
 
     log_format = (
         '%(asctime)s %(filename)s:%(lineno)s:%(levelname)s: %(message)s'

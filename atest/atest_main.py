@@ -749,18 +749,6 @@ def _dry_run_validator(
         print("add command %s to file %s" % (
             atest_utils.mark_green(test_commands),
             atest_utils.mark_green(constants.RUNNER_COMMAND_PATH)))
-    test_name = atest_utils.get_verify_key(args.tests, extra_args)
-    if args.verify_cmd_mapping:
-        try:
-            atest_utils.handle_test_runner_cmd(test_name,
-                                               dry_run_cmds,
-                                               do_verification=True)
-        except atest_error.DryRunVerificationError as e:
-            atest_utils.colorful_print(str(e), constants.RED)
-            return ExitCode.VERIFY_FAILURE
-    if args.update_cmd_mapping:
-        atest_utils.handle_test_runner_cmd(test_name,
-                                           dry_run_cmds)
     return ExitCode.SUCCESS
 
 def _exclude_modules_in_targets(build_targets):
@@ -843,8 +831,6 @@ def need_run_index_targets(args: argparse.ArgumentParser):
     """
     if indexing.Indices().has_all_indices():
         no_indexing_args = (
-            args.update_cmd_mapping,
-            args.verify_cmd_mapping,
             args.dry_run,
             args.list_modules,
             args.verify_env_variable,
@@ -1006,8 +992,7 @@ def main(
         _print_testable_modules(mod_info, args.list_modules)
         return ExitCode.SUCCESS
     test_infos = set()
-    dry_run_args = (args.update_cmd_mapping, args.verify_cmd_mapping,
-                    args.dry_run, args.generate_runner_cmd)
+    dry_run_args = (args.dry_run, args.generate_runner_cmd)
     # (b/242567487) index_targets may finish after cli_translator; to
     # mitigate the overhead, the main waits until it finished when no index
     # files are available (e.g. fresh repo sync)
