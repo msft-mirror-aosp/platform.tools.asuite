@@ -12,9 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""
-Imports the various constant files that are available (default, google, etc).
-"""
+"""Imports the various constant files that are available (default, google, etc)."""
 # pylint: disable=wildcard-import
 # pylint: disable=unused-wildcard-import
 
@@ -24,6 +22,6 @@ from atest.constants_default import *
 # Now try to import the various constant files outside this repo to overwrite
 # the globals as desired.
 try:
-    from constants_google import *
+  from constants_google import *
 except ImportError:
-    pass
+  pass

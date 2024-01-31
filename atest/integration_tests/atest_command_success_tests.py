@@ -20,35 +20,35 @@ from atest_integration_test import AtestTestCase, StepInput, StepOutput, main
 
 
 class CommandSuccessTests(AtestTestCase):
-    """Test whether the atest commands run with success exit codes."""
+  """Test whether the atest commands run with success exit codes."""
 
-    def test_csuite_crash_detection_tests(self):
-        """Test if csuite-harness-tests command runs successfully."""
-        self._verify_atest_command_success('csuite_crash_detection_test')
+  def test_csuite_crash_detection_tests(self):
+    """Test if csuite-harness-tests command runs successfully."""
+    self._verify_atest_command_success('csuite_crash_detection_test')
 
-    def test_csuite_harness_tests(self):
-        """Test if csuite-harness-tests command runs successfully."""
-        self._verify_atest_command_success('csuite-harness-tests')
+  def test_csuite_harness_tests(self):
+    """Test if csuite-harness-tests command runs successfully."""
+    self._verify_atest_command_success('csuite-harness-tests')
 
-    def test_csuite_cli_test(self):
-        """Test if csuite_cli_test command runs successfully."""
-        self._verify_atest_command_success('csuite_cli_test')
+  def test_csuite_cli_test(self):
+    """Test if csuite_cli_test command runs successfully."""
+    self._verify_atest_command_success('csuite_cli_test')
 
-    def _verify_atest_command_success(self, cmd: str):
-        """Verifies whether an Atest command run completed with exit code 0."""
-        script = self.create_atest_script()
+  def _verify_atest_command_success(self, cmd: str):
+    """Verifies whether an Atest command run completed with exit code 0."""
+    script = self.create_atest_script()
 
-        def build_step(step_in: StepInput) -> StepOutput:
-            self.run_atest_command(cmd + ' -b', step_in).check_returncode()
-            return self.create_step_output()
+    def build_step(step_in: StepInput) -> StepOutput:
+      self.run_atest_command(cmd + ' -b', step_in).check_returncode()
+      return self.create_step_output()
 
-        def test_step(step_in: StepInput) -> None:
-            self.run_atest_command(cmd + ' -it', step_in).check_returncode()
+    def test_step(step_in: StepInput) -> None:
+      self.run_atest_command(cmd + ' -it', step_in).check_returncode()
 
-        script.add_build_step(build_step)
-        script.add_test_step(test_step)
-        script.run()
+    script.add_build_step(build_step)
+    script.add_test_step(test_step)
+    script.run()
 
 
 if __name__ == '__main__':
-    main()
+  main()
