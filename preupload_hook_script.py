@@ -13,75 +13,60 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""asuite_run_unittests
-
-This is a unit test wrapper to run tests of aidegen, atest or both.
-"""
-
-
-from __future__ import print_function
+"""Run at preupload hook to perform necessary checks and formatting."""
 
 import argparse
-import os
+import pathlib
 import shlex
 import subprocess
-import sys
 
-ASUITE_HOME = os.path.dirname(os.path.realpath(__file__))
-ASUITE_PLUGIN_PATH = os.path.join(ASUITE_HOME, "asuite_plugin")
-GRADLE_TEST = "/gradlew test"
-# Definition of exit codes.
-EXIT_ALL_CLEAN = 0
-EXIT_TEST_FAIL = 1
-
-def run_unittests(files):
-    """Parse modified files and tell if they belong to aidegen, atest or both.
-
-    Args:
-        files: a list of files.
-
-    Returns:
-        True if subprocess.check_call() returns 0.
-    """
-    print(files)
-    cmd_dict = {}
-    for f in files:
-        if 'asuite_plugin' in f:
-            cmd = ASUITE_PLUGIN_PATH + GRADLE_TEST
-            cmd_dict.update({cmd : ASUITE_PLUGIN_PATH})
-    try:
-        for cmd, path in cmd_dict.items():
-            subprocess.check_call(shlex.split(cmd), cwd=path)
-    except subprocess.CalledProcessError as error:
-        print('Unit test failed at:\n\n{}'.format(error.output))
-        raise
-    return True
+ASUITE_HOME = pathlib.Path(__file__).resolve().parent
 
 
-def get_files_to_upload():
-    """Parse args or modified files and return them as a list.
+def run_legacy_unittests(files):
+  """Run unittests for asuite_plugin.
 
-    Returns:
-        A list of files to upload.
-    """
-    parser = argparse.ArgumentParser()
-    parser.add_argument('preupload_files', nargs='*', help='Files to upload.')
-    args = parser.parse_args()
-    files_to_upload = args.preupload_files
-    if not files_to_upload:
-        # When running by users directly, only consider:
-        # added(A), renamed(R) and modified(M) files
-        # and store them in files_to_upload.
-        cmd = "git status --short | egrep [ARM] | awk '{print $NF}'"
-        preupload_files = subprocess.check_output(cmd, shell=True,
-                                                  encoding='utf-8').splitlines()
-        if preupload_files:
-            print('Files to upload: %s' % preupload_files)
-            files_to_upload = preupload_files
-        else:
-            sys.exit(EXIT_ALL_CLEAN)
-    return files_to_upload
+  Args:
+      files: a list of files.
+
+  Returns:
+      True if subprocess.check_call() returns 0.
+  """
+  print(ASUITE_HOME)
+  asuite_plugin_path = ASUITE_HOME.joinpath('asuite_plugin').as_posix()
+  gradel_test = '/gradlew test'
+  cmd_dict = {}
+  for f in files:
+    if 'asuite_plugin' in f:
+      cmd = asuite_plugin_path + gradel_test
+      cmd_dict.update({cmd: asuite_plugin_path})
+  try:
+    for cmd, path in cmd_dict.items():
+      subprocess.check_call(shlex.split(cmd), cwd=path)
+  except subprocess.CalledProcessError as error:
+    print('Unit test failed at:\n\n{}'.format(error.output))
+    raise
+
+
+def get_preupload_files():
+  """Get the list of files to be uploaded."""
+  parser = argparse.ArgumentParser()
+  parser.add_argument('preupload_files', nargs='*', help='Files to upload.')
+  args = parser.parse_args()
+  files_to_upload = args.preupload_files
+  if not files_to_upload:
+    # When running by users directly, only consider:
+    # added(A), renamed(R) and modified(M) files
+    # and store them in files_to_upload.
+    cmd = "git status --short | egrep [ARM] | awk '{print $NF}'"
+    files_to_upload = subprocess.check_output(
+        cmd, shell=True, encoding='utf-8'
+    ).splitlines()
+    if files_to_upload:
+      print('Modified files: %s' % files_to_upload)
+  return files_to_upload
+
 
 if __name__ == '__main__':
-    if not run_unittests(get_files_to_upload()):
-        sys.exit(EXIT_TEST_FAIL)
+  preupload_files = get_preupload_files()
+  run_legacy_unittests(preupload_files)
