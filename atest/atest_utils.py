@@ -610,128 +610,6 @@ def get_terminal_size():
                   _DEFAULT_TERMINAL_HEIGHT))
     return columns, rows
 
-
-def handle_test_runner_cmd(input_test, dry_run_cmds, do_verification=False,
-                           result_path=constants.VERIFY_DATA_PATH):
-    """Handle the runner command of input tests.
-
-    Args:
-        input_test: The name of a test.
-        dry_run_cmds: A list of strings which make up the command for running
-        the input test.
-        do_verification: A boolean to indicate the action of this method.
-                         True: Do verification without updating result map and
-                               raise DryRunVerificationError if verifying fails.
-                         False: Update result map, if the former command is
-                                different with current command, it will confirm
-                                with user if they want to update or not.
-        result_path: The file path for saving result.
-    """
-    full_result_content = load_json_safely(result_path)
-    former_test_cmds = full_result_content.get(input_test, [])
-    dry_run_cmds = _normalize(dry_run_cmds)
-    former_test_cmds = _normalize(former_test_cmds)
-    if not _are_equivalent_cmds(dry_run_cmds, former_test_cmds):
-        if do_verification:
-            raise atest_error.DryRunVerificationError(
-                'Dry run verification failed, former commands: {}'.format(
-                    former_test_cmds))
-        if former_test_cmds:
-            # If former_test_cmds is different from test_cmds, ask users if they
-            # are willing to update the result.
-            print('Former cmds = %s' % former_test_cmds)
-            print('Current cmds = %s' % dry_run_cmds)
-            if not prompt_with_yn_result('Do you want to update former result '
-                                         'to the latest one?', True):
-                print('SKIP updating result!!!')
-                return
-    else:
-        # If current commands are the same as the formers, no need to update
-        # result.
-        return
-    full_result_content[input_test] = dry_run_cmds
-    with open(result_path, 'w', encoding='utf-8') as outfile:
-        json.dump(full_result_content, outfile, indent=0)
-        print('Save result mapping to %s' % result_path)
-
-def _normalize(cmd_list):
-    """Method that normalizes commands. Note that '--atest-log-file-path' is not
-    considered a critical argument, therefore, it will be removed during
-    the comparison. Also, atest can be run in any place, so verifying relative
-    path, LD_LIBRARY_PATH, and --proto-output-file is removed as well.
-    The `--serial` is also removed because it is set locally.
-
-    Args:
-        cmd_list: A list with one element. E.g. ['cmd arg1 arg2 True']
-
-    Returns:
-        A list with elements. E.g. ['cmd', 'arg1', 'arg2', 'True']
-    """
-    _cmd = ' '.join(cmd_list).split()
-    for cmd in _cmd:
-        if cmd.startswith('--skip-all-system-status-check'):
-            _cmd.remove(cmd)
-            continue
-        if cmd.startswith('--atest-log-file-path'):
-            _cmd.remove(cmd)
-            continue
-        if cmd.startswith('LD_LIBRARY_PATH='):
-            _cmd.remove(cmd)
-            continue
-        if cmd.startswith('--proto-output-file='):
-            _cmd.remove(cmd)
-            continue
-        if cmd.startswith('--log-root-path'):
-            _cmd.remove(cmd)
-            continue
-        if _BUILD_CMD in cmd:
-            _cmd.remove(cmd)
-            _cmd.append(os.path.join('./', _BUILD_CMD))
-            continue
-    return _cmd
-
-def _remove_serial_from_cmds(cmd_list):
-    """ Removes the serial number from an unsorted list of test commands.
-
-    Args:
-        cmd_list: a list of test commands.
-
-    Returns:
-        A list of test commands with the serial arg removed.
-    """
-    _cmd = ' '.join(cmd_list).split()
-    if "--serial" in _cmd:
-        index = _cmd.index("--serial")
-        # --serial is followed by the serial number, which is deleted first.
-        del _cmd[index + 1]
-        del _cmd[index]
-
-    if "-s" in _cmd:
-        index = _cmd.index("-s")
-        # --serial is followed by the serial number, which is deleted first.
-        del _cmd[index + 1]
-        del _cmd[index]
-
-    return _cmd
-
-def _are_equivalent_cmds(current_cmds, former_cmds):
-    """Return true when two commands are equivalent.
-
-    Args:
-        current_cmds: A list of strings for running input tests.
-        former_cmds: A list of strings recorded from the previous run.
-
-    Returns:
-        True if both commands are equivalent, False otherwise.
-    """
-    # Always sort cmd list and remove the serial to make it comparable.
-    current_cmds = _remove_serial_from_cmds(current_cmds)
-    current_cmds.sort()
-    former_cmds = _remove_serial_from_cmds(former_cmds)
-    former_cmds.sort()
-
-    return current_cmds == former_cmds
-
 def _get_hashed_file_name(main_file_name):
     """Convert the input string to a md5-hashed string. If file_extension is
        given, returns $(hashed_string).$(file_extension), otherwise
@@ -1580,8 +1458,7 @@ def get_verify_key(tests, extra_args):
     # For example, "ITERATIONS=5 hello_world_test"
     test_commands = tests
     for key, value in extra_args.items():
-        if key not in constants.SKIP_VARS:
-            test_commands.append('%s=%s' % (key, str(value)))
+        test_commands.append('%s=%s' % (key, str(value)))
     test_commands.sort()
     return ' '.join(test_commands)
 
@@ -1607,44 +1484,6 @@ def gen_runner_cmd_to_file(tests, dry_run_cmd,
     with open(result_path, 'w+', encoding='utf-8') as _file:
         json.dump(results, _file, indent=0)
     return results.get(tests, '')
-
-
-def handle_test_env_var(input_test, result_path=constants.VERIFY_ENV_PATH,
-                        pre_verify=False):
-    """Handle the environment variable of input tests.
-
-    Args:
-        input_test: A string of input tests pass to atest.
-        result_path: The file path for saving result.
-        pre_verify: A booloan to separate into pre-verify and actually verify.
-    Returns:
-        0 is no variable needs to verify, 1 has some variables to next verify.
-    """
-    full_result_content = load_json_safely(result_path)
-    demand_env_vars = []
-    demand_env_vars = full_result_content.get(input_test)
-    if demand_env_vars is None:
-        raise atest_error.DryRunVerificationError(
-            '{}: No verify key.'.format(input_test))
-    # No mapping variables.
-    if demand_env_vars == []:
-        return 0
-    if pre_verify:
-        return 1
-    verify_error = []
-    for env in demand_env_vars:
-        if '=' in env:
-            key, value = env.split('=', 1)
-            env_value = os.environ.get(key, None)
-            if env_value is None or env_value != value:
-                verify_error.append('Environ verification failed, ({0},{1})!='
-                    '({0},{2})'.format(key, value, env_value))
-        else:
-            if not os.environ.get(env, None):
-                verify_error.append('Missing environ:{}'.format(env))
-    if verify_error:
-        raise atest_error.DryRunVerificationError('\n'.join(verify_error))
-    return 1
 
 def save_build_files_timestamp():
     """ Method that generate timestamp of Android.{bp,mk} files.

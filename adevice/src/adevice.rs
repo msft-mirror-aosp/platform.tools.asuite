@@ -11,6 +11,7 @@ use fingerprint::{DiffMode, FileMetadata};
 use itertools::Itertools;
 use lazy_static::lazy_static;
 use metrics::MetricSender;
+use rayon::prelude::*;
 use regex::Regex;
 use restart_chooser::RestartChooser;
 use tracing::{debug, Level};
@@ -157,7 +158,7 @@ pub fn adevice(
 
     writeln!(stdout, " * Checking for files to push to device")?;
 
-    progress::start("Checking files on host");
+    progress::start("Checking ninja installed files");
     let mut ninja_installed_files =
         time!(host.tracked_files(&config)?, profiler.ninja_deps_computer);
     let partitions =
@@ -165,9 +166,8 @@ pub fn adevice(
     // Filter to paths on any partitions.
     ninja_installed_files
         .retain(|nif| partitions.iter().any(|p| PathBuf::from(nif).starts_with(p)));
-    progress::stop();
     debug!("Stale file tracking took {} millis", track_time.elapsed().as_millis());
-    progress::start("Checking files on device");
+    progress::update("Checking files on device");
     let mut device_tree: HashMap<PathBuf, FileMetadata> =
         time!(device.fingerprint(partitions)?, profiler.device_fingerprint);
     // We expect the device to create lost+found dirs when mounting
@@ -177,11 +177,11 @@ pub fn adevice(
     for p in partitions {
         device_tree.remove(&PathBuf::from(p).join("lost+found"));
     }
-
+    progress::update("Checking files on host");
     let partition_paths: Vec<PathBuf> = partitions.iter().map(PathBuf::from).collect();
     let host_tree =
         time!(host.fingerprint(&product_out, &partition_paths)?, profiler.host_fingerprint);
-
+    progress::update("Calculating diffs");
     // For now ignore diffs in permissions.  This will allow us to have a new adevice host tool
     // still working with an older adevice_fingerprint device tool.
     // [It also works on windows hosts]
@@ -330,6 +330,7 @@ fn get_update_commands(
         installed_packages,
         diff_mode,
     )?;
+    progress::stop();
     print_status(stdout, status_per_file)?;
     // Shadowing apks are apks that are installed outside the system partition with `adb install`
     // If they exist, we should not push the apk that would be shadowed.
@@ -548,15 +549,13 @@ fn collect_status_per_file(
     installed_packages: &HashSet<String>,
     diff_mode: DiffMode,
 ) -> Result<HashMap<PathBuf, PushState>> {
-    let all_files: Vec<&PathBuf> =
+    let mut all_files: Vec<&PathBuf> =
         host_tree.keys().chain(device_tree.keys()).chain(tracked_set.iter()).collect();
-    let mut states: HashMap<PathBuf, PushState> = HashMap::new();
+    all_files.dedup();
 
-    for f in all_files
-        .iter()
-        .sorted_by(|a, b| a.display().to_string().cmp(&b.display().to_string()))
-        .dedup()
-    {
+    let states: HashMap<PathBuf, PushState> = all_files
+    .par_iter()
+    .map(|f| {
         let on_device = device_tree.contains_key(*f);
         let on_host = host_tree.contains_key(*f);
         let tracked = tracked_set.contains(*f);
@@ -571,7 +570,7 @@ fn collect_status_per_file(
                     diff_mode,
                 ) {
                     // PushDiff
-                    installed_apk_action(f, product_out, installed_packages)?
+                    installed_apk_action(f, product_out, installed_packages).expect("checking if apk installed")
                 } else {
                     // Else normal case, do nothing.
                     // TODO(rbraunstein): Do we need to check for installed apk and warn.
@@ -611,9 +610,9 @@ fn collect_status_per_file(
                 PushState::TrackOrMakeClean
             }
         };
-
-        states.insert(PathBuf::from(f), push_state);
-    }
+        (PathBuf::from(f), push_state)
+    })
+    .collect();
     Ok(states)
 }
 
@@ -632,9 +631,13 @@ fn print_files_in_state(
         return Ok(());
     }
     writeln!(stdout, "{}", &push_state.get_action_msg())?;
-    for path in filtered_files.keys().sorted() {
-        writeln!(stdout, "\t{}", path.display())?;
-    }
+    let file_list_output = filtered_files
+        .keys()
+        .sorted()
+        .map(|path| format!("\t{}", path.display()))
+        .collect::<Vec<String>>()
+        .join("\n");
+    writeln!(stdout, "{}", file_list_output)?;
     Ok(())
 }
 

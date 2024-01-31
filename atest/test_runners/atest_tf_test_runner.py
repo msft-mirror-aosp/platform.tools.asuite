@@ -231,11 +231,6 @@ class AtestTradefedTestRunner(trb.TestRunnerBase):
         try:
             verify_key = atest_utils.get_verify_key([test_infos[0].test_name],
                                                     extra_args)
-            if extra_args.get(constants.VERIFY_ENV_VARIABLE, False):
-                # check environment variables.
-                atest_utils.handle_test_env_var(
-                    verify_key, result_path=constants.VERIFY_ENV_PATH)
-                return 0
             # Change CWD to repo root to ensure TF can find prebuilt SDKs
             # for some path-sensitive tests like robolectric.
             os.chdir(os.path.abspath(os.getenv(constants.ANDROID_BUILD_TOP)))
@@ -1299,7 +1294,6 @@ def extra_args_to_tf_args(
                    constants.LOCAL_BUILD_ID,
                    constants.BUILD_TARGET,
                    constants.DRY_RUN,
-                   constants.VERIFY_ENV_VARIABLE,
                    constants.DEVICE_ONLY):
             continue
         unsupported_args.append(arg)

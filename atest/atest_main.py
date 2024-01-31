@@ -322,8 +322,7 @@ def get_extra_args(args):
                 'tf_debug': constants.TF_DEBUG,
                 'tf_template': constants.TF_TEMPLATE,
                 'user_type': constants.USER_TYPE,
-                'verbose': constants.VERBOSE,
-                'verify_env_variable': constants.VERIFY_ENV_VARIABLE}
+                'verbose': constants.VERBOSE}
     not_match = [k for k in arg_maps if k not in vars(args)]
     if not_match:
         raise AttributeError('%s object has no attribute %s'
@@ -749,18 +748,6 @@ def _dry_run_validator(
         print("add command %s to file %s" % (
             atest_utils.mark_green(test_commands),
             atest_utils.mark_green(constants.RUNNER_COMMAND_PATH)))
-    test_name = atest_utils.get_verify_key(args.tests, extra_args)
-    if args.verify_cmd_mapping:
-        try:
-            atest_utils.handle_test_runner_cmd(test_name,
-                                               dry_run_cmds,
-                                               do_verification=True)
-        except atest_error.DryRunVerificationError as e:
-            atest_utils.colorful_print(str(e), constants.RED)
-            return ExitCode.VERIFY_FAILURE
-    if args.update_cmd_mapping:
-        atest_utils.handle_test_runner_cmd(test_name,
-                                           dry_run_cmds)
     return ExitCode.SUCCESS
 
 def _exclude_modules_in_targets(build_targets):
@@ -843,11 +830,8 @@ def need_run_index_targets(args: argparse.ArgumentParser):
     """
     if indexing.Indices().has_all_indices():
         no_indexing_args = (
-            args.update_cmd_mapping,
-            args.verify_cmd_mapping,
             args.dry_run,
             args.list_modules,
-            args.verify_env_variable,
         )
         if not any(no_indexing_args) and not parse_steps(args).has_build():
             return False
@@ -974,8 +958,6 @@ def main(
     is_clean = not os.path.exists(
         os.environ.get(constants.ANDROID_PRODUCT_OUT, ''))
 
-    verify_env_variables = args.verify_env_variable
-
     # Run Test Mapping or coverage by no-bazel-mode.
     if atest_utils.is_test_mapping(args) or args.experimental_coverage:
         atest_utils.colorful_print('Not running using bazel-mode.',
@@ -1006,8 +988,7 @@ def main(
         _print_testable_modules(mod_info, args.list_modules)
         return ExitCode.SUCCESS
     test_infos = set()
-    dry_run_args = (args.update_cmd_mapping, args.verify_cmd_mapping,
-                    args.dry_run, args.generate_runner_cmd)
+    dry_run_args = (args.dry_run, args.generate_runner_cmd)
     # (b/242567487) index_targets may finish after cli_translator; to
     # mitigate the overhead, the main waits until it finished when no index
     # files are available (e.g. fresh repo sync)
@@ -1016,12 +997,12 @@ def main(
     find_start = time.time()
     test_infos = translator.translate(args)
 
-    # Only check device sufficiency if not dry run or verification mode.
+    # Only check for sufficient devices if not dry run.
     args.device_count_config = get_device_count_config(test_infos, mod_info)
-    if not (any(dry_run_args) or verify_env_variables):
-        if not has_set_sufficient_devices(
-            args.device_count_config, args.serial):
-            return ExitCode.INSUFFICIENT_DEVICES
+    if not any(dry_run_args) and not has_set_sufficient_devices(
+        args.device_count_config, args.serial
+    ):
+        return ExitCode.INSUFFICIENT_DEVICES
 
     find_duration = time.time() - find_start
     if not test_infos:
@@ -1046,15 +1027,8 @@ def main(
         build_targets = _exclude_modules_in_targets(build_targets)
 
     if any(dry_run_args):
-        if not verify_env_variables:
-            return _dry_run_validator(args, results_dir, extra_args, test_infos,
+        return _dry_run_validator(args, results_dir, extra_args, test_infos,
                                       mod_info)
-    if verify_env_variables:
-        # check environment variables.
-        verify_key = atest_utils.get_verify_key(args.tests, extra_args)
-        if not atest_utils.handle_test_env_var(verify_key, pre_verify=True):
-            print('No environment variables need to verify.')
-            return 0
 
     steps = parse_steps(args)
     device_update_method = _configure_update_method(steps, test_execution_plan)
@@ -1353,7 +1327,7 @@ class TestModuleExecutionPlan(TestExecutionPlan):
             An instance of TestModuleExecutionPlan.
         """
 
-        if not (dry_run or args.verify_env_variable):
+        if not dry_run:
             _validate_exec_mode(args, test_infos)
 
         # _validate_exec_mode appends --host automatically when pure

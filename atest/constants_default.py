@@ -61,8 +61,6 @@ BAZEL_MODE_FEATURES = 'BAZEL_MODE_FEATURES'
 REQUEST_UPLOAD_RESULT = 'REQUEST_UPLOAD_RESULT'
 DISABLE_UPLOAD_RESULT = 'DISABLE_UPLOAD_RESULT'
 MODULES_IN = 'MODULES-IN-'
-VERIFY_ENV_VARIABLE = 'VERIFY_ENV_VARIABLE'
-SKIP_VARS = [VERIFY_ENV_VARIABLE]
 AGGREGATE_METRIC_FILTER_ARG = 'AGGREGATE_METRIC_FILTER'
 ANNOTATION_FILTER = 'ANNOTATION_FILTER'
 BAZEL_ARG = 'BAZEL_ARG'
@@ -366,11 +364,6 @@ DEFAULT_EXCLUDE_PARAS = {TF_PARA_INSTANT_APP,
 DEFAULT_EXCLUDE_NOT_PARAS = {'not_' + TF_PARA_INSTANT_APP,
                             'not_' + TF_PARA_SECOND_USR,
                             'not_' + TF_PARA_MULTIABI}
-
-# ATest integration test related constants.
-VERIFY_DATA_PATH = os.path.join(
-    os.environ.get(ANDROID_BUILD_TOP, os.getcwd()),
-    'tools/asuite/atest/test_data/test_commands.json')
 VERIFY_ENV_PATH = os.path.join(
     os.environ.get(ANDROID_BUILD_TOP, os.getcwd()),
     'tools/asuite/atest/test_data/test_environ.json')

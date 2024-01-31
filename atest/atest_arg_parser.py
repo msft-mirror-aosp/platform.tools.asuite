@@ -129,17 +129,11 @@ TEST_TIMEOUT = ('Customize test timeout. E.g. 60000(in milliseconds) '
 TF_DEBUG = 'Enable tradefed debug mode with a specified port. (default: 10888)'
 TF_TEMPLATE = ('Add extra tradefed template for ATest suite, '
                'e.g. atest <test> --tf-template <template_key>=<template_path>')
-UPDATE_CMD_MAPPING = ('Update the test command of input tests. Warning: result '
-                      'will be saved under '
-                      'tools/asuite/atest/test_data.')
 USE_MODULES_IN = ('Force include MODULES-IN-* as build targets. '
                   'Hint: This may solve missing test dependencies issue.')
 USER_TYPE = ('Run test with specific user type, e.g. atest <test> --user-type '
              'secondary_user')
 VERBOSE = 'Display DEBUG level logging.'
-VERIFY_CMD_MAPPING = 'Verify the test command of input tests against the ' \
-                     'expected test command.'
-VERIFY_ENV_VARIABLE = 'Verify environment variables of input tests'
 VERSION = 'Display version string.'
 WAIT_FOR_DEBUGGER = ('Wait for debugger prior to execution (Instrumentation '
                      'tests only).')
@@ -295,12 +289,6 @@ class AtestArgParser(argparse.ArgumentParser):
         # Option for dry-run command mapping result and cleaning cache.
         self.add_argument('-c', '--clear-cache', action='store_true',
                           help=CLEAR_CACHE)
-        self.add_argument('-u', '--update-cmd-mapping', action='store_true',
-                          help=UPDATE_CMD_MAPPING)
-        self.add_argument('-y', '--verify-cmd-mapping', action='store_true',
-                          help=VERIFY_CMD_MAPPING)
-        self.add_argument('-e', '--verify-env-variable', action='store_true',
-                          help=VERIFY_ENV_VARIABLE)
         self.add_argument('-g', '--generate-runner-cmd', action='store_true',
                           help=GENERATE_RUNNER_CMD)
         # Options for Tradefed debug mode.
@@ -433,13 +421,10 @@ def print_epilog_text():
         TEST_FILTER=TEST_FILTER,
         TF_TEMPLATE=TF_TEMPLATE,
         USER_TYPE=USER_TYPE,
-        UPDATE_CMD_MAPPING=UPDATE_CMD_MAPPING,
         USE_MODULES_IN=USE_MODULES_IN,
         SQLITE_MODULE_CACHE=SQLITE_MODULE_CACHE,
         VERBOSE=VERBOSE,
         VERSION=VERSION,
-        VERIFY_CMD_MAPPING=VERIFY_CMD_MAPPING,
-        VERIFY_ENV_VARIABLE=VERIFY_ENV_VARIABLE,
         WAIT_FOR_DEBUGGER=WAIT_FOR_DEBUGGER)
     return pydoc.pager(epilog_text)
 

@@ -25,6 +25,8 @@ import argparse
 import atexit
 from concurrent.futures import ThreadPoolExecutor
 import copy
+import datetime
+import logging
 import multiprocessing
 import os
 from pathlib import Path
@@ -33,9 +35,11 @@ import subprocess
 import sys
 import tarfile
 import tempfile
+import time
 import traceback
 from typing import Any, Callable
 import unittest
+import zipfile
 
 from snapshot import Snapshot
 
@@ -317,14 +321,22 @@ class SplitBuildTestTestCase(unittest.TestCase):
     # Internal config to be injected to the test case from main.
     injected_config: IntegrationTestConfiguration = None
 
-    def create_split_build_test_script(self, name: str) -> SplitBuildTestScript:
+    def create_split_build_test_script(
+        self, name: str = None
+    ) -> SplitBuildTestScript:
         """Return an instance of SplitBuildTestScript with the given name.
 
         Args:
             name: The name of the script. The name will be used to store
-              snapshots and tt's recommended to set the name to self.id()in most
-              cases.
+              snapshots and it's recommended to set the name to test id such as
+              self.id(). Defaults to the test id if not set.
         """
+        if not name:
+            name = self.id()
+            main_module_name = '__main__'
+            if name.startswith(main_module_name):
+                script_name = Path(sys.modules[main_module_name].__file__).stem
+                name = name.replace(main_module_name, script_name)
         return SplitBuildTestScript(name, self.injected_config)
 
 
@@ -344,13 +356,15 @@ class _FileCompressor:
                     executor.submit(self.compress_file, file_path)
 
     def compress_file(self, file_path: Path) -> None:
-        """Compresses a single file using tarfile.
+        """Compresses a single file to zip.
 
         Args:
             file_path: Path to the file to compress.
         """
-        with tarfile.open(file_path.with_suffix('.bz2'), 'w:bz2') as tar:
-            tar.add(file_path, arcname=file_path.name)
+        with zipfile.ZipFile(
+            file_path.with_suffix('.zip'), 'w', zipfile.ZIP_DEFLATED
+        ) as zip_file:
+            zip_file.write(file_path, arcname=file_path.name)
         file_path.unlink()
 
     def decompress_all_sub_files(self, root_path: Path) -> None:
@@ -361,21 +375,58 @@ class _FileCompressor:
         """
         cpu_count = multiprocessing.cpu_count()
         with ThreadPoolExecutor(max_workers=cpu_count) as executor:
-            for file_path in root_path.rglob('*.bz2'):
+            for file_path in root_path.rglob('*.zip'):
                 executor.submit(self.decompress_file, file_path)
 
     def decompress_file(self, file_path: Path) -> None:
-        """Decompresses a single file using tarfile.
+        """Decompresses a single zip file.
 
         Args:
             file_path: Path to the compressed file.
         """
-        with tarfile.open(file_path, 'r:bz2') as tar:
-            tar.extractall(file_path.parent)
+        with zipfile.ZipFile(file_path, 'r') as zip_file:
+            zip_file.extractall(file_path.parent)
         file_path.unlink()
 
 
-def _parse_known_args(argv: list[str]) -> tuple[argparse.Namespace, list[str]]:
+def _configure_logging(verbose: bool, log_file_dir_path: Path):
+    """Configure the logger.
+
+    Args:
+        verbose: If true display DEBUG level logs on console.
+        log_file_dir_path: A directory which stores the log file.
+    """
+    log_file = log_file_dir_path.joinpath('asuite_integration_tests.log')
+    if log_file.exists():
+        timestamp = datetime.datetime.now().strftime('%Y-%m-%d_%H:%M:%S')
+        log_file = log_file_dir_path.joinpath(
+            f'asuite_integration_tests_{timestamp}.log'
+        )
+    log_file.parent.mkdir(parents=True, exist_ok=True)
+
+    log_format = (
+        '%(asctime)s %(filename)s:%(lineno)s:%(levelname)s: %(message)s'
+    )
+    date_format = '%Y-%m-%d %H:%M:%S'
+    logging.basicConfig(
+        filename=log_file.as_posix(),
+        level=logging.DEBUG,
+        format=log_format,
+        datefmt=date_format,
+    )
+    console = logging.StreamHandler()
+    console.name = 'console'
+    console.setLevel(logging.INFO)
+    if verbose:
+        console.setLevel(logging.DEBUG)
+    console.setFormatter(logging.Formatter(log_format))
+    logging.getLogger('').addHandler(console)
+
+
+def _parse_known_args(
+    argv: list[str],
+    argparser_update_func: Callable[argparse.ArgumentParser, None] = None,
+) -> tuple[argparse.Namespace, list[str]]:
     """Parse command line args and check required args being provided."""
 
     description = """A script to build and/or run the Asuite integration tests.
@@ -421,6 +472,13 @@ Usage examples:
             ' file.'
         ),
     )
+    parser.add_argument(
+        '-v',
+        '--verbose',
+        action='store_true',
+        default=False,
+        help='Whether to set log level to verbose.',
+    )
 
     # The below flags are passed in by the TF Python test runner.
     parser.add_argument(
@@ -439,6 +497,9 @@ Usage examples:
             ' is optional during manual script execution.'
         ),
     )
+
+    if argparser_update_func:
+        argparser_update_func(parser)
 
     return parser.parse_known_args(argv)
 
@@ -468,8 +529,17 @@ def _run_test(
         with tarfile.open(config.snapshot_storage_tar_path, 'r') as tar:
             tar.extractall(config.snapshot_storage_path.parent.as_posix())
 
-        print('Decompressing the snapshot storage...')
+        logging.info(
+            'Decompressing the snapshot storage with %s threads...',
+            multiprocessing.cpu_count(),
+        )
+        start_time = time.time()
         compressor.decompress_all_sub_files(config.snapshot_storage_path)
+        logging.info(
+            'Decompression finished in {:.2f} seconds'.format(
+                time.time() - start_time
+            )
+        )
 
         atexit.register(cleanup)
 
@@ -489,11 +559,10 @@ def _run_test(
             """Injects the test configuration to the test classes."""
 
             def loadTestsFromTestCase(self, *args, **kwargs):
-                tests = super().loadTestsFromTestCase(*args, **kwargs)
-                # pylint: disable=protected-access
-                for test in tests._tests:
+                test_suite = super().loadTestsFromTestCase(*args, **kwargs)
+                for test in test_suite:
                     test.injected_config = config
-                return tests
+                return test_suite
 
         # Setting verbosity is required to generate output that the TradeFed
         # test runner can parse.
@@ -516,8 +585,17 @@ def _run_test(
         unittest_main(stream=None)
 
     if config.is_build_env and config.is_tar_snapshot:
-        print('Compressing the snapshot storage...')
+        logging.info(
+            'Compressing the snapshot storage with %s threads...',
+            multiprocessing.cpu_count(),
+        )
+        start_time = time.time()
         compressor.compress_all_sub_files(config.snapshot_storage_path)
+        logging.info(
+            'Compression finished in {:.2f} seconds'.format(
+                time.time() - start_time
+            )
+        )
 
         with tarfile.open(config.snapshot_storage_tar_path, 'w') as tar:
             tar.add(
@@ -527,18 +605,31 @@ def _run_test(
         cleanup()
 
 
-def main(make_before_build: list[str] = None) -> None:
+def main(
+    argv: list[str] = None,
+    make_before_build: list[str] = None,
+    argparser_update_func: Callable[argparse.ArgumentParser, None] = None,
+    config_update_function: Callable[
+        [IntegrationTestConfiguration, argparse.Namespace], None
+    ] = None,
+) -> None:
     """Main method to start the integration tests.
 
     Args:
+        argv: A list of arguments to parse.
         make_before_build: A list of targets to make before running build steps.
+        argparser_update_func: A function that takes an ArgumentParser object
+          and updates it.
+        config_update_function: A function that takes a
+          IntegrationTestConfiguration config and the parsed args to updates the
+          config.
     """
+    if not argv:
+        argv = sys.argv
     if make_before_build is None:
         make_before_build = []
 
-    args, unittest_argv = _parse_known_args(sys.argv)
-
-    print(f'The os environ is: {os.environ}')
+    args, unittest_argv = _parse_known_args(argv, argparser_update_func)
 
     snapshot_storage_dir_name = 'snapshot_storage'
     snapshot_storage_tar_name = 'snapshot.tar'
@@ -559,8 +650,13 @@ def main(make_before_build: list[str] = None) -> None:
     else:
         raise EnvironmentError(
             'Cannot determine snapshot storage tar path. Try set the'
-            f' {SNAPSHOT_STORAGE_TAR_KEY} environment value.'
+            f' {SNAPSHOT_STORAGE_TAR_KEY} environment value. Current'
+            f' environment variables: {os.environ}'
         )
+
+    _configure_logging(args.verbose, snapshot_storage_tar_path.parent)
+
+    logging.debug('The os environ is: %s', os.environ)
 
     # When the build or test is unset, assume it's a local run for both build
     # and test steps.
@@ -578,6 +674,9 @@ def main(make_before_build: list[str] = None) -> None:
     # ANDROID_BUILD_TOP_KEY env being available implies it's local run.
     config.is_device_serial_required = not ANDROID_BUILD_TOP_KEY in os.environ
     config.is_tar_snapshot = args.tar_snapshot
+
+    if config_update_function:
+        config_update_function(config, args)
 
     if config.is_build_env:
         if ANDROID_BUILD_TOP_KEY not in os.environ:
