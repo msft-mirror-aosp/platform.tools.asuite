@@ -177,7 +177,7 @@ class TestRunnerBase:
   def wait_for_subprocess(self, proc):
     """Check the process status.
 
-    Interrupt the TF subporcess if user hits Ctrl-C.
+    Interrupt the TF subprocess if user hits Ctrl-C.
 
     Args:
         proc: The tradefed subprocess.
