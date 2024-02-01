@@ -1039,13 +1039,6 @@ class ExtraArgsTest(AtestTradefedTestRunnerUnittests):
 
         self.assertTokensNotIn(['--dry-run'], cmd[0])
 
-    def test_args_with_verify_env_variable_but_not_generate_in_run_cmd(self):
-        extra_args = {constants.VERIFY_ENV_VARIABLE: True}
-
-        cmd = self.tr.generate_run_commands([], extra_args)
-
-        self.assertTokensNotIn(['--verify-env-variable'], cmd[0])
-
     def test_args_with_instant_and_generate_in_run_cmd(self):
         extra_args = {constants.INSTANT: True}
 
