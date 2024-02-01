@@ -23,4 +23,4 @@ from atest_command_verification_tests import CommandVerificationTests
 
 
 if __name__ == '__main__':
-    atest_integration_test.main()
+  atest_integration_test.main()

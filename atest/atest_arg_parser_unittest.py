@@ -23,20 +23,26 @@ from atest import atest_arg_parser
 
 
 class AtestArgParserUnittests(unittest.TestCase):
-    """Unit tests for atest_arg_parser.py"""
+  """Unit tests for atest_arg_parser.py"""
 
-    def test_get_args(self):
-        """Test get_args(): flatten a nested list. """
-        parser = atest_arg_parser.AtestArgParser()
-        parser.add_argument('-t', '--test', help='Run the tests.')
-        parser.add_argument('-b', '--build', help='Run a build.')
-        parser.add_argument('-i', '--install', help='Install an APK.')
-        test_args = ['-t', '--test',
-                     '-b', '--build',
-                     '-i', '--install',
-                     '-h', '--help'].sort()
-        self.assertEqual(test_args, parser.get_args().sort())
+  def test_get_args(self):
+    """Test get_args(): flatten a nested list."""
+    parser = atest_arg_parser.AtestArgParser()
+    parser.add_argument('-t', '--test', help='Run the tests.')
+    parser.add_argument('-b', '--build', help='Run a build.')
+    parser.add_argument('-i', '--install', help='Install an APK.')
+    test_args = [
+        '-t',
+        '--test',
+        '-b',
+        '--build',
+        '-i',
+        '--install',
+        '-h',
+        '--help',
+    ].sort()
+    self.assertEqual(test_args, parser.get_args().sort())
 
 
 if __name__ == '__main__':
-    unittest.main()
+  unittest.main()

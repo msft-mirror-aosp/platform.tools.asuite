@@ -12,49 +12,60 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""
-atest exceptions.
-"""
+"""atest exceptions."""
 
 
 class UnsupportedModuleTestError(Exception):
-    """Error raised when we find a module that we don't support."""
+  """Error raised when we find a module that we don't support."""
+
 
 class TestDiscoveryException(Exception):
-    """Base Exception for issues with test discovery."""
+  """Base Exception for issues with test discovery."""
+
 
 class NoTestFoundError(TestDiscoveryException):
-    """Raised when no tests are found."""
+  """Raised when no tests are found."""
+
 
 class TestWithNoModuleError(TestDiscoveryException):
-    """Raised when test files have no parent module directory."""
+  """Raised when test files have no parent module directory."""
+
 
 class MethodWithoutClassError(TestDiscoveryException):
-    """Raised when method is appended via # but no class file specified."""
+  """Raised when method is appended via # but no class file specified."""
+
 
 class UnknownTestRunnerError(Exception):
-    """Raised when an unknown test runner is specified."""
+  """Raised when an unknown test runner is specified."""
+
 
 class NoTestRunnerName(Exception):
-    """Raised when Test Runner class var NAME isn't defined."""
+  """Raised when Test Runner class var NAME isn't defined."""
+
 
 class NoTestRunnerExecutable(Exception):
-    """Raised when Test Runner class var EXECUTABLE isn't defined."""
+  """Raised when Test Runner class var EXECUTABLE isn't defined."""
+
 
 class HostEnvCheckFailed(Exception):
-    """Raised when Test Runner's host env check fails."""
+  """Raised when Test Runner's host env check fails."""
+
 
 class ShouldNeverBeCalledError(Exception):
-    """Raised when something is called when it shouldn't, used for testing."""
+  """Raised when something is called when it shouldn't, used for testing."""
+
 
 class FatalIncludeError(TestDiscoveryException):
-    """Raised if expanding include tag fails."""
+  """Raised if expanding include tag fails."""
+
 
 class MissingCCTestCaseError(TestDiscoveryException):
-    """Raised when the cc file does not contain a test case class."""
+  """Raised when the cc file does not contain a test case class."""
+
 
 class XmlNotExistError(TestDiscoveryException):
-    """Raised when the xml file does not exist."""
+  """Raised when the xml file does not exist."""
+
 
 class DryRunVerificationError(Exception):
-    """Base Exception if verification fail."""
+  """Base Exception if verification fail."""
