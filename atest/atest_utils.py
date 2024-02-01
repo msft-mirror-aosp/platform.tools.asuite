@@ -1042,17 +1042,6 @@ def get_atest_version():
 def get_manifest_branch(show_aosp=False):
     """Get the manifest branch.
 
-         (portal xml)                            (default xml)
-    +--------------------+ _get_include() +-----------------------------+
-    | .repo/manifest.xml |--------------->| .repo/manifests/default.xml |
-    +--------------------+                +---------------+-------------+
-                             <default revision="master" |
-                                      remote="aosp"     | _get_revision()
-                                      sync-j="4"/>      V
-                                                    +--------+
-                                                    | master |
-                                                    +--------+
-
     Args:
         show_aosp: A boolean that shows 'aosp' prefix by checking the 'remote'
                    attribute.
@@ -1062,6 +1051,16 @@ def get_manifest_branch(show_aosp=False):
 
         None when no ANDROID_BUILD_TOP or unable to access default.xml.
     """
+    #      (portal xml)                            (default xml)
+    # +--------------------+ _get_include() +-----------------------------+
+    # | .repo/manifest.xml |--------------->| .repo/manifests/default.xml |
+    # +--------------------+                +---------------+-------------+
+    #                          <default revision="master" |
+    #                                   remote="aosp"     | _get_revision()
+    #                                   sync-j="4"/>      V
+    #                                                 +--------+
+    #                                                 | master |
+    #                                                 +--------+
     build_top = os.getenv(constants.ANDROID_BUILD_TOP)
     if not build_top:
         return None
@@ -1927,16 +1926,15 @@ def get_rbe_and_customized_out_state() -> int:
     the RBE performance; by collecting the combined state of the two states,
     we can profile the performance relationship between RBE and the build time.
 
-       RBE  | out_dir |  decimal
-    --------+---------+---------
-        0   |    0    |    0
-        0   |    1    |    1
-        1   |    0    |    2
-        1   |    1    |    3    --> Caution for poor performance.
-
     Returns:
         An integer that describes the combined state.
     """
+    #    RBE  | out_dir |  decimal
+    # --------+---------+---------
+    #     0   |    0    |    0
+    #     0   |    1    |    1
+    #     1   |    0    |    2
+    #     1   |    1    |    3    --> Caution for poor performance.
     ON = '1'
     OFF = '0'
     # 1. ensure RBE is enabled during the build.
