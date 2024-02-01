@@ -56,6 +56,7 @@ class Snapshot:
         include_paths: list[str],
         exclude_paths: Optional[list[str]] = None,
         env_keys: Optional[list[str]] = None,
+        env: Optional[dict[str, str]] = None,
         objs: Optional[dict[str, Any]] = None,
     ) -> None:
         """Takes a snapshot of the directory at the given path.
@@ -67,12 +68,13 @@ class Snapshot:
             exclude_paths: A list of relative paths to exclude from the
               snapshot.
             env_keys: A list of environment variable keys to save.
+            env: Environment variables to use while restoring.
             objs: A dictionary of objects to save. The current implementation
               limits the type of objects to the types that can be serialized by
               the json module.
         """
         self._dir_snapshot.take_snapshot(
-            name, root_path, include_paths, exclude_paths
+            name, root_path, include_paths, exclude_paths, env
         )
         self._env_snapshot.take_snapshot(name, env_keys)
         self._obj_snapshot.take_snapshot(name, objs)
@@ -92,10 +94,10 @@ class Snapshot:
         Returns:
             A tuple of restored environment variables and object dictionary.
         """
-        self._dir_snapshot.restore_snapshot(name, root_path, exclude_paths)
-        environ = self._env_snapshot.restore_snapshot(name, root_path)
+        env = self._env_snapshot.restore_snapshot(name, root_path)
+        self._dir_snapshot.restore_snapshot(name, root_path, exclude_paths, env)
         objs = self._obj_snapshot.restore_snapshot(name)
-        return environ, objs
+        return env, objs
 
 
 class _ObjectSnapshot:
@@ -259,14 +261,35 @@ class _DirSnapshot:
         self._storage_path = storage_path
         self._blob_store = _BlobStore(self._storage_path.joinpath('blobs'))
 
+    def _expand_vars_paths(
+        self, paths: list[str], variables: dict[str, str]
+    ) -> list[str]:
+        """Expand variables in paths with the given environment variables.
+
+        This function is similar to os.path.expandvars(path) which relies on
+        os.environ.
+        """
+        if not variables:
+            return paths
+        path_result = paths.copy()
+        for idx, _ in enumerate(path_result):
+            for key, val in sorted(
+                variables.items(), key=lambda item: len(item[0]), reverse=True
+            ):
+                path_result[idx] = path_result[idx].replace(f'${key}', val)
+        return path_result
+
     def _expand_wildcard_paths(
-        self, root_path: str, paths: list[str]
+        self,
+        root_path: str,
+        paths: list[str],
+        env: Optional[dict[str, str]] = None,
     ) -> list[str]:
         """Expand wildcard paths."""
-        absolute_paths = (
+        absolute_paths = [
             path if os.path.isabs(path) else os.path.join(root_path, path)
-            for path in paths
-        )
+            for path in self._expand_vars_paths(paths, env)
+        ]
         return [
             expanded_path
             for wildcard_path in absolute_paths
@@ -299,6 +322,7 @@ class _DirSnapshot:
         root_path: str,
         include_paths: list[str],
         exclude_paths: Optional[list[str]] = None,
+        env: Optional[dict[str, str]] = None,
     ) -> tuple[dict[str, _FileInfo], list[str]]:
         """Creates a snapshot of the directory at the given path.
 
@@ -308,6 +332,7 @@ class _DirSnapshot:
             include_paths: A list of relative paths to include in the snapshot.
             exclude_paths: A list of relative paths to exclude from the
               snapshot.
+            env: Environment variables to use while restoring.
 
         Returns:
             A tuple containing:
@@ -315,12 +340,12 @@ class _DirSnapshot:
                 within the directory.
         """
         include_paths = (
-            self._expand_wildcard_paths(root_path, include_paths)
+            self._expand_wildcard_paths(root_path, include_paths, env)
             if include_paths
             else []
         )
         exclude_paths = (
-            self._expand_wildcard_paths(root_path, exclude_paths)
+            self._expand_wildcard_paths(root_path, exclude_paths, env)
             if exclude_paths
             else []
         )
@@ -423,6 +448,7 @@ class _DirSnapshot:
         name: str,
         root_path: str,
         exclude_paths: Optional[list[str]] = None,
+        env: Optional[dict[str, str]] = None,
     ) -> tuple[list[str], list[str], list[str]]:
         """Restores directory at given path to snapshot with given name.
 
@@ -430,6 +456,7 @@ class _DirSnapshot:
             root_path: The path to the root directory.
             name: The name of the snapshot.
             exclude_paths: A list of relative paths to ignore during restoring.
+            env: Environment variables to use while restoring.
 
         Returns:
             A tuple containing 3 lists:
@@ -447,7 +474,7 @@ class _DirSnapshot:
             }
 
         exclude_paths = (
-            self._expand_wildcard_paths(root_path, exclude_paths)
+            self._expand_wildcard_paths(root_path, exclude_paths, env)
             if exclude_paths
             else []
         )
