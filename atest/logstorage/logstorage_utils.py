@@ -109,7 +109,7 @@ class BuildClient:
         branch: build branch.
 
     Returns:
-        An build record object.
+        A build record object.
     """
     body = {
         'buildId': '',
@@ -127,7 +127,7 @@ class BuildClient:
         build_record: build record.
 
     Returns:
-        An build attempt object.
+        A build attempt object.
     """
     build_attempt = {'id': 0, 'status': 'complete', 'successful': True}
     return (

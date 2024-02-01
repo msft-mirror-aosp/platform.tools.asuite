@@ -203,7 +203,7 @@ def _positive_int(value):
       value: A string of a command-line argument.
 
   Returns:
-      int of value, if it is an positive integer.
+      int of value, if it is a positive integer.
       Otherwise, raise argparse.ArgumentTypeError.
   """
   err_msg = "invalid positive int value: '%s'" % value

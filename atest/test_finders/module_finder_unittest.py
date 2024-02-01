@@ -1427,7 +1427,7 @@ class ModuleFinderUnittests(unittest.TestCase):
     )
     t_infos = self.mod_finder.find_test_by_path(class_path)
     unittest_utils.assert_equal_testinfos(self, cc_path_info, t_infos[0])
-    # Test with paramertize test defined in input path
+    # Test with parameterize test defined in input path
     founded_prefixes = {'class1'}
     _mock_cc_class_info.return_value = {
         founded_classed: {
