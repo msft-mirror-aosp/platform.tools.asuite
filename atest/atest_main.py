@@ -775,29 +775,28 @@ def need_rebuild_module_info(args: atest_arg_parser.AtestArgParser) -> bool:
     Args:
         args: an AtestArgParser object.
 
-        +-----------------+
-        | Explicitly pass |  yes
-        |    '--test'     +-------> False (won't rebuild)
-        +--------+--------+
-                 | no
-                 V
-        +-------------------------+
-        | Explicitly pass         |  yes
-        | '--rebuild-module-info' +-------> True (forcely rebuild)
-        +--------+----------------+
-                 | no
-                 V
-        +-------------------+
-        |    Build files    |  no
-        | integrity is good +-------> True (smartly rebuild)
-        +--------+----------+
-                 | yes
-                 V
-               False (won't rebuild)
-
     Returns:
         True for forcely/smartly rebuild, otherwise False without rebuilding.
     """
+    # +-----------------+
+    # | Explicitly pass |  yes
+    # |    '--test'     +-------> False (won't rebuild)
+    # +--------+--------+
+    #          | no
+    #          V
+    # +-------------------------+
+    # | Explicitly pass         |  yes
+    # | '--rebuild-module-info' +-------> True (forcely rebuild)
+    # +--------+----------------+
+    #          | no
+    #          V
+    # +-------------------+
+    # |    Build files    |  no
+    # | integrity is good +-------> True (smartly rebuild)
+    # +--------+----------+
+    #          | yes
+    #          V
+    #        False (won't rebuild)
     if not parse_steps(args).has_build():
         logging.debug('\"--test\" mode detected, will not rebuild module-info.')
         return False
