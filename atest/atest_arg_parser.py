@@ -16,18 +16,14 @@
 
 """Atest Argument Parser class for atest."""
 
-# TODO: (@jimtang) Unsuppress too-many-lines Pylint warning.
-# pylint: disable=too-many-lines
-
 import argparse
-import pydoc
 
 from atest import bazel_mode
 from atest import constants
 from atest.atest_utils import BuildOutputMode
 
 
-def output_mode_msg() -> str:
+def _output_mode_msg() -> str:
   """Generate helper strings for BuildOutputMode."""
   msg = []
   for _, value in BuildOutputMode.__members__.items():
@@ -70,16 +66,15 @@ class AtestArgParser(argparse.ArgumentParser):
   """Atest wrapper of ArgumentParser."""
 
   def __init__(self):
-    """Initialise an ArgumentParser instance."""
+    """Initialize an ArgumentParser instance."""
     super().__init__(
-        description=HELP_DESC,
+        description=_HELP_DESCRIPTION,
         add_help=True,
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
 
-  # pylint: disable=too-many-statements
   def add_atest_args(self):
-    """A function that does ArgumentParser.add_argument()"""
+    """Add default arguments to the atest ArgumentParser."""
     self.add_argument('tests', nargs='*', help='Tests to build and/or run.')
 
     self.add_argument(
@@ -288,7 +283,7 @@ class AtestArgParser(argparse.ArgumentParser):
         action='store_true',
         help='Search TEST_MAPPING files in subdirs as well.',
     )
-    # TODO(146980564): Remove enable-file-patterns when support
+    # TODO(b/146980564): Remove enable-file-patterns when support
     # file-patterns in TEST_MAPPING by default.
     self.add_argument(
         '--enable-file-patterns',
@@ -343,7 +338,7 @@ class AtestArgParser(argparse.ArgumentParser):
         type=BuildOutputMode,
         help=(
             'Specifies the desired build output mode. Valid values are:'
-            f' {output_mode_msg()}'
+            f' {_output_mode_msg()}'
         ),
     )
 
@@ -400,7 +395,7 @@ class AtestArgParser(argparse.ArgumentParser):
         action='append',
         help=(
             '(For module parameterization) Accept keyword that will be'
-            ' translated to fully qualifiedannotation class name.'
+            ' translated to fully qualified annotation class name.'
         ),
     )
 
@@ -576,7 +571,7 @@ class AtestArgParser(argparse.ArgumentParser):
     return argument_list
 
 
-HELP_DESC = """NAME
+_HELP_DESCRIPTION = """NAME
         atest - A command line tool that allows users to build, install, and run Android tests locally, greatly speeding test re-runs without requiring knowledge of Trade Federation test harness command line options.
 
 
@@ -585,7 +580,7 @@ SYNOPSIS
 
 
 OPTIONS
-        Below arguments are catagorised by features and purposes. Arguments marked with implicit default will apply even the user does not pass it explicitly.
+        Below arguments are categorized by features and purposes. Arguments marked with implicit default will apply even the user does not pass it explicitly.
 
         *NOTE* Atest reads ~/.atest/config that supports all optional arguments to help users reduce repeating options they often use.
         E.g. Assume "--all-abi" and "--verbose" are frequently used and have been defined line-by-line in ~/.atest/config, issuing
@@ -596,7 +591,7 @@ OPTIONS
 
             atest hello_world_test -v --all-abi --verbose -- --test-arg xxx
 
-        If only need to run tests for a specific abi, please use:
+        If you only need to run tests for a specific abi, please use:
             atest <test> -- --abi arm64-v8a   # ARM 64-bit
             atest <test> -- --abi armeabi-v7a # ARM 32-bit
 
@@ -708,7 +703,7 @@ EXAMPLES
 
     Atest now has the ability to force a test to skip its cleanup/teardown step. Many tests, e.g. CTS, cleanup the device after the test is run, so trying to rerun your test with -t will fail without having the --disable-teardown parameter. Use -d before -t to skip the test clean up step and test iteratively.
 
-        atest -d <test>    (disable installing apk and cleanning up device)
+        atest -d <test>    (disable installing apk and cleaning up device)
         atest -t <test>
 
     Note that -t disables both setup/install and teardown/cleanup of the device. So you can continue to rerun your test with just
@@ -809,7 +804,7 @@ EXAMPLES
     RUNNING TESTS ON AVD(s)
     - - - - - - - - - - - -
 
-    Atest is able to run tests with the newly created AVD. Atest can build and 'acloud create' simultanously, and run tests after the AVD has been created successfully.
+    Atest is able to run tests with the newly created AVD. Atest can build and 'acloud create' simultaneously, and run tests after the AVD has been created successfully.
 
     Examples:
     - Start an AVD before running tests on that newly created device.
@@ -820,7 +815,7 @@ EXAMPLES
 
         atest <test> --start-avd
 
-    - Start AVD(s) by specifing 'acloud create' arguments and run tests on that newly created device.
+    - Start AVD(s) by specifying 'acloud create' arguments and run tests on that newly created device.
 
         atest <test> --acloud-create "--build-id 6509363 --build-target aosp_cf_x86_phone-userdebug --branch aosp_master"
 
