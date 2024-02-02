@@ -14,8 +14,6 @@
 
 """Utility functions for unit tests."""
 
-# pylint: disable=line-too-long
-
 import os
 
 from atest import constants

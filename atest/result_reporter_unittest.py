@@ -16,7 +16,6 @@
 
 """Unittests for result_reporter."""
 
-# pylint: disable=line-too-long
 
 from io import StringIO
 import sys

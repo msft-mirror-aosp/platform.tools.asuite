@@ -17,7 +17,6 @@
 """Unittests for atest_utils."""
 
 # pylint: disable=invalid-name
-# pylint: disable=line-too-long
 
 import hashlib
 import os
@@ -865,7 +864,8 @@ class AtestUtilsUnittests(unittest.TestCase):
     )
     temp_dir.cleanup()
 
-    # 2. Only name is defined, will give default manifest and null target_module.
+    # 2. Only name is defined, will give default manifest and null
+    # target_module.
     content = """android_app    {
                 // comment
                 name: "AmSlam",

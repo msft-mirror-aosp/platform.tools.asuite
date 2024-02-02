@@ -15,8 +15,6 @@
 
 """Atest indexing module."""
 
-# pylint: disable=line-too-long
-
 from __future__ import annotations
 from __future__ import print_function
 

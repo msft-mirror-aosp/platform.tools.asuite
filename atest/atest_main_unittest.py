@@ -17,7 +17,6 @@
 """Unittests for atest."""
 
 # pylint: disable=invalid-name
-# pylint: disable=line-too-long
 
 import datetime
 from importlib import reload

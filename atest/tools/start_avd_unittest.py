@@ -16,8 +16,6 @@
 
 """Unittest for acloud_create."""
 
-# pylint: disable=line-too-long
-
 import os
 import unittest
 

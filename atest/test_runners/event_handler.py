@@ -14,8 +14,6 @@
 
 """Atest test event handler class."""
 
-# pylint: disable=line-too-long
-
 from __future__ import print_function
 
 from collections import deque

@@ -15,7 +15,7 @@
 # limitations under the License.
 """The iml/xml templates of AIDEgen."""
 
-# pylint: disable=line-too-long
+
 
 # Content of iml file.
 FILE_IML = """\

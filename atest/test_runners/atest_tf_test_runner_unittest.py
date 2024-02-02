@@ -16,7 +16,6 @@
 
 """Unittests for atest_tf_test_runner."""
 
-# pylint: disable=line-too-long
 # pylint: disable=missing-function-docstring
 # pylint: disable=too-many-lines
 # pylint: disable=unused-argument

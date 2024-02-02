@@ -17,7 +17,6 @@
 """Unittests for test_finder_utils."""
 
 # pylint: disable=invalid-name
-# pylint: disable=line-too-long
 # pylint: disable=missing-function-docstring
 
 import os

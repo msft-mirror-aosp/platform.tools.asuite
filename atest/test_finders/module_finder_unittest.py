@@ -17,7 +17,6 @@
 """Unittests for module_finder."""
 
 # pylint: disable=invalid-name
-# pylint: disable=line-too-long
 # pylint: disable=missing-function-docstring
 # pylint: disable=too-many-lines
 # pylint: disable=unsubscriptable-object
