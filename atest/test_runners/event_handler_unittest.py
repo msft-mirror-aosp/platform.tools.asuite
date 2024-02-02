@@ -16,7 +16,6 @@
 
 """Unittests for event_handler."""
 
-# pylint: disable=line-too-long
 
 from importlib import reload
 import unittest

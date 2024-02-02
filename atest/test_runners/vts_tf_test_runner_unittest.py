@@ -16,8 +16,6 @@
 
 """Unittests for vts_tf_test_runner."""
 
-# pylint: disable=line-too-long
-
 import unittest
 from unittest import mock
 

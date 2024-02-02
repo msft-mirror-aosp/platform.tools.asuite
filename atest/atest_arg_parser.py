@@ -17,7 +17,7 @@
 """Atest Argument Parser class for atest."""
 
 # TODO: (@jimtang) Unsuppress too-many-lines Pylint warning.
-# pylint: disable=line-too-long, too-many-lines
+# pylint: disable=too-many-lines
 
 import argparse
 import pydoc

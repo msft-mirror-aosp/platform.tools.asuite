@@ -14,7 +14,7 @@
 
 """Module Info class used to hold cached module-info.json."""
 
-# pylint: disable=line-too-long,too-many-lines
+# pylint: disable=too-many-lines
 from __future__ import annotations
 
 import collections

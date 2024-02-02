@@ -16,7 +16,6 @@
 
 """Unittests for robolectric_test_runner."""
 
-# pylint: disable=line-too-long
 
 import json
 import subprocess

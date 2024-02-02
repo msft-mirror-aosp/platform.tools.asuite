@@ -14,8 +14,6 @@
 
 """Classes for bug events history."""
 
-# pylint: disable=line-too-long
-
 import datetime
 import json
 import logging

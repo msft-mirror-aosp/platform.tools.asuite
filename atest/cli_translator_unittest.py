@@ -16,8 +16,6 @@
 
 """Unittests for cli_translator."""
 
-# pylint: disable=line-too-long
-
 from importlib import reload
 from io import StringIO
 import json

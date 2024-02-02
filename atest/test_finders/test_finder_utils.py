@@ -14,7 +14,6 @@
 
 """Utils for finder classes."""
 
-# pylint: disable=line-too-long
 # pylint: disable=too-many-lines
 
 from __future__ import print_function
@@ -837,7 +836,8 @@ def get_targets_from_vts_xml(xml_file, rel_out_dir, module_info):
       # and then append the _VTS_TEST_FILE value to targets to build.
       target = os.path.join(rel_out_dir, value)
       # If value is just an APK, specify the path that we expect it to be in
-      # e.g. out/host/linux-x86/vts10/android-vts10/testcases/DATA/app/test_file/test_file.apk
+      # e.g.
+      # out/host/linux-x86/vts10/android-vts10/testcases/DATA/app/test_file/test_file.apk
       head, _ = os.path.split(value)
       if not head:
         target = os.path.join(
