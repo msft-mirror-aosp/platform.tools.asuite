@@ -13,7 +13,6 @@
 # limitations under the License.
 
 # pylint: disable=import-outside-toplevel
-# pylint: disable=line-too-long
 
 """Result Reporter
 

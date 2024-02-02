@@ -16,7 +16,6 @@
 
 """Unittests for test_mapping"""
 
-# pylint: disable=line-too-long
 
 import unittest
 from unittest import mock

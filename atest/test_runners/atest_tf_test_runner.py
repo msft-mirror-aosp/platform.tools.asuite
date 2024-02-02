@@ -14,7 +14,6 @@
 
 """Atest Tradefed test runner class."""
 
-# pylint: disable=line-too-long
 # pylint: disable=too-many-lines
 
 from __future__ import annotations
@@ -1532,7 +1531,8 @@ class DeviceTest(Test):
     # https://source.corp.google.com/android-internal/build/make/core/java_test_config_template.xml.
     # These dependencies should ideally be automatically added by the build
     # rule since Atest can fall out of sync otherwise.
-    # TODO(b/284987354): Remove these targets once the build rule adds the required deps.
+    # TODO(b/284987354): Remove these targets once the build rule adds the
+    # required deps.
     if _is_dalvik_test_module(self._info):
       build_targets.add(Target('cts-dalvik-host-test-runner', Variant.HOST))
       build_targets.add(Target('cts-dalvik-device-test-runner', Variant.DEVICE))

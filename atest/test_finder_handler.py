@@ -14,7 +14,6 @@
 
 """Test Finder Handler module."""
 
-# pylint: disable=line-too-long
 # pylint: disable=import-outside-toplevel
 # pylint: disable=protected-access
 

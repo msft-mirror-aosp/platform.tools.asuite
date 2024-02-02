@@ -16,7 +16,6 @@
 
 """Unittest for atest_execution_info."""
 
-# pylint: disable=line-too-long
 
 import time
 import unittest

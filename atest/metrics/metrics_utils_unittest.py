@@ -16,7 +16,7 @@
 
 """Unittests for metrics_utils."""
 
-# pylint: disable=invalid-name, line-too-long
+# pylint: disable=invalid-name
 
 from io import StringIO
 import sys
