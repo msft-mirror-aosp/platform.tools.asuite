@@ -69,7 +69,7 @@ impl Device for RealDevice {
         time!(
             {
                 let args = self.adjust_adb_args(&["wait-for-device".to_string()]);
-                self.wait_for_adb_with_timeout(&args, Duration::from_secs(50))?;
+                self.wait_for_adb_with_timeout(&args, Duration::from_secs(70))?;
             },
             profiler.wait_for_device
         );
