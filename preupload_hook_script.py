@@ -49,10 +49,16 @@ def run_gpylint(files: list[pathlib.Path]) -> None:
     run_pylint(files)
     return
 
+  has_format_issue = False
   for file in files:
     if file.suffix != '.py':
       continue
-    check_run_shell_command('gpylint ' + file.as_posix())
+    if subprocess.run(
+        shlex.split('gpylint ' + file.as_posix()), check=False
+    ).returncode:
+      has_format_issue = True
+  if has_format_issue:
+    sys.exit(1)
 
 
 def run_pyformat(files: list[pathlib.Path]) -> None:
@@ -64,24 +70,26 @@ def run_pyformat(files: list[pathlib.Path]) -> None:
     print('pyformat not available. Will skip auto formatting.')
     return
 
-  need_reformat = []
+  need_reformat = False
   for file in files:
-    completed_process = subprocess.run(
-        shlex.split('pyformat --force_quote_type single ' + file.as_posix()),
-        capture_output=True,
-        check=False,
-    )
-    if completed_process.stdout:
-      need_reformat.append(file)
+    if not need_reformat:
+      completed_process = subprocess.run(
+          shlex.split('pyformat --force_quote_type single ' + file.as_posix()),
+          capture_output=True,
+          check=False,
+      )
+      if completed_process.stdout:
+        need_reformat = True
 
-  if need_reformat:
-    print(f'The following files needs reformatting. {need_reformat}')
-
-    for file in need_reformat:
-      check_run_shell_command(
-          'pyformat -i --force_quote_type single ' + file.as_posix()
+    if need_reformat:
+      subprocess.run(
+          shlex.split(
+              'pyformat -i --force_quote_type single ' + file.as_posix()
+          ),
+          check=False,
       )
 
+  if need_reformat:
     print(
         'Reformatting completed. Please add the modified files to git and rerun'
         ' the repo preupload hook.'
