@@ -22,30 +22,25 @@
 # pylint: disable=unsubscriptable-object
 
 import copy
+import os
+from pathlib import Path
 import re
 import tempfile
 import unittest
-import os
-
-from pathlib import Path
 from unittest import mock
-
-# pylint: disable=import-error
-from pyfakefs import fake_filesystem_unittest
-
-from atest import atest_error
 from atest import atest_configs
+from atest import atest_error
 from atest import atest_utils
 from atest import constants
 from atest import module_info
 from atest import unittest_constants as uc
 from atest import unittest_utils
-
 from atest.test_finders import module_finder
 from atest.test_finders import test_filter_utils
 from atest.test_finders import test_finder_utils
 from atest.test_finders import test_info
 from atest.test_runners import atest_tf_test_runner as atf_tr
+from pyfakefs import fake_filesystem_unittest
 
 MODULE_CLASS = '%s:%s' % (uc.MODULE_NAME, uc.CLASS_NAME)
 MODULE_PACKAGE = '%s:%s' % (uc.MODULE_NAME, uc.PACKAGE)

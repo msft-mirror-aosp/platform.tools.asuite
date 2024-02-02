@@ -44,7 +44,6 @@ import logging
 import time
 import uuid
 
-# pylint: disable=import-error
 try:
   import httplib2
   from googleapiclient.discovery import build
