@@ -20,8 +20,9 @@
 
 from __future__ import print_function
 
-import enum
+from dataclasses import dataclass
 import datetime
+import enum
 import fnmatch
 import hashlib
 import html
@@ -29,7 +30,9 @@ import importlib
 import itertools
 import json
 import logging
+from multiprocessing import Process
 import os
+from pathlib import Path
 import pickle
 import platform
 import re
@@ -37,23 +40,15 @@ import shutil
 import subprocess
 import sys
 from threading import Thread
+from typing import Any, Dict, List, Set, Tuple
 import urllib
+import xml.etree.ElementTree as ET
 import zipfile
 
-from dataclasses import dataclass
-from multiprocessing import Process
-from pathlib import Path
-from typing import Any, Dict, List, Set, Tuple
-
-import xml.etree.ElementTree as ET
-
-from atest.atest_enum import DetectType, ExitCode, FilterType
-
-# pylint: disable=wrong-import-position
 from atest import atest_decorator
 from atest import atest_error
 from atest import constants
-
+from atest.atest_enum import DetectType, ExitCode, FilterType
 from atest.metrics import metrics
 from atest.metrics import metrics_utils
 from atest.tf_proto import test_record_pb2
