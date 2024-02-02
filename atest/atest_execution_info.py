@@ -217,7 +217,6 @@ def has_non_test_options(args: argparse.ArgumentParser):
   return (
       args.collect_tests_only
       or args.dry_run
-      or args.help
       or args.history
       or args.info
       or args.version
