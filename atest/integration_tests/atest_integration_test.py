@@ -156,8 +156,8 @@ class AtestRunResult:
         if self._config.is_test_env or not snapshot_ready:
             return result_root_path
 
-        result_root_copy_path = Path(self._repo_root).joinpath(
-            'out/atest_integration_tests', result_root_path.name
+        result_root_copy_path = Path(self._env['OUT_DIR']).joinpath(
+            'atest_integration_tests', result_root_path.name
         )
         if not result_root_copy_path.exists():
             shutil.copytree(
@@ -222,12 +222,12 @@ class AtestTestCase(split_build_test_script.SplitBuildTestTestCase):
 
     # Default include list of repo paths for snapshot
     _default_snapshot_include_paths = [
-        'out/host/linux-x86',
-        'out/target/product/*/module-info*',
-        'out/target/product/*/testcases',
-        'out/target/product/*/data',
-        'out/target/product/*/all_modules.txt',
-        'out/soong/module_bp*',
+        '$OUT_DIR/host/linux-x86',
+        '$OUT_DIR/target/product/*/module-info*',
+        '$OUT_DIR/target/product/*/testcases',
+        '$OUT_DIR/target/product/*/data',
+        '$OUT_DIR/target/product/*/all_modules.txt',
+        '$OUT_DIR/soong/module_bp*',
         'tools/asuite/atest/test_runners/roboleaf_launched.txt',
         '.repo/manifest.xml',
         'build/soong/soong_ui.bash',
@@ -244,9 +244,9 @@ class AtestTestCase(split_build_test_script.SplitBuildTestTestCase):
 
     # Default exclude list of repo paths for snapshot
     _default_snapshot_exclude_paths = [
-        'out/host/linux-x86/bin/go',
-        'out/host/linux-x86/bin/soong_build',
-        'out/host/linux-x86/obj',
+        '$OUT_DIR/host/linux-x86/bin/go',
+        '$OUT_DIR/host/linux-x86/bin/soong_build',
+        '$OUT_DIR/host/linux-x86/obj',
     ]
 
     # Default list of environment variables to take and restore in snapshots
@@ -257,6 +257,7 @@ class AtestTestCase(split_build_test_script.SplitBuildTestTestCase):
         'ANDROID_HOST_OUT_TESTCASES',
         'ANDROID_TARGET_OUT_TESTCASES',
         'OUT',
+        'OUT_DIR',
         'PATH',
         'HOST_OUT_TESTCASES',
         'ANDROID_JAVA_HOME',
@@ -266,7 +267,9 @@ class AtestTestCase(split_build_test_script.SplitBuildTestTestCase):
     def create_atest_script(self) -> SplitBuildTestScript:
         """Create an instance of atest integration test utility."""
         script = self.create_split_build_test_script()
-        script.add_snapshot_restore_exclude_paths(['out/atest_bazel_workspace'])
+        script.add_snapshot_restore_exclude_paths(
+            ['$OUT_DIR/atest_bazel_workspace']
+        )
         return script
 
     def create_step_output(self) -> StepOutput:
