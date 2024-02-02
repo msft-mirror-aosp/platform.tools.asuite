@@ -22,18 +22,19 @@ import unittest
 from atest.test_finders import test_info
 
 
-#pylint: disable=protected-access
+# pylint: disable=protected-access
 class TestInfoUnittests(unittest.TestCase):
-    """Unit tests for cache_finder.py"""
+  """Unit tests for cache_finder.py"""
 
-    def test_get_test_path(self):
-        """Test test_get_test_paths method."""
-        build_targets = set()
-        exp_rel_paths = ['a-b-c', 'd-e-f']
-        for exp_rel_path in exp_rel_paths:
-            build_targets.add('MODULES-IN-%s' % exp_rel_path.replace('/', '-'))
-        t_info = test_info.TestInfo('mock_name', 'mock_runner', build_targets)
-        self.assertEqual(sorted(t_info.get_test_paths()), sorted(exp_rel_paths))
+  def test_get_test_path(self):
+    """Test test_get_test_paths method."""
+    build_targets = set()
+    exp_rel_paths = ['a-b-c', 'd-e-f']
+    for exp_rel_path in exp_rel_paths:
+      build_targets.add('MODULES-IN-%s' % exp_rel_path.replace('/', '-'))
+    t_info = test_info.TestInfo('mock_name', 'mock_runner', build_targets)
+    self.assertEqual(sorted(t_info.get_test_paths()), sorted(exp_rel_paths))
+
 
 if __name__ == '__main__':
-    unittest.main()
+  unittest.main()

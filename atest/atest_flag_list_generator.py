@@ -15,7 +15,7 @@
 """Script that generates arguments for autocompletion."""
 from atest import atest_arg_parser
 
-if __name__ == "__main__":
-    parser = atest_arg_parser.AtestArgParser()
-    parser.add_atest_args()
-    print("\n".join(parser.get_args()))
+if __name__ == '__main__':
+  parser = atest_arg_parser.AtestArgParser()
+  parser.add_atest_args()
+  print('\n'.join(parser.get_args()))

@@ -14,9 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""
-Atest Argument Parser class for atest.
-"""
+"""Atest Argument Parser class for atest."""
 
 # TODO: (@jimtang) Unsuppress too-many-lines Pylint warning.
 # pylint: disable=line-too-long, too-many-lines
@@ -26,410 +24,572 @@ import pydoc
 
 from atest import bazel_mode
 from atest import constants
-
 from atest.atest_utils import BuildOutputMode
 
+
 def output_mode_msg() -> str:
-    """Generate helper strings for BuildOutputMode."""
-    msg = []
-    for _, value in BuildOutputMode.__members__.items():
-        if value == BuildOutputMode.STREAMED:
-            msg.append(f'\t\t{BuildOutputMode.STREAMED.value}: '
-                       'full output like what "m" does. (default)')
-        elif value == BuildOutputMode.LOGGED:
-            msg.append(f'\t\t{BuildOutputMode.LOGGED.value}: '
-                       'print build output to a log file.')
-        else:
-            raise RuntimeError('Found unknown attribute!')
-    return '\n'.join(msg)
+  """Generate helper strings for BuildOutputMode."""
+  msg = []
+  for _, value in BuildOutputMode.__members__.items():
+    if value == BuildOutputMode.STREAMED:
+      msg.append(
+          f'\t\t{BuildOutputMode.STREAMED.value}: '
+          'full output like what "m" does. (default)'
+      )
+    elif value == BuildOutputMode.LOGGED:
+      msg.append(
+          f'\t\t{BuildOutputMode.LOGGED.value}: '
+          'print build output to a log file.'
+      )
+    else:
+      raise RuntimeError('Found unknown attribute!')
+  return '\n'.join(msg)
 
 
 # Constants used for AtestArgParser and EPILOG_TEMPLATE
-HELP_DESC = ('A command line tool that allows users to build, install, and run '
-             'Android tests locally, greatly speeding test re-runs without '
-             'requiring knowledge of Trade Federation test harness command line'
-             ' options.')
+HELP_DESC = (
+    'A command line tool that allows users to build, install, and run '
+    'Android tests locally, greatly speeding test re-runs without '
+    'requiring knowledge of Trade Federation test harness command line'
+    ' options.'
+)
 
 # Constants used for arg help message(sorted in alphabetic)
 ACLOUD_CREATE = 'Create AVD(s) via acloud command.'
-AGGREGATE_METRIC_FILTER = ('Regular expression that will be used for filtering '
-                           'the aggregated metrics.')
+AGGREGATE_METRIC_FILTER = (
+    'Regular expression that will be used for filtering the aggregated metrics.'
+)
 ALL_ABI = 'Set to run tests for all abis.'
-ANNOTATION_FILTER = ('Accept keyword that will be translated to fully qualified'
-                     'annotation class name.')
+ANNOTATION_FILTER = (
+    'Accept keyword that will be translated to fully qualified'
+    'annotation class name.'
+)
 BUILD = 'Run a build.'
 BUILD_PROCESS_NUMBER = 'Build run process number at once.'
 BAZEL_MODE = 'Run tests using Bazel.'
-BAZEL_ARG = ('Forward a flag to Bazel for tests executed with Bazel; '
-             'see --bazel-mode.')
-BUILD_OUTPUT = (r'Specifies the desired build output mode. '
-                f'Valid values are:\n{output_mode_msg()}')
-MINIMAL_BUILD = ('Build required dependencies only. Use --no-minimal-build to '
-                'disable it.')
-CLEAR_CACHE = 'Wipe out the test_infos cache of the test and start a new search.'
-COLLECT_TESTS_ONLY = ('Collect a list test cases of the instrumentation tests '
-                      'without testing them in real.')
-COVERAGE = ('Instrument tests with code coverage and generate a code coverage '
-            'report.')
-DEVICE_ONLY = ('Only run tests that require a device. (Note: only workable with'
-               ' --test-mapping.)')
+BAZEL_ARG = (
+    'Forward a flag to Bazel for tests executed with Bazel; see --bazel-mode.'
+)
+BUILD_OUTPUT = (
+    r'Specifies the desired build output mode. '
+    f'Valid values are:\n{output_mode_msg()}'
+)
+MINIMAL_BUILD = (
+    'Build required dependencies only. Use --no-minimal-build to disable it.'
+)
+CLEAR_CACHE = (
+    'Wipe out the test_infos cache of the test and start a new search.'
+)
+COLLECT_TESTS_ONLY = (
+    'Collect a list test cases of the instrumentation tests '
+    'without testing them in real.'
+)
+COVERAGE = (
+    'Instrument tests with code coverage and generate a code coverage report.'
+)
+DEVICE_ONLY = (
+    'Only run tests that require a device. (Note: only workable with'
+    ' --test-mapping.)'
+)
 DISABLE_TEARDOWN = 'Disable test teardown and cleanup.'
-DRY_RUN = 'Dry run atest without building, installing and running tests in real.'
+DRY_RUN = (
+    'Dry run atest without building, installing and running tests in real.'
+)
 ENABLE_FILE_PATTERNS = 'Enable FILE_PATTERNS in TEST_MAPPING.'
 GENERATE_RUNNER_CMD = 'Generate the runner command(s) of given tests.'
-GROUP_TEST = ('Group the tests by module name for running the test, if you want '
-              'to run the test using the same input order, use --no-group-test.')
-HISTORY = ('Show test results in chronological order(with specified number or '
-           'all by default).')
-HOST = ('Run the test completely on the host without a device. '
-        '(Note: running a host test that requires a device without '
-        '--host will fail.)')
-HOST_UNIT_TEST_ONLY = ('Run all host unit tests under the current directory.')
+GROUP_TEST = (
+    'Group the tests by module name for running the test, if you want '
+    'to run the test using the same input order, use --no-group-test.'
+)
+HISTORY = (
+    'Show test results in chronological order(with specified number or '
+    'all by default).'
+)
+HOST = (
+    'Run the test completely on the host without a device. '
+    '(Note: running a host test that requires a device without '
+    '--host will fail.)'
+)
+HOST_UNIT_TEST_ONLY = 'Run all host unit tests under the current directory.'
 INCLUDE_SUBDIRS = 'Search TEST_MAPPING files in subdirs as well.'
 INFO = 'Deprecated'
 INSTALL = 'Install an APK.'
-INSTANT = ('Run the instant_app version of the module if the module supports it. '
-           'Note: Nothing\'s going to run if it\'s not an Instant App test and '
-           '"--instant" is passed.')
+INSTANT = (
+    'Run the instant_app version of the module if the module supports it. '
+    "Note: Nothing's going to run if it's not an Instant App test and "
+    '"--instant" is passed.'
+)
 ITERATION = 'Loop-run tests until the max iteration is reached. (default: 10)'
 LATEST_RESULT = 'Print latest test result.'
 LIST_MODULES = 'List testable modules of the given suite.'
-NO_CHECKING_DEVICE = 'Do NOT check device availability. (even it is a device test)'
+NO_CHECKING_DEVICE = (
+    'Do NOT check device availability. (even it is a device test)'
+)
 NO_METRICS = 'Do not send metrics.'
-REBUILD_MODULE_INFO = ('Forces a rebuild of the module-info.json file. '
-                       'This may be necessary following a repo sync or '
-                       'when writing a new test.')
-REQUEST_UPLOAD_RESULT = ('Request permission to upload test result. This option '
-                         'only needs to set once and takes effect until '
-                         '--disable-upload-result is set.')
-DISABLE_UPLOAD_RESULT = ('Turn off the upload of test result. This option '
-                         'only needs to set once and takes effect until '
-                         '--request-upload-result is set')
-RERUN_UNTIL_FAILURE = ('Rerun all tests until a failure occurs or the max '
-                       'iteration is reached. (default: forever!)')
+REBUILD_MODULE_INFO = (
+    'Forces a rebuild of the module-info.json file. '
+    'This may be necessary following a repo sync or '
+    'when writing a new test.'
+)
+REQUEST_UPLOAD_RESULT = (
+    'Request permission to upload test result. This option '
+    'only needs to set once and takes effect until '
+    '--disable-upload-result is set.'
+)
+DISABLE_UPLOAD_RESULT = (
+    'Turn off the upload of test result. This option '
+    'only needs to set once and takes effect until '
+    '--request-upload-result is set'
+)
+RERUN_UNTIL_FAILURE = (
+    'Rerun all tests until a failure occurs or the max '
+    'iteration is reached. (default: forever!)'
+)
 # For Integer.MAX_VALUE == (2**31 - 1) and not possible to give a larger integer
 # to Tradefed, 2147483647 will be plentiful (~68 years).
 RERUN_UNTIL_FAILURE_N = 2147483647
-RETRY_ANY_FAILURE = ('Rerun failed tests until passed or the max iteration '
-                     'is reached. (default: 10)')
+RETRY_ANY_FAILURE = (
+    'Rerun failed tests until passed or the max iteration '
+    'is reached. (default: 10)'
+)
 SERIAL = 'The device to run the test on.'
 SHARDING = 'Option to specify sharding count. (default: 2)'
-SQLITE_MODULE_CACHE = ('Use SQLite database as cache instead of JSON.')
+SQLITE_MODULE_CACHE = 'Use SQLite database as cache instead of JSON.'
 START_AVD = 'Automatically create an AVD and run tests on the virtual device.'
-TEST = ('Run the tests. WARNING: Many test configs force cleanup of device '
-        'after test run. In this case, "-d" must be used in previous test run '
-        'to disable cleanup for "-t" to work. Otherwise, device will need to '
-        'be setup again with "-i".')
+TEST = (
+    'Run the tests. WARNING: Many test configs force cleanup of device '
+    'after test run. In this case, "-d" must be used in previous test run '
+    'to disable cleanup for "-t" to work. Otherwise, device will need to '
+    'be setup again with "-i".'
+)
 TEST_MAPPING = 'Run tests defined in TEST_MAPPING files.'
-TEST_CONFIG_SELECTION = ('If multiple test config belong to same test module '
-                         'pop out a selection menu on console.')
+TEST_CONFIG_SELECTION = (
+    'If multiple test config belong to same test module '
+    'pop out a selection menu on console.'
+)
 TEST_FILTER = 'Run tests which are specified using this option.'
-TEST_TIMEOUT = ('Customize test timeout. E.g. 60000(in milliseconds) '
-                'represents 1 minute timeout. For no timeout, set to 0.')
+TEST_TIMEOUT = (
+    'Customize test timeout. E.g. 60000(in milliseconds) '
+    'represents 1 minute timeout. For no timeout, set to 0.'
+)
 TF_DEBUG = 'Enable tradefed debug mode with a specified port. (default: 10888)'
-TF_TEMPLATE = ('Add extra tradefed template for ATest suite, '
-               'e.g. atest <test> --tf-template <template_key>=<template_path>')
-USE_MODULES_IN = ('Force include MODULES-IN-* as build targets. '
-                  'Hint: This may solve missing test dependencies issue.')
-USER_TYPE = ('Run test with specific user type, e.g. atest <test> --user-type '
-             'secondary_user')
+TF_TEMPLATE = (
+    'Add extra tradefed template for ATest suite, '
+    'e.g. atest <test> --tf-template <template_key>=<template_path>'
+)
+USE_MODULES_IN = (
+    'Force include MODULES-IN-* as build targets. '
+    'Hint: This may solve missing test dependencies issue.'
+)
+USER_TYPE = (
+    'Run test with specific user type, e.g. atest <test> --user-type '
+    'secondary_user'
+)
 VERBOSE = 'Display DEBUG level logging.'
 VERSION = 'Display version string.'
-WAIT_FOR_DEBUGGER = ('Wait for debugger prior to execution (Instrumentation '
-                     'tests only).')
+WAIT_FOR_DEBUGGER = (
+    'Wait for debugger prior to execution (Instrumentation tests only).'
+)
 UPDATE_DEVICE = (
     'Build and deploy your changes to the device. By default, ATest will '
-    'build `sync` and use `adevice` to update the device.')
+    'build `sync` and use `adevice` to update the device.'
+)
+
 
 def _positive_int(value):
-    """Verify value by whether or not a positive integer.
+  """Verify value by whether or not a positive integer.
 
-    Args:
-        value: A string of a command-line argument.
+  Args:
+      value: A string of a command-line argument.
 
-    Returns:
-        int of value, if it is an positive integer.
-        Otherwise, raise argparse.ArgumentTypeError.
-    """
-    err_msg = "invalid positive int value: '%s'" % value
-    try:
-        converted_value = int(value)
-        if converted_value < 1:
-            raise argparse.ArgumentTypeError(err_msg)
-        return converted_value
-    except ValueError as value_err:
-        raise argparse.ArgumentTypeError(err_msg) from value_err
+  Returns:
+      int of value, if it is a positive integer.
+      Otherwise, raise argparse.ArgumentTypeError.
+  """
+  err_msg = "invalid positive int value: '%s'" % value
+  try:
+    converted_value = int(value)
+    if converted_value < 1:
+      raise argparse.ArgumentTypeError(err_msg)
+    return converted_value
+  except ValueError as value_err:
+    raise argparse.ArgumentTypeError(err_msg) from value_err
 
 
 class AtestArgParser(argparse.ArgumentParser):
-    """Atest wrapper of ArgumentParser."""
+  """Atest wrapper of ArgumentParser."""
 
-    def __init__(self):
-        """Initialise an ArgumentParser instance."""
-        super().__init__(description=HELP_DESC, add_help=False)
+  def __init__(self):
+    """Initialise an ArgumentParser instance."""
+    super().__init__(description=HELP_DESC, add_help=False)
 
-    # pylint: disable=too-many-statements
-    def add_atest_args(self):
-        """A function that does ArgumentParser.add_argument()"""
-        self.add_argument('tests', nargs='*', help='Tests to build and/or run.')
+  # pylint: disable=too-many-statements
+  def add_atest_args(self):
+    """A function that does ArgumentParser.add_argument()"""
+    self.add_argument('tests', nargs='*', help='Tests to build and/or run.')
 
-        self.add_argument('--minimal-build',
-                          action=argparse.BooleanOptionalAction,
-                          default=True,
-                          help=MINIMAL_BUILD)
-        self.add_argument(
-            '--update-device', action='store_true', help=UPDATE_DEVICE)
+    self.add_argument(
+        '--minimal-build',
+        action=argparse.BooleanOptionalAction,
+        default=True,
+        help=MINIMAL_BUILD,
+    )
+    self.add_argument(
+        '--update-device', action='store_true', help=UPDATE_DEVICE
+    )
 
-        # Options that to do with testing.
-        self.add_argument('-a', '--all-abi', action='store_true', help=ALL_ABI)
-        self.add_argument('-b', '--build', action='append_const', dest='steps',
-                          const=constants.BUILD_STEP, help=BUILD)
-        self.add_argument('--bazel-mode', default=True, action='store_true',
-                            help=BAZEL_MODE)
-        self.add_argument('--no-bazel-mode', dest='bazel_mode',
-                            action='store_false', help=BAZEL_MODE)
-        self.add_argument('--bazel-arg', nargs='*', action='append', help=BAZEL_ARG)
-        bazel_mode.add_parser_arguments(self, dest='bazel_mode_features')
+    # Options that to do with testing.
+    self.add_argument('-a', '--all-abi', action='store_true', help=ALL_ABI)
+    self.add_argument(
+        '-b',
+        '--build',
+        action='append_const',
+        dest='steps',
+        const=constants.BUILD_STEP,
+        help=BUILD,
+    )
+    self.add_argument(
+        '--bazel-mode', default=True, action='store_true', help=BAZEL_MODE
+    )
+    self.add_argument(
+        '--no-bazel-mode',
+        dest='bazel_mode',
+        action='store_false',
+        help=BAZEL_MODE,
+    )
+    self.add_argument('--bazel-arg', nargs='*', action='append', help=BAZEL_ARG)
+    bazel_mode.add_parser_arguments(self, dest='bazel_mode_features')
 
-        self.add_argument('-d', '--disable-teardown', action='store_true',
-                          help=DISABLE_TEARDOWN)
-        self.add_argument('--experimental-coverage', action='store_true', help=COVERAGE)
+    self.add_argument(
+        '-d', '--disable-teardown', action='store_true', help=DISABLE_TEARDOWN
+    )
+    self.add_argument(
+        '--experimental-coverage', action='store_true', help=COVERAGE
+    )
 
-        self.add_argument('--group-test', default=True, action='store_true',
-                          help=GROUP_TEST)
-        self.add_argument('--no-group-test', dest='group_test',
-                          action='store_false', help=GROUP_TEST)
+    self.add_argument(
+        '--group-test', default=True, action='store_true', help=GROUP_TEST
+    )
+    self.add_argument(
+        '--no-group-test',
+        dest='group_test',
+        action='store_false',
+        help=GROUP_TEST,
+    )
 
-        # Options for host and device-only:
-        # A group of options for testing mapping tests. They are mutually
-        # exclusive in a command line.
-        hgroup = self.add_mutually_exclusive_group()
-        hgroup.add_argument('--host', action='store_true', help=HOST)
-        hgroup.add_argument('--device-only', action='store_true',
-                            help=DEVICE_ONLY)
-        self.add_argument('-i', '--install', action='append_const',
-                          dest='steps', const=constants.INSTALL_STEP,
-                          help=INSTALL)
-        self.add_argument('-m', constants.REBUILD_MODULE_INFO_FLAG,
-                          action='store_true', help=REBUILD_MODULE_INFO)
-        self.add_argument('--sharding', nargs='?', const=2,
-                          type=_positive_int, default=0,
-                          help=SHARDING)
-        self.add_argument('--sqlite-module-cache',
-                          action=argparse.BooleanOptionalAction,
-                          default=True,
-                          help=SQLITE_MODULE_CACHE)
-        self.add_argument('-t', '--test', action='append_const', dest='steps',
-                          const=constants.TEST_STEP, help=TEST)
-        self.add_argument('--use-modules-in', help=USE_MODULES_IN,
-                          action='store_true')
-        self.add_argument('-w', '--wait-for-debugger', action='store_true',
-                          help=WAIT_FOR_DEBUGGER)
+    # Options for host and device-only:
+    # A group of options for testing mapping tests. They are mutually
+    # exclusive in a command line.
+    hgroup = self.add_mutually_exclusive_group()
+    hgroup.add_argument('--host', action='store_true', help=HOST)
+    hgroup.add_argument('--device-only', action='store_true', help=DEVICE_ONLY)
+    self.add_argument(
+        '-i',
+        '--install',
+        action='append_const',
+        dest='steps',
+        const=constants.INSTALL_STEP,
+        help=INSTALL,
+    )
+    self.add_argument(
+        '-m',
+        constants.REBUILD_MODULE_INFO_FLAG,
+        action='store_true',
+        help=REBUILD_MODULE_INFO,
+    )
+    self.add_argument(
+        '--sharding',
+        nargs='?',
+        const=2,
+        type=_positive_int,
+        default=0,
+        help=SHARDING,
+    )
+    self.add_argument(
+        '--sqlite-module-cache',
+        action=argparse.BooleanOptionalAction,
+        default=True,
+        help=SQLITE_MODULE_CACHE,
+    )
+    self.add_argument(
+        '-t',
+        '--test',
+        action='append_const',
+        dest='steps',
+        const=constants.TEST_STEP,
+        help=TEST,
+    )
+    self.add_argument(
+        '--use-modules-in', help=USE_MODULES_IN, action='store_true'
+    )
+    self.add_argument(
+        '-w', '--wait-for-debugger', action='store_true', help=WAIT_FOR_DEBUGGER
+    )
 
-        # Options for request/disable upload results. They are mutually
-        # exclusive in a command line.
-        ugroup = self.add_mutually_exclusive_group()
-        ugroup.add_argument('--request-upload-result', action='store_true',
-                          help=REQUEST_UPLOAD_RESULT)
-        ugroup.add_argument('--disable-upload-result', action='store_true',
-                          help=DISABLE_UPLOAD_RESULT)
+    # Options for request/disable upload results. They are mutually
+    # exclusive in a command line.
+    ugroup = self.add_mutually_exclusive_group()
+    ugroup.add_argument(
+        '--request-upload-result',
+        action='store_true',
+        help=REQUEST_UPLOAD_RESULT,
+    )
+    ugroup.add_argument(
+        '--disable-upload-result',
+        action='store_true',
+        help=DISABLE_UPLOAD_RESULT,
+    )
 
-        mgroup = self.add_mutually_exclusive_group()
-        # Options related to Test Mapping
-        mgroup.add_argument('-p', '--test-mapping', action='store_true',
-                          help=TEST_MAPPING)
-        self.add_argument('--include-subdirs', action='store_true',
-                          help=INCLUDE_SUBDIRS)
-        # TODO(146980564): Remove enable-file-patterns when support
-        # file-patterns in TEST_MAPPING by default.
-        self.add_argument('--enable-file-patterns', action='store_true',
-                          help=ENABLE_FILE_PATTERNS)
+    mgroup = self.add_mutually_exclusive_group()
+    # Options related to Test Mapping
+    mgroup.add_argument(
+        '-p', '--test-mapping', action='store_true', help=TEST_MAPPING
+    )
+    self.add_argument(
+        '--include-subdirs', action='store_true', help=INCLUDE_SUBDIRS
+    )
+    # TODO(146980564): Remove enable-file-patterns when support
+    # file-patterns in TEST_MAPPING by default.
+    self.add_argument(
+        '--enable-file-patterns', action='store_true', help=ENABLE_FILE_PATTERNS
+    )
 
-        # Options related to Host Unit Test.
-        mgroup.add_argument('--host-unit-test-only', action='store_true',
-                          help=HOST_UNIT_TEST_ONLY)
+    # Options related to Host Unit Test.
+    mgroup.add_argument(
+        '--host-unit-test-only', action='store_true', help=HOST_UNIT_TEST_ONLY
+    )
 
-        # Options for information queries and dry-runs:
-        # A group of options for dry-runs. They are mutually exclusive
-        # in a command line.
-        group = self.add_mutually_exclusive_group()
-        group.add_argument('--collect-tests-only', action='store_true',
-                           help=COLLECT_TESTS_ONLY)
-        group.add_argument('--dry-run', action='store_true', help=DRY_RUN)
-        self.add_argument('-h', '--help', action='store_true',
-                          help='Print this help message.')
-        self.add_argument('--info', action='store_true', help=INFO)
-        self.add_argument('-L', '--list-modules', help=LIST_MODULES)
-        self.add_argument('-v', '--verbose', action='store_true', help=VERBOSE)
-        self.add_argument('-V', '--version', action='store_true', help=VERSION)
-        self.add_argument('--build-output',
-                          default=BuildOutputMode.STREAMED,
-                          choices=BuildOutputMode,
-                          type=BuildOutputMode,
-                          help=BUILD_OUTPUT)
+    # Options for information queries and dry-runs:
+    # A group of options for dry-runs. They are mutually exclusive
+    # in a command line.
+    group = self.add_mutually_exclusive_group()
+    group.add_argument(
+        '--collect-tests-only', action='store_true', help=COLLECT_TESTS_ONLY
+    )
+    group.add_argument('--dry-run', action='store_true', help=DRY_RUN)
+    self.add_argument(
+        '-h', '--help', action='store_true', help='Print this help message.'
+    )
+    self.add_argument('--info', action='store_true', help=INFO)
+    self.add_argument('-L', '--list-modules', help=LIST_MODULES)
+    self.add_argument('-v', '--verbose', action='store_true', help=VERBOSE)
+    self.add_argument('-V', '--version', action='store_true', help=VERSION)
+    self.add_argument(
+        '--build-output',
+        default=BuildOutputMode.STREAMED,
+        choices=BuildOutputMode,
+        type=BuildOutputMode,
+        help=BUILD_OUTPUT,
+    )
 
-        # Options that to do with acloud/AVDs.
-        agroup = self.add_mutually_exclusive_group()
-        agroup.add_argument('--acloud-create', nargs=argparse.REMAINDER,
-                            type=str, help=ACLOUD_CREATE)
-        agroup.add_argument('--start-avd', action='store_true',
-                            help=START_AVD)
-        agroup.add_argument('-s', '--serial', action='append', help=SERIAL)
+    # Options that to do with acloud/AVDs.
+    agroup = self.add_mutually_exclusive_group()
+    agroup.add_argument(
+        '--acloud-create',
+        nargs=argparse.REMAINDER,
+        type=str,
+        help=ACLOUD_CREATE,
+    )
+    agroup.add_argument('--start-avd', action='store_true', help=START_AVD)
+    agroup.add_argument('-s', '--serial', action='append', help=SERIAL)
 
-        # Options to enable selection menu when multiple test configs belong to
-        # same test module.
-        self.add_argument('--test-config-select', action='store_true',
-                          help=TEST_CONFIG_SELECTION)
+    # Options to enable selection menu when multiple test configs belong to
+    # same test module.
+    self.add_argument(
+        '--test-config-select', action='store_true', help=TEST_CONFIG_SELECTION
+    )
 
-        # Options related to module parameterization
-        self.add_argument('--instant', action='store_true', help=INSTANT)
-        self.add_argument('--user-type', help=USER_TYPE)
-        self.add_argument('--annotation-filter', action='append', help=ANNOTATION_FILTER)
+    # Options related to module parameterization
+    self.add_argument('--instant', action='store_true', help=INSTANT)
+    self.add_argument('--user-type', help=USER_TYPE)
+    self.add_argument(
+        '--annotation-filter', action='append', help=ANNOTATION_FILTER
+    )
 
-        # Option for dry-run command mapping result and cleaning cache.
-        self.add_argument('-c', '--clear-cache', action='store_true',
-                          help=CLEAR_CACHE)
-        self.add_argument('-g', '--generate-runner-cmd', action='store_true',
-                          help=GENERATE_RUNNER_CMD)
-        # Options for Tradefed debug mode.
-        self.add_argument('-D', '--tf-debug', nargs='?', const=10888,
-                          type=_positive_int, default=0,
-                          help=TF_DEBUG)
-        # Options for Tradefed customization related.
-        self.add_argument('--tf-template', action='append',
-                          help=TF_TEMPLATE)
-        self.add_argument('--test-filter', nargs='?',
-                          help=TEST_FILTER)
-        self.add_argument('--test-timeout', nargs='?', type=int,
-                          help=TEST_TIMEOUT)
+    # Option for dry-run command mapping result and cleaning cache.
+    self.add_argument(
+        '-c', '--clear-cache', action='store_true', help=CLEAR_CACHE
+    )
+    self.add_argument(
+        '-g',
+        '--generate-runner-cmd',
+        action='store_true',
+        help=GENERATE_RUNNER_CMD,
+    )
+    # Options for Tradefed debug mode.
+    self.add_argument(
+        '-D',
+        '--tf-debug',
+        nargs='?',
+        const=10888,
+        type=_positive_int,
+        default=0,
+        help=TF_DEBUG,
+    )
+    # Options for Tradefed customization related.
+    self.add_argument('--tf-template', action='append', help=TF_TEMPLATE)
+    self.add_argument('--test-filter', nargs='?', help=TEST_FILTER)
+    self.add_argument('--test-timeout', nargs='?', type=int, help=TEST_TIMEOUT)
 
-        # A group of options for rerun strategy. They are mutually exclusive
-        # in a command line.
-        group = self.add_mutually_exclusive_group()
-        # Option for rerun tests for the specified number iterations.
-        group.add_argument('--iterations', nargs='?',
-                           type=_positive_int, const=10, default=0,
-                           metavar='MAX_ITERATIONS', help=ITERATION)
-        group.add_argument('--rerun-until-failure', nargs='?',
-                           type=_positive_int, const=RERUN_UNTIL_FAILURE_N,
-                           default=0,
-                           metavar='MAX_ITERATIONS', help=RERUN_UNTIL_FAILURE)
-        group.add_argument('--retry-any-failure', nargs='?',
-                           type=_positive_int, const=10, default=0,
-                           metavar='MAX_ITERATIONS', help=RETRY_ANY_FAILURE)
+    # A group of options for rerun strategy. They are mutually exclusive
+    # in a command line.
+    group = self.add_mutually_exclusive_group()
+    # Option for rerun tests for the specified number iterations.
+    group.add_argument(
+        '--iterations',
+        nargs='?',
+        type=_positive_int,
+        const=10,
+        default=0,
+        metavar='MAX_ITERATIONS',
+        help=ITERATION,
+    )
+    group.add_argument(
+        '--rerun-until-failure',
+        nargs='?',
+        type=_positive_int,
+        const=RERUN_UNTIL_FAILURE_N,
+        default=0,
+        metavar='MAX_ITERATIONS',
+        help=RERUN_UNTIL_FAILURE,
+    )
+    group.add_argument(
+        '--retry-any-failure',
+        nargs='?',
+        type=_positive_int,
+        const=10,
+        default=0,
+        metavar='MAX_ITERATIONS',
+        help=RETRY_ANY_FAILURE,
+    )
 
-        # A group of options for history. They are mutually exclusive
-        # in a command line.
-        history_group = self.add_mutually_exclusive_group()
-        # History related options.
-        history_group.add_argument('--latest-result', action='store_true',
-                                   help=LATEST_RESULT)
-        history_group.add_argument('--history', nargs='?', const='99999',
-                                   help=HISTORY)
+    # A group of options for history. They are mutually exclusive
+    # in a command line.
+    history_group = self.add_mutually_exclusive_group()
+    # History related options.
+    history_group.add_argument(
+        '--latest-result', action='store_true', help=LATEST_RESULT
+    )
+    history_group.add_argument(
+        '--history', nargs='?', const='99999', help=HISTORY
+    )
 
-        # Options for disabling collecting data for metrics.
-        self.add_argument(constants.NO_METRICS_ARG, action='store_true',
-                          help=NO_METRICS)
+    # Options for disabling collecting data for metrics.
+    self.add_argument(
+        constants.NO_METRICS_ARG, action='store_true', help=NO_METRICS
+    )
 
-        # Option to filter the output of aggregate metrics content.
-        self.add_argument('--aggregate-metric-filter', action='append',
-                          help=AGGREGATE_METRIC_FILTER)
+    # Option to filter the output of aggregate metrics content.
+    self.add_argument(
+        '--aggregate-metric-filter',
+        action='append',
+        help=AGGREGATE_METRIC_FILTER,
+    )
 
-        # Option that allows building and running without regarding device
-        # availability even the given test is a device/host-driven test.
-        self.add_argument('--no-checking-device', action='store_true',
-                          help=NO_CHECKING_DEVICE)
+    # Option that allows building and running without regarding device
+    # availability even the given test is a device/host-driven test.
+    self.add_argument(
+        '--no-checking-device', action='store_true', help=NO_CHECKING_DEVICE
+    )
 
-        # Option for customize build process number.
-        self.add_argument('-j', '--build-j', nargs='?', type=int,
-                          help=BUILD_PROCESS_NUMBER)
+    # Option for customize build process number.
+    self.add_argument(
+        '-j', '--build-j', nargs='?', type=int, help=BUILD_PROCESS_NUMBER
+    )
 
-        # This arg actually doesn't consume anything, it's primarily used for
-        # the help description and creating custom_args in the NameSpace object.
-        self.add_argument('--', dest='custom_args', nargs='*',
-                          help='Specify custom args for the test runners. '
-                               'Everything after -- will be consumed as '
-                               'custom args.')
+    # This arg actually doesn't consume anything, it's primarily used for
+    # the help description and creating custom_args in the NameSpace object.
+    self.add_argument(
+        '--',
+        dest='custom_args',
+        nargs='*',
+        help=(
+            'Specify custom args for the test runners. '
+            'Everything after -- will be consumed as '
+            'custom args.'
+        ),
+    )
 
-    def get_args(self):
-        """This method is to get args from actions and return optional args.
+  def get_args(self):
+    """This method is to get args from actions and return optional args.
 
-        Returns:
-            A list of optional arguments.
-        """
-        argument_list = []
-        # The output of _get_optional_actions(): [['-t', '--test']]
-        # return an argument list: ['-t', '--test']
-        for arg in self._get_optional_actions():
-            argument_list.extend(arg.option_strings)
-        return argument_list
+    Returns:
+        A list of optional arguments.
+    """
+    argument_list = []
+    # The output of _get_optional_actions(): [['-t', '--test']]
+    # return an argument list: ['-t', '--test']
+    for arg in self._get_optional_actions():
+      argument_list.extend(arg.option_strings)
+    return argument_list
 
 
 def print_epilog_text():
-    """Pagination print EPILOG_TEXT.
+  """Pagination print EPILOG_TEXT.
 
-    Returns:
-        STDOUT from pydoc.pager().
-    """
-    epilog_text = EPILOG_TEMPLATE.format(
-        ACLOUD_CREATE=ACLOUD_CREATE,
-        AGGREGATE_METRIC_FILTER=AGGREGATE_METRIC_FILTER,
-        ALL_ABI=ALL_ABI,
-        ANNOTATION_FILTER=ANNOTATION_FILTER,
-        BUILD=BUILD,
-        BUILD_PROCESS_NUMBER=BUILD_PROCESS_NUMBER,
-        MINIMAL_BUILD=MINIMAL_BUILD,
-        UPDATE_DEVICE=UPDATE_DEVICE,
-        BAZEL_MODE=BAZEL_MODE,
-        BAZEL_ARG=BAZEL_ARG,
-        CLEAR_CACHE=CLEAR_CACHE,
-        COLLECT_TESTS_ONLY=COLLECT_TESTS_ONLY,
-        COVERAGE=COVERAGE,
-        DEVICE_ONLY=DEVICE_ONLY,
-        DISABLE_TEARDOWN=DISABLE_TEARDOWN,
-        DISABLE_UPLOAD_RESULT=DISABLE_UPLOAD_RESULT,
-        DRY_RUN=DRY_RUN,
-        ENABLE_FILE_PATTERNS=ENABLE_FILE_PATTERNS,
-        GENERATE_RUNNER_CMD=GENERATE_RUNNER_CMD,
-        GROUP_TEST=GROUP_TEST,
-        HELP_DESC=HELP_DESC,
-        HISTORY=HISTORY,
-        HOST=HOST,
-        HOST_UNIT_TEST_ONLY=HOST_UNIT_TEST_ONLY,
-        INCLUDE_SUBDIRS=INCLUDE_SUBDIRS,
-        INFO=INFO,
-        INSTALL=INSTALL,
-        INSTANT=INSTANT,
-        ITERATION=ITERATION,
-        LATEST_RESULT=LATEST_RESULT,
-        LIST_MODULES=LIST_MODULES,
-        NO_METRICS=NO_METRICS,
-        NO_CHECKING_DEVICE=NO_CHECKING_DEVICE,
-        REBUILD_MODULE_INFO=REBUILD_MODULE_INFO,
-        REQUEST_UPLOAD_RESULT=REQUEST_UPLOAD_RESULT,
-        RERUN_UNTIL_FAILURE=RERUN_UNTIL_FAILURE,
-        RETRY_ANY_FAILURE=RETRY_ANY_FAILURE,
-        SERIAL=SERIAL,
-        SHARDING=SHARDING,
-        BUILD_OUTPUT=BUILD_OUTPUT,
-        START_AVD=START_AVD,
-        TEST=TEST,
-        TEST_CONFIG_SELECTION=TEST_CONFIG_SELECTION,
-        TEST_MAPPING=TEST_MAPPING,
-        TEST_TIMEOUT=TEST_TIMEOUT,
-        TF_DEBUG=TF_DEBUG,
-        TEST_FILTER=TEST_FILTER,
-        TF_TEMPLATE=TF_TEMPLATE,
-        USER_TYPE=USER_TYPE,
-        USE_MODULES_IN=USE_MODULES_IN,
-        SQLITE_MODULE_CACHE=SQLITE_MODULE_CACHE,
-        VERBOSE=VERBOSE,
-        VERSION=VERSION,
-        WAIT_FOR_DEBUGGER=WAIT_FOR_DEBUGGER)
-    return pydoc.pager(epilog_text)
+  Returns:
+      STDOUT from pydoc.pager().
+  """
+  epilog_text = EPILOG_TEMPLATE.format(
+      ACLOUD_CREATE=ACLOUD_CREATE,
+      AGGREGATE_METRIC_FILTER=AGGREGATE_METRIC_FILTER,
+      ALL_ABI=ALL_ABI,
+      ANNOTATION_FILTER=ANNOTATION_FILTER,
+      BUILD=BUILD,
+      BUILD_PROCESS_NUMBER=BUILD_PROCESS_NUMBER,
+      MINIMAL_BUILD=MINIMAL_BUILD,
+      UPDATE_DEVICE=UPDATE_DEVICE,
+      BAZEL_MODE=BAZEL_MODE,
+      BAZEL_ARG=BAZEL_ARG,
+      CLEAR_CACHE=CLEAR_CACHE,
+      COLLECT_TESTS_ONLY=COLLECT_TESTS_ONLY,
+      COVERAGE=COVERAGE,
+      DEVICE_ONLY=DEVICE_ONLY,
+      DISABLE_TEARDOWN=DISABLE_TEARDOWN,
+      DISABLE_UPLOAD_RESULT=DISABLE_UPLOAD_RESULT,
+      DRY_RUN=DRY_RUN,
+      ENABLE_FILE_PATTERNS=ENABLE_FILE_PATTERNS,
+      GENERATE_RUNNER_CMD=GENERATE_RUNNER_CMD,
+      GROUP_TEST=GROUP_TEST,
+      HELP_DESC=HELP_DESC,
+      HISTORY=HISTORY,
+      HOST=HOST,
+      HOST_UNIT_TEST_ONLY=HOST_UNIT_TEST_ONLY,
+      INCLUDE_SUBDIRS=INCLUDE_SUBDIRS,
+      INFO=INFO,
+      INSTALL=INSTALL,
+      INSTANT=INSTANT,
+      ITERATION=ITERATION,
+      LATEST_RESULT=LATEST_RESULT,
+      LIST_MODULES=LIST_MODULES,
+      NO_METRICS=NO_METRICS,
+      NO_CHECKING_DEVICE=NO_CHECKING_DEVICE,
+      REBUILD_MODULE_INFO=REBUILD_MODULE_INFO,
+      REQUEST_UPLOAD_RESULT=REQUEST_UPLOAD_RESULT,
+      RERUN_UNTIL_FAILURE=RERUN_UNTIL_FAILURE,
+      RETRY_ANY_FAILURE=RETRY_ANY_FAILURE,
+      SERIAL=SERIAL,
+      SHARDING=SHARDING,
+      BUILD_OUTPUT=BUILD_OUTPUT,
+      START_AVD=START_AVD,
+      TEST=TEST,
+      TEST_CONFIG_SELECTION=TEST_CONFIG_SELECTION,
+      TEST_MAPPING=TEST_MAPPING,
+      TEST_TIMEOUT=TEST_TIMEOUT,
+      TF_DEBUG=TF_DEBUG,
+      TEST_FILTER=TEST_FILTER,
+      TF_TEMPLATE=TF_TEMPLATE,
+      USER_TYPE=USER_TYPE,
+      USE_MODULES_IN=USE_MODULES_IN,
+      SQLITE_MODULE_CACHE=SQLITE_MODULE_CACHE,
+      VERBOSE=VERBOSE,
+      VERSION=VERSION,
+      WAIT_FOR_DEBUGGER=WAIT_FOR_DEBUGGER,
+  )
+  return pydoc.pager(epilog_text)
 
 
-EPILOG_TEMPLATE = r'''ATEST(1)                       ASuite/ATest
+EPILOG_TEMPLATE = r"""ATEST(1)                       ASuite/ATest
 
 NAME
         atest - {HELP_DESC}
@@ -919,4 +1079,4 @@ EXAMPLES
 
 
                                                      2022-03-25
-'''
+"""
