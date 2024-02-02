@@ -25,7 +25,6 @@ class AsuiteCCLibTest(unittest.TestCase):
 
   def test_import_asuite_cc_lib(self):
     """Test asuite_cc_lib."""
-    # pylint: disable=import-error
     # pylint: disable=unused-variable
     # pylint: disable=import-outside-toplevel
     # pylint: disable=unused-import
