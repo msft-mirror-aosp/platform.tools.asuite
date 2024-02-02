@@ -42,7 +42,6 @@ from pathlib import Path
 from socket import socket
 
 try:
-  # pylint: disable=import-error
   from oauth2client import client as oauth2_client
   from oauth2client.contrib import multiprocess_file_storage
   from oauth2client import tools as oauth2_tools
