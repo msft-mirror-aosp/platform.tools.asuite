@@ -16,6 +16,8 @@
 """Run at preupload hook to perform necessary checks and formatting."""
 
 import argparse
+import concurrent.futures
+import multiprocessing
 import pathlib
 import shlex
 import subprocess
@@ -24,44 +26,62 @@ import sys
 ASUITE_HOME = pathlib.Path(__file__).resolve().parent
 
 
-def check_run_shell_command(cmd: str, cwd: str = None) -> None:
+def _filter_python_files(files: list[pathlib.Path]) -> list[pathlib.Path]:
+  """Filter a list of files and return a new list of python files only."""
+  return [file for file in files if file.suffix == '.py']
+
+
+def _check_run_shell_command(cmd: str, cwd: str = None) -> None:
   """Run a shell command and raise error if failed."""
   if subprocess.run(shlex.split(cmd), cwd=cwd, check=False).returncode:
     print('Preupload files did not pass Asuite preupload hook script.')
     sys.exit(1)
 
 
-def run_pylint(files: list[pathlib.Path]) -> None:
-  """Run pylint on python files."""
-  for file in files:
-    if file.suffix != '.py':
+def _run_python_lint(lint_bin: str, files: list[pathlib.Path]) -> None:
+  """Run python lint binary on python files."""
+  run_lint_on_file = lambda file: subprocess.run(
+      shlex.split(f'{lint_bin} {file.as_posix()}'),
+      check=False,
+      capture_output=True,
+  )
+
+  cpu_count = multiprocessing.cpu_count()
+  with concurrent.futures.ThreadPoolExecutor(max_workers=cpu_count) as executor:
+    completed_processes = executor.map(
+        run_lint_on_file, _filter_python_files(files)
+    )
+
+  has_format_issue = False
+  for process in completed_processes:
+    if not process.returncode:
       continue
-    check_run_shell_command('pylint ' + file.as_posix(), ASUITE_HOME.as_posix())
+    print(process.stdout.decode())
+    has_format_issue = True
+
+  if has_format_issue:
+    sys.exit(1)
 
 
-def run_gpylint(files: list[pathlib.Path]) -> None:
+def _run_pylint(files: list[pathlib.Path]) -> None:
+  """Run pylint on python files."""
+  _run_python_lint('pylint', files)
+
+
+def _run_gpylint(files: list[pathlib.Path]) -> None:
   """Run gpylint on python files if gpylint is available."""
   if subprocess.run(
       shlex.split('which gpylint'),
       check=False,
   ).returncode:
     print('gpylint not available. Will use pylint instead.')
-    run_pylint(files)
+    _run_pylint(files)
     return
 
-  has_format_issue = False
-  for file in files:
-    if file.suffix != '.py':
-      continue
-    if subprocess.run(
-        shlex.split('gpylint ' + file.as_posix()), check=False
-    ).returncode:
-      has_format_issue = True
-  if has_format_issue:
-    sys.exit(1)
+  _run_python_lint('gpylint', files)
 
 
-def run_pyformat(files: list[pathlib.Path]) -> None:
+def _run_pyformat(files: list[pathlib.Path]) -> None:
   """Run pyformat on certain projects."""
   if subprocess.run(
       shlex.split('which pyformat'),
@@ -70,26 +90,30 @@ def run_pyformat(files: list[pathlib.Path]) -> None:
     print('pyformat not available. Will skip auto formatting.')
     return
 
-  need_reformat = False
-  for file in files:
-    if not need_reformat:
-      completed_process = subprocess.run(
-          shlex.split('pyformat --force_quote_type single ' + file.as_posix()),
-          capture_output=True,
-          check=False,
-      )
-      if completed_process.stdout:
-        need_reformat = True
+  def _run_pyformat_on_file(file):
+    completed_process = subprocess.run(
+        shlex.split('pyformat --force_quote_type single ' + file.as_posix()),
+        capture_output=True,
+        check=False,
+    )
 
-    if need_reformat:
+    if completed_process.stdout:
       subprocess.run(
           shlex.split(
               'pyformat -i --force_quote_type single ' + file.as_posix()
           ),
           check=False,
       )
+      return True
+    return False
 
-  if need_reformat:
+  cpu_count = multiprocessing.cpu_count()
+  with concurrent.futures.ThreadPoolExecutor(max_workers=cpu_count) as executor:
+    need_reformat = executor.map(
+        _run_pyformat_on_file, _filter_python_files(files)
+    )
+
+  if any(need_reformat):
     print(
         'Reformatting completed. Please add the modified files to git and rerun'
         ' the repo preupload hook.'
@@ -97,15 +121,15 @@ def run_pyformat(files: list[pathlib.Path]) -> None:
     sys.exit(1)
 
 
-def run_legacy_unittests() -> None:
+def _run_legacy_unittests() -> None:
   """Run unittests for asuite_plugin."""
   asuite_plugin_path = ASUITE_HOME.joinpath('asuite_plugin').as_posix()
-  check_run_shell_command(
+  _check_run_shell_command(
       f'{asuite_plugin_path}/gradlew test', asuite_plugin_path
   )
 
 
-def filter_files_for_projects(
+def _filter_files_for_projects(
     files: list[pathlib.Path], projects: list[str], root_files: bool
 ) -> tuple[list[pathlib.Path], list[pathlib.Path]]:
   """Filter a list of files according to project names.
@@ -161,15 +185,15 @@ def get_preupload_files() -> list[pathlib.Path]:
 if __name__ == '__main__':
   preupload_files = get_preupload_files()
 
-  gpylint_project_files, other_files = filter_files_for_projects(
+  gpylint_project_files, other_files = _filter_files_for_projects(
       preupload_files, ['atest'], root_files=True
   )
-  run_pylint(other_files)
-  run_pyformat(gpylint_project_files)
-  run_gpylint(gpylint_project_files)
+  _run_pylint(other_files)
+  _run_pyformat(gpylint_project_files)
+  _run_gpylint(gpylint_project_files)
 
-  asuite_plugin_files, _ = filter_files_for_projects(
+  asuite_plugin_files, _ = _filter_files_for_projects(
       preupload_files, ['asuite_plugin'], root_files=False
   )
   if asuite_plugin_files:
-    run_legacy_unittests()
+    _run_legacy_unittests()
