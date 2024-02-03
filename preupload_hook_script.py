@@ -155,7 +155,7 @@ def get_preupload_files() -> list[pathlib.Path]:
   file_paths_to_upload = [
       pathlib.Path(file).resolve() for file in files_to_upload
   ]
-  return file_paths_to_upload
+  return [file for file in file_paths_to_upload if file.exists()]
 
 
 if __name__ == '__main__':
