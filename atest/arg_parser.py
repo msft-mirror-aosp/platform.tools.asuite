@@ -91,7 +91,6 @@ def _create_arg_parser():
       ),
   )
 
-  # Options that to do with testing.
   parser.add_argument(
       '-a',
       '--all-abi',
@@ -116,7 +115,7 @@ def _create_arg_parser():
       '--no-bazel-mode',
       dest='bazel_mode',
       action='store_false',
-      help='Run tests using Bazel.',
+      help='Run tests without using Bazel.',
   )
   parser.add_argument(
       '--bazel-arg',
@@ -163,9 +162,6 @@ def _create_arg_parser():
       ),
   )
 
-  # Options for host and device-only:
-  # A group of options for testing mapping tests. They are mutually
-  # exclusive in a command line.
   hgroup = parser.add_mutually_exclusive_group()
   hgroup.add_argument(
       '--host',
@@ -184,6 +180,7 @@ def _create_arg_parser():
           ' --test-mapping.)'
       ),
   )
+
   parser.add_argument(
       '-i',
       '--install',
@@ -243,8 +240,6 @@ def _create_arg_parser():
       help='Wait for debugger prior to execution (Instrumentation tests only).',
   )
 
-  # Options for request/disable upload results. They are mutually
-  # exclusive in a command line.
   ugroup = parser.add_mutually_exclusive_group()
   ugroup.add_argument(
       '--request-upload-result',
@@ -264,13 +259,17 @@ def _create_arg_parser():
       ),
   )
 
-  mgroup = parser.add_mutually_exclusive_group()
-  # Options related to Test Mapping
-  mgroup.add_argument(
+  test_mapping_or_host_unit_group = parser.add_mutually_exclusive_group()
+  test_mapping_or_host_unit_group.add_argument(
       '-p',
       '--test-mapping',
       action='store_true',
       help='Run tests defined in TEST_MAPPING files.',
+  )
+  test_mapping_or_host_unit_group.add_argument(
+      '--host-unit-test-only',
+      action='store_true',
+      help='Run all host unit tests under the current directory.',
   )
   parser.add_argument(
       '--include-subdirs',
@@ -285,16 +284,6 @@ def _create_arg_parser():
       help='Enable FILE_PATTERNS in TEST_MAPPING.',
   )
 
-  # Options related to Host Unit Test.
-  mgroup.add_argument(
-      '--host-unit-test-only',
-      action='store_true',
-      help='Run all host unit tests under the current directory.',
-  )
-
-  # Options for information queries and dry-runs:
-  # A group of options for dry-runs. They are mutually exclusive
-  # in a command line.
   group = parser.add_mutually_exclusive_group()
   group.add_argument(
       '--collect-tests-only',
@@ -336,7 +325,6 @@ def _create_arg_parser():
       ),
   )
 
-  # Options that to do with acloud/AVDs.
   agroup = parser.add_mutually_exclusive_group()
   agroup.add_argument(
       '--acloud-create',
@@ -356,8 +344,6 @@ def _create_arg_parser():
       '-s', '--serial', action='append', help='The device to run the test on.'
   )
 
-  # Options to enable selection menu when multiple test configs belong to
-  # same test module.
   parser.add_argument(
       '--test-config-select',
       action='store_true',
@@ -367,7 +353,6 @@ def _create_arg_parser():
       ),
   )
 
-  # Options related to module parameterization
   parser.add_argument(
       '--instant',
       action='store_true',
@@ -393,7 +378,6 @@ def _create_arg_parser():
       ),
   )
 
-  # Option for dry-run command mapping result and cleaning cache.
   parser.add_argument(
       '-c',
       '--clear-cache',
@@ -406,7 +390,6 @@ def _create_arg_parser():
       action='store_true',
       help='Generate the runner command(s) of given tests.',
   )
-  # Options for Tradefed debug mode.
   parser.add_argument(
       '-D',
       '--tf-debug',
@@ -416,7 +399,6 @@ def _create_arg_parser():
       default=0,
       help='Enable tradefed debug mode with a specified port. (default: 10888)',
   )
-  # Options for Tradefed customization related.
   parser.add_argument(
       '--tf-template',
       action='append',
@@ -440,11 +422,8 @@ def _create_arg_parser():
       ),
   )
 
-  # A group of options for rerun strategy. They are mutually exclusive
-  # in a command line.
-  group = parser.add_mutually_exclusive_group()
-  # Option for rerun tests for the specified number iterations.
-  group.add_argument(
+  iteration_group = parser.add_mutually_exclusive_group()
+  iteration_group.add_argument(
       '--iterations',
       nargs='?',
       type=_positive_int,
@@ -456,13 +435,11 @@ def _create_arg_parser():
           ' reached. (default: 10)'
       ),
   )
-  group.add_argument(
+  iteration_group.add_argument(
       '--rerun-until-failure',
       nargs='?',
       type=_positive_int,
-      # For Integer.MAX_VALUE == (2**31 - 1) and not possible to give a larger
-      # integer to Tradefed, 2147483647 will be plentiful (~68 years).
-      const=2147483647,
+      const=2147483647,  # Java's Integer.MAX_VALUE for TradeFed.
       default=0,
       metavar='MAX_ITERATIONS',
       help=(
@@ -470,7 +447,7 @@ def _create_arg_parser():
           ' the max iteration is reached. (default: forever!)'
       ),
   )
-  group.add_argument(
+  iteration_group.add_argument(
       '--retry-any-failure',
       nargs='?',
       type=_positive_int,
@@ -483,10 +460,7 @@ def _create_arg_parser():
       ),
   )
 
-  # A group of options for history. They are mutually exclusive
-  # in a command line.
   history_group = parser.add_mutually_exclusive_group()
-  # History related options.
   history_group.add_argument(
       '--latest-result', action='store_true', help='Print latest test result.'
   )
@@ -500,14 +474,12 @@ def _create_arg_parser():
       ),
   )
 
-  # Options for disabling collecting data for metrics.
   parser.add_argument(
       constants.NO_METRICS_ARG,
       action='store_true',
       help='(For metrics) Do not send metrics.',
   )
 
-  # Option to filter the output of aggregate metrics content.
   parser.add_argument(
       '--aggregate-metric-filter',
       action='append',
@@ -517,21 +489,18 @@ def _create_arg_parser():
       ),
   )
 
-  # Option that allows building and running without regarding device
-  # availability even the given test is a device/host-driven test.
   parser.add_argument(
       '--no-checking-device',
       action='store_true',
       help='Do NOT check device availability. (even it is a device test)',
   )
 
-  # Option for customize build process number.
   parser.add_argument(
       '-j',
       '--build-j',
       nargs='?',
       type=int,
-      help='Build run process number at once.',
+      help='Number of build run processes.',
   )
 
   # This arg actually doesn't consume anything, it's primarily used for
@@ -541,9 +510,8 @@ def _create_arg_parser():
       dest='custom_args',
       nargs='*',
       help=(
-          'Specify custom args for the test runners. '
-          'Everything after -- will be consumed as '
-          'custom args.'
+          'Specify custom args for the test runners. Everything after -- will'
+          ' be consumed as custom args.'
       ),
   )
 
