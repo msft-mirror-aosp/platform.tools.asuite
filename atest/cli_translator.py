@@ -14,7 +14,6 @@
 
 """Command Line Translator for atest."""
 
-# pylint: disable=line-too-long
 # pylint: disable=too-many-lines
 
 from __future__ import print_function

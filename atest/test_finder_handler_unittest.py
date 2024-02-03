@@ -16,7 +16,6 @@
 
 """Unittests for test_finder_handler."""
 
-# pylint: disable=line-too-long
 # pylint: disable=protected-access
 import unittest
 from unittest import mock

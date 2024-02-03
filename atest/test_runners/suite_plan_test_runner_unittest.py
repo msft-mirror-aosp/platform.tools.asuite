@@ -16,7 +16,6 @@
 
 """Unittests for test_suite_test_runner."""
 
-# pylint: disable=line-too-long
 
 import unittest
 from unittest import mock

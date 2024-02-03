@@ -17,25 +17,20 @@
 """Unittests for module_info."""
 
 # pylint: disable=invalid-name
-# pylint: disable=line-too-long
 # pylint: disable=missing-function-docstring
 # pylint: disable=too-many-lines
 
 import os
+from pathlib import Path
 import shutil
 import tempfile
 import unittest
-
-from pathlib import Path
 from unittest import mock
-
-# pylint: disable=import-error
-from pyfakefs import fake_filesystem_unittest
-
 from atest import constants
 from atest import module_info
-from atest import unittest_utils
 from atest import unittest_constants as uc
+from atest import unittest_utils
+from pyfakefs import fake_filesystem_unittest
 
 JSON_FILE_PATH = os.path.join(uc.TEST_DATA_DIR, uc.JSON_FILE)
 CC_DEP_PATH = os.path.join(uc.TEST_DATA_DIR, uc.CC_DEP_FILE)

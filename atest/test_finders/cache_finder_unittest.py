@@ -16,8 +16,6 @@
 
 """Unittests for cache_finder."""
 
-# pylint: disable=line-too-long
-
 import os
 import unittest
 from unittest import mock

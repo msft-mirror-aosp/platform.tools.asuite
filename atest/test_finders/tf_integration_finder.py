@@ -14,8 +14,6 @@
 
 """Integration Finder class."""
 
-# pylint: disable=line-too-long
-
 import copy
 import logging
 import os

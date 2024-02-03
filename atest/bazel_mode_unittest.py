@@ -20,27 +20,22 @@
 # pylint: disable=too-many-lines
 
 import argparse
+from io import StringIO
+from pathlib import Path
 import re
 import shlex
 import shutil
 import subprocess
 import tempfile
-import unittest
-
-from io import StringIO
-from pathlib import Path
 from typing import List
+import unittest
 from unittest import mock
-
-# pylint: disable=import-error
-from pyfakefs import fake_filesystem_unittest
-
 from atest import bazel_mode
 from atest import constants
 from atest import module_info
-
 from atest.test_finders import example_finder, test_finder_base, test_info
 from atest.test_runners import atest_tf_test_runner
+from pyfakefs import fake_filesystem_unittest
 
 
 ATEST_TF_RUNNER = atest_tf_test_runner.AtestTradefedTestRunner.NAME

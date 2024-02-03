@@ -17,7 +17,7 @@
 """Atest Argument Parser class for atest."""
 
 # TODO: (@jimtang) Unsuppress too-many-lines Pylint warning.
-# pylint: disable=line-too-long, too-many-lines
+# pylint: disable=too-many-lines
 
 import argparse
 import pydoc
@@ -46,23 +46,16 @@ def output_mode_msg() -> str:
   return '\n'.join(msg)
 
 
-# Constants used for AtestArgParser and EPILOG_TEMPLATE
-HELP_DESC = (
-    'A command line tool that allows users to build, install, and run '
-    'Android tests locally, greatly speeding test re-runs without '
-    'requiring knowledge of Trade Federation test harness command line'
-    ' options.'
-)
-
 # Constants used for arg help message(sorted in alphabetic)
-ACLOUD_CREATE = 'Create AVD(s) via acloud command.'
+ACLOUD_CREATE = '(For testing with AVDs) Create AVD(s) via acloud command.'
 AGGREGATE_METRIC_FILTER = (
-    'Regular expression that will be used for filtering the aggregated metrics.'
+    '(For performance testing) Regular expression that will be used for'
+    ' filtering the aggregated metrics.'
 )
 ALL_ABI = 'Set to run tests for all abis.'
 ANNOTATION_FILTER = (
-    'Accept keyword that will be translated to fully qualified'
-    'annotation class name.'
+    '(For module parameterization) Accept keyword that will be translated to'
+    ' fully qualifiedannotation class name.'
 )
 BUILD = 'Run a build.'
 BUILD_PROCESS_NUMBER = 'Build run process number at once.'
@@ -115,17 +108,20 @@ INCLUDE_SUBDIRS = 'Search TEST_MAPPING files in subdirs as well.'
 INFO = 'Deprecated'
 INSTALL = 'Install an APK.'
 INSTANT = (
-    'Run the instant_app version of the module if the module supports it. '
-    "Note: Nothing's going to run if it's not an Instant App test and "
-    '"--instant" is passed.'
+    '(For module parameterization) Run the instant_app version of the module if'
+    " the module supports it. Note: Nothing's going to run if it's not an"
+    " Instant App test and '--instant' is passed."
 )
-ITERATION = 'Loop-run tests until the max iteration is reached. (default: 10)'
+ITERATION = (
+    '(For iteration testing) Loop-run tests until the max iteration is reached.'
+    ' (default: 10)'
+)
 LATEST_RESULT = 'Print latest test result.'
 LIST_MODULES = 'List testable modules of the given suite.'
 NO_CHECKING_DEVICE = (
     'Do NOT check device availability. (even it is a device test)'
 )
-NO_METRICS = 'Do not send metrics.'
+NO_METRICS = '(For metrics) Do not send metrics.'
 REBUILD_MODULE_INFO = (
     'Forces a rebuild of the module-info.json file. '
     'This may be necessary following a repo sync or '
@@ -142,20 +138,23 @@ DISABLE_UPLOAD_RESULT = (
     '--request-upload-result is set'
 )
 RERUN_UNTIL_FAILURE = (
-    'Rerun all tests until a failure occurs or the max '
+    '(For iteration testing) Rerun all tests until a failure occurs or the max '
     'iteration is reached. (default: forever!)'
 )
 # For Integer.MAX_VALUE == (2**31 - 1) and not possible to give a larger integer
 # to Tradefed, 2147483647 will be plentiful (~68 years).
 RERUN_UNTIL_FAILURE_N = 2147483647
 RETRY_ANY_FAILURE = (
-    'Rerun failed tests until passed or the max iteration '
-    'is reached. (default: 10)'
+    '(For iteration testing) Rerun failed tests until passed or the max'
+    ' iteration is reached. (default: 10)'
 )
 SERIAL = 'The device to run the test on.'
 SHARDING = 'Option to specify sharding count. (default: 2)'
 SQLITE_MODULE_CACHE = 'Use SQLite database as cache instead of JSON.'
-START_AVD = 'Automatically create an AVD and run tests on the virtual device.'
+START_AVD = (
+    '(For testing with AVDs) Automatically create an AVD and run tests on the'
+    ' virtual device.'
+)
 TEST = (
     'Run the tests. WARNING: Many test configs force cleanup of device '
     'after test run. In this case, "-d" must be used in previous test run '
@@ -182,8 +181,8 @@ USE_MODULES_IN = (
     'Hint: This may solve missing test dependencies issue.'
 )
 USER_TYPE = (
-    'Run test with specific user type, e.g. atest <test> --user-type '
-    'secondary_user'
+    '(For module parameterization) Run test with specific user type, e.g. atest'
+    ' <test> --user-type secondary_user'
 )
 VERBOSE = 'Display DEBUG level logging.'
 VERSION = 'Display version string.'
@@ -221,7 +220,11 @@ class AtestArgParser(argparse.ArgumentParser):
 
   def __init__(self):
     """Initialise an ArgumentParser instance."""
-    super().__init__(description=HELP_DESC, add_help=False)
+    super().__init__(
+        description=HELP_DESC,
+        add_help=True,
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
 
   # pylint: disable=too-many-statements
   def add_atest_args(self):
@@ -367,9 +370,6 @@ class AtestArgParser(argparse.ArgumentParser):
         '--collect-tests-only', action='store_true', help=COLLECT_TESTS_ONLY
     )
     group.add_argument('--dry-run', action='store_true', help=DRY_RUN)
-    self.add_argument(
-        '-h', '--help', action='store_true', help='Print this help message.'
-    )
     self.add_argument('--info', action='store_true', help=INFO)
     self.add_argument('-L', '--list-modules', help=LIST_MODULES)
     self.add_argument('-v', '--verbose', action='store_true', help=VERBOSE)
@@ -524,75 +524,8 @@ class AtestArgParser(argparse.ArgumentParser):
     return argument_list
 
 
-def print_epilog_text():
-  """Pagination print EPILOG_TEXT.
-
-  Returns:
-      STDOUT from pydoc.pager().
-  """
-  epilog_text = EPILOG_TEMPLATE.format(
-      ACLOUD_CREATE=ACLOUD_CREATE,
-      AGGREGATE_METRIC_FILTER=AGGREGATE_METRIC_FILTER,
-      ALL_ABI=ALL_ABI,
-      ANNOTATION_FILTER=ANNOTATION_FILTER,
-      BUILD=BUILD,
-      BUILD_PROCESS_NUMBER=BUILD_PROCESS_NUMBER,
-      MINIMAL_BUILD=MINIMAL_BUILD,
-      UPDATE_DEVICE=UPDATE_DEVICE,
-      BAZEL_MODE=BAZEL_MODE,
-      BAZEL_ARG=BAZEL_ARG,
-      CLEAR_CACHE=CLEAR_CACHE,
-      COLLECT_TESTS_ONLY=COLLECT_TESTS_ONLY,
-      COVERAGE=COVERAGE,
-      DEVICE_ONLY=DEVICE_ONLY,
-      DISABLE_TEARDOWN=DISABLE_TEARDOWN,
-      DISABLE_UPLOAD_RESULT=DISABLE_UPLOAD_RESULT,
-      DRY_RUN=DRY_RUN,
-      ENABLE_FILE_PATTERNS=ENABLE_FILE_PATTERNS,
-      GENERATE_RUNNER_CMD=GENERATE_RUNNER_CMD,
-      GROUP_TEST=GROUP_TEST,
-      HELP_DESC=HELP_DESC,
-      HISTORY=HISTORY,
-      HOST=HOST,
-      HOST_UNIT_TEST_ONLY=HOST_UNIT_TEST_ONLY,
-      INCLUDE_SUBDIRS=INCLUDE_SUBDIRS,
-      INFO=INFO,
-      INSTALL=INSTALL,
-      INSTANT=INSTANT,
-      ITERATION=ITERATION,
-      LATEST_RESULT=LATEST_RESULT,
-      LIST_MODULES=LIST_MODULES,
-      NO_METRICS=NO_METRICS,
-      NO_CHECKING_DEVICE=NO_CHECKING_DEVICE,
-      REBUILD_MODULE_INFO=REBUILD_MODULE_INFO,
-      REQUEST_UPLOAD_RESULT=REQUEST_UPLOAD_RESULT,
-      RERUN_UNTIL_FAILURE=RERUN_UNTIL_FAILURE,
-      RETRY_ANY_FAILURE=RETRY_ANY_FAILURE,
-      SERIAL=SERIAL,
-      SHARDING=SHARDING,
-      BUILD_OUTPUT=BUILD_OUTPUT,
-      START_AVD=START_AVD,
-      TEST=TEST,
-      TEST_CONFIG_SELECTION=TEST_CONFIG_SELECTION,
-      TEST_MAPPING=TEST_MAPPING,
-      TEST_TIMEOUT=TEST_TIMEOUT,
-      TF_DEBUG=TF_DEBUG,
-      TEST_FILTER=TEST_FILTER,
-      TF_TEMPLATE=TF_TEMPLATE,
-      USER_TYPE=USER_TYPE,
-      USE_MODULES_IN=USE_MODULES_IN,
-      SQLITE_MODULE_CACHE=SQLITE_MODULE_CACHE,
-      VERBOSE=VERBOSE,
-      VERSION=VERSION,
-      WAIT_FOR_DEBUGGER=WAIT_FOR_DEBUGGER,
-  )
-  return pydoc.pager(epilog_text)
-
-
-EPILOG_TEMPLATE = r"""ATEST(1)                       ASuite/ATest
-
-NAME
-        atest - {HELP_DESC}
+HELP_DESC = """NAME
+        atest - A command line tool that allows users to build, install, and run Android tests locally, greatly speeding test re-runs without requiring knowledge of Trade Federation test harness command line options.
 
 
 SYNOPSIS
@@ -611,189 +544,12 @@ OPTIONS
 
             atest hello_world_test -v --all-abi --verbose -- --test-arg xxx
 
+        If only need to run tests for a specific abi, please use:
+            atest <test> -- --abi arm64-v8a   # ARM 64-bit
+            atest <test> -- --abi armeabi-v7a # ARM 32-bit
+
         Also, to avoid confusing Atest from testing TEST_MAPPING file and implicit test names from ~/.atest/config, any test names defined in the config file
         will be ignored without any hints.
-
-        [ Testing ]
-        -a, --all-abi
-            {ALL_ABI}
-
-            If only need to run tests for a specific abi, please use:
-                atest <test> -- --abi arm64-v8a   # ARM 64-bit
-                atest <test> -- --abi armeabi-v7a # ARM 32-bit
-
-        -b, --build
-            {BUILD} (implicit default)
-
-        -j, --build-j
-            {BUILD_PROCESS_NUMBER}
-
-        --[no-]bazel-mode
-            {BAZEL_MODE}
-
-        --bazel-arg
-            {BAZEL_ARG}
-
-        --minimal-build
-            {MINIMAL_BUILD}
-
-        --update-device
-            {UPDATE_DEVICE}
-
-        --device-only
-            {DEVICE_ONLY}
-
-        -d, --disable-teardown
-            {DISABLE_TEARDOWN}
-
-        -D, --tf-debug [PORT]
-            {TF_DEBUG}
-
-        --experimental-coverage
-            {COVERAGE}
-
-        --[no-]group-test
-            {GROUP_TEST}
-
-        --host
-            {HOST}
-
-        --host-unit-test-only
-            {HOST_UNIT_TEST_ONLY}
-
-        -i, --install
-            {INSTALL} (implicit default)
-
-        -m, --rebuild-module-info
-            {REBUILD_MODULE_INFO}
-
-        --no-checking-device
-            {NO_CHECKING_DEVICE}
-
-        -s, --serial [SERIAL]
-            {SERIAL}
-
-        --sharding [SHARD_NUMBER]
-          {SHARDING}
-
-        -t, --test [TEST1, TEST2, ...]
-            {TEST} (implicit default)
-
-        --test-config-select
-            {TEST_CONFIG_SELECTION}
-
-        --test-filter [REGEX_FILTER]
-            {TEST_FILTER} e.g.
-                atest perfetto_integrationtests --test-filter '.*ConsoleInterceptorVerify.*'
-                atest HelloWorldTests --test-filter 'testHalloWelt.*'
-
-        --tf-template
-            {TF_TEMPLATE}
-
-        --test-timeout [NUMBER in milliseconds]
-            {TEST_TIMEOUT}
-
-        -w, --wait-for-debugger
-            {WAIT_FOR_DEBUGGER}
-
-        --use-modules-in
-            {USE_MODULES_IN}
-
-        --sqlite-module-cache
-            {SQLITE_MODULE_CACHE}
-
-        [ Upload Test Result ]
-        --request-upload-result
-            {REQUEST_UPLOAD_RESULT}
-
-        --disable-upload-result
-            {DISABLE_UPLOAD_RESULT}
-
-        [ Test Mapping ]
-        -p, --test-mapping
-            {TEST_MAPPING}
-
-        --include-subdirs
-            {INCLUDE_SUBDIRS}
-
-        --enable-file-patterns
-            {ENABLE_FILE_PATTERNS}
-
-
-        [ Information/Queries ]
-        --collect-tests-only
-            {COLLECT_TESTS_ONLY}
-
-        --history
-            {HISTORY}
-
-        --info
-            {INFO}
-
-        -L, --list-modules
-            {LIST_MODULES}
-
-        --latest-result
-            {LATEST_RESULT}
-
-        -v, --verbose
-            {VERBOSE}
-
-        -V, --version
-            {VERSION}
-
-        --build-output
-            {BUILD_OUTPUT}
-
-        [ Dry-Run and Caching ]
-        --dry-run
-            {DRY_RUN}
-
-        -c, --clear-cache
-            {CLEAR_CACHE}
-
-
-        [ Module Parameterization ]
-        --instant
-            {INSTANT}
-
-        --user-type [TYPE]
-            {USER_TYPE}
-
-        --annotation-filter [KEYWORD]
-            {ANNOTATION_FILTER} e.g.
-
-                atest TeleServiceTests --annotation-filter smallTest
-
-            where "smalltest" will be translated to "androidx.test.filters.SmallTest" or other class accordingly.
-
-
-        [ Iteration Testing ]
-        --iterations [NUMBER]
-            {ITERATION}
-
-        --rerun-until-failure [NUMBER]
-            {RERUN_UNTIL_FAILURE}
-
-        --retry-any-failure [NUMBER]
-            {RETRY_ANY_FAILURE}
-
-
-        [ Testing With AVDs ]
-        --start-avd
-            {START_AVD}
-
-        --acloud-create
-            {ACLOUD_CREATE}
-
-
-        [ Metrics ]
-        --no-metrics
-            {NO_METRICS}
-
-        [ Performance Testing ]
-        --aggregate-metric-filter
-            {AGGREGATE_METRIC_FILTER}
 
 
 EXAMPLES

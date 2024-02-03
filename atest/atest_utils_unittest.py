@@ -17,31 +17,26 @@
 """Unittests for atest_utils."""
 
 # pylint: disable=invalid-name
-# pylint: disable=line-too-long
 
 import hashlib
+from io import StringIO
 import os
+from pathlib import Path
 import subprocess
 import sys
 import tempfile
 import unittest
-
-from io import StringIO
-from pathlib import Path
 from unittest import mock
-
-# pylint: disable=import-error
-from pyfakefs import fake_filesystem_unittest
 
 from atest import atest_arg_parser
 from atest import atest_error
 from atest import atest_utils
 from atest import constants
-from atest import unittest_utils
 from atest import unittest_constants
-
-from atest.test_finders import test_info
+from atest import unittest_utils
 from atest.atest_enum import FilterType
+from atest.test_finders import test_info
+from pyfakefs import fake_filesystem_unittest
 
 TEST_MODULE_NAME_A = 'ModuleNameA'
 TEST_RUNNER_A = 'FakeTestRunnerA'
@@ -865,7 +860,8 @@ class AtestUtilsUnittests(unittest.TestCase):
     )
     temp_dir.cleanup()
 
-    # 2. Only name is defined, will give default manifest and null target_module.
+    # 2. Only name is defined, will give default manifest and null
+    # target_module.
     content = """android_app    {
                 // comment
                 name: "AmSlam",

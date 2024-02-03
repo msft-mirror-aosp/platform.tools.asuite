@@ -669,7 +669,8 @@ pub struct Profiler {
     /// Time to run all the "adb push" or "adb rm" commands.
     pub adb_cmds: Duration,
     /// Time to run "adb reboot" or "exec-out start".
-    pub reboot: Duration,
+    pub restart: Duration,
+    pub restart_type: String,
     /// Time for device to respond to "wait-for-device".
     pub wait_for_device: Duration,
     /// Time for sys.boot_completed to be 1 after wait-for-device.
@@ -688,7 +689,7 @@ impl std::string::ToString for Profiler {
             format!("Host fingerprint - {}", self.host_fingerprint.as_secs()),
             format!("Ninja - {}", self.ninja_deps_computer.as_secs()),
             format!("Adb Cmds - {}", self.adb_cmds.as_secs()),
-            format!("Reboot - {}", self.reboot.as_secs()),
+            format!("Restart({})- {}", self.restart_type, self.restart.as_secs()),
             format!("Wait For device connected - {}", self.wait_for_device.as_secs()),
             format!("Wait For boot completed - {}", self.wait_for_boot_completed.as_secs()),
             format!("First remount RW - {}", self.first_remount_rw.as_secs()),

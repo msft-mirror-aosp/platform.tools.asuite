@@ -14,8 +14,6 @@
 
 """Module Finder class."""
 
-# pylint: disable=line-too-long
-
 import logging
 import os
 import time
