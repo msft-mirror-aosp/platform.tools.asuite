@@ -22,63 +22,63 @@ from atest.test_runners import test_runner_base
 
 
 class ExampleTestRunner(test_runner_base.TestRunnerBase):
-    """Base Test Runner class."""
-    NAME = 'ExampleTestRunner'
-    EXECUTABLE = 'echo'
-    _RUN_CMD = '{exe} ExampleTestRunner - test:{test}'
-    _BUILD_REQ = set()
+  """Base Test Runner class."""
 
-    # pylint: disable=unused-argument
-    def run_tests(self, test_infos, extra_args, reporter):
-        """Run the list of test_infos.
+  NAME = 'ExampleTestRunner'
+  EXECUTABLE = 'echo'
+  _RUN_CMD = '{exe} ExampleTestRunner - test:{test}'
+  _BUILD_REQ = set()
 
-        Args:
-            test_infos: List of TestInfo.
-            extra_args: Dict of extra args to add to test run.
-            reporter: An instance of result_report.ResultReporter
-        """
-        run_cmds = self.generate_run_commands(test_infos, extra_args)
-        for run_cmd in run_cmds:
-            super(ExampleTestRunner).run(run_cmd)
+  # pylint: disable=unused-argument
+  def run_tests(self, test_infos, extra_args, reporter):
+    """Run the list of test_infos.
 
-    # pylint: disable=unnecessary-pass
-    # Please keep above disable flag to ensure host_env_check is overriden.
-    def host_env_check(self):
-        """Check that host env has everything we need.
+    Args:
+        test_infos: List of TestInfo.
+        extra_args: Dict of extra args to add to test run.
+        reporter: An instance of result_report.ResultReporter
+    """
+    run_cmds = self.generate_run_commands(test_infos, extra_args)
+    for run_cmd in run_cmds:
+      super(ExampleTestRunner).run(run_cmd)
 
-        We actually can assume the host env is fine because we have the same
-        requirements that atest has. Update this to check for android env vars
-        if that changes.
-        """
-        pass
+  # pylint: disable=unnecessary-pass
+  # Please keep above disable flag to ensure host_env_check is overridden.
+  def host_env_check(self):
+    """Check that host env has everything we need.
 
-    def get_test_runner_build_reqs(self, test_infos: List[test_info.TestInfo]):
-        """Return the build requirements.
+    We actually can assume the host env is fine because we have the same
+    requirements that atest has. Update this to check for android env vars
+    if that changes.
+    """
+    pass
 
-        Args:
-            test_infos: List of TestInfo.
+  def get_test_runner_build_reqs(self, test_infos: List[test_info.TestInfo]):
+    """Return the build requirements.
 
-        Returns:
-            Set of build targets.
-        """
-        return set()
+    Args:
+        test_infos: List of TestInfo.
 
-    # pylint: disable=unused-argument
-    def generate_run_commands(self, test_infos, extra_args, port=None):
-        """Generate a list of run commands from TestInfos.
+    Returns:
+        Set of build targets.
+    """
+    return set()
 
-        Args:
-            test_infos: A set of TestInfo instances.
-            extra_args: A Dict of extra args to append.
-            port: Optional. An int of the port number to send events to.
-                  Subprocess reporter in TF won't try to connect if it's None.
+  # pylint: disable=unused-argument
+  def generate_run_commands(self, test_infos, extra_args, port=None):
+    """Generate a list of run commands from TestInfos.
 
-        Returns:
-            A list of run commands to run the tests.
-        """
-        run_cmds = []
-        for test_info in test_infos:
-            run_cmd_dict = {'exe': self.EXECUTABLE,
-                            'test': test_info.test_name}
-            run_cmds.extend(self._RUN_CMD.format(**run_cmd_dict))
-        return run_cmds
+    Args:
+        test_infos: A set of TestInfo instances.
+        extra_args: A Dict of extra args to append.
+        port: Optional. An int of the port number to send events to. Subprocess
+          reporter in TF won't try to connect if it's None.
+
+    Returns:
+        A list of run commands to run the tests.
+    """
+    run_cmds = []
+    for test_info in test_infos:
+      run_cmd_dict = {'exe': self.EXECUTABLE, 'test': test_info.test_name}
+      run_cmds.extend(self._RUN_CMD.format(**run_cmd_dict))
+    return run_cmds

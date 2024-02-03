@@ -12,43 +12,43 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""
-Test finder base class.
-"""
+"""Test finder base class."""
 from collections import namedtuple
 
 
-Finder = namedtuple('Finder', ['test_finder_instance', 'find_method',
-                               'finder_info'])
+Finder = namedtuple(
+    'Finder', ['test_finder_instance', 'find_method', 'finder_info']
+)
 
 
 def find_method_register(cls):
-    """Class decorater to find all registered find methods."""
-    cls.find_methods = []
-    cls.get_all_find_methods = lambda x: x.find_methods
-    for methodname in dir(cls):
-        method = getattr(cls, methodname)
-        if hasattr(method, '_registered'):
-            cls.find_methods.append(Finder(None, method, None))
-    return cls
+  """Class decorater to find all registered find methods."""
+  cls.find_methods = []
+  cls.get_all_find_methods = lambda x: x.find_methods
+  for methodname in dir(cls):
+    method = getattr(cls, methodname)
+    if hasattr(method, '_registered'):
+      cls.find_methods.append(Finder(None, method, None))
+  return cls
 
 
 def register():
-    """Decorator to register find methods."""
+  """Decorator to register find methods."""
 
-    def wrapper(func):
-        """Wrapper for the register decorator."""
-        #pylint: disable=protected-access
-        func._registered = True
-        return func
-    return wrapper
+  def wrapper(func):
+    """Wrapper for the register decorator."""
+    # pylint: disable=protected-access
+    func._registered = True
+    return func
+
+  return wrapper
 
 
 # This doesn't really do anything since there are no find methods defined but
 # it's here anyways as an example for other test type classes.
 @find_method_register
 class TestFinderBase:
-    """Base class for test finder class."""
+  """Base class for test finder class."""
 
-    def __init__(self, *args, **kwargs):
-        pass
+  def __init__(self, *args, **kwargs):
+    pass
