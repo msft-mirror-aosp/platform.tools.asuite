@@ -21,8 +21,8 @@ from tools.asuite.atest import cc_test_filter_generator
 
 class CCTestFilterGeneratorTest(unittest.TestCase):
 
-    def test_trim_comments(self):
-        cc_file_content = """
+  def test_trim_comments(self):
+    cc_file_content = """
 
 /* this is /* one comment */ text outside comment
 /*
@@ -39,7 +39,7 @@ text outside comment
    yet more comment
  */ text outside comment
 """
-        expected_output = """                             text outside comment
+    expected_output = """                             text outside comment
 
 
 
@@ -54,10 +54,10 @@ text outside comment
 
     text outside comment"""
 
-        output = cc_test_filter_generator.trim_comments(cc_file_content)
+    output = cc_test_filter_generator.trim_comments(cc_file_content)
 
-        self.assertEqual(output, expected_output)
+    self.assertEqual(output, expected_output)
 
 
-if __name__ == "__main__":
-    unittest.main(verbosity=2)
+if __name__ == '__main__':
+  unittest.main(verbosity=2)

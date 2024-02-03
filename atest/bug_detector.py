@@ -14,20 +14,18 @@
 
 """Classes for bug events history."""
 
-# pylint: disable=line-too-long
-
 import datetime
-import logging
 import json
+import logging
 import os
 
 from atest import atest_utils
 from atest import constants
-
 from atest.metrics import metrics_utils
 
-_META_FILE = os.path.join(atest_utils.get_misc_dir(),
-                          '.config', 'asuite', 'atest_history.json')
+_META_FILE = os.path.join(
+    atest_utils.get_misc_dir(), '.config', 'asuite', 'atest_history.json'
+)
 _DETECT_OPTION_FILTER = ['-v', '--verbose']
 _DETECTED_SUCCESS = 1
 _DETECTED_FAIL = 0
@@ -35,101 +33,105 @@ _DETECTED_FAIL = 0
 _LATEST_EXIT_CODE = 'latest_exit_code'
 _UPDATED_AT = 'updated_at'
 
+
 class BugDetector:
-    """Class for handling if a bug is detected by comparing test history."""
+  """Class for handling if a bug is detected by comparing test history."""
 
-    def __init__(self, argv, exit_code, history_file=None):
-        """BugDetector constructor
+  def __init__(self, argv, exit_code, history_file=None):
+    """BugDetector constructor
 
-        Args:
-            argv: A list of arguments.
-            exit_code: An integer of exit code.
-            history_file: A string of a given history file path.
-        """
-        self.detect_key = self.get_detect_key(argv)
-        self.exit_code = exit_code
-        self.file = history_file if history_file else _META_FILE
-        self.history = self.get_history()
-        self.caught_result = self.detect_bug_caught()
-        self.update_history()
+    Args:
+        argv: A list of arguments.
+        exit_code: An integer of exit code.
+        history_file: A string of a given history file path.
+    """
+    self.detect_key = self.get_detect_key(argv)
+    self.exit_code = exit_code
+    self.file = history_file if history_file else _META_FILE
+    self.history = self.get_history()
+    self.caught_result = self.detect_bug_caught()
+    self.update_history()
 
-    def get_detect_key(self, argv):
-        """Get the key for history searching.
+  def get_detect_key(self, argv):
+    """Get the key for history searching.
 
-        1. remove '-v' in argv to argv_no_verbose
-        2. sort the argv_no_verbose
+    1. remove '-v' in argv to argv_no_verbose
+    2. sort the argv_no_verbose
 
-        Args:
-            argv: A list of arguments.
+    Args:
+        argv: A list of arguments.
 
-        Returns:
-            A string of ordered command line.
-        """
-        argv_without_option = [x for x in argv if x not in _DETECT_OPTION_FILTER]
-        argv_without_option.sort()
-        return ' '.join(argv_without_option)
+    Returns:
+        A string of ordered command line.
+    """
+    argv_without_option = [x for x in argv if x not in _DETECT_OPTION_FILTER]
+    argv_without_option.sort()
+    return ' '.join(argv_without_option)
 
-    def get_history(self):
-        """Get a history object from a history file.
+  def get_history(self):
+    """Get a history object from a history file.
 
-        e.g.
-        {
-            "SystemUITests:.ScrimControllerTest":{
-                "latest_exit_code": 5, "updated_at": "2019-01-26T15:33:08.305026"},
-            "--host hello_world_test ":{
-                "latest_exit_code": 0, "updated_at": "2019-02-26T15:33:08.305026"},
+    e.g.
+    {
+        "SystemUITests:.ScrimControllerTest":{
+            "latest_exit_code": 5, "updated_at": "2019-01-26T15:33:08.305026"},
+        "--host hello_world_test ":{
+            "latest_exit_code": 0, "updated_at": "2019-02-26T15:33:08.305026"},
+    }
+
+    Returns:
+        An object of loading from a history.
+    """
+    history = atest_utils.load_json_safely(self.file)
+    return history
+
+  def detect_bug_caught(self):
+    """Detection of catching bugs.
+
+    When latest_exit_code and current exit_code are different, treat it
+    as a bug caught.
+
+    Returns:
+        A integer of detecting result, e.g.
+        1: success
+        0: fail
+    """
+    if not self.history:
+      return _DETECTED_FAIL
+    latest = self.history.get(self.detect_key, {})
+    if latest.get(_LATEST_EXIT_CODE, self.exit_code) == self.exit_code:
+      return _DETECTED_FAIL
+    return _DETECTED_SUCCESS
+
+  def update_history(self):
+    """Update the history file.
+
+    1. update latest_bug result to history cache.
+    2. trim history cache to size from oldest updated time.
+    3. write to the file.
+    """
+    latest_bug = {
+        self.detect_key: {
+            _LATEST_EXIT_CODE: self.exit_code,
+            _UPDATED_AT: datetime.datetime.now().isoformat(),
         }
-
-        Returns:
-            An object of loading from a history.
-        """
-        history = atest_utils.load_json_safely(self.file)
-        return history
-
-    def detect_bug_caught(self):
-        """Detection of catching bugs.
-
-        When latest_exit_code and current exit_code are different, treat it
-        as a bug caught.
-
-        Returns:
-            A integer of detecting result, e.g.
-            1: success
-            0: fail
-        """
-        if not self.history:
-            return _DETECTED_FAIL
-        latest = self.history.get(self.detect_key, {})
-        if latest.get(_LATEST_EXIT_CODE, self.exit_code) == self.exit_code:
-            return _DETECTED_FAIL
-        return _DETECTED_SUCCESS
-
-    def update_history(self):
-        """Update the history file.
-
-        1. update latest_bug result to history cache.
-        2. trim history cache to size from oldest updated time.
-        3. write to the file.
-        """
-        latest_bug = {
-            self.detect_key: {
-                _LATEST_EXIT_CODE: self.exit_code,
-                _UPDATED_AT: datetime.datetime.now().isoformat()
-            }
-        }
-        self.history.update(latest_bug)
-        num_history = len(self.history)
-        if num_history > constants.UPPER_LIMIT:
-            sorted_history = sorted(self.history.items(),
-                                    key=lambda kv: kv[1][_UPDATED_AT])
-            self.history = dict(
-                sorted_history[(num_history - constants.TRIM_TO_SIZE):])
-        if not os.path.exists(os.path.dirname(self.file)):
-            os.makedirs(os.path.dirname(self.file))
-        with open(self.file, 'w') as outfile:
-            try:
-                json.dump(self.history, outfile, indent=0)
-            except ValueError as e:
-                logging.debug(e)
-                metrics_utils.handle_exc_and_send_exit_event(
-                    constants.ACCESS_HISTORY_FAILURE)
+    }
+    self.history.update(latest_bug)
+    num_history = len(self.history)
+    if num_history > constants.UPPER_LIMIT:
+      sorted_history = sorted(
+          self.history.items(), key=lambda kv: kv[1][_UPDATED_AT]
+      )
+      self.history = dict(
+          sorted_history[(num_history - constants.TRIM_TO_SIZE) :]
+      )
+    if not os.path.exists(os.path.dirname(self.file)):
+      os.makedirs(os.path.dirname(self.file))
+    with open(self.file, 'w') as outfile:
+      try:
+        json.dump(self.history, outfile, indent=0)
+      except ValueError as e:
+        logging.debug(e)
+        metrics_utils.handle_exc_and_send_exit_event(
+            constants.ACCESS_HISTORY_FAILURE
+        )

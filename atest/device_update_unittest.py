@@ -22,21 +22,21 @@ from atest import device_update
 
 class AdeviceUpdateMethodTest(unittest.TestCase):
 
-    @unittest.skipUnless(sys.platform.startswith("linux"), "requires Linux")
-    def test_update_succeeds(self):
-        adevice = device_update.AdeviceUpdateMethod(adevice_path='/bin/true')
+  @unittest.skipUnless(sys.platform.startswith('linux'), 'requires Linux')
+  def test_update_succeeds(self):
+    adevice = device_update.AdeviceUpdateMethod(adevice_path='/bin/true')
 
-        self.assertIsNone(adevice.update())
+    self.assertIsNone(adevice.update())
 
-    @unittest.skipUnless(sys.platform.startswith("linux"), "requires Linux")
-    def test_update_fails(self):
-        adevice = device_update.AdeviceUpdateMethod(adevice_path='/bin/false')
+  @unittest.skipUnless(sys.platform.startswith('linux'), 'requires Linux')
+  def test_update_fails(self):
+    adevice = device_update.AdeviceUpdateMethod(adevice_path='/bin/false')
 
-        self.assertRaises(device_update.Error, adevice.update)
+    self.assertRaises(device_update.Error, adevice.update)
 
-    def test_dependencies_non_empty(self):
-        adevice = device_update.AdeviceUpdateMethod()
+  def test_dependencies_non_empty(self):
+    adevice = device_update.AdeviceUpdateMethod()
 
-        deps = adevice.dependencies()
+    deps = adevice.dependencies()
 
-        self.assertTrue(deps)
+    self.assertTrue(deps)

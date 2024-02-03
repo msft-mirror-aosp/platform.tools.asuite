@@ -12,9 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""
-Various global config settings used by atest.
-"""
+"""Various global config settings used by atest."""
 
 # For saving the args to global for sub class usage.
 GLOBAL_ARGS = None

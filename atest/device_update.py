@@ -14,13 +14,11 @@
 
 """Device update methods used to prepare the device under test."""
 
-import subprocess
-import time
-
-from pathlib import Path
-from subprocess import CalledProcessError
-
 from abc import ABC, abstractmethod
+from pathlib import Path
+import subprocess
+from subprocess import CalledProcessError
+import time
 from typing import List, Set
 
 from atest import atest_utils
@@ -28,68 +26,72 @@ from atest import constants
 
 
 class DeviceUpdateMethod(ABC):
-    """A device update method used to update device."""
+  """A device update method used to update device."""
 
-    @abstractmethod
-    def update(self, serials: List[str]=None):
-        """Updates the device.
+  @abstractmethod
+  def update(self, serials: List[str] = None):
+    """Updates the device.
 
-        Args:
-            serials: A list of serial numbers.
+    Args:
+        serials: A list of serial numbers.
 
-        Raises:
-            Error: If the device update fails.
-        """
+    Raises:
+        Error: If the device update fails.
+    """
 
-    @abstractmethod
-    def dependencies(self) -> Set[str]:
-        """Returns the dependencies required by this device update method."""
+  @abstractmethod
+  def dependencies(self) -> Set[str]:
+    """Returns the dependencies required by this device update method."""
 
 
 class NoopUpdateMethod(DeviceUpdateMethod):
-    def update(self, serials: List[str]=None) -> None:
-        pass
 
-    def dependencies(self) -> Set[str]:
-        return set()
+  def update(self, serials: List[str] = None) -> None:
+    pass
+
+  def dependencies(self) -> Set[str]:
+    return set()
 
 
 class AdeviceUpdateMethod(DeviceUpdateMethod):
-    _TOOL = 'adevice'
+  _TOOL = 'adevice'
 
-    def __init__(self, adevice_path: Path = _TOOL):
-        self._adevice_path = adevice_path
+  def __init__(self, adevice_path: Path = _TOOL):
+    self._adevice_path = adevice_path
 
-    def update(self, serials: List[str]=None) -> None:
-        try:
-            print(atest_utils.mark_cyan("\nUpdating device..."))
-            update_start = time.time()
+  def update(self, serials: List[str] = None) -> None:
+    try:
+      print(atest_utils.mark_cyan('\nUpdating device...'))
+      update_start = time.time()
 
-            update_cmd = [self._adevice_path, 'update']
-            if serials:
-                if len(serials) > 1:
-                    atest_utils.colorful_print(
-                        'Warning: Device update feature can only update one '
-                        'device for now, but this invocation specifies more '
-                        'than one device. Atest will update the first device '
-                        'by default.',
-                        constants.YELLOW)
+      update_cmd = [self._adevice_path, 'update']
+      if serials:
+        if len(serials) > 1:
+          atest_utils.colorful_print(
+              'Warning: Device update feature can only update one '
+              'device for now, but this invocation specifies more '
+              'than one device. Atest will update the first device '
+              'by default.',
+              constants.YELLOW,
+          )
 
-                update_cmd.extend(['--serial', serials[0]])
+        update_cmd.extend(['--serial', serials[0]])
 
-            subprocess.check_call(update_cmd)
+      subprocess.check_call(update_cmd)
 
-            print(atest_utils.mark_cyan(
-                '\nDevice update finished in '
-                f'{str(round(time.time() - update_start, 2))}s.'))
+      print(
+          atest_utils.mark_cyan(
+              '\nDevice update finished in '
+              f'{str(round(time.time() - update_start, 2))}s.'
+          )
+      )
 
-        except CalledProcessError as e:
-            raise Error(
-                'Failed to update the device with adevice') from e
+    except CalledProcessError as e:
+      raise Error('Failed to update the device with adevice') from e
 
-    def dependencies(self) -> Set[str]:
-        return {self._TOOL, 'sync'}
+  def dependencies(self) -> Set[str]:
+    return {self._TOOL, 'sync'}
 
 
 class Error(Exception):
-    pass
+  pass

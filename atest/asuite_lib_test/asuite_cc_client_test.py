@@ -14,7 +14,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# pylint: disable=line-too-long
 
 """Unittest for atest_execution_info."""
 
@@ -22,28 +21,28 @@ import unittest
 
 
 class AsuiteCCLibTest(unittest.TestCase):
-    """Tests for verify asuite_metrics libs"""
+  """Tests for verify asuite_metrics libs"""
 
-    def test_import_asuite_cc_lib(self):
-        """Test asuite_cc_lib."""
-        # pylint: disable=import-error
-        # pylint: disable=unused-variable
-        # pylint: disable=import-outside-toplevel
-        # pylint: disable=unused-import
-        from atest.metrics import metrics
-        from atest.metrics import metrics_base
-        from atest.metrics import metrics_utils
+  def test_import_asuite_cc_lib(self):
+    """Test asuite_cc_lib."""
+    # pylint: disable=unused-variable
+    # pylint: disable=import-outside-toplevel
+    # pylint: disable=unused-import
+    from atest.metrics import metrics
+    from atest.metrics import metrics_base
+    from atest.metrics import metrics_utils
+
+    # TODO (b/132602907): Add the real usage for checking if metrics pass or
+    #  fail.
+    metrics_base.MetricsBase.tool_name = 'MyTestTool'
+    metrics_utils.get_start_time()
+    metrics.AtestStartEvent(
+        command_line='test_command',
+        test_references='test_reference',
+        cwd='test_cwd',
+        os='test_os',
+    )
 
 
-        # TODO (b/132602907): Add the real usage for checking if metrics pass or
-        #  fail.
-        metrics_base.MetricsBase.tool_name = 'MyTestTool'
-        metrics_utils.get_start_time()
-        metrics.AtestStartEvent(
-            command_line='test_command',
-            test_references='test_reference',
-            cwd='test_cwd',
-            os='test_os')
-
-if __name__ == "__main__":
-    unittest.main()
+if __name__ == '__main__':
+  unittest.main()

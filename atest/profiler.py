@@ -27,38 +27,54 @@ import zipfile
 # run soong python executables via a profiler tool. This is just a hack, soong
 # should really have the ability to build profiled binaries directly.
 
+
 def main():
-    """Main method that runs python profilers."""
-    parser = argparse.ArgumentParser(
-      description='Runs a soong-built python binary under a profiler.')
-    parser.add_argument('profiler', choices = ["pyinstrument", "cProfile"],
-                        help='The profiler to use')
-    parser.add_argument('profile_file', help="The output file of the profiler")
-    parser.add_argument(
-        'executable',
-        help="The soong-built python binary (with embedded_launcher: false)")
-    args, args_for_executable = parser.parse_known_args()
+  """Main method that runs python profilers."""
+  parser = argparse.ArgumentParser(
+      description='Runs a soong-built python binary under a profiler.'
+  )
+  parser.add_argument(
+      'profiler',
+      choices=['pyinstrument', 'cProfile'],
+      help='The profiler to use',
+  )
+  parser.add_argument('profile_file', help='The output file of the profiler')
+  parser.add_argument(
+      'executable',
+      help='The soong-built python binary (with embedded_launcher: false)',
+  )
+  args, args_for_executable = parser.parse_known_args()
 
-    if not os.path.isfile(args.executable):
-        sys.exit(f"{args.executable}: File not found")
-    os.makedirs(os.path.dirname(args.profile_file), exist_ok=True)
+  if not os.path.isfile(args.executable):
+    sys.exit(f'{args.executable}: File not found')
+  os.makedirs(os.path.dirname(args.profile_file), exist_ok=True)
 
-    runfiles_path = tempfile.mkdtemp(prefix="Soong.python_")
-    try:
-        _zf = zipfile.ZipFile(args.executable)
-        _zf.extractall(runfiles_path)
-        _zf.close()
+  runfiles_path = tempfile.mkdtemp(prefix='Soong.python_')
+  try:
+    _zf = zipfile.ZipFile(args.executable)
+    _zf.extractall(runfiles_path)
+    _zf.close()
 
-        sys.exit(subprocess.call([
-                "python3",
-                "-m", args.profiler,
-                "-o", args.profile_file,
-                os.path.join(runfiles_path,
-                             "__soong_entrypoint_redirector__.py")
-        ] + args_for_executable, close_fds=False))
+    sys.exit(
+        subprocess.call(
+            [
+                'python3',
+                '-m',
+                args.profiler,
+                '-o',
+                args.profile_file,
+                os.path.join(
+                    runfiles_path, '__soong_entrypoint_redirector__.py'
+                ),
+            ]
+            + args_for_executable,
+            close_fds=False,
+        )
+    )
 
-    finally:
-        shutil.rmtree(runfiles_path, ignore_errors=True)
+  finally:
+    shutil.rmtree(runfiles_path, ignore_errors=True)
+
 
 if __name__ == '__main__':
-    main()
+  main()

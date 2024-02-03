@@ -16,12 +16,11 @@
 
 """Main entrypoint for all of atest's unittest."""
 
+from importlib import import_module
 import logging
 import os
 import sys
 import unittest
-
-from importlib import import_module
 from unittest import mock
 
 from atest import unittest_constants
@@ -41,54 +40,55 @@ ENV = {
     'TARGET_BUILD_VARIANT': 'userdebug',
 }
 
+
 def get_test_modules():
-    """Returns a list of testable modules.
+  """Returns a list of testable modules.
 
-    Finds all the test files (*_unittest.py) and get their no-absolute
-    path (internal/lib/utils_test.py) and translate it to an import path and
-    strip the py ext (internal.lib.utils_test).
+  Finds all the test files (*_unittest.py) and get their no-absolute
+  path (internal/lib/utils_test.py) and translate it to an import path and
+  strip the py ext (internal.lib.utils_test).
 
-    Returns:
-        List of strings (the testable module import path).
-    """
-    testable_modules = []
-    package = unittest_constants.ATEST_PKG_DIR
-    base_path = os.path.dirname(package)
+  Returns:
+      List of strings (the testable module import path).
+  """
+  testable_modules = []
+  package = unittest_constants.ATEST_PKG_DIR
+  base_path = os.path.dirname(package)
 
-    for dirpath, _, files in os.walk(package):
-        for f in files:
-            if f.endswith("_unittest.py") or f.endswith("_unittest.pyc"):
-                # Now transform it into a no-absolute import path.
-                full_file_path = os.path.join(dirpath, f)
-                rel_file_path = os.path.relpath(full_file_path, base_path)
-                rel_file_path, _ = os.path.splitext(rel_file_path)
-                rel_file_path = rel_file_path.replace(os.sep, ".")
-                testable_modules.append(rel_file_path)
+  for dirpath, _, files in os.walk(package):
+    for f in files:
+      if f.endswith('_unittest.py') or f.endswith('_unittest.pyc'):
+        # Now transform it into a no-absolute import path.
+        full_file_path = os.path.join(dirpath, f)
+        rel_file_path = os.path.relpath(full_file_path, base_path)
+        rel_file_path, _ = os.path.splitext(rel_file_path)
+        rel_file_path = rel_file_path.replace(os.sep, '.')
+        testable_modules.append(rel_file_path)
 
-    return testable_modules
+  return testable_modules
+
 
 def run_test_modules(test_modules):
-    """Main method of running unit tests.
+  """Main method of running unit tests.
 
-    Args:
-        test_modules; a list of module names.
+  Args: test_modules; a list of module names.
 
-    Returns:
-        result: a namespace of unittest result.
-    """
-    for mod in test_modules:
-        import_module(mod)
+  Returns:
+      result: a namespace of unittest result.
+  """
+  for mod in test_modules:
+    import_module(mod)
 
-    loader = unittest.defaultTestLoader
-    test_suite = loader.loadTestsFromNames(test_modules)
-    runner = unittest.TextTestRunner(verbosity=2)
-    return runner.run(test_suite)
+  loader = unittest.defaultTestLoader
+  test_suite = loader.loadTestsFromNames(test_modules)
+  runner = unittest.TextTestRunner(verbosity=2)
+  return runner.run(test_suite)
 
 
 if __name__ == '__main__':
-    print(sys.version_info)
-    with mock.patch.dict('os.environ', ENV):
-        result = run_test_modules(get_test_modules())
-        if not result.wasSuccessful():
-            sys.exit(not result.wasSuccessful())
-        sys.exit(0)
+  print(sys.version_info)
+  with mock.patch.dict('os.environ', ENV):
+    result = run_test_modules(get_test_modules())
+    if not result.wasSuccessful():
+      sys.exit(not result.wasSuccessful())
+    sys.exit(0)
