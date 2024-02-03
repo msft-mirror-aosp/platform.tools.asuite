@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 #
-# Copyright 2018, The Android Open Source Project
+# Copyright 2023, The Android Open Source Project
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,14 +14,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Simple Metrics Functions"""
+"""A collection of all integration test cases for atest."""
+
+import atest_integration_test
+# pylint: disable=unused-import
+from atest_command_success_tests import CommandSuccessTests
+from atest_command_verification_tests import CommandVerificationTests
 
 
-from atest import constants
-from atest import asuite_metrics
-
-
-#pylint: disable=broad-except
-def log_start_event():
-    """Log that atest started."""
-    asuite_metrics.log_event(constants.METRICS_URL)
+if __name__ == '__main__':
+  atest_integration_test.main()

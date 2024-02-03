@@ -1,5 +1,6 @@
 use crate::adevice::{Device, Profiler};
 use crate::commands::{restart_type, split_string, AdbCommand};
+use crate::progress;
 use crate::restart_chooser::{RestartChooser, RestartType};
 use crate::{fingerprint, time};
 
@@ -10,7 +11,6 @@ use regex::Regex;
 use serde::__private::ToString;
 use std::cmp::Ordering;
 use std::collections::{HashMap, HashSet};
-use std::io::Write;
 use std::path::PathBuf;
 use std::process;
 use std::time::Duration;
@@ -65,19 +65,18 @@ impl Device for RealDevice {
         // And another 50 for fully booted
         // Wait up to twice as long for either
 
+        progress::start(" * [1/2] Waiting for device to connect.");
         time!(
             {
-                println!(" * Waiting for device to connect.");
                 let args = self.adjust_adb_args(&["wait-for-device".to_string()]);
                 self.wait_for_adb_with_timeout(&args, Duration::from_secs(50))?;
             },
             profiler.wait_for_device
         );
 
-        time!(
+        progress::update(" * [2/2] Waiting for property sys.boot_completed.");
+        let result = time!(
             {
-                println!(" * Waiting for property sys.boot_completed.");
-
                 let args = self.adjust_adb_args(&[
                     "wait-for-device".to_string(),
                     "shell".to_string(),
@@ -86,7 +85,9 @@ impl Device for RealDevice {
                 self.wait_for_adb_with_timeout(&args, Duration::from_secs(100))
             },
             profiler.wait_for_boot_completed
-        )
+        );
+        progress::stop();
+        result
     }
 
     fn prep_after_flash(&self) -> Result<()> {
@@ -210,7 +211,18 @@ impl RealDevice {
                 // This should not happen after we tag it as an "eng" module.
                 bail!("\n  Thank you for testing out adevice.\n  Flashing a recent image should install the needed `adevice_fingerprint` binary.\n  Otherwise, you can bootstrap by doing the following:\n\t ` adb remount; m adevice_fingerprint adevice && adb push $ANDROID_PRODUCT_OUT/system/bin/adevice_fingerprint system/bin/adevice_fingerprint`");
             } else {
-                bail!("Unknown problem running `adevice_fingerprint` on your device: {problem:?}.\n  Your device may still be in a booting state.  Try `adb get-state` to start debugging.");
+                // If pontis is running, add to the error message to check pontis UI
+                let pontis_status = process::Command::new("pontis")
+                    .args(&vec!["status".to_string()])
+                    .output()
+                    .context("Error checking pontis status")?;
+
+                let error_msg = format!("Unknown problem running `adevice_fingerprint` on your device: {problem:?}.\n  Your device may still be in a booting state.  Try `adb get-state` to start debugging.");
+                if pontis_status.status.success() {
+                    let pontis_error_msg = "\n  If you are using go/pontis, make sure the device appears in the Pontis browser UI and if not re-add it there.";
+                    bail!("{}{}", error_msg, pontis_error_msg);
+                }
+                bail!("{}", error_msg);
             }
         }
 
@@ -233,7 +245,7 @@ impl RealDevice {
     /// in the `timeout` amount of time.
     pub fn wait_for_adb_with_timeout(&self, args: &[String], timeout: Duration) -> Result<String> {
         let output = run_process_with_timeout(timeout, "adb", args);
-
+        progress::stop();
         match output {
             Ok(finished) if finished.status.success() => Ok("".to_string()),
             Ok(finished) if matches!(finished.status.code(), Some(124)) => {
@@ -288,15 +300,20 @@ pub fn update(
     let installed_files =
         adb_commands.keys().map(|p| p.clone().into_os_string().into_string().unwrap()).collect();
 
+    progress::start("Preparing to update files");
     prep_for_push(device, should_wait.clone())?;
+    let mut i = 1;
     time!(
         for command in adb_commands.values().cloned().sorted_by(&mkdir_comes_first_rm_dfs) {
-            print!(".");
-            let _ = std::io::stdout().flush();
+            let update_message =
+                format!("Updating files [{}/{}] {:?}", i, adb_commands.len(), command.args());
+            progress::update(&update_message);
             device.run_adb_command(&command)?;
+            i += 1;
         },
         profiler.adb_cmds
     );
+    progress::stop();
     println!();
 
     match restart_type(restart_chooser, &installed_files) {

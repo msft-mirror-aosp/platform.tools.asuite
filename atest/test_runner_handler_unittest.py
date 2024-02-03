@@ -17,19 +17,12 @@
 """Unittests for test_runner_handler."""
 
 # pylint: disable=protected-access
-# pylint: disable=line-too-long
 
-import os
 import unittest
-
 from unittest import mock
 
 from atest import atest_error
-from atest import module_info
 from atest import test_runner_handler
-from atest import unittest_constants as uc
-
-from atest.metrics import metrics
 from atest.test_finders import test_info
 from atest.test_runners import test_runner_base as tr_base
 
@@ -43,111 +36,137 @@ MODULE_NAME_A_AGAIN = 'ModuleNameA_AGAIN'
 MODULE_NAME_B = 'ModuleNameB'
 MODULE_NAME_B_AGAIN = 'ModuleNameB_AGAIN'
 MODULE_INFO_A = test_info.TestInfo(MODULE_NAME_A, FAKE_TR_NAME_A, set())
-MODULE_INFO_A_AGAIN = test_info.TestInfo(MODULE_NAME_A_AGAIN, FAKE_TR_NAME_A,
-                                         set())
+MODULE_INFO_A_AGAIN = test_info.TestInfo(
+    MODULE_NAME_A_AGAIN, FAKE_TR_NAME_A, set()
+)
 MODULE_INFO_B = test_info.TestInfo(MODULE_NAME_B, FAKE_TR_NAME_B, set())
-MODULE_INFO_B_AGAIN = test_info.TestInfo(MODULE_NAME_B_AGAIN, FAKE_TR_NAME_B,
-                                         set())
+MODULE_INFO_B_AGAIN = test_info.TestInfo(
+    MODULE_NAME_B_AGAIN, FAKE_TR_NAME_B, set()
+)
 BAD_TESTINFO = test_info.TestInfo('bad_name', MISSING_TR_NAME, set())
 
 
 class FakeTestRunnerA(tr_base.TestRunnerBase):
-    """Fake test runner A."""
+  """Fake test runner A."""
 
-    NAME = FAKE_TR_NAME_A
-    EXECUTABLE = 'echo'
+  NAME = FAKE_TR_NAME_A
+  EXECUTABLE = 'echo'
 
-    def run_tests(self, test_infos, extra_args, reporter):
-        return 0
+  def run_tests(self, test_infos, extra_args, reporter):
+    return 0
 
-    def host_env_check(self):
-        pass
+  def host_env_check(self):
+    pass
 
-    def get_test_runner_build_reqs(self, test_infos):
-        return FAKE_TR_A_REQS
+  def get_test_runner_build_reqs(self, test_infos):
+    return FAKE_TR_A_REQS
 
-    def generate_run_commands(self, test_infos, extra_args, port=None):
-        return ['fake command']
+  def generate_run_commands(self, test_infos, extra_args, port=None):
+    return ['fake command']
 
 
 class FakeTestRunnerB(FakeTestRunnerA):
-    """Fake test runner B."""
+  """Fake test runner B."""
 
-    NAME = FAKE_TR_NAME_B
+  NAME = FAKE_TR_NAME_B
 
-    def run_tests(self, test_infos, extra_args, reporter):
-        return 1
+  def run_tests(self, test_infos, extra_args, reporter):
+    return 1
 
-    def get_test_runner_build_reqs(self, test_infos):
-        return FAKE_TR_B_REQS
+  def get_test_runner_build_reqs(self, test_infos):
+    return FAKE_TR_B_REQS
 
 
 class TestRunnerHandlerUnittests(unittest.TestCase):
-    """Unit tests for test_runner_handler.py"""
+  """Unit tests for test_runner_handler.py"""
 
-    _TEST_RUNNERS = {
-        FakeTestRunnerA.NAME: FakeTestRunnerA,
-        FakeTestRunnerB.NAME: FakeTestRunnerB,
-    }
+  _TEST_RUNNERS = {
+      FakeTestRunnerA.NAME: FakeTestRunnerA,
+      FakeTestRunnerB.NAME: FakeTestRunnerB,
+  }
 
-    def setUp(self):
-        mock.patch('atest.test_runner_handler._get_test_runners',
-                   return_value=self._TEST_RUNNERS).start()
+  def setUp(self):
+    mock.patch(
+        'atest.test_runner_handler._get_test_runners',
+        return_value=self._TEST_RUNNERS,
+    ).start()
 
-    def tearDown(self):
-        mock.patch.stopall()
+  def tearDown(self):
+    mock.patch.stopall()
 
-    def test_group_tests_by_test_runners(self):
-        """Test that we properly group tests by test runners."""
-        # Happy path testing.
-        test_infos = [MODULE_INFO_A, MODULE_INFO_A_AGAIN, MODULE_INFO_B,
-                      MODULE_INFO_B_AGAIN]
-        want_list = [(FakeTestRunnerA, [MODULE_INFO_A, MODULE_INFO_A_AGAIN]),
-                     (FakeTestRunnerB, [MODULE_INFO_B, MODULE_INFO_B_AGAIN])]
-        self.assertEqual(
-            want_list,
-            test_runner_handler.group_tests_by_test_runners(test_infos))
+  def test_group_tests_by_test_runners(self):
+    """Test that we properly group tests by test runners."""
+    # Happy path testing.
+    test_infos = [
+        MODULE_INFO_A,
+        MODULE_INFO_A_AGAIN,
+        MODULE_INFO_B,
+        MODULE_INFO_B_AGAIN,
+    ]
+    want_list = [
+        (FakeTestRunnerA, [MODULE_INFO_A, MODULE_INFO_A_AGAIN]),
+        (FakeTestRunnerB, [MODULE_INFO_B, MODULE_INFO_B_AGAIN]),
+    ]
+    self.assertEqual(
+        want_list, test_runner_handler.group_tests_by_test_runners(test_infos)
+    )
 
-        # Let's make sure we fail as expected.
-        self.assertRaises(
-            atest_error.UnknownTestRunnerError,
-            test_runner_handler.group_tests_by_test_runners, [BAD_TESTINFO])
+    # Let's make sure we fail as expected.
+    self.assertRaises(
+        atest_error.UnknownTestRunnerError,
+        test_runner_handler.group_tests_by_test_runners,
+        [BAD_TESTINFO],
+    )
 
-    def test_get_test_runner_reqs(self):
-        """Test that we get all the reqs from the test runners."""
-        test_infos = [MODULE_INFO_A, MODULE_INFO_B]
-        want_set = FAKE_TR_A_REQS | FAKE_TR_B_REQS
-        empty_module_info = None
-        self.assertEqual(
-            want_set,
-            test_runner_handler.get_test_runner_reqs(empty_module_info,
-                                                     test_infos))
+  def test_get_test_runner_reqs(self):
+    """Test that we get all the reqs from the test runners."""
+    test_infos = [MODULE_INFO_A, MODULE_INFO_B]
+    want_set = FAKE_TR_A_REQS | FAKE_TR_B_REQS
+    empty_module_info = None
+    invocations = test_runner_handler.create_test_runner_invocations(
+        test_infos=test_infos,
+        results_dir='',
+        mod_info=empty_module_info,
+        extra_args={},
+        minimal_build=True,
+    )
 
-    @mock.patch.object(metrics, 'RunnerFinishEvent')
-    def test_run_all_tests(self, _mock_runner_finish):
-        """Test that the return value as we expected."""
-        results_dir = ""
-        extra_args = {}
-        mod_info = module_info.load_from_file(
-            module_file=os.path.join(uc.TEST_DATA_DIR, uc.JSON_FILE))
-        # Tests both run_tests return 0
-        test_infos = [MODULE_INFO_A, MODULE_INFO_A_AGAIN]
-        self.assertEqual(
-            0,
-            test_runner_handler.run_all_tests(
-                results_dir, test_infos, extra_args, mod_info)[0])
-        # Tests both run_tests return 1
-        test_infos = [MODULE_INFO_B, MODULE_INFO_B_AGAIN]
-        self.assertEqual(
-            1,
-            test_runner_handler.run_all_tests(
-                results_dir, test_infos, extra_args, mod_info)[0])
-        # Tests with on run_tests return 0, the other return 1
-        test_infos = [MODULE_INFO_A, MODULE_INFO_B]
-        self.assertEqual(
-            1,
-            test_runner_handler.run_all_tests(
-                results_dir, test_infos, extra_args, mod_info)[0])
+    build_targets = set()
+    for invocation in invocations:
+      build_targets |= invocation.get_test_runner_reqs()
+
+    self.assertEqual(want_set, build_targets)
+
+  def test_run_all_tests_succeed(self):
+    """Test that the return value as we expected."""
+    results_dir = ''
+    extra_args = {}
+    test_infos = [MODULE_INFO_A, MODULE_INFO_A_AGAIN]
+    invocation = test_runner_handler.TestRunnerInvocation(
+        test_infos=test_infos,
+        test_runner=FakeTestRunnerA(results_dir),
+        extra_args=extra_args,
+    )
+
+    exit_code = invocation.run_all_tests(mock.MagicMock())
+
+    self.assertEqual(0, exit_code)
+
+  def test_run_all_tests_failed(self):
+    """Test that the return value as we expected."""
+    results_dir = ''
+    extra_args = {}
+    test_infos = [MODULE_INFO_B, MODULE_INFO_B_AGAIN]
+    invocation = test_runner_handler.TestRunnerInvocation(
+        test_infos=test_infos,
+        test_runner=FakeTestRunnerB(results_dir),
+        extra_args=extra_args,
+    )
+
+    exit_code = invocation.run_all_tests(mock.MagicMock())
+
+    self.assertEqual(1, exit_code)
+
 
 if __name__ == '__main__':
-    unittest.main()
+  unittest.main()

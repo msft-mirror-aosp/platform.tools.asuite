@@ -16,14 +16,11 @@
 
 """Unittest for acloud_create."""
 
-# pylint: disable=line-too-long
-
 import os
 import unittest
 
-from atest import unittest_constants as uc
 from atest import constants
-
+from atest import unittest_constants as uc
 from atest.atest_enum import ExitCode
 from atest.tools import start_avd
 
@@ -31,67 +28,77 @@ SEARCH_ROOT = uc.TEST_DATA_DIR
 
 
 class StartAVDUnittests(unittest.TestCase):
-    """"Unittest Class for start_avd.py."""
+  """ "Unittest Class for start_avd.py."""
 
-    def test_get_report_file(self):
-        """Test method get_report_file."""
-        report_file = '/tmp/acloud_status.json'
+  def test_get_report_file(self):
+    """Test method get_report_file."""
+    report_file = '/tmp/acloud_status.json'
 
-        arg_with_equal = '-a --report-file={} --all'.format(report_file)
-        self.assertEqual(start_avd.get_report_file('/abc', arg_with_equal),
-                         report_file)
+    arg_with_equal = '-a --report-file={} --all'.format(report_file)
+    self.assertEqual(
+        start_avd.get_report_file('/abc', arg_with_equal), report_file
+    )
 
-        arg_with_equal = '-b --report_file={} --ball'.format(report_file)
-        self.assertEqual(start_avd.get_report_file('/abc', arg_with_equal),
-                         report_file)
+    arg_with_equal = '-b --report_file={} --ball'.format(report_file)
+    self.assertEqual(
+        start_avd.get_report_file('/abc', arg_with_equal), report_file
+    )
 
-        arg_without_equal = '-c --report-file {} --call'.format(report_file)
-        self.assertEqual(start_avd.get_report_file('/abc', arg_without_equal),
-                         report_file)
+    arg_without_equal = '-c --report-file {} --call'.format(report_file)
+    self.assertEqual(
+        start_avd.get_report_file('/abc', arg_without_equal), report_file
+    )
 
-        arg_without_equal = '-d --report_file {} --dall'.format(report_file)
-        self.assertEqual(start_avd.get_report_file('/abc', arg_without_equal),
-                         report_file)
+    arg_without_equal = '-d --report_file {} --dall'.format(report_file)
+    self.assertEqual(
+        start_avd.get_report_file('/abc', arg_without_equal), report_file
+    )
 
-        arg_without_report = '-e --build-id 1234567'
-        self.assertEqual(start_avd.get_report_file('/tmp', arg_without_report),
-                         report_file)
+    arg_without_report = '-e --build-id 1234567'
+    self.assertEqual(
+        start_avd.get_report_file('/tmp', arg_without_report), report_file
+    )
 
-    def test_probe_acloud_status(self):
-        """Test method prob_acloud_status."""
-        duration = 100
-        success = os.path.join(SEARCH_ROOT, 'acloud', 'create_success.json')
-        self.assertEqual(start_avd.probe_acloud_status(success, duration),
-                         ExitCode.SUCCESS)
-        self.assertEqual(
-            os.environ[constants.ANDROID_SERIAL], '127.0.0.1:58167')
+  def test_probe_acloud_status(self):
+    """Test method prob_acloud_status."""
+    duration = 100
+    success = os.path.join(SEARCH_ROOT, 'acloud', 'create_success.json')
+    self.assertEqual(
+        start_avd.probe_acloud_status(success, duration), ExitCode.SUCCESS
+    )
+    self.assertEqual(os.environ[constants.ANDROID_SERIAL], '127.0.0.1:58167')
 
-        success_local_instance = os.path.join(
-            SEARCH_ROOT, 'acloud', 'create_success_local_instance.json')
-        self.assertEqual(start_avd.probe_acloud_status(success_local_instance,
-                                                         duration),
-                         ExitCode.SUCCESS)
-        self.assertEqual(os.environ[constants.ANDROID_SERIAL], '0.0.0.0:6521')
+    success_local_instance = os.path.join(
+        SEARCH_ROOT, 'acloud', 'create_success_local_instance.json'
+    )
+    self.assertEqual(
+        start_avd.probe_acloud_status(success_local_instance, duration),
+        ExitCode.SUCCESS,
+    )
+    self.assertEqual(os.environ[constants.ANDROID_SERIAL], '0.0.0.0:6521')
 
-        failure = os.path.join(SEARCH_ROOT, 'acloud', 'create_failure.json')
-        self.assertEqual(start_avd.probe_acloud_status(failure, duration),
-                         ExitCode.AVD_CREATE_FAILURE)
+    failure = os.path.join(SEARCH_ROOT, 'acloud', 'create_failure.json')
+    self.assertEqual(
+        start_avd.probe_acloud_status(failure, duration),
+        ExitCode.AVD_CREATE_FAILURE,
+    )
 
-        inexistence = os.path.join(SEARCH_ROOT, 'acloud', 'inexistence.json')
-        self.assertEqual(start_avd.probe_acloud_status(inexistence, duration),
-                         ExitCode.AVD_INVALID_ARGS)
+    inexistence = os.path.join(SEARCH_ROOT, 'acloud', 'inexistence.json')
+    self.assertEqual(
+        start_avd.probe_acloud_status(inexistence, duration),
+        ExitCode.AVD_INVALID_ARGS,
+    )
 
-    def test_get_acloud_duration(self):
-        """Test method get_acloud_duration."""
-        success = os.path.join(SEARCH_ROOT, 'acloud', 'create_success.json')
-        success_duration = 152.659824
-        self.assertEqual(start_avd.get_acloud_duration(success),
-                         success_duration)
+  def test_get_acloud_duration(self):
+    """Test method get_acloud_duration."""
+    success = os.path.join(SEARCH_ROOT, 'acloud', 'create_success.json')
+    success_duration = 152.659824
+    self.assertEqual(start_avd.get_acloud_duration(success), success_duration)
 
-        failure = os.path.join(SEARCH_ROOT, 'acloud', 'create_failure.json')
-        failure_duration = 178.621254
-        self.assertEqual(start_avd.get_acloud_duration(failure),
-                         failure_duration)
+    failure = os.path.join(SEARCH_ROOT, 'acloud', 'create_failure.json')
+    failure_duration = 178.621254
+    self.assertEqual(start_avd.get_acloud_duration(failure), failure_duration)
 
-if __name__ == "__main__":
-    unittest.main()
+
+if __name__ == '__main__':
+  unittest.main()

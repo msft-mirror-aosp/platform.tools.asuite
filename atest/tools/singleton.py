@@ -13,23 +13,23 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""
-A meta class for singleton pattern.
+"""A meta class for singleton pattern.
 
- Usage:
-        from atest.tools.singleton import Singleton
+Usage:
+       from atest.tools.singleton import Singleton
 
-        class AClass(BaseClass, metaclass=Singleton):
-            pass
+       class AClass(BaseClass, metaclass=Singleton):
+           pass
 """
 
 
 class Singleton(type):
-    """A singleton metaclass that returns the same instance when called."""
-    _instances = {}
+  """A singleton metaclass that returns the same instance when called."""
 
-    def __call__(cls, *args, **kwds):
-        """Initialize a singleton instance."""
-        if cls not in cls._instances:
-            cls._instances[cls] = super(Singleton, cls).__call__(*args, **kwds)
-        return cls._instances[cls]
+  _instances = {}
+
+  def __call__(cls, *args, **kwds):
+    """Initialize a singleton instance."""
+    if cls not in cls._instances:
+      cls._instances[cls] = super(Singleton, cls).__call__(*args, **kwds)
+    return cls._instances[cls]

@@ -4,6 +4,7 @@ use crate::adevice::Profiler;
 use adevice_proto::clientanalytics::LogEvent;
 use adevice_proto::clientanalytics::LogRequest;
 use adevice_proto::user_log::adevice_log_event::AdeviceActionEvent;
+use adevice_proto::user_log::adevice_log_event::AdeviceExitEvent;
 use adevice_proto::user_log::adevice_log_event::AdeviceStartEvent;
 use adevice_proto::user_log::AdeviceLogEvent;
 use adevice_proto::user_log::Duration;
@@ -11,20 +12,29 @@ use adevice_proto::user_log::Duration;
 use anyhow::{anyhow, Result};
 use std::env;
 use std::fs;
-use std::process::Command;
+use std::process::{Command, Stdio};
 use std::time::UNIX_EPOCH;
 use tracing::debug;
 
 const ENV_OUT: &str = "OUT";
 const ENV_USER: &str = "USER";
 const ENV_TARGET: &str = "TARGET_PRODUCT";
+const ENV_SURVEY_BANNER: &str = "ADEVICE_SURVEY_BANNER";
 const METRICS_UPLOADER: &str = "/google/bin/releases/adevice-dev/metrics_uploader";
 const ADEVICE_LOG_SOURCE: i32 = 2265;
 
 pub trait MetricSender {
     fn add_start_event(&mut self, command_line: &str);
     fn add_action_event(&mut self, action: &str, duration: std::time::Duration);
+    fn add_action_event_with_files_changed(
+        &mut self,
+        action: &str,
+        duration: std::time::Duration,
+        files_changed: std::vec::Vec<String>,
+    );
     fn add_profiler_events(&mut self, profiler: &Profiler);
+    fn add_exit_event(&mut self, output: &str, exit_code: i32);
+    fn display_survey(&mut self);
 }
 
 #[derive(Debug, Clone)]
@@ -44,21 +54,30 @@ impl MetricSender for Metrics {
         self.events.push(LogEvent {
             event_time_ms: Some(UNIX_EPOCH.elapsed().unwrap().as_millis() as i64),
             source_extension: Some(protobuf::Message::write_to_bytes(&event).unwrap()),
-            special_fields: protobuf::SpecialFields::new(),
+            ..Default::default()
         });
     }
 
     fn add_action_event(&mut self, action: &str, duration: std::time::Duration) {
+        self.add_action_event_with_files_changed(action, duration, Vec::new())
+    }
+
+    fn add_action_event_with_files_changed(
+        &mut self,
+        action: &str,
+        duration: std::time::Duration,
+        files_changed: std::vec::Vec<String>,
+    ) {
         let action_event = AdeviceActionEvent {
             action: Some(action.to_string()),
             outcome: ::std::option::Option::None,
-            file_changed: ::std::vec::Vec::new(),
+            file_changed: files_changed,
             duration: protobuf::MessageField::some(Duration {
                 seconds: Some(duration.as_secs() as i64),
                 nanos: Some(duration.as_nanos() as i32),
-                special_fields: ::protobuf::SpecialFields::new(),
+                ..Default::default()
             }),
-            special_fields: ::protobuf::SpecialFields::new(),
+            ..Default::default()
         };
 
         let mut event: AdeviceLogEvent = self.default_log_event();
@@ -66,7 +85,21 @@ impl MetricSender for Metrics {
         self.events.push(LogEvent {
             event_time_ms: Some(UNIX_EPOCH.elapsed().unwrap().as_millis() as i64),
             source_extension: Some(protobuf::Message::write_to_bytes(&event).unwrap()),
-            special_fields: protobuf::SpecialFields::new(),
+            ..Default::default()
+        });
+    }
+
+    fn add_exit_event(&mut self, output: &str, exit_code: i32) {
+        let mut exit_event = AdeviceExitEvent::default();
+        exit_event.set_logs(output.to_string());
+        exit_event.set_exit_code(exit_code);
+
+        let mut event = self.default_log_event();
+        event.set_adevice_exit_event(exit_event);
+        self.events.push(LogEvent {
+            event_time_ms: Some(UNIX_EPOCH.elapsed().unwrap().as_millis() as i64),
+            source_extension: Some(protobuf::Message::write_to_bytes(&event).unwrap()),
+            ..Default::default()
         });
     }
 
@@ -95,6 +128,13 @@ impl MetricSender for Metrics {
                 - profiler.wait_for_boot_completed
                 - profiler.first_remount_rw,
         );
+    }
+
+    fn display_survey(&mut self) {
+        let survey = env::var(ENV_SURVEY_BANNER).unwrap_or("".to_string());
+        if !survey.is_empty() {
+            println!("\n{}", survey);
+        }
     }
 }
 
@@ -128,13 +168,13 @@ impl Metrics {
         let temp_file_path = format!("{}/adevice/adevice.bin", out);
         fs::create_dir_all(temp_dir).expect("Failed to create folder for metrics");
         fs::write(temp_file_path.clone(), body).expect("Failed to write to metrics file");
-        let output = Command::new(METRICS_UPLOADER)
-            .arg(&temp_file_path)
-            .output()
+        Command::new(METRICS_UPLOADER)
+            .args([&temp_file_path])
+            .stdin(Stdio::null())
+            .stdout(Stdio::null())
+            .stderr(Stdio::null())
+            .spawn()
             .expect("Failed to send metrics");
-        fs::remove_file(temp_file_path)?;
-        let output_text = String::from_utf8(output.stdout).unwrap();
-        debug!("Metrics uploader: {}", output_text);
 
         // TODO implement next_request_wait_millis that comes back in response
 

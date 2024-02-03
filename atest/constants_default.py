@@ -12,15 +12,14 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""
-Various globals used by atest.
-"""
+"""Various globals used by atest."""
 
-# pylint: disable=line-too-long
 
-import os
-import re
 from collections import namedtuple
+import os
+from pathlib import Path
+import re
+import tempfile
 
 MODE = 'DEFAULT'
 
@@ -59,8 +58,6 @@ BAZEL_MODE_FEATURES = 'BAZEL_MODE_FEATURES'
 REQUEST_UPLOAD_RESULT = 'REQUEST_UPLOAD_RESULT'
 DISABLE_UPLOAD_RESULT = 'DISABLE_UPLOAD_RESULT'
 MODULES_IN = 'MODULES-IN-'
-VERIFY_ENV_VARIABLE = 'VERIFY_ENV_VARIABLE'
-SKIP_VARS = [VERIFY_ENV_VARIABLE]
 AGGREGATE_METRIC_FILTER_ARG = 'AGGREGATE_METRIC_FILTER'
 ANNOTATION_FILTER = 'ANNOTATION_FILTER'
 BAZEL_ARG = 'BAZEL_ARG'
@@ -143,8 +140,7 @@ TEST_GROUP_PRESUBMIT = 'presubmit'
 TEST_GROUP_PRESUBMIT_LARGE = 'presubmit-large'
 TEST_GROUP_POSTSUBMIT = 'postsubmit'
 TEST_GROUP_ALL = 'all'
-DEFAULT_TEST_GROUPS = [TEST_GROUP_PRESUBMIT,
-                       TEST_GROUP_PRESUBMIT_LARGE]
+DEFAULT_TEST_GROUPS = [TEST_GROUP_PRESUBMIT, TEST_GROUP_PRESUBMIT_LARGE]
 # Key in TEST_MAPPING file for a list of imported TEST_MAPPING file
 TEST_MAPPING_IMPORTS = 'imports'
 
@@ -160,7 +156,9 @@ TF_MODULE_ARG_VALUE_FMT = '{test_name}:{option_name}:{option_value}'
 TF_SUITE_FILTER_ARG_VALUE_FMT = '"{test_name} {option_value}"'
 TF_SKIP_LOADING_CONFIG_JAR = '--skip-loading-config-jar'
 TF_MODULE_FILTER = '--module'
-TF_ENABLE_MAINLINE_PARAMETERIZED_MODULES = '--enable-mainline-parameterized-modules'
+TF_ENABLE_MAINLINE_PARAMETERIZED_MODULES = (
+    '--enable-mainline-parameterized-modules'
+)
 TF_ENABLE_PARAMETERIZED_MODULES = '--enable-parameterized-modules'
 TF_MODULE_PARAMETER = '--module-parameter'
 
@@ -173,6 +171,7 @@ SUITE_PLANS = frozenset(['cts'])
 # Constants of Steps
 REBUILD_MODULE_INFO_FLAG = '--rebuild-module-info'
 BUILD_STEP = 'build'
+DEVICE_UPDATE_STEP = 'update_device'
 INSTALL_STEP = 'install'
 TEST_STEP = 'test'
 ALL_STEPS = [BUILD_STEP, INSTALL_STEP, TEST_STEP]
@@ -192,7 +191,6 @@ BOTH_TEST = 'both'
 
 # Metrics
 NO_METRICS_ARG = '--no-metrics'
-METRICS_URL = 'http://asuite-218222.appspot.com/atest/metrics'
 EXTERNAL = 'EXTERNAL_RUN'
 INTERNAL = 'INTERNAL_RUN'
 INTERNAL_EMAIL = '@google.com'
@@ -205,8 +203,7 @@ TF_PREPARATION = 'tf-preparation'
 
 # Detect type for local_detect_event.
 # XTS suite types encode from 100 to 199
-DETECT_TYPE_XTS_SUITE = {'cts': 101,
-                         'vts': 104}
+DETECT_TYPE_XTS_SUITE = {'cts': 101, 'vts': 104}
 
 # Considering a trade-off between speed and size, we set UPPER_LIMIT to 100000
 # to make maximum file space 10M(100000(records)*100(byte/record)) at most.
@@ -233,7 +230,7 @@ VTS_CORE_SUITE = 'vts'
 MTS_SUITE = 'mts'
 
 # CTS tradefed jar
-CTS_JAR = "cts-tradefed"
+CTS_JAR = 'cts-tradefed'
 
 # ATest TF
 ATEST_TF_MODULE = 'atest-tradefed'
@@ -254,18 +251,26 @@ JAVA_EXT_RE = re.compile(r'.*\.(java|kt)$')
 # e.g. /path/to/ccfile.cc: TYPED_TEST_P(test_name, method_name){
 CC_OUTPUT_RE = re.compile(
     r'(?P<file_path>/.*):\s*(TYPED_TEST(_P)*|TEST(_F|_P)*)\s*\('
-    r'(?P<test_name>\w+)\s*,\s*(?P<method_name>\w+)\)\s*\{')
+    r'(?P<test_name>\w+)\s*,\s*(?P<method_name>\w+)\)\s*\{'
+)
 # Used by locate command.
 CC_GREP_RE = r'^\s*(TYPED_TEST(_P)*|TEST(_F|_P)*)\s*\(\w+,'
 # e.g. /path/to/Javafile.java:package com.android.settings.accessibility
 # grab the path, Javafile(class) and com.android.settings.accessibility(package)
 CLASS_OUTPUT_RE = re.compile(r'(?P<java_path>.*/(?P<class>[A-Z]\w+)\.\w+)[:].*')
-QCLASS_OUTPUT_RE = re.compile(r'(?P<java_path>.*/(?P<class>[A-Z]\w+)\.\w+)'
-                              r'[:]\s*package\s+(?P<package>[^(;|\s)]+)\s*')
-PACKAGE_OUTPUT_RE = re.compile(r'(?P<java_dir>/.*/).*[.](java|kt)[:]\s*package\s+'
-                               r'(?P<package>[^(;|\s)]+)\s*')
+QCLASS_OUTPUT_RE = re.compile(
+    r'(?P<java_path>.*/(?P<class>[A-Z]\w+)\.\w+)'
+    r'[:]\s*package\s+(?P<package>[^(;|\s)]+)\s*'
+)
+PACKAGE_OUTPUT_RE = re.compile(
+    r'(?P<java_dir>/.*/).*[.](java|kt)[:]\s*package\s+'
+    r'(?P<package>[^(;|\s)]+)\s*'
+)
 
-ATEST_RESULT_ROOT = '/tmp/atest_result'
+ATEST_RESULT_ROOT = Path(
+    tempfile.gettempdir(),
+    'atest_result_%s' % Path('~').expanduser().name.replace(' ', '_'),
+)
 ATEST_TEST_RECORD_PROTO = 'test_record.proto'
 LATEST_RESULT_FILE = os.path.join(ATEST_RESULT_ROOT, 'LATEST', 'test_result')
 
@@ -278,7 +283,7 @@ REQUIRED_LTP_TEST_MODULES = [
     'vts_ltp_test_arm_64_lowmem_hwasan',
     'vts_ltp_test_arm_lowmem',
     'vts_ltp_test_x86_64',
-    'vts_ltp_test_x86'
+    'vts_ltp_test_x86',
 ]
 # Tests list which need vts_kselftest_tests as test dependency
 REQUIRED_KSELFTEST_TEST_MODULES = [
@@ -323,17 +328,18 @@ TOKEN_EXCHANGE_REQUEST = ''
 SCOPE = ''
 
 # Example arguments used in ~/.atest/config
-ATEST_EXAMPLE_ARGS = ('## Specify only one option per line; any test name/path will be ignored automatically.\n'
-                      '## Option that follows a "#" will be ignored.\n'
-                      'hello_world_test   # Test name will be skipped WITHOUT warning.\n'
-                      '# -- --module-arg Foo:variable:value   # Only support atest arguments so "--" will be ignored.\n'
-                      '                                       # and will stop running tests.\n'
-                      '# --iterations=3\n'
-                      '# --retry-any-failure=5\n'
-                      '# --rerun-until-failure=5\n'
-                      '# --start-avd        # also run "acloud create" concurrently.\n'
-                      '# --all-abi          # Set to run tests for all abis.\n'
-                      '# --verbose          # turn on verbose mode for debugging.\n')
+ATEST_EXAMPLE_ARGS = (
+    '## Specify only one option per line; any test name/path will be ignored'
+    ' automatically.\n## Option that follows a "#" will be'
+    ' ignored.\nhello_world_test   # Test name will be skipped WITHOUT'
+    ' warning.\n# -- --module-arg Foo:variable:value   # Only support atest'
+    ' arguments so "--" will be ignored.\n                                     '
+    '  # and will stop running tests.\n# --iterations=3\n#'
+    ' --retry-any-failure=5\n# --rerun-until-failure=5\n# --start-avd        #'
+    ' also run "acloud create" concurrently.\n# --all-abi          # Set to run'
+    ' tests for all abis.\n# --verbose          # turn on verbose mode for'
+    ' debugging.\n'
+)
 
 # AndroidJUnitTest related argument.
 ANDROID_JUNIT_CLASS = 'com.android.tradefed.testtype.AndroidJUnitTest'
@@ -354,24 +360,24 @@ INSTANT_MODE_ANNOTATE = 'android.platform.test.annotations.AppModeInstant'
 TF_PARA_INSTANT_APP = 'instant_app'
 TF_PARA_SECOND_USR = 'secondary_user'
 TF_PARA_MULTIABI = 'multi_abi'
-DEFAULT_EXCLUDE_PARAS = {TF_PARA_INSTANT_APP,
-                         TF_PARA_SECOND_USR,
-                         TF_PARA_MULTIABI
-                         }
-DEFAULT_EXCLUDE_NOT_PARAS = {'not_' + TF_PARA_INSTANT_APP,
-                            'not_' + TF_PARA_SECOND_USR,
-                            'not_' + TF_PARA_MULTIABI}
-
-# ATest integration test related constants.
-VERIFY_DATA_PATH = os.path.join(
-    os.environ.get(ANDROID_BUILD_TOP, os.getcwd()),
-    'tools/asuite/atest/test_data/test_commands.json')
+DEFAULT_EXCLUDE_PARAS = {
+    TF_PARA_INSTANT_APP,
+    TF_PARA_SECOND_USR,
+    TF_PARA_MULTIABI,
+}
+DEFAULT_EXCLUDE_NOT_PARAS = {
+    'not_' + TF_PARA_INSTANT_APP,
+    'not_' + TF_PARA_SECOND_USR,
+    'not_' + TF_PARA_MULTIABI,
+}
 VERIFY_ENV_PATH = os.path.join(
     os.environ.get(ANDROID_BUILD_TOP, os.getcwd()),
-    'tools/asuite/atest/test_data/test_environ.json')
+    'tools/asuite/atest/test_data/test_environ.json',
+)
 RUNNER_COMMAND_PATH = os.path.join(
     os.environ.get(ANDROID_BUILD_TOP, os.getcwd()),
-    'tools/asuite/atest/test_data/runner_commands.json')
+    'tools/asuite/atest/test_data/runner_commands.json',
+)
 
 # Tradefed log saver template for ATest
 ATEST_TF_LOG_SAVER = 'template/log/atest_log_saver'
@@ -387,7 +393,8 @@ GOOGLE_LOG_SAVER_EXT_OPTION = ''
 # Log messages here.
 REQUIRE_DEVICES_MSG = (
     'Please ensure there is at least one connected device via:\n'
-    '    $ adb devices')
+    '    $ adb devices'
+)
 
 # Default shard num.
 SHARD_NUM = 2
