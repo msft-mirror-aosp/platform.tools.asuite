@@ -745,7 +745,7 @@ def _is_inside_android_root():
 
 
 def _non_action_validator(args: argparse.ArgumentParser):
-  """Method for non-action arguments such as --version, --help, --history,
+  """Method for non-action arguments such as --version, --history,
 
   --latest_result, etc.
 
@@ -762,9 +762,6 @@ def _non_action_validator(args: argparse.ArgumentParser):
     sys.exit(ExitCode.OUTSIDE_ROOT)
   if args.version:
     print(atest_utils.get_atest_version())
-    sys.exit(ExitCode.SUCCESS)
-  if args.help:
-    atest_arg_parser.print_epilog_text()
     sys.exit(ExitCode.SUCCESS)
   if args.history:
     atest_execution_info.print_test_result(
