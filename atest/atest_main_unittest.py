@@ -26,11 +26,11 @@ import sys
 import tempfile
 import unittest
 from unittest import mock
-from atest import atest_arg_parser
 from atest import atest_main
 from atest import atest_utils
 from atest import constants
 from atest import module_info
+from atest.atest_arg_parser import atest_arg_parser
 from atest.atest_enum import DetectType
 from atest.metrics import metrics
 from atest.metrics import metrics_utils
@@ -388,9 +388,7 @@ class PrintModuleInfoTest(AtestUnittestFixture):
     expected_detect_type = DetectType.IS_TEST_MAPPING
     expected_result = 1
     metrics.LocalDetectEvent = mock.MagicMock()
-    parser = atest_arg_parser.AtestArgParser()
-    parser.add_atest_args()
-    args = parser.parse_args([])
+    args = atest_arg_parser.parse_args([])
 
     # Act
     atest_main._has_valid_test_mapping_args(args)
@@ -407,9 +405,7 @@ class PrintModuleInfoTest(AtestUnittestFixture):
     expected_detect_type = DetectType.IS_TEST_MAPPING
     expected_result = 0
     metrics.LocalDetectEvent = mock.MagicMock()
-    parser = atest_arg_parser.AtestArgParser()
-    parser.add_atest_args()
-    args = parser.parse_args(['test1'])
+    args = atest_arg_parser.parse_args(['test1'])
 
     # Act
     atest_main._has_valid_test_mapping_args(args)

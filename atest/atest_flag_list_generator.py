@@ -13,9 +13,23 @@
 # limitations under the License.
 
 """Script that generates arguments for autocompletion."""
-from atest import atest_arg_parser
+import argparse
+from atest.atest_arg_parser import atest_arg_parser
+
+
+def _get_optional_args(parser: argparse.ArgumentParser) -> list[str]:
+  """Get args from actions and return optional args.
+
+  Returns:
+      A list of optional arguments.
+  """
+  argument_list = []
+  # The output of _get_optional_actions(): [['-t', '--test']]
+  # return an argument list: ['-t', '--test']
+  for arg in parser._get_optional_actions():
+    argument_list.extend(arg.option_strings)
+  return argument_list
+
 
 if __name__ == '__main__':
-  parser = atest_arg_parser.AtestArgParser()
-  parser.add_atest_args()
-  print('\n'.join(parser.get_args()))
+  print('\n'.join(_get_optional_args(atest_arg_parser)))
