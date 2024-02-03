@@ -33,7 +33,7 @@ from atest import test_finder_handler
 from atest import test_mapping
 from atest import unittest_constants as uc
 from atest import unittest_utils
-from atest.atest_arg_parser import atest_arg_parser
+from atest.arg_parser import atest_arg_parser
 from atest.metrics import metrics
 from atest.test_finders import module_finder
 from atest.test_finders import test_finder_base

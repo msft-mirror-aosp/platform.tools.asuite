@@ -14,7 +14,7 @@
 
 """Script that generates arguments for autocompletion."""
 import argparse
-from atest.atest_arg_parser import atest_arg_parser
+from atest.arg_parser import atest_arg_parser
 
 
 def _get_optional_args(parser: argparse.ArgumentParser) -> list[str]:

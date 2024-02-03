@@ -30,7 +30,7 @@ from atest import atest_main
 from atest import atest_utils
 from atest import constants
 from atest import module_info
-from atest.atest_arg_parser import atest_arg_parser
+from atest.arg_parser import atest_arg_parser
 from atest.atest_enum import DetectType
 from atest.metrics import metrics
 from atest.metrics import metrics_utils

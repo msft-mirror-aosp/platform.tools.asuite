@@ -33,7 +33,7 @@ from atest import atest_utils
 from atest import constants
 from atest import unittest_constants
 from atest import unittest_utils
-from atest.atest_arg_parser import atest_arg_parser
+from atest.arg_parser import atest_arg_parser
 from atest.atest_enum import FilterType
 from atest.test_finders import test_info
 from pyfakefs import fake_filesystem_unittest

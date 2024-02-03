@@ -53,7 +53,7 @@ from atest import device_update
 from atest import module_info
 from atest import result_reporter
 from atest import test_runner_handler
-from atest.atest_arg_parser import atest_arg_parser
+from atest.arg_parser import atest_arg_parser
 from atest.atest_enum import DetectType, ExitCode
 from atest.coverage import coverage
 from atest.metrics import metrics
