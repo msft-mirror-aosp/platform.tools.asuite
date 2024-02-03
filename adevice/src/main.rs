@@ -8,7 +8,7 @@ mod metrics;
 mod progress;
 mod restart_chooser;
 mod tracking;
-use tracing::info;
+use tracing::{error, info};
 
 use crate::adevice::Profiler;
 use crate::adevice::RealHost;
@@ -42,7 +42,10 @@ fn main() -> Result<()> {
     // cleanup tasks (metrics, profiling)
     match result {
         Ok(()) => metrics.add_exit_event("", 0),
-        Err(ref error) => metrics.add_exit_event(&error.to_string(), 1),
+        Err(ref err) => {
+            metrics.add_exit_event(&err.to_string(), 1);
+            error!("{}", err.to_string());
+        }
     }
     progress::stop();
     profiler.total = total_time.elapsed();
