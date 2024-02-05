@@ -41,17 +41,17 @@ def build_env_vars():
   return env_vars
 
 
-def tf_args(*value):
+def tf_args(mod_info):
   """TradeFed command line arguments needed to collect code coverage.
 
   Returns:
       A list of the command line arguments to append.
   """
-  del value
   build_top = Path(os.environ.get(constants.ANDROID_BUILD_TOP))
   llvm_profdata = build_top.joinpath(
       f'prebuilts/clang/host/linux-x86/clang-{CLANG_VERSION}'
   )
+  jacocoagent_paths = mod_info.get_installed_paths('jacocoagent')
   return (
       '--coverage',
       '--coverage-toolchain',
@@ -64,7 +64,14 @@ def tf_args(*value):
       'CLANG_COVERAGE',
       '--llvm-profdata-path',
       str(llvm_profdata),
+      '--jacocoagent-path',
+      str(jacocoagent_paths[0])
   )
+
+
+def build_modules():
+    """Build modules needed for coverage report generation."""
+    return ('jacoco_to_lcov_converter', 'jacocoagent')
 
 
 def generate_coverage_report(
@@ -95,10 +102,16 @@ def generate_coverage_report(
       # Check for unstripped native binaries to report coverage.
       unstripped_native_binaries.update(_find_native_binaries(module_dir))
 
+  # For Java host tests, the report jar is the test itself.
+  for test_info in test_infos:
+        installed = mod_info.get_installed_paths(test_info.raw_test_name)
+        jars = [f for f in installed if f.suffix == '.jar']
+        if jars:
+            jacoco_report_jars[test_info.raw_test_name] = jars
+
   if jacoco_report_jars:
     _generate_java_coverage_report(
-        jacoco_report_jars, src_paths, results_dir, mod_info
-    )
+            jacoco_report_jars, src_paths, results_dir, mod_info)
 
   if unstripped_native_binaries:
     _generate_native_coverage_report(unstripped_native_binaries, results_dir)
