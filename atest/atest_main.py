@@ -94,6 +94,9 @@ EXIT_CODES_BEFORE_TEST = [
     ExitCode.AVD_INVALID_ARGS,
 ]
 
+# Stdout print prefix for results directory. May be used in integration tests.
+_RESULTS_DIR_PRINT_PREFIX = 'Atest results and logs directory: '
+
 
 @dataclass
 class Steps:
@@ -297,6 +300,7 @@ def make_test_run_dir():
   test_result_dir = tempfile.mkdtemp(
       prefix='%s_' % ctime, dir=constants.ATEST_RESULT_ROOT
   )
+  print(_RESULTS_DIR_PRINT_PREFIX + test_result_dir)
   return test_result_dir
 
 
