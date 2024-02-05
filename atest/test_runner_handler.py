@@ -14,7 +14,6 @@
 
 """Aggregates test runners, groups tests by test runners and kicks off tests."""
 
-# pylint: disable=line-too-long
 # pylint: disable=import-outside-toplevel
 
 from __future__ import annotations

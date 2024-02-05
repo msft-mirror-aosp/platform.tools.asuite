@@ -108,7 +108,7 @@ impl MetricSender for Metrics {
         self.add_action_event("host_fingerprint", profiler.host_fingerprint);
         self.add_action_event("ninja_deps_computer", profiler.ninja_deps_computer);
         self.add_action_event("adb_cmds", profiler.adb_cmds);
-        self.add_action_event("reboot", profiler.reboot);
+        self.add_action_event(&profiler.restart_type, profiler.restart);
         self.add_action_event("wait_for_device", profiler.wait_for_device);
         self.add_action_event("wait_for_boot_completed", profiler.wait_for_boot_completed);
         self.add_action_event("first_remount_rw", profiler.first_remount_rw);
@@ -123,7 +123,7 @@ impl MetricSender for Metrics {
                 - profiler.host_fingerprint
                 - profiler.ninja_deps_computer
                 - profiler.adb_cmds
-                - profiler.reboot
+                - profiler.restart
                 - profiler.wait_for_device
                 - profiler.wait_for_boot_completed
                 - profiler.first_remount_rw,

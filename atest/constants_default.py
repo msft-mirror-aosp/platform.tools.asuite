@@ -14,7 +14,6 @@
 
 """Various globals used by atest."""
 
-# pylint: disable=line-too-long
 
 from collections import namedtuple
 import os
