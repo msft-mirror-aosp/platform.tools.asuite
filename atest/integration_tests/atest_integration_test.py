@@ -159,7 +159,12 @@ class AtestRunResult:
     return result_dir_copy_path
 
   def get_test_result_dict(self) -> dict[str, Any]:
-    """Gets the atest result dictionary loaded from the output json."""
+    """Gets the atest results loaded from the test_result json.
+
+    Reads the test_result json file and return the content as dict. The test
+    result usually contains information about test runners and test pass/fail
+    results.
+    """
     json_path = self.get_results_dir_path() / 'test_result'
     with open(json_path, 'r', encoding='utf-8') as f:
       return json.load(f)
@@ -169,6 +174,15 @@ class AtestRunResult:
     log_path = self.get_results_dir_path() / 'atest.log'
     lines = log_path.read_text(encoding='utf-8').splitlines()
     return [LogEntry(line) for line in lines if line]
+
+  def get_atest_log_values_from_prefix(self, prefix: str) -> list[str]:
+    """Gets log values from lines starting with the given log prefix."""
+    res = []
+    for entry in self.get_atest_log_entries():
+      content = entry.get_content()
+      if content.startswith(prefix):
+        res.append(content[len(prefix) :])
+    return res
 
   def check_returncode(self) -> None:
     """Checks the return code and raises an exception if non-zero."""

@@ -25,6 +25,16 @@ from typing import Callable
 from atest_integration_test import AtestTestCase
 from atest_integration_test import StepInput, StepOutput, main
 
+# Note: The following constants should ideally be imported from their
+#       corresponding prod source code, but this makes local execution of the
+#       integration test harder due to some special dependencies in the prod
+#       code. Therefore we copy the definition here for now in favor of easier
+#       local integration test execution. If value changes in the source code
+#       breaking the integration test becomes a problem in the future, we can
+#       reconsider importing these constants.
+# Log prefix for dry-run run command. Defined in atest/atest_main.py
+_DRY_RUN_COMMAND_LOG_PREFIX = 'Internal run command from dry-run: '
+
 
 class CommandVerificationTests(AtestTestCase):
   """Checks atest tradefed commands."""
@@ -1072,28 +1082,23 @@ class CommandVerificationTests(AtestTestCase):
     script = self.create_atest_script()
 
     def build_step(step_in: StepInput) -> StepOutput:
-      # Path to json file created by the atest -g flag
-      runner_commands_json_path = Path(step_in.get_repo_root()).joinpath(
-          'tools/asuite/atest/test_data/runner_commands.json'
-      )
-      runner_commands_json_path.unlink(missing_ok=True)
-
       cmd_combined = (
-          test_name + ' -g ' + ' '.join(test_args if test_args else [])
+          test_name + ' --dry-run ' + ' '.join(test_args if test_args else [])
       )
-      self.run_atest_command(cmd_combined, step_in).check_returncode()
-
-      with open(runner_commands_json_path, 'r', encoding='utf-8') as f:
-        runner_cmds_dict = json.load(f)
+      result = self.run_atest_command(cmd_combined, step_in)
+      result.check_returncode()
+      runner_cmd = result.get_atest_log_values_from_prefix(
+          _DRY_RUN_COMMAND_LOG_PREFIX
+      )[0]
 
       step_out = self.create_step_output()
       step_out.set_snapshot_include_paths([])
-      step_out.add_snapshot_obj('runner_cmds_dict', runner_cmds_dict)
+      step_out.add_snapshot_obj('runner_cmd', runner_cmd)
       return step_out
 
     def test_step(step_in: StepInput) -> None:
-      runner_cmds_dict = step_in.get_obj('runner_cmds_dict')
-      assertion_func(set(runner_cmds_dict[test_name].split()))
+      runner_cmd = step_in.get_obj('runner_cmd')
+      assertion_func(set(runner_cmd.split()))
 
     script.add_build_step(build_step)
     script.add_test_step(test_step)

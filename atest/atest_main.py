@@ -96,6 +96,8 @@ EXIT_CODES_BEFORE_TEST = [
 
 # Stdout print prefix for results directory. May be used in integration tests.
 _RESULTS_DIR_PRINT_PREFIX = 'Atest results and logs directory: '
+# Log prefix for dry-run run command. May be used in integration tests.
+_DRY_RUN_COMMAND_LOG_PREFIX = 'Internal run command from dry-run: '
 
 
 @dataclass
@@ -712,6 +714,7 @@ def _dry_run(results_dir, extra_args, test_infos, mod_info):
     run_cmds = runner.generate_run_commands(tests, extra_args)
     for run_cmd in run_cmds:
       all_run_cmds.append(run_cmd)
+      logging.debug(_DRY_RUN_COMMAND_LOG_PREFIX + run_cmd)
       print(
           'Would run test via command: %s' % (atest_utils.mark_green(run_cmd))
       )
