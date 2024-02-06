@@ -18,12 +18,12 @@
 
 # pylint: disable=too-many-lines
 
-import json
-from pathlib import Path
 from typing import Callable
 
 from atest_integration_test import AtestTestCase
-from atest_integration_test import StepInput, StepOutput, main
+from atest_integration_test import main
+from atest_integration_test import StepInput
+from atest_integration_test import StepOutput
 
 # Note: The following constants should ideally be imported from their
 #       corresponding prod source code, but this makes local execution of the
@@ -1046,7 +1046,7 @@ class CommandVerificationTests(AtestTestCase):
   def _assert_equivalent_cmds(
       self, expected_cmd: list[str], actual_cmd: list[str]
   ) -> None:
-    """Assert that the expected command is equivalent to the actual
+    """Assert that the expected command is equivalent to the actual.
 
     command.
 
@@ -1058,8 +1058,9 @@ class CommandVerificationTests(AtestTestCase):
     Returns:
     """
     missing_cmds = set(expected_cmd).difference(set(actual_cmd))
-    self.assertTrue(
-        len(missing_cmds) == 0,
+    self.assertEqual(
+        len(missing_cmds),
+        0,
         'The expected commands below were not found in the runner commands:\n'
         + str(missing_cmds),
     )
@@ -1073,11 +1074,11 @@ class CommandVerificationTests(AtestTestCase):
     """Verifies the command by executing it and checking its output.
 
     Args:
-      cmd_list: The atest command to execute.
-      assertion_func: A function that takes the atest internal command as a set
-        of strings and runs assertions on it.
-      test_args: A list of additional args to add to the test command for the
-        given test.
+        test_name: The atest command to execute.
+        assertion_func: A function that takes the atest internal command as a
+          set of strings and runs assertions on it.
+        test_args: A list of additional args to add to the test command for the
+          given test.
     """
     script = self.create_atest_script()
 
