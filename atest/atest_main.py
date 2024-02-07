@@ -1104,7 +1104,7 @@ def main(argv: List[Any], results_dir: str, args: argparse.Namespace):
 
   if build_targets and steps.has_build():
     if args.experimental_coverage:
-      build_targets.add('jacoco_to_lcov_converter')
+      build_targets.update(coverage.build_modules())
 
     # Add module-info.json target to the list of build targets to keep the
     # file up to date.
