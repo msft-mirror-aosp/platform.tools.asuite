@@ -28,12 +28,12 @@ import tempfile
 import unittest
 from unittest import mock
 
-from atest import atest_arg_parser
 from atest import atest_error
 from atest import atest_utils
 from atest import constants
 from atest import unittest_constants
 from atest import unittest_utils
+from atest.arg_parser import atest_arg_parser
 from atest.atest_enum import FilterType
 from atest.test_finders import test_info
 from pyfakefs import fake_filesystem_unittest
@@ -251,12 +251,10 @@ class AtestUtilsUnittests(unittest.TestCase):
 
   def test_is_test_mapping_none_test_mapping_args(self):
     """Test method is_test_mapping."""
-    parser = atest_arg_parser.AtestArgParser()
-    parser.add_atest_args()
     non_tm_args = ['--host-unit-test-only']
 
     for argument in non_tm_args:
-      args = parser.parse_args([argument])
+      args = atest_arg_parser.parse_args([argument])
       self.assertFalse(
           atest_utils.is_test_mapping(args),
           'Option %s indicates NOT a test_mapping!' % argument,
@@ -264,12 +262,10 @@ class AtestUtilsUnittests(unittest.TestCase):
 
   def test_is_test_mapping_test_mapping_args(self):
     """Test method is_test_mapping."""
-    parser = atest_arg_parser.AtestArgParser()
-    parser.add_atest_args()
     tm_args = ['--test-mapping', '--include-subdirs']
 
     for argument in tm_args:
-      args = parser.parse_args([argument])
+      args = atest_arg_parser.parse_args([argument])
       self.assertTrue(
           atest_utils.is_test_mapping(args),
           'Option %s indicates a test_mapping!' % argument,
@@ -277,10 +273,7 @@ class AtestUtilsUnittests(unittest.TestCase):
 
   def test_is_test_mapping_implicit_test_mapping(self):
     """Test method is_test_mapping."""
-    parser = atest_arg_parser.AtestArgParser()
-    parser.add_atest_args()
-
-    args = parser.parse_args(['--test', '--build', ':postsubmit'])
+    args = atest_arg_parser.parse_args(['--test', '--build', ':postsubmit'])
     self.assertTrue(
         atest_utils.is_test_mapping(args),
         'Option %s indicates a test_mapping!' % args,
@@ -288,11 +281,9 @@ class AtestUtilsUnittests(unittest.TestCase):
 
   def test_is_test_mapping_with_testname(self):
     """Test method is_test_mapping."""
-    parser = atest_arg_parser.AtestArgParser()
-    parser.add_atest_args()
     irrelevant_args = ['--test', ':postsubmit', 'testname']
 
-    args = parser.parse_args(irrelevant_args)
+    args = atest_arg_parser.parse_args(irrelevant_args)
     self.assertFalse(
         atest_utils.is_test_mapping(args),
         'Option %s indicates a test_mapping!' % args,
@@ -300,9 +291,7 @@ class AtestUtilsUnittests(unittest.TestCase):
 
   def test_is_test_mapping_false(self):
     """Test method is_test_mapping."""
-    parser = atest_arg_parser.AtestArgParser()
-    parser.add_atest_args()
-    args = parser.parse_args(['--test', '--build', 'hello_atest'])
+    args = atest_arg_parser.parse_args(['--test', '--build', 'hello_atest'])
 
     self.assertFalse(atest_utils.is_test_mapping(args))
 
