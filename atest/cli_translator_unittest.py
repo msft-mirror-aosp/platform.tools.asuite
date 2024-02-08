@@ -25,6 +25,7 @@ import sys
 import tempfile
 import unittest
 from unittest import mock
+from atest import arg_parser
 from atest import atest_utils
 from atest import cli_translator as cli_t
 from atest import constants
@@ -33,7 +34,6 @@ from atest import test_finder_handler
 from atest import test_mapping
 from atest import unittest_constants as uc
 from atest import unittest_utils
-from atest.arg_parser import atest_arg_parser
 from atest.metrics import metrics
 from atest.test_finders import module_finder
 from atest.test_finders import test_finder_base
@@ -88,7 +88,7 @@ class CLITranslatorUnittests(unittest.TestCase):
     self.ctr = cli_t.CLITranslator()
 
     # Create a mock of args.
-    self.args = atest_arg_parser.parse_args()
+    self.args = arg_parser.create_atest_arg_parser().parse_args()
     self.args.tests = []
     # Test mapping related args
     self.args.test_mapping = False

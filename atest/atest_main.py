@@ -41,6 +41,7 @@ import tempfile
 import time
 from typing import Any, Dict, List, Set, Tuple
 
+from atest import arg_parser
 from atest import atest_configs
 from atest import atest_error
 from atest import atest_execution_info
@@ -53,7 +54,6 @@ from atest import device_update
 from atest import module_info
 from atest import result_reporter
 from atest import test_runner_handler
-from atest.arg_parser import atest_arg_parser
 from atest.atest_enum import DetectType, ExitCode
 from atest.coverage import coverage
 from atest.metrics import metrics
@@ -138,7 +138,7 @@ class Steps:
     )
 
 
-def parse_steps(args: atest_arg_parser.AtestArgParser) -> Steps:
+def parse_steps(args: arg_parser.AtestArgParser) -> Steps:
   """Return Steps object.
 
   Args:
@@ -233,7 +233,7 @@ def _parse_args(argv: List[Any]) -> Tuple[argparse.ArgumentParser, List[str]]:
   if CUSTOM_ARG_FLAG in argv:
     custom_args_index = argv.index(CUSTOM_ARG_FLAG)
     pruned_argv = argv[:custom_args_index]
-  args = atest_arg_parser.parse_args(pruned_argv)
+  args = arg_parser.create_atest_arg_parser().parse_args(pruned_argv)
   args.custom_args = []
   if custom_args_index is not None:
     for arg in argv[custom_args_index + 1 :]:
@@ -836,7 +836,7 @@ def _exclude_modules_in_targets(build_targets):
 
 
 # pylint: disable=protected-access
-def need_rebuild_module_info(args: atest_arg_parser.AtestArgParser) -> bool:
+def need_rebuild_module_info(args: arg_parser.AtestArgParser) -> bool:
   """Method that tells whether we need to rebuild module-info.json or not.
 
   Args:

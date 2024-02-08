@@ -62,7 +62,7 @@ def _positive_int(value):
     raise argparse.ArgumentTypeError(err_msg) from value_err
 
 
-def _create_arg_parser():
+def create_atest_arg_parser():
   """Creates an instance of the default Atest arg parser."""
 
   parser = argparse.ArgumentParser(
@@ -831,5 +831,3 @@ EXAMPLES
 
                                                      2022-03-25
 """
-
-atest_arg_parser = _create_arg_parser()
