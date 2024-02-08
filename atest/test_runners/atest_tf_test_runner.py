@@ -704,7 +704,8 @@ class AtestTradefedTestRunner(trb.TestRunnerBase):
     Returns:
         Tuple of args to append and args not supported.
     """
-    args_to_append, args_not_supported = extra_args_to_tf_args(extra_args)
+    args_to_append, args_not_supported = extra_args_to_tf_args(
+            extra_args, self.module_info)
 
     # Set exclude instant app annotation for non-instant mode run.
     if constants.INSTANT not in extra_args and self._has_instant_app_config(
@@ -1252,11 +1253,13 @@ def generate_annotation_filter_args(
 
 def extra_args_to_tf_args(
     extra_args: Dict[str, Any],
+    mod_info: module_info.ModuleInfo=None
 ) -> Tuple[Dict[str, Any], Dict[str, Any]]:
   """Convert the extra args into atest_tf_test_runner supported args.
 
   Args:
       extra_args: Dict of args
+      mod_info: ModuleInfo object.
 
   Returns:
       Tuple of ARGS that atest_tf supported and not supported.
@@ -1367,7 +1370,8 @@ def extra_args_to_tf_args(
               f'test-timeout:{arg_value}'
           ),
       ],
-      constants.COVERAGE: coverage.tf_args,
+      constants.COVERAGE:
+          lambda _: coverage.tf_args(mod_info),
   })
 
   for arg in extra_args:

@@ -316,9 +316,11 @@ pub fn update(
     progress::stop();
     println!();
 
-    match restart_type(restart_chooser, &installed_files) {
-        RestartType::Reboot => time!(device.reboot(), profiler.reboot),
-        RestartType::SoftRestart => time!(device.soft_restart(), profiler.reboot),
+    let rtype = restart_type(restart_chooser, &installed_files);
+    profiler.restart_type = format!("{:?}", rtype);
+    match rtype {
+        RestartType::Reboot => time!(device.reboot(), profiler.restart),
+        RestartType::SoftRestart => time!(device.soft_restart(), profiler.restart),
         RestartType::None => {
             tracing::debug!("No restart command");
             return Ok(());
