@@ -684,7 +684,7 @@ class CommandVerificationTests(AtestTestCase):
     script = self.create_atest_script()
 
     def build_step(step_in: StepInput) -> StepOutput:
-      result = self.run_atest_command(atest_cmd + ' --dry-run', step_in)
+      result = self.run_atest_command(atest_cmd + ' --dry-run -c', step_in)
       result.check_returncode()
       runner_cmd = result.get_atest_log_values_from_prefix(
           _DRY_RUN_COMMAND_LOG_PREFIX
