@@ -117,7 +117,7 @@ impl Device for RealDevice {
 
         // Adb remount returns status 0, but writes the mounts to stderr.
         // Just swallow the useless output and return ok.
-        if let Some(cmd) = cmd.get(0) {
+        if let Some(cmd) = cmd.first() {
             if output.status.success() && cmd == "remount" {
                 return Ok("".to_string());
             }
