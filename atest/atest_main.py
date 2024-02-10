@@ -660,6 +660,7 @@ def _run_test_mapping_tests(
     for invocation in invocations:
       tests_exit_code |= invocation.run_all_tests(reporter)
 
+    atest_execution_info.AtestExecutionInfo.result_reporters.append(reporter)
     test_results.append((tests_exit_code, reporter, test_type))
 
   all_tests_exit_code = ExitCode.SUCCESS
@@ -1453,6 +1454,7 @@ class TestModuleExecutionPlan(TestExecutionPlan):
     for invocation in self._test_runner_invocations:
       exit_code |= invocation.run_all_tests(reporter)
 
+    atest_execution_info.AtestExecutionInfo.result_reporters.append(reporter)
     return reporter.print_summary() | exit_code
 
 
