@@ -902,8 +902,21 @@ def need_run_index_targets(args: argparse.ArgumentParser):
         args.dry_run,
         args.list_modules,
     )
-    if not any(no_indexing_args) and not parse_steps(args).has_build():
+    has_build_arg = parse_steps(args).has_build()
+    if not any(no_indexing_args) and not has_build_arg:
       return False
+    logging.debug(
+        'Indexing targets is required. dry_run: %s, list_modules: %s,'
+        ' has_build: %s. Args: %s',
+        args.dry_run,
+        args.list_modules,
+        has_build_arg,
+        args,
+    )
+  else:
+    logging.debug(
+        'Indexing targets is required because some index files do not exist.'
+    )
 
   return True
 
@@ -956,6 +969,7 @@ def _get_acloud_proc_and_log(
 ) -> Tuple[Any, Any]:
   """Return tuple of acloud process ID and report file."""
   if any((args.acloud_create, args.start_avd)):
+    logging.debug('Creating acloud or avd.')
     return avd.acloud_create_validator(results_dir, args)
   return None, None
 
@@ -1013,6 +1027,12 @@ def _main(argv: List[Any], results_dir: str, args: argparse.Namespace):
       Exit code.
   """
   _begin_time = time.time()
+  logging.debug(
+      'Running atest script with argv %s, results_dir %s, args %s.',
+      argv,
+      results_dir,
+      args,
+  )
 
   # Sets coverage environment variables.
   if args.experimental_coverage:
@@ -1031,6 +1051,7 @@ def _main(argv: List[Any], results_dir: str, args: argparse.Namespace):
 
   # Run Test Mapping or coverage by no-bazel-mode.
   if atest_utils.is_test_mapping(args) or args.experimental_coverage:
+    logging.debug('Running test mapping or coverage, disabling bazel mode.')
     atest_utils.colorful_print(
         'Not running using bazel-mode.', constants.YELLOW
     )
@@ -1039,16 +1060,19 @@ def _main(argv: List[Any], results_dir: str, args: argparse.Namespace):
   proc_idx = atest_utils.start_threading(lambda: print)
   # Do not index targets while the users intend to dry-run tests.
   if need_run_index_targets(args):
+    logging.debug('Starting to index targets in a background thread.')
     proc_idx = atest_utils.start_threading(
         indexing.index_targets,
         daemon=True,
     )
   smart_rebuild = need_rebuild_module_info(args)
+  logging.debug('need_rebuild_module_info returned %s', smart_rebuild)
 
   mod_info = module_info.load(
       force_build=smart_rebuild,
       sqlite_module_cache=args.sqlite_module_cache,
   )
+  logging.debug('Obtained module info object: %s', mod_info)
 
   translator = cli_translator.CLITranslator(
       mod_info=mod_info,
@@ -1500,6 +1524,10 @@ if __name__ == '__main__':
   args = _parse_args(final_args)
   atest_configs.GLOBAL_ARGS = args
   _configure_logging(args.verbose, results_dir)
+
+  logging.debug(
+      'Start of atest run. sys.argv: %s, final_args: %s', sys.argv, final_args
+  )
 
   with atest_execution_info.AtestExecutionInfo(
       final_args, results_dir, atest_configs.GLOBAL_ARGS

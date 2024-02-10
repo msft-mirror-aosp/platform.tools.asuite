@@ -296,6 +296,12 @@ class AtestExecutionInfo:
     self.result_file_obj = None
     self.args_ns = args_ns
     self.test_result = os.path.join(self.work_dir, _TEST_RESULT_NAME)
+    logging.debug(
+        'A %s object is created with args %s, work_dir %s',
+        __class__,
+        args,
+        work_dir,
+    )
 
   def __enter__(self):
     """Create and return information file object."""
