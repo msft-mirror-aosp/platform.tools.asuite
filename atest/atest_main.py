@@ -652,7 +652,8 @@ def _run_test_mapping_tests(
     logging.debug('\n'.join([str(info) for info in tests]))
 
     reporter = result_reporter.ResultReporter(
-        collect_only=extra_args.get(constants.COLLECT_TESTS_ONLY)
+        collect_only=extra_args.get(constants.COLLECT_TESTS_ONLY),
+        wait_for_debugger=atest_configs.GLOBAL_ARGS.wait_for_debugger,
     )
     reporter.print_starting_text()
 
@@ -1446,7 +1447,8 @@ class TestModuleExecutionPlan(TestExecutionPlan):
   def execute(self) -> ExitCode:
 
     reporter = result_reporter.ResultReporter(
-        collect_only=self.extra_args.get(constants.COLLECT_TESTS_ONLY)
+        collect_only=self.extra_args.get(constants.COLLECT_TESTS_ONLY),
+        wait_for_debugger=atest_configs.GLOBAL_ARGS.wait_for_debugger,
     )
     reporter.print_starting_text()
 
