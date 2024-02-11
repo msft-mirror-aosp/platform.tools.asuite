@@ -23,9 +23,12 @@ restoration later.
 
 import argparse
 import atexit
+import concurrent
 from concurrent.futures import ThreadPoolExecutor
 import copy
 import datetime
+import functools
+import itertools
 import logging
 import multiprocessing
 import os
@@ -37,7 +40,7 @@ import tarfile
 import tempfile
 import time
 import traceback
-from typing import Any, Callable
+from typing import Any, Callable, Iterator
 import unittest
 import zipfile
 
@@ -392,6 +395,172 @@ class _FileCompressor:
     file_path.unlink()
 
 
+class ParallelTestRunner(unittest.TextTestRunner):
+  """A class that holds the logic of parallel test execution.
+
+  Test methods wrapped by decorators defined in this class will be pre-executed
+  at the beginning of the test run in parallel and have the results cached when
+  the test runner is also this class. Available decorators: `run_in_parallel`
+  for runnint test method in parallel during both build and test env,
+  `run_in_parallel_in_build_env` for parallel run in build env only, and
+  `run_in_parallel_in_test_env` for parallel run in test env only.
+  """
+
+  _RUN_IN_PARALLEL = 'run_in_parallel'
+  _RUN_IN_PARALLEL_IN_BUILD_ENV = 'run_in_parallel_in_build_env'
+  _RUN_IN_PARALLEL_IN_TEST_ENV = 'run_in_parallel_in_test_env'
+  _DECORATOR_NAME = 'decorator_name'
+
+  @classmethod
+  def _cache_first(
+      cls, func: Callable[[Any], Any], decorator_name: str
+  ) -> Callable[[Any], Any]:
+    """Cache a function's first call result and consumes it in the next call.
+
+    This decorator is similar to the built-in `functools.cache` decorator except
+    that this decorator caches the first call's run result and emit it in the
+    next run of the function, regardless of the function's input argument value
+    changes. Caching only the first call of the test ensures test retries emit
+    fresh results.
+
+    Args:
+        func: The function to cache.
+        decorator_name: The name of the decorator.
+
+    Returns:
+        The wrapped function with queue caching ability.
+    """
+    setattr(func, cls._DECORATOR_NAME, decorator_name)
+
+    class _ResultCache:
+      result = None
+      is_to_be_cached = False
+
+    result_cache = _ResultCache()
+
+    @functools.wraps(func)
+    def _wrapped(*args, only_set_next_run_caching=False, **kwargs):
+      if only_set_next_run_caching:
+        result_cache.is_to_be_cached = True
+        return
+
+      def _get_fresh_call_result():
+        try:
+          return (func(*args, **kwargs), None)
+        # pylint: disable-next=broad-exception-caught
+        except Exception as e:
+          return (None, e)
+
+      if result_cache.is_to_be_cached:
+        result = _get_fresh_call_result()
+        result_cache.result = result
+        result_cache.is_to_be_cached = False
+      elif result_cache.result:
+        result = result_cache.result
+        result_cache.result = None
+      else:
+        result = _get_fresh_call_result()
+      if result[1]:
+        raise result[1]
+      return result[0]
+
+    return _wrapped
+
+  @classmethod
+  def run_in_parallel(cls, func: Callable[[Any], Any]) -> Callable[[Any], Any]:
+    """Hint that a test method can run in parallel."""
+    return cls._cache_first(func, cls.run_in_parallel.__name__)
+
+  @classmethod
+  def run_in_parallel_in_build_env(
+      cls, func: Callable[[Any], Any]
+  ) -> Callable[[Any], Any]:
+    """Hint that a test method can run in parallel in build env only."""
+    return cls._cache_first(func, cls.run_in_parallel.__name__)
+
+  @classmethod
+  def run_in_parallel_in_test_env(
+      cls, func: Callable[[Any], Any]
+  ) -> Callable[[Any], Any]:
+    """Hint that a test method can run in parallel in test env only."""
+    return cls._cache_first(func, cls.run_in_parallel.__name__)
+
+  def run(self, test):
+    """Executes parallel tests first and then non-parallel tests."""
+    for test_suite in test:
+      self._pre_execute_parallel_tests(test_suite)
+    return super().run(test)
+
+  @staticmethod
+  def _get_test_function(test: unittest.TestCase) -> Callable[Any, Any]:
+    """Gets the test function from a TestCase class wrapped by unittest."""
+    return getattr(test, test.id().split('.')[-1])
+
+  @classmethod
+  def _get_parallel_tests(
+      cls, test_suite: unittest.TestSuite
+  ) -> Iterator[unittest.TestCase]:
+    """Returns a list of test cases to be run in parallel from a test suite."""
+    and_combine = lambda *funcs: functools.reduce(
+        lambda accu, func: lambda item: accu(item) and func(item), funcs
+    )
+    or_combine = lambda *funcs: functools.reduce(
+        lambda accu, func: lambda item: accu(item) or func(item), funcs
+    )
+    is_decorated = lambda decorator, test: decorator.__name__ == getattr(
+        cls._get_test_function(test),
+        cls._DECORATOR_NAME,
+        None,
+    )
+    is_parallel = functools.partial(is_decorated, cls.run_in_parallel)
+    is_parallel_in_build = functools.partial(
+        is_decorated, cls.run_in_parallel_in_build_env
+    )
+    is_parallel_in_test = functools.partial(
+        is_decorated, cls.run_in_parallel_in_test_env
+    )
+    is_in_build_env = lambda test: test.injected_config.is_build_env
+    is_in_test_env = lambda test: test.injected_config.is_test_env
+    combined_filter = or_combine(
+        and_combine(is_parallel_in_build, is_in_build_env),
+        and_combine(is_parallel_in_test, is_in_test_env),
+        is_parallel,
+    )
+    return filter(combined_filter, test_suite)
+
+  @classmethod
+  def _pre_execute_parallel_tests(cls, test_suite: unittest.TestSuite) -> None:
+    """Pre-execute parallel tests in the test suite."""
+    with concurrent.futures.ThreadPoolExecutor(
+        max_workers=multiprocessing.cpu_count()
+    ) as executor:
+
+      def _execute_test(test):
+        # We can't directly call test.run because the function would either not
+        # know that it's being pre-executed or not know whether it's being
+        # executed by this test runner. We can't call the test function directly
+        # because setup and teardown would be missed. We can't set properties
+        # of the test function here because the test function has already been
+        # wrapped by unittest. The only way we can let the test function know
+        # that it needs to cache the next run is to call the function with a
+        # parameter first before calling the run method.
+        cls._get_test_function(test).__func__(only_set_next_run_caching=True)
+        return executor.submit(test.run)
+
+      for class_name, class_group in itertools.groupby(
+          cls._get_parallel_tests(test_suite),
+          lambda obj: f'{obj.__class__.__module__}.{obj.__class__}',
+      ):
+        test_group = list(class_group)
+        logging.info(
+            'Pre-executing %s of %s tests in parallel...',
+            len(test_group),
+            class_name,
+        )
+
+        list(concurrent.futures.as_completed(map(_execute_test, test_group)))
+
+
 def _configure_logging(verbose: bool, log_file_dir_path: Path):
   """Configure the logger.
 
@@ -550,7 +719,7 @@ def _run_test(
     # an instance of the runner type. Not doing so would require us to
     # make sure that the parameters passed to TestProgram are aligned
     # with those for creating a runner instance.
-    class TestRunner(unittest.TextTestRunner):
+    class TestRunner(ParallelTestRunner):
       """Writes test results to the TF-provided file."""
 
       def __init__(self, *args: Any, **kwargs: Any) -> None:

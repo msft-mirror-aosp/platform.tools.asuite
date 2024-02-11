@@ -33,6 +33,7 @@ import split_build_test_script
 SplitBuildTestScript = split_build_test_script.SplitBuildTestScript
 StepInput = split_build_test_script.StepInput
 StepOutput = split_build_test_script.StepOutput
+ParallelTestRunner = split_build_test_script.ParallelTestRunner
 
 # Note: The following constants should ideally be imported from their
 #       corresponding prod source code, but this makes local execution of the
@@ -273,9 +274,9 @@ class AtestTestCase(split_build_test_script.SplitBuildTestTestCase):
       'JAVA_HOME',
   ]
 
-  def create_atest_script(self) -> SplitBuildTestScript:
+  def create_atest_script(self, name: str = None) -> SplitBuildTestScript:
     """Create an instance of atest integration test utility."""
-    script = self.create_split_build_test_script()
+    script = self.create_split_build_test_script(name)
     script.add_snapshot_restore_exclude_paths(
         ['$OUT_DIR/atest_bazel_workspace']
     )

@@ -23,22 +23,33 @@ This module includes a `Snapshot` class that provides methods to:
 directory deletions and replacements.
 """
 
+import functools
 import glob
 import hashlib
 import json
 import logging
 import os
 from pathlib import Path
+import threading
 from typing import Any, Optional
+
+
+def _synchronized(func):
+  """Ensures thread-safe execution of the wrapped function."""
+  lock = threading.Lock()
+
+  @functools.wraps(func)
+  def _synchronized_func(*args, **kwargs):
+    with lock:
+      return func(*args, **kwargs)
+
+  return _synchronized_func
 
 
 class Snapshot:
   """Provides functionality to take and restore snapshots of a directory."""
 
-  def __init__(
-      self,
-      storage_dir: Path,
-  ):
+  def __init__(self, storage_dir: Path):
     """Initializes a Snapshot object.
 
     Args:
@@ -47,6 +58,21 @@ class Snapshot:
     self._dir_snapshot = _DirSnapshot(storage_dir)
     self._env_snapshot = _EnvSnapshot(storage_dir)
     self._obj_snapshot = _ObjectSnapshot(storage_dir)
+    self._lock = self._get_threading_lock(storage_dir)
+
+  @_synchronized
+  def _get_threading_lock(
+      self,
+      name: str,
+  ):
+    """Gets a threading lock for the snapshot directory."""
+    locks_dict_attr_name = 'threading_locks'
+    current_function = self._get_threading_lock.__func__
+    if not hasattr(current_function, locks_dict_attr_name):
+      setattr(current_function, locks_dict_attr_name, {})
+    if name not in getattr(current_function, locks_dict_attr_name):
+      getattr(current_function, locks_dict_attr_name)[name] = threading.Lock()
+    return getattr(current_function, locks_dict_attr_name)[name]
 
   # pylint: disable=too-many-arguments
   def take_snapshot(
@@ -72,11 +98,12 @@ class Snapshot:
           the type of objects to the types that can be serialized by the json
           module.
     """
-    self._dir_snapshot.take_snapshot(
-        name, root_path, include_paths, exclude_paths, env
-    )
-    self._env_snapshot.take_snapshot(name, env_keys)
-    self._obj_snapshot.take_snapshot(name, objs)
+    with self._lock:
+      self._dir_snapshot.take_snapshot(
+          name, root_path, include_paths, exclude_paths, env
+      )
+      self._env_snapshot.take_snapshot(name, env_keys)
+      self._obj_snapshot.take_snapshot(name, objs)
 
   def restore_snapshot(
       self,
@@ -94,8 +121,9 @@ class Snapshot:
         A tuple of restored environment variables and object dictionary.
     """
     env = self._env_snapshot.restore_snapshot(name, root_path)
-    self._dir_snapshot.restore_snapshot(name, root_path, exclude_paths, env)
     objs = self._obj_snapshot.restore_snapshot(name)
+    with self._lock:
+      self._dir_snapshot.restore_snapshot(name, root_path, exclude_paths, env)
     return env, objs
 
 
