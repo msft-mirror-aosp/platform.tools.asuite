@@ -51,29 +51,24 @@ _RESULTS_DIR_PRINT_PREFIX = 'Atest results and logs directory: '
 class LogEntry:
   """Represents a single log entry."""
 
-  def __init__(self, log_line: str):
+  def __init__(
+      self,
+      timestamp_str,
+      src_file_name,
+      src_file_line_number,
+      log_level,
+      content_lines,
+  ):
     """Initializes a LogEntry object from a logging line.
 
     Args:
         log_line: The logging line to parse.
     """
-    self._log_line = log_line
-    self._regex = (
-        r'(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}) (.+?):(\d+):(\w+): (.*)'
-    )
-    match = re.match(self._regex, log_line)
-    if match:
-      self._timestamp_string = match.group(1)
-      self._source_file_name = match.group(2)
-      self._source_file_line_number = int(match.group(3))
-      self._log_level = match.group(4)
-      self._content = match.group(5)
-    else:
-      raise ValueError('Invalid log line format.')
-
-  def get_log_line(self) -> str:
-    """Returns the raw log line used to parse the log entry."""
-    return self._log_line
+    self._timestamp_string = timestamp_str
+    self._source_file_name = src_file_name
+    self._source_file_line_number = src_file_line_number
+    self._log_level = log_level
+    self._content_lines = content_lines
 
   def get_timestamp(self) -> float:
     """Returns the timestamp of the log entry as an epoch time."""
@@ -99,7 +94,7 @@ class LogEntry:
 
   def get_content(self) -> str:
     """Returns the content of the log entry."""
-    return self._content
+    return '\n'.join(self._content_lines)
 
 
 class AtestRunResult:
@@ -177,9 +172,35 @@ class AtestRunResult:
     return log_path.read_text(encoding='utf-8')
 
   def get_atest_log_entries(self) -> list[LogEntry]:
-    """Gets the parsed atest log entries list from the atest log file."""
-    lines = self.get_atest_log().splitlines()
-    return [LogEntry(line) for line in lines if line]
+    """Gets the parsed atest log entries list from the atest log file.
+
+    This method parse the atest log file and construct a new entry when a line
+    starts with a time string, source file name, line number, and log level.
+
+    Returns:
+      A list of parsed log entries.
+    """
+    entries = []
+    last_content_lines = []
+    for line in self.get_atest_log().splitlines():
+      regex = r'^(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}) (.+?):(\d+):(\w+): (.*)'
+      match = re.match(regex, line)
+      if match:
+        last_content_lines = [match.group(5)]
+        entries.append(
+            LogEntry(
+                match.group(1),
+                match.group(2),
+                int(match.group(3)),
+                match.group(4),
+                last_content_lines,
+            )
+        )
+      else:
+        if last_content_lines:
+          last_content_lines.append(line)
+
+    return entries
 
   def get_atest_log_values_from_prefix(self, prefix: str) -> list[str]:
     """Gets log values from lines starting with the given log prefix."""
