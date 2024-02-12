@@ -571,29 +571,6 @@ def _print_deprecation_warning(arg_to_deprecate: str):
   atest_utils.colorful_print(warning_message, constants.RED)
 
 
-# TODO(b/318574179): delete this code after the buffer period is up.
-def _print_test_info(mod_info, test_infos):
-  """Print the module information from TestInfos.
-
-  Args:
-      mod_info: ModuleInfo object.
-      test_infos: A list of TestInfos.
-
-  Returns:
-      Always return EXIT_CODE_SUCCESS
-  """
-  for test_info in test_infos:
-    _print_module_info_from_module_name(mod_info, test_info.test_name)
-    atest_utils.colorful_print('\tRelated build targets', constants.MAGENTA)
-    sorted_build_targets = sorted(list(test_info.build_targets))
-    print('\t\t{}'.format(', '.join(sorted_build_targets)))
-    for build_target in sorted_build_targets:
-      if build_target != test_info.test_name:
-        _print_module_info_from_module_name(mod_info, build_target)
-    atest_utils.colorful_print('', constants.WHITE)
-  return ExitCode.SUCCESS
-
-
 def is_from_test_mapping(test_infos):
   """Check that the test_infos came from TEST_MAPPING files.
 
@@ -1083,9 +1060,6 @@ def main(argv: List[Any], results_dir: str, args: argparse.Namespace):
   )
 
   extra_args = test_execution_plan.extra_args
-
-  if args.info:
-    return _print_deprecation_warning('--info')
 
   build_targets = test_execution_plan.required_build_targets()
 
