@@ -16,8 +16,6 @@
 
 """A collection of integration test cases for atest."""
 
-# pylint: disable=too-many-lines
-
 from typing import Any, Callable
 
 from atest_integration_test import AtestTestCase
@@ -224,23 +222,6 @@ class CommandVerificationTests(AtestTestCase):
         expected_cmd=expected_cmd,
     )
 
-  def test_quick_access_wallet_robo_test(self):
-    """Verify that the test's command runs correctly."""
-    atest_cmd = 'QuickAccessWalletRoboTests'
-    expected_cmd = (
-        'atest_tradefed.sh template/atest_device_test_base --template:map'
-        ' test=atest --template:map log_saver=template/log/atest_log_saver'
-        ' --no-enable-granular-attempts --include-filter'
-        ' QuickAccessWalletRoboTests --skip-loading-config-jar'
-        ' --log-level-display VERBOSE --log-level VERBOSE'
-        ' --no-early-device-release'
-    )
-    self._verify_atest_internal_runner_command(
-        atest_cmd,
-        self._assert_equivalent_cmds,
-        expected_cmd=expected_cmd,
-    )
-
   def test_vts_hal_camera_provider_config_injection_test(self):
     """Verify that the test's command runs correctly."""
     atest_cmd = (
@@ -400,6 +381,23 @@ class CommandVerificationTests(AtestTestCase):
     )
     self._verify_atest_internal_runner_command(
         atest_cmd,
+        self._assert_equivalent_cmds,
+        expected_cmd=expected_cmd,
+    )
+
+  def test_quick_access_wallet_robo_test(self):
+    """Verify that the test's command runs correctly."""
+    test_cmd = 'QuickAccessWalletRoboTests'
+    expected_cmd = (
+        'atest_tradefed.sh template/atest_device_test_base --template:map'
+        ' test=atest --template:map log_saver=template/log/atest_log_saver'
+        ' --no-enable-granular-attempts --include-filter'
+        ' QuickAccessWalletRoboTests --skip-loading-config-jar'
+        ' --log-level-display VERBOSE --log-level VERBOSE'
+        ' --no-early-device-release'
+    )
+    self._verify_atest_internal_runner_command(
+        test_cmd,
         self._assert_equivalent_cmds,
         expected_cmd=expected_cmd,
     )
@@ -610,15 +608,45 @@ class CommandVerificationTests(AtestTestCase):
         expected_cmd=expected_cmd,
     )
 
+  def _sanitize_runner_command(self, cmd: str) -> str:
+    """Sanitize an atest runner command by removing non-essential args."""
+    remove_args_starting_with = [
+        '--skip-all-system-status-check',
+        '--atest-log-file-path',
+        'LD_LIBRARY_PATH=',
+        '--proto-output-file=',
+        '--log-root-path',
+    ]
+    remove_args_with_values = ['-s', '--serial']
+    build_command = 'build/soong/soong_ui.bash'
+    original_args = cmd.split()
+    result_args = []
+    for arg in original_args:
+      if arg == build_command:
+        result_args.append(f'./{build_command}')
+        continue
+      if not any(
+          (arg.startswith(prefix) for prefix in remove_args_starting_with)
+      ):
+        result_args.append(arg)
+    for arg in remove_args_with_values:
+      while arg in result_args:
+        idx = result_args.index(arg)
+        # Delete value index first.
+        del result_args[idx + 1]
+        del result_args[idx]
+
+    return ' '.join(result_args)
+
   def _assert_equivalent_cmds(
       self,
       atest_cmd: str,
       actual_cmd: str,
       expected_cmd: str,
   ) -> None:
-    """Assert that the expected command is equivalent to the actual.
+    """Assert that the expected command is equivalent to the actual command.
 
-    command.
+    Non-essential arguments such as log directory and serial will be ignored.
 
     Args:
         atest_cmd: The atest command string that is being tested.
@@ -627,20 +655,22 @@ class CommandVerificationTests(AtestTestCase):
 
     Returns:
     """
-    missing_cmds = set(expected_cmd.split()).difference(set(actual_cmd.split()))
+    actual_cmd = self._sanitize_runner_command(actual_cmd)
+    expected_cmd = self._sanitize_runner_command(expected_cmd)
+
     self.assertEqual(
-        len(missing_cmds),
-        0,
-        'Args %s are missing from the runner command generated for the'
-        ' atest command `%s`.\nActual: `%s`\nExpected: `%s`'
-        % (missing_cmds, atest_cmd, actual_cmd, expected_cmd),
+        set(actual_cmd.split()),
+        set(expected_cmd.split()),
+        'Unexpected atest internal runner command generated for the'
+        ' atest command `%s`.\nActual:\n`%s`\nExpected:\n`%s`'
+        % (atest_cmd, actual_cmd, expected_cmd),
     )
 
   def _verify_atest_internal_runner_command(
       self,
       atest_cmd: str,
       assertion_func: Callable[str, None],
-      **assertion_func_params: dict[str, Any]
+      **assertion_func_params: dict[str, Any],
   ) -> None:
     """Verifies atest's runner command using the provided assertion function.
 
@@ -649,7 +679,7 @@ class CommandVerificationTests(AtestTestCase):
           binary to the beginning of the command.
         assertion_func: A function that takes a test command string and an atest
           internal command string and runs assertions on it.
-        assertion_func_params: Parameters for the assertion function.
+        **assertion_func_params: Parameters for the assertion function.
     """
     script = self.create_atest_script()
 
