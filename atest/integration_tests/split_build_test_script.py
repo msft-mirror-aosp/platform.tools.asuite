@@ -680,6 +680,13 @@ def main(
 
     repo_root = os.environ[ANDROID_BUILD_TOP_KEY]
 
+    total, used, free = shutil.disk_usage(repo_root)
+    logging.debug(
+        'Disk usage: Total: {:.2f} GB, Used: {:.2f} GB, Free: {:.2f} GB'.format(
+            total / (1024**3), used / (1024**3), free / (1024**3)
+        )
+    )
+
     if 'OUT_DIR' in os.environ:
       out_dir = os.environ['OUT_DIR']
       if os.path.isabs(out_dir) and not Path(out_dir).is_relative_to(repo_root):

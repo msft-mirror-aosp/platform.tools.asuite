@@ -879,8 +879,21 @@ def need_run_index_targets(args: argparse.ArgumentParser):
         args.dry_run,
         args.list_modules,
     )
-    if not any(no_indexing_args) and not parse_steps(args).has_build():
+    has_build_arg = parse_steps(args).has_build()
+    if not any(no_indexing_args) and not has_build_arg:
       return False
+    logging.debug(
+        'Indexing targets is required. dry_run: %s, list_modules: %s,'
+        ' has_build: %s. Args: %s',
+        args.dry_run,
+        args.list_modules,
+        has_build_arg,
+        args,
+    )
+  else:
+    logging.debug(
+        'Indexing targets is required because some index files do not exist.'
+    )
 
   return True
 
@@ -933,6 +946,7 @@ def _get_acloud_proc_and_log(
 ) -> Tuple[Any, Any]:
   """Return tuple of acloud process ID and report file."""
   if any((args.acloud_create, args.start_avd)):
+    logging.debug('Creating acloud or avd.')
     return avd.acloud_create_validator(results_dir, args)
   return None, None
 
@@ -978,7 +992,7 @@ def setup_metrics_tool_name(no_metrics: bool = False):
 # pylint: disable=too-many-statements
 # pylint: disable=too-many-branches
 # pylint: disable=too-many-return-statements
-def main(argv: List[Any], results_dir: str, args: argparse.Namespace):
+def _main(argv: List[Any], results_dir: str, args: argparse.Namespace):
   """Entry point of atest script.
 
   Args:
@@ -990,13 +1004,18 @@ def main(argv: List[Any], results_dir: str, args: argparse.Namespace):
       Exit code.
   """
   _begin_time = time.time()
+  logging.debug(
+      'Running atest script with argv %s, results_dir %s, args %s.',
+      argv,
+      results_dir,
+      args,
+  )
 
   # Sets coverage environment variables.
   if args.experimental_coverage:
     atest_utils.update_build_env(coverage.build_env_vars())
   set_build_output_mode(args.build_output)
 
-  _configure_logging(args.verbose, results_dir)
   _validate_args(args)
   metrics_utils.get_start_time()
   _send_start_event(argv, args.tests)
@@ -1009,6 +1028,7 @@ def main(argv: List[Any], results_dir: str, args: argparse.Namespace):
 
   # Run Test Mapping or coverage by no-bazel-mode.
   if atest_utils.is_test_mapping(args) or args.experimental_coverage:
+    logging.debug('Running test mapping or coverage, disabling bazel mode.')
     atest_utils.colorful_print(
         'Not running using bazel-mode.', constants.YELLOW
     )
@@ -1017,16 +1037,19 @@ def main(argv: List[Any], results_dir: str, args: argparse.Namespace):
   proc_idx = atest_utils.start_threading(lambda: print)
   # Do not index targets while the users intend to dry-run tests.
   if need_run_index_targets(args):
+    logging.debug('Starting to index targets in a background thread.')
     proc_idx = atest_utils.start_threading(
         indexing.index_targets,
         daemon=True,
     )
   smart_rebuild = need_rebuild_module_info(args)
+  logging.debug('need_rebuild_module_info returned %s', smart_rebuild)
 
   mod_info = module_info.load(
       force_build=smart_rebuild,
       sqlite_module_cache=args.sqlite_module_cache,
   )
+  logging.debug('Obtained module info object: %s', mod_info)
 
   translator = cli_translator.CLITranslator(
       mod_info=mod_info,
@@ -1447,7 +1470,7 @@ def _requires_device_update(invocations: List[TestRunnerInvocation]) -> bool:
 
 
 if __name__ == '__main__':
-  RESULTS_DIR = make_test_run_dir()
+  results_dir = make_test_run_dir()
   if END_OF_OPTION in sys.argv:
     end_position = sys.argv.index(END_OF_OPTION)
     final_args = [
@@ -1471,21 +1494,29 @@ if __name__ == '__main__':
       sys.exit(ExitCode.EXIT_BEFORE_MAIN)
   else:
     metrics.LocalDetectEvent(detect_type=DetectType.ATEST_CONFIG, result=0)
-  atest_configs.GLOBAL_ARGS = _parse_args(final_args)
+
+  args = _parse_args(final_args)
+  atest_configs.GLOBAL_ARGS = args
+  _configure_logging(args.verbose, results_dir)
+
+  logging.debug(
+      'Start of atest run. sys.argv: %s, final_args: %s', sys.argv, final_args
+  )
+
   with atest_execution_info.AtestExecutionInfo(
-      final_args, RESULTS_DIR, atest_configs.GLOBAL_ARGS
+      final_args, results_dir, atest_configs.GLOBAL_ARGS
   ) as result_file:
     setup_metrics_tool_name(atest_configs.GLOBAL_ARGS.no_metrics)
 
-    EXIT_CODE = main(
+    exit_code = _main(
         final_args,
-        RESULTS_DIR,
+        results_dir,
         atest_configs.GLOBAL_ARGS,
     )
-    DETECTOR = bug_detector.BugDetector(final_args, EXIT_CODE)
-    if EXIT_CODE not in EXIT_CODES_BEFORE_TEST:
+    detector = bug_detector.BugDetector(final_args, exit_code)
+    if exit_code not in EXIT_CODES_BEFORE_TEST:
       metrics.LocalDetectEvent(
-          detect_type=DetectType.BUG_DETECTED, result=DETECTOR.caught_result
+          detect_type=DetectType.BUG_DETECTED, result=detector.caught_result
       )
       if result_file:
         print("Run 'atest --history' to review test result history.")
@@ -1493,4 +1524,4 @@ if __name__ == '__main__':
   skip_banner = os.environ.get('ANDROID_SKIP_BANNER', None)
   if banner and not skip_banner:
     print(banner)
-  sys.exit(EXIT_CODE)
+  sys.exit(exit_code)
