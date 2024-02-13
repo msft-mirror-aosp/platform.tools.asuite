@@ -302,7 +302,6 @@ def create_atest_arg_parser():
           ' real.'
       ),
   )
-  parser.add_argument('--info', action='store_true', help='Deprecated')
   parser.add_argument(
       '-L', '--list-modules', help='List testable modules of the given suite.'
   )
