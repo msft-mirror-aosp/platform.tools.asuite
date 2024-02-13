@@ -218,7 +218,6 @@ def has_non_test_options(args: argparse.ArgumentParser):
       args.collect_tests_only
       or args.dry_run
       or args.history
-      or args.info
       or args.version
       or args.latest_result
       or args.history
