@@ -41,6 +41,7 @@ import tempfile
 import time
 from typing import Any, Dict, List, Set, Tuple
 
+from atest import arg_parser
 from atest import atest_configs
 from atest import atest_error
 from atest import atest_execution_info
@@ -53,7 +54,6 @@ from atest import device_update
 from atest import module_info
 from atest import result_reporter
 from atest import test_runner_handler
-from atest.arg_parser import atest_arg_parser
 from atest.atest_enum import DetectType, ExitCode
 from atest.coverage import coverage
 from atest.metrics import metrics
@@ -94,6 +94,11 @@ EXIT_CODES_BEFORE_TEST = [
     ExitCode.AVD_INVALID_ARGS,
 ]
 
+# Stdout print prefix for results directory. May be used in integration tests.
+_RESULTS_DIR_PRINT_PREFIX = 'Atest results and logs directory: '
+# Log prefix for dry-run run command. May be used in integration tests.
+_DRY_RUN_COMMAND_LOG_PREFIX = 'Internal run command from dry-run: '
+
 
 @dataclass
 class Steps:
@@ -133,7 +138,7 @@ class Steps:
     )
 
 
-def parse_steps(args: atest_arg_parser.AtestArgParser) -> Steps:
+def parse_steps(args: arg_parser.AtestArgParser) -> Steps:
   """Return Steps object.
 
   Args:
@@ -228,7 +233,7 @@ def _parse_args(argv: List[Any]) -> Tuple[argparse.ArgumentParser, List[str]]:
   if CUSTOM_ARG_FLAG in argv:
     custom_args_index = argv.index(CUSTOM_ARG_FLAG)
     pruned_argv = argv[:custom_args_index]
-  args = atest_arg_parser.parse_args(pruned_argv)
+  args = arg_parser.create_atest_arg_parser().parse_args(pruned_argv)
   args.custom_args = []
   if custom_args_index is not None:
     for arg in argv[custom_args_index + 1 :]:
@@ -297,6 +302,7 @@ def make_test_run_dir():
   test_result_dir = tempfile.mkdtemp(
       prefix='%s_' % ctime, dir=constants.ATEST_RESULT_ROOT
   )
+  print(_RESULTS_DIR_PRINT_PREFIX + test_result_dir)
   return test_result_dir
 
 
@@ -709,6 +715,7 @@ def _dry_run(results_dir, extra_args, test_infos, mod_info):
     run_cmds = runner.generate_run_commands(tests, extra_args)
     for run_cmd in run_cmds:
       all_run_cmds.append(run_cmd)
+      logging.debug(_DRY_RUN_COMMAND_LOG_PREFIX + run_cmd)
       print(
           'Would run test via command: %s' % (atest_utils.mark_green(run_cmd))
       )
@@ -830,7 +837,7 @@ def _exclude_modules_in_targets(build_targets):
 
 
 # pylint: disable=protected-access
-def need_rebuild_module_info(args: atest_arg_parser.AtestArgParser) -> bool:
+def need_rebuild_module_info(args: arg_parser.AtestArgParser) -> bool:
   """Method that tells whether we need to rebuild module-info.json or not.
 
   Args:
