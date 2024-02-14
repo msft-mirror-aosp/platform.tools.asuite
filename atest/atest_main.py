@@ -863,10 +863,10 @@ def need_rebuild_module_info(args: arg_parser.AtestArgParser) -> bool:
 def need_run_index_targets(args: argparse.ArgumentParser):
   """Method that determines whether Atest need to run index_targets or not.
 
-  Atest still need to (re)index targets if these indices do not exist.
-  If all indices exist, Atest can skip re-indexing when meeting both:
-      * found no_indexing_args.
-      * --build was explicitly passed.
+  The decision flow is as follows: If no build is required, returns False.
+  Otherwise, if some index files are missing, returns True. Otherwise, if
+  some arguments that doesn't require indexing is present, returns False.
+  Otherwise, returns True.
 
   Args:
       args: An argparse.ArgumentParser object.
@@ -874,26 +874,24 @@ def need_run_index_targets(args: argparse.ArgumentParser):
   Returns:
       True when none of the above conditions were found.
   """
-  if indexing.Indices().has_all_indices():
-    no_indexing_args = (
-        args.dry_run,
-        args.list_modules,
-    )
-    has_build_arg = parse_steps(args).has_build()
-    if not any(no_indexing_args) and not has_build_arg:
-      return False
-    logging.debug(
-        'Indexing targets is required. dry_run: %s, list_modules: %s,'
-        ' has_build: %s. Args: %s',
-        args.dry_run,
-        args.list_modules,
-        has_build_arg,
-        args,
-    )
-  else:
+  has_build_step = parse_steps(args).has_build()
+  if not has_build_step:
+    logging.debug("Skip indexing because there's no build required.")
+    return False
+
+  if not indexing.Indices().has_all_indices():
     logging.debug(
         'Indexing targets is required because some index files do not exist.'
     )
+    return True
+
+  no_indexing_args = (
+      args.dry_run,
+      args.list_modules,
+  )
+  if any(no_indexing_args):
+    logging.debug('Skip indexing for no_indexing_args=%s.', no_indexing_args)
+    return False
 
   return True
 
