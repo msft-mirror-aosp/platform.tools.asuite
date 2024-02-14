@@ -13,8 +13,10 @@
 # limitations under the License.
 
 """Script that generates arguments for autocompletion."""
+
 import argparse
-from atest.arg_parser import atest_arg_parser
+
+from atest import arg_parser
 
 
 def _get_optional_args(parser: argparse.ArgumentParser) -> list[str]:
@@ -32,4 +34,4 @@ def _get_optional_args(parser: argparse.ArgumentParser) -> list[str]:
 
 
 if __name__ == '__main__':
-  print('\n'.join(_get_optional_args(atest_arg_parser)))
+  print('\n'.join(_get_optional_args(arg_parser.create_atest_arg_parser())))

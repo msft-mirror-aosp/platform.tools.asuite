@@ -292,7 +292,7 @@ class ResultReporter:
             'VtsTradefedTestRunner': {'Module1': RunStat(passed:4, failed:0)}}
   """
 
-  def __init__(self, silent=False, collect_only=False):
+  def __init__(self, silent=False, collect_only=False, wait_for_debugger=False):
     """Init ResultReporter.
 
     Args:
@@ -309,6 +309,7 @@ class ResultReporter:
     self.collect_only = collect_only
     self.test_result_link = None
     self.device_count = 0
+    self.wait_for_debugger = wait_for_debugger
 
   def get_test_results_by_runner(self, runner_name):
     return [t for t in self.all_test_results if t.runner_name == runner_name]
@@ -372,7 +373,15 @@ class ResultReporter:
 
   def print_starting_text(self):
     """Print starting text for running tests."""
-    print(au.mark_cyan('\nRunning Tests...'))
+    if self.wait_for_debugger:
+      print(
+          au.mark_red(
+              '\nDebugging Tests [you may need to attach a debugger for the'
+              ' process to continue...]'
+          )
+      )
+    else:
+      print(au.mark_cyan('\nRunning Tests...'))
 
   def set_current_iteration_summary(self, iteration_num: int) -> None:
     """Add the given iteration's current summary to the list of its existing summaries."""
