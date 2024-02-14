@@ -33,8 +33,17 @@ SplitBuildTestScript = split_build_test_script.SplitBuildTestScript
 StepInput = split_build_test_script.StepInput
 StepOutput = split_build_test_script.StepOutput
 
+# Note: The following constants should ideally be imported from their
+#       corresponding prod source code, but this makes local execution of the
+#       integration test harder due to some special dependencies in the prod
+#       code. Therefore we copy the definition here for now in favor of easier
+#       local integration test execution. If value changes in the source code
+#       breaking the integration test becomes a problem in the future, we can
+#       reconsider importing these constants.
 # Printed before the html log line. Defined in atest/atest_utils.py.
 _HTML_LOG_PRINT_PREFIX = 'To access logs, press "ctrl" and click on'
+# Stdout print prefix for results directory. Defined in atest/atest_main.py
+_RESULTS_DIR_PRINT_PREFIX = 'Atest results and logs directory: '
 
 
 class LogEntry:
@@ -122,8 +131,8 @@ class AtestRunResult:
     """Returns the command list used in the process run."""
     return self._completed_process.args
 
-  def get_result_root_path(self, snapshot_ready=False) -> Path:
-    """Returns the atest result root path.
+  def get_results_dir_path(self, snapshot_ready=False) -> Path:
+    """Returns the atest results directory path.
 
     Args:
         snapshot_ready: Whether to make the result root directory snapshot
@@ -131,48 +140,49 @@ class AtestRunResult:
           will copy the path into <repo_root>/out with dereferencing so that the
           directory can be safely added to snapshot.
     """
-    stdout_lines = self.get_stdout().splitlines(keepends=False)
-    html_line_index = None
-    for index, line in enumerate(stdout_lines):
-      if line.startswith(_HTML_LOG_PRINT_PREFIX):
-        html_line_index = index + 1
-        break
-    if not html_line_index or html_line_index >= len(stdout_lines):
-      if 'bazel-result-reporter-host' in self.get_stdout():
-        raise RuntimeError(
-            'Getting result root path in bazel build only mode is not'
-            ' supported yet.'
-        )
-      raise RuntimeError('Result root path not found in stdout.')
-    html_path_search = re.search(
-        r'file://(.*)/log/test_logs.html', stdout_lines[html_line_index]
-    )
-    if not html_path_search:
-      raise RuntimeError('Failed to parse the result root path from stdout.')
-    result_root_path = Path(html_path_search.group(1))
+    results_dir = None
+    for line in self.get_stdout().splitlines(keepends=False):
+      if line.startswith(_RESULTS_DIR_PRINT_PREFIX):
+        results_dir = Path(line[len(_RESULTS_DIR_PRINT_PREFIX) :])
+    if not results_dir:
+      raise RuntimeError('Failed to parse the result directory from stdout.')
 
     if self._config.is_test_env or not snapshot_ready:
-      return result_root_path
+      return results_dir
 
-    result_root_copy_path = Path(self._env['OUT_DIR']).joinpath(
-        'atest_integration_tests', result_root_path.name
+    result_dir_copy_path = Path(self._env['OUT_DIR']).joinpath(
+        'atest_integration_tests', results_dir.name
     )
-    if not result_root_copy_path.exists():
-      shutil.copytree(result_root_path, result_root_copy_path, symlinks=False)
+    if not result_dir_copy_path.exists():
+      shutil.copytree(results_dir, result_dir_copy_path, symlinks=False)
 
-    return result_root_copy_path
+    return result_dir_copy_path
 
   def get_test_result_dict(self) -> dict[str, Any]:
-    """Gets the atest result dictionary loaded from the output json."""
-    json_path = self.get_result_root_path() / 'test_result'
+    """Gets the atest results loaded from the test_result json.
+
+    Reads the test_result json file and return the content as dict. The test
+    result usually contains information about test runners and test pass/fail
+    results.
+    """
+    json_path = self.get_results_dir_path() / 'test_result'
     with open(json_path, 'r', encoding='utf-8') as f:
       return json.load(f)
 
   def get_atest_log_entries(self) -> list[LogEntry]:
     """Gets the parsed atest log entries list from atest log file."""
-    log_path = self.get_result_root_path() / 'atest.log'
+    log_path = self.get_results_dir_path() / 'atest.log'
     lines = log_path.read_text(encoding='utf-8').splitlines()
     return [LogEntry(line) for line in lines if line]
+
+  def get_atest_log_values_from_prefix(self, prefix: str) -> list[str]:
+    """Gets log values from lines starting with the given log prefix."""
+    res = []
+    for entry in self.get_atest_log_entries():
+      content = entry.get_content()
+      if content.startswith(prefix):
+        res.append(content[len(prefix) :])
+    return res
 
   def check_returncode(self) -> None:
     """Checks the return code and raises an exception if non-zero."""
