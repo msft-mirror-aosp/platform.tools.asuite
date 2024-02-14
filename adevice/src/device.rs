@@ -69,7 +69,7 @@ impl Device for RealDevice {
         time!(
             {
                 let args = self.adjust_adb_args(&["wait-for-device".to_string()]);
-                self.wait_for_adb_with_timeout(&args, Duration::from_secs(50))?;
+                self.wait_for_adb_with_timeout(&args, Duration::from_secs(70))?;
             },
             profiler.wait_for_device
         );
@@ -117,7 +117,7 @@ impl Device for RealDevice {
 
         // Adb remount returns status 0, but writes the mounts to stderr.
         // Just swallow the useless output and return ok.
-        if let Some(cmd) = cmd.get(0) {
+        if let Some(cmd) = cmd.first() {
             if output.status.success() && cmd == "remount" {
                 return Ok("".to_string());
             }

@@ -41,6 +41,7 @@ import tempfile
 import time
 from typing import Any, Dict, List, Set, Tuple
 
+from atest import arg_parser
 from atest import atest_configs
 from atest import atest_error
 from atest import atest_execution_info
@@ -53,7 +54,6 @@ from atest import device_update
 from atest import module_info
 from atest import result_reporter
 from atest import test_runner_handler
-from atest.arg_parser import atest_arg_parser
 from atest.atest_enum import DetectType, ExitCode
 from atest.coverage import coverage
 from atest.metrics import metrics
@@ -94,6 +94,11 @@ EXIT_CODES_BEFORE_TEST = [
     ExitCode.AVD_INVALID_ARGS,
 ]
 
+# Stdout print prefix for results directory. May be used in integration tests.
+_RESULTS_DIR_PRINT_PREFIX = 'Atest results and logs directory: '
+# Log prefix for dry-run run command. May be used in integration tests.
+_DRY_RUN_COMMAND_LOG_PREFIX = 'Internal run command from dry-run: '
+
 
 @dataclass
 class Steps:
@@ -133,7 +138,7 @@ class Steps:
     )
 
 
-def parse_steps(args: atest_arg_parser.AtestArgParser) -> Steps:
+def parse_steps(args: arg_parser.AtestArgParser) -> Steps:
   """Return Steps object.
 
   Args:
@@ -228,7 +233,7 @@ def _parse_args(argv: List[Any]) -> Tuple[argparse.ArgumentParser, List[str]]:
   if CUSTOM_ARG_FLAG in argv:
     custom_args_index = argv.index(CUSTOM_ARG_FLAG)
     pruned_argv = argv[:custom_args_index]
-  args = atest_arg_parser.parse_args(pruned_argv)
+  args = arg_parser.create_atest_arg_parser().parse_args(pruned_argv)
   args.custom_args = []
   if custom_args_index is not None:
     for arg in argv[custom_args_index + 1 :]:
@@ -297,6 +302,7 @@ def make_test_run_dir():
   test_result_dir = tempfile.mkdtemp(
       prefix='%s_' % ctime, dir=constants.ATEST_RESULT_ROOT
   )
+  print(_RESULTS_DIR_PRINT_PREFIX + test_result_dir)
   return test_result_dir
 
 
@@ -571,29 +577,6 @@ def _print_deprecation_warning(arg_to_deprecate: str):
   atest_utils.colorful_print(warning_message, constants.RED)
 
 
-# TODO(b/318574179): delete this code after the buffer period is up.
-def _print_test_info(mod_info, test_infos):
-  """Print the module information from TestInfos.
-
-  Args:
-      mod_info: ModuleInfo object.
-      test_infos: A list of TestInfos.
-
-  Returns:
-      Always return EXIT_CODE_SUCCESS
-  """
-  for test_info in test_infos:
-    _print_module_info_from_module_name(mod_info, test_info.test_name)
-    atest_utils.colorful_print('\tRelated build targets', constants.MAGENTA)
-    sorted_build_targets = sorted(list(test_info.build_targets))
-    print('\t\t{}'.format(', '.join(sorted_build_targets)))
-    for build_target in sorted_build_targets:
-      if build_target != test_info.test_name:
-        _print_module_info_from_module_name(mod_info, build_target)
-    atest_utils.colorful_print('', constants.WHITE)
-  return ExitCode.SUCCESS
-
-
 def is_from_test_mapping(test_infos):
   """Check that the test_infos came from TEST_MAPPING files.
 
@@ -652,7 +635,8 @@ def _run_test_mapping_tests(
     logging.debug('\n'.join([str(info) for info in tests]))
 
     reporter = result_reporter.ResultReporter(
-        collect_only=extra_args.get(constants.COLLECT_TESTS_ONLY)
+        collect_only=extra_args.get(constants.COLLECT_TESTS_ONLY),
+        wait_for_debugger=atest_configs.GLOBAL_ARGS.wait_for_debugger,
     )
     reporter.print_starting_text()
 
@@ -660,6 +644,7 @@ def _run_test_mapping_tests(
     for invocation in invocations:
       tests_exit_code |= invocation.run_all_tests(reporter)
 
+    atest_execution_info.AtestExecutionInfo.result_reporters.append(reporter)
     test_results.append((tests_exit_code, reporter, test_type))
 
   all_tests_exit_code = ExitCode.SUCCESS
@@ -707,6 +692,7 @@ def _dry_run(results_dir, extra_args, test_infos, mod_info):
     run_cmds = runner.generate_run_commands(tests, extra_args)
     for run_cmd in run_cmds:
       all_run_cmds.append(run_cmd)
+      logging.debug(_DRY_RUN_COMMAND_LOG_PREFIX + run_cmd)
       print(
           'Would run test via command: %s' % (atest_utils.mark_green(run_cmd))
       )
@@ -828,7 +814,7 @@ def _exclude_modules_in_targets(build_targets):
 
 
 # pylint: disable=protected-access
-def need_rebuild_module_info(args: atest_arg_parser.AtestArgParser) -> bool:
+def need_rebuild_module_info(args: arg_parser.AtestArgParser) -> bool:
   """Method that tells whether we need to rebuild module-info.json or not.
 
   Args:
@@ -893,8 +879,21 @@ def need_run_index_targets(args: argparse.ArgumentParser):
         args.dry_run,
         args.list_modules,
     )
-    if not any(no_indexing_args) and not parse_steps(args).has_build():
+    has_build_arg = parse_steps(args).has_build()
+    if not any(no_indexing_args) and not has_build_arg:
       return False
+    logging.debug(
+        'Indexing targets is required. dry_run: %s, list_modules: %s,'
+        ' has_build: %s. Args: %s',
+        args.dry_run,
+        args.list_modules,
+        has_build_arg,
+        args,
+    )
+  else:
+    logging.debug(
+        'Indexing targets is required because some index files do not exist.'
+    )
 
   return True
 
@@ -947,6 +946,7 @@ def _get_acloud_proc_and_log(
 ) -> Tuple[Any, Any]:
   """Return tuple of acloud process ID and report file."""
   if any((args.acloud_create, args.start_avd)):
+    logging.debug('Creating acloud or avd.')
     return avd.acloud_create_validator(results_dir, args)
   return None, None
 
@@ -992,7 +992,7 @@ def setup_metrics_tool_name(no_metrics: bool = False):
 # pylint: disable=too-many-statements
 # pylint: disable=too-many-branches
 # pylint: disable=too-many-return-statements
-def main(argv: List[Any], results_dir: str, args: argparse.Namespace):
+def _main(argv: List[Any], results_dir: str, args: argparse.Namespace):
   """Entry point of atest script.
 
   Args:
@@ -1004,13 +1004,18 @@ def main(argv: List[Any], results_dir: str, args: argparse.Namespace):
       Exit code.
   """
   _begin_time = time.time()
+  logging.debug(
+      'Running atest script with argv %s, results_dir %s, args %s.',
+      argv,
+      results_dir,
+      args,
+  )
 
   # Sets coverage environment variables.
   if args.experimental_coverage:
     atest_utils.update_build_env(coverage.build_env_vars())
   set_build_output_mode(args.build_output)
 
-  _configure_logging(args.verbose, results_dir)
   _validate_args(args)
   metrics_utils.get_start_time()
   _send_start_event(argv, args.tests)
@@ -1023,6 +1028,7 @@ def main(argv: List[Any], results_dir: str, args: argparse.Namespace):
 
   # Run Test Mapping or coverage by no-bazel-mode.
   if atest_utils.is_test_mapping(args) or args.experimental_coverage:
+    logging.debug('Running test mapping or coverage, disabling bazel mode.')
     atest_utils.colorful_print(
         'Not running using bazel-mode.', constants.YELLOW
     )
@@ -1031,16 +1037,19 @@ def main(argv: List[Any], results_dir: str, args: argparse.Namespace):
   proc_idx = atest_utils.start_threading(lambda: print)
   # Do not index targets while the users intend to dry-run tests.
   if need_run_index_targets(args):
+    logging.debug('Starting to index targets in a background thread.')
     proc_idx = atest_utils.start_threading(
         indexing.index_targets,
         daemon=True,
     )
   smart_rebuild = need_rebuild_module_info(args)
+  logging.debug('need_rebuild_module_info returned %s', smart_rebuild)
 
   mod_info = module_info.load(
       force_build=smart_rebuild,
       sqlite_module_cache=args.sqlite_module_cache,
   )
+  logging.debug('Obtained module info object: %s', mod_info)
 
   translator = cli_translator.CLITranslator(
       mod_info=mod_info,
@@ -1082,9 +1091,6 @@ def main(argv: List[Any], results_dir: str, args: argparse.Namespace):
   )
 
   extra_args = test_execution_plan.extra_args
-
-  if args.info:
-    return _print_deprecation_warning('--info')
 
   build_targets = test_execution_plan.required_build_targets()
 
@@ -1445,7 +1451,8 @@ class TestModuleExecutionPlan(TestExecutionPlan):
   def execute(self) -> ExitCode:
 
     reporter = result_reporter.ResultReporter(
-        collect_only=self.extra_args.get(constants.COLLECT_TESTS_ONLY)
+        collect_only=self.extra_args.get(constants.COLLECT_TESTS_ONLY),
+        wait_for_debugger=atest_configs.GLOBAL_ARGS.wait_for_debugger,
     )
     reporter.print_starting_text()
 
@@ -1453,6 +1460,7 @@ class TestModuleExecutionPlan(TestExecutionPlan):
     for invocation in self._test_runner_invocations:
       exit_code |= invocation.run_all_tests(reporter)
 
+    atest_execution_info.AtestExecutionInfo.result_reporters.append(reporter)
     return reporter.print_summary() | exit_code
 
 
@@ -1462,7 +1470,7 @@ def _requires_device_update(invocations: List[TestRunnerInvocation]) -> bool:
 
 
 if __name__ == '__main__':
-  RESULTS_DIR = make_test_run_dir()
+  results_dir = make_test_run_dir()
   if END_OF_OPTION in sys.argv:
     end_position = sys.argv.index(END_OF_OPTION)
     final_args = [
@@ -1486,21 +1494,29 @@ if __name__ == '__main__':
       sys.exit(ExitCode.EXIT_BEFORE_MAIN)
   else:
     metrics.LocalDetectEvent(detect_type=DetectType.ATEST_CONFIG, result=0)
-  atest_configs.GLOBAL_ARGS = _parse_args(final_args)
+
+  args = _parse_args(final_args)
+  atest_configs.GLOBAL_ARGS = args
+  _configure_logging(args.verbose, results_dir)
+
+  logging.debug(
+      'Start of atest run. sys.argv: %s, final_args: %s', sys.argv, final_args
+  )
+
   with atest_execution_info.AtestExecutionInfo(
-      final_args, RESULTS_DIR, atest_configs.GLOBAL_ARGS
+      final_args, results_dir, atest_configs.GLOBAL_ARGS
   ) as result_file:
     setup_metrics_tool_name(atest_configs.GLOBAL_ARGS.no_metrics)
 
-    EXIT_CODE = main(
+    exit_code = _main(
         final_args,
-        RESULTS_DIR,
+        results_dir,
         atest_configs.GLOBAL_ARGS,
     )
-    DETECTOR = bug_detector.BugDetector(final_args, EXIT_CODE)
-    if EXIT_CODE not in EXIT_CODES_BEFORE_TEST:
+    detector = bug_detector.BugDetector(final_args, exit_code)
+    if exit_code not in EXIT_CODES_BEFORE_TEST:
       metrics.LocalDetectEvent(
-          detect_type=DetectType.BUG_DETECTED, result=DETECTOR.caught_result
+          detect_type=DetectType.BUG_DETECTED, result=detector.caught_result
       )
       if result_file:
         print("Run 'atest --history' to review test result history.")
@@ -1508,4 +1524,4 @@ if __name__ == '__main__':
   skip_banner = os.environ.get('ANDROID_SKIP_BANNER', None)
   if banner and not skip_banner:
     print(banner)
-  sys.exit(EXIT_CODE)
+  sys.exit(exit_code)

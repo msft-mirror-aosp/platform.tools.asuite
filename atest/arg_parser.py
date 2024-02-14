@@ -62,7 +62,7 @@ def _positive_int(value):
     raise argparse.ArgumentTypeError(err_msg) from value_err
 
 
-def _create_arg_parser():
+def create_atest_arg_parser():
   """Creates an instance of the default Atest arg parser."""
 
   parser = argparse.ArgumentParser(
@@ -78,8 +78,8 @@ def _create_arg_parser():
       action=argparse.BooleanOptionalAction,
       default=True,
       help=(
-          'Build required dependencies only. Use --no-minimal-build to'
-          ' disable it.'
+          'Build required dependencies only (default: True). Use'
+          ' --no-minimal-build to disable it.'
       ),
   )
   parser.add_argument(
@@ -95,7 +95,7 @@ def _create_arg_parser():
       '-a',
       '--all-abi',
       action='store_true',
-      help='Set to run tests for all abis.',
+      help='Set to run tests for all ABIs (Application Binary Interfaces).',
   )
   parser.add_argument(
       '-b',
@@ -109,7 +109,7 @@ def _create_arg_parser():
       '--bazel-mode',
       default=True,
       action='store_true',
-      help='Run tests using Bazel.',
+      help='Run tests using Bazel (default: True).',
   )
   parser.add_argument(
       '--no-bazel-mode',
@@ -148,8 +148,9 @@ def _create_arg_parser():
       default=True,
       action='store_true',
       help=(
-          'Group the tests by module name for running the test, if you want'
-          ' to run the test using the same input order, use --no-group-test.'
+          'Group tests by module name during the test run (default: True). To'
+          ' run tests in the same order as they are input, use'
+          ' `--no-group-test`'
       ),
   )
   parser.add_argument(
@@ -301,7 +302,6 @@ def _create_arg_parser():
           ' real.'
       ),
   )
-  parser.add_argument('--info', action='store_true', help='Deprecated')
   parser.add_argument(
       '-L', '--list-modules', help='List testable modules of the given suite.'
   )
@@ -527,7 +527,7 @@ SYNOPSIS
 
 
 OPTIONS
-        Below arguments are categorized by features and purposes. Arguments marked with implicit default will apply even the user does not pass it explicitly.
+        The below arguments are categorized by feature and purpose. Arguments marked with an implicit default will apply even when the user doesn't pass them explicitly.
 
         *NOTE* Atest reads ~/.atest/config that supports all optional arguments to help users reduce repeating options they often use.
         E.g. Assume "--all-abi" and "--verbose" are frequently used and have been defined line-by-line in ~/.atest/config, issuing
@@ -830,5 +830,3 @@ EXAMPLES
 
                                                      2022-03-25
 """
-
-atest_arg_parser = _create_arg_parser()

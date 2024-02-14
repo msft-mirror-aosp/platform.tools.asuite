@@ -26,11 +26,11 @@ import sys
 import tempfile
 import unittest
 from unittest import mock
+from atest import arg_parser
 from atest import atest_main
 from atest import atest_utils
 from atest import constants
 from atest import module_info
-from atest.arg_parser import atest_arg_parser
 from atest.atest_enum import DetectType
 from atest.metrics import metrics
 from atest.metrics import metrics_utils
@@ -316,71 +316,6 @@ class PrintModuleInfoTest(AtestUnittestFixture):
     # Check the function correctly printed module_info in color to stdout
     self.assertEqual(correct_output, capture_output.getvalue())
 
-  @mock.patch('atest.atest_utils._has_colors', return_value=True)
-  def test_print_test_info(self, _):
-    """Test _print_test_info method."""
-    modules = []
-    for index in {1, 2, 3}:
-      modules.append(
-          module(
-              name=f'mod{index}',
-              path=[f'path/mod{index}'],
-              installed=[f'installed/mod{index}'],
-              compatibility_suites=[f'suite_mod{index}'],
-          )
-      )
-    mod_info = self.create_module_info(modules)
-    test_infos = {
-        self.create_test_info(
-            test_name='mod1',
-            test_runner='mock_runner',
-            build_targets={'mod1', 'mod2', 'mod3'},
-        ),
-    }
-    correct_output = (
-        f'{GREEN}mod1{END}\n'
-        f'{CYAN}\tCompatibility suite{END}\n'
-        '\t\tsuite_mod1\n'
-        f'{CYAN}\tSource code path{END}\n'
-        "\t\t['path/mod1']\n"
-        f'{CYAN}\tInstalled path{END}\n'
-        '\t\tinstalled/mod1\n'
-        f'{MAGENTA}\tRelated build targets{END}\n'
-        '\t\tmod1, mod2, mod3\n'
-        f'{GREEN}mod2{END}\n'
-        f'{CYAN}\tCompatibility suite{END}\n'
-        '\t\tsuite_mod2\n'
-        f'{CYAN}\tSource code path{END}\n'
-        "\t\t['path/mod2']\n"
-        f'{CYAN}\tInstalled path{END}\n'
-        '\t\tinstalled/mod2\n'
-        f'{GREEN}mod3{END}\n'
-        f'{CYAN}\tCompatibility suite{END}\n'
-        '\t\tsuite_mod3\n'
-        f'{CYAN}\tSource code path{END}\n'
-        "\t\t['path/mod3']\n"
-        f'{CYAN}\tInstalled path{END}\n'
-        '\t\tinstalled/mod3\n'
-        f'\x1b[1;37m{END}\n'
-    )
-    capture_output = StringIO()
-    sys.stdout = capture_output
-
-    # The _print_test_info() will print the module_info of the test_info's
-    # test_name first. Then, print its related build targets. If the build
-    # target be printed before(e.g. build_target == test_info's test_name),
-    # it will skip it and print the next build_target.
-    # Since the build_targets of test_info are mod_one, mod_two, and
-    # mod_three, it will print mod_one first, then mod_two, and mod_three.
-    #
-    # _print_test_info() calls _print_module_info_from_module_name() to
-    # print the module_info. And _print_module_info_from_module_name()
-    # calls get_module_info() to get the module_info. So we can mock
-    # get_module_info() to achieve that.
-    atest_main._print_test_info(mod_info, test_infos)
-
-    self.assertEqual(correct_output, capture_output.getvalue())
-
   def test_has_valid_test_mapping_args_is_test_mapping_detect_event_send_1(
       self,
   ):
@@ -388,7 +323,7 @@ class PrintModuleInfoTest(AtestUnittestFixture):
     expected_detect_type = DetectType.IS_TEST_MAPPING
     expected_result = 1
     metrics.LocalDetectEvent = mock.MagicMock()
-    args = atest_arg_parser.parse_args([])
+    args = arg_parser.create_atest_arg_parser().parse_args([])
 
     # Act
     atest_main._has_valid_test_mapping_args(args)
@@ -405,7 +340,7 @@ class PrintModuleInfoTest(AtestUnittestFixture):
     expected_detect_type = DetectType.IS_TEST_MAPPING
     expected_result = 0
     metrics.LocalDetectEvent = mock.MagicMock()
-    args = atest_arg_parser.parse_args(['test1'])
+    args = arg_parser.create_atest_arg_parser().parse_args(['test1'])
 
     # Act
     atest_main._has_valid_test_mapping_args(args)
