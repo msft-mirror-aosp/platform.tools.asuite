@@ -17,6 +17,7 @@
 """Base test module for Atest integration tests."""
 import concurrent.futures
 import json
+import logging
 import os
 from pathlib import Path
 import re
@@ -169,10 +170,14 @@ class AtestRunResult:
     with open(json_path, 'r', encoding='utf-8') as f:
       return json.load(f)
 
-  def get_atest_log_entries(self) -> list[LogEntry]:
-    """Gets the parsed atest log entries list from atest log file."""
+  def get_atest_log(self) -> str:
+    """Gets the log content read from the atest log file."""
     log_path = self.get_results_dir_path() / 'atest.log'
-    lines = log_path.read_text(encoding='utf-8').splitlines()
+    return log_path.read_text(encoding='utf-8')
+
+  def get_atest_log_entries(self) -> list[LogEntry]:
+    """Gets the parsed atest log entries list from the atest log file."""
+    lines = self.get_atest_log().splitlines()
     return [LogEntry(line) for line in lines if line]
 
   def get_atest_log_values_from_prefix(self, prefix: str) -> list[str]:
@@ -313,7 +318,7 @@ class AtestTestCase(split_build_test_script.SplitBuildTestTestCase):
         f' {cmd}{step_in.get_device_serial_args_or_empty()}'
     )
 
-    return AtestRunResult(
+    result = AtestRunResult(
         self._run_shell_command(
             complete_cmd.split(),
             env=step_in.get_env(),
@@ -324,6 +329,17 @@ class AtestTestCase(split_build_test_script.SplitBuildTestTestCase):
         step_in.get_repo_root(),
         step_in.get_config(),
     )
+
+    wrap_output_lines = lambda output_str: ''.join(
+        ('    > %s' % line for line in output_str.splitlines(True))
+    )
+    logging.debug('Executed an atest command: %s', complete_cmd)
+    logging.debug(
+        '  Atest command stdout:\n%s', wrap_output_lines(result.get_stdout())
+    )
+    logging.debug('  Atest log:\n%s', wrap_output_lines(result.get_atest_log()))
+
+    return result
 
   def _run_shell_command(
       self,
