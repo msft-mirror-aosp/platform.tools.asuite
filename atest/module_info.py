@@ -135,11 +135,26 @@ class Loader:
       sqlite_module_cache: bool = False,
       need_merge_fn: Callable = None,
   ):
+    logging.debug(
+        'Creating module info loader object with module_file: %s, force_build:'
+        ' %s, sqlite_module_cache: %s, need_merge_fn: %s',
+        module_file,
+        force_build,
+        sqlite_module_cache,
+        need_merge_fn,
+    )
     self.java_dep_path = atest_utils.get_build_out_dir('soong', _JAVA_DEP_INFO)
     self.cc_dep_path = atest_utils.get_build_out_dir('soong', _CC_DEP_INFO)
     self.merged_dep_path = atest_utils.get_product_out(_MERGED_INFO)
+    logging.debug(
+        'java_dep_path: %s, cc_dep_path: %s, merged_dep_path: %s',
+        self.java_dep_path,
+        self.cc_dep_path,
+        self.merged_dep_path,
+    )
 
     self.sqlite_module_cache = sqlite_module_cache
+    logging.debug('sqlite_module_cache: %s', sqlite_module_cache)
     if self.sqlite_module_cache:
       self.cache_file = atest_utils.get_product_out(_DB_NAME)
       self.save_cache_async = self._save_db_async
@@ -157,6 +172,7 @@ class Loader:
         f'suite-modules.{_DB_VERSION}.idx'
     )
     self.module_index_proc = None
+    logging.debug('module_index: %s', self.module_index)
 
     if module_file:
       self.mod_info_file_path = Path(module_file)
@@ -168,9 +184,15 @@ class Loader:
       self.update_merge_info = self.need_merge_module_info()
       self.load_module_info = self._load_module_info_file
 
+    logging.debug(
+        'Executing load_module_info function %s', self.load_module_info
+    )
     self.name_to_module_info, self.path_to_module_info = self.load_module_info()
 
+    logging.debug('Completed creating module info loader object')
+
   def load(self, save_timestamps: bool = False):
+    logging.debug('Loading ModuleInfo. save_timestamps: %s', save_timestamps)
     if save_timestamps:
       atest_utils.run_multi_proc(func=atest_utils.save_build_files_timestamp)
 
