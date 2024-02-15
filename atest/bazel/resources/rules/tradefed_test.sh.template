@@ -26,7 +26,6 @@ exit_code_file="$(mktemp /tmp/tf-exec-XXXXXXXXXX)"
     --template:map test=atest \
     --template:map reporters="${RESULT_REPORTERS_CONFIG_FILE}" \
     --tests-dir "${TEST_PATH}" \
-    --logcat-on-failure \
     --no-enable-granular-attempts \
     --no-early-device-release \
     --include-filter "${TEST_MODULE}" \

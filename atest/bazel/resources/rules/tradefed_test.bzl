@@ -389,6 +389,7 @@ def _generate_reporter_config(ctx):
     result_reporters = [
         "com.android.tradefed.result.BazelExitCodeResultReporter",
         "com.android.tradefed.result.BazelXmlResultReporter",
+        "com.android.tradefed.result.proto.FileProtoResultReporter",
     ]
 
     result_reporters.extend(ctx.attr._extra_tradefed_result_reporters[BuildSettingInfo].value)

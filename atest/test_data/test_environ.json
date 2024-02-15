@@ -66,5 +66,8 @@
 "PerInstance/CameraHidlTest#configureInjectionStreamsAvailableOutputs/0_internal_0": [
 ],
 "CtsWifiAwareTestCases": [
+],
+"pts-bot:PAN/GN/MISC/UUID/BV-01-C": [
 ]
+
 }

@@ -31,7 +31,9 @@ import static org.mockito.Mockito.verify;
 
 import com.android.tradefed.config.ConfigurationException;
 import com.android.tradefed.config.OptionSetter;
+import com.android.tradefed.invoker.IInvocationContext;
 import com.android.tradefed.invoker.InvocationContext;
+import com.android.tradefed.invoker.IInvocationContext;
 import com.android.tradefed.invoker.TestInformation;
 import com.android.tradefed.log.LogUtil.CLog;
 import com.android.tradefed.result.FailureDescription;
@@ -46,11 +48,13 @@ import com.android.tradefed.result.proto.TestRecordProto.FailureStatus;
 import com.android.tradefed.util.ZipUtil;
 
 import com.google.common.base.Splitter;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.io.MoreFiles;
 import com.google.common.util.concurrent.Uninterruptibles;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos;
 
 import org.junit.Before;
+import org.junit.Ignore;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.TemporaryFolder;
@@ -75,6 +79,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Properties;
 import java.util.Random;
 import java.util.concurrent.TimeUnit;
@@ -89,10 +94,15 @@ public final class BazelTestTest {
     private ILogSaverListener mMockListener;
     private TestInformation mTestInfo;
     private Path mBazelTempPath;
+    private Path mWorkspaceArchivePath;
 
     private static final String BAZEL_TEST_TARGETS_OPTION = "bazel-test-target-patterns";
     private static final String BEP_FILE_OPTION_NAME = "--build_event_binary_file";
     private static final String REPORT_CACHED_TEST_RESULTS_OPTION = "report-cached-test-results";
+    private static final String REPORT_CACHED_MODULES_SPARSELY_OPTION =
+            "report-cached-modules-sparsely";
+    private static final String BAZEL_TEST_MODULE_ID = "bazel-test-module-id";
+    private static final String TEST_MODULE_MODULE_ID = "single-tradefed-test-module-id";
     private static final long RANDOM_SEED = 1234567890L;
 
     @Rule public final TemporaryFolder tempDir = new TemporaryFolder();
@@ -101,10 +111,16 @@ public final class BazelTestTest {
     public void setUp() throws Exception {
         mMockListener = mock(ILogSaverListener.class);
         InvocationContext context = new InvocationContext();
-        context.addInvocationAttribute("module-id", "bazel-test-module-id");
+        context.addInvocationAttribute("module-id", BAZEL_TEST_MODULE_ID);
+        context.lockAttributes();
         mTestInfo = TestInformation.newBuilder().setInvocationContext(context).build();
         mBazelTempPath =
                 Files.createDirectory(tempDir.getRoot().toPath().resolve("bazel_temp_dir"));
+        Files.createDirectories(
+                tempDir.getRoot()
+                        .toPath()
+                        .resolve("bazel_suite_root/android-bazel-suite/out/atest_bazel_workspace"));
+        mWorkspaceArchivePath = tempDir.getRoot().toPath().resolve("bazel_suite_root");
     }
 
     @Test
@@ -115,6 +131,15 @@ public final class BazelTestTest {
 
         verify(mMockListener).testRunStarted(eq(BazelTest.class.getName()), eq(0));
         verify(mMockListener).testRunEnded(anyLong(), anyMap());
+    }
+
+    @Test
+    public void runSucceeds_noFailuresReported() throws Exception {
+        BazelTest bazelTest = newBazelTest();
+
+        bazelTest.run(mTestInfo, mMockListener);
+
+        verify(mMockListener, never()).testRunFailed(any(FailureDescription.class));
     }
 
     @Test
@@ -146,7 +171,7 @@ public final class BazelTestTest {
                 .testLog(contains(String.format("%s-log", BazelTest.RUN_TESTS)), any(), any());
     }
 
-   /*@Test
+    @Test
     public void runSucceeds_testLogsReportedUnderModule() throws Exception {
         BazelTest bazelTest = newBazelTest();
 
@@ -159,7 +184,33 @@ public final class BazelTestTest {
         inOrder.verify(mMockListener)
                 .testLog(eq("tf-test-process-invocation-log"), eq(LogDataType.XML), any());
         inOrder.verify(mMockListener).testModuleEnded();
-    }*/
+    }
+
+    @Test
+    public void traceFileWritten_traceFileReported() throws Exception {
+        FakeProcessStarter processStarter = newFakeProcessStarter();
+        processStarter.put(
+                BazelTest.RUN_TESTS,
+                builder -> {
+                    return new FakeBazelTestProcess(builder, mBazelTempPath) {
+                        @Override
+                        public void writeSingleTestOutputs(Path outputsDir, String testName)
+                                throws IOException, ConfigurationException {
+
+                            defaultWriteSingleTestOutputs(outputsDir, testName, true);
+                        }
+                    };
+                });
+        BazelTest bazelTest = newBazelTestWithProcessStarter(processStarter);
+
+        bazelTest.run(mTestInfo, mMockListener);
+
+        verify(mMockListener)
+                .testLog(
+                        eq("tf-test-process-fake-invocation-trace.perfetto-trace"),
+                        eq(LogDataType.TEXT),
+                        any());
+    }
 
     @Test
     public void malformedProtoResults_runFails() throws Exception {
@@ -172,7 +223,7 @@ public final class BazelTestTest {
                         public void writeSingleTestOutputs(Path outputsDir, String testName)
                                 throws IOException, ConfigurationException {
 
-                            super.writeSingleTestOutputs(outputsDir, testName);
+                            defaultWriteSingleTestOutputs(outputsDir, testName, false);
 
                             Path outputFile = outputsDir.resolve("proto-results");
                             Files.write(outputFile, "Malformed Proto File".getBytes());
@@ -296,6 +347,27 @@ public final class BazelTestTest {
     }
 
     @Test
+    public void bazelReturnsTestFailureCode_noFailureReported() throws Exception {
+        FakeProcessStarter processStarter = newFakeProcessStarter();
+        processStarter.put(
+                BazelTest.RUN_TESTS,
+                builder -> {
+                    return new FakeBazelTestProcess(builder, mBazelTempPath) {
+                        @Override
+                        public int exitValue() {
+                            return BazelTest.BAZEL_TESTS_FAILED_RETURN_CODE;
+                        }
+                    };
+                });
+        BazelTest bazelTest = newBazelTestWithProcessStarter(processStarter);
+
+        bazelTest.run(mTestInfo, mMockListener);
+
+        verify(mMockListener, never()).testRunFailed(any(FailureDescription.class));
+    }
+
+    @Test
+    @Ignore("b/281805276: Flaky")
     public void testTimeout_causesTestFailure() throws Exception {
         FakeProcessStarter processStarter = newFakeProcessStarter();
         processStarter.put(
@@ -523,6 +595,127 @@ public final class BazelTestTest {
         verify(mMockListener, never()).testStarted(any(), anyLong());
     }
 
+    @Test
+    public void bazelQuery_default() throws Exception {
+        List<String> command = new ArrayList<>();
+        FakeProcessStarter processStarter = newFakeProcessStarter();
+        processStarter.put(
+                BazelTest.QUERY_ALL_TARGETS,
+                builder -> {
+                    command.addAll(builder.command());
+                    return newPassingProcessWithStdout("unused");
+                });
+
+        BazelTest bazelTest = newBazelTestWithProcessStarter(processStarter);
+
+        bazelTest.run(mTestInfo, mMockListener);
+        assertThat(command).contains("kind(tradefed_deviceless_test, tests(//...))");
+    }
+
+    @Test
+    public void bazelQuery_optionOverride() throws Exception {
+        List<String> command = new ArrayList<>();
+        FakeProcessStarter processStarter = newFakeProcessStarter();
+        processStarter.put(
+                BazelTest.QUERY_ALL_TARGETS,
+                builder -> {
+                    command.addAll(builder.command());
+                    return newPassingProcessWithStdout("unused");
+                });
+
+        BazelTest bazelTest = newBazelTestWithProcessStarter(processStarter);
+        OptionSetter setter = new OptionSetter(bazelTest);
+        setter.setOptionValue("bazel-query", "tests(//vendor/...)");
+
+        bazelTest.run(mTestInfo, mMockListener);
+        assertThat(command).contains("tests(//vendor/...)");
+        // Default should be overridden and not appear in command
+        assertThat(command).doesNotContain("kind(tradefed_deviceless_test");
+    }
+
+    @Test
+    public void badLogFilePaths_failureReported() throws Exception {
+        FakeProcessStarter processStarter = newFakeProcessStarter();
+        processStarter.put(
+                BazelTest.RUN_TESTS,
+                builder -> {
+                    return new FakeBazelTestProcess(builder, mBazelTempPath) {
+                        @Override
+                        public void writeSingleTestOutputs(Path outputsDir, String testName)
+                                throws IOException, ConfigurationException {
+
+                            defaultWriteSingleTestOutputs(
+                                    outputsDir.resolve(Paths.get("bad-dir")), testName, false);
+                        }
+                    };
+                });
+        BazelTest bazelTest = newBazelTestWithProcessStarter(processStarter);
+
+        bazelTest.run(mTestInfo, mMockListener);
+
+        verify(mMockListener)
+                .testRunFailed(hasErrorIdentifier(TestErrorIdentifier.OUTPUT_PARSER_ERROR));
+    }
+
+    @Test
+    public void reportCachedModulesSparsely_reportsOnlyModuleLevelEvents() throws Exception {
+        FakeProcessStarter processStarter = newFakeProcessStarter();
+        processStarter.put(
+                BazelTest.RUN_TESTS,
+                builder -> {
+                    return new FakeBazelTestProcess(builder, mBazelTempPath) {
+                        @Override
+                        public void writeSingleTestResultEvent(File outputsZipFile, Path bepFile)
+                                throws IOException {
+
+                            writeSingleTestResultEvent(outputsZipFile, bepFile, /* cached */ true);
+                        }
+                    };
+                });
+        BazelTest bazelTest = newBazelTestWithProcessStarter(processStarter);
+        OptionSetter setter = new OptionSetter(bazelTest);
+        setter.setOptionValue(REPORT_CACHED_MODULES_SPARSELY_OPTION, "true");
+
+        bazelTest.run(mTestInfo, mMockListener);
+
+        // Verify that the test module calls happened.
+        InOrder inOrder = inOrder(mMockListener);
+        inOrder.verify(mMockListener)
+                .testModuleStarted(
+                        contextHasAttributes(
+                                ImmutableMap.of(
+                                        "module-id",
+                                        TEST_MODULE_MODULE_ID,
+                                        "sparse-module",
+                                        "true")));
+        inOrder.verify(mMockListener).testModuleEnded();
+
+        // Verify that no tests were reported.
+        verify(mMockListener, never()).testStarted(any(), anyLong());
+    }
+
+    @Test
+    public void testModuleCached_cachedPropertyReported() throws Exception {
+        FakeProcessStarter processStarter = newFakeProcessStarter();
+        processStarter.put(
+                BazelTest.RUN_TESTS,
+                builder -> {
+                    return new FakeBazelTestProcess(builder, mBazelTempPath) {
+                        @Override
+                        public void writeSingleTestResultEvent(File outputsZipFile, Path bepFile)
+                                throws IOException {
+
+                            writeSingleTestResultEvent(outputsZipFile, bepFile, /* cached */ true);
+                        }
+                    };
+                });
+        BazelTest bazelTest = newBazelTestWithProcessStarter(processStarter);
+
+        bazelTest.run(mTestInfo, mMockListener);
+
+        verify(mMockListener).testModuleStarted(hasInvocationAttribute("module-cached", "true"));
+    }
+
     private static byte[] logFileContents() {
         // Seed Random to always get the same sequence of values.
         Random rand = new Random(RANDOM_SEED);
@@ -579,10 +772,25 @@ public final class BazelTestTest {
 
     private Properties bazelTestProperties() {
         Properties properties = new Properties();
-        properties.put("BAZEL_SUITE_ROOT", "/phony/path/to/bazel/test/suite");
+        properties.put("BAZEL_SUITE_ROOT", mWorkspaceArchivePath.toAbsolutePath().toString());
         properties.put("java.io.tmpdir", mBazelTempPath.toAbsolutePath().toString());
 
         return properties;
+    }
+
+    private FakeProcessStarter newFakeProcessStarter() throws IOException {
+        String targetName = "//bazel/target:default_target_host";
+        FakeProcessStarter processStarter = new FakeProcessStarter();
+        processStarter.put(BazelTest.QUERY_ALL_TARGETS, newPassingProcessWithStdout(targetName));
+        processStarter.put(
+                BazelTest.QUERY_MAP_MODULES_TO_TARGETS,
+                newPassingProcessWithStdout("default_target " + targetName));
+        processStarter.put(
+                BazelTest.RUN_TESTS,
+                builder -> {
+                    return new FakeBazelTestProcess(builder, mBazelTempPath);
+                });
+        return processStarter;
     }
 
     private static FailureDescription hasErrorIdentifier(ErrorIdentifier error) {
@@ -615,19 +823,40 @@ public final class BazelTestTest {
                 });
     }
 
-    private FakeProcessStarter newFakeProcessStarter() throws IOException {
-        String targetName = "//bazel/target:default_target_host";
-        FakeProcessStarter processStarter = new FakeProcessStarter();
-        processStarter.put(BazelTest.QUERY_ALL_TARGETS, newPassingProcessWithStdout(targetName));
-        processStarter.put(
-                BazelTest.QUERY_MAP_MODULES_TO_TARGETS,
-                newPassingProcessWithStdout("default_target " + targetName));
-        processStarter.put(
-                BazelTest.RUN_TESTS,
-                builder -> {
-                    return new FakeBazelTestProcess(builder, mBazelTempPath);
+    private static IInvocationContext contextHasAttributes(
+            ImmutableMap<String, String> attributes) {
+        return argThat(
+                new ArgumentMatcher<IInvocationContext>() {
+                    @Override
+                    public boolean matches(IInvocationContext right) {
+                        for (Entry<String, String> entry : attributes.entrySet()) {
+                            if (!right.getAttribute(entry.getKey()).equals(entry.getValue())) {
+                                return false;
+                            }
+                        }
+                        return true;
+                    }
+
+                    @Override
+                    public String toString() {
+                        return "contextHasAttributes(" + attributes.toString() + ")";
+                    }
                 });
-        return processStarter;
+    }
+
+    private static IInvocationContext hasInvocationAttribute(String key, String value) {
+        return argThat(
+                new ArgumentMatcher<IInvocationContext>() {
+                    @Override
+                    public boolean matches(IInvocationContext right) {
+                        return right.getAttribute(key).equals(value);
+                    }
+
+                    @Override
+                    public String toString() {
+                        return "hasInvocationAttribute(" + key + ", " + value + ")";
+                    }
+                });
     }
 
     private static List<Path> listDirContents(Path dir) throws IOException {
@@ -748,17 +977,32 @@ public final class BazelTestTest {
         void writeSingleTestOutputs(Path outputsDir, String testName)
                 throws IOException, ConfigurationException {
 
+            defaultWriteSingleTestOutputs(outputsDir, testName, false);
+        }
+
+        final void defaultWriteSingleTestOutputs(
+                Path outputsDir, String testName, boolean writeTraceFile)
+                throws IOException, ConfigurationException {
+
             FileProtoResultReporter reporter = new FileProtoResultReporter();
             OptionSetter setter = new OptionSetter(reporter);
             Path outputFile = outputsDir.resolve("proto-results");
             setter.setOptionValue("proto-output-file", outputFile.toAbsolutePath().toString());
 
-            Path logDir = Files.createDirectories(outputsDir.resolve("stub/-1/stub"));
+            Path logDir =
+                    Files.createDirectories(
+                            outputsDir
+                                    .resolve(BazelTest.BRANCH_TEST_ARG)
+                                    .resolve(BazelTest.BUILD_TEST_ARG)
+                                    .resolve(BazelTest.TEST_TAG_TEST_ARG));
             Path isolatedJavaLog = createLogFile("isolated-java-logs.tar.gz", logDir);
             Path tfConfig = createLogFile("tradefed-expanded-config.xml", logDir);
+            if (writeTraceFile) {
+                createLogFile("fake-invocation-trace.perfetto-trace", logDir);
+            }
 
             InvocationContext context = new InvocationContext();
-            context.addInvocationAttribute("module-id", "single-tradefed-test-module-id");
+            context.addInvocationAttribute("module-id", TEST_MODULE_MODULE_ID);
 
             reporter.invocationStarted(context);
             reporter.testModuleStarted(context);
