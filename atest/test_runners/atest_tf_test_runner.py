@@ -300,6 +300,7 @@ class AtestTradefedTestRunner(trb.TestRunnerBase):
     Returns:
         0 if tests succeed, non-zero otherwise.
     """
+    logging.debug('TF test runner running tests %s', test_infos)
     reporter.log_path = self.log_path
     reporter.rerun_options = self._extract_rerun_options(extra_args)
     # Set google service key if it's available or found before
@@ -319,6 +320,10 @@ class AtestTradefedTestRunner(trb.TestRunnerBase):
       # Change CWD to repo root to ensure TF can find prebuilt SDKs
       # for some path-sensitive tests like robolectric.
       os.chdir(os.path.abspath(os.getenv(constants.ANDROID_BUILD_TOP)))
+
+      # Copy symbols if there are tests belong to native test.
+      self._handle_native_tests(test_infos)
+
       if os.getenv(trb.OLD_OUTPUT_ENV_VAR):
         result = self.run_tests_raw(test_infos, extra_args, reporter)
       else:
@@ -932,9 +937,9 @@ class AtestTradefedTestRunner(trb.TestRunnerBase):
     if is_log_upload_enabled(extra_args):
       self.use_google_log_saver()
 
-    # Copy symbols if there are tests belong to native test.
-    self._handle_native_tests(test_infos)
-    return [self._RUN_CMD.format(**self.run_cmd_dict)]
+    run_commands = [self._RUN_CMD.format(**self.run_cmd_dict)]
+    logging.debug('TF test runner generated run commands %s', run_commands)
+    return run_commands
 
   def _flatten_test_infos(self, test_infos):
     """Sort and group test_infos by module_name and sort and group filters

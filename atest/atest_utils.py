@@ -1573,8 +1573,14 @@ def save_build_files_timestamp():
       $ANDROID_HOST_OUT/indices/buildfiles.stp
   """
   plocate_db = get_index_path(constants.LOCATE_CACHE)
+  plocate_db_exist = plocate_db.is_file()
+  logging.debug(
+      'Build files timestamp db file %s exists: %s',
+      plocate_db,
+      plocate_db_exist,
+  )
 
-  if plocate_db.is_file():
+  if plocate_db_exist:
     cmd = f'locate -d{plocate_db} --existing ' r'--regex "/Android\.(bp|mk)$"'
     results = subprocess.getoutput(cmd)
     if results:
@@ -1582,8 +1588,9 @@ def save_build_files_timestamp():
       for build_file in results.splitlines():
         timestamp.update({build_file: Path(build_file).stat().st_mtime})
 
-      checksum_file = get_index_path(constants.BUILDFILES_STP)
-      with open(checksum_file, 'w', encoding='utf-8') as _file:
+      timestamp_file = get_index_path(constants.BUILDFILES_STP)
+      logging.debug('Writing to build files timestamp db %s', timestamp_file)
+      with open(timestamp_file, 'w', encoding='utf-8') as _file:
         json.dump(timestamp, _file)
 
 
@@ -2055,21 +2062,40 @@ def get_rbe_and_customized_out_state() -> int:
 
 def build_files_integrity_is_ok() -> bool:
   """Return Whether the integrity of build files is OK."""
-  # 0. Inexistence of the timestamp or plocate.db means a fresh repo sync.
+  # 0. Missing timestamp file or plocate.db means a fresh repo sync.
   timestamp_file = get_index_path(constants.BUILDFILES_STP)
   locate_cache = get_index_path(constants.LOCATE_CACHE)
-  if not all((timestamp_file.is_file(), locate_cache.is_file())):
+  if not timestamp_file.is_file():
+    logging.debug('timestamp_file %s is missing', timestamp_file)
+    return False
+  if not locate_cache.is_file():
+    logging.debug('locate_cache file %s is missing', locate_cache)
     return False
 
   # 1. Ensure no build files were added/deleted.
   recorded_amount = len(load_json_safely(timestamp_file).keys())
-  cmd = f'locate -e -d{locate_cache} --regex ' r'"/Android\.(bp|mk)$" | wc -l'
-  if int(subprocess.getoutput(cmd)) != recorded_amount:
+  cmd_out = subprocess.getoutput(
+      f'locate -e -d{locate_cache} --regex ' r'"/Android\.(bp|mk)$" | wc -l'
+  )
+  if int(cmd_out) != recorded_amount:
+    logging.debug(
+        'Some build files are added/deleted. Recorded number of files: %s,'
+        ' actual: %s',
+        recorded_amount,
+        cmd_out,
+    )
     return False
 
   # 2. Ensure the consistency of all build files.
   for file, timestamp in load_json_safely(timestamp_file).items():
     if Path(file).exists() and Path(file).stat().st_mtime != timestamp:
+      logging.debug(
+          'A build file is changed: %s. Recorded timestamp: %s, actual'
+          ' timestamp: %s',
+          file,
+          timestamp,
+          Path(file).stat().st_mtime,
+      )
       return False
   return True
 
