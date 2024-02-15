@@ -19,7 +19,7 @@ import concurrent.futures
 import json
 import logging
 import os
-from pathlib import Path
+import pathlib
 import re
 import shutil
 import subprocess
@@ -62,7 +62,11 @@ class LogEntry:
     """Initializes a LogEntry object from a logging line.
 
     Args:
-        log_line: The logging line to parse.
+        timestamp_str: The timestamp header string in each log entry.
+        src_file_name: The source file name in the log entry.
+        src_file_line_number: The source file line number in the log entry.
+        log_level: The log level string in the log entry.
+        content_lines: A list of log entry content lines.
     """
     self._timestamp_string = timestamp_str
     self._source_file_name = src_file_name
@@ -102,7 +106,7 @@ class AtestRunResult:
 
   def __init__(
       self,
-      completed_process: subprocess.CompletedProcess,
+      completed_process: subprocess.CompletedProcess[str],
       env: dict[str, str],
       repo_root: str,
       config: split_build_test_script.IntegrationTestConfiguration,
@@ -128,7 +132,7 @@ class AtestRunResult:
     """Returns the command list used in the process run."""
     return self._completed_process.args
 
-  def get_results_dir_path(self, snapshot_ready=False) -> Path:
+  def get_results_dir_path(self, snapshot_ready=False) -> pathlib.Path:
     """Returns the atest results directory path.
 
     Args:
@@ -136,18 +140,24 @@ class AtestRunResult:
           ready. When set to True and called in build environment, this method
           will copy the path into <repo_root>/out with dereferencing so that the
           directory can be safely added to snapshot.
+
+    Raises:
+        RuntimeError: Failed to parse the result dir path.
+
+    Returns:
+        The Atest result directory path.
     """
     results_dir = None
     for line in self.get_stdout().splitlines(keepends=False):
       if line.startswith(_RESULTS_DIR_PRINT_PREFIX):
-        results_dir = Path(line[len(_RESULTS_DIR_PRINT_PREFIX) :])
+        results_dir = pathlib.Path(line[len(_RESULTS_DIR_PRINT_PREFIX) :])
     if not results_dir:
       raise RuntimeError('Failed to parse the result directory from stdout.')
 
     if self._config.is_test_env or not snapshot_ready:
       return results_dir
 
-    result_dir_copy_path = Path(self._env['OUT_DIR']).joinpath(
+    result_dir_copy_path = pathlib.Path(self._env['OUT_DIR']).joinpath(
         'atest_integration_tests', results_dir.name
     )
     if not result_dir_copy_path.exists():
@@ -158,9 +168,10 @@ class AtestRunResult:
   def get_test_result_dict(self) -> dict[str, Any]:
     """Gets the atest results loaded from the test_result json.
 
-    Reads the test_result json file and return the content as dict. The test
-    result usually contains information about test runners and test pass/fail
-    results.
+    Returns:
+        Atest result information loaded from the test_result json file. The test
+        result usually contains information about test runners and test
+        pass/fail results.
     """
     json_path = self.get_results_dir_path() / 'test_result'
     with open(json_path, 'r', encoding='utf-8') as f:
@@ -369,7 +380,7 @@ class AtestTestCase(split_build_test_script.SplitBuildTestTestCase):
       env: dict[str, str],
       cwd: str,
       print_output: bool = True,
-  ) -> subprocess.CompletedProcess:
+  ) -> subprocess.CompletedProcess[str]:
     """Execute shell command with real time output printing and capture."""
 
     def read_output(read_src, print_dst, capture_dst):
@@ -407,14 +418,16 @@ class AtestTestCase(split_build_test_script.SplitBuildTestTestCase):
     """Get the relative jdk directory in build environment."""
     if split_build_test_script.ANDROID_BUILD_TOP_KEY not in os.environ:
       return []
-    absolute_path = Path(os.environ['ANDROID_JAVA_HOME'])
+    absolute_path = pathlib.Path(os.environ['ANDROID_JAVA_HOME'])
     while not absolute_path.name.startswith('jdk'):
       absolute_path = absolute_path.parent
     if not absolute_path.name.startswith('jdk'):
       raise ValueError(
           'Unrecognized jdk directory ' + os.environ['ANDROID_JAVA_HOME']
       )
-    repo_root = Path(os.environ[split_build_test_script.ANDROID_BUILD_TOP_KEY])
+    repo_root = pathlib.Path(
+        os.environ[split_build_test_script.ANDROID_BUILD_TOP_KEY]
+    )
     return [absolute_path.relative_to(repo_root).as_posix()]
 
 

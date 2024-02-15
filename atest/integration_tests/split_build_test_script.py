@@ -23,8 +23,7 @@ restoration later.
 
 import argparse
 import atexit
-import concurrent
-from concurrent.futures import ThreadPoolExecutor
+import concurrent.futures
 import copy
 import datetime
 import functools
@@ -32,7 +31,7 @@ import itertools
 import logging
 import multiprocessing
 import os
-from pathlib import Path
+import pathlib
 import shutil
 import subprocess
 import sys
@@ -60,9 +59,9 @@ class IntegrationTestConfiguration:
   is_build_env: bool = False
   is_test_env: bool = False
   is_device_serial_required = True
-  snapshot_storage_path: Path = None
-  snapshot_storage_tar_path: Path = None
-  workspace_path: Path = None
+  snapshot_storage_path: pathlib.Path = None
+  snapshot_storage_tar_path: pathlib.Path = None
+  workspace_path: pathlib.Path = None
   is_tar_snapshot: bool = False
 
 
@@ -124,6 +123,9 @@ class StepOutput:
 
     Note that the default include paths will be removed.
     Use add_snapshot_include_paths if that's not intended.
+
+    Args:
+        paths: The new list of paths to include for snapshot.
     """
     self._snapshot_include_paths.clear()
     self._snapshot_include_paths.extend(paths)
@@ -174,6 +176,9 @@ class SplitBuildTestScript:
     Args:
         step_func: A function that takes a StepInput object and returns a
           StepOutput object.
+
+    Raises:
+        RuntimeError: Unexpected step orders detected.
     """
     if self._steps and isinstance(self._steps[-1], self._BuildStep):
       raise RuntimeError(
@@ -186,6 +191,9 @@ class SplitBuildTestScript:
 
     Args:
         step_func: A function that takes a StepInput object.
+
+    Raises:
+        RuntimeError: Unexpected step orders detected.
     """
     if not self._steps or isinstance(self._steps[-1], self._TestStep):
       raise RuntimeError('A build step is required before a test step.')
@@ -212,6 +220,8 @@ class SplitBuildTestScript:
     """Run the steps added previously.
 
     This function cannot be executed more than once.
+    Raises:
+        RuntimeError: When attempted to run the script multiple times.
     """
     if self._has_already_run:
       raise RuntimeError(f'Script {self.name} has already run.')
@@ -341,7 +351,7 @@ class SplitBuildTestTestCase(unittest.TestCase):
       name = self.id()
       main_module_name = '__main__'
       if name.startswith(main_module_name):
-        script_name = Path(sys.modules[main_module_name].__file__).stem
+        script_name = pathlib.Path(sys.modules[main_module_name].__file__).stem
         name = name.replace(main_module_name, script_name)
     return SplitBuildTestScript(name, self.injected_config)
 
@@ -349,23 +359,25 @@ class SplitBuildTestTestCase(unittest.TestCase):
 class _FileCompressor:
   """Class for compressing and decompressing files."""
 
-  def compress_all_sub_files(self, root_path: Path) -> None:
+  def compress_all_sub_files(self, root_path: pathlib.Path) -> None:
     """Compresses all files in the given directory and subdirectories.
 
     Args:
-        root_path: Path to the root directory.
+        root_path: The path to the root directory.
     """
     cpu_count = multiprocessing.cpu_count()
-    with ThreadPoolExecutor(max_workers=cpu_count) as executor:
+    with concurrent.futures.ThreadPoolExecutor(
+        max_workers=cpu_count
+    ) as executor:
       for file_path in root_path.rglob('*'):
         if file_path.is_file():
           executor.submit(self.compress_file, file_path)
 
-  def compress_file(self, file_path: Path) -> None:
+  def compress_file(self, file_path: pathlib.Path) -> None:
     """Compresses a single file to zip.
 
     Args:
-        file_path: Path to the file to compress.
+        file_path: The path to the file to compress.
     """
     with zipfile.ZipFile(
         file_path.with_suffix('.zip'), 'w', zipfile.ZIP_DEFLATED
@@ -373,22 +385,24 @@ class _FileCompressor:
       zip_file.write(file_path, arcname=file_path.name)
     file_path.unlink()
 
-  def decompress_all_sub_files(self, root_path: Path) -> None:
+  def decompress_all_sub_files(self, root_path: pathlib.Path) -> None:
     """Decompresses all compressed sub files in the given directory.
 
     Args:
-        root_path: Path to the root directory.
+        root_path: The path to the root directory.
     """
     cpu_count = multiprocessing.cpu_count()
-    with ThreadPoolExecutor(max_workers=cpu_count) as executor:
+    with concurrent.futures.ThreadPoolExecutor(
+        max_workers=cpu_count
+    ) as executor:
       for file_path in root_path.rglob('*.zip'):
         executor.submit(self.decompress_file, file_path)
 
-  def decompress_file(self, file_path: Path) -> None:
+  def decompress_file(self, file_path: pathlib.Path) -> None:
     """Decompresses a single zip file.
 
     Args:
-        file_path: Path to the compressed file.
+        file_path: The path to the compressed file.
     """
     with zipfile.ZipFile(file_path, 'r') as zip_file:
       zip_file.extractall(file_path.parent)
@@ -561,7 +575,7 @@ class ParallelTestRunner(unittest.TextTestRunner):
         list(concurrent.futures.as_completed(map(_execute_test, test_group)))
 
 
-def _configure_logging(verbose: bool, log_file_dir_path: Path):
+def _configure_logging(verbose: bool, log_file_dir_path: pathlib.Path):
   """Configure the logger.
 
   Args:
@@ -745,7 +759,7 @@ def _run_test(
     )
 
   if test_output_file_path:
-    Path(test_output_file_path).parent.mkdir(exist_ok=True)
+    pathlib.Path(test_output_file_path).parent.mkdir(exist_ok=True)
 
     with open(test_output_file_path, 'w', encoding='utf-8') as test_output_file:
       unittest_main(stream=test_output_file)
@@ -791,6 +805,9 @@ def main(
       config_update_function: A function that takes a
         IntegrationTestConfiguration config and the parsed args to updates the
         config.
+
+  Raises:
+      EnvironmentError: When some environment variables are missing.
   """
   if not argv:
     argv = sys.argv
@@ -802,14 +819,16 @@ def main(
   snapshot_storage_dir_name = 'snapshot_storage'
   snapshot_storage_tar_name = 'snapshot.tar'
 
-  integration_test_out_path = Path(
+  integration_test_out_path = pathlib.Path(
       tempfile.gettempdir(),
       'asuite_integration_tests_%s'
-      % Path('~').expanduser().name.replace(' ', '_'),
+      % pathlib.Path('~').expanduser().name.replace(' ', '_'),
   )
 
   if SNAPSHOT_STORAGE_TAR_KEY in os.environ:
-    snapshot_storage_tar_path = Path(os.environ[SNAPSHOT_STORAGE_TAR_KEY])
+    snapshot_storage_tar_path = pathlib.Path(
+        os.environ[SNAPSHOT_STORAGE_TAR_KEY]
+    )
     snapshot_storage_tar_path.parent.mkdir(parents=True, exist_ok=True)
   else:
     snapshot_storage_tar_path = integration_test_out_path.joinpath(
@@ -834,7 +853,7 @@ def main(
   config.workspace_path = integration_test_out_path.joinpath('workspace')
   # Device serial is not required during local run, and
   # ANDROID_BUILD_TOP_KEY env being available implies it's local run.
-  config.is_device_serial_required = not ANDROID_BUILD_TOP_KEY in os.environ
+  config.is_device_serial_required = ANDROID_BUILD_TOP_KEY not in os.environ
   config.is_tar_snapshot = args.tar_snapshot
 
   if config_update_function:
@@ -858,13 +877,17 @@ def main(
 
     if 'OUT_DIR' in os.environ:
       out_dir = os.environ['OUT_DIR']
-      if os.path.isabs(out_dir) and not Path(out_dir).is_relative_to(repo_root):
-        raise RuntimeError(
+      if os.path.isabs(out_dir) and not pathlib.Path(out_dir).is_relative_to(
+          repo_root
+      ):
+        raise EnvironmentError(
             f'$OUT_DIR {out_dir} not relative to the repo root'
             f' {repo_root} is not supported yet.'
         )
     elif 'HOST_OUT' in os.environ:
-      out_dir = Path(os.environ['HOST_OUT']).relative_to(repo_root).parts[0]
+      out_dir = (
+          pathlib.Path(os.environ['HOST_OUT']).relative_to(repo_root).parts[0]
+      )
     else:
       out_dir = 'out'
     os.environ['OUT_DIR'] = out_dir
