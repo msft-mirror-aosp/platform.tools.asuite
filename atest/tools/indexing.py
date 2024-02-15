@@ -416,10 +416,13 @@ class Indices:
 
   def has_all_indices(self):
     """Whether all indices files exist."""
-    return all((
+    exists = [
         self.locate_db.exists(),
         self.classes_idx.exists(),
         self.cc_classes_idx.exists(),
         self.packages_idx.exists(),
         self.fqcn_idx.exists(),
-    ))
+    ]
+    if not all(exists):
+      logging.debug("Some index file doesn't exist: %s", exists)
+    return all(exists)
