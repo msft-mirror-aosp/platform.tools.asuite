@@ -16,6 +16,7 @@
 
 from __future__ import print_function
 
+import getpass
 import logging
 import random
 import socket
@@ -116,6 +117,7 @@ class MetricsBase:
   cc = clearcut_client.Clearcut(_log_source)
   tool_name = None
   sub_tool_name = ''
+  user_name = getpass.getuser()
 
   def __new__(cls, **kwargs):
     """Send metric event to clearcut.
@@ -153,6 +155,8 @@ class MetricsBase:
         'sub_tool_name': cls.sub_tool_name,
         cls._EVENT_NAME: fields_and_values,
     }
+    if cls.user_type == INTERNAL_USER:
+      params['user_name'] = cls.user_name
     log_event = cls._build_full_event(ATEST_EVENTS[cls.user_type](**params))
     cls.cc.log(log_event)
     return cls.cc
