@@ -41,8 +41,8 @@ class CommandVerificationTests(AtestTestCase):
     """Verify that the test's command runs correctly."""
     atest_cmd = 'AnimatorTest'
     expected_cmd = (
-        'atest_tradefed.sh template/atest_device_test_base --template:map'
-        ' test=atest --template:map log_saver=template/log/atest_log_saver'
+        'atest_tradefed.sh template/atest_local_min --template:map test=atest'
+        ' --template:map log_saver=template/log/atest_log_saver'
         ' --no-enable-granular-attempts --module CtsAnimationTestCases'
         ' --atest-include-filter'
         ' CtsAnimationTestCases:android.animation.cts.AnimatorTest'
@@ -63,8 +63,8 @@ class CommandVerificationTests(AtestTestCase):
     """Verify that the test's command runs correctly."""
     atest_cmd = 'CtsAnimationTestCases:AnimatorTest'
     expected_cmd = (
-        'atest_tradefed.sh template/atest_device_test_base --template:map'
-        ' test=atest --template:map log_saver=template/log/atest_log_saver'
+        'atest_tradefed.sh template/atest_local_min --template:map test=atest'
+        ' --template:map log_saver=template/log/atest_log_saver'
         ' --no-enable-granular-attempts --module CtsAnimationTestCases'
         ' --atest-include-filter'
         ' CtsAnimationTestCases:android.animation.cts.AnimatorTest'
@@ -87,7 +87,7 @@ class CommandVerificationTests(AtestTestCase):
         'CtsSampleDeviceTestCases:SampleDeviceTest#testSharedPreferences'
     )
     expected_cmd = (
-        'atest_tradefed.sh template/atest_device_test_base --template:map'
+        'atest_tradefed.sh template/atest_local_min --template:map'
         ' test=atest'
         ' --template:map log_saver=template/log/atest_log_saver'
         ' --no-enable-granular-attempts --include-filter'
@@ -107,7 +107,7 @@ class CommandVerificationTests(AtestTestCase):
     """Verify that the test's command runs correctly."""
     atest_cmd = 'CtsSampleDeviceTestCases:android.sample.cts'
     expected_cmd = (
-        'atest_tradefed.sh template/atest_device_test_base --template:map'
+        'atest_tradefed.sh template/atest_local_min --template:map'
         ' test=atest'
         ' --template:map log_saver=template/log/atest_log_saver'
         ' --no-enable-granular-attempts --include-filter'
@@ -129,7 +129,7 @@ class CommandVerificationTests(AtestTestCase):
         'CtsSampleDeviceTestCases:android.sample.cts.SampleDeviceReportLogTest'
     )
     expected_cmd = (
-        'atest_tradefed.sh template/atest_device_test_base --template:map'
+        'atest_tradefed.sh template/atest_local_min --template:map'
         ' test=atest'
         ' --template:map log_saver=template/log/atest_log_saver'
         ' --no-enable-granular-attempts --include-filter'
@@ -149,7 +149,7 @@ class CommandVerificationTests(AtestTestCase):
     """Verify that the test's command runs correctly."""
     atest_cmd = 'CtsAnimationTestCases CtsSampleDeviceTestCases'
     expected_cmd = (
-        'atest_tradefed.sh template/atest_device_test_base --template:map'
+        'atest_tradefed.sh template/atest_local_min --template:map'
         ' test=atest'
         ' --template:map log_saver=template/log/atest_log_saver'
         ' --no-enable-granular-attempts --include-filter CtsAnimationTestCases'
@@ -168,7 +168,7 @@ class CommandVerificationTests(AtestTestCase):
     """Verify that the test's command runs correctly."""
     atest_cmd = 'HelloWorldTests'
     expected_cmd = (
-        'atest_tradefed.sh template/atest_device_test_base --template:map'
+        'atest_tradefed.sh template/atest_local_min --template:map'
         ' test=atest --template:map log_saver=template/log/atest_log_saver'
         ' --no-enable-granular-attempts --include-filter HelloWorldTests'
         ' --include-filter hallo-welt --skip-loading-config-jar'
@@ -185,8 +185,8 @@ class CommandVerificationTests(AtestTestCase):
     """Verify that the test's command runs correctly."""
     atest_cmd = 'MixedManagedProfileOwnerTest#testPasswordSufficientInitially'
     expected_cmd = (
-        'atest_tradefed.sh template/atest_device_test_base --template:map'
-        ' test=atest --template:map log_saver=template/log/atest_log_saver'
+        'atest_tradefed.sh template/atest_local_min --template:map test=atest'
+        ' --template:map log_saver=template/log/atest_log_saver'
         ' --no-enable-granular-attempts --module'
         ' CtsDevicePolicyManagerTestCases --atest-include-filter'
         ' CtsDevicePolicyManagerTestCases:com.android.cts.devicepolicy.MixedManagedProfileOwnerTest#testPasswordSufficientInitially'
@@ -208,8 +208,8 @@ class CommandVerificationTests(AtestTestCase):
         'configureInjectionStreamsAvailableOutputs/0_internal_0'
     )
     expected_cmd = (
-        'atest_tradefed.sh template/atest_device_test_base --template:map'
-        ' test=atest --template:map log_saver=template/log/atest_log_saver'
+        'atest_tradefed.sh template/atest_local_min --template:map test=atest'
+        ' --template:map log_saver=template/log/atest_log_saver'
         ' --no-enable-granular-attempts --include-filter'
         ' VtsHalCameraProviderV2_4TargetTest --atest-include-filter'
         ' VtsHalCameraProviderV2_4TargetTest:PerInstance/CameraHidlTest.configureInjectionStreamsAvailableOutputs/0_internal_0'
@@ -230,8 +230,8 @@ class CommandVerificationTests(AtestTestCase):
         '0_internal_0'
     )
     expected_cmd = (
-        'atest_tradefed.sh template/atest_device_test_base --template:map'
-        ' test=atest --template:map log_saver=template/log/atest_log_saver'
+        'atest_tradefed.sh template/atest_local_min --template:map test=atest'
+        ' --template:map log_saver=template/log/atest_log_saver'
         ' --no-enable-granular-attempts --include-filter'
         ' VtsHalCameraProviderV2_4TargetTest --atest-include-filter'
         ' VtsHalCameraProviderV2_4TargetTest:PerInstance/CameraHidlTest.configureInjectionStreamsAvailableOutputs/0_internal_0'
@@ -248,8 +248,8 @@ class CommandVerificationTests(AtestTestCase):
     """Verify that the test's command runs correctly."""
     atest_cmd = 'android.animation.cts'
     expected_cmd = (
-        'atest_tradefed.sh template/atest_device_test_base --template:map'
-        ' test=atest --template:map log_saver=template/log/atest_log_saver'
+        'atest_tradefed.sh template/atest_local_min --template:map test=atest'
+        ' --template:map log_saver=template/log/atest_log_saver'
         ' --no-enable-granular-attempts --module CtsAnimationTestCases'
         ' --atest-include-filter CtsAnimationTestCases:android.animation.cts'
         ' --skip-loading-config-jar --log-level-display VERBOSE --log-level'
@@ -269,7 +269,7 @@ class CommandVerificationTests(AtestTestCase):
     """Verify that the test's command runs correctly."""
     atest_cmd = 'android.sample.cts.SampleDeviceReportLogTest'
     expected_cmd = (
-        'atest_tradefed.sh template/atest_device_test_base --template:map'
+        'atest_tradefed.sh template/atest_local_min --template:map'
         ' test=atest'
         ' --template:map log_saver=template/log/atest_log_saver'
         ' --no-enable-granular-attempts --include-filter'
@@ -289,7 +289,7 @@ class CommandVerificationTests(AtestTestCase):
     """Verify that the test's command runs correctly."""
     atest_cmd = 'android.sample.cts.SampleDeviceTest#testSharedPreferences'
     expected_cmd = (
-        'atest_tradefed.sh template/atest_device_test_base --template:map'
+        'atest_tradefed.sh template/atest_local_min --template:map'
         ' test=atest'
         ' --template:map log_saver=template/log/atest_log_saver'
         ' --no-enable-granular-attempts --include-filter'
@@ -309,7 +309,7 @@ class CommandVerificationTests(AtestTestCase):
     """Verify that the test's command runs correctly."""
     atest_cmd = 'hello_world_test'
     expected_cmd = (
-        'atest_tradefed.sh template/atest_device_test_base --template:map'
+        'atest_tradefed.sh template/atest_local_min --template:map'
         ' test=atest --template:map log_saver=template/log/atest_log_saver'
         ' --no-enable-granular-attempts --include-filter hello_world_test'
         ' --skip-loading-config-jar --log-level-display VERBOSE --log-level'
@@ -325,7 +325,7 @@ class CommandVerificationTests(AtestTestCase):
     """Verify that the test's command runs correctly."""
     atest_cmd = 'native-benchmark'
     expected_cmd = (
-        'atest_tradefed.sh template/atest_device_test_base --template:map'
+        'atest_tradefed.sh template/atest_local_min --template:map'
         ' test=atest --template:map log_saver=template/log/atest_log_saver'
         ' --no-enable-granular-attempts --include-filter native-benchmark'
         ' --log-level-display VERBOSE --log-level VERBOSE'
@@ -341,7 +341,7 @@ class CommandVerificationTests(AtestTestCase):
     """Verify that the test's command runs correctly."""
     atest_cmd = 'platform_testing/tests/example/native'
     expected_cmd = (
-        'atest_tradefed.sh template/atest_device_test_base --template:map'
+        'atest_tradefed.sh template/atest_local_min --template:map'
         ' test=atest --template:map log_saver=template/log/atest_log_saver'
         ' --no-enable-granular-attempts --include-filter hello_world_test'
         ' --skip-loading-config-jar --log-level-display VERBOSE --log-level'
@@ -357,7 +357,7 @@ class CommandVerificationTests(AtestTestCase):
     """Verify that the test's command runs correctly."""
     atest_cmd = 'platform_testing/tests/example/native/Android.bp'
     expected_cmd = (
-        'atest_tradefed.sh template/atest_device_test_base --template:map'
+        'atest_tradefed.sh template/atest_local_min --template:map'
         ' test=atest --template:map log_saver=template/log/atest_log_saver'
         ' --no-enable-granular-attempts --include-filter hello_world_test'
         ' --skip-loading-config-jar --log-level-display VERBOSE --log-level'
@@ -373,7 +373,7 @@ class CommandVerificationTests(AtestTestCase):
     """Verify that the test's command runs correctly."""
     atest_cmd = 'tools/tradefederation/core/res/config/native-benchmark.xml'
     expected_cmd = (
-        'atest_tradefed.sh template/atest_device_test_base --template:map'
+        'atest_tradefed.sh template/atest_local_min --template:map'
         ' test=atest --template:map log_saver=template/log/atest_log_saver'
         ' --no-enable-granular-attempts --include-filter native-benchmark'
         ' --log-level-display VERBOSE --log-level VERBOSE'
@@ -389,7 +389,7 @@ class CommandVerificationTests(AtestTestCase):
     """Verify that the test's command runs correctly."""
     test_cmd = 'QuickAccessWalletRoboTests'
     expected_cmd = (
-        'atest_tradefed.sh template/atest_device_test_base --template:map'
+        'atest_tradefed.sh template/atest_local_min --template:map'
         ' test=atest --template:map log_saver=template/log/atest_log_saver'
         ' --no-enable-granular-attempts --include-filter'
         ' QuickAccessWalletRoboTests --skip-loading-config-jar'
@@ -406,7 +406,7 @@ class CommandVerificationTests(AtestTestCase):
     """Verify that the test's command runs correctly."""
     atest_cmd = 'QuickAccessWalletRoboTests --host'
     expected_cmd = (
-        'atest_tradefed.sh template/atest_deviceless_test_base --template:map'
+        'atest_tradefed.sh template/atest_local_min --template:map'
         ' test=atest --template:map log_saver=template/log/atest_log_saver'
         ' --no-enable-granular-attempts --include-filter'
         ' QuickAccessWalletRoboTests --skip-loading-config-jar'
@@ -424,7 +424,7 @@ class CommandVerificationTests(AtestTestCase):
     """Verify that the test's command runs correctly."""
     atest_cmd = 'CtsWifiAwareTestCases'
     expected_cmd = (
-        'atest_tradefed.sh template/atest_device_test_base --template:map'
+        'atest_tradefed.sh template/atest_local_min --template:map'
         ' test=atest --template:map log_saver=template/log/atest_log_saver'
         ' --no-enable-granular-attempts --include-filter CtsWifiAwareTestCases'
         ' --skip-loading-config-jar --log-level-display VERBOSE --log-level'
@@ -441,7 +441,7 @@ class CommandVerificationTests(AtestTestCase):
     """Verify that the test's command runs correctly."""
     atest_cmd = 'pts-bot:PAN/GN/MISC/UUID/BV-01-C'
     expected_cmd = (
-        'atest_tradefed.sh template/atest_device_test_base --template:map'
+        'atest_tradefed.sh template/atest_local_min --template:map'
         ' test=atest --template:map log_saver=template/log/atest_log_saver'
         ' --no-enable-granular-attempts --include-filter pts-bot'
         ' --atest-include-filter pts-bot:PAN/GN/MISC/UUID/BV-01-C'
@@ -458,7 +458,7 @@ class CommandVerificationTests(AtestTestCase):
     """Verify that the test's command runs correctly."""
     atest_cmd = 'TeeUIUtilsTest'
     expected_cmd = (
-        'atest_tradefed.sh template/atest_device_test_base --template:map'
+        'atest_tradefed.sh template/atest_local_min --template:map'
         ' test=atest --template:map log_saver=template/log/atest_log_saver'
         ' --no-enable-granular-attempts --include-filter teeui_unit_tests'
         ' --atest-include-filter teeui_unit_tests:TeeUIUtilsTest.*'
@@ -478,8 +478,8 @@ class CommandVerificationTests(AtestTestCase):
         'ConvexObjectLineIntersection'
     )
     expected_cmd = (
-        'atest_tradefed.sh template/atest_device_test_base --template:map'
-        ' test=atest --template:map log_saver=template/log/atest_log_saver'
+        'atest_tradefed.sh template/atest_local_min --template:map test=atest'
+        ' --template:map log_saver=template/log/atest_log_saver'
         ' --no-enable-granular-attempts --include-filter teeui_unit_tests'
         ' --atest-include-filter'
         ' teeui_unit_tests:TeeUIUtilsTest.ConvexObjectConstruction:TeeUIUtilsTest.ConvexObjectLineIntersection:TeeUIUtilsTest.intersectTest'
@@ -500,8 +500,8 @@ class CommandVerificationTests(AtestTestCase):
         'registerUidChangeObserver_allPermission'
     )
     expected_cmd = (
-        'atest_tradefed.sh template/atest_device_test_base --template:map'
-        ' test=atest --template:map log_saver=template/log/atest_log_saver'
+        'atest_tradefed.sh template/atest_local_min --template:map test=atest'
+        ' --template:map log_saver=template/log/atest_log_saver'
         ' --no-enable-granular-attempts --module CtsSecurityTestCases'
         ' --atest-include-filter'
         ' CtsSecurityTestCases:android.security.cts.ActivityManagerTest#testActivityManager_registerUidChangeObserver_allPermission'
@@ -524,8 +524,8 @@ class CommandVerificationTests(AtestTestCase):
         'registerUidChangeObserver_allPermission'
     )
     expected_cmd = (
-        'atest_tradefed.sh template/atest_device_test_base --template:map'
-        ' test=atest --template:map log_saver=template/log/atest_log_saver'
+        'atest_tradefed.sh template/atest_local_min --template:map test=atest'
+        ' --template:map log_saver=template/log/atest_log_saver'
         ' --no-enable-granular-attempts --module CtsSecurityTestCases'
         ' --atest-include-filter'
         ' CtsSecurityTestCases:android.security.cts.ActivityManagerTest#testActivityManager_registerUidChangeObserver_allPermission'
@@ -548,8 +548,8 @@ class CommandVerificationTests(AtestTestCase):
         'checkAppsCantIncreasePermissionSizeAfterCreating'
     )
     expected_cmd = (
-        'atest_tradefed.sh template/atest_device_test_base --template:map'
-        ' test=atest --template:map log_saver=template/log/atest_log_saver'
+        'atest_tradefed.sh template/atest_local_min --template:map test=atest'
+        ' --template:map log_saver=template/log/atest_log_saver'
         ' --no-enable-granular-attempts --module CtsSecurityTestCases'
         ' --atest-include-filter'
         ' CtsSecurityTestCases:android.security.cts.PermissionMemoryFootprintTest#checkAppsCantIncreasePermissionSizeAfterCreating'
@@ -568,8 +568,8 @@ class CommandVerificationTests(AtestTestCase):
     """Verify that the test's command runs correctly."""
     atest_cmd = 'android.security.cts.PermissionMemoryFootprintTest'
     expected_cmd = (
-        'atest_tradefed.sh template/atest_device_test_base --template:map'
-        ' test=atest --template:map log_saver=template/log/atest_log_saver'
+        'atest_tradefed.sh template/atest_local_min --template:map test=atest'
+        ' --template:map log_saver=template/log/atest_log_saver'
         ' --no-enable-granular-attempts --module CtsSecurityTestCases'
         ' --atest-include-filter'
         ' CtsSecurityTestCases:android.security.cts.PermissionMemoryFootprintTest'
@@ -591,8 +591,8 @@ class CommandVerificationTests(AtestTestCase):
         'checkAppsCantIncreasePermissionSizeAfterCreating'
     )
     expected_cmd = (
-        'atest_tradefed.sh template/atest_device_test_base --template:map'
-        ' test=atest --template:map log_saver=template/log/atest_log_saver'
+        'atest_tradefed.sh template/atest_local_min --template:map test=atest'
+        ' --template:map log_saver=template/log/atest_log_saver'
         ' --no-enable-granular-attempts --module CtsSecurityTestCases'
         ' --atest-include-filter'
         ' CtsSecurityTestCases:android.security.cts.PermissionMemoryFootprintTest#checkAppsCantIncreasePermissionSizeAfterCreating'
