@@ -47,7 +47,6 @@ from atest.logstorage import logstorage_utils
 from atest.metrics import metrics
 from atest.test_finders import test_finder_utils
 from atest.test_finders import test_info
-from atest.test_runner_invocation import TestRunnerInvocation
 from atest.test_runners import test_runner_base as trb
 from atest.test_runners.event_handler import EventHandler
 
@@ -116,10 +115,7 @@ class AtestTradefedTestRunner(trb.TestRunnerBase):
 
   NAME = 'AtestTradefedTestRunner'
   EXECUTABLE = 'atest_tradefed.sh'
-  # Base template used by the device tests (tests requires device to run)
-  _TF_DEVICE_TEST_TEMPLATE = 'template/atest_device_test_base'
-  # Base template used by the deviceless tests
-  _TF_DEVICELESS_TEST_TEMPLATE = 'template/atest_deviceless_test_base'
+  _TF_TEMPLATE = 'template/atest_local_min'
   # Use --no-enable-granular-attempts to control reporter replay behavior.
   # TODO(b/142630648): Enable option enable-granular-attempts
   # in sharding mode.
@@ -173,7 +169,7 @@ class AtestTradefedTestRunner(trb.TestRunnerBase):
     self.run_cmd_dict = {
         'env': '',
         'exe': self.EXECUTABLE,
-        'template': self._TF_DEVICELESS_TEST_TEMPLATE,
+        'template': self._TF_TEMPLATE,
         'log_saver': constants.ATEST_TF_LOG_SAVER,
         'tf_customize_template': '',
         'args': '',
@@ -203,67 +199,6 @@ class AtestTradefedTestRunner(trb.TestRunnerBase):
       requires_device |= test.requires_device()
 
     return requires_device
-
-  # @typing.override
-  def create_invocations(
-      self,
-      extra_args: Dict[str, Any],
-      test_infos: List[test_info.TestInfo],
-  ) -> List[TestRunnerInvocation]:
-    """Create separate test runner invocations for device and deviceless tests.
-
-    Args:
-        extra_args: Dict of extra args to pass to the invocations
-        test_infos: A list of TestInfos.
-
-    Returns:
-        A list of TestRunnerInvocation instances.
-    """
-    invocations = []
-    device_test_infos, deviceless_test_infos = self._partition_tests(test_infos)
-    if deviceless_test_infos:
-      extra_args_for_deviceless_test = extra_args.copy()
-      extra_args_for_deviceless_test.update({constants.HOST: True})
-      invocations.append(
-          TestRunnerInvocation(
-              test_runner=self,
-              extra_args=extra_args_for_deviceless_test,
-              test_infos=deviceless_test_infos,
-          )
-      )
-    if device_test_infos:
-      invocations.append(
-          TestRunnerInvocation(
-              test_runner=self,
-              extra_args=extra_args,
-              test_infos=device_test_infos,
-          )
-      )
-
-    return invocations
-
-  def _partition_tests(
-      self,
-      test_infos: List[test_info.TestInfo],
-  ) -> (List[test_info.TestInfo], List[test_info.TestInfo]):
-    """Partition input tests into two lists based on whether it requires device.
-
-    Args:
-        test_infos: A list of TestInfos.
-
-    Returns:
-        Two lists one contains device tests the other contains deviceless tests.
-    """
-    device_test_infos = []
-    deviceless_test_infos = []
-
-    for info in test_infos:
-      test = self._create_test(info)
-      device_test_infos.append(
-          info
-      ) if test.requires_device() else deviceless_test_infos.append(info)
-
-    return device_test_infos, deviceless_test_infos
 
   def _try_set_gts_authentication_key(self):
     """Set GTS authentication key if it is available or exists.
@@ -300,6 +235,7 @@ class AtestTradefedTestRunner(trb.TestRunnerBase):
     Returns:
         0 if tests succeed, non-zero otherwise.
     """
+    logging.debug('TF test runner running tests %s', test_infos)
     reporter.log_path = self.log_path
     reporter.rerun_options = self._extract_rerun_options(extra_args)
     # Set google service key if it's available or found before
@@ -319,6 +255,10 @@ class AtestTradefedTestRunner(trb.TestRunnerBase):
       # Change CWD to repo root to ensure TF can find prebuilt SDKs
       # for some path-sensitive tests like robolectric.
       os.chdir(os.path.abspath(os.getenv(constants.ANDROID_BUILD_TOP)))
+
+      # Copy symbols if there are tests belong to native test.
+      self._handle_native_tests(test_infos)
+
       if os.getenv(trb.OLD_OUTPUT_ENV_VAR):
         result = self.run_tests_raw(test_infos, extra_args, reporter)
       else:
@@ -724,14 +664,9 @@ class AtestTradefedTestRunner(trb.TestRunnerBase):
     info = self.module_info.get_module_info(t_info.raw_test_name)
 
     if not info:
-      # In cases module info does not exist (e.g. TF integration tests), use the
-      # TestInfo to determine the test type. In the future we should ensure all
-      # tests have their corresponding module info and only rely on the module
-      # info to determine the test type.
-      logging.warning(
-          'Could not find module information for %s', t_info.raw_test_name
+      raise Error(
+          f'Could not find module information for {t_info.raw_test_name}'
       )
-      return self._guess_test_type_for_missing_module(t_info)
 
     def _select_variant(info):
       variants = self.module_info.build_variants(info)
@@ -743,18 +678,6 @@ class AtestTradefedTestRunner(trb.TestRunnerBase):
       return DeviceTest(info, _select_variant(info), t_info.mainline_modules)
 
     return DevicelessTest(info, _select_variant(info))
-
-  def _guess_test_type_for_missing_module(
-      self, t_info: test_info.TestInfo
-  ) -> Test:
-    """Determine the test type (device or deviceless) without module info."""
-    if (
-        not self._is_host_enabled
-        and t_info.get_supported_exec_mode() != constants.DEVICELESS_TEST
-    ):
-      return DeviceTest(None, Variant.DEVICE, t_info.mainline_modules)
-
-    return DevicelessTest(None, Variant.HOST)
 
   def _get_host_framework_targets(self) -> Set[str]:
     """Get the build targets for all the existing jars under host framework.
@@ -833,12 +756,6 @@ class AtestTradefedTestRunner(trb.TestRunnerBase):
         A list that contains the string of atest tradefed run command.
         Only one command is returned.
     """
-    self.run_cmd_dict['template'] = (
-        self._TF_DEVICELESS_TEST_TEMPLATE
-        if extra_args.get(constants.HOST)
-        else self._TF_DEVICE_TEST_TEMPLATE
-    )
-
     args = self._create_test_args(test_infos)
 
     # Create a copy of args as more args could be added to the list.
@@ -932,9 +849,9 @@ class AtestTradefedTestRunner(trb.TestRunnerBase):
     if is_log_upload_enabled(extra_args):
       self.use_google_log_saver()
 
-    # Copy symbols if there are tests belong to native test.
-    self._handle_native_tests(test_infos)
-    return [self._RUN_CMD.format(**self.run_cmd_dict)]
+    run_commands = [self._RUN_CMD.format(**self.run_cmd_dict)]
+    logging.debug('TF test runner generated run commands %s', run_commands)
+    return run_commands
 
   def _flatten_test_infos(self, test_infos):
     """Sort and group test_infos by module_name and sort and group filters
