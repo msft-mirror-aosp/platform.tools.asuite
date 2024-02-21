@@ -502,6 +502,16 @@ def create_atest_arg_parser():
       type=int,
       help='Number of build run processes.',
   )
+  # Flag to use atest_local_min.xml as the TF base templates, this is added
+  # to roll out the change that uses separate templates for device/deviceless
+  # tests and should be removed once that feature is stable.
+  parser.add_argument(
+      '--use-tf-min-base-template',
+      dest='use_tf_min_base_template',
+      action=argparse.BooleanOptionalAction,
+      default=False,
+      help='Run tests using atest_local_min.xml as the TF base templates.',
+  )
 
   # This arg actually doesn't consume anything, it's primarily used for
   # the help description and creating custom_args in the NameSpace object.

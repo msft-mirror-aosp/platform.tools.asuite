@@ -349,6 +349,7 @@ def get_extra_args(args):
       'tf_template': constants.TF_TEMPLATE,
       'user_type': constants.USER_TYPE,
       'verbose': constants.VERBOSE,
+      'use_tf_min_base_template': constants.USE_TF_MIN_BASE_TEMPLATE,
   }
   not_match = [k for k in arg_maps if k not in vars(args)]
   if not_match:
