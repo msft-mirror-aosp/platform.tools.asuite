@@ -7,8 +7,9 @@ use ring::digest::{self, SHA256};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fs;
-use std::io::{self, Read};
+use std::io::{self, Read, Write};
 use std::os::unix::fs::FileTypeExt;
+use std::os::unix::fs::MetadataExt;
 use std::os::unix::fs::PermissionsExt;
 use std::path::{Path, PathBuf};
 use walkdir::WalkDir;
@@ -49,6 +50,15 @@ pub struct FileMetadata {
     /// Permission bits.
     #[serde(default, skip_serializing_if = "is_default")]
     pub permission_bits: u32,
+
+    // A unique string used only to determine if digest should be recomputed
+    // or can be used from cache.
+    // The key includes: path, size, mtime, and ctime
+    //
+    // The cache_key will be different for the  host/device and is not used to compare
+    // if the files are different
+    #[serde(skip)]
+    pub cache_key: String,
 }
 
 fn is_default<T: Default + PartialEq>(t: &T) -> bool {
@@ -56,7 +66,7 @@ fn is_default<T: Default + PartialEq>(t: &T) -> bool {
 }
 
 impl FileMetadata {
-    pub fn from_path(file_path: &Path) -> Result<Self> {
+    pub fn from_path(file_path: &Path, cache: &Cache) -> Result<Self> {
         let metadata = fs::symlink_metadata(file_path)?;
 
         if metadata.is_dir() {
@@ -64,7 +74,7 @@ impl FileMetadata {
         } else if metadata.is_symlink() {
             FileMetadata::from_symlink(file_path, &metadata)
         } else {
-            FileMetadata::from_file(file_path, &metadata)
+            Ok(FileMetadata::from_file(file_path, &metadata, cache)?)
         }
     }
 
@@ -84,21 +94,24 @@ impl FileMetadata {
         Ok(FileMetadata {
             file_type: FileType::Symlink,
             symlink: target_path_string,
-            digest: String::from(""),
             permission_bits: perms,
+            ..Default::default()
         })
     }
-    pub fn from_file(file_path: &Path, metadata: &fs::Metadata) -> Result<Self> {
+    pub fn from_file(file_path: &Path, metadata: &fs::Metadata, cache: &Cache) -> Result<Self> {
         // Getting the permissions doesn't work on windows, so don't try and don't compare them.
         let mut perms = 0;
         if !cfg!(windows) {
             perms = metadata.permissions().mode();
         }
+
+        let (digest, cache_key) = get_or_compute_digest(file_path, metadata, cache)?;
         Ok(FileMetadata {
             file_type: FileType::File,
-            symlink: String::from(""),
-            digest: compute_digest(file_path)?,
+            digest,
+            cache_key,
             permission_bits: perms,
+            ..Default::default()
         })
     }
 }
@@ -159,15 +172,18 @@ pub fn diff(
     diffs
 }
 
-/// Return true if left != right.
+/// Return true if left != right ignoring cachekey since that include last_modifed
 /// When useing DiffMode::IgnorePermissions, clear the permission bits before doing the comparison
 pub fn is_metadata_diff(left: &FileMetadata, right: &FileMetadata, diff_mode: DiffMode) -> bool {
-    if diff_mode == DiffMode::UsePermissions {
-        return left != right;
-    }
     let mut cleared_left = left.clone();
-    cleared_left.permission_bits = 0;
     let mut cleared_right = right.clone();
+    cleared_left.cache_key = "".to_string();
+    cleared_right.cache_key = "".to_string();
+
+    if diff_mode == DiffMode::UsePermissions {
+        return cleared_left != cleared_right;
+    }
+    cleared_left.permission_bits = 0;
     cleared_right.permission_bits = 0;
     cleared_left != cleared_right
 }
@@ -177,14 +193,13 @@ pub fn is_metadata_diff(left: &FileMetadata, right: &FileMetadata, diff_mode: Di
 /// The keys will be rooted at the `partition root`, ie. if system contains
 /// a file named FILE and system is the `partition_root`, the key wil be
 /// system/FILE.
-/// TODO(rbraunstein): Optimization idea:
-///    Keep cache of Key(filename,timestamp) -> Digest,
-///    so we don't have to recompute digests on unchanged files.
+/// Cache is used only to speed up computing digests; if the cache_key is the same
+/// as an earlier fingerprint; then we reuse it rather than recomputing.
 pub fn fingerprint_partitions(
     partition_root: &Path,
     partition_names: &[PathBuf],
 ) -> Result<HashMap<PathBuf, FileMetadata>> {
-    // Walk the filesystem to get the file names.
+    let cache = Cache::read().unwrap_or_default();
     let filenames: Vec<PathBuf> = partition_names
         .iter()
         .flat_map(|p| WalkDir::new(partition_root.join(p)).follow_links(false))
@@ -192,17 +207,19 @@ pub fn fingerprint_partitions(
         .collect();
 
     // Compute digest for each file.
-    Ok(filenames
+    let results = filenames
         .into_par_iter()
         // Walking the /data partition quickly leads to sockets, filter those out.
         .filter(|file_path| !is_special_file(file_path))
         .map(|file_path| {
             (
                 file_path.strip_prefix(partition_root).unwrap().to_owned(),
-                FileMetadata::from_path(&file_path).unwrap(),
+                FileMetadata::from_path(&file_path, &cache).unwrap(),
             )
         })
-        .collect())
+        .collect();
+    cache.write(&results)?;
+    Ok(results)
 }
 
 /// Return true for special files like sockets that would be incorrect
@@ -234,6 +251,105 @@ fn compute_digest(file_path: &Path) -> Result<String> {
     }
 
     Ok(encode(context.finish().as_ref()))
+}
+
+/// Get digest from cache or compute digest and return a cache_key
+fn get_or_compute_digest(
+    file_path: &Path,
+    metadata: &fs::Metadata,
+    cache: &Cache,
+) -> Result<(String, String)> {
+    let cache_key = cache.cache_key(file_path, metadata)?;
+    let digest;
+    if let Some(cached_digest) = cache.get(&cache_key) {
+        digest = cached_digest.to_string();
+    } else {
+        digest = compute_digest(file_path)?;
+    }
+    Ok((digest, cache_key))
+}
+
+// The cache is intended to be used to skip computing digests - it relies on the assumption that unchanged
+// file stats imply unchanged content (and therefore, unchanged digest).
+//
+// The host stores the cache file in $OUT/ by default.  Acloud/physical devices don't have $OUT so will attempt to store
+// the cache in /cache/. Any file modification (add/delete/change) triggers a cache key recomputation for that specific file
+// and the cache file will be updated.  The cache should persist across reboots but may be deleted between flashes
+#[derive(Default)]
+pub struct Cache {
+    pub data: HashMap<String, String>,
+}
+impl Cache {
+    pub fn get(&self, key: &str) -> Option<&String> {
+        self.data.get(key)
+    }
+
+    // Generate cache key from file metadata
+    pub fn cache_key(&self, file_path: &Path, metadata: &fs::Metadata) -> Result<String> {
+        Ok(format!(
+            "{}#{}#{}.{}#{}.{}",
+            file_path.display(),
+            metadata.len(),
+            metadata.mtime(),
+            metadata.mtime_nsec(),
+            metadata.ctime(),
+            metadata.ctime_nsec()
+        ))
+    }
+
+    /// Reads cache from a file
+    pub fn read_from_file(file_path: &Path) -> Result<Self> {
+        let mut file = fs::File::open(file_path)?;
+        let mut contents = String::new();
+        file.read_to_string(&mut contents)?;
+        match serde_json::from_str(&contents) {
+            Ok(data) => Ok(Cache { data }),
+            Err(_error) => Err(_error.into()),
+        }
+    }
+
+    pub fn read() -> Result<Self> {
+        let cache_file_path = Cache::default_cache_path();
+        Cache::read_from_file(&cache_file_path)
+    }
+
+    /// Writes cache to a file
+    pub fn write_to_file(
+        self,
+        results: &HashMap<PathBuf, FileMetadata>,
+        file_path: &Path,
+    ) -> Result<()> {
+        let mut new_cache: HashMap<String, String> = HashMap::new();
+        for meta in results.values() {
+            if !meta.cache_key.is_empty() {
+                new_cache.insert(meta.cache_key.clone(), meta.digest.clone());
+            }
+        }
+        if new_cache == self.data {
+            // cache did not change - skip write.
+            return Ok(());
+        }
+        let cache_str = serde_json::to_string(&new_cache)?;
+        let mut file = fs::File::create(file_path)?;
+        file.write_all(cache_str.as_bytes())?;
+        Ok(())
+    }
+
+    pub fn write(self, results: &HashMap<PathBuf, FileMetadata>) -> Result<()> {
+        let cache_file_path = Cache::default_cache_path();
+        self.write_to_file(results, &cache_file_path)
+    }
+
+    pub fn default_cache_path() -> PathBuf {
+        // Attempt to use $OUT, then /cache and finally fall back to /tmp
+        // /tmp is deleted on reboot on acloud devices
+        let mut cache_dir = std::env::var("OUT").unwrap_or_else(|_| "/cache".to_string());
+        if !Path::new(&cache_dir).is_dir() {
+            cache_dir = "/tmp".to_string();
+        }
+
+        PathBuf::from(cache_dir).join("adevice_digest_cache.json")
+    }
 }
 
 #[cfg(test)]
@@ -411,6 +527,38 @@ mod tests {
         );
     }
 
+    #[test]
+    fn get_or_compute_digest_small_file() {
+        let tmpdir = TempDir::new().unwrap();
+        let file_path = tmpdir.path().join("small_file");
+        fs::write(&file_path, "This is a test\nof a small file.\n").unwrap();
+
+        let metadata = fs::metadata(&file_path).expect("file metadata");
+        let mut cache = Cache::default();
+        let (digest, cache_key) = get_or_compute_digest(&file_path, &metadata, &cache).unwrap();
+        assert_eq!(
+            "a519d054afdf2abfbdd90a738d248f606685d6c187e96390bde22e958240449e".to_string(),
+            digest
+        );
+        assert_eq!(
+            cache_key,
+            format!(
+                "{}#{}#{}.{}#{}.{}",
+                file_path.display(),
+                metadata.len(),
+                metadata.mtime(),
+                metadata.mtime_nsec(),
+                metadata.ctime(),
+                metadata.ctime_nsec()
+            )
+        );
+
+        // if cache entry exists; than that is used instead of recomputing
+        cache.data.insert(cache_key, "test-saved-cache-digest".to_string());
+        let (digest, _) = get_or_compute_digest(&file_path, &metadata, &cache).unwrap();
+        assert_eq!("test-saved-cache-digest".to_string(), digest);
+    }
+
     // Generate some files near the buffer size to check for off-by-one errors
     // and compute the digest and store here.
     // We can't check these into testdata and read from testdata unless we serialize
@@ -451,15 +599,15 @@ mod tests {
         let mut perms = fs::metadata(&file_path).expect("Getting permissions").permissions();
         perms.set_mode(0o100655);
         assert!(fs::set_permissions(&file_path, perms).is_ok());
-
-        let entry = FileMetadata::from_path(&file_path).unwrap();
-
+        let cache = Cache::default();
+        let entry = FileMetadata::from_path(&file_path, &cache).unwrap();
         assert_eq!(
             FileMetadata {
                 file_type: FileType::File,
                 digest: "a519d054afdf2abfbdd90a738d248f606685d6c187e96390bde22e958240449e"
                     .to_string(),
                 permission_bits: 0o100655,
+                cache_key: entry.cache_key.clone(),
                 ..Default::default()
             },
             entry
@@ -477,8 +625,8 @@ mod tests {
             "link_to_small_file",
             partition_root.path(),
         );
-
-        let entry = FileMetadata::from_path(&link).unwrap();
+        let cache = Cache::default();
+        let entry = FileMetadata::from_path(&link, &cache).unwrap();
         assert_eq!(
             FileMetadata {
                 file_type: FileType::Symlink,
@@ -494,8 +642,8 @@ mod tests {
     fn fingerprint_file_for_absolute_symlink() {
         let partition_root = TempDir::new().unwrap();
         let link = create_symlink(&PathBuf::from("/tmp"), "link_to_tmp", partition_root.path());
-
-        let entry = FileMetadata::from_path(&link).unwrap();
+        let cache = Cache::default();
+        let entry = FileMetadata::from_path(&link, &cache).unwrap();
         assert_eq!(
             FileMetadata {
                 file_type: FileType::Symlink,
@@ -512,14 +660,15 @@ mod tests {
         let partition_root = TempDir::new().unwrap();
         let newdir_path = partition_root.path().join("some_dir");
         fs::create_dir(&newdir_path).expect("Should have create 'some_dir' in temp dir");
-
-        let entry = FileMetadata::from_path(&newdir_path).unwrap();
+        let cache = Cache::default();
+        let entry = FileMetadata::from_path(&newdir_path, &cache).unwrap();
         assert_eq!(FileMetadata { file_type: FileType::Directory, ..Default::default() }, entry)
     }
 
     #[test]
     fn fingerprint_file_on_bad_path_reports_err() {
-        if FileMetadata::from_path(Path::new("testdata/not_exist")).is_ok() {
+        let cache = Cache::default();
+        if FileMetadata::from_path(Path::new("testdata/not_exist"), &cache).is_ok() {
             panic!("Should have failed on invalid path")
         }
     }
@@ -750,6 +899,117 @@ mod tests {
                     .is_some_and(|s| s.file_type == FileType::Symlink && &s.symlink == data)),
             };
         }
+    }
+
+    #[test]
+    fn fingerprint_partition_cache_mismatch_test() {
+        // test to assure that when a file is modified; the cache doesn't return the same digest
+        let tmp_root = TempDir::new().unwrap();
+        make_partition(
+            tmp_root.path(),
+            "system",
+            &[("file1.so", "some text"), ("file2.so", "more text")],
+            // Empty directories/
+            &[],
+            // Symlinks
+            &[("link1.so", "file1.so")],
+        );
+        let result = fingerprint_partitions(tmp_root.path(), &[PathBuf::from("system")]).unwrap();
+        let expected = &[
+            ("system/file1.so", FileType::File, "b94f"),
+            ("system/file2.so", FileType::File, "c0dc"),
+            ("system/link1.so", FileType::Symlink, "file1.so"),
+        ];
+        for (file_name, file_type, data) in expected {
+            match file_type {
+                FileType::File => assert!(
+                    matching_file_fingerprint(file_name, data, &result),
+                    "mismatch on {:?} {:?}",
+                    file_name,
+                    data
+                ),
+                FileType::Directory => assert!(result
+                    .get(&PathBuf::from(file_name))
+                    .is_some_and(|d| d.file_type == FileType::Directory)),
+                FileType::Symlink => assert!(result
+                    .get(&PathBuf::from(file_name))
+                    .is_some_and(|s| s.file_type == FileType::Symlink && &s.symlink == data)),
+            }
+        }
+
+        // modify file
+        let file_path = tmp_root.path().join("system/file1.so");
+        fs::write(file_path, "modified file.").unwrap();
+        let result2 = fingerprint_partitions(tmp_root.path(), &[PathBuf::from("system")]).unwrap();
+        let expected2 = &[
+            ("system/file1.so", FileType::File, "047c5"),
+            ("system/file2.so", FileType::File, "c0dc"),
+        ];
+        for (file_name, file_type, data) in expected2 {
+            match file_type {
+                FileType::File => assert!(
+                    matching_file_fingerprint(file_name, data, &result2),
+                    "mismatch on {:?} {:?}",
+                    file_name,
+                    data
+                ),
+                FileType::Directory => assert!(result2
+                    .get(&PathBuf::from(file_name))
+                    .is_some_and(|d| d.file_type == FileType::Directory)),
+                FileType::Symlink => assert!(result
+                    .get(&PathBuf::from(file_name))
+                    .is_some_and(|s| s.file_type == FileType::Symlink && &s.symlink == data)),
+            }
+        }
+    }
+
+    #[test]
+    fn test_write_and_read_cache_file() {
+        let root = TempDir::new().unwrap();
+        let file_path = root.path().join("cache.json");
+        let results = HashMap::from([
+            (
+                PathBuf::from("path1"),
+                FileMetadata {
+                    cache_key: "key1".to_string(),
+                    digest: "value1".to_string(),
+                    ..Default::default()
+                },
+            ),
+            (
+                PathBuf::from("path2"),
+                FileMetadata {
+                    cache_key: "key2".to_string(),
+                    digest: "value2".to_string(),
+                    ..Default::default()
+                },
+            ),
+        ]);
+
+        let cache = Cache::default();
+        let write_result = cache.write_to_file(&results, &file_path);
+        assert!(write_result.is_ok());
+
+        let cache = Cache::read_from_file(&file_path).unwrap();
+        assert_eq!(cache.get("key1"), Some(&"value1".to_string()));
+        assert_eq!(cache.get("key2"), Some(&"value2".to_string()));
+    }
+
+    #[test]
+    fn test_read_cache_file_no_file() {
+        let bad_path = Path::new("/tmp/fake/non/existing/path");
+        let cache = Cache::read_from_file(bad_path).unwrap_or_default();
+        assert!(cache.data.is_empty());
+    }
+
+    #[test]
+    fn test_read_cache_file_invalid_file() {
+        let root = TempDir::new().unwrap();
+        let file_path = root.path().join("cache.json");
+        fs::write(file_path.clone(), "invalid cache data").unwrap();
+
+        let cache = Cache::read_from_file(&file_path).unwrap_or_default();
+        assert!(cache.data.is_empty());
     }
 
     // Ensure the FileMetadata for the given file matches the prefix of the digest.
