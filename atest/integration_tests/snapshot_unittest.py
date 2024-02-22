@@ -18,7 +18,7 @@
 
 import json
 import os
-from pathlib import Path
+import pathlib
 import shutil
 import tempfile
 import unittest
@@ -34,10 +34,12 @@ class SnapshotTest(fake_filesystem_unittest.TestCase):
 
   def setUp(self):
     self.setUpPyfakefs()
-    self.temp_dir = Path(tempfile.mkdtemp())
+    self.temp_dir = pathlib.Path(tempfile.mkdtemp())
+    super().setUp()
 
   def tearDown(self):
     shutil.rmtree(self.temp_dir)
+    super().tearDown()
 
   def test_restore_dir_and_env_and_obj_from_snapshot(self):
     """Test take and restore directory, environ, and objects together."""
@@ -78,7 +80,7 @@ class SnapshotTest(fake_filesystem_unittest.TestCase):
     objs = {'a': {'b': False}}
     snapshot.take_snapshot('a_snapshot_name', workspace, ['*'], objs=objs)
 
-    _env, actual_objs = snapshot.restore_snapshot(
+    _, actual_objs = snapshot.restore_snapshot(
         snapshot_name, workspace.as_posix()
     )
 

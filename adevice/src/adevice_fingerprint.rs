@@ -29,7 +29,7 @@ fn main() {
 }
 
 #[derive(Parser, Debug)]
-#[command(version = "0.3")]
+#[command(version = "0.4")]
 struct HelperCli {
     /// Partitions in the product tree to report. Repeat or comma-separate.
     #[arg(long, short, global = true,

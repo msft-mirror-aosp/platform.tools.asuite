@@ -23,22 +23,33 @@ This module includes a `Snapshot` class that provides methods to:
 directory deletions and replacements.
 """
 
+import functools
 import glob
 import hashlib
 import json
 import logging
 import os
-from pathlib import Path
+import pathlib
+import threading
 from typing import Any, Optional
+
+
+def _synchronized(func):
+  """Ensures thread-safe execution of the wrapped function."""
+  lock = threading.Lock()
+
+  @functools.wraps(func)
+  def _synchronized_func(*args, **kwargs):
+    with lock:
+      return func(*args, **kwargs)
+
+  return _synchronized_func
 
 
 class Snapshot:
   """Provides functionality to take and restore snapshots of a directory."""
 
-  def __init__(
-      self,
-      storage_dir: Path,
-  ):
+  def __init__(self, storage_dir: pathlib.Path):
     """Initializes a Snapshot object.
 
     Args:
@@ -47,6 +58,21 @@ class Snapshot:
     self._dir_snapshot = _DirSnapshot(storage_dir)
     self._env_snapshot = _EnvSnapshot(storage_dir)
     self._obj_snapshot = _ObjectSnapshot(storage_dir)
+    self._lock = self._get_threading_lock(storage_dir)
+
+  @_synchronized
+  def _get_threading_lock(
+      self,
+      name: str,
+  ):
+    """Gets a threading lock for the snapshot directory."""
+    locks_dict_attr_name = 'threading_locks'
+    current_function = self._get_threading_lock.__func__
+    if not hasattr(current_function, locks_dict_attr_name):
+      setattr(current_function, locks_dict_attr_name, {})
+    if name not in getattr(current_function, locks_dict_attr_name):
+      getattr(current_function, locks_dict_attr_name)[name] = threading.Lock()
+    return getattr(current_function, locks_dict_attr_name)[name]
 
   # pylint: disable=too-many-arguments
   def take_snapshot(
@@ -72,11 +98,12 @@ class Snapshot:
           the type of objects to the types that can be serialized by the json
           module.
     """
-    self._dir_snapshot.take_snapshot(
-        name, root_path, include_paths, exclude_paths, env
-    )
-    self._env_snapshot.take_snapshot(name, env_keys)
-    self._obj_snapshot.take_snapshot(name, objs)
+    with self._lock:
+      self._dir_snapshot.take_snapshot(
+          name, root_path, include_paths, exclude_paths, env
+      )
+      self._env_snapshot.take_snapshot(name, env_keys)
+      self._obj_snapshot.take_snapshot(name, objs)
 
   def restore_snapshot(
       self,
@@ -89,20 +116,22 @@ class Snapshot:
     Args:
         name: The name of the snapshot.
         root_path: The path to the target directory.
+        exclude_paths: A list of paths to ignore during restore.
 
     Returns:
         A tuple of restored environment variables and object dictionary.
     """
     env = self._env_snapshot.restore_snapshot(name, root_path)
-    self._dir_snapshot.restore_snapshot(name, root_path, exclude_paths, env)
     objs = self._obj_snapshot.restore_snapshot(name)
+    with self._lock:
+      self._dir_snapshot.restore_snapshot(name, root_path, exclude_paths, env)
     return env, objs
 
 
 class _ObjectSnapshot:
   """Save and restore a dictionary of objects through json."""
 
-  def __init__(self, storage_path: Path):
+  def __init__(self, storage_path: pathlib.Path):
     self._storage_path = storage_path
 
   def take_snapshot(
@@ -112,8 +141,11 @@ class _ObjectSnapshot:
   ) -> None:
     """Save a dictionary of objects in snapshot.
 
-    The current implementation limits the type of objects to the types that
-    can be serialized by the json module.
+    Args:
+        name: The name of the snapshot
+        objs: A dictionary of objects to snapshot. Note: The current
+          implementation limits the type of objects to the types that can be
+          serialized by the json module.
     """
     if objs is None:
       objs = {}
@@ -139,7 +171,7 @@ class _EnvSnapshot:
 
   _repo_root_placeholder = '<repo_root_placeholder>'
 
-  def __init__(self, storage_path: Path):
+  def __init__(self, storage_path: pathlib.Path):
     self._storage_path = storage_path
 
   def take_snapshot(
@@ -181,7 +213,7 @@ class _EnvSnapshot:
         restored_env['PATH'] = os.environ['PATH']
     return restored_env
 
-  def _get_env_file_path(self, name: str) -> Path:
+  def _get_env_file_path(self, name: str) -> pathlib.Path:
     """Get environment file path."""
     return self._storage_path / (name + '_env.json')
 
@@ -211,10 +243,10 @@ class _BlobStore:
   """Class to save and load file content."""
 
   def __init__(self, path: str):
-    self.path = Path(path)
+    self.path = pathlib.Path(path)
     self.cache = self._load_cache()
 
-  def add(self, path: Path, timestamp: float) -> str:
+  def add(self, path: pathlib.Path, timestamp: float) -> str:
     """Add a file path to the store."""
     cache_key = path.as_posix() + str(timestamp)
     if cache_key in self.cache:
@@ -241,20 +273,20 @@ class _BlobStore:
     with self._get_cache_path().open('w', encoding='utf-8') as f:
       json.dump(self.cache, f)
 
-  def _load_cache(self) -> dict:
+  def _load_cache(self) -> dict[str, str]:
     if not self._get_cache_path().exists():
       return {}
     with self._get_cache_path().open('r', encoding='utf-8') as f:
       return json.load(f)
 
-  def _get_cache_path(self) -> Path:
+  def _get_cache_path(self) -> pathlib.Path:
     return self.path.joinpath('cache.json')
 
 
 class _DirSnapshot:
   """Class to take and restore snapshot for a directory path."""
 
-  def __init__(self, storage_path: Path):
+  def __init__(self, storage_path: pathlib.Path):
     self._storage_path = storage_path
     self._blob_store = _BlobStore(self._storage_path.joinpath('blobs'))
 
@@ -265,6 +297,13 @@ class _DirSnapshot:
 
     This function is similar to os.path.expandvars(path) which relies on
     os.environ.
+
+    Args:
+        paths: A list of paths that might contains variables to expand.
+        variables: A dictionary of variable names and values.
+
+    Returns:
+        A list containing paths whose variables have been expanded if known.
     """
     if not variables:
       return paths
@@ -283,24 +322,32 @@ class _DirSnapshot:
       env: Optional[dict[str, str]] = None,
   ) -> list[str]:
     """Expand wildcard paths."""
-    absolute_paths = [
-        path if os.path.isabs(path) else os.path.join(root_path, path)
-        for path in self._expand_vars_paths(paths, env)
-    ]
-    return [
-        expanded_path
-        for wildcard_path in absolute_paths
-        for expanded_path in glob.glob(wildcard_path, recursive=True)
-    ]
+    compose = lambda inner, outer: lambda path: outer(inner(path))
+    get_abs_path = (
+        lambda path: path
+        if os.path.isabs(path)
+        else os.path.join(root_path, path)
+    )
+    glob_path = functools.partial(glob.glob, recursive=True)
+    return sum(
+        map(
+            compose(get_abs_path, glob_path),
+            self._expand_vars_paths(paths, env),
+        ),
+        [],
+    )
 
-  def _is_excluded(self, path: str, exclude_paths: list[Path]) -> bool:
+  def _is_excluded(self, path: str, exclude_paths: list[pathlib.Path]) -> bool:
     """Check whether a path should be excluded."""
     return exclude_paths and any(
         path.startswith(exclude_path) for exclude_path in exclude_paths
     )
 
   def _filter_excluded_paths(
-      self, root: Path, paths: list[Path], exclude_paths: list[Path]
+      self,
+      root: pathlib.Path,
+      paths: list[pathlib.Path],
+      exclude_paths: list[pathlib.Path],
   ) -> None:
     """Filter a list of paths with a list of exclude paths."""
     new_paths = [
@@ -324,8 +371,8 @@ class _DirSnapshot:
     """Creates a snapshot of the directory at the given path.
 
     Args:
-        root_path: The path to the root directory.
         name: The name of the snapshot.
+        root_path: The path to the root directory.
         include_paths: A list of relative paths to include in the snapshot.
         exclude_paths: A list of relative paths to exclude from the snapshot.
         env: Environment variables to use while restoring.
@@ -348,7 +395,7 @@ class _DirSnapshot:
 
     file_infos = {}
 
-    def process_directory(path: Path) -> None:
+    def process_directory(path: pathlib.Path) -> None:
       if path.is_symlink():
         process_link(path)
         return
@@ -364,7 +411,7 @@ class _DirSnapshot:
           is_directory=True,
       )
 
-    def process_file(path: Path) -> None:
+    def process_file(path: pathlib.Path) -> None:
       if path.is_symlink():
         process_link(path)
         return
@@ -381,7 +428,7 @@ class _DirSnapshot:
           is_directory=False,
       )
 
-    def process_link(path: Path) -> None:
+    def process_link(path: pathlib.Path) -> None:
       symlink_target = path.resolve()
       if symlink_target.is_relative_to(root_path):
         symlink_target = symlink_target.relative_to(root_path)
@@ -404,7 +451,7 @@ class _DirSnapshot:
           is_directory=False,
       )
 
-    def process_path(path: Path) -> None:
+    def process_path(path: pathlib.Path) -> None:
       if self._is_excluded(path.as_posix(), exclude_paths):
         return
       if path.is_symlink():
@@ -417,16 +464,16 @@ class _DirSnapshot:
           self._filter_excluded_paths(root, directories, exclude_paths)
           self._filter_excluded_paths(root, files, exclude_paths)
           for directory in directories:
-            process_directory(Path(root).joinpath(directory))
+            process_directory(pathlib.Path(root).joinpath(directory))
           for file in files:
-            process_file(Path(root).joinpath(file))
+            process_file(pathlib.Path(root).joinpath(file))
       else:
         # We are not throwing error here because it might be just a
         # corner case which likely doesn't affect the test process.
         logging.error('Unexpected path type: %s', path.as_posix())
 
     for path in include_paths:
-      process_path(Path(path))
+      process_path(pathlib.Path(path))
 
     snapshot_path = self._storage_path.joinpath(name + '_metadata.json')
     snapshot_path.parent.mkdir(parents=True, exist_ok=True)
@@ -447,8 +494,8 @@ class _DirSnapshot:
     """Restores directory at given path to snapshot with given name.
 
     Args:
-        root_path: The path to the root directory.
         name: The name of the snapshot.
+        root_path: The path to the root directory.
         exclude_paths: A list of relative paths to ignore during restoring.
         env: Environment variables to use while restoring.
 
@@ -493,13 +540,13 @@ class _DirSnapshot:
       self._filter_excluded_paths(root, directories, exclude_paths)
       self._filter_excluded_paths(root, files, exclude_paths)
       for directory in directories:
-        dir_path = Path(root).joinpath(directory)
+        dir_path = pathlib.Path(root).joinpath(directory)
         # Ignore non link directories because complicated to deal
         # with file paths in include filters and unnecessary
         if dir_path.is_symlink():
           dir_path.unlink()
       for file in files:
-        file_path = Path(root).joinpath(file)
+        file_path = pathlib.Path(root).joinpath(file)
         if file_path.is_symlink():
           file_path.unlink()
         elif file_path.relative_to(root_path).as_posix() not in file_infos_dict:
@@ -517,7 +564,7 @@ class _DirSnapshot:
     for relative_path, file_info in file_infos_dict.items():
       if not file_info.is_directory:
         continue
-      dir_path = Path(root_path).joinpath(relative_path)
+      dir_path = pathlib.Path(root_path).joinpath(relative_path)
       if self._is_excluded(dir_path.as_posix(), exclude_paths):
         continue
       dir_path.mkdir(parents=True, exist_ok=True)
@@ -533,7 +580,7 @@ class _DirSnapshot:
     replaced = []
     external_symlinks = []
     for relative_path, file_info in file_infos_dict.items():
-      file_path = Path(root_path).joinpath(relative_path)
+      file_path = pathlib.Path(root_path).joinpath(relative_path)
       if self._is_excluded(file_path.as_posix(), exclude_paths):
         continue
       if file_info.symlink_target:
@@ -542,7 +589,7 @@ class _DirSnapshot:
           external_symlinks.append(msg)
           logging.error('Unexpected external link: %s', msg)
           continue
-        target = Path(root_path).joinpath(file_info.symlink_target)
+        target = pathlib.Path(root_path).joinpath(file_info.symlink_target)
         file_path.parent.mkdir(parents=True, exist_ok=True)
         file_path.symlink_to(target)
         continue
