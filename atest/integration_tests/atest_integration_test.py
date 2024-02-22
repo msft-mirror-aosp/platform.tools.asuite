@@ -19,7 +19,7 @@ import concurrent.futures
 import json
 import logging
 import os
-from pathlib import Path
+import pathlib
 import re
 import shutil
 import subprocess
@@ -33,6 +33,7 @@ import split_build_test_script
 SplitBuildTestScript = split_build_test_script.SplitBuildTestScript
 StepInput = split_build_test_script.StepInput
 StepOutput = split_build_test_script.StepOutput
+ParallelTestRunner = split_build_test_script.ParallelTestRunner
 
 # Note: The following constants should ideally be imported from their
 #       corresponding prod source code, but this makes local execution of the
@@ -50,29 +51,28 @@ _RESULTS_DIR_PRINT_PREFIX = 'Atest results and logs directory: '
 class LogEntry:
   """Represents a single log entry."""
 
-  def __init__(self, log_line: str):
+  def __init__(
+      self,
+      timestamp_str,
+      src_file_name,
+      src_file_line_number,
+      log_level,
+      content_lines,
+  ):
     """Initializes a LogEntry object from a logging line.
 
     Args:
-        log_line: The logging line to parse.
+        timestamp_str: The timestamp header string in each log entry.
+        src_file_name: The source file name in the log entry.
+        src_file_line_number: The source file line number in the log entry.
+        log_level: The log level string in the log entry.
+        content_lines: A list of log entry content lines.
     """
-    self._log_line = log_line
-    self._regex = (
-        r'(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}) (.+?):(\d+):(\w+): (.*)'
-    )
-    match = re.match(self._regex, log_line)
-    if match:
-      self._timestamp_string = match.group(1)
-      self._source_file_name = match.group(2)
-      self._source_file_line_number = int(match.group(3))
-      self._log_level = match.group(4)
-      self._content = match.group(5)
-    else:
-      raise ValueError('Invalid log line format.')
-
-  def get_log_line(self) -> str:
-    """Returns the raw log line used to parse the log entry."""
-    return self._log_line
+    self._timestamp_string = timestamp_str
+    self._source_file_name = src_file_name
+    self._source_file_line_number = src_file_line_number
+    self._log_level = log_level
+    self._content_lines = content_lines
 
   def get_timestamp(self) -> float:
     """Returns the timestamp of the log entry as an epoch time."""
@@ -98,7 +98,7 @@ class LogEntry:
 
   def get_content(self) -> str:
     """Returns the content of the log entry."""
-    return self._content
+    return '\n'.join(self._content_lines)
 
 
 class AtestRunResult:
@@ -106,7 +106,7 @@ class AtestRunResult:
 
   def __init__(
       self,
-      completed_process: subprocess.CompletedProcess,
+      completed_process: subprocess.CompletedProcess[str],
       env: dict[str, str],
       repo_root: str,
       config: split_build_test_script.IntegrationTestConfiguration,
@@ -132,7 +132,7 @@ class AtestRunResult:
     """Returns the command list used in the process run."""
     return self._completed_process.args
 
-  def get_results_dir_path(self, snapshot_ready=False) -> Path:
+  def get_results_dir_path(self, snapshot_ready=False) -> pathlib.Path:
     """Returns the atest results directory path.
 
     Args:
@@ -140,18 +140,24 @@ class AtestRunResult:
           ready. When set to True and called in build environment, this method
           will copy the path into <repo_root>/out with dereferencing so that the
           directory can be safely added to snapshot.
+
+    Raises:
+        RuntimeError: Failed to parse the result dir path.
+
+    Returns:
+        The Atest result directory path.
     """
     results_dir = None
     for line in self.get_stdout().splitlines(keepends=False):
       if line.startswith(_RESULTS_DIR_PRINT_PREFIX):
-        results_dir = Path(line[len(_RESULTS_DIR_PRINT_PREFIX) :])
+        results_dir = pathlib.Path(line[len(_RESULTS_DIR_PRINT_PREFIX) :])
     if not results_dir:
       raise RuntimeError('Failed to parse the result directory from stdout.')
 
     if self._config.is_test_env or not snapshot_ready:
       return results_dir
 
-    result_dir_copy_path = Path(self._env['OUT_DIR']).joinpath(
+    result_dir_copy_path = pathlib.Path(self._env['OUT_DIR']).joinpath(
         'atest_integration_tests', results_dir.name
     )
     if not result_dir_copy_path.exists():
@@ -162,9 +168,10 @@ class AtestRunResult:
   def get_test_result_dict(self) -> dict[str, Any]:
     """Gets the atest results loaded from the test_result json.
 
-    Reads the test_result json file and return the content as dict. The test
-    result usually contains information about test runners and test pass/fail
-    results.
+    Returns:
+        Atest result information loaded from the test_result json file. The test
+        result usually contains information about test runners and test
+        pass/fail results.
     """
     json_path = self.get_results_dir_path() / 'test_result'
     with open(json_path, 'r', encoding='utf-8') as f:
@@ -176,9 +183,35 @@ class AtestRunResult:
     return log_path.read_text(encoding='utf-8')
 
   def get_atest_log_entries(self) -> list[LogEntry]:
-    """Gets the parsed atest log entries list from the atest log file."""
-    lines = self.get_atest_log().splitlines()
-    return [LogEntry(line) for line in lines if line]
+    """Gets the parsed atest log entries list from the atest log file.
+
+    This method parse the atest log file and construct a new entry when a line
+    starts with a time string, source file name, line number, and log level.
+
+    Returns:
+      A list of parsed log entries.
+    """
+    entries = []
+    last_content_lines = []
+    for line in self.get_atest_log().splitlines():
+      regex = r'^(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}) (.+?):(\d+):(\w+): (.*)'
+      match = re.match(regex, line)
+      if match:
+        last_content_lines = [match.group(5)]
+        entries.append(
+            LogEntry(
+                match.group(1),
+                match.group(2),
+                int(match.group(3)),
+                match.group(4),
+                last_content_lines,
+            )
+        )
+      else:
+        if last_content_lines:
+          last_content_lines.append(line)
+
+    return entries
 
   def get_atest_log_values_from_prefix(self, prefix: str) -> list[str]:
     """Gets log values from lines starting with the given log prefix."""
@@ -273,9 +306,9 @@ class AtestTestCase(split_build_test_script.SplitBuildTestTestCase):
       'JAVA_HOME',
   ]
 
-  def create_atest_script(self) -> SplitBuildTestScript:
+  def create_atest_script(self, name: str = None) -> SplitBuildTestScript:
     """Create an instance of atest integration test utility."""
-    script = self.create_split_build_test_script()
+    script = self.create_split_build_test_script(name)
     script.add_snapshot_restore_exclude_paths(
         ['$OUT_DIR/atest_bazel_workspace']
     )
@@ -347,7 +380,7 @@ class AtestTestCase(split_build_test_script.SplitBuildTestTestCase):
       env: dict[str, str],
       cwd: str,
       print_output: bool = True,
-  ) -> subprocess.CompletedProcess:
+  ) -> subprocess.CompletedProcess[str]:
     """Execute shell command with real time output printing and capture."""
 
     def read_output(read_src, print_dst, capture_dst):
@@ -385,14 +418,16 @@ class AtestTestCase(split_build_test_script.SplitBuildTestTestCase):
     """Get the relative jdk directory in build environment."""
     if split_build_test_script.ANDROID_BUILD_TOP_KEY not in os.environ:
       return []
-    absolute_path = Path(os.environ['ANDROID_JAVA_HOME'])
+    absolute_path = pathlib.Path(os.environ['ANDROID_JAVA_HOME'])
     while not absolute_path.name.startswith('jdk'):
       absolute_path = absolute_path.parent
     if not absolute_path.name.startswith('jdk'):
       raise ValueError(
           'Unrecognized jdk directory ' + os.environ['ANDROID_JAVA_HOME']
       )
-    repo_root = Path(os.environ[split_build_test_script.ANDROID_BUILD_TOP_KEY])
+    repo_root = pathlib.Path(
+        os.environ[split_build_test_script.ANDROID_BUILD_TOP_KEY]
+    )
     return [absolute_path.relative_to(repo_root).as_posix()]
 
 
