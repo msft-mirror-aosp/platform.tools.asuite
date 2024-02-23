@@ -90,6 +90,16 @@ def create_atest_arg_parser():
           ' will build `sync` and use `adevice` to update the device.'
       ),
   )
+  parser.add_argument(
+      '--adevice:targets',
+      dest='adevice_targets',
+      type=lambda value: value.split(','),
+      default='sync',
+      help=(
+          'Targets that are built if the device is being updated by Adevice. '
+          'Targets should be separated by comma.'
+      ),
+  )
 
   parser.add_argument(
       '-a',
