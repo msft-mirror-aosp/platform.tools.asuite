@@ -1070,7 +1070,7 @@ class AtestTradefedTestRunner(trb.TestRunnerBase):
           and 'metric_post_processor' not in tf_template_keys
       ):
         template_key = 'metric_post_processor'
-        template_value = 'google/template/postprocessors/metric-file-aggregate'
+        template_value = 'google/template/postprocessors/metric-file-aggregate-disabled'
         tf_templates.append(f'{template_key}={template_value}')
     return ' '.join(['--template:map %s' % x for x in tf_templates])
 
