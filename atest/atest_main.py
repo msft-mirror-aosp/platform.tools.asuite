@@ -349,6 +349,7 @@ def get_extra_args(args):
       'tf_template': constants.TF_TEMPLATE,
       'user_type': constants.USER_TYPE,
       'verbose': constants.VERBOSE,
+      'use_tf_min_base_template': constants.USE_TF_MIN_BASE_TEMPLATE,
   }
   not_match = [k for k in arg_maps if k not in vars(args)]
   if not_match:
@@ -1102,7 +1103,10 @@ def _main(argv: List[Any], results_dir: str, args: argparse.Namespace):
     )
 
   steps = parse_steps(args)
-  device_update_method = _configure_update_method(steps, test_execution_plan)
+  device_update_method = _configure_update_method(
+    steps=steps,
+    plan=test_execution_plan,
+    adevice_targets=set(args.adevice_targets))
 
   if build_targets and steps.has_build():
     if args.experimental_coverage:
@@ -1190,7 +1194,10 @@ def _main(argv: List[Any], results_dir: str, args: argparse.Namespace):
 
 
 def _configure_update_method(
-    steps: Steps, plan: TestExecutionPlan
+    *,
+    steps: Steps,
+    plan: TestExecutionPlan,
+    adevice_targets: Set[str],
 ) -> device_update.DeviceUpdateMethod:
 
   if not steps.has_device_update():
@@ -1204,7 +1211,8 @@ def _configure_update_method(
     )
     return device_update.NoopUpdateMethod()
 
-  return device_update.AdeviceUpdateMethod()
+
+  return device_update.AdeviceUpdateMethod(targets=adevice_targets)
 
 
 def _create_test_execution_plan(
