@@ -66,7 +66,7 @@ pub struct GlobalOptions {
     #[clap(long = "product_out", global = true)]
     pub product_out: Option<String>,
     /// Do not make any modification if more than this many are needed
-    #[clap(long, short, default_value_t = 200, global = true)]
+    #[clap(long, short, default_value_t = 400, global = true)]
     pub max_allowed_changes: usize,
     /// If passed, use the device, otherwise use the only connected device or ANDROID_SERIAL env value.
     #[clap(long, short, global = true)]
