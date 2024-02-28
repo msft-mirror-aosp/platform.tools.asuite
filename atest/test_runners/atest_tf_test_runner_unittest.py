@@ -38,6 +38,7 @@ from atest import unittest_constants as uc
 from atest import unittest_utils
 from atest.test_finders import test_finder_utils
 from atest.test_finders import test_info
+from atest.test_runner_invocation import TestRunnerInvocation
 from atest.test_runners import atest_tf_test_runner as atf_tr
 from atest.test_runners import event_handler
 from pyfakefs import fake_filesystem_unittest
@@ -62,7 +63,7 @@ RUN_ENV_STR = ''
 RUN_CMD = atf_tr.AtestTradefedTestRunner._RUN_CMD.format(
     env=RUN_ENV_STR,
     exe=atf_tr.AtestTradefedTestRunner.EXECUTABLE,
-    template=atf_tr.AtestTradefedTestRunner._TF_TEMPLATE,
+    template='{template}',
     log_saver=constants.ATEST_TF_LOG_SAVER,
     tf_customize_template='{tf_customize_template}',
     args=RUN_CMD_ARGS,
@@ -543,8 +544,8 @@ class AtestTradefedTestRunnerUnittests(unittest.TestCase):
         self.tr.generate_run_commands([], {}),
         [
             RUN_CMD.format(
-                env=RUN_ENV_STR,
                 serial='',
+                template=self.tr._TF_DEVICE_TEST_TEMPLATE,
                 tf_customize_template='',
                 device_early_release=' --no-early-device-release',
             )
@@ -556,6 +557,7 @@ class AtestTradefedTestRunnerUnittests(unittest.TestCase):
         [
             RUN_CMD.format(
                 serial='',
+                template=self.tr._TF_DEVICE_TEST_TEMPLATE,
                 tf_customize_template='',
                 device_early_release=' --no-early-device-release',
             )
@@ -627,6 +629,7 @@ class AtestTradefedTestRunnerUnittests(unittest.TestCase):
         [
             RUN_CMD.format(
                 serial=env_serial_arg,
+                template=self.tr._TF_DEVICE_TEST_TEMPLATE,
                 tf_customize_template='',
                 device_early_release=' --no-early-device-release',
             )
@@ -643,6 +646,7 @@ class AtestTradefedTestRunnerUnittests(unittest.TestCase):
         [
             RUN_CMD.format(
                 serial=arg_serial_arg,
+                template=self.tr._TF_DEVICE_TEST_TEMPLATE,
                 tf_customize_template='',
                 device_early_release=' --no-early-device-release',
             )
@@ -655,6 +659,7 @@ class AtestTradefedTestRunnerUnittests(unittest.TestCase):
         [
             RUN_CMD.format(
                 serial='',
+                template=self.tr._TF_DEVICELESS_TEST_TEMPLATE,
                 tf_customize_template='',
                 device_early_release=' --no-early-device-release',
             )
@@ -827,6 +832,7 @@ class AtestTradefedTestRunnerUnittests(unittest.TestCase):
         [
             RUN_CMD.format(
                 serial='',
+                template=self.tr._TF_DEVICE_TEST_TEMPLATE,
                 tf_customize_template='',
                 device_early_release=' --no-early-device-release',
             )
@@ -841,6 +847,7 @@ class AtestTradefedTestRunnerUnittests(unittest.TestCase):
         [
             RUN_CMD.format(
                 serial=' --collect-tests-only',
+                template=self.tr._TF_DEVICE_TEST_TEMPLATE,
                 tf_customize_template='',
                 device_early_release=' --no-early-device-release',
             )
@@ -875,6 +882,7 @@ class AtestTradefedTestRunnerUnittests(unittest.TestCase):
         [
             RUN_CMD.format(
                 serial='',
+                template=self.tr._TF_DEVICE_TEST_TEMPLATE,
                 device_early_release=' --no-early-device-release',
                 tf_customize_template='--template:map {}={}',
             ).format(tf_tmplate_key1, tf_tmplate_val1)
@@ -893,6 +901,7 @@ class AtestTradefedTestRunnerUnittests(unittest.TestCase):
         [
             RUN_CMD.format(
                 serial='',
+                template=self.tr._TF_DEVICE_TEST_TEMPLATE,
                 device_early_release=' --no-early-device-release',
                 tf_customize_template=(
                     '--template:map {}={} --template:map {}={}'
@@ -961,8 +970,8 @@ class AtestTradefedTestRunnerUnittests(unittest.TestCase):
         self.tr.generate_run_commands([], {}),
         [
             RUN_CMD.format(
-                env=RUN_ENV_STR,
                 serial='',
+                template=self.tr._TF_DEVICE_TEST_TEMPLATE,
                 tf_customize_template='',
                 device_early_release=' --no-early-device-release '
                 + extra_tf_arg,
@@ -1130,7 +1139,7 @@ class AtestTradefedTestRunnerUnittests(unittest.TestCase):
     self.assertTrue(
         str(run_cmd).find(
             'metric_post_processor='
-            'google/template/postprocessors/metric-file-aggregate'
+            'google/template/postprocessors/metric-file-aggregate-disabled'
         )
         > 0
     )
@@ -1165,7 +1174,7 @@ class AtestTradefedTestRunnerUnittests(unittest.TestCase):
     self.assertTrue(
         str(run_cmd).find(
             'metric_post_processor='
-            'google/template/postprocessors/metric-file-aggregate'
+            'google/template/postprocessors/metric-file-aggregate-disabled'
         )
         < 0
     )
@@ -1212,6 +1221,74 @@ class AtestTradefedTestRunnerUnittests(unittest.TestCase):
 
     args, _ = self.tr._parse_extra_args([MOD_INFO], {})
     self.assertFalse('--enable-parameterized-modules' in args)
+
+  def test_create_invocations_returns_invocations_for_device_and_deviceless_tests(
+      self,
+  ):
+    self.tr.module_info = module_info.ModuleInfo(
+        name_to_module_info={
+            'deviceless_test': robolectric_test_module(name='deviceless_test'),
+            'device_test': device_driven_test_module(name='device_test'),
+        }
+    )
+    test_info_deviceless = test_info_of('deviceless_test')
+    test_info_device = test_info_of('device_test')
+
+    invocations = self.tr.create_invocations(
+        {}, [test_info_deviceless, test_info_device]
+    )
+    expected_invocation_deviceless = TestRunnerInvocation(
+        test_runner=self.tr,
+        extra_args={constants.HOST: True},
+        test_infos=[test_info_deviceless],
+    )
+    expected_invocation_device = TestRunnerInvocation(
+        test_runner=self.tr, extra_args={}, test_infos=[test_info_device]
+    )
+
+    self.assertEqual(
+        invocations,
+        [expected_invocation_deviceless, expected_invocation_device],
+    )
+
+  def test_create_invocations_returns_invocation_only_for_device_tests(self):
+    self.tr.module_info = module_info.ModuleInfo(
+        name_to_module_info={
+            'device_test_1': device_driven_test_module(name='device_test_1'),
+            'device_test_2': host_driven_device_test_module(
+                name='device_test_2'
+            ),
+        }
+    )
+    test_info_device_1 = test_info_of('device_test_1')
+    test_info_device_2 = test_info_of('device_test_2')
+
+    invocations = self.tr.create_invocations(
+        {}, [test_info_device_1, test_info_device_2]
+    )
+    expected_invocation = TestRunnerInvocation(
+        test_runner=self.tr,
+        extra_args={},
+        test_infos=[test_info_device_1, test_info_device_2],
+    )
+
+    self.assertEqual(invocations, [expected_invocation])
+
+  def test_create_invocations_returns_invocations_for_device_tests_without_module_info(
+      self,
+  ):
+    self.tr.module_info = module_info.ModuleInfo()
+
+    test_info_device = test_info_of('device_test_without_module_info')
+
+    invocations = self.tr.create_invocations({}, [test_info_device])
+    expected_invocation = TestRunnerInvocation(
+        test_runner=self.tr,
+        extra_args={},
+        test_infos=[test_info_device],
+    )
+
+    self.assertEqual(invocations, [expected_invocation])
 
   def assertTokensIn(self, expected_tokens, s):
     tokens = shlex.split(s)

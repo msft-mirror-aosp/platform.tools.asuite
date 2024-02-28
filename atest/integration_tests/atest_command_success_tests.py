@@ -16,10 +16,10 @@
 
 """Tests to check if atest commands were executed with success exit codes."""
 
-from atest_integration_test import AtestTestCase, StepInput, StepOutput, main
+import atest_integration_test
 
 
-class CommandSuccessTests(AtestTestCase):
+class CommandSuccessTests(atest_integration_test.AtestTestCase):
   """Test whether the atest commands run with success exit codes."""
 
   def test_csuite_crash_detection_tests(self):
@@ -38,11 +38,13 @@ class CommandSuccessTests(AtestTestCase):
     """Verifies whether an Atest command run completed with exit code 0."""
     script = self.create_atest_script()
 
-    def build_step(step_in: StepInput) -> StepOutput:
-      self.run_atest_command(cmd + ' -b', step_in).check_returncode()
+    def build_step(
+        step_in: atest_integration_test.StepInput,
+    ) -> atest_integration_test.StepOutput:
+      self.run_atest_command(cmd + ' -cb', step_in).check_returncode()
       return self.create_step_output()
 
-    def test_step(step_in: StepInput) -> None:
+    def test_step(step_in: atest_integration_test.StepInput) -> None:
       self.run_atest_command(cmd + ' -it', step_in).check_returncode()
 
     script.add_build_step(build_step)
@@ -51,4 +53,4 @@ class CommandSuccessTests(AtestTestCase):
 
 
 if __name__ == '__main__':
-  main()
+  atest_integration_test.main()
