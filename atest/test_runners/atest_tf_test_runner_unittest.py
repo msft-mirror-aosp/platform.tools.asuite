@@ -1139,7 +1139,7 @@ class AtestTradefedTestRunnerUnittests(unittest.TestCase):
     self.assertTrue(
         str(run_cmd).find(
             'metric_post_processor='
-            'google/template/postprocessors/metric-file-aggregate'
+            'google/template/postprocessors/metric-file-aggregate-disabled'
         )
         > 0
     )
@@ -1174,7 +1174,7 @@ class AtestTradefedTestRunnerUnittests(unittest.TestCase):
     self.assertTrue(
         str(run_cmd).find(
             'metric_post_processor='
-            'google/template/postprocessors/metric-file-aggregate'
+            'google/template/postprocessors/metric-file-aggregate-disabled'
         )
         < 0
     )

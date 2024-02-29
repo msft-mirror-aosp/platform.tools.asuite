@@ -116,6 +116,8 @@ class AtestTradefedTestRunner(trb.TestRunnerBase):
 
   NAME = 'AtestTradefedTestRunner'
   EXECUTABLE = 'atest_tradefed.sh'
+  # Common base template used by all TF tests
+  _TF_LOCAL_MIN = 'template/atest_local_min'
   # Base template used by the device tests (tests requires device to run)
   _TF_DEVICE_TEST_TEMPLATE = 'template/atest_device_test_base'
   # Base template used by the deviceless tests
@@ -173,7 +175,7 @@ class AtestTradefedTestRunner(trb.TestRunnerBase):
     self.run_cmd_dict = {
         'env': '',
         'exe': self.EXECUTABLE,
-        'template': self._TF_DEVICELESS_TEST_TEMPLATE,
+        'template': self._TF_LOCAL_MIN,
         'log_saver': constants.ATEST_TF_LOG_SAVER,
         'tf_customize_template': '',
         'args': '',
@@ -259,9 +261,10 @@ class AtestTradefedTestRunner(trb.TestRunnerBase):
 
     for info in test_infos:
       test = self._create_test(info)
-      device_test_infos.append(
-          info
-      ) if test.requires_device() else deviceless_test_infos.append(info)
+      if test.requires_device():
+        device_test_infos.append(info)
+      else:
+        deviceless_test_infos.append(info)
 
     return device_test_infos, deviceless_test_infos
 
@@ -838,11 +841,14 @@ class AtestTradefedTestRunner(trb.TestRunnerBase):
         A list that contains the string of atest tradefed run command.
         Only one command is returned.
     """
-    self.run_cmd_dict['template'] = (
-        self._TF_DEVICELESS_TEST_TEMPLATE
-        if extra_args.get(constants.HOST)
-        else self._TF_DEVICE_TEST_TEMPLATE
-    )
+    if extra_args.get(constants.USE_TF_MIN_BASE_TEMPLATE):
+      self.run_cmd_dict['template'] = self._TF_LOCAL_MIN
+    else:
+      self.run_cmd_dict['template'] = (
+          self._TF_DEVICELESS_TEST_TEMPLATE
+          if extra_args.get(constants.HOST)
+          else self._TF_DEVICE_TEST_TEMPLATE
+      )
 
     args = self._create_test_args(test_infos)
 
@@ -1158,7 +1164,7 @@ class AtestTradefedTestRunner(trb.TestRunnerBase):
           and 'metric_post_processor' not in tf_template_keys
       ):
         template_key = 'metric_post_processor'
-        template_value = 'google/template/postprocessors/metric-file-aggregate'
+        template_value = 'google/template/postprocessors/metric-file-aggregate-disabled'
         tf_templates.append(f'{template_key}={template_value}')
     return ' '.join(['--template:map %s' % x for x in tf_templates])
 

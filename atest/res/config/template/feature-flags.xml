@@ -13,8 +13,11 @@
      See the License for the specific language governing permissions and
      limitations under the License.
 -->
-<!-- Common configuration for atest's local runs for device tests. -->
-<configuration description="Common configuration for atest's local runs for deviceless tests">
-  <include name="template/atest_local_min" />
-  <include name="template/feature-flags" />
+<!-- Common configuration for atest's local runs with minimum overhead. -->
+<configuration description="Common template for feature flag testing.">
+  <!-- Disable syncing to prevent overwriting flags during testing. -->
+  <target_preparer class="com.android.tradefed.targetprep.RunCommandTargetPreparer">
+    <option name="run-command" value="device_config set_sync_disabled_for_tests persistent" />
+  </target_preparer>
+  <target_preparer class="com.android.tradefed.targetprep.FeatureFlagTargetPreparer" />
 </configuration>
