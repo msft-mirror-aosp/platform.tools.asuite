@@ -420,7 +420,15 @@ def create_atest_arg_parser():
   parser.add_argument(
       '--test-filter',
       nargs='?',
-      help='Run tests which are specified using this option.',
+      # TODO(b/326457393): JarHostTest to support running parameterized tests
+      # with base method
+      # TODO(b/326141263): TradeFed to support wildcard in include-filter for
+      # parametrized JarHostTests
+      help=(
+          'Run only the tests which are specified with this option. '
+          'Filtering by method and with wildcard is not yet supported for '
+          'all test types.'
+      ),
   )
   parser.add_argument(
       '--test-timeout',
@@ -697,6 +705,20 @@ EXAMPLES
 
       atest FrameworksServicesTests:ScreenDecorWindowTests#testFlagChange,testRemoval
 
+
+    - - - - - - - - - - - - -
+    FILTERING TESTS
+    - - - - - - - - - - - - -
+    It is possible to run only the tests that are specified by a custom filter, although not all test types support filtering by wildcard.
+
+    Usage format:
+      atest <TestModuleName> --test-filter <test.package.name>.<TestClass>#<testMethod>
+
+    Example:
+      atest  ParameterizedHelloWorldTests --test-filter '.*HelloWorldTest#testHa.*'
+
+    Note: parametrized JarHostTests can only be filtered by a specific method if parameters are also provided TODO(b/326457393). Wildcard filtering is not supported TODO(b/326141263):
+      atest <TestModuleName> --test-filter <test.package.name>.<ParameterizedTestClass>#<testMethod>[<param1>=<value>,<param2>=<value>]
 
     - - - - - - - - - - - - -
     RUNNING MULTIPLE CLASSES
