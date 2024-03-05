@@ -371,10 +371,6 @@ DEFAULT_EXCLUDE_NOT_PARAS = {
     'not_' + TF_PARA_SECOND_USR,
     'not_' + TF_PARA_MULTIABI,
 }
-VERIFY_ENV_PATH = os.path.join(
-    os.environ.get(ANDROID_BUILD_TOP, os.getcwd()),
-    'tools/asuite/atest/test_data/test_environ.json',
-)
 RUNNER_COMMAND_PATH = os.path.join(
     os.environ.get(ANDROID_BUILD_TOP, os.getcwd()),
     'tools/asuite/atest/test_data/runner_commands.json',
