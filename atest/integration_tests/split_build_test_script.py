@@ -170,6 +170,9 @@ class SplitBuildTestScript:
     self._steps: list[self._Step] = []
     self._snapshot_restore_exclude_paths: list[str] = []
 
+  def get_config(self) -> IntegrationTestConfiguration:
+    return self._config
+
   def add_build_step(self, step_func: Callable[StepInput, StepOutput]):
     """Add a build step.
 
@@ -230,12 +233,12 @@ class SplitBuildTestScript:
     build_step_exception_key = '_internal_build_step_exception'
 
     for index, step in enumerate(self._steps):
-      if isinstance(step, self._BuildStep) and self._config.is_build_env:
+      if isinstance(step, self._BuildStep) and self.get_config().is_build_env:
         env = os.environ
         step_in = StepInput(
             env,
             self._get_repo_root(os.environ),
-            self._config,
+            self.get_config(),
             {},
         )
         last_exception = None
@@ -259,7 +262,7 @@ class SplitBuildTestScript:
         if last_exception:
           raise last_exception
 
-      if isinstance(step, self._TestStep) and self._config.is_test_env:
+      if isinstance(step, self._TestStep) and self.get_config().is_test_env:
         env, objs = self._restore_snapshot(self._id + '_' + str(index // 2))
 
         if build_step_exception_key in objs:
@@ -268,7 +271,7 @@ class SplitBuildTestScript:
         step_in = StepInput(
             env,
             self._get_repo_root(env),
-            self._config,
+            self.get_config(),
             objs,
         )
         step.get_step_func()(step_in)
@@ -299,13 +302,13 @@ class SplitBuildTestScript:
     """Restore the repository and environment from a snapshot."""
     return self._snapshot.restore_snapshot(
         name,
-        self._config.workspace_path.as_posix(),
+        self.get_config().workspace_path.as_posix(),
         exclude_paths=self._snapshot_restore_exclude_paths,
     )
 
   def _get_repo_root(self, env) -> str:
     """Get repo root directory."""
-    if self._config.is_build_env:
+    if self.get_config().is_build_env:
       return os.environ[ANDROID_BUILD_TOP_KEY]
     return env[ANDROID_BUILD_TOP_KEY]
 
@@ -335,7 +338,15 @@ class SplitBuildTestTestCase(unittest.TestCase):
   """Base test case class for split build-test scripting tests."""
 
   # Internal config to be injected to the test case from main.
-  injected_config: IntegrationTestConfiguration = None
+  _config: IntegrationTestConfiguration = None
+
+  @classmethod
+  def set_config(cls, config: IntegrationTestConfiguration) -> None:
+    cls._config = config
+
+  @classmethod
+  def get_config(cls) -> IntegrationTestConfiguration:
+    return cls._config
 
   def create_split_build_test_script(
       self, name: str = None
@@ -353,7 +364,7 @@ class SplitBuildTestTestCase(unittest.TestCase):
       if name.startswith(main_module_name):
         script_name = pathlib.Path(sys.modules[main_module_name].__file__).stem
         name = name.replace(main_module_name, script_name)
-    return SplitBuildTestScript(name, self.injected_config)
+    return SplitBuildTestScript(name, self.get_config())
 
 
 class _FileCompressor:
@@ -490,14 +501,33 @@ class ParallelTestRunner(unittest.TextTestRunner):
       cls, func: Callable[[Any], Any]
   ) -> Callable[[Any], Any]:
     """Hint that a test method can run in parallel in build env only."""
-    return cls._cache_first(func, cls.run_in_parallel.__name__)
+    return cls._cache_first(func, cls.run_in_parallel_in_build_env.__name__)
 
   @classmethod
   def run_in_parallel_in_test_env(
       cls, func: Callable[[Any], Any]
   ) -> Callable[[Any], Any]:
     """Hint that a test method can run in parallel in test env only."""
-    return cls._cache_first(func, cls.run_in_parallel.__name__)
+    return cls._cache_first(func, cls.run_in_parallel_in_test_env.__name__)
+
+  @classmethod
+  def setup_parallel(cls, func: Callable[[Any], Any]) -> Callable[[Any], Any]:
+    """Hint that a method is for setting up a parallel run."""
+    return cls._cache_first(func, cls.setup_parallel.__name__)
+
+  @classmethod
+  def setup_parallel_in_build_env(
+      cls, func: Callable[[Any], Any]
+  ) -> Callable[[Any], Any]:
+    """Hint that a method is for setting up a parallel run in build env only."""
+    return cls._cache_first(func, cls.setup_parallel_in_build_env.__name__)
+
+  @classmethod
+  def setup_parallel_in_test_env(
+      cls, func: Callable[[Any], Any]
+  ) -> Callable[[Any], Any]:
+    """Hint that a method is for setting up a parallel run in test env only."""
+    return cls._cache_first(func, cls.setup_parallel_in_test_env.__name__)
 
   def run(self, test):
     """Executes parallel tests first and then non-parallel tests."""
@@ -509,6 +539,33 @@ class ParallelTestRunner(unittest.TextTestRunner):
   def _get_test_function(test: unittest.TestCase) -> Callable[Any, Any]:
     """Gets the test function from a TestCase class wrapped by unittest."""
     return getattr(test, test.id().split('.')[-1])
+
+  @classmethod
+  def _get_parallel_setups(
+      cls, test_suite: unittest.TestSuite
+  ) -> set[Callable[None, Any]]:
+    """Returns a set of functions to be executed as setup for parallel run."""
+    test_cls = None
+    for test_case in test_suite:
+      test_cls = test_case.__class__
+      break
+    if not test_cls:
+      return set()
+
+    result = set()
+    update_result = lambda decorator: result.update(
+        filter(
+            lambda func: callable(func)
+            and decorator.__name__ == getattr(func, cls._DECORATOR_NAME, None),
+            map(functools.partial(getattr, test_cls), dir(test_cls)),
+        )
+    )
+    update_result(cls.setup_parallel)
+    if test_cls.get_config().is_build_env:
+      update_result(cls.setup_parallel_in_build_env)
+    if test_cls.get_config().is_test_env:
+      update_result(cls.setup_parallel_in_test_env)
+    return result
 
   @classmethod
   def _get_parallel_tests(
@@ -533,8 +590,8 @@ class ParallelTestRunner(unittest.TextTestRunner):
     is_parallel_in_test = functools.partial(
         is_decorated, cls.run_in_parallel_in_test_env
     )
-    is_in_build_env = lambda test: test.injected_config.is_build_env
-    is_in_test_env = lambda test: test.injected_config.is_test_env
+    is_in_build_env = lambda test: test.get_config().is_build_env
+    is_in_test_env = lambda test: test.get_config().is_test_env
     combined_filter = or_combine(
         and_combine(is_parallel_in_build, is_in_build_env),
         and_combine(is_parallel_in_test, is_in_test_env),
@@ -545,6 +602,9 @@ class ParallelTestRunner(unittest.TextTestRunner):
   @classmethod
   def _pre_execute_parallel_tests(cls, test_suite: unittest.TestSuite) -> None:
     """Pre-execute parallel tests in the test suite."""
+    for setup_func in cls._get_parallel_setups(test_suite):
+      logging.info('Setting up parallel tests with function %s', setup_func)
+      setup_func()
     with concurrent.futures.ThreadPoolExecutor(
         max_workers=multiprocessing.cpu_count()
     ) as executor:
@@ -745,7 +805,8 @@ def _run_test(
       def loadTestsFromTestCase(self, *args, **kwargs):
         test_suite = super().loadTestsFromTestCase(*args, **kwargs)
         for test in test_suite:
-          test.injected_config = config
+          test.__class__.set_config(config)
+          break
         return test_suite
 
     # Setting verbosity is required to generate output that the TradeFed
@@ -893,6 +954,9 @@ def main(
     os.environ['OUT_DIR'] = out_dir
 
     for target in make_before_build:
+      logging.info(
+          'Building the %s target before integration test run.', target
+      )
       subprocess.check_call(
           f'build/soong/soong_ui.bash --make-mode {target}'.split(),
           cwd=repo_root,
