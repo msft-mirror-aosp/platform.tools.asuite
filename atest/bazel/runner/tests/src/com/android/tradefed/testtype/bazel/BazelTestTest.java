@@ -596,6 +596,44 @@ public final class BazelTestTest {
     }
 
     @Test
+    public void bazelQuery_default() throws Exception {
+        List<String> command = new ArrayList<>();
+        FakeProcessStarter processStarter = newFakeProcessStarter();
+        processStarter.put(
+                BazelTest.QUERY_ALL_TARGETS,
+                builder -> {
+                    command.addAll(builder.command());
+                    return newPassingProcessWithStdout("unused");
+                });
+
+        BazelTest bazelTest = newBazelTestWithProcessStarter(processStarter);
+
+        bazelTest.run(mTestInfo, mMockListener);
+        assertThat(command).contains("kind(tradefed_deviceless_test, tests(//...))");
+    }
+
+    @Test
+    public void bazelQuery_optionOverride() throws Exception {
+        List<String> command = new ArrayList<>();
+        FakeProcessStarter processStarter = newFakeProcessStarter();
+        processStarter.put(
+                BazelTest.QUERY_ALL_TARGETS,
+                builder -> {
+                    command.addAll(builder.command());
+                    return newPassingProcessWithStdout("unused");
+                });
+
+        BazelTest bazelTest = newBazelTestWithProcessStarter(processStarter);
+        OptionSetter setter = new OptionSetter(bazelTest);
+        setter.setOptionValue("bazel-query", "tests(//vendor/...)");
+
+        bazelTest.run(mTestInfo, mMockListener);
+        assertThat(command).contains("tests(//vendor/...)");
+        // Default should be overridden and not appear in command
+        assertThat(command).doesNotContain("kind(tradefed_deviceless_test");
+    }
+
+    @Test
     public void badLogFilePaths_failureReported() throws Exception {
         FakeProcessStarter processStarter = newFakeProcessStarter();
         processStarter.put(
