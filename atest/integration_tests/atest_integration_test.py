@@ -33,7 +33,10 @@ import split_build_test_script
 SplitBuildTestScript = split_build_test_script.SplitBuildTestScript
 StepInput = split_build_test_script.StepInput
 StepOutput = split_build_test_script.StepOutput
-ParallelTestRunner = split_build_test_script.ParallelTestRunner
+run_in_parallel = split_build_test_script.ParallelTestRunner.run_in_parallel
+setup_parallel_in_build_env = (
+    split_build_test_script.ParallelTestRunner.setup_parallel_in_build_env
+)
 
 # Note: The following constants should ideally be imported from their
 #       corresponding prod source code, but this makes local execution of the
@@ -262,49 +265,51 @@ class AtestRunResult:
 class AtestTestCase(split_build_test_script.SplitBuildTestTestCase):
   """Base test case for build-test environment split integration tests."""
 
-  # Default include list of repo paths for snapshot
-  _default_snapshot_include_paths = [
-      '$OUT_DIR/host/linux-x86',
-      '$OUT_DIR/target/product/*/module-info*',
-      '$OUT_DIR/target/product/*/testcases',
-      '$OUT_DIR/target/product/*/data',
-      '$OUT_DIR/target/product/*/all_modules.txt',
-      '$OUT_DIR/soong/module_bp*',
-      'tools/asuite/atest/test_runners/roboleaf_launched.txt',
-      '.repo/manifest.xml',
-      'build/soong/soong_ui.bash',
-      'build/bazel_common_rules/rules/python/stubs',
-      'build/bazel/bin',
-      'external/bazelbuild-rules_java',
-      'tools/asuite/atest/bazel/resources/bazel.sh',
-      'prebuilts/bazel/linux-x86_64',
-      'prebuilts/build-tools/path/linux-x86/python3',
-      'prebuilts/build-tools/linux-x86/bin/py3-cmd',
-      'prebuilts/build-tools',
-      'prebuilts/asuite/atest/linux-x86/atest-py3',
-  ]
+  def setUp(self):
+    super().setUp()
+    # Default include list of repo paths for snapshot
+    self._default_snapshot_include_paths = [
+        '$OUT_DIR/host/linux-x86',
+        '$OUT_DIR/target/product/*/module-info*',
+        '$OUT_DIR/target/product/*/testcases',
+        '$OUT_DIR/target/product/*/data',
+        '$OUT_DIR/target/product/*/all_modules.txt',
+        '$OUT_DIR/soong/module_bp*',
+        'tools/asuite/atest/test_runners/roboleaf_launched.txt',
+        '.repo/manifest.xml',
+        'build/soong/soong_ui.bash',
+        'build/bazel_common_rules/rules/python/stubs',
+        'build/bazel/bin',
+        'external/bazelbuild-rules_java',
+        'tools/asuite/atest/bazel/resources/bazel.sh',
+        'prebuilts/bazel/linux-x86_64',
+        'prebuilts/build-tools/path/linux-x86/python3',
+        'prebuilts/build-tools/linux-x86/bin/py3-cmd',
+        'prebuilts/build-tools',
+        'prebuilts/asuite/atest/linux-x86/atest-py3',
+    ]
 
-  # Default exclude list of repo paths for snapshot
-  _default_snapshot_exclude_paths = [
-      '$OUT_DIR/host/linux-x86/bin/go',
-      '$OUT_DIR/host/linux-x86/bin/soong_build',
-      '$OUT_DIR/host/linux-x86/obj',
-  ]
+    # Default exclude list of repo paths for snapshot
+    self._default_snapshot_exclude_paths = [
+        '$OUT_DIR/host/linux-x86/bin/go',
+        '$OUT_DIR/host/linux-x86/bin/soong_build',
+        '$OUT_DIR/host/linux-x86/obj',
+    ]
 
-  # Default list of environment variables to take and restore in snapshots
-  _default_snapshot_env_keys = [
-      split_build_test_script.ANDROID_BUILD_TOP_KEY,
-      'ANDROID_HOST_OUT',
-      'ANDROID_PRODUCT_OUT',
-      'ANDROID_HOST_OUT_TESTCASES',
-      'ANDROID_TARGET_OUT_TESTCASES',
-      'OUT',
-      'OUT_DIR',
-      'PATH',
-      'HOST_OUT_TESTCASES',
-      'ANDROID_JAVA_HOME',
-      'JAVA_HOME',
-  ]
+    # Default list of environment variables to take and restore in snapshots
+    self._default_snapshot_env_keys = [
+        split_build_test_script.ANDROID_BUILD_TOP_KEY,
+        'ANDROID_HOST_OUT',
+        'ANDROID_PRODUCT_OUT',
+        'ANDROID_HOST_OUT_TESTCASES',
+        'ANDROID_TARGET_OUT_TESTCASES',
+        'OUT',
+        'OUT_DIR',
+        'PATH',
+        'HOST_OUT_TESTCASES',
+        'ANDROID_JAVA_HOME',
+        'JAVA_HOME',
+    ]
 
   def create_atest_script(self, name: str = None) -> SplitBuildTestScript:
     """Create an instance of atest integration test utility."""
@@ -323,8 +328,9 @@ class AtestTestCase(split_build_test_script.SplitBuildTestTestCase):
     out.add_snapshot_include_paths(self._get_jdk_path_list())
     return out
 
+  @classmethod
   def run_atest_command(
-      self,
+      cls,
       cmd: str,
       step_in: split_build_test_script.StepInput,
       print_output: bool = True,
@@ -352,7 +358,7 @@ class AtestTestCase(split_build_test_script.SplitBuildTestTestCase):
     )
 
     result = AtestRunResult(
-        self._run_shell_command(
+        cls._run_shell_command(
             complete_cmd.split(),
             env=step_in.get_env(),
             cwd=step_in.get_repo_root(),
@@ -374,8 +380,8 @@ class AtestTestCase(split_build_test_script.SplitBuildTestTestCase):
 
     return result
 
+  @staticmethod
   def _run_shell_command(
-      self,
       cmd: list[str],
       env: dict[str, str],
       cwd: str,
@@ -414,7 +420,8 @@ class AtestTestCase(split_build_test_script.SplitBuildTestTestCase):
           cmd, process.poll(), ''.join(stdout), ''.join(stderr)
       )
 
-  def _get_jdk_path_list(self) -> str:
+  @staticmethod
+  def _get_jdk_path_list() -> str:
     """Get the relative jdk directory in build environment."""
     if split_build_test_script.ANDROID_BUILD_TOP_KEY not in os.environ:
       return []
