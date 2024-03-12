@@ -67,7 +67,7 @@ pub trait Device {
     fn wait(&self, profiler: &mut Profiler) -> Result<String>;
 
     /// Run the commands needed to prep a userdebug device after a flash.
-    fn prep_after_flash(&self) -> Result<()>;
+    fn prep_after_flash(&self, profiler: &mut Profiler) -> Result<()>;
 }
 
 pub struct RealHost {}
@@ -248,7 +248,7 @@ pub fn adevice(
         if all_cmds.len() > max_changes {
             bail!("There are {} files out of date on the device, which exceeds the configured limit of {}.\n  It is recommended to reimage your device.  For small increases in the limit, you can run `adevice update --max-allowed-changes={}.", all_cmds.len(), max_changes, all_cmds.len());
         }
-        writeln!(stdout, " * Updating {} files on device.", all_cmds.len())?;
+        writeln!(stdout, "\n * Updating {} files on device.", all_cmds.len())?;
 
         let changed_files = all_cmds.iter().map(|cmd| format!("{:?}", cmd.1.file)).collect();
         metrics.add_action_event_with_files_changed(
@@ -266,22 +266,27 @@ pub fn adevice(
                 device,
                 cli.should_wait(),
             );
+            progress::stop();
             if update_result.is_ok() {
                 break;
             }
-
             if let Err(problem) = update_result {
                 if retry == 1 {
-                    bail!(" !! Not expecting errors after a retry.|n  Error:{:?}", problem);
+                    println!("\n\n");
+                    bail!("  !! Error.  Unable to push to device event after remount/reboot.\n  !! ADB command error: {:?}", problem);
                 }
                 // TODO(rbraunstein): Avoid string checks. Either check mounts directly for this case
                 // or return json with the error message and code from adevice_fingerprint.
+
                 if problem.root_cause().to_string().contains("Read-only file system") {
-                    println!(" !! The device has a read-only file system.\n !! After a fresh image, the device needs an extra `remount` and `reboot` to adb push files.  Performing the remount and reboot now.");
+                    println!(" * The device has a read-only file system.  ");
+                    println!("   After a fresh image, the device needs an extra `remount` and `reboot` to adb push files.");
+                    println!("   Performing remount and reboot.");
+                    println!();
                 }
-                time!(device.prep_after_flash()?, profiler.first_remount_rw);
+                time!(device.prep_after_flash(profiler)?, profiler.first_remount_rw);
             }
-            println!("\n * Trying update again after remount and reboot.");
+            println!(" * Trying update again after remount and reboot.");
         }
     }
     metrics.display_survey();
