@@ -179,8 +179,17 @@ class Loader:
       self.load_module_info = self._load_module_info_from_file_wo_merging
     else:
       self.mod_info_file_path = atest_utils.get_product_out(_MODULE_INFO)
-      if force_build or not self.mod_info_file_path.is_file():
+      if force_build:
+        logging.debug('Triggering module info build by force build.')
         build()
+      elif not self.mod_info_file_path.is_file():
+        logging.debug(
+            'Triggering module info build due to module info file path %s not'
+            ' exist.',
+            self.mod_info_file_path,
+        )
+        build()
+
       self.update_merge_info = self.need_merge_module_info()
       self.load_module_info = self._load_module_info_file
 
