@@ -43,8 +43,9 @@ fn main() -> Result<()> {
     match result {
         Ok(()) => metrics.add_exit_event("", 0),
         Err(ref err) => {
+            progress::stop();
             metrics.add_exit_event(&err.to_string(), 1);
-            error!("{}", err.to_string());
+            error!("\n{}", err.to_string());
         }
     }
     progress::stop();

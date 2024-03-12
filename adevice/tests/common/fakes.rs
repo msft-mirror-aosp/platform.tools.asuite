@@ -142,7 +142,7 @@ impl Device for FakeDevice {
         *counter += 1;
         Ok(String::new())
     }
-    fn prep_after_flash(&self) -> Result<()> {
+    fn prep_after_flash(&self, _profiler: &mut Profiler) -> Result<()> {
         Ok(())
     }
 }
