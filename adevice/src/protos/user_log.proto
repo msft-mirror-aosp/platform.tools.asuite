@@ -42,4 +42,5 @@ message AdeviceLogEvent {
     AdeviceExitEvent adevice_exit_event = 4;
     AdeviceActionEvent adevice_action_event = 5;
   }
+  optional string invocation_id = 6;
 }
