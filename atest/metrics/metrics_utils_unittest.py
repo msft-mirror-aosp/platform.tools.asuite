@@ -38,19 +38,11 @@ class MetricsUtilsUnittests(unittest.TestCase):
 
     # get_user_type return 1(external).
     mock_get_user_type.return_value = 1
-    notice_str = (
-        '\n==================\nNotice:\n   We collect anonymous usage'
-        ' statistics in accordance with our Content Licenses'
-        ' (https://source.android.com/setup/start/licenses), Contributor'
-        ' License Agreement (https://opensource.google.com/docs/cla/), Privacy'
-        ' Policy (https://policies.google.com/privacy) and Terms of Service'
-        ' (https://policies.google.com/terms).\n==================\n\n'
-    )
     capture_output = StringIO()
     sys.stdout = capture_output
     metrics_utils.print_data_collection_notice(colorful=False)
     sys.stdout = sys.__stdout__
-    self.assertEqual(capture_output.getvalue(), notice_str)
+    self.assertEqual(capture_output.getvalue(), "")
 
     # get_user_type return 0(internal).
     red = '31m'
@@ -60,7 +52,7 @@ class MetricsUtilsUnittests(unittest.TestCase):
     mock_get_user_type.return_value = 0
     notice_str = (
         f'\n==================\n{start}{red}Notice:{end}\n'
-        f'{start}{green}   We collect usage statistics '
+        f'{start}{green} We collect usage statistics (including LDAP) '
         'in accordance with our '
         'Content Licenses (https://source.android.com/setup/start/licenses), '
         'Contributor License Agreement (https://cla.developers.google.com/), '
