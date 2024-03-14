@@ -145,24 +145,23 @@ def send_start_event(
 
 def print_data_collection_notice(colorful=True):
   """Print the data collection notice."""
+  # Do not print notice for external users as we are not collecting any external
+  # data.
+  if metrics_base.get_user_type() == metrics_base.EXTERNAL_USER:
+    return
+
   red = '31m'
   green = '32m'
   start = '\033[1;'
   end = '\033[0m'
   delimiter = '=' * 18
-  anonymous = ''
-  user_type = 'INTERNAL'
-  if metrics_base.get_user_type() == metrics_base.EXTERNAL_USER:
-    anonymous = ' anonymous'
-    user_type = 'EXTERNAL'
   notice = (
-      '  We collect%s usage statistics in accordance with our Content '
-      'Licenses (%s), Contributor License Agreement (%s), Privacy '
+      'We collect usage statistics (including LDAP) in accordance with our '
+      'Content Licenses (%s), Contributor License Agreement (%s), Privacy '
       'Policy (%s) and Terms of Service (%s).'
   ) % (
-      anonymous,
       CONTENT_LICENSES_URL,
-      CONTRIBUTOR_AGREEMENT_URL[user_type],
+      CONTRIBUTOR_AGREEMENT_URL['INTERNAL'],
       PRIVACY_POLICY_URL,
       TERMS_SERVICE_URL,
   )
