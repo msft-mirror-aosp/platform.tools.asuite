@@ -1174,7 +1174,13 @@ def _main(argv: List[Any], results_dir: str, args: argparse.Namespace):
     tests_exit_code = test_execution_plan.execute()
 
     if args.experimental_coverage:
-      coverage.generate_coverage_report(results_dir, test_infos, mod_info)
+      coverage.generate_coverage_report(
+          results_dir,
+          test_infos,
+          mod_info,
+          extra_args.get(constants.HOST, False),
+      )
+
   metrics.RunTestsFinishEvent(
       duration=metrics_utils.convert_duration(time.time() - test_start)
   )
