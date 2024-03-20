@@ -91,13 +91,12 @@ def create_atest_arg_parser():
       ),
   )
   parser.add_argument(
-      '--adevice:targets',
-      dest='adevice_targets',
+      '--update:modules',
+      dest='update_modules',
       type=lambda value: value.split(','),
-      default='sync',
       help=(
-          'Targets that are built if the device is being updated by Adevice. '
-          'Targets should be separated by comma.'
+          'Modules that are built if the device is being updated. '
+          'Modules should be separated by comma.'
       ),
   )
 
