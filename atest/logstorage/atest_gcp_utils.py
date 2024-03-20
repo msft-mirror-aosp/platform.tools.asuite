@@ -37,10 +37,10 @@ except ModuleNotFoundError as e:
   logging.debug('Import error due to %s', e)
 
 from atest.atest_enum import DetectType
-from atest.logstorage import logstorage_utils
 from atest.metrics import metrics
 from atest import atest_utils
 from atest import constants
+from typing import Any, Callable
 
 
 class RunFlowFlags:
@@ -204,16 +204,24 @@ class GCPHelper:
     ).stdout.split('"')[1]
 
 
-def do_upload_flow(extra_args):
+# TODO: The usage of build_client should be removed from this method because
+# it's not related to this module. For now, we temporarily declare the return
+# type hint for build_client_creator to be Any to avoid circular importing.
+def do_upload_flow(
+    extra_args: dict[str, str],
+    build_client_creator: Callable,
+) -> tuple:
   """Run upload flow.
 
   Asking user's decision and do the related steps.
 
   Args:
       extra_args: Dict of extra args to add to test run.
+      build_client_creator: A function that takes a credential and returns a
+        BuildClient object.
 
   Return:
-      tuple(invocation, workunit)
+      A tuple of credential object and invocation information dict.
   """
   config_folder = os.path.join(atest_utils.get_misc_dir(), '.atest')
   fetch_cred_start = time.time()
@@ -224,7 +232,8 @@ def do_upload_flow(extra_args):
   )
   if creds:
     prepare_upload_start = time.time()
-    inv, workunit, local_build_id, build_target = _prepare_data(creds)
+    build_client = build_client_creator(creds)
+    inv, workunit, local_build_id, build_target = _prepare_data(build_client)
     metrics.LocalDetectEvent(
         detect_type=DetectType.UPLOAD_PREPARE_MS,
         result=int((time.time() - prepare_upload_start) * 1000),
@@ -285,11 +294,11 @@ def fetch_credential(config_folder, extra_args):
   return None
 
 
-def _prepare_data(creds):
+def _prepare_data(client):
   """Prepare data for build api using.
 
   Args:
-      creds: The credential object.
+      build_client: The logstorage_utils.BuildClient object.
 
   Return:
       invocation and workunit object.
@@ -298,7 +307,6 @@ def _prepare_data(creds):
   try:
     logging.disable(logging.INFO)
     external_id = str(uuid.uuid4())
-    client = logstorage_utils.BuildClient(creds)
     branch = _get_branch(client)
     target = _get_target(branch, client)
     build_record = client.insert_local_build(external_id, target, branch)

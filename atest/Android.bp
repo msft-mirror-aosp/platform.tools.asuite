@@ -164,6 +164,8 @@ python_test_host {
     libs: [
         "asuite_proto",
         "pyfakefs",
+        "py-google-api-python-client",
+        "py-oauth2client",
         "tradefed-protos-py",
         "pyyaml",
     ],
