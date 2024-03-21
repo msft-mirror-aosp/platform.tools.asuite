@@ -99,8 +99,6 @@ _REGULAR_FILTER_RE = re.compile(r'.*\w$')
 _HTML_LOG_PRINT_PREFIX = 'To access logs, press "ctrl" and click on'
 
 SUGGESTIONS = {
-    # (b/198581508) Do not run "adb sync" for the users.
-    'CANNOT LINK EXECUTABLE': 'Please run "adb sync" or reflash the device(s).',
     # (b/177626045) If Atest does not install target application properly.
     'Runner reported an invalid method': 'Please reflash the device(s).',
 }
