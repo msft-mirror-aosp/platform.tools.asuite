@@ -1106,7 +1106,7 @@ def _main(argv: List[Any], results_dir: str, args: argparse.Namespace):
   device_update_method = _configure_update_method(
     steps=steps,
     plan=test_execution_plan,
-    adevice_targets=set(args.adevice_targets))
+    update_modules=set(args.update_modules or []))
 
   if build_targets and steps.has_build():
     if args.experimental_coverage:
@@ -1197,7 +1197,7 @@ def _configure_update_method(
     *,
     steps: Steps,
     plan: TestExecutionPlan,
-    adevice_targets: Set[str],
+    update_modules: set[str],
 ) -> device_update.DeviceUpdateMethod:
 
   if not steps.has_device_update():
@@ -1212,7 +1212,7 @@ def _configure_update_method(
     return device_update.NoopUpdateMethod()
 
 
-  return device_update.AdeviceUpdateMethod(targets=adevice_targets)
+  return device_update.AdeviceUpdateMethod(targets=update_modules)
 
 
 def _create_test_execution_plan(
