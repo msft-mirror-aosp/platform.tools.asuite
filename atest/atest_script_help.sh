@@ -47,12 +47,12 @@ if [ "${JAVA_VERSION}" == "" ]; then
     >&2 echo "Wrong java version. 1.8, 9, 11, 17 or 21 is required. Found $java_version_string"
     >&2 echo "PATH value:"
     >&2 echo "$PATH"
-    exit 8
+    >&2 echo "You may encounter unexpected behavior. We recommend you use the one of the known Java versions."
 fi
 
-# check if java is above 9 and supports add-opens
-JAVA_VERSION=$(echo "$java_version_string" | grep 'version [ "]\(9\|11\|17\).*[ "]')
-if [ "${JAVA_VERSION}" != "" ]; then
+# java versions below 1.8 are not supported, java versions above 1.8 need add-opens
+JAVA_VERSION=$(echo "$java_version_string" | grep 'version [ "]1\.8.*[ "]')
+if [ "${JAVA_VERSION}" == "" ]; then
     ADD_OPENS_FLAG="--add-opens=java.base/java.nio=ALL-UNNAMED --add-opens=java.base/sun.reflect.annotation=ALL-UNNAMED"
 fi
 
