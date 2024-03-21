@@ -282,13 +282,6 @@ def fetch_credential(config_folder, extra_args):
         user_agent='atest',
     ).get_credential_with_auth_flow(creds_f)
 
-  # TODO(b/275113186): Change back the warning message after the bug solved.
-  atest_utils.colorful_print(
-      'WARNING: AnTS upload disabled by default due to upload slowly'
-      '(b/275113186). If you still want to upload test result to AnTS, '
-      'please add the option --request-upload-result manually.',
-      constants.YELLOW,
-  )
   return None
 
 
