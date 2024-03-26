@@ -87,17 +87,19 @@ def create_atest_arg_parser():
       action='store_true',
       help=(
           'Build and deploy your changes to the device. By default, ATest'
-          ' will build `sync` and use `adevice` to update the device.'
+          ' will build `sync` and use `adevice` to update the device. '
+          'Note, this feature currently only works for incremental device '
+          'updates and not after a repo sync. Please flash the device after a '
+          'repo sync.'
       ),
   )
   parser.add_argument(
-      '--adevice:targets',
-      dest='adevice_targets',
+      '--update:modules',
+      dest='update_modules',
       type=lambda value: value.split(','),
-      default='sync',
       help=(
-          'Targets that are built if the device is being updated by Adevice. '
-          'Targets should be separated by comma.'
+          'Modules that are built if the device is being updated. '
+          'Modules should be separated by comma.'
       ),
   )
 

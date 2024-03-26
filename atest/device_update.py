@@ -58,7 +58,7 @@ class AdeviceUpdateMethod(DeviceUpdateMethod):
 
   def __init__(self, adevice_path: Path=_TOOL, targets: Set[str]=None):
     self._adevice_path = adevice_path
-    self._targets = targets or set()
+    self._targets = targets or set(['sync'])
 
   def update(self, serials: List[str] = None) -> None:
     try:
