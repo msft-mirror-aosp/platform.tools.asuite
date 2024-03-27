@@ -62,6 +62,12 @@ python_defaults {
     data: [
         "bazel/resources/**/*",
     ],
+    version: {
+        py3: {
+            // TODO(b/271346015): Enable embedded_launcher
+            embedded_launcher: false,
+        },
+    },
 }
 
 python_binary_host {
