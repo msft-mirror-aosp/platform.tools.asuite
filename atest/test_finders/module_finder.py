@@ -383,7 +383,7 @@ class ModuleFinder(test_finder_base.TestFinderBase):
       ti_filter = frozenset([test_info.TestFilter(full_class_name, methods)])
     # Path to cc file.
     elif file_name and constants.CC_EXT_RE.match(file_name):
-      # TODO (b/173019813) Should setup correct filter for an input file.
+      # TODO: b/173019813 - Should setup correct filter for an input file.
       if not test_finder_utils.has_cc_class(path):
         raise atest_error.MissingCCTestCaseError(
             "Can't find CC class in %s" % path
@@ -737,12 +737,12 @@ class ModuleFinder(test_finder_base.TestFinderBase):
     # If the target module is JAVA or Python test, search class name.
     find_result = self.find_test_by_class_name(
         class_name,
-        module_info.test_name,
+        module_name,
         module_info.data.get(constants.TI_REL_CONFIG),
         self.module_info.is_native_test(module_name),
     )
     # kernel target test is also define as NATIVE_TEST in build system.
-    # TODO (b/157210083) Update find_test_by_kernel_class_name method to
+    # TODO: b/157210083 - Update find_test_by_kernel_class_name method to
     # support gen_rule use case.
     if not find_result:
       find_result = self.find_test_by_kernel_class_name(module_name, class_name)
