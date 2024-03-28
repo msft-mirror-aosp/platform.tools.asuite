@@ -65,19 +65,20 @@ def tf_args(mod_info):
       '--llvm-profdata-path',
       str(llvm_profdata),
       '--jacocoagent-path',
-      str(jacocoagent_paths[0])
+      str(jacocoagent_paths[0]),
   )
 
 
 def build_modules():
-    """Build modules needed for coverage report generation."""
-    return ('jacoco_to_lcov_converter', 'jacocoagent')
+  """Build modules needed for coverage report generation."""
+  return ('jacoco_to_lcov_converter', 'jacocoagent')
 
 
 def generate_coverage_report(
     results_dir: str,
     test_infos: List[test_info.TestInfo],
     mod_info: module_info.ModuleInfo,
+    is_host_enabled: bool,
 ):
   """Generates HTML code coverage reports based on the test info."""
 
@@ -102,16 +103,23 @@ def generate_coverage_report(
       # Check for unstripped native binaries to report coverage.
       unstripped_native_binaries.update(_find_native_binaries(module_dir))
 
-  # For Java host tests, the report jar is the test itself.
+  # For host tests, use the test itself in the report generation.
   for test_info in test_infos:
-        installed = mod_info.get_installed_paths(test_info.raw_test_name)
-        jars = [f for f in installed if f.suffix == '.jar']
-        if jars:
-            jacoco_report_jars[test_info.raw_test_name] = jars
+    info = mod_info.get_module_info(test_info.raw_test_name)
+    if not info or (not is_host_enabled and mod_info.requires_device(info)):
+      continue
+
+    installed = mod_info.get_installed_paths(test_info.raw_test_name)
+    jars = [f for f in installed if f.suffix == '.jar']
+    if jars:
+      jacoco_report_jars[test_info.raw_test_name] = jars
+    elif constants.MODULE_CLASS_NATIVE_TESTS in test_info.module_class:
+      unstripped_native_binaries.update(installed)
 
   if jacoco_report_jars:
     _generate_java_coverage_report(
-            jacoco_report_jars, src_paths, results_dir, mod_info)
+        jacoco_report_jars, src_paths, results_dir, mod_info
+    )
 
   if unstripped_native_binaries:
     _generate_native_coverage_report(unstripped_native_binaries, results_dir)
