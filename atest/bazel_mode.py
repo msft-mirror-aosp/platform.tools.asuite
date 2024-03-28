@@ -645,9 +645,7 @@ class WorkspaceGenerator:
     if self.resource_manager.get_src_file_path(device_infra_path).exists():
       self._symlink(src=device_infra_path, target=device_infra_path)
 
-    self._link_required_src_file_path(
-        'build/bazel_common_rules/rules/python/stubs'
-    )
+    self._link_required_src_file_path('external/bazelbuild-rules_python')
     self._link_required_src_file_path('external/bazelbuild-rules_java')
 
     self._create_constants_file()
