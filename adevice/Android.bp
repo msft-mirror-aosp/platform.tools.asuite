@@ -15,7 +15,7 @@
 rust_test_host {
     name: "adevice_test",
     srcs: [
-	  "src/lib.rs",
+        "src/lib.rs",
     ],
     defaults: ["adevice_deps_defaults"],
     rustlibs: ["libgoogletest_rust"],
@@ -85,7 +85,7 @@ rust_defaults {
         "libatty",
         "libclap",
         "libhex",
-	"libitertools",
+        "libitertools",
         "liblazy_static",
         "librayon",
         "libregex",
@@ -97,6 +97,7 @@ rust_defaults {
         "libtracing_subscriber",
         "libwalkdir",
         "libprotobuf",
+        "libuuid",
     ],
 }
 
@@ -119,7 +120,10 @@ rust_test {
     srcs: [
         "tests/whole_program_tests.rs",
     ],
-    rustlibs: ["libgoogletest_rust", "libadevice"],
+    rustlibs: [
+        "libgoogletest_rust",
+        "libadevice",
+    ],
     static_executable: true,
     test_suites: ["general-tests"],
     test_options: {
@@ -134,7 +138,10 @@ rust_test {
     srcs: [
         "tests/partial_program_tests.rs",
     ],
-    rustlibs: ["libgoogletest_rust", "libadevice"],
+    rustlibs: [
+        "libgoogletest_rust",
+        "libadevice",
+    ],
     static_executable: true,
     test_suites: ["general-tests"],
     test_options: {
