@@ -397,12 +397,6 @@ def create_atest_arg_parser():
       help='Wipe out the test_infos cache of the test and start a new search.',
   )
   parser.add_argument(
-      '-g',
-      '--generate-runner-cmd',
-      action='store_true',
-      help='Generate the runner command(s) of given tests.',
-  )
-  parser.add_argument(
       '-D',
       '--tf-debug',
       nargs='?',
