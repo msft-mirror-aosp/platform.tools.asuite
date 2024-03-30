@@ -15,6 +15,7 @@ use std::fs;
 use std::process::{Command, Stdio};
 use std::time::UNIX_EPOCH;
 use tracing::debug;
+use uuid::Uuid;
 
 const ENV_OUT: &str = "OUT";
 const ENV_USER: &str = "USER";
@@ -41,6 +42,7 @@ pub trait MetricSender {
 pub struct Metrics {
     events: Vec<LogEvent>,
     user: String,
+    invocation_id: String,
 }
 
 impl MetricSender for Metrics {
@@ -140,7 +142,11 @@ impl MetricSender for Metrics {
 
 impl Default for Metrics {
     fn default() -> Self {
-        Metrics { events: Vec::new(), user: env::var(ENV_USER).unwrap_or("".to_string()) }
+        Metrics {
+            events: Vec::new(),
+            user: env::var(ENV_USER).unwrap_or("".to_string()),
+            invocation_id: Uuid::new_v4().to_string(),
+        }
     }
 }
 
@@ -184,6 +190,7 @@ impl Metrics {
     fn default_log_event(&self) -> AdeviceLogEvent {
         let mut event = AdeviceLogEvent::default();
         event.set_user_key(self.user.to_string());
+        event.set_invocation_id(self.invocation_id.to_string());
         event
     }
 }
