@@ -97,6 +97,24 @@ python_binary_host {
     },
 }
 
+python_binary_host {
+    name: "atest-beta",
+    defaults: ["atest_defaults"],
+    main: "atest_main.py",
+    data: [
+        ":atest_flag_list_for_completion",
+    ],
+    stem: "atest-beta-dev",
+    libs: [
+        "atest_ca_certs_locater",
+    ],
+    version: {
+        py3: {
+            embedded_launcher: true,
+        },
+    },
+}
+
 // A helper binary used to generate the atest_flag_list_for_completion.txt
 // file, it should never be run outside of the build. It's the same
 // as atest except it has atest_flag_list_generator.py as it's main python
