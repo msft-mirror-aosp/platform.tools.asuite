@@ -22,7 +22,6 @@ from unittest import mock
 
 from atest import unittest_constants as uc
 from atest import unittest_utils
-from atest.logstorage import atest_gcp_utils
 from atest.logstorage import logstorage_utils
 from atest.test_finders import test_info
 from atest.test_runners import suite_plan_test_runner
@@ -128,7 +127,7 @@ class SuitePlanTestRunnerUnittests(unittest.TestCase):
     )
 
   @mock.patch.object(logstorage_utils, 'BuildClient')
-  @mock.patch.object(atest_gcp_utils, 'do_upload_flow')
+  @mock.patch.object(logstorage_utils, 'do_upload_flow')
   @mock.patch('atest.atest_utils.get_manifest_branch')
   @mock.patch.object(logstorage_utils.BuildClient, 'update_invocation')
   @mock.patch('subprocess.Popen')
