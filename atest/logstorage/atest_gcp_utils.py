@@ -253,7 +253,7 @@ def do_upload_flow(
   return None, None
 
 
-def fetch_credential(config_folder, extra_args):
+def fetch_credential(config_folder: str, extra_args: dict[str, str]):
   """Fetch the credential whenever --request-upload-result is specified.
 
   Args:
@@ -264,34 +264,48 @@ def fetch_credential(config_folder, extra_args):
   Return:
       The credential object.
   """
-  if not os.path.exists(config_folder):
-    os.makedirs(config_folder)
-  not_upload_file = os.path.join(config_folder, constants.DO_NOT_UPLOAD)
+  config_folder_path = Path(config_folder)
+  config_folder_path.mkdir(parents=True, exist_ok=True)
+  not_upload_file = config_folder_path.joinpath(constants.DO_NOT_UPLOAD)
   # Do nothing if there are no related config or DO_NOT_UPLOAD exists.
   if not constants.CREDENTIAL_FILE_NAME or not constants.TOKEN_FILE_PATH:
     return None
 
-  creds_f = os.path.join(config_folder, constants.CREDENTIAL_FILE_NAME)
-  if extra_args.get(constants.REQUEST_UPLOAD_RESULT):
-    if os.path.exists(not_upload_file):
-      os.remove(not_upload_file)
-  else:
-    # TODO(b/275113186): Change back to default upload after AnTS upload
-    #  extremely slow problem be solved.
-    if os.path.exists(creds_f):
-      os.remove(creds_f)
-    Path(not_upload_file).touch()
+  creds_f = config_folder_path.joinpath(constants.CREDENTIAL_FILE_NAME)
 
-  # If DO_NOT_UPLOAD not exist, ATest will try to get the credential
-  # from the file.
-  if not os.path.exists(not_upload_file):
-    return GCPHelper(
-        client_id=constants.CLIENT_ID,
-        client_secret=constants.CLIENT_SECRET,
-        user_agent='atest',
-    ).get_credential_with_auth_flow(creds_f)
+  if extra_args.get(constants.DISABLE_UPLOAD_RESULT):
+    atest_utils.colorful_print(
+        'Ants result uploading is switched off and will apply to the current'
+        ' and future TradeFed test runs. To re-enable it, run a test with the'
+        ' --request-upload-result flag.',
+        constants.GREEN,
+    )
+    creds_f.unlink(missing_ok=True)
+    not_upload_file.touch(exist_ok=True)
+  elif extra_args.get(constants.REQUEST_UPLOAD_RESULT):
+    atest_utils.colorful_print(
+        'Ants result uploading is switched on and will apply to the current and'
+        ' future TradeFed test runs. To disable it, run a test with the'
+        ' --disable-upload-result flag.',
+        constants.GREEN,
+    )
+    not_upload_file.unlink(missing_ok=True)
 
-  return None
+  if not_upload_file.exists():
+    return None
+
+  # Print a reminder that the result uploading is enabled when the user is not
+  # requesting result upload.
+  if not extra_args.get(constants.REQUEST_UPLOAD_RESULT):
+    atest_utils.colorful_print(
+        'Ants result uploading is enabled.', constants.GREEN
+    )
+
+  return GCPHelper(
+      client_id=constants.CLIENT_ID,
+      client_secret=constants.CLIENT_SECRET,
+      user_agent='atest',
+  ).get_credential_with_auth_flow(creds_f)
 
 
 def _prepare_data(client):
