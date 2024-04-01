@@ -40,7 +40,6 @@ from atest import atest_utils
 from atest import constants
 from atest import result_reporter
 
-from atest.logstorage import atest_gcp_utils
 from atest.logstorage import logstorage_utils
 from atest.metrics import metrics
 from atest.test_finders import test_info
@@ -170,7 +169,7 @@ class MoblyResultUploader:
     self._test_results = {}
 
     upload_start = time.monotonic()
-    creds, self._invocation = atest_gcp_utils.do_upload_flow(extra_args)
+    creds, self._invocation = logstorage_utils.do_upload_flow(extra_args)
     self._root_workunit = None
     self._current_workunit = None
 
