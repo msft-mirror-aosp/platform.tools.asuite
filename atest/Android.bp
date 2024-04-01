@@ -23,11 +23,24 @@ java_library_host {
     java_resource_dirs: ["res"],
 }
 
+java_library_host {
+    name: "atest-tradefed-lib",
+    srcs: [
+        "java/**/*.java",
+    ],
+    libs: [
+        "tradefed",
+    ],
+}
+
 tradefed_binary_host {
     name: "atest-tradefed",
     short_name: "ATEST",
     full_name: "ATest Test Suite",
-    static_libs: ["atest-tradefed-shell"],
+    static_libs: [
+        "atest-tradefed-shell",
+        "atest-tradefed-lib",
+    ],
     required: [
         "atest_tradefed.sh",
         "atest_script_help.sh",
