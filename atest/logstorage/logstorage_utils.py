@@ -23,11 +23,29 @@ import uuid
 try:
   import httplib2
   from googleapiclient.discovery import build
+  from oauth2client import client as oauth2_client
 except ImportError as e:
   logging.debug('Import error due to: %s', e)
 
 from atest import constants
 from atest import metrics
+from atest.logstorage import atest_gcp_utils
+
+
+def do_upload_flow(extra_args: dict[str, str]) -> tuple:
+  """Run upload flow.
+
+  Asking user's decision and do the related steps.
+
+  Args:
+      extra_args: Dict of extra args to add to test run.
+
+  Return:
+      A tuple of credential object and invocation information dict.
+  """
+  return atest_gcp_utils.do_upload_flow(
+      extra_args, lambda cred: BuildClient(cred)
+  )
 
 
 class BuildClient:

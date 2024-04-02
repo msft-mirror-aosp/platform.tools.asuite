@@ -40,7 +40,7 @@ impl RestartChooser {
 // Extensions like xml, prof, bprof come up with .jar files (i.e. framework-minus-apex),
 // so we list them here too.
 const SOFT_RESTART_FILE_EXTS: &[&str] =
-    &["art", "oat", "vdex", "odex", "fsv_meta", "apk", "jar", "xml", "prof", "bprof"];
+    &["art", "oat", "vdex", "odex", "fsv_meta", "apk", "jar", "xml", "prof", "bprof", "idsig"];
 fn can_soft_restart_based_on_filename(filename: &str) -> bool {
     let ext = Path::new(filename).extension().and_then(OsStr::to_str).unwrap_or("");
     SOFT_RESTART_FILE_EXTS.contains(&ext)

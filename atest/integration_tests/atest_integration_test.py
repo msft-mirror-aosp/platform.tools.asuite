@@ -287,6 +287,8 @@ class AtestTestCase(split_build_test_script.SplitBuildTestTestCase):
         'prebuilts/build-tools/linux-x86/bin/py3-cmd',
         'prebuilts/build-tools',
         'prebuilts/asuite/atest/linux-x86/atest-py3',
+        # Required by bazel mode
+        'external/bazelbuild-rules_python',
     ]
 
     # Default exclude list of repo paths for snapshot

@@ -39,4 +39,5 @@
     <template-include name="reporters" default="empty" />
     <template-include name="metrics_collector" default="empty" />
     <template-include name="metric_post_processor" default="empty" />
+    <target_preparer class="com.android.atest.AtestLogArtifactsUploader" />
 </configuration>

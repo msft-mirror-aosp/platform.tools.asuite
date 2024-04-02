@@ -47,8 +47,11 @@ class AtestGcpUtilsUnittests(unittest.TestCase):
         fake_local_build_id,
         fake_build_target,
     )
+    fake_build_client_creator = lambda cred: None
     constants.TOKEN_FILE_PATH = tempfile.NamedTemporaryFile().name
-    creds, inv = atest_gcp_utils.do_upload_flow(fake_extra_args)
+    creds, inv = atest_gcp_utils.do_upload_flow(
+        fake_extra_args, fake_build_client_creator
+    )
     self.assertEqual(fake_creds, creds)
     self.assertEqual(fake_inv, inv)
     self.assertEqual(
@@ -63,7 +66,9 @@ class AtestGcpUtilsUnittests(unittest.TestCase):
     self.assertEqual(fake_extra_args[constants.BUILD_TARGET], fake_build_target)
 
     mock_request.return_value = None
-    creds, inv = atest_gcp_utils.do_upload_flow(fake_extra_args)
+    creds, inv = atest_gcp_utils.do_upload_flow(
+        fake_extra_args, fake_build_client_creator
+    )
     self.assertEqual(None, creds)
     self.assertEqual(None, inv)
 

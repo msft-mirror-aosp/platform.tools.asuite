@@ -123,6 +123,7 @@ class BuildEnvProfiler:
 @enum.unique
 class BuildOutputMode(enum.Enum):
   'Represents the different ways to display build output.'
+
   STREAMED = 'streamed'
   LOGGED = 'logged'
 
@@ -1535,33 +1536,6 @@ def get_verify_key(tests, extra_args):
     test_commands.append('%s=%s' % (key, str(value)))
   test_commands.sort()
   return ' '.join(test_commands)
-
-
-def gen_runner_cmd_to_file(
-    tests, dry_run_cmd, result_path=constants.RUNNER_COMMAND_PATH
-):
-  """Generate test command and save to file.
-
-  Args:
-      tests: A String of input tests.
-      dry_run_cmd: A String of dry run command.
-      result_path: A file path for saving result.
-
-  Returns:
-      A composed run commands.
-  """
-  normalized_cmd = dry_run_cmd
-  root_path = os.environ.get(constants.ANDROID_BUILD_TOP)
-  if root_path in dry_run_cmd:
-    normalized_cmd = dry_run_cmd.replace(
-        root_path, f'${constants.ANDROID_BUILD_TOP}'
-    )
-  results = load_json_safely(result_path)
-  if results.get(tests) != normalized_cmd:
-    results[tests] = normalized_cmd
-  with open(result_path, 'w+', encoding='utf-8') as _file:
-    json.dump(results, _file, indent=0)
-  return results.get(tests, '')
 
 
 def save_build_files_timestamp():
