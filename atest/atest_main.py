@@ -423,7 +423,7 @@ def _validate_adb_devices(args, test_infos):
 
   Args:
       args: parsed args object.
-      test_info: TestInfo object.
+      test_infos: TestInfo object.
   """
   # No need to check device availability if the user does not acquire to test.
   if not parse_steps(args).has_test():
@@ -683,7 +683,7 @@ def _dry_run(results_dir, extra_args, test_infos, mod_info):
       mod_info: ModuleInfo object.
 
   Returns:
-      A list of test commands.
+      A successful exit code.
   """
   all_run_cmds = []
   for test_runner, tests in test_runner_handler.group_tests_by_test_runners(
@@ -697,7 +697,7 @@ def _dry_run(results_dir, extra_args, test_infos, mod_info):
       print(
           'Would run test via command: %s' % (atest_utils.mark_green(run_cmd))
       )
-  return all_run_cmds
+  return ExitCode.SUCCESS
 
 
 def _print_testable_modules(mod_info, suite):
@@ -756,42 +756,6 @@ def _non_action_validator(args: argparse.ArgumentParser):
   if args.latest_result:
     atest_execution_info.print_test_result_by_path(constants.LATEST_RESULT_FILE)
     sys.exit(ExitCode.SUCCESS)
-
-
-def _dry_run_validator(
-    args: argparse.ArgumentParser,
-    results_dir: str,
-    extra_args: Dict[str, Any],
-    test_infos: Set[TestInfo],
-    mod_info: module_info.ModuleInfo,
-) -> ExitCode:
-  """Method which process --dry-run argument.
-
-  Args:
-      args: An argparse.ArgumentParser class instance holding parsed args.
-      result_dir: A string path of the results dir.
-      extra_args: A dict of extra args for test runners to utilize.
-      test_infos: A list of test_info.
-      mod_info: ModuleInfo object.
-
-  Returns:
-      Exit code.
-  """
-  dry_run_cmds = _dry_run(results_dir, extra_args, test_infos, mod_info)
-  if args.generate_runner_cmd:
-    dry_run_cmd_str = ' '.join(dry_run_cmds)
-    tests_str = ' '.join(args.tests)
-    test_commands = atest_utils.gen_runner_cmd_to_file(
-        tests_str, dry_run_cmd_str
-    )
-    print(
-        'add command %s to file %s'
-        % (
-            atest_utils.mark_green(test_commands),
-            atest_utils.mark_green(constants.RUNNER_COMMAND_PATH),
-        )
-    )
-  return ExitCode.SUCCESS
 
 
 def _exclude_modules_in_targets(build_targets):
@@ -1061,7 +1025,6 @@ def _main(argv: List[Any], results_dir: str, args: argparse.Namespace):
     _print_testable_modules(mod_info, args.list_modules)
     return ExitCode.SUCCESS
   test_infos = set()
-  dry_run_args = (args.dry_run, args.generate_runner_cmd)
   # (b/242567487) index_targets may finish after cli_translator; to
   # mitigate the overhead, the main waits until it finished when no index
   # files are available (e.g. fresh repo sync)
@@ -1072,7 +1035,7 @@ def _main(argv: List[Any], results_dir: str, args: argparse.Namespace):
 
   # Only check for sufficient devices if not dry run.
   args.device_count_config = get_device_count_config(test_infos, mod_info)
-  if not any(dry_run_args) and not has_set_sufficient_devices(
+  if not args.dry_run and not has_set_sufficient_devices(
       args.device_count_config, args.serial
   ):
     return ExitCode.INSUFFICIENT_DEVICES
@@ -1086,7 +1049,7 @@ def _main(argv: List[Any], results_dir: str, args: argparse.Namespace):
       results_dir=results_dir,
       mod_info=mod_info,
       args=args,
-      dry_run=any(dry_run_args),
+      dry_run=args.dry_run,
   )
 
   extra_args = test_execution_plan.extra_args
@@ -1097,16 +1060,15 @@ def _main(argv: List[Any], results_dir: str, args: argparse.Namespace):
   if not args.use_modules_in:
     build_targets = _exclude_modules_in_targets(build_targets)
 
-  if any(dry_run_args):
-    return _dry_run_validator(
-        args, results_dir, extra_args, test_infos, mod_info
-    )
+  if args.dry_run:
+    return _dry_run(results_dir, extra_args, test_infos, mod_info)
 
   steps = parse_steps(args)
   device_update_method = _configure_update_method(
-    steps=steps,
-    plan=test_execution_plan,
-    update_modules=set(args.update_modules or []))
+      steps=steps,
+      plan=test_execution_plan,
+      update_modules=set(args.update_modules or []),
+  )
 
   if build_targets and steps.has_build():
     if args.experimental_coverage:
@@ -1174,7 +1136,13 @@ def _main(argv: List[Any], results_dir: str, args: argparse.Namespace):
     tests_exit_code = test_execution_plan.execute()
 
     if args.experimental_coverage:
-      coverage.generate_coverage_report(results_dir, test_infos, mod_info)
+      coverage.generate_coverage_report(
+          results_dir,
+          test_infos,
+          mod_info,
+          extra_args.get(constants.HOST, False),
+      )
+
   metrics.RunTestsFinishEvent(
       duration=metrics_utils.convert_duration(time.time() - test_start)
   )
@@ -1210,7 +1178,6 @@ def _configure_update_method(
         constants.YELLOW,
     )
     return device_update.NoopUpdateMethod()
-
 
   return device_update.AdeviceUpdateMethod(targets=update_modules)
 

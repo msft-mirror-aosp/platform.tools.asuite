@@ -84,7 +84,7 @@ class GenerationTestFixture(fake_filesystem_unittest.TestCase):
     self.resource_manager.get_resource_file_path('bazelrc').touch()
 
     rules_python = self.resource_manager.get_src_file_path(
-        'build/bazel_common_rules/rules/python/stubs'
+        'external/bazelbuild-rules_python'
     )
     rules_python.mkdir(parents=True)
     rules_java = self.resource_manager.get_src_file_path(

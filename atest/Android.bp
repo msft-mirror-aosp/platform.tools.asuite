@@ -23,11 +23,24 @@ java_library_host {
     java_resource_dirs: ["res"],
 }
 
+java_library_host {
+    name: "atest-tradefed-lib",
+    srcs: [
+        "java/**/*.java",
+    ],
+    libs: [
+        "tradefed",
+    ],
+}
+
 tradefed_binary_host {
     name: "atest-tradefed",
     short_name: "ATEST",
     full_name: "ATest Test Suite",
-    static_libs: ["atest-tradefed-shell"],
+    static_libs: [
+        "atest-tradefed-shell",
+        "atest-tradefed-lib",
+    ],
     required: [
         "atest_tradefed.sh",
         "atest_script_help.sh",
@@ -76,6 +89,12 @@ python_binary_host {
     dist: {
         targets: ["droidcore"],
     },
+    version: {
+        py3: {
+            // TODO(b/271346015): Enable embedded_launcher
+            embedded_launcher: false,
+        },
+    },
 }
 
 // A helper binary used to generate the atest_flag_list_for_completion.txt
@@ -87,6 +106,11 @@ python_binary_host {
     name: "atest_flag_list_generator",
     defaults: ["atest_defaults"],
     main: "atest_flag_list_generator.py",
+    version: {
+        py3: {
+            embedded_launcher: true,
+        },
+    },
 }
 
 genrule {
@@ -153,6 +177,8 @@ python_test_host {
     libs: [
         "asuite_proto",
         "pyfakefs",
+        "py-google-api-python-client",
+        "py-oauth2client",
         "tradefed-protos-py",
         "pyyaml",
     ],
