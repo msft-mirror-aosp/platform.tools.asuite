@@ -20,17 +20,13 @@ import logging
 import time
 import uuid
 
-try:
-  import httplib2
-  from googleapiclient.discovery import build
-  from oauth2client import client as oauth2_client
-except ImportError as e:
-  logging.debug('Import error due to: %s', e)
-
 from atest import constants
-from atest.metrics import metrics_base
-from atest.metrics import metrics
 from atest.logstorage import atest_gcp_utils
+from atest.metrics import metrics
+from atest.metrics import metrics_base
+from googleapiclient.discovery import build
+import httplib2
+from oauth2client import client as oauth2_client
 
 
 def do_upload_flow(extra_args: dict[str, str]) -> tuple:
