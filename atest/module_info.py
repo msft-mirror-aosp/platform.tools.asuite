@@ -955,7 +955,8 @@ class ModuleInfo:
     )
     return install_deps
 
-  def is_unit_test(self, mod_info):
+  @staticmethod
+  def is_unit_test(mod_info):
     """Return True if input module is unit test, False otherwise.
 
     Args:
@@ -1055,7 +1056,7 @@ class ModuleInfo:
 
   def get_all_unit_tests(self):
     """Get a list of all the module names which are unit tests."""
-    return self._get_all_modules(type_predicate=self.is_unit_test)
+    return self._get_all_modules(type_predicate=ModuleInfo.is_unit_test)
 
   def get_all_host_unit_tests(self):
     """Get a list of all the module names which are host unit tests."""
