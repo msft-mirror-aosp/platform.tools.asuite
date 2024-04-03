@@ -526,7 +526,7 @@ class ModuleInfo:
       return True
     return False
 
-  def get_paths(self, name):
+  def get_paths(self, name) -> list[str]:
     """Return paths of supplied module name, Empty list if non-existent."""
     info = self.get_module_info(name)
     if info:
