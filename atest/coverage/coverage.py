@@ -37,6 +37,7 @@ def build_env_vars():
       'CLANG_COVERAGE': 'true',
       'NATIVE_COVERAGE_PATHS': '*',
       'EMMA_INSTRUMENT': 'true',
+      'LLVM_PROFILE_FILE': '/dev/null',
   }
   return env_vars
 
