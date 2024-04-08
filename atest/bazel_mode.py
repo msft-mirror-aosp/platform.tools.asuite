@@ -26,14 +26,17 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 import argparse
+import atexit
 from collections import OrderedDict, defaultdict, deque
 from collections.abc import Iterable
 import contextlib
 import dataclasses
 import enum
 import functools
+import importlib.resources
 import logging
 import os
+import pathlib
 from pathlib import Path
 import re
 import shlex
@@ -771,8 +774,48 @@ class WorkspaceGenerator:
     self._symlink(src=path, target=path)
 
 
-def _get_resource_root():
-  return Path(os.path.dirname(__file__)).joinpath('bazel/resources')
+@functools.cache
+def _get_resource_root() -> pathlib.Path:
+  tmp_resource_dir = pathlib.Path(tempfile.mkdtemp())
+  atexit.register(lambda: shutil.rmtree(tmp_resource_dir))
+
+  def _extract_resources(
+      resource_path: pathlib.Path,
+      dst: pathlib.Path,
+      ignore_file_names: list[str] = None,
+  ):
+    resource = importlib.resources.files(resource_path.as_posix())
+    dst.mkdir(parents=True, exist_ok=True)
+    for child in resource.iterdir():
+      if child.is_file():
+        if child.name in ignore_file_names:
+          continue
+        with importlib.resources.as_file(child) as child_file:
+          shutil.copy(child_file, dst.joinpath(child.name))
+      elif child.is_dir():
+        _extract_resources(
+            resource_path.joinpath(child.name),
+            dst.joinpath(child.name),
+            ignore_file_names,
+        )
+      else:
+        logging.warn('Ignoring unknown resource: %s', child)
+
+  try:
+    _extract_resources(
+        pathlib.Path('atest/bazel/resources'),
+        tmp_resource_dir,
+        ignore_file_names=['__init__.py'],
+    )
+  except ModuleNotFoundError as e:
+    logging.debug(
+        'Bazel resource not found from package path, possible due to running'
+        ' atest from source. Returning resource source path instead: %s',
+        e,
+    )
+    return pathlib.Path(os.path.dirname(__file__)).joinpath('bazel/resources')
+
+  return tmp_resource_dir
 
 
 class Package:
