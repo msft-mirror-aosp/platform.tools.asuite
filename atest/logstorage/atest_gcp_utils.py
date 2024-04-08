@@ -244,14 +244,10 @@ def do_upload_flow(
   return None, None
 
 
-def get_config_folder() -> pathlib.Path:
-  """Returns the config folder path where upload config is stored."""
-  return pathlib.Path(atest_utils.get_misc_dir()).joinpath('.atest')
-
-
 def fetch_credential():
   """Fetch the credential object."""
-  creds_path = get_config_folder().joinpath(constants.CREDENTIAL_FILE_NAME)
+  creds_path = atest_utils.get_config_folder().joinpath(
+      constants.CREDENTIAL_FILE_NAME)
   return GCPHelper(
       client_id=constants.CLIENT_ID,
       client_secret=constants.CLIENT_SECRET,
