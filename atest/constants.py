@@ -16,11 +16,30 @@
 # pylint: disable=wildcard-import
 # pylint: disable=unused-wildcard-import
 
+import os
+import sys
 from atest.constants_default import *
 
 
+def _load_asuite_python_paths():
+  """Load additional python paths to module find path.
+
+  When atest is built with embedded mode, the PYTHONPATH is ignored. We use
+  this function to add the paths to the module search paths. Specifically, we
+  only need to add the asuite python paths so that we can load the
+  `constants_google` module.
+  """
+  python_paths = os.environ.get('PYTHONPATH', '').split(':')
+  for python_path in python_paths:
+    if 'asuite' in python_path and python_path not in sys.path:
+      sys.path.append(python_path)
+
+
+_load_asuite_python_paths()
+
 # Now try to import the various constant files outside this repo to overwrite
 # the globals as desired.
+# pylint: disable=g-import-not-at-top
 try:
   from constants_google import *
 except ImportError:
