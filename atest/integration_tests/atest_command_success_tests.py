@@ -29,11 +29,11 @@ class CommandSuccessTests(atest_integration_test.AtestTestCase):
 
   def test_csuite_harness_tests(self):
     """Test if csuite-harness-tests command runs successfully."""
-    self._verify_atest_command_success('csuite-harness-tests')
+    self._verify_atest_command_success('csuite-harness-tests --no-bazel-mode --host')
 
   def test_csuite_cli_test(self):
     """Test if csuite_cli_test command runs successfully."""
-    self._verify_atest_command_success('csuite_cli_test')
+    self._verify_atest_command_success('csuite_cli_test --no-bazel-mode --host')
 
   def _verify_atest_command_success(
       self, cmd: str, snapshot_include_paths: list[str] = None
