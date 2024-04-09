@@ -24,8 +24,6 @@ from atest import constants
 from atest import module_info
 from atest.test_finders import test_info
 
-CLANG_VERSION = 'r475365b'
-
 
 def build_env_vars():
   """Environment variables for building with code coverage instrumentation.
@@ -49,8 +47,9 @@ def tf_args(mod_info):
       A list of the command line arguments to append.
   """
   build_top = Path(os.environ.get(constants.ANDROID_BUILD_TOP))
+  clang_version = _get_clang_version(build_top)
   llvm_profdata = build_top.joinpath(
-      f'prebuilts/clang/host/linux-x86/clang-{CLANG_VERSION}'
+      f'prebuilts/clang/host/linux-x86/{clang_version}'
   )
   jacocoagent_paths = mod_info.get_installed_paths('jacocoagent')
   return (
@@ -68,6 +67,14 @@ def tf_args(mod_info):
       '--jacocoagent-path',
       str(jacocoagent_paths[0]),
   )
+
+
+def _get_clang_version(build_top):
+  """Finds out current toolchain version."""
+  version_output = subprocess.check_output(
+      f'{build_top}/build/soong/scripts/get_clang_version.py', text=True
+  )
+  return version_output.strip()
 
 
 def build_modules():
