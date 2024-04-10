@@ -157,7 +157,7 @@ impl FakeMetricSender {
 }
 impl MetricSender for FakeMetricSender {
     // TODO: Capture and test metrics.
-    fn add_start_event(&mut self, _command_line: &str) {}
+    fn add_start_event(&mut self, _command_line: &str, _add_start_event: &str) {}
 
     fn add_action_event(&mut self, _action: &str, _duration: std::time::Duration) {}
 
