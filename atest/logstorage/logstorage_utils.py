@@ -20,6 +20,7 @@ import logging
 import time
 import uuid
 
+from atest import atest_utils
 from atest import constants
 from atest.logstorage import atest_gcp_utils
 from atest.metrics import metrics
@@ -27,6 +28,56 @@ from atest.metrics import metrics_base
 from googleapiclient.discovery import build
 import httplib2
 from oauth2client import client as oauth2_client
+
+UPLOAD_REQUESTED_FILE_NAME = 'UPLOAD_REQUESTED'
+
+
+def is_upload_enabled(args: dict[str, str]) -> bool:
+  """Determines whether log upload is enabled."""
+  # Do nothing if there are no related config.
+  if not constants.CREDENTIAL_FILE_NAME or not constants.TOKEN_FILE_PATH:
+    return False
+
+  config_folder_path = atest_gcp_utils.get_config_folder()
+  config_folder_path.mkdir(parents=True, exist_ok=True)
+  upload_requested_file = config_folder_path.joinpath(
+      UPLOAD_REQUESTED_FILE_NAME
+  )
+
+  if args.get(constants.DISABLE_UPLOAD_RESULT):
+    atest_utils.colorful_print(
+        'AnTS result uploading is switched off and will apply to the current'
+        ' and future TradeFed test runs. To re-enable it, run a test with the'
+        ' --request-upload-result flag.',
+        constants.GREEN,
+    )
+    creds_file = config_folder_path.joinpath(constants.CREDENTIAL_FILE_NAME)
+    creds_file.unlink(missing_ok=True)
+    upload_requested_file.unlink(missing_ok=True)
+    return False
+
+  if args.get(constants.REQUEST_UPLOAD_RESULT):
+    atest_utils.colorful_print(
+        'AnTS result uploading is switched on and will apply to the current and'
+        ' future TradeFed test runs. To disable it, run a test with the'
+        ' --disable-upload-result flag.',
+        constants.GREEN,
+    )
+    upload_requested_file.touch(exist_ok=True)
+
+  if not upload_requested_file.exists():
+    return False
+
+  # Print a reminder that the result uploading is enabled when the user is not
+  # requesting result upload.
+  if not args.get(constants.REQUEST_UPLOAD_RESULT):
+    atest_utils.colorful_print(
+        'AnTS result uploading is enabled. (To disable, use'
+        ' --disable-upload-result flag)',
+        constants.GREEN,
+    )
+
+  return True
 
 
 def do_upload_flow(extra_args: dict[str, str]) -> tuple:

@@ -310,7 +310,11 @@ class AtestTradefedTestRunner(trb.TestRunnerBase):
     self._try_set_gts_authentication_key()
     result = 0
     upload_start = time.time()
-    creds, inv = logstorage_utils.do_upload_flow(extra_args)
+    creds, inv = (
+        logstorage_utils.do_upload_flow(extra_args)
+        if logstorage_utils.is_upload_enabled(extra_args)
+        else (None, None)
+    )
     metrics.LocalDetectEvent(
         detect_type=DetectType.UPLOAD_FLOW_MS,
         result=int((time.time() - upload_start) * 1000),

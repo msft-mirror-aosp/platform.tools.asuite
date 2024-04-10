@@ -42,7 +42,7 @@ class _SimpleUploadingClient:
 
   def initialize_invocation(self):
     """Initialize internal build clients and get invocation ID from AnTS."""
-    configuration = {constants.REQUEST_UPLOAD_RESULT: True}
+    configuration = {}
     creds, self._invocation_data = logstorage_utils.do_upload_flow(
         configuration
     )

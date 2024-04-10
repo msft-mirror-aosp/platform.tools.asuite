@@ -169,7 +169,12 @@ class MoblyResultUploader:
     self._test_results = {}
 
     upload_start = time.monotonic()
-    creds, self._invocation = logstorage_utils.do_upload_flow(extra_args)
+    creds, self._invocation = (
+        logstorage_utils.do_upload_flow(extra_args)
+        if logstorage_utils.is_upload_enabled(extra_args)
+        else (None, None)
+    )
+
     self._root_workunit = None
     self._current_workunit = None
 
