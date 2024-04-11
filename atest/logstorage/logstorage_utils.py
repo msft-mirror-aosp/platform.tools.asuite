@@ -28,7 +28,8 @@ except ImportError as e:
   logging.debug('Import error due to: %s', e)
 
 from atest import constants
-from atest import metrics
+from atest.metrics import metrics_base
+from atest.metrics import metrics
 from atest.logstorage import atest_gcp_utils
 
 
@@ -143,7 +144,7 @@ class BuildClient:
         A build invocation object.
     """
     sponge_invocation_id = str(uuid.uuid4())
-    user_email = metrics.metrics_base.get_user_email()
+    user_email = metrics_base.get_user_email()
     invocation = {
         'primaryBuild': {
             'buildId': build_record['buildId'],
@@ -163,6 +164,7 @@ class BuildClient:
                 'name': 'test_uri',
                 'value': f'{constants.STORAGE2_TEST_URI}{sponge_invocation_id}',
             },
+            {'name': 'atest_run_id', 'value': metrics.get_run_id()},
         ],
     }
     return self.client.invocation().insert(body=invocation).execute()
