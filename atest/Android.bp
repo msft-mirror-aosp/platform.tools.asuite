@@ -103,8 +103,23 @@ python_binary_host {
     main: "atest_main.py",
     data: [
         ":atest_flag_list_for_completion",
+        ":atest_log_uploader",
     ],
     stem: "atest-beta-dev",
+    libs: [
+        "atest_ca_certs_locater",
+    ],
+    version: {
+        py3: {
+            embedded_launcher: true,
+        },
+    },
+}
+
+python_binary_host {
+    name: "atest_log_uploader",
+    defaults: ["atest_defaults"],
+    main: "logstorage/log_uploader.py",
     libs: [
         "atest_ca_certs_locater",
     ],
