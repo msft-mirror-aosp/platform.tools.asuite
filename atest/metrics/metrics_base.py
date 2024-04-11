@@ -163,6 +163,11 @@ class MetricsBase:
     return cls.cc
 
   @classmethod
+  def get_run_id(cls) -> str:
+    """Returns the unique run id set for the current invocation."""
+    return cls._run_id
+
+  @classmethod
   def _build_full_event(cls, atest_event):
     """This is all protobuf building you can ignore.
 
