@@ -44,40 +44,44 @@ def is_upload_enabled(args: dict[str, str]) -> bool:
       UPLOAD_REQUESTED_FILE_NAME
   )
 
-  if args.get(constants.DISABLE_UPLOAD_RESULT):
+  is_request_upload = args.get(constants.REQUEST_UPLOAD_RESULT)
+  is_disable_upload = args.get(constants.DISABLE_UPLOAD_RESULT)
+  is_previously_requested = upload_requested_file.exists()
+
+  # Note: is_request_upload and is_disable_upload are from mutually exclusive
+  # args so they won't be True simutaniously.
+  if not is_disable_upload and is_previously_requested:  # Previously enabled
     atest_utils.colorful_print(
-        'AnTS result uploading is switched off and will apply to the current'
-        ' and future TradeFed test runs. To re-enable it, run a test with the'
-        ' --request-upload-result flag.',
+        'AnTS result uploading is enabled. (To disable, use'
+        ' --disable-upload-result flag)',
         constants.GREEN,
     )
-    creds_file = config_folder_path.joinpath(constants.CREDENTIAL_FILE_NAME)
-    creds_file.unlink(missing_ok=True)
-    upload_requested_file.unlink(missing_ok=True)
-    return False
+    return True
 
-  if args.get(constants.REQUEST_UPLOAD_RESULT):
+  if is_request_upload and not is_previously_requested:  # First time enable
     atest_utils.colorful_print(
         'AnTS result uploading is switched on and will apply to the current and'
         ' future TradeFed test runs. To disable it, run a test with the'
         ' --disable-upload-result flag.',
         constants.GREEN,
     )
-    upload_requested_file.touch(exist_ok=True)
+    upload_requested_file.touch()
+    return True
 
-  if not upload_requested_file.exists():
-    return False
-
-  # Print a reminder that the result uploading is enabled when the user is not
-  # requesting result upload.
-  if not args.get(constants.REQUEST_UPLOAD_RESULT):
+  if is_disable_upload and is_previously_requested:  # First time disable
     atest_utils.colorful_print(
-        'AnTS result uploading is enabled. (To disable, use'
-        ' --disable-upload-result flag)',
+        'AnTS result uploading is switched off and will apply to the current'
+        ' and future TradeFed test runs. To re-enable it, run a test with the'
+        ' --request-upload-result flag.',
         constants.GREEN,
     )
+    upload_requested_file.unlink()
+    config_folder_path.joinpath(constants.CREDENTIAL_FILE_NAME).unlink(
+        missing_ok=True
+    )
+    return False
 
-  return True
+  return False
 
 
 def do_upload_flow(extra_args: dict[str, str]) -> tuple:
