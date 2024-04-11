@@ -22,6 +22,7 @@ import multiprocessing
 import os
 import pathlib
 import subprocess
+import sys
 from atest import constants
 from atest.logstorage import logstorage_utils
 
@@ -223,6 +224,37 @@ def upload_logs_detached(logs_dir: pathlib.Path):
   proc.join()
 
 
+def _configure_logging(log_dir: str):
+  """Configure the logger."""
+  log_fmat = '%(asctime)s %(filename)s:%(lineno)s:%(levelname)s: %(message)s'
+  date_fmt = '%Y-%m-%d %H:%M:%S'
+  log_path = os.path.join(log_dir, 'atest_log_uploader.log')
+  logging.getLogger('').handlers = []
+  logging.basicConfig(
+      filename=log_path, level=logging.DEBUG, format=log_fmat, datefmt=date_fmt
+  )
+
+
+def _redirect_stdout_stderr():
+  """Redirect stdout and stderr to logger."""
+
+  class _StreamToLogger:
+
+    def __init__(self, logger, log_level=logging.INFO):
+      self.logger = logger
+      self.log_level = log_level
+
+    def write(self, buf):
+      self.logger.log(self.log_level, buf)
+
+    def flush(self):
+      pass
+
+  logger = logging.getLogger('')
+  sys.stdout = _StreamToLogger(logger, logging.INFO)
+  sys.stderr = _StreamToLogger(logger, logging.ERROR)
+
+
 if __name__ == '__main__':
   arg_parser = argparse.ArgumentParser(
       description='Internal tool for uploading test artifacts to AnTS.',
@@ -232,5 +264,7 @@ if __name__ == '__main__':
       'artifacts_dir', help='Root directory of the test artifacts.'
   )
   args = arg_parser.parse_args()
+  _configure_logging(args.artifacts_dir)
+  _redirect_stdout_stderr()
   with _LogUploadSession() as artifact_upload_session:
     artifact_upload_session.upload_directory(pathlib.Path(args.artifacts_dir))
