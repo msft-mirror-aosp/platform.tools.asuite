@@ -25,12 +25,8 @@ import subprocess
 import sys
 from atest import constants
 from atest.logstorage import logstorage_utils
-
-try:
-  from googleapiclient import errors
-  from googleapiclient import http
-except ModuleNotFoundError as err:
-  logging.debug('Import error due to: %s', err)
+from googleapiclient import errors
+from googleapiclient import http
 
 
 class _SimpleUploadingClient:

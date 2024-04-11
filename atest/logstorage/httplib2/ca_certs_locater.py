@@ -20,11 +20,7 @@ import os
 import pathlib
 import shutil
 import tempfile
-
-try:
-  from httplib2 import certs
-except ModuleNotFoundError as e:
-  logging.debug('httplib2 is not available: %s', e)
+from httplib2 import certs
 
 
 def get() -> str:
