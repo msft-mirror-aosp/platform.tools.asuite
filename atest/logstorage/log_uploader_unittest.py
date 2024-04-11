@@ -32,7 +32,7 @@ class LogUploaderTest(fake_filesystem_unittest.TestCase):
     log_uploader._LogUploadSession(fake_client).upload_single_file(file_path)
 
     self.assertEqual(
-        fake_client.get_received_upload_artifact_arguments()[0]['name'],
+        fake_client.get_received_upload_artifact_arguments()[0]['resource_id'],
         file_path.name,
     )
 
@@ -62,6 +62,42 @@ class LogUploaderTest(fake_filesystem_unittest.TestCase):
             'name'
         ],
         file_path.name,
+    )
+
+  def test_upload_single_file_duplicate_names_unique_resource_id(self):
+    dir_path = pathlib.Path('/test_dir')
+    file_name = 'some_name.log'
+    file_path1 = dir_path.joinpath(file_name)
+    file_path2 = dir_path.joinpath('some_sub_dir').joinpath(file_name)
+    self.fs.create_file(file_path1)
+    self.fs.create_file(file_path2)
+    fake_client = self._FakeUploadingClient()
+    suj = log_uploader._LogUploadSession(fake_client)
+
+    suj.upload_single_file(file_path1)
+    suj.upload_single_file(file_path2)
+
+    self.assertNotEqual(
+        fake_client.get_received_upload_artifact_arguments()[0]['resource_id'],
+        fake_client.get_received_upload_artifact_arguments()[1]['resource_id'],
+    )
+
+  def test_upload_single_file_duplicate_names_preserve_stem_and_suffix(self):
+    dir_path = pathlib.Path('/test_dir')
+    file_name = 'filename.extension'
+    file_path1 = dir_path.joinpath(file_name)
+    file_path2 = dir_path.joinpath('some_sub_dir').joinpath(file_name)
+    self.fs.create_file(file_path1)
+    self.fs.create_file(file_path2)
+    fake_client = self._FakeUploadingClient()
+    suj = log_uploader._LogUploadSession(fake_client)
+    suj.upload_single_file(file_path1)
+
+    suj.upload_single_file(file_path2)
+
+    self.assertRegex(
+        fake_client.get_received_upload_artifact_arguments()[1]['resource_id'],
+        r'^filename.+\.extension',
     )
 
   def test_upload_directory_does_not_upload_empty_directory(self):
@@ -165,14 +201,16 @@ class LogUploaderTest(fake_filesystem_unittest.TestCase):
 
     def upload_artifact(
         self,
-        name: str,
+        resource_id: str,
         metadata: dict[str, str],
         artifact_path: pathlib.Path,
         num_of_retries,
     ) -> None:
-      self._received_upload_artifact_arguments.append(
-          {'name': name, 'metadata': metadata, 'artifact_path': artifact_path}
-      )
+      self._received_upload_artifact_arguments.append({
+          'resource_id': resource_id,
+          'metadata': metadata,
+          'artifact_path': artifact_path,
+      })
 
 
 if __name__ == '__main__':
