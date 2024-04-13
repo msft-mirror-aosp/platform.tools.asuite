@@ -1493,8 +1493,4 @@ if __name__ == '__main__':
       )
       if result_file:
         print("Run 'atest --history' to review test result history.")
-  banner = os.environ.get('ANDROID_BUILD_BANNER', None)
-  skip_banner = os.environ.get('ANDROID_SKIP_BANNER', None)
-  if banner and not skip_banner:
-    print(banner)
   sys.exit(exit_code)
