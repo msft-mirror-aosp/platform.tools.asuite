@@ -17,6 +17,7 @@ from __future__ import print_function
 import getpass
 import logging
 import os
+import pathlib
 from pathlib import Path
 from socket import socket
 import subprocess
@@ -214,9 +215,8 @@ def do_upload_flow(
   Return:
       A tuple of credential object and invocation information dict.
   """
-  config_folder = os.path.join(atest_utils.get_misc_dir(), '.atest')
   fetch_cred_start = time.time()
-  creds = fetch_credential(config_folder, extra_args)
+  creds = fetch_credential()
   metrics.LocalDetectEvent(
       detect_type=DetectType.FETCH_CRED_MS,
       result=int((time.time() - fetch_cred_start) * 1000),
@@ -244,59 +244,19 @@ def do_upload_flow(
   return None, None
 
 
-def fetch_credential(config_folder: str, extra_args: dict[str, str]):
-  """Fetch the credential whenever --request-upload-result is specified.
+def get_config_folder() -> pathlib.Path:
+  """Returns the config folder path where upload config is stored."""
+  return pathlib.Path(atest_utils.get_misc_dir()).joinpath('.atest')
 
-  Args:
-      config_folder: The directory path to put config file. The default path is
-        ~/.atest.
-      extra_args: Dict of extra args to add to test run.
 
-  Return:
-      The credential object.
-  """
-  config_folder_path = Path(config_folder)
-  config_folder_path.mkdir(parents=True, exist_ok=True)
-  not_upload_file = config_folder_path.joinpath(constants.DO_NOT_UPLOAD)
-  # Do nothing if there are no related config or DO_NOT_UPLOAD exists.
-  if not constants.CREDENTIAL_FILE_NAME or not constants.TOKEN_FILE_PATH:
-    return None
-
-  creds_f = config_folder_path.joinpath(constants.CREDENTIAL_FILE_NAME)
-
-  if extra_args.get(constants.DISABLE_UPLOAD_RESULT):
-    atest_utils.colorful_print(
-        'Ants result uploading is switched off and will apply to the current'
-        ' and future TradeFed test runs. To re-enable it, run a test with the'
-        ' --request-upload-result flag.',
-        constants.GREEN,
-    )
-    creds_f.unlink(missing_ok=True)
-    not_upload_file.touch(exist_ok=True)
-  elif extra_args.get(constants.REQUEST_UPLOAD_RESULT):
-    atest_utils.colorful_print(
-        'Ants result uploading is switched on and will apply to the current and'
-        ' future TradeFed test runs. To disable it, run a test with the'
-        ' --disable-upload-result flag.',
-        constants.GREEN,
-    )
-    not_upload_file.unlink(missing_ok=True)
-
-  if not_upload_file.exists():
-    return None
-
-  # Print a reminder that the result uploading is enabled when the user is not
-  # requesting result upload.
-  if not extra_args.get(constants.REQUEST_UPLOAD_RESULT):
-    atest_utils.colorful_print(
-        'Ants result uploading is enabled.', constants.GREEN
-    )
-
+def fetch_credential():
+  """Fetch the credential object."""
+  creds_path = get_config_folder().joinpath(constants.CREDENTIAL_FILE_NAME)
   return GCPHelper(
       client_id=constants.CLIENT_ID,
       client_secret=constants.CLIENT_SECRET,
       user_agent='atest',
-  ).get_credential_with_auth_flow(creds_f)
+  ).get_credential_with_auth_flow(creds_path)
 
 
 def _prepare_data(client):
