@@ -21,8 +21,6 @@ from pathlib import Path
 import re
 import tempfile
 
-MODE = 'DEFAULT'
-
 # Result server constants for atest_utils.
 RESULT_SERVER = ''
 RESULT_SERVER_ARGS = []
@@ -317,7 +315,6 @@ LOCAL_BUILD_ID = 'LOCAL_BUILD_ID'
 BUILD_TARGET = 'BUILD_TARGET'
 RESULT_LINK = ''
 TF_GLOBAL_CONFIG = ''
-UPLOAD_TEST_RESULT_MSG = 'Upload test result?'
 DISCOVERY_SERVICE = ''
 DISCOVERY_SERVICE_LEGACY = ''
 STORAGE2_TEST_URI = ''
