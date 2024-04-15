@@ -65,7 +65,11 @@ class SuitePlanTestRunner(atest_tf_test_runner.AtestTradefedTestRunner):
         Return code of the process for running tests.
     """
     reporter.register_unsupported_runner(self.NAME)
-    creds, inv = logstorage_utils.do_upload_flow(extra_args)
+    creds, inv = (
+        logstorage_utils.do_upload_flow(extra_args)
+        if logstorage_utils.is_upload_enabled(extra_args)
+        else (None, None)
+    )
 
     run_cmds = self.generate_run_commands(test_infos, extra_args)
     ret_code = ExitCode.SUCCESS
