@@ -20,6 +20,7 @@ import logging
 import time
 import uuid
 
+from atest import atest_utils
 from atest import constants
 from atest.logstorage import atest_gcp_utils
 from atest.metrics import metrics
@@ -27,6 +28,60 @@ from atest.metrics import metrics_base
 from googleapiclient.discovery import build
 import httplib2
 from oauth2client import client as oauth2_client
+
+UPLOAD_REQUESTED_FILE_NAME = 'UPLOAD_REQUESTED'
+
+
+def is_upload_enabled(args: dict[str, str]) -> bool:
+  """Determines whether log upload is enabled."""
+  # Do nothing if there are no related config.
+  if not constants.CREDENTIAL_FILE_NAME or not constants.TOKEN_FILE_PATH:
+    return False
+
+  config_folder_path = atest_gcp_utils.get_config_folder()
+  config_folder_path.mkdir(parents=True, exist_ok=True)
+  upload_requested_file = config_folder_path.joinpath(
+      UPLOAD_REQUESTED_FILE_NAME
+  )
+
+  is_request_upload = args.get(constants.REQUEST_UPLOAD_RESULT)
+  is_disable_upload = args.get(constants.DISABLE_UPLOAD_RESULT)
+  is_previously_requested = upload_requested_file.exists()
+
+  # Note: is_request_upload and is_disable_upload are from mutually exclusive
+  # args so they won't be True simutaniously.
+  if not is_disable_upload and is_previously_requested:  # Previously enabled
+    atest_utils.colorful_print(
+        'AnTS result uploading is enabled. (To disable, use'
+        ' --disable-upload-result flag)',
+        constants.GREEN,
+    )
+    return True
+
+  if is_request_upload and not is_previously_requested:  # First time enable
+    atest_utils.colorful_print(
+        'AnTS result uploading is switched on and will apply to the current and'
+        ' future TradeFed test runs. To disable it, run a test with the'
+        ' --disable-upload-result flag.',
+        constants.GREEN,
+    )
+    upload_requested_file.touch()
+    return True
+
+  if is_disable_upload and is_previously_requested:  # First time disable
+    atest_utils.colorful_print(
+        'AnTS result uploading is switched off and will apply to the current'
+        ' and future TradeFed test runs. To re-enable it, run a test with the'
+        ' --request-upload-result flag.',
+        constants.GREEN,
+    )
+    upload_requested_file.unlink()
+    config_folder_path.joinpath(constants.CREDENTIAL_FILE_NAME).unlink(
+        missing_ok=True
+    )
+    return False
+
+  return False
 
 
 def do_upload_flow(extra_args: dict[str, str]) -> tuple:
