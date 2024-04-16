@@ -253,7 +253,7 @@ def upload_logs_detached(logs_dir: pathlib.Path):
   proc.join()
 
 
-def _configure_logging(log_dir: str):
+def _configure_logging(log_dir: str) -> None:
   """Configure the logger."""
   log_fmat = '%(asctime)s %(filename)s:%(lineno)s:%(levelname)s: %(message)s'
   date_fmt = '%Y-%m-%d %H:%M:%S'
@@ -264,17 +264,17 @@ def _configure_logging(log_dir: str):
   )
 
 
-def _redirect_stdout_stderr():
+def _redirect_stdout_stderr() -> None:
   """Redirect stdout and stderr to logger."""
 
   class _StreamToLogger:
 
     def __init__(self, logger, log_level=logging.INFO):
-      self.logger = logger
-      self.log_level = log_level
+      self._logger = logger
+      self._log_level = log_level
 
     def write(self, buf):
-      self.logger.log(self.log_level, buf)
+      self._logger.log(self._log_level, buf)
 
     def flush(self):
       pass
@@ -284,7 +284,14 @@ def _redirect_stdout_stderr():
   sys.stderr = _StreamToLogger(logger, logging.ERROR)
 
 
-if __name__ == '__main__':
+def _check_gcert_available() -> bool:
+  """Returns true if gcert is available and not about to expire."""
+  return not subprocess.run(
+      ['gcertstatus', '--check_remaining=6m'], capture_output=True
+  ).returncode
+
+
+def _main() -> None:
   arg_parser = argparse.ArgumentParser(
       description='Internal tool for uploading test artifacts to AnTS.',
       add_help=True,
@@ -295,5 +302,17 @@ if __name__ == '__main__':
   args = arg_parser.parse_args()
   _configure_logging(args.artifacts_dir)
   _redirect_stdout_stderr()
+
+  if not _check_gcert_available():
+    logging.info(
+        'Skipping log uploading as gcert is either not available or about to'
+        ' expire.'
+    )
+    return
+
   with _LogUploadSession() as artifact_upload_session:
     artifact_upload_session.upload_directory(pathlib.Path(args.artifacts_dir))
+
+
+if __name__ == '__main__':
+  _main()
