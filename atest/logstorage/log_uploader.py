@@ -108,7 +108,6 @@ class _SimpleUploadingClient:
     metadata['invocationId'] = self._invocation_id
     metadata['workUnitId'] = self._workunit_id
 
-    # TODO: make resourceId unique.
     self._client.client.testartifact().update(
         resourceId=resource_id,
         invocationId=self._invocation_id,
@@ -124,6 +123,7 @@ class _LogUploadSession:
 
   def __init__(self, upload_client: _SimpleUploadingClient = None):
     self._upload_client = upload_client or _SimpleUploadingClient()
+    self._resource_ids = {}
 
   def __enter__(self):
     self._upload_client.initialize_invocation()
@@ -175,7 +175,7 @@ class _LogUploadSession:
     file_upload_retires = 3
     try:
       self._upload_client.upload_artifact(
-          artifact_path.name,
+          self._create_resource_id(artifact_path),
           self._create_artifact_metadata(artifact_path),
           artifact_path,
           file_upload_retires,
@@ -185,6 +185,25 @@ class _LogUploadSession:
       # an error but do stop the upload loop so that other files may gets
       # uploaded when the network recover.
       logging.error('Failed to upload file %s with error: %s', artifact_path, e)
+
+  def _create_resource_id(self, artifact_path: pathlib.Path) -> str:
+    """Create a unique resource id for a file.
+
+    Args:
+        artifact_path: artifact file path
+
+    Returns:
+        A unique resource ID derived from the file name. If the file name
+        has appeared before, an extra string will be inserted between the file
+        name stem and suffix to make it unique.
+    """
+    count = self._resource_ids.get(artifact_path.name, 0) + 1
+    self._resource_ids[artifact_path.name] = count
+    return (
+        artifact_path.name
+        if count == 1
+        else f'{artifact_path.stem}_{count}{artifact_path.suffix}'
+    )
 
 
 def upload_logs_detached(logs_dir: pathlib.Path):
