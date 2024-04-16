@@ -29,6 +29,9 @@ from googleapiclient import errors
 from googleapiclient import http
 
 
+_ENABLE_ATEST_LOG_UPLOADING_ENV_KEY = 'ENABLE_ATEST_LOG_UPLOADING'
+
+
 class _SimpleUploadingClient:
   """A proxy class used to interact with the logstorage_utils module."""
 
@@ -208,13 +211,24 @@ class _LogUploadSession:
 
 def upload_logs_detached(logs_dir: pathlib.Path):
   """Upload logs to AnTS in a detached process."""
-  if not os.environ.get('ENABLE_ATEST_LOG_UPLOADING', False):
+  if not os.environ.get(_ENABLE_ATEST_LOG_UPLOADING_ENV_KEY, '').lower() in [
+      'true',
+      '1',
+  ]:
+    return
+
+  if not logstorage_utils.is_credential_available():
+    logging.error(
+        'Attempting to enable log uploading but missing credentials. Possibly'
+        ' due to running from an AOSP branch without the required vendor'
+        ' config.'
+    )
     return
 
   assert logs_dir, 'artifacts_dir cannot be None.'
   assert logs_dir.as_posix(), 'The path of artifacts_dir should not be empty.'
 
-  def _start_upload():
+  def _start_upload_process():
     # We need to fock a background process instead of calling Popen with
     # start_new_session=True because we want to make sure the atest_log_uploader
     # resource binary is deleted after execution.
@@ -230,16 +244,21 @@ def upload_logs_detached(logs_dir: pathlib.Path):
       timeout = 60 * 60 * 24  # 1 day
       # We need to call atest_log_uploader as a binary so that the python
       # environment can be properly loaded.
-      subprocess.check_call(
-          [uploader_path.as_posix(), logs_dir.as_posix()], timeout=timeout
+      process = subprocess.run(
+          [uploader_path.as_posix(), logs_dir.as_posix()],
+          timeout=timeout,
+          capture_output=True,
+          check=False,
       )
+      if process.returncode:
+        logging.error('Failed to run log upload process: %s', process)
 
-  proc = multiprocessing.Process(target=_start_upload)
+  proc = multiprocessing.Process(target=_start_upload_process)
   proc.start()
   proc.join()
 
 
-def _configure_logging(log_dir: str):
+def _configure_logging(log_dir: str) -> None:
   """Configure the logger."""
   log_fmat = '%(asctime)s %(filename)s:%(lineno)s:%(levelname)s: %(message)s'
   date_fmt = '%Y-%m-%d %H:%M:%S'
@@ -250,17 +269,17 @@ def _configure_logging(log_dir: str):
   )
 
 
-def _redirect_stdout_stderr():
+def _redirect_stdout_stderr() -> None:
   """Redirect stdout and stderr to logger."""
 
   class _StreamToLogger:
 
     def __init__(self, logger, log_level=logging.INFO):
-      self.logger = logger
-      self.log_level = log_level
+      self._logger = logger
+      self._log_level = log_level
 
     def write(self, buf):
-      self.logger.log(self.log_level, buf)
+      self._logger.log(self._log_level, buf)
 
     def flush(self):
       pass
@@ -270,7 +289,15 @@ def _redirect_stdout_stderr():
   sys.stderr = _StreamToLogger(logger, logging.ERROR)
 
 
-if __name__ == '__main__':
+def _check_gcert_available() -> bool:
+  """Returns true if gcert is available and not about to expire."""
+  return not subprocess.run(
+      ['gcertstatus', '--check_remaining=6m'], capture_output=True, check=False
+  ).returncode
+
+
+def _main() -> None:
+  """The main method to be executed when executing this module as a binary."""
   arg_parser = argparse.ArgumentParser(
       description='Internal tool for uploading test artifacts to AnTS.',
       add_help=True,
@@ -281,5 +308,17 @@ if __name__ == '__main__':
   args = arg_parser.parse_args()
   _configure_logging(args.artifacts_dir)
   _redirect_stdout_stderr()
+
+  if not _check_gcert_available():
+    logging.info(
+        'Skipping log uploading as gcert is either not available or about to'
+        ' expire.'
+    )
+    return
+
   with _LogUploadSession() as artifact_upload_session:
     artifact_upload_session.upload_directory(pathlib.Path(args.artifacts_dir))
+
+
+if __name__ == '__main__':
+  _main()
