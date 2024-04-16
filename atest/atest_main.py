@@ -261,7 +261,7 @@ def _configure_logging(verbose: bool, results_dir: str):
   )
   # Handler for print the log on console that sets INFO (by default) or DEBUG
   # (verbose mode).
-  console = logging.StreamHandler()
+  console = logging.StreamHandler(sys.stdout)
   console.name = 'console'
   console.setLevel(logging.INFO)
   if verbose:
