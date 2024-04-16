@@ -38,7 +38,7 @@ def is_upload_enabled(args: dict[str, str]) -> bool:
   if not constants.CREDENTIAL_FILE_NAME or not constants.TOKEN_FILE_PATH:
     return False
 
-  config_folder_path = atest_gcp_utils.get_config_folder()
+  config_folder_path = atest_utils.get_config_folder()
   config_folder_path.mkdir(parents=True, exist_ok=True)
   upload_requested_file = config_folder_path.joinpath(
       UPLOAD_REQUESTED_FILE_NAME
