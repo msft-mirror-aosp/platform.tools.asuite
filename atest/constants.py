@@ -16,7 +16,9 @@
 # pylint: disable=wildcard-import
 # pylint: disable=unused-wildcard-import
 
+import json
 import os
+import pathlib
 import sys
 from atest.constants_default import *
 
@@ -44,3 +46,37 @@ try:
   from constants_google import *
 except ImportError:
   pass
+
+
+# Note: This is part of the work to eventually replace the dangling import of
+# constants_google entirely. We will start with migrating the constants to json
+# and source code. In the future, we will migrate to use a config object instead
+# of relying on composing the constants module.
+def _load_vendor_config():
+  """Load the atest vendor configs from json path if available."""
+
+  config_path = os.environ.get('ATEST_VENDOR_CONFIG_PATH', None)
+  if config_path:
+    with open(config_path, 'r') as config_file:
+      globals().update(json.load(config_file))
+    return
+
+  build_top = os.environ.get('ANDROID_BUILD_TOP', None)
+  if not build_top:
+    return
+  # Load from hard-coded relative path as a transition as some users may not
+  # have re-run envsetup after repo sync.
+  config_path = pathlib.Path(build_top).joinpath(
+      'vendor/google/tools/atest/atest_vendor_configs.json'
+  )
+  if config_path.exists():
+    sys.stderr.write(
+        '\n\nWarning: Detected vendor setup script updated but not loaded.'
+        ' Please re-run the repo\'s envsetup script through ".'
+        ' build/envsetup".\n\n\n'
+    )
+    with open(config_path, 'r') as config_file:
+      globals().update(json.load(config_file))
+
+
+_load_vendor_config()

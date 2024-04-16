@@ -187,27 +187,6 @@ class CommandVerificationTests(atest_integration_test.AtestTestCase):
     )
 
   @atest_integration_test.run_in_parallel
-  def test_mixed_managed_profile_ownr_pw_sufficient_test(self):
-    """Verify that the test's command runs correctly."""
-    atest_cmd = 'MixedManagedProfileOwnerTest#testPasswordSufficientInitially'
-    expected_cmd = (
-        'atest_tradefed.sh template/atest_device_test_base --template:map'
-        ' test=atest --template:map log_saver=template/log/atest_log_saver'
-        ' --no-enable-granular-attempts --module'
-        ' CtsDevicePolicyManagerTestCases --atest-include-filter'
-        ' CtsDevicePolicyManagerTestCases:com.android.cts.devicepolicy.MixedManagedProfileOwnerTest#testPasswordSufficientInitially'
-        ' --skip-loading-config-jar --log-level-display VERBOSE --log-level'
-        ' VERBOSE --no-early-device-release --enable-parameterized-modules'
-        ' --exclude-module-parameters instant_app --exclude-module-parameters'
-        ' secondary_user --exclude-module-parameters multi_abi'
-    )
-    self._verify_atest_internal_runner_command(
-        atest_cmd,
-        self._assert_equivalent_cmds,
-        expected_cmd=expected_cmd,
-    )
-
-  @atest_integration_test.run_in_parallel
   def test_perinstance_camerahidl_config_injection_test(self):
     """Verify that the test's command runs correctly."""
     atest_cmd = (

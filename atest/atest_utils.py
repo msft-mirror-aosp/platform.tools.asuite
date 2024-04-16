@@ -46,7 +46,6 @@ import xml.etree.ElementTree as ET
 import zipfile
 
 from atest import atest_decorator
-from atest import atest_error
 from atest import constants
 from atest.atest_enum import DetectType, ExitCode, FilterType
 from atest.metrics import metrics
@@ -1050,10 +1049,21 @@ def get_atest_version():
       If the git command fails for unexpected reason:
           2022-11-24_unknown  (<today_date>_unknown)
   """
-  atest_dir = Path(__file__).resolve().parent
-  version_file = atest_dir.joinpath('VERSION')
-  if Path(version_file).is_file():
-    return open(version_file, encoding='utf-8').read()
+  try:
+    with importlib.resources.as_file(
+        importlib.resources.files('atest').joinpath('VERSION')
+    ) as version_file_path:
+      return version_file_path.read_text(encoding='utf-8')
+  except (ModuleNotFoundError, FileNotFoundError):
+    logging.debug(
+        'Failed to load package resource atest/VERSION, possibly due to running'
+        ' from atest-dev, atest-src, a prebuilt without embedded launcher, or a'
+        ' prebuilt not created by the asuite release tool. Falling back to'
+        ' legacy source search.'
+    )
+    version_file = Path(__file__).resolve().parent.joinpath('VERSION')
+    if Path(version_file).is_file():
+      return open(version_file, encoding='utf-8').read()
 
   # Try fetching commit date (%ci) and commit hash (%h).
   git_cmd = 'git log -1 --pretty=format:"%ci;%h"'
@@ -1628,6 +1638,11 @@ def get_misc_dir():
   if is_writable(home_dir):
     return home_dir
   return get_build_out_dir()
+
+
+def get_config_folder() -> Path:
+  """Returns the config folder path where upload config is stored."""
+  return Path(get_misc_dir()).joinpath('.atest')
 
 
 def get_full_annotation_class_name(module_info, class_name):
