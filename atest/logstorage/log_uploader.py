@@ -244,9 +244,14 @@ def upload_logs_detached(logs_dir: pathlib.Path):
       timeout = 60 * 60 * 24  # 1 day
       # We need to call atest_log_uploader as a binary so that the python
       # environment can be properly loaded.
-      subprocess.check_call(
-          [uploader_path.as_posix(), logs_dir.as_posix()], timeout=timeout
+      process = subprocess.run(
+          [uploader_path.as_posix(), logs_dir.as_posix()],
+          timeout=timeout,
+          capture_output=True,
+          check=False,
       )
+      if process.returncode:
+        logging.error('Failed to run log upload process: %s', process)
 
   proc = multiprocessing.Process(target=_start_upload_process)
   proc.start()
@@ -287,11 +292,12 @@ def _redirect_stdout_stderr() -> None:
 def _check_gcert_available() -> bool:
   """Returns true if gcert is available and not about to expire."""
   return not subprocess.run(
-      ['gcertstatus', '--check_remaining=6m'], capture_output=True
+      ['gcertstatus', '--check_remaining=6m'], capture_output=True, check=False
   ).returncode
 
 
 def _main() -> None:
+  """The main method to be executed when executing this module as a binary."""
   arg_parser = argparse.ArgumentParser(
       description='Internal tool for uploading test artifacts to AnTS.',
       add_help=True,
