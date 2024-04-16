@@ -18,35 +18,6 @@ package {
     default_applicable_licenses: ["Android-Apache-2.0"],
 }
 
-java_library_host {
-    name: "atest-tradefed-shell",
-    java_resource_dirs: ["res"],
-}
-
-java_library_host {
-    name: "atest-tradefed-lib",
-    srcs: [
-        "java/**/*.java",
-    ],
-    libs: [
-        "tradefed",
-    ],
-}
-
-tradefed_binary_host {
-    name: "atest-tradefed",
-    short_name: "ATEST",
-    full_name: "ATest Test Suite",
-    static_libs: [
-        "atest-tradefed-shell",
-        "atest-tradefed-lib",
-    ],
-    required: [
-        "atest_tradefed.sh",
-        "atest_script_help.sh",
-    ],
-}
-
 // Attributes common to both atest and atest_flag_list_generator.
 python_defaults {
     name: "atest_defaults",
@@ -223,14 +194,4 @@ python_test_host {
             enabled: true,
         },
     },
-}
-
-sh_binary_host {
-    name: "atest_tradefed.sh",
-    src: "atest_tradefed.sh",
-}
-
-sh_binary_host {
-    name: "atest_script_help.sh",
-    src: "atest_script_help.sh",
 }
