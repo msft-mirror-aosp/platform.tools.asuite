@@ -32,10 +32,14 @@ from oauth2client import client as oauth2_client
 UPLOAD_REQUESTED_FILE_NAME = 'UPLOAD_REQUESTED'
 
 
+def is_credential_available() -> bool:
+  """Checks whether the credential needed for log upload is available."""
+  return constants.CREDENTIAL_FILE_NAME and constants.TOKEN_FILE_PATH
+
+
 def is_upload_enabled(args: dict[str, str]) -> bool:
   """Determines whether log upload is enabled."""
-  # Do nothing if there are no related config.
-  if not constants.CREDENTIAL_FILE_NAME or not constants.TOKEN_FILE_PATH:
+  if not is_credential_available():
     return False
 
   config_folder_path = atest_gcp_utils.get_config_folder()

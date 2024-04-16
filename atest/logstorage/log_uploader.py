@@ -211,6 +211,14 @@ def upload_logs_detached(logs_dir: pathlib.Path):
   if not os.environ.get('ENABLE_ATEST_LOG_UPLOADING', False):
     return
 
+  if not logstorage_utils.is_credential_available():
+    logging.error(
+        'Attempting to enable log uploading but missing credentials. Possibly'
+        ' due to running from an AOSP branch without the required vendor'
+        ' config.'
+    )
+    return
+
   assert logs_dir, 'artifacts_dir cannot be None.'
   assert logs_dir.as_posix(), 'The path of artifacts_dir should not be empty.'
 
