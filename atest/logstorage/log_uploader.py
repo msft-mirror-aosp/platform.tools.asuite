@@ -29,6 +29,9 @@ from googleapiclient import errors
 from googleapiclient import http
 
 
+_ENABLE_ATEST_LOG_UPLOADING_ENV_KEY = 'ENABLE_ATEST_LOG_UPLOADING'
+
+
 class _SimpleUploadingClient:
   """A proxy class used to interact with the logstorage_utils module."""
 
@@ -208,7 +211,10 @@ class _LogUploadSession:
 
 def upload_logs_detached(logs_dir: pathlib.Path):
   """Upload logs to AnTS in a detached process."""
-  if not os.environ.get('ENABLE_ATEST_LOG_UPLOADING', False):
+  if not os.environ.get(_ENABLE_ATEST_LOG_UPLOADING_ENV_KEY, '').lower() in [
+      'true',
+      '1',
+  ]:
     return
 
   if not logstorage_utils.is_credential_available():
@@ -222,7 +228,7 @@ def upload_logs_detached(logs_dir: pathlib.Path):
   assert logs_dir, 'artifacts_dir cannot be None.'
   assert logs_dir.as_posix(), 'The path of artifacts_dir should not be empty.'
 
-  def _start_upload():
+  def _start_upload_process():
     # We need to fock a background process instead of calling Popen with
     # start_new_session=True because we want to make sure the atest_log_uploader
     # resource binary is deleted after execution.
@@ -242,7 +248,7 @@ def upload_logs_detached(logs_dir: pathlib.Path):
           [uploader_path.as_posix(), logs_dir.as_posix()], timeout=timeout
       )
 
-  proc = multiprocessing.Process(target=_start_upload)
+  proc = multiprocessing.Process(target=_start_upload_process)
   proc.start()
   proc.join()
 

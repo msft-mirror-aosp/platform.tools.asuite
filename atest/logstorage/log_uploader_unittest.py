@@ -12,10 +12,99 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import os
 import pathlib
 import unittest
+from unittest.mock import patch
+from atest import constants
 from atest.logstorage import log_uploader
 from pyfakefs import fake_filesystem_unittest
+
+
+class LogUploaderModuleTest(unittest.TestCase):
+
+  def setUp(self):
+    super().setUp()
+    self._set_upload_constants_available(False)
+    self._set_upload_env_var(None)
+
+  @patch('multiprocessing.Process.__new__')
+  def test_upload_logs_detached_flag_value_unrecognized_process_not_started(
+      self, mock_process
+  ):
+    self._set_upload_constants_available(True)
+    self._set_upload_env_var('0')
+
+    log_uploader.upload_logs_detached(pathlib.Path('any'))
+
+    mock_process.assert_not_called()
+
+  @patch('multiprocessing.Process.__new__')
+  def test_upload_logs_detached_flag_value_1_process_started(
+      self, mock_process
+  ):
+    self._set_upload_constants_available(True)
+    self._set_upload_env_var('1')
+
+    log_uploader.upload_logs_detached(pathlib.Path('any'))
+
+    mock_process.assert_called_once()
+
+  @patch('multiprocessing.Process.__new__')
+  def test_upload_logs_detached_flag_value_capitalized_true_process_started(
+      self, mock_process
+  ):
+    self._set_upload_constants_available(True)
+    self._set_upload_env_var('TRUE')
+
+    log_uploader.upload_logs_detached(pathlib.Path('any'))
+
+    mock_process.assert_called_once()
+
+  @patch('multiprocessing.Process.__new__')
+  def test_upload_logs_detached_flag_value_true_process_started(
+      self, mock_process
+  ):
+    self._set_upload_constants_available(True)
+    self._set_upload_env_var('true')
+
+    log_uploader.upload_logs_detached(pathlib.Path('any'))
+
+    mock_process.assert_called_once()
+
+  @patch('multiprocessing.Process.__new__')
+  def test_upload_logs_detached_no_creds_process_not_started(
+      self, mock_process
+  ):
+    self._set_upload_constants_available(False)
+    self._set_upload_env_var('true')
+
+    log_uploader.upload_logs_detached(pathlib.Path('any'))
+
+    mock_process.assert_not_called()
+
+  @patch('multiprocessing.Process.__new__')
+  def test_upload_logs_detached_not_requested_process_not_started(
+      self, mock_process
+  ):
+    self._set_upload_constants_available(True)
+    self._set_upload_env_var(None)
+
+    log_uploader.upload_logs_detached(pathlib.Path('any'))
+
+    mock_process.assert_not_called()
+
+  def _set_upload_env_var(self, value) -> None:
+    """Set upload environment variable."""
+    if value is None:
+      os.environ.pop(log_uploader._ENABLE_ATEST_LOG_UPLOADING_ENV_KEY, None)
+    else:
+      os.environ[log_uploader._ENABLE_ATEST_LOG_UPLOADING_ENV_KEY] = value
+
+  def _set_upload_constants_available(self, enabled: bool) -> None:
+    """Make the upload constants available."""
+    constants.CREDENTIAL_FILE_NAME = 'creds.txt' if enabled else None
+    constants.TOKEN_FILE_PATH = 'token.txt' if enabled else None
 
 
 class LogUploaderTest(fake_filesystem_unittest.TestCase):
