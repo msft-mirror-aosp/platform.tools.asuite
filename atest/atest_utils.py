@@ -46,7 +46,6 @@ import xml.etree.ElementTree as ET
 import zipfile
 
 from atest import atest_decorator
-from atest import atest_error
 from atest import constants
 from atest.atest_enum import DetectType, ExitCode, FilterType
 from atest.metrics import metrics
@@ -1639,6 +1638,11 @@ def get_misc_dir():
   if is_writable(home_dir):
     return home_dir
   return get_build_out_dir()
+
+
+def get_config_folder() -> Path:
+  """Returns the config folder path where upload config is stored."""
+  return Path(get_misc_dir()).joinpath('.atest')
 
 
 def get_full_annotation_class_name(module_info, class_name):
