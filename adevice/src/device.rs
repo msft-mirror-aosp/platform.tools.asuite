@@ -114,17 +114,9 @@ impl Device for RealDevice {
             .output()
             .context("Error running adb commands")?;
 
-        if output.status.success() && output.stderr.is_empty() {
+        if output.status.success() {
             let stdout = String::from_utf8(output.stdout)?;
             return Ok(stdout);
-        }
-
-        // Adb remount returns status 0, but writes the mounts to stderr.
-        // Just swallow the useless output and return ok.
-        if let Some(cmd) = cmd.first() {
-            if output.status.success() && cmd == "remount" {
-                return Ok("".to_string());
-            }
         }
 
         // It is some error.
