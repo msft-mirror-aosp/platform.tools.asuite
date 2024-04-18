@@ -198,12 +198,12 @@ class AtestTradefedTestRunner(trb.TestRunnerBase):
   ) -> bool:
     """Checks whether this runner requires device update."""
 
-    requires_device = False
+    requires_device_update = False
     for info in test_infos:
       test = self._create_test(info)
-      requires_device |= test.requires_device()
+      requires_device_update |= test.requires_device_update()
 
-    return requires_device
+    return requires_device_update
 
   # @typing.override
   def create_invocations(
@@ -1595,6 +1595,10 @@ class Test(ABC):
   def requires_device(self) -> bool:
     """Returns true if the test requires a device, otherwise false."""
 
+  @abstractmethod
+  def requires_device_update(self) -> bool:
+    """Checks whether the test requires device update."""
+
 
 class DeviceTest(Test):
   """A device test that can be run."""
@@ -1612,6 +1616,11 @@ class DeviceTest(Test):
 
   def requires_device(self):
     return True
+
+  def requires_device_update(self):
+    # The test doesn't need device update as long as it's a unit test,
+    # no matter if it's running on device or host.
+    return not module_info.ModuleInfo.is_unit_test(self._info)
 
   def _get_test_build_targets(self) -> Set[Target]:
     module_name = self._info[constants.MODULE_INFO_ID]
@@ -1678,6 +1687,9 @@ class DevicelessTest(Test):
     return self.query_build_targets()
 
   def requires_device(self):
+    return False
+
+  def requires_device_update(self):
     return False
 
 

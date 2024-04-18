@@ -156,9 +156,9 @@ def print_data_collection_notice(colorful=True):
   end = '\033[0m'
   delimiter = '=' * 18
   notice = (
-      'We collect usage statistics (including LDAP) in accordance with our '
-      'Content Licenses (%s), Contributor License Agreement (%s), Privacy '
-      'Policy (%s) and Terms of Service (%s).'
+      'We collect usage statistics (including usernames) in accordance with our'
+      ' Content Licenses (%s), Contributor License Agreement (%s), Privacy'
+      ' Policy (%s) and Terms of Service (%s).'
   ) % (
       CONTENT_LICENSES_URL,
       CONTRIBUTOR_AGREEMENT_URL['INTERNAL'],
