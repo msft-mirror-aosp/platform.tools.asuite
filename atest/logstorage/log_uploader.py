@@ -25,6 +25,7 @@ import subprocess
 import sys
 from atest import constants
 from atest.logstorage import logstorage_utils
+from atest.metrics import metrics
 from googleapiclient import errors
 from googleapiclient import http
 
@@ -35,7 +36,8 @@ _ENABLE_ATEST_LOG_UPLOADING_ENV_KEY = 'ENABLE_ATEST_LOG_UPLOADING'
 class _SimpleUploadingClient:
   """A proxy class used to interact with the logstorage_utils module."""
 
-  def __init__(self):
+  def __init__(self, atest_run_id: str):
+    self._atest_run_id = atest_run_id
     self._client = None
     self._client_legacy = None
     self._invocation_id = None
@@ -47,7 +49,7 @@ class _SimpleUploadingClient:
     """Initialize internal build clients and get invocation ID from AnTS."""
     configuration = {}
     creds, self._invocation_data = logstorage_utils.do_upload_flow(
-        configuration
+        configuration, self._atest_run_id
     )
 
     self._client = logstorage_utils.BuildClient(creds)
@@ -124,8 +126,10 @@ class _SimpleUploadingClient:
 class _LogUploadSession:
   """A class to handle log uploading to AnTS."""
 
-  def __init__(self, upload_client: _SimpleUploadingClient = None):
-    self._upload_client = upload_client or _SimpleUploadingClient()
+  def __init__(
+      self, atest_run_id: str, upload_client: _SimpleUploadingClient = None
+  ):
+    self._upload_client = upload_client or _SimpleUploadingClient(atest_run_id)
     self._resource_ids = {}
 
   def __enter__(self):
@@ -245,7 +249,7 @@ def upload_logs_detached(logs_dir: pathlib.Path):
       # We need to call atest_log_uploader as a binary so that the python
       # environment can be properly loaded.
       process = subprocess.run(
-          [uploader_path.as_posix(), logs_dir.as_posix()],
+          [uploader_path.as_posix(), logs_dir.as_posix(), metrics.get_run_id()],
           timeout=timeout,
           capture_output=True,
           check=False,
@@ -305,6 +309,7 @@ def _main() -> None:
   arg_parser.add_argument(
       'artifacts_dir', help='Root directory of the test artifacts.'
   )
+  arg_parser.add_argument('atest_run_id', help='The Atest run ID.')
   args = arg_parser.parse_args()
   _configure_logging(args.artifacts_dir)
   _redirect_stdout_stderr()
@@ -316,7 +321,7 @@ def _main() -> None:
     )
     return
 
-  with _LogUploadSession() as artifact_upload_session:
+  with _LogUploadSession(args.atest_run_id) as artifact_upload_session:
     artifact_upload_session.upload_directory(pathlib.Path(args.artifacts_dir))
 
 
