@@ -23,7 +23,6 @@ import uuid
 from atest import atest_utils
 from atest import constants
 from atest.logstorage import atest_gcp_utils
-from atest.metrics import metrics
 from atest.metrics import metrics_base
 from googleapiclient.discovery import build
 import httplib2
@@ -88,19 +87,22 @@ def is_upload_enabled(args: dict[str, str]) -> bool:
   return False
 
 
-def do_upload_flow(extra_args: dict[str, str]) -> tuple:
+def do_upload_flow(
+    extra_args: dict[str, str], atest_run_id: str = None
+) -> tuple:
   """Run upload flow.
 
   Asking user's decision and do the related steps.
 
   Args:
       extra_args: Dict of extra args to add to test run.
+      atest_run_id: The atest run ID to write into the invocation.
 
   Return:
       A tuple of credential object and invocation information dict.
   """
   return atest_gcp_utils.do_upload_flow(
-      extra_args, lambda cred: BuildClient(cred)
+      extra_args, lambda cred: BuildClient(cred), atest_run_id
   )
 
 
@@ -189,11 +191,12 @@ class BuildClient:
         .execute()
     )
 
-  def insert_invocation(self, build_record):
+  def insert_invocation(self, build_record, atest_run_id: str):
     """Insert a build invocation record.
 
     Args:
         build_record: build record.
+        atest_run_id: The atest run ID to write into the invocation.
 
     Returns:
         A build invocation object.
@@ -219,7 +222,7 @@ class BuildClient:
                 'name': 'test_uri',
                 'value': f'{constants.STORAGE2_TEST_URI}{sponge_invocation_id}',
             },
-            {'name': 'atest_run_id', 'value': metrics.get_run_id()},
+            {'name': 'atest_run_id', 'value': atest_run_id},
         ],
     }
     return self.client.invocation().insert(body=invocation).execute()

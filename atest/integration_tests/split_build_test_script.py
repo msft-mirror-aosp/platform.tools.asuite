@@ -650,6 +650,8 @@ def _configure_logging(verbose: bool, log_file_dir_path: pathlib.Path):
     )
   log_file.parent.mkdir(parents=True, exist_ok=True)
 
+  atexit.register(lambda: print('Logs are saved to %s' % log_file))
+
   log_format = '%(asctime)s %(filename)s:%(lineno)s:%(levelname)s: %(message)s'
   date_format = '%Y-%m-%d %H:%M:%S'
   logging.basicConfig(
