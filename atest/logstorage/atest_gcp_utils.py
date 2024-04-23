@@ -202,6 +202,7 @@ class GCPHelper:
 def do_upload_flow(
     extra_args: dict[str, str],
     build_client_creator: Callable,
+    atest_run_id: str = None,
 ) -> tuple:
   """Run upload flow.
 
@@ -211,6 +212,7 @@ def do_upload_flow(
       extra_args: Dict of extra args to add to test run.
       build_client_creator: A function that takes a credential and returns a
         BuildClient object.
+      atest_run_id: The atest run ID to write into the invocation.
 
   Return:
       A tuple of credential object and invocation information dict.
@@ -224,7 +226,9 @@ def do_upload_flow(
   if creds:
     prepare_upload_start = time.time()
     build_client = build_client_creator(creds)
-    inv, workunit, local_build_id, build_target = _prepare_data(build_client)
+    inv, workunit, local_build_id, build_target = _prepare_data(
+        build_client, atest_run_id or metrics.get_run_id()
+    )
     metrics.LocalDetectEvent(
         detect_type=DetectType.UPLOAD_PREPARE_MS,
         result=int((time.time() - prepare_upload_start) * 1000),
@@ -247,7 +251,8 @@ def do_upload_flow(
 def fetch_credential():
   """Fetch the credential object."""
   creds_path = atest_utils.get_config_folder().joinpath(
-      constants.CREDENTIAL_FILE_NAME)
+      constants.CREDENTIAL_FILE_NAME
+  )
   return GCPHelper(
       client_id=constants.CLIENT_ID,
       client_secret=constants.CLIENT_SECRET,
@@ -255,11 +260,12 @@ def fetch_credential():
   ).get_credential_with_auth_flow(creds_path)
 
 
-def _prepare_data(client):
+def _prepare_data(client, atest_run_id: str):
   """Prepare data for build api using.
 
   Args:
       build_client: The logstorage_utils.BuildClient object.
+      atest_run_id: The atest run ID to write into the invocation.
 
   Return:
       invocation and workunit object.
@@ -272,7 +278,7 @@ def _prepare_data(client):
     target = _get_target(branch, client)
     build_record = client.insert_local_build(external_id, target, branch)
     client.insert_build_attempts(build_record)
-    invocation = client.insert_invocation(build_record)
+    invocation = client.insert_invocation(build_record, atest_run_id)
     workunit = client.insert_work_unit(invocation)
     return invocation, workunit, build_record['buildId'], target
   finally:
