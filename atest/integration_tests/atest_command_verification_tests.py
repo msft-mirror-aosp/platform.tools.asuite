@@ -16,7 +16,6 @@
 
 """A collection of integration test cases for atest."""
 
-import logging
 import os
 from typing import Any, Callable
 import atest_integration_test
@@ -630,6 +629,7 @@ class CommandVerificationTests(atest_integration_test.AtestTestCase):
         atest_integration_test.StepInput(
             os.environ, os.environ['ANDROID_BUILD_TOP'], cls.get_config(), {}
         ),
+        include_device_serial=False,
         print_output=False,
     ).check_returncode()
 
@@ -711,7 +711,9 @@ class CommandVerificationTests(atest_integration_test.AtestTestCase):
     def build_step(
         step_in: atest_integration_test.StepInput,
     ) -> atest_integration_test.StepOutput:
-      result = self.run_atest_command(atest_cmd + ' --dry-run -cit', step_in)
+      result = self.run_atest_command(
+          atest_cmd + ' --dry-run -cit', step_in, include_device_serial=False
+      )
       result.check_returncode()
       runner_cmd = result.get_atest_log_values_from_prefix(
           _DRY_RUN_COMMAND_LOG_PREFIX
