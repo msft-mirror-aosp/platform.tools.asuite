@@ -304,7 +304,7 @@ class ModuleFinder(test_finder_base.TestFinderBase):
         targets.add(constants.CTS_JAR)
     return targets
 
-  def _get_module_test_config(self, module_name, rel_config=None):
+  def _get_module_test_config(self, module_name, rel_config=None) -> list[str]:
     """Get the value of test_config in module_info.
 
     Get the value of 'test_config' in module_info if its
@@ -466,9 +466,11 @@ class ModuleFinder(test_finder_base.TestFinderBase):
     if module_names:
       for mname in module_names:
         # The real test config might be record in module-info.
+        mod_info = self.module_info.get_module_info(mname)
+        if not mod_info:
+          continue
         rel_configs = self._get_module_test_config(mname, rel_config=rel_config)
         for rel_cfg in rel_configs:
-          mod_info = self.module_info.get_module_info(mname)
           tinfo = self._process_test_info(
               test_info.TestInfo(
                   test_name=mname,
@@ -501,7 +503,9 @@ class ModuleFinder(test_finder_base.TestFinderBase):
     mod_info = self.module_info.get_module_info(module_name)
     if self.module_info.is_testable_module(mod_info):
       # path is a list with only 1 element.
-      rel_config = os.path.join(mod_info['path'][0], constants.MODULE_CONFIG)
+      rel_config = os.path.join(
+          mod_info[constants.MODULE_PATH][0], constants.MODULE_CONFIG
+      )
       rel_configs = self._get_module_test_config(
           module_name, rel_config=rel_config
       )
@@ -570,8 +574,12 @@ class ModuleFinder(test_finder_base.TestFinderBase):
     return None
 
   def find_test_by_class_name(
-      self, class_name, module_name=None, rel_config=None, is_native_test=False
-  ):
+      self,
+      class_name: str,
+      module_name: str = None,
+      rel_config: str = None,
+      is_native_test: bool = False,
+  ) -> list[test_info.TestInfo]:
     """Find test files given a class name.
 
     If module_name and rel_config not given it will calculate it determine
@@ -710,14 +718,16 @@ class ModuleFinder(test_finder_base.TestFinderBase):
         return True
     return False
 
-  def find_test_by_module_and_class(self, module_class):
+  def find_test_by_module_and_class(
+      self, module_class: str
+  ) -> list[test_info.TestInfo]:
     """Find the test info given a MODULE:CLASS string.
 
     Args:
         module_class: A string of form MODULE:CLASS or MODULE:CLASS#METHOD.
 
     Returns:
-        A list of populated TestInfo namedtuple if found, else None.
+        A list of populated TestInfo if found, else None.
     """
     parse_result = test_finder_utils.parse_test_reference(module_class)
     if not parse_result:
@@ -728,7 +738,7 @@ class ModuleFinder(test_finder_base.TestFinderBase):
     if method_name:
       class_name = class_name + '#' + method_name
 
-    # module_infos is a list with at most 1 element.
+    # module_infos is a list of TestInfo with at most 1 element.
     module_infos = self.find_test_by_module_name(module_name)
     module_info = module_infos[0] if module_infos else None
     if not module_info:

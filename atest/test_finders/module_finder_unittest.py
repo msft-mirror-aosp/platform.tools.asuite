@@ -23,16 +23,16 @@
 
 import copy
 import os
-from pathlib import Path
+import pathlib
 import re
 import tempfile
 import unittest
 from unittest import mock
-from atest import atest_configs
 from atest import atest_error
 from atest import atest_utils
 from atest import constants
 from atest import module_info
+from atest import module_info_unittest_base
 from atest import unittest_constants as uc
 from atest import unittest_utils
 from atest.test_finders import module_finder
@@ -119,109 +119,191 @@ def classoutside_side_effect(find_cmd, shell=False):
   return None
 
 
-class ModuleFinderFindTestByModuleName(fake_filesystem_unittest.TestCase):
-  """Unit tests for module_finder.py"""
+class ModuleFinderFindTestByModuleName(
+    module_info_unittest_base.ModuleInfoTest
+):
 
   def setUp(self):
-    self.setUpPyfakefs()
-    self.build_top = Path('/')
-    self.product_out = self.build_top.joinpath('out/product')
-    self.product_out.mkdir(parents=True, exist_ok=True)
-    self.module_info_file = self.product_out.joinpath('atest_merged_dep.json')
-    self.fs.create_file(
-        self.module_info_file,
-        contents=("""
-                { "CtsJankDeviceTestCases": {
-                    "class":["APPS"],
-                    "path":["foo/bar/jank"],
-                    "tags": ["optional"],
-                    "installed": ["path/to/install/CtsJankDeviceTestCases.apk"],
-                    "test_config": ["foo/bar/jank/AndroidTest.xml",
-                                    "foo/bar/jank/CtsJankDeviceTestCases2.xml"],
-                    "module_name": "CtsJankDeviceTestCases" }
-                }"""),
+    super().setUp()
+    self.build_top = pathlib.Path('/main')
+
+  def test_find_test_by_module_name_single_module_exists(self):
+    module_name = 'SingleModuleTestCases'
+    test_module = module_info_unittest_base.device_driven_test_module(
+        name=module_name,
+    )
+    finder = self.create_finder_with_module(test_module)
+
+    t_infos = finder.find_test_by_module_name(module_name=module_name)
+
+    with self.subTest(name='returns_one_test_info'):
+      self.assertEqual(len(t_infos), 1)
+    with self.subTest(name='test_name_is_module_name'):
+      self.assert_test_info_has_test_name(t_infos[0], module_name)
+      self.assert_test_info_has_raw_test_name(t_infos[0], module_name)
+    with self.subTest(name='contains_expected_build_targets'):
+      self.assert_test_info_contains_build_targets(t_infos[0], module_name)
+      self.assert_test_info_contains_build_targets(
+          t_infos[0],
+          'example_module-project',
+      )
+
+  @mock.patch.object(
+      test_finder_utils, 'find_parent_module_dir', return_value='/main'
+  )
+  @mock.patch(
+      'subprocess.check_output',
+      return_value=(
+          'path/to/testmodule/src/com/android/myjavatests/MyJavaTestClass.java'
+      ),
+  )
+  def test_find_test_by_module_class_name_native_found(
+      self, find_cmd, found_file_path
+  ):
+    module_name = 'MyModuleTestCases'
+    test_module = module_info_unittest_base.device_driven_test_module(
+        name=module_name, class_type=['NATIVE_TESTS']
+    )
+    finder = self.create_finder_with_module(test_module)
+
+    t_infos = finder.find_test_by_module_and_class(
+        'MyModuleTestCases:MyJavaTestClass'
     )
 
-  @mock.patch('builtins.input', return_value='1')
-  def test_find_test_by_module_name_w_multiple_config(self, _):
-    """Test find_test_by_module_name (test_config_select)"""
-    atest_configs.GLOBAL_ARGS = mock.Mock()
-    atest_configs.GLOBAL_ARGS.test_config_select = True
-    # The original test name will be updated to the config name when multiple
-    # configs were found.
-    expected_test_info = create_test_info(
-        test_name='CtsJankDeviceTestCases2',
-        raw_test_name='CtsJankDeviceTestCases',
-        test_runner='AtestTradefedTestRunner',
-        module_class=['APPS'],
-        build_targets={'MODULES-IN-foo-bar-jank', 'CtsJankDeviceTestCases'},
-        data={
-            'rel_config': 'foo/bar/jank/CtsJankDeviceTestCases2.xml',
-            'filter': frozenset(),
-        },
+    with self.subTest(name='returns_one_test_info'):
+      self.assertEqual(len(t_infos), 1)
+    with self.subTest(name='test_name_is_module_name'):
+      self.assert_test_info_has_test_name(t_infos[0], module_name)
+      self.assert_test_info_has_raw_test_name(t_infos[0], module_name)
+    with self.subTest(name='contains_expected_filters'):
+      self.assert_test_info_has_class_filter(t_infos[0], 'MyJavaTestClass')
+    with self.subTest(name='contains_expected_build_targets'):
+      self.assert_test_info_contains_build_targets(t_infos[0], module_name)
+      self.assert_test_info_contains_build_targets(
+          t_infos[0],
+          'example_module-project',
+      )
+
+  @mock.patch.object(
+      test_finder_utils, 'find_parent_module_dir', return_value='/main'
+  )
+  @mock.patch(
+      'subprocess.check_output',
+      return_value=(
+          'path/to/testmodule/src/com/android/myjavatests/MyJavaTestClass.java'
+      ),
+  )
+  def test_find_test_by_module_class_name_unknown_test_info_is_none(
+      self, find_cmd, found_file_path
+  ):
+    test_class_name = 'MyJavaTestClass'
+    test_module = module_info_unittest_base.device_driven_test_module(
+        name='MyModuleTestCases', class_type=['NATIVE_TESTS']
     )
-    self.fs.create_file(
-        self.build_top.joinpath('foo/bar/jank/CtsJankDeviceTestCases2.xml'),
-        contents=("""
-                <target_preparer class="com.android.tradefed.targetprep.suite.SuiteApkInstaller">
-                    <option name="test-file-name" value="CtsUiDeviceTestCases.apk" />
-                </target_preparer>
-            """),
-    )
+    finder = self.create_finder_with_module(test_module)
 
-    mod_info = module_info.load_from_file(module_file=self.module_info_file)
-    mod_finder = module_finder.ModuleFinder(module_info=mod_info)
-    t_infos = mod_finder.find_test_by_module_name('CtsJankDeviceTestCases')
-
-    self.assertEqual(len(t_infos), 1)
-    unittest_utils.assert_equal_testinfos(self, t_infos[0], expected_test_info)
-
-  def test_find_test_by_module_name_w_multiple_config_all(self):
-    """Test find_test_by_module_name."""
-    atest_configs.GLOBAL_ARGS = mock.Mock()
-    atest_configs.GLOBAL_ARGS.test_config_select = False
-    expected_test_info = [
-        create_test_info(
-            test_name='CtsJankDeviceTestCases',
-            test_runner='AtestTradefedTestRunner',
-            module_class=['APPS'],
-            build_targets={'MODULES-IN-foo-bar-jank', 'CtsJankDeviceTestCases'},
-            data={
-                'rel_config': 'foo/bar/jank/AndroidTest.xml',
-                'filter': frozenset(),
-            },
-        ),
-        create_test_info(
-            test_name='CtsJankDeviceTestCases2',
-            raw_test_name='CtsJankDeviceTestCases',
-            test_runner='AtestTradefedTestRunner',
-            module_class=['APPS'],
-            build_targets={'MODULES-IN-foo-bar-jank', 'CtsJankDeviceTestCases'},
-            data={
-                'rel_config': 'foo/bar/jank/CtsJankDeviceTestCases2.xml',
-                'filter': frozenset(),
-            },
-        ),
-    ]
-    self.fs.create_file(
-        self.build_top.joinpath('foo/bar/jank/AndroidTest.xml'),
-        contents=("""
-                <target_preparer class="com.android.tradefed.targetprep.suite.SuiteApkInstaller">
-                    <option name="test-file-name" value="CtsUiDeviceTestCases.apk" />
-                </target_preparer>
-            """),
+    t_infos = finder.find_test_by_class_name(
+        class_name=test_class_name, module_name='Unknown'
     )
 
-    mod_info = module_info.load_from_file(module_file=self.module_info_file)
-    mod_finder = module_finder.ModuleFinder(module_info=mod_info)
-    t_infos = mod_finder.find_test_by_module_name('CtsJankDeviceTestCases')
+    self.assertIsNone(t_infos)
 
-    self.assertEqual(len(t_infos), 2)
-    unittest_utils.assert_equal_testinfos(
-        self, t_infos[0], expected_test_info[0]
+  @mock.patch.object(
+      test_finder_utils, 'find_parent_module_dir', return_value='/main'
+  )
+  @mock.patch(
+      'subprocess.check_output',
+      return_value=[
+          'example_module/project/src/com/android/myjavatests/MyJavaTestClass.java'
+      ],
+  )
+  @mock.patch.object(
+      test_finder_utils,
+      'extract_selected_tests',
+      return_value=[
+          'example_module/project/configs/Config1.xml',
+          'example_module/project/configs/Config2.xml',
+      ],
+  )
+  def test_find_test_by_module_class_multiple_configs_tests_found(
+      self, mock_user_selection, mock_run_cmd, mock_parent_dir
+  ):
+    module_name = 'MyModuleTestCases'
+    test_module = (
+        module_info_unittest_base.device_driven_multi_config_test_module(
+            name=module_name,
+            class_type=['NATIVE_TESTS'],
+        )
     )
-    unittest_utils.assert_equal_testinfos(
-        self, t_infos[1], expected_test_info[1]
+    finder = self.create_finder_with_module(test_module)
+
+    t_infos = finder.find_test_by_module_and_class(
+        'MyModuleTestCases:MyMultiConfigJavaTestClass'
+    )
+
+    with self.subTest(name='first_test_name_corresponds_to_module_name'):
+      self.assert_test_info_has_test_name(t_infos[0], module_name)
+    with self.subTest(name='second_test_name_corresponds_to_config_name'):
+      self.assert_test_info_has_test_name(t_infos[1], 'Config2')
+    with self.subTest(name='raw_test_name_corresponds_to_module_name'):
+      self.assert_test_info_has_raw_test_name(t_infos[0], module_name)
+      self.assert_test_info_has_raw_test_name(t_infos[1], module_name)
+    with self.subTest(name='contains_expected_filters'):
+      self.assert_test_info_has_class_filter(
+          t_infos[0], 'MyMultiConfigJavaTestClass'
+      )
+      self.assert_test_info_has_config(
+          t_infos[0], 'example_module/project/configs/Config1.xml'
+      )
+      self.assert_test_info_has_class_filter(
+          t_infos[1], 'MyMultiConfigJavaTestClass'
+      )
+      self.assert_test_info_has_config(
+          t_infos[1], 'example_module/project/configs/Config2.xml'
+      )
+    with self.subTest(name='contains_expected_build_targets'):
+      self.assert_test_info_contains_build_targets(t_infos[0], module_name)
+      self.assert_test_info_contains_build_targets(
+          t_infos[0],
+          'example_module-project',
+      )
+      self.assert_test_info_contains_build_targets(t_infos[1], module_name)
+      self.assert_test_info_contains_build_targets(
+          t_infos[1],
+          'example_module-project',
+      )
+
+  def create_finder_with_module(self, test_module):
+    return module_finder.ModuleFinder(self.create_module_info([test_module]))
+
+  def assert_test_info_has_test_name(
+      self, t_info: test_info.TestInfo, test_name: str
+  ):
+    self.assertEqual(t_info.test_name, test_name)
+
+  def assert_test_info_has_raw_test_name(
+      self, t_info: test_info.TestInfo, test_name: str
+  ):
+    self.assertEqual(t_info.raw_test_name, test_name)
+
+  def assert_test_info_has_class_filter(
+      self, t_info: test_info.TestInfo, class_name: str
+  ):
+    self.assertSetEqual(
+        frozenset([test_info.TestFilter(class_name, frozenset())]),
+        t_info.data[constants.TI_FILTER],
+    )
+
+  def assert_test_info_has_config(
+      self, t_info: test_info.TestInfo, config: str
+  ):
+    self.assertEqual(config, t_info.data[constants.TI_REL_CONFIG])
+
+  def assert_test_info_contains_build_targets(
+      self, t_info: test_info.TestInfo, expected_build_target: str
+  ):
+    self.assertTrue(
+        any(expected_build_target in target for target in t_info.build_targets)
     )
 
 
@@ -229,6 +311,7 @@ class ModuleFinderFindTestByPath(fake_filesystem_unittest.TestCase):
   """Test cases that invoke find_test_by_path."""
 
   def setUp(self):
+    super().setUp()
     self.setUpPyfakefs()
 
   # pylint: disable=protected-access
@@ -302,6 +385,7 @@ class ModuleFinderUnittests(unittest.TestCase):
 
   def setUp(self):
     """Set up stuff for testing."""
+    super().setUp()
     self.mod_finder = module_finder.ModuleFinder()
     self.mod_finder.module_info = mock.Mock(spec=module_info.ModuleInfo)
     self.mod_finder.module_info.path_to_module_info = {}
@@ -428,6 +512,9 @@ class ModuleFinderUnittests(unittest.TestCase):
     unittest_utils.assert_equal_testinfos(self, t_infos[0], CLASS_INFO_MODULE_2)
 
   @mock.patch.object(
+      test_finder_utils, 'find_parent_module_dir', return_value='foo/bar/jank'
+  )
+  @mock.patch.object(
       test_filter_utils, 'is_parameterized_java_class', return_value=False
   )
   @mock.patch.object(test_finder_utils, 'has_method_in_file', return_value=True)
@@ -452,6 +539,7 @@ class ModuleFinderUnittests(unittest.TestCase):
       _vts,
       _has_method_in_file,
       _is_parameterized,
+      mock_parent_dir,
   ):
     """Test find_test_by_module_and_class."""
     # Native test was tested in test_find_test_by_cc_class_name().

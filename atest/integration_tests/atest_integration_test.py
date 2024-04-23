@@ -180,6 +180,18 @@ class AtestRunResult:
     with open(json_path, 'r', encoding='utf-8') as f:
       return json.load(f)
 
+  def get_passed_count(self) -> int:
+    """Gets the total number of passed tests from atest summary."""
+    return self.get_test_result_dict()['total_summary']['PASSED']
+
+  def get_failed_count(self) -> int:
+    """Gets the total number of failed tests from atest summary."""
+    return self.get_test_result_dict()['total_summary']['FAILED']
+
+  def get_ignored_count(self) -> int:
+    """Gets the total number of ignored tests from atest summary."""
+    return self.get_test_result_dict()['total_summary']['IGNORED']
+
   def get_atest_log(self) -> str:
     """Gets the log content read from the atest log file."""
     log_path = self.get_results_dir_path() / 'atest.log'
@@ -287,6 +299,8 @@ class AtestTestCase(split_build_test_script.SplitBuildTestTestCase):
         'prebuilts/build-tools/linux-x86/bin/py3-cmd',
         'prebuilts/build-tools',
         'prebuilts/asuite/atest/linux-x86/atest-py3',
+        # Required by bazel mode
+        'external/bazelbuild-rules_python',
     ]
 
     # Default exclude list of repo paths for snapshot

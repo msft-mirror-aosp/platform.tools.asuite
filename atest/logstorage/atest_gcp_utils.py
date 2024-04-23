@@ -17,30 +17,22 @@ from __future__ import print_function
 import getpass
 import logging
 import os
-import subprocess
-import time
-import uuid
-
-try:
-  import httplib2
-except ModuleNotFoundError as e:
-  logging.debug('Import error due to %s', e)
-
+import pathlib
 from pathlib import Path
 from socket import socket
+import subprocess
+import time
+from typing import Any, Callable
+import uuid
 
-try:
-  from oauth2client import client as oauth2_client
-  from oauth2client.contrib import multiprocess_file_storage
-  from oauth2client import tools as oauth2_tools
-except ModuleNotFoundError as e:
-  logging.debug('Import error due to %s', e)
-
-from atest.atest_enum import DetectType
-from atest.metrics import metrics
 from atest import atest_utils
 from atest import constants
-from typing import Any, Callable
+from atest.atest_enum import DetectType
+from atest.metrics import metrics
+import httplib2
+from oauth2client import client as oauth2_client
+from oauth2client import contrib as oauth2_contrib
+from oauth2client import tools as oauth2_tools
 
 
 class RunFlowFlags:
@@ -105,7 +97,7 @@ class GCPHelper:
     Returns:
         An oauth2client.OAuth2Credentials instance.
     """
-    storage = multiprocess_file_storage.get_credential_storage(
+    storage = oauth2_contrib.multiprocess_file_storage.get_credential_storage(
         filename=os.path.abspath(creds_file_path),
         client_id=self.client_id,
         user_agent=self.user_agent,
@@ -138,7 +130,7 @@ class GCPHelper:
     # GCP auth flow
     credentials = self.get_refreshed_credential_from_file(creds_file_path)
     if not credentials:
-      storage = multiprocess_file_storage.get_credential_storage(
+      storage = oauth2_contrib.multiprocess_file_storage.get_credential_storage(
           filename=os.path.abspath(creds_file_path),
           client_id=self.client_id,
           user_agent=self.user_agent,
@@ -210,6 +202,7 @@ class GCPHelper:
 def do_upload_flow(
     extra_args: dict[str, str],
     build_client_creator: Callable,
+    atest_run_id: str = None,
 ) -> tuple:
   """Run upload flow.
 
@@ -219,13 +212,13 @@ def do_upload_flow(
       extra_args: Dict of extra args to add to test run.
       build_client_creator: A function that takes a credential and returns a
         BuildClient object.
+      atest_run_id: The atest run ID to write into the invocation.
 
   Return:
       A tuple of credential object and invocation information dict.
   """
-  config_folder = os.path.join(atest_utils.get_misc_dir(), '.atest')
   fetch_cred_start = time.time()
-  creds = fetch_credential(config_folder, extra_args)
+  creds = fetch_credential()
   metrics.LocalDetectEvent(
       detect_type=DetectType.FETCH_CRED_MS,
       result=int((time.time() - fetch_cred_start) * 1000),
@@ -233,7 +226,9 @@ def do_upload_flow(
   if creds:
     prepare_upload_start = time.time()
     build_client = build_client_creator(creds)
-    inv, workunit, local_build_id, build_target = _prepare_data(build_client)
+    inv, workunit, local_build_id, build_target = _prepare_data(
+        build_client, atest_run_id or metrics.get_run_id()
+    )
     metrics.LocalDetectEvent(
         detect_type=DetectType.UPLOAD_PREPARE_MS,
         result=int((time.time() - prepare_upload_start) * 1000),
@@ -253,52 +248,24 @@ def do_upload_flow(
   return None, None
 
 
-def fetch_credential(config_folder, extra_args):
-  """Fetch the credential whenever --request-upload-result is specified.
-
-  Args:
-      config_folder: The directory path to put config file. The default path is
-        ~/.atest.
-      extra_args: Dict of extra args to add to test run.
-
-  Return:
-      The credential object.
-  """
-  if not os.path.exists(config_folder):
-    os.makedirs(config_folder)
-  not_upload_file = os.path.join(config_folder, constants.DO_NOT_UPLOAD)
-  # Do nothing if there are no related config or DO_NOT_UPLOAD exists.
-  if not constants.CREDENTIAL_FILE_NAME or not constants.TOKEN_FILE_PATH:
-    return None
-
-  creds_f = os.path.join(config_folder, constants.CREDENTIAL_FILE_NAME)
-  if extra_args.get(constants.REQUEST_UPLOAD_RESULT):
-    if os.path.exists(not_upload_file):
-      os.remove(not_upload_file)
-  else:
-    # TODO(b/275113186): Change back to default upload after AnTS upload
-    #  extremely slow problem be solved.
-    if os.path.exists(creds_f):
-      os.remove(creds_f)
-    Path(not_upload_file).touch()
-
-  # If DO_NOT_UPLOAD not exist, ATest will try to get the credential
-  # from the file.
-  if not os.path.exists(not_upload_file):
-    return GCPHelper(
-        client_id=constants.CLIENT_ID,
-        client_secret=constants.CLIENT_SECRET,
-        user_agent='atest',
-    ).get_credential_with_auth_flow(creds_f)
-
-  return None
+def fetch_credential():
+  """Fetch the credential object."""
+  creds_path = atest_utils.get_config_folder().joinpath(
+      constants.CREDENTIAL_FILE_NAME
+  )
+  return GCPHelper(
+      client_id=constants.CLIENT_ID,
+      client_secret=constants.CLIENT_SECRET,
+      user_agent='atest',
+  ).get_credential_with_auth_flow(creds_path)
 
 
-def _prepare_data(client):
+def _prepare_data(client, atest_run_id: str):
   """Prepare data for build api using.
 
   Args:
       build_client: The logstorage_utils.BuildClient object.
+      atest_run_id: The atest run ID to write into the invocation.
 
   Return:
       invocation and workunit object.
@@ -311,7 +278,7 @@ def _prepare_data(client):
     target = _get_target(branch, client)
     build_record = client.insert_local_build(external_id, target, branch)
     client.insert_build_attempts(build_record)
-    invocation = client.insert_invocation(build_record)
+    invocation = client.insert_invocation(build_record, atest_run_id)
     workunit = client.insert_work_unit(invocation)
     return invocation, workunit, build_record['buildId'], target
   finally:

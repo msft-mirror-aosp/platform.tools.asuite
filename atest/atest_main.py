@@ -27,25 +27,25 @@ atest is designed to support any test types that can be ran by TradeFederation.
 from __future__ import annotations
 from __future__ import print_function
 
-from abc import ABC, abstractmethod
 import argparse
 import collections
-from dataclasses import dataclass
 import itertools
 import logging
 import os
-from pathlib import Path
 import platform
 import sys
 import tempfile
 import time
+
+from abc import ABC, abstractmethod
+from dataclasses import dataclass
 from typing import Any, Dict, List, Set, Tuple
 
 from atest import arg_parser
 from atest import atest_configs
-from atest import atest_error
 from atest import atest_execution_info
 from atest import atest_utils
+from atest import banner
 from atest import bazel_mode
 from atest import bug_detector
 from atest import cli_translator
@@ -98,7 +98,6 @@ EXIT_CODES_BEFORE_TEST = [
 _RESULTS_DIR_PRINT_PREFIX = 'Atest results and logs directory: '
 # Log prefix for dry-run run command. May be used in integration tests.
 _DRY_RUN_COMMAND_LOG_PREFIX = 'Internal run command from dry-run: '
-
 
 @dataclass
 class Steps:
@@ -171,7 +170,7 @@ def _get_args_from_config():
   Returns:
       A list read from the config file.
   """
-  _config = Path(atest_utils.get_misc_dir()).joinpath('.atest', 'config')
+  _config = atest_utils.get_config_folder().joinpath('config')
   if not _config.parent.is_dir():
     _config.parent.mkdir(parents=True)
   args = []
@@ -261,7 +260,7 @@ def _configure_logging(verbose: bool, results_dir: str):
   )
   # Handler for print the log on console that sets INFO (by default) or DEBUG
   # (verbose mode).
-  console = logging.StreamHandler()
+  console = logging.StreamHandler(sys.stdout)
   console.name = 'console'
   console.setLevel(logging.INFO)
   if verbose:
@@ -955,13 +954,19 @@ def setup_metrics_tool_name(no_metrics: bool = False):
 # pylint: disable=too-many-statements
 # pylint: disable=too-many-branches
 # pylint: disable=too-many-return-statements
-def _main(argv: List[Any], results_dir: str, args: argparse.Namespace):
+def _main(
+    argv: List[Any],
+    results_dir: str,
+    args: argparse.Namespace,
+    banner_printer: banner.BannerPrinter):
   """Entry point of atest script.
 
   Args:
       argv: A list of arguments.
       results_dir: A directory which stores the ATest execution information.
       args: An argparse.Namespace class instance holding parsed args.
+      banner_printer: A BannerPrinter object used to collect banners and print
+        banners at the end of this invocation.
 
   Returns:
       Exit code.
@@ -1068,6 +1073,7 @@ def _main(argv: List[Any], results_dir: str, args: argparse.Namespace):
       steps=steps,
       plan=test_execution_plan,
       update_modules=set(args.update_modules or []),
+      banner_printer=banner_printer,
   )
 
   if build_targets and steps.has_build():
@@ -1166,12 +1172,19 @@ def _configure_update_method(
     steps: Steps,
     plan: TestExecutionPlan,
     update_modules: set[str],
+    banner_printer: banner.BannerPrinter,
 ) -> device_update.DeviceUpdateMethod:
 
+  requires_device_update = plan.requires_device_update()
+
   if not steps.has_device_update():
+    if requires_device_update:
+      banner_printer.register(
+          'Tips: If your test requires device update, consider '
+          'http://go/atest-single-command to simplify your workflow!')
     return device_update.NoopUpdateMethod()
 
-  if not plan.requires_device_update():
+  if not requires_device_update:
     atest_utils.colorful_print(
         '\nWarning: Device update ignored because it is not required by '
         'tests in this invocation.',
@@ -1476,6 +1489,8 @@ if __name__ == '__main__':
       'Start of atest run. sys.argv: %s, final_args: %s', sys.argv, final_args
   )
 
+  banner_printer = banner.BannerPrinter.create()
+
   with atest_execution_info.AtestExecutionInfo(
       final_args, results_dir, atest_configs.GLOBAL_ARGS
   ) as result_file:
@@ -1485,6 +1500,7 @@ if __name__ == '__main__':
         final_args,
         results_dir,
         atest_configs.GLOBAL_ARGS,
+        banner_printer,
     )
     detector = bug_detector.BugDetector(final_args, exit_code)
     if exit_code not in EXIT_CODES_BEFORE_TEST:
@@ -1493,8 +1509,7 @@ if __name__ == '__main__':
       )
       if result_file:
         print("Run 'atest --history' to review test result history.")
-  banner = os.environ.get('ANDROID_BUILD_BANNER', None)
-  skip_banner = os.environ.get('ANDROID_SKIP_BANNER', None)
-  if banner and not skip_banner:
-    print(banner)
+
+  banner_printer.print()
+
   sys.exit(exit_code)

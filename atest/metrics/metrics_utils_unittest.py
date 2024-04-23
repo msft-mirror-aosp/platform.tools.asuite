@@ -52,7 +52,7 @@ class MetricsUtilsUnittests(unittest.TestCase):
     mock_get_user_type.return_value = 0
     notice_str = (
         f'\n==================\n{start}{red}Notice:{end}\n'
-        f'{start}{green} We collect usage statistics (including LDAP) '
+        f'{start}{green} We collect usage statistics (including usernames) '
         'in accordance with our '
         'Content Licenses (https://source.android.com/setup/start/licenses), '
         'Contributor License Agreement (https://cla.developers.google.com/), '
