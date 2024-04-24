@@ -347,6 +347,7 @@ class AtestTestCase(split_build_test_script.SplitBuildTestTestCase):
       cls,
       cmd: str,
       step_in: split_build_test_script.StepInput,
+      include_device_serial: bool,
       print_output: bool = True,
       use_prebuilt_atest_binary=None,
   ) -> AtestRunResult:
@@ -356,6 +357,10 @@ class AtestTestCase(split_build_test_script.SplitBuildTestTestCase):
         cmd: command string for Atest. Do not add 'atest-dev' or 'atest' in the
           beginning of the command.
         step_in: The step input object from build or test step.
+        include_device_serial: Whether a device is required for the atest
+          command. This argument is only used to determine whether to include
+          device serial in the command. It does not add device/deviceless
+          arguments such as '--host'.
         print_output: Whether to print the stdout and stderr while the command
           is running.
         use_prebuilt_atest_binary: Whether to run the command using the prebuilt
@@ -366,15 +371,21 @@ class AtestTestCase(split_build_test_script.SplitBuildTestTestCase):
     """
     if use_prebuilt_atest_binary is None:
       use_prebuilt_atest_binary = step_in.get_config().use_prebuilt_atest_binary
-    complete_cmd = (
-        f'{"atest" if use_prebuilt_atest_binary else "atest-dev"}'
-        f' {cmd}{step_in.get_device_serial_args_or_empty()}'
+    atest_binary = 'atest' if use_prebuilt_atest_binary else 'atest-dev'
+
+    # TODO: b/336839543 - Throw error here when serial is required but not set
+    # instead of from step_in.get_device_serial_args_or_empty()
+    serial_arg = (
+        step_in.get_device_serial_args_or_empty()
+        if include_device_serial
+        else ''
     )
+    complete_cmd = f'{atest_binary}{serial_arg} {cmd}'
 
     indentation = '  '
     logging.debug('Executing atest command: %s', complete_cmd)
     logging.debug(
-        indentation + 'Command environment variables: %s', step_in.get_env()
+        '%sCommand environment variables: %s', indentation, step_in.get_env()
     )
     result = AtestRunResult(
         cls._run_shell_command(
@@ -389,14 +400,16 @@ class AtestTestCase(split_build_test_script.SplitBuildTestTestCase):
     )
 
     wrap_output_lines = lambda output_str: ''.join((
-        indentation * 2 + '> %s' % line for line in output_str.splitlines(True)
+        f'{indentation * 2}> %s' % line for line in output_str.splitlines(True)
     ))
     logging.debug(
-        indentation + 'Command stdout:\n%s',
+        '%sCommand stdout:\n%s',
+        indentation,
         wrap_output_lines(result.get_stdout()),
     )
     logging.debug(
-        indentation + 'Atest log:\n%s',
+        '%sAtest log:\n%s',
+        indentation,
         wrap_output_lines(result.get_atest_log()),
     )
 
