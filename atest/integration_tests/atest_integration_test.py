@@ -371,6 +371,11 @@ class AtestTestCase(split_build_test_script.SplitBuildTestTestCase):
         f' {cmd}{step_in.get_device_serial_args_or_empty()}'
     )
 
+    indentation = '  '
+    logging.debug('Executing atest command: %s', complete_cmd)
+    logging.debug(
+        indentation + 'Command environment variables: %s', step_in.get_env()
+    )
     result = AtestRunResult(
         cls._run_shell_command(
             complete_cmd.split(),
@@ -383,14 +388,17 @@ class AtestTestCase(split_build_test_script.SplitBuildTestTestCase):
         step_in.get_config(),
     )
 
-    wrap_output_lines = lambda output_str: ''.join(
-        ('    > %s' % line for line in output_str.splitlines(True))
-    )
-    logging.debug('Executed an atest command: %s', complete_cmd)
+    wrap_output_lines = lambda output_str: ''.join((
+        indentation * 2 + '> %s' % line for line in output_str.splitlines(True)
+    ))
     logging.debug(
-        '  Atest command stdout:\n%s', wrap_output_lines(result.get_stdout())
+        indentation + 'Command stdout:\n%s',
+        wrap_output_lines(result.get_stdout()),
     )
-    logging.debug('  Atest log:\n%s', wrap_output_lines(result.get_atest_log()))
+    logging.debug(
+        indentation + 'Atest log:\n%s',
+        wrap_output_lines(result.get_atest_log()),
+    )
 
     return result
 
