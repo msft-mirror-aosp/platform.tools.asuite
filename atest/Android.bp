@@ -59,6 +59,7 @@ python_binary_host {
     main: "atest_main.py",
     data: [
         ":atest_flag_list_for_completion",
+        ":atest_log_uploader",
     ],
     // Make atest's built name be atest-dev
     stem: "atest-dev",
