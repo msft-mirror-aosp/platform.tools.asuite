@@ -27,8 +27,10 @@ atest is designed to support any test types that can be ran by TradeFederation.
 from __future__ import annotations
 from __future__ import print_function
 
+from abc import ABC, abstractmethod
 import argparse
 import collections
+from dataclasses import dataclass
 import itertools
 import logging
 import os
@@ -36,9 +38,6 @@ import platform
 import sys
 import tempfile
 import time
-
-from abc import ABC, abstractmethod
-from dataclasses import dataclass
 from typing import Any, Dict, List, Set, Tuple
 
 from atest import arg_parser
@@ -98,6 +97,7 @@ EXIT_CODES_BEFORE_TEST = [
 _RESULTS_DIR_PRINT_PREFIX = 'Atest results and logs directory: '
 # Log prefix for dry-run run command. May be used in integration tests.
 _DRY_RUN_COMMAND_LOG_PREFIX = 'Internal run command from dry-run: '
+
 
 @dataclass
 class Steps:
@@ -258,16 +258,6 @@ def _configure_logging(verbose: bool, results_dir: str):
   logging.basicConfig(
       filename=log_path, level=logging.DEBUG, format=log_fmat, datefmt=date_fmt
   )
-  # Handler for print the log on console that sets INFO (by default) or DEBUG
-  # (verbose mode).
-  console = logging.StreamHandler(sys.stdout)
-  console.name = 'console'
-  console.setLevel(logging.INFO)
-  if verbose:
-    console.setLevel(logging.DEBUG)
-  console.setFormatter(logging.Formatter(log_fmat))
-  # Attach console handler to logger, so what we see is what we logged.
-  logging.getLogger('').addHandler(console)
 
 
 def _missing_environment_variables():
@@ -958,7 +948,8 @@ def _main(
     argv: List[Any],
     results_dir: str,
     args: argparse.Namespace,
-    banner_printer: banner.BannerPrinter):
+    banner_printer: banner.BannerPrinter,
+):
   """Entry point of atest script.
 
   Args:
@@ -1181,7 +1172,8 @@ def _configure_update_method(
     if requires_device_update:
       banner_printer.register(
           'Tips: If your test requires device update, consider '
-          'http://go/atest-single-command to simplify your workflow!')
+          'http://go/atest-single-command to simplify your workflow!'
+      )
     return device_update.NoopUpdateMethod()
 
   if not requires_device_update:
