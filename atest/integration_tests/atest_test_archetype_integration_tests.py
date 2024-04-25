@@ -83,6 +83,20 @@ class DeviceAndroidTestTest(atest_integration_test.AtestTestCase):
     )
 
 
+class DeviceCcTestTest(atest_integration_test.AtestTestCase):
+  _TARGET_NAME = 'device_cc_test'
+
+  def test_passed_failed_counts(self):
+    _verify_test_passed_failed_ignored_counts(
+        self,
+        atest_command=self._TARGET_NAME,
+        is_device_required=True,
+        expected_passed_count=2,
+        expected_failed_count=1,
+        expected_ignored_count=0,
+    )
+
+
 def _verify_test_passed_failed_ignored_counts(
     test_case: atest_integration_test.AtestTestCase,
     atest_command: str,
