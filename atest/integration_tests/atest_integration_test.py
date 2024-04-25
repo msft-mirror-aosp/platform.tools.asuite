@@ -290,17 +290,10 @@ class AtestTestCase(split_build_test_script.SplitBuildTestTestCase):
         'tools/asuite/atest/test_runners/roboleaf_launched.txt',
         '.repo/manifest.xml',
         'build/soong/soong_ui.bash',
-        'build/bazel_common_rules/rules/python/stubs',
-        'build/bazel/bin',
-        'external/bazelbuild-rules_java',
-        'tools/asuite/atest/bazel/resources/bazel.sh',
-        'prebuilts/bazel/linux-x86_64',
         'prebuilts/build-tools/path/linux-x86/python3',
         'prebuilts/build-tools/linux-x86/bin/py3-cmd',
         'prebuilts/build-tools',
         'prebuilts/asuite/atest/linux-x86',
-        # Required by bazel mode
-        'external/bazelbuild-rules_python',
     ]
 
     # Default exclude list of repo paths for snapshot
@@ -327,11 +320,7 @@ class AtestTestCase(split_build_test_script.SplitBuildTestTestCase):
 
   def create_atest_script(self, name: str = None) -> SplitBuildTestScript:
     """Create an instance of atest integration test utility."""
-    script = self.create_split_build_test_script(name)
-    script.add_snapshot_restore_exclude_paths(
-        ['$OUT_DIR/atest_bazel_workspace']
-    )
-    return script
+    return self.create_split_build_test_script(name)
 
   def create_step_output(self) -> StepOutput:
     """Create a step output object with default values."""
