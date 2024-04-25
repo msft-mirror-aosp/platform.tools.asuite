@@ -88,11 +88,20 @@ class LogUploaderModuleTest(unittest.TestCase):
       self, mock_process
   ):
     self._set_upload_constants_available(True)
-    self._set_upload_env_var(None)
+    self._set_upload_env_var('false')
 
     log_uploader.upload_logs_detached(pathlib.Path('any'))
 
     mock_process.assert_not_called()
+
+  @patch('multiprocessing.Process.__new__')
+  def test_upload_logs_detached_process_started_by_default(self, mock_process):
+    self._set_upload_constants_available(True)
+    self._set_upload_env_var(None)
+
+    log_uploader.upload_logs_detached(pathlib.Path('any'))
+
+    mock_process.assert_called_once()
 
   def _set_upload_env_var(self, value) -> None:
     """Set upload environment variable."""
