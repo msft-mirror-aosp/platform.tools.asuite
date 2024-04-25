@@ -215,7 +215,7 @@ class _LogUploadSession:
 
 def upload_logs_detached(logs_dir: pathlib.Path):
   """Upload logs to AnTS in a detached process."""
-  if not os.environ.get(_ENABLE_ATEST_LOG_UPLOADING_ENV_KEY, '').lower() in [
+  if os.environ.get(_ENABLE_ATEST_LOG_UPLOADING_ENV_KEY, '1').lower() not in [
       'true',
       '1',
   ]:
