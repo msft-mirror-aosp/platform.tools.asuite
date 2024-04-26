@@ -268,12 +268,18 @@ def _configure_logging(verbose: bool, results_dir: str):
       self._logger = logger
       self._log_level = log_level
       self._printer = printer
+      self._buffers = []
 
-    def write(self, buf):
+    def write(self, buf: str) -> None:
       self._printer.write(buf)
-      self._logger.log(self._log_level, buf)
 
-    def flush(self):
+      if len(buf) == 1 and buf[0] == '\n' and self._buffers:
+        self._logger.log(self._log_level, ''.join(self._buffers))
+        self._buffers.clear()
+      else:
+        self._buffers.append(buf)
+
+    def flush(self) -> None:
       self._printer.flush()
 
   stdout_log_level = 25
