@@ -222,11 +222,7 @@ def upload_logs_detached(logs_dir: pathlib.Path):
     return
 
   if not logstorage_utils.is_credential_available():
-    logging.error(
-        'Attempting to enable log uploading but missing credentials. Possibly'
-        ' due to running from an AOSP branch without the required vendor'
-        ' config.'
-    )
+    # In aosp without vendor config
     return
 
   assert logs_dir, 'artifacts_dir cannot be None.'
