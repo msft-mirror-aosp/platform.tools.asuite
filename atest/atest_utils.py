@@ -40,6 +40,7 @@ import shutil
 import subprocess
 import sys
 from threading import Thread
+import traceback
 from typing import Any, Dict, List, Set, Tuple
 import urllib
 import xml.etree.ElementTree as ET
@@ -603,6 +604,59 @@ def colorful_print(text, color, bp_color=None, auto_wrap=True):
     print(output)
   else:
     print(output, end='')
+
+
+def _print_to_console(
+    prefix: str, color: int, msg: Any, *fmt_args: list[Any]
+) -> None:
+  """Print a message to the console.
+
+  Args:
+    msg: The message to format.
+    *fmt_args: Format arguments for the message.
+  """
+  if not fmt_args:
+    evaluated_msg = str(msg)
+  else:
+    try:
+      evaluated_msg = msg % fmt_args
+    except (TypeError, ValueError):
+      traceback.print_exc()
+      return
+  colorful_print(f'{prefix}{evaluated_msg}', color)
+
+
+def print_and_log_error(msg, *fmt_args):
+  """Print error message to the console and log it.
+
+  Args:
+    msg: The message to print.
+    *fmt_args: Format arguments for the message.
+  """
+  logging.error(msg, *fmt_args)
+  _print_to_console('Error: ', constants.RED, msg, *fmt_args)
+
+
+def print_and_log_warning(msg, *fmt_args):
+  """Print warning message to the console and log it.
+
+  Args:
+    msg: The message to print.
+    *fmt_args: Format arguments for the message.
+  """
+  logging.warning(msg, *fmt_args)
+  _print_to_console('Warning: ', constants.YELLOW, msg, *fmt_args)
+
+
+def print_and_log_info(msg, *fmt_args):
+  """Print info message to the console and log it.
+
+  Args:
+    msg: The message to print.
+    *fmt_args: Format arguments for the message.
+  """
+  logging.info(msg, *fmt_args)
+  _print_to_console('Info: ', constants.WHITE, msg, *fmt_args)
 
 
 def get_terminal_size():
