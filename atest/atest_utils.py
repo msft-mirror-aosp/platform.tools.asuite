@@ -107,6 +107,8 @@ _BUILD_ENV = {}
 
 CACHE_VERSION = 1
 
+_original_sys_stdout = sys.stdout
+
 
 @dataclass
 class BuildEnvProfiler:
@@ -537,7 +539,7 @@ def colorize(text, color, bp_color=None):
   """
   clr_pref = '\033[1;'
   clr_suff = '\033[0m'
-  has_colors = _has_colors(sys.stdout)
+  has_colors = _has_colors(_original_sys_stdout)
   if has_colors:
     background_color = ''
     if bp_color:
