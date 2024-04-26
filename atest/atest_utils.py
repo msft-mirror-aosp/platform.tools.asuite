@@ -435,9 +435,9 @@ def _run_build_cmd(cmd: List[str], env_vars: Dict[str, str]):
     logging.info('Build successful')
     return True
   except subprocess.CalledProcessError as err:
-    logging.error('Build failure when running: %s', ' '.join(cmd))
+    print_and_log_error('Build failure when running: %s', ' '.join(cmd))
     if err.output:
-      logging.error(err.output)
+      print_and_log_error(err.output)
     return False
 
 

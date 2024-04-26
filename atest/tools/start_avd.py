@@ -27,6 +27,7 @@ import subprocess
 import time
 
 from atest import atest_utils as au
+from atest import atest_utils
 from atest import constants
 from atest.atest_enum import DetectType, ExitCode
 from atest.metrics import metrics
@@ -92,7 +93,9 @@ def acloud_create(report_file, args, no_metrics_notice=True):
       with open(report_file, 'w+') as _wfile:
         _wfile.write(json.dumps(result))
     except OSError as e:
-      logging.error('Failed dumping duration to the report file: %s', str(e))
+      atest_utils.print_and_log_error(
+          'Failed dumping duration to the report file: %s', e
+      )
 
 
 def acloud_create_validator(results_dir: str, args: argparse.ArgumentParser):
