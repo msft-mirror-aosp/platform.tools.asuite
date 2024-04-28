@@ -180,11 +180,6 @@ class AtestTradefedTestRunner(trb.TestRunnerBase):
         'args': '',
         'log_args': self._LOG_ARGS.format(**self.log_args),
     }
-    # Only set to verbose mode if the console handler is DEBUG level.
-    self.is_verbose = False
-    for handler in logging.getLogger('').handlers:
-      if handler.name == 'console' and handler.level == logging.DEBUG:
-        self.is_verbose = True
     self.root_dir = os.environ.get(constants.ANDROID_BUILD_TOP)
     self._is_host_enabled = extra_args.get(constants.HOST, False)
     self._minimal_build = minimal_build
@@ -395,7 +390,7 @@ class AtestTradefedTestRunner(trb.TestRunnerBase):
     logging.debug('Running test: %s', run_cmds[0])
     subproc = self.run(
         run_cmds[0],
-        output_to_stdout=self.is_verbose,
+        output_to_stdout=extra_args.get(constants.VERBOSE, False),
         env_vars=self.generate_env_vars(extra_args),
     )
     self.handle_subprocess(
