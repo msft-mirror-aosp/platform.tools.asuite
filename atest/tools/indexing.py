@@ -378,7 +378,7 @@ def index_targets():
       return _index_targets(indices, start)
     logging.debug('Indices remains the same. Ignore indexing...')
   else:
-    logging.warning(
+    atest_utils.print_and_log_warning(
         'Unable to run %s. Search targets will be very slow.', output_cache
     )
   return None
