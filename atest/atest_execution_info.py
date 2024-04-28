@@ -338,7 +338,8 @@ class AtestExecutionInfo:
       logging.debug('handle_exc_and_send_exit_event:%s', main_exit_code)
       metrics_utils.handle_exc_and_send_exit_event(main_exit_code)
 
-    log_uploader.upload_logs_detached(pathlib.Path(self.work_dir))
+    if log_uploader.is_uploading_logs():
+      log_uploader.upload_logs_detached(pathlib.Path(self.work_dir))
 
   @staticmethod
   def _generate_execution_detail(args):
