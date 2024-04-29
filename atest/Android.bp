@@ -66,6 +66,9 @@ python_binary_host {
     dist: {
         targets: ["droidcore"],
     },
+    libs: [
+        "atest_ca_certs_locater",
+    ],
 }
 
 python_binary_host {
