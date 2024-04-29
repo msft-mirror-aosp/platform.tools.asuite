@@ -84,7 +84,7 @@ def acloud_create(report_file, args, no_metrics_notice=True):
   proc = subprocess.Popen(acloud_cmd, shell=True)
   proc.communicate()
   acloud_duration = time.time() - start
-  logging.info('"acloud create" process has completed.')
+  atest_utils.print_and_log_info('"acloud create" process has completed.')
   # Insert acloud create duration into the report file.
   result = au.load_json_safely(report_file)
   if result:
@@ -151,7 +151,7 @@ def probe_acloud_status(report_file, find_build_duration):
     if not result:
       return ExitCode.AVD_CREATE_FAILURE
     if result.get('status') == 'SUCCESS':
-      logging.info('acloud create successfully!')
+      atest_utils.print_and_log_info('acloud create successfully!')
       # Always fetch the adb of the first created AVD.
       adb_port = result.get('data').get('devices')[0].get('adb_port')
       is_remote_instance = result.get('command') == 'create_cf'

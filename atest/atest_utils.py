@@ -434,7 +434,7 @@ def _run_build_cmd(cmd: List[str], env_vars: Dict[str, str]):
       )
       _run_build_cmd_with_limited_output(cmd, env_vars=env_vars)
     _send_build_condition_metrics(build_profiler, cmd)
-    logging.info('Build successful')
+    print_and_log_info('Build successful')
     return True
   except subprocess.CalledProcessError as err:
     print_and_log_error('Build failure when running: %s', ' '.join(cmd))
@@ -759,7 +759,7 @@ def save_md5(filenames, save_file):
   for f in filenames:
     name = Path(f)
     if not name.is_file():
-      logging.warning(' ignore %s: not a file.', name)
+      print_and_log_warning(' ignore %s: not a file.', name)
     data.update({str(name): md5sum(name)})
   with open(save_file, 'w+', encoding='utf-8') as _file:
     json.dump(data, _file)

@@ -132,7 +132,9 @@ class TFIntegrationFinder(test_finder_base.TestFinderBase):
         # expand included xml file
         integration_name = elem.get('name')
         if not integration_name:
-          logging.warning('skipping <include> tag with no "name" value')
+          atest_utils.print_and_log_warning(
+              'skipping <include> tag with no "name" value'
+          )
           continue
         full_paths = self._search_integration_dirs(integration_name)
         if not full_paths:
