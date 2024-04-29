@@ -343,6 +343,48 @@ class AtestUtilsUnittests(unittest.TestCase):
     green_no_highlight_string = '\x1b[1;32m%s\x1b[0m' % original_str
     self.assertEqual(green_no_highlight_string, converted_str)
 
+  @mock.patch('atest.atest_utils.colorful_print')
+  @mock.patch('logging.error')
+  def test_print_and_log_error_no_format_prints_and_logs(
+      self, mocked_print, locked_error_logging
+  ):
+    atest_utils.print_and_log_error('no format')
+
+    mocked_print.assert_called_once()
+    locked_error_logging.assert_called_once()
+
+  @mock.patch('atest.atest_utils.colorful_print')
+  def test_print_and_log_error_single_non_string_prints(self, mocked_print):
+    atest_utils.print_and_log_error(123)
+
+    mocked_print.assert_called_once()
+
+  @mock.patch('atest.atest_utils.colorful_print')
+  def test_print_and_log_error_with_format_prints(self, mocked_print):
+    atest_utils.print_and_log_error('1+1=%s', 2)
+
+    mocked_print.assert_called_once()
+
+  @mock.patch('atest.atest_utils.colorful_print')
+  def test_print_and_log_error_bad_value_no_throw_no_print(self, mocked_print):
+    atest_utils.print_and_log_error('bad format %', 'format arg')
+
+    mocked_print.assert_not_called()
+
+  @mock.patch('atest.atest_utils.colorful_print')
+  def test_print_and_log_error_missing_format_arg_no_print(self, mocked_print):
+    atest_utils.print_and_log_error('bad format %s %s', 'format arg')
+
+    mocked_print.assert_not_called()
+
+  @mock.patch('atest.atest_utils.colorful_print')
+  def test_print_and_log_error_extra_format_arg_no_print(self, mocked_print):
+    atest_utils.print_and_log_error(
+        'bad format %s', 'format arg1', 'format arg2'
+    )
+
+    mocked_print.assert_not_called()
+
   @mock.patch('atest.atest_utils._has_colors')
   def test_colorful_print(self, mock_has_colors):
     """Test method colorful_print."""
