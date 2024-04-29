@@ -253,11 +253,35 @@ def _configure_logging(verbose: bool, results_dir: str):
   date_fmt = '%Y-%m-%d %H:%M:%S'
   log_path = os.path.join(results_dir, 'atest.log')
 
+  logger = logging.getLogger('')
   # Clear the handlers to prevent logging.basicConfig from being called twice.
-  logging.getLogger('').handlers = []
+  logger.handlers = []
+
   logging.basicConfig(
       filename=log_path, level=logging.DEBUG, format=log_fmat, datefmt=date_fmt
   )
+
+  class _StreamToLogger:
+    """A file like class to that redirect writes to a printer and logger."""
+
+    def __init__(self, logger, log_level, printer):
+      self._logger = logger
+      self._log_level = log_level
+      self._printer = printer
+
+    def write(self, buf):
+      self._printer.write(buf)
+      self._logger.log(self._log_level, buf)
+
+    def flush(self):
+      self._printer.flush()
+
+  stdout_log_level = 25
+  stderr_log_level = 45
+  logging.addLevelName(stdout_log_level, 'STDOUT')
+  logging.addLevelName(stderr_log_level, 'STDERR')
+  sys.stdout = _StreamToLogger(logger, stdout_log_level, sys.stdout)
+  sys.stderr = _StreamToLogger(logger, stderr_log_level, sys.stderr)
 
 
 def _missing_environment_variables():
