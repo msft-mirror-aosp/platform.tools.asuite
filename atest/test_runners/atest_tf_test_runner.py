@@ -662,7 +662,7 @@ class AtestTradefedTestRunner(trb.TestRunnerBase):
     if not unsupported:
       return True
 
-    logging.warn(
+    atest_utils.print_and_log_warning(
         'Minimal build was disabled because the following tests do not support'
         ' it: %s',
         unsupported,
@@ -734,7 +734,7 @@ class AtestTradefedTestRunner(trb.TestRunnerBase):
       # TestInfo to determine the test type. In the future we should ensure all
       # tests have their corresponding module info and only rely on the module
       # info to determine the test type.
-      logging.warning(
+      atest_utils.print_and_log_warning(
           'Could not find module information for %s', t_info.raw_test_name
       )
       return self._guess_test_type_for_missing_module(t_info)
@@ -918,7 +918,7 @@ class AtestTradefedTestRunner(trb.TestRunnerBase):
 
     test_args.extend(args_to_add)
     if args_not_supported:
-      logging.info(
+      atest_utils.print_and_log_info(
           '%s does not support the following args %s',
           self.EXECUTABLE,
           args_not_supported,

@@ -153,7 +153,7 @@ def parse_steps(args: arg_parser.AtestArgParser) -> Steps:
   test = constants.TEST_STEP in args.steps
   install = constants.INSTALL_STEP in args.steps
   if install and not test:
-    logging.warning(
+    atest_utils.print_and_log_warning(
         'Installing without test step is currently not '
         'supported; Atest will proceed testing!'
     )

@@ -357,7 +357,9 @@ class AtestExecutionInfo:
       )
       return json.dumps(info_dict)
     except ValueError as err:
-      logging.warning('Parsing test result failed due to : %s', err)
+      atest_utils.print_and_log_warning(
+          'Parsing test result failed due to : %s', err
+      )
     return {}
 
   @staticmethod
