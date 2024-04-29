@@ -1345,7 +1345,7 @@ def generate_annotation_filter_args(
             option_value=annotation,
         )
         annotation_filter_args.extend([constants.TF_MODULE_ARG, module_arg])
-      logging.error(
+      atest_utils.print_and_log_error(
           atest_utils.mark_red(f'Cannot find similar annotation: {keyword}')
       )
   return annotation_filter_args
