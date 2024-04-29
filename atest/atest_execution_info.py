@@ -26,9 +26,10 @@ import pathlib
 import sys
 from typing import List
 
+from atest import atest_utils as au
+from atest import atest_utils
 from atest import constants
 from atest.atest_enum import ExitCode
-import atest.atest_utils as au
 from atest.logstorage import log_uploader
 from atest.metrics import metrics_utils
 
@@ -309,7 +310,7 @@ class AtestExecutionInfo:
     try:
       self.result_file_obj = open(self.test_result, 'w')
     except IOError:
-      logging.error('Cannot open file %s', self.test_result)
+      atest_utils.print_and_log_error('Cannot open file %s', self.test_result)
     return self.result_file_obj
 
   def __exit__(self, exit_type, value, traceback):

@@ -270,7 +270,7 @@ def _missing_environment_variables():
       filter(None, [x for x in EXPECTED_VARS if not os.environ.get(x)])
   )
   if missing:
-    logging.error(
+    atest_utils.print_and_log_error(
         "Local environment doesn't appear to have been "
         'initialized. Did you remember to run lunch? Expected '
         'Environment Variables: %s.',
@@ -391,7 +391,7 @@ def _validate_exec_mode(args, test_infos: list[TestInfo], host_tests=None):
   if host_tests is False and constants.DEVICELESS_TEST in all_device_modes:
     err_msg = 'There are host-only tests in command.'
   if err_msg:
-    logging.error(err_msg)
+    atest_utils.print_and_log_error(err_msg)
     metrics_utils.send_exit_event(ExitCode.INVALID_EXEC_MODE, logs=err_msg)
     sys.exit(ExitCode.INVALID_EXEC_MODE)
   # The 'adb' may not be available for the first repo sync or a clean build;
@@ -495,7 +495,7 @@ def _has_valid_test_mapping_args(args):
   ]
   for arg_value, arg in options_to_validate:
     if arg_value:
-      logging.error(
+      atest_utils.print_and_log_error(
           atest_utils.mark_red(OPTION_NOT_FOR_TEST_MAPPING.format(arg))
       )
       return False
