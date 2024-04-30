@@ -16,10 +16,9 @@
 
 from __future__ import annotations
 
+from datetime import date
 import json
 import logging
-
-from datetime import date
 from pathlib import Path
 from typing import Any, Callable
 
@@ -30,12 +29,12 @@ from atest import constants
 class BannerHistory:
   """A history for banner handling."""
 
-  _LAST_BANNER_PROMPT_DATE = "last_banner_prompt_date"
+  _LAST_BANNER_PROMPT_DATE = 'last_banner_prompt_date'
 
   @staticmethod
   def create(config_dir: Path) -> BannerHistory:
     config_dir.mkdir(parents=True, exist_ok=True)
-    history_file = config_dir.joinpath("banner.json")
+    history_file = config_dir.joinpath('banner.json')
 
     if not history_file.exists():
       history_file.touch()
@@ -44,7 +43,9 @@ class BannerHistory:
       try:
         history = json.loads(history_file.read_text())
       except json.JSONDecodeError as e:
-        logging.error(f"Banner history json file is in a bad format: {e}")
+        atest_utils.print_and_log_error(
+            'Banner history json file is in a bad format: %s', e
+        )
         history = {}
 
     return BannerHistory(history_file, history)
@@ -78,7 +79,7 @@ class BannerPrinter:
     """Register a banner message."""
     self._messages.append(message)
 
-  def print(self, print_func: Callable=None, date_supplier: Callable=None):
+  def print(self, print_func: Callable = None, date_supplier: Callable = None):
     """Print the banners."""
 
     if not self._messages:
@@ -88,7 +89,7 @@ class BannerPrinter:
       print_func = lambda m: atest_utils.colorful_print(m, constants.YELLOW)
 
     if not date_supplier:
-      date_supplier = lambda : str(date.today())
+      date_supplier = lambda: str(date.today())
 
     today = date_supplier()
     history = BannerHistory.create(self._config_dir)
