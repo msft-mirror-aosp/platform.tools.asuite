@@ -610,7 +610,7 @@ class ModuleFinder(test_finder_base.TestFinderBase):
         search_dir, search_class_name, is_native_test, methods
     )
     if not test_paths and rel_config:
-      logging.info(
+      atest_utils.print_and_log_info(
           'Did not find class (%s) under module path (%s), '
           'researching from repo root.',
           class_name,
@@ -945,7 +945,9 @@ class ModuleFinder(test_finder_base.TestFinderBase):
       # (b/202764540) Strip prefixes of a cc class.
       # Assume the class name has a format of file_name.class_name
       class_name = class_name[class_name.rindex('.') + 1 :]
-      logging.info('Search with updated class name: %s', class_name)
+      atest_utils.print_and_log_info(
+          'Search with updated class name: %s', class_name
+      )
     return self.find_test_by_class_name(
         class_name, module_name, rel_config, is_native_test=True
     )

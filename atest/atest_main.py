@@ -27,8 +27,10 @@ atest is designed to support any test types that can be ran by TradeFederation.
 from __future__ import annotations
 from __future__ import print_function
 
+from abc import ABC, abstractmethod
 import argparse
 import collections
+from dataclasses import dataclass
 import itertools
 import logging
 import os
@@ -36,9 +38,6 @@ import platform
 import sys
 import tempfile
 import time
-
-from abc import ABC, abstractmethod
-from dataclasses import dataclass
 from typing import Any, Dict, List, Set, Tuple
 
 from atest import arg_parser
@@ -99,6 +98,7 @@ _RESULTS_DIR_PRINT_PREFIX = 'Atest results and logs directory: '
 # Log prefix for dry-run run command. May be used in integration tests.
 _DRY_RUN_COMMAND_LOG_PREFIX = 'Internal run command from dry-run: '
 
+
 @dataclass
 class Steps:
   """A Dataclass that stores steps and shows step assignments."""
@@ -153,7 +153,7 @@ def parse_steps(args: arg_parser.AtestArgParser) -> Steps:
   test = constants.TEST_STEP in args.steps
   install = constants.INSTALL_STEP in args.steps
   if install and not test:
-    logging.warning(
+    atest_utils.print_and_log_warning(
         'Installing without test step is currently not '
         'supported; Atest will proceed testing!'
     )
@@ -253,21 +253,41 @@ def _configure_logging(verbose: bool, results_dir: str):
   date_fmt = '%Y-%m-%d %H:%M:%S'
   log_path = os.path.join(results_dir, 'atest.log')
 
+  logger = logging.getLogger('')
   # Clear the handlers to prevent logging.basicConfig from being called twice.
-  logging.getLogger('').handlers = []
+  logger.handlers = []
+
   logging.basicConfig(
       filename=log_path, level=logging.DEBUG, format=log_fmat, datefmt=date_fmt
   )
-  # Handler for print the log on console that sets INFO (by default) or DEBUG
-  # (verbose mode).
-  console = logging.StreamHandler(sys.stdout)
-  console.name = 'console'
-  console.setLevel(logging.INFO)
-  if verbose:
-    console.setLevel(logging.DEBUG)
-  console.setFormatter(logging.Formatter(log_fmat))
-  # Attach console handler to logger, so what we see is what we logged.
-  logging.getLogger('').addHandler(console)
+
+  class _StreamToLogger:
+    """A file like class to that redirect writes to a printer and logger."""
+
+    def __init__(self, logger, log_level, printer):
+      self._logger = logger
+      self._log_level = log_level
+      self._printer = printer
+      self._buffers = []
+
+    def write(self, buf: str) -> None:
+      self._printer.write(buf)
+
+      if len(buf) == 1 and buf[0] == '\n' and self._buffers:
+        self._logger.log(self._log_level, ''.join(self._buffers))
+        self._buffers.clear()
+      else:
+        self._buffers.append(buf)
+
+    def flush(self) -> None:
+      self._printer.flush()
+
+  stdout_log_level = 25
+  stderr_log_level = 45
+  logging.addLevelName(stdout_log_level, 'STDOUT')
+  logging.addLevelName(stderr_log_level, 'STDERR')
+  sys.stdout = _StreamToLogger(logger, stdout_log_level, sys.stdout)
+  sys.stderr = _StreamToLogger(logger, stderr_log_level, sys.stderr)
 
 
 def _missing_environment_variables():
@@ -280,7 +300,7 @@ def _missing_environment_variables():
       filter(None, [x for x in EXPECTED_VARS if not os.environ.get(x)])
   )
   if missing:
-    logging.error(
+    atest_utils.print_and_log_error(
         "Local environment doesn't appear to have been "
         'initialized. Did you remember to run lunch? Expected '
         'Environment Variables: %s.',
@@ -401,7 +421,7 @@ def _validate_exec_mode(args, test_infos: list[TestInfo], host_tests=None):
   if host_tests is False and constants.DEVICELESS_TEST in all_device_modes:
     err_msg = 'There are host-only tests in command.'
   if err_msg:
-    logging.error(err_msg)
+    atest_utils.print_and_log_error(err_msg)
     metrics_utils.send_exit_event(ExitCode.INVALID_EXEC_MODE, logs=err_msg)
     sys.exit(ExitCode.INVALID_EXEC_MODE)
   # The 'adb' may not be available for the first repo sync or a clean build;
@@ -505,7 +525,7 @@ def _has_valid_test_mapping_args(args):
   ]
   for arg_value, arg in options_to_validate:
     if arg_value:
-      logging.error(
+      atest_utils.print_and_log_error(
           atest_utils.mark_red(OPTION_NOT_FOR_TEST_MAPPING.format(arg))
       )
       return False
@@ -958,7 +978,8 @@ def _main(
     argv: List[Any],
     results_dir: str,
     args: argparse.Namespace,
-    banner_printer: banner.BannerPrinter):
+    banner_printer: banner.BannerPrinter,
+):
   """Entry point of atest script.
 
   Args:
@@ -1181,7 +1202,8 @@ def _configure_update_method(
     if requires_device_update:
       banner_printer.register(
           'Tips: If your test requires device update, consider '
-          'http://go/atest-single-command to simplify your workflow!')
+          'http://go/atest-single-command to simplify your workflow!'
+      )
     return device_update.NoopUpdateMethod()
 
   if not requires_device_update:

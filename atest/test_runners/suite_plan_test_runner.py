@@ -138,7 +138,7 @@ class SuitePlanTestRunner(atest_tf_test_runner.AtestTradefedTestRunner):
         continue
       args_not_supported.append(arg)
     if args_not_supported:
-      logging.info(
+      atest_utils.print_and_log_info(
           '%s does not support the following args: %s',
           self.EXECUTABLE,
           args_not_supported,
