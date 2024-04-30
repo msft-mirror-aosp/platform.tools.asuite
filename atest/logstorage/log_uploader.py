@@ -16,6 +16,7 @@
 """A module for background python log artifacts uploading."""
 
 import argparse
+import functools
 from importlib import resources
 import logging
 import multiprocessing
@@ -23,6 +24,7 @@ import os
 import pathlib
 import subprocess
 import sys
+from typing import Callable
 from atest import constants
 from atest.logstorage import logstorage_utils
 from atest.metrics import metrics
@@ -213,20 +215,40 @@ class _LogUploadSession:
     )
 
 
-def upload_logs_detached(logs_dir: pathlib.Path):
-  """Upload logs to AnTS in a detached process."""
-  if os.environ.get(_ENABLE_ATEST_LOG_UPLOADING_ENV_KEY, '1').lower() not in [
-      'true',
-      '1',
+@functools.cache
+def is_uploading_logs(gcert_checker: Callable[[], bool] = None) -> bool:
+  """Determines whether log uploading is happening in the current run."""
+  if os.environ.get(_ENABLE_ATEST_LOG_UPLOADING_ENV_KEY, 'true').lower() in [
+      'false',
+      '0',
   ]:
-    return
+    return False
 
   if not logstorage_utils.is_credential_available():
-    logging.error(
-        'Attempting to enable log uploading but missing credentials. Possibly'
-        ' due to running from an AOSP branch without the required vendor'
-        ' config.'
+    return False
+
+  # Checks whether gcert is available and not about to expire.
+  if gcert_checker is None:
+    gcert_checker = (
+        lambda: subprocess.run(
+            ['which', 'gcertstatus'],
+            capture_output=True,
+            check=False,
+        ).returncode
+        == 0
+        and subprocess.run(
+            ['gcertstatus', '--check_remaining=6m'],
+            capture_output=True,
+            check=False,
+        ).returncode
+        == 0
     )
+  return gcert_checker()
+
+
+def upload_logs_detached(logs_dir: pathlib.Path):
+  """Upload logs to AnTS in a detached process."""
+  if not is_uploading_logs():
     return
 
   assert logs_dir, 'artifacts_dir cannot be None.'
@@ -293,13 +315,6 @@ def _redirect_stdout_stderr() -> None:
   sys.stderr = _StreamToLogger(logger, logging.ERROR)
 
 
-def _check_gcert_available() -> bool:
-  """Returns true if gcert is available and not about to expire."""
-  return not subprocess.run(
-      ['gcertstatus', '--check_remaining=6m'], capture_output=True, check=False
-  ).returncode
-
-
 def _main() -> None:
   """The main method to be executed when executing this module as a binary."""
   arg_parser = argparse.ArgumentParser(
@@ -313,13 +328,6 @@ def _main() -> None:
   args = arg_parser.parse_args()
   _configure_logging(args.artifacts_dir)
   _redirect_stdout_stderr()
-
-  if not _check_gcert_available():
-    logging.info(
-        'Skipping log uploading as gcert is either not available or about to'
-        ' expire.'
-    )
-    return
 
   with _LogUploadSession(args.atest_run_id) as artifact_upload_session:
     artifact_upload_session.upload_directory(pathlib.Path(args.artifacts_dir))

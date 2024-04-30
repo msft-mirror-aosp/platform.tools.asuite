@@ -27,7 +27,6 @@ python_library_host {
     },
 }
 
-
 java_library_host {
     name: "asuite_proto_java",
     srcs: [
@@ -57,10 +56,4 @@ python_library_host {
         include_dirs: ["external/protobuf/src"],
         canonical_path_from_root: false,
     },
-}
-
-team {
-  name: "trendy_team_adte",
-  // go/trendy/manage/engineers/5551098528825344,
-  trendy_team_id: "5551098528825344",
 }

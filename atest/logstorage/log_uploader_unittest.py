@@ -25,95 +25,102 @@ class LogUploaderModuleTest(unittest.TestCase):
 
   def setUp(self):
     super().setUp()
-    self._set_upload_constants_available(False)
-    self._set_upload_env_var(None)
 
-  @patch('multiprocessing.Process.__new__')
-  def test_upload_logs_detached_flag_value_unrecognized_process_not_started(
-      self, mock_process
-  ):
-    self._set_upload_constants_available(True)
-    self._set_upload_env_var('0')
+  @patch('atest.constants.CREDENTIAL_FILE_NAME', 'creds.txt')
+  @patch('atest.constants.TOKEN_FILE_PATH', 'token.txt')
+  @patch.dict(
+      os.environ, {log_uploader._ENABLE_ATEST_LOG_UPLOADING_ENV_KEY: '0'}
+  )
+  def test_is_uploading_logs_flag_value_unrecognized_returns_false(self):
+    gcert_checker = lambda: True
 
-    log_uploader.upload_logs_detached(pathlib.Path('any'))
+    result = log_uploader.is_uploading_logs(gcert_checker)
 
-    mock_process.assert_not_called()
+    self.assertFalse(result)
 
-  @patch('multiprocessing.Process.__new__')
-  def test_upload_logs_detached_flag_value_1_process_started(
-      self, mock_process
-  ):
-    self._set_upload_constants_available(True)
-    self._set_upload_env_var('1')
+  @patch('atest.constants.CREDENTIAL_FILE_NAME', 'creds.txt')
+  @patch('atest.constants.TOKEN_FILE_PATH', 'token.txt')
+  @patch.dict(
+      os.environ, {log_uploader._ENABLE_ATEST_LOG_UPLOADING_ENV_KEY: '1'}
+  )
+  def test_is_uploading_logs_flag_value_1_returns_true(self):
+    gcert_checker = lambda: True
 
-    log_uploader.upload_logs_detached(pathlib.Path('any'))
+    result = log_uploader.is_uploading_logs(gcert_checker)
 
-    mock_process.assert_called_once()
+    self.assertTrue(result)
 
-  @patch('multiprocessing.Process.__new__')
-  def test_upload_logs_detached_flag_value_capitalized_true_process_started(
-      self, mock_process
-  ):
-    self._set_upload_constants_available(True)
-    self._set_upload_env_var('TRUE')
+  @patch('atest.constants.CREDENTIAL_FILE_NAME', 'creds.txt')
+  @patch('atest.constants.TOKEN_FILE_PATH', 'token.txt')
+  @patch.dict(
+      os.environ, {log_uploader._ENABLE_ATEST_LOG_UPLOADING_ENV_KEY: 'TRUE'}
+  )
+  def test_is_uploading_logs_flag_value_capitalized_true_returns_true(self):
+    gcert_checker = lambda: True
 
-    log_uploader.upload_logs_detached(pathlib.Path('any'))
+    result = log_uploader.is_uploading_logs(gcert_checker)
 
-    mock_process.assert_called_once()
+    self.assertTrue(result)
 
-  @patch('multiprocessing.Process.__new__')
-  def test_upload_logs_detached_flag_value_true_process_started(
-      self, mock_process
-  ):
-    self._set_upload_constants_available(True)
-    self._set_upload_env_var('true')
+  @patch('atest.constants.CREDENTIAL_FILE_NAME', 'creds.txt')
+  @patch('atest.constants.TOKEN_FILE_PATH', 'token.txt')
+  @patch.dict(
+      os.environ, {log_uploader._ENABLE_ATEST_LOG_UPLOADING_ENV_KEY: 'true'}
+  )
+  def test_is_uploading_logs_flag_value_true_process_returns_true(self):
+    gcert_checker = lambda: True
 
-    log_uploader.upload_logs_detached(pathlib.Path('any'))
+    result = log_uploader.is_uploading_logs(gcert_checker)
 
-    mock_process.assert_called_once()
+    self.assertTrue(result)
 
-  @patch('multiprocessing.Process.__new__')
-  def test_upload_logs_detached_no_creds_process_not_started(
-      self, mock_process
-  ):
-    self._set_upload_constants_available(False)
-    self._set_upload_env_var('true')
+  @patch('atest.constants.CREDENTIAL_FILE_NAME', None)
+  @patch('atest.constants.TOKEN_FILE_PATH', None)
+  @patch.dict(
+      os.environ, {log_uploader._ENABLE_ATEST_LOG_UPLOADING_ENV_KEY: 'true'}
+  )
+  def test_is_uploading_logs_no_creds_process_returns_false(self):
+    gcert_checker = lambda: True
 
-    log_uploader.upload_logs_detached(pathlib.Path('any'))
+    result = log_uploader.is_uploading_logs(gcert_checker)
 
-    mock_process.assert_not_called()
+    self.assertFalse(result)
 
-  @patch('multiprocessing.Process.__new__')
-  def test_upload_logs_detached_not_requested_process_not_started(
-      self, mock_process
-  ):
-    self._set_upload_constants_available(True)
-    self._set_upload_env_var('false')
+  @patch('atest.constants.CREDENTIAL_FILE_NAME', 'creds.txt')
+  @patch('atest.constants.TOKEN_FILE_PATH', 'token.txt')
+  @patch.dict(
+      os.environ, {log_uploader._ENABLE_ATEST_LOG_UPLOADING_ENV_KEY: 'false'}
+  )
+  def test_is_uploading_logs_not_requested_process_returns_false(self):
+    gcert_checker = lambda: True
 
-    log_uploader.upload_logs_detached(pathlib.Path('any'))
+    result = log_uploader.is_uploading_logs(gcert_checker)
 
-    mock_process.assert_not_called()
+    self.assertFalse(result)
 
-  @patch('multiprocessing.Process.__new__')
-  def test_upload_logs_detached_process_started_by_default(self, mock_process):
-    self._set_upload_constants_available(True)
-    self._set_upload_env_var(None)
+  @patch('atest.constants.CREDENTIAL_FILE_NAME', 'creds.txt')
+  @patch('atest.constants.TOKEN_FILE_PATH', 'token.txt')
+  @patch.dict(
+      os.environ, {log_uploader._ENABLE_ATEST_LOG_UPLOADING_ENV_KEY: ''}
+  )
+  def test_is_uploading_logs_returns_true_by_default(self):
+    gcert_checker = lambda: True
 
-    log_uploader.upload_logs_detached(pathlib.Path('any'))
+    result = log_uploader.is_uploading_logs(gcert_checker)
 
-    mock_process.assert_called_once()
+    self.assertTrue(result)
 
-  def _set_upload_env_var(self, value) -> None:
-    """Set upload environment variable."""
-    if value is None:
-      os.environ.pop(log_uploader._ENABLE_ATEST_LOG_UPLOADING_ENV_KEY, None)
-    else:
-      os.environ[log_uploader._ENABLE_ATEST_LOG_UPLOADING_ENV_KEY] = value
+  @patch('atest.constants.CREDENTIAL_FILE_NAME', 'creds.txt')
+  @patch('atest.constants.TOKEN_FILE_PATH', 'token.txt')
+  @patch.dict(
+      os.environ, {log_uploader._ENABLE_ATEST_LOG_UPLOADING_ENV_KEY: ''}
+  )
+  def test_is_uploading_logs_gcert_not_available_returns_false(self):
+    gcert_checker = lambda: False
 
-  def _set_upload_constants_available(self, enabled: bool) -> None:
-    """Make the upload constants available."""
-    constants.CREDENTIAL_FILE_NAME = 'creds.txt' if enabled else None
-    constants.TOKEN_FILE_PATH = 'token.txt' if enabled else None
+    result = log_uploader.is_uploading_logs(gcert_checker)
+
+    self.assertFalse(result)
 
 
 class LogUploaderTest(fake_filesystem_unittest.TestCase):

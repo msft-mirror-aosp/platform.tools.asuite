@@ -352,7 +352,9 @@ class ResourceManager:
       try:
         file_md5_list.ParseFromString(f.read())
       except DecodeError:
-        logging.warning('Failed to parse the workspace md5 checksum file.')
+        atest_utils.print_and_log_warning(
+            'Failed to parse the workspace md5 checksum file.'
+        )
         return False
 
       for file_md5 in file_md5_list.file_checksums:
@@ -804,7 +806,9 @@ def _get_resource_root() -> pathlib.Path:
             ignore_file_names,
         )
       else:
-        logging.warn('Ignoring unknown resource: %s', child)
+        atest_utils.print_and_log_warning(
+            'Ignoring unknown resource: %s', child
+        )
 
   try:
     _extract_resources(
@@ -1833,7 +1837,7 @@ class BazelTestRunner(trb.TestRunnerBase):
   def _get_feature_config_or_warn(self, feature, env_var_name):
     feature_config = self.env.get(env_var_name)
     if not feature_config:
-      logging.warning(
+      atest_utils.print_and_log_warning(
           'Ignoring `%s` because the `%s` environment variable is not set.',
           # pylint: disable=no-member
           feature,
