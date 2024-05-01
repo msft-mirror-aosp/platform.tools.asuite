@@ -38,7 +38,7 @@ def is_credential_available() -> bool:
 
 def is_upload_enabled(args: dict[str, str]) -> bool:
   """Determines whether log upload is enabled."""
-  if not is_credential_available():
+  if not is_credential_available() or not constants.GTF_TARGETS:
     return False
 
   config_folder_path = atest_utils.get_config_folder()

@@ -215,13 +215,13 @@ class TestRunnerBase:
       """
       print('Process ID: %s', proc.pid)
       try:
-        logging.info(
+        atest_utils.print_and_log_info(
             'Ctrl-C received. Killing process group ID: %s',
             os.getpgid(proc.pid),
         )
         os.killpg(os.getpgid(proc.pid), signal.SIGINT)
       except ProcessLookupError as e:
-        logging.info(e)
+        atest_utils.print_and_log_info(e)
 
     return signal_handler
 

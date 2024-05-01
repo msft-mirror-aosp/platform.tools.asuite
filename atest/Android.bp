@@ -46,6 +46,11 @@ python_defaults {
     data: [
         "bazel/resources/**/*",
     ],
+    version: {
+        py3: {
+            embedded_launcher: true,
+        },
+    },
 }
 
 python_binary_host {
@@ -54,18 +59,16 @@ python_binary_host {
     main: "atest_main.py",
     data: [
         ":atest_flag_list_for_completion",
+        ":atest_log_uploader",
     ],
     // Make atest's built name be atest-dev
     stem: "atest-dev",
     dist: {
         targets: ["droidcore"],
     },
-    version: {
-        py3: {
-            // TODO(b/271346015): Enable embedded_launcher
-            embedded_launcher: false,
-        },
-    },
+    libs: [
+        "atest_ca_certs_locater",
+    ],
 }
 
 python_binary_host {
@@ -80,11 +83,6 @@ python_binary_host {
     libs: [
         "atest_ca_certs_locater",
     ],
-    version: {
-        py3: {
-            embedded_launcher: true,
-        },
-    },
 }
 
 python_binary_host {
@@ -110,11 +108,6 @@ python_binary_host {
     name: "atest_flag_list_generator",
     defaults: ["atest_defaults"],
     main: "atest_flag_list_generator.py",
-    version: {
-        py3: {
-            embedded_launcher: true,
-        },
-    },
 }
 
 genrule {

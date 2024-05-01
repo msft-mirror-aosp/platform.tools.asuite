@@ -1557,7 +1557,7 @@ def _index_testable_modules(contents: Any, index_path: Path):
       shutil.move(cache.name, index_path)
       logging.debug('%s is created successfully.', index_path)
     except IOError:
-      logging.error('Failed in dumping %s', cache)
+      atest_utils.print_and_log_error('Failed in dumping %s', cache)
       os.remove(cache.name)
 
 
