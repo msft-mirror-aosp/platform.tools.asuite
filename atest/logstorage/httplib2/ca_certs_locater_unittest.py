@@ -15,6 +15,7 @@
 import pathlib
 import unittest
 from httplib2 import certs
+import ca_certs_locater
 
 
 class CaCertsLocatorTest(unittest.TestCase):
@@ -22,4 +23,8 @@ class CaCertsLocatorTest(unittest.TestCase):
   def test_ca_certs_available(self):
     ca_cert = certs.where()
 
-    self.assertTrue(pathlib.Path(ca_cert).exists())
+    self.assertTrue(pathlib.Path(ca_cert).exists(), f'{ca_cert} does not exist')
+
+
+if __name__ == '__main__':
+  unittest.main()
