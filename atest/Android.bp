@@ -31,7 +31,7 @@ python_defaults {
         "py-google-api-python-client",
         "py-oauth2client",
         "pyyaml",
-        "atest_ca_certs_locater",
+        "ca_certs_locater",
     ],
     exclude_srcs: [
         "integration_tests/*.py",
