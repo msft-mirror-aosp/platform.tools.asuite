@@ -1615,7 +1615,12 @@ class DeviceTest(Test):
   def requires_device_update(self):
     # The test doesn't need device update as long as it's a unit test,
     # no matter if it's running on device or host.
-    return not module_info.ModuleInfo.is_unit_test(self._info)
+    # Some tests (e.g. TF integration tests) do not have module info, and we
+    # can't determine whether they require device update or not. So that we
+    # treat them as they require device update to avoid disabling the device
+    # update mistakenly.
+    return not self._info or not module_info.ModuleInfo.is_unit_test(
+        self._info)
 
   def _get_test_build_targets(self) -> Set[Target]:
     module_name = self._info[constants.MODULE_INFO_ID]
