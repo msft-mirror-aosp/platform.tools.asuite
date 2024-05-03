@@ -16,9 +16,48 @@ package {
     default_applicable_licenses: ["Android-Apache-2.0"],
 }
 
+// Helps httplib2 find ca certs in python targets with embedded launcher.
 python_library_host {
-    name: "atest_ca_certs_locater",
+    name: "ca_certs_locater",
     srcs: [
         "ca_certs_locater.py",
     ],
+}
+
+python_defaults {
+    name: "ca_certs_locater_unittest_default",
+    srcs: [
+        "ca_certs_locater_unittest.py",
+    ],
+    main: "ca_certs_locater_unittest.py",
+    libs: [
+        "py-httplib2",
+        "ca_certs_locater",
+    ],
+}
+
+python_test_host {
+    name: "ca_certs_locater_unittest",
+    defaults: ["ca_certs_locater_unittest_default"],
+    test_options: {
+        unit_test: true,
+    },
+    version: {
+        py3: {
+            embedded_launcher: true,
+        },
+    },
+}
+
+python_test_host {
+    name: "ca_certs_locater_non_embedded_unittest",
+    defaults: ["ca_certs_locater_unittest_default"],
+    test_options: {
+        unit_test: true,
+    },
+    version: {
+        py3: {
+            embedded_launcher: false,
+        },
+    },
 }
