@@ -29,6 +29,7 @@ from typing import List
 from atest import atest_utils as au
 from atest import atest_utils
 from atest import constants
+from atest import feedback
 from atest.atest_enum import ExitCode
 from atest.logstorage import log_uploader
 from atest.metrics import metrics_utils
@@ -340,6 +341,7 @@ class AtestExecutionInfo:
 
     if log_uploader.is_uploading_logs():
       log_uploader.upload_logs_detached(pathlib.Path(self.work_dir))
+    feedback.print_feedback_message()
 
   @staticmethod
   def _generate_execution_detail(args):
