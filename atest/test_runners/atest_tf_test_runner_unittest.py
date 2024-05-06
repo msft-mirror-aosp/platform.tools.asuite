@@ -1679,6 +1679,52 @@ class DeviceDrivenTestTest(module_info_unittest_base.ModuleInfoTest):
         deps,
     )
 
+  def test_requires_device_update_is_device_driven_test_returns_true(self):
+    mod_info = self.create_module_info(
+        modules=[
+            module_info_unittest_base.device_driven_test_module(
+                name='hello_world_test',
+            ),
+        ]
+    )
+    test_infos = [test_info_of('hello_world_test')]
+    runner = atf_tr.AtestTradefedTestRunner(
+        'result_dir', {constants.HOST: False}, mod_info, minimal_build=True
+    )
+
+    requires_device_update = runner.requires_device_update(test_infos)
+
+    self.assertTrue(requires_device_update)
+
+  def test_requires_device_update_is_unit_test_returns_false(self):
+    mod_info = self.create_module_info(
+        modules=[
+            module_info_unittest_base.device_driven_test_module(
+                name='hello_world_test',
+                is_unit_test='true',
+            ),
+        ]
+    )
+    test_infos = [test_info_of('hello_world_test')]
+    runner = atf_tr.AtestTradefedTestRunner(
+        'result_dir', {constants.HOST: False}, mod_info, minimal_build=True
+    )
+
+    requires_device_update = runner.requires_device_update(test_infos)
+
+    self.assertFalse(requires_device_update)
+
+  def test_requires_device_update_no_module_info_returns_true(self):
+    mod_info = self.create_module_info(modules=[])
+    test_infos = [test_info_of('hello_world_test')]
+    runner = atf_tr.AtestTradefedTestRunner(
+        'result_dir', {constants.HOST: False}, mod_info, minimal_build=True
+    )
+
+    requires_device_update = runner.requires_device_update(test_infos)
+
+    self.assertTrue(requires_device_update)
+
 
 class DevicelessTestTest(module_info_unittest_base.ModuleInfoTest):
   """Tests for deviceless test."""
