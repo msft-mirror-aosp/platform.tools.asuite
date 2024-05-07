@@ -86,6 +86,7 @@ def device_driven_test_module(
     compatibility_suites=None,
     host_deps=None,
     class_type=None,
+    is_unit_test=None,
 ):
 
   name = name or 'hello_world_test'
@@ -99,6 +100,7 @@ def device_driven_test_module(
       host_deps=host_deps,
       class_type=class_type or ['APP'],
       module_path=module_path,
+      is_unit_test=is_unit_test,
   )
 
 
@@ -160,6 +162,7 @@ def multi_variant_unit_test_module(name):
           f'out/product/vsoc_x86/{name}/{name}.cc',
       ],
       compatibility_suites=['host-unit-tests'],
+      is_unit_test='true',
   )
 
 
@@ -174,6 +177,7 @@ def test_module(
     host_deps=None,
     class_type=None,
     module_path=None,
+    is_unit_test=None,
 ):
   """Creates a module object which with properties specific to a test module."""
   return module(
@@ -187,6 +191,7 @@ def test_module(
       host_deps=host_deps,
       class_type=class_type,
       module_path=[module_path],
+      is_unit_test=is_unit_test,
   )
 
 
@@ -201,6 +206,7 @@ def module(
     host_deps=None,
     class_type=None,
     module_path=None,
+    is_unit_test=None,
 ):
   """Creates a ModuleInfo object.
 
@@ -220,5 +226,6 @@ def module(
   m[constants.MODULE_HOST_DEPS] = host_deps or []
   m[constants.MODULE_CLASS] = class_type or []
   m[constants.MODULE_PATH] = module_path or []
+  m[constants.MODULE_IS_UNIT_TEST] = is_unit_test or 'false'
 
   return m

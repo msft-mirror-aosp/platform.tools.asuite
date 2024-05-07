@@ -25,7 +25,7 @@ const METRICS_UPLOADER: &str = "/google/bin/releases/adevice-dev/metrics_uploade
 const ADEVICE_LOG_SOURCE: i32 = 2265;
 
 pub trait MetricSender {
-    fn add_start_event(&mut self, command_line: &str);
+    fn add_start_event(&mut self, command_line: &str, source_root: &str);
     fn add_action_event(&mut self, action: &str, duration: std::time::Duration);
     fn add_action_event_with_files_changed(
         &mut self,
@@ -46,9 +46,10 @@ pub struct Metrics {
 }
 
 impl MetricSender for Metrics {
-    fn add_start_event(&mut self, command_line: &str) {
+    fn add_start_event(&mut self, command_line: &str, source_root: &str) {
         let mut start_event = AdeviceStartEvent::default();
         start_event.set_command_line(command_line.to_string());
+        start_event.set_source_root(source_root.to_string());
         start_event.set_target(env::var(ENV_TARGET).unwrap_or("".to_string()));
 
         let mut event = self.default_log_event();
@@ -213,8 +214,8 @@ mod tests {
     fn test_print_events() {
         let mut metrics = Metrics::default();
         metrics.user = "test_user".to_string();
-        metrics.add_start_event("adevice status");
-        metrics.add_start_event("adevice track SomeModule");
+        metrics.add_start_event("adevice status", "/home/test/aosp-main-with-phones");
+        metrics.add_start_event("adevice track SomeModule", "/home/test/aosp-main-with-phones");
 
         assert_eq!(metrics.events.len(), 2);
         metrics.send();
