@@ -7,6 +7,8 @@
 **/.coverage
 **/htmlcov
 
+adevice/Cargo.lock
+
 atest/proto/*.py
 atest/tf_proto/*.py
 atest/atest_flag_list_for_completion.txt

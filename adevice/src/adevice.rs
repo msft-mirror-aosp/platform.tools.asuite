@@ -132,8 +132,6 @@ pub fn adevice(
         tracing::subscriber::set_global_default(subscriber)?;
     }
 
-    let command_line = std::env::args().collect::<Vec<String>>().join(" ");
-    metrics.add_start_event(&command_line);
     let restart_choice = cli.global_options.restart_choice.clone();
 
     let product_out = match &cli.global_options.product_out {
@@ -146,6 +144,9 @@ pub fn adevice(
     let track_time = std::time::Instant::now();
 
     let mut config = Config::load(&cli.global_options.config_path)?;
+
+    let command_line = std::env::args().collect::<Vec<String>>().join(" ");
+    metrics.add_start_event(&command_line, &config.src_root()?);
 
     // Early return for track/untrack commands.
     match &cli.command {

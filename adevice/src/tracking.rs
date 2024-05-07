@@ -143,7 +143,7 @@ impl Config {
         }
     }
 
-    fn src_root(&self) -> Result<String> {
+    pub fn src_root(&self) -> Result<String> {
         std::env::var("ANDROID_BUILD_TOP")
             .context("ANDROID_BUILD_TOP must be set. Be sure to run lunch.")
     }
