@@ -686,21 +686,23 @@ pub struct Profiler {
     pub total: Duration,
 }
 
-impl std::string::ToString for Profiler {
-    fn to_string(&self) -> String {
-        [
-            " Operation profile: (secs)".to_string(),
-            format!("Device Fingerprint - {}", self.device_fingerprint.as_secs()),
-            format!("Host fingerprint - {}", self.host_fingerprint.as_secs()),
-            format!("Ninja - {}", self.ninja_deps_computer.as_secs()),
-            format!("Adb Cmds - {}", self.adb_cmds.as_secs()),
-            format!("Restart({})- {}", self.restart_type, self.restart.as_secs()),
-            format!("Wait For device connected - {}", self.wait_for_device.as_secs()),
-            format!("Wait For boot completed - {}", self.wait_for_boot_completed.as_secs()),
-            format!("First remount RW - {}", self.first_remount_rw.as_secs()),
-            format!("TOTAL - {}", self.total.as_secs()),
-        ]
-        .join("\n\t")
+impl std::fmt::Display for Profiler {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "{}",
+            [
+                " Operation profile: (secs)".to_string(),
+                format!("Device Fingerprint - {}", self.device_fingerprint.as_secs()),
+                format!("Host fingerprint - {}", self.host_fingerprint.as_secs()),
+                format!("Ninja - {}", self.ninja_deps_computer.as_secs()),
+                format!("Adb Cmds - {}", self.adb_cmds.as_secs()),
+                format!("Restart({})- {}", self.restart_type, self.restart.as_secs()),
+                format!("Wait For device connected - {}", self.wait_for_device.as_secs()),
+                format!("Wait For boot completed - {}", self.wait_for_boot_completed.as_secs()),
+                format!("First remount RW - {}", self.first_remount_rw.as_secs()),
+                format!("TOTAL - {}", self.total.as_secs()),
+            ].join("\n\t"))
     }
 }
 

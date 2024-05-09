@@ -47,7 +47,7 @@ impl Config {
         if let Ok(file) = fs::File::open(path) {
             let mut config: Config = serde_json::from_reader(BufReader::new(file))
                 .context(format!("Parsing config {path:?}"))?;
-            config.config_path = path.clone();
+            config.config_path.clone_from(path);
             return Ok(config);
         }
         // Lets not create a default config file until they actually track a module.
