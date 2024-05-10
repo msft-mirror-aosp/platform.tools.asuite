@@ -42,22 +42,26 @@ final class BepFileTailer implements AutoCloseable {
 
     public BuildEvent nextEvent() throws InterruptedException, IOException {
         while (true) {
+            boolean stop = mStop;
+
+            // Mark the current position in the input stream.
             mIn.mark(Integer.MAX_VALUE);
 
             try {
                 BuildEvent event = BuildEvent.parseDelimitedFrom(mIn);
 
-                // When event is null we hit EOF, wait for an event to be written and try again.
+                // When event is null and we hit EOF, wait for an event to be written and try again.
                 if (event != null) {
                     return event;
                 }
-                if (mStop) {
+                if (stop) {
                     return null;
                 }
             } catch (InvalidProtocolBufferException e) {
-                if (mStop) {
+                if (stop) {
                     throw e;
                 }
+                // Partial read. Restore the old position in the input stream.
                 mIn.reset();
             }
             Thread.sleep(BEP_PARSE_SLEEP_TIME.toMillis());

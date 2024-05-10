@@ -44,6 +44,34 @@ TEST_F(FClass, FMethod2) {
   Run("List<{}>", kListSupportExpectations);
 }
 
+// GTest with flags
+TEST_WITH_FLAGS(
+  FlagClass1,
+  Method1,
+  REQUIRES_FLAGS_DISABLED(ACONFIG_FLAG(ns::test, flag))
+) {
+  Run("List<{}>", kListSupportExpectations);
+}
+TEST_WITH_FLAGS(FlagClass1, Method2,
+  REQUIRES_FLAGS_ENABLED(ACONFIG_FLAG(ns::test, flag)),
+  REQUIRES_FLAGS_DISABLED(LEGACY_FLAG(ns.test, ns::test, flag))
+) {
+  Run("List<{}>", kListSupportExpectations);
+}
+TEST_F_WITH_FLAGS(
+  FFlagClass,
+  FMethod1,
+  REQUIRES_FLAGS_DISABLED(ACONFIG_FLAG(ns::test, flag))
+) {
+  Run("List<{}>", kListSupportExpectations);
+}
+
+TEST_F_WITH_FLAGS(FFlagClass, FMethod2,
+  REQUIRES_FLAGS_ENABLED(ACONFIG_FLAG(ns::test, flag)),
+  REQUIRES_FLAGS_DISABLED(LEGACY_FLAG(ns.test, ns::test, flag))
+) {
+  Run("List<{}>", kListSupportExpectations);
+}
 
 // Typed test.
 TYPED_TEST_SUITE(TypedTestClass, Implementations);

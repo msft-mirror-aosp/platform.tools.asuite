@@ -13,7 +13,10 @@ disable=
 
 [MASTER]
 
-init-hook='import sys, os; sys.path.append(os.getcwd())'
+init-hook='import os, sys; sys.path.append(os.path.join(os.path.expandvars("$ANDROID_BUILD_TOP"), "external", "python", "pyfakefs"))'
+
+# Use multiple processes to speed up Pylint.
+jobs=0
 
 [BASIC]
 

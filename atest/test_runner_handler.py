@@ -12,165 +12,125 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""
-Aggregates test runners, groups tests by test runners and kicks off tests.
-"""
+"""Aggregates test runners, groups tests by test runners and kicks off tests."""
 
-# pylint: disable=line-too-long
 # pylint: disable=import-outside-toplevel
 
-import itertools
-import time
-import traceback
+from __future__ import annotations
 
+import itertools
 from typing import Any, Dict, List
 
 from atest import atest_error
 from atest import bazel_mode
-from atest import constants
 from atest import module_info
-from atest import result_reporter
-from atest import atest_utils
-
-from atest.atest_enum import ExitCode
-from atest.metrics import metrics
-from atest.metrics import metrics_utils
 from atest.test_finders import test_info
+from atest.test_runner_invocation import TestRunnerInvocation
 from atest.test_runners import atest_tf_test_runner
+from atest.test_runners import mobly_test_runner
 from atest.test_runners import robolectric_test_runner
 from atest.test_runners import suite_plan_test_runner
+from atest.test_runners import test_runner_base
 from atest.test_runners import vts_tf_test_runner
 
 _TEST_RUNNERS = {
-    atest_tf_test_runner.AtestTradefedTestRunner.NAME: atest_tf_test_runner.AtestTradefedTestRunner,
-    robolectric_test_runner.RobolectricTestRunner.NAME: robolectric_test_runner.RobolectricTestRunner,
-    suite_plan_test_runner.SuitePlanTestRunner.NAME: suite_plan_test_runner.SuitePlanTestRunner,
-    vts_tf_test_runner.VtsTradefedTestRunner.NAME: vts_tf_test_runner.VtsTradefedTestRunner,
+    atest_tf_test_runner.AtestTradefedTestRunner.NAME: (
+        atest_tf_test_runner.AtestTradefedTestRunner
+    ),
+    mobly_test_runner.MoblyTestRunner.NAME: mobly_test_runner.MoblyTestRunner,
+    robolectric_test_runner.RobolectricTestRunner.NAME: (
+        robolectric_test_runner.RobolectricTestRunner
+    ),
+    suite_plan_test_runner.SuitePlanTestRunner.NAME: (
+        suite_plan_test_runner.SuitePlanTestRunner
+    ),
+    vts_tf_test_runner.VtsTradefedTestRunner.NAME: (
+        vts_tf_test_runner.VtsTradefedTestRunner
+    ),
     bazel_mode.BazelTestRunner.NAME: bazel_mode.BazelTestRunner,
 }
 
 
 def _get_test_runners():
-    """Returns the test runners.
+  """Returns the test runners.
 
-    If external test runners are defined outside atest, they can be try-except
-    imported into here.
+  If external test runners are defined outside atest, they can be try-except
+  imported into here.
 
-    Returns:
-        Dict of test runner name to test runner class.
-    """
-    test_runners_dict = _TEST_RUNNERS
-    # Example import of example test runner:
-    try:
-        from test_runners import example_test_runner
-        test_runners_dict[example_test_runner.ExampleTestRunner.NAME] = example_test_runner.ExampleTestRunner
-    except ImportError:
-        pass
-    return test_runners_dict
+  Returns:
+      Dict of test runner name to test runner class.
+  """
+  test_runners_dict = _TEST_RUNNERS
+  # Example import of example test runner:
+  try:
+    from test_runners import example_test_runner
+
+    test_runners_dict[example_test_runner.ExampleTestRunner.NAME] = (
+        example_test_runner.ExampleTestRunner
+    )
+  except ImportError:
+    pass
+  return test_runners_dict
 
 
 def group_tests_by_test_runners(test_infos):
-    """Group the test_infos by test runners
+  """Group the test_infos by test runners
 
-    Args:
-        test_infos: List of TestInfo.
+  Args:
+      test_infos: List of TestInfo.
 
-    Returns:
-        List of tuples (test runner, tests).
-    """
-    tests_by_test_runner = []
-    test_runner_dict = _get_test_runners()
-    key = lambda x: x.test_runner
-    sorted_test_infos = sorted(list(test_infos), key=key)
-    for test_runner, tests in itertools.groupby(sorted_test_infos, key):
-        # groupby returns a grouper object, we want to operate on a list.
-        tests = list(tests)
-        test_runner_class = test_runner_dict.get(test_runner)
-        if test_runner_class is None:
-            raise atest_error.UnknownTestRunnerError('Unknown Test Runner %s' %
-                                                     test_runner)
-        tests_by_test_runner.append((test_runner_class, tests))
-    return tests_by_test_runner
-
-
-def get_test_runner_reqs(mod_info: module_info.ModuleInfo,
-                         test_infos: List[test_info.TestInfo],
-                         extra_args: Dict[str, Any]=None):
-    """Returns the requirements for all test runners specified in the tests.
-
-    Args:
-        mod_info: ModuleInfo object.
-        test_infos: List of TestInfo.
-        extra_args: Dict of extra args for test runners to use.
-
-    Returns:
-        Set of build targets required by the test runners.
-    """
-    unused_result_dir = ''
-    test_runner_build_req = set()
-    for test_runner, tests in group_tests_by_test_runners(test_infos):
-        test_runner_build_req |= test_runner(
-            unused_result_dir,
-            mod_info=mod_info,
-            test_infos=tests,
-            extra_args=extra_args or {},
-        ).get_test_runner_build_reqs()
-    return test_runner_build_req
+  Returns:
+      List of tuples (test runner, tests).
+  """
+  tests_by_test_runner = []
+  test_runner_dict = _get_test_runners()
+  key = lambda x: x.test_runner
+  sorted_test_infos = sorted(list(test_infos), key=key)
+  for test_runner, tests in itertools.groupby(sorted_test_infos, key):
+    # groupby returns a grouper object, we want to operate on a list.
+    tests = list(tests)
+    test_runner_class = test_runner_dict.get(test_runner)
+    if test_runner_class is None:
+      raise atest_error.UnknownTestRunnerError(
+          'Unknown Test Runner %s' % test_runner
+      )
+    tests_by_test_runner.append((test_runner_class, tests))
+  return tests_by_test_runner
 
 
-# pylint: disable=too-many-locals
-def run_all_tests(results_dir, test_infos, extra_args, mod_info,
-                  delay_print_summary=False):
-    """Run the given tests.
+def create_test_runner_invocations(
+    *,
+    test_infos: List[test_info.TestInfo],
+    results_dir: str,
+    mod_info: module_info.ModuleInfo,
+    extra_args: Dict[str, Any],
+    minimal_build: bool,
+) -> List[TestRunnerInvocation]:
+  """Creates TestRunnerInvocation instances.
 
-    Args:
-        results_dir: String directory to store atest results.
-        test_infos: List of TestInfo.
-        extra_args: Dict of extra args for test runners to use.
-        mod_info: ModuleInfo object.
+  Args:
+      test_infos: A list of instances of TestInfo.
+      results_dir: A directory which stores the ATest execution information.
+      mod_info: An instance of ModuleInfo.
+      extra_args: A dict of arguments for the test runner to utilize.
+      minimal_build: A boolean setting whether or not this invocation will
+        minimize the build target set.
 
-    Returns:
-        0 if tests succeed, non-zero otherwise.
-    """
-    reporter = result_reporter.ResultReporter(
-        collect_only=extra_args.get(constants.COLLECT_TESTS_ONLY),
-        flakes_info=extra_args.get(constants.FLAKES_INFO))
-    reporter.print_starting_text()
-    tests_ret_code = ExitCode.SUCCESS
-    for test_runner, tests in group_tests_by_test_runners(test_infos):
-        test_name = ' '.join([test.test_name for test in tests])
-        test_start = time.time()
-        is_success = True
-        ret_code = ExitCode.TEST_FAILURE
-        stacktrace = ''
-        try:
-            test_runner = test_runner(
-                results_dir,
-                mod_info=mod_info,
-                extra_args=extra_args,
-            )
-            ret_code = test_runner.run_tests(tests, extra_args, reporter)
-            tests_ret_code |= ret_code
-        # pylint: disable=broad-except
-        except Exception:
-            stacktrace = traceback.format_exc()
-            reporter.runner_failure(test_runner.NAME, stacktrace)
-            tests_ret_code = ExitCode.TEST_FAILURE
-            is_success = False
-        run_time = metrics_utils.convert_duration(time.time() - test_start)
-        metrics.RunnerFinishEvent(
-            duration=run_time,
-            success=is_success,
-            runner_name=test_runner.NAME,
-            test=[{'name': test_name,
-                   'result': ret_code,
-                   'stacktrace': stacktrace}])
-        # Tests that spends over 10 mins to finish will be stored in the
-        # shardable test file, and Atest will launch auto-sharding in the next
-        # runs.
-        for test in tests:
-            atest_utils.update_shardable_tests(test.test_name,
-                                               run_time.get('seconds', 0))
-    if delay_print_summary:
-        return tests_ret_code, reporter
-    return reporter.print_summary() or tests_ret_code, reporter
+  Returns:
+      A list of TestRunnerInvocation instances.
+  """
+
+  test_runner_invocations = []
+  for test_runner_class, tests in group_tests_by_test_runners(test_infos):
+    test_runner = test_runner_class(
+        results_dir,
+        mod_info=mod_info,
+        extra_args=extra_args,
+        minimal_build=minimal_build,
+    )
+
+    test_runner_invocations.extend(
+        test_runner.create_invocations(extra_args=extra_args, test_infos=tests)
+    )
+
+  return test_runner_invocations

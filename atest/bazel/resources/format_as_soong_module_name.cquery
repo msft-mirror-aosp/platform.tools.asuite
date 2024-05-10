@@ -6,5 +6,5 @@ def format(target):
     soong_prebuilt_info = p.get(
         "//bazel/rules:soong_prebuilt.bzl%SoongPrebuiltInfo")
     if soong_prebuilt_info:
-        return soong_prebuilt_info.module_name
+        return "%s:%s" % (soong_prebuilt_info.module_name, soong_prebuilt_info.platform_flavor)
     return ""

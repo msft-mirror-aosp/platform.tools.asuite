@@ -12,26 +12,25 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""
-Example Finder class.
-"""
+"""Example Finder class."""
 
-from atest.test_finders import test_info
 from atest.test_finders import test_finder_base
+from atest.test_finders import test_info
 from atest.test_runners import example_test_runner
 
 
 @test_finder_base.find_method_register
 class ExampleFinder(test_finder_base.TestFinderBase):
-    """Example finder class."""
-    NAME = 'EXAMPLE'
-    _TEST_RUNNER = example_test_runner.ExampleTestRunner.NAME
+  """Example finder class."""
 
-    @test_finder_base.register()
-    def find_method_from_example_finder(self, test):
-        """Example find method to demonstrate how to register it."""
-        if test == 'ExampleFinderTest':
-            return test_info.TestInfo(test_name=test,
-                                      test_runner=self._TEST_RUNNER,
-                                      build_targets=set())
-        return None
+  NAME = 'EXAMPLE'
+  _TEST_RUNNER = example_test_runner.ExampleTestRunner.NAME
+
+  @test_finder_base.register()
+  def find_method_from_example_finder(self, test):
+    """Example find method to demonstrate how to register it."""
+    if test == 'ExampleFinderTest':
+      return test_info.TestInfo(
+          test_name=test, test_runner=self._TEST_RUNNER, build_targets=set()
+      )
+    return None

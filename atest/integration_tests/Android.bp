@@ -53,3 +53,93 @@ python_test_host {
         unit_test: false,
     },
 }
+
+python_library_host {
+    name: "asuite_integration_test_lib",
+    srcs: [
+        "snapshot.py",
+        "split_build_test_script.py",
+    ],
+}
+
+python_defaults {
+    name: "atest_integration_test_defaults",
+    srcs: [
+        "atest_integration_test.py",
+    ],
+    libs: [
+        "asuite_integration_test_lib",
+    ],
+    version: {
+        py3: {
+            embedded_launcher: true,
+        },
+    },
+    test_suites: [
+        "general-tests",
+    ],
+}
+
+filegroup {
+    name: "atest_integration_test_config_template",
+    srcs: ["split_build_test_script_config.xml"],
+}
+
+python_test_host {
+    name: "atest_integration_tests",
+    srcs: [
+        "atest_integration_tests.py",
+        "atest_command_success_tests.py",
+        "atest_command_verification_tests.py",
+        "atest_test_archetype_integration_tests.py",
+    ],
+    test_config_template: ":atest_integration_test_config_template",
+    test_options: {
+        unit_test: false,
+    },
+    defaults: [
+        "atest_integration_test_defaults",
+    ],
+}
+
+python_test_host {
+    name: "atest_command_success_tests",
+    srcs: [
+        "atest_command_success_tests.py",
+    ],
+    test_config_template: ":atest_integration_test_config_template",
+    test_options: {
+        unit_test: false,
+    },
+    defaults: [
+        "atest_integration_test_defaults",
+    ],
+}
+
+python_test_host {
+    name: "atest_command_verification_tests",
+    srcs: [
+        "atest_command_verification_tests.py",
+    ],
+    test_config_template: ":atest_integration_test_config_template",
+    test_options: {
+        unit_test: false,
+    },
+    defaults: [
+        "atest_integration_test_defaults",
+    ],
+}
+
+python_test_host {
+    name: "atest_test_archetype_integration_tests",
+    srcs: [
+        "atest_test_archetype_integration_tests.py",
+    ],
+    test_config_template: ":atest_integration_test_config_template",
+    test_options: {
+        unit_test: false,
+    },
+    defaults: [
+        "atest_integration_test_defaults",
+    ],
+}

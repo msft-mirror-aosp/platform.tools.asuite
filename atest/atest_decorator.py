@@ -12,22 +12,22 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""
-ATest decorator.
-"""
+"""ATest decorator."""
+
 
 def static_var(varname, value):
-    """Decorator to cache static variable.
+  """Decorator to cache static variable.
 
-    Args:
-        varname: Variable name you want to use.
-        value: Variable value.
+  Args:
+      varname: Variable name you want to use.
+      value: Variable value.
 
-    Returns: decorator function.
-    """
+  Returns: decorator function.
+  """
 
-    def fun_var_decorate(func):
-        """Set the static variable in a function."""
-        setattr(func, varname, value)
-        return func
-    return fun_var_decorate
+  def fun_var_decorate(func):
+    """Set the static variable in a function."""
+    setattr(func, varname, value)
+    return func
+
+  return fun_var_decorate

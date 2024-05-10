@@ -16,48 +16,48 @@
 
 """Unittests for vts_tf_test_runner."""
 
-# pylint: disable=line-too-long
-
 import unittest
-
 from unittest import mock
 
 from atest import unittest_constants as uc
 from atest.test_runners import vts_tf_test_runner
 
+
 # pylint: disable=protected-access
 class VtsTradefedTestRunnerUnittests(unittest.TestCase):
-    """Unit tests for vts_tf_test_runner.py"""
+  """Unit tests for vts_tf_test_runner.py"""
 
-    def setUp(self):
-        self.vts_tr = vts_tf_test_runner.VtsTradefedTestRunner(
-            results_dir=uc.TEST_INFO_DIR)
+  def setUp(self):
+    self.vts_tr = vts_tf_test_runner.VtsTradefedTestRunner(
+        results_dir=uc.TEST_INFO_DIR, extra_args={}
+    )
 
-    def tearDown(self):
-        mock.patch.stopall()
+  def tearDown(self):
+    mock.patch.stopall()
 
-    @mock.patch('subprocess.Popen')
-    @mock.patch.object(vts_tf_test_runner.VtsTradefedTestRunner, 'run')
-    @mock.patch.object(vts_tf_test_runner.VtsTradefedTestRunner,
-                       'generate_run_commands')
-    def test_run_tests(self, _mock_gen_cmd, _mock_run, _mock_popen):
-        """Test run_tests method."""
-        test_infos = []
-        extra_args = []
-        mock_reporter = mock.Mock()
-        _mock_gen_cmd.return_value = ["cmd1", "cmd2"]
-        # Test Build Pass
-        _mock_popen.return_value.returncode = 0
-        self.assertEqual(
-            0,
-            self.vts_tr.run_tests(test_infos, extra_args, mock_reporter))
+  @mock.patch('subprocess.Popen')
+  @mock.patch.object(vts_tf_test_runner.VtsTradefedTestRunner, 'run')
+  @mock.patch.object(
+      vts_tf_test_runner.VtsTradefedTestRunner, 'generate_run_commands'
+  )
+  def test_run_tests(self, _mock_gen_cmd, _mock_run, _mock_popen):
+    """Test run_tests method."""
+    test_infos = []
+    extra_args = []
+    mock_reporter = mock.Mock()
+    _mock_gen_cmd.return_value = ['cmd1', 'cmd2']
+    # Test Build Pass
+    _mock_popen.return_value.returncode = 0
+    self.assertEqual(
+        0, self.vts_tr.run_tests(test_infos, extra_args, mock_reporter)
+    )
 
-        # Test Build Pass
-        _mock_popen.return_value.returncode = 1
-        self.assertNotEqual(
-            0,
-            self.vts_tr.run_tests(test_infos, extra_args, mock_reporter))
+    # Test Build Pass
+    _mock_popen.return_value.returncode = 1
+    self.assertNotEqual(
+        0, self.vts_tr.run_tests(test_infos, extra_args, mock_reporter)
+    )
 
 
 if __name__ == '__main__':
-    unittest.main()
+  unittest.main()
