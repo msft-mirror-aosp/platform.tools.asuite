@@ -1707,7 +1707,7 @@ def get_full_annotation_class_name(module_info, class_name):
   If the given keyword(class_name) is "smalltest", this method can search
   among source codes and grep the accurate annotation class name:
 
-      android.test.suitebuilder.annotation.SmallTest
+      androidx.test.filters.SmallTest
 
   Args:
       module_info: A dict of module_info.
