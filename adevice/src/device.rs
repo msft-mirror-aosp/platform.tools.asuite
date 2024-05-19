@@ -94,12 +94,21 @@ impl Device for RealDevice {
     fn prep_after_flash(&self, profiler: &mut Profiler) -> Result<()> {
         progress::start(" * [1/2] Remounting device");
         let timeout = Duration::from_secs(60);
-        self.run_cmd_with_retry_until_timeout("adb", &["root".to_string()], timeout)?;
+
+        self.run_cmd_with_retry_until_timeout(
+            "adb",
+            &self.adjust_adb_args(&["root".to_string()]),
+            timeout,
+        )?;
         // Remount and reboot; rebooting will return status code 255 so ignore error.
         let _ = self.run_raw_adb_command(&["remount".to_string(), "-R".to_string()]);
         progress::stop();
         self.wait(profiler)?;
-        self.run_cmd_with_retry_until_timeout("adb", &["root".to_string()], timeout)?;
+        self.run_cmd_with_retry_until_timeout(
+            "adb",
+            &self.adjust_adb_args(&["root".to_string()]),
+            timeout,
+        )?;
         Ok(())
     }
 
