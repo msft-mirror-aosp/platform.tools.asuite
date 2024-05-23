@@ -34,7 +34,6 @@ python_defaults {
         "ca_certs_locater",
     ],
     exclude_srcs: [
-        "integration_tests/*.py",
         "asuite_lib_test/*.py",
         "proto/*.py",
         "tf_proto/*.py",
@@ -58,6 +57,7 @@ python_defaults {
         "bazel/resources/**/*",
     ],
     exclude_srcs: [
+        "integration_tests/*.py",
         "*_unittest.py",
         "**/*_unittest.py",
     ],

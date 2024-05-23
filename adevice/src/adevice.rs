@@ -132,8 +132,6 @@ pub fn adevice(
         tracing::subscriber::set_global_default(subscriber)?;
     }
 
-    let command_line = std::env::args().collect::<Vec<String>>().join(" ");
-    metrics.add_start_event(&command_line);
     let restart_choice = cli.global_options.restart_choice.clone();
 
     let product_out = match &cli.global_options.product_out {
@@ -146,6 +144,9 @@ pub fn adevice(
     let track_time = std::time::Instant::now();
 
     let mut config = Config::load(&cli.global_options.config_path)?;
+
+    let command_line = std::env::args().collect::<Vec<String>>().join(" ");
+    metrics.add_start_event(&command_line, &config.src_root()?);
 
     // Early return for track/untrack commands.
     match &cli.command {
@@ -337,20 +338,10 @@ fn get_update_commands(
     )?;
     progress::stop();
     print_status(stdout, status_per_file)?;
-    // Shadowing apks are apks that are installed outside the system partition with `adb install`
-    // If they exist, we should not push the apk that would be shadowed.
-    let shadowing_apks: HashSet<&PathBuf> = status_per_file
-        .iter()
-        .filter_map(
-            |(path, push_state)| {
-                if *push_state == PushState::ApkInstalled {
-                    Some(path)
-                } else {
-                    None
-                }
-            },
-        )
-        .collect();
+
+    // Shadow apks are apks that are installed outside the system partition with `adb install`
+    // If they exist, we should print instructions to uninstall and stop the update.
+    shadow_apk_check(stdout, status_per_file)?;
 
     #[allow(clippy::len_zero)]
     if needs_building.len() > 0 {
@@ -361,7 +352,7 @@ fn get_update_commands(
     let filtered_host_set: HashMap<PathBuf, FileMetadata> = host_tree
         .iter()
         .filter_map(|(key, value)| {
-            if tracked_set.contains(key) && !shadowing_apks.contains(key) {
+            if tracked_set.contains(key) {
                 Some((key.clone(), value.clone()))
             } else {
                 None
@@ -455,7 +446,7 @@ impl PushState {
 	    PushState::TrackAndBuildOrClean => "Stale device files:\n  (These files are on the device, but not built or tracked.)\n  (They will be cleaned with `adevice update` or `adevice clean`.)".to_string(),
 	    PushState::TrackOrMakeClean => "Untracked built files:\n  (These files are in the build tree but not tracked or on the device.)\n  (You might want to `adevice track` the module.  It is safe to do nothing.)".to_string(),
 	    PushState::UntrackOrBuild => "Unbuilt files:\n  (These files should be built so the device can be updated.)\n  (Rebuild and `adevice update`)".to_string(),
-	    PushState::ApkInstalled => format!("ADB Installed files:\n{RED_WARNING_LINE}  (These files were installed with `adb install` or similar.  Pushing to the system partition will not make them available.)\n  (Either `adb uninstall` the package or `adb install` by hand.`)"),
+	    PushState::ApkInstalled => format!("ADB Installed files:\n{RED_WARNING_LINE}  (These files were installed with `adb install` or similar.  Pushing to the system partition will not make them available.)\n  (Either `adb uninstall` these packages or `adb install` by hand.`)"),
 	}
     }
 }
@@ -471,7 +462,7 @@ fn print_status(stdout: &mut impl Write, files: &HashMap<PathBuf, PushState>) ->
         PushState::TrackOrClean,
         PushState::TrackAndBuildOrClean,
         PushState::UntrackOrBuild,
-        PushState::ApkInstalled,
+        // Skip APKInstalled, it is handleded in shadow_apk_check.
     ] {
         print_files_in_state(stdout, files, state)?;
     }
@@ -653,6 +644,27 @@ fn get_product_out_from_env() -> Option<PathBuf> {
     }
 }
 
+/// Prints uninstall commands for every package installed
+/// Bails if there are any installed packages.
+fn shadow_apk_check(stdout: &mut impl Write, files: &HashMap<PathBuf, PushState>) -> Result<()> {
+    let filtered_files: HashMap<&PathBuf, &PushState> =
+        files.iter().filter(|(_, state)| *state == &PushState::ApkInstalled).collect();
+
+    if filtered_files.is_empty() {
+        return Ok(());
+    }
+
+    writeln!(stdout, "{}", PushState::ApkInstalled.get_action_msg())?;
+    let file_list_output = filtered_files
+        .keys()
+        .sorted()
+        .map(|path| format!("adb uninstall {};", path.display()))
+        .collect::<Vec<String>>()
+        .join("\n");
+    writeln!(stdout, "{}", file_list_output)?;
+    bail!("{} shadowing apks found. Uninstall to continue.", filtered_files.keys().len());
+}
+
 /// Return all path components of file_path up to a passed partition.
 /// Given system/bin/logd and partition "system",
 /// return ["system/bin/logd", "system/bin"], not "system" or ""
@@ -686,21 +698,23 @@ pub struct Profiler {
     pub total: Duration,
 }
 
-impl std::string::ToString for Profiler {
-    fn to_string(&self) -> String {
-        [
-            " Operation profile: (secs)".to_string(),
-            format!("Device Fingerprint - {}", self.device_fingerprint.as_secs()),
-            format!("Host fingerprint - {}", self.host_fingerprint.as_secs()),
-            format!("Ninja - {}", self.ninja_deps_computer.as_secs()),
-            format!("Adb Cmds - {}", self.adb_cmds.as_secs()),
-            format!("Restart({})- {}", self.restart_type, self.restart.as_secs()),
-            format!("Wait For device connected - {}", self.wait_for_device.as_secs()),
-            format!("Wait For boot completed - {}", self.wait_for_boot_completed.as_secs()),
-            format!("First remount RW - {}", self.first_remount_rw.as_secs()),
-            format!("TOTAL - {}", self.total.as_secs()),
-        ]
-        .join("\n\t")
+impl std::fmt::Display for Profiler {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "{}",
+            [
+                " Operation profile: (secs)".to_string(),
+                format!("Device Fingerprint - {}", self.device_fingerprint.as_secs()),
+                format!("Host fingerprint - {}", self.host_fingerprint.as_secs()),
+                format!("Ninja - {}", self.ninja_deps_computer.as_secs()),
+                format!("Adb Cmds - {}", self.adb_cmds.as_secs()),
+                format!("Restart({})- {}", self.restart_type, self.restart.as_secs()),
+                format!("Wait For device connected - {}", self.wait_for_device.as_secs()),
+                format!("Wait For boot completed - {}", self.wait_for_boot_completed.as_secs()),
+                format!("First remount RW - {}", self.first_remount_rw.as_secs()),
+                format!("TOTAL - {}", self.total.as_secs()),
+            ].join("\n\t"))
     }
 }
 
@@ -762,6 +776,36 @@ mod tests {
             &mut stdout,
         )?;
         assert_eq!(results.upserts.values().len(), 2);
+        Ok(())
+    }
+
+    #[test]
+    fn test_shadow_apk_check_no_shadowing_apks() -> Result<()> {
+        let mut output = Vec::new();
+        let files = &HashMap::from([(PathBuf::from("/system/app1.apk"), PushState::Push)]);
+        let result = shadow_apk_check(&mut output, files);
+
+        assert!(result.is_ok());
+        assert!(output.is_empty());
+        Ok(())
+    }
+
+    #[test]
+    fn test_shadow_apk_check_with_shadowing_apks() -> Result<()> {
+        let mut output = Vec::new();
+        let files = &HashMap::from([
+            (PathBuf::from("/system/app1.apk"), PushState::Push),
+            (PathBuf::from("/data/app2.apk"), PushState::ApkInstalled),
+            (PathBuf::from("/data/app3.apk"), PushState::ApkInstalled),
+        ]);
+        let result = shadow_apk_check(&mut output, files);
+        assert!(result.is_err());
+        let output_str = String::from_utf8(output).unwrap();
+        assert!(
+            output_str.contains("Either `adb uninstall` these packages or `adb install` by hand.")
+        );
+        assert!(output_str.contains("adb uninstall /data/app2.apk;"));
+        assert!(output_str.contains("adb uninstall /data/app3.apk;"));
         Ok(())
     }
 
@@ -920,5 +964,4 @@ mod tests {
         FileMetadata { file_type: fingerprint::FileType::Directory, ..Default::default() }
     }
     // TODO(rbraunstein): Add tests for collect_status_per_file after we decide on output.
-    // TODO(rbraunstein): Add tests for shadowing apks and ensure we don't install the system version.
 }
