@@ -230,6 +230,7 @@ class _FileInfo:
       permissions: int,
       symlink_target: str,
       is_directory: bool,
+      is_target_in_workspace: bool = False,
   ):
     self.path = path
     self.timestamp = timestamp
@@ -237,6 +238,7 @@ class _FileInfo:
     self.permissions = permissions
     self.symlink_target = symlink_target
     self.is_directory = is_directory
+    self.is_target_in_workspace = is_target_in_workspace
 
 
 class _BlobStore:
@@ -429,16 +431,19 @@ class _DirSnapshot:
       )
 
     def process_link(path: pathlib.Path) -> None:
-      symlink_target = path.resolve()
+      relative_path = path.relative_to(root_path).as_posix()
+      symlink_target = path.readlink()
+      is_target_in_workspace = False
       if symlink_target.is_relative_to(root_path):
         symlink_target = symlink_target.relative_to(root_path)
-      relative_path = path.relative_to(root_path).as_posix()
+        is_target_in_workspace = True
       file_infos[relative_path] = _FileInfo(
           relative_path,
           timestamp=None,
           content_hash=None,
           permissions=None,
           symlink_target=symlink_target.as_posix(),
+          is_target_in_workspace=is_target_in_workspace,
           is_directory=False,
       )
 
@@ -569,11 +574,10 @@ class _DirSnapshot:
       if self._is_excluded(file_path.as_posix(), exclude_paths):
         continue
       if file_info.symlink_target:
-        target = (
-            file_info.symlink_target
-            if os.path.isabs(file_info.symlink_target)
-            else pathlib.Path(root_path).joinpath(file_info.symlink_target)
-        )
+        file_path.parent.mkdir(parents=True, exist_ok=True)
+        target = file_info.symlink_target
+        if bool(file_info.is_target_in_workspace):
+          target = pathlib.Path(root_path).joinpath(target)
         file_path.parent.mkdir(parents=True, exist_ok=True)
         file_path.symlink_to(target)
         continue
