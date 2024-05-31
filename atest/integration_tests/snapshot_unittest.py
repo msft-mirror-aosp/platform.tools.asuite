@@ -199,15 +199,15 @@ class SnapshotTest(fake_filesystem_unittest.TestCase):
     snapshot_name = 'a_snapshot_name'
     restore_dir = self.temp_dir / 'restore'
     link_file_name = 'link'
-    target_file_name = 'non-existent-path'
+    target_file_name = pathlib.Path('non-existent-path')
     workspace.joinpath(link_file_name).symlink_to(target_file_name)
     snapshot.take_snapshot(snapshot_name, workspace, ['*'])
 
     snapshot.restore_snapshot(snapshot_name, restore_dir)
 
     self.assertEqual(
-        restore_dir.joinpath(link_file_name).resolve(),
-        restore_dir / target_file_name,
+        restore_dir.joinpath(link_file_name).readlink(),
+        target_file_name,
     )
 
   def test_restore_snapshot_preserve_dangling_absolute_links(self):
