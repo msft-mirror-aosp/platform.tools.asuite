@@ -24,8 +24,6 @@ from atest import constants
 from atest import module_info
 from atest.test_finders import test_info
 
-CLANG_VERSION = 'r475365b'
-
 
 def build_env_vars():
   """Environment variables for building with code coverage instrumentation.
@@ -37,6 +35,7 @@ def build_env_vars():
       'CLANG_COVERAGE': 'true',
       'NATIVE_COVERAGE_PATHS': '*',
       'EMMA_INSTRUMENT': 'true',
+      'LLVM_PROFILE_FILE': '/dev/null',
   }
   return env_vars
 
@@ -48,8 +47,9 @@ def tf_args(mod_info):
       A list of the command line arguments to append.
   """
   build_top = Path(os.environ.get(constants.ANDROID_BUILD_TOP))
+  clang_version = _get_clang_version(build_top)
   llvm_profdata = build_top.joinpath(
-      f'prebuilts/clang/host/linux-x86/clang-{CLANG_VERSION}'
+      f'prebuilts/clang/host/linux-x86/{clang_version}'
   )
   jacocoagent_paths = mod_info.get_installed_paths('jacocoagent')
   return (
@@ -65,19 +65,28 @@ def tf_args(mod_info):
       '--llvm-profdata-path',
       str(llvm_profdata),
       '--jacocoagent-path',
-      str(jacocoagent_paths[0])
+      str(jacocoagent_paths[0]),
   )
 
 
+def _get_clang_version(build_top):
+  """Finds out current toolchain version."""
+  version_output = subprocess.check_output(
+      f'{build_top}/build/soong/scripts/get_clang_version.py', text=True
+  )
+  return version_output.strip()
+
+
 def build_modules():
-    """Build modules needed for coverage report generation."""
-    return ('jacoco_to_lcov_converter', 'jacocoagent')
+  """Build modules needed for coverage report generation."""
+  return ('jacoco_to_lcov_converter', 'jacocoagent')
 
 
 def generate_coverage_report(
     results_dir: str,
     test_infos: List[test_info.TestInfo],
     mod_info: module_info.ModuleInfo,
+    is_host_enabled: bool,
 ):
   """Generates HTML code coverage reports based on the test info."""
 
@@ -102,16 +111,23 @@ def generate_coverage_report(
       # Check for unstripped native binaries to report coverage.
       unstripped_native_binaries.update(_find_native_binaries(module_dir))
 
-  # For Java host tests, the report jar is the test itself.
+  # For host tests, use the test itself in the report generation.
   for test_info in test_infos:
-        installed = mod_info.get_installed_paths(test_info.raw_test_name)
-        jars = [f for f in installed if f.suffix == '.jar']
-        if jars:
-            jacoco_report_jars[test_info.raw_test_name] = jars
+    info = mod_info.get_module_info(test_info.raw_test_name)
+    if not info or (not is_host_enabled and mod_info.requires_device(info)):
+      continue
+
+    installed = mod_info.get_installed_paths(test_info.raw_test_name)
+    jars = [f for f in installed if f.suffix == '.jar']
+    if jars:
+      jacoco_report_jars[test_info.raw_test_name] = jars
+    elif constants.MODULE_CLASS_NATIVE_TESTS in test_info.module_class:
+      unstripped_native_binaries.update(installed)
 
   if jacoco_report_jars:
     _generate_java_coverage_report(
-            jacoco_report_jars, src_paths, results_dir, mod_info)
+        jacoco_report_jars, src_paths, results_dir, mod_info
+    )
 
   if unstripped_native_binaries:
     _generate_native_coverage_report(unstripped_native_binaries, results_dir)

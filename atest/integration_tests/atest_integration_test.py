@@ -180,6 +180,18 @@ class AtestRunResult:
     with open(json_path, 'r', encoding='utf-8') as f:
       return json.load(f)
 
+  def get_passed_count(self) -> int:
+    """Gets the total number of passed tests from atest summary."""
+    return self.get_test_result_dict()['total_summary']['PASSED']
+
+  def get_failed_count(self) -> int:
+    """Gets the total number of failed tests from atest summary."""
+    return self.get_test_result_dict()['total_summary']['FAILED']
+
+  def get_ignored_count(self) -> int:
+    """Gets the total number of ignored tests from atest summary."""
+    return self.get_test_result_dict()['total_summary']['IGNORED']
+
   def get_atest_log(self) -> str:
     """Gets the log content read from the atest log file."""
     log_path = self.get_results_dir_path() / 'atest.log'
@@ -278,15 +290,10 @@ class AtestTestCase(split_build_test_script.SplitBuildTestTestCase):
         'tools/asuite/atest/test_runners/roboleaf_launched.txt',
         '.repo/manifest.xml',
         'build/soong/soong_ui.bash',
-        'build/bazel_common_rules/rules/python/stubs',
-        'build/bazel/bin',
-        'external/bazelbuild-rules_java',
-        'tools/asuite/atest/bazel/resources/bazel.sh',
-        'prebuilts/bazel/linux-x86_64',
         'prebuilts/build-tools/path/linux-x86/python3',
         'prebuilts/build-tools/linux-x86/bin/py3-cmd',
         'prebuilts/build-tools',
-        'prebuilts/asuite/atest/linux-x86/atest-py3',
+        'prebuilts/asuite/atest/linux-x86',
     ]
 
     # Default exclude list of repo paths for snapshot
@@ -313,11 +320,7 @@ class AtestTestCase(split_build_test_script.SplitBuildTestTestCase):
 
   def create_atest_script(self, name: str = None) -> SplitBuildTestScript:
     """Create an instance of atest integration test utility."""
-    script = self.create_split_build_test_script(name)
-    script.add_snapshot_restore_exclude_paths(
-        ['$OUT_DIR/atest_bazel_workspace']
-    )
-    return script
+    return self.create_split_build_test_script(name)
 
   def create_step_output(self) -> StepOutput:
     """Create a step output object with default values."""
@@ -333,6 +336,7 @@ class AtestTestCase(split_build_test_script.SplitBuildTestTestCase):
       cls,
       cmd: str,
       step_in: split_build_test_script.StepInput,
+      include_device_serial: bool,
       print_output: bool = True,
       use_prebuilt_atest_binary=None,
   ) -> AtestRunResult:
@@ -342,6 +346,10 @@ class AtestTestCase(split_build_test_script.SplitBuildTestTestCase):
         cmd: command string for Atest. Do not add 'atest-dev' or 'atest' in the
           beginning of the command.
         step_in: The step input object from build or test step.
+        include_device_serial: Whether a device is required for the atest
+          command. This argument is only used to determine whether to include
+          device serial in the command. It does not add device/deviceless
+          arguments such as '--host'.
         print_output: Whether to print the stdout and stderr while the command
           is running.
         use_prebuilt_atest_binary: Whether to run the command using the prebuilt
@@ -352,11 +360,22 @@ class AtestTestCase(split_build_test_script.SplitBuildTestTestCase):
     """
     if use_prebuilt_atest_binary is None:
       use_prebuilt_atest_binary = step_in.get_config().use_prebuilt_atest_binary
-    complete_cmd = (
-        f'{"atest" if use_prebuilt_atest_binary else "atest-dev"}'
-        f' {cmd}{step_in.get_device_serial_args_or_empty()}'
-    )
+    atest_binary = 'atest' if use_prebuilt_atest_binary else 'atest-dev'
 
+    # TODO: b/336839543 - Throw error here when serial is required but not set
+    # instead of from step_in.get_device_serial_args_or_empty()
+    serial_arg = (
+        step_in.get_device_serial_args_or_empty()
+        if include_device_serial
+        else ''
+    )
+    complete_cmd = f'{atest_binary}{serial_arg} {cmd}'
+
+    indentation = '  '
+    logging.debug('Executing atest command: %s', complete_cmd)
+    logging.debug(
+        '%sCommand environment variables: %s', indentation, step_in.get_env()
+    )
     result = AtestRunResult(
         cls._run_shell_command(
             complete_cmd.split(),
@@ -369,14 +388,19 @@ class AtestTestCase(split_build_test_script.SplitBuildTestTestCase):
         step_in.get_config(),
     )
 
-    wrap_output_lines = lambda output_str: ''.join(
-        ('    > %s' % line for line in output_str.splitlines(True))
-    )
-    logging.debug('Executed an atest command: %s', complete_cmd)
+    wrap_output_lines = lambda output_str: ''.join((
+        f'{indentation * 2}> %s' % line for line in output_str.splitlines(True)
+    ))
     logging.debug(
-        '  Atest command stdout:\n%s', wrap_output_lines(result.get_stdout())
+        '%sCommand stdout:\n%s',
+        indentation,
+        wrap_output_lines(result.get_stdout()),
     )
-    logging.debug('  Atest log:\n%s', wrap_output_lines(result.get_atest_log()))
+    logging.debug(
+        '%sAtest log:\n%s',
+        indentation,
+        wrap_output_lines(result.get_atest_log()),
+    )
 
     return result
 

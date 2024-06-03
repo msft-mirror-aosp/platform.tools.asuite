@@ -34,6 +34,7 @@ from atest import atest_configs
 from atest import atest_utils
 from atest import constants
 from atest import module_info
+from atest import module_info_unittest_base
 from atest import unittest_constants as uc
 from atest import unittest_utils
 from atest.test_finders import test_finder_utils
@@ -1227,8 +1228,14 @@ class AtestTradefedTestRunnerUnittests(unittest.TestCase):
   ):
     self.tr.module_info = module_info.ModuleInfo(
         name_to_module_info={
-            'deviceless_test': robolectric_test_module(name='deviceless_test'),
-            'device_test': device_driven_test_module(name='device_test'),
+            'deviceless_test': (
+                module_info_unittest_base.robolectric_test_module(
+                    name='deviceless_test'
+                )
+            ),
+            'device_test': module_info_unittest_base.device_driven_test_module(
+                name='device_test'
+            ),
         }
     )
     test_info_deviceless = test_info_of('deviceless_test')
@@ -1254,9 +1261,15 @@ class AtestTradefedTestRunnerUnittests(unittest.TestCase):
   def test_create_invocations_returns_invocation_only_for_device_tests(self):
     self.tr.module_info = module_info.ModuleInfo(
         name_to_module_info={
-            'device_test_1': device_driven_test_module(name='device_test_1'),
-            'device_test_2': host_driven_device_test_module(
-                name='device_test_2'
+            'device_test_1': (
+                module_info_unittest_base.device_driven_test_module(
+                    name='device_test_1'
+                )
+            ),
+            'device_test_2': (
+                module_info_unittest_base.host_driven_device_test_module(
+                    name='device_test_2'
+                )
             ),
         }
     )
@@ -1488,56 +1501,22 @@ class ExtraArgsTest(AtestTradefedTestRunnerUnittests):
     )
 
 
-class ModuleInfoTestFixture(fake_filesystem_unittest.TestCase):
-  """Fixture for tests that require module-info."""
-
-  def setUp(self):
-    self.setUpPyfakefs()
-
-    self.product_out_path = Path('/src/out/product')
-    self.product_out_path.mkdir(parents=True)
-
-  def create_empty_module_info(self):
-    fake_temp_file = self.product_out_path.joinpath(
-        next(tempfile._get_candidate_names())
-    )
-    self.fs.create_file(fake_temp_file, contents='{}')
-    return module_info.load_from_file(module_file=fake_temp_file)
-
-  def create_module_info(self, modules=None):
-    mod_info = self.create_empty_module_info()
-    modules = modules or []
-
-    for m in modules:
-      mod_info.name_to_module_info[m[constants.MODULE_INFO_ID]] = m
-
-    return mod_info
-
-  def assertContainsSubset(self, expected_subset, actual_set):
-    """Checks whether actual iterable is a superset of expected iterable."""
-    missing = set(expected_subset) - set(actual_set)
-    if not missing:
-      return
-
-    self.fail(
-        f'Missing elements {missing}\n'
-        f'Expected: {expected_subset}\n'
-        f'Actual: {actual_set}'
-    )
-
-
 def test_info_of(module_name):
   return test_info.TestInfo(
       module_name, atf_tr.AtestTradefedTestRunner.NAME, []
   )
 
 
-class DeviceDrivenTestTest(ModuleInfoTestFixture):
+class DeviceDrivenTestTest(module_info_unittest_base.ModuleInfoTest):
   """Tests for device driven test."""
 
   def test_multi_config_unit_test_without_host_arg(self):
     mod_info = self.create_module_info(
-        modules=[multi_config_unit_test_module(name='hello_world_test')]
+        modules=[
+            module_info_unittest_base.multi_variant_unit_test_module(
+                name='hello_world_test'
+            )
+        ]
     )
     test_infos = [test_info_of('hello_world_test')]
     runner = atf_tr.AtestTradefedTestRunner(
@@ -1566,14 +1545,16 @@ class DeviceDrivenTestTest(ModuleInfoTestFixture):
     host_required_jar_path = os.path.join(ANDROID_HOST_OUT, 'host-required.jar')
     mod_info = self.create_module_info(
         modules=[
-            device_driven_test_module(
+            module_info_unittest_base.device_driven_test_module(
                 name='hello_world_test', host_deps=['host-required']
             ),
-            host_jar_module(name='tradefed', installed=[tf_host_jar_path]),
-            host_jar_module(
+            module_info_unittest_base.host_jar_module(
+                name='tradefed', installed=[tf_host_jar_path]
+            ),
+            module_info_unittest_base.host_jar_module(
                 name='atest-tradefed', installed=[atest_host_jar_path]
             ),
-            host_jar_module(
+            module_info_unittest_base.host_jar_module(
                 name='host-required', installed=[host_required_jar_path]
             ),
         ]
@@ -1596,10 +1577,10 @@ class DeviceDrivenTestTest(ModuleInfoTestFixture):
   def test_host_driven_device_test(self):
     mod_info = self.create_module_info(
         modules=[
-            host_driven_device_test_module(
+            module_info_unittest_base.host_driven_device_test_module(
                 name='hello_world_test', libs=['lib']
             ),
-            module(
+            module_info_unittest_base.module(
                 name='lib',
                 supported_variants=['HOST'],
                 installed=[f'out/host/linux-x86/lib/lib.jar'],
@@ -1617,7 +1598,11 @@ class DeviceDrivenTestTest(ModuleInfoTestFixture):
 
   def test_device_driven_test_with_mainline_modules(self):
     mod_info = self.create_module_info(
-        modules=[device_driven_test_module(name='hello_world_test')]
+        modules=[
+            module_info_unittest_base.device_driven_test_module(
+                name='hello_world_test'
+            )
+        ]
     )
     t_info = test_info_of('hello_world_test')
     t_info.add_mainline_module('mainline_module_1')
@@ -1636,7 +1621,7 @@ class DeviceDrivenTestTest(ModuleInfoTestFixture):
   def test_device_driven_test_with_vts_suite(self):
     mod_info = self.create_module_info(
         modules=[
-            device_driven_test_module(
+            module_info_unittest_base.device_driven_test_module(
                 name='hello_world_test', compatibility_suites=['vts']
             ),
         ]
@@ -1653,7 +1638,11 @@ class DeviceDrivenTestTest(ModuleInfoTestFixture):
 
   def test_deps_contain_google_tradefed(self):
     mod_info = self.create_module_info(
-        modules=[multi_config_unit_test_module(name='hello_world_test')]
+        modules=[
+            module_info_unittest_base.multi_variant_unit_test_module(
+                name='hello_world_test'
+            )
+        ]
     )
     test_infos = [test_info_of('hello_world_test')]
     runner = atf_tr.AtestTradefedTestRunner(
@@ -1668,7 +1657,7 @@ class DeviceDrivenTestTest(ModuleInfoTestFixture):
   def test_java_device_test(self):
     mod_info = self.create_module_info(
         modules=[
-            device_driven_test_module(
+            module_info_unittest_base.device_driven_test_module(
                 name='HelloWorldTest',
                 installed=['out/product/vsoc_x86/testcases/HelloWorldTest.jar'],
                 class_type=['JAVA_LIBRARIES'],
@@ -1690,13 +1679,63 @@ class DeviceDrivenTestTest(ModuleInfoTestFixture):
         deps,
     )
 
+  def test_requires_device_update_is_device_driven_test_returns_true(self):
+    mod_info = self.create_module_info(
+        modules=[
+            module_info_unittest_base.device_driven_test_module(
+                name='hello_world_test',
+            ),
+        ]
+    )
+    test_infos = [test_info_of('hello_world_test')]
+    runner = atf_tr.AtestTradefedTestRunner(
+        'result_dir', {constants.HOST: False}, mod_info, minimal_build=True
+    )
 
-class DevicelessTestTest(ModuleInfoTestFixture):
+    requires_device_update = runner.requires_device_update(test_infos)
+
+    self.assertTrue(requires_device_update)
+
+  def test_requires_device_update_is_unit_test_returns_false(self):
+    mod_info = self.create_module_info(
+        modules=[
+            module_info_unittest_base.device_driven_test_module(
+                name='hello_world_test',
+                is_unit_test='true',
+            ),
+        ]
+    )
+    test_infos = [test_info_of('hello_world_test')]
+    runner = atf_tr.AtestTradefedTestRunner(
+        'result_dir', {constants.HOST: False}, mod_info, minimal_build=True
+    )
+
+    requires_device_update = runner.requires_device_update(test_infos)
+
+    self.assertFalse(requires_device_update)
+
+  def test_requires_device_update_no_module_info_returns_true(self):
+    mod_info = self.create_module_info(modules=[])
+    test_infos = [test_info_of('hello_world_test')]
+    runner = atf_tr.AtestTradefedTestRunner(
+        'result_dir', {constants.HOST: False}, mod_info, minimal_build=True
+    )
+
+    requires_device_update = runner.requires_device_update(test_infos)
+
+    self.assertTrue(requires_device_update)
+
+
+class DevicelessTestTest(module_info_unittest_base.ModuleInfoTest):
   """Tests for deviceless test."""
 
   def test_multi_config_unit_test_with_host_arg(self):
     mod_info = self.create_module_info(
-        modules=[multi_config_unit_test_module(name='hello_world_test')]
+        modules=[
+            module_info_unittest_base.multi_variant_unit_test_module(
+                name='hello_world_test'
+            )
+        ]
     )
     test_infos = [test_info_of('hello_world_test')]
     runner = atf_tr.AtestTradefedTestRunner(
@@ -1717,7 +1756,11 @@ class DevicelessTestTest(ModuleInfoTestFixture):
 
   def test_robolectric_test(self):
     mod_info = self.create_module_info(
-        modules=[robolectric_test_module(name='hello_world_test')]
+        modules=[
+            module_info_unittest_base.robolectric_test_module(
+                name='hello_world_test'
+            )
+        ]
     )
     test_infos = [test_info_of('hello_world_test')]
     runner = atf_tr.AtestTradefedTestRunner(
@@ -1786,120 +1829,6 @@ class TestExtraArgsToTfArgs(unittest.TestCase):
 
     self.assertEqual([], supported_args)
     self.assertEqual([], unsupported_args)
-
-
-def host_jar_module(name, installed):
-
-  return module(
-      name=name,
-      supported_variants=['HOST'],
-      installed=installed,
-      auto_test_config=[],
-      compatibility_suites=[],
-  )
-
-
-def device_driven_test_module(
-    name,
-    installed=None,
-    compatibility_suites=None,
-    host_deps=None,
-    class_type=None,
-):
-
-  name = name or 'hello_world_test'
-
-  return test_module(
-      name=name,
-      supported_variants=['DEVICE'],
-      compatibility_suites=compatibility_suites,
-      installed=installed or [f'out/product/vsoc_x86/{name}/{name}.apk'],
-      host_deps=host_deps,
-      class_type=class_type or ['APP'],
-  )
-
-
-def robolectric_test_module(name):
-  name = name or 'hello_world_test'
-  return test_module(
-      name=name,
-      supported_variants=['DEVICE'],
-      installed=[f'out/host/linux-x86/{name}/{name}.jar'],
-      compatibility_suites=['robolectric-tests'],
-  )
-
-
-def host_driven_device_test_module(name, libs=None):
-  name = name or 'hello_world_test'
-  return test_module(
-      name=name,
-      supported_variants=['HOST'],
-      installed=[f'out/host/linux-x86/{name}/{name}.jar'],
-      compatibility_suites=['null-suite'],
-      libs=libs,
-  )
-
-
-def multi_config_unit_test_module(name):
-
-  name = name or 'hello_world_test'
-
-  return test_module(
-      name=name,
-      supported_variants=['HOST', 'DEVICE'],
-      installed=[
-          f'out/host/linux-x86/{name}/{name}.cc',
-          f'out/product/vsoc_x86/{name}/{name}.cc',
-      ],
-      compatibility_suites=['host-unit-tests'],
-  )
-
-
-def test_module(
-    name,
-    supported_variants,
-    installed,
-    compatibility_suites=None,
-    libs=None,
-    host_deps=None,
-    class_type=None,
-):
-
-  return module(
-      name=name,
-      supported_variants=supported_variants,
-      installed=installed,
-      auto_test_config=[True],
-      compatibility_suites=compatibility_suites or ['null-suite'],
-      libs=libs,
-      host_deps=host_deps,
-      class_type=class_type,
-  )
-
-
-def module(
-    name,
-    supported_variants,
-    installed,
-    auto_test_config=None,
-    compatibility_suites=None,
-    libs=None,
-    host_deps=None,
-    class_type=None,
-):
-
-  m = {}
-
-  m[constants.MODULE_INFO_ID] = name
-  m[constants.MODULE_SUPPORTED_VARIANTS] = supported_variants
-  m[constants.MODULE_INSTALLED] = installed
-  m[constants.MODULE_AUTO_TEST_CONFIG] = auto_test_config or []
-  m[constants.MODULE_COMPATIBILITY_SUITES] = compatibility_suites or []
-  m[constants.MODULE_LIBS] = libs or []
-  m[constants.MODULE_HOST_DEPS] = host_deps or []
-  m[constants.MODULE_CLASS] = class_type or []
-
-  return m
 
 
 if __name__ == '__main__':

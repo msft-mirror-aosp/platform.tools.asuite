@@ -42,7 +42,6 @@ from atest import module_info
 from atest import result_reporter
 from atest.atest_enum import DetectType, ExitCode
 from atest.coverage import coverage
-from atest.logstorage import atest_gcp_utils
 from atest.logstorage import logstorage_utils
 from atest.metrics import metrics
 from atest.test_finders import test_finder_utils
@@ -181,11 +180,6 @@ class AtestTradefedTestRunner(trb.TestRunnerBase):
         'args': '',
         'log_args': self._LOG_ARGS.format(**self.log_args),
     }
-    # Only set to verbose mode if the console handler is DEBUG level.
-    self.is_verbose = False
-    for handler in logging.getLogger('').handlers:
-      if handler.name == 'console' and handler.level == logging.DEBUG:
-        self.is_verbose = True
     self.root_dir = os.environ.get(constants.ANDROID_BUILD_TOP)
     self._is_host_enabled = extra_args.get(constants.HOST, False)
     self._minimal_build = minimal_build
@@ -199,12 +193,12 @@ class AtestTradefedTestRunner(trb.TestRunnerBase):
   ) -> bool:
     """Checks whether this runner requires device update."""
 
-    requires_device = False
+    requires_device_update = False
     for info in test_infos:
       test = self._create_test(info)
-      requires_device |= test.requires_device()
+      requires_device_update |= test.requires_device_update()
 
-    return requires_device
+    return requires_device_update
 
   # @typing.override
   def create_invocations(
@@ -311,7 +305,11 @@ class AtestTradefedTestRunner(trb.TestRunnerBase):
     self._try_set_gts_authentication_key()
     result = 0
     upload_start = time.time()
-    creds, inv = atest_gcp_utils.do_upload_flow(extra_args)
+    creds, inv = (
+        logstorage_utils.do_upload_flow(extra_args)
+        if logstorage_utils.is_upload_enabled(extra_args)
+        else (None, None)
+    )
     metrics.LocalDetectEvent(
         detect_type=DetectType.UPLOAD_FLOW_MS,
         result=int((time.time() - upload_start) * 1000),
@@ -392,7 +390,7 @@ class AtestTradefedTestRunner(trb.TestRunnerBase):
     logging.debug('Running test: %s', run_cmds[0])
     subproc = self.run(
         run_cmds[0],
-        output_to_stdout=self.is_verbose,
+        output_to_stdout=extra_args.get(constants.VERBOSE, False),
         env_vars=self.generate_env_vars(extra_args),
     )
     self.handle_subprocess(
@@ -664,7 +662,7 @@ class AtestTradefedTestRunner(trb.TestRunnerBase):
     if not unsupported:
       return True
 
-    logging.warn(
+    atest_utils.print_and_log_warning(
         'Minimal build was disabled because the following tests do not support'
         ' it: %s',
         unsupported,
@@ -736,7 +734,7 @@ class AtestTradefedTestRunner(trb.TestRunnerBase):
       # TestInfo to determine the test type. In the future we should ensure all
       # tests have their corresponding module info and only rely on the module
       # info to determine the test type.
-      logging.warning(
+      atest_utils.print_and_log_warning(
           'Could not find module information for %s', t_info.raw_test_name
       )
       return self._guess_test_type_for_missing_module(t_info)
@@ -920,7 +918,7 @@ class AtestTradefedTestRunner(trb.TestRunnerBase):
 
     test_args.extend(args_to_add)
     if args_not_supported:
-      logging.info(
+      atest_utils.print_and_log_info(
           '%s does not support the following args %s',
           self.EXECUTABLE,
           args_not_supported,
@@ -1164,7 +1162,9 @@ class AtestTradefedTestRunner(trb.TestRunnerBase):
           and 'metric_post_processor' not in tf_template_keys
       ):
         template_key = 'metric_post_processor'
-        template_value = 'google/template/postprocessors/metric-file-aggregate-disabled'
+        template_value = (
+            'google/template/postprocessors/metric-file-aggregate-disabled'
+        )
         tf_templates.append(f'{template_key}={template_value}')
     return ' '.join(['--template:map %s' % x for x in tf_templates])
 
@@ -1345,7 +1345,7 @@ def generate_annotation_filter_args(
             option_value=annotation,
         )
         annotation_filter_args.extend([constants.TF_MODULE_ARG, module_arg])
-      logging.error(
+      atest_utils.print_and_log_error(
           atest_utils.mark_red(f'Cannot find similar annotation: {keyword}')
       )
   return annotation_filter_args
@@ -1590,6 +1590,10 @@ class Test(ABC):
   def requires_device(self) -> bool:
     """Returns true if the test requires a device, otherwise false."""
 
+  @abstractmethod
+  def requires_device_update(self) -> bool:
+    """Checks whether the test requires device update."""
+
 
 class DeviceTest(Test):
   """A device test that can be run."""
@@ -1607,6 +1611,16 @@ class DeviceTest(Test):
 
   def requires_device(self):
     return True
+
+  def requires_device_update(self):
+    # The test doesn't need device update as long as it's a unit test,
+    # no matter if it's running on device or host.
+    # Some tests (e.g. TF integration tests) do not have module info, and we
+    # can't determine whether they require device update or not. So that we
+    # treat them as they require device update to avoid disabling the device
+    # update mistakenly.
+    return not self._info or not module_info.ModuleInfo.is_unit_test(
+        self._info)
 
   def _get_test_build_targets(self) -> Set[Target]:
     module_name = self._info[constants.MODULE_INFO_ID]
@@ -1673,6 +1687,9 @@ class DevicelessTest(Test):
     return self.query_build_targets()
 
   def requires_device(self):
+    return False
+
+  def requires_device_update(self):
     return False
 
 

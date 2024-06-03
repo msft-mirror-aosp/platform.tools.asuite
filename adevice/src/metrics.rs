@@ -15,6 +15,7 @@ use std::fs;
 use std::process::{Command, Stdio};
 use std::time::UNIX_EPOCH;
 use tracing::debug;
+use uuid::Uuid;
 
 const ENV_OUT: &str = "OUT";
 const ENV_USER: &str = "USER";
@@ -24,7 +25,7 @@ const METRICS_UPLOADER: &str = "/google/bin/releases/adevice-dev/metrics_uploade
 const ADEVICE_LOG_SOURCE: i32 = 2265;
 
 pub trait MetricSender {
-    fn add_start_event(&mut self, command_line: &str);
+    fn add_start_event(&mut self, command_line: &str, source_root: &str);
     fn add_action_event(&mut self, action: &str, duration: std::time::Duration);
     fn add_action_event_with_files_changed(
         &mut self,
@@ -41,12 +42,14 @@ pub trait MetricSender {
 pub struct Metrics {
     events: Vec<LogEvent>,
     user: String,
+    invocation_id: String,
 }
 
 impl MetricSender for Metrics {
-    fn add_start_event(&mut self, command_line: &str) {
+    fn add_start_event(&mut self, command_line: &str, source_root: &str) {
         let mut start_event = AdeviceStartEvent::default();
         start_event.set_command_line(command_line.to_string());
+        start_event.set_source_root(source_root.to_string());
         start_event.set_target(env::var(ENV_TARGET).unwrap_or("".to_string()));
 
         let mut event = self.default_log_event();
@@ -140,7 +143,11 @@ impl MetricSender for Metrics {
 
 impl Default for Metrics {
     fn default() -> Self {
-        Metrics { events: Vec::new(), user: env::var(ENV_USER).unwrap_or("".to_string()) }
+        Metrics {
+            events: Vec::new(),
+            user: env::var(ENV_USER).unwrap_or("".to_string()),
+            invocation_id: Uuid::new_v4().to_string(),
+        }
     }
 }
 
@@ -184,6 +191,7 @@ impl Metrics {
     fn default_log_event(&self) -> AdeviceLogEvent {
         let mut event = AdeviceLogEvent::default();
         event.set_user_key(self.user.to_string());
+        event.set_invocation_id(self.invocation_id.to_string());
         event
     }
 }
@@ -206,8 +214,8 @@ mod tests {
     fn test_print_events() {
         let mut metrics = Metrics::default();
         metrics.user = "test_user".to_string();
-        metrics.add_start_event("adevice status");
-        metrics.add_start_event("adevice track SomeModule");
+        metrics.add_start_event("adevice status", "/home/test/aosp-main-with-phones");
+        metrics.add_start_event("adevice track SomeModule", "/home/test/aosp-main-with-phones");
 
         assert_eq!(metrics.events.len(), 2);
         metrics.send();

@@ -22,12 +22,16 @@ import glob
 import json
 import logging
 import os
+import pathlib
 import sys
 from typing import List
 
+from atest import atest_utils as au
+from atest import atest_utils
 from atest import constants
+from atest import feedback
 from atest.atest_enum import ExitCode
-import atest.atest_utils as au
+from atest.logstorage import log_uploader
 from atest.metrics import metrics_utils
 
 _ARGS_KEY = 'args'
@@ -307,7 +311,7 @@ class AtestExecutionInfo:
     try:
       self.result_file_obj = open(self.test_result, 'w')
     except IOError:
-      logging.error('Cannot open file %s', self.test_result)
+      atest_utils.print_and_log_error('Cannot open file %s', self.test_result)
     return self.result_file_obj
 
   def __exit__(self, exit_type, value, traceback):
@@ -335,6 +339,10 @@ class AtestExecutionInfo:
       logging.debug('handle_exc_and_send_exit_event:%s', main_exit_code)
       metrics_utils.handle_exc_and_send_exit_event(main_exit_code)
 
+    if log_uploader.is_uploading_logs():
+      log_uploader.upload_logs_detached(pathlib.Path(self.work_dir))
+    feedback.print_feedback_message()
+
   @staticmethod
   def _generate_execution_detail(args):
     """Generate execution detail.
@@ -352,7 +360,9 @@ class AtestExecutionInfo:
       )
       return json.dumps(info_dict)
     except ValueError as err:
-      logging.warning('Parsing test result failed due to : %s', err)
+      atest_utils.print_and_log_warning(
+          'Parsing test result failed due to : %s', err
+      )
     return {}
 
   @staticmethod

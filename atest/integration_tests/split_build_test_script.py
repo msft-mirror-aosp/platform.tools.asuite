@@ -58,7 +58,6 @@ class IntegrationTestConfiguration:
   device_serial: str = None
   is_build_env: bool = False
   is_test_env: bool = False
-  is_device_serial_required = True
   snapshot_storage_path: pathlib.Path = None
   snapshot_storage_tar_path: pathlib.Path = None
   workspace_path: pathlib.Path = None
@@ -76,10 +75,17 @@ class StepInput:
 
   def get_device_serial_args_or_empty(self) -> str:
     """Gets command arguments for device serial. May return empty string."""
+    # TODO: b/336839543 - Remove this method when we deprecate the support to
+    # run the integration test directly through 'python **.py' command.
     if self._config.device_serial:
       return ' -s ' + self._config.device_serial
-    if self._config.is_device_serial_required:
+    if ANDROID_BUILD_TOP_KEY not in os.environ and self._config.is_test_env:
+      # Likely in test lab environment, where connected devices can are
+      # allocated to other tests. In this case we must explicitly set device
+      # serials in any atest calls .
       raise RuntimeError('Device serial is required but not set')
+    # Empty is allowed because it allows tradefed to decide which device to
+    # select in local run.
     return ''
 
   def get_device_serial(self) -> str:
@@ -650,6 +656,8 @@ def _configure_logging(verbose: bool, log_file_dir_path: pathlib.Path):
     )
   log_file.parent.mkdir(parents=True, exist_ok=True)
 
+  atexit.register(lambda: print('Logs are saved to %s' % log_file))
+
   log_format = '%(asctime)s %(filename)s:%(lineno)s:%(levelname)s: %(message)s'
   date_format = '%Y-%m-%d %H:%M:%S'
   logging.basicConfig(
@@ -912,9 +920,6 @@ def main(
   )
   config.snapshot_storage_tar_path = snapshot_storage_tar_path
   config.workspace_path = integration_test_out_path.joinpath('workspace')
-  # Device serial is not required during local run, and
-  # ANDROID_BUILD_TOP_KEY env being available implies it's local run.
-  config.is_device_serial_required = ANDROID_BUILD_TOP_KEY not in os.environ
   config.is_tar_snapshot = args.tar_snapshot
 
   if config_update_function:

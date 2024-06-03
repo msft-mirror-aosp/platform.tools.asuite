@@ -526,7 +526,7 @@ class ModuleInfo:
       return True
     return False
 
-  def get_paths(self, name):
+  def get_paths(self, name) -> list[str]:
     """Return paths of supplied module name, Empty list if non-existent."""
     info = self.get_module_info(name)
     if info:
@@ -955,7 +955,8 @@ class ModuleInfo:
     )
     return install_deps
 
-  def is_unit_test(self, mod_info):
+  @staticmethod
+  def is_unit_test(mod_info):
     """Return True if input module is unit test, False otherwise.
 
     Args:
@@ -1055,7 +1056,7 @@ class ModuleInfo:
 
   def get_all_unit_tests(self):
     """Get a list of all the module names which are unit tests."""
-    return self._get_all_modules(type_predicate=self.is_unit_test)
+    return self._get_all_modules(type_predicate=ModuleInfo.is_unit_test)
 
   def get_all_host_unit_tests(self):
     """Get a list of all the module names which are host unit tests."""
@@ -1556,7 +1557,7 @@ def _index_testable_modules(contents: Any, index_path: Path):
       shutil.move(cache.name, index_path)
       logging.debug('%s is created successfully.', index_path)
     except IOError:
-      logging.error('Failed in dumping %s', cache)
+      atest_utils.print_and_log_error('Failed in dumping %s', cache)
       os.remove(cache.name)
 
 

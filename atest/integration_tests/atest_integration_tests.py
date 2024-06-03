@@ -16,10 +16,11 @@
 
 """A collection of all integration test cases for atest."""
 
-# pylint: disable=unused-import
-from atest_command_success_tests import CommandSuccessTests
-from atest_command_verification_tests import CommandVerificationTests
+# pylint: disable=wildcard-import
+from atest_command_success_tests import *
+from atest_command_verification_tests import *
 import atest_integration_test
+from atest_test_archetype_integration_tests import *
 
 
 if __name__ == '__main__':

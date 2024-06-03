@@ -20,14 +20,90 @@ import logging
 import time
 import uuid
 
-try:
-  import httplib2
-  from googleapiclient.discovery import build
-except ImportError as e:
-  logging.debug('Import error due to: %s', e)
-
+from atest import atest_utils
 from atest import constants
-from atest import metrics
+from atest.logstorage import atest_gcp_utils
+from atest.metrics import metrics_base
+from googleapiclient.discovery import build
+import httplib2
+from oauth2client import client as oauth2_client
+
+UPLOAD_REQUESTED_FILE_NAME = 'UPLOAD_REQUESTED'
+
+
+def is_credential_available() -> bool:
+  """Checks whether the credential needed for log upload is available."""
+  return constants.CREDENTIAL_FILE_NAME and constants.TOKEN_FILE_PATH
+
+
+def is_upload_enabled(args: dict[str, str]) -> bool:
+  """Determines whether log upload is enabled."""
+  if not is_credential_available() or not constants.GTF_TARGETS:
+    return False
+
+  config_folder_path = atest_utils.get_config_folder()
+  config_folder_path.mkdir(parents=True, exist_ok=True)
+  upload_requested_file = config_folder_path.joinpath(
+      UPLOAD_REQUESTED_FILE_NAME
+  )
+
+  is_request_upload = args.get(constants.REQUEST_UPLOAD_RESULT)
+  is_disable_upload = args.get(constants.DISABLE_UPLOAD_RESULT)
+  is_previously_requested = upload_requested_file.exists()
+
+  # Note: is_request_upload and is_disable_upload are from mutually exclusive
+  # args so they won't be True simutaniously.
+  if not is_disable_upload and is_previously_requested:  # Previously enabled
+    atest_utils.colorful_print(
+        'AnTS result uploading is enabled. (To disable, use'
+        ' --disable-upload-result flag)',
+        constants.GREEN,
+    )
+    return True
+
+  if is_request_upload and not is_previously_requested:  # First time enable
+    atest_utils.colorful_print(
+        'AnTS result uploading is switched on and will apply to the current and'
+        ' future TradeFed test runs. To disable it, run a test with the'
+        ' --disable-upload-result flag.',
+        constants.GREEN,
+    )
+    upload_requested_file.touch()
+    return True
+
+  if is_disable_upload and is_previously_requested:  # First time disable
+    atest_utils.colorful_print(
+        'AnTS result uploading is switched off and will apply to the current'
+        ' and future TradeFed test runs. To re-enable it, run a test with the'
+        ' --request-upload-result flag.',
+        constants.GREEN,
+    )
+    upload_requested_file.unlink()
+    config_folder_path.joinpath(constants.CREDENTIAL_FILE_NAME).unlink(
+        missing_ok=True
+    )
+    return False
+
+  return False
+
+
+def do_upload_flow(
+    extra_args: dict[str, str], atest_run_id: str = None
+) -> tuple:
+  """Run upload flow.
+
+  Asking user's decision and do the related steps.
+
+  Args:
+      extra_args: Dict of extra args to add to test run.
+      atest_run_id: The atest run ID to write into the invocation.
+
+  Return:
+      A tuple of credential object and invocation information dict.
+  """
+  return atest_gcp_utils.do_upload_flow(
+      extra_args, lambda cred: BuildClient(cred), atest_run_id
+  )
 
 
 class BuildClient:
@@ -115,17 +191,18 @@ class BuildClient:
         .execute()
     )
 
-  def insert_invocation(self, build_record):
+  def insert_invocation(self, build_record, atest_run_id: str):
     """Insert a build invocation record.
 
     Args:
         build_record: build record.
+        atest_run_id: The atest run ID to write into the invocation.
 
     Returns:
         A build invocation object.
     """
     sponge_invocation_id = str(uuid.uuid4())
-    user_email = metrics.metrics_base.get_user_email()
+    user_email = metrics_base.get_user_email()
     invocation = {
         'primaryBuild': {
             'buildId': build_record['buildId'],
@@ -145,6 +222,7 @@ class BuildClient:
                 'name': 'test_uri',
                 'value': f'{constants.STORAGE2_TEST_URI}{sponge_invocation_id}',
             },
+            {'name': 'atest_run_id', 'value': atest_run_id},
         ],
     }
     return self.client.invocation().insert(body=invocation).execute()

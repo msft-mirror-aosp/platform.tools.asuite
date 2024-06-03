@@ -34,7 +34,6 @@ from dataclasses import dataclass
 import itertools
 import logging
 import os
-from pathlib import Path
 import platform
 import sys
 import tempfile
@@ -43,9 +42,9 @@ from typing import Any, Dict, List, Set, Tuple
 
 from atest import arg_parser
 from atest import atest_configs
-from atest import atest_error
 from atest import atest_execution_info
 from atest import atest_utils
+from atest import banner
 from atest import bazel_mode
 from atest import bug_detector
 from atest import cli_translator
@@ -154,7 +153,7 @@ def parse_steps(args: arg_parser.AtestArgParser) -> Steps:
   test = constants.TEST_STEP in args.steps
   install = constants.INSTALL_STEP in args.steps
   if install and not test:
-    logging.warning(
+    atest_utils.print_and_log_warning(
         'Installing without test step is currently not '
         'supported; Atest will proceed testing!'
     )
@@ -171,7 +170,7 @@ def _get_args_from_config():
   Returns:
       A list read from the config file.
   """
-  _config = Path(atest_utils.get_misc_dir()).joinpath('.atest', 'config')
+  _config = atest_utils.get_config_folder().joinpath('config')
   if not _config.parent.is_dir():
     _config.parent.mkdir(parents=True)
   args = []
@@ -254,21 +253,41 @@ def _configure_logging(verbose: bool, results_dir: str):
   date_fmt = '%Y-%m-%d %H:%M:%S'
   log_path = os.path.join(results_dir, 'atest.log')
 
+  logger = logging.getLogger('')
   # Clear the handlers to prevent logging.basicConfig from being called twice.
-  logging.getLogger('').handlers = []
+  logger.handlers = []
+
   logging.basicConfig(
       filename=log_path, level=logging.DEBUG, format=log_fmat, datefmt=date_fmt
   )
-  # Handler for print the log on console that sets INFO (by default) or DEBUG
-  # (verbose mode).
-  console = logging.StreamHandler()
-  console.name = 'console'
-  console.setLevel(logging.INFO)
-  if verbose:
-    console.setLevel(logging.DEBUG)
-  console.setFormatter(logging.Formatter(log_fmat))
-  # Attach console handler to logger, so what we see is what we logged.
-  logging.getLogger('').addHandler(console)
+
+  class _StreamToLogger:
+    """A file like class to that redirect writes to a printer and logger."""
+
+    def __init__(self, logger, log_level, printer):
+      self._logger = logger
+      self._log_level = log_level
+      self._printer = printer
+      self._buffers = []
+
+    def write(self, buf: str) -> None:
+      self._printer.write(buf)
+
+      if len(buf) == 1 and buf[0] == '\n' and self._buffers:
+        self._logger.log(self._log_level, ''.join(self._buffers))
+        self._buffers.clear()
+      else:
+        self._buffers.append(buf)
+
+    def flush(self) -> None:
+      self._printer.flush()
+
+  stdout_log_level = 25
+  stderr_log_level = 45
+  logging.addLevelName(stdout_log_level, 'STDOUT')
+  logging.addLevelName(stderr_log_level, 'STDERR')
+  sys.stdout = _StreamToLogger(logger, stdout_log_level, sys.stdout)
+  sys.stderr = _StreamToLogger(logger, stderr_log_level, sys.stderr)
 
 
 def _missing_environment_variables():
@@ -281,7 +300,7 @@ def _missing_environment_variables():
       filter(None, [x for x in EXPECTED_VARS if not os.environ.get(x)])
   )
   if missing:
-    logging.error(
+    atest_utils.print_and_log_error(
         "Local environment doesn't appear to have been "
         'initialized. Did you remember to run lunch? Expected '
         'Environment Variables: %s.',
@@ -402,7 +421,7 @@ def _validate_exec_mode(args, test_infos: list[TestInfo], host_tests=None):
   if host_tests is False and constants.DEVICELESS_TEST in all_device_modes:
     err_msg = 'There are host-only tests in command.'
   if err_msg:
-    logging.error(err_msg)
+    atest_utils.print_and_log_error(err_msg)
     metrics_utils.send_exit_event(ExitCode.INVALID_EXEC_MODE, logs=err_msg)
     sys.exit(ExitCode.INVALID_EXEC_MODE)
   # The 'adb' may not be available for the first repo sync or a clean build;
@@ -423,7 +442,7 @@ def _validate_adb_devices(args, test_infos):
 
   Args:
       args: parsed args object.
-      test_info: TestInfo object.
+      test_infos: TestInfo object.
   """
   # No need to check device availability if the user does not acquire to test.
   if not parse_steps(args).has_test():
@@ -506,7 +525,7 @@ def _has_valid_test_mapping_args(args):
   ]
   for arg_value, arg in options_to_validate:
     if arg_value:
-      logging.error(
+      atest_utils.print_and_log_error(
           atest_utils.mark_red(OPTION_NOT_FOR_TEST_MAPPING.format(arg))
       )
       return False
@@ -683,7 +702,7 @@ def _dry_run(results_dir, extra_args, test_infos, mod_info):
       mod_info: ModuleInfo object.
 
   Returns:
-      A list of test commands.
+      A successful exit code.
   """
   all_run_cmds = []
   for test_runner, tests in test_runner_handler.group_tests_by_test_runners(
@@ -697,7 +716,7 @@ def _dry_run(results_dir, extra_args, test_infos, mod_info):
       print(
           'Would run test via command: %s' % (atest_utils.mark_green(run_cmd))
       )
-  return all_run_cmds
+  return ExitCode.SUCCESS
 
 
 def _print_testable_modules(mod_info, suite):
@@ -756,42 +775,6 @@ def _non_action_validator(args: argparse.ArgumentParser):
   if args.latest_result:
     atest_execution_info.print_test_result_by_path(constants.LATEST_RESULT_FILE)
     sys.exit(ExitCode.SUCCESS)
-
-
-def _dry_run_validator(
-    args: argparse.ArgumentParser,
-    results_dir: str,
-    extra_args: Dict[str, Any],
-    test_infos: Set[TestInfo],
-    mod_info: module_info.ModuleInfo,
-) -> ExitCode:
-  """Method which process --dry-run argument.
-
-  Args:
-      args: An argparse.ArgumentParser class instance holding parsed args.
-      result_dir: A string path of the results dir.
-      extra_args: A dict of extra args for test runners to utilize.
-      test_infos: A list of test_info.
-      mod_info: ModuleInfo object.
-
-  Returns:
-      Exit code.
-  """
-  dry_run_cmds = _dry_run(results_dir, extra_args, test_infos, mod_info)
-  if args.generate_runner_cmd:
-    dry_run_cmd_str = ' '.join(dry_run_cmds)
-    tests_str = ' '.join(args.tests)
-    test_commands = atest_utils.gen_runner_cmd_to_file(
-        tests_str, dry_run_cmd_str
-    )
-    print(
-        'add command %s to file %s'
-        % (
-            atest_utils.mark_green(test_commands),
-            atest_utils.mark_green(constants.RUNNER_COMMAND_PATH),
-        )
-    )
-  return ExitCode.SUCCESS
 
 
 def _exclude_modules_in_targets(build_targets):
@@ -991,13 +974,20 @@ def setup_metrics_tool_name(no_metrics: bool = False):
 # pylint: disable=too-many-statements
 # pylint: disable=too-many-branches
 # pylint: disable=too-many-return-statements
-def _main(argv: List[Any], results_dir: str, args: argparse.Namespace):
+def _main(
+    argv: List[Any],
+    results_dir: str,
+    args: argparse.Namespace,
+    banner_printer: banner.BannerPrinter,
+):
   """Entry point of atest script.
 
   Args:
       argv: A list of arguments.
       results_dir: A directory which stores the ATest execution information.
       args: An argparse.Namespace class instance holding parsed args.
+      banner_printer: A BannerPrinter object used to collect banners and print
+        banners at the end of this invocation.
 
   Returns:
       Exit code.
@@ -1061,7 +1051,6 @@ def _main(argv: List[Any], results_dir: str, args: argparse.Namespace):
     _print_testable_modules(mod_info, args.list_modules)
     return ExitCode.SUCCESS
   test_infos = set()
-  dry_run_args = (args.dry_run, args.generate_runner_cmd)
   # (b/242567487) index_targets may finish after cli_translator; to
   # mitigate the overhead, the main waits until it finished when no index
   # files are available (e.g. fresh repo sync)
@@ -1072,7 +1061,7 @@ def _main(argv: List[Any], results_dir: str, args: argparse.Namespace):
 
   # Only check for sufficient devices if not dry run.
   args.device_count_config = get_device_count_config(test_infos, mod_info)
-  if not any(dry_run_args) and not has_set_sufficient_devices(
+  if not args.dry_run and not has_set_sufficient_devices(
       args.device_count_config, args.serial
   ):
     return ExitCode.INSUFFICIENT_DEVICES
@@ -1086,7 +1075,7 @@ def _main(argv: List[Any], results_dir: str, args: argparse.Namespace):
       results_dir=results_dir,
       mod_info=mod_info,
       args=args,
-      dry_run=any(dry_run_args),
+      dry_run=args.dry_run,
   )
 
   extra_args = test_execution_plan.extra_args
@@ -1097,16 +1086,16 @@ def _main(argv: List[Any], results_dir: str, args: argparse.Namespace):
   if not args.use_modules_in:
     build_targets = _exclude_modules_in_targets(build_targets)
 
-  if any(dry_run_args):
-    return _dry_run_validator(
-        args, results_dir, extra_args, test_infos, mod_info
-    )
+  if args.dry_run:
+    return _dry_run(results_dir, extra_args, test_infos, mod_info)
 
   steps = parse_steps(args)
   device_update_method = _configure_update_method(
-    steps=steps,
-    plan=test_execution_plan,
-    update_modules=set(args.update_modules or []))
+      steps=steps,
+      plan=test_execution_plan,
+      update_modules=set(args.update_modules or []),
+      banner_printer=banner_printer,
+  )
 
   if build_targets and steps.has_build():
     if args.experimental_coverage:
@@ -1174,7 +1163,13 @@ def _main(argv: List[Any], results_dir: str, args: argparse.Namespace):
     tests_exit_code = test_execution_plan.execute()
 
     if args.experimental_coverage:
-      coverage.generate_coverage_report(results_dir, test_infos, mod_info)
+      coverage.generate_coverage_report(
+          results_dir,
+          test_infos,
+          mod_info,
+          extra_args.get(constants.HOST, False),
+      )
+
   metrics.RunTestsFinishEvent(
       duration=metrics_utils.convert_duration(time.time() - test_start)
   )
@@ -1198,19 +1193,26 @@ def _configure_update_method(
     steps: Steps,
     plan: TestExecutionPlan,
     update_modules: set[str],
+    banner_printer: banner.BannerPrinter,
 ) -> device_update.DeviceUpdateMethod:
 
+  requires_device_update = plan.requires_device_update()
+
   if not steps.has_device_update():
+    if requires_device_update:
+      banner_printer.register(
+          'Tips: If your test requires device update, consider '
+          'http://go/atest-single-command to simplify your workflow!'
+      )
     return device_update.NoopUpdateMethod()
 
-  if not plan.requires_device_update():
+  if not requires_device_update:
     atest_utils.colorful_print(
         '\nWarning: Device update ignored because it is not required by '
         'tests in this invocation.',
         constants.YELLOW,
     )
     return device_update.NoopUpdateMethod()
-
 
   return device_update.AdeviceUpdateMethod(targets=update_modules)
 
@@ -1509,6 +1511,8 @@ if __name__ == '__main__':
       'Start of atest run. sys.argv: %s, final_args: %s', sys.argv, final_args
   )
 
+  banner_printer = banner.BannerPrinter.create()
+
   with atest_execution_info.AtestExecutionInfo(
       final_args, results_dir, atest_configs.GLOBAL_ARGS
   ) as result_file:
@@ -1518,6 +1522,7 @@ if __name__ == '__main__':
         final_args,
         results_dir,
         atest_configs.GLOBAL_ARGS,
+        banner_printer,
     )
     detector = bug_detector.BugDetector(final_args, exit_code)
     if exit_code not in EXIT_CODES_BEFORE_TEST:
@@ -1526,8 +1531,7 @@ if __name__ == '__main__':
       )
       if result_file:
         print("Run 'atest --history' to review test result history.")
-  banner = os.environ.get('ANDROID_BUILD_BANNER', None)
-  skip_banner = os.environ.get('ANDROID_SKIP_BANNER', None)
-  if banner and not skip_banner:
-    print(banner)
+
+  banner_printer.print()
+
   sys.exit(exit_code)

@@ -230,6 +230,7 @@ class _FileInfo:
       permissions: int,
       symlink_target: str,
       is_directory: bool,
+      is_target_in_workspace: bool = False,
   ):
     self.path = path
     self.timestamp = timestamp
@@ -237,6 +238,7 @@ class _FileInfo:
     self.permissions = permissions
     self.symlink_target = symlink_target
     self.is_directory = is_directory
+    self.is_target_in_workspace = is_target_in_workspace
 
 
 class _BlobStore:
@@ -429,25 +431,19 @@ class _DirSnapshot:
       )
 
     def process_link(path: pathlib.Path) -> None:
-      symlink_target = path.resolve()
+      relative_path = path.relative_to(root_path).as_posix()
+      symlink_target = path.readlink()
+      is_target_in_workspace = False
       if symlink_target.is_relative_to(root_path):
         symlink_target = symlink_target.relative_to(root_path)
-      else:
-        # We are not throwing error here as we are working on supporting
-        # external links for bazel cache. This will be removed later.
-        logging.error(
-            'Unexpected external link: '
-            + path.as_posix()
-            + ' -> '
-            + symlink_target.as_posix()
-        )
-      relative_path = path.relative_to(root_path).as_posix()
+        is_target_in_workspace = True
       file_infos[relative_path] = _FileInfo(
           relative_path,
           timestamp=None,
           content_hash=None,
           permissions=None,
           symlink_target=symlink_target.as_posix(),
+          is_target_in_workspace=is_target_in_workspace,
           is_directory=False,
       )
 
@@ -503,9 +499,6 @@ class _DirSnapshot:
         A tuple containing 3 lists:
             - Files and directories that were deleted.
             - Files that were replaced.
-            - A list of paths to symbolic links that point to files outside
-            the
-            source directory.
     """
     with self._storage_path.joinpath(name + '_metadata.json').open('r') as f:
       file_infos_dict = {
@@ -522,11 +515,9 @@ class _DirSnapshot:
         file_infos_dict, root_path, exclude_paths
     )
     self._restore_directories(file_infos_dict, root_path, exclude_paths)
-    replaced, external_symlinks = self._restore_files(
-        file_infos_dict, root_path, exclude_paths
-    )
+    replaced = self._restore_files(file_infos_dict, root_path, exclude_paths)
 
-    return deleted, replaced, external_symlinks
+    return deleted, replaced
 
   def _remove_extra_files(
       self,
@@ -578,18 +569,15 @@ class _DirSnapshot:
   ):
     """Internal method to restore files during snapshot restore."""
     replaced = []
-    external_symlinks = []
     for relative_path, file_info in file_infos_dict.items():
       file_path = pathlib.Path(root_path).joinpath(relative_path)
       if self._is_excluded(file_path.as_posix(), exclude_paths):
         continue
       if file_info.symlink_target:
-        if os.path.isabs(file_info.symlink_target):
-          msg = file_info.symlink_target + ' <- ' + file_path.as_posix()
-          external_symlinks.append(msg)
-          logging.error('Unexpected external link: %s', msg)
-          continue
-        target = pathlib.Path(root_path).joinpath(file_info.symlink_target)
+        file_path.parent.mkdir(parents=True, exist_ok=True)
+        target = file_info.symlink_target
+        if bool(file_info.is_target_in_workspace):
+          target = pathlib.Path(root_path).joinpath(target)
         file_path.parent.mkdir(parents=True, exist_ok=True)
         file_path.symlink_to(target)
         continue
@@ -612,4 +600,4 @@ class _DirSnapshot:
       os.utime(file_path, (file_info.timestamp, file_info.timestamp))
       os.chmod(file_path, file_info.permissions)
       replaced.append(file_path.as_posix())
-    return replaced, external_symlinks
+    return replaced

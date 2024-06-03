@@ -23,6 +23,7 @@ import xml.etree.ElementTree as ElementTree
 from zipfile import ZipFile
 
 from atest import atest_error
+from atest import atest_utils
 from atest import constants
 from atest.test_finders import test_filter_utils
 from atest.test_finders import test_finder_base
@@ -131,7 +132,9 @@ class TFIntegrationFinder(test_finder_base.TestFinderBase):
         # expand included xml file
         integration_name = elem.get('name')
         if not integration_name:
-          logging.warning('skipping <include> tag with no "name" value')
+          atest_utils.print_and_log_warning(
+              'skipping <include> tag with no "name" value'
+          )
           continue
         full_paths = self._search_integration_dirs(integration_name)
         if not full_paths:
@@ -274,7 +277,9 @@ class TFIntegrationFinder(test_finder_base.TestFinderBase):
     """
     match = _INT_NAME_RE.match(test_file)
     if not match:
-      logging.error('Integration test outside config dir: %s', test_file)
+      atest_utils.print_and_log_error(
+          'Integration test outside config dir: %s', test_file
+      )
       return None
     int_name = match.group('int_name')
     if int_name != name:
@@ -347,7 +352,9 @@ class TFIntegrationFinder(test_finder_base.TestFinderBase):
       rel_config = os.path.relpath(path, self.root_dir)
       match = _INT_NAME_RE.match(rel_config)
       if not match:
-        logging.error('Integration test outside config dir: %s', rel_config)
+        atest_utils.print_and_log_error(
+            'Integration test outside config dir: %s', rel_config
+        )
         return None
       int_name = match.group('int_name')
       return [

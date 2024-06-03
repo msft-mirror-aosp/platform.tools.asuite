@@ -545,8 +545,8 @@ class ModuleInfoUnittests(unittest.TestCase):
         constants.MODULE_NAME: module_name,
         constants.MODULE_IS_UNIT_TEST: 'true',
     }
-    mod_info = module_info.load_from_file(module_file=JSON_FILE_PATH)
-    self.assertTrue(mod_info.is_unit_test(maininfo_with_unittest))
+
+    self.assertTrue(module_info.ModuleInfo.is_unit_test(maininfo_with_unittest))
 
   def test_is_host_unit_test(self):
     """Test is_host_unit_test."""
