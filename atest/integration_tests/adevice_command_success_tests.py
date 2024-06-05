@@ -35,38 +35,107 @@ class AdeviceCommandSuccessTests(atest_integration_test.AtestTestCase):
     self._default_snapshot_exclude_paths = []
 
   def test_status(self):
-    """Test if status command runs successfully across periodic repo syncs."""
-    self._verify_adevice_command_success('adevice status')
+    """Test if status command runs successfully on latest repo sync."""
+    self._verify_adevice_command_success('adevice status'.split())
 
   def test_update(self):
-    """Test if update command runs successfully across periodic repo syncs."""
+    """Test if update command runs successfully on latest repo sync."""
     self._verify_adevice_command_success(
-        'adevice update --max-allowed-changes=6000'
+        'adevice update --max-allowed-changes=6000'.split()
     )
 
-  def _verify_adevice_command_success(self, test_cmd: str):
+  def test_system_server_change_expect_soft_restart(self):
+    """Test if adevice update on system server update results in a soft restart."""
+    log_string_to_find = 'Entered the Android system server'
+    filename = (
+        'frameworks/base/services/java/com/android/server/SystemServer.java'
+    )
+    build_pre_cmd = [
+        'sed',
+        '-i',
+        f's#{log_string_to_find}#{log_string_to_find}ADEVICE_TEST#g',
+        filename,
+    ]
+    build_clean_up_cmd = f'sed -i s#ADEVICE_TEST##g {filename}'.split()
+
+    self._verify_adevice_command(
+        build_pre_cmd=build_pre_cmd,
+        build_clean_up_cmd=build_clean_up_cmd,
+        test_cmd='adevice update'.split(),
+        expected_in_log=['push', 'systemserver', 'restart'],
+        expected_not_in_log=['reboot'],
+    )
+
+  def _verify_adevice_command_success(self, test_cmd: list[str]):
+    """Verifies whether an adevice command run completed with exit code 0."""
+    self._verify_adevice_command(
+        build_pre_cmd=[],
+        build_clean_up_cmd=[],
+        test_cmd=test_cmd,
+        expected_in_log=[],
+        expected_not_in_log=[],
+    )
+
+  def _verify_adevice_command(
+      self,
+      build_pre_cmd: list[str],
+      build_clean_up_cmd: list[str],
+      test_cmd: list[str],
+      expected_in_log: list[str],
+      expected_not_in_log: list[str],
+  ):
     """Verifies whether an adevice command run completed with exit code 0."""
     script = self.create_atest_script()
 
     def build_step(
         step_in: atest_integration_test.StepInput,
     ) -> atest_integration_test.StepOutput:
-      self._run_shell_command(
-          'build/soong/soong_ui.bash --make-mode'.split(),
-          env=step_in.get_env(),
-          cwd=step_in.get_repo_root(),
-          print_output=True,
-      ).check_returncode()
-      return self.create_step_output()
+
+      try:
+        if build_pre_cmd:
+          self._run_shell_command(
+              build_pre_cmd,
+              env=step_in.get_env(),
+              cwd=step_in.get_repo_root(),
+              print_output=True,
+          ).check_returncode()
+        self._run_shell_command(
+            'build/soong/soong_ui.bash --make-mode'.split(),
+            env=step_in.get_env(),
+            cwd=step_in.get_repo_root(),
+            print_output=True,
+        ).check_returncode()
+        return self.create_step_output()
+      except Exception as e:
+        raise e
+      finally:
+        # Always attempt to clean up
+        if build_clean_up_cmd:
+          self._run_shell_command(
+              build_clean_up_cmd,
+              env=step_in.get_env(),
+              cwd=step_in.get_repo_root(),
+              print_output=True,
+          ).check_returncode()
 
     def test_step(step_in: atest_integration_test.StepInput) -> None:
       self._run_shell_command(
-          test_cmd.split(),
+          test_cmd,
           env=step_in.get_env(),
           cwd=step_in.get_repo_root(),
           print_output=True,
       ).check_returncode()
-      print(step_in.get_env())
+
+      check_log_process = self._run_shell_command(
+          'cat $ANDROID_BUILD_TOP/out/adevice.log'.split(),
+          env=step_in.get_env(),
+      )
+      for s in expected_in_log:
+        if s not in check_log_process.stdout:
+          raise f'Expected {s} in adevice log. Got {check_log_process.stdout}'
+      for s in expected_not_in_log:
+        if s in check_log_process.stdout:
+          raise f'Expected {s} to be NOT in adevice log. Got {check_log_process.stdout}'
 
     script.add_build_step(build_step)
     script.add_test_step(test_step)
