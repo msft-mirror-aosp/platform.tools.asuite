@@ -16,57 +16,52 @@
 
 """Unittests for metrics_utils."""
 
-# pylint: disable=invalid-name, line-too-long
-
-import sys
-import unittest
+# pylint: disable=invalid-name
 
 from io import StringIO
+import sys
+import unittest
 from unittest import mock
 
 from atest.metrics import metrics_utils
 
+
 class MetricsUtilsUnittests(unittest.TestCase):
-    """Unit tests for metrics_utils.py"""
-    def setUp(self) -> None:
-        self.maxDiff = None
+  """Unit tests for metrics_utils.py"""
 
-    @mock.patch('atest.metrics.metrics_base.get_user_type')
-    def test_print_data_collection_notice(self, mock_get_user_type):
-        """Test method print_data_collection_notice."""
+  def setUp(self) -> None:
+    self.maxDiff = None
 
-        # get_user_type return 1(external).
-        mock_get_user_type.return_value = 1
-        notice_str = ('\n==================\nNotice:\n'
-                      '   We collect anonymous usage statistics '
-                      'in accordance with our '
-                      'Content Licenses (https://source.android.com/setup/start/licenses), '
-                      'Contributor License Agreement (https://opensource.google.com/docs/cla/), '
-                      'Privacy Policy (https://policies.google.com/privacy) and '
-                      'Terms of Service (https://policies.google.com/terms).'
-                      '\n==================\n\n')
-        capture_output = StringIO()
-        sys.stdout = capture_output
-        metrics_utils.print_data_collection_notice(colorful=False)
-        sys.stdout = sys.__stdout__
-        self.assertEqual(capture_output.getvalue(), notice_str)
+  @mock.patch('atest.metrics.metrics_base.get_user_type')
+  def test_print_data_collection_notice(self, mock_get_user_type):
+    """Test method print_data_collection_notice."""
 
-        # get_user_type return 0(internal).
-        red = '31m'
-        green = '32m'
-        start = '\033[1;'
-        end = '\033[0m'
-        mock_get_user_type.return_value = 0
-        notice_str = (f'\n==================\n{start}{red}Notice:{end}\n'
-                      f'{start}{green}   We collect usage statistics '
-                      f'in accordance with our '
-                      f'Content Licenses (https://source.android.com/setup/start/licenses), '
-                      f'Contributor License Agreement (https://cla.developers.google.com/), '
-                      f'Privacy Policy (https://policies.google.com/privacy) and '
-                      f'Terms of Service (https://policies.google.com/terms).{end}'
-                      f'\n==================\n\n')
-        capture_output = StringIO()
-        sys.stdout = capture_output
-        metrics_utils.print_data_collection_notice()
-        sys.stdout = sys.__stdout__
-        self.assertEqual(capture_output.getvalue(), notice_str)
+    # get_user_type return 1(external).
+    mock_get_user_type.return_value = 1
+    capture_output = StringIO()
+    sys.stdout = capture_output
+    metrics_utils.print_data_collection_notice(colorful=False)
+    sys.stdout = sys.__stdout__
+    self.assertEqual(capture_output.getvalue(), "")
+
+    # get_user_type return 0(internal).
+    red = '31m'
+    green = '32m'
+    start = '\033[1;'
+    end = '\033[0m'
+    mock_get_user_type.return_value = 0
+    notice_str = (
+        f'\n==================\n{start}{red}Notice:{end}\n'
+        f'{start}{green} We collect usage statistics (including usernames) '
+        'in accordance with our '
+        'Content Licenses (https://source.android.com/setup/start/licenses), '
+        'Contributor License Agreement (https://cla.developers.google.com/), '
+        'Privacy Policy (https://policies.google.com/privacy) and '
+        f'Terms of Service (https://policies.google.com/terms).{end}'
+        '\n==================\n\n'
+    )
+    capture_output = StringIO()
+    sys.stdout = capture_output
+    metrics_utils.print_data_collection_notice()
+    sys.stdout = sys.__stdout__
+    self.assertEqual(capture_output.getvalue(), notice_str)

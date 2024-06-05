@@ -145,9 +145,11 @@ class ProjectFileGenerator:
         common_util.file_generate(
             os.path.join(inspection_dir, _PROFILES_SETTINGS_XML),
             templates.XML_INSPECTION_PROFILES_SETTINGS)
-        common_util.file_generate(
-            os.path.join(inspection_dir, _INSPECTION_CONFIG_XML),
-            templates.XML_INSPECTIONS)
+        inspection_config_xml = os.path.join(inspection_dir,
+                                             _INSPECTION_CONFIG_XML)
+        if not os.path.exists(inspection_config_xml):
+            common_util.file_generate(inspection_config_xml,
+                                      templates.XML_INSPECTIONS)
         common_util.file_generate(
             os.path.join(code_style_dir, _CODE_STYLE_CONFIG_XML),
             templates.XML_CODE_STYLE_CONFIG)

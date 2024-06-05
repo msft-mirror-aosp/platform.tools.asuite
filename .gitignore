@@ -7,6 +7,8 @@
 **/.coverage
 **/htmlcov
 
+adevice/Cargo.lock
+
 atest/proto/*.py
 atest/tf_proto/*.py
 atest/atest_flag_list_for_completion.txt
@@ -18,6 +20,8 @@ atest/atest_flag_list_for_completion.txt
 # Exceptions
 !aidegen/test_data/*.iml
 !aidegen/test_data/.idea
+
+target/**
 
 # Because atest plugin needs to use the directory, which contains "build"
 # folder, as fake date for testing. Add the path to gitignore exception.

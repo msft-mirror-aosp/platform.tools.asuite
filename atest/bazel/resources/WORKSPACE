@@ -10,3 +10,13 @@ local_repository(
     name = "device_infra",
     path = "vendor/google/tools/atest/device_infra",
 )
+
+local_repository(
+    name = "rules_python",
+    path = "external/bazelbuild-rules_python",
+)
+
+local_repository(
+    name = "rules_java",
+    path = "external/bazelbuild-rules_java",
+)
