@@ -18,7 +18,20 @@ package {
 
 android_test {
     name: "java_instrumentation_test",
-    srcs: ["src/**/*.java"],
+    srcs: ["src/**/JavaInstrumentationTest.java"],
+    sdk_version: "current",
+    min_sdk_version: "21",
+    static_libs: ["androidx.test.runner"],
+    certificate: "platform",
+    test_suites: ["device-tests"],
+    test_options: {
+        unit_test: false,
+    },
+}
+
+android_test {
+    name: "non_starting_java_instrumentation_test",
+    srcs: ["src/**/NonStarting*.java"],
     sdk_version: "current",
     min_sdk_version: "21",
     static_libs: ["androidx.test.runner"],
