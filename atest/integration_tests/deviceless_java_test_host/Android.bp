@@ -17,7 +17,7 @@ package {
 }
 
 java_test_host {
-    name: "deviceless_java_host_test",
+    name: "deviceless_java_test_host",
     srcs: [
         "src/**/*.java",
     ],
