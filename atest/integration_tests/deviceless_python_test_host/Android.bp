@@ -17,8 +17,8 @@ package {
 }
 
 python_test_host {
-    name: "deviceless_python_host_test",
-    srcs: ["deviceless_python_host_test.py"],
+    name: "deviceless_python_test_host",
+    srcs: ["deviceless_python_test_host.py"],
     test_options: {
         unit_test: false,
     },
