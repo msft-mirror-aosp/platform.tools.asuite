@@ -16,29 +16,14 @@ package {
     default_applicable_licenses: ["Android-Apache-2.0"],
 }
 
-// java instrumentation tests
-
-android_test {
-    name: "device_android_test_non_starting",
-    srcs: ["src/**/DeviceAndroidTestNonStarting.java"],
-    sdk_version: "current",
-    min_sdk_version: "21",
-    static_libs: ["androidx.test.runner"],
-    certificate: "platform",
-    test_suites: ["device-tests"],
-    test_options: {
-        unit_test: false,
-    },
-}
-
-android_test {
-    name: "device_android_test",
-    srcs: ["src/**/DeviceAndroidTest.java"],
-    sdk_version: "current",
-    min_sdk_version: "21",
-    static_libs: ["androidx.test.runner"],
-    certificate: "platform",
-    test_suites: ["device-tests"],
+cc_test {
+    name: "device_cc_test",
+    srcs: ["device_cc_test.cpp"],
+    cflags: [
+        "-Wall",
+        "-Werror",
+    ],
+    host_supported: true,
     test_options: {
         unit_test: false,
     },
