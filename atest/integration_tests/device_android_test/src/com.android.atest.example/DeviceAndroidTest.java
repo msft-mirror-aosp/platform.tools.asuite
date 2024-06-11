@@ -30,9 +30,9 @@ import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
 @RunWith(JUnit4.class)
-public class JavaInstrumentationTest {
+public class DeviceAndroidTest {
 
-    private static final String TAG = JavaInstrumentationTest.class.getSimpleName();
+    private static final String TAG = DeviceAndroidTest.class.getSimpleName();
 
     @BeforeClass
     public static void beforeClass() {
