@@ -16,10 +16,6 @@
 
 package com.android.atest.example;
 
-import android.util.Log;
-
-import androidx.test.filters.SmallTest;
-
 import org.junit.After;
 import org.junit.AfterClass;
 import org.junit.Assert;
@@ -30,47 +26,32 @@ import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
 @RunWith(JUnit4.class)
-public class JavaInstrumentationTest {
-
-    private static final String TAG = JavaInstrumentationTest.class.getSimpleName();
+public class DevicelessJavaTestHost {
 
     @BeforeClass
-    public static void beforeClass() {
-        Log.d(TAG, "beforeClass()");
-    }
+    public static void beforeClass() {}
 
     @AfterClass
-    public static void afterClass() {
-        Log.d(TAG, "afterClass()");
-    }
+    public static void afterClass() {}
 
     @Before
-    public void before() {
-        Log.d(TAG, "before()");
-    }
+    public void before() {}
 
     @After
-    public void after() {
-        Log.d(TAG, "after()");
-    }
+    public void after() {}
 
     @Test
-    @SmallTest
     public void testPassingTest1of2() {
-        Log.d(TAG, "testPassingTest1of2()");
         Assert.assertTrue(true);
     }
 
     @Test
-    @SmallTest
     public void testPassingTest2of2() {
-        Log.d(TAG, "testPassingTest2of2()");
         Assert.assertTrue(true);
     }
 
     @Test
     public void testFailingTest1of1() {
-        Log.d(TAG, "testFailingTest1of1()");
         Assert.assertTrue("Intentionally failed test.", false);
     }
 }
