@@ -16,42 +16,27 @@
 
 package com.android.atest.example;
 
-import org.junit.After;
-import org.junit.AfterClass;
+import android.util.Log;
+
 import org.junit.Assert;
-import org.junit.Before;
 import org.junit.BeforeClass;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
 @RunWith(JUnit4.class)
-public class DevicelessJavaHostTest {
+public class DeviceAndroidTestNonStarting {
+
+    private static final String TAG = DeviceAndroidTestNonStarting.class.getSimpleName();
 
     @BeforeClass
-    public static void beforeClass() {}
-
-    @AfterClass
-    public static void afterClass() {}
-
-    @Before
-    public void before() {}
-
-    @After
-    public void after() {}
-
-    @Test
-    public void testPassingTest1of2() {
-        Assert.assertTrue(true);
+    public static void beforeClass() {
+        System.exit(1);
     }
 
     @Test
     public void testPassingTest2of2() {
+        Log.d(TAG, "testPassingTest2of2()");
         Assert.assertTrue(true);
-    }
-
-    @Test
-    public void testFailingTest1of1() {
-        Assert.assertTrue("Intentionally failed test.", false);
     }
 }
