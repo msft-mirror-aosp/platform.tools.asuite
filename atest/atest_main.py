@@ -908,21 +908,6 @@ def get_device_count_config(test_infos, mod_info):
   return max_count
 
 
-def _send_start_event(argv: List[Any], tests: List[str]):
-  """Send AtestStartEvent to metrics"""
-  os_pyver = (
-      f'{platform.platform()}:{platform.python_version()}/'
-      f'{atest_utils.get_manifest_branch(True)}:'
-      f'{atest_utils.get_atest_version()}'
-  )
-  metrics.AtestStartEvent(
-      command_line=' '.join(argv),
-      test_references=tests,
-      cwd=os.getcwd(),
-      os=os_pyver,
-  )
-
-
 def _get_acloud_proc_and_log(
     args: argparse.ArgumentParser, results_dir: str
 ) -> Tuple[Any, Any]:
@@ -1006,8 +991,18 @@ def _main(
   set_build_output_mode(args.build_output)
 
   _validate_args(args)
-  metrics_utils.get_start_time()
-  _send_start_event(argv, args.tests)
+  metrics_utils.send_start_event(
+      command_line=' '.join(argv),
+      test_references=args.tests,
+      cwd=os.getcwd(),
+      operating_system=(
+          f'{platform.platform()}:{platform.python_version()}/'
+          f'{atest_utils.get_manifest_branch(True)}:'
+          f'{atest_utils.get_atest_version()}'
+      ),
+      source_root=os.environ.get('ANDROID_BUILD_TOP', ''),
+      hostname=platform.node(),
+  )
   _non_action_validator(args)
 
   proc_acloud, report_file = _get_acloud_proc_and_log(args, results_dir)
