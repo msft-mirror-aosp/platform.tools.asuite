@@ -146,6 +146,17 @@ def create_atest_arg_parser():
       action='store_true',
       help='Disable test teardown and cleanup.',
   )
+
+  parser.add_argument(
+      '--code-under-test',
+      type=lambda value: set(value.split(',')),
+      help=(
+          'Comma-separated list of modules whose sources should be included in'
+          ' the code coverage report. The dependencies of these modules are not'
+          ' included. For use with the --experimental-coverage flag.'
+      ),
+  )
+
   parser.add_argument(
       '--experimental-coverage',
       action='store_true',
