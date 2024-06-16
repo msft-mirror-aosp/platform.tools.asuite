@@ -779,6 +779,40 @@ class ModuleInfoUnittests(unittest.TestCase):
         [Path('/mocked/build_top/a/b/c/d')],
     )
 
+  def test_get_code_under_test_module_name_is_not_found_in_module_info(self):
+    mod_info = create_module_info([
+        module(
+            name='my_module',
+            code_under_test='code_under_test_module',
+        )
+    ])
+
+    # module_that_is_not_in_module_info is not found in mod_info.
+    self.assertEqual(
+        mod_info.get_code_under_test('module_that_is_not_in_module_info'), [],
+    )
+
+  def test_get_code_under_test_code_under_test_is_not_defined_in_module_info(self):
+    mod_info = create_module_info([module(name='my_module')])
+
+    # my_module is found in mod_info but code_under_test is not defined.
+    self.assertEqual(
+        mod_info.get_code_under_test('my_module'), [],
+    )
+
+  def test_get_code_under_test_code_under_test_is_defined_in_module_info(self):
+    mod_info = create_module_info([
+        module(
+            name='my_module',
+            code_under_test='code_under_test_module',
+        )
+    ])
+
+    self.assertEqual(
+        mod_info.get_code_under_test('my_module'),
+        'code_under_test_module',
+    )
+
 
 class ModuleInfoTestFixture(fake_filesystem_unittest.TestCase):
   """Fixture for ModuleInfo tests."""
@@ -1262,6 +1296,7 @@ def module(
     host_dependencies=None,
     srcs=None,
     supported_variants=None,
+    code_under_test=None,
 ):
   name = name or 'libhello'
 
@@ -1283,6 +1318,7 @@ def module(
   m['host_dependencies'] = host_dependencies or []
   m['srcs'] = srcs or []
   m['supported_variants'] = supported_variants or []
+  m['code_under_test'] = code_under_test or []
   return m
 
 
