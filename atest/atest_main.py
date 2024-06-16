@@ -1168,6 +1168,7 @@ def _main(
           test_infos,
           mod_info,
           extra_args.get(constants.HOST, False),
+          args.code_under_test,
       )
 
   metrics.RunTestsFinishEvent(
