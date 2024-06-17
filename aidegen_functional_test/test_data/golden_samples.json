@@ -222,7 +222,6 @@
             "file://$PROJECT_DIR$/frameworks/base/services/tests/mockingservicestests/src",
             "file://$PROJECT_DIR$/frameworks/base/services/tests/servicestests/src",
             "file://$PROJECT_DIR$/frameworks/base/services/tests/servicestests/test-apps/ConnTestApp/src",
-            "file://$PROJECT_DIR$/frameworks/base/services/tests/servicestests/test-apps/JobTestApp/src",
             "file://$PROJECT_DIR$/frameworks/base/services/tests/servicestests/test-apps/SuspendTestApp/src",
             "file://$PROJECT_DIR$/frameworks/base/services/tests/servicestests/utils",
             "file://$PROJECT_DIR$/frameworks/base/services/tests/shortcutmanagerutils/src",
