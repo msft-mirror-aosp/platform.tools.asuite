@@ -23,7 +23,9 @@ import sys
 import unittest
 from unittest import mock
 
+from atest.metrics import metrics_base
 from atest.metrics import metrics_utils
+from atest.proto import internal_user_log_pb2
 
 
 class MetricsUtilsUnittests(unittest.TestCase):
@@ -65,3 +67,49 @@ class MetricsUtilsUnittests(unittest.TestCase):
     metrics_utils.print_data_collection_notice()
     sys.stdout = sys.__stdout__
     self.assertEqual(capture_output.getvalue(), notice_str)
+
+  def test_send_start_event(self):
+    metrics_base.MetricsBase.tool_name = 'test_tool'
+    metrics_base.MetricsBase.user_type = metrics_base.INTERNAL_USER
+    fake_cc = FakeClearcutClient()
+    metrics_base.MetricsBase.cc = fake_cc
+
+    metrics_utils.send_start_event(
+        command_line='test_command',
+        test_references=['test'],
+        cwd='cwd',
+        operating_system='test system',
+        source_root='test_source',
+        hostname='test_host',
+    )
+
+    logged_events = fake_cc.get_logged_events()
+    expected_start_event = (
+        internal_user_log_pb2.AtestLogEventInternal.AtestStartEvent(
+            command_line='test_command',
+            test_references=['test'],
+            cwd='cwd',
+            os='test system',
+            source_root='test_source',
+            hostname='test_host',
+        )
+    )
+    self.assertEqual(len(logged_events), 1)
+    self.assertEqual(
+        expected_start_event,
+        internal_user_log_pb2.AtestLogEventInternal.FromString(
+            logged_events[0].source_extension
+        ).atest_start_event,
+    )
+
+
+class FakeClearcutClient:
+
+  def __init__(self):
+    self.logged_event = []
+
+  def log(self, event):
+    self.logged_event.extend([event])
+
+  def get_logged_events(self):
+    return self.logged_event
