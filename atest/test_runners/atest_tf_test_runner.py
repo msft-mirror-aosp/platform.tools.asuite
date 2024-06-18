@@ -46,6 +46,7 @@ from atest.logstorage import logstorage_utils
 from atest.metrics import metrics
 from atest.test_finders import test_finder_utils
 from atest.test_finders import test_info
+from atest.test_finders.test_info import TestInfo
 from atest.test_runner_invocation import TestRunnerInvocation
 from atest.test_runners import test_runner_base as trb
 from atest.test_runners.event_handler import EventHandler
@@ -848,7 +849,7 @@ class AtestTradefedTestRunner(trb.TestRunnerBase):
           else self._TF_DEVICE_TEST_TEMPLATE
       )
 
-    args = self._create_test_args(test_infos)
+    args = self._create_test_args(test_infos, extra_args)
 
     # Create a copy of args as more args could be added to the list.
     test_args = list(args)
@@ -1061,11 +1062,14 @@ class AtestTradefedTestRunner(trb.TestRunnerBase):
         return False
     return True
 
-  def _create_test_args(self, test_infos):
+  def _create_test_args(
+      self, test_infos: list[TestInfo], extra_args: Dict[str, Any]
+  ) -> list[str]:
     """Compile TF command line args based on the given test infos.
 
     Args:
         test_infos: A list of TestInfo instances.
+        extra_args: A Dict of extra args for test runners to utilize.
 
     Returns: A list of TF arguments to run the tests.
     """
@@ -1122,7 +1126,11 @@ class AtestTradefedTestRunner(trb.TestRunnerBase):
           args.extend([constants.TF_MODULE_ARG, module_arg])
 
     # Add ATest include filter
-    args.extend(get_include_filter(test_infos))
+    args.extend(
+        get_include_filter(
+            test_infos, extra_args.get(constants.TEST_FILTER, None)
+        )
+    )
 
     # TODO (b/141090547) Pass the config path to TF to load configs.
     # Compile option in TF if finder is not INTEGRATION or not set.
@@ -1495,11 +1503,15 @@ def extra_args_to_tf_args(
   return supported_args, unsupported_args
 
 
-def get_include_filter(test_infos: List[test_info.TestInfo]) -> List[str]:
+def get_include_filter(
+    test_infos: List[test_info.TestInfo], test_filter_arg: str = None
+) -> List[str]:
   """Generate a list of tradefed filter argument from TestInfos.
 
   Args:
       test_infos: a List of TestInfo object.
+      test_filter_arg: the value of the desired test filter passed by the user
+        using the --test-filter flag.
 
   The include filter pattern looks like:
       --atest-include-filter <module-name>:<include-filter-value>
@@ -1507,19 +1519,27 @@ def get_include_filter(test_infos: List[test_info.TestInfo]) -> List[str]:
   Returns:
       List of Tradefed command args.
   """
-  instrumentation_filters = []
   tf_args = []
   for info in test_infos:
+    # If a --test-filter is specified by the user, use the test filter instead of the
+    # fully qualified module:test#method name for each test.
+    if test_filter_arg:
+      formatted_test_filter_arg = (
+          constants.TF_ATEST_INCLUDE_FILTER_VALUE_FMT.format(
+              test_name=info.test_name, test_filter=test_filter_arg
+          )
+      )
+      tf_args.extend(
+          [constants.TF_ATEST_INCLUDE_FILTER, formatted_test_filter_arg]
+      )
     filters = []
     for test_info_filter in info.data.get(constants.TI_FILTER, []):
       filters.extend(test_info_filter.to_list_of_tf_strings())
-
     for test_filter in filters:
       filter_arg = constants.TF_ATEST_INCLUDE_FILTER_VALUE_FMT.format(
           test_name=info.test_name, test_filter=test_filter
       )
       tf_args.extend([constants.TF_ATEST_INCLUDE_FILTER, filter_arg])
-
   return tf_args
 
 
@@ -1619,8 +1639,7 @@ class DeviceTest(Test):
     # can't determine whether they require device update or not. So that we
     # treat them as they require device update to avoid disabling the device
     # update mistakenly.
-    return not self._info or not module_info.ModuleInfo.is_unit_test(
-        self._info)
+    return not self._info or not module_info.ModuleInfo.is_unit_test(self._info)
 
   def _get_test_build_targets(self) -> Set[Target]:
     module_name = self._info[constants.MODULE_INFO_ID]
