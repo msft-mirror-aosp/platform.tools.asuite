@@ -1521,7 +1521,7 @@ def get_include_filter(
   """
   tf_args = []
   for info in test_infos:
-    # If a --test-filter is specified by the user, use the test filter instead of the
+    # If a --test-filter is specified by the user, use the test filter in addition to the
     # fully qualified module:test#method name for each test.
     if test_filter_arg:
       formatted_test_filter_arg = (
