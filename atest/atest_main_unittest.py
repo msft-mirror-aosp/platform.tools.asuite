@@ -83,7 +83,7 @@ class AtestUnittests(unittest.TestCase):
     options_no_tm_support = [
         (
             '--annotation-filter',
-            'android.test.suitebuilder.annotation.SmallTest',
+            'androidx.test.filters.SmallTest',
         ),
     ]
     tm_options = ['--test-mapping', '--include-subdirs']
