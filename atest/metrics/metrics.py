@@ -34,8 +34,6 @@ class AtestStartEvent(metrics_base.MetricsBase):
   test_references = constants.INTERNAL
   cwd = constants.INTERNAL
   os = constants.INTERNAL
-  source_root = constants.INTERNAL
-  hostname = constants.INTERNAL
 
 
 class AtestExitEvent(metrics_base.MetricsBase):
