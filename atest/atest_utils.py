@@ -221,7 +221,12 @@ def get_build_cmd(dump=False):
   )
   if dump:
     return [make_cmd, '--dumpvar-mode', 'report_config']
-  return [make_cmd, '--make-mode', 'WRAPPER_TOOL=atest']
+  return [
+      make_cmd,
+      '--make-mode',
+      'WRAPPER_TOOL=atest',
+      f'ATEST_RUN_ID={metrics.get_run_id()}',
+  ]
 
 
 def _capture_fail_section(full_log):
