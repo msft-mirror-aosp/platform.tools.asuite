@@ -179,6 +179,6 @@ class MetricsBase:
         A clientanalytics_pb2.LogEvent instance.
     """
     log_event = clientanalytics_pb2.LogEvent()
-    log_event.event_time_ms = int((time.time() - random.randint(1, 600)) * 1000)
+    log_event.event_time_ms = int(time.time() * 1000)
     log_event.source_extension = atest_event.SerializeToString()
     return log_event
