@@ -16,6 +16,8 @@ message AtestLogEventInternal {
     repeated string test_references = 2;
     optional string cwd = 3;
     optional string os = 4;
+    optional string source_root = 5;
+    optional string hostname = 6;
   }
 
   // Occurs when atest exits for any reason
@@ -75,7 +77,7 @@ message AtestLogEventInternal {
   optional UserType user_type = 3;
   optional string tool_name = 10;
   optional string sub_tool_name = 12;
-  optional string user_name = 13; // ldap of the internal users
+  optional string user_name = 13 [deprecated = true];
   oneof event {
     AtestStartEvent atest_start_event = 4;
     AtestExitEvent atest_exit_event = 5;
