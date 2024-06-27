@@ -64,13 +64,13 @@ impl Device for RealDevice {
     /// First ask adb to wait for the device, then poll for sys.boot_completed on the device.
     fn wait(&self, profiler: &mut Profiler) -> Result<String> {
         // Typically the reboot on acloud is 25 secs
-        // And another 50 for fully booted
-        // Wait up to 3 times as long for either'
+        // It can take 130 seconds after for a full boot.
+        // Setting timeouts to have at least 2x that.
         progress::start(" * [1/2] Waiting for device to connect.");
         time!(
             {
                 let args = self.adjust_adb_args(&["wait-for-device".to_string()]);
-                self.wait_for_adb_with_timeout(&args, Duration::from_secs(70))?;
+                self.wait_for_adb_with_timeout(&args, Duration::from_secs(75))?;
             },
             profiler.wait_for_device
         );
@@ -83,7 +83,7 @@ impl Device for RealDevice {
                     "shell".to_string(),
                     "while [[ -z $(getprop sys.boot_completed) ]]; do sleep 1; done".to_string(),
                 ]);
-                let result = self.wait_for_adb_with_timeout(&args, Duration::from_secs(100));
+                let result = self.wait_for_adb_with_timeout(&args, Duration::from_secs(260));
                 progress::stop();
                 result
             },
