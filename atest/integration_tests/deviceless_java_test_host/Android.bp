@@ -1,4 +1,4 @@
-// Copyright (C) 2019 The Android Open Source Project
+// Copyright (C) 2024 The Android Open Source Project
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -12,26 +12,20 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Separate asuite_metrics and asuite_cc_client libs to different tests, due to asuite_cc_client
-// also include asuite_metrics and other needed python files, in order to make sure asuite_metrics
-// tests result is accurate, separate them to two different test modules.
-
 package {
     default_applicable_licenses: ["Android-Apache-2.0"],
 }
 
-// For testing asuite_cc_client python3 libs
-python_test_host {
-    name: "asuite_cc_lib_tests",
-    main: "asuite_lib_run_tests.py",
-    pkg_path: "asuite_test",
+java_test_host {
+    name: "deviceless_java_test_host",
     srcs: [
-        "asuite_lib_run_tests.py",
+        "src/**/*.java",
     ],
     libs: [
-        "asuite_cc_client",
+        "tradefed",
+        "junit",
     ],
     test_options: {
-        unit_test: true,
+        unit_test: false,
     },
 }

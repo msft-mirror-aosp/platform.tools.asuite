@@ -1166,6 +1166,19 @@ class ModuleInfo:
 
     return [_to_abs_path(p) for p in mod_info.get('installed', [])]
 
+  def get_code_under_test(self, module_name: str) -> List[str]:
+    """Return code under test from module info."""
+    mod_info = self.get_module_info(module_name)
+    if not mod_info:
+      atest_utils.colorful_print(
+          '\nmodule %s cannot be found in module info, skip generating'
+          ' coverage for it.' % module_name,
+          constants.YELLOW,
+      )
+      return []
+
+    return mod_info.get('code_under_test', [])
+
   def build_variants(self, info: Dict[str, Any]) -> List[str]:
     return info.get(constants.MODULE_SUPPORTED_VARIANTS, [])
 
