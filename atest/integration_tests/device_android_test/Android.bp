@@ -1,4 +1,4 @@
-//Copyright (C) 2024 The Android Open Source Project
+// Copyright (C) 2024 The Android Open Source Project
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -16,9 +16,29 @@ package {
     default_applicable_licenses: ["Android-Apache-2.0"],
 }
 
-python_test_host {
-    name: "deviceless_python_host_test",
-    srcs: ["deviceless_python_host_test.py"],
+// java instrumentation tests
+
+android_test {
+    name: "device_android_test_non_starting",
+    srcs: ["src/**/DeviceAndroidTestNonStarting.java"],
+    sdk_version: "current",
+    min_sdk_version: "21",
+    static_libs: ["androidx.test.runner"],
+    certificate: "platform",
+    test_suites: ["device-tests"],
+    test_options: {
+        unit_test: false,
+    },
+}
+
+android_test {
+    name: "device_android_test",
+    srcs: ["src/**/DeviceAndroidTest.java"],
+    sdk_version: "current",
+    min_sdk_version: "21",
+    static_libs: ["androidx.test.runner"],
+    certificate: "platform",
+    test_suites: ["device-tests"],
     test_options: {
         unit_test: false,
     },
