@@ -25,9 +25,9 @@ import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
 @RunWith(JUnit4.class)
-public class NonStartingJavaInstrumentationTest {
+public class DeviceAndroidTestNonStarting {
 
-    private static final String TAG = NonStartingJavaInstrumentationTest.class.getSimpleName();
+    private static final String TAG = DeviceAndroidTestNonStarting.class.getSimpleName();
 
     @BeforeClass
     public static void beforeClass() {
