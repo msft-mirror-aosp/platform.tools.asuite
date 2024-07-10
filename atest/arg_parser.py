@@ -432,9 +432,10 @@ def create_atest_arg_parser():
       # TODO(b/326141263): TradeFed to support wildcard in include-filter for
       # parametrized JarHostTests
       help=(
-          'Run only the tests which are specified with this option. '
-          'Filtering by method and with wildcard is not yet supported for '
-          'all test types.'
+          'Run only the tests which are specified with this option. This value'
+          ' is passed directly to the testing framework so you should use'
+          " appropriate syntax (e.g. JUnit supports regex, while python's"
+          ' unittest supports fnmatch syntax).'
       ),
   )
   parser.add_argument(
