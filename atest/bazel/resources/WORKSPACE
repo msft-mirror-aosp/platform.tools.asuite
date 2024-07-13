@@ -16,6 +16,10 @@ local_repository(
     path = "external/bazelbuild-rules_python",
 )
 
+load("@rules_python//python:repositories.bzl", "py_repositories")
+
+py_repositories()
+
 local_repository(
     name = "rules_java",
     path = "external/bazelbuild-rules_java",
