@@ -146,7 +146,7 @@ XML_MISC = """\
         </default-html-doctype>
     </component>
     <component name="ProjectRootManager" version="2" languageLevel="JDK_17"
-               assert-keyword="true" project-jdk-name="JDK21"
+               assert-keyword="true" project-jdk-name="JDK17"
                project-jdk-type="JavaSDK"/>
     <component name="WebServicesPlugin" addRequiredLibraries="true"/>
 </project>
@@ -243,7 +243,7 @@ XML_INSPECTIONS = """\
 # The configuration of JDK on Linux.
 LINUX_JDK_XML = """\
     <jdk version="2">
-      <name value="JDK21" />
+      <name value="JDK17" />
       <type value="JavaSDK" />
       <version value="java version &quot;17.0.4&quot;" />
       <homePath value="{JDKpath}" />
@@ -412,7 +412,7 @@ LINUX_JDK_XML = """\
 # The configuration of JDK on Mac.
 MAC_JDK_XML = """\
     <jdk version="2">
-      <name value="JDK21" />
+      <name value="JDK17" />
       <type value="JavaSDK" />
       <version value="java version &quot;17.0.4&quot;" />
       <homePath value="{JDKpath}" />
@@ -619,7 +619,7 @@ ANDROID_SDK_XML = """\
           <root type="composite" />
         </sourcePath>
       </roots>
-      <additional jdk="JDK21" sdk="android-{CODE_NAME}" />
+      <additional jdk="JDK17" sdk="android-{CODE_NAME}" />
     </jdk>
 """
 
