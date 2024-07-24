@@ -778,8 +778,13 @@ def _run_test(
           ' exist. Have you run the build mode with --tar_snapshot'
           ' option enabled?'
       )
+    logging.info(
+        'Extracting tar file %s',
+        config.snapshot_storage_tar_path,
+    )
     with tarfile.open(config.snapshot_storage_tar_path, 'r') as tar:
       tar.extractall(config.snapshot_storage_path.parent.as_posix())
+    logging.info('Done extracting tar file')
 
     logging.info(
         'Decompressing the snapshot storage with %s threads...',
